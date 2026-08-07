@@ -41,6 +41,42 @@ Multi-context: `CONTEXT-MAP.md` at the root, one `CONTEXT.md` per application. S
 - Shared tooling configuration may live at the repository root.
 - A game must remain runnable and buildable through its own workspace scripts.
 
+## How to work here
+
+**The design documents are the record of a grilling session, not a specification.** They exist so the
+same questions do not get asked twice. Read them before proposing design work, and do not make
+someone answer what is already written down; the research behind them sits in
+`apps/*/docs/research/` for the same reason.
+
+They are not a boundary. The design is expected to keep improving. Reopening a question because new
+information turned up is welcome, and reopening one because the answer went unread is waste. That is
+the whole distinction. Decisions genuinely hard to reverse live in `docs/adr/` and
+`apps/*/docs/adr/`; a position stated only in a design document is still a position.
+
+**Land the agreement before editing files.** When something is being worked through, put it in
+conversation and wait. Propose rather than record: design does not go into a document until it has
+been agreed.
+
+**Read what was actually written.** "Does not have to" is permission and "never" is a prohibition,
+and turning one into the other has caused real rework here more than once. Before building an
+argument on a phrase, check that the argument answers what was said rather than something adjacent.
+
+**Nothing already landed is fixed**, including decisions inherited from a previous session's notes.
+If a better shape exists, say so.
+
+**A reference is a reference, not a template.** When another repository is pointed at for an idea,
+take the idea. Copying its files imports decisions nobody made.
+
+**Test claims about tooling rather than reasoning from version numbers.** Install it, run it, read
+the actual error. See `docs/adr/0003-typescript-6-until-typescript-eslint-supports-7.md` for a case
+where the version metadata and the real behaviour told different stories.
+
+**Builds stay free of warnings.** A warning is either fixed or explained in an ADR, never left to
+sit.
+
+**Work is not chosen on the basis of what would be enjoyable to build.** Recorded in the constraints
+table in `apps/housewarming/docs/design/game-concept.md`.
+
 ## Code review
 
 Whenever a code review would normally happen, run the `coderabbit:code-review` skill rather than
