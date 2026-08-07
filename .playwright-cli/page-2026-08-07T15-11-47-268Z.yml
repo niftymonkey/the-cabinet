@@ -1,0 +1,118 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - article [ref=e4]:
+      - heading "The Wayfinder map as a picture" [level=1] [ref=e5]
+      - paragraph [ref=e6]:
+        - text: The dependency structure of
+        - 'link "Housewarming: the way to a buildable spec" [ref=e7] [cursor=pointer]':
+          - /url: https://github.com/niftymonkey/the-cabinet/issues/1
+        - text: ", generated from the real sub-issues and issue dependencies. Nothing here is hand-drawn. Folklore pools (#7) closed a few minutes ago, so this is the first render carrying a resolved ticket."
+      - document [ref=e9]:
+        - generic [ref=e28]:
+          - paragraph [ref=e35]:
+            - strong [ref=e36]: "#3"
+            - text: The night
+            - text: "contract: what the"
+            - text: keeper sets and
+            - text: what the morning
+            - text: yields
+          - paragraph [ref=e43]:
+            - strong [ref=e44]: "#4"
+            - text: Shape the
+            - text: Housewarming app
+            - text: so code can live
+            - text: in it
+          - paragraph [ref=e51]:
+            - strong [ref=e52]: "#5"
+            - text: Who was the last
+            - text: keeper to the
+            - text: keeper?
+          - paragraph [ref=e59]:
+            - strong [ref=e60]: "#6"
+            - text: How the house
+            - text: opens up
+          - paragraph [ref=e67]:
+            - strong [ref=e68]: "#7"
+            - text: "Folklore pools:"
+            - text: candidate traits
+            - text: and traces, with
+            - text: sources
+          - paragraph [ref=e75]:
+            - strong [ref=e76]: "#8"
+            - text: Somewhere a friend
+            - text: can play a
+            - text: prototype, and a
+            - text: log of what
+            - text: happened
+          - paragraph [ref=e83]:
+            - strong [ref=e84]: "#9"
+            - text: "Play it: does a"
+            - text: morning tell you
+            - text: enough?
+          - paragraph [ref=e91]:
+            - strong [ref=e92]: "#10"
+            - text: Can a solver
+            - text: actually play
+            - text: this?
+          - paragraph [ref=e99]:
+            - strong [ref=e100]: "#11"
+            - text: The headless
+            - text: "deduction kernel:"
+            - text: generator and
+            - text: resolver
+          - paragraph [ref=e107]:
+            - strong [ref=e108]: "#12"
+            - text: The solver, and
+            - text: the harness that
+            - text: runs a thousand
+            - text: houses
+          - paragraph [ref=e115]:
+            - strong [ref=e116]: "#13"
+            - text: Whether four
+            - text: signals a morning
+            - text: is actually enough
+          - paragraph [ref=e123]:
+            - strong [ref=e124]: "#14"
+            - text: Values per axis at
+            - text: each stage
+          - paragraph [ref=e131]:
+            - strong [ref=e132]: "#15"
+            - text: The warmth
+            - text: "economy: what a"
+            - text: night costs and
+            - text: what a name pays
+          - paragraph [ref=e139]:
+            - strong [ref=e140]: "#16"
+            - text: Whether cold takes
+            - text: the morning away
+            - text: from you
+          - paragraph [ref=e147]:
+            - strong [ref=e148]: "#17"
+            - text: The morning as a
+            - text: visual vocabulary
+      - paragraph [ref=e149]:
+        - strong [ref=e150]: Gold with a thick border
+        - text: "is the frontier: open, unblocked, nobody on it, take it now."
+        - strong [ref=e151]: Blue
+        - text: is claimed and in flight.
+        - strong [ref=e152]: Grey
+        - text: is waiting on a blocker.
+        - strong [ref=e153]: Dashed grey
+        - text: "is closed, which is #7 at the bottom left. Arrows point from blocker to blocked, so an arrow reads as \"this one comes first\"."
+      - paragraph [ref=e154]: On GitHub every node is also a link through to its ticket. Those click directives are stripped here because they break this previewer, so this page is the picture only.
+      - paragraph [ref=e155]: "What to judge: whether the frontier reads at a glance, whether the titles stay legible, and whether watching the gold band move forward as tickets close earns an Action keeping this block current in the issue body."
+    - complementary [ref=e156]:
+      - generic [ref=e157]: On this page
+    - generic [ref=e158]:
+      - button "Show outline" [ref=e159] [cursor=pointer]:
+        - img [ref=e160]
+      - generic [ref=e161]:
+        - group "Article width" [ref=e162]:
+          - 'button "Width: reading" [pressed] [ref=e163] [cursor=pointer]': R
+          - 'button "Width: wide" [ref=e164] [cursor=pointer]': W
+        - button "Copy link (c)" [ref=e165] [cursor=pointer]:
+          - img [ref=e166]
+        - button "View raw (r)" [ref=e169] [cursor=pointer]:
+          - img [ref=e170]
+  - generic: md.niftymonkey.dev
+  - alert [ref=e173]
