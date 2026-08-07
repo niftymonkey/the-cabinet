@@ -1,12 +1,10 @@
 # Issue tracker: GitHub
 
-Issues and PRDs for this repository live as GitHub issues in `niftymonkey/the-cabinet`. Use the
-`gh` CLI for all operations.
+Issues and PRDs for this repository live as GitHub issues in `niftymonkey/the-cabinet`. Use the `gh` CLI for all operations.
 
 ## Conventions
 
-- **Create an issue**: `gh issue create --title "..." --body-file <path>`. Write a multi-line body
-  to a file and pass `--body-file`; do not use a shell heredoc.
+- **Create an issue**: `gh issue create --title "..." --body-file <path>`. Write a multi-line body to a file and pass `--body-file`; do not use a shell heredoc.
 - **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
@@ -25,8 +23,7 @@ When set to `yes`, PRs run through the same labels and states as issues, using t
 - **List external PRs for triage**: `gh pr list --state open --json number,title,body,labels,author,authorAssociation,comments` then keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
 - **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
 
-GitHub shares one number space across issues and PRs, so a bare `#42` may be either. Resolve with
-`gh pr view 42` and fall back to `gh issue view 42`.
+GitHub shares one number space across issues and PRs, so a bare `#42` may be either. Resolve with `gh pr view 42` and fall back to `gh issue view 42`.
 
 ## When a skill says "publish to the issue tracker"
 
