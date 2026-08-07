@@ -57,6 +57,10 @@ They are not a boundary. The design is expected to keep improving. Reopening a q
 
 **Land the agreement before editing files.** When something is being worked through, put it in conversation and wait. Propose rather than record: design does not go into a document until it has been agreed.
 
+**A design question is put to Mark in gameplay terms.** When a decision affects how the game plays, describe what the player would see, do, and feel under each option, not the data model. Add the technical framing alongside only when it is genuinely needed, never instead of the gameplay one. Mark has thirty years as an engineer and zero as a game designer, so the gameplay reading is the one he needs in order to judge.
+
+**Guidance on game design rests on looked-up evidence.** When recommending a design decision, look up how real games and industry practice handle the same problem and cite what was found, rather than arguing from intuition. Research beats taste here for the same reason the solver beats taste on difficulty.
+
 **Read what was actually written.** "Does not have to" is permission and "never" is a prohibition, and turning one into the other has caused real rework here more than once. Before building an argument on a phrase, check that the argument answers what was said rather than something adjacent.
 
 **Nothing already landed is fixed**, including decisions inherited from a previous session's notes. If a better shape exists, say so.
