@@ -1,0 +1,12 @@
+dist/
+node_modules/
+playwright-report/
+test-results/
+pnpm-lock.yaml
+
+# The design record is hand-shaped prose. Prettier's table padding makes it worse to edit.
+docs/
+
+# Session handoffs from /continue. Local state, never committed.
+continue.md
+continue-*.md
