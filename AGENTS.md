@@ -16,6 +16,23 @@ Read the design documents before proposing design changes. `docs/design/cabinet.
 `apps/housewarming/docs/design/game-concept.md` each carry a dated decision log at the bottom;
 append to it rather than rewriting what is above.
 
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues in `niftymonkey/the-cabinet`, driven with the `gh` CLI. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles, each label string equal to its name. See
+`docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context: `CONTEXT-MAP.md` at the root, one `CONTEXT.md` per application. See
+`docs/agents/domain.md`.
+
 ## Isolation rules
 
 - Do not import one game from another.
