@@ -30,7 +30,7 @@ These are settled. Changing one is a real decision, not a tweak.
 | Tone | Spoopy leaning dark. Not cute, not grim. |
 | Art | Design routes around art. AI-generated art may fill space later, never load-bearing. |
 | Writing | Minimal by design. Names and one-liners, never paragraphs. |
-| Deadline | Playable by Halloween 2026 (Oct 31). That build is the beta, not v1. |
+| Deadline | Halloween 2026 (Oct 31) is a **target, not a boundary**. Missing it costs a Discord post, not a redesign. What fixes the scope instead is completeness: the smallest version that goes start to finish and that the following year can build on without tearing up. |
 | Availability | Hours are not the binding constraint. The risk is that the interesting part arrives too late, so get a crude playable build up early even if it is ugly. |
 | Longevity | This is a project to keep building for a year, not a jam throwaway. |
 | Decision rule | Decisions are **not** made on what sounds fun to build. Mark has been an engineer for thirty years, got into it wanting to be a game programmer, and has never made a game. The goal is a good game built properly, piece by piece. "Which part would you enjoy building" is explicitly out of the decision-making process. |
@@ -209,22 +209,33 @@ The book was theirs. You find it in the intro, half filled, in their handwriting
 the book came from, it teaches the player how naming works without a tutorial, and it gives the
 game's small allowance of flavour text a natural home in someone else's marginal notes.
 
-Her last entry is unfinished, because she died before she could write it.
+Her last entry is unfinished, because she died before she could write it. Its job is to teach: it
+shows the keeper what the work is and how a name gets assembled, without a tutorial and without
+anyone explaining anything. Whatever she had already named counts for nothing. You start from
+scratch with her method in your hands.
+
+### Who the spirits are
+
+They are the keepers who lived in this house before you and failed. Each one lost, went cold, and
+stayed. That is why there are spirits here at all, why they drain warmth, and why the drain is the
+house asking for what it has always taken.
+
+The fiction stays quiet about it. Their lures and aversions are folkloric rather than personal,
+which is not a compromise: they have been dead a long time and what is left is the folklore-shaped
+part rather than the person.
 
 ### The ending
 
 She was doing exactly what you are doing. She lost, and because she lost she died, and because she
-died she is now another spirit in the house. Straight causality, no twist. She was never secretly
-the last one all along.
+died she is now another spirit in the house. Straight causality, no twist. She is the most recent
+of the line, not a special case and not secretly the last one all along.
 
-So the name still missing from the book is hers, and she is the final entry.
+So the name still missing from the book is hers, and she is the final entry. She is found the same
+way every other spirit is found. The weight comes from who she is, not from a different mechanism.
 
 Intro lore, skippable with a keypress: she was found frozen solid in the middle of winter, which
 almost explains itself, except she was found inside the house. The mundane explanation is available
 and nearly holds. That plants the mechanic without teaching it.
-
-She is deduced from her own book rather than from traces, because she was writing about herself
-without knowing it. The final act is structurally different without needing a new system.
 
 **How her entry resolves.** Every stranger you take gets put to work. Her you take and she simply
 stays. The game never explains the difference. That is the tea scene, and it needs about two
@@ -334,10 +345,18 @@ title is about it.
 
 ## Open questions
 
+These are charted as tickets on the Wayfinder map, [Housewarming: the way to a buildable
+spec](https://github.com/niftymonkey/the-cabinet/issues/1), which is where they get worked and where
+their answers land. The map is the live list; what follows is the standing summary.
+
 - Exactly how the house expands, and which axis each new area widens.
 - Who she was to Mark. "Favourite aunt" is the placeholder. It is the difference between the ending
   being sad and being merely tidy.
 - Values per axis at each stage, pending the solver.
+- What a night sets and what a morning gives back, precisely enough to write a resolver against.
+- Whether a morning carrying four signals is actually enough. Only the solver answers this.
+- What the morning looks like as a visual vocabulary, and what the setup screen is.
+- Whether cold reducing the morning's legibility survives the anti-spiral rule.
 
 ## Pacing, and why there is no prestige layer
 
@@ -407,3 +426,31 @@ Proposed rather than settled. Revisit if the middle of the game goes flat.
 - **2026-08-06** Stack revised to React for the book and setup screens, PixiJS for the room. The
   earlier React-only call assumed a game of tables and text.
 - **2026-08-06** Decisions are not made on what would be fun to build. Recorded in the box above.
+- **2026-08-06** Halloween 2026 is a target rather than a boundary. What fixes the scope instead is
+  the smallest version that goes start to finish and that the following year can build on without
+  tearing up. Reverses the deadline's status in the constraints box, which had it as settled and
+  was shaping decisions accordingly.
+- **2026-08-06** One playthrough is one sitting, roughly an hour, thirty to fifty nights, a night
+  being a fast decision well under a minute. A single automatic save slot, no save management. The
+  save carries a version number from the first day it exists, because a year of adding rooms, axes
+  and spirits changes its shape and without a version every addition silently breaks an
+  in-progress run.
+- **2026-08-06** The house opens a small known number of times, two or three, triggered by naming
+  rather than by a date, each opening widening exactly one axis.
+- **2026-08-06** The roster is finite, rolled at the start, and its size is visible from the
+  beginning. Winning is naming all of them, which ends the drain. Her entry then becomes available
+  as the last one, and is optional.
+- **2026-08-06** The spirits are the keepers who lived in this house before you and failed. She is
+  the most recent of that line, not a special case. Mark's idea, and it answers a question the
+  design had never answered, which is why there are spirits here at all.
+- **2026-08-06** Cut "she is deduced from her own book rather than from traces". She is found the
+  same way as every other spirit. That line handed her a bespoke final mechanic in the same section
+  that insists there is no twist, and it had been recorded more firmly than it was landed.
+- **2026-08-06** A trait is an id plus presentation, and the generator, resolver and solver only
+  ever touch the id. This keeps open the year-two option of writing personal stories behind the
+  folklore pools at zero mechanical cost. Those stories must explain why a keeper is drawn to a
+  **shared** lure; a bespoke lure only one spirit could hold would make finding the lure identify
+  the spirit, and the deduction would collapse.
+- **2026-08-06** Prototypes are kept rather than thrown away, in `apps/housewarming/prototypes/`,
+  each with a README naming what it decided. They get shared with playtesters, and being able to
+  re-run the basis of a decision has value.

@@ -29,13 +29,15 @@ _Avoid_: journal, log, notebook, grid, notes.
 
 **Last keeper**:
 The relative who kept the house before the player, died in it, and left both the house and the book
-behind. Her relationship to the keeper is not yet decided.
+behind. The most recent of the line of failed keepers, not a special case. Her relationship to the
+keeper is not yet decided.
 _Avoid_: aunt, previous owner, the dead woman.
 
 ### The spirits
 
 **Spirit**:
-One of the house's hidden residents. Holds exactly one trait on each of the four axes.
+One of the house's hidden residents. Holds exactly one trait on each of the four axes. Every spirit
+is a keeper who lived here before and failed, which is why they are here and why they take warmth.
 _Avoid_: ghost, monster, creature, entity, haunt.
 
 **Axis**:
@@ -149,3 +151,9 @@ _Avoid_: procgen, roller, spawner.
 The automated player that reports how many nights a generated house takes to crack. It exists to
 turn difficulty into a measured number rather than a matter of taste.
 _Avoid_: bot, AI, validator, checker.
+
+**Prototype**:
+A kept artifact built to answer one question, living in `prototypes/` with a README naming what it
+decided. Deliberately not production code, and deliberately not deleted, because prototypes get
+shared with playtesters and the basis of a decision is worth being able to re-run.
+_Avoid_: spike, demo, throwaway, POC.

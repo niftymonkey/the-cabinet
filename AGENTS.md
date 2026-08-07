@@ -33,6 +33,18 @@ The five canonical triage roles, each label string equal to its name. See
 Multi-context: `CONTEXT-MAP.md` at the root, one `CONTEXT.md` per application. See
 `docs/agents/domain.md`.
 
+### How an issue is written here
+
+**The body carries the problem and the need, nothing else.** No approach, no file paths, no links.
+Everything else, the pointers, the constraints, the prior decisions, the skills to use, goes in a
+follow-up comment posted immediately after creation. Acceptance criteria are observable outcomes,
+not tasks. This applies to Wayfinder tickets as well as ordinary ones: the body is the question, and
+its context is the first comment.
+
+**So always read an issue with `gh issue view <number> --comments`.** Half of what an agent needs is
+in the comments by design, and this is already true regardless: Wayfinder records the answer to a
+ticket as a comment too, so a body-only read misses every resolution on a map.
+
 ## Isolation rules
 
 - Do not import one game from another.
