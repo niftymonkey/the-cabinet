@@ -32,11 +32,11 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 
 **Aversion**: The axis for what turns a spirit away. _Avoid_: weakness, fear, repellent, bane.
 
-**Ward**: The thing the keeper places to test an aversion. A ward is what you put down; an aversion is what the spirit holds. They are only the same when the guess is right. _Avoid_: protection, charm, barrier.
+**Ward**: The thing the keeper places to test an aversion, optional in an experiment. A ward is what you put down; an aversion is what the spirit holds. They are only the same when the guess is right, and then the ward holds, turning the spirit back at the room's boundary. _Avoid_: protection, charm, barrier.
 
 **Haunt**: The axis for which room a spirit belongs to. _Avoid_: home, nest, territory, lair.
 
-**Trace**: What a spirit leaves in a room overnight. Its kind (frost, damp, a sound, moved objects) is openly visible and identifies which spirit left it, so it is never a hidden fifth axis. _Avoid_: clue, evidence, sign, mark, tell.
+**Trace**: What a spirit leaves in a room overnight. Its kind (knocking, scratching, footprints in ash, moved objects) is openly visible, unique to the spirit that leaves it, and carries no trait information: pure identity, never a hidden fifth axis, and never a state of an instrument or of the house's cold. Frost and damp belong to the cold itself, not to any spirit. _Avoid_: clue, evidence, sign, tell.
 
 ### Naming
 
@@ -50,11 +50,15 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 
 **Night**: One turn. The keeper places experiments, then sleeps. _Avoid_: turn, day, round, cycle.
 
-**Experiment**: One configured test placed for a night: a room, a lure, a ward, and a candle. Costs warmth, and how many fit in one night is the thing the economy is buying. _Avoid_: setup, attempt, trial, run, guess.
+**Experiment**: One configured test placed for a night: a room, a candle, a lure, and optionally a ward. At most one per room per night, and each watched room resolves independently. Costs warmth, and how many fit in one night is the thing the economy is buying. _Avoid_: setup, attempt, trial, run, guess.
 
-**Candle**: What is left burning in a room. Both the light an experiment needs and the clock that dates whatever happened, because it burns to a readable height. _Avoid_: lamp, timer, light.
+**Candle**: What is left burning in a room, in a length the keeper chooses, priced in warmth. Both the cost of watching and the clock, because it takes a mark at the watch of a spirit's approach. _Avoid_: lamp, timer, light.
 
-**Morning**: The scene the keeper looks at after a night. Evidence, never narration. _Avoid_: result, report, outcome, summary, aftermath.
+**Watch**: One of the four parts of the night: dusk, midnight, the small hours, first light. Candle lengths are measured in watches, and the hour axis draws its values from them. _Avoid_: quarter, phase, shift.
+
+**Mark**: The record a burning candle takes at the watch a spirit approaches, read as a height in the morning. A candle that burnt clean carries no mark. _Avoid_: timestamp, notch, reading.
+
+**Morning**: The scene the keeper looks at after a night. Evidence, never narration. Every watched room shows one of three scenes: silent, turned back, or came in. _Avoid_: result, report, outcome, summary, aftermath.
 
 **Signal**: One independent piece of information the morning carries. A morning carries roughly four, and that density rather than the size of the search space is what makes the game solvable. _Avoid_: bit, clue, hint, feedback, datum.
 
