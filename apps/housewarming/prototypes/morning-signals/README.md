@@ -24,6 +24,8 @@ The provisional targets, not to be defended: one spirit cracked in five or six n
 
 Every run logs the same JSONL stream: run start with the rolled spirits (the answer key, so no peeking mid-run), every night's experiments and scenes, every naming attempt, and the run end. The terminal version appends to `night-log.jsonl` in this directory, which is gitignored scratch; the web page shows the stream in a copyable panel behind the Night log button, because the artifact sandbox blocks file downloads. The sharing ticket (#8) inherits this format rather than inventing one.
 
+Hosted plays also stream every event to `/api/log` as it happens, into Upstash Redis under a fresh run id wrapped with the tester's typed name, the prototype name, and the deployed commit. Pull a run back with `GET /api/log?runId=...` and an `Authorization: Bearer` header carrying `LOG_READ_TOKEN`; a bare `GET /api/log` lists every run id with its meta. The copyable panel stays as the fallback for file and artifact plays.
+
 The runs the resolution rests on are kept in `playtest-logs/`, one file per run, so the basis of the decision can be replayed by seed.
 
 ## What it decided

@@ -116,6 +116,14 @@
   #seed {
     width: 7.5rem;
   }
+  #tester {
+    width: 8.5rem;
+  }
+  #recorded {
+    flex-basis: 100%;
+    margin: 0;
+    text-align: right;
+  }
   main {
     display: grid;
     grid-template-columns: 21rem 1fr;
@@ -309,6 +317,8 @@
     </div>
   </div>
   <div class="controls">
+    <label for="tester">who's playing?</label>
+    <input id="tester" placeholder="your name" />
     <label for="seed">seed</label>
     <input id="seed" inputmode="numeric" />
     <label for="spirits">spirits</label>
@@ -325,6 +335,10 @@
     </select>
     <button id="newhouse">New house</button>
   </div>
+  <p class="sub" id="recorded">
+    This run is recorded under that name, the spirits rolled, every night, every
+    naming attempt, so Mark can study how the mornings read.
+  </p>
 </header>
 
 <main>
@@ -481,8 +495,73 @@
     });
   }
 
+  // ---- log upload ----
+  // Fire-and-forget: play must survive file://, the artifact sandbox, and a
+  // dead API, so failures only ever silence the upload, never the game.
+  const PROTO = 'morning-signals';
+  const TESTER_KEY = 'morning-signals:tester';
+  const buildCommit =
+    document.querySelector('meta[name="build-commit"]')?.content || 'dev';
+  const canUpload =
+    location.protocol === 'http:' || location.protocol === 'https:';
+  const uploadQueue = [];
+  let uploading = false;
+  let uploadDead = false;
+  let uploadFailures = 0;
+
+  function testerName() {
+    const typed = document.getElementById('tester').value.trim();
+    return typed === '' ? 'anonymous' : typed;
+  }
+
+  function uploadEvent(runIdOfEvent, event) {
+    if (!canUpload || uploadDead || uploadQueue.length >= 200) return;
+    uploadQueue.push({
+      runId: runIdOfEvent,
+      tester: testerName(),
+      proto: PROTO,
+      commit: buildCommit,
+      event,
+    });
+    pumpUploads();
+  }
+
+  function pumpUploads() {
+    if (uploading || uploadDead || uploadQueue.length === 0) return;
+    uploading = true;
+    fetch('/api/log', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(uploadQueue[0]),
+    })
+      .then((response) => {
+        if (response.ok || (response.status >= 400 && response.status < 500)) {
+          uploadQueue.shift();
+          uploadFailures = 0;
+        } else {
+          throw new Error(String(response.status));
+        }
+      })
+      .catch(() => {
+        uploadFailures += 1;
+        if (uploadFailures >= 5) uploadDead = true;
+      })
+      .finally(() => {
+        uploading = false;
+        if (!uploadDead && uploadQueue.length > 0)
+          setTimeout(pumpUploads, 1500 * uploadFailures);
+      });
+  }
+
+  function newRunId() {
+    return crypto.randomUUID
+      ? crypto.randomUUID()
+      : `run-${Date.now()}-${Math.floor(Math.random() * 1_000_000_000)}`;
+  }
+
   // ---- run state ----
-  let seed,
+  let runId,
+    seed,
     spiritCount,
     cap,
     spirits,
@@ -506,10 +585,13 @@
   const WRONG_NAME_COST = 3;
 
   function logLine(record) {
-    logLines.push(JSON.stringify({ at: new Date().toISOString(), ...record }));
+    const event = { at: new Date().toISOString(), ...record };
+    logLines.push(JSON.stringify(event));
+    uploadEvent(runId, event);
   }
 
   function newHouse(nextSeed) {
+    runId = newRunId();
     seed = nextSeed ?? Math.floor(Math.random() * 1_000_000_000);
     spiritCount = Number(document.getElementById('spirits').value);
     const capRaw = document.getElementById('cap').value;
@@ -939,6 +1021,20 @@
         setMessage('Night log selected. Copy it with the keyboard.', 'bad');
       },
     );
+  });
+
+  const testerInput = document.getElementById('tester');
+  try {
+    testerInput.value = localStorage.getItem(TESTER_KEY) ?? '';
+  } catch {
+    // Storage can be blocked in the sandbox; the name just starts blank.
+  }
+  testerInput.addEventListener('input', () => {
+    try {
+      localStorage.setItem(TESTER_KEY, testerInput.value);
+    } catch {
+      // Same: remembering the name is best-effort.
+    }
   });
 
   newHouse();

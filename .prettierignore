@@ -7,6 +7,9 @@ pnpm-lock.yaml
 # The design record is hand-shaped prose. Prettier's table padding makes it worse to edit.
 docs/
 
+# Vendor agent skills dropped by the Upstash marketplace install. Not ours to format.
+.agents/
+
 # Session handoffs from /continue. Local state, never committed.
 continue.md
 continue-*.md

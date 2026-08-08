@@ -6,3 +6,6 @@ test-results/
 .playwright-cli/
 *.tsbuildinfo
 .DS_Store
+.vercel
+.env*
+.claude/settings.local.json
