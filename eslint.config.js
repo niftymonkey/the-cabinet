@@ -1,5 +1,6 @@
 import eslint from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
+import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -14,22 +15,31 @@ export default defineConfig([
   eslint.configs.recommended,
   tseslint.configs.recommended,
   {
-    files: ['**/*.{js,mjs,ts}'],
+    files: ['**/*.{js,mjs,ts,tsx}'],
     languageOptions: {
       globals: globals.node,
     },
   },
   {
-    files: ['apps/*/src/**/*.ts'],
+    files: ['apps/*/src/**/*.{ts,tsx}'],
     languageOptions: {
       globals: globals.browser,
     },
   },
   {
-    files: ['**/*.ts'],
+    files: ['apps/*/src/**/*.{ts,tsx}'],
+    extends: [reactHooks.configs.flat.recommended],
+  },
+  {
+    files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: [
+            'apps/*/vite.config.ts',
+            'apps/*/vitest.config.ts',
+          ],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
