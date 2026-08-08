@@ -22,7 +22,9 @@ The provisional targets, not to be defended: one spirit cracked in five or six n
 
 ## The log
 
-Every run logs the same JSONL stream: run start with the rolled spirits (the answer key, so no peeking mid-run), every night's experiments and scenes, every naming attempt, and the run end. The terminal version appends to `night-log.jsonl` in this directory; the web page shows the stream in a copyable panel behind the Night log button, because the artifact sandbox blocks file downloads. The sharing ticket (#8) inherits this format rather than inventing one.
+Every run logs the same JSONL stream: run start with the rolled spirits (the answer key, so no peeking mid-run), every night's experiments and scenes, every naming attempt, and the run end. The terminal version appends to `night-log.jsonl` in this directory, which is gitignored scratch; the web page shows the stream in a copyable panel behind the Night log button, because the artifact sandbox blocks file downloads. The sharing ticket (#8) inherits this format rather than inventing one.
+
+The runs the resolution rests on are kept in `playtest-logs/`, one file per run, so the basis of the decision can be replayed by seed.
 
 ## What it decided
 
