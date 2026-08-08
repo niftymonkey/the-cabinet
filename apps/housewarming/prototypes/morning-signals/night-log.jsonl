@@ -1,0 +1,4 @@
+{"at":"2026-08-07T23:25:30.975Z","type":"run-start","seed":464235341,"spiritCount":1,"spirits":[{"trace":"trace-moved-objects","hour":"hour-small-hours","lure":"lure-bread","aversion":"aversion-iron","haunt":"haunt-hearth"}]}
+{"at":"2026-08-07T23:26:20.913Z","type":"run-start","seed":711323784,"spiritCount":1,"spirits":[{"trace":"trace-scratching","hour":"hour-small-hours","lure":"lure-honey","aversion":"aversion-iron","haunt":"haunt-hearth"}]}
+{"at":"2026-08-07T23:27:12.187Z","type":"night","night":1,"experiments":[{"room":"haunt-hearth","candle":1,"lure":"lure-bread","ward":null}],"scenes":[{"scene":"came-in","room":"haunt-hearth","trace":"trace-scratching","mark":null,"bowlTaken":false,"wardCrossed":null}]}
+{"at":"2026-08-07T23:27:28.846Z","type":"run-end","nights":1,"named":0,"spiritCount":1,"namingAttempts":0,"abandoned":true}

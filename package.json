@@ -12,12 +12,14 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
+    "proto:morning-signals": "node apps/housewarming/prototypes/morning-signals/play.ts",
     "test": "pnpm --filter './apps/*' --if-present test",
     "typecheck": "pnpm --filter './apps/*' typecheck",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
     "eslint": "catalog:",
     "globals": "catalog:",
     "prettier": "catalog:",
