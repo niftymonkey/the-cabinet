@@ -14,7 +14,7 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 
 **Book**: The keeper's book of names, inherited half filled from the last keeper. Where traits ruled in and out are recorded and where a name is submitted. The fiction may call it a journal; the interface and the code say book. _Avoid_: journal, log, notebook, grid, notes.
 
-**Last keeper**: The relative who kept the house before the player, died in it, and left both the house and the book behind. The most recent of the line of failed keepers, not a special case. Her relationship to the keeper is not yet decided. _Avoid_: aunt, previous owner, the dead woman.
+**Last keeper**: The relative who kept the house before the player, died in it, and left both the house and the book behind. The most recent of the line of failed keepers, not a special case: her trace can appear only in the coda, and her page opens at her sighting like any other spirit's. Her relationship to the keeper is not yet decided. _Avoid_: aunt, previous owner, the dead woman.
 
 ### The spirits
 
@@ -52,7 +52,7 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 
 ### The cycle
 
-**Run**: One playthrough, from the first night to the house won, left, or lost. It carries the seed it was rolled from, so it replays exactly, and it holds the mornings the keeper has seen as well as the house itself. _Avoid_: game, session, attempt, save.
+**Run**: One playthrough, from the first night to the house lost, left, or won, and, if the keeper stays at the win, on through the coda. It carries the seed it was rolled from, so it replays exactly, and it holds the mornings the keeper has seen as well as the house itself. _Avoid_: game, session, attempt, save.
 
 **Night**: One turn. The keeper places experiments, then sleeps. _Avoid_: turn, day, round, cycle.
 
@@ -67,6 +67,10 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 **Morning**: The scene the keeper looks at after a night. Evidence, never narration. Every watched room shows one of three scenes: silent, turned back, or came in. _Avoid_: result, report, outcome, summary, aftermath.
 
 **Signal**: One independent piece of information the morning carries. A morning carries roughly four, and that density rather than the size of the search space is what makes the game solvable. _Avoid_: bit, clue, hint, feedback, datum.
+
+**Coda**: The bounded phase after the win, entered by choosing to stay rather than close the book, a choice offered once and not reopened. Drain and yield are over, experiments spend candles from the stock instead of warmth, and the last keeper's trace can appear only here. It ends by naming her, choosing to stop on any morning, or the last candle. _Avoid_: epilogue, postgame, endgame, bonus phase, new game plus.
+
+**Stock**: The fixed, visible count of candles the coda is played from, the same for every keeper who stays. The coda's only currency: nights spend it and wrong names burn it. _Avoid_: budget, supply, reserve, inventory.
 
 ### Warmth
 
