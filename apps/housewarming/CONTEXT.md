@@ -14,7 +14,7 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 
 **Book**: The keeper's book of names, inherited half filled from the last keeper. Where traits ruled in and out are recorded and where a name is submitted. The fiction may call it a journal; the interface and the code say book. _Avoid_: journal, log, notebook, grid, notes.
 
-**Last keeper**: The relative who kept the house before the player, died in it, and left both the house and the book behind. The most recent of the line of failed keepers, not a special case: her trace can appear only in the coda, and her page opens at her sighting like any other spirit's. Her relationship to the keeper is not yet decided. _Avoid_: aunt, previous owner, the dead woman.
+**Last keeper**: The relative who kept the house before the player, died in it, and left both the house and the book behind: the keeper's favourite aunt, named plainly once in the intro. The most recent of the uncounted line of failed keepers, not a special case: her trace can appear only in the coda, and her page opens at her sighting like any other spirit's. The fiction may call her the aunt; the interface and the code say last keeper. _Avoid_: aunt, previous owner, the dead woman.
 
 ### The spirits
 

@@ -134,11 +134,11 @@ Smallest shippable version: four trait axes with a handful of options each, six 
 
 ## Why the player is here
 
-One house, and it is yours. A relative you cared about left it to you. They died and nobody ever explained why.
+One house, and it is yours. Your favourite aunt left it to you. She died and nobody ever explained why.
 
 You love the house. That is the whole motivation. You find out it is haunted and you stay anyway, because you are not going to be driven out of your own home. Naming is not survival and not a job, it is insisting on living somewhere.
 
-The book was theirs. You find it in the intro, half filled, in their handwriting. It explains where the book came from, it teaches the player how naming works without a tutorial, and it gives the game's small allowance of flavour text a natural home in someone else's marginal notes.
+The book was hers. You find it in the intro, half filled, in her handwriting. It explains where the book came from, it teaches the player how naming works without a tutorial, and it gives the game's small allowance of flavour text a natural home in someone else's marginal notes.
 
 Her last entry is unfinished, because she died before she could write it. Its job is to teach: it shows the keeper what the work is and how a name gets assembled, without a tutorial and without anyone explaining anything. Whatever she had already named counts for nothing. You start from scratch with her method in your hands.
 
@@ -148,21 +148,25 @@ They are the keepers who lived in this house before you and failed. Each one los
 
 The fiction stays quiet about it. Their lures and aversions are folkloric rather than personal, which is not a compromise: they have been dead a long time and what is left is the folklore-shaped part rather than the person.
 
+Quiet means the game never states spirits-are-failed-keepers in its own voice, and the inference does not ride on book prose, because players skip text. Three carriers do the work: named spirits visibly work the house, so their rooms read as kept by someone who is not you; the intro's found-frozen lore is an image rather than a paragraph; and the offer at the win is staged (see the coda). The book's margins carry the fine texture, never the plot alone.
+
+The line of keepers is uncounted, older than living memory. The roster is the spirits stirring in this playthrough, never a census of everyone who ever failed here.
+
 ### The ending
 
 She was doing exactly what you are doing. She lost, and because she lost she died, and because she died she is now another spirit in the house. Straight causality, no twist. She is the most recent of the line, not a special case and not secretly the last one all along.
 
 So the name still missing from the book is hers, and she is the final entry. She is found the same way every other spirit is found. The weight comes from who she is, not from a different mechanism.
 
-Intro lore, skippable with a keypress: she was found frozen solid in the middle of winter, which almost explains itself, except she was found inside the house. The mundane explanation is available and nearly holds. That plants the mechanic without teaching it.
+Intro lore, skippable with a keypress and carried by an image rather than a paragraph: she was found frozen solid in the middle of winter, which almost explains itself, except she was found inside the house. One plain line alongside it names the relationship, your aunt left you the house, because the relationship is premise and the death is the mystery. The mundane explanation is available and nearly holds. That plants the mechanic without teaching it.
 
-**How her entry resolves.** Every stranger you take gets put to work. Her you take and she simply stays. The game never explains the difference. That is the tea scene, and it needs about two sentences.
+**How her entry resolves.** Every stranger you take gets put to work. Her you take and she simply stays. The game never explains the difference. That is the tea scene, and it needs about two sentences. It completes the image the offer showed: the second cup finally has someone in front of it.
 
 Both readings of that scene are available for free and we do not have to pick. The warm one is that you got her back. The darker one is that a spirit cannot help draining, so keeping the house meant taking her the way you took the others, and you know what you did. Same two sentences either way.
 
 **She is optional.** You can win the house without ever finishing her entry, and if you do, it is warm and empty. Finish it and it is warm and she is there. The good ending is earned rather than handed over, and it costs nothing to build, because she is just the last entry and the player is allowed to stop early.
 
-**The coda.** The last loose name lands and the win plays whole: the house warm, quiet, yours, the drain visibly over. Then one choice, made once. Close the book and the run ends there, warm and empty. Stay, and nights continue into the coda: the economy is over, nothing drains and nothing yields, and what is left to burn is a fixed stock of candles, visible and counted, the same for every keeper who stays. Only now can her trace appear. Her page opens at her sighting like any other spirit's, her name is submitted whole like any other, and a wrong name burns candles, priced so a guess is never cheaper than a night of testing.
+**The coda.** The last loose name lands and the win plays whole: the house warm, quiet, yours, the drain visibly over. Then one choice, made once, staged rather than explained: the tea table set for two, one cup poured, one chair empty, and a single line in her handwriting beneath, "Stay for tea?". Close the book and the run ends there, warm and empty. Stay, and nights continue into the coda: the economy is over, nothing drains and nothing yields, and what is left to burn is a fixed stock of candles, visible and counted, the same for every keeper who stays. Only now can her trace appear. Her page opens at her sighting like any other spirit's, her name is submitted whole like any other, and a wrong name burns candles, priced so a guess is never cheaper than a night of testing.
 
 **Three ways out of the coda.** Naming her is the earned ending. Stopping is offered every coda morning, and the last candle stops it for you. Not finding her is one outcome, warm and empty, staged by how it arrives; running out carries no loss framing, because the win is never revocable and staying is pure upside.
 
@@ -210,6 +214,10 @@ Neither text nor art, and by the research it is at least half the horror experie
 - An ambient drone as the base layer, semi-random creaks and drips over it, silence used as contrast so a stinger lands.
 - And it presents information the morning already carries: the night's scenes given a voice. Sound never adds a signal of its own, and an unwatched room shows nothing ever, by the night contract, so nothing is heard from a room the keeper did not rig.
 
+### Named spirits are seen working
+
+A named spirit works the house, and the player watches it happen: its room reads as kept, hearth lit, warm palette, tended by someone who is not you. This is where spirits-are-failed-keepers gets taught without a word. It lives in the house's ambient look, never in the morning's signal set, which stays evidence.
+
 ### Darkness is the atmosphere, not the information
 
 The research says darkness is the strongest atmosphere tool because it restricts what the player can see, and our resource is literally warmth and light, so the temptation was to let the cold darken the morning until it could not be read.
@@ -235,7 +243,6 @@ One number runs the entire economy. The fiction and the mechanic are the same th
 These are charted as tickets on the Wayfinder map, [Housewarming: the way to a buildable spec](https://github.com/niftymonkey/the-cabinet/issues/1), which is where they get worked and where their answers land. The map is the live list; what follows is the standing summary.
 
 - Exactly how the house expands, and which axis each new area widens.
-- Who she was to Mark. "Favourite aunt" is the placeholder. It is the difference between the ending being sad and being merely tidy.
 - Values per axis at each stage, pending the solver.
 - What a night sets and what a morning gives back, precisely enough to write a resolver against.
 - Whether a morning carrying four signals is actually enough. Only the solver answers this.
@@ -323,3 +330,8 @@ Proposed rather than settled. Revisit if the middle of the game goes flat.
 - **2026-08-08** A wrong name in the coda burns candles, priced so a guess is never cheaper than a night of testing. The paper prototype's naming-must-cost-something rule carried into the coda's only currency; whole-name submission holds unchanged. From ticket #22.
 - **2026-08-08** Not finding her is one outcome, warm and empty, staged by how it arrives: the book closed by choice, offered every coda morning, or the last candle guttering. Running out is never a loss and the win is never revocable, or the coda rebuilds the ending-resentment trap it exists to avoid. From ticket #22.
 - **2026-08-08** She is findable within the stock in every generated house, a generator invariant the solver verifies per house. The solver also measures nights-to-find-her so the stock lands where honest but imperfect play usually succeeds and a patience grind never pays. From ticket #22.
+- **2026-08-08** The last keeper is the keeper's favourite aunt, promoted from placeholder, with no real person behind her. Chosen over the favourite grandmother because a childless aunt's house passes to her person without explanation, while a grandmother's house skipping a living generation raises a question the game would have to answer, and because favourite says the love was chosen rather than owed. From ticket #5.
+- **2026-08-08** The line of keepers is uncounted, older than living memory. The roster is the spirits stirring in this playthrough, never a census of the line, so the wider rosters of the year after contradict nothing. From ticket #5.
+- **2026-08-08** Spirits-are-failed-keepers is never stated in the game's voice, and the inference does not ride on book prose, because players skip text. Three carriers do the work: named spirits visibly working the house, the intro's found-frozen image, and the staged offer. The book's margins carry texture, never the plot alone. Start here; testers may earn it a slightly louder carrier, and that dial stays deliberately open. From ticket #5.
+- **2026-08-08** The intro plainly names the relationship once, alongside the found-frozen image. The relationship is premise and the death is the mystery, so hiding who she is would spend the player's attention on the wrong puzzle. From ticket #5.
+- **2026-08-08** The offer is the tea table: set for two, one cup poured, one chair empty, and a single line in her handwriting, "Stay for tea?". This is the one deliberately loud moment in a quiet game, and the tea scene at her naming completes the image it makes. Writes the line #22 assigned to #5. From ticket #5.
