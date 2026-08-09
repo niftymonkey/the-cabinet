@@ -3,7 +3,7 @@
 // This is the third and fourth steps of the standard pipeline for generating solvable
 // deduction puzzles: enumerate the names the pools could produce, then narrow them by
 // what was actually seen. It is pure and it holds no opinion about how a keeper plays,
-// which is what lets the solver (#12) drive it and the book (#10) display it without
+// which is what lets the solver (#12) drive it and an interface display it without
 // either one inventing its own copy of the rules.
 
 import { resolveRoom } from './resolver.ts';
@@ -122,7 +122,7 @@ export function settledAxes(names: readonly TrueName[]): number {
   return Object.values(possible).filter((values) => values.length === 1).length;
 }
 
-// What each axis still allows, which is the state a book's grid draws.
+// What each axis still allows.
 export function traitsStillPossible(
   names: readonly TrueName[],
 ): Record<Axis, TraitId[]> {

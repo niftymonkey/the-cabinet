@@ -72,9 +72,10 @@ export function startRun(rules: Ruleset, seed: number): Run {
   };
 }
 
-// The names the mornings still allow for one spirit. This is what the book draws and
-// what the solver reads; it is derived from the run rather than stored in it, so there
-// is only ever one account of what the keeper knows.
+// The names the mornings still allow for one spirit. This is what the solver reads and
+// what drain relief is priced from; the keeper's own record is the marks they make by
+// hand in the book, which the economy never consults. It is derived from the run rather
+// than stored in it, so there is only ever one account of what the evidence allows.
 //
 // It narrows against the pools that were open when the spirit arrived, not the wider
 // ones the keeper can see now, so a page that has been solved stays solved when the house

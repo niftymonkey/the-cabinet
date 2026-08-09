@@ -104,7 +104,7 @@ Getting this right matters more than how many values each axis has.
 
 ### Numbers
 
-Start at four values per axis, 256 names. The house growing adds values: opening the cellar adds a room, which widens an axis, which widens the space. At six values across the board it is 1296, full Mastermind, arrived at gradually. The difficulty ramp and the house opening up are the same mechanism.
+Start at four values per axis, 256 names. The house growing adds values: opening the cellar adds a room, which widens an axis, which widens the space. But the space cannot grow far. With two or three openings of one axis each, the first spent on rooms and the hour axis able to widen at most once without leaving the night, it tops out near 4 by 6 by 4 by 7, roughly 670 names, not Mastermind's 1296. The ramp is not the search space. It is the economy tightening as the season turns, arrivals staggered so late spirits land mid-solve, and parallel loose spirits sharing the keeper's nights, with modest pool growth on top. The kernel already measured the economy as the difficulty dial (see the decision log, 2026-08-08).
 
 Target, to be confirmed by the solver rather than argued about: first spirit in five or six nights, later ones in ten to twelve, and nothing the solver cannot crack without guessing.
 
@@ -202,15 +202,13 @@ Same four bits of information, no prose. This is what Obra Dinn and Golden Idol 
 Neither text nor art, and by the research it is at least half the horror experience. It is also the best atmosphere per unit of effort available to us.
 
 - An ambient drone as the base layer, semi-random creaks and drips over it, silence used as contrast so a stinger lands.
-- And it carries information: you **heard** something in the night. Scratching in a wall, footsteps overhead, a voice from a room you were not in. A trace that costs no art and no writing.
+- And it presents information the morning already carries: the night's scenes given a voice. Sound never adds a signal of its own, and an unwatched room shows nothing ever, by the night contract, so nothing is heard from a room the keeper did not rig.
 
-### Darkness is the economy made visible
+### Darkness is the atmosphere, not the information
 
-The research says darkness is the strongest atmosphere tool because it restricts what the player can see. Our resource is literally warmth and light.
+The research says darkness is the strongest atmosphere tool because it restricts what the player can see, and our resource is literally warmth and light, so the temptation was to let the cold darken the morning until it could not be read.
 
-So the colder the house gets, the less of the morning is legible. The drain stops being a number ticking down and becomes the room going dark around you, with clues you can no longer read. The economy and the atmosphere become one system.
-
-**Caveat to watch:** this takes information away from a player who is already behind, which is the opposite of the anti-spiral rule. Tune carefully or cap how dark it gets.
+Decided against (2026-08-08, closing ticket #16): the economy already throttles information through what a cold keeper can afford to watch, so degrading legibility would tax the losing player twice through the same resource, exactly what the anti-spiral rule exists to prevent. The cold is felt as vignette, palette, frost and sound, and every signal the keeper paid for stays readable at any warmth.
 
 ### Stack, revised
 
@@ -236,7 +234,6 @@ These are charted as tickets on the Wayfinder map, [Housewarming: the way to a b
 - What a night sets and what a morning gives back, precisely enough to write a resolver against.
 - Whether a morning carrying four signals is actually enough. Only the solver answers this.
 - What the morning looks like as a visual vocabulary, and what the setup screen is.
-- Whether cold reducing the morning's legibility survives the anti-spiral rule.
 
 ## Pacing, and why there is no prestige layer
 
@@ -278,11 +275,11 @@ Proposed rather than settled. Revisit if the middle of the game goes flat.
 - **2026-08-06** Four axes: hour, lure, aversion, haunt. Each pairs with a player control, because a trait no experiment can test is only noise.
 - **2026-08-06** The morning report must carry roughly four independent signals. This is the real difficulty dial, not the size of the search space.
 - **2026-08-06** Trace type is a visible identifier rather than a hidden fifth axis, because parallel puzzles that share resources multiply difficulty instead of adding it.
-- **2026-08-06** Start at four values per axis and let the house growing widen the space toward Mastermind's 1296.
+- **2026-08-06** Start at four values per axis and let the house growing widen the space. Rewritten 2026-08-08: the original target of growing toward Mastermind's 1296 cannot hold against openings widening exactly one axis each; the reachable space tops out near 670, and the ramp is the economy, arrival stagger, and parallel loose spirits with modest pool growth.
 - **2026-08-06** The solver is the difficulty instrument. Difficulty gets measured, not argued.
 - **2026-08-06** Single resource: warmth.
 - **2026-08-06** The morning is a scene you look at, not a paragraph you read. Corrects an earlier design that put clues in menus despite the research saying to put them in the environment.
-- **2026-08-06** Sound is a first-class channel, both for atmosphere and for carrying information.
+- **2026-08-06** Sound is a first-class channel for atmosphere, and it presents scene data the morning already shows rather than carrying signals of its own. Rewritten 2026-08-08: the original line promised sound as an information carrier one day before the night contract made an unwatched room show nothing, ever.
 - **2026-08-06** Cold reduces visibility of the morning scene, so the drain is felt rather than displayed. Flagged to watch against the anti-spiral rule.
 - **2026-08-06** Stack revised to React for the book and setup screens, PixiJS for the room. The earlier React-only call assumed a game of tables and text.
 - **2026-08-06** Decisions are not made on what would be fun to build. Recorded in the box above.
@@ -309,3 +306,7 @@ Proposed rather than settled. Revisit if the middle of the game goes flat.
 - **2026-08-08** The book narrows a spirit against the pools that were open at the stage it arrived, not the wider ones now visible, so a page already solved stays solved when the house opens. A room sealed until tonight cannot hold what has been knocking since the first week, and the fiction carries that without a word of explanation. Mark's call, from ticket #11.
 - **2026-08-08** The morning is not the difficulty dial. Measured against the kernel, a keeper with no strategy at all cracks the opening three spirits in five to nine nights watching every room, and twenty to thirty-six at one room a night. What the keeper can afford to watch is what sets difficulty. The feedback-density hypothesis above holds and is no longer the interesting half of it; the warmth economy is. From ticket #11.
 - **2026-08-08** The trace pool carries no design inventions, settled by the night contract rather than by taste. A trace may never be a state of an instrument or of the house's cold, which excludes frost and damp on independent grounds, along with the candle burning blue, the bowl taken, the fire out and water used. From ticket #11, closing the question `docs/research/folklore-pools.md` left open.
+- **2026-08-08** Drain relief is priced from the evidence, never from the keeper's marks. A trait counts as ruled in for the economy when the mornings leave one value standing on its axis, so the book stays the keeper's working memory and marking it cannot be gamed for warmth. From ticket #11, where the kernel embedded the call before the log recorded it.
+- **2026-08-08** No save obfuscation and no local anti-cheat, ever. Client-side secrecy is unwinnable, wrong names already cost warmth, and a readable plaintext save is a debugging and fixture feature. Recorded so it is never re-argued. From the three-lens review.
+- **2026-08-08** Cold does not degrade the morning's legibility. The economy already throttles information through what a cold keeper can afford to watch, so darkening the scene would tax the losing player twice through the same resource, against the anti-spiral rule. The atmosphere survives whole as vignette, palette, frost and sound. Reverses the 2026-08-06 line above and closes ticket #16; #17's art never draws illegible states.
+- **2026-08-08** No per-value morning art. The night contract made scene states generic (mark heights, bowl taken or not, trace stopped at the line or crossing it), so the only art that scales is one trace kind per spirit and the setup screen's lures and wards, both bounded. Drawing per-lure or per-ward states would re-couple art cost to pool width. From the three-lens review.

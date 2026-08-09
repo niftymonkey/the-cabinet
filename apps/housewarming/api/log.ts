@@ -97,11 +97,10 @@ export async function GET(request: Request): Promise<Response> {
     return json(503, { error: 'The log store is not configured.' });
   }
   const readToken = process.env.LOG_READ_TOKEN;
-  if (
-    readToken !== undefined &&
-    readToken !== '' &&
-    request.headers.get('authorization') !== `Bearer ${readToken}`
-  ) {
+  if (readToken === undefined || readToken === '') {
+    return json(503, { error: 'Reading runs is not configured.' });
+  }
+  if (request.headers.get('authorization') !== `Bearer ${readToken}`) {
     return json(401, { error: 'Reading runs needs the bearer token.' });
   }
   const runId = new URL(request.url).searchParams.get('runId');
