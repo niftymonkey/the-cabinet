@@ -78,7 +78,11 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 
 **Drain**: Warmth taken by loose spirits each night, worsening as the season turns from autumn into winter. _Avoid_: decay, upkeep, tax, cost.
 
-**Leave**: The action offered once warmth falls past a threshold and withdrawn once it falls further. Taking it ends the run; being too cold to take it is how the last keeper died. _Avoid_: quit, escape, flee, abandon, give up.
+**Leave**: The action offered once warmth falls past a threshold and withdrawn once it falls further. Taking it winters the keeper out: the run ends, but the keeper keeps their life, the house, the key, and the book, and banks the head start for the return. Being too cold to take it is how the last keeper died. _Avoid_: quit, escape, flee, abandon, give up.
+
+**Return**: The run after a leave: the same house, another autumn, that year's spirits rolled fresh. Opens on the door being unlocked with the head start visible, and the intro unchanged. _Avoid_: new game plus, continue, rerun, retry.
+
+**Head start**: The flat amount of warmth a return starts with, banked by leaving. The same every time and never stacking, so departures cannot be farmed. Provisions in the fiction, one flag in the profile. _Avoid_: bonus, carryover, legacy, meta-progression.
 
 ### Generation and tuning
 
