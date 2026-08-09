@@ -88,7 +88,9 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 
 **Pool**: The set of values available on one axis at a given point in a playthrough. Widens as the house opens up. _Avoid_: options, choices, table, deck.
 
-**Stage**: One state of the house, opened by naming rather than by a date. Each opening widens a pool, and a spirit's traits are drawn from the pools in force at the stage it arrives with, so an opening never widens a puzzle already in progress. _Avoid_: level, phase, tier, chapter.
+**Opening**: One of the three moments the house changes, fired the morning after a set count of namings. Each opening changes exactly one thing about the puzzle, one axis's pool or what one instrument can say, and each is a place or thing in the house. An opening never rewrites evidence already read and never widens a puzzle in progress. _Avoid_: unlock, upgrade, expansion, milestone.
+
+**Stage**: One of the four states of the house, advanced by an opening. A spirit's traits are drawn from the pools in force at the stage it arrives with, so which stage a spirit arrived at is itself evidence. _Avoid_: level, phase, tier, chapter.
 
 **Generator**: What rolls a playthrough's spirits from the pools. Its rules live in data rather than code so it can be replaced without touching anything else. _Avoid_: procgen, roller, spawner.
 
