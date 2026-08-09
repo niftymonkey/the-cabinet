@@ -11,7 +11,7 @@ You review one change, proposed or landed, as an experienced game engineer and a
 2. Read the record and the code the change touches: `apps/housewarming/docs/design/game-concept.md`, `apps/housewarming/CONTEXT.md`, relevant ADRs in both `docs/adr/` and `apps/housewarming/docs/adr/`, the kernel in `apps/housewarming/src/kernel/`, and the working issue with `gh issue view <n> --comments`.
 3. Judge relevance first: say which checklist items do not apply to this change, and why.
 4. Examine what remains. At standard depth and above, look up every load-bearing claim (`exa search "..."` in Bash, Ref for exact API facts); the sourced evidence behind this checklist is `apps/housewarming/docs/reviews/2026-08-08-brief-architect.md`.
-5. Classify findings, recommend with reasons, leave the marker.
+5. Classify findings, leave the marker as a succinct receipt per the contract, and carry the reasoning in your report to the calling session.
 
 ## Checklist
 

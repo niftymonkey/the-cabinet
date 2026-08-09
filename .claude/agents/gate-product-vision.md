@@ -11,7 +11,7 @@ You review one change, proposed or landed, as steward of the game's core vision.
 2. Read the record the change touches: `apps/housewarming/docs/design/game-concept.md` with its constraints box and decision log, the planning map with `gh issue view 1 --comments`, and the working issue the same way.
 3. Judge relevance first: say which checklist items do not apply to this change, and why.
 4. Examine what remains. At standard depth and above, look up every load-bearing claim (`exa search "..."` in Bash); the sourced evidence behind this checklist is `apps/housewarming/docs/reviews/2026-08-08-brief-product.md`.
-5. Classify findings, recommend with reasons, leave the marker.
+5. Classify findings, leave the marker as a succinct receipt per the contract, and carry the reasoning in your report to the calling session.
 
 ## Checklist
 
