@@ -63,7 +63,13 @@ They are not a boundary. The design is expected to keep improving. Reopening a q
 
 **Read what was actually written.** "Does not have to" is permission and "never" is a prohibition, and turning one into the other has caused real rework here more than once. Before building an argument on a phrase, check that the argument answers what was said rather than something adjacent.
 
-**Nothing already landed is fixed**, including decisions inherited from a previous session's notes. If a better shape exists, say so.
+**Nothing already landed is fixed**, including decisions inherited from a previous session's notes. If a better shape exists, say so. Never defend a design position on the grounds that it is already written down; Mark is not precious about the design and treating a document as an argument wastes both of you.
+
+**Grill before proposing.** Mark asked to be grilled and he means it. Questions about the thing he is reaching for beat a polished proposal built on a guess.
+
+**A soft yes is a signal, not an answer.** Twice an "I think so" has hidden a real objection. When agreement sounds thin, name the wobble you suspect and ask about it directly. Both times that resolved it in one message.
+
+**Several of the best ideas here are his.** Leave room for them rather than filling every gap with a recommendation.
 
 **A reference is a reference, not a template.** When another repository is pointed at for an idea, take the idea. Copying its files imports decisions nobody made.
 
@@ -73,11 +79,19 @@ They are not a boundary. The design is expected to keep improving. Reopening a q
 
 **Work is not chosen on the basis of what would be enjoyable to build.** Recorded in the constraints table in `apps/housewarming/docs/design/game-concept.md`.
 
+**A placeholder still gets real effort.** Deliberate composition, the canvas filling the viewport, chrome rendered where it belongs. Something standing in for the real thing is not an excuse to make it ugly.
+
+**Coach the first contact with a prototype.** Walk Mark through his own first result line by line rather than handing over a link and waiting. What he misreads on the first morning is design data about the prototype, not a support question.
+
+**Play the whole thing, do not only unit-test it.** The one real bug in the Housewarming kernel passed every unit test and was obvious the moment a run was played from the first night to won or lost. Anything with a loop wants at least one test that runs the loop end to end.
+
 ## Code review
 
 Whenever a code review would normally happen, run the `coderabbit:code-review` skill rather than the built-in `code-review`. That includes the review step inside `/implement`, an explicit request to review a branch or a diff, and any point where a review is judged necessary unprompted.
 
 This repository is public, so CodeRabbit's GitHub app reviews pushed commits on its own a few minutes after each push. The skill is for reviewing locally, before a push.
+
+**A local review cannot see untracked files.** `coderabbit review -t uncommitted` reads the git diff, so brand new files are invisible to it and it reports a clean pass having reviewed nothing. Run `git add -N <path>` first. Its findings are worth taking seriously: across the kernel it was right six times and wrong none, including one it raised twice.
 
 ## Commands
 
