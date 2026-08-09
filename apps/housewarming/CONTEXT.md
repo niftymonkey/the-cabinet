@@ -20,6 +20,8 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 
 **Spirit**: One of the house's hidden residents. Holds exactly one trait on each of the four axes. Every spirit is a keeper who lived here before and failed, which is why they are here and why they take warmth. _Avoid_: ghost, monster, creature, entity, haunt.
 
+**Roster**: The finite set of spirits a playthrough rolls at the start. Its size is visible to the keeper from the first night, even though its members arrive staggered as the house opens. _Avoid_: cast, lineup, list, party.
+
 **Axis**: One of the four dimensions a spirit's traits are drawn from: hour, lure, aversion, haunt. Every axis pairs with something the keeper can set, because a trait no experiment can test is only noise. _Avoid_: dimension, category, slot, column, field.
 
 **Trait**: The one value a spirit holds on a given axis. _Avoid_: attribute, property, stat, characteristic.
@@ -38,6 +40,8 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 
 **Trace**: What a spirit leaves in a room overnight. Its kind (knocking, scratching, footprints in ash, moved objects) is openly visible, unique to the spirit that leaves it, and carries no trait information: pure identity, never a hidden fifth axis, and never a state of an instrument or of the house's cold. Frost and damp belong to the cold itself, not to any spirit. _Avoid_: clue, evidence, sign, tell.
 
+**Sighting**: The night a spirit's trace first appears. Its page in the book opens there, and nothing before it is evidence about it, because a room that stood empty before it moved in says nothing about where it lives. _Avoid_: discovery, encounter, first contact, reveal.
+
 ### Naming
 
 **Naming**: Submitting a complete true name for a spirit. The action and the mechanic are the same word. _Avoid_: binding, capturing, quieting, taking in, solving, catching.
@@ -47,6 +51,8 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 **Loose**: A spirit not yet named. A loose spirit drains warmth, and each of its traits the keeper has ruled in reduces that drain. _Avoid_: unbound, unnamed, free, wild, unsolved, active.
 
 ### The cycle
+
+**Run**: One playthrough, from the first night to the house won, left, or lost. It carries the seed it was rolled from, so it replays exactly, and it holds the mornings the keeper has seen as well as the house itself. _Avoid_: game, session, attempt, save.
 
 **Night**: One turn. The keeper places experiments, then sleeps. _Avoid_: turn, day, round, cycle.
 
@@ -73,6 +79,8 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 ### Generation and tuning
 
 **Pool**: The set of values available on one axis at a given point in a playthrough. Widens as the house opens up. _Avoid_: options, choices, table, deck.
+
+**Stage**: One state of the house, opened by naming rather than by a date. Each opening widens a pool, and a spirit's traits are drawn from the pools in force at the stage it arrives with, so an opening never widens a puzzle already in progress. _Avoid_: level, phase, tier, chapter.
 
 **Generator**: What rolls a playthrough's spirits from the pools. Its rules live in data rather than code so it can be replaced without touching anything else. _Avoid_: procgen, roller, spawner.
 
