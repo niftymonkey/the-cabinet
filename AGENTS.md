@@ -25,6 +25,10 @@ The five canonical triage roles, each label string equal to its name. See `docs/
 
 Multi-context: `CONTEXT-MAP.md` at the root, one `CONTEXT.md` per application. See `docs/agents/domain.md`.
 
+### Review gates
+
+Significant work carries review gates through three lenses, run by the gate agents in `.claude/agents/`: `gate-game-design`, `gate-tech-architecture`, `gate-product-vision`. Which gates fire for which activity, at what depth, and the marker each run must leave: `docs/agents/review-gates.md`. The session performing the work owns firing the right gates; do not depend on Mark to request them. The gameplay-terms and looked-up-evidence rules for design conversations live in the game design gate's charter, and any session doing design work follows them.
+
 ### How an issue is written here
 
 **The body carries the problem and the need, nothing else.** No approach, no file paths, no links. Everything else, the pointers, the constraints, the prior decisions, the skills to use, goes in a follow-up comment posted immediately after creation. Acceptance criteria are observable outcomes, not tasks. This applies to Wayfinder tickets as well as ordinary ones: the body is the question, and its context is the first comment.
@@ -56,10 +60,6 @@ Two reasons. A wrapped paragraph reflows entirely when one word changes, which m
 They are not a boundary. The design is expected to keep improving. Reopening a question because new information turned up is welcome, and reopening one because the answer went unread is waste. That is the whole distinction. Decisions genuinely hard to reverse live in `docs/adr/` and `apps/*/docs/adr/`; a position stated only in a design document is still a position.
 
 **Land the agreement before editing files.** When something is being worked through, put it in conversation and wait. Propose rather than record: design does not go into a document until it has been agreed.
-
-**A design question is put to Mark in gameplay terms.** When a decision affects how the game plays, describe what the player would see, do, and feel under each option, not the data model. Add the technical framing alongside only when it is genuinely needed, never instead of the gameplay one. Mark has thirty years as an engineer and zero as a game designer, so the gameplay reading is the one he needs in order to judge.
-
-**Guidance on game design rests on looked-up evidence.** When recommending a design decision, look up how real games and industry practice handle the same problem and cite what was found, rather than arguing from intuition. Research beats taste here for the same reason the solver beats taste on difficulty.
 
 **Read what was actually written.** "Does not have to" is permission and "never" is a prohibition, and turning one into the other has caused real rework here more than once. Before building an argument on a phrase, check that the argument answers what was said rather than something adjacent.
 
