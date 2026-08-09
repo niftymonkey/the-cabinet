@@ -48,7 +48,21 @@ A house with hidden residents. Each night the keeper sets out experiments and ea
 
 **Named**: A spirit whose true name has been submitted correctly. A named spirit works the house and produces warmth. _Avoid_: bound, caught, tamed, solved, captured.
 
-**Loose**: A spirit not yet named. A loose spirit drains warmth, and each of its traits the keeper has ruled in reduces that drain. _Avoid_: unbound, unnamed, free, wild, unsolved, active.
+**Loose**: A spirit not yet named. A loose spirit drains warmth, and each of its traits the mornings have settled reduces that drain, whatever the keeper's page says. _Avoid_: unbound, unnamed, free, wild, unsolved, active.
+
+### The book's parts
+
+**Page**: One spirit's leaf in the book, opened at its sighting and ruled from the pools in force at the stage it arrived. Values from later openings are simply absent, never grayed. Shows the spirit's current drain. _Avoid_: sheet, card, profile.
+
+**Strike**: The keeper's hand ruling a pool value out on a spirit's page. Never verified by the game, so it can be wrong. _Avoid_: mark, cross out, eliminate, rule out (as the interface word).
+
+**Circle**: The keeper's hand ruling a pool value in on a spirit's page, at most one per axis. Four circles fill the entry's name line, ready to submit. Never verified. _Avoid_: mark, confirm, lock, select.
+
+**Entry**: One spirit's written record on its page, completed at naming: a fixed four-slot sentence composed from the traits' phrase fragments. _Avoid_: stat line, record, result.
+
+**Roll**: The page that opens a year's section of the book: one ruled line per spirit stirring that year. A line takes the spirit's trace at its sighting and its name at its naming, so the roll is the roster's size, the naming count, and the win condition at a glance. Her line is ruled at her coda sighting, not before. _Avoid_: manifest, index, checklist, tracker.
+
+**Ledger**: The book's factual record of every watched morning: night, room, scene, and what each instrument showed. Written by itself, consultable any time, and it records what happened, never what it means; the meaning is the keeper's strikes and circles. _Avoid_: log, history, replay.
 
 ### The cycle
 
