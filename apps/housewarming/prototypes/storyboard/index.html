@@ -2636,7 +2636,7 @@
       const f = FRAMES[idx];
       if (mounted) {
         app.stage.removeChild(mounted);
-        mounted.destroy({ children: true });
+        mounted.destroy({ children: true, context: true });
       }
       mounted = f.draw();
       app.stage.addChild(mounted);

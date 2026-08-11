@@ -426,7 +426,7 @@
         if (!Ctx) return;
         ac = new Ctx();
         master = ac.createGain();
-        master.gain.value = 0.85;
+        master.gain.value = muted ? 0 : 0.85;
         master.connect(ac.destination);
         const n = Math.floor(ac.sampleRate * 2);
         noiseBuf = ac.createBuffer(1, n, ac.sampleRate);
@@ -3763,7 +3763,7 @@
         : // both sides of the choice, two lines each: what going buys,
           // then what staying buys and what it costs
           [
-            'Go now: winter out somewhere warm, keep the book,',
+            'Go now: find a warm room in town, keep the book,',
             'and next autumn starts ahead of this one.',
             'Stay, and you could still name the rest this year.',
             'Past a certain cold, there is no going at all.',
@@ -4697,7 +4697,7 @@
         night: true,
         make: scNight,
         caption:
-          'The candle burns, gutters, and goes; then the dark is total and the whole night is sound. A knock at the threshold, a step on the stair, a creak, then dawn. This is the beat sound design exists for, so listen rather than watch.',
+          'The candle burns, gutters, and goes; then the dark is total and the whole night is sound. A knock at the threshold, a step crossing the boards, a creak, then dawn, everything heard inside the room the night was set in and nothing from anywhere else. This is the beat sound design exists for, so listen rather than watch.',
       },
       {
         board: 7,
@@ -4943,7 +4943,7 @@
       sceneT = 0;
       if (cur) {
         app.stage.removeChild(cur.view);
-        cur.view.destroy({ children: true });
+        cur.view.destroy({ children: true, context: true });
       }
       cur = SCENES[i].make();
       app.stage.addChild(cur.view);
@@ -5023,10 +5023,12 @@
     // one stable key, forever; rounds are separated with the Clear button
     const NOTES_KEY = 'housewarming-playthrough-notes';
     let notes = {};
+    let storageOk = true;
     try {
       notes = JSON.parse(localStorage.getItem(NOTES_KEY)) || {};
     } catch (e) {
       notes = {};
+      storageOk = false;
     }
     const noteEl = document.getElementById('note');
     const noteCountEl = document.getElementById('notecount');
@@ -5037,16 +5039,23 @@
         b.classList.toggle('noted', Boolean(notes[SCENES[i].board])),
       );
       const n = Object.keys(notes).length;
-      noteCountEl.textContent = n
-        ? `${n} scene${n === 1 ? '' : 's'} noted`
-        : 'no notes yet';
+      const said = n ? `${n} scene${n === 1 ? '' : 's'} noted` : 'no notes yet';
+      noteCountEl.textContent = storageOk
+        ? said
+        : `${said}, not saved in this browser, copy them before you close the tab`;
     }
 
     noteEl.addEventListener('input', () => {
       const b = SCENES[idx].board;
       if (noteEl.value.trim()) notes[b] = noteEl.value;
       else delete notes[b];
-      localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+      // in-memory first, so a storage refusal still leaves Copy all working
+      try {
+        localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+        storageOk = true;
+      } catch (e) {
+        storageOk = false;
+      }
       refreshNoteMarks();
     });
 
