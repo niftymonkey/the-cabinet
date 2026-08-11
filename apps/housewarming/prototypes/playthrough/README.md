@@ -4,7 +4,7 @@ The scripted pass for the Wayfinder ticket [The whole game, watched: storyboard,
 
 **The question.** The storyboard settled what each beat looks like as a still. This asks the next thing: does the shape of play hold up when the beats run one after another with motion and sound, at the speed a player would actually meet them.
 
-**What it is.** Twenty-three animated PixiJS scenes playing themselves end to end in about four and a half minutes. Nothing is clickable. A pale ring stands in for the player's cursor, so what gets clicked and when is visible rather than implied; every sound is synthesised in WebAudio in the page, so the file stays self-contained.
+**What it is.** Twenty-three animated PixiJS scenes playing themselves end to end in about four and three quarter minutes. Nothing is clickable. A pale ring stands in for the player's cursor, so what gets clicked and when is visible rather than implied; every sound is synthesised in WebAudio in the page, so the file stays self-contained.
 
 **Shape of the run.** Mark's call, 2026-08-11: the branch beats play as two years rather than as a highlight reel. Year one runs arrival, the loop, the house opening, and the Leave offer, and ends by taking the road; a single marked aside off the offer shows the year you stay one night too long and freeze. The return then opens year two on the warmer gauge, and that year runs to the win, the tea offer, the coda, and her.
 
@@ -24,4 +24,6 @@ Scenes are pure functions of scene data returning `{ view, update(t), cues }`: a
 
 ## What it decided
 
-Nothing yet. Mark's approval of this pass resolves #20; decision-log entries land in `game-concept.md` at that point.
+Mark approved this pass on 2026-08-11, which resolves #20. The decisions it settled are in the decision log in `apps/housewarming/docs/design/game-concept.md`, dated 2026-08-11, and the reasoning behind each is in `storyboard/scripted-pass-brief.md`. What the pass answered that a still could not: the night is set in the room rather than in a form, the withdrawn offer is found one night too late rather than shown the moment you decline to leave, and freezing plays as a collapse rather than cutting to a still.
+
+One note stays open by Mark's choice: a sound cue he still finds a little off, deferred rather than fixed. Every sound here is synthesised in the page and cheap to retune.
