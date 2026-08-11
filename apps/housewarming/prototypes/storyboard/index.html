@@ -1,0 +1,2680 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Housewarming, watched</title>
+<style>
+  :root {
+    --ground: #0c111d;
+    --surface: #131a2b;
+    --ink: #d9d2c4;
+    --muted: #7d8699;
+    --line: #232d44;
+    --flame: #e8a83e;
+    --ask: #9fc0d4;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font:
+      15px/1.5 system-ui,
+      sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0.6rem 1rem 0.5rem;
+  }
+  h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: normal;
+    font-size: 1.25rem;
+    margin: 0;
+    letter-spacing: 0.04em;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  #stagewrap {
+    display: flex;
+    justify-content: center;
+    padding: 0 1rem;
+  }
+  #stage {
+    width: 100%;
+    max-width: 1060px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #0b101e;
+  }
+  #stage canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  footer {
+    max-width: 1060px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0.6rem 1rem 1rem;
+  }
+  #actline {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+  }
+  #act {
+    color: var(--flame);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  #count {
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+  }
+  #title {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: normal;
+    font-size: 1.15rem;
+    margin: 0.15rem 0 0.25rem;
+  }
+  #caption {
+    margin: 0;
+    color: var(--ink);
+    font-size: 0.9rem;
+  }
+  #ask {
+    margin: 0.3rem 0 0;
+    color: var(--ask);
+    font-size: 0.9rem;
+    font-style: italic;
+  }
+  #ask.settled {
+    color: #5c6c8c;
+  }
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  nav button {
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.2rem 0.7rem;
+    cursor: pointer;
+  }
+  nav button:hover {
+    border-color: var(--flame);
+  }
+  #dots {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  #dots button {
+    width: 0.7rem;
+    height: 0.7rem;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--line);
+    border: none;
+  }
+  #dots button[aria-current='true'] {
+    background: var(--flame);
+  }
+  #dots button.noted {
+    box-shadow: 0 0 0 2px var(--ask);
+  }
+  .hint {
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+  #notes {
+    margin-top: 0.6rem;
+  }
+  #note {
+    width: 100%;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    resize: vertical;
+    min-height: 3.2rem;
+  }
+  #note:focus {
+    outline: none;
+    border-color: var(--ask);
+  }
+  #note::placeholder {
+    color: var(--muted);
+  }
+  #notesline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.3rem;
+  }
+  #copyall,
+  #clearall {
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.2rem 0.7rem;
+    cursor: pointer;
+  }
+  #copyall:hover {
+    border-color: var(--flame);
+  }
+  #clearall:hover {
+    border-color: var(--ask);
+  }
+</style>
+
+<header>
+  <div>
+    <h1>Housewarming, watched</h1>
+    <div class="sub">
+      Storyboard, first pass. One still frame per beat of the game, ticket
+      <a
+        href="https://github.com/niftymonkey/the-cabinet/issues/20"
+        style="color: inherit"
+        >#20</a
+      >.
+    </div>
+  </div>
+  <nav>
+    <button id="prev" type="button">&larr; Prev</button>
+    <div id="dots"></div>
+    <button id="next" type="button">Next &rarr;</button>
+    <span class="hint">arrow keys work</span>
+  </nav>
+</header>
+
+<div id="stagewrap"><div id="stage"></div></div>
+
+<footer>
+  <div id="actline"><span id="act"></span><span id="count"></span></div>
+  <h2 id="title"></h2>
+  <p id="caption"></p>
+  <p id="ask"></p>
+  <div id="notes">
+    <textarea
+      id="note"
+      rows="2"
+      placeholder="Notes on this frame. Saved in this browser as you type."
+    ></textarea>
+    <div id="notesline">
+      <span id="notecount" class="hint"></span>
+      <span>
+        <button id="clearall" type="button">Clear notes</button>
+        <button id="copyall" type="button">Copy all notes</button>
+      </span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js"></script>
+<script>
+  (async () => {
+    const { Application, Container, Graphics, Text, FillGradient } = PIXI;
+    const W = 1280;
+    const H = 720;
+
+    const app = new Application();
+    await app.init({
+      width: W,
+      height: H,
+      background: '#0b101e',
+      antialias: true,
+      autoStart: false,
+      resolution: Math.min(window.devicePixelRatio || 1, 2),
+      autoDensity: true,
+    });
+    document.getElementById('stage').appendChild(app.canvas);
+    // autoDensity writes inline pixel dimensions; the page scales the canvas.
+    app.canvas.style.width = '100%';
+    app.canvas.style.height = 'auto';
+
+    // Deterministic scatter so every visit shows the identical frame.
+    function rng(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return s / 4294967296;
+      };
+    }
+
+    // ---- palettes -------------------------------------------------------
+    // Cold lives in blue and slate, warmth in gold. No brown, no purple.
+    const PAL = {
+      night: {
+        wall: 0x141d34,
+        floor: 0x0d1425,
+        line: 0x1f2b48,
+        glass: 0x22334f,
+      },
+      dusk: {
+        wall: 0x243352,
+        floor: 0x18223c,
+        line: 0x33476e,
+        glass: 0x4e6f96,
+      },
+      dawn: {
+        wall: 0x35465f,
+        floor: 0x25314a,
+        line: 0x475a7a,
+        glass: 0xdde9f1,
+      },
+      warm: {
+        wall: 0x40465c,
+        floor: 0x2d3449,
+        line: 0x525b78,
+        glass: 0xa5bacc,
+      },
+      frozen: {
+        wall: 0x1e2a45,
+        floor: 0x141e36,
+        line: 0x2c3c60,
+        glass: 0xc6dde9,
+      },
+    };
+    const INK = 0x2c3340; // the keeper's ink
+    const HER_INK = 0x51677c; // her ink, faded
+    const PAPER = 0xe9e1cd;
+    const PAPER_EDGE = 0xcfc5ac;
+    const GOLD = 0xe8a83e;
+    const FLAME_CORE = 0xfff3d0;
+    const SALT = 0xeef2f6;
+    const ASH = 0x55627a;
+    const SILHOUETTE = 0x0c1220;
+    const ACCENT_KEEPER = 0x4fa3a8; // teal scarf: the keeper
+    const ACCENT_AUNT = 0xd8a23c; // gold shawl: her
+
+    const serif = 'Georgia, "Times New Roman", serif';
+
+    // ---- shared vocabulary ---------------------------------------------
+
+    function sceneBase(pal) {
+      const c = new Container();
+      c.addChild(
+        new Graphics()
+          .rect(0, 0, W, 560)
+          .fill(pal.wall)
+          .rect(0, 560, W, H - 560)
+          .fill(pal.floor)
+          .rect(0, 552, W, 8)
+          .fill(pal.line),
+      );
+      // floorboards
+      const g = new Graphics();
+      for (let i = 0; i < 9; i++) {
+        const y = 578 + i * 18;
+        g.moveTo(0, y)
+          .lineTo(W, y)
+          .stroke({ width: 1, color: pal.line, alpha: 0.45 });
+      }
+      c.addChild(g);
+      return c;
+    }
+
+    function vignette(strength = 0.5) {
+      const grad = new FillGradient({
+        type: 'radial',
+        center: { x: 0.5, y: 0.5 },
+        innerRadius: 0,
+        outerCenter: { x: 0.5, y: 0.5 },
+        outerRadius: 0.75,
+        colorStops: [
+          { offset: 0, color: 'rgba(4,6,12,0)' },
+          { offset: 0.65, color: 'rgba(4,6,12,0)' },
+          { offset: 1, color: `rgba(4,6,12,${strength})` },
+        ],
+      });
+      return new Graphics().rect(0, 0, W, H).fill(grad);
+    }
+
+    function windowFrame(pal, { frost = 0, moon = false, shaft = false } = {}) {
+      const c = new Container();
+      const x = 150,
+        y = 120,
+        w = 190,
+        h = 280;
+      c.addChild(
+        new Graphics()
+          .rect(x - 14, y - 14, w + 28, h + 42)
+          .fill(pal.line)
+          .rect(x, y, w, h)
+          .fill(pal.glass)
+          .rect(x - 22, y + h + 14, w + 44, 14)
+          .fill(pal.line),
+      );
+      // mullions
+      c.addChild(
+        new Graphics()
+          .rect(x + w / 2 - 3, y, 6, h)
+          .fill(pal.wall)
+          .rect(x, y + h / 2 - 3, w, 6)
+          .fill(pal.wall),
+      );
+      if (moon) {
+        c.addChild(
+          new Graphics()
+            .circle(x + w * 0.7, y + h * 0.25, 22)
+            .fill({ color: 0xc4d6e2, alpha: 0.8 }),
+        );
+      }
+      if (frost > 0) {
+        const g = new Graphics();
+        const r = rng(7);
+        for (const [cx, cy] of [
+          [x, y],
+          [x + w, y],
+          [x, y + h],
+          [x + w, y + h],
+          [x + w / 2, y + h / 2],
+        ]) {
+          const reach = 26 + frost * 62;
+          for (let i = 0; i < 9; i++) {
+            const a = r() * Math.PI * 2;
+            const len = reach * (0.4 + r() * 0.6);
+            g.moveTo(cx, cy)
+              .lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len)
+              .stroke({
+                width: 1.5,
+                color: 0xbfe0ee,
+                alpha: 0.25 + frost * 0.4,
+              });
+          }
+          g.circle(cx, cy, 8 + frost * 16).fill({
+            color: 0xcfe8f2,
+            alpha: 0.12 + frost * 0.2,
+          });
+        }
+        c.addChild(g);
+      }
+      if (shaft) {
+        const g = new Graphics()
+          .poly([x + 10, y + 30, x + w, y + 10, W * 0.62, 640, x + 60, 660])
+          .fill({ color: 0xe8f0f6, alpha: 0.07 });
+        c.addChild(g);
+      }
+      return c;
+    }
+
+    function hearth(pal, { lit = false, tidy = false, dead = false } = {}) {
+      const c = new Container();
+      const x = 830,
+        w = 210,
+        top = 310,
+        floor = 560;
+      // surround
+      c.addChild(
+        new Graphics()
+          .rect(x - 26, top - 40, w + 52, 26)
+          .fill(pal.line) // mantel shelf
+          .rect(x - 18, top - 14, 18, floor - top + 14)
+          .fill(pal.line)
+          .rect(x + w, top - 14, 18, floor - top + 14)
+          .fill(pal.line)
+          .rect(x, top, w, floor - top)
+          .fill(0x0a0f1c),
+      );
+      if (lit) {
+        const glow = new FillGradient({
+          type: 'radial',
+          center: { x: 0.5, y: 0.5 },
+          innerRadius: 0,
+          outerCenter: { x: 0.5, y: 0.5 },
+          outerRadius: 0.5,
+          colorStops: [
+            { offset: 0, color: 'rgba(255,190,90,0.55)' },
+            { offset: 0.6, color: 'rgba(255,150,60,0.18)' },
+            { offset: 1, color: 'rgba(255,150,60,0)' },
+          ],
+        });
+        const halo = new Graphics().circle(0, 0, 260).fill(glow);
+        halo.position.set(x + w / 2, floor - 40);
+        halo.blendMode = 'add';
+        c.addChild(halo);
+        const fire = new Graphics()
+          .ellipse(x + w / 2 - 28, floor - 26, 20, 30)
+          .fill({ color: 0xf0862e, alpha: 0.9 })
+          .ellipse(x + w / 2 + 20, floor - 30, 24, 38)
+          .fill({ color: 0xf0a03e, alpha: 0.9 })
+          .ellipse(x + w / 2, floor - 34, 14, 44)
+          .fill(0xffd98a)
+          .ellipse(x + w / 2, floor - 24, 8, 20)
+          .fill(FLAME_CORE);
+        c.addChild(fire);
+      } else {
+        // cold grate
+        c.addChild(
+          new Graphics()
+            .ellipse(x + w / 2, floor - 18, 58, 12)
+            .fill({ color: dead ? 0x39445c : 0x2a3348, alpha: 0.9 }),
+        );
+      }
+      const logColor = 0x27314a;
+      c.addChild(
+        new Graphics()
+          .roundRect(x + w / 2 - 52, floor - 22, 44, 12, 6)
+          .fill(logColor)
+          .roundRect(x + w / 2 + 4, floor - 20, 48, 12, 6)
+          .fill(logColor),
+      );
+      if (tidy) {
+        // wood stacked neatly beside the hearth
+        const g = new Graphics();
+        for (let i = 0; i < 3; i++)
+          for (let j = 0; j <= i; j++)
+            g.roundRect(
+              x - 96 + j * 34 - i * 17,
+              floor - 16 - (2 - i) * 18,
+              30,
+              15,
+              7,
+            ).fill(0x3a4864);
+        c.addChild(g);
+      }
+      return c;
+    }
+
+    function doorFrame(pal, { openGap = 0 } = {}) {
+      const c = new Container();
+      const x = 1130,
+        w = 130,
+        top = 160,
+        floor = 560;
+      c.addChild(
+        new Graphics()
+          .rect(x - 14, top - 14, w + 28, 14)
+          .fill(pal.line)
+          .rect(x - 14, top, 14, floor - top)
+          .fill(pal.line)
+          .rect(x + w, top, 14, floor - top)
+          .fill(pal.line),
+      );
+      if (openGap > 0) {
+        c.addChild(
+          new Graphics()
+            .rect(x, top, w, floor - top)
+            .fill(0x080d18)
+            .rect(x, top, w * (1 - openGap), floor - top)
+            .fill(0x1b2540),
+        );
+      } else {
+        c.addChild(
+          new Graphics()
+            .rect(x, top, w, floor - top)
+            .fill(0x1b2540)
+            .roundRect(x + 16, top + 30, w - 32, 160, 4)
+            .stroke({ width: 2, color: pal.line })
+            .roundRect(x + 16, top + 220, w - 32, 160, 4)
+            .stroke({ width: 2, color: pal.line })
+            .circle(x + 22, top + 208, 5)
+            .fill(0x8fa0b8),
+        );
+      }
+      // threshold board
+      c.addChild(new Graphics().rect(x - 30, 560, w + 60, 12).fill(pal.line));
+      return c;
+    }
+
+    function table(pal) {
+      const c = new Container();
+      const x = 570,
+        y = 462,
+        w = 150;
+      c.addChild(
+        new Graphics()
+          .rect(x, y, w, 14)
+          .fill(0x2a3450)
+          .rect(x + 10, y + 14, 12, 84)
+          .fill(0x232c46)
+          .rect(x + w - 22, y + 14, 12, 84)
+          .fill(0x232c46),
+      );
+      return c;
+    }
+
+    // A candle whose column shows the four watch rings. frac is how much is
+    // left, mark is the watch band (0..3) the flame took its mark at, or null.
+    function candle(
+      x,
+      baseY,
+      { frac = 1, lit = true, mark = null, scale = 1 } = {},
+    ) {
+      const c = new Container();
+      const fullH = 96 * scale;
+      const h = fullH * frac;
+      const wax = 15 * scale;
+      c.addChild(
+        new Graphics()
+          .ellipse(x, baseY, wax + 7, 6 * scale)
+          .fill(0x33405c) // holder
+          .roundRect(x - wax, baseY - h, wax * 2, h, 5)
+          .fill(0xece4cc)
+          .ellipse(x, baseY - h, wax, 4 * scale)
+          .fill(0xf7edd6),
+      );
+      // watch rings on what remains
+      const rings = new Graphics();
+      for (let i = 1; i < 4; i++) {
+        const ry = baseY - (fullH * i) / 4;
+        if (ry > baseY - h + 4 * scale) {
+          rings
+            .moveTo(x - wax + 2, ry)
+            .lineTo(x + wax - 2, ry)
+            .stroke({ width: 1.5, color: 0xb9ae92, alpha: 0.8 });
+        }
+      }
+      c.addChild(rings);
+      if (mark !== null) {
+        const my = baseY - (fullH * (4 - mark - 0.5)) / 4;
+        if (my > baseY - h) {
+          c.addChild(
+            new Graphics()
+              .roundRect(x - wax - 2, my - 4, wax * 2 + 4, 8, 3)
+              .fill({ color: 0x1a2233, alpha: 0.85 }),
+          );
+        }
+      }
+      if (lit) {
+        const glow = new FillGradient({
+          type: 'radial',
+          center: { x: 0.5, y: 0.5 },
+          innerRadius: 0,
+          outerCenter: { x: 0.5, y: 0.5 },
+          outerRadius: 0.5,
+          colorStops: [
+            { offset: 0, color: 'rgba(255,205,130,0.5)' },
+            { offset: 0.5, color: 'rgba(255,170,90,0.12)' },
+            { offset: 1, color: 'rgba(255,170,90,0)' },
+          ],
+        });
+        const halo = new Graphics().circle(0, 0, 130 * scale).fill(glow);
+        halo.position.set(x, baseY - h - 14 * scale);
+        halo.blendMode = 'add';
+        const flame = new Graphics()
+          .ellipse(x, baseY - h - 12 * scale, 7 * scale, 13 * scale)
+          .fill({ color: 0xffb45e, alpha: 0.6 })
+          .ellipse(x, baseY - h - 10 * scale, 4 * scale, 8 * scale)
+          .fill(FLAME_CORE);
+        flame.blendMode = 'add';
+        c.addChild(halo, flame);
+      } else {
+        c.addChild(
+          new Graphics()
+            .rect(x - 1, baseY - h - 8 * scale, 2, 8 * scale)
+            .fill(0x3c3428),
+        );
+      }
+      return c;
+    }
+
+    function bowl(x, y, { state = 'milk', scale = 1 } = {}) {
+      const c = new Container();
+      const rx = 30 * scale;
+      c.addChild(
+        new Graphics()
+          .ellipse(x, y, rx, 11 * scale)
+          .fill(0x8fa0b8)
+          .ellipse(x, y - 3 * scale, rx - 5, 8 * scale)
+          .fill(state === 'milk' ? 0xf2f6f8 : 0x1a2438),
+      );
+      return c;
+    }
+
+    function saltLine(cx, y, width, { state = 'intact' } = {}) {
+      const c = new Container();
+      const g = new Graphics();
+      const r = rng(41);
+      const n = Math.floor(width / 7);
+      for (let i = 0; i < n; i++) {
+        const px = cx - width / 2 + i * 7 + r() * 3;
+        const inGap = state === 'scuffed' && i > n * 0.35 && i < n * 0.6;
+        if (inGap) continue;
+        g.circle(px, y + (r() - 0.5) * 4, 2.2).fill({
+          color: SALT,
+          alpha: 0.9,
+        });
+      }
+      if (state === 'scuffed') {
+        // the smear where something crossed
+        for (let i = 0; i < 14; i++) {
+          g.circle(cx - width * 0.08 + r() * 44, y + 6 + r() * 20, 1.6).fill({
+            color: SALT,
+            alpha: 0.5,
+          });
+        }
+      }
+      c.addChild(g);
+      return c;
+    }
+
+    function ashPrints(points) {
+      const g = new Graphics();
+      for (let i = 0; i < points.length; i++) {
+        const [x, y] = points[i];
+        const side = i % 2 === 0 ? -7 : 7;
+        g.ellipse(x + side, y, 7, 12).fill({ color: ASH, alpha: 0.55 });
+      }
+      return g;
+    }
+
+    function warmthGauge(
+      x,
+      y,
+      { frac = 0.7, h = 190, offerBand = null, provisionTick = null } = {},
+    ) {
+      const c = new Container();
+      const w = 26;
+      c.addChild(
+        new Graphics()
+          .roundRect(x, y, w, h, 12)
+          .fill(0x0d1322)
+          .roundRect(x, y, w, h, 12)
+          .stroke({ width: 2, color: 0x51617f })
+          .circle(x + w / 2, y + h + 16, 20)
+          .fill(0x0d1322)
+          .circle(x + w / 2, y + h + 16, 20)
+          .stroke({ width: 2, color: 0x51617f }),
+      );
+      const fillH = (h - 10) * frac;
+      const warm = frac > 0.35;
+      const col = warm ? GOLD : 0x7fa8c0;
+      c.addChild(
+        new Graphics()
+          .roundRect(x + 6, y + (h - 5) - fillH, w - 12, fillH, 6)
+          .fill(col)
+          .circle(x + w / 2, y + h + 16, 13)
+          .fill(col),
+      );
+      const g = new Graphics();
+      for (let i = 1; i < 5; i++) {
+        g.moveTo(x + w, y + (h * i) / 5)
+          .lineTo(x + w + 8, y + (h * i) / 5)
+          .stroke({ width: 2, color: 0x51617f });
+      }
+      c.addChild(g);
+      if (offerBand !== null) {
+        c.addChild(
+          new Graphics()
+            .rect(
+              x - 8,
+              y + h * (1 - offerBand[1]),
+              8,
+              h * (offerBand[1] - offerBand[0]),
+            )
+            .fill({ color: 0x9fc0d4, alpha: 0.65 }),
+        );
+      }
+      if (provisionTick !== null) {
+        c.addChild(
+          new Graphics()
+            .moveTo(x - 12, y + h * (1 - provisionTick))
+            .lineTo(x + w + 12, y + h * (1 - provisionTick))
+            .stroke({ width: 3, color: GOLD, alpha: 0.9 }),
+        );
+      }
+      const label = new Text({
+        text: 'warmth',
+        style: {
+          fontFamily: serif,
+          fontSize: 15,
+          fill: 0x8fa0b8,
+          fontStyle: 'italic',
+        },
+      });
+      label.anchor.set(0.5, 0);
+      label.position.set(x + w / 2, y + h + 40);
+      c.addChild(label);
+      return c;
+    }
+
+    function bookSpread(cx, cy, w, h) {
+      const c = new Container();
+      const half = w / 2;
+      c.addChild(
+        new Graphics()
+          // page block edges
+          .roundRect(cx - half - 8, cy - h / 2 + 6, w + 16, h + 4, 6)
+          .fill(PAPER_EDGE)
+          // two pages, a hair of rotation each
+          .poly([
+            cx - half,
+            cy - h / 2,
+            cx - 6,
+            cy - h / 2 + 4,
+            cx - 6,
+            cy + h / 2 + 4,
+            cx - half,
+            cy + h / 2,
+          ])
+          .fill(PAPER)
+          .poly([
+            cx + 6,
+            cy - h / 2 + 4,
+            cx + half,
+            cy - h / 2,
+            cx + half,
+            cy + h / 2,
+            cx + 6,
+            cy + h / 2 + 4,
+          ])
+          .fill(PAPER)
+          .rect(cx - 6, cy - h / 2 + 4, 12, h)
+          .fill(0xd8cdb2),
+      );
+      return {
+        view: c,
+        left: { x: cx - half + 26, y: cy - h / 2 + 26, w: half - 52 },
+        right: { x: cx + 32, y: cy - h / 2 + 26, w: half - 58 },
+      };
+    }
+
+    function hand(
+      text,
+      { size = 19, ink = INK, italic = true, align = 'left' } = {},
+    ) {
+      return new Text({
+        text,
+        style: {
+          fontFamily: serif,
+          fontSize: size,
+          fill: ink,
+          fontStyle: italic ? 'italic' : 'normal',
+          align,
+          lineHeight: size * 1.45,
+        },
+      });
+    }
+
+    function strikeThrough(t, ink = INK) {
+      const g = new Graphics()
+        .moveTo(t.x - 3, t.y + t.height * 0.55)
+        .lineTo(t.x + t.width + 4, t.y + t.height * 0.48)
+        .stroke({ width: 2, color: ink, alpha: 0.85 });
+      return g;
+    }
+
+    function circleAround(t, ink = INK) {
+      return new Graphics()
+        .ellipse(
+          t.x + t.width / 2,
+          t.y + t.height / 2,
+          t.width / 2 + 12,
+          t.height / 2 + 7,
+        )
+        .stroke({ width: 2, color: ink, alpha: 0.9 });
+    }
+
+    function chair(x, floorY, { facing = 1 } = {}) {
+      const g = new Graphics();
+      const col = 0x2c3856;
+      // seat, back post behind the sitter, two legs
+      g.roundRect(x - 34, floorY - 66, 68, 12, 4)
+        .fill(col)
+        .roundRect(x - facing * 44, floorY - 156, 11, 100, 4)
+        .fill(col)
+        .rect(x - 30, floorY - 54, 9, 54)
+        .fill(col)
+        .rect(x + 21, floorY - 54, 9, 54)
+        .fill(col);
+      return g;
+    }
+
+    function figureSeated(x, floorY, accent) {
+      // seated in profile, facing right, large enough to read as a person
+      const c = new Container();
+      c.addChild(chair(x, floorY, { facing: 1 }));
+      const g = new Graphics()
+        .ellipse(x - 4, floorY - 148, 16, 19)
+        .fill(SILHOUETTE) // head, slumped a little
+        .roundRect(x - 24, floorY - 132, 44, 70, 14)
+        .fill(SILHOUETTE) // torso
+        .roundRect(x - 20, floorY - 70, 52, 16, 8)
+        .fill(SILHOUETTE) // lap, knees forward
+        .roundRect(x + 22, floorY - 62, 14, 62, 6)
+        .fill(SILHOUETTE) // shin
+        .ellipse(x + 34, floorY - 4, 16, 6)
+        .fill(SILHOUETTE); // foot
+      c.addChild(g);
+      // shawl or scarf across the shoulders
+      c.addChild(
+        new Graphics()
+          .roundRect(x - 24, floorY - 126, 44, 11, 5)
+          .fill({ color: accent, alpha: 0.95 }),
+      );
+      // hands folded in the lap
+      c.addChild(
+        new Graphics().ellipse(x + 2, floorY - 72, 9, 6).fill(SILHOUETTE),
+      );
+      return c;
+    }
+
+    function figureStanding(
+      x,
+      floorY,
+      accent,
+      { book = false, flip = false, color = SILHOUETTE } = {},
+    ) {
+      const c = new Container();
+      const d = flip ? -1 : 1;
+      const g = new Graphics()
+        .ellipse(x, floorY - 154, 13, 15)
+        .fill(color)
+        .roundRect(x - 16, floorY - 140, 32, 74, 12)
+        .fill(color)
+        .rect(x - 14, floorY - 68, 11, 68)
+        .fill(color)
+        .rect(x + 4, floorY - 68, 11, 68)
+        .fill(color);
+      c.addChild(g);
+      c.addChild(
+        new Graphics()
+          .roundRect(x - 16, floorY - 134, 32, 8, 4)
+          .fill({ color: accent, alpha: 0.95 }),
+      );
+      if (book) {
+        c.addChild(
+          new Graphics()
+            .roundRect(x + 10 * d, floorY - 112, 26 * d, 34, 3)
+            .fill(PAPER_EDGE)
+            .roundRect(x + 13 * d, floorY - 108, 20 * d, 26, 2)
+            .fill(PAPER),
+        );
+      }
+      return c;
+    }
+
+    function figureCrouched(x, floorY, accent) {
+      const c = new Container();
+      const g = new Graphics()
+        .ellipse(x - 10, floorY - 106, 16, 19)
+        .fill(SILHOUETTE)
+        .roundRect(x - 32, floorY - 90, 56, 48, 16)
+        .fill(SILHOUETTE)
+        .roundRect(x - 34, floorY - 44, 30, 44, 10)
+        .fill(SILHOUETTE)
+        .roundRect(x + 6, floorY - 44, 30, 44, 10)
+        .fill(SILHOUETTE)
+        .roundRect(x + 16, floorY - 74, 44, 11, 5)
+        .fill(SILHOUETTE); // reaching arm, laying the line
+      c.addChild(g);
+      c.addChild(
+        new Graphics()
+          .roundRect(x - 30, floorY - 84, 50, 9, 4)
+          .fill({ color: accent, alpha: 0.95 }),
+      );
+      return c;
+    }
+
+    function figureFallen(
+      x,
+      floorY,
+      accent,
+      { book = true, bun = false, cap = false } = {},
+    ) {
+      // collapsed forward from kneeling: hips high over the tucked legs, the
+      // back sloping down to the head at the floor, arms reaching to the book
+      const c = new Container();
+      const g = new Graphics()
+        .moveTo(x - 105, floorY)
+        .quadraticCurveTo(x - 108, floorY - 84, x - 56, floorY - 104)
+        .quadraticCurveTo(x - 4, floorY - 122, x + 36, floorY - 68)
+        .quadraticCurveTo(x + 56, floorY - 42, x + 66, floorY - 26)
+        .lineTo(x + 66, floorY)
+        .closePath()
+        .fill(SILHOUETTE) // the body, folded over the knees
+        .ellipse(x + 72, floorY - 24, 24, 21)
+        .fill(SILHOUETTE) // head, down at the floor
+        .roundRect(x + 56, floorY - 16, 126, 16, 8)
+        .fill(SILHOUETTE) // forearms past the head
+        .ellipse(x + 182, floorY - 9, 12, 7)
+        .fill(SILHOUETTE); // hands
+      if (bun) {
+        // her hair, knotted at the back of the head
+        g.circle(x + 52, floorY - 40, 9).fill(SILHOUETTE);
+      }
+      if (cap) {
+        // a knit cap: a different person under it
+        g.ellipse(x + 72, floorY - 42, 22, 11)
+          .fill(0x3d4f78)
+          .moveTo(x + 50, floorY - 37)
+          .lineTo(x + 94, floorY - 39)
+          .stroke({ width: 4, color: 0x51678f });
+      }
+      c.addChild(g);
+      // frost rim along the back and head, so the body reads against the dark
+      c.addChild(
+        new Graphics()
+          .moveTo(x - 104, floorY - 56)
+          .quadraticCurveTo(x - 78, floorY - 98, x - 24, floorY - 114)
+          .quadraticCurveTo(x + 14, floorY - 96, x + 44, floorY - 52)
+          .stroke({ width: 3, color: 0xbfd9e8, alpha: 0.5 }),
+      );
+      // shawl or scarf, ridden up along the folded back
+      c.addChild(
+        new Graphics()
+          .moveTo(x - 70, floorY - 80)
+          .quadraticCurveTo(x - 12, floorY - 118, x + 34, floorY - 60)
+          .stroke({ width: 16, color: accent, alpha: 0.95 }),
+      );
+      if (book) {
+        c.addChild(
+          new Graphics()
+            .roundRect(x + 200, floorY - 22, 84, 18, 2)
+            .fill(PAPER_EDGE)
+            .roundRect(x + 206, floorY - 29, 72, 10, 2)
+            .fill(PAPER),
+        );
+      }
+      return c;
+    }
+
+    function snowfall(seed, density = 90, area = [0, 0, W, H]) {
+      const g = new Graphics();
+      const r = rng(seed);
+      for (let i = 0; i < density; i++) {
+        g.circle(
+          area[0] + r() * area[2],
+          area[1] + r() * area[3],
+          1 + r() * 2.2,
+        ).fill({
+          color: 0xe8f2f8,
+          alpha: 0.35 + r() * 0.5,
+        });
+      }
+      return g;
+    }
+
+    function facade(
+      pal,
+      { snow = false, doorOpen = false, litWindow = false } = {},
+    ) {
+      const c = new Container();
+      c.addChild(
+        new Graphics()
+          .rect(0, 0, W, H)
+          .fill(0x0a0f1c) // night sky
+          .rect(80, 130, W - 160, 470)
+          .fill(pal.wall),
+      );
+      // roof line
+      c.addChild(
+        new Graphics().poly([40, 130, W / 2, 30, W - 40, 130]).fill(0x121a30),
+      );
+      // siding
+      const s = new Graphics();
+      for (let i = 0; i < 10; i++) {
+        const y = 170 + i * 44;
+        s.moveTo(80, y)
+          .lineTo(W - 80, y)
+          .stroke({ width: 1, color: pal.line, alpha: 0.5 });
+      }
+      c.addChild(s);
+      // windows
+      const win = (wx, lit) =>
+        new Graphics()
+          .rect(wx, 220, 110, 150)
+          .fill(lit ? 0xf3d68a : 0x101828)
+          .rect(wx, 220, 110, 150)
+          .stroke({ width: 6, color: pal.line })
+          .rect(wx + 52, 220, 6, 150)
+          .fill(pal.line);
+      c.addChild(win(230, false), win(920, litWindow));
+      // door
+      const dx = 560,
+        dw = 160,
+        dtop = 300,
+        dbot = 600;
+      c.addChild(
+        new Graphics()
+          .rect(dx - 16, dtop - 16, dw + 32, 16)
+          .fill(pal.line)
+          .rect(dx - 16, dtop, 16, dbot - dtop)
+          .fill(pal.line)
+          .rect(dx + dw, dtop, 16, dbot - dtop)
+          .fill(pal.line),
+      );
+      if (doorOpen) {
+        c.addChild(
+          new Graphics()
+            .rect(dx, dtop, dw, dbot - dtop)
+            .fill(0xf3d68a)
+            .rect(dx, dtop, 44, dbot - dtop)
+            .fill(0x27314c),
+        );
+      } else {
+        c.addChild(
+          new Graphics()
+            .rect(dx, dtop, dw, dbot - dtop)
+            .fill(0x1b2540)
+            .roundRect(dx + 20, dtop + 34, dw - 40, 100, 4)
+            .stroke({ width: 2, color: pal.line })
+            .roundRect(dx + 20, dtop + 160, dw - 40, 100, 4)
+            .stroke({ width: 2, color: pal.line })
+            .circle(dx + 28, dtop + 150, 6)
+            .fill(0x8fa0b8),
+        );
+      }
+      // step and ground
+      c.addChild(
+        new Graphics()
+          .rect(dx - 30, 600, dw + 60, 14)
+          .fill(pal.line)
+          .rect(0, 612, W, H - 612)
+          .fill(snow ? 0xdfeaf2 : pal.floor),
+      );
+      return c;
+    }
+
+    // ---- the frames -----------------------------------------------------
+
+    function fFrozen({ who }) {
+      const pal = PAL.frozen;
+      const c = sceneBase(pal);
+      c.addChild(windowFrame(pal, { frost: 1, shaft: true }));
+      c.addChild(hearth(pal, { lit: false, dead: true }));
+      c.addChild(doorFrame(pal));
+      // frost creeping along the floor edge
+      const r = rng(11);
+      const g = new Graphics();
+      for (let i = 0; i < 60; i++) {
+        g.circle(r() * W, 556 + r() * 10, 1.5 + r() * 2).fill({
+          color: 0xbfe0ee,
+          alpha: 0.3,
+        });
+      }
+      c.addChild(g);
+      // the window light pooling on the floor, so the body reads against it
+      c.addChild(
+        new Graphics()
+          .ellipse(560, 596, 310, 48)
+          .fill({ color: 0xdde9f1, alpha: 0.09 }),
+      );
+      // fallen in the winter light from the window, the book at the hands.
+      // Two different people: her hair in a bun, the keeper in a knit cap.
+      const fig = figureFallen(
+        470,
+        600,
+        who === 'keeper' ? ACCENT_KEEPER : ACCENT_AUNT,
+        who === 'keeper' ? { cap: true } : { bun: true },
+      );
+      c.addChild(fig);
+      if (who === 'aunt') {
+        const line = hand('Your aunt left you the house.', {
+          size: 26,
+          ink: 0xe6dfd0,
+          italic: false,
+        });
+        line.anchor = { x: 0.5, y: 0 };
+        line.position.set(W / 2, 656);
+        c.addChild(line);
+      }
+      c.addChild(vignette(0.5));
+      return c;
+    }
+
+    function fHerBook() {
+      const c = new Container();
+      c.addChild(new Graphics().rect(0, 0, W, H).fill(0x101726));
+      // desk edge
+      c.addChild(new Graphics().rect(0, 620, W, 100).fill(0x1a2233));
+      const spread = bookSpread(W / 2, 360, 900, 520);
+      c.addChild(spread.view);
+      const L = spread.left,
+        R = spread.right;
+      // left page: one of her finished entries
+      const lt = hand('No. 31 · the one that knocks', {
+        size: 20,
+        ink: HER_INK,
+      });
+      lt.position.set(L.x, L.y);
+      c.addChild(lt);
+      const sentence = hand(
+        'Abroad in the small hours,\ncomes to cream, will not cross\nrowan, and keeps the stair.',
+        { size: 23, ink: HER_INK },
+      );
+      sentence.position.set(L.x, L.y + 44);
+      c.addChild(sentence);
+      const led = hand('named the 14th night', { size: 17, ink: HER_INK });
+      led.alpha = 0.8;
+      led.position.set(L.x, L.y + 175);
+      c.addChild(led);
+      // a few struck candidates below, her working shown
+      const struckVals = ['dusk', 'first light', 'milk', 'salt'];
+      struckVals.forEach((v, i) => {
+        const t = hand(v, { size: 19, ink: HER_INK });
+        t.position.set(L.x + (i % 2) * 170, L.y + 230 + Math.floor(i / 2) * 40);
+        c.addChild(t, strikeThrough(t, HER_INK));
+      });
+      const margin = hand('One to a room. Always.', { size: 17, ink: HER_INK });
+      margin.rotation = -0.045;
+      margin.position.set(L.x - 6, L.y + 340);
+      c.addChild(margin);
+      // right page: the unfinished last entry
+      const rt = hand('No. 32 · the one that sings', {
+        size: 20,
+        ink: HER_INK,
+      });
+      rt.position.set(R.x, R.y);
+      c.addChild(rt);
+      const rows = [
+        ['dusk', true, 'mark low. it came late'],
+        ['midnight', false, ''],
+        ['honey', true, 'bowl full three nights'],
+        ['warmth', false, ''],
+      ];
+      rows.forEach(([v, struck, note], i) => {
+        const t = hand(v, { size: 20, ink: HER_INK });
+        t.position.set(R.x, R.y + 48 + i * 44);
+        c.addChild(t);
+        if (struck) {
+          c.addChild(strikeThrough(t, HER_INK));
+          if (note) {
+            const n = hand(note, { size: 15, ink: HER_INK });
+            n.alpha = 0.75;
+            n.position.set(R.x + 150, R.y + 52 + i * 44);
+            c.addChild(n);
+          }
+        }
+      });
+      const circled = hand('iron', { size: 20, ink: HER_INK });
+      circled.position.set(R.x, R.y + 48 + 4 * 44);
+      c.addChild(circled, circleAround(circled, HER_INK));
+      const cnote = hand('turned at the poker', { size: 15, ink: HER_INK });
+      cnote.alpha = 0.75;
+      cnote.position.set(R.x + 110, R.y + 52 + 4 * 44);
+      c.addChild(cnote);
+      // half-filled name line, cut off
+      const nl = hand('Abroad at midnight, comes to w', {
+        size: 22,
+        ink: HER_INK,
+      });
+      nl.position.set(R.x, R.y + 320);
+      c.addChild(nl);
+      // the pen stroke trailing off
+      c.addChild(
+        new Graphics()
+          .moveTo(R.x + nl.width + 2, R.y + 338)
+          .lineTo(R.x + nl.width + 40, R.y + 352)
+          .stroke({ width: 2, color: HER_INK, alpha: 0.5 }),
+      );
+      c.addChild(vignette(0.5));
+      return c;
+    }
+
+    function fRoll() {
+      const c = new Container();
+      c.addChild(new Graphics().rect(0, 0, W, H).fill(0x101726));
+      c.addChild(new Graphics().rect(0, 620, W, 100).fill(0x1a2233));
+      const spread = bookSpread(W / 2, 360, 900, 520);
+      c.addChild(spread.view);
+      const L = spread.left,
+        R = spread.right;
+      // left page: one of her finished years, the worked example
+      const lh = hand('Stirring, the year I came: six.', {
+        size: 20,
+        ink: HER_INK,
+      });
+      lh.position.set(L.x, L.y);
+      c.addChild(lh);
+      const herYear = [
+        ['the one that knocks', 'the 9th night'],
+        ['the one that sings', 'the 15th'],
+        ['the gray walker', 'the 21st'],
+        ['the latch-rattler', 'the 26th'],
+        ['the stair-counter', 'the 31st'],
+        ['the one that waits', 'the 38th'],
+      ];
+      const g0 = new Graphics();
+      herYear.forEach(([name, when], i) => {
+        const y = L.y + 60 + i * 44;
+        g0.moveTo(L.x, y + 26)
+          .lineTo(L.x + L.w, y + 26)
+          .stroke({ width: 1.5, color: 0x9a917c, alpha: 0.7 });
+        const t = hand(name, { size: 19, ink: HER_INK });
+        t.position.set(L.x + 4, y);
+        c.addChild(t);
+        const d = hand(when, { size: 14, ink: HER_INK });
+        d.alpha = 0.7;
+        d.position.set(L.x + L.w - 110, y + 8);
+        c.addChild(d);
+      });
+      c.addChild(g0);
+      // her threshold notes, small in the lower margin
+      const notes = [
+        'the second name opened the wing',
+        'the fourth, finer tools came',
+        'the fifth, the pantry',
+      ];
+      notes.forEach((n, i) => {
+        const t = hand(n, { size: 15, ink: HER_INK });
+        t.rotation = -0.02;
+        t.alpha = 0.85;
+        t.position.set(L.x + 8, L.y + 348 + i * 30);
+        c.addChild(t);
+      });
+      // right page: this year's roll, opened bare
+      const heading = hand('This year, stirring:', { size: 24, ink: INK });
+      heading.position.set(R.x, R.y);
+      c.addChild(heading);
+      const g = new Graphics();
+      for (let i = 0; i < 6; i++) {
+        const y = R.y + 80 + i * 56;
+        const n = hand(`${i + 1}.`, { size: 17, ink: INK, italic: false });
+        n.alpha = 0.45;
+        n.position.set(R.x, y - 24);
+        c.addChild(n);
+        g.moveTo(R.x + 34, y)
+          .lineTo(R.x + R.w, y)
+          .stroke({ width: 1.5, color: 0x9a917c, alpha: 0.9 });
+      }
+      c.addChild(g);
+      const last = hand('mind the count.', { size: 18, ink: HER_INK });
+      last.rotation = -0.03;
+      last.position.set(R.x + 8, R.y + 80 + 5 * 56 + 34);
+      c.addChild(last);
+      c.addChild(vignette(0.5));
+      return c;
+    }
+
+    function fSetupRoom({ popup = true, gauge = true, salt = true } = {}) {
+      const pal = PAL.dusk;
+      const c = sceneBase(pal);
+      // dusk horizon in the glass
+      c.addChild(windowFrame(pal));
+      const gold = new Graphics()
+        .rect(150, 330, 190, 70)
+        .fill({ color: 0xc7a04a, alpha: 0.35 });
+      c.addChild(gold);
+      c.addChild(hearth(pal, { lit: false }));
+      c.addChild(doorFrame(pal));
+      c.addChild(table(pal));
+      // the candle being cut: full column plus cut lengths beside it
+      c.addChild(candle(645, 462, { frac: 0.75, lit: false }));
+      c.addChild(
+        new Graphics().roundRect(688, 448, 26, 14, 4).fill(0xece4cc), // the cut stub lying on the table
+      );
+      // placement halos: where things go
+      const halo = (x, y, rx, ry) =>
+        new Graphics()
+          .ellipse(x, y, rx, ry)
+          .stroke({ width: 3, color: GOLD, alpha: 0.9 });
+      c.addChild(halo(645, 470, 60, 16)); // candle spot
+      c.addChild(bowl(940, 596, { state: 'milk' }));
+      c.addChild(halo(940, 598, 48, 14));
+      if (salt) c.addChild(saltLine(1178, 574, 130, { state: 'intact' }));
+      c.addChild(halo(1178, 576, 84, 14));
+      // the keeper: laying the line, or still at the bowl with the door open
+      c.addChild(
+        figureCrouched(salt ? 1080 : 850, salt ? 560 : 585, ACCENT_KEEPER),
+      );
+      // the book, one held key away, the hint always on screen
+      c.addChild(
+        new Graphics()
+          .roundRect(24, 660, 176, 40, 6)
+          .fill({ color: 0x18203a, alpha: 0.9 })
+          .roundRect(24, 660, 176, 40, 6)
+          .stroke({ width: 1.5, color: 0x3a4a70 })
+          .roundRect(38, 668, 26, 24, 4)
+          .stroke({ width: 1.5, color: 0x9fc0d4 }),
+      );
+      const bkey = new Text({
+        text: 'B',
+        style: {
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: 14,
+          fill: 0x9fc0d4,
+        },
+      });
+      bkey.position.set(46, 672);
+      c.addChild(bkey);
+      const blabel = new Text({
+        text: 'the book',
+        style: {
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: 15,
+          fill: 0xd9d2c4,
+        },
+      });
+      blabel.position.set(76, 671);
+      c.addChild(blabel);
+      if (gauge) c.addChild(warmthGauge(64, 180, { frac: 0.58 }));
+      if (popup) {
+        // the threshold spot, clicked: it offers what fits there
+        c.addChild(
+          new Graphics()
+            .moveTo(1120, 408)
+            .lineTo(1178, 560)
+            .stroke({ width: 1.5, color: GOLD, alpha: 0.6 })
+            .roundRect(960, 250, 230, 160, 8)
+            .fill({ color: 0x18203a, alpha: 0.96 })
+            .roundRect(960, 250, 230, 160, 8)
+            .stroke({ width: 1.5, color: GOLD }),
+        );
+        const cTitle = new Text({
+          text: 'THE THRESHOLD',
+          style: {
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 12,
+            fill: 0x7d8699,
+            letterSpacing: 1.5,
+          },
+        });
+        cTitle.position.set(978, 264);
+        c.addChild(cTitle);
+        ['salt', 'iron', 'nothing tonight'].forEach((opt, i) => {
+          const on = i === 0;
+          c.addChild(
+            new Graphics()
+              .roundRect(976, 288 + i * 38, 198, 32, 4)
+              .fill(on ? GOLD : 0x0e1424)
+              .roundRect(976, 288 + i * 38, 198, 32, 4)
+              .stroke({ width: 1.5, color: on ? GOLD : 0x3a4a70 }),
+          );
+          const t = new Text({
+            text: opt,
+            style: {
+              fontFamily: 'system-ui, sans-serif',
+              fontSize: 15,
+              fill: on ? 0x201409 : 0xd9d2c4,
+            },
+          });
+          t.position.set(988, 294 + i * 38);
+          c.addChild(t);
+        });
+      }
+      c.addChild(vignette(0.5));
+      return c;
+    }
+
+    function fSetupSummary() {
+      // frame 4 a moment later: the required two are down, the list has
+      // grown beside the warmth meter, and the door spot still glows open
+      const c = fSetupRoom({ popup: false, salt: false });
+      const px = 122,
+        py = 180,
+        pw = 252;
+      c.addChild(
+        new Graphics()
+          .roundRect(px, py, pw, 252, 8)
+          .fill({ color: 0x18203a, alpha: 0.96 })
+          .roundRect(px, py, pw, 252, 8)
+          .stroke({ width: 1.5, color: GOLD }),
+      );
+      const sh = new Text({
+        text: 'SET FOR TONIGHT',
+        style: {
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: 12,
+          fill: 0x7d8699,
+          letterSpacing: 1.5,
+        },
+      });
+      sh.position.set(px + 16, py + 16);
+      c.addChild(sh);
+      const rows = [
+        'the parlour',
+        'candle, cut to midnight',
+        'milk, in the bowl',
+      ];
+      rows.forEach((row, i) => {
+        const t = hand(row, { size: 18, ink: 0xd9d2c4 });
+        t.position.set(px + 16, py + 44 + i * 34);
+        c.addChild(t);
+      });
+      const cost = new Text({
+        text: 'will cost 3 warmth',
+        style: {
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: 14,
+          fill: 0x9fc0d4,
+        },
+      });
+      cost.position.set(px + 16, py + 156);
+      c.addChild(cost);
+      c.addChild(
+        new Graphics().roundRect(px + 16, py + 186, pw - 32, 48, 6).fill(GOLD),
+      );
+      const sb = new Text({
+        text: 'Set the night',
+        style: { fontFamily: serif, fontSize: 20, fill: 0x201409 },
+      });
+      sb.anchor = { x: 0.5, y: 0.5 };
+      sb.position.set(px + pw / 2, py + 210);
+      c.addChild(sb);
+      return c;
+    }
+
+    function fNight() {
+      // the candle has just gone out: the dark is total, and the night
+      // speaks in sound
+      const c = new Container();
+      c.addChild(new Graphics().rect(0, 0, W, H).fill(0x04060c));
+      // the window, the one thing the dark cannot quite take
+      c.addChild(
+        new Graphics()
+          .rect(150, 120, 190, 280)
+          .fill({ color: 0x22334f, alpha: 0.3 })
+          .rect(150 + 95 - 3, 120, 6, 280)
+          .fill({ color: 0x04060c, alpha: 0.8 })
+          .rect(150, 120 + 140 - 3, 190, 6)
+          .fill({ color: 0x04060c, alpha: 0.8 })
+          .circle(150 + 190 * 0.7, 120 + 280 * 0.25, 22)
+          .fill({ color: 0xc4d6e2, alpha: 0.28 }),
+      );
+      // smoke where the flame just died
+      c.addChild(
+        new Graphics()
+          .moveTo(645, 452)
+          .quadraticCurveTo(662, 400, 640, 348)
+          .quadraticCurveTo(618, 296, 650, 244)
+          .stroke({ width: 2, color: 0x8fa0b8, alpha: 0.22 }),
+      );
+      // the knock, landing at the threshold
+      const g = new Graphics();
+      for (let i = 0; i < 3; i++) {
+        g.circle(1178, 420, 22 + i * 24).stroke({
+          width: 2,
+          color: 0x9fc0d4,
+          alpha: 0.5 - i * 0.14,
+        });
+      }
+      c.addChild(g);
+      // a smaller sound, further off: the stair
+      const g2 = new Graphics();
+      for (let i = 0; i < 2; i++) {
+        g2.circle(420, 500, 12 + i * 16).stroke({
+          width: 1.5,
+          color: 0x9fc0d4,
+          alpha: 0.22 - i * 0.08,
+        });
+      }
+      c.addChild(g2);
+      c.addChild(vignette(0.6));
+      return c;
+    }
+
+    function fMorning() {
+      const pal = PAL.dawn;
+      const c = sceneBase(pal);
+      c.addChild(windowFrame(pal, { shaft: true }));
+      c.addChild(hearth(pal, { lit: false }));
+      c.addChild(doorFrame(pal));
+      c.addChild(table(pal));
+      // snuffed at the approach: what remains is the hour, read against the rings
+      c.addChild(candle(645, 462, { frac: 0.55, lit: false }));
+      c.addChild(bowl(940, 596, { state: 'empty' }));
+      c.addChild(saltLine(1178, 574, 130, { state: 'scuffed' }));
+      c.addChild(
+        ashPrints([
+          [1150, 600],
+          [1090, 618],
+          [1030, 632],
+          [975, 640],
+          [935, 628],
+        ]),
+      );
+      c.addChild(warmthGauge(64, 180, { frac: 0.5 }));
+      c.addChild(vignette(0.4));
+      return c;
+    }
+
+    // the four trait axes, one source for every frame that shows the page
+    const AXES = [
+      ['hour', ['dusk', 'midnight', 'small hours', 'first light']],
+      ['lure', ['milk', 'honey', 'bread', 'warmth']],
+      ['aversion', ['salt', 'iron', 'mirror', 'water']],
+      ['haunt', ['parlour', 'stair', 'kitchen', 'cellar']],
+    ];
+
+    function ledgerPage(c, L) {
+      // the ledger, written by the book itself
+      const lh = hand('The 6th night', { size: 20, ink: INK, italic: false });
+      lh.position.set(L.x, L.y);
+      c.addChild(lh);
+      const ledger = [
+        'parlour · came in',
+        '  candle marked at midnight',
+        '  the bowl taken',
+        '  the line crossed',
+        'stair · silent',
+      ];
+      ledger.forEach((row, i) => {
+        const t = hand(row, { size: 18, ink: INK, italic: false });
+        t.alpha = 0.85;
+        t.position.set(L.x, L.y + 52 + i * 40);
+        c.addChild(t);
+      });
+      const lnote = hand('(the book keeps this; you keep the meaning)', {
+        size: 14,
+        ink: INK,
+      });
+      lnote.alpha = 0.55;
+      lnote.position.set(L.x, L.y + 52 + 5 * 40 + 14);
+      c.addChild(lnote);
+    }
+
+    function spiritPage(c, R, marks) {
+      const glyph = new Graphics()
+        .circle(R.x + 14, R.y + 14, 12)
+        .stroke({ width: 3, color: INK })
+        .circle(R.x + 14, R.y + 14, 4)
+        .fill(INK);
+      c.addChild(glyph);
+      const rh = hand('the one that knocks', { size: 20, ink: INK });
+      rh.position.set(R.x + 40, R.y + 2);
+      c.addChild(rh);
+      AXES.forEach(([axis, vals], row) => {
+        const { struck, circled } = marks[row];
+        const at = hand(axis, { size: 13, ink: INK, italic: false });
+        at.alpha = 0.5;
+        at.position.set(R.x, R.y + 56 + row * 74);
+        c.addChild(at);
+        vals.forEach((v, i) => {
+          const t = hand(v, { size: 17, ink: INK });
+          t.position.set(R.x + (i % 4) * 96, R.y + 76 + row * 74);
+          c.addChild(t);
+          if (struck.includes(i)) c.addChild(strikeThrough(t));
+          if (circled === i) c.addChild(circleAround(t));
+        });
+      });
+    }
+
+    function fBookMarked() {
+      const c = new Container();
+      c.addChild(new Graphics().rect(0, 0, W, H).fill(0x101726));
+      c.addChild(new Graphics().rect(0, 620, W, 100).fill(0x1a2233));
+      const spread = bookSpread(W / 2, 360, 900, 520);
+      c.addChild(spread.view);
+      const L = spread.left,
+        R = spread.right;
+      ledgerPage(c, L);
+      // the keeper's hand mid-work: not every axis settled yet
+      spiritPage(c, R, [
+        { struck: [0, 3], circled: 1 },
+        { struck: [1, 2], circled: 0 },
+        { struck: [0], circled: null },
+        { struck: [], circled: 0 },
+      ]);
+      // the drain figure, struck and rewritten in the morning's hand
+      const d1 = hand('takes three', { size: 18, ink: INK, italic: false });
+      d1.position.set(R.x + 190, R.y + 360);
+      c.addChild(d1, strikeThrough(d1));
+      const d2 = hand('takes two', { size: 18, ink: INK, italic: false });
+      d2.position.set(R.x + 190, R.y + 388);
+      c.addChild(d2);
+      c.addChild(vignette(0.5));
+      return c;
+    }
+
+    function fNameChoice() {
+      const c = new Container();
+      c.addChild(new Graphics().rect(0, 0, W, H).fill(0x101726));
+      c.addChild(new Graphics().rect(0, 620, W, 100).fill(0x1a2233));
+      const spread = bookSpread(W / 2, 360, 900, 520);
+      c.addChild(spread.view);
+      const L = spread.left,
+        R = spread.right;
+      ledgerPage(c, L);
+      // every axis carries one circle: the name is ready to say
+      spiritPage(c, R, [
+        { struck: [0, 3], circled: 1 },
+        { struck: [1, 2], circled: 0 },
+        { struck: [0], circled: 1 },
+        { struck: [], circled: 0 },
+      ]);
+      const whole = hand('whole, or not at all', { size: 16, ink: INK });
+      whole.alpha = 0.6;
+      whole.position.set(R.x, R.y + 360);
+      c.addChild(whole);
+      // the commit, off the page: lit only because all four are circled
+      c.addChild(
+        new Graphics().roundRect(W / 2 + 150, 634, 240, 52, 6).fill(GOLD),
+      );
+      const sb = new Text({
+        text: 'Speak the name',
+        style: { fontFamily: serif, fontSize: 21, fill: 0x201409 },
+      });
+      sb.anchor = { x: 0.5, y: 0.5 };
+      sb.position.set(W / 2 + 270, 660);
+      c.addChild(sb);
+      c.addChild(vignette(0.5));
+      return c;
+    }
+
+    function fNaming() {
+      const c = new Container();
+      c.addChild(new Graphics().rect(0, 0, W, H).fill(0x101726));
+      c.addChild(new Graphics().rect(0, 620, W, 100).fill(0x1a2233));
+      const spread = bookSpread(W / 2, 360, 900, 520);
+      c.addChild(spread.view);
+      const R = spread.right,
+        L = spread.left;
+      // left: the four circles, one per axis
+      const picks = [
+        ['hour', 'midnight'],
+        ['lure', 'milk'],
+        ['aversion', 'iron'],
+        ['haunt', 'the parlour'],
+      ];
+      picks.forEach(([axis, v], i) => {
+        const at = hand(axis, { size: 13, ink: INK, italic: false });
+        at.alpha = 0.5;
+        at.position.set(L.x, L.y + 30 + i * 92);
+        c.addChild(at);
+        const t = hand(v, { size: 24, ink: INK });
+        t.position.set(L.x + 8, L.y + 50 + i * 92);
+        c.addChild(t, circleAround(t));
+      });
+      // right: the entry composing as one sentence, slots emphasized
+      const rh = hand('No. 33 · the one that knocks', { size: 20, ink: INK });
+      rh.position.set(R.x, R.y + 10);
+      c.addChild(rh);
+      const parts = [
+        ['Abroad at ', false],
+        ['midnight', true],
+        [',\ncomes to ', false],
+        ['milk', true],
+        [', will not cross\n', false],
+        ['iron', true],
+        [', and keeps ', false],
+        ['the parlour', true],
+        ['.', false],
+      ];
+      let cx = R.x,
+        cy = R.y + 80;
+      const lineH = 46;
+      parts.forEach(([txt, slot]) => {
+        const pieces = txt.split('\n');
+        pieces.forEach((piece, pi) => {
+          if (pi > 0) {
+            cx = R.x;
+            cy += lineH;
+          }
+          if (!piece) return;
+          const t = hand(piece, { size: 26, ink: INK });
+          t.position.set(cx, cy);
+          c.addChild(t);
+          if (slot) {
+            c.addChild(
+              new Graphics()
+                .moveTo(t.x - 2, t.y + t.height + 1)
+                .lineTo(t.x + t.width + 2, t.y + t.height + 1)
+                .stroke({ width: 2, color: GOLD, alpha: 0.9 }),
+            );
+          }
+          cx += t.width;
+        });
+      });
+      c.addChild(vignette(0.5));
+      return c;
+    }
+
+    function fKeptRoom() {
+      const pal = PAL.warm;
+      const c = sceneBase(pal);
+      c.addChild(windowFrame(pal));
+      c.addChild(hearth(pal, { lit: true, tidy: true }));
+      c.addChild(doorFrame(pal));
+      c.addChild(table(pal));
+      // the room tended: no experiment set, things put right
+      c.addChild(
+        new Graphics()
+          .roundRect(600, 430, 90, 8, 4)
+          .fill(0x33405c) // folded cloth on the table
+          .roundRect(610, 420, 70, 10, 4)
+          .fill(0x3d4c6c),
+      );
+      // warm wash from the hearth across the whole room
+      const wash = new Graphics()
+        .rect(0, 0, W, H)
+        .fill({ color: 0xf0a840, alpha: 0.15 });
+      c.addChild(wash);
+      // the one who tends it, barely there at the woodpile
+      const shade = figureStanding(724, 600, 0xdde9f1, {
+        flip: true,
+        color: 0xbfd6e4,
+      });
+      shade.alpha = 0.32;
+      c.addChild(shade);
+      c.addChild(vignette(0.3));
+      return c;
+    }
+
+    function fWing() {
+      const pal = PAL.dawn;
+      const c = new Container();
+      c.addChild(
+        new Graphics()
+          .rect(0, 0, W, 560)
+          .fill(pal.wall)
+          .rect(0, 560, W, H - 560)
+          .fill(pal.floor)
+          .rect(0, 552, W, 8)
+          .fill(pal.line),
+      );
+      // hallway: three doorways standing open, dark beyond
+      const doorW = 190,
+        doorH = 340;
+      [220, 545, 870].forEach((x, i) => {
+        c.addChild(
+          new Graphics()
+            .rect(x - 14, 200 - 14, doorW + 28, 14)
+            .fill(pal.line)
+            .rect(x - 14, 200, 14, doorH + 20)
+            .fill(pal.line)
+            .rect(x + doorW, 200, 14, doorH + 20)
+            .fill(pal.line)
+            .rect(x, 200, doorW, doorH + 20)
+            .fill(0x070b16),
+        );
+        // door swung inward
+        c.addChild(
+          new Graphics()
+            .poly([x, 200, x + 44, 214, x + 44, doorH + 234, x, doorH + 220])
+            .fill(0x1b2540),
+        );
+        // dust hanging in the opening
+        const r = rng(19 + i);
+        const g = new Graphics();
+        for (let k = 0; k < 14; k++) {
+          g.circle(x + 30 + r() * (doorW - 60), 240 + r() * 260, 1.2).fill({
+            color: 0xdde9f1,
+            alpha: 0.3,
+          });
+        }
+        c.addChild(g);
+      });
+      // morning light raking from the left
+      c.addChild(
+        new Graphics()
+          .poly([0, 100, 90, 90, 480, 700, 0, 700])
+          .fill({ color: 0xe8f0f6, alpha: 0.05 }),
+      );
+      c.addChild(vignette(0.5));
+      return c;
+    }
+
+    function fTools() {
+      const c = new Container();
+      c.addChild(new Graphics().rect(0, 0, W, H).fill(0x131b2e));
+      // the desk fills the lower half; everything sits on it
+      c.addChild(
+        new Graphics()
+          .rect(0, 380, W, H - 380)
+          .fill(0x22304e)
+          .rect(0, 380, W, 12)
+          .fill(0x2e3f64),
+      );
+      // the book, closed at the left: cover, page block, clasp
+      c.addChild(
+        new Graphics()
+          .roundRect(200, 420, 300, 54, 6)
+          .fill(0x2c3856)
+          .roundRect(206, 408, 288, 16, 4)
+          .fill(PAPER)
+          .roundRect(206, 420, 288, 8, 2)
+          .fill(PAPER_EDGE)
+          .roundRect(478, 430, 30, 22, 4)
+          .fill(GOLD),
+      );
+      // the cloth roll, untied and spread flat
+      const bx = 800,
+        by = 480;
+      c.addChild(
+        new Graphics()
+          .roundRect(bx - 240, by - 70, 480, 160, 18)
+          .fill(0x3d4c6c)
+          .roundRect(bx - 240, by - 70, 30, 160, 15)
+          .fill(0x33405c) // the still-rolled end
+          .moveTo(bx - 180, by - 70)
+          .lineTo(bx - 180, by + 90)
+          .stroke({ width: 2, color: 0x33405c })
+          .moveTo(bx - 60, by - 70)
+          .lineTo(bx - 60, by + 90)
+          .stroke({ width: 2, color: 0x33405c })
+          .moveTo(bx + 60, by - 70)
+          .lineTo(bx + 60, by + 90)
+          .stroke({ width: 2, color: 0x33405c })
+          // the tie, undone, trailing
+          .moveTo(bx - 244, by + 80)
+          .quadraticCurveTo(bx - 300, by + 100, bx - 330, by + 76)
+          .stroke({ width: 4, color: GOLD, alpha: 0.8 }),
+      );
+      // her instruments, big enough to read: a vial, a brass rule, a balance
+      c.addChild(
+        new Graphics()
+          .roundRect(bx - 140, by - 34, 26, 84, 12)
+          .fill({ color: 0xbfe0ee, alpha: 0.9 })
+          .rect(bx - 138, by - 44, 22, 12)
+          .fill(0x8fa0b8)
+          .roundRect(bx - 40, by + 8, 180, 14, 4)
+          .fill(GOLD)
+          .moveTo(bx + 130, by - 52)
+          .lineTo(bx + 130, by + 16)
+          .stroke({ width: 5, color: GOLD })
+          .moveTo(bx + 86, by - 36)
+          .lineTo(bx + 174, by - 36)
+          .stroke({ width: 5, color: GOLD })
+          .ellipse(bx + 86, by - 8, 22, 8)
+          .stroke({ width: 3, color: GOLD })
+          .ellipse(bx + 174, by - 8, 22, 8)
+          .stroke({ width: 3, color: GOLD }),
+      );
+      // each instrument named in her hand beneath it
+      const toolLabel = (txt, x, y) => {
+        const t = hand(txt, { size: 15, ink: 0xaec4d4 });
+        t.anchor = { x: 0.5, y: 0 };
+        t.position.set(x, y);
+        c.addChild(t);
+      };
+      toolLabel('a listening vial', bx - 127, by + 58);
+      toolLabel('a finer rule', bx + 10, by + 32);
+      toolLabel('dust scales', bx + 160, by + 32);
+      // her note, pinned under the vial's corner
+      const note = hand('you will want these\nfor the small print of it', {
+        size: 22,
+        ink: HER_INK,
+      });
+      note.rotation = -0.04;
+      c.addChild(
+        new Graphics()
+          .roundRect(bx + 130, by - 150, 280, 110, 3)
+          .fill(PAPER)
+          .roundRect(bx + 130, by - 150, 280, 110, 3)
+          .stroke({ width: 1, color: PAPER_EDGE }),
+      );
+      note.position.set(bx + 152, by - 134);
+      c.addChild(note);
+      // a lit candle at the desk's edge for the light to come from
+      c.addChild(candle(120, 470, { frac: 0.7, lit: true }));
+      const glow = new FillGradient({
+        type: 'radial',
+        center: { x: 0.5, y: 0.5 },
+        innerRadius: 0,
+        outerCenter: { x: 0.5, y: 0.5 },
+        outerRadius: 0.5,
+        colorStops: [
+          { offset: 0, color: 'rgba(255,205,130,0.16)' },
+          { offset: 1, color: 'rgba(255,205,130,0)' },
+        ],
+      });
+      const halo = new Graphics().circle(0, 0, 520).fill(glow);
+      halo.position.set(bx - 100, by - 60);
+      halo.blendMode = 'add';
+      c.addChild(halo);
+      c.addChild(vignette(0.5));
+      return c;
+    }
+
+    function fPantry() {
+      const pal = PAL.dusk;
+      const c = new Container();
+      c.addChild(
+        new Graphics()
+          .rect(0, 0, W, 560)
+          .fill(0x1c2438)
+          .rect(0, 560, W, H - 560)
+          .fill(0x141b2e)
+          .rect(0, 552, W, 8)
+          .fill(0x2a3450),
+      );
+      // shelf rows
+      const r = rng(29);
+      for (let row = 0; row < 3; row++) {
+        const y = 170 + row * 130;
+        c.addChild(new Graphics().rect(120, y + 74, 1040, 12).fill(0x2a3450));
+        // jars and bundles: strange lures, in glass and gold and red
+        let x = 160;
+        while (x < 1100) {
+          const kind = Math.floor(r() * 4);
+          const g = new Graphics();
+          if (kind === 0) {
+            // glass jar, pale contents
+            g.roundRect(x, y + 14, 44, 60, 6)
+              .fill({ color: 0xbfe0ee, alpha: 0.35 })
+              .roundRect(x, y + 14, 44, 60, 6)
+              .stroke({ width: 2, color: 0x8fb8c8 })
+              .rect(x + 6, y + 8, 32, 8)
+              .fill(0x8fa0b8);
+          } else if (kind === 1) {
+            // honey: gold jar
+            g.roundRect(x, y + 24, 40, 50, 6)
+              .fill({ color: GOLD, alpha: 0.8 })
+              .rect(x + 6, y + 16, 28, 10)
+              .fill(0xc78a2e);
+          } else if (kind === 2) {
+            // dried bundle hanging
+            g.moveTo(x + 20, y - 6)
+              .lineTo(x + 20, y + 26)
+              .stroke({ width: 2, color: 0x51617f })
+              .ellipse(x + 20, y + 46, 14, 22)
+              .fill(0x3d6b4f);
+          } else {
+            // red berries in a bowl
+            g.ellipse(x + 22, y + 64, 26, 10).fill(0x8fa0b8);
+            for (let b = 0; b < 6; b++) {
+              g.circle(x + 10 + r() * 26, y + 56 + r() * 8, 4).fill(0xb43e3e);
+            }
+          }
+          c.addChild(g);
+          x += 70 + r() * 60;
+        }
+      }
+      // a small bell on the lowest shelf, tagged in her hand
+      c.addChild(
+        new Graphics()
+          .moveTo(640, 470)
+          .lineTo(640, 452)
+          .stroke({ width: 2, color: GOLD })
+          .poly([620, 500, 640, 456, 660, 500])
+          .fill(GOLD)
+          .circle(640, 504, 4)
+          .fill(0xc78a2e),
+      );
+      const tag = hand('a hollow bell', { size: 14, ink: 0x9fb4c4 });
+      tag.anchor = { x: 0.5, y: 0 };
+      tag.position.set(640, 514);
+      c.addChild(tag);
+      // her note, left leaning against the bottom shelf
+      c.addChild(
+        new Graphics()
+          .roundRect(430, 590, 280, 96, 3)
+          .fill(PAPER)
+          .roundRect(430, 590, 280, 96, 3)
+          .stroke({ width: 1, color: PAPER_EDGE }),
+      );
+      const pn = hand('for the last of them.\nnothing plainer will do.', {
+        size: 20,
+        ink: HER_INK,
+      });
+      pn.rotation = -0.02;
+      pn.position.set(450, 606);
+      c.addChild(pn);
+      // the found-space light: a doorway of dusk light at the right
+      c.addChild(
+        new Graphics()
+          .rect(1150, 120, 130, 440)
+          .fill({ color: 0x4e6f96, alpha: 0.5 }),
+      );
+      c.addChild(vignette(0.6));
+      return c;
+    }
+
+    function offerCard({ frozen = false }) {
+      const c = new Container();
+      // the room behind, dimmed: cold, frost inside
+      const pal = PAL.frozen;
+      const room = sceneBase(pal);
+      room.addChild(windowFrame(pal, { frost: frozen ? 1 : 0.55 }));
+      room.addChild(hearth(pal, { lit: false }));
+      room.addChild(doorFrame(pal));
+      c.addChild(room);
+      c.addChild(
+        new Graphics().rect(0, 0, W, H).fill({ color: 0x05070f, alpha: 0.62 }),
+      );
+      // the gauge, low
+      c.addChild(
+        warmthGauge(64, 180, {
+          frac: frozen ? 0.1 : 0.24,
+          offerBand: [0.14, 0.34],
+        }),
+      );
+      // the card
+      const cw = 620,
+        ch = 330,
+        cx = W / 2 + 60,
+        cy = H / 2;
+      c.addChild(
+        new Graphics()
+          .roundRect(cx - cw / 2, cy - ch / 2, cw, ch, 8)
+          .fill(PAPER)
+          .roundRect(cx - cw / 2, cy - ch / 2, cw, ch, 8)
+          .stroke({ width: 2, color: PAPER_EDGE }),
+      );
+      const title = hand(
+        frozen ? 'Too cold to pack.' : 'You could still make town.',
+        { size: 30, ink: INK },
+      );
+      title.anchor = { x: 0.5, y: 0 };
+      title.position.set(cx, cy - ch / 2 + 36);
+      c.addChild(title);
+      const body = hand(
+        frozen
+          ? 'You weighed one more night, and the house kept you.\nNothing leaves now. All that is left is the keeping.'
+          : 'Go now: wait out the winter somewhere warm, keep\nthe book, and next autumn starts ahead of this one.\nStay, and past a certain cold there is no going at all.',
+        { size: 20, ink: INK, align: 'center' },
+      );
+      body.anchor = { x: 0.5, y: 0 };
+      body.position.set(cx, cy - ch / 2 + 96);
+      c.addChild(body);
+      // buttons
+      const btn = (label, bx, disabled) => {
+        c.addChild(
+          new Graphics()
+            .roundRect(bx - 110, cy + 60, 220, 54, 6)
+            .fill(disabled ? 0xd8cdb2 : INK),
+        );
+        const t = hand(label, {
+          size: 21,
+          ink: disabled ? 0xa89e86 : PAPER,
+          italic: false,
+        });
+        t.anchor = { x: 0.5, y: 0.5 };
+        t.position.set(bx, cy + 87);
+        c.addChild(t);
+        if (disabled) {
+          // frost creeping over the dead button
+          const r = rng(53);
+          const g = new Graphics();
+          for (let i = 0; i < 10; i++) {
+            const a = r() * Math.PI * 2;
+            g.moveTo(bx - 110, cy + 60)
+              .lineTo(bx - 110 + Math.cos(a) * 60, cy + 60 + Math.sin(a) * 40)
+              .stroke({ width: 1.5, color: 0x8fb8c8, alpha: 0.5 });
+          }
+          c.addChild(g);
+        }
+      };
+      if (frozen) {
+        // not a dialog any more: the notice you went to check, gone dead.
+        // No buttons; frost owns the card's lower half.
+        const r = rng(53);
+        const g = new Graphics();
+        for (const [fx, fy] of [
+          [cx - cw / 2, cy + ch / 2],
+          [cx + cw / 2, cy + ch / 2],
+          [cx - cw / 2, cy - ch / 2],
+        ]) {
+          for (let i = 0; i < 12; i++) {
+            const a = r() * Math.PI * 2;
+            const len = 40 + r() * 70;
+            g.moveTo(fx, fy)
+              .lineTo(fx + Math.cos(a) * len, fy + Math.sin(a) * len)
+              .stroke({ width: 1.5, color: 0x8fb8c8, alpha: 0.45 });
+          }
+        }
+        c.addChild(g);
+      } else {
+        btn('Stay', cx - 130, false);
+        btn('Take the road', cx + 130, false);
+      }
+      c.addChild(vignette(0.5));
+      return c;
+    }
+
+    function fWinterOut() {
+      const c = new Container();
+      c.addChild(facade(PAL.night, { snow: true }));
+      // the keeper outside the locked door, book under arm
+      c.addChild(figureStanding(830, 612, ACCENT_KEEPER, { book: true }));
+      // the key, pocketed: a small gold glint at the hip
+      c.addChild(new Graphics().circle(822, 512, 4).fill(GOLD));
+      c.addChild(snowfall(61, 170));
+      c.addChild(vignette(0.45));
+      return c;
+    }
+
+    function fReturn() {
+      const c = new Container();
+      c.addChild(
+        facade(PAL.night, { snow: false, doorOpen: true, litWindow: true }),
+      );
+      // autumn: drifting leaves instead of snow
+      const r = rng(67);
+      const g = new Graphics();
+      for (let i = 0; i < 40; i++) {
+        const x = r() * W,
+          y = r() * H;
+        g.ellipse(x, y, 5, 2.5).fill({
+          color: i % 3 === 0 ? 0xb43e3e : GOLD,
+          alpha: 0.5 + r() * 0.4,
+        });
+      }
+      c.addChild(g);
+      // provisions crate on the step
+      c.addChild(
+        new Graphics()
+          .roundRect(760, 560, 110, 54, 4)
+          .fill(0x33405c)
+          .roundRect(760, 560, 110, 54, 4)
+          .stroke({ width: 2, color: 0x51617f })
+          .moveTo(760, 587)
+          .lineTo(870, 587)
+          .stroke({ width: 2, color: 0x51617f }),
+      );
+      c.addChild(
+        figureStanding(700, 612, ACCENT_KEEPER, { book: true, flip: true }),
+      );
+      // the head start: the everyday gauge, in its everyday place, with the
+      // fill standing above the bare-start tick
+      c.addChild(warmthGauge(64, 180, { frac: 0.52, provisionTick: 0.38 }));
+      c.addChild(vignette(0.55));
+      return c;
+    }
+
+    function fWin() {
+      const pal = PAL.warm;
+      const c = sceneBase(pal);
+      c.addChild(windowFrame(pal));
+      c.addChild(hearth(pal, { lit: true, tidy: true }));
+      c.addChild(doorFrame(pal));
+      c.addChild(table(pal));
+      // the book open on the table: the roll, six lines filled
+      c.addChild(
+        new Graphics()
+          .roundRect(560, 420, 170, 46, 3)
+          .fill(PAPER)
+          .rect(643, 422, 3, 42)
+          .fill(0xd8cdb2),
+      );
+      const g = new Graphics();
+      for (let i = 0; i < 6; i++) {
+        const y = 428 + i * 6;
+        g.moveTo(572, y)
+          .lineTo(636, y)
+          .stroke({ width: 1.5, color: INK, alpha: 0.7 });
+      }
+      // her line's space on the right page, still bare
+      for (let i = 0; i < 6; i++) {
+        const y = 428 + i * 6;
+        g.moveTo(654, y)
+          .lineTo(660 + 12, y)
+          .stroke({ width: 1, color: 0x9a917c, alpha: 0.3 });
+      }
+      c.addChild(g);
+      const wash = new Graphics()
+        .rect(0, 0, W, H)
+        .fill({ color: 0xf0a840, alpha: 0.1 });
+      c.addChild(wash);
+      // steady gauge, full
+      c.addChild(warmthGauge(64, 180, { frac: 0.92 }));
+      c.addChild(vignette(0.3));
+      return c;
+    }
+
+    function teaTable({ herSeat = false }) {
+      const c = new Container();
+      c.addChild(new Graphics().rect(0, 0, W, H).fill(0x0d1322));
+      // floor
+      c.addChild(new Graphics().rect(0, 560, W, H - 560).fill(0x121a2e));
+      // pool of warm light on the table
+      const glow = new FillGradient({
+        type: 'radial',
+        center: { x: 0.5, y: 0.5 },
+        innerRadius: 0,
+        outerCenter: { x: 0.5, y: 0.5 },
+        outerRadius: 0.5,
+        colorStops: [
+          { offset: 0, color: 'rgba(255,205,130,0.35)' },
+          { offset: 0.7, color: 'rgba(255,205,130,0.06)' },
+          { offset: 1, color: 'rgba(255,205,130,0)' },
+        ],
+      });
+      const halo = new Graphics().circle(0, 0, 430).fill(glow);
+      halo.position.set(W / 2, 420);
+      halo.blendMode = 'add';
+      c.addChild(halo);
+      // the table, set for two
+      c.addChild(
+        new Graphics()
+          .ellipse(W / 2, 470, 220, 46)
+          .fill(0x2a3450)
+          .rect(W / 2 - 200, 470, 14, 130)
+          .fill(0x232c46)
+          .rect(W / 2 + 186, 470, 14, 130)
+          .fill(0x232c46),
+      );
+      // cloth
+      c.addChild(new Graphics().ellipse(W / 2, 466, 200, 38).fill(0xd9d2c4));
+      const cup = (x, poured) => {
+        const g = new Graphics()
+          .ellipse(x, 452, 26, 9)
+          .fill(0xf2f6f8)
+          .ellipse(x, 449, 20, 6)
+          .fill(poured ? 0xc78a2e : 0xe4ebf0);
+        c.addChild(g);
+        if (poured) {
+          // steam
+          const s = new Graphics();
+          for (let i = 0; i < 3; i++) {
+            s.moveTo(x - 6 + i * 6, 438)
+              .quadraticCurveTo(x - 12 + i * 6, 420, x - 4 + i * 6, 402)
+              .stroke({ width: 1.5, color: 0xdde9f1, alpha: 0.4 });
+          }
+          c.addChild(s);
+        }
+      };
+      cup(W / 2 - 90, true);
+      cup(W / 2 + 90, herSeat);
+      // teapot between
+      c.addChild(
+        new Graphics()
+          .ellipse(W / 2, 440, 34, 24)
+          .fill(0x3d4c6c)
+          .moveTo(W / 2 + 30, 436)
+          .lineTo(W / 2 + 52, 424)
+          .stroke({ width: 5, color: 0x3d4c6c })
+          .rect(W / 2 - 6, 410, 12, 8)
+          .fill(0x3d4c6c),
+      );
+      // two chairs
+      c.addChild(chair(W / 2 - 250, 640, { facing: 1 }));
+      c.addChild(chair(W / 2 + 250, 640, { facing: -1 }));
+      if (herSeat) {
+        // her: facing the table, and barely there
+        const her = figureSeated(0, 640, ACCENT_AUNT);
+        her.scale.x = -1;
+        her.position.x = W / 2 + 250;
+        her.alpha = 0.38;
+        c.addChild(her);
+      }
+      if (!herSeat) {
+        // her line, beneath
+        const line = hand('Stay for tea?', { size: 34, ink: HER_INK });
+        line.anchor = { x: 0.5, y: 0 };
+        line.position.set(W / 2, 620);
+        c.addChild(
+          new Graphics()
+            .roundRect(W / 2 - 150, 610, 300, 66, 3)
+            .fill(PAPER)
+            .roundRect(W / 2 - 150, 610, 300, 66, 3)
+            .stroke({ width: 1, color: PAPER_EDGE }),
+        );
+        line.position.set(W / 2, 622);
+        c.addChild(line);
+      }
+      c.addChild(vignette(0.6));
+      return c;
+    }
+
+    function fCodaHer() {
+      // after the win: the house is warm, except here. The same loop, for her.
+      const pal = PAL.warm;
+      const c = sceneBase(pal);
+      // the chill lives in this room: the window still frosted, cold in the air
+      c.addChild(windowFrame(PAL.frozen, { frost: 0.55 }));
+      c.addChild(
+        new Graphics()
+          .rect(0, 0, 700, H)
+          .fill({ color: 0x9fc0d4, alpha: 0.06 }),
+      );
+      // warmth spills in from the rest of the house through the open door
+      c.addChild(doorFrame(pal, { openGap: 0.55 }));
+      c.addChild(
+        new Graphics()
+          .rect(1130 + 130 * 0.45, 160, 130 * 0.55, 400)
+          .fill({ color: 0xf3d68a, alpha: 0.35 }),
+      );
+      // the tea table, set for two: her trace is the second chair, dragged in
+      c.addChild(table(pal));
+      c.addChild(
+        new Graphics()
+          .ellipse(600, 455, 16, 6)
+          .fill(0xf2f6f8)
+          .ellipse(690, 455, 16, 6)
+          .fill(0xf2f6f8),
+      );
+      c.addChild(chair(500, 620, { facing: 1 }));
+      c.addChild(chair(790, 620, { facing: -1 }));
+      c.addChild(
+        new Graphics()
+          .moveTo(1040, 650)
+          .lineTo(806, 626)
+          .stroke({ width: 3, color: ASH, alpha: 0.4 })
+          .moveTo(1056, 664)
+          .lineTo(822, 640)
+          .stroke({ width: 3, color: ASH, alpha: 0.4 }),
+      );
+      // the same spots, offered in the same way
+      const halo = (x, y, rx, ry) =>
+        new Graphics()
+          .ellipse(x, y, rx, ry)
+          .stroke({ width: 3, color: GOLD, alpha: 0.9 });
+      c.addChild(candle(645, 448, { frac: 0.8, lit: false, scale: 0.9 }));
+      c.addChild(halo(645, 456, 56, 15));
+      c.addChild(bowl(940, 596, { state: 'milk' }));
+      c.addChild(halo(940, 598, 48, 14));
+      c.addChild(halo(1178, 576, 84, 14));
+      // warmth all but full
+      c.addChild(warmthGauge(64, 180, { frac: 0.92 }));
+      c.addChild(vignette(0.4));
+      return c;
+    }
+
+    // ---- frame list -----------------------------------------------------
+
+    const FRAMES = [
+      {
+        act: 'Arrival',
+        title: 'Found frozen',
+        caption:
+          'The intro image, keypress-skippable. Your aunt, where they found her in spring: folded forward over her knees, her book at her hands, the hearth dead. You arrive the next autumn; the line beneath is the premise.',
+        draw: () => fFrozen({ who: 'aunt' }),
+      },
+      {
+        act: 'Arrival',
+        title: 'Her book',
+        caption:
+          'The book, found half filled: a finished entry of hers on the left, her last entry unfinished on the right, cut off where she died. This page is the whole tutorial.',
+        draw: fHerBook,
+      },
+      {
+        act: 'Arrival',
+        title: 'The roll',
+        caption:
+          'The year opens on the roll: her last full year on the left, six named line by line; yours on the right, six numbered lines bare. Her threshold notes ride the margin; numbers are placeholders, #14 owns them.',
+        draw: fRoll,
+      },
+      {
+        act: 'The loop',
+        title: 'Dusk: set the night, in the room',
+        caption:
+          'Your call from the first walk: the night is set in the room itself. Each glowing spot is a place something can go; clicking one offers what fits there, here the threshold mid-choice. Picking which room to stand in is the first choice of the night, and the book is one held key away, its hint always on screen.',
+        draw: () => fSetupRoom(),
+      },
+      {
+        act: 'The loop',
+        title: 'Dusk: summed and set',
+        caption:
+          'Your staging: what you place pops into the list beside the warmth meter, cost climbing with it. Candle and bowl are the two a night requires, so "Set the night" is already lit, while the door spot still glows open: salt is yours to add or skip.',
+        draw: fSetupSummary,
+      },
+      {
+        act: 'The loop',
+        title: 'The night',
+        caption:
+          'The night holds a few breaths, then the flame dies and the dark goes total. Whatever the night has to say lands there, in sound: a knock at the threshold, a step on the stair. Then dawn.',
+        draw: fNight,
+      },
+      {
+        act: 'The loop',
+        title: 'The morning',
+        caption:
+          'Evidence, no narration: the candle snuffed mid-length, its height against the rings dating the visit; the bowl taken, the salt crossed, ash prints walking in from the door. In the real room each signal names itself on hover.',
+        draw: fMorning,
+      },
+      {
+        act: 'The loop',
+        title: 'The book, marked',
+        caption:
+          'Your hand, never checked by the game: strike values out, circle them in. The ledger keeps the facts. The drain figure eases as a witnessed edit, struck and rewritten.',
+        draw: fBookMarked,
+      },
+      {
+        act: 'The loop',
+        title: 'Speak the name',
+        caption:
+          'The frame you asked for between marking and naming: one value circled on every axis, and the commit lights only then. There is no naming three slots; that is what "whole, or not at all" gates. Verb is placeholder.',
+        draw: fNameChoice,
+      },
+      {
+        act: 'The loop',
+        title: 'The naming',
+        caption:
+          'Your four circles on the left, and on the right the entry composes as one sentence. In the scripted pass it writes itself out in your hand, and if the name is true, the spirit’s byname takes the header as it lands.',
+        draw: fNaming,
+      },
+      {
+        act: 'The loop',
+        title: 'The kept room',
+        caption:
+          'Named, it works the house, and now you can see it: a pale shade at the woodpile, tending a room you did not tend. Hovering one gives its name in the real room.',
+        draw: fKeptRoom,
+      },
+      {
+        act: 'The house opens',
+        title: 'The sealed wing',
+        caption:
+          'The morning after a naming, the wing stands open: rooms four to seven in one beat, doorways where a wall was, dust still hanging. Three doors in one wall is storyboard shorthand; the real opening gets its own staging.',
+        draw: fWing,
+      },
+      {
+        act: 'The house opens',
+        title: 'Her finer tools',
+        caption:
+          'Mid-run, hers: a bundle of finer instruments, each named in her hand: a listening vial, a finer rule, dust scales. What they do is deliberately undecided (#25); hover gives name and a line in the real room.',
+        draw: fTools,
+      },
+      {
+        act: 'The house opens',
+        title: 'The pantry',
+        caption:
+          'A found space no spirit haunts: shelves of stranger lures, honey and green bundles and a hollow bell, for the last arrivals the plain lures stop reaching. Her note leaning on the shelf says why it exists.',
+        draw: fPantry,
+      },
+      {
+        act: 'The cold',
+        title: 'The Leave offer',
+        caption:
+          'Warmth has fallen into the offered band. Checking the road is something you do, not a popup, and the card prices both halves: go now and next year starts ahead, or stay past the point where leaving stops being possible. Wording is placeholder; #15 owns thresholds and the window.',
+        draw: () => offerCard({ frozen: false }),
+      },
+      {
+        act: 'The cold',
+        title: 'The offer, withdrawn',
+        caption:
+          'Not a dialog any more: the notice you went to check, one night too late, dead under frost, no buttons at all. When and how road-checking enters the day (your radio spitball, a status line, or something else) is #15 design, still open.',
+        draw: () => offerCard({ frozen: true }),
+      },
+      {
+        act: 'The cold',
+        title: 'Taking the road',
+        caption:
+          'You take the road: the door locked from the outside, the key pocketed, the book under your arm, snow coming. The run ends; the house does not pass on. The scripted pass owes this beat your staging: out the door, lock it, and the shivering walk to the car.',
+        draw: fWinterOut,
+      },
+      {
+        act: 'The cold',
+        title: 'The freeze',
+        caption:
+          'The intro image again, except it is you. The house passes over your body to the next keeper, the way it came to you.',
+        draw: () => fFrozen({ who: 'keeper' }),
+      },
+      {
+        act: 'The cold',
+        title: 'The return',
+        caption:
+          'Another autumn: the same door unlocked, provisions on the step. The gauge sits where it sits every day; the gold tick is a bare fresh start, and the fill stands above it.',
+        draw: fReturn,
+      },
+      {
+        act: 'The housewarming',
+        title: 'The win',
+        caption:
+          'The last loose name lands. The house warm, quiet, yours; the roll filled on the left page; the drain visibly over. This plays whole before anything is offered.',
+        draw: fWin,
+      },
+      {
+        act: 'The housewarming',
+        title: 'Stay for tea?',
+        caption:
+          'The one deliberately loud moment in a quiet game: the table set for two, one cup poured, one chair empty, her hand beneath. Close the book, or stay. Answering uses the same interaction grammar as everything else, no special UI.',
+        draw: () => teaTable({ herSeat: false }),
+      },
+      {
+        act: 'The housewarming',
+        title: 'The coda: her',
+        caption:
+          'Your direction, staged: the house is warm after the win, but this room still holds a chill, frost on its glass while gold light spills through the door. The same loop runs here for her, same spots, same book; her trace is the second chair, dragged in. How the coda is made hard to fail is design still owed.',
+        draw: fCodaHer,
+      },
+      {
+        act: 'The housewarming',
+        title: 'Tea',
+        caption:
+          'Her entry done. The same table, the second cup poured, and her in front of it, barely there, the way every spirit is. About two sentences, written later; in the scripted pass they get read-time before she fades in. The image is the ending either way you read it.',
+        draw: () => teaTable({ herSeat: true }),
+      },
+    ];
+
+    // ---- chrome ---------------------------------------------------------
+
+    const actEl = document.getElementById('act');
+    const countEl = document.getElementById('count');
+    const titleEl = document.getElementById('title');
+    const captionEl = document.getElementById('caption');
+    const askEl = document.getElementById('ask');
+    const dotsEl = document.getElementById('dots');
+
+    FRAMES.forEach((f, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.title = `${i + 1}. ${f.title}`;
+      b.addEventListener('click', () => show(i));
+      dotsEl.appendChild(b);
+    });
+
+    // ---- per-frame notes, pasted back in one block ----------------------
+
+    // one stable key, forever; rounds are separated with the Clear button
+    const NOTES_KEY = 'housewarming-storyboard-notes';
+    let notes = {};
+    try {
+      notes = JSON.parse(localStorage.getItem(NOTES_KEY)) || {};
+    } catch {
+      notes = {};
+    }
+    const noteEl = document.getElementById('note');
+    const noteCountEl = document.getElementById('notecount');
+    const copyAllEl = document.getElementById('copyall');
+
+    function refreshNoteMarks() {
+      [...dotsEl.children].forEach((d, di) =>
+        d.classList.toggle('noted', Boolean(notes[di + 1])),
+      );
+      const n = Object.keys(notes).length;
+      noteCountEl.textContent = n
+        ? `${n} frame${n === 1 ? '' : 's'} noted`
+        : 'no notes yet';
+    }
+    refreshNoteMarks();
+
+    noteEl.addEventListener('input', () => {
+      if (noteEl.value.trim()) notes[current + 1] = noteEl.value;
+      else delete notes[current + 1];
+      localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+      refreshNoteMarks();
+    });
+
+    copyAllEl.addEventListener('click', async () => {
+      const lines = FRAMES.flatMap((f, i) =>
+        notes[i + 1]
+          ? [`frame ${i + 1} · ${f.title}: ${notes[i + 1].trim()}`]
+          : [],
+      );
+      if (!lines.length) {
+        copyAllEl.textContent = 'Nothing to copy';
+      } else {
+        const text = lines.join('\n');
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          const t = document.createElement('textarea');
+          t.value = text;
+          document.body.appendChild(t);
+          t.select();
+          document.execCommand('copy');
+          t.remove();
+        }
+        copyAllEl.textContent = `Copied ${lines.length} note${lines.length === 1 ? '' : 's'}`;
+      }
+      setTimeout(() => (copyAllEl.textContent = 'Copy all notes'), 1500);
+    });
+
+    document.getElementById('clearall').addEventListener('click', () => {
+      const n = Object.keys(notes).length;
+      if (!n) return;
+      if (
+        !confirm(
+          `Clear all ${n} note${n === 1 ? '' : 's'}? Copy them first if they are not delivered.`,
+        )
+      )
+        return;
+      notes = {};
+      localStorage.removeItem(NOTES_KEY);
+      noteEl.value = '';
+      refreshNoteMarks();
+    });
+
+    let current = -1;
+    let mounted = null;
+
+    function show(i) {
+      const idx = (i + FRAMES.length) % FRAMES.length;
+      if (idx === current) return;
+      current = idx;
+      const f = FRAMES[idx];
+      if (mounted) {
+        app.stage.removeChild(mounted);
+        mounted.destroy({ children: true });
+      }
+      mounted = f.draw();
+      app.stage.addChild(mounted);
+      app.render();
+      actEl.textContent = f.act;
+      countEl.textContent = `frame ${idx + 1} of ${FRAMES.length}`;
+      titleEl.textContent = f.title;
+      captionEl.textContent = f.caption;
+      askEl.textContent =
+        f.ask || 'Settled in earlier rounds; nothing asked here.';
+      askEl.classList.toggle('settled', !f.ask);
+      noteEl.value = notes[idx + 1] || '';
+      [...dotsEl.children].forEach((d, di) =>
+        d.setAttribute('aria-current', di === idx ? 'true' : 'false'),
+      );
+      history.replaceState(null, '', `#${idx + 1}`);
+    }
+
+    document
+      .getElementById('prev')
+      .addEventListener('click', () => show(current - 1));
+    document
+      .getElementById('next')
+      .addEventListener('click', () => show(current + 1));
+    window.addEventListener('keydown', (e) => {
+      if (e.target === noteEl) return;
+      if (e.key === 'ArrowLeft') show(current - 1);
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        show(current + 1);
+        e.preventDefault();
+      }
+    });
+
+    const fromHash = parseInt(location.hash.slice(1), 10);
+    show(
+      Number.isFinite(fromHash) && fromHash >= 1 && fromHash <= FRAMES.length
+        ? fromHash - 1
+        : 0,
+    );
+  })();
+</script>
