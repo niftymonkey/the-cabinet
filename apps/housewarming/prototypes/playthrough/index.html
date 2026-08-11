@@ -1,0 +1,5155 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Housewarming, played</title>
+<style>
+  :root {
+    --ground: #0c111d;
+    --surface: #131a2b;
+    --ink: #d9d2c4;
+    --muted: #7d8699;
+    --line: #232d44;
+    --flame: #e8a83e;
+    --ask: #9fc0d4;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font:
+      15px/1.5 system-ui,
+      sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0.6rem 1rem 0.5rem;
+  }
+  h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: normal;
+    font-size: 1.25rem;
+    margin: 0;
+    letter-spacing: 0.04em;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  #stagewrap {
+    display: flex;
+    justify-content: center;
+    padding: 0 1rem;
+    position: relative;
+  }
+  #stage {
+    width: 100%;
+    max-width: 1060px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #04060c;
+    position: relative;
+  }
+  #stage canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  #curtain {
+    position: absolute;
+    inset: 0;
+    background: rgba(6, 9, 17, 0.94);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.9rem;
+    text-align: center;
+    padding: 2rem;
+  }
+  #curtain h2 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: normal;
+    font-size: 1.5rem;
+    margin: 0;
+  }
+  #curtain p {
+    margin: 0;
+    color: var(--muted);
+    max-width: 32rem;
+    font-size: 0.9rem;
+  }
+  #begin {
+    font: inherit;
+    font-size: 1.05rem;
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #201409;
+    background: var(--flame);
+    border: none;
+    border-radius: 5px;
+    padding: 0.5rem 2.2rem;
+    cursor: pointer;
+    margin-top: 0.4rem;
+  }
+  footer {
+    max-width: 1060px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0.5rem 1rem 1.5rem;
+  }
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  nav button,
+  .btn {
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.2rem 0.7rem;
+    cursor: pointer;
+  }
+  nav button:hover,
+  .btn:hover {
+    border-color: var(--flame);
+  }
+  nav button[aria-pressed='true'] {
+    border-color: var(--flame);
+    color: var(--flame);
+  }
+  #scrub {
+    display: flex;
+    gap: 2px;
+    margin: 0.5rem 0 0.35rem;
+    height: 10px;
+    align-items: stretch;
+  }
+  #scrub button {
+    flex: 1 1 auto;
+    padding: 0;
+    border: none;
+    border-radius: 1px;
+    background: var(--line);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  #scrub button.done {
+    background: #3a4a70;
+  }
+  #scrub button[aria-current='true'] {
+    background: #3a4a70;
+  }
+  #scrub button[aria-current='true'] i {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--flame);
+    display: block;
+  }
+  #scrub button.noted::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 3px;
+    background: var(--ask);
+  }
+  #scrub button.aside {
+    opacity: 0.55;
+  }
+  #meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  #act {
+    color: var(--flame);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  #clock {
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+  }
+  #title {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: normal;
+    font-size: 1.15rem;
+    margin: 0.15rem 0 0.25rem;
+  }
+  #caption {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+  #pacing {
+    margin-top: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--surface);
+  }
+  #pacing.idle {
+    opacity: 0.45;
+  }
+  #pacingline {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  #pacingbar {
+    position: relative;
+    height: 8px;
+    margin-top: 0.3rem;
+    background: #0d1322;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  #band {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 70%;
+    width: 20%;
+    background: rgba(159, 192, 212, 0.28);
+  }
+  #elapsed {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    background: var(--flame);
+  }
+  #notes {
+    margin-top: 0.6rem;
+  }
+  #note {
+    width: 100%;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    resize: vertical;
+    min-height: 3.2rem;
+  }
+  #note:focus {
+    outline: none;
+    border-color: var(--ask);
+  }
+  #note::placeholder {
+    color: var(--muted);
+  }
+  #notesline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.3rem;
+  }
+  .hint {
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+  #copyall,
+  #clearall {
+    font-size: 0.8rem;
+  }
+</style>
+
+<header>
+  <div>
+    <h1>Housewarming, played</h1>
+    <div class="sub">
+      Scripted pass. The whole game watched end to end, ticket
+      <a
+        href="https://github.com/niftymonkey/the-cabinet/issues/20"
+        style="color: inherit"
+        >#20</a
+      >.
+    </div>
+  </div>
+  <nav>
+    <button id="playpause" type="button">Pause</button>
+    <button id="prev" type="button">&larr; Scene</button>
+    <button id="next" type="button">Scene &rarr;</button>
+    <button id="restart" type="button">Restart</button>
+    <button id="rate" type="button" aria-pressed="false">1&times;</button>
+    <button id="mute" type="button" aria-pressed="false">Sound on</button>
+  </nav>
+</header>
+
+<div id="stagewrap">
+  <div id="stage">
+    <div id="curtain">
+      <h2>The whole game, watched</h2>
+      <p>
+        Four and a half minutes, with sound, playing itself. Nothing here is
+        clickable: the pale ring is the cursor a player would be moving, so you
+        can see what gets clicked and when.
+      </p>
+      <p>
+        Space pauses. The arrow keys jump scene to scene. There is a notes box
+        under the stage, one note per scene, and a Copy all button that hands
+        them back in one block.
+      </p>
+      <button id="begin" type="button">Play</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div id="scrub"></div>
+  <div id="meta"><span id="act"></span><span id="clock"></span></div>
+  <h2 id="title"></h2>
+  <p id="caption"></p>
+  <div id="pacing">
+    <div id="pacingline">
+      <span id="pacinglabel">One night, dusk to book</span>
+      <span id="pacingnum"></span>
+    </div>
+    <div id="pacingbar">
+      <div id="band"></div>
+      <div id="elapsed"></div>
+    </div>
+  </div>
+  <div id="notes">
+    <textarea
+      id="note"
+      rows="2"
+      placeholder="Notes on this scene. Saved in this browser as you type."
+    ></textarea>
+    <div id="notesline">
+      <span id="notecount" class="hint"></span>
+      <span>
+        <button id="clearall" class="btn" type="button">Clear notes</button>
+        <button id="copyall" class="btn" type="button">Copy all notes</button>
+      </span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js"></script>
+<script>
+  (async () => {
+    const { Application, Container, Graphics, Text, FillGradient } = PIXI;
+    const W = 1280;
+    const H = 720;
+
+    const app = new Application();
+    await app.init({
+      width: W,
+      height: H,
+      background: '#04060c',
+      antialias: true,
+      resolution: Math.min(window.devicePixelRatio || 1, 2),
+      autoDensity: true,
+    });
+    document.getElementById('stage').prepend(app.canvas);
+    // autoDensity writes inline pixel dimensions; the page scales the canvas.
+    app.canvas.style.width = '100%';
+    app.canvas.style.height = 'auto';
+
+    // Deterministic scatter so every run looks the same.
+    function rng(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return s / 4294967296;
+      };
+    }
+
+    const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+    // progress through a window, 0 before it and 1 after
+    const p = (t, a, b) => clamp((t - a) / (b - a || 0.0001), 0, 1);
+    const ease = (x) => x * x * (3 - 2 * x);
+    const easeOut = (x) => 1 - (1 - x) * (1 - x);
+    const easeIn = (x) => x * x;
+    const lerp = (a, b, x) => a + (b - a) * x;
+    // in over fadeIn seconds, out over fadeOut before the end
+    function envelope(t, dur, fadeIn = 0.45, fadeOut = 0.45) {
+      return Math.min(p(t, 0, fadeIn), 1 - p(t, dur - fadeOut, dur));
+    }
+
+    // one-shot events on a scene's own clock; rebuilt with the scene
+    function cues(list) {
+      const items = list.map(([at, fn]) => ({ at, fn, fired: false }));
+      return {
+        run(t) {
+          for (const it of items) {
+            if (!it.fired && t >= it.at) {
+              it.fired = true;
+              it.fn();
+            }
+          }
+        },
+      };
+    }
+
+    // ---- sound ----------------------------------------------------------
+    // Everything is synthesised here: no asset fetches beyond the pixi CDN.
+
+    const Snd = (() => {
+      let ac = null;
+      let master = null;
+      let noiseBuf = null;
+      let bedNodes = null;
+      let bedName = 'none';
+      let crackle = 0;
+      let muted = false;
+
+      function start() {
+        if (ac) {
+          if (ac.state === 'suspended') ac.resume();
+          return;
+        }
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        ac = new Ctx();
+        master = ac.createGain();
+        master.gain.value = 0.85;
+        master.connect(ac.destination);
+        const n = Math.floor(ac.sampleRate * 2);
+        noiseBuf = ac.createBuffer(1, n, ac.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      }
+
+      function env(g, t0, attack, hold, release, peak) {
+        const v = Math.max(peak, 0.0002);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(v, t0 + attack);
+        g.gain.setValueAtTime(v, t0 + attack + hold);
+        g.gain.exponentialRampToValueAtTime(
+          0.0001,
+          t0 + attack + hold + release,
+        );
+      }
+
+      function tone(f, o = {}) {
+        if (!ac) return;
+        const {
+          dur = 0.5,
+          type = 'sine',
+          gain = 0.14,
+          delay = 0,
+          glide = null,
+          attack = 0.02,
+        } = o;
+        const t0 = ac.currentTime + delay;
+        const osc = ac.createOscillator();
+        osc.type = type;
+        osc.frequency.setValueAtTime(f, t0);
+        if (glide) osc.frequency.exponentialRampToValueAtTime(glide, t0 + dur);
+        const g = ac.createGain();
+        env(g, t0, attack, dur * 0.2, dur * 0.8, gain);
+        osc.connect(g).connect(master);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.3);
+      }
+
+      function noise(o = {}) {
+        if (!ac) return;
+        const {
+          dur = 0.3,
+          f = 900,
+          q = 1,
+          type = 'bandpass',
+          gain = 0.18,
+          delay = 0,
+          sweep = null,
+          attack = 0.006,
+        } = o;
+        const t0 = ac.currentTime + delay;
+        const s = ac.createBufferSource();
+        s.buffer = noiseBuf;
+        s.loop = true;
+        const bq = ac.createBiquadFilter();
+        bq.type = type;
+        bq.frequency.setValueAtTime(f, t0);
+        bq.Q.value = q;
+        if (sweep) bq.frequency.exponentialRampToValueAtTime(sweep, t0 + dur);
+        const g = ac.createGain();
+        env(g, t0, attack, dur * 0.2, dur * 0.8, gain);
+        s.connect(bq).connect(g).connect(master);
+        s.start(t0);
+        s.stop(t0 + dur + 0.3);
+      }
+
+      function bed(name) {
+        if (!ac || name === bedName) {
+          bedName = name;
+          return;
+        }
+        bedName = name;
+        if (bedNodes) {
+          const old = bedNodes;
+          old.g.gain.linearRampToValueAtTime(0.0001, ac.currentTime + 0.9);
+          window.setTimeout(() => {
+            try {
+              old.src.stop();
+              old.lfo.stop();
+            } catch (e) {
+              /* already stopped */
+            }
+          }, 1400);
+          bedNodes = null;
+        }
+        if (name === 'none') return;
+        const src = ac.createBufferSource();
+        src.buffer = noiseBuf;
+        src.loop = true;
+        const lp = ac.createBiquadFilter();
+        lp.type = 'lowpass';
+        const g = ac.createGain();
+        g.gain.value = 0.0001;
+        let target = 0.05;
+        let sway = 160;
+        let rate = 0.07;
+        if (name === 'cold') {
+          lp.frequency.value = 430;
+          target = 0.075;
+        } else if (name === 'deepcold') {
+          lp.frequency.value = 260;
+          target = 0.1;
+          sway = 200;
+          rate = 0.05;
+        } else if (name === 'warm') {
+          lp.frequency.value = 190;
+          target = 0.05;
+          sway = 40;
+          rate = 0.13;
+        } else if (name === 'room') {
+          lp.frequency.value = 130;
+          target = 0.032;
+          sway = 30;
+        }
+        const lfo = ac.createOscillator();
+        lfo.frequency.value = rate;
+        const lg = ac.createGain();
+        lg.gain.value = sway;
+        lfo.connect(lg).connect(lp.frequency);
+        src.connect(lp).connect(g).connect(master);
+        src.start();
+        lfo.start();
+        g.gain.linearRampToValueAtTime(target, ac.currentTime + 1.3);
+        bedNodes = { src, g, lfo };
+      }
+
+      // the warm bed spits the odd ember
+      function tick(dt) {
+        if (!ac || bedName !== 'warm') return;
+        crackle -= dt;
+        if (crackle > 0) return;
+        crackle = 0.25 + Math.random() * 1.1;
+        noise({ dur: 0.05, f: 1600 + Math.random() * 1800, q: 6, gain: 0.05 });
+      }
+
+      const api = {
+        start,
+        bed,
+        tick,
+        setMuted(m) {
+          muted = m;
+          if (master) master.gain.value = m ? 0 : 0.85;
+        },
+        // discrete voices, named for what they are in the fiction
+        place() {
+          noise({ dur: 0.09, f: 260, q: 1.6, gain: 0.075, attack: 0.012 });
+          tone(140, { dur: 0.2, gain: 0.06, type: 'sine', attack: 0.012 });
+        },
+        tick_ui() {
+          noise({ dur: 0.05, f: 1200, q: 3, gain: 0.022, attack: 0.012 });
+        },
+        pop() {
+          tone(300, { dur: 0.18, gain: 0.03, type: 'sine', attack: 0.02 });
+          noise({ dur: 0.07, f: 900, q: 2.5, gain: 0.02, attack: 0.015 });
+        },
+        commit() {
+          tone(96, { dur: 0.7, gain: 0.16, type: 'sine' });
+          tone(192, { dur: 0.5, gain: 0.06, type: 'triangle' });
+        },
+        pour() {
+          noise({ dur: 0.55, f: 700, q: 1.2, gain: 0.09, sweep: 1400 });
+        },
+        salt() {
+          noise({ dur: 0.7, f: 4200, q: 0.8, gain: 0.06, sweep: 2600 });
+        },
+        ignite() {
+          noise({ dur: 0.28, f: 900, q: 0.7, gain: 0.11, sweep: 320 });
+          tone(220, { dur: 0.3, gain: 0.04, type: 'sine' });
+        },
+        snuff() {
+          noise({ dur: 0.22, f: 1500, q: 0.6, gain: 0.1, sweep: 260 });
+        },
+        knock() {
+          for (let i = 0; i < 3; i++) {
+            const d = i * 0.33;
+            noise({ dur: 0.09, f: 260, q: 1.2, gain: 0.3, delay: d });
+            tone(78, { dur: 0.26, gain: 0.26, type: 'sine', delay: d });
+          }
+        },
+        step() {
+          noise({ dur: 0.08, f: 200, q: 1.4, gain: 0.11 });
+          tone(64, { dur: 0.2, gain: 0.08, type: 'sine' });
+        },
+        creak() {
+          tone(180, { dur: 1.1, gain: 0.05, type: 'sawtooth', glide: 128 });
+          noise({ dur: 1.0, f: 700, q: 8, gain: 0.03, sweep: 480 });
+        },
+        page() {
+          noise({
+            dur: 0.5,
+            f: 1300,
+            q: 0.6,
+            gain: 0.04,
+            sweep: 520,
+            attack: 0.05,
+          });
+        },
+        pen() {
+          noise({
+            dur: 0.2,
+            f: 1500,
+            q: 1.2,
+            gain: 0.024,
+            sweep: 1000,
+            attack: 0.03,
+          });
+        },
+        // a line settling onto the page over a beat, not a stroke landing on it
+        penSettle() {
+          noise({
+            dur: 1.1,
+            f: 620,
+            q: 0.7,
+            gain: 0.02,
+            sweep: 380,
+            attack: 0.5,
+          });
+        },
+        // a choice taken quietly: no edge on it at all
+        choose() {
+          tone(174, { dur: 0.8, gain: 0.05, type: 'sine', attack: 0.12 });
+          tone(261, { dur: 0.6, gain: 0.018, type: 'sine', attack: 0.16 });
+        },
+        // a note the room could plausibly make, never a bell on a cartoon
+        chime(f = 660, gain = 0.1) {
+          tone(f / 2, {
+            dur: 2.4,
+            gain: gain * 0.7,
+            type: 'sine',
+            attack: 0.14,
+          });
+          tone(f, { dur: 1.8, gain: gain * 0.28, type: 'sine', attack: 0.1 });
+        },
+        // first light: air rather than a tone
+        daybreak() {
+          noise({
+            dur: 3.2,
+            f: 380,
+            q: 0.5,
+            gain: 0.05,
+            sweep: 900,
+            attack: 1.4,
+          });
+          tone(87, { dur: 3.0, gain: 0.05, type: 'sine', attack: 1.2 });
+        },
+        warmChord(root = 174, gain = 0.07) {
+          [1, 1.5, 2, 3].forEach((m, i) =>
+            tone(root * m, {
+              dur: 2.6,
+              gain: gain / (i + 1),
+              type: 'sine',
+              attack: 0.5,
+              delay: i * 0.08,
+            }),
+          );
+        },
+        coldTone() {
+          tone(58, { dur: 2.4, gain: 0.14, type: 'sine', attack: 0.6 });
+          tone(87, { dur: 2.0, gain: 0.05, type: 'sine', attack: 0.8 });
+        },
+        frost() {
+          noise({ dur: 0.9, f: 5200, q: 0.9, gain: 0.05, sweep: 8000 });
+        },
+        door() {
+          tone(140, { dur: 0.9, gain: 0.07, type: 'sawtooth', glide: 90 });
+          noise({ dur: 0.8, f: 500, q: 5, gain: 0.04, sweep: 300 });
+        },
+        latch() {
+          noise({ dur: 0.05, f: 2800, q: 3, gain: 0.14 });
+          noise({ dur: 0.07, f: 900, q: 2, gain: 0.1, delay: 0.09 });
+        },
+        boots() {
+          noise({ dur: 0.14, f: 1100, q: 0.8, gain: 0.07, sweep: 600 });
+        },
+        engine() {
+          tone(52, { dur: 2.8, gain: 0.11, type: 'sawtooth', attack: 0.3 });
+          noise({ dur: 2.8, f: 220, q: 1, gain: 0.05 });
+        },
+        glass() {
+          tone(740, { dur: 0.7, gain: 0.028, type: 'sine', attack: 0.03 });
+          tone(1110, { dur: 0.4, gain: 0.009, type: 'sine', attack: 0.03 });
+        },
+        bell() {
+          tone(440, { dur: 2.6, gain: 0.035, type: 'sine', attack: 0.06 });
+          tone(660, { dur: 1.8, gain: 0.014, type: 'sine', attack: 0.06 });
+        },
+        bloom() {
+          [131, 196, 262, 392].forEach((f, i) =>
+            tone(f, {
+              dur: 3.6,
+              gain: 0.075 / (i * 0.7 + 1),
+              type: 'sine',
+              attack: 0.35,
+              delay: i * 0.1,
+            }),
+          );
+          noise({
+            dur: 2.2,
+            f: 700,
+            q: 0.5,
+            gain: 0.022,
+            sweep: 300,
+            attack: 0.4,
+          });
+        },
+        wind_gust() {
+          noise({ dur: 2.4, f: 500, q: 0.6, gain: 0.09, sweep: 240 });
+        },
+      };
+      return api;
+    })();
+
+    // ---- palettes -------------------------------------------------------
+    // Cold lives in blue and slate, warmth in gold. No brown, no purple.
+    const PAL = {
+      night: {
+        wall: 0x141d34,
+        floor: 0x0d1425,
+        line: 0x1f2b48,
+        glass: 0x22334f,
+      },
+      dusk: {
+        wall: 0x243352,
+        floor: 0x18223c,
+        line: 0x33476e,
+        glass: 0x4e6f96,
+      },
+      dawn: {
+        wall: 0x35465f,
+        floor: 0x25314a,
+        line: 0x475a7a,
+        glass: 0xdde9f1,
+      },
+      warm: {
+        wall: 0x40465c,
+        floor: 0x2d3449,
+        line: 0x525b78,
+        glass: 0xa5bacc,
+      },
+      frozen: {
+        wall: 0x1e2a45,
+        floor: 0x141e36,
+        line: 0x2c3c60,
+        glass: 0xc6dde9,
+      },
+    };
+    const INK = 0x2c3340;
+    const HER_INK = 0x51677c;
+    const PAPER = 0xe9e1cd;
+    const PAPER_EDGE = 0xcfc5ac;
+    const GOLD = 0xe8a83e;
+    const FLAME_CORE = 0xfff3d0;
+    const SALT = 0xeef2f6;
+    const ASH = 0x55627a;
+    const SILHOUETTE = 0x0c1220;
+    const ACCENT_KEEPER = 0x4fa3a8;
+    const ACCENT_AUNT = 0xd8a23c;
+    const serif = 'Georgia, "Times New Roman", serif';
+    const ui = 'system-ui, sans-serif';
+
+    // ---- shared vocabulary ----------------------------------------------
+
+    function sceneBase(pal) {
+      const c = new Container();
+      c.addChild(
+        new Graphics()
+          .rect(0, 0, W, 560)
+          .fill(pal.wall)
+          .rect(0, 560, W, H - 560)
+          .fill(pal.floor)
+          .rect(0, 552, W, 8)
+          .fill(pal.line),
+      );
+      const g = new Graphics();
+      for (let i = 0; i < 9; i++) {
+        const y = 578 + i * 18;
+        g.moveTo(0, y)
+          .lineTo(W, y)
+          .stroke({ width: 1, color: pal.line, alpha: 0.45 });
+      }
+      c.addChild(g);
+      return c;
+    }
+
+    function vignette(strength = 0.5) {
+      const grad = new FillGradient({
+        type: 'radial',
+        center: { x: 0.5, y: 0.5 },
+        innerRadius: 0,
+        outerCenter: { x: 0.5, y: 0.5 },
+        outerRadius: 0.75,
+        colorStops: [
+          { offset: 0, color: 'rgba(4,6,12,0)' },
+          { offset: 0.65, color: 'rgba(4,6,12,0)' },
+          { offset: 1, color: `rgba(4,6,12,${strength})` },
+        ],
+      });
+      return new Graphics().rect(0, 0, W, H).fill(grad);
+    }
+
+    function radial(color, alpha, radius) {
+      const grad = new FillGradient({
+        type: 'radial',
+        center: { x: 0.5, y: 0.5 },
+        innerRadius: 0,
+        outerCenter: { x: 0.5, y: 0.5 },
+        outerRadius: 0.5,
+        colorStops: [
+          { offset: 0, color: `rgba(${color},${alpha})` },
+          { offset: 0.55, color: `rgba(${color},${alpha * 0.28})` },
+          { offset: 1, color: `rgba(${color},0)` },
+        ],
+      });
+      const g = new Graphics().circle(0, 0, radius).fill(grad);
+      g.blendMode = 'add';
+      return g;
+    }
+
+    // The window's frost is live: `set(amount)` thickens it as a winter runs on.
+    function makeWindow(pal, { moon = false, shaft = false } = {}) {
+      const c = new Container();
+      const x = 150,
+        y = 120,
+        w = 190,
+        h = 280;
+      c.addChild(
+        new Graphics()
+          .rect(x - 14, y - 14, w + 28, h + 42)
+          .fill(pal.line)
+          .rect(x, y, w, h)
+          .fill(pal.glass)
+          .rect(x - 22, y + h + 14, w + 44, 14)
+          .fill(pal.line),
+      );
+      c.addChild(
+        new Graphics()
+          .rect(x + w / 2 - 3, y, 6, h)
+          .fill(pal.wall)
+          .rect(x, y + h / 2 - 3, w, 6)
+          .fill(pal.wall),
+      );
+      if (moon) {
+        c.addChild(
+          new Graphics()
+            .circle(x + w * 0.7, y + h * 0.25, 22)
+            .fill({ color: 0xc4d6e2, alpha: 0.8 }),
+        );
+      }
+      const frostG = new Graphics();
+      c.addChild(frostG);
+      if (shaft) {
+        c.addChild(
+          new Graphics()
+            .poly([x + 10, y + 30, x + w, y + 10, W * 0.62, 640, x + 60, 660])
+            .fill({ color: 0xe8f0f6, alpha: 0.07 }),
+        );
+      }
+      const corners = [
+        [x, y],
+        [x + w, y],
+        [x, y + h],
+        [x + w, y + h],
+        [x + w / 2, y + h / 2],
+      ];
+      function set(frost) {
+        frostG.clear();
+        if (frost <= 0.01) return;
+        const r = rng(7);
+        for (const [cx, cy] of corners) {
+          const reach = 26 + frost * 62;
+          for (let i = 0; i < 9; i++) {
+            const a = r() * Math.PI * 2;
+            const len = reach * (0.4 + r() * 0.6);
+            frostG
+              .moveTo(cx, cy)
+              .lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len)
+              .stroke({
+                width: 1.5,
+                color: 0xbfe0ee,
+                alpha: 0.25 + frost * 0.4,
+              });
+          }
+          frostG.circle(cx, cy, 8 + frost * 16).fill({
+            color: 0xcfe8f2,
+            alpha: 0.12 + frost * 0.2,
+          });
+        }
+      }
+      set(0);
+      return { view: c, set };
+    }
+
+    // The fire breathes; `update(t)` is called every frame it is lit.
+    function makeHearth(pal, { lit = false, tidy = false, dead = false } = {}) {
+      const c = new Container();
+      const x = 830,
+        w = 210,
+        top = 310,
+        floor = 560;
+      c.addChild(
+        new Graphics()
+          .rect(x - 26, top - 40, w + 52, 26)
+          .fill(pal.line)
+          .rect(x - 18, top - 14, 18, floor - top + 14)
+          .fill(pal.line)
+          .rect(x + w, top - 14, 18, floor - top + 14)
+          .fill(pal.line)
+          .rect(x, top, w, floor - top)
+          .fill(0x0a0f1c),
+      );
+      let halo = null;
+      let fire = null;
+      if (lit) {
+        halo = radial('255,170,70', 0.5, 260);
+        halo.position.set(x + w / 2, floor - 40);
+        c.addChild(halo);
+        fire = new Graphics();
+        c.addChild(fire);
+      } else {
+        c.addChild(
+          new Graphics()
+            .ellipse(x + w / 2, floor - 18, 58, 12)
+            .fill({ color: dead ? 0x39445c : 0x2a3348, alpha: 0.9 }),
+        );
+      }
+      const logColor = 0x27314a;
+      c.addChild(
+        new Graphics()
+          .roundRect(x + w / 2 - 52, floor - 22, 44, 12, 6)
+          .fill(logColor)
+          .roundRect(x + w / 2 + 4, floor - 20, 48, 12, 6)
+          .fill(logColor),
+      );
+      if (tidy) {
+        const g = new Graphics();
+        for (let i = 0; i < 3; i++)
+          for (let j = 0; j <= i; j++)
+            g.roundRect(
+              x - 96 + j * 34 - i * 17,
+              floor - 16 - (2 - i) * 18,
+              30,
+              15,
+              7,
+            ).fill(0x3a4864);
+        c.addChild(g);
+      }
+      function update(t) {
+        if (!fire) return;
+        const a = Math.sin(t * 5.1) * 0.5 + Math.sin(t * 2.3) * 0.5;
+        const b = Math.sin(t * 6.7 + 1.4);
+        fire
+          .clear()
+          .ellipse(x + w / 2 - 28, floor - 26, 20 + a * 3, 30 + b * 6)
+          .fill({ color: 0xf0862e, alpha: 0.9 })
+          .ellipse(x + w / 2 + 20, floor - 30, 24 - b * 3, 38 + a * 7)
+          .fill({ color: 0xf0a03e, alpha: 0.9 })
+          .ellipse(x + w / 2, floor - 34, 14 + b * 2, 44 + a * 8)
+          .fill(0xffd98a)
+          .ellipse(x + w / 2, floor - 24, 8, 20 + a * 4)
+          .fill(FLAME_CORE);
+        if (halo) halo.scale.set(1 + a * 0.05);
+      }
+      update(0);
+      return { view: c, update };
+    }
+
+    function doorFrame(pal, { openGap = 0 } = {}) {
+      const c = new Container();
+      const x = 1130,
+        w = 130,
+        top = 160,
+        floor = 560;
+      c.addChild(
+        new Graphics()
+          .rect(x - 14, top - 14, w + 28, 14)
+          .fill(pal.line)
+          .rect(x - 14, top, 14, floor - top)
+          .fill(pal.line)
+          .rect(x + w, top, 14, floor - top)
+          .fill(pal.line),
+      );
+      if (openGap > 0) {
+        c.addChild(
+          new Graphics()
+            .rect(x, top, w, floor - top)
+            .fill(0x080d18)
+            .rect(x, top, w * (1 - openGap), floor - top)
+            .fill(0x1b2540),
+        );
+      } else {
+        c.addChild(
+          new Graphics()
+            .rect(x, top, w, floor - top)
+            .fill(0x1b2540)
+            .roundRect(x + 16, top + 30, w - 32, 160, 4)
+            .stroke({ width: 2, color: pal.line })
+            .roundRect(x + 16, top + 220, w - 32, 160, 4)
+            .stroke({ width: 2, color: pal.line })
+            .circle(x + 22, top + 208, 5)
+            .fill(0x8fa0b8),
+        );
+      }
+      c.addChild(new Graphics().rect(x - 30, 560, w + 60, 12).fill(pal.line));
+      return c;
+    }
+
+    function table(pal) {
+      const c = new Container();
+      const x = 570,
+        y = 462,
+        w = 150;
+      c.addChild(
+        new Graphics()
+          .rect(x, y, w, 14)
+          .fill(0x2a3450)
+          .rect(x + 10, y + 14, 12, 84)
+          .fill(0x232c46)
+          .rect(x + w - 22, y + 14, 12, 84)
+          .fill(0x232c46),
+      );
+      return c;
+    }
+
+    // A candle that can be placed, burn down, gutter and go out.
+    function makeCandle(x, baseY, { frac = 1, scale = 1, mark = null } = {}) {
+      const c = new Container();
+      const fullH = 96 * scale;
+      const wax = 15 * scale;
+      const body = new Graphics();
+      const rings = new Graphics();
+      const markG = new Graphics();
+      const flame = new Graphics();
+      const halo = radial('255,190,110', 0.5, 130 * scale);
+      c.addChild(body, rings, markG, halo, flame);
+      flame.blendMode = 'add';
+      let f = frac;
+      let lit = false;
+      let smoke = null;
+
+      function redraw() {
+        const h = fullH * f;
+        body
+          .clear()
+          .ellipse(x, baseY, wax + 7, 6 * scale)
+          .fill(0x33405c)
+          .roundRect(x - wax, baseY - h, wax * 2, h, 5)
+          .fill(0xece4cc)
+          .ellipse(x, baseY - h, wax, 4 * scale)
+          .fill(0xf7edd6);
+        rings.clear();
+        for (let i = 1; i < 4; i++) {
+          const ry = baseY - (fullH * i) / 4;
+          if (ry > baseY - h + 4 * scale) {
+            rings
+              .moveTo(x - wax + 2, ry)
+              .lineTo(x + wax - 2, ry)
+              .stroke({ width: 1.5, color: 0xb9ae92, alpha: 0.8 });
+          }
+        }
+        markG.clear();
+        if (mark !== null) {
+          const my = baseY - (fullH * (4 - mark - 0.5)) / 4;
+          if (my > baseY - h) {
+            markG
+              .roundRect(x - wax - 2, my - 4, wax * 2 + 4, 8, 3)
+              .fill({ color: 0x1a2233, alpha: 0.85 });
+          }
+        }
+      }
+
+      function update(t) {
+        const h = fullH * f;
+        const tipY = baseY - h;
+        if (lit) {
+          const w1 = Math.sin(t * 8.3) * 1.4 + Math.sin(t * 3.1) * 1.2;
+          const s1 = 1 + Math.sin(t * 6.2) * 0.12;
+          flame
+            .clear()
+            .ellipse(
+              x + w1 * 0.5,
+              tipY - 12 * scale,
+              7 * scale,
+              13 * scale * s1,
+            )
+            .fill({ color: 0xffb45e, alpha: 0.6 })
+            .ellipse(x + w1 * 0.3, tipY - 10 * scale, 4 * scale, 8 * scale * s1)
+            .fill(FLAME_CORE);
+          halo.visible = true;
+          halo.position.set(x, tipY - 14 * scale);
+          halo.scale.set(0.9 + Math.sin(t * 5.7) * 0.07);
+          halo.alpha = 1;
+        } else {
+          flame.clear();
+          halo.visible = false;
+          flame
+            .rect(x - 1, tipY - 8 * scale, 2, 8 * scale)
+            .fill({ color: 0x3c3428, alpha: 0.9 });
+        }
+        if (smoke) {
+          const age = t - smoke.at;
+          if (age > 3) {
+            smoke.g.clear();
+          } else {
+            const a = clamp(1 - age / 3, 0, 1) * 0.3;
+            const rise = age * 60;
+            smoke.g
+              .clear()
+              .moveTo(x, tipY - 6)
+              .quadraticCurveTo(
+                x + 18,
+                tipY - 30 - rise * 0.4,
+                x - 4,
+                tipY - 70 - rise,
+              )
+              .quadraticCurveTo(
+                x - 24,
+                tipY - 110 - rise * 1.3,
+                x + 8,
+                tipY - 150 - rise * 1.6,
+              )
+              .stroke({ width: 2, color: 0x8fa0b8, alpha: a });
+          }
+        }
+      }
+
+      redraw();
+      return {
+        view: c,
+        setFrac(v) {
+          f = clamp(v, 0, 1);
+          redraw();
+        },
+        setLit(v, t = 0) {
+          if (lit && !v) {
+            if (!smoke) {
+              smoke = { g: new Graphics(), at: t };
+              c.addChild(smoke.g);
+            } else {
+              smoke.at = t;
+            }
+          }
+          lit = v;
+        },
+        update,
+      };
+    }
+
+    function makeBowl(x, y, { scale = 1 } = {}) {
+      const c = new Container();
+      const rx = 30 * scale;
+      const g = new Graphics();
+      c.addChild(g);
+      function set(state) {
+        g.clear()
+          .ellipse(x, y, rx, 11 * scale)
+          .fill(0x8fa0b8)
+          .ellipse(x, y - 3 * scale, rx - 5, 8 * scale)
+          .fill(state === 'milk' ? 0xf2f6f8 : 0x1a2438);
+      }
+      set('empty');
+      return { view: c, set };
+    }
+
+    function makeSaltLine(cx, y, width) {
+      const c = new Container();
+      const g = new Graphics();
+      c.addChild(g);
+      const r0 = rng(41);
+      const grains = [];
+      const n = Math.floor(width / 7);
+      for (let i = 0; i < n; i++) {
+        grains.push([cx - width / 2 + i * 7 + r0() * 3, y + (r0() - 0.5) * 4]);
+      }
+      const smear = [];
+      for (let i = 0; i < 14; i++) {
+        smear.push([cx - width * 0.08 + r0() * 44, y + 6 + r0() * 20]);
+      }
+      // prog pours the line in; scuff opens the gap something crossed through
+      function set(prog, scuff = 0) {
+        g.clear();
+        const upto = Math.floor(n * clamp(prog, 0, 1));
+        for (let i = 0; i < upto; i++) {
+          const inGap = scuff > 0 && i > n * 0.35 && i < n * 0.6;
+          if (inGap) continue;
+          g.circle(grains[i][0], grains[i][1], 2.2).fill({
+            color: SALT,
+            alpha: 0.9,
+          });
+        }
+        if (scuff > 0) {
+          for (const [sx, sy] of smear) {
+            g.circle(sx, sy, 1.6).fill({ color: SALT, alpha: 0.5 * scuff });
+          }
+        }
+      }
+      set(0);
+      return { view: c, set };
+    }
+
+    function ashPrints(points, prog = 1) {
+      const g = new Graphics();
+      const upto = Math.ceil(points.length * clamp(prog, 0, 1));
+      for (let i = 0; i < upto; i++) {
+        const [x, y] = points[i];
+        const side = i % 2 === 0 ? -7 : 7;
+        g.ellipse(x + side, y, 7, 12).fill({ color: ASH, alpha: 0.55 });
+      }
+      return g;
+    }
+
+    function makeGauge(x, y, { h = 190, offerBand = null } = {}) {
+      const c = new Container();
+      const w = 26;
+      c.addChild(
+        new Graphics()
+          .roundRect(x, y, w, h, 12)
+          .fill(0x0d1322)
+          .roundRect(x, y, w, h, 12)
+          .stroke({ width: 2, color: 0x51617f })
+          .circle(x + w / 2, y + h + 16, 20)
+          .fill(0x0d1322)
+          .circle(x + w / 2, y + h + 16, 20)
+          .stroke({ width: 2, color: 0x51617f }),
+      );
+      const fill = new Graphics();
+      c.addChild(fill);
+      const ticks = new Graphics();
+      for (let i = 1; i < 5; i++) {
+        ticks
+          .moveTo(x + w, y + (h * i) / 5)
+          .lineTo(x + w + 8, y + (h * i) / 5)
+          .stroke({ width: 2, color: 0x51617f });
+      }
+      c.addChild(ticks);
+      if (offerBand) {
+        c.addChild(
+          new Graphics()
+            .rect(
+              x - 8,
+              y + h * (1 - offerBand[1]),
+              8,
+              h * (offerBand[1] - offerBand[0]),
+            )
+            .fill({ color: 0x9fc0d4, alpha: 0.65 }),
+        );
+      }
+      const provision = new Graphics();
+      c.addChild(provision);
+      const label = new Text({
+        text: 'warmth',
+        style: {
+          fontFamily: serif,
+          fontSize: 15,
+          fill: 0x8fa0b8,
+          fontStyle: 'italic',
+        },
+      });
+      label.anchor.set(0.5, 0);
+      label.position.set(x + w / 2, y + h + 40);
+      c.addChild(label);
+      function set(frac) {
+        const f = clamp(frac, 0, 1);
+        const fillH = Math.max((h - 10) * f, 0.5);
+        const col = f > 0.35 ? GOLD : 0x7fa8c0;
+        fill
+          .clear()
+          .roundRect(x + 6, y + (h - 5) - fillH, w - 12, fillH, 6)
+          .fill(col)
+          .circle(x + w / 2, y + h + 16, 13)
+          .fill(col);
+      }
+      function setProvisionTick(v, alpha = 0.9) {
+        provision.clear();
+        if (v === null) return;
+        provision
+          .moveTo(x - 12, y + h * (1 - v))
+          .lineTo(x + w + 12, y + h * (1 - v))
+          .stroke({ width: 3, color: GOLD, alpha });
+      }
+      set(0.5);
+      return { view: c, set, setProvisionTick };
+    }
+
+    function bookSpread(cx, cy, w, h) {
+      const c = new Container();
+      const half = w / 2;
+      c.addChild(
+        new Graphics()
+          .roundRect(cx - half - 8, cy - h / 2 + 6, w + 16, h + 4, 6)
+          .fill(PAPER_EDGE)
+          .poly([
+            cx - half,
+            cy - h / 2,
+            cx - 6,
+            cy - h / 2 + 4,
+            cx - 6,
+            cy + h / 2 + 4,
+            cx - half,
+            cy + h / 2,
+          ])
+          .fill(PAPER)
+          .poly([
+            cx + 6,
+            cy - h / 2 + 4,
+            cx + half,
+            cy - h / 2,
+            cx + half,
+            cy + h / 2,
+            cx + 6,
+            cy + h / 2 + 4,
+          ])
+          .fill(PAPER)
+          .rect(cx - 6, cy - h / 2 + 4, 12, h)
+          .fill(0xd8cdb2),
+      );
+      return {
+        view: c,
+        left: { x: cx - half + 26, y: cy - h / 2 + 26, w: half - 52 },
+        right: { x: cx + 32, y: cy - h / 2 + 26, w: half - 58 },
+      };
+    }
+
+    function hand(text, o = {}) {
+      const {
+        size = 19,
+        ink = INK,
+        italic = true,
+        align = 'left',
+        family = serif,
+      } = o;
+      return new Text({
+        text,
+        style: {
+          fontFamily: family,
+          fontSize: size,
+          fill: ink,
+          fontStyle: italic ? 'italic' : 'normal',
+          align,
+          lineHeight: size * 1.45,
+        },
+      });
+    }
+
+    function label(text, size, fill, family = ui) {
+      return new Text({
+        text,
+        style: { fontFamily: family, fontSize: size, fill },
+      });
+    }
+
+    // Text that writes itself. Layout is fixed from the full string, so
+    // nothing shifts as the hand moves along.
+    function writer(textObj, full) {
+      textObj.text = '';
+      let shown = -1;
+      return (prog) => {
+        const n = Math.round(clamp(prog, 0, 1) * full.length);
+        if (n !== shown) {
+          shown = n;
+          textObj.text = full.slice(0, n);
+        }
+      };
+    }
+
+    // Centred text cannot reveal a character at a time without growing out of
+    // its own middle, so it wipes left to right behind a mask instead.
+    function wipeText(textObj) {
+      const m = new Graphics();
+      textObj.parent.addChild(m);
+      textObj.mask = m;
+      const x = textObj.x - textObj.anchor.x * textObj.width;
+      const y = textObj.y - textObj.anchor.y * textObj.height;
+      const w = textObj.width + 10;
+      const h = textObj.height + 12;
+      return (prog) => {
+        m.clear();
+        const k = clamp(prog, 0, 1);
+        if (k <= 0) return;
+        m.rect(x - 5, y - 6, w * k, h).fill(0xffffff);
+      };
+    }
+
+    // A block of centred lines, each wiping in after the one above it.
+    function centredLines(
+      parent,
+      lines,
+      { cx, y, size, ink, lineH, italic = true },
+    ) {
+      const wipes = lines.map((txt, i) => {
+        const t = hand(txt, { size, ink, italic, align: 'center' });
+        t.anchor.set(0.5, 0);
+        t.position.set(cx, y + i * lineH);
+        parent.addChild(t);
+        return wipeText(t);
+      });
+      return (prog) => {
+        const k = clamp(prog, 0, 1) * lines.length;
+        wipes.forEach((wp, i) => wp(clamp(k - i, 0, 1)));
+      };
+    }
+
+    // A pen stroke that draws rather than appears.
+    function penStrike(g, t, prog, ink = INK) {
+      if (prog <= 0.001) return;
+      const x1 = t.x - 3;
+      const y1 = t.y + t.height * 0.55;
+      const x2 = t.x + t.width + 4;
+      const y2 = t.y + t.height * 0.48;
+      g.moveTo(x1, y1)
+        .lineTo(lerp(x1, x2, prog), lerp(y1, y2, prog))
+        .stroke({ width: 2, color: ink, alpha: 0.85 });
+    }
+
+    function penCircle(g, t, prog, ink = INK) {
+      if (prog <= 0.001) return;
+      const cx = t.x + t.width / 2;
+      const cy = t.y + t.height / 2;
+      const rx = t.width / 2 + 12;
+      const ry = t.height / 2 + 7;
+      const start = -2.4;
+      const sweep = 6.9 * clamp(prog, 0, 1);
+      const steps = Math.max(2, Math.ceil(sweep / 0.16));
+      for (let i = 0; i <= steps; i++) {
+        const a = start + sweep * (i / steps);
+        const px = cx + Math.cos(a) * rx;
+        const py = cy + Math.sin(a) * ry;
+        if (i === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.stroke({ width: 2, color: ink, alpha: 0.9 });
+    }
+
+    function chair(x, floorY, { facing = 1 } = {}) {
+      const g = new Graphics();
+      const col = 0x2c3856;
+      g.roundRect(x - 34, floorY - 66, 68, 12, 4)
+        .fill(col)
+        .roundRect(x - facing * 44, floorY - 156, 11, 100, 4)
+        .fill(col)
+        .rect(x - 30, floorY - 54, 9, 54)
+        .fill(col)
+        .rect(x + 21, floorY - 54, 9, 54)
+        .fill(col);
+      return g;
+    }
+
+    function figureSeated(x, floorY, accent) {
+      const c = new Container();
+      c.addChild(chair(x, floorY, { facing: 1 }));
+      c.addChild(
+        new Graphics()
+          .ellipse(x - 4, floorY - 148, 16, 19)
+          .fill(SILHOUETTE)
+          .roundRect(x - 24, floorY - 132, 44, 70, 14)
+          .fill(SILHOUETTE)
+          .roundRect(x - 20, floorY - 70, 52, 16, 8)
+          .fill(SILHOUETTE)
+          .roundRect(x + 22, floorY - 62, 14, 62, 6)
+          .fill(SILHOUETTE)
+          .ellipse(x + 34, floorY - 4, 16, 6)
+          .fill(SILHOUETTE),
+      );
+      c.addChild(
+        new Graphics()
+          .roundRect(x - 24, floorY - 126, 44, 11, 5)
+          .fill({ color: accent, alpha: 0.95 }),
+      );
+      c.addChild(
+        new Graphics().ellipse(x + 2, floorY - 72, 9, 6).fill(SILHOUETTE),
+      );
+      return c;
+    }
+
+    function figureStanding(
+      x,
+      floorY,
+      accent,
+      { book = false, flip = false, color = SILHOUETTE } = {},
+    ) {
+      const c = new Container();
+      const d = flip ? -1 : 1;
+      c.addChild(
+        new Graphics()
+          .ellipse(x, floorY - 154, 13, 15)
+          .fill(color)
+          .roundRect(x - 16, floorY - 140, 32, 74, 12)
+          .fill(color)
+          .rect(x - 14, floorY - 68, 11, 68)
+          .fill(color)
+          .rect(x + 4, floorY - 68, 11, 68)
+          .fill(color),
+      );
+      c.addChild(
+        new Graphics()
+          .roundRect(x - 16, floorY - 134, 32, 8, 4)
+          .fill({ color: accent, alpha: 0.95 }),
+      );
+      if (book) {
+        c.addChild(
+          new Graphics()
+            .roundRect(x + 10 * d, floorY - 112, 26 * d, 34, 3)
+            .fill(PAPER_EDGE)
+            .roundRect(x + 13 * d, floorY - 108, 20 * d, 26, 2)
+            .fill(PAPER),
+        );
+      }
+      return c;
+    }
+
+    // Walking is two legs out of phase and a little bob; enough at this size.
+    function makeWalker(accent, { book = false, flip = false } = {}) {
+      const c = new Container();
+      const legs = new Graphics();
+      const body = new Container();
+      const d = flip ? -1 : 1;
+      body.addChild(
+        new Graphics()
+          .ellipse(0, -154, 13, 15)
+          .fill(SILHOUETTE)
+          .roundRect(-16, -140, 32, 74, 12)
+          .fill(SILHOUETTE),
+      );
+      body.addChild(
+        new Graphics()
+          .roundRect(-16, -134, 32, 8, 4)
+          .fill({ color: accent, alpha: 0.95 }),
+      );
+      if (book) {
+        body.addChild(
+          new Graphics()
+            .roundRect(10 * d, -112, 26 * d, 34, 3)
+            .fill(PAPER_EDGE)
+            .roundRect(13 * d, -108, 20 * d, 26, 2)
+            .fill(PAPER),
+        );
+      }
+      c.addChild(legs, body);
+      function update(t, { walking = true, shiver = 0 } = {}) {
+        const s = walking ? Math.sin(t * 6.4) : 0;
+        legs
+          .clear()
+          .poly([-13, -68, -2, -68, -2 + s * 16, 0, -13 + s * 16, 0])
+          .fill(0x080d18)
+          .poly([3, -68, 14, -68, 14 - s * 16, 0, 3 - s * 16, 0])
+          .fill(SILHOUETTE);
+        body.y = walking ? Math.abs(Math.sin(t * 7)) * -3 : 0;
+        body.x = shiver ? Math.sin(t * 31) * shiver : 0;
+      }
+      update(0);
+      return { view: c, update };
+    }
+
+    // Collapsed forward from kneeling, the way she was found.
+    function figureFallen(
+      x,
+      floorY,
+      accent,
+      { book = true, bun = false, cap = false } = {},
+    ) {
+      const c = new Container();
+      const g = new Graphics()
+        .moveTo(x - 105, floorY)
+        .quadraticCurveTo(x - 108, floorY - 84, x - 56, floorY - 104)
+        .quadraticCurveTo(x - 4, floorY - 122, x + 36, floorY - 68)
+        .quadraticCurveTo(x + 56, floorY - 42, x + 66, floorY - 26)
+        .lineTo(x + 66, floorY)
+        .closePath()
+        .fill(SILHOUETTE)
+        .ellipse(x + 72, floorY - 24, 24, 21)
+        .fill(SILHOUETTE)
+        .roundRect(x + 56, floorY - 16, 126, 16, 8)
+        .fill(SILHOUETTE)
+        .ellipse(x + 182, floorY - 9, 12, 7)
+        .fill(SILHOUETTE);
+      if (bun) g.circle(x + 52, floorY - 40, 9).fill(SILHOUETTE);
+      if (cap) {
+        g.ellipse(x + 72, floorY - 42, 22, 11)
+          .fill(0x3d4f78)
+          .moveTo(x + 50, floorY - 37)
+          .lineTo(x + 94, floorY - 39)
+          .stroke({ width: 4, color: 0x51678f });
+      }
+      c.addChild(g);
+      c.addChild(
+        new Graphics()
+          .moveTo(x - 104, floorY - 56)
+          .quadraticCurveTo(x - 78, floorY - 98, x - 24, floorY - 114)
+          .quadraticCurveTo(x + 14, floorY - 96, x + 44, floorY - 52)
+          .stroke({ width: 3, color: 0xbfd9e8, alpha: 0.5 }),
+      );
+      c.addChild(
+        new Graphics()
+          .moveTo(x - 70, floorY - 80)
+          .quadraticCurveTo(x - 12, floorY - 118, x + 34, floorY - 60)
+          .stroke({ width: 16, color: accent, alpha: 0.95 }),
+      );
+      if (book) {
+        c.addChild(
+          new Graphics()
+            .roundRect(x + 200, floorY - 22, 84, 18, 2)
+            .fill(PAPER_EDGE)
+            .roundRect(x + 206, floorY - 29, 72, 10, 2)
+            .fill(PAPER),
+        );
+      }
+      return c;
+    }
+
+    // Freezing is played, never cut to: the keeper shivers where they stand,
+    // goes down to their knees, and comes to rest in something close to the
+    // pose she was found in. Six joints interpolated across three poses,
+    // offsets relative to (x, floorY).
+    const CRUMPLE_POSES = [
+      {
+        foot: [-2, 0],
+        knee: [0, -36],
+        hip: [0, -72],
+        sh: [0, -136],
+        head: [0, -156],
+        hand: [11, -86],
+      },
+      {
+        foot: [-44, -7],
+        knee: [4, -9],
+        hip: [-8, -46],
+        sh: [8, -104],
+        head: [18, -124],
+        hand: [24, -78],
+      },
+      {
+        foot: [-88, -9],
+        knee: [-42, -15],
+        hip: [-4, -22],
+        sh: [48, -27],
+        head: [72, -26],
+        hand: [126, -12],
+      },
+    ];
+
+    function figureCrumple(x, floorY, accent, { cap = true } = {}) {
+      const g = new Graphics();
+      const at = (j, k) => {
+        const i = clamp(Math.floor(k), 0, CRUMPLE_POSES.length - 2);
+        const u = ease(clamp(k - i, 0, 1));
+        const a = CRUMPLE_POSES[i][j];
+        const b = CRUMPLE_POSES[i + 1][j];
+        return [x + lerp(a[0], b[0], u), floorY + lerp(a[1], b[1], u)];
+      };
+      // the shake is fastest and widest at the top of the body
+      function set(t, k, shiver) {
+        const jit = (m) => [
+          Math.sin(t * 41 + m) * shiver * 2.6,
+          Math.cos(t * 37 + m * 2) * shiver * 1.7,
+        ];
+        const foot = at('foot', k);
+        const knee = at('knee', k);
+        const hip = at('hip', k);
+        const sh = at('sh', k);
+        const head = at('head', k);
+        const hand = at('hand', k);
+        const jh = jit(0.4);
+        const js = jit(1.1);
+        const ja = jit(2.3);
+        sh[0] += js[0];
+        sh[1] += js[1];
+        head[0] += jh[0] * 1.4;
+        head[1] += jh[1] * 1.4;
+        hand[0] += ja[0] * 1.6;
+        hand[1] += ja[1] * 1.6;
+        g.clear();
+        const limb = (a, b, w) =>
+          g
+            .moveTo(a[0], a[1])
+            .lineTo(b[0], b[1])
+            .stroke({ width: w, color: SILHOUETTE, cap: 'round' });
+        limb(foot, knee, 13);
+        limb(knee, hip, 16);
+        limb(hip, sh, 30);
+        limb(sh, hand, 11);
+        g.ellipse(head[0], head[1], 13, 15).fill(SILHOUETTE);
+        // the collar she is wearing in the intro image
+        const cx = lerp(sh[0], head[0], 0.42);
+        const cy = lerp(sh[1], head[1], 0.42);
+        g.moveTo(cx - 15, cy)
+          .lineTo(cx + 15, cy)
+          .stroke({ width: 9, color: accent, alpha: 0.95, cap: 'round' });
+        if (cap) {
+          g.ellipse(head[0], head[1] - 9, 21, 10).fill(0x3d4f78);
+          g.moveTo(head[0] - 21, head[1] - 5)
+            .lineTo(head[0] + 21, head[1] - 6)
+            .stroke({ width: 4, color: 0x51678f });
+        }
+      }
+      set(0, 0, 0);
+      return { view: g, set };
+    }
+
+    // Anything that drifts: snow, leaves, dust.
+    function makeDrift(
+      seed,
+      count,
+      {
+        area = [0, 0, W, H],
+        fall = 40,
+        sway = 22,
+        size = [1, 3],
+        colors = [0xe8f2f8],
+        flat = false,
+        alpha = [0.35, 0.85],
+      } = {},
+    ) {
+      const g = new Graphics();
+      const r = rng(seed);
+      const bits = [];
+      for (let i = 0; i < count; i++) {
+        bits.push({
+          x: area[0] + r() * area[2],
+          y: area[1] + r() * area[3],
+          r: size[0] + r() * (size[1] - size[0]),
+          a: alpha[0] + r() * (alpha[1] - alpha[0]),
+          col: colors[Math.floor(r() * colors.length)],
+          ph: r() * Math.PI * 2,
+          sp: 0.6 + r() * 0.8,
+        });
+      }
+      function update(t) {
+        g.clear();
+        for (const b of bits) {
+          const y =
+            area[1] +
+            ((((b.y - area[1] + t * fall * b.sp) % area[3]) + area[3]) %
+              area[3]);
+          const x = b.x + Math.sin(t * 0.7 * b.sp + b.ph) * sway;
+          if (flat)
+            g.ellipse(x, y, b.r * 2, b.r).fill({ color: b.col, alpha: b.a });
+          else g.circle(x, y, b.r).fill({ color: b.col, alpha: b.a });
+        }
+      }
+      update(0);
+      return { view: g, update };
+    }
+
+    function facade(
+      pal,
+      { snow = false, doorOpen = false, litWindow = false } = {},
+    ) {
+      const c = new Container();
+      c.addChild(
+        new Graphics()
+          .rect(0, 0, W, H)
+          .fill(0x0a0f1c)
+          .rect(80, 130, W - 160, 470)
+          .fill(pal.wall),
+      );
+      c.addChild(
+        new Graphics().poly([40, 130, W / 2, 30, W - 40, 130]).fill(0x121a30),
+      );
+      const s = new Graphics();
+      for (let i = 0; i < 10; i++) {
+        const y = 170 + i * 44;
+        s.moveTo(80, y)
+          .lineTo(W - 80, y)
+          .stroke({ width: 1, color: pal.line, alpha: 0.5 });
+      }
+      c.addChild(s);
+      const win = (wx, lit) =>
+        new Graphics()
+          .rect(wx, 220, 110, 150)
+          .fill(lit ? 0xf3d68a : 0x101828)
+          .rect(wx, 220, 110, 150)
+          .stroke({ width: 6, color: pal.line })
+          .rect(wx + 52, 220, 6, 150)
+          .fill(pal.line);
+      c.addChild(win(230, false), win(920, litWindow));
+      const dx = 560,
+        dw = 160,
+        dtop = 300,
+        dbot = 600;
+      c.addChild(
+        new Graphics()
+          .rect(dx - 16, dtop - 16, dw + 32, 16)
+          .fill(pal.line)
+          .rect(dx - 16, dtop, 16, dbot - dtop)
+          .fill(pal.line)
+          .rect(dx + dw, dtop, 16, dbot - dtop)
+          .fill(pal.line),
+      );
+      const doorway = new Container();
+      c.addChild(doorway);
+      c.addChild(
+        new Graphics()
+          .rect(dx - 30, 600, dw + 60, 14)
+          .fill(pal.line)
+          .rect(0, 612, W, H - 612)
+          .fill(snow ? 0xdfeaf2 : pal.floor),
+      );
+      const spill = new Graphics();
+      c.addChild(spill);
+      // open is 0 (shut) to 1 (wide); the warm spill follows it onto the snow
+      function setOpen(open) {
+        doorway.removeChildren();
+        spill.clear();
+        if (open <= 0.01) {
+          doorway.addChild(
+            new Graphics()
+              .rect(dx, dtop, dw, dbot - dtop)
+              .fill(0x1b2540)
+              .roundRect(dx + 20, dtop + 34, dw - 40, 100, 4)
+              .stroke({ width: 2, color: pal.line })
+              .roundRect(dx + 20, dtop + 160, dw - 40, 100, 4)
+              .stroke({ width: 2, color: pal.line })
+              .circle(dx + 28, dtop + 150, 6)
+              .fill(0x8fa0b8),
+          );
+          return;
+        }
+        const leaf = dw * (1 - open);
+        doorway.addChild(
+          new Graphics()
+            .rect(dx, dtop, dw, dbot - dtop)
+            .fill(0xf3d68a)
+            .rect(dx, dtop, Math.max(leaf, 26), dbot - dtop)
+            .fill(0x27314c),
+        );
+        spill
+          .poly([
+            dx + leaf,
+            dbot,
+            dx + dw,
+            dbot,
+            dx + dw + 150 * open,
+            H,
+            dx + leaf - 120 * open,
+            H,
+          ])
+          .fill({ color: 0xf3d68a, alpha: 0.16 * open });
+      }
+      setOpen(doorOpen ? 1 : 0);
+      return { view: c, setOpen, doorX: dx + dw / 2 };
+    }
+
+    // ---- the cursor -----------------------------------------------------
+    // The one device this pass adds: you can see what a player would click.
+
+    function makeCursor(path, clicks = []) {
+      const c = new Container();
+      const ripple = new Graphics();
+      const ring = new Graphics()
+        .circle(0, 0, 12)
+        .stroke({ width: 2, color: 0xeef2f6, alpha: 0.8 });
+      const dot = new Graphics()
+        .circle(0, 0, 2.5)
+        .fill({ color: 0xeef2f6, alpha: 0.95 });
+      const body = new Container();
+      body.addChild(ring, dot);
+      c.addChild(ripple, body);
+      c.alpha = 0;
+      function update(t) {
+        if (!path.length) return;
+        if (t < path[0][0] - 0.35) {
+          c.alpha = 0;
+          return;
+        }
+        c.alpha = clamp((t - (path[0][0] - 0.35)) / 0.35, 0, 1);
+        let i = 0;
+        while (i < path.length - 1 && t >= path[i + 1][0]) i++;
+        if (i >= path.length - 1) {
+          body.position.set(path[path.length - 1][1], path[path.length - 1][2]);
+        } else {
+          const [t0, x0, y0] = path[i];
+          const [t1, x1, y1] = path[i + 1];
+          const k = ease(p(t, t0, t1));
+          body.position.set(lerp(x0, x1, k), lerp(y0, y1, k));
+        }
+        ripple.clear();
+        for (const ct of clicks) {
+          const age = t - ct;
+          if (age < 0 || age > 0.55) continue;
+          const k = age / 0.55;
+          ripple
+            .circle(body.x, body.y, 10 + k * 30)
+            .stroke({ width: 2, color: GOLD, alpha: (1 - k) * 0.8 });
+        }
+        const press = clicks.some((ct) => t - ct >= 0 && t - ct < 0.12);
+        body.scale.set(press ? 0.82 : 1);
+      }
+      return { view: c, update, body };
+    }
+
+    // ---- the room's own UI ----------------------------------------------
+
+    // The popup a placement spot opens: what fits here, and what it costs.
+    function makePopup(x, y, title, options, { anchor = null, w = 230 } = {}) {
+      const c = new Container();
+      const h = 46 + options.length * 38;
+      const line = new Graphics();
+      if (anchor) {
+        line
+          .moveTo(anchor[0], anchor[1])
+          .lineTo(x + w / 2, y + h)
+          .stroke({ width: 1.5, color: GOLD, alpha: 0.5 });
+      }
+      c.addChild(line);
+      const panel = new Container();
+      c.addChild(panel);
+      panel.addChild(
+        new Graphics()
+          .roundRect(x, y, w, h, 8)
+          .fill({ color: 0x18203a, alpha: 0.96 })
+          .roundRect(x, y, w, h, 8)
+          .stroke({ width: 1.5, color: GOLD }),
+      );
+      const t = label(title, 12, 0x7d8699);
+      t.style.letterSpacing = 1.5;
+      t.position.set(x + 18, y + 14);
+      panel.addChild(t);
+      const rows = options.map((opt, i) => {
+        const bg = new Graphics();
+        const txt = label(opt, 15, 0xd9d2c4);
+        txt.position.set(x + 28, y + 44 + i * 38 + 6);
+        panel.addChild(bg, txt);
+        return { bg, txt, i };
+      });
+      let hi = -1;
+      function draw() {
+        rows.forEach((r) => {
+          const on = r.i === hi;
+          r.bg
+            .clear()
+            .roundRect(x + 16, y + 44 + r.i * 38, w - 32, 32, 4)
+            .fill(on ? GOLD : 0x0e1424)
+            .roundRect(x + 16, y + 44 + r.i * 38, w - 32, 32, 4)
+            .stroke({ width: 1.5, color: on ? GOLD : 0x3a4a70 });
+          r.txt.style.fill = on ? 0x201409 : 0xd9d2c4;
+        });
+      }
+      draw();
+      panel.pivot.set(x + w / 2, y + h);
+      panel.position.set(x + w / 2, y + h);
+      return {
+        view: c,
+        rowY: (i) => y + 44 + i * 38 + 16,
+        rowX: x + w / 2,
+        setHighlight(i) {
+          if (i === hi) return;
+          hi = i;
+          draw();
+        },
+        // 0 closed, 1 open: it grows out of the spot it belongs to
+        setOpen(k) {
+          const e = easeOut(clamp(k, 0, 1));
+          c.alpha = e;
+          panel.scale.set(lerp(0.86, 1, e));
+          line.alpha = e;
+        },
+      };
+    }
+
+    // The glowing spot a thing can go. It pulses until it is used.
+    function makeSpot(x, y, rx, ry) {
+      const g = new Graphics();
+      let usedAt = null;
+      function update(t, on) {
+        g.clear();
+        if (!on && usedAt === null) return;
+        if (usedAt !== null) {
+          const age = t - usedAt;
+          const a = clamp(1 - age / 0.7, 0, 1);
+          if (a <= 0) return;
+          g.ellipse(
+            x,
+            y,
+            rx * (1 + (1 - a) * 0.35),
+            ry * (1 + (1 - a) * 0.35),
+          ).stroke({
+            width: 3,
+            color: GOLD,
+            alpha: a * 0.9,
+          });
+          return;
+        }
+        const pulse = 0.55 + Math.sin(t * 2.6) * 0.28;
+        g.ellipse(x, y, rx, ry).stroke({ width: 3, color: GOLD, alpha: pulse });
+      }
+      return {
+        view: g,
+        update,
+        use(t) {
+          if (usedAt === null) usedAt = t;
+        },
+        x,
+        y,
+      };
+    }
+
+    // Set-the-night and its summary are one surface: the list grows beside
+    // the meter as things go down, and the cost climbs with it.
+    function makeSetPanel(x, y, w = 252) {
+      const c = new Container();
+      const h = 274;
+      const bg = new Graphics()
+        .roundRect(x, y, w, h, 8)
+        .fill({ color: 0x18203a, alpha: 0.96 })
+        .roundRect(x, y, w, h, 8)
+        .stroke({ width: 1.5, color: 0x3a4a70 });
+      c.addChild(bg);
+      const head = label('SET FOR TONIGHT', 12, 0x7d8699);
+      head.style.letterSpacing = 1.5;
+      head.position.set(x + 16, y + 16);
+      c.addChild(head);
+      const rows = [];
+      for (let i = 0; i < 4; i++) {
+        const t = hand('', { size: 18, ink: 0xd9d2c4 });
+        t.position.set(x + 16, y + 42 + i * 31);
+        t.alpha = 0;
+        c.addChild(t);
+        rows.push({ t, at: null, text: '' });
+      }
+      const cost = label('', 14, 0x9fc0d4);
+      cost.position.set(x + 16, y + 176);
+      c.addChild(cost);
+      const btnBg = new Graphics();
+      c.addChild(btnBg);
+      const btn = new Text({
+        text: 'Set the night',
+        style: { fontFamily: serif, fontSize: 20, fill: 0x3b4666 },
+      });
+      btn.anchor.set(0.5, 0.5);
+      btn.position.set(x + w / 2, y + 230);
+      c.addChild(btn);
+      let lit = false;
+      let litAt = 0;
+      let pressedAt = null;
+      let costN = 0;
+      let costAt = -1;
+      function update(t) {
+        rows.forEach((r) => {
+          if (r.at === null) return;
+          const k = ease(p(t, r.at, r.at + 0.3));
+          r.t.alpha = k;
+          r.t.x = lerp(x + 4, x + 16, k);
+        });
+        // the cost bumps and settles, so the climb is felt
+        const bump = costAt < 0 ? 0 : 1 - clamp((t - costAt) / 0.35, 0, 1);
+        cost.style.fill = bump > 0.05 ? GOLD : 0x9fc0d4;
+        cost.scale.set(1 + bump * 0.12);
+        const press = pressedAt !== null && t - pressedAt < 0.18;
+        const glow = lit ? 0.75 + Math.sin((t - litAt) * 3.4) * 0.25 : 0;
+        btnBg
+          .clear()
+          .roundRect(x + 16, y + 206 + (press ? 2 : 0), w - 32, 48, 6)
+          .fill(lit ? GOLD : 0x141c31)
+          .roundRect(x + 16, y + 206 + (press ? 2 : 0), w - 32, 48, 6)
+          .stroke({
+            width: 1.5,
+            color: lit ? GOLD : 0x2b3550,
+            alpha: lit ? glow : 1,
+          });
+        btn.style.fill = lit ? 0x201409 : 0x3b4666;
+        btn.y = y + 230 + (press ? 2 : 0);
+      }
+      update(0);
+      return {
+        view: c,
+        addRow(text, t) {
+          const slot = rows.find((r) => r.at === null);
+          if (!slot) return;
+          slot.t.text = text;
+          slot.at = t;
+        },
+        setCost(n, t) {
+          costN = n;
+          costAt = t;
+          cost.text = `will cost ${n} warmth`;
+        },
+        light(t) {
+          if (lit) return;
+          lit = true;
+          litAt = t;
+        },
+        press(t) {
+          pressedAt = t;
+        },
+        get costTotal() {
+          return costN;
+        },
+        update,
+        btnCenter: [x + w / 2, y + 230],
+      };
+    }
+
+    // ---- scenes ---------------------------------------------------------
+    // Each returns { view, update(t), cues }. Scene data in, motion out; the
+    // seam the real room inherits is unchanged.
+
+    // 1 · Found frozen
+    function scFrozen({ who }) {
+      const view = new Container();
+      const world = new Container();
+      view.addChild(world);
+      const pal = PAL.frozen;
+      world.addChild(sceneBase(pal));
+      const win = makeWindow(pal, { shaft: true });
+      win.set(1);
+      world.addChild(win.view);
+      world.addChild(makeHearth(pal, { lit: false, dead: true }).view);
+      world.addChild(doorFrame(pal));
+      const r = rng(11);
+      const g = new Graphics();
+      for (let i = 0; i < 60; i++) {
+        g.circle(r() * W, 556 + r() * 10, 1.5 + r() * 2).fill({
+          color: 0xbfe0ee,
+          alpha: 0.3,
+        });
+      }
+      world.addChild(g);
+      world.addChild(
+        new Graphics()
+          .ellipse(560, 596, 310, 48)
+          .fill({ color: 0xdde9f1, alpha: 0.09 }),
+      );
+      const fallen = figureFallen(
+        470,
+        600,
+        who === 'keeper' ? ACCENT_KEEPER : ACCENT_AUNT,
+        who === 'keeper' ? { cap: true } : { bun: true },
+      );
+      world.addChild(fallen);
+      view.addChild(vignette(0.5));
+      let line = null;
+      let write = null;
+      if (who === 'aunt') {
+        line = hand('Your aunt left you the house.', {
+          size: 26,
+          ink: 0xe6dfd0,
+          italic: false,
+        });
+        line.anchor.set(0.5, 0);
+        line.position.set(W / 2, 656);
+        view.addChild(line);
+        write = wipeText(line);
+      }
+      return {
+        view,
+        world,
+        fallen,
+        cues: cues([
+          [0.2, () => Snd.coldTone()],
+          [5.5, () => Snd.wind_gust()],
+        ]),
+        update(t, dur) {
+          const k = ease(p(t, 0, dur));
+          world.scale.set(lerp(1, 1.05, k));
+          world.position.set(
+            (-W / 2) * (world.scale.x - 1),
+            (-H / 2) * (world.scale.y - 1),
+          );
+          if (write) write(p(t, 2.4, 4.4));
+          view.alpha = envelope(t, dur, 1.1, 0.7);
+        },
+      };
+    }
+
+    // 2 · Her book
+    function scHerBook() {
+      const view = new Container();
+      const world = new Container();
+      view.addChild(world);
+      world.addChild(new Graphics().rect(0, 0, W, H).fill(0x101726));
+      world.addChild(new Graphics().rect(0, 620, W, 100).fill(0x1a2233));
+      const paper = new Container();
+      world.addChild(paper);
+      const spread = bookSpread(W / 2, 360, 900, 520);
+      paper.addChild(spread.view);
+      const L = spread.left,
+        R = spread.right;
+      const lt = hand('No. 31 · the one that knocks', {
+        size: 20,
+        ink: HER_INK,
+      });
+      lt.position.set(L.x, L.y);
+      paper.addChild(lt);
+      const sentence = hand(
+        'Abroad in the small hours,\ncomes to cream, will not cross\nrowan, and keeps the stair.',
+        { size: 23, ink: HER_INK },
+      );
+      sentence.position.set(L.x, L.y + 44);
+      paper.addChild(sentence);
+      const led = hand('named the 14th night', { size: 17, ink: HER_INK });
+      led.alpha = 0.8;
+      led.position.set(L.x, L.y + 175);
+      paper.addChild(led);
+      ['dusk', 'first light', 'milk', 'salt'].forEach((v, i) => {
+        const t = hand(v, { size: 19, ink: HER_INK });
+        t.position.set(L.x + (i % 2) * 170, L.y + 230 + Math.floor(i / 2) * 40);
+        paper.addChild(t);
+        const g = new Graphics();
+        penStrike(g, t, 1, HER_INK);
+        paper.addChild(g);
+      });
+      const margin = hand('One to a room. Always.', { size: 17, ink: HER_INK });
+      margin.rotation = -0.045;
+      margin.position.set(L.x - 6, L.y + 340);
+      paper.addChild(margin);
+      const rt = hand('No. 32 · the one that sings', {
+        size: 20,
+        ink: HER_INK,
+      });
+      rt.position.set(R.x, R.y);
+      paper.addChild(rt);
+      [
+        ['dusk', true, 'mark low. it came late'],
+        ['midnight', false, ''],
+        ['honey', true, 'bowl full three nights'],
+        ['warmth', false, ''],
+      ].forEach(([v, struck, note], i) => {
+        const t = hand(v, { size: 20, ink: HER_INK });
+        t.position.set(R.x, R.y + 48 + i * 44);
+        paper.addChild(t);
+        if (struck) {
+          const g = new Graphics();
+          penStrike(g, t, 1, HER_INK);
+          paper.addChild(g);
+          if (note) {
+            const n = hand(note, { size: 15, ink: HER_INK });
+            n.alpha = 0.75;
+            n.position.set(R.x + 150, R.y + 52 + i * 44);
+            paper.addChild(n);
+          }
+        }
+      });
+      const circled = hand('iron', { size: 20, ink: HER_INK });
+      circled.position.set(R.x, R.y + 48 + 4 * 44);
+      paper.addChild(circled);
+      const cg = new Graphics();
+      penCircle(cg, circled, 1, HER_INK);
+      paper.addChild(cg);
+      const cnote = hand('turned at the poker', { size: 15, ink: HER_INK });
+      cnote.alpha = 0.75;
+      cnote.position.set(R.x + 110, R.y + 52 + 4 * 44);
+      paper.addChild(cnote);
+      const nl = hand('Abroad at midnight, comes to w', {
+        size: 22,
+        ink: HER_INK,
+      });
+      nl.position.set(R.x, R.y + 320);
+      paper.addChild(nl);
+      // the stroke where she stopped: already on the page, not drawn for us
+      paper.addChild(
+        new Graphics()
+          .moveTo(R.x + nl.width + 2, R.y + 338)
+          .lineTo(R.x + nl.width + 40, R.y + 352)
+          .stroke({ width: 2, color: HER_INK, alpha: 0.5 }),
+      );
+      view.addChild(vignette(0.5));
+      return {
+        view,
+        cues: cues([[0.15, () => Snd.page()]]),
+        update(t, dur) {
+          const settle = ease(p(t, 0, 1.3));
+          paper.scale.set(lerp(1.035, 1, settle));
+          paper.pivot.set(W / 2, 360);
+          paper.position.set(W / 2, lerp(374, 360, settle));
+          // the eye crosses from her finished page to the one she never closed
+          const drift = ease(p(t, 3.4, 8.2));
+          world.x = lerp(60, -70, drift);
+          world.scale.set(lerp(1.06, 1.06, 1));
+          world.pivot.set(W / 2, H / 2);
+          world.position.set(W / 2 + lerp(70, -80, drift), H / 2);
+          view.alpha = envelope(t, dur, 0.6, 0.6);
+        },
+      };
+    }
+
+    // 3 · The roll
+    function scRoll() {
+      const view = new Container();
+      view.addChild(new Graphics().rect(0, 0, W, H).fill(0x101726));
+      view.addChild(new Graphics().rect(0, 620, W, 100).fill(0x1a2233));
+      const spread = bookSpread(W / 2, 360, 900, 520);
+      view.addChild(spread.view);
+      const L = spread.left,
+        R = spread.right;
+      const lh = hand('Stirring, the year I came: six.', {
+        size: 20,
+        ink: HER_INK,
+      });
+      lh.position.set(L.x, L.y);
+      view.addChild(lh);
+      const herYear = [
+        ['the one that knocks', 'the 9th night'],
+        ['the one that sings', 'the 15th'],
+        ['the gray walker', 'the 21st'],
+        ['the latch-rattler', 'the 26th'],
+        ['the stair-counter', 'the 31st'],
+        ['the one that waits', 'the 38th'],
+      ];
+      const g0 = new Graphics();
+      herYear.forEach(([name, when], i) => {
+        const y = L.y + 60 + i * 44;
+        g0.moveTo(L.x, y + 26)
+          .lineTo(L.x + L.w, y + 26)
+          .stroke({ width: 1.5, color: 0x9a917c, alpha: 0.7 });
+        const t = hand(name, { size: 19, ink: HER_INK });
+        t.position.set(L.x + 4, y);
+        view.addChild(t);
+        const d = hand(when, { size: 14, ink: HER_INK });
+        d.alpha = 0.7;
+        d.position.set(L.x + L.w - 110, y + 8);
+        view.addChild(d);
+      });
+      view.addChild(g0);
+      [
+        'the second name opened the wing',
+        'the fourth, finer tools came',
+        'the fifth, the pantry',
+      ].forEach((n, i) => {
+        const t = hand(n, { size: 15, ink: HER_INK });
+        t.rotation = -0.02;
+        t.alpha = 0.85;
+        t.position.set(L.x + 8, L.y + 348 + i * 30);
+        view.addChild(t);
+      });
+      const heading = hand('This year, stirring:', { size: 24, ink: INK });
+      heading.position.set(R.x, R.y);
+      view.addChild(heading);
+      const nums = [];
+      for (let i = 0; i < 6; i++) {
+        const n = hand(`${i + 1}.`, { size: 17, ink: INK, italic: false });
+        n.alpha = 0;
+        n.position.set(R.x, R.y + 80 + i * 56 - 24);
+        view.addChild(n);
+        nums.push(n);
+      }
+      const lines = new Graphics();
+      view.addChild(lines);
+      const last = hand('mind the count.', { size: 18, ink: HER_INK });
+      last.rotation = -0.03;
+      last.position.set(R.x + 8, R.y + 80 + 5 * 56 + 34);
+      last.alpha = 0;
+      view.addChild(last);
+      view.addChild(vignette(0.5));
+      return {
+        view,
+        cues: cues([
+          [0.1, () => Snd.page()],
+          [1.6, () => Snd.pen()],
+          [7.4, () => Snd.penSettle()],
+        ]),
+        update(t, dur) {
+          lines.clear();
+          for (let i = 0; i < 6; i++) {
+            const k = ease(p(t, 1.6 + i * 0.22, 2.3 + i * 0.22));
+            nums[i].alpha = k * 0.45;
+            if (k <= 0) continue;
+            lines
+              .moveTo(R.x + 34, R.y + 80 + i * 56)
+              .lineTo(R.x + 34 + (R.w - 34) * k, R.y + 80 + i * 56)
+              .stroke({ width: 1.5, color: 0x9a917c, alpha: 0.9 });
+          }
+          last.alpha = p(t, 7.4, 8.4) * 1;
+          view.alpha = envelope(t, dur, 0.5, 0.6);
+        },
+      };
+    }
+
+    // Keyframed camera, kept inside the drawn world so no move can pan off
+    // the edge of the art and show bare stage.
+    function camKeys(world, keys, t, bounds = [0, 0, W, H]) {
+      let i = 0;
+      while (i < keys.length - 1 && t >= keys[i + 1][0]) i++;
+      let z, cx, cy;
+      if (i >= keys.length - 1) {
+        [, z, cx, cy] = keys[keys.length - 1];
+      } else {
+        const a = keys[i],
+          b = keys[i + 1];
+        const k = ease(p(t, a[0], b[0]));
+        z = lerp(a[1], b[1], k);
+        cx = lerp(a[2], b[2], k);
+        cy = lerp(a[3], b[3], k);
+      }
+      const halfW = W / (2 * z);
+      const halfH = H / (2 * z);
+      cx = clamp(cx, bounds[0] + halfW, bounds[2] - halfW);
+      cy = clamp(cy, bounds[1] + halfH, bounds[3] - halfH);
+      world.scale.set(z);
+      world.position.set(W / 2 - cx * z, H / 2 - cy * z);
+    }
+
+    // The book's hint, always on screen while the night is being set.
+    function bookChip() {
+      const c = new Container();
+      c.addChild(
+        new Graphics()
+          .roundRect(24, 660, 176, 40, 6)
+          .fill({ color: 0x18203a, alpha: 0.9 })
+          .roundRect(24, 660, 176, 40, 6)
+          .stroke({ width: 1.5, color: 0x3a4a70 })
+          .roundRect(38, 668, 26, 24, 4)
+          .stroke({ width: 1.5, color: 0x9fc0d4 }),
+      );
+      const k = label('B', 14, 0x9fc0d4);
+      k.position.set(46, 672);
+      const l = label('the book', 15, 0xd9d2c4);
+      l.position.set(76, 671);
+      c.addChild(k, l);
+      return c;
+    }
+
+    // The parlour at dusk, built once and shared by the two dusk scenes so the
+    // cut between them is the same shot continuing.
+    function duskRoom({ withCandle = false, withBowl = false } = {}) {
+      const pal = PAL.dusk;
+      const c = new Container();
+      c.addChild(sceneBase(pal));
+      const win = makeWindow(pal);
+      c.addChild(win.view);
+      c.addChild(
+        new Graphics()
+          .rect(150, 330, 190, 70)
+          .fill({ color: 0xc7a04a, alpha: 0.35 }),
+      );
+      const hearth = makeHearth(pal, { lit: false });
+      c.addChild(hearth.view);
+      c.addChild(doorFrame(pal));
+      c.addChild(table(pal));
+      const candle = makeCandle(645, 462, { frac: 0.75 });
+      candle.view.visible = withCandle;
+      const bowl = makeBowl(940, 596);
+      if (withBowl) bowl.set('milk');
+      const salt = makeSaltLine(1178, 574, 130);
+      c.addChild(candle.view, bowl.view, salt.view);
+      const spots = {
+        candle: makeSpot(645, 470, 60, 16),
+        bowl: makeSpot(940, 598, 48, 14),
+        door: makeSpot(1178, 576, 84, 14),
+      };
+      c.addChild(spots.candle.view, spots.bowl.view, spots.door.view);
+      return { view: c, win, hearth, candle, bowl, salt, spots };
+    }
+
+    // 4 · Dusk: set the night, in the room
+    function scDusk() {
+      const view = new Container();
+
+      // the first choice of the night: which room you stand in
+      const hall = new Container();
+      view.addChild(hall);
+      const pal = PAL.dusk;
+      hall.addChild(
+        new Graphics()
+          .rect(0, 0, W, 560)
+          .fill(0x1a2440)
+          .rect(0, 560, W, H - 560)
+          .fill(0x121a30)
+          .rect(0, 552, W, 8)
+          .fill(0x2a3a5e),
+      );
+      const mouths = [];
+      [190, 545, 900].forEach((x, i) => {
+        const lit = i < 2;
+        hall.addChild(
+          new Graphics()
+            .rect(x - 14, 186, 218, 14)
+            .fill(0x2a3a5e)
+            .rect(x - 14, 200, 14, 360)
+            .fill(0x2a3a5e)
+            .rect(x + 190, 200, 14, 360)
+            .fill(0x2a3a5e)
+            .rect(x, 200, 190, 360)
+            .fill(lit ? 0x2b3c60 : 0x080d18),
+        );
+        if (lit) {
+          hall.addChild(
+            new Graphics()
+              .rect(x + 30, 260, 130, 190)
+              .fill({ color: 0x4e6f96, alpha: 0.5 }),
+          );
+        }
+        const spot = makeSpot(x + 95, 566, 92, 15);
+        hall.addChild(spot.view);
+        // which room you are standing in has to be legible before you pick it
+        const nameplate = hand(['the parlour', 'the kitchen', 'the stair'][i], {
+          size: 21,
+          ink: lit ? 0xd9d2c4 : 0x51617f,
+        });
+        nameplate.anchor.set(0.5, 0);
+        nameplate.position.set(x + 95, 606);
+        hall.addChild(nameplate);
+        if (!lit) {
+          const shut = hand('still shut', { size: 15, ink: 0x51617f });
+          shut.anchor.set(0.5, 0);
+          shut.position.set(x + 95, 634);
+          hall.addChild(shut);
+        }
+        mouths.push({ spot, lit });
+      });
+      const room = duskRoom();
+      view.addChild(room.view);
+      const gauge = makeGauge(64, 180);
+      gauge.set(0.58);
+      const panel = makeSetPanel(122, 180);
+      view.addChild(gauge.view, panel.view, bookChip());
+
+      const popCandle = makePopup(
+        400,
+        180,
+        'THE TABLE',
+        [
+          'candle, cut to midnight',
+          'candle, cut to first light',
+          'nothing tonight',
+        ],
+        { anchor: [645, 452] },
+      );
+      const popBowl = makePopup(
+        690,
+        212,
+        'BY THE HEARTH',
+        ['milk, in the bowl', 'honey, in the bowl', 'nothing tonight'],
+        { anchor: [940, 586] },
+      );
+      const popDoor = makePopup(
+        960,
+        250,
+        'THE THRESHOLD',
+        ['salt', 'iron', 'nothing tonight'],
+        {
+          anchor: [1178, 562],
+        },
+      );
+      view.addChild(popCandle.view, popBowl.view, popDoor.view);
+
+      const cursor = makeCursor(
+        [
+          [1.0, 900, 300],
+          [2.4, mouths[0].spot.x, mouths[0].spot.y],
+          [5.4, mouths[0].spot.x, mouths[0].spot.y],
+          [6.6, 645, 470],
+          [7.4, 645, 470],
+          [8.6, popCandle.rowX, popCandle.rowY(0)],
+          [9.4, popCandle.rowX, popCandle.rowY(0)],
+          [10.9, 940, 598],
+          [11.6, 940, 598],
+          [12.8, popBowl.rowX, popBowl.rowY(0)],
+          [13.6, popBowl.rowX, popBowl.rowY(0)],
+          [16.2, 1178, 576],
+          [17.0, 1178, 576],
+          [18.4, popDoor.rowX, popDoor.rowY(0)],
+        ],
+        [2.9, 7.6, 9.6, 11.8, 13.8, 17.2],
+      );
+      view.addChild(cursor.view);
+      view.addChild(vignette(0.45));
+
+      return {
+        view,
+        cursorEnd: [popDoor.rowX, popDoor.rowY(0)],
+        cues: cues([
+          [2.9, () => Snd.tick_ui()],
+          [3.1, () => Snd.door()],
+          // the room you chose is the first line of the night
+          [4.6, () => panel.addRow('the parlour', 4.6)],
+          [7.6, () => Snd.pop()],
+          [9.6, () => Snd.place()],
+          [9.7, () => panel.addRow('candle, cut to midnight', 9.7)],
+          [9.7, () => panel.setCost(2, 9.7)],
+          [11.8, () => Snd.pop()],
+          [13.8, () => Snd.pour()],
+          [13.9, () => panel.addRow('milk, in the bowl', 13.9)],
+          [13.9, () => panel.setCost(3, 13.9)],
+          [14.4, () => Snd.chime(520, 0.05)],
+          [14.4, () => panel.light(14.4)],
+          [17.2, () => Snd.pop()],
+        ]),
+        update(t, dur) {
+          const intoRoom = ease(p(t, 3.2, 4.3));
+          hall.alpha = 1 - intoRoom;
+          hall.visible = intoRoom < 1;
+          hall.scale.set(lerp(1, 1.35, intoRoom));
+          hall.pivot.set(mouths[0].spot.x, 400);
+          hall.position.set(mouths[0].spot.x, 400);
+          mouths.forEach((m, i) => m.spot.update(t, m.lit && t > 0.6));
+          if (t >= 2.9) mouths[0].spot.use(2.9);
+
+          room.view.alpha = intoRoom;
+          room.view.visible = intoRoom > 0;
+          gauge.view.alpha = intoRoom;
+          // the summary is not a form waiting for you: it arrives with the
+          // first thing the night is given
+          panel.view.alpha = p(t, 4.6, 5.2);
+          room.hearth.update(t);
+
+          room.spots.candle.update(t, t > 5.0);
+          room.spots.bowl.update(t, t > 5.2);
+          room.spots.door.update(t, t > 5.4);
+          if (t >= 9.6) room.spots.candle.use(9.6);
+          if (t >= 13.8) room.spots.bowl.use(13.8);
+
+          popCandle.setOpen(p(t, 7.6, 8.0) - p(t, 9.6, 9.8));
+          popCandle.setHighlight(t > 8.9 ? 0 : -1);
+          popBowl.setOpen(p(t, 11.8, 12.2) - p(t, 13.8, 14.0));
+          popBowl.setHighlight(t > 13.1 ? 0 : -1);
+          popDoor.setOpen(p(t, 17.2, 17.6));
+          popDoor.setHighlight(t > 18.7 ? 0 : -1);
+
+          // the candle lands, then settles onto the table
+          const landC = p(t, 9.6, 10.1);
+          room.candle.view.visible = landC > 0;
+          room.candle.view.alpha = landC;
+          room.candle.view.y = lerp(-26, 0, easeOut(landC));
+          room.candle.setLit(false);
+          room.candle.update(t);
+          const landB = p(t, 13.8, 14.6);
+          room.bowl.set(landB > 0.3 ? 'milk' : 'empty');
+          room.bowl.view.alpha = p(t, 13.6, 14.0);
+
+          panel.update(t);
+          cursor.update(t);
+          view.alpha = envelope(t, dur, 0.6, 0.35);
+        },
+      };
+    }
+
+    // 5 · Dusk: summed and set
+    function scDuskSet() {
+      const view = new Container();
+      const room = duskRoom({ withCandle: true, withBowl: true });
+      view.addChild(room.view);
+      room.spots.candle.use(-1);
+      room.spots.bowl.use(-1);
+      const gauge = makeGauge(64, 180);
+      let warmth = 0.58;
+      gauge.set(warmth);
+      const panel = makeSetPanel(122, 180);
+      panel.addRow('the parlour', -1);
+      panel.addRow('candle, cut to midnight', -1);
+      panel.addRow('milk, in the bowl', -1);
+      panel.setCost(3, -1);
+      panel.light(-1);
+      view.addChild(gauge.view, panel.view, bookChip());
+      const popDoor = makePopup(
+        960,
+        250,
+        'THE THRESHOLD',
+        ['salt', 'iron', 'nothing tonight'],
+        {
+          anchor: [1178, 562],
+        },
+      );
+      popDoor.setOpen(1);
+      popDoor.setHighlight(0);
+      view.addChild(popDoor.view);
+      const cursor = makeCursor(
+        [
+          [0.01, popDoor.rowX, popDoor.rowY(0)],
+          [0.9, popDoor.rowX, popDoor.rowY(0)],
+          [2.6, panel.btnCenter[0], panel.btnCenter[1]],
+          [4.4, panel.btnCenter[0], panel.btnCenter[1]],
+          [5.4, panel.btnCenter[0], panel.btnCenter[1] + 120],
+        ],
+        [1.0, 4.6],
+      );
+      view.addChild(cursor.view);
+      const dim = new Graphics().rect(0, 0, W, H).fill(0x040710);
+      dim.alpha = 0;
+      view.addChild(dim);
+      view.addChild(vignette(0.45));
+      return {
+        view,
+        cues: cues([
+          [1.0, () => Snd.tick_ui()],
+          [1.3, () => Snd.salt()],
+          [2.3, () => panel.addRow('salt, at the threshold', 2.3)],
+          [2.3, () => panel.setCost(4, 2.3)],
+          [4.6, () => Snd.commit()],
+          [4.6, () => panel.press(4.6)],
+          [5.4, () => Snd.ignite()],
+          [7.0, () => Snd.wind_gust()],
+        ]),
+        update(t, dur) {
+          room.hearth.update(t);
+          room.spots.candle.update(t, false);
+          room.spots.bowl.update(t, false);
+          room.spots.door.update(t, t < 1.0);
+          if (t >= 1.0) room.spots.door.use(1.0);
+          popDoor.setOpen(1 - p(t, 1.0, 1.2));
+          room.salt.set(p(t, 1.3, 2.3));
+          room.candle.setLit(t >= 5.4);
+          room.candle.update(t);
+          // the night is bought: the meter pays the cost as the commit lands
+          warmth = lerp(0.58, 0.5, p(t, 4.6, 5.6));
+          gauge.set(warmth);
+          panel.update(t);
+          // the room goes over to night once it is set
+          const fall = p(t, 5.2, 10.5);
+          dim.alpha = fall * 0.72;
+          panel.view.alpha = 1 - p(t, 5.6, 7.2);
+          gauge.view.alpha = 1 - p(t, 7.4, 9.0) * 0.5;
+          cursor.update(t);
+          view.alpha = envelope(t, dur, 0.01, 0.5);
+        },
+      };
+    }
+
+    // 6 · The night
+    function scNight() {
+      const view = new Container();
+      const room = new Container();
+      view.addChild(room);
+      const pal = PAL.night;
+      room.addChild(sceneBase(pal));
+      const win = makeWindow(pal, { moon: true });
+      room.addChild(win.view);
+      room.addChild(makeHearth(pal, { lit: false }).view);
+      room.addChild(doorFrame(pal));
+      room.addChild(table(pal));
+      const candle = makeCandle(645, 462, { frac: 0.75 });
+      room.addChild(candle.view);
+      candle.setLit(true);
+      const bowl = makeBowl(940, 596);
+      bowl.set('milk');
+      room.addChild(bowl.view);
+      const salt = makeSaltLine(1178, 574, 130);
+      salt.set(1);
+      room.addChild(salt.view);
+      // the dark that takes everything but the window
+      const black = new Graphics().rect(0, 0, W, H).fill(0x04060c);
+      black.alpha = 0;
+      view.addChild(black);
+      const moonGhost = new Container();
+      moonGhost.addChild(
+        new Graphics()
+          .rect(150, 120, 190, 280)
+          .fill({ color: 0x22334f, alpha: 0.3 })
+          .rect(150 + 92, 120, 6, 280)
+          .fill({ color: 0x04060c, alpha: 0.8 })
+          .rect(150, 257, 190, 6)
+          .fill({ color: 0x04060c, alpha: 0.8 })
+          .circle(283, 190, 22)
+          .fill({ color: 0xc4d6e2, alpha: 0.28 }),
+      );
+      moonGhost.alpha = 0;
+      view.addChild(moonGhost);
+      // sound made visible, faintly: where in the house a thing happened
+      const rings = new Graphics();
+      view.addChild(rings);
+      const dawn = new Graphics().rect(0, 0, W, H).fill(0x9fc0d4);
+      dawn.alpha = 0;
+      view.addChild(dawn);
+      view.addChild(vignette(0.6));
+      const events = [
+        { at: 6.6, x: 1178, y: 420, n: 3, spread: 24, life: 2.4 },
+        { at: 9.2, x: 420, y: 500, n: 2, spread: 16, life: 2.0 },
+      ];
+      return {
+        view,
+        cues: cues([
+          [5.4, () => Snd.snuff()],
+          [6.6, () => Snd.knock()],
+          [9.2, () => Snd.step()],
+          [9.55, () => Snd.step()],
+          [11.2, () => Snd.creak()],
+          [12.4, () => Snd.daybreak()],
+        ]),
+        update(t, dur) {
+          candle.setFrac(lerp(0.75, 0.6, p(t, 0, 5.4)));
+          candle.setLit(t < 5.4, t);
+          candle.update(t);
+          const out = p(t, 5.4, 6.0);
+          black.alpha = out;
+          moonGhost.alpha = out * (1 - p(t, 12.2, 13.4));
+          rings.clear();
+          for (const e of events) {
+            const age = t - e.at;
+            if (age < 0 || age > e.life) continue;
+            for (let i = 0; i < e.n; i++) {
+              const k = clamp((age - i * 0.33) / e.life, 0, 1);
+              if (k <= 0) continue;
+              rings.circle(e.x, e.y, 18 + k * e.spread * 3).stroke({
+                width: 2,
+                color: 0x9fc0d4,
+                alpha: (1 - k) * 0.45,
+              });
+            }
+          }
+          dawn.alpha = p(t, 12.4, dur) * 0.34;
+          view.alpha = envelope(t, dur, 0.4, 0.5);
+        },
+      };
+    }
+
+    // 7 · The morning
+    function scMorning() {
+      const view = new Container();
+      const world = new Container();
+      view.addChild(world);
+      const pal = PAL.dawn;
+      world.addChild(sceneBase(pal));
+      const win = makeWindow(pal, { shaft: true });
+      world.addChild(win.view);
+      world.addChild(makeHearth(pal, { lit: false }).view);
+      world.addChild(doorFrame(pal));
+      world.addChild(table(pal));
+      const candle = makeCandle(645, 462, { frac: 0.55, mark: 1 });
+      world.addChild(candle.view);
+      candle.setLit(false);
+      candle.update(0);
+      const bowl = makeBowl(940, 596);
+      bowl.set('empty');
+      world.addChild(bowl.view);
+      const salt = makeSaltLine(1178, 574, 130);
+      salt.set(1, 1);
+      world.addChild(salt.view);
+      world.addChild(
+        ashPrints([
+          [1150, 600],
+          [1090, 618],
+          [1030, 632],
+          [975, 640],
+          [935, 628],
+        ]),
+      );
+      // no hover in a scripted run, so each signal says its own line as the
+      // camera lands on it: the same words the ledger keeps in the next scene
+      const reads = [
+        { at: 2.9, x: 645, y: 378, txt: 'marked at midnight' },
+        { at: 5.3, x: 940, y: 572, txt: 'the bowl taken' },
+        { at: 7.5, x: 1150, y: 556, txt: 'the line crossed' },
+        { at: 9.5, x: 1020, y: 600, txt: 'ash, in from the door' },
+      ].map((r) => {
+        const holder = new Container();
+        const t = hand(r.txt, { size: 15, ink: 0xe6dfd0 });
+        t.anchor.set(0.5, 1);
+        // a whisper of ground behind it, so a label never fights the surface
+        holder.addChild(
+          new Graphics()
+            .roundRect(
+              -t.width / 2 - 9,
+              -t.height - 3,
+              t.width + 18,
+              t.height + 6,
+              4,
+            )
+            .fill({ color: 0x0a1020, alpha: 0.55 }),
+          t,
+        );
+        holder.position.set(r.x, r.y);
+        holder.alpha = 0;
+        world.addChild(holder);
+        return { ...r, view: holder };
+      });
+      const gauge = makeGauge(64, 180);
+      gauge.set(0.5);
+      view.addChild(gauge.view);
+      view.addChild(vignette(0.4));
+      return {
+        view,
+        cues: cues([
+          [0.4, () => Snd.daybreak()],
+          [2.9, () => Snd.tick_ui()],
+          [5.3, () => Snd.tick_ui()],
+          [7.5, () => Snd.tick_ui()],
+          [9.5, () => Snd.tick_ui()],
+        ]),
+        update(t, dur) {
+          camKeys(
+            world,
+            [
+              [0, 1.0, W / 2, H / 2],
+              [1.6, 1.0, W / 2, H / 2],
+              [2.6, 1.5, 700, 420],
+              [4.4, 1.5, 700, 420],
+              [5.2, 1.5, 950, 540],
+              [6.8, 1.5, 950, 540],
+              [7.4, 1.45, 1120, 540],
+              [8.9, 1.45, 1120, 540],
+              [9.4, 1.3, 1030, 580],
+              [10.6, 1.3, 1030, 580],
+              [11.7, 1.0, W / 2, H / 2],
+            ],
+            t,
+          );
+          for (const r of reads) {
+            const k =
+              p(t, r.at, r.at + 0.4) * (1 - p(t, r.at + 1.6, r.at + 2.1));
+            r.view.alpha = k;
+            r.view.y = r.y - k * 6;
+          }
+          view.alpha = envelope(t, dur, 0.7, 0.5);
+        },
+      };
+    }
+
+    // the four trait axes, one source for every scene that shows the page
+    const AXES = [
+      ['hour', ['dusk', 'midnight', 'small hours', 'first light']],
+      ['lure', ['milk', 'honey', 'bread', 'warmth']],
+      ['aversion', ['salt', 'iron', 'mirror', 'water']],
+      ['haunt', ['parlour', 'stair', 'kitchen', 'cellar']],
+    ];
+
+    // the book's own hand, on the left page
+    function ledgerPage(parent, L) {
+      const head = hand('The 6th night', { size: 20, ink: INK, italic: false });
+      head.position.set(L.x, L.y);
+      parent.addChild(head);
+      const rows = [
+        'parlour · came in',
+        '  candle marked at midnight',
+        '  the bowl taken',
+        '  the line crossed',
+        'stair · silent',
+      ].map((row, i) => {
+        const t = hand(row, { size: 18, ink: INK, italic: false });
+        t.alpha = 0.85;
+        t.position.set(L.x, L.y + 52 + i * 40);
+        parent.addChild(t);
+        return { view: t, write: writer(t, row) };
+      });
+      const note = hand('(the book keeps this; you keep the meaning)', {
+        size: 14,
+        ink: INK,
+      });
+      note.alpha = 0.55;
+      note.position.set(L.x, L.y + 52 + 5 * 40 + 14);
+      parent.addChild(note);
+      return { head, rows, note };
+    }
+
+    // the keeper's page: every value on every axis, waiting to be marked
+    function spiritPage(parent, R) {
+      const glyph = new Graphics()
+        .circle(R.x + 14, R.y + 14, 12)
+        .stroke({ width: 3, color: INK })
+        .circle(R.x + 14, R.y + 14, 4)
+        .fill(INK);
+      parent.addChild(glyph);
+      const head = hand('the one that knocks', { size: 20, ink: INK });
+      head.position.set(R.x + 40, R.y + 2);
+      parent.addChild(head);
+      const cells = [];
+      AXES.forEach(([axis, vals], row) => {
+        const at = hand(axis, { size: 13, ink: INK, italic: false });
+        at.alpha = 0.5;
+        at.position.set(R.x, R.y + 56 + row * 74);
+        parent.addChild(at);
+        cells.push(
+          vals.map((v, i) => {
+            const t = hand(v, { size: 17, ink: INK });
+            t.position.set(R.x + (i % 4) * 96, R.y + 76 + row * 74);
+            parent.addChild(t);
+            return t;
+          }),
+        );
+      });
+      return { head, cells, glyph };
+    }
+
+    // marks are drawn, never checked: strikes and circles in the keeper's hand
+    function markLayer(parent, cells, marks) {
+      const g = new Graphics();
+      parent.addChild(g);
+      return (t) => {
+        g.clear();
+        for (const m of marks) {
+          const prog = p(t, m.at, m.at + (m.dur || 0.32));
+          if (prog <= 0) continue;
+          const target = cells[m.row][m.i];
+          if (m.kind === 'strike') penStrike(g, target, prog);
+          else penCircle(g, target, prog);
+        }
+      };
+    }
+
+    function bookScene(marks, { drainAt = null, extraMarks = [] } = {}) {
+      const view = new Container();
+      view.addChild(new Graphics().rect(0, 0, W, H).fill(0x101726));
+      view.addChild(new Graphics().rect(0, 620, W, 100).fill(0x1a2233));
+      const spread = bookSpread(W / 2, 360, 900, 520);
+      view.addChild(spread.view);
+      const L = spread.left,
+        R = spread.right;
+      const ledger = ledgerPage(view, L);
+      const page = spiritPage(view, R);
+      const drawMarks = markLayer(view, page.cells, marks.concat(extraMarks));
+      let drain = null;
+      if (drainAt !== null) {
+        const dl = hand('warmth it takes a night', {
+          size: 13,
+          ink: INK,
+          italic: false,
+        });
+        dl.alpha = 0.5;
+        dl.position.set(R.x + 190, R.y + 338);
+        view.addChild(dl);
+        const d1 = hand('three', { size: 18, ink: INK, italic: false });
+        d1.position.set(R.x + 190, R.y + 360);
+        const d2 = hand('two', { size: 18, ink: INK, italic: false });
+        d2.position.set(R.x + 190, R.y + 388);
+        view.addChild(d1, d2);
+        const dg = new Graphics();
+        view.addChild(dg);
+        drain = {
+          d1,
+          d2,
+          dg,
+          w1: writer(d1, 'three'),
+          w2: writer(d2, 'two'),
+        };
+      }
+      return { view, spread, L, R, ledger, page, drawMarks, drain };
+    }
+
+    // 8 · The book, marked
+    function scBookMarked() {
+      const marks = [
+        { kind: 'strike', row: 0, i: 0, at: 4.4 },
+        { kind: 'strike', row: 0, i: 3, at: 5.0 },
+        { kind: 'strike', row: 1, i: 1, at: 5.8 },
+        { kind: 'strike', row: 1, i: 2, at: 6.4 },
+        { kind: 'strike', row: 2, i: 0, at: 7.2 },
+        { kind: 'circle', row: 0, i: 1, at: 8.2, dur: 0.45 },
+        { kind: 'circle', row: 1, i: 0, at: 9.1, dur: 0.45 },
+        { kind: 'circle', row: 3, i: 0, at: 10.0, dur: 0.45 },
+      ];
+      const s = bookScene(marks, { drainAt: 11.4 });
+      s.view.addChild(vignette(0.5));
+      const cueList = [[0.1, () => Snd.page()]];
+      s.ledger.rows.forEach((_, i) =>
+        cueList.push([0.9 + i * 0.5, () => Snd.tick_ui()]),
+      );
+      marks.forEach((m) => cueList.push([m.at, () => Snd.pen()]));
+      cueList.push(
+        [11.4, () => Snd.pen()],
+        [12.4, () => Snd.pen()],
+        [13.0, () => Snd.pen()],
+      );
+      return {
+        view: s.view,
+        cues: cues(cueList),
+        update(t, dur) {
+          s.ledger.rows.forEach((r, i) =>
+            r.write(p(t, 0.9 + i * 0.5, 1.3 + i * 0.5)),
+          );
+          s.ledger.note.alpha = p(t, 3.4, 4.0) * 0.55;
+          s.drawMarks(t);
+          s.drain.w1(p(t, 11.4, 12.1));
+          s.drain.w2(p(t, 13.0, 13.7));
+          s.drain.dg.clear();
+          penStrike(s.drain.dg, s.drain.d1, p(t, 12.4, 12.7));
+          s.view.alpha = envelope(t, dur, 0.5, 0.4);
+        },
+      };
+    }
+
+    // 9 · Speak the name
+    function scNameGate() {
+      const settled = [
+        { kind: 'strike', row: 0, i: 0, at: -1 },
+        { kind: 'strike', row: 0, i: 3, at: -1 },
+        { kind: 'strike', row: 1, i: 1, at: -1 },
+        { kind: 'strike', row: 1, i: 2, at: -1 },
+        { kind: 'strike', row: 2, i: 0, at: -1 },
+        { kind: 'circle', row: 0, i: 1, at: -1 },
+        { kind: 'circle', row: 1, i: 0, at: -1 },
+        { kind: 'circle', row: 3, i: 0, at: -1 },
+      ];
+      // the fourth circle is the gate: nothing lights until it lands
+      const s = bookScene(settled, {
+        extraMarks: [{ kind: 'circle', row: 2, i: 1, at: 1.6, dur: 0.5 }],
+      });
+      const whole = hand('whole, or not at all', { size: 16, ink: INK });
+      whole.alpha = 0.6;
+      whole.position.set(s.R.x, s.R.y + 360);
+      s.view.addChild(whole);
+      const btnBg = new Graphics();
+      s.view.addChild(btnBg);
+      const btn = new Text({
+        text: 'Speak the name',
+        style: { fontFamily: serif, fontSize: 21, fill: 0x2a3450 },
+      });
+      btn.anchor.set(0.5, 0.5);
+      btn.position.set(W / 2 + 270, 660);
+      s.view.addChild(btn);
+      s.view.addChild(vignette(0.5));
+      return {
+        view: s.view,
+        update(t, dur) {
+          s.drawMarks(t);
+          const lit = p(t, 2.1, 2.7);
+          btnBg
+            .clear()
+            .roundRect(W / 2 + 150, 634, 240, 52, 6)
+            .fill(lit > 0 ? GOLD : 0x141c31)
+            .roundRect(W / 2 + 150, 634, 240, 52, 6)
+            .stroke({
+              width: 1.5,
+              color: lit > 0 ? GOLD : 0x2b3550,
+              alpha: lit > 0 ? lit : 1,
+            });
+          btnBg.alpha = lit > 0 ? 1 : 1;
+          if (lit > 0) {
+            btnBg.tint = 0xffffff;
+          }
+          btn.style.fill = lit > 0.5 ? 0x201409 : 0x2a3450;
+          whole.alpha = 0.6 * (1 - lit * 0.7);
+          s.view.alpha = envelope(t, dur, 0.3, 0.35);
+        },
+        cues: cues([
+          [1.6, () => Snd.pen()],
+          [2.1, () => Snd.chime(587, 0.07)],
+        ]),
+      };
+    }
+
+    // 10 · The naming
+    function scNaming() {
+      const view = new Container();
+      view.addChild(new Graphics().rect(0, 0, W, H).fill(0x101726));
+      view.addChild(new Graphics().rect(0, 620, W, 100).fill(0x1a2233));
+      const spread = bookSpread(W / 2, 360, 900, 520);
+      view.addChild(spread.view);
+      const L = spread.left,
+        R = spread.right;
+      // the four circles, lifted out of the working page
+      const picks = [
+        ['hour', 'midnight'],
+        ['lure', 'milk'],
+        ['aversion', 'iron'],
+        ['haunt', 'the parlour'],
+      ];
+      const pickMarks = new Graphics();
+      const pickTexts = [];
+      picks.forEach(([axis, v], i) => {
+        const at = hand(axis, { size: 13, ink: INK, italic: false });
+        at.alpha = 0.5;
+        at.position.set(L.x, L.y + 30 + i * 92);
+        view.addChild(at);
+        const t = hand(v, { size: 24, ink: INK });
+        t.position.set(L.x + 8, L.y + 50 + i * 92);
+        view.addChild(t);
+        pickTexts.push(t);
+      });
+      view.addChild(pickMarks);
+      pickTexts.forEach((t) => penCircle(pickMarks, t, 1));
+      const headBase = hand('No. 33 · ', { size: 20, ink: INK });
+      headBase.position.set(R.x, R.y + 10);
+      view.addChild(headBase);
+      const byname = hand('', { size: 20, ink: INK });
+      byname.position.set(R.x + headBase.width, R.y + 10);
+      view.addChild(byname);
+      const writeByname = writer(byname, 'the one that knocks');
+
+      // the entry composes as one four-slot sentence, in the keeper's hand
+      const parts = [
+        ['Abroad at\u00a0', false],
+        ['midnight', true],
+        [',\ncomes to\u00a0', false],
+        ['milk', true],
+        [', will not cross\n', false],
+        ['iron', true],
+        [', and keeps\u00a0', false],
+        ['the parlour', true],
+        ['.', false],
+      ];
+      const pieces = [];
+      let cx = R.x,
+        cy = R.y + 80;
+      const lineH = 46;
+      let total = 0;
+      parts.forEach(([txt, slot]) => {
+        txt.split('\n').forEach((piece, pi) => {
+          if (pi > 0) {
+            cx = R.x;
+            cy += lineH;
+          }
+          if (!piece) return;
+          const t = hand(piece, { size: 26, ink: INK });
+          t.position.set(cx, cy);
+          view.addChild(t);
+          // measure the finished word first: the writer empties the Text, and
+          // a blank Text measures zero, which would stack every word on one x
+          const fw = t.width;
+          const fh = t.height;
+          pieces.push({
+            t,
+            full: piece,
+            slot,
+            start: total,
+            fw,
+            fh,
+            w: writer(t, piece),
+          });
+          total += piece.length;
+          cx += fw;
+        });
+      });
+      const slotLines = new Graphics();
+      view.addChild(slotLines);
+      view.addChild(vignette(0.5));
+      const cueList = [
+        [1.2, () => Snd.commit()],
+        [8.9, () => Snd.chime(659, 0.09)],
+        [9.3, () => Snd.warmChord(174, 0.08)],
+      ];
+      // one pen scratch per slot as it lands
+      pieces
+        .filter((pc) => pc.slot)
+        .forEach((pc) =>
+          cueList.push([2.0 + (pc.start / total) * 6.2, () => Snd.pen()]),
+        );
+      return {
+        view,
+        cues: cues(cueList),
+        update(t, dur) {
+          const write = p(t, 2.0, 8.2);
+          const chars = write * total;
+          slotLines.clear();
+          for (const pc of pieces) {
+            const local = clamp((chars - pc.start) / pc.full.length, 0, 1);
+            pc.w(local);
+            if (pc.slot && local > 0) {
+              slotLines
+                .moveTo(pc.t.x - 2, pc.t.y + pc.fh + 1)
+                .lineTo(pc.t.x - 2 + (pc.fw + 4) * local, pc.t.y + pc.fh + 1)
+                .stroke({ width: 2, color: GOLD, alpha: 0.9 });
+            }
+          }
+          writeByname(p(t, 8.9, 9.9));
+          view.alpha = envelope(t, dur, 0.3, 0.6);
+        },
+      };
+    }
+
+    // 11 · The kept room
+    function scKeptRoom() {
+      const view = new Container();
+      const pal = PAL.warm;
+      view.addChild(sceneBase(pal));
+      view.addChild(makeWindow(pal).view);
+      const hearth = makeHearth(pal, { lit: true, tidy: true });
+      view.addChild(hearth.view);
+      view.addChild(doorFrame(pal));
+      view.addChild(table(pal));
+      view.addChild(
+        new Graphics()
+          .roundRect(600, 430, 90, 8, 4)
+          .fill(0x33405c)
+          .roundRect(610, 420, 70, 10, 4)
+          .fill(0x3d4c6c),
+      );
+      const wash = new Graphics()
+        .rect(0, 0, W, H)
+        .fill({ color: 0xf0a840, alpha: 0.15 });
+      view.addChild(wash);
+      // the one who tends it, barely there
+      const shade = figureStanding(724, 600, 0xdde9f1, {
+        flip: true,
+        color: 0xbfd6e4,
+      });
+      view.addChild(shade);
+      view.addChild(vignette(0.3));
+      return {
+        view,
+        cues: cues([[0.6, () => Snd.warmChord(196, 0.05)]]),
+        update(t, dur) {
+          hearth.update(t);
+          wash.alpha = 0.9 + Math.sin(t * 1.3) * 0.1;
+          const arrive = p(t, 1.4, 4.2);
+          shade.alpha = arrive * 0.32;
+          shade.x = lerp(150, 0, ease(arrive));
+          shade.y = Math.sin(t * 1.6) * 3;
+          view.alpha = envelope(t, dur, 0.7, 0.6);
+        },
+      };
+    }
+
+    // 12 · The sealed wing
+    // Not three doors in one wall: a walk down a hall that was not there
+    // yesterday, the rooms arriving one after another.
+    function scWing() {
+      const view = new Container();
+      const world = new Container();
+      view.addChild(world);
+      const pal = PAL.dawn;
+      const WW = 2600;
+      world.addChild(
+        new Graphics()
+          .rect(-200, 0, WW + 400, 560)
+          .fill(pal.wall)
+          .rect(-200, 560, WW + 400, H - 560)
+          .fill(pal.floor)
+          .rect(-200, 552, WW + 400, 8)
+          .fill(pal.line),
+      );
+      const boards = new Graphics();
+      for (let i = 0; i < 9; i++) {
+        const y = 578 + i * 18;
+        boards
+          .moveTo(-200, y)
+          .lineTo(WW + 200, y)
+          .stroke({ width: 1, color: pal.line, alpha: 0.45 });
+      }
+      world.addChild(boards);
+      const doors = [];
+      [300, 900, 1500, 2100].forEach((x, i) => {
+        const dw = 190,
+          dh = 360;
+        world.addChild(
+          new Graphics()
+            .rect(x - 14, 186, dw + 28, 14)
+            .fill(pal.line)
+            .rect(x - 14, 200, 14, dh)
+            .fill(pal.line)
+            .rect(x + dw, 200, 14, dh)
+            .fill(pal.line)
+            .rect(x, 200, dw, dh)
+            .fill(0x070b16),
+        );
+        const leaf = new Graphics();
+        const shaft = new Graphics();
+        const dust = makeDrift(19 + i, 16, {
+          area: [x + 20, 230, dw - 40, 300],
+          fall: 9,
+          sway: 7,
+          size: [0.8, 1.8],
+          colors: [0xdde9f1],
+          alpha: [0.15, 0.4],
+        });
+        world.addChild(shaft, leaf, dust.view);
+        doors.push({ x, dw, dh, leaf, shaft, dust, at: 1.1 + i * 1.9 });
+      });
+      view.addChild(vignette(0.5));
+      return {
+        view,
+        cues: cues(
+          doors
+            .map((d) => [d.at, () => Snd.creak()])
+            .concat([
+              [0.4, () => Snd.coldTone()],
+              [8.4, () => Snd.warmChord(147, 0.05)],
+            ]),
+        ),
+        update(t, dur) {
+          camKeys(
+            world,
+            [
+              [0, 1.0, 420, 380],
+              [dur, 1.0, 2020, 380],
+            ],
+            t,
+            [-200, 0, 2600, H],
+          );
+          for (const d of doors) {
+            const k = ease(p(t, d.at, d.at + 1.5));
+            d.leaf
+              .clear()
+              .poly([
+                d.x,
+                200,
+                d.x + lerp(d.dw, 40, k),
+                214,
+                d.x + lerp(d.dw, 40, k),
+                d.dh + 214,
+                d.x,
+                d.dh + 200,
+              ])
+              .fill(0x1b2540);
+            d.shaft
+              .clear()
+              .poly([
+                d.x + 20,
+                220,
+                d.x + d.dw,
+                240,
+                d.x + d.dw + 120,
+                700,
+                d.x - 40,
+                700,
+              ])
+              .fill({ color: 0xe8f0f6, alpha: 0.05 * k });
+            d.dust.view.alpha = k;
+            d.dust.update(t);
+          }
+          view.alpha = envelope(t, dur, 0.6, 0.6);
+        },
+      };
+    }
+
+    // 13 · Her finer tools
+    function scTools() {
+      const view = new Container();
+      view.addChild(new Graphics().rect(0, 0, W, H).fill(0x131b2e));
+      view.addChild(
+        new Graphics()
+          .rect(0, 380, W, H - 380)
+          .fill(0x22304e)
+          .rect(0, 380, W, 12)
+          .fill(0x2e3f64),
+      );
+      // the book, closed at the left, its clasp about to give
+      const book = new Container();
+      book.addChild(
+        new Graphics()
+          .roundRect(200, 420, 300, 54, 6)
+          .fill(0x2c3856)
+          .roundRect(206, 408, 288, 16, 4)
+          .fill(PAPER)
+          .roundRect(206, 420, 288, 8, 2)
+          .fill(PAPER_EDGE),
+      );
+      const clasp = new Graphics();
+      book.addChild(clasp);
+      view.addChild(book);
+      const bx = 800,
+        by = 480;
+      const roll = new Container();
+      view.addChild(roll);
+      const cloth = new Graphics();
+      const tie = new Graphics();
+      roll.addChild(cloth, tie);
+      const tools = new Container();
+      roll.addChild(tools);
+      const vial = new Graphics()
+        .roundRect(bx - 140, by - 34, 26, 84, 12)
+        .fill({ color: 0xbfe0ee, alpha: 0.9 })
+        .rect(bx - 138, by - 44, 22, 12)
+        .fill(0x8fa0b8);
+      const rule = new Graphics()
+        .roundRect(bx - 40, by + 8, 180, 14, 4)
+        .fill(GOLD);
+      const scales = new Graphics()
+        .moveTo(bx + 130, by - 52)
+        .lineTo(bx + 130, by + 16)
+        .stroke({ width: 5, color: GOLD })
+        .moveTo(bx + 86, by - 36)
+        .lineTo(bx + 174, by - 36)
+        .stroke({ width: 5, color: GOLD })
+        .ellipse(bx + 86, by - 8, 22, 8)
+        .stroke({ width: 3, color: GOLD })
+        .ellipse(bx + 174, by - 8, 22, 8)
+        .stroke({ width: 3, color: GOLD });
+      tools.addChild(vial, rule, scales);
+      const names = [];
+      [
+        ['a listening vial', bx - 127, by + 58],
+        ['a finer rule', bx + 10, by + 32],
+        ['dust scales', bx + 160, by + 32],
+      ].forEach(([txt, x, y]) => {
+        const t = hand(txt, { size: 15, ink: 0xaec4d4 });
+        t.anchor.set(0.5, 0);
+        t.position.set(x, y);
+        tools.addChild(t);
+        names.push({ t, w: writer(t, txt) });
+      });
+      const noteCard = new Container();
+      noteCard.addChild(
+        new Graphics()
+          .roundRect(bx + 130, by - 150, 280, 110, 3)
+          .fill(PAPER)
+          .roundRect(bx + 130, by - 150, 280, 110, 3)
+          .stroke({ width: 1, color: PAPER_EDGE }),
+      );
+      const noteTxt = hand('', { size: 22, ink: HER_INK });
+      noteTxt.rotation = -0.04;
+      noteTxt.position.set(bx + 152, by - 134);
+      noteCard.addChild(noteTxt);
+      const writeNote = writer(
+        noteTxt,
+        'you will want these\nfor the small print of it',
+      );
+      view.addChild(noteCard);
+      const candle = makeCandle(120, 470, { frac: 0.7 });
+      candle.setLit(true);
+      view.addChild(candle.view);
+      const halo = radial('255,205,130', 0.16, 520);
+      halo.position.set(bx - 100, by - 60);
+      view.addChild(halo);
+      const cursor = makeCursor(
+        [
+          [2.6, bx - 400, by + 200],
+          [3.6, bx - 250, by + 82],
+          [4.4, bx - 330, by + 78],
+        ],
+        [3.8],
+      );
+      view.addChild(cursor.view);
+      view.addChild(vignette(0.5));
+      return {
+        view,
+        cues: cues([
+          [1.1, () => Snd.latch()],
+          [1.9, () => Snd.page()],
+          [3.8, () => Snd.tick_ui()],
+          [4.1, () => Snd.place()],
+          [5.9, () => Snd.glass()],
+          [6.7, () => Snd.glass()],
+          [7.5, () => Snd.bell()],
+          [8.8, () => Snd.pen()],
+        ]),
+        update(t, dur) {
+          const open = p(t, 1.1, 1.8);
+          clasp
+            .clear()
+            .roundRect(478, 430 - open * 10, 30, 22, 4)
+            .fill({ color: GOLD, alpha: 1 - open * 0.4 });
+          clasp.rotation = 0;
+          // the bundle comes out of the book: her, reaching you mid-game
+          const out = ease(p(t, 1.9, 3.4));
+          roll.alpha = out;
+          roll.x = lerp(-330, 0, out);
+          const unroll = ease(p(t, 4.1, 6.0));
+          const fullW = 480;
+          const w = lerp(60, fullW, unroll);
+          cloth
+            .clear()
+            .roundRect(bx - 240, by - 70, w, 160, 18)
+            .fill(0x3d4c6c)
+            .roundRect(bx - 240 + w - 30, by - 70, 30, 160, 15)
+            .fill(0x33405c);
+          for (const sx of [60, 180, 300]) {
+            if (sx < w - 20) {
+              cloth
+                .moveTo(bx - 240 + sx, by - 70)
+                .lineTo(bx - 240 + sx, by + 90)
+                .stroke({ width: 2, color: 0x33405c });
+            }
+          }
+          const pull = ease(p(t, 3.8, 4.6));
+          tie
+            .clear()
+            .moveTo(bx - 244, by + 80)
+            .quadraticCurveTo(
+              bx - 300 - pull * 40,
+              by + 100,
+              bx - 330 - pull * 60,
+              by + 76,
+            )
+            .stroke({ width: 4, color: GOLD, alpha: 0.8 * (1 - pull * 0.4) });
+          vial.alpha = p(t, 5.8, 6.2);
+          rule.alpha = p(t, 6.6, 7.0);
+          scales.alpha = p(t, 7.4, 7.8);
+          names[0].w(p(t, 6.0, 6.5));
+          names[1].w(p(t, 6.8, 7.3));
+          names[2].w(p(t, 7.6, 8.1));
+          noteCard.alpha = p(t, 8.4, 8.9);
+          writeNote(p(t, 8.8, 10.6));
+          candle.update(t);
+          halo.alpha = 0.9 + Math.sin(t * 4.1) * 0.1;
+          cursor.update(t);
+          view.alpha = envelope(t, dur, 0.5, 0.6);
+        },
+      };
+    }
+
+    // 14 · The pantry
+    function scPantry() {
+      const view = new Container();
+      const world = new Container();
+      view.addChild(world);
+      world.addChild(
+        new Graphics()
+          .rect(0, 0, W, 560)
+          .fill(0x1c2438)
+          .rect(0, 560, W, H - 560)
+          .fill(0x141b2e)
+          .rect(0, 552, W, 8)
+          .fill(0x2a3450),
+      );
+      const r = rng(29);
+      for (let row = 0; row < 3; row++) {
+        const y = 170 + row * 130;
+        world.addChild(
+          new Graphics().rect(120, y + 74, 1040, 12).fill(0x2a3450),
+        );
+        let x = 160;
+        while (x < 1100) {
+          const kind = Math.floor(r() * 4);
+          const g = new Graphics();
+          if (kind === 0) {
+            g.roundRect(x, y + 14, 44, 60, 6)
+              .fill({ color: 0xbfe0ee, alpha: 0.35 })
+              .roundRect(x, y + 14, 44, 60, 6)
+              .stroke({ width: 2, color: 0x8fb8c8 })
+              .rect(x + 6, y + 8, 32, 8)
+              .fill(0x8fa0b8);
+          } else if (kind === 1) {
+            g.roundRect(x, y + 24, 40, 50, 6)
+              .fill({ color: GOLD, alpha: 0.8 })
+              .rect(x + 6, y + 16, 28, 10)
+              .fill(0xc78a2e);
+          } else if (kind === 2) {
+            g.moveTo(x + 20, y - 6)
+              .lineTo(x + 20, y + 26)
+              .stroke({ width: 2, color: 0x51617f })
+              .ellipse(x + 20, y + 46, 14, 22)
+              .fill(0x3d6b4f);
+          } else {
+            g.ellipse(x + 22, y + 64, 26, 10).fill(0x8fa0b8);
+            for (let b = 0; b < 6; b++) {
+              g.circle(x + 10 + r() * 26, y + 56 + r() * 8, 4).fill(0xb43e3e);
+            }
+          }
+          world.addChild(g);
+          x += 70 + r() * 60;
+        }
+      }
+      const bell = new Graphics()
+        .moveTo(640, 470)
+        .lineTo(640, 452)
+        .stroke({ width: 2, color: GOLD })
+        .poly([620, 500, 640, 456, 660, 500])
+        .fill(GOLD)
+        .circle(640, 504, 4)
+        .fill(0xc78a2e);
+      world.addChild(bell);
+      const tag = hand('a hollow bell', { size: 14, ink: 0x9fb4c4 });
+      tag.anchor.set(0.5, 0);
+      tag.position.set(640, 514);
+      world.addChild(tag);
+      world.addChild(
+        new Graphics()
+          .roundRect(430, 590, 280, 96, 3)
+          .fill(PAPER)
+          .roundRect(430, 590, 280, 96, 3)
+          .stroke({ width: 1, color: PAPER_EDGE }),
+      );
+      const pn = hand('', { size: 20, ink: HER_INK });
+      pn.rotation = -0.02;
+      pn.position.set(450, 606);
+      world.addChild(pn);
+      const writeNote = writer(
+        pn,
+        'for the last of them.\nnothing plainer will do.',
+      );
+      // the door you just opened, letting dusk in
+      const doorLight = new Graphics();
+      world.addChild(doorLight);
+      const sweep = new Graphics();
+      world.addChild(sweep);
+      view.addChild(vignette(0.6));
+      return {
+        view,
+        cues: cues([
+          [0.3, () => Snd.creak()],
+          [2.2, () => Snd.glass()],
+          [6.3, () => Snd.bell()],
+          [7.8, () => Snd.pen()],
+        ]),
+        update(t, dur) {
+          camKeys(
+            world,
+            [
+              [0, 1.14, 900, 400],
+              [dur, 1.14, 470, 430],
+            ],
+            t,
+          );
+          const open = ease(p(t, 0.3, 1.8));
+          doorLight
+            .clear()
+            .rect(1280 - 130 * open, 120, 130 * open, 440)
+            .fill({ color: 0x4e6f96, alpha: 0.5 });
+          // the light finds one strange thing after another
+          const sx = lerp(1200, 300, ease(p(t, 1.6, 8.0)));
+          sweep
+            .clear()
+            .ellipse(sx, 330, 220, 300)
+            .fill({ color: 0xbfe0ee, alpha: 0.05 });
+          bell.alpha = 0.55 + p(t, 6.0, 6.4) * 0.45;
+          writeNote(p(t, 7.8, 9.6));
+          view.alpha = envelope(t, dur, 0.5, 0.6);
+        },
+      };
+    }
+
+    // The Leave offer, live or dead under frost. Both cold scenes use it.
+    // cardOnly builds the notice with no room behind it, for scenes that
+    // already have one on screen and just need the second card
+    function buildOffer({ frozen, cardOnly = false }) {
+      const view = new Container();
+      const pal = PAL.frozen;
+      let win = null;
+      let gauge = null;
+      if (!cardOnly) {
+        const room = sceneBase(pal);
+        win = makeWindow(pal);
+        room.addChild(win.view);
+        room.addChild(makeHearth(pal, { lit: false }).view);
+        room.addChild(doorFrame(pal));
+        view.addChild(room);
+        view.addChild(
+          new Graphics()
+            .rect(0, 0, W, H)
+            .fill({ color: 0x05070f, alpha: 0.62 }),
+        );
+        gauge = makeGauge(64, 180, { offerBand: [0.14, 0.34] });
+        gauge.set(frozen ? 0.1 : 0.34);
+        view.addChild(gauge.view);
+      }
+      const cw = 620,
+        ch = 330,
+        cx = W / 2 + 60,
+        cy = H / 2;
+      const card = new Container();
+      view.addChild(card);
+      card.addChild(
+        new Graphics()
+          .roundRect(cx - cw / 2, cy - ch / 2, cw, ch, 8)
+          .fill(PAPER)
+          .roundRect(cx - cw / 2, cy - ch / 2, cw, ch, 8)
+          .stroke({ width: 2, color: PAPER_EDGE }),
+      );
+      const title = hand(
+        frozen ? 'Too cold to pack.' : 'You could still make town.',
+        {
+          size: 30,
+          ink: INK,
+        },
+      );
+      title.anchor.set(0.5, 0);
+      title.position.set(cx, cy - ch / 2 + 36);
+      card.addChild(title);
+      const writeTitle = wipeText(title);
+      const bodyLines = frozen
+        ? [
+            'You played the nights out, and the cold closed the road.',
+            'Nothing leaves now. All that is left is the keeping.',
+          ]
+        : // both sides of the choice, two lines each: what going buys,
+          // then what staying buys and what it costs
+          [
+            'Go now: winter out somewhere warm, keep the book,',
+            'and next autumn starts ahead of this one.',
+            'Stay, and you could still name the rest this year.',
+            'Past a certain cold, there is no going at all.',
+          ];
+      const writeBody = centredLines(card, bodyLines, {
+        cx,
+        y: cy - ch / 2 + 90,
+        size: 20,
+        ink: INK,
+        lineH: 28,
+      });
+      const buttons = new Container();
+      card.addChild(buttons);
+      const btnCentres = [];
+      if (!frozen) {
+        [
+          ['Stay', cx - 130],
+          ['Take the road', cx + 130],
+        ].forEach(([txt, bx]) => {
+          buttons.addChild(
+            new Graphics().roundRect(bx - 110, cy + 60, 220, 54, 6).fill(INK),
+          );
+          const t = hand(txt, { size: 21, ink: PAPER, italic: false });
+          t.anchor.set(0.5, 0.5);
+          t.position.set(bx, cy + 87);
+          buttons.addChild(t);
+          btnCentres.push([bx, cy + 87]);
+        });
+      }
+      const cardFrost = new Graphics();
+      card.addChild(cardFrost);
+      if (frozen) {
+        const r = rng(53);
+        for (const [fx, fy] of [
+          [cx - cw / 2, cy + ch / 2],
+          [cx + cw / 2, cy + ch / 2],
+          [cx - cw / 2, cy - ch / 2],
+        ]) {
+          for (let i = 0; i < 12; i++) {
+            const a = r() * Math.PI * 2;
+            const len = 40 + r() * 70;
+            cardFrost
+              .moveTo(fx, fy)
+              .lineTo(fx + Math.cos(a) * len, fy + Math.sin(a) * len)
+              .stroke({ width: 1.5, color: 0x8fb8c8, alpha: 0.45 });
+          }
+        }
+      }
+      card.pivot.set(cx, cy);
+      card.position.set(cx, cy);
+      return {
+        view,
+        card,
+        win,
+        gauge,
+        buttons,
+        btnCentres,
+        writeTitle,
+        writeBody,
+      };
+    }
+
+    function letterbox() {
+      const g = new Graphics();
+      function set(k) {
+        g.clear();
+        const h = 80 * clamp(k, 0, 1);
+        if (h <= 0) return;
+        g.rect(0, 0, W, h)
+          .fill(0x04060c)
+          .rect(0, H - h, W, h)
+          .fill(0x04060c);
+      }
+      set(0);
+      return { view: g, set };
+    }
+
+    // 15 · The Leave offer
+    function scOffer() {
+      const o = buildOffer({ frozen: false });
+      const view = o.view;
+      view.addChild(vignette(0.5));
+      return {
+        view,
+        cues: cues([
+          [0.3, () => Snd.coldTone()],
+          [1.4, () => Snd.frost()],
+          [3.6, () => Snd.page()],
+          [3.9, () => Snd.pen()],
+          [9.4, () => Snd.tick_ui()],
+        ]),
+        update(t, dur) {
+          o.win.set(lerp(0.3, 0.85, p(t, 0, 6.0)));
+          o.gauge.set(lerp(0.34, 0.25, p(t, 0, 3.2)));
+          const rise = easeOut(p(t, 3.5, 4.2));
+          o.card.alpha = rise;
+          o.card.scale.set(lerp(0.93, 1, rise));
+          o.writeTitle(p(t, 3.9, 4.9));
+          o.writeBody(p(t, 5.0, 9.0));
+          o.buttons.alpha = p(t, 9.4, 10.0);
+          view.alpha = envelope(t, dur, 0.6, 0.5);
+        },
+      };
+    }
+
+    // 16 · The offer, withdrawn (aside)
+    // The order has to be unmistakable, because the design turns on it: you
+    // press Stay, you play nights, and only then do you go to check the road
+    // and find it closed. So the aside opens on the live card, not the dead one.
+    function scWithdrawn() {
+      const view = new Container();
+      const o = buildOffer({ frozen: false });
+      o.writeTitle(1);
+      o.writeBody(1);
+      o.win.set(0.85);
+      view.addChild(o.view);
+      // the nights darken the room the way scene 6 does, over the top of the
+      // room but under the meter, so the price of each one stays readable
+      const nightDim = new Graphics().rect(0, 0, W, H).fill(0x02040a);
+      nightDim.alpha = 0;
+      o.view.addChildAt(nightDim, 2);
+      // the notice you find when you finally walk out to the road
+      const dead = buildOffer({ frozen: true, cardOnly: true });
+      dead.card.alpha = 0;
+      view.addChild(dead.view);
+      const cursor = makeCursor(
+        [
+          [0.4, o.btnCentres[0][0] - 170, o.btnCentres[0][1] + 70],
+          [1.4, o.btnCentres[0][0], o.btnCentres[0][1]],
+          [2.2, o.btnCentres[0][0], o.btnCentres[0][1]],
+        ],
+        [1.5],
+      );
+      view.addChild(cursor.view);
+      const bars = letterbox();
+      view.addChild(bars.view);
+      // three captions, one per beat, so the words carry the same order
+      const beats = [
+        ['you stayed', 1.7, 3.4],
+        ['and set four more nights', 3.6, 8.0],
+        ['then you walked out to the road', 8.4, 10.4],
+      ].map(([txt, from, to]) => {
+        const t = hand(txt, { size: 22, ink: 0x9fc0d4 });
+        t.anchor.set(0.5, 0.5);
+        t.position.set(W / 2, 42);
+        t.alpha = 0;
+        view.addChild(t);
+        return { t, from, to };
+      });
+      view.addChild(vignette(0.55));
+      const nights = [3.9, 5.05, 6.2, 7.35];
+      return {
+        view,
+        cues: cues([
+          [1.5, () => Snd.choose()],
+          [3.9, () => Snd.wind_gust()],
+          [5.05, () => Snd.frost()],
+          [6.2, () => Snd.wind_gust()],
+          [7.35, () => Snd.frost()],
+          [8.6, () => Snd.boots()],
+          [9.4, () => Snd.coldTone()],
+          [9.6, () => Snd.page()],
+        ]),
+        update(t, dur) {
+          bars.set(p(t, 0, 0.6));
+          cursor.update(t);
+          beats.forEach(({ t: txt, from, to }) => {
+            txt.alpha = p(t, from, from + 0.5) * (1 - p(t, to, to + 0.5));
+          });
+          // answering the offer takes the card away, the same as any night
+          const answered = p(t, 1.5, 2.1);
+          o.card.alpha = 1 - answered;
+          o.card.scale.set(lerp(1, 0.97, answered));
+          o.buttons.alpha = 1 - p(t, 1.5, 1.8);
+          // each night: dark, then dawn, with full light in between so four
+          // separate nights are countable, and the meter pays at each dawn
+          let dark = 0;
+          let spent = 0;
+          for (const at of nights) {
+            if (t - at >= 0.25) spent++;
+            dark = Math.max(
+              dark,
+              p(t, at - 0.3, at) - p(t, at + 0.25, at + 0.55),
+            );
+          }
+          nightDim.alpha = dark * 0.88;
+          o.win.set(lerp(0.85, 1, p(t, 3.6, 8.0)));
+          o.gauge.set(0.25 - spent * 0.04);
+          // and only now, the notice, dead under frost with nothing to press
+          const rise = easeOut(p(t, 9.5, 10.2));
+          dead.card.alpha = rise;
+          dead.card.scale.set(lerp(0.96, 1, rise));
+          dead.writeTitle(p(t, 9.8, 10.6));
+          dead.writeBody(p(t, 10.8, 13.0));
+          view.alpha = envelope(t, dur, 0.5, 0.01);
+        },
+      };
+    }
+
+    // 18 · The freeze (aside)
+    // Played, not cut to: standing, shivering, down to the knees, and only at
+    // the end does the drawn figure hand over to the intro image's pose.
+    function scFreeze() {
+      const s = scFrozen({ who: 'keeper' });
+      s.fallen.alpha = 0;
+      const keeper = figureCrumple(470, 600, ACCENT_KEEPER);
+      s.world.addChild(keeper.view);
+      const bars = letterbox();
+      bars.set(1);
+      s.view.addChild(bars.view);
+      const inner = s.update;
+      return {
+        view: s.view,
+        cues: cues([
+          [0.3, () => Snd.coldTone()],
+          [2.6, () => Snd.frost()],
+          [4.2, () => Snd.step()],
+          [7.2, () => Snd.place()],
+          [8.6, () => Snd.wind_gust()],
+        ]),
+        update(t, dur) {
+          inner(t, dur);
+          // standing and shaking, then the knees go, then the rest of them
+          const pose = ease(p(t, 3.4, 4.6)) + ease(p(t, 6.0, 7.4));
+          const shiver =
+            (0.3 + 0.7 * p(t, 1.2, 3.2)) * (1 - p(t, 5.2, 7.2)) * 1.15;
+          keeper.set(t, pose, shiver);
+          // the last half second hands the pose to the image she was found in
+          const handover = p(t, 7.6, 8.3);
+          keeper.view.alpha = 1 - handover;
+          s.fallen.alpha = handover;
+          s.view.alpha = envelope(t, dur, 0.01, 0.6);
+        },
+      };
+    }
+
+    // 17 · Taking the road
+    function scRoad() {
+      const view = new Container();
+      // back at the live card, and this time it is answered
+      const o = buildOffer({ frozen: false });
+      o.writeTitle(1);
+      o.writeBody(1);
+      view.addChild(o.view);
+      const bars = letterbox();
+      bars.set(1);
+      view.addChild(bars.view);
+      const cursor = makeCursor(
+        [
+          [0.2, o.btnCentres[1][0] - 190, o.btnCentres[1][1] + 60],
+          [1.2, o.btnCentres[1][0], o.btnCentres[1][1]],
+          [2.0, o.btnCentres[1][0], o.btnCentres[1][1]],
+        ],
+        [1.4],
+      );
+      view.addChild(cursor.view);
+
+      // outside, in the snow
+      const out = new Container();
+      out.alpha = 0;
+      view.addChild(out);
+      const f = facade(PAL.night, { snow: true });
+      out.addChild(f.view);
+      const car = makeCar(250, 690);
+      out.addChild(car.view);
+      const walker = makeWalker(ACCENT_KEEPER, { book: true, flip: true });
+      out.addChild(walker.view);
+      const snow = makeDrift(61, 170, {
+        fall: 70,
+        sway: 30,
+        size: [0.8, 2.6],
+        alpha: [0.2, 0.6],
+      });
+      out.addChild(snow.view);
+      const heads = new Graphics();
+      out.addChild(heads);
+      view.addChild(vignette(0.45));
+      o.win.set(0.85);
+      o.gauge.set(0.25);
+      return {
+        view,
+        cues: cues([
+          [1.4, () => Snd.tick_ui()],
+          [1.5, () => Snd.commit()],
+          [3.0, () => Snd.door()],
+          [4.7, () => Snd.door()],
+          [5.3, () => Snd.latch()],
+          [5.8, () => Snd.boots()],
+          [6.6, () => Snd.boots()],
+          [7.4, () => Snd.boots()],
+          [8.2, () => Snd.boots()],
+          [8.8, () => Snd.door()],
+          [9.2, () => Snd.latch()],
+          [9.6, () => Snd.engine()],
+          [11.2, () => Snd.engine()],
+        ]),
+        update(t, dur) {
+          bars.set(1 - p(t, 0.2, 1.0));
+          const leave = p(t, 1.9, 2.6);
+          o.view.alpha = 1 - leave;
+          o.view.visible = leave < 1;
+          cursor.update(t);
+          cursor.view.alpha = 1 - leave;
+          out.alpha = leave;
+          // out the door, lock it, and the walk to the car
+          const doorOpen = p(t, 2.4, 3.2) * (1 - p(t, 4.4, 5.0));
+          f.setOpen(doorOpen);
+          const stepOut = p(t, 3.2, 4.4);
+          const away = ease(p(t, 5.0, 8.4));
+          // out the door, then the walk down to the car, then in
+          walker.view.x = lerp(
+            lerp(f.doorX, f.doorX - 40, stepOut),
+            car.doorX + 56,
+            away,
+          );
+          walker.view.y = lerp(600, 690, Math.max(stepOut * 0.35, away));
+          walker.view.scale.set(lerp(0.9, 1.06, away));
+          walker.view.alpha = stepOut * (1 - p(t, 8.4, 8.9));
+          walker.update(t, {
+            walking: stepOut > 0.2 && away < 1,
+            shiver: away > 0.05 && away < 1 ? 1.6 : 0,
+          });
+          snow.update(t);
+          // lights on, then the reverse out of the drive
+          const lit = p(t, 9.5, 10.1);
+          car.setLights(lit);
+          const back = ease(p(t, 10.4, dur));
+          car.view.x = -back * 780;
+          car.view.y = Math.sin(t * 9) * back * 1.6;
+          heads.clear();
+          if (lit > 0) {
+            heads
+              .poly([
+                382 - back * 780,
+                632,
+                382 - back * 780,
+                600,
+                980 - back * 780,
+                520,
+                1010 - back * 780,
+                700,
+              ])
+              .fill({ color: 0xf3e6c0, alpha: 0.1 * lit * (1 - back * 0.6) });
+          }
+          view.alpha = envelope(t, dur, 0.01, 0.7);
+        },
+      };
+    }
+
+    // The car at the end of the drive: parked facing the house, so leaving is
+    // a reverse out rather than a fade to black.
+    function makeCar(x, groundY) {
+      const c = new Container();
+      const dark = 0x1b2540;
+      const panel = 0x27334f;
+      c.addChild(
+        new Graphics()
+          // cabin, then the long body over it
+          .poly([
+            x - 62,
+            groundY - 84,
+            x - 40,
+            groundY - 128,
+            x + 44,
+            groundY - 128,
+            x + 72,
+            groundY - 84,
+          ])
+          .fill(panel)
+          .roundRect(x - 36, groundY - 122, 34, 30, 4)
+          .fill(0x0e1626)
+          .roundRect(x + 6, groundY - 122, 32, 30, 4)
+          .fill(0x0e1626)
+          .roundRect(x - 132, groundY - 88, 268, 54, 12)
+          .fill(dark)
+          .roundRect(x - 132, groundY - 62, 268, 10, 5)
+          .fill(panel),
+      );
+      // snow lying along the roof and bonnet
+      c.addChild(
+        new Graphics()
+          .roundRect(x - 40, groundY - 133, 86, 8, 4)
+          .fill({ color: 0xdfeaf2, alpha: 0.85 })
+          .roundRect(x + 74, groundY - 92, 58, 7, 3)
+          .fill({ color: 0xdfeaf2, alpha: 0.7 }),
+      );
+      const wheel = (wx) =>
+        new Graphics()
+          .circle(wx, groundY - 30, 26)
+          .fill(0x0c1220)
+          .circle(wx, groundY - 30, 11)
+          .fill(0x33405c);
+      c.addChild(wheel(x - 82), wheel(x + 86));
+      const lamps = new Graphics();
+      c.addChild(lamps);
+      function setLights(on) {
+        lamps.clear();
+        if (on <= 0.01) return;
+        lamps
+          .ellipse(x + 132, groundY - 74, 10, 7)
+          .fill({ color: 0xf3e6c0, alpha: on })
+          .ellipse(x - 134, groundY - 72, 8, 6)
+          .fill({ color: 0xb43e3e, alpha: on * 0.9 });
+      }
+      setLights(0);
+      return { view: c, setLights, doorX: x + 10 };
+    }
+
+    // 19 · The return
+    function scReturn() {
+      const view = new Container();
+      const f = facade(PAL.night, { snow: false, litWindow: true });
+      view.addChild(f.view);
+      const leaves = makeDrift(67, 44, {
+        fall: 52,
+        sway: 40,
+        size: [2, 4],
+        colors: [GOLD, 0xb43e3e, 0xc7a04a],
+        flat: true,
+        alpha: [0.5, 0.9],
+      });
+      view.addChild(leaves.view);
+      view.addChild(
+        new Graphics()
+          .roundRect(760, 560, 110, 54, 4)
+          .fill(0x33405c)
+          .roundRect(760, 560, 110, 54, 4)
+          .stroke({ width: 2, color: 0x51617f })
+          .moveTo(760, 587)
+          .lineTo(870, 587)
+          .stroke({ width: 2, color: 0x51617f }),
+      );
+      const walker = makeWalker(ACCENT_KEEPER, { book: true, flip: true });
+      view.addChild(walker.view);
+      const gauge = makeGauge(64, 180);
+      gauge.set(0);
+      view.addChild(gauge.view);
+      view.addChild(vignette(0.55));
+      return {
+        view,
+        cues: cues([
+          [0.4, () => Snd.warmChord(220, 0.05)],
+          [1.0, () => Snd.boots()],
+          [1.9, () => Snd.boots()],
+          [2.8, () => Snd.door()],
+          [4.6, () => Snd.tick_ui()],
+          [5.2, () => Snd.chime(440, 0.06)],
+        ]),
+        update(t, dur) {
+          leaves.update(t);
+          f.setOpen(p(t, 2.8, 4.0));
+          const walk = p(t, 0.4, 3.0);
+          walker.view.x = lerp(360, 690, walk);
+          walker.view.y = 612;
+          walker.update(t, { walking: walk < 1 });
+          // the head start: the bare-start tick, then the fill standing over it
+          gauge.setProvisionTick(0.38, p(t, 4.6, 5.0) * 0.9);
+          gauge.set(lerp(0, 0.52, ease(p(t, 5.2, 7.4))));
+          view.alpha = envelope(t, dur, 0.7, 0.6);
+        },
+      };
+    }
+
+    // 20 · The win
+    function scWin() {
+      const view = new Container();
+      const pal = PAL.warm;
+      view.addChild(sceneBase(pal));
+      view.addChild(makeWindow(pal).view);
+      const hearth = makeHearth(pal, { lit: true, tidy: true });
+      view.addChild(hearth.view);
+      view.addChild(doorFrame(pal));
+      view.addChild(table(pal));
+      view.addChild(
+        new Graphics()
+          .roundRect(560, 420, 170, 46, 3)
+          .fill(PAPER)
+          .rect(643, 422, 3, 42)
+          .fill(0xd8cdb2),
+      );
+      const roll = new Graphics();
+      view.addChild(roll);
+      const wash = new Graphics()
+        .rect(0, 0, W, H)
+        .fill({ color: 0xf0a840, alpha: 0.1 });
+      view.addChild(wash);
+      // the named, going about the house they now keep
+      const shades = [];
+      [
+        [200, 640, 0.22, 26],
+        [980, 620, 0.18, -18],
+        [520, 600, 0.14, 14],
+      ].forEach(([x, y, a, drift], i) => {
+        const s = figureStanding(x, y, 0xdde9f1, {
+          color: 0xbfd6e4,
+          flip: i % 2 === 0,
+        });
+        s.alpha = 0;
+        view.addChild(s);
+        shades.push({ s, a, drift, at: 3.0 + i * 1.4 });
+      });
+      const gauge = makeGauge(64, 180);
+      gauge.set(0.62);
+      view.addChild(gauge.view);
+      view.addChild(vignette(0.3));
+      return {
+        view,
+        cues: cues([
+          [1.4, () => Snd.pen()],
+          [2.2, () => Snd.chime(523, 0.08)],
+          [2.6, () => Snd.warmChord(131, 0.09)],
+        ]),
+        update(t, dur) {
+          hearth.update(t);
+          roll.clear();
+          for (let i = 0; i < 6; i++) {
+            const y = 428 + i * 6;
+            const k = i < 5 ? 1 : ease(p(t, 1.4, 2.2));
+            if (k <= 0) continue;
+            roll
+              .moveTo(572, y)
+              .lineTo(572 + 64 * k, y)
+              .stroke({ width: 1.5, color: INK, alpha: 0.7 });
+          }
+          gauge.set(lerp(0.62, 0.94, ease(p(t, 2.2, 5.4))));
+          wash.alpha = 0.7 + p(t, 2.2, 6.0) * 0.5 + Math.sin(t * 1.1) * 0.08;
+          for (const sh of shades) {
+            const k = p(t, sh.at, sh.at + 2.2);
+            sh.s.alpha = k * sh.a;
+            sh.s.x = (t - sh.at) * sh.drift;
+          }
+          view.alpha = envelope(t, dur, 0.9, 0.6);
+        },
+      };
+    }
+
+    // the tea table, shared by the offer and the ending
+    function teaTable() {
+      const view = new Container();
+      view.addChild(new Graphics().rect(0, 0, W, H).fill(0x0d1322));
+      view.addChild(new Graphics().rect(0, 560, W, H - 560).fill(0x121a2e));
+      const halo = radial('255,205,130', 0.35, 430);
+      halo.position.set(W / 2, 420);
+      view.addChild(halo);
+      view.addChild(
+        new Graphics()
+          .ellipse(W / 2, 470, 220, 46)
+          .fill(0x2a3450)
+          .rect(W / 2 - 200, 470, 14, 130)
+          .fill(0x232c46)
+          .rect(W / 2 + 186, 470, 14, 130)
+          .fill(0x232c46),
+      );
+      view.addChild(new Graphics().ellipse(W / 2, 466, 200, 38).fill(0xd9d2c4));
+      const cups = [];
+      [-90, 90].forEach((dx) => {
+        const g = new Graphics();
+        const steam = new Graphics();
+        view.addChild(g, steam);
+        const x = W / 2 + dx;
+        function set(poured, t) {
+          g.clear()
+            .ellipse(x, 452, 26, 9)
+            .fill(0xf2f6f8)
+            .ellipse(x, 449, 20, 6)
+            .fill(poured > 0.02 ? 0xc78a2e : 0xe4ebf0);
+          steam.clear();
+          if (poured > 0.5) {
+            for (let i = 0; i < 3; i++) {
+              const w = Math.sin(t * 1.7 + i) * 5;
+              steam
+                .moveTo(x - 6 + i * 6, 438)
+                .quadraticCurveTo(
+                  x - 12 + i * 6 + w,
+                  420,
+                  x - 4 + i * 6 - w,
+                  402,
+                )
+                .stroke({
+                  width: 1.5,
+                  color: 0xdde9f1,
+                  alpha: 0.4 * (poured - 0.5) * 2,
+                });
+            }
+          }
+        }
+        set(0, 0);
+        cups.push({ set, x });
+      });
+      view.addChild(
+        new Graphics()
+          .ellipse(W / 2, 440, 34, 24)
+          .fill(0x3d4c6c)
+          .moveTo(W / 2 + 30, 436)
+          .lineTo(W / 2 + 52, 424)
+          .stroke({ width: 5, color: 0x3d4c6c })
+          .rect(W / 2 - 6, 410, 12, 8)
+          .fill(0x3d4c6c),
+      );
+      view.addChild(chair(W / 2 - 250, 640, { facing: 1 }));
+      view.addChild(chair(W / 2 + 250, 640, { facing: -1 }));
+      return { view, cups, halo };
+    }
+
+    // 21 · Stay for tea?
+    function scTeaOffer() {
+      const tea = teaTable();
+      const view = tea.view;
+      tea.cups[0].set(1, 0);
+      // her hand, on paper, the way every word of hers has arrived
+      const card = new Container();
+      card.addChild(
+        new Graphics()
+          .roundRect(W / 2 - 150, 610, 300, 66, 3)
+          .fill(PAPER)
+          .roundRect(W / 2 - 150, 610, 300, 66, 3)
+          .stroke({ width: 1, color: PAPER_EDGE }),
+      );
+      const line = hand('Stay for tea?', { size: 34, ink: HER_INK });
+      line.anchor.set(0.5, 0);
+      line.position.set(W / 2, 622);
+      card.addChild(line);
+      const writeLine = wipeText(line);
+      view.addChild(card);
+      // answered in the same grammar as every other night
+      const spot = makeSpot(tea.cups[1].x, 456, 44, 15);
+      view.addChild(spot.view);
+      const pop = makePopup(
+        W / 2 + 200,
+        200,
+        'THE SECOND CUP',
+        ['pour, and stay', 'close the book'],
+        {
+          anchor: [tea.cups[1].x, 444],
+          w: 240,
+        },
+      );
+      view.addChild(pop.view);
+      const cursor = makeCursor(
+        [
+          [4.4, W / 2 + 420, 560],
+          [5.4, tea.cups[1].x, 456],
+          [6.0, tea.cups[1].x, 456],
+          [7.0, pop.rowX, pop.rowY(0)],
+          [8.4, pop.rowX, pop.rowY(0)],
+        ],
+        [5.8, 8.0],
+      );
+      view.addChild(cursor.view);
+      const bloom = new Graphics().rect(0, 0, W, H).fill(0xffe6b0);
+      bloom.alpha = 0;
+      view.addChild(bloom);
+      view.addChild(vignette(0.6));
+      return {
+        view,
+        cues: cues([
+          [1.4, () => Snd.page()],
+          [1.7, () => Snd.pen()],
+          [5.8, () => Snd.pop()],
+          [8.0, () => Snd.choose()],
+          [8.3, () => Snd.pour()],
+          [8.4, () => Snd.bloom()],
+        ]),
+        update(t, dur) {
+          writeLine(p(t, 1.7, 3.0));
+          spot.update(t, t > 3.6);
+          if (t >= 8.0) spot.use(8.0);
+          pop.setOpen(p(t, 5.8, 6.2) - p(t, 8.0, 8.2));
+          pop.setHighlight(t > 7.3 ? 0 : -1);
+          tea.cups[0].set(1, t);
+          tea.cups[1].set(p(t, 8.3, 9.4), t);
+          tea.halo.scale.set(1 + p(t, 8.4, 10.0) * 0.25);
+          bloom.alpha = p(t, 8.4, 8.7) * 0.5 * (1 - p(t, 8.7, 10.4));
+          cursor.update(t);
+          view.alpha = envelope(t, dur, 0.8, 0.6);
+        },
+      };
+    }
+
+    // 22 · The coda: her
+    function scCoda() {
+      const view = new Container();
+      const pal = PAL.warm;
+      view.addChild(sceneBase(pal));
+      // the chill lives in this room: frost on its glass, gold through the door
+      const win = makeWindow(PAL.frozen);
+      win.set(0.55);
+      view.addChild(win.view);
+      view.addChild(
+        new Graphics()
+          .rect(0, 0, 700, H)
+          .fill({ color: 0x9fc0d4, alpha: 0.06 }),
+      );
+      view.addChild(doorFrame(pal, { openGap: 0.55 }));
+      view.addChild(
+        new Graphics()
+          .rect(1130 + 130 * 0.45, 160, 130 * 0.55, 400)
+          .fill({ color: 0xf3d68a, alpha: 0.35 }),
+      );
+      view.addChild(table(pal));
+      view.addChild(
+        new Graphics()
+          .ellipse(600, 455, 16, 6)
+          .fill(0xf2f6f8)
+          .ellipse(690, 455, 16, 6)
+          .fill(0xf2f6f8),
+      );
+      view.addChild(chair(500, 620, { facing: 1 }));
+      view.addChild(chair(790, 620, { facing: -1 }));
+      // her trace: the second chair, dragged in
+      view.addChild(
+        new Graphics()
+          .moveTo(1040, 650)
+          .lineTo(806, 626)
+          .stroke({ width: 3, color: ASH, alpha: 0.4 })
+          .moveTo(1056, 664)
+          .lineTo(822, 640)
+          .stroke({ width: 3, color: ASH, alpha: 0.4 }),
+      );
+      const candle = makeCandle(645, 448, { frac: 0.8, scale: 0.9 });
+      candle.view.visible = false;
+      const bowl = makeBowl(940, 596);
+      view.addChild(candle.view, bowl.view);
+      const spots = {
+        candle: makeSpot(645, 456, 56, 15),
+        bowl: makeSpot(940, 598, 48, 14),
+        door: makeSpot(1178, 576, 84, 14),
+      };
+      view.addChild(spots.candle.view, spots.bowl.view, spots.door.view);
+      const gauge = makeGauge(64, 180);
+      gauge.set(0.92);
+      const panel = makeSetPanel(122, 180);
+      view.addChild(gauge.view, panel.view, bookChip());
+      const popC = makePopup(
+        400,
+        170,
+        'THE TABLE',
+        ['candle, cut to first light', 'nothing tonight'],
+        {
+          anchor: [645, 440],
+        },
+      );
+      const popB = makePopup(
+        690,
+        210,
+        'BY THE HEARTH',
+        ['milk, in the bowl', 'nothing tonight'],
+        {
+          anchor: [940, 586],
+        },
+      );
+      view.addChild(popC.view, popB.view);
+      const cursor = makeCursor(
+        [
+          [1.4, 500, 320],
+          [2.0, 645, 456],
+          [2.6, popC.rowX, popC.rowY(0)],
+          [3.2, popC.rowX, popC.rowY(0)],
+          [4.0, 940, 598],
+          [4.6, popB.rowX, popB.rowY(0)],
+          [5.4, popB.rowX, popB.rowY(0)],
+          [6.6, panel.btnCenter[0], panel.btnCenter[1]],
+          [7.6, panel.btnCenter[0], panel.btnCenter[1]],
+        ],
+        [2.2, 3.4, 4.2, 5.6, 7.4],
+      );
+      view.addChild(cursor.view);
+      const dim = new Graphics().rect(0, 0, W, H).fill(0x040710);
+      dim.alpha = 0;
+      view.addChild(dim);
+      view.addChild(vignette(0.4));
+      return {
+        view,
+        cues: cues([
+          [2.2, () => Snd.pop()],
+          [3.4, () => Snd.place()],
+          [3.5, () => panel.addRow('candle, cut to first light', 3.5)],
+          [3.5, () => panel.setCost(2, 3.5)],
+          [4.2, () => Snd.pop()],
+          [5.6, () => Snd.pour()],
+          [5.7, () => panel.addRow('milk, in the bowl', 5.7)],
+          [5.7, () => panel.setCost(3, 5.7)],
+          [6.0, () => Snd.chime(520, 0.05)],
+          [6.0, () => panel.light(6.0)],
+          [7.4, () => Snd.commit()],
+          [7.4, () => panel.press(7.4)],
+          [8.2, () => Snd.ignite()],
+        ]),
+        update(t, dur) {
+          spots.candle.update(t, t > 1.0);
+          spots.bowl.update(t, t > 1.0);
+          spots.door.update(t, t > 1.0 && t < 7.4);
+          if (t >= 3.4) spots.candle.use(3.4);
+          if (t >= 5.6) spots.bowl.use(5.6);
+          popC.setOpen(p(t, 2.2, 2.5) - p(t, 3.4, 3.6));
+          popC.setHighlight(t > 3.0 ? 0 : -1);
+          popB.setOpen(p(t, 4.2, 4.5) - p(t, 5.6, 5.8));
+          popB.setHighlight(t > 5.2 ? 0 : -1);
+          const landC = p(t, 3.4, 3.9);
+          candle.view.visible = landC > 0;
+          candle.view.alpha = landC;
+          candle.view.y = lerp(-22, 0, easeOut(landC));
+          candle.setLit(t >= 8.2);
+          candle.update(t);
+          bowl.set(p(t, 5.6, 6.2) > 0.3 ? 'milk' : 'empty');
+          bowl.view.alpha = p(t, 5.4, 5.8);
+          panel.update(t);
+          panel.view.alpha = 1 - p(t, 8.2, 9.4);
+          dim.alpha = p(t, 8.0, dur) * 0.55;
+          cursor.update(t);
+          cursor.view.alpha *= 1 - p(t, 8.0, 8.8);
+          view.alpha = envelope(t, dur, 0.7, 0.5);
+        },
+      };
+    }
+
+    // 23 · Tea
+    function scTea() {
+      const tea = teaTable();
+      const view = tea.view;
+      const card = new Container();
+      card.addChild(
+        new Graphics()
+          .roundRect(W / 2 - 370, 596, 740, 96, 3)
+          .fill(PAPER)
+          .roundRect(W / 2 - 370, 596, 740, 96, 3)
+          .stroke({ width: 1, color: PAPER_EDGE }),
+      );
+      // placeholder prose: two sentences, written properly later
+      const writeLines = centredLines(
+        card,
+        [
+          'You wrote her name the way you wrote all the others.',
+          'She sat down anyway.',
+        ],
+        { cx: W / 2, y: 614, size: 21, ink: INK, lineH: 32 },
+      );
+      view.addChild(card);
+      const her = figureSeated(0, 640, ACCENT_AUNT);
+      her.scale.x = -1;
+      her.position.x = W / 2 + 250;
+      her.alpha = 0;
+      view.addChild(her);
+      view.addChild(vignette(0.6));
+      return {
+        view,
+        cues: cues([
+          [1.2, () => Snd.pen()],
+          [8.4, () => Snd.warmChord(131, 0.1)],
+          [8.6, () => Snd.chime(392, 0.05)],
+        ]),
+        update(t, dur) {
+          tea.cups[0].set(1, t);
+          tea.cups[1].set(1, t);
+          writeLines(p(t, 1.2, 6.4));
+          // barely there, the way every spirit is
+          her.alpha = ease(p(t, 8.4, 11.4)) * 0.38;
+          tea.halo.scale.set(1.1 + Math.sin(t * 0.8) * 0.03);
+          view.alpha = envelope(t, dur, 0.9, 1.4);
+        },
+      };
+    }
+
+    // ---- the run --------------------------------------------------------
+
+    const SCENES = [
+      {
+        board: 1,
+        year: 'Year one',
+        act: 'Arrival',
+        title: 'Found frozen',
+        secs: 9,
+        bed: 'cold',
+        make: () => scFrozen({ who: 'aunt' }),
+        caption:
+          'The premise, held: your aunt where they found her in spring, the hearth dead behind her. The push-in and the cold tone are all the scene does; the line writes itself and stops.',
+      },
+      {
+        board: 2,
+        year: 'Year one',
+        act: 'Arrival',
+        title: 'Her book',
+        secs: 14,
+        bed: 'room',
+        make: scHerBook,
+        caption:
+          'The whole tutorial, given read-time: her finished entry settles, then the eye crosses to the entry she never closed. The pen stroke at the end is where she stopped.',
+      },
+      {
+        board: 3,
+        year: 'Year one',
+        act: 'Arrival',
+        title: 'The roll',
+        secs: 11,
+        bed: 'room',
+        make: scRoll,
+        caption:
+          'Six bare lines from the start, no counter: the scope of the year shown, its contents hidden. Her filled year on the left is the worked example, her threshold notes in the margin.',
+      },
+      {
+        board: 4,
+        year: 'Year one',
+        act: 'The loop',
+        title: 'Dusk: set the night, in the room',
+        secs: 20,
+        bed: 'cold',
+        night: true,
+        make: scDusk,
+        caption:
+          'Which room you stand in is the first choice, then the room itself is the form: spots pop options where you click, things land where they physically go, and the list beside the meter grows as they do. Note there is no keeper avatar here: the cursor is you. The board drew a crouched figure; this pass says you are the camera. Worth a reaction.',
+      },
+      {
+        board: 5,
+        year: 'Year one',
+        act: 'The loop',
+        title: 'Dusk: summed and set',
+        secs: 13,
+        bed: 'cold',
+        night: true,
+        make: scDuskSet,
+        caption:
+          'Same shot continuing. The commit lit the moment candle and bowl were down, so the salt is a free extra: added after, the cost climbing to four. Then it is bought, and the meter pays.',
+      },
+      {
+        board: 6,
+        year: 'Year one',
+        act: 'The loop',
+        title: 'The night',
+        secs: 14,
+        bed: 'deepcold',
+        night: true,
+        make: scNight,
+        caption:
+          'The candle burns, gutters, and goes; then the dark is total and the whole night is sound. A knock at the threshold, a step on the stair, a creak, then dawn. This is the beat sound design exists for, so listen rather than watch.',
+      },
+      {
+        board: 7,
+        year: 'Year one',
+        act: 'The loop',
+        title: 'The morning',
+        secs: 13,
+        bed: 'room',
+        night: true,
+        make: scMorning,
+        caption:
+          'Evidence with no narration. A scripted run has no hover, so the camera does the naming: candle height against the rings, the bowl taken, the line crossed, the prints walking back to the door.',
+      },
+      {
+        board: 8,
+        year: 'Year one',
+        act: 'The loop',
+        title: 'The book, marked',
+        secs: 15,
+        bed: 'room',
+        night: true,
+        make: scBookMarked,
+        caption:
+          'The ledger writes itself in the book’s hand; the strikes and circles draw in yours, never checked. The drain figure is a witnessed edit: struck, and rewritten below.',
+      },
+      {
+        board: 9,
+        year: 'Year one',
+        act: 'The loop',
+        title: 'Speak the name',
+        secs: 6,
+        bed: 'room',
+        make: scNameGate,
+        caption:
+          'The gate. Three circles and the commit is dead; the fourth lands and it lights. Whole, or not at all, shown rather than stated.',
+      },
+      {
+        board: 10,
+        year: 'Year one',
+        act: 'The loop',
+        title: 'The naming',
+        secs: 12,
+        bed: 'room',
+        make: scNaming,
+        caption:
+          'The entry composes as one four-slot sentence, writing itself in your hand with the slots underlined as they land. The name is true, so the byname takes the page header last.',
+      },
+      {
+        board: 11,
+        year: 'Year one',
+        act: 'The loop',
+        title: 'The kept room',
+        secs: 9,
+        bed: 'warm',
+        make: scKeptRoom,
+        caption:
+          'Named, it works the house: a pale shade drifts in and tends a room you did not tend. First sight of who the spirits actually are.',
+      },
+      {
+        board: 12,
+        year: 'Year one',
+        act: 'The house opens',
+        title: 'The sealed wing',
+        secs: 10,
+        bed: 'room',
+        make: scWing,
+        caption:
+          'New staging, not the board’s shorthand: rather than three doors in one wall, the camera walks a hall that was not there yesterday and the rooms arrive one after another, dust hanging in each.',
+      },
+      {
+        board: 13,
+        year: 'Year one',
+        act: 'The house opens',
+        title: 'Her finer tools',
+        secs: 12,
+        bed: 'room',
+        make: scTools,
+        caption:
+          'Her reaching you mid-run: the clasp gives, the bundle comes out of the book, the tie pulls and the roll opens on three instruments, each named in her hand. What they do is #25 and deliberately absent.',
+      },
+      {
+        board: 14,
+        year: 'Year one',
+        act: 'The house opens',
+        title: 'The pantry',
+        secs: 11,
+        bed: 'cold',
+        make: scPantry,
+        caption:
+          'A found space no spirit haunts. The dusk light comes in behind you and moves along the shelves, finding one stranger lure after another. Final-exam tone: the room is colder than the ones before it.',
+      },
+      {
+        board: 15,
+        year: 'Year one',
+        act: 'The cold',
+        title: 'The Leave offer',
+        secs: 13,
+        bed: 'cold',
+        make: scOffer,
+        caption:
+          'Frost thickens on the glass while the meter falls into the offered band, and only then does the card settle in. The stakes are priced in survival, not in points. The card now names both sides: what going buys you, what staying could still get you, and what it costs. Wording is placeholder; #15 owns thresholds, the window, and the final lines.',
+      },
+      {
+        board: 16,
+        year: 'Year one',
+        act: 'The cold',
+        title: 'The offer, withdrawn',
+        secs: 14,
+        bed: 'deepcold',
+        aside: true,
+        make: scWithdrawn,
+        caption:
+          'Restaged so the order cannot be misread: the aside opens on the live card, Stay is pressed and the card goes, four nights play out and the meter pays for each, and only then do you walk out to the road and find the notice dead under frost, with nothing to press. Nothing here appears the instant you choose to stay.',
+      },
+      {
+        board: 18,
+        year: 'Year one',
+        act: 'The cold',
+        title: 'The freeze',
+        secs: 12,
+        bed: 'deepcold',
+        aside: true,
+        make: scFreeze,
+        caption:
+          'Your read, taken: freezing is an animation, not a cut. The keeper shakes where they stand, goes down to their knees, and settles into a pose the last half second hands over to the intro image. Same room, same shape, except it is you, and the knit cap says a different person. Not a word of text.',
+      },
+      {
+        board: 17,
+        year: 'Year one',
+        act: 'The cold',
+        title: 'Taking the road',
+        secs: 12,
+        bed: 'cold',
+        make: scRoad,
+        caption:
+          'Bars retract, back at the live card, and this time it is answered. Your staging: out the door, lock it, the shivering walk off frame, and the headlights sweeping the house as you go.',
+      },
+      {
+        board: 19,
+        year: 'Year two',
+        act: 'The cold',
+        title: 'The return',
+        secs: 10,
+        bed: 'cold',
+        make: scReturn,
+        caption:
+          'Another autumn, same door, provisions on the step. The gauge sits where it always sits: the gold tick is a bare start, and the fill climbs past it. The head start is felt rather than captioned.',
+      },
+      {
+        board: 20,
+        year: 'Year two',
+        act: 'The housewarming',
+        title: 'The win',
+        secs: 12,
+        bed: 'warm',
+        make: scWin,
+        caption:
+          'The last line of the roll writes itself, the meter climbs, and the named move quietly through the house. This plays whole and unhurried before anything is offered.',
+      },
+      {
+        board: 21,
+        year: 'Year two',
+        act: 'The housewarming',
+        title: 'Stay for tea?',
+        secs: 12,
+        bed: 'warm',
+        make: scTeaOffer,
+        caption:
+          'The loud moment, and the thing a scripted run can finally show: the answer uses the same grammar as every night. A placement spot at the second cup, the same popup, the same click. Pour, and stay.',
+      },
+      {
+        board: 22,
+        year: 'Year two',
+        act: 'The housewarming',
+        title: 'The coda: her',
+        secs: 12,
+        bed: 'cold',
+        make: scCoda,
+        caption:
+          'The house is warm; this room is not. Same spots, same book, same loop, run at the speed of someone who knows it. Her trace is the second chair, dragged in. How the coda is made hard to fail is still owed.',
+      },
+      {
+        board: 23,
+        year: 'Year two',
+        act: 'The housewarming',
+        title: 'Tea',
+        secs: 14,
+        bed: 'warm',
+        make: scTea,
+        caption:
+          'Her entry done, the second cup poured, and her in front of it, barely there, the way every spirit is. The two sentences are placeholder prose standing in for the real ones. The image reads both ways on purpose.',
+      },
+    ];
+
+    const TOTAL = SCENES.reduce((a, s) => a + s.secs, 0);
+    const NIGHT_TOTAL = SCENES.filter((s) => s.night).reduce(
+      (a, s) => a + s.secs,
+      0,
+    );
+
+    const actEl = document.getElementById('act');
+    const clockEl = document.getElementById('clock');
+    const titleEl = document.getElementById('title');
+    const captionEl = document.getElementById('caption');
+    const scrubEl = document.getElementById('scrub');
+    const pacingEl = document.getElementById('pacing');
+    const pacingNum = document.getElementById('pacingnum');
+    const elapsedEl = document.getElementById('elapsed');
+    const playBtn = document.getElementById('playpause');
+    const rateBtn = document.getElementById('rate');
+    const muteBtn = document.getElementById('mute');
+    const curtain = document.getElementById('curtain');
+
+    let started = false;
+    let idx = -1;
+    let sceneT = 0;
+    let cur = null;
+    let playing = false;
+    let rate = 1;
+    let finished = false;
+
+    const chips = SCENES.map((s, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.title = `${s.board}. ${s.title}`;
+      if (s.aside) b.classList.add('aside');
+      b.appendChild(document.createElement('i'));
+      b.addEventListener('click', () => go(i, true));
+      scrubEl.appendChild(b);
+      return b;
+    });
+
+    function go(i, keepPlaying = false) {
+      if (i >= SCENES.length) {
+        finished = true;
+        playing = false;
+        playBtn.textContent = 'Replay';
+        Snd.bed('none');
+        return;
+      }
+      finished = false;
+      idx = i;
+      sceneT = 0;
+      if (cur) {
+        app.stage.removeChild(cur.view);
+        cur.view.destroy({ children: true });
+      }
+      cur = SCENES[i].make();
+      app.stage.addChild(cur.view);
+      Snd.bed(SCENES[i].bed);
+      if (keepPlaying) playing = true;
+      paint();
+    }
+
+    function fmt(s) {
+      const m = Math.floor(s / 60);
+      const r = Math.floor(s % 60);
+      return `${m}:${r < 10 ? '0' : ''}${r}`;
+    }
+
+    function elapsedTotal() {
+      let a = 0;
+      for (let i = 0; i < idx; i++) a += SCENES[i].secs;
+      return a + sceneT;
+    }
+
+    function nightElapsed() {
+      let a = 0;
+      for (let i = 0; i < SCENES.length; i++) {
+        if (!SCENES[i].night) continue;
+        if (i < idx) a += SCENES[i].secs;
+        else if (i === idx) a += sceneT;
+      }
+      return a;
+    }
+
+    function paint() {
+      const s = SCENES[idx];
+      actEl.textContent = `${s.year} · ${s.act}${s.aside ? ' · aside' : ''}`;
+      titleEl.textContent = `${s.board}. ${s.title}`;
+      captionEl.textContent = s.caption;
+      chips.forEach((b, i) => {
+        b.setAttribute('aria-current', i === idx ? 'true' : 'false');
+        b.classList.toggle('done', i < idx);
+        b.classList.toggle('noted', Boolean(notes[SCENES[i].board]));
+      });
+      noteEl.value = notes[s.board] || '';
+      // the URL follows the run, but only once it is running: before that the
+      // hash is the reader's deep link and rewriting it would eat their target
+      if (started) location.hash = `#${s.board}`;
+    }
+
+    function paintClock() {
+      clockEl.textContent = `scene ${idx + 1} of ${SCENES.length} · ${fmt(elapsedTotal())} of ${fmt(TOTAL)}`;
+      const chip = chips[idx];
+      const bar = chip && chip.firstChild;
+      if (bar) bar.style.width = `${(sceneT / SCENES[idx].secs) * 100}%`;
+      const ne = nightElapsed();
+      const live = SCENES[idx].night;
+      pacingEl.classList.toggle('idle', !live);
+      pacingNum.textContent = live
+        ? `${Math.round(ne)}s so far, budget 70 to 90`
+        : `${NIGHT_TOTAL}s as built`;
+      elapsedEl.style.width = `${clamp((live ? ne : NIGHT_TOTAL) / 100, 0, 1) * 100}%`;
+    }
+
+    app.ticker.add((tk) => {
+      const dt = Math.min(tk.deltaMS / 1000, 0.08);
+      if (!cur) return;
+      if (playing) {
+        sceneT += dt * rate;
+        Snd.tick(dt * rate);
+      }
+      const dur = SCENES[idx].secs;
+      if (cur.cues) cur.cues.run(sceneT);
+      cur.update(Math.min(sceneT, dur), dur);
+      if (playing && sceneT >= dur) go(idx + 1, true);
+      paintClock();
+    });
+
+    // ---- per-scene notes, pasted back in one block ----------------------
+
+    // one stable key, forever; rounds are separated with the Clear button
+    const NOTES_KEY = 'housewarming-playthrough-notes';
+    let notes = {};
+    try {
+      notes = JSON.parse(localStorage.getItem(NOTES_KEY)) || {};
+    } catch (e) {
+      notes = {};
+    }
+    const noteEl = document.getElementById('note');
+    const noteCountEl = document.getElementById('notecount');
+    const copyAllEl = document.getElementById('copyall');
+
+    function refreshNoteMarks() {
+      chips.forEach((b, i) =>
+        b.classList.toggle('noted', Boolean(notes[SCENES[i].board])),
+      );
+      const n = Object.keys(notes).length;
+      noteCountEl.textContent = n
+        ? `${n} scene${n === 1 ? '' : 's'} noted`
+        : 'no notes yet';
+    }
+
+    noteEl.addEventListener('input', () => {
+      const b = SCENES[idx].board;
+      if (noteEl.value.trim()) notes[b] = noteEl.value;
+      else delete notes[b];
+      localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+      refreshNoteMarks();
+    });
+
+    copyAllEl.addEventListener('click', async () => {
+      const lines = SCENES.flatMap((s) =>
+        notes[s.board]
+          ? [`scene ${s.board} · ${s.title}: ${notes[s.board].trim()}`]
+          : [],
+      );
+      if (!lines.length) {
+        copyAllEl.textContent = 'Nothing to copy';
+      } else {
+        const text = lines.join('\n');
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (e) {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+        copyAllEl.textContent = `Copied ${lines.length} note${lines.length === 1 ? '' : 's'}`;
+      }
+      window.setTimeout(() => {
+        copyAllEl.textContent = 'Copy all notes';
+      }, 1500);
+    });
+
+    document.getElementById('clearall').addEventListener('click', () => {
+      const n = Object.keys(notes).length;
+      if (!n) return;
+      if (
+        !window.confirm(
+          `Clear all ${n} note${n === 1 ? '' : 's'}? Copy them first if they are not delivered.`,
+        )
+      )
+        return;
+      notes = {};
+      localStorage.removeItem(NOTES_KEY);
+      noteEl.value = '';
+      refreshNoteMarks();
+    });
+
+    // ---- transport ------------------------------------------------------
+
+    function toggle() {
+      if (finished) {
+        go(0, true);
+        return;
+      }
+      playing = !playing;
+      playBtn.textContent = playing ? 'Pause' : 'Play';
+    }
+    playBtn.addEventListener('click', toggle);
+    document.getElementById('prev').addEventListener('click', () => {
+      go(sceneT > 1.2 ? idx : Math.max(0, idx - 1), playing);
+    });
+    document.getElementById('next').addEventListener('click', () => {
+      go(Math.min(SCENES.length - 1, idx + 1), playing);
+    });
+    document
+      .getElementById('restart')
+      .addEventListener('click', () => go(0, true));
+    rateBtn.addEventListener('click', () => {
+      rate = rate === 1 ? 2 : 1;
+      rateBtn.textContent = `${rate}×`;
+      rateBtn.setAttribute('aria-pressed', rate !== 1 ? 'true' : 'false');
+    });
+    muteBtn.addEventListener('click', () => {
+      const m = muteBtn.getAttribute('aria-pressed') === 'true';
+      muteBtn.setAttribute('aria-pressed', m ? 'false' : 'true');
+      muteBtn.textContent = m ? 'Sound on' : 'Muted';
+      Snd.setMuted(!m);
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.target === noteEl) return;
+      if (e.key === ' ') {
+        toggle();
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowLeft')
+        go(sceneT > 1.2 ? idx : Math.max(0, idx - 1), playing);
+      if (e.key === 'ArrowRight')
+        go(Math.min(SCENES.length - 1, idx + 1), playing);
+    });
+
+    document.getElementById('begin').addEventListener('click', () => {
+      Snd.start();
+      curtain.style.display = 'none';
+      const at = SCENES.findIndex(
+        (s) => s.board === parseInt(location.hash.slice(1), 10),
+      );
+      started = true;
+      playing = true;
+      playBtn.textContent = 'Pause';
+      go(at >= 0 ? at : 0, true);
+    });
+
+    refreshNoteMarks();
+    go(0);
+    playing = false;
+    playBtn.textContent = 'Play';
+  })();
+</script>
