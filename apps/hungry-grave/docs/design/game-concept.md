@@ -20,11 +20,15 @@ Shoot, kill, and the field fills with two kinds of grave food: corpses (fuel, co
 
 ## Size is health
 
-There is no health bar. Hits shrink the hole; eating grows it; being sealed shut is death. Shrinking also shrinks your hitbox, which is the built-in comeback. A hard size floor guarantees you can always eat the current tier's smallest corpse, so the recovery path is never physically closed; damage at the floor bleeds score or weapon levels instead of radius. A hit's shrink stays small relative to a size tier, and the camera never zooms back in mid-stage.
+There is no health bar. Hits shrink the hole; eating grows it; being sealed shut is death. Live enemies are never food: contact with one shrinks you the same as enemy fire, and only kills leave corpses, so a big grave can never just drive under the wave. Shrinking also shrinks your hitbox, which is the built-in comeback. A hard size floor guarantees you can always eat the current tier's smallest corpse, so the recovery path is never physically closed; damage at the floor bleeds score or weapon levels instead of radius. A hit's shrink stays small relative to a size tier, and the camera never zooms back in mid-stage.
 
 ## The economy
 
-Hybrid, sized by arithmetic (see the First Dig record's numbers table). The always-on free lines (orbiting headstones, will-o-wisps, bell shockwaves, grasping hands are the working set) guarantee the storm never stops; each swallowed corpse additionally erupts as a visible burst, one corpse in, one theatrical volley out. Four weapon lines at five levels each in v1, and the five levels of a line must look different on screen. Drops for maxed lines are still eaten: bonus radius, score, bomb charge. Everything goes in the hole; nothing on the ground is ever worthless.
+Hybrid, sized by arithmetic (see the First Dig record's numbers table). The four v1 lines, from ticket #28: the soul stream and orbiting headstones are the always-on floor, and will-o-wisps and bell shockwaves fire on each swallow, so eating defends the dive that earned it, one corpse in, one theatrical volley out.
+
+The soul stream is the saturation workhorse: skulls pour straight up out of the grave's mouth, from one thin column at level 1 to five rigid fanned columns at level 5, surging for a beat after each swallow, and never homing. The orbiting headstones are last-ditch close defense, from one slow stone to six in two counter-rotating rings. The will-o-wisps are the game's only homing: each swallowed corpse's soul tears loose and hunts, from one lazy wisp to a converging flight of seven or eight. The bell shockwaves are the funeral toll on every swallow, an expanding damage ring with a small pushback, from a faint nudge to a screen-wide gong with real knockback. The four motions never blur: straight columns, circling solids, curving trails, expanding rings.
+
+Every swallow makes the baseline eat-chime and swallow juice even before any bell line is drawn; the bell line upgrades the chime the player already knows into the damage ring, so RNG drops can never leave the early minutes silent. Four lines at five levels each in v1, and the five levels of a line must look different on screen. Drops for maxed lines are still eaten: bonus radius, score, bomb charge. Everything goes in the hole; nothing on the ground is ever worthless.
 
 ## The belch
 
@@ -36,7 +40,7 @@ Minibosses and bosses arrive on a phase boundary, after the trash wave drains ou
 
 ## The storm, and reading through it
 
-Endgame target is on the order of 300 player projectiles airborne at once (a tuning target, not content). Readability is a day-one rule, not polish: enemy bullets render on the top layer in a reserved high-contrast palette; player fire is dimmer and desaturated; corpses and upgrade drops are perceptually unmistakable from each other at a glance.
+Endgame target is on the order of 300 player projectiles airborne at once (a tuning target, not content); the soul stream's density (column count, skull spacing, speed) is the free knob that reaches it. Readability is a day-one rule, not polish: enemy bullets render on the top layer in a reserved high-contrast palette; player fire is dimmer and desaturated; corpses and upgrade drops are perceptually unmistakable from each other at a glance.
 
 ## Deferred, with triggers
 
@@ -50,10 +54,11 @@ Endgame target is on the order of 300 player projectiles airborne at once (a tun
 - A horizontally panning playfield wider than the screen. Shipped shmups use width as repositioning margin, not roaming room; camera motion taxes bullet readability; corpse deadlines would expire offscreen.
 - Genericizing v1's corpse, camera, or threat systems to pre-serve the future arena mode. v1 is built scroller-only.
 - Pause-menu upgrade choices. Progression is physical and in-run.
+- Mouse-cursor aiming, or any second aim axis. Position is the whole skill; aiming grammar belongs to the deferred free-roam arena mode.
+- Cross-line homing upgrades. Homing is the will-o-wisps' identity only; every other line's shots fly dumb and straight.
 
 ## Open questions
 
 - The central bet: steering into where danger just was (to eat) versus the shmup instinct to dodge away. Delicious or miserable? The ugly slice answers it with rectangles.
 - After a bad hit, does the comeback force (smaller hitbox) or the spiral force (smaller mouth) dominate? Freshness sharpens this: healing off older corpses pays quarter value, so the slice must watch recovery speed on decayed corpses specifically (product gate on #27).
-- Which four weapon lines ship in v1, and what each looks like at level 1 versus level 5.
-- Slice instruments to build in: time off the bottom edge, belch rate versus full-reservoir time, and whether a playtester can say when they got hit. The slice milestone carries a named playtester and a date.
+- Slice instruments to build in: time off the bottom edge, belch rate versus full-reservoir time, whether a playtester can say when they got hit, average freshness at swallow once the bell is leveled (its knockback may push kills up-screen into staler corpses), and whether the four line motions stay tellable at full density. The slice milestone carries a named playtester and a date.

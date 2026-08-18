@@ -2,6 +2,21 @@
 
 Newest entries at the top. One entry per decision moment, dated, with enough context to stand alone. Reopening any logged decision is welcome; argue from the game.
 
+## 2026-08-17, entry 3: the four weapon lines
+
+Resolved wayfinder ticket #28 with Mark. The v1 lines are the soul stream, orbiting headstones, will-o-wisps, and bell shockwaves; grasping hands are cut from the working set.
+
+1. Floor versus burst: the stream and headstones are always on; the wisps and bells fire per swallow, so eating defends the dive at the exact moment of commitment and the funeral bell doubles as the eat-chime the First Dig flagged as load-bearing for the sparse early minutes.
+2. Gate adjust (game design): the baseline eat-chime and swallow juice fire from the first swallow regardless of loadout, since lines arrive as RNG drops; the bell line upgrades the chime the player already knows into the damage ring. The alternative (bell as a guaranteed starting line) was not needed.
+3. The soul stream never homes; levels add straight fanned columns. Homing is the wisps' identity only, with no cross-line homing upgrades: homing trades power for convenience, and in a game whose one skill is positioning it stays quarantined behind the eat verb (shmup homing-design writing; gate adjust trimmed the citation so Thousand Edge is cited only for straight high-count fire staying readable, while fanned density is vulcan-lineage grammar).
+4. Live enemies are never food; contact shrinks the hole the same as enemy fire. This is the anti-cheese rule that stops "get big and drive under everything," raised by Mark's own question; the unopposed hole reading as shallow is the documented Donut County failure.
+5. Grasping hands cut because their jobs are spoken for (close defense is the headstones', crowd punctuation the bells') and they read on the ground layer where corpse-versus-drop legibility lives. Close-defense orbiters are a proven archetype (King Bible and Garlic in Vampire Survivors).
+6. Mouse-cursor aiming raised and declined; controls stay as boxed (entry 1, point 7). No-aim positioning is the genre's skill axis, and aim variants are a recorded different feel routed to the deferred arena mode. Both cuts are now dont-builds in the concept doc.
+7. Saturation plausibility from geometry: five columns at 25-30 visible skulls each hold 100-150 airborne from the stream alone, independent of fire rate; with stones, wisp flights, rings, geysers, and belch spikes the ~300 target is tuning, not content, exactly what the numbers table demanded.
+8. Watched risks routed onward: bell knockback pushing kills up-screen into staler corpses under the freshness meter (slice instrument added: average freshness at swallow), line distinguishability at full density (slice instrument added), both to #30; boss interactions (pushback immunity, wisp auto-DPS through dodge phases) to #29.
+
+Level-1-versus-5 silhouettes for all four lines are in the concept doc's economy section and the ticket #28 resolution comment.
+
 ## 2026-08-17, entry 2: the conveyor cure is one freshness meter
 
 Resolved wayfinder ticket #27 with Mark. The cure for bottom-edge camping is both candidate mechanisms folded into a single per-corpse freshness meter, not two systems.
