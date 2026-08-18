@@ -32,9 +32,10 @@ Does not apply to Housewarming, settled by the pilot, reopened only with new inf
 
 ## The marker
 
-Every gate run leaves a marker comment on the working issue via `gh`, first line machine-readable so a future hook can verify gates ran before a ticket closes:
+Every gate run leaves a marker comment on the working issue via `gh`. The first line is a visible heading naming the lens, so a reader can tell at a glance which review any comment is. The machine-readable marker is the line right after it, so a future hook can verify gates ran before a ticket closes:
 
 ```
+### <Game design|Tech architecture|Product vision> review
 <!-- gate:<game-design|tech-architecture|product-vision> v1 depth:<quick|standard|deep> verdict:<clear|findings> -->
 ```
 
