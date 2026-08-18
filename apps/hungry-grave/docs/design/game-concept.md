@@ -16,7 +16,7 @@ Weapon lines auto-fire upward at descending undead. Kills leave corpses that scr
 
 ## The core loop
 
-Shoot, kill, and the field fills with two kinds of grave food: corpses (fuel, common) and upgrade drops (permanent power, roughly 1 in 8-10 kills). Both are eaten by driving over them. Corpses fresh from the kill are worth more, and everything decays or scrolls away, so greed has a deadline and the level never feeds a bottom-edge camper. The exact conveyor cure (decay timer, freshness value, or both) is an open ticket.
+Shoot, kill, and the field fills with two kinds of grave food: corpses (fuel, common) and upgrade drops (permanent power, roughly 1 in 8-10 kills). Both are eaten by driving over them. Every corpse runs one freshness meter, about 10 seconds from kill to gone: freshness multiplies all three payouts (growth, burst, belch charge) down to a floor of about a quarter, the fill dims as the meter drains, flickers as a last-chance warning near empty (Devil Daggers precedent), and at empty the dirt sucks the corpse under. The seconds are derived and the coupling is the rule: a mid-screen kill must reach the bottom edge as a dim, nearly empty scrap, so a scroll-speed retune retunes the meter with it. Greed has a deadline, the level never feeds a bottom-edge camper, and scraps are never worthless. Upgrade drops never decay; the scroll is their only deadline, and a steady-bright drop beside fading corpses is a free legibility cue between the two.
 
 ## Size is health
 
@@ -54,7 +54,6 @@ Endgame target is on the order of 300 player projectiles airborne at once (a tun
 ## Open questions
 
 - The central bet: steering into where danger just was (to eat) versus the shmup instinct to dodge away. Delicious or miserable? The ugly slice answers it with rectangles.
-- After a bad hit, does the comeback force (smaller hitbox) or the spiral force (smaller mouth) dominate?
-- Conveyor cure: decay, freshness, or both.
+- After a bad hit, does the comeback force (smaller hitbox) or the spiral force (smaller mouth) dominate? Freshness sharpens this: healing off older corpses pays quarter value, so the slice must watch recovery speed on decayed corpses specifically (product gate on #27).
 - Which four weapon lines ship in v1, and what each looks like at level 1 versus level 5.
 - Slice instruments to build in: time off the bottom edge, belch rate versus full-reservoir time, and whether a playtester can say when they got hit. The slice milestone carries a named playtester and a date.
