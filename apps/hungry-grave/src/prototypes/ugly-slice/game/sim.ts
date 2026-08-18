@@ -956,7 +956,11 @@ export function step(sim: Sim, input: Input, dt: number): void {
       Math.min(T.FIELD_W - T.ENEMY_RADIUS, enemy.x),
     );
     enemy.fireCooldown -= dt;
-    if (enemy.fireCooldown <= 0 && enemy.y > 0 && enemy.y < T.ENEMY_FIRE_MAX_Y) {
+    if (
+      enemy.fireCooldown <= 0 &&
+      enemy.y > 0 &&
+      enemy.y < T.ENEMY_FIRE_MAX_Y
+    ) {
       enemy.fireCooldown = sim.rng.enemyFire.range(
         T.ENEMY_FIRE_INTERVAL[0],
         T.ENEMY_FIRE_INTERVAL[1],

@@ -7,11 +7,11 @@
 import type { Renderer, Texture } from "pixi.js";
 import { Container, Graphics, Sprite, TilingSprite } from "pixi.js";
 
-import { graveCorner, graveHalfW } from "../../../game/grave";
-import type { Sim } from "../../../game/sim";
-import { stonePositions } from "../../../game/sim";
-import * as T from "../../../game/tuning";
-import type { CorpseKind, EnemyBulletKind } from "../../../game/types";
+import { graveCorner, graveHalfW } from "../../game/grave";
+import type { Sim } from "../../game/sim";
+import { stonePositions } from "../../game/sim";
+import * as T from "../../game/tuning";
+import type { CorpseKind, EnemyBulletKind } from "../../game/types";
 import { PALETTE } from "../../palette";
 import { sfx } from "../../sfx";
 

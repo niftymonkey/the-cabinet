@@ -3,8 +3,8 @@
 
 import { Container, Graphics, Text } from "pixi.js";
 
-import { summarize } from "../../../game/instruments";
-import type { Sim } from "../../../game/sim";
+import { summarize } from "../../game/instruments";
+import type { Sim } from "../../game/sim";
 import { PALETTE } from "../../palette";
 
 export class DebugPanel extends Container {

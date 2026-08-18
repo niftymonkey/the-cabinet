@@ -2,6 +2,15 @@
 
 Newest entries at the top. One entry per decision moment, dated, with enough context to stand alone. Reopening any logged decision is welcome; argue from the game.
 
+## 2026-08-18, entry 11: the slice is a prototype route, never the base of the game
+
+Ruled by Mark at the #30 commit gate, before any push or PR. The slice was set up as a task, but it is a prototype: it exists to teach what is possible, what feels right, what is missing, and what needs more work, and it must never become the code future iterations extend.
+
+1. The base app at the root is a blank creation-web scaffold whose only screen lists the prototypes. It statically imports no prototype code; it reaches a prototype only through the registry's dynamic import.
+2. Each prototype is one self-contained folder under `src/prototypes/<name>` plus one registry entry, served under a `#/prototypes/<name>` hash route. Removing a prototype is deleting its folder and its entry, nothing else.
+3. The slice lives at `src/prototypes/ugly-slice`. When the grilling and prototype sessions have answered their questions, the real game starts from the blank scaffold, from absolute scratch, and this folder can be deleted.
+4. This is the standing shape for every future prototype in this app, not a one-off for the slice.
+
 ## 2026-08-18, entry 10: the field contests the dive before the playtest
 
 From Mark's playtest verdict ("easy to beat except the boss fights") and the game design gate on #30: trash fired only in the top 60 percent of the field every 2.6 to 5.2 seconds, so diving to eat cost nothing, and the central bet (greed under fire reads delicious, the Downwell shape) could not be tested. Ruled with Mark: raise trash threat modestly now, before playtest #31, so the named tester measures the real bet and not a safe field.

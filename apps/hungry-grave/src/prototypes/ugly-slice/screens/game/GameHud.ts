@@ -3,11 +3,11 @@
 
 import { Container, Graphics, Sprite, Texture } from "pixi.js";
 
-import type { Sim } from "../../../game/sim";
-import * as T from "../../../game/tuning";
-import { LINE_NAMES, type LineName } from "../../../game/types";
+import type { Sim } from "../../game/sim";
+import * as T from "../../game/tuning";
+import { LINE_NAMES, type LineName } from "../../game/types";
 import { PALETTE } from "../../palette";
-import { Label } from "../../ui/Label";
+import { Label } from "../../../../app/ui/Label";
 
 const LINE_LABEL: Record<LineName, string> = {
   soul: "SOUL",

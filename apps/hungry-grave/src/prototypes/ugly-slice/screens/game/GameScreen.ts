@@ -6,13 +6,13 @@
 import type { Ticker } from "pixi.js";
 import { Container } from "pixi.js";
 
-import { advanceToPhase, botInput, PHASE_ORDER } from "../../../game/bot";
-import { checkInvariants } from "../../../game/invariants";
-import { createSim, step, type Sim } from "../../../game/sim";
-import * as T from "../../../game/tuning";
-import type { Input } from "../../../game/types";
-import { engine } from "../../getEngine";
-import { PausePopup } from "../../popups/PausePopup";
+import { advanceToPhase, botInput, PHASE_ORDER } from "../../game/bot";
+import { checkInvariants } from "../../game/invariants";
+import { createSim, step, type Sim } from "../../game/sim";
+import * as T from "../../game/tuning";
+import type { Input } from "../../game/types";
+import { engine } from "../../../../app/getEngine";
+import { PausePopup } from "../../../../app/popups/PausePopup";
 import { runState } from "../../runState";
 import { initSfx } from "../../sfx";
 import { EndScreen } from "../EndScreen";

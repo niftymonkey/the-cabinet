@@ -3,11 +3,11 @@
 
 import { Container } from "pixi.js";
 
-import { engine } from "../getEngine";
+import { engine } from "../../../app/getEngine";
+import { Button } from "../../../app/ui/Button";
+import { Label } from "../../../app/ui/Label";
 import { PALETTE } from "../palette";
 import { runState } from "../runState";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
 import { GameScreen } from "./game/GameScreen";
 
 export class EndScreen extends Container {
@@ -18,6 +18,7 @@ export class EndScreen extends Container {
   private readonly tagline: Label;
   private readonly tally: Label;
   private readonly againButton: Button;
+  private readonly backButton: Button;
   private readonly onKeyDown = (ev: KeyboardEvent) => {
     if (ev.code === "Enter") this.again();
   };
@@ -38,7 +39,23 @@ export class EndScreen extends Container {
     });
     this.againButton = new Button({ text: "", width: 320, height: 100 });
     this.againButton.onPress.connect(() => this.again());
-    this.addChild(this.title, this.tagline, this.tally, this.againButton);
+    this.backButton = new Button({
+      text: "PROTOTYPES",
+      width: 190,
+      height: 70,
+      fontSize: 16,
+    });
+    this.backButton.onPress.connect(() => {
+      // The router in main.ts observes the hash and shows the list.
+      window.location.hash = "";
+    });
+    this.addChild(
+      this.title,
+      this.tagline,
+      this.tally,
+      this.againButton,
+      this.backButton,
+    );
   }
 
   /** Fill from the finished run just before showing (screens are pooled) */
@@ -71,6 +88,7 @@ export class EndScreen extends Container {
     this.tagline.position.set(cx, height * 0.28 + 46);
     this.tally.position.set(cx, height * 0.48);
     this.againButton.position.set(cx, height * 0.7);
+    this.backButton.position.set(cx, height * 0.7 + 100);
   }
 
   public async show(): Promise<void> {

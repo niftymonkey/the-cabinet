@@ -4,11 +4,11 @@
 import type { Ticker } from "pixi.js";
 import { Container } from "pixi.js";
 
-import { engine } from "../getEngine";
+import { engine } from "../../../app/getEngine";
+import { Button } from "../../../app/ui/Button";
+import { Label } from "../../../app/ui/Label";
 import { PALETTE } from "../palette";
 import { runState } from "../runState";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
 import { GameScreen } from "./game/GameScreen";
 
 const COACHING = [
@@ -29,6 +29,7 @@ export class TitleScreen extends Container {
   private readonly tagline: Label;
   private readonly coaching: Label[];
   private readonly startButton: Button;
+  private readonly backButton: Button;
   private readonly devKeys: Label;
   private elapsed = 0;
   private readonly onKeyDown = (ev: KeyboardEvent) => {
@@ -55,6 +56,16 @@ export class TitleScreen extends Container {
     );
     this.startButton = new Button({ text: "RISE", width: 260, height: 100 });
     this.startButton.onPress.connect(() => this.start());
+    this.backButton = new Button({
+      text: "PROTOTYPES",
+      width: 190,
+      height: 70,
+      fontSize: 16,
+    });
+    this.backButton.onPress.connect(() => {
+      // The router in main.ts observes the hash and shows the list.
+      window.location.hash = "";
+    });
     this.devKeys = new Label({
       text: `seed ${runState.seed} · dev: P autopilot · \` debug · 1-7 phase skip · R restart`,
       style: { fill: PALETTE.fieldFrame, fontSize: 13 },
@@ -65,6 +76,7 @@ export class TitleScreen extends Container {
       this.tagline,
       ...this.coaching,
       this.startButton,
+      this.backButton,
       this.devKeys,
     );
   }
@@ -86,6 +98,7 @@ export class TitleScreen extends Container {
       label.position.set(cx, height * 0.36 + i * 30);
     });
     this.startButton.position.set(cx, height * 0.75);
+    this.backButton.position.set(110, 50);
     this.devKeys.position.set(cx, height - 24);
   }
 

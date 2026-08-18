@@ -4,7 +4,7 @@
 // eat-chime fires on every swallow even before any bell line is drawn
 // (decision-log entry 3.2).
 
-import { engine } from "./getEngine";
+import { engine } from "../../app/getEngine";
 
 let ctx: AudioContext | null = null;
 
