@@ -10,7 +10,8 @@ let ctx: AudioContext | null = null;
 
 export function initSfx(): void {
   if (ctx === null) ctx = new AudioContext();
-  if (ctx.state === "suspended") void ctx.resume();
+  // resume() rejects before the first user gesture; the next call retries.
+  if (ctx.state === "suspended") ctx.resume().catch(() => undefined);
 }
 
 function blip(

@@ -134,10 +134,17 @@ export class GameScreen extends Container {
       ev.preventDefault();
     }
     if (ev.repeat) return;
+    // The pause popup owns the keyboard while it is up; without this guard
+    // R, P, and the phase-skip digits still act behind it.
+    if (this.paused) return;
     this.held.add(ev.code);
     if (ev.code === "Space") this.belchPressed = true;
     if (ev.code === "Escape") {
-      void engine().navigation.presentPopup(PausePopup);
+      // paused flips only once the popup is presented, so a double-tap of
+      // Escape in that gap would re-present it without this check.
+      if (!engine().navigation.currentPopup) {
+        void engine().navigation.presentPopup(PausePopup);
+      }
       return;
     }
     if (ev.code === "Backquote") {
@@ -175,7 +182,7 @@ export class GameScreen extends Container {
     this.paused = false;
   }
 
-  /** Fully reset */
+  /** Release held keys; the run itself is reset in prepare() */
   public reset() {
     this.held.clear();
   }

@@ -31,14 +31,20 @@ setEngine(engine);
   // boot, in-app hash writes, and the browser's back and forward buttons
   // alike. Screens inside one prototype navigate directly and never touch
   // the hash.
+  // Routes are chained so two showScreen calls can never interleave, and a
+  // route whose hash went stale while its module loaded steps aside.
+  let pending: Promise<void> = Promise.resolve();
   const route = async () => {
-    const entry = prototypeFromHash(window.location.hash);
-    if (entry) {
-      await engine.navigation.showScreen(await entry.load());
-    } else {
-      await engine.navigation.showScreen(PrototypesScreen);
-    }
+    const hash = window.location.hash;
+    const entry = prototypeFromHash(hash);
+    const screen = entry ? await entry.load() : PrototypesScreen;
+    if (window.location.hash !== hash) return;
+    await engine.navigation.showScreen(screen);
   };
-  window.addEventListener("hashchange", () => void route());
-  await route();
-})();
+  const queueRoute = () => {
+    pending = pending.then(route).catch((error) => console.error(error));
+  };
+  window.addEventListener("hashchange", queueRoute);
+  queueRoute();
+  await pending;
+})().catch((error) => console.error(error));
