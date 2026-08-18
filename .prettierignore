@@ -13,3 +13,6 @@ docs/
 # Session handoffs from /continue. Local state, never committed.
 continue.md
 continue-*.md
+
+# The hungry-grave app formats with its create-pixi template defaults, not the repo style.
+apps/hungry-grave/

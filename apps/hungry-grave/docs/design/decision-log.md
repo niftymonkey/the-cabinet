@@ -2,6 +2,49 @@
 
 Newest entries at the top. One entry per decision moment, dated, with enough context to stand alone. Reopening any logged decision is welcome; argue from the game.
 
+## 2026-08-18, entry 10: the field contests the dive before the playtest
+
+From Mark's playtest verdict ("easy to beat except the boss fights") and the game design gate on #30: trash fired only in the top 60 percent of the field every 2.6 to 5.2 seconds, so diving to eat cost nothing, and the central bet (greed under fire reads delicious, the Downwell shape) could not be tested. Ruled with Mark: raise trash threat modestly now, before playtest #31, so the named tester measures the real bet and not a safe field.
+
+1. The step is modest: faster fire and a deeper fire zone, both plain tuning knobs; Mark judges the result by feel and the bot's full-run data keeps it honest.
+2. The numbers stay in tuning, not here; this entry records the why, so a later "too hard" retune argues against the bet, not against a lost reason.
+
+## 2026-08-18, entry 9: the belch fires only at a full reservoir
+
+Raised by the product vision gate on #30: the build required a full reservoir, the record had never ruled it, and gauge-bomb shmups commonly allow partial fire. Ruled with Mark: full only, final, not provisional.
+
+1. The belch is one big earned moment. A partial bomb would dilute the Wall set-piece and muddy the belch-timing instruments the playtest needs.
+2. Hoarding keeps its cost either way: charge past a full reservoir visibly splashes and wastes (entry 1.7).
+
+## 2026-08-18, entry 8: hold-to-focus movement, never a speed setting
+
+From Mark's first playtest of the #30 slice: base movement felt slightly too fast for threading boss barrages, and he asked for some level of speed setting. Ruled with Mark:
+
+1. The answer is a focus key, the Touhou / DoDonPachi lineage standard: hold Shift and the grave moves at reduced speed for fine dodging; release and it is back to full speed. The player chooses precision moment to moment instead of configuring it.
+2. A per-player speed setting is rejected: every tester plays the identical seeded run so the playtest instruments compare cleanly (entry 5), and the roughly two-second field crossing is a pinned design number (entry 6.3). A slider breaks both; a focus key keeps the one shared baseline.
+3. Focus speed is a tuning constant, starting at half speed; the value is slice tuning like any other number.
+4. The bot never focuses, so recorded bot runs and the feel-number tests keep the unmodified baseline.
+
+## 2026-08-18, entry 7: the app's base is the create-pixi creation-web template, and React leaves the stack
+
+Mark stopped the build when the app shell turned out to be hand-rolled with the PixiJS scaffolding skill consulted only after rendering code was already being written. His standing rule, recorded here because it outlives this ticket: when tooling ships an official scaffold, the scaffold is generated FIRST and our code fits inside it; its patterns, practices, scripts, and tooling are the defaults, adjusted only when necessary, never bolted on at the end.
+
+1. The base is the create-pixi `creation-web` template, chosen over `bundler-vite` (near-empty) and `framework-react` (its per-entity @pixi/react pattern fights a bullet-heaven field). It brings screen navigation with popup, pause, and focus handling, letterbox resize, an audio plugin with persistent volume settings, an @pixi/ui component kit, and an AssetPack asset pipeline wired into Vite, which is exactly what the Halloween art pass will need.
+2. React is out of the stack, Mark's call. The done-contract's stack line (entry 6 era: PixiJS v8 + React + Vite + Vitest) becomes PixiJS v8 (creation-web template) + Vite + Vitest, with all UI in-canvas through the template's screens and @pixi/ui.
+3. The sim and its spec tests moved in unchanged; the shell (GameScreen, TitleScreen, EndScreen, HUD, debug panel) was rebuilt as template navigation screens. The bot-driven autopilot, debug instrument panel, and dev phase-skip keys survive as GameScreen keys (P, backquote, 1-7).
+4. Named adjustments to the template, each forced by the workspace or the contract: Vitest added (no create-pixi template ships any test tooling), `test` and `typecheck` scripts added because the repo's verify requires them, the resize minimum set to the sim's 540x760 field, the page title, and the app formats with its own template-default prettier config while the repo root ignores the directory.
+5. Template defaults deliberately kept as-is: its tsconfig (looser than the repo base; the sim code satisfies both), its ESLint config, its pink UI button assets and PixiJS-logo load screen (placeholder skin until the art pass), and its demo background music on the title and game screens.
+
+## 2026-08-18, entry 6: the grave's shape, units, ceiling, and the build's verification contract
+
+Rulings from Mark's plan review of ticket #30 (the ugly slice build), agreed before code generation resumed.
+
+1. The grave is a rounded rectangle, taller than wide: you are a hole in the ground in the shape of a grave. One scalar (the half-height) is the size; width derives from it at a fixed aspect. Corpses stay small simple shapes.
+2. The verb, everywhere: the grave swallows, takes, and passes under. It never drives. This covers docs, code comments, UI copy, and conversation.
+3. Logical field units: the sim runs in one fixed 540x760-unit field, the renderer scales it to fill any viewport at fixed aspect, and no number anywhere claims to be a device pixel. The tuned speed makes crossing the field's width take about two seconds.
+4. Hard size ceiling, Mark's call: the grave caps at 64 half-height units, standing about a quarter of the field's width tall, because the slice has no zoom tiers to absorb unbounded growth (Katamari's answer is camera zoom, which is the deferred zoom-tiers feature) and the Undertaker's gap rule scales with grave width, so an unbounded grave degenerates the curtain. Growth at the ceiling converts to score, so nothing swallowed is ever worthless.
+5. The verification contract, because tests written against existing code only prove the test agrees with the code: spec tests are authored from this design record before they ever run against the implementation, every one asserts a number or invariant from the record and cites the entry it enforces, and when a spec test fails the code is presumed wrong and gets fixed to meet the test, never the reverse; sim invariants (in bounds, size within floor and ceiling, no NaN, entity caps) are checked on every step in tests; a deterministic headless bot plays the full run in a test and asserts the run's shape (about five minutes, kills in band, ten to twelve drops, phases in order, both endings reachable, zero invariant fires); feel numbers are tests; the same bot runs as a dev-only autopilot in the rendered game with a debug overlay so full-stage rendering can be watched and screenshotted without a human; a browser boot check covers load, canvas, input, and console errors. Feel evaluation is Mark's, never the agent's.
+
 ## 2026-08-17, entry 5: the stage escalation curve
 
 Resolved wayfinder ticket #32 with Mark. The five-minute slice stage is authored end to end: skeleton, wave model, starting loadout, drop pacing, and the feast wave.
