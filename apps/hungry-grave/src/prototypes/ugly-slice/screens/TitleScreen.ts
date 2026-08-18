@@ -11,7 +11,7 @@ import { PALETTE } from "../palette";
 import { runState } from "../runState";
 import { GameScreen } from "./game/GameScreen";
 
-const COACHING = [
+const KEYBOARD_COACHING = [
   "Steer with WASD or the arrow keys. Your storm fires on its own.",
   "Hold SHIFT to move slowly for fine dodging.",
   "Kills leave corpses. Pass the grave under them to swallow them.",
@@ -20,6 +20,22 @@ const COACHING = [
   "Enemy fire shrinks you. Sealed shut is death.",
   "SPACE belches when the meter is full: it clears the whole screen.",
 ];
+
+// Ticket #33: the same coaching for thumbs. Relative drag has no focus key;
+// the finger's own precision plays that role.
+const TOUCH_COACHING = [
+  "Rest a finger anywhere and drag. The grave copies the drag.",
+  "Your storm fires on its own.",
+  "Kills leave corpses. Pass the grave under them to swallow them.",
+  "Swallowing grows you, fires your bursts, and charges the belch.",
+  "Corpses rot in seconds. Gold things are treasure and keep.",
+  "Enemy fire shrinks you. Sealed shut is death.",
+  "Tap a second finger to belch when the meter is full.",
+];
+
+const COACHING = window.matchMedia("(pointer: coarse)").matches
+  ? TOUCH_COACHING
+  : KEYBOARD_COACHING;
 
 export class TitleScreen extends Container {
   /** Assets bundles required by this screen */

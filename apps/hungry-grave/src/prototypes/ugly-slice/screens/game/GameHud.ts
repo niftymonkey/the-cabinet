@@ -36,6 +36,7 @@ export class GameHud extends Container {
   private readonly belchBarBg: Graphics;
   private readonly belchBarFill: Sprite;
   private readonly belchLabel: Label;
+  private readonly ratioChip: Label;
   private readonly lineLabels: Record<LineName, Label>;
 
   private lastScore = -1;
@@ -96,6 +97,17 @@ export class GameHud extends Container {
       style: { fill: PALETTE.skull, fontSize: 11, letterSpacing: 2 },
     });
 
+    // Ticket #33: the drag-ratio chip, shown once a finger has touched. The
+    // tap itself is routed by GameScreen's pointer handler, not pixi events,
+    // so a chip tap never doubles as a belch tap.
+    this.ratioChip = new Label({
+      text: "",
+      style: { fill: PALETTE.skull, fontSize: 12, letterSpacing: 1 },
+    });
+    this.ratioChip.anchor.set(1, 1);
+    this.ratioChip.alpha = 0.6;
+    this.ratioChip.visible = false;
+
     this.lineLabels = {
       soul: new Label({
         text: "",
@@ -125,11 +137,12 @@ export class GameHud extends Container {
       this.bossBarBg,
       this.belchBarBg,
       this.belchLabel,
+      this.ratioChip,
       ...LINE_NAMES.map((line) => this.lineLabels[line]),
     );
   }
 
-  public updateFrom(sim: Sim, autopilot: boolean): void {
+  public updateFrom(sim: Sim, autopilot: boolean, touchUsed: boolean): void {
     const p = sim.player;
     if (p.score !== this.lastScore) {
       this.lastScore = p.score;
@@ -174,9 +187,12 @@ export class GameHud extends Container {
 
     const full = p.reservoir >= T.BELCH_CAP;
     this.belchBarFill.width = (p.reservoir / T.BELCH_CAP) * 320;
+    this.ratioChip.visible = touchUsed;
     if (full) {
       this.belchBarFill.alpha = 0.6 + 0.4 * Math.sin(sim.t * 10);
-      this.belchLabel.text = "BELCH READY · SPACE";
+      this.belchLabel.text = touchUsed
+        ? "BELCH READY · TAP 2ND FINGER"
+        : "BELCH READY · SPACE";
       this.belchLabel.style.fill = PALETTE.graveGlow;
     } else {
       this.belchBarFill.alpha = 1;
@@ -196,6 +212,23 @@ export class GameHud extends Container {
     }
   }
 
+  public setDragRatio(ratio: number): void {
+    this.ratioChip.text = `DRAG ×${ratio}`;
+  }
+
+  /** Thumb-padded hit test in screen (logical) coordinates for the chip */
+  public ratioChipContains(x: number, y: number): boolean {
+    if (!this.ratioChip.visible) return false;
+    const b = this.ratioChip.getBounds();
+    const pad = 24;
+    return (
+      x >= b.minX - pad &&
+      x <= b.maxX + pad &&
+      y >= b.minY - pad &&
+      y <= b.maxY + pad
+    );
+  }
+
   public resize(width: number, height: number): void {
     this.scoreLabel.position.set(18, 14);
     this.killsLabel.position.set(18, 46);
@@ -205,6 +238,7 @@ export class GameHud extends Container {
     this.bossBarBg.position.set(width / 2 - 160, 38);
     this.belchBarBg.position.set(width / 2 - 160, height - 44);
     this.belchLabel.position.set(width / 2, height - 22);
+    this.ratioChip.position.set(width - 18, height - 18);
     let x = 18;
     for (const line of LINE_NAMES) {
       this.lineLabels[line].position.set(x, height - 18);

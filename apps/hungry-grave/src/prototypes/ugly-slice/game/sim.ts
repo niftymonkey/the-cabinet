@@ -929,8 +929,12 @@ export function step(sim: Sim, input: Input, dt: number): void {
   if (mag > 0) {
     const speed =
       T.PLAYER_SPEED * (input.focus ? T.PLAYER_FOCUS_MULTIPLIER : 1);
-    p.x += (input.moveX / mag) * speed * dt;
-    p.y += (input.moveY / mag) * speed * dt;
+    // Touch feeds fractional magnitudes for finger-exact moves; anything at
+    // or above a full keyboard axis clamps to the same top speed, so touch
+    // can never out-dodge the keys (ticket #33).
+    const throttle = Math.min(mag, 1);
+    p.x += (input.moveX / mag) * throttle * speed * dt;
+    p.y += (input.moveY / mag) * throttle * speed * dt;
   }
   const halfW = graveHalfW(p.halfH);
   p.x = Math.max(halfW, Math.min(T.FIELD_W - halfW, p.x));

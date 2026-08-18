@@ -13,6 +13,7 @@ import * as T from "../../game/tuning";
 import type { Input } from "../../game/types";
 import { engine } from "../../../../app/getEngine";
 import { PausePopup } from "../../../../app/popups/PausePopup";
+import { TouchSteer } from "../../input/touch";
 import { runState } from "../../runState";
 import { initSfx } from "../../sfx";
 import { EndScreen } from "../EndScreen";
@@ -47,6 +48,24 @@ export class GameScreen extends Container {
   private readonly onKeyDown = (ev: KeyboardEvent) => this.handleKeyDown(ev);
   private readonly onKeyUp = (ev: KeyboardEvent) => this.held.delete(ev.code);
 
+  // Ticket #33: relative-drag touch steering. Mouse pointers are excluded so
+  // desktop clicking (debug panel, popups) never doubles as steering.
+  private readonly touch = new TouchSteer(T.TOUCH_DRAG_RATIO);
+  private touchUsed = false;
+  private fieldScale = 1;
+  private screenW = T.FIELD_W;
+  private readonly onPointerDown = (ev: PointerEvent) =>
+    this.handlePointerDown(ev);
+  private readonly onPointerMove = (ev: PointerEvent) => {
+    if (ev.pointerType === "mouse" || this.paused) return;
+    const p = this.toField(ev);
+    this.touch.move(ev.pointerId, p.x, p.y);
+  };
+  private readonly onPointerEnd = (ev: PointerEvent) => {
+    if (ev.pointerType === "mouse") return;
+    this.touch.up(ev.pointerId);
+  };
+
   constructor() {
     super();
     this.sim = createSim(runState.seed);
@@ -69,6 +88,7 @@ export class GameScreen extends Container {
     this.lastViolations = [];
     this.held.clear();
     this.belchPressed = false;
+    this.touch.cancel();
   }
 
   public update(time: Ticker) {
@@ -98,7 +118,7 @@ export class GameScreen extends Container {
     }
 
     this.field.sync(this.sim, dt);
-    this.hud.updateFrom(this.sim, this.autopilot);
+    this.hud.updateFrom(this.sim, this.autopilot, this.touchUsed);
     this.debugPanel.updateFrom(
       this.sim,
       dt,
@@ -123,10 +143,59 @@ export class GameScreen extends Container {
     const right = h.has("ArrowRight") || h.has("KeyD") ? 1 : 0;
     const up = h.has("ArrowUp") || h.has("KeyW") ? 1 : 0;
     const down = h.has("ArrowDown") || h.has("KeyS") ? 1 : 0;
-    const belch = this.belchPressed;
+    const touch = this.touch.read(
+      this.sim.player.x,
+      this.sim.player.y,
+      T.PLAYER_SPEED * DT,
+    );
+    const belch = this.belchPressed || touch.belch;
     this.belchPressed = false;
+    if (this.touch.steering) {
+      // The drag target chase assumes full speed, so focus never combines
+      // with steering; drag precision is what focus was for (ticket #33).
+      return { moveX: touch.moveX, moveY: touch.moveY, focus: false, belch };
+    }
     const focus = h.has("ShiftLeft") || h.has("ShiftRight");
     return { moveX: right - left, moveY: down - up, focus, belch };
+  }
+
+  private handlePointerDown(ev: PointerEvent): void {
+    if (ev.pointerType === "mouse") return;
+    if (!this.touchUsed) {
+      this.touchUsed = true;
+      this.hud.setDragRatio(this.touch.ratio);
+    }
+    if (this.paused) return;
+    const logical = this.toLogical(ev);
+    if (this.hud.ratioChipContains(logical.x, logical.y)) {
+      this.cycleDragRatio();
+      return;
+    }
+    const p = this.toField(ev);
+    this.touch.down(ev.pointerId, p.x, p.y);
+  }
+
+  private cycleDragRatio(): void {
+    const ratios = T.TOUCH_DRAG_RATIOS;
+    const index = ratios.indexOf(this.touch.ratio);
+    this.touch.ratio = ratios[(index + 1) % ratios.length];
+    this.hud.setDragRatio(this.touch.ratio);
+  }
+
+  /** Pointer pixels to the engine's logical screen coordinates */
+  private toLogical(ev: PointerEvent): { x: number; y: number } {
+    const rect = engine().renderer.canvas.getBoundingClientRect();
+    const s = rect.width > 0 ? this.screenW / rect.width : 1;
+    return { x: (ev.clientX - rect.left) * s, y: (ev.clientY - rect.top) * s };
+  }
+
+  /** Pointer pixels to field units (only deltas matter to the steer model) */
+  private toField(ev: PointerEvent): { x: number; y: number } {
+    const logical = this.toLogical(ev);
+    return {
+      x: (logical.x - this.field.position.x) / this.fieldScale,
+      y: (logical.y - this.field.position.y) / this.fieldScale,
+    };
   }
 
   private handleKeyDown(ev: KeyboardEvent): void {
@@ -175,6 +244,7 @@ export class GameScreen extends Container {
     this.paused = true;
     this.held.clear();
     this.belchPressed = false;
+    this.touch.cancel();
   }
 
   /** Resume gameplay */
@@ -189,6 +259,8 @@ export class GameScreen extends Container {
 
   public resize(width: number, height: number) {
     const scale = Math.min(width / T.FIELD_W, height / T.FIELD_H);
+    this.screenW = width;
+    this.fieldScale = scale;
     this.field.scale.set(scale);
     this.field.position.set(
       (width - T.FIELD_W * scale) / 2,
@@ -202,11 +274,20 @@ export class GameScreen extends Container {
     engine().audio.bgm.play("main/sounds/bgm-main.mp3", { volume: 0.35 });
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
+    window.addEventListener("pointerdown", this.onPointerDown);
+    window.addEventListener("pointermove", this.onPointerMove);
+    window.addEventListener("pointerup", this.onPointerEnd);
+    window.addEventListener("pointercancel", this.onPointerEnd);
   }
 
   public async hide() {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
+    window.removeEventListener("pointerdown", this.onPointerDown);
+    window.removeEventListener("pointermove", this.onPointerMove);
+    window.removeEventListener("pointerup", this.onPointerEnd);
+    window.removeEventListener("pointercancel", this.onPointerEnd);
+    this.touch.cancel();
   }
 
   /** Auto pause when the window loses focus */
