@@ -2,6 +2,22 @@
 
 Newest entries at the top. One entry per decision moment, dated, with enough context to stand alone. Reopening any logged decision is welcome; argue from the game.
 
+## 2026-08-17, entry 4: the slice miniboss and boss
+
+Resolved wayfinder ticket #29 with Mark. The slice miniboss is the Banshee, the boss is the Undertaker, bosses are always shootable and bell-push-immune, and both boss questions routed from ticket #28 are closed.
+
+1. Skeleton: always shootable, health bar in chunks, one pattern per chunk, short invincible flash at chunk breaks during which player shots do nothing. Touhou-style pure-dodge survival phases were priced and declined v1-wide (see point 9). This dissolves the routed wisp question: homing wisps are plain damage against bosses, no boss-side rule needed.
+2. Bell versus bosses (routed from #28): full bell damage, zero pushback on miniboss and boss, adds pushed normally. Vampire Survivors precedent: bosses and elites resist or ignore knockback so big enemies cannot bounce off their own threat; protecting authored patterns is the day-one readability rule.
+3. The Banshee: chunk one is slow expanding tear-rings with one clean gap each; chunk two adds a second offset ring source so gaps desync. Rings beat aimed fans because slow curved shapes read through the player's own storm (Boghog's shmup 101, Sparen's danmaku design guide: low density and clear bullet direction carry readability). Her ring deliberately echoes the player's bell ring, two owners of one shape, split by layer and palette.
+4. The Undertaker: chunk one is falling clod-curtains with one moving gap; chunk two is a slow shovel spiral plus summoned digger zombies whose corpses feed the fight. Mark's concern that a fixed gap punishes size earned before the fight produced the rule: gap width equals current hole diameter plus a fixed margin, and clods are ordinary bullets (one small shrink), never walls.
+5. Freshness: shed armor and add corpses decay normally, the urgency being the point; phase-break feast chunks never decay, like upgrade drops, so the reward beat is calm and steady-bright keeps meaning treasure.
+6. Banshee death feast: growth worth roughly 8 to 10 fresh trash corpses plus an instant full belch with a pulsing glow, and the next wave arrives deliberately oversized as the belch's target. Undertaker death: the swallow is the victory animation, no payout; the grave eats the gravedigger.
+7. Raised by Mark at close-out, recorded as map fog rather than a slice change: difficulty modes for replayability (normal and up, tuning density and speed) and whether v1 is the polished slice stage itself, Vampire Survivors' one-map first version being the shape.
+8. Belch versus bosses, the gap the product gate caught (neither the grilling nor the routed questions had ruled on the one button): the belch is the bomb everywhere, cancelling every enemy bullet on screen including boss patterns, dealing a big chunk of boss damage, never pushing a boss, with the pattern resuming immediately (genre standard: shmup bombs clear bullets and damage bosses). Mark's condition: the taming is tracked work, not a hope; the map's belch-tuning fog now covers boss fights and the slice instruments belch rate inside each boss fight.
+9. Gate adjust (product vision): the no-survival-phase rule is v1-wide, not slice-only, argued from identity (the player's storm must always matter, and an untouchable boss suspends the fantasy); reopenable per this log's preamble if a later boss concept earns it.
+10. Gate adjusts (game design + product vision) accepted: the oversized post-Banshee wave is already arriving when the full-belch glow lands, so the loaded belch is never reflexed into empty sky (slice instrument added); the digger zombies are the slice's one trash enemy re-spawned by the boss, no new enemy budget.
+11. Shared ring shape deferred with a trigger, both gates converging: the Banshee's tear-ring deliberately shares the bell ring's shape, and if a slice tester misreads a tear-ring as their own bell or cannot say which ring hit them, the cure is shape-breaking the tears into teardrops before touching the pattern.
+
 ## 2026-08-17, entry 3: the four weapon lines
 
 Resolved wayfinder ticket #28 with Mark. The v1 lines are the soul stream, orbiting headstones, will-o-wisps, and bell shockwaves; grasping hands are cut from the working set.
