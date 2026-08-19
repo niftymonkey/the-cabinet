@@ -45,6 +45,7 @@ export class TouchStats {
   private readonly readDelay = new Rolling();
   private readonly chaseLag = new Rolling();
   private lastMoveAt: number | null = null;
+  private lastConsumedMoveAt: number | null = null;
   private cancels = 0;
   private worstGap = 0;
 
@@ -70,8 +71,14 @@ export class TouchStats {
   /** A sim read while steering: how stale the last move is, and how far the
    *  grave trails the drag target (the policy lag, in field units). */
   public onRead(now: number, chaseLagUnits: number): void {
-    if (this.lastMoveAt !== null) {
+    // Only a move not yet consumed by a read counts; a resting finger is
+    // not latency.
+    if (
+      this.lastMoveAt !== null &&
+      this.lastMoveAt !== this.lastConsumedMoveAt
+    ) {
       this.readDelay.push(now, now - this.lastMoveAt);
+      this.lastConsumedMoveAt = this.lastMoveAt;
     }
     this.chaseLag.push(now, chaseLagUnits);
   }
