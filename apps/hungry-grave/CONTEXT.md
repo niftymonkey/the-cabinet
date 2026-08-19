@@ -12,7 +12,7 @@ A Halloween vertical shmup crossed with hole.io. The player is a moving open gra
 
 **Size**: The grave's one scalar, its half-height; width follows at a fixed aspect. Size is health: swallowing grows it, hits shrink it. _Avoid_: health, HP, radius, scale.
 
-**Size floor**: The hard minimum size. It guarantees the grave can always swallow the current tier's smallest corpse, so the recovery path never physically closes. At the floor, hits bleed score, then weapon levels down to the birthright loadout, and only when nothing is left to bleed does the next hit seal the grave shut. _Avoid_: minimum health, death's door.
+**Size floor**: The hard minimum size, so the recovery path never physically closes. Size never gates a swallow: whatever the grave passes under goes in. At the floor, hits bleed score, then weapon levels down to the birthright loadout, and only when nothing is left to bleed does the next hit seal the grave shut. _Avoid_: minimum health, death's door.
 
 **Size ceiling**: The hard maximum size, the grave standing about a quarter of the field's width tall. Growth past it converts to score, so a big meal at full size is never worthless. _Avoid_: max level, size cap.
 
@@ -26,31 +26,31 @@ A Halloween vertical shmup crossed with hole.io. The player is a moving open gra
 
 **Freshness**: A corpse's one meter, running from kill to gone in seconds derived from scroll speed. It scales every payout down to a floor, and at empty the dirt takes the corpse under. _Avoid_: decay, timer, expiry, TTL.
 
-**Drop**: A permanent upgrade a kill sometimes leaves, priced in kills on a rising curve. Swallowing it levels one line, chosen by the dice. Drops never decay. _Avoid_: powerup, upgrade item, pickup, loot.
+**Drop**: A permanent upgrade a kill sometimes leaves, priced in kills on a rising curve. Swallowing it levels one weapon line, chosen by the dice. Drops never decay. _Avoid_: powerup, upgrade item, pickup, loot.
 
 **Feast**: A boss-shed reward corpse that never decays, dropped at chunk breaks and at a miniboss death; the death feast is big enough to jump the grave's size. _Avoid_: bonus, health pack, jackpot.
 
 **Treasure**: The never-decaying class of food: drops and feasts. Steady-bright beside fading corpses, so steady-bright always means treasure. _Avoid_: rare drop, special item.
 
-**Overflow**: The payout when a swallow cannot pay its normal way: a maxed line's drop or growth past the ceiling converts to score, radius, or reservoir charge. Nothing swallowed is ever worthless. _Avoid_: waste, surplus, refund.
+**Overflow**: The payout when a swallow cannot pay its normal way: a maxed weapon line's drop or growth past the ceiling converts to score, radius, or reservoir charge. Nothing swallowed is ever worthless. _Avoid_: waste, surplus, refund.
 
 ### The arsenal
 
-**Line**: One of the four upgradable weapon systems, leveled one to five by drops: the soul stream, the headstones, the wisps, the bell. Each level must look different on screen. _Avoid_: weapon, gun, upgrade track, skill.
+**Weapon line**: One of the upgradable weapon systems, leveled one to five by drops. A weapon line owns its own properties: how it fires, whether the run starts with it, and how its levels grow. v1 ships four, the soul stream, the headstones, the wisps and the bell, and the pool is open by design. Each level must look different on screen. Short form "line" is fine once the term is established in a passage. _Avoid_: gun, upgrade track, skill.
 
-**Floor lines**: The always-on lines, the birthright the run starts with: the soul stream and the headstones. _Avoid_: passive weapons, base weapons.
+**Firing trigger**: How a weapon line fires: always-on, on each swallow, or on its own timer. A property each line owns, never a category of lines. _Avoid_: floor line, burst line, passive weapon, active weapon, proc.
 
-**Burst lines**: The lines that fire on each swallow: the wisps and the bell. Eating defends the dive that earned it. _Avoid_: active weapons, on-eat weapons, procs.
+**Birthright**: The weapon lines a run starts with, currently the soul stream and the headstones. Damage at the size floor strips levels back to it. _Avoid_: starting loadout, base weapons.
 
 **Soul stream**: Skulls pouring straight up out of the grave's mouth, in rigid fanned columns, surging after each swallow. It never homes. _Avoid_: main gun, vulcan, primary fire.
 
 **Headstones**: Orbiting stones, last-ditch close defense, in counter-rotating rings at higher levels. _Avoid_: orbitals, satellites, shield.
 
-**Wisps**: Will-o-wisps, the game's only homing: each swallowed corpse's soul tears loose and hunts. Nothing else in the arsenal homes, ever. _Avoid_: missiles, seekers, homing shots.
+**Wisps**: Will-o-wisps, fired on each swallow: each swallowed corpse's soul tears loose and hunts. At most one weapon line homes at a time, and a homing line is never always-on, so homing is always bought with a dive. _Avoid_: missiles, seekers, homing shots.
 
-**Bell**: The funeral toll on every swallow: an expanding damage ring with pushback, from a nudge at level one to a screen-wide gong. Bosses take its damage but never its push. _Avoid_: shockwave, nova, AOE.
+**Bell**: The funeral toll on its own clock: an always-on expanding damage ring, reaching a short way at level one and nearly across the field at level five, with pushback arriving as a higher-level property. Bosses take its damage but never its push. _Avoid_: shockwave, nova, AOE.
 
-**Swallow chime**: The baseline sound and juice of every swallow, firing from the very first swallow regardless of loadout, so the early minutes are never silent. The bell line upgrades the chime the player already knows into the damage ring. _Avoid_: eat-chime, pickup sound.
+**Swallow chime**: The baseline sound and juice of every swallow, firing from the very first swallow regardless of loadout, so the early minutes are never silent. _Avoid_: eat-chime, pickup sound.
 
 **Belch**: The one button. It vomits the full reservoir as a screen-clearing eruption: every mob-fire shot cancelled, big boss damage, no boss push. It fires only at a full reservoir. _Avoid_: bomb, ult, special, screen clear.
 
@@ -70,7 +70,9 @@ A Halloween vertical shmup crossed with hole.io. The player is a moving open gra
 
 **Trash**: The ordinary mobs of the authored timeline, as opposed to bosses. _Avoid_: minions, creeps, fodder, popcorn.
 
-**Template**: A named wave shape from the library: Drips, the File, the V, the Pincer, the Rain, the Wall. Each teaches a motion. _Avoid_: formation, pattern, spawn type.
+**Mob type**: A kind of mob, owning how it moves, whether and how it fires, its health, its corpse payout, and its size. v1 ships three and the pool is open by design. A mob type must be readable before it acts. _Avoid_: enemy class, variant, archetype.
+
+**Template**: A named placement from the library: where a group of mobs arrives and how it is arranged, never which mob type is in it. Each teaches a lesson, and the library is open. The starting six are Drips, the File, the V, the Pincer, the Rain, the Wall. _Avoid_: formation, pattern, spawn type.
 
 **Row**: One entry of the authored timeline: a phase-local time, a template, a placement, and a count. Count lives on the row, so density tuning never edits a template. _Avoid_: spawn event, wave entry, script line.
 
