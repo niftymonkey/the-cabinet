@@ -2,6 +2,14 @@
 
 Newest entries at the top. One entry per decision moment, dated, with enough context to stand alone. Reopening any logged decision is welcome; argue from the game.
 
+## 2026-08-19, entry 13: every fresh run rolls fresh dice; a pinned seed is a shareable run
+
+Ruled by Mark after playing the slice on several seeds. The seed had silently defaulted to 42, so his dozen playthroughs were the identical run; different seeds felt like meaningfully different games, and that variety is a keeper.
+
+1. The player default is a randomly rolled seed per run: first play, R restart, and play again each roll fresh dice.
+2. A seed in the URL pins the run, in either form: `?seed=7` before the hash or after the prototype route. Pinning is now the playtest instrument: entry 5's identical-run comparisons and entry 8.2's shared-baseline rationale live behind an explicit pinned URL, not the default.
+3. Kept game idea for the real build: seeds are shareable challenges ("can you beat this run?"), so a run's seed stays visible in the UI.
+
 ## 2026-08-19, entry 12: each input owns its speed; touch is the finger, keys are a tunable setting
 
 Ruled by Mark after playing the deployed slice on iPad. The touch layer built for #33 capped drag movement at the keyboard's speed "for fairness", and that cap was the input lag he felt: a thumb moving faster than the designated key speed watched the grave trail behind. Diagnosed with the on-device touch instruments; the event pipeline measured fast, the cap was the delay.
@@ -12,6 +20,8 @@ Ruled by Mark after playing the deployed slice on iPad. The touch layer built fo
 4. Sim contract: Input.moveX/moveY is a bare velocity command in base-speed units; each input source owns its own normalization and cap. The spec test asserting touch could never out-dodge the keyboard is retired with the ruling that spawned it.
 
 Cross-input fairness by capping one input to another's feel is a dont-build; feel knobs are per-input player settings.
+
+## 2026-08-18, entry 11: the slice is a prototype route, never the base of the game
 
 Ruled by Mark at the #30 commit gate, before any push or PR. The slice was set up as a task, but it is a prototype: it exists to teach what is possible, what feels right, what is missing, and what needs more work, and it must never become the code future iterations extend.
 

@@ -15,6 +15,12 @@ describe("the prototype registry", () => {
     }
   });
 
+  it("a query riding the hash still routes to the prototype (entry 13)", () => {
+    for (const p of PROTOTYPES) {
+      expect(prototypeFromHash(`${prototypeHash(p.id)}?seed=7`)).toBe(p);
+    }
+  });
+
   it("unknown and empty hashes route to no prototype", () => {
     expect(prototypeFromHash("#/prototypes/not-a-prototype")).toBeUndefined();
     expect(prototypeFromHash("")).toBeUndefined();

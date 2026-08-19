@@ -33,6 +33,7 @@ export function prototypeHash(id: string): string {
 }
 
 export function prototypeFromHash(hash: string): PrototypeEntry | undefined {
-  const match = /^#\/prototypes\/(.+)$/.exec(hash);
+  // The hash may carry a query (#/prototypes/ugly-slice?seed=7); the id ends there.
+  const match = /^#\/prototypes\/([^?]+)/.exec(hash);
   return PROTOTYPES.find((p) => p.id === match?.[1]);
 }

@@ -16,7 +16,7 @@ import { PausePopup } from "../../../../app/popups/PausePopup";
 import { keysToMove } from "../../input/keys";
 import { TouchSteer } from "../../input/touch";
 import { TouchStats } from "../../input/touchStats";
-import { runState } from "../../runState";
+import { nextRunSeed, runState } from "../../runState";
 import { storage } from "../../../../engine/utils/storage";
 import { initSfx } from "../../sfx";
 import { EndScreen } from "../EndScreen";
@@ -111,7 +111,7 @@ export class GameScreen extends Container {
 
   /** Fresh run every time the screen is shown (screens are pooled) */
   public prepare() {
-    this.sim = createSim(runState.seed);
+    this.sim = createSim(nextRunSeed());
     this.autopilot = false;
     this.paused = false;
     this.acc = 0;
