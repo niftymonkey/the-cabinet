@@ -44,3 +44,12 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+
+## Working the map artifact
+
+The wayfinder hook publishes the cached map HTML as a Claude artifact. This repo has exactly **one** artifact for its map and it must stay that one: https://claude.ai/code/artifact/a9875587-588c-4462-abfa-977b4b1112ac. Always pass it as the `url` argument. Publishing without `url` creates a second artifact, and the recorded one silently stops being updated.
+
+- **The first republish in a session fails** with "hasn't viewed latest". WebFetch the artifact URL once, then republish. Later republishes in the same session need no refetch.
+- **Verify by grepping the cache, not by refetching.** Look for the change in `~/.cache/wayfinder-map/<owner>-<repo>.html`. A WebFetch of the artifact costs roughly 25k tokens, and a stale browser tab has already caused a correct publish to be reported as a failure.
+- **Fog cards truncate.** A change at the end of a fog line is invisible on the rendered map. Put what changed at the front of the line, or accept that it will not show.
+- **Graduating a fog item means removing it from the list**, not annotating it in place. An item marked as graduated but left in the fog section still reads as fog on the map.
