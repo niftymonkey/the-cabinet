@@ -3,6 +3,7 @@
 ## Structure
 
 - `apps/housewarming` owns all Housewarming code, tests, and assets.
+- `apps/hungry-grave` owns all Hungry Grave code, tests, and assets.
 - There is no launcher application yet.
 
 ## Documents
@@ -28,6 +29,10 @@ Multi-context: `CONTEXT-MAP.md` at the root, one `CONTEXT.md` per application. S
 ### Review gates
 
 Significant work carries review gates through three lenses, run by the gate agents in `.claude/agents/`: `gate-game-design`, `gate-tech-architecture`, `gate-product-vision`. Which gates fire for which activity, at what depth, and the marker each run must leave: `docs/agents/review-gates.md`. The session performing the work owns firing the right gates; do not depend on Mark to request them. The gameplay-terms and looked-up-evidence rules for design conversations live in the game design gate's charter, and any session doing design work follows them.
+
+### Feature playbook
+
+Every production code change, written directly or dispatched to a subagent, follows `docs/agents/feature-playbook.md`: how work is planned, spec-tested, verified, and handed off. Read it before planning or writing any code.
 
 ### How an issue is written here
 
