@@ -13,9 +13,11 @@ import * as T from "../../game/tuning";
 import type { Input } from "../../game/types";
 import { engine } from "../../../../app/getEngine";
 import { PausePopup } from "../../../../app/popups/PausePopup";
+import { keysToMove } from "../../input/keys";
 import { TouchSteer } from "../../input/touch";
 import { TouchStats } from "../../input/touchStats";
 import { runState } from "../../runState";
+import { storage } from "../../../../engine/utils/storage";
 import { initSfx } from "../../sfx";
 import { EndScreen } from "../EndScreen";
 import { DebugPanel } from "./DebugPanel";
@@ -25,6 +27,13 @@ import { GameHud } from "./GameHud";
 const DT = 1 / 60;
 const MAX_STEPS_PER_FRAME = 6;
 const END_LINGER_SECONDS = 1.4;
+const KEY_SPEED_STORAGE = "hungry-grave/key-speed";
+
+// Snapped to two decimals so repeated 0.05 steps never show float dust.
+function clampKeySpeed(value: number): number {
+  const snapped = Math.round(value * 100) / 100;
+  return Math.max(T.KEY_SPEED_MIN, Math.min(T.KEY_SPEED_MAX, snapped));
+}
 
 export class GameScreen extends Container {
   /** Assets bundles required by this screen (the popups draw from "main") */
@@ -53,6 +62,10 @@ export class GameScreen extends Container {
   // desktop clicking (debug panel, popups) never doubles as steering.
   private readonly touch = new TouchSteer(T.TOUCH_DRAG_RATIO);
   private readonly touchStats = new TouchStats();
+  // The keyboard's designated speed (entry 12), persisted between runs.
+  private keySpeed = clampKeySpeed(
+    storage.getNumber(KEY_SPEED_STORAGE) ?? T.KEY_SPEED_DEFAULT,
+  );
   private readonly activeTouches = new Set<number>();
   private touchUsed = false;
   private fieldScale = 1;
@@ -91,6 +104,7 @@ export class GameScreen extends Container {
     // hundreds of pooled sprites out of that walk (ticket #33 lag diagnosis).
     this.eventMode = "none";
     this.interactiveChildren = false;
+    this.hud.setKeySpeed(this.keySpeed);
   }
 
   /** Fresh run every time the screen is shown (screens are pooled) */
@@ -158,10 +172,6 @@ export class GameScreen extends Container {
 
   private readInput(): Input {
     const h = this.held;
-    const left = h.has("ArrowLeft") || h.has("KeyA") ? 1 : 0;
-    const right = h.has("ArrowRight") || h.has("KeyD") ? 1 : 0;
-    const up = h.has("ArrowUp") || h.has("KeyW") ? 1 : 0;
-    const down = h.has("ArrowDown") || h.has("KeyS") ? 1 : 0;
     const touch = this.touch.read(
       this.sim.player.x,
       this.sim.player.y,
@@ -175,12 +185,13 @@ export class GameScreen extends Container {
     const belch = this.belchPressed || touch.belch;
     this.belchPressed = false;
     if (this.touch.steering) {
-      // The drag target chase assumes full speed, so focus never combines
-      // with steering; drag precision is what focus was for (ticket #33).
+      // Focus never combines with steering; drag precision is what focus
+      // was for (ticket #33).
       return { moveX: touch.moveX, moveY: touch.moveY, focus: false, belch };
     }
     const focus = h.has("ShiftLeft") || h.has("ShiftRight");
-    return { moveX: right - left, moveY: down - up, focus, belch };
+    const move = keysToMove(h, this.keySpeed);
+    return { moveX: move.moveX, moveY: move.moveY, focus, belch };
   }
 
   private handlePointerDown(ev: PointerEvent): void {
@@ -253,6 +264,16 @@ export class GameScreen extends Container {
     }
     if (ev.code === "Backquote") {
       this.debugPanel.visible = !this.debugPanel.visible;
+      return;
+    }
+    // Entry 12: the designated keyboard speed, tuned in play and kept.
+    if (ev.code === "Minus" || ev.code === "Equal") {
+      const direction = ev.code === "Minus" ? -1 : 1;
+      this.keySpeed = clampKeySpeed(
+        this.keySpeed + direction * T.KEY_SPEED_STEP,
+      );
+      storage.setNumber(KEY_SPEED_STORAGE, this.keySpeed);
+      this.hud.setKeySpeed(this.keySpeed);
       return;
     }
     if (ev.code === "KeyP") {

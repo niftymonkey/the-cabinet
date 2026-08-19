@@ -923,19 +923,14 @@ export function step(sim: Sim, input: Input, dt: number): void {
     }
   }
 
-  // Player movement.
+  // Player movement. Input is a bare velocity command in PLAYER_SPEED
+  // units; each source owns its own cap (decision-log entry 12). Keys are
+  // normalized and tuned by the player's speed setting before they get
+  // here; touch is the finger itself, uncapped.
   const p = sim.player;
-  const mag = Math.hypot(input.moveX, input.moveY);
-  if (mag > 0) {
-    const speed =
-      T.PLAYER_SPEED * (input.focus ? T.PLAYER_FOCUS_MULTIPLIER : 1);
-    // Touch feeds fractional magnitudes for finger-exact moves; anything at
-    // or above a full keyboard axis clamps to the same top speed, so touch
-    // can never out-dodge the keys (ticket #33).
-    const throttle = Math.min(mag, 1);
-    p.x += (input.moveX / mag) * throttle * speed * dt;
-    p.y += (input.moveY / mag) * throttle * speed * dt;
-  }
+  const speed = T.PLAYER_SPEED * (input.focus ? T.PLAYER_FOCUS_MULTIPLIER : 1);
+  p.x += input.moveX * speed * dt;
+  p.y += input.moveY * speed * dt;
   const halfW = graveHalfW(p.halfH);
   p.x = Math.max(halfW, Math.min(T.FIELD_W - halfW, p.x));
   p.y = Math.max(p.halfH, Math.min(T.FIELD_H - p.halfH, p.y));

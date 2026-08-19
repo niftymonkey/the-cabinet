@@ -37,6 +37,7 @@ export class GameHud extends Container {
   private readonly belchBarFill: Sprite;
   private readonly belchLabel: Label;
   private readonly ratioChip: Label;
+  private readonly keysChip: Label;
   private readonly lineLabels: Record<LineName, Label>;
 
   private lastScore = -1;
@@ -108,6 +109,14 @@ export class GameHud extends Container {
     this.ratioChip.alpha = 0.6;
     this.ratioChip.visible = false;
 
+    // Entry 12: the designated keyboard speed, tuned with - and =.
+    this.keysChip = new Label({
+      text: "",
+      style: { fill: PALETTE.skull, fontSize: 12, letterSpacing: 1 },
+    });
+    this.keysChip.anchor.set(1, 1);
+    this.keysChip.alpha = 0.6;
+
     this.lineLabels = {
       soul: new Label({
         text: "",
@@ -138,6 +147,7 @@ export class GameHud extends Container {
       this.belchBarBg,
       this.belchLabel,
       this.ratioChip,
+      this.keysChip,
       ...LINE_NAMES.map((line) => this.lineLabels[line]),
     );
   }
@@ -216,6 +226,10 @@ export class GameHud extends Container {
     this.ratioChip.text = `DRAG ×${ratio}`;
   }
 
+  public setKeySpeed(multiplier: number): void {
+    this.keysChip.text = `KEYS ×${multiplier.toFixed(2)} · - / =`;
+  }
+
   /** Thumb-padded hit test in screen (logical) coordinates for the chip */
   public ratioChipContains(x: number, y: number): boolean {
     if (!this.ratioChip.visible) return false;
@@ -239,6 +253,7 @@ export class GameHud extends Container {
     this.belchBarBg.position.set(width / 2 - 160, height - 44);
     this.belchLabel.position.set(width / 2, height - 22);
     this.ratioChip.position.set(width - 18, height - 18);
+    this.keysChip.position.set(width - 18, height - 38);
     let x = 18;
     for (const line of LINE_NAMES) {
       this.lineLabels[line].position.set(x, height - 18);

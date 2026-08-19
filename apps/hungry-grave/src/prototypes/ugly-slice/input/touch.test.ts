@@ -10,10 +10,10 @@
 // - A tunable touch-to-movement ratio, Danmaku Unlimited 3 style (#33
 //   approach).
 // - The belch fires by touch (#33 acceptance): a second finger tap.
-// - Desktop keyboard play is unchanged (#33 acceptance): the sim's movement
-//   for unit and diagonal inputs is bit-identical to the pre-#33 rule, and
-//   the analog magnitude the touch layer feeds is clamped to that same top
-//   speed, so touch can never out-dodge a keyboard.
+// - Touch is UNCAPPED (decision-log entry 12, Mark's ruling 2026-08-19):
+//   the grave lands on the drag target every step, at any finger speed.
+//   The sim applies Input as a bare velocity command; the keyboard's
+//   normalization and tunable speed live in keys.ts with their own tests.
 //
 // Named omission: what focus mode becomes on touch is a decision-log ruling,
 // not a sim behavior; the touch layer simply never sets focus.
@@ -50,20 +50,12 @@ function touchStep(sim: Sim, steer: TouchSteer): void {
   });
 }
 
-describe("keyboard movement is unchanged by the analog magnitude rule (#33)", () => {
-  it("a single-axis key still moves at exactly full speed", () => {
+describe("the sim applies Input as a bare velocity command (entry 12)", () => {
+  it("a unit axis moves at exactly the designated speed", () => {
     const sim = isolatedSim();
     const x0 = sim.player.x;
     stepChecked(sim, { moveX: 1, moveY: 0, focus: false, belch: false });
     expect(sim.player.x - x0).toBeCloseTo(T.PLAYER_SPEED * DT, 10);
-  });
-
-  it("a diagonal still normalizes to full speed, not faster", () => {
-    const sim = isolatedSim();
-    const { x: x0, y: y0 } = sim.player;
-    stepChecked(sim, { moveX: 1, moveY: 1, focus: false, belch: false });
-    const moved = Math.hypot(sim.player.x - x0, sim.player.y - y0);
-    expect(moved).toBeCloseTo(T.PLAYER_SPEED * DT, 10);
   });
 
   it("a fractional magnitude moves proportionally slower", () => {
@@ -73,12 +65,12 @@ describe("keyboard movement is unchanged by the analog magnitude rule (#33)", ()
     expect(sim.player.x - x0).toBeCloseTo(0.5 * T.PLAYER_SPEED * DT, 10);
   });
 
-  it("a magnitude above one clamps to full speed", () => {
+  it("a magnitude above one moves faster: no cap in the sim", () => {
     const sim = isolatedSim();
     const { x: x0, y: y0 } = sim.player;
     stepChecked(sim, { moveX: 3, moveY: 4, focus: false, belch: false });
     const moved = Math.hypot(sim.player.x - x0, sim.player.y - y0);
-    expect(moved).toBeCloseTo(T.PLAYER_SPEED * DT, 10);
+    expect(moved).toBeCloseTo(5 * T.PLAYER_SPEED * DT, 10);
   });
 });
 
@@ -115,24 +107,20 @@ describe("relative drag steering (#33)", () => {
     expect(sim.player.y - y0).toBeCloseTo(-1.5, 10);
   });
 
-  it("a long flick is chased at top speed and lands without overshoot", () => {
+  it("a long flick lands the grave on the target in ONE step: uncapped (entry 12)", () => {
     const sim = isolatedSim();
     const x0 = sim.player.x;
     const steer = new TouchSteer(1);
     steer.down(1, 40, 700);
     steer.move(1, 40 + 120, 700);
-    let last = x0;
-    for (let i = 0; i < 240; i++) {
-      touchStep(sim, steer);
-      const dx = sim.player.x - last;
-      expect(dx).toBeGreaterThanOrEqual(0);
-      expect(dx).toBeLessThanOrEqual(MAX_STEP + 1e-9);
-      last = sim.player.x;
-    }
+    touchStep(sim, steer);
+    expect(sim.player.x - x0).toBeCloseTo(120, 6);
+    // And it stays put: no overshoot, no oscillation.
+    touchStep(sim, steer);
     expect(sim.player.x - x0).toBeCloseTo(120, 6);
   });
 
-  it("lifting the finger stops the grave even mid-chase", () => {
+  it("lifting the finger stops the grave where it is", () => {
     const sim = isolatedSim();
     const steer = new TouchSteer(1);
     steer.down(1, 40, 700);

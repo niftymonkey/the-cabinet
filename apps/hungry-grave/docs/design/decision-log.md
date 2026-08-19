@@ -2,7 +2,16 @@
 
 Newest entries at the top. One entry per decision moment, dated, with enough context to stand alone. Reopening any logged decision is welcome; argue from the game.
 
-## 2026-08-18, entry 11: the slice is a prototype route, never the base of the game
+## 2026-08-19, entry 12: each input owns its speed; touch is the finger, keys are a tunable setting
+
+Ruled by Mark after playing the deployed slice on iPad. The touch layer built for #33 capped drag movement at the keyboard's speed "for fairness", and that cap was the input lag he felt: a thumb moving faster than the designated key speed watched the grave trail behind. Diagnosed with the on-device touch instruments; the event pipeline measured fast, the cap was the delay.
+
+1. Touch is uncapped. The grave lands on the drag target every step, at any finger speed, times the drag ratio. There is no touch equivalent of "keys move at a designated speed", so touch borrows no cap from the keyboard.
+2. The keyboard keeps a designated speed, and that speed becomes a player setting: a multiplier on the base speed (0.5x to 1.5x in 0.05 steps, - and = keys, persisted between runs). Mark had asked for a speed setting before and was argued out of it when focus mode landed (entry 8); that argument is retired.
+3. Focus mode (entry 8) stands for keyboard as the hold-to-halve fine-dodge tool, and composes with the multiplier. On touch, focus mode is nothing: drag precision is the fine control. This closes #33's open focus-on-touch question.
+4. Sim contract: Input.moveX/moveY is a bare velocity command in base-speed units; each input source owns its own normalization and cap. The spec test asserting touch could never out-dodge the keyboard is retired with the ruling that spawned it.
+
+Cross-input fairness by capping one input to another's feel is a dont-build; feel knobs are per-input player settings.
 
 Ruled by Mark at the #30 commit gate, before any push or PR. The slice was set up as a task, but it is a prototype: it exists to teach what is possible, what feels right, what is missing, and what needs more work, and it must never become the code future iterations extend.
 

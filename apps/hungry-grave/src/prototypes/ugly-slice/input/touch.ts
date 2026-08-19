@@ -3,9 +3,9 @@
 // logic in field units; GameScreen converts pointer pixels and feeds the
 // result into the same Input the keyboard feeds.
 //
-// The model keeps a drag TARGET the grave chases at sim speed. Small moves
-// land exactly (the emitted magnitude is fractional), long flicks are chased
-// at top speed, so touch can never out-dodge the keyboard.
+// The model keeps a drag TARGET the grave lands on every step, uncapped:
+// the grave IS the finger (decision-log entry 12). The keyboard's designated
+// speed is its own setting and no longer bounds touch.
 
 import { FIELD_H, FIELD_W } from "../game/tuning";
 
