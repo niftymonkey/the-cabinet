@@ -5,6 +5,7 @@ The Cabinet holds a launcher and a set of independently built games. Each game i
 ## Contexts
 
 - [Housewarming](./apps/housewarming/CONTEXT.md). The spirit-naming game. Its language is the language of the house.
+- [The Hungry Grave](./apps/hungry-grave/CONTEXT.md). The Halloween shmup where the player is a grave. Its language is the language of the funeral.
 - The launcher. Not built yet. It gets its own `CONTEXT.md` when it exists.
 
 ## Relationships

@@ -1,6 +1,8 @@
 # Decision log, The Hungry Grave
 
-Newest entries at the top. One entry per decision moment, dated, with enough context to stand alone. Reopening any logged decision is welcome; argue from the game.
+Frozen 2026-08-19: this log's decisions migrated to the ADRs in [../adr/](../adr/), the canonical decision record from here on. New decisions land as ADRs, never as new entries here; this file stays as dated history, and its entry numbers stay valid citations (the slice's spec tests and the concept doc cite them). Reopening any decision is welcome as ever; argue from the game, and record the outcome as an ADR. Entries that are not ADR-shaped keep named homes: 6.2 in the glossary (`../../CONTEXT.md`), 6.5 in the repo's `docs/agents/feature-playbook.md`, the readability half of 1.8 in ADR 0014, and the stage, boss, and tuning content of the rest of 1.8, 4.3-4.7, 4.10, 4.11, 5.2, 5.5, 5.7-5.9, 5.11-5.12, and 10 in [game-concept.md](game-concept.md) beside this file.
+
+Newest entries at the top. One entry per decision moment, dated, with enough context to stand alone.
 
 ## 2026-08-19, entry 13: every fresh run rolls fresh dice; a pinned seed is a shareable run
 
