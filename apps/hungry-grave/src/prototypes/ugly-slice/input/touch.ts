@@ -34,7 +34,9 @@ export class TouchSteer {
   constructor(public ratio: number) {}
 
   public down(id: number, x: number, y: number): void {
-    if (this.pointers.size > 0) this.belchQueued = true;
+    // Only the second finger belches; a third (a palm edge, or the debug
+    // toggle) must not queue another one.
+    if (this.pointers.size === 1) this.belchQueued = true;
     this.pointers.set(id, { x, y });
   }
 

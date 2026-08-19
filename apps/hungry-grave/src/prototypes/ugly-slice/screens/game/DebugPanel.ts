@@ -36,6 +36,7 @@ export class DebugPanel extends Container {
     autopilot: boolean,
     violationCount: number,
     lastViolations: string[],
+    extraLines: string[] = [],
   ): void {
     if (!this.visible) return;
     this.clock += dt;
@@ -66,6 +67,7 @@ export class DebugPanel extends Container {
       `oversize score    ${s.oversizeScore}`,
       `invariant fires   ${violationCount}`,
       ...lastViolations.map((v) => `! ${v}`),
+      ...extraLines,
     ];
     this.body.text = lines.join("\n");
     this.bg.clear();

@@ -182,6 +182,15 @@ describe("the belch and the second finger (#33)", () => {
     expect(steer.read(100, 100, MAX_STEP).belch).toBe(false);
   });
 
+  it("a third finger does not queue another belch", () => {
+    const steer = new TouchSteer(1);
+    steer.down(1, 40, 700);
+    steer.down(2, 400, 700);
+    steer.down(3, 200, 700);
+    expect(steer.read(100, 100, MAX_STEP).belch).toBe(true);
+    expect(steer.read(100, 100, MAX_STEP).belch).toBe(false);
+  });
+
   it("a lone first touch never fires the belch", () => {
     const steer = new TouchSteer(1);
     steer.down(1, 40, 700);
