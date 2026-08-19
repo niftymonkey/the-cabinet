@@ -19,6 +19,17 @@ export const FRESHNESS_FLICKER_AT = 0.12;
 export const PLAYER_SPEED = 270;
 // Hold-to-focus speed, as a fraction of full speed (entry 8).
 export const PLAYER_FOCUS_MULTIPLIER = 0.5;
+// Ticket #33: relative-drag touch. The grave copies the finger's movement
+// times this ratio (Danmaku Unlimited 3 style); cyclable in-game from the
+// HUD chip so the right number can be felt on real hardware.
+export const TOUCH_DRAG_RATIO = 1.5;
+export const TOUCH_DRAG_RATIOS: readonly number[] = [1, 1.5, 2];
+// Entry 12: the keyboard's designated speed is a player setting, tuned in
+// steps with the - and = keys and persisted between runs.
+export const KEY_SPEED_DEFAULT = 1;
+export const KEY_SPEED_STEP = 0.1;
+export const KEY_SPEED_MIN = 0.5;
+export const KEY_SPEED_MAX = 2;
 
 // The grave is a rounded rectangle hole, taller than wide (decision-log
 // entry 6). One scalar is the size: the half-height; width derives from it.
