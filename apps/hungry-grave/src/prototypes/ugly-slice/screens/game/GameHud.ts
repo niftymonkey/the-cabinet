@@ -227,7 +227,7 @@ export class GameHud extends Container {
   }
 
   public setKeySpeed(multiplier: number): void {
-    this.keysChip.text = `KEYS ×${multiplier.toFixed(2)} · - / =`;
+    this.keysChip.text = `KEYS ×${multiplier.toFixed(1)} · - / =`;
   }
 
   /** Thumb-padded hit test in screen (logical) coordinates for the chip */

@@ -29,9 +29,11 @@ const MAX_STEPS_PER_FRAME = 6;
 const END_LINGER_SECONDS = 1.4;
 const KEY_SPEED_STORAGE = "hungry-grave/key-speed";
 
-// Snapped to two decimals so repeated 0.05 steps never show float dust.
+// Snapped to the step grid (and two decimals against float dust), so a
+// value stored under an older step size lands on the current grid.
 function clampKeySpeed(value: number): number {
-  const snapped = Math.round(value * 100) / 100;
+  const gridded = Math.round(value / T.KEY_SPEED_STEP) * T.KEY_SPEED_STEP;
+  const snapped = Math.round(gridded * 100) / 100;
   return Math.max(T.KEY_SPEED_MIN, Math.min(T.KEY_SPEED_MAX, snapped));
 }
 
