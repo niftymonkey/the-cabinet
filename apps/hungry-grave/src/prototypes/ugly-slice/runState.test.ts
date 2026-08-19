@@ -15,7 +15,9 @@ describe("parseSeedParam (entry 13: both URL forms pin the run)", () => {
   });
 
   it("prefers the hash query when both carry a seed", () => {
-    expect(parseSeedParam("#/prototypes/ugly-slice?seed=7", "?seed=99")).toBe(7);
+    expect(parseSeedParam("#/prototypes/ugly-slice?seed=7", "?seed=99")).toBe(
+      7,
+    );
   });
 
   it("returns null when no seed is pinned, so the run rolls fresh dice", () => {
