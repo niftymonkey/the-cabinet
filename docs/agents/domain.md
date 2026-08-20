@@ -24,7 +24,8 @@ If any of these files do not exist, **proceed silently**. Do not flag their abse
         ├── CONTEXT.md
         └── docs/
             ├── adr/                ← decisions scoped to this game
-            └── design/
+            ├── design/
+            └── research/           ← the reading behind the design docs
 ```
 
 ## Use the glossary's vocabulary
