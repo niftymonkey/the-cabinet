@@ -86,12 +86,25 @@ describe("LAYER_ORDER (ADR 0014)", () => {
   });
 });
 
+/**
+ * The stack container, reached the one way a caller can reach it. Nothing
+ * exposes the root, so a test that wants to see the draw order has to attach
+ * the stack exactly as GameScreen does.
+ */
+function attachedStack(layers: FieldLayers): Container {
+  const parent = new Container();
+  layers.addTo(parent);
+  // addTo adds exactly one child and the parent was made two lines above.
+  return parent.children[0]!;
+}
+
 describe("FieldLayers", () => {
   it("holds one container per name, in LAYER_ORDER order", () => {
     const layers = new FieldLayers();
-    expect(layers.root.children).toHaveLength(LAYER_ORDER.length);
+    const stack = attachedStack(layers);
+    expect(stack.children).toHaveLength(LAYER_ORDER.length);
     LAYER_ORDER.forEach((name, index) => {
-      expect(layers.root.children[index]).toBe(layers.layer(name));
+      expect(stack.children[index]).toBe(layers.layer(name));
     });
   });
 
@@ -100,27 +113,29 @@ describe("FieldLayers", () => {
     expect(layers.layer("mobFire")).toBe(layers.layer("mobFire"));
   });
 
-  it("is not a Container and offers no way to add a child outside a named layer", () => {
+  it("exposes no container a caller could add a child to outside a named layer", () => {
     // Extending Container would let a later renderer addChild straight onto the
     // stack, landing above mobFire, and no test on a fresh instance would see
     // it. Composition is what makes that unreachable.
     const layers = new FieldLayers();
     expect(layers).not.toBeInstanceOf(Container);
     expect("addChild" in layers).toBe(false);
+    expect("root" in layers).toBe(false);
   });
 
   it("empties every layer on clear and leaves the stack standing", () => {
     const layers = new FieldLayers();
+    const stack = attachedStack(layers);
     for (const name of LAYER_ORDER) {
       layers.layer(name).addChild(new Container());
     }
 
     layers.clear();
 
-    expect(layers.root.children).toHaveLength(LAYER_ORDER.length);
+    expect(stack.children).toHaveLength(LAYER_ORDER.length);
     for (const name of LAYER_ORDER) {
       expect(layers.layer(name).children).toHaveLength(0);
-      expect(layers.root.children).toContain(layers.layer(name));
+      expect(stack.children).toContain(layers.layer(name));
     }
   });
 });

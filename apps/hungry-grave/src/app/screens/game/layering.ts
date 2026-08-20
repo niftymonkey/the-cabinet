@@ -30,20 +30,30 @@ export type LayerName = (typeof LAYER_ORDER)[number];
  * what the ADR forbids, and no test on a fresh instance would ever see it.
  */
 export class FieldLayers {
-  /** Add this to the screen. Everything else reaches a layer by name. */
-  public readonly root: Container;
+  // A real private field rather than a TS one, so "there is no root to reach"
+  // is a fact at runtime and a test can assert it.
+  readonly #root: Container;
 
   private readonly layers: ReadonlyMap<LayerName, Container>;
 
   constructor() {
-    this.root = new Container();
+    this.#root = new Container();
     const layers = new Map<LayerName, Container>();
     for (const name of LAYER_ORDER) {
       const layer = new Container();
       layers.set(name, layer);
-      this.root.addChild(layer);
+      this.#root.addChild(layer);
     }
     this.layers = layers;
+  }
+
+  /**
+   * Puts the stack on the screen. The root stays private because a caller
+   * holding it could addChild straight onto it and land above mobFire, which
+   * is the one thing this class exists to make unreachable.
+   */
+  public addTo(parent: Container): void {
+    parent.addChild(this.#root);
   }
 
   /** The one way to reach a layer. */

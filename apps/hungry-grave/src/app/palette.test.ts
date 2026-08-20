@@ -4,7 +4,7 @@
  * `docs/research/readability-value-band.md` section 0.4 that it implements.
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -400,8 +400,24 @@ const FORBIDDEN = [
   { rule: "sets a blendMode", pattern: /\bblendMode\b/ },
 ];
 
+/**
+ * Every source file under a path, with tests left out. A test file draws
+ * nothing during a run, so a fixture hex inside one would fail this scan for a
+ * colour that never reaches the field. A missing path throws by name rather
+ * than as an ENOENT, because the quiet failure to guard against is a rename
+ * that leaves the scan covering less than its list claims.
+ */
 function typescriptFilesUnder(path: string): string[] {
-  if (!statSync(path).isDirectory()) return path.endsWith(".ts") ? [path] : [];
+  if (!existsSync(path)) {
+    throw new Error(
+      `scan path ${relative(APP, path)} does not exist: DRAWS_DURING_A_RUN is stale`,
+    );
+  }
+  if (!statSync(path).isDirectory()) {
+    return path.endsWith(".ts") && !/\.(test|spec)\.ts$/.test(path)
+      ? [path]
+      : [];
+  }
   return readdirSync(path).flatMap((name) =>
     typescriptFilesUnder(join(path, name)),
   );

@@ -82,7 +82,7 @@ export class GameScreen extends Container {
 
     this.field = new Container();
     this.layers = new FieldLayers();
-    this.field.addChild(this.layers.root);
+    this.layers.addTo(this.field);
     this.frame = boundaryReadout();
     this.layers.layer("ground").addChild(this.frame);
 
