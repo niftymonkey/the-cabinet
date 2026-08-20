@@ -102,7 +102,13 @@ export class Navigation {
     }
   }
 
-  /** Remove screen from the stage, unlink update & resize functions */
+  /**
+   * Remove screen from the stage, unlink update & resize functions, and return
+   * the instance to the pool showScreen takes from. Without that return the
+   * pool only ever takes its new branch, so every run leaves a whole screen's
+   * canvas-backed text textures behind. Pool.return calls reset() itself, so
+   * every screen's reset() has to stay idempotent.
+   */
   private async hideAndRemoveScreen(screen: AppScreen) {
     // Prevent interaction in the screen
     screen.interactiveChildren = false;
@@ -126,6 +132,9 @@ export class Navigation {
     if (screen.reset) {
       screen.reset();
     }
+
+    // Back to the pool, now that the screen is off the stage
+    BigPool.return(screen);
   }
 
   /**
@@ -188,7 +197,8 @@ export class Navigation {
       await this.hideAndRemoveScreen(this.currentPopup);
     }
 
-    this.currentPopup = new ctor();
+    // From the pool, because hideAndRemoveScreen returns popups to it too
+    this.currentPopup = BigPool.get(ctor);
     await this.addAndShowScreen(this.currentPopup);
   }
 

@@ -5,7 +5,7 @@ import { PROTOTYPES, prototypeHash } from "../prototypes";
 import { PROTOTYPES_HASH, resolveRoute } from "./routes";
 
 describe("resolveRoute", () => {
-  it("the default route is the game (ADR 0010: the URL boots into the game)", () => {
+  it("the default hash routes to the game app, not to the prototypes", () => {
     for (const hash of ["", "#", "#/", "#?seed=7", "#/anything-else"]) {
       expect(resolveRoute(hash).kind).toBe("game");
     }
@@ -14,6 +14,19 @@ describe("resolveRoute", () => {
   it("the prototype list keeps #/prototypes", () => {
     expect(resolveRoute(PROTOTYPES_HASH).kind).toBe("prototype-list");
     expect(resolveRoute(`${PROTOTYPES_HASH}/`).kind).toBe("prototype-list");
+    expect(resolveRoute(`${PROTOTYPES_HASH}?seed=7`).kind).toBe(
+      "prototype-list",
+    );
+  });
+
+  it("a hash that only starts the same, #/prototypes-old, is the game", () => {
+    for (const hash of [
+      `${PROTOTYPES_HASH}-old`,
+      `${PROTOTYPES_HASH}x`,
+      `${PROTOTYPES_HASH}-old/ugly-slice`,
+    ]) {
+      expect(resolveRoute(hash).kind).toBe("game");
+    }
   });
 
   it("an unknown prototype id falls back to the list, never the game", () => {

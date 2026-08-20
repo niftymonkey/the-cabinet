@@ -15,10 +15,6 @@ const DIM = 0x76839a;
 
 const STILL: MoveCommand = { x: 0, y: 0 };
 
-function rollSeed(): number {
-  return Math.floor(Math.random() * 0x7fffffff);
-}
-
 /**
  * The screen a run plays on. Render only: it owns this run's state and shows
  * it, and holds no game rules. The rules live in src/game and reach the screen
@@ -53,7 +49,7 @@ export class GameScreen extends Container {
 
   public prepare() {
     this.ending = false;
-    this.run = createRun(rollSeed());
+    this.run = createRun();
     this.seedLabel.text = `SEED ${this.run.seed}`;
     this.tickLabel.text = `TICK ${this.run.tick}`;
     this.releaseKeys = bindKeyPress("Escape", () => this.endRun());
@@ -65,6 +61,13 @@ export class GameScreen extends Container {
     this.run = null;
   }
 
+  /**
+   * One sim tick per rendered frame, which is a placeholder and not the
+   * design: a 144 Hz display would run the sim 2.4 times as fast as a 60 Hz
+   * one, and the same seed would stop being the same game (ADR 0015). The
+   * fixed timestep and its catch-up clamp belong to src/game/clock.ts, which
+   * takes this call over in the sim-core dispatch.
+   */
   public update() {
     if (this.ending || !this.run) return;
     step(this.run, STILL);
@@ -84,6 +87,11 @@ export class GameScreen extends Container {
     runHandoff.record(summarizeRun(this.run));
     engine()
       .navigation.showScreen(EndScreen)
-      .catch((error) => console.error(error));
+      .catch((error) => {
+        // A failed navigation releases the guard: left up it deafens every
+        // retry and holds the ticker's work stopped for the rest of the run.
+        this.ending = false;
+        console.error(error);
+      });
   }
 }

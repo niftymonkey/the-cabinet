@@ -81,6 +81,11 @@ export class TitleScreen extends Container {
     this.rising = true;
     engine()
       .navigation.showScreen(GameScreen)
-      .catch((error) => console.error(error));
+      .catch((error) => {
+        // A failed navigation releases the guard, or the way in is dead for
+        // the rest of the session.
+        this.rising = false;
+        console.error(error);
+      });
   }
 }

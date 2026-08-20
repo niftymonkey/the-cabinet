@@ -63,8 +63,12 @@ class StorageWrapper {
 
   /** Get a boolean value from storage or undefined if value can't be converted */
   public getBool(key: string) {
-    const bool = readRaw(key);
-    return bool ? Boolean(bool.toLowerCase()) : undefined;
+    // Parsed rather than coerced: Boolean("false") is true, so a coerced read
+    // never round-trips a stored false and never reports an unusable value.
+    const raw = readRaw(key)?.toLowerCase();
+    if (raw === "true") return true;
+    if (raw === "false") return false;
+    return undefined;
   }
 
   /** Set a boolean value to storage */

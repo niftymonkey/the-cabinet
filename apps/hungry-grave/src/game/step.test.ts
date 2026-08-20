@@ -18,6 +18,20 @@ describe("the sim seam", () => {
     expect(run.tick).toBe(0);
   });
 
+  it("a pinned seed is kept whatever its value, zero included (ADR 0012)", () => {
+    expect(createRun(0).seed).toBe(0);
+    expect(createRun(2147483646).seed).toBe(2147483646);
+  });
+
+  it("no seed rolls a fresh one, in range (ADR 0012)", () => {
+    for (let i = 0; i < 200; i++) {
+      const { seed } = createRun();
+      expect(Number.isInteger(seed)).toBe(true);
+      expect(seed).toBeGreaterThanOrEqual(0);
+      expect(seed).toBeLessThan(2147483647);
+    }
+  });
+
   it("a step advances exactly one tick", () => {
     const run = createRun(7);
     step(run, STILL);
@@ -41,9 +55,7 @@ describe("the sim seam", () => {
   });
 
   // Owed by the sim-core dispatch (tracer plan section 5).
-  it.todo(
-    "no seed rolls fresh dice and ?seed= pins in both URL forms (ADR 0012)",
-  );
+  it.todo("?seed= pins the run in both URL forms (ADR 0012)");
   it.todo("the accumulator emits whole ticks only and catch-up is clamped");
   it.todo(
     "the sim calls no raw Math transcendental and no Math.random (ADR 0015)",

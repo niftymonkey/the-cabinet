@@ -24,6 +24,9 @@ interface Boundary {
 const BOUNDARIES: Boundary[] = [
   { root: "game", mayReach: ["game"], mayImport: [] },
   { root: "input", mayReach: ["input", "game"], mayImport: [] },
+  // The headless bot is the full-run test's player and the dev-only autopilot
+  // both (ADR 0013), so src/app consumes it while it stays headless itself.
+  { root: "dev", mayReach: ["dev", "game"], mayImport: [] },
 ];
 
 // Packages any test file may import, whatever side of a boundary it is on.

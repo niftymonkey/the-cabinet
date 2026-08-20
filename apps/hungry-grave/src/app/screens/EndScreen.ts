@@ -71,6 +71,11 @@ export class EndScreen extends Container {
     this.rising = true;
     engine()
       .navigation.showScreen(GameScreen)
-      .catch((error) => console.error(error));
+      .catch((error) => {
+        // A failed navigation releases the guard, or RISE AGAIN never fires
+        // again and the run cannot be left.
+        this.rising = false;
+        console.error(error);
+      });
   }
 }

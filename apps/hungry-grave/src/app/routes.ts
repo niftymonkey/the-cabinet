@@ -19,12 +19,24 @@ export type Route =
   | { kind: "prototype"; entry: PrototypeEntry };
 
 /**
- * The default route is the game (Hungry Grave ADR 0010): the deployed URL
- * boots straight into it, and the prototypes live behind #/prototypes.
+ * True for the prototype list's own hash and for anything below it, and false
+ * for a lookalike such as #/prototypes-old. A prefix test alone hands every
+ * lookalike to the sandbox, so the match ends on a route boundary: the hash
+ * itself, or the hash followed by a path or a query.
+ */
+function isPrototypeListHash(hash: string): boolean {
+  if (!hash.startsWith(PROTOTYPES_HASH)) return false;
+  const rest = hash.slice(PROTOTYPES_HASH.length);
+  return rest === "" || rest.startsWith("/") || rest.startsWith("?");
+}
+
+/**
+ * The default route is the game app rather than the prototype sandbox: the
+ * prototypes live behind their own hash, and every other hash is the game's.
  */
 export function resolveRoute(hash: string): Route {
   const entry = prototypeFromHash(hash);
   if (entry) return { kind: "prototype", entry };
-  if (hash.startsWith(PROTOTYPES_HASH)) return { kind: "prototype-list" };
+  if (isPrototypeListHash(hash)) return { kind: "prototype-list" };
   return { kind: "game" };
 }

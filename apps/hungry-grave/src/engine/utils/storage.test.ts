@@ -57,12 +57,20 @@ describe("the storage wrapper with a working browser", () => {
   it("round-trips every value kind", () => {
     storage.setString("s", "hello");
     storage.setNumber("n", 0.5);
-    storage.setBool("b", true);
+    storage.setBool("on", true);
+    storage.setBool("off", false);
     storage.setObject("o", { seed: 7 });
     expect(storage.getString("s")).toBe("hello");
     expect(storage.getNumber("n")).toBe(0.5);
-    expect(storage.getBool("b")).toBe(true);
+    expect(storage.getBool("on")).toBe(true);
+    expect(storage.getBool("off")).toBe(false);
     expect(storage.getObject("o")).toEqual({ seed: 7 });
+  });
+
+  it("a stored value that is neither true nor false reads as undefined", () => {
+    storage.setString("b", "yes");
+    expect(storage.getBool("b")).toBeUndefined();
+    expect(storage.getBool("never-written")).toBeUndefined();
   });
 
   it("a missing number reads as null, not NaN", () => {
