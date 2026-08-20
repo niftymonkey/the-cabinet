@@ -5,11 +5,9 @@ import type { Container as ContainerType } from "pixi.js";
 import { Container } from "pixi.js";
 
 import { prototypeHash, PROTOTYPES } from "../../prototypes";
+import { MENU } from "../palette";
 import { Button } from "../ui/Button";
 import { Label } from "../ui/Label";
-
-const INK = 0xdde3ea;
-const DIM = 0x6b7686;
 
 export class PrototypesScreen extends Container {
   /** Assets bundles required by this screen */
@@ -25,11 +23,11 @@ export class PrototypesScreen extends Container {
 
     this.title = new Label({
       text: "PROTOTYPES",
-      style: { fill: INK, fontSize: 44, letterSpacing: 8 },
+      style: { fill: MENU.menuInk.hex, fontSize: 44, letterSpacing: 8 },
     });
     this.tagline = new Label({
       text: "Throwaway builds that answer design questions. Play, learn, discard.",
-      style: { fill: DIM, fontSize: 16 },
+      style: { fill: MENU.menuDim.hex, fontSize: 16 },
     });
     this.rows = PROTOTYPES.map((entry) => {
       const button = new Button({
@@ -44,14 +42,14 @@ export class PrototypesScreen extends Container {
       });
       const blurb = new Label({
         text: entry.blurb,
-        style: { fill: DIM, fontSize: 14 },
+        style: { fill: MENU.menuDim.hex, fontSize: 14 },
       });
       return { button, blurb };
     });
     if (PROTOTYPES.length === 0) {
       this.empty = new Label({
         text: "No prototypes right now. The scaffold waits, blank on purpose.",
-        style: { fill: DIM, fontSize: 16 },
+        style: { fill: MENU.menuDim.hex, fontSize: 16 },
       });
       this.addChild(this.empty);
     }

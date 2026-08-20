@@ -1,14 +1,12 @@
 import { Container } from "pixi.js";
 
 import { engine } from "../getEngine";
+import { MENU } from "../palette";
 import { runHandoff } from "../runHandoff";
 import { Button } from "../ui/Button";
 import { Label } from "../ui/Label";
 import { bindKeyPress } from "../utils/bindKeyPress";
 import { GameScreen } from "./game/GameScreen";
-
-const INK = 0xe8edf2;
-const DIM = 0x76839a;
 
 /**
  * The screen a run ends on. Render only: it reports the run the game screen
@@ -30,10 +28,14 @@ export class EndScreen extends Container {
 
     this.title = new Label({
       text: "THE RUN IS OVER",
-      style: { fill: INK, fontSize: 36, letterSpacing: 4 },
+      style: { fill: MENU.menuInk.hex, fontSize: 36, letterSpacing: 4 },
     });
-    this.seedLabel = new Label({ style: { fill: DIM, fontSize: 18 } });
-    this.tickLabel = new Label({ style: { fill: INK, fontSize: 30 } });
+    this.seedLabel = new Label({
+      style: { fill: MENU.menuDim.hex, fontSize: 18 },
+    });
+    this.tickLabel = new Label({
+      style: { fill: MENU.menuInk.hex, fontSize: 30 },
+    });
     this.againButton = new Button({
       text: "RISE AGAIN",
       width: 300,

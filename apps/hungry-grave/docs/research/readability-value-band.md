@@ -44,7 +44,7 @@ Every mob-fire sprite declares a **core**, a **body** and an **outline**:
 
 The band alone is not the rule. A sprite that carries light-against-dark **internally** reads against a background the palette never planned for, which is why this construction and not a flat bright bullet. *(Justified in [2.3](#23-the-construction-that-actually-makes-a-bullet-win-internal-contrast); Enter the Gungeon ships a core at roughly luma 90 with a near-black outer ring.)*
 
-### 0.4 The ten assertions
+### 0.4 The eleven assertions
 
 1. **Declared luma matches the hex**, within 0.05.
 2. **Presence.** Every `mobFireCore` has `luma >= MOB_FIRE_BAND_MIN`.
@@ -56,6 +56,9 @@ The band alone is not the rule. A sprite that carries light-against-dark **inter
 8. **Visible against the sky.** Every core clears APCA Lc 45 against every background colour.
 9. **Internal contrast.** Core-to-outline luma span at least 20.
 10. **Hue exclusivity** between mob fire, effects, and pickups.
+11. **The field's boundary is visible.** The boundary readout clears APCA Lc 30 against the ground it is drawn on, at a stroke wide enough for APCA to grant that level.
+
+Assertion 11 was added on 2026-08-20 by the render-structure gate. The first ten give mob fire a floor and everything else a ceiling, and ask of nothing else that it be visible at all, which is how a boundary at APCA Lc 0.00 passed three gates unseen. Its reasoning is in 7.6.
 
 *(Each spelled out with its rationale in [1.6](#16-what-the-unit-test-should-assert). The CVD weights are in [5.3](#53-how-the-band-moves-for-a-colourblind-player); the APCA implementation is in [3.3](#33-the-apca-constants-and-why-it-is-the-right-model-on-a-near-black-field).)*
 
@@ -651,7 +654,7 @@ Every number below was produced by the same arithmetic as the rest of this docum
 
 **One shared core, one shared outline.** Solving each body's own hue for a near-white at luma 90 produced `#ffdfdc`, `#ffdfdb`, `#ffdfdb` and `#ffe0d1`, which are the same colour four times over, so four cores would have been four names for one value. The core carries the value guarantee and the body carries the hue, exactly as section 0.3 splits them, so one core and one outline serve all four emitters. The core is `#ffece6`, the section 5.3 candidate measured at a 1.0-point protanopic shift. The outline is `#1a0906`, the fire family's own hue at HSV value 0.10.
 
-**The colours above the ceiling come down by proportional RGB scaling.** Hue and saturation are held and only value moves, so nothing changes identity on the way down. Each was scaled until its luma reached the target, and the default target is 67.5 rather than 68.0 so that rounding to a byte cannot push an entry over the line.
+**The colours above the ceiling come down by proportional RGB scaling.** Hue and saturation are held and only value moves, so nothing changes identity on the way down. Each was scaled until its luma reached the target, and the default target is 67.5 rather than 68.0 so that rounding to a byte cannot push an entry over the line. The same arithmetic raises a colour, and one entry took that direction: `fieldFrame` went up on 2026-08-20 under assertion 11, on its own ray, with its hue and saturation held exactly as they are on the way down. The 67.5 target does not apply to a raise, because a raise is bounded by whatever check binds it first, and for `fieldFrame` that is assertion 8 rather than the ceiling.
 
 **`dropCore` is replaced rather than scaled**, because scaling a brown gives a darker brown. Its replacement `#141a26` is the palette's own night-navy family (hue 220), which is where every other near-black in the palette already sits.
 
@@ -667,6 +670,8 @@ Scaling everything to one ceiling collapses colours the old palette separated, s
 
 The two reversions cost two entries in the exception table of 7.4, and an exception carrying a written reason is a cheaper thing to own than a value nobody can trace.
 
+**`fieldFrame` adds a judgement of a different kind, and it is a bracket rather than a value.** Its hex is arithmetic once the bracket is chosen, but choosing the bracket is not. APCA grades non-text by the element's smallest dimension, and a boundary stroke is a long thin thing that the grading has no term for: it gives Lc 15 to non-semantic shapes no thinner than 5 rendered pixels, Lc 30 to solid semantic ones no thinner than 5.5, and Lc 45 to fine detail. The boundary was placed in the Lc 30 bracket and the stroke widened to reach its size floor, rather than left at 2 units in the fine-detail bracket where no colour under the ceiling can reach Lc 45 against `night` at all. The judgement is that a playfield edge is semantic, which rules out Lc 15, and solid rather than fine detail once it is wide enough to be. Both halves are written into the test, so a later thinning of the stroke fails rather than passing quietly at a colour chosen for a width it no longer has.
+
 ### 7.3 The pinned table
 
 Names are the ratified vocabulary from `CONTEXT.md`. The old prototype names appear only in the "was" column, as history: `enemy`, `enemyShot`, `enemyTear`, `enemyClod`, `enemySpiral`, `belchFlash`, `waste` and `hitFlash` are all banned or retired terms and none of them is a key here.
@@ -679,7 +684,7 @@ Names are the ratified vocabulary from `CONTEXT.md`. The old prototype names app
 | --- | --- | --- | --- | --- |
 | `night` | `#0e1119` | 6.64 | `night`, unchanged | |
 | `nightSpeckle` | `#1d2434` | 13.99 | `nightSpeckle`, unchanged | |
-| `fieldFrame` | `#2a3348` | 19.84 | `fieldFrame`, unchanged | |
+| `fieldFrame` | `#677db0` | 48.63 | `fieldFrame` `#2a3348` 19.84 | raised |
 
 **the grave**
 
@@ -763,15 +768,20 @@ Names are the ratified vocabulary from `CONTEXT.md`. The old prototype names app
 | 0.4 assertion 4, margin | >= 20 | 20 |
 | 0.4 assertion 6, protanope | core still clears every non-core | 93.1 against 72.5, a 20.6 gap |
 | 0.4 assertion 6, deuteranope | core still clears every non-core | 94.5 against 70.4, a 24.1 gap |
-| 0.4 assertion 8, APCA vs sky | core Lc 45 or better on all four backgrounds | 92.0 worst, against `fieldFrame` |
+| 0.4 assertion 8, APCA vs sky | core Lc 45 or better on all four backgrounds | 63.5 worst, against `fieldFrame` |
 | 0.4 assertion 9, internal contrast | core to outline span >= 20 | 89.10 |
 | 0.4 assertion 10, restated below | fire's hue family closed to everything else | 22.2 degrees, `graveGlow` against `fireSpiral` |
 | the standing brown ban, not an assertion in 0.4 | no hue 20 to 50 with saturation >= 0.5 and value < 0.55 | none; closest is `drop` at value 0.85 |
 | sprite separation, new here | no two field sprites within 2.0 luma, 15 degrees and 0.25 saturation | three named exceptions, below |
+| 0.4 assertion 11, the boundary | boundary Lc 30 or better against the ground it sits on | 33.1, and it was 0.00 |
+| 0.4 assertion 11, the stroke | wide enough for APCA's 5.5-pixel floor at the phone viewport | 5.78 CSS pixels at 8 field units |
+| the boundary against fire, new here | no mob-fire body within 2.0 luma of the boundary | 2.36, `fireClod` |
 
 APCA output is **signed**: light on dark returns a negative Lc, so the core against `night` measures -97.4 and the requirement is on its magnitude. Section 3.3's table is written unsigned while its own prose says the output is signed, which is a trap for anyone pinning a test against it.
 
 Assertion 6 is stated as a **separation** rather than as the 88 and 68 thresholds re-applied, because the colour-vision estimate is on its own scale (section 5.3) and the two scales agree only on neutral greys. What the band is for survives the restatement unchanged: under every observer, the core still sits clear of everything else. Its protan headroom is 0.6 points, held by `mob` at 72.5, so this is the first check the Halloween art pass will redden when it recolours mobs. That is the check doing its job, not a defect in it.
+
+**Assertion 8's headroom moved on 2026-08-20 and its binding background changed.** Raising `fieldFrame` to satisfy assertion 11 cut the worst core-against-background figure from 92.0 to 63.5, so the margin over the Lc 45 floor fell from 47 points to 18.5. `fieldFrame` was already the worst of the four backgrounds and still is, and it is now the only one anywhere near the floor: the other three are near-black and sit above Lc 90. Any further raise of the boundary spends that margin directly, which is what caps `fieldFrame` at about luma 62 well below the 68 ceiling. The ceiling is not the constraint on this entry; assertion 8 is.
 
 **Assertion 10 is a tripwire here, not the rule.** Its 20-degree floor was fitted 2.2 degrees below the tightest gap in the palette it checks, so a passing result means no **new** colour has walked into fire's family. It does not certify the current gap as comfortable, and the wider rule it stands in for, Cave's three-way separation of fire, effects and pickups, is not asserted anywhere in this build. See 7.5. It should be read and named as the tripwire it is.
 
@@ -786,6 +796,8 @@ Assertion 6 is stated as a **separation** rather than as the 88 and 68 threshold
 ### 7.5 What is deliberately not fixed here, and what #38 inherits
 
 **Cave's three-way hue separation is not asserted.** Tanaka separates fire, effects and pickups into three mutually exclusive hue channels (section 1.3), and this palette does not: `belchEruption` at hue 46.5 sits in the same cream family as `corpse` and `feast`, and `graveGlow` at 41.3 shares its hex with `drop`. Separating them means rebuilding the warm half of the palette around three channels rather than one, which is the Halloween art pass. Fire against everything else, the separation with the actual evidence behind it, **is** asserted.
+
+**The boundary now sits 2.4 luma from `fireClod`, and it is the third-brightest thing that is not a sprite.** `fieldFrame` at 48.63 clears `fireClod`'s body at 46.27 by 2.36 and `hudDim` at 50.94 by 2.31, which is the widest window assertion 11 leaves between a fire body below it and a readout above it. Both gaps are above the 2.0-luma sprite-separation threshold and neither is comfortable. Fire crosses the boundary every time a bullet reaches an edge, and the art pass moves fire bodies, so this is the second check after assertion 6's protan headroom that #38 will redden. It also means the boundary can no longer be treated as scenery: it is a readout inside the value budget, and anything the art pass wants to put between 46 and 51 has to be placed around it.
 
 **Above luma 60 the value budget is spent.** `bellRing` 67.41, `feast` 67.39, `belchEruption` 67.35, `banshee` 67.32, `drop` 67.25, `graveGlow` 67.25 and `hudInk` 67.23 all sit inside two tenths of a luma point of each other. Every remaining distinction in the top of the range has to come from hue, silhouette or motion. The art pass needs that as a starting constraint rather than as a discovery.
 
@@ -802,3 +814,17 @@ Assertion 6 is stated as a **separation** rather than as the 88 and 68 threshold
 **At the size floor there is no shrink, so the dim is the only field-side announcement.** ADR 0003's ladder bleeds score and then weapon levels instead of size, and the same dim currently says both "you took a hit" and "you just lost the wisps". The most consequential non-death event in the game has no tell of its own, and it fires exactly when the player is in the spiral the comeback design exists to rescue. That is the sim-core dispatch's problem, but this pass is where a colour for it would have been reserved and none was.
 
 **No colour here has been seen on a screen.** Everything above is arithmetic. The grayscale differential of section 0.5 runs at the weapon-lines dispatch and again at tuning, and the feel call stays Mark's after he plays it.
+
+### 7.6 Assertion 11, and why the boundary needed one
+
+The render-structure gate on 2026-08-20 measured `apcaLc(fieldFrame, night)` at exactly 0.00, under APCA's own `LO_CLIP`, and WCAG contrast at 1.497:1. The engine's background is `night` and the field draws no ground fill, so inside the field and outside it are the same pixels and the stroke is the entire visual statement of where the world ends. That edge is the bound on the grave's movement, so it is required to understand the content rather than decorative.
+
+**WCAG 2.2 SC 1.4.11 is in scope, under Graphical Objects, and it is the floor rather than the rule here.** [Understanding SC 1.4.11](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html) requires 3:1 for "parts of graphics required to understand the content", treats it as a threshold and not a rounding target, and its Essential exception enumerates logos, flags, photographs, screenshots, medical diagrams and heat maps while stating that low contrast chosen by an author "is not 'essential'". The listed sufficient technique is on the nose: [G209](https://www.w3.org/WAI/WCAG22/Techniques/general/G209) says that where adjoining colours are under 3:1, add a border with at least 3:1 against **each** of them, which is exactly this construction with `night` on both sides. Section 4.5 already settled that a contrast ratio is the wrong instrument on a near-black field, so 3:1 is recorded as the conformance floor and APCA carries the rule.
+
+**Understanding 1.4.11 also says, in its own words, that a thin line needs more than the threshold.** "Due to anti-aliasing, particularly thin lines and shapes of non-text elements may be rendered by user agents with a much fainter color than the actual color defined in the underlying CSS. In these cases, best practice would be for authors to avoid particularly thin lines and shapes, or to use a combination of colors that exceeds the normative requirements of this success criterion." Note the order: widen first, brighten second. That is why the stroke moved from 2 field units to 8 before the colour was chosen, and it is not hypothetical here, because the field is scaled by a non-integer factor so the stroke lands on fractional pixels. At the recommended colour, partial coverage measures Lc 48 at full, 41 at 90 percent, 31 at 75 and 22 at 60. Colour cannot fix that and width can.
+
+**APCA's brackets, from [APCA in a Nutshell](https://git.apcacontrast.com/documentation/APCA_in_a_Nutshell), are what set the number.** Lc 15 is "the absolute minimum for any non-semantic non-text that needs to be discernible, and is no less than 5px (solid) in its smallest dimension", with the instruction that "designers should treat anything below this level as invisible". Lc 30 is for "large/solid semantic and understandable non-text elements, generally no less than 5.5px solid". Lc 45 is "the minimum for pictograms with fine details, or smaller outline icons". The boundary is semantic, which rules out the first, and at 8 field units it clears the second's size floor at 5.78 CSS pixels on a 390-wide phone, where a 2-unit stroke rendered 1.44. Lc 30 is the honest bracket, and the value chosen clears it at 33.1.
+
+**What the shipped record says, including where it says nothing.** The genre default is that there is no drawn edge at all. [Boghog's shmup 101](https://shmups.wiki/library/Boghog%27s_bullet_hell_shmup_101) says only that "the play area can either be contained by the screen, or it can be wider thanks to horizontal panning", and treats the edge as a gameplay concern rather than a drawn one. Molinari's [Anatomy of a Shmup](https://www.gamedeveloper.com/design/the-anatomy-of-a-shmup) does not mention playfield boundaries at all, and that negative result is recorded rather than filled in. The one layout sourced in primary detail is Touhou's, from nmlgc's [ReC98 decompilation](https://rec98.nmlgc.net/blog/2023-06-30): the playfield ends at x 448 "where the HUD begins" and "the playfield borders come in, and helpfully cover 16 pixels at the top and 16 pixels at the bottom", which is an opaque region and a HUD panel rather than a stroke, exists for a VRAM-masking reason rather than a readability one, and is PC-98 specific. **No developer is on record prescribing anything about the appearance of a playfield boundary**, and this document has retired two folklore claims already, so nothing further is asserted.
+
+**What that licenses is the opposite of a bright frame, and it is the cheaper fix this palette cannot yet take.** The shipped record supports bounding the play area by the screen, or by a surround of different material. Hungry Grave has neither: the field is letterboxed into an arbitrary viewport so the screen edge is not the play boundary, and the ground is unfilled so there is no material difference. G209's other branch, and Understanding 1.4.11's own Boundaries logic that a boundary needs contrast only "when there is no other visual way to identify the presence of the control", both say that a ground fill distinct from the surround releases the stroke entirely. **If #38 gives the field its own ground, `fieldFrame` should be revisited and lowered rather than kept**, because a bright line spending value budget for a job structure has taken over is exactly the kind of value nobody can trace that 7.2 exists to prevent.

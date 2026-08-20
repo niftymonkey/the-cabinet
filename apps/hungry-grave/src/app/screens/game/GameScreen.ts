@@ -1,19 +1,42 @@
-import { Container } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
 
 import type { MoveCommand, RunState } from "../../../game/run";
 import { createRun } from "../../../game/run";
 import { step } from "../../../game/step";
 import { engine } from "../../getEngine";
+import type { FieldPlacement } from "../../layout";
+import {
+  BOUNDARY_STROKE,
+  DEGENERATE_PLACEMENT,
+  FIELD_HEIGHT,
+  FIELD_WIDTH,
+  fitField,
+} from "../../layout";
+import { PALETTE } from "../../palette";
 import { runHandoff, summarizeRun } from "../../runHandoff";
 import { Button } from "../../ui/Button";
 import { Label } from "../../ui/Label";
 import { bindKeyPress } from "../../utils/bindKeyPress";
 import { EndScreen } from "../EndScreen";
-
-const INK = 0xe8edf2;
-const DIM = 0x76839a;
+import { FieldLayers } from "./layering";
 
 const STILL: MoveCommand = { x: 0, y: 0 };
+
+/**
+ * The playfield's boundary readout. The engine's background and the field's
+ * ground are both night, so this outline is the only visible edge of the field,
+ * and that edge is the bound on the grave's movement. That makes it a readout
+ * and not scenery, which is why it carries a contrast floor of its own and a
+ * width the floor depends on. It strokes inward so the whole of it stays inside
+ * the field's own 540 by 760.
+ */
+function boundaryReadout(): Graphics {
+  return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).stroke({
+    width: BOUNDARY_STROKE,
+    color: PALETTE.fieldFrame.hex,
+    alignment: 1,
+  });
+}
 
 /**
  * The screen a run plays on. Render only: it owns this run's state and shows
@@ -24,9 +47,32 @@ export class GameScreen extends Container {
   // Assets bundles required by this screen
   public static assetBundles = ["main"];
 
+  /**
+   * The field, carrying exactly the placement fitField returns and nothing
+   * else. Screen shake, if it is ever added, goes on a child of this container:
+   * screenToField recomputes the placement in parallel with this transform, and
+   * the two agree only while this transform is the placement alone. Shake
+   * applied here would break touch input silently, with every test still green.
+   */
+  private readonly field: Container;
+  private readonly layers: FieldLayers;
+
+  /**
+   * The boundary readout, held rather than rebuilt. reset() empties the layers,
+   * so the frame has to be put back, and putting back this instance keeps a
+   * pooled screen from allocating a new Graphics on every run.
+   */
+  private readonly frame: Graphics;
   private readonly seedLabel: Label;
   private readonly tickLabel: Label;
   private readonly endButton: Button;
+  /**
+   * The live placement, held rather than recomputed. A pointer handler converts
+   * an event through screenToField with this exact value: calling fitField a
+   * second time at event time computes the placement in parallel, and the two
+   * agree only until something moves one of them.
+   */
+  private placement: FieldPlacement = DEGENERATE_PLACEMENT;
   private run: RunState | null = null;
   private releaseKeys: (() => void) | null = null;
   private ending = false;
@@ -34,8 +80,19 @@ export class GameScreen extends Container {
   constructor() {
     super();
 
-    this.seedLabel = new Label({ style: { fill: DIM, fontSize: 18 } });
-    this.tickLabel = new Label({ style: { fill: INK, fontSize: 52 } });
+    this.field = new Container();
+    this.layers = new FieldLayers();
+    this.layers.addTo(this.field);
+    this.frame = boundaryReadout();
+    this.layers.layer("ground").addChild(this.frame);
+
+    // Inside ADR 0014's ceiling, because these draw over play.
+    this.seedLabel = new Label({
+      style: { fill: PALETTE.hudDim.hex, fontSize: 18 },
+    });
+    this.tickLabel = new Label({
+      style: { fill: PALETTE.hudInk.hex, fontSize: 52 },
+    });
     this.endButton = new Button({
       text: "END RUN",
       width: 240,
@@ -44,7 +101,7 @@ export class GameScreen extends Container {
     });
     this.endButton.onPress.connect(() => this.endRun());
 
-    this.addChild(this.seedLabel, this.tickLabel, this.endButton);
+    this.addChild(this.field, this.seedLabel, this.tickLabel, this.endButton);
   }
 
   public prepare() {
@@ -59,6 +116,8 @@ export class GameScreen extends Container {
     this.releaseKeys?.();
     this.releaseKeys = null;
     this.run = null;
+    this.layers.clear();
+    this.layers.layer("ground").addChild(this.frame);
   }
 
   /**
@@ -75,10 +134,24 @@ export class GameScreen extends Container {
   }
 
   public resize(width: number, height: number) {
-    const cx = width / 2;
-    this.seedLabel.position.set(cx, height * 0.22);
-    this.tickLabel.position.set(cx, height * 0.46);
-    this.endButton.position.set(cx, height * 0.78);
+    this.placement = fitField(width, height);
+    this.field.position.set(this.placement.offsetX, this.placement.offsetY);
+    this.field.scale.set(this.placement.scale);
+    this.placeReadouts(this.placement);
+  }
+
+  /**
+   * The readouts stay in screen space, positioned against the fitted field's
+   * rectangle rather than scaled with it, so the text holds its size on a phone
+   * where the field scales down.
+   */
+  private placeReadouts(placement: FieldPlacement) {
+    const width = FIELD_WIDTH * placement.scale;
+    const height = FIELD_HEIGHT * placement.scale;
+    const cx = placement.offsetX + width / 2;
+    this.seedLabel.position.set(cx, placement.offsetY + height * 0.22);
+    this.tickLabel.position.set(cx, placement.offsetY + height * 0.46);
+    this.endButton.position.set(cx, placement.offsetY + height * 0.78);
   }
 
   private endRun() {

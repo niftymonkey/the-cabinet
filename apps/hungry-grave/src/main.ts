@@ -1,5 +1,7 @@
 import { FpsMeter } from "./app/FpsMeter";
 import { setEngine } from "./app/getEngine";
+import { FIELD_HEIGHT, FIELD_WIDTH } from "./app/layout";
+import { PALETTE } from "./app/palette";
 import { resolveRoute } from "./app/routes";
 import { LoadScreen } from "./app/screens/LoadScreen";
 import { PrototypesScreen } from "./app/screens/PrototypesScreen";
@@ -16,9 +18,15 @@ async function initEngine(): Promise<CreationEngine> {
   const engine = new CreationEngine();
   setEngine(engine);
   await engine.init({
-    background: "#0e1119",
-    // 540x760 is the sim's field in units, never device pixels (ADR 0003).
-    resizeOptions: { minWidth: 540, minHeight: 760, letterbox: false },
+    background: PALETTE.night.hex,
+    // The stage's floor is the field's own unit space, never device pixels
+    // (ADR 0003). The two were the same numbers written twice, and nothing
+    // noticed if one of them moved.
+    resizeOptions: {
+      minWidth: FIELD_WIDTH,
+      minHeight: FIELD_HEIGHT,
+      letterbox: false,
+    },
   });
   return engine;
 }

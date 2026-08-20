@@ -1,14 +1,12 @@
 import { Container } from "pixi.js";
 
 import { engine } from "../getEngine";
+import { MENU } from "../palette";
 import { PROTOTYPES_HASH } from "../routes";
 import { Button } from "../ui/Button";
 import { Label } from "../ui/Label";
 import { bindKeyPress } from "../utils/bindKeyPress";
 import { GameScreen } from "./game/GameScreen";
-
-const INK = 0xe8edf2;
-const DIM = 0x76839a;
 
 /**
  * The game's front door. Render only: it names the game and offers the way in.
@@ -31,11 +29,11 @@ export class TitleScreen extends Container {
 
     this.title = new Label({
       text: "THE HUNGRY GRAVE",
-      style: { fill: INK, fontSize: 44, letterSpacing: 6 },
+      style: { fill: MENU.menuInk.hex, fontSize: 44, letterSpacing: 6 },
     });
     this.tagline = new Label({
       text: "Swallow the dead. Feed the grave.",
-      style: { fill: DIM, fontSize: 16 },
+      style: { fill: MENU.menuDim.hex, fontSize: 16 },
     });
     this.riseButton = new Button({ text: "RISE", width: 300, height: 100 });
     this.riseButton.onPress.connect(() => this.rise());
