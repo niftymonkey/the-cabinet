@@ -5,8 +5,13 @@
 
 import type { Container } from "pixi.js";
 
+/** Pooled like any screen, so a prototype clears its own state too. */
+interface PrototypeScreen extends Container {
+  reset(): void;
+}
+
 interface PrototypeScreenConstructor {
-  new (): Container;
+  new (): PrototypeScreen;
   assetBundles?: string[];
 }
 

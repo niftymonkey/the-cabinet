@@ -47,7 +47,7 @@ export class EndScreen extends Container {
     });
     this.backButton.onPress.connect(() => {
       // The router in main.ts observes the hash and shows the list.
-      window.location.hash = "";
+      window.location.hash = "#/prototypes";
     });
     this.addChild(
       this.title,
@@ -97,5 +97,11 @@ export class EndScreen extends Container {
 
   public async hide() {
     window.removeEventListener("keydown", this.onKeyDown);
+  }
+
+  /** Reset screen, after hidden */
+  public reset() {
+    // prepare() only writes a tally when the run had a sim result
+    this.tally.text = "";
   }
 }

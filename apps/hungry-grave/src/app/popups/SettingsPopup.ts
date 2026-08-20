@@ -147,4 +147,7 @@ export class SettingsPopup extends Container {
       },
     );
   }
+
+  /** Reset screen, after hidden */
+  public reset() {}
 }

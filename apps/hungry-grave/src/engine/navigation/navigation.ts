@@ -15,8 +15,12 @@ interface AppScreen extends Container {
   resume?(): Promise<void>;
   /** Prepare screen, before showing */
   prepare?(): void;
-  /** Reset screen, after hidden */
-  reset?(): void;
+  /**
+   * Reset screen, after hidden. Required, not optional: screens are pooled
+   * and reused, so any state a screen keeps comes back with it. Pool.return
+   * calls this, and it must stay idempotent.
+   */
+  reset(): void;
   /** Update the screen, passing delta time/step */
   update?(time: Ticker): void;
   /** Resize the screen */
@@ -102,7 +106,13 @@ export class Navigation {
     }
   }
 
-  /** Remove screen from the stage, unlink update & resize functions */
+  /**
+   * Remove screen from the stage, unlink update & resize functions, and return
+   * the instance to the pool showScreen takes from. Without that return the
+   * pool only ever takes its new branch, so every run leaves a whole screen's
+   * canvas-backed text textures behind. Pool.return calls reset() itself, so
+   * every screen's reset() has to stay idempotent.
+   */
   private async hideAndRemoveScreen(screen: AppScreen) {
     // Prevent interaction in the screen
     screen.interactiveChildren = false;
@@ -122,10 +132,8 @@ export class Navigation {
       screen.parent.removeChild(screen);
     }
 
-    // Clean up the screen so that instance can be reused again later
-    if (screen.reset) {
-      screen.reset();
-    }
+    // Back to the pool, which calls reset() on the way in
+    BigPool.return(screen);
   }
 
   /**
@@ -188,7 +196,8 @@ export class Navigation {
       await this.hideAndRemoveScreen(this.currentPopup);
     }
 
-    this.currentPopup = new ctor();
+    // From the pool, because hideAndRemoveScreen returns popups to it too
+    this.currentPopup = BigPool.get(ctor);
     await this.addAndShowScreen(this.currentPopup);
   }
 

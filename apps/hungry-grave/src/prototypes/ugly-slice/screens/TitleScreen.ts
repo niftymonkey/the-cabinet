@@ -80,7 +80,7 @@ export class TitleScreen extends Container {
     });
     this.backButton.onPress.connect(() => {
       // The router in main.ts observes the hash and shows the list.
-      window.location.hash = "";
+      window.location.hash = "#/prototypes";
     });
     this.devKeys = new Label({
       text: `seed ${runState.seed} · dev: P autopilot · \` debug · 1-7 phase skip · R restart`,
@@ -125,5 +125,10 @@ export class TitleScreen extends Container {
 
   public async hide() {
     window.removeEventListener("keydown", this.onKeyDown);
+  }
+
+  /** Reset screen, after hidden */
+  public reset() {
+    this.elapsed = 0;
   }
 }

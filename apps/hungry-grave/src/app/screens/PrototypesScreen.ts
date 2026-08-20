@@ -72,4 +72,7 @@ export class PrototypesScreen extends Container {
     });
     this.empty?.position.set(cx, height * 0.4);
   }
+
+  /** Reset screen, after hidden */
+  public reset() {}
 }
