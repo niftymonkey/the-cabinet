@@ -8,7 +8,7 @@ You are writing production code in `/home/mlo/dev/niftymonkey/the-cabinet/apps/h
 
 Read `docs/agents/feature-playbook.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
 
-Read these before you write anything: `apps/hungry-grave/docs/adr/0015-determinism-across-devices.md`, `0003-size-is-health.md`, `0004-one-freshness-meter.md`, `0002-hybrid-swallow-economy.md`, `0008-the-belch-full-only-the-bomb-everywhere.md`, `0011-two-input-models.md`, `0012-seeded-runs.md`, `0013-the-sim-verification-contract.md`, `0014-two-channel-feedback.md`, `apps/hungry-grave/docs/design/tracer-plan.md` section 3 and section 5, and `apps/hungry-grave/CONTEXT.md` for the vocabulary.
+Read these before you write anything: `apps/hungry-grave/docs/adr/0015-determinism-across-devices.md`, `0003-size-is-health.md`, `0004-one-freshness-meter.md`, `0002-hybrid-swallow-economy.md`, `0008-the-belch-full-only-the-bomb-everywhere.md`, `0011-each-input-owns-its-speed.md`, `0012-fresh-seed-per-run.md`, `0013-the-sim-verification-contract.md`, `0014-readability-layering.md`, `apps/hungry-grave/docs/design/tracer-plan.md` section 3 and section 5, and `apps/hungry-grave/CONTEXT.md` for the vocabulary.
 
 **Never open `src/prototypes/` at all.** Not to read, not to copy, not to check. Everything you need is in this prompt and the docs above.
 
@@ -401,7 +401,7 @@ This lives in `src/dev` because it is the test rig and not the game; the tracer 
 
 **That needs one change to `src/boundary.test.ts`, and it is the only weakening allowed anywhere in this dispatch.** Today `src/game` may reach only `src/game`, and that correctly forbids a sim test importing the rig. Add `dev` to `mayReach` **for test files under `game` only**, alongside the `TEST_PACKAGES` exception the file already makes for the same reason: a test file is not shipped, and the rule exists to keep the rig out of the build rather than out of the tests. Shipped code under `src/game` keeps reaching only `src/game`.
 
-**That change needs a small refactor named here so it does not turn into a surprise fixture file.** `violationsIn(file, boundary)` reads the file from disk, so there is nothing to hand it for test 58's "a non-test file importing `src/dev` is still a violation" case. Split it: a pure inner function taking source text and a display path and returning the violations, with `violationsIn` reading the file and delegating. Test 58 calls the inner one.
+**That change needs a small refactor named here so it does not turn into a surprise fixture file.** `violationsIn(file, boundary)` reads the file from disk, so there is nothing to hand it for test 65's "a non-test file importing `src/dev` is still a violation" case. Split it: a pure inner function taking source text and a display path and returning the violations, with `violationsIn` reading the file and delegating. Test 65 calls the inner one.
 
 If you cannot make the boundary change without also loosening shipped code, stop and report. Do not move `invariants.ts` into `src/game` to avoid the problem.
 
@@ -420,7 +420,7 @@ Verify the rule actually fires. Write a line that should trip it, run `pnpm lint
 ### 4.12 Three record edits, in this dispatch
 
 1. **`docs/design/tracer-plan.md` verification step 3** still says flatly "Nothing under `src/game` imports `src/dev`". After section 4.10 that disagrees with the boundary test. Add the test-file qualification.
-2. **`docs/adr/0014-two-channel-feedback.md`** still reads "the dim needs a stated refractory interval" as open, which section 4.7 closes. Close it there, citing `INVULNERABLE_TICKS`, and add that at the size floor a hit does not shrink, so the rim channel is silent and the ladder events (`scoreBled`, `weaponStripped`, `sealed`) are the only second channel left.
+2. **`docs/adr/0014-readability-layering.md`** still reads "the dim needs a stated refractory interval" as open, which section 4.7 closes. Close it there, citing `INVULNERABLE_TICKS`, and add that at the size floor a hit does not shrink, so the rim channel is silent and the ladder events (`scoreBled`, `weaponStripped`, `sealed`) are the only second channel left.
 3. **`docs/adr/0015-determinism-across-devices.md`** gains one paragraph naming the escape hatch before anyone needs it: `math.ts` is where an integer-indexed sine table could later replace the trig wrappers and make that trig deterministic by construction. `Math.fround` does not shrink a divergence, it changes its shape, and if two engines straddle an f32 bucket midpoint a 1-ulp f64 difference becomes a 1-ulp f32 one, roughly 2^29 times larger. The ADR already states the honest limit, so this names the way out rather than contradicting it.
 
 ## 5. The planned test list
