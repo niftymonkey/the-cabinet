@@ -5,13 +5,18 @@
  * steady until then.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRun } from "./run";
 import { step } from "./step";
 
 const STILL = { x: 0, y: 0 } as const;
 
 describe("the sim seam", () => {
+  // a failed assertion must not leave a spy installed for the rest of the file
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("a run starts at tick zero and keeps the seed it was given (ADR 0012)", () => {
     const run = createRun(7);
     expect(run.seed).toBe(7);
@@ -28,7 +33,6 @@ describe("the sim seam", () => {
     expect(createRun().seed).toBe(1073741823);
     random.mockReturnValue(0);
     expect(createRun().seed).toBe(0);
-    random.mockRestore();
   });
 
   it("no seed rolls a fresh one, in range (ADR 0012)", () => {

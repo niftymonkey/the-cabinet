@@ -34,7 +34,7 @@ export class TitleScreen extends Container {
       style: { fill: INK, fontSize: 44, letterSpacing: 6 },
     });
     this.tagline = new Label({
-      text: "A Halloween vertical shmup crossed with hole.io",
+      text: "Swallow the dead. Feed the grave.",
       style: { fill: DIM, fontSize: 16 },
     });
     this.riseButton = new Button({ text: "RISE", width: 300, height: 100 });

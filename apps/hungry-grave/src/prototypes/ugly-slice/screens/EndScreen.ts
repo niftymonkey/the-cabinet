@@ -100,5 +100,8 @@ export class EndScreen extends Container {
   }
 
   /** Reset screen, after hidden */
-  public reset() {}
+  public reset() {
+    // prepare() only writes a tally when the run had a sim result
+    this.tally.text = "";
+  }
 }
