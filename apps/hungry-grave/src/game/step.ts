@@ -1,4 +1,5 @@
 import type { SimEvent } from "./events";
+import { ageGrave, moveGrave } from "./grave";
 import type { MoveCommand, RunState } from "./run";
 
 /**
@@ -7,11 +8,15 @@ import type { MoveCommand, RunState } from "./run";
  * to the module that owns it. Run state is mutated in place and the tick's
  * events are returned, because at storm density pooled entities mutated in
  * place are the right answer.
+ *
+ * The full order of a tick is: scroll, the move command, spawns, motion,
+ * overlap detection, deaths, decay, culling, then the tick counter. Spawns
+ * onward arrive in the field dispatch, and scroll needs nothing done to it
+ * because scroll distance derives from the tick.
  */
 export function step(state: RunState, command: MoveCommand): SimEvent[] {
-  // The stub sim ignores steering; the grave's motion lands in the sim-core
-  // dispatch, and the seam keeps the command in its shape until then.
-  void command;
+  moveGrave(state.grave, command);
+  ageGrave(state.grave);
   state.tick += 1;
   return [];
 }

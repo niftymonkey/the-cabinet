@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "dev": "vite",
     "test": "vitest run",
+    "digest": "vitest run src/game/digest.test.ts",
     "typecheck": "npm run assets && tsc"
   },
   "dependencies": {

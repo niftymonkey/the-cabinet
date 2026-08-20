@@ -1,6 +1,6 @@
 import { FpsMeter } from "./app/FpsMeter";
 import { setEngine } from "./app/getEngine";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "./app/layout";
+import { FIELD_HEIGHT, FIELD_WIDTH } from "./game/field";
 import { PALETTE } from "./app/palette";
 import { resolveRoute } from "./app/routes";
 import { LoadScreen } from "./app/screens/LoadScreen";

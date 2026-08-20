@@ -7,14 +7,9 @@
 import { describe, expect, it } from "vitest";
 
 import { resize } from "../engine/resize/resize";
+import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
 import type { FieldPlacement } from "./layout";
-import {
-  DEGENERATE_PLACEMENT,
-  FIELD_HEIGHT,
-  FIELD_WIDTH,
-  fitField,
-  screenToField,
-} from "./layout";
+import { DEGENERATE_PLACEMENT, fitField, screenToField } from "./layout";
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
