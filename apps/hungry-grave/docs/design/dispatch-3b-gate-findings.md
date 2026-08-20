@@ -4,7 +4,7 @@ Raw findings from the review gates on `dispatch-3b-playable.md`, held here until
 
 Delete this file once every item below is folded in or recorded as declined, the way the 3a findings file was.
 
-Gates fired: product vision (complete), tech architecture (complete), game design (still running when this file was written).
+All three gates fired and all three returned findings. Markers are on #36.
 
 Two claims were verified in the main thread rather than trusted, and both held: Pixi 8.19.0 registers no `pointercancel` DOM listener and no `EventBoundary` mapping for it, and `src/engine/engine.ts` already owns a `document` `visibilitychange` listener that routes to optional `blur()` and `focus()` hooks on the current screen.
 
@@ -143,6 +143,116 @@ Additional framing from this lens: an 8-unit rim makes the grave stop being a ho
 
 Sources: tc39/ecma262 PR 3345 fully defining `Math.sqrt`, APCA in a Nutshell on the 5.5px solid non-text floor, PixiJS v8 Ticker docs on `elapsedMS` versus `deltaMS`, gamedev.stackexchange on relative drag in touch shmups, maribelhearn.com on Touhou per-character focused speed.
 
-## Game design gate
+## Game design gate, standard depth
 
-Still running when this file was written. Append its findings here.
+Housewarming's does-not-apply list is not inherited. Each pilot-shaped item got its genre-native analogue named and judged.
+
+Does not apply: dead turns (the whole of 3b carries no information and no decision by construction, which is correct for an instrument that reads steering alone), guessing economics (nothing is hidden in a shmup), the optimal line and safe income (no economy), choice windows and losing preserves something (no threats), endings enacted (none reachable), telegraphing (no threats), and solver numbers needing human anchoring (the inverse applies, and the plan gets it right that the only instrument is a human).
+
+Applies: moments of play, stuck states, perceptually distinct content, feel drift checked in the numbers, and working memory weakly.
+
+### ADJUST 1. The touch command is a position error applied several times per frame
+
+Found independently by the tech gate as its DECIDE-NOW 1. The gameplay framing, which the tech report does not carry:
+
+On a 120 Hz phone the grave tracks the thumb exactly. On 60 Hz it mostly tracks, then lurches twice as far as the thumb moved every few seconds. At 30 it alternates between tracking and doubling every frame. ADR 0015 buys a fixed clock so the sim is decoupled from the frame rate, and this one rule re-couples touch steering to it in the worst direction: the more a phone struggles, the more sensitive the control becomes.
+
+The defect is invisible at 120 Hz, because a 120 Hz frame yields zero or one tick and never two. If Mark's phone is ProMotion, the one instrument in the plan cannot see the defect it exists to catch, and it ships to every 60 Hz phone.
+
+Route: split the rule. Keyboard sampled once per frame and applied to every tick; touch recomputed per tick, or applied on the first tick and zeroed on the rest.
+
+### ADJUST 2. Integrator windup gives every wall a dead zone, and test 3 pins it in
+
+This one is new and neither other gate found it.
+
+You hug the left edge to line up a lane. Your thumb keeps travelling past where the grave can go. A shot appears, you flick right, and the grave does not move: your thumb crosses an inch of nothing before it un-sticks. It happens at every edge and worst at the bottom edge, which is where a vertical shmup is played.
+
+`moveGrave` clamps through `containGrave`. The drag target is absolute and knows nothing about the clamp, so the overshoot accumulates without bound. The control-theory name is integral windup: an accumulator that keeps integrating while its output is saturated, so reversing the input does nothing until the banked excess is repaid. Standard fixes are conditional integration (stop accumulating while saturated) or back-calculation. Rive shipped a commit titled "Fix clamped scroll drag accumulation" for exactly this.
+
+Test 3 as written pins the bug in: "a drag ten times the field's width in one move still lands on the target in one tick, and nothing clamps it". After that drag the grave sits at the wall and the target is 5400 units away, so the player owes ten field-widths of thumb travel before anything happens.
+
+This does not reopen ADR 0011. The ADR's uncapped rule is about speed, and the recorded pain was capping drag to keyboard speed. Anti-windup changes nothing about speed: the grave still reaches any point inside the field in one tick. Only the meaningless offset outside the field stops banking.
+
+Route: `TouchSteer` re-anchors from the grave's actual position whenever the grave failed to reach the target, which it can detect from the `grave` it is already handed in `command(grave)`. Reword test 3 to assert what ADR 0011 actually protects: any distance inside the field is covered in one tick.
+
+### ADJUST 3. The grave spawns inside the END RUN button at every viewport
+
+Superseded by Mark's ruling above, but this gate's arithmetic is more general than the product gate's and is worth keeping.
+
+The two are 0.02 of field height apart, which is `15.2 * scale` CSS pixels, against a combined half-extent of `42 + 27 * scale`. That inequality holds for every scale, so the grave is inside the button at every viewport, not just at 1440x900. Checked at 390x844, 430x932, 820x1180 and 1440x900, fully enclosed in all four.
+
+The same cluster: the seed label at 22 percent, the TICK counter at 46 percent at font size 52, and the button at 78 percent are all three down the field's vertical centre line, which is the lane a vertical shmup is played in.
+
+### ADJUST 4. Three input-wiring gaps
+
+(a) The keyboard speed slider lands in a popup nothing opens, so ADR 0011's persisted setting ships as a `localStorage` key with no door, and the one dispatch whose purpose is reading input feel gets exactly 1.0x on device. Same finding as both other gates.
+
+(b) Nothing arbitrates the two models. On a touchscreen laptop or an iPad with a keyboard both are live, and summing them is wrong on its face because they are in different units of meaning: one is a velocity and one is a position error. The natural rule is touch wins while a pointer is down, keyboard otherwise, and that rule has a consequence worth writing into the code: a resting finger silently disables the keyboard.
+
+(c) "The steering finger is the oldest pointer down" dies on a normal phone grip. You pick up the phone, your off-hand thumb brushes the glass at the edge, then you reach in with your steering thumb. The brushing thumb is now the steering pointer and never moves, so the grave sits still, and every steering drag registers as a second pointer, which sets the belch edge. The control is dead and the bomb fires.
+
+A developer hit precisely this and published the fix: lock to one touch, accept a new touch only within a distance threshold of the previous one, and add a failsafe timer so a dropped release cannot freeze the ship. The cheap version here is that the steering pointer is the first pointer to move past a small threshold, not the first to land.
+
+### DECIDE-NOW 5. A 4x speed range beside a focus key has no shipped precedent and breaks at both ends
+
+This is new information rather than a fresh opinion, so it is a legitimate reopening of ADR 0011. It is Mark's call.
+
+Two players sit down. One sets 2.0x and crosses the field in one second; their focus key gives them 4.5 units a tick, which is precisely the speed the other player calls flat out. The other sets 0.5x, crosses in four seconds, and their focus key gives 1.125 units a tick, a quarter of the pace the boss curtain will be authored against. Neither is playing the game the gaps were designed for, and for the first player focus has stopped being a precision tool: it is a return-to-normal key.
+
+What the genre does: focused speed is an absolute value, not a factor, and it is a shared constant while unfocused speed is what varies. In Touhou from Mountain of Faith onward, Marisa runs 5.0 pixels per frame and everyone else 4.5, but every character focuses to exactly 2.0. SHMUP Creator's player editor does the same, taking an absolute Speed value for focus. The reason is structural: bullet gaps are authored once, so the speed you thread them with has to be the same for everybody.
+
+The unprecedented part is the range, not the composition rule. No shipped shmup offers a player-configurable movement speed alongside an independent focus key, so nobody has solved the interaction in public. The genre's entire per-character speed spread is about 1.1x, where ADR 0011 asks for 4x. Multiplicative focus breaks at the top (2.0x focused equals default); absolute focus breaks at the bottom (0.5x normal already equals the focused speed).
+
+Three ways out, all cheap now and all expensive after dispatch 6 authors the Undertaker's curtain:
+
+- Narrow the range, say 0.75x to 1.5x, and keep focus multiplicative. Both ends stay inside a regime the gaps can be authored for.
+- Make focus absolute. The multiplier governs traversal, focus resolves to one shared speed, and everyone threads gaps identically. This still wants a narrower low end.
+- Collapse the two into one axis. Eschatos ships a Change Speed button cycling Fast, Medium and Slow with no separate focus at all, and Crimzon Clover ties slow to the lock button rather than a dedicated focus.
+
+`FOCUS_FACTOR` 0.5 itself is fine and is not in question: Touhou's derived ratios land at 0.40 to 0.44 and Reimu's is exactly 0.5 in the older frame data. The number is not the problem, the range it multiplies is.
+
+### ADJUST 6. The rim stroke gets a floor and no ceiling
+
+Third independent finding of the same defect. This gate's additions:
+
+An 18-unit-wide floor grave with an inward 8-unit rim has a mouth interior 2 units wide, against drops the tracer plan sizes up from 9 units. The grave looks sealed shut in exactly the state where the player is one hit from actually being sealed shut, and ADR 0014's "food still visibly falls in" stops being true.
+
+Measured on this palette: `graveRim` on `night` is APCA Lc 53.8, while `fieldFrame` on `night` is Lc 34.3 and only just clears the Lc 30 level the `BOUNDARY_STROKE` JSDoc's 5.5-pixel minimum belongs to. A stroke twenty points brighter qualifies at the same level while being thinner, so "follow the same reasoning" should not land on 8 and the plan gives the agent nothing to stop it.
+
+`graveHole` on `night` measures APCA Lc 0.0. The mouth carries no contrast against the ground at all, which is right for a hole, but it means the rim stroke is the entire visible grave and the entire size-is-health readout. A fixed-width rim also compresses the size signal: floor to ceiling reads as 2.9x on screen where the sim spans 3.75x.
+
+The alignment question the plan never answers: the visible outer edge is what a player reads as "what I pass under gets swallowed", and `graveHitbox` is exactly the sim rect. An outward stroke means food that visually touches the grave is not swallowed; an inward stroke keeps visible equal to hitbox but eats the mouth.
+
+Route: state a ceiling as well as a floor, name the alignment, and pick the number against the size floor rather than the start size.
+
+### ADJUST 7. The on-device check needs a read-list, including a negative one
+
+Reads well: does the grave track the thumb with no lag (findings 1 and 2 both surface here); does the boundary behave; is two seconds to cross the field right; is a diagonal not faster than a cardinal. Worth adding: anchor the thumb on the grave, and try a panic reverse (slide left, stab right without releasing left), since the plan chooses cancel-to-zero.
+
+Blind, and this should be said up front so a note from a blind instrument does not get acted on:
+
+- Focus. `FOCUS_FACTOR` exists to thread gaps and there are no gaps.
+- The drag ratio's dodging consequence. Thumb reach and occlusion read fine; "can I get out of the way in time" does not.
+- Two of the three size regimes. The grave is unfeedable and undamageable in 3b, so it steers at `SIZE_START` 27 only. The range is 18 to 67.5, a 3.75x span, and `BASE_SPEED` is size-independent, so a floor grave covers 15 of its own body-widths per second where a ceiling grave covers 8. That is the hole.io growth arc, and it is the part of steering feel that changes most across a run. A dev `?size=` beside the `?seed=` machinery this dispatch is already writing is about fifteen lines and turns one steering read into three.
+
+Also in this cluster: the seed label reads `SEED 1234` whether the seed was rolled or pinned. ADR 0012 exists because a silently defaulted seed made a dozen playthroughs the identical run, and 3b does not close it: a tester handed a `?seed=` link plays fifty identical runs with nothing on screen saying so. `SEED 1234 PINNED` costs one word.
+
+### DEFER 8. Two carried forward, with triggers
+
+(a) The belch fires on any second pointer, anywhere. A resting or brushing finger discharges the screen-clearing eruption, which ADR 0008 makes fire only at a full reservoir, so a misfire spends the scarcest thing in the game. In fairness to the plan, second-finger-as-bomb is well precedented and is Bullet Hell Monday's default, and no documented case of accidental discharge in any mobile shmup was found. What the record does show is that every serious mobile shmup ships the binding as a choice: Bullet Hell Monday offers two-finger tap, button, or double tap; Aka to Blue offers multitap or double tap; DoDonPachi Resurrection iOS uses a placeable on-screen button. BOSSGAME's developer states the principle directly, that on a phone it is easy to slide fingers over buttons without resistance, so high-commitment actions get hold-and-release. Trigger: dispatch 5, when `belch.ts` consumes the edge.
+
+(b) `DRAG_RATIO` is the input-parity and occlusion dial, not a feel nicety. Touch is bounded by thumb speed and not by `BASE_SPEED`, so at ratio 1 a touch player reaches a given point roughly an order of magnitude faster than a keyboard player at 1.0x. ADR 0011 accepts that deliberately, but the consequence needs writing down: dodge windows have to be authored against the slower input, most sharply for the Undertaker, whose curtain gap is grave width plus a margin. For a keyboard player that is a movement problem; for a touch player it is a placement problem. Espgaluda II's iOS port is the cautionary precedent, where relative touch erased per-character speed differentiation entirely because the speed became the finger's.
+
+Second, the plan's stated reason for relative drag, that the finger is never on top of the grave, is only true if the player anchors away from it: the offset is whatever it was at pointer-down and never changes, so anchoring on the grave occludes it permanently. What actually breaks occlusion is a ratio above 1, which is the recorded reason players are advised to raise Bullet Hell Monday's sensitivity. Casiez et al. is the citable frame for why this wants a slider rather than a bolder default: control-display gain performance is U-shaped, and gain above 1 cuts clutching but degrades target acquisition. Trigger: dispatch 6 for the Undertaker, dispatch 7 for tuning.
+
+### Checked and left alone, where research beat the gate's first instinct
+
+- Relative drag over absolute, and uncapped. Confirmed correct. Cave went relative across its whole iOS line, and Aka to Blue, made by ex-Cave staff, is effectively uncapped 1:1.
+- `DRAG_RATIO` 1 as the first pass. No shipped game publishes its drag ratio, slider range, or default. There is no number to look up, so 1 is as defensible a first pass as anything.
+- Opposed keys cancelling to zero. The evidence is genuinely split rather than supporting a change. Cancel-to-zero is Godot's default and the tournament standard, and diagonal normalization is the engine default in both Unity and Godot. But Godot proposal 12235 calls last-input-priority "generally the most desired mode for fighting games and shooters", and Valve banned Razer Snap Tap and Wooting's SOCD in CS2 because the responsiveness gain is real. In a single-player shmup no ruleset applies, so it is purely feel. The plan's stated reason is weak, the choice is fine, and the fix is two lines if it feels wrong. It belongs on the on-device read-list, not in a redesign.
+- Page-level touch behaviour. `public/style.css` sets `touch-action: none` and `overscroll-behavior: none`, and `index.html` sets `user-scalable=no`, all credited to ticket #33. Scroll, pull-to-refresh and pinch-zoom will not corrupt the check.
+- ADR 0012 compliance. The hash-query tie-break and a pinned seed surviving a restart are both consistent with the ADR rather than against it. Warn-and-roll-fresh on a bad seed is the right call for a playtester.
+- `GRAVE_CORNER_RATIO` 0.2. Argued against the right number, the 13 CSS pixel floor grave, and lands fine at both ends.
+- The `#/digest` route. The strongest idea in the plan.
+
+Sources: shmuptheory and shmups.wiki on Cave and Aka to Blue relative drag, Shrine Maiden frame data and SHMUP Creator on absolute focus speed, integral windup on Wikipedia and MathWorks, pixijs.com events guide, Godot proposal 12235 and Evo rules on SOCD, Casiez et al. on control-display gain, APCA measured on this palette.
