@@ -1,3 +1,5 @@
+import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
+
 /**
  * The fixed field fitted into any viewport. The only module in the app that
  * knows about the viewport, and nothing in src/game may import it.
@@ -12,9 +14,6 @@
  * src/app/screens/game converts event.global here and hands src/input a point
  * already in field units.
  */
-
-export const FIELD_WIDTH = 540;
-export const FIELD_HEIGHT = 760;
 
 /**
  * The boundary readout's stroke, in field units. It lives here rather than

@@ -1,17 +1,12 @@
 import { Container, Graphics } from "pixi.js";
 
+import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
 import type { MoveCommand, RunState } from "../../../game/run";
 import { createRun } from "../../../game/run";
 import { step } from "../../../game/step";
 import { engine } from "../../getEngine";
 import type { FieldPlacement } from "../../layout";
-import {
-  BOUNDARY_STROKE,
-  DEGENERATE_PLACEMENT,
-  FIELD_HEIGHT,
-  FIELD_WIDTH,
-  fitField,
-} from "../../layout";
+import { BOUNDARY_STROKE, DEGENERATE_PLACEMENT, fitField } from "../../layout";
 import { PALETTE } from "../../palette";
 import { runHandoff, summarizeRun } from "../../runHandoff";
 import { Button } from "../../ui/Button";
