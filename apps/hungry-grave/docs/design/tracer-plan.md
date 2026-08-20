@@ -159,11 +159,13 @@ Pinned as `test.todo` on stubs at each dispatch. Every test cites the ADR, spec 
 
 ## 6. Dispatch sequence
 
-Seven dispatches, each carrying the full contract from the playbook.
+Seven dispatches, each carrying the full contract from the playbook. Dispatch 3 was split in two on 2026-08-20 and the sequence is eight items long as it stands.
 
 1. Shell: `main.ts` to Rule 1, the router's default route becomes the game, `#/prototypes` keeps the list, Title, Game, and End screen skeletons over a stub sim, the allowlist boundary rule from the first commit, and a fix for a live bug on this path: `src/engine/utils/storage.ts` calls `localStorage` unguarded from `userSettings.init()` in `main()`, and a browser blocking cookies throws, giving a playtester a blank screen and a console error nobody reads. This dispatch adds a second persisted setting to that same path.
 2. Render structure: `layout.ts`, `palette.ts`, and `layering.ts`, before any field content, so every later renderer attaches to a viewport mapping and a stack that already exist. Readability is a day-one rule and refitting a layout around finished renderers is rework. ADR 0014 was amended on 2026-08-19 to place the bell's ring and the belch's eruption in the stack and to forbid additive blending on the storm, so nothing here is blocked.
-3. Sim core: run state, `clock.ts`, `math.ts`, the grave, the swallow, both input models, scroll, seeds. Ends with the on-device input check (verification step 7).
+3. Sim core, split in two by Mark on 2026-08-20. One dispatch mixed the headless rules with the app wiring that makes them playable, and verification step 7 reads input *feel*: landing input beside ten headless modules buries the cause when it feels wrong.
+   - **3a, the headless sim**: `math.ts`, `rng.ts`, `clock.ts`, `tuning.ts`, the grave, the swallow, run state, the event vocabulary, the tick order, the golden digest, and the lint rule that keeps the sim off raw implementation-approximated operations. Nothing player-visible changes and there is no deploy. Plan: `docs/design/dispatch-3a-sim-core.md`.
+   - **3b, making it playable**: both input models, the `?seed=` URL in both forms, the grave renderer, `GameScreen` rewired onto `clock.ts`, and the tick-debt readout. Ends with the deploy and the on-device input check (verification step 7).
 4. The field: the three mob types, templates, stage rows, overlap resolution, corpses and freshness, plus a stubbed victory on the stage's last row. The stub matters more than it sounds: without it the only ending reachable before dispatch 6 is sealed shut, so the deploy at dispatch 5 would be a play of a game that cannot be won, and "goes start to finish" would first exist two dispatches from the end. With it, every deploy from here on is a complete run and that property never regresses.
 5. Weapon lines and the economy: the four lines, drops with per-line legibility, pricing, the belch, `sound.ts`. Ends with the deploy and play at verification step 9.
 
