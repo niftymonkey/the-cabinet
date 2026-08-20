@@ -10,7 +10,7 @@ The module architecture in section 3 was designed with the `architect-deep` skil
 
 ## 1. Definition, in observable terms
 
-A player who opens the deployed URL boots into the real game, not the prototype list. They play the five-minute authored stage from the design record, rebuilt with the session-13 harvest folded in:
+A player who opens the deployed URL lands in the real game, not the prototype list, and starts a run from its title screen. They play the five-minute authored stage from the design record, rebuilt with the session-13 harvest folded in:
 
 - Three mob types share the field, visibly different in behavior and readable before they act: base trash where only a share of each wave fires at all, a tougher type that fires a damaging shot the moment it enters, and a type whose body is the threat and which turns toward the grave (Hungry Grave ADR 0016).
 - Wisps are meaningful ordnance: a few hits kill trash, about five kill a tougher mob, and one swallow's whole burst can never clear a wave by itself.
@@ -45,7 +45,7 @@ The place the figure binds is Hungry Grave ADR 0014, whose grayscale readability
 3. The rendering-import boundary enforced mechanically as an allowlist, not a denylist: `src/game` may import only from `src/game`, and `src/input` only from `src/input` and `src/game`. An allowlist closes the transitive case by induction, where a shared engine util looks sim-shaped today and pulls rendering in behind the boundary after a later edit. Nothing under `src/game` imports `src/dev`. Actor: the agent.
 4. Full-run bot test asserting the run's shape (about five minutes in ticks, kills in band, ten to twelve drops, phases in order, zero invariant fires) across at least five distinct seeds. A second bot policy deliberately takes hits, because a policy that wins never touches the size floor and the whole damage ladder could be missing with every other assertion still passing; both endings need the two policies between them. Actor: the agent.
 5. `pnpm typecheck` and the production build. Actor: the agent.
-6. Rendered check of the built app via `vite preview`, screenshots actually read: game boots at the default route, prototype list intact at `#/prototypes`, the four drop icons distinguishable, the seed visible, an armed shambler distinguishable from an unarmed one, the revenant's tell visible before its shot, a stale corpse visibly dimmer than a fresh one, and a revenant corpse distinguishable from a shambler's by hue. Those last four are render properties no sim test can see, and this is the only mechanism in the plan that catches them missing. Actor: the agent.
+6. Rendered check of the built app via `vite preview`, screenshots actually read: the game's title screen serves the default route and starts a run, prototype list intact at `#/prototypes`, the four drop icons distinguishable, the seed visible, an armed shambler distinguishable from an unarmed one, the revenant's tell visible before its shot, a stale corpse visibly dimmer than a fresh one, and a revenant corpse distinguishable from a shambler's by hue. Those last four are render properties no sim test can see, and this is the only mechanism in the plan that catches them missing. Actor: the agent.
 7. On-device input check from the deployed URL after the input dispatch, steering the grave around an otherwise empty field. The playbook makes this escalation mandatory for input-feel changes, and waiting until the end buries an input problem under five dispatches of content. Actor: Mark.
 8. Grayscale readability check: a screenshot from the autopilot at the density the tuned field measures, converted to grayscale, with mob fire still winning everywhere it overlaps the storm. Actor: the agent for the check, Mark for the feel call.
 9. A deploy and a short play at the end of dispatch 5, before bosses and tuning are built on top. Early-minutes fun, the bell's moment, drop legibility mid-dodge, and grave-to-mob scale are all judgeable there, and all four feed what dispatches 6 and 7 build. Actor: Mark.
@@ -184,6 +184,8 @@ What remains is the calendar. Ten weeks, evenings, seven dispatches plus an art 
 3. The Wall's oversizing, falling back to an ordinary dense wave. The stage still runs; the belch loses its showcase.
 4. The miniboss. The v1 done-line names one authored stage plus a final boss, so the Banshee is content rather than a promise, and this is the last thing to go before the done-line itself breaks.
 
-Never cut, because each is the reason a cut version would still be worth shipping: the art pass, booting straight into the game, the phone fit, the cross-device determinism work, and the readability rules. Cutting any of those saves a little time and costs the thing the build exists to prove.
+Never cut, because each is the reason a cut version would still be worth shipping: the art pass, the phone fit, the cross-device determinism work, and the readability rules. Cutting any of those saves a little time and costs the thing the build exists to prove.
+
+Booting straight into the game came off that list on 2026-08-20, when Mark ruled that the title screen stays. It was not cut for time and it is not abandoned: the want is recorded in Hungry Grave ADR 0010 as a deferred item with its own trigger, the playtest link going out, and a mechanism still to be chosen.
 
 Still unowned: no dispatch carries a date. Dating the first three would give a two-week read on a ten-week plan for almost nothing, and that is a call for Mark rather than a thing this plan can assert.
