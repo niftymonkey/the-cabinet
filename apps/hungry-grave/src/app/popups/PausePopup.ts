@@ -85,4 +85,7 @@ export class PausePopup extends Container {
       { duration: 0.3, ease: "backIn" },
     );
   }
+
+  /** Reset screen, after hidden */
+  public reset() {}
 }

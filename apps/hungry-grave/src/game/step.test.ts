@@ -5,7 +5,7 @@
  * steady until then.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createRun } from "./run";
 import { step } from "./step";
 
@@ -21,6 +21,14 @@ describe("the sim seam", () => {
   it("a pinned seed is kept whatever its value, zero included (ADR 0012)", () => {
     expect(createRun(0).seed).toBe(0);
     expect(createRun(2147483646).seed).toBe(2147483646);
+  });
+
+  it("no seed derives one from the random source (ADR 0012)", () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    expect(createRun().seed).toBe(1073741823);
+    random.mockReturnValue(0);
+    expect(createRun().seed).toBe(0);
+    random.mockRestore();
   });
 
   it("no seed rolls a fresh one, in range (ADR 0012)", () => {

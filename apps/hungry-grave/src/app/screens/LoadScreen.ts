@@ -62,4 +62,9 @@ export class LoadScreen extends Container {
       delay: 1,
     });
   }
+
+  /** Reset screen, after hidden */
+  public reset() {
+    this.progressBar.progress = 0;
+  }
 }

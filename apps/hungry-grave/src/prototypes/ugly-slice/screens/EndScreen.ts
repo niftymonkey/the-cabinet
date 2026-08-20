@@ -98,4 +98,7 @@ export class EndScreen extends Container {
   public async hide() {
     window.removeEventListener("keydown", this.onKeyDown);
   }
+
+  /** Reset screen, after hidden */
+  public reset() {}
 }

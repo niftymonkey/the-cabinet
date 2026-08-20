@@ -15,8 +15,12 @@ interface AppScreen extends Container {
   resume?(): Promise<void>;
   /** Prepare screen, before showing */
   prepare?(): void;
-  /** Reset screen, after hidden */
-  reset?(): void;
+  /**
+   * Reset screen, after hidden. Required, not optional: screens are pooled
+   * and reused, so any state a screen keeps comes back with it. Pool.return
+   * calls this, and it must stay idempotent.
+   */
+  reset(): void;
   /** Update the screen, passing delta time/step */
   update?(time: Ticker): void;
   /** Resize the screen */
@@ -128,12 +132,7 @@ export class Navigation {
       screen.parent.removeChild(screen);
     }
 
-    // Clean up the screen so that instance can be reused again later
-    if (screen.reset) {
-      screen.reset();
-    }
-
-    // Back to the pool, now that the screen is off the stage
+    // Back to the pool, which calls reset() on the way in
     BigPool.return(screen);
   }
 
