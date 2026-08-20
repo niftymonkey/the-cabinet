@@ -636,3 +636,169 @@ The band also says nothing about **density**. ADR 0014 requires that mob fire wi
 It says nothing about **spatial frequency**, which Valve's NPAR paper argues is a prerequisite rather than an extra: "high frequency geometric and texture detail... can often overpower the ability of designers to compose game environments and emphasize gameplay features visually using intentional design choices such as changes in color value." A noisy `nightSpeckle` layer at high density can defeat the band without any declared colour entering it.
 
 And two warnings from developers who have run this test on themselves, both of which say the instruments in this document are necessary and not sufficient. Yotsubane, who could not see his own legibility problem until he returned to the build cold: "habituation is the great enemy of tuning." And a Blue Revolver playtester who reported bullets disappearing in his **periphery** while being perfectly visible at fixation, which is a failure mode no screenshot taken by anyone staring at the screen will ever reproduce.
+
+---
+
+## 7. The derived palette
+
+Section 0 is the rule and this is the palette that satisfies it, derived on 2026-08-20 by applying that rule to the 27 colours in section 5.1. It exists so the render-structure dispatch implements a pinned table rather than making colour choices of its own, and so every hex here has a stated method behind it rather than an eye behind it.
+
+Every number below was produced by the same arithmetic as the rest of this document, and is reproducible from section 0.1 (luma), section 3.3 (APCA) and section 5.3 (the colour-vision weights).
+
+### 7.1 The four methods
+
+**Mob-fire bodies do not move.** All four keep their exact hex, their hue and their saturation, which is what option B buys and section 5.4 states outright.
+
+**One shared core, one shared outline.** Solving each body's own hue for a near-white at luma 90 produced `#ffdfdc`, `#ffdfdb`, `#ffdfdb` and `#ffe0d1`, which are the same colour four times over, so four cores would have been four names for one value. The core carries the value guarantee and the body carries the hue, exactly as section 0.3 splits them, so one core and one outline serve all four emitters. The core is `#ffece6`, the section 5.3 candidate measured at a 1.0-point protanopic shift. The outline is `#1a0906`, the fire family's own hue at HSV value 0.10.
+
+**The colours above the ceiling come down by proportional RGB scaling.** Hue and saturation are held and only value moves, so nothing changes identity on the way down. Each was scaled until its luma reached the target, and the default target is 67.5 rather than 68.0 so that rounding to a byte cannot push an entry over the line.
+
+**`dropCore` is replaced rather than scaled**, because scaling a brown gives a darker brown. Its replacement `#141a26` is the palette's own night-navy family (hue 220), which is where every other near-black in the palette already sits.
+
+### 7.2 One value assigned by judgement, and two that were and are not
+
+Scaling everything to one ceiling collapses colours the old palette separated, so three entries were first given a value by hand rather than computed. The three review gates on 2026-08-20 took two of them apart, and the record of that is kept here rather than tidied away, because the failure is instructive: each hand-picked value solved the collision in front of it and created a worse one behind it.
+
+**`corpse` goes to 62.0 and stays there.** At the ceiling it lands on `#b0ac9f` against `feast` at `#b0ac9e`, one byte apart, and the design needs the feast to read as the bigger prize. 62.0 restores a 5.4-luma gap, which is the 5.5-luma gap the old palette had between them. The game-design gate re-checked the relation under CIE L\* rather than luma, since a fixed luma gap does not mean the same thing at 62 as at 89: it was 4.85 before and is 5.19 now, so the relation survives on a perceptual metric and not only on the metric it was fitted to. That pass also retired an assumption this project had been carrying, that "steady-bright means treasure" was working: in the old palette `drop` sat at 79.5 while a fresh `corpse` sat at 89.3, so treasure was nine luma points **darker** than the fuel it was supposed to out-shine, and the cue was carried entirely by "steady". At 67.25 against 61.95 the slogan is true for the first time.
+
+**`belchEruption` was moved to 56.0 and moved back to 67.35.** Moving it down escaped `feast` and put it one luma point from `splash`, the wasted charge. ADR 0008's cure for hoarding the belch is that hoarding is visibly a loss, and a loss and a payoff at the same brightness do not teach that. Worse, `corpse` is the one entry in this table whose value is animated, and a corpse fading from 62 downward sweeps straight through 56 at the same hue, so a half-fresh corpse and the screen-clearing eruption would have been the same colour at the exact moment the belch fills the field with corpses. Back at the computed 67.35 it clears `splash` by 12.4 and sits above the whole fade range.
+
+**`graveGlow` was moved to 56.9 and moved back to 67.25.** Moving it down escaped `drop`, which it shares a hex with, and made the grave's glow darker than the grave's own rim at 64.45. The concept doc makes that glow the tell that the reservoir has slammed full, read mid-dodge without looking away, so making it the dimmest thing on the grave broke the job it exists for. The judgement was made with the collision in view and not the job. Back at 67.25 it out-shines the rim by 2.8.
+
+The two reversions cost two entries in the exception table of 7.4, and an exception carrying a written reason is a cheaper thing to own than a value nobody can trace.
+
+### 7.3 The pinned table
+
+Names are the ratified vocabulary from `CONTEXT.md`. The old prototype names appear only in the "was" column, as history: `enemy`, `enemyShot`, `enemyTear`, `enemyClod`, `enemySpiral`, `belchFlash`, `waste` and `hitFlash` are all banned or retired terms and none of them is a key here.
+
+`fireCore` is the only entry tagged `mobFireCore`. Everything else is a field colour bound by the 68 ceiling.
+
+**the night field**
+
+| name | hex | luma | was | note |
+| --- | --- | --- | --- | --- |
+| `night` | `#0e1119` | 6.64 | `night`, unchanged | |
+| `nightSpeckle` | `#1d2434` | 13.99 | `nightSpeckle`, unchanged | |
+| `fieldFrame` | `#2a3348` | 19.84 | `fieldFrame`, unchanged | |
+
+**the grave**
+
+| name | hex | luma | was | note |
+| --- | --- | --- | --- | --- |
+| `graveHole` | `#04060b` | 2.33 | `graveHole`, unchanged | |
+| `graveRim` | `#93a7bd` | 64.45 | `graveRim`, unchanged | |
+| `graveGlow` | `#d8a941` | 67.25 | `graveGlow` `#ffc84d` 79.53 | lowered |
+
+**mobs**
+
+| name | hex | luma | was | note |
+| --- | --- | --- | --- | --- |
+| `mob` | `#59c964` | 66.63 | `enemy`, unchanged hex | renamed |
+| `mobDark` | `#1d4a26` | 24.25 | `enemyDark`, unchanged hex | renamed |
+| `banshee` | `#98b2a7` | 67.32 | `banshee` `#c9ecdd` 89.21 | lowered |
+| `bansheeDark` | `#3f7a68` | 42.41 | `bansheeDark`, unchanged | |
+| `undertaker` | `#5d6b80` | 41.39 | `undertaker`, unchanged | |
+| `undertakerDark` | `#232b38` | 16.56 | `undertakerDark`, unchanged | |
+
+**mob fire**
+
+| name | hex | luma | was | note |
+| --- | --- | --- | --- | --- |
+| `fireCore` | `#ffece6` | 93.96 | - | new, the only colour in the band |
+| `fireTrash` | `#ff4a3d` | 43.74 | `enemyShot`, unchanged hex | renamed, body |
+| `fireTear` | `#ff6a55` | 53.40 | `enemyTear`, unchanged hex | renamed, body |
+| `fireClod` | `#f5563d` | 46.27 | `enemyClod`, unchanged hex | renamed, body |
+| `fireSpiral` | `#ff8248` | 59.76 | `enemySpiral`, unchanged hex | renamed, body |
+| `fireOutline` | `#1a0906` | 4.86 | - | new |
+
+**player fire**
+
+| name | hex | luma | was | note |
+| --- | --- | --- | --- | --- |
+| `skull` | `#8496a6` | 57.78 | `skull`, unchanged | |
+| `stone` | `#9aa4ad` | 63.73 | `stone`, unchanged | |
+| `wisp` | `#63b8ad` | 64.76 | `wisp`, unchanged | |
+| `bellRing` | `#9faebd` | 67.41 | `bellRing` `#aebfcf` 73.94 | lowered |
+
+**food and treasure**
+
+| name | hex | luma | was | note |
+| --- | --- | --- | --- | --- |
+| `corpse` | `#a29e92` | 61.95 | `corpse` `#e9e4d2` 89.32 | lowered, then held off the ceiling (7.2) |
+| `feast` | `#b0ac9e` | 67.39 | `feast` `#f7f2de` 94.75 | lowered |
+| `drop` | `#d8a941` | 67.25 | `drop` `#ffc84d` 79.53 | lowered |
+| `dropCore` | `#141a26` | 10.04 | `dropCore` `#4a3b12` 23.23 | replaced, the brown |
+
+**effects**
+
+| name | hex | luma | was | note |
+| --- | --- | --- | --- | --- |
+| `belchEruption` | `#b5ac8e` | 67.35 | `belchFlash` `#fff3c9` 95.11 | renamed and lowered |
+| `splash` | `#7f9184` | 54.99 | `waste`, unchanged hex | renamed |
+
+**readouts drawn over the field**
+
+| name | hex | luma | was | note |
+| --- | --- | --- | --- | --- |
+| `hudInk` | `#a8acb0` | 67.23 | `#e8edf2` 92.67, a screen-local constant | lowered |
+| `hudDim` | `#76839a` | 50.94 | `#76839a`, a screen-local constant | unchanged hex |
+
+**menu, declared apart and exempt from the ceiling**
+
+| name | hex | luma |
+| --- | --- | --- |
+| `menuInk` | `#e8edf2` | 92.67 |
+| `menuDim` | `#76839a` | 50.94 |
+
+`hitFlash` does not appear. It is retired rather than re-valued, per section 1.4 and the ADR 0014 amendment of 2026-08-20: the hit announces by subtraction, and a dim layer needs no colour of its own beyond the night the field already sits on.
+
+**The table is not closed.** It is complete for everything the game draws today, and two dispatches must open it: the per-weapon-line drop colours and the per-tier corpse hues, both of which the tracer plan requires and neither of which has an entry here. What they must satisfy is 7.5.
+
+### 7.4 What this palette measures
+
+| check | required | measured |
+| --- | --- | --- |
+| 0.4 assertion 2, presence | core luma >= 88 | 93.96 |
+| 0.4 assertion 3, exclusivity | every non-core <= 68 | highest is `bellRing` 67.41 |
+| 0.4 assertion 4, margin | >= 20 | 20 |
+| 0.4 assertion 6, protanope | core still clears every non-core | 93.1 against 72.5, a 20.6 gap |
+| 0.4 assertion 6, deuteranope | core still clears every non-core | 94.5 against 70.4, a 24.1 gap |
+| 0.4 assertion 8, APCA vs sky | core Lc 45 or better on all four backgrounds | 92.0 worst, against `fieldFrame` |
+| 0.4 assertion 9, internal contrast | core to outline span >= 20 | 89.10 |
+| 0.4 assertion 10, restated below | fire's hue family closed to everything else | 22.2 degrees, `graveGlow` against `fireSpiral` |
+| the standing brown ban, not an assertion in 0.4 | no hue 20 to 50 with saturation >= 0.5 and value < 0.55 | none; closest is `drop` at value 0.85 |
+| sprite separation, new here | no two field sprites within 2.0 luma, 15 degrees and 0.25 saturation | three named exceptions, below |
+
+APCA output is **signed**: light on dark returns a negative Lc, so the core against `night` measures -97.4 and the requirement is on its magnitude. Section 3.3's table is written unsigned while its own prose says the output is signed, which is a trap for anyone pinning a test against it.
+
+Assertion 6 is stated as a **separation** rather than as the 88 and 68 thresholds re-applied, because the colour-vision estimate is on its own scale (section 5.3) and the two scales agree only on neutral greys. What the band is for survives the restatement unchanged: under every observer, the core still sits clear of everything else. Its protan headroom is 0.6 points, held by `mob` at 72.5, so this is the first check the Halloween art pass will redden when it recolours mobs. That is the check doing its job, not a defect in it.
+
+**Assertion 10 is a tripwire here, not the rule.** Its 20-degree floor was fitted 2.2 degrees below the tightest gap in the palette it checks, so a passing result means no **new** colour has walked into fire's family. It does not certify the current gap as comfortable, and the wider rule it stands in for, Cave's three-way separation of fire, effects and pickups, is not asserted anywhere in this build. See 7.5. It should be read and named as the tripwire it is.
+
+**The three sprite-separation exceptions, each with its reason.**
+
+`graveRim` against `stone`, 0.71 luma and 3 hue degrees apart. The rim is a large outline fixed to the grave and a headstone is a small orbiting sprite, so ADR 0014's silhouette-first rule carries them. It predates this pass.
+
+`graveGlow` against `drop`, the identical hex. The glow is the grave wearing treasure's own colour, it is always at the grave's own position, and the concept doc has it pulsing while a drop is steady. Position and motion carry it. This also predates this pass.
+
+`feast` against `belchEruption`, 0.04 luma and 0.5 hue degrees apart. A feast is a small steady sprite in the food layer and the eruption is a momentary full-field event two layers below it, so silhouette, duration and layer all separate them. This one is created by the ceiling and it is the price of reverting the judgement in 7.2.
+
+### 7.5 What is deliberately not fixed here, and what #38 inherits
+
+**Cave's three-way hue separation is not asserted.** Tanaka separates fire, effects and pickups into three mutually exclusive hue channels (section 1.3), and this palette does not: `belchEruption` at hue 46.5 sits in the same cream family as `corpse` and `feast`, and `graveGlow` at 41.3 shares its hex with `drop`. Separating them means rebuilding the warm half of the palette around three channels rather than one, which is the Halloween art pass. Fire against everything else, the separation with the actual evidence behind it, **is** asserted.
+
+**Above luma 60 the value budget is spent.** `bellRing` 67.41, `feast` 67.39, `belchEruption` 67.35, `banshee` 67.32, `drop` 67.25, `graveGlow` 67.25 and `hudInk` 67.23 all sit inside two tenths of a luma point of each other. Every remaining distinction in the top of the range has to come from hue, silhouette or motion. The art pass needs that as a starting constraint rather than as a discovery.
+
+**Fire's 20-degree exclusion closes hue 20 to 39 to every non-fire colour, and that is pumpkin orange.** With purple already banned by the project's standing rule, both of Halloween's signature colours are out of the non-fire palette, in a game whose one never-cut requirement is that it reads as Halloween within seconds. It is survivable: the fire itself is orange-red, `drop` and `graveGlow` are amber at 41, `mob` is graveyard green, and hue 50 to 125 and 175 to 205 are entirely empty. But #38 should meet it as a stated constraint and it belongs on that ticket as an acceptance criterion.
+
+**The per-line drop colours have no budget here, and neither do the per-tier corpse hues.** The v1 done-line requires every drop to show its weapon line at a glance mid-dodge, on the drop itself. The four player-fire colours are `skull` 57.78, `stone` 63.73, `wisp` 64.76 and `bellRing` 67.41, and three of the four are hue 208 to 210 at saturation 0.11 to 0.21: one pale blue-grey at three brightnesses. Sprite separation passes them all, because they are 3.7 to 9.6 luma apart and its threshold is 2.0, so that check will go green on four drops a player cannot tell apart. Hue is what is scarce: fire closes 0 to 39, the brown ban closes 20 to 50 at saturation, and amber at 41 is spoken for. Risk of Rain's answer to the same problem is hue tiering. The same squeeze applies to the corpse tiers.
+
+**A corpse's colour is animated and the separation check only sees its fresh value.** Freshness fades the sprite from 61.95 down toward nothing, so a corpse occupies a whole range rather than a point, and any colour in the cream family below 62 collides with it at some instant of every corpse's life. Today nothing is there. The check must compare `corpse` across its fade range rather than at one value, or the next colour added below 62 in that hue family passes a green test and fails on screen.
+
+**The freshness fade has less room than it had, and its floor is unwritten.** A fresh corpse now starts at CIE L\* 65.1 instead of 90.5, so the fade has roughly 38 L\* points to spend rather than 64, about 3.8 per second over a ten-second life instead of 6.4. That is readable at fixation, and the constant silhouette and the last-chance flicker work alongside it. But freshness is the whole greed-has-a-deadline choice and it is read peripherally mid-dodge, which section 6.3 says is where small differences vanish. The fade's floor and its per-second step should be stated as numbers before the field dispatch builds it, because at 38 points of range the floor cannot be discovered by feel afterwards without redoing the palette.
+
+**The belch loses brightness as a channel and needs the replacement budgeted.** The eruption fell from 95.1 to 67.35 and it already sits second from the bottom of the draw stack, so it has lost top brightness and never had a layer above the field. What it gains is bigger than what it lost, and it is only available now that the band exists: mob fire is the only thing above 68, so belching puts out every highlight on the screen at once, where the old `belchFlash` at 95.1 competed with the fire it was cancelling. But the eruption's own punch has to come from hitstop, shake, scale and speed rather than from a white flare, which is the Vlambeer vocabulary section 2.4 already cites. The weapon-lines dispatch should budget those deliberately rather than discover after the deploy that the button feels like nothing.
+
+**At the size floor there is no shrink, so the dim is the only field-side announcement.** ADR 0003's ladder bleeds score and then weapon levels instead of size, and the same dim currently says both "you took a hit" and "you just lost the wisps". The most consequential non-death event in the game has no tell of its own, and it fires exactly when the player is in the spiral the comeback design exists to rescue. That is the sim-core dispatch's problem, but this pass is where a colour for it would have been reserved and none was.
+
+**No colour here has been seen on a screen.** Everything above is arithmetic. The grayscale differential of section 0.5 runs at the weapon-lines dispatch and again at tuning, and the feel call stays Mark's after he plays it.
