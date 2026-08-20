@@ -89,13 +89,14 @@ export function stream(seed: number, name: StreamName): Stream {
      * removes that bias, and every redraw still counts as a draw.
      */
     nextInt(bound: number): number {
-      // Without this the rejection loop below never terminates on a bound of
-      // zero, because the limit is NaN and no draw is ever under it. A hang
-      // with no diagnostic is the worst failure a computed bound can have, so
-      // it throws by name instead.
-      if (!Number.isInteger(bound) || bound < 1) {
+      // Without this the rejection loop below never terminates at either end.
+      // At a bound of zero the limit is NaN, and above the generator's own
+      // range the limit floors to zero, so no draw is ever under it either. A
+      // hang with no diagnostic is the worst failure a computed bound can
+      // have, so it throws by name instead.
+      if (!Number.isInteger(bound) || bound < 1 || bound > UINT32_LIMIT) {
         throw new RangeError(
-          `nextInt needs a whole bound of 1 or more, got ${bound}`,
+          `nextInt needs a whole bound from 1 to ${UINT32_LIMIT}, got ${bound}`,
         );
       }
       const limit = Math.floor(UINT32_LIMIT / bound) * bound;

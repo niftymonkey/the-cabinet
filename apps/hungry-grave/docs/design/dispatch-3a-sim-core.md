@@ -8,7 +8,7 @@ You are writing production code in `/home/mlo/dev/niftymonkey/the-cabinet/apps/h
 
 Read `docs/agents/feature-playbook.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
 
-Read these before you write anything: `apps/hungry-grave/docs/adr/0015-determinism-across-devices.md`, `0003-size-is-health.md`, `0004-one-freshness-meter.md`, `0002-hybrid-swallow-economy.md`, `0008-the-belch-full-only-the-bomb-everywhere.md`, `0011-each-input-owns-its-speed.md`, `0012-fresh-seed-per-run.md`, `0013-the-sim-verification-contract.md`, `0014-readability-layering.md`, `apps/hungry-grave/docs/design/tracer-plan.md` section 3 and section 5, and `apps/hungry-grave/CONTEXT.md` for the vocabulary.
+Read these before you write anything: `apps/hungry-grave/docs/adr/0015-determinism-across-devices.md`, `apps/hungry-grave/docs/adr/0003-size-is-health.md`, `apps/hungry-grave/docs/adr/0004-one-freshness-meter.md`, `apps/hungry-grave/docs/adr/0002-hybrid-swallow-economy.md`, `apps/hungry-grave/docs/adr/0008-the-belch-full-only-the-bomb-everywhere.md`, `apps/hungry-grave/docs/adr/0011-each-input-owns-its-speed.md`, `apps/hungry-grave/docs/adr/0012-fresh-seed-per-run.md`, `apps/hungry-grave/docs/adr/0013-the-sim-verification-contract.md`, `apps/hungry-grave/docs/adr/0014-readability-layering.md`, `apps/hungry-grave/docs/design/tracer-plan.md` section 3 and section 5, and `apps/hungry-grave/CONTEXT.md` for the vocabulary.
 
 **Never open `src/prototypes/` at all.** Not to read, not to copy, not to check. Everything you need is in this prompt and the docs above.
 

@@ -108,11 +108,11 @@ describe("named seeded streams", () => {
     }
   });
   it("nextInt throws by name on a bound it cannot sample, rather than hanging", () => {
-    // The rejection loop cannot terminate on a bound of zero, and dispatch 4
-    // computes its bounds, so the failure mode without this is a frozen tab
-    // with nothing in the console.
+    // The rejection loop cannot terminate on a bound of zero, nor on one above
+    // the generator's 32-bit range, and dispatch 4 computes its bounds, so the
+    // failure mode without this is a frozen tab with nothing in the console.
     const source = stream(31, "drops");
-    for (const bound of [0, -1, 2.5, NaN]) {
+    for (const bound of [0, -1, 2.5, NaN, 4_294_967_297]) {
       expect(() => source.nextInt(bound)).toThrow(RangeError);
     }
   });
