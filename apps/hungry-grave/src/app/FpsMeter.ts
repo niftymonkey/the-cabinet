@@ -2,9 +2,9 @@ import type { Ticker } from "pixi.js";
 import { Container } from "pixi.js";
 
 import { FpsSampler } from "./fpsSampler";
+import { PALETTE } from "./palette";
 import { Label } from "./ui/Label";
 
-const DIM = 0x76839a;
 const MARGIN = 12;
 
 /**
@@ -23,7 +23,12 @@ export class FpsMeter extends Container {
 
     this.readout = new Label({
       // Monospace so the number holds its width as the digits change.
-      style: { fontFamily: "monospace", fill: DIM, fontSize: 16 },
+      // The meter draws over the field, so it is inside ADR 0014's ceiling.
+      style: {
+        fontFamily: "monospace",
+        fill: PALETTE.hudDim.hex,
+        fontSize: 16,
+      },
     });
     this.readout.anchor.set(0, 0);
     this.readout.position.set(MARGIN, MARGIN);
