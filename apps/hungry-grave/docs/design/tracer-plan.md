@@ -1,4 +1,4 @@
-# Tracer plan, ticket #36
+# Tracer plan, tickets #36, #38 and #39
 
 This is the dispatch-contract planning half from `docs/agents/feature-playbook.md`: the definition, the verification steps, the module boundaries, the seams, and the test list. The coding dispatches execute it.
 
@@ -36,7 +36,7 @@ The concept doc's "~300 airborne projectiles" was an assumption introduced to ru
 
 The arithmetic it served does not depend on it: at 300 airborne over a 1.5 second life the strict one-corpse-one-bullet economy needs 200 kills per second, and at 100 airborne it still needs 67, so Hungry Grave ADR 0002 stands at any plausible number.
 
-The place the figure binds is Hungry Grave ADR 0014, whose grayscale readability check has to run at some stated density. So in this build the number is produced rather than assumed: the field is tuned until it is fun, the airborne-projectile instrument reads what that field holds, and the measured figure becomes the density the readability check must pass at. The figure is recorded with the tuning revision that produced it, so a later retune cannot silently move the bar it is checked against, and it is the peak across the bot's runs and Mark's own, because a headless bot measures the bot's storm and a greedier human produces a denser one. Rewording ADR 0014 and the concept doc to match is a separate diff for Mark, not part of a dispatch.
+The place the figure binds is Hungry Grave ADR 0014, whose grayscale readability check has to run at some stated density. So in this build the number is produced rather than assumed: the field is tuned until it is fun, the airborne-projectile instrument reads what that field holds, and the measured figure becomes the density the readability check must pass at. The figure is recorded with the tuning revision that produced it, so a later retune cannot silently move the bar it is checked against, and it is the peak across the bot's runs and Mark's own, because a headless bot measures the bot's storm and a greedier human produces a denser one.
 
 ## 2. Verification steps, each with its actor
 

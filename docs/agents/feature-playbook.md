@@ -61,12 +61,14 @@ Concrete rules enter this section only through a verified round: the same real c
 The verified example, in full:
 
 ```ts
+import { FpsMeter } from "./app/FpsMeter";
 import { setEngine } from "./app/getEngine";
+import { resolveRoute } from "./app/routes";
 import { LoadScreen } from "./app/screens/LoadScreen";
 import { PrototypesScreen } from "./app/screens/PrototypesScreen";
+import { TitleScreen } from "./app/screens/TitleScreen";
 import { userSettings } from "./app/utils/userSettings";
 import { CreationEngine } from "./engine/engine";
-import { prototypeFromHash } from "./prototypes";
 
 /**
  * Importing these modules will automatically register their plugins with the engine.
@@ -78,24 +80,44 @@ async function initEngine(): Promise<CreationEngine> {
   setEngine(engine);
   await engine.init({
     background: "#0e1119",
+    // 540x760 is the sim's field in units, never device pixels (ADR 0003).
     resizeOptions: { minWidth: 540, minHeight: 760, letterbox: false },
   });
   return engine;
 }
 
-async function resolveScreen(hash: string) {
-  const entry = prototypeFromHash(hash);
-  return entry ? await entry.load() : PrototypesScreen;
+/**
+ * Puts the frame-rate readout on the stage, above every screen. Navigation
+ * adds its own container to the stage lazily, when the first screen is shown
+ * (src/engine/navigation/navigation.ts), so a meter added earlier would end up
+ * underneath it. zIndex settles the order by rule instead of by who was added
+ * first, and holds however the screens are later reshuffled.
+ */
+function attachFpsMeter(engine: CreationEngine): void {
+  const meter = new FpsMeter();
+  meter.zIndex = 1;
+  engine.stage.sortableChildren = true;
+  engine.stage.addChild(meter);
+  engine.ticker.add(meter.update, meter);
 }
 
+async function resolveScreen(hash: string) {
+  const route = resolveRoute(hash);
+  if (route.kind === "prototype") return await route.entry.load();
+  if (route.kind === "prototype-list") return PrototypesScreen;
+  return TitleScreen;
+}
+
+/**
+ * Answers every navigation the URL fragment can produce: boot, in-app hash
+ * writes, and the browser's back and forward buttons alike. The fragment is
+ * the single navigation authority between the game and the prototypes, and
+ * buttons only assign location.hash; screens inside the game navigate directly
+ * and never touch it. Routes are chained so two showScreen calls can never
+ * interleave, and a route whose hash went stale while its module loaded steps
+ * aside.
+ */
 function startRouter(engine: CreationEngine): Promise<void> {
-  // The URL fragment is the single navigation authority between the list and
-  // a prototype: buttons only assign location.hash, and this router answers
-  // boot, in-app hash writes, and the browser's back and forward buttons
-  // alike. Screens inside one prototype navigate directly and never touch
-  // the hash.
-  // Routes are chained so two showScreen calls can never interleave, and a
-  // route whose hash went stale while its module loaded steps aside.
   let pending: Promise<void> = Promise.resolve();
   const route = async () => {
     const hash = window.location.hash;
@@ -114,6 +136,8 @@ function startRouter(engine: CreationEngine): Promise<void> {
 async function main(): Promise<void> {
   const engine = await initEngine();
   userSettings.init();
+  attachFpsMeter(engine);
+  // The load screen holds the stage while the router resolves the first route.
   await engine.navigation.showScreen(LoadScreen);
   await startRouter(engine);
 }
