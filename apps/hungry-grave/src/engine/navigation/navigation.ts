@@ -102,8 +102,14 @@ export class Navigation {
     if (screen.show) {
       screen.interactiveChildren = false;
       await screen.show();
-      screen.interactiveChildren = true;
     }
+
+    // Unconditionally, and this is the fix rather than a tidy-up. showScreen
+    // and hideAndRemoveScreen both take a screen's children away on the way
+    // out, so a screen that declares no show() was never given them back and
+    // its buttons were dead on every showing after the first, while the screen
+    // itself went on taking pointer events and looked alive.
+    screen.interactiveChildren = true;
   }
 
   /**

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { PROTOTYPES, prototypeHash } from "../prototypes";
-import { PROTOTYPES_HASH, resolveRoute } from "./routes";
+import { DIGEST_HASH, PROTOTYPES_HASH, resolveRoute } from "./routes";
 
 describe("resolveRoute", () => {
   it("the default hash routes to the game app, not to the prototypes", () => {
@@ -33,6 +33,18 @@ describe("resolveRoute", () => {
     expect(resolveRoute(`${PROTOTYPES_HASH}/not-a-prototype`).kind).toBe(
       "prototype-list",
     );
+  });
+
+  it("#/digest resolves to the digest route, so ADR 0015's claim can be checked in a browser", () => {
+    expect(resolveRoute(DIGEST_HASH).kind).toBe("digest");
+    expect(resolveRoute(`${DIGEST_HASH}/`).kind).toBe("digest");
+    expect(resolveRoute(`${DIGEST_HASH}?seed=7`).kind).toBe("digest");
+  });
+
+  it("#/digest-old does not, the same lookalike rule the prototype list already carries", () => {
+    for (const hash of [`${DIGEST_HASH}-old`, `${DIGEST_HASH}x`]) {
+      expect(resolveRoute(hash).kind).toBe("game");
+    }
   });
 
   it("a registered prototype routes to its entry, query and all", () => {

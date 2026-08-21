@@ -7,8 +7,15 @@ import { engine } from "../getEngine";
 import { Button } from "../ui/Button";
 import { Label } from "../ui/Label";
 import { RoundedBox } from "../ui/RoundedBox";
-import { VolumeSlider } from "../ui/VolumeSlider";
-import { userSettings } from "../utils/userSettings";
+import { SettingSlider } from "../ui/SettingSlider";
+import {
+  KEYBOARD_SPEED_SLIDER_MAX,
+  KEYBOARD_SPEED_SLIDER_MIN,
+  keyboardSpeedFromSlider,
+  sliderFromKeyboardSpeed,
+  userSettings,
+} from "../utils/userSettings";
+import { PausePopup } from "./PausePopup";
 
 /** Popup for volume */
 export class SettingsPopup extends Container {
@@ -27,11 +34,13 @@ export class SettingsPopup extends Container {
   /** Layout that organises the UI components */
   private layout: List;
   /** Slider that changes the master volume */
-  private masterSlider: VolumeSlider;
+  private masterSlider: SettingSlider;
   /** Slider that changes background music volume */
-  private bgmSlider: VolumeSlider;
+  private bgmSlider: SettingSlider;
   /** Slider that changes sound effects volume */
-  private sfxSlider: VolumeSlider;
+  private sfxSlider: SettingSlider;
+  /** Slider that changes the keyboard's designated speed (ADR 0011) */
+  private keyboardSpeedSlider: SettingSlider;
 
   constructor() {
     super();
@@ -44,7 +53,9 @@ export class SettingsPopup extends Container {
     this.panel = new Container();
     this.addChild(this.panel);
 
-    this.panelBase = new RoundedBox({ height: 425 });
+    // Tall enough for four sliders above the OK button. The keyboard speed
+    // slider is the fourth and at 425 the button sat on top of it.
+    this.panelBase = new RoundedBox({ height: 530 });
     this.panel.addChild(this.panelBase);
 
     this.title = new Label({
@@ -59,7 +70,14 @@ export class SettingsPopup extends Container {
 
     this.doneButton = new Button({ text: "OK" });
     this.doneButton.y = this.panelBase.boxHeight * 0.5 - 78;
-    this.doneButton.onPress.connect(() => engine().navigation.dismissPopup());
+    // Back to the pause menu and not to the run. presentPopup replaces rather
+    // than stacks, so opening Settings destroyed the menu, and dismissing here
+    // would drop the player straight into live play holding nothing.
+    this.doneButton.onPress.connect(() => {
+      engine()
+        .navigation.presentPopup(PausePopup)
+        .catch((error) => console.error(error));
+    });
     this.panel.addChild(this.doneButton);
 
     this.versionLabel = new Label({
@@ -78,23 +96,46 @@ export class SettingsPopup extends Container {
     this.layout.y = -80;
     this.panel.addChild(this.layout);
 
-    this.masterSlider = new VolumeSlider("Master Volume");
+    this.masterSlider = new SettingSlider("Master Volume");
     this.masterSlider.onUpdate.connect((v) => {
       userSettings.setMasterVolume(v / 100);
     });
     this.layout.addChild(this.masterSlider);
 
-    this.bgmSlider = new VolumeSlider("BGM Volume");
+    this.bgmSlider = new SettingSlider("BGM Volume");
     this.bgmSlider.onUpdate.connect((v) => {
       userSettings.setBgmVolume(v / 100);
     });
     this.layout.addChild(this.bgmSlider);
 
-    this.sfxSlider = new VolumeSlider("SFX Volume");
+    this.sfxSlider = new SettingSlider("SFX Volume");
     this.sfxSlider.onUpdate.connect((v) => {
       userSettings.setSfxVolume(v / 100);
     });
     this.layout.addChild(this.sfxSlider);
+
+    this.keyboardSpeedSlider = new SettingSlider(
+      "Keyboard Speed",
+      KEYBOARD_SPEED_SLIDER_MIN,
+      KEYBOARD_SPEED_SLIDER_MAX,
+    );
+    this.keyboardSpeedSlider.onUpdate.connect((v) => {
+      const speed = keyboardSpeedFromSlider(v);
+      userSettings.setKeyboardSpeed(speed);
+      this.showKeyboardSpeed(speed);
+    });
+    this.layout.addChild(this.keyboardSpeedSlider);
+  }
+
+  /**
+   * The keyboard speed reads as a number, because a handle position cannot
+   * produce "it feels right at 1.4x": the multiplier is an absolute value the
+   * player carries between sittings, where the three volumes are purely
+   * relative and stay bare (ADR 0011). Written here rather than into the shared
+   * widget, which #38 owns.
+   */
+  private showKeyboardSpeed(speed: number): void {
+    this.keyboardSpeedSlider.messageLabel.text = `Keyboard Speed  ${speed.toFixed(2)}x`;
   }
 
   /** Resize the popup, fired whenever window size changes */
@@ -110,6 +151,11 @@ export class SettingsPopup extends Container {
     this.masterSlider.value = userSettings.getMasterVolume() * 100;
     this.bgmSlider.value = userSettings.getBgmVolume() * 100;
     this.sfxSlider.value = userSettings.getSfxVolume() * 100;
+    const speed = userSettings.getKeyboardSpeed();
+    this.keyboardSpeedSlider.value = sliderFromKeyboardSpeed(speed);
+    // Set here as well as on update, or the panel opens showing the bare label
+    // until the player first drags the handle.
+    this.showKeyboardSpeed(speed);
   }
 
   /** Present the popup, animated */

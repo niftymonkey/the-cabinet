@@ -8,11 +8,9 @@
  * still sitting in the sim: the engine is the varying input, and a same-engine
  * test is structurally blind to it.
  *
- * THE CONSTANT IS NEVER UPDATED TO MAKE A FAILING TEST PASS. A change here is a
- * deliberate tuning or rules change, and the update is part of that change with
- * the reason in the commit message. Regeneration is a human paste: run
- * `pnpm digest`, and the test logs the regenerated object as a paste-ready
- * literal before it asserts.
+ * The scenario, the digest shape and GOLDEN live in src/dev/digest.ts, because
+ * the #/digest screen runs the same scenario in a browser. The constant and its
+ * never-update warning moved together and must never end up in two files.
  *
  * This is not a vitest snapshot, deliberately. `-u` maps to update mode `all`
  * and rewrites every changed snapshot in the run, so a future unrelated `-u`
@@ -27,128 +25,38 @@
  * One: nothing on this dispatch's digest path calls math.ts at all, because the
  * grave moves linearly and the scroll is linear. A green digest here is not
  * determinism verified, and later dispatches must extend the scenario as they
- * add approximated operations.
+ * add approximated operations. The #/digest screen prints this on screen, so a
+ * phone MATCH does not read in the record as more than it is.
  *
- * Two: moveGrave clamps to the field edges, so a script holding full-right pins
- * x to the wall exactly and erases any divergence in it. This script is kept
- * off the walls, asserted below, and a per-tick checksum accumulates alongside
- * the end state so a divergence that later re-converges still shows.
+ * Two: moveGrave clamps to the field's edges, so a script holding full-right
+ * pins x to the field boundary exactly and erases any divergence in it. This
+ * script is kept off the boundary, asserted below against the extremes
+ * runScenario returns, and a per-tick checksum accumulates alongside the end
+ * state so a divergence that later re-converges still shows.
  */
 
 import { describe, expect, it } from "vitest";
-import { stepChecked } from "../dev/invariants";
+import { GOLDEN, runScenario } from "../dev/digest";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
-import { graveHitbox } from "./grave";
-import type { MoveCommand, RunState } from "./run";
-import { createRun } from "./run";
-
-const SEED = 20260820;
-const TICKS = 300;
-
-/**
- * A wandering script with a small net drift, so the end state is not simply the
- * start, and short enough that no cycle of it reaches a wall.
- */
-const SCRIPT: readonly MoveCommand[] = [
-  { x: 1, y: 0 },
-  { x: 0.5, y: -1 },
-  { x: -1, y: -0.5 },
-  { x: 0, y: 1 },
-  { x: -0.5, y: 0 },
-  { x: 1, y: 0.25 },
-  { x: -0.75, y: -0.5 },
-];
-
-interface Digest {
-  readonly tick: number;
-  readonly seed: number;
-  readonly graveX: number;
-  readonly graveY: number;
-  readonly size: number;
-  readonly score: number;
-  readonly reservoir: number;
-  readonly drawn: Record<string, number>;
-  readonly levels: Record<string, number>;
-  readonly checksum: number;
-}
-
-/**
- * Integer-only folding at a fixed six decimal places, so the checksum cannot
- * itself diverge between engines.
- */
-function fold(checksum: number, value: number): number {
-  return (Math.imul(checksum, 31) + Math.round(value * 1e6)) | 0;
-}
-
-function digestOf(run: RunState, checksum: number): Digest {
-  return {
-    tick: run.tick,
-    seed: run.seed,
-    graveX: run.grave.x,
-    graveY: run.grave.y,
-    size: run.grave.size,
-    score: run.score,
-    reservoir: run.reservoir,
-    drawn: {
-      spawns: run.streams.spawns.drawn,
-      drops: run.streams.drops.drawn,
-      mobFire: run.streams.mobFire.drawn,
-      shed: run.streams.shed.drawn,
-    },
-    levels: { ...run.levels },
-    checksum: checksum,
-  };
-}
-
-/** Runs the scenario, and fails outright if the script ever reached a wall. */
-function runScenario(): Digest {
-  const run = createRun(SEED);
-  let checksum = 0;
-  for (let tick = 0; tick < TICKS; tick++) {
-    stepChecked(run, SCRIPT[tick % SCRIPT.length]);
-    const box = graveHitbox(run.grave);
-    expect(box.x).toBeGreaterThan(0);
-    expect(box.y).toBeGreaterThan(0);
-    expect(box.x + box.width).toBeLessThan(FIELD_WIDTH);
-    expect(box.y + box.height).toBeLessThan(FIELD_HEIGHT);
-    checksum = fold(checksum, run.grave.x);
-    checksum = fold(checksum, run.grave.y);
-    checksum = fold(checksum, run.grave.size);
-  }
-  return digestOf(run, checksum);
-}
-
-const GOLDEN: Digest = {
-  tick: 300,
-  seed: 20260820,
-  graveX: 321.75,
-  graveY: 465.125,
-  size: 27,
-  score: 0,
-  reservoir: 0,
-  drawn: {
-    spawns: 0,
-    drops: 0,
-    mobFire: 0,
-    shed: 0,
-  },
-  levels: {
-    soulStream: 1,
-    headstones: 1,
-    wisps: 0,
-    bell: 0,
-  },
-  checksum: -1808588216,
-};
 
 describe("the golden digest", () => {
   it("a golden digest over a short scripted scenario matches the committed constant (ADR 0015)", () => {
-    const digest = runScenario();
+    const { digest } = runScenario();
     if (JSON.stringify(digest) !== JSON.stringify(GOLDEN)) {
       console.log(
-        `The digest moved. If that was deliberate, paste this over GOLDEN in this file and say why in the commit message:\n\nconst GOLDEN: Digest = ${JSON.stringify(digest, null, 2)};\n`,
+        `The digest moved. If that was deliberate, paste this over GOLDEN in src/dev/digest.ts and say why in the commit message:\n\nexport const GOLDEN: Digest = ${JSON.stringify(digest, null, 2)};\n`,
       );
     }
     expect(digest).toEqual(GOLDEN);
+  });
+
+  it("the script never reaches the field boundary, so no clamp erases a divergence", () => {
+    // Recorded blindness two, kept as an assertion after the scenario moved to
+    // src/dev, which may import no bare packages and so cannot carry expect().
+    const { boundary } = runScenario();
+    expect(boundary.minX).toBeGreaterThan(0);
+    expect(boundary.minY).toBeGreaterThan(0);
+    expect(boundary.maxX).toBeLessThan(FIELD_WIDTH);
+    expect(boundary.maxY).toBeLessThan(FIELD_HEIGHT);
   });
 });

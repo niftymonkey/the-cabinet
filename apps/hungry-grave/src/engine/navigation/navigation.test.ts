@@ -84,6 +84,24 @@ describe("navigation's screen pooling", () => {
     expect(first.built[0].armed).toBe(true);
   });
 
+  it("a screen shown again from the pool gets its children back, with or without a show()", async () => {
+    const nav = navigationOnFakeEngine();
+    const first = screenClass();
+    const second = screenClass();
+
+    await nav.showScreen(first.PooledScreen);
+    await nav.showScreen(second.PooledScreen);
+    await nav.showScreen(first.PooledScreen);
+
+    // showScreen and hideAndRemoveScreen both take a screen's children away on
+    // the way out. Restoring them only inside `if (screen.show)` means a screen
+    // that declares no show() never gets them back, so its buttons are dead on
+    // every showing after the first while the screen itself still takes
+    // pointer events. That reached Mark's phone as a pause button that stopped
+    // working partway through a session.
+    expect(first.built[0].interactiveChildren).toBe(true);
+  });
+
   it("a popup is pooled too, so returning one is never a one-way trip", async () => {
     const nav = navigationOnFakeEngine();
     const popup = screenClass();

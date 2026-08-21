@@ -33,6 +33,17 @@ export interface Grave {
 }
 
 /**
+ * A point in field units. It lives here beside Rect rather than in an input
+ * model because src/game may not reach src/input: advance.ts's SteerSource and
+ * src/input's two models all speak it, and one declaration is what keeps them
+ * from drifting into two shapes that only happen to match.
+ */
+export interface FieldPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
  * A rectangle in field units, as a top-left corner and a size. Declared here
  * for now; dispatch 4's overlap.ts will want to own it, and moving it then
  * beats creating a module with one type in it today.
