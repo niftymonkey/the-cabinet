@@ -29,7 +29,11 @@ describe("combineSteer", () => {
     touch.move(1, { x: 100 + STEER_SLOP + 1, y: 400 });
     touch.move(1, { x: 100 + STEER_SLOP + 1 + 10, y: 400 });
 
+    // Eleven and not ten: the crossing point is interpolated at exactly
+    // STEER_SLOP along the move that crossed it, so the anchor sits one unit
+    // behind where that move left the pointer, and the drag is measured from
+    // the anchor.
     const combined = combineSteer({ x: 1, y: 1 }, touch, g);
-    expect(combined).toEqual({ x: (10 * DRAG_RATIO) / BASE_SPEED, y: 0 });
+    expect(combined).toEqual({ x: (11 * DRAG_RATIO) / BASE_SPEED, y: 0 });
   });
 });

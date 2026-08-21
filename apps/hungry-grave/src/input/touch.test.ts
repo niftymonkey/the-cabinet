@@ -15,7 +15,11 @@ function grave(x: number, y: number): Grave {
   return { x, y, size: SIZE_START, invulnerable: 0 };
 }
 
-/** A pointer down and dragged just past the slop, which is where it anchors. */
+/**
+ * A pointer down and dragged one unit past the slop. It returns the anchor,
+ * which is the crossing point interpolated along that move and so sits exactly
+ * STEER_SLOP from the origin, one unit short of where the pointer now is.
+ */
 function anchored(
   touch: TouchSteer,
   id: number,
@@ -23,9 +27,8 @@ function anchored(
   at: Grave,
 ): { x: number; y: number } {
   touch.down(id, origin, at);
-  const anchor = { x: origin.x + STEER_SLOP + 1, y: origin.y };
-  touch.move(id, anchor);
-  return anchor;
+  touch.move(id, { x: origin.x + STEER_SLOP + 1, y: origin.y });
+  return { x: origin.x + STEER_SLOP, y: origin.y };
 }
 
 describe("TouchSteer", () => {
@@ -59,6 +62,34 @@ describe("TouchSteer", () => {
 
     expect(g.x).toBeCloseTo(270 + 20 * DRAG_RATIO, 9);
     expect(g.y).toBeCloseTo(500 + 12 * DRAG_RATIO, 9);
+  });
+
+  it("a first move far past STEER_SLOP discards the slop distance and delivers the rest, never the whole move", () => {
+    // A flick arrives as one coarse pointermove on a phone, so the first move
+    // can land far past the threshold. Anchoring at that endpoint swallows all
+    // of it: the next command is a zero position error and a quick swipe moves
+    // the grave not at all. AOSP's ScrollView subtracts the slop from the
+    // first delta and UIScrollView does the same, so 100 units of finger
+    // travel is 96 units of grave travel here.
+    const straight = new TouchSteer();
+    const g = grave(270, 500);
+    straight.down(1, { x: 100, y: 400 }, g);
+    straight.move(1, { x: 200, y: 400 });
+    moveGrave(g, straight.command(g));
+
+    expect(g.x).toBeCloseTo(270 + (100 - STEER_SLOP) * DRAG_RATIO, 9);
+    expect(g.y).toBeCloseTo(500, 9);
+
+    // The slop comes off along the segment and not per axis: a 3-4-5 flick of
+    // 100 units delivers 96 units along its own direction.
+    const diagonal = new TouchSteer();
+    const d = grave(270, 400);
+    diagonal.down(1, { x: 100, y: 300 }, d);
+    diagonal.move(1, { x: 160, y: 380 });
+    moveGrave(d, diagonal.command(d));
+
+    expect(d.x).toBeCloseTo(270 + 0.6 * (100 - STEER_SLOP) * DRAG_RATIO, 9);
+    expect(d.y).toBeCloseTo(400 + 0.8 * (100 - STEER_SLOP) * DRAG_RATIO, 9);
   });
 
   it("the command is uncapped: any target inside the field is reached in one tick however far away (ADR 0011)", () => {
@@ -216,9 +247,12 @@ describe("TouchSteer", () => {
     touch.move(2, { x: resting.x + 3 + STEER_SLOP + 1, y: resting.y });
     expect(touch.isSteering()).toBe(true);
 
+    // The promoting move crosses the slop by one unit and that one unit is
+    // delivered, which is the same rule as the flick case. What must never
+    // arrive is a jump by the distance between the two fingers.
     const before = { x: g.x, y: g.y };
     moveGrave(g, touch.command(g));
-    expect(g.x).toBeCloseTo(before.x, 9);
+    expect(g.x).toBeCloseTo(before.x + 1 * DRAG_RATIO, 9);
     expect(g.y).toBeCloseTo(before.y, 9);
   });
 

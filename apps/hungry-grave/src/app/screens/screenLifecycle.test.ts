@@ -93,6 +93,17 @@ function frame(elapsedMS: number): Ticker {
   return { elapsedMS } as Ticker;
 }
 
+/**
+ * Lets a navigation call finish the way it does in production, where a popup
+ * is only ever up once presentPopup has resolved. Handing the mock a
+ * currentPopup without this models a state the engine cannot be in: navigation
+ * assigns the field last, after the screen's pause() and after the outgoing
+ * popup's hide.
+ */
+function settleNavigation(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 /** Waits for the rejection handler, which runs a microtask after the press. */
 async function settle(): Promise<void> {
   await vi.waitFor(() => expect(console.error).toHaveBeenCalled());
@@ -227,7 +238,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     expect(screen["clock"].debtTicks).toBe(0);
   });
 
-  it("Escape inside Settings goes back to the pause menu and never into live play", () => {
+  it("Escape inside Settings goes back to the pause menu and never into live play", async () => {
     // presentPopup replaces rather than stacks, so dismissing from Settings
     // resumes the run instantly. That is the flow the keyboard speed slider
     // exists for, and it is the flow the on-device read walks every time.
@@ -236,6 +247,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
 
     press("Escape");
     expect(presentPopup).toHaveBeenLastCalledWith(PausePopup);
+    await settleNavigation();
 
     // Constructed without its constructor: the branch is about which popup is
     // up, and a real one needs a renderer.
@@ -244,10 +256,58 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     expect(dismissPopup).not.toHaveBeenCalled();
     expect(presentPopup).toHaveBeenCalledTimes(2);
     expect(presentPopup).toHaveBeenLastCalledWith(PausePopup);
+    await settleNavigation();
 
     navigation.currentPopup = Object.create(PausePopup.prototype);
     press("Escape");
     expect(dismissPopup).toHaveBeenCalledTimes(1);
+  });
+
+  it("a second Escape while the pause menu is still opening does not present a second menu", async () => {
+    // presentPopup assigns currentPopup only after awaiting the screen's own
+    // async pause(), so a second Escape inside that window still reads
+    // undefined, opens again, and presentPopup tears the opening menu down to
+    // animate a fresh one in. Escape auto-repeats while it is held, so one
+    // finger reaches this.
+    const screen = new GameScreen();
+    screen.prepare();
+
+    let menuUp!: () => void;
+    presentPopup.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        menuUp = resolve;
+      }),
+    );
+
+    press("Escape");
+    press("Escape");
+    expect(presentPopup).toHaveBeenCalledTimes(1);
+
+    // Once the menu is up the guard is down again, and Escape closes it.
+    menuUp();
+    await settleNavigation();
+    navigation.currentPopup = Object.create(PausePopup.prototype);
+
+    press("Escape");
+    expect(dismissPopup).toHaveBeenCalledTimes(1);
+  });
+
+  it("a pooled screen whose pause menu never finished opening can still be paused on the next run", () => {
+    // The guard is a lifecycle flag, so it is cleared in prepare() with the
+    // rest. Left set, a screen returned to the pool mid-open would come back
+    // unpausable for the whole of the next run.
+    const screen = new GameScreen();
+    screen.prepare();
+    presentPopup.mockReturnValueOnce(new Promise<void>(() => {}));
+
+    press("Escape");
+    expect(presentPopup).toHaveBeenCalledTimes(1);
+
+    screen.reset();
+    screen.prepare();
+
+    press("Escape");
+    expect(presentPopup).toHaveBeenCalledTimes(2);
   });
 
   it("prepare() twice on a pooled screen starts the second run with no pointers down, no keys held and no filters", () => {

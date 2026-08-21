@@ -144,6 +144,15 @@ export class GameScreen extends Container {
    */
   private menuPaused = false;
   private backgrounded = false;
+  /**
+   * The pause menu has been asked for and navigation has not taken it up yet.
+   * presentPopup assigns currentPopup only after awaiting this screen's async
+   * pause(), so a second Escape inside that window reads no popup, asks again,
+   * and presentPopup hides the opening menu, returns it to the pool and
+   * animates a fresh one back in: the tear-down-and-reanimate the popup guard
+   * exists to prevent. Escape auto-repeats while it is held.
+   */
+  private openingMenu = false;
   private skipElapsed = false;
   private shownDebt: number | null = null;
   private shownTick: number | null = null;
@@ -209,6 +218,7 @@ export class GameScreen extends Container {
     this.ending = false;
     this.menuPaused = false;
     this.backgrounded = false;
+    this.openingMenu = false;
     this.skipElapsed = false;
     this.clock = createClock();
     this.shownDebt = null;
@@ -411,19 +421,28 @@ export class GameScreen extends Container {
    *
    * Without the popup guard a second Escape reaches presentPopup, which hides
    * the menu, returns it to the pool and animates a fresh one back in, still
-   * paused. And Escape inside Settings is the same door as Settings' OK: both
-   * go back to the pause menu, because presentPopup replaces rather than
-   * stacks, so dismissing from Settings would drop the player into live play
-   * holding nothing, on the very flow the speed slider exists for.
+   * paused. The guard is two parts, because navigation's own currentPopup is
+   * not set for the whole of the opening: openingMenu covers that window.
+   *
+   * Escape inside Settings is the same door as Settings' OK: both go back to
+   * the pause menu, because presentPopup replaces rather than stacks, so
+   * dismissing from Settings would drop the player into live play holding
+   * nothing, on the very flow the speed slider exists for.
    */
   private togglePause(): void {
     const navigation = engine().navigation;
     const popup = navigation.currentPopup;
     const opensMenu = !popup || popup instanceof SettingsPopup;
+    if (opensMenu && this.openingMenu) return;
+    this.openingMenu = opensMenu;
     const change = opensMenu
       ? navigation.presentPopup(PausePopup)
       : navigation.dismissPopup();
-    change.catch((error) => console.error(error));
+    change
+      .catch((error) => console.error(error))
+      .finally(() => {
+        this.openingMenu = false;
+      });
   }
 
   /** A lost keyup or a drag interrupted by a popup must not survive into the resumed run. */

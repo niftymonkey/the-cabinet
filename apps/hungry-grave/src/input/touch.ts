@@ -62,6 +62,14 @@ function distance(from: FieldPoint, to: FieldPoint): number {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+/** The point a fraction of the way along the segment from one point to another. */
+function along(from: FieldPoint, to: FieldPoint, fraction: number): FieldPoint {
+  return {
+    x: from.x + (to.x - from.x) * fraction,
+    y: from.y + (to.y - from.y) * fraction,
+  };
+}
+
 function apart(a: FieldPoint, b: FieldPoint): boolean {
   return (
     Math.abs(a.x - b.x) > TARGET_TOLERANCE ||
@@ -111,8 +119,10 @@ export class TouchSteer {
     const track = this.pointers.get(id);
     if (!track) return;
     track.current = point;
-    if (this.steeringId === null && distance(track.origin, point) > this.slop) {
-      this.startSteering(id, point);
+    if (this.steeringId !== null) return;
+    const travelled = distance(track.origin, point);
+    if (travelled > this.slop) {
+      this.startSteering(id, along(track.origin, point, this.slop / travelled));
     }
   }
 
@@ -123,6 +133,13 @@ export class TouchSteer {
    * teleport it that far in one tick; UIScrollView and AOSP's ScrollView both
    * discard the threshold travel instead, and the case is stronger here because
    * the thing that would jump is the player's own avatar.
+   *
+   * The crossing point is interpolated along the move that crossed, never taken
+   * as that move's endpoint. Pointer moves are coarse on a phone and a flick
+   * arrives as one big jump, so an endpoint anchor swallows the whole of the
+   * first move and a quick swipe steers nothing at all. What the scroll views
+   * discard is the slop distance, and only that: they subtract it from the
+   * first delta and deliver the rest.
    */
   private startSteering(id: number, at: FieldPoint): void {
     this.steeringId = id;
