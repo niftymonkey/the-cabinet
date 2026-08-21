@@ -19,6 +19,7 @@ vi.mock("../../getEngine", () => ({
 vi.mock("../../ui/Label", () => ({
   Label: class extends Container {
     public text = "";
+    public anchor = { set: () => {} };
   },
 }));
 
@@ -29,6 +30,13 @@ vi.mock("../../ui/Button", () => ({
 }));
 
 import { GameScreen } from "./GameScreen";
+
+// The screen reads its persisted keyboard speed on construction, and an
+// unstubbed localStorage warns once through the storage guard.
+Object.defineProperty(globalThis, "localStorage", {
+  value: { getItem: () => null, setItem: () => {} },
+  configurable: true,
+});
 
 /**
  * ADR 0014's stack as the ADR states it, top to bottom, with the hit's dim in

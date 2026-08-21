@@ -122,6 +122,6 @@ describe("the sim seam", () => {
     expect(snapshot(a)).toEqual(snapshot(b));
   });
 
-  // Owed by dispatch 3b, which parses the URL (tracer plan section 5).
-  it.todo("?seed= pins the run in both URL forms (ADR 0012)");
+  // The ?seed= half of ADR 0012 is paid: src/app/seedFromUrl.test.ts holds it,
+  // because the parsing is the app's and this file is the sim's.
 });

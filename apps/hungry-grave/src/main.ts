@@ -46,10 +46,20 @@ function attachFpsMeter(engine: CreationEngine): void {
   engine.ticker.add(meter.update, meter);
 }
 
+/**
+ * The digest screen is imported dynamically, the way the prototypes already
+ * are, or src/dev/digest.ts and src/dev/invariants.ts land in the boot chunk of
+ * every player's first load. resolveScreen is an if-chain ending in TitleScreen,
+ * so a new route kind with no branch here compiles cleanly and silently sends
+ * its hash to the title screen.
+ */
 async function resolveScreen(hash: string) {
   const route = resolveRoute(hash);
   if (route.kind === "prototype") return await route.entry.load();
   if (route.kind === "prototype-list") return PrototypesScreen;
+  if (route.kind === "digest") {
+    return (await import("./app/screens/DigestScreen")).DigestScreen;
+  }
   return TitleScreen;
 }
 

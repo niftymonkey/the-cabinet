@@ -42,8 +42,12 @@ export interface RunState {
   readonly streams: Readonly<Record<StreamName, Stream>>;
 }
 
-// One past the largest seed a roll can produce, the top of a 31-bit range.
-const SEED_LIMIT = 0x7fffffff;
+/**
+ * One past the largest seed a roll can produce, the top of a 31-bit range.
+ * Exported so ?seed= can accept exactly the seeds the roll itself could have
+ * produced (ADR 0012).
+ */
+export const SEED_LIMIT = 0x7fffffff;
 
 /**
  * The one place chance enters a run. Everything after this reads the seeded

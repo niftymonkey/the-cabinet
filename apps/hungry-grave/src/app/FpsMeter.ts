@@ -6,6 +6,20 @@ import { PALETTE } from "./palette";
 import { Label } from "./ui/Label";
 
 const MARGIN = 12;
+const LINE_HEIGHT = 20;
+
+/** The font size the whole corner stack shares, because a shared line height presumes a shared size. */
+export const METER_FONT_SIZE = 16;
+
+/**
+ * Where line `index` of the corner readout stack sits, as a constant offset
+ * from the stage origin. The meter owns line 0 and the game screen owns the
+ * rest, and they position from this one function so the corner geometry has
+ * exactly one declaration and the readouts cannot drift apart.
+ */
+export function meterLinePosition(index: number): { x: number; y: number } {
+  return { x: MARGIN, y: MARGIN + index * LINE_HEIGHT };
+}
 
 /**
  * The frame rate, shown quietly in the top-left corner of whatever screen is
@@ -27,11 +41,12 @@ export class FpsMeter extends Container {
       style: {
         fontFamily: "monospace",
         fill: PALETTE.hudDim.hex,
-        fontSize: 16,
+        fontSize: METER_FONT_SIZE,
       },
     });
     this.readout.anchor.set(0, 0);
-    this.readout.position.set(MARGIN, MARGIN);
+    const line = meterLinePosition(0);
+    this.readout.position.set(line.x, line.y);
 
     this.addChild(this.readout);
   }

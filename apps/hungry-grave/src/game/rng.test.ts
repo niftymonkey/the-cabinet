@@ -51,14 +51,21 @@ describe("named seeded streams", () => {
     }
   });
   it("every draw is in [0, 1), over a long sequence and several seeds", () => {
+    // One assertion over 80,000 draws rather than 160,000 assertions, because
+    // expect() costs far more than the range check and the test was timing out
+    // under parallel load at 3.9 seconds against vitest's 5 second budget. The
+    // draws checked are the same ones; only the reporting changed, so an
+    // offender is named rather than being the assertion that happened to fail.
+    const offenders: string[] = [];
     for (const seed of [0, 1, 99, 2147483646]) {
       for (const name of NAMES) {
-        for (const draw of draws(seed, name, 5000)) {
-          expect(draw).toBeGreaterThanOrEqual(0);
-          expect(draw).toBeLessThan(1);
-        }
+        draws(seed, name, 5000).forEach((draw, index) => {
+          if (draw >= 0 && draw < 1) return;
+          offenders.push(`seed ${seed} ${name} draw ${index} was ${draw}`);
+        });
       }
     }
+    expect(offenders).toEqual([]);
   });
   it("nextInt stays in [0, bound) and covers every value over enough draws", () => {
     for (const bound of [1, 2, 4, 6, 7, 37]) {

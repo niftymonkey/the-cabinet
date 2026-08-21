@@ -373,10 +373,12 @@ const APP = resolve(import.meta.dirname);
 /** Every module that draws while the field is live. */
 /**
  * What the scan can see. It reads these paths as text and does not follow
- * imports, so src/app/ui is outside it while GameScreen's END RUN button draws
- * over the live field: that gap closes at #38, when the shared widgets are
- * dressed and this list takes src/app/ui. It cannot see a texture at all, and
- * the create-pixi button art is one; only the grayscale differential can.
+ * imports, so src/app/ui is outside it while GameScreen's pause button, in the
+ * stage gutter and in the template's pink, sits over the same viewport as the
+ * live field: that gap closes at #38, when the shared widgets are dressed and
+ * this list takes src/app/ui, along with the pause menu's own template colours.
+ * It cannot see a texture at all, and the create-pixi button art is one; only
+ * the grayscale differential can.
  */
 const DRAWS_DURING_A_RUN = [
   join(APP, "screens", "game"),

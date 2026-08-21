@@ -69,7 +69,15 @@ export default tseslint.config(
   {
     // ADR 0015 requires that the rest of the sim cannot reach around math.ts,
     // and a comment asking nicely is not that.
-    files: ["src/game/**/*.ts"],
+    //
+    // src/input is under the same fence because input is the sim's only
+    // external input: an approximated operation there diverges a run exactly as
+    // one inside src/game would, and the golden digest cannot see it, because
+    // the digest scripts move commands directly and never runs an input model.
+    // The one path this leaves open is the SteerSource closure, which is
+    // written in src/app where no fence reaches; in practice it only picks
+    // between two commands through combineSteer.
+    files: ["src/game/**/*.ts", "src/input/**/*.ts"],
     rules: {
       "no-restricted-properties": ["error", ...approximated, random],
       "no-restricted-globals": [

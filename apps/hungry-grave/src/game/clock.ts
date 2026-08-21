@@ -78,11 +78,16 @@ export function ticksFor(clock: Clock, elapsedMs: number): number {
 }
 
 /**
- * Drops the accumulated remainder and the frame gap a tab switch created,
- * without touching debt. 3b calls this on visibilitychange: feeding raw elapsed
- * time means a tab switch would otherwise dump its whole gap into the debt
- * counter, so one backgrounding would read as a struggling phone and the
- * tick-debt readout would be a lie.
+ * Drops the accumulated remainder, without touching debt.
+ *
+ * It has no caller. It was provided for a tab switch, and it does not do that
+ * job: the backgrounded gap does not live in the remainder, it lives in Pixi's
+ * Ticker.lastTime, which no game-side call can reach and which does not advance
+ * while rAF is paused, so the first frame back still hands ticksFor the whole
+ * gap. The rendered screen skips that one frame's elapsed time instead
+ * (src/app/screens/game/GameScreen.ts). This stays because dropping a partial
+ * tick is a real operation the autopilot may want, and it is named here as
+ * unused rather than left claiming a caller it does not have.
  */
 export function resetClock(clock: Clock): void {
   clock.remainderMs = 0;

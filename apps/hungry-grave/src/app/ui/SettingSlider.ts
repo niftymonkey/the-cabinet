@@ -4,9 +4,11 @@ import { Graphics } from "pixi.js";
 import { Label } from "./Label";
 
 /**
- * A volume slider component to be used in the Settings popup.
+ * A labelled slider for one persisted setting, used in the Settings popup. It
+ * takes a label, a min, a max and a value, so it serves a volume and a
+ * keyboard speed alike.
  */
-export class VolumeSlider extends Slider {
+export class SettingSlider extends Slider {
   /** Message displayed for the slider */
   public messageLabel: Label;
 
