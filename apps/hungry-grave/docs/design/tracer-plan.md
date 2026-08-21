@@ -61,6 +61,7 @@ Every dependency here is pure in-process computation. There is no network, no th
 
 ### `src/game/`, the game's rules
 
+- `advance.ts`: the frame seam above `step.ts`. `advance(run, clock, elapsedMs, steer)` converts one frame's elapsed time into whole ticks through `clock.ts` and steps that many times, asking `steer` for a command per tick. It lives here rather than inside a pixi screen for the same reason `clock.ts` does: otherwise the accumulator is shared with the autopilot and the loop that consumes it is not, and dispatch 7 writes a second one. Added by the dispatch-3b plan, where the tech gate found the tick loop untested and untestable inside a screen.
 - `step.ts`: the sim seam. `step(state, command)` advances one fixed tick and returns events. It hides the order of a tick: scroll, input, spawns, motion, overlap detection, deaths, decay, culling. It orchestrates and does not hold rules; every overlap's consequence belongs to the module that owns the rule, named below.
 - `clock.ts`: the accumulator that turns real time into fixed ticks of sixty per second, and its catch-up clamp, so a backgrounded tab or a slow phone frame cannot fire a burst of ticks the player has no chance to answer. It lives here rather than in a screen so the autopilot and the rendered game share one implementation; otherwise the bot's run is not the player's run. A run's length is counted in ticks, never wall clock.
 - `math.ts`: every implementation-approximated operation the sim uses, rounded to single precision (Hungry Grave ADR 0015): `sin`, `cos`, `tan`, `atan2`, `exp`, `log`, `pow`, `hypot`. Nothing else in `src/game` calls those or `Math.random` directly, and the lint rule covers both. The sim prefers vector math to angle math, because a normalized direction uses only exactly-specified operations and needs no rounding at all.
@@ -86,7 +87,8 @@ There is deliberately no `projectiles.ts`, no `movement.ts`, and no `collide.ts`
 
 ### `src/input/`, pure input models
 
-- `keys.ts`: keyboard steering, the persisted speed setting from 0.5x to 2.0x, and the hold-to-focus key.
+- `keys.ts`: keyboard steering, the persisted speed setting from 0.75x to 1.5x, and the hold-to-focus key.
+- `steering.ts`: the one rule that turns a live keyboard and a live drag into a single move command. Touch wins while it is steering, keyboard otherwise; they are never summed, because one is a velocity and one is a position error. Added by the dispatch-3b plan, where all three gates found the seam missing.
 - `touch.ts`: uncapped drag steering onto the drag target, and the second finger as the belch.
 
 Both produce the same bare move command in base-speed units, and each owns its own normalization and cap (Hungry Grave ADR 0011). The stale-drag-target handoff lesson from #33 is pinned as a spec test here.
@@ -142,7 +144,7 @@ Pinned as `test.todo` on stubs at each dispatch. Every test cites the ADR, spec 
 - clock: the accumulator emits whole ticks only; catch-up is clamped; the bot and the screen produce the same tick sequence for the same elapsed time.
 - grave: width derives from the one scalar at fixed aspect; base speed crosses the field's width in about two seconds; hits shrink and start invulnerability; the hitbox shrinks with size; growth past the ceiling converts to overflow; at the size floor the damage ladder runs in order, bleeding score first, then dropping weapon levels back to the birthright, and only sealing the grave shut when nothing is left to bleed (ADR 0003).
 - swallow: every payout arrives through a swallow; growth scales by freshness; the on-swallow lines fire on the swallow that earned them; the reservoir charges; the swallow chime fires from the very first swallow regardless of loadout; a maxed weapon line's drop pays overflow; a swallow at the ceiling pays overflow (ADRs 0002 and 0005).
-- input: focus halves keyboard speed while held; the multiplier steps 0.5x to 2.0x by 0.1 and persists; touch is uncapped and lands on the drag target every step; the second finger belches, edge-triggered; a steering lift with the second finger down hands off or clears the drag target, never stale (the #33 lesson); pause cancels touch (ADR 0011).
+- input: focus halves keyboard speed while held; the multiplier steps 0.75x to 1.5x by 0.05 and persists (narrowed on the 3b game design gate, see ADR 0011); touch is uncapped and lands on the drag target every step; the second finger belches, edge-triggered; a steering lift with the second finger down hands off or clears the drag target, never stale (the #33 lesson); pause cancels touch (ADR 0011).
 - corpses: freshness seconds derive from scroll speed, the coupling invariant; payouts scale down to the 0.25 floor; an empty corpse is taken under; feasts never decay; corpse size is constant across mob types (ADRs 0004 and 0014).
 - drops: the price rises on the curve; the dice pick only which weapon line levels; every drop carries its weapon line identity from spawn; drops never decay (ADR 0002); and across the seeds the full-run test uses, every weapon line reaches at least level 1, because eleven drops spread uniformly over four lines otherwise leaves about one run in twenty with no bell in it at all, and one pinned playtest seed is where that goes unnoticed.
 - belch: the reservoir fills per swallow, caps, and visibly splashes past full; it fires only at full; it cancels every mob-fire shot on the field, damages a boss, and never pushes one (ADR 0008).
@@ -165,7 +167,7 @@ Seven dispatches, each carrying the full contract from the playbook. Dispatch 3 
 2. Render structure: `layout.ts`, `palette.ts`, and `layering.ts`, before any field content, so every later renderer attaches to a viewport mapping and a stack that already exist. Readability is a day-one rule and refitting a layout around finished renderers is rework. ADR 0014 was amended on 2026-08-19 to place the bell's ring and the belch's eruption in the stack and to forbid additive blending on the storm, so nothing here is blocked.
 3. Sim core, split in two by Mark on 2026-08-20. One dispatch mixed the headless rules with the app wiring that makes them playable, and verification step 7 reads input *feel*: landing input beside ten headless modules buries the cause when it feels wrong.
    - **3a, the headless sim**: `math.ts`, `rng.ts`, `clock.ts`, `tuning.ts`, the grave, the swallow, run state, the event vocabulary, the tick order, the golden digest, and the lint rule that keeps the sim off raw implementation-approximated operations. Nothing player-visible changes and there is no deploy. Plan: `docs/design/dispatch-3a-sim-core.md`.
-   - **3b, making it playable**: both input models, the `?seed=` URL in both forms, the grave renderer, `GameScreen` rewired onto `clock.ts`, and the tick-debt readout. Ends with the deploy and the on-device input check (verification step 7).
+   - **3b, making it playable**: both input models, the `?seed=` URL in both forms, the grave renderer, `GameScreen` rewired onto `clock.ts`, and the tick-debt readout. Ends with the deploy and the on-device input check (verification step 7). Plan: `docs/design/dispatch-3b-playable.md`.
 4. The field: the three mob types, templates, stage rows, overlap resolution, corpses and freshness, plus a stubbed victory on the stage's last row. The stub matters more than it sounds: without it the only ending reachable before dispatch 6 is sealed shut, so the deploy at dispatch 5 would be a play of a game that cannot be won, and "goes start to finish" would first exist two dispatches from the end. With it, every deploy from here on is a complete run and that property never regresses.
 5. Weapon lines and the economy: the four lines, drops with per-line legibility, pricing, the belch, `sound.ts`. Ends with the deploy and play at verification step 9.
 
@@ -173,7 +175,7 @@ The Halloween art and theming pass takes its slot here, immediately after that p
 6. Bosses: the Banshee with the Wall set-piece, the Undertaker, both endings.
 7. Tuning: density, scale, and ordnance, then belch fill and drop pricing last, against the instruments and across seeds. The airborne-projectile figure is read here and recorded with its tuning revision. Ends at the deploy for Mark's remaining feel checks.
 
-Every dispatch ends green on its tests plus typecheck and build. The rendered check runs at 1, 2, 6, and 7; the grayscale check at 5 and 7.
+Every dispatch ends green on its tests plus typecheck and build. The rendered check runs at 1, 2, 3b, 6, and 7; the grayscale check at 5 and 7. 3b was added to that list in its own plan, because it draws the first player-visible field content since dispatch 2.
 
 ## 7. The cut order, and what is never cut
 
