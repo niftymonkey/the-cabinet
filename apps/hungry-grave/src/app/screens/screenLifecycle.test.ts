@@ -310,6 +310,40 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     expect(presentPopup).toHaveBeenCalledTimes(2);
   });
 
+  it("an abandoned run's pause transition finishing does not unlock the next run's guard", async () => {
+    // The cleanup that lowers the guard rides on the navigation promise, and
+    // that promise can settle after reset() and the next prepare() have run. An
+    // old run's cleanup then lowers a new run's guard while the new menu is
+    // still opening, and a further Escape tears that menu down to animate a
+    // fresh one in: exactly what the guard exists to prevent. End Run inside
+    // the menu is the only way to end a run today, so nothing can reach this
+    // yet; a death landing while the menu animates reaches it in dispatch 4.
+    const screen = new GameScreen();
+    screen.prepare();
+
+    let abandonedMenuUp!: () => void;
+    presentPopup.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        abandonedMenuUp = resolve;
+      }),
+    );
+    press("Escape");
+    expect(presentPopup).toHaveBeenCalledTimes(1);
+
+    screen.reset();
+    screen.prepare();
+
+    presentPopup.mockReturnValueOnce(new Promise<void>(() => {}));
+    press("Escape");
+    expect(presentPopup).toHaveBeenCalledTimes(2);
+
+    abandonedMenuUp();
+    await settleNavigation();
+
+    press("Escape");
+    expect(presentPopup).toHaveBeenCalledTimes(2);
+  });
+
   it("prepare() twice on a pooled screen starts the second run with no pointers down, no keys held and no filters", () => {
     const screen = new GameScreen();
     screen.prepare();

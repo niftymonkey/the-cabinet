@@ -145,14 +145,23 @@ export class GameScreen extends Container {
   private menuPaused = false;
   private backgrounded = false;
   /**
-   * The pause menu has been asked for and navigation has not taken it up yet.
-   * presentPopup assigns currentPopup only after awaiting this screen's async
-   * pause(), so a second Escape inside that window reads no popup, asks again,
-   * and presentPopup hides the opening menu, returns it to the pool and
-   * animates a fresh one back in: the tear-down-and-reanimate the popup guard
-   * exists to prevent. Escape auto-repeats while it is held.
+   * The navigation transition opening the pause menu, while navigation has not
+   * taken it up yet. presentPopup assigns currentPopup only after awaiting this
+   * screen's async pause(), so a second Escape inside that window reads no
+   * popup, asks again, and presentPopup hides the opening menu, returns it to
+   * the pool and animates a fresh one back in: the tear-down-and-reanimate the
+   * popup guard exists to prevent. Escape auto-repeats while it is held.
+   *
+   * The transition itself is the guard, rather than a flag it sets, because
+   * this screen is pooled and the promise can settle after reset() and the next
+   * prepare() have run. A flag would be lowered there by an abandoned run's
+   * cleanup, leaving the new run unguarded while its own menu is still
+   * animating in. Identity answers "is this still the transition I am waiting
+   * on" without a second field for prepare() to keep in step. Unreachable while
+   * End Run inside the menu is the only way to end a run; a death landing
+   * mid-animation reaches it in dispatch 4.
    */
-  private openingMenu = false;
+  private menuTransition: Promise<void> | null = null;
   private skipElapsed = false;
   private shownDebt: number | null = null;
   private shownTick: number | null = null;
@@ -218,7 +227,7 @@ export class GameScreen extends Container {
     this.ending = false;
     this.menuPaused = false;
     this.backgrounded = false;
-    this.openingMenu = false;
+    this.menuTransition = null;
     this.skipElapsed = false;
     this.clock = createClock();
     this.shownDebt = null;
@@ -422,7 +431,7 @@ export class GameScreen extends Container {
    * Without the popup guard a second Escape reaches presentPopup, which hides
    * the menu, returns it to the pool and animates a fresh one back in, still
    * paused. The guard is two parts, because navigation's own currentPopup is
-   * not set for the whole of the opening: openingMenu covers that window.
+   * not set for the whole of the opening: menuTransition covers that window.
    *
    * Escape inside Settings is the same door as Settings' OK: both go back to
    * the pause menu, because presentPopup replaces rather than stacks, so
@@ -433,15 +442,17 @@ export class GameScreen extends Container {
     const navigation = engine().navigation;
     const popup = navigation.currentPopup;
     const opensMenu = !popup || popup instanceof SettingsPopup;
-    if (opensMenu && this.openingMenu) return;
-    this.openingMenu = opensMenu;
+    if (opensMenu && this.menuTransition) return;
     const change = opensMenu
       ? navigation.presentPopup(PausePopup)
       : navigation.dismissPopup();
+    this.menuTransition = opensMenu ? change : null;
     change
       .catch((error) => console.error(error))
       .finally(() => {
-        this.openingMenu = false;
+        // Only this transition's own guard, never whatever a later run is
+        // waiting on.
+        if (this.menuTransition === change) this.menuTransition = null;
       });
   }
 
