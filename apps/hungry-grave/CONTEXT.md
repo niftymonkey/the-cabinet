@@ -24,6 +24,8 @@ A Halloween vertical shmup crossed with hole.io. The player is a moving open gra
 
 **Corpse**: What a kill leaves behind, scrolling down the field. Fuel, common, and always decaying. _Avoid_: body, gem, pickup, loot.
 
+**Corpse tier**: Which mob a corpse came off, read as a hue. Corpses hold one size across mob types, so a tier is the only thing that shows a payout, and every tier shares one brightness because brightness is freshness. _Avoid_: rarity, grade, quality.
+
 **Freshness**: A corpse's one meter, running from kill to gone in seconds derived from scroll speed. It scales every payout down to a floor, and at empty the dirt takes the corpse under. _Avoid_: decay, timer, expiry, TTL.
 
 **Drop**: A permanent upgrade a kill sometimes leaves, priced in kills on a rising curve. Swallowing it levels one weapon line, chosen by the dice. Drops never decay. _Avoid_: powerup, upgrade item, pickup, loot.
@@ -68,13 +70,19 @@ A Halloween vertical shmup crossed with hole.io. The player is a moving open gra
 
 **Mob fire**: Every hostile shot on the field, trash shots and boss patterns alike. Mob fire is never confusable with the storm; the render rule that guarantees it is Hungry Grave ADR 0014. _Avoid_: enemy fire, enemy bullets, hellfire.
 
+**Armed**: Carrying fire. Only a fixed share of a wave is armed, and an armed mob looks armed, because picking targets is a skill only if the player can see which mob to pick. _Avoid_: shooter, ranged.
+
+**Tell**: The visible change an armed mob makes before every shot, not only its first, always at the same lead. Without it a mob's only tell is the damage. _Avoid_: warning, wind-up, charge.
+
+**Arriving beat**: The beat a mob holds the template's own motion for after it crosses the top edge, before its own movement takes over, so the placement's lesson reads whatever type is flying it. It governs movement only and never firing. _Avoid_: entry delay, spawn animation.
+
 **Trash**: The ordinary mobs of the authored timeline, as opposed to bosses. _Avoid_: minions, creeps, fodder, popcorn.
 
-**Mob type**: A kind of mob, owning how it moves, whether and how it fires, its health, its corpse payout, and its size. v1 ships three and the pool is open by design. A mob type must be readable before it acts. _Avoid_: enemy class, variant, archetype.
+**Mob type**: A kind of mob, owning how it moves, whether and how it fires, its health, its corpse payout, and its size. v1 ships three and the pool is open by design: the shambler falls, the revenant fires an aimed shot with a tell before it, and the ghoul is the closer, turning toward the grave so its body is the threat. A mob type must be readable before it acts. _Avoid_: enemy class, variant, archetype.
 
 **Template**: A named placement from the library: where a group of mobs arrives and how it is arranged, never which mob type is in it. Each teaches a lesson, and the library is open. The starting six are Drips, the File, the V, the Pincer, the Rain, the Wall. _Avoid_: formation, pattern, spawn type.
 
-**Row**: One entry of the authored timeline: a phase-local time, a template, a placement, and a count. Count lives on the row, so density tuning never edits a template. _Avoid_: spawn event, wave entry, script line.
+**Row**: One entry of the authored timeline: a phase-local time, a template, a count, and a mob type. Count lives on the row, so density tuning never edits a template, and the mob type lives there too, because a template never names who is in it. _Avoid_: spawn event, wave entry, script line.
 
 **Phase**: One segment of the stage, chained to the next by a boundary event rather than an absolute clock, because a shootable boss dies when killed. _Avoid_: act, section, checkpoint.
 

@@ -9,15 +9,40 @@
  *
  * src/dev may reach src/game and imports no bare packages, which is what keeps
  * this module pixi-free and usable from a screen.
+ *
+ * THE BLINDNESS THIS DISPATCH CLOSED, AND HOW.
+ *
+ * Nothing on the digest's path called math.ts before the field existed, so a
+ * green digest was not determinism verified at all. The scenario now spawns a
+ * ghoul and runs it long enough to turn, which is the first thing in the game
+ * to need trigonometry.
+ *
+ * Extending the scenario is not enough on its own. The checksum used to fold
+ * only the grave's x, y and size, and a ghoul's turn reaches none of those at
+ * the precision an f32 divergence lives at: an ulp in cos will never move the
+ * grave. It now folds every live entity's own state in slot order, which is
+ * what actually puts math.ts on the path and buys coverage of the spawn
+ * sequence and of pool iteration order at the same time.
  */
 
 import { graveHitbox } from "../game/grave";
+import type { Mob } from "../game/mobs";
+import { damageMob, spawnMob } from "../game/mobs";
 import type { MoveCommand, RunState } from "../game/run";
 import { createRun } from "../game/run";
 import { stepChecked } from "./invariants";
 
 const SEED = 20260820;
-const TICKS = 300;
+const TICKS = 600;
+
+/** The tick the scripted ghoul enters, early enough that its beat ends and it turns for most of the run. */
+const GHOUL_AT = 30;
+
+/** The tick a mob is put under the grave and killed, so a corpse is made and swallowed on the next one. */
+const SWALLOW_AT = 240;
+
+/** The tick a mob is killed away from the grave, so a corpse is still draining when the scenario ends. */
+const LEFTOVER_AT = 540;
 
 /**
  * A wandering script with a small net drift, so the end state is not simply the
@@ -41,6 +66,10 @@ export interface Digest {
   readonly size: number;
   readonly score: number;
   readonly reservoir: number;
+  readonly mobs: number;
+  readonly shots: number;
+  readonly corpses: number;
+  readonly kills: number;
   readonly drawn: Record<string, number>;
   readonly levels: Record<string, number>;
   readonly checksum: number;
@@ -66,6 +95,12 @@ export interface BoundaryExtremes {
 export interface ScenarioResult {
   readonly digest: Digest;
   readonly boundary: BoundaryExtremes;
+  /**
+   * The run the scenario left behind. The digest test perturbs one entity in it
+   * and re-folds, which is the only way to assert that the checksum actually
+   * reaches an entity's own state.
+   */
+  readonly state: RunState;
 }
 
 /**
@@ -76,7 +111,36 @@ function fold(checksum: number, value: number): number {
   return (Math.imul(checksum, 31) + Math.round(value * 1e6)) | 0;
 }
 
-function digestOf(run: RunState, checksum: number): Digest {
+/**
+ * Every live entity's own state, in slot order. Slot order is the point as much
+ * as the values are: a pool walked in a different order gives a different
+ * checksum, so iteration order is verified rather than assumed.
+ */
+export function foldEntities(run: RunState, from: number): number {
+  let checksum = from;
+  for (const mob of run.mobs) {
+    if (!mob.alive) continue;
+    checksum = fold(fold(fold(fold(checksum, mob.x), mob.y), mob.vx), mob.vy);
+  }
+  for (const shot of run.mobFire) {
+    if (!shot.alive) continue;
+    checksum = fold(
+      fold(fold(fold(checksum, shot.x), shot.y), shot.vx),
+      shot.vy,
+    );
+  }
+  for (const corpse of run.corpses) {
+    if (!corpse.alive) continue;
+    checksum = fold(fold(fold(checksum, corpse.x), corpse.y), corpse.freshness);
+  }
+  return checksum;
+}
+
+function liveCount(pool: readonly { alive: boolean }[]): number {
+  return pool.reduce((count, slot) => count + (slot.alive ? 1 : 0), 0);
+}
+
+function digestOf(run: RunState, checksum: number, kills: number): Digest {
   return {
     tick: run.tick,
     seed: run.seed,
@@ -85,6 +149,10 @@ function digestOf(run: RunState, checksum: number): Digest {
     size: run.grave.size,
     score: run.score,
     reservoir: run.reservoir,
+    mobs: liveCount(run.mobs),
+    shots: liveCount(run.mobFire),
+    corpses: liveCount(run.corpses),
+    kills,
     drawn: {
       spawns: run.streams.spawns.drawn,
       drops: run.streams.drops.drawn,
@@ -96,15 +164,42 @@ function digestOf(run: RunState, checksum: number): Digest {
   };
 }
 
-/** Runs the scenario, returning its digest and how close it came to the field boundary. */
+/** A mob put exactly where the script wants one, outside the stage's own rows. */
+function put(run: RunState, x: number, y: number): Mob | null {
+  return spawnMob(run, "shambler", { x, y, vx: 0, vy: 1, index: 0 });
+}
+
+/**
+ * The scripted deaths. They stand in for the weapon lines the scenario does not
+ * have, so the digest's path carries a kill, a corpse and a swallow.
+ */
+function scriptedKills(run: RunState, tick: number): number {
+  if (tick === GHOUL_AT) {
+    spawnMob(run, "ghoul", { x: 120, y: 20, vx: 0, vy: 1, index: 0 });
+    return 0;
+  }
+  if (tick !== SWALLOW_AT && tick !== LEFTOVER_AT) return 0;
+  const where =
+    tick === SWALLOW_AT
+      ? { x: run.grave.x, y: run.grave.y }
+      : { x: 60, y: 300 };
+  const victim = put(run, where.x, where.y);
+  if (victim === null) return 0;
+  damageMob(run, victim, victim.hp, "storm");
+  return 1;
+}
+
+/** Runs the scenario, returning its digest, how close it came to the field boundary, and the run itself. */
 export function runScenario(): ScenarioResult {
   const run = createRun(SEED);
   let checksum = 0;
+  let kills = 0;
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
   for (let tick = 0; tick < TICKS; tick++) {
+    kills += scriptedKills(run, tick);
     stepChecked(run, SCRIPT[tick % SCRIPT.length]);
     const box = graveHitbox(run.grave);
     minX = Math.min(minX, box.x);
@@ -114,10 +209,12 @@ export function runScenario(): ScenarioResult {
     checksum = fold(checksum, run.grave.x);
     checksum = fold(checksum, run.grave.y);
     checksum = fold(checksum, run.grave.size);
+    checksum = foldEntities(run, checksum);
   }
   return {
-    digest: digestOf(run, checksum),
+    digest: digestOf(run, checksum, kills),
     boundary: { minX, minY, maxX, maxY },
+    state: run,
   };
 }
 
@@ -129,13 +226,17 @@ export function runScenario(): ScenarioResult {
  * literal before it asserts.
  */
 export const GOLDEN: Digest = {
-  tick: 300,
+  tick: 600,
   seed: 20260820,
-  graveX: 321.75,
-  graveY: 465.125,
-  size: 27,
+  graveX: 365.625,
+  graveY: 318.875,
+  size: 24.50625,
   score: 0,
-  reservoir: 0,
+  reservoir: 0.50625,
+  mobs: 2,
+  shots: 0,
+  corpses: 1,
+  kills: 2,
   drawn: {
     spawns: 0,
     drops: 0,
@@ -148,5 +249,5 @@ export const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -1808588216,
+  checksum: 1132647885,
 };

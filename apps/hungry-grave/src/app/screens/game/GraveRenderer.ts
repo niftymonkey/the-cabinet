@@ -32,6 +32,25 @@ const GRAVE_CORNER_RATIO = 0.2;
 export const GRAVE_RIM_STROKE = 3;
 
 /**
+ * The rim's dark companion, stroked inward immediately inside the bright band,
+ * in field units.
+ *
+ * ADR 0014 requires the rim to read above the food layer even under a pile, and
+ * graveRim measures APCA Lc 0.00 against corpse, feast, drop and mob, all four.
+ * Re-valuing either side is arithmetically impossible, so the rim becomes two
+ * colours, which is ADR 0014's own construction for exactly this problem. The
+ * pair spans 62.12 luma and the dark band clears the Lc 45 fine-detail bracket
+ * against everything the rim can cross.
+ *
+ * It costs the mouth one unit on each side, so a floor-size grave reads ten
+ * units wide inside its rim rather than twelve. Nothing is drawn outside the
+ * hitbox and the hitbox is untouched. What binds a drop is the grave's own
+ * width and never the mouth's interior: ADR 0003 rules that size never gates a
+ * swallow, so the mouth is not a gate.
+ */
+export const GRAVE_RIM_SHADOW = 1;
+
+/**
  * The grave on screen: a rounded rectangle drawn twice, once as the mouth
  * beneath the food layers and once as the rim above them.
  *
@@ -94,12 +113,25 @@ export class GraveRenderer {
       .roundRect(left, top, width, size * 2, radius)
       .fill({ color: PALETTE.graveHole.hex });
 
+    const inset = GRAVE_RIM_STROKE;
     this.rim
       .clear()
       .roundRect(left, top, width, size * 2, radius)
       .stroke({
         width: GRAVE_RIM_STROKE,
         color: PALETTE.graveRim.hex,
+        alignment: 1,
+      })
+      .roundRect(
+        left + inset,
+        top + inset,
+        width - inset * 2,
+        size * 2 - inset * 2,
+        Math.max(0, radius - inset),
+      )
+      .stroke({
+        width: GRAVE_RIM_SHADOW,
+        color: PALETTE.graveHole.hex,
         alignment: 1,
       });
   }

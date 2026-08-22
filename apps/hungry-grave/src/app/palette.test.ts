@@ -15,18 +15,30 @@ import { BOUNDARY_STROKE, fitField } from "./layout";
 import type { FireEmitter, PaletteEntry } from "./palette";
 import {
   BAND_MARGIN_MIN,
+  CORPSE_TIERS,
   FIELD_LUMA_CEILING,
   MENU,
   MOB_FIRE,
   MOB_FIRE_BAND_MIN,
   PALETTE,
+  SPRITE_OUTLINE,
 } from "./palette";
+import {
+  GRAVE_RIM_SHADOW,
+  GRAVE_RIM_STROKE,
+} from "./screens/game/GraveRenderer";
+import { LAYER_ORDER } from "./screens/game/layering";
 
 /** APCA's stated minimum for fine-detail pictograms, which is what a bullet is. */
 const CORE_MIN_LC = 45;
 
-/** APCA's stated minimum for solid, semantic non-text, which is what the field's boundary is. */
-const BOUNDARY_MIN_LC = 30;
+/**
+ * APCA's stated minimum for fine-detail non-text, which is the bracket the
+ * field's boundary was moved into on 2026-08-22 so its stroke could be thinned.
+ * It is CORE_MIN_LC's number for a different reason, and they are kept apart
+ * because either could move without the other.
+ */
+const BOUNDARY_MIN_LC = 45;
 
 /** Assertion 9's core-to-outline span, the same 20 points as the band margin. */
 const INTERNAL_SPAN_MIN = 20;
@@ -40,6 +52,21 @@ const OBSERVER_SEPARATION_MIN = 20;
 /** Two sprites are too close only when all three of these are true at once. */
 const SPRITE_SEPARATION = { luma: 2.0, hue: 15, saturation: 0.25 };
 
+/** Assertion 7's legibility floor between two corpse tiers. The 15-degree gate above is a collision tripwire, not this. */
+const TIER_HUE_MIN = 25;
+
+/** Assertion 8's ceiling on how far two tiers may drift apart for a protan or a deutan observer. */
+const TIER_OBSERVER_MAX = 2.5;
+
+/** Assertion 9's saturation branch, for a tier that clears the treasure class on saturation rather than on hue. */
+const TIER_SATURATION_MIN = 0.25;
+
+/** The stroke floor GRAVE_RIM_STROKE's own derivation rests on, in CSS pixels on the phone viewport. */
+const RIM_STROKE_MIN_CSS = 2.0;
+
+/** The thick end of GRAVE_RIM_STROKE's bracket, in field units, now that the rim is two bands. */
+const RIM_BAND_MAX = 4;
+
 /** The colours in PALETTE that are not sprites the player tells apart mid-dodge. */
 const NOT_SPRITES = ["hudInk", "hudDim", "night", "nightSpeckle", "fieldFrame"];
 
@@ -48,6 +75,12 @@ const NOT_SPRITES = ["hudInk", "hudDim", "night", "nightSpeckle", "fieldFrame"];
  * reason it is allowed, from research 7.4. A pair without a written reason is
  * not an exception, it is a defect.
  */
+const MID_BAND_BODY =
+  "a mid-band body colour is where neither a light nor a dark companion reads, and the boss dispatch owns both this colour and the renderer that draws it";
+
+const NOT_DRAWN_YET =
+  "nothing draws this colour until the weapon-lines dispatch, which builds the renderer and inherits the requirement";
+
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
     pair: ["graveRim", "stone"],
@@ -64,6 +97,101 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
     because:
       "a feast is a small steady sprite in the food layer and the eruption is a momentary full-field event two layers below it",
   },
+  {
+    pair: ["dropCore", "foodOutline"],
+    because:
+      "the same hex declared apart with a written reason, which is the precedent hudDim and menuDim already set: one is a drop's own core and one is the companion every food sprite carries, and they part company when the art pass touches the food",
+  },
+  // Assertion 3's exceptions, each with the best figure either half of the pair
+  // reaches against that background. The threshold is not lowered for anything;
+  // these are named instead.
+  { pair: ["graveRim", "mobDark"], because: `43.10, and ${NOT_DRAWN_YET}` },
+  { pair: ["graveRim", "splash"], because: `43.16, and ${NOT_DRAWN_YET}` },
+  { pair: ["graveRim", "bansheeDark"], because: `29.53: ${MID_BAND_BODY}` },
+  { pair: ["graveRim", "undertaker"], because: `27.86: ${MID_BAND_BODY}` },
+  { pair: ["corpse", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
+  { pair: ["corpse", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
+  { pair: ["corpseRevenant", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
+  {
+    pair: ["corpseRevenant", "splash"],
+    because: `41.44, and ${NOT_DRAWN_YET}`,
+  },
+  { pair: ["feast", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
+  { pair: ["feast", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
+  { pair: ["feast", "bansheeDark"], because: `29.28: ${MID_BAND_BODY}` },
+  { pair: ["feast", "undertaker"], because: `31.71: ${MID_BAND_BODY}` },
+  { pair: ["drop", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
+  { pair: ["drop", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
+  { pair: ["drop", "bansheeDark"], because: `31.66: ${MID_BAND_BODY}` },
+  { pair: ["drop", "undertaker"], because: `34.09: ${MID_BAND_BODY}` },
+  { pair: ["mob", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
+  { pair: ["mob", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
+  { pair: ["banshee", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
+  { pair: ["banshee", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
+  { pair: ["undertaker", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
+  { pair: ["undertaker", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
+  { pair: ["undertaker", "graveHole"], because: `24.72: ${MID_BAND_BODY}` },
+  { pair: ["undertaker", "foodOutline"], because: `23.42: ${MID_BAND_BODY}` },
+];
+
+/**
+ * Which layer each sprite colour draws in, so assertion 3 can ask what a pair
+ * can actually be drawn over. It is declared rather than derived because a
+ * colour does not know its own layer and a renderer that does is not readable
+ * from here.
+ */
+const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
+  graveHole: "graveMouth",
+  graveRim: "graveRim",
+  graveGlow: "graveRim",
+  mob: "mobBodies",
+  mobDark: "mobBodies",
+  banshee: "mobBodies",
+  bansheeDark: "mobBodies",
+  undertaker: "mobBodies",
+  undertakerDark: "mobBodies",
+  skull: "storm",
+  stone: "storm",
+  wisp: "storm",
+  bellRing: "bellRing",
+  corpse: "corpses",
+  corpseRevenant: "corpses",
+  foodOutline: "corpses",
+  feast: "treasure",
+  drop: "treasure",
+  dropCore: "treasure",
+  belchEruption: "belchEruption",
+  splash: "belchEruption",
+};
+
+/**
+ * Sprite colours that are themselves the dark half of a pair. A companion is
+ * never given a companion of its own, and each of these is named rather than
+ * inferred from its spelling, so a bright colour cannot join the list by being
+ * called something that ends in Dark.
+ */
+const DARK_HALVES: { name: string; because: string }[] = [
+  { name: "graveHole", because: "the rim's own dark band, and the mouth" },
+  { name: "foodOutline", because: "the companion the food layers all share" },
+  { name: "mobDark", because: "a mob body's own dark half" },
+  { name: "bansheeDark", because: "the Banshee's own dark half" },
+  { name: "undertakerDark", because: "the Undertaker's own dark half" },
+  { name: "dropCore", because: "a drop's own dark core" },
+];
+
+/**
+ * Sprite colours with no dark companion yet, each with the dispatch that owns
+ * the renderer which will need one. A colour that is neither here nor in
+ * SPRITE_OUTLINE fails assertion 1, so a new sprite cannot pass quietly.
+ */
+const AWAITING_A_COMPANION: { name: string; because: string }[] = [
+  { name: "graveGlow", because: "the reservoir tell, drawn by dispatch 5" },
+  { name: "skull", because: "the soul stream, drawn by dispatch 5" },
+  { name: "stone", because: "the headstones, drawn by dispatch 5" },
+  { name: "wisp", because: "the wisps, drawn by dispatch 5" },
+  { name: "bellRing", because: "the bell's ring, drawn by dispatch 5" },
+  { name: "belchEruption", because: "the eruption, drawn by dispatch 5" },
+  { name: "splash", because: "the wasted charge, drawn by dispatch 5" },
 ];
 
 const EMITTERS: FireEmitter[] = ["trash", "tear", "clod", "spiral"];
@@ -255,27 +383,44 @@ describe("the reserved band (ADR 0014)", () => {
 });
 
 describe("the field's boundary (ADR 0014)", () => {
-  it("clears APCA Lc 30 against the ground it is drawn on", () => {
+  it("clears APCA Lc 45 against the ground it is drawn on", () => {
     // The band gives mob fire a floor and everything else a ceiling, and asks
     // of nothing else that it be visible at all. That is how this boundary sat
     // at Lc 0.00 through three gates: night is both the engine's background and
     // the field's ground, so the stroke is the whole statement of where the
     // world ends, and the grave's movement bound is that edge.
+    //
+    // The level was Lc 30 until 2026-08-22, the solid bracket, which carries a
+    // 5.5-rendered-pixel floor and forced an 8-unit stroke. The boundary is now
+    // graded fine-detail instead, which carries no width floor, and the whole
+    // price of that is paid in the two tests below.
     const lc = apcaLc(PALETTE.fieldFrame.hex, PALETTE.night.hex);
     expect(Math.abs(lc)).toBeGreaterThanOrEqual(BOUNDARY_MIN_LC);
   });
 
-  it("is drawn wide enough for the level its contrast is judged at", () => {
-    // APCA grants Lc 30 to solid non-text no thinner than 5.5 rendered pixels
-    // and sends anything thinner to the fine-detail level, which no colour
-    // under the ceiling can reach against night. The floor and the width are
-    // one rule, so a later thinning has to fail here rather than pass quietly.
+  it("keeps every mob-fire core clear of Lc 45 against it, which is what caps its brightness", () => {
+    // This is the assertion the thinning is bought from. The boundary reaches
+    // its bracket by getting brighter, fire is drawn over it wherever a shot
+    // reaches an edge, and every point the frame rises comes straight out of
+    // this margin. Without this test the frame could be raised until a bullet
+    // over it stopped reading, and nothing else in the suite would see it.
+    for (const [name, sprite] of Object.entries(MOB_FIRE)) {
+      const lc = Math.abs(apcaLc(sprite.core.hex, PALETTE.fieldFrame.hex));
+      expect(`${name} ${lc >= CORE_MIN_LC}`).toBe(`${name} true`);
+    }
+  });
+
+  it("is drawn no thinner than the fine-detail bracket's own smallest sensible mark", () => {
+    // Fine detail carries no 5.5-pixel floor, so this is not that rule back
+    // again. It is the weaker one that replaces it: a stroke still has to
+    // survive the phone's own pixel grid, and a sub-pixel line is dropped or
+    // dimmed by the rasteriser whatever its contrast measures.
     const stage = resize(390, 844, FIELD_WIDTH, FIELD_HEIGHT, false);
     const scale = fitField(stage.width, stage.height).scale;
     const cssPixelsPerStageUnit = 390 / stage.width;
     expect(
       BOUNDARY_STROKE * scale * cssPixelsPerStageUnit,
-    ).toBeGreaterThanOrEqual(5.5);
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("stays clear of every mob-fire body on luma, so fire crossing it still reads in grayscale", () => {
@@ -312,24 +457,194 @@ describe("sprite separation (research 7.4)", () => {
     expect(collisions).toEqual([]);
   });
 
-  it("keeps them apart across a corpse's whole fade range", () => {
-    // Freshness animates corpse from its declared luma down toward nothing, so
-    // it occupies a range and not a point, and any colour in its hue family
+  it("keeps them apart across every corpse tier's whole fade range", () => {
+    // Freshness animates a corpse from its declared luma down toward nothing,
+    // so it occupies a range and not a point, and any colour in its hue family
     // below that value collides at some instant of every corpse's life (7.5).
-    const corpse = PALETTE.corpse;
-    const shape = hsv(corpse.hex);
-    const collisions = spriteEntries()
-      .filter(([name]) => name !== "corpse")
-      .filter(([, entry]) => {
-        const other = hsv(entry.hex);
-        return (
-          hueGap(other.h, shape.h) < SPRITE_SEPARATION.hue &&
-          Math.abs(other.s - shape.s) < SPRITE_SEPARATION.saturation &&
-          entry.luma <= corpse.luma + SPRITE_SEPARATION.luma
+    // The fade is a multiplicative tint on the declared hex and never an alpha
+    // over night, so hue and saturation hold constant down the range and this
+    // check's premise is true.
+    for (const [tier, corpse] of Object.entries(CORPSE_TIERS)) {
+      const shape = hsv(corpse.hex);
+      const collisions = spriteEntries()
+        .filter(([, entry]) => entry !== corpse)
+        .filter(([, entry]) => {
+          const other = hsv(entry.hex);
+          return (
+            hueGap(other.h, shape.h) < SPRITE_SEPARATION.hue &&
+            Math.abs(other.s - shape.s) < SPRITE_SEPARATION.saturation &&
+            entry.luma <= corpse.luma + SPRITE_SEPARATION.luma
+          );
+        })
+        .map(([name]) => name);
+      expect(`${tier} ${collisions.join(",")}`).toBe(`${tier} `);
+    }
+  });
+});
+
+/** Which of LAYER_ORDER a sprite draws in, as an index. */
+function layerDepth(name: string): number {
+  return LAYER_ORDER.indexOf(SPRITE_LAYER[name]);
+}
+
+/** Every sprite colour a pair can be drawn over: the ones in layers strictly beneath its own. */
+function backgroundsUnder(name: string): [string, PaletteEntry][] {
+  const own = layerDepth(name);
+  return Object.entries(PALETTE).filter(
+    ([other]) =>
+      other !== name && other in SPRITE_LAYER && layerDepth(other) < own,
+  );
+}
+
+describe("the sprite outline table (ADR 0014)", () => {
+  it("gives every sprite in a layer beneath mob fire a dark companion, or names the dispatch that owes it one", () => {
+    // Assertion 1. Written as a table over the layers rather than as a list of
+    // the sprites that happen to exist today, so a new sprite with no companion
+    // fails rather than passing quietly.
+    const companions = new Set<string>([
+      ...Object.values(SPRITE_OUTLINE),
+      ...DARK_HALVES.map((each) => each.name),
+    ]);
+    const owed = new Set(AWAITING_A_COMPANION.map((each) => each.name));
+    const missing = Object.keys(SPRITE_LAYER).filter(
+      (name) =>
+        !(name in SPRITE_OUTLINE) && !companions.has(name) && !owed.has(name),
+    );
+    expect(missing).toEqual([]);
+    for (const each of [...AWAITING_A_COMPANION, ...DARK_HALVES]) {
+      expect(`${each.name} ${each.because.length > 0}`).toBe(
+        `${each.name} true`,
+      );
+      expect(`${each.name} declared ${each.name in PALETTE}`).toBe(
+        `${each.name} declared true`,
+      );
+    }
+    expect(SPRITE_OUTLINE.graveRim).toBe("graveHole");
+  });
+
+  it("spans at least INTERNAL_SPAN_MIN luma from a sprite to its companion", () => {
+    // Assertion 2, reusing assertion 9's own constant: a pair carrying light
+    // against dark internally reads on a background the palette never planned.
+    for (const [name, companion] of Object.entries(SPRITE_OUTLINE)) {
+      const light = PALETTE[name as keyof typeof PALETTE];
+      const dark = PALETTE[companion];
+      expect(`${name} ${light.luma - dark.luma >= INTERNAL_SPAN_MIN}`).toBe(
+        `${name} true`,
+      );
+    }
+  });
+
+  it("clears APCA Lc 45 on at least one half of each pair, against every sprite it can be drawn over", () => {
+    // Assertion 3, and it has to be one half rather than the dark half alone:
+    // foodOutline against night is exactly Lc 0.00, and graveHole is 0.00
+    // against night, nightSpeckle, dropCore and undertakerDark.
+    const failures: string[] = [];
+    for (const [name, companion] of Object.entries(SPRITE_OUTLINE)) {
+      const light = PALETTE[name as keyof typeof PALETTE];
+      const dark = PALETTE[companion];
+      for (const [background, entry] of backgroundsUnder(name)) {
+        if (background === companion) continue;
+        const best = Math.max(
+          Math.abs(apcaLc(light.hex, entry.hex)),
+          Math.abs(apcaLc(dark.hex, entry.hex)),
         );
-      })
-      .map(([name]) => name);
-    expect(collisions).toEqual([]);
+        if (best >= CORE_MIN_LC || isExcepted(name, background)) continue;
+        failures.push(`${name} over ${background}: ${best.toFixed(2)}`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it("holds the rim's geometry at both ends of its bracket", () => {
+    // Assertion 4. The thin end is a phone measurement and the thick end is the
+    // mouth's, and the two are one rule: a later thinning or thickening has to
+    // fail here rather than pass quietly.
+    const stage = resize(390, 844, FIELD_WIDTH, FIELD_HEIGHT, false);
+    const scale = fitField(stage.width, stage.height).scale;
+    const cssPixelsPerStageUnit = 390 / stage.width;
+    expect(
+      GRAVE_RIM_STROKE * scale * cssPixelsPerStageUnit,
+    ).toBeGreaterThanOrEqual(RIM_STROKE_MIN_CSS);
+    expect(GRAVE_RIM_STROKE + GRAVE_RIM_SHADOW).toBeLessThanOrEqual(
+      RIM_BAND_MAX,
+    );
+  });
+
+  // The third clause of assertion 4 waits for the constant it bounds. The rim's
+  // band narrows a floor-size mouth from twelve units to ten, and the tracer
+  // plan sizes drops up from the slice's nine, so the window is nine to ten.
+  // What binds is the grave's own width and never the mouth's interior, because
+  // ADR 0003 rules that size never gates a swallow.
+  it.todo(
+    "bounds DROP_SIZE by graveWidth(SIZE_FLOOR), which arrives with drops at dispatch 5",
+  );
+});
+
+describe("the corpse tiers (tracer plan section 4)", () => {
+  const tiers = Object.entries(CORPSE_TIERS);
+
+  it("declares the same luma for every tier, so the tier stays out of the freshness channel", () => {
+    // Assertion 6. Brightness is freshness and nothing else.
+    expect(tiers.length).toBeGreaterThan(1);
+    expect(new Set(tiers.map(([, entry]) => entry.luma)).size).toBe(1);
+  });
+
+  it("keeps every pair of tiers at least 25 hue degrees apart", () => {
+    // Assertion 7. The 15-degree gate in sprite separation is a collision
+    // tripwire, not a legibility floor.
+    for (let i = 0; i < tiers.length; i++) {
+      for (let j = i + 1; j < tiers.length; j++) {
+        const gap = hueGap(hsv(tiers[i][1].hex).h, hsv(tiers[j][1].hex).h);
+        expect(`${tiers[i][0]}/${tiers[j][0]} ${gap >= TIER_HUE_MIN}`).toBe(
+          `${tiers[i][0]}/${tiers[j][0]} true`,
+        );
+      }
+    }
+  });
+
+  it("keeps every pair of tiers within 2.5 for a protan and a deutan observer", () => {
+    // Assertion 8. If two tiers shared Rec.709 luma but differed on an observer
+    // scale, a colour-blind player would read the tier difference as a
+    // freshness difference, which corrupts the one channel that survives.
+    for (const observer of ["protan", "deutan"] as const) {
+      for (let i = 0; i < tiers.length; i++) {
+        for (let j = i + 1; j < tiers.length; j++) {
+          const drift = Math.abs(
+            observerLuma(tiers[i][1].hex, observer) -
+              observerLuma(tiers[j][1].hex, observer),
+          );
+          expect(`${observer} ${drift <= TIER_OBSERVER_MAX}`).toBe(
+            `${observer} true`,
+          );
+        }
+      }
+    }
+  });
+
+  it("clears the treasure class on hue or on saturation", () => {
+    // Assertion 9, written as an either-or deliberately: corpseRevenant against
+    // drop measures 0.241 on saturation, just under, and passes on hue at
+    // 35.04. Confusing a corpse with treasure is a misread payout either way.
+    //
+    // The trash tier against feast is excepted and it is the pre-existing pair
+    // rather than the new one: corpse and feast sit 1.7 hue degrees and 0.003
+    // saturation apart, which is the same collision research 7.2 claimed a
+    // 5.4-luma gap had solved and which measures APCA Lc 0.00. Nothing here
+    // changes a hex, because the values are right and only the claims about
+    // them were wrong; what separates the two on screen is the outline
+    // construction, and a feast is a boss-shed corpse before it is treasure.
+    const excepted = new Set(["trash vs feast"]);
+    for (const [tier, entry] of tiers) {
+      const shape = hsv(entry.hex);
+      for (const name of ["drop", "feast"] as const) {
+        if (excepted.has(`${tier} vs ${name}`)) continue;
+        const treasure = hsv(PALETTE[name].hex);
+        const clears =
+          hueGap(shape.h, treasure.h) >= TIER_HUE_MIN ||
+          Math.abs(shape.s - treasure.s) >= TIER_SATURATION_MIN;
+        expect(`${tier} vs ${name} ${clears}`).toBe(`${tier} vs ${name} true`);
+      }
+    }
   });
 });
 

@@ -7,6 +7,7 @@ import type { SimEvent } from "./events";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
 import type { WeaponLine } from "./lines/roster";
 import { BIRTHRIGHT, WEAPON_LINES } from "./lines/roster";
+import type { Rect } from "./overlap";
 import type { MoveCommand, RunState } from "./run";
 import {
   BASE_SPEED,
@@ -33,7 +34,7 @@ export interface Grave {
 }
 
 /**
- * A point in field units. It lives here beside Rect rather than in an input
+ * A point in field units. It lives here rather than in an input
  * model because src/game may not reach src/input: advance.ts's SteerSource and
  * src/input's two models all speak it, and one declaration is what keeps them
  * from drifting into two shapes that only happen to match.
@@ -44,19 +45,17 @@ export interface FieldPoint {
 }
 
 /**
- * A rectangle in field units, as a top-left corner and a size. Declared here
- * for now; dispatch 4's overlap.ts will want to own it, and moving it then
- * beats creating a module with one type in it today.
+ * A grave at the starting mark, at the size the run asks for. The size is
+ * clamped here rather than by the caller, because ADR 0003's floor and ceiling
+ * are this module's to defend and ?size= used to hold them from src/app.
  */
-export interface Rect {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-export function createGrave(): Grave {
-  return { x: START_X, y: START_Y, size: SIZE_START, invulnerable: 0 };
+export function createGrave(size: number = SIZE_START): Grave {
+  return {
+    x: START_X,
+    y: START_Y,
+    size: clamp(size, SIZE_FLOOR, SIZE_CEILING),
+    invulnerable: 0,
+  };
 }
 
 /**

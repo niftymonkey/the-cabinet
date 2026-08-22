@@ -3,11 +3,13 @@
  * is palette.ts's job and nothing here touches colour.
  */
 
-import { Container } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
 import { describe, expect, it, vi } from "vitest";
 
+import { SEED_LIMIT } from "../../../game/run";
+import { METER_FONT_SIZE, meterLinePosition } from "../../FpsMeter";
 import type { FieldPlacement } from "../../layout";
-import { DEGENERATE_PLACEMENT, fitField } from "../../layout";
+import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from "../../layout";
 import type { LayerName } from "./layering";
 import { FieldLayers, LAYER_ORDER } from "./layering";
 
@@ -40,11 +42,13 @@ Object.defineProperty(globalThis, "localStorage", {
 
 /**
  * ADR 0014's stack as the ADR states it, top to bottom, with the hit's dim in
- * the place its 2026-08-20 amendment gives it. Written out here so the code and
- * the record are checked against each other rather than each against itself.
+ * the place its 2026-08-20 amendment gives it and the boundary in the place its
+ * 2026-08-22 one gives it. Written out here so the code and the record are
+ * checked against each other rather than each against itself.
  */
 const ADR_0014_STACK: LayerName[] = [
   "mobFire",
+  "fieldBoundary",
   "graveRim",
   "hitDim",
   "treasure",
@@ -186,21 +190,27 @@ describe("the game screen's field container", () => {
 });
 
 describe("the game screen across a pooled reuse", () => {
-  it("empties the field on reset and keeps the boundary readout", () => {
+  it("empties the field on reset and puts the field's own furniture back", () => {
     // Screens are pooled, so a second run on this instance must not open with
-    // the first run's sprites still on the field. The frame is the field's only
-    // visible edge, so it has to survive the emptying.
+    // the first run's sprites still on the field. What dressField() puts back
+    // is the boundary readout and the pooled entity sprites, every one of them
+    // invisible until a live entity claims it; anything else is a leak.
     const screen = new GameScreen();
     const layers: FieldLayers = screen["layers"];
     const frame = screen["frame"];
-    layers.layer("corpses").addChild(new Container());
+    const stray = new Container();
+    layers.layer("corpses").addChild(stray);
     layers.layer("mobFire").addChild(new Container());
 
     screen.reset();
 
-    expect(layers.layer("corpses").children).toHaveLength(0);
-    expect(layers.layer("mobFire").children).toHaveLength(0);
-    expect(layers.layer("ground").children).toEqual([frame]);
+    for (const name of ["corpses", "mobFire", "mobBodies"] as const) {
+      const children = layers.layer(name).children;
+      expect(children).not.toContain(stray);
+      expect(children.every((child) => !child.visible)).toBe(true);
+      expect(children.every((child) => child instanceof Graphics)).toBe(true);
+    }
+    expect(layers.layer("fieldBoundary").children).toEqual([frame]);
   });
 
   it("keeps the same boundary readout instance across repeated resets", () => {
@@ -211,6 +221,68 @@ describe("the game screen across a pooled reuse", () => {
     screen.reset();
     expect(screen["frame"]).toBe(frame);
     const layers: FieldLayers = screen["layers"];
-    expect(layers.layer("ground").children).toEqual([frame]);
+    expect(layers.layer("fieldBoundary").children).toEqual([frame]);
+  });
+
+  it("draws the boundary above every body and food layer and still beneath mob fire", () => {
+    // Both halves are the point. Above the bodies is the change: the boundary
+    // used to sit on ground, so a mob crossing an edge drew over the line that
+    // says where the world ends. Beneath mob fire is the rule that constrains
+    // how far up it could go, and ADR 0014 lets nothing occlude fire.
+    for (const under of [
+      "corpses",
+      "mobBodies",
+      "treasure",
+      "graveRim",
+    ] as const) {
+      expect(height(under)).toBeLessThan(height("fieldBoundary"));
+    }
+    expect(height("fieldBoundary")).toBeLessThan(height("mobFire"));
+  });
+});
+
+/**
+ * The widest string the corner stack can ever show: a pinned seed at the top of
+ * the roll's range, with the word every pinned line carries.
+ */
+const WIDEST_STACK_LINE = `SEED ${SEED_LIMIT - 1} PINNED`;
+
+/**
+ * An upper bound on a monospace advance, as a share of the font size. Common
+ * monospace faces sit between 0.5 and 0.6 em, and DejaVu Sans Mono, Menlo and
+ * Consolas are all at or under 0.602, so 0.62 is a bound rather than a
+ * measurement.
+ *
+ * It is arithmetic and not a measurement because pixi cannot measure text
+ * without a document, and this test environment has none. The rendered check in
+ * the dispatch's verification steps is where the real read happens; this is the
+ * instrument that survives a longer readout being added.
+ */
+const MONOSPACE_ADVANCE_MAX = 0.62;
+
+describe("the readouts stay inside the reserve the field is fitted around", () => {
+  it("fits the corner stack's widest line and the pause button inside it", () => {
+    const stackWidth =
+      WIDEST_STACK_LINE.length * METER_FONT_SIZE * MONOSPACE_ADVANCE_MAX;
+    const stackRight = meterLinePosition(0).x + stackWidth;
+    expect(stackRight).toBeLessThanOrEqual(READOUT_RESERVE.width);
+
+    const lines = 5;
+    const stackBottom = meterLinePosition(lines - 1).y + METER_FONT_SIZE * 1.5;
+    expect(stackBottom).toBeLessThanOrEqual(READOUT_RESERVE.height);
+
+    const screen = new GameScreen();
+    screen.resize(1440, 900);
+    const button = screen["pauseButton"];
+    const halfWidth = 132 / 2;
+    expect(1440 - (button.position.x + halfWidth)).toBeGreaterThanOrEqual(
+      READOUT_RESERVE.margin,
+    );
+    expect(1440 - (button.position.x - halfWidth)).toBeLessThanOrEqual(
+      READOUT_RESERVE.width,
+    );
+    expect(button.position.y + 68 / 2).toBeLessThanOrEqual(
+      READOUT_RESERVE.height,
+    );
   });
 });

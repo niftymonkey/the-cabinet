@@ -1,11 +1,12 @@
 import type { FederatedPointerEvent, Ticker } from "pixi.js";
-import { Container, Graphics, Rectangle } from "pixi.js";
+import { BlurFilter, Container, Graphics, Rectangle } from "pixi.js";
 
 import type { SteerSource } from "../../../game/advance";
 import { advance } from "../../../game/advance";
 import type { Clock } from "../../../game/clock";
 import { createClock } from "../../../game/clock";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
+import type { SimEvent } from "../../../game/events";
 import type { RunState } from "../../../game/run";
 import { createRun } from "../../../game/run";
 import { KeySteer } from "../../../input/keys";
@@ -18,6 +19,7 @@ import {
   BOUNDARY_STROKE,
   DEGENERATE_PLACEMENT,
   fitField,
+  READOUT_RESERVE,
   screenToField,
 } from "../../layout";
 import { PALETTE } from "../../palette";
@@ -30,6 +32,7 @@ import { Label } from "../../ui/Label";
 import { bindKeyPress } from "../../utils/bindKeyPress";
 import { userSettings } from "../../utils/userSettings";
 import { EndScreen } from "../EndScreen";
+import { FieldRenderer } from "./FieldRenderer";
 import { GraveRenderer } from "./GraveRenderer";
 import { FieldLayers } from "./layering";
 
@@ -48,10 +51,42 @@ const STEERING_POINTERS = ["touch", "pen"];
  */
 const STEER_SLOP_STAGE_UNITS = 3;
 
-/** The pause button's corner inset and size, in stage units. */
-const PAUSE_MARGIN = 12;
+/** The pause button's size, in stage units. Its corner inset comes from the readout reserve, which is what layout.ts fits the field around. */
 const PAUSE_WIDTH = 132;
 const PAUSE_HEIGHT = 68;
+
+/**
+ * How long resume counts down for, in milliseconds.
+ *
+ * pause() calls cancelAll(), so resuming drops the player into a live field
+ * with no drag anchor and a full STEER_SLOP crossing before anything moves.
+ * That was free on an empty field and it is not free now that something can
+ * kill you. The count exists so a thumb can get down before it matters, and
+ * touch and keyboard are both live while it runs.
+ */
+const COUNTDOWN_MS = 3000;
+
+/**
+ * When the pause blur clears, in milliseconds remaining. The blur is held
+ * through three and two and cleared on one: a countdown over a frozen, sharp
+ * field would hand the player three free seconds to study the curtain, and this
+ * record has twice called that blur load-bearing against exactly that line. One
+ * second of sharp static field is ample to re-find the grave and far too short
+ * to plan a route through a wave.
+ */
+const COUNTDOWN_CLEAR_BLUR_MS = 1000;
+
+/** How strong the countdown's blur is. It is the pause menu's own strength, because it is the same read continuing. */
+const COUNTDOWN_BLUR_STRENGTH = 5;
+
+/**
+ * The layers the countdown blurs. The grave and its rim are spared, exactly as
+ * ADR 0014's hit dim spares them: re-finding the grave is what the countdown
+ * exists for, so blurring it would defeat its own purpose, and the hit dim's
+ * rule already settles the principle that the channel a player is being asked
+ * to re-read is never occluded.
+ */
+const BLURRED_LAYERS = ["mobBodies", "mobFire"] as const;
 
 /**
  * The playfield's boundary readout. The engine's background and the field's
@@ -67,6 +102,28 @@ function boundaryReadout(): Graphics {
     color: PALETTE.fieldFrame.hex,
     alignment: 1,
   });
+}
+
+/**
+ * The field's clip, exactly the field rect and nothing else.
+ *
+ * The sim legitimately holds mobs outside the field: a template may place a
+ * file up to MAX_ENTRY_DEPTH above the top edge, and a mob is only culled once
+ * it is a margin past an edge. Nothing else clipped them, so that off-field
+ * approach drew into the letterbox. It shows on a phone and not on a desktop
+ * because the field is width-limited on a tall viewport, which is the only
+ * case with vertical letterbox for it to draw into.
+ *
+ * The rect matches boundaryReadout's, and the frame's stroke is inside-aligned,
+ * so the clip takes nothing off the frame it shares an edge with.
+ *
+ * fill() is called bare on purpose. A mask is sampled for coverage and never
+ * for colour, so naming one here would be a colour that reaches the field's
+ * source and means nothing, which is exactly what palette.test.ts's literal
+ * scan is there to stop. The bare call takes Pixi's opaque default.
+ */
+function fieldClip(): Graphics {
+  return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).fill();
 }
 
 /** One line of the corner readout stack, in the shared size and anchored to its top-left. */
@@ -111,12 +168,22 @@ export class GameScreen extends Container {
    * pooled screen from allocating a new Graphics on every run.
    */
   private readonly frame: Graphics;
+
+  /**
+   * The field's clip. It is a child of the field so it inherits the placement,
+   * and it is built once in the constructor rather than in dressField because
+   * a mask is not a layer: layers.clear() cannot reach it and pooling cannot
+   * drop it.
+   */
+  private readonly clip: Graphics;
   private readonly grave: GraveRenderer;
+  private readonly fieldRenderer = new FieldRenderer();
 
   private readonly debtLabel: Label;
   private readonly tickLabel: Label;
   private readonly seedLabel: Label;
   private readonly sizeLabel: Label;
+  private readonly countdownLabel: Label;
   private readonly pauseButton: Button;
 
   private readonly keys: KeySteer;
@@ -165,6 +232,13 @@ export class GameScreen extends Container {
   private skipElapsed = false;
   private shownDebt: number | null = null;
   private shownTick: number | null = null;
+  /**
+   * Milliseconds left of the resume countdown, or null when the field is live.
+   * It is per-run mutable state with a timer in it on a pooled screen, so
+   * prepare() and reset() both clear it.
+   */
+  private countdownMs: number | null = null;
+  private shownCount: number | null = null;
 
   constructor() {
     super();
@@ -173,11 +247,15 @@ export class GameScreen extends Container {
     // _interactivePrune skips a passive container whose interactiveChildren is
     // false, and Container's default eventMode is passive, so this one line
     // prunes the field, the layer root and all eleven layers out of
-    // hitTestMoveRecursive on every pointer move. The layers are empty today
-    // and hold every corpse, mob body and bullet from the field dispatch.
+    // hitTestMoveRecursive on every pointer move. The layers carry every mob
+    // body, corpse and mob-fire sprite on the field, so that is the whole
+    // field's worth of children skipped rather than a handful.
     this.field.interactiveChildren = false;
     this.layers = new FieldLayers();
     this.layers.addTo(this.field);
+    this.clip = fieldClip();
+    this.field.addChild(this.clip);
+    this.field.mask = this.clip;
     this.frame = boundaryReadout();
     this.grave = new GraveRenderer();
     this.dressField();
@@ -186,6 +264,14 @@ export class GameScreen extends Container {
     this.tickLabel = stackLine(2);
     this.seedLabel = stackLine(3);
     this.sizeLabel = stackLine(4);
+    this.countdownLabel = new Label({
+      style: {
+        fontFamily: "monospace",
+        fill: PALETTE.hudInk.hex,
+        fontSize: 72,
+      },
+    });
+    this.countdownLabel.visible = false;
 
     this.pauseButton = new Button({
       text: "PAUSE",
@@ -201,6 +287,7 @@ export class GameScreen extends Container {
       this.tickLabel,
       this.seedLabel,
       this.sizeLabel,
+      this.countdownLabel,
       this.pauseButton,
     );
 
@@ -219,7 +306,8 @@ export class GameScreen extends Container {
 
   /** The field's own furniture, put back after any clear() (see reset). */
   private dressField(): void {
-    this.layers.layer("ground").addChild(this.frame);
+    this.layers.layer("fieldBoundary").addChild(this.frame);
+    this.fieldRenderer.attach(this.layers);
     this.grave.attach(this.layers);
   }
 
@@ -246,8 +334,14 @@ export class GameScreen extends Container {
     // goes on steering the grave, so the game looks alive and cannot be paused.
     this.interactiveChildren = true;
 
+    this.countdownMs = null;
+    this.shownCount = null;
+    this.countdownLabel.visible = false;
+    this.clearFieldBlur();
+
     this.run = this.startRun();
     this.grave.sync(this.run.grave);
+    this.fieldRenderer.sync(this.run);
     this.syncReadouts();
 
     pauseActions.setEndRun(() => this.endRun());
@@ -263,13 +357,15 @@ export class GameScreen extends Container {
     const search = window.location.search;
     const hash = window.location.hash;
     const seed = seedFromUrl(search, hash);
-    const run = createRun(seed ?? undefined);
     const size = sizeFromUrl(search, hash);
-    if (size !== null) run.grave.size = size;
+    // The size goes in rather than being written afterwards: ADR 0003's floor
+    // and ceiling are grave.ts's to hold, and hitGrave is then the only thing
+    // outside it that changes size at all.
+    const run = createRun(seed ?? undefined, size ?? undefined);
 
     this.seedLabel.text =
       seed === null ? `SEED ${run.seed}` : `SEED ${run.seed} PINNED`;
-    this.sizeLabel.text = size === null ? "" : `SIZE ${size} PINNED`;
+    this.sizeLabel.text = size === null ? "" : `SIZE ${run.grave.size} PINNED`;
     return run;
   }
 
@@ -320,7 +416,14 @@ export class GameScreen extends Container {
     // out of the pool permanently blurred, paying a full-screen blur pass every
     // frame. Two mechanisms for a defect this quiet is the right number.
     this.filters = [];
+    this.clearFieldBlur();
+    this.countdownMs = null;
+    this.countdownLabel.visible = false;
     this.run = null;
+    // The field renderer is not detached here. reset() clears the layers and
+    // dressField() is the one place that puts renderers back, so a renderer
+    // detached here would leave the second run out of the pool with no field
+    // renderer at all, and the lifecycle test would go green on exactly that.
     this.layers.clear();
     this.dressField();
   }
@@ -341,14 +444,69 @@ export class GameScreen extends Container {
     if (this.ending || this.menuPaused || this.backgrounded || !this.run) {
       return;
     }
+    if (this.countdownMs !== null) {
+      this.countDown(this.takeElapsed(ticker.elapsedMS));
+      return;
+    }
     const keyCommand = this.keys.command();
     const steer: SteerSource = (grave) =>
       combineSteer(keyCommand, this.touch, grave);
-    // The events are dropped: nothing in this dispatch produces one, and
-    // dispatch 4 is the first producer.
-    advance(this.run, this.clock, this.takeElapsed(ticker.elapsedMS), steer);
+    const events = advance(
+      this.run,
+      this.clock,
+      this.takeElapsed(ticker.elapsedMS),
+      steer,
+    );
     this.grave.sync(this.run.grave);
+    this.fieldRenderer.sync(this.run);
     this.syncReadouts();
+    if (endedIn(events)) this.endRun();
+  }
+
+  /**
+   * One frame of the resume countdown. The sim does not advance while it runs,
+   * and the elapsed time is spent here rather than being handed to the clock,
+   * so the tick-debt readout keeps telling the truth across a pause.
+   */
+  private countDown(elapsedMs: number): void {
+    if (this.countdownMs === null) return;
+    this.countdownMs -= elapsedMs;
+    if (this.countdownMs <= COUNTDOWN_CLEAR_BLUR_MS) this.clearFieldBlur();
+    if (this.countdownMs <= 0) {
+      this.countdownMs = null;
+      this.shownCount = null;
+      this.countdownLabel.visible = false;
+      return;
+    }
+    const showing = Math.ceil(this.countdownMs / 1000);
+    if (showing === this.shownCount) return;
+    this.shownCount = showing;
+    this.countdownLabel.text = `${showing}`;
+  }
+
+  /**
+   * Starts the count, unless the pause menu is up or on its way up. The guard
+   * is the transition itself and never a flag a pooled run can lower: focus()
+   * can fire while the menu is still up, which would either run a countdown
+   * behind the menu or stack a second one on resume.
+   */
+  private startCountdown(): void {
+    if (this.menuPaused || this.menuTransition !== null) return;
+    this.countdownMs = COUNTDOWN_MS;
+    this.shownCount = null;
+    this.countdownLabel.text = `${Math.ceil(COUNTDOWN_MS / 1000)}`;
+    this.countdownLabel.visible = true;
+    this.setFieldBlur();
+  }
+
+  /** The threat layers, blurred. The grave and its rim are spared, so the player can re-find them. */
+  private setFieldBlur(): void {
+    const blur = new BlurFilter({ strength: COUNTDOWN_BLUR_STRENGTH });
+    for (const name of BLURRED_LAYERS) this.layers.layer(name).filters = [blur];
+  }
+
+  private clearFieldBlur(): void {
+    for (const name of BLURRED_LAYERS) this.layers.layer(name).filters = [];
   }
 
   /**
@@ -385,17 +543,20 @@ export class GameScreen extends Container {
   }
 
   public resize(width: number, height: number) {
-    this.placement = fitField(width, height);
+    this.placement = fitField(width, height, READOUT_RESERVE);
     this.field.position.set(this.placement.offsetX, this.placement.offsetY);
     this.field.scale.set(this.placement.scale);
     // The whole stage, so a drag that starts outside the letterboxed field
     // still steers.
     this.hitArea = new Rectangle(0, 0, width, height);
     this.touch.setSlop(STEER_SLOP_STAGE_UNITS / this.placement.scale);
+    // Positioned from the reserve layout.ts fits the field around, so the two
+    // cannot drift and the non-overlap invariant is one rule in one place.
     this.pauseButton.position.set(
-      width - PAUSE_MARGIN - PAUSE_WIDTH / 2,
-      PAUSE_MARGIN + PAUSE_HEIGHT / 2,
+      width - READOUT_RESERVE.margin - PAUSE_WIDTH / 2,
+      READOUT_RESERVE.margin + PAUSE_HEIGHT / 2,
     );
+    this.countdownLabel.position.set(width / 2, height / 2);
   }
 
   /** A finger landing, in field units. A mouse is filtered out: desktop steering is the keyboard by design. */
@@ -460,12 +621,19 @@ export class GameScreen extends Container {
   private goQuiet(): void {
     this.keys.releaseAll();
     this.touch.cancelAll();
+    this.countdownMs = null;
+    this.shownCount = null;
+    this.countdownLabel.visible = false;
   }
 
   /** The first frame back is skipped whichever reason lifted, because either one leaves a gap in Ticker.lastTime. */
   private comeBack(): void {
     this.skipElapsed = true;
     this.keys.setMultiplier(userSettings.getKeyboardSpeed());
+    // A tab return is the identical hazard to a resume, arriving without the
+    // player having asked for it: goQuiet() cancelled the drag anchor, so the
+    // field is live again with nothing under the thumb.
+    this.startCountdown();
   }
 
   public blur(): void {
@@ -490,6 +658,7 @@ export class GameScreen extends Container {
 
   private endRun() {
     if (this.ending || !this.run) return;
+    this.clearFieldBlur();
     this.ending = true;
     runHandoff.record(summarizeRun(this.run));
     engine()
@@ -501,4 +670,11 @@ export class GameScreen extends Container {
         console.error(error);
       });
   }
+}
+
+/** Whether this frame's events ended the run, either way (ADR 0003 and ADR 0007). */
+function endedIn(events: readonly SimEvent[]): boolean {
+  return events.some(
+    (event) => event.type === "sealed" || event.type === "victory",
+  );
 }
