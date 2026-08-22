@@ -25,6 +25,16 @@ The steps never drop; only their size scales. Any change that adds or alters beh
 3. **Plan the tests.** The full test list is decided and categorized from the requirements and the design, then detailed further by what a proper module for this kind of thing needs. The list is pinned in the test files as named `test.todo` placeholders before implementation starts. Every planned test points at a module that exists as a stub, so a written test fails as "not implemented", never "cannot find module". The seams under test are named here by the dispatching session and carried in the coding agent's prompt; a coding agent never invents its own seams. A seam reaches the human only when it is a genuine design decision: a new public interface something else will depend on.
 4. **Run the TDD loop per the `tdd` skill.** Tests live at pre-agreed seams, red before green, one vertical slice at a time (one test, then its minimal implementation, then the next), expected values from an independent source of truth, no implementation-coupled or tautological tests. The feature is done when every planned test is written and green and every verification step from step 2 passes.
 
+## What a plan may claim about existing code
+
+A plan is read as fact by the agent that executes it, so a false sentence in a plan becomes a wrong edit with no red test in front of it. Three rules, all mechanical, all cheap, and all of them added because a plan shipped three false claims about the tree in one document.
+
+1. **Every claim a plan makes about what existing code does cites a file and a line.** Not the module, the line. The point is not the citation, it is that you have to open the file to write the sentence, and every one of those three false claims was false only against a file the plan never opened.
+2. **A plan that changes a constant lists every reader of that constant.** It is a grep and it goes in the plan. One of those three claims raised a number described as a sprite size, and the same number was the collision box; the list of readers is what says so.
+3. **A multi-dispatch plan's module list is swept for unowned modules before the next dispatch is planned.** Every module the plan names has a dispatch that owns it, or it is recorded as unowned with a trigger. A module nobody owns is discovered late, by the dispatch that needed it.
+
+These bind the planning half. A coding agent that finds a plan's claim about the tree to be false stops and reports it, exactly as it would for a missing seam.
+
 ## The verification menu
 
 Step 2 picks from this menu per feature. The escalations are mandatory when they apply, never optional. Every step names its actor: the human or the agent.
