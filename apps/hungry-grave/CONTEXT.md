@@ -2,6 +2,8 @@
 
 A Halloween vertical shmup crossed with hole.io. The player is a moving open grave ascending a scrolling world, swallowing what it kills to fuel an ever-thickening storm of its own projectiles, with deliberate doses of bullet hell from bosses.
 
+This file is the vocabulary. The traps this codebase has actually shipped are in `docs/lessons.md` beside it.
+
 ## Language
 
 ### The grave

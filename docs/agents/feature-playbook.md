@@ -2,6 +2,8 @@
 
 Every agent writing production code in this repo reads this file first and follows it.
 
+`docs/agents/lessons.md` is its companion: the judgment this repo bought the expensive way, in the places rules cannot reach.
+
 It exists because an agent needs two things to do real work: a distinct bounded task, and a built-in way to verify the task is done. Generated code that looks finished is not evidence of finished. The verification is part of the task, defined before the code.
 
 ## The prototype boundary
