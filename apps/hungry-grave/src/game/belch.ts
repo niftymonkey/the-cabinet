@@ -1,7 +1,7 @@
 /**
  * The one button (ADR 0008): the full reservoir vomited as a screen-clearing
- * eruption. Every mob-fire shot on the field is cancelled and the reservoir
- * empties.
+ * eruption. Every mob-fire shot on the field is cancelled, every mob on screen
+ * is killed, and the reservoir empties.
  *
  * It fires only at a full reservoir and does nothing otherwise, which is why
  * there is no partial bomb anywhere in the signature. That full-only rule is
@@ -14,11 +14,46 @@
  */
 
 import type { SimEvent } from "./events";
+import { damageMob, hasEntered } from "./mobs";
 import type { RunState } from "./run";
 import { RESERVOIR_CAPACITY } from "./tuning";
 
+/** Takes every live shot off the field, and reports how many went. */
+function cancelMobFire(state: RunState): number {
+  let cancelled = 0;
+  for (const shot of state.mobFire) {
+    if (!shot.alive) continue;
+    shot.alive = false;
+    cancelled += 1;
+  }
+  return cancelled;
+}
+
 /**
- * Cancels every mob-fire shot on the field and empties the reservoir.
+ * Kills every mob that has entered the field, and reports how many went.
+ *
+ * The kills route through damageMob rather than clearing the pool, so a belched
+ * mob leaves a corpse and counts against the price of the next drop exactly as
+ * any other kill does: the wipe restarts the swallow economy instead of
+ * emptying the field of it.
+ *
+ * A mob still above the top edge survives. ADR 0008 scopes the bomb to what is
+ * on screen, and reaching past the edge would silently delete authored content
+ * a player never saw arrive.
+ */
+function wipeEnteredMobs(state: RunState, events: SimEvent[]): number {
+  let killed = 0;
+  for (const mob of state.mobs) {
+    if (!mob.alive || !hasEntered(mob)) continue;
+    events.push(...damageMob(state, mob, mob.hp, "belch"));
+    killed += 1;
+  }
+  return killed;
+}
+
+/**
+ * Cancels every mob-fire shot on the field, kills every mob on screen, and
+ * empties the reservoir.
  *
  * Boss damage is not here. ADR 0008 makes the belch deal a big chunk of it and
  * never push a boss, and there is no boss in this build for the rule to branch
@@ -26,12 +61,9 @@ import { RESERVOIR_CAPACITY } from "./tuning";
  */
 export function fireBelch(state: RunState): SimEvent[] {
   if (state.reservoir < RESERVOIR_CAPACITY) return [];
-  let cancelled = 0;
-  for (const shot of state.mobFire) {
-    if (!shot.alive) continue;
-    shot.alive = false;
-    cancelled += 1;
-  }
+  const cancelled = cancelMobFire(state);
+  const kills: SimEvent[] = [];
+  const killed = wipeEnteredMobs(state, kills);
   state.reservoir = 0;
-  return [{ type: "belched", cancelled }];
+  return [{ type: "belched", cancelled, killed }, ...kills];
 }

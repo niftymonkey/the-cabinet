@@ -159,12 +159,16 @@ interface Tolled {
 }
 
 /**
- * The belch fired (ADR 0008). The count is what the belch-on-wave instrument
+ * The belch fired (ADR 0008). The counts are what the belch-on-wave instrument
  * reads to tell a wipe that landed on a curtain from one spent on empty sky.
+ * Cancelled is mob fire taken off the field and killed is mobs taken off it,
+ * and the two are separate because a curtain of unarmed trash cancels nothing
+ * while being exactly the target the loaded belch exists for.
  */
 interface Belched {
   readonly type: "belched";
   readonly cancelled: number;
+  readonly killed: number;
 }
 
 /** A drop arrived on the field. The denominator for drops swallowed versus scrolled off. */

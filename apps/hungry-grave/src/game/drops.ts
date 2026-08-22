@@ -52,17 +52,33 @@ export function priceOfNextDrop(dropsPaid: number): number {
 }
 
 /**
- * Which line the next drop levels.
- *
- * The dice seed before they roll, and Mark ruled this on 2026-08-22: while any
- * line is unowned the roll picks among those, and once every line is owned it is
- * uniform over all four. Seeding removes the missing-line defect outright, where
- * a uniform roll leaves 8.4% of eleven-drop runs missing a line, and it costs
- * less of the ceiling and less of the run-to-run variety than a weighting does.
+ * The one drop of a run whose roll seeds rather than rolls over all four: the
+ * first. Counting starts at one, so this is an ordinal and never an index.
  */
-export function rollDropLine(state: RunState): WeaponLine {
-  const unowned = WEAPON_LINES.filter((line) => state.levels[line] === 0);
-  const among = unowned.length > 0 ? unowned : WEAPON_LINES;
+const SEEDING_DROP = 1;
+
+/** The lines a run has yet to open. */
+function unownedLines(state: RunState): readonly WeaponLine[] {
+  return WEAPON_LINES.filter((line) => state.levels[line] === 0);
+}
+
+/**
+ * Which line a drop levels, given which drop of the run it is.
+ *
+ * The dice seed once and then roll, and Mark ruled this on 2026-08-22 after
+ * playing: the run's first drop picks among the lines still at level zero, and
+ * every drop after it is uniform over all four. Seeding on every unowned line
+ * sent the first three drops of a run to three different lines, so no line ever
+ * gained depth and no weapon ever visibly got stronger. One seeded drop still
+ * opens a line the birthright does not carry; everything after it can go deep.
+ *
+ * The ordinal is a parameter rather than something read off the state, because
+ * creditKill increments dropsPaid before it rolls: a bare comparison against
+ * dropsPaid in here would be correct for a reason invisible at this seam.
+ */
+export function rollDropLine(state: RunState, ordinal: number): WeaponLine {
+  const seeded = ordinal === SEEDING_DROP ? unownedLines(state) : [];
+  const among = seeded.length > 0 ? seeded : WEAPON_LINES;
   return among[state.streams.drops.nextInt(among.length)];
 }
 
@@ -79,5 +95,8 @@ export function creditKill(state: RunState, x: number, y: number): SimEvent[] {
   if (state.killsSinceDrop < priceOfNextDrop(state.dropsPaid)) return [];
   state.killsSinceDrop = 0;
   state.dropsPaid += 1;
-  return spawnDrop(state, x, y, rollDropLine(state));
+  // dropsPaid counts the drops already paid for, so past the increment above it
+  // is the ordinal of the drop being paid for now: one on the run's first.
+  const ordinal = state.dropsPaid;
+  return spawnDrop(state, x, y, rollDropLine(state, ordinal));
 }

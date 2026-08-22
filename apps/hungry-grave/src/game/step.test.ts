@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { stepChecked } from "../dev/invariants";
 import { spawnCorpse } from "./corpses";
+import { priceOfNextDrop } from "./drops";
 import type { SimEvent } from "./events";
 import { graveHitbox } from "./grave";
 import type { Mob } from "./mobs";
@@ -397,5 +398,35 @@ describe("the weapon lines in the tick order (plan 6.13)", () => {
     }
     expect(killed).toBeGreaterThan(0);
     expect(state.killsSinceDrop).toBe(killed);
+  });
+});
+
+describe("a belch kill is a kill (Mark, 2026-08-22)", () => {
+  it("credits its wipe toward the next drop, so a belch into a dense wave spawns a drop on the same tick", () => {
+    // The reason the wipe routes through damageMob rather than clearing the
+    // pool: resolveDeaths walks the tick's own accumulated kills, the belch's
+    // included, so the eruption pays the drop economy instead of emptying the
+    // field of it.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const wave = priceOfNextDrop(0);
+    for (let index = 0; index < wave; index++) {
+      spawnMob(state, "shambler", {
+        x: 40 + index * 24,
+        y: 100,
+        vx: 0,
+        vy: 1,
+        index,
+      })!.beat = 0;
+    }
+
+    const events = stepChecked(state, { move: { x: 0, y: 0 }, belch: true });
+
+    expect(typesOf(events).filter((type) => type === "mobKilled")).toHaveLength(
+      wave,
+    );
+    expect(typesOf(events)).toContain("dropSpawned");
+    expect(state.dropsPaid).toBe(1);
+    expect(state.killsSinceDrop).toBe(0);
   });
 });

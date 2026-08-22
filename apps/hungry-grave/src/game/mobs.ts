@@ -42,7 +42,7 @@ export type MobType = "shambler" | "revenant" | "ghoul";
 export type CorpseTier = "trash" | "rich";
 
 /** Whatever can hit a mob. Dispatch 4 only ever passes contact, from the test rig. */
-export type DamageSource = "storm" | "bell" | "headstone" | "contact";
+export type DamageSource = "storm" | "bell" | "headstone" | "contact" | "belch";
 
 /** How much of a wave carries fire at all. */
 export type ArmedShare = "none" | "everyThird" | "all";

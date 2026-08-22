@@ -94,43 +94,51 @@ describe("the dice pick the line and never whether a drop appears (ADR 0002)", (
     expect(state.killsSinceDrop).toBe(0);
   });
 
-  it("seeds before it rolls: while any line is unowned the roll only picks among those", () => {
-    // Mark's 2026-08-22 ruling. A uniform roll leaves 8.4% of eleven-drop runs
-    // missing a line outright; seeding leaves none.
+  it("seeds the run's first roll among the lines still at level zero", () => {
+    // Mark's 2026-08-22 ruling, in its narrowed form: the seeding is worth one
+    // drop, so a run always opens a line the birthright does not carry.
     for (let seed = 1; seed <= 40; seed++) {
       const state = quietRun(seed);
       expect(state.levels.wisps).toBe(0);
       expect(state.levels.bell).toBe(0);
-      expect(["wisps", "bell"]).toContain(rollDropLine(state));
+      expect(["wisps", "bell"]).toContain(rollDropLine(state, 1));
     }
   });
 
-  it("rolls uniform over all four once every line is owned", () => {
+  it("rolls uniform over all four once every line is owned, the seeding drop included", () => {
     const seen = new Set<WeaponLine>();
     for (let seed = 1; seed <= 200; seed++) {
       const state = quietRun(seed);
       for (const line of WEAPON_LINES) state.levels[line] = 1;
-      seen.add(rollDropLine(state));
+      seen.add(rollDropLine(state, 1));
     }
     expect([...seen].sort()).toEqual([...WEAPON_LINES].sort());
   });
 
-  it("cannot miss a line over a run of four or more drops, which is the whole point of seeding", () => {
+  it("can miss a line over a run of four drops, which is the price of letting a line go deep", () => {
+    // The guarantee this assertion replaces was the old rule's whole point, and
+    // Mark gave it up on 2026-08-22 after playing: seeding every unowned line
+    // spread the first three drops of a run across three different lines, so no
+    // line ever gained depth. Stated as an assertion rather than dropped, so
+    // reinstating the seeding turns this file red instead of passing quietly.
+    const missedALine: number[] = [];
     for (let seed = 1; seed <= 60; seed++) {
       const state = quietRun(seed);
-      for (let drop = 0; drop < 4; drop++) {
-        const line = rollDropLine(state);
+      for (let ordinal = 1; ordinal <= 4; ordinal++) {
+        const line = rollDropLine(state, ordinal);
         if (state.levels[line] < MAX_LEVEL) state.levels[line] += 1;
       }
-      const missing = WEAPON_LINES.filter((line) => state.levels[line] === 0);
-      expect(`seed ${seed}: ${missing.join(",")}`).toBe(`seed ${seed}: `);
+      if (WEAPON_LINES.some((line) => state.levels[line] === 0)) {
+        missedALine.push(seed);
+      }
     }
+    expect(missedALine.length).toBeGreaterThan(0);
   });
 
   it("still reaches a maxed line, so ADR 0002's overflow path stays live", () => {
     const state = quietRun();
     for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
-    expect(WEAPON_LINES).toContain(rollDropLine(state));
+    expect(WEAPON_LINES).toContain(rollDropLine(state, 1));
   });
 });
 
@@ -154,5 +162,60 @@ describe("a kill is a kill, whatever landed it (plan 6.8)", () => {
 
     expect(bell.killsSinceDrop).toBe(storm.killsSinceDrop);
     expect(bell.dropsPaid).toBe(storm.dropsPaid);
+  });
+});
+
+/** Kills counted until the next drop is paid, reporting the line that drop levels. */
+function nextDropLine(state: RunState): WeaponLine {
+  for (let kill = 0; kill < 1000; kill++) {
+    for (const event of creditKill(state, 100, 100)) {
+      if (event.type === "dropSpawned") return event.line;
+    }
+  }
+  throw new Error("no drop inside the kill budget");
+}
+
+describe("the dice go deep after the first drop (Mark, 2026-08-22)", () => {
+  it("seeds the run's first drop among the lines at level 0", () => {
+    // Driven through creditKill rather than through the seam, because the
+    // ordinal is the thing being tested: dropsPaid is incremented before the
+    // roll, so an off-by-one there would seed the second drop instead.
+    for (let seed = 1; seed <= 40; seed++) {
+      const state = quietRun(seed);
+      expect(nextDropLine(state)).toBeOneOf(["wisps", "bell"]);
+    }
+  });
+
+  it("rolls every drop after the first uniform over all four, an owned line included", () => {
+    // No drop here is ever swallowed, so wisps and bell sit at level zero for
+    // the whole of every run below. An owned line turning up in the set is
+    // therefore the entire change: after the first drop the dice stop seeding.
+    const seen = new Set<WeaponLine>();
+    for (let seed = 1; seed <= 60; seed++) {
+      const state = quietRun(seed);
+      nextDropLine(state);
+      seen.add(nextDropLine(state));
+      expect(state.levels.wisps).toBe(0);
+      expect(state.levels.bell).toBe(0);
+    }
+    expect([...seen].sort()).toEqual([...WEAPON_LINES].sort());
+  });
+
+  it("lets one line go deep: a soul stream past level 1 with lines still unowned", () => {
+    // The defect the ruling fixes, read the way a player reads it. Under the
+    // old rule the first three drops of a run went to three different lines, so
+    // the soul stream could not reach level two until every line was open.
+    const deepened: number[] = [];
+    for (let seed = 1; seed <= 60; seed++) {
+      const state = quietRun(seed);
+      for (let ordinal = 1; ordinal <= 3; ordinal++) {
+        const line = rollDropLine(state, ordinal);
+        if (state.levels[line] < MAX_LEVEL) state.levels[line] += 1;
+      }
+      const unowned = WEAPON_LINES.filter((line) => state.levels[line] === 0);
+      if (state.levels.soulStream > 1 && unowned.length > 0)
+        deepened.push(seed);
+    }
+    expect(deepened.length).toBeGreaterThan(0);
   });
 });
