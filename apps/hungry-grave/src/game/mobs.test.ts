@@ -23,21 +23,38 @@ import { FIELD_HEIGHT } from "./field";
 import { graveHitbox } from "./grave";
 import type { Mob } from "./mobs";
 import {
+  advanceMobs,
   ARRIVE_TICKS,
   damageMob,
   hasEntered,
   MOB_TYPES,
   mobTellLit,
+  resolveStorm,
   spawnMob,
 } from "./mobs";
-import type { MoveCommand, RunState } from "./run";
+import { headstoneAt, STONE_DAMAGE, STONE_RECHARGE } from "./lines/headstones";
+import { MAX_LEVEL, WEAPON_LINES } from "./lines/roster";
+import {
+  advanceStream,
+  SKULL_DAMAGE,
+  STREAM_INTERVAL,
+  SURGE_INTERVAL,
+  surgeStream,
+} from "./lines/soulStream";
+import { advanceWisps, launchWisps, WISP_DAMAGE } from "./lines/wisps";
+import type { RunState, TickCommand } from "./run";
 import { createRun } from "./run";
 import { RAMP_ROWS } from "./stage/stage";
 import type { SpawnOrder } from "./stage/templates";
 import { place } from "./stage/templates";
 
-const STILL = { x: 0, y: 0 } as const;
-const RIGHT = { x: 1, y: 0 } as const;
+/** A tick that only steers, which is every tick these tests are about. */
+function drift(x: number, y: number): TickCommand {
+  return { move: { x, y }, belch: false };
+}
+
+const STILL: TickCommand = drift(0, 0);
+const RIGHT: TickCommand = drift(1, 0);
 
 /**
  * A run whose stage will not spawn anything on top of the mob under test. The
@@ -47,7 +64,59 @@ const RIGHT = { x: 1, y: 0 } as const;
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
   run.stage.firedRows = RAMP_ROWS.length;
+  // The stream is held as well as the rows. These tests are about how a mob
+  // moves, fires and dies, and a birthright stream pouring up the middle of the
+  // field kills the mob under test before it reaches the behaviour being
+  // measured. The headstones need no holding: their orbit clears the grave's
+  // own hitbox, so a mob standing on the grave's centre line is never in it.
+  run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
+}
+
+/** A run with a quiet stage and a headstone parked where a test can aim it. */
+function stormRun(seed = 4): RunState {
+  const state = quietRun(seed);
+  state.levels.headstones = 1;
+  return state;
+}
+
+/** A live mob of a stated type, past its arriving beat. */
+function putMob(state: RunState, type: Mob["type"], x: number, y: number): Mob {
+  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  mob.beat = 0;
+  return mob;
+}
+
+/** A mob standing exactly where this run's one headstone is. */
+function stoneVictim(state: RunState): Mob {
+  const at = headstoneAt(state, 0)!;
+  return putMob(state, "shambler", at.x, at.y);
+}
+
+function putSkull(state: RunState, x: number, y: number) {
+  const skull = state.skulls.find((each) => !each.alive)!;
+  skull.alive = true;
+  skull.id = state.nextEntityId;
+  state.nextEntityId += 1;
+  skull.x = x;
+  skull.y = y;
+  skull.vx = 0;
+  skull.vy = 0;
+  return skull;
+}
+
+function putWisp(state: RunState, x: number, y: number) {
+  const wisp = state.wisps.find((each) => !each.alive)!;
+  wisp.alive = true;
+  wisp.id = state.nextEntityId;
+  state.nextEntityId += 1;
+  wisp.x = x;
+  wisp.y = y;
+  wisp.vx = 0;
+  wisp.vy = 0;
+  wisp.life = 60;
+  wisp.targetId = null;
+  return wisp;
 }
 
 function order(x: number, y: number, vx = 0, vy = 1, index = 0): SpawnOrder {
@@ -64,7 +133,7 @@ function only(run: RunState): Mob {
 function run(
   state: RunState,
   ticks: number,
-  command: MoveCommand = STILL,
+  command: TickCommand = STILL,
 ): SimEvent[] {
   const events: SimEvent[] = [];
   for (let tick = 0; tick < ticks; tick++) {
@@ -462,5 +531,134 @@ describe("a mob's death (ADR 0005)", () => {
     expect(mob.alive).toBe(false);
     expect(events).toEqual([]);
     expect(state.corpses.some((corpse) => corpse.alive)).toBe(false);
+  });
+});
+
+describe("the storm meeting a mob (plan 6.7)", () => {
+  it("resolves skulls, then headstones, then wisps, so the same seed kills in the same order", () => {
+    // The order is stated rather than incidental: three pools read in one pass,
+    // and a different order is a different set of kills on the same seed.
+    const state = stormRun();
+    const skulled = putMob(state, "shambler", 100, 100);
+    const stoned = stoneVictim(state);
+    const wisped = putMob(state, "shambler", 300, 100);
+    putSkull(state, skulled.x, skulled.y);
+    putWisp(state, wisped.x, wisped.y);
+
+    const killed = resolveStorm(state)
+      .filter((event) => event.type === "mobKilled")
+      .map((event) => (event.type === "mobKilled" ? event.x : -1));
+    expect(killed).toEqual([]);
+    expect(skulled.hp).toBe(MOB_TYPES.shambler.hp - SKULL_DAMAGE);
+    expect(stoned.hp).toBe(MOB_TYPES.shambler.hp - STONE_DAMAGE);
+    expect(wisped.hp).toBe(MOB_TYPES.shambler.hp - WISP_DAMAGE);
+  });
+
+  it("consumes a skull and a wisp on the mob they hit, and never a stone", () => {
+    // A stone is an orbiting solid: it goes inert instead, so it can carry a
+    // mob out of the way rather than dying on it.
+    const state = stormRun();
+    const skulled = putMob(state, "shambler", 100, 100);
+    const wisped = putMob(state, "shambler", 300, 100);
+    const skull = putSkull(state, skulled.x, skulled.y);
+    const wisp = putWisp(state, wisped.x, wisped.y);
+    stoneVictim(state);
+
+    resolveStorm(state);
+    expect(skull.alive).toBe(false);
+    expect(wisp.alive).toBe(false);
+    expect(state.lines.stoneRecharge[0]).toBe(STONE_RECHARGE);
+  });
+
+  it("takes every death through damageMob, so a kill leaves a corpse and emits mobKilled with no second path", () => {
+    const state = stormRun();
+    const doomed = putMob(state, "shambler", 100, 100);
+    doomed.hp = 1;
+    putSkull(state, doomed.x, doomed.y);
+
+    const events = resolveStorm(state);
+    expect(events.map((event) => event.type)).toContain("mobKilled");
+    expect(doomed.alive).toBe(false);
+    expect(state.corpses.filter((corpse) => corpse.alive)).toHaveLength(1);
+  });
+
+  it("leaves an inert stone doing nothing until it recovers", () => {
+    const state = stormRun();
+    const victim = stoneVictim(state);
+    resolveStorm(state);
+    const after = victim.hp;
+    for (let again = 0; again < 5; again++) resolveStorm(state);
+    expect(victim.hp).toBe(after);
+  });
+});
+
+describe("one swallow's whole burst payload never clears a wave (plan section 3)", () => {
+  /**
+   * The worst case at the ceiling, over the two waves the authored stage really
+   * contains. The payload is the wisp volley and the surged volley together,
+   * which is what the bound is derived against: asserting the wisps alone would
+   * pass the defect all three gates found.
+   */
+  for (const wave of [
+    { type: "ghoul" as const, count: 7 },
+    { type: "shambler" as const, count: 22 },
+  ]) {
+    it(`leaves survivors from ${wave.count} ${wave.type}s at every line's ceiling`, () => {
+      const state = stormRun();
+      for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
+      const row = MOB_TYPES[wave.type];
+      const mobs: Mob[] = [];
+      for (let index = 0; index < wave.count; index++) {
+        mobs.push(
+          putMob(
+            state,
+            wave.type,
+            row.halfWidth + index * row.halfWidth * 2,
+            state.grave.y - 60,
+          ),
+        );
+      }
+
+      // One swallow's whole payload: the wisp volley it launches and the extra
+      // stream volley its surge buys, resolved against the wave.
+      launchWisps(state, []);
+      surgeStream(state);
+      for (let tick = 0; tick < SURGE_INTERVAL + STREAM_INTERVAL; tick++) {
+        advanceStream(state);
+        advanceWisps(state);
+        resolveStorm(state);
+      }
+      expect(mobs.filter((mob) => mob.alive).length).toBeGreaterThan(0);
+    });
+  }
+});
+
+describe("an armed mob that has passed the grave (plan 6.10)", () => {
+  it("does not fire, because a mob shooting upward at the player from behind reads as unfair", () => {
+    // Watched go red with the guard removed. Mobs are culled only past the
+    // bottom edge, so without it a mob at y=734 aims back up at a grave at 711.
+    const state = stormRun();
+    const behind = putMob(
+      state,
+      "revenant",
+      state.grave.x,
+      state.grave.y + state.grave.size + MOB_TYPES.revenant.halfHeight + 5,
+    );
+    behind.armed = true;
+    behind.fireIn = 1;
+
+    const events = advanceMobs(state);
+    expect(events.map((event) => event.type)).not.toContain("mobFired");
+    expect(state.mobFire.filter((shot) => shot.alive)).toHaveLength(0);
+  });
+
+  it("still fires while it is level with or above the grave", () => {
+    const state = stormRun();
+    const ahead = putMob(state, "revenant", state.grave.x, state.grave.y - 100);
+    ahead.armed = true;
+    ahead.fireIn = 1;
+
+    const events = advanceMobs(state);
+    expect(events.map((event) => event.type)).toContain("mobFired");
   });
 });

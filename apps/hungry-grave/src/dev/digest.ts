@@ -30,6 +30,7 @@ import type { Mob } from "../game/mobs";
 import { damageMob, spawnMob } from "../game/mobs";
 import type { MoveCommand, RunState } from "../game/run";
 import { createRun } from "../game/run";
+import { place } from "../game/stage/templates";
 import { stepChecked } from "./invariants";
 
 const SEED = 20260820;
@@ -43,6 +44,32 @@ const SWALLOW_AT = 240;
 
 /** The tick a mob is killed away from the grave, so a corpse is still draining when the scenario ends. */
 const LEFTOVER_AT = 540;
+
+/**
+ * The tick a File is placed, and how many mobs are in it.
+ *
+ * The scenario used to make zero draws on every stream, because the only rows
+ * inside its window are two Drips of one, a Drip draws nothing, and index 0 is
+ * never armed. A scripted File draws from the spawns stream for its placement
+ * scatter and arms its third mob, which then draws from the mobFire stream for
+ * its first-shot jitter, so `drawn` measures something. Scripting it rather than
+ * running the scenario longer is what keeps the golden off the ramp's own
+ * tuning, which ADR 0015 requires of this scenario by name.
+ */
+const FILE_AT = 90;
+const FILE_COUNT = 4;
+
+/**
+ * Where the File is put down, in field units.
+ *
+ * The placement's own x is discarded and its draw is not: the draw is the whole
+ * point, and the column has to fall clear of the script's own wander. A File
+ * landing on the grave's path grinds it to the size floor, and a size pinned at
+ * a clamp erases a divergence in it exactly the way a grave pressed against the
+ * field boundary erases one in x, which is the blindness the boundary extremes
+ * assertion already exists to guard.
+ */
+const FILE_X = 60;
 
 /**
  * A wandering script with a small net drift, so the end state is not simply the
@@ -69,6 +96,8 @@ export interface Digest {
   readonly mobs: number;
   readonly shots: number;
   readonly corpses: number;
+  readonly skulls: number;
+  readonly wisps: number;
   readonly kills: number;
   readonly drawn: Record<string, number>;
   readonly levels: Record<string, number>;
@@ -104,11 +133,17 @@ export interface ScenarioResult {
 }
 
 /**
- * Integer-only folding at a fixed six decimal places, so the checksum cannot
+ * Integer-only folding at a fixed nine decimal places, so the checksum cannot
  * itself diverge between engines.
+ *
+ * Nine and not six. One f32 ulp at the ghoul's turn cosine is about 1.19e-7,
+ * which is below a six-place quantum: a single-tick divergence of exactly the
+ * size ADR 0015 exists to catch was invisible, and only showed once it had
+ * accumulated into position. Math.round(760 * 1e9) stays inside ToInt32's range
+ * deterministically, so the finer fold costs nothing.
  */
 function fold(checksum: number, value: number): number {
-  return (Math.imul(checksum, 31) + Math.round(value * 1e6)) | 0;
+  return (Math.imul(checksum, 31) + Math.round(value * 1e9)) | 0;
 }
 
 /**
@@ -133,6 +168,20 @@ export function foldEntities(run: RunState, from: number): number {
     if (!corpse.alive) continue;
     checksum = fold(fold(fold(checksum, corpse.x), corpse.y), corpse.freshness);
   }
+  for (const skull of run.skulls) {
+    if (!skull.alive) continue;
+    checksum = fold(
+      fold(fold(fold(checksum, skull.x), skull.y), skull.vx),
+      skull.vy,
+    );
+  }
+  for (const wisp of run.wisps) {
+    if (!wisp.alive) continue;
+    checksum = fold(
+      fold(fold(fold(checksum, wisp.x), wisp.y), wisp.vx),
+      wisp.vy,
+    );
+  }
   return checksum;
 }
 
@@ -152,6 +201,8 @@ function digestOf(run: RunState, checksum: number, kills: number): Digest {
     mobs: liveCount(run.mobs),
     shots: liveCount(run.mobFire),
     corpses: liveCount(run.corpses),
+    skulls: liveCount(run.skulls),
+    wisps: liveCount(run.wisps),
     kills,
     drawn: {
       spawns: run.streams.spawns.drawn,
@@ -178,6 +229,12 @@ function scriptedKills(run: RunState, tick: number): number {
     spawnMob(run, "ghoul", { x: 120, y: 20, vx: 0, vy: 1, index: 0 });
     return 0;
   }
+  if (tick === FILE_AT) {
+    for (const order of place("file", FILE_COUNT, run.streams.spawns)) {
+      spawnMob(run, "shambler", { ...order, x: FILE_X });
+    }
+    return 0;
+  }
   if (tick !== SWALLOW_AT && tick !== LEFTOVER_AT) return 0;
   const where =
     tick === SWALLOW_AT
@@ -200,7 +257,7 @@ export function runScenario(): ScenarioResult {
   let maxY = -Infinity;
   for (let tick = 0; tick < TICKS; tick++) {
     kills += scriptedKills(run, tick);
-    stepChecked(run, SCRIPT[tick % SCRIPT.length]);
+    stepChecked(run, { move: SCRIPT[tick % SCRIPT.length], belch: false });
     const box = graveHitbox(run.grave);
     minX = Math.min(minX, box.x);
     minY = Math.min(minY, box.y);
@@ -233,14 +290,16 @@ export const GOLDEN: Digest = {
   size: 24.50625,
   score: 0,
   reservoir: 0.50625,
-  mobs: 2,
-  shots: 0,
+  mobs: 6,
+  shots: 2,
   corpses: 1,
+  skulls: 1,
+  wisps: 0,
   kills: 2,
   drawn: {
-    spawns: 0,
+    spawns: 1,
     drops: 0,
-    mobFire: 0,
+    mobFire: 1,
     shed: 0,
   },
   levels: {
@@ -249,5 +308,5 @@ export const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 1132647885,
+  checksum: 1924011367,
 };

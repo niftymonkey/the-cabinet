@@ -1,20 +1,27 @@
+import { fireBelch } from "./belch";
 import {
   advanceCorpses,
   asSwallowable,
   corpseHitbox,
   cullCorpses,
 } from "./corpses";
+import { creditKill } from "./drops";
 import type { SimEvent } from "./events";
 import { ageGrave, graveHitbox, hitGrave, moveGrave } from "./grave";
+import { advanceBell } from "./lines/bell";
+import { advanceHeadstones } from "./lines/headstones";
+import { advanceStream } from "./lines/soulStream";
+import { advanceWisps } from "./lines/wisps";
 import {
   advanceMobs,
   cullMobs,
   cullShots,
   mobHitbox,
+  resolveStorm,
   shotHitbox,
 } from "./mobs";
 import { overlaps } from "./overlap";
-import type { MoveCommand, RunState } from "./run";
+import type { RunState, TickCommand } from "./run";
 import { advanceStage } from "./stage/stage";
 import { swallow } from "./swallow";
 import { SCROLL_SPEED } from "./tuning";
@@ -94,18 +101,60 @@ function resolveOverlaps(state: RunState): SimEvent[] {
 }
 
 /**
+ * The weapon lines' own tick, in a stated order so the same seed fires the same
+ * sequence. It runs after mob motion and before overlap detection, so a skull or
+ * a wisp launched this tick does not also move this tick, which is the rule mob
+ * fire already has and what puts a skull at the mouth for one tick.
+ */
+function advanceLines(state: RunState): SimEvent[] {
+  const events = advanceStream(state);
+  events.push(...advanceHeadstones(state));
+  events.push(...advanceWisps(state));
+  events.push(...advanceBell(state));
+  return events;
+}
+
+/**
+ * The deaths phase: the storm meeting the mobs, and every kill the tick made
+ * counted against the price of the next drop.
+ *
+ * It walks the tick's whole accumulated list of kills rather than only the ones
+ * the overlap pass returned, because the bell resolves two phases earlier and a
+ * kill is a kill: a price that depended on which weapon landed the last point of
+ * damage would move a drop boundary for a reason no player could read.
+ *
+ * One second-order consequence, stated here so nobody reads it later as a bug: a
+ * bell kill's corpse exists before resolveSwallows runs, so it is swallowable
+ * one tick sooner than a kill from the overlap pass.
+ */
+function resolveDeaths(
+  state: RunState,
+  earlier: readonly SimEvent[],
+): SimEvent[] {
+  const struck = resolveStorm(state);
+  const paid: SimEvent[] = [];
+  for (const event of [...earlier, ...struck]) {
+    if (event.type !== "mobKilled") continue;
+    paid.push(...creditKill(state, event.x, event.y));
+  }
+  return [...struck, ...paid];
+}
+
+/**
  * The sim seam: one fixed tick of the game's rules (tracer plan section 3). It
  * hides the order of a tick and holds no rules of its own; every rule belongs
  * to the module that owns it. Run state is mutated in place and the tick's
  * events are returned, because at storm density pooled entities mutated in
  * place are the right answer.
  *
- * The order is scroll, the move command, spawns, motion, overlap detection,
- * deaths, decay, culling, then the grave's own tick and the counters.
+ * The order is scroll, the move command, the belch, spawns, mob motion and fire,
+ * the weapon lines, overlap detection, deaths, decay, culling, then the grave's
+ * own tick and the counters.
  *
- * Deaths is quiet in this dispatch rather than unfinished: nothing kills a mob,
- * so the phase exists as the place damageMob's results are collected and the
- * test rig is its only caller.
+ * The belch runs before spawns and before every overlap. A bomb pressed on the
+ * frame a shot would land has to save the player, or the button is a lie at the
+ * only moment it matters; running it after resolveOverlaps would cancel the shot
+ * on the tick after it hit.
  *
  * Overlap before decay is deliberate. A corpse at exactly zero freshness that
  * the grave is under this tick is swallowed rather than taken under, so greed
@@ -116,13 +165,16 @@ function resolveOverlaps(state: RunState): SimEvent[] {
  * the invulnerability window a tick early, and dropping it means the window
  * never expires at all.
  */
-export function step(state: RunState, command: MoveCommand): SimEvent[] {
+export function step(state: RunState, command: TickCommand): SimEvent[] {
   const events: SimEvent[] = [];
   scrollField(state);
-  moveGrave(state.grave, command);
+  moveGrave(state.grave, command.move);
+  if (command.belch) events.push(...fireBelch(state));
   events.push(...advanceStage(state));
   events.push(...advanceMobs(state));
+  events.push(...advanceLines(state));
   events.push(...resolveOverlaps(state));
+  events.push(...resolveDeaths(state, events));
   events.push(...advanceCorpses(state));
   cullMobs(state);
   cullShots(state);

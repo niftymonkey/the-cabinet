@@ -137,12 +137,42 @@ interface CorpseEvicted {
   readonly freshness: number;
 }
 
-/** A corpse left the bottom edge with value left, which is a different read from expired. */
+/**
+ * A corpse left the bottom edge with value left, which is a different read from
+ * expired. It carries the kind because the missed-drops instrument has to
+ * separate a corpse that scrolled away from a drop that did, and without it that
+ * instrument cannot be built from the event stream at all.
+ */
 interface CorpseLost {
   readonly type: "corpseLost";
+  readonly kind: FoodKind;
   readonly x: number;
   readonly y: number;
   readonly freshness: number;
+}
+
+/** The bell rang. Its sound cue, and the radius the ring will reach. */
+interface Tolled {
+  readonly type: "tolled";
+  readonly level: number;
+  readonly radius: number;
+}
+
+/**
+ * The belch fired (ADR 0008). The count is what the belch-on-wave instrument
+ * reads to tell a wipe that landed on a curtain from one spent on empty sky.
+ */
+interface Belched {
+  readonly type: "belched";
+  readonly cancelled: number;
+}
+
+/** A drop arrived on the field. The denominator for drops swallowed versus scrolled off. */
+interface DropSpawned {
+  readonly type: "dropSpawned";
+  readonly line: WeaponLine;
+  readonly x: number;
+  readonly y: number;
 }
 
 /** The stage crossed a phase boundary (ADR 0006). Dispatch 5's music cue hangs here. */
@@ -176,4 +206,7 @@ export type SimEvent =
   | CorpseExpired
   | CorpseEvicted
   | CorpseLost
+  | Tolled
+  | Belched
+  | DropSpawned
   | PhaseChanged;

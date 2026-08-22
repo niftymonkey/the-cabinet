@@ -57,7 +57,9 @@ describe("the swallow", () => {
       size: run.grave.size,
       reservoir: run.reservoir,
     };
-    for (let i = 0; i < 120; i++) stepChecked(run, { x: 1, y: -1 });
+    for (let i = 0; i < 120; i++) {
+      stepChecked(run, { move: { x: 1, y: -1 }, belch: false });
+    }
     expect({
       score: run.score,
       size: run.grave.size,

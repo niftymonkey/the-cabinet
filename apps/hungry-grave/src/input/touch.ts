@@ -7,6 +7,11 @@
  * the grave so their own hand need not occlude the thing being steered, and an
  * absolute model would teleport the grave to wherever a finger first lands.
  * Cave went relative across its whole iOS line.
+ *
+ * Steering is all this model does. The belch is not a steering command: Mark
+ * ruled on 2026-08-22 that it binds to a dedicated corner button, because the
+ * belch is the scarcest object in the game and is only spendable at the moment
+ * it is worth most, so a binding that can misfire is the wrong one.
  */
 
 import type { FieldPoint } from "../game/grave";
@@ -93,20 +98,13 @@ export class TouchSteer {
   /** The grave as recently as this model has been told, so a promotion anchors to where it is now. */
   private lastGrave: FieldPoint = { x: 0, y: 0 };
 
-  private belchEdge = false;
-
   public setSlop(fieldUnits: number): void {
     if (Number.isFinite(fieldUnits) && fieldUnits > 0) this.slop = fieldUnits;
   }
 
-  /**
-   * A pointer landing. Every pointer past the steering one is the belch, and
-   * the edge is set here rather than on the release: belch.ts consumes it in
-   * dispatch 5.
-   */
+  /** A pointer landing. */
   public down(id: number, point: FieldPoint, grave: FieldPoint): void {
     this.lastGrave = { x: grave.x, y: grave.y };
-    if (this.steeringId !== null) this.belchEdge = true;
     this.pointers.set(id, { origin: point, current: point });
   }
 
@@ -170,22 +168,14 @@ export class TouchSteer {
     this.previousPointer = null;
   }
 
-  /** Every pointer gone, and the belch edge with them. Pause, blur and pointercancel all call this. */
+  /** Every pointer gone. Pause, blur and pointercancel all call this. */
   public cancelAll(): void {
     this.pointers.clear();
     this.clearSteering();
-    this.belchEdge = false;
   }
 
   public isSteering(): boolean {
     return this.steeringId !== null;
-  }
-
-  /** The belch edge, read once. belch.ts consumes it in dispatch 5; nothing consumes it here. */
-  public takeBelch(): boolean {
-    const edge = this.belchEdge;
-    this.belchEdge = false;
-    return edge;
   }
 
   /**

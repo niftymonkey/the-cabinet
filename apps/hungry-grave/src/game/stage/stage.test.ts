@@ -13,7 +13,7 @@ import { FIELD_WIDTH } from "../field";
 import { graveWidth } from "../grave";
 import type { MobType } from "../mobs";
 import { MOB_TYPES, SPAWN_MARGIN } from "../mobs";
-import type { RunState } from "../run";
+import type { RunState, TickCommand } from "../run";
 import { createRun } from "../run";
 import { SIZE_FLOOR, SIZE_START } from "../tuning";
 import type { Phase, StageRow } from "./stage";
@@ -26,7 +26,7 @@ import {
 } from "./stage";
 import { place } from "./templates";
 
-const STILL = { x: 0, y: 0 } as const;
+const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
 function phase(name: string): Phase {
   return PHASES.find((each) => each.name === name)!;
@@ -35,8 +35,6 @@ function phase(name: string): Phase {
 interface Recording {
   /** Every phaseChanged, in order, as name and absolute tick. */
   readonly boundaries: { phase: string; tick: number }[];
-  /** How many mobs were alive right after each boundary tick's step. */
-  readonly aliveAtBoundary: number[];
   /** The absolute tick each group of mobs arrived on, with how many arrived. */
   readonly arrivals: { tick: number; count: number }[];
   readonly events: SimEvent[];
@@ -45,14 +43,17 @@ interface Recording {
 
 /**
  * The whole stage, with the grave held immortal. These tests are about the
- * timeline and nothing in this build can kill a mob, so a grave left to be
- * ground down would seal shut inside the ramp and stop the stage's clock long
- * before the back half.
+ * timeline, and a grave left to be ground down would seal shut inside the ramp
+ * and stop the stage's clock long before the back half.
+ *
+ * The grave holds still, so its birthright storm fires straight up the middle
+ * and kills a little of what falls into it. That is why the field emptying at a
+ * boundary is asserted in src/dev/bot.test.ts across five real runs instead of
+ * here: the property is about the storm, and it needs a run with a player in it.
  */
 function recordStage(seed: number, ticks: number): Recording {
   const state = createRun(seed);
   const boundaries: { phase: string; tick: number }[] = [];
-  const aliveAtBoundary: number[] = [];
   const arrivals: { tick: number; count: number }[] = [];
   const events: SimEvent[] = [];
   let seen = 0;
@@ -72,28 +73,28 @@ function recordStage(seed: number, ticks: number): Recording {
     for (const event of stepped) {
       if (event.type !== "phaseChanged") continue;
       boundaries.push({ phase: event.phase, tick: event.tick });
-      aliveAtBoundary.push(alive);
     }
     seen = alive;
   }
   expect(seen).toBeGreaterThanOrEqual(0);
-  return { boundaries, aliveAtBoundary, arrivals, events, state };
+  return { boundaries, arrivals, events, state };
 }
 
 describe("the rows as data (ADR 0006)", () => {
   it("gives a phase a length of its last row's time plus the drain-out", () => {
-    // The drain-out's own magnitude is a tuning number in a build with no
-    // weapons in it, so what is pinned is the relation and the two lengths it
-    // produces, never the twenty.
+    // The relation is what is pinned. The drain-out's own magnitude is stated
+    // once, here, because dispatch 5 re-derived it against the storm and a
+    // later move should be a deliberate edit with a failing test attached.
+    expect(DRAIN_OUT_SECONDS).toBe(16);
     expect(phaseLengthTicks(phase("ramp"))).toBe(
       (RAMP_ROWS[RAMP_ROWS.length - 1].t + DRAIN_OUT_SECONDS) * TICK_HZ,
     );
-    expect(phaseLengthTicks(phase("ramp"))).toBe(125 * TICK_HZ);
+    expect(phaseLengthTicks(phase("ramp"))).toBe(121 * TICK_HZ);
     expect(phaseLengthTicks(phase("backHalf"))).toBe(
       (BACK_HALF_ROWS[BACK_HALF_ROWS.length - 1].t + DRAIN_OUT_SECONDS) *
         TICK_HZ,
     );
-    expect(phaseLengthTicks(phase("backHalf"))).toBe(88 * TICK_HZ);
+    expect(phaseLengthTicks(phase("backHalf"))).toBe(84 * TICK_HZ);
   });
 
   it("leaves the drain-out silent: no row falls inside it", () => {
@@ -196,13 +197,6 @@ describe("the phase machine (ADR 0006)", () => {
     expect(first).toBe(2 * TICK_HZ);
     expect(wall).toBe(recorded.boundaries[1].tick + 2 * TICK_HZ);
     expect(wall).not.toBe(first);
-  });
-
-  it("leaves no mob alive at any phase boundary", () => {
-    // The glossary's own ask, and not "no mob is alive during the last
-    // DRAIN_OUT_SECONDS": the last row fires at exactly that moment, so its
-    // mobs are alive inside that window by construction.
-    expect(recorded.aliveAtBoundary).toEqual([0, 0, 0, 0]);
   });
 
   it("ends the run in victory when the over phase is reached", () => {

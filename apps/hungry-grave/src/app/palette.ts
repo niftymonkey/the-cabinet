@@ -143,9 +143,20 @@ export const MENU = {
  * graveHole rather than a new near-black, because against the mouth it borders
  * it is invisible, so the perceived hole keeps its width at the size floor and
  * the band reads as the hole continuing under the rim.
+ *
+ * The storm's six colours all take foodOutline rather than a companion of their
+ * own. It clears the fine-detail bracket against every body they can be drawn
+ * over and costs nothing over bare field, being 3.4 luma above night, and a
+ * second near-black would be a colour with no reason to differ from the first.
+ * Measured against the storm: Lc 44.98 to 57.48 for the pairs that clear, with
+ * the four that do not named in palette.test.ts with their figures.
  */
 export const SPRITE_OUTLINE = {
   graveRim: "graveHole",
+  // The glow is the rim's own band in treasure's colour, drawn over it at the
+  // identical geometry, so its dark companion is the rim's: the one-unit
+  // graveHole band already stroked immediately inside it.
+  graveGlow: "graveHole",
   corpse: "foodOutline",
   corpseRevenant: "foodOutline",
   feast: "foodOutline",
@@ -153,6 +164,12 @@ export const SPRITE_OUTLINE = {
   mob: "foodOutline",
   banshee: "foodOutline",
   undertaker: "foodOutline",
+  skull: "foodOutline",
+  stone: "foodOutline",
+  wisp: "foodOutline",
+  bellRing: "foodOutline",
+  belchEruption: "foodOutline",
+  splash: "foodOutline",
 } as const satisfies Record<string, keyof typeof PALETTE>;
 
 /**

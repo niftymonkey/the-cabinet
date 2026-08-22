@@ -65,3 +65,33 @@ export function normalize(
   if (length === 0) return { x: 0, y: 0, length: 0 };
   return { x: x / length, y: y / length, length };
 }
+
+/**
+ * A unit heading rotated toward a unit target by at most one turn step, given
+ * that step as its cosine and sine.
+ *
+ * The step is passed in rather than computed here because each owner has its
+ * own turn rate: the ghoul turns 60 degrees a second and a wisp turns 180, and
+ * each computes its pair once at module load beside the rate it belongs to.
+ * Taking the pair rather than an angle also keeps this function free of
+ * trigonometry, which is what lets ADR 0015's preference for vector math hold
+ * all the way down.
+ *
+ * It lives here rather than in mobs.ts because two owners need it and one
+ * rotation that both share cannot drift apart the way two copies can.
+ */
+export function rotateToward(
+  heading: { x: number; y: number },
+  target: { x: number; y: number },
+  turnCos: number,
+  turnSin: number,
+): { x: number; y: number } {
+  const dot = heading.x * target.x + heading.y * target.y;
+  if (dot >= turnCos) return target;
+  const cross = heading.x * target.y - heading.y * target.x;
+  const sign = cross >= 0 ? 1 : -1;
+  return {
+    x: heading.x * turnCos - heading.y * sign * turnSin,
+    y: heading.x * sign * turnSin + heading.y * turnCos,
+  };
+}

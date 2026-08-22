@@ -214,21 +214,24 @@ describe("TouchSteer", () => {
     });
   });
 
-  it("a second pointer down sets the belch edge, takeBelch returns true once and false after", () => {
+  it("carries no belch at all: a second pointer only ever steers or waits", () => {
+    // Mark ruled on 2026-08-22 that the belch binds to a dedicated corner
+    // button. The belch is the scarcest object in the game and is spendable
+    // only at the moment it is worth most, so a binding that can misfire on a
+    // second finger is the wrong one, and the rule is deleted rather than left
+    // in the file as a comment.
     const touch = new TouchSteer();
     const g = grave(270, 500);
     anchored(touch, 1, { x: 100, y: 400 }, g);
-    expect(touch.takeBelch()).toBe(false);
-
     touch.down(2, { x: 480, y: 120 }, g);
-    expect(touch.takeBelch()).toBe(true);
-    expect(touch.takeBelch()).toBe(false);
+
+    expect("takeBelch" in touch).toBe(false);
+    expect(touch.isSteering()).toBe(true);
   });
 
   it("the #33 lesson: a steering lift clears the drag and the remaining pointer earns the role by crossing STEER_SLOP from where it now is", () => {
     // Handing off instead would promote a pointer that never crossed the slop,
-    // which rebuilds the grip disaster the slop rule exists to prevent: the
-    // control dies and the belch edge fires on every clutch.
+    // which rebuilds the grip disaster the slop rule exists to prevent.
     const touch = new TouchSteer();
     const g = grave(270, 500);
     anchored(touch, 1, { x: 100, y: 400 }, g);
@@ -256,7 +259,7 @@ describe("TouchSteer", () => {
     expect(g.y).toBeCloseTo(before.y, 9);
   });
 
-  it("cancelAll clears the pointers, the anchor and the belch edge, which pause, blur and pointercancel all call", () => {
+  it("cancelAll clears the pointers and the anchor, which pause, blur and pointercancel all call", () => {
     const touch = new TouchSteer();
     const g = grave(270, 500);
     const anchor = anchored(touch, 1, { x: 100, y: 400 }, g);
@@ -265,7 +268,6 @@ describe("TouchSteer", () => {
     touch.cancelAll();
 
     expect(touch.isSteering()).toBe(false);
-    expect(touch.takeBelch()).toBe(false);
     touch.move(1, { x: anchor.x + 200, y: anchor.y });
     expect(touch.command(g)).toEqual({ x: 0, y: 0 });
   });

@@ -11,16 +11,18 @@
  * construction rather than by two numbers agreeing.
  */
 
-import { CORPSE_CAP, createPool, oldestLive, takeSlot } from "./caps";
+import { CORPSE_CAP, createPool, takeSlot } from "./caps";
 import { TICK_HZ } from "./clock";
+import { DROP_HALF_EXTENT } from "./drops";
 import type { SimEvent } from "./events";
 import { FIELD_HEIGHT } from "./field";
+import type { WeaponLine } from "./lines/roster";
 import type { CorpseTier, Mob } from "./mobs";
 import { MOB_TYPES } from "./mobs";
 import type { Rect } from "./overlap";
 import type { RunState } from "./run";
 import type { FoodKind, Swallowable } from "./swallow";
-import { FRESHNESS_SECONDS } from "./tuning";
+import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from "./tuning";
 
 /**
  * Corpse size is constant across mob types, even though a revenant's payout is
@@ -50,6 +52,16 @@ export interface Corpse {
   kind: FoodKind;
   /** Feasts never decay (ADR 0004), and the flag lives on the record so the boss dispatch authors a shed rather than a mechanism. */
   decays: boolean;
+  /** Which line a drop levels, decided by the dice at spawn (ADR 0002). Absent on corpses and feasts. */
+  line?: WeaponLine;
+  /**
+   * How large this food is swallowed at. It lives on the record rather than
+   * being the module constant, because a drop is larger than a corpse and every
+   * reader of the extent has to see the difference: a hitbox that read the
+   * constant would hold a drop on the field for a unit of extra travel past
+   * where a corpse goes.
+   */
+  halfExtent: number;
 }
 
 function blankCorpse(): Corpse {
@@ -63,6 +75,8 @@ function blankCorpse(): Corpse {
     tier: "trash",
     kind: "corpse",
     decays: true,
+    line: undefined,
+    halfExtent: CORPSE_HALF_EXTENT,
   };
 }
 
@@ -72,10 +86,10 @@ export function createCorpsePool(): Corpse[] {
 
 export function corpseHitbox(corpse: Corpse): Rect {
   return {
-    x: corpse.x - CORPSE_HALF_EXTENT,
-    y: corpse.y - CORPSE_HALF_EXTENT,
-    width: CORPSE_HALF_EXTENT * 2,
-    height: CORPSE_HALF_EXTENT * 2,
+    x: corpse.x - corpse.halfExtent,
+    y: corpse.y - corpse.halfExtent,
+    width: corpse.halfExtent * 2,
+    height: corpse.halfExtent * 2,
   };
 }
 
@@ -90,7 +104,26 @@ export function asSwallowable(corpse: Corpse): Swallowable {
     kind: corpse.kind,
     freshness: corpse.freshness,
     payout: corpse.payout,
+    line: corpse.line,
   };
+}
+
+/**
+ * The oldest live food the cap policy may take, which is never treasure.
+ *
+ * The policy's own reasoning is that the cheapest thing to lose should go, and a
+ * drop that has been on the field a while is both the oldest thing in the pool
+ * and the scarcest object in the game. Skipping anything that does not decay
+ * covers drops and the boss feasts, and if every slot holds treasure the spawn
+ * is refused instead.
+ */
+function oldestEvictable(pool: readonly Corpse[]): Corpse | null {
+  let oldest: Corpse | null = null;
+  for (const corpse of pool) {
+    if (!corpse.alive || !corpse.decays) continue;
+    if (oldest === null || corpse.id < oldest.id) oldest = corpse;
+  }
+  return oldest;
 }
 
 /**
@@ -106,7 +139,7 @@ function claimSlot(state: RunState, events: SimEvent[]): Corpse | null {
     state.nextEntityId += 1;
     return free;
   }
-  const evicted = oldestLive(state.corpses);
+  const evicted = oldestEvictable(state.corpses);
   if (evicted === null) return null;
   events.push({
     type: "corpseEvicted",
@@ -134,6 +167,8 @@ export function spawnCorpse(state: RunState, mob: Mob): SimEvent[] {
   corpse.tier = row.corpseTier;
   corpse.kind = "corpse";
   corpse.decays = true;
+  corpse.line = undefined;
+  corpse.halfExtent = CORPSE_HALF_EXTENT;
   return events;
 }
 
@@ -160,6 +195,40 @@ export function spawnFeast(
   corpse.tier = "rich";
   corpse.kind = "feast";
   corpse.decays = false;
+  corpse.line = undefined;
+  corpse.halfExtent = CORPSE_HALF_EXTENT;
+  return events;
+}
+
+/**
+ * A drop, on the food pool rather than in a second one. It reuses claimSlot, so
+ * it inherits spawning, scrolling, culling and swallowing for free, which is the
+ * whole reason not to build a pool of its own.
+ *
+ * Fully fresh and never decaying, so a maxed line's drop still pays growth,
+ * reservoir and overflow: nothing swallowed is ever worthless (ADR 0002).
+ */
+export function spawnDrop(
+  state: RunState,
+  x: number,
+  y: number,
+  line: WeaponLine,
+): SimEvent[] {
+  const events: SimEvent[] = [];
+  const corpse = claimSlot(state, events);
+  if (corpse === null) return events;
+
+  corpse.alive = true;
+  corpse.x = x;
+  corpse.y = y;
+  corpse.freshness = 1;
+  corpse.payout = TRASH_CORPSE_PAYOUT;
+  corpse.tier = "trash";
+  corpse.kind = "drop";
+  corpse.decays = false;
+  corpse.line = line;
+  corpse.halfExtent = DROP_HALF_EXTENT;
+  events.push({ type: "dropSpawned", line, x, y });
   return events;
 }
 
@@ -185,10 +254,11 @@ export function cullCorpses(state: RunState): SimEvent[] {
   const events: SimEvent[] = [];
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
-    if (corpse.y - CORPSE_HALF_EXTENT <= FIELD_HEIGHT) continue;
+    if (corpse.y - corpse.halfExtent <= FIELD_HEIGHT) continue;
     corpse.alive = false;
     events.push({
       type: "corpseLost",
+      kind: corpse.kind,
       x: corpse.x,
       y: corpse.y,
       freshness: corpse.freshness,

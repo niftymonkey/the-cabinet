@@ -3,6 +3,7 @@ import { Graphics } from "pixi.js";
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from "../../../game/caps";
 import type { Corpse } from "../../../game/corpses";
 import { CORPSE_HALF_EXTENT } from "../../../game/corpses";
+import type { WeaponLine } from "../../../game/lines/roster";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
 import type { Mob, MobType, Shot } from "../../../game/mobs";
 import { MOB_TYPES, mobTellLit } from "../../../game/mobs";
@@ -34,8 +35,17 @@ const CORPSE_FADE_FLOOR = 0.25;
 /** Below this freshness a corpse flickers, which is its last-chance warning (ADR 0004). */
 const FLICKER_BELOW = 0.2;
 
-/** Half the flicker's period, in ticks. */
-const FLICKER_HALF_PERIOD = 6;
+/**
+ * Half the flicker's period, in ticks: 2.5 Hz.
+ *
+ * It was 6, which is 5 Hz. A single corpse was covered by WCAG SC 2.3.1's
+ * small-area exemption, but a burst kill lands a whole wave of corpses at once
+ * and a wave flashing together is not, and the criterion invokes Non-Interference
+ * so a game gets no essential-to-functionality carve-out. Twelve clears the
+ * eleven-tick floor tuning.ts already derives from the three-flashes-a-second
+ * limit. Nothing could produce a burst kill before the storm existed.
+ */
+export const FLICKER_HALF_PERIOD = 12;
 
 /** How far the flicker drops on its dark half. */
 const FLICKER_DEPTH = 0.45;
@@ -45,6 +55,28 @@ const SCATTER_TICKS = 12;
 
 /** How many scatters can be on the field at once before the oldest is reused. */
 const SCATTER_SLOTS = 24;
+
+/**
+ * How much larger than its hitbox a shot is drawn.
+ *
+ * The whole sprite used to be built from shot.halfExtent, which is the collision
+ * box, so at 5 it drew 10 field units, about 7.2 CSS pixels on a 390-wide phone,
+ * on the object ADR 0014 calls large and that fifteen of eighteen bot deaths
+ * came from. At 1.6 it draws 16 units, about 11.5 CSS pixels, still smaller than
+ * every mob body. The hitbox does not move: this is a drawing constant and the
+ * collision box stays where it is.
+ */
+export const SHOT_DRAW_SCALE = 1.6;
+
+/**
+ * How much of the hitbox the bright core covers, so the core is the true box
+ * rather than a fraction of the drawn star.
+ *
+ * That is Cave's and Touhou's own convention, a bright core the player can read
+ * as the real danger under a larger body, and it is what makes the sprite
+ * growing an honest change rather than a bigger lie about where the danger is.
+ */
+export const SHOT_CORE_OF_HITBOX = 0.9;
 
 /** How far a scatter's spokes reach, as a multiple of the shot's own extent. */
 const SCATTER_REACH = 2.4;
@@ -121,27 +153,39 @@ function drawBody(into: Graphics, type: MobType): void {
   into.poly(polygon(3, row.halfWidth, Math.PI));
 }
 
+/** How tall the armed notch is cut, as a share of the mob's half-width. */
+const ARMED_NOTCH_HEIGHT = 0.28;
+
 /**
- * The mark an armed mob wears. It is a hole in the body rather than a second
- * colour, so an armed shambler and an unarmed one differ in silhouette and in
- * value at once, which is what makes the marker readable in grayscale.
+ * The mark an armed mob wears: a horizontal notch cut through the body.
+ *
+ * It is a hole rather than a second colour, so an armed mob and an unarmed one
+ * differ in silhouette and in value at once and the marker survives grayscale.
+ * It is a notch rather than a down-pointing triangle because the triangle was
+ * the ghoul's own body shape, and ADR 0014 makes silhouette the first
+ * discriminator between types: spending that channel on a fourth meaning is what
+ * the notch avoids, since a horizontal bar is in no type's vocabulary.
  */
 function drawArmedMark(into: Graphics, type: MobType): void {
   const row = MOB_TYPES[type];
-  into.poly(polygon(3, row.halfWidth * 0.55, Math.PI)).fill({
-    color: PALETTE.foodOutline.hex,
-  });
+  const height = row.halfWidth * ARMED_NOTCH_HEIGHT;
+  into
+    .rect(-row.halfWidth * 0.6, -height / 2, row.halfWidth * 1.2, height)
+    .fill({ color: PALETTE.foodOutline.hex });
 }
 
 /** How thick the tell's closing iris is drawn, in field units. */
 const TELL_STROKE = 2;
 
 /**
- * The tell, drawn as a dark iris closing toward the centre. A closing ring
- * reads as a countdown rather than as a state, it is dark on a light body so it
- * survives grayscale, and it is a stroke where the armed mark is a fill, so
- * armed-and-waiting and armed-and-about-to-fire are two different drawings.
- * Without it the type's only tell is the damage.
+ * The tell, drawn as a dark iris closing toward the centre and an outer ring
+ * that grows into the shot.
+ *
+ * The closing iris reads as a countdown rather than as a state and is kept. What
+ * it could not do alone is hold salience: it closes to a 1.6-pixel radius at the
+ * moment of maximum urgency, so the announcement faded exactly as the danger
+ * arrived. The outer ring is the half that grows, so the tell rises into the
+ * shot instead of falling away from it.
  */
 function drawTell(into: Graphics, type: MobType, progress: number): void {
   into.circle(0, 0, tellRadius(type, progress)).stroke({
@@ -149,6 +193,17 @@ function drawTell(into: Graphics, type: MobType, progress: number): void {
     color: PALETTE.foodOutline.hex,
     alignment: 0.5,
   });
+  into.circle(0, 0, alarmRadius(type, progress)).stroke({
+    width: TELL_STROKE * (0.4 + progress),
+    color: PALETTE.foodOutline.hex,
+    alignment: 0.5,
+  });
+}
+
+/** How wide the outer ring stands at this much of the way to the shot. It grows, where the iris closes. */
+export function alarmRadius(type: MobType, progress: number): number {
+  const row = MOB_TYPES[type];
+  return row.halfWidth * (0.95 + 0.5 * progress);
 }
 
 /** How wide the iris stands at this much of the way to the shot. It closes, so a player reads how long is left rather than only that something is coming. */
@@ -192,7 +247,7 @@ function drawMob(into: Graphics, mob: Mob): void {
  */
 function drawShot(into: Graphics, shot: Shot): void {
   const sprite = MOB_FIRE.trash;
-  const outer = shot.halfExtent;
+  const outer = shot.halfExtent * SHOT_DRAW_SCALE;
   into
     .clear()
     .poly(star(5, outer, outer * 0.66))
@@ -203,8 +258,69 @@ function drawShot(into: Graphics, shot: Shot): void {
     // the size-and-shape grammar that tells mob fire from the storm, and a core
     // drawn as a star loses most of its own area to the notches, which is the
     // area the value band is carried by.
-    .circle(0, 0, outer * 0.46)
+    //
+    // It is sized from the hitbox and never from the drawn star, so the bright
+    // middle of the sprite is where the collision box really is.
+    .circle(0, 0, shot.halfExtent * SHOT_CORE_OF_HITBOX)
     .fill({ color: sprite.core.hex });
+}
+
+/**
+ * A drop, as a steady-bright icon of its own line's silhouette.
+ *
+ * The four have to be told apart mid-dodge with no HUD glance, so each one
+ * borrows the motion its line puts on the field: a column for the stream, a
+ * ring for the orbiting stones, a teardrop for the wisps and an arc for the
+ * bell. Size is not a channel here, because a drop and a mob-fire shot are now
+ * drawn at the same 16 units; what separates them is that a drop is steady
+ * where a shot moves, scrolls where a shot falls, and carries this shape.
+ */
+function drawDropIcon(into: Graphics, line: WeaponLine, extent: number): void {
+  const r = extent;
+  if (line === "soulStream") {
+    into.poly([0, -r, r * 0.5, r * 0.2, 0, -r * 0.2, -r * 0.5, r * 0.2]);
+    return;
+  }
+  if (line === "headstones") {
+    into.circle(0, 0, r * 0.72);
+    return;
+  }
+  if (line === "wisps") {
+    into.poly([0, -r, r * 0.62, r * 0.35, 0, r * 0.05, -r * 0.62, r * 0.35]);
+    return;
+  }
+  into.poly([
+    -r * 0.72,
+    r * 0.6,
+    -r * 0.5,
+    -r * 0.2,
+    0,
+    -r,
+    r * 0.5,
+    -r * 0.2,
+    r * 0.72,
+    r * 0.6,
+  ]);
+}
+
+/**
+ * A drop on the field: its line's silhouette in treasure's colour, over a dark
+ * core, with the food layer's own companion around it.
+ */
+function drawDrop(into: Graphics, corpse: Corpse): void {
+  const line = corpse.line ?? "soulStream";
+  into.clear();
+  drawDropIcon(into, line, corpse.halfExtent);
+  into.fill({ color: PALETTE.drop.hex });
+  drawDropIcon(into, line, corpse.halfExtent);
+  into.stroke({
+    width: SPRITE_STROKE,
+    color: PALETTE.foodOutline.hex,
+    alignment: 0.5,
+  });
+  into.circle(0, 0, corpse.halfExtent * 0.24).fill({
+    color: PALETTE.dropCore.hex,
+  });
 }
 
 function drawCorpse(into: Graphics, corpse: Corpse): void {
@@ -275,6 +391,14 @@ export class FieldRenderer {
   private readonly mobSprites: Graphics[] = [];
   private readonly shotSprites: Graphics[] = [];
   private readonly corpseSprites: Graphics[] = [];
+  /**
+   * A parallel sprite per corpse slot, in the treasure layer.
+   *
+   * Drops ride the corpse pool, and ADR 0014's stack puts treasure two layers
+   * above corpses, so one slot needs a sprite in each: a Graphics cannot be in
+   * two layers, and which one shows is decided per slot by the food's kind.
+   */
+  private readonly treasureSprites: Graphics[] = [];
   private readonly scatters: Scatter[] = [];
   private readonly dim = new Graphics();
 
@@ -293,9 +417,11 @@ export class FieldRenderer {
     this.build();
     this.forgetPreviousRun();
     const corpses = layers.layer("corpses");
+    const treasure = layers.layer("treasure");
     const bodies = layers.layer("mobBodies");
     const fire = layers.layer("mobFire");
     for (const sprite of this.corpseSprites) corpses.addChild(sprite);
+    for (const sprite of this.treasureSprites) treasure.addChild(sprite);
     for (const sprite of this.mobSprites) bodies.addChild(sprite);
     for (const sprite of this.shotSprites) fire.addChild(sprite);
     for (const scatter of this.scatters) fire.addChild(scatter.sprite);
@@ -327,6 +453,7 @@ export class FieldRenderer {
 
   public detach(): void {
     for (const sprite of this.corpseSprites) sprite.removeFromParent();
+    for (const sprite of this.treasureSprites) sprite.removeFromParent();
     for (const sprite of this.mobSprites) sprite.removeFromParent();
     for (const sprite of this.shotSprites) sprite.removeFromParent();
     for (const scatter of this.scatters) scatter.sprite.removeFromParent();
@@ -343,6 +470,7 @@ export class FieldRenderer {
     fill(this.mobSprites, MOB_CAP);
     fill(this.shotSprites, MOB_FIRE_CAP);
     fill(this.corpseSprites, CORPSE_CAP);
+    fill(this.treasureSprites, CORPSE_CAP);
     this.dim
       .rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT)
       .fill({ color: PALETTE.night.hex });
@@ -420,14 +548,23 @@ export class FieldRenderer {
   private syncCorpses(run: RunState): void {
     for (let slot = 0; slot < run.corpses.length; slot++) {
       const corpse = run.corpses[slot];
-      const sprite = this.corpseSprites[slot];
-      sprite.visible = corpse.alive;
+      const treasure = corpse.kind === "drop";
+      const sprite = treasure
+        ? this.treasureSprites[slot]
+        : this.corpseSprites[slot];
+      this.corpseSprites[slot].visible = corpse.alive && !treasure;
+      this.treasureSprites[slot].visible = corpse.alive && treasure;
       if (!corpse.alive) continue;
-      if (corpse.tier !== this.corpseTiers[slot]) {
-        this.corpseTiers[slot] = corpse.tier;
-        drawCorpse(sprite, corpse);
+
+      const look = `${corpse.kind}|${corpse.tier}|${corpse.line ?? ""}`;
+      if (look !== this.corpseTiers[slot]) {
+        this.corpseTiers[slot] = look;
+        if (treasure) drawDrop(sprite, corpse);
+        else drawCorpse(sprite, corpse);
       }
       sprite.position.set(corpse.x, corpse.y);
+      // Steady-bright always means treasure (ADR 0004), so a drop never takes
+      // the freshness tint and never flickers.
       sprite.tint = greyTint(freshnessBrightness(corpse, run.tick));
     }
   }
@@ -484,6 +621,11 @@ export function freshnessBrightness(corpse: Corpse, tick: number): number {
   const faded =
     CORPSE_FADE_FLOOR + (1 - CORPSE_FADE_FLOOR) * Math.max(0, corpse.freshness);
   if (corpse.freshness >= FLICKER_BELOW) return faded;
-  const dark = Math.floor(tick / FLICKER_HALF_PERIOD) % 2 === 0;
-  return dark ? faded * FLICKER_DEPTH : faded;
+  // Each corpse's phase is offset by its own id, so a wave killed in one burst
+  // does not flicker in lockstep. The offset is the id and not a random draw,
+  // because the renderer must stay a pure function of the sim's own state.
+  const phase = Math.floor(
+    (tick + corpse.id * FLICKER_HALF_PERIOD) / FLICKER_HALF_PERIOD,
+  );
+  return phase % 2 === 0 ? faded * FLICKER_DEPTH : faded;
 }

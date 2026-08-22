@@ -6,7 +6,18 @@
 /* eslint-disable no-restricted-properties -- this file's whole job is to check the wrappers against the raw operations they gate, so it is the one place in src/game that reads Math directly. */
 
 import { describe, expect, it } from "vitest";
-import { atan2, cos, exp, f32, log, normalize, pow, sin, tan } from "./math";
+import {
+  atan2,
+  cos,
+  exp,
+  f32,
+  log,
+  normalize,
+  pow,
+  rotateToward,
+  sin,
+  tan,
+} from "./math";
 
 interface Wrapper {
   readonly name: string;
@@ -115,5 +126,64 @@ describe("the rounding gate", () => {
 
   it("normalize(0, 0) is zero and never NaN, because a zero move command is the resting state of both input models", () => {
     expect(normalize(0, 0)).toEqual({ x: 0, y: 0, length: 0 });
+  });
+});
+
+/**
+ * One rotation step of a given size, as the pair its callers hold. The ghoul and
+ * the wisp each compute their own from their own degrees per second, so the test
+ * builds a step rather than importing either one's.
+ */
+function step(degreesPerTick: number): { turnCos: number; turnSin: number } {
+  const radians = (degreesPerTick * Math.PI) / 180;
+  return { turnCos: cos(radians), turnSin: sin(radians) };
+}
+
+describe("the shared rotation (ADR 0015)", () => {
+  it("snaps to the target once the target is inside one step, so a turn never overshoots", () => {
+    const { turnCos, turnSin } = step(30);
+    const heading = { x: 0, y: 1 };
+    const target = normalize(1, 1);
+    const turned = rotateToward(heading, target, turnCos, turnSin);
+    // 45 degrees apart is more than one 30-degree step, so it turns partway.
+    expect(turned).not.toEqual({ x: target.x, y: target.y });
+
+    const near = normalize(0.2, 1);
+    // About 11 degrees apart, inside one step, so it lands exactly on target.
+    const snapped = rotateToward(heading, near, turnCos, turnSin);
+    expect([snapped.x, snapped.y]).toEqual([near.x, near.y]);
+  });
+
+  it("turns by exactly the step it was given, whichever way round the target is", () => {
+    const degrees = 20;
+    const { turnCos, turnSin } = step(degrees);
+    const heading = { x: 0, y: 1 };
+    for (const target of [normalize(1, 0), normalize(-1, 0)]) {
+      const turned = rotateToward(heading, target, turnCos, turnSin);
+      const dot = heading.x * turned.x + heading.y * turned.y;
+      expect(Math.acos(dot) * (180 / Math.PI)).toBeCloseTo(degrees, 4);
+    }
+  });
+
+  it("turns toward the target and not away from it", () => {
+    const { turnCos, turnSin } = step(20);
+    const heading = { x: 0, y: 1 };
+    for (const target of [normalize(1, 0), normalize(-1, 0)]) {
+      const turned = rotateToward(heading, target, turnCos, turnSin);
+      const before = heading.x * target.x + heading.y * target.y;
+      const after = turned.x * target.x + turned.y * target.y;
+      expect(after).toBeGreaterThan(before);
+    }
+  });
+
+  it("returns a unit vector, so a caller scaling by its own speed does not drift", () => {
+    const { turnCos, turnSin } = step(3);
+    let heading = { x: 0, y: 1 };
+    const target = normalize(1, -1);
+    for (let turn = 0; turn < 20; turn++) {
+      heading = rotateToward(heading, target, turnCos, turnSin);
+      const length = Math.sqrt(heading.x * heading.x + heading.y * heading.y);
+      expect(length).toBeCloseTo(1, 6);
+    }
   });
 });

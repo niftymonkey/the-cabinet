@@ -62,6 +62,16 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Storm**: The player's own airborne projectiles at saturation, the bullet heaven the player builds. Mob fire is never the storm. _Avoid_: bullet spam, DPS, firepower.
 
+**Surge**: The soul stream's answer to a swallow: a fixed number of extra volleys at a shortened interval, never a damage bonus and never a time window. One swallow buys one burst, and a swallow chain overwrites an unspent one rather than banking a queue. _Avoid_: buff, haste, frenzy.
+
+**Toll**: One firing of the bell, on its own clock and never bought by a swallow. _Avoid_: pulse, tick, cast.
+
+**Ring**: The expanding circle a toll puts on the field, damaging what its leading edge crosses and pushing at the higher levels. The Banshee's tear-rings are mob fire and are never a ring. _Avoid_: shockwave, wave, AOE.
+
+**Inert**: A headstone that has just hit something and is spent for a moment. It still orbits and still draws, dimmed, so a spent defense is visible. _Avoid_: on cooldown, disabled, recharging.
+
+**Price**: What the next drop costs, in kills, on a rising authored curve. A kill is a kill whatever weapon landed it. _Avoid_: threshold, cost curve, XP.
+
 ### The field and the stage
 
 **Field**: The fixed logical playfield the sim runs in. Everything in the sim is field units, never device pixels; the renderer scales the whole field to any screen. The field's dimensions and aspect are tuning numbers, not vocabulary. _Avoid_: screen, viewport, canvas, arena.

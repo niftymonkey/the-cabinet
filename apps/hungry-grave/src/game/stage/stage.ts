@@ -39,16 +39,26 @@ export interface StageRow {
  * drain-out). It is silence in the rows and not a special rule: no row falls
  * inside it.
  *
- * The concept doc's "roughly ten seconds" is design prose the mob speeds do not
- * support. A mob spends up to SPAWN_MARGIN above the edge, then its arriving
- * beat, then falls the field's height plus its own half-height, and for the
- * slowest type that is a little over eighteen seconds.
+ * Twenty seconds was computed honestly for a build with no weapons in it: with
+ * nothing able to kill a mob the only way the field empties is everything
+ * falling, and for the slowest type that is a little over eighteen seconds. That
+ * is a weaponless artifact. Under the storm trash dies in a second or two, so
+ * the silence only has to cover stragglers plus a breath, and twenty seconds of
+ * nothing twice in a three and a half minute run is a sixth of the run with
+ * nothing to do.
  *
- * It is a tuning number in a build with no weapons in it, and it belongs to
- * whoever plays it. What is pinned by test is the property, that no mob is
- * alive at the phase boundary, never this magnitude.
+ * The new number cannot be derived from falling either, because under the storm
+ * the field is emptied partly by kills. It is measured instead: across the five
+ * full-run seeds the field empties 15.0 to 15.5 seconds after a phase's last
+ * row, so sixteen is the smallest whole second that clears every one of them.
+ * The storm is what buys the four seconds off the weaponless twenty, and it buys
+ * no more than that at the birthright build a run spends most of its length in.
+ *
+ * What is pinned by test is the property, that the field is empty when the boss
+ * phase begins, asserted across all five seeds in src/dev/bot.test.ts. This
+ * magnitude follows that property and never the other way round.
  */
-export const DRAIN_OUT_SECONDS = 20;
+export const DRAIN_OUT_SECONDS = 16;
 
 /**
  * The first 45 seconds are Drips and one File; Files, Vs and Pincers then

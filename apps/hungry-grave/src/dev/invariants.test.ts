@@ -8,12 +8,15 @@ import { spawnCorpse } from "../game/corpses";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
 import type { Mob } from "../game/mobs";
 import { SPAWN_MARGIN, spawnMob } from "../game/mobs";
-import type { RunState } from "../game/run";
+import type { RunState, TickCommand } from "../game/run";
 import { createRun } from "../game/run";
-import { SIZE_CEILING, SIZE_FLOOR } from "../game/tuning";
+import { BELL_EXPAND_TICKS } from "../game/lines/bell";
+import { MAX_LEVEL } from "../game/lines/roster";
+import { SKULL_HALF_EXTENT } from "../game/lines/soulStream";
+import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from "../game/tuning";
 import { checkInvariants, stepChecked } from "./invariants";
 
-const STILL = { x: 0, y: 0 } as const;
+const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
 describe("the sim invariants", () => {
   it("checkInvariants throws, naming the invariant, on a NaN coordinate, a size off either end, and a grave outside the field (ADR 0013)", () => {
@@ -41,7 +44,10 @@ describe("the sim invariants", () => {
     const run = createRun(3);
     expect(() => checkInvariants(run)).not.toThrow();
     for (let i = 0; i < 300; i++) {
-      stepChecked(run, i % 2 === 0 ? { x: 1, y: -1 } : STILL);
+      stepChecked(
+        run,
+        i % 2 === 0 ? { move: { x: 1, y: -1 }, belch: false } : STILL,
+      );
     }
     expect(run.tick).toBe(300);
   });
@@ -145,5 +151,110 @@ describe("the entity invariants (ADR 0013)", () => {
     // The watch still holds phase 2. Recording before the check would leave it
     // holding the rejected phase 1, and this second look would pass.
     expect(() => checkInvariants(run)).toThrow(/phase index/);
+  });
+});
+
+describe("the storm's invariants (plan 6.26)", () => {
+  it("throws on a NaN in any live skull or wisp, or anywhere in the lines record", () => {
+    const skull = createRun(1);
+    skull.skulls[0].alive = true;
+    skull.skulls[0].vy = NaN;
+    expect(() => checkInvariants(skull)).toThrow(/NaN/);
+
+    const wisp = createRun(1);
+    wisp.wisps[0].alive = true;
+    wisp.wisps[0].life = NaN;
+    expect(() => checkInvariants(wisp)).toThrow(/NaN/);
+
+    const phase = createRun(1);
+    phase.lines.orbitPhase = NaN;
+    expect(() => checkInvariants(phase)).toThrow(/NaN/);
+
+    const recharge = createRun(1);
+    recharge.lines.stoneRecharge[0] = NaN;
+    expect(() => checkInvariants(recharge)).toThrow(/NaN/);
+  });
+
+  it("holds a skull to its own extent and a wisp to the spawn margin", () => {
+    // A skull is launched from the mouth and travels straight up, so its own
+    // extent is the right box. A wisp homes on the mob it was given, and
+    // cullMobs legitimately allows that mob out to SPAWN_MARGIN, so a wisp
+    // checked against its own extent would fire on the game playing correctly.
+    const skull = createRun(1);
+    skull.skulls[0].alive = true;
+    skull.skulls[0].x = 100;
+    skull.skulls[0].y = -SKULL_HALF_EXTENT - 1;
+    expect(() => checkInvariants(skull)).toThrow(/entities in bounds/);
+
+    const legal = createRun(1);
+    legal.wisps[0].alive = true;
+    legal.wisps[0].x = 100;
+    legal.wisps[0].y = -SPAWN_MARGIN;
+    expect(() => checkInvariants(legal)).not.toThrow();
+
+    const gone = createRun(1);
+    gone.wisps[0].alive = true;
+    gone.wisps[0].x = 100;
+    gone.wisps[0].y = -SPAWN_MARGIN - 1;
+    expect(() => checkInvariants(gone)).toThrow(/entities in bounds/);
+  });
+
+  it("throws when the skull or wisp pool exceeds its cap or twins an id", () => {
+    const skulls = createRun(1);
+    skulls.skulls.push({ ...skulls.skulls[0] });
+    expect(() => checkInvariants(skulls)).toThrow(/entity caps/);
+
+    const wisps = createRun(1);
+    wisps.wisps.push({ ...wisps.wisps[0] });
+    expect(() => checkInvariants(wisps)).toThrow(/entity caps/);
+
+    const twinned = createRun(1);
+    twinned.skulls[0].alive = true;
+    twinned.skulls[0].id = 7;
+    twinned.skulls[1].alive = true;
+    twinned.skulls[1].id = 7;
+    expect(() => checkInvariants(twinned)).toThrow(/entity ids/);
+  });
+
+  it("holds the reservoir between zero and capacity, within a stated tolerance", () => {
+    // It has never been checked and the belch now empties it. The tolerance is
+    // not slack: payReservoir's own arithmetic can exceed the cap by an ulp.
+    const over = createRun(1);
+    over.reservoir = RESERVOIR_CAPACITY + 0.001;
+    expect(() => checkInvariants(over)).toThrow(/reservoir/);
+
+    const under = createRun(1);
+    under.reservoir = -0.001;
+    expect(() => checkInvariants(under)).toThrow(/reservoir/);
+
+    const rounded = createRun(1);
+    rounded.reservoir = RESERVOIR_CAPACITY + 1e-12;
+    expect(() => checkInvariants(rounded)).not.toThrow();
+  });
+
+  it("holds every level between zero and MAX_LEVEL, and a birthright line above its floor", () => {
+    // The floor ladder strips levels and payLevel raises them, and both write
+    // to the same record.
+    const stripped = createRun(1);
+    stripped.levels.soulStream = 0;
+    expect(() => checkInvariants(stripped)).toThrow(/levels/);
+
+    const overLevelled = createRun(1);
+    overLevelled.levels.bell = MAX_LEVEL + 1;
+    expect(() => checkInvariants(overLevelled)).toThrow(/levels/);
+
+    const unowned = createRun(1);
+    unowned.levels.bell = 0;
+    expect(() => checkInvariants(unowned)).not.toThrow();
+  });
+
+  it("throws when a bell ring outlives its own expansion", () => {
+    const state = createRun(1);
+    state.lines.ring = {
+      level: 3,
+      ticks: BELL_EXPAND_TICKS + 1,
+      struck: new Set(),
+    };
+    expect(() => checkInvariants(state)).toThrow(/one live ring/);
   });
 });

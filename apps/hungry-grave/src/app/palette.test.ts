@@ -9,7 +9,11 @@ import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { resize } from "../engine/resize/resize";
+import { CORPSE_HALF_EXTENT } from "../game/corpses";
+import { DROP_HALF_EXTENT } from "../game/drops";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
+import { graveWidth } from "../game/grave";
+import { SIZE_FLOOR } from "../game/tuning";
 import { apcaLc, hsv, luma, observerLuma } from "./color";
 import { BOUNDARY_STROKE, fitField } from "./layout";
 import type { FireEmitter, PaletteEntry } from "./palette";
@@ -78,8 +82,47 @@ const NOT_SPRITES = ["hudInk", "hudDim", "night", "nightSpeckle", "fieldFrame"];
 const MID_BAND_BODY =
   "a mid-band body colour is where neither a light nor a dark companion reads, and the boss dispatch owns both this colour and the renderer that draws it";
 
-const NOT_DRAWN_YET =
-  "nothing draws this colour until the weapon-lines dispatch, which builds the renderer and inherits the requirement";
+/**
+ * The splash as a background, re-argued on what it is now that dispatch 5 draws
+ * it. The best either half of a pair reaches against it is Lc 41.44, or 43.16
+ * where the dark half is graveHole, three to four short of the fine-detail
+ * bracket, and the threshold is not lowered for it.
+ *
+ * The splash is a momentary spray at the grave's own mouth on the tick a swallow
+ * overfills the reservoir. It draws in the belchEruption layer, which ADR 0014
+ * puts third from the bottom of the stack, beneath corpses, mob bodies, treasure
+ * and mob fire, so every sprite this pairs it with draws over it. What the
+ * player is asked to read there is that charge was wasted, carried by the
+ * burst's own motion at the grave, and the sprites crossing it are read against
+ * the field rather than against it.
+ */
+const OVER_THE_SPLASH =
+  "41.44: the splash is a momentary spray at the grave's mouth in the third layer from the bottom, so it is the ground under a sprite and never the thing the sprite is told apart from";
+
+/**
+ * The skull as a background, re-argued the same way. Every pair measures Lc
+ * 44.98, which is 0.02 short.
+ *
+ * A skull crosses the field at 420 units a second, which is a fifth of a second
+ * from the grave's mouth to a quarter of the way up the field. APCA's
+ * fine-detail bracket grades a static mark against a static ground; what is
+ * being graded here is a sprite that occupies any given pixel for one or two
+ * frames.
+ */
+const OVER_THE_SKULL =
+  "44.98, 0.02 short: a skull occupies a given pixel for a frame or two at 420 units a second, where the fine-detail bracket grades a static mark on a static ground";
+
+/**
+ * The grave's mouth as a background for the two things that come out of it.
+ *
+ * Both figures are reverse polarity, a bright sprite on the darkest declared
+ * colour, where APCA's own curve is harsher than it is the other way round. A
+ * skull is over the mouth for at most the tick it launches, because it leaves
+ * the grave's top edge travelling upward at seven units a tick. The splash is at
+ * the mouth by construction and is the same momentary effect argued above.
+ */
+const OVER_THE_MOUTH =
+  "a bright sprite on the darkest declared colour, at reverse polarity, and over the mouth for at most the tick it leaves it";
 
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
@@ -105,33 +148,50 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   // Assertion 3's exceptions, each with the best figure either half of the pair
   // reaches against that background. The threshold is not lowered for anything;
   // these are named instead.
-  { pair: ["graveRim", "mobDark"], because: `43.10, and ${NOT_DRAWN_YET}` },
-  { pair: ["graveRim", "splash"], because: `43.16, and ${NOT_DRAWN_YET}` },
+  {
+    pair: ["graveRim", "mobDark"],
+    because:
+      "43.10: mobDark is a mob body's own dark half and no renderer draws it, so the pair has no instant on screen. Trigger: the dispatch that gives a mob body its dark half",
+  },
   { pair: ["graveRim", "bansheeDark"], because: `29.53: ${MID_BAND_BODY}` },
   { pair: ["graveRim", "undertaker"], because: `27.86: ${MID_BAND_BODY}` },
-  { pair: ["corpse", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
-  { pair: ["corpse", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
-  { pair: ["corpseRevenant", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
-  {
-    pair: ["corpseRevenant", "splash"],
-    because: `41.44, and ${NOT_DRAWN_YET}`,
-  },
-  { pair: ["feast", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
-  { pair: ["feast", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
   { pair: ["feast", "bansheeDark"], because: `29.28: ${MID_BAND_BODY}` },
   { pair: ["feast", "undertaker"], because: `31.71: ${MID_BAND_BODY}` },
-  { pair: ["drop", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
-  { pair: ["drop", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
   { pair: ["drop", "bansheeDark"], because: `31.66: ${MID_BAND_BODY}` },
   { pair: ["drop", "undertaker"], because: `34.09: ${MID_BAND_BODY}` },
-  { pair: ["mob", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
-  { pair: ["mob", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
-  { pair: ["banshee", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
-  { pair: ["banshee", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
-  { pair: ["undertaker", "skull"], because: `44.98, and ${NOT_DRAWN_YET}` },
-  { pair: ["undertaker", "splash"], because: `41.44, and ${NOT_DRAWN_YET}` },
+  { pair: ["graveGlow", "bansheeDark"], because: `31.66: ${MID_BAND_BODY}` },
+  { pair: ["graveGlow", "undertaker"], because: `34.09: ${MID_BAND_BODY}` },
   { pair: ["undertaker", "graveHole"], because: `24.72: ${MID_BAND_BODY}` },
   { pair: ["undertaker", "foodOutline"], because: `23.42: ${MID_BAND_BODY}` },
+  // Over the splash, which dispatch 5 draws for the first time.
+  { pair: ["graveRim", "splash"], because: OVER_THE_SPLASH },
+  {
+    pair: ["graveGlow", "splash"],
+    because: `43.16, and ${OVER_THE_SPLASH}`,
+  },
+  { pair: ["corpse", "splash"], because: OVER_THE_SPLASH },
+  { pair: ["corpseRevenant", "splash"], because: OVER_THE_SPLASH },
+  { pair: ["feast", "splash"], because: OVER_THE_SPLASH },
+  { pair: ["drop", "splash"], because: OVER_THE_SPLASH },
+  { pair: ["mob", "splash"], because: OVER_THE_SPLASH },
+  { pair: ["banshee", "splash"], because: OVER_THE_SPLASH },
+  { pair: ["undertaker", "splash"], because: OVER_THE_SPLASH },
+  { pair: ["skull", "splash"], because: OVER_THE_SPLASH },
+  { pair: ["stone", "splash"], because: OVER_THE_SPLASH },
+  { pair: ["wisp", "splash"], because: OVER_THE_SPLASH },
+  { pair: ["bellRing", "splash"], because: OVER_THE_SPLASH },
+  // Over the skull, which dispatch 5 draws for the first time.
+  { pair: ["graveRim", "skull"], because: OVER_THE_SKULL },
+  { pair: ["corpse", "skull"], because: OVER_THE_SKULL },
+  { pair: ["corpseRevenant", "skull"], because: OVER_THE_SKULL },
+  { pair: ["feast", "skull"], because: OVER_THE_SKULL },
+  { pair: ["drop", "skull"], because: OVER_THE_SKULL },
+  { pair: ["mob", "skull"], because: OVER_THE_SKULL },
+  { pair: ["banshee", "skull"], because: OVER_THE_SKULL },
+  { pair: ["undertaker", "skull"], because: OVER_THE_SKULL },
+  // Out of the mouth.
+  { pair: ["skull", "graveHole"], because: `44.42: ${OVER_THE_MOUTH}` },
+  { pair: ["splash", "graveHole"], because: `40.81: ${OVER_THE_MOUTH}` },
 ];
 
 /**
@@ -183,16 +243,12 @@ const DARK_HALVES: { name: string; because: string }[] = [
  * Sprite colours with no dark companion yet, each with the dispatch that owns
  * the renderer which will need one. A colour that is neither here nor in
  * SPRITE_OUTLINE fails assertion 1, so a new sprite cannot pass quietly.
+ *
+ * It is empty, and empty is the only state that makes assertion 1 mean what it
+ * says. Dispatch 5 drew the last seven and gave each of them a companion; a
+ * sprite that cannot be given one is a finding rather than an entry here.
  */
-const AWAITING_A_COMPANION: { name: string; because: string }[] = [
-  { name: "graveGlow", because: "the reservoir tell, drawn by dispatch 5" },
-  { name: "skull", because: "the soul stream, drawn by dispatch 5" },
-  { name: "stone", because: "the headstones, drawn by dispatch 5" },
-  { name: "wisp", because: "the wisps, drawn by dispatch 5" },
-  { name: "bellRing", because: "the bell's ring, drawn by dispatch 5" },
-  { name: "belchEruption", because: "the eruption, drawn by dispatch 5" },
-  { name: "splash", because: "the wasted charge, drawn by dispatch 5" },
-];
+const AWAITING_A_COMPANION: { name: string; because: string }[] = [];
 
 const EMITTERS: FireEmitter[] = ["trash", "tear", "clod", "spiral"];
 
@@ -570,14 +626,19 @@ describe("the sprite outline table (ADR 0014)", () => {
     );
   });
 
-  // The third clause of assertion 4 waits for the constant it bounds. The rim's
-  // band narrows a floor-size mouth from twelve units to ten, and the tracer
-  // plan sizes drops up from the slice's nine, so the window is nine to ten.
-  // What binds is the grave's own width and never the mouth's interior, because
-  // ADR 0003 rules that size never gates a swallow.
-  it.todo(
-    "bounds DROP_SIZE by graveWidth(SIZE_FLOOR), which arrives with drops at dispatch 5",
-  );
+  it("bounds DROP_SIZE by graveWidth(SIZE_FLOOR)", () => {
+    // Assertion 4's third clause. What binds is the grave's own width at the
+    // size floor, 18 units, and never the mouth's interior: ADR 0003 rules that
+    // size never gates a swallow, so the mouth is not a gate and never was.
+    //
+    // A drop is 16 units, two clear of that bound and larger than a corpse's
+    // 14. Mark ruled on 2026-08-22 that the corpse-reads-bigger-than-a-drop
+    // rule gives, so the drop can be sized for the at-a-glance line read that
+    // has to survive mid-dodge with no HUD glance.
+    expect(graveWidth(SIZE_FLOOR)).toBe(18);
+    expect(DROP_HALF_EXTENT * 2).toBeLessThan(graveWidth(SIZE_FLOOR));
+    expect(DROP_HALF_EXTENT * 2).toBeGreaterThan(CORPSE_HALF_EXTENT * 2);
+  });
 });
 
 describe("the corpse tiers (tracer plan section 4)", () => {

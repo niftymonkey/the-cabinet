@@ -46,6 +46,9 @@ import { SIZE_START } from "./tuning";
 /** What the scenario's grave starts at, so growth from its one swallow is visible. */
 const GOLDEN_START_SIZE = SIZE_START;
 
+/** One unit in the last place of a single-precision significand, 2 to the -23. */
+const SINGLE_PRECISION_EPSILON = 1.1920928955078125e-7;
+
 describe("the golden digest", () => {
   it("a golden digest over a short scripted scenario matches the committed constant (ADR 0015)", () => {
     const { digest } = runScenario();
@@ -75,6 +78,63 @@ describe("the golden digest", () => {
 
     corpse!.freshness -= 1e-5;
     expect(foldEntities(state, 0)).not.toBe(before);
+  });
+
+  it("detects a divergence at ulp scale, which is the size ADR 0015 exists to catch", () => {
+    // One f32 ulp at the ghoul's turn cosine is about 1.19e-7. The assertion
+    // used to sit at 1e-5, a hundred times coarser, so a single-tick divergence
+    // of exactly the size this instrument is for was invisible until it had
+    // accumulated into position. A test asserting detection at 1e-5 pins
+    // nothing about the instrument's real resolution.
+    const { state } = runScenario();
+    const mob = state.mobs.find((each) => each.alive)!;
+    const before = foldEntities(state, 0);
+
+    mob.vy += SINGLE_PRECISION_EPSILON;
+    expect(foldEntities(state, 0)).not.toBe(before);
+
+    // And the arithmetic that says why the fold moved to nine places: at six,
+    // this same perturbation rounds to the identical integer and the checksum
+    // never moves at all.
+    const was = Math.round((mob.vy - SINGLE_PRECISION_EPSILON) * 1e6);
+    expect(Math.round(mob.vy * 1e6)).toBe(was);
+    expect(Math.round(mob.vy * 1e9)).not.toBe(
+      Math.round((mob.vy - SINGLE_PRECISION_EPSILON) * 1e9),
+    );
+  });
+
+  it("folds the skull and wisp pools, so a divergence in the storm moves the digest", () => {
+    const { state } = runScenario();
+    const skull = state.skulls.find((each) => each.alive);
+    expect(skull).toBeDefined();
+
+    const before = foldEntities(state, 0);
+    skull!.x += 1e-6;
+    expect(foldEntities(state, 0)).not.toBe(before);
+    skull!.x -= 1e-6;
+    expect(foldEntities(state, 0)).toBe(before);
+
+    const wisp = state.wisps[0];
+    wisp.alive = true;
+    wisp.x = 100;
+    wisp.y = 100;
+    expect(foldEntities(state, 0)).not.toBe(before);
+  });
+
+  it("makes the spawns and mobFire streams both draw, which they never used to", () => {
+    // At 600 ticks the scenario made zero draws on every stream, because the
+    // only rows inside its window are two Drips of one, a Drip draws nothing,
+    // and index 0 is never armed. The scripted File is what fixes that: its
+    // placement draws from spawns and its armed mob draws from mobFire.
+    const { digest } = runScenario();
+    expect(digest.drawn.spawns).toBeGreaterThan(0);
+    expect(digest.drawn.mobFire).toBeGreaterThan(0);
+    // The scripted kills are two, below the first drop's price of five, so the
+    // drops stream is untouched. And shed is deliberately excluded: nothing
+    // consumes it until the boss dispatch authors the Banshee's shed, so an
+    // "every stream has drawn" assertion could not pass in this build.
+    expect(digest.drawn.drops).toBe(0);
+    expect(digest.drawn.shed).toBe(0);
   });
 
   it("puts a ghoul's turn, a kill, a corpse and a swallow on the digest's path", () => {

@@ -94,3 +94,20 @@ export function oldestLive<T extends PoolSlot>(pool: readonly T[]): T | null {
 export function liveCount(pool: readonly PoolSlot[]): number {
   return pool.reduce((count, slot) => count + (slot.alive ? 1 : 0), 0);
 }
+
+/**
+ * The storm's two pools. Both refuse the spawn at the cap, the same policy mobs
+ * and mob fire have, and for a simpler reason than theirs: it is the player's
+ * own fire, the lines emit continuously, and one missing skull out of a hundred
+ * is invisible where a vanishing mob shot is a lie.
+ *
+ * Both are derived from the densest thing each pool can produce and both sit far
+ * above that derivation on purpose. A skull crosses the field's height in 109
+ * ticks, so a level-5 stream at its fixed interval holds about 18 alive, and a
+ * swallow chained as often as the game allows adds one surged volley each time.
+ * Eight wisps per swallow at a 90-tick life, with a swallow as often as every 20
+ * ticks, holds 36. They are a safety net and not a tuning knob, exactly as
+ * MOB_CAP is: a cap that binds in normal play is a bug rather than a policy.
+ */
+export const SKULL_CAP = 120;
+export const WISP_CAP = 64;

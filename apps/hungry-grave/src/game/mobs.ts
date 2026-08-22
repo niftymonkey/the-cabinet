@@ -19,8 +19,18 @@ import { spawnCorpse } from "./corpses";
 import type { SimEvent } from "./events";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
 import type { Grave } from "./grave";
-import { cos, normalize, sin } from "./math";
+import {
+  headstoneAt,
+  STONE_DAMAGE,
+  STONE_HALF_EXTENT,
+  STONE_RECHARGE,
+  stoneCount,
+} from "./lines/headstones";
+import { SKULL_DAMAGE, SKULL_HALF_EXTENT } from "./lines/soulStream";
+import { WISP_DAMAGE, WISP_HALF_EXTENT } from "./lines/wisps";
+import { cos, normalize, rotateToward, sin } from "./math";
 import type { Rect } from "./overlap";
+import { overlaps } from "./overlap";
 import type { RunState } from "./run";
 import type { SpawnOrder } from "./stage/templates";
 import { MAX_ENTRY_DEPTH } from "./stage/templates";
@@ -194,8 +204,9 @@ const GHOUL_TURN_RADIANS =
   (GHOUL_TURN_DEGREES_PER_SECOND * Math.PI) / 180 / TICK_HZ;
 
 // Computed once at module load, through math.ts, because ADR 0015 keeps the sim
-// off raw approximated operations and the turn is the first thing in the game
-// to need trigonometry at all.
+// off raw approximated operations. The pair stays here rather than travelling
+// with math.ts's rotateToward, so each turning thing's rate reads beside the
+// rule it belongs to.
 const TURN_COS = cos(GHOUL_TURN_RADIANS);
 const TURN_SIN = sin(GHOUL_TURN_RADIANS);
 
@@ -344,21 +355,6 @@ function firstShotOffset(state: RunState, row: MobRow): number {
   return state.streams.mobFire.nextInt(row.fire.firstShotJitter);
 }
 
-/** A unit heading rotated toward a unit target by at most one turn step. */
-function rotateToward(
-  heading: { x: number; y: number },
-  target: { x: number; y: number },
-): { x: number; y: number } {
-  const dot = heading.x * target.x + heading.y * target.y;
-  if (dot >= TURN_COS) return target;
-  const cross = heading.x * target.y - heading.y * target.x;
-  const sign = cross >= 0 ? 1 : -1;
-  return {
-    x: heading.x * TURN_COS - heading.y * sign * TURN_SIN,
-    y: heading.x * sign * TURN_SIN + heading.y * TURN_COS,
-  };
-}
-
 /**
  * The ghoul's own rule: rotate its heading toward the grave by at most a fixed
  * step, scale to its speed, then floor the descent. Vector rotation and not
@@ -375,7 +371,7 @@ function chase(mob: Mob, grave: Grave): void {
   const turned =
     heading.length === 0 || target.length === 0
       ? { x: 0, y: 1 }
-      : rotateToward(heading, target);
+      : rotateToward(heading, target, TURN_COS, TURN_SIN);
   mob.vx = turned.x * row.speed;
   mob.vy = Math.max(turned.y * row.speed, GHOUL_DESCENT_FLOOR);
 }
@@ -426,9 +422,21 @@ function fireShot(state: RunState, mob: Mob): SimEvent[] {
   return [{ type: "mobFired", emitter: mob.type, x: mob.x, y: mob.y }];
 }
 
+/**
+ * Whether a mob has already gone past the grave.
+ *
+ * Mobs are culled only past the bottom edge, so an armed mob that has overtaken
+ * the player turns round and shoots upward at them. That follows from the
+ * aiming rule rather than being a bug in it, and it reads as unfair.
+ */
+function hasPassed(mob: Mob, grave: Grave): boolean {
+  return mob.y - MOB_TYPES[mob.type].halfHeight > grave.y + grave.size;
+}
+
 /** One mob's fire clock. It runs on the same trigger as the beat and is never delayed by it. */
 function tickFire(state: RunState, mob: Mob): SimEvent[] {
   if (!mob.armed || !hasEntered(mob)) return [];
+  if (hasPassed(mob, state.grave)) return [];
   mob.fireIn -= 1;
   if (mob.fireIn > 0) return [];
   mob.fireIn += MOB_TYPES[mob.type].fire.interval;
@@ -489,6 +497,93 @@ export function damageMob(
     { type: "mobKilled", mob: mob.type, x: mob.x, y: mob.y },
   ];
   events.push(...spawnCorpse(state, mob));
+  return events;
+}
+
+/** A square hitbox centred on a point, which is what every storm entity carries. */
+function squareAt(x: number, y: number, halfExtent: number): Rect {
+  return {
+    x: x - halfExtent,
+    y: y - halfExtent,
+    width: halfExtent * 2,
+    height: halfExtent * 2,
+  };
+}
+
+/** The first live mob a box overlaps, in slot order, or null. */
+function mobUnder(state: RunState, box: Rect): Mob | null {
+  for (const mob of state.mobs) {
+    if (!mob.alive) continue;
+    if (overlaps(box, mobHitbox(mob))) return mob;
+  }
+  return null;
+}
+
+/** Skulls meeting mobs. A skull is consumed by the mob it hits, one mob per skull. */
+function resolveSkulls(state: RunState): SimEvent[] {
+  const events: SimEvent[] = [];
+  for (const skull of state.skulls) {
+    if (!skull.alive) continue;
+    const box = squareAt(skull.x, skull.y, SKULL_HALF_EXTENT);
+    const mob = mobUnder(state, box);
+    if (mob === null) continue;
+    skull.alive = false;
+    events.push(...damageMob(state, mob, SKULL_DAMAGE, "storm"));
+  }
+  return events;
+}
+
+/**
+ * Headstones meeting mobs. A stone is not consumed: it damages and goes inert
+ * for a while, so it can carry a mob out of the way rather than dying on it,
+ * which is what an orbiting solid means.
+ */
+function resolveHeadstones(state: RunState): SimEvent[] {
+  const events: SimEvent[] = [];
+  const count = stoneCount(state);
+  for (let index = 0; index < count; index++) {
+    if (state.lines.stoneRecharge[index] > 0) continue;
+    const at = headstoneAt(state, index);
+    if (at === null) continue;
+    const mob = mobUnder(state, squareAt(at.x, at.y, STONE_HALF_EXTENT));
+    if (mob === null) continue;
+    state.lines.stoneRecharge[index] = STONE_RECHARGE;
+    events.push(...damageMob(state, mob, STONE_DAMAGE, "headstone"));
+  }
+  return events;
+}
+
+/**
+ * Wisps meeting mobs. A wisp is consumed by whatever it hits, target or not: one
+ * that flies through something on the way is not saved for later.
+ */
+function resolveWisps(state: RunState): SimEvent[] {
+  const events: SimEvent[] = [];
+  for (const wisp of state.wisps) {
+    if (!wisp.alive) continue;
+    const mob = mobUnder(state, squareAt(wisp.x, wisp.y, WISP_HALF_EXTENT));
+    if (mob === null) continue;
+    wisp.alive = false;
+    events.push(...damageMob(state, mob, WISP_DAMAGE, "storm"));
+  }
+  return events;
+}
+
+/**
+ * The storm meeting the mobs, in one pass over three pools.
+ *
+ * It lives here rather than in a storm.ts because the consequence of a mob being
+ * hit is what this file is, and a module holding only the overlap tests would
+ * hide nothing. The bell resolves in its own module instead, because its damage
+ * is a consequence of a ring expanding rather than of two boxes overlapping.
+ *
+ * The order is skulls, then headstones, then wisps, always, so the same seed
+ * produces the same kills in the same order.
+ */
+export function resolveStorm(state: RunState): SimEvent[] {
+  const events = resolveSkulls(state);
+  events.push(...resolveHeadstones(state));
+  events.push(...resolveWisps(state));
   return events;
 }
 
