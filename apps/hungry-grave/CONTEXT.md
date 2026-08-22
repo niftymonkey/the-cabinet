@@ -58,6 +58,8 @@ A Halloween vertical shmup crossed with hole.io. The player is a moving open gra
 
 **Reservoir**: The capped belch charge, filled by swallows. Charge past full visibly splashes and wastes, so belching is the greedy play. _Avoid_: meter, gauge, mana, energy.
 
+**Cancel scatter**: The read a cancelled shot leaves behind: a short burst of spokes at the shot's own position, so a shot that stops existing is seen to be cancelled rather than silently gone. One vocabulary for every cancellation, whether the grave's mouth ate the shot or the belch wiped the field. It must never read as a swallow, because the swallow is the one verb of collection. _Avoid_: puff, pop, particle burst, explosion.
+
 **Storm**: The player's own airborne projectiles at saturation, the bullet heaven the player builds. Mob fire is never the storm. _Avoid_: bullet spam, DPS, firepower.
 
 ### The field and the stage
