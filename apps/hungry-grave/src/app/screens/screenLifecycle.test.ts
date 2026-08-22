@@ -53,7 +53,11 @@ vi.mock("../ui/Button", () => ({
 }));
 
 import { TICK_MS } from "../../game/clock";
+import { FIELD_HEIGHT, FIELD_WIDTH } from "../../game/field";
+import { MOB_TYPES } from "../../game/mobs";
+import { SIZE_FLOOR } from "../../game/tuning";
 import { pauseActions, PausePopup } from "../popups/PausePopup";
+import { runHandoff } from "../runHandoff";
 import { SettingsPopup } from "../popups/SettingsPopup";
 import { EndScreen } from "./EndScreen";
 import { GameScreen } from "./game/GameScreen";
@@ -230,8 +234,13 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
 
     void screen.resume();
     // The first frame back is skipped, because the whole backgrounded gap
-    // arrives in Pixi's elapsedMS and nothing game-side can reach it.
+    // arrives in Pixi's elapsedMS and nothing game-side can reach it, and the
+    // resume countdown then holds the field until a thumb can get down.
     screen.update(frame(10_000));
+    expect(screen["countdownMs"]).not.toBeNull();
+    screen.update(frame(3000));
+    expect(screen["countdownMs"]).toBeNull();
+
     screen.update(frame(TICK_MS * 5));
 
     expect(screen["run"]?.tick).toBe(5);
@@ -417,5 +426,251 @@ describe("a screen on its way back to the pool", () => {
 
     expect(keyHandlers.size).toBe(0);
     expect(screen["run"]).toBeNull();
+  });
+});
+
+describe("the resume countdown (dispatch 4 section 4.17)", () => {
+  beforeEach(() => {
+    keyHandlers.clear();
+    canvasListeners.clear();
+    navigation.currentPopup = undefined;
+    presentPopup.mockReset().mockResolvedValue(undefined);
+    dismissPopup.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("holds the sim still through three, two and one before the field is live again", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 3));
+    expect(screen["run"]?.tick).toBe(3);
+
+    void screen.pause();
+    void screen.resume();
+    expect(screen["countdownLabel"].visible).toBe(true);
+
+    // The first frame back is skipped, so the count starts on the second.
+    screen.update(frame(1000));
+    screen.update(frame(1000));
+    expect(screen["run"]?.tick).toBe(3);
+    screen.update(frame(1000));
+    screen.update(frame(1000));
+    expect(screen["countdownMs"]).toBeNull();
+    expect(screen["countdownLabel"].visible).toBe(false);
+
+    screen.update(frame(TICK_MS * 2));
+    expect(screen["run"]?.tick).toBe(5);
+  });
+
+  it("blurs the mob layers and spares the grave, then clears the blur on one", () => {
+    // Sparing the grave and its rim is the same rule ADR 0014's hit dim
+    // carries: never occlude the channel the player is being asked to re-read.
+    const screen = new GameScreen();
+    screen.prepare();
+    const layers = screen["layers"];
+    void screen.pause();
+    void screen.resume();
+
+    expect(layers.layer("mobBodies").filters).toHaveLength(1);
+    expect(layers.layer("mobFire").filters).toHaveLength(1);
+    expect(layers.layer("graveRim").filters ?? []).toHaveLength(0);
+    expect(layers.layer("graveMouth").filters ?? []).toHaveLength(0);
+
+    screen.update(frame(0));
+    screen.update(frame(1500));
+    expect(layers.layer("mobBodies").filters).toHaveLength(1);
+    screen.update(frame(1000));
+    expect(layers.layer("mobBodies").filters).toHaveLength(0);
+  });
+
+  it("counts down on a tab return too, and never behind the pause menu", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+
+    screen.blur();
+    screen.focus();
+    expect(screen["countdownMs"]).not.toBeNull();
+
+    // A focus() that lands while the menu is still up must not start one, or a
+    // countdown runs behind the menu and a second stacks on resume.
+    const guarded = new GameScreen();
+    guarded.prepare();
+    void guarded.pause();
+    guarded.blur();
+    guarded.focus();
+    expect(guarded["countdownMs"]).toBeNull();
+    void guarded.resume();
+    expect(guarded["countdownMs"]).not.toBeNull();
+  });
+
+  it("clears the count and the blur on a pooled reuse", () => {
+    // Per-run mutable state with a timer in it, on a pooled screen. This app
+    // has now shipped three pooled-screen leaks.
+    const screen = new GameScreen();
+    screen.prepare();
+    void screen.pause();
+    void screen.resume();
+    expect(screen["countdownMs"]).not.toBeNull();
+
+    screen.reset();
+    expect(screen["countdownMs"]).toBeNull();
+    expect(screen["layers"].layer("mobBodies").filters).toHaveLength(0);
+
+    screen.prepare();
+    expect(screen["countdownMs"]).toBeNull();
+    expect(screen["countdownLabel"].visible).toBe(false);
+  });
+});
+
+describe("a second run on the pooled game screen (dispatch 4)", () => {
+  beforeEach(() => {
+    keyHandlers.clear();
+    canvasListeners.clear();
+    navigation.currentPopup = undefined;
+    showScreen.mockReset().mockResolvedValue(undefined);
+  });
+
+  /** Ticks the sim, a frame at a time, because clock.ts clamps a long frame's catch-up. */
+  function play(screen: GameScreen, ticks: number): void {
+    for (let spent = 0; spent < ticks; spent += 10) {
+      screen.update(frame(TICK_MS * 10));
+    }
+  }
+
+  it("starts with an empty field, no live entities from the first run, and a live pause button", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+    // A first run with something on the field: the ramp's first row is at two
+    // seconds, so this is the earliest the field is not empty.
+    const first = screen["run"]!;
+    play(screen, 200);
+    expect(first.mobs.some((mob) => mob.alive)).toBe(true);
+
+    // And a shot still on the field when the run ends, which is the ordinary
+    // case and the one the field renderer's own memory spans. Two hundred ticks
+    // of the ramp cannot produce one: the first row is a Drip of one, index 0
+    // is never armed, and the first armed mob arrives at fourteen seconds. So
+    // this test could not see a leak through the mob-fire layer without it.
+    const shot = first.mobFire[0];
+    shot.alive = true;
+    shot.id = 1;
+    shot.emitter = "shambler";
+    shot.x = 200;
+    shot.y = 300;
+    shot.halfExtent = 5;
+    screen.update(frame(TICK_MS));
+    expect(first.mobFire.some((each) => each.alive)).toBe(true);
+
+    screen.reset();
+    // What navigation leaves behind on the way out.
+    screen.interactiveChildren = false;
+    screen.prepare();
+
+    const second = screen["run"]!;
+    expect(second).not.toBe(first);
+    expect(second.tick).toBe(0);
+    expect(second.mobs.some((mob) => mob.alive)).toBe(false);
+    expect(second.corpses.some((corpse) => corpse.alive)).toBe(false);
+    expect(second.mobFire.some((shot) => shot.alive)).toBe(false);
+    expect(screen.interactiveChildren).toBe(true);
+
+    const layers = screen["layers"];
+    for (const name of ["mobBodies", "corpses", "mobFire"] as const) {
+      const children = layers.layer(name).children;
+      expect(children.length).toBeGreaterThan(0);
+      expect(children.every((child) => !child.visible)).toBe(true);
+    }
+  });
+
+  it("ends the run on sealed, and on victory too, so the deploy is a complete run in both directions", () => {
+    const sealing = new GameScreen();
+    sealing.prepare();
+    const run = sealing["run"]!;
+    // At the floor with nothing left to bleed, so the next contact seals.
+    run.grave.size = SIZE_FLOOR;
+    const mob = run.mobs[0];
+    mob.alive = true;
+    mob.type = "shambler";
+    mob.hp = MOB_TYPES.shambler.hp;
+    mob.x = run.grave.x;
+    mob.y = run.grave.y;
+
+    sealing.update(frame(TICK_MS));
+    expect(run.ending).toBe("sealed");
+    expect(sealing["ending"]).toBe(true);
+    expect(showScreen).toHaveBeenCalledTimes(1);
+    expect(runHandoff.read()?.ending).toBe("sealed");
+
+    const winning = new GameScreen();
+    winning.prepare();
+    // On the boundary of the last stubbed boss phase, which ends on the tick it
+    // begins and hands the run to the over phase.
+    winning["run"]!.stage.phaseIndex = 3;
+    winning["run"]!.stage.phaseTick = 0;
+
+    winning.update(frame(TICK_MS));
+    expect(winning["run"]!.ending).toBe("victory");
+    expect(winning["ending"]).toBe(true);
+    expect(runHandoff.read()?.ending).toBe("victory");
+  });
+});
+
+describe("the end screen's endings (dispatch 4 section 4.18)", () => {
+  it("renders the victory branch, which no played run in this dispatch can reach", () => {
+    // Victory is unreachable by hand here and the played run always ends
+    // sealed, so without this the victory copy ships drawn by nobody.
+    const screen = new EndScreen();
+    runHandoff.record({ seed: 3, ticks: 12780, ending: "victory" });
+    screen.prepare();
+    expect(screen["title"].text).toBe("THE STAGE SURVIVED");
+
+    runHandoff.record({ seed: 3, ticks: 400, ending: "sealed" });
+    screen.prepare();
+    expect(screen["title"].text).toBe("SEALED SHUT");
+
+    runHandoff.record({ seed: 3, ticks: 400, ending: null });
+    screen.prepare();
+    expect(screen["title"].text).toBe("THE RUN IS OVER");
+  });
+});
+
+describe("the field's clip", () => {
+  it("masks the field to exactly its own rect, and keeps it across a pooled run", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+
+    const field = screen["field"];
+    const clip = screen["clip"];
+    expect(field.mask).toBe(clip);
+    expect(clip.parent).toBe(field);
+    // Local, because resize() has not run and the field is at the identity.
+    const rect = clip.getLocalBounds();
+    expect(rect.x).toBe(0);
+    expect(rect.y).toBe(0);
+    expect(rect.width).toBe(FIELD_WIDTH);
+    expect(rect.height).toBe(FIELD_HEIGHT);
+
+    // A mask is not a layer, so clear() cannot reach it, and reset() plus a
+    // second prepare() is how a pooled screen would lose one that was dressed
+    // on rather than built in.
+    screen.reset();
+    screen.prepare();
+    expect(screen["field"].mask).toBe(clip);
+    expect(clip.parent).toBe(field);
+  });
+
+  it("has something to clip: the sim really does hold mobs above the top edge", () => {
+    // Without this the first test passes over a clip that never cuts anything,
+    // and the defect it exists for would be invisible to the suite.
+    const screen = new GameScreen();
+    screen.prepare();
+
+    let sawOffField = false;
+    for (let step = 0; step < 900 && !sawOffField; step += 1) {
+      screen.update(frame(TICK_MS));
+      const run = screen["run"];
+      if (!run) break;
+      sawOffField = run.mobs.some((mob) => mob.alive && mob.y < 0);
+    }
+    expect(sawOffField).toBe(true);
   });
 });

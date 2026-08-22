@@ -28,7 +28,20 @@ export const PALETTE = {
   // the night field
   night: { hex: 0x0e1119, luma: 6.64 },
   nightSpeckle: { hex: 0x1d2434, luma: 13.99 },
-  fieldFrame: { hex: 0x677db0, luma: 48.63 },
+  /**
+   * The field's boundary. Re-valued on 2026-08-22 from luma 48.63, when the
+   * stroke moved from APCA's solid bracket to its fine-detail one and stopped
+   * needing a 5.5-pixel width to be graded at all.
+   *
+   * The window it sits in is about 1.3 luma points wide and three assertions
+   * close it from both sides: below luma 62.0 a mob-fire body comes within the
+   * 2.0-luma separation, above luma 63.3 a mob-fire core stops clearing APCA
+   * Lc 45 against it, and below Lc 45 against night the stroke falls out of the
+   * fine-detail bracket and needs its old width back. The colour is therefore
+   * close to forced rather than chosen. The reasoning is in ADR 0014 and in
+   * research 7.6.
+   */
+  fieldFrame: { hex: 0x8fa0c7, luma: 62.43 },
 
   // the grave
   graveHole: { hex: 0x04060b, luma: 2.33 },
@@ -59,9 +72,37 @@ export const PALETTE = {
 
   // food and treasure
   corpse: { hex: 0xa29e92, luma: 61.95 },
+  /**
+   * The revenant's corpse tier. Corpse size is constant across mob types, so
+   * payout is unreadable without a hue, and brightness is spoken for by
+   * freshness: every tier declares the same luma, which keeps the tier out of
+   * the freshness channel entirely.
+   *
+   * A moss green-yellow at hue 76.4 and saturation 0.458. The number that
+   * decided it is the observer one: protan 62.57 against corpse's 61.62, deutan
+   * 62.32 against 62.11. If two tiers shared Rec.709 luma but differed on an
+   * observer scale, a colour-blind player would read the tier difference as a
+   * freshness difference, which corrupts the one channel ADR 0014 says survives
+   * colour vision deficiency.
+   */
+  corpseRevenant: { hex: 0x93a85b, luma: 61.95 },
   feast: { hex: 0xb0ac9e, luma: 67.39 },
   drop: { hex: 0xd8a941, luma: 67.25 },
   dropCore: { hex: 0x141a26, luma: 10.04 },
+  /**
+   * The dark companion every sprite in the food, mob and treasure layers draws
+   * with. Without it the grave's rim meets a pile of food at APCA Lc 0.00 from
+   * the outside and the grave reads wider than it is, and that is not a defect
+   * of one colour: of the thirteen declared colours between luma 61.95 and
+   * 67.41, 72 of the 78 pairs measure exactly Lc 0.00.
+   *
+   * The same hex as dropCore, declared apart with a written reason, which is
+   * the precedent hudDim and menuDim already set in this file. Measured: Lc
+   * 50.19 against corpse, 57.36 against feast, 59.64 against drop and 61.19
+   * against mob. Against night it is 3.4 luma brighter, so it costs nothing on
+   * bare field.
+   */
+  foodOutline: { hex: 0x141a26, luma: 10.04 },
 
   // effects
   belchEruption: { hex: 0xb5ac8e, luma: 67.35 },
@@ -83,6 +124,45 @@ export const PALETTE = {
 export const MENU = {
   menuInk: { hex: 0xe8edf2, luma: 92.67 },
   menuDim: { hex: 0x76839a, luma: 50.94 },
+} as const satisfies Record<string, PaletteEntry>;
+
+/**
+ * Every sprite in a layer beneath mob fire, and the dark companion it draws
+ * with (ADR 0014's own construction for a colour that has to read on a
+ * background the palette never planned for).
+ *
+ * Re-valuing anything was priced and is arithmetically impossible. graveRim
+ * fails on its own hue ray at every luma from 8 to 68, and giving the rim Lc 45
+ * over food needs the food down at luma 23, where the food itself measures Lc
+ * 0.00 against the ground it lies on. So the rim becomes two colours instead:
+ * the outer three units stay graveRim and a one-unit band of graveHole is
+ * stroked inward immediately inside it, in the graveRim layer so it draws above
+ * the food rather than under it. The pair spans 62.12 luma, and the dark band
+ * clears the Lc 45 fine-detail bracket against everything the rim can cross.
+ *
+ * graveHole rather than a new near-black, because against the mouth it borders
+ * it is invisible, so the perceived hole keeps its width at the size floor and
+ * the band reads as the hole continuing under the rim.
+ */
+export const SPRITE_OUTLINE = {
+  graveRim: "graveHole",
+  corpse: "foodOutline",
+  corpseRevenant: "foodOutline",
+  feast: "foodOutline",
+  drop: "foodOutline",
+  mob: "foodOutline",
+  banshee: "foodOutline",
+  undertaker: "foodOutline",
+} as const satisfies Record<string, keyof typeof PALETTE>;
+
+/**
+ * Every corpse tier's colour. Brightness is freshness and nothing else, so all
+ * of them declare the same luma and the tier reads as hue and saturation, which
+ * is what the tracer plan rules.
+ */
+export const CORPSE_TIERS = {
+  trash: PALETTE.corpse,
+  rich: PALETTE.corpseRevenant,
 } as const satisfies Record<string, PaletteEntry>;
 
 export type FireEmitter = "trash" | "tear" | "clod" | "spiral";

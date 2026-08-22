@@ -5,9 +5,20 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { stepChecked } from "../dev/invariants";
+import { spawnCorpse } from "./corpses";
+import type { SimEvent } from "./events";
+import { graveHitbox } from "./grave";
+import type { Mob } from "./mobs";
+import { MOB_TYPES, spawnMob } from "./mobs";
 import type { RunState } from "./run";
 import { createRun } from "./run";
-import { BASE_SPEED, SCROLL_SPEED } from "./tuning";
+import { RAMP_ROWS } from "./stage/stage";
+import {
+  BASE_SPEED,
+  HIT_SHRINK,
+  INVULNERABLE_TICKS,
+  SCROLL_SPEED,
+} from "./tuning";
 
 const STILL = { x: 0, y: 0 } as const;
 
@@ -124,4 +135,148 @@ describe("the sim seam", () => {
 
   // The ?seed= half of ADR 0012 is paid: src/app/seedFromUrl.test.ts holds it,
   // because the parsing is the app's and this file is the sim's.
+});
+
+/** A run whose stage will not spawn on top of the one entity a test placed. */
+function quietRun(seed = 21): RunState {
+  const run = createRun(seed);
+  run.stage.firedRows = RAMP_ROWS.length;
+  return run;
+}
+
+/** A mob standing exactly on the grave, so this tick's overlap pass finds it. */
+function mobOnGrave(state: RunState, offsetY = 0): Mob {
+  const mob = spawnMob(state, "shambler", {
+    x: state.grave.x,
+    y: state.grave.y + offsetY,
+    vx: 0,
+    vy: 1,
+    index: 0,
+  })!;
+  // Past its beat, so it is not still flying an entry when the pass runs.
+  mob.beat = 0;
+  return mob;
+}
+
+/** A shot sitting on the grave, put there by hand rather than fired from off screen. */
+function shotOnGrave(state: RunState) {
+  const shot = state.mobFire[0];
+  shot.alive = true;
+  shot.id = state.nextEntityId;
+  state.nextEntityId += 1;
+  shot.emitter = "revenant";
+  shot.x = state.grave.x;
+  shot.y = state.grave.y;
+  shot.vx = 0;
+  shot.vy = 0;
+  shot.halfExtent = MOB_TYPES.revenant.fire.shotHalfExtent;
+  return shot;
+}
+
+function typesOf(events: SimEvent[]): string[] {
+  return events.map((event) => event.type);
+}
+
+describe("the tick order (dispatch 4 section 4.9)", () => {
+  it("swallows a corpse at zero freshness the grave is under this tick, rather than taking it under", () => {
+    // Overlap before decay, asserted by consequence rather than by spying.
+    // Greed that arrives on the last tick is rewarded, which is the direction
+    // ADR 0004 already leans by giving freshness a payout floor.
+    const state = quietRun();
+    const dead = spawnMob(state, "shambler", {
+      x: state.grave.x,
+      y: state.grave.y,
+      vx: 0,
+      vy: 1,
+      index: 0,
+    })!;
+    dead.alive = false;
+    spawnCorpse(state, dead);
+    const corpse = state.corpses.find((each) => each.alive)!;
+    corpse.freshness = 0;
+
+    const events = stepChecked(state, STILL);
+    expect(typesOf(events)).toContain("swallowed");
+    expect(typesOf(events)).not.toContain("corpseExpired");
+    expect(corpse.alive).toBe(false);
+  });
+
+  it("ages the grave last, so a hit's window lasts exactly INVULNERABLE_TICKS", () => {
+    const state = quietRun();
+    mobOnGrave(state);
+    stepChecked(state, STILL);
+    expect(state.grave.invulnerable).toBe(INVULNERABLE_TICKS - 1);
+  });
+});
+
+describe("what meets the grave (ADR 0003 and ADR 0014)", () => {
+  it("shrinks the grave through hitGrave when mob fire lands, and consumes the shot", () => {
+    const state = quietRun();
+    const shot = shotOnGrave(state);
+    const before = state.grave.size;
+
+    const events = stepChecked(state, STILL);
+    expect(typesOf(events)).toContain("graveHit");
+    expect(state.grave.size).toBe(before - HIT_SHRINK);
+    expect(shot.alive).toBe(false);
+  });
+
+  it("consumes a shot that overlaps an invulnerable grave, so one shot can never become two hits", () => {
+    const state = quietRun();
+    state.grave.invulnerable = INVULNERABLE_TICKS;
+    const shot = shotOnGrave(state);
+    const before = state.grave.size;
+
+    const first = stepChecked(state, STILL);
+    expect(typesOf(first)).not.toContain("graveHit");
+    expect(shot.alive).toBe(false);
+
+    const later: SimEvent[] = [];
+    for (let tick = 0; tick < INVULNERABLE_TICKS + 5; tick++) {
+      later.push(...stepChecked(state, STILL));
+    }
+    expect(typesOf(later)).not.toContain("graveHit");
+    expect(state.grave.size).toBe(before);
+  });
+
+  it("shrinks the grave on mob contact and leaves the mob on the field", () => {
+    const state = quietRun();
+    const mob = mobOnGrave(state);
+    const before = state.grave.size;
+
+    const events = stepChecked(state, STILL);
+    expect(typesOf(events)).toContain("graveHit");
+    expect(state.grave.size).toBe(before - HIT_SHRINK);
+    expect(mob.alive).toBe(true);
+    expect(mob.hp).toBe(MOB_TYPES.shambler.hp);
+  });
+
+  it("lands nothing on a second contact inside the invulnerability window", () => {
+    const state = quietRun();
+    mobOnGrave(state, -6);
+    mobOnGrave(state, 6);
+    const box = graveHitbox(state.grave);
+    expect(box.height).toBeGreaterThan(12);
+
+    const events = stepChecked(state, STILL);
+    expect(events.filter((event) => event.type === "graveHit")).toHaveLength(1);
+  });
+});
+
+describe("determinism across the whole field (ADR 0012)", () => {
+  it("produces the same events in the same order for one seed, because pools are walked in slot order", () => {
+    const script = [{ x: 1, y: 0 }, { x: 0, y: -1 }, { x: -1, y: 0.5 }, STILL];
+    const a = createRun(5150);
+    const b = createRun(5150);
+    const eventsA: SimEvent[] = [];
+    const eventsB: SimEvent[] = [];
+    for (let tick = 0; tick < 1500; tick++) {
+      const command = script[tick % script.length];
+      eventsA.push(...stepChecked(a, command));
+      eventsB.push(...stepChecked(b, command));
+    }
+    expect(eventsA.length).toBeGreaterThan(0);
+    expect(JSON.stringify(eventsA)).toBe(JSON.stringify(eventsB));
+    expect(snapshot(a)).toEqual(snapshot(b));
+  });
 });

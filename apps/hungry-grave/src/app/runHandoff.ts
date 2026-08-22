@@ -1,4 +1,4 @@
-import type { RunState } from "../game/run";
+import type { RunEnding, RunState } from "../game/run";
 
 /**
  * What the game screen tells the end screen about the run that just ended. A
@@ -8,10 +8,16 @@ import type { RunState } from "../game/run";
 export interface RunSummary {
   readonly seed: number;
   readonly ticks: number;
+  /**
+   * Which way the run finished. Null is a run the player ended themselves from
+   * the pause menu, which is neither ending and must not claim to be one: the
+   * grave is never destroyed or killed, it is sealed.
+   */
+  readonly ending: RunEnding | null;
 }
 
 export function summarizeRun(state: RunState): RunSummary {
-  return { seed: state.seed, ticks: state.tick };
+  return { seed: state.seed, ticks: state.tick, ending: state.ending };
 }
 
 /**

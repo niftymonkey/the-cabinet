@@ -8,11 +8,30 @@ import { describe, expect, it } from "vitest";
 
 import { resize } from "../engine/resize/resize";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
-import type { FieldPlacement } from "./layout";
-import { DEGENERATE_PLACEMENT, fitField, screenToField } from "./layout";
+import type { FieldPlacement, ReadoutReserve } from "./layout";
+import {
+  DEGENERATE_PLACEMENT,
+  fitField,
+  READOUT_RESERVE,
+  screenToField,
+} from "./layout";
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
+
+/**
+ * The desktop window that sits inside the band the first fold's branch rule
+ * missed: the vertical offset is already zero and the side gutter is narrower
+ * than the readout stack, so a rule that refitted only tall viewports would
+ * leave a readout over an ordinary desktop field with no refit available.
+ */
+const NARROW_DESKTOP = { width: 1024, height: 900 };
+
+/** The tablet in portrait, where the viewport aspect approaches the field's own. */
+const TABLET_PORTRAIT = { width: 820, height: 1180 };
+
+/** No reserve at all, for the two tests that are about the mapping itself. */
+const NO_RESERVE: ReadoutReserve = { margin: 0, width: 0, height: 0 };
 
 /** The rectangle the placement puts the field's frame in, in viewport units. */
 function fittedRect(placement: FieldPlacement) {
@@ -81,6 +100,8 @@ describe("fitField", () => {
   });
 
   it("centres the field, with equal non-negative margins on both axes", () => {
+    // Neither of these viewports refits, so the landed centring rule is
+    // untouched by the reserve.
     for (const viewport of [DESKTOP, PHONE]) {
       const rect = fittedRect(fitField(viewport.width, viewport.height));
       const right = viewport.width - (rect.left + rect.width);
@@ -92,8 +113,12 @@ describe("fitField", () => {
     }
   });
 
-  it("is scale 1 with no offset at exactly the field's own size", () => {
-    expect(fitField(FIELD_WIDTH, FIELD_HEIGHT)).toEqual({
+  it("is scale 1 with no offset at exactly the field's own size, with nothing reserved", () => {
+    // The mapping's own identity case. With the readout reserve in play the
+    // field is refitted here instead, because at exactly the field's own size
+    // the corners the readouts live in are over the field, and the test below
+    // is the one that holds that.
+    expect(fitField(FIELD_WIDTH, FIELD_HEIGHT, NO_RESERVE)).toEqual({
       scale: 1,
       offsetX: 0,
       offsetY: 0,
@@ -152,5 +177,102 @@ describe("screenToField", () => {
     expect(
       screenToField(phone, PHONE.width / 2, PHONE.height).y,
     ).toBeGreaterThan(FIELD_HEIGHT);
+  });
+});
+
+/** The rectangle the placement puts the field in, in viewport units. */
+function fieldRect(placement: FieldPlacement) {
+  const rect = fittedRect(placement);
+  return {
+    left: rect.left,
+    top: rect.top,
+    right: rect.left + rect.width,
+    bottom: rect.top + rect.height,
+  };
+}
+
+/** The two corners the readouts live in, from the reserve GameScreen positions them by. */
+function readoutRects(viewportWidth: number, reserve: ReadoutReserve) {
+  return [
+    { left: 0, top: 0, right: reserve.width, bottom: reserve.height },
+    {
+      left: viewportWidth - reserve.width,
+      top: 0,
+      right: viewportWidth,
+      bottom: reserve.height,
+    },
+  ];
+}
+
+/** Half-open on both axes, so two rectangles sharing exactly an edge do not intersect. */
+function overlapping(
+  a: { left: number; top: number; right: number; bottom: number },
+  b: { left: number; top: number; right: number; bottom: number },
+): boolean {
+  return (
+    a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+  );
+}
+
+/**
+ * What the running app actually computes. CreationResizePlugin upscales a
+ * narrow window to a 540-wide stage before GameScreen.resize ever runs, so a
+ * phone claim tested against a raw 390 is structurally blind.
+ */
+function staged(viewport: { width: number; height: number }) {
+  const stage = resize(
+    viewport.width,
+    viewport.height,
+    FIELD_WIDTH,
+    FIELD_HEIGHT,
+    false,
+  );
+  return { stage, placement: fitField(stage.width, stage.height) };
+}
+
+describe("the reserved gutter (dispatch 4 section 4.16)", () => {
+  const VIEWPORTS = [
+    { name: "desktop", viewport: DESKTOP },
+    { name: "narrow desktop", viewport: NARROW_DESKTOP },
+    { name: "tablet portrait", viewport: TABLET_PORTRAIT },
+    { name: "phone", viewport: PHONE },
+    { name: "the field's own size", viewport: { width: 540, height: 760 } },
+  ];
+
+  it("keeps the readout stack and the pause button clear of the field on every viewport", () => {
+    // This is the invariant. The two tests below are the two cases it resolves
+    // into, and neither of them is the rule.
+    for (const { name, viewport } of VIEWPORTS) {
+      const { stage, placement } = staged(viewport);
+      const field = fieldRect(placement);
+      for (const readout of readoutRects(stage.width, READOUT_RESERVE)) {
+        expect(`${name} ${overlapping(field, readout)}`).toBe(`${name} false`);
+      }
+      expectWholeFieldInside(placement, stage.width, stage.height);
+    }
+  });
+
+  it("leaves a 1440 by 900 desktop exactly where it was, because its gutter already holds the stack", () => {
+    const { stage, placement } = staged(DESKTOP);
+    expect(placement).toEqual(fitField(stage.width, stage.height, NO_RESERVE));
+    expect(placement.offsetY).toBeCloseTo(0, 9);
+    expect(placement.offsetX).toBeGreaterThan(READOUT_RESERVE.width);
+  });
+
+  it("refits a 1024 by 900 desktop, which no wide-versus-tall rule would have caught", () => {
+    const { stage, placement } = staged(NARROW_DESKTOP);
+    const natural = fitField(stage.width, stage.height, NO_RESERVE);
+    expect(natural.offsetY).toBeCloseTo(0, 9);
+    expect(natural.offsetX).toBeLessThan(READOUT_RESERVE.width);
+    expect(placement.scale).toBeLessThan(natural.scale);
+    expect(placement.offsetY).toBeGreaterThanOrEqual(READOUT_RESERVE.height);
+  });
+
+  it("refits an 820 by 1180 tablet in portrait, where the aspect approaches the field's own", () => {
+    const { stage, placement } = staged(TABLET_PORTRAIT);
+    const natural = fitField(stage.width, stage.height, NO_RESERVE);
+    expect(natural.offsetY).toBeLessThan(READOUT_RESERVE.height);
+    expect(placement.scale).toBeLessThan(natural.scale);
+    expect(placement.offsetY).toBeGreaterThanOrEqual(READOUT_RESERVE.height);
   });
 });

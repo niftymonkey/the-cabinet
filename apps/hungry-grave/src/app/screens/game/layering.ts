@@ -5,6 +5,13 @@ import { Container } from "pixi.js";
  * it is the ADR's own list, top to bottom, with the hit's dim in the place its
  * 2026-08-20 amendment gives it: beneath both mob fire and the grave's rim, so
  * a hit dims the field while those two survive it.
+ *
+ * `fieldBoundary` holds the boundary readout, and it sits directly beneath mob
+ * fire by its 2026-08-22 amendment. The boundary used to draw on `ground`, at
+ * the very bottom, so every body, corpse and drop crossing an edge passed over
+ * the line that says where the world ends, which reads as the field leaking
+ * rather than as a window. Directly beneath mob fire is the highest place it
+ * can go without occluding fire, which this ADR lets nothing do.
  */
 export const LAYER_ORDER = [
   "ground",
@@ -17,6 +24,7 @@ export const LAYER_ORDER = [
   "treasure",
   "hitDim",
   "graveRim",
+  "fieldBoundary",
   "mobFire",
 ] as const;
 

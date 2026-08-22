@@ -1,9 +1,16 @@
+import type { Corpse } from "./corpses";
+import { createCorpsePool } from "./corpses";
 import type { Grave } from "./grave";
 import { createGrave } from "./grave";
 import type { WeaponLine } from "./lines/roster";
 import { BIRTHRIGHT } from "./lines/roster";
+import type { Mob, Shot } from "./mobs";
+import { createMobPool, createShotPool } from "./mobs";
 import type { Stream, StreamName } from "./rng";
 import { stream } from "./rng";
+import type { StageState } from "./stage/stage";
+import { createStage } from "./stage/stage";
+import { SIZE_START } from "./tuning";
 
 // A move command in base-speed units, produced by an input model (ADR 0011).
 export interface MoveCommand {
@@ -16,7 +23,7 @@ export type RunEnding = "sealed" | "victory";
 
 /**
  * The run's identity and everything the rules mutate as it plays (tracer plan
- * section 3). The field's entities arrive with the field dispatch.
+ * section 3).
  *
  * Scroll distance is deliberately absent: it is tick * SCROLL_SPEED exactly, so
  * it is derived where it is read. That is one less field in the digest and one
@@ -40,6 +47,23 @@ export interface RunState {
    * and 3b's ?seed= replay cannot resume mid-run without it.
    */
   readonly streams: Readonly<Record<StreamName, Stream>>;
+  /**
+   * The field's entities, every one of them a fixed-capacity pool
+   * pre-allocated here and mutated in place. This is the reason step mutates
+   * rather than returning new state: at storm density, pooled entities mutated
+   * in place are the right answer.
+   */
+  readonly mobs: Mob[];
+  readonly mobFire: Shot[];
+  readonly corpses: Corpse[];
+  readonly stage: StageState;
+  /**
+   * The next entity id, only ever increasing. It is not cosmetic: the cap
+   * policy has to be totally ordered to be deterministic, and a test that says
+   * "this corpse, not that one" needs a handle a recycled slot index cannot
+   * give it.
+   */
+  nextEntityId: number;
 }
 
 /**
@@ -81,12 +105,20 @@ function startingLevels(): Record<WeaponLine, number> {
  * that seed and replays it (ADR 0012). The roll lives here rather than in a
  * screen so a run's identity is the sim's, and so ?seed= has one place to
  * plug into.
+ *
+ * The starting size is clamped by grave.ts and not by the caller. ?size= used
+ * to write run.grave.size from src/app, which left the sim's own hard bounds
+ * defended by a URL parser; with the size in this signature, hitGrave is the
+ * only thing outside grave.ts that changes size at all.
  */
-export function createRun(seed: number = rollSeed()): RunState {
+export function createRun(
+  seed: number = rollSeed(),
+  startingSize: number = SIZE_START,
+): RunState {
   return {
     seed,
     tick: 0,
-    grave: createGrave(),
+    grave: createGrave(startingSize),
     score: 0,
     reservoir: 0,
     levels: startingLevels(),
@@ -97,5 +129,10 @@ export function createRun(seed: number = rollSeed()): RunState {
       mobFire: stream(seed, "mobFire"),
       shed: stream(seed, "shed"),
     },
+    mobs: createMobPool(),
+    mobFire: createShotPool(),
+    corpses: createCorpsePool(),
+    stage: createStage(),
+    nextEntityId: 1,
   };
 }

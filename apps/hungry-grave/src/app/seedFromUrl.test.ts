@@ -4,7 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SEED_LIMIT } from "../game/run";
+import { createRun, SEED_LIMIT } from "../game/run";
 import { SIZE_CEILING, SIZE_FLOOR } from "../game/tuning";
 import { seedFromUrl, sizeFromUrl } from "./seedFromUrl";
 
@@ -53,7 +53,7 @@ describe("sizeFromUrl", () => {
   beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
   afterEach(() => vi.restoreAllMocks());
 
-  it("?size= pins a starting size in either form, accepts SIZE_FLOOR and SIZE_CEILING, and warns and gives null outside them", () => {
+  it("?size= pins a starting size in either form", () => {
     // It exists because the on-device check is otherwise blind to two thirds of
     // the game: the grave is unfeedable in 3b, so without it Mark steers at
     // SIZE_START only, and a floor grave covers 15 of its own body-widths a
@@ -64,9 +64,23 @@ describe("sizeFromUrl", () => {
     expect(sizeFromUrl("?size=1", "#/?size=40")).toBe(40);
 
     expect(sizeFromUrl("", "")).toBeNull();
-    expect(sizeFromUrl(`?size=${SIZE_FLOOR - 0.1}`, "")).toBeNull();
-    expect(sizeFromUrl(`?size=${SIZE_CEILING + 0.1}`, "")).toBeNull();
     expect(sizeFromUrl("?size=huge", "")).toBeNull();
-    expect(console.warn).toHaveBeenCalledTimes(3);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("parses and does not clamp, because ADR 0003's bounds belong to the rules layer", () => {
+    // The hole this closes: ?size= used to write run.grave.size from src/app,
+    // so the sim's own hard bounds were defended by a URL parser. createRun
+    // takes the value now and grave.ts holds the floor and the ceiling.
+    expect(sizeFromUrl(`?size=${SIZE_FLOOR - 10}`, "")).toBe(SIZE_FLOOR - 10);
+    expect(sizeFromUrl(`?size=${SIZE_CEILING + 10}`, "")).toBe(
+      SIZE_CEILING + 10,
+    );
+    expect(createRun(1, sizeFromUrl("?size=0", "")!).grave.size).toBe(
+      SIZE_FLOOR,
+    );
+    expect(createRun(1, sizeFromUrl("?size=999", "")!).grave.size).toBe(
+      SIZE_CEILING,
+    );
   });
 });

@@ -15,7 +15,6 @@
  */
 
 import { SEED_LIMIT } from "../game/run";
-import { SIZE_CEILING, SIZE_FLOOR } from "../game/tuning";
 
 /** The query the hash carries, which is everything after its first question mark. */
 function hashQuery(hash: string): string {
@@ -62,14 +61,17 @@ export function seedFromUrl(search: string, hash: string): number | null {
 
 /**
  * The pinned starting size, or null when there is none. Fractional values are
- * allowed, because the sim's sizes are fractional, and the range is ADR 0003's
- * floor and ceiling inclusive.
+ * allowed, because the sim's sizes are fractional.
+ *
+ * It parses and does not clamp. ADR 0003's floor and ceiling are the rules
+ * layer's to defend and createRun holds them, so a URL parser in the app layer
+ * is no longer standing in for grave.ts. What is refused here is a string that
+ * names no number at all.
  */
 export function sizeFromUrl(search: string, hash: string): number | null {
   const raw = rawParameter("size", search, hash);
   if (raw === null) return null;
   const value = parsed(raw);
   if (value === null) return ignore("size", raw);
-  if (value < SIZE_FLOOR || value > SIZE_CEILING) return ignore("size", raw);
   return value;
 }

@@ -1,5 +1,6 @@
 import { Container } from "pixi.js";
 
+import type { RunEnding } from "../../game/run";
 import { engine } from "../getEngine";
 import { MENU } from "../palette";
 import { runHandoff } from "../runHandoff";
@@ -7,6 +8,20 @@ import { Button } from "../ui/Button";
 import { Label } from "../ui/Label";
 import { bindKeyPress } from "../utils/bindKeyPress";
 import { GameScreen } from "./game/GameScreen";
+
+/**
+ * What the end screen says happened. Sealed shut is ADR 0003's death and the
+ * vocabulary is exact about it. The victory line is a stub's line only in the
+ * sense that the Undertaker is not built yet; a stubbed victory is still a
+ * victory the player sees, so it does not admit to being one.
+ */
+const ENDING_TITLE: Record<RunEnding, string> = {
+  sealed: "SEALED SHUT",
+  victory: "THE STAGE SURVIVED",
+};
+
+/** A run the player ended themselves, which is neither ending. */
+const ABANDONED_TITLE = "THE RUN IS OVER";
 
 /**
  * The screen a run ends on. Render only: it reports the run the game screen
@@ -27,7 +42,7 @@ export class EndScreen extends Container {
     super();
 
     this.title = new Label({
-      text: "THE RUN IS OVER",
+      text: ABANDONED_TITLE,
       style: { fill: MENU.menuInk.hex, fontSize: 36, letterSpacing: 4 },
     });
     this.seedLabel = new Label({
@@ -50,6 +65,10 @@ export class EndScreen extends Container {
   public prepare() {
     this.rising = false;
     const summary = runHandoff.read();
+    this.title.text =
+      summary && summary.ending !== null
+        ? ENDING_TITLE[summary.ending]
+        : ABANDONED_TITLE;
     this.seedLabel.text = summary ? `SEED ${summary.seed}` : "NO RUN RECORDED";
     this.tickLabel.text = summary ? `${summary.ticks} TICKS` : "";
     this.releaseKeys = bindKeyPress("Enter", () => this.riseAgain());
