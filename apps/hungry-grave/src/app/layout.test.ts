@@ -239,17 +239,64 @@ describe("the reserved gutter (dispatch 4 section 4.16)", () => {
     { name: "the field's own size", viewport: { width: 540, height: 760 } },
   ];
 
-  it("keeps the readout stack and the pause button clear of the field on every viewport", () => {
-    // This is the invariant. The two tests below are the two cases it resolves
-    // into, and neither of them is the rule.
+  /**
+   * Every window height a 390-wide phone reports, from a fully collapsed URL
+   * bar down to a window barely taller than it is wide. The bug Mark played
+   * lived inside this sweep and no single viewport could see it: the field is
+   * the full stage width while the window is tall, and pays width for the
+   * reserve as the URL bar eats the height.
+   */
+  const PHONE_HEIGHTS = Array.from(
+    { length: 51 },
+    (_, index) => 400 + index * 10,
+  );
+
+  it("never pays field width for a readout, at any viewport", () => {
+    // Mark's ruling, 2026-08-22. The reserve may move the field and may never
+    // shrink it, so this compares against the same fit with nothing reserved.
     for (const { name, viewport } of VIEWPORTS) {
       const { stage, placement } = staged(viewport);
-      const field = fieldRect(placement);
-      for (const readout of readoutRects(stage.width, READOUT_RESERVE)) {
-        expect(`${name} ${overlapping(field, readout)}`).toBe(`${name} false`);
-      }
+      const natural = fitField(stage.width, stage.height, NO_RESERVE);
+      expect(`${name} ${placement.scale}`).toBe(`${name} ${natural.scale}`);
+    }
+  });
+
+  it("holds the phone's field at its full width at every window height", () => {
+    // The regression test for the played bug. It composes resize() because
+    // CreationResizePlugin upscales the window before GameScreen.resize runs,
+    // so a claim tested against a raw 390 is structurally blind.
+    for (const height of PHONE_HEIGHTS) {
+      const { stage, placement } = staged({ width: PHONE.width, height });
+      const natural = fitField(stage.width, stage.height, NO_RESERVE);
+      expect(`${height} ${placement.scale}`).toBe(`${height} ${natural.scale}`);
       expectWholeFieldInside(placement, stage.width, stage.height);
     }
+  });
+
+  it("lifts the readouts clear of the field wherever that costs the field nothing", () => {
+    // A phone window tall enough that the field's own vertical slack pays for
+    // the reserve. The field keeps every unit of its width and moves down.
+    const { stage, placement } = staged({ width: PHONE.width, height: 700 });
+    const natural = fitField(stage.width, stage.height, NO_RESERVE);
+    expect(placement.scale).toBe(natural.scale);
+    expect(placement.offsetY).toBeGreaterThan(natural.offsetY);
+    expect(placement.offsetY).toBeGreaterThanOrEqual(READOUT_RESERVE.height);
+    for (const readout of readoutRects(stage.width, READOUT_RESERVE)) {
+      expect(overlapping(fieldRect(placement), readout)).toBe(false);
+    }
+  });
+
+  it("lets the readouts sit over the field once clearing them would cost width", () => {
+    // The other side of the same rule, and the case Mark ruled on. The corner
+    // readouts are dev-only and come out before v1, and the pause button is a
+    // solid shape a mob can pass behind for a moment.
+    const { stage, placement } = staged({ width: PHONE.width, height: 620 });
+    const natural = fitField(stage.width, stage.height, NO_RESERVE);
+    expect(placement).toEqual(natural);
+    const covered = readoutRects(stage.width, READOUT_RESERVE).filter(
+      (readout) => overlapping(fieldRect(placement), readout),
+    );
+    expect(covered.length).toBeGreaterThan(0);
   });
 
   it("leaves a 1440 by 900 desktop exactly where it was, because its gutter already holds the stack", () => {
@@ -259,20 +306,20 @@ describe("the reserved gutter (dispatch 4 section 4.16)", () => {
     expect(placement.offsetX).toBeGreaterThan(READOUT_RESERVE.width);
   });
 
-  it("refits a 1024 by 900 desktop, which no wide-versus-tall rule would have caught", () => {
+  it("stops refitting a 1024 by 900 desktop, which used to buy its gutter with field width", () => {
+    // This viewport refitted until 2026-08-22 and no longer does: the field
+    // fills the window's height there, so lowering it below the reserve is
+    // only ever paid for in width. Same ruling as the phone, same reason.
     const { stage, placement } = staged(NARROW_DESKTOP);
     const natural = fitField(stage.width, stage.height, NO_RESERVE);
-    expect(natural.offsetY).toBeCloseTo(0, 9);
+    expect(placement).toEqual(natural);
     expect(natural.offsetX).toBeLessThan(READOUT_RESERVE.width);
-    expect(placement.scale).toBeLessThan(natural.scale);
-    expect(placement.offsetY).toBeGreaterThanOrEqual(READOUT_RESERVE.height);
   });
 
-  it("refits an 820 by 1180 tablet in portrait, where the aspect approaches the field's own", () => {
+  it("stops refitting an 820 by 1180 tablet in portrait, for the same reason", () => {
     const { stage, placement } = staged(TABLET_PORTRAIT);
     const natural = fitField(stage.width, stage.height, NO_RESERVE);
+    expect(placement).toEqual(natural);
     expect(natural.offsetY).toBeLessThan(READOUT_RESERVE.height);
-    expect(placement.scale).toBeLessThan(natural.scale);
-    expect(placement.offsetY).toBeGreaterThanOrEqual(READOUT_RESERVE.height);
   });
 });
