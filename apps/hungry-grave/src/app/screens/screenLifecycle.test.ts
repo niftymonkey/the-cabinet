@@ -65,6 +65,9 @@ import { TitleScreen } from "./TitleScreen";
 
 const keyHandlers = new Set<(event: KeyboardEvent) => void>();
 
+/** The URL the game screen reads its seed and starting size off (ADR 0012). */
+const fakeLocation = { search: "", hash: "" };
+
 // The screens bind their keys on window, which node does not have.
 Object.defineProperty(globalThis, "window", {
   value: {
@@ -72,7 +75,7 @@ Object.defineProperty(globalThis, "window", {
       keyHandlers.add(handler),
     removeEventListener: (_type: string, handler: (e: KeyboardEvent) => void) =>
       keyHandlers.delete(handler),
-    location: { search: "", hash: "" },
+    location: fakeLocation,
   },
   configurable: true,
 });
@@ -611,6 +614,46 @@ describe("a second run on the pooled game screen (dispatch 4)", () => {
     expect(winning["run"]!.ending).toBe("victory");
     expect(winning["ending"]).toBe(true);
     expect(runHandoff.read()?.ending).toBe("victory");
+  });
+});
+
+describe("a whole run through the live lifecycle (dispatch 4)", () => {
+  beforeEach(() => {
+    showScreen.mockReset().mockResolvedValue(undefined);
+    fakeLocation.search = "?seed=5150";
+  });
+  afterEach(() => {
+    fakeLocation.search = "";
+  });
+
+  it("plays a fresh run from prepare to its ending with nothing forced, so the live path is covered end to end", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+    const run = screen["run"]!;
+    expect(run.seed).toBe(5150);
+    expect(run.ending).toBe(null);
+
+    // Parked, taking every hit the ramp offers. The tests around this one
+    // reach their endings by writing to grave, mob or stage state, so none of
+    // them proves that spawning, stepping and the ending handoff hold together
+    // over a run nobody arranged.
+    let spawned = false;
+    let ticks = 0;
+    // A parked run seals at tick 1118, on every seed measured. The bound is
+    // three times that, so content that stops ending a parked run fails here
+    // rather than hanging the suite.
+    while (run.ending === null && ticks < 3600) {
+      screen.update(frame(TICK_MS * 10));
+      ticks += 10;
+      spawned ||= run.mobs.some((mob) => mob.alive);
+    }
+
+    expect(spawned).toBe(true);
+    expect(run.ending).toBe("sealed");
+    expect(run.tick).toBeGreaterThan(1000);
+    expect(screen["ending"]).toBe(true);
+    expect(showScreen).toHaveBeenCalledTimes(1);
+    expect(runHandoff.read()?.ending).toBe("sealed");
   });
 });
 

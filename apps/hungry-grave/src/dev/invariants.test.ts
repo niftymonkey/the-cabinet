@@ -135,4 +135,15 @@ describe("the entity invariants (ADR 0013)", () => {
     unreset.stage.phaseTick = 901;
     expect(() => checkInvariants(unreset)).toThrow(/phase tick/);
   });
+
+  it("keeps reporting a broken phase, because a rejected value never enters the watch", () => {
+    const run = createRun(1);
+    run.stage.phaseIndex = 2;
+    checkInvariants(run);
+    run.stage.phaseIndex = 1;
+    expect(() => checkInvariants(run)).toThrow(/phase index/);
+    // The watch still holds phase 2. Recording before the check would leave it
+    // holding the rejected phase 1, and this second look would pass.
+    expect(() => checkInvariants(run)).toThrow(/phase index/);
+  });
 });

@@ -196,20 +196,24 @@ function checkStage(state: RunState): void {
     phaseIndex: state.stage.phaseIndex,
     phaseTick: state.stage.phaseTick,
   };
+  if (seen !== undefined) {
+    if (now.phaseIndex < seen.phaseIndex) {
+      fail(
+        "phase index only increases",
+        `phase went from ${seen.phaseIndex} to ${now.phaseIndex}`,
+      );
+    }
+    if (now.phaseIndex > seen.phaseIndex && now.phaseTick > 1) {
+      fail(
+        "phase tick resets at a boundary",
+        `phase tick is ${now.phaseTick} on the tick the phase changed`,
+      );
+    }
+  }
+  // Recorded only once both checks pass. Recording first means a thrown
+  // failure leaves the rejected phase in the watch, so the next check on the
+  // same run compares against it and reports the broken state as healthy.
   stageWatches.set(state, now);
-  if (seen === undefined) return;
-  if (now.phaseIndex < seen.phaseIndex) {
-    fail(
-      "phase index only increases",
-      `phase went from ${seen.phaseIndex} to ${now.phaseIndex}`,
-    );
-  }
-  if (now.phaseIndex > seen.phaseIndex && now.phaseTick > 1) {
-    fail(
-      "phase tick resets at a boundary",
-      `phase tick is ${now.phaseTick} on the tick the phase changed`,
-    );
-  }
 }
 
 /** Throws with the failing invariant named, on any state the rules must never produce (ADR 0013). */

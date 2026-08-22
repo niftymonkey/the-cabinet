@@ -391,12 +391,22 @@ export class FieldRenderer {
       const sprite = this.shotSprites[slot];
       const seen = this.shotMemory[slot];
       if (seen?.alive && !shot.alive) this.cancelAt(run, seen);
-      this.shotMemory[slot] = {
-        alive: shot.alive,
-        x: shot.x,
-        y: shot.y,
-        extent: shot.halfExtent,
-      };
+      // Mutated in place rather than replaced. A fresh literal per slot is
+      // MOB_FIRE_CAP allocations every frame, which is the per-frame garbage
+      // this file pools sprites to avoid.
+      if (seen === undefined) {
+        this.shotMemory[slot] = {
+          alive: shot.alive,
+          x: shot.x,
+          y: shot.y,
+          extent: shot.halfExtent,
+        };
+      } else {
+        seen.alive = shot.alive;
+        seen.x = shot.x;
+        seen.y = shot.y;
+        seen.extent = shot.halfExtent;
+      }
       sprite.visible = shot.alive;
       if (!shot.alive) continue;
       if (shot.halfExtent !== this.shotExtents[slot]) {

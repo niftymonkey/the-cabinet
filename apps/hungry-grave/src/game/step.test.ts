@@ -26,6 +26,12 @@ const STILL = { x: 0, y: 0 } as const;
  * Everything that defines a run, by value. The streams are closures, so two
  * runs never compare deeply equal however identical their state is.
  */
+/**
+ * Everything on the run that a divergence could move, by value. The streams
+ * hold live closures, so only their draw counts go in; everything else is
+ * spread, including the entity pools, because a pooled entity can diverge in
+ * position or health across 1,500 ticks without moving any emitted event.
+ */
 function snapshot(run: RunState) {
   return {
     seed: run.seed,
@@ -35,6 +41,11 @@ function snapshot(run: RunState) {
     reservoir: run.reservoir,
     levels: { ...run.levels },
     ending: run.ending,
+    stage: { ...run.stage },
+    nextEntityId: run.nextEntityId,
+    mobs: run.mobs.map((mob) => ({ ...mob })),
+    mobFire: run.mobFire.map((shot) => ({ ...shot })),
+    corpses: run.corpses.map((corpse) => ({ ...corpse })),
     drawn: {
       spawns: run.streams.spawns.drawn,
       drops: run.streams.drops.drawn,
