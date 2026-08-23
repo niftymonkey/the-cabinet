@@ -45,9 +45,9 @@ export interface FieldPlacement {
  * The two top corners the readouts live in, in stage units: the corner readout
  * stack on the left and the pause button on the right, mirrored.
  *
- * The invariant is rectangle non-overlap, not a reserved band. Reserving space
- * is one of two ways to reach it and it is the expensive one, so the field is
- * only refitted when the natural fit would actually put a readout over it. At a
+ * The aim is rectangle non-overlap, and it is an aim rather than an invariant:
+ * fitField reaches it by lowering the field only where lowering is free, and
+ * lets the readouts sit over the field rather than buy the gap with width. At a
  * wide desktop viewport the side gutter already holds the stack, and an
  * unconditional top reserve would shrink that field by a tenth to solve a
  * problem it does not have.
@@ -146,14 +146,25 @@ function coversAReadout(
 
 /**
  * Fits the whole field inside the viewport, centred, preserving its aspect
- * (ADRs 0003 and 0009), and refits below the reserve whenever the natural fit
- * would put a readout over the field.
+ * (ADRs 0003 and 0009), and lowers it below the reserve whenever the natural
+ * fit would put a readout over the field and the lowering is free.
  *
- * A height reduction answers both branches and there is no wide-versus-tall
- * case. The gutter fails as the viewport aspect approaches the field's own, and
- * it also fails at ordinary desktop widths where the vertical offset is already
- * zero, so a rule that refitted only tall viewports would leave a readout over
- * the field on a 1024-wide window with no refit available.
+ * Free means the field keeps every unit of its width. A field with vertical
+ * slack to spare simply moves down into it; a field that already fills the
+ * viewport's height can only be lowered by being shrunk, and shrinking it
+ * narrows the play area on the axis a phone has least of.
+ *
+ * Mark ruled on 2026-08-22 that the field never pays width for a readout, after
+ * playing a phone window short enough to trigger the shrink: the URL bar ate
+ * the height, the field paid the reserve in width, and a refresh that collapsed
+ * the bar gave the width back. The corner readouts are dev-only and come out
+ * before v1, and the pause button is a solid shape a mob can pass behind for a
+ * moment, so a readout over the field is the cheaper of the two costs. It is
+ * the same argument the degenerate case below already carries.
+ *
+ * This is why there is no wide-versus-tall rule and no viewport breakpoint. A
+ * 1024-wide desktop and a short phone window are the same shape here, the field
+ * filling the height with no slack, and they get the same answer.
  */
 export function fitField(
   viewportWidth: number,
@@ -170,7 +181,16 @@ export function fitField(
   // A viewport shorter than the reserve has nothing left to fit into, and a
   // readout over the field beats a field with no height at all.
   if (available <= 0) return natural;
-  return centred(viewportWidth, available, reserve.height);
+
+  const lowered = centred(viewportWidth, available, reserve.height);
+  /**
+   * The comparison is exact rather than tolerant on purpose. When the lowering
+   * is free both scales are the same `viewportWidth / FIELD_WIDTH` expression
+   * and are bit-identical, so no rounding case sits on the boundary for an
+   * epsilon to arbitrate.
+   */
+  if (lowered.scale < natural.scale) return natural;
+  return lowered;
 }
 
 /** A viewport point back in field units. The inverse of the placement, and how touch input reaches the sim. */

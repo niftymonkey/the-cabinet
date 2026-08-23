@@ -2,6 +2,8 @@
 
 A Halloween vertical shmup crossed with hole.io. The player is a moving open grave ascending a scrolling world, swallowing what it kills to fuel an ever-thickening storm of its own projectiles, with deliberate doses of bullet hell from bosses.
 
+This file is the vocabulary. The traps this codebase has actually shipped are in `docs/lessons.md` beside it.
+
 ## Language
 
 ### The grave
@@ -61,6 +63,16 @@ A Halloween vertical shmup crossed with hole.io. The player is a moving open gra
 **Cancel scatter**: The read a cancelled shot leaves behind: a short burst of spokes at the shot's own position, so a shot that stops existing is seen to be cancelled rather than silently gone. One vocabulary for every cancellation, whether the grave's mouth ate the shot or the belch wiped the field. It must never read as a swallow, because the swallow is the one verb of collection. _Avoid_: puff, pop, particle burst, explosion.
 
 **Storm**: The player's own airborne projectiles at saturation, the bullet heaven the player builds. Mob fire is never the storm. _Avoid_: bullet spam, DPS, firepower.
+
+**Surge**: The soul stream's answer to a swallow: a fixed number of extra volleys at a shortened interval, never a damage bonus and never a time window. One swallow buys one burst, and a swallow chain overwrites an unspent one rather than banking a queue. _Avoid_: buff, haste, frenzy.
+
+**Toll**: One firing of the bell, on its own clock and never bought by a swallow. _Avoid_: pulse, tick, cast.
+
+**Ring**: The expanding circle a toll puts on the field, damaging what its leading edge crosses and pushing at the higher levels. The Banshee's tear-rings are mob fire and are never a ring. _Avoid_: shockwave, wave, AOE.
+
+**Inert**: A headstone that has just hit something and is spent for a moment. It still orbits and still draws, dimmed, so a spent defense is visible. _Avoid_: on cooldown, disabled, recharging.
+
+**Price**: What the next drop costs, in kills, on a rising authored curve. A kill is a kill whatever weapon landed it. _Avoid_: threshold, cost curve, XP.
 
 ### The field and the stage
 

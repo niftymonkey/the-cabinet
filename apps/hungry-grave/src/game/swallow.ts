@@ -18,6 +18,8 @@ import type { SimEvent } from "./events";
 import { growGrave } from "./grave";
 import type { WeaponLine } from "./lines/roster";
 import { MAX_LEVEL } from "./lines/roster";
+import { surgeStream } from "./lines/soulStream";
+import { launchWisps } from "./lines/wisps";
 import type { RunState } from "./run";
 import { FRESHNESS_PAYOUT_FLOOR, RESERVOIR_CAPACITY } from "./tuning";
 
@@ -122,5 +124,11 @@ export function swallow(state: RunState, food: Swallowable): SimEvent[] {
     state.score += overflow;
     events.push({ type: "overflowed", amount: overflow, score: state.score });
   }
+
+  // The on-swallow lines, after the payouts. They fire here rather than from the
+  // tick loop so the burst leaves on the tick the food went in: a tick of lag
+  // would read as the burst arriving after the dive rather than out of it.
+  surgeStream(state);
+  launchWisps(state, events);
   return events;
 }

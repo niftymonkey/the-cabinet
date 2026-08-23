@@ -60,6 +60,7 @@ import { pauseActions, PausePopup } from "../popups/PausePopup";
 import { runHandoff } from "../runHandoff";
 import { SettingsPopup } from "../popups/SettingsPopup";
 import { EndScreen } from "./EndScreen";
+import { STONES_BY_LEVEL } from "../../game/lines/headstones";
 import { GameScreen } from "./game/GameScreen";
 import { TitleScreen } from "./TitleScreen";
 
@@ -199,6 +200,20 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
 
     expect(keyHandlers.size).toBe(0);
     expect(canvasListeners.size).toBe(0);
+  });
+
+  it("a pointercancel drops the belch button's claim, the way pause and blur do", () => {
+    // Pixi v8 maps no pointercancel, so no federated pointerup ever arrives to
+    // clear the claim and this listener is the only thing that can. A claim
+    // left standing is a pointer id the steer model goes on ignoring.
+    const screen = new GameScreen();
+    screen.prepare();
+    const button = screen["belchButton"];
+    button.emit("pointerdown", { pointerId: 5 } as never);
+    expect(button.owns(5)).toBe(true);
+
+    for (const cancel of canvasListeners) cancel();
+    expect(button.owns(5)).toBe(false);
   });
 
   it("update is called with a ticker and the tick count matches the elapsed time", () => {
@@ -464,9 +479,15 @@ describe("the resume countdown (dispatch 4 section 4.17)", () => {
     expect(screen["run"]?.tick).toBe(5);
   });
 
-  it("blurs the mob layers and spares the grave, then clears the blur on one", () => {
+  it("blurs the threat and food layers and spares the grave, then clears the blur on one", () => {
     // Sparing the grave and its rim is the same rule ADR 0014's hit dim
     // carries: never occlude the channel the player is being asked to re-read.
+    //
+    // Corpses and treasure are blurred too, which dispatch 4 shipped spared and
+    // could not see: a played run then produced no corpses at all. The rule the
+    // blur was written against is that a frozen sharp field hands the player
+    // free seconds to plan, and a corpse field is exactly what a dive is
+    // planned through, because freshness is a deadline.
     const screen = new GameScreen();
     screen.prepare();
     const layers = screen["layers"];
@@ -475,6 +496,8 @@ describe("the resume countdown (dispatch 4 section 4.17)", () => {
 
     expect(layers.layer("mobBodies").filters).toHaveLength(1);
     expect(layers.layer("mobFire").filters).toHaveLength(1);
+    expect(layers.layer("corpses").filters).toHaveLength(1);
+    expect(layers.layer("treasure").filters).toHaveLength(1);
     expect(layers.layer("graveRim").filters ?? []).toHaveLength(0);
     expect(layers.layer("graveMouth").filters ?? []).toHaveLength(0);
 
@@ -483,6 +506,58 @@ describe("the resume countdown (dispatch 4 section 4.17)", () => {
     expect(layers.layer("mobBodies").filters).toHaveLength(1);
     screen.update(frame(1000));
     expect(layers.layer("mobBodies").filters).toHaveLength(0);
+  });
+
+  it("uses one BlurFilter instance across repeated countdowns", () => {
+    // One was allocated per countdown and never destroyed, and the countdown
+    // fires on every resume and every return from a backgrounded tab. Sharing
+    // one is Pixi's own guidance, and it is also what settled the standing
+    // unhandled rejection under node.
+    const screen = new GameScreen();
+    screen.prepare();
+    const layers = screen["layers"];
+
+    const seen = new Set<unknown>();
+    for (let round = 0; round < 4; round++) {
+      void screen.pause();
+      void screen.resume();
+      const filters = layers.layer("mobBodies").filters;
+      expect(filters).toHaveLength(1);
+      seen.add((filters as unknown[])[0]);
+      screen.update(frame(0));
+      screen.update(frame(4000));
+    }
+    expect(seen.size).toBe(1);
+  });
+
+  it("plays a whole run with weapons, seeded through the URL the screen really reads", () => {
+    // Bounded in ticks rather than run to an ending, because what is being
+    // checked is that the whole stack turns over together: the sim, both
+    // renderers, the readouts and the sound subscription.
+    // The run can reach its ending inside the window, so navigation has to be
+    // able to answer: this file's other blocks mock it in a beforeEach.
+    showScreen.mockReset().mockResolvedValue(undefined);
+    fakeLocation.search = "?seed=7";
+    try {
+      const screen = new GameScreen();
+      screen.prepare();
+      screen.resize(390, 844);
+      const run = screen["run"]!;
+      expect(run.seed).toBe(7);
+
+      for (let spent = 0; spent < 2400 && run.ending === null; spent += 10) {
+        screen.update(frame(TICK_MS * 10));
+      }
+
+      expect(run.tick).toBeGreaterThan(1000);
+      // The storm ran, which is what makes this a run with weapons in it: the
+      // orbit turns on every tick of every run and the stream has fired.
+      expect(run.lines.orbitPhase).not.toBe(0);
+      expect(run.tick).toBeGreaterThan(run.lines.streamIn);
+      screen.reset();
+    } finally {
+      fakeLocation.search = "";
+    }
   });
 
   it("counts down on a tab return too, and never behind the pause menu", () => {
@@ -545,14 +620,18 @@ describe("a second run on the pooled game screen (dispatch 4)", () => {
     // A first run with something on the field: the ramp's first row is at two
     // seconds, so this is the earliest the field is not empty.
     const first = screen["run"]!;
-    play(screen, 200);
+    // Far enough in that the storm cannot have cleared the field. Two hundred
+    // ticks used to be enough, when the ramp's first two rows were Drips of one
+    // and nothing could kill them; the birthright stream now does, so the run
+    // is played to the File at twenty seconds instead.
+    play(screen, 1400);
     expect(first.mobs.some((mob) => mob.alive)).toBe(true);
+    expect(first.skulls.some((skull) => skull.alive)).toBe(true);
 
     // And a shot still on the field when the run ends, which is the ordinary
-    // case and the one the field renderer's own memory spans. Two hundred ticks
-    // of the ramp cannot produce one: the first row is a Drip of one, index 0
-    // is never armed, and the first armed mob arrives at fourteen seconds. So
-    // this test could not see a leak through the mob-fire layer without it.
+    // case and the one the field renderer's own memory spans. It is placed by
+    // hand rather than waited for, so the test does not depend on which armed
+    // mob the storm happened to leave standing.
     const shot = first.mobFire[0];
     shot.alive = true;
     shot.id = 1;
@@ -560,6 +639,18 @@ describe("a second run on the pooled game screen (dispatch 4)", () => {
     shot.x = 200;
     shot.y = 300;
     shot.halfExtent = 5;
+    // A live wisp and a live bell ring too, which are the storm's own per-run
+    // state and the fields StormRenderer would leak through.
+    const wisp = first.wisps[0];
+    wisp.alive = true;
+    wisp.id = 2;
+    wisp.x = 200;
+    wisp.y = 300;
+    wisp.life = 60;
+    first.lines.ring = { level: 3, ticks: 10, struck: new Set() };
+    // A belch asked for and not spent, which is per-run mutable state on a
+    // pooled screen and the class of defect this app has shipped five times.
+    screen["belchRequested"] = true;
     screen.update(frame(TICK_MS));
     expect(first.mobFire.some((each) => each.alive)).toBe(true);
 
@@ -574,14 +665,34 @@ describe("a second run on the pooled game screen (dispatch 4)", () => {
     expect(second.mobs.some((mob) => mob.alive)).toBe(false);
     expect(second.corpses.some((corpse) => corpse.alive)).toBe(false);
     expect(second.mobFire.some((shot) => shot.alive)).toBe(false);
+    expect(second.skulls.some((skull) => skull.alive)).toBe(false);
+    expect(second.wisps.some((each) => each.alive)).toBe(false);
+    expect(second.lines.ring).toBeNull();
+    expect(screen["belchRequested"]).toBe(false);
     expect(screen.interactiveChildren).toBe(true);
 
     const layers = screen["layers"];
-    for (const name of ["mobBodies", "corpses", "mobFire"] as const) {
+    for (const name of [
+      "mobBodies",
+      "corpses",
+      "mobFire",
+      "bellRing",
+      "belchEruption",
+    ] as const) {
       const children = layers.layer(name).children;
       expect(children.length).toBeGreaterThan(0);
       expect(children.every((child) => !child.visible)).toBe(true);
     }
+
+    // The storm layer is not blanket-empty and must not be asserted as such:
+    // the headstones are a birthright line and always on, so a fresh run draws
+    // its level's own stones from the first tick. What must not survive is a
+    // skull or a wisp, and both pools are empty above.
+    const storm = layers.layer("storm").children;
+    expect(storm.length).toBeGreaterThan(0);
+    expect(storm.filter((child) => child.visible)).toHaveLength(
+      STONES_BY_LEVEL[second.levels.headstones],
+    );
   });
 
   it("ends the run on sealed, and on victory too, so the deploy is a complete run in both directions", () => {

@@ -2,6 +2,8 @@
 
 Significant work carries review gates: a review through one lens, run by the matching gate agent in `.claude/agents/` (`gate-game-design`, `gate-tech-architecture`, `gate-product-vision`). The session performing a workflow owns firing the right gates; Mark is never the one who has to remember. Fire multiple gates concurrently when more than one applies.
 
+What gates have got right and wrong here, and what a fold does to a plan, is in `docs/agents/lessons.md`.
+
 ## When gates fire
 
 | Activity | Lenses | Default depth |

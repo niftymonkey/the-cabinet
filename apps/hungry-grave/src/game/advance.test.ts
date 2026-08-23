@@ -20,33 +20,56 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./step", () => ({ step: vi.fn() }));
 
 import { checkInvariants } from "../dev/invariants";
-import type { SteerSource } from "./advance";
+import type { CommandSource } from "./advance";
 import { advance } from "./advance";
 import { createClock, ticksFor, TICK_MS } from "./clock";
 import type { SimEvent } from "./events";
 import type { FieldPoint } from "./grave";
-import type { MoveCommand, RunState } from "./run";
+import type { RunState, TickCommand } from "./run";
 import { createRun } from "./run";
 import { step } from "./step";
-import { BASE_SPEED } from "./tuning";
+import { BASE_SPEED, RESERVOIR_CAPACITY } from "./tuning";
 
 const bareStep = (await vi.importActual<typeof import("./step")>("./step"))
   .step;
 
 /** The real step with the invariants checked after it (ADR 0013). */
-function checkedStep(state: RunState, command: MoveCommand): SimEvent[] {
+function checkedStep(state: RunState, command: TickCommand): SimEvent[] {
   const events = bareStep(state, command);
   checkInvariants(state);
   return events;
 }
 
-const STILL: SteerSource = () => ({ x: 0, y: 0 });
+const STILL: CommandSource = () => ({ move: { x: 0, y: 0 }, belch: false });
 
 /** The position error from wherever the grave is now to a fixed target, in base-speed units. */
-function towards(target: FieldPoint): SteerSource {
+function towards(target: FieldPoint): CommandSource {
   return (grave) => ({
-    x: (target.x - grave.x) / BASE_SPEED,
-    y: (target.y - grave.y) / BASE_SPEED,
+    move: {
+      x: (target.x - grave.x) / BASE_SPEED,
+      y: (target.y - grave.y) / BASE_SPEED,
+    },
+    belch: false,
+  });
+}
+
+/**
+ * The screen's real contract, as a command source: one flag, set by a button
+ * press, read and cleared inside the closure. Because the closure is only called
+ * when a tick actually runs, a press during a zero-tick frame survives to the
+ * next one rather than being eaten.
+ */
+function pressedBelch(): CommandSource & { press: () => void } {
+  let requested = false;
+  const source = () => {
+    const belch = requested;
+    requested = false;
+    return { move: { x: 0, y: 0 }, belch };
+  };
+  return Object.assign(source, {
+    press: () => {
+      requested = true;
+    },
   });
 }
 
@@ -109,6 +132,56 @@ describe("advance", () => {
     expect(
       events.map((event) => (event.type === "grew" ? event.amount : null)),
     ).toEqual([1, 2, 3]);
+  });
+
+  it("passes the whole TickCommand through unchanged, once per tick", () => {
+    // This is what makes the two properties below properties of the seam rather
+    // than of whatever caller happens to be driving it.
+    const run = createRun(7);
+    const seen: TickCommand[] = [];
+    vi.mocked(step).mockImplementation((state, command) => {
+      seen.push(command);
+      return checkedStep(state, command);
+    });
+
+    let belch = true;
+    advance(run, createClock(), TICK_MS * 3, () => {
+      const command = { move: { x: 0.5, y: -0.25 }, belch };
+      belch = false;
+      return command;
+    });
+
+    expect(seen).toEqual([
+      { move: { x: 0.5, y: -0.25 }, belch: true },
+      { move: { x: 0.5, y: -0.25 }, belch: false },
+      { move: { x: 0.5, y: -0.25 }, belch: false },
+    ]);
+  });
+
+  it("a frame that buys three ticks belches once", () => {
+    // The one-shot rule lives in the command source and in fireBelch, never in
+    // advance: a force-false here would be unreachable, because the closure
+    // already reports false on the later ticks of a frame.
+    const run = createRun(7);
+    run.reservoir = RESERVOIR_CAPACITY;
+    const source = pressedBelch();
+    source.press();
+
+    const events = advance(run, createClock(), TICK_MS * 3, source);
+    expect(run.tick).toBe(3);
+    expect(events.filter((event) => event.type === "belched")).toHaveLength(1);
+  });
+
+  it("a frame that buys zero ticks does not consume the flag", () => {
+    const run = createRun(7);
+    run.reservoir = RESERVOIR_CAPACITY;
+    const clock = createClock();
+    const source = pressedBelch();
+    source.press();
+
+    expect(advance(run, clock, 0, source)).toEqual([]);
+    const later = advance(run, clock, TICK_MS, source);
+    expect(later.filter((event) => event.type === "belched")).toHaveLength(1);
   });
 
   it("zero elapsed time steps nothing and returns no events", () => {

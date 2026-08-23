@@ -27,6 +27,10 @@ class PauseActions {
 
 export const pauseActions = new PauseActions();
 
+/** What End Run says before it is armed, and what it says once it is. */
+const END_RUN_LABEL = "End Run";
+const END_RUN_CONFIRM = "Sure?";
+
 /** Popup that shows up when gameplay is paused */
 export class PausePopup extends Container {
   /** The dark semi-transparent background covering current screen */
@@ -43,6 +47,15 @@ export class PausePopup extends Container {
   private endRunButton: Button;
   /** The panel background */
   private panelBase: RoundedBox;
+  /**
+   * Whether End Run has been pressed once and is waiting for the second.
+   *
+   * There is a score to lose now: overflow pays score, drops level lines, and
+   * ending a run by mis-tapping a menu button costs a build. This is the
+   * smallest thing that works, with no new popup, no new navigation path, and
+   * no state that outlives the menu.
+   */
+  private endRunArmed = false;
 
   constructor() {
     super();
@@ -80,7 +93,7 @@ export class PausePopup extends Container {
     this.panel.addChild(this.settingsButton);
 
     this.endRunButton = new Button({
-      text: "End Run",
+      text: END_RUN_LABEL,
       width: 200,
       height: 68,
       fontSize: 22,
@@ -102,9 +115,17 @@ export class PausePopup extends Container {
   }
 
   private openSettings(): void {
+    // Opening Settings disarms it, so a confirm cannot be left standing behind
+    // another screen and answered by a press that meant something else.
+    this.disarmEndRun();
     engine()
       .navigation.presentPopup(SettingsPopup)
       .catch((error) => console.error(error));
+  }
+
+  private disarmEndRun(): void {
+    this.endRunArmed = false;
+    this.endRunButton.text = END_RUN_LABEL;
   }
 
   /**
@@ -115,6 +136,12 @@ export class PausePopup extends Container {
    * blur for every later run.
    */
   private endRun(): void {
+    if (!this.endRunArmed) {
+      this.endRunArmed = true;
+      this.endRunButton.text = END_RUN_CONFIRM;
+      return;
+    }
+    this.disarmEndRun();
     engine()
       .navigation.dismissPopup()
       .then(() => pauseActions.endRun())
@@ -135,6 +162,7 @@ export class PausePopup extends Container {
    * is what closes it.
    */
   public async show() {
+    this.disarmEndRun();
     const currentEngine = engine();
     if (currentEngine.navigation.currentScreen) {
       currentEngine.navigation.currentScreen.filters = [
@@ -153,6 +181,7 @@ export class PausePopup extends Container {
 
   /** Dismiss the popup, animated */
   public async hide() {
+    this.disarmEndRun();
     const currentEngine = engine();
     if (currentEngine.navigation.currentScreen) {
       currentEngine.navigation.currentScreen.filters = [];
@@ -166,5 +195,7 @@ export class PausePopup extends Container {
   }
 
   /** Reset screen, after hidden */
-  public reset() {}
+  public reset() {
+    this.disarmEndRun();
+  }
 }

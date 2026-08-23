@@ -1,6 +1,7 @@
 import { Container } from "pixi.js";
 
 import { engine } from "../getEngine";
+import { primeSound } from "../sound";
 import { MENU } from "../palette";
 import { PROTOTYPES_HASH } from "../routes";
 import { Button } from "../ui/Button";
@@ -77,6 +78,9 @@ export class TitleScreen extends Container {
   private rise() {
     if (this.rising) return;
     this.rising = true;
+    // Browser autoplay policy blocks audio before a user gesture, and this is
+    // the first gesture in the game.
+    primeSound();
     engine()
       .navigation.showScreen(GameScreen)
       .catch((error) => {

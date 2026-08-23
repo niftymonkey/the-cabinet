@@ -6,21 +6,30 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { stepChecked } from "../dev/invariants";
 import { spawnCorpse } from "./corpses";
+import { priceOfNextDrop } from "./drops";
 import type { SimEvent } from "./events";
 import { graveHitbox } from "./grave";
 import type { Mob } from "./mobs";
 import { MOB_TYPES, spawnMob } from "./mobs";
-import type { RunState } from "./run";
+import type { RunState, TickCommand } from "./run";
 import { createRun } from "./run";
 import { RAMP_ROWS } from "./stage/stage";
+import { BELL_EXPAND_TICKS } from "./lines/bell";
+import { MAX_LEVEL } from "./lines/roster";
 import {
   BASE_SPEED,
   HIT_SHRINK,
   INVULNERABLE_TICKS,
+  RESERVOIR_CAPACITY,
   SCROLL_SPEED,
 } from "./tuning";
 
-const STILL = { x: 0, y: 0 } as const;
+/** A tick that only steers, which is every tick these tests are about. */
+function drift(x: number, y: number): TickCommand {
+  return { move: { x, y }, belch: false };
+}
+
+const STILL: TickCommand = drift(0, 0);
 
 /**
  * Everything that defines a run, by value. The streams are closures, so two
@@ -46,6 +55,18 @@ function snapshot(run: RunState) {
     mobs: run.mobs.map((mob) => ({ ...mob })),
     mobFire: run.mobFire.map((shot) => ({ ...shot })),
     corpses: run.corpses.map((corpse) => ({ ...corpse })),
+    skulls: run.skulls.map((skull) => ({ ...skull })),
+    wisps: run.wisps.map((wisp) => ({ ...wisp })),
+    lines: {
+      ...run.lines,
+      stoneRecharge: [...run.lines.stoneRecharge],
+      ring:
+        run.lines.ring === null
+          ? null
+          : { ...run.lines.ring, struck: [...run.lines.ring.struck] },
+    },
+    killsSinceDrop: run.killsSinceDrop,
+    dropsPaid: run.dropsPaid,
     drawn: {
       spawns: run.streams.spawns.drawn,
       drops: run.streams.drops.drawn,
@@ -114,7 +135,7 @@ describe("the sim seam", () => {
   it("step applies the move command to the grave, so steering reaches the sim through the seam", () => {
     const run = createRun(7);
     const from = { x: run.grave.x, y: run.grave.y };
-    stepChecked(run, { x: 1, y: -1 });
+    stepChecked(run, drift(1, -1));
     expect(run.grave.x).toBe(from.x + BASE_SPEED);
     expect(run.grave.y).toBe(from.y - BASE_SPEED);
   });
@@ -128,11 +149,11 @@ describe("the sim seam", () => {
 
   it("a run advanced N ticks with a fixed command sequence lands in exactly the same state as another run on the same seed (ADR 0012)", () => {
     const script = [
-      { x: 1, y: 0 },
-      { x: 0, y: -1 },
-      { x: -0.5, y: 0.5 },
+      drift(1, 0),
+      drift(0, -1),
+      drift(-0.5, 0.5),
       STILL,
-      { x: 0.25, y: 1 },
+      drift(0.25, 1),
     ];
     const a = createRun(11);
     const b = createRun(11);
@@ -276,7 +297,7 @@ describe("what meets the grave (ADR 0003 and ADR 0014)", () => {
 
 describe("determinism across the whole field (ADR 0012)", () => {
   it("produces the same events in the same order for one seed, because pools are walked in slot order", () => {
-    const script = [{ x: 1, y: 0 }, { x: 0, y: -1 }, { x: -1, y: 0.5 }, STILL];
+    const script = [drift(1, 0), drift(0, -1), drift(-1, 0.5), STILL];
     const a = createRun(5150);
     const b = createRun(5150);
     const eventsA: SimEvent[] = [];
@@ -289,5 +310,123 @@ describe("determinism across the whole field (ADR 0012)", () => {
     expect(eventsA.length).toBeGreaterThan(0);
     expect(JSON.stringify(eventsA)).toBe(JSON.stringify(eventsB));
     expect(snapshot(a)).toEqual(snapshot(b));
+  });
+});
+
+describe("the belch in the tick order (plan 6.13)", () => {
+  it("cancels a shot that would have hit this tick", () => {
+    // The whole argument for running the belch before overlap resolution. A
+    // bomb pressed on the frame a shot would land has to save the player, or
+    // the button is a lie at the only moment it matters. Ordering the belch
+    // after resolveOverlaps makes this fail, which is the point of the test.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const shot = shotOnGrave(state);
+    const before = state.grave.size;
+
+    const events = stepChecked(state, { move: { x: 0, y: 0 }, belch: true });
+    expect(typesOf(events)).toContain("belched");
+    expect(typesOf(events)).not.toContain("graveHit");
+    expect(state.grave.size).toBe(before);
+    expect(shot.alive).toBe(false);
+  });
+
+  it("does nothing at all when the command does not ask for one", () => {
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    shotOnGrave(state);
+    const events = stepChecked(state, STILL);
+    expect(typesOf(events)).not.toContain("belched");
+    expect(state.reservoir).toBe(RESERVOIR_CAPACITY);
+  });
+});
+
+describe("the weapon lines in the tick order (plan 6.13)", () => {
+  it("launches a skull at the mouth and does not move it on the tick it launches", () => {
+    // The same rule mob fire already has, which is what makes the stream read
+    // as pouring out of the grave rather than appearing above it.
+    const state = quietRun();
+    state.lines.streamIn = 1;
+    const mouth = { x: state.grave.x, y: state.grave.y - state.grave.size };
+    stepChecked(state, STILL);
+    const live = state.skulls.filter((skull) => skull.alive);
+    expect(live).toHaveLength(1);
+    expect({ x: live[0].x, y: live[0].y }).toEqual(mouth);
+  });
+
+  it("runs the lines after mob motion, so this tick's storm meets this tick's mobs", () => {
+    const state = quietRun();
+    state.lines.streamIn = 1;
+    const above = spawnMob(state, "shambler", {
+      x: state.grave.x,
+      y: state.grave.y - state.grave.size - 4,
+      vx: 0,
+      vy: 1,
+      index: 0,
+    })!;
+    above.beat = 0;
+    above.hp = 1;
+
+    // The skull launches at the mouth this tick and the deaths phase runs after
+    // it, so a mob standing on the mouth dies on the launch tick.
+    const events = stepChecked(state, STILL);
+    expect(typesOf(events)).toContain("mobKilled");
+  });
+
+  it("credits every kill the tick made, the bell's included", () => {
+    const state = quietRun();
+    state.levels.bell = MAX_LEVEL;
+    state.lines.tollIn = 1;
+    const victim = spawnMob(state, "shambler", {
+      x: state.grave.x,
+      y: state.grave.y,
+      vx: 0,
+      vy: 1,
+      index: 0,
+    })!;
+    victim.beat = 0;
+    // One point of health, because BELL_DAMAGE_NEAR is one shambler exactly and
+    // a mob has already drifted a little by the time the ring's first expansion
+    // reaches it, so a full-health shambler survives a centred toll by a sliver.
+    victim.hp = 1;
+
+    let killed = 0;
+    for (let tick = 0; tick < BELL_EXPAND_TICKS + 2; tick++) {
+      killed += typesOf(stepChecked(state, STILL)).filter(
+        (type) => type === "mobKilled",
+      ).length;
+    }
+    expect(killed).toBeGreaterThan(0);
+    expect(state.killsSinceDrop).toBe(killed);
+  });
+});
+
+describe("a belch kill is a kill (Mark, 2026-08-22)", () => {
+  it("credits its wipe toward the next drop, so a belch into a dense wave spawns a drop on the same tick", () => {
+    // The reason the wipe routes through damageMob rather than clearing the
+    // pool: resolveDeaths walks the tick's own accumulated kills, the belch's
+    // included, so the eruption pays the drop economy instead of emptying the
+    // field of it.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const wave = priceOfNextDrop(0);
+    for (let index = 0; index < wave; index++) {
+      spawnMob(state, "shambler", {
+        x: 40 + index * 24,
+        y: 100,
+        vx: 0,
+        vy: 1,
+        index,
+      })!.beat = 0;
+    }
+
+    const events = stepChecked(state, { move: { x: 0, y: 0 }, belch: true });
+
+    expect(typesOf(events).filter((type) => type === "mobKilled")).toHaveLength(
+      wave,
+    );
+    expect(typesOf(events)).toContain("dropSpawned");
+    expect(state.dropsPaid).toBe(1);
+    expect(state.killsSinceDrop).toBe(0);
   });
 });

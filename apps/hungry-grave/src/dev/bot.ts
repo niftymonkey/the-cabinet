@@ -14,17 +14,21 @@
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
 import type { SimEvent } from "../game/events";
 import { graveWidth } from "../game/grave";
-import { damageMob, MOB_TYPES } from "../game/mobs";
-import type { MoveCommand, RunState } from "../game/run";
-import { BASE_SPEED, SCROLL_SPEED } from "../game/tuning";
+import { MOB_TYPES } from "../game/mobs";
+import type { MoveCommand, RunState, TickCommand } from "../game/run";
+import { BASE_SPEED, RESERVOIR_CAPACITY, SCROLL_SPEED } from "../game/tuning";
 import { stepChecked } from "./invariants";
 
 /**
- * A policy's move for this tick. Anything the rig itself does, which is only
- * clearingPolicy's stand-in for the storm, is pushed onto `caused` so the
- * run's events stay one list in tick order.
+ * A policy's whole command for this tick, the belch included. Anything the rig
+ * itself does is pushed onto `caused` so the run's events stay one list in tick
+ * order, and today nothing does: the weapon lines are the game's own.
+ *
+ * It returns a TickCommand rather than a move because a policy that cannot
+ * express a belch cannot carry ADR 0016's Wall property, which is two-sided over
+ * exactly that: crossable unloaded, and never crossable for free.
  */
-export type Policy = (state: RunState, caused: SimEvent[]) => MoveCommand;
+export type Policy = (state: RunState, caused: SimEvent[]) => TickCommand;
 
 export interface PolicyRun {
   readonly events: SimEvent[];
@@ -40,8 +44,8 @@ export function runPolicy(
   const events: SimEvent[] = [];
   let ticks = 0;
   while (ticks < maxTicks && state.ending === null) {
-    const move = policy(state, events);
-    events.push(...stepChecked(state, move));
+    const command = policy(state, events);
+    events.push(...stepChecked(state, command));
     ticks += 1;
   }
   return { events, ticks };
@@ -204,6 +208,11 @@ function scoreMove(
  * and no search over the future at all.
  */
 export const dodgePolicy: Policy = (state) => {
+  return { move: bestDodge(state), belch: false };
+};
+
+/** The roomiest of the nine moves a thumb can make, which is the whole of the dodge. */
+function bestDodge(state: RunState): MoveCommand {
   const threats = threatsNear(state);
   let best = MOVES[0];
   let bestScore = -Infinity;
@@ -214,36 +223,43 @@ export const dodgePolicy: Policy = (state) => {
     best = move;
   }
   return best;
+}
+
+/**
+ * Dodges and never belches. It carries the first half of ADR 0016's two-sided
+ * Wall property: an edge-to-edge curtain built as the belch's target stays
+ * crossable unloaded, at a real cost in size or hits.
+ *
+ * Written as a plausible human and not as an optimizer, the same rule
+ * dodgePolicy is written under, because a bot proof is an upper bound on
+ * perfect play and never a fairness result.
+ */
+export const unloadedPolicy: Policy = (state, caused) => {
+  return { move: dodgePolicy(state, caused).move, belch: false };
 };
 
 /**
- * How far clearingPolicy's stand-in for the storm reaches, in field units.
- *
- * It has to reach roughly where mobs fire from, or the rig's own run is decided
- * by mob fire it never gets to answer: an armed mob fires ARRIVE_TICKS after it
- * enters at the top, which is about six hundred units from the grave's mark, so
- * a short reach lets every armed mob fire its way down the field. Half the
- * field's height is what makes this a stand-in for a storm rather than a
- * contact weapon. The weapon-lines dispatch deletes the whole policy.
+ * How many shots on the field make a belch worth spending. Below this the
+ * reservoir is better kept, which is the judgement a person makes and the only
+ * thing this policy adds to dodging.
  */
-const CLEARING_RADIUS = 400;
+const BELCH_WORTH_IT = 8;
 
 /**
- * dodgePolicy plus a stand-in for the storm. This is rig code and never a game
- * rule. It exists because there are no weapon lines yet, and without it nothing
- * in this dispatch can produce a corpse, run the stage end to end, or reach the
- * victory stub. The weapon-lines dispatch deletes it, and the full-run test
- * then runs on real weapons.
+ * Dodges, and belches when the reservoir is full and there is a curtain worth
+ * cancelling. It carries the other half of ADR 0016's property: the curtain is
+ * never crossable for free.
  */
-export const clearingPolicy: Policy = (state, caused) => {
-  for (const mob of state.mobs) {
-    if (!mob.alive) continue;
-    const dx = mob.x - state.grave.x;
-    const dy = mob.y - state.grave.y;
-    if (dx * dx + dy * dy > CLEARING_RADIUS * CLEARING_RADIUS) continue;
-    caused.push(...damageMob(state, mob, mob.hp, "storm"));
-  }
-  return dodgePolicy(state, caused);
+export const belchingPolicy: Policy = (state, caused) => {
+  const loaded = state.reservoir >= RESERVOIR_CAPACITY;
+  const shots = state.mobFire.reduce(
+    (count, shot) => count + (shot.alive ? 1 : 0),
+    0,
+  );
+  return {
+    move: dodgePolicy(state, caused).move,
+    belch: loaded && shots >= BELCH_WORTH_IT,
+  };
 };
 
 /** The nearest live mob or shot to the grave, or null when the field is empty. */
@@ -295,6 +311,11 @@ function nearestThreat(state: RunState): Threat | null {
  * state, and that is where it stays.
  */
 export const hitTakingPolicy: Policy = (state) => {
+  return { move: towardNearest(state), belch: false };
+};
+
+/** Straight at whatever is closest, which is how this policy reaches sealed shut. */
+function towardNearest(state: RunState): MoveCommand {
   const target = nearestThreat(state);
   if (target === null) return { x: 0, y: 0 };
   const dx = target.x - state.grave.x;
@@ -302,4 +323,4 @@ export const hitTakingPolicy: Policy = (state) => {
   const length = Math.sqrt(dx * dx + dy * dy);
   if (length === 0) return { x: 0, y: 0 };
   return { x: dx / length, y: dy / length };
-};
+}

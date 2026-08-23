@@ -3,10 +3,10 @@
 import { describe, expect, it } from "vitest";
 import { createRun } from "../game/run";
 import { step } from "../game/step";
-import type { MoveCommand } from "../game/run";
+import type { TickCommand } from "../game/run";
 import { RunHandoff, summarizeRun } from "./runHandoff";
 
-const STILL: MoveCommand = { x: 0, y: 0 };
+const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
 describe("the run handoff", () => {
   it("a fresh handoff has no run to report", () => {

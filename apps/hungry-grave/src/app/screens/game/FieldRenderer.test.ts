@@ -7,17 +7,30 @@ import type { Graphics } from "pixi.js";
 import { describe, expect, it } from "vitest";
 
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from "../../../game/caps";
+import { TICK_HZ } from "../../../game/clock";
 import { FIELD_HEIGHT } from "../../../game/field";
-import { spawnCorpse } from "../../../game/corpses";
+import type { Corpse } from "../../../game/corpses";
+import {
+  CORPSE_HALF_EXTENT,
+  spawnCorpse,
+  spawnDrop,
+} from "../../../game/corpses";
+import type { WeaponLine } from "../../../game/lines/roster";
+import { WEAPON_LINES } from "../../../game/lines/roster";
 import type { MobType } from "../../../game/mobs";
 import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from "../../../game/mobs";
 import type { RunState } from "../../../game/run";
 import { createRun } from "../../../game/run";
 import { INVULNERABLE_TICKS } from "../../../game/tuning";
 import { CORPSE_TIERS } from "../../palette";
+import fieldRendererSource from "./FieldRenderer.ts?raw";
 import {
+  alarmRadius,
   FieldRenderer,
+  FLICKER_HALF_PERIOD,
   freshnessBrightness,
+  SHOT_CORE_OF_HITBOX,
+  SHOT_DRAW_SCALE,
   tellRadius,
 } from "./FieldRenderer";
 import { FieldLayers } from "./layering";
@@ -31,6 +44,24 @@ function attached(): { layers: FieldLayers; renderer: FieldRenderer } {
 
 function put(state: RunState, type: MobType, x: number, y: number) {
   return spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+}
+
+/**
+ * A wave killed in one burst, down to the freshness that flickers. The mobs all
+ * die before any corpse is spawned, so the corpse ids run consecutively the way
+ * one storm tick's kills do.
+ */
+function flickering(state: RunState, count: number): Corpse[] {
+  const dead = [];
+  for (let index = 0; index < count; index++) {
+    const mob = put(state, "shambler", 40 + index * 30, 100);
+    mob.alive = false;
+    dead.push(mob);
+  }
+  for (const mob of dead) spawnCorpse(state, mob);
+  const wave = state.corpses.filter((corpse) => corpse.alive);
+  for (const corpse of wave) corpse.freshness = 0.1;
+  return wave;
 }
 
 function sprites(layers: FieldLayers, name: "corpses" | "mobBodies") {
@@ -68,7 +99,10 @@ describe("FieldRenderer", () => {
       MOB_FIRE_CAP,
     );
     expect(layers.layer("hitDim").children).toHaveLength(1);
-    expect(layers.layer("treasure").children).toHaveLength(0);
+    // A sprite per corpse slot in the treasure layer too: drops ride the corpse
+    // pool and ADR 0014's stack puts treasure two layers above corpses, so one
+    // slot needs a sprite in each and which one shows is decided by its kind.
+    expect(layers.layer("treasure").children).toHaveLength(CORPSE_CAP);
     expect(layers.layer("storm").children).toHaveLength(0);
   });
 
@@ -328,5 +362,171 @@ describe("FieldRenderer", () => {
     expect(layers.layer("corpses").children).toHaveLength(CORPSE_CAP);
     expect(layers.layer("mobBodies").children).toHaveLength(MOB_CAP);
     expect(layers.layer("hitDim").children).toHaveLength(1);
+  });
+});
+
+describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
+  it("clears WCAG SC 2.3.1's three-flashes floor on the corpse flicker", () => {
+    // A single corpse was covered by the criterion's small-area exemption. A
+    // whole wave killed in one burst is not, and nothing could produce a burst
+    // kill before the storm existed.
+    //
+    // The floor is tuning.ts's own derivation, restated for a flicker rather
+    // than for a hit: the worst case for a period of p seconds is floor(1 / p)
+    // plus 1, so three flashes a second needs a full period over 20 ticks and a
+    // half period of at least 11.
+    const flashesPerSecond =
+      Math.floor(TICK_HZ / (FLICKER_HALF_PERIOD * 2)) + 1;
+    expect(FLICKER_HALF_PERIOD).toBeGreaterThanOrEqual(11);
+    expect(flashesPerSecond).toBeLessThanOrEqual(3);
+  });
+
+  it("flickers two corpses killed on the same tick out of phase", () => {
+    // The pair is two ids apart rather than adjacent. An offset that reduces
+    // to the id's parity puts every corpse in one of two lockstep halves, and
+    // two adjacent ids land in different halves, so an adjacent pair reads as
+    // out of phase whether the offset spreads the wave or splits it in two.
+    const state = createRun(3);
+    const wave = flickering(state, 3);
+    const [a, , c] = wave;
+    expect(c.id - a.id).toBe(2);
+
+    const differed = [];
+    for (let tick = 0; tick < FLICKER_HALF_PERIOD * 4; tick++) {
+      differed.push(
+        freshnessBrightness(a, tick) !== freshnessBrightness(c, tick),
+      );
+    }
+    expect(differed.some((apart) => apart)).toBe(true);
+  });
+
+  it("switches only a fraction of a burst-killed wave on any one tick", () => {
+    // The hazard SC 2.3.1 is written about is a large area changing luminance
+    // together, so what the offset has to buy is a small area per switch. A
+    // wave in two halves changes half of itself at once; spread across the
+    // period it changes a twelfth.
+    const state = createRun(5);
+    const wave = flickering(state, FLICKER_HALF_PERIOD);
+    let before = wave.map((corpse) => freshnessBrightness(corpse, 0));
+    let most = 0;
+    for (let tick = 1; tick <= FLICKER_HALF_PERIOD * 4; tick++) {
+      const now = wave.map((corpse) => freshnessBrightness(corpse, tick));
+      const switched = now.filter((value, at) => value !== before[at]).length;
+      most = Math.max(most, switched);
+      before = now;
+    }
+    expect(most).toBeLessThanOrEqual(
+      Math.ceil(wave.length / FLICKER_HALF_PERIOD),
+    );
+  });
+
+  it("gives the revenant's tell a component that grows as the shot approaches", () => {
+    // The closing iris is a countdown and it stays. What it could not do alone
+    // is hold salience: it closes to nothing at the moment of maximum urgency.
+    const early = alarmRadius("revenant", 0);
+    const late = alarmRadius("revenant", 1);
+    expect(late).toBeGreaterThan(early);
+    // And the iris still closes, so the pair is a countdown and an alarm.
+    expect(tellRadius("revenant", 1)).toBeLessThan(tellRadius("revenant", 0));
+  });
+
+  it("draws the armed marker as something in no mob type's silhouette", () => {
+    // It was a down-pointing triangle, which is the ghoul's own body shape, and
+    // ADR 0014 makes silhouette the first discriminator between types.
+    const source = fieldRendererSource;
+    expect(source).toContain("ARMED_NOTCH_HEIGHT");
+    // The armed mark is a rect and no mob body is.
+    const mark = source.slice(source.indexOf("function drawArmedMark"));
+    const body = mark.slice(0, mark.indexOf("\n}"));
+    expect(body).toContain(".rect(");
+    expect(body).not.toContain("polygon(");
+  });
+
+  it("draws a shot larger than its hitbox and its core no larger than its hitbox", () => {
+    // The assertion that would have caught an earlier draft raising the
+    // collision box in the name of readability. The sprite grew; the box did not.
+    expect(SHOT_DRAW_SCALE).toBeGreaterThan(1);
+    expect(SHOT_CORE_OF_HITBOX).toBeLessThanOrEqual(1);
+
+    const { layers, renderer } = attached();
+    const state = createRun(3);
+    const shot = putShot(state, 200, 300);
+    renderer.sync(state);
+    const sprite = (layers.layer("mobFire").children as Graphics[])[0];
+    const drawn = sprite.getLocalBounds();
+    expect(Math.max(drawn.width, drawn.height) / 2).toBeGreaterThan(
+      shot.halfExtent,
+    );
+  });
+});
+
+describe("a drop on the field (plan 6.8)", () => {
+  function dropAt(state: RunState, line: WeaponLine) {
+    spawnDrop(state, 200, 300, line);
+    return state.corpses.find((corpse) => corpse.alive)!;
+  }
+
+  it("draws in the treasure layer and never in the corpses layer", () => {
+    // ADR 0014's stack puts treasure above mob bodies and corpses below them,
+    // so a drop under a pile still reads as the thing worth diving for.
+    const { layers, renderer } = attached();
+    const state = createRun(3);
+    dropAt(state, "bell");
+    renderer.sync(state);
+
+    const treasure = layers.layer("treasure").children as Graphics[];
+    const corpses = layers.layer("corpses").children as Graphics[];
+    expect(treasure.filter((each) => each.visible)).toHaveLength(1);
+    expect(corpses.filter((each) => each.visible)).toHaveLength(0);
+  });
+
+  it("draws a different silhouette for each of the four lines", () => {
+    // The at-a-glance line read: four icons that must be told apart mid-dodge
+    // with no HUD glance. Size is not the channel, because a drop and a shot are
+    // now drawn at the same 16 units.
+    const shapes = new Set<string>();
+    for (const line of WEAPON_LINES) {
+      const { layers, renderer } = attached();
+      const state = createRun(3);
+      dropAt(state, line);
+      renderer.sync(state);
+      const sprite = (layers.layer("treasure").children as Graphics[]).find(
+        (each) => each.visible,
+      )!;
+      const bounds = sprite.getLocalBounds();
+      shapes.add(`${bounds.width.toFixed(3)}x${bounds.height.toFixed(3)}`);
+    }
+    expect(shapes.size).toBe(WEAPON_LINES.length);
+  });
+
+  it("stays steady-bright where a corpse fades, whatever the tick", () => {
+    // Steady-bright always means treasure (ADR 0004), so a drop never takes the
+    // freshness tint and never flickers.
+    const { layers, renderer } = attached();
+    const state = createRun(3);
+    const drop = dropAt(state, "wisps");
+    const tints = new Set<number>();
+    for (const tick of [0, 7, 13, 40, 121]) {
+      state.tick = tick;
+      renderer.sync(state);
+      const sprite = (layers.layer("treasure").children as Graphics[]).find(
+        (each) => each.visible,
+      )!;
+      tints.add(sprite.tint);
+    }
+    expect(tints.size).toBe(1);
+    expect(freshnessBrightness(drop, 0)).toBe(1);
+  });
+
+  it("draws larger than a corpse, which is the size rule Mark reversed on 2026-08-22", () => {
+    const { layers, renderer } = attached();
+    const state = createRun(3);
+    const drop = dropAt(state, "headstones");
+    renderer.sync(state);
+    const sprite = (layers.layer("treasure").children as Graphics[]).find(
+      (each) => each.visible,
+    )!;
+    expect(drop.halfExtent).toBeGreaterThan(CORPSE_HALF_EXTENT);
+    expect(sprite.getLocalBounds().width).toBeGreaterThan(0);
   });
 });

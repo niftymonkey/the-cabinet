@@ -13,16 +13,22 @@ import type { Clock } from "./clock";
 import { ticksFor } from "./clock";
 import type { SimEvent } from "./events";
 import type { FieldPoint } from "./grave";
-import type { MoveCommand, RunState } from "./run";
+import type { RunState, TickCommand } from "./run";
 import { step } from "./step";
 
 /**
- * Where this tick's move command comes from. It takes a point and not a Grave
+ * Where this tick's command comes from. It takes a point and not a Grave
  * deliberately: a position is everything the closure needs, and the closure is
  * written in src/app, so typing it as Grave would hand live mutable sim state
  * out across the boundary the rest of the design works to keep.
+ *
+ * The one-shot rule for the belch lives in the closure and in fireBelch, never
+ * here. A closure that read-and-clears its own flag reports false on the later
+ * ticks of a frame, and fireBelch does nothing below a full reservoir and empties
+ * it on the first call, so repeat presses inside one frame are no-ops by the
+ * resource. A force-false here would be dead code the next reader trusts.
  */
-export type SteerSource = (grave: FieldPoint) => MoveCommand;
+export type CommandSource = (grave: FieldPoint) => TickCommand;
 
 /**
  * Advances the run by however many whole ticks this frame's elapsed time buys,
@@ -42,12 +48,12 @@ export function advance(
   run: RunState,
   clock: Clock,
   elapsedMs: number,
-  steer: SteerSource,
+  source: CommandSource,
 ): SimEvent[] {
   const ticks = ticksFor(clock, elapsedMs);
   const events: SimEvent[] = [];
   for (let tick = 0; tick < ticks; tick++) {
-    events.push(...step(run, steer(run.grave)));
+    events.push(...step(run, source(run.grave)));
   }
   return events;
 }

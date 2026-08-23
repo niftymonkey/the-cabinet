@@ -1,7 +1,7 @@
 import type { FederatedPointerEvent, Ticker } from "pixi.js";
 import { BlurFilter, Container, Graphics, Rectangle } from "pixi.js";
 
-import type { SteerSource } from "../../../game/advance";
+import type { CommandSource } from "../../../game/advance";
 import { advance } from "../../../game/advance";
 import type { Clock } from "../../../game/clock";
 import { createClock } from "../../../game/clock";
@@ -9,6 +9,7 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
 import type { SimEvent } from "../../../game/events";
 import type { RunState } from "../../../game/run";
 import { createRun } from "../../../game/run";
+import { RESERVOIR_CAPACITY } from "../../../game/tuning";
 import { KeySteer } from "../../../input/keys";
 import { combineSteer } from "../../../input/steering";
 import { TouchSteer } from "../../../input/touch";
@@ -26,18 +27,36 @@ import { PALETTE } from "../../palette";
 import { pauseActions, PausePopup } from "../../popups/PausePopup";
 import { SettingsPopup } from "../../popups/SettingsPopup";
 import { runHandoff, summarizeRun } from "../../runHandoff";
+import { playFor } from "../../sound";
 import { seedFromUrl, sizeFromUrl } from "../../seedFromUrl";
 import { Button } from "../../ui/Button";
 import { Label } from "../../ui/Label";
 import { bindKeyPress } from "../../utils/bindKeyPress";
 import { userSettings } from "../../utils/userSettings";
 import { EndScreen } from "../EndScreen";
+import { BELCH_SIZE, BelchButton } from "./BelchButton";
 import { FieldRenderer } from "./FieldRenderer";
 import { GraveRenderer } from "./GraveRenderer";
 import { FieldLayers } from "./layering";
+import { StormRenderer } from "./StormRenderer";
 
-/** The codes the page would otherwise scroll on. */
-const SCROLL_CODES = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+/** The codes the page would otherwise scroll on. Space joins them so the page cannot scroll under a belch. */
+const SCROLL_CODES = [
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Space",
+];
+
+/**
+ * The belch's keyboard binding, as physical codes.
+ *
+ * Space is the free, unambiguous key on this layout: there is no manual shot to
+ * bind it to, Shift is already focus, and WASD and the arrows are steering. KeyX
+ * rides alongside it for the Touhou muscle memory, where X is the bomb.
+ */
+const BELCH_CODES = ["Space", "KeyX"];
 
 /** The pointer kinds TouchSteer is reasoned about in. A mouse steers with the keyboard by design. */
 const STEERING_POINTERS = ["touch", "pen"];
@@ -86,7 +105,39 @@ const COUNTDOWN_BLUR_STRENGTH = 5;
  * rule already settles the principle that the channel a player is being asked
  * to re-read is never occluded.
  */
-const BLURRED_LAYERS = ["mobBodies", "mobFire"] as const;
+const BLURRED_LAYERS = ["mobBodies", "mobFire", "corpses", "treasure"] as const;
+
+/**
+ * One BlurFilter for the whole app, built on first use and then reused.
+ *
+ * The countdown fires on every resume and every return from a backgrounded tab,
+ * and an instance per countdown was allocated and never destroyed. Sharing one
+ * is Pixi's own guidance.
+ *
+ * It is built on demand inside a try rather than at module load. Constructing a
+ * BlurFilter compiles a shader, which needs a document, and under node there is
+ * none: at module load that throws on import and takes every screen test with
+ * it, and inside the countdown it threw into a promise and surfaced as the
+ * standing unhandled rejection this dispatch was asked to clear.
+ *
+ * Only success is remembered. A failure is not, because whether the shader can
+ * be compiled is a property of the environment at that moment rather than of
+ * this module, and caching the first failure would leave the field unblurred
+ * for the rest of the session on the strength of one early attempt. Where no
+ * shader can be compiled the field simply does not blur, which is the only
+ * sensible answer there.
+ */
+let sharedBlur: BlurFilter | null = null;
+
+function fieldBlur(): BlurFilter | null {
+  if (sharedBlur !== null) return sharedBlur;
+  try {
+    sharedBlur = new BlurFilter({ strength: COUNTDOWN_BLUR_STRENGTH });
+  } catch {
+    return null;
+  }
+  return sharedBlur;
+}
 
 /**
  * The playfield's boundary readout. The engine's background and the field's
@@ -178,6 +229,7 @@ export class GameScreen extends Container {
   private readonly clip: Graphics;
   private readonly grave: GraveRenderer;
   private readonly fieldRenderer = new FieldRenderer();
+  private readonly stormRenderer = new StormRenderer();
 
   private readonly debtLabel: Label;
   private readonly tickLabel: Label;
@@ -185,6 +237,7 @@ export class GameScreen extends Container {
   private readonly sizeLabel: Label;
   private readonly countdownLabel: Label;
   private readonly pauseButton: Button;
+  private readonly belchButton: BelchButton;
 
   private readonly keys: KeySteer;
   private readonly touch = new TouchSteer();
@@ -239,6 +292,16 @@ export class GameScreen extends Container {
    */
   private countdownMs: number | null = null;
   private shownCount: number | null = null;
+  /**
+   * A belch asked for and not yet spent. It is read and cleared inside the
+   * command closure, which is only called when a tick actually runs, so a press
+   * during a zero-tick frame survives to the next one rather than being eaten.
+   *
+   * It is per-run mutable state on a pooled screen, which is the class of defect
+   * this app has shipped five times, so prepare(), reset() and goQuiet() all
+   * clear it.
+   */
+  private belchRequested = false;
 
   constructor() {
     super();
@@ -280,6 +343,7 @@ export class GameScreen extends Container {
       fontSize: 18,
     });
     this.pauseButton.onPress.connect(() => this.togglePause());
+    this.belchButton = new BelchButton(() => this.requestBelch());
 
     this.addChild(
       this.field,
@@ -289,6 +353,7 @@ export class GameScreen extends Container {
       this.sizeLabel,
       this.countdownLabel,
       this.pauseButton,
+      this.belchButton,
     );
 
     this.keys = new KeySteer({ multiplier: userSettings.getKeyboardSpeed() });
@@ -308,7 +373,13 @@ export class GameScreen extends Container {
   private dressField(): void {
     this.layers.layer("fieldBoundary").addChild(this.frame);
     this.fieldRenderer.attach(this.layers);
+    this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
+  }
+
+  /** A belch asked for, by the button or by the keyboard. */
+  private requestBelch(): void {
+    this.belchRequested = true;
   }
 
   public prepare() {
@@ -337,11 +408,12 @@ export class GameScreen extends Container {
     this.countdownMs = null;
     this.shownCount = null;
     this.countdownLabel.visible = false;
+    this.belchRequested = false;
+    this.belchButton.release();
     this.clearFieldBlur();
 
     this.run = this.startRun();
-    this.grave.sync(this.run.grave);
-    this.fieldRenderer.sync(this.run);
+    this.syncScreen(this.run);
     this.syncReadouts();
 
     pauseActions.setEndRun(() => this.endRun());
@@ -376,13 +448,17 @@ export class GameScreen extends Container {
    * pointerleave, pointerover, pointerup and wheel, and EventBoundary's mapping
    * table has no pointercancel entry at all. When iOS takes a gesture away it
    * fires pointercancel and then never sends pointerup, so without this the
-   * drag target goes stale and the grave parks on it and cannot leave.
+   * drag target goes stale and the grave parks on it and cannot leave, and the
+   * belch button's claim outlives the finger that made it.
    */
   private listen(): () => void {
     const onKeyDown = (event: KeyboardEvent) => this.onKeyDown(event);
     const onKeyUp = (event: KeyboardEvent) => this.keys.release(event.code);
     const onBlur = () => this.keys.releaseAll();
-    const onPointerCancel = () => this.touch.cancelAll();
+    const onPointerCancel = () => {
+      this.touch.cancelAll();
+      this.belchButton.release();
+    };
     const canvas = engine().canvas;
 
     window.addEventListener("keydown", onKeyDown);
@@ -400,6 +476,10 @@ export class GameScreen extends Container {
 
   private onKeyDown(event: KeyboardEvent): void {
     if (SCROLL_CODES.includes(event.code)) event.preventDefault();
+    // The belch is not a steering command, so it never reaches KeySteer: the
+    // one-shot edge belongs to the screen, and the key's auto-repeat is
+    // harmless because fireBelch does nothing below a full reservoir.
+    if (BELCH_CODES.includes(event.code)) this.requestBelch();
     this.keys.press(event.code);
   }
 
@@ -419,6 +499,8 @@ export class GameScreen extends Container {
     this.clearFieldBlur();
     this.countdownMs = null;
     this.countdownLabel.visible = false;
+    this.belchRequested = false;
+    this.belchButton.release();
     this.run = null;
     // The field renderer is not detached here. reset() clears the layers and
     // dressField() is the one place that puts renderers back, so a renderer
@@ -449,18 +531,51 @@ export class GameScreen extends Container {
       return;
     }
     const keyCommand = this.keys.command();
-    const steer: SteerSource = (grave) =>
-      combineSteer(keyCommand, this.touch, grave);
+    const source: CommandSource = (grave) => {
+      // Read and cleared here rather than in advance: the closure is only
+      // called when a tick runs, so this is the one place that can tell a frame
+      // that bought ticks from one that did not.
+      const belch = this.belchRequested;
+      this.belchRequested = false;
+      return { move: combineSteer(keyCommand, this.touch, grave), belch };
+    };
     const events = advance(
       this.run,
       this.clock,
       this.takeElapsed(ticker.elapsedMS),
-      steer,
+      source,
     );
-    this.grave.sync(this.run.grave);
-    this.fieldRenderer.sync(this.run);
+    this.announce(this.run, events);
+    this.syncScreen(this.run);
     this.syncReadouts();
     if (endedIn(events)) this.endRun();
+  }
+
+  /**
+   * Everything on screen, from the run the sim just advanced. The grave is
+   * handed a number from 0 to 1 and never the RunState, because handing a
+   * renderer live sim state is what the rest of this design works to avoid.
+   */
+  private syncScreen(run: RunState): void {
+    this.grave.sync(run.grave, run.reservoir / RESERVOIR_CAPACITY, run.tick);
+    this.fieldRenderer.sync(run);
+    this.stormRenderer.sync(run);
+    this.belchButton.sync(run.reservoir >= RESERVOIR_CAPACITY, run.tick);
+  }
+
+  /**
+   * This frame's events, handed to everything that answers them.
+   *
+   * This is the one line that used to drop every event on the floor except the
+   * run-ending check, and it is where sound subscribes and where the two
+   * momentary effects that have no sim entity behind them are started.
+   */
+  private announce(run: RunState, events: readonly SimEvent[]): void {
+    for (const event of events) {
+      playFor(event);
+      if (event.type === "belched") this.stormRenderer.erupt(run);
+      if (event.type === "splashed") this.stormRenderer.splashed(run);
+    }
   }
 
   /**
@@ -501,8 +616,12 @@ export class GameScreen extends Container {
 
   /** The threat layers, blurred. The grave and its rim are spared, so the player can re-find them. */
   private setFieldBlur(): void {
-    const blur = new BlurFilter({ strength: COUNTDOWN_BLUR_STRENGTH });
-    for (const name of BLURRED_LAYERS) this.layers.layer(name).filters = [blur];
+    const blur = fieldBlur();
+    if (blur === null) return;
+    blur.enabled = true;
+    for (const name of BLURRED_LAYERS) {
+      this.layers.layer(name).filters = [blur];
+    }
   }
 
   private clearFieldBlur(): void {
@@ -557,6 +676,14 @@ export class GameScreen extends Container {
       READOUT_RESERVE.margin + PAUSE_HEIGHT / 2,
     );
     this.countdownLabel.position.set(width / 2, height / 2);
+    // Bottom right, from the same reserve the pause button is positioned from,
+    // so the two cannot drift apart and the non-overlap rule stays one rule in
+    // one place. It sits over the field: Mark ruled on 2026-08-22 that the
+    // field never pays width for a readout.
+    this.belchButton.position.set(
+      width - READOUT_RESERVE.margin - BELCH_SIZE / 2,
+      height - READOUT_RESERVE.margin - BELCH_SIZE / 2,
+    );
   }
 
   /** A finger landing, in field units. A mouse is filtered out: desktop steering is the keyboard by design. */
@@ -565,11 +692,15 @@ export class GameScreen extends Container {
     // anchor a drag as well, which is the defect the old END RUN button had.
     if (event.target !== this) return;
     if (!this.steersWith(event) || !this.run) return;
+    // A press that started on the belch button never becomes the steering
+    // pointer, so a thumb that rolls off it does not drag the grave.
+    if (this.belchButton.owns(event.pointerId)) return;
     this.touch.down(event.pointerId, this.toField(event), this.run.grave);
   }
 
   private onPointerMove(event: FederatedPointerEvent): void {
     if (!this.steersWith(event)) return;
+    if (this.belchButton.owns(event.pointerId)) return;
     this.touch.move(event.pointerId, this.toField(event));
   }
 
@@ -621,6 +752,8 @@ export class GameScreen extends Container {
   private goQuiet(): void {
     this.keys.releaseAll();
     this.touch.cancelAll();
+    this.belchRequested = false;
+    this.belchButton.release();
     this.countdownMs = null;
     this.shownCount = null;
     this.countdownLabel.visible = false;
