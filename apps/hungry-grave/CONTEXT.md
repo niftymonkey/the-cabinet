@@ -142,7 +142,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Recoverable fault**: A fault the simulation can safely carry on through, recorded once with the tick it first fired on and the count, while the run continues. Safe to continue is not the same as harmless, and a run carrying one is not clean evidence. _Avoid_: warning, minor, cosmetic.
 
-**Integrity**: Whether a recorded run was sound, meaning whether any fault fired in it at all. Separate from the witness, which asks a different question: the witness says whether this is the original run, integrity says whether the original run was worth trusting. _Avoid_: valid, clean, verified.
+**Integrity**: Whether a recorded run was sound, meaning whether any fault fired in it at all. Clean when the checks ran and nothing fired, faulted when something fired, and unchecked when the run was recorded on an instrumentation build with the invariant checks switched off, which is the one case where an empty fault list is not evidence of a sound run. Separate from the witness, which asks a different question: the witness says whether this is the original run, integrity says whether the original run was worth trusting. _Avoid_: valid, clean, verified.
 
 **Stop**: How a run stopped, as opposed to how it ended. A run finishes, is quit, or is stopped by a fatal fault, and a recording that simply breaks off says unknown. Ending and stop are two facts and never one. _Avoid_: status, outcome, result.
 
