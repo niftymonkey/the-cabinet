@@ -28,7 +28,7 @@ When it works:
 - A killed mob leaves a corpse. The corpse drifts at exactly the scroll speed, its freshness drains, it fades as it drains, and at empty the dirt takes it under.
 - The grave passing under a corpse swallows it, and the swallow pays through the rules 3a already landed.
 - Surviving to the end of the last phase ends the run in victory, and the end screen says which of the two endings happened.
-- The readouts and the pause button no longer sit over the field on any viewport, because mob fire now comes down that lane.
+- The readouts and the pause button no longer sit over the field on any viewport, because mob fire now comes down that lane. **Superseded 2026-08-22, see section 4.16.**
 - The grave's rim reads against food and mob bodies underneath it, which today it does not.
 - Resuming from the pause menu counts down before the field is live again.
 - The build is deployed and Mark has played it.
@@ -554,6 +554,8 @@ Freshness fades a corpse by multiplying its declared hex toward black, never by 
 9. Every corpse tier clears the treasure class, `drop` and `feast`, on hue gap at least 25 **or** saturation delta at least 0.25. Written as an either-or deliberately: `corpseRevenant` against `drop` measures 0.241 on saturation, just under, and passes on hue at 35.04.
 
 ### 4.16 `src/app/layout.ts`, the reserved gutter
+
+> **Superseded in part, 2026-08-22.** Non-overlap shipped as an unconditional rule and Mark played the cost of it on a phone: a short window made height the binding axis, so the field bought the gap with its own width and a refresh gave the width back. He ruled that the field never pays width for a readout. `fitField` now lowers the field only where lowering is free and otherwise lets the readouts sit over it, which also ends the refit at 820 by 1180 and at 1024 by 900. The reserve, the rectangles and the reasoning below all stand; the invariant sentence is now an aim. Landed in `fix(hungry-grave): keep the field's full width and let the readouts sit over it`.
 
 The gutter invariant fails as the viewport aspect approaches the field's own. At 820 by 1180 the gutter is 13 CSS pixels and the readout stack and the pause button sit over the field's top edge. That was harmless on an empty field and it is wrong now, because mob fire comes down that lane and a drag anchored on the pause button fights the button.
 

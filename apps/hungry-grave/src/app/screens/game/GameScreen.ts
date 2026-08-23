@@ -448,13 +448,17 @@ export class GameScreen extends Container {
    * pointerleave, pointerover, pointerup and wheel, and EventBoundary's mapping
    * table has no pointercancel entry at all. When iOS takes a gesture away it
    * fires pointercancel and then never sends pointerup, so without this the
-   * drag target goes stale and the grave parks on it and cannot leave.
+   * drag target goes stale and the grave parks on it and cannot leave, and the
+   * belch button's claim outlives the finger that made it.
    */
   private listen(): () => void {
     const onKeyDown = (event: KeyboardEvent) => this.onKeyDown(event);
     const onKeyUp = (event: KeyboardEvent) => this.keys.release(event.code);
     const onBlur = () => this.keys.releaseAll();
-    const onPointerCancel = () => this.touch.cancelAll();
+    const onPointerCancel = () => {
+      this.touch.cancelAll();
+      this.belchButton.release();
+    };
     const canvas = engine().canvas;
 
     window.addEventListener("keydown", onKeyDown);

@@ -92,14 +92,19 @@ function proximity(distance: number, full: number): number {
  * SPAWN_MARGIN. Without the clamp a mob near an edge is pushed out of the box
  * the invariant harness checks, by the player's own weapon, and the harness
  * fires on a legal move.
+ *
+ * The force comes from the ring's own level, the level the radius and the sweep
+ * are already working from, so a level-up mid-ring cannot shove harder than the
+ * ring that is shoving reaches.
  */
 function pushMob(
   state: RunState,
+  ring: BellRing,
   mob: Mob,
   distance: number,
   near: number,
 ): void {
-  const push = BELL_PUSH_BY_LEVEL[state.levels.bell] * near;
+  const push = BELL_PUSH_BY_LEVEL[ring.level] * near;
   if (push <= 0 || distance === 0) return;
   const away = normalize(mob.x - state.grave.x, mob.y - state.grave.y);
   if (away.length === 0) return;
@@ -141,7 +146,7 @@ function sweepRing(state: RunState, ring: BellRing, now: number): SimEvent[] {
     const near = proximity(distance, full);
     const damage =
       BELL_DAMAGE_FAR + (BELL_DAMAGE_NEAR - BELL_DAMAGE_FAR) * near;
-    pushMob(state, mob, distance, near);
+    pushMob(state, ring, mob, distance, near);
     events.push(...damageMob(state, mob, damage, "bell"));
   }
   return events;
