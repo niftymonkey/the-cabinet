@@ -36,6 +36,10 @@ Codebase-specific traps live beside their code. The Hungry Grave's are in `apps/
 
 **A gate that attributes beats a gate that counts.** The main thread measured shots on the field at each death and inferred crowding. A gate attributed each hit and found fifteen of eighteen were aimed fire from one specific row. Same data, a real cause instead of a correlation.
 
+**A dispatch is gated twice, on its plan and on its implementation, and only the second one has read the code.** Dispatch 5 got three plan gates and no implementation gate, and the miss survived a session boundary because the handoff listed the three plan markers in a way that read as full coverage. Every earlier dispatch had both. **Count the implementation marker separately from the plan marker before calling a dispatch reviewed**, because a plan gate cannot see what the build actually did.
+
+**Gating after the build costs a second reviewer pass, not just the gate's own time.** CodeRabbit had already reviewed the exact head of the PR, and the merge rule is that it must have reviewed the exact commit being merged. Any gate finding that changes code invalidates that review. **Run the implementation gates before the reviewer, not after.**
+
 **A review gate will write to production code if it can.** One refactored two unrelated files unasked; another left probe test files at the app root. **Check `git status` after every gate round.**
 
 **CodeRabbit's findings are worth verifying one by one rather than triaging by severity label.** Of seven, six were real, and the two labelled Minor included a genuine invariant defect. The one that needed pushing back on was a Major. The label predicts nothing.
