@@ -87,11 +87,11 @@ describe("advance", () => {
     const reference = createClock();
     const elapsedMs = TICK_MS * 3.5;
 
-    advance(run, clock, elapsedMs, STILL);
+    advance(run, clock, elapsedMs, STILL, false);
     expect(run.tick).toBe(ticksFor(reference, elapsedMs));
     expect(run.tick).toBe(3);
 
-    advance(run, clock, elapsedMs, STILL);
+    advance(run, clock, elapsedMs, STILL, false);
     expect(run.tick).toBe(7);
   });
 
@@ -105,13 +105,13 @@ describe("advance", () => {
 
     const recomputed = createRun(7);
     const start = { x: recomputed.grave.x, y: recomputed.grave.y };
-    advance(recomputed, createClock(), twoTicks, towards(target));
+    advance(recomputed, createClock(), twoTicks, towards(target), false);
     expect(recomputed.grave.x).toBeCloseTo(target.x, 9);
     expect(recomputed.grave.y).toBeCloseTo(target.y, 9);
 
     const sampledOnce = createRun(7);
     const frameConstant = towards(target)(sampledOnce.grave);
-    advance(sampledOnce, createClock(), twoTicks, () => frameConstant);
+    advance(sampledOnce, createClock(), twoTicks, () => frameConstant, false);
     expect(sampledOnce.grave.x).toBeCloseTo(2 * target.x - start.x, 9);
     expect(sampledOnce.grave.y).toBeCloseTo(2 * target.y - start.y, 9);
   });
@@ -126,7 +126,7 @@ describe("advance", () => {
       return [{ type: "grew", amount: state.tick, size: state.grave.size }];
     });
 
-    const events = advance(run, createClock(), TICK_MS * 3, STILL);
+    const events = advance(run, createClock(), TICK_MS * 3, STILL, false);
 
     expect(events).toHaveLength(3);
     expect(
@@ -145,11 +145,17 @@ describe("advance", () => {
     });
 
     let belch = true;
-    advance(run, createClock(), TICK_MS * 3, () => {
-      const command = { move: { x: 0.5, y: -0.25 }, belch };
-      belch = false;
-      return command;
-    });
+    advance(
+      run,
+      createClock(),
+      TICK_MS * 3,
+      () => {
+        const command = { move: { x: 0.5, y: -0.25 }, belch };
+        belch = false;
+        return command;
+      },
+      false,
+    );
 
     expect(seen).toEqual([
       { move: { x: 0.5, y: -0.25 }, belch: true },
@@ -167,7 +173,7 @@ describe("advance", () => {
     const source = pressedBelch();
     source.press();
 
-    const events = advance(run, createClock(), TICK_MS * 3, source);
+    const events = advance(run, createClock(), TICK_MS * 3, source, false);
     expect(run.tick).toBe(3);
     expect(events.filter((event) => event.type === "belched")).toHaveLength(1);
   });
@@ -179,15 +185,38 @@ describe("advance", () => {
     const source = pressedBelch();
     source.press();
 
-    expect(advance(run, clock, 0, source)).toEqual([]);
-    const later = advance(run, clock, TICK_MS, source);
+    expect(advance(run, clock, 0, source, false)).toEqual([]);
+    const later = advance(run, clock, TICK_MS, source, false);
     expect(later.filter((event) => event.type === "belched")).toHaveLength(1);
   });
 
   it("zero elapsed time steps nothing and returns no events", () => {
     const run = createRun(7);
-    const events = advance(run, createClock(), 0, STILL);
+    const events = advance(run, createClock(), 0, STILL, false);
     expect(run.tick).toBe(0);
     expect(events).toEqual([]);
+  });
+
+  it("checking on runs the invariants inside the tick loop, so a break on the first of three ticks stops there", () => {
+    // The reason the check is inside the loop and not after it: ticksFor's
+    // catch-up clamp buys up to fifteen ticks in one frame, and a check fired
+    // once per frame reads the last of them and never sees the other fourteen.
+    const breakOnFirstTick = (state: RunState, command: TickCommand) => {
+      const events = bareStep(state, command);
+      if (state.tick === 1) state.grave.x = NaN;
+      return events;
+    };
+    vi.mocked(step).mockImplementation(breakOnFirstTick);
+
+    const checked = createRun(7);
+    expect(() =>
+      advance(checked, createClock(), TICK_MS * 3, STILL, true),
+    ).toThrow(/NaN/);
+    expect(checked.tick).toBe(1);
+
+    // Passed false the same frame runs to its end, which is the path that ships.
+    const unchecked = createRun(7);
+    advance(unchecked, createClock(), TICK_MS * 3, STILL, false);
+    expect(unchecked.tick).toBe(3);
   });
 });

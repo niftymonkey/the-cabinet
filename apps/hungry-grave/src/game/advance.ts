@@ -13,6 +13,7 @@ import type { Clock } from "./clock";
 import { ticksFor } from "./clock";
 import type { SimEvent } from "./events";
 import type { FieldPoint } from "./grave";
+import { checkInvariants } from "./invariants";
 import type { RunState, TickCommand } from "./run";
 import { step } from "./step";
 
@@ -43,17 +44,27 @@ export type CommandSource = (grave: FieldPoint) => TickCommand;
  *
  * elapsedMs is raw elapsed real time and never Pixi's deltaMS: clock.ts says
  * why in its own header.
+ *
+ * checkingInvariants is a parameter and not module state, so a caller states
+ * what it wants at the call and two callers can differ. The check belongs
+ * inside this loop rather than after it: ticksFor's catch-up clamp buys up to
+ * fifteen ticks in one frame, and a check fired once a frame reads the last of
+ * those and never sees the other fourteen, which is exactly the ground a
+ * measurement of what checking costs has to cover. Passed false, the loop is
+ * the one that ships.
  */
 export function advance(
   run: RunState,
   clock: Clock,
   elapsedMs: number,
   source: CommandSource,
+  checkingInvariants: boolean,
 ): SimEvent[] {
   const ticks = ticksFor(clock, elapsedMs);
   const events: SimEvent[] = [];
   for (let tick = 0; tick < ticks; tick++) {
     events.push(...step(run, source(run.grave)));
+    if (checkingInvariants) checkInvariants(run);
   }
   return events;
 }

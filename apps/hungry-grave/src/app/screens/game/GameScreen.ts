@@ -28,7 +28,7 @@ import { pauseActions, PausePopup } from "../../popups/PausePopup";
 import { SettingsPopup } from "../../popups/SettingsPopup";
 import { runHandoff, summarizeRun } from "../../runHandoff";
 import { playFor } from "../../sound";
-import { seedFromUrl, sizeFromUrl } from "../../seedFromUrl";
+import { invariantsFromUrl, seedFromUrl, sizeFromUrl } from "../../seedFromUrl";
 import { Button } from "../../ui/Button";
 import { Label } from "../../ui/Label";
 import { bindKeyPress } from "../../utils/bindKeyPress";
@@ -303,6 +303,16 @@ export class GameScreen extends Container {
    */
   private belchRequested = false;
 
+  /**
+   * Whether this run checks the sim invariants on every tick (issue #48), as
+   * ?invariants= asked for it. Off is the path that ships.
+   *
+   * prepare() writes it on every run rather than the constructor writing it
+   * once, because it is per-run state on a pooled screen, which is the class of
+   * defect this app has shipped five times.
+   */
+  private checkingInvariants = false;
+
   constructor() {
     super();
 
@@ -412,6 +422,10 @@ export class GameScreen extends Container {
     this.belchButton.release();
     this.clearFieldBlur();
 
+    this.checkingInvariants = invariantsFromUrl(
+      window.location.search,
+      window.location.hash,
+    );
     this.run = this.startRun();
     this.syncScreen(this.run);
     this.syncReadouts();
@@ -544,6 +558,7 @@ export class GameScreen extends Container {
       this.clock,
       this.takeElapsed(ticker.elapsedMS),
       source,
+      this.checkingInvariants,
     );
     this.announce(this.run, events);
     this.syncScreen(this.run);

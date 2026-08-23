@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRun, SEED_LIMIT } from "../game/run";
 import { SIZE_CEILING, SIZE_FLOOR } from "../game/tuning";
-import { seedFromUrl, sizeFromUrl } from "./seedFromUrl";
+import { invariantsFromUrl, seedFromUrl, sizeFromUrl } from "./seedFromUrl";
 
 describe("seedFromUrl", () => {
   beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
@@ -82,5 +82,39 @@ describe("sizeFromUrl", () => {
     expect(createRun(1, sizeFromUrl("?size=999", "")!).grave.size).toBe(
       SIZE_CEILING,
     );
+  });
+});
+
+describe("invariantsFromUrl", () => {
+  beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
+  afterEach(() => vi.restoreAllMocks());
+
+  it("is off unless the URL asks, so the path a player walks is the one that ships", () => {
+    expect(invariantsFromUrl("", "")).toBe(false);
+    expect(invariantsFromUrl("?seed=1234", "#/?size=20")).toBe(false);
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("accepts on, 1, true and yes either way round, in either URL form", () => {
+    for (const raw of ["on", "1", "true", "yes", "ON", " True "]) {
+      expect(invariantsFromUrl(`?invariants=${raw}`, "")).toBe(true);
+      expect(invariantsFromUrl("", `#/?invariants=${raw}`)).toBe(true);
+    }
+    for (const raw of ["off", "0", "false", "no"]) {
+      expect(invariantsFromUrl(`?invariants=${raw}`, "")).toBe(false);
+    }
+  });
+
+  it("with both present the hash's query wins, the same way the seed's does", () => {
+    expect(invariantsFromUrl("?invariants=off", "#/?invariants=on")).toBe(true);
+    expect(invariantsFromUrl("?invariants=on", "#/?invariants=off")).toBe(
+      false,
+    );
+  });
+
+  it("a value it cannot read warns and stays off, so a typo cannot silently slow the build down", () => {
+    expect(invariantsFromUrl("?invariants=maybe", "")).toBe(false);
+    expect(invariantsFromUrl("?invariants=", "")).toBe(false);
+    expect(console.warn).toHaveBeenCalledTimes(2);
   });
 });
