@@ -31,81 +31,123 @@ function fail(invariant: string, detail: string): never {
   throw new Error(`sim invariant broken, ${invariant}: ${detail}`);
 }
 
-function checkFinite(numbers: Record<string, number>): void {
-  for (const [where, value] of Object.entries(numbers)) {
-    if (!Number.isFinite(value)) fail("no NaN", `${where} is ${value}`);
+/**
+ * The three no-NaN predicates take the number and the words that name it as
+ * separate arguments, and join them only on the branch that fails. checkNoNaN
+ * runs over every live entity on every tick, so a message built up front is a
+ * string allocated per field per entity per tick and thrown away unread. The
+ * shapes they spell are the ones a reader needs to find the number again: the
+ * pool, the slot and the field.
+ */
+function checkFinite(where: string, value: number): void {
+  if (!Number.isFinite(value)) fail("no NaN", `${where} is ${value}`);
+}
+
+/** One field of one slot in a pool, as "mob 12.vx is NaN". */
+function checkSlotFinite(
+  pool: string,
+  id: number,
+  field: string,
+  value: number,
+): void {
+  if (!Number.isFinite(value)) {
+    fail("no NaN", `${pool} ${id}.${field} is ${value}`);
   }
 }
 
-/** Every number the rules mutate. A NaN anywhere in here poisons the run silently. */
-function checkNoNaN(state: RunState): void {
-  checkFinite({
-    tick: state.tick,
-    score: state.score,
-    reservoir: state.reservoir,
-    "grave.x": state.grave.x,
-    "grave.y": state.grave.y,
-    "grave.size": state.grave.size,
-    "grave.invulnerable": state.grave.invulnerable,
-  });
+/** One cell of a fixed-length array, as "lines.stoneRecharge[2] is NaN". */
+function checkCellFinite(where: string, index: number, value: number): void {
+  if (!Number.isFinite(value)) fail("no NaN", `${where}[${index}] is ${value}`);
+}
+
+/** The run's own numbers, and the grave's. */
+function checkRunNoNaN(state: RunState): void {
+  checkFinite("tick", state.tick);
+  checkFinite("score", state.score);
+  checkFinite("reservoir", state.reservoir);
+  checkFinite("grave.x", state.grave.x);
+  checkFinite("grave.y", state.grave.y);
+  checkFinite("grave.size", state.grave.size);
+  checkFinite("grave.invulnerable", state.grave.invulnerable);
+}
+
+function checkMobsNoNaN(state: RunState): void {
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
-    checkFinite({
-      [`mob ${mob.id}.x`]: mob.x,
-      [`mob ${mob.id}.y`]: mob.y,
-      [`mob ${mob.id}.vx`]: mob.vx,
-      [`mob ${mob.id}.vy`]: mob.vy,
-      [`mob ${mob.id}.hp`]: mob.hp,
-    });
+    checkSlotFinite("mob", mob.id, "x", mob.x);
+    checkSlotFinite("mob", mob.id, "y", mob.y);
+    checkSlotFinite("mob", mob.id, "vx", mob.vx);
+    checkSlotFinite("mob", mob.id, "vy", mob.vy);
+    checkSlotFinite("mob", mob.id, "hp", mob.hp);
   }
+}
+
+function checkMobFireNoNaN(state: RunState): void {
   for (const shot of state.mobFire) {
     if (!shot.alive) continue;
-    checkFinite({
-      [`shot ${shot.id}.x`]: shot.x,
-      [`shot ${shot.id}.y`]: shot.y,
-      [`shot ${shot.id}.vx`]: shot.vx,
-      [`shot ${shot.id}.vy`]: shot.vy,
-    });
+    checkSlotFinite("shot", shot.id, "x", shot.x);
+    checkSlotFinite("shot", shot.id, "y", shot.y);
+    checkSlotFinite("shot", shot.id, "vx", shot.vx);
+    checkSlotFinite("shot", shot.id, "vy", shot.vy);
   }
+}
+
+function checkCorpsesNoNaN(state: RunState): void {
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
-    checkFinite({
-      [`corpse ${corpse.id}.x`]: corpse.x,
-      [`corpse ${corpse.id}.y`]: corpse.y,
-      [`corpse ${corpse.id}.freshness`]: corpse.freshness,
-    });
+    checkSlotFinite("corpse", corpse.id, "x", corpse.x);
+    checkSlotFinite("corpse", corpse.id, "y", corpse.y);
+    checkSlotFinite("corpse", corpse.id, "freshness", corpse.freshness);
   }
+}
+
+function checkSkullsNoNaN(state: RunState): void {
   for (const skull of state.skulls) {
     if (!skull.alive) continue;
-    checkFinite({
-      [`skull ${skull.id}.x`]: skull.x,
-      [`skull ${skull.id}.y`]: skull.y,
-      [`skull ${skull.id}.vx`]: skull.vx,
-      [`skull ${skull.id}.vy`]: skull.vy,
-    });
+    checkSlotFinite("skull", skull.id, "x", skull.x);
+    checkSlotFinite("skull", skull.id, "y", skull.y);
+    checkSlotFinite("skull", skull.id, "vx", skull.vx);
+    checkSlotFinite("skull", skull.id, "vy", skull.vy);
   }
+}
+
+function checkWispsNoNaN(state: RunState): void {
   for (const wisp of state.wisps) {
     if (!wisp.alive) continue;
-    checkFinite({
-      [`wisp ${wisp.id}.x`]: wisp.x,
-      [`wisp ${wisp.id}.y`]: wisp.y,
-      [`wisp ${wisp.id}.vx`]: wisp.vx,
-      [`wisp ${wisp.id}.vy`]: wisp.vy,
-      [`wisp ${wisp.id}.life`]: wisp.life,
-    });
+    checkSlotFinite("wisp", wisp.id, "x", wisp.x);
+    checkSlotFinite("wisp", wisp.id, "y", wisp.y);
+    checkSlotFinite("wisp", wisp.id, "vx", wisp.vx);
+    checkSlotFinite("wisp", wisp.id, "vy", wisp.vy);
+    checkSlotFinite("wisp", wisp.id, "life", wisp.life);
   }
-  checkFinite({
-    "lines.streamIn": state.lines.streamIn,
-    "lines.surgeVolleys": state.lines.surgeVolleys,
-    "lines.orbitPhase": state.lines.orbitPhase,
-    "lines.tollIn": state.lines.tollIn,
-    "lines.ring.ticks": state.lines.ring?.ticks ?? 0,
-  });
-  for (let slot = 0; slot < state.lines.stoneRecharge.length; slot++) {
-    checkFinite({
-      [`lines.stoneRecharge[${slot}]`]: state.lines.stoneRecharge[slot],
-    });
+}
+
+function checkLinesNoNaN(state: RunState): void {
+  const { lines } = state;
+  checkFinite("lines.streamIn", lines.streamIn);
+  checkFinite("lines.surgeVolleys", lines.surgeVolleys);
+  checkFinite("lines.orbitPhase", lines.orbitPhase);
+  checkFinite("lines.tollIn", lines.tollIn);
+  checkFinite("lines.ring.ticks", lines.ring?.ticks ?? 0);
+  for (let slot = 0; slot < lines.stoneRecharge.length; slot++) {
+    checkCellFinite("lines.stoneRecharge", slot, lines.stoneRecharge[slot]);
   }
+}
+
+/**
+ * Every number the rules mutate. A NaN anywhere in here poisons the run
+ * silently. The pools are walked in the order they are listed, so the field
+ * that fails is the first one in that order, never whichever pool happens to
+ * hold it.
+ */
+function checkNoNaN(state: RunState): void {
+  checkRunNoNaN(state);
+  checkMobsNoNaN(state);
+  checkMobFireNoNaN(state);
+  checkCorpsesNoNaN(state);
+  checkSkullsNoNaN(state);
+  checkWispsNoNaN(state);
+  checkLinesNoNaN(state);
 }
 
 /** Size is health, and ADR 0003 makes both ends of it hard. */
