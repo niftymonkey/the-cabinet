@@ -227,6 +227,25 @@ describe("pushback arrives at level 4 (ADR 0005)", () => {
     }
   });
 
+  it("shoves with the level the ring froze, not a level gained while it was live", () => {
+    // A ring is live for a quarter of every period, so a bell drop lands
+    // during one often. The radius and the sweep both read the ring's own
+    // level, and a push read off the live level shoves a mob further than the
+    // ring that reached it can account for.
+    const state = quietRun();
+    state.levels.bell = 4;
+    const distance = 40;
+    const mob = put(state, "revenant", state.grave.x + distance, state.grave.y);
+    const from = mob.x;
+    ringFor(state, BELL_PERIOD);
+    expect(state.lines.ring?.level).toBe(4);
+
+    state.levels.bell = MAX_LEVEL;
+    ringFor(state, BELL_EXPAND_TICKS);
+    const near = 1 - distance / BELL_RADIUS_BY_LEVEL[4];
+    expect(mob.x - from).toBeCloseTo(BELL_PUSH_BY_LEVEL[4] * near, 4);
+  });
+
   it("keeps a pushed mob inside the field widened by SPAWN_MARGIN", () => {
     // Without the clamp a mob near an edge is shoved out of the box the
     // invariant harness checks, by the player's own weapon, and the harness

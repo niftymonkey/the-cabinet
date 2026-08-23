@@ -606,6 +606,10 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
     it(`leaves survivors from ${wave.count} ${wave.type}s at every line's ceiling`, () => {
       const state = stormRun();
       for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
+      // Every other test in this file holds the stream off, and this one is
+      // measuring it, so its clock is armed to fire on the window's first tick.
+      // The surged volley follows SURGE_INTERVAL later, both inside the window.
+      state.lines.streamIn = 1;
       const row = MOB_TYPES[wave.type];
       const mobs: Mob[] = [];
       for (let index = 0; index < wave.count; index++) {
@@ -628,6 +632,14 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
         advanceWisps(state);
         resolveStorm(state);
       }
+      // The stream is half of what the bound is derived against, so a window
+      // it never fired in would measure the wisps alone.
+      expect(state.skulls.filter((skull) => skull.alive)).not.toHaveLength(0);
+      // The stream is a narrow fan straight up out of the mouth, so at this
+      // wave's standoff its columns cross the wave's line within about seven
+      // units of the grave's centre. A wave laid across the field's whole
+      // width is mostly outside the stream's reach whatever its level, and the
+      // coverage is far narrower than "every line at its ceiling" suggests.
       expect(mobs.filter((mob) => mob.alive).length).toBeGreaterThan(0);
     });
   }

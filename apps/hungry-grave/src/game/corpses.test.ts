@@ -12,6 +12,7 @@ import {
   advanceCorpses,
   asSwallowable,
   corpseHitbox,
+  cullCorpses,
   spawnCorpse,
   spawnDrop,
   spawnFeast,
@@ -213,20 +214,50 @@ describe("a drop on the food pool (plan 6.9)", () => {
     expect(drop.halfExtent).toBe(DROP_HALF_EXTENT);
   });
 
-  it("never decays, and only the bottom edge takes it", () => {
-    // Watched go red with cullCorpses left on the module constant: a drop would
-    // then ride a unit of extra travel past where a corpse goes, and the test
-    // named for this behaviour would pass without ever seeing it.
+  it("never decays, and the bottom edge measures it by its own extent rather than a corpse's", () => {
     const state = quietRun();
-    spawnDrop(state, 200, FIELD_HEIGHT, "wisps");
+    spawnDrop(state, 200, 300, "wisps");
     const drop = state.corpses.find((corpse) => corpse.alive)!;
-    expect(drop.halfExtent).toBeGreaterThan(0);
 
-    drop.y = FIELD_HEIGHT + drop.halfExtent;
-    expect(drop.y - drop.halfExtent).toBeLessThanOrEqual(FIELD_HEIGHT);
+    for (let tick = 0; tick < 2 * FRESHNESS_SECONDS * TICK_HZ; tick++) {
+      advanceCorpses(state);
+    }
+    expect(drop.freshness).toBe(1);
+    expect(drop.alive).toBe(true);
 
-    drop.y = FIELD_HEIGHT + drop.halfExtent + 0.5;
-    expect(drop.y - drop.halfExtent).toBeGreaterThan(FIELD_HEIGHT);
+    // A drop is one unit larger than a corpse, so at the depth a corpse has
+    // already gone the drop's own top edge is still on the field. The two
+    // standing at the same y is the whole test: no single extent can send them
+    // different ways, so the cull is reading each record's own.
+    spawnCorpse(state, killAt(state, "shambler", 240, 300));
+    const corpse = state.corpses.find((each) => each.kind === "corpse")!;
+    drop.y = FIELD_HEIGHT + DROP_HALF_EXTENT;
+    corpse.y = FIELD_HEIGHT + DROP_HALF_EXTENT;
+
+    const first = cullCorpses(state);
+    expect(drop.alive).toBe(true);
+    expect(corpse.alive).toBe(false);
+    expect(first).toHaveLength(1);
+    expect(first[0]).toEqual({
+      type: "corpseLost",
+      kind: "corpse",
+      x: 240,
+      y: FIELD_HEIGHT + DROP_HALF_EXTENT,
+      freshness: 1,
+    });
+
+    drop.y = FIELD_HEIGHT + DROP_HALF_EXTENT + 0.5;
+    const second = cullCorpses(state);
+    expect(drop.alive).toBe(false);
+    expect(second).toEqual([
+      {
+        type: "corpseLost",
+        kind: "drop",
+        x: 200,
+        y: FIELD_HEIGHT + DROP_HALF_EXTENT + 0.5,
+        freshness: 1,
+      },
+    ]);
   });
 
   it("emits dropSpawned with the line and the place, which is the drops instrument's denominator", () => {

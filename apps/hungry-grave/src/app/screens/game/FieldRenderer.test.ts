@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from "../../../game/caps";
 import { TICK_HZ } from "../../../game/clock";
 import { FIELD_HEIGHT } from "../../../game/field";
+import type { Corpse } from "../../../game/corpses";
 import {
   CORPSE_HALF_EXTENT,
   spawnCorpse,
@@ -43,6 +44,24 @@ function attached(): { layers: FieldLayers; renderer: FieldRenderer } {
 
 function put(state: RunState, type: MobType, x: number, y: number) {
   return spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+}
+
+/**
+ * A wave killed in one burst, down to the freshness that flickers. The mobs all
+ * die before any corpse is spawned, so the corpse ids run consecutively the way
+ * one storm tick's kills do.
+ */
+function flickering(state: RunState, count: number): Corpse[] {
+  const dead = [];
+  for (let index = 0; index < count; index++) {
+    const mob = put(state, "shambler", 40 + index * 30, 100);
+    mob.alive = false;
+    dead.push(mob);
+  }
+  for (const mob of dead) spawnCorpse(state, mob);
+  const wave = state.corpses.filter((corpse) => corpse.alive);
+  for (const corpse of wave) corpse.freshness = 0.1;
+  return wave;
 }
 
 function sprites(layers: FieldLayers, name: "corpses" | "mobBodies") {
@@ -363,25 +382,42 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
   });
 
   it("flickers two corpses killed on the same tick out of phase", () => {
+    // The pair is two ids apart rather than adjacent. An offset that reduces
+    // to the id's parity puts every corpse in one of two lockstep halves, and
+    // two adjacent ids land in different halves, so an adjacent pair reads as
+    // out of phase whether the offset spreads the wave or splits it in two.
     const state = createRun(3);
-    const first = put(state, "shambler", 100, 100);
-    const second = put(state, "shambler", 200, 100);
-    first.alive = false;
-    second.alive = false;
-    spawnCorpse(state, first);
-    spawnCorpse(state, second);
-    const [a, b] = state.corpses.filter((corpse) => corpse.alive);
-    a.freshness = 0.1;
-    b.freshness = 0.1;
-    expect(a.id).not.toBe(b.id);
+    const wave = flickering(state, 3);
+    const [a, , c] = wave;
+    expect(c.id - a.id).toBe(2);
 
     const differed = [];
     for (let tick = 0; tick < FLICKER_HALF_PERIOD * 4; tick++) {
       differed.push(
-        freshnessBrightness(a, tick) !== freshnessBrightness(b, tick),
+        freshnessBrightness(a, tick) !== freshnessBrightness(c, tick),
       );
     }
     expect(differed.some((apart) => apart)).toBe(true);
+  });
+
+  it("switches only a fraction of a burst-killed wave on any one tick", () => {
+    // The hazard SC 2.3.1 is written about is a large area changing luminance
+    // together, so what the offset has to buy is a small area per switch. A
+    // wave in two halves changes half of itself at once; spread across the
+    // period it changes a twelfth.
+    const state = createRun(5);
+    const wave = flickering(state, FLICKER_HALF_PERIOD);
+    let before = wave.map((corpse) => freshnessBrightness(corpse, 0));
+    let most = 0;
+    for (let tick = 1; tick <= FLICKER_HALF_PERIOD * 4; tick++) {
+      const now = wave.map((corpse) => freshnessBrightness(corpse, tick));
+      const switched = now.filter((value, at) => value !== before[at]).length;
+      most = Math.max(most, switched);
+      before = now;
+    }
+    expect(most).toBeLessThanOrEqual(
+      Math.ceil(wave.length / FLICKER_HALF_PERIOD),
+    );
   });
 
   it("gives the revenant's tell a component that grows as the shot approaches", () => {

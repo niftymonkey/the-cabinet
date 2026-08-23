@@ -202,6 +202,20 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     expect(canvasListeners.size).toBe(0);
   });
 
+  it("a pointercancel drops the belch button's claim, the way pause and blur do", () => {
+    // Pixi v8 maps no pointercancel, so no federated pointerup ever arrives to
+    // clear the claim and this listener is the only thing that can. A claim
+    // left standing is a pointer id the steer model goes on ignoring.
+    const screen = new GameScreen();
+    screen.prepare();
+    const button = screen["belchButton"];
+    button.emit("pointerdown", { pointerId: 5 } as never);
+    expect(button.owns(5)).toBe(true);
+
+    for (const cancel of canvasListeners) cancel();
+    expect(button.owns(5)).toBe(false);
+  });
+
   it("update is called with a ticker and the tick count matches the elapsed time", () => {
     // One tick per rendered frame is gone: the sim advances on clock.ts, so a
     // 144 Hz display and a 60 Hz display play the same game (ADR 0015).

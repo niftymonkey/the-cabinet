@@ -621,11 +621,12 @@ export function freshnessBrightness(corpse: Corpse, tick: number): number {
   const faded =
     CORPSE_FADE_FLOOR + (1 - CORPSE_FADE_FLOOR) * Math.max(0, corpse.freshness);
   if (corpse.freshness >= FLICKER_BELOW) return faded;
-  // Each corpse's phase is offset by its own id, so a wave killed in one burst
-  // does not flicker in lockstep. The offset is the id and not a random draw,
-  // because the renderer must stay a pure function of the sim's own state.
-  const phase = Math.floor(
-    (tick + corpse.id * FLICKER_HALF_PERIOD) / FLICKER_HALF_PERIOD,
-  );
+  // Each corpse's phase is offset by its own id, one tick per id, so a wave
+  // killed in one burst spreads its switches across the period instead of
+  // changing together: the area changing luminance on any one tick is a
+  // twelfth of the wave, which is the hazard SC 2.3.1 is written about. The
+  // offset is the id and not a random draw, because the renderer must stay a
+  // pure function of the sim's own state.
+  const phase = Math.floor((tick + corpse.id) / FLICKER_HALF_PERIOD);
   return phase % 2 === 0 ? faded * FLICKER_DEPTH : faded;
 }
