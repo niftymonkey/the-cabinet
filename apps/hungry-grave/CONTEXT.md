@@ -114,7 +114,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Challenge**: A seed shared so somebody else can play it. Same dice, their hands, their run. A challenge is played, never watched. _Avoid_: seed share, ghost, replay.
 
-**Tape**: The recording of one run: its seed, its starting size, and the exact commands the grave was steered by, tick by tick. A tape holds no game state and no numbers. Every number a tape can answer is computed by replaying it, which is why a tape recorded today can answer a question nobody has thought of yet. _Avoid_: recording, demo, log, save file, ghost.
+**Tape**: The recording of one run, in three separable sections: a body holding the seed, the resolved starting size and the exact commands the grave was steered by, tick by tick; the run's witness at checkpoints along the way; and a third section carrying only what cannot be recomputed from deterministic state, timings being merely the first inhabitants of it. A tape holds no field state, so anything a replay can rebuild is computed by replaying it, which is why a tape recorded today can answer a question nobody has thought of yet. _Avoid_: recording, demo, log, save file, ghost.
 
 **Replay**: Playing a tape back so the original run happens again exactly. A replay is watched, never played: same dice, the original hands. Shared, it is how somebody sees a run over the player's shoulder. _Avoid_: playback, rerun, ghost, pinned run.
 
@@ -130,6 +130,20 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 ### The build
 
-**Witness**: The number a run folds its own state down to, stamped on a tape at checkpoints along the way. A replay recomputes it and so can attest that it reproduced the run rather than merely resembling it. Numbers from a replay whose witness does not match are never reported. _Avoid_: hash, fingerprint, signature.
+**Witness**: The number a run folds its own state down to, stamped on a tape at checkpoints along the way. A replay recomputes it and so can attest that it reproduced the run rather than merely resembling it, and because each checkpoint is an independent snapshot rather than a running total, a replay that diverges can name the first checkpoint that disagrees. It carries its own version, so a widened fold reads as a different witness rather than as a run that did not happen. Numbers from a replay whose witness does not match are never reported. _Avoid_: fingerprint, signature.
+
+**Digest**: The witness of the one canonical scenario, committed as a constant so a change to the rules shows up as a moved number. Witness and digest name one fold used two ways: a tape's proof of its own run, and the tree's proof that the simulation still behaves. The constant itself is named `GOLDEN` in the code, which is the identifier and not the concept's name. _Avoid_: golden test, snapshot.
+
+**Fault**: What the simulation records when one of its own invariant checks fires. A fault is a defect in the game, never a thing the player did, and it never wears the vocabulary of death. _Avoid_: crash, error, exception, assertion.
+
+**Fatal fault**: A fault after which continued execution would be unusable or untrustworthy, so the run stops. Stopping is not a death and not an ending: the run is over and the player was not sealed shut. _Avoid_: fatal error, crash, game over.
+
+**Recoverable fault**: A fault the simulation can safely carry on through, recorded once with the tick it first fired on and the count, while the run continues. Safe to continue is not the same as harmless, and a run carrying one is not clean evidence. _Avoid_: warning, minor, cosmetic.
+
+**Integrity**: Whether a recorded run was sound, meaning whether any fault fired in it at all. Separate from the witness, which asks a different question: the witness says whether this is the original run, integrity says whether the original run was worth trusting. _Avoid_: valid, clean, verified.
+
+**Stop**: How a run stopped, as opposed to how it ended. A run finishes, is quit, or is stopped by a fatal fault, and a recording that simply breaks off says unknown. Ending and stop are two facts and never one. _Avoid_: status, outcome, result.
+
+**Damage source**: What dealt a hit, carried on the event either way. On damage the player deals it is the weapon line or the belch; on damage the player takes it is mob fire, naming the type that fired, or a body landing on the grave. A hit with no source is a hit nothing can be learned from. _Avoid_: attacker, cause, origin.
 
 **Prototype**: A self-contained teaching build in its own folder under its own route, listed by the base app and removable by deleting the folder and its registry entry. It exists to teach and is never extended into the game. _Avoid_: spike, demo, POC, MVP.

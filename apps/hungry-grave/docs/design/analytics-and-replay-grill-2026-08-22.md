@@ -94,7 +94,7 @@ The agent named the hazard in Option C plainly and did not hide it: `events.ts:3
 
 **Options offered.** A, kill credit only, by adding `source` to `mobKilled`. B, a `mobDamaged { source, amount, killed }` event on every hit, with `DamageSource` split per line and `mobKilled` untouched. C, both.
 
-**Evidence brought.** Volume is a non-issue: the densest authored moment puts 47 mobs alive at once per `caps.ts:31`, and `SKULL_DAMAGE`, `STONE_DAMAGE` and `WISP_DAMAGE` are all 1, so a per-hit event is a handful per tick spiking to about 47 on a belch.
+**Evidence brought.** Volume is a non-issue: the densest authored moment puts 47 mobs alive at once per `caps.ts:31`, and `SKULL_DAMAGE`, `STONE_DAMAGE` and `WISP_DAMAGE` are all 1, so a per-hit event is a handful per tick spiking to about 47 on a belch. **Correction 2026-08-23: the measured figure is 51, not 47.** The 47 is left as written because it is what the argument above was made on. `src/game/caps.ts` carries the current value and [research/invariant-check-cost.md](../research/invariant-check-cost.md) section 3a carries the measurement.
 
 The decisive argument was that kill credit alone would answer the question wrong. At 1 damage per hit against 3-health shamblers and 5-health revenants, whichever line lands the last hit takes 100% of a kill it did 20% of. "Which upgrades are valuable" is the whole reason the instrument exists.
 
@@ -458,7 +458,7 @@ Everything here was decided by the agent rather than by Mark. Each is listed so 
 
 ## Open Questions the 6a Spec Must Close
 
-- ~~**Do invariants run on every tick in production?**~~ **Closed by Mark on 2026-08-23: always on.** `stepChecked` ran the invariants on every step and only ever ran in dev; `executeTick` ships, and it carries them into production unconditionally. No build-time flag and no listener opt-in, because either one makes the honesty of a tape depend on which build recorded it. The cost lands on the player's frame budget and Mark accepted it knowing that. The 6a spec still owes the measurement of what that cost is at the densest authored moment, 47 mobs alive.
+- ~~**Do invariants run on every tick in production?**~~ **Closed by Mark on 2026-08-23: always on.** `stepChecked` ran the invariants on every step and only ever ran in dev; `executeTick` ships, and it carries them into production unconditionally. No build-time flag and no listener opt-in, because either one makes the honesty of a tape depend on which build recorded it. The cost lands on the player's frame budget and Mark accepted it knowing that. The 6a spec still owes the measurement of what that cost is at the densest authored moment, 47 mobs alive. **Correction 2026-08-23: the measured figure is 51, not 47.** The 47 is left as written because it is what the argument above was made on. `src/game/caps.ts` carries the current value and [research/invariant-check-cost.md](../research/invariant-check-cost.md) section 3a carries the measurement.
 - **The quantisation grid**, per the table above.
 - **The witness checkpoint interval**, per the table above.
 

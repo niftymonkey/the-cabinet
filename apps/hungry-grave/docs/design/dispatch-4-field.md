@@ -106,7 +106,7 @@ export const MOB_FIRE_CAP = 400;
 export const CORPSE_CAP = 200;
 ```
 
-These are a safety net and not a tuning knob. The densest authored moment in section 4.7 puts 47 mobs alive at once, at the back half's t=68, so the caps are far enough above the content that hitting one means something has gone wrong, and near enough that a runaway spawn cannot allocate without bound. Dispatch 7 owns them if the storm changes the arithmetic.
+These are a safety net and not a tuning knob. The densest authored moment in section 4.7 puts 47 mobs alive at once, at the back half's t=68, so the caps are far enough above the content that hitting one means something has gone wrong, and near enough that a runaway spawn cannot allocate without bound. **Correction 2026-08-23: the measured figure is 51, not 47.** The 47 is left as written because it is what the argument above was made on. `src/game/caps.ts` carries the current value and [research/invariant-check-cost.md](../research/invariant-check-cost.md) section 3a carries the measurement. Dispatch 7 owns them if the storm changes the arithmetic.
 
 At the cap, something must be dropped, and which one is a gameplay rule rather than a housekeeping detail. That is why this policy is in `src/game` and not in `invariants.ts`: checking a cap is not enforcing one, and if the policy lived in `src/dev` the test rig would be load-bearing in the shipped game.
 
