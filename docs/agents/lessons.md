@@ -44,6 +44,8 @@ Codebase-specific traps live beside their code. The Hungry Grave's are in `apps/
 
 **CodeRabbit's findings are worth verifying one by one rather than triaging by severity label.** Of seven, six were real, and the two labelled Minor included a genuine invariant defect. The one that needed pushing back on was a Major. The label predicts nothing.
 
+**Do not determine whether a bot review is current solely from the PR reviews list.** Some bots, including CodeRabbit, may update an existing summary comment without creating a new review object. Check the bot's current summary/comment state as well before concluding that no fresh review exists or that an existing review is stale. The summary comment names the commit range it reviewed and the files it covered, so it answers the question the reviews list cannot.
+
 ## Subagents
 
 **A dispatch subagent can stall after doing all the work.** One wrote a whole dispatch, got partway through its own verification, and died on a watchdog with no report. The tree was complete and good. **Check `git status` and run the checks before assuming a stalled agent left a mess**, because re-dispatching would have thrown away two thousand good lines.
