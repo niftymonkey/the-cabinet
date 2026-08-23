@@ -31,7 +31,7 @@ import { damageMob, spawnMob } from "../game/mobs";
 import type { MoveCommand, RunState } from "../game/run";
 import { createRun } from "../game/run";
 import { place } from "../game/stage/templates";
-import { stepChecked } from "./invariants";
+import { stepChecked } from "../game/invariants";
 
 const SEED = 20260820;
 const TICKS = 600;

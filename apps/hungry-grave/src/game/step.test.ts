@@ -4,7 +4,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { stepChecked } from "../dev/invariants";
+import { stepChecked } from "./invariants";
 import { spawnCorpse } from "./corpses";
 import { priceOfNextDrop } from "./drops";
 import type { SimEvent } from "./events";

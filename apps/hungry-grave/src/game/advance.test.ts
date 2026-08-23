@@ -13,13 +13,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * step in every sim test.
  *
  * The harness cannot be built inside this factory, and the reason is worth
- * writing down: src/dev/invariants.ts imports src/game/step, so awaiting it
+ * writing down: src/game/invariants.ts imports src/game/step, so awaiting it
  * here waits on the very module this factory is still constructing, and the
  * test file hangs rather than failing. stepChecked is out for the same reason.
  */
 vi.mock("./step", () => ({ step: vi.fn() }));
 
-import { checkInvariants } from "../dev/invariants";
+import { checkInvariants } from "./invariants";
 import type { CommandSource } from "./advance";
 import { advance } from "./advance";
 import { createClock, ticksFor, TICK_MS } from "./clock";

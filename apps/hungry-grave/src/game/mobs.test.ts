@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 // the source scan below stays inside the boundary src/boundary.test.ts holds.
 import mobsSource from "./mobs.ts?raw";
 
-import { stepChecked } from "../dev/invariants";
+import { stepChecked } from "./invariants";
 import { SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from "./tuning";
 import { TICK_HZ } from "./clock";
 import type { SimEvent } from "./events";

@@ -17,7 +17,7 @@ import { graveWidth } from "../game/grave";
 import { MOB_TYPES } from "../game/mobs";
 import type { MoveCommand, RunState, TickCommand } from "../game/run";
 import { BASE_SPEED, RESERVOIR_CAPACITY, SCROLL_SPEED } from "../game/tuning";
-import { stepChecked } from "./invariants";
+import { stepChecked } from "../game/invariants";
 
 /**
  * A policy's whole command for this tick, the belch included. Anything the rig

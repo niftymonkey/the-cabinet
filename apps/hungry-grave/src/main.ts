@@ -48,8 +48,8 @@ function attachFpsMeter(engine: CreationEngine): void {
 
 /**
  * The digest screen is imported dynamically, the way the prototypes already
- * are, or src/dev/digest.ts and src/dev/invariants.ts land in the boot chunk of
- * every player's first load. resolveScreen is an if-chain ending in TitleScreen,
+ * are, or src/dev/digest.ts lands in the boot chunk of every player's first
+ * load. resolveScreen is an if-chain ending in TitleScreen,
  * so a new route kind with no branch here compiles cleanly and silently sends
  * its hash to the title screen.
  */

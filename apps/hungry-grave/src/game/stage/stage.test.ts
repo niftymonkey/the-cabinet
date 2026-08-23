@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { stepChecked } from "../../dev/invariants";
+import { stepChecked } from "../invariants";
 import { TICK_HZ } from "../clock";
 import type { SimEvent } from "../events";
 import { FIELD_WIDTH } from "../field";

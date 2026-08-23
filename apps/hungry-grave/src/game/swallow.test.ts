@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { stepChecked } from "../dev/invariants";
+import { stepChecked } from "./invariants";
 import type { SimEvent } from "./events";
 import { MAX_LEVEL } from "./lines/roster";
 import { createRun } from "./run";

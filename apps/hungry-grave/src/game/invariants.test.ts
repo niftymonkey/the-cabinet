@@ -4,16 +4,16 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { spawnCorpse } from "../game/corpses";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
-import type { Mob } from "../game/mobs";
-import { SPAWN_MARGIN, spawnMob } from "../game/mobs";
-import type { RunState, TickCommand } from "../game/run";
-import { createRun } from "../game/run";
-import { BELL_EXPAND_TICKS } from "../game/lines/bell";
-import { MAX_LEVEL } from "../game/lines/roster";
-import { SKULL_HALF_EXTENT } from "../game/lines/soulStream";
-import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from "../game/tuning";
+import { spawnCorpse } from "./corpses";
+import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
+import type { Mob } from "./mobs";
+import { SPAWN_MARGIN, spawnMob } from "./mobs";
+import type { RunState, TickCommand } from "./run";
+import { createRun } from "./run";
+import { BELL_EXPAND_TICKS } from "./lines/bell";
+import { MAX_LEVEL } from "./lines/roster";
+import { SKULL_HALF_EXTENT } from "./lines/soulStream";
+import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from "./tuning";
 import { checkInvariants, stepChecked } from "./invariants";
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };

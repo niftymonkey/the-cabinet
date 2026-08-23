@@ -2,30 +2,32 @@
  * The sim invariant harness (ADR 0013): in bounds, size within floor and
  * ceiling, no NaN, entity caps, checked on every step in every sim test.
  *
- * It lives in src/dev because it is the test rig and not the game. Shipping it
- * inside src/game would make the rig load-bearing in the built app.
+ * It lives in src/game so advance() can run it inside its own tick loop. That
+ * is the only place the check can see the case that matters: the catch-up clamp
+ * runs up to fifteen ticks in one frame, and a check fired once per frame reads
+ * the last of those ticks and misses the other fourteen. src/boundary.test.ts
+ * lets shipped code under src/game reach only src/game, so a harness reachable
+ * from advance() has to be here.
+ *
+ * The cost of that is real and deliberate: this module is now in the shipped
+ * bundle rather than in the test rig alone. Nothing calls it unless a caller
+ * asks, so the built app pays for the bytes and not for the work.
  *
  * Checking a cap is not enforcing one. caps.ts enforces; this only notices.
  */
 
-import type { PoolSlot } from "../game/caps";
-import {
-  CORPSE_CAP,
-  MOB_CAP,
-  MOB_FIRE_CAP,
-  SKULL_CAP,
-  WISP_CAP,
-} from "../game/caps";
-import type { SimEvent } from "../game/events";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
-import { graveHitbox } from "../game/grave";
-import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from "../game/lines/roster";
-import { BELL_EXPAND_TICKS } from "../game/lines/bell";
-import { SKULL_HALF_EXTENT } from "../game/lines/soulStream";
-import { SPAWN_MARGIN } from "../game/mobs";
-import type { RunState, TickCommand } from "../game/run";
-import { step } from "../game/step";
-import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from "../game/tuning";
+import type { PoolSlot } from "./caps";
+import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP, SKULL_CAP, WISP_CAP } from "./caps";
+import type { SimEvent } from "./events";
+import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
+import { graveHitbox } from "./grave";
+import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from "./lines/roster";
+import { BELL_EXPAND_TICKS } from "./lines/bell";
+import { SKULL_HALF_EXTENT } from "./lines/soulStream";
+import { SPAWN_MARGIN } from "./mobs";
+import type { RunState, TickCommand } from "./run";
+import { step } from "./step";
+import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from "./tuning";
 
 function fail(invariant: string, detail: string): never {
   throw new Error(`sim invariant broken, ${invariant}: ${detail}`);

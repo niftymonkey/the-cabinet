@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { stepChecked } from "../dev/invariants";
+import { stepChecked } from "./invariants";
 import { CORPSE_CAP } from "./caps";
 import { TICK_HZ } from "./clock";
 import {
