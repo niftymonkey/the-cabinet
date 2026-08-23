@@ -458,7 +458,7 @@ Everything here was decided by the agent rather than by Mark. Each is listed so 
 
 ## Open Questions the 6a Spec Must Close
 
-- **Do invariants run on every tick in production?** `stepChecked` runs them always and is dev-only. `executeTick` ships. Whether the check is always-on, a listener, or a build-time flag was never settled, and the summary's "replaces both" glosses it.
+- ~~**Do invariants run on every tick in production?**~~ **Closed by Mark on 2026-08-23: always on.** `stepChecked` ran the invariants on every step and only ever ran in dev; `executeTick` ships, and it carries them into production unconditionally. No build-time flag and no listener opt-in, because either one makes the honesty of a tape depend on which build recorded it. The cost lands on the player's frame budget and Mark accepted it knowing that. The 6a spec still owes the measurement of what that cost is at the densest authored moment, 47 mobs alive.
 - **The quantisation grid**, per the table above.
 - **The witness checkpoint interval**, per the table above.
 
