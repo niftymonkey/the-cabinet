@@ -106,9 +106,15 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Run**: One playthrough of a stage, from its seed roll to sealed shut or victory. _Avoid_: game, session, attempt, playthrough.
 
-**Seed**: The dice a run rolls from. Every fresh run rolls a fresh seed; a seed in the URL pins the run; a run's seed stays visible so it can be shared as a challenge. _Avoid_: RNG state, random seed value.
+**Seed**: The dice a run rolls from. Every fresh run rolls a fresh seed, and a seed in the URL pins the run. A run's seed stays visible so it can be shared. _Avoid_: RNG state, random seed value.
 
-**Pinned run**: A run whose seed came from the URL, so it replays exactly. The playtest instrument and the shareable challenge. _Avoid_: fixed run, replay.
+**Pinned run**: A run whose seed came from the URL, so it rolls the same dice every time. The playtest instrument. _Avoid_: fixed run.
+
+**Challenge**: A seed shared so somebody else can play it. Same dice, their hands, their run. A challenge is played, never watched. _Avoid_: seed share, ghost, replay.
+
+**Tape**: The recording of one run: its seed, its starting size, and the exact commands the grave was steered by, tick by tick. A tape holds no game state and no numbers. Every number a tape can answer is computed by replaying it, which is why a tape recorded today can answer a question nobody has thought of yet. _Avoid_: recording, demo, log, save file, ghost.
+
+**Replay**: Playing a tape back so the original run happens again exactly. A replay is watched, never played: same dice, the original hands. Shared, it is how somebody sees a run over the player's shoulder. _Avoid_: playback, rerun, ghost, pinned run.
 
 ### Bosses
 
@@ -121,5 +127,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 **Add**: An ordinary mob summoned by a boss mid-fight. Adds are trash: normal pushback, normal corpses, and they keep the swallow economy alive at the climax. _Avoid_: summon, minion, spawn.
 
 ### The build
+
+**Witness**: The number a run folds its own state down to, stamped on a tape at checkpoints along the way. A replay recomputes it and so can attest that it reproduced the run rather than merely resembling it. Numbers from a replay whose witness does not match are never reported. _Avoid_: hash, fingerprint, signature.
 
 **Prototype**: A self-contained teaching build in its own folder under its own route, listed by the base app and removable by deleting the folder and its registry entry. It exists to teach and is never extended into the game. _Avoid_: spike, demo, POC, MVP.
