@@ -1071,6 +1071,12 @@ That sets what the instrument owes: feel is his half and evidence is the agent's
 
 Two separate findings inside one answer. The drop reads as *something worth having*, weakly. It does not read as *which line it belongs to* at all, which is the read the silhouette design exists to deliver, and the drop is not carrying enough visual weight for a player to want to swerve for it.
 
+There is a second failure inside the same answer, and it is not about colour at all:
+
+"Not only are they the same color, but they also stack on each other. If I kill three mobs that are stacked on each other, then I can't see all three things very easily. When the drops are hidden underneath a mob corpse, it's not easy to see that it is a drop."
+
+Drops and corpses share one pool and a drop spawns where the mob died, so a drop can sit under the corpse of the thing that dropped it. No amount of hue or silhouette work fixes something that is not visible. His proposed fix: "some level of the equivalent of a force-directed graph kind of movement that pushes those special drop items away from corpses, or maybe pushes the corpses away from those." A cheaper option nobody has weighed against it is drawing every drop above every corpse, which costs one ordering change and no sim work, but separates them in depth rather than in space.
+
 He is not the only source landing here. The product vision gate found independently that the four silhouettes ship in one colour, `PALETTE.drop`, while the tracer plan's own proposal was "a per-line colour", and that the record's own argument is that hue is the free channel because brightness is spoken for by freshness and luminance by ADR 0014's band. Separately, a drop and a mob shot both draw at 16 units, so size no longer separates them either. His read, the gate's read and the parked size note are three routes to the same place.
 
 **Can you tell the four weapon lines apart while they are all firing.** Two of the four blur together, and he named which.
