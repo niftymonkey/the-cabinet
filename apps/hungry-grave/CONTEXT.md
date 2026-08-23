@@ -134,6 +134,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Digest**: The witness of the one canonical scenario, committed as a constant so a change to the rules shows up as a moved number. Witness and digest name one fold used two ways: a tape's proof of its own run, and the tree's proof that the simulation still behaves. The constant itself is named `GOLDEN` in the code, which is the identifier and not the concept's name. _Avoid_: golden test, snapshot.
 
+**Verification readback**: Decoding a tape and reproducing its run far enough to prove the tape is sound: that it decodes, that its witness recomputes, and that the same tape gives the same run twice. It proves an artifact and it is never the replay feature, so no replay obligation is met by it existing. _Avoid_: replay, small replay, partial replay, playback.
+
 **Fault**: What the simulation records when one of its own invariant checks fires. A fault is a defect in the game, never a thing the player did, and it never wears the vocabulary of death. _Avoid_: crash, error, exception, assertion.
 
 **Fatal fault**: A fault after which continued execution would be unusable or untrustworthy, so the run stops. Stopping is not a death and not an ending: the run is over and the player was not sealed shut. _Avoid_: fatal error, crash, game over.
