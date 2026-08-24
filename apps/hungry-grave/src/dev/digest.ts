@@ -35,7 +35,8 @@ import { damageMob, spawnMob } from "../game/mobs";
 import type { MoveCommand, RunState } from "../game/run";
 import { createRun } from "../game/run";
 import { place } from "../game/stage/templates";
-import { stepChecked } from "../game/invariants";
+import type { FaultRecord } from "../game/execution";
+import { createExecution, executeTick } from "../game/execution";
 import { foldWitness } from "../game/witness";
 
 const SEED = 20260820;
@@ -135,6 +136,15 @@ export interface ScenarioResult {
    * reaches an entity's own state.
    */
   readonly state: RunState;
+  /**
+   * Every invariant the scenario broke, de-duplicated by identity.
+   *
+   * It is returned rather than thrown because a check records a fault and
+   * returns (ADR 0017). The scenario used to abort on the first broken
+   * invariant, so a caller that wanted to know had only the exception; a caller
+   * that wants to know now has to read this, and the #/digest screen does.
+   */
+  readonly faults: readonly FaultRecord[];
 }
 
 function liveCount(pool: readonly { alive: boolean }[]): number {
@@ -198,9 +208,10 @@ function scriptedKills(run: RunState, tick: number): number {
   return 1;
 }
 
-/** Runs the scenario, returning its digest, how close it came to the field boundary, and the run itself. */
+/** Runs the scenario, returning its digest, how close it came to the field boundary, the run itself and any faults it broke. */
 export function runScenario(): ScenarioResult {
   const run = createRun(SEED);
+  const execution = createExecution(run);
   let checksum = 0;
   let kills = 0;
   let minX = Infinity;
@@ -208,8 +219,17 @@ export function runScenario(): ScenarioResult {
   let maxX = -Infinity;
   let maxY = -Infinity;
   for (let tick = 0; tick < TICKS; tick++) {
+    // The loop reads the stop condition off the Execution before each tick (ADR
+    // 0017), the same as advance's inner loop and the bot's policy loop. Without
+    // it the scenario would run its whole remaining budget on a state a fatal
+    // fault has already declared unusable, and a NaN-poisoned run's digest says
+    // nothing about determinism.
+    if (execution.stop !== null) break;
     kills += scriptedKills(run, tick);
-    stepChecked(run, { move: SCRIPT[tick % SCRIPT.length], belch: false });
+    executeTick(execution, {
+      move: SCRIPT[tick % SCRIPT.length],
+      belch: false,
+    });
     const box = graveHitbox(run.grave);
     minX = Math.min(minX, box.x);
     minY = Math.min(minY, box.y);
@@ -221,6 +241,7 @@ export function runScenario(): ScenarioResult {
     digest: digestOf(run, checksum, kills),
     boundary: { minX, minY, maxX, maxY },
     state: run,
+    faults: execution.faults,
   };
 }
 

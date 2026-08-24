@@ -112,4 +112,59 @@ export default tseslint.config(
       "no-restricted-properties": ["error", random],
     },
   },
+  {
+    // ADR 0017 requires that every executed tick crosses executeTick, and a
+    // comment saying so is what the previous version of this rule was: the
+    // harness's own comment claimed every sim test stepped through it, and a
+    // screen test had already broken that four times without anybody noticing.
+    //
+    // Two details of the shape are load-bearing. It is a patterns entry and
+    // never a paths entry naming "./step", because paths matches the literal
+    // string as written, so a rule on "./step" blocks nothing spelled
+    // "../step" from src/game/lines. And it covers src/** rather than
+    // src/game/**, because the raw calls this exists for were in src/app and
+    // src/boundary.test.ts separately permits src/dev to reach game/step, so
+    // both roots that can break it sit outside a src/game/** scope. That is
+    // the same hole the math fence documents above, where the SteerSource
+    // closure in src/app is out of reach.
+    //
+    // patterns matches gitignore-style globs against the import source string
+    // and never resolves a module, so this is containment rather than proof:
+    // it catches every spelling anybody writes today, and a re-export barrel or
+    // a tsconfig path alias would walk through it. Two more things walk through
+    // it, both measured against eslint 9 rather than assumed: a call expression
+    // like advance.test.ts's vi.importActual, which no no-restricted-imports
+    // rule can see, and a dynamic import("./step"), which this rule does not
+    // report. The extension-carrying spelling is not one of those holes and is
+    // listed here instead: "**/step" does not match "./step.js", which Vite
+    // resolves happily, so the group names both. The spelling test in
+    // src/executionFence.test.ts is what keeps the claim it does make honest.
+    files: ["src/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/step", "**/step.js"],
+              message:
+                "Every executed tick crosses executeTick in src/game/execution.ts (ADR 0017). A fourth path into step() is a hole in every recording, so this is a build failure rather than something a review has to catch.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The one authority is the one importer, the same file-scoped carve-out
+    // math.ts and rng.ts get from the fence above them, and re-specified with
+    // narrower content the same way rather than switched off. The step fence is
+    // the only import restriction in the block above today, so the narrower
+    // content is an empty pattern list; a second restriction added there would
+    // silently not apply here under an "off", and belongs in this list too.
+    files: ["src/game/execution.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [] }],
+    },
+  },
 );

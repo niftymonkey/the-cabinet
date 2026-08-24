@@ -17,7 +17,8 @@ import { graveWidth } from "../game/grave";
 import { MOB_TYPES } from "../game/mobs";
 import type { MoveCommand, RunState, TickCommand } from "../game/run";
 import { BASE_SPEED, RESERVOIR_CAPACITY, SCROLL_SPEED } from "../game/tuning";
-import { stepChecked } from "../game/invariants";
+import type { Execution } from "../game/execution";
+import { executeTick } from "../game/execution";
 
 /**
  * A policy's whole command for this tick, the belch included. Anything the rig
@@ -35,17 +36,23 @@ export interface PolicyRun {
   readonly ticks: number;
 }
 
-/** Runs a policy until the run ends or the budget is spent, checking the invariants on every step. */
+/**
+ * Runs a policy until the run ends, a fatal fault stops it, or the budget is
+ * spent. Every tick crosses the one authority (ADR 0017), so the bot's runs go
+ * through the same code the rendered game does and no test can prove something
+ * the shipped game does not do.
+ */
 export function runPolicy(
-  state: RunState,
+  execution: Execution,
   policy: Policy,
   maxTicks: number,
 ): PolicyRun {
+  const state = execution.run;
   const events: SimEvent[] = [];
   let ticks = 0;
-  while (ticks < maxTicks && state.ending === null) {
+  while (ticks < maxTicks && state.ending === null && execution.stop === null) {
     const command = policy(state, events);
-    events.push(...stepChecked(state, command));
+    events.push(...executeTick(execution, command));
     ticks += 1;
   }
   return { events, ticks };

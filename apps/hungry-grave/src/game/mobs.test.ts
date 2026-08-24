@@ -1,7 +1,7 @@
 /**
  * The three mob types, their fire and their deaths (ADR 0016). Every sim test
- * here steps through stepChecked, so ADR 0013's invariants are checked on every
- * step.
+ * here steps through the one execution authority (ADR 0017), and stepping()
+ * fails the test on any fault the run records.
  *
  * Magnitudes are the tuning dispatch's, so what is pinned here is the
  * derivations: a descent stated as a multiple of the scroll, a beat counted in
@@ -15,7 +15,8 @@ import { describe, expect, it } from "vitest";
 // the source scan below stays inside the boundary src/boundary.test.ts holds.
 import mobsSource from "./mobs.ts?raw";
 
-import { stepChecked } from "./invariants";
+import type { Stepper } from "../dev/stepping";
+import { stepping } from "../dev/stepping";
 import { SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from "./tuning";
 import { TICK_HZ } from "./clock";
 import type { SimEvent } from "./events";
@@ -131,13 +132,13 @@ function only(run: RunState): Mob {
 }
 
 function run(
-  state: RunState,
+  step: Stepper,
   ticks: number,
   command: TickCommand = STILL,
 ): SimEvent[] {
   const events: SimEvent[] = [];
   for (let tick = 0; tick < ticks; tick++) {
-    events.push(...stepChecked(state, command));
+    events.push(...step(command));
   }
   return events;
 }
@@ -188,6 +189,7 @@ describe("the mob type table (ADR 0016)", () => {
 describe("the arriving beat (ADR 0016)", () => {
   it("holds the template's arriving velocity for ARRIVE_TICKS and then moves under the type's own rule", () => {
     const state = quietRun();
+    const step = stepping(state);
     // A V's arm arrives on a diagonal, which is the case where the beat bites.
     const arm = place("v", 2, state.streams.spawns)[0];
     spawnMob(state, "shambler", order(200, 11, arm.vx, arm.vy));
@@ -195,11 +197,11 @@ describe("the arriving beat (ADR 0016)", () => {
     const arriving = { vx: mob.vx, vy: mob.vy };
     expect(arriving.vx).not.toBe(0);
 
-    run(state, ARRIVE_TICKS);
+    run(step, ARRIVE_TICKS);
     expect(mob.vx).toBeCloseTo(arriving.vx, 12);
     expect(mob.vy).toBeCloseTo(arriving.vy, 12);
 
-    run(state, 1);
+    run(step, 1);
     expect(mob.vx).toBe(0);
     expect(mob.vy).toBeCloseTo(MOB_TYPES.shambler.speed, 12);
   });
@@ -207,12 +209,13 @@ describe("the arriving beat (ADR 0016)", () => {
   it("gives a mob the template's direction times its own type speed, so a straight-down entry changes speed by nothing when the beat ends", () => {
     for (const type of ["shambler", "revenant"] as const) {
       const state = quietRun();
+      const step = stepping(state);
       spawnMob(state, type, order(200, MOB_TYPES[type].halfHeight));
       const mob = only(state);
       expect(mob.vx).toBe(0);
       expect(mob.vy).toBeCloseTo(MOB_TYPES[type].speed, 12);
 
-      run(state, ARRIVE_TICKS + 1);
+      run(step, ARRIVE_TICKS + 1);
       expect(mob.vx).toBe(0);
       expect(mob.vy).toBeCloseTo(MOB_TYPES[type].speed, 12);
     }
@@ -220,6 +223,7 @@ describe("the arriving beat (ADR 0016)", () => {
 
   it("counts the beat from the top-edge crossing and never from the spawn", () => {
     const state = quietRun();
+    const step = stepping(state);
     const deep = -120;
     const arm = place("v", 2, state.streams.spawns)[0];
     spawnMob(state, "shambler", order(200, deep, arm.vx, arm.vy));
@@ -227,17 +231,18 @@ describe("the arriving beat (ADR 0016)", () => {
     const arriving = { vx: mob.vx, vy: mob.vy };
 
     // Counted from spawn the beat would have expired long before this.
-    while (!hasEntered(mob)) run(state, 1);
+    while (!hasEntered(mob)) run(step, 1);
     expect(state.tick).toBeGreaterThan(ARRIVE_TICKS);
 
-    run(state, ARRIVE_TICKS - 1);
+    run(step, ARRIVE_TICKS - 1);
     expect(mob.vx).toBeCloseTo(arriving.vx, 12);
-    run(state, 2);
+    run(step, 2);
     expect(mob.vx).toBe(0);
   });
 
   it("leaves a ghoul flying the template's arriving direction at the tick its beat ends, not straight down", () => {
     const state = quietRun();
+    const step = stepping(state);
     const arm = place("pincer", 2, state.streams.spawns)[0];
     spawnMob(state, "ghoul", order(200, 9, arm.vx, arm.vy));
     const mob = only(state);
@@ -246,7 +251,7 @@ describe("the arriving beat (ADR 0016)", () => {
     // direction can explain where the ghoul is pointing.
     state.grave.x = 200;
 
-    run(state, ARRIVE_TICKS);
+    run(step, ARRIVE_TICKS);
     expect(Math.sign(mob.vx)).toBe(Math.sign(arm.vx));
     expect(Math.abs(mob.vx)).toBeGreaterThan(0);
   });
@@ -255,6 +260,7 @@ describe("the arriving beat (ADR 0016)", () => {
 describe("the ghoul (ADR 0016)", () => {
   it("always descends at least 1.35 times the scroll, so it can never climb or hold station", () => {
     const state = quietRun();
+    const step = stepping(state);
     spawnMob(state, "ghoul", order(120, 60));
     const mob = only(state);
     // Level with the ghoul and far to the side, which is the heading that would
@@ -264,7 +270,7 @@ describe("the ghoul (ADR 0016)", () => {
 
     for (let tick = 0; tick < 1000 && mob.alive; tick++) {
       const before = mob.y;
-      stepChecked(state, STILL);
+      step(STILL);
       state.grave.y = Math.min(mob.y, FIELD_HEIGHT - state.grave.size);
       if (!mob.alive) break;
       expect(mob.y - before).toBeGreaterThanOrEqual(1.35 * SCROLL_SPEED - 1e-9);
@@ -298,10 +304,11 @@ describe("the ghoul (ADR 0016)", () => {
  */
 function ghoulRun(commitAt: number, contact: number): SimEvent[] {
   const state = quietRun();
+  const step = stepping(state);
   spawnMob(state, "ghoul", order(state.grave.x, 400));
   const events: SimEvent[] = [];
   for (let tick = 0; tick < contact + 400; tick++) {
-    events.push(...stepChecked(state, tick < commitAt ? STILL : RIGHT));
+    events.push(...step(tick < commitAt ? STILL : RIGHT));
   }
   return events;
 }
@@ -354,29 +361,32 @@ describe("the armed share (ADR 0016)", () => {
 
   it("never lets an unarmed shambler fire", () => {
     const state = quietRun();
+    const step = stepping(state);
     spawnMob(state, "shambler", order(200, 11, 0, 1, 0));
     expect(only(state).armed).toBe(false);
-    expect(types(run(state, 600), "mobFired")).toHaveLength(0);
+    expect(types(run(step, 600), "mobFired")).toHaveLength(0);
   });
 });
 
 describe("mob fire (ADR 0016 and ADR 0014)", () => {
   it("lights a revenant's tell as it enters and lands its first shot at the end of the beat", () => {
     const state = quietRun();
+    const step = stepping(state);
     spawnMob(state, "revenant", order(200, MOB_TYPES.revenant.halfHeight));
     const mob = only(state);
     expect(hasEntered(mob)).toBe(true);
     expect(mobTellLit(mob)).toBe(true);
 
-    const before = run(state, ARRIVE_TICKS - 1);
+    const before = run(step, ARRIVE_TICKS - 1);
     expect(types(before, "mobFired")).toHaveLength(0);
     expect(mobTellLit(mob)).toBe(true);
 
-    expect(types(run(state, 1), "mobFired")).toHaveLength(1);
+    expect(types(run(step, 1), "mobFired")).toHaveLength(1);
   });
 
   it("puts the same tell lead in front of every shot over a revenant's whole pass", () => {
     const state = quietRun();
+    const step = stepping(state);
     spawnMob(state, "revenant", order(200, MOB_TYPES.revenant.halfHeight));
     const mob = only(state);
     const lead = MOB_TYPES.revenant.fire.tellTicks;
@@ -385,7 +395,7 @@ describe("mob fire (ADR 0016 and ADR 0014)", () => {
     const fired: number[] = [];
     for (let tick = 0; tick < 800 && mob.alive; tick++) {
       const wasLit = mobTellLit(mob);
-      const events = stepChecked(state, STILL);
+      const events = step(STILL);
       if (!wasLit && mobTellLit(mob)) lit.push(state.tick);
       for (const event of events) {
         if (event.type === "mobFired") fired.push(state.tick);
@@ -413,9 +423,10 @@ describe("mob fire (ADR 0016 and ADR 0014)", () => {
 
   it("aims at the grave's centre at the moment of firing and never changes direction after", () => {
     const state = quietRun();
+    const step = stepping(state);
     spawnMob(state, "revenant", order(120, MOB_TYPES.revenant.halfHeight));
     const mob = only(state);
-    run(state, ARRIVE_TICKS);
+    run(step, ARRIVE_TICKS);
 
     const shot = state.mobFire.find((each) => each.alive)!;
     const dx = state.grave.x - mob.x;
@@ -426,18 +437,19 @@ describe("mob fire (ADR 0016 and ADR 0014)", () => {
     expect(shot.vy).toBeCloseTo((dy / length) * speed, 9);
 
     const aimed = { vx: shot.vx, vy: shot.vy };
-    run(state, 20, RIGHT);
+    run(step, 20, RIGHT);
     expect(shot.vx).toBe(aimed.vx);
     expect(shot.vy).toBe(aimed.vy);
   });
 
   it("does not carry the scroll", () => {
     const state = quietRun();
+    const step = stepping(state);
     spawnMob(state, "revenant", order(200, MOB_TYPES.revenant.halfHeight));
-    run(state, ARRIVE_TICKS);
+    run(step, ARRIVE_TICKS);
     const shot = state.mobFire.find((each) => each.alive)!;
     const from = shot.y;
-    run(state, 10);
+    run(step, 10);
     expect(shot.y - from).toBeCloseTo(10 * shot.vy, 9);
   });
 
@@ -513,9 +525,10 @@ describe("a mob's death (ADR 0005)", () => {
 
   it("never kills a mob on contact and never leaves a corpse for one, however long the grave sits under it", () => {
     const state = quietRun();
+    const step = stepping(state);
     spawnMob(state, "shambler", order(state.grave.x, 300));
     const mob = only(state);
-    const events = run(state, 600);
+    const events = run(step, 600);
     expect(types(events, "graveHit").length).toBeGreaterThan(0);
     expect(types(events, "mobKilled")).toHaveLength(0);
     expect(state.corpses.some((corpse) => corpse.alive)).toBe(false);
@@ -525,9 +538,10 @@ describe("a mob's death (ADR 0005)", () => {
 
   it("culls a mob past the bottom edge, and it costs the player nothing", () => {
     const state = quietRun();
+    const step = stepping(state);
     spawnMob(state, "shambler", order(60, 700));
     const mob = only(state);
-    const events = run(state, 200);
+    const events = run(step, 200);
     expect(mob.alive).toBe(false);
     expect(events).toEqual([]);
     expect(state.corpses.some((corpse) => corpse.alive)).toBe(false);

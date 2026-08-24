@@ -43,10 +43,10 @@ function ignore(name: string, raw: string): null {
   return null;
 }
 
-/** The same, for a switch, where falling back means staying off rather than rolling fresh. */
-function ignoreSwitch(name: string, raw: string): false {
-  console.warn(`Ignoring ?${name}=${raw}: the checks stay off instead.`);
-  return false;
+/** The same, for a switch, where falling back means the default rather than rolling fresh. */
+function ignoreSwitch(name: string, raw: string): true {
+  console.warn(`Ignoring ?${name}=${raw}: the checks stay on instead.`);
+  return true;
 }
 
 /** A number the string actually spells. Number("") is 0, which would pin seed zero on an empty parameter. */
@@ -89,7 +89,7 @@ export function sizeFromUrl(search: string, hash: string): number | null {
 
 /**
  * The spellings a switch accepts, on either side. Four of each, because this
- * one is typed by hand into a phone and an unreadable value stays off: a fat
+ * one is typed by hand into a phone and an unreadable value stays on: a fat
  * finger that silently disables the checks makes the two reads look identical
  * and the wrong conclusion look proved.
  */
@@ -97,17 +97,24 @@ const SWITCHED_ON = ["on", "1", "true", "yes"];
 const SWITCHED_OFF = ["off", "0", "false", "no"];
 
 /**
- * Whether this run checks the sim invariants on every tick (issue #48).
+ * Whether this run checks the sim invariants on every tick (ADR 0017).
  *
- * Off unless the URL asks for it, so the path a player walks is the one that
- * ships. It is a switch and not a number because the point of it is to be typed
- * into a phone twice off one build, once each way, and read against itself:
- * ?invariants=on, or #/?invariants=on, which wins the same way the seed's hash
- * form does.
+ * On unless the URL asks for them off, because the checks are always on in
+ * every build a player is handed and only an explicit ?invariants=off turns
+ * them off. It is a switch and not a number because the point of it is to be
+ * typed into a phone twice off one build, once each way, and read against
+ * itself: ?invariants=off, or #/?invariants=off, which wins the same way the
+ * seed's hash form does.
+ *
+ * It is a temporary experimental control and never a feature. It exists so the
+ * confirming play's checks-off and checks-on readings come off one instrument,
+ * and it is removed once that play succeeds. A player build must not honour it
+ * even when somebody types it by hand, which is a build-time gate rather than a
+ * naming convention.
  */
 export function invariantsFromUrl(search: string, hash: string): boolean {
   const raw = rawParameter("invariants", search, hash);
-  if (raw === null) return false;
+  if (raw === null) return true;
   const value = raw.trim().toLowerCase();
   if (SWITCHED_ON.includes(value)) return true;
   if (SWITCHED_OFF.includes(value)) return false;

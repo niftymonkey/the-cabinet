@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { stepChecked } from "./invariants";
+import { stepping } from "../dev/stepping";
 import type { BellRing } from "./lines/bell";
 import type { WeaponLine } from "./lines/roster";
 import type { RunState } from "./run";
@@ -739,9 +739,10 @@ const SNAPSHOT_SEED = 20260819;
 /** A played run's witness at tick 30, folded at each of the ticks named. */
 function snapshotAt30(foldAt: readonly number[]): number {
   const run = createRun(SNAPSHOT_SEED);
+  const step = stepping(run);
   let snapshot = 0;
   for (let tick = 1; tick <= 30; tick++) {
-    stepChecked(run, { move: { x: 0.5, y: -0.25 }, belch: false });
+    step({ move: { x: 0.5, y: -0.25 }, belch: false });
     if (foldAt.includes(tick)) snapshot = foldWitness(run, 0);
   }
   return snapshot;

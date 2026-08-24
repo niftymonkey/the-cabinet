@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { stepChecked } from "./invariants";
+import { stepping } from "../dev/stepping";
 import { CORPSE_CAP } from "./caps";
 import { TICK_HZ } from "./clock";
 import {
@@ -61,12 +61,13 @@ function corpseOf(state: RunState) {
 describe("a corpse's drift (ADR 0004)", () => {
   it("has no velocity of its own, so the scroll is the only thing that moves it", () => {
     const state = quietRun();
+    const step = stepping(state);
     spawnCorpse(state, killAt(state, "shambler", 60, 200));
     const corpse = corpseOf(state);
     const from = corpse.y;
     const x = corpse.x;
 
-    for (let tick = 0; tick < 30; tick++) stepChecked(state, STILL);
+    for (let tick = 0; tick < 30; tick++) step(STILL);
     expect(corpse.x).toBe(x);
     expect(corpse.y - from).toBeCloseTo(30 * SCROLL_SPEED, 9);
   });
@@ -76,6 +77,7 @@ describe("a corpse's drift (ADR 0004)", () => {
     // declared beside it. Nobody can give corpses a drift of their own without
     // this going red.
     const state = quietRun();
+    const step = stepping(state);
     spawnCorpse(state, killAt(state, "shambler", 60, FIELD_HEIGHT / 2));
     const corpse = corpseOf(state);
 
@@ -83,7 +85,7 @@ describe("a corpse's drift (ADR 0004)", () => {
     let atEnd = corpse.y;
     while (corpse.alive && state.tick < 2 * FRESHNESS_SECONDS * TICK_HZ) {
       atEnd = corpse.y;
-      events.push(...stepChecked(state, STILL));
+      events.push(...step(STILL));
     }
     expect(corpse.alive).toBe(false);
     expect(
@@ -125,15 +127,16 @@ describe("freshness (ADR 0004)", () => {
     spawnCorpse(empty, killAt(empty, "shambler", 60, 40));
     const dying = corpseOf(empty);
     dying.freshness = 0.001;
-    const expiring = stepChecked(empty, STILL);
+    const expiring = stepping(empty)(STILL);
     expect(expiring.map((event) => event.type)).toContain("corpseExpired");
 
     const lost = quietRun();
     spawnCorpse(lost, killAt(lost, "shambler", 60, FIELD_HEIGHT - 2));
     const leaving = corpseOf(lost);
+    const stepLost = stepping(lost);
     const events: SimEvent[] = [];
     while (leaving.alive && lost.tick < 200) {
-      events.push(...stepChecked(lost, STILL));
+      events.push(...stepLost(STILL));
     }
     const off = events.find((event) => event.type === "corpseLost");
     expect(off).toBeDefined();
@@ -305,11 +308,12 @@ describe("the eviction policy never takes treasure (plan 6.9)", () => {
 describe("what a lost corpse reports (plan 6.9)", () => {
   it("carries the food's kind, so a scrolled-away drop is not counted as a missed corpse", () => {
     const state = quietRun();
+    const step = stepping(state);
     spawnDrop(state, 200, FIELD_HEIGHT - 2, "wisps");
     const events: SimEvent[] = [];
     const drop = state.corpses.find((corpse) => corpse.alive)!;
     while (drop.alive && state.tick < 200) {
-      events.push(...stepChecked(state, STILL));
+      events.push(...step(STILL));
     }
     const lost = events.find((event) => event.type === "corpseLost");
     expect(lost).toBeDefined();

@@ -5,6 +5,8 @@ import type { CommandSource } from "../../../game/advance";
 import { advance } from "../../../game/advance";
 import type { Clock } from "../../../game/clock";
 import { createClock } from "../../../game/clock";
+import type { Execution } from "../../../game/execution";
+import { createExecution, devBrokenHandler } from "../../../game/execution";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
 import type { SimEvent } from "../../../game/events";
 import type { RunState } from "../../../game/run";
@@ -251,6 +253,16 @@ export class GameScreen extends Container {
    */
   private placement: FieldPlacement = DEGENERATE_PLACEMENT;
   private run: RunState | null = null;
+  /**
+   * The one authority every tick of this run crosses (ADR 0017).
+   *
+   * Its lifetime is the run's, so it is made in startRun() beside the run and
+   * cleared in reset() beside it. This screen is pooled, and a pooled screen
+   * leaks anything nobody explicitly clears; carried across runs, its stage
+   * watch would compare run two's first phase against run one's last and its
+   * fault history would belong to a run that is over.
+   */
+  private execution: Execution | null = null;
   private releaseKeys: (() => void) | null = null;
   private releaseListeners: (() => void) | null = null;
   private ending = false;
@@ -304,14 +316,18 @@ export class GameScreen extends Container {
   private belchRequested = false;
 
   /**
-   * Whether this run checks the sim invariants on every tick (issue #48), as
-   * ?invariants= asked for it. Off is the path that ships.
+   * Whether this run checks the sim invariants on every tick (ADR 0017).
+   *
+   * On unless ?invariants=off asks otherwise. The checks are always on in every
+   * build a player is handed; the switch is a temporary experimental control on
+   * the instrumentation build, so the confirming play's checks-off and checks-on
+   * readings come off one instrument and can be differenced.
    *
    * prepare() writes it on every run rather than the constructor writing it
    * once, because it is per-run state on a pooled screen, which is the class of
    * defect this app has shipped five times.
    */
-  private checkingInvariants = false;
+  private checkingInvariants = true;
 
   constructor() {
     super();
@@ -427,6 +443,7 @@ export class GameScreen extends Container {
       window.location.hash,
     );
     this.run = this.startRun();
+    this.execution = this.startExecution(this.run);
     this.syncScreen(this.run);
     this.syncReadouts();
 
@@ -453,6 +470,23 @@ export class GameScreen extends Container {
       seed === null ? `SEED ${run.seed}` : `SEED ${run.seed} PINNED`;
     this.sizeLabel.text = size === null ? "" : `SIZE ${run.grave.size} PINNED`;
     return run;
+  }
+
+  /**
+   * The authority this run's ticks cross (ADR 0017), made here because its
+   * lifetime is the run's.
+   *
+   * The broken-invariant handler is a notification and never the decider: the
+   * authority sets the stop reason, and only the build decides how loud a fault
+   * is. import.meta.env.DEV is a stand-in for that choice until the two deployed
+   * build flavours exist, and it is what keeps the handler's debugger statement
+   * out of a built bundle.
+   */
+  private startExecution(run: RunState): Execution {
+    return createExecution(run, {
+      checking: this.checkingInvariants,
+      onBroken: import.meta.env.DEV ? devBrokenHandler : undefined,
+    });
   }
 
   /**
@@ -516,6 +550,7 @@ export class GameScreen extends Container {
     this.belchRequested = false;
     this.belchButton.release();
     this.run = null;
+    this.execution = null;
     // The field renderer is not detached here. reset() clears the layers and
     // dressField() is the one place that puts renderers back, so a renderer
     // detached here would leave the second run out of the pool with no field
@@ -537,7 +572,14 @@ export class GameScreen extends Container {
    * position error, and applying one twice doubles the travel.
    */
   public update(ticker: Ticker) {
-    if (this.ending || this.menuPaused || this.backgrounded || !this.run) {
+    const execution = this.execution;
+    if (
+      this.ending ||
+      this.menuPaused ||
+      this.backgrounded ||
+      !this.run ||
+      !execution
+    ) {
       return;
     }
     if (this.countdownMs !== null) {
@@ -554,11 +596,10 @@ export class GameScreen extends Container {
       return { move: combineSteer(keyCommand, this.touch, grave), belch };
     };
     const events = advance(
-      this.run,
+      execution,
       this.clock,
       this.takeElapsed(ticker.elapsedMS),
       source,
-      this.checkingInvariants,
     );
     this.announce(this.run, events);
     this.syncScreen(this.run);

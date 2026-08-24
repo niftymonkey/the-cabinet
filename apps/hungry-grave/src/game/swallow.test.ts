@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { stepChecked } from "./invariants";
+import { stepping } from "../dev/stepping";
 import type { SimEvent } from "./events";
 import { MAX_LEVEL } from "./lines/roster";
 import { createRun } from "./run";
@@ -52,13 +52,14 @@ function find<T extends SimEvent["type"]>(
 describe("the swallow", () => {
   it("every payout arrives through a swallow: a tick with no swallow in it changes no score, no size and no charge (ADR 0002)", () => {
     const run = createRun(5);
+    const step = stepping(run);
     const before = {
       score: run.score,
       size: run.grave.size,
       reservoir: run.reservoir,
     };
     for (let i = 0; i < 120; i++) {
-      stepChecked(run, { move: { x: 1, y: -1 }, belch: false });
+      step({ move: { x: 1, y: -1 }, belch: false });
     }
     expect({
       score: run.score,

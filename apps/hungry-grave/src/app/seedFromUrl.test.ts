@@ -89,9 +89,9 @@ describe("invariantsFromUrl", () => {
   beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
   afterEach(() => vi.restoreAllMocks());
 
-  it("is off unless the URL asks, so the path a player walks is the one that ships", () => {
-    expect(invariantsFromUrl("", "")).toBe(false);
-    expect(invariantsFromUrl("?seed=1234", "#/?size=20")).toBe(false);
+  it("is on unless the URL asks them off, because the checks are always on in a player's build (ADR 0017)", () => {
+    expect(invariantsFromUrl("", "")).toBe(true);
+    expect(invariantsFromUrl("?seed=1234", "#/?size=20")).toBe(true);
     expect(console.warn).not.toHaveBeenCalled();
   });
 
@@ -112,9 +112,9 @@ describe("invariantsFromUrl", () => {
     );
   });
 
-  it("a value it cannot read warns and stays off, so a typo cannot silently slow the build down", () => {
-    expect(invariantsFromUrl("?invariants=maybe", "")).toBe(false);
-    expect(invariantsFromUrl("?invariants=", "")).toBe(false);
+  it("a value it cannot read warns and stays on, so a typo cannot silently take the checks off a reading", () => {
+    expect(invariantsFromUrl("?invariants=maybe", "")).toBe(true);
+    expect(invariantsFromUrl("?invariants=", "")).toBe(true);
     expect(console.warn).toHaveBeenCalledTimes(2);
   });
 });

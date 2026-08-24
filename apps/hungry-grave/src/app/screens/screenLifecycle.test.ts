@@ -232,6 +232,35 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     expect(screen["run"]?.tick).toBe(4);
   });
 
+  it("the second run out of the pool gets its own execution, so nothing of run one is carried into it", () => {
+    // The Execution's lifetime is the run's (ADR 0017). The stage watch used to
+    // live in a WeakMap keyed by the run, which gave that away for free; held
+    // by a pooled screen it is somebody's job, and a pooled screen leaking what
+    // nobody clears is the class of defect this app has shipped five times. A
+    // watch carried over would compare run two's first phase with run one's
+    // last, and a stale fault history would belong to a run that is over.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 3));
+    const first = screen["execution"];
+    expect(first?.run).toBe(screen["run"]);
+    expect(first?.run.tick).toBe(3);
+
+    screen.reset();
+    expect(screen["execution"]).toBeNull();
+
+    screen.prepare();
+    screen.update(frame(TICK_MS * 3));
+    const second = screen["execution"];
+    expect(second).not.toBe(first);
+    expect(second?.run).toBe(screen["run"]);
+    expect(second?.run).not.toBe(first?.run);
+    expect(second?.watch).not.toBe(first?.watch);
+    expect(second?.faults).toEqual([]);
+    expect(second?.stop).toBeNull();
+    expect(second?.run.tick).toBe(3);
+  });
+
   it("a tab switch and back while the pause menu is up leaves the sim paused and the tick debt honest", () => {
     // The engine's visibilitychange listener calls focus() on the current
     // screen with no regard for currentPopup, so one pause flag let the sim run

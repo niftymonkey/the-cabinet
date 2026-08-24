@@ -1,36 +1,133 @@
 /**
  * The sim invariant harness (ADR 0013): in bounds, size within floor and
- * ceiling, no NaN, entity caps, checked on every step in every sim test.
+ * ceiling, no NaN, entity caps, checked on every executed tick.
  *
- * It lives in src/game so advance() can run it inside its own tick loop. That
- * is the only place the check can see the case that matters: the catch-up clamp
- * runs up to fifteen ticks in one frame, and a check fired once per frame reads
- * the last of those ticks and misses the other fourteen. src/boundary.test.ts
- * lets shipped code under src/game reach only src/game, so a harness reachable
- * from advance() has to be here.
+ * It lives in src/game so executeTick() can run it inside the one authority
+ * every tick crosses. That is the only place the check can see the case that
+ * matters: the catch-up clamp runs up to fifteen ticks in one frame, and a
+ * check fired once per frame reads the last of those ticks and misses the other
+ * fourteen. src/boundary.test.ts lets shipped code under src/game reach only
+ * src/game, so a harness reachable from the authority has to be here.
  *
- * The cost of that is real and deliberate: this module is now in the shipped
- * bundle rather than in the test rig alone. Nothing calls it unless a caller
- * asks, so the built app pays for the bytes and not for the work.
+ * A CHECK RECORDS A FAULT AND RETURNS; IT DOES NOT THROW (ADR 0017).
+ *
+ * Every check for the tick runs, so the authority sees the complete fault set
+ * before it decides anything, and check ordering cannot decide which faults are
+ * observed. Under the throwing harness this replaced, the first fault aborted
+ * every later check in the same tick: `entities in bounds` is recoverable and
+ * ran fourth, ahead of the fatal `entity caps`, `entity ids` and `levels in
+ * range`, so one recoverable fault switched three fatal ones off. A persistent
+ * recoverable fault is the normal case here rather than an edge.
+ *
+ * An unexpected failure inside the checking machinery itself is a different
+ * thing and still throws. Detecting a violated invariant is the checker
+ * working; a checker that cannot run is a bug in the checker, and it must not
+ * be swallowed into the list it exists to produce. So nothing here catches.
  *
  * Checking a cap is not enforcing one. caps.ts enforces; this only notices.
  */
 
 import type { PoolSlot } from "./caps";
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP, SKULL_CAP, WISP_CAP } from "./caps";
-import type { SimEvent } from "./events";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
 import { graveHitbox } from "./grave";
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from "./lines/roster";
 import { BELL_EXPAND_TICKS } from "./lines/bell";
 import { SKULL_HALF_EXTENT } from "./lines/soulStream";
 import { SPAWN_MARGIN } from "./mobs";
-import type { RunState, TickCommand } from "./run";
-import { step } from "./step";
+import type { RunState } from "./run";
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from "./tuning";
 
-function fail(invariant: string, detail: string): never {
-  throw new Error(`sim invariant broken, ${invariant}: ${detail}`);
+/**
+ * Every fault this harness can record, as a closed append-only list (ADR 0017).
+ *
+ * The identity is written down here rather than taken from whatever string a
+ * check happens to carry, because a fault record goes into a tape's third
+ * section and hardens the moment the first tape exists. Twelve identities
+ * against eleven checks: checkStage carries two, one for each of the two things
+ * it watches. The grave's own bounds check is "in bounds" and sits beside a
+ * separate "entities in bounds", one fatal and one recoverable, which is the
+ * pair a severity table most easily confuses.
+ */
+export const FAULT_IDENTITIES = [
+  "no NaN",
+  "size within floor and ceiling",
+  "in bounds",
+  "entities in bounds",
+  "entity caps",
+  "entity ids",
+  "freshness in range",
+  "reservoir in range",
+  "levels in range",
+  "one live ring",
+  "phase index only increases",
+  "phase tick resets at a boundary",
+] as const;
+
+/** One member of the closed list above. */
+export type FaultIdentity = (typeof FAULT_IDENTITIES)[number];
+
+/** Whether the run can safely carry on past a fault (ADR 0017). */
+export type FaultSeverity = "fatal" | "recoverable";
+
+/**
+ * How safe continued execution is after each fault, by semantic safety and
+ * never by how cosmetic the symptom looks (ADR 0017).
+ *
+ * Fatal, six. NaN spreads and every comparison against it is false, so
+ * containment, culling and collision quietly stop working. A level is an array
+ * index rather than a meter, and every per-level table is sized to MAX_LEVEL.
+ * Two live slots sharing an id send a wisp after a mob it never locked onto.
+ * A grave outside the field puts the player off it, so collision and the Wall's
+ * width arithmetic stop meaning anything. Size is health, so out of range means
+ * the seal condition was missed and a run that should be over keeps playing.
+ * And a pool whose shape changed means a structural assumption was violated
+ * outside the pool API, after which no other check's answer is trustworthy.
+ *
+ * Recoverable, five checks and six identities. A stray entity is culled or
+ * draws off-screen and nothing reads it wrong. A corpse pays the wrong amount
+ * into a size the fatal check still guards. One line's charge is wrong and
+ * payReservoir clamps it back. A bell ring over-expands within one line. And a
+ * stage phase repeats or skips spawns while the simulation stays coherent.
+ */
+export const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
+  "no NaN": "fatal",
+  "size within floor and ceiling": "fatal",
+  "in bounds": "fatal",
+  "entities in bounds": "recoverable",
+  "entity caps": "fatal",
+  "entity ids": "fatal",
+  "freshness in range": "recoverable",
+  "reservoir in range": "recoverable",
+  "levels in range": "fatal",
+  "one live ring": "recoverable",
+  "phase index only increases": "recoverable",
+  "phase tick resets at a boundary": "recoverable",
+};
+
+/** One invariant found broken on one tick. */
+export interface Fault {
+  readonly identity: FaultIdentity;
+  readonly severity: FaultSeverity;
+  /** Where to find the offending number again, as "mob 12.vx is NaN". */
+  readonly detail: string;
+}
+
+/**
+ * Records a fault, at most once per identity per tick.
+ *
+ * One tick can break the same invariant in a hundred places, and a hundred rows
+ * saying "no NaN" are one fact. The first detail is the one kept, so the pool
+ * walk order still decides which number a reader is pointed at, exactly as it
+ * did when the first failure threw.
+ */
+function record(
+  faults: Fault[],
+  identity: FaultIdentity,
+  detail: string,
+): void {
+  if (faults.some((fault) => fault.identity === identity)) return;
+  faults.push({ identity, severity: FAULT_SEVERITY[identity], detail });
 }
 
 /**
@@ -41,98 +138,111 @@ function fail(invariant: string, detail: string): never {
  * shapes they spell are the ones a reader needs to find the number again: the
  * pool, the slot and the field.
  */
-function checkFinite(where: string, value: number): void {
-  if (!Number.isFinite(value)) fail("no NaN", `${where} is ${value}`);
+function checkFinite(faults: Fault[], where: string, value: number): void {
+  if (!Number.isFinite(value)) record(faults, "no NaN", `${where} is ${value}`);
 }
 
 /** One field of one slot in a pool, as "mob 12.vx is NaN". */
 function checkSlotFinite(
+  faults: Fault[],
   pool: string,
   id: number,
   field: string,
   value: number,
 ): void {
   if (!Number.isFinite(value)) {
-    fail("no NaN", `${pool} ${id}.${field} is ${value}`);
+    record(faults, "no NaN", `${pool} ${id}.${field} is ${value}`);
   }
 }
 
 /** One cell of a fixed-length array, as "lines.stoneRecharge[2] is NaN". */
-function checkCellFinite(where: string, index: number, value: number): void {
-  if (!Number.isFinite(value)) fail("no NaN", `${where}[${index}] is ${value}`);
+function checkCellFinite(
+  faults: Fault[],
+  where: string,
+  index: number,
+  value: number,
+): void {
+  if (!Number.isFinite(value)) {
+    record(faults, "no NaN", `${where}[${index}] is ${value}`);
+  }
 }
 
 /** The run's own numbers, and the grave's. */
-function checkRunNoNaN(state: RunState): void {
-  checkFinite("tick", state.tick);
-  checkFinite("score", state.score);
-  checkFinite("reservoir", state.reservoir);
-  checkFinite("grave.x", state.grave.x);
-  checkFinite("grave.y", state.grave.y);
-  checkFinite("grave.size", state.grave.size);
-  checkFinite("grave.invulnerable", state.grave.invulnerable);
+function checkRunNoNaN(state: RunState, faults: Fault[]): void {
+  checkFinite(faults, "tick", state.tick);
+  checkFinite(faults, "score", state.score);
+  checkFinite(faults, "reservoir", state.reservoir);
+  checkFinite(faults, "grave.x", state.grave.x);
+  checkFinite(faults, "grave.y", state.grave.y);
+  checkFinite(faults, "grave.size", state.grave.size);
+  checkFinite(faults, "grave.invulnerable", state.grave.invulnerable);
 }
 
-function checkMobsNoNaN(state: RunState): void {
+function checkMobsNoNaN(state: RunState, faults: Fault[]): void {
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
-    checkSlotFinite("mob", mob.id, "x", mob.x);
-    checkSlotFinite("mob", mob.id, "y", mob.y);
-    checkSlotFinite("mob", mob.id, "vx", mob.vx);
-    checkSlotFinite("mob", mob.id, "vy", mob.vy);
-    checkSlotFinite("mob", mob.id, "hp", mob.hp);
+    checkSlotFinite(faults, "mob", mob.id, "x", mob.x);
+    checkSlotFinite(faults, "mob", mob.id, "y", mob.y);
+    checkSlotFinite(faults, "mob", mob.id, "vx", mob.vx);
+    checkSlotFinite(faults, "mob", mob.id, "vy", mob.vy);
+    checkSlotFinite(faults, "mob", mob.id, "hp", mob.hp);
   }
 }
 
-function checkMobFireNoNaN(state: RunState): void {
+function checkMobFireNoNaN(state: RunState, faults: Fault[]): void {
   for (const shot of state.mobFire) {
     if (!shot.alive) continue;
-    checkSlotFinite("shot", shot.id, "x", shot.x);
-    checkSlotFinite("shot", shot.id, "y", shot.y);
-    checkSlotFinite("shot", shot.id, "vx", shot.vx);
-    checkSlotFinite("shot", shot.id, "vy", shot.vy);
+    checkSlotFinite(faults, "shot", shot.id, "x", shot.x);
+    checkSlotFinite(faults, "shot", shot.id, "y", shot.y);
+    checkSlotFinite(faults, "shot", shot.id, "vx", shot.vx);
+    checkSlotFinite(faults, "shot", shot.id, "vy", shot.vy);
   }
 }
 
-function checkCorpsesNoNaN(state: RunState): void {
+function checkCorpsesNoNaN(state: RunState, faults: Fault[]): void {
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
-    checkSlotFinite("corpse", corpse.id, "x", corpse.x);
-    checkSlotFinite("corpse", corpse.id, "y", corpse.y);
-    checkSlotFinite("corpse", corpse.id, "freshness", corpse.freshness);
+    checkSlotFinite(faults, "corpse", corpse.id, "x", corpse.x);
+    checkSlotFinite(faults, "corpse", corpse.id, "y", corpse.y);
+    checkSlotFinite(faults, "corpse", corpse.id, "freshness", corpse.freshness);
   }
 }
 
-function checkSkullsNoNaN(state: RunState): void {
+function checkSkullsNoNaN(state: RunState, faults: Fault[]): void {
   for (const skull of state.skulls) {
     if (!skull.alive) continue;
-    checkSlotFinite("skull", skull.id, "x", skull.x);
-    checkSlotFinite("skull", skull.id, "y", skull.y);
-    checkSlotFinite("skull", skull.id, "vx", skull.vx);
-    checkSlotFinite("skull", skull.id, "vy", skull.vy);
+    checkSlotFinite(faults, "skull", skull.id, "x", skull.x);
+    checkSlotFinite(faults, "skull", skull.id, "y", skull.y);
+    checkSlotFinite(faults, "skull", skull.id, "vx", skull.vx);
+    checkSlotFinite(faults, "skull", skull.id, "vy", skull.vy);
   }
 }
 
-function checkWispsNoNaN(state: RunState): void {
+function checkWispsNoNaN(state: RunState, faults: Fault[]): void {
   for (const wisp of state.wisps) {
     if (!wisp.alive) continue;
-    checkSlotFinite("wisp", wisp.id, "x", wisp.x);
-    checkSlotFinite("wisp", wisp.id, "y", wisp.y);
-    checkSlotFinite("wisp", wisp.id, "vx", wisp.vx);
-    checkSlotFinite("wisp", wisp.id, "vy", wisp.vy);
-    checkSlotFinite("wisp", wisp.id, "life", wisp.life);
+    checkSlotFinite(faults, "wisp", wisp.id, "x", wisp.x);
+    checkSlotFinite(faults, "wisp", wisp.id, "y", wisp.y);
+    checkSlotFinite(faults, "wisp", wisp.id, "vx", wisp.vx);
+    checkSlotFinite(faults, "wisp", wisp.id, "vy", wisp.vy);
+    checkSlotFinite(faults, "wisp", wisp.id, "life", wisp.life);
   }
 }
 
-function checkLinesNoNaN(state: RunState): void {
+function checkLinesNoNaN(state: RunState, faults: Fault[]): void {
   const { lines } = state;
-  checkFinite("lines.streamIn", lines.streamIn);
-  checkFinite("lines.surgeVolleys", lines.surgeVolleys);
-  checkFinite("lines.orbitPhase", lines.orbitPhase);
-  checkFinite("lines.tollIn", lines.tollIn);
-  checkFinite("lines.ring.ticks", lines.ring?.ticks ?? 0);
+  checkFinite(faults, "lines.streamIn", lines.streamIn);
+  checkFinite(faults, "lines.surgeVolleys", lines.surgeVolleys);
+  checkFinite(faults, "lines.orbitPhase", lines.orbitPhase);
+  checkFinite(faults, "lines.tollIn", lines.tollIn);
+  checkFinite(faults, "lines.ring.ticks", lines.ring?.ticks ?? 0);
   for (let slot = 0; slot < lines.stoneRecharge.length; slot++) {
-    checkCellFinite("lines.stoneRecharge", slot, lines.stoneRecharge[slot]);
+    checkCellFinite(
+      faults,
+      "lines.stoneRecharge",
+      slot,
+      lines.stoneRecharge[slot],
+    );
   }
 }
 
@@ -142,21 +252,21 @@ function checkLinesNoNaN(state: RunState): void {
  * that fails is the first one in that order, never whichever pool happens to
  * hold it.
  */
-function checkNoNaN(state: RunState): void {
-  checkRunNoNaN(state);
-  checkMobsNoNaN(state);
-  checkMobFireNoNaN(state);
-  checkCorpsesNoNaN(state);
-  checkSkullsNoNaN(state);
-  checkWispsNoNaN(state);
-  checkLinesNoNaN(state);
+function checkNoNaN(state: RunState, faults: Fault[]): void {
+  checkRunNoNaN(state, faults);
+  checkMobsNoNaN(state, faults);
+  checkMobFireNoNaN(state, faults);
+  checkCorpsesNoNaN(state, faults);
+  checkSkullsNoNaN(state, faults);
+  checkWispsNoNaN(state, faults);
+  checkLinesNoNaN(state, faults);
 }
 
 /** Size is health, and ADR 0003 makes both ends of it hard. */
-function checkSize(state: RunState): void {
+function checkSize(state: RunState, faults: Fault[]): void {
   const { size } = state.grave;
   if (size < SIZE_FLOOR || size > SIZE_CEILING) {
-    fail("size within floor and ceiling", `size is ${size}`);
+    record(faults, "size within floor and ceiling", `size is ${size}`);
   }
 }
 
@@ -172,7 +282,7 @@ function checkSize(state: RunState): void {
 const BOUNDS_TOLERANCE = 1e-9;
 
 /** The whole grave, not just its centre, stays on the field. */
-function checkInBounds(state: RunState): void {
+function checkInBounds(state: RunState, faults: Fault[]): void {
   const box = graveHitbox(state.grave);
   const inside =
     box.x >= -BOUNDS_TOLERANCE &&
@@ -180,7 +290,11 @@ function checkInBounds(state: RunState): void {
     box.x + box.width <= FIELD_WIDTH + BOUNDS_TOLERANCE &&
     box.y + box.height <= FIELD_HEIGHT + BOUNDS_TOLERANCE;
   if (!inside) {
-    fail("in bounds", `the grave is outside the field at ${box.x}, ${box.y}`);
+    record(
+      faults,
+      "in bounds",
+      `the grave is outside the field at ${box.x}, ${box.y}`,
+    );
   }
 }
 
@@ -199,17 +313,22 @@ function within(x: number, y: number, margin: number): boolean {
  * the box they are checked against is the field widened by a spawn margin.
  * Shots never spawn off the field, so they are only allowed their own extent.
  */
-function checkEntitiesInBounds(state: RunState): void {
+function checkEntitiesInBounds(state: RunState, faults: Fault[]): void {
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     if (!within(mob.x, mob.y, SPAWN_MARGIN)) {
-      fail("entities in bounds", `mob ${mob.id} is at ${mob.x}, ${mob.y}`);
+      record(
+        faults,
+        "entities in bounds",
+        `mob ${mob.id} is at ${mob.x}, ${mob.y}`,
+      );
     }
   }
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
     if (!within(corpse.x, corpse.y, SPAWN_MARGIN)) {
-      fail(
+      record(
+        faults,
         "entities in bounds",
         `corpse ${corpse.id} is at ${corpse.x}, ${corpse.y}`,
       );
@@ -218,7 +337,11 @@ function checkEntitiesInBounds(state: RunState): void {
   for (const shot of state.mobFire) {
     if (!shot.alive) continue;
     if (!within(shot.x, shot.y, shot.halfExtent)) {
-      fail("entities in bounds", `shot ${shot.id} is at ${shot.x}, ${shot.y}`);
+      record(
+        faults,
+        "entities in bounds",
+        `shot ${shot.id} is at ${shot.x}, ${shot.y}`,
+      );
     }
   }
   // A skull is launched from the mouth and travels straight up, so its own
@@ -226,7 +349,8 @@ function checkEntitiesInBounds(state: RunState): void {
   for (const skull of state.skulls) {
     if (!skull.alive) continue;
     if (!within(skull.x, skull.y, SKULL_HALF_EXTENT)) {
-      fail(
+      record(
+        faults,
         "entities in bounds",
         `skull ${skull.id} is at ${skull.x}, ${skull.y}`,
       );
@@ -239,31 +363,48 @@ function checkEntitiesInBounds(state: RunState): void {
   for (const wisp of state.wisps) {
     if (!wisp.alive) continue;
     if (!within(wisp.x, wisp.y, SPAWN_MARGIN)) {
-      fail("entities in bounds", `wisp ${wisp.id} is at ${wisp.x}, ${wisp.y}`);
+      record(
+        faults,
+        "entities in bounds",
+        `wisp ${wisp.id} is at ${wisp.x}, ${wisp.y}`,
+      );
     }
   }
 }
 
-function checkPool(name: string, pool: readonly PoolSlot[], cap: number): void {
+function checkPool(
+  faults: Fault[],
+  name: string,
+  pool: readonly PoolSlot[],
+  cap: number,
+): void {
   if (pool.length > cap) {
-    fail("entity caps", `the ${name} pool holds ${pool.length} slots`);
+    record(
+      faults,
+      "entity caps",
+      `the ${name} pool holds ${pool.length} slots`,
+    );
   }
   const seen = new Set<number>();
   for (const slot of pool) {
     if (!slot.alive) continue;
     if (seen.has(slot.id)) {
-      fail("entity ids", `two live ${name} slots share id ${slot.id}`);
+      record(
+        faults,
+        "entity ids",
+        `two live ${name} slots share id ${slot.id}`,
+      );
     }
     seen.add(slot.id);
   }
 }
 
-function checkPools(state: RunState): void {
-  checkPool("mob", state.mobs, MOB_CAP);
-  checkPool("mob fire", state.mobFire, MOB_FIRE_CAP);
-  checkPool("corpse", state.corpses, CORPSE_CAP);
-  checkPool("skull", state.skulls, SKULL_CAP);
-  checkPool("wisp", state.wisps, WISP_CAP);
+function checkPools(state: RunState, faults: Fault[]): void {
+  checkPool(faults, "mob", state.mobs, MOB_CAP);
+  checkPool(faults, "mob fire", state.mobFire, MOB_FIRE_CAP);
+  checkPool(faults, "corpse", state.corpses, CORPSE_CAP);
+  checkPool(faults, "skull", state.skulls, SKULL_CAP);
+  checkPool(faults, "wisp", state.wisps, WISP_CAP);
 }
 
 /**
@@ -278,13 +419,13 @@ function checkPools(state: RunState): void {
 const RESERVOIR_TOLERANCE = 1e-9;
 
 /** The belch's charge is a meter with two hard ends, and the belch now empties it (ADR 0008). */
-function checkReservoir(state: RunState): void {
+function checkReservoir(state: RunState, faults: Fault[]): void {
   const { reservoir } = state;
   if (
     reservoir < -RESERVOIR_TOLERANCE ||
     reservoir > RESERVOIR_CAPACITY + RESERVOIR_TOLERANCE
   ) {
-    fail("reservoir in range", `the reservoir holds ${reservoir}`);
+    record(faults, "reservoir in range", `the reservoir holds ${reservoir}`);
   }
 }
 
@@ -293,12 +434,12 @@ function checkReservoir(state: RunState): void {
  * below one. The floor ladder strips levels and payLevel raises them, and both
  * write to the same record.
  */
-function checkLevels(state: RunState): void {
+function checkLevels(state: RunState, faults: Fault[]): void {
   for (const line of WEAPON_LINES) {
     const level = state.levels[line];
     const floor = BIRTHRIGHT.includes(line) ? 1 : 0;
     if (level < floor || level > MAX_LEVEL) {
-      fail("levels in range", `${line} is at level ${level}`);
+      record(faults, "levels in range", `${line} is at level ${level}`);
     }
   }
 }
@@ -307,20 +448,21 @@ function checkLevels(state: RunState): void {
  * At most one bell ring is live. The record holds one or none, so this checks
  * the other half: a ring never outlives its own expansion.
  */
-function checkRing(state: RunState): void {
+function checkRing(state: RunState, faults: Fault[]): void {
   const ring = state.lines.ring;
   if (ring === null) return;
   if (ring.ticks < 0 || ring.ticks > BELL_EXPAND_TICKS) {
-    fail("one live ring", `a ring has run for ${ring.ticks} ticks`);
+    record(faults, "one live ring", `a ring has run for ${ring.ticks} ticks`);
   }
 }
 
 /** Freshness is a meter from 1 to 0 and never leaves that range (ADR 0004). */
-function checkFreshness(state: RunState): void {
+function checkFreshness(state: RunState, faults: Fault[]): void {
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
     if (corpse.freshness < 0 || corpse.freshness > 1) {
-      fail(
+      record(
+        faults,
         "freshness in range",
         `corpse ${corpse.id} has freshness ${corpse.freshness}`,
       );
@@ -328,67 +470,92 @@ function checkFreshness(state: RunState): void {
   }
 }
 
-interface StageWatch {
-  phaseIndex: number;
-  phaseTick: number;
+/** One reading of the stage cursor, as the last passing check saw it. */
+interface StagePhase {
+  readonly phaseIndex: number;
+  readonly phaseTick: number;
 }
 
 /**
  * What the last check saw of the stage, so the two invariants that are about
- * change rather than about a single state have something to compare with. A
- * WeakMap keyed by the run, so a run that goes out of scope takes its watch
- * with it and two runs in one test never share one.
+ * change rather than about a single state have something to compare with.
+ *
+ * It is a field on Execution and never on RunState (ADR 0017). The WeakMap this
+ * replaced was giving lifetime away for free: the watch died with the run, and
+ * every caller got correct stage history without knowing the mechanism existed.
+ * Execution is held by a pooled screen, so the lifetime is now somebody's job.
+ * RunState is the wrong home for the other reason: ADR 0019 widens the witness
+ * fold, so what lives there is what a replay is checked against, and a phase
+ * watch is neither the run's identity nor something the rules mutate.
  */
-const stageWatches = new WeakMap<RunState, StageWatch>();
+export interface StageWatch {
+  /** Null before the first check, which has nothing to compare against. */
+  seen: StagePhase | null;
+}
+
+export function createStageWatch(): StageWatch {
+  return { seen: null };
+}
 
 /**
  * The phase index only ever increases, and the phase-local tick resets at a
  * boundary. The tick is read after the step has already advanced it, so a reset
  * shows as a tick of one rather than of zero.
  */
-function checkStage(state: RunState): void {
-  const seen = stageWatches.get(state);
-  const now = {
+function checkStage(state: RunState, watch: StageWatch, faults: Fault[]): void {
+  const { seen } = watch;
+  const now: StagePhase = {
     phaseIndex: state.stage.phaseIndex,
     phaseTick: state.stage.phaseTick,
   };
-  if (seen !== undefined) {
+  let passed = true;
+  if (seen !== null) {
     if (now.phaseIndex < seen.phaseIndex) {
-      fail(
+      record(
+        faults,
         "phase index only increases",
         `phase went from ${seen.phaseIndex} to ${now.phaseIndex}`,
       );
+      passed = false;
     }
     if (now.phaseIndex > seen.phaseIndex && now.phaseTick > 1) {
-      fail(
+      record(
+        faults,
         "phase tick resets at a boundary",
         `phase tick is ${now.phaseTick} on the tick the phase changed`,
       );
+      passed = false;
     }
   }
-  // Recorded only once both checks pass. Recording first means a thrown
+  // Recorded only once both checks pass. Recording first means a recorded
   // failure leaves the rejected phase in the watch, so the next check on the
   // same run compares against it and reports the broken state as healthy.
-  stageWatches.set(state, now);
+  if (passed) watch.seen = now;
 }
 
-/** Throws with the failing invariant named, on any state the rules must never produce (ADR 0013). */
-export function checkInvariants(state: RunState): void {
-  checkNoNaN(state);
-  checkSize(state);
-  checkInBounds(state);
-  checkEntitiesInBounds(state);
-  checkPools(state);
-  checkFreshness(state);
-  checkReservoir(state);
-  checkLevels(state);
-  checkRing(state);
-  checkStage(state);
-}
-
-/** step() with the invariants checked after it. Every sim test steps through this, never through step directly. */
-export function stepChecked(state: RunState, command: TickCommand): SimEvent[] {
-  const events = step(state, command);
-  checkInvariants(state);
-  return events;
+/**
+ * Every invariant the rules must never break, checked once, with the faults
+ * found returned rather than thrown (ADR 0013, ADR 0017).
+ *
+ * The watch is a required parameter and never an optional one. Made optional,
+ * the direct call sites would silently stop checking phase monotonicity and
+ * phase-tick reset, and the tests that exist precisely to exercise the watch
+ * would go green while checking nothing.
+ */
+export function checkInvariants(
+  state: RunState,
+  watch: StageWatch,
+): readonly Fault[] {
+  const faults: Fault[] = [];
+  checkNoNaN(state, faults);
+  checkSize(state, faults);
+  checkInBounds(state, faults);
+  checkEntitiesInBounds(state, faults);
+  checkPools(state, faults);
+  checkFreshness(state, faults);
+  checkReservoir(state, faults);
+  checkLevels(state, faults);
+  checkRing(state, faults);
+  checkStage(state, watch, faults);
+  return faults;
 }

@@ -1,8 +1,8 @@
 // The run handoff, the one piece of logic the screen skeletons add.
 
 import { describe, expect, it } from "vitest";
+import { createExecution, executeTick } from "../game/execution";
 import { createRun } from "../game/run";
-import { step } from "../game/step";
 import type { TickCommand } from "../game/run";
 import { RunHandoff, summarizeRun } from "./runHandoff";
 
@@ -15,16 +15,17 @@ describe("the run handoff", () => {
 
   it("a summary carries the run's seed and its tick count", () => {
     const run = createRun(23);
-    step(run, STILL);
-    step(run, STILL);
-    step(run, STILL);
+    const execution = createExecution(run);
+    executeTick(execution, STILL);
+    executeTick(execution, STILL);
+    executeTick(execution, STILL);
     expect(summarizeRun(run)).toEqual({ seed: 23, ticks: 3, ending: null });
   });
 
   it("a summary is a snapshot, because run state is mutated in place", () => {
     const run = createRun(23);
     const summary = summarizeRun(run);
-    step(run, STILL);
+    executeTick(createExecution(run), STILL);
     expect(summary.ticks).toBe(0);
   });
 

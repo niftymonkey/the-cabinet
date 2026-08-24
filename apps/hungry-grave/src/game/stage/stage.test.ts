@@ -1,12 +1,12 @@
 /**
  * The authored timeline (ADR 0006). The row tables are data, so most of this
  * file reads them directly; the handful of tests that need the clock run the
- * whole stage through stepChecked.
+ * whole stage through the one execution authority (ADR 0017).
  */
 
 import { describe, expect, it } from "vitest";
 
-import { stepChecked } from "../invariants";
+import { stepping } from "../../dev/stepping";
 import { TICK_HZ } from "../clock";
 import type { SimEvent } from "../events";
 import { FIELD_WIDTH } from "../field";
@@ -53,6 +53,7 @@ interface Recording {
  */
 function recordStage(seed: number, ticks: number): Recording {
   const state = createRun(seed);
+  const step = stepping(state);
   const boundaries: { phase: string; tick: number }[] = [];
   const arrivals: { tick: number; count: number }[] = [];
   const events: SimEvent[] = [];
@@ -63,7 +64,7 @@ function recordStage(seed: number, ticks: number): Recording {
     // The tick the step is spending, so arrivals and phaseChanged are recorded
     // on the same clock: the event carries state.tick before step advances it.
     const at = state.tick;
-    const stepped = stepChecked(state, STILL);
+    const stepped = step(STILL);
     events.push(...stepped);
     if (state.ending === "sealed") state.ending = null;
     state.grave.size = SIZE_START;

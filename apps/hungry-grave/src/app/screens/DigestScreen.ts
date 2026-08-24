@@ -2,6 +2,7 @@ import { Container } from "pixi.js";
 
 import type { Digest } from "../../dev/digest";
 import { GOLDEN, runScenario } from "../../dev/digest";
+import type { FaultRecord } from "../../game/execution";
 import { MENU } from "../palette";
 import { Button } from "../ui/Button";
 import { Label } from "../ui/Label";
@@ -59,9 +60,14 @@ export class DigestScreen extends Container {
 
   public prepare() {
     try {
-      this.showDigest(runScenario().digest);
+      const result = runScenario();
+      if (result.faults.length > 0) {
+        this.showBreach(faultLines(result.faults));
+        return;
+      }
+      this.showDigest(result.digest);
     } catch (error) {
-      this.showBreach(error);
+      this.showBreach(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -80,16 +86,20 @@ export class DigestScreen extends Container {
   }
 
   /**
-   * An invariant fired before a digest could be taken. runScenario steps
-   * through stepChecked, which throws by design (ADR 0013), and
+   * An invariant fired before a digest could be taken, or the checker itself
+   * failed.
+   *
+   * A check records a fault and returns rather than throwing (ADR 0017), so the
+   * scenario's faults arrive as a list and are read here. The try/catch stays
+   * for the other case: a checker that cannot run still throws, and
    * addAndShowScreen calls prepare() synchronously, so an unguarded throw
    * rejects the navigation and renders nothing at all. That would be a blank
    * page in exactly the case this screen exists for, on the one platform with
    * no console to read.
    */
-  private showBreach(error: unknown): void {
+  private showBreach(detail: string): void {
     this.verdict.text = "BROKEN";
-    this.detail.text = error instanceof Error ? error.message : String(error);
+    this.detail.text = detail;
     this.caveat.text =
       "A sim invariant fired before the scenario finished, so there is no digest to compare. That is a finding on this device, not a test failure.";
   }
@@ -104,6 +114,16 @@ export class DigestScreen extends Container {
     this.caveat.style.wordWrapWidth = Math.min(width - 64, 520);
     this.backButton.position.set(cx, height * 0.86);
   }
+}
+
+/** The scenario's faults as readable lines, so a phone with no console can still say what broke. */
+function faultLines(faults: readonly FaultRecord[]): string {
+  return faults
+    .map(
+      (fault) =>
+        `${fault.identity} (${fault.severity}) first at tick ${fault.firstTick}, ${fault.count} times: ${fault.detail}`,
+    )
+    .join("\n");
 }
 
 /** The digest as readable lines, so a divergence can be read off a phone with no console. */
