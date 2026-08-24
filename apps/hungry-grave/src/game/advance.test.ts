@@ -225,20 +225,85 @@ describe("advance", () => {
     expect(unchecked.faults).toEqual([]);
   });
 
-  it("deliberately does not stop on run.ending, because that would move a number a player sees", () => {
-    // A real bug with its own ticket: a run that seals on tick one of a
-    // fifteen-tick frame executes fourteen more ticks after it is over. Fixing
-    // it here would move the final score and tick count this dispatch's own
-    // baselines are taken from.
+  it("a run that seals on tick one of a three-tick frame executes no further ticks in that frame", () => {
+    // The final tick count and score a player sees are the ending's, so a seal
+    // on tick one of a fifteen-tick catch-up frame must not buy fourteen more
+    // ticks of simulation after the run is over (#52).
     stepMock.mockImplementation((state, command) => {
       const events = bareStep(state, command);
       if (state.tick === 1) state.ending = "sealed";
       return events;
     });
+    // The mock's call record spans the file, so the count starts here.
+    stepMock.mockClear();
 
     const execution = playing(7);
     advance(execution, createClock(), TICK_MS * 3, STILL);
-    expect(execution.run.tick).toBe(3);
+    expect(execution.run.tick).toBe(1);
     expect(execution.stop).toBeNull();
+    expect(stepMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("a run that wins mid-frame stops the frame the same way", () => {
+    stepMock.mockImplementation((state, command) => {
+      const events = bareStep(state, command);
+      if (state.tick === 1) state.ending = "victory";
+      return events;
+    });
+
+    const execution = playing(7);
+    advance(execution, createClock(), TICK_MS * 3, STILL);
+    expect(execution.run.tick).toBe(1);
+    expect(execution.stop).toBeNull();
+  });
+  it("advance on a run whose ending is already set executes zero ticks and returns no events", () => {
+    const execution = playing(7);
+    execution.run.ending = "sealed";
+
+    const events = advance(execution, createClock(), TICK_MS * 3, STILL);
+    expect(execution.run.tick).toBe(0);
+    expect(events).toEqual([]);
+  });
+  it("events from every tick up to and including the ending tick are returned in order", () => {
+    // The ending tick's own events carry the seal itself, so a guard that
+    // dropped them would end the run and swallow the evidence.
+    const execution = playing(7);
+    stepMock.mockImplementation((state) => {
+      state.tick += 1;
+      if (state.tick === 2) state.ending = "sealed";
+      return [{ type: "grew", amount: state.tick, size: state.grave.size }];
+    });
+
+    const events = advance(execution, createClock(), TICK_MS * 3, STILL);
+
+    expect(execution.run.tick).toBe(2);
+    expect(
+      events.map((event) => (event.type === "grew" ? event.amount : null)),
+    ).toEqual([1, 2]);
+  });
+
+  it("a run that ends by its own rules mid-frame stops at the ending tick", () => {
+    // Nothing scripted: beforeEach points the mock at the real step, so this
+    // covers the path from the seal in grave.ts to the guard with no mock in
+    // between. The listener sees the ending exactly once, on the ending tick
+    // itself, so no tick executed after the run was over.
+    const endingSeen: number[] = [];
+    const execution = createExecution(createRun(7), {
+      listeners: [
+        (tick, _command, _events, state) => {
+          if (state.ending !== null) endingSeen.push(tick);
+        },
+      ],
+    });
+    const clock = createClock();
+    for (
+      let frame = 0;
+      frame < 2000 && execution.run.ending === null;
+      frame++
+    ) {
+      advance(execution, clock, TICK_MS * 15, STILL);
+    }
+    expect(execution.run.ending).toBe("sealed");
+    expect(endingSeen).toEqual([execution.run.tick]);
   });
 });

@@ -45,10 +45,14 @@ export type CommandSource = (grave: FieldPoint) => TickCommand;
  * elapsedMs is raw elapsed real time and never Pixi's deltaMS: clock.ts says
  * why in its own header.
  *
- * The stop reason is read off the Execution before each tick, so a fatal fault
- * stops the frame instead of re-firing on the other fourteen ticks the catch-up
- * clamp bought. It deliberately does not stop on run.ending, which would move
- * the final score and tick count a player sees and has its own ticket.
+ * The stop reason and the run's ending are both read off the Execution before
+ * each tick. A fatal fault stops the frame instead of re-firing on the other
+ * fourteen ticks the catch-up clamp bought, and a run that seals or wins
+ * mid-frame executes no further ticks, so the final tick count and score a
+ * player sees are the ending's (#52). Verification readback keeps its own
+ * stop-only guard deliberately: a sealed FORMAT_VERSION 1 tape recorded before
+ * this rule can carry ticks after the ending, and a readback that stopped on
+ * run.ending would cut short a tape it is obliged to reproduce in full.
  */
 export function advance(
   execution: Execution,
@@ -59,7 +63,7 @@ export function advance(
   const ticks = ticksFor(clock, elapsedMs);
   const events: SimEvent[] = [];
   for (let tick = 0; tick < ticks; tick++) {
-    if (execution.stop !== null) break;
+    if (execution.stop !== null || execution.run.ending !== null) break;
     events.push(...executeTick(execution, source(execution.run.grave)));
   }
   return events;

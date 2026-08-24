@@ -220,10 +220,9 @@ export function runScenario(): ScenarioResult {
   let maxY = -Infinity;
   for (let tick = 0; tick < TICKS; tick++) {
     // The loop reads the stop condition off the Execution before each tick (ADR
-    // 0017), the same as advance's inner loop and the bot's policy loop. Without
-    // it the scenario would run its whole remaining budget on a state a fatal
-    // fault has already declared unusable, and a NaN-poisoned run's digest says
-    // nothing about determinism.
+    // 0017). Without it the scenario would run its whole remaining budget on a
+    // state a fatal fault has already declared unusable, and a NaN-poisoned
+    // run's digest says nothing about determinism.
     if (execution.stop !== null) break;
     kills += scriptedKills(run, tick);
     executeTick(execution, {
