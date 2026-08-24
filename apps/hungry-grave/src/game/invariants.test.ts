@@ -52,9 +52,10 @@ describe("the fault list itself (ADR 0017)", () => {
     );
   });
 
-  it("holds twelve identities against eleven checks, six of them fatal", () => {
-    // checkStage carries two identities, one for each of the two things it
-    // watches, which is where the twelfth comes from.
+  it("holds twelve identities against ten checks, six of them fatal", () => {
+    // Two checks carry two identities each: checkPools records the caps and
+    // the ids, and checkStage records the two phase invariants, which is where
+    // the extra pair comes from.
     expect(FAULT_IDENTITIES).toHaveLength(12);
     const fatal = FAULT_IDENTITIES.filter(
       (identity) => FAULT_SEVERITY[identity] === "fatal",

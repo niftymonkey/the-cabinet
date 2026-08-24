@@ -44,8 +44,9 @@ import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from "./tuning";
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
  * section and hardens the moment the first tape exists. Twelve identities
- * against eleven checks: checkStage carries two, one for each of the two things
- * it watches. The grave's own bounds check is "in bounds" and sits beside a
+ * against ten checks: checkPools carries two, the caps and the ids, and
+ * checkStage carries two, one for each of the two things it watches. The
+ * grave's own bounds check is "in bounds" and sits beside a
  * separate "entities in bounds", one fatal and one recoverable, which is the
  * pair a severity table most easily confuses.
  */

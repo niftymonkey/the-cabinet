@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 import { stepping } from "../dev/stepping";
 import type { BellRing } from "./lines/bell";
 import type { WeaponLine } from "./lines/roster";
+import { WEAPON_LINES } from "./lines/roster";
 import type { RunState } from "./run";
 import { createRun } from "./run";
 import {
@@ -635,6 +636,15 @@ const WEAPON_LINE_NAMES: readonly WeaponLine[] = [
   "wisps",
   "bell",
 ];
+
+describe("the fold order over the weapon lines", () => {
+  it("WEAPON_LINES is frozen in the order every sealed tape's witness folded", () => {
+    // The witness fold traverses WEAPON_LINES in array order and sealed tapes
+    // exist outside the tree, so a reorder silently changes every witness. A
+    // change to this order needs a witness version bump, never a test update.
+    expect(WEAPON_LINES).toEqual(["soulStream", "headstones", "wisps", "bell"]);
+  });
+});
 
 describe("the four non-numeric encodings", () => {
   it("a boolean folds through an explicit 0 or 1", () => {

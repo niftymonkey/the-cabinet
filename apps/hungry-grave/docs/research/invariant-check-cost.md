@@ -57,7 +57,7 @@ Re-measured by the same method, on the same three seeds at their busiest ticks: 
 | a full catch-up frame's checks, 15 ticks at the top of the band | about 5.58 ms | about 0.56 ms |
 | share of a 16.7 ms desktop frame | about a third | about 3.3% |
 
-**The checks now cost about what one bare `step` costs.** `step` measured 17 to 25 microseconds in this pass, matching the 16 to 30 of the earlier one, so the twelvefold gap in section 1 closed to roughly parity. The checker is no longer the expensive half of the tick.
+**The checks now cost about what one bare `step` costs.** `step` measured 17 to 25 microseconds in this pass, matching the 16 to 30 of the earlier one, so the twelvefold gap in section 2 closed to roughly parity. The checker is no longer the expensive half of the tick.
 
 The cost of the harness entering the shipped bundle, measured on the production build: **4.3 kB raw, 1.3 kB gzipped.**
 

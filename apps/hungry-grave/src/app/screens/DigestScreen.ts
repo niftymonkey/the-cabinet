@@ -61,23 +61,28 @@ export class DigestScreen extends Container {
   public prepare() {
     try {
       const result = runScenario();
-      if (result.faults.length > 0) {
+      // Only a fatal fault stops the scenario's loop (ADR 0017), so only a
+      // fatal fault leaves no digest worth comparing. A recoverable fault
+      // rides beside the digest that was still taken.
+      if (result.faults.some((fault) => fault.severity === "fatal")) {
         this.showBreach(faultLines(result.faults));
         return;
       }
-      this.showDigest(result.digest);
+      this.showDigest(result.digest, result.faults);
     } catch (error) {
       this.showBreach(error instanceof Error ? error.message : String(error));
     }
   }
 
-  private showDigest(digest: Digest): void {
+  private showDigest(digest: Digest, faults: readonly FaultRecord[]): void {
     const diverged = divergences(digest);
     this.verdict.text = diverged.length === 0 ? "MATCH" : "DIVERGED";
-    this.detail.text =
-      diverged.length === 0
-        ? describe(digest)
-        : `${diverged.join("\n")}\n\n${describe(digest)}`;
+    const sections = [
+      ...(faults.length > 0 ? [faultLines(faults)] : []),
+      ...(diverged.length > 0 ? [diverged.join("\n")] : []),
+      describe(digest),
+    ];
+    this.detail.text = sections.join("\n\n");
     // A MATCH here is evidence that binary64 behaves, and not yet evidence for
     // ADR 0015's claim over the approximated operations. Without this on
     // screen a phone MATCH reads in the record as more than it is.
@@ -86,8 +91,8 @@ export class DigestScreen extends Container {
   }
 
   /**
-   * An invariant fired before a digest could be taken, or the checker itself
-   * failed.
+   * A fatal invariant fired before a digest could be taken, or the checker
+   * itself failed.
    *
    * A check records a fault and returns rather than throwing (ADR 0017), so the
    * scenario's faults arrive as a list and are read here. The try/catch stays
