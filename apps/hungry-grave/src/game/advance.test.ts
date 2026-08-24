@@ -281,4 +281,29 @@ describe("advance", () => {
       events.map((event) => (event.type === "grew" ? event.amount : null)),
     ).toEqual([1, 2]);
   });
+
+  it("a run that ends by its own rules mid-frame stops at the ending tick", () => {
+    // Nothing scripted: beforeEach points the mock at the real step, so this
+    // covers the path from the seal in grave.ts to the guard with no mock in
+    // between. The listener sees the ending exactly once, on the ending tick
+    // itself, so no tick executed after the run was over.
+    const endingSeen: number[] = [];
+    const execution = createExecution(createRun(7), {
+      listeners: [
+        (tick, _command, _events, state) => {
+          if (state.ending !== null) endingSeen.push(tick);
+        },
+      ],
+    });
+    const clock = createClock();
+    for (
+      let frame = 0;
+      frame < 2000 && execution.run.ending === null;
+      frame++
+    ) {
+      advance(execution, clock, TICK_MS * 15, STILL);
+    }
+    expect(execution.run.ending).toBe("sealed");
+    expect(endingSeen).toEqual([execution.run.tick]);
+  });
 });
