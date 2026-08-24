@@ -98,7 +98,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Row**: One entry of the authored timeline: a phase-local time, a template, a count, and a mob type. Count lives on the row, so density tuning never edits a template, and the mob type lives there too, because a template never names who is in it. _Avoid_: spawn event, wave entry, script line.
 
-**Phase**: One segment of the stage, chained to the next by a boundary event rather than an absolute clock, because a shootable boss dies when killed. _Avoid_: act, section, checkpoint.
+**Phase**: One segment of the stage, chained to the next by a boundary event rather than an absolute clock, because a shootable boss dies when killed. _Avoid_: act, section, chapter.
 
 **Drain-out**: The deliberate spawn silence before a boss, letting the field empty so the boss arrives alone. _Avoid_: lull, break, intermission.
 
@@ -114,7 +114,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Challenge**: A seed shared so somebody else can play it. Same dice, their hands, their run. A challenge is played, never watched. _Avoid_: seed share, ghost, replay.
 
-**Tape**: The recording of one run, in three separable sections: a body holding the seed, the resolved starting size and the exact commands the grave was steered by, tick by tick; the run's witness at checkpoints along the way; and a third section carrying only what cannot be recomputed from deterministic state, timings being merely the first inhabitants of it. A tape holds no field state, so anything a replay can rebuild is computed by replaying it, which is why a tape recorded today can answer a question nobody has thought of yet. _Avoid_: recording, demo, log, save file, ghost.
+**Tape**: What one run is recorded onto: a header, three separable sections, and a trailer. The body holds the seed, the resolved starting size and the exact commands the grave was steered by, tick by tick; the second section holds the run's witness at checkpoints along the way; and the third holds the run's observations. A tape holds no field state, so anything a replay can rebuild is computed by replaying it, which is why a tape recorded today can answer a question nobody has thought of yet. _Avoid_: recording, demo, log, save file, ghost.
 
 **Replay**: Playing a tape back so the original run happens again exactly. A replay is watched, never played: same dice, the original hands. Shared, it is how somebody sees a run over the player's shoulder. _Avoid_: playback, rerun, ghost, pinned run.
 
@@ -136,15 +136,23 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Verification readback**: Decoding a tape and reproducing its run far enough to prove the tape is sound: that it decodes, that its witness recomputes, and that the same tape gives the same run twice. It proves an artifact and it is never the replay feature, so no replay obligation is met by it existing. _Avoid_: replay, small replay, partial replay, playback.
 
+**Checkpoint**: A tick at which a run stamps its witness onto a tape, at an authored spacing. Checkpoints are what let a replay name the first point it disagreed at rather than only report that it diverged somewhere. Never a segment of the stage. _Avoid_: snapshot, save point, marker, phase.
+
+**Trailer**: The summary a tape carries at its end: how the run ended, how it stopped, and its integrity. It is written last on purpose, so a tape off a tab somebody simply closed has no trailer and reads as a stop of unknown. _Avoid_: footer, summary block, header field.
+
+**Observation**: Something a tape records because replaying it could never recompute it: frame timings, runtime errors and warnings, whether audio dropped, and the pauses and tab-switches a run took. Fault records are observations. Timings were merely the first inhabitants of the section, which is general on purpose. _Avoid_: metric, telemetry, log line, event.
+
 **Fault**: What the simulation records when one of its own invariant checks fires. A fault is a defect in the game, never a thing the player did, and it never wears the vocabulary of death. _Avoid_: crash, error, exception, assertion.
 
 **Fatal fault**: A fault after which continued execution would be unusable or untrustworthy, so the run stops. Stopping is not a death and not an ending: the run is over and the player was not sealed shut. _Avoid_: fatal error, crash, game over.
 
 **Recoverable fault**: A fault the simulation can safely carry on through, recorded once with the tick it first fired on and the count, while the run continues. Safe to continue is not the same as harmless, and a run carrying one is not clean evidence. _Avoid_: warning, minor, cosmetic.
 
-**Integrity**: Whether a recorded run was sound, meaning whether any fault fired in it at all. Clean when the checks ran and nothing fired, faulted when something fired, and unchecked when the run was recorded on an instrumentation build with the invariant checks switched off, which is the one case where an empty fault list is not evidence of a sound run. Separate from the witness, which asks a different question: the witness says whether this is the original run, integrity says whether the original run was worth trusting. _Avoid_: valid, clean, verified.
+**Fault identity**: The name of one kind of fault, fixed as a closed list that only ever gains entries. An identity outlives the check that raises it, because a tape written today is read back after the checks have been rewritten, so it is never whatever string a check happens to carry. _Avoid_: error code, message, check name.
 
-**Stop**: How a run stopped, as opposed to how it ended. A run finishes, is quit, or is stopped by a fatal fault, and a recording that simply breaks off says unknown. Ending and stop are two facts and never one. _Avoid_: status, outcome, result.
+**Integrity**: Whether the run a tape holds was sound, meaning whether any fault fired in it at all. Clean when the checks ran and nothing fired, faulted when something fired, and unchecked when the run was recorded on an instrumentation build with the invariant checks switched off, which is the one case where an empty fault list is not evidence of a sound run. Separate from the witness, which asks a different question: the witness says whether this is the original run, integrity says whether the original run was worth trusting. _Avoid_: valid, clean, verified.
+
+**Stop**: How a run stopped, as opposed to how it ended. A run finishes, is quit, or is stopped by a fatal fault, and a tape that simply breaks off says unknown. Ending and stop are two facts and never one. _Avoid_: status, outcome, result.
 
 **Damage source**: What dealt a hit, carried on the event either way. On damage the player deals it is the weapon line or the belch; on damage the player takes it is mob fire, naming the type that fired, or a body landing on the grave. A hit with no source is a hit nothing can be learned from. _Avoid_: attacker, cause, origin.
 
