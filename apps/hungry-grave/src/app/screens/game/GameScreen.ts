@@ -12,6 +12,8 @@ import type { SimEvent } from "../../../game/events";
 import type { RunState } from "../../../game/run";
 import { createRun } from "../../../game/run";
 import { RESERVOIR_CAPACITY } from "../../../game/tuning";
+import type { TapeRecorder } from "../../../tape/recorder";
+import { recordFrame, recordInto, sealTrailer } from "../../../tape/recorder";
 import { KeySteer } from "../../../input/keys";
 import { combineSteer } from "../../../input/steering";
 import { TouchSteer } from "../../../input/touch";
@@ -30,6 +32,7 @@ import { pauseActions, PausePopup } from "../../popups/PausePopup";
 import { SettingsPopup } from "../../popups/SettingsPopup";
 import { runHandoff, summarizeRun } from "../../runHandoff";
 import { playFor } from "../../sound";
+import { runConditionsHere, tapeHeaderFor } from "../../tapeHeader";
 import { invariantsFromUrl, seedFromUrl, sizeFromUrl } from "../../seedFromUrl";
 import { Button } from "../../ui/Button";
 import { Label } from "../../ui/Label";
@@ -263,6 +266,13 @@ export class GameScreen extends Container {
    * fault history would belong to a run that is over.
    */
   private execution: Execution | null = null;
+  /**
+   * The tape this run is being recorded onto. Its lifetime is the run's, the
+   * same as the Execution's: a pooled screen leaks anything nobody explicitly
+   * clears, and a recorder held past its run would carry one run's commands
+   * into the next.
+   */
+  private recorder: TapeRecorder | null = null;
   private releaseKeys: (() => void) | null = null;
   private releaseListeners: (() => void) | null = null;
   private ending = false;
@@ -444,6 +454,12 @@ export class GameScreen extends Container {
     );
     this.run = this.startRun();
     this.execution = this.startExecution(this.run);
+    // Before the first tick, because the header is written before the first
+    // tick and checkpoint zero is the state before any tick has run.
+    this.recorder = recordInto(
+      this.execution,
+      tapeHeaderFor(this.run, runConditionsHere()),
+    );
     this.syncScreen(this.run);
     this.syncReadouts();
 
@@ -551,6 +567,7 @@ export class GameScreen extends Container {
     this.belchButton.release();
     this.run = null;
     this.execution = null;
+    this.recorder = null;
     // The field renderer is not detached here. reset() clears the layers and
     // dressField() is the one place that puts renderers back, so a renderer
     // detached here would leave the second run out of the pool with no field
@@ -573,18 +590,56 @@ export class GameScreen extends Container {
    */
   public update(ticker: Ticker) {
     const execution = this.execution;
-    if (
-      this.ending ||
-      this.menuPaused ||
-      this.backgrounded ||
-      !this.run ||
-      !execution
-    ) {
-      return;
-    }
+    const run = this.run;
+    // The four-condition guard is split, and where the split falls is a ruling
+    // rather than a tidy-up (ADR 0017 and ADR 0018). Only a null run leaves a
+    // frame with no tape to be written into, because a tape is one run's
+    // recording, so that condition alone returns before the seam. Every other
+    // frame of a live run is observed: a paused, backgrounded, ending or
+    // countdown frame bought no ticks, and a skipped frame has to be marked
+    // rather than omitted or the record cannot say the run stalled at all.
+    if (run === null || execution === null) return;
+    const startedAt = performance.now();
+    const ticksBefore = run.tick;
+    const advanceMs = this.updateRun(ticker, run, execution);
+    const ticksExecuted = run.tick - ticksBefore;
+    recordFrame(this.recorder, {
+      // Absent rather than fabricated: a frame that bought no ticks has no tick
+      // to attribute itself to, and a reader that finds the index missing
+      // learns something true instead of reading a number somebody invented to
+      // fill the column.
+      tickIndex: ticksExecuted > 0 ? ticksBefore : null,
+      ticksExecuted,
+      intervalMs: ticker.elapsedMS,
+      advanceMs,
+      updateMs: performance.now() - startedAt,
+      debtTicks: this.clock.debtTicks,
+    });
+    // A fatal fault stops the run through the authority and never through an
+    // ending, so this is the frame that knows the run is over.
+    if (execution.stop !== null) this.closeTape();
+  }
+
+  /**
+   * The frame's work, once the seam above has a run and an authority to
+   * attribute it to. Returns the milliseconds spent inside advance.
+   *
+   * That number is measured here and not read off the ticker because the ticker
+   * cannot give it: elapsedMS is the gap between one frame and the last, so it
+   * says a frame was late and never what made it late. Advance is where the
+   * simulation and its invariant checks both sit, which is the part a
+   * checks-on and a checks-off reading are differenced on, and the frame's
+   * total says how much of a bad frame was anything else.
+   */
+  private updateRun(
+    ticker: Ticker,
+    run: RunState,
+    execution: Execution,
+  ): number {
+    if (this.ending || this.menuPaused || this.backgrounded) return 0;
     if (this.countdownMs !== null) {
       this.countDown(this.takeElapsed(ticker.elapsedMS));
-      return;
+      return 0;
     }
     const keyCommand = this.keys.command();
     const source: CommandSource = (grave) => {
@@ -595,16 +650,32 @@ export class GameScreen extends Container {
       this.belchRequested = false;
       return { move: combineSteer(keyCommand, this.touch, grave), belch };
     };
+    const startedAdvance = performance.now();
     const events = advance(
       execution,
       this.clock,
       this.takeElapsed(ticker.elapsedMS),
       source,
     );
-    this.announce(this.run, events);
-    this.syncScreen(this.run);
+    const advanceMs = performance.now() - startedAdvance;
+    this.announce(run, events);
+    this.syncScreen(run);
     this.syncReadouts();
     if (endedIn(events)) this.endRun();
+    return advanceMs;
+  }
+
+  /**
+   * Writes the tape's trailer, once, at the stop.
+   *
+   * A second call is ignored by the recorder rather than overwriting, so the
+   * run that ends by play and is then left by the pause menu still says it
+   * finished.
+   */
+  private closeTape(): void {
+    const execution = this.execution;
+    if (execution === null || this.recorder === null) return;
+    sealTrailer(this.recorder, execution, this.clock.debtTicks);
   }
 
   /**
@@ -849,6 +920,7 @@ export class GameScreen extends Container {
     if (this.ending || !this.run) return;
     this.clearFieldBlur();
     this.ending = true;
+    this.closeTape();
     runHandoff.record(summarizeRun(this.run));
     engine()
       .navigation.showScreen(EndScreen)

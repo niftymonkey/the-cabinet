@@ -29,6 +29,9 @@ const { showScreen, presentPopup, dismissPopup } = navigation;
 vi.mock("../getEngine", () => ({
   engine: () => ({
     navigation,
+    // The game screen reads the renderer's backend and resolution once per run,
+    // for the tape header's runtime context (ADR 0018).
+    renderer: { name: "webgl", resolution: 2 },
     canvas: {
       addEventListener: (_type: string, handler: () => void) =>
         canvasListeners.add(handler),
@@ -63,13 +66,18 @@ import { EndScreen } from "./EndScreen";
 import { STONES_BY_LEVEL } from "../../game/lines/headstones";
 import { GameScreen } from "./game/GameScreen";
 import { TitleScreen } from "./TitleScreen";
+import type { TapeRecorder } from "../../tape/recorder";
+import { tapeOf } from "../../tape/recorder";
+import type { FrameObservation } from "../../tape/tape";
+import { frameObservations } from "../../tape/tape";
 
 const keyHandlers = new Set<(event: KeyboardEvent) => void>();
 
 /** The URL the game screen reads its seed and starting size off (ADR 0012). */
 const fakeLocation = { search: "", hash: "" };
 
-// The screens bind their keys on window, which node does not have.
+// The screens bind their keys on window, which node does not have. The pointer
+// query and the pixel ratio are the tape header's, read once per run.
 Object.defineProperty(globalThis, "window", {
   value: {
     addEventListener: (_type: string, handler: (e: KeyboardEvent) => void) =>
@@ -77,6 +85,8 @@ Object.defineProperty(globalThis, "window", {
     removeEventListener: (_type: string, handler: (e: KeyboardEvent) => void) =>
       keyHandlers.delete(handler),
     location: fakeLocation,
+    matchMedia: () => ({ matches: false }),
+    devicePixelRatio: 2,
   },
   configurable: true,
 });
@@ -855,5 +865,150 @@ describe("the field's clip", () => {
       sawOffField = run.mobs.some((mob) => mob.alive && mob.y < 0);
     }
     expect(sawOffField).toBe(true);
+  });
+});
+
+describe("the frame observation seam (dispatch 6a)", () => {
+  beforeEach(() => {
+    keyHandlers.clear();
+    canvasListeners.clear();
+    navigation.currentPopup = undefined;
+    showScreen.mockReset().mockResolvedValue(undefined);
+    presentPopup.mockReset().mockResolvedValue(undefined);
+    dismissPopup.mockReset().mockResolvedValue(undefined);
+  });
+
+  function recorderOf(screen: GameScreen): TapeRecorder {
+    const recorder = screen["recorder"];
+    if (recorder === null) throw new Error("a live run has a recorder");
+    return recorder;
+  }
+
+  function rowsOf(screen: GameScreen): FrameObservation[] {
+    return frameObservations(tapeOf(recorderOf(screen)));
+  }
+
+  function lastRowOf(screen: GameScreen): FrameObservation {
+    const rows = rowsOf(screen);
+    const last = rows[rows.length - 1];
+    if (last === undefined) throw new Error("no frame was observed");
+    return last;
+  }
+
+  it("carries the tick the frame started at, and how many it bought", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+
+    screen.update(frame(TICK_MS * 3));
+    screen.update(frame(TICK_MS * 2));
+
+    expect(rowsOf(screen)).toHaveLength(2);
+    expect(lastRowOf(screen)).toMatchObject({ tickIndex: 3, ticksExecuted: 2 });
+  });
+
+  it("marks a paused frame rather than omitting it, with no tick index", async () => {
+    // ADR 0018 ruling F: a skipped frame has to be marked, or the record cannot
+    // say the run stalled at all, and its tick index is absent rather than
+    // fabricated because the frame bought no ticks.
+    const screen = new GameScreen();
+    screen.prepare();
+    await screen.pause();
+
+    screen.update(frame(TICK_MS * 4));
+
+    expect(lastRowOf(screen)).toMatchObject({
+      tickIndex: null,
+      ticksExecuted: 0,
+    });
+  });
+
+  it("marks a backgrounded frame the same way", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.blur();
+
+    screen.update(frame(TICK_MS * 60));
+
+    expect(lastRowOf(screen)).toMatchObject({
+      tickIndex: null,
+      ticksExecuted: 0,
+    });
+  });
+
+  it("marks a countdown frame, which is the resume the sim does not advance through", async () => {
+    const screen = new GameScreen();
+    screen.prepare();
+    await screen.pause();
+    await screen.resume();
+
+    screen.update(frame(TICK_MS * 4));
+
+    expect(screen["countdownMs"]).not.toBeNull();
+    expect(lastRowOf(screen)).toMatchObject({
+      tickIndex: null,
+      ticksExecuted: 0,
+    });
+  });
+
+  it("marks an ending frame, which is the one the run is already over on", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+    pauseActions.endRun();
+
+    screen.update(frame(TICK_MS * 4));
+
+    expect(lastRowOf(screen)).toMatchObject({
+      tickIndex: null,
+      ticksExecuted: 0,
+    });
+  });
+
+  it("writes no row at all once the screen has no run, because there is no tape to write it into", () => {
+    // ADR 0018 ruling F, proven against a pooled screen still being ticked
+    // after reset() rather than by reading the source. A row for a run-less
+    // frame would have to be orphaned from every tape there is.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS));
+    const recorder = recorderOf(screen);
+    const before = recorder.observations.length;
+
+    screen.reset();
+    screen.update(frame(TICK_MS));
+    screen.update(frame(TICK_MS));
+
+    expect(screen["recorder"]).toBeNull();
+    expect(recorder.observations).toHaveLength(before);
+  });
+
+  it("gives a pooled screen's second run its own tape", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 5));
+    const first = recorderOf(screen);
+
+    screen.reset();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 2));
+    const second = recorderOf(screen);
+
+    expect(second).not.toBe(first);
+    expect(first.commands).toHaveLength(5);
+    expect(second.commands).toHaveLength(2);
+  });
+
+  it("seals the trailer when the run is ended, so the tape says how it stopped", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 3));
+    const recorder = recorderOf(screen);
+
+    pauseActions.endRun();
+
+    expect(recorder.trailer).toMatchObject({
+      ending: null,
+      stop: "quit",
+      integrity: "clean",
+    });
   });
 });

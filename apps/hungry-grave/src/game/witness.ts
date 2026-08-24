@@ -40,6 +40,18 @@ const STREAM_ORDER: readonly StreamName[] = [
 ];
 
 /**
+ * The fold's own version, separate from a tape's format version (ADR 0019).
+ *
+ * The fold demonstrably widens and a second widening is likely. Without a
+ * version, every tape recorded before a widening would report a divergence
+ * under the refusal rule, and nothing would distinguish a widened fold from a run
+ * that did not happen. It is stamped into a tape's header
+ * and read back there, so it moves only when the order or the field list below
+ * moves.
+ */
+export const WITNESS_VERSION = 1;
+
+/**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
  * itself diverge between engines.
  *

@@ -56,6 +56,28 @@ const BOUNDARIES: Boundary[] = [
     mayImport: [],
   },
   /**
+   * The tape: what a run is recorded onto, and the verification readback that
+   * proves a tape decodes and reproduces (ADR 0018, ADR 0020).
+   *
+   * The root is deliberately not named replay. A module called src/replay
+   * holding only readback invites exactly the inference ADR 0020 exists to
+   * prevent, that replay already exists because primitives for reading a tape
+   * back do. Replay is 6b's and nothing here discharges any part of it.
+   *
+   * It reaches src/game because it reproduces a run through the one execution
+   * authority, and it reaches nothing else. Not src/dev, because the rig must
+   * not be load-bearing in a shipped recording; not src/app, because a recorder
+   * that could reach a screen would put rendering behind this boundary; and no
+   * package at all, because the sim's dependency-free rule is what lets a
+   * headless test run a tape.
+   */
+  {
+    root: "tape",
+    mayReach: ["tape", "game"],
+    mayReachInTests: [],
+    mayImport: [],
+  },
+  /**
    * Sound subscribes to the event list and must never reach back into the sim's
    * internals. One file, one rule, one mechanism, rather than a comment asking
    * nicely: src/app/sound.ts was governed by nothing at all, which dispatch 4
