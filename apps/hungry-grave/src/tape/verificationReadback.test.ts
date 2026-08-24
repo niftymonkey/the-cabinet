@@ -275,6 +275,33 @@ describe("verification readback", () => {
     );
   });
 
+  it("reproduces every tick of a tape that carries ticks after its ending", () => {
+    // The frame loop stops on run.ending now (#52), but a sealed
+    // FORMAT_VERSION 1 tape recorded before that guard can carry ticks after
+    // the ending, and a readback obliged to reproduce a tape in full must keep
+    // feeding every command it holds. This builds such a tape exactly as an
+    // old build did: the authority looped straight past the seal, recorder
+    // listening.
+    const run = createRun(SEED);
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run));
+    for (let tick = 0; tick < 6000 && run.ending === null; tick++) {
+      executeTick(execution, steer(tick));
+    }
+    expect(run.ending).toBe("sealed");
+    const endedAt = run.tick;
+    for (let extra = 0; extra < 30; extra++) {
+      executeTick(execution, steer(endedAt + extra));
+    }
+    const tape = tapeOf(recorder);
+    expect(tape.commands.length).toBe(endedAt + 30);
+
+    const result = readBackForVerification(tape);
+    expect(result.outcome).toBe("verified");
+    expect(result.ticksReproduced).toBe(tape.commands.length);
+    expect(result.checkpointsUnreachable).toBe(0);
+  });
+
   it("reports the tape's own faults without rewriting them, and today's checks separately", () => {
     // ADR 0017: recorded faults are the original run's history. Invariant
     // definitions and severity policy both change, so a readback must never

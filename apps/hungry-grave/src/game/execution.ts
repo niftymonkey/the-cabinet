@@ -208,12 +208,15 @@ function notifyListeners(
  * which is load-bearing rather than incidental: a tape that dropped its own
  * last tick would hide the evidence of the tick that stopped the run.
  *
- * It does not read its own stop reason. The loops above it do that before each
- * tick, because the catch-up clamp buys up to fifteen ticks in one frame and a
- * fatal fault would otherwise re-fire fourteen more times inside the frame that
- * caught it. Those loops deliberately do not stop on run.ending: that would
- * move the final score and tick count a player sees on an ordinary run, and it
- * has its own ticket.
+ * It does not read its own stop reason or the run's ending. The loops above it
+ * read both before each tick, because the catch-up clamp buys up to fifteen
+ * ticks in one frame: a fatal fault would otherwise re-fire fourteen more
+ * times inside the frame that caught it, and a run that seals or wins
+ * mid-frame would keep simulating past its own end and move the final score
+ * and tick count a player sees (#52). Verification readback deliberately
+ * guards on the stop alone: a sealed FORMAT_VERSION 1 tape recorded before the
+ * ending guard can carry ticks after the ending, and a readback must feed
+ * every command a tape holds.
  */
 export function executeTick(
   execution: Execution,
