@@ -1,46 +1,53 @@
 /**
- * The frame seam above step(). It lives in src/game and not inside a pixi
- * screen because the tick loop is where the touch overshoot lived: written
- * inside a screen it has one test between it and production, and that one only
- * counts window listeners.
+ * The frame seam above the execution authority. It lives in src/game and not
+ * inside a pixi screen because the tick loop is where the touch overshoot
+ * lived: written inside a screen it has one test between it and production, and
+ * that one only counts window listeners.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-/**
- * step() is mocked so this file can drive the concatenation contract, and every
- * test steps through checkedStep below, which is ADR 0013's harness on every
- * step in every sim test.
- *
- * The harness cannot be built inside this factory, and the reason is worth
- * writing down: src/dev/invariants.ts imports src/game/step, so awaiting it
- * here waits on the very module this factory is still constructing, and the
- * test file hangs rather than failing. stepChecked is out for the same reason.
- */
-vi.mock("./step", () => ({ step: vi.fn() }));
-
-import { checkInvariants } from "../dev/invariants";
-import type { CommandSource } from "./advance";
-import { advance } from "./advance";
-import { createClock, ticksFor, TICK_MS } from "./clock";
 import type { SimEvent } from "./events";
-import type { FieldPoint } from "./grave";
 import type { RunState, TickCommand } from "./run";
-import { createRun } from "./run";
-import { step } from "./step";
-import { BASE_SPEED, RESERVOIR_CAPACITY } from "./tuning";
+
+/**
+ * The step module is mocked so this file can drive the concatenation contract
+ * against a step that produces events, and reached through vi.hoisted rather
+ * than through an import of its own.
+ *
+ * Two reasons, and both are worth writing down. The harness cannot be built
+ * inside a vi.mock factory: the factory would await the very module it is still
+ * constructing, and the file hangs rather than failing. And ADR 0017's fence
+ * forbids any module under src from importing the step module except the
+ * authority itself, so a static import here would be a lint error.
+ *
+ * The mock no longer checks anything. executeTick runs the invariants on every
+ * tick, so a checked step here would run them twice per tick.
+ */
+const { stepMock } = vi.hoisted(() => ({
+  stepMock: vi.fn<(state: RunState, command: TickCommand) => SimEvent[]>(),
+}));
+
+vi.mock("./step", () => ({ step: stepMock }));
 
 const bareStep = (await vi.importActual<typeof import("./step")>("./step"))
   .step;
 
-/** The real step with the invariants checked after it (ADR 0013). */
-function checkedStep(state: RunState, command: TickCommand): SimEvent[] {
-  const events = bareStep(state, command);
-  checkInvariants(state);
-  return events;
-}
+import type { CommandSource } from "./advance";
+import { advance } from "./advance";
+import { createClock, ticksFor, TICK_MS } from "./clock";
+import type { Execution } from "./execution";
+import { createExecution } from "./execution";
+import type { FieldPoint } from "./grave";
+import { createRun } from "./run";
+import { BASE_SPEED, RESERVOIR_CAPACITY } from "./tuning";
 
 const STILL: CommandSource = () => ({ move: { x: 0, y: 0 }, belch: false });
+
+/** A run and the authority its ticks cross, made together as a run's own screen makes them. */
+function playing(seed: number, checking = true): Execution {
+  return createExecution(createRun(seed), { checking });
+}
 
 /** The position error from wherever the grave is now to a fixed target, in base-speed units. */
 function towards(target: FieldPoint): CommandSource {
@@ -77,22 +84,22 @@ function pressedBelch(): CommandSource & { press: () => void } {
 // as a cleanup hook, and mockImplementation returns the mock itself, so vitest
 // would call step() with no arguments after every test.
 beforeEach(() => {
-  vi.mocked(step).mockImplementation(checkedStep);
+  stepMock.mockImplementation(bareStep);
 });
 
 describe("advance", () => {
   it("steps exactly ticksFor times for a given elapsed time, and the run's tick count matches", () => {
-    const run = createRun(7);
+    const execution = playing(7);
     const clock = createClock();
     const reference = createClock();
     const elapsedMs = TICK_MS * 3.5;
 
-    advance(run, clock, elapsedMs, STILL);
-    expect(run.tick).toBe(ticksFor(reference, elapsedMs));
-    expect(run.tick).toBe(3);
+    advance(execution, clock, elapsedMs, STILL);
+    expect(execution.run.tick).toBe(ticksFor(reference, elapsedMs));
+    expect(execution.run.tick).toBe(3);
 
-    advance(run, clock, elapsedMs, STILL);
-    expect(run.tick).toBe(7);
+    advance(execution, clock, elapsedMs, STILL);
+    expect(execution.run.tick).toBe(7);
   });
 
   it("the touch overshoot: a per-tick recomputed steer lands on the target and stays, a frame-constant position error lands on 2T - P", () => {
@@ -103,30 +110,32 @@ describe("advance", () => {
     const target = { x: 370, y: 500 };
     const twoTicks = TICK_MS * 2;
 
-    const recomputed = createRun(7);
-    const start = { x: recomputed.grave.x, y: recomputed.grave.y };
+    const recomputed = playing(7);
+    const start = { x: recomputed.run.grave.x, y: recomputed.run.grave.y };
     advance(recomputed, createClock(), twoTicks, towards(target));
-    expect(recomputed.grave.x).toBeCloseTo(target.x, 9);
-    expect(recomputed.grave.y).toBeCloseTo(target.y, 9);
+    expect(recomputed.run.grave.x).toBeCloseTo(target.x, 4);
+    expect(recomputed.run.grave.y).toBeCloseTo(target.y, 4);
 
-    const sampledOnce = createRun(7);
-    const frameConstant = towards(target)(sampledOnce.grave);
+    // Four decimal places and not nine, because executeTick quantises the
+    // command to float32 before the simulation consumes it (ADR 0017). The
+    // property under test is the shape of the two landings and not their last
+    // bit: 2T - P is 165 units away from T, and the grid's error is six parts
+    // in a hundred million.
+    const sampledOnce = playing(7);
+    const frameConstant = towards(target)(sampledOnce.run.grave);
     advance(sampledOnce, createClock(), twoTicks, () => frameConstant);
-    expect(sampledOnce.grave.x).toBeCloseTo(2 * target.x - start.x, 9);
-    expect(sampledOnce.grave.y).toBeCloseTo(2 * target.y - start.y, 9);
+    expect(sampledOnce.run.grave.x).toBeCloseTo(2 * target.x - start.x, 4);
+    expect(sampledOnce.run.grave.y).toBeCloseTo(2 * target.y - start.y, 4);
   });
 
   it("events from every tick in the frame are returned, in order", () => {
-    // Nothing in 3b produces a SimEvent, so the concatenation contract is
-    // tested against a step that does. Dispatch 4 is the first real producer.
-    const run = createRun(7);
-    vi.mocked(step).mockImplementation((state) => {
+    const execution = playing(7);
+    stepMock.mockImplementation((state) => {
       state.tick += 1;
-      checkInvariants(state);
       return [{ type: "grew", amount: state.tick, size: state.grave.size }];
     });
 
-    const events = advance(run, createClock(), TICK_MS * 3, STILL);
+    const events = advance(execution, createClock(), TICK_MS * 3, STILL);
 
     expect(events).toHaveLength(3);
     expect(
@@ -136,16 +145,17 @@ describe("advance", () => {
 
   it("passes the whole TickCommand through unchanged, once per tick", () => {
     // This is what makes the two properties below properties of the seam rather
-    // than of whatever caller happens to be driving it.
-    const run = createRun(7);
+    // than of whatever caller happens to be driving it. The move components are
+    // exact in float32, so quantisation leaves them alone.
+    const execution = playing(7);
     const seen: TickCommand[] = [];
-    vi.mocked(step).mockImplementation((state, command) => {
+    stepMock.mockImplementation((state, command) => {
       seen.push(command);
-      return checkedStep(state, command);
+      return bareStep(state, command);
     });
 
     let belch = true;
-    advance(run, createClock(), TICK_MS * 3, () => {
+    advance(execution, createClock(), TICK_MS * 3, () => {
       const command = { move: { x: 0.5, y: -0.25 }, belch };
       belch = false;
       return command;
@@ -162,32 +172,73 @@ describe("advance", () => {
     // The one-shot rule lives in the command source and in fireBelch, never in
     // advance: a force-false here would be unreachable, because the closure
     // already reports false on the later ticks of a frame.
-    const run = createRun(7);
-    run.reservoir = RESERVOIR_CAPACITY;
+    const execution = playing(7);
+    execution.run.reservoir = RESERVOIR_CAPACITY;
     const source = pressedBelch();
     source.press();
 
-    const events = advance(run, createClock(), TICK_MS * 3, source);
-    expect(run.tick).toBe(3);
+    const events = advance(execution, createClock(), TICK_MS * 3, source);
+    expect(execution.run.tick).toBe(3);
     expect(events.filter((event) => event.type === "belched")).toHaveLength(1);
   });
 
   it("a frame that buys zero ticks does not consume the flag", () => {
-    const run = createRun(7);
-    run.reservoir = RESERVOIR_CAPACITY;
+    const execution = playing(7);
+    execution.run.reservoir = RESERVOIR_CAPACITY;
     const clock = createClock();
     const source = pressedBelch();
     source.press();
 
-    expect(advance(run, clock, 0, source)).toEqual([]);
-    const later = advance(run, clock, TICK_MS, source);
+    expect(advance(execution, clock, 0, source)).toEqual([]);
+    const later = advance(execution, clock, TICK_MS, source);
     expect(later.filter((event) => event.type === "belched")).toHaveLength(1);
   });
 
   it("zero elapsed time steps nothing and returns no events", () => {
-    const run = createRun(7);
-    const events = advance(run, createClock(), 0, STILL);
-    expect(run.tick).toBe(0);
+    const execution = playing(7);
+    const events = advance(execution, createClock(), 0, STILL);
+    expect(execution.run.tick).toBe(0);
     expect(events).toEqual([]);
+  });
+
+  it("a fatal fault on the first of three ticks stops the frame there, and the checks off let it run on", () => {
+    // The reason the loop reads its stop condition off the Execution: the
+    // catch-up clamp buys up to fifteen ticks in one frame, so one fatal fault
+    // would otherwise re-fire fourteen more times inside the frame that caught
+    // it.
+    stepMock.mockImplementation((state, command) => {
+      const events = bareStep(state, command);
+      if (state.tick === 1) state.grave.x = NaN;
+      return events;
+    });
+
+    const checked = playing(7);
+    advance(checked, createClock(), TICK_MS * 3, STILL);
+    expect(checked.run.tick).toBe(1);
+    expect(checked.stop).toBe("faulted");
+    expect(checked.faults.map((fault) => fault.identity)).toContain("no NaN");
+
+    const unchecked = playing(7, false);
+    advance(unchecked, createClock(), TICK_MS * 3, STILL);
+    expect(unchecked.run.tick).toBe(3);
+    expect(unchecked.stop).toBeNull();
+    expect(unchecked.faults).toEqual([]);
+  });
+
+  it("deliberately does not stop on run.ending, because that would move a number a player sees", () => {
+    // A real bug with its own ticket: a run that seals on tick one of a
+    // fifteen-tick frame executes fourteen more ticks after it is over. Fixing
+    // it here would move the final score and tick count this dispatch's own
+    // baselines are taken from.
+    stepMock.mockImplementation((state, command) => {
+      const events = bareStep(state, command);
+      if (state.tick === 1) state.ending = "sealed";
+      return events;
+    });
+
+    const execution = playing(7);
+    advance(execution, createClock(), TICK_MS * 3, STILL);
+    expect(execution.run.tick).toBe(3);
+    expect(execution.stop).toBeNull();
   });
 });

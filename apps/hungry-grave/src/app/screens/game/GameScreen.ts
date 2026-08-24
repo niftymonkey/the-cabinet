@@ -5,11 +5,29 @@ import type { CommandSource } from "../../../game/advance";
 import { advance } from "../../../game/advance";
 import type { Clock } from "../../../game/clock";
 import { createClock } from "../../../game/clock";
+import type { Execution, FaultRecord } from "../../../game/execution";
+import { createExecution, devBrokenHandler } from "../../../game/execution";
+import type { FaultIdentity } from "../../../game/invariants";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
 import type { SimEvent } from "../../../game/events";
+import type { WeaponLine } from "../../../game/lines/roster";
+import { WEAPON_LINES } from "../../../game/lines/roster";
 import type { RunState } from "../../../game/run";
-import { createRun } from "../../../game/run";
+import {
+  createRun,
+  isBirthrightLevels,
+  uniformLevels,
+} from "../../../game/run";
 import { RESERVOIR_CAPACITY } from "../../../game/tuning";
+import { encodeTape } from "../../../tape/encode";
+import type { TapeRecorder } from "../../../tape/recorder";
+import {
+  recordFrame,
+  recordInto,
+  sealTrailer,
+  tapeOf,
+} from "../../../tape/recorder";
+import type { FrameReason } from "../../../tape/tape";
 import { KeySteer } from "../../../input/keys";
 import { combineSteer } from "../../../input/steering";
 import { TouchSteer } from "../../../input/touch";
@@ -28,7 +46,13 @@ import { pauseActions, PausePopup } from "../../popups/PausePopup";
 import { SettingsPopup } from "../../popups/SettingsPopup";
 import { runHandoff, summarizeRun } from "../../runHandoff";
 import { playFor } from "../../sound";
-import { seedFromUrl, sizeFromUrl } from "../../seedFromUrl";
+import { runConditionsHere, tapeHeaderFor } from "../../tapeHeader";
+import {
+  invariantsFromUrl,
+  levelsFromUrl,
+  seedFromUrl,
+  sizeFromUrl,
+} from "../../seedFromUrl";
 import { Button } from "../../ui/Button";
 import { Label } from "../../ui/Label";
 import { bindKeyPress } from "../../utils/bindKeyPress";
@@ -195,6 +219,79 @@ function stackLine(index: number): Label {
 }
 
 /**
+ * What one frame's work tells the frame seam above it.
+ *
+ * endedRun is a report and not an action, so the seam can record the frame's
+ * own row before the run is ended: endRun captures the sealed bytes, and a
+ * capture taken mid-frame would cut the ending frame out of the exported tape.
+ */
+interface FrameWork {
+  /** Milliseconds spent inside advance, zero on a frame the sim held still through. */
+  readonly advanceMs: number;
+  /** Whether this frame's events ended the run by play. */
+  readonly endedRun: boolean;
+}
+
+/** The report of a frame the sim held still through: no advance, no ending. */
+const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
+
+/**
+ * The most characters the fault line may carry, prefix included. It is
+ * READOUT_RESERVE.width spent as corner-stack characters: layering.test.ts
+ * holds the two together through the same advance bound the rest of the stack
+ * is held by, so the line hugs the corner on a 390-unit phone stage instead of
+ * running nearly the full width of it.
+ */
+export const FAULT_LINE_MAX_CHARS = 25;
+
+/** The fault line's prefix, counted inside FAULT_LINE_MAX_CHARS. */
+const FAULT_PREFIX = "FAULT ";
+
+/**
+ * A fault's identity, cut to the line's budget where it must be.
+ *
+ * The identities are a closed list (ADR 0017), so the cut forms are checkable
+ * against every member: layering.test.ts asserts no two identities render the
+ * same line, which is what keeps a cut form unambiguous. The ellipsis says
+ * honestly that the name is cut, and the full identity is in the tape's own
+ * fault record either way.
+ */
+function shortIdentity(identity: FaultIdentity): string {
+  const budget = FAULT_LINE_MAX_CHARS - FAULT_PREFIX.length;
+  if (identity.length <= budget) return identity;
+  return `${identity.slice(0, budget - 1).trimEnd()}…`;
+}
+
+/**
+ * The HUD's fault line (ADR 0017 ruling C): a recoverable fault shows live,
+ * minimally, while the run continues, so a read is never taken for minutes on
+ * a run whose tuning evidence is already compromised. It reads the authority's
+ * own de-duplicated record rather than keeping a second tally, it appears when
+ * the first fault fires and stays for the rest of the run, and it never
+ * terminates or pauses anything, in any build.
+ */
+export function faultReadout(faults: readonly FaultRecord[]): string {
+  if (faults.length === 0) return "";
+  if (faults.length === 1) {
+    return `${FAULT_PREFIX}${shortIdentity(faults[0].identity)}`;
+  }
+  return `FAULTS ${faults.length}`;
+}
+
+/**
+ * The pinned-levels line's figure: one number when the four lines agree, which
+ * is the only shape the pin produces, and all four in roster order otherwise.
+ */
+export function levelsReadout(
+  levels: Readonly<Record<WeaponLine, number>>,
+): string {
+  const values = WEAPON_LINES.map((line) => levels[line]);
+  return values.every((value) => value === values[0])
+    ? `${values[0]}`
+    : values.join("/");
+}
+
+/**
  * The screen a run plays on. Render only: it owns this run's state and shows
  * it, and holds no game rules. The rules live in src/game and reach the screen
  * through advance(), which converts one frame's elapsed time into whole ticks.
@@ -235,6 +332,14 @@ export class GameScreen extends Container {
   private readonly tickLabel: Label;
   private readonly seedLabel: Label;
   private readonly sizeLabel: Label;
+  /**
+   * The loadout pin's readout, beside the seed's and the size's. It shows the
+   * run's already-resolved start levels and never re-reads the URL, and only
+   * when they differ from the birthright, so ordinary runs are untouched.
+   */
+  private readonly levelsLabel: Label;
+  /** The recoverable-fault line, filled by syncReadouts (see faultReadout). */
+  private readonly faultLabel: Label;
   private readonly countdownLabel: Label;
   private readonly pauseButton: Button;
   private readonly belchButton: BelchButton;
@@ -251,9 +356,39 @@ export class GameScreen extends Container {
    */
   private placement: FieldPlacement = DEGENERATE_PLACEMENT;
   private run: RunState | null = null;
+  /**
+   * The one authority every tick of this run crosses (ADR 0017).
+   *
+   * Its lifetime is the run's, so it is made in startRun() beside the run and
+   * cleared in reset() beside it. This screen is pooled, and a pooled screen
+   * leaks anything nobody explicitly clears; carried across runs, its stage
+   * watch would compare run two's first phase against run one's last and its
+   * fault history would belong to a run that is over.
+   */
+  private execution: Execution | null = null;
+  /**
+   * The tape this run is being recorded onto. Its lifetime is the run's, the
+   * same as the Execution's: a pooled screen leaks anything nobody explicitly
+   * clears, and a recorder held past its run would carry one run's commands
+   * into the next.
+   */
+  private recorder: TapeRecorder | null = null;
   private releaseKeys: (() => void) | null = null;
   private releaseListeners: (() => void) | null = null;
+  /**
+   * Whether this run is over: the trailer is sealed, the handoff holds the
+   * captured bytes, and the frame seam holds every later frame still. It
+   * latches up at the first endRun and only prepare() lowers it, because a
+   * lowered latch would let a post-stop frame read live and step a run whose
+   * own record says it stopped.
+   */
   private ending = false;
+  /**
+   * Whether a navigation to the end state is in flight. It is the half of the
+   * old ending guard that does come back down on a failed showScreen, so the
+   * frame seam can retry the way out while the sealed record stays sealed.
+   */
+  private navigating = false;
   /**
    * The two reasons the sim holds still, kept apart rather than as one flag.
    * They are independent: a popup can open, the tab can then be switched away
@@ -286,6 +421,12 @@ export class GameScreen extends Container {
   private shownDebt: number | null = null;
   private shownTick: number | null = null;
   /**
+   * How many fault records the HUD line has been written from, so the label is
+   * only touched when the authority's record grows. Per-run mutable state on a
+   * pooled screen, so prepare() resets it beside the label.
+   */
+  private shownFaults = 0;
+  /**
    * Milliseconds left of the resume countdown, or null when the field is live.
    * It is per-run mutable state with a timer in it on a pooled screen, so
    * prepare() and reset() both clear it.
@@ -302,6 +443,20 @@ export class GameScreen extends Container {
    * clear it.
    */
   private belchRequested = false;
+
+  /**
+   * Whether this run checks the sim invariants on every tick (ADR 0017).
+   *
+   * On unless ?invariants=off asks otherwise. The checks are always on in every
+   * build a player is handed; the switch is a temporary experimental control on
+   * the instrumentation build, so the confirming play's checks-off and checks-on
+   * readings come off one instrument and can be differenced.
+   *
+   * prepare() writes it on every run rather than the constructor writing it
+   * once, because it is per-run state on a pooled screen, which is the class of
+   * defect this app has shipped five times.
+   */
+  private checkingInvariants = true;
 
   constructor() {
     super();
@@ -327,6 +482,13 @@ export class GameScreen extends Container {
     this.tickLabel = stackLine(2);
     this.seedLabel = stackLine(3);
     this.sizeLabel = stackLine(4);
+    // Lines five and six sit past the readout reserve and draw over the field,
+    // which is the meter's own allowance under ADR 0014. Growing the reserve
+    // instead would move the field on every ordinary run: the levels line is
+    // empty on an ordinary run, and the fault line is empty on a healthy one,
+    // because ADR 0017 shows a recoverable fault live on an ordinary run.
+    this.levelsLabel = stackLine(5);
+    this.faultLabel = stackLine(6);
     this.countdownLabel = new Label({
       style: {
         fontFamily: "monospace",
@@ -351,6 +513,8 @@ export class GameScreen extends Container {
       this.tickLabel,
       this.seedLabel,
       this.sizeLabel,
+      this.levelsLabel,
+      this.faultLabel,
       this.countdownLabel,
       this.pauseButton,
       this.belchButton,
@@ -384,6 +548,7 @@ export class GameScreen extends Container {
 
   public prepare() {
     this.ending = false;
+    this.navigating = false;
     this.menuPaused = false;
     this.backgrounded = false;
     this.menuTransition = null;
@@ -391,6 +556,8 @@ export class GameScreen extends Container {
     this.clock = createClock();
     this.shownDebt = null;
     this.shownTick = null;
+    this.shownFaults = 0;
+    this.faultLabel.text = "";
     // A pooled screen must not inherit the previous run's held keys, drag
     // anchor or blur.
     this.keys.releaseAll();
@@ -412,7 +579,18 @@ export class GameScreen extends Container {
     this.belchButton.release();
     this.clearFieldBlur();
 
+    this.checkingInvariants = invariantsFromUrl(
+      window.location.search,
+      window.location.hash,
+    );
     this.run = this.startRun();
+    this.execution = this.startExecution(this.run);
+    // Before the first tick, because the header is written before the first
+    // tick and checkpoint zero is the state before any tick has run.
+    this.recorder = recordInto(
+      this.execution,
+      tapeHeaderFor(this.run, runConditionsHere()),
+    );
     this.syncScreen(this.run);
     this.syncReadouts();
 
@@ -430,15 +608,48 @@ export class GameScreen extends Container {
     const hash = window.location.hash;
     const seed = seedFromUrl(search, hash);
     const size = sizeFromUrl(search, hash);
+    // The loadout pin (ADR 0020): a testing control, never player-facing, and
+    // like ?invariants= it belongs behind the instrumentation build's gate.
+    const levels = levelsFromUrl(search, hash);
     // The size goes in rather than being written afterwards: ADR 0003's floor
     // and ceiling are grave.ts's to hold, and hitGrave is then the only thing
-    // outside it that changes size at all.
-    const run = createRun(seed ?? undefined, size ?? undefined);
+    // outside it that changes size at all. The levels go in the same door, so
+    // the run is born with them and the tape's header records what it was born
+    // with.
+    const run = createRun(
+      seed ?? undefined,
+      size ?? undefined,
+      levels === null ? undefined : uniformLevels(levels),
+    );
 
     this.seedLabel.text =
       seed === null ? `SEED ${run.seed}` : `SEED ${run.seed} PINNED`;
     this.sizeLabel.text = size === null ? "" : `SIZE ${run.grave.size} PINNED`;
+    // The resolved start levels and never the parameter (Mark's ruling): what
+    // the run was actually born with, read before any tick can level it up.
+    // Gated on differing from the birthright rather than on the parameter's
+    // presence, which is what keeps ordinary runs untouched.
+    this.levelsLabel.text = isBirthrightLevels(run.levels)
+      ? ""
+      : `LEVELS ${levelsReadout(run.levels)} PINNED`;
     return run;
+  }
+
+  /**
+   * The authority this run's ticks cross (ADR 0017), made here because its
+   * lifetime is the run's.
+   *
+   * The broken-invariant handler is a notification and never the decider: the
+   * authority sets the stop reason, and only the build decides how loud a fault
+   * is. import.meta.env.DEV is a stand-in for that choice until the two deployed
+   * build flavours exist, and it is what keeps the handler's debugger statement
+   * out of a built bundle.
+   */
+  private startExecution(run: RunState): Execution {
+    return createExecution(run, {
+      checking: this.checkingInvariants,
+      onBroken: import.meta.env.DEV ? devBrokenHandler : undefined,
+    });
   }
 
   /**
@@ -502,6 +713,8 @@ export class GameScreen extends Container {
     this.belchRequested = false;
     this.belchButton.release();
     this.run = null;
+    this.execution = null;
+    this.recorder = null;
     // The field renderer is not detached here. reset() clears the layers and
     // dressField() is the one place that puts renderers back, so a renderer
     // detached here would leave the second run out of the pool with no field
@@ -523,13 +736,102 @@ export class GameScreen extends Container {
    * position error, and applying one twice doubles the travel.
    */
   public update(ticker: Ticker) {
-    if (this.ending || this.menuPaused || this.backgrounded || !this.run) {
-      return;
-    }
-    if (this.countdownMs !== null) {
+    const execution = this.execution;
+    const run = this.run;
+    // The four-condition guard is split, and where the split falls is a ruling
+    // rather than a tidy-up (ADR 0017 and ADR 0018). Only a null run leaves a
+    // frame with no tape to be written into, because a tape is one run's
+    // recording, so that condition alone returns before the seam. Every other
+    // frame of a live run is observed: a paused, backgrounded, ending or
+    // countdown frame bought no ticks, and a skipped frame has to be marked
+    // rather than omitted or the record cannot say the run stalled at all.
+    if (run === null || execution === null) return;
+    const startedAt = performance.now();
+    const ticksBefore = run.tick;
+    // Read before the frame's work runs, because the work can end the state the
+    // frame was spent in: the countdown's last frame clears countdownMs, and
+    // that frame was still a countdown frame.
+    const reason = this.frameReason();
+    const work = this.updateRun(ticker, run, execution, reason);
+    const ticksExecuted = run.tick - ticksBefore;
+    recordFrame(this.recorder, {
+      reason,
+      // Absent rather than fabricated: a frame that bought no ticks has no tick
+      // to attribute itself to, and a reader that finds the index missing
+      // learns something true instead of reading a number somebody invented to
+      // fill the column.
+      tickIndex: ticksExecuted > 0 ? ticksBefore : null,
+      ticksExecuted,
+      intervalMs: ticker.elapsedMS,
+      advanceMs: work.advanceMs,
+      updateMs: performance.now() - startedAt,
+      debtTicks: this.clock.debtTicks,
+    });
+    // A fatal fault stops the run through the authority and never through an
+    // ending (ADR 0017), so the transition keys off execution.stop and this is
+    // the frame that takes the run to the end state. It is the same handoff an
+    // end by play takes, below the seam on purpose: the faulting frame's own
+    // row is already in the recorder when endRun captures the sealed bytes, so
+    // the exported tape ends on the frame that broke. A capture above the
+    // recordFrame call would seal the tape without the frame that executed the
+    // run-ending tick, which is exactly the row ADR 0018's "every frame of a
+    // live run is recorded" is judged on in the exported artifact; that is why
+    // updateRun reports endedRun rather than acting on it. The pause-menu quit
+    // calls endRun outside this seam, where its last live frame is already
+    // recorded, so it needs no deferral. And this.ending re-enters on every
+    // later frame so a failed navigation is retried from the seam: endRun
+    // captures nothing twice, so the retries are navigation alone.
+    if (execution.stop !== null || work.endedRun || this.ending) this.endRun();
+  }
+
+  /**
+   * Why this frame is what it is, in the guard's own order (ADR 0018).
+   *
+   * This is the one enumeration of the hold conditions: updateRun gates on
+   * the reason this returns rather than re-reading the conditions, so a hold
+   * condition added here holds the frame and records it in the same breath.
+   * The short-circuit order lives here alone, so when two conditions are true
+   * at once the recorded reason is the one that actually decided the frame.
+   * Live says only that the frame reached the simulation; whether it bought a
+   * tick is the tick index's fact, not this one's.
+   */
+  private frameReason(): FrameReason {
+    if (this.ending) return "ending";
+    if (this.menuPaused) return "paused";
+    if (this.backgrounded) return "backgrounded";
+    if (this.countdownMs !== null) return "countdown";
+    return "live";
+  }
+
+  /**
+   * The frame's work, once the seam above has a run and an authority to
+   * attribute it to.
+   *
+   * advanceMs is measured here and not read off the ticker because the ticker
+   * cannot give it: elapsedMS is the gap between one frame and the last, so it
+   * says a frame was late and never what made it late. Advance is where the
+   * simulation and its invariant checks both sit, which is the part a
+   * checks-on and a checks-off reading are differenced on, and the frame's
+   * total says how much of a bad frame was anything else.
+   *
+   * endedRun is reported rather than acted on, because the seam above ends the
+   * run only after this frame's row is recorded.
+   *
+   * The frame is held on the recorded reason and never on the raw hold
+   * conditions: frameReason() is the single authority, so a frame this method
+   * holds still is a frame the tape says was held, by construction.
+   */
+  private updateRun(
+    ticker: Ticker,
+    run: RunState,
+    execution: Execution,
+    reason: FrameReason,
+  ): FrameWork {
+    if (reason === "countdown") {
       this.countDown(this.takeElapsed(ticker.elapsedMS));
-      return;
+      return HELD_FRAME;
     }
+    if (reason !== "live") return HELD_FRAME;
     const keyCommand = this.keys.command();
     const source: CommandSource = (grave) => {
       // Read and cleared here rather than in advance: the closure is only
@@ -539,16 +841,31 @@ export class GameScreen extends Container {
       this.belchRequested = false;
       return { move: combineSteer(keyCommand, this.touch, grave), belch };
     };
+    const startedAdvance = performance.now();
     const events = advance(
-      this.run,
+      execution,
       this.clock,
       this.takeElapsed(ticker.elapsedMS),
       source,
     );
-    this.announce(this.run, events);
-    this.syncScreen(this.run);
+    const advanceMs = performance.now() - startedAdvance;
+    this.announce(run, events);
+    this.syncScreen(run);
     this.syncReadouts();
-    if (endedIn(events)) this.endRun();
+    return { advanceMs, endedRun: endedIn(events) };
+  }
+
+  /**
+   * Writes the tape's trailer, once, at the stop.
+   *
+   * A second call is ignored by the recorder rather than overwriting, so the
+   * run that ends by play and is then left by the pause menu still says it
+   * finished.
+   */
+  private closeTape(): void {
+    const execution = this.execution;
+    if (execution === null || this.recorder === null) return;
+    sealTrailer(this.recorder, execution, this.clock.debtTicks);
   }
 
   /**
@@ -658,6 +975,11 @@ export class GameScreen extends Container {
     if (this.run.tick !== this.shownTick) {
       this.shownTick = this.run.tick;
       this.tickLabel.text = `TICK ${this.shownTick}`;
+    }
+    const faults = this.execution?.faults ?? [];
+    if (faults.length !== this.shownFaults) {
+      this.shownFaults = faults.length;
+      this.faultLabel.text = faultReadout(faults);
     }
   }
 
@@ -789,17 +1111,49 @@ export class GameScreen extends Container {
     this.comeBack();
   }
 
+  /**
+   * The run's tape as sealed encoded bytes, made at the stop because nothing
+   * else outlives it: reset() nulls the recorder when this pooled screen is
+   * taken away, and the end screen needs the run's record after that. The
+   * frames the run spends on its own end state arrive after this and stay in
+   * the recorder only; the trailer is already written, so the bytes are the
+   * sealed record of the run up to its stop.
+   */
+  private sealedTape(): Uint8Array | null {
+    if (this.recorder === null) return null;
+    return encodeTape(tapeOf(this.recorder));
+  }
+
+  /**
+   * Takes the run to its end state, sealing the record exactly once.
+   *
+   * The capture is once-only and only the navigation retries. showScreen can
+   * reject, and the frame seam then calls back in while the run stays over: a
+   * retry that re-entered the capture would re-encode the tape and re-record
+   * the handoff on every failing frame, folding the frames after the stop into
+   * the exported artifact. Captured once, the artifact is frozen at the stop
+   * however many retries the way out takes.
+   */
   private endRun() {
-    if (this.ending || !this.run) return;
-    this.clearFieldBlur();
-    this.ending = true;
-    runHandoff.record(summarizeRun(this.run));
+    if (!this.run || !this.execution) return;
+    if (!this.ending) {
+      this.ending = true;
+      this.clearFieldBlur();
+      this.closeTape();
+      runHandoff.record(
+        summarizeRun(this.run, this.execution),
+        this.sealedTape(),
+      );
+    }
+    if (this.navigating) return;
+    this.navigating = true;
     engine()
       .navigation.showScreen(EndScreen)
       .catch((error) => {
-        // A failed navigation releases the guard: left up it deafens every
-        // retry and holds the ticker's work stopped for the rest of the run.
-        this.ending = false;
+        // A failed navigation releases the navigation guard alone, so the
+        // frame seam retries the way out. The ending latch stays up: lowering
+        // it would let a post-stop frame read live and step a stopped run.
+        this.navigating = false;
         console.error(error);
       });
   }

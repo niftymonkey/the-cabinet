@@ -4,4 +4,6 @@ Every sim-bearing build verifies itself the same way, because tests written agai
 
 Feel evaluation is the human's, never the agent's. The repo's feature playbook (`docs/agents/feature-playbook.md`) carries the generic flow; this ADR carries the sim-specific contract it composes with.
 
+**Amended by Hungry Grave ADR 0017 on 2026-08-23.** The invariant harness is no longer confined to `src/dev` and no longer runs only in tests: it lives in `src/game` and it checks every tick in every build, including the one a player plays, because a tape's honesty must not depend on which build recorded it. Everything else here stands, and 0017 carries what the shipped game does when a check fires.
+
 Decision log entry 6.5; reaffirmed for the tracer by Mark 2026-08-19.

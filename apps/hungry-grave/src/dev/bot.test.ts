@@ -24,6 +24,8 @@ import {
 } from "../game/stage/stage";
 import { place } from "../game/stage/templates";
 import { RESERVOIR_CAPACITY, SIZE_CEILING } from "../game/tuning";
+import { createExecution } from "../game/execution";
+import type { Policy, PolicyRun } from "./bot";
 import {
   belchingPolicy,
   dodgePolicy,
@@ -31,6 +33,21 @@ import {
   runPolicy,
   unloadedPolicy,
 } from "./bot";
+
+/**
+ * A policy run through its own authority (ADR 0017), with any fault the run
+ * recorded failing the test that drove it.
+ *
+ * The old harness threw on a broken invariant, which is what made these runs
+ * assert anything about the sim's health. A check records a fault and returns
+ * now, so reading the record is what replaces the absent throw.
+ */
+function play(state: RunState, policy: Policy, maxTicks: number): PolicyRun {
+  const execution = createExecution(state);
+  const played = runPolicy(execution, policy, maxTicks);
+  expect(execution.faults).toEqual([]);
+  return played;
+}
 
 /** Five seeds, fixed so a failure is reproducible and never a flake. */
 const SEEDS = [101, 202, 303, 404, 505];
@@ -70,8 +87,9 @@ const runs = new Map<string, ReturnType<typeof playRun>>();
 
 function playRun(seed: number, startingSize?: number) {
   const state = createRun(seed, startingSize);
-  const { events, ticks } = runPolicy(state, dodgePolicy, STAGE_TICKS + 60);
-  return { state, events, ticks };
+  const execution = createExecution(state);
+  const { events, ticks } = runPolicy(execution, dodgePolicy, STAGE_TICKS + 60);
+  return { state, events, ticks, faults: execution.faults };
 }
 
 function fullRun(seed: number, startingSize?: number) {
@@ -91,7 +109,7 @@ describe("dodgePolicy over the whole stage (ADR 0013)", () => {
       // the storm cuts how long an armed mob lives, and a weaponless build
       // inflates mob fire by roughly a factor of five.
       const state = createRun(seed);
-      runPolicy(state, dodgePolicy, RAMP_TICKS);
+      play(state, dodgePolicy, RAMP_TICKS);
       expect(state.ending).toBeNull();
     });
   }
@@ -127,10 +145,10 @@ describe("dodgePolicy over the whole stage (ADR 0013)", () => {
 
   for (const seed of SEEDS) {
     it(`fires no invariant on seed ${seed}, which is the harness's own assertion`, () => {
-      // runPolicy steps through stepChecked, so a broken invariant throws
-      // rather than being counted. Reaching the end of the run is the
-      // assertion, and the tick count is what says it really ran.
-      expect(() => fullRun(seed)).not.toThrow();
+      // A check records a fault and returns rather than throwing (ADR 0017),
+      // so what the run recorded is read rather than the absence of a throw.
+      // The tick count is what says the run really ran.
+      expect(fullRun(seed).faults).toEqual([]);
       expect(fullRun(seed).ticks).toBeGreaterThan(RAMP_TICKS);
     });
   }
@@ -227,7 +245,7 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
       // three-hit opening and report on a regime the player spends twenty
       // seconds in.
       const state = createRun(seed, SIZE_CEILING);
-      const { events } = runPolicy(state, hitTakingPolicy, RAMP_TICKS);
+      const { events } = play(state, hitTakingPolicy, RAMP_TICKS);
 
       expect(state.ending).toBe("sealed");
       expect(count(events, "sealed")).toBe(1);
@@ -289,7 +307,7 @@ describe("the Wall's two-sided property (ADR 0016)", () => {
         bell: 0,
       });
       const before = state.grave.size;
-      const { events } = runPolicy(state, unloadedPolicy, WALL_TICKS);
+      const { events } = play(state, unloadedPolicy, WALL_TICKS);
 
       expect(state.ending).toBeNull();
       expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(0);
@@ -305,7 +323,7 @@ describe("the Wall's two-sided property (ADR 0016)", () => {
     it(`is crossed clean by a loaded belch at the ceiling build on seed ${seed}`, () => {
       const state = wallRun(seed, true);
       const before = state.grave.size;
-      const { events } = runPolicy(state, belchingPolicy, WALL_TICKS);
+      const { events } = play(state, belchingPolicy, WALL_TICKS);
 
       expect(state.ending).toBeNull();
       expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(0);
@@ -324,10 +342,14 @@ describe("the drain-out's property (plan 6.29)", () => {
       // grave ground down inside the back half would stop the clock before the
       // boundary being measured. The storm still fires the whole way.
       const state = createRun(seed);
+      // One authority across the whole loop, because a fresh one per tick
+      // would put a fresh stage watch on every tick and the two stage
+      // invariants would compare against nothing.
+      const execution = createExecution(state);
       const budget = STAGE_TICKS + 120;
       const atBoundary: string[] = [];
       for (let tick = 0; tick < budget; tick++) {
-        const { events } = runPolicy(state, dodgePolicy, 1);
+        const { events } = runPolicy(execution, dodgePolicy, 1);
         state.grave.size = 40;
         state.ending = null;
         const alive = state.mobs.filter((mob) => mob.alive).length;
@@ -336,6 +358,7 @@ describe("the drain-out's property (plan 6.29)", () => {
           atBoundary.push(`${event.phase}=${alive}`);
         }
       }
+      expect(execution.faults).toEqual([]);
       expect(atBoundary).toEqual([
         "banshee=0",
         "backHalf=0",

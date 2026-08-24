@@ -1,6 +1,6 @@
 /**
- * The frame seam above step.ts: one frame's elapsed real time turned into whole
- * ticks and stepped (ADR 0015).
+ * The frame seam above the execution authority: one frame's elapsed real time
+ * turned into whole ticks and executed (ADR 0015, ADR 0017).
  *
  * It lives here rather than inside a pixi screen for the same reason clock.ts
  * does. ADR 0015 puts the accumulator in the game's own code so the autopilot
@@ -12,9 +12,10 @@
 import type { Clock } from "./clock";
 import { ticksFor } from "./clock";
 import type { SimEvent } from "./events";
+import type { Execution } from "./execution";
+import { executeTick } from "./execution";
 import type { FieldPoint } from "./grave";
-import type { RunState, TickCommand } from "./run";
-import { step } from "./step";
+import type { TickCommand } from "./run";
 
 /**
  * Where this tick's command comes from. It takes a point and not a Grave
@@ -43,9 +44,14 @@ export type CommandSource = (grave: FieldPoint) => TickCommand;
  *
  * elapsedMs is raw elapsed real time and never Pixi's deltaMS: clock.ts says
  * why in its own header.
+ *
+ * The stop reason is read off the Execution before each tick, so a fatal fault
+ * stops the frame instead of re-firing on the other fourteen ticks the catch-up
+ * clamp bought. It deliberately does not stop on run.ending, which would move
+ * the final score and tick count a player sees and has its own ticket.
  */
 export function advance(
-  run: RunState,
+  execution: Execution,
   clock: Clock,
   elapsedMs: number,
   source: CommandSource,
@@ -53,7 +59,8 @@ export function advance(
   const ticks = ticksFor(clock, elapsedMs);
   const events: SimEvent[] = [];
   for (let tick = 0; tick < ticks; tick++) {
-    events.push(...step(run, source(run.grave)));
+    if (execution.stop !== null) break;
+    events.push(...executeTick(execution, source(execution.run.grave)));
   }
   return events;
 }

@@ -53,6 +53,8 @@ The place the figure binds is Hungry Grave ADR 0014, whose grayscale readability
 
 ## 3. Module boundaries
 
+**Swept for unowned modules on 2026-08-23, before dispatch 6 was planned, per feature-playbook rule 3.** Every module named below now has a dispatch that owns it or is marked here with a trigger. Three had neither: `src/dev/instruments.ts`, now owned by #45, and `GameHud.ts` and `DebugPanel.ts`, which are recorded below as unowned with a trigger because `GameScreen` took their job. `caps.ts`, `bot.ts` and `invariants.ts` were named here without a dispatch naming them back, but all three shipped, in `58baf2d1ff` and `844db5029d`, so the gap was in the sequence's wording rather than in the work. The sweep runs forward, from this list to the dispatches; modules the code grew that this list never named (`field.ts`, `lines/roster.ts`, `GraveRenderer.ts`, `StormRenderer.ts`, `BelchButton.ts`, `DigestScreen.ts`, `dev/digest.ts`, `runHandoff.ts`, `seedFromUrl.ts`, `color.ts`, `FpsMeter.ts`, `fpsSampler.ts`) each arrived with a dispatch plan that owns them, and are staleness in this document rather than ownership holes.
+
 One rule holds the whole design up: `src/game` and `src/input` are the game's rules and import no rendering code. Verification step 3 enforces it, because a single careless import destroys it silently and nothing else in the design would notice.
 
 Every dependency here is pure in-process computation. There is no network, no third party, and no storage behind any of these interfaces, so the design has no ports and no adapters anywhere.
@@ -100,13 +102,14 @@ Both produce the same bare move command in base-speed units, and each owns its o
 - `palette.ts`: every colour the game draws, each declared with its luminance, so the value band Hungry Grave ADR 0014 reserves for mob fire is a data rule a unit test can check. Without it the band can only be checked by a grayscale screenshot, which is structurally blind to anything not on screen at that instant: a later phase's boss pattern, the invincible flash, the last-chance flicker.
 - `screens/game/layering.ts`: the fixed draw stack (Hungry Grave ADR 0014). Container order only; the band is `palette.ts`'s.
 - `sound.ts`: subscribes to the event list and makes the game audible. The swallow chime from the first swallow and the bell's toll are both headline criteria, and the create-pixi template ships the audio plugin (Hungry Grave ADR 0009), so this is wiring plus an asset source, not a new dependency.
-- `screens/game/FieldRenderer.ts`, `screens/game/GameHud.ts`, `screens/game/DebugPanel.ts`, `screens/TitleScreen.ts`, `screens/EndScreen.ts`: render only, subscribing to sim state and events. No game rules.
+- `screens/game/FieldRenderer.ts`, `screens/TitleScreen.ts`, `screens/EndScreen.ts`: render only, subscribing to sim state and events. No game rules.
+- `screens/game/GameHud.ts` and `screens/game/DebugPanel.ts`: **named here, never built, and no dispatch owns them.** The readouts they were to carry live as five inline labels and a dirty-check `syncReadouts()` on `GameScreen`, recorded in the dispatch-5 plan section on `GameScreen`. Recorded as unowned rather than deleted, because the shape is a real choice and not a slip. The trigger that revives either one: a readout arriving that the five inline labels cannot carry, which is what #45's watch and measure surfaces may produce. Until then `GameScreen` is the owner and this list is the stale half.
 
 ### `src/dev/`, the test rig, not the game
 
 - `bot.ts`: the deterministic headless player, two policies (a competent one and one that deliberately takes hits), and the same bot as the dev-only autopilot in the rendered game (Hungry Grave ADR 0013).
 - `invariants.ts`: in bounds, size within floor and ceiling, no NaN, entity caps.
-- `instruments.ts`: the design reads, including the after-hit spiral-versus-comeback instrument and the airborne-projectile count that becomes ADR 0014's density figure.
+- `instruments.ts`: the design reads, including the after-hit spiral-versus-comeback instrument and the airborne-projectile count that becomes ADR 0014's density figure. **Owned by #45**, which moves the reads to replay time and computes them from a tape rather than from a live run. It was unowned by every dispatch in section 6 until #45 was cut.
 
 ### The seams under test
 

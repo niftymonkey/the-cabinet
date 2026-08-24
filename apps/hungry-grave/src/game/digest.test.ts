@@ -39,9 +39,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { foldEntities, GOLDEN, runScenario } from "../dev/digest";
+import { GOLDEN, runScenario } from "../dev/digest";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
 import { SIZE_START } from "./tuning";
+import { foldWitness } from "./witness";
 
 /** What the scenario's grave starts at, so growth from its one swallow is visible. */
 const GOLDEN_START_SIZE = SIZE_START;
@@ -51,7 +52,12 @@ const SINGLE_PRECISION_EPSILON = 1.1920928955078125e-7;
 
 describe("the golden digest", () => {
   it("a golden digest over a short scripted scenario matches the committed constant (ADR 0015)", () => {
-    const { digest } = runScenario();
+    const { digest, faults } = runScenario();
+    // The invariants over the scenario's scripted ticks are asserted here
+    // because this is the only place left that reads them headlessly: a check
+    // records a fault and returns rather than throwing (ADR 0017), so nothing
+    // in this suite fails on a broken invariant unless a test looks.
+    expect(faults.map((fault) => fault.identity)).toEqual([]);
     if (JSON.stringify(digest) !== JSON.stringify(GOLDEN)) {
       console.log(
         `The digest moved. If that was deliberate, paste this over GOLDEN in src/dev/digest.ts and say why in the commit message:\n\nexport const GOLDEN: Digest = ${JSON.stringify(digest, null, 2)};\n`,
@@ -70,14 +76,14 @@ describe("the golden digest", () => {
     expect(mob).toBeDefined();
     expect(corpse).toBeDefined();
 
-    const before = foldEntities(state, 0);
+    const before = foldWitness(state, 0);
     mob!.vx += 1e-5;
-    expect(foldEntities(state, 0)).not.toBe(before);
+    expect(foldWitness(state, 0)).not.toBe(before);
     mob!.vx -= 1e-5;
-    expect(foldEntities(state, 0)).toBe(before);
+    expect(foldWitness(state, 0)).toBe(before);
 
     corpse!.freshness -= 1e-5;
-    expect(foldEntities(state, 0)).not.toBe(before);
+    expect(foldWitness(state, 0)).not.toBe(before);
   });
 
   it("detects a divergence at ulp scale, which is the size ADR 0015 exists to catch", () => {
@@ -88,10 +94,10 @@ describe("the golden digest", () => {
     // nothing about the instrument's real resolution.
     const { state } = runScenario();
     const mob = state.mobs.find((each) => each.alive)!;
-    const before = foldEntities(state, 0);
+    const before = foldWitness(state, 0);
 
     mob.vy += SINGLE_PRECISION_EPSILON;
-    expect(foldEntities(state, 0)).not.toBe(before);
+    expect(foldWitness(state, 0)).not.toBe(before);
 
     // And the arithmetic that says why the fold moved to nine places: at six,
     // this same perturbation rounds to the identical integer and the checksum
@@ -108,17 +114,17 @@ describe("the golden digest", () => {
     const skull = state.skulls.find((each) => each.alive);
     expect(skull).toBeDefined();
 
-    const before = foldEntities(state, 0);
+    const before = foldWitness(state, 0);
     skull!.x += 1e-6;
-    expect(foldEntities(state, 0)).not.toBe(before);
+    expect(foldWitness(state, 0)).not.toBe(before);
     skull!.x -= 1e-6;
-    expect(foldEntities(state, 0)).toBe(before);
+    expect(foldWitness(state, 0)).toBe(before);
 
     const wisp = state.wisps[0];
     wisp.alive = true;
     wisp.x = 100;
     wisp.y = 100;
-    expect(foldEntities(state, 0)).not.toBe(before);
+    expect(foldWitness(state, 0)).not.toBe(before);
   });
 
   it("makes the spawns and mobFire streams both draw, which they never used to", () => {

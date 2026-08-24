@@ -23,6 +23,10 @@
  * grave. It now folds every live entity's own state in slot order, which is
  * what actually puts math.ts on the path and buys coverage of the spawn
  * sequence and of pool iteration order at the same time.
+ *
+ * The fold itself lives in src/game/witness.ts (ADR 0019), because a replay
+ * ships and ADR 0013 keeps this rig out of the shipped game. The digest is the
+ * witness of this one canonical scenario, chained across its ticks.
  */
 
 import { graveHitbox } from "../game/grave";
@@ -31,7 +35,9 @@ import { damageMob, spawnMob } from "../game/mobs";
 import type { MoveCommand, RunState } from "../game/run";
 import { createRun } from "../game/run";
 import { place } from "../game/stage/templates";
-import { stepChecked } from "./invariants";
+import type { FaultRecord } from "../game/execution";
+import { createExecution, executeTick } from "../game/execution";
+import { foldWitness } from "../game/witness";
 
 const SEED = 20260820;
 const TICKS = 600;
@@ -130,59 +136,15 @@ export interface ScenarioResult {
    * reaches an entity's own state.
    */
   readonly state: RunState;
-}
-
-/**
- * Integer-only folding at a fixed nine decimal places, so the checksum cannot
- * itself diverge between engines.
- *
- * Nine and not six. One f32 ulp at the ghoul's turn cosine is about 1.19e-7,
- * which is below a six-place quantum: a single-tick divergence of exactly the
- * size ADR 0015 exists to catch was invisible, and only showed once it had
- * accumulated into position. Math.round(760 * 1e9) stays inside ToInt32's range
- * deterministically, so the finer fold costs nothing.
- */
-function fold(checksum: number, value: number): number {
-  return (Math.imul(checksum, 31) + Math.round(value * 1e9)) | 0;
-}
-
-/**
- * Every live entity's own state, in slot order. Slot order is the point as much
- * as the values are: a pool walked in a different order gives a different
- * checksum, so iteration order is verified rather than assumed.
- */
-export function foldEntities(run: RunState, from: number): number {
-  let checksum = from;
-  for (const mob of run.mobs) {
-    if (!mob.alive) continue;
-    checksum = fold(fold(fold(fold(checksum, mob.x), mob.y), mob.vx), mob.vy);
-  }
-  for (const shot of run.mobFire) {
-    if (!shot.alive) continue;
-    checksum = fold(
-      fold(fold(fold(checksum, shot.x), shot.y), shot.vx),
-      shot.vy,
-    );
-  }
-  for (const corpse of run.corpses) {
-    if (!corpse.alive) continue;
-    checksum = fold(fold(fold(checksum, corpse.x), corpse.y), corpse.freshness);
-  }
-  for (const skull of run.skulls) {
-    if (!skull.alive) continue;
-    checksum = fold(
-      fold(fold(fold(checksum, skull.x), skull.y), skull.vx),
-      skull.vy,
-    );
-  }
-  for (const wisp of run.wisps) {
-    if (!wisp.alive) continue;
-    checksum = fold(
-      fold(fold(fold(checksum, wisp.x), wisp.y), wisp.vx),
-      wisp.vy,
-    );
-  }
-  return checksum;
+  /**
+   * Every invariant the scenario broke, de-duplicated by identity.
+   *
+   * It is returned rather than thrown because a check records a fault and
+   * returns (ADR 0017). The scenario used to abort on the first broken
+   * invariant, so a caller that wanted to know had only the exception; a caller
+   * that wants to know now has to read this, and the #/digest screen does.
+   */
+  readonly faults: readonly FaultRecord[];
 }
 
 function liveCount(pool: readonly { alive: boolean }[]): number {
@@ -246,9 +208,10 @@ function scriptedKills(run: RunState, tick: number): number {
   return 1;
 }
 
-/** Runs the scenario, returning its digest, how close it came to the field boundary, and the run itself. */
+/** Runs the scenario, returning its digest, how close it came to the field boundary, the run itself and any faults it broke. */
 export function runScenario(): ScenarioResult {
   const run = createRun(SEED);
+  const execution = createExecution(run);
   let checksum = 0;
   let kills = 0;
   let minX = Infinity;
@@ -256,22 +219,29 @@ export function runScenario(): ScenarioResult {
   let maxX = -Infinity;
   let maxY = -Infinity;
   for (let tick = 0; tick < TICKS; tick++) {
+    // The loop reads the stop condition off the Execution before each tick (ADR
+    // 0017), the same as advance's inner loop and the bot's policy loop. Without
+    // it the scenario would run its whole remaining budget on a state a fatal
+    // fault has already declared unusable, and a NaN-poisoned run's digest says
+    // nothing about determinism.
+    if (execution.stop !== null) break;
     kills += scriptedKills(run, tick);
-    stepChecked(run, { move: SCRIPT[tick % SCRIPT.length], belch: false });
+    executeTick(execution, {
+      move: SCRIPT[tick % SCRIPT.length],
+      belch: false,
+    });
     const box = graveHitbox(run.grave);
     minX = Math.min(minX, box.x);
     minY = Math.min(minY, box.y);
     maxX = Math.max(maxX, box.x + box.width);
     maxY = Math.max(maxY, box.y + box.height);
-    checksum = fold(checksum, run.grave.x);
-    checksum = fold(checksum, run.grave.y);
-    checksum = fold(checksum, run.grave.size);
-    checksum = foldEntities(run, checksum);
+    checksum = foldWitness(run, checksum);
   }
   return {
     digest: digestOf(run, checksum, kills),
     boundary: { minX, minY, maxX, maxY },
     state: run,
+    faults: execution.faults,
   };
 }
 
@@ -308,5 +278,5 @@ export const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 1924011367,
+  checksum: -522074226,
 };

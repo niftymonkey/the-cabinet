@@ -1,10 +1,11 @@
 /**
- * The sim seam (tracer plan section 3). Every test here steps through
- * stepChecked, so ADR 0013's invariants are checked on every step.
+ * The sim seam (tracer plan section 3). Every test here steps through the one
+ * execution authority (ADR 0017), and stepping() fails the test on any fault
+ * the run records, which is ADR 0013's invariants checked on every step.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { stepChecked } from "../dev/invariants";
+import { stepping } from "../dev/stepping";
 import { spawnCorpse } from "./corpses";
 import { priceOfNextDrop } from "./drops";
 import type { SimEvent } from "./events";
@@ -111,19 +112,21 @@ describe("the sim seam", () => {
 
   it("a step advances exactly one tick", () => {
     const run = createRun(7);
-    stepChecked(run, STILL);
-    stepChecked(run, STILL);
+    const step = stepping(run);
+    step(STILL);
+    step(STILL);
     expect(run.tick).toBe(2);
   });
 
   it("a tick with nothing in it reports no events", () => {
     const run = createRun(7);
-    expect(stepChecked(run, STILL)).toEqual([]);
+    expect(stepping(run)(STILL)).toEqual([]);
   });
 
   it("scroll distance derives from the tick, so there is no stored field to drift", () => {
     const run = createRun(7);
-    for (let i = 0; i < 40; i++) stepChecked(run, STILL);
+    const step = stepping(run);
+    for (let i = 0; i < 40; i++) step(STILL);
     expect(run.tick).toBe(40);
     expect(run.tick * SCROLL_SPEED).toBe(40 * SCROLL_SPEED);
     const scrollish = Object.keys(run).filter((key) =>
@@ -135,7 +138,7 @@ describe("the sim seam", () => {
   it("step applies the move command to the grave, so steering reaches the sim through the seam", () => {
     const run = createRun(7);
     const from = { x: run.grave.x, y: run.grave.y };
-    stepChecked(run, drift(1, -1));
+    stepping(run)(drift(1, -1));
     expect(run.grave.x).toBe(from.x + BASE_SPEED);
     expect(run.grave.y).toBe(from.y - BASE_SPEED);
   });
@@ -143,7 +146,7 @@ describe("the sim seam", () => {
   it("step ages invulnerability by one tick", () => {
     const run = createRun(7);
     run.grave.invulnerable = 5;
-    stepChecked(run, STILL);
+    stepping(run)(STILL);
     expect(run.grave.invulnerable).toBe(4);
   });
 
@@ -157,10 +160,12 @@ describe("the sim seam", () => {
     ];
     const a = createRun(11);
     const b = createRun(11);
+    const stepA = stepping(a);
+    const stepB = stepping(b);
     for (let i = 0; i < 200; i++) {
       const command = script[i % script.length];
-      stepChecked(a, command);
-      stepChecked(b, command);
+      stepA(command);
+      stepB(command);
     }
     expect(snapshot(a)).toEqual(snapshot(b));
   });
@@ -205,7 +210,7 @@ function shotOnGrave(state: RunState) {
   return shot;
 }
 
-function typesOf(events: SimEvent[]): string[] {
+function typesOf(events: readonly SimEvent[]): string[] {
   return events.map((event) => event.type);
 }
 
@@ -215,6 +220,7 @@ describe("the tick order (dispatch 4 section 4.9)", () => {
     // Greed that arrives on the last tick is rewarded, which is the direction
     // ADR 0004 already leans by giving freshness a payout floor.
     const state = quietRun();
+    const step = stepping(state);
     const dead = spawnMob(state, "shambler", {
       x: state.grave.x,
       y: state.grave.y,
@@ -227,7 +233,7 @@ describe("the tick order (dispatch 4 section 4.9)", () => {
     const corpse = state.corpses.find((each) => each.alive)!;
     corpse.freshness = 0;
 
-    const events = stepChecked(state, STILL);
+    const events = step(STILL);
     expect(typesOf(events)).toContain("swallowed");
     expect(typesOf(events)).not.toContain("corpseExpired");
     expect(corpse.alive).toBe(false);
@@ -235,8 +241,9 @@ describe("the tick order (dispatch 4 section 4.9)", () => {
 
   it("ages the grave last, so a hit's window lasts exactly INVULNERABLE_TICKS", () => {
     const state = quietRun();
+    const step = stepping(state);
     mobOnGrave(state);
-    stepChecked(state, STILL);
+    step(STILL);
     expect(state.grave.invulnerable).toBe(INVULNERABLE_TICKS - 1);
   });
 });
@@ -244,10 +251,11 @@ describe("the tick order (dispatch 4 section 4.9)", () => {
 describe("what meets the grave (ADR 0003 and ADR 0014)", () => {
   it("shrinks the grave through hitGrave when mob fire lands, and consumes the shot", () => {
     const state = quietRun();
+    const step = stepping(state);
     const shot = shotOnGrave(state);
     const before = state.grave.size;
 
-    const events = stepChecked(state, STILL);
+    const events = step(STILL);
     expect(typesOf(events)).toContain("graveHit");
     expect(state.grave.size).toBe(before - HIT_SHRINK);
     expect(shot.alive).toBe(false);
@@ -255,17 +263,18 @@ describe("what meets the grave (ADR 0003 and ADR 0014)", () => {
 
   it("consumes a shot that overlaps an invulnerable grave, so one shot can never become two hits", () => {
     const state = quietRun();
+    const step = stepping(state);
     state.grave.invulnerable = INVULNERABLE_TICKS;
     const shot = shotOnGrave(state);
     const before = state.grave.size;
 
-    const first = stepChecked(state, STILL);
+    const first = step(STILL);
     expect(typesOf(first)).not.toContain("graveHit");
     expect(shot.alive).toBe(false);
 
     const later: SimEvent[] = [];
     for (let tick = 0; tick < INVULNERABLE_TICKS + 5; tick++) {
-      later.push(...stepChecked(state, STILL));
+      later.push(...step(STILL));
     }
     expect(typesOf(later)).not.toContain("graveHit");
     expect(state.grave.size).toBe(before);
@@ -273,10 +282,11 @@ describe("what meets the grave (ADR 0003 and ADR 0014)", () => {
 
   it("shrinks the grave on mob contact and leaves the mob on the field", () => {
     const state = quietRun();
+    const step = stepping(state);
     const mob = mobOnGrave(state);
     const before = state.grave.size;
 
-    const events = stepChecked(state, STILL);
+    const events = step(STILL);
     expect(typesOf(events)).toContain("graveHit");
     expect(state.grave.size).toBe(before - HIT_SHRINK);
     expect(mob.alive).toBe(true);
@@ -285,12 +295,13 @@ describe("what meets the grave (ADR 0003 and ADR 0014)", () => {
 
   it("lands nothing on a second contact inside the invulnerability window", () => {
     const state = quietRun();
+    const step = stepping(state);
     mobOnGrave(state, -6);
     mobOnGrave(state, 6);
     const box = graveHitbox(state.grave);
     expect(box.height).toBeGreaterThan(12);
 
-    const events = stepChecked(state, STILL);
+    const events = step(STILL);
     expect(events.filter((event) => event.type === "graveHit")).toHaveLength(1);
   });
 });
@@ -300,12 +311,14 @@ describe("determinism across the whole field (ADR 0012)", () => {
     const script = [drift(1, 0), drift(0, -1), drift(-1, 0.5), STILL];
     const a = createRun(5150);
     const b = createRun(5150);
+    const stepA = stepping(a);
+    const stepB = stepping(b);
     const eventsA: SimEvent[] = [];
     const eventsB: SimEvent[] = [];
     for (let tick = 0; tick < 1500; tick++) {
       const command = script[tick % script.length];
-      eventsA.push(...stepChecked(a, command));
-      eventsB.push(...stepChecked(b, command));
+      eventsA.push(...stepA(command));
+      eventsB.push(...stepB(command));
     }
     expect(eventsA.length).toBeGreaterThan(0);
     expect(JSON.stringify(eventsA)).toBe(JSON.stringify(eventsB));
@@ -320,11 +333,12 @@ describe("the belch in the tick order (plan 6.13)", () => {
     // the button is a lie at the only moment it matters. Ordering the belch
     // after resolveOverlaps makes this fail, which is the point of the test.
     const state = quietRun();
+    const step = stepping(state);
     state.reservoir = RESERVOIR_CAPACITY;
     const shot = shotOnGrave(state);
     const before = state.grave.size;
 
-    const events = stepChecked(state, { move: { x: 0, y: 0 }, belch: true });
+    const events = step({ move: { x: 0, y: 0 }, belch: true });
     expect(typesOf(events)).toContain("belched");
     expect(typesOf(events)).not.toContain("graveHit");
     expect(state.grave.size).toBe(before);
@@ -333,9 +347,10 @@ describe("the belch in the tick order (plan 6.13)", () => {
 
   it("does nothing at all when the command does not ask for one", () => {
     const state = quietRun();
+    const step = stepping(state);
     state.reservoir = RESERVOIR_CAPACITY;
     shotOnGrave(state);
-    const events = stepChecked(state, STILL);
+    const events = step(STILL);
     expect(typesOf(events)).not.toContain("belched");
     expect(state.reservoir).toBe(RESERVOIR_CAPACITY);
   });
@@ -346,9 +361,10 @@ describe("the weapon lines in the tick order (plan 6.13)", () => {
     // The same rule mob fire already has, which is what makes the stream read
     // as pouring out of the grave rather than appearing above it.
     const state = quietRun();
+    const step = stepping(state);
     state.lines.streamIn = 1;
     const mouth = { x: state.grave.x, y: state.grave.y - state.grave.size };
-    stepChecked(state, STILL);
+    step(STILL);
     const live = state.skulls.filter((skull) => skull.alive);
     expect(live).toHaveLength(1);
     expect({ x: live[0].x, y: live[0].y }).toEqual(mouth);
@@ -356,6 +372,7 @@ describe("the weapon lines in the tick order (plan 6.13)", () => {
 
   it("runs the lines after mob motion, so this tick's storm meets this tick's mobs", () => {
     const state = quietRun();
+    const step = stepping(state);
     state.lines.streamIn = 1;
     const above = spawnMob(state, "shambler", {
       x: state.grave.x,
@@ -369,12 +386,13 @@ describe("the weapon lines in the tick order (plan 6.13)", () => {
 
     // The skull launches at the mouth this tick and the deaths phase runs after
     // it, so a mob standing on the mouth dies on the launch tick.
-    const events = stepChecked(state, STILL);
+    const events = step(STILL);
     expect(typesOf(events)).toContain("mobKilled");
   });
 
   it("credits every kill the tick made, the bell's included", () => {
     const state = quietRun();
+    const step = stepping(state);
     state.levels.bell = MAX_LEVEL;
     state.lines.tollIn = 1;
     const victim = spawnMob(state, "shambler", {
@@ -392,7 +410,7 @@ describe("the weapon lines in the tick order (plan 6.13)", () => {
 
     let killed = 0;
     for (let tick = 0; tick < BELL_EXPAND_TICKS + 2; tick++) {
-      killed += typesOf(stepChecked(state, STILL)).filter(
+      killed += typesOf(step(STILL)).filter(
         (type) => type === "mobKilled",
       ).length;
     }
@@ -408,6 +426,7 @@ describe("a belch kill is a kill (Mark, 2026-08-22)", () => {
     // included, so the eruption pays the drop economy instead of emptying the
     // field of it.
     const state = quietRun();
+    const step = stepping(state);
     state.reservoir = RESERVOIR_CAPACITY;
     const wave = priceOfNextDrop(0);
     for (let index = 0; index < wave; index++) {
@@ -420,7 +439,7 @@ describe("a belch kill is a kill (Mark, 2026-08-22)", () => {
       })!.beat = 0;
     }
 
-    const events = stepChecked(state, { move: { x: 0, y: 0 }, belch: true });
+    const events = step({ move: { x: 0, y: 0 }, belch: true });
 
     expect(typesOf(events).filter((type) => type === "mobKilled")).toHaveLength(
       wave,

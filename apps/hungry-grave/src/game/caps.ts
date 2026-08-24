@@ -27,10 +27,11 @@
 
 /**
  * The caps are a safety net and not a tuning knob. The densest authored moment
- * puts 47 mobs alive at once, so they are far enough above the content that
- * hitting one means something has gone wrong, and near enough that a runaway
- * spawn cannot allocate without bound. The tuning dispatch owns them if the
- * storm changes the arithmetic.
+ * puts 51 mobs alive at once, at tick 11341, measured across three seeds in
+ * docs/research/invariant-check-cost.md section 3a. They are far enough above
+ * the content that hitting one means something has gone wrong, and near enough
+ * that a runaway spawn cannot allocate without bound. The tuning dispatch owns
+ * them if the storm changes the arithmetic.
  */
 export const MOB_CAP = 160;
 export const MOB_FIRE_CAP = 400;

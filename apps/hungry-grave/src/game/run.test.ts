@@ -7,7 +7,8 @@
 import { describe, expect, it } from "vitest";
 
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from "./caps";
-import { createRun } from "./run";
+import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from "./lines/roster";
+import { createRun, uniformLevels } from "./run";
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from "./tuning";
 
 describe("createRun", () => {
@@ -42,5 +43,50 @@ describe("createRun", () => {
   it("starts the stage at its first phase", () => {
     const run = createRun(1);
     expect(run.stage).toEqual({ phaseIndex: 0, phaseTick: 0, firedRows: 0 });
+  });
+
+  it("starts at the birthright when no levels are asked for", () => {
+    const run = createRun(1);
+    for (const line of WEAPON_LINES) {
+      expect(run.levels[line]).toBe(BIRTHRIGHT.includes(line) ? 1 : 0);
+    }
+  });
+
+  it("takes starting levels exactly as given, so a tape's header can rebuild a pinned run", () => {
+    const pinned = createRun(1, undefined, uniformLevels(MAX_LEVEL));
+    for (const line of WEAPON_LINES) {
+      expect(pinned.levels[line]).toBe(MAX_LEVEL);
+    }
+
+    const uneven = createRun(1, undefined, {
+      soulStream: 2,
+      headstones: 0,
+      wisps: 4,
+      bell: 1,
+    });
+    expect(uneven.levels).toEqual({
+      soulStream: 2,
+      headstones: 0,
+      wisps: 4,
+      bell: 1,
+    });
+  });
+
+  it("copies the given levels rather than aliasing them, because the rules mutate them in place", () => {
+    const given = uniformLevels(3);
+    const run = createRun(1, undefined, given);
+
+    run.levels.bell = 5;
+
+    expect(given.bell).toBe(3);
+  });
+
+  it("spells the loadout pin's shape: every line at one level", () => {
+    expect(uniformLevels(2)).toEqual({
+      soulStream: 2,
+      headstones: 2,
+      wisps: 2,
+      bell: 2,
+    });
   });
 });

@@ -1038,3 +1038,59 @@ Do not act on these. They are here so the next planner does not rediscover them.
 - **The bell's levels 1 to 3 differ only in radius**, which section 8 argues is close to no visible ladder at all under a falloff to 0.5 damage against three-health trash. Trigger: Mark's read in section 10, and dispatch 7 if it reads as flat.
 - **The bled score does not scatter as swallowable scraps.** Parked by Mark, trigger is the #31 playtest.
 - **Banshee shedding** is parked by Mark. Do not re-ask; revisit with mob variety.
+
+## 13. Mark's read of the built dispatch
+
+Played 2026-08-23 on the deployed build at `00cb4457c6`, after the belch fix and the drop dice fix. Recorded 2026-08-23 from Mark's own words, kept as his words rather than paraphrased. Reads he does not have are recorded as no read, which is itself the record: an absent read is not a passing one.
+
+### With no list in hand
+
+"It was definitely easier to get through without feeling like I was only dodging."
+
+The dispatch's stated job is done. The chain it was built to break, few kills so few drops so no line levels so all that is left is dodging, is broken.
+
+The finding on top of that is the one that matters more, and it is not a complaint about this build:
+
+"I still feel like maybe there is some work to do because we might have swung back in the opposite direction on the spectrum to where we were with the ugly slice. I think it might be too easy now but I just want to essentially use the 6a tooling to help us understand what's what."
+
+So the read is not "too easy, tune it down". It is "the swing is now the open question, and it is a question for the instrument". This is the concrete case for #45 blocking #36, from the only person who has played it.
+
+His stance on how this works from here, which is a working agreement and not a read:
+
+"I feel like a number of games of me playing that and hopefully you will have the data that you need to start making informed suggestions. Part of me wanting to build this tooling in is that I want to stop telling you anything other than feel and then you can back that feel up with real data to make it actionable."
+
+That sets what the instrument owes: feel is his half and evidence is the agent's half, and a suggestion that cannot show its data is not ready to be made.
+
+### The five
+
+**Is steering into where danger just was delicious or miserable.** No read yet. The central bet of the design stays unanswered, and it is a live question rather than a settled one.
+
+**Does a drop read as treasure mid-dodge, and can you tell which line it is.** Half and half, and the second half is a clear no.
+
+"Sorta reads right, I think it could be better, and I don't think it has to be as small as the rest of the drops so you could have room to make it nicer and more attractive of a thing to swerve for. And no, it wasn't clear which line it was for."
+
+Two separate findings inside one answer. The drop reads as *something worth having*, weakly. It does not read as *which line it belongs to* at all, which is the read the silhouette design exists to deliver, and the drop is not carrying enough visual weight for a player to want to swerve for it.
+
+There is a second failure inside the same answer, and it is not about colour at all:
+
+"Not only are they the same color, but they also stack on each other. If I kill three mobs that are stacked on each other, then I can't see all three things very easily. When the drops are hidden underneath a mob corpse, it's not easy to see that it is a drop."
+
+Drops and corpses share one pool and a drop spawns where the mob died, so a drop can sit under the corpse of the thing that dropped it. No amount of hue or silhouette work fixes something that is not visible. His proposed fix: "some level of the equivalent of a force-directed graph kind of movement that pushes those special drop items away from corpses, or maybe pushes the corpses away from those." A cheaper option nobody has weighed against it is drawing every drop above every corpse, which costs one ordering change and no sim work, but separates them in depth rather than in space.
+
+He is not the only source landing here. The product vision gate found independently that the four silhouettes ship in one colour, `PALETTE.drop`, while the tracer plan's own proposal was "a per-line colour", and that the record's own argument is that hue is the free channel because brightness is spoken for by freshness and luminance by ADR 0014's band. Separately, a drop and a mob shot both draw at 16 units, so size no longer separates them either. His read, the gate's read and the parked size note are three routes to the same place.
+
+**Can you tell the four weapon lines apart while they are all firing.** Two of the four blur together, and he named which.
+
+"I think the main gun and the wisps, which I think are probably columns and curving trails, are the ones that can get a little bit lost in each other because they're both very small. If both of them are going in the direction that the main gun is, then it's not as easy to tell."
+
+He read the pairing correctly: the soul stream is the columns and the wisps are the curving trails. The failure is conditional rather than constant, and the condition is the important part: they separate fine until the wisps happen to be travelling the same way the stream fires, and then two small bright things going the same direction read as one thing.
+
+His own fix, offered unprompted:
+
+"I would love it if those curved out and then back in instead of just going straight from me to the target."
+
+That is a change to the wisp path, not to its colour or size, and it separates the two lines by *motion*, which is the channel the design already uses to tell the four lines apart. It also makes the wisps more visibly the player's own weapon, since the dive is what buys them. It is a sim change rather than an art change, so it belongs to a tuning dispatch and not to #38.
+
+**After a bad hit, does the comeback force or the spiral force win.** No read.
+
+**The ramp's shape over the first two minutes.** No read by feel, and deliberately so. He routed it to measurement rather than answering it, which is the same call as the headline read above. The two content edits waiting on this, splitting or moving `file 4 revenant` at t=74 and giving the ghoul a rung between t=62 and t=83, stay waiting, and their trigger is now the instrument rather than another play.

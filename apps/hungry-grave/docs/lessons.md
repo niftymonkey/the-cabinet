@@ -26,6 +26,8 @@ Defects this app has actually shipped, and the shape that produces them. Repo-wi
 
 `dodgePolicy` also does not price the field edge, because the move clamps, so moving into the wall scores the same as standing still. A capped room-to-move term was written and re-run across five seeds and saved nothing.
 
+**A bot's numbers measure the bot's policy, never the game's ceiling.** The bot only dodges, so it never levels a weapon line, and at its busiest tick it has one to four skulls on the field and no wisps at all. Every peak-density and per-tick-cost figure ever taken from it therefore describes a field with no storm in it. That gap put a wrong number under a ruling: the always-on invariant cost was quoted at 1.59 milliseconds on a catch-up frame when the figure on maxed weapons was about 5.6, three and a half times worse. Before quoting any density or cost figure taken from automated play, check whether the policy exercises the systems the figure is about.
+
 ## Reading a build without weapons
 
 **The missing weapons inflate mob fire multiplicatively, not uniformly.** An armed mob's shot output is a function of how long it lives, so a weaponless build multiplies twice: more shooters alive at once, and each firing five or six times instead of zero or one. Mob counts in a weaponless read are roughly right. Mob fire is off by about a factor of five. Any pacing read from a build without weapons has to say which of the two it is measuring.

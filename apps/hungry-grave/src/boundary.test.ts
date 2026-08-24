@@ -31,12 +31,15 @@ interface Boundary {
 }
 
 const BOUNDARIES: Boundary[] = [
-  // ADR 0013 requires the sim invariants checked on every step in every sim
-  // test, and the harness that does it lives in src/dev because it is the rig
-  // and not the game. Test files under src/game may therefore reach it, for
-  // the same reason TEST_PACKAGES exists below: a test file is not shipped,
-  // and the rule is there to keep the rig out of the build rather than out of
-  // the tests. Shipped code under src/game still reaches only src/game.
+  // The golden digest's scenario lives in src/dev because the #/digest screen
+  // runs it too, and the test that pins its constant is src/game/digest.test.ts.
+  // Test files under src/game may therefore reach src/dev, for the same reason
+  // TEST_PACKAGES exists below: a test file is not shipped, and the rule is
+  // there to keep the rig out of the build rather than out of the tests.
+  //
+  // Shipped code under src/game still reaches only src/game, and that is why
+  // the ADR 0013 invariant harness moved into src/game: advance() calls it
+  // inside its own tick loop, and advance() is shipped.
   { root: "game", mayReach: ["game"], mayReachInTests: ["dev"], mayImport: [] },
   {
     root: "input",
@@ -49,6 +52,28 @@ const BOUNDARIES: Boundary[] = [
   {
     root: "dev",
     mayReach: ["dev", "game"],
+    mayReachInTests: [],
+    mayImport: [],
+  },
+  /**
+   * The tape: what a run is recorded onto, and the verification readback that
+   * proves a tape decodes and reproduces (ADR 0018, ADR 0020).
+   *
+   * The root is deliberately not named replay. A module called src/replay
+   * holding only readback invites exactly the inference ADR 0020 exists to
+   * prevent, that replay already exists because primitives for reading a tape
+   * back do. Replay is 6b's and nothing here discharges any part of it.
+   *
+   * It reaches src/game because it reproduces a run through the one execution
+   * authority, and it reaches nothing else. Not src/dev, because the rig must
+   * not be load-bearing in a shipped recording; not src/app, because a recorder
+   * that could reach a screen would put rendering behind this boundary; and no
+   * package at all, because the sim's dependency-free rule is what lets a
+   * headless test run a tape.
+   */
+  {
+    root: "tape",
+    mayReach: ["tape", "game"],
     mayReachInTests: [],
     mayImport: [],
   },
@@ -228,9 +253,9 @@ describe("the rendering-import boundary", () => {
     expect(covers("game", "gamepad/thing")).toBe(false);
   });
 
-  it("the src/dev allowance under src/game is for test files alone (ADR 0013)", () => {
+  it("the src/dev allowance under src/game is for test files alone", () => {
     const game = BOUNDARIES.find((boundary) => boundary.root === "game")!;
-    const source = 'import { stepChecked } from "../dev/invariants";';
+    const source = 'import { GOLDEN } from "../dev/digest";';
 
     const shipped = violationsInSource(
       join(SRC, "game", "sim.ts"),
@@ -238,7 +263,7 @@ describe("the rendering-import boundary", () => {
       game,
     );
     expect(shipped).toHaveLength(1);
-    expect(shipped[0]).toContain("../dev/invariants");
+    expect(shipped[0]).toContain("../dev/digest");
 
     const test = violationsInSource(
       join(SRC, "game", "sim.test.ts"),
