@@ -23,6 +23,10 @@
  * grave. It now folds every live entity's own state in slot order, which is
  * what actually puts math.ts on the path and buys coverage of the spawn
  * sequence and of pool iteration order at the same time.
+ *
+ * The fold itself lives in src/game/witness.ts (ADR 0019), because a replay
+ * ships and ADR 0013 keeps this rig out of the shipped game. The digest is the
+ * witness of this one canonical scenario, chained across its ticks.
  */
 
 import { graveHitbox } from "../game/grave";
@@ -32,6 +36,7 @@ import type { MoveCommand, RunState } from "../game/run";
 import { createRun } from "../game/run";
 import { place } from "../game/stage/templates";
 import { stepChecked } from "../game/invariants";
+import { foldWitness } from "../game/witness";
 
 const SEED = 20260820;
 const TICKS = 600;
@@ -132,59 +137,6 @@ export interface ScenarioResult {
   readonly state: RunState;
 }
 
-/**
- * Integer-only folding at a fixed nine decimal places, so the checksum cannot
- * itself diverge between engines.
- *
- * Nine and not six. One f32 ulp at the ghoul's turn cosine is about 1.19e-7,
- * which is below a six-place quantum: a single-tick divergence of exactly the
- * size ADR 0015 exists to catch was invisible, and only showed once it had
- * accumulated into position. Math.round(760 * 1e9) stays inside ToInt32's range
- * deterministically, so the finer fold costs nothing.
- */
-function fold(checksum: number, value: number): number {
-  return (Math.imul(checksum, 31) + Math.round(value * 1e9)) | 0;
-}
-
-/**
- * Every live entity's own state, in slot order. Slot order is the point as much
- * as the values are: a pool walked in a different order gives a different
- * checksum, so iteration order is verified rather than assumed.
- */
-export function foldEntities(run: RunState, from: number): number {
-  let checksum = from;
-  for (const mob of run.mobs) {
-    if (!mob.alive) continue;
-    checksum = fold(fold(fold(fold(checksum, mob.x), mob.y), mob.vx), mob.vy);
-  }
-  for (const shot of run.mobFire) {
-    if (!shot.alive) continue;
-    checksum = fold(
-      fold(fold(fold(checksum, shot.x), shot.y), shot.vx),
-      shot.vy,
-    );
-  }
-  for (const corpse of run.corpses) {
-    if (!corpse.alive) continue;
-    checksum = fold(fold(fold(checksum, corpse.x), corpse.y), corpse.freshness);
-  }
-  for (const skull of run.skulls) {
-    if (!skull.alive) continue;
-    checksum = fold(
-      fold(fold(fold(checksum, skull.x), skull.y), skull.vx),
-      skull.vy,
-    );
-  }
-  for (const wisp of run.wisps) {
-    if (!wisp.alive) continue;
-    checksum = fold(
-      fold(fold(fold(checksum, wisp.x), wisp.y), wisp.vx),
-      wisp.vy,
-    );
-  }
-  return checksum;
-}
-
 function liveCount(pool: readonly { alive: boolean }[]): number {
   return pool.reduce((count, slot) => count + (slot.alive ? 1 : 0), 0);
 }
@@ -263,10 +215,7 @@ export function runScenario(): ScenarioResult {
     minY = Math.min(minY, box.y);
     maxX = Math.max(maxX, box.x + box.width);
     maxY = Math.max(maxY, box.y + box.height);
-    checksum = fold(checksum, run.grave.x);
-    checksum = fold(checksum, run.grave.y);
-    checksum = fold(checksum, run.grave.size);
-    checksum = foldEntities(run, checksum);
+    checksum = foldWitness(run, checksum);
   }
   return {
     digest: digestOf(run, checksum, kills),
@@ -308,5 +257,5 @@ export const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 1924011367,
+  checksum: -522074226,
 };

@@ -39,9 +39,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { foldEntities, GOLDEN, runScenario } from "../dev/digest";
+import { GOLDEN, runScenario } from "../dev/digest";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
 import { SIZE_START } from "./tuning";
+import { foldWitness } from "./witness";
 
 /** What the scenario's grave starts at, so growth from its one swallow is visible. */
 const GOLDEN_START_SIZE = SIZE_START;
@@ -70,14 +71,14 @@ describe("the golden digest", () => {
     expect(mob).toBeDefined();
     expect(corpse).toBeDefined();
 
-    const before = foldEntities(state, 0);
+    const before = foldWitness(state, 0);
     mob!.vx += 1e-5;
-    expect(foldEntities(state, 0)).not.toBe(before);
+    expect(foldWitness(state, 0)).not.toBe(before);
     mob!.vx -= 1e-5;
-    expect(foldEntities(state, 0)).toBe(before);
+    expect(foldWitness(state, 0)).toBe(before);
 
     corpse!.freshness -= 1e-5;
-    expect(foldEntities(state, 0)).not.toBe(before);
+    expect(foldWitness(state, 0)).not.toBe(before);
   });
 
   it("detects a divergence at ulp scale, which is the size ADR 0015 exists to catch", () => {
@@ -88,10 +89,10 @@ describe("the golden digest", () => {
     // nothing about the instrument's real resolution.
     const { state } = runScenario();
     const mob = state.mobs.find((each) => each.alive)!;
-    const before = foldEntities(state, 0);
+    const before = foldWitness(state, 0);
 
     mob.vy += SINGLE_PRECISION_EPSILON;
-    expect(foldEntities(state, 0)).not.toBe(before);
+    expect(foldWitness(state, 0)).not.toBe(before);
 
     // And the arithmetic that says why the fold moved to nine places: at six,
     // this same perturbation rounds to the identical integer and the checksum
@@ -108,17 +109,17 @@ describe("the golden digest", () => {
     const skull = state.skulls.find((each) => each.alive);
     expect(skull).toBeDefined();
 
-    const before = foldEntities(state, 0);
+    const before = foldWitness(state, 0);
     skull!.x += 1e-6;
-    expect(foldEntities(state, 0)).not.toBe(before);
+    expect(foldWitness(state, 0)).not.toBe(before);
     skull!.x -= 1e-6;
-    expect(foldEntities(state, 0)).toBe(before);
+    expect(foldWitness(state, 0)).toBe(before);
 
     const wisp = state.wisps[0];
     wisp.alive = true;
     wisp.x = 100;
     wisp.y = 100;
-    expect(foldEntities(state, 0)).not.toBe(before);
+    expect(foldWitness(state, 0)).not.toBe(before);
   });
 
   it("makes the spawns and mobFire streams both draw, which they never used to", () => {
