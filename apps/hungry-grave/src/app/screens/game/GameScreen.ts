@@ -10,10 +10,17 @@ import { createExecution, devBrokenHandler } from "../../../game/execution";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
 import type { SimEvent } from "../../../game/events";
 import type { RunState } from "../../../game/run";
-import { createRun } from "../../../game/run";
+import { createRun, uniformLevels } from "../../../game/run";
 import { RESERVOIR_CAPACITY } from "../../../game/tuning";
+import { encodeTape } from "../../../tape/encode";
 import type { TapeRecorder } from "../../../tape/recorder";
-import { recordFrame, recordInto, sealTrailer } from "../../../tape/recorder";
+import {
+  recordFrame,
+  recordInto,
+  sealTrailer,
+  tapeOf,
+} from "../../../tape/recorder";
+import type { FrameReason } from "../../../tape/tape";
 import { KeySteer } from "../../../input/keys";
 import { combineSteer } from "../../../input/steering";
 import { TouchSteer } from "../../../input/touch";
@@ -33,7 +40,12 @@ import { SettingsPopup } from "../../popups/SettingsPopup";
 import { runHandoff, summarizeRun } from "../../runHandoff";
 import { playFor } from "../../sound";
 import { runConditionsHere, tapeHeaderFor } from "../../tapeHeader";
-import { invariantsFromUrl, seedFromUrl, sizeFromUrl } from "../../seedFromUrl";
+import {
+  invariantsFromUrl,
+  levelsFromUrl,
+  seedFromUrl,
+  sizeFromUrl,
+} from "../../seedFromUrl";
 import { Button } from "../../ui/Button";
 import { Label } from "../../ui/Label";
 import { bindKeyPress } from "../../utils/bindKeyPress";
@@ -198,6 +210,23 @@ function stackLine(index: number): Label {
   label.position.set(at.x, at.y);
   return label;
 }
+
+/**
+ * What one frame's work tells the frame seam above it.
+ *
+ * endedRun is a report and not an action, so the seam can record the frame's
+ * own row before the run is ended: endRun captures the sealed bytes, and a
+ * capture taken mid-frame would cut the ending frame out of the exported tape.
+ */
+interface FrameWork {
+  /** Milliseconds spent inside advance, zero on a frame the sim held still through. */
+  readonly advanceMs: number;
+  /** Whether this frame's events ended the run by play. */
+  readonly endedRun: boolean;
+}
+
+/** The report of a frame the sim held still through: no advance, no ending. */
+const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
 
 /**
  * The screen a run plays on. Render only: it owns this run's state and shows
@@ -477,10 +506,19 @@ export class GameScreen extends Container {
     const hash = window.location.hash;
     const seed = seedFromUrl(search, hash);
     const size = sizeFromUrl(search, hash);
+    // The loadout pin (ADR 0020): a testing control, never player-facing, and
+    // like ?invariants= it belongs behind the instrumentation build's gate.
+    const levels = levelsFromUrl(search, hash);
     // The size goes in rather than being written afterwards: ADR 0003's floor
     // and ceiling are grave.ts's to hold, and hitGrave is then the only thing
-    // outside it that changes size at all.
-    const run = createRun(seed ?? undefined, size ?? undefined);
+    // outside it that changes size at all. The levels go in the same door, so
+    // the run is born with them and the tape's header records what it was born
+    // with.
+    const run = createRun(
+      seed ?? undefined,
+      size ?? undefined,
+      levels === null ? undefined : uniformLevels(levels),
+    );
 
     this.seedLabel.text =
       seed === null ? `SEED ${run.seed}` : `SEED ${run.seed} PINNED`;
@@ -601,9 +639,14 @@ export class GameScreen extends Container {
     if (run === null || execution === null) return;
     const startedAt = performance.now();
     const ticksBefore = run.tick;
-    const advanceMs = this.updateRun(ticker, run, execution);
+    // Read before the frame's work runs, because the work can end the state the
+    // frame was spent in: the countdown's last frame clears countdownMs, and
+    // that frame was still a countdown frame.
+    const reason = this.frameReason();
+    const work = this.updateRun(ticker, run, execution, reason);
     const ticksExecuted = run.tick - ticksBefore;
     recordFrame(this.recorder, {
+      reason,
       // Absent rather than fabricated: a frame that bought no ticks has no tick
       // to attribute itself to, and a reader that finds the index missing
       // learns something true instead of reading a number somebody invented to
@@ -611,36 +654,71 @@ export class GameScreen extends Container {
       tickIndex: ticksExecuted > 0 ? ticksBefore : null,
       ticksExecuted,
       intervalMs: ticker.elapsedMS,
-      advanceMs,
+      advanceMs: work.advanceMs,
       updateMs: performance.now() - startedAt,
       debtTicks: this.clock.debtTicks,
     });
     // A fatal fault stops the run through the authority and never through an
     // ending, so this is the frame that knows the run is over.
     if (execution.stop !== null) this.closeTape();
+    // The run that ends by play is ended here, below the seam, and never inside
+    // updateRun: endRun captures the sealed bytes, and a capture above the
+    // recordFrame call seals the tape without the frame that executed the
+    // run-ending tick, which is exactly the row ADR 0018's "every frame of a
+    // live run is recorded" is judged on in the exported artifact. The
+    // pause-menu quit calls endRun outside this seam, where its last live
+    // frame is already recorded, so it needs no deferral.
+    if (work.endedRun) this.endRun();
+  }
+
+  /**
+   * Why this frame is what it is, in the guard's own order (ADR 0018).
+   *
+   * This is the one enumeration of the hold conditions: updateRun gates on
+   * the reason this returns rather than re-reading the conditions, so a hold
+   * condition added here holds the frame and records it in the same breath.
+   * The short-circuit order lives here alone, so when two conditions are true
+   * at once the recorded reason is the one that actually decided the frame.
+   * Live says only that the frame reached the simulation; whether it bought a
+   * tick is the tick index's fact, not this one's.
+   */
+  private frameReason(): FrameReason {
+    if (this.ending) return "ending";
+    if (this.menuPaused) return "paused";
+    if (this.backgrounded) return "backgrounded";
+    if (this.countdownMs !== null) return "countdown";
+    return "live";
   }
 
   /**
    * The frame's work, once the seam above has a run and an authority to
-   * attribute it to. Returns the milliseconds spent inside advance.
+   * attribute it to.
    *
-   * That number is measured here and not read off the ticker because the ticker
+   * advanceMs is measured here and not read off the ticker because the ticker
    * cannot give it: elapsedMS is the gap between one frame and the last, so it
    * says a frame was late and never what made it late. Advance is where the
    * simulation and its invariant checks both sit, which is the part a
    * checks-on and a checks-off reading are differenced on, and the frame's
    * total says how much of a bad frame was anything else.
+   *
+   * endedRun is reported rather than acted on, because the seam above ends the
+   * run only after this frame's row is recorded.
+   *
+   * The frame is held on the recorded reason and never on the raw hold
+   * conditions: frameReason() is the single authority, so a frame this method
+   * holds still is a frame the tape says was held, by construction.
    */
   private updateRun(
     ticker: Ticker,
     run: RunState,
     execution: Execution,
-  ): number {
-    if (this.ending || this.menuPaused || this.backgrounded) return 0;
-    if (this.countdownMs !== null) {
+    reason: FrameReason,
+  ): FrameWork {
+    if (reason === "countdown") {
       this.countDown(this.takeElapsed(ticker.elapsedMS));
-      return 0;
+      return HELD_FRAME;
     }
+    if (reason !== "live") return HELD_FRAME;
     const keyCommand = this.keys.command();
     const source: CommandSource = (grave) => {
       // Read and cleared here rather than in advance: the closure is only
@@ -661,8 +739,7 @@ export class GameScreen extends Container {
     this.announce(run, events);
     this.syncScreen(run);
     this.syncReadouts();
-    if (endedIn(events)) this.endRun();
-    return advanceMs;
+    return { advanceMs, endedRun: endedIn(events) };
   }
 
   /**
@@ -916,12 +993,25 @@ export class GameScreen extends Container {
     this.comeBack();
   }
 
+  /**
+   * The run's tape as sealed encoded bytes, made at the stop because nothing
+   * else outlives it: reset() nulls the recorder when this pooled screen is
+   * taken away, and the end screen needs the run's record after that. The
+   * frames the run spends on its own end state arrive after this and stay in
+   * the recorder only; the trailer is already written, so the bytes are the
+   * sealed record of the run up to its stop.
+   */
+  private sealedTape(): Uint8Array | null {
+    if (this.recorder === null) return null;
+    return encodeTape(tapeOf(this.recorder));
+  }
+
   private endRun() {
     if (this.ending || !this.run) return;
     this.clearFieldBlur();
     this.ending = true;
     this.closeTape();
-    runHandoff.record(summarizeRun(this.run));
+    runHandoff.record(summarizeRun(this.run), this.sealedTape());
     engine()
       .navigation.showScreen(EndScreen)
       .catch((error) => {

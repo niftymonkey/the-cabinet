@@ -9,8 +9,9 @@ import { RunHandoff, summarizeRun } from "./runHandoff";
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
 describe("the run handoff", () => {
-  it("a fresh handoff has no run to report", () => {
+  it("a fresh handoff has no run to report and no tape to hand out", () => {
     expect(new RunHandoff().read()).toBeNull();
+    expect(new RunHandoff().readTape()).toBeNull();
   });
 
   it("a summary carries the run's seed and its tick count", () => {
@@ -31,9 +32,21 @@ describe("the run handoff", () => {
 
   it("the run read back is the last one recorded", () => {
     const handoff = new RunHandoff();
-    handoff.record({ seed: 5, ticks: 90, ending: "sealed" });
-    handoff.record({ seed: 6, ticks: 12, ending: "victory" });
+    handoff.record({ seed: 5, ticks: 90, ending: "sealed" }, null);
+    handoff.record({ seed: 6, ticks: 12, ending: "victory" }, null);
     expect(handoff.read()).toEqual({ seed: 6, ticks: 12, ending: "victory" });
+  });
+
+  it("carries the run's sealed tape bytes beside the summary, and a later run replaces them", () => {
+    // The bytes and not the recorder: the recorder dies with the game screen's
+    // reset, and the end screen's export needs the record after that.
+    const handoff = new RunHandoff();
+    const tape = new Uint8Array([72, 71, 84, 80]);
+    handoff.record({ seed: 5, ticks: 90, ending: "sealed" }, tape);
+    expect(handoff.readTape()).toBe(tape);
+
+    handoff.record({ seed: 6, ticks: 12, ending: null }, null);
+    expect(handoff.readTape()).toBeNull();
   });
 
   it("carries which ending the run reached, so the end screen can say it", () => {

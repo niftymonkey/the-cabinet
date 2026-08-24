@@ -3,11 +3,11 @@
  *
  * Bytes and never a JSON string, and the frame rows are what makes that decide
  * anything. A twelve-thousand-tick run is 110KiB of header, body, witness and
- * trailer, and then one 24-byte observation per rendered frame on top: 391KiB
- * at a 60Hz refresh and 672KiB at 120Hz, where the rows outweigh the body two
- * and a half to five times over. Base64 and UTF-16 multiply whatever that is by
- * eight thirds, so the encoding decides whether a full stage's run is a file
- * somebody can hold and send or a hosting problem.
+ * trailer, and then one 25-byte observation per rendered frame on top: 403KiB
+ * at a 60Hz refresh and 696KiB at 120Hz, where the rows outweigh the body two
+ * and two-thirds to five and a third times over. Base64 and UTF-16 multiply
+ * whatever that is by eight thirds, so the encoding decides whether a full
+ * stage's run is a file somebody can hold and send or a hosting problem.
  *
  * Steering is two float32, one per axis, through the same single-precision
  * rounding the simulation already applies. It has no scale to derive, no range
@@ -51,6 +51,8 @@ import {
   FAULT_IDENTITY_CODES,
   FAULT_SEVERITY_CODES,
   FORMAT_VERSION,
+  FRAME_REASON_CODES,
+  HEADER_LEVELS_ORDER,
   INPUT_DEVICE_CODES,
   INTEGRITY_CODES,
   OBSERVATION_KIND_CODES,
@@ -69,7 +71,7 @@ export const BODY_FIRST_TICK_BYTES = 4;
 export const CHECKPOINT_BYTES = 8;
 
 /** A frame row's fixed width: it carries no string, so it has only one. */
-export const FRAME_OBSERVATION_BYTES = 24;
+export const FRAME_OBSERVATION_BYTES = 25;
 
 /** A fault row's kind, identity, severity, first tick and count, ahead of its detail string. */
 export const FAULT_OBSERVATION_PREFIX_BYTES = 12;
@@ -85,6 +87,9 @@ function writeMagic(writer: ByteWriter): void {
 function writeHeader(payload: ByteWriter, header: TapeHeader): void {
   writeU32(payload, header.seed);
   writeF64(payload, header.startingSize);
+  for (const line of HEADER_LEVELS_ORDER) {
+    writeU8(payload, header.startingLevels[line]);
+  }
   writeU16(payload, header.tickRate);
   writeU32(payload, header.checkpointSpacing);
   writeU8(payload, header.witnessVersion);
@@ -127,6 +132,7 @@ function writeFrameObservation(
   frame: FrameObservation,
 ): void {
   writeU8(payload, OBSERVATION_KIND_CODES.frame);
+  writeU8(payload, FRAME_REASON_CODES[frame.reason]);
   // A presence byte rather than a sentinel tick index: no tick number is
   // reserved, so an absent index needs a place of its own to be said in.
   writeU8(payload, frame.tickIndex === null ? 0 : 1);

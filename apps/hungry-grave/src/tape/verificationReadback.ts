@@ -126,7 +126,14 @@ export function readBackForVerification(
     return versionMismatch(tape);
   }
 
-  const run = createRun(tape.header.seed, tape.header.startingSize);
+  // The run is rebuilt from the header alone: seed, resolved size and resolved
+  // starting levels, so a pinned run's tape verifies exactly as an unpinned
+  // one's does.
+  const run = createRun(
+    tape.header.seed,
+    tape.header.startingSize,
+    tape.header.startingLevels,
+  );
   const execution = createExecution(run);
   const expected = checkpointsByIndex(tape.checkpoints);
   const verdict = reproduce(tape, execution, expected);

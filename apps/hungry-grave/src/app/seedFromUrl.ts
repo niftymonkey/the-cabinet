@@ -1,11 +1,11 @@
 /**
  * What the URL asks of a run: ?seed= pins the run and ?size= pins the grave's
- * starting size (ADR 0012), and ?invariants= turns the sim's own checks on in a
- * build that ships with them off. Pure functions over two strings, so they are
- * testable without a browser.
+ * starting size (ADR 0012), ?levels= pins the weapon loadout (ADR 0020), and
+ * ?invariants= switches the sim's own checks. Pure functions over two strings,
+ * so they are testable without a browser.
  *
- * The switch lives beside the two identity parameters rather than in a module
- * of its own because the reader below is the thing worth having once: hash
+ * The controls live beside the two identity parameters rather than in modules
+ * of their own because the reader below is the thing worth having once: hash
  * query first, search second, one warning on anything unusable.
  *
  * Both parameters are read from the hash's own query before the search, and
@@ -19,6 +19,7 @@
  * rather than a blank screen.
  */
 
+import { MAX_LEVEL } from "../game/lines/roster";
 import { SEED_LIMIT } from "../game/run";
 
 /** The query the hash carries, which is everything after its first question mark. */
@@ -84,6 +85,36 @@ export function sizeFromUrl(search: string, hash: string): number | null {
   if (raw === null) return null;
   const value = parsed(raw);
   if (value === null) return ignore("size", raw);
+  return value;
+}
+
+/** The same, for the loadout pin, where falling back means the birthright levels. */
+function ignoreLevels(raw: string): null {
+  console.warn(
+    `Ignoring ?levels=${raw}: the run keeps its birthright instead.`,
+  );
+  return null;
+}
+
+/**
+ * The pinned starting level for all four weapon lines, or null when there is
+ * none to pin. One whole number, zero to the max line level: per-line syntax
+ * buys nothing the measurement needs.
+ *
+ * It is a development and testing control and never a player-facing feature
+ * (ADR 0020). It exists because the confirming measurement's stated condition
+ * is a dense moment with the lines levelled, and no reachable run produces
+ * one. Like ?invariants= beside it, its behaviour belongs behind the
+ * instrumentation build's gate: a player build must not honour it even typed
+ * by hand, which is a build-time gate rather than a naming convention, and
+ * both parameters wait on the same gate.
+ */
+export function levelsFromUrl(search: string, hash: string): number | null {
+  const raw = rawParameter("levels", search, hash);
+  if (raw === null) return null;
+  const value = parsed(raw);
+  if (value === null || !Number.isInteger(value)) return ignoreLevels(raw);
+  if (value < 0 || value > MAX_LEVEL) return ignoreLevels(raw);
   return value;
 }
 

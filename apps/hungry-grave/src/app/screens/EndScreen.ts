@@ -4,6 +4,7 @@ import type { RunEnding } from "../../game/run";
 import { engine } from "../getEngine";
 import { MENU } from "../palette";
 import { runHandoff } from "../runHandoff";
+import { saveTapeFile, tapeFileName } from "../tapeExport";
 import { Button } from "../ui/Button";
 import { Label } from "../ui/Label";
 import { bindKeyPress } from "../utils/bindKeyPress";
@@ -35,6 +36,13 @@ export class EndScreen extends Container {
   private readonly seedLabel: Label;
   private readonly tickLabel: Label;
   private readonly againButton: Button;
+  /**
+   * The minimal export (ADR 0020): scaffolding that gets the run's tape off
+   * the device, never the storage system. It lives on this screen because the
+   * end of a run is the first moment a sealed tape exists and the last moment
+   * a real tap can still reach it before the next run overwrites the handoff.
+   */
+  private readonly saveButton: Button;
   private releaseKeys: (() => void) | null = null;
   private rising = false;
 
@@ -58,8 +66,21 @@ export class EndScreen extends Container {
       fontSize: 24,
     });
     this.againButton.onPress.connect(() => this.riseAgain());
+    this.saveButton = new Button({
+      text: "SAVE TAPE",
+      width: 300,
+      height: 70,
+      fontSize: 18,
+    });
+    this.saveButton.onPress.connect(() => this.saveTape());
 
-    this.addChild(this.title, this.seedLabel, this.tickLabel, this.againButton);
+    this.addChild(
+      this.title,
+      this.seedLabel,
+      this.tickLabel,
+      this.againButton,
+      this.saveButton,
+    );
   }
 
   public prepare() {
@@ -71,6 +92,7 @@ export class EndScreen extends Container {
         : ABANDONED_TITLE;
     this.seedLabel.text = summary ? `SEED ${summary.seed}` : "NO RUN RECORDED";
     this.tickLabel.text = summary ? `${summary.ticks} TICKS` : "";
+    this.saveButton.visible = runHandoff.readTape() !== null;
     this.releaseKeys = bindKeyPress("Enter", () => this.riseAgain());
   }
 
@@ -85,6 +107,19 @@ export class EndScreen extends Container {
     this.seedLabel.position.set(cx, height * 0.42);
     this.tickLabel.position.set(cx, height * 0.42 + 40);
     this.againButton.position.set(cx, height * 0.68);
+    this.saveButton.position.set(cx, height * 0.82);
+  }
+
+  /**
+   * Hands the run's sealed bytes to the browser, from inside the real tap
+   * handler because iOS Safari honours a download only from a user gesture
+   * (ADR 0020). The bytes go out exactly as the recorder sealed them.
+   */
+  private saveTape(): void {
+    const summary = runHandoff.read();
+    const tape = runHandoff.readTape();
+    if (summary === null || tape === null) return;
+    saveTapeFile(tape, tapeFileName(summary.seed, COMMIT_HASH));
   }
 
   private riseAgain() {

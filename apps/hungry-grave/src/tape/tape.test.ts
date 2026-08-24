@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { FAULT_IDENTITIES } from "../game/invariants";
+import { WEAPON_LINES } from "../game/lines/roster";
 import {
   ABSENT_CODE,
   codeReader,
@@ -17,6 +18,9 @@ import {
   FAULT_IDENTITY_CODES,
   FAULT_SEVERITIES,
   FAULT_SEVERITY_CODES,
+  FRAME_REASON_CODES,
+  FRAME_REASONS,
+  HEADER_LEVELS_ORDER,
   INPUT_DEVICE_CODES,
   INTEGRITY_CODES,
   OBSERVATION_KIND_CODES,
@@ -68,6 +72,20 @@ describe("the tape's code maps", () => {
   itNamesEvery("fault severity", FAULT_SEVERITIES, FAULT_SEVERITY_CODES);
   itNamesEvery("fault identity", FAULT_IDENTITIES, FAULT_IDENTITY_CODES);
   itNamesEvery("observation kind", OBSERVATION_KINDS, OBSERVATION_KIND_CODES);
+  itNamesEvery("frame reason", FRAME_REASONS, FRAME_REASON_CODES);
+
+  it("names every weapon line in the header's levels order, exactly once and in a pinned order", () => {
+    // The order is the layout: a fifth line added to the union without a place
+    // here would encode nothing and decode as zero, silently. The exact order
+    // is pinned too, because it is permanent from the first tape.
+    expect([...HEADER_LEVELS_ORDER].sort()).toEqual([...WEAPON_LINES].sort());
+    expect(HEADER_LEVELS_ORDER).toEqual([
+      "soulStream",
+      "headstones",
+      "wisps",
+      "bell",
+    ]);
+  });
 
   it("keeps the fault identity codes off the closed list's ordinals", () => {
     // ADR 0017: an identity is append-only from the first tape and outlives the

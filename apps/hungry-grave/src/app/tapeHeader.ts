@@ -50,7 +50,10 @@ export interface RunConditions {
  * The starting size goes in as the number the run actually resolved to. Reading
  * it off the grave is the point: with no ?size= the run starts at the compiled
  * default, and recording the absence would let a later tune of that default
- * silently change what every old tape replays as.
+ * silently change what every old tape replays as. The starting levels go in on
+ * exactly the same terms (ruled by Mark 2026-08-24): the resolved record for
+ * every run, pinned or not, copied because the run levels up in place and the
+ * header is a record of the start.
  */
 export function tapeHeaderFor(
   run: RunState,
@@ -59,6 +62,7 @@ export function tapeHeaderFor(
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,

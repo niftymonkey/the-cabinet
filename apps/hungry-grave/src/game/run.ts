@@ -155,7 +155,7 @@ function startingLines(): LineState {
 }
 
 /** The levels a run starts with: the birthright lines at one, the rest unowned. */
-function startingLevels(): Record<WeaponLine, number> {
+function birthrightLevels(): Record<WeaponLine, number> {
   const levels: Record<WeaponLine, number> = {
     soulStream: 0,
     headstones: 0,
@@ -164,6 +164,15 @@ function startingLevels(): Record<WeaponLine, number> {
   };
   for (const line of BIRTHRIGHT) levels[line] = 1;
   return levels;
+}
+
+/**
+ * Every line at one level, which is the loadout pin's shape (ADR 0020): the
+ * pin exists so a measurement's dense, levelled moment is reproducible, and
+ * per-line syntax buys nothing that needs.
+ */
+export function uniformLevels(level: number): Record<WeaponLine, number> {
+  return { soulStream: level, headstones: level, wisps: level, bell: level };
 }
 
 /**
@@ -176,10 +185,17 @@ function startingLevels(): Record<WeaponLine, number> {
  * to write run.grave.size from src/app, which left the sim's own hard bounds
  * defended by a URL parser; with the size in this signature, hitGrave is the
  * only thing outside grave.ts that changes size at all.
+ *
+ * The starting levels default to the birthright and are copied rather than
+ * aliased, because the rules mutate them in place as the run levels up. They
+ * are in this signature for the same reason the size is: ?levels= pins them,
+ * and a tape's header rebuilds a pinned run from the resolved record it
+ * carries (ADR 0018).
  */
 export function createRun(
   seed: number = rollSeed(),
   startingSize: number = SIZE_START,
+  startingLevels: Readonly<Record<WeaponLine, number>> = birthrightLevels(),
 ): RunState {
   return {
     seed,
@@ -187,7 +203,7 @@ export function createRun(
     grave: createGrave(startingSize),
     score: 0,
     reservoir: 0,
-    levels: startingLevels(),
+    levels: { ...startingLevels },
     ending: null,
     streams: {
       spawns: stream(seed, "spawns"),

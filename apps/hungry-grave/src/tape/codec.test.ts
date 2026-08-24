@@ -21,6 +21,7 @@ import { FORMAT_VERSION, stopOf, TAPE_MAGIC } from "./tape";
 const HEADER: TapeHeader = {
   seed: 20260823,
   startingSize: 24.5,
+  startingLevels: { soulStream: 5, headstones: 1, wisps: 0, bell: 3 },
   tickRate: 60,
   checkpointSpacing: 4,
   witnessVersion: 1,
@@ -49,6 +50,7 @@ function checkpoints(indices: readonly number[]): TapeCheckpoint[] {
 const OBSERVATIONS: Observation[] = [
   {
     kind: "frame",
+    reason: "live",
     tickIndex: 0,
     ticksExecuted: 2,
     intervalMs: Math.fround(33.4),
@@ -58,6 +60,7 @@ const OBSERVATIONS: Observation[] = [
   },
   {
     kind: "frame",
+    reason: "backgrounded",
     tickIndex: null,
     ticksExecuted: 0,
     intervalMs: Math.fround(16.7),

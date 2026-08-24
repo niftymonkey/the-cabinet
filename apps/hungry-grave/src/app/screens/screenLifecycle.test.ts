@@ -55,6 +55,14 @@ vi.mock("../ui/Button", () => ({
   },
 }));
 
+const { saveTapeFile } = vi.hoisted(() => ({ saveTapeFile: vi.fn() }));
+
+/** The browser download seam is stubbed; the file name stays the real one. */
+vi.mock("../tapeExport", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../tapeExport")>()),
+  saveTapeFile,
+}));
+
 import { TICK_MS } from "../../game/clock";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../../game/field";
 import { MOB_TYPES } from "../../game/mobs";
@@ -66,10 +74,15 @@ import { EndScreen } from "./EndScreen";
 import { STONES_BY_LEVEL } from "../../game/lines/headstones";
 import { GameScreen } from "./game/GameScreen";
 import { TitleScreen } from "./TitleScreen";
+import { decodeTape } from "../../tape/decode";
 import type { TapeRecorder } from "../../tape/recorder";
 import { tapeOf } from "../../tape/recorder";
+import { readBackForVerification } from "../../tape/verificationReadback";
+import { tapeFileName } from "../tapeExport";
 import type { FrameObservation } from "../../tape/tape";
 import { frameObservations } from "../../tape/tape";
+import { MAX_LEVEL } from "../../game/lines/roster";
+import { uniformLevels } from "../../game/run";
 
 const keyHandlers = new Set<(event: KeyboardEvent) => void>();
 
@@ -812,17 +825,201 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
     // Victory is unreachable by hand here and the played run always ends
     // sealed, so without this the victory copy ships drawn by nobody.
     const screen = new EndScreen();
-    runHandoff.record({ seed: 3, ticks: 12780, ending: "victory" });
+    runHandoff.record({ seed: 3, ticks: 12780, ending: "victory" }, null);
     screen.prepare();
     expect(screen["title"].text).toBe("THE STAGE SURVIVED");
 
-    runHandoff.record({ seed: 3, ticks: 400, ending: "sealed" });
+    runHandoff.record({ seed: 3, ticks: 400, ending: "sealed" }, null);
     screen.prepare();
     expect(screen["title"].text).toBe("SEALED SHUT");
 
-    runHandoff.record({ seed: 3, ticks: 400, ending: null });
+    runHandoff.record({ seed: 3, ticks: 400, ending: null }, null);
     screen.prepare();
     expect(screen["title"].text).toBe("THE RUN IS OVER");
+  });
+});
+
+describe("the minimal export (dispatch 6a)", () => {
+  beforeEach(() => {
+    showScreen.mockReset().mockResolvedValue(undefined);
+    saveTapeFile.mockClear();
+  });
+
+  it("hands the ended run's sealed tape to the handoff as decodable bytes", () => {
+    // ADR 0020: the export is what first lets a tape outlive its run, because
+    // reset() nulls the recorder and nothing else keeps the record.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 3));
+
+    pauseActions.endRun();
+
+    const bytes = runHandoff.readTape();
+    expect(bytes).not.toBeNull();
+    const { tape } = decodeTape(bytes!);
+    expect(tape.header.seed).toBe(screen["run"]!.seed);
+    expect(tape.commands).toHaveLength(3);
+    expect(tape.trailer).toMatchObject({ stop: "quit" });
+  });
+
+  it("exports the frame that executed the run-ending tick when the run ends by play", () => {
+    // ADR 0018: every frame of a live run is recorded, and the exported bytes
+    // are the artifact that claim is judged on. The run that ends by play ends
+    // inside the frame's own work, so a capture taken there seals the tape one
+    // row short: the frame with the death's tick index and timings on it.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 2));
+    const run = screen["run"]!;
+    // At the floor with nothing left to bleed, so the next contact seals.
+    run.grave.size = SIZE_FLOOR;
+    const mob = run.mobs[0];
+    mob.alive = true;
+    mob.type = "shambler";
+    mob.hp = MOB_TYPES.shambler.hp;
+    mob.x = run.grave.x;
+    mob.y = run.grave.y;
+
+    screen.update(frame(TICK_MS));
+    expect(run.ending).toBe("sealed");
+
+    const { tape } = decodeTape(runHandoff.readTape()!);
+    const rows = frameObservations(tape);
+    expect(rows).toHaveLength(2);
+    expect(rows[rows.length - 1]).toMatchObject({
+      reason: "live",
+      tickIndex: 2,
+      ticksExecuted: 1,
+    });
+    expect(tape.trailer).toMatchObject({ ending: "sealed", stop: "finished" });
+  });
+
+  it("exports every recorded frame on a pause-menu quit, whose last frame came before the quit", () => {
+    // The quit path calls endRun outside the frame seam, so its last live frame
+    // was already recorded when the bytes are captured; the frames the run then
+    // spends on its own end state stay in the recorder only.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 3));
+    screen.update(frame(TICK_MS));
+
+    pauseActions.endRun();
+    screen.update(frame(TICK_MS));
+
+    const { tape } = decodeTape(runHandoff.readTape()!);
+    const rows = frameObservations(tape);
+    expect(rows).toHaveLength(2);
+    expect(rows[rows.length - 1]).toMatchObject({
+      reason: "live",
+      tickIndex: 3,
+      ticksExecuted: 1,
+    });
+    expect(tape.trailer).toMatchObject({ ending: null, stop: "quit" });
+  });
+
+  it("offers the save button only when the handoff holds a tape", () => {
+    const screen = new EndScreen();
+
+    runHandoff.record({ seed: 3, ticks: 400, ending: "sealed" }, null);
+    screen.prepare();
+    expect(screen["saveButton"].visible).toBe(false);
+
+    runHandoff.record(
+      { seed: 3, ticks: 400, ending: "sealed" },
+      new Uint8Array([1]),
+    );
+    screen.prepare();
+    expect(screen["saveButton"].visible).toBe(true);
+  });
+
+  it("saves the handoff's bytes under the run's own name, from the tap handler", () => {
+    const bytes = new Uint8Array([72, 71, 84, 80]);
+    runHandoff.record({ seed: 505, ticks: 400, ending: "sealed" }, bytes);
+    const screen = new EndScreen();
+    screen.prepare();
+
+    screen["saveTape"]();
+
+    expect(saveTapeFile).toHaveBeenCalledWith(
+      bytes,
+      tapeFileName(505, COMMIT_HASH),
+    );
+  });
+
+  it("saves nothing when the last run left no tape", () => {
+    runHandoff.record({ seed: 505, ticks: 400, ending: "sealed" }, null);
+    const screen = new EndScreen();
+    screen.prepare();
+
+    screen["saveTape"]();
+
+    expect(saveTapeFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("the loadout pin (dispatch 6a)", () => {
+  beforeEach(() => {
+    showScreen.mockReset().mockResolvedValue(undefined);
+  });
+  afterEach(() => {
+    fakeLocation.search = "";
+  });
+
+  it("?levels= starts all four lines at the pinned level, through the URL the screen really reads", () => {
+    // ADR 0020: the measurement's condition is a dense moment with the lines
+    // levelled, and no reachable run produces one. It is a testing control and
+    // never a player-facing feature; like ?invariants= beside it, it waits on
+    // the instrumentation build's gate.
+    fakeLocation.search = "?seed=7&levels=5";
+    const screen = new GameScreen();
+    screen.prepare();
+
+    expect(screen["run"]!.levels).toEqual(uniformLevels(MAX_LEVEL));
+    screen.reset();
+  });
+
+  it("records the resolved starting levels in the header for every run, birthright included", () => {
+    // Ruled by Mark 2026-08-24: the resolved value and never a nullable
+    // "pinned or not", so a later tune of the birthright cannot silently
+    // change what an old tape replays as.
+    const unpinned = new GameScreen();
+    unpinned.prepare();
+    expect(unpinned["recorder"]!.header.startingLevels).toEqual({
+      soulStream: 1,
+      headstones: 1,
+      wisps: 0,
+      bell: 0,
+    });
+    unpinned.reset();
+
+    fakeLocation.search = "?seed=7&levels=2";
+    const pinned = new GameScreen();
+    pinned.prepare();
+    expect(pinned["recorder"]!.header.startingLevels).toEqual(uniformLevels(2));
+    pinned.reset();
+  });
+
+  it("exports a pinned run as a tape that decodes and passes verification readback", () => {
+    // The whole point of the header field: verification readback rebuilds the
+    // run from the header alone, and the witness folds run.levels, so without
+    // it a pinned run's tape diverges at checkpoint zero.
+    fakeLocation.search = "?seed=7&levels=5";
+    const screen = new GameScreen();
+    screen.prepare();
+    for (let spent = 0; spent < 120; spent += 10) {
+      screen.update(frame(TICK_MS * 10));
+    }
+
+    pauseActions.endRun();
+
+    const { tape, truncated } = decodeTape(runHandoff.readTape()!);
+    expect(truncated).toBe(false);
+    expect(tape.header.startingLevels).toEqual(uniformLevels(MAX_LEVEL));
+    const result = readBackForVerification(tape);
+    expect(result.outcome).toBe("verified");
+    expect(result.ticksReproduced).toBe(120);
+    expect(result.checkpointsVerified).toBe(3);
+    screen.reset();
   });
 });
 
@@ -903,7 +1100,29 @@ describe("the frame observation seam (dispatch 6a)", () => {
     screen.update(frame(TICK_MS * 2));
 
     expect(rowsOf(screen)).toHaveLength(2);
-    expect(lastRowOf(screen)).toMatchObject({ tickIndex: 3, ticksExecuted: 2 });
+    expect(lastRowOf(screen)).toMatchObject({
+      reason: "live",
+      tickIndex: 3,
+      ticksExecuted: 2,
+    });
+  });
+
+  it("keeps a live frame that bought no tick live, with its index absent", () => {
+    // ADR 0018: the reason and the tick purchase are separate facts. At a
+    // 120Hz refresh against the 60Hz tick rate roughly half of ordinary live
+    // frames buy no tick, and the reason byte is what tells such a frame from
+    // a held one now that the export lets a tape outlive its run.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS));
+
+    screen.update(frame(TICK_MS / 2));
+
+    expect(lastRowOf(screen)).toMatchObject({
+      reason: "live",
+      tickIndex: null,
+      ticksExecuted: 0,
+    });
   });
 
   it("marks a paused frame rather than omitting it, with no tick index", async () => {
@@ -917,6 +1136,7 @@ describe("the frame observation seam (dispatch 6a)", () => {
     screen.update(frame(TICK_MS * 4));
 
     expect(lastRowOf(screen)).toMatchObject({
+      reason: "paused",
       tickIndex: null,
       ticksExecuted: 0,
     });
@@ -930,6 +1150,7 @@ describe("the frame observation seam (dispatch 6a)", () => {
     screen.update(frame(TICK_MS * 60));
 
     expect(lastRowOf(screen)).toMatchObject({
+      reason: "backgrounded",
       tickIndex: null,
       ticksExecuted: 0,
     });
@@ -945,6 +1166,7 @@ describe("the frame observation seam (dispatch 6a)", () => {
 
     expect(screen["countdownMs"]).not.toBeNull();
     expect(lastRowOf(screen)).toMatchObject({
+      reason: "countdown",
       tickIndex: null,
       ticksExecuted: 0,
     });
@@ -958,6 +1180,7 @@ describe("the frame observation seam (dispatch 6a)", () => {
     screen.update(frame(TICK_MS * 4));
 
     expect(lastRowOf(screen)).toMatchObject({
+      reason: "ending",
       tickIndex: null,
       ticksExecuted: 0,
     });

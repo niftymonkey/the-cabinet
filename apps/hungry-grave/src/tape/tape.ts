@@ -23,6 +23,7 @@
 
 import type { StopReason } from "../game/execution";
 import type { FaultIdentity, FaultSeverity } from "../game/invariants";
+import type { WeaponLine } from "../game/lines/roster";
 import type { RunEnding, TickCommand } from "../game/run";
 
 /** The four bytes a tape opens with, so bytes that are not one are refused rather than parsed. */
@@ -157,6 +158,19 @@ export const FAULT_SEVERITY_CODES: Readonly<Record<FaultSeverity, number>> = {
 };
 
 /**
+ * The order the four lines' starting levels are written in, spelled out rather
+ * than read off the record's keys: a layout whose order depends on key
+ * insertion order is a layout nobody can reproduce from the type alone, and it
+ * is permanent from the first tape.
+ */
+export const HEADER_LEVELS_ORDER: readonly WeaponLine[] = [
+  "soulStream",
+  "headstones",
+  "wisps",
+  "bell",
+];
+
+/**
  * The run's identity and its conditions, written before the first tick.
  *
  * It carries nothing knowable only when a run stops. That rule is what makes
@@ -171,6 +185,14 @@ export interface TapeHeader {
    * the compiled default silently change what every old tape replays as.
    */
   readonly startingSize: number;
+  /**
+   * The starting level each line actually resolved to, for every run rather
+   * than only a pinned one: an unpinned run records its birthright the same
+   * way, or a later tune of the birthright would silently change what every
+   * old tape replays as (ruled by Mark 2026-08-24, widening the closed list
+   * by the same record-the-resolved-value argument as the size above).
+   */
+  readonly startingLevels: Readonly<Record<WeaponLine, number>>;
   /** What makes "one command per tick" mean anything, and what the observations join to wall clock through. */
   readonly tickRate: number;
   /** Ticks between checkpoints, obeyed by the reader rather than compiled into it. */
@@ -213,6 +235,35 @@ export interface TapeCheckpoint {
 }
 
 /**
+ * Why a frame is what it is, as the frame seam observed it (ADR 0018).
+ *
+ * The list is closed over the states the seam can actually be in: live is a
+ * frame that reached the simulation, and the other four name the guard
+ * condition that held the frame still instead. It is a separate fact from the
+ * tick purchase, and recorded because a replay could never recompute it: the
+ * body holds only executed ticks, so whether a frame was held by the menu, a
+ * backgrounded tab, the run's own ending or the resume countdown is runtime
+ * history the tape has to write down or lose.
+ */
+export const FRAME_REASONS = [
+  "live",
+  "ending",
+  "paused",
+  "backgrounded",
+  "countdown",
+] as const;
+
+export type FrameReason = (typeof FRAME_REASONS)[number];
+
+export const FRAME_REASON_CODES: Readonly<Record<FrameReason, number>> = {
+  live: 1,
+  ending: 2,
+  paused: 3,
+  backgrounded: 4,
+  countdown: 5,
+};
+
+/**
  * One rendered frame, as observed at the frame seam.
  *
  * A minimum timing row and never a speculative telemetry schema (ADR 0018).
@@ -223,14 +274,19 @@ export interface TapeCheckpoint {
 export interface FrameObservation {
   readonly kind: "frame";
   /**
-   * The tick the frame started at, absent when the frame bought no ticks. A
-   * paused, backgrounded, ending or countdown frame is one of those, and its
-   * index is absent rather than fabricated.
+   * Why the frame is what it is. When more than one holding condition is true
+   * at once, the seam records the first in its guard's own order: ending, then
+   * paused, then backgrounded, then countdown.
+   */
+  readonly reason: FrameReason;
+  /**
+   * The tick the frame started at, absent when the frame bought no ticks, and
+   * absent rather than fabricated.
    *
-   * The predicate is the tick purchase and never the pause, so this is not a
-   * pause marker: at a 120Hz refresh against a 60Hz tick rate roughly half of
-   * ordinary live frames buy no tick either, and their row is byte-identical to
-   * a paused frame's.
+   * The predicate is the tick purchase and never the pause: at a 120Hz refresh
+   * against a 60Hz tick rate roughly half of ordinary live frames buy no tick,
+   * so a null here says nothing about why the frame bought nothing. The reason
+   * above carries that.
    */
   readonly tickIndex: number | null;
   readonly ticksExecuted: number;

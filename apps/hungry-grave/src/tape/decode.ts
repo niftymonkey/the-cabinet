@@ -64,6 +64,9 @@ import {
   FAULT_SEVERITIES,
   FAULT_SEVERITY_CODES,
   FORMAT_VERSION,
+  FRAME_REASON_CODES,
+  FRAME_REASONS,
+  HEADER_LEVELS_ORDER,
   INPUT_DEVICE_CODES,
   INTEGRITY_CODES,
   OBSERVATION_KIND_CODES,
@@ -75,6 +78,7 @@ import {
   TAPE_MAGIC,
 } from "./tape";
 import { FAULT_IDENTITIES } from "../game/invariants";
+import type { WeaponLine } from "../game/lines/roster";
 import type { TickCommand } from "../game/run";
 
 const INPUT_DEVICES_BY_CODE = codeReader(
@@ -85,6 +89,7 @@ const INTEGRITIES_BY_CODE = codeReader(TAPE_INTEGRITIES, INTEGRITY_CODES);
 const STOPS_BY_CODE = codeReader(STOP_REASONS, STOP_CODES);
 const ENDINGS_BY_CODE = codeReader(RUN_ENDINGS, ENDING_CODES);
 const SEVERITIES_BY_CODE = codeReader(FAULT_SEVERITIES, FAULT_SEVERITY_CODES);
+const FRAME_REASONS_BY_CODE = codeReader(FRAME_REASONS, FRAME_REASON_CODES);
 const IDENTITIES_BY_CODE = codeReader(FAULT_IDENTITIES, FAULT_IDENTITY_CODES);
 
 /** A decoded tape, plus whether the bytes ran out before the recording did. */
@@ -126,9 +131,22 @@ function readMagic(reader: ByteReader): void {
   }
 }
 
+/** The four starting levels, read in the same spelled-out order they were written. */
+function readStartingLevels(payload: ByteReader): Record<WeaponLine, number> {
+  const levels: Record<WeaponLine, number> = {
+    soulStream: 0,
+    headstones: 0,
+    wisps: 0,
+    bell: 0,
+  };
+  for (const line of HEADER_LEVELS_ORDER) levels[line] = readU8(payload);
+  return levels;
+}
+
 function readHeader(payload: ByteReader): TapeHeader {
   const seed = readU32(payload);
   const startingSize = readF64(payload);
+  const startingLevels = readStartingLevels(payload);
   const tickRate = readU16(payload);
   const checkpointSpacing = readU32(payload);
   const witnessVersion = readU8(payload);
@@ -151,6 +169,7 @@ function readHeader(payload: ByteReader): TapeHeader {
   return {
     seed,
     startingSize,
+    startingLevels,
     tickRate,
     checkpointSpacing,
     witnessVersion,
@@ -250,10 +269,16 @@ function observationFits(payload: ByteReader): boolean {
 function readObservation(payload: ByteReader): Observation {
   const kind = readU8(payload);
   if (kind === OBSERVATION_KIND_CODES.frame) {
+    const reason = named(
+      FRAME_REASONS_BY_CODE,
+      readU8(payload),
+      "a frame reason",
+    );
     const present = readU8(payload) === 1;
     const tickIndex = readU32(payload);
     return {
       kind: "frame",
+      reason,
       tickIndex: present ? tickIndex : null,
       ticksExecuted: readU16(payload),
       intervalMs: readF32(payload),

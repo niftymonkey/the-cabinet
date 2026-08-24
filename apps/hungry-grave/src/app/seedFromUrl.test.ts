@@ -4,9 +4,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MAX_LEVEL } from "../game/lines/roster";
 import { createRun, SEED_LIMIT } from "../game/run";
 import { SIZE_CEILING, SIZE_FLOOR } from "../game/tuning";
-import { invariantsFromUrl, seedFromUrl, sizeFromUrl } from "./seedFromUrl";
+import {
+  invariantsFromUrl,
+  levelsFromUrl,
+  seedFromUrl,
+  sizeFromUrl,
+} from "./seedFromUrl";
 
 describe("seedFromUrl", () => {
   beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
@@ -82,6 +88,40 @@ describe("sizeFromUrl", () => {
     expect(createRun(1, sizeFromUrl("?size=999", "")!).grave.size).toBe(
       SIZE_CEILING,
     );
+  });
+});
+
+describe("levelsFromUrl", () => {
+  beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
+  afterEach(() => vi.restoreAllMocks());
+
+  it("?levels= pins a starting level for all four lines, in either URL form", () => {
+    // The measurement's stated condition is a dense moment with the lines
+    // levelled, and no reachable run produces one: the ladder to level five on
+    // all four costs eighteen drops and the stage pays for at most twelve.
+    expect(levelsFromUrl("?levels=5", "")).toBe(5);
+    expect(levelsFromUrl("", "#/?levels=3")).toBe(3);
+    expect(levelsFromUrl("", "")).toBeNull();
+  });
+
+  it("with both present the hash's query wins, the same way the seed's does", () => {
+    expect(levelsFromUrl("?levels=1", "#/?levels=4")).toBe(4);
+  });
+
+  it("accepts exactly zero to the max line level, whole numbers only", () => {
+    expect(levelsFromUrl("?levels=0", "")).toBe(0);
+    expect(levelsFromUrl(`?levels=${MAX_LEVEL}`, "")).toBe(MAX_LEVEL);
+    expect(levelsFromUrl(`?levels=${MAX_LEVEL + 1}`, "")).toBeNull();
+    expect(levelsFromUrl("?levels=-1", "")).toBeNull();
+    expect(levelsFromUrl("?levels=2.5", "")).toBeNull();
+  });
+
+  it("warns about garbage and ignores it, so a typo still yields a game", () => {
+    for (const raw of ["max", "", "1e999", "NaN"]) {
+      expect(levelsFromUrl(`?levels=${raw}`, "")).toBeNull();
+    }
+    expect(console.warn).toHaveBeenCalledTimes(4);
+    expect(vi.mocked(console.warn).mock.calls[0].join(" ")).toContain("max");
   });
 });
 

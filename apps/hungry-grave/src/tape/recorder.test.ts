@@ -33,6 +33,7 @@ function header(run: RunState, spacing = 5): TapeHeader {
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: spacing,
     witnessVersion: WITNESS_VERSION,
@@ -132,6 +133,7 @@ describe("the tape recorder", () => {
     const recorder = recordInto(execution, header(run));
 
     recordFrame(recorder, {
+      reason: "live",
       tickIndex: 0,
       ticksExecuted: 2,
       intervalMs: 33,
@@ -143,6 +145,7 @@ describe("the tape recorder", () => {
     expect(frameObservations(tapeOf(recorder))).toEqual([
       {
         kind: "frame",
+        reason: "live",
         tickIndex: 0,
         ticksExecuted: 2,
         intervalMs: 33,
@@ -158,6 +161,7 @@ describe("the tape recorder", () => {
     // the seam hands the row to nothing rather than orphaning it.
     expect(() =>
       recordFrame(null, {
+        reason: "paused",
         tickIndex: null,
         ticksExecuted: 0,
         intervalMs: 16,

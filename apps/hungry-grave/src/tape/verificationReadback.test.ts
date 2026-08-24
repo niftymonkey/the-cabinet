@@ -16,8 +16,10 @@ import { describe, expect, it } from "vitest";
 
 import { TICK_HZ } from "../game/clock";
 import { createExecution, executeTick } from "../game/execution";
+import { MAX_LEVEL } from "../game/lines/roster";
+import type { WeaponLine } from "../game/lines/roster";
 import type { RunState, TickCommand } from "../game/run";
-import { createRun } from "../game/run";
+import { createRun, uniformLevels } from "../game/run";
 import { WITNESS_VERSION } from "../game/witness";
 import { decodeTape } from "./decode";
 import { encodeTape } from "./encode";
@@ -33,6 +35,7 @@ function header(run: RunState): TapeHeader {
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -57,13 +60,17 @@ function steer(tick: number): TickCommand {
 }
 
 /** One recorded run, played through the one execution authority the game plays through. */
-function recordARun(ticks = TICKS): Tape {
-  const run = createRun(SEED);
+function recordARun(
+  ticks = TICKS,
+  levels?: Readonly<Record<WeaponLine, number>>,
+): Tape {
+  const run = createRun(SEED, undefined, levels);
   const execution = createExecution(run);
   const recorder = recordInto(execution, header(run));
   for (let tick = 0; tick < ticks; tick++) {
     executeTick(execution, steer(tick));
     recordFrame(recorder, {
+      reason: "live",
       tickIndex: tick,
       ticksExecuted: 1,
       intervalMs: 16.7,
@@ -135,6 +142,38 @@ describe("verification readback", () => {
     const result = readBackForVerification({
       ...tape,
       header: { ...tape.header, startingSize: tape.header.startingSize + 1 },
+    });
+
+    expect(result.outcome).toBe("diverged");
+    expect(result.firstDivergentCheckpoint).toBe(0);
+  });
+
+  it("verifies a run recorded under pinned levels, rebuilt from the header alone", () => {
+    // The header records the resolved starting levels for every run (ruled by
+    // Mark 2026-08-24) so a ?levels= run's tape verifies instead of diverging
+    // at checkpoint zero: the witness folds run.levels, and a readback seeded
+    // with the birthright would disagree before a single tick had run.
+    const pinned = decodeTape(
+      encodeTape(recordARun(TICKS, uniformLevels(MAX_LEVEL))),
+    ).tape;
+
+    expect(pinned.header.startingLevels).toEqual(uniformLevels(MAX_LEVEL));
+    const result = readBackForVerification(pinned);
+    expect(result.outcome).toBe("verified");
+    expect(result.ticksReproduced).toBe(TICKS);
+  });
+
+  it("refuses a run whose starting levels are not the tape's, before a tick has run", () => {
+    // The same refusal as the size above: the levels are folded, so a header
+    // that lies about them is caught at index zero.
+    const tape = recordARun();
+
+    const result = readBackForVerification({
+      ...tape,
+      header: {
+        ...tape.header,
+        startingLevels: { ...tape.header.startingLevels, bell: 5 },
+      },
     });
 
     expect(result.outcome).toBe("diverged");
