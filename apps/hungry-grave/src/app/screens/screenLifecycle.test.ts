@@ -1,8 +1,9 @@
 /**
  * The lifecycle rules a screen has to hold. Its transition guard comes back
- * down when the navigation rejects, because left up it deafens every retry and
- * on the game screen holds the ticker's work stopped for the rest of the run.
- * Its reset() is idempotent, because a pooled screen is reset once by
+ * down when the navigation rejects, because left up it deafens every retry;
+ * on the game screen only the navigation half comes down, because the run is
+ * over once its record is sealed and the frame seam retries the way out
+ * itself. Its reset() is idempotent, because a pooled screen is reset once by
  * navigation and again by Pool.return. And every listener a run adds comes off
  * again, because a pooled screen that accumulates one set per run is the leak
  * this file exists to catch.
@@ -67,10 +68,11 @@ import { TICK_MS } from "../../game/clock";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../../game/field";
 import { MOB_TYPES } from "../../game/mobs";
 import { SIZE_FLOOR } from "../../game/tuning";
+import { FAULT_IDENTITIES } from "../../game/invariants";
 import { pauseActions, PausePopup } from "../popups/PausePopup";
 import { runHandoff } from "../runHandoff";
 import { SettingsPopup } from "../popups/SettingsPopup";
-import { EndScreen } from "./EndScreen";
+import { EndScreen, FAULT_FONT_SIZE, faultCaption } from "./EndScreen";
 import { STONES_BY_LEVEL } from "../../game/lines/headstones";
 import { GameScreen } from "./game/GameScreen";
 import { TitleScreen } from "./TitleScreen";
@@ -80,7 +82,7 @@ import { tapeOf } from "../../tape/recorder";
 import { readBackForVerification } from "../../tape/verificationReadback";
 import { tapeFileName } from "../tapeExport";
 import type { FrameObservation } from "../../tape/tape";
-import { frameObservations } from "../../tape/tape";
+import { faultObservations, frameObservations } from "../../tape/tape";
 import { MAX_LEVEL } from "../../game/lines/roster";
 import { uniformLevels } from "../../game/run";
 
@@ -189,16 +191,22 @@ describe("a screen whose navigation rejects", () => {
     expect(showScreen).toHaveBeenCalledTimes(2);
   });
 
-  it("the game screen keeps stepping the sim while it is still playing", async () => {
+  it("the game screen holds an ended run still and retries the way out from the frame seam", async () => {
+    // The quit sealed the trailer and captured the bytes, so the run is over
+    // whatever the navigation did: a frame that stepped the sim now would
+    // read live on a run whose own record says it stopped (ADR 0018). The
+    // frame seam retries the navigation instead, until the end state takes.
     showScreen.mockRejectedValueOnce(new Error("no screen"));
     const screen = new GameScreen();
     screen.prepare();
 
     pauseActions.endRun();
     await settle();
+    showScreen.mockResolvedValueOnce(undefined);
     screen.update(frame(TICK_MS * 2));
 
-    expect(screen["run"]?.tick).toBe(2);
+    expect(screen["run"]?.tick).toBe(0);
+    expect(showScreen).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -825,17 +833,68 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
     // Victory is unreachable by hand here and the played run always ends
     // sealed, so without this the victory copy ships drawn by nobody.
     const screen = new EndScreen();
-    runHandoff.record({ seed: 3, ticks: 12780, ending: "victory" }, null);
+    runHandoff.record(
+      { seed: 3, ticks: 12780, ending: "victory", fault: null },
+      null,
+    );
     screen.prepare();
     expect(screen["title"].text).toBe("THE STAGE SURVIVED");
 
-    runHandoff.record({ seed: 3, ticks: 400, ending: "sealed" }, null);
+    runHandoff.record(
+      { seed: 3, ticks: 400, ending: "sealed", fault: null },
+      null,
+    );
     screen.prepare();
     expect(screen["title"].text).toBe("SEALED SHUT");
 
-    runHandoff.record({ seed: 3, ticks: 400, ending: null }, null);
+    runHandoff.record({ seed: 3, ticks: 400, ending: null, fault: null }, null);
     screen.prepare();
     expect(screen["title"].text).toBe("THE RUN IS OVER");
+  });
+
+  it("tells a faulted run apart from a quit, in words that are neither a death nor a game over", () => {
+    // ADR 0017 ruling 2: no new screen, and Mark must be able to tell "the
+    // game needs tuning" from "the game malfunctioned" without being told
+    // which. A fatal fault is never a player death, so the copy wears no
+    // sealing vocabulary; the fault line is enough to file a bug from a phone
+    // screenshot.
+    const screen = new EndScreen();
+    runHandoff.record(
+      {
+        seed: 3,
+        ticks: 400,
+        ending: null,
+        fault: { identity: "no NaN", firstTick: 123 },
+      },
+      null,
+    );
+    screen.prepare();
+    expect(screen["title"].text).toBe("THE GAME BROKE");
+    expect(screen["faultLabel"].text).toBe("FAULT no NaN\nAT TICK 123");
+
+    runHandoff.record({ seed: 3, ticks: 400, ending: null, fault: null }, null);
+    screen.prepare();
+    expect(screen["title"].text).toBe("THE RUN IS OVER");
+    expect(screen["faultLabel"].text).toBe("");
+  });
+
+  it("keeps the fault caption on a 390-unit stage for every identity at a seven-digit tick", () => {
+    // The fault line is what filing a bug from a phone screenshot relies on
+    // (ADR 0017), so no identity's caption may clip: as one 18px line the
+    // widest ran about 500 units centred on a 390-unit stage and the tick
+    // number fell off both it and the screenshot. The caption is monospace,
+    // so 0.62 em bounds the advance; the derivation of that bound is with
+    // MONOSPACE_ADVANCE_MAX in layering.test.ts, and it is a bound rather
+    // than a measurement because this environment has no renderer.
+    const advanceMax = 0.62;
+    for (const identity of FAULT_IDENTITIES) {
+      const caption = faultCaption({ identity, firstTick: 9_999_999 });
+      for (const line of caption.split("\n")) {
+        expect(line.length * FAULT_FONT_SIZE * advanceMax).toBeLessThanOrEqual(
+          390,
+        );
+      }
+    }
   });
 });
 
@@ -920,12 +979,15 @@ describe("the minimal export (dispatch 6a)", () => {
   it("offers the save button only when the handoff holds a tape", () => {
     const screen = new EndScreen();
 
-    runHandoff.record({ seed: 3, ticks: 400, ending: "sealed" }, null);
+    runHandoff.record(
+      { seed: 3, ticks: 400, ending: "sealed", fault: null },
+      null,
+    );
     screen.prepare();
     expect(screen["saveButton"].visible).toBe(false);
 
     runHandoff.record(
-      { seed: 3, ticks: 400, ending: "sealed" },
+      { seed: 3, ticks: 400, ending: "sealed", fault: null },
       new Uint8Array([1]),
     );
     screen.prepare();
@@ -934,7 +996,10 @@ describe("the minimal export (dispatch 6a)", () => {
 
   it("saves the handoff's bytes under the run's own name, from the tap handler", () => {
     const bytes = new Uint8Array([72, 71, 84, 80]);
-    runHandoff.record({ seed: 505, ticks: 400, ending: "sealed" }, bytes);
+    runHandoff.record(
+      { seed: 505, ticks: 400, ending: "sealed", fault: null },
+      bytes,
+    );
     const screen = new EndScreen();
     screen.prepare();
 
@@ -947,7 +1012,10 @@ describe("the minimal export (dispatch 6a)", () => {
   });
 
   it("saves nothing when the last run left no tape", () => {
-    runHandoff.record({ seed: 505, ticks: 400, ending: "sealed" }, null);
+    runHandoff.record(
+      { seed: 505, ticks: 400, ending: "sealed", fault: null },
+      null,
+    );
     const screen = new EndScreen();
     screen.prepare();
 
@@ -997,6 +1065,34 @@ describe("the loadout pin (dispatch 6a)", () => {
     pinned.prepare();
     expect(pinned["recorder"]!.header.startingLevels).toEqual(uniformLevels(2));
     pinned.reset();
+  });
+
+  it("shows a levels readout only when the run's start levels differ from the birthright", () => {
+    // The pin showed nothing on screen while seed and size both had a
+    // readout. The gate is the difference from the birthright rather than the
+    // parameter's presence, so ordinary runs are untouched: a pinned run is by
+    // definition not an ordinary run.
+    const ordinary = new GameScreen();
+    ordinary.prepare();
+    expect(ordinary["levelsLabel"].text).toBe("");
+    ordinary.reset();
+
+    fakeLocation.search = "?seed=7&levels=3";
+    const pinned = new GameScreen();
+    pinned.prepare();
+    expect(pinned["levelsLabel"].text).toBe("LEVELS 3 PINNED");
+    pinned.reset();
+  });
+
+  it("reads the resolved start levels and never the parameter, so an unusable pin shows nothing", () => {
+    // Mark's words: display the run's already-resolved start levels, never
+    // parse the URL again. ?levels=9 is refused by the parser and the run
+    // keeps its birthright, so the readout has nothing to say.
+    fakeLocation.search = "?seed=7&levels=9";
+    const screen = new GameScreen();
+    screen.prepare();
+    expect(screen["levelsLabel"].text).toBe("");
+    screen.reset();
   });
 
   it("exports a pinned run as a tape that decodes and passes verification readback", () => {
@@ -1233,5 +1329,218 @@ describe("the frame observation seam (dispatch 6a)", () => {
       stop: "quit",
       integrity: "clean",
     });
+  });
+});
+
+describe("a fatal fault reaches the end state (dispatch 6a)", () => {
+  beforeEach(() => {
+    keyHandlers.clear();
+    canvasListeners.clear();
+    navigation.currentPopup = undefined;
+    showScreen.mockReset().mockResolvedValue(undefined);
+    saveTapeFile.mockClear();
+    // The dev broken handler reports the fault on the console by design
+    // (ADR 0017 ruling H); the report is not what these tests assert.
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  /** A state no rule produces, so the no NaN check fires on the next tick. */
+  function breakRun(screen: GameScreen): void {
+    screen["run"]!.grave.x = Number.NaN;
+  }
+
+  it("ends the run on screen through the authority, and never through an ending", () => {
+    // ADR 0017: a fatal fault never sets run.ending, so the transition keys
+    // off execution.stop. Before this, the field froze and the run never ended
+    // on screen, which is the opening bug of that ADR minus the missing tape.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 2));
+    breakRun(screen);
+    screen.update(frame(TICK_MS));
+
+    expect(screen["execution"]!.stop).toBe("faulted");
+    expect(screen["run"]!.ending).toBeNull();
+    expect(screen["ending"]).toBe(true);
+    expect(showScreen).toHaveBeenCalledTimes(1);
+    const summary = runHandoff.read()!;
+    expect(summary.ending).toBeNull();
+    expect(summary.fault).toEqual({ identity: "no NaN", firstTick: 3 });
+    screen.reset();
+  });
+
+  it("hands the sealed tape to the handoff with the faulting frame's row, so SAVE TAPE works on it", () => {
+    // A faulted run's tape is precisely the evidence the instrument exists to
+    // collect. The faulting frame's row reaches the recorder before the bytes
+    // are captured, exactly as the end-by-play path records its death frame.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 2));
+    breakRun(screen);
+    screen.update(frame(TICK_MS));
+
+    const bytes = runHandoff.readTape();
+    expect(bytes).not.toBeNull();
+    const { tape } = decodeTape(bytes!);
+    expect(tape.trailer).toMatchObject({
+      ending: null,
+      stop: "faulted",
+      integrity: "faulted",
+    });
+    const rows = frameObservations(tape);
+    expect(rows[rows.length - 1]).toMatchObject({
+      reason: "live",
+      tickIndex: 2,
+      ticksExecuted: 1,
+    });
+    expect(faultObservations(tape).map((row) => row.identity)).toContain(
+      "no NaN",
+    );
+
+    const end = new EndScreen();
+    end.prepare();
+    expect(end["saveButton"].visible).toBe(true);
+    end["saveTape"]();
+    expect(saveTapeFile).toHaveBeenCalledWith(
+      bytes,
+      tapeFileName(screen["run"]!.seed, COMMIT_HASH),
+    );
+    screen.reset();
+  });
+
+  it("keeps the frames after the stop out of the exported bytes, held by the ending guard", () => {
+    // The evidence the deferred "stopped" frame reason was judged on: the
+    // bytes are captured on the stop frame itself, so no frame between the
+    // fatal stop and the end state exists in the exported artifact, and the
+    // frames the run then spends on its own end state stay in the recorder
+    // only, held and named by the same guard as an end by play.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS));
+    breakRun(screen);
+    screen.update(frame(TICK_MS));
+    const exported = frameObservations(decodeTape(runHandoff.readTape()!).tape);
+
+    screen.update(frame(TICK_MS));
+    screen.update(frame(TICK_MS));
+
+    expect(
+      frameObservations(decodeTape(runHandoff.readTape()!).tape),
+    ).toHaveLength(exported.length);
+    const recorded = frameObservations(tapeOf(screen["recorder"]!));
+    expect(recorded).toHaveLength(exported.length + 2);
+    expect(recorded[recorded.length - 1]).toMatchObject({
+      reason: "ending",
+      tickIndex: null,
+      ticksExecuted: 0,
+    });
+    screen.reset();
+  });
+
+  it("retries a failed navigation without re-capturing, so the artifact stays frozen at the stop", async () => {
+    // The retry is navigation-only. Re-entering the capture would re-encode
+    // the tape and re-record the handoff on every failing frame, folding the
+    // post-stop frames into the exported bytes; and the ending latch stays up
+    // across the failure, so no post-stop frame ever reads live or steps the
+    // stopped run.
+    showScreen.mockRejectedValue(new Error("no screen"));
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS));
+    breakRun(screen);
+    screen.update(frame(TICK_MS));
+    const exported = runHandoff.readTape();
+    expect(exported).not.toBeNull();
+    await settleNavigation();
+
+    screen.update(frame(TICK_MS));
+    await settleNavigation();
+    screen.update(frame(TICK_MS));
+
+    expect(showScreen).toHaveBeenCalledTimes(3);
+    // The very same bytes: the handoff was recorded once and never again.
+    expect(runHandoff.readTape()).toBe(exported);
+    expect(frameObservations(decodeTape(exported!).tape)).toHaveLength(2);
+    // The run held still, and the frames spent retrying read as what they
+    // are, recorder-only ending frames.
+    expect(screen["run"]!.tick).toBe(2);
+    const retrying = frameObservations(tapeOf(screen["recorder"]!)).slice(-2);
+    expect(retrying).toHaveLength(2);
+    for (const row of retrying) {
+      expect(row).toMatchObject({ reason: "ending", ticksExecuted: 0 });
+    }
+    screen.reset();
+  });
+});
+
+describe("a recoverable fault shows live on the HUD (dispatch 6a)", () => {
+  beforeEach(() => {
+    keyHandlers.clear();
+    canvasListeners.clear();
+    navigation.currentPopup = undefined;
+    showScreen.mockReset().mockResolvedValue(undefined);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  /** A corpse no rule produces, far from the grave, so freshness in range fires while the run plays on. */
+  function rotCorpse(screen: GameScreen): void {
+    const corpse = screen["run"]!.corpses[0];
+    corpse.alive = true;
+    corpse.id = 1;
+    corpse.x = 50;
+    corpse.y = 50;
+    corpse.freshness = 5;
+  }
+
+  it("appears when the first recoverable fault fires, and the run continues", () => {
+    // ADR 0017 ruling C: live, on the HUD, while the run continues, so Mark
+    // never spends minutes evaluating feel without knowing the run's tuning
+    // evidence may be compromised. Never a modal, an interruption or a
+    // dedicated debugging surface, and it terminates nothing in any build.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS));
+    expect(screen["faultLabel"].text).toBe("");
+
+    rotCorpse(screen);
+    screen.update(frame(TICK_MS));
+
+    expect(screen["faultLabel"].text).toBe("FAULT freshness in range");
+    expect(screen["execution"]!.stop).toBeNull();
+    expect(showScreen).not.toHaveBeenCalled();
+
+    screen.update(frame(TICK_MS * 2));
+    expect(screen["run"]!.tick).toBe(4);
+    screen.reset();
+  });
+
+  it("stays for the rest of the run after the fault stops firing", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+    rotCorpse(screen);
+    screen.update(frame(TICK_MS));
+    expect(screen["faultLabel"].text).toBe("FAULT freshness in range");
+
+    screen["run"]!.corpses[0].alive = false;
+    screen.update(frame(TICK_MS * 3));
+
+    expect(screen["faultLabel"].text).toBe("FAULT freshness in range");
+    screen.reset();
+  });
+
+  it("starts a pooled screen's next run with a clean line", () => {
+    const screen = new GameScreen();
+    screen.prepare();
+    rotCorpse(screen);
+    screen.update(frame(TICK_MS));
+    expect(screen["faultLabel"].text).not.toBe("");
+
+    screen.reset();
+    screen.prepare();
+
+    expect(screen["faultLabel"].text).toBe("");
+    screen.reset();
   });
 });

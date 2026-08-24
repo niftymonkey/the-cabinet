@@ -6,7 +6,7 @@ import type { BellRing } from "./lines/bell";
 import { BELL_PERIOD } from "./lines/bell";
 import { MAX_STONES } from "./lines/headstones";
 import type { WeaponLine } from "./lines/roster";
-import { BIRTHRIGHT } from "./lines/roster";
+import { BIRTHRIGHT, WEAPON_LINES } from "./lines/roster";
 import type { Skull } from "./lines/soulStream";
 import { createSkullPool, STREAM_INTERVAL } from "./lines/soulStream";
 import type { Wisp } from "./lines/wisps";
@@ -173,6 +173,18 @@ function birthrightLevels(): Record<WeaponLine, number> {
  */
 export function uniformLevels(level: number): Record<WeaponLine, number> {
   return { soulStream: level, headstones: level, wisps: level, bell: level };
+}
+
+/**
+ * Whether these are the birthright levels, the ones a run is born with when
+ * nothing pins them. A caller that treats a pinned run differently gates on
+ * this rather than re-deriving the birthright for itself.
+ */
+export function isBirthrightLevels(
+  levels: Readonly<Record<WeaponLine, number>>,
+): boolean {
+  const birthright = birthrightLevels();
+  return WEAPON_LINES.every((line) => levels[line] === birthright[line]);
 }
 
 /**

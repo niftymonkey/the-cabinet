@@ -5,12 +5,19 @@ import type { CommandSource } from "../../../game/advance";
 import { advance } from "../../../game/advance";
 import type { Clock } from "../../../game/clock";
 import { createClock } from "../../../game/clock";
-import type { Execution } from "../../../game/execution";
+import type { Execution, FaultRecord } from "../../../game/execution";
 import { createExecution, devBrokenHandler } from "../../../game/execution";
+import type { FaultIdentity } from "../../../game/invariants";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
 import type { SimEvent } from "../../../game/events";
+import type { WeaponLine } from "../../../game/lines/roster";
+import { WEAPON_LINES } from "../../../game/lines/roster";
 import type { RunState } from "../../../game/run";
-import { createRun, uniformLevels } from "../../../game/run";
+import {
+  createRun,
+  isBirthrightLevels,
+  uniformLevels,
+} from "../../../game/run";
 import { RESERVOIR_CAPACITY } from "../../../game/tuning";
 import { encodeTape } from "../../../tape/encode";
 import type { TapeRecorder } from "../../../tape/recorder";
@@ -229,6 +236,62 @@ interface FrameWork {
 const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
 
 /**
+ * The most characters the fault line may carry, prefix included. It is
+ * READOUT_RESERVE.width spent as corner-stack characters: layering.test.ts
+ * holds the two together through the same advance bound the rest of the stack
+ * is held by, so the line hugs the corner on a 390-unit phone stage instead of
+ * running nearly the full width of it.
+ */
+export const FAULT_LINE_MAX_CHARS = 25;
+
+/** The fault line's prefix, counted inside FAULT_LINE_MAX_CHARS. */
+const FAULT_PREFIX = "FAULT ";
+
+/**
+ * A fault's identity, cut to the line's budget where it must be.
+ *
+ * The identities are a closed list (ADR 0017), so the cut forms are checkable
+ * against every member: layering.test.ts asserts no two identities render the
+ * same line, which is what keeps a cut form unambiguous. The ellipsis says
+ * honestly that the name is cut, and the full identity is in the tape's own
+ * fault record either way.
+ */
+function shortIdentity(identity: FaultIdentity): string {
+  const budget = FAULT_LINE_MAX_CHARS - FAULT_PREFIX.length;
+  if (identity.length <= budget) return identity;
+  return `${identity.slice(0, budget - 1).trimEnd()}…`;
+}
+
+/**
+ * The HUD's fault line (ADR 0017 ruling C): a recoverable fault shows live,
+ * minimally, while the run continues, so a read is never taken for minutes on
+ * a run whose tuning evidence is already compromised. It reads the authority's
+ * own de-duplicated record rather than keeping a second tally, it appears when
+ * the first fault fires and stays for the rest of the run, and it never
+ * terminates or pauses anything, in any build.
+ */
+export function faultReadout(faults: readonly FaultRecord[]): string {
+  if (faults.length === 0) return "";
+  if (faults.length === 1) {
+    return `${FAULT_PREFIX}${shortIdentity(faults[0].identity)}`;
+  }
+  return `FAULTS ${faults.length}`;
+}
+
+/**
+ * The pinned-levels line's figure: one number when the four lines agree, which
+ * is the only shape the pin produces, and all four in roster order otherwise.
+ */
+export function levelsReadout(
+  levels: Readonly<Record<WeaponLine, number>>,
+): string {
+  const values = WEAPON_LINES.map((line) => levels[line]);
+  return values.every((value) => value === values[0])
+    ? `${values[0]}`
+    : values.join("/");
+}
+
+/**
  * The screen a run plays on. Render only: it owns this run's state and shows
  * it, and holds no game rules. The rules live in src/game and reach the screen
  * through advance(), which converts one frame's elapsed time into whole ticks.
@@ -269,6 +332,14 @@ export class GameScreen extends Container {
   private readonly tickLabel: Label;
   private readonly seedLabel: Label;
   private readonly sizeLabel: Label;
+  /**
+   * The loadout pin's readout, beside the seed's and the size's. It shows the
+   * run's already-resolved start levels and never re-reads the URL, and only
+   * when they differ from the birthright, so ordinary runs are untouched.
+   */
+  private readonly levelsLabel: Label;
+  /** The recoverable-fault line, filled by syncReadouts (see faultReadout). */
+  private readonly faultLabel: Label;
   private readonly countdownLabel: Label;
   private readonly pauseButton: Button;
   private readonly belchButton: BelchButton;
@@ -304,7 +375,20 @@ export class GameScreen extends Container {
   private recorder: TapeRecorder | null = null;
   private releaseKeys: (() => void) | null = null;
   private releaseListeners: (() => void) | null = null;
+  /**
+   * Whether this run is over: the trailer is sealed, the handoff holds the
+   * captured bytes, and the frame seam holds every later frame still. It
+   * latches up at the first endRun and only prepare() lowers it, because a
+   * lowered latch would let a post-stop frame read live and step a run whose
+   * own record says it stopped.
+   */
   private ending = false;
+  /**
+   * Whether a navigation to the end state is in flight. It is the half of the
+   * old ending guard that does come back down on a failed showScreen, so the
+   * frame seam can retry the way out while the sealed record stays sealed.
+   */
+  private navigating = false;
   /**
    * The two reasons the sim holds still, kept apart rather than as one flag.
    * They are independent: a popup can open, the tab can then be switched away
@@ -336,6 +420,12 @@ export class GameScreen extends Container {
   private skipElapsed = false;
   private shownDebt: number | null = null;
   private shownTick: number | null = null;
+  /**
+   * How many fault records the HUD line has been written from, so the label is
+   * only touched when the authority's record grows. Per-run mutable state on a
+   * pooled screen, so prepare() resets it beside the label.
+   */
+  private shownFaults = 0;
   /**
    * Milliseconds left of the resume countdown, or null when the field is live.
    * It is per-run mutable state with a timer in it on a pooled screen, so
@@ -392,6 +482,13 @@ export class GameScreen extends Container {
     this.tickLabel = stackLine(2);
     this.seedLabel = stackLine(3);
     this.sizeLabel = stackLine(4);
+    // Lines five and six sit past the readout reserve and draw over the field,
+    // which is the meter's own allowance under ADR 0014. Growing the reserve
+    // instead would move the field on every ordinary run: the levels line is
+    // empty on an ordinary run, and the fault line is empty on a healthy one,
+    // because ADR 0017 shows a recoverable fault live on an ordinary run.
+    this.levelsLabel = stackLine(5);
+    this.faultLabel = stackLine(6);
     this.countdownLabel = new Label({
       style: {
         fontFamily: "monospace",
@@ -416,6 +513,8 @@ export class GameScreen extends Container {
       this.tickLabel,
       this.seedLabel,
       this.sizeLabel,
+      this.levelsLabel,
+      this.faultLabel,
       this.countdownLabel,
       this.pauseButton,
       this.belchButton,
@@ -449,6 +548,7 @@ export class GameScreen extends Container {
 
   public prepare() {
     this.ending = false;
+    this.navigating = false;
     this.menuPaused = false;
     this.backgrounded = false;
     this.menuTransition = null;
@@ -456,6 +556,8 @@ export class GameScreen extends Container {
     this.clock = createClock();
     this.shownDebt = null;
     this.shownTick = null;
+    this.shownFaults = 0;
+    this.faultLabel.text = "";
     // A pooled screen must not inherit the previous run's held keys, drag
     // anchor or blur.
     this.keys.releaseAll();
@@ -523,6 +625,13 @@ export class GameScreen extends Container {
     this.seedLabel.text =
       seed === null ? `SEED ${run.seed}` : `SEED ${run.seed} PINNED`;
     this.sizeLabel.text = size === null ? "" : `SIZE ${run.grave.size} PINNED`;
+    // The resolved start levels and never the parameter (Mark's ruling): what
+    // the run was actually born with, read before any tick can level it up.
+    // Gated on differing from the birthright rather than on the parameter's
+    // presence, which is what keeps ordinary runs untouched.
+    this.levelsLabel.text = isBirthrightLevels(run.levels)
+      ? ""
+      : `LEVELS ${levelsReadout(run.levels)} PINNED`;
     return run;
   }
 
@@ -659,16 +768,20 @@ export class GameScreen extends Container {
       debtTicks: this.clock.debtTicks,
     });
     // A fatal fault stops the run through the authority and never through an
-    // ending, so this is the frame that knows the run is over.
-    if (execution.stop !== null) this.closeTape();
-    // The run that ends by play is ended here, below the seam, and never inside
-    // updateRun: endRun captures the sealed bytes, and a capture above the
-    // recordFrame call seals the tape without the frame that executed the
+    // ending (ADR 0017), so the transition keys off execution.stop and this is
+    // the frame that takes the run to the end state. It is the same handoff an
+    // end by play takes, below the seam on purpose: the faulting frame's own
+    // row is already in the recorder when endRun captures the sealed bytes, so
+    // the exported tape ends on the frame that broke. A capture above the
+    // recordFrame call would seal the tape without the frame that executed the
     // run-ending tick, which is exactly the row ADR 0018's "every frame of a
-    // live run is recorded" is judged on in the exported artifact. The
-    // pause-menu quit calls endRun outside this seam, where its last live
-    // frame is already recorded, so it needs no deferral.
-    if (work.endedRun) this.endRun();
+    // live run is recorded" is judged on in the exported artifact; that is why
+    // updateRun reports endedRun rather than acting on it. The pause-menu quit
+    // calls endRun outside this seam, where its last live frame is already
+    // recorded, so it needs no deferral. And this.ending re-enters on every
+    // later frame so a failed navigation is retried from the seam: endRun
+    // captures nothing twice, so the retries are navigation alone.
+    if (execution.stop !== null || work.endedRun || this.ending) this.endRun();
   }
 
   /**
@@ -863,6 +976,11 @@ export class GameScreen extends Container {
       this.shownTick = this.run.tick;
       this.tickLabel.text = `TICK ${this.shownTick}`;
     }
+    const faults = this.execution?.faults ?? [];
+    if (faults.length !== this.shownFaults) {
+      this.shownFaults = faults.length;
+      this.faultLabel.text = faultReadout(faults);
+    }
   }
 
   public resize(width: number, height: number) {
@@ -1006,18 +1124,36 @@ export class GameScreen extends Container {
     return encodeTape(tapeOf(this.recorder));
   }
 
+  /**
+   * Takes the run to its end state, sealing the record exactly once.
+   *
+   * The capture is once-only and only the navigation retries. showScreen can
+   * reject, and the frame seam then calls back in while the run stays over: a
+   * retry that re-entered the capture would re-encode the tape and re-record
+   * the handoff on every failing frame, folding the frames after the stop into
+   * the exported artifact. Captured once, the artifact is frozen at the stop
+   * however many retries the way out takes.
+   */
   private endRun() {
-    if (this.ending || !this.run) return;
-    this.clearFieldBlur();
-    this.ending = true;
-    this.closeTape();
-    runHandoff.record(summarizeRun(this.run), this.sealedTape());
+    if (!this.run || !this.execution) return;
+    if (!this.ending) {
+      this.ending = true;
+      this.clearFieldBlur();
+      this.closeTape();
+      runHandoff.record(
+        summarizeRun(this.run, this.execution),
+        this.sealedTape(),
+      );
+    }
+    if (this.navigating) return;
+    this.navigating = true;
     engine()
       .navigation.showScreen(EndScreen)
       .catch((error) => {
-        // A failed navigation releases the guard: left up it deafens every
-        // retry and holds the ticker's work stopped for the rest of the run.
-        this.ending = false;
+        // A failed navigation releases the navigation guard alone, so the
+        // frame seam retries the way out. The ending latch stays up: lowering
+        // it would let a post-stop frame read live and step a stopped run.
+        this.navigating = false;
         console.error(error);
       });
   }

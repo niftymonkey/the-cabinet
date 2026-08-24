@@ -6,6 +6,10 @@
 import { Container, Graphics } from "pixi.js";
 import { describe, expect, it, vi } from "vitest";
 
+import type { FaultRecord } from "../../../game/execution";
+import type { FaultIdentity } from "../../../game/invariants";
+import { FAULT_IDENTITIES, FAULT_SEVERITY } from "../../../game/invariants";
+import { MAX_LEVEL } from "../../../game/lines/roster";
 import { SEED_LIMIT } from "../../../game/run";
 import { METER_FONT_SIZE, meterLinePosition } from "../../FpsMeter";
 import type { FieldPlacement } from "../../layout";
@@ -31,7 +35,12 @@ vi.mock("../../ui/Button", () => ({
   },
 }));
 
-import { GameScreen } from "./GameScreen";
+import {
+  FAULT_LINE_MAX_CHARS,
+  faultReadout,
+  GameScreen,
+  levelsReadout,
+} from "./GameScreen";
 
 // The screen reads its persisted keyboard speed on construction, and an
 // unstubbed localStorage warns once through the storage guard.
@@ -242,10 +251,42 @@ describe("the game screen across a pooled reuse", () => {
 });
 
 /**
- * The widest string the corner stack can ever show: a pinned seed at the top of
- * the roll's range, with the word every pinned line carries.
+ * How many stack lines the reserve's height covers: FPS, DEBT, TICK, SEED and
+ * SIZE. The levels and fault lines below them deliberately sit past the
+ * reserve and draw over the field, the meter's own allowance under ADR 0014,
+ * so the height rule stops here and the two of them carry the width rule on
+ * their own.
  */
-const WIDEST_STACK_LINE = `SEED ${SEED_LIMIT - 1} PINNED`;
+const RESERVED_LINES = 5;
+
+/**
+ * The widest string the reserve-height lines can show: a pinned seed at the
+ * top of the roll's range, with the word every pinned line carries.
+ */
+const WIDEST_RESERVED_LINE = `SEED ${SEED_LIMIT - 1} PINNED`;
+
+/**
+ * The widest levels line the pin can render: levels are single digits capped
+ * at MAX_LEVEL, and the four-figure form only appears when the lines differ,
+ * so any differing four digits give the widest case.
+ */
+const WIDEST_LEVELS_LINE = `LEVELS ${levelsReadout({
+  soulStream: MAX_LEVEL,
+  headstones: MAX_LEVEL,
+  wisps: MAX_LEVEL,
+  bell: 0,
+})} PINNED`;
+
+/** A record as the authority keeps them, for driving the readout over the closed list. */
+function faultRecord(identity: FaultIdentity): FaultRecord {
+  return {
+    identity,
+    severity: FAULT_SEVERITY[identity],
+    firstTick: 1,
+    detail: "",
+    count: 1,
+  };
+}
 
 /**
  * An upper bound on a monospace advance, as a share of the font size. Common
@@ -260,15 +301,22 @@ const WIDEST_STACK_LINE = `SEED ${SEED_LIMIT - 1} PINNED`;
  */
 const MONOSPACE_ADVANCE_MAX = 0.62;
 
-describe("the readouts stay inside the reserve the field is fitted around", () => {
-  it("fits the corner stack's widest line and the pause button inside it", () => {
-    const stackWidth =
-      WIDEST_STACK_LINE.length * METER_FONT_SIZE * MONOSPACE_ADVANCE_MAX;
-    const stackRight = meterLinePosition(0).x + stackWidth;
-    expect(stackRight).toBeLessThanOrEqual(READOUT_RESERVE.width);
+/** Where a stack line's right edge lands, by the advance bound above. */
+function lineRight(line: string): number {
+  return (
+    meterLinePosition(0).x +
+    line.length * METER_FONT_SIZE * MONOSPACE_ADVANCE_MAX
+  );
+}
 
-    const lines = 5;
-    const stackBottom = meterLinePosition(lines - 1).y + METER_FONT_SIZE * 1.5;
+describe("the readouts stay inside the reserve the field is fitted around", () => {
+  it("fits the reserve-height lines' widest and the pause button inside it", () => {
+    expect(lineRight(WIDEST_RESERVED_LINE)).toBeLessThanOrEqual(
+      READOUT_RESERVE.width,
+    );
+
+    const stackBottom =
+      meterLinePosition(RESERVED_LINES - 1).y + METER_FONT_SIZE * 1.5;
     expect(stackBottom).toBeLessThanOrEqual(READOUT_RESERVE.height);
 
     const screen = new GameScreen();
@@ -284,5 +332,42 @@ describe("the readouts stay inside the reserve the field is fitted around", () =
     expect(button.position.y + 68 / 2).toBeLessThanOrEqual(
       READOUT_RESERVE.height,
     );
+  });
+
+  it("keeps the levels and fault lines, past the reserve's height, inside its width", () => {
+    // The two lines below the reserve draw over the field, so its height does
+    // not bind them. Its width still does: a wider line runs most of a
+    // 390-unit phone stage, and the fault line exists under ADR 0017's ruling
+    // that it stays minimal, never a banner across the field.
+    expect(lineRight(WIDEST_LEVELS_LINE)).toBeLessThanOrEqual(
+      READOUT_RESERVE.width,
+    );
+    expect(lineRight("x".repeat(FAULT_LINE_MAX_CHARS))).toBeLessThanOrEqual(
+      READOUT_RESERVE.width,
+    );
+  });
+
+  it("caps the fault line for every identity in the closed list, each form still unambiguous", () => {
+    // The identities are closed and append-only (ADR 0017), so the longest is
+    // known: FAULT phase tick resets at a boundary runs 37 characters uncut,
+    // nearly the full width of a 390-unit phone stage. A cut form must stay
+    // tellable from every other member, or the readout names the wrong fault.
+    const lines = FAULT_IDENTITIES.map((identity) =>
+      faultReadout([faultRecord(identity)]),
+    );
+    for (const line of lines) {
+      expect(line.length).toBeLessThanOrEqual(FAULT_LINE_MAX_CHARS);
+      expect(line.startsWith("FAULT ")).toBe(true);
+    }
+    expect(new Set(lines).size).toBe(FAULT_IDENTITIES.length);
+
+    // An identity that fits the budget shows whole, and several faults stay
+    // the count they already were.
+    expect(faultReadout([faultRecord("freshness in range")])).toBe(
+      "FAULT freshness in range",
+    );
+    expect(
+      faultReadout([faultRecord("no NaN"), faultRecord("entity ids")]),
+    ).toBe("FAULTS 2");
   });
 });
