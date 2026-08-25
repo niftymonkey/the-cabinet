@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   CHUNK_BODY,
@@ -156,6 +156,29 @@ describe("the store recording", () => {
       integrity: null,
       debtTicks: null,
     });
+  });
+
+  it("makes up its own fresh run id when crypto.randomUUID does not exist", async () => {
+    // A LAN-IP dev serve is not a secure context, so crypto.randomUUID is
+    // absent there; the store is a convenience channel and never a dependency,
+    // so the default id falls back instead of letting prepare() throw.
+    const { store, appends } = fakeStore();
+    vi.stubGlobal("crypto", {
+      getRandomValues: crypto.getRandomValues.bind(crypto),
+    });
+    try {
+      recordRunToStore(Promise.resolve(store), startedRecorder());
+      recordRunToStore(Promise.resolve(store), startedRecorder());
+      await settle();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(kindsOf(appends)).toEqual(["header", "header"]);
+    const [first, second] = appends.map(({ runId }) => runId);
+    expect(first).not.toBe("");
+    expect(second).not.toBe("");
+    expect(first).not.toBe(second);
   });
 
   it("flushes the witness, the ticks behind it and the frame rows at each checkpoint boundary", async () => {

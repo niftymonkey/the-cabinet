@@ -39,10 +39,23 @@ const summaryOf = (recorder: TapeRecorder): RunSummaryValues => ({
 const isFrame = (observation: Observation): observation is FrameObservation =>
   observation.kind === "frame";
 
+/**
+ * crypto.randomUUID exists only in secure contexts, and a LAN-IP dev serve is
+ * not one; the store is a convenience channel and never a dependency, so the
+ * id falls back rather than letting prepare() throw. getRandomValues has no
+ * secure-context requirement.
+ */
+const freshRunId = (): string =>
+  typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+        byte.toString(16).padStart(2, "0"),
+      ).join("");
+
 const recordRunToStore = (
   store: Promise<TapeStore | null>,
   recorder: TapeRecorder,
-  runId: string = crypto.randomUUID(),
+  runId: string = freshRunId(),
 ): StoreRecording => {
   let commandsQueued = 0;
   let checkpointsQueued = 0;
