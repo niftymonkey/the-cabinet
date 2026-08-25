@@ -156,15 +156,8 @@ export function recordFrame(
   recorder.observations.push({ kind: "frame", ...observation });
 }
 
-/**
- * Whether the run this authority ran was sound.
- *
- * Unchecked comes first because it is the one reading an empty fault list
- * cannot be trusted to give: with the checks off the list is empty for a reason
- * the reader can now see, rather than because nothing fired.
- */
+/** Whether the run this authority ran was sound. */
 export function integrityOf(execution: Execution): TapeIntegrity {
-  if (!execution.checking) return "unchecked";
   return execution.faults.length === 0 ? "clean" : "faulted";
 }
 

@@ -146,7 +146,6 @@ describe("the fault mechanism (ADR 0017)", () => {
     executeTick(execution, STILL);
     executeTick(execution, STILL);
 
-    expect(execution.checking).toBe(true);
     expect(execution.faults).toHaveLength(1);
     expect(seen).toEqual([1, 2]);
   });
@@ -217,16 +216,17 @@ describe("the fault mechanism (ADR 0017)", () => {
     ]);
   });
 
-  it("with the checks off it records nothing, which is what a tape reads back as unchecked", () => {
-    // A temporary experimental control on the instrumentation build, so the
-    // confirming play's two readings come off one instrument. Every build a
-    // player is handed has the checks on.
+  it("offers no checks-off option at all, and a run offered one still faults", () => {
+    // ADR 0017: shipped invariants run with no flag and no opt-out. The
+    // measurement switch was temporary scaffolding, removed after the
+    // confirming play, and the excess-property error below is the guard: tsc
+    // fails this file the moment a `checking` option becomes legal again.
+    // @ts-expect-error -- `checking` is deliberately not an ExecutionOptions member.
     const execution = createExecution(createRun(1), { checking: false });
     liveMob(execution.run, 60, -SPAWN_MARGIN - 1);
     executeTick(execution, STILL);
 
-    expect(execution.faults).toEqual([]);
-    expect(execution.stop).toBeNull();
+    expect(execution.faults).toHaveLength(1);
   });
 
   it("a checker that cannot run still throws rather than being swallowed into the fault list", () => {

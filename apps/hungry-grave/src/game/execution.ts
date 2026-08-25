@@ -89,17 +89,6 @@ export interface Execution {
   readonly listeners: TickListener[];
   readonly watch: StageWatch;
   readonly onBroken: BrokenHandler | null;
-  /**
-   * Whether the invariants run on every tick.
-   *
-   * Always-on is the ruling, scoped to every build a player is handed (ADR
-   * 0017). The instrumentation build carries a way to switch them off for the
-   * length of this dispatch, because the confirming play needs a checks-off
-   * reading off the same instrument as the checks-on one, and both readings
-   * have to come off one build to be differenced. It is a temporary
-   * experimental control and never a feature, and the default is on.
-   */
-  readonly checking: boolean;
   /** Every fault this run has seen, de-duplicated by identity, in first-seen order. */
   readonly faults: FaultRecord[];
   /** Null while the run may keep executing. */
@@ -109,7 +98,6 @@ export interface Execution {
 export interface ExecutionOptions {
   readonly listeners?: TickListener[];
   readonly onBroken?: BrokenHandler;
-  readonly checking?: boolean;
 }
 
 /** The authority for one run, made where the run is made. */
@@ -122,7 +110,6 @@ export function createExecution(
     listeners: options.listeners ?? [],
     watch: createStageWatch(),
     onBroken: options.onBroken ?? null,
-    checking: options.checking ?? true,
     faults: [],
     stop: null,
   };
@@ -224,7 +211,9 @@ export function executeTick(
 ): readonly SimEvent[] {
   const consumed = quantiseCommand(command);
   const events = step(execution.run, consumed);
-  if (execution.checking) observeFaults(execution);
+  // Unconditionally: the checks are always on in every build, and there is
+  // deliberately no off-switch (ADR 0017).
+  observeFaults(execution);
   notifyListeners(execution, consumed, events);
   return events;
 }
