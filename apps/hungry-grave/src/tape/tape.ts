@@ -72,9 +72,9 @@ export const INPUT_DEVICE_CODES: Readonly<Record<TapeInputDevice, number>> = {
 /**
  * Whether the run a tape holds was sound (CONTEXT.md).
  *
- * Unchecked is the run recorded on an instrumentation build with the invariant
- * checks switched off, which is the one case where an empty fault list is not
- * evidence of a sound run.
+ * Unchecked is a run that was recorded on an instrumentation build with the
+ * invariant checks switched off, which is the one case where an empty fault
+ * list is not evidence of a sound run.
  */
 export const TAPE_INTEGRITIES = ["clean", "faulted", "unchecked"] as const;
 

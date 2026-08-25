@@ -1036,8 +1036,8 @@ describe("the loadout pin (dispatch 6a)", () => {
   it("?levels= starts all four lines at the pinned level, through the URL the screen really reads", () => {
     // ADR 0020: the measurement's condition is a dense moment with the lines
     // levelled, and no reachable run produces one. It is a testing control and
-    // never a player-facing feature; like ?invariants= beside it, it waits on
-    // the instrumentation build's gate.
+    // never a player-facing feature; it waits on the instrumentation build's
+    // gate.
     fakeLocation.search = "?seed=7&levels=5";
     const screen = new GameScreen();
     screen.prepare();

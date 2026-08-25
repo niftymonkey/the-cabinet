@@ -51,12 +51,7 @@ import { recordRunToStore } from "../../storeRecording";
 import type { TapeStore } from "../../tapeStore";
 import { openTapeStore } from "../../tapeStore";
 import { runConditionsHere, tapeHeaderFor } from "../../tapeHeader";
-import {
-  invariantsFromUrl,
-  levelsFromUrl,
-  seedFromUrl,
-  sizeFromUrl,
-} from "../../seedFromUrl";
+import { levelsFromUrl, seedFromUrl, sizeFromUrl } from "../../seedFromUrl";
 import { Button } from "../../ui/Button";
 import { Label } from "../../ui/Label";
 import { bindKeyPress } from "../../utils/bindKeyPress";
@@ -461,20 +456,6 @@ export class GameScreen extends Container {
    */
   private belchRequested = false;
 
-  /**
-   * Whether this run checks the sim invariants on every tick (ADR 0017).
-   *
-   * On unless ?invariants=off asks otherwise. The checks are always on in every
-   * build a player is handed; the switch is a temporary experimental control on
-   * the instrumentation build, so the confirming play's checks-off and checks-on
-   * readings come off one instrument and can be differenced.
-   *
-   * prepare() writes it on every run rather than the constructor writing it
-   * once, because it is per-run state on a pooled screen, which is the class of
-   * defect this app has shipped five times.
-   */
-  private checkingInvariants = true;
-
   constructor() {
     super();
 
@@ -596,10 +577,6 @@ export class GameScreen extends Container {
     this.belchButton.release();
     this.clearFieldBlur();
 
-    this.checkingInvariants = invariantsFromUrl(
-      window.location.search,
-      window.location.hash,
-    );
     this.run = this.startRun();
     this.execution = this.startExecution(this.run);
     // Before the first tick, because the header is written before the first
@@ -628,7 +605,7 @@ export class GameScreen extends Container {
     const seed = seedFromUrl(search, hash);
     const size = sizeFromUrl(search, hash);
     // The loadout pin (ADR 0020): a testing control, never player-facing, and
-    // like ?invariants= it belongs behind the instrumentation build's gate.
+    // it belongs behind the instrumentation build's gate.
     const levels = levelsFromUrl(search, hash);
     // The size goes in rather than being written afterwards: ADR 0003's floor
     // and ceiling are grave.ts's to hold, and hitGrave is then the only thing
@@ -666,7 +643,6 @@ export class GameScreen extends Container {
    */
   private startExecution(run: RunState): Execution {
     return createExecution(run, {
-      checking: this.checkingInvariants,
       onBroken: import.meta.env.DEV ? devBrokenHandler : undefined,
     });
   }

@@ -299,14 +299,4 @@ describe("a run's integrity", () => {
 
     expect(integrityOf(execution)).toBe("faulted");
   });
-
-  it("reads unchecked when the run was recorded with the checks switched off", () => {
-    // ADR 0017 and ADR 0018 ruling G: the one case where an empty fault list is
-    // not evidence of a sound run, put where a reader already looks rather than
-    // in a header field they may never open.
-    const execution = createExecution(createRun(SEED), { checking: false });
-
-    expect(integrityOf(execution)).toBe("unchecked");
-    expect(execution.faults).toEqual([]);
-  });
 });

@@ -1,8 +1,7 @@
 /**
  * What the URL asks of a run: ?seed= pins the run and ?size= pins the grave's
- * starting size (ADR 0012), ?levels= pins the weapon loadout (ADR 0020), and
- * ?invariants= switches the sim's own checks. Pure functions over two strings,
- * so they are testable without a browser.
+ * starting size (ADR 0012), and ?levels= pins the weapon loadout (ADR 0020).
+ * Pure functions over two strings, so they are testable without a browser.
  *
  * The controls live beside the two identity parameters rather than in modules
  * of their own because the reader below is the thing worth having once: hash
@@ -42,12 +41,6 @@ function rawParameter(
 function ignore(name: string, raw: string): null {
   console.warn(`Ignoring ?${name}=${raw}: the run rolls fresh instead.`);
   return null;
-}
-
-/** The same, for a switch, where falling back means the default rather than rolling fresh. */
-function ignoreSwitch(name: string, raw: string): true {
-  console.warn(`Ignoring ?${name}=${raw}: the checks stay on instead.`);
-  return true;
 }
 
 /** A number the string actually spells. Number("") is 0, which would pin seed zero on an empty parameter. */
@@ -104,10 +97,9 @@ function ignoreLevels(raw: string): null {
  * It is a development and testing control and never a player-facing feature
  * (ADR 0020). It exists because the confirming measurement's stated condition
  * is a dense moment with the lines levelled, and no reachable run produces
- * one. Like ?invariants= beside it, its behaviour belongs behind the
- * instrumentation build's gate: a player build must not honour it even typed
- * by hand, which is a build-time gate rather than a naming convention, and
- * both parameters wait on the same gate.
+ * one. Its behaviour belongs behind the instrumentation build's gate: a
+ * player build must not honour it even typed by hand, which is a build-time
+ * gate rather than a naming convention.
  */
 export function levelsFromUrl(search: string, hash: string): number | null {
   const raw = rawParameter("levels", search, hash);
@@ -155,38 +147,4 @@ export function atFromUrl(search: string, hash: string): number | null {
   if (value === null || !Number.isInteger(value)) return ignoreAt(raw);
   if (value < 0) return ignoreAt(raw);
   return value;
-}
-
-/**
- * The spellings a switch accepts, on either side. Four of each, because this
- * one is typed by hand into a phone and an unreadable value stays on: a fat
- * finger that silently disables the checks makes the two reads look identical
- * and the wrong conclusion look proved.
- */
-const SWITCHED_ON = ["on", "1", "true", "yes"];
-const SWITCHED_OFF = ["off", "0", "false", "no"];
-
-/**
- * Whether this run checks the sim invariants on every tick (ADR 0017).
- *
- * On unless the URL asks for them off, because the checks are always on in
- * every build a player is handed and only an explicit ?invariants=off turns
- * them off. It is a switch and not a number because the point of it is to be
- * typed into a phone twice off one build, once each way, and read against
- * itself: ?invariants=off, or #/?invariants=off, which wins the same way the
- * seed's hash form does.
- *
- * It is a temporary experimental control and never a feature. It exists so the
- * confirming play's checks-off and checks-on readings come off one instrument,
- * and it is removed once that play succeeds. A player build must not honour it
- * even when somebody types it by hand, which is a build-time gate rather than a
- * naming convention.
- */
-export function invariantsFromUrl(search: string, hash: string): boolean {
-  const raw = rawParameter("invariants", search, hash);
-  if (raw === null) return true;
-  const value = raw.trim().toLowerCase();
-  if (SWITCHED_ON.includes(value)) return true;
-  if (SWITCHED_OFF.includes(value)) return false;
-  return ignoreSwitch("invariants", raw);
 }

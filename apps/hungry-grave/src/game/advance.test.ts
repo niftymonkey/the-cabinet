@@ -45,8 +45,8 @@ import { BASE_SPEED, RESERVOIR_CAPACITY } from "./tuning";
 const STILL: CommandSource = () => ({ move: { x: 0, y: 0 }, belch: false });
 
 /** A run and the authority its ticks cross, made together as a run's own screen makes them. */
-function playing(seed: number, checking = true): Execution {
-  return createExecution(createRun(seed), { checking });
+function playing(seed: number): Execution {
+  return createExecution(createRun(seed));
 }
 
 /** The position error from wherever the grave is now to a fixed target, in base-speed units. */
@@ -201,7 +201,7 @@ describe("advance", () => {
     expect(events).toEqual([]);
   });
 
-  it("a fatal fault on the first of three ticks stops the frame there, and the checks off let it run on", () => {
+  it("a fatal fault on the first of three ticks stops the frame there", () => {
     // The reason the loop reads its stop condition off the Execution: the
     // catch-up clamp buys up to fifteen ticks in one frame, so one fatal fault
     // would otherwise re-fire fourteen more times inside the frame that caught
@@ -217,12 +217,6 @@ describe("advance", () => {
     expect(checked.run.tick).toBe(1);
     expect(checked.stop).toBe("faulted");
     expect(checked.faults.map((fault) => fault.identity)).toContain("no NaN");
-
-    const unchecked = playing(7, false);
-    advance(unchecked, createClock(), TICK_MS * 3, STILL);
-    expect(unchecked.run.tick).toBe(3);
-    expect(unchecked.stop).toBeNull();
-    expect(unchecked.faults).toEqual([]);
   });
 
   it("a run that seals on tick one of a three-tick frame executes no further ticks in that frame", () => {

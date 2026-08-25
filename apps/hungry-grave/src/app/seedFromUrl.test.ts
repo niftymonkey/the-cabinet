@@ -9,7 +9,6 @@ import { createRun, SEED_LIMIT } from "../game/run";
 import { SIZE_CEILING, SIZE_FLOOR } from "../game/tuning";
 import {
   atFromUrl,
-  invariantsFromUrl,
   levelsFromUrl,
   seedFromUrl,
   sizeFromUrl,
@@ -172,39 +171,5 @@ describe("atFromUrl", () => {
     }
     expect(console.warn).toHaveBeenCalledTimes(5);
     expect(vi.mocked(console.warn).mock.calls[0].join(" ")).toContain("abc");
-  });
-});
-
-describe("invariantsFromUrl", () => {
-  beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
-  afterEach(() => vi.restoreAllMocks());
-
-  it("is on unless the URL asks them off, because the checks are always on in a player's build (ADR 0017)", () => {
-    expect(invariantsFromUrl("", "")).toBe(true);
-    expect(invariantsFromUrl("?seed=1234", "#/?size=20")).toBe(true);
-    expect(console.warn).not.toHaveBeenCalled();
-  });
-
-  it("accepts on, 1, true and yes either way round, in either URL form", () => {
-    for (const raw of ["on", "1", "true", "yes", "ON", " True "]) {
-      expect(invariantsFromUrl(`?invariants=${raw}`, "")).toBe(true);
-      expect(invariantsFromUrl("", `#/?invariants=${raw}`)).toBe(true);
-    }
-    for (const raw of ["off", "0", "false", "no"]) {
-      expect(invariantsFromUrl(`?invariants=${raw}`, "")).toBe(false);
-    }
-  });
-
-  it("with both present the hash's query wins, the same way the seed's does", () => {
-    expect(invariantsFromUrl("?invariants=off", "#/?invariants=on")).toBe(true);
-    expect(invariantsFromUrl("?invariants=on", "#/?invariants=off")).toBe(
-      false,
-    );
-  });
-
-  it("a value it cannot read warns and stays on, so a typo cannot silently take the checks off a reading", () => {
-    expect(invariantsFromUrl("?invariants=maybe", "")).toBe(true);
-    expect(invariantsFromUrl("?invariants=", "")).toBe(true);
-    expect(console.warn).toHaveBeenCalledTimes(2);
   });
 });

@@ -11,7 +11,7 @@
 import { describe, expect, it } from "vitest";
 
 import { TapeFormatError } from "./bytes";
-import { CHUNK_FRAME_BYTES } from "./chunks";
+import { CHUNK_FRAME_BYTES, CHUNK_TRAILER } from "./chunks";
 import { decodeTape } from "./decode";
 import { COMMAND_BYTES, encodeTape } from "./encode";
 import type { Observation, Tape, TapeCheckpoint, TapeHeader } from "./tape";
@@ -137,6 +137,32 @@ describe("a tape's bytes", () => {
 
     expect(view.getUint32(headerAt, true)).toBe(HEADER.seed);
     expect(view.getUint32(headerAt, false)).not.toBe(HEADER.seed);
+  });
+
+  it("carry an unchecked integrity as the literal byte 3, frozen for as long as the format lives", () => {
+    // Sealed FORMAT_VERSION 1 tapes outside this tree were recorded with the
+    // checks switched off, and their trailer's integrity byte is 3. Nothing
+    // writes unchecked any more, so this byte and its meaning are pinned here
+    // rather than by any writer.
+    const bytes = encodeTape({
+      ...FULL,
+      trailer: {
+        ending: "sealed",
+        stop: "finished",
+        integrity: "unchecked",
+        debtTicks: 12,
+      },
+    });
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let at = TAPE_MAGIC.length + 2;
+    while (view.getUint8(at) !== CHUNK_TRAILER) {
+      at += CHUNK_FRAME_BYTES + view.getUint32(at + 1, true);
+    }
+
+    // The trailer's payload is the ending, the stop, then the integrity, one
+    // byte each.
+    expect(view.getUint8(at + CHUNK_FRAME_BYTES + 2)).toBe(3);
+    expect(decodeTape(bytes).tape.trailer?.integrity).toBe("unchecked");
   });
 });
 
