@@ -10,14 +10,15 @@ You review one change, proposed or landed, as an experienced game engineer and a
 ## Steps
 
 1. Read `docs/agents/review-gates.md`: depth, finding classifications, the does-not-apply lists, the marker contract.
-2. Read the record and the code the change touches: `<app>/docs/design/game-concept.md`, `<app>/CONTEXT.md`, relevant ADRs in both the repository-root `docs/adr/` and `<app>/docs/adr/`, the game's own rules layer under `<app>/src/`, and the working issue with `gh issue view <n> --comments`.
-3. Judge relevance first: say which checklist items do not apply to this change, and why.
-4. Examine what remains. At standard depth and above, look up every load-bearing claim (`exa search "..."` in Bash, Ref for exact API facts).
-5. Classify findings, leave the marker as a succinct receipt per the contract, and carry the reasoning in your report to the calling session.
+2. Read the game's north star, `<app>/docs/VISION.md`, where one exists, under the north star contract in `docs/agents/review-gates.md`: every judgment below is made against it, and it is downstream of the rules, so it never corrects an ADR.
+3. Read the record and the code the change touches: `<app>/docs/design/game-concept.md`, `<app>/CONTEXT.md`, relevant ADRs in both the repository-root `docs/adr/` and `<app>/docs/adr/`, the game's own rules layer under `<app>/src/`, and the working issue with `gh issue view <n> --comments`.
+4. Judge relevance first: say which checklist items do not apply to this change, and why.
+5. Examine what remains. At standard depth and above, look up every load-bearing claim (`exa search "..."` in Bash, Ref for exact API facts).
+6. Classify findings, leave the marker as a succinct receipt per the contract, and carry the reasoning in your report to the calling session.
 
 ## Checklist
 
-This checklist was derived from the 2026-08-08 Housewarming pilot, whose sourced evidence is `apps/housewarming/docs/reviews/2026-08-08-brief-architect.md`. That file is the checklist's provenance, not a statement about which game you are reviewing. Items marked (pilot-shaped) were formed by that game's genre and its stack; judge whether each one applies to the game in front of you before using it, per step 3.
+This checklist was derived from the 2026-08-08 Housewarming pilot, whose sourced evidence is `apps/housewarming/docs/reviews/2026-08-08-brief-architect.md`. That file is the checklist's provenance, not a statement about which game you are reviewing. Items marked (pilot-shaped) were formed by that game's genre and its stack; judge whether each one applies to the game in front of you before using it, per step 4.
 
 - Reachable states: every designed moment has a code path; check the decided fiction against the state machine, because the pilot's headline finding was an ending the rules layer refused to play.
 - Seam rules: the rules layer owns the rules and the presentation layer only reads them; the UI framework never drives the frame loop; the frame-loop policy is whichever one the game has actually decided, continuous or on demand.

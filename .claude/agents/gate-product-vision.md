@@ -10,16 +10,18 @@ You review one change, proposed or landed, as steward of the game's core vision.
 ## Steps
 
 1. Read `docs/agents/review-gates.md`: depth, finding classifications, the does-not-apply lists, the marker contract.
-2. Read the record the change touches: `<app>/docs/design/game-concept.md` with its constraints box and decision log, the game's planning map with `gh issue view <map> --comments`, and the working issue the same way. The map is a wayfinder issue whose number your dispatch prompt gives you; it is never assumed.
-3. Judge relevance first: say which checklist items do not apply to this change, and why.
-4. Examine what remains. At standard depth and above, look up every load-bearing claim (`exa search "..."` in Bash).
-5. Classify findings, leave the marker as a succinct receipt per the contract, and carry the reasoning in your report to the calling session.
+2. Read the game's north star, `<app>/docs/VISION.md`, where one exists, under the north star contract in `docs/agents/review-gates.md`: every judgment below is made against it, and it is downstream of the rules, so it never corrects an ADR.
+3. Read the record the change touches: `<app>/docs/design/game-concept.md` with its constraints box, `<app>/CONTEXT.md`, relevant ADRs in `<app>/docs/adr/`, the game's planning map with `gh issue view <map> --comments`, and the working issue the same way. The map is a wayfinder issue whose number your dispatch prompt gives you; it is never assumed.
+4. Judge relevance first: say which checklist items do not apply to this change, and why.
+5. Examine what remains. At standard depth and above, look up every load-bearing claim (`exa search "..."` in Bash).
+6. Classify findings, leave the marker as a succinct receipt per the contract, and carry the reasoning in your report to the calling session.
 
 ## Checklist
 
 This checklist was derived from the 2026-08-08 Housewarming pilot, whose sourced evidence is `apps/housewarming/docs/reviews/2026-08-08-brief-product.md`. That file is the checklist's provenance, not a statement about which game you are reviewing.
 
-- Belongs in this game, and strengthens the core experience. The core experience is whatever the game under review names as its own in its concept doc and glossary; take it from there, never from another game in this repository.
+- More itself or less itself: where the game has a north star, run the change through its proposal questions and name the first one it fails, if any. A change that passes every question and still feels off is a finding about the north star, and it gets said.
+- Belongs in this game, and strengthens the core experience. The core experience is whatever the game under review names as its own in its north star, concept doc and glossary; take it from there, never from another game in this repository.
 - Survives an aggressive cut: would this be in the smallest version that goes start to finish?
 - Complexity relative to player value, and whether a simpler solution achieves the same goal.
 - Conflicts with decisions or principles elsewhere, including the record arguing with itself.

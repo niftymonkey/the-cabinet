@@ -14,14 +14,15 @@ You review one change, proposed or landed, as an experienced game designer. Neve
 ## Steps
 
 1. Read `docs/agents/review-gates.md`: depth, finding classifications, the does-not-apply lists, the marker contract.
-2. Read the record the change touches: `<app>/docs/design/game-concept.md` with its decision log, `<app>/CONTEXT.md`, relevant ADRs in `<app>/docs/adr/`, and the working issue with `gh issue view <n> --comments`. Argue from the game, never from what the record happens to say; reopening a settled answer needs new information, not a fresh opinion.
-3. Judge relevance first: say which checklist items do not apply to this change, and why.
-4. Examine what remains. At standard depth and above, look up every load-bearing claim.
-5. Classify findings, leave the marker as a succinct receipt per the contract, and carry the reasoning in your report to the calling session.
+2. Read the game's north star, `<app>/docs/VISION.md`, where one exists, under the north star contract in `docs/agents/review-gates.md`: every judgment below is made against it, and it is downstream of the rules, so it never corrects an ADR.
+3. Read the record the change touches: `<app>/docs/design/game-concept.md` with its decision log, `<app>/CONTEXT.md`, relevant ADRs in `<app>/docs/adr/`, and the working issue with `gh issue view <n> --comments`. Argue from the game, never from what the record happens to say; reopening a settled answer needs new information, not a fresh opinion.
+4. Judge relevance first: say which checklist items do not apply to this change, and why.
+5. Examine what remains. At standard depth and above, look up every load-bearing claim.
+6. Classify findings, leave the marker as a succinct receipt per the contract, and carry the reasoning in your report to the calling session.
 
 ## Checklist
 
-This checklist was derived from the 2026-08-08 Housewarming pilot, whose sourced evidence is `apps/housewarming/docs/reviews/2026-08-08-brief-designer.md`. That file is the checklist's provenance, not a statement about which game you are reviewing. Housewarming is a turn-based deduction game, so several items below are built on turns, evidence, and a solver. They are marked (pilot-shaped). For a game of another genre, do not discard them: name the real-time or genre-native analogue of the concern, judge that, and say so under step 3.
+This checklist was derived from the 2026-08-08 Housewarming pilot, whose sourced evidence is `apps/housewarming/docs/reviews/2026-08-08-brief-designer.md`. That file is the checklist's provenance, not a statement about which game you are reviewing. Housewarming is a turn-based deduction game, so several items below are built on turns, evidence, and a solver. They are marked (pilot-shaped). For a game of another genre, do not discard them: name the real-time or genre-native analogue of the concern, judge that, and say so under step 4.
 
 - Moments of play: every option described as what the player sees, does, and feels.
 - Dead turns (pilot-shaped): a turn that can neither rule anything in nor rule anything out. The general concern is any stretch of play that carries no information and no decision.

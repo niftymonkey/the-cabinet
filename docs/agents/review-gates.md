@@ -18,6 +18,14 @@ What gates have got right and wrong here, and what a fold does to a plan, is in 
 
 These are quality gates, not bureaucracy: proportional to the size and risk of the change.
 
+## The north star
+
+A game may carry a north star at `<app>/docs/VISION.md`. Where one exists, every gate reads it before the rest of the record: it states what the game is, the bets that make it this game, the experience it is meant to produce, and the questions a proposal has to answer, and every judgment the gate makes is made against it.
+
+**It is deliberately downstream of the rules.** It carries no numbers and no rules of its own, and it says of itself that where it and an ADR, the glossary, or a lessons file disagree, the vision is the stale one. So a gate uses it to judge whether a change belongs, and never as grounds to correct an ADR against it. A genuine conflict between the vision and a rule is a finding for the human to rule on: report it, route it `**Human decides**`, and change neither file.
+
+Only the product vision gate runs a change through the north star's proposal questions; the other two lenses read the same document and judge through their own checklists.
+
 ## Depths
 
 **Quick**: judge from the design record alone. No lookups.
