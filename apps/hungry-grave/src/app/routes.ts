@@ -21,10 +21,23 @@ export const PROTOTYPES_HASH = "#/prototypes";
  */
 export const DIGEST_HASH = "#/digest";
 
+/**
+ * The instrument route: a tape rendered at a chosen tick (ADR 0020). It is for
+ * the agent and for development, and it stays that; the shipped player route
+ * is reserved as #/watch and deliberately not built, so a player-facing
+ * feature is never built on a debug URL.
+ */
+export const REPLAY_HASH = "#/replay";
+
+/** The kept runs in this browser's tape store, listed with a way into replay. */
+export const RUNS_HASH = "#/runs";
+
 export type Route =
   | { kind: "game" }
   | { kind: "prototype-list" }
   | { kind: "digest" }
+  | { kind: "replay" }
+  | { kind: "runs" }
   | { kind: "prototype"; entry: PrototypeEntry };
 
 /**
@@ -48,5 +61,7 @@ export function resolveRoute(hash: string): Route {
   if (entry) return { kind: "prototype", entry };
   if (isRouteHash(hash, PROTOTYPES_HASH)) return { kind: "prototype-list" };
   if (isRouteHash(hash, DIGEST_HASH)) return { kind: "digest" };
+  if (isRouteHash(hash, REPLAY_HASH)) return { kind: "replay" };
+  if (isRouteHash(hash, RUNS_HASH)) return { kind: "runs" };
   return { kind: "game" };
 }

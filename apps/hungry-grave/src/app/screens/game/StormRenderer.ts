@@ -72,6 +72,19 @@ const SPLASH_TICKS = 18;
 const SPLASH_REACH = 26;
 const SPLASH_SPOKES = 7;
 
+/**
+ * Every transient read this renderer holds across frames, with its lifetime in
+ * ticks: a burst's born is a past tick the run state no longer carries, so a
+ * replay primed mid-run has to start far enough back to have seen it born
+ * (#58). The registry in transients.ts aggregates these declarations, and the
+ * covering test takes its bound over the registry rather than over a hand
+ * list, the two-lists trap ADR 0019 closed for the witness fold.
+ */
+export const STORM_RENDERER_TRANSIENT_TICKS = {
+  eruption: ERUPTION_TICKS,
+  splash: SPLASH_TICKS,
+} as const;
+
 /** One byte's full value, for building a grey tint without writing a colour literal. */
 const CHANNEL_MAX = 255;
 
@@ -248,8 +261,12 @@ export class StormRenderer {
    * minutes, so the effect would be stuck visible or stuck invisible for that
    * whole window. attach() is the one place a renderer is put back, so this is
    * where per-run memory has to die.
+   *
+   * Public because the replay screen's fast-forward calls it too (#58): a
+   * headless skip lands mid-run with this memory belonging to no rendered
+   * frame, so the skip forgets and the lead-in rebuilds it.
    */
-  private forgetPreviousRun(): void {
+  public forgetPreviousRun(): void {
     for (const burst of [this.eruption, this.splash]) {
       burst.born = -Infinity;
       burst.sprite.visible = false;

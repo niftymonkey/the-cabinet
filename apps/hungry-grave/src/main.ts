@@ -60,6 +60,12 @@ async function resolveScreen(hash: string) {
   if (route.kind === "digest") {
     return (await import("./app/screens/DigestScreen")).DigestScreen;
   }
+  if (route.kind === "replay") {
+    return (await import("./app/screens/ReplayScreen")).ReplayScreen;
+  }
+  if (route.kind === "runs") {
+    return (await import("./app/screens/RunsScreen")).RunsScreen;
+  }
   return TitleScreen;
 }
 
