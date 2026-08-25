@@ -46,6 +46,10 @@ import { pauseActions, PausePopup } from "../../popups/PausePopup";
 import { SettingsPopup } from "../../popups/SettingsPopup";
 import { runHandoff, summarizeRun } from "../../runHandoff";
 import { playFor } from "../../sound";
+import type { StoreRecording } from "../../storeRecording";
+import { recordRunToStore } from "../../storeRecording";
+import type { TapeStore } from "../../tapeStore";
+import { openTapeStore } from "../../tapeStore";
 import { runConditionsHere, tapeHeaderFor } from "../../tapeHeader";
 import {
   invariantsFromUrl,
@@ -373,6 +377,19 @@ export class GameScreen extends Container {
    * into the next.
    */
   private recorder: TapeRecorder | null = null;
+  /**
+   * The spool feeding this run's recording into the browser store. Its
+   * lifetime is the run's, like the recorder's: a pooled screen leaks anything
+   * nobody explicitly clears, so reset() detaches and nulls it.
+   */
+  private storeRecording: StoreRecording | null = null;
+  /**
+   * The store connection, deliberately not per-run: opening IndexedDB is
+   * async and once per screen life, and a null resolution is the designed
+   * store-unavailable state the spool quietly drops writes into. Not cleared
+   * in reset() because it holds no run state at all.
+   */
+  private tapeStore: Promise<TapeStore | null> | null = null;
   private releaseKeys: (() => void) | null = null;
   private releaseListeners: (() => void) | null = null;
   /**
@@ -591,6 +608,8 @@ export class GameScreen extends Container {
       this.execution,
       tapeHeaderFor(this.run, runConditionsHere()),
     );
+    this.tapeStore ??= openTapeStore();
+    this.storeRecording = recordRunToStore(this.tapeStore, this.recorder);
     this.syncScreen(this.run);
     this.syncReadouts();
 
@@ -714,6 +733,11 @@ export class GameScreen extends Container {
     this.belchButton.release();
     this.run = null;
     this.execution = null;
+    // The spool goes before the recorder: its detach flushes what is pending,
+    // the post-stop frame rows included, and a detached spool is inert however
+    // often reset runs.
+    this.storeRecording?.detach();
+    this.storeRecording = null;
     this.recorder = null;
     // The field renderer is not detached here. reset() clears the layers and
     // dressField() is the one place that puts renderers back, so a renderer
@@ -767,6 +791,9 @@ export class GameScreen extends Container {
       updateMs: performance.now() - startedAt,
       debtTicks: this.clock.debtTicks,
     });
+    // After the frame's own row and outside the timed window, so the
+    // instrument cannot measure itself: updateMs closed at the call above.
+    this.storeRecording?.flush();
     // A fatal fault stops the run through the authority and never through an
     // ending (ADR 0017), so the transition keys off execution.stop and this is
     // the frame that takes the run to the end state. It is the same handoff an
@@ -866,6 +893,7 @@ export class GameScreen extends Container {
     const execution = this.execution;
     if (execution === null || this.recorder === null) return;
     sealTrailer(this.recorder, execution, this.clock.debtTicks);
+    this.storeRecording?.seal();
   }
 
   /**
