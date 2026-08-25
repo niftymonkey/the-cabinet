@@ -105,7 +105,7 @@ function pushMob(
   near: number,
 ): void {
   const push = BELL_PUSH_BY_LEVEL[ring.level] * near;
-  if (push <= 0 || distance === 0) return;
+  if (!Number.isFinite(push) || push <= 0 || distance === 0) return;
   const away = normalize(mob.x - state.grave.x, mob.y - state.grave.y);
   if (away.length === 0) return;
   mob.x = clamp(
