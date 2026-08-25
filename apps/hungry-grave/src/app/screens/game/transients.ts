@@ -1,0 +1,31 @@
+/**
+ * The held-transient registry: every lifetime a renderer keeps across frames,
+ * aggregated from the renderers' own declarations, and the replay lead-in that
+ * has to outlast them all (#58).
+ *
+ * A held transient is renderer state born of a past tick rather than drawn
+ * from the run: a scatter's or a burst's born tick, the shot memory a cancel
+ * read compares against. A replay fast-forwarded straight to a tick would show
+ * none of them, so the fast-forward stops a lead-in short of its target and
+ * renders the lead-in normally, and the lead-in is honest exactly when it is
+ * at least as long as the longest lifetime here.
+ */
+
+import { FIELD_RENDERER_TRANSIENT_TICKS } from "./FieldRenderer";
+import { STORM_RENDERER_TRANSIENT_TICKS } from "./StormRenderer";
+
+const HELD_TRANSIENT_TICKS = {
+  ...FIELD_RENDERER_TRANSIENT_TICKS,
+  ...STORM_RENDERER_TRANSIENT_TICKS,
+} as const;
+
+/**
+ * How many ticks before its target a replay's fast-forward stops, to be played
+ * out normally (#58, ratified). A named starting value on the same terms as
+ * RECORDER_CHECKPOINT_SPACING, and never below the registry's longest
+ * lifetime, which the covering test holds; today's max is the 20-tick
+ * eruption.
+ */
+const REPLAY_LEAD_IN_TICKS = 60;
+
+export { HELD_TRANSIENT_TICKS, REPLAY_LEAD_IN_TICKS };

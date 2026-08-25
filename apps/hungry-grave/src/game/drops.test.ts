@@ -148,7 +148,7 @@ describe("a kill is a kill, whatever landed it (plan 6.8)", () => {
     // would move a drop boundary for a reason no player could read.
     const storm = quietRun();
     const victim = put(storm, "shambler", 100, 100);
-    damageMob(storm, victim, victim.hp, "storm");
+    damageMob(storm, victim, victim.hp, "soulStream");
     creditKill(storm, victim.x, victim.y);
 
     const bell = quietRun();

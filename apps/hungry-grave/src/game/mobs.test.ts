@@ -17,7 +17,13 @@ import mobsSource from "./mobs.ts?raw";
 
 import type { Stepper } from "../dev/stepping";
 import { stepping } from "../dev/stepping";
-import { SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from "./tuning";
+import { fireBelch } from "./belch";
+import { advanceBell } from "./lines/bell";
+import {
+  RESERVOIR_CAPACITY,
+  SCROLL_SPEED,
+  TRASH_CORPSE_PAYOUT,
+} from "./tuning";
 import { TICK_HZ } from "./clock";
 import type { SimEvent } from "./events";
 import { FIELD_HEIGHT } from "./field";
@@ -499,28 +505,65 @@ describe("a mob's death (ADR 0005)", () => {
     spawnMob(state, "shambler", order(200, 100));
     const mob = only(state);
 
-    expect(damageMob(state, mob, MOB_TYPES.shambler.hp - 1, "storm")).toEqual(
-      [],
-    );
+    expect(damageMob(state, mob, MOB_TYPES.shambler.hp - 1, "bell")).toEqual([
+      {
+        type: "mobDamaged",
+        id: mob.id,
+        amount: MOB_TYPES.shambler.hp - 1,
+        source: "bell",
+      },
+    ]);
     expect(mob.alive).toBe(true);
 
-    const events = damageMob(state, mob, 1, "storm");
+    const events = damageMob(state, mob, 1, "bell");
     expect(mob.alive).toBe(false);
     expect(events).toEqual([
-      { type: "mobKilled", mob: "shambler", x: 200, y: 100 },
+      { type: "mobDamaged", id: mob.id, amount: 1, source: "bell" },
+      { type: "mobKilled", id: mob.id, mob: "shambler", x: 200, y: 100 },
     ]);
     const corpses = state.corpses.filter((corpse) => corpse.alive);
     expect(corpses).toHaveLength(1);
     expect(corpses[0].payout).toBe(MOB_TYPES.shambler.corpsePayout);
   });
 
-  it("carries the damage source from the first commit, and every source kills the same way today", () => {
-    for (const source of ["storm", "bell", "headstone", "contact"] as const) {
-      const state = quietRun();
-      spawnMob(state, "ghoul", order(200, 100));
-      const events = damageMob(state, only(state), MOB_TYPES.ghoul.hp, source);
-      expect(`${source} ${events.length}`).toBe(`${source} 1`);
-    }
+  it("spells each storm source as its line: soulStream, then headstones, then wisps", () => {
+    // The source vocabulary is the roster's own spelling (#48): an instrument
+    // grouping damage by weapon line must never meet a fifth spelling.
+    const state = stormRun();
+    const skulled = putMob(state, "shambler", 100, 100);
+    stoneVictim(state);
+    const wisped = putMob(state, "shambler", 300, 100);
+    putSkull(state, skulled.x, skulled.y);
+    putWisp(state, wisped.x, wisped.y);
+
+    const sources = resolveStorm(state)
+      .filter((event) => event.type === "mobDamaged")
+      .map((event) => (event.type === "mobDamaged" ? event.source : ""));
+    expect(sources).toEqual(["soulStream", "headstones", "wisps"]);
+  });
+
+  it("names the bell's own damage bell", () => {
+    const state = quietRun();
+    putMob(state, "shambler", state.grave.x, state.grave.y);
+    state.levels.bell = 1;
+    state.lines.tollIn = 1;
+    expect(types(advanceBell(state), "tolled")).toHaveLength(1);
+
+    const struck = types(advanceBell(state), "mobDamaged");
+    expect(struck).toEqual([
+      expect.objectContaining({ type: "mobDamaged", source: "bell" }),
+    ]);
+  });
+
+  it("names the belch's wipe belch", () => {
+    const state = quietRun();
+    putMob(state, "shambler", 100, 100);
+    state.reservoir = RESERVOIR_CAPACITY;
+
+    const struck = types(fireBelch(state), "mobDamaged");
+    expect(struck).toEqual([
+      expect.objectContaining({ type: "mobDamaged", source: "belch" }),
+    ]);
   });
 
   it("never kills a mob on contact and never leaves a corpse for one, however long the grave sits under it", () => {
@@ -545,6 +588,46 @@ describe("a mob's death (ADR 0005)", () => {
     expect(mob.alive).toBe(false);
     expect(events).toEqual([]);
     expect(state.corpses.some((corpse) => corpse.alive)).toBe(false);
+  });
+});
+
+describe("damage attribution (#48)", () => {
+  it("reports every hit as mobDamaged carrying the mob's id, the amount and the source", () => {
+    // The instrument joins damage to its dealer by these three fields; a hit
+    // that leaves no mobDamaged is damage nobody dealt.
+    const state = quietRun();
+    spawnMob(state, "shambler", order(200, 100));
+    const mob = only(state);
+
+    const events = damageMob(state, mob, 1, "bell");
+    expect(events).toEqual([
+      { type: "mobDamaged", id: mob.id, amount: 1, source: "bell" },
+    ]);
+    expect(mob.alive).toBe(true);
+  });
+
+  it("reports a fatal blow as mobDamaged then mobKilled, joined by the same id", () => {
+    // The kill's dealer is not on mobKilled; the join to the fatal mobDamaged
+    // by id is what names it, so the pair must share the id and the order.
+    const state = quietRun();
+    spawnMob(state, "ghoul", order(200, 100));
+    const mob = only(state);
+    const id = mob.id;
+
+    const events = damageMob(state, mob, MOB_TYPES.ghoul.hp, "bell");
+    expect(events[0]).toEqual({
+      type: "mobDamaged",
+      id,
+      amount: MOB_TYPES.ghoul.hp,
+      source: "bell",
+    });
+    expect(events[1]).toEqual({
+      type: "mobKilled",
+      id,
+      mob: "ghoul",
+      x: 200,
+      y: 100,
+    });
   });
 });
 

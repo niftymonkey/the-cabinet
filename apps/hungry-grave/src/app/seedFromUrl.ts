@@ -119,6 +119,45 @@ export function levelsFromUrl(search: string, hash: string): number | null {
 }
 
 /**
+ * The tape URL a replay fetches, or null when the URL names none (#58).
+ *
+ * The string is not judged here: whether it is fetchable is the fetch's own
+ * question, and the replay screen states that failure plainly. What is refused
+ * is a parameter with nothing in it, because there is nothing to fetch and
+ * warning is kinder than a silent blank replay.
+ */
+export function tapeFromUrl(search: string, hash: string): string | null {
+  const raw = rawParameter("tape", search, hash);
+  if (raw === null) return null;
+  if (raw.trim() === "") {
+    console.warn("Ignoring an empty ?tape=: there is no tape to fetch.");
+    return null;
+  }
+  return raw;
+}
+
+/** The same, for the replay's opening tick, where falling back means the start. */
+function ignoreAt(raw: string): null {
+  console.warn(`Ignoring ?at=${raw}: the replay opens at its start instead.`);
+  return null;
+}
+
+/**
+ * The tick a replay opens at, or null when there is none to open at. Accepts
+ * exactly what a tick count can be: a whole number, zero or greater. The bound
+ * against the tape's own verified length is the replay screen's to hold, the
+ * same split sizeFromUrl records for ADR 0003's floor and ceiling.
+ */
+export function atFromUrl(search: string, hash: string): number | null {
+  const raw = rawParameter("at", search, hash);
+  if (raw === null) return null;
+  const value = parsed(raw);
+  if (value === null || !Number.isInteger(value)) return ignoreAt(raw);
+  if (value < 0) return ignoreAt(raw);
+  return value;
+}
+
+/**
  * The spellings a switch accepts, on either side. Four of each, because this
  * one is typed by hand into a phone and an unreadable value stays on: a fat
  * finger that silently disables the checks makes the two reads look identical

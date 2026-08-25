@@ -26,6 +26,7 @@ import {
   STONE_RECHARGE,
   stoneCount,
 } from "./lines/headstones";
+import type { WeaponLine } from "./lines/roster";
 import { SKULL_DAMAGE, SKULL_HALF_EXTENT } from "./lines/soulStream";
 import { WISP_DAMAGE, WISP_HALF_EXTENT } from "./lines/wisps";
 import { cos, normalize, rotateToward, sin } from "./math";
@@ -41,8 +42,12 @@ export type MobType = "shambler" | "revenant" | "ghoul";
 /** Which corpse a kill leaves. The tier is a payout read and never a size (ADR 0014). */
 export type CorpseTier = "trash" | "rich";
 
-/** Whatever can hit a mob. Dispatch 4 only ever passes contact, from the test rig. */
-export type DamageSource = "storm" | "bell" | "headstone" | "contact" | "belch";
+/**
+ * Whatever can hit a mob, spelled as the roster's own line names so an
+ * instrument grouping damage by line never meets a second spelling (#48).
+ * Contact is absent because contact never damages a mob (ADR 0005).
+ */
+export type DamageSource = WeaponLine | "belch";
 
 /** How much of a wave carries fire at all. */
 export type ArmedShare = "none" | "everyThird" | "all";
@@ -474,28 +479,30 @@ export function advanceMobs(state: RunState): SimEvent[] {
  * lines call it and change nothing here, which is the same shape hitGrave
  * already has on the other side.
  *
- * The source is carried from the first commit even though this dispatch only
- * ever passes one value. The bell's exception, that a boss takes its damage and
- * never its push while adds are pushed normally, has nowhere else to live, and
- * one parameter now is cheaper than amending four call sites and their tests
- * once dispatch 5 has built on this seam. It wears a leading underscore because
- * no rule branches on it yet, and it loses the underscore in the dispatch that
- * writes the first one.
+ * Every hit reports mobDamaged, the fatal blow included and reported before its
+ * mobKilled, so an instrument can credit the kill to the source that landed the
+ * last point of damage (#48).
  */
 export function damageMob(
   state: RunState,
   mob: Mob,
   amount: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the seam the JSDoc above describes; TypeScript takes the underscore and ESLint does not
-  _source: DamageSource,
+  source: DamageSource,
 ): SimEvent[] {
   if (!mob.alive) return [];
   mob.hp -= amount;
-  if (mob.hp > 0) return [];
-  mob.alive = false;
   const events: SimEvent[] = [
-    { type: "mobKilled", mob: mob.type, x: mob.x, y: mob.y },
+    { type: "mobDamaged", id: mob.id, amount, source },
   ];
+  if (mob.hp > 0) return events;
+  mob.alive = false;
+  events.push({
+    type: "mobKilled",
+    id: mob.id,
+    mob: mob.type,
+    x: mob.x,
+    y: mob.y,
+  });
   events.push(...spawnCorpse(state, mob));
   return events;
 }
@@ -528,7 +535,7 @@ function resolveSkulls(state: RunState): SimEvent[] {
     const mob = mobUnder(state, box);
     if (mob === null) continue;
     skull.alive = false;
-    events.push(...damageMob(state, mob, SKULL_DAMAGE, "storm"));
+    events.push(...damageMob(state, mob, SKULL_DAMAGE, "soulStream"));
   }
   return events;
 }
@@ -548,7 +555,7 @@ function resolveHeadstones(state: RunState): SimEvent[] {
     const mob = mobUnder(state, squareAt(at.x, at.y, STONE_HALF_EXTENT));
     if (mob === null) continue;
     state.lines.stoneRecharge[index] = STONE_RECHARGE;
-    events.push(...damageMob(state, mob, STONE_DAMAGE, "headstone"));
+    events.push(...damageMob(state, mob, STONE_DAMAGE, "headstones"));
   }
   return events;
 }
@@ -564,7 +571,7 @@ function resolveWisps(state: RunState): SimEvent[] {
     const mob = mobUnder(state, squareAt(wisp.x, wisp.y, WISP_HALF_EXTENT));
     if (mob === null) continue;
     wisp.alive = false;
-    events.push(...damageMob(state, mob, WISP_DAMAGE, "storm"));
+    events.push(...damageMob(state, mob, WISP_DAMAGE, "wisps"));
   }
   return events;
 }

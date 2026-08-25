@@ -57,6 +57,18 @@ const SCATTER_TICKS = 12;
 const SCATTER_SLOTS = 24;
 
 /**
+ * Every transient read this renderer holds across frames, with its lifetime in
+ * ticks: state born of a past tick rather than drawn from the run, so a replay
+ * primed mid-run has to start far enough back to have seen it born (#58). The
+ * registry in transients.ts aggregates these declarations, and the covering
+ * test takes its bound over the registry rather than over a hand list, which
+ * is the two-lists trap ADR 0019 closed for the witness fold.
+ */
+export const FIELD_RENDERER_TRANSIENT_TICKS = {
+  scatter: SCATTER_TICKS,
+} as const;
+
+/**
  * How much larger than its hitbox a shot is drawn.
  *
  * The whole sprite used to be built from shot.halfExtent, which is the collision
@@ -441,8 +453,12 @@ export class FieldRenderer {
    * scatter's born is a tick, and oldestScatter() takes the smallest, so a born
    * carrying the previous run's tick is larger than anything a fresh run can
    * produce for its first fifteen seconds and that slot is never reused.
+   *
+   * Public because the replay screen's fast-forward calls it too (#58): a
+   * headless skip lands mid-run with this memory belonging to no rendered
+   * frame, so the skip forgets and the lead-in rebuilds it.
    */
-  private forgetPreviousRun(): void {
+  public forgetPreviousRun(): void {
     this.shotMemory.length = 0;
     for (const scatter of this.scatters) {
       scatter.born = -SCATTER_TICKS;

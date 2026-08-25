@@ -49,9 +49,14 @@ const BOUNDARIES: Boundary[] = [
   },
   // The headless bot is the full-run test's player and the dev-only autopilot
   // both (ADR 0013), so src/app consumes it while it stays headless itself.
+  //
+  // It reaches src/tape because measure consumes the playback primitive and
+  // the decoded artifact (#58 slice 4). The widening is one-way: src/tape's own
+  // row below still reaches only tape and game, so the rig cannot become
+  // load-bearing in a shipped recording.
   {
     root: "dev",
-    mayReach: ["dev", "game"],
+    mayReach: ["dev", "game", "tape"],
     mayReachInTests: [],
     mayImport: [],
   },

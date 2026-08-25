@@ -8,10 +8,12 @@ import { MAX_LEVEL } from "../game/lines/roster";
 import { createRun, SEED_LIMIT } from "../game/run";
 import { SIZE_CEILING, SIZE_FLOOR } from "../game/tuning";
 import {
+  atFromUrl,
   invariantsFromUrl,
   levelsFromUrl,
   seedFromUrl,
   sizeFromUrl,
+  tapeFromUrl,
 } from "./seedFromUrl";
 
 describe("seedFromUrl", () => {
@@ -122,6 +124,54 @@ describe("levelsFromUrl", () => {
     }
     expect(console.warn).toHaveBeenCalledTimes(4);
     expect(vi.mocked(console.warn).mock.calls[0].join(" ")).toContain("max");
+  });
+});
+
+describe("tapeFromUrl", () => {
+  beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
+  afterEach(() => vi.restoreAllMocks());
+
+  it("?tape= names the tape URL a replay fetches, in either URL form", () => {
+    expect(tapeFromUrl("?tape=blob%3Afake", "")).toBe("blob:fake");
+    expect(tapeFromUrl("", "#/replay?tape=blob%3Afake")).toBe("blob:fake");
+    expect(tapeFromUrl("", "#/replay?tape=/tapes/run.tape&at=120")).toBe(
+      "/tapes/run.tape",
+    );
+    expect(tapeFromUrl("", "")).toBeNull();
+  });
+
+  it("with both present the hash's query wins, the same way the seed's does", () => {
+    expect(tapeFromUrl("?tape=search", "#/replay?tape=hash")).toBe("hash");
+  });
+
+  it("an empty ?tape= warns and gives null, because there is nothing to fetch", () => {
+    expect(tapeFromUrl("?tape=", "")).toBeNull();
+    expect(tapeFromUrl("?tape=%20", "")).toBeNull();
+    expect(console.warn).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("atFromUrl", () => {
+  beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
+  afterEach(() => vi.restoreAllMocks());
+
+  it("?at= names the tick a replay opens at, in either URL form", () => {
+    expect(atFromUrl("?at=120", "")).toBe(120);
+    expect(atFromUrl("", "#/replay?at=9000")).toBe(9000);
+    expect(atFromUrl("?at=0", "")).toBe(0);
+    expect(atFromUrl("", "")).toBeNull();
+  });
+
+  it("with both present the hash's query wins, the same way the seed's does", () => {
+    expect(atFromUrl("?at=1", "#/replay?at=2")).toBe(2);
+  });
+
+  it("warns about a non-numeric, negative or fractional tick and ignores it, so a typo still yields a replay", () => {
+    for (const raw of ["abc", "-1", "1.5", "", "1e999"]) {
+      expect(atFromUrl(`?at=${raw}`, "")).toBeNull();
+    }
+    expect(console.warn).toHaveBeenCalledTimes(5);
+    expect(vi.mocked(console.warn).mock.calls[0].join(" ")).toContain("abc");
   });
 });
 

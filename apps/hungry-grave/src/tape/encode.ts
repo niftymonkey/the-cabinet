@@ -13,52 +13,26 @@
  * rounding the simulation already applies. It has no scale to derive, no range
  * limit and asks for no clamp in the input path, which is the shape ADR 0011
  * was already burned by.
+ *
+ * The chunk-level encoders live in segments.ts; this file composes them into
+ * the whole tape a run's stop writes.
  */
 
 import type { ByteWriter } from "./bytes";
 import {
   createWriter,
   STRING_LENGTH_BYTES,
-  writeF32,
-  writeF64,
-  writeI32,
-  writeString,
-  writeU16,
-  writeU32,
-  writeU8,
+  writeBytes,
   writtenBytes,
 } from "./bytes";
 import {
-  CHUNK_BODY,
-  CHUNK_HEADER,
-  CHUNK_OBSERVATIONS,
-  CHUNK_TRAILER,
-  CHUNK_WITNESS,
-  writeChunk,
-} from "./chunks";
-import type {
-  FaultObservation,
-  FrameObservation,
-  Observation,
-  Tape,
-  TapeCheckpoint,
-  TapeHeader,
-  TapeTrailer,
-} from "./tape";
-import {
-  ABSENT_CODE,
-  ENDING_CODES,
-  FAULT_IDENTITY_CODES,
-  FAULT_SEVERITY_CODES,
-  FORMAT_VERSION,
-  FRAME_REASON_CODES,
-  HEADER_LEVELS_ORDER,
-  INPUT_DEVICE_CODES,
-  INTEGRITY_CODES,
-  OBSERVATION_KIND_CODES,
-  STOP_CODES,
-  TAPE_MAGIC,
-} from "./tape";
+  bodySegment,
+  headerSegment,
+  observationsSegment,
+  trailerSegment,
+  witnessSegment,
+} from "./segments";
+import type { Tape } from "./tape";
 import type { TickCommand } from "../game/run";
 
 /** Two float32 of steering and one flag byte, which is what a body row costs. */
@@ -79,100 +53,6 @@ export const FAULT_OBSERVATION_PREFIX_BYTES = 12;
 /** The same, plus the detail string's own length prefix. */
 export const FAULT_OBSERVATION_FIXED_BYTES =
   FAULT_OBSERVATION_PREFIX_BYTES + STRING_LENGTH_BYTES;
-
-function writeMagic(writer: ByteWriter): void {
-  for (const character of TAPE_MAGIC) writeU8(writer, character.charCodeAt(0));
-}
-
-function writeHeader(payload: ByteWriter, header: TapeHeader): void {
-  writeU32(payload, header.seed);
-  writeF64(payload, header.startingSize);
-  for (const line of HEADER_LEVELS_ORDER) {
-    writeU8(payload, header.startingLevels[line]);
-  }
-  writeU16(payload, header.tickRate);
-  writeU32(payload, header.checkpointSpacing);
-  writeU8(payload, header.witnessVersion);
-  writeString(payload, header.commitHash);
-  writeString(payload, header.buildIdentity);
-  writeString(payload, header.author);
-  writeU8(payload, INPUT_DEVICE_CODES[header.inputDevice]);
-  writeF32(payload, header.keyboardSpeed);
-  writeString(payload, header.rendererBackend);
-  writeF32(payload, header.rendererResolution);
-  writeF32(payload, header.devicePixelRatio);
-  writeF64(payload, header.recordedAt);
-}
-
-function writeCommand(payload: ByteWriter, command: TickCommand): void {
-  writeF32(payload, command.move.x);
-  writeF32(payload, command.move.y);
-  writeU8(payload, command.belch ? 1 : 0);
-}
-
-function writeBody(
-  payload: ByteWriter,
-  firstTick: number,
-  commands: readonly TickCommand[],
-): void {
-  writeU32(payload, firstTick);
-  for (const command of commands) writeCommand(payload, command);
-}
-
-function writeCheckpoint(
-  payload: ByteWriter,
-  checkpoint: TapeCheckpoint,
-): void {
-  writeU32(payload, checkpoint.index);
-  writeI32(payload, checkpoint.witness);
-}
-
-function writeFrameObservation(
-  payload: ByteWriter,
-  frame: FrameObservation,
-): void {
-  writeU8(payload, OBSERVATION_KIND_CODES.frame);
-  writeU8(payload, FRAME_REASON_CODES[frame.reason]);
-  // A presence byte rather than a sentinel tick index: no tick number is
-  // reserved, so an absent index needs a place of its own to be said in.
-  writeU8(payload, frame.tickIndex === null ? 0 : 1);
-  writeU32(payload, frame.tickIndex ?? 0);
-  writeU16(payload, frame.ticksExecuted);
-  writeF32(payload, frame.intervalMs);
-  writeF32(payload, frame.advanceMs);
-  writeF32(payload, frame.updateMs);
-  writeU32(payload, frame.debtTicks);
-}
-
-function writeFaultObservation(
-  payload: ByteWriter,
-  fault: FaultObservation,
-): void {
-  writeU8(payload, OBSERVATION_KIND_CODES.fault);
-  writeU16(payload, FAULT_IDENTITY_CODES[fault.identity]);
-  writeU8(payload, FAULT_SEVERITY_CODES[fault.severity]);
-  writeU32(payload, fault.firstTick);
-  writeU32(payload, fault.count);
-  writeString(payload, fault.detail);
-}
-
-function writeObservation(payload: ByteWriter, observation: Observation): void {
-  if (observation.kind === "frame") {
-    writeFrameObservation(payload, observation);
-    return;
-  }
-  writeFaultObservation(payload, observation);
-}
-
-function writeTrailer(payload: ByteWriter, trailer: TapeTrailer): void {
-  writeU8(
-    payload,
-    trailer.ending === null ? ABSENT_CODE : ENDING_CODES[trailer.ending],
-  );
-  writeU8(payload, STOP_CODES[trailer.stop]);
-  writeU8(payload, INTEGRITY_CODES[trailer.integrity]);
-  writeU32(payload, trailer.debtTicks);
-}
 
 /** The commands a body chunk holds, being everything up to the next checkpoint. */
 function commandsUntil(
@@ -198,26 +78,22 @@ function writeBodyAndWitness(writer: ByteWriter, tape: Tape): void {
   let written = 0;
   for (let index = 0; index < tape.checkpoints.length; index++) {
     const checkpoint = tape.checkpoints[index];
-    writeChunk(writer, CHUNK_WITNESS, (payload) =>
-      writeCheckpoint(payload, checkpoint),
-    );
+    writeBytes(writer, witnessSegment([checkpoint]));
     const until =
       index + 1 < tape.checkpoints.length
         ? Math.min(tape.checkpoints[index + 1].index, tape.commands.length)
         : tape.commands.length;
     if (until <= written) continue;
-    const commands = commandsUntil(tape, written, until);
-    const firstTick = written;
-    writeChunk(writer, CHUNK_BODY, (payload) =>
-      writeBody(payload, firstTick, commands),
+    writeBytes(
+      writer,
+      bodySegment(written, commandsUntil(tape, written, until)),
     );
     written = until;
   }
   if (written >= tape.commands.length) return;
-  const commands = commandsUntil(tape, written, tape.commands.length);
-  const firstTick = written;
-  writeChunk(writer, CHUNK_BODY, (payload) =>
-    writeBody(payload, firstTick, commands),
+  writeBytes(
+    writer,
+    bodySegment(written, commandsUntil(tape, written, tape.commands.length)),
   );
 }
 
@@ -232,24 +108,13 @@ function writeBodyAndWitness(writer: ByteWriter, tape: Tape): void {
  */
 export function encodeTape(tape: Tape): Uint8Array {
   const writer = createWriter();
-  writeMagic(writer);
-  writeU16(writer, FORMAT_VERSION);
-  writeChunk(writer, CHUNK_HEADER, (payload) =>
-    writeHeader(payload, tape.header),
-  );
+  writeBytes(writer, headerSegment(tape.header));
   writeBodyAndWitness(writer, tape);
   if (tape.observations.length > 0) {
-    writeChunk(writer, CHUNK_OBSERVATIONS, (payload) => {
-      for (const observation of tape.observations) {
-        writeObservation(payload, observation);
-      }
-    });
+    writeBytes(writer, observationsSegment(tape.observations));
   }
   if (tape.trailer !== null) {
-    const trailer = tape.trailer;
-    writeChunk(writer, CHUNK_TRAILER, (payload) =>
-      writeTrailer(payload, trailer),
-    );
+    writeBytes(writer, trailerSegment(tape.trailer));
   }
   return writtenBytes(writer);
 }
