@@ -17,7 +17,9 @@ import type { Mob } from "./mobs";
 import { SPAWN_MARGIN, spawnMob } from "./mobs";
 import type { RunState, TickCommand } from "./run";
 import { createRun } from "./run";
+import type { BellRing } from "./lines/bell";
 import { BELL_EXPAND_TICKS } from "./lines/bell";
+import type { Stream } from "./rng";
 import { MAX_LEVEL } from "./lines/roster";
 import { SKULL_HALF_EXTENT } from "./lines/soulStream";
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from "./tuning";
@@ -415,5 +417,604 @@ describe("the storm's invariants (plan 6.26)", () => {
       struck: new Set(),
     };
     expect(brokenOn(state)).toContain("one live ring");
+  });
+});
+
+/** The fixture's live ring, rebuilt whole where a case must move its read-only level. */
+function liveRing(): BellRing {
+  return { level: 2, ticks: 5, struck: new Set([11, 12]) };
+}
+
+/**
+ * A run with every pool slot the no-NaN walk covers alive and every nullable
+ * field present, so a case can poison any one number. Modeled on the witness
+ * fixture (witness.test.ts); a second copy of that shape, and rule of three
+ * says extraction waits for a third instrument.
+ */
+function filledRun(): RunState {
+  const run = createRun(20260823);
+  fillGrave(run);
+  fillMob(run);
+  fillShot(run);
+  fillCorpse(run);
+  fillSkull(run);
+  fillWisp(run);
+  fillRun(run);
+  return run;
+}
+
+function fillRun(run: RunState): void {
+  run.score = 250;
+  run.reservoir = 0.375;
+  run.killsSinceDrop = 3;
+  run.dropsPaid = 2;
+  run.nextEntityId = 16;
+  run.levels.soulStream = 2;
+  run.levels.headstones = 1;
+  run.levels.wisps = 3;
+  run.levels.bell = 4;
+  run.stage.phaseIndex = 1;
+  run.stage.phaseTick = 40;
+  run.stage.firedRows = 2;
+  run.lines.streamIn = 17;
+  run.lines.surgeVolleys = 2;
+  run.lines.orbitPhase = 1.25;
+  run.lines.stoneRecharge[1] = 8;
+  run.lines.tollIn = 90;
+  run.lines.ring = liveRing();
+}
+
+function fillGrave(run: RunState): void {
+  run.grave.x = 137.5;
+  run.grave.y = 421.25;
+  run.grave.size = 23.5;
+  run.grave.invulnerable = 7;
+}
+
+function fillMob(run: RunState): void {
+  const mob = run.mobs[0];
+  mob.alive = true;
+  mob.id = 11;
+  mob.type = "ghoul";
+  mob.x = 60.25;
+  mob.y = 90.5;
+  mob.vx = 0.75;
+  mob.vy = 1.25;
+  mob.hp = 4;
+  mob.beat = 12;
+  mob.fireIn = 33;
+  mob.armed = true;
+}
+
+function fillShot(run: RunState): void {
+  const shot = run.mobFire[0];
+  shot.alive = true;
+  shot.id = 12;
+  shot.emitter = "revenant";
+  shot.x = 200.5;
+  shot.y = 310.75;
+  shot.vx = -0.5;
+  shot.vy = 2;
+  shot.halfExtent = 3;
+}
+
+function fillCorpse(run: RunState): void {
+  const corpse = run.corpses[0];
+  corpse.alive = true;
+  corpse.id = 13;
+  corpse.x = 310.5;
+  corpse.y = 120.25;
+  corpse.freshness = 0.625;
+  corpse.payout = 1.5;
+  corpse.tier = "rich";
+  corpse.kind = "drop";
+  corpse.decays = false;
+  corpse.line = "wisps";
+  corpse.halfExtent = 9;
+}
+
+function fillSkull(run: RunState): void {
+  const skull = run.skulls[0];
+  skull.alive = true;
+  skull.id = 14;
+  skull.x = 400.25;
+  skull.y = 500.5;
+  skull.vx = 0;
+  skull.vy = -4;
+}
+
+function fillWisp(run: RunState): void {
+  const wisp = run.wisps[0];
+  wisp.alive = true;
+  wisp.id = 15;
+  wisp.x = 55.75;
+  wisp.y = 66.5;
+  wisp.vx = 1.5;
+  wisp.vy = -2.5;
+  wisp.life = 45;
+  wisp.targetId = 11;
+}
+
+/**
+ * A Stream whose cursor is poisoned. An object literal satisfies the interface
+ * with no cast, which is what lets a case reach a cursor that is otherwise a
+ * getter over a closure counter (rng.ts).
+ */
+function poisonedStream(): Stream {
+  return { next: () => 0, nextInt: () => 0, drawn: NaN };
+}
+
+interface NanCase {
+  /** The number's path into RunState, the same spelling the witness partition uses. */
+  readonly path: string;
+  /** Poisons exactly that number on a fresh fixture and hands back the state to check. */
+  readonly poison: (run: RunState) => RunState;
+}
+
+/**
+ * One case per number the no-NaN check covers, the check's whole numeric
+ * surface. Ring fields poison by replacing the ring record, because the level
+ * is read-only on it; the stream cursors poison by rebuilding the state around
+ * a hand-built Stream; the rest write NaN in place.
+ */
+const NAN_CASES: readonly NanCase[] = [
+  {
+    path: "tick",
+    poison: (run) => {
+      run.tick = NaN;
+      return run;
+    },
+  },
+  {
+    path: "score",
+    poison: (run) => {
+      run.score = NaN;
+      return run;
+    },
+  },
+  {
+    path: "reservoir",
+    poison: (run) => {
+      run.reservoir = NaN;
+      return run;
+    },
+  },
+  {
+    path: "killsSinceDrop",
+    poison: (run) => {
+      run.killsSinceDrop = NaN;
+      return run;
+    },
+  },
+  {
+    path: "dropsPaid",
+    poison: (run) => {
+      run.dropsPaid = NaN;
+      return run;
+    },
+  },
+  {
+    path: "nextEntityId",
+    poison: (run) => {
+      run.nextEntityId = NaN;
+      return run;
+    },
+  },
+  {
+    path: "grave.x",
+    poison: (run) => {
+      run.grave.x = NaN;
+      return run;
+    },
+  },
+  {
+    path: "grave.y",
+    poison: (run) => {
+      run.grave.y = NaN;
+      return run;
+    },
+  },
+  {
+    path: "grave.size",
+    poison: (run) => {
+      run.grave.size = NaN;
+      return run;
+    },
+  },
+  {
+    path: "grave.invulnerable",
+    poison: (run) => {
+      run.grave.invulnerable = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobs[].x",
+    poison: (run) => {
+      run.mobs[0].x = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobs[].y",
+    poison: (run) => {
+      run.mobs[0].y = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobs[].vx",
+    poison: (run) => {
+      run.mobs[0].vx = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobs[].vy",
+    poison: (run) => {
+      run.mobs[0].vy = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobs[].hp",
+    poison: (run) => {
+      run.mobs[0].hp = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobs[].beat",
+    poison: (run) => {
+      run.mobs[0].beat = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobs[].fireIn",
+    poison: (run) => {
+      run.mobs[0].fireIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobFire[].x",
+    poison: (run) => {
+      run.mobFire[0].x = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobFire[].y",
+    poison: (run) => {
+      run.mobFire[0].y = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobFire[].vx",
+    poison: (run) => {
+      run.mobFire[0].vx = NaN;
+      return run;
+    },
+  },
+  {
+    path: "mobFire[].vy",
+    poison: (run) => {
+      run.mobFire[0].vy = NaN;
+      return run;
+    },
+  },
+  {
+    path: "corpses[].x",
+    poison: (run) => {
+      run.corpses[0].x = NaN;
+      return run;
+    },
+  },
+  {
+    path: "corpses[].y",
+    poison: (run) => {
+      run.corpses[0].y = NaN;
+      return run;
+    },
+  },
+  {
+    path: "corpses[].freshness",
+    poison: (run) => {
+      run.corpses[0].freshness = NaN;
+      return run;
+    },
+  },
+  {
+    path: "corpses[].payout",
+    poison: (run) => {
+      run.corpses[0].payout = NaN;
+      return run;
+    },
+  },
+  {
+    path: "skulls[].x",
+    poison: (run) => {
+      run.skulls[0].x = NaN;
+      return run;
+    },
+  },
+  {
+    path: "skulls[].y",
+    poison: (run) => {
+      run.skulls[0].y = NaN;
+      return run;
+    },
+  },
+  {
+    path: "skulls[].vx",
+    poison: (run) => {
+      run.skulls[0].vx = NaN;
+      return run;
+    },
+  },
+  {
+    path: "skulls[].vy",
+    poison: (run) => {
+      run.skulls[0].vy = NaN;
+      return run;
+    },
+  },
+  {
+    path: "wisps[].x",
+    poison: (run) => {
+      run.wisps[0].x = NaN;
+      return run;
+    },
+  },
+  {
+    path: "wisps[].y",
+    poison: (run) => {
+      run.wisps[0].y = NaN;
+      return run;
+    },
+  },
+  {
+    path: "wisps[].vx",
+    poison: (run) => {
+      run.wisps[0].vx = NaN;
+      return run;
+    },
+  },
+  {
+    path: "wisps[].vy",
+    poison: (run) => {
+      run.wisps[0].vy = NaN;
+      return run;
+    },
+  },
+  {
+    path: "wisps[].life",
+    poison: (run) => {
+      run.wisps[0].life = NaN;
+      return run;
+    },
+  },
+  {
+    path: "wisps[].targetId",
+    poison: (run) => {
+      run.wisps[0].targetId = NaN;
+      return run;
+    },
+  },
+  {
+    path: "levels.soulStream",
+    poison: (run) => {
+      run.levels.soulStream = NaN;
+      return run;
+    },
+  },
+  {
+    path: "levels.headstones",
+    poison: (run) => {
+      run.levels.headstones = NaN;
+      return run;
+    },
+  },
+  {
+    path: "levels.wisps",
+    poison: (run) => {
+      run.levels.wisps = NaN;
+      return run;
+    },
+  },
+  {
+    path: "levels.bell",
+    poison: (run) => {
+      run.levels.bell = NaN;
+      return run;
+    },
+  },
+  {
+    path: "stage.phaseIndex",
+    poison: (run) => {
+      run.stage.phaseIndex = NaN;
+      return run;
+    },
+  },
+  {
+    path: "stage.phaseTick",
+    poison: (run) => {
+      run.stage.phaseTick = NaN;
+      return run;
+    },
+  },
+  {
+    path: "stage.firedRows",
+    poison: (run) => {
+      run.stage.firedRows = NaN;
+      return run;
+    },
+  },
+  {
+    path: "streams.spawns.drawn",
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, spawns: poisonedStream() },
+    }),
+  },
+  {
+    path: "streams.drops.drawn",
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, drops: poisonedStream() },
+    }),
+  },
+  {
+    path: "streams.mobFire.drawn",
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, mobFire: poisonedStream() },
+    }),
+  },
+  {
+    path: "streams.shed.drawn",
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, shed: poisonedStream() },
+    }),
+  },
+  {
+    path: "lines.streamIn",
+    poison: (run) => {
+      run.lines.streamIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: "lines.surgeVolleys",
+    poison: (run) => {
+      run.lines.surgeVolleys = NaN;
+      return run;
+    },
+  },
+  {
+    path: "lines.orbitPhase",
+    poison: (run) => {
+      run.lines.orbitPhase = NaN;
+      return run;
+    },
+  },
+  {
+    path: "lines.stoneRecharge[]",
+    poison: (run) => {
+      run.lines.stoneRecharge[1] = NaN;
+      return run;
+    },
+  },
+  {
+    path: "lines.tollIn",
+    poison: (run) => {
+      run.lines.tollIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: "lines.ring.level",
+    poison: (run) => {
+      run.lines.ring = { ...liveRing(), level: NaN };
+      return run;
+    },
+  },
+  {
+    path: "lines.ring.ticks",
+    poison: (run) => {
+      run.lines.ring = { ...liveRing(), ticks: NaN };
+      return run;
+    },
+  },
+];
+
+/**
+ * Every leaf the check deliberately leaves unchecked, with the reason beside
+ * it. The other half of the decision, and not optional: naming only the
+ * covered half would let a new number join the fold with nobody deciding.
+ */
+const EXCLUDED: Readonly<Record<string, string>> = {
+  seed: "the run's identity, fixed by createRun and never mutated by the rules",
+  "mobs[].id": "spawn identity, never mutated after spawn",
+  "mobFire[].id": "spawn identity, never mutated after spawn",
+  "mobFire[].halfExtent": "written once at spawn and never mutated",
+  "corpses[].id": "spawn identity, never mutated after spawn",
+  "corpses[].halfExtent": "written once at spawn and never mutated",
+  "skulls[].id": "spawn identity, never mutated after spawn",
+  "wisps[].id": "spawn identity, never mutated after spawn",
+  ending: "a run ending name or null, never a number",
+};
+
+/**
+ * Every leaf whose value is a number, and every leaf whose value is null or
+ * undefined, so a future nullable number left null in the fixture cannot slip
+ * past. Arrays walk their first element under a `[]` segment because a pool's
+ * slots all carry the same fields; strings, booleans, functions and Sets are
+ * not numbers and drop out.
+ */
+function numericLeafPaths(value: unknown, path: string): string[] {
+  if (value === null || value === undefined) return [path];
+  if (typeof value === "number") return [path];
+  if (value instanceof Set) return [];
+  if (Array.isArray(value)) {
+    if (value.length === 0) return [];
+    return numericLeafPaths(value[0], `${path}[]`);
+  }
+  if (typeof value !== "object") return [];
+  return Object.entries(value).flatMap(([key, nested]) =>
+    numericLeafPaths(nested, path === "" ? key : `${path}.${key}`),
+  );
+}
+
+describe("the no-NaN coverage is closed (ticket #54)", () => {
+  it("the hand-built fixture itself records no faults", () => {
+    // The poison cases each assert one fault, which only means anything if the
+    // unpoisoned fixture is clean.
+    expect(faultsOn(filledRun())).toEqual([]);
+  });
+
+  for (const nanCase of NAN_CASES) {
+    it(`records a fatal no NaN fault when ${nanCase.path} is NaN`, () => {
+      const state = nanCase.poison(filledRun());
+      const nan = faultsOn(state).filter(
+        (fault) => fault.identity === "no NaN",
+      );
+      expect(nan).toHaveLength(1);
+      expect(nan[0].severity).toBe("fatal");
+    });
+  }
+
+  it("every numeric leaf of the fixture is either poisoned here or excluded with a reason beside it", () => {
+    // The drift stop: a new number cannot join the fold without this test
+    // forcing a decision about it, in either list.
+    const walked = numericLeafPaths(filledRun(), "");
+    const poisoned = new Set(NAN_CASES.map((nanCase) => nanCase.path));
+    const undecided = walked
+      .filter((path) => !poisoned.has(path) && !(path in EXCLUDED))
+      .sort();
+    expect(undecided).toEqual([]);
+    // And the other direction, so a field that goes away takes its entry with
+    // it rather than leaving a name nothing answers to.
+    const listed = [...poisoned, ...Object.keys(EXCLUDED)];
+    expect(listed.filter((path) => !walked.includes(path)).sort()).toEqual([]);
+  });
+
+  it("no path sits in both halves of the decision", () => {
+    expect(
+      NAN_CASES.map((nanCase) => nanCase.path).filter(
+        (path) => path in EXCLUDED,
+      ),
+    ).toEqual([]);
+  });
+
+  it("a null wisp target is not a fault", () => {
+    // A null is a legitimately untargeted wisp; the witness folds the absence
+    // through the 0 sentinel, and only a non-finite number faults.
+    const run = filledRun();
+    run.wisps[0].targetId = null;
+    expect(brokenOn(run)).not.toContain("no NaN");
   });
 });

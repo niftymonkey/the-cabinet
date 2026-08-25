@@ -177,6 +177,9 @@ function checkRunNoNaN(state: RunState, faults: Fault[]): void {
   checkFinite(faults, "grave.y", state.grave.y);
   checkFinite(faults, "grave.size", state.grave.size);
   checkFinite(faults, "grave.invulnerable", state.grave.invulnerable);
+  checkFinite(faults, "killsSinceDrop", state.killsSinceDrop);
+  checkFinite(faults, "dropsPaid", state.dropsPaid);
+  checkFinite(faults, "nextEntityId", state.nextEntityId);
 }
 
 function checkMobsNoNaN(state: RunState, faults: Fault[]): void {
@@ -187,6 +190,8 @@ function checkMobsNoNaN(state: RunState, faults: Fault[]): void {
     checkSlotFinite(faults, "mob", mob.id, "vx", mob.vx);
     checkSlotFinite(faults, "mob", mob.id, "vy", mob.vy);
     checkSlotFinite(faults, "mob", mob.id, "hp", mob.hp);
+    checkSlotFinite(faults, "mob", mob.id, "beat", mob.beat);
+    checkSlotFinite(faults, "mob", mob.id, "fireIn", mob.fireIn);
   }
 }
 
@@ -206,6 +211,7 @@ function checkCorpsesNoNaN(state: RunState, faults: Fault[]): void {
     checkSlotFinite(faults, "corpse", corpse.id, "x", corpse.x);
     checkSlotFinite(faults, "corpse", corpse.id, "y", corpse.y);
     checkSlotFinite(faults, "corpse", corpse.id, "freshness", corpse.freshness);
+    checkSlotFinite(faults, "corpse", corpse.id, "payout", corpse.payout);
   }
 }
 
@@ -227,6 +233,11 @@ function checkWispsNoNaN(state: RunState, faults: Fault[]): void {
     checkSlotFinite(faults, "wisp", wisp.id, "vx", wisp.vx);
     checkSlotFinite(faults, "wisp", wisp.id, "vy", wisp.vy);
     checkSlotFinite(faults, "wisp", wisp.id, "life", wisp.life);
+    // A null target is a legitimately untargeted wisp and never faults; only a
+    // non-finite number does. The witness folds the absence through a sentinel.
+    if (wisp.targetId !== null) {
+      checkSlotFinite(faults, "wisp", wisp.id, "targetId", wisp.targetId);
+    }
   }
 }
 
@@ -237,6 +248,7 @@ function checkLinesNoNaN(state: RunState, faults: Fault[]): void {
   checkFinite(faults, "lines.orbitPhase", lines.orbitPhase);
   checkFinite(faults, "lines.tollIn", lines.tollIn);
   checkFinite(faults, "lines.ring.ticks", lines.ring?.ticks ?? 0);
+  checkFinite(faults, "lines.ring.level", lines.ring?.level ?? 0);
   for (let slot = 0; slot < lines.stoneRecharge.length; slot++) {
     checkCellFinite(
       faults,
@@ -245,6 +257,35 @@ function checkLinesNoNaN(state: RunState, faults: Fault[]): void {
       lines.stoneRecharge[slot],
     );
   }
+}
+
+/** The stage cursor's three counters. */
+function checkStageNoNaN(state: RunState, faults: Fault[]): void {
+  checkFinite(faults, "stage.phaseIndex", state.stage.phaseIndex);
+  checkFinite(faults, "stage.phaseTick", state.stage.phaseTick);
+  checkFinite(faults, "stage.firedRows", state.stage.firedRows);
+}
+
+/**
+ * The four weapon levels. The name is joined only on the failing branch, per
+ * the discipline above; routing through checkFinite would build the template
+ * string on every pass.
+ */
+function checkLevelsNoNaN(state: RunState, faults: Fault[]): void {
+  for (const line of WEAPON_LINES) {
+    const level = state.levels[line];
+    if (!Number.isFinite(level)) {
+      record(faults, "no NaN", `levels.${line} is ${level}`);
+    }
+  }
+}
+
+/** The four stream cursors, each a getter over a closure counter (rng.ts). */
+function checkStreamsNoNaN(state: RunState, faults: Fault[]): void {
+  checkFinite(faults, "streams.spawns.drawn", state.streams.spawns.drawn);
+  checkFinite(faults, "streams.drops.drawn", state.streams.drops.drawn);
+  checkFinite(faults, "streams.mobFire.drawn", state.streams.mobFire.drawn);
+  checkFinite(faults, "streams.shed.drawn", state.streams.shed.drawn);
 }
 
 /**
@@ -261,6 +302,9 @@ function checkNoNaN(state: RunState, faults: Fault[]): void {
   checkSkullsNoNaN(state, faults);
   checkWispsNoNaN(state, faults);
   checkLinesNoNaN(state, faults);
+  checkStageNoNaN(state, faults);
+  checkLevelsNoNaN(state, faults);
+  checkStreamsNoNaN(state, faults);
 }
 
 /** Size is health, and ADR 0003 makes both ends of it hard. */
