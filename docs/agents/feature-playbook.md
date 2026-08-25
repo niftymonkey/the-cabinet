@@ -57,105 +57,11 @@ The dangerous state is not a red test. It is green tests plus wrong observed beh
 
 ## Coding standards
 
-Standing preference: small composable functions, each with one purpose, each easily testable. No IIFEs. A function is readable top to bottom on one screen, everything it does visible at once. Around forty lines, splitting becomes the default and staying longer needs a stated reason. A long function is usually several purposes wearing one name; split it by naming them.
+The rule statements live in `.claude/rules/code-core.md` (language-general, loaded into every session) and `.claude/rules/code-typescript.md` (the TypeScript forms, loaded when TypeScript files are in play). Their pinned evidence (per rule: the specimen, the chosen form, the rejected forms) lives in `docs/agents/code-examples.md`; read a rule's entry there when the rule alone leaves the path forward unclear.
 
-Concrete rules enter this section only through a verified round: the same real code from this repo written multiple ways side by side, with Mark verifying which way is the standard. An off-the-cuff sketch, including Mark's own, is never canonized into a rule.
+A concrete rule enters the record only through a verified round: the same real code from this repo written multiple ways side by side, with Mark verifying which way is the standard. An off-the-cuff sketch, including Mark's own, is never canonized into a rule.
 
-### Verified rules
-
-#### Rule 1: entry-point shape (verified by Mark 2026-08-19, specimen `apps/hungry-grave/src/main.ts`)
-
-- Small named functions, each doing the one thing its name says.
-- An orchestrator `main()` that only sequences them, in the order a reader would tell the story.
-- Exactly one call at module end: `main().catch(...)`. Never an IIFE.
-- Comments survive only where they state a constraint the code cannot show.
-
-The verified example, in full:
-
-```ts
-import { FpsMeter } from "./app/FpsMeter";
-import { setEngine } from "./app/getEngine";
-import { resolveRoute } from "./app/routes";
-import { LoadScreen } from "./app/screens/LoadScreen";
-import { PrototypesScreen } from "./app/screens/PrototypesScreen";
-import { TitleScreen } from "./app/screens/TitleScreen";
-import { userSettings } from "./app/utils/userSettings";
-import { CreationEngine } from "./engine/engine";
-
-/**
- * Importing these modules will automatically register their plugins with the engine.
- */
-import "@pixi/sound";
-
-async function initEngine(): Promise<CreationEngine> {
-  const engine = new CreationEngine();
-  setEngine(engine);
-  await engine.init({
-    background: "#0e1119",
-    // 540x760 is the sim's field in units, never device pixels (ADR 0003).
-    resizeOptions: { minWidth: 540, minHeight: 760, letterbox: false },
-  });
-  return engine;
-}
-
-/**
- * Puts the frame-rate readout on the stage, above every screen. Navigation
- * adds its own container to the stage lazily, when the first screen is shown
- * (src/engine/navigation/navigation.ts), so a meter added earlier would end up
- * underneath it. zIndex settles the order by rule instead of by who was added
- * first, and holds however the screens are later reshuffled.
- */
-function attachFpsMeter(engine: CreationEngine): void {
-  const meter = new FpsMeter();
-  meter.zIndex = 1;
-  engine.stage.sortableChildren = true;
-  engine.stage.addChild(meter);
-  engine.ticker.add(meter.update, meter);
-}
-
-async function resolveScreen(hash: string) {
-  const route = resolveRoute(hash);
-  if (route.kind === "prototype") return await route.entry.load();
-  if (route.kind === "prototype-list") return PrototypesScreen;
-  return TitleScreen;
-}
-
-/**
- * Answers every navigation the URL fragment can produce: boot, in-app hash
- * writes, and the browser's back and forward buttons alike. The fragment is
- * the single navigation authority between the game and the prototypes, and
- * buttons only assign location.hash; screens inside the game navigate directly
- * and never touch it. Routes are chained so two showScreen calls can never
- * interleave, and a route whose hash went stale while its module loaded steps
- * aside.
- */
-function startRouter(engine: CreationEngine): Promise<void> {
-  let pending: Promise<void> = Promise.resolve();
-  const route = async () => {
-    const hash = window.location.hash;
-    const screen = await resolveScreen(hash);
-    if (window.location.hash !== hash) return;
-    await engine.navigation.showScreen(screen);
-  };
-  const queueRoute = () => {
-    pending = pending.then(route).catch((error) => console.error(error));
-  };
-  window.addEventListener("hashchange", queueRoute);
-  queueRoute();
-  return pending;
-}
-
-async function main(): Promise<void> {
-  const engine = await initEngine();
-  userSettings.init();
-  attachFpsMeter(engine);
-  // The load screen holds the stage while the router resolves the first route.
-  await engine.navigation.showScreen(LoadScreen);
-  await startRouter(engine);
-}
-
-main().catch((error) => console.error(error));
-```
+Every rule binds new code only. Bringing the existing tree up to the rules is ticket #59.
 
 ## The dispatch contract
 
