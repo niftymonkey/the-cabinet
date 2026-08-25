@@ -276,6 +276,34 @@ describe("the replay screen", () => {
     screen.reset();
   });
 
+  it("hides the field on a pooled second showing that refuses, so the previous tape's last frame never lingers", async () => {
+    // The screen is pooled: reset() empties the layers and dressField()
+    // re-attaches the renderers, whose sprite pools still wear the previous
+    // tape's frame. Only the first real frame may reveal the field.
+    const { tape, bytes } = scriptedTape(360);
+    serveTape(bytes);
+    fakeLocation.hash = "#/replay?tape=blob%3Atape&at=300";
+    const screen = new ReplayScreen();
+    screen.prepare();
+    await settled(screen);
+    driveTo(screen, "playing");
+    expect(screen["field"].visible).toBe(true);
+
+    screen.reset();
+    const mismatched: Tape = {
+      ...tape,
+      header: { ...tape.header, witnessVersion: WITNESS_VERSION + 1 },
+    };
+    serveTape(encodeTape(mismatched));
+    screen.prepare();
+    await settled(screen);
+    driveTo(screen, "idle");
+
+    expect(screen["postureLabel"].text).toBe("NO REPLAY");
+    expect(screen["field"].visible).toBe(false);
+    screen.reset();
+  });
+
   it("states that no tape was named when the URL names none", () => {
     fakeLocation.hash = "#/replay";
     const screen = new ReplayScreen();

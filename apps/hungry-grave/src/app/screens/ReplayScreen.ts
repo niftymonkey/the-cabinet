@@ -242,6 +242,10 @@ export class ReplayScreen extends Container {
     // gives them back to a screen that declares show(); without this the back
     // button is dead on every showing after the first.
     this.interactiveChildren = true;
+    // A pooled showing's renderers still wear the previous tape's frame until
+    // the first sync, and a showing that refuses never syncs; hide the field
+    // until the first real frame reveals it (syncScreen).
+    this.field.visible = false;
     this.phase = "idle";
     this.tape = null;
     this.verification = null;
@@ -452,6 +456,7 @@ export class ReplayScreen extends Container {
    * per frame rather than per tick, exactly as the game screen delivers them.
    */
   private syncScreen(playback: Playback): void {
+    this.field.visible = true;
     const run = playback.run;
     for (const event of this.frameEvents) {
       if (event.type === "belched") this.stormRenderer.erupt(run);
