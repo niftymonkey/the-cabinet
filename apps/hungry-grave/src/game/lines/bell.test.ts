@@ -246,6 +246,42 @@ describe("pushback arrives at level 4 (ADR 0005)", () => {
     expect(mob.x - from).toBeCloseTo(BELL_PUSH_BY_LEVEL[4] * near, 4);
   });
 
+  it("a ring at a level past the authored tables leaves a swept mob where it stood", () => {
+    // Past the tables the lookup is undefined, near is NaN off a NaN radius,
+    // and a NaN push must refuse in the same guard a zero push does (#53).
+    const state = quietRun();
+    const mob = put(state, "revenant", state.grave.x + 40, state.grave.y);
+    const fromX = mob.x;
+    const fromY = mob.y;
+    state.lines.ring = {
+      level: BELL_PUSH_BY_LEVEL.length,
+      ticks: 0,
+      struck: new Set(),
+    };
+    advanceBell(state);
+    expect(mob.x).toBe(fromX);
+    expect(mob.y).toBe(fromY);
+  });
+
+  it("no ring level, authored or not, ever writes NaN into a swept mob's position", () => {
+    // The guard sits on the computed push, so every path to a non-finite
+    // strength refuses in one place, whatever level produced it (#53).
+    for (let level = 0; level <= BELL_PUSH_BY_LEVEL.length; level++) {
+      const state = quietRun();
+      const mob = put(state, "revenant", state.grave.x + 40, state.grave.y);
+      state.lines.ring = { level, ticks: 0, struck: new Set() };
+      for (let tick = 0; tick < BELL_EXPAND_TICKS; tick++) {
+        advanceBell(state);
+        expect(Number.isFinite(mob.x), `level ${level} tick ${tick} x`).toBe(
+          true,
+        );
+        expect(Number.isFinite(mob.y), `level ${level} tick ${tick} y`).toBe(
+          true,
+        );
+      }
+    }
+  });
+
   it("keeps a pushed mob inside the field widened by SPAWN_MARGIN", () => {
     // Without the clamp a mob near an edge is shoved out of the box the
     // invariant harness checks, by the player's own weapon, and the harness
