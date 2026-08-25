@@ -9,8 +9,9 @@
  * the sim.
  */
 
+import type { GraveHitSource } from "./grave";
 import type { WeaponLine } from "./lines/roster";
-import type { MobType } from "./mobs";
+import type { DamageSource, MobType } from "./mobs";
 import type { PhaseName } from "./stage/stage";
 import type { FoodKind } from "./swallow";
 
@@ -69,9 +70,13 @@ interface WeaponLeveled {
   readonly level: number;
 }
 
-/** Mob fire landed. ADR 0014's dim reads this, and the window is its refractory interval. */
+/**
+ * Mob fire landed. ADR 0014's dim reads this, and the window is its refractory
+ * interval. The source names who hurt the player (#48).
+ */
 interface GraveHit {
   readonly type: "graveHit";
+  readonly source: GraveHitSource;
   readonly size: number;
   readonly invulnerable: number;
 }
@@ -100,9 +105,25 @@ interface Victory {
   readonly tick: number;
 }
 
-/** A mob died. The kill sound, and the instruments' kill count. */
+/**
+ * A mob took damage, the fatal blow included (#48). The id is the join key: an
+ * instrument credits a kill to a weapon by matching mobKilled's id to the
+ * mobDamaged that carried the fatal blow.
+ */
+interface MobDamaged {
+  readonly type: "mobDamaged";
+  readonly id: number;
+  readonly amount: number;
+  readonly source: DamageSource;
+}
+
+/**
+ * A mob died. The kill sound, and the instruments' kill count. The id joins to
+ * the mobDamaged that carried the fatal blow, which is what names the killer.
+ */
 interface MobKilled {
   readonly type: "mobKilled";
+  readonly id: number;
   readonly mob: MobType;
   readonly x: number;
   readonly y: number;
@@ -201,6 +222,7 @@ export type SimEvent =
   | ReservoirFull
   | WeaponLeveled
   | GraveHit
+  | MobDamaged
   | ScoreBled
   | WeaponStripped
   | Sealed

@@ -5,6 +5,7 @@
 
 import type { SimEvent } from "./events";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
+import type { MobType } from "./mobs";
 import type { WeaponLine } from "./lines/roster";
 import { BIRTHRIGHT, WEAPON_LINES } from "./lines/roster";
 import type { Rect } from "./overlap";
@@ -23,6 +24,9 @@ import {
 // shmup's own starting mark, with the whole field ahead of it.
 const START_X = FIELD_WIDTH / 2;
 const START_Y = FIELD_HEIGHT * 0.8;
+
+/** Who hurt the player (#48): the mob type whose shot landed, or body contact. */
+export type GraveHitSource = MobType | "contact";
 
 export interface Grave {
   x: number;
@@ -183,7 +187,7 @@ function runFloorLadder(state: RunState): SimEvent[] {
  * full-field dims a second, in the exact state where the player is one hit from
  * sealed shut.
  */
-export function hitGrave(state: RunState): SimEvent[] {
+export function hitGrave(state: RunState, source: GraveHitSource): SimEvent[] {
   const grave = state.grave;
   if (grave.invulnerable > 0) return [];
   const atFloor = grave.size <= SIZE_FLOOR;
@@ -191,6 +195,7 @@ export function hitGrave(state: RunState): SimEvent[] {
   grave.invulnerable = INVULNERABLE_TICKS;
   const hit: SimEvent = {
     type: "graveHit",
+    source,
     size: grave.size,
     invulnerable: grave.invulnerable,
   };

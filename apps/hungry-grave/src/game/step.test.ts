@@ -293,6 +293,31 @@ describe("what meets the grave (ADR 0003 and ADR 0014)", () => {
     expect(mob.hp).toBe(MOB_TYPES.shambler.hp);
   });
 
+  it("names the mob type that fired the shot on the hit it lands", () => {
+    // Who hurt the player (#48): a shot's graveHit carries its emitter, which
+    // the shot record has held since it was fired.
+    const state = quietRun();
+    const step = stepping(state);
+    shotOnGrave(state);
+
+    const hits = step(STILL).filter((event) => event.type === "graveHit");
+    expect(hits).toEqual([
+      expect.objectContaining({ type: "graveHit", source: "revenant" }),
+    ]);
+  });
+
+  it("names a body hit contact", () => {
+    // Who hurt the player (#48): the other way a mob hurts the grave.
+    const state = quietRun();
+    const step = stepping(state);
+    mobOnGrave(state);
+
+    const hits = step(STILL).filter((event) => event.type === "graveHit");
+    expect(hits).toEqual([
+      expect.objectContaining({ type: "graveHit", source: "contact" }),
+    ]);
+  });
+
   it("lands nothing on a second contact inside the invulnerability window", () => {
     const state = quietRun();
     const step = stepping(state);

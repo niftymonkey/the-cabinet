@@ -129,7 +129,7 @@ describe("the grave", () => {
   it("a hit above the floor shrinks the grave and starts invulnerability (ADR 0003)", () => {
     const run = createRun(1);
     expect(run.grave.size).toBe(SIZE_START);
-    const events = hitGrave(run);
+    const events = hitGrave(run, "contact");
     expect(run.grave.size).toBe(SIZE_START - HIT_SHRINK);
     expect(run.grave.invulnerable).toBe(INVULNERABLE_TICKS);
     expect(kinds(events)).toContain("graveHit");
@@ -141,7 +141,7 @@ describe("the grave", () => {
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
     run.score = 10;
-    const events = hitGrave(run);
+    const events = hitGrave(run, "contact");
     expect(run.grave.size).toBe(SIZE_FLOOR);
     expect(run.grave.invulnerable).toBe(INVULNERABLE_TICKS);
     expect(kinds(events)).toContain("graveHit");
@@ -149,9 +149,9 @@ describe("the grave", () => {
   it("a hit while invulnerable does nothing at all: no shrink, no ladder, no event (ADR 0003)", () => {
     const run = createRun(1);
     run.score = 500;
-    hitGrave(run);
+    hitGrave(run, "contact");
     const size = run.grave.size;
-    const events = hitGrave(run);
+    const events = hitGrave(run, "contact");
     expect(events).toEqual([]);
     expect(run.grave.size).toBe(size);
     expect(run.score).toBe(500);
@@ -159,21 +159,21 @@ describe("the grave", () => {
   });
   it("ageGrave counts invulnerability down and stops at zero, and a hit lands again on the tick it reaches zero", () => {
     const run = createRun(1);
-    hitGrave(run);
+    hitGrave(run, "contact");
     for (let i = INVULNERABLE_TICKS; i > 0; i--) {
       expect(run.grave.invulnerable).toBe(i);
-      expect(hitGrave(run)).toEqual([]);
+      expect(hitGrave(run, "contact")).toEqual([]);
       ageGrave(run.grave);
     }
     expect(run.grave.invulnerable).toBe(0);
     ageGrave(run.grave);
     expect(run.grave.invulnerable).toBe(0);
-    expect(hitGrave(run).length).toBeGreaterThan(0);
+    expect(hitGrave(run, "contact").length).toBeGreaterThan(0);
   });
   it("a hit never takes the grave below the floor (ADR 0003)", () => {
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR + HIT_SHRINK / 2;
-    hitGrave(run);
+    hitGrave(run, "contact");
     expect(run.grave.size).toBe(SIZE_FLOOR);
   });
   it("at the floor the ladder runs in order, one rung per hit: score, then every line's level, then sealed shut (ADR 0003)", () => {
@@ -184,7 +184,7 @@ describe("the grave", () => {
 
     // Rung one bleeds all of the score and touches no weapon level. The whole
     // score, so that the score tier is exactly one rung.
-    const bled = hitGrave(run);
+    const bled = hitGrave(run, "contact");
     expect(kinds(bled)).toContain("scoreBled");
     expect(kinds(bled)).not.toContain("weaponStripped");
     expect(kinds(bled)).not.toContain("sealed");
@@ -193,7 +193,7 @@ describe("the grave", () => {
 
     // Rung two takes one level off every line at once, and seals nothing.
     ageOut(run);
-    const stripped = hitGrave(run);
+    const stripped = hitGrave(run, "contact");
     expect(kinds(stripped)).toContain("weaponStripped");
     expect(kinds(stripped)).not.toContain("sealed");
     for (const line of WEAPON_LINES)
@@ -205,7 +205,7 @@ describe("the grave", () => {
       run.levels[line] = BIRTHRIGHT.includes(line) ? 1 : 0;
     }
     ageOut(run);
-    const sealed = hitGrave(run);
+    const sealed = hitGrave(run, "contact");
     expect(kinds(sealed)).toContain("sealed");
     expect(run.ending).toBe("sealed");
   });
@@ -220,7 +220,7 @@ describe("the grave", () => {
 
     let hits = 0;
     while (run.ending === null && hits < 20) {
-      hitGrave(run);
+      hitGrave(run, "contact");
       ageOut(run);
       hits += 1;
     }
@@ -233,7 +233,7 @@ describe("the grave", () => {
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
     while (run.ending === null) {
-      hitGrave(run);
+      hitGrave(run, "contact");
       ageOut(run);
       for (const line of WEAPON_LINES) {
         expect(run.levels[line]).toBeGreaterThanOrEqual(
@@ -250,7 +250,7 @@ describe("the grave", () => {
     const amounts = [0.4, 12, 0, 60, 3, 0.1];
     for (let i = 0; i < 120; i++) {
       if (i % 3 === 0) {
-        hitGrave(run);
+        hitGrave(run, "contact");
       } else {
         growGrave(run.grave, amounts[i % amounts.length]);
       }

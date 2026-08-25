@@ -204,7 +204,7 @@ function scriptedKills(run: RunState, tick: number): number {
       : { x: 60, y: 300 };
   const victim = put(run, where.x, where.y);
   if (victim === null) return 0;
-  damageMob(run, victim, victim.hp, "storm");
+  damageMob(run, victim, victim.hp, "soulStream");
   return 1;
 }
 

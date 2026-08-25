@@ -54,7 +54,7 @@ function resolveMobFire(state: RunState, events: SimEvent[]): void {
     if (!shot.alive) continue;
     if (!overlaps(shotHitbox(shot), box)) continue;
     shot.alive = false;
-    events.push(...hitGrave(state));
+    events.push(...hitGrave(state, shot.emitter));
   }
 }
 
@@ -67,7 +67,7 @@ function resolveMobContact(state: RunState, events: SimEvent[]): void {
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     if (!overlaps(mobHitbox(mob), box)) continue;
-    events.push(...hitGrave(state));
+    events.push(...hitGrave(state, "contact"));
   }
 }
 
