@@ -52,6 +52,19 @@ function play(state: RunState, policy: Policy, maxTicks: number): PolicyRun {
 /** Five seeds, fixed so a failure is reproducible and never a flake. */
 const SEEDS = [101, 202, 303, 404, 505];
 
+/**
+ * The seeds whose fresh run seals shut inside the ramp under the 28-unit catch
+ * box.
+ *
+ * DROP_HALF_EXTENT rose from 8 to 14 on Mark's 2026-08-25 ruling (the pickup
+ * area stays more generous than the drawn peak;
+ * docs/design/drop-legibility-fix.md), so a dodging bot now collects drops it
+ * used to brush past and every full-run trajectory re-rolled. The per-seed
+ * outcomes in this file are re-measured under the new box and re-pinned, the
+ * same way they were pinned when weapons landed.
+ */
+const SEALS_IN_THE_RAMP = [505];
+
 const RAMP_TICKS = phaseLengthTicks(PHASES[0]);
 const STAGE_TICKS = RAMP_TICKS + phaseLengthTicks(PHASES[2]);
 
@@ -103,14 +116,17 @@ function fullRun(seed: number, startingSize?: number) {
 
 describe("dodgePolicy over the whole stage (ADR 0013)", () => {
   for (const seed of SEEDS) {
-    it(`survives the ramp on seed ${seed}`, () => {
+    const survives = !SEALS_IN_THE_RAMP.includes(seed);
+    it(`${survives ? "survives" : "seals shut inside"} the ramp on seed ${seed}`, () => {
       // Three of these five were declared expected failures before weapons
       // existed, and dispatch 5 is what turns them into ordinary assertions:
       // the storm cuts how long an armed mob lives, and a weaponless build
-      // inflates mob fire by roughly a factor of five.
+      // inflates mob fire by roughly a factor of five. SEALS_IN_THE_RAMP
+      // carries the seeds the 28-unit catch box re-rolled the other way.
       const state = createRun(seed);
       play(state, dodgePolicy, RAMP_TICKS);
-      expect(state.ending).toBeNull();
+      if (survives) expect(state.ending).toBeNull();
+      else expect(state.ending).toBe("sealed");
     });
   }
 
@@ -118,7 +134,9 @@ describe("dodgePolicy over the whole stage (ADR 0013)", () => {
     it(`crosses every phase in order on seed ${seed}`, () => {
       const { events } = fullRun(seed);
       const crossed = phaseOrder(events);
-      expect(crossed[0]).toBe("banshee");
+      // A run that seals inside the ramp crosses nothing at all.
+      if (SEALS_IN_THE_RAMP.includes(seed)) expect(crossed).toEqual([]);
+      else expect(crossed[0]).toBe("banshee");
       expect(crossed).toEqual(
         ["banshee", "backHalf", "undertaker", "over"].slice(0, crossed.length),
       );
@@ -138,7 +156,11 @@ describe("dodgePolicy over the whole stage (ADR 0013)", () => {
   for (const seed of SEEDS) {
     it(`runs to a length inside the stage's own band on seed ${seed}`, () => {
       const { ticks } = fullRun(seed);
-      expect(ticks).toBeGreaterThan(RAMP_TICKS);
+      if (SEALS_IN_THE_RAMP.includes(seed)) {
+        expect(ticks).toBeLessThan(RAMP_TICKS);
+      } else {
+        expect(ticks).toBeGreaterThan(RAMP_TICKS);
+      }
       expect(ticks).toBeLessThanOrEqual(STAGE_TICKS + 60);
     });
   }
@@ -147,9 +169,12 @@ describe("dodgePolicy over the whole stage (ADR 0013)", () => {
     it(`fires no invariant on seed ${seed}, which is the harness's own assertion`, () => {
       // A check records a fault and returns rather than throwing (ADR 0017),
       // so what the run recorded is read rather than the absence of a throw.
-      // The tick count is what says the run really ran.
+      // The tick count is what says the run really ran, and a seed that seals
+      // inside the ramp still has to have run that far.
       expect(fullRun(seed).faults).toEqual([]);
-      expect(fullRun(seed).ticks).toBeGreaterThan(RAMP_TICKS);
+      expect(fullRun(seed).ticks).toBeGreaterThan(
+        SEALS_IN_THE_RAMP.includes(seed) ? 0 : RAMP_TICKS,
+      );
     });
   }
 
@@ -207,9 +232,12 @@ describe("the band ADR 0013 asks for, and the band the storm reaches", () => {
   for (const seed of SEEDS) {
     it(`stays inside the range the storm actually reaches on seed ${seed}`, () => {
       // The ordinary half, so a regression away from today's figures is caught
-      // while the band above stays the thing being aimed at.
+      // while the band above stays the thing being aimed at. The floors are
+      // the measured minima across the five seeds under the 28-unit catch box
+      // (SEALS_IN_THE_RAMP carries the ruling): seed 505 now seals at twelve
+      // kills and two drops.
       const { events } = fullRun(seed);
-      expect(count(events, "mobKilled")).toBeGreaterThanOrEqual(15);
+      expect(count(events, "mobKilled")).toBeGreaterThanOrEqual(12);
       expect(count(events, "dropSpawned")).toBeGreaterThanOrEqual(2);
     });
   }
@@ -221,11 +249,12 @@ describe("dodgePolicy from the size ceiling", () => {
       // Every one of these was a declared expected failure before weapons
       // existed. Dispatch 4's section 5 asserted victory from the ceiling and
       // its own section 8 proved it cannot, so what is asserted here is what
-      // the weapons actually do: seeds 101 and 303 reach the over phase and
-      // the other three seal shut inside the back half.
+      // the weapons actually do, re-measured under the 28-unit catch box
+      // (SEALS_IN_THE_RAMP carries the ruling): seed 101 reaches the over
+      // phase and the other four seal shut inside the back half.
       const { state, events } = fullRun(seed, SIZE_CEILING);
       const reached = phaseOrder(events);
-      if (seed === 101 || seed === 303) {
+      if (seed === 101) {
         expect(reached).toContain("over");
         expect(state.ending).toBe("victory");
         return;

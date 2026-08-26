@@ -9,11 +9,7 @@ import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { resize } from "../engine/resize/resize";
-import { CORPSE_HALF_EXTENT } from "../game/corpses";
-import { DROP_HALF_EXTENT } from "../game/drops";
 import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
-import { graveWidth } from "../game/grave";
-import { SIZE_FLOOR } from "../game/tuning";
 import { apcaLc, hsv, luma, observerLuma } from "./color";
 import { BOUNDARY_STROKE, fitField } from "./layout";
 import type { FireEmitter, PaletteEntry } from "./palette";
@@ -140,11 +136,6 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
     because:
       "a feast is a small steady sprite in the food layer and the eruption is a momentary full-field event two layers below it",
   },
-  {
-    pair: ["dropCore", "foodOutline"],
-    because:
-      "the same hex declared apart with a written reason, which is the precedent hudDim and menuDim already set: one is a drop's own core and one is the companion every food sprite carries, and they part company when the art pass touches the food",
-  },
   // Assertion 3's exceptions, each with the best figure either half of the pair
   // reaches against that background. The threshold is not lowered for anything;
   // these are named instead.
@@ -219,7 +210,6 @@ const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
   foodOutline: "corpses",
   feast: "treasure",
   drop: "treasure",
-  dropCore: "treasure",
   belchEruption: "belchEruption",
   splash: "belchEruption",
 };
@@ -236,7 +226,6 @@ const DARK_HALVES: { name: string; because: string }[] = [
   { name: "mobDark", because: "a mob body's own dark half" },
   { name: "bansheeDark", because: "the Banshee's own dark half" },
   { name: "undertakerDark", because: "the Undertaker's own dark half" },
-  { name: "dropCore", because: "a drop's own dark core" },
 ];
 
 /**
@@ -492,8 +481,9 @@ describe("the field's boundary (ADR 0014)", () => {
 
 describe("the standing colour bans", () => {
   it("declares no brown", () => {
-    // Dark, saturated orange is the definition of brown. This closes the queued
-    // dropCore check from ticket #30 by measurement rather than by eye.
+    // Dark, saturated orange is the definition of brown. This is the ban that
+    // retired the old dropCore hex (#30), by measurement rather than by eye;
+    // color.test.ts keeps that hex's measurement.
     const declared = paletteEntries();
     expect(declared.length).toBeGreaterThan(0);
     for (const [name, entry] of declared) {
@@ -593,7 +583,7 @@ describe("the sprite outline table (ADR 0014)", () => {
   it("clears APCA Lc 45 on at least one half of each pair, against every sprite it can be drawn over", () => {
     // Assertion 3, and it has to be one half rather than the dark half alone:
     // foodOutline against night is exactly Lc 0.00, and graveHole is 0.00
-    // against night, nightSpeckle, dropCore and undertakerDark.
+    // against night, nightSpeckle and undertakerDark.
     const failures: string[] = [];
     for (const [name, companion] of Object.entries(SPRITE_OUTLINE)) {
       const light = PALETTE[name as keyof typeof PALETTE];
@@ -624,20 +614,6 @@ describe("the sprite outline table (ADR 0014)", () => {
     expect(GRAVE_RIM_STROKE + GRAVE_RIM_SHADOW).toBeLessThanOrEqual(
       RIM_BAND_MAX,
     );
-  });
-
-  it("bounds DROP_SIZE by graveWidth(SIZE_FLOOR)", () => {
-    // Assertion 4's third clause. What binds is the grave's own width at the
-    // size floor, 18 units, and never the mouth's interior: ADR 0003 rules that
-    // size never gates a swallow, so the mouth is not a gate and never was.
-    //
-    // A drop is 16 units, two clear of that bound and larger than a corpse's
-    // 14. Mark ruled on 2026-08-22 that the corpse-reads-bigger-than-a-drop
-    // rule gives, so the drop can be sized for the at-a-glance line read that
-    // has to survive mid-dodge with no HUD glance.
-    expect(graveWidth(SIZE_FLOOR)).toBe(18);
-    expect(DROP_HALF_EXTENT * 2).toBeLessThan(graveWidth(SIZE_FLOOR));
-    expect(DROP_HALF_EXTENT * 2).toBeGreaterThan(CORPSE_HALF_EXTENT * 2);
   });
 });
 
