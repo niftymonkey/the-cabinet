@@ -297,7 +297,7 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
 /**
  * The Wall, built from its own row on a quiet stage.
  *
- * ADR 0016 makes the set piece a property rather than a cast, and the property
+ * ADR 0042 makes the set piece a property rather than a cast, and the property
  * is two-sided over build strength: crossable unloaded has to hold at the
  * weakest build a run can produce and never crossable for free has to hold at
  * the strongest. Whatever five seeds happen to roll is neither, so both builds
@@ -323,7 +323,7 @@ function wallRun(seed: number, loaded: boolean): RunState {
 /** Long enough for the whole curtain to fall past the grave and leave the field. */
 const WALL_TICKS = 1400;
 
-describe("the Wall's two-sided property (ADR 0016)", () => {
+describe("the Wall's two-sided property (ADR 0042)", () => {
   for (const seed of SEEDS) {
     it(`is crossable unloaded at the floor build on seed ${seed}, and never for free`, () => {
       // The floor build is the birthright and nothing else, which is what

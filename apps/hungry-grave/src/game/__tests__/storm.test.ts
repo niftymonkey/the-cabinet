@@ -1,6 +1,6 @@
 /**
  * The storm meeting the mobs: skulls, headstones and wisps resolved as overlaps
- * in one fixed order (ADR 0005). What is pinned here is the order and what each
+ * in one fixed order. What is pinned here is the order and what each
  * source spends on a hit, because the same seed has to kill the same mobs.
  */
 

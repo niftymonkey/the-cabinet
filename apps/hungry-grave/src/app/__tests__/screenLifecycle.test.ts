@@ -595,7 +595,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
   });
 
   it('blurs the threat and food layers and spares the grave, then clears the blur on one', () => {
-    // Sparing the grave and its rim is the same rule ADR 0014's hit dim
+    // Sparing the grave and its rim is the same rule ADR 0040's hit dim
     // carries: never occlude the channel the player is being asked to re-read.
     //
     // Corpses and treasure are blurred too, which dispatch 4 shipped spared and

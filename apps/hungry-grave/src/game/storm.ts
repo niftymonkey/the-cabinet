@@ -1,6 +1,6 @@
 /**
  * The storm meeting the mobs: skulls, headstones and wisps, resolved as overlaps
- * in one fixed order (ADR 0005).
+ * in one fixed order.
  *
  * This supersedes the weapons plan's ruling that there is deliberately no
  * storm.ts, on the grounds that a module holding only the storm's overlap tests

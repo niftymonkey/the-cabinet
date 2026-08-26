@@ -35,7 +35,7 @@ const COUNTDOWN_FONT_SIZE = 72;
 
 /**
  * The layers the countdown blurs. The grave and its rim are spared, exactly as
- * ADR 0014's hit dim spares them: re-finding the grave is what the countdown
+ * ADR 0040's hit dim spares them: re-finding the grave is what the countdown
  * exists for, so blurring it would defeat its own purpose, and the hit dim's
  * rule already settles the principle that the channel a player is being asked
  * to re-read is never occluded.

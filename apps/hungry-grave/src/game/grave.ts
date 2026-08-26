@@ -183,7 +183,7 @@ const runFloorLadder = (state: RunState): SimEvent[] => {
  * window, the ladder and the events stay in one place.
  *
  * Every landed hit starts invulnerability, a floor hit that does not shrink
- * included. The window is ADR 0014's dim refractory interval, and a floor hit
+ * included. The window is ADR 0040's dim refractory interval, and a floor hit
  * that skipped it would let the ladder run in consecutive ticks: sixty
  * full-field dims a second, in the exact state where the player is one hit from
  * sealed shut.

@@ -20,7 +20,7 @@ import { drawMob, mobLook } from './mobSprite';
  * foodSprite; what is here is the sync that drives them.
  */
 
-// How dark the field goes at the instant of a hit. It is a subtraction and never a flash (ADR 0014).
+// How dark the field goes at the instant of a hit. It is a subtraction and never a flash (ADR 0040).
 const HIT_DIM_ALPHA = 0.5;
 
 // How many scatters can be on the field at once before the oldest is reused.

@@ -22,7 +22,7 @@ Defects this app has actually shipped, and the shape that produces them. Repo-wi
 
 ## The bot
 
-**A stand-in bot can be structurally incapable of the very manoeuvre a mechanic is bounded by.** `dodgePolicy` maximizes the tightest clearance over a half-second lookahead and projects threats at constant velocity, so it always flees a chaser radially. Cutting hard across a ghoul means accepting less clearance early to get behind its turn, which that scoring can never pick. **The turn-rate fairness bound in ADR 0016 therefore has no evidence behind it.** Read it by hand; do not improve the bot to make a test pass.
+**A stand-in bot can be structurally incapable of the very manoeuvre a mechanic is bounded by.** `dodgePolicy` maximizes the tightest clearance over a half-second lookahead and projects threats at constant velocity, so it always flees a chaser radially. Cutting hard across a ghoul means accepting less clearance early to get behind its turn, which that scoring can never pick. **The turn-rate fairness bound on the ghoul therefore has no evidence behind it.** Read it by hand; do not improve the bot to make a test pass.
 
 `dodgePolicy` also does not price the field edge, because the move clamps, so moving into the wall scores the same as standing still. A capped room-to-move term was written and re-run across five seeds and saved nothing.
 

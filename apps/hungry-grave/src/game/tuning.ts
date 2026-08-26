@@ -77,7 +77,7 @@ const HIT_SHRINK = 3;
  * never crossable for free.
  *
  * It is a safety floor as well as a feel number, and this is the one place that
- * is written down. ADR 0014's hit signal dims the whole field, which is a
+ * is written down. ADR 0040's hit signal dims the whole field, which is a
  * general flash under WCAG SC 2.3.1: a pair of opposing changes in relative
  * luminance of 10 percent or more where the darker image is below 0.80 relative
  * luminance. Both halves are trivially satisfied on this palette, and the

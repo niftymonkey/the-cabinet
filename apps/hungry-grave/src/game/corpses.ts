@@ -76,7 +76,7 @@ interface Corpse {
   kind: FoodKind;
   // Feasts never decay (ADR 0004), and the flag lives on the record so the boss dispatch authors a shed rather than a mechanism.
   decays: boolean;
-  // Which line a drop levels, decided by the dice at spawn (ADR 0002). Absent on corpses and feasts.
+  // Which line a drop levels, decided by the dice at spawn (ADR 0034). Absent on corpses and feasts.
   line?: WeaponLine;
   /**
    * How large this food is swallowed at. It lives on the record rather than

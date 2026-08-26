@@ -148,7 +148,7 @@ describe('the swallow', () => {
     );
   });
 
-  it('a drop levels the line it carries, from the value it was given rather than rolling one here (ADR 0002)', () => {
+  it('a drop levels the line it carries, from the value it was given rather than rolling one here (ADR 0034)', () => {
     const run = createRun(1);
     expect(run.levels.wisps).toBe(0);
     const events = swallow(run, drop('wisps'));

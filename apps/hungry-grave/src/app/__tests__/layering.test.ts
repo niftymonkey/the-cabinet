@@ -65,10 +65,10 @@ Object.defineProperty(globalThis, 'localStorage', {
 });
 
 /**
- * ADR 0014's stack as the ADR states it, top to bottom, with the hit's dim in
- * the place its 2026-08-20 amendment gives it and the boundary in the place its
- * 2026-08-22 one gives it. Written out here so the code and the record are
- * checked against each other rather than each against itself.
+ * The field's draw stack, top to bottom, with the hit's dim and the boundary in
+ * their places. ADR 0014 delegates the full order to this pin, so this literal
+ * is the canonical order rather than a mirror of the ADR's list, and the code
+ * is checked against it rather than against itself.
  */
 const ADR_0014_STACK: LayerName[] = [
   'mobFire',

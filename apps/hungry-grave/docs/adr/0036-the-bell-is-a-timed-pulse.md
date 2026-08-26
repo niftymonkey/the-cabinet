@@ -1,0 +1,7 @@
+# The bell is a timed pulse
+
+The bell fires on its own clock rather than on each swallow (ruled by Mark 2026-08-19). This supersedes the earlier bell, which fired on every swallow and therefore at whatever rate the player collected, so a late run swallowing roughly once a second cleared the field as a side effect of collecting. On a timer the bell's damage rate is its damage over its period, fixed and tunable, and it gives the player a rhythm to position against. Its damage also falls off with distance from the grave, so the far edge of a big ring tickles rather than kills (ruled by Mark 2026-08-19): the falloff keeps an always-on ring at field scale from becoming the free clear the timer exists to prevent, and the curve itself is tuning data rather than part of this record.
+
+One consequence was accepted with the decision and is recorded so it is never mistaken for a bug: a maxed bell kills at the top of the field, those corpses scroll the whole way down and arrive nearly empty under Hungry Grave ADR 0004's coupling, and higher-level pushback shoves mobs further up before they die, so the strongest bell starves the fuel that made it strong. That is the bell's price, the way Vampire Survivors prices its repeating screen clear by having it destroy its own loot, and the freshness-at-swallow instrument is its watcher.
+
+Extracted from Hungry Grave ADR 0005 on 2026-08-26, decision unchanged. Ruled by Mark 2026-08-19; the radius and pushback progressions and the chime guarantee live in the game concept and the weapons dispatch record.

@@ -17,7 +17,7 @@ interface Swallowable {
   readonly freshness: number;
   // What this food pays before freshness scales it, in size units.
   readonly payout: number;
-  // Which line a drop levels, decided by the dice at spawn (ADR 0002). Absent on corpses and feasts.
+  // Which line a drop levels, decided by the dice at spawn (ADR 0034). Absent on corpses and feasts.
   readonly line?: WeaponLine;
 }
 
@@ -72,7 +72,7 @@ const payReservoir = (
 
 /**
  * A drop levels the line it carries, chosen by the dice at spawn and never
- * rolled here (ADR 0002). A line already at MAX_LEVEL has no level to give, so
+ * rolled here (ADR 0034). A line already at MAX_LEVEL has no level to give, so
  * the drop pays what it is worth as overflow instead and nothing swallowed is
  * ever worthless.
  */

@@ -53,7 +53,7 @@ describe('the tuning derivations', () => {
     // the flash is below the general flash and red flash thresholds." A general
     // flash is a pair of opposing changes in relative luminance of 10 percent
     // or more where the darker image is below 0.80 relative luminance, and
-    // ADR 0014's hit dim clears both halves on this palette.
+    // ADR 0040's hit dim clears both halves on this palette.
     //
     // A hit can only land once invulnerability has run out, so the
     // invulnerability window is the dim's refractory interval. The worst case

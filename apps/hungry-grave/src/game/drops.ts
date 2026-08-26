@@ -1,5 +1,5 @@
 // The rising price of a drop, and the dice that pick which line it levels
-// (ADR 0002).
+// (ADR 0002, ADR 0034).
 
 import { spawnDrop } from './corpses';
 import type { SimEvent } from './events';

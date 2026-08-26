@@ -1,5 +1,5 @@
 /**
- * The rising price and the dice (ADR 0002). Expected values come from the ADR
+ * The rising price and the dice (ADR 0002 and ADR 0034). Expected values come from the ADRs
  * and from dispatch 5's plan sections 3 and 6.8, never from running the module.
  */
 
@@ -82,7 +82,7 @@ describe('the price table (plan section 3)', () => {
   });
 });
 
-describe('the dice pick the line and never whether a drop appears (ADR 0002)', () => {
+describe('the dice pick the line and never whether a drop appears (ADR 0002 and ADR 0034)', () => {
   it('pays a drop on exactly the price-th kill, whatever the dice say', () => {
     const state = quietRun();
     for (let kill = 1; kill < priceOfNextDrop(0); kill++) {

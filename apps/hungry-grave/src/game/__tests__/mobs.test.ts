@@ -176,7 +176,7 @@ describe('the mob type table (ADR 0016)', () => {
     ]);
   });
 
-  it("makes the ghoul's speed a real fraction of the grave's, because ADR 0016 bounds it by turn rate and not by a cap", () => {
+  it("makes the ghoul's speed a real fraction of the grave's, because the type table bounds it by turn rate and not by a cap", () => {
     // The magnitude is the tuning dispatch's and is deliberately not pinned.
     // What is pinned is that it is fast enough to be a threat at all: a chaser
     // slower than the scroll it rides can never intercept anything.
@@ -185,7 +185,7 @@ describe('the mob type table (ADR 0016)', () => {
   });
 });
 
-describe('the arriving beat (ADR 0016)', () => {
+describe('the arriving beat (ADR 0041)', () => {
   it("holds the template's arriving velocity for ARRIVE_TICKS and then moves under the type's own rule", () => {
     const state = quietRun();
     const step = stepping(state);
@@ -312,7 +312,7 @@ function ghoulRun(commitAt: number, contact: number): SimEvent[] {
   return events;
 }
 
-describe("a mob's death (ADR 0005)", () => {
+describe("a mob's death (ADR 0037)", () => {
   it('kills at or below zero health, frees the slot, leaves a corpse and reports the kill', () => {
     const state = quietRun();
     spawnMob(state, 'shambler', order(200, 100));

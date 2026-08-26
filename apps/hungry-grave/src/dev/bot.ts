@@ -16,7 +16,7 @@ import { executeTick } from '../game/execution';
  * order, and today nothing does: the weapon lines are the game's own.
  *
  * It returns a TickCommand rather than a move because a policy that cannot
- * express a belch cannot carry ADR 0016's Wall property, which is two-sided over
+ * express a belch cannot carry ADR 0042's Wall property, which is two-sided over
  * exactly that: crossable unloaded, and never crossable for free.
  *
  * Every policy is a pure function of run state, so a seed and a policy name are
@@ -231,7 +231,7 @@ const bestDodge = (state: RunState): MoveCommand => {
 };
 
 /**
- * Dodges and never belches. It carries the first half of ADR 0016's two-sided
+ * Dodges and never belches. It carries the first half of ADR 0042's two-sided
  * Wall property: an edge-to-edge curtain built as the belch's target stays
  * crossable unloaded, at a real cost in size or hits.
  *
@@ -252,7 +252,7 @@ const BELCH_WORTH_IT = 8;
 
 /**
  * Dodges, and belches when the reservoir is full and there is a curtain worth
- * cancelling. It carries the other half of ADR 0016's property: the curtain is
+ * cancelling. It carries the other half of ADR 0042's property: the curtain is
  * never crossable for free.
  */
 const belchingPolicy: Policy = (state, caused) => {

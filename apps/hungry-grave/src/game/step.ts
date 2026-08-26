@@ -56,7 +56,7 @@ const resolveMobFire = (state: RunState, events: SimEvent[]): void => {
 
 /**
  * Mob bodies meeting the grave. The mob is not consumed, because live mobs are
- * never food and contact never kills a mob (ADR 0005).
+ * never food and contact never kills a mob (ADR 0037).
  */
 const resolveMobContact = (state: RunState, events: SimEvent[]): void => {
   const box = graveHitbox(state.grave);

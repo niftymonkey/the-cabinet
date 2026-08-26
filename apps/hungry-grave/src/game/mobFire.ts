@@ -45,8 +45,8 @@ interface FireRow {
    * How long the tell lights before every shot, not only the first. A revenant
    * fires about six times per pass, and a tell on shot one alone satisfies the
    * sentence and not the rule. At the arriving beat's own length the first
-   * shot's lead falls exactly inside the beat, which is how ADR 0016's two
-   * rules compose.
+   * shot's lead falls exactly inside the beat, which is how ADR 0016's tell and ADR 0041's beat
+   * compose.
    */
   readonly tellTicks: number;
   // Field units per tick. A reaction budget: a shot from mid-field reaches the starting mark in about two seconds.

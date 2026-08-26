@@ -62,7 +62,7 @@ interface WeaponLeveled {
 }
 
 /**
- * Mob fire landed. ADR 0014's dim reads this, and the window is its refractory
+ * Mob fire landed. ADR 0040's dim reads this, and the window is its refractory
  * interval. The source names who hurt the player (#48).
  */
 interface GraveHit {
@@ -207,7 +207,7 @@ interface PhaseChanged {
  * all three: a sound, a renderer, and an instrument that lives outside the sim.
  *
  * scoreBled, weaponStripped and sealed stay three events rather than one ladder
- * event. At the size floor there is no shrink, so ADR 0014's rim channel is
+ * event. At the size floor there is no shrink, so ADR 0040's rim channel is
  * silent and these three are the only second channel left.
  */
 type SimEvent =

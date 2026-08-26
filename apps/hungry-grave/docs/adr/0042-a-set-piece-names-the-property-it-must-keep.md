@@ -1,0 +1,7 @@
+# A set piece names the property it must keep
+
+A set piece names the property it must keep, never the mob types allowed in it (ruled by Mark 2026-08-19, after all three review gates converged on it). Pinning the cast would rebuild the fixed-membership club the pools exist to dismantle (Hungry Grave ADR 0016), at the one place the design cares most, and it would forbid a perfectly good harder curtain built from base trash with the armed share turned up. Leaving it to the author instead fails silently, because a curtain of the type that fires on entry makes the unloaded crossing impossible while every test still passes.
+
+The first instance is the Wall, and its property is two-sided with both halves load-bearing: an edge-to-edge curtain built as the belch's target stays crossable unloaded, and is never crossable for free. One-sided would let the curtain become comfortable, and then the loaded belch has no reason to be spent there and the run's most choreographed moment dies from the other direction. Two bot policies carry the property, one crossing without belching and surviving at a real cost, one belching and crossing clean; the unloaded policy is written as a plausible human rather than an optimizer, because a bot proof is an upper bound on perfect play and never a fairness result, so a human crossing stays the anchor.
+
+Extracted from Hungry Grave ADR 0016 on 2026-08-26, decision unchanged. Ruled by Mark 2026-08-19.
