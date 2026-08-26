@@ -101,14 +101,14 @@ function serveTape(bytes: Uint8Array): void {
 }
 
 async function settled(screen: ReplayScreen): Promise<void> {
-  await vi.waitFor(() => expect(screen['phase']).not.toBe('fetching'));
+  await vi.waitFor(() => expect(screen['session'].phase).not.toBe('fetching'));
 }
 
 function driveTo(screen: ReplayScreen, phase: string): void {
-  for (let each = 0; each < 2000 && screen['phase'] !== phase; each++) {
+  for (let each = 0; each < 2000 && screen['session'].phase !== phase; each++) {
     screen.update(frame(TICK_MS));
   }
-  expect(screen['phase']).toBe(phase);
+  expect(screen['session'].phase).toBe(phase);
 }
 
 describe('a played run opens in replay (dispatch 6b)', () => {
@@ -152,27 +152,31 @@ describe('a played run opens in replay (dispatch 6b)', () => {
     expect(replay.interactiveChildren).toBe(true);
     await settled(replay);
     driveTo(replay, 'playing');
-    expect(replay['playback']!.run.seed).toBe(7);
-    expect(replay['playback']!.run.tick).toBe(100 - REPLAY_LEAD_IN_TICKS);
+    expect(replay['session'].playback!.run.seed).toBe(7);
+    expect(replay['session'].playback!.run.tick).toBe(
+      100 - REPLAY_LEAD_IN_TICKS,
+    );
 
     driveTo(replay, 'played');
-    expect(replay['playback']!.run.tick).toBe(180);
-    expect(replay['bound']).toBe(180);
-    expect(replay['postureLabel'].text).toContain('PLAYED TO TICK 180');
-    const firstPlayback = replay['playback'];
+    expect(replay['session'].playback!.run.tick).toBe(180);
+    expect(replay['session'].bound).toBe(180);
+    expect(replay['session'].lines.posture).toContain('PLAYED TO TICK 180');
+    const firstPlayback = replay['session'].playback;
 
     // The pooled second showing starts clean: an idempotent reset, a fresh
     // playback, and the same honest priming again.
     replay.reset();
     replay.reset();
-    expect(replay['playback']).toBeNull();
+    expect(replay['session'].playback).toBeNull();
     replay.prepare();
     await settled(replay);
     driveTo(replay, 'playing');
-    expect(replay['playback']).not.toBe(firstPlayback);
-    expect(replay['playback']!.run.tick).toBe(100 - REPLAY_LEAD_IN_TICKS);
+    expect(replay['session'].playback).not.toBe(firstPlayback);
+    expect(replay['session'].playback!.run.tick).toBe(
+      100 - REPLAY_LEAD_IN_TICKS,
+    );
     driveTo(replay, 'played');
-    expect(replay['playback']!.run.tick).toBe(180);
+    expect(replay['session'].playback!.run.tick).toBe(180);
     replay.reset();
   });
 });

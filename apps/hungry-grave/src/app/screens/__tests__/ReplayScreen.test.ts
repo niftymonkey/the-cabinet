@@ -111,7 +111,7 @@ function serveTape(bytes: Uint8Array): void {
 
 /** Waits out the async fetch prepare() starts. */
 async function settled(screen: ReplayScreen): Promise<void> {
-  await vi.waitFor(() => expect(screen['phase']).not.toBe('fetching'));
+  await vi.waitFor(() => expect(screen['session'].phase).not.toBe('fetching'));
 }
 
 function drive(screen: ReplayScreen, frames: number): void {
@@ -119,14 +119,14 @@ function drive(screen: ReplayScreen, frames: number): void {
 }
 
 function driveTo(screen: ReplayScreen, phase: string): void {
-  for (let each = 0; each < 1000 && screen['phase'] !== phase; each++) {
+  for (let each = 0; each < 1000 && screen['session'].phase !== phase; each++) {
     screen.update(frame(TICK_MS));
   }
-  expect(screen['phase']).toBe(phase);
+  expect(screen['session'].phase).toBe(phase);
 }
 
 function tickOf(screen: ReplayScreen): number {
-  return screen['playback']!.run.tick;
+  return screen['session'].playback!.run.tick;
 }
 
 /**
@@ -186,8 +186,8 @@ describe('the replay screen', () => {
     drive(walked, 300);
     expect(tickOf(walked)).toBe(300);
 
-    expect(foldWitness(skipped['playback']!.run, 0)).toBe(
-      foldWitness(walked['playback']!.run, 0),
+    expect(foldWitness(skipped['session'].playback!.run, 0)).toBe(
+      foldWitness(walked['session'].playback!.run, 0),
     );
     expect(visiblePools(skipped)).toEqual(visiblePools(walked));
 
@@ -216,13 +216,13 @@ describe('the replay screen', () => {
     await settled(screen);
     driveTo(screen, 'played');
 
-    expect(screen['bound']).toBe(120);
+    expect(screen['session'].bound).toBe(120);
     expect(tickOf(screen)).toBe(120);
-    expect(screen['verifiedLabel'].text).toContain('VERIFIED 120');
-    expect(screen['verifiedLabel'].text).toContain(
+    expect(screen['session'].lines.verified).toContain('VERIFIED 120');
+    expect(screen['session'].lines.verified).toContain(
       'DIVERGED AT CHECKPOINT 180',
     );
-    expect(screen['postureLabel'].text).toContain('PLAYED TO TICK 120');
+    expect(screen['session'].lines.posture).toContain('PLAYED TO TICK 120');
 
     // And holds there: more frames render nothing further.
     drive(screen, 30);
@@ -239,10 +239,10 @@ describe('the replay screen', () => {
     await settled(screen);
     driveTo(screen, 'fastForwarding');
 
-    expect(screen['verifiedLabel'].text).toBe(
+    expect(screen['session'].lines.verified).toBe(
       `VERIFIED 360 OF ${tape.commands.length} TICKS`,
     );
-    expect(screen['debtLabel'].text).toBe(
+    expect(screen['session'].lines.debt).toBe(
       `ORIGINAL DEBT ${RECORDED_DEBT} TICKS`,
     );
     screen.reset();
@@ -255,9 +255,9 @@ describe('the replay screen', () => {
     screen.prepare();
     await settled(screen);
 
-    expect(screen['phase']).toBe('idle');
-    expect(screen['statement'].text).toContain('not a tape');
-    expect(screen['playback']).toBeNull();
+    expect(screen['session'].phase).toBe('idle');
+    expect(screen['session'].lines.statement).toContain('not a tape');
+    expect(screen['session'].playback).toBeNull();
     screen.reset();
   });
 
@@ -270,9 +270,9 @@ describe('the replay screen', () => {
     await settled(screen);
     driveTo(screen, 'playing');
 
-    expect(screen['statement'].text).toContain('CUT SHORT');
-    expect(screen['debtLabel'].text).toContain('NO TRAILER');
-    expect(screen['bound']).toBe(360);
+    expect(screen['session'].lines.statement).toContain('CUT SHORT');
+    expect(screen['session'].lines.debt).toContain('NO TRAILER');
+    expect(screen['session'].bound).toBe(360);
     screen.reset();
   });
 
@@ -299,7 +299,7 @@ describe('the replay screen', () => {
     await settled(screen);
     driveTo(screen, 'idle');
 
-    expect(screen['postureLabel'].text).toBe('NO REPLAY');
+    expect(screen['session'].lines.posture).toBe('NO REPLAY');
     expect(screen['field'].visible).toBe(false);
     screen.reset();
   });
@@ -309,8 +309,8 @@ describe('the replay screen', () => {
     const screen = new ReplayScreen();
     screen.prepare();
 
-    expect(screen['phase']).toBe('idle');
-    expect(screen['statement'].text).toContain('?tape=');
+    expect(screen['session'].phase).toBe('idle');
+    expect(screen['session'].lines.statement).toContain('?tape=');
     screen.reset();
   });
 });
