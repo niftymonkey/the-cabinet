@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP, oldestLive } from '../caps';
+import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../caps';
 import { spawnCorpse } from '../corpses';
 import type { SimEvent } from '../events';
 import type { Mob, MobType } from '../mobs';
@@ -93,15 +93,18 @@ describe('the mob fire cap', () => {
 describe('the corpse cap', () => {
   it('takes the oldest live corpse under, reports an eviction rather than an expiry, and gives the new corpse its slot', () => {
     const state = quietRun();
-    for (let made = 0; made < CORPSE_CAP; made++) {
+    // The first corpse made is the oldest live one, so naming it as it is made
+    // is what says which corpse the cap must take under.
+    leaveCorpse(state, deadMob(state, 'shambler', 60, 40));
+    const oldest = state.corpses.find((corpse) => corpse.alive)!;
+    const slot = state.corpses.indexOf(oldest);
+    const evictedId = oldest.id;
+    for (let made = 1; made < CORPSE_CAP; made++) {
       leaveCorpse(state, deadMob(state, 'shambler', 60, 40 + made));
     }
     expect(state.corpses.filter((corpse) => corpse.alive)).toHaveLength(
       CORPSE_CAP,
     );
-    const oldest = oldestLive(state.corpses)!;
-    const slot = state.corpses.indexOf(oldest);
-    const evictedId = oldest.id;
 
     const events = leaveCorpse(state, deadMob(state, 'revenant', 300, 500));
     expect(events).toEqual([
@@ -132,10 +135,12 @@ describe('the corpse cap', () => {
     expect(state.corpses[0].alive).toBe(true);
     const newestId = state.corpses[0].id;
 
-    const oldest = oldestLive(state.corpses)!;
-    expect(state.corpses.indexOf(oldest)).toBe(1);
-
-    leaveCorpse(state, deadMob(state, 'shambler', 120, 120));
+    // Slot one holds the second corpse made, at y 41, and it is now the oldest
+    // live one. The eviction naming it is what says the drop went by id.
+    const events = leaveCorpse(state, deadMob(state, 'shambler', 120, 120));
+    expect(events).toEqual([
+      { type: 'corpseEvicted', x: 60, y: 41, freshness: 1 },
+    ]);
     expect(state.corpses[0].id).toBe(newestId);
     expect(state.corpses[0].alive).toBe(true);
   });

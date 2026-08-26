@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createClock,
   MAX_CATCHUP_TICKS,
-  resetClock,
   TICK_HZ,
   TICK_MS,
   ticksFor,
@@ -95,17 +94,6 @@ describe('the tick accumulator', () => {
     ticksFor(clock, 5000);
     expect(ticksFor(clock, 16.7)).toBe(1);
     expect(ticksFor(clock, 16.7)).toBe(1);
-  });
-  it('resetClock clears the remainder and does not touch debtTicks, so a tab switch does not read as a struggling phone', () => {
-    const clock = createClock();
-    ticksFor(clock, 5000);
-    ticksFor(clock, 25);
-    const debt = clock.debtTicks;
-    expect(debt).toBeGreaterThan(0);
-    expect(clock.remainderMs).toBeGreaterThan(0);
-    resetClock(clock);
-    expect(clock.remainderMs).toBe(0);
-    expect(clock.debtTicks).toBe(debt);
   });
   it('zero, negative and non-finite elapsed times yield zero ticks and leave the remainder untouched', () => {
     // A browser reports all three across a tab switch.

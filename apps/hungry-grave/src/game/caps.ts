@@ -67,27 +67,6 @@ const takeSlot = <T extends PoolSlot>(pool: T[], id: number): T | null => {
   return null;
 };
 
-/**
- * The live slot with the lowest id, which is the oldest thing in the pool, or
- * null when nothing is live. This is the ordering the corpse policy evicts by,
- * and it is by id rather than by slot index because a recycled slot holds a
- * newer entity than one further along the array.
- *
- * Corpses take the oldest live corpse under and give the new corpse its slot.
- * The freshest corpse is the one worth diving for and the oldest is nearly
- * worthless by ADR 0004's own curve, so dropping the oldest costs the player
- * the least. Refusing the spawn instead would silently punish the best play,
- * which is killing a lot at once.
- */
-const oldestLive = <T extends PoolSlot>(pool: readonly T[]): T | null => {
-  let oldest: T | null = null;
-  for (const slot of pool) {
-    if (!slot.alive) continue;
-    if (oldest === null || slot.id < oldest.id) oldest = slot;
-  }
-  return oldest;
-};
-
 // How many slots of a pool are live.
 const liveCount = (pool: readonly PoolSlot[]): number => {
   return pool.reduce((count, slot) => count + (slot.alive ? 1 : 0), 0);
@@ -113,7 +92,6 @@ const WISP_CAP = 64;
 export {
   createPool,
   takeSlot,
-  oldestLive,
   liveCount,
   MOB_CAP,
   MOB_FIRE_CAP,

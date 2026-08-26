@@ -152,5 +152,5 @@ const performanceOf = (
   expensiveFrames: expensiveFramesOf(frames, densities),
 });
 
-export { performanceOf, ticksToSample, EXPENSIVE_FRAME_INTERVAL_MS };
+export { performanceOf, ticksToSample };
 export type { DebtSample, Distribution, ExpensiveFrame, PerformanceReport };
