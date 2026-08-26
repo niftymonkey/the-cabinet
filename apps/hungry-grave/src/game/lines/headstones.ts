@@ -1,12 +1,5 @@
-/**
- * The headstones: orbiting stones, last-ditch close defense, always on from
- * level 1 and counter-rotating in two rings at the higher levels (ADR 0005).
- *
- * No pool, no spawn, no cull. The count is a function of the level and the
- * positions are a function of one orbit phase, so the stones are computed each
- * tick from state.lines. A pool would give the game a second, weaker source of
- * truth for how many stones exist, and the level is already the answer.
- */
+// The headstones: orbiting stones, last-ditch close defense, always on from
+// level 1 and counter-rotating in two rings at the higher levels (ADR 0005).
 
 import type { SimEvent } from '../events';
 import { graveWidth } from '../grave';
@@ -58,7 +51,14 @@ const ORBIT_STEP = (2 * Math.PI) / ORBIT_TICKS;
 const STONE_HALF_EXTENT = 5;
 const STONE_DAMAGE = 1;
 
-// How many stones this run's headstone level orbits.
+/**
+ * How many stones this run's headstone level orbits.
+ *
+ * No pool, no spawn, no cull: the count is a function of the level and the
+ * positions are a function of one orbit phase, so the stones are computed each
+ * tick from state.lines. A pool would give the game a second, weaker source of
+ * truth for how many stones exist, and the level is already the answer.
+ */
 const stoneCount = (state: RunState): number => {
   return STONES_BY_LEVEL[state.levels.headstones];
 };

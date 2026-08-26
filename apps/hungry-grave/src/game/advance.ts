@@ -1,13 +1,5 @@
-/**
- * The frame seam above the execution authority: one frame's elapsed real time
- * turned into whole ticks and executed (ADR 0015, ADR 0017).
- *
- * It lives here rather than inside a pixi screen for the same reason clock.ts
- * does. ADR 0015 puts the accumulator in the game's own code so the autopilot
- * and the rendered screen share one implementation; with the loop inside a
- * screen the accumulator is shared but the loop is not, and dispatch 7's
- * autopilot would write a second one.
- */
+// The frame seam above the execution authority: one frame's elapsed real time
+// turned into whole ticks and executed (ADR 0015, ADR 0017).
 
 import type { Clock } from './clock';
 import { ticksFor } from './clock';
@@ -35,6 +27,12 @@ type CommandSource = (grave: FieldPoint) => TickCommand;
  * Advances the run by however many whole ticks this frame's elapsed time buys,
  * asking for a fresh command on every one of them.
  *
+ * The loop lives here rather than inside a pixi screen for the same reason
+ * clock.ts's accumulator does. ADR 0015 puts the accumulator in the game's own
+ * code so the autopilot and the rendered screen share one implementation; with
+ * the loop inside a screen the accumulator is shared but the loop is not, and
+ * dispatch 7's autopilot would write a second one.
+ *
  * Asking per tick rather than once per frame is the rule this seam exists to
  * hold. A touch command is a position error, so re-applying one sampled at the
  * top of the frame overshoots: on a 30 Hz frame a 100-unit drag would move the
@@ -42,8 +40,8 @@ type CommandSource = (grave: FieldPoint) => TickCommand;
  * which is why sampling it once per frame is correct and why the closure and
  * not this function decides.
  *
- * elapsedMs is raw elapsed real time and never Pixi's deltaMS: clock.ts says
- * why in its own header.
+ * elapsedMs is raw elapsed real time and never Pixi's deltaMS: clock.ts's
+ * ticksFor says why.
  *
  * The stop reason and the run's ending are both read off the Execution before
  * each tick. A fatal fault stops the frame instead of re-firing on the other

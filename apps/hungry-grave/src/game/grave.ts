@@ -1,7 +1,5 @@
-/**
- * The grave's size, its motion, and the consequence of mob fire meeting it.
- * Hides ADR 0003 entirely: no other module knows what a hit costs.
- */
+// The grave's size, its motion, and the consequence of mob fire meeting it.
+// Hides ADR 0003 entirely: no other module knows what a hit costs.
 
 import type { SimEvent } from './events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
@@ -51,7 +49,7 @@ interface FieldPoint {
 /**
  * A grave at the starting mark, at the size the run asks for. The size is
  * clamped here rather than by the caller, because ADR 0003's floor and ceiling
- * are this module's to defend and ?size= used to hold them from src/app.
+ * are this module's to defend and ?size= arrives from src/app unclamped.
  */
 const createGrave = (size: number = SIZE_START): Grave => {
   return {
@@ -177,9 +175,9 @@ const runFloorLadder = (state: RunState): SimEvent[] => {
  * Mob fire meeting the grave. Ignored while invulnerable. Runs ADR 0003's floor
  * ladder when the grave cannot shrink.
  *
- * This is the single entry point for every kind of damage: dispatch 4's mob
- * contact routes through it rather than shrinking the grave itself, so the
- * invulnerability window, the ladder and the events stay in one place.
+ * This is the single entry point for every kind of damage: mob contact routes
+ * through it rather than shrinking the grave itself, so the invulnerability
+ * window, the ladder and the events stay in one place.
  *
  * Every landed hit starts invulnerability, a floor hit that does not shrink
  * included. The window is ADR 0014's dim refractory interval, and a floor hit

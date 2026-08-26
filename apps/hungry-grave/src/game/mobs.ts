@@ -1,17 +1,5 @@
-/**
- * The mob type table, one behaviour rule per type, mob fire, and the
- * consequence of a mob being hit (tracer plan section 3). One file rather than
- * a folder, because a mob type is a stat row plus a small rule and the table
- * reads best as a table.
- *
- * Mob fire lives here too. The tracer plan deliberately has no projectiles.ts:
- * mob fire belongs to the mobs that emit it.
- *
- * Every magnitude here is a first pass owned by the tuning dispatch. What this
- * dispatch pins is the derivations, and the one number that is load-bearing
- * rather than a first pass is the shambler's half-width, because the Wall's row
- * count derives from it.
- */
+// The mob type table, one behaviour rule per type, mob fire, and the
+// consequence of a mob being hit (tracer plan section 3).
 
 import { createPool, MOB_CAP, MOB_FIRE_CAP, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
@@ -56,11 +44,13 @@ type ArmedShare = 'none' | 'everyThird' | 'all';
 type MobMotion = 'falls' | 'chases';
 
 /**
- * Every firing number a type owns. They are data from the first commit and not
- * shared module constants, so the tuning dispatch differentiates a revenant's
- * fire from a shambler's by editing a row rather than by refactoring constants
- * out of this module. The first-pass values are identical across the two firing
- * types on purpose.
+ * Every firing number a type owns. Mob fire lives in this file rather than in a
+ * projectiles.ts of its own: mob fire belongs to the mobs that emit it.
+ *
+ * The numbers are data from the first commit and not shared module constants,
+ * so the tuning dispatch differentiates a revenant's fire from a shambler's by
+ * editing a row rather than by refactoring constants out of this module. The
+ * first-pass values are identical across the two firing types on purpose.
  */
 interface FireRow {
   readonly armedShare: ArmedShare;
@@ -106,6 +96,14 @@ const NEVER_FIRES: FireRow = {
   shotHalfExtent: 0,
 };
 
+/**
+ * The type table. One file rather than a folder, because a mob type is a stat
+ * row plus a small rule and the table reads best as a table.
+ *
+ * Every magnitude here is a first pass owned by the tuning dispatch. The
+ * derivations are what is pinned, and the one number that is load-bearing
+ * rather than a first pass is the shambler's half-width.
+ */
 const MOB_TYPES = {
   shambler: {
     // The one load-bearing size here: an edge-to-edge curtain at 22 units wide

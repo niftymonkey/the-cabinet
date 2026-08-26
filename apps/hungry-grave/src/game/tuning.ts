@@ -1,20 +1,20 @@
-/**
- * The numbers that are not a single thing's own stats (tracer plan section 3).
- * A mob type owns its own stats and a weapon line owns its level curve, so
- * those tables live in their own modules when they arrive; this file holds the
- * rest.
- *
- * Every number here is a first pass owned by the tuning dispatch. What is
- * pinned by test is not the magnitudes, it is the derivations: a test that
- * pinned 4.5 would break on every retune and teach nothing, while a test that
- * pins "the grave crosses the field's width in about two seconds" is ADR 0003
- * and must never break.
- */
+// The numbers that are not a single thing's own stats (tracer plan section 3):
+// a mob type owns its own stats and a weapon line owns its level curve, in
+// their own modules, and this file holds the rest.
 
 import { TICK_HZ } from './clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 
-// Base speed in field units per tick. ADR 0003: crossing the field's width takes about two seconds.
+/**
+ * Base speed in field units per tick. ADR 0003: crossing the field's width
+ * takes about two seconds.
+ *
+ * Every number in this file is a first pass owned by the tuning dispatch. What
+ * is pinned by test is not the magnitudes, it is the derivations: a test that
+ * pinned 4.5 would break on every retune and teach nothing, while a test that
+ * pins "the grave crosses the field's width in about two seconds" is ADR 0003
+ * and must never break.
+ */
 const BASE_SPEED = FIELD_WIDTH / (2 * TICK_HZ);
 
 /**
@@ -95,7 +95,7 @@ const INVULNERABLE_TICKS = 24;
 // How many fully fresh trash corpses grow a run from its start to its ceiling. The economy's one declared magnitude.
 const CORPSES_TO_CEILING = 80;
 
-// The unit of food. Every mob's payout in dispatch 4 is stated as a multiple of this.
+// The unit of food. Every mob's payout is stated as a multiple of this.
 const TRASH_CORPSE_PAYOUT = (SIZE_CEILING - SIZE_START) / CORPSES_TO_CEILING;
 
 // Decision-log entry 5.11: the Banshee's feast pays growth worth 8 to 10 fresh trash corpses.

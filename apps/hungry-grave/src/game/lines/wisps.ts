@@ -1,20 +1,18 @@
-/**
- * The wisps: the run's only homing line, fired on each swallow and never
- * always-on (ADR 0005). Level 0 at the start of a run, so it arrives only
- * through a drop, and homing is therefore always bought with a dive.
- *
- * This module may import only types from mobs.ts. Targeting reads a mob's
- * position and health off the Mob type and needs nothing at runtime, and an
- * import type is erased, so the import cannot become a cycle once mobs.ts holds
- * the overlap pass that reads this pool. A single value import would break that
- * silently at build time.
- */
+// The wisps: the run's only homing line, fired on each swallow and never
+// always-on (ADR 0005).
 
 import { createPool, takeSlot, WISP_CAP } from '../caps';
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { cos, normalize, rotateToward, sin } from '../math';
+/**
+ * This module may import only types from mobs.ts. Targeting reads a mob's
+ * position and health off the Mob type and needs nothing at runtime, and an
+ * import type is erased, so the import cannot become a cycle once mobs.ts holds
+ * the overlap pass that reads this pool. A single value import would break that
+ * silently at build time.
+ */
 import type { Mob } from '../mobs';
 import type { RunState } from '../run';
 
@@ -36,6 +34,9 @@ interface Wisp {
  * endpoints are one lazy wisp and a converging flight of seven or eight, and the
  * one-swallow ordnance bound is computed against a volley of eight, so level 5
  * is eight and the design and the arithmetic agree.
+ *
+ * Level 0 is zero, so the line is silent at the start of a run and arrives only
+ * through a drop: homing is always bought with a dive.
  */
 const WISPS_BY_LEVEL: readonly number[] = [0, 1, 2, 4, 6, 8];
 

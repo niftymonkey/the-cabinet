@@ -1,17 +1,5 @@
-/**
- * The one button (ADR 0008): the full reservoir vomited as a screen-clearing
- * eruption. Every mob-fire shot on the field is cancelled, every mob on screen
- * is killed, and the reservoir empties.
- *
- * It fires only at a full reservoir and does nothing otherwise, which is why
- * there is no partial bomb anywhere in the signature. That full-only rule is
- * also what holds the one-shot behaviour: the first call empties the reservoir,
- * so repeat calls inside one frame are no-ops by the resource rather than by a
- * flag somebody has to remember to clear.
- *
- * The charge stays in swallow.ts and the firing is here, exactly as that file's
- * own header demands, so this dispatch is purely additive on that seam.
- */
+// The one button (ADR 0008): the full reservoir vomited as a screen-clearing
+// eruption.
 
 import type { SimEvent } from './events';
 import { damageMob, hasEntered } from './mobs';
@@ -54,6 +42,12 @@ const wipeEnteredMobs = (state: RunState, events: SimEvent[]): number => {
 /**
  * Cancels every mob-fire shot on the field, kills every mob on screen, and
  * empties the reservoir.
+ *
+ * It fires only at a full reservoir and does nothing otherwise, which is why
+ * there is no partial bomb anywhere in the signature. That full-only rule is
+ * also what holds the one-shot behaviour: the first call empties the reservoir,
+ * so repeat calls inside one frame are no-ops by the resource rather than by a
+ * flag somebody has to remember to clear.
  *
  * Boss damage is not here. ADR 0008 makes the belch deal a big chunk of it and
  * never push a boss, and there is no boss in this build for the rule to branch

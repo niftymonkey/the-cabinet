@@ -1,10 +1,5 @@
-/**
- * The four weapon lines as identity and levels. Their behaviour is dispatch 5,
- * and this folder exists now so that dispatch has one place to fill.
- *
- * The file is roster.ts and not lines.ts: lines/lines.ts stutters beside the
- * lines/soulStream.ts and friends dispatch 5 adds.
- */
+// The four weapon lines as identity and levels. The file is roster.ts and not
+// lines.ts, because lines/lines.ts stutters beside lines/soulStream.ts.
 
 type WeaponLine = 'soulStream' | 'headstones' | 'wisps' | 'bell';
 

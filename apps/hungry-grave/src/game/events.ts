@@ -1,13 +1,4 @@
-/**
- * The event vocabulary the sim reports out (tracer plan section 3). Payloads
- * carry values, never entity references: entities are pooled and mutated in
- * place, so a held reference is a recycled slot by the time a sound or an
- * instrument reads it.
- *
- * Every payload here serves three subscribers at once, because the tracer plan
- * names all three: a sound, a renderer, and an instrument that lives outside
- * the sim.
- */
+// The event vocabulary the sim reports out (tracer plan section 3).
 
 import type { GraveHitSource } from './grave';
 import type { WeaponLine } from './lines/roster';
@@ -15,7 +6,7 @@ import type { DamageSource, MobType } from './mobs';
 import type { PhaseName } from './stage/stage';
 import type { FoodKind } from './swallow';
 
-// Food went in. The weapon lines subscribe to this in dispatch 5.
+// Food went in.
 interface Swallowed {
   readonly type: 'swallowed';
   readonly kind: FoodKind;
@@ -200,7 +191,7 @@ interface DropSpawned {
   readonly y: number;
 }
 
-// The stage crossed a phase boundary (ADR 0006). Dispatch 5's music cue hangs here.
+// The stage crossed a phase boundary (ADR 0006). The music cue hangs here.
 interface PhaseChanged {
   readonly type: 'phaseChanged';
   readonly phase: PhaseName;
@@ -208,6 +199,13 @@ interface PhaseChanged {
 }
 
 /**
+ * Payloads carry values, never entity references: entities are pooled and
+ * mutated in place, so a held reference is a recycled slot by the time a sound
+ * or an instrument reads it.
+ *
+ * Every payload serves three subscribers at once, because the tracer plan names
+ * all three: a sound, a renderer, and an instrument that lives outside the sim.
+ *
  * scoreBled, weaponStripped and sealed stay three events rather than one ladder
  * event. At the size floor there is no shrink, so ADR 0014's rim channel is
  * silent and these three are the only second channel left.

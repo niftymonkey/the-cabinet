@@ -1,20 +1,4 @@
-/**
- * The witness (ADR 0019): the number a run folds its own state down to.
- *
- * It lives in src/game rather than in src/dev because a replay ships and ADR
- * 0013 keeps the verification rig out of the shipped game. One function with a
- * starting-value parameter, used two ways rather than being two behaviours:
- * chained across ticks for the golden digest's accumulator, and as an
- * independent snapshot at a tape's checkpoints.
- *
- * The field list is closed by ADR 0019 and held closed by the partition in
- * witness.test.ts, which walks the nested value types and fails on a field at
- * any depth that neither half of it has decided about.
- *
- * THE ORDER IS PART OF THE VALUE. Every tape ever recorded is folded in the
- * order written here, so a widening appends and never reshuffles what is
- * already in place. Readability loses to a stable baseline in this file.
- */
+// The witness (ADR 0019): the number a run folds its own state down to.
 
 import type { Corpse } from './corpses';
 import type { Grave } from './grave';
@@ -251,8 +235,23 @@ const foldLines = (checksum: number, lines: LineState): number => {
   return foldRing(fold(next, lines.tollIn), lines.ring);
 };
 
-// The whole run, folded into one integer from a starting value (ADR 0019).
+/**
+ * The whole run, folded into one integer from a starting value (ADR 0019). One
+ * function with a starting-value parameter, used two ways rather than being two
+ * behaviours: chained across ticks for the golden digest's accumulator, and as
+ * an independent snapshot at a tape's checkpoints.
+ *
+ * It lives in src/game rather than in src/dev because a replay ships and ADR
+ * 0013 keeps the verification rig out of the shipped game.
+ *
+ * The field list is closed by ADR 0019 and held closed by the partition in
+ * witness.test.ts, which walks the nested value types and fails on a field at
+ * any depth that neither half of it has decided about.
+ */
 const foldWitness = (run: RunState, from: number): number => {
+  // THE ORDER IS PART OF THE VALUE. Every tape ever recorded is folded in the
+  // order written here, so a widening appends and never reshuffles what is
+  // already in place. Readability loses to a stable baseline.
   let checksum = foldGrave(from, run.grave);
   checksum = foldEntities(checksum, run);
   checksum = foldTotals(checksum, run);

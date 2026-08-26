@@ -1,12 +1,5 @@
-/**
- * The bell: the funeral toll, always on from level 1, on its own clock and never
- * fired by a swallow (ADR 0005). Level 0 at the start of a run.
- *
- * The ring's damage resolves here rather than in the storm's overlap pass,
- * because it is a consequence of the ring expanding rather than of two boxes
- * overlapping, and folding it into an overlap pass would mean giving the ring a
- * hitbox it does not have.
- */
+// The bell: the funeral toll, always on from level 1, on its own clock and
+// never fired by a swallow (ADR 0005).
 
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
@@ -51,6 +44,8 @@ const BELL_EXPAND_TICKS = 45;
  * which is the range at which a mob is already close enough to be a contact
  * threat, so the first toll has something in it whenever the player is in any
  * danger at all.
+ *
+ * Level 0 is zero, so the line is silent at the start of a run.
  */
 const BELL_RADIUS_BY_LEVEL: readonly number[] = [0, 80, 122, 165, 207, 250];
 
@@ -125,6 +120,11 @@ const clamp = (value: number, low: number, high: number): number => {
 /**
  * Every mob the ring's leading edge reached this tick: inside the radius, and
  * not struck by this ring already.
+ *
+ * The ring's damage resolves here rather than in the storm's overlap pass,
+ * because it is a consequence of the ring expanding rather than of two boxes
+ * overlapping, and folding it into an overlap pass would mean giving the ring a
+ * hitbox it does not have.
  *
  * The ring only ever grows, so "inside the radius and not yet struck" is the
  * tick the edge crossed the mob and no other. Stated that way rather than as an

@@ -1,20 +1,4 @@
-/**
- * The authored timeline (ADR 0006): the phase machine, and the rows as data.
- *
- * Rows are a phase-local time in seconds, a template, a count, and a mob type.
- * Count lives on the row and never on the template, so density tuning never
- * edits a playtest-proven shape.
- *
- * Phases chain on boundary events rather than on one absolute clock, because a
- * shootable boss dies when killed and fight length varies per player. The
- * printed clock marks in the concept doc are nominal design intent.
- *
- * Every count here is first-pass tuning owned by the tuning dispatch. What is
- * not tuning, and must not be quietly changed, is the shape: teaching Drips
- * before a type appears in numbers, the 45-second ramp, a drain-out long enough
- * that the field is empty at the boundary, and the Wall's count matching the
- * shambler's width.
- */
+// The authored timeline (ADR 0006): the phase machine, and the rows as data.
 
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
@@ -30,6 +14,10 @@ interface StageRow {
   // Phase-local seconds. Rows fire when the phase-local tick passes this time.
   readonly t: number;
   readonly template: TemplateName;
+  /**
+   * Count lives on the row and never on the template, so density tuning never
+   * edits a playtest-proven shape.
+   */
   readonly count: number;
   readonly type: MobType;
 }
@@ -66,6 +54,12 @@ const DRAIN_OUT_SECONDS = 16;
  * overlap two at a time with Rain joining thin. A new mob type always arrives
  * first as a lone Drip, so ADR 0016's readable-before-it-acts rule has
  * somewhere to be read.
+ *
+ * Every count in this table and in BACK_HALF_ROWS is first-pass tuning owned by
+ * the tuning dispatch. What is not tuning, and must not be quietly changed, is
+ * the shape: teaching Drips before a type appears in numbers, the 45-second
+ * ramp, a drain-out long enough that the field is empty at the boundary, and
+ * the Wall's count matching the shambler's width.
  *
  * The Drip of three at t=14 is the game's first mob fire. Three shamblers
  * spread across the width arrive together and exactly one of them is armed, so
@@ -132,10 +126,15 @@ interface Phase {
 }
 
 /**
- * The five phases in order. The two boss phases are stubbed: a boss phase with
- * no boss has no rows, so it ends on the tick it begins. That is deliberately
- * the simplest possible stub, and the boss dispatch replaces it without moving
- * anything else about the timeline.
+ * The five phases in order. They chain on boundary events rather than on one
+ * absolute clock, because a shootable boss dies when killed and fight length
+ * varies per player. The printed clock marks in the concept doc are nominal
+ * design intent.
+ *
+ * The two boss phases are stubbed: a boss phase with no boss has no rows, so it
+ * ends on the tick it begins. That is deliberately the simplest possible stub,
+ * and the boss dispatch replaces it without moving anything else about the
+ * timeline.
  */
 const PHASES: readonly Phase[] = [
   { name: 'ramp', rows: RAMP_ROWS },
@@ -191,7 +190,7 @@ const spawnDueRows = (state: RunState, phase: Phase): void => {
 /**
  * Victory is stubbed. In the finished game the Undertaker's death is the ending
  * and his swallow is the animation (ADR 0007); the stub exists so that every
- * deploy from this dispatch on is a complete run in both directions.
+ * deploy is a complete run in both directions.
  */
 const enterNextPhase = (state: RunState, events: SimEvent[]): void => {
   const stage = state.stage;

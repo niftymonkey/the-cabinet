@@ -1,16 +1,6 @@
-/**
- * The soul stream: skulls pouring straight up out of the grave's mouth in rigid
- * fanned columns, always on from level 1, surging for a moment after every
- * swallow (ADR 0005). It never homes, and "rigid" and "never homes" are the same
- * requirement said twice: a skull's velocity is set once at launch and never
- * touched again.
- *
- * The level curve is columns and nothing else. The interval is fixed across
- * levels because "the saturation workhorse" is a statement about how much is on
- * the field rather than about how fast one lane repeats, and a curve that moved
- * both would make the two indistinguishable to anyone reading the code or the
- * screen.
- */
+// The soul stream: skulls pouring straight up out of the grave's mouth in
+// rigid fanned columns, always on from level 1, surging after every swallow
+// (ADR 0005).
 
 import { createPool, SKULL_CAP, takeSlot } from '../caps';
 import { TICK_HZ } from '../clock';
@@ -28,12 +18,20 @@ interface Skull {
   vy: number;
 }
 
-// How many columns each level fires, indexed by level.
+/**
+ * How many columns each level fires, indexed by level. The level curve is
+ * columns and nothing else.
+ */
 const COLUMNS_BY_LEVEL: readonly number[] = [0, 1, 2, 3, 4, 5];
 
 /**
- * Ticks between volleys, derived rather than picked. A shambler has 3 health and
- * a skull does 1 damage, so a mob standing in one column dies to three volleys.
+ * Ticks between volleys, fixed across levels because "the saturation workhorse"
+ * is a statement about how much is on the field rather than about how fast one
+ * lane repeats, and a curve that moved both would make the two
+ * indistinguishable to anyone reading the code or the screen.
+ *
+ * The magnitude is derived rather than picked. A shambler has 3 health and a
+ * skull does 1 damage, so a mob standing in one column dies to three volleys.
  * Half a second between them puts a trash kill at about 1.5 seconds under a
  * level-1 stream, which is the "trash dies in a second or two" the drain-out is
  * re-derived against.

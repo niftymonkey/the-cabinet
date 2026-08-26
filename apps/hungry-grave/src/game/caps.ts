@@ -1,28 +1,10 @@
+// The entity cap policy (tracer plan section 3).
+
 /**
- * The entity cap policy (tracer plan section 3). The caps are identical on
- * every device and are never lowered for a phone's frame budget: a
- * device-varying cap makes the same seed a different game and spends exactly
- * what ADR 0015 paid for.
- *
  * At the cap something must be dropped, and which one is a gameplay rule rather
  * than a housekeeping detail. That is why the policy lives in src/game and not
  * in invariants.ts: checking a cap is not enforcing one, and a policy in
  * src/dev would make the test rig load-bearing in the shipped game.
- *
- * The policy differs by pool, deliberately.
- *
- * Mobs and mob fire refuse the spawn. Nothing already on the field is ever
- * removed, because a shot the player has read and started dodging cannot
- * vanish: that teaches the player that dodging is optional, and it is the kind
- * of lie that is invisible in a test and infuriating in a hand.
- *
- * Corpses take the oldest live corpse under and give the new corpse its slot.
- * The freshest corpse is the one worth diving for and the oldest is nearly
- * worthless by ADR 0004's own curve, so dropping the oldest costs the player
- * the least. Refusing the spawn instead would silently punish the best play,
- * which is killing a lot at once.
- *
- * Both orderings are by id, so both are deterministic and unit-testable.
  */
 
 /**
@@ -32,6 +14,10 @@
  * the content that hitting one means something has gone wrong, and near enough
  * that a runaway spawn cannot allocate without bound. The tuning dispatch owns
  * them if the storm changes the arithmetic.
+ *
+ * They are identical on every device and are never lowered for a phone's frame
+ * budget: a device-varying cap makes the same seed a different game and spends
+ * exactly what ADR 0015 paid for.
  */
 const MOB_CAP = 160;
 const MOB_FIRE_CAP = 400;
@@ -65,6 +51,11 @@ const createPool = <T extends PoolSlot>(
  * The first dead slot, claimed and stamped with the id, or null when the pool
  * is full. This is the refusal policy: mobs and mob fire take a null answer and
  * do not spawn.
+ *
+ * Nothing already on the field is ever removed, because a shot the player has
+ * read and started dodging cannot vanish: that teaches the player that dodging
+ * is optional, and it is the kind of lie that is invisible in a test and
+ * infuriating in a hand.
  */
 const takeSlot = <T extends PoolSlot>(pool: T[], id: number): T | null => {
   for (const slot of pool) {
@@ -81,6 +72,12 @@ const takeSlot = <T extends PoolSlot>(pool: T[], id: number): T | null => {
  * null when nothing is live. This is the ordering the corpse policy evicts by,
  * and it is by id rather than by slot index because a recycled slot holds a
  * newer entity than one further along the array.
+ *
+ * Corpses take the oldest live corpse under and give the new corpse its slot.
+ * The freshest corpse is the one worth diving for and the oldest is nearly
+ * worthless by ADR 0004's own curve, so dropping the oldest costs the player
+ * the least. Refusing the spawn instead would silently punish the best play,
+ * which is killing a lot at once.
  */
 const oldestLive = <T extends PoolSlot>(pool: readonly T[]): T | null => {
   let oldest: T | null = null;

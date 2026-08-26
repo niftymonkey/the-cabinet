@@ -1,18 +1,4 @@
-/**
- * The one verb. Every payout in the game arrives through a swallow, and five
- * ADRs meet here.
- *
- * It takes values and never an entity reference, for the reason events.ts
- * already states: entities are pooled and mutated in place, so a held reference
- * is a recycled slot by the time anything reads it.
- *
- * Size never gates a swallow (ADR 0003). There is no size check anywhere in
- * this file, and one appearing here would be the bug.
- *
- * belch.ts is not this file and this file does not grow into it. The charge
- * stays here, because the swallow is what charges it; belch.ts takes the firing
- * and the eruption when dispatch 5 arrives, so that dispatch is purely additive.
- */
+// The one verb: every payout in the game arrives through a swallow.
 
 import type { SimEvent } from './events';
 import { growGrave } from './grave';
@@ -102,7 +88,14 @@ const payLevel = (
   return 0;
 };
 
-// The grave passes under food and it falls in. The only way anything is ever paid (ADR 0002).
+/**
+ * The grave passes under food and it falls in. The only way anything is ever
+ * paid (ADR 0002).
+ *
+ * It takes values and never an entity reference, for the reason events.ts
+ * already states: entities are pooled and mutated in place, so a held reference
+ * is a recycled slot by the time anything reads it.
+ */
 const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
   const paid = food.payout * freshnessScale(food.freshness);
   const events: SimEvent[] = [

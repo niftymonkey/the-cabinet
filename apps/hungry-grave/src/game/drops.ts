@@ -1,13 +1,5 @@
-/**
- * The rising price of a drop, and the dice that pick which line it levels
- * (ADR 0002).
- *
- * The prices are an authored table rather than a curve evaluated at runtime, for
- * two reasons and the second is the load-bearing one: a table is reviewable at a
- * glance and tunable per entry by the tuning dispatch, and Math.pow is an
- * implementation-approximated operation that ADR 0015 keeps out of the sim
- * entirely.
- */
+// The rising price of a drop, and the dice that pick which line it levels
+// (ADR 0002).
 
 import { spawnDrop } from './corpses';
 import type { SimEvent } from './events';
@@ -17,6 +9,12 @@ import type { RunState } from './run';
 
 /**
  * What each drop of a run costs, in kills.
+ *
+ * An authored table rather than a curve evaluated at runtime, for two reasons
+ * and the second is the load-bearing one: a table is reviewable at a glance and
+ * tunable per entry by the tuning dispatch, and Math.pow is an
+ * implementation-approximated operation that ADR 0015 keeps out of the sim
+ * entirely.
  *
  * Fitted to the authored stage's own supply of 268 trash mobs: a geometric ratio
  * of 1.24 from a base of 5 puts the tenth drop at 160 cumulative kills, the

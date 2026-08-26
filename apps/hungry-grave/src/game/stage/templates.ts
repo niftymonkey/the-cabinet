@@ -1,21 +1,10 @@
-/**
- * The placement library (ADR 0016). A template says where a group arrives and
- * how it is arranged, and never which kind of mob is in it. Nothing in this
- * file may reach the mob table, and if it needs to, the design has gone wrong.
- *
- * Every template enters from the top edge and spawns above it, so nothing pops
- * into existence on screen, and no template places a mob more than
- * SPAWN_MARGIN above the edge: the arriving beat is counted from the top-edge
- * crossing, and an unbounded margin would let a template park a mob off screen
- * for an arbitrary time before its beat even starts.
- *
- * The velocity a template supplies is a unit direction. The speed belongs to
- * whatever is flying the shape, which is ADR 0016's own split of placement and
- * entry from motion. A template declaring an absolute velocity would make every
- * straight-down entry jump in speed the tick its beat ends, with nothing on
- * screen to explain it.
- */
+// The placement library (ADR 0016).
 
+/**
+ * A template says where a group arrives and how it is arranged, and never which
+ * kind of mob is in it. Nothing in this file may reach the mob table, and if it
+ * needs to, the design has gone wrong.
+ */
 import { FIELD_WIDTH } from '../field';
 import { normalize } from '../math';
 import type { Stream } from '../rng';
@@ -25,7 +14,12 @@ type TemplateName = 'drip' | 'file' | 'v' | 'pincer' | 'rain' | 'wall';
 interface SpawnOrder {
   readonly x: number;
   readonly y: number;
-  // The arriving direction, a unit vector. Speed is the mob type's.
+  /**
+   * The arriving direction, a unit vector. Speed is the mob type's, which is
+   * ADR 0016's own split of placement and entry from motion. A template
+   * declaring an absolute velocity would make every straight-down entry jump in
+   * speed the tick its beat ends, with nothing on screen to explain it.
+   */
   readonly vx: number;
   readonly vy: number;
   /**
@@ -43,7 +37,11 @@ interface SpawnOrder {
  */
 const BODY = 26;
 
-// How far above the top edge the leading mob of a group spawns.
+/**
+ * How far above the top edge the leading mob of a group spawns. Every template
+ * enters from the top edge and spawns above it, so nothing pops into existence
+ * on screen.
+ */
 const ENTRY_DEPTH = BODY;
 
 /**

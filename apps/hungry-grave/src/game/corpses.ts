@@ -1,15 +1,6 @@
-/**
- * Corpses, freshness and feasts. Hides ADR 0004 entirely: the decay curve, the
- * scroll-speed coupling, the payout floor, and the dirt taking an empty corpse
- * under.
- *
- * The coupling is the whole point of a corpse having no velocity of its own.
- * The scroll phase moves it and nothing else does, so a corpse drifts at
- * exactly SCROLL_SPEED, and FRESHNESS_SECONDS is already derived as the time a
- * mid-field corpse takes to reach the bottom edge at that speed. A mid-field
- * kill therefore arrives at the bottom edge as a nearly empty scrap by
- * construction rather than by two numbers agreeing.
- */
+// Corpses, freshness and feasts. Hides ADR 0004 entirely: the decay curve, the
+// scroll-speed coupling, the payout floor, and the dirt taking an empty corpse
+// under.
 
 import { CORPSE_CAP, createPool, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
@@ -39,6 +30,14 @@ const CORPSE_HALF_EXTENT = 7;
 // How much freshness one tick drains. Derived from the seconds, which are themselves derived from the scroll.
 const FRESHNESS_PER_TICK = 1 / (FRESHNESS_SECONDS * TICK_HZ);
 
+/**
+ * A corpse has no velocity of its own, and the scroll-speed coupling is the
+ * whole point of that. The scroll phase moves it and nothing else does, so a
+ * corpse drifts at exactly SCROLL_SPEED, and FRESHNESS_SECONDS is already
+ * derived as the time a mid-field corpse takes to reach the bottom edge at that
+ * speed. A mid-field kill therefore arrives at the bottom edge as a nearly
+ * empty scrap by construction rather than by two numbers agreeing.
+ */
 interface Corpse {
   alive: boolean;
   id: number;
@@ -173,9 +172,9 @@ const spawnCorpse = (state: RunState, mob: Mob): SimEvent[] => {
 };
 
 /**
- * A boss-shed reward corpse that never decays (ADR 0004). Nothing in this
- * dispatch spawns one; the boss dispatch authors the shed and inherits the
- * mechanism rather than inventing it.
+ * A boss-shed reward corpse that never decays (ADR 0004). Nothing in the game
+ * spawns one yet; the boss dispatch authors the shed and inherits the mechanism
+ * rather than inventing it.
  */
 const spawnFeast = (
   state: RunState,

@@ -1,18 +1,5 @@
-/**
- * Numbers off a tape: the instrument that turns a decoded recording into
- * metrics (#58 slice 4).
- *
- * It consumes the one playback primitive and never a second loop, and it
- * answers in one of three arms (ADR 0019): metrics from a verified replay, a
- * divergence naming the first checkpoint that disagreed, or a witness-version
- * refusal. Metrics come only from a verified replay, so a silently wrong
- * metric is not a thing this interface can produce.
- *
- * The seam takes the decoded artifact rather than a Tape because truncation is
- * a fact about the bytes: DecodedTape.truncated is known only to the decoder,
- * and a summary that could not say "the bytes ran out" would merge it into
- * trailerless, which is a different fact.
- */
+// Numbers off a tape: the instrument that turns a decoded recording into
+// metrics (#58 slice 4).
 
 import type { TickListener } from '../game/execution';
 import type { WeaponLine } from '../game/lines/roster';
@@ -190,6 +177,12 @@ interface Refusal {
   readonly readerWitnessVersion: number;
 }
 
+/**
+ * The three arms a measurement answers in (ADR 0019): metrics from a verified
+ * replay, a divergence naming the first checkpoint that disagreed, or a
+ * witness-version refusal. Metrics come only from a verified replay, so a
+ * silently wrong metric is not a thing this interface can produce.
+ */
 type Measurement = Metrics | Divergence | Refusal;
 
 // All five damage arms present from the first tick, so an unused line reads zero rather than absent.
@@ -411,7 +404,13 @@ const ticksToSample = (
 };
 
 /**
- * Everything a tape can answer, through one replay.
+ * Everything a tape can answer, through one replay. It consumes the one
+ * playback primitive and never a second loop.
+ *
+ * It takes the decoded artifact rather than a Tape because truncation is a fact
+ * about the bytes: DecodedTape.truncated is known only to the decoder, and a
+ * summary that could not say "the bytes ran out" would merge it into
+ * trailerless, which is a different fact.
  *
  * The expensive frames' ticks are collected before the pass and their field
  * densities sampled by the pass's own observer, never by one reproduction per

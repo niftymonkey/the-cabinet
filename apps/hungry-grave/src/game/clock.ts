@@ -1,19 +1,5 @@
-/**
- * The accumulator that turns real elapsed time into fixed ticks, and its
- * catch-up clamp (ADR 0015). It lives in src/game rather than in a screen so
- * the autopilot and the rendered game share one implementation; otherwise the
- * bot's run is not the player's run.
- *
- * The accumulator is fed wall-clock time, which differs on every device by
- * nature, so the accumulator itself is not deterministic and does not need to
- * be. What is deterministic is the sim, which only ever sees whole ticks.
- *
- * ticksFor takes raw elapsed real time and never Pixi's deltaMS. Pixi assigns
- * the raw gap to elapsedMS, then clamps a local copy to _maxElapsedMS of 100
- * and gives only deltaMS the clamped value. Feed deltaMS and the clamp below is
- * unreachable, debtTicks reads zero forever, and any change to the ticker's
- * speed silently rescales the sim.
- */
+// The accumulator that turns real elapsed time into fixed ticks, and its
+// catch-up clamp (ADR 0015).
 
 const TICK_HZ = 60;
 const TICK_MS = 1000 / TICK_HZ;
@@ -37,6 +23,11 @@ const MAX_CATCHUP_TICKS = Math.round(250 / TICK_MS);
  */
 const TICK_TOLERANCE = 1e-9;
 
+/**
+ * The accumulator carries wall-clock time, which differs on every device by
+ * nature, so the accumulator itself is not deterministic and does not need to
+ * be. What is deterministic is the sim, which only ever sees whole ticks.
+ */
 interface Clock {
   // Real time carried over that did not add up to a whole tick yet.
   remainderMs: number;
@@ -44,6 +35,11 @@ interface Clock {
   debtTicks: number;
 }
 
+/**
+ * A clock lives in src/game rather than in a screen so the autopilot and the
+ * rendered game share one implementation; otherwise the bot's run is not the
+ * player's run.
+ */
 const createClock = (): Clock => {
   return { remainderMs: 0, debtTicks: 0 };
 };
@@ -56,6 +52,12 @@ const wholeTicksIn = (elapsedMs: number): number => {
 /**
  * Whole ticks to run for this frame's elapsed real time, clamped on the way in,
  * with the discarded ticks recorded as debt.
+ *
+ * elapsedMs is raw elapsed real time and never Pixi's deltaMS. Pixi assigns the
+ * raw gap to elapsedMS, then clamps a local copy to _maxElapsedMS of 100 and
+ * gives only deltaMS the clamped value. Feed deltaMS and the clamp below is
+ * unreachable, debtTicks reads zero forever, and any change to the ticker's
+ * speed silently rescales the sim.
  *
  * The clamp is on elapsedMs and never on the tick count on the way out. Gaffer
  * clamps the frame time before it enters the accumulator, so the dropped time

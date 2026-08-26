@@ -1,15 +1,4 @@
-/**
- * The deterministic headless player (ADR 0013), and the first real use of the
- * autopilot half of the sim verification contract.
- *
- * Every policy is a pure function of run state, so a seed and a policy name are
- * a whole run and two machines get the same one.
- *
- * It lives in src/dev because it is the test rig and not the game, and it is
- * not wired into the rendered app: ADR 0013 makes the same bot the dev-only
- * autopilot there, and the tracer plan puts that at the tuning dispatch behind
- * the input-model fence.
- */
+// The deterministic headless player (ADR 0013).
 
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
 import type { SimEvent } from '../game/events';
@@ -28,6 +17,9 @@ import { executeTick } from '../game/execution';
  * It returns a TickCommand rather than a move because a policy that cannot
  * express a belch cannot carry ADR 0016's Wall property, which is two-sided over
  * exactly that: crossable unloaded, and never crossable for free.
+ *
+ * Every policy is a pure function of run state, so a seed and a policy name are
+ * a whole run and two machines get the same one.
  */
 type Policy = (state: RunState, caused: SimEvent[]) => TickCommand;
 
@@ -41,6 +33,11 @@ interface PolicyRun {
  * spent. Every tick crosses the one authority (ADR 0017), so the bot's runs go
  * through the same code the rendered game does and no test can prove something
  * the shipped game does not do.
+ *
+ * The bot lives in src/dev because it is the test rig and not the game, and it
+ * is not wired into the rendered app: ADR 0013 makes the same bot the dev-only
+ * autopilot there, and the tracer plan puts that at the tuning dispatch behind
+ * the input-model fence.
  */
 const runPolicy = (
   execution: Execution,
@@ -310,12 +307,12 @@ const nearestThreat = (state: RunState): Threat | null => {
 /**
  * Steers deliberately into the nearest threat, and reaches sealed shut.
  *
- * It cannot walk the whole ADR 0003 ladder in this dispatch and must not be
- * asked to. Score arrives only as ceiling overflow from a swallow and a
- * strippable level needs a drop, so in a build with no drops the bot arrives at
- * the floor with score zero and nothing above the birthright: the next hit
- * seals. The ladder's own order is tested in grave.test.ts against hand-seeded
- * state, and that is where it stays.
+ * It cannot walk the whole ADR 0003 ladder and must not be asked to. Score
+ * arrives only as ceiling overflow from a swallow and a strippable level needs
+ * a drop, so in a build with no drops the bot arrives at the floor with score
+ * zero and nothing above the birthright: the next hit seals. The ladder's own
+ * order is tested in grave.test.ts against hand-seeded state, and that is where
+ * it stays.
  */
 const hitTakingPolicy: Policy = (state) => {
   return { move: towardNearest(state), belch: false };
