@@ -25,6 +25,12 @@ type VerificationReadbackResult = PlaybackResult;
  * - Future work must not infer that replay exists merely because internal
  *   readback primitives do.
  *
+ * Amended 2026-08-26: 6b has delivered, and the ownership bullet above is
+ * discharged rather than transferred. The player-facing half, the reserved
+ * `#/watch` screen and getting a tape out of one browser and into another, is
+ * owned by #49, and no #49 obligation may be treated as satisfied by
+ * verification readback or the instrument route existing.
+ *
  * What it proves is that the artifact the recorder just wrote is sound: that it
  * decodes, that its witness recomputes, and that the same tape gives the same
  * run twice. That is the whole of the capability. A witness that has never been
