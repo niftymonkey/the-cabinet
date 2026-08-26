@@ -1,17 +1,10 @@
+// The byte cursor a tape is written and read through.
+
 /**
- * The byte cursor a tape is written and read through.
- *
  * Byte order is stated by the format rather than left to the platform (ADR
  * 0018), so every multi-byte read and write below passes LITTLE_ENDIAN
  * explicitly and no call site is free to pick.
- *
- * The reader bounds-checks before every read rather than trusting a length that
- * came off the wire. The instrument route feeds arbitrary bytes from an
- * arbitrary URL into the decoder, and a replay file from a stranger is the
- * classic vector, so a short buffer is refused here instead of producing a
- * quietly wrong number further up.
  */
-
 const LITTLE_ENDIAN = true;
 
 // Bytes a UTF-8 string's length prefix takes, so a caller can size a record.
@@ -127,6 +120,13 @@ const remaining = (reader: ByteReader): number => {
   return reader.bytes.byteLength - reader.offset;
 };
 
+/**
+ * The cursor moved on by size bytes, bounds-checked before every read rather
+ * than trusting a length that came off the wire. The instrument route feeds
+ * arbitrary bytes from an arbitrary URL into the decoder, and a replay file
+ * from a stranger is the classic vector, so a short buffer is refused here
+ * instead of producing a quietly wrong number further up.
+ */
 const take = (reader: ByteReader, size: number, what: string): number => {
   if (remaining(reader) < size) {
     throw new TapeFormatError(

@@ -1,6 +1,10 @@
+// One move command from two live input models.
+
+import type { FieldPoint } from '../game/grave';
+import type { MoveCommand } from '../game/run';
+import type { TouchSteer } from './touch';
+
 /**
- * One move command from two live input models.
- *
  * Touch wins while it is steering, keyboard otherwise, and they are never
  * summed: the two are in different units of meaning, one a velocity and one a
  * position error, so a held key plus a live drag overshoots the target.
@@ -8,11 +12,6 @@
  * The rule has a consequence worth knowing: a resting finger that has crossed
  * the slop silently disables the keyboard until it lifts.
  */
-
-import type { FieldPoint } from '../game/grave';
-import type { MoveCommand } from '../game/run';
-import type { TouchSteer } from './touch';
-
 const combineSteer = (
   keys: MoveCommand,
   touch: TouchSteer,

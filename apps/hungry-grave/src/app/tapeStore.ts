@@ -1,12 +1,5 @@
-/**
- * Where every run's tape is kept in the browser as it happens (#58), so a
- * closed tab still leaves the tape up to its last checkpoint.
- *
- * The store is a convenience channel and never a dependency: every fault here
- * flips it to the designed unavailable state and is swallowed after being
- * logged, the recorder and the run never feel it, and the end screen's file
- * save works with no store at all.
- */
+// Where every run's tape is kept in the browser as it happens (#58), so a
+// closed tab still leaves the tape up to its last checkpoint.
 
 import type { RunEnding } from '../game/run';
 import type { TapeInputDevice, TapeIntegrity, TapeStop } from '../tape/tape';
@@ -272,7 +265,14 @@ const createStore = (database: IDBDatabase): TapeStore => {
   return { append, list, load, delete: remove };
 };
 
-// Null is the designed store-unavailable state, never an error a caller feels.
+/**
+ * Null is the designed store-unavailable state, never an error a caller feels.
+ *
+ * The store is a convenience channel and never a dependency: every fault in it
+ * flips it to the designed unavailable state and is swallowed after being
+ * logged, the recorder and the run never feel it, and the end screen's file
+ * save works with no store at all.
+ */
 const openTapeStore = async (): Promise<TapeStore | null> => {
   if (typeof indexedDB === 'undefined') {
     console.warn(

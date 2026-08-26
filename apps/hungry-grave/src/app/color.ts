@@ -1,9 +1,5 @@
-/**
- * Colour arithmetic, and nothing else. Pure functions over sRGB hex integers:
- * no pixi, no palette data, no imports at all. Everything here is the metric
- * `docs/research/readability-value-band.md` pins, so the declared-colour test
- * and the grayscale screenshot check cannot disagree about what they measure.
- */
+// Colour arithmetic, and nothing else. Pure functions over sRGB hex integers:
+// no pixi, no palette data, no imports at all.
 
 type Observer = 'normal' | 'protan' | 'deutan';
 
@@ -21,7 +17,14 @@ interface Hsv {
   readonly v: number;
 }
 
-// Rec.709 luma on gamma-encoded sRGB, 0 to 100. Channels are raw sRGB bytes and are NOT linearized.
+/**
+ * Rec.709 luma on gamma-encoded sRGB, 0 to 100. Channels are raw sRGB bytes and
+ * are NOT linearized.
+ *
+ * It is the metric `docs/research/readability-value-band.md` pins, as is every
+ * other metric here, so the declared-colour test and the grayscale screenshot
+ * check cannot disagree about what they measure.
+ */
 const luma = (hex: number): number => {
   const [r, g, b] = channels(hex);
   return ((REC709[0] * r + REC709[1] * g + REC709[2] * b) / 255) * 100;

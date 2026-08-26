@@ -1,14 +1,9 @@
-/**
- * Every colour the game draws, each declared with the luma it measures, so the
- * value band ADR 0014 reserves for mob fire is data a unit test can hold rather
- * than something only a screenshot can see.
- *
- * The table is derived and pinned in
- * `docs/research/readability-value-band.md` section 7. It is not this module's
- * to choose, and the declared lumas are written out rather than computed so the
- * test has something independent to check the hexes against.
- */
+// Every colour the game draws, each declared with the luma it measures.
 
+/**
+ * The declared luma is what makes the value band ADR 0014 reserves for mob fire
+ * data a unit test can hold rather than something only a screenshot can see.
+ */
 interface PaletteEntry {
   readonly hex: number;
   readonly luma: number;
@@ -23,7 +18,15 @@ const FIELD_LUMA_CEILING = 68;
 // The floor under the gap between the two, stated as a floor and not derived.
 const BAND_MARGIN_MIN = 20;
 
-// Every colour drawn while the field is live, the readouts over it included (ADR 0014).
+/**
+ * Every colour drawn while the field is live, the readouts over it included
+ * (ADR 0014).
+ *
+ * The table is derived and pinned in
+ * `docs/research/readability-value-band.md` section 7. It is not this module's
+ * to choose, and the declared lumas are written out rather than computed so the
+ * test has something independent to check the hexes against.
+ */
 const PALETTE = {
   // the night field
   night: { hex: 0x0e1119, luma: 6.64 },

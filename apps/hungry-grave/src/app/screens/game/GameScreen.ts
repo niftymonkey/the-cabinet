@@ -140,8 +140,7 @@ const BLURRED_LAYERS = ['mobBodies', 'mobFire', 'corpses', 'treasure'] as const;
  * It is built on demand inside a try rather than at module load. Constructing a
  * BlurFilter compiles a shader, which needs a document, and under node there is
  * none: at module load that throws on import and takes every screen test with
- * it, and inside the countdown it threw into a promise and surfaced as the
- * standing unhandled rejection this dispatch was asked to clear.
+ * it, and inside the countdown it throws into a promise nobody is waiting on.
  *
  * Only success is remembered. A failure is not, because whether the shader can
  * be compiled is a property of the environment at that moment rather than of
@@ -885,11 +884,9 @@ class GameScreen extends Container {
   }
 
   /**
-   * This frame's events, handed to everything that answers them.
-   *
-   * This is the one line that used to drop every event on the floor except the
-   * run-ending check, and it is where sound subscribes and where the two
-   * momentary effects that have no sim entity behind them are started.
+   * This frame's events, handed to everything that answers them. It is where
+   * sound subscribes and where the two momentary effects that have no sim
+   * entity behind them are started.
    */
   private announce(run: RunState, events: readonly SimEvent[]): void {
     for (const event of events) {

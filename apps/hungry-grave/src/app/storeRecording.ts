@@ -1,9 +1,5 @@
-/**
- * The spool that feeds one run's recording into the tape store as the run
- * plays (#58). It tracks cursors into the recorder's arrays and, at each
- * checkpoint boundary, queues the new segments; the store's failure posture
- * means nothing here can ever reach back into the run.
- */
+// The spool that feeds one run's recording into the tape store as the run plays
+// (#58).
 
 import type { TapeRecorder } from '../tape/recorder';
 import {
@@ -52,6 +48,11 @@ const freshRunId = (): string =>
         byte.toString(16).padStart(2, '0'),
       ).join('');
 
+/**
+ * Tracks cursors into the recorder's arrays and, at each checkpoint boundary,
+ * queues the new segments. The store's failure posture means nothing here can
+ * ever reach back into the run.
+ */
 const recordRunToStore = (
   store: Promise<TapeStore | null>,
   recorder: TapeRecorder,

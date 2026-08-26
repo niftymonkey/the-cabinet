@@ -1,18 +1,4 @@
-/**
- * Uncapped relative drag steering as a pure model: no DOM in it at all. It
- * takes pointer ids and points already in field units, converted by
- * GameScreen through layout.ts's screenToField.
- *
- * Relative rather than absolute (ADR 0011). The player can anchor away from
- * the grave so their own hand need not occlude the thing being steered, and an
- * absolute model would teleport the grave to wherever a finger first lands.
- * Cave went relative across its whole iOS line.
- *
- * Steering is all this model does. The belch is not a steering command: Mark
- * ruled on 2026-08-22 that it binds to a dedicated corner button, because the
- * belch is the scarcest object in the game and is only spendable at the moment
- * it is worth most, so a binding that can misfire is the wrong one.
- */
+// Uncapped relative drag steering as a pure model: no DOM in it at all.
 
 import type { FieldPoint } from '../game/grave';
 import type { MoveCommand } from '../game/run';
@@ -84,6 +70,15 @@ const apart = (a: FieldPoint, b: FieldPoint): boolean => {
   );
 };
 
+/**
+ * It takes pointer ids and points already in field units, converted by
+ * GameScreen through layout.ts's screenToField.
+ *
+ * Steering is all this model does. The belch is not a steering command: Mark
+ * ruled on 2026-08-22 that it binds to a dedicated corner button, because the
+ * belch is the scarcest object in the game and is only spendable at the moment
+ * it is worth most, so a binding that can misfire is the wrong one.
+ */
 class TouchSteer {
   private readonly pointers = new Map<number, PointerTrack>();
   private steeringId: number | null = null;
@@ -215,6 +210,11 @@ class TouchSteer {
    * the grave on T and applying the same command again lands it on 2T - P. The
    * anchor and the pointer are both frame constants, so recomputing converges
    * instead: once the grave is on the target the recomputed command is zero.
+   *
+   * Relative rather than absolute (ADR 0011). The player can anchor away from
+   * the grave so their own hand need not occlude the thing being steered, and an
+   * absolute model would teleport the grave to wherever a finger first lands.
+   * Cave went relative across its whole iOS line.
    *
    * It is deliberately uncapped. Capping the drag at keyboard speed for
    * fairness WAS the input lag felt on device (ADR 0011), so no clamp goes here

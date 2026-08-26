@@ -1,12 +1,5 @@
-/**
- * Keyboard steering as a pure model: no DOM in it at all. It holds the set of
- * held key codes and turns them into a move command in base-speed units.
- *
- * Normalization and the speed setting both live here rather than in the sim.
- * ADR 0011 puts them in each input model, and moveGrave deliberately applies
- * the command as given, so a cap or a normalization in src/game would silently
- * undo the ADR's uncapped touch drag.
- */
+// Keyboard steering as a pure model: no DOM in it at all. It holds the set of
+// held key codes and turns them into a move command in base-speed units.
 
 import type { MoveCommand } from '../game/run';
 
@@ -124,6 +117,11 @@ class KeySteer {
   /**
    * The held keys as one move command: sum the directions, normalize, scale by
    * the speed setting, then halve while focus is held.
+   *
+   * Normalization and the speed setting both live here rather than in the sim.
+   * ADR 0011 puts them in each input model, and moveGrave deliberately applies
+   * the command as given, so a cap or a normalization in src/game would silently
+   * undo the ADR's uncapped touch drag.
    */
   public command(): MoveCommand {
     const summed = sumHeld(this.held);

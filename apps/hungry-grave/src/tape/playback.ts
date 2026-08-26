@@ -1,9 +1,5 @@
-/**
- * The one canonical loop that drives a tape through the execution authority
- * (#58). playTape and the stepwise Playback are the same loop, so a second
- * reproduce loop never exists: verification readback and the replay screen
- * both sit on this primitive.
- */
+// The one canonical loop that drives a tape through the execution authority
+// (#58).
 
 import { createExecution, executeTick } from '../game/execution';
 import type { FaultRecord, TickListener } from '../game/execution';
@@ -188,7 +184,11 @@ const createPlayback = (tape: Tape, observer?: TickListener): Playback => {
   };
 };
 
-// Drives createPlayback to the end, through the same loop the stepwise form steps.
+/**
+ * Drives createPlayback to the end, through the same loop the stepwise form
+ * steps, so a second reproduce loop never exists: verification readback and the
+ * replay screen both sit on this primitive.
+ */
 const playTape = (tape: Tape, observer?: TickListener): PlaybackResult => {
   const playback = createPlayback(tape, observer);
   let advancing = true;

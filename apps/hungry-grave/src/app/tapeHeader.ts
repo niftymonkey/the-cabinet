@@ -1,16 +1,5 @@
-/**
- * The header a run's tape opens with, assembled from the browser the run is
- * being played in.
- *
- * It is split in two on purpose. The header itself is a pure function of a run
- * and a record of conditions, so it is testable without a browser; reading
- * those conditions off the page and the renderer is the part that needs one.
- *
- * Everything here is a constant for a run rather than a per-frame series, which
- * is the rule that decides what belongs in a header at all: header shape is
- * one-way once tapes exist, so a value that changes during a run would have to
- * be an observation instead.
- */
+// The header a run's tape opens with, assembled from the browser the run is
+// being played in.
 
 import { TICK_HZ } from '../game/clock';
 import type { RunState } from '../game/run';
@@ -32,7 +21,14 @@ const UNNAMED_AUTHOR = 'unknown';
 // Reserved for a resolvable build identity, whose machinery is deliberately not built.
 const UNRESOLVED_BUILD = '';
 
-// The conditions a run was played under, read once before its first tick.
+/**
+ * The conditions a run was played under, read once before its first tick.
+ *
+ * The module is split in two on purpose, and this record is the seam. The
+ * header itself is a pure function of a run and a record of conditions, so it
+ * is testable without a browser; reading those conditions off the page and the
+ * renderer is the part that needs one.
+ */
 interface RunConditions {
   readonly inputDevice: TapeInputDevice;
   readonly keyboardSpeed: number;
@@ -46,6 +42,11 @@ interface RunConditions {
 /**
  * The run's identity and its conditions, ready to be written before its first
  * tick.
+ *
+ * Every field is a constant for a run rather than a per-frame series, which is
+ * the rule that decides what belongs in a header at all: header shape is
+ * one-way once tapes exist, so a value that changes during a run would have to
+ * be an observation instead.
  *
  * The starting size goes in as the number the run actually resolved to. Reading
  * it off the grave is the point: with no ?size= the run starts at the compiled

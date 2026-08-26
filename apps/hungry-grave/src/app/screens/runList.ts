@@ -1,9 +1,4 @@
-/**
- * The kept-runs list: a dumb view of the store's summary rows. Data in, pixels
- * out; the screen that drives it owns the store, the loading and the refresh,
- * and this component only signals intent outward through the actions it was
- * handed at construction.
- */
+// The kept-runs list: a dumb view of the store's summary rows.
 
 import { Container } from 'pixi.js';
 
@@ -71,6 +66,11 @@ const offerButton = (text: string, onPress: () => void): Button => {
   return button;
 };
 
+/**
+ * Data in, pixels out; the screen that drives it owns the store, the loading and
+ * the refresh, and this component only signals intent outward through the
+ * actions it was handed at construction.
+ */
 const createRunList = (actions: RunActions): RunList => {
   const view = new Container();
 

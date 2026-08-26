@@ -1,19 +1,4 @@
-/**
- * The tape recorder: what turns one run into a tape as it plays.
- *
- * It attaches to the one execution authority (ADR 0017) rather than to any
- * particular caller, so the rendered game, the bot and the golden scenario all
- * record through the same seam and a recording cannot be bypassed by whichever
- * path happens to reach the simulation.
- *
- * ITS LIFETIME IS THE RUN'S, exactly as the Execution's is. A recorder held
- * past its run would carry the previous run's commands into the next one, and a
- * pooled screen leaks anything nobody explicitly clears.
- *
- * The frame rows arrive from outside instead, because a frame is not a tick:
- * the tick listener fires once per executed tick and can only ever see the
- * simulation, while frame cadence lives above it.
- */
+// The tape recorder: what turns one run into a tape as it plays.
 
 import type { Execution } from '../game/execution';
 import type { FaultIdentity } from '../game/invariants';
@@ -48,6 +33,11 @@ interface TapeRecorder {
   trailer: TapeTrailer | null;
 }
 
+/**
+ * ITS LIFETIME IS THE RUN'S, exactly as the Execution's is. A recorder held
+ * past its run would carry the previous run's commands into the next one, and a
+ * pooled screen leaks anything nobody explicitly clears.
+ */
 const createRecorder = (header: TapeHeader): TapeRecorder => {
   return {
     header,
@@ -117,6 +107,11 @@ const syncFaults = (recorder: TapeRecorder, execution: Execution): void => {
 /**
  * Starts recording a run, stamping the checkpoint that precedes its first tick.
  *
+ * It attaches to the one execution authority (ADR 0017) rather than to any
+ * particular caller, so the rendered game, the bot and the golden scenario all
+ * record through the same seam and a recording cannot be bypassed by whichever
+ * path happens to reach the simulation.
+ *
  * Checkpoint zero is stamped here rather than on the first tick because it is
  * the state before any tick has run, and that is what "the very first tick is
  * witnessed" has to mean.
@@ -139,6 +134,10 @@ const recordInto = (execution: Execution, header: TapeHeader): TapeRecorder => {
 
 /**
  * One rendered frame's row, handed in from the frame seam above the simulation.
+ *
+ * The frame rows arrive from outside because a frame is not a tick: the tick
+ * listener fires once per executed tick and can only ever see the simulation,
+ * while frame cadence lives above it.
  *
  * Rows still arrive after the trailer is written, because the frames a run
  * spends on its own end state are frames of that run. The encoder writes the

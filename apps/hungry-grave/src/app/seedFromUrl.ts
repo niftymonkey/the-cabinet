@@ -1,22 +1,5 @@
-/**
- * What the URL asks of a run: ?seed= pins the run and ?size= pins the grave's
- * starting size (ADR 0012), and ?levels= pins the weapon loadout (ADR 0020).
- * Pure functions over two strings, so they are testable without a browser.
- *
- * The controls live beside the two identity parameters rather than in modules
- * of their own because the reader below is the thing worth having once: hash
- * query first, search second, one warning on anything unusable.
- *
- * Both parameters are read from the hash's own query before the search, and
- * the hash wins when both are present. The hash is this app's single
- * navigation authority (see routes.ts) and the only part that changes without
- * a reload, so a stale ?seed= left in the search must not silently override a
- * fresh seed an in-app link has just written.
- *
- * A value this module cannot use is warned about once and ignored, and the run
- * rolls fresh: a playtester who fat-fingers a seed should still get a game
- * rather than a blank screen.
- */
+// What the URL asks of a run. Pure functions over two strings, so they are
+// testable without a browser.
 
 import { MAX_LEVEL } from '../game/lines/roster';
 import { SEED_LIMIT } from '../game/run';
@@ -27,7 +10,16 @@ const hashQuery = (hash: string): string => {
   return start < 0 ? '' : hash.slice(start + 1);
 };
 
-// The parameter as the URL states it, hash first, or null when neither form names it.
+/**
+ * The parameter as the URL states it, hash first, or null when neither form
+ * names it.
+ *
+ * Every parameter is read from the hash's own query before the search, and the
+ * hash wins when both are present. The hash is this app's single navigation
+ * authority (see routes.ts) and the only part that changes without a reload, so
+ * a stale ?seed= left in the search must not silently override a fresh seed an
+ * in-app link has just written.
+ */
 const rawParameter = (
   name: string,
   search: string,
@@ -38,6 +30,11 @@ const rawParameter = (
   return new URLSearchParams(search).get(name);
 };
 
+/**
+ * A value this module cannot use is warned about once and ignored, and the run
+ * rolls fresh: a playtester who fat-fingers a seed should still get a game
+ * rather than a blank screen.
+ */
 const ignore = (name: string, raw: string): null => {
   console.warn(`Ignoring ?${name}=${raw}: the run rolls fresh instead.`);
   return null;
@@ -51,9 +48,9 @@ const parsed = (raw: string): number | null => {
 };
 
 /**
- * The pinned seed, or null when there is none to pin. Accepts exactly a seed
- * the roll itself could have produced: a whole number, zero or greater, below
- * SEED_LIMIT.
+ * The pinned seed, which pins the run (ADR 0012), or null when there is none to
+ * pin. Accepts exactly a seed the roll itself could have produced: a whole
+ * number, zero or greater, below SEED_LIMIT.
  */
 const seedFromUrl = (search: string, hash: string): number | null => {
   const raw = rawParameter('seed', search, hash);
@@ -65,13 +62,12 @@ const seedFromUrl = (search: string, hash: string): number | null => {
 };
 
 /**
- * The pinned starting size, or null when there is none. Fractional values are
- * allowed, because the sim's sizes are fractional.
+ * The pinned starting size for the grave (ADR 0012), or null when there is
+ * none. Fractional values are allowed, because the sim's sizes are fractional.
  *
  * It parses and does not clamp. ADR 0003's floor and ceiling are the rules
- * layer's to defend and createRun holds them, so a URL parser in the app layer
- * is no longer standing in for grave.ts. What is refused here is a string that
- * names no number at all.
+ * layer's to defend and createRun holds them. What is refused here is a string
+ * that names no number at all.
  */
 const sizeFromUrl = (search: string, hash: string): number | null => {
   const raw = rawParameter('size', search, hash);

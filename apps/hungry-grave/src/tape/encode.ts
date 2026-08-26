@@ -1,22 +1,5 @@
-/**
- * A tape, as bytes.
- *
- * Bytes and never a JSON string, and the frame rows are what makes that decide
- * anything. A twelve-thousand-tick run is 110KiB of header, body, witness and
- * trailer, and then one 25-byte observation per rendered frame on top: 403KiB
- * at a 60Hz refresh and 696KiB at 120Hz, where the rows outweigh the body two
- * and two-thirds to five and a third times over. Base64 and UTF-16 multiply
- * whatever that is by eight thirds, so the encoding decides whether a full
- * stage's run is a file somebody can hold and send or a hosting problem.
- *
- * Steering is two float32, one per axis, through the same single-precision
- * rounding the simulation already applies. It has no scale to derive, no range
- * limit and asks for no clamp in the input path, which is the shape ADR 0011
- * was already burned by.
- *
- * The chunk-level encoders live in segments.ts; this file composes them into
- * the whole tape a run's stop writes.
- */
+// A tape, as bytes: the chunk-level encoders in segments.ts, composed into the
+// whole tape a run's stop writes.
 
 import type { ByteWriter } from './bytes';
 import {
@@ -35,7 +18,14 @@ import {
 import type { Tape } from './tape';
 import type { TickCommand } from '../game/run';
 
-// Two float32 of steering and one flag byte, which is what a body row costs.
+/**
+ * Two float32 of steering and one flag byte, which is what a body row costs.
+ *
+ * Steering is two float32, one per axis, through the same single-precision
+ * rounding the simulation already applies. It has no scale to derive, no range
+ * limit and asks for no clamp in the input path, which is the shape ADR 0011
+ * was already burned by.
+ */
 const COMMAND_BYTES = 9;
 
 // The tick a body chunk starts at, which is the only field in front of its commands.
@@ -101,6 +91,14 @@ const writeBodyAndWitness = (writer: ByteWriter, tape: Tape): void => {
  * The whole tape, in the order a reader meets it: the header first because it
  * is written before the first tick, and the trailer last because it is written
  * at the stop and a missing one is itself the reading.
+ *
+ * Bytes and never a JSON string, and the frame rows are what makes that decide
+ * anything. A twelve-thousand-tick run is 110KiB of header, body, witness and
+ * trailer, and then one 25-byte observation per rendered frame on top: 403KiB
+ * at a 60Hz refresh and 696KiB at 120Hz, where the rows outweigh the body two
+ * and two-thirds to five and a third times over. Base64 and UTF-16 multiply
+ * whatever that is by eight thirds, so the encoding decides whether a full
+ * stage's run is a file somebody can hold and send or a hosting problem.
  *
  * An empty section is left out rather than written empty, so a tape from a run
  * that stopped before its first checkpoint is not carrying a promise it did not

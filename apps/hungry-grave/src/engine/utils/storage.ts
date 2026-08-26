@@ -1,7 +1,5 @@
-/**
- * Simple local storage utility that can safely get/set number, boolean and object values too
- * not only string as in plain localStorage.
- */
+// Local storage for numbers, booleans and objects, not only the strings plain
+// localStorage holds.
 
 let warned = false;
 

@@ -1,14 +1,4 @@
-/**
- * Chunk-level encoding: one segment is one chunk's bytes, so a store can
- * append a run as the run produces it instead of waiting for encodeTape at the
- * stop (#58). The header segment opens with the magic and the format version,
- * so segments concatenated in the order a run produces them are themselves a
- * canonical FORMAT_VERSION 1 stream.
- *
- * The layout is frozen: sealed FORMAT_VERSION 1 tapes exist outside the tree,
- * so codec.test.ts pins encodeTape's bytes and segments.test.ts pins these
- * encoders against encodeTape.
- */
+// Chunk-level encoding: one segment is one chunk's bytes.
 
 import type { ByteWriter } from './bytes';
 import {
@@ -145,7 +135,11 @@ const writeTrailerRecord = (
   writeU32(payload, trailer.debtTicks);
 };
 
-// One chunk's bytes: the kind, the length and the payload the fill wrote.
+/**
+ * One chunk's bytes: the kind, the length and the payload the fill wrote. A
+ * store can append a run as the run produces it instead of waiting for
+ * encodeTape at the stop (#58).
+ */
 const chunkBytes = (
   kind: number,
   fill: (payload: ByteWriter) => void,
@@ -158,7 +152,13 @@ const chunkBytes = (
 /**
  * The stream's opening: the magic, the format version and the header chunk.
  * They travel as one segment because a header chunk without the magic in front
- * of it is not appendable to anything a reader accepts.
+ * of it is not appendable to anything a reader accepts. Segments concatenated
+ * in the order a run produces them are therefore themselves a canonical
+ * FORMAT_VERSION 1 stream.
+ *
+ * The layout is frozen: sealed FORMAT_VERSION 1 tapes exist outside the tree,
+ * so codec.test.ts pins encodeTape's bytes and segments.test.ts pins these
+ * encoders against encodeTape.
  */
 const headerSegment = (header: TapeHeader): Uint8Array => {
   const writer = createWriter();

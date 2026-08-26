@@ -1,22 +1,4 @@
-/**
- * Bytes, read back as a tape.
- *
- * Two properties are load-bearing and pull in opposite directions, so they are
- * settled here rather than left to a caller.
- *
- * A recording that stops mid-stream is a tape and not garbage. One of the two
- * shapes "too easy" takes is not dying but losing interest and closing the tab,
- * so a decoder that only accepted finished recordings would be blind to exactly
- * the failure the instrument was built to find. A trailing chunk that the
- * buffer cannot hold is therefore read for as many whole records as are
- * actually there, and the tape says it was truncated.
- *
- * And a tape from a stranger must not be able to make the reader misbehave. So
- * no allocation is ever sized from a length that came off the wire: a chunk
- * length is checked against the bytes actually present before anything is read,
- * and a record is read only once the bytes it needs are known to be there.
- * Anything structurally impossible, rather than merely cut short, is refused.
- */
+// Bytes, read back as a tape.
 
 import type { ByteReader } from './bytes';
 import {
@@ -319,7 +301,17 @@ const readTrailer = (payload: ByteReader): TapeTrailer => {
   };
 };
 
-// How much of a chunk is actually present, which is never more than the buffer holds.
+/**
+ * How much of a chunk is actually present, which is never more than the buffer
+ * holds.
+ *
+ * A recording that stops mid-stream is a tape and not garbage. One of the two
+ * shapes "too easy" takes is not dying but losing interest and closing the tab,
+ * so a decoder that only accepted finished recordings would be blind to exactly
+ * the failure the instrument was built to find. A trailing chunk that the
+ * buffer cannot hold is therefore read for as many whole records as are
+ * actually there, and the tape says it was truncated.
+ */
 const presentBytes = (reader: ByteReader, declared: number): number => {
   return Math.min(declared, remaining(reader));
 };
@@ -389,6 +381,12 @@ const readChunk = (
 
 /**
  * A tape from bytes, whether or not the recording that wrote them finished.
+ *
+ * A tape from a stranger must not be able to make the reader misbehave. So no
+ * allocation is ever sized from a length that came off the wire: a chunk length
+ * is checked against the bytes actually present before anything is read, and a
+ * record is read only once the bytes it needs are known to be there. Anything
+ * structurally impossible, rather than merely cut short, is refused.
  *
  * The format version is a refusal and never a best effort: a reader that
  * guessed at a layout it does not know would produce numbers nobody can trust,

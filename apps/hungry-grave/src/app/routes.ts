@@ -1,12 +1,4 @@
-/**
- * The route table. The URL fragment is the single navigation authority between
- * the game and the prototype list: buttons only assign location.hash, and the
- * router in main.ts answers boot, in-app hash writes, and the browser's back
- * and forward buttons alike. Screens inside the game navigate directly and
- * never touch the hash.
- *
- * This module stays free of pixi so the routing rules are unit-testable.
- */
+// The route table, free of pixi so the routing rules are unit-testable.
 
 import type { PrototypeEntry } from '../prototypes';
 import { prototypeFromHash } from '../prototypes';
@@ -55,6 +47,11 @@ const isRouteHash = (hash: string, route: string): boolean => {
 /**
  * The default route is the game app rather than the prototype sandbox: the
  * prototypes live behind their own hash, and every other hash is the game's.
+ *
+ * The URL fragment is the single navigation authority between the game and the
+ * prototype list: buttons only assign location.hash, and the router in main.ts
+ * answers boot, in-app hash writes, and the browser's back and forward buttons
+ * alike. Screens inside the game navigate directly and never touch the hash.
  */
 const resolveRoute = (hash: string): Route => {
   const entry = prototypeFromHash(hash);
