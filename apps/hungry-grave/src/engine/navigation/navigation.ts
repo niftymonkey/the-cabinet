@@ -40,7 +40,7 @@ interface AppScreenConstructor {
   assetBundles?: string[];
 }
 
-export class Navigation {
+class Navigation {
   /** Reference to the main application */
   public app!: CreationEngine;
 
@@ -227,3 +227,5 @@ export class Navigation {
     this.currentPopup?.focus?.();
   }
 }
+
+export { Navigation };

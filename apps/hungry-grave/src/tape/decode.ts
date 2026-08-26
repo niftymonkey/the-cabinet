@@ -93,7 +93,7 @@ const FRAME_REASONS_BY_CODE = codeReader(FRAME_REASONS, FRAME_REASON_CODES);
 const IDENTITIES_BY_CODE = codeReader(FAULT_IDENTITIES, FAULT_IDENTITY_CODES);
 
 /** A decoded tape, plus whether the bytes ran out before the recording did. */
-export interface DecodedTape {
+interface DecodedTape {
   readonly tape: Tape;
   /**
    * Whether the byte stream stopped mid-record.
@@ -105,11 +105,11 @@ export interface DecodedTape {
   readonly truncated: boolean;
 }
 
-function named<T extends string>(
+const named = <T extends string>(
   byCode: ReadonlyMap<number, T>,
   code: number,
   what: string,
-): T {
+): T => {
   const name = byCode.get(code);
   if (name === undefined) {
     throw new TapeFormatError(
@@ -117,9 +117,9 @@ function named<T extends string>(
     );
   }
   return name;
-}
+};
 
-function readMagic(reader: ByteReader): void {
+const readMagic = (reader: ByteReader): void => {
   let magic = '';
   for (let index = 0; index < TAPE_MAGIC.length; index++) {
     magic += String.fromCharCode(readU8(reader));
@@ -129,10 +129,12 @@ function readMagic(reader: ByteReader): void {
       `these bytes open with "${magic}" and not a tape`,
     );
   }
-}
+};
 
 /** The four starting levels, read in the same spelled-out order they were written. */
-function readStartingLevels(payload: ByteReader): Record<WeaponLine, number> {
+const readStartingLevels = (
+  payload: ByteReader,
+): Record<WeaponLine, number> => {
   const levels: Record<WeaponLine, number> = {
     soulStream: 0,
     headstones: 0,
@@ -141,9 +143,9 @@ function readStartingLevels(payload: ByteReader): Record<WeaponLine, number> {
   };
   for (const line of HEADER_LEVELS_ORDER) levels[line] = readU8(payload);
   return levels;
-}
+};
 
-function readHeader(payload: ByteReader): TapeHeader {
+const readHeader = (payload: ByteReader): TapeHeader => {
   const seed = readU32(payload);
   const startingSize = readF64(payload);
   const startingLevels = readStartingLevels(payload);
@@ -183,13 +185,13 @@ function readHeader(payload: ByteReader): TapeHeader {
     devicePixelRatio,
     recordedAt,
   };
-}
+};
 
-function readCommand(payload: ByteReader): TickCommand {
+const readCommand = (payload: ByteReader): TickCommand => {
   const x = readF32(payload);
   const y = readF32(payload);
   return { move: { x, y }, belch: readU8(payload) === 1 };
-}
+};
 
 /**
  * Appends a body chunk's commands, which must carry on from where the last one
@@ -207,7 +209,7 @@ function readCommand(payload: ByteReader): TickCommand {
  * `refuseLeftovers` still throws when a chunk is complete and carries one to
  * three bytes that are not a whole record.
  */
-function readBody(payload: ByteReader, commands: TickCommand[]): void {
+const readBody = (payload: ByteReader, commands: TickCommand[]): void => {
   if (remaining(payload) < BODY_FIRST_TICK_BYTES) return;
   const firstTick = readU32(payload);
   if (firstTick !== commands.length) {
@@ -218,7 +220,7 @@ function readBody(payload: ByteReader, commands: TickCommand[]): void {
   while (remaining(payload) >= COMMAND_BYTES) {
     commands.push(readCommand(payload));
   }
-}
+};
 
 /**
  * Appends a witness chunk's checkpoints, which only ever climb.
@@ -231,10 +233,10 @@ function readBody(payload: ByteReader, commands: TickCommand[]): void {
  * pair of numbers. Refusing here is what keeps "bounds-checked before it
  * allocates" from meaning "believed once it fits".
  */
-function readCheckpoints(
+const readCheckpoints = (
   payload: ByteReader,
   checkpoints: TapeCheckpoint[],
-): void {
+): void => {
   let last = checkpoints[checkpoints.length - 1]?.index ?? -1;
   while (remaining(payload) >= CHECKPOINT_BYTES) {
     const index = readU32(payload);
@@ -246,7 +248,7 @@ function readCheckpoints(
     checkpoints.push({ index, witness: readI32(payload) });
     last = index;
   }
-}
+};
 
 /**
  * Whether a whole observation starts at the cursor.
@@ -255,7 +257,7 @@ function readCheckpoints(
  * written one at the end of an interrupted recording has to be recognised
  * before it is read rather than after.
  */
-function observationFits(payload: ByteReader): boolean {
+const observationFits = (payload: ByteReader): boolean => {
   if (remaining(payload) < 1) return false;
   const kind = payload.view.getUint8(payload.offset);
   if (kind === OBSERVATION_KIND_CODES.frame) {
@@ -264,9 +266,9 @@ function observationFits(payload: ByteReader): boolean {
   if (kind !== OBSERVATION_KIND_CODES.fault) return false;
   if (remaining(payload) < FAULT_OBSERVATION_FIXED_BYTES) return false;
   return stringFits(payload, payload.offset + FAULT_OBSERVATION_PREFIX_BYTES);
-}
+};
 
-function readObservation(payload: ByteReader): Observation {
+const readObservation = (payload: ByteReader): Observation => {
   const kind = readU8(payload);
   if (kind === OBSERVATION_KIND_CODES.frame) {
     const reason = named(
@@ -295,16 +297,16 @@ function readObservation(payload: ByteReader): Observation {
     count: readU32(payload),
     detail: readString(payload),
   };
-}
+};
 
-function readObservations(
+const readObservations = (
   payload: ByteReader,
   observations: Observation[],
-): void {
+): void => {
   while (observationFits(payload)) observations.push(readObservation(payload));
-}
+};
 
-function readTrailer(payload: ByteReader): TapeTrailer {
+const readTrailer = (payload: ByteReader): TapeTrailer => {
   const endingCode = readU8(payload);
   return {
     ending:
@@ -315,12 +317,12 @@ function readTrailer(payload: ByteReader): TapeTrailer {
     integrity: named(INTEGRITIES_BY_CODE, readU8(payload), 'an integrity'),
     debtTicks: readU32(payload),
   };
-}
+};
 
 /** How much of a chunk is actually present, which is never more than the buffer holds. */
-function presentBytes(reader: ByteReader, declared: number): number {
+const presentBytes = (reader: ByteReader, declared: number): number => {
   return Math.min(declared, remaining(reader));
-}
+};
 
 interface Sections {
   header: TapeHeader | null;
@@ -341,23 +343,23 @@ interface Sections {
  * finish being written has no identity, no seed and no starting size, so there
  * is nothing left for a reader to be right about.
  */
-function refuseLeftovers(
+const refuseLeftovers = (
   payload: ByteReader,
   complete: boolean,
   what: string,
-): void {
+): void => {
   if (!complete || remaining(payload) === 0) return;
   throw new TapeFormatError(
     `${what} has ${remaining(payload)} bytes left over that are not a whole record`,
   );
-}
+};
 
-function readChunk(
+const readChunk = (
   kind: number,
   payload: ByteReader,
   sections: Sections,
   complete: boolean,
-): void {
+): void => {
   if (kind === CHUNK_HEADER) {
     sections.header = readHeader(payload);
     refuseLeftovers(payload, complete, 'the header');
@@ -383,7 +385,7 @@ function readChunk(
   if (kind !== CHUNK_TRAILER || !complete) return;
   sections.trailer = readTrailer(payload);
   refuseLeftovers(payload, complete, 'the trailer');
-}
+};
 
 /**
  * A tape from bytes, whether or not the recording that wrote them finished.
@@ -392,7 +394,7 @@ function readChunk(
  * guessed at a layout it does not know would produce numbers nobody can trust,
  * which is worse than no numbers.
  */
-export function decodeTape(bytes: Uint8Array): DecodedTape {
+const decodeTape = (bytes: Uint8Array): DecodedTape => {
   const reader = createReader(bytes);
   readMagic(reader);
   const version = readU16(reader);
@@ -441,4 +443,7 @@ export function decodeTape(bytes: Uint8Array): DecodedTape {
     },
     truncated,
   };
-}
+};
+
+export { decodeTape };
+export type { DecodedTape };

@@ -14,7 +14,7 @@ import { CreationEngine } from './engine/engine';
  */
 import '@pixi/sound';
 
-async function initEngine(): Promise<CreationEngine> {
+const initEngine = async (): Promise<CreationEngine> => {
   const engine = new CreationEngine();
   setEngine(engine);
   await engine.init({
@@ -29,7 +29,7 @@ async function initEngine(): Promise<CreationEngine> {
     },
   });
   return engine;
-}
+};
 
 /**
  * Puts the frame-rate readout on the stage, above every screen. Navigation
@@ -38,13 +38,13 @@ async function initEngine(): Promise<CreationEngine> {
  * underneath it. zIndex settles the order by rule instead of by who was added
  * first, and holds however the screens are later reshuffled.
  */
-function attachFpsMeter(engine: CreationEngine): void {
+const attachFpsMeter = (engine: CreationEngine): void => {
   const meter = new FpsMeter();
   meter.zIndex = 1;
   engine.stage.sortableChildren = true;
   engine.stage.addChild(meter);
   engine.ticker.add(meter.update, meter);
-}
+};
 
 /**
  * The digest screen is imported dynamically, the way the prototypes already
@@ -53,7 +53,7 @@ function attachFpsMeter(engine: CreationEngine): void {
  * so a new route kind with no branch here compiles cleanly and silently sends
  * its hash to the title screen.
  */
-async function resolveScreen(hash: string) {
+const resolveScreen = async (hash: string) => {
   const route = resolveRoute(hash);
   if (route.kind === 'prototype') return await route.entry.load();
   if (route.kind === 'prototype-list') return PrototypesScreen;
@@ -67,7 +67,7 @@ async function resolveScreen(hash: string) {
     return (await import('./app/screens/RunsScreen')).RunsScreen;
   }
   return TitleScreen;
-}
+};
 
 /**
  * Answers every navigation the URL fragment can produce: boot, in-app hash
@@ -78,7 +78,7 @@ async function resolveScreen(hash: string) {
  * interleave, and a route whose hash went stale while its module loaded steps
  * aside.
  */
-function startRouter(engine: CreationEngine): Promise<void> {
+const startRouter = (engine: CreationEngine): Promise<void> => {
   let pending: Promise<void> = Promise.resolve();
   const route = async () => {
     const hash = window.location.hash;
@@ -92,15 +92,15 @@ function startRouter(engine: CreationEngine): Promise<void> {
   window.addEventListener('hashchange', queueRoute);
   queueRoute();
   return pending;
-}
+};
 
-async function main(): Promise<void> {
+const main = async (): Promise<void> => {
   const engine = await initEngine();
   userSettings.init();
   attachFpsMeter(engine);
   // The load screen holds the stage while the router resolves the first route.
   await engine.navigation.showScreen(LoadScreen);
   await startRouter(engine);
-}
+};
 
 main().catch((error) => console.error(error));

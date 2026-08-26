@@ -36,32 +36,32 @@ import type { Tape } from './tape';
 import type { TickCommand } from '../game/run';
 
 /** Two float32 of steering and one flag byte, which is what a body row costs. */
-export const COMMAND_BYTES = 9;
+const COMMAND_BYTES = 9;
 
 /** The tick a body chunk starts at, which is the only field in front of its commands. */
-export const BODY_FIRST_TICK_BYTES = 4;
+const BODY_FIRST_TICK_BYTES = 4;
 
 /** A checkpoint index and its witness. */
-export const CHECKPOINT_BYTES = 8;
+const CHECKPOINT_BYTES = 8;
 
 /** A frame row's fixed width: it carries no string, so it has only one. */
-export const FRAME_OBSERVATION_BYTES = 25;
+const FRAME_OBSERVATION_BYTES = 25;
 
 /** A fault row's kind, identity, severity, first tick and count, ahead of its detail string. */
-export const FAULT_OBSERVATION_PREFIX_BYTES = 12;
+const FAULT_OBSERVATION_PREFIX_BYTES = 12;
 
 /** The same, plus the detail string's own length prefix. */
-export const FAULT_OBSERVATION_FIXED_BYTES =
+const FAULT_OBSERVATION_FIXED_BYTES =
   FAULT_OBSERVATION_PREFIX_BYTES + STRING_LENGTH_BYTES;
 
 /** The commands a body chunk holds, being everything up to the next checkpoint. */
-function commandsUntil(
+const commandsUntil = (
   tape: Tape,
   from: number,
   until: number,
-): readonly TickCommand[] {
+): readonly TickCommand[] => {
   return tape.commands.slice(from, until);
-}
+};
 
 /**
  * The body and the witness, interleaved the way a run produces them: a
@@ -74,7 +74,7 @@ function commandsUntil(
  * all; written in the order the run made them, a cut tape verifies to its last
  * complete checkpoint and keeps the ticks behind it.
  */
-function writeBodyAndWitness(writer: ByteWriter, tape: Tape): void {
+const writeBodyAndWitness = (writer: ByteWriter, tape: Tape): void => {
   let written = 0;
   for (let index = 0; index < tape.checkpoints.length; index++) {
     const checkpoint = tape.checkpoints[index];
@@ -95,7 +95,7 @@ function writeBodyAndWitness(writer: ByteWriter, tape: Tape): void {
     writer,
     bodySegment(written, commandsUntil(tape, written, tape.commands.length)),
   );
-}
+};
 
 /**
  * The whole tape, in the order a reader meets it: the header first because it
@@ -106,7 +106,7 @@ function writeBodyAndWitness(writer: ByteWriter, tape: Tape): void {
  * that stopped before its first checkpoint is not carrying a promise it did not
  * keep.
  */
-export function encodeTape(tape: Tape): Uint8Array {
+const encodeTape = (tape: Tape): Uint8Array => {
   const writer = createWriter();
   writeBytes(writer, headerSegment(tape.header));
   writeBodyAndWitness(writer, tape);
@@ -117,4 +117,14 @@ export function encodeTape(tape: Tape): Uint8Array {
     writeBytes(writer, trailerSegment(tape.trailer));
   }
   return writtenBytes(writer);
-}
+};
+
+export {
+  encodeTape,
+  COMMAND_BYTES,
+  BODY_FIRST_TICK_BYTES,
+  CHECKPOINT_BYTES,
+  FRAME_OBSERVATION_BYTES,
+  FAULT_OBSERVATION_PREFIX_BYTES,
+  FAULT_OBSERVATION_FIXED_BYTES,
+};

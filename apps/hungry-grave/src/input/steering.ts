@@ -13,15 +13,17 @@ import type { FieldPoint } from '../game/grave';
 import type { MoveCommand } from '../game/run';
 import type { TouchSteer } from './touch';
 
-export function combineSteer(
+const combineSteer = (
   keys: MoveCommand,
   touch: TouchSteer,
   grave: FieldPoint,
-): MoveCommand {
+): MoveCommand => {
   // The drag is asked for on every tick, steering or not, so TouchSteer's view
   // of the grave stays current: a pointer promoted between two frames then
   // anchors to where the grave is now rather than to where it was when the
   // finger landed and the keyboard was still moving it.
   const drag = touch.command(grave);
   return touch.isSteering() ? drag : keys;
-}
+};
+
+export { combineSteer };

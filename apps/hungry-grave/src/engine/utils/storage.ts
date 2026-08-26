@@ -5,37 +5,37 @@
 
 let warned = false;
 
-function warnOnce(error: unknown) {
+const warnOnce = (error: unknown) => {
   if (warned) return;
   warned = true;
   console.warn(
     'Local storage is unavailable; settings will not persist.',
     error,
   );
-}
+};
 
 /**
  * Reads through the guard. A browser blocking cookies throws on localStorage
  * itself, and an unguarded read from userSettings.init() in main() takes the
  * whole boot down with it.
  */
-function readRaw(key: string): string | null {
+const readRaw = (key: string): string | null => {
   try {
     return localStorage.getItem(key);
   } catch (error) {
     warnOnce(error);
     return null;
   }
-}
+};
 
 // Writes through the same guard, dropping the value when storage is blocked.
-function writeRaw(key: string, value: string): void {
+const writeRaw = (key: string, value: string): void => {
   try {
     localStorage.setItem(key, value);
   } catch (error) {
     warnOnce(error);
   }
-}
+};
 
 // Every access goes through readRaw/writeRaw, never localStorage directly.
 class StorageWrapper {
@@ -94,4 +94,6 @@ class StorageWrapper {
   }
 }
 
-export const storage = new StorageWrapper();
+const storage = new StorageWrapper();
+
+export { storage };

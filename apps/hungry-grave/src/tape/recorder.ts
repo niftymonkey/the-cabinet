@@ -30,7 +30,7 @@ import type {
   TapeTrailer,
 } from './tape';
 
-export interface TapeRecorder {
+interface TapeRecorder {
   readonly header: TapeHeader;
   readonly commands: TickCommand[];
   readonly checkpoints: TapeCheckpoint[];
@@ -48,7 +48,7 @@ export interface TapeRecorder {
   trailer: TapeTrailer | null;
 }
 
-export function createRecorder(header: TapeHeader): TapeRecorder {
+const createRecorder = (header: TapeHeader): TapeRecorder => {
   return {
     header,
     commands: [],
@@ -57,12 +57,12 @@ export function createRecorder(header: TapeHeader): TapeRecorder {
     faultRows: new Map(),
     trailer: null,
   };
-}
+};
 
 /** Whether a tick count lands on one of this tape's checkpoints. */
-function isCheckpoint(recorder: TapeRecorder, ticksRun: number): boolean {
+const isCheckpoint = (recorder: TapeRecorder, ticksRun: number): boolean => {
   return ticksRun % recorder.header.checkpointSpacing === 0;
-}
+};
 
 /**
  * Stamps the witness for a tick count, which is the checkpoint's own index.
@@ -72,11 +72,11 @@ function isCheckpoint(recorder: TapeRecorder, ticksRun: number): boolean {
  * every tape refuse itself against a reader counting the other way, and it
  * cannot be fixed after tapes exist.
  */
-function stampCheckpoint(
+const stampCheckpoint = (
   recorder: TapeRecorder,
   ticksRun: number,
   state: RunState,
-): void {
+): void => {
   recorder.checkpoints.push({
     index: ticksRun,
     // From zero rather than from the previous checkpoint: each one is an
@@ -84,7 +84,7 @@ function stampCheckpoint(
     // checkpoint that disagrees instead of only somewhere before here.
     witness: foldWitness(state, 0),
   });
-}
+};
 
 /**
  * Mirrors the authority's fault history into the observations section.
@@ -93,7 +93,7 @@ function stampCheckpoint(
  * the count, which is what a persistent fault needs to stay diagnostically
  * useful, so this copies that shape rather than inventing a second one.
  */
-function syncFaults(recorder: TapeRecorder, execution: Execution): void {
+const syncFaults = (recorder: TapeRecorder, execution: Execution): void => {
   if (execution.faults.length === 0) return;
   for (const record of execution.faults) {
     const seen = recorder.faultRows.get(record.identity);
@@ -112,7 +112,7 @@ function syncFaults(recorder: TapeRecorder, execution: Execution): void {
     recorder.faultRows.set(record.identity, row);
     recorder.observations.push(row);
   }
-}
+};
 
 /**
  * Starts recording a run, stamping the checkpoint that precedes its first tick.
@@ -121,10 +121,7 @@ function syncFaults(recorder: TapeRecorder, execution: Execution): void {
  * the state before any tick has run, and that is what "the very first tick is
  * witnessed" has to mean.
  */
-export function recordInto(
-  execution: Execution,
-  header: TapeHeader,
-): TapeRecorder {
+const recordInto = (execution: Execution, header: TapeHeader): TapeRecorder => {
   const recorder = createRecorder(header);
   stampCheckpoint(recorder, 0, execution.run);
   execution.listeners.push((ticksRun, command, _events, state) => {
@@ -138,7 +135,7 @@ export function recordInto(
     syncFaults(recorder, execution);
   });
   return recorder;
-}
+};
 
 /**
  * One rendered frame's row, handed in from the frame seam above the simulation.
@@ -148,18 +145,18 @@ export function recordInto(
  * trailer last whatever order the sections were filled in, so a tape's bytes
  * end with it either way.
  */
-export function recordFrame(
+const recordFrame = (
   recorder: TapeRecorder | null,
   observation: Omit<FrameObservation, 'kind'>,
-): void {
+): void => {
   if (recorder === null) return;
   recorder.observations.push({ kind: 'frame', ...observation });
-}
+};
 
 /** Whether the run this authority ran was sound. */
-export function integrityOf(execution: Execution): TapeIntegrity {
+const integrityOf = (execution: Execution): TapeIntegrity => {
   return execution.faults.length === 0 ? 'clean' : 'faulted';
-}
+};
 
 /**
  * Writes the trailer, once, at the stop.
@@ -171,11 +168,11 @@ export function integrityOf(execution: Execution): TapeIntegrity {
  * A second call is ignored rather than overwriting. The stop happens once and a
  * later frame must not be able to rewrite how a run ended.
  */
-export function sealTrailer(
+const sealTrailer = (
   recorder: TapeRecorder,
   execution: Execution,
   debtTicks: number,
-): void {
+): void => {
   if (recorder.trailer !== null) return;
   syncFaults(recorder, execution);
   recorder.trailer = {
@@ -185,10 +182,10 @@ export function sealTrailer(
     integrity: integrityOf(execution),
     debtTicks,
   };
-}
+};
 
 /** The tape as it stands, which is a complete tape whether or not the run has stopped. */
-export function tapeOf(recorder: TapeRecorder): Tape {
+const tapeOf = (recorder: TapeRecorder): Tape => {
   return {
     header: recorder.header,
     commands: recorder.commands,
@@ -196,4 +193,14 @@ export function tapeOf(recorder: TapeRecorder): Tape {
     observations: recorder.observations,
     trailer: recorder.trailer,
   };
-}
+};
+
+export {
+  createRecorder,
+  recordInto,
+  recordFrame,
+  integrityOf,
+  sealTrailer,
+  tapeOf,
+};
+export type { TapeRecorder };

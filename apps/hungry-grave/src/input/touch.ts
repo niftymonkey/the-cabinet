@@ -18,14 +18,12 @@ import type { FieldPoint } from '../game/grave';
 import type { MoveCommand } from '../game/run';
 import { BASE_SPEED } from '../game/tuning';
 
-export type { FieldPoint };
-
 /**
  * How far the drag target travels per unit of finger travel. A one to one
  * drag, a first pass, and the tuning dispatch owns it. No shipped game
  * publishes its drag ratio, so there is no number to look up.
  */
-export const DRAG_RATIO = 1;
+const DRAG_RATIO = 1;
 
 /**
  * How far a pointer must travel before it is the steering pointer, in field
@@ -38,7 +36,7 @@ export const DRAG_RATIO = 1;
  * so has to survive the finger roll of a press. Telling a resting thumb from a
  * steering thumb needs far less.
  */
-export const STEER_SLOP = 4;
+const STEER_SLOP = 4;
 
 /**
  * How far the grave may sit from the target it was sent to and still count as
@@ -61,28 +59,32 @@ interface PointerTrack {
   current: FieldPoint;
 }
 
-function distance(from: FieldPoint, to: FieldPoint): number {
+const distance = (from: FieldPoint, to: FieldPoint): number => {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   return Math.sqrt(dx * dx + dy * dy);
-}
+};
 
 /** The point a fraction of the way along the segment from one point to another. */
-function along(from: FieldPoint, to: FieldPoint, fraction: number): FieldPoint {
+const along = (
+  from: FieldPoint,
+  to: FieldPoint,
+  fraction: number,
+): FieldPoint => {
   return {
     x: from.x + (to.x - from.x) * fraction,
     y: from.y + (to.y - from.y) * fraction,
   };
-}
+};
 
-function apart(a: FieldPoint, b: FieldPoint): boolean {
+const apart = (a: FieldPoint, b: FieldPoint): boolean => {
   return (
     Math.abs(a.x - b.x) > TARGET_TOLERANCE ||
     Math.abs(a.y - b.y) > TARGET_TOLERANCE
   );
-}
+};
 
-export class TouchSteer {
+class TouchSteer {
   private readonly pointers = new Map<number, PointerTrack>();
   private steeringId: number | null = null;
   private slop = STEER_SLOP;
@@ -239,3 +241,6 @@ export class TouchSteer {
     };
   }
 }
+
+export { TouchSteer, DRAG_RATIO, STEER_SLOP };
+export type { FieldPoint };

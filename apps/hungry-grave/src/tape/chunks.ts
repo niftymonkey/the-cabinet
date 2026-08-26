@@ -23,27 +23,37 @@ import {
   writtenBytes,
 } from './bytes';
 
-export const CHUNK_HEADER = 1;
-export const CHUNK_BODY = 2;
-export const CHUNK_WITNESS = 3;
-export const CHUNK_OBSERVATIONS = 4;
-export const CHUNK_TRAILER = 5;
+const CHUNK_HEADER = 1;
+const CHUNK_BODY = 2;
+const CHUNK_WITNESS = 3;
+const CHUNK_OBSERVATIONS = 4;
+const CHUNK_TRAILER = 5;
 
 /** A chunk's kind byte and its 32-bit length, which every reader needs before its payload. */
-export const CHUNK_FRAME_BYTES = 5;
+const CHUNK_FRAME_BYTES = 5;
 
 /**
  * Writes one chunk, building its payload first so the length in front of it is
  * the payload's real size and never a promise about it.
  */
-export function writeChunk(
+const writeChunk = (
   writer: ByteWriter,
   kind: number,
   fill: (payload: ByteWriter) => void,
-): void {
+): void => {
   const payload = createWriter();
   fill(payload);
   writeU8(writer, kind);
   writeU32(writer, payload.length);
   writeBytes(writer, writtenBytes(payload));
-}
+};
+
+export {
+  writeChunk,
+  CHUNK_HEADER,
+  CHUNK_BODY,
+  CHUNK_WITNESS,
+  CHUNK_OBSERVATIONS,
+  CHUNK_TRAILER,
+  CHUNK_FRAME_BYTES,
+};

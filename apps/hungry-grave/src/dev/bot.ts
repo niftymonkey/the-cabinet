@@ -29,9 +29,9 @@ import { executeTick } from '../game/execution';
  * express a belch cannot carry ADR 0016's Wall property, which is two-sided over
  * exactly that: crossable unloaded, and never crossable for free.
  */
-export type Policy = (state: RunState, caused: SimEvent[]) => TickCommand;
+type Policy = (state: RunState, caused: SimEvent[]) => TickCommand;
 
-export interface PolicyRun {
+interface PolicyRun {
   readonly events: SimEvent[];
   readonly ticks: number;
 }
@@ -42,11 +42,11 @@ export interface PolicyRun {
  * through the same code the rendered game does and no test can prove something
  * the shipped game does not do.
  */
-export function runPolicy(
+const runPolicy = (
   execution: Execution,
   policy: Policy,
   maxTicks: number,
-): PolicyRun {
+): PolicyRun => {
   const state = execution.run;
   const events: SimEvent[] = [];
   let ticks = 0;
@@ -56,7 +56,7 @@ export function runPolicy(
     ticks += 1;
   }
   return { events, ticks };
-}
+};
 
 /** The nine moves a thumb can make, as unit commands. Staying put is one of them. */
 const DIAGONAL = 1 / Math.SQRT2;
@@ -99,18 +99,18 @@ interface Threat {
   readonly halfHeight: number;
 }
 
-function near(state: RunState, x: number, y: number): boolean {
+const near = (state: RunState, x: number, y: number): boolean => {
   const dx = state.grave.x - x;
   const dy = state.grave.y - y;
   return dx * dx + dy * dy <= THREAT_RADIUS * THREAT_RADIUS;
-}
+};
 
 /**
  * Everything close enough to matter, each with the velocity it will actually
  * travel at: a mob carries the scroll on top of its own motion and a shot does
  * not.
  */
-function threatsNear(state: RunState): Threat[] {
+const threatsNear = (state: RunState): Threat[] => {
   const threats: Threat[] = [];
   for (const mob of state.mobs) {
     if (!mob.alive || !near(state, mob.x, mob.y)) continue;
@@ -136,15 +136,15 @@ function threatsNear(state: RunState): Threat[] {
     });
   }
   return threats;
-}
+};
 
 /** Where a move would put the grave after some ticks, held inside the field. */
-function graveAfter(
+const graveAfter = (
   state: RunState,
   move: MoveCommand,
   ticks: number,
   speed: number,
-): { x: number; y: number } {
+): { x: number; y: number } => {
   const halfWidth = graveWidth(state.grave.size) / 2;
   const size = state.grave.size;
   return {
@@ -157,15 +157,15 @@ function graveAfter(
       FIELD_HEIGHT - size,
     ),
   };
-}
+};
 
 /** How far apart the two boxes are on their widest separating axis. Negative means they overlap. */
-function clearanceAt(
+const clearanceAt = (
   state: RunState,
   at: { x: number; y: number },
   threat: Threat,
   ticks: number,
-): number {
+): number => {
   const dx =
     Math.abs(at.x - (threat.x + threat.vx * ticks)) -
     (graveWidth(state.grave.size) / 2 + threat.halfWidth);
@@ -173,13 +173,13 @@ function clearanceAt(
     Math.abs(at.y - (threat.y + threat.vy * ticks)) -
     (state.grave.size + threat.halfHeight);
   return Math.max(dx, dy);
-}
+};
 
-function distanceToHome(at: { x: number; y: number }): number {
+const distanceToHome = (at: { x: number; y: number }): number => {
   const dx = at.x - HOME.x;
   const dy = at.y - HOME.y;
   return Math.sqrt(dx * dx + dy * dy);
-}
+};
 
 /**
  * How good a move looks: the tightest clearance it leaves over the look-ahead,
@@ -187,12 +187,12 @@ function distanceToHome(at: { x: number; y: number }): number {
  * keeps this a plausible human rather than an optimizer: past a body's width of
  * room it stops caring how much more it could have had.
  */
-function scoreMove(
+const scoreMove = (
   state: RunState,
   move: MoveCommand,
   threats: readonly Threat[],
   speed: number,
-): number {
+): number => {
   let tightest = ENOUGH_CLEARANCE;
   for (const ticks of LOOKAHEAD_SAMPLES) {
     const at = graveAfter(state, move, ticks, speed);
@@ -202,7 +202,7 @@ function scoreMove(
   }
   const settled = graveAfter(state, move, LOOKAHEAD_TICKS, speed);
   return tightest * 1000 - distanceToHome(settled);
-}
+};
 
 /**
  * A plausible human: it takes the roomiest of the nine moves a thumb can make,
@@ -214,12 +214,12 @@ function scoreMove(
  * has to be written as one: one step of look-ahead, a capped reward for space,
  * and no search over the future at all.
  */
-export const dodgePolicy: Policy = (state) => {
+const dodgePolicy: Policy = (state) => {
   return { move: bestDodge(state), belch: false };
 };
 
 /** The roomiest of the nine moves a thumb can make, which is the whole of the dodge. */
-function bestDodge(state: RunState): MoveCommand {
+const bestDodge = (state: RunState): MoveCommand => {
   const threats = threatsNear(state);
   let best = MOVES[0];
   let bestScore = -Infinity;
@@ -230,7 +230,7 @@ function bestDodge(state: RunState): MoveCommand {
     best = move;
   }
   return best;
-}
+};
 
 /**
  * Dodges and never belches. It carries the first half of ADR 0016's two-sided
@@ -241,7 +241,7 @@ function bestDodge(state: RunState): MoveCommand {
  * dodgePolicy is written under, because a bot proof is an upper bound on
  * perfect play and never a fairness result.
  */
-export const unloadedPolicy: Policy = (state, caused) => {
+const unloadedPolicy: Policy = (state, caused) => {
   return { move: dodgePolicy(state, caused).move, belch: false };
 };
 
@@ -257,7 +257,7 @@ const BELCH_WORTH_IT = 8;
  * cancelling. It carries the other half of ADR 0016's property: the curtain is
  * never crossable for free.
  */
-export const belchingPolicy: Policy = (state, caused) => {
+const belchingPolicy: Policy = (state, caused) => {
   const loaded = state.reservoir >= RESERVOIR_CAPACITY;
   const shots = state.mobFire.reduce(
     (count, shot) => count + (shot.alive ? 1 : 0),
@@ -270,7 +270,7 @@ export const belchingPolicy: Policy = (state, caused) => {
 };
 
 /** The nearest live mob or shot to the grave, or null when the field is empty. */
-function nearestThreat(state: RunState): Threat | null {
+const nearestThreat = (state: RunState): Threat | null => {
   let nearest: Threat | null = null;
   let best = Infinity;
   const consider = (threat: Threat) => {
@@ -305,7 +305,7 @@ function nearestThreat(state: RunState): Threat | null {
     });
   }
   return nearest;
-}
+};
 
 /**
  * Steers deliberately into the nearest threat, and reaches sealed shut.
@@ -317,12 +317,12 @@ function nearestThreat(state: RunState): Threat | null {
  * seals. The ladder's own order is tested in grave.test.ts against hand-seeded
  * state, and that is where it stays.
  */
-export const hitTakingPolicy: Policy = (state) => {
+const hitTakingPolicy: Policy = (state) => {
   return { move: towardNearest(state), belch: false };
 };
 
 /** Straight at whatever is closest, which is how this policy reaches sealed shut. */
-function towardNearest(state: RunState): MoveCommand {
+const towardNearest = (state: RunState): MoveCommand => {
   const target = nearestThreat(state);
   if (target === null) return { x: 0, y: 0 };
   const dx = target.x - state.grave.x;
@@ -330,4 +330,13 @@ function towardNearest(state: RunState): MoveCommand {
   const length = Math.sqrt(dx * dx + dy * dy);
   if (length === 0) return { x: 0, y: 0 };
   return { x: dx / length, y: dy / length };
-}
+};
+
+export {
+  runPolicy,
+  dodgePolicy,
+  unloadedPolicy,
+  belchingPolicy,
+  hitTakingPolicy,
+};
+export type { Policy, PolicyRun };

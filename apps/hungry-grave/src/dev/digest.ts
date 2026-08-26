@@ -91,7 +91,7 @@ const SCRIPT: readonly MoveCommand[] = [
   { x: -0.75, y: -0.5 },
 ];
 
-export interface Digest {
+interface Digest {
   readonly tick: number;
   readonly seed: number;
   readonly graveX: number;
@@ -120,14 +120,14 @@ export interface Digest {
  * the field's edges, so a script that presses against one pins the coordinate
  * exactly and erases any divergence in it.
  */
-export interface BoundaryExtremes {
+interface BoundaryExtremes {
   readonly minX: number;
   readonly minY: number;
   readonly maxX: number;
   readonly maxY: number;
 }
 
-export interface ScenarioResult {
+interface ScenarioResult {
   readonly digest: Digest;
   readonly boundary: BoundaryExtremes;
   /**
@@ -147,11 +147,11 @@ export interface ScenarioResult {
   readonly faults: readonly FaultRecord[];
 }
 
-function liveCount(pool: readonly { alive: boolean }[]): number {
+const liveCount = (pool: readonly { alive: boolean }[]): number => {
   return pool.reduce((count, slot) => count + (slot.alive ? 1 : 0), 0);
-}
+};
 
-function digestOf(run: RunState, checksum: number, kills: number): Digest {
+const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
   return {
     tick: run.tick,
     seed: run.seed,
@@ -175,18 +175,18 @@ function digestOf(run: RunState, checksum: number, kills: number): Digest {
     levels: { ...run.levels },
     checksum: checksum,
   };
-}
+};
 
 /** A mob put exactly where the script wants one, outside the stage's own rows. */
-function put(run: RunState, x: number, y: number): Mob | null {
+const put = (run: RunState, x: number, y: number): Mob | null => {
   return spawnMob(run, 'shambler', { x, y, vx: 0, vy: 1, index: 0 });
-}
+};
 
 /**
  * The scripted deaths. They stand in for the weapon lines the scenario does not
  * have, so the digest's path carries a kill, a corpse and a swallow.
  */
-function scriptedKills(run: RunState, tick: number): number {
+const scriptedKills = (run: RunState, tick: number): number => {
   if (tick === GHOUL_AT) {
     spawnMob(run, 'ghoul', { x: 120, y: 20, vx: 0, vy: 1, index: 0 });
     return 0;
@@ -206,10 +206,10 @@ function scriptedKills(run: RunState, tick: number): number {
   if (victim === null) return 0;
   damageMob(run, victim, victim.hp, 'soulStream');
   return 1;
-}
+};
 
 /** Runs the scenario, returning its digest, how close it came to the field boundary, the run itself and any faults it broke. */
-export function runScenario(): ScenarioResult {
+const runScenario = (): ScenarioResult => {
   const run = createRun(SEED);
   const execution = createExecution(run);
   let checksum = 0;
@@ -242,7 +242,7 @@ export function runScenario(): ScenarioResult {
     state: run,
     faults: execution.faults,
   };
-}
+};
 
 /**
  * THE CONSTANT IS NEVER UPDATED TO MAKE A FAILING TEST PASS. A change here is a
@@ -251,7 +251,7 @@ export function runScenario(): ScenarioResult {
  * `pnpm digest`, and the test logs the regenerated object as a paste-ready
  * literal before it asserts.
  */
-export const GOLDEN: Digest = {
+const GOLDEN: Digest = {
   tick: 600,
   seed: 20260820,
   graveX: 365.625,
@@ -279,3 +279,6 @@ export const GOLDEN: Digest = {
   },
   checksum: -522074226,
 };
+
+export { runScenario, GOLDEN };
+export type { Digest, BoundaryExtremes, ScenarioResult };
