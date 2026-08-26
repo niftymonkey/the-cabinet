@@ -2,11 +2,16 @@
 // (#58).
 
 import { createExecution, executeTick } from '../game/execution';
-import type { FaultRecord, TickListener } from '../game/execution';
+import type { Execution, FaultRecord, TickListener } from '../game/execution';
 import { createRun } from '../game/run';
 import type { RunState } from '../game/run';
 import { foldWitness, WITNESS_VERSION } from '../game/witness';
-import type { FaultObservation, Tape, TapeCheckpoint } from './tape';
+import type {
+  FaultObservation,
+  Tape,
+  TapeCheckpoint,
+  TapeHeader,
+} from './tape';
 import { faultObservations } from './tape';
 
 /**
@@ -103,84 +108,133 @@ const versionMismatch = (tape: Tape): PlaybackResult => ({
   readbackFaults: [],
 });
 
-const createPlayback = (tape: Tape, observer?: TickListener): Playback => {
-  const refused = tape.header.witnessVersion !== WITNESS_VERSION;
-  // The run is rebuilt from the header alone: seed, resolved size and resolved
-  // starting levels, so a pinned run's tape plays exactly as an unpinned
-  // one's does.
-  const run = createRun(
-    tape.header.seed,
-    tape.header.startingSize,
-    tape.header.startingLevels,
-  );
-  const execution = createExecution(run, {
-    listeners: observer === undefined ? [] : [observer],
-  });
-  const expected = checkpointsByIndex(tape.checkpoints);
+/**
+ * One reproduction's own state: what the loop has consumed and what it has
+ * concluded so far. It is the module's private machine and never leaves it; a
+ * caller only ever sees the Playback above.
+ */
+interface Reproduction {
+  readonly tape: Tape;
+  readonly run: RunState;
+  readonly execution: Execution;
+  // The witness this tape claims at each of its checkpoint indices.
+  readonly expected: ReadonlyMap<number, number>;
+  // Set when the tape's fold is not this reader's, which stops it before tick one.
+  readonly refused: boolean;
+  ticksReproduced: number;
+  checkpointsVerified: number;
+  firstDivergentCheckpoint: number | null;
+  // True once the tape or the verified bound is exhausted.
+  exhausted: boolean;
+}
 
-  let ticksReproduced = 0;
-  let checkpointsVerified = 0;
-  let firstDivergentCheckpoint: number | null = null;
+/**
+ * The run a tape describes, rebuilt from the header alone: seed, resolved size
+ * and resolved starting levels, so a pinned run's tape plays exactly as an
+ * unpinned one's does.
+ */
+const runFromHeader = (header: TapeHeader): RunState =>
+  createRun(header.seed, header.startingSize, header.startingLevels);
 
-  // Checkpoint index N is the fold of the state after executeTick has run N
-  // times (ADR 0019), recomputed from zero because each one is an independent
-  // snapshot rather than a link in a chain.
-  const checkpointAgrees = (index: number): boolean => {
-    const witness = expected.get(index);
-    if (witness === undefined) return true;
-    if (foldWitness(run, 0) !== witness) {
-      firstDivergentCheckpoint = index;
-      return false;
-    }
-    checkpointsVerified += 1;
-    return true;
+/**
+ * Whether the tape's witness at a checkpoint is the one this reproduction
+ * recomputes, counting the agreement or naming the first disagreement.
+ *
+ * Checkpoint index N is the fold of the state after executeTick has run N
+ * times (ADR 0019), recomputed from zero because each one is an independent
+ * snapshot rather than a link in a chain.
+ */
+const checkpointAgrees = (
+  reproduction: Reproduction,
+  index: number,
+): boolean => {
+  const witness = reproduction.expected.get(index);
+  if (witness === undefined) return true;
+  if (foldWitness(reproduction.run, 0) !== witness) {
+    reproduction.firstDivergentCheckpoint = index;
+    return false;
+  }
+  reproduction.checkpointsVerified += 1;
+  return true;
+};
+
+// A reproduction standing at tick zero, its run built and its checkpoint zero judged.
+const beginReproduction = (
+  tape: Tape,
+  observer?: TickListener,
+): Reproduction => {
+  const run = runFromHeader(tape.header);
+  const reproduction: Reproduction = {
+    tape,
+    run,
+    execution: createExecution(run, {
+      listeners: observer === undefined ? [] : [observer],
+    }),
+    expected: checkpointsByIndex(tape.checkpoints),
+    refused: tape.header.witnessVersion !== WITNESS_VERSION,
+    ticksReproduced: 0,
+    checkpointsVerified: 0,
+    firstDivergentCheckpoint: null,
+    exhausted: false,
   };
-
   // A refused tape never reaches checkpoint zero; otherwise index zero is
   // checked before a single command is fed in.
-  let exhausted = refused || !checkpointAgrees(0);
+  reproduction.exhausted =
+    reproduction.refused || !checkpointAgrees(reproduction, 0);
+  return reproduction;
+};
 
-  const advanceTick = (): boolean => {
-    if (exhausted) return false;
-    const command = tape.commands[ticksReproduced];
-    if (command === undefined) {
-      exhausted = true;
-      return false;
-    }
-    // Deliberately never reads execution.stop: a fault today's checks raise
-    // never stops reproduction (ADR 0017, #58 ruling 5), because a tape must
-    // reproduce every command it holds, the ticks that carried the fault
-    // included.
-    executeTick(execution, command);
-    ticksReproduced += 1;
-    if (!checkpointAgrees(ticksReproduced)) exhausted = true;
-    return true;
-  };
+// Feeds the next command in, and says whether there was one to feed.
+const reproduceTick = (reproduction: Reproduction): boolean => {
+  if (reproduction.exhausted) return false;
+  const command = reproduction.tape.commands[reproduction.ticksReproduced];
+  if (command === undefined) {
+    reproduction.exhausted = true;
+    return false;
+  }
+  // Deliberately never reads execution.stop: a fault today's checks raise
+  // never stops reproduction (ADR 0017, #58 ruling 5), because a tape must
+  // reproduce every command it holds, the ticks that carried the fault
+  // included.
+  executeTick(reproduction.execution, command);
+  reproduction.ticksReproduced += 1;
+  if (!checkpointAgrees(reproduction, reproduction.ticksReproduced)) {
+    reproduction.exhausted = true;
+  }
+  return true;
+};
 
-  const verdictSoFar = (): PlaybackResult => ({
-    outcome: firstDivergentCheckpoint === null ? 'verified' : 'diverged',
-    tapeWitnessVersion: tape.header.witnessVersion,
-    readerWitnessVersion: WITNESS_VERSION,
-    checkpointsVerified,
-    checkpointsUnreachable:
-      expected.size - countReachable(expected, ticksReproduced),
-    firstDivergentCheckpoint,
-    ticksReproduced,
-    finalWitness: foldWitness(run, 0),
-    recordedFaults: faultObservations(tape),
-    readbackFaults: execution.faults,
-  });
+// The verdict on the ticks reproduced so far, which is a whole verdict at every tick.
+const verdictSoFar = (reproduction: Reproduction): PlaybackResult => ({
+  outcome:
+    reproduction.firstDivergentCheckpoint === null ? 'verified' : 'diverged',
+  tapeWitnessVersion: reproduction.tape.header.witnessVersion,
+  readerWitnessVersion: WITNESS_VERSION,
+  checkpointsVerified: reproduction.checkpointsVerified,
+  checkpointsUnreachable:
+    reproduction.expected.size -
+    countReachable(reproduction.expected, reproduction.ticksReproduced),
+  firstDivergentCheckpoint: reproduction.firstDivergentCheckpoint,
+  ticksReproduced: reproduction.ticksReproduced,
+  finalWitness: foldWitness(reproduction.run, 0),
+  recordedFaults: faultObservations(reproduction.tape),
+  readbackFaults: reproduction.execution.faults,
+});
 
-  const result = (): PlaybackResult =>
-    refused ? versionMismatch(tape) : verdictSoFar();
+const resultOf = (reproduction: Reproduction): PlaybackResult =>
+  reproduction.refused
+    ? versionMismatch(reproduction.tape)
+    : verdictSoFar(reproduction);
 
+const createPlayback = (tape: Tape, observer?: TickListener): Playback => {
+  const reproduction = beginReproduction(tape, observer);
   return {
-    run,
+    run: reproduction.run,
     get ticksReproduced() {
-      return ticksReproduced;
+      return reproduction.ticksReproduced;
     },
-    advanceTick,
-    result,
+    advanceTick: () => reproduceTick(reproduction),
+    result: () => resultOf(reproduction),
   };
 };
 
