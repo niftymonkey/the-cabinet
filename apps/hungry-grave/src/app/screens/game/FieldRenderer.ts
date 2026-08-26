@@ -126,6 +126,18 @@ const DROP_BREATH_TICKS = Math.round(2.75 * TICK_HZ);
 const DROP_BREATH_DEPTH = 0.18;
 
 /**
+ * How far apart one id sits from the next in the breath's cycle.
+ *
+ * Ids are handed out in sequence, so an eruption's drops arrive with adjacent
+ * ones. Adding the bare id moves a neighbour by a single tick of the period,
+ * which is the lockstep the offset exists to break. The stride is prime, so it
+ * shares no factor with the period and never folds a run of ids onto one phase,
+ * and it is close to the golden section of the period, which is the ratio that
+ * keeps successive ids furthest apart.
+ */
+const DROP_BREATH_ID_STRIDE = 103;
+
+/**
  * How much of its drawn size a drop wears on this tick.
  *
  * The tick and the drop's own id are the only inputs. The renderer is a pure
@@ -135,7 +147,8 @@ const DROP_BREATH_DEPTH = 0.18;
  * lockstep.
  */
 function dropBreath(tick: number, id: number): number {
-  const phase = ((tick + id) / DROP_BREATH_TICKS) * Math.PI * 2;
+  const offset = id * DROP_BREATH_ID_STRIDE;
+  const phase = ((tick + offset) / DROP_BREATH_TICKS) * Math.PI * 2;
   return 1 - DROP_BREATH_DEPTH * (0.5 + 0.5 * Math.sin(phase));
 }
 

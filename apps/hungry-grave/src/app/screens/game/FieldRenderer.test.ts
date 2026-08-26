@@ -846,26 +846,36 @@ describe("a drop's legibility (the fix inside #36)", () => {
     expect(trough).toBeCloseTo(24 * (1 - 0.18), 2);
   });
 
-  it("offsets each drop's breath by its own id, so drops do not pulse in lockstep", () => {
+  it("holds two neighbouring drops visibly apart in the breath, not merely unequal", () => {
     // On the tick alone every drop pulses together, and a drop can be born at
     // its smallest, the moment it most needs to be seen. The offset is the
     // drop's own id, the same device the corpse flicker already uses, because
     // the renderer must stay a pure function of the sim's own state.
+    //
+    // Ids arrive in sequence, so the two drops here are the adjacent pair the
+    // stride has to separate. A test that asked only for inequality passed on a
+    // hundredth of a unit, which is lockstep to the eye, so the floor is a
+    // third of the breath's own travel: separation nobody has to measure to
+    // see.
     const { layers, renderer } = attached();
     const state = createRun(3);
     spawnDrop(state, 100, 100, "wisps");
     spawnDrop(state, 300, 300, "wisps");
-    const apart: boolean[] = [];
-    for (const tick of [0, 13, 31, 47, 76]) {
+    const travel = 24 * 0.18;
+    let widest = 0;
+    for (const tick of breathTicks()) {
       state.tick = tick;
       renderer.sync(state);
       const visible = (layers.layer("treasure").children as Graphics[]).filter(
         (each) => each.visible,
       );
       expect(visible).toHaveLength(2);
-      apart.push(drawnLongAxis(visible[0]) !== drawnLongAxis(visible[1]));
+      widest = Math.max(
+        widest,
+        Math.abs(drawnLongAxis(visible[0]) - drawnLongAxis(visible[1])),
+      );
     }
-    expect(apart.some(Boolean)).toBe(true);
+    expect(widest).toBeGreaterThanOrEqual(travel / 3);
   });
 
   it("holds the on-screen stroke at SPRITE_STROKE through every phase of the breath", () => {
