@@ -9,3 +9,8 @@ test-results/
 .vercel
 .env*
 .claude/settings.local.json
+
+# Local iteration notes and one-off verification instruments, never committed.
+# .prettierignore and eslint.config.js already exclude this folder; without the
+# line here a fresh clone would offer it up for commit.
+local/

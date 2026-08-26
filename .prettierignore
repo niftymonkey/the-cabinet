@@ -14,8 +14,8 @@ docs/
 continue.md
 continue-*.md
 
-# The v1 roadmap's source, its build scripts and the page they generate. Excluded
-# from git in .git/info/exclude, so prettier was the only thing still reading it.
+# The v1 roadmap's source, its build scripts and the page they generate. Local
+# iteration notes, excluded from git in .gitignore.
 local/
 
 # Assetpack's cache and its output. Generated on every typecheck and build, and
