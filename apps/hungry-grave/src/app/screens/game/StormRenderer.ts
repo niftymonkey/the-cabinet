@@ -19,8 +19,7 @@ import type { FieldLayers } from './layering';
  * the belch's eruption and the splash.
  *
  * It is a second file beside FieldRenderer rather than four more methods on it.
- * That file is already the field's own entities and nearly five hundred lines;
- * the storm is a different owner with its own pools, and the two share no state.
+ * The storm is a different owner with its own pools, and the two share no state.
  * What is copied is the pattern and not the code: a sprite pool sized from each
  * entity cap, slot-parallel iteration rather than a live list, a memo so a
  * sprite redraws only when its look changes, position set every frame, tint

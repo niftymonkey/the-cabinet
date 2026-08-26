@@ -9,7 +9,6 @@ import { describe, expect, it } from 'vitest';
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../../../../game/caps';
 import { TICK_HZ } from '../../../../game/clock';
 import { FIELD_HEIGHT } from '../../../../game/field';
-import type { Corpse } from '../../../../game/corpses';
 import {
   CORPSE_HALF_EXTENT,
   DROP_HALF_EXTENT,
@@ -19,24 +18,25 @@ import {
 import type { WeaponLine } from '../../../../game/lines/roster';
 import { WEAPON_LINES } from '../../../../game/lines/roster';
 import type { Mob, MobType } from '../../../../game/mobs';
-import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../../../../game/mobs';
+import {
+  ARRIVE_TICKS,
+  MOB_TYPE_NAMES,
+  MOB_TYPES,
+  spawnMob,
+} from '../../../../game/mobs';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { INVULNERABLE_TICKS } from '../../../../game/tuning';
-import { CORPSE_TIERS, PALETTE } from '../../../palette';
-import fieldRendererSource from '../FieldRenderer.ts?raw';
+import { PALETTE } from '../../../palette';
+import { FieldRenderer } from '../FieldRenderer';
 import {
-  alarmRadius,
   DROP_DRAW_HALF_EXTENT,
-  FieldRenderer,
-  FLICKER_HALF_PERIOD,
   freshnessBrightness,
-  SHOT_CORE_OF_HITBOX,
-  SHOT_DRAW_SCALE,
   SPRITE_STROKE,
-  tellRadius,
-} from '../FieldRenderer';
+} from '../foodSprite';
 import { FieldLayers } from '../layering';
+import { SHOT_CORE_OF_HITBOX, SHOT_DRAW_SCALE } from '../mobFireSprite';
+import { tellRadius } from '../mobSprite';
 
 function attached(): { layers: FieldLayers; renderer: FieldRenderer } {
   const layers = new FieldLayers();
@@ -47,24 +47,6 @@ function attached(): { layers: FieldLayers; renderer: FieldRenderer } {
 
 function put(state: RunState, type: MobType, x: number, y: number) {
   return spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
-}
-
-/**
- * A wave killed in one burst, down to the freshness that flickers. The mobs all
- * die before any corpse is spawned, so the corpse ids run consecutively the way
- * one storm tick's kills do.
- */
-function flickering(state: RunState, count: number): Corpse[] {
-  const dead = [];
-  for (let index = 0; index < count; index++) {
-    const mob = put(state, 'shambler', 40 + index * 30, 100);
-    mob.alive = false;
-    dead.push(mob);
-  }
-  for (const mob of dead) leaveCorpse(state, mob);
-  const wave = state.corpses.filter((corpse) => corpse.alive);
-  for (const corpse of wave) corpse.freshness = 0.1;
-  return wave;
 }
 
 function sprites(layers: FieldLayers, name: 'corpses' | 'mobBodies') {
@@ -188,23 +170,6 @@ describe('FieldRenderer', () => {
     );
   });
 
-  it('flickers a nearly empty corpse and never a feast', () => {
-    const state = createRun(1);
-    const dead = put(state, 'shambler', 60, 100);
-    dead.alive = false;
-    leaveCorpse(state, dead);
-    const corpse = state.corpses.find((each) => each.alive)!;
-    corpse.freshness = 0.05;
-    const over = [0, 6, 12, 18].map((tick) =>
-      freshnessBrightness(corpse, tick),
-    );
-    expect(new Set(over).size).toBeGreaterThan(1);
-
-    const feast = { ...corpse, decays: false, freshness: 1 };
-    expect(freshnessBrightness(feast, 0)).toBe(1);
-    expect(freshnessBrightness(feast, 6)).toBe(1);
-  });
-
   it('tells an armed mob from an unarmed one, and a lit tell from an unlit one', () => {
     // ADR 0016 puts this ahead of everything else about the mob pool: a
     // shambler that will never shoot and one that will must not be the same
@@ -281,13 +246,6 @@ describe('FieldRenderer', () => {
     state.grave.invulnerable = 0;
     renderer.sync(state);
     expect(dim.alpha).toBe(0);
-  });
-
-  it('names a colour for every corpse tier the sim can produce', () => {
-    for (const type of ['shambler', 'revenant', 'ghoul'] as const) {
-      const tier = MOB_TYPES[type].corpseTier;
-      expect(`${type} ${tier in CORPSE_TIERS}`).toBe(`${type} true`);
-    }
   });
 
   it('draws a cancel scatter where a shot stopped being alive inside the field', () => {
@@ -379,80 +337,59 @@ describe('FieldRenderer', () => {
 });
 
 describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
-  it("clears WCAG SC 2.3.1's three-flashes floor on the corpse flicker", () => {
-    // A single corpse was covered by the criterion's small-area exemption. A
-    // whole wave killed in one burst is not, and nothing could produce a burst
-    // kill before the storm existed.
-    //
-    // The floor is tuning.ts's own derivation, restated for a flicker rather
-    // than for a hit: the worst case for a period of p seconds is floor(1 / p)
-    // plus 1, so three flashes a second needs a full period over 20 ticks and a
-    // half period of at least 11.
-    const flashesPerSecond =
-      Math.floor(TICK_HZ / (FLICKER_HALF_PERIOD * 2)) + 1;
-    expect(FLICKER_HALF_PERIOD).toBeGreaterThanOrEqual(11);
-    expect(flashesPerSecond).toBeLessThanOrEqual(3);
-  });
-
-  it('flickers two corpses killed on the same tick out of phase', () => {
-    // The pair is two ids apart rather than adjacent. An offset that reduces
-    // to the id's parity puts every corpse in one of two lockstep halves, and
-    // two adjacent ids land in different halves, so an adjacent pair reads as
-    // out of phase whether the offset spreads the wave or splits it in two.
-    const state = createRun(3);
-    const wave = flickering(state, 3);
-    const [a, , c] = wave;
-    expect(c.id - a.id).toBe(2);
-
-    const differed = [];
-    for (let tick = 0; tick < FLICKER_HALF_PERIOD * 4; tick++) {
-      differed.push(
-        freshnessBrightness(a, tick) !== freshnessBrightness(c, tick),
-      );
+  /** Every shape a sprite fills, as the path actions pixi recorded under each fill. */
+  function filledShapes(sprite: Graphics): string[] {
+    const shapes: string[] = [];
+    for (const instruction of sprite.context.instructions) {
+      if (instruction.action !== 'fill') continue;
+      for (const piece of instruction.data.path.instructions) {
+        if (piece.action !== 'moveTo') shapes.push(piece.action);
+      }
     }
-    expect(differed.some((apart) => apart)).toBe(true);
-  });
-
-  it('switches only a fraction of a burst-killed wave on any one tick', () => {
-    // The hazard SC 2.3.1 is written about is a large area changing luminance
-    // together, so what the offset has to buy is a small area per switch. A
-    // wave in two halves changes half of itself at once; spread across the
-    // period it changes a twelfth.
-    const state = createRun(5);
-    const wave = flickering(state, FLICKER_HALF_PERIOD);
-    let before = wave.map((corpse) => freshnessBrightness(corpse, 0));
-    let most = 0;
-    for (let tick = 1; tick <= FLICKER_HALF_PERIOD * 4; tick++) {
-      const now = wave.map((corpse) => freshnessBrightness(corpse, tick));
-      const switched = now.filter((value, at) => value !== before[at]).length;
-      most = Math.max(most, switched);
-      before = now;
-    }
-    expect(most).toBeLessThanOrEqual(
-      Math.ceil(wave.length / FLICKER_HALF_PERIOD),
-    );
-  });
-
-  it("gives the revenant's tell a component that grows as the shot approaches", () => {
-    // The closing iris is a countdown and it stays. What it could not do alone
-    // is hold salience: it closes to nothing at the moment of maximum urgency.
-    const early = alarmRadius('revenant', 0);
-    const late = alarmRadius('revenant', 1);
-    expect(late).toBeGreaterThan(early);
-    // And the iris still closes, so the pair is a countdown and an alarm.
-    expect(tellRadius('revenant', 1)).toBeLessThan(tellRadius('revenant', 0));
-  });
+    return shapes;
+  }
 
   it("draws the armed marker as something in no mob type's silhouette", () => {
     // It was a down-pointing triangle, which is the ghoul's own body shape, and
     // ADR 0014 makes silhouette the first discriminator between types.
-    const source = fieldRendererSource;
-    expect(source).toContain('ARMED_NOTCH_HEIGHT');
-    // The armed mark is a rect and no mob body is.
-    const mark = source.slice(source.indexOf('const drawArmedMark'));
-    const body = mark.slice(0, mark.indexOf('\n}'));
-    expect(body).toContain('.rect(');
-    expect(body).not.toContain('polygon(');
+    //
+    // Read off the drawing instructions and never off the module's source text.
+    // The claim is about geometry, and a source slice can see neither a
+    // reworded declaration nor the file the marker is declared in.
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    const shapesOf = (mob: Mob) =>
+      filledShapes(sprites(layers, 'mobBodies')[state.mobs.indexOf(mob)]);
+
+    for (const type of MOB_TYPE_NAMES) {
+      const mob = spawnMob(state, type, {
+        x: 60,
+        y: MOB_TYPES[type].halfHeight,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      })!;
+      // Past its own tell, so an armed mob here wears the mark and not the iris.
+      mob.fireIn = MOB_TYPES[type].fire.tellTicks + 1;
+
+      mob.armed = false;
+      renderer.sync(state);
+      const body = shapesOf(mob);
+
+      mob.armed = true;
+      renderer.sync(state);
+      const marked = shapesOf(mob);
+
+      // The body is untouched, the mark is one rectangle drawn over it, and no
+      // type's own silhouette is a rectangle.
+      expect(`${type} ${marked.slice(0, body.length).join()}`).toBe(
+        `${type} ${body.join()}`,
+      );
+      expect(`${type} ${marked.slice(body.length).join()}`).toBe(
+        `${type} rect`,
+      );
+      expect(`${type} ${body.includes('rect')}`).toBe(`${type} false`);
+    }
   });
 
   it('draws a shot larger than its hitbox and its core no larger than its hitbox', () => {
