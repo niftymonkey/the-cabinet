@@ -1,10 +1,10 @@
-export type LineName = "soul" | "stone" | "wisp" | "bell";
+export type LineName = 'soul' | 'stone' | 'wisp' | 'bell';
 
 export const LINE_NAMES: readonly LineName[] = [
-  "soul",
-  "stone",
-  "wisp",
-  "bell",
+  'soul',
+  'stone',
+  'wisp',
+  'bell',
 ];
 
 export interface Player {
@@ -34,7 +34,7 @@ export interface Enemy {
   pushY: number;
 }
 
-export type EnemyBulletKind = "shot" | "tear" | "clod" | "spiral";
+export type EnemyBulletKind = 'shot' | 'tear' | 'clod' | 'spiral';
 
 export interface EnemyBullet {
   x: number;
@@ -51,7 +51,7 @@ export interface PlayerBullet {
   vx: number;
   vy: number;
   damage: number;
-  kind: "skull" | "wisp";
+  kind: 'skull' | 'wisp';
   lifetime: number;
 }
 
@@ -66,7 +66,7 @@ export interface BellRing {
   hitBoss: boolean;
 }
 
-export type CorpseKind = "corpse" | "feast" | "bansheeFeast";
+export type CorpseKind = 'corpse' | 'feast' | 'bansheeFeast';
 
 export interface Corpse {
   x: number;
@@ -86,16 +86,16 @@ export interface Drop {
 }
 
 export type PhaseName =
-  | "ramp"
-  | "bansheeDrain"
-  | "banshee"
-  | "backhalf"
-  | "undertakerDrain"
-  | "undertaker"
-  | "victory"
-  | "dead";
+  | 'ramp'
+  | 'bansheeDrain'
+  | 'banshee'
+  | 'backhalf'
+  | 'undertakerDrain'
+  | 'undertaker'
+  | 'victory'
+  | 'dead';
 
-export type BossKind = "banshee" | "undertaker";
+export type BossKind = 'banshee' | 'undertaker';
 
 export interface Boss {
   kind: BossKind;
@@ -117,25 +117,25 @@ export interface Boss {
 }
 
 export type GameEvent =
-  | { kind: "eat"; x: number; y: number; freshness: number }
-  | { kind: "feast"; x: number; y: number }
-  | { kind: "burst"; x: number; y: number }
-  | { kind: "bell"; x: number; y: number }
-  | { kind: "chime"; x: number; y: number }
-  | { kind: "splashWaste"; x: number; y: number }
-  | { kind: "belch" }
-  | { kind: "belchReady" }
-  | { kind: "hit"; x: number; y: number; cause: string }
-  | { kind: "drop"; x: number; y: number }
-  | { kind: "levelUp"; line: LineName; level: number }
-  | { kind: "overflowEat" }
-  | { kind: "sizeOverflow"; x: number; y: number }
-  | { kind: "suckedUnder"; x: number; y: number }
-  | { kind: "kill"; x: number; y: number }
-  | { kind: "chunkBreak"; x: number; y: number }
-  | { kind: "bossDeath"; boss: BossKind }
-  | { kind: "wallIncoming" }
-  | { kind: "sealed" };
+  | { kind: 'eat'; x: number; y: number; freshness: number }
+  | { kind: 'feast'; x: number; y: number }
+  | { kind: 'burst'; x: number; y: number }
+  | { kind: 'bell'; x: number; y: number }
+  | { kind: 'chime'; x: number; y: number }
+  | { kind: 'splashWaste'; x: number; y: number }
+  | { kind: 'belch' }
+  | { kind: 'belchReady' }
+  | { kind: 'hit'; x: number; y: number; cause: string }
+  | { kind: 'drop'; x: number; y: number }
+  | { kind: 'levelUp'; line: LineName; level: number }
+  | { kind: 'overflowEat' }
+  | { kind: 'sizeOverflow'; x: number; y: number }
+  | { kind: 'suckedUnder'; x: number; y: number }
+  | { kind: 'kill'; x: number; y: number }
+  | { kind: 'chunkBreak'; x: number; y: number }
+  | { kind: 'bossDeath'; boss: BossKind }
+  | { kind: 'wallIncoming' }
+  | { kind: 'sealed' };
 
 export interface Input {
   moveX: number;

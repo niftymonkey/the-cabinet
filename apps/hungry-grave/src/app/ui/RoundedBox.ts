@@ -1,4 +1,4 @@
-import { Container, NineSliceSprite, Texture } from "pixi.js";
+import { Container, NineSliceSprite, Texture } from 'pixi.js';
 
 const defaultRoundedBoxOptions = {
   color: 0xffffff,
@@ -9,22 +9,22 @@ const defaultRoundedBoxOptions = {
   shadowOffset: 22,
 };
 
-export type RoundedBoxOptions = typeof defaultRoundedBoxOptions;
+type RoundedBoxOptions = typeof defaultRoundedBoxOptions;
 
 /**
  * Generic rounded box based on a nine-sliced sprite that can be resized freely.
  */
-export class RoundedBox extends Container {
-  /** The rectangular area, that scales without distorting rounded corners */
+class RoundedBox extends Container {
+  // The rectangular area, that scales without distorting rounded corners
   private image: NineSliceSprite;
-  /** Optional shadow matching the box image, with y offest */
+  // Optional shadow matching the box image, with y offest
   private shadow?: NineSliceSprite;
 
   constructor(options: Partial<RoundedBoxOptions> = {}) {
     super();
     const opts = { ...defaultRoundedBoxOptions, ...options };
     this.image = new NineSliceSprite({
-      texture: Texture.from("rounded-rectangle.png"),
+      texture: Texture.from('rounded-rectangle.png'),
       leftWidth: 34,
       topHeight: 34,
       rightWidth: 34,
@@ -39,7 +39,7 @@ export class RoundedBox extends Container {
 
     if (opts.shadow) {
       this.shadow = new NineSliceSprite({
-        texture: Texture.from("rounded-rectangle.png"),
+        texture: Texture.from('rounded-rectangle.png'),
         leftWidth: 34,
         topHeight: 34,
         rightWidth: 34,
@@ -54,13 +54,16 @@ export class RoundedBox extends Container {
     }
   }
 
-  /** Get the base width, without counting the shadow */
+  // Get the base width, without counting the shadow
   public get boxWidth() {
     return this.image.width;
   }
 
-  /** Get the base height, without counting the shadow */
+  // Get the base height, without counting the shadow
   public get boxHeight() {
     return this.image.height;
   }
 }
+
+export { RoundedBox };
+export type { RoundedBoxOptions };

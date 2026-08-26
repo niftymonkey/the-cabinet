@@ -2,11 +2,11 @@
 // prototype, so the blank scaffold still has a passing test run after every
 // prototype folder is deleted.
 
-import { describe, expect, it } from "vitest";
-import { PROTOTYPES, prototypeFromHash, prototypeHash } from "./index";
+import { describe, expect, it } from 'vitest';
+import { PROTOTYPES, prototypeFromHash, prototypeHash } from './index';
 
-describe("the prototype registry", () => {
-  it("ids are unique, kebab-case, and round-trip through the hash route", () => {
+describe('the prototype registry', () => {
+  it('ids are unique, kebab-case, and round-trip through the hash route', () => {
     const ids = PROTOTYPES.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const p of PROTOTYPES) {
@@ -15,15 +15,15 @@ describe("the prototype registry", () => {
     }
   });
 
-  it("a query riding the hash still routes to the prototype (entry 13)", () => {
+  it('a query riding the hash still routes to the prototype (entry 13)', () => {
     for (const p of PROTOTYPES) {
       expect(prototypeFromHash(`${prototypeHash(p.id)}?seed=7`)).toBe(p);
     }
   });
 
-  it("unknown and empty hashes route to no prototype", () => {
-    expect(prototypeFromHash("#/prototypes/not-a-prototype")).toBeUndefined();
-    expect(prototypeFromHash("")).toBeUndefined();
-    expect(prototypeFromHash("#")).toBeUndefined();
+  it('unknown and empty hashes route to no prototype', () => {
+    expect(prototypeFromHash('#/prototypes/not-a-prototype')).toBeUndefined();
+    expect(prototypeFromHash('')).toBeUndefined();
+    expect(prototypeFromHash('#')).toBeUndefined();
   });
 });

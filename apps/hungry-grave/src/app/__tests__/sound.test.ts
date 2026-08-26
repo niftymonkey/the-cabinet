@@ -1,0 +1,188 @@
+/**
+ * The game's voice (plan 6.22). It subscribes to the event list and nothing
+ * else, and holds no game rules of its own.
+ */
+
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { SimEvent } from '../../game/events';
+import manifest from '../../manifest.json';
+import { clipFor, playFor } from '../sound';
+
+const SRC = resolve(import.meta.dirname, '..', '..');
+
+/** One of every event the sim can emit, so the ignored ones are checked as a set. */
+const EVERY_EVENT: SimEvent[] = [
+  { type: 'swallowed', kind: 'corpse', freshness: 1, payout: 1 },
+  { type: 'chimed', kind: 'corpse' },
+  { type: 'chimed', kind: 'drop' },
+  { type: 'chimed', kind: 'feast' },
+  { type: 'grew', amount: 1, size: 20 },
+  { type: 'overflowed', amount: 1, score: 1 },
+  { type: 'reservoirCharged', amount: 1, reservoir: 1 },
+  { type: 'splashed', wasted: 1, reservoir: 1 },
+  { type: 'reservoirFull', reservoir: 1 },
+  { type: 'weaponLeveled', line: 'bell', level: 2 },
+  { type: 'graveHit', source: 'contact', size: 20, invulnerable: 24 },
+  { type: 'mobDamaged', id: 7, amount: 1, source: 'bell' },
+  { type: 'scoreBled', amount: 5 },
+  { type: 'weaponStripped', lines: ['bell'] },
+  { type: 'sealed', tick: 10 },
+  { type: 'victory', tick: 10 },
+  { type: 'mobKilled', id: 7, mob: 'shambler', x: 1, y: 2 },
+  { type: 'mobFired', emitter: 'shambler', x: 1, y: 2 },
+  { type: 'corpseExpired', x: 1, y: 2 },
+  { type: 'corpseEvicted', x: 1, y: 2, freshness: 0.1 },
+  { type: 'corpseLost', kind: 'corpse', x: 1, y: 2, freshness: 0.5 },
+  { type: 'tolled', level: 3, radius: 165 },
+  { type: 'belched', cancelled: 12, killed: 4 },
+  { type: 'dropSpawned', line: 'wisps', x: 1, y: 2 },
+  { type: 'phaseChanged', phase: 'backHalf', tick: 10 },
+];
+
+describe('which events make a sound (plan 6.22)', () => {
+  it('reacts to chimed, tolled, graveHit and belched, and ignores every other event', () => {
+    const heard = EVERY_EVENT.filter((event) => clipFor(event) !== null).map(
+      (event) => event.type,
+    );
+    expect(new Set(heard)).toEqual(
+      new Set(['chimed', 'tolled', 'graveHit', 'belched']),
+    );
+  });
+
+  it('covers five clips, because coverage is the point rather than the count', () => {
+    // An earlier shape shipped two and both landed on the two commonest events
+    // in the game while the scarcest objects stayed silent: a drop sounded
+    // exactly like a corpse and the belch made no noise at all.
+    const clips = new Set(
+      EVERY_EVENT.map(clipFor).filter((clip) => clip !== null),
+    );
+    expect(clips).toEqual(
+      new Set(['swallow', 'treasure', 'toll', 'hit', 'eruption']),
+    );
+  });
+});
+
+describe('the swallow chime and the treasure chime (plan 6.22)', () => {
+  it('chimes for a corpse and for a feast, from the very first swallow whatever the loadout', () => {
+    // The headline criterion that stops an unlucky drop sequence leaving the
+    // early minutes silent.
+    expect(clipFor({ type: 'chimed', kind: 'corpse' })).toBe('swallow');
+    expect(clipFor({ type: 'chimed', kind: 'feast' })).toBe('swallow');
+  });
+
+  it('plays a different clip for a drop, chosen from the kind the event already carries', () => {
+    // The scarcest object in the game must not sound like the commonest, and
+    // this needs no event change and no game rule here: Chimed already carries
+    // the food's kind.
+    expect(clipFor({ type: 'chimed', kind: 'drop' })).toBe('treasure');
+    expect(clipFor({ type: 'chimed', kind: 'drop' })).not.toBe(
+      clipFor({ type: 'chimed', kind: 'corpse' }),
+    );
+  });
+});
+
+/** A clip that is not there: what @pixi/sound does with an unloaded alias. */
+const missingClip = {
+  play: () => {
+    throw new Error('Cannot find sound');
+  },
+};
+
+describe('a clip that will not play', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('a clip that will not play is not silent', async () => {
+    // A fresh module per test, because the report is once per session.
+    const { playFor } = await import('../sound');
+
+    playFor(missingClip, { type: 'chimed', kind: 'corpse' });
+
+    const said = vi
+      .mocked(console.warn)
+      .mock.calls.map((call) => call.map(String).join(' '));
+    expect(said).toHaveLength(1);
+    // What happened, and what it costs.
+    expect(said[0]).toContain('swallow');
+    expect(said[0]).toContain('silence');
+  });
+
+  it('reports once, not once per event', async () => {
+    const { playFor } = await import('../sound');
+
+    for (let event = 0; event < 500; event += 1) {
+      playFor(missingClip, { type: 'chimed', kind: 'corpse' });
+    }
+
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Every alias the voice can ask for, gathered by playing one of every event
+ * through the module's own seam rather than read off the clip table, so what is
+ * checked is what a run would actually hand the effects channel.
+ */
+const aliasesTheVoicePlays = (): string[] => {
+  const played: string[] = [];
+  const recorder = { play: (alias: string): void => void played.push(alias) };
+  for (const event of EVERY_EVENT) playFor(recorder, event);
+  return played;
+};
+
+/** The aliases a bundle registers: @pixi/sound takes the first of each list. */
+const aliasesInBundle = (name: string): string[] => {
+  const bundle = manifest.bundles.find((entry) => entry.name === name);
+  return bundle ? bundle.assets.map((asset) => asset.alias[0]) : [];
+};
+
+describe('the clips a run asks for', () => {
+  it('every clip the voice plays is in the bundle a sounding screen loads', () => {
+    // This is why a clip still loading is not the case playFor's catch sees.
+    // Navigation awaits a screen's assetBundles before constructing it, and the
+    // screens that make sound declare 'main', so the aliases below are
+    // registered before the first swallow can land. A clip that leaves this
+    // bundle turns that unreachable path into a real defect, and the only thing
+    // that would say so is a console warning nobody is watching for.
+    const registered = aliasesInBundle('main');
+    const played = aliasesTheVoicePlays();
+
+    expect(played.length).toBeGreaterThan(0);
+    for (const alias of played) {
+      expect(`${alias}: ${registered.includes(alias)}`).toBe(`${alias}: true`);
+    }
+  });
+});
+
+describe('it holds no game rule (plan 6.22)', () => {
+  it('plays the same clip for the same event, whatever the run state is', () => {
+    // A pure function of the event. There is no run to vary, which is the
+    // property: the events carry values for exactly this reason.
+    const event: SimEvent = { type: 'tolled', level: 1, radius: 80 };
+    expect(clipFor(event)).toBe(clipFor(event));
+    expect(clipFor({ type: 'tolled', level: 5, radius: 250 })).toBe(
+      clipFor(event),
+    );
+  });
+
+  it('keeps its imports inside the boundary rule that governs it', () => {
+    // src/boundary.test.ts holds this mechanically; this is the readable half,
+    // so a reader of the module sees what it is allowed to reach.
+    const source = readFileSync(join(SRC, 'app', 'sound.ts'), 'utf8');
+    const specifiers = [...source.matchAll(/from\s+'([^']+)'/g)].map(
+      (match) => match[1],
+    );
+    expect(specifiers.length).toBeGreaterThan(0);
+    for (const specifier of specifiers) {
+      const inside =
+        !specifier.startsWith('../game') || specifier === '../game/events';
+      expect(`${specifier}: ${inside}`).toBe(`${specifier}: true`);
+    }
+  });
+});

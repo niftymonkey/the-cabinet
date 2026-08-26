@@ -1,7 +1,7 @@
-import type { FederatedPointerEvent } from "pixi.js";
-import { Container, Graphics } from "pixi.js";
+import type { FederatedPointerEvent } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 
-import { PALETTE } from "../../palette";
+import { PALETTE } from '../../palette';
 
 /**
  * The belch's one control: a Container holding a Graphics, and deliberately not
@@ -28,19 +28,19 @@ import { PALETTE } from "../../palette";
  * asserted rather than eyeballed, because the stage scales per viewport and the
  * phone is the case where it binds.
  */
-export const BELCH_SIZE = 108;
+const BELCH_SIZE = 108;
 
-/** How thick the ring is drawn, in stage units. */
+// How thick the ring is drawn, in stage units.
 const RING_STROKE = 5;
 
-/** How thick the inner mark is drawn, and how far in it sits. */
+// How thick the inner mark is drawn, and how far in it sits.
 const MARK_STROKE = 4;
 const MARK_INSET = 0.42;
 
-/** How dim the ring draws while the reservoir is still filling. */
+// How dim the ring draws while the reservoir is still filling.
 const QUIET_ALPHA = 0.32;
 
-/** How far the lit ring pulses, and how fast, in ticks per cycle. */
+// How far the lit ring pulses, and how fast, in ticks per cycle.
 const LIT_PULSE_DEPTH = 0.22;
 const LIT_PULSE_TICKS = 40;
 
@@ -50,13 +50,13 @@ const LIT_PULSE_TICKS = 40;
  * their belch lives by seeing the thing under their thumb change rather than by
  * reading a meter.
  */
-export function ringAlpha(loaded: boolean, tick: number): number {
+const ringAlpha = (loaded: boolean, tick: number): number => {
   if (!loaded) return QUIET_ALPHA;
   const phase = (tick % LIT_PULSE_TICKS) / LIT_PULSE_TICKS;
   return 1 - LIT_PULSE_DEPTH * (1 - Math.cos(phase * Math.PI * 2)) * 0.5;
-}
+};
 
-export class BelchButton extends Container {
+class BelchButton extends Container {
   private readonly ring = new Graphics();
 
   /**
@@ -74,14 +74,14 @@ export class BelchButton extends Container {
   constructor(private readonly onFire: () => void) {
     super();
     this.addChild(this.ring);
-    this.eventMode = "static";
+    this.eventMode = 'static';
     // On press and never on release. The belch runs before overlap resolution
     // precisely so a bomb pressed on the frame a shot would land saves the
     // player, and firing on release gives that back as input latency at exactly
     // that moment.
-    this.on("pointerdown", this.onDown, this);
-    this.on("pointerup", this.onUp, this);
-    this.on("pointerupoutside", this.onUp, this);
+    this.on('pointerdown', this.onDown, this);
+    this.on('pointerup', this.onUp, this);
+    this.on('pointerupoutside', this.onUp, this);
   }
 
   private onDown(event: FederatedPointerEvent): void {
@@ -93,17 +93,17 @@ export class BelchButton extends Container {
     if (this.claimed === event.pointerId) this.claimed = null;
   }
 
-  /** Whether this pointer belongs to the button, so the steer model can ignore it. */
+  // Whether this pointer belongs to the button, so the steer model can ignore it.
   public owns(pointerId: number): boolean {
     return this.claimed === pointerId;
   }
 
-  /** Every claim dropped, which pause, blur and pointercancel all need. */
+  // Every claim dropped, which pause, blur and pointercancel all need.
   public release(): void {
     this.claimed = null;
   }
 
-  /** The loaded tell. Quiet while the reservoir fills, lit at full. */
+  // The loaded tell. Quiet while the reservoir fills, lit at full.
   public sync(loaded: boolean, tick: number): void {
     if (!this.drawn) {
       this.drawn = true;
@@ -127,3 +127,5 @@ export class BelchButton extends Container {
     };
   }
 }
+
+export { ringAlpha, BelchButton, BELCH_SIZE };

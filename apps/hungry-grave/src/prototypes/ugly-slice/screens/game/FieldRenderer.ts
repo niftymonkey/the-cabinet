@@ -4,16 +4,16 @@
 // the layer order is the readability rule: enemy fire on top in the reserved
 // hot palette, player fire dimmer below (concept doc).
 
-import type { Renderer, Texture } from "pixi.js";
-import { Container, Graphics, Sprite, TilingSprite } from "pixi.js";
+import type { Renderer, Texture } from 'pixi.js';
+import { Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
 
-import { graveCorner, graveHalfW } from "../../game/grave";
-import type { Sim } from "../../game/sim";
-import { stonePositions } from "../../game/sim";
-import * as T from "../../game/tuning";
-import type { CorpseKind, EnemyBulletKind } from "../../game/types";
-import { PALETTE } from "../../palette";
-import { sfx } from "../../sfx";
+import { graveCorner, graveHalfW } from '../../game/grave';
+import type { Sim } from '../../game/sim';
+import { stonePositions } from '../../game/sim';
+import * as T from '../../game/tuning';
+import type { CorpseKind, EnemyBulletKind } from '../../game/types';
+import { PALETTE } from '../../palette';
+import { sfx } from '../../sfx';
 
 class Pool {
   private readonly items: Sprite[] = [];
@@ -62,7 +62,7 @@ interface Transient {
   tint: number;
   fromRadius: number;
   toRadius: number;
-  shape: "ring" | "dot";
+  shape: 'ring' | 'dot';
 }
 
 const CORPSE_TINT: Record<CorpseKind, number> = {
@@ -311,13 +311,13 @@ export class FieldRenderer extends Container {
   private consumeEvents(sim: Sim): void {
     for (const ev of sim.events) {
       switch (ev.kind) {
-        case "chime":
+        case 'chime':
           sfx.chime();
           break;
-        case "bell":
+        case 'bell':
           sfx.bell();
           break;
-        case "eat":
+        case 'eat':
           this.transients.push({
             x: ev.x,
             y: ev.y,
@@ -328,10 +328,10 @@ export class FieldRenderer extends Container {
             tint: PALETTE.corpse,
             fromRadius: 6,
             toRadius: 26,
-            shape: "ring",
+            shape: 'ring',
           });
           break;
-        case "feast":
+        case 'feast':
           sfx.feast();
           this.transients.push({
             x: ev.x,
@@ -343,21 +343,21 @@ export class FieldRenderer extends Container {
             tint: PALETTE.graveGlow,
             fromRadius: 10,
             toRadius: 120,
-            shape: "ring",
+            shape: 'ring',
           });
           break;
-        case "belch":
+        case 'belch':
           sfx.belch();
           this.flash = 1;
           break;
-        case "hit":
+        case 'hit':
           sfx.hit();
           this.hitFlash = 1;
           break;
-        case "levelUp":
+        case 'levelUp':
           sfx.levelUp();
           break;
-        case "sizeOverflow":
+        case 'sizeOverflow':
           this.transients.push({
             x: ev.x,
             y: ev.y,
@@ -368,10 +368,10 @@ export class FieldRenderer extends Container {
             tint: PALETTE.drop,
             fromRadius: 8,
             toRadius: 50,
-            shape: "ring",
+            shape: 'ring',
           });
           break;
-        case "splashWaste":
+        case 'splashWaste':
           // The cap's lesson made visible: charge past a full reservoir
           // sputters out of the grave as dull droplets and dies (the box:
           // overflow visibly splashes and wastes).
@@ -390,11 +390,11 @@ export class FieldRenderer extends Container {
               tint: PALETTE.waste,
               fromRadius: 4.5,
               toRadius: 1.2,
-              shape: "dot",
+              shape: 'dot',
             });
           }
           break;
-        case "suckedUnder":
+        case 'suckedUnder':
           // A corpse the conveyor beat you to: the earth pulls it under, a
           // shrink into nothing where it lay (entry 2.3).
           this.transients.push({
@@ -407,10 +407,10 @@ export class FieldRenderer extends Container {
             tint: PALETTE.corpse,
             fromRadius: T.CORPSE_RADIUS,
             toRadius: 0.5,
-            shape: "dot",
+            shape: 'dot',
           });
           break;
-        case "sealed":
+        case 'sealed':
           sfx.sealed();
           break;
         default:
@@ -449,7 +449,7 @@ export class FieldRenderer extends Container {
       s.position.set(corpse.x, corpse.y);
       s.scale.set(corpse.radius / T.CORPSE_RADIUS);
       s.tint = CORPSE_TINT[corpse.kind];
-      if (corpse.kind === "corpse") {
+      if (corpse.kind === 'corpse') {
         s.alpha = 0.3 + 0.7 * corpse.freshness;
         if (corpse.freshness < T.FRESHNESS_FLICKER_AT) {
           s.alpha = Math.sin(sim.t * 42) > 0 ? 0.85 : 0.15;
@@ -466,11 +466,11 @@ export class FieldRenderer extends Container {
     // Player fire, dim and desaturated, under the enemies.
     for (const bullet of sim.playerBullets) {
       const s =
-        bullet.kind === "skull"
+        bullet.kind === 'skull'
           ? this.pools.skull.obtain()
           : this.pools.wisp.obtain();
       s.position.set(bullet.x, bullet.y);
-      s.tint = bullet.kind === "skull" ? PALETTE.skull : PALETTE.wisp;
+      s.tint = bullet.kind === 'skull' ? PALETTE.skull : PALETTE.wisp;
       s.alpha = 0.8;
     }
     for (const stone of stonePositions(sim.player)) {
@@ -500,7 +500,7 @@ export class FieldRenderer extends Container {
       const sprite = this.bossSprites[boss.kind];
       sprite.visible = true;
       sprite.position.set(boss.x, boss.y);
-      sprite.scale.set(boss.radius / (boss.kind === "banshee" ? 34 : 42));
+      sprite.scale.set(boss.radius / (boss.kind === 'banshee' ? 34 : 42));
       if (boss.flashLeft > 0) {
         sprite.alpha = 0.35 + 0.4 * Math.abs(Math.sin(sim.t * 24));
       } else if (boss.toppleLeft > 0) {
@@ -518,7 +518,7 @@ export class FieldRenderer extends Container {
       s.position.set(bullet.x, bullet.y);
       s.scale.set(bullet.radius / ENEMY_BULLET_BASE_RADIUS[bullet.kind]);
       s.tint = ENEMY_BULLET_TINT[bullet.kind];
-      if (bullet.kind === "spiral") {
+      if (bullet.kind === 'spiral') {
         s.rotation = Math.atan2(bullet.vy, bullet.vx) + Math.PI / 2;
       }
     }
@@ -532,14 +532,14 @@ export class FieldRenderer extends Container {
       tr.y += tr.dy * dt;
       const f = tr.age / tr.life;
       const s =
-        tr.shape === "ring"
+        tr.shape === 'ring'
           ? this.pools.pulse.obtain()
           : this.pools.dot.obtain();
       s.position.set(tr.x, tr.y);
       const radius = tr.fromRadius + (tr.toRadius - tr.fromRadius) * f;
-      s.scale.set(radius / (tr.shape === "ring" ? 64 : 8));
+      s.scale.set(radius / (tr.shape === 'ring' ? 64 : 8));
       s.tint = tr.tint;
-      s.alpha = tr.shape === "ring" ? 0.6 * (1 - f) : 0.9 * (1 - f * 0.6);
+      s.alpha = tr.shape === 'ring' ? 0.6 * (1 - f) : 0.9 * (1 - f * 0.6);
       kept.push(tr);
     }
     this.transients = kept;

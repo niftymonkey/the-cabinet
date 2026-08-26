@@ -6,10 +6,10 @@ export function keysToMove(
   held: ReadonlySet<string>,
   multiplier: number,
 ): { moveX: number; moveY: number } {
-  const left = held.has("ArrowLeft") || held.has("KeyA") ? 1 : 0;
-  const right = held.has("ArrowRight") || held.has("KeyD") ? 1 : 0;
-  const up = held.has("ArrowUp") || held.has("KeyW") ? 1 : 0;
-  const down = held.has("ArrowDown") || held.has("KeyS") ? 1 : 0;
+  const left = held.has('ArrowLeft') || held.has('KeyA') ? 1 : 0;
+  const right = held.has('ArrowRight') || held.has('KeyD') ? 1 : 0;
+  const up = held.has('ArrowUp') || held.has('KeyW') ? 1 : 0;
+  const down = held.has('ArrowDown') || held.has('KeyS') ? 1 : 0;
   const x = right - left;
   const y = down - up;
   const mag = Math.hypot(x, y);

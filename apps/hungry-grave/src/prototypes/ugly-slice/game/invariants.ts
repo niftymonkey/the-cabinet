@@ -2,10 +2,10 @@
 // Tests call this after each step; the dev overlay shows any fire live.
 // A violation is a plain string so a test failure names the broken rule.
 
-import { graveHalfW } from "./grave";
-import { LINE_NAMES } from "./types";
-import * as T from "./tuning";
-import type { Sim } from "./sim";
+import { graveHalfW } from './grave';
+import { LINE_NAMES } from './types';
+import * as T from './tuning';
+import type { Sim } from './sim';
 
 export const ENTITY_CAPS = {
   enemies: 300,
@@ -24,11 +24,11 @@ export function checkInvariants(sim: Sim): string[] {
   const out: string[] = [];
   const p = sim.player;
 
-  finite("player.x", p.x, out);
-  finite("player.y", p.y, out);
-  finite("player.halfH", p.halfH, out);
-  finite("player.score", p.score, out);
-  finite("player.reservoir", p.reservoir, out);
+  finite('player.x', p.x, out);
+  finite('player.y', p.y, out);
+  finite('player.halfH', p.halfH, out);
+  finite('player.score', p.score, out);
+  finite('player.reservoir', p.reservoir, out);
 
   if (
     p.halfH < T.GRAVE_MIN_HALF_H - 0.001 ||
@@ -59,32 +59,32 @@ export function checkInvariants(sim: Sim): string[] {
   }
 
   const counts: [string, number, number][] = [
-    ["enemies", sim.enemies.length, ENTITY_CAPS.enemies],
-    ["enemyBullets", sim.enemyBullets.length, ENTITY_CAPS.enemyBullets],
-    ["playerBullets", sim.playerBullets.length, ENTITY_CAPS.playerBullets],
-    ["corpses", sim.corpses.length, ENTITY_CAPS.corpses],
-    ["drops", sim.drops.length, ENTITY_CAPS.drops],
-    ["bells", sim.bells.length, ENTITY_CAPS.bells],
+    ['enemies', sim.enemies.length, ENTITY_CAPS.enemies],
+    ['enemyBullets', sim.enemyBullets.length, ENTITY_CAPS.enemyBullets],
+    ['playerBullets', sim.playerBullets.length, ENTITY_CAPS.playerBullets],
+    ['corpses', sim.corpses.length, ENTITY_CAPS.corpses],
+    ['drops', sim.drops.length, ENTITY_CAPS.drops],
+    ['bells', sim.bells.length, ENTITY_CAPS.bells],
   ];
   for (const [name, count, cap] of counts) {
     if (count > cap) out.push(`${name} count ${count} over cap ${cap}`);
   }
   for (const e of sim.enemies) {
-    finite("enemy.x", e.x, out);
-    finite("enemy.y", e.y, out);
+    finite('enemy.x', e.x, out);
+    finite('enemy.y', e.y, out);
   }
   for (const b of sim.enemyBullets) {
-    finite("enemyBullet.x", b.x, out);
-    finite("enemyBullet.y", b.y, out);
+    finite('enemyBullet.x', b.x, out);
+    finite('enemyBullet.y', b.y, out);
   }
   for (const b of sim.playerBullets) {
-    finite("playerBullet.x", b.x, out);
-    finite("playerBullet.y", b.y, out);
+    finite('playerBullet.x', b.x, out);
+    finite('playerBullet.y', b.y, out);
   }
   for (const c of sim.corpses) {
-    finite("corpse.x", c.x, out);
-    finite("corpse.y", c.y, out);
-    finite("corpse.freshness", c.freshness, out);
+    finite('corpse.x', c.x, out);
+    finite('corpse.y', c.y, out);
+    finite('corpse.freshness', c.freshness, out);
   }
 
   return out;

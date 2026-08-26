@@ -3,31 +3,90 @@
 // headless tests use, so what the tests assert is what the screen shows
 // (decision-log entry 6.5).
 
-import type { Ticker } from "pixi.js";
-import { Container } from "pixi.js";
+import type { Ticker } from 'pixi.js';
+import { BlurFilter, Container } from 'pixi.js';
 
-import { advanceToPhase, botInput, PHASE_ORDER } from "../../game/bot";
-import { checkInvariants } from "../../game/invariants";
-import { createSim, step, type Sim } from "../../game/sim";
-import * as T from "../../game/tuning";
-import type { Input } from "../../game/types";
-import { engine } from "../../../../app/getEngine";
-import { PausePopup } from "../../../../app/popups/PausePopup";
-import { keysToMove } from "../../input/keys";
-import { TouchSteer } from "../../input/touch";
-import { TouchStats } from "../../input/touchStats";
-import { nextRunSeed, runState } from "../../runState";
-import { storage } from "../../../../engine/utils/storage";
-import { initSfx } from "../../sfx";
-import { EndScreen } from "../EndScreen";
-import { DebugPanel } from "./DebugPanel";
-import { FieldRenderer } from "./FieldRenderer";
-import { GameHud } from "./GameHud";
+import { advanceToPhase, botInput, PHASE_ORDER } from '../../game/bot';
+import { checkInvariants } from '../../game/invariants';
+import { createSim, step, type Sim } from '../../game/sim';
+import * as T from '../../game/tuning';
+import type { Input } from '../../game/types';
+import { engine } from '../../../../app/getEngine';
+import type { PausePopupProps } from '../../../../app/popups/PausePopup';
+import { PausePopup } from '../../../../app/popups/PausePopup';
+import type { SettingsPopupProps } from '../../../../app/popups/SettingsPopup';
+import { SettingsPopup } from '../../../../app/popups/SettingsPopup';
+import { userSettings } from '../../../../app/userSettings';
+import { keysToMove } from '../../input/keys';
+import { TouchSteer } from '../../input/touch';
+import { TouchStats } from '../../input/touchStats';
+import { nextRunSeed, runState } from '../../runState';
+import { storage } from '../../../../engine/utils/storage';
+import { initSfx } from '../../sfx';
+import { EndScreen } from '../EndScreen';
+import { DebugPanel } from './DebugPanel';
+import { FieldRenderer } from './FieldRenderer';
+import { GameHud } from './GameHud';
+
+/**
+ * The screen behind a popup, blurred while the panel is up. The base app's
+ * popups take their powers from whoever shows them, and in this prototype that
+ * is this screen.
+ */
+const backdropPowers = () => ({
+  blurBackdrop: (strength: number): void => {
+    const behind = engine().navigation.currentScreen;
+    if (behind) behind.filters = [new BlurFilter({ strength })];
+  },
+  clearBackdrop: (): void => {
+    const behind = engine().navigation.currentScreen;
+    if (behind) behind.filters = [];
+  },
+});
+
+/**
+ * The chrome the base app's buttons make. They take it as a prop now, and in
+ * this prototype the engine accessor is still where it comes from.
+ */
+const buttonSound = () => ({
+  playButtonSound: (alias: string): void => {
+    engine().audio.sfx.play(alias);
+  },
+});
+
+const settingsProps = (): SettingsPopupProps => ({
+  ...backdropPowers(),
+  ...buttonSound(),
+  setMasterVolume: (value) => {
+    engine().audio.setMasterVolume(value);
+    userSettings.setMasterVolume(value);
+  },
+  setBgmVolume: (value) => {
+    engine().audio.bgm.setVolume(value);
+    userSettings.setBgmVolume(value);
+  },
+  setSfxVolume: (value) => {
+    engine().audio.sfx.setVolume(value);
+    userSettings.setSfxVolume(value);
+  },
+  onDone: () => engine().navigation.presentPopup(PausePopup, pauseMenuProps()),
+});
+
+const pauseMenuProps = (): PausePopupProps => ({
+  ...backdropPowers(),
+  ...buttonSound(),
+  onDismiss: () => engine().navigation.dismissPopup(),
+  onSettings: () =>
+    engine().navigation.presentPopup(SettingsPopup, settingsProps()),
+  // End Run does nothing in this prototype, which is what it did before the
+  // menu took its actions as props: the prototype never armed the handoff.
+  onEndRun: () => undefined,
+});
 
 const DT = 1 / 60;
 const MAX_STEPS_PER_FRAME = 6;
 const END_LINGER_SECONDS = 1.4;
-const KEY_SPEED_STORAGE = "hungry-grave/key-speed";
+const KEY_SPEED_STORAGE = 'hungry-grave/key-speed';
 
 // Snapped to the step grid (and two decimals against float dust), so a
 // value stored under an older step size lands on the current grid.
@@ -39,7 +98,7 @@ function clampKeySpeed(value: number): number {
 
 export class GameScreen extends Container {
   /** Assets bundles required by this screen (the popups draw from "main") */
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   private sim: Sim;
   private field: FieldRenderer;
@@ -76,7 +135,7 @@ export class GameScreen extends Container {
   private readonly onPointerDown = (ev: PointerEvent) =>
     this.handlePointerDown(ev);
   private readonly onPointerMove = (ev: PointerEvent) => {
-    if (ev.pointerType === "mouse") return;
+    if (ev.pointerType === 'mouse') return;
     // Raw arrival timing first, before any gating: the instrumentation must
     // see exactly what the browser delivers (ticket #33 lag diagnosis).
     this.touchStats.onMove(ev.timeStamp, performance.now());
@@ -85,8 +144,8 @@ export class GameScreen extends Container {
     this.touch.move(ev.pointerId, p.x, p.y);
   };
   private readonly onPointerEnd = (ev: PointerEvent) => {
-    if (ev.pointerType === "mouse") return;
-    if (ev.type === "pointercancel") this.touchStats.onCancel();
+    if (ev.pointerType === 'mouse') return;
+    if (ev.type === 'pointercancel') this.touchStats.onCancel();
     this.activeTouches.delete(ev.pointerId);
     this.touch.up(ev.pointerId);
     if (!this.touch.steering) this.touchStats.onSteerEnd();
@@ -104,7 +163,7 @@ export class GameScreen extends Container {
     // by the window pointer handler), but pixi hit-tests the tree on every
     // native pointermove for hover tracking. Pruning the whole subtree keeps
     // hundreds of pooled sprites out of that walk (ticket #33 lag diagnosis).
-    this.eventMode = "none";
+    this.eventMode = 'none';
     this.interactiveChildren = false;
     this.hud.setKeySpeed(this.keySpeed);
   }
@@ -129,7 +188,7 @@ export class GameScreen extends Container {
     if (this.paused) return;
     const dt = Math.min(time.deltaMS, 100) / 1000;
 
-    if (this.sim.phase !== "victory" && this.sim.phase !== "dead") {
+    if (this.sim.phase !== 'victory' && this.sim.phase !== 'dead') {
       this.acc += dt;
       let steps = 0;
       while (this.acc >= DT && steps < MAX_STEPS_PER_FRAME) {
@@ -145,7 +204,7 @@ export class GameScreen extends Container {
       this.endLinger += dt;
       if (this.endLinger >= END_LINGER_SECONDS) {
         this.ended = true;
-        runState.outcome = this.sim.phase === "dead" ? "dead" : "victory";
+        runState.outcome = this.sim.phase === 'dead' ? 'dead' : 'victory';
         runState.lastSim = this.sim;
         void engine().navigation.showScreen(EndScreen);
       }
@@ -191,13 +250,13 @@ export class GameScreen extends Container {
       // was for (ticket #33).
       return { moveX: touch.moveX, moveY: touch.moveY, focus: false, belch };
     }
-    const focus = h.has("ShiftLeft") || h.has("ShiftRight");
+    const focus = h.has('ShiftLeft') || h.has('ShiftRight');
     const move = keysToMove(h, this.keySpeed);
     return { moveX: move.moveX, moveY: move.moveY, focus, belch };
   }
 
   private handlePointerDown(ev: PointerEvent): void {
-    if (ev.pointerType === "mouse") return;
+    if (ev.pointerType === 'mouse') return;
     if (!this.touchUsed) {
       this.touchUsed = true;
       this.hud.setDragRatio(this.touch.ratio);
@@ -247,7 +306,7 @@ export class GameScreen extends Container {
   }
 
   private handleKeyDown(ev: KeyboardEvent): void {
-    if (ev.code === "Space" || ev.code.startsWith("Arrow")) {
+    if (ev.code === 'Space' || ev.code.startsWith('Arrow')) {
       ev.preventDefault();
     }
     if (ev.repeat) return;
@@ -255,22 +314,22 @@ export class GameScreen extends Container {
     // R, P, and the phase-skip digits still act behind it.
     if (this.paused) return;
     this.held.add(ev.code);
-    if (ev.code === "Space") this.belchPressed = true;
-    if (ev.code === "Escape") {
+    if (ev.code === 'Space') this.belchPressed = true;
+    if (ev.code === 'Escape') {
       // paused flips only once the popup is presented, so a double-tap of
       // Escape in that gap would re-present it without this check.
       if (!engine().navigation.currentPopup) {
-        void engine().navigation.presentPopup(PausePopup);
+        void engine().navigation.presentPopup(PausePopup, pauseMenuProps());
       }
       return;
     }
-    if (ev.code === "Backquote") {
+    if (ev.code === 'Backquote') {
       this.debugPanel.visible = !this.debugPanel.visible;
       return;
     }
     // Entry 12: the designated keyboard speed, tuned in play and kept.
-    if (ev.code === "Minus" || ev.code === "Equal") {
-      const direction = ev.code === "Minus" ? -1 : 1;
+    if (ev.code === 'Minus' || ev.code === 'Equal') {
+      const direction = ev.code === 'Minus' ? -1 : 1;
       this.keySpeed = clampKeySpeed(
         this.keySpeed + direction * T.KEY_SPEED_STEP,
       );
@@ -278,16 +337,16 @@ export class GameScreen extends Container {
       this.hud.setKeySpeed(this.keySpeed);
       return;
     }
-    if (ev.code === "KeyP") {
+    if (ev.code === 'KeyP') {
       this.autopilot = !this.autopilot;
       return;
     }
-    if (ev.code === "KeyR") {
+    if (ev.code === 'KeyR') {
       this.prepare();
       return;
     }
     // Dev phase-skip: fast-forward by honestly playing the bot (entry 6.5).
-    if (ev.code.startsWith("Digit")) {
+    if (ev.code.startsWith('Digit')) {
       const index = Number(ev.code.slice(5)) - 1;
       const target = PHASE_ORDER[index];
       if (target !== undefined && target !== this.sim.phase) {
@@ -330,29 +389,29 @@ export class GameScreen extends Container {
 
   public async show(): Promise<void> {
     initSfx();
-    engine().audio.bgm.play("main/sounds/bgm-main.mp3", { volume: 0.35 });
-    window.addEventListener("keydown", this.onKeyDown);
-    window.addEventListener("keyup", this.onKeyUp);
-    window.addEventListener("pointerdown", this.onPointerDown);
-    window.addEventListener("pointermove", this.onPointerMove);
-    window.addEventListener("pointerup", this.onPointerEnd);
-    window.addEventListener("pointercancel", this.onPointerEnd);
+    engine().audio.bgm.play('main/sounds/bgm-main.mp3', { volume: 0.35 });
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('pointerdown', this.onPointerDown);
+    window.addEventListener('pointermove', this.onPointerMove);
+    window.addEventListener('pointerup', this.onPointerEnd);
+    window.addEventListener('pointercancel', this.onPointerEnd);
   }
 
   public async hide() {
-    window.removeEventListener("keydown", this.onKeyDown);
-    window.removeEventListener("keyup", this.onKeyUp);
-    window.removeEventListener("pointerdown", this.onPointerDown);
-    window.removeEventListener("pointermove", this.onPointerMove);
-    window.removeEventListener("pointerup", this.onPointerEnd);
-    window.removeEventListener("pointercancel", this.onPointerEnd);
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('pointerdown', this.onPointerDown);
+    window.removeEventListener('pointermove', this.onPointerMove);
+    window.removeEventListener('pointerup', this.onPointerEnd);
+    window.removeEventListener('pointercancel', this.onPointerEnd);
     this.touch.cancel();
   }
 
   /** Auto pause when the window loses focus */
   public blur() {
     if (!engine().navigation.currentPopup && !this.ended) {
-      void engine().navigation.presentPopup(PausePopup);
+      void engine().navigation.presentPopup(PausePopup, pauseMenuProps());
     }
   }
 }

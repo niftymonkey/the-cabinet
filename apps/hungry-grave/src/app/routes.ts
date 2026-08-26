@@ -1,17 +1,12 @@
-/**
- * The route table. The URL fragment is the single navigation authority between
- * the game and the prototype list: buttons only assign location.hash, and the
- * router in main.ts answers boot, in-app hash writes, and the browser's back
- * and forward buttons alike. Screens inside the game navigate directly and
- * never touch the hash.
- *
- * This module stays free of pixi so the routing rules are unit-testable.
- */
+// The route table, free of pixi so the routing rules are unit-testable.
 
-import type { PrototypeEntry } from "../prototypes";
-import { prototypeFromHash } from "../prototypes";
+import type { PrototypeEntry } from '../prototypes';
+import { prototypeFromHash } from '../prototypes';
 
-export const PROTOTYPES_HASH = "#/prototypes";
+// The game itself, which is also where every BACK button sends the player.
+const HOME_HASH = '#/';
+
+const PROTOTYPES_HASH = '#/prototypes';
 
 /**
  * The golden digest, run in whatever browser opened this URL. ADR 0015's claim
@@ -19,7 +14,7 @@ export const PROTOTYPES_HASH = "#/prototypes";
  * without a browser that runs the digest the claim goes unchecked until the
  * final dispatch.
  */
-export const DIGEST_HASH = "#/digest";
+const DIGEST_HASH = '#/digest';
 
 /**
  * The instrument route: a tape rendered at a chosen tick (ADR 0020). It is for
@@ -27,18 +22,18 @@ export const DIGEST_HASH = "#/digest";
  * is reserved as #/watch and deliberately not built, so a player-facing
  * feature is never built on a debug URL.
  */
-export const REPLAY_HASH = "#/replay";
+const REPLAY_HASH = '#/replay';
 
-/** The kept runs in this browser's tape store, listed with a way into replay. */
-export const RUNS_HASH = "#/runs";
+// The kept runs in this browser's tape store, listed with a way into replay.
+const RUNS_HASH = '#/runs';
 
-export type Route =
-  | { kind: "game" }
-  | { kind: "prototype-list" }
-  | { kind: "digest" }
-  | { kind: "replay" }
-  | { kind: "runs" }
-  | { kind: "prototype"; entry: PrototypeEntry };
+type Route =
+  | { kind: 'game' }
+  | { kind: 'prototype-list' }
+  | { kind: 'digest' }
+  | { kind: 'replay' }
+  | { kind: 'runs' }
+  | { kind: 'prototype'; entry: PrototypeEntry };
 
 /**
  * True for a route's own hash and for anything below it, and false for a
@@ -46,22 +41,39 @@ export type Route =
  * to the route, so the match ends on a route boundary: the hash itself, or the
  * hash followed by a path or a query.
  */
-function isRouteHash(hash: string, route: string): boolean {
+const isRouteHash = (hash: string, route: string): boolean => {
   if (!hash.startsWith(route)) return false;
   const rest = hash.slice(route.length);
-  return rest === "" || rest.startsWith("/") || rest.startsWith("?");
-}
+  return rest === '' || rest.startsWith('/') || rest.startsWith('?');
+};
 
 /**
  * The default route is the game app rather than the prototype sandbox: the
  * prototypes live behind their own hash, and every other hash is the game's.
+ *
+ * The URL fragment is the single navigation authority between the game and the
+ * prototype list: the driver in main.ts assigns location.hash for the hops that
+ * cross it, and its router answers boot, those writes, and the browser's back
+ * and forward buttons alike. The hops inside the game are calls the driver
+ * makes on the navigation and never touch the hash. No screen writes either
+ * one: a screen signals the intent and the driver decides which it is.
  */
-export function resolveRoute(hash: string): Route {
+const resolveRoute = (hash: string): Route => {
   const entry = prototypeFromHash(hash);
-  if (entry) return { kind: "prototype", entry };
-  if (isRouteHash(hash, PROTOTYPES_HASH)) return { kind: "prototype-list" };
-  if (isRouteHash(hash, DIGEST_HASH)) return { kind: "digest" };
-  if (isRouteHash(hash, REPLAY_HASH)) return { kind: "replay" };
-  if (isRouteHash(hash, RUNS_HASH)) return { kind: "runs" };
-  return { kind: "game" };
-}
+  if (entry) return { kind: 'prototype', entry };
+  if (isRouteHash(hash, PROTOTYPES_HASH)) return { kind: 'prototype-list' };
+  if (isRouteHash(hash, DIGEST_HASH)) return { kind: 'digest' };
+  if (isRouteHash(hash, REPLAY_HASH)) return { kind: 'replay' };
+  if (isRouteHash(hash, RUNS_HASH)) return { kind: 'runs' };
+  return { kind: 'game' };
+};
+
+export {
+  resolveRoute,
+  HOME_HASH,
+  PROTOTYPES_HASH,
+  DIGEST_HASH,
+  REPLAY_HASH,
+  RUNS_HASH,
+};
+export type { Route };

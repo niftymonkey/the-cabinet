@@ -1,26 +1,25 @@
-import { Graphics } from "pixi.js";
+import { Graphics } from 'pixi.js';
 
-import { SKULL_CAP, WISP_CAP } from "../../../game/caps";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
-import { BELL_EXPAND_TICKS, ringRadius } from "../../../game/lines/bell";
+import { SKULL_CAP, WISP_CAP } from '../../../game/caps';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import { BELL_EXPAND_TICKS, ringRadius } from '../../../game/lines/bell';
 import {
   headstoneAt,
   MAX_STONES,
   STONE_HALF_EXTENT,
-} from "../../../game/lines/headstones";
-import { SKULL_HALF_EXTENT } from "../../../game/lines/soulStream";
-import { WISP_HALF_EXTENT } from "../../../game/lines/wisps";
-import type { RunState } from "../../../game/run";
-import { PALETTE } from "../../palette";
-import type { FieldLayers } from "./layering";
+} from '../../../game/lines/headstones';
+import { SKULL_HALF_EXTENT } from '../../../game/lines/soulStream';
+import { WISP_HALF_EXTENT } from '../../../game/lines/wisps';
+import type { RunState } from '../../../game/run';
+import { PALETTE } from '../../palette';
+import type { FieldLayers } from './layering';
 
 /**
  * The player's own fire on screen: skulls, headstones, wisps, the bell's ring,
  * the belch's eruption and the splash.
  *
  * It is a second file beside FieldRenderer rather than four more methods on it.
- * That file is already the field's own entities and nearly five hundred lines;
- * the storm is a different owner with its own pools, and the two share no state.
+ * The storm is a different owner with its own pools, and the two share no state.
  * What is copied is the pattern and not the code: a sprite pool sized from each
  * entity cap, slot-parallel iteration rather than a live list, a memo so a
  * sprite redraws only when its look changes, position set every frame, tint
@@ -31,16 +30,16 @@ import type { FieldLayers } from "./layering";
  * rings. That is a silhouette-and-motion requirement and no test can see it.
  */
 
-/** The dark companion every storm sprite carries (ADR 0014's own construction). */
+// The dark companion every storm sprite carries (ADR 0014's own construction).
 const SPRITE_STROKE = 1.2;
 
-/** How dim a spent headstone draws, so the player can see their defense is inert. */
+// How dim a spent headstone draws, so the player can see their defense is inert.
 const INERT_TINT = 0.45;
 
-/** How thick the bell's ring is stroked, in field units. */
+// How thick the bell's ring is stroked, in field units.
 const RING_STROKE = 2.5;
 
-/** The alpha a bell ring starts at, fading to nothing as it reaches its full radius. */
+// The alpha a bell ring starts at, fading to nothing as it reaches its full radius.
 const RING_ALPHA = 0.85;
 
 /**
@@ -64,10 +63,10 @@ const ERUPTION_REACH = Math.sqrt(
   FIELD_WIDTH * FIELD_WIDTH + FIELD_HEIGHT * FIELD_HEIGHT,
 );
 
-/** How thick the eruption's front is stroked, in field units. */
+// How thick the eruption's front is stroked, in field units.
 const ERUPTION_STROKE = 14;
 
-/** How long the splash reads for, in ticks, and how far its spray throws. */
+// How long the splash reads for, in ticks, and how far its spray throws.
 const SPLASH_TICKS = 18;
 const SPLASH_REACH = 26;
 const SPLASH_SPOKES = 7;
@@ -80,22 +79,22 @@ const SPLASH_SPOKES = 7;
  * covering test takes its bound over the registry rather than over a hand
  * list, the two-lists trap ADR 0019 closed for the witness fold.
  */
-export const STORM_RENDERER_TRANSIENT_TICKS = {
+const STORM_RENDERER_TRANSIENT_TICKS = {
   eruption: ERUPTION_TICKS,
   splash: SPLASH_TICKS,
 } as const;
 
-/** One byte's full value, for building a grey tint without writing a colour literal. */
+// One byte's full value, for building a grey tint without writing a colour literal.
 const CHANNEL_MAX = 255;
 
-/** A grey tint at a given brightness, which is how a continuous state is shown without alpha. */
-function greyTint(brightness: number): number {
+// A grey tint at a given brightness, which is how a continuous state is shown without alpha.
+const greyTint = (brightness: number): number => {
   const level = Math.max(
     0,
     Math.min(CHANNEL_MAX, Math.round(brightness * CHANNEL_MAX)),
   );
   return (level << 16) | (level << 8) | level;
-}
+};
 
 /**
  * A skull: a small round-topped silhouette, straight up and self-similar.
@@ -105,7 +104,7 @@ function greyTint(brightness: number): number {
  * shape before brightness, and small, regular and self-similar is the storm's
  * whole half of that grammar.
  */
-function drawSkull(into: Graphics): void {
+const drawSkull = (into: Graphics): void => {
   const r = SKULL_HALF_EXTENT;
   into
     .clear()
@@ -118,10 +117,10 @@ function drawSkull(into: Graphics): void {
       color: PALETTE.foodOutline.hex,
       alignment: 0.5,
     });
-}
+};
 
-/** A headstone: a squat slab with a rounded top, which is a circling solid and not a projectile. */
-function drawStone(into: Graphics): void {
+// A headstone: a squat slab with a rounded top, which is a circling solid and not a projectile.
+const drawStone = (into: Graphics): void => {
   const w = STONE_HALF_EXTENT;
   into
     .clear()
@@ -133,14 +132,14 @@ function drawStone(into: Graphics): void {
       color: PALETTE.foodOutline.hex,
       alignment: 0.5,
     });
-}
+};
 
 /**
  * A wisp: a trailing teardrop, drawn pointing along positive x and rotated to
  * its heading by the caller. The curving trail is the motion ADR 0005 says must
  * never blur with the other three.
  */
-function drawWisp(into: Graphics): void {
+const drawWisp = (into: Graphics): void => {
   const r = WISP_HALF_EXTENT;
   into
     .clear()
@@ -152,10 +151,10 @@ function drawWisp(into: Graphics): void {
       color: PALETTE.foodOutline.hex,
       alignment: 0.5,
     });
-}
+};
 
-/** The bell's ring at a live radius: a stroked circle, so the falloff in damage is visible as a falloff on screen. */
-function drawRing(into: Graphics, radius: number): void {
+// The bell's ring at a live radius: a stroked circle, so the falloff in damage is visible as a falloff on screen.
+const drawRing = (into: Graphics, radius: number): void => {
   into.clear();
   if (radius <= 0) return;
   into
@@ -171,10 +170,10 @@ function drawRing(into: Graphics, radius: number): void {
       color: PALETTE.bellRing.hex,
       alignment: 0.5,
     });
-}
+};
 
-/** The belch's shock front, leaving the mouth and expanding past the field's far corner. */
-function drawEruption(into: Graphics, progress: number): void {
+// The belch's shock front, leaving the mouth and expanding past the field's far corner.
+const drawEruption = (into: Graphics, progress: number): void => {
   into.clear();
   const radius = ERUPTION_REACH * progress;
   if (radius <= 0) return;
@@ -183,10 +182,10 @@ function drawEruption(into: Graphics, progress: number): void {
     color: PALETTE.belchEruption.hex,
     alignment: 0.5,
   });
-}
+};
 
-/** Charge going over the side: a short spray at the mouth, so wasting is visible rather than a silent clamp. */
-function drawSplash(into: Graphics, progress: number): void {
+// Charge going over the side: a short spray at the mouth, so wasting is visible rather than a silent clamp.
+const drawSplash = (into: Graphics, progress: number): void => {
   into.clear();
   const reach = SPLASH_REACH * progress;
   const drop = SPLASH_REACH * 0.22 * (1 - progress);
@@ -199,18 +198,18 @@ function drawSplash(into: Graphics, progress: number): void {
     );
   }
   into.fill({ color: PALETTE.splash.hex });
-}
+};
 
-/** A sprite pool at an entity pool's own capacity, so attach() can place them all and no spawn allocates. */
-function fill(sprites: Graphics[], capacity: number): void {
+// A sprite pool at an entity pool's own capacity, so attach() can place them all and no spawn allocates.
+const fill = (sprites: Graphics[], capacity: number): void => {
   while (sprites.length < capacity) {
     const sprite = new Graphics();
     sprite.visible = false;
     sprites.push(sprite);
   }
-}
+};
 
-/** One momentary effect at a place, on its own clock. */
+// One momentary effect at a place, on its own clock.
 interface Burst {
   readonly sprite: Graphics;
   born: number;
@@ -218,11 +217,11 @@ interface Burst {
   y: number;
 }
 
-function blankBurst(): Burst {
+const blankBurst = (): Burst => {
   return { sprite: new Graphics(), born: -Infinity, x: 0, y: 0 };
-}
+};
 
-export class StormRenderer {
+class StormRenderer {
   private readonly skullSprites: Graphics[] = [];
   private readonly stoneSprites: Graphics[] = [];
   private readonly wispSprites: Graphics[] = [];
@@ -243,13 +242,13 @@ export class StormRenderer {
   public attach(layers: FieldLayers): void {
     this.build();
     this.forgetPreviousRun();
-    const storm = layers.layer("storm");
+    const storm = layers.layer('storm');
     for (const sprite of this.skullSprites) storm.addChild(sprite);
     for (const sprite of this.stoneSprites) storm.addChild(sprite);
     for (const sprite of this.wispSprites) storm.addChild(sprite);
-    layers.layer("bellRing").addChild(this.ring);
-    layers.layer("belchEruption").addChild(this.eruption.sprite);
-    layers.layer("belchEruption").addChild(this.splash.sprite);
+    layers.layer('bellRing').addChild(this.ring);
+    layers.layer('belchEruption').addChild(this.eruption.sprite);
+    layers.layer('belchEruption').addChild(this.splash.sprite);
   }
 
   /**
@@ -294,7 +293,7 @@ export class StormRenderer {
     fill(this.wispSprites, WISP_CAP);
   }
 
-  /** The storm as the sim says it is. */
+  // The storm as the sim says it is.
   public sync(run: RunState): void {
     this.syncSkulls(run);
     this.syncStones(run);
@@ -303,14 +302,14 @@ export class StormRenderer {
     this.syncBursts(run);
   }
 
-  /** The belch landed. It is an event and not a state, so the screen tells the renderer. */
+  // The belch landed. It is an event and not a state, so the screen tells the renderer.
   public erupt(run: RunState): void {
     this.eruption.born = run.tick;
     this.eruption.x = run.grave.x;
     this.eruption.y = run.grave.y - run.grave.size;
   }
 
-  /** Charge went over the side at a full reservoir (ADR 0008). */
+  // Charge went over the side at a full reservoir (ADR 0008).
   public splashed(run: RunState): void {
     this.splash.born = run.tick;
     this.splash.x = run.grave.x;
@@ -397,3 +396,5 @@ export class StormRenderer {
     draw(burst.sprite, age / life);
   }
 }
+
+export { StormRenderer, STORM_RENDERER_TRANSIENT_TICKS };

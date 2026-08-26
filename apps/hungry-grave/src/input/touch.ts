@@ -1,31 +1,15 @@
-/**
- * Uncapped relative drag steering as a pure model: no DOM in it at all. It
- * takes pointer ids and points already in field units, converted by
- * GameScreen through layout.ts's screenToField.
- *
- * Relative rather than absolute (ADR 0011). The player can anchor away from
- * the grave so their own hand need not occlude the thing being steered, and an
- * absolute model would teleport the grave to wherever a finger first lands.
- * Cave went relative across its whole iOS line.
- *
- * Steering is all this model does. The belch is not a steering command: Mark
- * ruled on 2026-08-22 that it binds to a dedicated corner button, because the
- * belch is the scarcest object in the game and is only spendable at the moment
- * it is worth most, so a binding that can misfire is the wrong one.
- */
+// Uncapped relative drag steering as a pure model: no DOM in it at all.
 
-import type { FieldPoint } from "../game/grave";
-import type { MoveCommand } from "../game/run";
-import { BASE_SPEED } from "../game/tuning";
-
-export type { FieldPoint };
+import type { FieldPoint } from '../game/field';
+import type { MoveCommand } from '../game/command';
+import { BASE_SPEED } from '../game/tuning';
 
 /**
  * How far the drag target travels per unit of finger travel. A one to one
  * drag, a first pass, and the tuning dispatch owns it. No shipped game
  * publishes its drag ratio, so there is no number to look up.
  */
-export const DRAG_RATIO = 1;
+const DRAG_RATIO = 1;
 
 /**
  * How far a pointer must travel before it is the steering pointer, in field
@@ -38,7 +22,7 @@ export const DRAG_RATIO = 1;
  * so has to survive the finger roll of a press. Telling a resting thumb from a
  * steering thumb needs far less.
  */
-export const STEER_SLOP = 4;
+const STEER_SLOP = 4;
 
 /**
  * How far the grave may sit from the target it was sent to and still count as
@@ -56,53 +40,66 @@ const TARGET_TOLERANCE = 1e-6;
 const STILL: MoveCommand = { x: 0, y: 0 };
 
 interface PointerTrack {
-  /** Where the slop is measured from: the down position, or the current position after a steering lift. */
+  // Where the slop is measured from: the down position, or the current position after a steering lift.
   origin: FieldPoint;
   current: FieldPoint;
 }
 
-function distance(from: FieldPoint, to: FieldPoint): number {
+const distance = (from: FieldPoint, to: FieldPoint): number => {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   return Math.sqrt(dx * dx + dy * dy);
-}
+};
 
-/** The point a fraction of the way along the segment from one point to another. */
-function along(from: FieldPoint, to: FieldPoint, fraction: number): FieldPoint {
+// The point a fraction of the way along the segment from one point to another.
+const along = (
+  from: FieldPoint,
+  to: FieldPoint,
+  fraction: number,
+): FieldPoint => {
   return {
     x: from.x + (to.x - from.x) * fraction,
     y: from.y + (to.y - from.y) * fraction,
   };
-}
+};
 
-function apart(a: FieldPoint, b: FieldPoint): boolean {
+const apart = (a: FieldPoint, b: FieldPoint): boolean => {
   return (
     Math.abs(a.x - b.x) > TARGET_TOLERANCE ||
     Math.abs(a.y - b.y) > TARGET_TOLERANCE
   );
-}
+};
 
-export class TouchSteer {
+/**
+ * It takes pointer ids and points already in field units, converted by
+ * GameScreen through layout.ts's screenToField.
+ *
+ * Steering is all this model does. The belch is not a steering command: Mark
+ * ruled on 2026-08-22 that it binds to a dedicated corner button, because the
+ * belch is the scarcest object in the game and is only spendable at the moment
+ * it is worth most, so a binding that can misfire is the wrong one.
+ */
+class TouchSteer {
   private readonly pointers = new Map<number, PointerTrack>();
   private steeringId: number | null = null;
   private slop = STEER_SLOP;
 
-  /** Where the steering pointer was when it crossed the slop, and where the grave was then. */
+  // Where the steering pointer was when it crossed the slop, and where the grave was then.
   private anchor: FieldPoint | null = null;
   private graveAtAnchor: FieldPoint | null = null;
 
-  /** The previous call's target and the pointer position that produced it, both needed by the re-anchor. */
+  // The previous call's target and the pointer position that produced it, both needed by the re-anchor.
   private previousTarget: FieldPoint | null = null;
   private previousPointer: FieldPoint | null = null;
 
-  /** The grave as recently as this model has been told, so a promotion anchors to where it is now. */
+  // The grave as recently as this model has been told, so a promotion anchors to where it is now.
   private lastGrave: FieldPoint = { x: 0, y: 0 };
 
   public setSlop(fieldUnits: number): void {
     if (Number.isFinite(fieldUnits) && fieldUnits > 0) this.slop = fieldUnits;
   }
 
-  /** A pointer landing. */
+  // A pointer landing.
   public down(id: number, point: FieldPoint, grave: FieldPoint): void {
     this.lastGrave = { x: grave.x, y: grave.y };
     this.pointers.set(id, { origin: point, current: point });
@@ -168,7 +165,7 @@ export class TouchSteer {
     this.previousPointer = null;
   }
 
-  /** Every pointer gone. Pause, blur and pointercancel all call this. */
+  // Every pointer gone. Pause, blur and pointercancel all call this.
   public cancelAll(): void {
     this.pointers.clear();
     this.clearSteering();
@@ -214,6 +211,11 @@ export class TouchSteer {
    * anchor and the pointer are both frame constants, so recomputing converges
    * instead: once the grave is on the target the recomputed command is zero.
    *
+   * Relative rather than absolute (ADR 0011). The player can anchor away from
+   * the grave so their own hand need not occlude the thing being steered, and an
+   * absolute model would teleport the grave to wherever a finger first lands.
+   * Cave went relative across its whole iOS line.
+   *
    * It is deliberately uncapped. Capping the drag at keyboard speed for
    * fairness WAS the input lag felt on device (ADR 0011), so no clamp goes here
    * and none goes in moveGrave.
@@ -239,3 +241,5 @@ export class TouchSteer {
     };
   }
 }
+
+export { TouchSteer, DRAG_RATIO, STEER_SLOP };

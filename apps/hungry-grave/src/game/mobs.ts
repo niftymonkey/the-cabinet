@@ -1,112 +1,64 @@
-/**
- * The mob type table, one behaviour rule per type, mob fire, and the
- * consequence of a mob being hit (tracer plan section 3). One file rather than
- * a folder, because a mob type is a stat row plus a small rule and the table
- * reads best as a table.
- *
- * Mob fire lives here too. The tracer plan deliberately has no projectiles.ts:
- * mob fire belongs to the mobs that emit it.
- *
- * Every magnitude here is a first pass owned by the tuning dispatch. What this
- * dispatch pins is the derivations, and the one number that is load-bearing
- * rather than a first pass is the shambler's half-width, because the Wall's row
- * count derives from it.
- */
+// The mob type table, one behaviour rule per type, and the consequence of a mob
+// being hit (tracer plan section 3).
 
-import { createPool, MOB_CAP, MOB_FIRE_CAP, takeSlot } from "./caps";
-import { TICK_HZ } from "./clock";
-import { spawnCorpse } from "./corpses";
-import type { SimEvent } from "./events";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
-import type { Grave } from "./grave";
+import { createPool, MOB_CAP, takeSlot } from './caps';
+import { TICK_HZ } from './clock';
+import { spawnCorpse } from './corpses';
+import type { SimEvent } from './events';
+import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import type { Grave } from './grave';
+import type { WeaponLine } from './lines/roster';
+import { cos, normalize, rotateToward, sin } from './math';
+import type { FireRow } from './mobFire';
 import {
-  headstoneAt,
-  STONE_DAMAGE,
-  STONE_HALF_EXTENT,
-  STONE_RECHARGE,
-  stoneCount,
-} from "./lines/headstones";
-import type { WeaponLine } from "./lines/roster";
-import { SKULL_DAMAGE, SKULL_HALF_EXTENT } from "./lines/soulStream";
-import { WISP_DAMAGE, WISP_HALF_EXTENT } from "./lines/wisps";
-import { cos, normalize, rotateToward, sin } from "./math";
-import type { Rect } from "./overlap";
-import { overlaps } from "./overlap";
-import type { RunState } from "./run";
-import type { SpawnOrder } from "./stage/templates";
-import { MAX_ENTRY_DEPTH } from "./stage/templates";
-import { BASE_SPEED, SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from "./tuning";
+  advanceShots,
+  fireShot,
+  firstShotOffset,
+  isArmed,
+  NEVER_FIRES,
+} from './mobFire';
+import type { Rect } from './overlap';
+import type { RunState } from './run';
+import type { SpawnOrder } from './stage/templates';
+import { MAX_ENTRY_DEPTH } from './stage/templates';
+import { BASE_SPEED, SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from './tuning';
 
-export type MobType = "shambler" | "revenant" | "ghoul";
+type MobType = 'shambler' | 'revenant' | 'ghoul';
 
-/** Which corpse a kill leaves. The tier is a payout read and never a size (ADR 0014). */
-export type CorpseTier = "trash" | "rich";
+// Which corpse a kill leaves. The tier is a payout read and never a size (ADR 0014).
+type CorpseTier = 'trash' | 'rich';
 
 /**
  * Whatever can hit a mob, spelled as the roster's own line names so an
  * instrument grouping damage by line never meets a second spelling (#48).
  * Contact is absent because contact never damages a mob (ADR 0005).
  */
-export type DamageSource = WeaponLine | "belch";
+type DamageSource = WeaponLine | 'belch';
 
-/** How much of a wave carries fire at all. */
-export type ArmedShare = "none" | "everyThird" | "all";
+// How a type moves once its arriving beat has passed.
+type MobMotion = 'falls' | 'chases';
 
-/** How a type moves once its arriving beat has passed. */
-export type MobMotion = "falls" | "chases";
-
-/**
- * Every firing number a type owns. They are data from the first commit and not
- * shared module constants, so the tuning dispatch differentiates a revenant's
- * fire from a shambler's by editing a row rather than by refactoring constants
- * out of this module. The first-pass values are identical across the two firing
- * types on purpose.
- */
-export interface FireRow {
-  readonly armedShare: ArmedShare;
-  /** Ticks between shots. */
-  readonly interval: number;
-  /**
-   * How many ticks of per-mob offset the first shot may carry, drawn from the
-   * mobFire stream, so a File of armed mobs does not fire as one volley.
-   */
-  readonly firstShotJitter: number;
-  /**
-   * How long the tell lights before every shot, not only the first. A revenant
-   * fires about six times per pass, and a tell on shot one alone satisfies the
-   * sentence and not the rule. At the arriving beat's own length the first
-   * shot's lead falls exactly inside the beat, which is how ADR 0016's two
-   * rules compose.
-   */
-  readonly tellTicks: number;
-  /** Field units per tick. A reaction budget: a shot from mid-field reaches the starting mark in about two seconds. */
-  readonly shotSpeed: number;
-  readonly shotHalfExtent: number;
-}
-
-export interface MobRow {
+interface MobRow {
   readonly halfWidth: number;
   readonly halfHeight: number;
   readonly hp: number;
   readonly corpsePayout: number;
   readonly corpseTier: CorpseTier;
-  /** The type's own speed in field units per tick. The scroll is added separately. */
+  // The type's own speed in field units per tick. The scroll is added separately.
   readonly speed: number;
   readonly motion: MobMotion;
   readonly fire: FireRow;
 }
 
-/** A type that never fires still declares the row, so nothing branches on a missing field. */
-const NEVER_FIRES: FireRow = {
-  armedShare: "none",
-  interval: 0,
-  firstShotJitter: 0,
-  tellTicks: 0,
-  shotSpeed: 0,
-  shotHalfExtent: 0,
-};
-
-export const MOB_TYPES = {
+/**
+ * The type table. One file rather than a folder, because a mob type is a stat
+ * row plus a small rule and the table reads best as a table.
+ *
+ * Every magnitude here is a first pass owned by the tuning dispatch. The
+ * derivations are what is pinned, and the one number that is load-bearing
+ * rather than a first pass is the shambler's half-width.
+ */
+const MOB_TYPES = {
   shambler: {
     // The one load-bearing size here: an edge-to-edge curtain at 22 units wide
     // needs 22 mobs to fill the field's 540, leaving gaps of 2.5 units, and the
@@ -116,11 +68,11 @@ export const MOB_TYPES = {
     halfHeight: 11,
     hp: 3,
     corpsePayout: TRASH_CORPSE_PAYOUT,
-    corpseTier: "trash",
+    corpseTier: 'trash',
     speed: 0.5 * SCROLL_SPEED,
-    motion: "falls",
+    motion: 'falls',
     fire: {
-      armedShare: "everyThird",
+      armedShare: 'everyThird',
       interval: 180,
       firstShotJitter: 45,
       tellTicks: 45,
@@ -133,11 +85,11 @@ export const MOB_TYPES = {
     halfHeight: 13,
     hp: 5,
     corpsePayout: 2 * TRASH_CORPSE_PAYOUT,
-    corpseTier: "rich",
+    corpseTier: 'rich',
     speed: 0.35 * SCROLL_SPEED,
-    motion: "falls",
+    motion: 'falls',
     fire: {
-      armedShare: "all",
+      armedShare: 'all',
       interval: 150,
       firstShotJitter: 0,
       tellTicks: 45,
@@ -152,21 +104,17 @@ export const MOB_TYPES = {
     halfHeight: 9,
     hp: 2,
     corpsePayout: TRASH_CORPSE_PAYOUT,
-    corpseTier: "trash",
+    corpseTier: 'trash',
     // A real fraction of the grave's own speed, because ADR 0016 bounds this
     // type by its turn rate rather than by a speed cap, and that is only a
     // meaningful safety valve if the speed is meaningful.
     speed: 0.35 * BASE_SPEED,
-    motion: "chases",
+    motion: 'chases',
     fire: NEVER_FIRES,
   },
 } as const satisfies Record<MobType, MobRow>;
 
-export const MOB_TYPE_NAMES: readonly MobType[] = [
-  "shambler",
-  "revenant",
-  "ghoul",
-];
+const MOB_TYPE_NAMES: readonly MobType[] = ['shambler', 'revenant', 'ghoul'];
 
 /**
  * How long a mob holds the template's arriving motion once it is on screen
@@ -177,7 +125,7 @@ export const MOB_TYPE_NAMES: readonly MobType[] = [
  * after recognition. ADR 0016 makes this same window the revenant's warning
  * window, so it carries fairness weight and not only readability.
  */
-export const ARRIVE_TICKS = 45;
+const ARRIVE_TICKS = 45;
 
 /**
  * The deepest a template may spawn above the top edge. It is the placement
@@ -186,7 +134,7 @@ export const ARRIVE_TICKS = 45;
  * sync. It is derived from the deepest authored row rather than picked, and a
  * file of six 26-unit bodies nose to tail is 156 units of depth.
  */
-export const SPAWN_MARGIN = MAX_ENTRY_DEPTH;
+const SPAWN_MARGIN = MAX_ENTRY_DEPTH;
 
 /**
  * The ghoul's floor on its own descent, matching the revenant's. Without it a
@@ -195,7 +143,7 @@ export const SPAWN_MARGIN = MAX_ENTRY_DEPTH;
  * that is a mob that never leaves. The floor makes climbing and station-holding
  * impossible whatever the ghoul's speed is, unconditionally.
  */
-export const GHOUL_DESCENT_FLOOR = 0.35 * SCROLL_SPEED;
+const GHOUL_DESCENT_FLOOR = 0.35 * SCROLL_SPEED;
 
 /**
  * How far a ghoul may re-aim per tick: a full reversal takes three seconds.
@@ -215,13 +163,13 @@ const GHOUL_TURN_RADIANS =
 const TURN_COS = cos(GHOUL_TURN_RADIANS);
 const TURN_SIN = sin(GHOUL_TURN_RADIANS);
 
-export interface Mob {
+interface Mob {
   alive: boolean;
   id: number;
   type: MobType;
   x: number;
   y: number;
-  /** The mob's own motion in field units per tick. The scroll is added separately, in step. */
+  // The mob's own motion in field units per tick. The scroll is added separately, in step.
   vx: number;
   vy: number;
   hp: number;
@@ -232,27 +180,16 @@ export interface Mob {
    * have expired before anyone saw the placement it exists to show.
    */
   beat: number;
-  /** Ticks until this mob's next shot, counted on the same trigger as the beat. */
+  // Ticks until this mob's next shot, counted on the same trigger as the beat.
   fireIn: number;
   armed: boolean;
 }
 
-export interface Shot {
-  alive: boolean;
-  id: number;
-  emitter: MobType;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  halfExtent: number;
-}
-
-function blankMob(): Mob {
+const blankMob = (): Mob => {
   return {
     alive: false,
     id: 0,
-    type: "shambler",
+    type: 'shambler',
     x: 0,
     y: 0,
     vx: 0,
@@ -262,30 +199,13 @@ function blankMob(): Mob {
     fireIn: 0,
     armed: false,
   };
-}
+};
 
-function blankShot(): Shot {
-  return {
-    alive: false,
-    id: 0,
-    emitter: "shambler",
-    x: 0,
-    y: 0,
-    vx: 0,
-    vy: 0,
-    halfExtent: 0,
-  };
-}
-
-export function createMobPool(): Mob[] {
+const createMobPool = (): Mob[] => {
   return createPool(MOB_CAP, blankMob);
-}
+};
 
-export function createShotPool(): Shot[] {
-  return createPool(MOB_FIRE_CAP, blankShot);
-}
-
-export function mobHitbox(mob: Mob): Rect {
+const mobHitbox = (mob: Mob): Rect => {
   const row = MOB_TYPES[mob.type];
   return {
     x: mob.x - row.halfWidth,
@@ -293,50 +213,25 @@ export function mobHitbox(mob: Mob): Rect {
     width: row.halfWidth * 2,
     height: row.halfHeight * 2,
   };
-}
+};
 
-export function shotHitbox(shot: Shot): Rect {
-  return {
-    x: shot.x - shot.halfExtent,
-    y: shot.y - shot.halfExtent,
-    width: shot.halfExtent * 2,
-    height: shot.halfExtent * 2,
-  };
-}
-
-/** Whether the mob's top edge is inside the field, which is what starts its beat and its fire clock. */
-export function hasEntered(mob: Mob): boolean {
+// Whether the mob's top edge is inside the field, which is what starts its beat and its fire clock.
+const hasEntered = (mob: Mob): boolean => {
   return mob.y - MOB_TYPES[mob.type].halfHeight >= 0;
-}
+};
 
-/**
- * The armed share of a wave is fixed and not rolled: the third, sixth and ninth
- * mobs of a group carry fire. A die would make the armed ones a scatter, and
- * the point of the rule is that picking targets reads as a shape in the
- * formation rather than as noise the player cannot learn.
- *
- * The phase is pinned at two rather than zero deliberately. Arming index zero
- * would arm the first mob of every group, including a lone Drip, so the very
- * first mob in the game would shoot with no teaching beat at all.
- */
-function isArmed(share: ArmedShare, index: number): boolean {
-  if (share === "none") return false;
-  if (share === "all") return true;
-  return index % 3 === 2;
-}
-
-/** The tell the renderer draws, and the only warning a shot gets. */
-export function mobTellLit(mob: Mob): boolean {
+// The tell the renderer draws, and the only warning a shot gets.
+const mobTellLit = (mob: Mob): boolean => {
   if (!mob.armed || !hasEntered(mob)) return false;
   return mob.fireIn <= MOB_TYPES[mob.type].fire.tellTicks;
-}
+};
 
-/** Puts one mob on the field in the placement the template asked for, or refuses at the cap. */
-export function spawnMob(
+// Puts one mob on the field in the placement the template asked for, or refuses at the cap.
+const spawnMob = (
   state: RunState,
   type: MobType,
   order: SpawnOrder,
-): Mob | null {
+): Mob | null => {
   const mob = takeSlot(state.mobs, state.nextEntityId);
   if (mob === null) return null;
   state.nextEntityId += 1;
@@ -350,15 +245,9 @@ export function spawnMob(
   mob.hp = row.hp;
   mob.beat = ARRIVE_TICKS;
   mob.armed = isArmed(row.fire.armedShare, order.index);
-  mob.fireIn = mob.armed ? ARRIVE_TICKS + firstShotOffset(state, row) : 0;
+  mob.fireIn = mob.armed ? ARRIVE_TICKS + firstShotOffset(state, row.fire) : 0;
   return mob;
-}
-
-/** A per-mob offset on the first shot, so a File of armed mobs does not fire as one volley. */
-function firstShotOffset(state: RunState, row: MobRow): number {
-  if (row.fire.firstShotJitter <= 0) return 0;
-  return state.streams.mobFire.nextInt(row.fire.firstShotJitter);
-}
+};
 
 /**
  * The ghoul's own rule: rotate its heading toward the grave by at most a fixed
@@ -369,7 +258,7 @@ function firstShotOffset(state: RunState, row: MobRow): number {
  * The floored velocity is written back rather than applied at move time, so the
  * next tick's rotation turns the bent vector.
  */
-function chase(mob: Mob, grave: Grave): void {
+const chase = (mob: Mob, grave: Grave): void => {
   const row = MOB_TYPES[mob.type];
   const heading = normalize(mob.vx, mob.vy);
   const target = normalize(grave.x - mob.x, grave.y - mob.y);
@@ -379,20 +268,20 @@ function chase(mob: Mob, grave: Grave): void {
       : rotateToward(heading, target, TURN_COS, TURN_SIN);
   mob.vx = turned.x * row.speed;
   mob.vy = Math.max(turned.y * row.speed, GHOUL_DESCENT_FLOOR);
-}
+};
 
-/** A falling type's own rule: straight down at its own speed, whatever direction it arrived on. */
-function fall(mob: Mob): void {
+// A falling type's own rule: straight down at its own speed, whatever direction it arrived on.
+const fall = (mob: Mob): void => {
   mob.vx = 0;
   mob.vy = MOB_TYPES[mob.type].speed;
-}
+};
 
-/** One mob's motion for this tick: the arriving beat first, then its own rule. */
-function moveMob(mob: Mob, grave: Grave): void {
+// One mob's motion for this tick: the arriving beat first, then its own rule.
+const moveMob = (mob: Mob, grave: Grave): void => {
   if (hasEntered(mob)) {
     if (mob.beat > 0) {
       mob.beat -= 1;
-    } else if (MOB_TYPES[mob.type].motion === "chases") {
+    } else if (MOB_TYPES[mob.type].motion === 'chases') {
       chase(mob, grave);
     } else {
       fall(mob);
@@ -400,32 +289,7 @@ function moveMob(mob: Mob, grave: Grave): void {
   }
   mob.x += mob.vx;
   mob.y += mob.vy;
-}
-
-/**
- * One shot, aimed at the grave's centre at the moment of firing. Nothing homes:
- * mob fire is large, slow and irregular, and it never tracks (ADR 0014).
- *
- * Mob fire does not carry the scroll. An aimed shot that then drifts downward
- * is not aimed, and the whole grammar ADR 0014 sets up depends on the player
- * reading mob fire as a line from a mob to where they were.
- */
-function fireShot(state: RunState, mob: Mob): SimEvent[] {
-  const shot = takeSlot(state.mobFire, state.nextEntityId);
-  if (shot === null) return [];
-  state.nextEntityId += 1;
-
-  const row = MOB_TYPES[mob.type];
-  const aim = normalize(state.grave.x - mob.x, state.grave.y - mob.y);
-  const direction = aim.length === 0 ? { x: 0, y: 1 } : aim;
-  shot.emitter = mob.type;
-  shot.x = mob.x;
-  shot.y = mob.y;
-  shot.vx = direction.x * row.fire.shotSpeed;
-  shot.vy = direction.y * row.fire.shotSpeed;
-  shot.halfExtent = row.fire.shotHalfExtent;
-  return [{ type: "mobFired", emitter: mob.type, x: mob.x, y: mob.y }];
-}
+};
 
 /**
  * Whether a mob has already gone past the grave.
@@ -434,19 +298,20 @@ function fireShot(state: RunState, mob: Mob): SimEvent[] {
  * the player turns round and shoots upward at them. That follows from the
  * aiming rule rather than being a bug in it, and it reads as unfair.
  */
-function hasPassed(mob: Mob, grave: Grave): boolean {
+const hasPassed = (mob: Mob, grave: Grave): boolean => {
   return mob.y - MOB_TYPES[mob.type].halfHeight > grave.y + grave.size;
-}
+};
 
-/** One mob's fire clock. It runs on the same trigger as the beat and is never delayed by it. */
-function tickFire(state: RunState, mob: Mob): SimEvent[] {
+// One mob's fire clock. It runs on the same trigger as the beat and is never delayed by it.
+const tickFire = (state: RunState, mob: Mob): SimEvent[] => {
   if (!mob.armed || !hasEntered(mob)) return [];
   if (hasPassed(mob, state.grave)) return [];
   mob.fireIn -= 1;
   if (mob.fireIn > 0) return [];
-  mob.fireIn += MOB_TYPES[mob.type].fire.interval;
-  return fireShot(state, mob);
-}
+  const fire = MOB_TYPES[mob.type].fire;
+  mob.fireIn += fire.interval;
+  return fireShot(state, mob, fire);
+};
 
 /**
  * Motion and firing for every live mob, then motion for every live shot, in the
@@ -456,23 +321,19 @@ function tickFire(state: RunState, mob: Mob): SimEvent[] {
  * A shot spawned this tick does not also move this tick, which is what puts it
  * at its emitter for one tick and makes the shot read as coming from the mob.
  */
-export function advanceMobs(state: RunState): SimEvent[] {
+const advanceMobs = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     moveMob(mob, state.grave);
   }
-  for (const shot of state.mobFire) {
-    if (!shot.alive) continue;
-    shot.x += shot.vx;
-    shot.y += shot.vy;
-  }
+  advanceShots(state);
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     events.push(...tickFire(state, mob));
   }
   return events;
-}
+};
 
 /**
  * The single entry point for a mob being hit, whatever hits it. The weapon
@@ -482,117 +343,36 @@ export function advanceMobs(state: RunState): SimEvent[] {
  * Every hit reports mobDamaged, the fatal blow included and reported before its
  * mobKilled, so an instrument can credit the kill to the source that landed the
  * last point of damage (#48).
+ *
+ * The corpse's payout and tier are read off the table here and handed to
+ * corpses.ts as values, the way events.ts's payloads carry values and never
+ * entity references: the mob table is this module's, so the lookup is this
+ * module's too.
  */
-export function damageMob(
+const damageMob = (
   state: RunState,
   mob: Mob,
   amount: number,
   source: DamageSource,
-): SimEvent[] {
+): SimEvent[] => {
   if (!mob.alive) return [];
   mob.hp -= amount;
   const events: SimEvent[] = [
-    { type: "mobDamaged", id: mob.id, amount, source },
+    { type: 'mobDamaged', id: mob.id, amount, source },
   ];
   if (mob.hp > 0) return events;
   mob.alive = false;
   events.push({
-    type: "mobKilled",
+    type: 'mobKilled',
     id: mob.id,
     mob: mob.type,
     x: mob.x,
     y: mob.y,
   });
-  events.push(...spawnCorpse(state, mob));
+  const row = MOB_TYPES[mob.type];
+  events.push(...spawnCorpse(state, mob, row.corpsePayout, row.corpseTier));
   return events;
-}
-
-/** A square hitbox centred on a point, which is what every storm entity carries. */
-function squareAt(x: number, y: number, halfExtent: number): Rect {
-  return {
-    x: x - halfExtent,
-    y: y - halfExtent,
-    width: halfExtent * 2,
-    height: halfExtent * 2,
-  };
-}
-
-/** The first live mob a box overlaps, in slot order, or null. */
-function mobUnder(state: RunState, box: Rect): Mob | null {
-  for (const mob of state.mobs) {
-    if (!mob.alive) continue;
-    if (overlaps(box, mobHitbox(mob))) return mob;
-  }
-  return null;
-}
-
-/** Skulls meeting mobs. A skull is consumed by the mob it hits, one mob per skull. */
-function resolveSkulls(state: RunState): SimEvent[] {
-  const events: SimEvent[] = [];
-  for (const skull of state.skulls) {
-    if (!skull.alive) continue;
-    const box = squareAt(skull.x, skull.y, SKULL_HALF_EXTENT);
-    const mob = mobUnder(state, box);
-    if (mob === null) continue;
-    skull.alive = false;
-    events.push(...damageMob(state, mob, SKULL_DAMAGE, "soulStream"));
-  }
-  return events;
-}
-
-/**
- * Headstones meeting mobs. A stone is not consumed: it damages and goes inert
- * for a while, so it can carry a mob out of the way rather than dying on it,
- * which is what an orbiting solid means.
- */
-function resolveHeadstones(state: RunState): SimEvent[] {
-  const events: SimEvent[] = [];
-  const count = stoneCount(state);
-  for (let index = 0; index < count; index++) {
-    if (state.lines.stoneRecharge[index] > 0) continue;
-    const at = headstoneAt(state, index);
-    if (at === null) continue;
-    const mob = mobUnder(state, squareAt(at.x, at.y, STONE_HALF_EXTENT));
-    if (mob === null) continue;
-    state.lines.stoneRecharge[index] = STONE_RECHARGE;
-    events.push(...damageMob(state, mob, STONE_DAMAGE, "headstones"));
-  }
-  return events;
-}
-
-/**
- * Wisps meeting mobs. A wisp is consumed by whatever it hits, target or not: one
- * that flies through something on the way is not saved for later.
- */
-function resolveWisps(state: RunState): SimEvent[] {
-  const events: SimEvent[] = [];
-  for (const wisp of state.wisps) {
-    if (!wisp.alive) continue;
-    const mob = mobUnder(state, squareAt(wisp.x, wisp.y, WISP_HALF_EXTENT));
-    if (mob === null) continue;
-    wisp.alive = false;
-    events.push(...damageMob(state, mob, WISP_DAMAGE, "wisps"));
-  }
-  return events;
-}
-
-/**
- * The storm meeting the mobs, in one pass over three pools.
- *
- * It lives here rather than in a storm.ts because the consequence of a mob being
- * hit is what this file is, and a module holding only the overlap tests would
- * hide nothing. The bell resolves in its own module instead, because its damage
- * is a consequence of a ring expanding rather than of two boxes overlapping.
- *
- * The order is skulls, then headstones, then wisps, always, so the same seed
- * produces the same kills in the same order.
- */
-export function resolveStorm(state: RunState): SimEvent[] {
-  const events = resolveSkulls(state);
-  events.push(...resolveHeadstones(state));
-  events.push(...resolveWisps(state));
-  return events;
-}
+};
 
 /**
  * A mob past the bottom edge is culled and costs the player nothing.
@@ -604,7 +384,7 @@ export function resolveStorm(state: RunState): SimEvent[] {
  * round. Off screen and unkillable is the same to the player as gone, and
  * leaving it live would let a mob wander arbitrarily far outside the field.
  */
-export function cullMobs(state: RunState): void {
+const cullMobs = (state: RunState): void => {
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     const row = MOB_TYPES[mob.type];
@@ -614,17 +394,21 @@ export function cullMobs(state: RunState): void {
       mob.x > FIELD_WIDTH + SPAWN_MARGIN;
     if (gone) mob.alive = false;
   }
-}
+};
 
-/** A shot fully outside the field on any side is gone. */
-export function cullShots(state: RunState): void {
-  for (const shot of state.mobFire) {
-    if (!shot.alive) continue;
-    const outside =
-      shot.x + shot.halfExtent < 0 ||
-      shot.x - shot.halfExtent > FIELD_WIDTH ||
-      shot.y + shot.halfExtent < 0 ||
-      shot.y - shot.halfExtent > FIELD_HEIGHT;
-    if (outside) shot.alive = false;
-  }
-}
+export {
+  createMobPool,
+  mobHitbox,
+  hasEntered,
+  mobTellLit,
+  spawnMob,
+  advanceMobs,
+  damageMob,
+  cullMobs,
+  MOB_TYPES,
+  MOB_TYPE_NAMES,
+  ARRIVE_TICKS,
+  SPAWN_MARGIN,
+  GHOUL_DESCENT_FLOOR,
+};
+export type { MobType, CorpseTier, DamageSource, MobMotion, MobRow, Mob };

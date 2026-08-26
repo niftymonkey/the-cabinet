@@ -1,16 +1,16 @@
-import { Container } from "pixi.js";
+import { Container } from 'pixi.js';
 
-import { TapeFormatError } from "../../tape/bytes";
-import { decodeTape } from "../../tape/decode";
-import { MENU } from "../palette";
-import { REPLAY_HASH } from "../routes";
-import { saveTapeFile, tapeFileName } from "../tapeExport";
-import type { TapeStore } from "../tapeStore";
-import { openTapeStore } from "../tapeStore";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
-import type { RunList } from "./runList";
-import { createRunList } from "./runList";
+import { TapeFormatError } from '../../tape/tapeFormatError';
+import { decodeTape } from '../../tape/decode';
+import { MENU } from '../palette';
+import { saveTapeFile, tapeFileName } from '../tapeExport';
+import type { TapeStore } from '../tapeStore';
+import { openTapeStore } from '../tapeStore';
+import type { ButtonChrome } from '../ui/Button';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+import type { RunList } from './runList';
+import { createRunList } from './runList';
 
 /**
  * The recent runs this browser's tape store kept (#58), each offering
@@ -23,23 +23,30 @@ import { createRunList } from "./runList";
  * #/watch stays unbuilt (ADR 0020).
  */
 
-const STORE_UNAVAILABLE =
-  "THE TAPE STORE IS UNAVAILABLE IN THIS BROWSER, SO NO RUNS ARE KEPT HERE.";
+/** The two ways off the runs list, both owned by the driver in main.ts. */
+interface RunsScreenProps extends ButtonChrome {
+  // Opens one kept run in the replay route, by a URL the replay screen fetches.
+  onOpenReplay(tapeUrl: string): void;
+  onBack(): void;
+}
 
-const NO_RUNS = "NO RUNS KEPT YET.";
+const STORE_UNAVAILABLE =
+  'THE TAPE STORE IS UNAVAILABLE IN THIS BROWSER, SO NO RUNS ARE KEPT HERE.';
+
+const NO_RUNS = 'NO RUNS KEPT YET.';
 
 const TAPE_MISSING = "THAT RUN'S TAPE COULD NOT BE LOADED FROM THE STORE.";
 
-/** The back button's size, the pause button's own. */
+// The back button's size, the pause button's own.
 const BACK_WIDTH = 132;
 const BACK_HEIGHT = 68;
 
-export class RunsScreen extends Container {
+class RunsScreen extends Container {
   // Assets bundles required by this screen
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   private readonly title: Label;
-  /** Store-unavailable, an empty store, and a load that came back empty: facts, stated. */
+  // Store-unavailable, an empty store, and a load that came back empty: facts, stated.
   private readonly statement: Label;
   private readonly list: RunList;
   private readonly backButton: Button;
@@ -57,34 +64,42 @@ export class RunsScreen extends Container {
    * showing with an earlier one's rows.
    */
   private generation = 0;
+  /**
+   * The powers this showing was handed. The pool calls init() before the screen
+   * reaches the stage, so it is set before any row or button can be pressed.
+   */
+  private props!: RunsScreenProps;
 
   constructor() {
     super();
 
     this.title = new Label({
-      text: "RUNS",
+      text: 'RUNS',
       style: { fill: MENU.menuInk.hex, fontSize: 44, letterSpacing: 8 },
     });
     this.statement = new Label({
       style: { fill: MENU.menuDim.hex, fontSize: 16, wordWrap: true },
     });
     this.list = createRunList({
+      playSound: (alias) => this.props.playButtonSound(alias),
       open: (runId) => void this.openInReplay(runId),
       save: (runId) => void this.saveFile(runId),
       remove: (runId) => void this.deleteRun(runId),
     });
     this.backButton = new Button({
-      text: "BACK",
+      text: 'BACK',
       width: BACK_WIDTH,
       height: BACK_HEIGHT,
       fontSize: 18,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
-    this.backButton.onPress.connect(() => {
-      // The router in main.ts observes the hash and shows the title screen.
-      window.location.hash = "#/";
-    });
+    this.backButton.onPress.connect(() => this.props.onBack());
 
     this.addChild(this.title, this.statement, this.list.view, this.backButton);
+  }
+
+  public init(props: RunsScreenProps): void {
+    this.props = props;
   }
 
   public prepare(): void {
@@ -93,7 +108,7 @@ export class RunsScreen extends Container {
     // gives them back to a screen that declares show(); without this every
     // button is dead on every showing after the first.
     this.interactiveChildren = true;
-    this.statement.text = "";
+    this.statement.text = '';
     this.list.render([]);
     this.store ??= openTapeStore();
     void this.refresh(this.generation);
@@ -101,7 +116,7 @@ export class RunsScreen extends Container {
 
   public reset(): void {
     this.generation += 1;
-    this.statement.text = "";
+    this.statement.text = '';
     this.list.render([]);
   }
 
@@ -119,7 +134,7 @@ export class RunsScreen extends Container {
     const rows = await store.list();
     if (generation !== this.generation) return;
     this.list.render(rows);
-    this.statement.text = rows.length === 0 ? NO_RUNS : "";
+    this.statement.text = rows.length === 0 ? NO_RUNS : '';
   }
 
   private async loadedTape(runId: string): Promise<Uint8Array | null> {
@@ -130,8 +145,8 @@ export class RunsScreen extends Container {
 
   /**
    * The kept run, opened in the replay route by the same path any later tape
-   * source uses: a URL the replay screen fetches, with where the bytes came
-   * from not its business (#58).
+   * source uses: a URL the driver hands to the replay route, with where the
+   * bytes came from not its business (#58).
    *
    * The blob URL is deliberately never revoked here. The replay hash keeps
    * pointing at it, so the browser's back and forward buttons can re-enter the
@@ -146,10 +161,11 @@ export class RunsScreen extends Container {
       this.statement.text = TAPE_MISSING;
       return;
     }
-    const url = URL.createObjectURL(
-      new Blob([bytes], { type: "application/octet-stream" }),
+    this.props.onOpenReplay(
+      URL.createObjectURL(
+        new Blob([bytes], { type: 'application/octet-stream' }),
+      ),
     );
-    window.location.hash = `${REPLAY_HASH}?tape=${encodeURIComponent(url)}`;
   }
 
   /**
@@ -201,3 +217,5 @@ export class RunsScreen extends Container {
     this.backButton.position.set(cx, height * 0.9);
   }
 }
+
+export { RunsScreen };

@@ -3,7 +3,7 @@
  * at docs/agents/feature-playbook.md (section "The dispatch contract").
  */
 
-const AGENT_TOOL_NAMES = new Set(["Agent", "Task"]);
+const AGENT_TOOL_NAMES = new Set(['Agent', 'Task']);
 
 /**
  * The dispatches that carry no code and therefore owe no contract.
@@ -14,13 +14,13 @@ const AGENT_TOOL_NAMES = new Set(["Agent", "Task"]);
  * line while the cost of missing a coding dispatch is the whole gate.
  */
 const NON_CODING_SUBAGENT_TYPES = new Set([
-  "explore",
-  "plan",
-  "claude-code-guide",
-  "statusline-setup",
-  "gate-game-design",
-  "gate-product-vision",
-  "gate-tech-architecture",
+  'explore',
+  'plan',
+  'claude-code-guide',
+  'statusline-setup',
+  'gate-game-design',
+  'gate-product-vision',
+  'gate-tech-architecture',
 ]);
 
 /**
@@ -29,7 +29,7 @@ const NON_CODING_SUBAGENT_TYPES = new Set([
  * The contract is that the agent reads this file, so the prompt has to name the
  * place it lives.
  */
-const PLAYBOOK_POINTER = "docs/agents/feature-playbook.md";
+const PLAYBOOK_POINTER = 'docs/agents/feature-playbook.md';
 /**
  * The escape hatch, which must open only on its own line.
  *
@@ -40,16 +40,16 @@ const PLAYBOOK_POINTER = "docs/agents/feature-playbook.md";
 const NON_CODING_MARKER = /^[ \t]*Non-coding dispatch:/m;
 
 const DENY_REASON =
-  "This looks like a code-writing dispatch. The dispatch contract " +
+  'This looks like a code-writing dispatch. The dispatch contract ' +
   '(docs/agents/feature-playbook.md, section "The dispatch contract") requires ' +
-  "the prompt to instruct the agent to read docs/agents/feature-playbook.md and " +
-  "follow it, and to carry: the definition in observable terms, the verification " +
-  "steps with actors, the seams under test, the module boundaries, and the " +
-  "planned test list. If this is not a code-writing dispatch, restate the prompt " +
+  'the prompt to instruct the agent to read docs/agents/feature-playbook.md and ' +
+  'follow it, and to carry: the definition in observable terms, the verification ' +
+  'steps with actors, the seams under test, the module boundaries, and the ' +
+  'planned test list. If this is not a code-writing dispatch, restate the prompt ' +
   'with a line starting "Non-coding dispatch:" plus the reason.';
 
 async function readStdin() {
-  let raw = "";
+  let raw = '';
   for await (const chunk of process.stdin) {
     raw += chunk;
   }
@@ -61,7 +61,7 @@ async function readStdin() {
  * so the gate has to compare the same way or a spelling walks around it.
  */
 function normalizeSubagentType(subagentType) {
-  return subagentType.toLowerCase().replace(/[_ ]/g, "-");
+  return subagentType.toLowerCase().replace(/[_ ]/g, '-');
 }
 
 function isCodeWritingDispatch(toolName, toolInput) {
@@ -69,7 +69,7 @@ function isCodeWritingDispatch(toolName, toolInput) {
     return false;
   }
   const subagentType = toolInput.subagent_type;
-  if (typeof subagentType !== "string") {
+  if (typeof subagentType !== 'string') {
     return true;
   }
   return !NON_CODING_SUBAGENT_TYPES.has(normalizeSubagentType(subagentType));
@@ -80,20 +80,20 @@ function promptCarriesContract(prompt) {
 }
 
 function shouldDeny(payload) {
-  if (payload === null || typeof payload !== "object") {
+  if (payload === null || typeof payload !== 'object') {
     return false;
   }
-  if (payload.hook_event_name !== "PreToolUse") {
+  if (payload.hook_event_name !== 'PreToolUse') {
     return false;
   }
   const toolInput = payload.tool_input;
-  if (toolInput === null || typeof toolInput !== "object") {
+  if (toolInput === null || typeof toolInput !== 'object') {
     return false;
   }
   if (!isCodeWritingDispatch(payload.tool_name, toolInput)) {
     return false;
   }
-  if (typeof toolInput.prompt !== "string") {
+  if (typeof toolInput.prompt !== 'string') {
     return false;
   }
   return !promptCarriesContract(toolInput.prompt);
@@ -102,8 +102,8 @@ function shouldDeny(payload) {
 function emitDeny() {
   const output = {
     hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'deny',
       permissionDecisionReason: DENY_REASON,
     },
   };

@@ -5,12 +5,12 @@
  * fails when a lifetime is added to one and forgotten in the other.
  */
 
-import { describe, expect, it } from "vitest";
-import { FIELD_RENDERER_TRANSIENT_TICKS } from "../FieldRenderer";
-import { STORM_RENDERER_TRANSIENT_TICKS } from "../StormRenderer";
-import { HELD_TRANSIENT_TICKS, REPLAY_LEAD_IN_TICKS } from "../transients";
+import { describe, expect, it } from 'vitest';
+import { FIELD_RENDERER_TRANSIENT_TICKS } from '../FieldRenderer';
+import { STORM_RENDERER_TRANSIENT_TICKS } from '../StormRenderer';
+import { HELD_TRANSIENT_TICKS, REPLAY_LEAD_IN_TICKS } from '../transients';
 
-describe("the held-transient registry", () => {
+describe('the held-transient registry', () => {
   it("carries every lifetime each renderer declares, so the registry is the renderers' own words", () => {
     expect(HELD_TRANSIENT_TICKS).toMatchObject(FIELD_RENDERER_TRANSIENT_TICKS);
     expect(HELD_TRANSIENT_TICKS).toMatchObject(STORM_RENDERER_TRANSIENT_TICKS);

@@ -1,37 +1,18 @@
-/**
- * The one execution authority (ADR 0017). Every executed tick crosses
- * executeTick, and reaching around it is a build failure rather than a
- * convention: eslint.config.mjs fences src/** off this module's step import,
- * and this is the only file exempt from that fence.
- *
- * Three paths reached the simulation before this existed, so a recording seam
- * anywhere else had a hole in it by construction: advance()'s inner loop, the
- * invariant harness's own step wrapper, and four raw step() calls in a screen
- * test. All three are absorbed here, and advance(), the bot's runPolicy and the
- * golden scenario are loops over this function.
- *
- * Execution is a plain record and not a class. It holds the run, an ordered
- * listener array, the stage watch, the broken-invariant handler and the run's
- * fault history. Listener order is array order, so the fan-out is deterministic
- * and one test cannot leak into another.
- *
- * ITS LIFETIME IS THE RUN'S, and it is created where the run is created. The
- * WeakMap the stage watch used to live in was giving that away for free; a
- * pooled screen leaks anything nobody explicitly clears, and this app has
- * shipped that defect five times.
- */
+// The one execution authority (ADR 0017).
 
-import type { SimEvent } from "./events";
-import type {
-  Fault,
-  FaultIdentity,
-  FaultSeverity,
-  StageWatch,
-} from "./invariants";
-import { checkInvariants, createStageWatch } from "./invariants";
-import { f32 } from "./math";
-import type { MoveCommand, RunState, TickCommand } from "./run";
-import { step } from "./step";
+import type { SimEvent } from './events';
+import type { Fault, FaultIdentity, FaultSeverity } from './faults';
+import type { StageWatch } from './invariants';
+import { checkInvariants, createStageWatch } from './invariants';
+import { f32 } from './math';
+import type { MoveCommand, TickCommand } from './command';
+import type { RunState } from './run';
+/**
+ * Every executed tick crosses executeTick, and reaching around it is a build
+ * failure rather than a convention: eslint.config.mjs fences src/** off this
+ * module's step import, and this is the only file exempt from that fence.
+ */
+import { step } from './step';
 
 /**
  * Anything watching the simulation, told once per executed tick.
@@ -40,7 +21,7 @@ import { step } from "./step";
  * consumed, never the one the caller offered, because a recording of a command
  * the run did not execute is worse than no recording.
  */
-export type TickListener = (
+type TickListener = (
   tick: number,
   command: TickCommand,
   events: readonly SimEvent[],
@@ -55,14 +36,14 @@ export type TickListener = (
  * stop reason itself, so which build constructed the Execution cannot decide
  * what a tape records, and a handler may not stop or continue a run.
  */
-export type BrokenHandler = (faults: readonly Fault[], state: RunState) => void;
+type BrokenHandler = (faults: readonly Fault[], state: RunState) => void;
 
 /**
  * How a run stopped, as opposed to how it ended (CONTEXT.md). Absent is the
  * fourth reading, unknown, which is what a recording that simply breaks off
  * leaves behind. This authority only ever writes "faulted".
  */
-export type StopReason = "finished" | "quit" | "faulted";
+type StopReason = 'finished' | 'quit' | 'faulted';
 
 /**
  * One invariant, broken at least once during this run.
@@ -72,39 +53,48 @@ export type StopReason = "finished" | "quit" | "faulted";
  * on and the total count are what a persistent fault needs to stay
  * diagnostically useful.
  */
-export interface FaultRecord {
+interface FaultRecord {
   readonly identity: FaultIdentity;
   readonly severity: FaultSeverity;
-  /** The run tick this identity was first seen on. */
+  // The run tick this identity was first seen on.
   readonly firstTick: number;
-  /** The detail from the first time it fired, kept so a reader has one number to chase. */
+  // The detail from the first time it fired, kept so a reader has one number to chase.
   readonly detail: string;
-  /** How many ticks it has fired on, this one included. */
+  // How many ticks it has fired on, this one included.
   count: number;
 }
 
-export interface Execution {
+interface Execution {
   readonly run: RunState;
-  /** Fired in array order after every executed tick. */
+  /**
+   * Fired in array order after every executed tick. Listener order is array
+   * order, so the fan-out is deterministic and one test cannot leak into
+   * another.
+   */
   readonly listeners: TickListener[];
   readonly watch: StageWatch;
   readonly onBroken: BrokenHandler | null;
-  /** Every fault this run has seen, de-duplicated by identity, in first-seen order. */
+  // Every fault this run has seen, de-duplicated by identity, in first-seen order.
   readonly faults: FaultRecord[];
-  /** Null while the run may keep executing. */
+  // Null while the run may keep executing.
   stop: StopReason | null;
 }
 
-export interface ExecutionOptions {
+interface ExecutionOptions {
   readonly listeners?: TickListener[];
   readonly onBroken?: BrokenHandler;
 }
 
-/** The authority for one run, made where the run is made. */
-export function createExecution(
+/**
+ * The authority for one run, made where the run is made.
+ *
+ * ITS LIFETIME IS THE RUN'S. A pooled screen leaks anything nobody explicitly
+ * clears, and this app has shipped that defect five times.
+ */
+const createExecution = (
   run: RunState,
   options: ExecutionOptions = {},
-): Execution {
+): Execution => {
   return {
     run,
     listeners: options.listeners ?? [],
@@ -113,7 +103,7 @@ export function createExecution(
     faults: [],
     stop: null,
   };
-}
+};
 
 /**
  * The command the simulation consumes, rounded to the grid a tape records.
@@ -125,16 +115,16 @@ export function createExecution(
  * is the grid because it needs no scale, has no range limit and asks for no
  * clamp in the input path, which is the shape ADR 0011 was already burned by.
  */
-function quantiseMove(move: MoveCommand): MoveCommand {
+const quantiseMove = (move: MoveCommand): MoveCommand => {
   return { x: f32(move.x), y: f32(move.y) };
-}
+};
 
-function quantiseCommand(command: TickCommand): TickCommand {
+const quantiseCommand = (command: TickCommand): TickCommand => {
   return { move: quantiseMove(command.move), belch: command.belch };
-}
+};
 
-/** Folds one tick's fault into the run's history, or counts it against the record already there. */
-function recordFault(execution: Execution, fault: Fault): void {
+// Folds one tick's fault into the run's history, or counts it against the record already there.
+const recordFault = (execution: Execution, fault: Fault): void => {
   const seen = execution.faults.find(
     (record) => record.identity === fault.identity,
   );
@@ -149,11 +139,11 @@ function recordFault(execution: Execution, fault: Fault): void {
     detail: fault.detail,
     count: 1,
   });
-}
+};
 
-function isFatal(fault: Fault): boolean {
-  return fault.severity === "fatal";
-}
+const isFatal = (fault: Fault): boolean => {
+  return fault.severity === 'fatal';
+};
 
 /**
  * Runs every check for the tick, records what broke and decides whether the run
@@ -163,27 +153,27 @@ function isFatal(fault: Fault): boolean {
  * swallowing it into the fault list it exists to produce would hide it behind
  * the very mechanism meant to surface it.
  */
-function observeFaults(execution: Execution): void {
+const observeFaults = (execution: Execution): void => {
   const faults = checkInvariants(execution.run, execution.watch);
   if (faults.length === 0) return;
   for (const fault of faults) recordFault(execution, fault);
   // The stop is set before the handler is told, so a handler that reads the
   // Execution sees the outcome rather than racing it.
   if (faults.some(isFatal) && execution.stop === null) {
-    execution.stop = "faulted";
+    execution.stop = 'faulted';
   }
   execution.onBroken?.(faults, execution.run);
-}
+};
 
-function notifyListeners(
+const notifyListeners = (
   execution: Execution,
   command: TickCommand,
   events: readonly SimEvent[],
-): void {
+): void => {
   for (const listener of execution.listeners) {
     listener(execution.run.tick, command, events, execution.run);
   }
-}
+};
 
 /**
  * One tick, executed: quantised, stepped, checked, and announced.
@@ -205,10 +195,10 @@ function notifyListeners(
  * ending guard can carry ticks after the ending, and a readback must feed
  * every command a tape holds.
  */
-export function executeTick(
+const executeTick = (
   execution: Execution,
   command: TickCommand,
-): readonly SimEvent[] {
+): readonly SimEvent[] => {
   const consumed = quantiseCommand(command);
   const events = step(execution.run, consumed);
   // Unconditionally: the checks are always on in every build, and there is
@@ -216,7 +206,7 @@ export function executeTick(
   observeFaults(execution);
   notifyListeners(execution, consumed, events);
   return events;
-}
+};
 
 /**
  * A developer's handler: it reports and never throws, and it halts once per
@@ -245,7 +235,7 @@ export function executeTick(
  * is loud here and still never terminates execution. Loudness and severity are
  * separate axes, and only the build decides loudness.
  */
-export function createDevBrokenHandler(): BrokenHandler {
+const createDevBrokenHandler = (): BrokenHandler => {
   const halted = new Set<FaultIdentity>();
   return (faults, state) => {
     const fresh = faults.filter((fault) => !halted.has(fault.identity));
@@ -259,7 +249,22 @@ export function createDevBrokenHandler(): BrokenHandler {
     // eslint-disable-next-line no-debugger -- ADR 0017 ruling H: the dev handler halts here and never throws.
     debugger;
   };
-}
+};
 
-/** The one a developer's build installs, made here so its identities span the session. */
-export const devBrokenHandler: BrokenHandler = createDevBrokenHandler();
+// The one a developer's build installs, made here so its identities span the session.
+const devBrokenHandler: BrokenHandler = createDevBrokenHandler();
+
+export {
+  createExecution,
+  executeTick,
+  createDevBrokenHandler,
+  devBrokenHandler,
+};
+export type {
+  TickListener,
+  BrokenHandler,
+  StopReason,
+  FaultRecord,
+  Execution,
+  ExecutionOptions,
+};

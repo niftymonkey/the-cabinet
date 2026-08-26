@@ -1,24 +1,10 @@
-/**
- * The tape recorder: what turns one run into a tape as it plays.
- *
- * It attaches to the one execution authority (ADR 0017) rather than to any
- * particular caller, so the rendered game, the bot and the golden scenario all
- * record through the same seam and a recording cannot be bypassed by whichever
- * path happens to reach the simulation.
- *
- * ITS LIFETIME IS THE RUN'S, exactly as the Execution's is. A recorder held
- * past its run would carry the previous run's commands into the next one, and a
- * pooled screen leaks anything nobody explicitly clears.
- *
- * The frame rows arrive from outside instead, because a frame is not a tick:
- * the tick listener fires once per executed tick and can only ever see the
- * simulation, while frame cadence lives above it.
- */
+// The tape recorder: what turns one run into a tape as it plays.
 
-import type { Execution } from "../game/execution";
-import type { FaultIdentity } from "../game/invariants";
-import type { RunState, TickCommand } from "../game/run";
-import { foldWitness } from "../game/witness";
+import type { Execution } from '../game/execution';
+import type { FaultIdentity } from '../game/faults';
+import type { TickCommand } from '../game/command';
+import type { RunState } from '../game/run';
+import { foldWitness } from '../game/witness';
 import type {
   FaultObservation,
   FrameObservation,
@@ -28,9 +14,20 @@ import type {
   TapeHeader,
   TapeIntegrity,
   TapeTrailer,
-} from "./tape";
+} from './tape';
 
-export interface TapeRecorder {
+/**
+ * The checkpoint spacing the recorder writes on day one.
+ *
+ * It is a written value rather than a rule (ADR 0018 and ADR 0019). A reader
+ * obeys whatever the tape's header says, never this constant, so a later
+ * measurement can move the spacing without versioning the format and without
+ * invalidating a single tape already recorded. The name says whose it is for
+ * exactly that reason.
+ */
+const RECORDER_CHECKPOINT_SPACING = 60;
+
+interface TapeRecorder {
   readonly header: TapeHeader;
   readonly commands: TickCommand[];
   readonly checkpoints: TapeCheckpoint[];
@@ -44,11 +41,16 @@ export interface TapeRecorder {
    * that fires on every tick of a run with a frame row on every frame.
    */
   readonly faultRows: Map<FaultIdentity, FaultObservation>;
-  /** Written once, at the stop. Null until then, which is itself the reading. */
+  // Written once, at the stop. Null until then, which is itself the reading.
   trailer: TapeTrailer | null;
 }
 
-export function createRecorder(header: TapeHeader): TapeRecorder {
+/**
+ * ITS LIFETIME IS THE RUN'S, exactly as the Execution's is. A recorder held
+ * past its run would carry the previous run's commands into the next one, and a
+ * pooled screen leaks anything nobody explicitly clears.
+ */
+const createRecorder = (header: TapeHeader): TapeRecorder => {
   return {
     header,
     commands: [],
@@ -57,12 +59,12 @@ export function createRecorder(header: TapeHeader): TapeRecorder {
     faultRows: new Map(),
     trailer: null,
   };
-}
+};
 
-/** Whether a tick count lands on one of this tape's checkpoints. */
-function isCheckpoint(recorder: TapeRecorder, ticksRun: number): boolean {
+// Whether a tick count lands on one of this tape's checkpoints.
+const isCheckpoint = (recorder: TapeRecorder, ticksRun: number): boolean => {
   return ticksRun % recorder.header.checkpointSpacing === 0;
-}
+};
 
 /**
  * Stamps the witness for a tick count, which is the checkpoint's own index.
@@ -72,11 +74,11 @@ function isCheckpoint(recorder: TapeRecorder, ticksRun: number): boolean {
  * every tape refuse itself against a reader counting the other way, and it
  * cannot be fixed after tapes exist.
  */
-function stampCheckpoint(
+const stampCheckpoint = (
   recorder: TapeRecorder,
   ticksRun: number,
   state: RunState,
-): void {
+): void => {
   recorder.checkpoints.push({
     index: ticksRun,
     // From zero rather than from the previous checkpoint: each one is an
@@ -84,7 +86,7 @@ function stampCheckpoint(
     // checkpoint that disagrees instead of only somewhere before here.
     witness: foldWitness(state, 0),
   });
-}
+};
 
 /**
  * Mirrors the authority's fault history into the observations section.
@@ -93,7 +95,7 @@ function stampCheckpoint(
  * the count, which is what a persistent fault needs to stay diagnostically
  * useful, so this copies that shape rather than inventing a second one.
  */
-function syncFaults(recorder: TapeRecorder, execution: Execution): void {
+const syncFaults = (recorder: TapeRecorder, execution: Execution): void => {
   if (execution.faults.length === 0) return;
   for (const record of execution.faults) {
     const seen = recorder.faultRows.get(record.identity);
@@ -102,7 +104,7 @@ function syncFaults(recorder: TapeRecorder, execution: Execution): void {
       continue;
     }
     const row: FaultObservation = {
-      kind: "fault",
+      kind: 'fault',
       identity: record.identity,
       severity: record.severity,
       firstTick: record.firstTick,
@@ -112,19 +114,21 @@ function syncFaults(recorder: TapeRecorder, execution: Execution): void {
     recorder.faultRows.set(record.identity, row);
     recorder.observations.push(row);
   }
-}
+};
 
 /**
  * Starts recording a run, stamping the checkpoint that precedes its first tick.
+ *
+ * It attaches to the one execution authority (ADR 0017) rather than to any
+ * particular caller, so the rendered game, the bot and the golden scenario all
+ * record through the same seam and a recording cannot be bypassed by whichever
+ * path happens to reach the simulation.
  *
  * Checkpoint zero is stamped here rather than on the first tick because it is
  * the state before any tick has run, and that is what "the very first tick is
  * witnessed" has to mean.
  */
-export function recordInto(
-  execution: Execution,
-  header: TapeHeader,
-): TapeRecorder {
+const recordInto = (execution: Execution, header: TapeHeader): TapeRecorder => {
   const recorder = createRecorder(header);
   stampCheckpoint(recorder, 0, execution.run);
   execution.listeners.push((ticksRun, command, _events, state) => {
@@ -138,28 +142,48 @@ export function recordInto(
     syncFaults(recorder, execution);
   });
   return recorder;
-}
+};
 
 /**
  * One rendered frame's row, handed in from the frame seam above the simulation.
+ *
+ * The frame rows arrive from outside because a frame is not a tick: the tick
+ * listener fires once per executed tick and can only ever see the simulation,
+ * while frame cadence lives above it.
  *
  * Rows still arrive after the trailer is written, because the frames a run
  * spends on its own end state are frames of that run. The encoder writes the
  * trailer last whatever order the sections were filled in, so a tape's bytes
  * end with it either way.
  */
-export function recordFrame(
+const recordFrame = (
   recorder: TapeRecorder | null,
-  observation: Omit<FrameObservation, "kind">,
-): void {
+  observation: Omit<FrameObservation, 'kind'>,
+): void => {
   if (recorder === null) return;
-  recorder.observations.push({ kind: "frame", ...observation });
-}
+  recorder.observations.push({ kind: 'frame', ...observation });
+};
 
-/** Whether the run this authority ran was sound. */
-export function integrityOf(execution: Execution): TapeIntegrity {
-  return execution.faults.length === 0 ? "clean" : "faulted";
-}
+// Whether the run this authority ran was sound.
+const integrityOf = (execution: Execution): TapeIntegrity => {
+  return execution.faults.length === 0 ? 'clean' : 'faulted';
+};
+
+/**
+ * Says that a second seal was refused, because nothing abnormal is silent.
+ *
+ * No flag guards it. GameScreen latches its ending, so nothing in the shipped
+ * app seals twice at all, and every one of these is a caller worth seeing.
+ */
+const reportSecondSeal = (
+  recorder: TapeRecorder,
+  execution: Execution,
+  debtTicks: number,
+): void => {
+  console.warn(
+    `this tape's trailer already says the run stopped as ${recorder.trailer?.stop}; a second seal offering ${execution.stop ?? 'no stop reason'} and ${debtTicks} debt ticks is ignored, and a second seal is this repo's own bug`,
+  );
+};
 
 /**
  * Writes the trailer, once, at the stop.
@@ -171,24 +195,27 @@ export function integrityOf(execution: Execution): TapeIntegrity {
  * A second call is ignored rather than overwriting. The stop happens once and a
  * later frame must not be able to rewrite how a run ended.
  */
-export function sealTrailer(
+const sealTrailer = (
   recorder: TapeRecorder,
   execution: Execution,
   debtTicks: number,
-): void {
-  if (recorder.trailer !== null) return;
+): void => {
+  if (recorder.trailer !== null) {
+    reportSecondSeal(recorder, execution, debtTicks);
+    return;
+  }
   syncFaults(recorder, execution);
   recorder.trailer = {
     ending: execution.run.ending,
     stop:
-      execution.stop ?? (execution.run.ending === null ? "quit" : "finished"),
+      execution.stop ?? (execution.run.ending === null ? 'quit' : 'finished'),
     integrity: integrityOf(execution),
     debtTicks,
   };
-}
+};
 
-/** The tape as it stands, which is a complete tape whether or not the run has stopped. */
-export function tapeOf(recorder: TapeRecorder): Tape {
+// The tape as it stands, which is a complete tape whether or not the run has stopped.
+const tapeOf = (recorder: TapeRecorder): Tape => {
   return {
     header: recorder.header,
     commands: recorder.commands,
@@ -196,4 +223,15 @@ export function tapeOf(recorder: TapeRecorder): Tape {
     observations: recorder.observations,
     trailer: recorder.trailer,
   };
-}
+};
+
+export {
+  createRecorder,
+  recordInto,
+  recordFrame,
+  integrityOf,
+  sealTrailer,
+  tapeOf,
+  RECORDER_CHECKPOINT_SPACING,
+};
+export type { TapeRecorder };

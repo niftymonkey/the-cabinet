@@ -1,32 +1,14 @@
-/**
- * Named seeded streams from one run seed, independent by construction (tracer
- * plan section 3). The trap this closes is the correlated-randomness one: two
- * systems drawing from one sequence make one system's draws predict the other's,
- * and a run then has a shape nobody designed.
- *
- * The generator is sfc32, seeded through xmur3. Both are integer-only, using
- * Math.imul, >>>, <<, ^ and +, every one of which is exactly specified, so a
- * stream cannot diverge between engines (ADR 0015). sfc32 carries 128 bits of
- * state, which is what makes stream overlap stop being a number anyone has to
- * compute: a generator whose whole state is its 32-bit output walks one cycle,
- * and named streams under it are windows into one sequence, disjoint by
- * arithmetic luck rather than by construction.
- *
- * The name folds into the seed by addition and never by XOR. With addition the
- * pairwise offsets between streams are the same for every seed, so one test
- * verifies them once and the property is real; with XOR the offsets vary per
- * seed, the property becomes unverifiable, and a bad pairing turns into a
- * heisenbug reachable on exactly one shared challenge URL.
- */
+// Named seeded streams from one run seed, independent by construction (tracer
+// plan section 3).
 
-export type StreamName = "spawns" | "drops" | "mobFire" | "shed";
+type StreamName = 'spawns' | 'drops' | 'mobFire' | 'shed';
 
-export interface Stream {
-  /** The next draw, 0 inclusive to 1 exclusive. */
+interface Stream {
+  // The next draw, 0 inclusive to 1 exclusive.
   next(): number;
-  /** An integer in [0, bound), by rejection so the low bits are not favoured. */
+  // An integer in [0, bound), by rejection so the low bits are not favoured.
   nextInt(bound: number): number;
-  /** How many draws this stream has made. The digest reads it, and 3b's replay resumes from it. */
+  // How many draws this stream has made. The digest reads it, and 3b's replay resumes from it.
   readonly drawn: number;
 }
 
@@ -39,7 +21,7 @@ const UINT32_LIMIT = 4294967296;
  * here because it fails avalanche outright, and on these four stream names it
  * differs in 7 of 32 bits where 16 is expected.
  */
-function xmur3(text: string): () => number {
+const xmur3 = (text: string): (() => number) => {
   let h = 1779033703 ^ text.length;
   for (let i = 0; i < text.length; i++) {
     h = Math.imul(h ^ text.charCodeAt(i), 3432918353);
@@ -51,10 +33,21 @@ function xmur3(text: string): () => number {
     h ^= h >>> 16;
     return h >>> 0;
   };
-}
+};
 
-/** sfc32, PractRand-recommended, with 128 bits of state across four words. */
-function sfc32(a: number, b: number, c: number, d: number): () => number {
+/**
+ * sfc32, PractRand-recommended, with 128 bits of state across four words.
+ *
+ * sfc32 and xmur3 are both integer-only, using Math.imul, >>>, <<, ^ and +,
+ * every one of which is exactly specified, so a stream cannot diverge between
+ * engines (ADR 0015).
+ *
+ * The 128 bits of state are what make stream overlap stop being a number anyone
+ * has to compute: a generator whose whole state is its 32-bit output walks one
+ * cycle, and named streams under it are windows into one sequence, disjoint by
+ * arithmetic luck rather than by construction.
+ */
+const sfc32 = (a: number, b: number, c: number, d: number): (() => number) => {
   return () => {
     const t = (((a + b) | 0) + d) | 0;
     d = (d + 1) | 0;
@@ -64,11 +57,23 @@ function sfc32(a: number, b: number, c: number, d: number): () => number {
     c = (c + t) | 0;
     return (t >>> 0) / UINT32_LIMIT;
   };
-}
+};
 
-/** One named stream for one run seed. The same seed and name always give the same sequence. */
-export function stream(seed: number, name: StreamName): Stream {
+/**
+ * One named stream for one run seed. The same seed and name always give the
+ * same sequence.
+ *
+ * The trap this closes is the correlated-randomness one: two systems drawing
+ * from one sequence make one system's draws predict the other's, and a run then
+ * has a shape nobody designed.
+ */
+const stream = (seed: number, name: StreamName): Stream => {
   const offset = xmur3(name)();
+  // The name folds into the seed by addition and never by XOR. With addition
+  // the pairwise offsets between streams are the same for every seed, so one
+  // test verifies them once and the property is real; with XOR the offsets vary
+  // per seed, the property becomes unverifiable, and a bad pairing turns into a
+  // heisenbug reachable on exactly one shared challenge URL.
   const words = xmur3(String((seed + offset) >>> 0));
   const draw = sfc32(words(), words(), words(), words());
   // sfc32's own guidance: discard a dozen rounds so the four seeded words are
@@ -109,4 +114,7 @@ export function stream(seed: number, name: StreamName): Stream {
       return drawn;
     },
   };
-}
+};
+
+export { stream };
+export type { StreamName, Stream };

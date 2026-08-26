@@ -1,21 +1,21 @@
+// The numbers that are not a single thing's own stats (tracer plan section 3):
+// a mob type owns its own stats and a weapon line owns its level curve, in
+// their own modules, and this file holds the rest.
+
+import { TICK_HZ } from './clock';
+import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+
 /**
- * The numbers that are not a single thing's own stats (tracer plan section 3).
- * A mob type owns its own stats and a weapon line owns its level curve, so
- * those tables live in their own modules when they arrive; this file holds the
- * rest.
+ * Base speed in field units per tick. ADR 0003: crossing the field's width
+ * takes about two seconds.
  *
- * Every number here is a first pass owned by the tuning dispatch. What is
- * pinned by test is not the magnitudes, it is the derivations: a test that
+ * Every number in this file is a first pass owned by the tuning dispatch. What
+ * is pinned by test is not the magnitudes, it is the derivations: a test that
  * pinned 4.5 would break on every retune and teach nothing, while a test that
  * pins "the grave crosses the field's width in about two seconds" is ADR 0003
  * and must never break.
  */
-
-import { TICK_HZ } from "./clock";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
-
-/** Base speed in field units per tick. ADR 0003: crossing the field's width takes about two seconds. */
-export const BASE_SPEED = FIELD_WIDTH / (2 * TICK_HZ);
+const BASE_SPEED = FIELD_WIDTH / (2 * TICK_HZ);
 
 /**
  * Scroll in field units per tick. This is the run's root pace number: it is the
@@ -24,7 +24,7 @@ export const BASE_SPEED = FIELD_WIDTH / (2 * TICK_HZ);
  * it. Stated per second and divided by the tick rate, because a per-tick
  * magnitude is unreadable and a per-second one is the number a human retunes.
  */
-export const SCROLL_SPEED = 38 / TICK_HZ;
+const SCROLL_SPEED = 38 / TICK_HZ;
 
 /**
  * ADR 0004: about ten seconds from kill to gone, derived from scroll speed
@@ -34,10 +34,10 @@ export const SCROLL_SPEED = 38 / TICK_HZ;
  * and deriving is what makes that true by construction instead of by two
  * numbers that drift apart.
  */
-export const FRESHNESS_SECONDS = FIELD_HEIGHT / 2 / (SCROLL_SPEED * TICK_HZ);
+const FRESHNESS_SECONDS = FIELD_HEIGHT / 2 / (SCROLL_SPEED * TICK_HZ);
 
-/** ADR 0004: freshness scales every payout down to this floor, never to zero. */
-export const FRESHNESS_PAYOUT_FLOOR = 0.25;
+// ADR 0004: freshness scales every payout down to this floor, never to zero.
+const FRESHNESS_PAYOUT_FLOOR = 0.25;
 
 /**
  * The grave is taller than wide (ADR 0003). Height over width.
@@ -47,15 +47,15 @@ export const FRESHNESS_PAYOUT_FLOOR = 0.25;
  * readable end of that range while still reading as clearly elongated rather
  * than a rounded square at the floor's size.
  */
-export const GRAVE_ASPECT = 2;
+const GRAVE_ASPECT = 2;
 
-/** ADR 0003: the grave stands about a quarter of the field's width tall at its ceiling. */
-export const SIZE_CEILING = FIELD_WIDTH / 8;
+// ADR 0003: the grave stands about a quarter of the field's width tall at its ceiling.
+const SIZE_CEILING = FIELD_WIDTH / 8;
 
 /**
  * One and a half floors, so the first hit never puts a fresh run at the floor.
  */
-export const SIZE_START = 27;
+const SIZE_START = 27;
 
 /**
  * The hard minimum. On a 390-wide phone the field scales to about 0.72 CSS
@@ -63,10 +63,10 @@ export const SIZE_START = 27;
  * Narrower than this and it stops reading as a grave shape on the device the
  * floor matters most on.
  */
-export const SIZE_FLOOR = 18;
+const SIZE_FLOOR = 18;
 
-/** Three hits take a fresh run from its start to its floor, the shmup convention. */
-export const HIT_SHRINK = 3;
+// Three hits take a fresh run from its start to its floor, the shmup convention.
+const HIT_SHRINK = 3;
 
 /**
  * Post-hit invulnerability, 0.4 seconds: the top of the 0.2-to-0.4-second
@@ -90,21 +90,37 @@ export const HIT_SHRINK = 3;
  * Non-Interference, so unlike SC 2.3.3 there is no "essential to functionality"
  * carve-out: a game gets no exception here.
  */
-export const INVULNERABLE_TICKS = 24;
+const INVULNERABLE_TICKS = 24;
 
-/** How many fully fresh trash corpses grow a run from its start to its ceiling. The economy's one declared magnitude. */
-export const CORPSES_TO_CEILING = 80;
+// How many fully fresh trash corpses grow a run from its start to its ceiling. The economy's one declared magnitude.
+const CORPSES_TO_CEILING = 80;
 
-/** The unit of food. Every mob's payout in dispatch 4 is stated as a multiple of this. */
-export const TRASH_CORPSE_PAYOUT =
-  (SIZE_CEILING - SIZE_START) / CORPSES_TO_CEILING;
+// The unit of food. Every mob's payout is stated as a multiple of this.
+const TRASH_CORPSE_PAYOUT = (SIZE_CEILING - SIZE_START) / CORPSES_TO_CEILING;
 
-/** Decision-log entry 5.11: the Banshee's feast pays growth worth 8 to 10 fresh trash corpses. */
-export const FEAST_PAYOUT = 9 * TRASH_CORPSE_PAYOUT;
+// Decision-log entry 5.11: the Banshee's feast pays growth worth 8 to 10 fresh trash corpses.
+const FEAST_PAYOUT = 9 * TRASH_CORPSE_PAYOUT;
 
 /**
  * Entry 5.11 again: the same swallow slams the reservoir full. Capacity is the
  * feast's payout exactly, so a fully fresh feast fills the reservoir and wastes
  * nothing, and the run's most choreographed beat is true by construction.
  */
-export const RESERVOIR_CAPACITY = FEAST_PAYOUT;
+const RESERVOIR_CAPACITY = FEAST_PAYOUT;
+
+export {
+  BASE_SPEED,
+  SCROLL_SPEED,
+  FRESHNESS_SECONDS,
+  FRESHNESS_PAYOUT_FLOOR,
+  GRAVE_ASPECT,
+  SIZE_CEILING,
+  SIZE_START,
+  SIZE_FLOOR,
+  HIT_SHRINK,
+  INVULNERABLE_TICKS,
+  CORPSES_TO_CEILING,
+  TRASH_CORPSE_PAYOUT,
+  FEAST_PAYOUT,
+  RESERVOIR_CAPACITY,
+};

@@ -1,14 +1,7 @@
-/**
- * Keyboard steering as a pure model: no DOM in it at all. It holds the set of
- * held key codes and turns them into a move command in base-speed units.
- *
- * Normalization and the speed setting both live here rather than in the sim.
- * ADR 0011 puts them in each input model, and moveGrave deliberately applies
- * the command as given, so a cap or a normalization in src/game would silently
- * undo the ADR's uncapped touch drag.
- */
+// Keyboard steering as a pure model: no DOM in it at all. It holds the set of
+// held key codes and turns them into a move command in base-speed units.
 
-import type { MoveCommand } from "../game/run";
+import type { MoveCommand } from '../game/command';
 
 /**
  * How much of the designated speed a held focus key leaves (glossary: focus).
@@ -18,14 +11,14 @@ import type { MoveCommand } from "../game/run";
  * 0.40 to 0.44, so 0.5 is a defensible opening number and definitely a feel
  * number. A retune after Mark plays is a tuning change, not a rules change.
  */
-export const FOCUS_FACTOR = 0.5;
+const FOCUS_FACTOR = 0.5;
 
-/** ADR 0011's narrowed player speed range, 0.75x to 1.5x. */
-export const MULTIPLIER_MIN = 0.75;
-export const MULTIPLIER_MAX = 1.5;
+// ADR 0011's narrowed player speed range, 0.75x to 1.5x.
+const MULTIPLIER_MIN = 0.75;
+const MULTIPLIER_MAX = 1.5;
 
-export interface KeySteerOptions {
-  /** The persisted player speed setting, 0.75 to 1.5 (ADR 0011). */
+interface KeySteerOptions {
+  // The persisted player speed setting, 0.75 to 1.5 (ADR 0011).
   readonly multiplier: number;
 }
 
@@ -45,21 +38,21 @@ const DIRECTIONS: Readonly<Record<string, MoveCommand>> = {
   ArrowRight: { x: 1, y: 0 },
 };
 
-const FOCUS_CODES = ["ShiftLeft", "ShiftRight"];
+const FOCUS_CODES = ['ShiftLeft', 'ShiftRight'];
 
 const STILL: MoveCommand = { x: 0, y: 0 };
 
-function clampMultiplier(value: number): number {
+const clampMultiplier = (value: number): number => {
   if (!Number.isFinite(value)) return 1;
   return Math.min(Math.max(value, MULTIPLIER_MIN), MULTIPLIER_MAX);
-}
+};
 
 /**
  * The sum of every held direction, with opposed keys cancelling to zero on
  * their axis. Left-wins is the alternative and it does not survive a player
  * rolling their hand across a keyboard.
  */
-function sumHeld(held: ReadonlySet<string>): MoveCommand {
+const sumHeld = (held: ReadonlySet<string>): MoveCommand => {
   let x = 0;
   let y = 0;
   for (const code of held) {
@@ -69,7 +62,7 @@ function sumHeld(held: ReadonlySet<string>): MoveCommand {
     y += direction.y;
   }
   return { x, y };
-}
+};
 
 /**
  * A command no longer than one unit, so a diagonal is not faster than a
@@ -82,17 +75,17 @@ function sumHeld(held: ReadonlySet<string>): MoveCommand {
  * SpiderMonkey and JavaScriptCore all comply. Math.hypot is still approximated
  * and is deliberately not used.
  */
-function normalize(command: MoveCommand): MoveCommand {
+const normalize = (command: MoveCommand): MoveCommand => {
   const length = Math.sqrt(command.x * command.x + command.y * command.y);
   if (length <= 1) return command;
   return { x: command.x / length, y: command.y / length };
-}
+};
 
-function scale(command: MoveCommand, factor: number): MoveCommand {
+const scale = (command: MoveCommand, factor: number): MoveCommand => {
   return { x: command.x * factor, y: command.y * factor };
-}
+};
 
-export class KeySteer {
+class KeySteer {
   private readonly held = new Set<string>();
   private multiplier: number;
 
@@ -108,7 +101,7 @@ export class KeySteer {
     this.held.delete(code);
   }
 
-  /** Every key let go at once, which is what a window blur and a pause both need. */
+  // Every key let go at once, which is what a window blur and a pause both need.
   public releaseAll(): void {
     this.held.clear();
   }
@@ -124,6 +117,11 @@ export class KeySteer {
   /**
    * The held keys as one move command: sum the directions, normalize, scale by
    * the speed setting, then halve while focus is held.
+   *
+   * Normalization and the speed setting both live here rather than in the sim.
+   * ADR 0011 puts them in each input model, and moveGrave deliberately applies
+   * the command as given, so a cap or a normalization in src/game would silently
+   * undo the ADR's uncapped touch drag.
    */
   public command(): MoveCommand {
     const summed = sumHeld(this.held);
@@ -134,3 +132,6 @@ export class KeySteer {
     return scale(normalize(summed), speed);
   }
 }
+
+export { KeySteer, FOCUS_FACTOR, MULTIPLIER_MIN, MULTIPLIER_MAX };
+export type { KeySteerOptions };

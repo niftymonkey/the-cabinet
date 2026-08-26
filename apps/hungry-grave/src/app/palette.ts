@@ -1,30 +1,33 @@
+// Every colour the game draws, each declared with the luma it measures.
+
 /**
- * Every colour the game draws, each declared with the luma it measures, so the
- * value band ADR 0014 reserves for mob fire is data a unit test can hold rather
- * than something only a screenshot can see.
+ * The declared luma is what makes the value band ADR 0014 reserves for mob fire
+ * data a unit test can hold rather than something only a screenshot can see.
+ */
+interface PaletteEntry {
+  readonly hex: number;
+  readonly luma: number;
+}
+
+// Only a mob-fire core may sit at or above this luma.
+const MOB_FIRE_BAND_MIN = 88;
+
+// Every other field colour sits at or below this luma.
+const FIELD_LUMA_CEILING = 68;
+
+// The floor under the gap between the two, stated as a floor and not derived.
+const BAND_MARGIN_MIN = 20;
+
+/**
+ * Every colour drawn while the field is live, the readouts over it included
+ * (ADR 0014).
  *
  * The table is derived and pinned in
  * `docs/research/readability-value-band.md` section 7. It is not this module's
  * to choose, and the declared lumas are written out rather than computed so the
  * test has something independent to check the hexes against.
  */
-
-export interface PaletteEntry {
-  readonly hex: number;
-  readonly luma: number;
-}
-
-/** Only a mob-fire core may sit at or above this luma. */
-export const MOB_FIRE_BAND_MIN = 88;
-
-/** Every other field colour sits at or below this luma. */
-export const FIELD_LUMA_CEILING = 68;
-
-/** The floor under the gap between the two, stated as a floor and not derived. */
-export const BAND_MARGIN_MIN = 20;
-
-/** Every colour drawn while the field is live, the readouts over it included (ADR 0014). */
-export const PALETTE = {
+const PALETTE = {
   // the night field
   night: { hex: 0x0e1119, luma: 6.64 },
   nightSpeckle: { hex: 0x1d2434, luma: 13.99 },
@@ -118,7 +121,7 @@ export const PALETTE = {
  * menuDim is deliberately the same hex as hudDim: one is bound by the ceiling
  * and one is not, and they part company when the art pass touches the menus.
  */
-export const MENU = {
+const MENU = {
   menuInk: { hex: 0xe8edf2, luma: 92.67 },
   menuDim: { hex: 0x76839a, luma: 50.94 },
 } as const satisfies Record<string, PaletteEntry>;
@@ -148,25 +151,25 @@ export const MENU = {
  * Measured against the storm: Lc 44.98 to 57.48 for the pairs that clear, with
  * the four that do not named in palette.test.ts with their figures.
  */
-export const SPRITE_OUTLINE = {
-  graveRim: "graveHole",
+const SPRITE_OUTLINE = {
+  graveRim: 'graveHole',
   // The glow is the rim's own band in treasure's colour, drawn over it at the
   // identical geometry, so its dark companion is the rim's: the one-unit
   // graveHole band already stroked immediately inside it.
-  graveGlow: "graveHole",
-  corpse: "foodOutline",
-  corpseRevenant: "foodOutline",
-  feast: "foodOutline",
-  drop: "foodOutline",
-  mob: "foodOutline",
-  banshee: "foodOutline",
-  undertaker: "foodOutline",
-  skull: "foodOutline",
-  stone: "foodOutline",
-  wisp: "foodOutline",
-  bellRing: "foodOutline",
-  belchEruption: "foodOutline",
-  splash: "foodOutline",
+  graveGlow: 'graveHole',
+  corpse: 'foodOutline',
+  corpseRevenant: 'foodOutline',
+  feast: 'foodOutline',
+  drop: 'foodOutline',
+  mob: 'foodOutline',
+  banshee: 'foodOutline',
+  undertaker: 'foodOutline',
+  skull: 'foodOutline',
+  stone: 'foodOutline',
+  wisp: 'foodOutline',
+  bellRing: 'foodOutline',
+  belchEruption: 'foodOutline',
+  splash: 'foodOutline',
 } as const satisfies Record<string, keyof typeof PALETTE>;
 
 /**
@@ -174,14 +177,14 @@ export const SPRITE_OUTLINE = {
  * of them declare the same luma and the tier reads as hue and saturation, which
  * is what the tracer plan rules.
  */
-export const CORPSE_TIERS = {
+const CORPSE_TIERS = {
   trash: PALETTE.corpse,
   rich: PALETTE.corpseRevenant,
 } as const satisfies Record<string, PaletteEntry>;
 
-export type FireEmitter = "trash" | "tear" | "clod" | "spiral";
+type FireEmitter = 'trash' | 'tear' | 'clod' | 'spiral';
 
-export interface FireSprite {
+interface FireSprite {
   readonly core: PaletteEntry;
   readonly body: PaletteEntry;
   readonly outline: PaletteEntry;
@@ -193,7 +196,7 @@ export interface FireSprite {
  * guarantee and the body carries the hue, and solving each body's own hue for a
  * near-white produced the same colour four times over (research 7.1).
  */
-export const MOB_FIRE = {
+const MOB_FIRE = {
   trash: {
     core: PALETTE.fireCore,
     body: PALETTE.fireTrash,
@@ -215,3 +218,15 @@ export const MOB_FIRE = {
     outline: PALETTE.fireOutline,
   },
 } as const satisfies Record<FireEmitter, FireSprite>;
+
+export {
+  MOB_FIRE_BAND_MIN,
+  FIELD_LUMA_CEILING,
+  BAND_MARGIN_MIN,
+  PALETTE,
+  MENU,
+  SPRITE_OUTLINE,
+  CORPSE_TIERS,
+  MOB_FIRE,
+};
+export type { PaletteEntry, FireEmitter, FireSprite };

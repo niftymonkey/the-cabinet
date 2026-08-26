@@ -1,11 +1,17 @@
-import { Container } from "pixi.js";
+import { Container } from 'pixi.js';
 
-import type { Digest } from "../../dev/digest";
-import { GOLDEN, runScenario } from "../../dev/digest";
-import type { FaultRecord } from "../../game/execution";
-import { MENU } from "../palette";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
+import type { Digest } from '../../dev/digest';
+import { GOLDEN, runScenario } from '../../dev/digest';
+import type { FaultRecord } from '../../game/execution';
+import { MENU } from '../palette';
+import type { ButtonChrome } from '../ui/Button';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+
+/** The one way off the digest screen, owned by the driver in main.ts. */
+interface DigestScreenProps extends ButtonChrome {
+  onBack(): void;
+}
 
 /**
  * The golden digest, run in whatever browser opened this URL.
@@ -18,14 +24,19 @@ import { Label } from "../ui/Label";
  * It lives here rather than under screens/game because it never draws while a
  * field is live, so it is outside the palette scan and may use MENU colours.
  */
-export class DigestScreen extends Container {
+class DigestScreen extends Container {
   // Assets bundles required by this screen
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   private readonly verdict: Label;
   private readonly detail: Label;
   private readonly caveat: Label;
   private readonly backButton: Button;
+  /**
+   * The powers this showing was handed. The pool calls init() before the screen
+   * reaches the stage, so it is set before the back button can be pressed.
+   */
+  private props!: DigestScreenProps;
 
   constructor() {
     super();
@@ -35,27 +46,29 @@ export class DigestScreen extends Container {
     });
     this.detail = new Label({
       style: {
-        fontFamily: "monospace",
+        fontFamily: 'monospace',
         fill: MENU.menuDim.hex,
         fontSize: 14,
-        align: "left",
+        align: 'left',
       },
     });
     this.caveat = new Label({
       style: { fill: MENU.menuDim.hex, fontSize: 14, wordWrap: true },
     });
     this.backButton = new Button({
-      text: "BACK",
+      text: 'BACK',
       width: 220,
       height: 70,
       fontSize: 18,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
-    this.backButton.onPress.connect(() => {
-      // The router in main.ts observes the hash and shows the title screen.
-      window.location.hash = "#/";
-    });
+    this.backButton.onPress.connect(() => this.props.onBack());
 
     this.addChild(this.verdict, this.detail, this.caveat, this.backButton);
+  }
+
+  public init(props: DigestScreenProps) {
+    this.props = props;
   }
 
   public prepare() {
@@ -64,7 +77,7 @@ export class DigestScreen extends Container {
       // Only a fatal fault stops the scenario's loop (ADR 0017), so only a
       // fatal fault leaves no digest worth comparing. A recoverable fault
       // rides beside the digest that was still taken.
-      if (result.faults.some((fault) => fault.severity === "fatal")) {
+      if (result.faults.some((fault) => fault.severity === 'fatal')) {
         this.showBreach(faultLines(result.faults));
         return;
       }
@@ -76,13 +89,13 @@ export class DigestScreen extends Container {
 
   private showDigest(digest: Digest, faults: readonly FaultRecord[]): void {
     const diverged = divergences(digest);
-    this.verdict.text = diverged.length === 0 ? "MATCH" : "DIVERGED";
+    this.verdict.text = diverged.length === 0 ? 'MATCH' : 'DIVERGED';
     const sections = [
       ...(faults.length > 0 ? [faultLines(faults)] : []),
-      ...(diverged.length > 0 ? [diverged.join("\n")] : []),
+      ...(diverged.length > 0 ? [diverged.join('\n')] : []),
       describe(digest),
     ];
-    this.detail.text = sections.join("\n\n");
+    this.detail.text = sections.join('\n\n');
     // A MATCH here is evidence that binary64 behaves, and not yet evidence for
     // ADR 0015's claim over the approximated operations. Without this on
     // screen a phone MATCH reads in the record as more than it is.
@@ -103,10 +116,10 @@ export class DigestScreen extends Container {
    * no console to read.
    */
   private showBreach(detail: string): void {
-    this.verdict.text = "BROKEN";
+    this.verdict.text = 'BROKEN';
     this.detail.text = detail;
     this.caveat.text =
-      "A sim invariant fired before the scenario finished, so there is no digest to compare. That is a finding on this device, not a test failure.";
+      'A sim invariant fired before the scenario finished, so there is no digest to compare. That is a finding on this device, not a test failure.';
   }
 
   public reset() {}
@@ -121,37 +134,37 @@ export class DigestScreen extends Container {
   }
 }
 
-/** The scenario's faults as readable lines, so a phone with no console can still say what broke. */
-function faultLines(faults: readonly FaultRecord[]): string {
+// The scenario's faults as readable lines, so a phone with no console can still say what broke.
+const faultLines = (faults: readonly FaultRecord[]): string => {
   return faults
     .map(
       (fault) =>
         `${fault.identity} (${fault.severity}) first at tick ${fault.firstTick}, ${fault.count} times: ${fault.detail}`,
     )
-    .join("\n");
-}
+    .join('\n');
+};
 
-/** The digest as readable lines, so a divergence can be read off a phone with no console. */
-function describe(digest: Digest): string {
+// The digest as readable lines, so a divergence can be read off a phone with no console.
+const describe = (digest: Digest): string => {
   return Object.entries(digest)
     .map(([field, value]) => `${field}: ${format(value)}`)
-    .join("\n");
-}
+    .join('\n');
+};
 
-function format(value: unknown): string {
-  return typeof value === "object" && value !== null
+const format = (value: unknown): string => {
+  return typeof value === 'object' && value !== null
     ? Object.entries(value)
         .map(([key, inner]) => `${key}=${inner}`)
-        .join(" ")
+        .join(' ')
     : String(value);
-}
+};
 
 /**
  * Every field that differs from the committed constant, named. A digest that
  * diverges here is a real finding on that device and not a test failure, and
  * the screen has to say which field it was because a phone shows no console.
  */
-function divergences(digest: Digest): string[] {
+const divergences = (digest: Digest): string[] => {
   const found: string[] = [];
   for (const [field, expected] of Object.entries(GOLDEN)) {
     const actual = digest[field as keyof Digest];
@@ -162,4 +175,6 @@ function divergences(digest: Digest): string[] {
     }
   }
   return found;
-}
+};
+
+export { DigestScreen };

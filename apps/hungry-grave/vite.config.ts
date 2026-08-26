@@ -1,8 +1,8 @@
-import { execSync } from "node:child_process";
+import { execSync } from 'node:child_process';
 
-import { defineConfig } from "vite";
+import { defineConfig } from 'vite';
 
-import { assetpackPlugin } from "./scripts/assetpack-vite-plugin";
+import { assetpackPlugin } from './scripts/assetpack-vite-plugin';
 
 /**
  * The commit this bundle was built from, which every tape carries in its header
@@ -16,11 +16,11 @@ import { assetpackPlugin } from "./scripts/assetpack-vite-plugin";
  */
 function commitHash(): string {
   const fromCi = process.env.VERCEL_GIT_COMMIT_SHA;
-  if (fromCi !== undefined && fromCi !== "") return fromCi;
+  if (fromCi !== undefined && fromCi !== '') return fromCi;
   try {
-    return execSync("git rev-parse HEAD", { encoding: "utf8" }).trim();
+    return execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
   } catch {
-    return "unknown";
+    return 'unknown';
   }
 }
 
@@ -42,7 +42,7 @@ export default defineConfig({
         // registrations (e.g. sprite-tiling/init) land in the lazy prototype
         // chunk and run after the renderer has built its pipe table, which
         // crashes the first render (validateRenderable of undefined).
-        manualChunks: { pixi: ["pixi.js"] },
+        manualChunks: { pixi: ['pixi.js'] },
       },
     },
   },

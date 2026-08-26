@@ -1,21 +1,19 @@
-/**
- * The four weapon lines as identity and levels. Their behaviour is dispatch 5,
- * and this folder exists now so that dispatch has one place to fill.
- *
- * The file is roster.ts and not lines.ts: lines/lines.ts stutters beside the
- * lines/soulStream.ts and friends dispatch 5 adds.
- */
+// The four weapon lines as identity and levels. The file is roster.ts and not
+// lines.ts, because lines/lines.ts stutters beside lines/soulStream.ts.
 
-export type WeaponLine = "soulStream" | "headstones" | "wisps" | "bell";
+type WeaponLine = 'soulStream' | 'headstones' | 'wisps' | 'bell';
 
-export const WEAPON_LINES: readonly WeaponLine[] = [
-  "soulStream",
-  "headstones",
-  "wisps",
-  "bell",
+const WEAPON_LINES: readonly WeaponLine[] = [
+  'soulStream',
+  'headstones',
+  'wisps',
+  'bell',
 ];
 
-/** The lines a run starts with (glossary: birthright). The floor's ladder strips back to exactly these. */
-export const BIRTHRIGHT: readonly WeaponLine[] = ["soulStream", "headstones"];
+// The lines a run starts with (glossary: birthright). The floor's ladder strips back to exactly these.
+const BIRTHRIGHT: readonly WeaponLine[] = ['soulStream', 'headstones'];
 
-export const MAX_LEVEL = 5;
+const MAX_LEVEL = 5;
+
+export { WEAPON_LINES, BIRTHRIGHT, MAX_LEVEL };
+export type { WeaponLine };

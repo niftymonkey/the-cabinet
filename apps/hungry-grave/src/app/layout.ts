@@ -1,4 +1,4 @@
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
 
 /**
  * The fixed field fitted into any viewport. The only module in the app that
@@ -33,9 +33,9 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
  * `fieldFrame` downward has to fail a test rather than quietly leave a stroke
  * too thin for the bracket it is being judged in.
  */
-export const BOUNDARY_STROKE = 2;
+const BOUNDARY_STROKE = 2;
 
-export interface FieldPlacement {
+interface FieldPlacement {
   readonly scale: number;
   readonly offsetX: number;
   readonly offsetY: number;
@@ -57,16 +57,16 @@ export interface FieldPlacement {
  * that the measured widths fit inside these, which is the half of the rule this
  * file cannot falsify.
  */
-export interface ReadoutReserve {
-  /** How far the readouts sit in from the stage's corner. */
+interface ReadoutReserve {
+  // How far the readouts sit in from the stage's corner.
   readonly margin: number;
-  /** How wide a corner the readouts claim, on each side. */
+  // How wide a corner the readouts claim, on each side.
   readonly width: number;
-  /** How far down from the top they reach. */
+  // How far down from the top they reach.
   readonly height: number;
 }
 
-export const READOUT_RESERVE: ReadoutReserve = {
+const READOUT_RESERVE: ReadoutReserve = {
   margin: 12,
   width: 260,
   height: 120,
@@ -79,23 +79,36 @@ export const READOUT_RESERVE: ReadoutReserve = {
  * downstream. The identity placement is the one fallback that needs no other
  * number to justify it, and the next real resize replaces it.
  */
-export const DEGENERATE_PLACEMENT: FieldPlacement = {
+const DEGENERATE_PLACEMENT: FieldPlacement = {
   scale: 1,
   offsetX: 0,
   offsetY: 0,
 };
 
-/** A viewport dimension the placement can be computed from at all. */
-function isMeasurable(dimension: number): boolean {
+// A viewport dimension the placement can be computed from at all.
+const isMeasurable = (dimension: number): boolean => {
   return Number.isFinite(dimension) && dimension > 0;
-}
+};
 
-/** The whole field, centred inside a box of this size at this top offset. */
-function centred(
+// Once per session, because a resize storm on a hidden tab would otherwise
+// report the same unmeasurable viewport on every event.
+let reportedDegenerate = false;
+
+// Says that a viewport could not be measured, because nothing abnormal is silent.
+const reportDegenerate = (width: number, height: number): void => {
+  if (reportedDegenerate) return;
+  reportedDegenerate = true;
+  console.warn(
+    `the viewport measured ${width} by ${height}, which no placement can be computed from; the field is drawn unscaled at the origin until the next measurable resize, and only this first one is reported`,
+  );
+};
+
+// The whole field, centred inside a box of this size at this top offset.
+const centred = (
   viewportWidth: number,
   height: number,
   top: number,
-): FieldPlacement {
+): FieldPlacement => {
   const scale = Math.min(viewportWidth / FIELD_WIDTH, height / FIELD_HEIGHT);
   return {
     scale,
@@ -107,13 +120,13 @@ function centred(
     offsetX: Math.max(0, (viewportWidth - FIELD_WIDTH * scale) / 2),
     offsetY: Math.max(top, top + (height - FIELD_HEIGHT * scale) / 2),
   };
-}
+};
 
-/** Half-open on both axes, the same convention the sim's own overlap uses, so touching edges do not intersect. */
-function intersects(
+// Half-open on both axes, the same convention the sim's own overlap uses, so touching edges do not intersect.
+const intersects = (
   placement: FieldPlacement,
   corner: { x: number; width: number; height: number },
-): boolean {
+): boolean => {
   const left = placement.offsetX;
   const right = left + FIELD_WIDTH * placement.scale;
   const top = placement.offsetY;
@@ -124,14 +137,14 @@ function intersects(
     top < corner.height &&
     0 < bottom
   );
-}
+};
 
-/** Whether either readout corner would sit over the field at this placement. */
-function coversAReadout(
+// Whether either readout corner would sit over the field at this placement.
+const coversAReadout = (
   placement: FieldPlacement,
   viewportWidth: number,
   reserve: ReadoutReserve,
-): boolean {
+): boolean => {
   if (reserve.width <= 0 || reserve.height <= 0) return false;
   const corners = [
     { x: 0, width: reserve.width, height: reserve.height },
@@ -142,7 +155,7 @@ function coversAReadout(
     },
   ];
   return corners.some((corner) => intersects(placement, corner));
-}
+};
 
 /**
  * Fits the whole field inside the viewport, centred, preserving its aspect
@@ -166,12 +179,13 @@ function coversAReadout(
  * 1024-wide desktop and a short phone window are the same shape here, the field
  * filling the height with no slack, and they get the same answer.
  */
-export function fitField(
+const fitField = (
   viewportWidth: number,
   viewportHeight: number,
   reserve: ReadoutReserve = READOUT_RESERVE,
-): FieldPlacement {
+): FieldPlacement => {
   if (!isMeasurable(viewportWidth) || !isMeasurable(viewportHeight)) {
+    reportDegenerate(viewportWidth, viewportHeight);
     return DEGENERATE_PLACEMENT;
   }
   const natural = centred(viewportWidth, viewportHeight, 0);
@@ -191,16 +205,25 @@ export function fitField(
    */
   if (lowered.scale < natural.scale) return natural;
   return lowered;
-}
+};
 
-/** A viewport point back in field units. The inverse of the placement, and how touch input reaches the sim. */
-export function screenToField(
+// A viewport point back in field units. The inverse of the placement, and how touch input reaches the sim.
+const screenToField = (
   placement: FieldPlacement,
   screenX: number,
   screenY: number,
-): { x: number; y: number } {
+): { x: number; y: number } => {
   return {
     x: (screenX - placement.offsetX) / placement.scale,
     y: (screenY - placement.offsetY) / placement.scale,
   };
-}
+};
+
+export {
+  fitField,
+  screenToField,
+  BOUNDARY_STROKE,
+  READOUT_RESERVE,
+  DEGENERATE_PLACEMENT,
+};
+export type { FieldPlacement, ReadoutReserve };

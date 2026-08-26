@@ -4,18 +4,19 @@
  * thin adapter over it.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { TICK_HZ } from "../../game/clock";
-import { createExecution, executeTick } from "../../game/execution";
-import type { SimEvent } from "../../game/events";
-import type { RunState, TickCommand } from "../../game/run";
-import { createRun } from "../../game/run";
-import { WITNESS_VERSION } from "../../game/witness";
-import { createPlayback, playTape } from "../playback";
-import { recordInto, sealTrailer, tapeOf } from "../recorder";
-import type { Tape, TapeHeader } from "../tape";
-import { readBackForVerification } from "../verificationReadback";
+import { TICK_HZ } from '../../game/clock';
+import { createExecution, executeTick } from '../../game/execution';
+import type { SimEvent } from '../../game/events';
+import type { TickCommand } from '../../game/command';
+import type { RunState } from '../../game/run';
+import { createRun } from '../../game/run';
+import { WITNESS_VERSION } from '../../game/witness';
+import { createPlayback, playTape } from '../playback';
+import { recordInto, sealTrailer, tapeOf } from '../recorder';
+import type { Tape, TapeHeader } from '../tape';
+import { readBackForVerification } from '../verificationReadback';
 
 const SEED = 20260823;
 const SPACING = 20;
@@ -29,12 +30,12 @@ function header(run: RunState): TapeHeader {
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
-    commitHash: "de7fd05087",
-    buildIdentity: "",
-    author: "unknown",
-    inputDevice: "script",
+    commitHash: 'de7fd05087',
+    buildIdentity: '',
+    author: 'unknown',
+    inputDevice: 'script',
     keyboardSpeed: 1,
-    rendererBackend: "webgl",
+    rendererBackend: 'webgl',
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
@@ -61,8 +62,8 @@ function recordARun(commandAt: (tick: number) => TickCommand = steer): Tape {
   return tapeOf(recorder);
 }
 
-describe("the playback", () => {
-  it("reproduces the run a tape holds tick for tick, the observer seeing every command", () => {
+describe('the playback', () => {
+  it('reproduces the run a tape holds tick for tick, the observer seeing every command', () => {
     const tape = recordARun();
     const seen: { tick: number; command: TickCommand }[] = [];
 
@@ -70,7 +71,7 @@ describe("the playback", () => {
       seen.push({ tick, command });
     });
 
-    expect(result.outcome).toBe("verified");
+    expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(TICKS);
     expect(seen.map((entry) => entry.tick)).toEqual(
       tape.commands.map((_, index) => index + 1),
@@ -78,7 +79,7 @@ describe("the playback", () => {
     expect(seen.map((entry) => entry.command)).toEqual([...tape.commands]);
   });
 
-  it("hands the observer the events each tick produced, mob damage among them", () => {
+  it('hands the observer the events each tick produced, mob damage among them', () => {
     // The reference is the authority itself, fed the tape's own commands with
     // no playback in the path. mobDamaged is pinned present so the comparison
     // cannot pass on a run where nothing was hit (#58 slice 0).
@@ -88,7 +89,7 @@ describe("the playback", () => {
     const expected = tape.commands.map((command) => [
       ...executeTick(referenceExecution, command),
     ]);
-    expect(expected.flat().some((event) => event.type === "mobDamaged")).toBe(
+    expect(expected.flat().some((event) => event.type === 'mobDamaged')).toBe(
       true,
     );
 
@@ -100,7 +101,7 @@ describe("the playback", () => {
     expect(seen).toEqual(expected);
   });
 
-  it("reproduces a tape carrying a fatal fault to its end and reports the fault", () => {
+  it('reproduces a tape carrying a fatal fault to its end and reports the fault', () => {
     // ADR 0017 and #58 ruling 5: a fault today's checks raise never stops the
     // loop. The invariant authority sets the stop reason, but a playback
     // reproduces every command a tape holds; truncating at the fault would
@@ -111,19 +112,19 @@ describe("the playback", () => {
         ? { move: { x: Number.NaN, y: 0 }, belch: false }
         : steer(tick),
     );
-    expect(faulted.trailer?.integrity).toBe("faulted");
+    expect(faulted.trailer?.integrity).toBe('faulted');
 
     const result = playTape(faulted);
 
-    expect(result.outcome).toBe("verified");
+    expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(TICKS);
     expect(result.checkpointsUnreachable).toBe(0);
     expect(result.readbackFaults).toContainEqual(
-      expect.objectContaining({ identity: "no NaN", severity: "fatal" }),
+      expect.objectContaining({ identity: 'no NaN', severity: 'fatal' }),
     );
   });
 
-  it("stops at the first checkpoint that disagrees, and names it", () => {
+  it('stops at the first checkpoint that disagrees, and names it', () => {
     // ADR 0019: nothing after the first disagreeing checkpoint is the recorded
     // run, so reproduction ends there rather than carrying on.
     const sound = recordARun();
@@ -138,14 +139,14 @@ describe("the playback", () => {
       lastTickSeen = tick;
     });
 
-    expect(result.outcome).toBe("diverged");
+    expect(result.outcome).toBe('diverged');
     expect(result.firstDivergentCheckpoint).toBe(40);
     expect(result.checkpointsVerified).toBe(2);
     expect(result.ticksReproduced).toBe(40);
     expect(lastTickSeen).toBe(40);
   });
 
-  it("refuses a tape recorded against a different fold without running a tick", () => {
+  it('refuses a tape recorded against a different fold without running a tick', () => {
     // ADR 0019: a mismatch is its own outcome and never a divergence, or every
     // tape recorded before a widening would read as a run that did not happen.
     const tape = recordARun();
@@ -164,7 +165,7 @@ describe("the playback", () => {
     expect(playback.advanceTick()).toBe(false);
     expect(observed).toBe(0);
     const result = playback.result();
-    expect(result.outcome).toBe("witnessVersionMismatch");
+    expect(result.outcome).toBe('witnessVersionMismatch');
     expect(result.firstDivergentCheckpoint).toBeNull();
     expect(result.ticksReproduced).toBe(0);
     expect(result.checkpointsVerified).toBe(0);
@@ -173,7 +174,7 @@ describe("the playback", () => {
     expect(result.readerWitnessVersion).toBe(WITNESS_VERSION);
   });
 
-  it("reaches the same verdict stepwise as when driven in one call", () => {
+  it('reaches the same verdict stepwise as when driven in one call', () => {
     // The replay screen paces reproduction across frames (#58), and pacing
     // must change nothing: both forms are one loop, so the verdicts match to
     // the last field, the final witness included.

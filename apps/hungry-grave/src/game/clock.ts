@@ -1,22 +1,8 @@
-/**
- * The accumulator that turns real elapsed time into fixed ticks, and its
- * catch-up clamp (ADR 0015). It lives in src/game rather than in a screen so
- * the autopilot and the rendered game share one implementation; otherwise the
- * bot's run is not the player's run.
- *
- * The accumulator is fed wall-clock time, which differs on every device by
- * nature, so the accumulator itself is not deterministic and does not need to
- * be. What is deterministic is the sim, which only ever sees whole ticks.
- *
- * ticksFor takes raw elapsed real time and never Pixi's deltaMS. Pixi assigns
- * the raw gap to elapsedMS, then clamps a local copy to _maxElapsedMS of 100
- * and gives only deltaMS the clamped value. Feed deltaMS and the clamp below is
- * unreachable, debtTicks reads zero forever, and any change to the ticker's
- * speed silently rescales the sim.
- */
+// The accumulator that turns real elapsed time into fixed ticks, and its
+// catch-up clamp (ADR 0015).
 
-export const TICK_HZ = 60;
-export const TICK_MS = 1000 / TICK_HZ;
+const TICK_HZ = 60;
+const TICK_MS = 1000 / TICK_HZ;
 
 /**
  * The catch-up clamp, in ticks. A quarter second, which is the figure Gaffer on
@@ -26,7 +12,7 @@ export const TICK_MS = 1000 / TICK_HZ;
  * Math.round, not Math.floor: 1000 / 60 rounds up in binary64, so 250 / TICK_MS
  * is 14.999999999999998 and floor would silently give 14.
  */
-export const MAX_CATCHUP_TICKS = Math.round(250 / TICK_MS);
+const MAX_CATCHUP_TICKS = Math.round(250 / TICK_MS);
 
 /**
  * A whole number of ticks can land a few ulps short of its own boundary,
@@ -37,25 +23,61 @@ export const MAX_CATCHUP_TICKS = Math.round(250 / TICK_MS);
  */
 const TICK_TOLERANCE = 1e-9;
 
-export interface Clock {
-  /** Real time carried over that did not add up to a whole tick yet. */
+/**
+ * The accumulator carries wall-clock time, which differs on every device by
+ * nature, so the accumulator itself is not deterministic and does not need to
+ * be. What is deterministic is the sim, which only ever sees whole ticks.
+ */
+interface Clock {
+  // Real time carried over that did not add up to a whole tick yet.
   remainderMs: number;
-  /** Ticks the clamp has discarded over this clock's life. The tick-debt readout in 3b shows this. */
+  // Ticks the clamp has discarded over this clock's life. The tick-debt readout in 3b shows this.
   debtTicks: number;
 }
 
-export function createClock(): Clock {
+/**
+ * A clock lives in src/game rather than in a screen so the autopilot and the
+ * rendered game share one implementation; otherwise the bot's run is not the
+ * player's run.
+ */
+const createClock = (): Clock => {
   return { remainderMs: 0, debtTicks: 0 };
-}
+};
 
-/** Whole ticks inside a span of real time. */
-function wholeTicksIn(elapsedMs: number): number {
+// Whole ticks inside a span of real time.
+const wholeTicksIn = (elapsedMs: number): number => {
   return Math.floor(elapsedMs / TICK_MS + TICK_TOLERANCE);
-}
+};
+
+// Once per session, because ticksFor runs every frame and a clock handed one
+// broken elapsed time is usually handed one on every frame after it.
+let reportedUnusableElapsed = false;
+
+/**
+ * Says that an elapsed time was no real span, because nothing abnormal is
+ * silent.
+ *
+ * A zero never reaches here. GameScreen.takeElapsed hands one over on purpose
+ * on the first frame back from a pause, so a zero is an expected input and
+ * running no ticks for it is the designed answer rather than a repair.
+ */
+const reportUnusableElapsed = (elapsedMs: number): void => {
+  if (reportedUnusableElapsed) return;
+  reportedUnusableElapsed = true;
+  console.warn(
+    `the clock was handed ${elapsedMs} ms of elapsed time, which is no real span; the frame runs no ticks and the sim does not advance, and only this first one is reported`,
+  );
+};
 
 /**
  * Whole ticks to run for this frame's elapsed real time, clamped on the way in,
  * with the discarded ticks recorded as debt.
+ *
+ * elapsedMs is raw elapsed real time and never Pixi's deltaMS. Pixi assigns the
+ * raw gap to elapsedMS, then clamps a local copy to _maxElapsedMS of 100 and
+ * gives only deltaMS the clamped value. Feed deltaMS and the clamp below is
+ * unreachable, debtTicks reads zero forever, and any change to the ticker's
+ * speed silently rescales the sim.
  *
  * The clamp is on elapsedMs and never on the tick count on the way out. Gaffer
  * clamps the frame time before it enters the accumulator, so the dropped time
@@ -67,15 +89,17 @@ function wholeTicksIn(elapsedMs: number): number {
  * A negative, zero or non-finite elapsed time yields zero ticks and leaves the
  * remainder untouched. A browser reports all three across a tab switch.
  */
-export function ticksFor(clock: Clock, elapsedMs: number): number {
-  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0;
+const ticksFor = (clock: Clock, elapsedMs: number): number => {
+  const usable = Number.isFinite(elapsedMs) && elapsedMs > 0;
+  if (!usable && elapsedMs !== 0) reportUnusableElapsed(elapsedMs);
+  if (!usable) return 0;
   const spendable = Math.min(elapsedMs, MAX_CATCHUP_TICKS * TICK_MS);
   clock.debtTicks += wholeTicksIn(elapsedMs - spendable);
   clock.remainderMs += spendable;
   const ticks = wholeTicksIn(clock.remainderMs);
   clock.remainderMs = Math.max(0, clock.remainderMs - ticks * TICK_MS);
   return ticks;
-}
+};
 
 /**
  * Drops the accumulated remainder, without touching debt.
@@ -89,6 +113,16 @@ export function ticksFor(clock: Clock, elapsedMs: number): number {
  * tick is a real operation the autopilot may want, and it is named here as
  * unused rather than left claiming a caller it does not have.
  */
-export function resetClock(clock: Clock): void {
+const resetClock = (clock: Clock): void => {
   clock.remainderMs = 0;
-}
+};
+
+export {
+  createClock,
+  ticksFor,
+  resetClock,
+  TICK_HZ,
+  TICK_MS,
+  MAX_CATCHUP_TICKS,
+};
+export type { Clock };

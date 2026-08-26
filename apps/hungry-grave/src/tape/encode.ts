@@ -1,67 +1,26 @@
-/**
- * A tape, as bytes.
- *
- * Bytes and never a JSON string, and the frame rows are what makes that decide
- * anything. A twelve-thousand-tick run is 110KiB of header, body, witness and
- * trailer, and then one 25-byte observation per rendered frame on top: 403KiB
- * at a 60Hz refresh and 696KiB at 120Hz, where the rows outweigh the body two
- * and two-thirds to five and a third times over. Base64 and UTF-16 multiply
- * whatever that is by eight thirds, so the encoding decides whether a full
- * stage's run is a file somebody can hold and send or a hosting problem.
- *
- * Steering is two float32, one per axis, through the same single-precision
- * rounding the simulation already applies. It has no scale to derive, no range
- * limit and asks for no clamp in the input path, which is the shape ADR 0011
- * was already burned by.
- *
- * The chunk-level encoders live in segments.ts; this file composes them into
- * the whole tape a run's stop writes.
- */
+// A tape, as bytes: the chunk-level encoders in segments.ts, composed into the
+// whole tape a run's stop writes.
 
-import type { ByteWriter } from "./bytes";
-import {
-  createWriter,
-  STRING_LENGTH_BYTES,
-  writeBytes,
-  writtenBytes,
-} from "./bytes";
+import type { ByteWriter } from './bytes';
+import { createWriter, writeBytes, writtenBytes } from './bytes';
 import {
   bodySegment,
   headerSegment,
   observationsSegment,
   trailerSegment,
   witnessSegment,
-} from "./segments";
-import type { Tape } from "./tape";
-import type { TickCommand } from "../game/run";
+} from './segments';
+import type { Tape } from './tape';
+import type { TickCommand } from '../game/command';
 
-/** Two float32 of steering and one flag byte, which is what a body row costs. */
-export const COMMAND_BYTES = 9;
-
-/** The tick a body chunk starts at, which is the only field in front of its commands. */
-export const BODY_FIRST_TICK_BYTES = 4;
-
-/** A checkpoint index and its witness. */
-export const CHECKPOINT_BYTES = 8;
-
-/** A frame row's fixed width: it carries no string, so it has only one. */
-export const FRAME_OBSERVATION_BYTES = 25;
-
-/** A fault row's kind, identity, severity, first tick and count, ahead of its detail string. */
-export const FAULT_OBSERVATION_PREFIX_BYTES = 12;
-
-/** The same, plus the detail string's own length prefix. */
-export const FAULT_OBSERVATION_FIXED_BYTES =
-  FAULT_OBSERVATION_PREFIX_BYTES + STRING_LENGTH_BYTES;
-
-/** The commands a body chunk holds, being everything up to the next checkpoint. */
-function commandsUntil(
+// The commands a body chunk holds, being everything up to the next checkpoint.
+const commandsUntil = (
   tape: Tape,
   from: number,
   until: number,
-): readonly TickCommand[] {
+): readonly TickCommand[] => {
   return tape.commands.slice(from, until);
-}
+};
 
 /**
  * The body and the witness, interleaved the way a run produces them: a
@@ -74,7 +33,7 @@ function commandsUntil(
  * all; written in the order the run made them, a cut tape verifies to its last
  * complete checkpoint and keeps the ticks behind it.
  */
-function writeBodyAndWitness(writer: ByteWriter, tape: Tape): void {
+const writeBodyAndWitness = (writer: ByteWriter, tape: Tape): void => {
   let written = 0;
   for (let index = 0; index < tape.checkpoints.length; index++) {
     const checkpoint = tape.checkpoints[index];
@@ -95,18 +54,26 @@ function writeBodyAndWitness(writer: ByteWriter, tape: Tape): void {
     writer,
     bodySegment(written, commandsUntil(tape, written, tape.commands.length)),
   );
-}
+};
 
 /**
  * The whole tape, in the order a reader meets it: the header first because it
  * is written before the first tick, and the trailer last because it is written
  * at the stop and a missing one is itself the reading.
  *
+ * Bytes and never a JSON string, and the frame rows are what makes that decide
+ * anything. A twelve-thousand-tick run is 110KiB of header, body, witness and
+ * trailer, and then one 25-byte observation per rendered frame on top: 403KiB
+ * at a 60Hz refresh and 696KiB at 120Hz, where the rows outweigh the body two
+ * and two-thirds to five and a third times over. Base64 and UTF-16 multiply
+ * whatever that is by eight thirds, so the encoding decides whether a full
+ * stage's run is a file somebody can hold and send or a hosting problem.
+ *
  * An empty section is left out rather than written empty, so a tape from a run
  * that stopped before its first checkpoint is not carrying a promise it did not
  * keep.
  */
-export function encodeTape(tape: Tape): Uint8Array {
+const encodeTape = (tape: Tape): Uint8Array => {
   const writer = createWriter();
   writeBytes(writer, headerSegment(tape.header));
   writeBodyAndWitness(writer, tape);
@@ -117,4 +84,6 @@ export function encodeTape(tape: Tape): Uint8Array {
     writeBytes(writer, trailerSegment(tape.trailer));
   }
   return writtenBytes(writer);
-}
+};
+
+export { encodeTape };

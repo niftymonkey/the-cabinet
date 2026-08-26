@@ -1,71 +1,62 @@
-/**
- * The event vocabulary the sim reports out (tracer plan section 3). Payloads
- * carry values, never entity references: entities are pooled and mutated in
- * place, so a held reference is a recycled slot by the time a sound or an
- * instrument reads it.
- *
- * Every payload here serves three subscribers at once, because the tracer plan
- * names all three: a sound, a renderer, and an instrument that lives outside
- * the sim.
- */
+// The event vocabulary the sim reports out (tracer plan section 3).
 
-import type { GraveHitSource } from "./grave";
-import type { WeaponLine } from "./lines/roster";
-import type { DamageSource, MobType } from "./mobs";
-import type { PhaseName } from "./stage/stage";
-import type { FoodKind } from "./swallow";
+import type { GraveHitSource } from './grave';
+import type { WeaponLine } from './lines/roster';
+import type { DamageSource, MobType } from './mobs';
+import type { PhaseName } from './stage/stage';
+import type { FoodKind } from './swallow';
 
-/** Food went in. The weapon lines subscribe to this in dispatch 5. */
+// Food went in.
 interface Swallowed {
-  readonly type: "swallowed";
+  readonly type: 'swallowed';
   readonly kind: FoodKind;
   readonly freshness: number;
   readonly payout: number;
 }
 
-/** The swallow chime, on every swallow from the very first, whatever the loadout. */
+// The swallow chime, on every swallow from the very first, whatever the loadout.
 interface Chimed {
-  readonly type: "chimed";
+  readonly type: 'chimed';
   readonly kind: FoodKind;
 }
 
-/** The grave grew. Size is the new size, so a renderer needs nothing else. */
+// The grave grew. Size is the new size, so a renderer needs nothing else.
 interface Grew {
-  readonly type: "grew";
+  readonly type: 'grew';
   readonly amount: number;
   readonly size: number;
 }
 
-/** Growth the ceiling could not take, or a maxed line's drop, converted to score (ADR 0003). */
+// Growth the ceiling could not take, or a maxed line's drop, converted to score (ADR 0003).
 interface Overflowed {
-  readonly type: "overflowed";
+  readonly type: 'overflowed';
   readonly amount: number;
   readonly score: number;
 }
 
-/** The reservoir took charge from a swallow (ADR 0008). */
+// The reservoir took charge from a swallow (ADR 0008).
 interface ReservoirCharged {
-  readonly type: "reservoirCharged";
+  readonly type: 'reservoirCharged';
   readonly amount: number;
   readonly reservoir: number;
 }
 
-/** Charge past full, visibly wasted rather than silently clamped (ADR 0008). */
+// Charge past full, visibly wasted rather than silently clamped (ADR 0008).
 interface Splashed {
-  readonly type: "splashed";
+  readonly type: 'splashed';
   readonly wasted: number;
   readonly reservoir: number;
 }
 
-/** The reservoir reached capacity, so the one button is armed (ADR 0008). */
+// The reservoir reached capacity, so the one button is armed (ADR 0008).
 interface ReservoirFull {
-  readonly type: "reservoirFull";
+  readonly type: 'reservoirFull';
   readonly reservoir: number;
 }
 
-/** A drop levelled its line (ADR 0002). */
+// A drop levelled its line (ADR 0002).
 interface WeaponLeveled {
-  readonly type: "weaponLeveled";
+  readonly type: 'weaponLeveled';
   readonly line: WeaponLine;
   readonly level: number;
 }
@@ -75,33 +66,33 @@ interface WeaponLeveled {
  * interval. The source names who hurt the player (#48).
  */
 interface GraveHit {
-  readonly type: "graveHit";
+  readonly type: 'graveHit';
   readonly source: GraveHitSource;
   readonly size: number;
   readonly invulnerable: number;
 }
 
-/** The floor ladder's first rung: the whole score, gone (ADR 0003). */
+// The floor ladder's first rung: the whole score, gone (ADR 0003).
 interface ScoreBled {
-  readonly type: "scoreBled";
+  readonly type: 'scoreBled';
   readonly amount: number;
 }
 
-/** The floor ladder's second rung: one level off every line at once (ADR 0003). */
+// The floor ladder's second rung: one level off every line at once (ADR 0003).
 interface WeaponStripped {
-  readonly type: "weaponStripped";
+  readonly type: 'weaponStripped';
   readonly lines: readonly WeaponLine[];
 }
 
-/** The end of the ladder, and of the run (ADR 0003). */
+// The end of the ladder, and of the run (ADR 0003).
 interface Sealed {
-  readonly type: "sealed";
+  readonly type: 'sealed';
   readonly tick: number;
 }
 
-/** The mirror of sealed: the stage is behind the grave (ADR 0007's ending, stubbed here). */
+// The mirror of sealed: the stage is behind the grave (ADR 0007's ending, stubbed here).
 interface Victory {
-  readonly type: "victory";
+  readonly type: 'victory';
   readonly tick: number;
 }
 
@@ -111,7 +102,7 @@ interface Victory {
  * mobDamaged that carried the fatal blow.
  */
 interface MobDamaged {
-  readonly type: "mobDamaged";
+  readonly type: 'mobDamaged';
   readonly id: number;
   readonly amount: number;
   readonly source: DamageSource;
@@ -122,24 +113,24 @@ interface MobDamaged {
  * the mobDamaged that carried the fatal blow, which is what names the killer.
  */
 interface MobKilled {
-  readonly type: "mobKilled";
+  readonly type: 'mobKilled';
   readonly id: number;
   readonly mob: MobType;
   readonly x: number;
   readonly y: number;
 }
 
-/** A mob put a shot on the field. The mob-fire sound, and ADR 0014's airborne-projectile instrument. */
+// A mob put a shot on the field. The mob-fire sound, and ADR 0014's airborne-projectile instrument.
 interface MobFired {
-  readonly type: "mobFired";
+  readonly type: 'mobFired';
   readonly emitter: MobType;
   readonly x: number;
   readonly y: number;
 }
 
-/** The dirt took an empty corpse under (ADR 0004). The missed-food instrument reads it. */
+// The dirt took an empty corpse under (ADR 0004). The missed-food instrument reads it.
 interface CorpseExpired {
-  readonly type: "corpseExpired";
+  readonly type: 'corpseExpired';
   readonly x: number;
   readonly y: number;
 }
@@ -152,7 +143,7 @@ interface CorpseExpired {
  * would have the missed-food instrument counting evictions as player misses.
  */
 interface CorpseEvicted {
-  readonly type: "corpseEvicted";
+  readonly type: 'corpseEvicted';
   readonly x: number;
   readonly y: number;
   readonly freshness: number;
@@ -165,16 +156,16 @@ interface CorpseEvicted {
  * instrument cannot be built from the event stream at all.
  */
 interface CorpseLost {
-  readonly type: "corpseLost";
+  readonly type: 'corpseLost';
   readonly kind: FoodKind;
   readonly x: number;
   readonly y: number;
   readonly freshness: number;
 }
 
-/** The bell rang. Its sound cue, and the radius the ring will reach. */
+// The bell rang. Its sound cue, and the radius the ring will reach.
 interface Tolled {
-  readonly type: "tolled";
+  readonly type: 'tolled';
   readonly level: number;
   readonly radius: number;
 }
@@ -187,32 +178,39 @@ interface Tolled {
  * while being exactly the target the loaded belch exists for.
  */
 interface Belched {
-  readonly type: "belched";
+  readonly type: 'belched';
   readonly cancelled: number;
   readonly killed: number;
 }
 
-/** A drop arrived on the field. The denominator for drops swallowed versus scrolled off. */
+// A drop arrived on the field. The denominator for drops swallowed versus scrolled off.
 interface DropSpawned {
-  readonly type: "dropSpawned";
+  readonly type: 'dropSpawned';
   readonly line: WeaponLine;
   readonly x: number;
   readonly y: number;
 }
 
-/** The stage crossed a phase boundary (ADR 0006). Dispatch 5's music cue hangs here. */
+// The stage crossed a phase boundary (ADR 0006). The music cue hangs here.
 interface PhaseChanged {
-  readonly type: "phaseChanged";
+  readonly type: 'phaseChanged';
   readonly phase: PhaseName;
   readonly tick: number;
 }
 
 /**
+ * Payloads carry values, never entity references: entities are pooled and
+ * mutated in place, so a held reference is a recycled slot by the time a sound
+ * or an instrument reads it.
+ *
+ * Every payload serves three subscribers at once, because the tracer plan names
+ * all three: a sound, a renderer, and an instrument that lives outside the sim.
+ *
  * scoreBled, weaponStripped and sealed stay three events rather than one ladder
  * event. At the size floor there is no shrink, so ADR 0014's rim channel is
  * silent and these three are the only second channel left.
  */
-export type SimEvent =
+type SimEvent =
   | Swallowed
   | Chimed
   | Grew
@@ -236,3 +234,5 @@ export type SimEvent =
   | Belched
   | DropSpawned
   | PhaseChanged;
+
+export type { SimEvent };

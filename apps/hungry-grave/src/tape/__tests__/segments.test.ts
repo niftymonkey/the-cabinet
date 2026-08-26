@@ -3,19 +3,20 @@
  * appends during a run must be the same bytes encodeTape writes at the stop.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { decodeTape } from "../decode";
-import { encodeTape } from "../encode";
+import { decodeTape } from '../decode';
+import { encodeTape } from '../encode';
 import {
   bodySegment,
   headerSegment,
   observationsSegment,
   trailerSegment,
   witnessSegment,
-} from "../segments";
-import type { Observation, Tape, TapeCheckpoint, TapeHeader } from "../tape";
-import { FORMAT_VERSION, stopOf, TAPE_MAGIC } from "../tape";
+} from '../segments';
+import type { Observation, Tape, TapeCheckpoint, TapeHeader } from '../tape';
+import { stopOf } from '../tape';
+import { FORMAT_VERSION, TAPE_MAGIC } from '../wireCodes';
 
 /** Every field a different value, so none can stand in for another. */
 const HEADER: TapeHeader = {
@@ -25,12 +26,12 @@ const HEADER: TapeHeader = {
   tickRate: 60,
   checkpointSpacing: 4,
   witnessVersion: 1,
-  commitHash: "aa038cb310",
-  buildIdentity: "",
-  author: "unknown",
-  inputDevice: "keyboard",
+  commitHash: 'aa038cb310',
+  buildIdentity: '',
+  author: 'unknown',
+  inputDevice: 'keyboard',
   keyboardSpeed: 1.5,
-  rendererBackend: "webgl",
+  rendererBackend: 'webgl',
   rendererResolution: 2,
   devicePixelRatio: 2,
   recordedAt: 1_766_100_000_456,
@@ -52,8 +53,8 @@ function checkpoint(index: number): TapeCheckpoint {
 
 const OBSERVATIONS: Observation[] = [
   {
-    kind: "frame",
-    reason: "live",
+    kind: 'frame',
+    reason: 'live',
     tickIndex: 0,
     ticksExecuted: 1,
     intervalMs: Math.fround(16.7),
@@ -62,8 +63,8 @@ const OBSERVATIONS: Observation[] = [
     debtTicks: 0,
   },
   {
-    kind: "frame",
-    reason: "paused",
+    kind: 'frame',
+    reason: 'paused',
     tickIndex: null,
     ticksExecuted: 0,
     intervalMs: Math.fround(16.6),
@@ -72,19 +73,19 @@ const OBSERVATIONS: Observation[] = [
     debtTicks: 2,
   },
   {
-    kind: "fault",
-    identity: "reservoir in range",
-    severity: "recoverable",
+    kind: 'fault',
+    identity: 'reservoir in range',
+    severity: 'recoverable',
     firstTick: 5,
-    detail: "reservoir is 21.00001",
+    detail: 'reservoir is 21.00001',
     count: 4,
   },
 ];
 
 const TRAILER = {
-  ending: "victory",
-  stop: "finished",
-  integrity: "clean",
+  ending: 'victory',
+  stop: 'finished',
+  integrity: 'clean',
   debtTicks: 2,
 } as const;
 
@@ -122,8 +123,8 @@ function concatenated(segments: readonly Uint8Array[]): Uint8Array {
   return bytes;
 }
 
-describe("the segment encoders", () => {
-  it("concatenated in the order a run produces them, write byte for byte what encodeTape writes", () => {
+describe('the segment encoders', () => {
+  it('concatenated in the order a run produces them, write byte for byte what encodeTape writes', () => {
     // Two sealed FORMAT_VERSION 1 tapes exist outside the tree, so the layout
     // is frozen: the whole-tape encoder is pinned by codec.test.ts, and this
     // equality is what makes the segments the same format rather than a second
@@ -131,7 +132,7 @@ describe("the segment encoders", () => {
     expect(concatenated(segmentsOfFull())).toEqual(encodeTape(FULL));
   });
 
-  it("open the stream with the magic and the format version, so a concatenation is itself a tape", () => {
+  it('open the stream with the magic and the format version, so a concatenation is itself a tape', () => {
     const bytes = headerSegment(FULL.header);
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
@@ -139,7 +140,7 @@ describe("the segment encoders", () => {
     expect(view.getUint16(TAPE_MAGIC.length, true)).toBe(FORMAT_VERSION);
   });
 
-  it("fold witness and observations rows split across several segments back in order", () => {
+  it('fold witness and observations rows split across several segments back in order', () => {
     // decode.ts folds multiple witness and observations chunks in order, which
     // is exactly what lets a store append a run one boundary at a time.
     const split = concatenated([
@@ -163,7 +164,7 @@ describe("the segment encoders", () => {
     expect(tape.trailer).toEqual(FULL.trailer);
   });
 
-  it("decode a concatenation with no trailer segment as clean, not truncated, with a stop of unknown", () => {
+  it('decode a concatenation with no trailer segment as clean, not truncated, with a stop of unknown', () => {
     // The tab-closed reading: a run the store kept up to its last checkpoint
     // ends cleanly with no trailer, and truncated stays a different fact.
     const interrupted = concatenated([
@@ -177,7 +178,7 @@ describe("the segment encoders", () => {
 
     expect(truncated).toBe(false);
     expect(tape.trailer).toBeNull();
-    expect(stopOf(tape)).toBe("unknown");
+    expect(stopOf(tape)).toBe('unknown');
     expect(tape.commands).toEqual(commands(0, 4));
     expect(tape.checkpoints).toEqual([checkpoint(0), checkpoint(4)]);
   });

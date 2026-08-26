@@ -18,12 +18,12 @@
 // Named omission: what focus mode becomes on touch is a decision-log ruling,
 // not a sim behavior; the touch layer simply never sets focus.
 
-import { describe, expect, it } from "vitest";
-import { checkInvariants } from "../game/invariants";
-import { createSim, step, type Sim } from "../game/sim";
-import * as T from "../game/tuning";
-import type { Input } from "../game/types";
-import { TouchSteer } from "./touch";
+import { describe, expect, it } from 'vitest';
+import { checkInvariants } from '../game/invariants';
+import { createSim, step, type Sim } from '../game/sim';
+import * as T from '../game/tuning';
+import type { Input } from '../game/types';
+import { TouchSteer } from './touch';
 
 const DT = 1 / 60;
 const MAX_STEP = T.PLAYER_SPEED * DT;
@@ -50,22 +50,22 @@ function touchStep(sim: Sim, steer: TouchSteer): void {
   });
 }
 
-describe("the sim applies Input as a bare velocity command (entry 12)", () => {
-  it("a unit axis moves at exactly the designated speed", () => {
+describe('the sim applies Input as a bare velocity command (entry 12)', () => {
+  it('a unit axis moves at exactly the designated speed', () => {
     const sim = isolatedSim();
     const x0 = sim.player.x;
     stepChecked(sim, { moveX: 1, moveY: 0, focus: false, belch: false });
     expect(sim.player.x - x0).toBeCloseTo(T.PLAYER_SPEED * DT, 10);
   });
 
-  it("a fractional magnitude moves proportionally slower", () => {
+  it('a fractional magnitude moves proportionally slower', () => {
     const sim = isolatedSim();
     const x0 = sim.player.x;
     stepChecked(sim, { moveX: 0.5, moveY: 0, focus: false, belch: false });
     expect(sim.player.x - x0).toBeCloseTo(0.5 * T.PLAYER_SPEED * DT, 10);
   });
 
-  it("a magnitude above one moves faster: no cap in the sim", () => {
+  it('a magnitude above one moves faster: no cap in the sim', () => {
     const sim = isolatedSim();
     const { x: x0, y: y0 } = sim.player;
     stepChecked(sim, { moveX: 3, moveY: 4, focus: false, belch: false });
@@ -74,8 +74,8 @@ describe("the sim applies Input as a bare velocity command (entry 12)", () => {
   });
 });
 
-describe("relative drag steering (#33)", () => {
-  it("a resting finger does not move the grave", () => {
+describe('relative drag steering (#33)', () => {
+  it('a resting finger does not move the grave', () => {
     const sim = isolatedSim();
     const { x: x0, y: y0 } = sim.player;
     const steer = new TouchSteer(1);
@@ -85,7 +85,7 @@ describe("relative drag steering (#33)", () => {
     expect(sim.player.y).toBe(y0);
   });
 
-  it("a small drag moves the grave by exactly the finger delta", () => {
+  it('a small drag moves the grave by exactly the finger delta', () => {
     const sim = isolatedSim();
     const { x: x0, y: y0 } = sim.player;
     const steer = new TouchSteer(1);
@@ -96,7 +96,7 @@ describe("relative drag steering (#33)", () => {
     expect(sim.player.y - y0).toBeCloseTo(-1, 10);
   });
 
-  it("the ratio scales the finger delta onto the grave", () => {
+  it('the ratio scales the finger delta onto the grave', () => {
     const sim = isolatedSim();
     const { x: x0, y: y0 } = sim.player;
     const steer = new TouchSteer(1.5);
@@ -107,7 +107,7 @@ describe("relative drag steering (#33)", () => {
     expect(sim.player.y - y0).toBeCloseTo(-1.5, 10);
   });
 
-  it("a long flick lands the grave on the target in ONE step: uncapped (entry 12)", () => {
+  it('a long flick lands the grave on the target in ONE step: uncapped (entry 12)', () => {
     const sim = isolatedSim();
     const x0 = sim.player.x;
     const steer = new TouchSteer(1);
@@ -120,7 +120,7 @@ describe("relative drag steering (#33)", () => {
     expect(sim.player.x - x0).toBeCloseTo(120, 6);
   });
 
-  it("lifting the finger stops the grave where it is", () => {
+  it('lifting the finger stops the grave where it is', () => {
     const sim = isolatedSim();
     const steer = new TouchSteer(1);
     steer.down(1, 40, 700);
@@ -132,7 +132,7 @@ describe("relative drag steering (#33)", () => {
     expect(sim.player.x).toBe(xAtLift);
   });
 
-  it("a new touch never teleports the grave (#33: thumb off the grave)", () => {
+  it('a new touch never teleports the grave (#33: thumb off the grave)', () => {
     const sim = isolatedSim();
     const steer = new TouchSteer(1);
     steer.down(1, 40, 700);
@@ -146,7 +146,7 @@ describe("relative drag steering (#33)", () => {
     expect(sim.player.y).toBe(y0);
   });
 
-  it("the drag target clamps at the field edge, so reversing bites immediately", () => {
+  it('the drag target clamps at the field edge, so reversing bites immediately', () => {
     const sim = isolatedSim();
     const steer = new TouchSteer(1);
     steer.down(1, 300, 700);
@@ -161,8 +161,8 @@ describe("relative drag steering (#33)", () => {
   });
 });
 
-describe("the belch and the second finger (#33)", () => {
-  it("a second finger down fires the belch exactly once", () => {
+describe('the belch and the second finger (#33)', () => {
+  it('a second finger down fires the belch exactly once', () => {
     const steer = new TouchSteer(1);
     steer.down(1, 40, 700);
     steer.down(2, 400, 700);
@@ -170,7 +170,7 @@ describe("the belch and the second finger (#33)", () => {
     expect(steer.read(100, 100, MAX_STEP).belch).toBe(false);
   });
 
-  it("a third finger does not queue another belch", () => {
+  it('a third finger does not queue another belch', () => {
     const steer = new TouchSteer(1);
     steer.down(1, 40, 700);
     steer.down(2, 400, 700);
@@ -179,7 +179,7 @@ describe("the belch and the second finger (#33)", () => {
     expect(steer.read(100, 100, MAX_STEP).belch).toBe(false);
   });
 
-  it("a lone first touch never fires the belch", () => {
+  it('a lone first touch never fires the belch', () => {
     const steer = new TouchSteer(1);
     steer.down(1, 40, 700);
     expect(steer.read(100, 100, MAX_STEP).belch).toBe(false);
@@ -188,7 +188,7 @@ describe("the belch and the second finger (#33)", () => {
     expect(steer.read(100, 100, MAX_STEP).belch).toBe(false);
   });
 
-  it("the second finger does not steer while the first is down", () => {
+  it('the second finger does not steer while the first is down', () => {
     const sim = isolatedSim();
     const { x: x0, y: y0 } = sim.player;
     const steer = new TouchSteer(1);
@@ -200,7 +200,7 @@ describe("the belch and the second finger (#33)", () => {
     expect(sim.player.y).toBe(y0);
   });
 
-  it("steering hands off to the second finger when the first lifts, with no jump", () => {
+  it('steering hands off to the second finger when the first lifts, with no jump', () => {
     const sim = isolatedSim();
     const { x: x0, y: y0 } = sim.player;
     const steer = new TouchSteer(1);
@@ -217,8 +217,8 @@ describe("the belch and the second finger (#33)", () => {
   });
 });
 
-describe("pause and cancel (#33)", () => {
-  it("cancel forgets fingers, target, and any queued belch", () => {
+describe('pause and cancel (#33)', () => {
+  it('cancel forgets fingers, target, and any queued belch', () => {
     const sim = isolatedSim();
     const steer = new TouchSteer(1);
     steer.down(1, 40, 700);

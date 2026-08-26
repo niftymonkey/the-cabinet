@@ -1,17 +1,11 @@
-/**
- * The headstones: orbiting stones, last-ditch close defense, always on from
- * level 1 and counter-rotating in two rings at the higher levels (ADR 0005).
- *
- * No pool, no spawn, no cull. The count is a function of the level and the
- * positions are a function of one orbit phase, so the stones are computed each
- * tick from state.lines. A pool would give the game a second, weaker source of
- * truth for how many stones exist, and the level is already the answer.
- */
+// The headstones: orbiting stones, last-ditch close defense, always on from
+// level 1 and counter-rotating in two rings at the higher levels (ADR 0005).
 
-import type { SimEvent } from "../events";
-import { graveWidth } from "../grave";
-import { cos, sin } from "../math";
-import type { RunState } from "../run";
+import type { SimEvent } from '../events';
+import type { FieldPoint } from '../field';
+import { graveWidth } from '../grave';
+import { cos, sin } from '../math';
+import type { RunState } from '../run';
 
 /**
  * How many stones each level orbits, indexed by level. The concept doc's
@@ -19,13 +13,13 @@ import type { RunState } from "../run";
  * first ring holds up to three and a second ring appears at level 4 and counter
  * rotates: level 4 is three plus one and level 5 is three plus three.
  */
-export const STONES_BY_LEVEL: readonly number[] = [0, 1, 2, 3, 4, 6];
+const STONES_BY_LEVEL: readonly number[] = [0, 1, 2, 3, 4, 6];
 
-/** How many stones the first ring holds before a second ring opens. */
-export const RING_CAPACITY = 3;
+// How many stones the first ring holds before a second ring opens.
+const RING_CAPACITY = 3;
 
-/** The most stones any level orbits, which is how long stoneRecharge is pre-allocated. */
-export const MAX_STONES = STONES_BY_LEVEL[STONES_BY_LEVEL.length - 1];
+// The most stones any level orbits, which is how long stoneRecharge is pre-allocated.
+const MAX_STONES = STONES_BY_LEVEL[STONES_BY_LEVEL.length - 1];
 
 /**
  * How far outside the grave's own hitbox a stone's path runs, in field units. A
@@ -34,14 +28,14 @@ export const MAX_STONES = STONES_BY_LEVEL[STONES_BY_LEVEL.length - 1];
  * is what makes this a close defense rather than a second stream: the stone
  * meets a mob exactly as the mob becomes a contact threat, and no earlier.
  */
-export const STONE_STANDOFF = 14;
+const STONE_STANDOFF = 14;
 
 /**
  * Ticks per revolution, deliberately slower than the grave. BASE_SPEED crosses
  * the field's width in two seconds, so a player who runs can outrun their own
  * stones, which is exactly what "last-ditch" has to mean.
  */
-export const ORBIT_TICKS = 120;
+const ORBIT_TICKS = 120;
 
 /**
  * How long a stone that hits stays inert, in ticks. The alternative, a per-mob
@@ -50,18 +44,25 @@ export const ORBIT_TICKS = 120;
  * bug this codebase has hit five times. One number on the stone has nowhere to
  * leak to.
  */
-export const STONE_RECHARGE = 30;
+const STONE_RECHARGE = 30;
 
-/** How far the orbit turns in one tick, in radians. */
+// How far the orbit turns in one tick, in radians.
 const ORBIT_STEP = (2 * Math.PI) / ORBIT_TICKS;
 
-export const STONE_HALF_EXTENT = 5;
-export const STONE_DAMAGE = 1;
+const STONE_HALF_EXTENT = 5;
+const STONE_DAMAGE = 1;
 
-/** How many stones this run's headstone level orbits. */
-export function stoneCount(state: RunState): number {
+/**
+ * How many stones this run's headstone level orbits.
+ *
+ * No pool, no spawn, no cull: the count is a function of the level and the
+ * positions are a function of one orbit phase, so the stones are computed each
+ * tick from state.lines. A pool would give the game a second, weaker source of
+ * truth for how many stones exist, and the level is already the answer.
+ */
+const stoneCount = (state: RunState): number => {
   return STONES_BY_LEVEL[state.levels.headstones];
-}
+};
 
 /**
  * Where one stone stands this tick, or null past the level's own count.
@@ -73,10 +74,7 @@ export function stoneCount(state: RunState): number {
  * pushed out by a fixed margin, so the ring reads as orbiting the grave rather
  * than a point near it, and it scales with the grave for free.
  */
-export function headstoneAt(
-  state: RunState,
-  index: number,
-): { x: number; y: number } | null {
+const headstoneAt = (state: RunState, index: number): FieldPoint | null => {
   const count = stoneCount(state);
   if (index < 0 || index >= count) return null;
 
@@ -95,14 +93,28 @@ export function headstoneAt(
     x: grave.x + cos(angle) * (graveWidth(grave.size) / 2 + STONE_STANDOFF),
     y: grave.y + sin(angle) * (grave.size + STONE_STANDOFF),
   };
-}
+};
+
+/**
+ * Whether a stone is spent this tick and cannot bite. The recharge array is this
+ * module's own state: the overlap pass in storm.ts asks through this pair rather
+ * than indexing it, so the count, the tick down and the reset all read here.
+ */
+const stoneIsInert = (state: RunState, index: number): boolean => {
+  return state.lines.stoneRecharge[index] > 0;
+};
+
+// A stone that has just hit, sent inert for its recharge.
+const makeStoneInert = (state: RunState, index: number): void => {
+  state.lines.stoneRecharge[index] = STONE_RECHARGE;
+};
 
 /**
  * The orbit's phase and every stone's recharge, one tick on. The damage is not
- * here: a stone meeting a mob is an overlap, and mobs.ts owns the consequence of
- * a mob being hit.
+ * here: a stone meeting a mob is an overlap, and storm.ts owns the consequence
+ * of a mob being hit.
  */
-export function advanceHeadstones(state: RunState): SimEvent[] {
+const advanceHeadstones = (state: RunState): SimEvent[] => {
   const lines = state.lines;
   // Wrapped every tick rather than left to grow, so a long run cannot lose
   // precision in the phase. The orbit is on the digest's path on every tick of
@@ -112,4 +124,20 @@ export function advanceHeadstones(state: RunState): SimEvent[] {
     if (lines.stoneRecharge[slot] > 0) lines.stoneRecharge[slot] -= 1;
   }
   return [];
-}
+};
+
+export {
+  stoneCount,
+  headstoneAt,
+  stoneIsInert,
+  makeStoneInert,
+  advanceHeadstones,
+  STONES_BY_LEVEL,
+  RING_CAPACITY,
+  MAX_STONES,
+  STONE_STANDOFF,
+  ORBIT_TICKS,
+  STONE_RECHARGE,
+  STONE_HALF_EXTENT,
+  STONE_DAMAGE,
+};

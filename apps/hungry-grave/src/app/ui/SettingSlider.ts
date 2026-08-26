@@ -1,15 +1,14 @@
-import { Slider } from "@pixi/ui";
-import { Graphics } from "pixi.js";
+import { Slider } from '@pixi/ui';
+import { Graphics } from 'pixi.js';
 
-import { Label } from "./Label";
+import { Label } from './Label';
 
 /**
  * A labelled slider for one persisted setting, used in the Settings popup. It
  * takes a label, a min, a max and a value, so it serves a volume and a
  * keyboard speed alike.
  */
-export class SettingSlider extends Slider {
-  /** Message displayed for the slider */
+class SettingSlider extends Slider {
   public messageLabel: Label;
 
   constructor(label: string, min = -0.1, max = 100, value = 100) {
@@ -65,7 +64,7 @@ export class SettingSlider extends Slider {
     this.messageLabel = new Label({
       text: label,
       style: {
-        align: "left",
+        align: 'left',
         fill: 0x4a4a4a,
         fontSize: 18,
       },
@@ -76,3 +75,5 @@ export class SettingSlider extends Slider {
     this.addChild(this.messageLabel);
   }
 }
+
+export { SettingSlider };

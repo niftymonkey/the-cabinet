@@ -2,7 +2,7 @@
 // half-height scalar (decision-log entry 6). Collision against circles is
 // the distance from the circle to the rectangle's rounded edge.
 
-import * as T from "./tuning";
+import * as T from './tuning';
 
 export function graveHalfW(halfH: number): number {
   return halfH * T.GRAVE_ASPECT;

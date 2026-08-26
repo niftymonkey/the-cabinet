@@ -1,43 +1,39 @@
-/**
- * The spool that feeds one run's recording into the tape store as the run
- * plays (#58). It tracks cursors into the recorder's arrays and, at each
- * checkpoint boundary, queues the new segments; the store's failure posture
- * means nothing here can ever reach back into the run.
- */
+// The spool that feeds one run's recording into the tape store as the run plays
+// (#58).
 
-import type { TapeRecorder } from "../tape/recorder";
+import type { TapeRecorder } from '../tape/recorder';
 import {
   bodySegment,
   headerSegment,
   observationsSegment,
   trailerSegment,
   witnessSegment,
-} from "../tape/segments";
-import type { FrameObservation, Observation } from "../tape/tape";
-import type { RunSummaryValues, TapePart, TapeStore } from "./tapeStore";
+} from '../tape/segments';
+import type { FrameObservation, Observation } from '../tape/tape';
+import type { RunSummaryValues, TapePart, TapeStore } from './tapeStore';
 
 interface StoreRecording {
-  /** Queues whatever a new checkpoint boundary makes appendable. Called outside the frame's timed window. */
+  // Queues whatever a new checkpoint boundary makes appendable. Called outside the frame's timed window.
   flush(): void;
-  /** Appends everything up to the stop and then the trailer part. Called once, at the seal. */
+  // Appends everything up to the stop and then the trailer part. Called once, at the seal.
   seal(): void;
-  /** Flushes what is pending and detaches; every later call is a no-op. */
+  // Flushes what is pending and detaches; every later call is a no-op.
   detach(): void;
 }
 
-/** The summary row as the recorder can state it right now, header and trailer both its own. */
+// The summary row as the recorder can state it right now, header and trailer both its own.
 const summaryOf = (recorder: TapeRecorder): RunSummaryValues => ({
   seed: recorder.header.seed,
   recordedAt: recorder.header.recordedAt,
   inputDevice: recorder.header.inputDevice,
   ending: recorder.trailer === null ? null : recorder.trailer.ending,
-  stop: recorder.trailer === null ? "unknown" : recorder.trailer.stop,
+  stop: recorder.trailer === null ? 'unknown' : recorder.trailer.stop,
   integrity: recorder.trailer === null ? null : recorder.trailer.integrity,
   debtTicks: recorder.trailer === null ? null : recorder.trailer.debtTicks,
 });
 
 const isFrame = (observation: Observation): observation is FrameObservation =>
-  observation.kind === "frame";
+  observation.kind === 'frame';
 
 /**
  * crypto.randomUUID exists only in secure contexts, and a LAN-IP dev serve is
@@ -46,12 +42,17 @@ const isFrame = (observation: Observation): observation is FrameObservation =>
  * secure-context requirement.
  */
 const freshRunId = (): string =>
-  typeof crypto.randomUUID === "function"
+  typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
-        byte.toString(16).padStart(2, "0"),
-      ).join("");
+        byte.toString(16).padStart(2, '0'),
+      ).join('');
 
+/**
+ * Tracks cursors into the recorder's arrays and, at each checkpoint boundary,
+ * queues the new segments. The store's failure posture means nothing here can
+ * ever reach back into the run.
+ */
 const recordRunToStore = (
   store: Promise<TapeStore | null>,
   recorder: TapeRecorder,
@@ -102,7 +103,7 @@ const recordRunToStore = (
       const checkpoint = recorder.checkpoints[checkpointsQueued];
       if (checkpoint.index > commandsQueued) {
         queue({
-          kind: "chunk",
+          kind: 'chunk',
           bytes: bodySegment(
             commandsQueued,
             recorder.commands.slice(commandsQueued, checkpoint.index),
@@ -110,14 +111,14 @@ const recordRunToStore = (
         });
         commandsQueued = checkpoint.index;
       }
-      queue({ kind: "chunk", bytes: witnessSegment([checkpoint]) });
+      queue({ kind: 'chunk', bytes: witnessSegment([checkpoint]) });
       checkpointsQueued += 1;
     }
   };
 
   const queuePendingFrames = (): void => {
     if (pendingFrames.length === 0) return;
-    queue({ kind: "chunk", bytes: observationsSegment(pendingFrames) });
+    queue({ kind: 'chunk', bytes: observationsSegment(pendingFrames) });
     pendingFrames.length = 0;
   };
 
@@ -138,7 +139,7 @@ const recordRunToStore = (
     queueCheckpointedSegments();
     if (recorder.commands.length > commandsQueued) {
       queue({
-        kind: "chunk",
+        kind: 'chunk',
         bytes: bodySegment(
           commandsQueued,
           recorder.commands.slice(commandsQueued),
@@ -152,10 +153,10 @@ const recordRunToStore = (
     const atSeal = [...pendingFrames, ...faults];
     pendingFrames.length = 0;
     if (atSeal.length > 0) {
-      queue({ kind: "chunk", bytes: observationsSegment(atSeal) });
+      queue({ kind: 'chunk', bytes: observationsSegment(atSeal) });
     }
     queue({
-      kind: "trailer",
+      kind: 'trailer',
       bytes: trailerSegment(recorder.trailer),
       summary: summaryOf(recorder),
     });
@@ -174,7 +175,7 @@ const recordRunToStore = (
   };
 
   queue({
-    kind: "header",
+    kind: 'header',
     bytes: headerSegment(recorder.header),
     summary: summaryOf(recorder),
   });

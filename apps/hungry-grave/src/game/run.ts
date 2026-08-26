@@ -1,44 +1,28 @@
-import type { Corpse } from "./corpses";
-import { createCorpsePool } from "./corpses";
-import type { Grave } from "./grave";
-import { createGrave } from "./grave";
-import type { BellRing } from "./lines/bell";
-import { BELL_PERIOD } from "./lines/bell";
-import { MAX_STONES } from "./lines/headstones";
-import type { WeaponLine } from "./lines/roster";
-import { BIRTHRIGHT, WEAPON_LINES } from "./lines/roster";
-import type { Skull } from "./lines/soulStream";
-import { createSkullPool, STREAM_INTERVAL } from "./lines/soulStream";
-import type { Wisp } from "./lines/wisps";
-import { createWispPool } from "./lines/wisps";
-import type { Mob, Shot } from "./mobs";
-import { createMobPool, createShotPool } from "./mobs";
-import type { Stream, StreamName } from "./rng";
-import { stream } from "./rng";
-import type { StageState } from "./stage/stage";
-import { createStage } from "./stage/stage";
-import { SIZE_START } from "./tuning";
+import type { Corpse } from './corpses';
+import { createCorpsePool } from './corpses';
+import type { Grave } from './grave';
+import { createGrave } from './grave';
+import type { BellRing } from './lines/bell';
+import { BELL_PERIOD } from './lines/bell';
+import { MAX_STONES } from './lines/headstones';
+import type { WeaponLine } from './lines/roster';
+import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
+import type { Skull } from './lines/soulStream';
+import { createSkullPool, STREAM_INTERVAL } from './lines/soulStream';
+import type { Wisp } from './lines/wisps';
+import { createWispPool } from './lines/wisps';
+import type { Shot } from './mobFire';
+import { createShotPool } from './mobFire';
+import type { Mob } from './mobs';
+import { createMobPool } from './mobs';
+import type { Stream, StreamName } from './rng';
+import { stream } from './rng';
+import type { StageState } from './stage/stage';
+import { createStage } from './stage/stage';
+import { SIZE_START } from './tuning';
 
-// A move command in base-speed units, produced by an input model (ADR 0011).
-export interface MoveCommand {
-  readonly x: number;
-  readonly y: number;
-}
-
-/**
- * Everything one tick is asked to do. The belch arrives through the same door
- * the move does, because it is a rule of the sim and has to have a place in the
- * tick order: the alternative is a screen calling fireBelch beside advance,
- * which puts a game rule in a screen and puts the belch outside the order the
- * tick documents.
- */
-export interface TickCommand {
-  readonly move: MoveCommand;
-  readonly belch: boolean;
-}
-
-/** How a run finishes. Null while it is live. */
-export type RunEnding = "sealed" | "victory";
+// How a run finishes. Null while it is live.
+type RunEnding = 'sealed' | 'victory';
 
 /**
  * The weapon lines' own clocks and phases, as one record rather than six fields
@@ -50,21 +34,21 @@ export type RunEnding = "sealed" | "victory";
  * read as one subsystem's state, and that createRun initializes them in one
  * place a reader can check at a glance.
  */
-export interface LineState {
-  /** Ticks to the next stream volley. */
+interface LineState {
+  // Ticks to the next stream volley.
   streamIn: number;
-  /** Surged volleys still owed, set by a swallow and never added to. */
+  // Surged volleys still owed, set by a swallow and never added to.
   surgeVolleys: number;
-  /** The headstones' orbit, in radians, wrapped into zero to two pi every tick. */
+  // The headstones' orbit, in radians, wrapped into zero to two pi every tick.
   orbitPhase: number;
   /**
    * Ticks of inert left, per stone slot. Pre-allocated at the maximum stone
    * count and never resized, so a level change cannot reallocate mid-run.
    */
   readonly stoneRecharge: number[];
-  /** Ticks to the next toll. */
+  // Ticks to the next toll.
   tollIn: number;
-  /** The one live ring, or null between tolls. */
+  // The one live ring, or null between tolls.
   ring: BellRing | null;
 }
 
@@ -76,7 +60,7 @@ export interface LineState {
  * it is derived where it is read. That is one less field in the digest and one
  * less thing that can drift out of step with the tick.
  */
-export interface RunState {
+interface RunState {
   // The seed this run was rolled or pinned with (ADR 0012).
   readonly seed: number;
   // A run's length is counted in ticks, never wall clock.
@@ -107,9 +91,9 @@ export interface RunState {
   readonly wisps: Wisp[];
   readonly stage: StageState;
   readonly lines: LineState;
-  /** Kills since the last drop was paid for, against the price of the next one (ADR 0002). */
+  // Kills since the last drop was paid for, against the price of the next one (ADR 0002).
   killsSinceDrop: number;
-  /** How many drops this run has bought, which is the index into the price table. */
+  // How many drops this run has bought, which is the index into the price table.
   dropsPaid: number;
   /**
    * The next entity id, only ever increasing. It is not cosmetic: the cap
@@ -125,7 +109,7 @@ export interface RunState {
  * Exported so ?seed= can accept exactly the seeds the roll itself could have
  * produced (ADR 0012).
  */
-export const SEED_LIMIT = 0x7fffffff;
+const SEED_LIMIT = 0x7fffffff;
 
 /**
  * The one place chance enters a run. Everything after this reads the seeded
@@ -137,13 +121,13 @@ export const SEED_LIMIT = 0x7fffffff;
  * the sim's (ADR 0012), so this is the sim's one documented way past the rule
  * that otherwise keeps Math.random out of src/game.
  */
-function rollSeed(): number {
+const rollSeed = (): number => {
   // eslint-disable-next-line no-restricted-properties -- the carve-out above
   return Math.floor(Math.random() * SEED_LIMIT);
-}
+};
 
-/** Every line's clock at the top of a run, in one place. */
-function startingLines(): LineState {
+// Every line's clock at the top of a run, in one place.
+const startingLines = (): LineState => {
   return {
     streamIn: STREAM_INTERVAL,
     surgeVolleys: 0,
@@ -152,10 +136,10 @@ function startingLines(): LineState {
     tollIn: BELL_PERIOD,
     ring: null,
   };
-}
+};
 
-/** The levels a run starts with: the birthright lines at one, the rest unowned. */
-function birthrightLevels(): Record<WeaponLine, number> {
+// The levels a run starts with: the birthright lines at one, the rest unowned.
+const birthrightLevels = (): Record<WeaponLine, number> => {
   const levels: Record<WeaponLine, number> = {
     soulStream: 0,
     headstones: 0,
@@ -164,28 +148,28 @@ function birthrightLevels(): Record<WeaponLine, number> {
   };
   for (const line of BIRTHRIGHT) levels[line] = 1;
   return levels;
-}
+};
 
 /**
  * Every line at one level, which is the loadout pin's shape (ADR 0020): the
  * pin exists so a measurement's dense, levelled moment is reproducible, and
  * per-line syntax buys nothing that needs.
  */
-export function uniformLevels(level: number): Record<WeaponLine, number> {
+const uniformLevels = (level: number): Record<WeaponLine, number> => {
   return { soulStream: level, headstones: level, wisps: level, bell: level };
-}
+};
 
 /**
  * Whether these are the birthright levels, the ones a run is born with when
  * nothing pins them. A caller that treats a pinned run differently gates on
  * this rather than re-deriving the birthright for itself.
  */
-export function isBirthrightLevels(
+const isBirthrightLevels = (
   levels: Readonly<Record<WeaponLine, number>>,
-): boolean {
+): boolean => {
   const birthright = birthrightLevels();
   return WEAPON_LINES.every((line) => levels[line] === birthright[line]);
-}
+};
 
 /**
  * Starts a run: with no seed it rolls one, and with a seed it pins the run to
@@ -204,11 +188,11 @@ export function isBirthrightLevels(
  * and a tape's header rebuilds a pinned run from the resolved record it
  * carries (ADR 0018).
  */
-export function createRun(
+const createRun = (
   seed: number = rollSeed(),
   startingSize: number = SIZE_START,
   startingLevels: Readonly<Record<WeaponLine, number>> = birthrightLevels(),
-): RunState {
+): RunState => {
   return {
     seed,
     tick: 0,
@@ -218,10 +202,10 @@ export function createRun(
     levels: { ...startingLevels },
     ending: null,
     streams: {
-      spawns: stream(seed, "spawns"),
-      drops: stream(seed, "drops"),
-      mobFire: stream(seed, "mobFire"),
-      shed: stream(seed, "shed"),
+      spawns: stream(seed, 'spawns'),
+      drops: stream(seed, 'drops'),
+      mobFire: stream(seed, 'mobFire'),
+      shed: stream(seed, 'shed'),
     },
     mobs: createMobPool(),
     mobFire: createShotPool(),
@@ -234,4 +218,7 @@ export function createRun(
     dropsPaid: 0,
     nextEntityId: 1,
   };
-}
+};
+
+export { uniformLevels, isBirthrightLevels, createRun, SEED_LIMIT };
+export type { RunEnding, LineState, RunState };

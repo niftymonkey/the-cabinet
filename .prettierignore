@@ -14,5 +14,13 @@ docs/
 continue.md
 continue-*.md
 
-# The hungry-grave app formats with its create-pixi template defaults, not the repo style.
-apps/hungry-grave/
+# The v1 roadmap's source, its build scripts and the page they generate. Excluded
+# from git in .git/info/exclude, so prettier was the only thing still reading it.
+local/
+
+# Assetpack's cache and its output. Generated on every typecheck and build, and
+# git ignores all three (apps/hungry-grave/.gitignore).
+apps/hungry-grave/.assetpack/
+apps/hungry-grave/public/assets/
+apps/hungry-grave/src/manifest.json
+

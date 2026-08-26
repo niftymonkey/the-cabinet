@@ -42,7 +42,7 @@ export function createStream(runSeed: number, name: string): Rng {
     },
     pick(items) {
       const item = items[Math.floor(next() * items.length)];
-      if (item === undefined) throw new Error("pick from empty list");
+      if (item === undefined) throw new Error('pick from empty list');
       return item;
     },
   };

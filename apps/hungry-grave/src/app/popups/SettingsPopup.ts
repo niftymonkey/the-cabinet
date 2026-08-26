@@ -1,46 +1,68 @@
-import { List } from "@pixi/ui";
-import { animate } from "motion";
-import type { Text } from "pixi.js";
-import { BlurFilter, Container, Sprite, Texture } from "pixi.js";
+import { List } from '@pixi/ui';
+import { animate } from 'motion';
+import type { Text } from 'pixi.js';
+import { Container, Sprite, Texture } from 'pixi.js';
 
-import { engine } from "../getEngine";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
-import { RoundedBox } from "../ui/RoundedBox";
-import { SettingSlider } from "../ui/SettingSlider";
 import {
   KEYBOARD_SPEED_SLIDER_MAX,
   KEYBOARD_SPEED_SLIDER_MIN,
   keyboardSpeedFromSlider,
   sliderFromKeyboardSpeed,
-  userSettings,
-} from "../utils/userSettings";
-import { PausePopup } from "./PausePopup";
+} from '../keyboardSpeedSlider';
+import type { ButtonChrome } from '../ui/Button';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+import { RoundedBox } from '../ui/RoundedBox';
+import { SettingSlider } from '../ui/SettingSlider';
+import { userSettings } from '../userSettings';
 
-/** Popup for volume */
-export class SettingsPopup extends Container {
-  /** The dark semi-transparent background covering current screen */
+/**
+ * What the settings panel can do, all of it owned by the driver in main.ts.
+ *
+ * The three volumes arrive as powers and the keyboard speed does not, and the
+ * asymmetry is the rule working: a volume has to be heard as well as stored,
+ * and only the driver holds the audio system. The speed is stored and nothing
+ * else, so this panel writes it itself.
+ */
+interface SettingsPopupProps extends ButtonChrome {
+  // Back to the pause menu, which is where OK and Escape both go.
+  onDone(): Promise<void>;
+  // The player's volumes: stored, and heard now.
+  setMasterVolume(value: number): void;
+  setBgmVolume(value: number): void;
+  setSfxVolume(value: number): void;
+  // The screen behind the panel, blurred while the panel is up.
+  blurBackdrop(strength: number): void;
+  clearBackdrop(): void;
+}
+
+// Popup for volume
+class SettingsPopup extends Container {
+  // The dark semi-transparent background covering current screen
   private bg: Sprite;
-  /** Container for the popup UI components */
+  // Container for the popup UI components
   private panel: Container;
-  /** The popup title label */
   private title: Text;
-  /** Button that closes the popup */
+  // Button that closes the popup
   private doneButton: Button;
-  /** The panel background */
+  // The panel background
   private panelBase: RoundedBox;
-  /** The build version label */
   private versionLabel: Text;
-  /** Layout that organises the UI components */
+  // Layout that organises the UI components
   private layout: List;
-  /** Slider that changes the master volume */
+  // Slider that changes the master volume
   private masterSlider: SettingSlider;
-  /** Slider that changes background music volume */
+  // Slider that changes background music volume
   private bgmSlider: SettingSlider;
-  /** Slider that changes sound effects volume */
+  // Slider that changes sound effects volume
   private sfxSlider: SettingSlider;
-  /** Slider that changes the keyboard's designated speed (ADR 0011) */
+  // Slider that changes the keyboard's designated speed (ADR 0011)
   private keyboardSpeedSlider: SettingSlider;
+  /**
+   * The powers this showing was handed. The pool calls init() before the popup
+   * reaches the stage, so it is set before show() and before any drag.
+   */
+  private props!: SettingsPopupProps;
 
   constructor() {
     super();
@@ -59,7 +81,7 @@ export class SettingsPopup extends Container {
     this.panel.addChild(this.panelBase);
 
     this.title = new Label({
-      text: "Settings",
+      text: 'Settings',
       style: {
         fill: 0xec1561,
         fontSize: 50,
@@ -68,15 +90,16 @@ export class SettingsPopup extends Container {
     this.title.y = -this.panelBase.boxHeight * 0.5 + 60;
     this.panel.addChild(this.title);
 
-    this.doneButton = new Button({ text: "OK" });
+    this.doneButton = new Button({
+      text: 'OK',
+      playSound: (alias) => this.props.playButtonSound(alias),
+    });
     this.doneButton.y = this.panelBase.boxHeight * 0.5 - 78;
     // Back to the pause menu and not to the run. presentPopup replaces rather
     // than stacks, so opening Settings destroyed the menu, and dismissing here
     // would drop the player straight into live play holding nothing.
     this.doneButton.onPress.connect(() => {
-      engine()
-        .navigation.presentPopup(PausePopup)
-        .catch((error) => console.error(error));
+      this.props.onDone().catch((error) => console.error(error));
     });
     this.panel.addChild(this.doneButton);
 
@@ -91,31 +114,31 @@ export class SettingsPopup extends Container {
     this.versionLabel.y = this.panelBase.boxHeight * 0.5 - 15;
     this.panel.addChild(this.versionLabel);
 
-    this.layout = new List({ type: "vertical", elementsMargin: 4 });
+    this.layout = new List({ type: 'vertical', elementsMargin: 4 });
     this.layout.x = -140;
     this.layout.y = -80;
     this.panel.addChild(this.layout);
 
-    this.masterSlider = new SettingSlider("Master Volume");
+    this.masterSlider = new SettingSlider('Master Volume');
     this.masterSlider.onUpdate.connect((v) => {
-      userSettings.setMasterVolume(v / 100);
+      this.props.setMasterVolume(v / 100);
     });
     this.layout.addChild(this.masterSlider);
 
-    this.bgmSlider = new SettingSlider("BGM Volume");
+    this.bgmSlider = new SettingSlider('BGM Volume');
     this.bgmSlider.onUpdate.connect((v) => {
-      userSettings.setBgmVolume(v / 100);
+      this.props.setBgmVolume(v / 100);
     });
     this.layout.addChild(this.bgmSlider);
 
-    this.sfxSlider = new SettingSlider("SFX Volume");
+    this.sfxSlider = new SettingSlider('SFX Volume');
     this.sfxSlider.onUpdate.connect((v) => {
-      userSettings.setSfxVolume(v / 100);
+      this.props.setSfxVolume(v / 100);
     });
     this.layout.addChild(this.sfxSlider);
 
     this.keyboardSpeedSlider = new SettingSlider(
-      "Keyboard Speed",
+      'Keyboard Speed',
       KEYBOARD_SPEED_SLIDER_MIN,
       KEYBOARD_SPEED_SLIDER_MAX,
     );
@@ -138,7 +161,7 @@ export class SettingsPopup extends Container {
     this.keyboardSpeedSlider.messageLabel.text = `Keyboard Speed  ${speed.toFixed(2)}x`;
   }
 
-  /** Resize the popup, fired whenever window size changes */
+  // Resize the popup, fired whenever window size changes
   public resize(width: number, height: number) {
     this.bg.width = width;
     this.bg.height = height;
@@ -146,7 +169,11 @@ export class SettingsPopup extends Container {
     this.panel.y = height * 0.5;
   }
 
-  /** Set things up just before showing the popup */
+  public init(props: SettingsPopupProps) {
+    this.props = props;
+  }
+
+  // Set things up just before showing the popup
   public prepare() {
     this.masterSlider.value = userSettings.getMasterVolume() * 100;
     this.bgmSlider.value = userSettings.getBgmVolume() * 100;
@@ -158,42 +185,43 @@ export class SettingsPopup extends Container {
     this.showKeyboardSpeed(speed);
   }
 
-  /** Present the popup, animated */
+  // Present the popup, animated
   public async show() {
-    const currentEngine = engine();
-    if (currentEngine.navigation.currentScreen) {
-      currentEngine.navigation.currentScreen.filters = [
-        new BlurFilter({ strength: 4 }),
-      ];
-    }
+    this.props.blurBackdrop(4);
 
     this.bg.alpha = 0;
     this.panel.pivot.y = -400;
-    animate(this.bg, { alpha: 0.8 }, { duration: 0.2, ease: "linear" });
+    animate(this.bg, { alpha: 0.8 }, { duration: 0.2, ease: 'linear' });
     await animate(
       this.panel.pivot,
       { y: 0 },
-      { duration: 0.3, ease: "backOut" },
+      { duration: 0.3, ease: 'backOut' },
     );
   }
 
-  /** Dismiss the popup, animated */
+  // Dismiss the popup, animated
   public async hide() {
-    const currentEngine = engine();
-    if (currentEngine.navigation.currentScreen) {
-      currentEngine.navigation.currentScreen.filters = [];
-    }
-    animate(this.bg, { alpha: 0 }, { duration: 0.2, ease: "linear" });
+    this.props.clearBackdrop();
+    animate(this.bg, { alpha: 0 }, { duration: 0.2, ease: 'linear' });
     await animate(
       this.panel.pivot,
       { y: -500 },
       {
         duration: 0.3,
-        ease: "backIn",
+        ease: 'backIn',
       },
     );
   }
 
-  /** Reset screen, after hidden */
+  /**
+   * Nothing to clear, and that is a property rather than an omission. Every
+   * value this panel shows is a stored one, and prepare() reads all four back
+   * off the settings store on every showing, so a pooled second showing cannot
+   * inherit the last one's handles. src/__tests__/pooledShowings.test.ts fails
+   * if that stops being true.
+   */
   public reset() {}
 }
+
+export { SettingsPopup };
+export type { SettingsPopupProps };

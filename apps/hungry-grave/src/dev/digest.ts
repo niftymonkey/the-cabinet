@@ -1,54 +1,34 @@
+// The golden digest's scenario and its committed constant (ADR 0015).
+
 /**
- * The golden digest's scenario and its committed constant (ADR 0015).
- *
- * It lives in src/dev rather than inside the test because two callers need it:
- * the test in src/game, and the #/digest screen, which runs the same scenario
- * in whatever browser opened the URL. CI and the developer's machine are the
- * same Node, so a browser is the only place ADR 0015's cross-engine claim can
- * actually be checked before the final dispatch.
- *
  * src/dev may reach src/game and imports no bare packages, which is what keeps
  * this module pixi-free and usable from a screen.
- *
- * THE BLINDNESS THIS DISPATCH CLOSED, AND HOW.
- *
- * Nothing on the digest's path called math.ts before the field existed, so a
- * green digest was not determinism verified at all. The scenario now spawns a
- * ghoul and runs it long enough to turn, which is the first thing in the game
- * to need trigonometry.
- *
- * Extending the scenario is not enough on its own. The checksum used to fold
- * only the grave's x, y and size, and a ghoul's turn reaches none of those at
- * the precision an f32 divergence lives at: an ulp in cos will never move the
- * grave. It now folds every live entity's own state in slot order, which is
- * what actually puts math.ts on the path and buys coverage of the spawn
- * sequence and of pool iteration order at the same time.
- *
- * The fold itself lives in src/game/witness.ts (ADR 0019), because a replay
- * ships and ADR 0013 keeps this rig out of the shipped game. The digest is the
- * witness of this one canonical scenario, chained across its ticks.
  */
-
-import { graveHitbox } from "../game/grave";
-import type { Mob } from "../game/mobs";
-import { damageMob, spawnMob } from "../game/mobs";
-import type { MoveCommand, RunState } from "../game/run";
-import { createRun } from "../game/run";
-import { place } from "../game/stage/templates";
-import type { FaultRecord } from "../game/execution";
-import { createExecution, executeTick } from "../game/execution";
-import { foldWitness } from "../game/witness";
+import { graveHitbox } from '../game/grave';
+import type { Mob } from '../game/mobs';
+import { damageMob, spawnMob } from '../game/mobs';
+import type { MoveCommand } from '../game/command';
+import type { RunState } from '../game/run';
+import { createRun } from '../game/run';
+import { place } from '../game/stage/templates';
+import type { FaultRecord } from '../game/execution';
+import { createExecution, executeTick } from '../game/execution';
+import { foldWitness } from '../game/witness';
 
 const SEED = 20260820;
 const TICKS = 600;
 
-/** The tick the scripted ghoul enters, early enough that its beat ends and it turns for most of the run. */
+/**
+ * The tick the scripted ghoul enters, early enough that its beat ends and it
+ * turns for most of the run. The turn is the first thing in the game to need
+ * trigonometry, so it is what puts math.ts on the digest's path at all.
+ */
 const GHOUL_AT = 30;
 
-/** The tick a mob is put under the grave and killed, so a corpse is made and swallowed on the next one. */
+// The tick a mob is put under the grave and killed, so a corpse is made and swallowed on the next one.
 const SWALLOW_AT = 240;
 
-/** The tick a mob is killed away from the grave, so a corpse is still draining when the scenario ends. */
+// The tick a mob is killed away from the grave, so a corpse is still draining when the scenario ends.
 const LEFTOVER_AT = 540;
 
 /**
@@ -91,7 +71,7 @@ const SCRIPT: readonly MoveCommand[] = [
   { x: -0.75, y: -0.5 },
 ];
 
-export interface Digest {
+interface Digest {
   readonly tick: number;
   readonly seed: number;
   readonly graveX: number;
@@ -120,14 +100,14 @@ export interface Digest {
  * the field's edges, so a script that presses against one pins the coordinate
  * exactly and erases any divergence in it.
  */
-export interface BoundaryExtremes {
+interface BoundaryExtremes {
   readonly minX: number;
   readonly minY: number;
   readonly maxX: number;
   readonly maxY: number;
 }
 
-export interface ScenarioResult {
+interface ScenarioResult {
   readonly digest: Digest;
   readonly boundary: BoundaryExtremes;
   /**
@@ -147,11 +127,11 @@ export interface ScenarioResult {
   readonly faults: readonly FaultRecord[];
 }
 
-function liveCount(pool: readonly { alive: boolean }[]): number {
+const liveCount = (pool: readonly { alive: boolean }[]): number => {
   return pool.reduce((count, slot) => count + (slot.alive ? 1 : 0), 0);
-}
+};
 
-function digestOf(run: RunState, checksum: number, kills: number): Digest {
+const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
   return {
     tick: run.tick,
     seed: run.seed,
@@ -175,25 +155,37 @@ function digestOf(run: RunState, checksum: number, kills: number): Digest {
     levels: { ...run.levels },
     checksum: checksum,
   };
-}
+};
 
-/** A mob put exactly where the script wants one, outside the stage's own rows. */
-function put(run: RunState, x: number, y: number): Mob | null {
-  return spawnMob(run, "shambler", { x, y, vx: 0, vy: 1, index: 0 });
-}
+// A mob put exactly where the script wants one, outside the stage's own rows.
+const put = (run: RunState, x: number, y: number): Mob | null => {
+  return spawnMob(run, 'shambler', { x, y, vx: 0, vy: 1, index: 0 });
+};
+
+/**
+ * Says that a scripted kill did not happen, because nothing abnormal is silent.
+ *
+ * No flag guards it: the scenario scripts two of these and runs each once, so
+ * it fires at most twice per run.
+ */
+const reportUnplaceableVictim = (tick: number): void => {
+  console.warn(
+    `the digest scenario had no room to put a mob down at tick ${tick}; its scripted kill does not happen, so this digest is not the scenario the golden was taken from and a mismatch says nothing about determinism`,
+  );
+};
 
 /**
  * The scripted deaths. They stand in for the weapon lines the scenario does not
  * have, so the digest's path carries a kill, a corpse and a swallow.
  */
-function scriptedKills(run: RunState, tick: number): number {
+const scriptedKills = (run: RunState, tick: number): number => {
   if (tick === GHOUL_AT) {
-    spawnMob(run, "ghoul", { x: 120, y: 20, vx: 0, vy: 1, index: 0 });
+    spawnMob(run, 'ghoul', { x: 120, y: 20, vx: 0, vy: 1, index: 0 });
     return 0;
   }
   if (tick === FILE_AT) {
-    for (const order of place("file", FILE_COUNT, run.streams.spawns)) {
-      spawnMob(run, "shambler", { ...order, x: FILE_X });
+    for (const order of place('file', FILE_COUNT, run.streams.spawns)) {
+      spawnMob(run, 'shambler', { ...order, x: FILE_X });
     }
     return 0;
   }
@@ -203,13 +195,31 @@ function scriptedKills(run: RunState, tick: number): number {
       ? { x: run.grave.x, y: run.grave.y }
       : { x: 60, y: 300 };
   const victim = put(run, where.x, where.y);
-  if (victim === null) return 0;
-  damageMob(run, victim, victim.hp, "soulStream");
+  if (victim === null) {
+    reportUnplaceableVictim(tick);
+    return 0;
+  }
+  damageMob(run, victim, victim.hp, 'soulStream');
   return 1;
-}
+};
 
-/** Runs the scenario, returning its digest, how close it came to the field boundary, the run itself and any faults it broke. */
-export function runScenario(): ScenarioResult {
+/**
+ * Runs the scenario, returning its digest, how close it came to the field
+ * boundary, the run itself and any faults it broke.
+ *
+ * It lives in src/dev rather than inside the test because two callers need it:
+ * the test in src/game, and the #/digest screen, which runs the same scenario
+ * in whatever browser opened the URL. CI and the developer's machine are the
+ * same Node, so a browser is the only place ADR 0015's cross-engine claim can
+ * actually be checked.
+ *
+ * The fold itself lives in src/game/witness.ts (ADR 0019), because a replay
+ * ships and ADR 0013 keeps this rig out of the shipped game. The digest is the
+ * witness of this one canonical scenario, chained across its ticks: it folds
+ * every live entity's own state in slot order, which is what puts math.ts on
+ * the path and covers the spawn sequence and pool iteration order with it.
+ */
+const runScenario = (): ScenarioResult => {
   const run = createRun(SEED);
   const execution = createExecution(run);
   let checksum = 0;
@@ -242,7 +252,7 @@ export function runScenario(): ScenarioResult {
     state: run,
     faults: execution.faults,
   };
-}
+};
 
 /**
  * THE CONSTANT IS NEVER UPDATED TO MAKE A FAILING TEST PASS. A change here is a
@@ -251,7 +261,7 @@ export function runScenario(): ScenarioResult {
  * `pnpm digest`, and the test logs the regenerated object as a paste-ready
  * literal before it asserts.
  */
-export const GOLDEN: Digest = {
+const GOLDEN: Digest = {
   tick: 600,
   seed: 20260820,
   graveX: 365.625,
@@ -279,3 +289,6 @@ export const GOLDEN: Digest = {
   },
   checksum: -522074226,
 };
+
+export { runScenario, GOLDEN };
+export type { Digest, BoundaryExtremes, ScenarioResult };

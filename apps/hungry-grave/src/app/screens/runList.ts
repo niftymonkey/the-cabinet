@@ -1,19 +1,16 @@
-/**
- * The kept-runs list: a dumb view of the store's summary rows. Data in, pixels
- * out; the screen that drives it owns the store, the loading and the refresh,
- * and this component only signals intent outward through the actions it was
- * handed at construction.
- */
+// The kept-runs list: a dumb view of the store's summary rows.
 
-import { Container } from "pixi.js";
+import { Container } from 'pixi.js';
 
-import { MENU } from "../palette";
-import type { StoredRunSummary } from "../tapeStore";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
+import { MENU } from '../palette';
+import type { StoredRunSummary } from '../tapeStore';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
 
-/** What the list can ask its driver for, one callback per row offer. */
+// What the list can ask its driver for, one callback per row offer.
 interface RunActions {
+  // The chrome a row's buttons make on hover and on press.
+  playSound(alias: string): void;
   open(runId: string): void;
   save(runId: string): void;
   remove(runId: string): void;
@@ -24,19 +21,19 @@ interface RunList {
   render(rows: readonly StoredRunSummary[]): void;
 }
 
-/** One row's vertical footprint, summary line plus its button rank. */
+// One row's vertical footprint, summary line plus its button rank.
 const ROW_SPACING = 150;
 
-/** Where the button rank sits under its summary line. */
+// Where the button rank sits under its summary line.
 const BUTTON_ROW_OFFSET = 60;
 
 const BUTTON_WIDTH = 150;
 const BUTTON_HEIGHT = 60;
 const BUTTON_GAP = 160;
 
-/** Wall clock as a sortable line: UTC to the minute, because rows are evidence rather than prose. */
+// Wall clock as a sortable line: UTC to the minute, because rows are evidence rather than prose.
 const describeWhen = (recordedAt: number): string =>
-  new Date(recordedAt).toISOString().slice(0, 16).replace("T", " ");
+  new Date(recordedAt).toISOString().slice(0, 16).replace('T', ' ');
 
 /**
  * One row's summary line: seed, recorded-at, device, ending, stop and
@@ -49,28 +46,38 @@ const describeRun = (row: StoredRunSummary): string =>
     `SEED ${row.seed}`,
     describeWhen(row.recordedAt),
     row.inputDevice,
-    row.ending ?? "no ending",
+    row.ending ?? 'no ending',
     row.stop,
-    row.integrity ?? "unsealed",
-  ].join("  ");
+    row.integrity ?? 'unsealed',
+  ].join('  ');
 
 const summaryLine = (row: StoredRunSummary): Label =>
   new Label({
     text: describeRun(row),
-    style: { fontFamily: "monospace", fill: MENU.menuInk.hex, fontSize: 16 },
+    style: { fontFamily: 'monospace', fill: MENU.menuInk.hex, fontSize: 16 },
   });
 
-const offerButton = (text: string, onPress: () => void): Button => {
+const offerButton = (
+  text: string,
+  playSound: (alias: string) => void,
+  onPress: () => void,
+): Button => {
   const button = new Button({
     text,
     width: BUTTON_WIDTH,
     height: BUTTON_HEIGHT,
     fontSize: 14,
+    playSound,
   });
   button.onPress.connect(onPress);
   return button;
 };
 
+/**
+ * Data in, pixels out; the screen that drives it owns the store, the loading and
+ * the refresh, and this component only signals intent outward through the
+ * actions it was handed at construction.
+ */
 const createRunList = (actions: RunActions): RunList => {
   const view = new Container();
 
@@ -83,11 +90,17 @@ const createRunList = (actions: RunActions): RunList => {
       const y = index * ROW_SPACING;
       const line = summaryLine(row);
       line.position.set(0, y);
-      const replay = offerButton("REPLAY", () => actions.open(row.id));
+      const replay = offerButton('REPLAY', actions.playSound, () =>
+        actions.open(row.id),
+      );
       replay.position.set(-BUTTON_GAP, y + BUTTON_ROW_OFFSET);
-      const save = offerButton("SAVE", () => actions.save(row.id));
+      const save = offerButton('SAVE', actions.playSound, () =>
+        actions.save(row.id),
+      );
       save.position.set(0, y + BUTTON_ROW_OFFSET);
-      const remove = offerButton("DELETE", () => actions.remove(row.id));
+      const remove = offerButton('DELETE', actions.playSound, () =>
+        actions.remove(row.id),
+      );
       remove.position.set(BUTTON_GAP, y + BUTTON_ROW_OFFSET);
       view.addChild(line, replay, save, remove);
     });

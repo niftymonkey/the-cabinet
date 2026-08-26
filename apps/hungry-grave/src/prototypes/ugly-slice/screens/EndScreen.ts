@@ -1,18 +1,18 @@
 // The end of a run, both endings: sealed shut, or the grave eats the
 // gravedigger. Reads the finished run from runState.
 
-import { Container } from "pixi.js";
+import { Container } from 'pixi.js';
 
-import { engine } from "../../../app/getEngine";
-import { Button } from "../../../app/ui/Button";
-import { Label } from "../../../app/ui/Label";
-import { PALETTE } from "../palette";
-import { runState } from "../runState";
-import { GameScreen } from "./game/GameScreen";
+import { engine } from '../../../app/getEngine';
+import { Button } from '../../../app/ui/Button';
+import { Label } from '../../../app/ui/Label';
+import { PALETTE } from '../palette';
+import { runState } from '../runState';
+import { GameScreen } from './game/GameScreen';
 
 export class EndScreen extends Container {
   /** Assets bundles required by this screen */
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   private readonly title: Label;
   private readonly tagline: Label;
@@ -20,34 +20,40 @@ export class EndScreen extends Container {
   private readonly againButton: Button;
   private readonly backButton: Button;
   private readonly onKeyDown = (ev: KeyboardEvent) => {
-    if (ev.code === "Enter") this.again();
+    if (ev.code === 'Enter') this.again();
   };
 
   constructor() {
     super();
     this.title = new Label({
-      text: "",
+      text: '',
       style: { fontSize: 40, letterSpacing: 4 },
     });
     this.tagline = new Label({
-      text: "",
+      text: '',
       style: { fill: PALETTE.skull, fontSize: 18 },
     });
     this.tally = new Label({
-      text: "",
+      text: '',
       style: { fill: PALETTE.corpse, fontSize: 17, lineHeight: 28 },
     });
-    this.againButton = new Button({ text: "", width: 320, height: 100 });
+    this.againButton = new Button({
+      text: '',
+      width: 320,
+      height: 100,
+      playSound: (alias) => engine().audio.sfx.play(alias),
+    });
     this.againButton.onPress.connect(() => this.again());
     this.backButton = new Button({
-      text: "PROTOTYPES",
+      text: 'PROTOTYPES',
       width: 190,
       height: 70,
       fontSize: 16,
+      playSound: (alias) => engine().audio.sfx.play(alias),
     });
     this.backButton.onPress.connect(() => {
       // The router in main.ts observes the hash and shows the list.
-      window.location.hash = "#/prototypes";
+      window.location.hash = '#/prototypes';
     });
     this.addChild(
       this.title,
@@ -60,12 +66,12 @@ export class EndScreen extends Container {
 
   /** Fill from the finished run just before showing (screens are pooled) */
   public prepare() {
-    const dead = runState.outcome === "dead";
-    this.title.text = dead ? "SEALED SHUT" : "THE GRAVE EATS THE GRAVEDIGGER";
+    const dead = runState.outcome === 'dead';
+    this.title.text = dead ? 'SEALED SHUT' : 'THE GRAVE EATS THE GRAVEDIGGER';
     this.title.style.fill = dead ? PALETTE.enemyShot : PALETTE.enemy;
     this.tagline.text = dead
-      ? "The dirt takes you back."
-      : "Nothing is left to bury you.";
+      ? 'The dirt takes you back.'
+      : 'Nothing is left to bury you.';
     const sim = runState.lastSim;
     if (sim !== null) {
       const ins = sim.instruments;
@@ -73,9 +79,9 @@ export class EndScreen extends Container {
         `${sim.player.score} score`,
         `${ins.killsTotal} kills · ${ins.corpsesEaten} swallowed · ${ins.belchesFired} belches`,
         `${ins.dropsEaten} of ${ins.dropsSpawned} drops taken`,
-      ].join("\n");
+      ].join('\n');
     }
-    this.againButton.text = dead ? "DIG BACK OUT" : "RUN IT BACK";
+    this.againButton.text = dead ? 'DIG BACK OUT' : 'RUN IT BACK';
   }
 
   private again(): void {
@@ -92,16 +98,16 @@ export class EndScreen extends Container {
   }
 
   public async show(): Promise<void> {
-    window.addEventListener("keydown", this.onKeyDown);
+    window.addEventListener('keydown', this.onKeyDown);
   }
 
   public async hide() {
-    window.removeEventListener("keydown", this.onKeyDown);
+    window.removeEventListener('keydown', this.onKeyDown);
   }
 
   /** Reset screen, after hidden */
   public reset() {
     // prepare() only writes a tally when the run had a sim result
-    this.tally.text = "";
+    this.tally.text = '';
   }
 }

@@ -1,24 +1,12 @@
-/**
- * The header a run's tape opens with, assembled from the browser the run is
- * being played in.
- *
- * It is split in two on purpose. The header itself is a pure function of a run
- * and a record of conditions, so it is testable without a browser; reading
- * those conditions off the page and the renderer is the part that needs one.
- *
- * Everything here is a constant for a run rather than a per-frame series, which
- * is the rule that decides what belongs in a header at all: header shape is
- * one-way once tapes exist, so a value that changes during a run would have to
- * be an observation instead.
- */
+// The header a run's tape opens with, assembled from the browser the run is
+// being played in.
 
-import { TICK_HZ } from "../game/clock";
-import type { RunState } from "../game/run";
-import { WITNESS_VERSION } from "../game/witness";
-import type { TapeHeader, TapeInputDevice } from "../tape/tape";
-import { RECORDER_CHECKPOINT_SPACING } from "../tape/tape";
-import { engine } from "./getEngine";
-import { userSettings } from "./utils/userSettings";
+import { TICK_HZ } from '../game/clock';
+import type { RunState } from '../game/run';
+import { WITNESS_VERSION } from '../game/witness';
+import type { TapeHeader, TapeInputDevice } from '../tape/tape';
+import { RECORDER_CHECKPOINT_SPACING } from '../tape/recorder';
+import { userSettings } from './userSettings';
 
 /**
  * What the author field holds until something in the game names an author.
@@ -27,25 +15,43 @@ import { userSettings } from "./utils/userSettings";
  * tapes from more than one pair of hands needs it to already be there, and
  * adding it later would invalidate every tape recorded before.
  */
-export const UNNAMED_AUTHOR = "unknown";
+const UNNAMED_AUTHOR = 'unknown';
 
-/** Reserved for a resolvable build identity, whose machinery is deliberately not built. */
-const UNRESOLVED_BUILD = "";
+// Reserved for a resolvable build identity, whose machinery is deliberately not built.
+const UNRESOLVED_BUILD = '';
 
-/** The conditions a run was played under, read once before its first tick. */
-export interface RunConditions {
+/** What the renderer says about itself, which is all the header records of it. */
+interface RendererIdentity {
+  readonly name: string;
+  readonly resolution: number;
+}
+
+/**
+ * The conditions a run was played under, read once before its first tick.
+ *
+ * The module is split in two on purpose, and this record is the seam. The
+ * header itself is a pure function of a run and a record of conditions, so it
+ * is testable without a browser; reading those conditions off the page and the
+ * renderer is the part that needs one.
+ */
+interface RunConditions {
   readonly inputDevice: TapeInputDevice;
   readonly keyboardSpeed: number;
   readonly rendererBackend: string;
   readonly rendererResolution: number;
   readonly devicePixelRatio: number;
-  /** Wall clock at the top of the run, so a folder of tapes has an order. */
+  // Wall clock at the top of the run, so a folder of tapes has an order.
   readonly recordedAt: number;
 }
 
 /**
  * The run's identity and its conditions, ready to be written before its first
  * tick.
+ *
+ * Every field is a constant for a run rather than a per-frame series, which is
+ * the rule that decides what belongs in a header at all: header shape is
+ * one-way once tapes exist, so a value that changes during a run would have to
+ * be an observation instead.
  *
  * The starting size goes in as the number the run actually resolved to. Reading
  * it off the grave is the point: with no ?size= the run starts at the compiled
@@ -55,10 +61,10 @@ export interface RunConditions {
  * every run, pinned or not, copied because the run levels up in place and the
  * header is a record of the start.
  */
-export function tapeHeaderFor(
+const tapeHeaderFor = (
   run: RunState,
   conditions: RunConditions,
-): TapeHeader {
+): TapeHeader => {
   return {
     seed: run.seed,
     startingSize: run.grave.size,
@@ -76,7 +82,7 @@ export function tapeHeaderFor(
     devicePixelRatio: conditions.devicePixelRatio,
     recordedAt: conditions.recordedAt,
   };
-}
+};
 
 /**
  * Which class of device steered the run.
@@ -87,9 +93,9 @@ export function tapeHeaderFor(
  * of which input model won would be a different fact and would belong in a
  * different section.
  */
-function inputDeviceHere(): TapeInputDevice {
-  return window.matchMedia("(pointer: coarse)").matches ? "touch" : "keyboard";
-}
+const inputDeviceHere = (): TapeInputDevice => {
+  return window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keyboard';
+};
 
 /**
  * The conditions this browser is playing under.
@@ -98,8 +104,7 @@ function inputDeviceHere(): TapeInputDevice {
  * because neither substitutes for the other: the engine snaps its resolution to
  * at least two, so a phone reporting three is running a renderer at two.
  */
-export function runConditionsHere(): RunConditions {
-  const renderer = engine().renderer;
+const runConditionsHere = (renderer: RendererIdentity): RunConditions => {
   return {
     inputDevice: inputDeviceHere(),
     keyboardSpeed: userSettings.getKeyboardSpeed(),
@@ -108,4 +113,7 @@ export function runConditionsHere(): RunConditions {
     devicePixelRatio: window.devicePixelRatio,
     recordedAt: Date.now(),
   };
-}
+};
+
+export { tapeHeaderFor, runConditionsHere, UNNAMED_AUTHOR };
+export type { RendererIdentity, RunConditions };

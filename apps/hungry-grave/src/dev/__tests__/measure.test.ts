@@ -9,27 +9,29 @@
  * independent capture rather than against its own output.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { TICK_HZ } from "../../game/clock";
-import { createExecution, executeTick } from "../../game/execution";
-import type { WeaponLine } from "../../game/lines/roster";
-import type { DamageSource } from "../../game/mobs";
-import type { RunState, TickCommand } from "../../game/run";
-import { createRun } from "../../game/run";
-import { WITNESS_VERSION } from "../../game/witness";
-import type { DecodedTape } from "../../tape/decode";
-import { decodeTape } from "../../tape/decode";
-import { encodeTape } from "../../tape/encode";
+import { TICK_HZ } from '../../game/clock';
+import { createExecution, executeTick } from '../../game/execution';
+import type { WeaponLine } from '../../game/lines/roster';
+import type { DamageSource } from '../../game/mobs';
+import type { TickCommand } from '../../game/command';
+import type { RunState } from '../../game/run';
+import { createRun } from '../../game/run';
+import { WITNESS_VERSION } from '../../game/witness';
+import type { DecodedTape } from '../../tape/decode';
+import { decodeTape } from '../../tape/decode';
+import { encodeTape } from '../../tape/encode';
 import {
   recordFrame,
   recordInto,
   sealTrailer,
   tapeOf,
-} from "../../tape/recorder";
-import type { FrameObservation, Tape, TapeHeader } from "../../tape/tape";
-import type { FieldDensity, LevelUp, Measurement, Metrics } from "../measure";
-import { measure } from "../measure";
+} from '../../tape/recorder';
+import type { FrameObservation, Tape, TapeHeader } from '../../tape/tape';
+import type { Measurement, Metrics } from '../measure';
+import { measure } from '../measure';
+import type { FieldDensity, LevelUp } from '../replayTallies';
 
 const SEED = 20260823;
 const SPACING = 20;
@@ -46,12 +48,12 @@ function header(
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
-    commitHash: "aa038cb310",
-    buildIdentity: "",
-    author: "unknown",
-    inputDevice: "script",
+    commitHash: 'aa038cb310',
+    buildIdentity: '',
+    author: 'unknown',
+    inputDevice: 'script',
     keyboardSpeed: 1,
-    rendererBackend: "webgl",
+    rendererBackend: 'webgl',
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
@@ -88,7 +90,7 @@ function decodedOf(tape: Tape): DecodedTape {
 
 /** Narrows to the metrics arm, failing the test plainly when the replay did not verify. */
 function verified(measurement: Measurement): Metrics {
-  if (measurement.outcome !== "verified") {
+  if (measurement.outcome !== 'verified') {
     throw new Error(`expected verified metrics, got ${measurement.outcome}`);
   }
   return measurement;
@@ -169,15 +171,15 @@ function recordRichRun(): RichRecording {
     }
     const events = executeTick(execution, richSteer(tick));
     for (const event of events) {
-      if (event.type === "mobDamaged") damage[event.source] += event.amount;
-      if (event.type === "mobKilled") kills += 1;
-      if (event.type === "weaponLeveled") {
+      if (event.type === 'mobDamaged') damage[event.source] += event.amount;
+      if (event.type === 'mobKilled') kills += 1;
+      if (event.type === 'weaponLeveled') {
         levelUps.push({ line: event.line, level: event.level, tick: run.tick });
       }
     }
     mobsAlive.push(liveCount(run.mobs));
     recordFrame(recorder, {
-      reason: "live",
+      reason: 'live',
       tickIndex: tick,
       ticksExecuted: 1,
       intervalMs: RICH_EXPENSIVE_TICKS.includes(tick) ? 40 : 16.7,
@@ -205,8 +207,8 @@ function richFixture(): RichRecording {
   return richMemo;
 }
 
-describe("measure", () => {
-  it("reports damage per line from the replayed mobDamaged events, the belch its own arm", () => {
+describe('measure', () => {
+  it('reports damage per line from the replayed mobDamaged events, the belch its own arm', () => {
     // #45's damage-contribution read: attribution is per source, and the belch
     // is an arm beside the four lines rather than folded into any of them.
     const rich = richFixture();
@@ -219,7 +221,7 @@ describe("measure", () => {
     expect(rich.measured.damage.belch).toBeGreaterThan(0);
   });
 
-  it("reports the tick each line reached each level from the replayed weaponLeveled events", () => {
+  it('reports the tick each line reached each level from the replayed weaponLeveled events', () => {
     // #45's when-did-a-level-land read, against the record-time rows.
     const rich = richFixture();
 
@@ -227,7 +229,7 @@ describe("measure", () => {
     expect(rich.measured.levelUps).toEqual(rich.levelUps);
   });
 
-  it("reports the mob population per tick, index N the field after N ticks", () => {
+  it('reports the mob population per tick, index N the field after N ticks', () => {
     // The indexing is ADR 0019's checkpoint indexing on purpose: index 0 is
     // the empty starting field, before any tick has run.
     const rich = richFixture();
@@ -238,7 +240,7 @@ describe("measure", () => {
     expect(rich.measured.mobsAlivePerTick).toEqual(rich.mobsAlive);
   });
 
-  it("recomputes the run summary from the replay: ticks, ending, score and kills", () => {
+  it('recomputes the run summary from the replay: ticks, ending, score and kills', () => {
     const rich = richFixture();
 
     expect(rich.measured.run.ticks).toBe(RICH_TICKS);
@@ -251,7 +253,7 @@ describe("measure", () => {
     expect(rich.measured.run.checkpointsUnreachable).toBe(0);
   });
 
-  it("joins each expensive frame to the field density its frame began on", () => {
+  it('joins each expensive frame to the field density its frame began on', () => {
     // The join is the tick index into the same single replay, so the density
     // is checked against the pools counted at record time, and a frame that
     // bought no tick has no field to join to.
@@ -274,7 +276,7 @@ describe("measure", () => {
     });
   });
 
-  it("touches the playback primitive once: the density join never reproduces per frame", () => {
+  it('touches the playback primitive once: the density join never reproduces per frame', () => {
     // One pass is the rule in the spec's own words. Each command index is read
     // exactly once by one playback loop, so a second reproduction, whole or
     // partial, would read some index twice.
@@ -286,7 +288,7 @@ describe("measure", () => {
       if (tick === 30 || tick === 60) densities.set(tick, densityOf(run));
       executeTick(execution, steer(tick));
       recordFrame(recorder, {
-        reason: "live",
+        reason: 'live',
         tickIndex: tick,
         ticksExecuted: 1,
         intervalMs: tick === 30 || tick === 60 ? 40 : 16.7,
@@ -296,7 +298,7 @@ describe("measure", () => {
       });
     }
     recordFrame(recorder, {
-      reason: "paused",
+      reason: 'paused',
       tickIndex: null,
       ticksExecuted: 0,
       intervalMs: 300,
@@ -310,7 +312,7 @@ describe("measure", () => {
     const reads = new Map<string, number>();
     const counted = new Proxy(tape.commands, {
       get(target, property, receiver) {
-        if (typeof property === "string" && /^\d+$/.test(property)) {
+        if (typeof property === 'string' && /^\d+$/.test(property)) {
           reads.set(property, (reads.get(property) ?? 0) + 1);
         }
         return Reflect.get(target, property, receiver);
@@ -338,7 +340,7 @@ describe("measure", () => {
     }
   });
 
-  it("reads the performance report off the frame rows: distributions, catch-up and debt", () => {
+  it('reads the performance report off the frame rows: distributions, catch-up and debt', () => {
     // Manufactured rows with hand-computed expectations, since the
     // observations sit outside the witness and verify whatever they say.
     const run = createRun(SEED);
@@ -347,9 +349,9 @@ describe("measure", () => {
     for (let tick = 0; tick < SMALL_TICKS; tick++) {
       executeTick(execution, steer(tick));
     }
-    const rows: Omit<FrameObservation, "kind">[] = [
+    const rows: Omit<FrameObservation, 'kind'>[] = [
       {
-        reason: "live",
+        reason: 'live',
         tickIndex: 0,
         ticksExecuted: 1,
         intervalMs: 16,
@@ -358,7 +360,7 @@ describe("measure", () => {
         debtTicks: 0,
       },
       {
-        reason: "live",
+        reason: 'live',
         tickIndex: 1,
         ticksExecuted: 1,
         intervalMs: 16,
@@ -367,7 +369,7 @@ describe("measure", () => {
         debtTicks: 0,
       },
       {
-        reason: "live",
+        reason: 'live',
         tickIndex: 2,
         ticksExecuted: 3,
         intervalMs: 50,
@@ -376,7 +378,7 @@ describe("measure", () => {
         debtTicks: 4,
       },
       {
-        reason: "live",
+        reason: 'live',
         tickIndex: 5,
         ticksExecuted: 1,
         intervalMs: 16,
@@ -385,7 +387,7 @@ describe("measure", () => {
         debtTicks: 4,
       },
       {
-        reason: "live",
+        reason: 'live',
         tickIndex: 6,
         ticksExecuted: 2,
         intervalMs: 20,
@@ -394,7 +396,7 @@ describe("measure", () => {
         debtTicks: 2,
       },
       {
-        reason: "paused",
+        reason: 'paused',
         tickIndex: null,
         ticksExecuted: 0,
         intervalMs: 300,
@@ -436,7 +438,7 @@ describe("measure", () => {
     ]);
   });
 
-  it("returns the divergence arm naming the first divergent checkpoint, and no metrics", () => {
+  it('returns the divergence arm naming the first divergent checkpoint, and no metrics', () => {
     // ADR 0019: metrics only from a verified replay, so the arm is the whole
     // answer and carries nothing a caller could mistake for one.
     const sound = recordARun();
@@ -449,14 +451,14 @@ describe("measure", () => {
     const measured = measure(decodedOf({ ...sound, checkpoints: bent }));
 
     expect(measured).toEqual({
-      outcome: "diverged",
+      outcome: 'diverged',
       firstDivergentCheckpoint: 40,
       checkpointsVerified: 2,
       ticksReproduced: 40,
     });
   });
 
-  it("returns the refusal arm for a witness version mismatch, and never a divergence", () => {
+  it('returns the refusal arm for a witness version mismatch, and never a divergence', () => {
     // ADR 0019: the fold demonstrably widens, so without this arm every tape
     // recorded before a widening would read as a run that did not happen.
     const tape = recordARun();
@@ -469,7 +471,7 @@ describe("measure", () => {
     );
 
     expect(measured).toEqual({
-      outcome: "witnessVersionMismatch",
+      outcome: 'witnessVersionMismatch',
       tapeWitnessVersion: WITNESS_VERSION + 1,
       readerWitnessVersion: WITNESS_VERSION,
     });
@@ -480,8 +482,8 @@ describe("measure", () => {
 
     expect(measured.run.sealed).toBe(true);
     expect(measured.run.truncated).toBe(false);
-    expect(measured.run.stop).toBe("quit");
-    expect(measured.run.integrity).toBe("clean");
+    expect(measured.run.stop).toBe('quit');
+    expect(measured.run.integrity).toBe('clean');
   });
 
   it("reports a clean trailerless tape's own fact: the tab-closed reading", () => {
@@ -491,7 +493,7 @@ describe("measure", () => {
 
     expect(measured.run.sealed).toBe(false);
     expect(measured.run.truncated).toBe(false);
-    expect(measured.run.stop).toBe("unknown");
+    expect(measured.run.stop).toBe('unknown');
     expect(measured.run.integrity).toBeNull();
   });
 
@@ -505,7 +507,7 @@ describe("measure", () => {
     for (let tick = 0; tick < SMALL_TICKS; tick++) {
       executeTick(execution, steer(tick));
       recordFrame(recorder, {
-        reason: "live",
+        reason: 'live',
         tickIndex: tick,
         ticksExecuted: 1,
         intervalMs: 16.7,
@@ -523,48 +525,48 @@ describe("measure", () => {
 
     expect(measured.run.truncated).toBe(true);
     expect(measured.run.sealed).toBe(false);
-    expect(measured.run.stop).toBe("unknown");
+    expect(measured.run.stop).toBe('unknown');
     expect(measured.run.ticks).toBe(SMALL_TICKS);
     expect(measured.run.checkpointsUnreachable).toBe(0);
   });
 
-  it("labels a bot tape and keeps it out of the default aggregate", () => {
+  it('labels a bot tape and keeps it out of the default aggregate', () => {
     // The bot only dodges, so its numbers measure the policy and never a
     // player; a default aggregate holding them would say the game got easier
     // because the policy got lucky.
     const measured = verified(
-      measure(decodedOf(recordARun({ inputDevice: "bot" }))),
+      measure(decodedOf(recordARun({ inputDevice: 'bot' }))),
     );
 
     expect(measured.provenance).toEqual({
-      inputDevice: "bot",
+      inputDevice: 'bot',
       conditioned: false,
-      exclusions: ["bot"],
+      exclusions: ['bot'],
     });
   });
 
-  it("labels a conditioned run and keeps it out of the default aggregate", () => {
+  it('labels a conditioned run and keeps it out of the default aggregate', () => {
     // Conditioned is a resolved start differing from today's birthright. A
     // birthright retune mislabels old tapes toward exclusion, which is the
     // safe direction.
     const measured = verified(
-      measure(decodedOf(recordARun({ inputDevice: "keyboard" }, { size: 40 }))),
+      measure(decodedOf(recordARun({ inputDevice: 'keyboard' }, { size: 40 }))),
     );
 
     expect(measured.provenance).toEqual({
-      inputDevice: "keyboard",
+      inputDevice: 'keyboard',
       conditioned: true,
-      exclusions: ["conditioned"],
+      exclusions: ['conditioned'],
     });
   });
 
-  it("leaves a keyboard run from the birthright inside the default aggregate", () => {
+  it('leaves a keyboard run from the birthright inside the default aggregate', () => {
     const measured = verified(
-      measure(decodedOf(recordARun({ inputDevice: "keyboard" }))),
+      measure(decodedOf(recordARun({ inputDevice: 'keyboard' }))),
     );
 
     expect(measured.provenance).toEqual({
-      inputDevice: "keyboard",
+      inputDevice: 'keyboard',
       conditioned: false,
       exclusions: [],
     });
@@ -580,11 +582,11 @@ describe("measure", () => {
       observations: [
         ...tape.observations,
         {
-          kind: "fault",
-          identity: "reservoir in range",
-          severity: "recoverable",
+          kind: 'fault',
+          identity: 'reservoir in range',
+          severity: 'recoverable',
           firstTick: 12,
-          detail: "reservoir is 1.4",
+          detail: 'reservoir is 1.4',
           count: 3,
         },
       ],
@@ -594,15 +596,15 @@ describe("measure", () => {
 
     expect(measured.recordedFaults).toEqual([
       {
-        kind: "fault",
-        identity: "reservoir in range",
-        severity: "recoverable",
+        kind: 'fault',
+        identity: 'reservoir in range',
+        severity: 'recoverable',
         firstTick: 12,
-        detail: "reservoir is 1.4",
+        detail: 'reservoir is 1.4',
         count: 3,
       },
     ]);
     expect(measured.readbackFaults).toEqual([]);
-    expect(measured.provenance.exclusions).toEqual(["script", "faulted"]);
+    expect(measured.provenance.exclusions).toEqual(['script', 'faulted']);
   });
 });

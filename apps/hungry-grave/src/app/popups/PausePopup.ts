@@ -1,51 +1,42 @@
-import { animate } from "motion";
-import { BlurFilter, Container, Sprite, Texture } from "pixi.js";
+import { animate } from 'motion';
+import { Container, Sprite, Texture } from 'pixi.js';
 
-import { engine } from "../getEngine";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
-import { RoundedBox } from "../ui/RoundedBox";
-import { SettingsPopup } from "./SettingsPopup";
+import type { ButtonChrome } from '../ui/Button';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+import { RoundedBox } from '../ui/RoundedBox';
 
-/**
- * What End Run does, set by the screen that opened the menu. Popups are pooled
- * and constructed with no arguments (see src/engine/navigation/navigation.ts),
- * so a popup cannot be handed its actions at construction and the handoff needs
- * a home outside both. Same shape as runHandoff between the two screens.
- */
-class PauseActions {
-  private handler: (() => void) | null = null;
-
-  public setEndRun(handler: (() => void) | null): void {
-    this.handler = handler;
-  }
-
-  public endRun(): void {
-    this.handler?.();
-  }
+/** What the pause menu can do, all of it owned by the driver in main.ts. */
+interface PausePopupProps extends ButtonChrome {
+  // Takes this menu away, back to the run behind it.
+  onDismiss(): Promise<void>;
+  // Replaces this menu with the settings panel.
+  onSettings(): Promise<void>;
+  // Ends the run this menu was opened over, called with the menu already gone.
+  onEndRun(): void;
+  // The screen behind the panel, blurred while the panel is up.
+  blurBackdrop(strength: number): void;
+  clearBackdrop(): void;
 }
 
-export const pauseActions = new PauseActions();
+// What End Run says before it is armed, and what it says once it is.
+const END_RUN_LABEL = 'End Run';
+const END_RUN_CONFIRM = 'Sure?';
 
-/** What End Run says before it is armed, and what it says once it is. */
-const END_RUN_LABEL = "End Run";
-const END_RUN_CONFIRM = "Sure?";
-
-/** Popup that shows up when gameplay is paused */
-export class PausePopup extends Container {
-  /** The dark semi-transparent background covering current screen */
+// Popup that shows up when gameplay is paused
+class PausePopup extends Container {
+  // The dark semi-transparent background covering current screen
   private bg: Sprite;
-  /** Container for the popup UI components */
+  // Container for the popup UI components
   private panel: Container;
-  /** The popup title label */
   private title: Label;
-  /** Button that closes the popup */
+  // Button that closes the popup
   private doneButton: Button;
-  /** Button that opens the settings */
+  // Button that opens the settings
   private settingsButton: Button;
-  /** Button that ends the run, set visually apart because it is the destructive one */
+  // Button that ends the run, set visually apart because it is the destructive one
   private endRunButton: Button;
-  /** The panel background */
+  // The panel background
   private panelBase: RoundedBox;
   /**
    * Whether End Run has been pressed once and is waiting for the second.
@@ -56,6 +47,11 @@ export class PausePopup extends Container {
    * no state that outlives the menu.
    */
   private endRunArmed = false;
+  /**
+   * The powers this showing was handed. The pool calls init() before the popup
+   * reaches the stage, so it is set before show() and before any press.
+   */
+  private props!: PausePopupProps;
 
   constructor() {
     super();
@@ -72,21 +68,27 @@ export class PausePopup extends Container {
     this.panel.addChild(this.panelBase);
 
     this.title = new Label({
-      text: "Paused",
+      text: 'Paused',
       style: { fill: 0xec1561, fontSize: 50 },
     });
     this.title.y = -150;
     this.panel.addChild(this.title);
 
-    this.doneButton = new Button({ text: "Resume", width: 260, height: 80 });
+    this.doneButton = new Button({
+      text: 'Resume',
+      width: 260,
+      height: 80,
+      playSound: (alias) => this.props.playButtonSound(alias),
+    });
     this.doneButton.y = -30;
     this.doneButton.onPress.connect(() => this.dismiss());
     this.panel.addChild(this.doneButton);
 
     this.settingsButton = new Button({
-      text: "Settings",
+      text: 'Settings',
       width: 260,
       height: 80,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.settingsButton.y = 55;
     this.settingsButton.onPress.connect(() => this.openSettings());
@@ -97,10 +99,15 @@ export class PausePopup extends Container {
       width: 200,
       height: 68,
       fontSize: 22,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.endRunButton.y = 160;
     this.endRunButton.onPress.connect(() => this.endRun());
     this.panel.addChild(this.endRunButton);
+  }
+
+  public init(props: PausePopupProps): void {
+    this.props = props;
   }
 
   /**
@@ -109,18 +116,14 @@ export class PausePopup extends Container {
    * class unassignable to it.
    */
   private dismiss(): void {
-    engine()
-      .navigation.dismissPopup()
-      .catch((error) => console.error(error));
+    this.props.onDismiss().catch((error) => console.error(error));
   }
 
   private openSettings(): void {
     // Opening Settings disarms it, so a confirm cannot be left standing behind
     // another screen and answered by a press that meant something else.
     this.disarmEndRun();
-    engine()
-      .navigation.presentPopup(SettingsPopup)
-      .catch((error) => console.error(error));
+    this.props.onSettings().catch((error) => console.error(error));
   }
 
   private disarmEndRun(): void {
@@ -142,13 +145,13 @@ export class PausePopup extends Container {
       return;
     }
     this.disarmEndRun();
-    engine()
-      .navigation.dismissPopup()
-      .then(() => pauseActions.endRun())
+    this.props
+      .onDismiss()
+      .then(() => this.props.onEndRun())
       .catch((error) => console.error(error));
   }
 
-  /** Resize the popup, fired whenever window size changes */
+  // Resize the popup, fired whenever window size changes
   public resize(width: number, height: number) {
     this.bg.width = width;
     this.bg.height = height;
@@ -163,39 +166,34 @@ export class PausePopup extends Container {
    */
   public async show() {
     this.disarmEndRun();
-    const currentEngine = engine();
-    if (currentEngine.navigation.currentScreen) {
-      currentEngine.navigation.currentScreen.filters = [
-        new BlurFilter({ strength: 5 }),
-      ];
-    }
+    this.props.blurBackdrop(5);
     this.bg.alpha = 0;
     this.panel.pivot.y = -400;
-    animate(this.bg, { alpha: 0.8 }, { duration: 0.2, ease: "linear" });
+    animate(this.bg, { alpha: 0.8 }, { duration: 0.2, ease: 'linear' });
     await animate(
       this.panel.pivot,
       { y: 0 },
-      { duration: 0.3, ease: "backOut" },
+      { duration: 0.3, ease: 'backOut' },
     );
   }
 
-  /** Dismiss the popup, animated */
+  // Dismiss the popup, animated
   public async hide() {
     this.disarmEndRun();
-    const currentEngine = engine();
-    if (currentEngine.navigation.currentScreen) {
-      currentEngine.navigation.currentScreen.filters = [];
-    }
-    animate(this.bg, { alpha: 0 }, { duration: 0.2, ease: "linear" });
+    this.props.clearBackdrop();
+    animate(this.bg, { alpha: 0 }, { duration: 0.2, ease: 'linear' });
     await animate(
       this.panel.pivot,
       { y: -500 },
-      { duration: 0.3, ease: "backIn" },
+      { duration: 0.3, ease: 'backIn' },
     );
   }
 
-  /** Reset screen, after hidden */
+  // Reset screen, after hidden
   public reset() {
     this.disarmEndRun();
   }
 }
+
+export { PausePopup };
+export type { PausePopupProps };

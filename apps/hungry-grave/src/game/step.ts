@@ -1,30 +1,26 @@
-import { fireBelch } from "./belch";
+import { fireBelch } from './belch';
+import type { TickCommand } from './command';
 import {
   advanceCorpses,
   asSwallowable,
   corpseHitbox,
   cullCorpses,
-} from "./corpses";
-import { creditKill } from "./drops";
-import type { SimEvent } from "./events";
-import { ageGrave, graveHitbox, hitGrave, moveGrave } from "./grave";
-import { advanceBell } from "./lines/bell";
-import { advanceHeadstones } from "./lines/headstones";
-import { advanceStream } from "./lines/soulStream";
-import { advanceWisps } from "./lines/wisps";
-import {
-  advanceMobs,
-  cullMobs,
-  cullShots,
-  mobHitbox,
-  resolveStorm,
-  shotHitbox,
-} from "./mobs";
-import { overlaps } from "./overlap";
-import type { RunState, TickCommand } from "./run";
-import { advanceStage } from "./stage/stage";
-import { swallow } from "./swallow";
-import { SCROLL_SPEED } from "./tuning";
+} from './corpses';
+import { creditKill } from './drops';
+import type { SimEvent } from './events';
+import { ageGrave, graveHitbox, hitGrave, moveGrave } from './grave';
+import { advanceBell } from './lines/bell';
+import { advanceHeadstones } from './lines/headstones';
+import { advanceStream } from './lines/soulStream';
+import { advanceWisps } from './lines/wisps';
+import { cullShots, shotHitbox } from './mobFire';
+import { advanceMobs, cullMobs, mobHitbox } from './mobs';
+import { overlaps } from './overlap';
+import type { RunState } from './run';
+import { advanceStage } from './stage/stage';
+import { resolveStorm } from './storm';
+import { swallow } from './swallow';
+import { SCROLL_SPEED } from './tuning';
 
 /**
  * The constant downward drift of everything on the field. Mob fire does not
@@ -33,14 +29,14 @@ import { SCROLL_SPEED } from "./tuning";
  * A corpse has no velocity of its own, so this is the only thing that moves it,
  * and that is what makes ADR 0004's coupling true by construction.
  */
-function scrollField(state: RunState): void {
+const scrollField = (state: RunState): void => {
   for (const mob of state.mobs) {
     if (mob.alive) mob.y += SCROLL_SPEED;
   }
   for (const corpse of state.corpses) {
     if (corpse.alive) corpse.y += SCROLL_SPEED;
   }
-}
+};
 
 /**
  * Mob fire meeting the grave. A shot overlapping the grave is consumed whether
@@ -48,7 +44,7 @@ function scrollField(state: RunState): void {
  * overlapping and lands again the tick the window expires, turning one shot
  * into two hits with nothing on screen to explain the second.
  */
-function resolveMobFire(state: RunState, events: SimEvent[]): void {
+const resolveMobFire = (state: RunState, events: SimEvent[]): void => {
   const box = graveHitbox(state.grave);
   for (const shot of state.mobFire) {
     if (!shot.alive) continue;
@@ -56,23 +52,23 @@ function resolveMobFire(state: RunState, events: SimEvent[]): void {
     shot.alive = false;
     events.push(...hitGrave(state, shot.emitter));
   }
-}
+};
 
 /**
  * Mob bodies meeting the grave. The mob is not consumed, because live mobs are
  * never food and contact never kills a mob (ADR 0005).
  */
-function resolveMobContact(state: RunState, events: SimEvent[]): void {
+const resolveMobContact = (state: RunState, events: SimEvent[]): void => {
   const box = graveHitbox(state.grave);
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     if (!overlaps(mobHitbox(mob), box)) continue;
-    events.push(...hitGrave(state, "contact"));
+    events.push(...hitGrave(state, 'contact'));
   }
-}
+};
 
-/** Food meeting the grave. The grave passes under it and it falls in. */
-function resolveSwallows(state: RunState, events: SimEvent[]): void {
+// Food meeting the grave. The grave passes under it and it falls in.
+const resolveSwallows = (state: RunState, events: SimEvent[]): void => {
   const box = graveHitbox(state.grave);
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
@@ -80,7 +76,7 @@ function resolveSwallows(state: RunState, events: SimEvent[]): void {
     corpse.alive = false;
     events.push(...swallow(state, asSwallowable(corpse)));
   }
-}
+};
 
 /**
  * The three overlap pairs, always in this order, so the same seed produces the
@@ -92,13 +88,13 @@ function resolveSwallows(state: RunState, events: SimEvent[]): void {
  * that moved mid-pass would let a corpse the grave was plainly under slip out
  * from under it because an earlier corpse in the same tick made it bigger.
  */
-function resolveOverlaps(state: RunState): SimEvent[] {
+const resolveOverlaps = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   resolveMobFire(state, events);
   resolveMobContact(state, events);
   resolveSwallows(state, events);
   return events;
-}
+};
 
 /**
  * The weapon lines' own tick, in a stated order so the same seed fires the same
@@ -106,13 +102,13 @@ function resolveOverlaps(state: RunState): SimEvent[] {
  * a wisp launched this tick does not also move this tick, which is the rule mob
  * fire already has and what puts a skull at the mouth for one tick.
  */
-function advanceLines(state: RunState): SimEvent[] {
+const advanceLines = (state: RunState): SimEvent[] => {
   const events = advanceStream(state);
   events.push(...advanceHeadstones(state));
   events.push(...advanceWisps(state));
   events.push(...advanceBell(state));
   return events;
-}
+};
 
 /**
  * The deaths phase: the storm meeting the mobs, and every kill the tick made
@@ -127,18 +123,18 @@ function advanceLines(state: RunState): SimEvent[] {
  * bell kill's corpse exists before resolveSwallows runs, so it is swallowable
  * one tick sooner than a kill from the overlap pass.
  */
-function resolveDeaths(
+const resolveDeaths = (
   state: RunState,
   earlier: readonly SimEvent[],
-): SimEvent[] {
+): SimEvent[] => {
   const struck = resolveStorm(state);
   const paid: SimEvent[] = [];
   for (const event of [...earlier, ...struck]) {
-    if (event.type !== "mobKilled") continue;
+    if (event.type !== 'mobKilled') continue;
     paid.push(...creditKill(state, event.x, event.y));
   }
   return [...struck, ...paid];
-}
+};
 
 /**
  * The sim seam: one fixed tick of the game's rules (tracer plan section 3). It
@@ -165,7 +161,7 @@ function resolveDeaths(
  * the invulnerability window a tick early, and dropping it means the window
  * never expires at all.
  */
-export function step(state: RunState, command: TickCommand): SimEvent[] {
+const step = (state: RunState, command: TickCommand): SimEvent[] => {
   const events: SimEvent[] = [];
   scrollField(state);
   moveGrave(state.grave, command.move);
@@ -183,4 +179,6 @@ export function step(state: RunState, command: TickCommand): SimEvent[] {
   state.tick += 1;
   state.stage.phaseTick += 1;
   return events;
-}
+};
+
+export { step };

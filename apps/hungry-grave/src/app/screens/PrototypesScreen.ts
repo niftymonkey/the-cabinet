@@ -1,32 +1,44 @@
 // The base app's only screen: the list of prototypes. It knows nothing about
 // any prototype's insides; it renders the registry and routes into one.
 
-import type { Container as ContainerType } from "pixi.js";
-import { Container } from "pixi.js";
+import type { Container as ContainerType } from 'pixi.js';
+import { Container } from 'pixi.js';
 
-import { prototypeHash, PROTOTYPES } from "../../prototypes";
-import { MENU } from "../palette";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
+import { PROTOTYPES } from '../../prototypes';
+import { MENU } from '../palette';
+import type { ButtonChrome } from '../ui/Button';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
 
-export class PrototypesScreen extends Container {
-  /** Assets bundles required by this screen */
-  public static assetBundles = ["main"];
+/** The one way off the prototype list, owned by the driver in main.ts. */
+interface PrototypesScreenProps extends ButtonChrome {
+  // Opens one prototype, named by the id its registry entry carries.
+  onOpen(id: string): void;
+}
+
+class PrototypesScreen extends Container {
+  // Assets bundles required by this screen
+  public static assetBundles = ['main'];
 
   private readonly title: Label;
   private readonly tagline: Label;
   private readonly rows: { button: Button; blurb: Label }[];
   private readonly empty: Label | null = null;
+  /**
+   * The powers this showing was handed. The pool calls init() before the screen
+   * reaches the stage, so it is set before any row can be pressed.
+   */
+  private props!: PrototypesScreenProps;
 
   constructor() {
     super();
 
     this.title = new Label({
-      text: "PROTOTYPES",
+      text: 'PROTOTYPES',
       style: { fill: MENU.menuInk.hex, fontSize: 44, letterSpacing: 8 },
     });
     this.tagline = new Label({
-      text: "Throwaway builds that answer design questions. Play, learn, discard.",
+      text: 'Throwaway builds that answer design questions. Play, learn, discard.',
       style: { fill: MENU.menuDim.hex, fontSize: 16 },
     });
     this.rows = PROTOTYPES.map((entry) => {
@@ -35,11 +47,9 @@ export class PrototypesScreen extends Container {
         width: 420,
         height: 100,
         fontSize: 24,
+        playSound: (alias) => this.props.playButtonSound(alias),
       });
-      button.onPress.connect(() => {
-        // The router in main.ts observes the hash and shows the screen.
-        window.location.hash = prototypeHash(entry.id);
-      });
+      button.onPress.connect(() => this.props.onOpen(entry.id));
       const blurb = new Label({
         text: entry.blurb,
         style: { fill: MENU.menuDim.hex, fontSize: 14 },
@@ -48,7 +58,7 @@ export class PrototypesScreen extends Container {
     });
     if (PROTOTYPES.length === 0) {
       this.empty = new Label({
-        text: "No prototypes right now. The scaffold waits, blank on purpose.",
+        text: 'No prototypes right now. The scaffold waits, blank on purpose.',
         style: { fill: MENU.menuDim.hex, fontSize: 16 },
       });
       this.addChild(this.empty);
@@ -57,6 +67,10 @@ export class PrototypesScreen extends Container {
     const children: ContainerType[] = [this.title, this.tagline];
     for (const row of this.rows) children.push(row.button, row.blurb);
     this.addChild(...children);
+  }
+
+  public init(props: PrototypesScreenProps) {
+    this.props = props;
   }
 
   public resize(width: number, height: number) {
@@ -71,6 +85,8 @@ export class PrototypesScreen extends Container {
     this.empty?.position.set(cx, height * 0.4);
   }
 
-  /** Reset screen, after hidden */
+  // Reset screen, after hidden
   public reset() {}
 }
+
+export { PrototypesScreen };

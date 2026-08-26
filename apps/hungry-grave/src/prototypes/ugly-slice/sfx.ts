@@ -4,14 +4,14 @@
 // eat-chime fires on every swallow even before any bell line is drawn
 // (decision-log entry 3.2).
 
-import { engine } from "../../app/getEngine";
+import { engine } from '../../app/getEngine';
 
 let ctx: AudioContext | null = null;
 
 export function initSfx(): void {
   if (ctx === null) ctx = new AudioContext();
   // resume() rejects before the first user gesture; the next call retries.
-  if (ctx.state === "suspended") ctx.resume().catch(() => undefined);
+  if (ctx.state === 'suspended') ctx.resume().catch(() => undefined);
 }
 
 function blip(
@@ -21,7 +21,7 @@ function blip(
   type: OscillatorType,
   slideTo?: number,
 ): void {
-  if (ctx === null || ctx.state !== "running") return;
+  if (ctx === null || ctx.state !== 'running') return;
   const level =
     gainPeak *
     engine().audio.getMasterVolume() *
@@ -44,24 +44,24 @@ function blip(
 
 export const sfx = {
   chime(): void {
-    blip(660, 0.12, 0.12, "sine", 880);
+    blip(660, 0.12, 0.12, 'sine', 880);
   },
   bell(): void {
-    blip(330, 0.4, 0.18, "triangle", 220);
+    blip(330, 0.4, 0.18, 'triangle', 220);
   },
   belch(): void {
-    blip(140, 0.5, 0.28, "sawtooth", 55);
+    blip(140, 0.5, 0.28, 'sawtooth', 55);
   },
   hit(): void {
-    blip(180, 0.15, 0.2, "square", 90);
+    blip(180, 0.15, 0.2, 'square', 90);
   },
   levelUp(): void {
-    blip(520, 0.2, 0.14, "triangle", 1040);
+    blip(520, 0.2, 0.14, 'triangle', 1040);
   },
   feast(): void {
-    blip(220, 0.6, 0.24, "triangle", 660);
+    blip(220, 0.6, 0.24, 'triangle', 660);
   },
   sealed(): void {
-    blip(200, 1.2, 0.28, "sawtooth", 40);
+    blip(200, 1.2, 0.28, 'sawtooth', 40);
   },
 };

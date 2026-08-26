@@ -1,15 +1,14 @@
-import { Container } from "pixi.js";
+import { Container } from 'pixi.js';
 
-import type { RunEnding } from "../../game/run";
-import { engine } from "../getEngine";
-import { MENU } from "../palette";
-import type { FaultSummary, RunSummary } from "../runHandoff";
-import { runHandoff } from "../runHandoff";
-import { saveTapeFile, tapeFileName } from "../tapeExport";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
-import { bindKeyPress } from "../utils/bindKeyPress";
-import { GameScreen } from "./game/GameScreen";
+import type { RunEnding } from '../../game/run';
+import { MENU } from '../palette';
+import { runHandoff } from '../runHandoff';
+import type { FaultSummary, RunSummary } from '../runSummary';
+import { saveTapeFile, tapeFileName } from '../tapeExport';
+import type { ButtonChrome } from '../ui/Button';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+import { bindKeyPress } from './keyBinding';
 
 /**
  * What the end screen says happened. Sealed shut is ADR 0003's death and the
@@ -18,12 +17,12 @@ import { GameScreen } from "./game/GameScreen";
  * victory the player sees, so it does not admit to being one.
  */
 const ENDING_TITLE: Record<RunEnding, string> = {
-  sealed: "SEALED SHUT",
-  victory: "THE STAGE SURVIVED",
+  sealed: 'SEALED SHUT',
+  victory: 'THE STAGE SURVIVED',
 };
 
-/** A run the player ended themselves, which is neither ending. */
-const ABANDONED_TITLE = "THE RUN IS OVER";
+// A run the player ended themselves, which is neither ending.
+const ABANDONED_TITLE = 'THE RUN IS OVER';
 
 /**
  * A run the instrument stopped (ADR 0017 ruling 2). No new screen: the fatal
@@ -34,7 +33,7 @@ const ABANDONED_TITLE = "THE RUN IS OVER";
  * Minecraft's fatal-error state, distinct from both death and quit because the
  * player's next action differs.
  */
-const FAULTED_TITLE = "THE GAME BROKE";
+const FAULTED_TITLE = 'THE GAME BROKE';
 
 /**
  * The fault line's size, half a step under the menu's 18. The widest identity
@@ -43,7 +42,7 @@ const FAULTED_TITLE = "THE GAME BROKE";
  * margin. screenLifecycle.test.ts holds every identity in the closed list
  * against the stage at a seven-digit tick.
  */
-export const FAULT_FONT_SIZE = 16;
+const FAULT_FONT_SIZE = 16;
 
 /**
  * Which fault stopped the run and its first tick, split onto two lines: as one
@@ -51,30 +50,36 @@ export const FAULT_FONT_SIZE = 16;
  * clips both ends on a 390-unit stage and drops the tick number, and the tick
  * is half of what filing a bug from a phone screenshot needs.
  */
-export function faultCaption(fault: FaultSummary): string {
+const faultCaption = (fault: FaultSummary): string => {
   return `FAULT ${fault.identity}\nAT TICK ${fault.firstTick}`;
-}
+};
 
 /**
  * Which title the handed-off run earns. A fault outranks an ending: when both
  * exist the run's numbers were taken past the moment the instrument declared
  * it broken, and the trailer's stop already says faulted for the same reason.
  */
-function titleFor(summary: RunSummary | null): string {
+const titleFor = (summary: RunSummary | null): string => {
   if (summary === null) return ABANDONED_TITLE;
   if (summary.fault !== null) return FAULTED_TITLE;
   return summary.ending !== null
     ? ENDING_TITLE[summary.ending]
     : ABANDONED_TITLE;
+};
+
+/** The one way off the end screen, owned by the driver in main.ts. */
+interface EndScreenProps extends ButtonChrome {
+  // The next run RISE AGAIN starts. Its rejection is what releases the guard below.
+  onRiseAgain(): Promise<void>;
 }
 
 /**
  * The screen a run ends on. Render only: it reports the run the game screen
  * recorded and offers another one.
  */
-export class EndScreen extends Container {
+class EndScreen extends Container {
   // Assets bundles required by this screen
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   private readonly title: Label;
   private readonly seedLabel: Label;
@@ -95,6 +100,11 @@ export class EndScreen extends Container {
   private readonly saveButton: Button;
   private releaseKeys: (() => void) | null = null;
   private rising = false;
+  /**
+   * The powers this showing was handed. The pool calls init() before the screen
+   * reaches the stage, so it is set before any handler below can run.
+   */
+  private props!: EndScreenProps;
 
   constructor() {
     super();
@@ -114,23 +124,25 @@ export class EndScreen extends Container {
     // renderer, and a diagnostic readout wears the diagnostic face.
     this.faultLabel = new Label({
       style: {
-        fontFamily: "monospace",
+        fontFamily: 'monospace',
         fill: MENU.menuDim.hex,
         fontSize: FAULT_FONT_SIZE,
       },
     });
     this.againButton = new Button({
-      text: "RISE AGAIN",
+      text: 'RISE AGAIN',
       width: 300,
       height: 100,
       fontSize: 24,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.againButton.onPress.connect(() => this.riseAgain());
     this.saveButton = new Button({
-      text: "SAVE TAPE",
+      text: 'SAVE TAPE',
       width: 300,
       height: 70,
       fontSize: 18,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.saveButton.onPress.connect(() => this.saveTape());
 
@@ -144,16 +156,20 @@ export class EndScreen extends Container {
     );
   }
 
+  public init(props: EndScreenProps) {
+    this.props = props;
+  }
+
   public prepare() {
     this.rising = false;
     const summary = runHandoff.read();
     this.title.text = titleFor(summary);
     const fault = summary === null ? null : summary.fault;
-    this.faultLabel.text = fault === null ? "" : faultCaption(fault);
-    this.seedLabel.text = summary ? `SEED ${summary.seed}` : "NO RUN RECORDED";
-    this.tickLabel.text = summary ? `${summary.ticks} TICKS` : "";
+    this.faultLabel.text = fault === null ? '' : faultCaption(fault);
+    this.seedLabel.text = summary ? `SEED ${summary.seed}` : 'NO RUN RECORDED';
+    this.tickLabel.text = summary ? `${summary.ticks} TICKS` : '';
     this.saveButton.visible = runHandoff.readTape() !== null;
-    this.releaseKeys = bindKeyPress("Enter", () => this.riseAgain());
+    this.releaseKeys = bindKeyPress('Enter', () => this.riseAgain());
   }
 
   public reset() {
@@ -186,13 +202,13 @@ export class EndScreen extends Container {
   private riseAgain() {
     if (this.rising) return;
     this.rising = true;
-    engine()
-      .navigation.showScreen(GameScreen)
-      .catch((error) => {
-        // A failed navigation releases the guard, or RISE AGAIN never fires
-        // again and the run cannot be left.
-        this.rising = false;
-        console.error(error);
-      });
+    this.props.onRiseAgain().catch((error) => {
+      // A failed navigation releases the guard, or RISE AGAIN never fires
+      // again and the run cannot be left.
+      this.rising = false;
+      console.error(error);
+    });
   }
 }
+
+export { faultCaption, EndScreen, FAULT_FONT_SIZE };
