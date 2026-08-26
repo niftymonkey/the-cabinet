@@ -5,7 +5,7 @@
  * The logic lives in src/dev, across measure.ts, framePerformance.ts and
  * replayTallies.ts, all of which carry mayImport: [] and may not touch node:fs.
  * So this shell reads the bytes, prints the report, and says why when the bytes
- * are not a tape.
+ * cannot be read or are not a tape.
  */
 
 import { readFileSync } from 'node:fs';
@@ -14,6 +14,26 @@ import { measure } from '../src/dev/measure';
 import type { DecodedTape } from '../src/tape/decode';
 import { decodeTape } from '../src/tape/decode';
 import { TapeFormatError } from '../src/tape/tapeFormatError';
+
+/**
+ * The file's bytes, or null once the path has been refused out loud.
+ *
+ * A path the filesystem will not open is an external failure and the person
+ * holding it is the nearest owner who can act, so they get the reason and the
+ * cost rather than a stack. Anything the read throws without a syscall behind
+ * it is a bug in this shell's own call and flies.
+ */
+const readOrRefuse = (path: string): Uint8Array | null => {
+  try {
+    return new Uint8Array(readFileSync(path));
+  } catch (error) {
+    if (!(error instanceof Error) || !('errno' in error)) throw error;
+    console.error(
+      `${path} could not be read (${error.message}); no measurement was taken`,
+    );
+    return null;
+  }
+};
 
 /**
  * The decoded tape, or null once the file has been refused out loud.
@@ -45,7 +65,12 @@ const main = (): void => {
     process.exitCode = 1;
     return;
   }
-  const decoded = decodeOrRefuse(path, new Uint8Array(readFileSync(path)));
+  const bytes = readOrRefuse(path);
+  if (bytes === null) {
+    process.exitCode = 1;
+    return;
+  }
+  const decoded = decodeOrRefuse(path, bytes);
   if (decoded === null) {
     process.exitCode = 1;
     return;

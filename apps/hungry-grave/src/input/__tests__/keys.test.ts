@@ -91,7 +91,9 @@ describe('KeySteer', () => {
 
     // A value persisted by an earlier build under the old 0.5x to 2.0x range
     // arrives here as a real input, and so does a hand-edited localStorage.
-    expect(new KeySteer({ multiplier: 2 }).command()).toEqual({ x: 0, y: 0 });
+    const persisted = new KeySteer({ multiplier: 2 });
+    persisted.press('ArrowRight');
+    expect(length(persisted.command())).toBeCloseTo(MULTIPLIER_MAX, 12);
   });
 
   it('releaseAll zeroes the command with keys still notionally held, which is the window-blur case', () => {

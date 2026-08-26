@@ -261,15 +261,21 @@ describe('the grave', () => {
     run.grave.size = SIZE_FLOOR;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
-    while (run.ending === null) {
+    // Bounded at the sibling test's 20 hits so a ladder that never ends fails
+    // the suite instead of hanging it, and the run's ending is what says the
+    // loop stopped for the reason this test is about.
+    let hits = 0;
+    while (run.ending === null && hits < 20) {
       hitGrave(run, 'contact');
       ageOut(run);
+      hits += 1;
       for (const line of WEAPON_LINES) {
         expect(run.levels[line]).toBeGreaterThanOrEqual(
           BIRTHRIGHT.includes(line) ? 1 : 0,
         );
       }
     }
+    expect(run.ending).not.toBeNull();
     for (const line of WEAPON_LINES) {
       expect(run.levels[line]).toBe(BIRTHRIGHT.includes(line) ? 1 : 0);
     }

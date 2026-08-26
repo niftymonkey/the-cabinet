@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SimEvent } from '../../events';
-import { FIELD_WIDTH } from '../../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import type { Mob, MobType } from '../../mobs';
 import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
@@ -293,6 +293,7 @@ describe('pushback arrives at level 4 (ADR 0005)', () => {
       { x: 4, y: state.grave.y },
       { x: FIELD_WIDTH - 4, y: state.grave.y },
       { x: state.grave.x, y: state.grave.y - 100 },
+      { x: state.grave.x, y: FIELD_HEIGHT - 4 },
     ]) {
       pushed.push(put(state, 'revenant', at.x, at.y));
     }
@@ -301,6 +302,7 @@ describe('pushback arrives at level 4 (ADR 0005)', () => {
       expect(mob.x).toBeGreaterThanOrEqual(-SPAWN_MARGIN);
       expect(mob.x).toBeLessThanOrEqual(FIELD_WIDTH + SPAWN_MARGIN);
       expect(mob.y).toBeGreaterThanOrEqual(-SPAWN_MARGIN);
+      expect(mob.y).toBeLessThanOrEqual(FIELD_HEIGHT + SPAWN_MARGIN);
     }
   });
 });

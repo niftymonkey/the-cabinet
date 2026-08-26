@@ -98,14 +98,16 @@ describe('saving a tape file', () => {
     expect(attached).toHaveLength(0);
   });
 
-  it('hands the sealed bytes out unchanged, never a re-encoding', () => {
+  it('hands the sealed bytes out unchanged, never a re-encoding', async () => {
+    // A tape is bytes, not text: a blob built from a re-encoded string is the
+    // same length for this body and still not the file the decoder can read.
     const bytes = new Uint8Array([72, 71, 84, 80, 9]);
 
     saveTapeFile(bytes, 'a.tape');
 
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     const blob = createObjectURL.mock.calls[0][0];
-    expect(blob.size).toBe(bytes.length);
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(bytes);
   });
 
   it('keeps the blob URL alive past the click, then revokes it', () => {

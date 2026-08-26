@@ -77,6 +77,11 @@ function fileHolding(name: string, contents: Uint8Array | string): string {
   return path;
 }
 
+/** A path in a directory of its own, with nothing written at it. */
+function pathWithNoFile(name: string): string {
+  return join(mkdtempSync(join(tmpdir(), 'hungry-grave-measure-')), name);
+}
+
 function runMeasure(...args: string[]) {
   return spawnSync(VITE_NODE, ['scripts/measure.ts', ...args], {
     cwd: APP,
@@ -146,6 +151,24 @@ describe('the measure tool', () => {
       // An uncaught stack is neither a repair nor a useful message.
       expect(result.stderr).not.toMatch(/^\s+at /m);
       expect(result.stderr).not.toContain('TapeFormatError:');
+    },
+    SUBPROCESS_BUDGET_MS,
+  );
+
+  it(
+    'refuses a path it cannot read with a reason, not a stack',
+    () => {
+      const path = pathWithNoFile('gone.tape');
+      const result = runMeasure(path);
+
+      // A mistyped or moved path is the commonest way to run this tool wrong,
+      // and the person holding it can only act on being told which path and why.
+      expect(result.status).toBe(1);
+      expect(printedReport(result.stdout)).toBeNull();
+      expect(result.stderr).toContain(path);
+      expect(result.stderr).toContain('no measurement was taken');
+      // An uncaught stack out of node:fs is neither a repair nor a message.
+      expect(result.stderr).not.toMatch(/^\s+at /m);
     },
     SUBPROCESS_BUDGET_MS,
   );

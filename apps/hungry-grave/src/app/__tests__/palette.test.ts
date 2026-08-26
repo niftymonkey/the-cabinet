@@ -528,9 +528,20 @@ describe('sprite separation (research 7.4)', () => {
   });
 });
 
-/** Which of LAYER_ORDER a sprite draws in, as an index. */
+/**
+ * Which of LAYER_ORDER a sprite draws in, as an index.
+ *
+ * A sprite this table does not place is a bug in the table, and it fails loudly
+ * here: a depth of -1 puts every other sprite above it, so backgroundsUnder
+ * hands back nothing and a contrast check over that empty set passes while
+ * checking no pair at all.
+ */
 function layerDepth(name: string): number {
-  return LAYER_ORDER.indexOf(SPRITE_LAYER[name]);
+  const depth = LAYER_ORDER.indexOf(SPRITE_LAYER[name]);
+  if (depth === -1) {
+    throw new Error(`${name} is in no layer SPRITE_LAYER names`);
+  }
+  return depth;
 }
 
 /** Every sprite colour a pair can be drawn over: the ones in layers strictly beneath its own. */

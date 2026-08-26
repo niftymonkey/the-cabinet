@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { SKULL_CAP } from '../../caps';
-import { FIELD_HEIGHT } from '../../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import { atan2 } from '../../math';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
@@ -142,7 +142,7 @@ describe('the fan (plan 6.3)', () => {
     for (const skull of volley) {
       if (!skull.alive) continue;
       expect(skull.x).toBeGreaterThan(0);
-      expect(skull.x).toBeLessThan(540);
+      expect(skull.x).toBeLessThan(FIELD_WIDTH);
     }
   });
 });
