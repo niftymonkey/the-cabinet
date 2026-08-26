@@ -3,15 +3,7 @@
 
 import type { RunEnding } from '../game/run';
 import type { TapeInputDevice, TapeIntegrity, TapeStop } from '../tape/tape';
-
-/**
- * How many tapes the rolling queue keeps, newest first, and how many more the
- * spared bin holds for faulted and unknown-stop runs, dashcam-style. Both are
- * named starting values, data to tune and never a rule, on the same terms as
- * RECORDER_CHECKPOINT_SPACING.
- */
-const STORE_KEPT_RECENT_TAPES = 20;
-const STORE_KEPT_SPARED_TAPES = 5;
+import { evictedRuns, newestFirst } from './tapeRetention';
 
 const TAPE_DB_NAME = 'hungry-grave-tapes';
 const TAPE_DB_VERSION = 1;
@@ -110,23 +102,6 @@ const openDatabase = (): Promise<IDBDatabase> =>
 const wholeRun = (runId: string): IDBKeyRange =>
   IDBKeyRange.bound([runId, -Infinity], [runId, Infinity]);
 
-/**
- * Whether a row rides the spared bin instead of the rolling queue: a faulted
- * run is the evidence the instrument exists for, and an unknown-stop run is
- * both the tab-closed reading and every run still being recorded, so neither
- * may be rolled over by ordinary play.
- */
-const spared = (row: StoredRunSummary): boolean =>
-  row.stop === 'unknown' ||
-  row.stop === 'faulted' ||
-  row.integrity === 'faulted';
-
-const newestFirst = (rows: StoredRunSummary[]): StoredRunSummary[] =>
-  [...rows].sort((a, b) => b.recordedAt - a.recordedAt);
-
-const beyond = (rows: StoredRunSummary[], keep: number): StoredRunSummary[] =>
-  newestFirst(rows).slice(keep);
-
 const concatenated = (parts: readonly Uint8Array[]): Uint8Array => {
   const total = parts.reduce((sum, part) => sum + part.length, 0);
   const bytes = new Uint8Array(total);
@@ -193,24 +168,13 @@ const createStore = (database: IDBDatabase): TapeStore => {
     }
   };
 
-  /**
-   * The dashcam loop: the rolling queue keeps its newest, and the spared bin
-   * (faulted and unknown-stop runs) keeps its own newest under its own smaller
-   * count, so ordinary play can never roll the evidence away.
-   */
+  // The dashcam loop's one write: the policy decides, the store applies.
   const evict = async (): Promise<void> => {
     const transaction = database.transaction(RUNS, 'readonly');
     const rows = (await settled(
       transaction.objectStore(RUNS).getAll(),
     )) as StoredRunSummary[];
-    const evicted = [
-      ...beyond(
-        rows.filter((row) => !spared(row)),
-        STORE_KEPT_RECENT_TAPES,
-      ),
-      ...beyond(rows.filter(spared), STORE_KEPT_SPARED_TAPES),
-    ];
-    for (const row of evicted) await remove(row.id);
+    for (const row of evictedRuns(rows)) await remove(row.id);
   };
 
   const list = async (): Promise<StoredRunSummary[]> => {
@@ -293,5 +257,5 @@ const openTapeStore = async (): Promise<TapeStore | null> => {
   }
 };
 
-export { openTapeStore, STORE_KEPT_RECENT_TAPES, STORE_KEPT_SPARED_TAPES };
+export { openTapeStore };
 export type { RunSummaryValues, StoredRunSummary, TapePart, TapeStore };

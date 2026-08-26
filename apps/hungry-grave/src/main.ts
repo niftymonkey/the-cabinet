@@ -1,4 +1,5 @@
-import { FpsMeter } from './app/FpsMeter';
+import { createFpsMeter } from './app/FpsMeter';
+import { FpsSampler } from './app/FpsSampler';
 import { setEngine } from './app/getEngine';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './game/field';
 import { PALETTE } from './app/palette';
@@ -6,7 +7,7 @@ import { resolveRoute } from './app/routes';
 import { LoadScreen } from './app/screens/LoadScreen';
 import { PrototypesScreen } from './app/screens/PrototypesScreen';
 import { TitleScreen } from './app/screens/TitleScreen';
-import { userSettings } from './app/utils/userSettings';
+import { userSettings } from './app/userSettings';
 import { CreationEngine, registerEnginePlugins } from './engine/engine';
 
 /**
@@ -42,11 +43,20 @@ const initEngine = async (): Promise<CreationEngine> => {
  * first, and holds however the screens are later reshuffled.
  */
 const attachFpsMeter = (engine: CreationEngine): void => {
-  const meter = new FpsMeter();
-  meter.zIndex = 1;
+  const meter = createFpsMeter();
+  meter.view.zIndex = 1;
   engine.stage.sortableChildren = true;
-  engine.stage.addChild(meter);
-  engine.ticker.add(meter.update, meter);
+  engine.stage.addChild(meter.view);
+
+  const sampler = new FpsSampler();
+  let shown: number | null = null;
+  engine.ticker.add((ticker) => {
+    // elapsedMS is the raw frame time; deltaMS is clamped and speed-scaled.
+    const reading = sampler.sample(ticker.elapsedMS);
+    if (reading === null || reading === shown) return;
+    shown = reading;
+    meter.render(reading);
+  });
 };
 
 /**

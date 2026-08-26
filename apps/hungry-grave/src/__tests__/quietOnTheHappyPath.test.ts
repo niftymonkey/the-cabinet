@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setEngine } from '../app/getEngine';
 import { fitField } from '../app/layout';
 import { playFor } from '../app/sound';
-import { userSettings } from '../app/utils/userSettings';
+import { userSettings } from '../app/userSettings';
 import { dodgePolicy, belchingPolicy, runPolicy } from '../dev/bot';
 import type { CreationEngine } from '../engine/engine';
 import { getResolution } from '../engine/utils/getResolution';

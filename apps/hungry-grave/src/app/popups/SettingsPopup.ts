@@ -4,17 +4,17 @@ import type { Text } from 'pixi.js';
 import { BlurFilter, Container, Sprite, Texture } from 'pixi.js';
 
 import { engine } from '../getEngine';
-import { Button } from '../ui/Button';
-import { Label } from '../ui/Label';
-import { RoundedBox } from '../ui/RoundedBox';
-import { SettingSlider } from '../ui/SettingSlider';
 import {
   KEYBOARD_SPEED_SLIDER_MAX,
   KEYBOARD_SPEED_SLIDER_MIN,
   keyboardSpeedFromSlider,
   sliderFromKeyboardSpeed,
-  userSettings,
-} from '../utils/userSettings';
+} from '../keyboardSpeedSlider';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+import { RoundedBox } from '../ui/RoundedBox';
+import { SettingSlider } from '../ui/SettingSlider';
+import { userSettings } from '../userSettings';
 import { PausePopup } from './PausePopup';
 
 // Popup for volume

@@ -12,7 +12,7 @@ import { decodeTape } from '../../tape/decode';
 import type { Playback, PlaybackResult } from '../../tape/playback';
 import { createPlayback } from '../../tape/playback';
 import type { Tape } from '../../tape/tape';
-import { meterLinePosition, METER_FONT_SIZE } from '../FpsMeter';
+import { meterLinePosition, METER_FONT_SIZE } from '../cornerReadout';
 import type { FieldPlacement } from '../layout';
 import {
   BOUNDARY_STROKE,

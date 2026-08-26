@@ -1,6 +1,6 @@
 /**
  * Screens are pooled and reused, which src/app/runHandoff.ts and
- * src/app/utils/bindKeyPress.ts both build on. It only holds if a hidden
+ * src/app/screens/keyBinding.ts both build on. It only holds if a hidden
  * screen goes back to the pool: without the return, every RISE AGAIN builds a
  * fresh screen and orphans the canvas-backed text textures of the old one.
  */

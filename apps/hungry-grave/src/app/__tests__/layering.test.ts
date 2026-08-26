@@ -11,7 +11,7 @@ import type { FaultIdentity } from '../../game/faults';
 import { FAULT_IDENTITIES, FAULT_SEVERITY } from '../../game/faults';
 import { MAX_LEVEL } from '../../game/lines/roster';
 import { SEED_LIMIT } from '../../game/run';
-import { METER_FONT_SIZE, meterLinePosition } from '../FpsMeter';
+import { METER_FONT_SIZE, meterLinePosition } from '../cornerReadout';
 import type { FieldPlacement } from '../layout';
 import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
 import type { LayerName } from '../screens/game/layering';

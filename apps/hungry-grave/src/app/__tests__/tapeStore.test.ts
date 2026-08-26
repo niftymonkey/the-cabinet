@@ -20,10 +20,10 @@ import {
 import type { TapeHeader, TapeTrailer } from '../../tape/tape';
 import { stopOf } from '../../tape/tape';
 import {
-  openTapeStore,
   STORE_KEPT_RECENT_TAPES,
   STORE_KEPT_SPARED_TAPES,
-} from '../tapeStore';
+} from '../tapeRetention';
+import { openTapeStore } from '../tapeStore';
 import type { RunSummaryValues, TapeStore } from '../tapeStore';
 
 const HEADER: TapeHeader = {

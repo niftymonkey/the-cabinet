@@ -735,6 +735,7 @@ const APP = resolve(import.meta.dirname, '..');
 const DRAWS_DURING_A_RUN = [
   join(APP, 'screens', 'game'),
   join(APP, 'FpsMeter.ts'),
+  join(APP, 'cornerReadout.ts'),
   join(APP, '..', 'main.ts'),
 ];
 

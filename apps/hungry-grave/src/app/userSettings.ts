@@ -1,6 +1,8 @@
-import { storage } from '../../engine/utils/storage';
-import { MULTIPLIER_MAX, MULTIPLIER_MIN } from '../../input/keys';
-import { engine } from '../getEngine';
+// The volumes and the keyboard speed the player set, kept across sessions.
+
+import { storage } from '../engine/utils/storage';
+import { MULTIPLIER_MAX, MULTIPLIER_MIN } from '../input/keys';
+import { engine } from './getEngine';
 
 // Keys for saved items in storage
 const KEY_VOLUME_MASTER = 'volume-master';
@@ -8,32 +10,10 @@ const KEY_VOLUME_BGM = 'volume-bgm';
 const KEY_VOLUME_SFX = 'volume-sfx';
 const KEY_KEYBOARD_SPEED = 'keyboard-speed';
 
-/**
- * The keyboard speed slider's own range. It runs in integer positions rather
- * than in the speed itself so the handle lands on a step: twentieths give 0.05
- * steps across ADR 0011's 0.75x to 1.5x.
- */
-const KEYBOARD_SPEED_SLIDER_MIN = 15;
-const KEYBOARD_SPEED_SLIDER_MAX = 30;
-const KEYBOARD_SPEED_SLIDER_DIVISOR = 20;
-
-// A slider position as a speed multiplier.
-const keyboardSpeedFromSlider = (value: number): number => {
-  return Math.round(value) / KEYBOARD_SPEED_SLIDER_DIVISOR;
-};
-
-// A speed multiplier back as a slider position, so the popup can show the stored setting.
-const sliderFromKeyboardSpeed = (speed: number): number => {
-  return Math.round(speed * KEYBOARD_SPEED_SLIDER_DIVISOR);
-};
-
 const clampKeyboardSpeed = (value: number): number => {
   return Math.min(Math.max(value, MULTIPLIER_MIN), MULTIPLIER_MAX);
 };
 
-/**
- * Persistent user settings of volumes.
- */
 class UserSettings {
   public init() {
     engine().audio.setMasterVolume(this.getMasterVolume());
@@ -104,10 +84,4 @@ class UserSettings {
 
 const userSettings = new UserSettings();
 
-export {
-  keyboardSpeedFromSlider,
-  sliderFromKeyboardSpeed,
-  KEYBOARD_SPEED_SLIDER_MIN,
-  KEYBOARD_SPEED_SLIDER_MAX,
-  userSettings,
-};
+export { userSettings };

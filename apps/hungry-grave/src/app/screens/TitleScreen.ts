@@ -6,7 +6,7 @@ import { MENU } from '../palette';
 import { PROTOTYPES_HASH } from '../routes';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
-import { bindKeyPress } from '../utils/bindKeyPress';
+import { bindKeyPress } from './keyBinding';
 import { GameScreen } from './game/GameScreen';
 
 /**

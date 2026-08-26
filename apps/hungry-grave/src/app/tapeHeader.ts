@@ -7,7 +7,7 @@ import { WITNESS_VERSION } from '../game/witness';
 import type { TapeHeader, TapeInputDevice } from '../tape/tape';
 import { RECORDER_CHECKPOINT_SPACING } from '../tape/recorder';
 import { engine } from './getEngine';
-import { userSettings } from './utils/userSettings';
+import { userSettings } from './userSettings';
 
 /**
  * What the author field holds until something in the game names an author.

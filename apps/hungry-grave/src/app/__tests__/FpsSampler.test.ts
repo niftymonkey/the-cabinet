@@ -1,7 +1,7 @@
 // The frame-rate measurement, driven by explicit elapsed values, never a clock.
 
 import { describe, expect, it } from 'vitest';
-import { FpsSampler } from '../fpsSampler';
+import { FpsSampler } from '../FpsSampler';
 
 /** Feeds whole frames of one length and returns every reading published. */
 function run(sampler: FpsSampler, frames: number, frameMs: number): number[] {

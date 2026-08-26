@@ -3,12 +3,12 @@ import { Container } from 'pixi.js';
 import type { RunEnding } from '../../game/run';
 import { engine } from '../getEngine';
 import { MENU } from '../palette';
-import type { FaultSummary, RunSummary } from '../runHandoff';
 import { runHandoff } from '../runHandoff';
+import type { FaultSummary, RunSummary } from '../runSummary';
 import { saveTapeFile, tapeFileName } from '../tapeExport';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
-import { bindKeyPress } from '../utils/bindKeyPress';
+import { bindKeyPress } from './keyBinding';
 import { GameScreen } from './game/GameScreen';
 
 /**
