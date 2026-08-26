@@ -53,9 +53,6 @@ export class Navigation {
   /** Application height */
   public height = 0;
 
-  /** Constant background view for all screens */
-  public background?: AppScreen;
-
   /** Current screen being displayed */
   public currentScreen?: AppScreen;
 
@@ -64,12 +61,6 @@ export class Navigation {
 
   public init(app: CreationEngine) {
     this.app = app;
-  }
-
-  /** Set the  default load screen */
-  public setBackground(ctor: AppScreenConstructor) {
-    this.background = new ctor();
-    this.addAndShowScreen(this.background);
   }
 
   /** Add screen to the stage, link update & resize functions */
@@ -186,7 +177,6 @@ export class Navigation {
     this.height = height;
     this.currentScreen?.resize?.(width, height);
     this.currentPopup?.resize?.(width, height);
-    this.background?.resize?.(width, height);
   }
 
   /**
@@ -227,7 +217,6 @@ export class Navigation {
   public blur() {
     this.currentScreen?.blur?.();
     this.currentPopup?.blur?.();
-    this.background?.blur?.();
   }
 
   /**
@@ -236,6 +225,5 @@ export class Navigation {
   public focus() {
     this.currentScreen?.focus?.();
     this.currentPopup?.focus?.();
-    this.background?.focus?.();
   }
 }
