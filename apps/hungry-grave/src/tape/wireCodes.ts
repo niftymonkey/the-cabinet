@@ -77,7 +77,7 @@ const ENDING_CODES: Readonly<Record<RunEnding, number>> = {
 const ABSENT_CODE = 0;
 
 /**
- * A fault's identity, written down as its own code map (ADR 0017).
+ * A fault's identity, written down as its own code map (ADR 0024).
  *
  * It is deliberately not the index of FAULT_IDENTITIES: an identity is
  * append-only from the first tape and outlives the check that raises it, so a

@@ -167,7 +167,7 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
 
   for (const seed of SEEDS) {
     it(`fires no invariant on seed ${seed}, which is the harness's own assertion`, () => {
-      // A check records a fault and returns rather than throwing (ADR 0017),
+      // A check records a fault and returns rather than throwing (ADR 0024),
       // so what the run recorded is read rather than the absence of a throw.
       // The tick count is what says the run really ran, and a seed that seals
       // inside the ramp still has to have run that far.

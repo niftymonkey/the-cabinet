@@ -284,7 +284,7 @@ describe('a tape that stopped mid-stream', () => {
   }
 
   it('decodes, and says it was cut off', () => {
-    // ADR 0018: one of the two shapes "too easy" takes is not dying but losing
+    // ADR 0026: one of the two shapes "too easy" takes is not dying but losing
     // interest and closing the tab, so a format that only yielded tapes for
     // finished runs would be blind to the failure it was built to find.
     const { tape, truncated } = decodeTape(cutAfterSecondCheckpoint());
@@ -407,7 +407,7 @@ describe('a tape a reader should refuse', () => {
   });
 
   it('refuses a section length longer than the buffer rather than allocating for it', () => {
-    // ADR 0018: the instrument route feeds arbitrary bytes from an arbitrary
+    // The instrument route feeds arbitrary bytes from an arbitrary
     // URL into this, and a replay file from a stranger is the classic vector.
     // The length is checked against the bytes in hand before one is read, so a
     // claim of four gigabytes costs nothing and yields the tape up to that

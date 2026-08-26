@@ -25,7 +25,7 @@ const ENDING_TITLE: Record<RunEnding, string> = {
 const ABANDONED_TITLE = 'THE RUN IS OVER';
 
 /**
- * A run the instrument stopped (ADR 0017 ruling 2). No new screen: the fatal
+ * A run the instrument stopped (ADR 0024). No new screen: the fatal
  * fault adds enough to this state to say the run stopped because the
  * instrument found a problem. A fatal fault is never a player death, so the
  * copy wears no sealing vocabulary and never reads as a game over, and it must

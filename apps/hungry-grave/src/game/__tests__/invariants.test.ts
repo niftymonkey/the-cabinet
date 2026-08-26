@@ -49,7 +49,7 @@ function leaveCorpse(state: RunState, mob: Mob) {
   return spawnCorpse(state, mob, row.corpsePayout, row.corpseTier);
 }
 
-describe('the fault list itself (ADR 0017)', () => {
+describe('the fault list itself (ADR 0024)', () => {
   it('carries its identity and its severity on every fault it records', () => {
     const nan = createRun(1);
     nan.grave.x = NaN;
@@ -115,7 +115,7 @@ function liveMob(state: RunState, x = 60, y = 100): Mob {
   return spawnMob(state, 'shambler', { x, y, vx: 0, vy: 1, index: 0 })!;
 }
 
-describe('every check for the tick runs (ADR 0017)', () => {
+describe('every check for the tick runs (ADR 0024)', () => {
   /**
    * A run broken in one recoverable way and three fatal ones, with the
    * recoverable break sitting fourth in the check order and every fatal one

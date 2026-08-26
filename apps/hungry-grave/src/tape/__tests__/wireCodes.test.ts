@@ -2,7 +2,7 @@
  * The tape's encodings, which harden the moment the first tape exists.
  *
  * Every one of these is pinned by name rather than by a member's position in
- * its union (ADR 0018 and ADR 0019). Reordering a union would otherwise change
+ * its union (ADR 0019). Reordering a union would otherwise change
  * what every tape ever written means, with no version bump and no diff anybody
  * reads as dangerous, which is exactly the failure the maps exist to prevent.
  */
@@ -86,7 +86,7 @@ describe("the tape's code maps", () => {
   });
 
   it("keeps the fault identity codes off the closed list's ordinals", () => {
-    // ADR 0017: an identity is append-only from the first tape and outlives the
+    // ADR 0024: an identity is append-only from the first tape and outlives the
     // check that raises it, so its code cannot be where the identity happens to
     // sit in FAULT_IDENTITIES today. The two agree by name and the codes are
     // written down, which is what lets the list be reordered without moving a

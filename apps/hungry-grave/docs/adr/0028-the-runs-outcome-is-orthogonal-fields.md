@@ -1,0 +1,5 @@
+# The run's outcome is orthogonal fields
+
+A tape's trailer records the outcome as separate, orthogonal fields rather than one status enum, because a summary status can contradict the fault information it summarises, while orthogonal fields cannot: faulted-but-continued is a faulted `integrity` with a `stop` that is not faulted, and faulted-and-aborted is a `stop` of faulted. `ending` says how the run ended: sealed, victory, or absent, and a fault is kept out of it because sealed is this game's word for death (Hungry Grave ADR 0017). `stop` says how the run stopped: finished, quit, faulted, or unknown. `integrity` says whether any invariant fired at all: clean, faulted, or unchecked (Hungry Grave ADR 0023 carries `unchecked`, which stays in the format forever for the tapes that hold it).
+
+Extracted from Hungry Grave ADR 0018 on 2026-08-26, decision unchanged. Ruled by Mark 2026-08-23; the argument is in [../design/analytics-and-replay-grill-2026-08-22.md](../design/analytics-and-replay-grill-2026-08-22.md).

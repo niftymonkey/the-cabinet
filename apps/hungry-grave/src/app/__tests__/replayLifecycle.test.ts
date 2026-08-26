@@ -147,7 +147,7 @@ function driveTo(screen: ReplayScreen, phase: string): void {
   expect(screen['session'].phase).toBe(phase);
 }
 
-describe('a played run opens in replay (dispatch 6b)', () => {
+describe('a played run opens in replay', () => {
   beforeEach(() => {
     keyHandlers.clear();
     canvasListeners.clear();

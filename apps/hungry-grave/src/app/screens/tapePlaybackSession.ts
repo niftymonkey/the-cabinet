@@ -17,8 +17,8 @@ import { REPLAY_LEAD_IN_TICKS } from './game/transients';
 
 /**
  * How many ticks a headless phase spends per rendered frame, for the
- * verification pre-pass and the fast-forward both. At ADR 0017's measured
- * figures, a bare tick at 17 to 25 microseconds plus always-on checks at 23 to
+ * verification pre-pass and the fast-forward both. At the figures #45 and #48 measured,
+ * a bare tick at 17 to 25 microseconds plus always-on checks at 23 to
  * 37, 120 ticks is five to eight milliseconds of a frame, and a full
  * 12,000-tick tape verifies in about a hundred frames. A named starting value,
  * data to tune and never a rule.
@@ -81,7 +81,7 @@ interface Session {
    * The verification pre-pass: the whole tape reproduced headless through the
    * one playback loop, stepwise so the loading posture can advance in chunks
    * across frames. Its verdict is exactly readBackForVerification's, being the
-   * same loop (#58); the readback seam itself stays what ADR 0020 says it is,
+   * same loop (#58); the readback seam itself stays what ADR 0033 says it is,
    * the recorder's proof of its own artifact, and is deliberately not imported
    * into a replay.
    */
@@ -133,7 +133,7 @@ const verifiedReadout = (
 
 /**
  * The original run's tick debt, stated beside the verified length. A missing
- * trailer is itself the reading (ADR 0018): the run's stop is unknown and so
+ * trailer is itself the reading (ADR 0026): the run's stop is unknown and so
  * is its debt, and saying so is the honest line.
  */
 const debtReadout = (tape: Tape): string => {

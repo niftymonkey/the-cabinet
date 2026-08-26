@@ -102,7 +102,7 @@ describe('the playback', () => {
   });
 
   it('reproduces a tape carrying a fatal fault to its end and reports the fault', () => {
-    // ADR 0017 and #58 ruling 5: a fault today's checks raise never stops the
+    // ADR 0024 and #58 ruling 5: a fault today's checks raise never stops the
     // loop. The invariant authority sets the stop reason, but a playback
     // reproduces every command a tape holds; truncating at the fault would
     // hide the ticks that carried it. The NaN command poisons the grave from
@@ -190,7 +190,7 @@ describe('the playback', () => {
   });
 
   it("answers a verification readback with the playback's verdict in the readback's own shape", () => {
-    // ADR 0020 still holds: readback is not replay. It is now a thin adapter
+    // ADR 0033 still holds: readback is not replay. It is now a thin adapter
     // over the one loop, and the fatal-fault tape is the case that tells the
     // adapter from a second loop: a loop of its own that read the stop reason
     // would truncate where this one reproduces to the end.

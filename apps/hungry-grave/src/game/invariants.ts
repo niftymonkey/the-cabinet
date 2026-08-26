@@ -441,7 +441,7 @@ interface StagePhase {
  * What the last check saw of the stage, so the two invariants that are about
  * change rather than about a single state have something to compare with.
  *
- * It is a field on Execution and never on RunState (ADR 0017). The WeakMap this
+ * It is a field on Execution and never on RunState (ADR 0025). The WeakMap this
  * replaced was giving lifetime away for free: the watch died with the run, and
  * every caller got correct stage history without knowing the mechanism existed.
  * Execution is held by a pooled screen, so the lifetime is now somebody's job.

@@ -81,7 +81,7 @@ interface Metrics {
   // Index N is the live mob count after N ticks, so index 0 is the empty starting field.
   readonly mobsAlivePerTick: readonly number[];
   readonly performance: PerformanceReport;
-  // The faults the tape carries: the original run's history, never rewritten (ADR 0017).
+  // The faults the tape carries: the original run's history, never rewritten (ADR 0024).
   readonly recordedFaults: readonly FaultObservation[];
   // What today's checks said about the reproduced run, kept a separate list.
   readonly readbackFaults: PlaybackResult['readbackFaults'];

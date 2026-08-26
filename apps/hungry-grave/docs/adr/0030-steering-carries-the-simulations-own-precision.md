@@ -1,0 +1,5 @@
+# Steering carries the simulation's own precision
+
+A recorded steering command is one `float32` per axis, two per command, the same single-precision rounding `math.ts` already applies inside the simulation (Hungry Grave ADR 0015), so no steering-specific quantisation grid exists anywhere in the pipeline. `int16` was rejected on range rather than resolution: the largest real command reaches 168.9 base-speeds, which forces a scale no finer than 1/128, whose diagonal error reaches roughly 1.2% in focus mode, permanent in every tape and asymmetric across the speed settings. Making the range fit instead needs an input-path clamp, and capping touch drag is the named dont-build Hungry Grave ADR 0011 was burned by, as the felt input lag on device. Exact `float64` was rejected on size, roughly 200KB packed per run against half that. The cost accepted is 8 bytes a tick against `int16`'s 4; the full error sweep lives in ADR 0018's git history.
+
+Extracted from Hungry Grave ADR 0018 on 2026-08-26, decision unchanged. Ruled by Mark 2026-08-23; the argument is in [../design/analytics-and-replay-grill-2026-08-22.md](../design/analytics-and-replay-grill-2026-08-22.md).

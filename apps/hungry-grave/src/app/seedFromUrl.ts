@@ -91,7 +91,7 @@ const ignoreLevels = (raw: string): null => {
  * buys nothing the measurement needs.
  *
  * It is a development and testing control and never a player-facing feature
- * (ADR 0020). It exists because the confirming measurement's stated condition
+ * (ADR 0022). It exists because the confirming measurement's stated condition
  * is a dense moment with the lines levelled, and no reachable run produces
  * one. Its behaviour belongs behind the instrumentation build's gate: a
  * player build must not honour it even typed by hand, which is a build-time

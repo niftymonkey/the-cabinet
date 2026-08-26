@@ -55,7 +55,7 @@ describe('the golden digest', () => {
     const { digest, faults } = runScenario();
     // The invariants over the scenario's scripted ticks are asserted here
     // because this is the only place left that reads them headlessly: a check
-    // records a fault and returns rather than throwing (ADR 0017), so nothing
+    // records a fault and returns rather than throwing (ADR 0024), so nothing
     // in this suite fails on a broken invariant unless a test looks.
     expect(faults.map((fault) => fault.identity)).toEqual([]);
     if (JSON.stringify(digest) !== JSON.stringify(GOLDEN)) {

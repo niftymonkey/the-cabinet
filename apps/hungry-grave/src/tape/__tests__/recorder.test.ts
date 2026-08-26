@@ -101,7 +101,7 @@ describe('the tape recorder', () => {
   });
 
   it('records exactly the commands the simulation consumed, quantised', () => {
-    // ADR 0018: the quantiser lives inside the authority, so the tape always
+    // ADR 0029: the quantiser lives inside the authority, so the tape always
     // holds what the simulation actually ran and never a caller's rounding.
     const run = createRun(SEED);
     const execution = createExecution(run);
@@ -160,7 +160,7 @@ describe('the tape recorder', () => {
   });
 
   it('takes no frame row when there is no recorder to write it into', () => {
-    // ADR 0018 ruling F: a run-less frame has no tape to be written into, so
+    // ADR 0032: a run-less frame has no tape to be written into, so
     // the seam hands the row to nothing rather than orphaning it.
     expect(() =>
       recordFrame(null, {
@@ -208,7 +208,7 @@ describe('the tape recorder', () => {
 
 describe('the trailer', () => {
   it('is absent until the stop, and an absent one reads as a stop of unknown', () => {
-    // ADR 0018: the trailer is written last on purpose, and a reader that finds
+    // ADR 0026: the trailer is written last on purpose, and a reader that finds
     // none reads unknown, which is the tab-closed case the instrument most
     // needs to see.
     const run = createRun(SEED);
@@ -242,7 +242,7 @@ describe('the trailer', () => {
   });
 
   it('keeps the ending and the stop as two facts', () => {
-    // ADR 0018: a fault is not an ending, so a run stopped by one still says it
+    // ADR 0028: a fault is not an ending, so a run stopped by one still says it
     // ended neither way.
     const run = createRun(SEED);
     const execution = createExecution(run);
@@ -303,7 +303,7 @@ describe('the trailer', () => {
   });
 
   it("carries the run's discarded ticks, which the body cannot show", () => {
-    // ADR 0018: a body holds only executed ticks, so a 12,000-tick run recorded
+    // A body holds only executed ticks, so a 12,000-tick run recorded
     // over 400 stuttering seconds is byte-identical to one recorded over 200
     // smooth ones without this.
     const run = createRun(SEED);

@@ -17,7 +17,7 @@ const PROTOTYPES_HASH = '#/prototypes';
 const DIGEST_HASH = '#/digest';
 
 /**
- * The instrument route: a tape rendered at a chosen tick (ADR 0020). It is for
+ * The instrument route: a tape rendered at a chosen tick (#49). It is for
  * the agent and for development, and it stays that; the shipped player route
  * is reserved as #/watch and deliberately not built, so a player-facing
  * feature is never built on a debug URL.

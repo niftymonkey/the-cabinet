@@ -1,8 +1,8 @@
 /**
- * VERIFICATION READBACK, AND NOT REPLAY (ADR 0020).
+ * VERIFICATION READBACK, AND NOT REPLAY (ADR 0033).
  *
  * These tests prove that a newly recorded tape decodes and deterministically
- * reproduces. They prove nothing about the replay feature, which is 6b's, and
+ * reproduces. They prove nothing about the player-facing replay feature, and
  * no replay story or acceptance criterion is satisfied by any of them passing.
  *
  * Authored from ADR 0019's refusal rule and #48's testing decisions: a tape
@@ -304,7 +304,7 @@ describe('verification readback', () => {
   });
 
   it("reports the tape's own faults without rewriting them, and today's checks separately", () => {
-    // ADR 0017: recorded faults are the original run's history. Invariant
+    // ADR 0024: recorded faults are the original run's history. Invariant
     // definitions and severity policy both change, so a readback must never
     // merge what the tape says with what the checks say now.
     const tape = recordARun();

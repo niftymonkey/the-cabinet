@@ -13,23 +13,9 @@ type VerificationReadbackResult = PlaybackResult;
  * checkpoint the body reaches, through the one playback loop (#58). The
  * verdict is the playback's, under this seam's own name.
  *
- * VERIFICATION READBACK IS NOT REPLAY (ADR 0020, and it is quoted rather than
- * paraphrased).
- *
- * - Verification readback is not the replay feature.
- * - It exists only to prove that a newly recorded tape can be decoded and
- *   deterministically reproduced.
- * - Full replay remains owned by 6b.
- * - No 6b replay story, issue, acceptance criterion or other obligation may be
- *   treated as satisfied by the existence of verification readback.
- * - Future work must not infer that replay exists merely because internal
- *   readback primitives do.
- *
- * Amended 2026-08-26: 6b has delivered, and the ownership bullet above is
- * discharged rather than transferred. The player-facing half, the reserved
- * `#/watch` screen and getting a tape out of one browser and into another, is
- * owned by #49, and no #49 obligation may be treated as satisfied by
- * verification readback or the instrument route existing.
+ * VERIFICATION READBACK IS NOT REPLAY (ADR 0033). It satisfies no
+ * player-facing replay obligation, and real playback machinery beside this
+ * wrapper must not be read as the player feature existing; that half is #49's.
  *
  * What it proves is that the artifact the recorder just wrote is sound: that it
  * decodes, that its witness recomputes, and that the same tape gives the same

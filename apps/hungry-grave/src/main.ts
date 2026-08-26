@@ -212,7 +212,7 @@ const showRuns = async (engine: CreationEngine): Promise<void> => {
   });
 };
 
-/** One tape, rendered at the tick its URL asked for (ADR 0020). */
+/** One tape, rendered at the tick its URL asked for. */
 const showReplay = async (engine: CreationEngine): Promise<void> => {
   const { ReplayScreen } = await import('./app/screens/ReplayScreen');
   await engine.navigation.showScreen(ReplayScreen, {

@@ -32,7 +32,7 @@ type TickListener = (
  * Told when a tick broke one or more invariants, with the tick's whole fault
  * set rather than a single failure.
  *
- * It is a notification and never the decider (ADR 0017). The authority sets the
+ * It is a notification and never the decider. The authority sets the
  * stop reason itself, so which build constructed the Execution cannot decide
  * what a tape records, and a handler may not stop or continue a run.
  */
@@ -202,7 +202,7 @@ const executeTick = (
   const consumed = quantiseCommand(command);
   const events = step(execution.run, consumed);
   // Unconditionally: the checks are always on in every build, and there is
-  // deliberately no off-switch (ADR 0017).
+  // deliberately no off-switch (ADR 0023).
   observeFaults(execution);
   notifyListeners(execution, consumed, events);
   return events;
@@ -213,20 +213,20 @@ const executeTick = (
  * fault identity rather than once per tick.
  *
  * A debugger statement halts on the exact frame when devtools are open and is
- * inert when they are not, which is the "stopped at the moment rather than told
- * later" that ADR 0017's word "crashes" was reaching for. A real throw would
+ * inert when they are not: the developer is stopped at the moment rather than
+ * told later. A real throw would
  * leave executeTick, unwind through advance and the game screen, and reach
- * pixi's Ticker.update, which has no try/catch: the frozen canvas ADR 0017
- * opens with, now reachable in the build a developer actually uses, with no
+ * pixi's Ticker.update, which has no try/catch: the frozen canvas ADR 0024
+ * names as the bug, now reachable in the build a developer actually uses, with no
  * clean stop and no end state. It is also unnecessary, because a fatal fault
  * already stops the run through the authority, and a handler that threw would
  * be changing the outcome onBroken is forbidden from changing.
  *
  * Once per identity is what keeps that promise in practice. onBroken is
- * notified on every tick a fault fires, and ADR 0017 makes a persistent
- * recoverable fault the normal case rather than an edge, so halting per tick
+ * notified on every tick a fault fires, and a persistent
+ * recoverable fault is the normal case rather than an edge, so halting per tick
  * re-breaks on the next frame the moment a developer resumes and reads as a
- * stop in the build ruling H exists to keep running. The repeats are not lost:
+ * stop in the build this handler exists to keep running. The repeats are not lost:
  * the Execution's fault record carries the count. The de-duplication is the
  * loudness axis and never the severity one, and the set lives as long as the
  * module, so an identity halts on its first sighting and reports itself once.
@@ -246,7 +246,7 @@ const createDevBrokenHandler = (): BrokenHandler => {
         `sim fault on tick ${state.tick}, ${fault.identity} (${fault.severity}): ${fault.detail}`,
       );
     }
-    // eslint-disable-next-line no-debugger -- ADR 0017 ruling H: the dev handler halts here and never throws.
+    // eslint-disable-next-line no-debugger -- ADR 0024: the dev handler halts here and never throws.
     debugger;
   };
 };

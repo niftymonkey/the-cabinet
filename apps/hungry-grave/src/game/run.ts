@@ -151,7 +151,7 @@ const birthrightLevels = (): Record<WeaponLine, number> => {
 };
 
 /**
- * Every line at one level, which is the loadout pin's shape (ADR 0020): the
+ * Every line at one level, which is the loadout pin's shape: the
  * pin exists so a measurement's dense, levelled moment is reproducible, and
  * per-line syntax buys nothing that needs.
  */
@@ -186,7 +186,7 @@ const isBirthrightLevels = (
  * aliased, because the rules mutate them in place as the run levels up. They
  * are in this signature for the same reason the size is: ?levels= pins them,
  * and a tape's header rebuilds a pinned run from the resolved record it
- * carries (ADR 0018).
+ * carries (ADR 0027).
  */
 const createRun = (
   seed: number = rollSeed(),

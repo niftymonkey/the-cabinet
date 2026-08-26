@@ -19,7 +19,7 @@ import type {
 /**
  * The checkpoint spacing the recorder writes on day one.
  *
- * It is a written value rather than a rule (ADR 0018 and ADR 0019). A reader
+ * It is a written value rather than a rule (ADR 0019). A reader
  * obeys whatever the tape's header says, never this constant, so a later
  * measurement can move the spacing without versioning the format and without
  * invalidating a single tape already recorded. The name says whose it is for
@@ -37,7 +37,7 @@ interface TapeRecorder {
    *
    * It holds the same objects the section holds rather than copies, so a
    * climbing tally is one write. A linear search of the section instead would
-   * be quadratic in the case ADR 0017 calls the normal one, a recoverable fault
+   * be quadratic in the normal case, a recoverable fault
    * that fires on every tick of a run with a frame row on every frame.
    */
   readonly faultRows: Map<FaultIdentity, FaultObservation>;

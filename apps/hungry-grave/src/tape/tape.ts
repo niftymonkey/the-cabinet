@@ -109,7 +109,7 @@ interface TapeCheckpoint {
 }
 
 /**
- * Why a frame is what it is, as the frame seam observed it (ADR 0018).
+ * Why a frame is what it is, as the frame seam observed it (ADR 0032).
  *
  * The list is closed over the states the seam can actually be in: live is a
  * frame that reached the simulation, and the other four name the guard

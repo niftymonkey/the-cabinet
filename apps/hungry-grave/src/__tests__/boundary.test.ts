@@ -74,12 +74,12 @@ const BOUNDARIES: Boundary[] = [
   },
   /**
    * The tape: what a run is recorded onto, and the verification readback that
-   * proves a tape decodes and reproduces (ADR 0018, ADR 0020).
+   * proves a tape decodes and reproduces (ADR 0018, ADR 0033).
    *
    * The root is deliberately not named replay. A module called src/replay
-   * holding only readback invites exactly the inference ADR 0020 exists to
+   * holding only readback invites exactly the inference ADR 0033 exists to
    * prevent, that replay already exists because primitives for reading a tape
-   * back do. Replay is 6b's and nothing here discharges any part of it.
+   * back do. Readback discharges no part of the player-facing replay obligation.
    *
    * It reaches src/game because it reproduces a run through the one execution
    * authority, and it reaches nothing else. Not src/dev, because the rig must

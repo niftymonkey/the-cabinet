@@ -573,7 +573,7 @@ describe('measure', () => {
   });
 
   it("keeps the tape's recorded faults and today's readback faults separate lists", () => {
-    // ADR 0017: recorded faults are the original run's history and a replay
+    // ADR 0024: recorded faults are the original run's history and a replay
     // never rewrites them; a faulted run is also excluded from the default
     // aggregate (ADR 0019).
     const tape = recordARun();

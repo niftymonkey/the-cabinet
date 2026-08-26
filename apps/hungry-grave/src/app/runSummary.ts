@@ -29,7 +29,7 @@ interface RunSummary {
   /**
    * The fatal fault that stopped the run, or null when the instrument did not
    * stop it. It rides here because the stop reason and the fault record live on
-   * Execution and never on witness-folded RunState (ADR 0017), so the ending
+   * Execution and never on witness-folded RunState (ADR 0024), so the ending
    * alone cannot tell a quit from a malfunction.
    */
   readonly fault: FaultSummary | null;

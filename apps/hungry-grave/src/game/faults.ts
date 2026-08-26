@@ -1,9 +1,9 @@
 // What a fault is and which identities one can carry: the closed vocabulary the
-// invariant harness records against and a tape's third section hardens (ADR 0017).
+// invariant harness records against and a tape's third section hardens (ADR 0024).
 
 /**
  * Every fault the invariant harness can record, as a closed append-only list
- * (ADR 0017).
+ * (ADR 0024).
  *
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
@@ -33,12 +33,12 @@ const FAULT_IDENTITIES = [
 // One member of the closed list above.
 type FaultIdentity = (typeof FAULT_IDENTITIES)[number];
 
-// Whether the run can safely carry on past a fault (ADR 0017).
+// Whether the run can safely carry on past a fault (ADR 0024).
 type FaultSeverity = 'fatal' | 'recoverable';
 
 /**
  * How safe continued execution is after each fault, by semantic safety and
- * never by how cosmetic the symptom looks (ADR 0017).
+ * never by how cosmetic the symptom looks (ADR 0024).
  *
  * Fatal, five checks and six identities. NaN spreads and every comparison
  * against it is false, so containment, culling and collision quietly stop

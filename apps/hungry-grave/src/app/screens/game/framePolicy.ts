@@ -1,4 +1,4 @@
-// Which frames the sim spends, and how much of a frame's elapsed time it spends (ADR 0018).
+// Which frames the sim spends, and how much of a frame's elapsed time it spends (ADR 0032).
 
 import type { FrameReason } from '../../../tape/tape';
 
@@ -39,7 +39,7 @@ interface Policy {
 }
 
 /**
- * Why this frame is what it is, in the guard's own order (ADR 0018).
+ * Why this frame is what it is, in the guard's own order (ADR 0032).
  *
  * This is the one enumeration of the hold conditions: the screen gates on the
  * reason this returns rather than re-reading the conditions, so a hold

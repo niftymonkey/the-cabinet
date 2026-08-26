@@ -38,7 +38,7 @@ const describeWhen = (recordedAt: number): string =>
 /**
  * One row's summary line: seed, recorded-at, device, ending, stop and
  * integrity, which are the trailer facts a reader needs before trusting the
- * run at all (ADR 0018). A null ending is a run that ended neither way, and a
+ * run at all (ADR 0028). A null ending is a run that ended neither way, and a
  * null integrity is a row whose trailer never arrived, which reads unsealed.
  */
 const describeRun = (row: StoredRunSummary): string =>
