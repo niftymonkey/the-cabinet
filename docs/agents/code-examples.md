@@ -162,7 +162,7 @@ const attachFpsMeter = (engine: CreationEngine): void => {
 
 ## Rule 3: powers arrive as props, intents go out (verified by Mark 2026-08-24, specimen `apps/hungry-grave/src/app/screens/TitleScreen.ts` `rise()` rewritten side by side)
 
-Rejected side by side: the module-level singleton accessor, pinned against the `engine()` accessor in `src/app/getEngine.ts` with its 23 call sites.
+Rejected side by side: the module-level singleton accessor, pinned against the `engine()` accessor in `src/app/getEngine.ts` with its 27 call sites.
 
 Superseded consequence: the record said removing `engine()` forces navigation onto screen factories and changes the screen pool contract. It does neither. What stands is the rule itself, that powers arrive as props at construction. What the consequence could not have known is that the seam was already in the pool: `Pool.get(data)` ends `item.init?.(data); return item;` (`pixi.js/lib/utils/pool/Pool.mjs:41`), `PoolGroup.get(Class, data)` forwards it (`PoolGroup.mjs:32`), and `Pool.d.ts:8` types that argument as `Parameters<NonNullable<T['init']>>[0]`, so a screen's props type flows through the pool unchanged. Screens keep their class, their pool key and their `assetBundles` statics, and the powers arrive through `init(props)` rather than through the constructor below.
 
@@ -259,7 +259,7 @@ src/
 
 In this repo: the core is `src/game`, the satellites are `input`, `tape`, and `dev`, the shell is `src/app`, and the Pixi adapter is `src/engine`. That the engine could conceptually be swapped is a property the shape gives for free; it is recorded as a property, not a requirement.
 
-The shape is mechanical where it matters: `src/boundary.test.ts` fences core and satellites as an import allowlist. Known gap, recorded not decided: `app` (beyond `sound.ts`) and `engine` are unfenced today.
+The shape is mechanical where it matters: `src/__tests__/boundary.test.ts` fences core and satellites as an import allowlist. `app` and `app/ui` each carry a row of their own. Known gap, recorded not decided: `engine` is unfenced today.
 
 The verified picture:
 
@@ -281,10 +281,10 @@ Rejected side by side: per-module re-checking and defensive checking everywhere.
 
 How this repo measures up today:
 
-- Follows the three buckets: absence returns `null` (`src/game/lines/headstones.ts:81`); bugs throw uncaught (`src/game/rng.ts:98`).
-- Follows repair-by-origin in half: documents are rejected with a named error (`TapeFormatError`, `src/tape/decode.ts`); live inputs are repaired (`src/input/keys.ts:53`, `src/game/clock.ts:71`).
-- Follows containment: the sim never throws mid-tick; invariant faults end the run as `"faulted"` (`src/game/invariants.ts`, `src/app/runHandoff.ts:43`) with the faults carried in the ending.
-- **Violates nothing-abnormal-is-silent: repairs are silent.** `clampMultiplier` returns `1` and `clock` returns `0` with no trace anywhere.
+- Follows the three buckets: absence returns `null` (`src/game/lines/headstones.ts:79`); bugs throw uncaught (`src/game/rng.ts:103`).
+- Follows repair-by-origin: documents are rejected with a named error (`TapeFormatError`, `src/tape/decode.ts`); live inputs are repaired (`src/app/userSettings.ts:48`, `src/game/clock.ts:95`).
+- Follows containment: the sim never throws mid-tick. A check records a fault and returns, so every check for the tick runs; a fatal fault stops the execution as `'faulted'` and a recoverable one is recorded while the run carries on (`src/game/invariants.ts`, `src/game/execution.ts:156`, ADR 0017).
+- Follows nothing-abnormal-is-silent: every repair names what it repaired and what it cost (`src/app/userSettings.ts:51`, `src/game/clock.ts:67`, `src/app/seedFromUrl.ts:39`). Honest residue: `clampMultiplier` (`src/input/keys.ts:45`) still returns `1` for a non-finite value without a word, and it is the second clamp on a value `userSettings` already reported.
 
 ## Rule 9: abstraction appetite (verified by Mark 2026-08-24, schools compared side by side; guarded build-ahead form chosen over unguarded after the collision with the deletion test was shown)
 
@@ -300,9 +300,9 @@ interface Actor {
 // (loot?: LootTable fails the bar and stays out)
 ```
 
-## Rule 10: naming (verified by Mark 2026-08-24, specimens `src/game/swallow.ts`, `src/engine/utils/maths.ts` against `src/game/math.ts`, and `src/game/swallow.test.ts`, each written multiple ways side by side)
+## Rule 10: naming (verified by Mark 2026-08-24, specimens `src/game/swallow.ts`, `src/engine/utils/maths.ts` against `src/game/math.ts`, and `src/game/__tests__/swallow.test.ts`, each written multiple ways side by side)
 
-Rejected side by side: invented shorthand (`payLevel`) and minimal-context names (`levels.pay`); kind grouping (`engine/utils/maths.ts`, the counter-example grab-bag) and one file per export; entity naming at seams (`Food`) and kind decoration (`ISwallowable`, `RunStateData`); the ADR citation inside the test name (the repo's current shape) and function-anchored index names (`describe("swallow()")`).
+Rejected side by side: invented shorthand (`payLevel`) and minimal-context names (`levels.pay`); kind grouping (`engine/utils/maths.ts`, the counter-example grab-bag, since dropped as unimported by #59) and one file per export; entity naming at seams (`Food`) and kind decoration (`ISwallowable`, `RunStateData`); the ADR citation inside the test name (the repo's current shape) and function-anchored index names (`describe("swallow()")`).
 
 Confirmed concept module: `game/math.ts` is the sim's approximated-op gate (ADR 0015), a real concept with a reason to exist.
 
@@ -346,8 +346,7 @@ Confirmed instance of a kept why-comment: `math.ts`'s hypot paragraph, where the
 The verified example:
 
 ```ts
-/** The one verb: every payout in the game
-    arrives through a swallow. */
+// The one verb: every payout in the game arrives through a swallow.
 import ...
 
 /** Takes values, never an entity reference:
