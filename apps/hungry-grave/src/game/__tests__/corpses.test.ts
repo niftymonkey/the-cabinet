@@ -11,6 +11,7 @@ import { TICK_HZ } from '../clock';
 import {
   advanceCorpses,
   asSwallowable,
+  CORPSE_HALF_EXTENT,
   corpseHitbox,
   cullCorpses,
   DROP_HALF_EXTENT,
@@ -22,7 +23,7 @@ import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT } from '../field';
 import type { Mob, MobType } from '../mobs';
-import { MOB_TYPES, spawnMob } from '../mobs';
+import { damageMob, MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
 import { RAMP_ROWS } from '../stage/stage';
@@ -59,11 +60,21 @@ function corpseOf(state: RunState) {
   return live[0];
 }
 
+/**
+ * The corpse a dead mob leaves, spawned the way mobs.ts spawns it: the mob
+ * table is mobs.ts's, so a kill's payout and tier reach corpses.ts as values
+ * read off the dead mob's own row.
+ */
+function leaveCorpse(state: RunState, mob: Mob) {
+  const row = MOB_TYPES[mob.type];
+  return spawnCorpse(state, mob, row.corpsePayout, row.corpseTier);
+}
+
 describe("a corpse's drift (ADR 0004)", () => {
   it('has no velocity of its own, so the scroll is the only thing that moves it', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnCorpse(state, killAt(state, 'shambler', 60, 200));
+    leaveCorpse(state, killAt(state, 'shambler', 60, 200));
     const corpse = corpseOf(state);
     const from = corpse.y;
     const x = corpse.x;
@@ -79,7 +90,7 @@ describe("a corpse's drift (ADR 0004)", () => {
     // this going red.
     const state = quietRun();
     const step = stepping(state);
-    spawnCorpse(state, killAt(state, 'shambler', 60, FIELD_HEIGHT / 2));
+    leaveCorpse(state, killAt(state, 'shambler', 60, FIELD_HEIGHT / 2));
     const corpse = corpseOf(state);
 
     const events: SimEvent[] = [];
@@ -99,7 +110,7 @@ describe("a corpse's drift (ADR 0004)", () => {
 describe('freshness (ADR 0004)', () => {
   it('drains from 1 to 0 over FRESHNESS_SECONDS and never below', () => {
     const state = quietRun();
-    spawnCorpse(state, killAt(state, 'shambler', 60, 40));
+    leaveCorpse(state, killAt(state, 'shambler', 60, 40));
     const corpse = corpseOf(state);
     expect(corpse.freshness).toBe(1);
 
@@ -114,7 +125,7 @@ describe('freshness (ADR 0004)', () => {
 
   it('scales a payout down to the floor and never to zero', () => {
     const state = quietRun();
-    spawnCorpse(state, killAt(state, 'shambler', 60, 40));
+    leaveCorpse(state, killAt(state, 'shambler', 60, 40));
     const corpse = corpseOf(state);
     corpse.freshness = 0;
 
@@ -125,14 +136,14 @@ describe('freshness (ADR 0004)', () => {
 
   it('an empty corpse is taken under, and one leaving the bottom edge with value left is lost instead', () => {
     const empty = quietRun();
-    spawnCorpse(empty, killAt(empty, 'shambler', 60, 40));
+    leaveCorpse(empty, killAt(empty, 'shambler', 60, 40));
     const dying = corpseOf(empty);
     dying.freshness = 0.001;
     const expiring = stepping(empty)(STILL);
     expect(expiring.map((event) => event.type)).toContain('corpseExpired');
 
     const lost = quietRun();
-    spawnCorpse(lost, killAt(lost, 'shambler', 60, FIELD_HEIGHT - 2));
+    leaveCorpse(lost, killAt(lost, 'shambler', 60, FIELD_HEIGHT - 2));
     const leaving = corpseOf(lost);
     const stepLost = stepping(lost);
     const events: SimEvent[] = [];
@@ -163,12 +174,55 @@ describe('freshness (ADR 0004)', () => {
   });
 });
 
+describe('what a kill hands the corpse pool (#59)', () => {
+  it('takes the payout and the tier from the caller rather than reading the mob table', () => {
+    // The mob table belongs to mobs.ts, so a kill's two payout facts travel as
+    // values. Numbers no row carries are what say the lookup is gone from here
+    // rather than hidden behind a default.
+    const state = quietRun();
+    const mob = killAt(state, 'shambler', 60, 40);
+
+    spawnCorpse(state, mob, 999, 'rich');
+
+    const corpse = corpseOf(state);
+    expect(corpse.payout).toBe(999);
+    expect(corpse.tier).toBe('rich');
+    expect(corpse.x).toBe(60);
+    expect(corpse.y).toBe(40);
+  });
+
+  it('leaves the same corpse a kill through damageMob has always left', () => {
+    // The seam moved and the corpse a player dives for did not, field by field.
+    const state = quietRun();
+    const mob = spawnMob(state, 'revenant', {
+      x: 120,
+      y: 40,
+      vx: 0,
+      vy: 1,
+      index: 0,
+    })!;
+
+    damageMob(state, mob, MOB_TYPES.revenant.hp, 'bell');
+
+    const corpse = corpseOf(state);
+    expect(corpse.payout).toBe(MOB_TYPES.revenant.corpsePayout);
+    expect(corpse.tier).toBe(MOB_TYPES.revenant.corpseTier);
+    expect(corpse.x).toBe(120);
+    expect(corpse.y).toBe(40);
+    expect(corpse.freshness).toBe(1);
+    expect(corpse.kind).toBe('corpse');
+    expect(corpse.decays).toBe(true);
+    expect(corpse.line).toBeUndefined();
+    expect(corpse.halfExtent).toBe(CORPSE_HALF_EXTENT);
+  });
+});
+
 describe('what a corpse shows and what it hides (tracer plan section 4)', () => {
   it('holds one size across mob types while the payout does not', () => {
     const state = quietRun();
-    spawnCorpse(state, killAt(state, 'shambler', 60, 40));
-    spawnCorpse(state, killAt(state, 'revenant', 120, 40));
-    spawnCorpse(state, killAt(state, 'ghoul', 180, 40));
+    leaveCorpse(state, killAt(state, 'shambler', 60, 40));
+    leaveCorpse(state, killAt(state, 'revenant', 120, 40));
+    leaveCorpse(state, killAt(state, 'ghoul', 180, 40));
     const live = state.corpses.filter((corpse) => corpse.alive);
     expect(live).toHaveLength(3);
 
@@ -192,7 +246,7 @@ describe('what a corpse shows and what it hides (tracer plan section 4)', () => 
 
   it('converts to the value swallow.ts takes, and never hands out the entity', () => {
     const state = quietRun();
-    spawnCorpse(state, killAt(state, 'revenant', 60, 40));
+    leaveCorpse(state, killAt(state, 'revenant', 60, 40));
     const corpse = corpseOf(state);
     corpse.freshness = 0.5;
     const food = asSwallowable(corpse);
@@ -233,7 +287,7 @@ describe('a drop on the food pool (plan 6.9)', () => {
     // already gone the drop's own top edge is still on the field. The two
     // standing at the same y is the whole test: no single extent can send them
     // different ways, so the cull is reading each record's own.
-    spawnCorpse(state, killAt(state, 'shambler', 240, 300));
+    leaveCorpse(state, killAt(state, 'shambler', 240, 300));
     const corpse = state.corpses.find((each) => each.kind === 'corpse')!;
     drop.y = FIELD_HEIGHT + DROP_HALF_EXTENT;
     corpse.y = FIELD_HEIGHT + DROP_HALF_EXTENT;
@@ -285,10 +339,10 @@ describe('the eviction policy never takes treasure (plan 6.9)', () => {
     const drop = state.corpses.find((corpse) => corpse.kind === 'drop')!;
     const victim = killAt(state, 'shambler', 50, 50);
     while (state.corpses.filter((corpse) => corpse.alive).length < CORPSE_CAP) {
-      spawnCorpse(state, victim);
+      leaveCorpse(state, victim);
     }
 
-    spawnCorpse(state, victim);
+    leaveCorpse(state, victim);
     expect(drop.alive).toBe(true);
     expect(drop.kind).toBe('drop');
   });
@@ -299,7 +353,7 @@ describe('the eviction policy never takes treasure (plan 6.9)', () => {
       spawnDrop(state, 100, 100, 'bell');
     }
     const victim = killAt(state, 'shambler', 50, 50);
-    spawnCorpse(state, victim);
+    leaveCorpse(state, victim);
     expect(
       state.corpses.filter((corpse) => corpse.kind === 'drop'),
     ).toHaveLength(CORPSE_CAP);

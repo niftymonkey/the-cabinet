@@ -18,7 +18,7 @@ import {
 } from '../../../../game/corpses';
 import type { WeaponLine } from '../../../../game/lines/roster';
 import { WEAPON_LINES } from '../../../../game/lines/roster';
-import type { MobType } from '../../../../game/mobs';
+import type { Mob, MobType } from '../../../../game/mobs';
 import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../../../../game/mobs';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
@@ -61,7 +61,7 @@ function flickering(state: RunState, count: number): Corpse[] {
     mob.alive = false;
     dead.push(mob);
   }
-  for (const mob of dead) spawnCorpse(state, mob);
+  for (const mob of dead) leaveCorpse(state, mob);
   const wave = state.corpses.filter((corpse) => corpse.alive);
   for (const corpse of wave) corpse.freshness = 0.1;
   return wave;
@@ -89,6 +89,16 @@ function putShot(state: RunState, x: number, y: number) {
 function visibleScatters(layers: FieldLayers): number {
   const fire = layers.layer('mobFire').children as Graphics[];
   return fire.slice(MOB_FIRE_CAP).filter((each) => each.visible).length;
+}
+
+/**
+ * The corpse a dead mob leaves, spawned the way mobs.ts spawns it: the mob
+ * table is mobs.ts's, so a kill's payout and tier reach corpses.ts as values
+ * read off the dead mob's own row.
+ */
+function leaveCorpse(state: RunState, mob: Mob) {
+  const row = MOB_TYPES[mob.type];
+  return spawnCorpse(state, mob, row.corpsePayout, row.corpseTier);
 }
 
 describe('FieldRenderer', () => {
@@ -156,7 +166,7 @@ describe('FieldRenderer', () => {
     const state = createRun(1);
     const dead = put(state, 'shambler', 60, 100);
     dead.alive = false;
-    spawnCorpse(state, dead);
+    leaveCorpse(state, dead);
     const corpse = state.corpses.find((each) => each.alive)!;
     const slot = state.corpses.indexOf(corpse);
 
@@ -182,7 +192,7 @@ describe('FieldRenderer', () => {
     const state = createRun(1);
     const dead = put(state, 'shambler', 60, 100);
     dead.alive = false;
-    spawnCorpse(state, dead);
+    leaveCorpse(state, dead);
     const corpse = state.corpses.find((each) => each.alive)!;
     corpse.freshness = 0.05;
     const over = [0, 6, 12, 18].map((tick) =>
@@ -718,7 +728,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     const state = createRun(3);
     const dead = put(state, 'shambler', 60, 100);
     dead.alive = false;
-    spawnCorpse(state, dead);
+    leaveCorpse(state, dead);
     renderer.sync(state);
     const sprite = sprites(layers, 'corpses').find((each) => each.visible)!;
     return recordedInk(sprite)

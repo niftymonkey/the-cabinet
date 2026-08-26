@@ -15,12 +15,14 @@ import { SIZE_CEILING, SIZE_FLOOR } from '../../tuning';
 import {
   advanceHeadstones,
   headstoneAt,
+  makeStoneInert,
   MAX_STONES,
   ORBIT_TICKS,
   RING_CAPACITY,
   STONE_RECHARGE,
   STONE_STANDOFF,
   stoneCount,
+  stoneIsInert,
   STONES_BY_LEVEL,
 } from '../headstones';
 import { MAX_LEVEL } from '../roster';
@@ -197,6 +199,22 @@ describe('a stone that hits (plan 6.4)', () => {
     }
     advanceHeadstones(state);
     expect(state.lines.stoneRecharge[0]).toBe(0);
+  });
+
+  it('has its recharge written and read by the module that owns it', () => {
+    // The overlap pass in storm.ts asks and answers through this pair instead
+    // of indexing state.lines.stoneRecharge, so the array has one writer and
+    // the count, the tick down and the reset all read in one file.
+    const state = quietRun();
+    state.levels.headstones = 1;
+    expect(stoneIsInert(state, 0)).toBe(false);
+
+    makeStoneInert(state, 0);
+    expect(stoneIsInert(state, 0)).toBe(true);
+    expect(state.lines.stoneRecharge[0]).toBe(STONE_RECHARGE);
+
+    for (let tick = 0; tick < STONE_RECHARGE; tick++) advanceHeadstones(state);
+    expect(stoneIsInert(state, 0)).toBe(false);
   });
 
   it('keeps drawing while inert, because a spent defense the player cannot see is a lie', () => {

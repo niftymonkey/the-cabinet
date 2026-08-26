@@ -38,6 +38,16 @@ function fillMobs(state: RunState): void {
   }
 }
 
+/**
+ * The corpse a dead mob leaves, spawned the way mobs.ts spawns it: the mob
+ * table is mobs.ts's, so a kill's payout and tier reach corpses.ts as values
+ * read off the dead mob's own row.
+ */
+function leaveCorpse(state: RunState, mob: Mob) {
+  const row = MOB_TYPES[mob.type];
+  return spawnCorpse(state, mob, row.corpsePayout, row.corpseTier);
+}
+
 describe('the mob cap', () => {
   it('refuses a further spawn and removes nothing already live', () => {
     const state = quietRun();
@@ -84,7 +94,7 @@ describe('the corpse cap', () => {
   it('takes the oldest live corpse under, reports an eviction rather than an expiry, and gives the new corpse its slot', () => {
     const state = quietRun();
     for (let made = 0; made < CORPSE_CAP; made++) {
-      spawnCorpse(state, deadMob(state, 'shambler', 60, 40 + made));
+      leaveCorpse(state, deadMob(state, 'shambler', 60, 40 + made));
     }
     expect(state.corpses.filter((corpse) => corpse.alive)).toHaveLength(
       CORPSE_CAP,
@@ -93,7 +103,7 @@ describe('the corpse cap', () => {
     const slot = state.corpses.indexOf(oldest);
     const evictedId = oldest.id;
 
-    const events = spawnCorpse(state, deadMob(state, 'revenant', 300, 500));
+    const events = leaveCorpse(state, deadMob(state, 'revenant', 300, 500));
     expect(events).toEqual([
       { type: 'corpseEvicted', x: 60, y: 40, freshness: 1 },
     ]);
@@ -113,19 +123,19 @@ describe('the corpse cap', () => {
   it('drops by id and not by slot index, which a recycled slot is what proves', () => {
     const state = quietRun();
     for (let made = 0; made < CORPSE_CAP; made++) {
-      spawnCorpse(state, deadMob(state, 'shambler', 60, 40 + made));
+      leaveCorpse(state, deadMob(state, 'shambler', 60, 40 + made));
     }
     // Free the very first slot and refill it, so the lowest slot index now
     // holds the newest corpse in the pool.
     state.corpses[0].alive = false;
-    spawnCorpse(state, deadMob(state, 'shambler', 90, 90));
+    leaveCorpse(state, deadMob(state, 'shambler', 90, 90));
     expect(state.corpses[0].alive).toBe(true);
     const newestId = state.corpses[0].id;
 
     const oldest = oldestLive(state.corpses)!;
     expect(state.corpses.indexOf(oldest)).toBe(1);
 
-    spawnCorpse(state, deadMob(state, 'shambler', 120, 120));
+    leaveCorpse(state, deadMob(state, 'shambler', 120, 120));
     expect(state.corpses[0].id).toBe(newestId);
     expect(state.corpses[0].alive).toBe(true);
   });

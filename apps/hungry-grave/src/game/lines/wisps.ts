@@ -6,13 +6,6 @@ import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { cos, normalize, rotateToward, sin } from '../math';
-/**
- * This module may import only types from mobs.ts. Targeting reads a mob's
- * position and health off the Mob type and needs nothing at runtime, and an
- * import type is erased, so the import cannot become a cycle once mobs.ts holds
- * the overlap pass that reads this pool. A single value import would break that
- * silently at build time.
- */
 import type { Mob } from '../mobs';
 import type { RunState } from '../run';
 

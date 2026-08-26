@@ -13,17 +13,12 @@ import { advanceBell } from './lines/bell';
 import { advanceHeadstones } from './lines/headstones';
 import { advanceStream } from './lines/soulStream';
 import { advanceWisps } from './lines/wisps';
-import {
-  advanceMobs,
-  cullMobs,
-  cullShots,
-  mobHitbox,
-  resolveStorm,
-  shotHitbox,
-} from './mobs';
+import { cullShots, shotHitbox } from './mobFire';
+import { advanceMobs, cullMobs, mobHitbox } from './mobs';
 import { overlaps } from './overlap';
 import type { RunState } from './run';
 import { advanceStage } from './stage/stage';
+import { resolveStorm } from './storm';
 import { swallow } from './swallow';
 import { SCROLL_SPEED } from './tuning';
 

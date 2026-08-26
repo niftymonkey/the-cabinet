@@ -14,7 +14,7 @@ import { spawnCorpse } from '../corpses';
 import { stepping } from '../../dev/stepping';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { Mob } from '../mobs';
-import { SPAWN_MARGIN, spawnMob } from '../mobs';
+import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
 import type { RunState } from '../run';
 import { createRun } from '../run';
@@ -38,6 +38,16 @@ function faultsOn(state: RunState): readonly Fault[] {
 /** The identities of those faults, which is what most of this file asserts. */
 function brokenOn(state: RunState): FaultIdentity[] {
   return faultsOn(state).map((fault) => fault.identity);
+}
+
+/**
+ * The corpse a dead mob leaves, spawned the way mobs.ts spawns it: the mob
+ * table is mobs.ts's, so a kill's payout and tier reach corpses.ts as values
+ * read off the dead mob's own row.
+ */
+function leaveCorpse(state: RunState, mob: Mob) {
+  const row = MOB_TYPES[mob.type];
+  return spawnCorpse(state, mob, row.corpsePayout, row.corpseTier);
 }
 
 describe('the fault list itself (ADR 0017)', () => {
@@ -259,7 +269,7 @@ describe('the entity invariants (ADR 0013)', () => {
     const corpse = createRun(1);
     const dead = liveMob(corpse);
     dead.alive = false;
-    spawnCorpse(corpse, dead);
+    leaveCorpse(corpse, dead);
     corpse.corpses.find((each) => each.alive)!.freshness = NaN;
     expect(brokenOn(corpse)).toContain('no NaN');
   });
@@ -281,7 +291,7 @@ describe('the entity invariants (ADR 0013)', () => {
       const state = createRun(1);
       const dead = liveMob(state);
       dead.alive = false;
-      spawnCorpse(state, dead);
+      leaveCorpse(state, dead);
       state.corpses.find((each) => each.alive)!.freshness = value;
       expect(brokenOn(state)).toContain('freshness in range');
     }

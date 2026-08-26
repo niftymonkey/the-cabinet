@@ -1,60 +1,52 @@
 /**
- * The three mob types, their fire and their deaths (ADR 0016). Every sim test
- * here steps through the one execution authority (ADR 0017), and stepping()
- * fails the test on any fault the run records.
+ * The three mob types, how they move and how they die (ADR 0016). Every sim
+ * test here steps through the one execution authority (ADR 0017), and
+ * stepping() fails the test on any fault the run records.
  *
  * Magnitudes are the tuning dispatch's, so what is pinned here is the
  * derivations: a descent stated as a multiple of the scroll, a beat counted in
- * ARRIVE_TICKS, an arming rule stated as an index, and the ghoul's threat
- * stated as a pair of relations rather than as a speed.
+ * ARRIVE_TICKS, and the ghoul's threat stated as a pair of relations rather
+ * than as a speed.
  */
 
 import { describe, expect, it } from 'vitest';
 
-// The module's own text, as a Vite raw import rather than through node:fs, so
-// the source scan below stays inside the boundary src/boundary.test.ts holds.
-import mobsSource from '../mobs.ts?raw';
-
 import type { Stepper } from '../../dev/stepping';
 import { stepping } from '../../dev/stepping';
 import { fireBelch } from '../belch';
-import { advanceBell } from '../lines/bell';
-import {
-  RESERVOIR_CAPACITY,
-  SCROLL_SPEED,
-  TRASH_CORPSE_PAYOUT,
-} from '../tuning';
-import { TICK_HZ } from '../clock';
+import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT } from '../field';
 import { graveHitbox } from '../grave';
-import type { Mob } from '../mobs';
-import {
-  advanceMobs,
-  ARRIVE_TICKS,
-  damageMob,
-  hasEntered,
-  MOB_TYPES,
-  mobTellLit,
-  resolveStorm,
-  spawnMob,
-} from '../mobs';
-import { headstoneAt, STONE_DAMAGE, STONE_RECHARGE } from '../lines/headstones';
+import { advanceBell } from '../lines/bell';
+import { headstoneAt } from '../lines/headstones';
 import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import {
   advanceStream,
-  SKULL_DAMAGE,
   STREAM_INTERVAL,
   SURGE_INTERVAL,
   surgeStream,
 } from '../lines/soulStream';
-import { advanceWisps, launchWisps, WISP_DAMAGE } from '../lines/wisps';
-import type { TickCommand } from '../command';
+import { advanceWisps, launchWisps } from '../lines/wisps';
+import type { Mob } from '../mobs';
+import {
+  ARRIVE_TICKS,
+  damageMob,
+  hasEntered,
+  MOB_TYPES,
+  spawnMob,
+} from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
 import { RAMP_ROWS } from '../stage/stage';
 import type { SpawnOrder } from '../stage/templates';
 import { place } from '../stage/templates';
+import { resolveStorm } from '../storm';
+import {
+  RESERVOIR_CAPACITY,
+  SCROLL_SPEED,
+  TRASH_CORPSE_PAYOUT,
+} from '../tuning';
 
 /** A tick that only steers, which is every tick these tests are about. */
 function drift(x: number, y: number): TickCommand {
@@ -320,186 +312,6 @@ function ghoulRun(commitAt: number, contact: number): SimEvent[] {
   return events;
 }
 
-describe('the armed share (ADR 0016)', () => {
-  it('arms a mob when its group index modulo three is two, so no Drip of one or two is ever armed', () => {
-    for (const count of [1, 2, 3, 6]) {
-      const state = quietRun();
-      for (const at of place('drip', count, state.streams.spawns)) {
-        spawnMob(state, 'shambler', at);
-      }
-      const armed = state.mobs.filter((mob) => mob.alive && mob.armed);
-      expect(`drip of ${count}: ${armed.length}`).toBe(
-        `drip of ${count}: ${Math.floor(count / 3)}`,
-      );
-    }
-  });
-
-  it('arms every revenant and no ghoul', () => {
-    const state = quietRun();
-    for (const at of place('drip', 4, state.streams.spawns)) {
-      spawnMob(state, 'revenant', at);
-    }
-    expect(state.mobs.filter((mob) => mob.alive && mob.armed)).toHaveLength(4);
-
-    const ghouls = quietRun();
-    for (const at of place('drip', 9, ghouls.streams.spawns)) {
-      spawnMob(ghouls, 'ghoul', at);
-    }
-    expect(ghouls.mobs.filter((mob) => mob.alive && mob.armed)).toHaveLength(0);
-  });
-
-  it('indexes the share per arm on the V and the Pincer, so a mirrored template arms symmetrically', () => {
-    for (const template of ['v', 'pincer'] as const) {
-      const state = quietRun();
-      const orders = place(template, 6, state.streams.spawns);
-      for (const at of orders) spawnMob(state, 'shambler', at);
-      const live = state.mobs.filter((mob) => mob.alive);
-      const armedLeft = live.filter(
-        (mob, index) => mob.armed && index % 2 === 0,
-      );
-      const armedRight = live.filter(
-        (mob, index) => mob.armed && index % 2 === 1,
-      );
-      expect(`${template} ${armedLeft.length} ${armedRight.length}`).toBe(
-        `${template} 1 1`,
-      );
-    }
-  });
-
-  it('never lets an unarmed shambler fire', () => {
-    const state = quietRun();
-    const step = stepping(state);
-    spawnMob(state, 'shambler', order(200, 11, 0, 1, 0));
-    expect(only(state).armed).toBe(false);
-    expect(types(run(step, 600), 'mobFired')).toHaveLength(0);
-  });
-});
-
-describe('mob fire (ADR 0016 and ADR 0014)', () => {
-  it("lights a revenant's tell as it enters and lands its first shot at the end of the beat", () => {
-    const state = quietRun();
-    const step = stepping(state);
-    spawnMob(state, 'revenant', order(200, MOB_TYPES.revenant.halfHeight));
-    const mob = only(state);
-    expect(hasEntered(mob)).toBe(true);
-    expect(mobTellLit(mob)).toBe(true);
-
-    const before = run(step, ARRIVE_TICKS - 1);
-    expect(types(before, 'mobFired')).toHaveLength(0);
-    expect(mobTellLit(mob)).toBe(true);
-
-    expect(types(run(step, 1), 'mobFired')).toHaveLength(1);
-  });
-
-  it("puts the same tell lead in front of every shot over a revenant's whole pass", () => {
-    const state = quietRun();
-    const step = stepping(state);
-    spawnMob(state, 'revenant', order(200, MOB_TYPES.revenant.halfHeight));
-    const mob = only(state);
-    const lead = MOB_TYPES.revenant.fire.tellTicks;
-
-    const lit: number[] = [];
-    const fired: number[] = [];
-    for (let tick = 0; tick < 800 && mob.alive; tick++) {
-      const wasLit = mobTellLit(mob);
-      const events = step(STILL);
-      if (!wasLit && mobTellLit(mob)) lit.push(state.tick);
-      for (const event of events) {
-        if (event.type === 'mobFired') fired.push(state.tick);
-      }
-    }
-    expect(fired.length).toBeGreaterThan(3);
-    // The first tell lights before the first step, so the leads line up from
-    // the second shot on.
-    for (let shot = 1; shot < fired.length; shot++) {
-      expect(`lead before shot ${shot}: ${fired[shot] - lit[shot - 1]}`).toBe(
-        `lead before shot ${shot}: ${lead}`,
-      );
-    }
-  });
-
-  it('spreads a File of armed shamblers with a per-mob offset, so it does not fire as one volley', () => {
-    const state = quietRun();
-    for (const at of place('file', 9, state.streams.spawns)) {
-      spawnMob(state, 'shambler', at);
-    }
-    const armed = state.mobs.filter((mob) => mob.alive && mob.armed);
-    expect(armed.length).toBe(3);
-    expect(new Set(armed.map((mob) => mob.fireIn)).size).toBeGreaterThan(1);
-  });
-
-  it("aims at the grave's centre at the moment of firing and never changes direction after", () => {
-    const state = quietRun();
-    const step = stepping(state);
-    spawnMob(state, 'revenant', order(120, MOB_TYPES.revenant.halfHeight));
-    const mob = only(state);
-    run(step, ARRIVE_TICKS);
-
-    const shot = state.mobFire.find((each) => each.alive)!;
-    const dx = state.grave.x - mob.x;
-    const dy = state.grave.y - mob.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    const speed = MOB_TYPES.revenant.fire.shotSpeed;
-    expect(shot.vx).toBeCloseTo((dx / length) * speed, 9);
-    expect(shot.vy).toBeCloseTo((dy / length) * speed, 9);
-
-    const aimed = { vx: shot.vx, vy: shot.vy };
-    run(step, 20, RIGHT);
-    expect(shot.vx).toBe(aimed.vx);
-    expect(shot.vy).toBe(aimed.vy);
-  });
-
-  it('does not carry the scroll', () => {
-    const state = quietRun();
-    const step = stepping(state);
-    spawnMob(state, 'revenant', order(200, MOB_TYPES.revenant.halfHeight));
-    run(step, ARRIVE_TICKS);
-    const shot = state.mobFire.find((each) => each.alive)!;
-    const from = shot.y;
-    run(step, 10);
-    expect(shot.y - from).toBeCloseTo(10 * shot.vy, 9);
-  });
-
-  it("keeps every firing number on the type's row, the tell lead included", () => {
-    // A source scan, because the failure this guards against is a shared module
-    // constant, and no assertion over the table's values can see one.
-    for (const type of ['shambler', 'revenant'] as const) {
-      const fire = MOB_TYPES[type].fire;
-      for (const [field, value] of Object.entries(fire)) {
-        if (field === 'armedShare') continue;
-        expect(`${type}.${field} ${typeof value}`).toBe(
-          `${type}.${field} number`,
-        );
-      }
-      expect(fire.tellTicks).toBeGreaterThan(0);
-      expect(fire.interval).toBeGreaterThan(0);
-      expect(fire.shotSpeed).toBeGreaterThan(0);
-      expect(fire.shotHalfExtent).toBeGreaterThan(0);
-    }
-    expect(MOB_TYPES.shambler.fire.interval).not.toBe(
-      MOB_TYPES.revenant.fire.interval,
-    );
-
-    const declared = [
-      ...mobsSource.matchAll(
-        /^(?:export )?const ([A-Z][A-Z0-9_]*)\s*(?::[^=]*)?=\s*[^{[\n]/gm,
-      ),
-    ];
-    const firing = declared
-      .map((match) => match[1])
-      .filter((name) => /TELL|SHOT|INTERVAL|EXTENT|JITTER|ARMED/.test(name));
-    expect(firing).toEqual([]);
-  });
-
-  it('states the shot speed as a reaction budget: a shot from mid-field reaches the starting mark in about two seconds', () => {
-    const state = quietRun();
-    const distance = state.grave.y - FIELD_HEIGHT / 2;
-    const seconds = distance / (MOB_TYPES.revenant.fire.shotSpeed * TICK_HZ);
-    expect(seconds).toBeGreaterThan(1.5);
-    expect(seconds).toBeLessThan(2.5);
-  });
-});
-
 describe("a mob's death (ADR 0005)", () => {
   it('kills at or below zero health, frees the slot, leaves a corpse and reports the kill', () => {
     const state = quietRun();
@@ -632,64 +444,6 @@ describe('damage attribution (#48)', () => {
   });
 });
 
-describe('the storm meeting a mob (plan 6.7)', () => {
-  it('resolves skulls, then headstones, then wisps, so the same seed kills in the same order', () => {
-    // The order is stated rather than incidental: three pools read in one pass,
-    // and a different order is a different set of kills on the same seed.
-    const state = stormRun();
-    const skulled = putMob(state, 'shambler', 100, 100);
-    const stoned = stoneVictim(state);
-    const wisped = putMob(state, 'shambler', 300, 100);
-    putSkull(state, skulled.x, skulled.y);
-    putWisp(state, wisped.x, wisped.y);
-
-    const killed = resolveStorm(state)
-      .filter((event) => event.type === 'mobKilled')
-      .map((event) => (event.type === 'mobKilled' ? event.x : -1));
-    expect(killed).toEqual([]);
-    expect(skulled.hp).toBe(MOB_TYPES.shambler.hp - SKULL_DAMAGE);
-    expect(stoned.hp).toBe(MOB_TYPES.shambler.hp - STONE_DAMAGE);
-    expect(wisped.hp).toBe(MOB_TYPES.shambler.hp - WISP_DAMAGE);
-  });
-
-  it('consumes a skull and a wisp on the mob they hit, and never a stone', () => {
-    // A stone is an orbiting solid: it goes inert instead, so it can carry a
-    // mob out of the way rather than dying on it.
-    const state = stormRun();
-    const skulled = putMob(state, 'shambler', 100, 100);
-    const wisped = putMob(state, 'shambler', 300, 100);
-    const skull = putSkull(state, skulled.x, skulled.y);
-    const wisp = putWisp(state, wisped.x, wisped.y);
-    stoneVictim(state);
-
-    resolveStorm(state);
-    expect(skull.alive).toBe(false);
-    expect(wisp.alive).toBe(false);
-    expect(state.lines.stoneRecharge[0]).toBe(STONE_RECHARGE);
-  });
-
-  it('takes every death through damageMob, so a kill leaves a corpse and emits mobKilled with no second path', () => {
-    const state = stormRun();
-    const doomed = putMob(state, 'shambler', 100, 100);
-    doomed.hp = 1;
-    putSkull(state, doomed.x, doomed.y);
-
-    const events = resolveStorm(state);
-    expect(events.map((event) => event.type)).toContain('mobKilled');
-    expect(doomed.alive).toBe(false);
-    expect(state.corpses.filter((corpse) => corpse.alive)).toHaveLength(1);
-  });
-
-  it('leaves an inert stone doing nothing until it recovers', () => {
-    const state = stormRun();
-    const victim = stoneVictim(state);
-    resolveStorm(state);
-    const after = victim.hp;
-    for (let again = 0; again < 5; again++) resolveStorm(state);
-    expect(victim.hp).toBe(after);
-  });
-});
-
 describe("one swallow's whole burst payload never clears a wave (plan section 3)", () => {
   /**
    * The worst case at the ceiling, over the two waves the authored stage really
@@ -741,34 +495,4 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
       expect(mobs.filter((mob) => mob.alive).length).toBeGreaterThan(0);
     });
   }
-});
-
-describe('an armed mob that has passed the grave (plan 6.10)', () => {
-  it('does not fire, because a mob shooting upward at the player from behind reads as unfair', () => {
-    // Watched go red with the guard removed. Mobs are culled only past the
-    // bottom edge, so without it a mob at y=734 aims back up at a grave at 711.
-    const state = stormRun();
-    const behind = putMob(
-      state,
-      'revenant',
-      state.grave.x,
-      state.grave.y + state.grave.size + MOB_TYPES.revenant.halfHeight + 5,
-    );
-    behind.armed = true;
-    behind.fireIn = 1;
-
-    const events = advanceMobs(state);
-    expect(events.map((event) => event.type)).not.toContain('mobFired');
-    expect(state.mobFire.filter((shot) => shot.alive)).toHaveLength(0);
-  });
-
-  it('still fires while it is level with or above the grave', () => {
-    const state = stormRun();
-    const ahead = putMob(state, 'revenant', state.grave.x, state.grave.y - 100);
-    ahead.armed = true;
-    ahead.fireIn = 1;
-
-    const events = advanceMobs(state);
-    expect(events.map((event) => event.type)).toContain('mobFired');
-  });
 });

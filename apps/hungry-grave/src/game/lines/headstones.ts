@@ -96,9 +96,23 @@ const headstoneAt = (state: RunState, index: number): FieldPoint | null => {
 };
 
 /**
+ * Whether a stone is spent this tick and cannot bite. The recharge array is this
+ * module's own state: the overlap pass in storm.ts asks through this pair rather
+ * than indexing it, so the count, the tick down and the reset all read here.
+ */
+const stoneIsInert = (state: RunState, index: number): boolean => {
+  return state.lines.stoneRecharge[index] > 0;
+};
+
+// A stone that has just hit, sent inert for its recharge.
+const makeStoneInert = (state: RunState, index: number): void => {
+  state.lines.stoneRecharge[index] = STONE_RECHARGE;
+};
+
+/**
  * The orbit's phase and every stone's recharge, one tick on. The damage is not
- * here: a stone meeting a mob is an overlap, and mobs.ts owns the consequence of
- * a mob being hit.
+ * here: a stone meeting a mob is an overlap, and storm.ts owns the consequence
+ * of a mob being hit.
  */
 const advanceHeadstones = (state: RunState): SimEvent[] => {
   const lines = state.lines;
@@ -115,6 +129,8 @@ const advanceHeadstones = (state: RunState): SimEvent[] => {
 export {
   stoneCount,
   headstoneAt,
+  stoneIsInert,
+  makeStoneInert,
   advanceHeadstones,
   STONES_BY_LEVEL,
   RING_CAPACITY,

@@ -8,7 +8,6 @@ import type { SimEvent } from './events';
 import { FIELD_HEIGHT } from './field';
 import type { WeaponLine } from './lines/roster';
 import type { CorpseTier, Mob } from './mobs';
-import { MOB_TYPES } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
 import type { FoodKind, Swallowable } from './swallow';
@@ -177,19 +176,31 @@ const claimSlot = (state: RunState, events: SimEvent[]): Corpse | null => {
   return evicted;
 };
 
-// What a kill leaves behind: fully fresh, at the dead mob's centre, with no velocity of its own.
-const spawnCorpse = (state: RunState, mob: Mob): SimEvent[] => {
+/**
+ * What a kill leaves behind: fully fresh, at the dead mob's centre, with no
+ * velocity of its own.
+ *
+ * The payout and the tier arrive as values rather than being looked up off the
+ * mob table here. mobs.ts owns that table, so mobs.ts reads its own row and
+ * hands the two numbers over, which is the same rule events.ts already states
+ * for its payloads: values travel, entity references never do.
+ */
+const spawnCorpse = (
+  state: RunState,
+  mob: Mob,
+  payout: number,
+  tier: CorpseTier,
+): SimEvent[] => {
   const events: SimEvent[] = [];
   const corpse = claimSlot(state, events);
   if (corpse === null) return events;
 
-  const row = MOB_TYPES[mob.type];
   corpse.alive = true;
   corpse.x = mob.x;
   corpse.y = mob.y;
   corpse.freshness = 1;
-  corpse.payout = row.corpsePayout;
-  corpse.tier = row.corpseTier;
+  corpse.payout = payout;
+  corpse.tier = tier;
   corpse.kind = 'corpse';
   corpse.decays = true;
   corpse.line = undefined;

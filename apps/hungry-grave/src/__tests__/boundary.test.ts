@@ -455,15 +455,12 @@ describe('the test-span fence', () => {
 const CORE = join(SRC, 'game');
 
 /**
- * The value cycles the core still carries, each with the reason it is open.
- * The guard is a ratchet, so a cycle not written here is a failure.
+ * The value cycles the core still carries, each with the reason it is open. The
+ * guard is a ratchet, so a cycle not written here is a failure, and the core
+ * carries none: this list is empty and adding to it is the thing to argue
+ * about rather than the thing to reach for.
  */
-const KNOWN_CORE_CYCLES = [
-  // corpses.ts reads the mob table off mobs.ts and mobs.ts calls spawnCorpse.
-  // Closing it means moving MOB_TYPES, which belongs to whoever splits mobs.ts
-  // and not to the pass that first drew this graph.
-  'game/corpses and game/mobs',
-];
+const KNOWN_CORE_CYCLES: string[] = [];
 
 /**
  * A module's value imports: everything left after the type-only statements are

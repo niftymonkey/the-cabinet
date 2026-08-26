@@ -1,25 +1,23 @@
-// The mob type table, one behaviour rule per type, mob fire, and the
-// consequence of a mob being hit (tracer plan section 3).
+// The mob type table, one behaviour rule per type, and the consequence of a mob
+// being hit (tracer plan section 3).
 
-import { createPool, MOB_CAP, MOB_FIRE_CAP, takeSlot } from './caps';
+import { createPool, MOB_CAP, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
 import { spawnCorpse } from './corpses';
 import type { SimEvent } from './events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { Grave } from './grave';
-import {
-  headstoneAt,
-  STONE_DAMAGE,
-  STONE_HALF_EXTENT,
-  STONE_RECHARGE,
-  stoneCount,
-} from './lines/headstones';
 import type { WeaponLine } from './lines/roster';
-import { SKULL_DAMAGE, SKULL_HALF_EXTENT } from './lines/soulStream';
-import { WISP_DAMAGE, WISP_HALF_EXTENT } from './lines/wisps';
 import { cos, normalize, rotateToward, sin } from './math';
+import type { FireRow } from './mobFire';
+import {
+  advanceShots,
+  fireShot,
+  firstShotOffset,
+  isArmed,
+  NEVER_FIRES,
+} from './mobFire';
 import type { Rect } from './overlap';
-import { overlaps } from './overlap';
 import type { RunState } from './run';
 import type { SpawnOrder } from './stage/templates';
 import { MAX_ENTRY_DEPTH } from './stage/templates';
@@ -37,42 +35,8 @@ type CorpseTier = 'trash' | 'rich';
  */
 type DamageSource = WeaponLine | 'belch';
 
-// How much of a wave carries fire at all.
-type ArmedShare = 'none' | 'everyThird' | 'all';
-
 // How a type moves once its arriving beat has passed.
 type MobMotion = 'falls' | 'chases';
-
-/**
- * Every firing number a type owns. Mob fire lives in this file rather than in a
- * projectiles.ts of its own: mob fire belongs to the mobs that emit it.
- *
- * The numbers are data from the first commit and not shared module constants,
- * so the tuning dispatch differentiates a revenant's fire from a shambler's by
- * editing a row rather than by refactoring constants out of this module. The
- * first-pass values are identical across the two firing types on purpose.
- */
-interface FireRow {
-  readonly armedShare: ArmedShare;
-  // Ticks between shots.
-  readonly interval: number;
-  /**
-   * How many ticks of per-mob offset the first shot may carry, drawn from the
-   * mobFire stream, so a File of armed mobs does not fire as one volley.
-   */
-  readonly firstShotJitter: number;
-  /**
-   * How long the tell lights before every shot, not only the first. A revenant
-   * fires about six times per pass, and a tell on shot one alone satisfies the
-   * sentence and not the rule. At the arriving beat's own length the first
-   * shot's lead falls exactly inside the beat, which is how ADR 0016's two
-   * rules compose.
-   */
-  readonly tellTicks: number;
-  // Field units per tick. A reaction budget: a shot from mid-field reaches the starting mark in about two seconds.
-  readonly shotSpeed: number;
-  readonly shotHalfExtent: number;
-}
 
 interface MobRow {
   readonly halfWidth: number;
@@ -85,16 +49,6 @@ interface MobRow {
   readonly motion: MobMotion;
   readonly fire: FireRow;
 }
-
-// A type that never fires still declares the row, so nothing branches on a missing field.
-const NEVER_FIRES: FireRow = {
-  armedShare: 'none',
-  interval: 0,
-  firstShotJitter: 0,
-  tellTicks: 0,
-  shotSpeed: 0,
-  shotHalfExtent: 0,
-};
 
 /**
  * The type table. One file rather than a folder, because a mob type is a stat
@@ -231,17 +185,6 @@ interface Mob {
   armed: boolean;
 }
 
-interface Shot {
-  alive: boolean;
-  id: number;
-  emitter: MobType;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  halfExtent: number;
-}
-
 const blankMob = (): Mob => {
   return {
     alive: false,
@@ -258,25 +201,8 @@ const blankMob = (): Mob => {
   };
 };
 
-const blankShot = (): Shot => {
-  return {
-    alive: false,
-    id: 0,
-    emitter: 'shambler',
-    x: 0,
-    y: 0,
-    vx: 0,
-    vy: 0,
-    halfExtent: 0,
-  };
-};
-
 const createMobPool = (): Mob[] => {
   return createPool(MOB_CAP, blankMob);
-};
-
-const createShotPool = (): Shot[] => {
-  return createPool(MOB_FIRE_CAP, blankShot);
 };
 
 const mobHitbox = (mob: Mob): Rect => {
@@ -289,34 +215,9 @@ const mobHitbox = (mob: Mob): Rect => {
   };
 };
 
-const shotHitbox = (shot: Shot): Rect => {
-  return {
-    x: shot.x - shot.halfExtent,
-    y: shot.y - shot.halfExtent,
-    width: shot.halfExtent * 2,
-    height: shot.halfExtent * 2,
-  };
-};
-
 // Whether the mob's top edge is inside the field, which is what starts its beat and its fire clock.
 const hasEntered = (mob: Mob): boolean => {
   return mob.y - MOB_TYPES[mob.type].halfHeight >= 0;
-};
-
-/**
- * The armed share of a wave is fixed and not rolled: the third, sixth and ninth
- * mobs of a group carry fire. A die would make the armed ones a scatter, and
- * the point of the rule is that picking targets reads as a shape in the
- * formation rather than as noise the player cannot learn.
- *
- * The phase is pinned at two rather than zero deliberately. Arming index zero
- * would arm the first mob of every group, including a lone Drip, so the very
- * first mob in the game would shoot with no teaching beat at all.
- */
-const isArmed = (share: ArmedShare, index: number): boolean => {
-  if (share === 'none') return false;
-  if (share === 'all') return true;
-  return index % 3 === 2;
 };
 
 // The tell the renderer draws, and the only warning a shot gets.
@@ -344,14 +245,8 @@ const spawnMob = (
   mob.hp = row.hp;
   mob.beat = ARRIVE_TICKS;
   mob.armed = isArmed(row.fire.armedShare, order.index);
-  mob.fireIn = mob.armed ? ARRIVE_TICKS + firstShotOffset(state, row) : 0;
+  mob.fireIn = mob.armed ? ARRIVE_TICKS + firstShotOffset(state, row.fire) : 0;
   return mob;
-};
-
-// A per-mob offset on the first shot, so a File of armed mobs does not fire as one volley.
-const firstShotOffset = (state: RunState, row: MobRow): number => {
-  if (row.fire.firstShotJitter <= 0) return 0;
-  return state.streams.mobFire.nextInt(row.fire.firstShotJitter);
 };
 
 /**
@@ -397,31 +292,6 @@ const moveMob = (mob: Mob, grave: Grave): void => {
 };
 
 /**
- * One shot, aimed at the grave's centre at the moment of firing. Nothing homes:
- * mob fire is large, slow and irregular, and it never tracks (ADR 0014).
- *
- * Mob fire does not carry the scroll. An aimed shot that then drifts downward
- * is not aimed, and the whole grammar ADR 0014 sets up depends on the player
- * reading mob fire as a line from a mob to where they were.
- */
-const fireShot = (state: RunState, mob: Mob): SimEvent[] => {
-  const shot = takeSlot(state.mobFire, state.nextEntityId);
-  if (shot === null) return [];
-  state.nextEntityId += 1;
-
-  const row = MOB_TYPES[mob.type];
-  const aim = normalize(state.grave.x - mob.x, state.grave.y - mob.y);
-  const direction = aim.length === 0 ? { x: 0, y: 1 } : aim;
-  shot.emitter = mob.type;
-  shot.x = mob.x;
-  shot.y = mob.y;
-  shot.vx = direction.x * row.fire.shotSpeed;
-  shot.vy = direction.y * row.fire.shotSpeed;
-  shot.halfExtent = row.fire.shotHalfExtent;
-  return [{ type: 'mobFired', emitter: mob.type, x: mob.x, y: mob.y }];
-};
-
-/**
  * Whether a mob has already gone past the grave.
  *
  * Mobs are culled only past the bottom edge, so an armed mob that has overtaken
@@ -438,8 +308,9 @@ const tickFire = (state: RunState, mob: Mob): SimEvent[] => {
   if (hasPassed(mob, state.grave)) return [];
   mob.fireIn -= 1;
   if (mob.fireIn > 0) return [];
-  mob.fireIn += MOB_TYPES[mob.type].fire.interval;
-  return fireShot(state, mob);
+  const fire = MOB_TYPES[mob.type].fire;
+  mob.fireIn += fire.interval;
+  return fireShot(state, mob, fire);
 };
 
 /**
@@ -456,11 +327,7 @@ const advanceMobs = (state: RunState): SimEvent[] => {
     if (!mob.alive) continue;
     moveMob(mob, state.grave);
   }
-  for (const shot of state.mobFire) {
-    if (!shot.alive) continue;
-    shot.x += shot.vx;
-    shot.y += shot.vy;
-  }
+  advanceShots(state);
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     events.push(...tickFire(state, mob));
@@ -476,6 +343,11 @@ const advanceMobs = (state: RunState): SimEvent[] => {
  * Every hit reports mobDamaged, the fatal blow included and reported before its
  * mobKilled, so an instrument can credit the kill to the source that landed the
  * last point of damage (#48).
+ *
+ * The corpse's payout and tier are read off the table here and handed to
+ * corpses.ts as values, the way events.ts's payloads carry values and never
+ * entity references: the mob table is this module's, so the lookup is this
+ * module's too.
  */
 const damageMob = (
   state: RunState,
@@ -497,94 +369,8 @@ const damageMob = (
     x: mob.x,
     y: mob.y,
   });
-  events.push(...spawnCorpse(state, mob));
-  return events;
-};
-
-// A square hitbox centred on a point, which is what every storm entity carries.
-const squareAt = (x: number, y: number, halfExtent: number): Rect => {
-  return {
-    x: x - halfExtent,
-    y: y - halfExtent,
-    width: halfExtent * 2,
-    height: halfExtent * 2,
-  };
-};
-
-// The first live mob a box overlaps, in slot order, or null.
-const mobUnder = (state: RunState, box: Rect): Mob | null => {
-  for (const mob of state.mobs) {
-    if (!mob.alive) continue;
-    if (overlaps(box, mobHitbox(mob))) return mob;
-  }
-  return null;
-};
-
-// Skulls meeting mobs. A skull is consumed by the mob it hits, one mob per skull.
-const resolveSkulls = (state: RunState): SimEvent[] => {
-  const events: SimEvent[] = [];
-  for (const skull of state.skulls) {
-    if (!skull.alive) continue;
-    const box = squareAt(skull.x, skull.y, SKULL_HALF_EXTENT);
-    const mob = mobUnder(state, box);
-    if (mob === null) continue;
-    skull.alive = false;
-    events.push(...damageMob(state, mob, SKULL_DAMAGE, 'soulStream'));
-  }
-  return events;
-};
-
-/**
- * Headstones meeting mobs. A stone is not consumed: it damages and goes inert
- * for a while, so it can carry a mob out of the way rather than dying on it,
- * which is what an orbiting solid means.
- */
-const resolveHeadstones = (state: RunState): SimEvent[] => {
-  const events: SimEvent[] = [];
-  const count = stoneCount(state);
-  for (let index = 0; index < count; index++) {
-    if (state.lines.stoneRecharge[index] > 0) continue;
-    const at = headstoneAt(state, index);
-    if (at === null) continue;
-    const mob = mobUnder(state, squareAt(at.x, at.y, STONE_HALF_EXTENT));
-    if (mob === null) continue;
-    state.lines.stoneRecharge[index] = STONE_RECHARGE;
-    events.push(...damageMob(state, mob, STONE_DAMAGE, 'headstones'));
-  }
-  return events;
-};
-
-/**
- * Wisps meeting mobs. A wisp is consumed by whatever it hits, target or not: one
- * that flies through something on the way is not saved for later.
- */
-const resolveWisps = (state: RunState): SimEvent[] => {
-  const events: SimEvent[] = [];
-  for (const wisp of state.wisps) {
-    if (!wisp.alive) continue;
-    const mob = mobUnder(state, squareAt(wisp.x, wisp.y, WISP_HALF_EXTENT));
-    if (mob === null) continue;
-    wisp.alive = false;
-    events.push(...damageMob(state, mob, WISP_DAMAGE, 'wisps'));
-  }
-  return events;
-};
-
-/**
- * The storm meeting the mobs, in one pass over three pools.
- *
- * It lives here rather than in a storm.ts because the consequence of a mob being
- * hit is what this file is, and a module holding only the overlap tests would
- * hide nothing. The bell resolves in its own module instead, because its damage
- * is a consequence of a ring expanding rather than of two boxes overlapping.
- *
- * The order is skulls, then headstones, then wisps, always, so the same seed
- * produces the same kills in the same order.
- */
-const resolveStorm = (state: RunState): SimEvent[] => {
-  const events = resolveSkulls(state);
-  events.push(...resolveHeadstones(state));
-  events.push(...resolveWisps(state));
+  const row = MOB_TYPES[mob.type];
+  events.push(...spawnCorpse(state, mob, row.corpsePayout, row.corpseTier));
   return events;
 };
 
@@ -610,46 +396,19 @@ const cullMobs = (state: RunState): void => {
   }
 };
 
-// A shot fully outside the field on any side is gone.
-const cullShots = (state: RunState): void => {
-  for (const shot of state.mobFire) {
-    if (!shot.alive) continue;
-    const outside =
-      shot.x + shot.halfExtent < 0 ||
-      shot.x - shot.halfExtent > FIELD_WIDTH ||
-      shot.y + shot.halfExtent < 0 ||
-      shot.y - shot.halfExtent > FIELD_HEIGHT;
-    if (outside) shot.alive = false;
-  }
-};
-
 export {
   createMobPool,
-  createShotPool,
   mobHitbox,
-  shotHitbox,
   hasEntered,
   mobTellLit,
   spawnMob,
   advanceMobs,
   damageMob,
-  resolveStorm,
   cullMobs,
-  cullShots,
   MOB_TYPES,
   MOB_TYPE_NAMES,
   ARRIVE_TICKS,
   SPAWN_MARGIN,
   GHOUL_DESCENT_FLOOR,
 };
-export type {
-  MobType,
-  CorpseTier,
-  DamageSource,
-  ArmedShare,
-  MobMotion,
-  FireRow,
-  MobRow,
-  Mob,
-  Shot,
-};
+export type { MobType, CorpseTier, DamageSource, MobMotion, MobRow, Mob };

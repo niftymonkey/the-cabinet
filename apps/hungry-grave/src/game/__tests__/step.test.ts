@@ -78,6 +78,16 @@ function snapshot(run: RunState) {
   };
 }
 
+/**
+ * The corpse a dead mob leaves, spawned the way mobs.ts spawns it: the mob
+ * table is mobs.ts's, so a kill's payout and tier reach corpses.ts as values
+ * read off the dead mob's own row.
+ */
+function leaveCorpse(state: RunState, mob: Mob) {
+  const row = MOB_TYPES[mob.type];
+  return spawnCorpse(state, mob, row.corpsePayout, row.corpseTier);
+}
+
 describe('the sim seam', () => {
   // a failed assertion must not leave a spy installed for the rest of the file
   afterEach(() => {
@@ -230,7 +240,7 @@ describe('the tick order (dispatch 4 section 4.9)', () => {
       index: 0,
     })!;
     dead.alive = false;
-    spawnCorpse(state, dead);
+    leaveCorpse(state, dead);
     const corpse = state.corpses.find((each) => each.alive)!;
     corpse.freshness = 0;
 
