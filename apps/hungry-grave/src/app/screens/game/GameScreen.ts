@@ -11,6 +11,7 @@ import type { FieldPlacement } from '../../layout';
 import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../../layout';
 import type { RendererIdentity } from '../../tapeHeader';
 import { runConditionsHere } from '../../tapeHeader';
+import type { ButtonChrome } from '../../ui/Button';
 import { Button } from '../../ui/Button';
 import { bindKeyPress } from '../keyBinding';
 import { BELCH_SIZE, BelchButton } from './BelchButton';
@@ -56,7 +57,7 @@ const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
  * cannot reach on its own; the graph they belong to lives in src/main.ts, and
  * this screen knows none of it.
  */
-interface GameScreenProps {
+interface GameScreenProps extends ButtonChrome {
   // Opens the pause menu over the live run, armed with what its End Run does.
   openMenu(endRun: () => void): Promise<void>;
   // Takes the pause menu away, back to the run.
@@ -67,8 +68,6 @@ interface GameScreenProps {
   showEnd(): Promise<void>;
   // Every sound this run's events make.
   playSound(event: SimEvent): void;
-  // The chrome the pause button makes on hover and on press.
-  playButtonSound(alias: string): void;
   // The canvas a gesture the platform took away is announced on.
   canvas: HTMLCanvasElement | null;
   // What the renderer says about itself, for this run's tape header.

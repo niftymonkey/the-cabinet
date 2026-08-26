@@ -7,6 +7,7 @@ import { RESERVOIR_CAPACITY } from '../../game/tuning';
 import type { FieldPlacement } from '../layout';
 import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
 import { atFromUrl, tapeFromUrl } from '../seedFromUrl';
+import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { boundaryReadout, fieldClip } from './game/fieldFrame';
 import { FieldRenderer } from './game/FieldRenderer';
@@ -31,10 +32,8 @@ const BACK_WIDTH = 132;
 const BACK_HEIGHT = 68;
 
 /** The one way off the replay screen, owned by the driver in main.ts. */
-interface ReplayScreenProps {
+interface ReplayScreenProps extends ButtonChrome {
   onBack(): void;
-  // The chrome a button on this screen makes on hover and on press.
-  playButtonSound(alias: string): void;
 }
 
 /**

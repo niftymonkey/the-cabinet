@@ -1,12 +1,13 @@
 import { animate } from 'motion';
 import { Container, Sprite, Texture } from 'pixi.js';
 
+import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 import { RoundedBox } from '../ui/RoundedBox';
 
 /** What the pause menu can do, all of it owned by the driver in main.ts. */
-interface PausePopupProps {
+interface PausePopupProps extends ButtonChrome {
   // Takes this menu away, back to the run behind it.
   onDismiss(): Promise<void>;
   // Replaces this menu with the settings panel.
@@ -16,8 +17,6 @@ interface PausePopupProps {
   // The screen behind the panel, blurred while the panel is up.
   blurBackdrop(strength: number): void;
   clearBackdrop(): void;
-  // The chrome a button on this panel makes on hover and on press.
-  playButtonSound(alias: string): void;
 }
 
 // What End Run says before it is armed, and what it says once it is.

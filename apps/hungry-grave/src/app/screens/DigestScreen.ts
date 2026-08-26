@@ -4,14 +4,13 @@ import type { Digest } from '../../dev/digest';
 import { GOLDEN, runScenario } from '../../dev/digest';
 import type { FaultRecord } from '../../game/execution';
 import { MENU } from '../palette';
+import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 
 /** The one way off the digest screen, owned by the driver in main.ts. */
-interface DigestScreenProps {
+interface DigestScreenProps extends ButtonChrome {
   onBack(): void;
-  // The chrome a button on this screen makes on hover and on press.
-  playButtonSound(alias: string): void;
 }
 
 /**

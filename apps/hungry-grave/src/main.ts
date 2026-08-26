@@ -235,10 +235,20 @@ const showDigest = async (engine: CreationEngine): Promise<void> => {
 };
 
 /**
+ * A route kind no branch above answers, which the Route union makes impossible:
+ * add a kind without a showing and this call stops compiling. Reaching it at
+ * run time is a bug rather than a bad URL, because resolveRoute answers every
+ * unknown hash with the game.
+ */
+const noShowingForRoute = (route: never): never => {
+  throw new Error(`unhandled route: ${JSON.stringify(route)}`);
+};
+
+/**
  * The showing a hash asks for, resolved before it is performed so a route whose
- * hash went stale while its module loaded can step aside. resolveShowing is an
- * if-chain ending in the title screen, so a new route kind with no branch here
- * compiles cleanly and silently sends its hash to the title screen.
+ * hash went stale while its module loaded can step aside. Every route kind is
+ * answered here and the compiler holds that: a new kind with no branch fails to
+ * build rather than landing silently on the title screen.
  */
 const resolveShowing = async (
   engine: CreationEngine,
@@ -253,7 +263,8 @@ const resolveShowing = async (
   if (route.kind === 'digest') return () => showDigest(engine);
   if (route.kind === 'replay') return () => showReplay(engine);
   if (route.kind === 'runs') return () => showRuns(engine);
-  return () => showTitle(engine);
+  if (route.kind === 'game') return () => showTitle(engine);
+  return noShowingForRoute(route);
 };
 
 /**

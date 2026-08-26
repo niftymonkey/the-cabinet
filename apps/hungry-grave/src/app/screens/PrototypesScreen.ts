@@ -6,15 +6,14 @@ import { Container } from 'pixi.js';
 
 import { PROTOTYPES } from '../../prototypes';
 import { MENU } from '../palette';
+import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 
 /** The one way off the prototype list, owned by the driver in main.ts. */
-interface PrototypesScreenProps {
+interface PrototypesScreenProps extends ButtonChrome {
   // Opens one prototype, named by the id its registry entry carries.
   onOpen(id: string): void;
-  // The chrome a button on this screen makes on hover and on press.
-  playButtonSound(alias: string): void;
 }
 
 class PrototypesScreen extends Container {

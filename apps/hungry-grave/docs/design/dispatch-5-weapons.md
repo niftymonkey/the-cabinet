@@ -108,7 +108,7 @@ Dispatch 4 left this dispatch a deliberately clean shape. Read this before plann
 - `advanceHeadstones(state)` in `src/game/lines/headstones.ts`.
 - `launchWisps(state, events)`, `advanceWisps(state)` in `src/game/lines/wisps.ts`.
 - `advanceBell(state)` in `src/game/lines/bell.ts`.
-- `resolveStorm(state)` in `src/game/mobs.ts`, beside `damageMob`. There is no `storm.ts`; section 6.7 says why.
+- `resolveStorm(state)` in `src/game/mobs.ts`, beside `damageMob`. There is no `storm.ts`; section 6.7 says why. **Superseded by #59: see the note at 6.7.**
 - `priceOfNextDrop(dropsPaid)`, `creditKill(state, x, y)`, `rollDropLine(state)` in `src/game/drops.ts`.
 - `fireBelch(state)` in `src/game/belch.ts`.
 - `swallow(state, food)` in `src/game/swallow.ts`, unchanged in signature and now firing the on-swallow lines.
@@ -235,7 +235,7 @@ export const WISP_DAMAGE = 1;
 
 A wisp re-targets by the same rule when its target dies. It does not re-target every tick: a flight launched from one point with one nearest answer would converge on one mob again and the assignment would be undone every tick it ran.
 
-**`wisps.ts` may import only types from `mobs.ts`.** Targeting reads `mob.x`, `mob.y` and `mob.hp` off the `Mob` type and needs nothing at runtime, and `import type` is erased, so the import cannot become a cycle when section 6.7 puts `resolveStorm` in `mobs.ts` beside `damageMob`. This is the constraint that lets the overlap pass live with the thing it damages, and it is worth stating because a single value import would break it silently at build time.
+**`wisps.ts` may import only types from `mobs.ts`.** Targeting reads `mob.x`, `mob.y` and `mob.hp` off the `Mob` type and needs nothing at runtime, and `import type` is erased, so the import cannot become a cycle when section 6.7 puts `resolveStorm` in `mobs.ts` beside `damageMob` (#59 moved it to `storm.ts`, which reaches `mobs.ts` the same one way; see the note at 6.7). This is the constraint that lets the overlap pass live with the thing it damages, and it is worth stating because a single value import would break it silently at build time.
 
 **`WISP_SPEED = 300 / TICK_HZ` and `WISP_LIFETIME = 90` ticks.** That is 450 units of travel, more than half the field's height, so a wisp launched at the grave can reach a mid-field target and expire honestly if it finds nothing. Expiring rather than persisting is ADR 0005's own wording and it is what stops the homing line becoming a turret.
 
@@ -270,6 +270,8 @@ The push is clamped so a pushed mob stays inside the field widened by `SPAWN_MAR
 **Bosses take the damage and never the push (ADR 0007), and that rule is not written here.** There are no bosses in this build, so there is nothing for it to branch on. Section 11 records that this contradicts a prediction dispatch 4 made in `damageMob`'s own comment, and why the correction is the right way round.
 
 ### 6.7 The storm meeting a mob, inside `src/game/mobs.ts`
+
+> **Superseded in part by #59, 2026-08-26.** `resolveStorm` and its three overlap passes now live in `src/game/storm.ts`, tested by `src/game/__tests__/storm.test.ts`. The two sentences that no longer hold are this section's "there is no `storm.ts`" and section 8's "there is no `storm.test.ts`"; the rest of the section stands and is asserted in `storm.ts`'s own header. There is still no `cullStorm`, each line still culls its own pool, and the bell still resolves inside `advanceBell`. The module was not reinstated by the escape hatch this section closes: the refactor found no runtime cycle, and the reason for the split is one this section could not have known, that keeping the pass in `mobs.ts` was what made the mob table import all three weapon lines to run a pass that is not about mob rows. The argument below is left as it was written.
 
 **There is no `storm.ts`, and an earlier draft of this plan built one.** The tracer plan's sentence forbidding a `projectiles.ts` has a third clause in it: "no `collide.ts` ... a module holding only all the overlap tests hides nothing". A module holding only the storm's overlap tests is that module. The same plan already names the owner in as many words: `mobs.ts` holds "the consequence of a mob being hit, whether by the storm, by the bell's ring, or by an orbiting headstone". The draft had already conceded the shape by resolving the bell inside `advanceBell` and then argued for a separate file anyway.
 
@@ -719,7 +721,7 @@ Every test cites the ADR, plan section or decision-log entry it enforces. Expect
 
 ### `src/game/mobs.test.ts`, the storm's overlap pass
 
-These live beside the existing mob tests, because section 6.7 puts `resolveStorm` in `mobs.ts`. There is no `storm.test.ts`.
+These live beside the existing mob tests, because section 6.7 puts `resolveStorm` in `mobs.ts`. There is no `storm.test.ts`. **Superseded by #59: they live in `src/game/__tests__/storm.test.ts`, see the note at 6.7.**
 
 - The resolve order is skulls, headstones, wisps, and it is stable across runs.
 - A skull is consumed by the mob it hits; a wisp is; a stone is not.

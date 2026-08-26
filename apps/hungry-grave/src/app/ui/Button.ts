@@ -26,6 +26,16 @@ interface ButtonProps extends Partial<ButtonLook> {
 }
 
 /**
+ * The same power named from the other side: what a screen or popup must hold in
+ * order to build a button at all. Every props record that builds one extends
+ * this rather than restating the member, so the widget's one dependency is
+ * declared once and a change to it reaches every host through the compiler.
+ */
+interface ButtonChrome {
+  playButtonSound(alias: string): void;
+}
+
+/**
  * The big rectangle button, with a label, idle and pressed states.
  *
  * It stays a class extending the library's own, because @pixi/ui offers a
@@ -89,3 +99,4 @@ class Button extends FancyButton {
 }
 
 export { Button };
+export type { ButtonChrome };

@@ -6,6 +6,7 @@ import { MENU } from '../palette';
 import { saveTapeFile, tapeFileName } from '../tapeExport';
 import type { TapeStore } from '../tapeStore';
 import { openTapeStore } from '../tapeStore';
+import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 import type { RunList } from './runList';
@@ -23,12 +24,10 @@ import { createRunList } from './runList';
  */
 
 /** The two ways off the runs list, both owned by the driver in main.ts. */
-interface RunsScreenProps {
+interface RunsScreenProps extends ButtonChrome {
   // Opens one kept run in the replay route, by a URL the replay screen fetches.
   onOpenReplay(tapeUrl: string): void;
   onBack(): void;
-  // The chrome a button on this screen makes on hover and on press.
-  playButtonSound(alias: string): void;
 }
 
 const STORE_UNAVAILABLE =

@@ -8,7 +8,8 @@ import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SimEvent } from '../../game/events';
-import { clipFor } from '../sound';
+import manifest from '../../manifest.json';
+import { clipFor, playFor } from '../sound';
 
 const SRC = resolve(import.meta.dirname, '..', '..');
 
@@ -120,6 +121,42 @@ describe('a clip that will not play', () => {
     }
 
     expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Every alias the voice can ask for, gathered by playing one of every event
+ * through the module's own seam rather than read off the clip table, so what is
+ * checked is what a run would actually hand the effects channel.
+ */
+const aliasesTheVoicePlays = (): string[] => {
+  const played: string[] = [];
+  const recorder = { play: (alias: string): void => void played.push(alias) };
+  for (const event of EVERY_EVENT) playFor(recorder, event);
+  return played;
+};
+
+/** The aliases a bundle registers: @pixi/sound takes the first of each list. */
+const aliasesInBundle = (name: string): string[] => {
+  const bundle = manifest.bundles.find((entry) => entry.name === name);
+  return bundle ? bundle.assets.map((asset) => asset.alias[0]) : [];
+};
+
+describe('the clips a run asks for', () => {
+  it('every clip the voice plays is in the bundle a sounding screen loads', () => {
+    // This is why a clip still loading is not the case playFor's catch sees.
+    // Navigation awaits a screen's assetBundles before constructing it, and the
+    // screens that make sound declare 'main', so the aliases below are
+    // registered before the first swallow can land. A clip that leaves this
+    // bundle turns that unreachable path into a real defect, and the only thing
+    // that would say so is a console warning nobody is watching for.
+    const registered = aliasesInBundle('main');
+    const played = aliasesTheVoicePlays();
+
+    expect(played.length).toBeGreaterThan(0);
+    for (const alias of played) {
+      expect(`${alias}: ${registered.includes(alias)}`).toBe(`${alias}: true`);
+    }
   });
 });
 

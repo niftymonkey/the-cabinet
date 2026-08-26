@@ -61,8 +61,8 @@ const clipFor = (event: SimEvent): keyof typeof CLIPS | null => {
   return null;
 };
 
-// Once per session, because playFor runs on every event a run emits and a
-// bundle that has not arrived is not there for the next event either.
+// Once per session, because playFor runs on every event a run emits and
+// whatever stopped the first clip is not fixed by the time of the next one.
 let reportedSilence = false;
 
 // Says that a sound was lost, because nothing abnormal is silent.
@@ -78,9 +78,15 @@ const reportSilence = (clip: keyof typeof CLIPS, error: unknown): void => {
 /**
  * Plays whatever this event sounds like.
  *
- * A missing clip is swallowed rather than thrown. Sound is the one subsystem
- * whose failure must never take the run with it, and a bundle still background
- * loading on the first swallow of a fresh boot is the ordinary case.
+ * A clip that will not play is swallowed rather than thrown, because sound is
+ * the one subsystem whose failure must never take the run with it.
+ *
+ * A clip still loading is not the case this catches, and a cold boot cannot
+ * reach it: the navigation awaits a screen's asset bundle before the screen
+ * exists, and every clip above sits in the bundle the sounding screens declare,
+ * which src/app/__tests__/sound.test.ts holds shut. So what reaches the catch
+ * is an alias no bundle registers or a playback that genuinely failed, and both
+ * of those are abnormal, which is why one of them says so.
  */
 const playFor = (output: SoundOutput, event: SimEvent): void => {
   const clip = clipFor(event);

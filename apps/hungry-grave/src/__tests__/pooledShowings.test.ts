@@ -26,6 +26,13 @@ vi.mock('pixi.js', async (importOriginal) => ({
   Assets: { loadBundle: () => Promise.resolve() },
 }));
 
+/**
+ * The animations, for the same reason the widgets are faked: framer-motion
+ * resolves its subject against NodeList and there is none under node. How a
+ * panel slides in is not what any of this file is about.
+ */
+vi.mock('motion', () => ({ animate: () => Promise.resolve() }));
+
 /** The real widgets need a renderer: text metrics and a loaded texture. */
 vi.mock('../app/ui/Label', () => ({
   Label: class extends Container {
@@ -44,6 +51,8 @@ import { TICK_MS } from '../game/clock';
 import type { GameScreenProps } from '../app/screens/game/GameScreen';
 import { GameScreen } from '../app/screens/game/GameScreen';
 import { EndScreen } from '../app/screens/EndScreen';
+import type { SettingsPopupProps } from '../app/popups/SettingsPopup';
+import { SettingsPopup } from '../app/popups/SettingsPopup';
 import type { CreationEngine } from '../engine/engine';
 import { Navigation } from '../engine/navigation/navigation';
 
@@ -171,5 +180,66 @@ describe('a screen shown a second time out of the pool', () => {
     // powers would send it to a run that is already over.
     press('Escape');
     expect(opened).toEqual(['first', 'second']);
+  });
+});
+
+/** A settings showing's powers. Nothing here records: the sliders are the subject. */
+function settingsPowers(): SettingsPopupProps {
+  return {
+    onDone: () => Promise.resolve(),
+    setMasterVolume: () => {},
+    setBgmVolume: () => {},
+    setSfxVolume: () => {},
+    blurBackdrop: () => {},
+    clearBackdrop: () => {},
+    playButtonSound: () => {},
+  };
+}
+
+/**
+ * The settings panel the navigation is holding, narrowed the same way the game
+ * screen is above, so the reach is a check as well.
+ */
+function heldSettingsPopup(navigation: Navigation): SettingsPopup {
+  const popup = navigation.currentPopup;
+  if (!(popup instanceof SettingsPopup)) {
+    throw new Error('the navigation is not holding the settings panel');
+  }
+  return popup;
+}
+
+/** Where the four handles sit, which is the whole of what this panel shows. */
+function handlePositions(popup: SettingsPopup): number[] {
+  return [
+    popup['masterSlider'].value,
+    popup['bgmSlider'].value,
+    popup['sfxSlider'].value,
+    popup['keyboardSpeedSlider'].value,
+  ];
+}
+
+describe('the settings panel shown a second time out of the pool', () => {
+  it("comes back showing the stored values, not the last showing's", async () => {
+    // Its reset() is empty, and this is what makes that safe: prepare() reads
+    // every handle back off the settings store on every showing, so nothing a
+    // showing leaves behind can survive into the next one. Were prepare() to
+    // stop restoring a handle, the panel would open on the previous player's
+    // drag and the store would be telling the truth to nobody.
+    const navigation = navigationOnFakeEngine();
+
+    await navigation.presentPopup(SettingsPopup, settingsPowers());
+    const first = heldSettingsPopup(navigation);
+    const stored = handlePositions(first);
+    first['masterSlider'].value = 7;
+    first['bgmSlider'].value = 9;
+    first['sfxSlider'].value = 11;
+    first['keyboardSpeedSlider'].value = 13;
+    await navigation.dismissPopup();
+
+    await navigation.presentPopup(SettingsPopup, settingsPowers());
+    const reused = heldSettingsPopup(navigation);
+
+    expect(reused).toBe(first);
+    expect(handlePositions(reused)).toEqual(stored);
   });
 });

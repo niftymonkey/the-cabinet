@@ -5,6 +5,7 @@ import { MENU } from '../palette';
 import { runHandoff } from '../runHandoff';
 import type { FaultSummary, RunSummary } from '../runSummary';
 import { saveTapeFile, tapeFileName } from '../tapeExport';
+import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 import { bindKeyPress } from './keyBinding';
@@ -67,11 +68,9 @@ const titleFor = (summary: RunSummary | null): string => {
 };
 
 /** The one way off the end screen, owned by the driver in main.ts. */
-interface EndScreenProps {
+interface EndScreenProps extends ButtonChrome {
   // The next run RISE AGAIN starts. Its rejection is what releases the guard below.
   onRiseAgain(): Promise<void>;
-  // The chrome a button on this screen makes on hover and on press.
-  playButtonSound(alias: string): void;
 }
 
 /**

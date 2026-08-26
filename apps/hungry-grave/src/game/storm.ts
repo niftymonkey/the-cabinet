@@ -1,5 +1,24 @@
-// The storm meeting the mobs: skulls, headstones and wisps, resolved as overlaps
-// in one fixed order (ADR 0005).
+/**
+ * The storm meeting the mobs: skulls, headstones and wisps, resolved as overlaps
+ * in one fixed order (ADR 0005).
+ *
+ * This supersedes the weapons plan's ruling that there is deliberately no
+ * storm.ts, on the grounds that a module holding only the storm's overlap tests
+ * is the collide.ts the tracer plan forbids, and that mobs.ts is the file the
+ * consequence of a hit belongs to. What that ruling was protecting still stands
+ * and none of it moved here: there is no cullStorm, each line still culls its own
+ * pool because a cull is motion's own consequence, and the bell still resolves
+ * inside advanceBell rather than in this pass, because its damage follows a ring
+ * expanding rather than two boxes overlapping. What it could not have known is
+ * that a module holding one overlap pass over three pools is not the module it
+ * feared: collide.ts was refused for holding *all* the tick's overlap tests,
+ * which this file does not, and keeping the pass in mobs.ts is what made the mob
+ * table itself import all three weapon lines to run it. Splitting by concept
+ * produces neither the grab-bag the ruling named nor those arrows: mobs.ts now
+ * names no weapon line, and this module reaches mobs.ts for damageMob and
+ * mobHitbox alone, so the arrow runs from the storm to the mob it damages and
+ * never back.
+ */
 
 import type { SimEvent } from './events';
 import {

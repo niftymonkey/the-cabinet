@@ -9,6 +9,7 @@ import {
   keyboardSpeedFromSlider,
   sliderFromKeyboardSpeed,
 } from '../keyboardSpeedSlider';
+import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 import { RoundedBox } from '../ui/RoundedBox';
@@ -23,7 +24,7 @@ import { userSettings } from '../userSettings';
  * and only the driver holds the audio system. The speed is stored and nothing
  * else, so this panel writes it itself.
  */
-interface SettingsPopupProps {
+interface SettingsPopupProps extends ButtonChrome {
   // Back to the pause menu, which is where OK and Escape both go.
   onDone(): Promise<void>;
   // The player's volumes: stored, and heard now.
@@ -33,8 +34,6 @@ interface SettingsPopupProps {
   // The screen behind the panel, blurred while the panel is up.
   blurBackdrop(strength: number): void;
   clearBackdrop(): void;
-  // The chrome a button on this panel makes on hover and on press.
-  playButtonSound(alias: string): void;
 }
 
 // Popup for volume
@@ -214,7 +213,13 @@ class SettingsPopup extends Container {
     );
   }
 
-  // Reset screen, after hidden
+  /**
+   * Nothing to clear, and that is a property rather than an omission. Every
+   * value this panel shows is a stored one, and prepare() reads all four back
+   * off the settings store on every showing, so a pooled second showing cannot
+   * inherit the last one's handles. src/__tests__/pooledShowings.test.ts fails
+   * if that stops being true.
+   */
   public reset() {}
 }
 

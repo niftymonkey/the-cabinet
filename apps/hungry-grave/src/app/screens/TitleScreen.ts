@@ -2,18 +2,17 @@ import { Container } from 'pixi.js';
 
 import { primeSound } from '../sound';
 import { MENU } from '../palette';
+import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 import { bindKeyPress } from './keyBinding';
 
 /** The two ways out of the front door, both owned by the driver in main.ts. */
-interface TitleScreenProps {
+interface TitleScreenProps extends ButtonChrome {
   // The run RISE starts. Its rejection is what releases the guard below.
   onRise(): Promise<void>;
   // The way out to the prototype list.
   onPrototypes(): void;
-  // The chrome a button on this screen makes on hover and on press.
-  playButtonSound(alias: string): void;
 }
 
 /**
