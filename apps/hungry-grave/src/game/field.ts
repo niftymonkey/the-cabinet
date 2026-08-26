@@ -10,4 +10,16 @@
 const FIELD_WIDTH = 540;
 const FIELD_HEIGHT = 760;
 
+/**
+ * A point in field units. It lives here rather than in an input model because
+ * src/game may not reach src/input: command.ts's CommandSource and src/input's
+ * two models all speak it, and one declaration is what keeps them from drifting
+ * into two shapes that only happen to match.
+ */
+interface FieldPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
 export { FIELD_WIDTH, FIELD_HEIGHT };
+export type { FieldPoint };

@@ -1,7 +1,7 @@
 // Uncapped relative drag steering as a pure model: no DOM in it at all.
 
-import type { FieldPoint } from '../game/grave';
-import type { MoveCommand } from '../game/run';
+import type { FieldPoint } from '../game/field';
+import type { MoveCommand } from '../game/command';
 import { BASE_SPEED } from '../game/tuning';
 
 /**
@@ -243,4 +243,3 @@ class TouchSteer {
 }
 
 export { TouchSteer, DRAG_RATIO, STEER_SLOP };
-export type { FieldPoint };

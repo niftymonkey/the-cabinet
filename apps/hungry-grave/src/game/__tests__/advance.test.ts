@@ -7,8 +7,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
-import type { RunState, TickCommand } from '../run';
+import type { RunState } from '../run';
 
 /**
  * The step module is mocked so this file can drive the concatenation contract
@@ -33,12 +34,12 @@ vi.mock('../step', () => ({ step: stepMock }));
 const bareStep = (await vi.importActual<typeof import('../step')>('../step'))
   .step;
 
-import type { CommandSource } from '../advance';
+import type { CommandSource } from '../command';
 import { advance } from '../advance';
 import { createClock, ticksFor, TICK_MS } from '../clock';
 import type { Execution } from '../execution';
 import { createExecution } from '../execution';
-import type { FieldPoint } from '../grave';
+import type { FieldPoint } from '../field';
 import { createRun } from '../run';
 import { BASE_SPEED, RESERVOIR_CAPACITY } from '../tuning';
 

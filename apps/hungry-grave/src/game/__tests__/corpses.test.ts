@@ -13,16 +13,17 @@ import {
   asSwallowable,
   corpseHitbox,
   cullCorpses,
+  DROP_HALF_EXTENT,
   spawnCorpse,
   spawnDrop,
   spawnFeast,
 } from '../corpses';
-import { DROP_HALF_EXTENT } from '../drops';
+import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT } from '../field';
 import type { Mob, MobType } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
-import type { RunState, TickCommand } from '../run';
+import type { RunState } from '../run';
 import { createRun } from '../run';
 import { RAMP_ROWS } from '../stage/stage';
 import { swallow } from '../swallow';

@@ -16,7 +16,8 @@ import {
 import { f32 } from '../math';
 import { MAX_LEVEL } from '../lines/roster';
 import { SPAWN_MARGIN, spawnMob } from '../mobs';
-import type { RunState, TickCommand } from '../run';
+import type { TickCommand } from '../command';
+import type { RunState } from '../run';
 import { createRun } from '../run';
 import { RESERVOIR_CAPACITY } from '../tuning';
 

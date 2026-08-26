@@ -3,7 +3,8 @@
 import type { Execution } from '../game/execution';
 import { createExecution, executeTick } from '../game/execution';
 import type { SimEvent } from '../game/events';
-import type { RunState, TickCommand } from '../game/run';
+import type { TickCommand } from '../game/command';
+import type { RunState } from '../game/run';
 
 // One run's steps, each returning the tick's events.
 type Stepper = (command: TickCommand) => readonly SimEvent[];

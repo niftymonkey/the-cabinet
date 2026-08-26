@@ -2,7 +2,8 @@
 
 import type { Execution } from '../game/execution';
 import type { FaultIdentity } from '../game/invariants';
-import type { RunState, TickCommand } from '../game/run';
+import type { TickCommand } from '../game/command';
+import type { RunState } from '../game/run';
 import { foldWitness } from '../game/witness';
 import type {
   FaultObservation,

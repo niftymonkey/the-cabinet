@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { createExecution, executeTick } from '../../game/execution';
 import { createRun } from '../../game/run';
-import type { TickCommand } from '../../game/run';
+import type { TickCommand } from '../../game/command';
 import { RunHandoff, summarizeRun } from '../runHandoff';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };

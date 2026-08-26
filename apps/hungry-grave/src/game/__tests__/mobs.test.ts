@@ -49,7 +49,8 @@ import {
   surgeStream,
 } from '../lines/soulStream';
 import { advanceWisps, launchWisps, WISP_DAMAGE } from '../lines/wisps';
-import type { RunState, TickCommand } from '../run';
+import type { TickCommand } from '../command';
+import type { RunState } from '../run';
 import { createRun } from '../run';
 import { RAMP_ROWS } from '../stage/stage';
 import type { SpawnOrder } from '../stage/templates';

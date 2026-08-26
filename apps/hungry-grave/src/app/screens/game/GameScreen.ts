@@ -1,7 +1,7 @@
 import type { FederatedPointerEvent, Ticker } from 'pixi.js';
 import { BlurFilter, Container, Graphics, Rectangle } from 'pixi.js';
 
-import type { CommandSource } from '../../../game/advance';
+import type { CommandSource } from '../../../game/command';
 import { advance } from '../../../game/advance';
 import type { Clock } from '../../../game/clock';
 import { createClock } from '../../../game/clock';

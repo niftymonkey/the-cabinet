@@ -16,7 +16,7 @@ import {
   witnessSegment,
 } from './segments';
 import type { Tape } from './tape';
-import type { TickCommand } from '../game/run';
+import type { TickCommand } from '../game/command';
 
 /**
  * Two float32 of steering and one flag byte, which is what a body row costs.

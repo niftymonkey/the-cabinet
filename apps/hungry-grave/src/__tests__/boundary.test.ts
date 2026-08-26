@@ -1,6 +1,7 @@
 /**
- * The two import fences over the whole tree: the rendering-import boundary, and
- * the test-span fence that holds a test file inside the folder it covers.
+ * The import fences over the whole tree: the rendering-import boundary, the
+ * test-span fence that holds a test file inside the folder it covers, and the
+ * cycle guard over the core's own value imports.
  *
  * The rendering boundary (tracer plan verification step 3) is written as an
  * allowlist rather than a denylist. A denylist only catches a direct import of
@@ -12,6 +13,9 @@
  * the lowest folder that contains everything it spans. Which roots may reach
  * which is the rendering boundary's ruling and not the span fence's, so a reach
  * into another top-level root is left to the rows above.
+ *
+ * The cycle guard is the third: no module in the core may sit in a group of
+ * modules that all reach each other through their value imports.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -125,6 +129,11 @@ function importsOf(source: string): string[] {
   return [...matches].map((match) => match[1]);
 }
 
+/** A module's own path under src, slash-normalized and without its extension. */
+function modulePathOf(file: string): string {
+  return relative(SRC, file).split(/[/\\]/).join('/').replace(/\.ts$/, '');
+}
+
 /**
  * The whole path under src a relative import resolves to, slash-normalized and
  * without its extension.
@@ -135,8 +144,7 @@ function importsOf(source: string): string[] {
  * exists to forbid. So the narrowing is on the target as well as on the source.
  */
 function pathReachedBy(file: string, specifier: string): string {
-  const target = resolve(dirname(file), specifier);
-  return relative(SRC, target).split(/[/\\]/).join('/').replace(/\.ts$/, '');
+  return modulePathOf(resolve(dirname(file), specifier));
 }
 
 /**
@@ -440,5 +448,115 @@ describe('the test-span fence', () => {
     );
     expect(forbidden).toHaveLength(1);
     expect(forbidden[0]).toContain('../../DigestScreen');
+  });
+});
+
+/** The core: the dependency-free module every other root is allowed to reach. */
+const CORE = join(SRC, 'game');
+
+/**
+ * The value cycles the core still carries, each with the reason it is open.
+ * The guard is a ratchet, so a cycle not written here is a failure.
+ */
+const KNOWN_CORE_CYCLES = [
+  // corpses.ts reads the mob table off mobs.ts and mobs.ts calls spawnCorpse.
+  // Closing it means moving MOB_TYPES, which belongs to whoever splits mobs.ts
+  // and not to the pass that first drew this graph.
+  'game/corpses and game/mobs',
+];
+
+/**
+ * A module's value imports: everything left after the type-only statements are
+ * struck out.
+ *
+ * Type-only imports are left out deliberately, and the exclusion is what makes
+ * this guard mean something. They are erased before anything runs, and the core
+ * carries them in both directions by design: RunState aggregates every pool and
+ * every pool names RunState back, so a graph counting them says every module in
+ * the sim is one cycle. The cycle that can bite is the one that survives
+ * erasure, because every module exports const arrow functions and a value cycle
+ * can hand a caller a binding still inside its temporal dead zone.
+ */
+const valueImportsOf = (source: string): string[] =>
+  importsOf(
+    source.replace(/(?:^|\n)\s*(?:import|export)\s+type\s[^;]*;/g, '\n'),
+  );
+
+/** Every module a core file reaches at runtime, by path under src. */
+const coreImportsIn = (file: string): string[] =>
+  valueImportsOf(readFileSync(file, 'utf8'))
+    .filter((specifier) => specifier.startsWith('.'))
+    .map((specifier) => pathReachedBy(file, specifier));
+
+/** The core's value-import graph. Test files are left out: nothing imports one. */
+const coreValueGraph = (): Map<string, string[]> =>
+  new Map(
+    typescriptFilesUnder(CORE)
+      .filter((file) => !isTest(file))
+      .map((file) => [modulePathOf(file), coreImportsIn(file)]),
+  );
+
+/** Every module reachable from one module by following value imports. */
+const reachedFrom = (
+  graph: Map<string, string[]>,
+  start: string,
+): Set<string> => {
+  const seen = new Set<string>();
+  const frontier = [...(graph.get(start) ?? [])];
+  while (frontier.length > 0) {
+    const next = frontier.pop()!;
+    if (seen.has(next)) continue;
+    seen.add(next);
+    frontier.push(...(graph.get(next) ?? []));
+  }
+  return seen;
+};
+
+/**
+ * Every group of modules that can all reach each other, named by its members
+ * rather than by one path through it. A cycle then reads the same way whichever
+ * module the walk happened to enter it from, which is what lets the known list
+ * above be written once and stay written.
+ */
+const cyclesIn = (graph: Map<string, string[]>): string[] => {
+  const cycles = new Set<string>();
+  for (const module of graph.keys()) {
+    if (!reachedFrom(graph, module).has(module)) continue;
+    const together = [...reachedFrom(graph, module)].filter((other) =>
+      reachedFrom(graph, other).has(module),
+    );
+    cycles.add([...new Set([module, ...together])].sort().join(' and '));
+  }
+  return [...cycles].sort();
+};
+
+describe('the core has no import cycle', () => {
+  it('carries no value-import cycle beyond the ones written down', () => {
+    expect(cyclesIn(coreValueGraph())).toEqual(KNOWN_CORE_CYCLES);
+  });
+
+  it('catches a cycle, so the walk is a rule rather than a decoration', () => {
+    // Handed a graph with no files behind it, the way the two fences above are
+    // handed source strings with no files behind them.
+    const cyclic = new Map([
+      ['game/a', ['game/b']],
+      ['game/b', ['game/a']],
+    ]);
+    expect(cyclesIn(cyclic)).toEqual(['game/a and game/b']);
+
+    const acyclic = new Map([
+      ['game/a', ['game/b']],
+      ['game/b', []],
+    ]);
+    expect(cyclesIn(acyclic)).toEqual([]);
+  });
+
+  it('does not count a type-only import, because it is erased before anything runs', () => {
+    const source = [
+      "import type { RunState } from './run';",
+      "import { spawnCorpse } from './corpses';",
+      "import type {\n  Mob,\n} from './mobs';",
+    ].join('\n');
+    expect(valueImportsOf(source)).toEqual(['./corpses']);
   });
 });

@@ -1,4 +1,5 @@
 import { fireBelch } from './belch';
+import type { TickCommand } from './command';
 import {
   advanceCorpses,
   asSwallowable,
@@ -21,7 +22,7 @@ import {
   shotHitbox,
 } from './mobs';
 import { overlaps } from './overlap';
-import type { RunState, TickCommand } from './run';
+import type { RunState } from './run';
 import { advanceStage } from './stage/stage';
 import { swallow } from './swallow';
 import { SCROLL_SPEED } from './tuning';

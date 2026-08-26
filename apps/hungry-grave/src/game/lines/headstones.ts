@@ -2,6 +2,7 @@
 // level 1 and counter-rotating in two rings at the higher levels (ADR 0005).
 
 import type { SimEvent } from '../events';
+import type { FieldPoint } from '../field';
 import { graveWidth } from '../grave';
 import { cos, sin } from '../math';
 import type { RunState } from '../run';
@@ -73,10 +74,7 @@ const stoneCount = (state: RunState): number => {
  * pushed out by a fixed margin, so the ring reads as orbiting the grave rather
  * than a point near it, and it scales with the grave for free.
  */
-const headstoneAt = (
-  state: RunState,
-  index: number,
-): { x: number; y: number } | null => {
+const headstoneAt = (state: RunState, index: number): FieldPoint | null => {
   const count = stoneCount(state);
   if (index < 0 || index >= count) return null;
 

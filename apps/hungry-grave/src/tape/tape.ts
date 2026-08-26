@@ -6,7 +6,8 @@
 import type { StopReason } from '../game/execution';
 import type { FaultIdentity, FaultSeverity } from '../game/invariants';
 import type { WeaponLine } from '../game/lines/roster';
-import type { RunEnding, TickCommand } from '../game/run';
+import type { TickCommand } from '../game/command';
+import type { RunEnding } from '../game/run';
 
 // The four bytes a tape opens with, so bytes that are not one are refused rather than parsed.
 const TAPE_MAGIC = 'HGTP';

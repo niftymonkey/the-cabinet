@@ -9,7 +9,8 @@ import type {
 } from './invariants';
 import { checkInvariants, createStageWatch } from './invariants';
 import { f32 } from './math';
-import type { MoveCommand, RunState, TickCommand } from './run';
+import type { MoveCommand, TickCommand } from './command';
+import type { RunState } from './run';
 /**
  * Every executed tick crosses executeTick, and reaching around it is a build
  * failure rather than a convention: eslint.config.mjs fences src/** off this

@@ -42,7 +42,7 @@ import {
   STOP_CODES,
   TAPE_MAGIC,
 } from './tape';
-import type { TickCommand } from '../game/run';
+import type { TickCommand } from '../game/command';
 
 const writeMagic = (writer: ByteWriter): void => {
   for (const character of TAPE_MAGIC) writeU8(writer, character.charCodeAt(0));

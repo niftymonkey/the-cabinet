@@ -61,7 +61,7 @@ import {
 } from './tape';
 import { FAULT_IDENTITIES } from '../game/invariants';
 import type { WeaponLine } from '../game/lines/roster';
-import type { TickCommand } from '../game/run';
+import type { TickCommand } from '../game/command';
 
 const INPUT_DEVICES_BY_CODE = codeReader(
   TAPE_INPUT_DEVICES,

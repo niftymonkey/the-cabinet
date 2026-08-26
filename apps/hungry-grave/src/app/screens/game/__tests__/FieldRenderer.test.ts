@@ -12,6 +12,7 @@ import { FIELD_HEIGHT } from '../../../../game/field';
 import type { Corpse } from '../../../../game/corpses';
 import {
   CORPSE_HALF_EXTENT,
+  DROP_HALF_EXTENT,
   spawnCorpse,
   spawnDrop,
 } from '../../../../game/corpses';
@@ -21,7 +22,6 @@ import type { MobType } from '../../../../game/mobs';
 import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../../../../game/mobs';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
-import { DROP_HALF_EXTENT } from '../../../../game/drops';
 import { INVULNERABLE_TICKS } from '../../../../game/tuning';
 import { CORPSE_TIERS, PALETTE } from '../../../palette';
 import fieldRendererSource from '../FieldRenderer.ts?raw';

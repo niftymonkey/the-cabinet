@@ -4,7 +4,6 @@
 
 import { CORPSE_CAP, createPool, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
-import { DROP_HALF_EXTENT } from './drops';
 import type { SimEvent } from './events';
 import { FIELD_HEIGHT } from './field';
 import type { WeaponLine } from './lines/roster';
@@ -26,6 +25,33 @@ import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from './tuning';
  * drop, so the three silhouettes stay ordered by size.
  */
 const CORPSE_HALF_EXTENT = 7;
+
+/**
+ * A drop's half-extent: a 28-unit catch box, deliberately more generous than
+ * the 24-unit drawn peak, about 1.17 times the ink. Mark's rule, ruled
+ * 2026-08-25, and the rule outranks the number: the pickup area stays slightly
+ * more generous than the drop's maximum visible footprint, because collecting
+ * treasure is never a precision test.
+ *
+ * More generous rather than equal, for three reasons. The breath moves the
+ * visible edge, so a box equal to the peak makes "I touched it and got it"
+ * true at one phase and false at another. The grave's own hitbox shrinks with
+ * damage, so the grab is hardest at the size floor, exactly where ADR 0003's
+ * ladder is stripping weapon levels and the recovery path must stay open. And
+ * ADR 0003 already rules that size never gates a swallow. It stays nowhere
+ * near the genre's most generous: a drop is one of ten to twelve in a run and
+ * ADR 0002 makes it the thing the player routes toward, so a box large enough
+ * to remove the routing choice would delete the mechanic. Twenty-eight is
+ * tuning, not doctrine; if #31's playtest reads pickups as magnetic enough to
+ * remove the routing choice, that is the trigger to tighten it.
+ *
+ * Raising this was a sim change, and old sealed tapes replaying differently is
+ * expected: the witness refusing them is the system working (Mark's general
+ * ruling, 2026-08-25). The prior bound under graveWidth(SIZE_FLOOR) is
+ * superseded, written out in docs/design/drop-legibility-fix.md, and
+ * FieldRenderer.test.ts holds the two bounds that replace it.
+ */
+const DROP_HALF_EXTENT = 14;
 
 // How much freshness one tick drains. Derived from the seconds, which are themselves derived from the scroll.
 const FRESHNESS_PER_TICK = 1 / (FRESHNESS_SECONDS * TICK_HZ);
@@ -276,6 +302,7 @@ export {
   advanceCorpses,
   cullCorpses,
   CORPSE_HALF_EXTENT,
+  DROP_HALF_EXTENT,
   FRESHNESS_PER_TICK,
 };
 export type { Corpse };

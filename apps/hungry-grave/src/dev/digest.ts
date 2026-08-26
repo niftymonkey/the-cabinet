@@ -7,7 +7,8 @@
 import { graveHitbox } from '../game/grave';
 import type { Mob } from '../game/mobs';
 import { damageMob, spawnMob } from '../game/mobs';
-import type { MoveCommand, RunState } from '../game/run';
+import type { MoveCommand } from '../game/command';
+import type { RunState } from '../game/run';
 import { createRun } from '../game/run';
 import { place } from '../game/stage/templates';
 import type { FaultRecord } from '../game/execution';

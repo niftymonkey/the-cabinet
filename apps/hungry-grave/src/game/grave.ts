@@ -1,13 +1,14 @@
 // The grave's size, its motion, and the consequence of mob fire meeting it.
 // Hides ADR 0003 entirely: no other module knows what a hit costs.
 
+import type { MoveCommand } from './command';
 import type { SimEvent } from './events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { MobType } from './mobs';
 import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
 import type { Rect } from './overlap';
-import type { MoveCommand, RunState } from './run';
+import type { RunState } from './run';
 import {
   BASE_SPEED,
   GRAVE_ASPECT,
@@ -33,17 +34,6 @@ interface Grave {
   size: number;
   // Ticks of invulnerability left. Zero means a hit lands.
   invulnerable: number;
-}
-
-/**
- * A point in field units. It lives here rather than in an input
- * model because src/game may not reach src/input: advance.ts's SteerSource and
- * src/input's two models all speak it, and one declaration is what keeps them
- * from drifting into two shapes that only happen to match.
- */
-interface FieldPoint {
-  readonly x: number;
-  readonly y: number;
 }
 
 /**
@@ -222,4 +212,4 @@ export {
   ageGrave,
   hitGrave,
 };
-export type { GraveHitSource, Grave, FieldPoint };
+export type { GraveHitSource, Grave };

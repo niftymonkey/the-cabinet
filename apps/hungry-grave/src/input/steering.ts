@@ -1,7 +1,7 @@
 // One move command from two live input models.
 
-import type { FieldPoint } from '../game/grave';
-import type { MoveCommand } from '../game/run';
+import type { FieldPoint } from '../game/field';
+import type { MoveCommand } from '../game/command';
 import type { TouchSteer } from './touch';
 
 /**

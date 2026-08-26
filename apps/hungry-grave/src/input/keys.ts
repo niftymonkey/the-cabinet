@@ -1,7 +1,7 @@
 // Keyboard steering as a pure model: no DOM in it at all. It holds the set of
 // held key codes and turns them into a move command in base-speed units.
 
-import type { MoveCommand } from '../game/run';
+import type { MoveCommand } from '../game/command';
 
 /**
  * How much of the designated speed a held focus key leaves (glossary: focus).

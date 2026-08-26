@@ -19,24 +19,6 @@ import type { StageState } from './stage/stage';
 import { createStage } from './stage/stage';
 import { SIZE_START } from './tuning';
 
-// A move command in base-speed units, produced by an input model (ADR 0011).
-interface MoveCommand {
-  readonly x: number;
-  readonly y: number;
-}
-
-/**
- * Everything one tick is asked to do. The belch arrives through the same door
- * the move does, because it is a rule of the sim and has to have a place in the
- * tick order: the alternative is a screen calling fireBelch beside advance,
- * which puts a game rule in a screen and puts the belch outside the order the
- * tick documents.
- */
-interface TickCommand {
-  readonly move: MoveCommand;
-  readonly belch: boolean;
-}
-
 // How a run finishes. Null while it is live.
 type RunEnding = 'sealed' | 'victory';
 
@@ -237,4 +219,4 @@ const createRun = (
 };
 
 export { uniformLevels, isBirthrightLevels, createRun, SEED_LIMIT };
-export type { MoveCommand, TickCommand, RunEnding, LineState, RunState };
+export type { RunEnding, LineState, RunState };
