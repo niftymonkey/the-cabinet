@@ -212,7 +212,7 @@ interface PhaseChanged {
  * event. At the size floor there is no shrink, so ADR 0014's rim channel is
  * silent and these three are the only second channel left.
  */
-export type SimEvent =
+type SimEvent =
   | Swallowed
   | Chimed
   | Grew
@@ -236,3 +236,5 @@ export type SimEvent =
   | Belched
   | DropSpawned
   | PhaseChanged;
+
+export type { SimEvent };

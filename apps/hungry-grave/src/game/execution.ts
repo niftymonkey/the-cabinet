@@ -40,7 +40,7 @@ import { step } from './step';
  * consumed, never the one the caller offered, because a recording of a command
  * the run did not execute is worse than no recording.
  */
-export type TickListener = (
+type TickListener = (
   tick: number,
   command: TickCommand,
   events: readonly SimEvent[],
@@ -55,14 +55,14 @@ export type TickListener = (
  * stop reason itself, so which build constructed the Execution cannot decide
  * what a tape records, and a handler may not stop or continue a run.
  */
-export type BrokenHandler = (faults: readonly Fault[], state: RunState) => void;
+type BrokenHandler = (faults: readonly Fault[], state: RunState) => void;
 
 /**
  * How a run stopped, as opposed to how it ended (CONTEXT.md). Absent is the
  * fourth reading, unknown, which is what a recording that simply breaks off
  * leaves behind. This authority only ever writes "faulted".
  */
-export type StopReason = 'finished' | 'quit' | 'faulted';
+type StopReason = 'finished' | 'quit' | 'faulted';
 
 /**
  * One invariant, broken at least once during this run.
@@ -72,7 +72,7 @@ export type StopReason = 'finished' | 'quit' | 'faulted';
  * on and the total count are what a persistent fault needs to stay
  * diagnostically useful.
  */
-export interface FaultRecord {
+interface FaultRecord {
   readonly identity: FaultIdentity;
   readonly severity: FaultSeverity;
   /** The run tick this identity was first seen on. */
@@ -83,7 +83,7 @@ export interface FaultRecord {
   count: number;
 }
 
-export interface Execution {
+interface Execution {
   readonly run: RunState;
   /** Fired in array order after every executed tick. */
   readonly listeners: TickListener[];
@@ -95,16 +95,16 @@ export interface Execution {
   stop: StopReason | null;
 }
 
-export interface ExecutionOptions {
+interface ExecutionOptions {
   readonly listeners?: TickListener[];
   readonly onBroken?: BrokenHandler;
 }
 
 /** The authority for one run, made where the run is made. */
-export function createExecution(
+const createExecution = (
   run: RunState,
   options: ExecutionOptions = {},
-): Execution {
+): Execution => {
   return {
     run,
     listeners: options.listeners ?? [],
@@ -113,7 +113,7 @@ export function createExecution(
     faults: [],
     stop: null,
   };
-}
+};
 
 /**
  * The command the simulation consumes, rounded to the grid a tape records.
@@ -125,16 +125,16 @@ export function createExecution(
  * is the grid because it needs no scale, has no range limit and asks for no
  * clamp in the input path, which is the shape ADR 0011 was already burned by.
  */
-function quantiseMove(move: MoveCommand): MoveCommand {
+const quantiseMove = (move: MoveCommand): MoveCommand => {
   return { x: f32(move.x), y: f32(move.y) };
-}
+};
 
-function quantiseCommand(command: TickCommand): TickCommand {
+const quantiseCommand = (command: TickCommand): TickCommand => {
   return { move: quantiseMove(command.move), belch: command.belch };
-}
+};
 
 /** Folds one tick's fault into the run's history, or counts it against the record already there. */
-function recordFault(execution: Execution, fault: Fault): void {
+const recordFault = (execution: Execution, fault: Fault): void => {
   const seen = execution.faults.find(
     (record) => record.identity === fault.identity,
   );
@@ -149,11 +149,11 @@ function recordFault(execution: Execution, fault: Fault): void {
     detail: fault.detail,
     count: 1,
   });
-}
+};
 
-function isFatal(fault: Fault): boolean {
+const isFatal = (fault: Fault): boolean => {
   return fault.severity === 'fatal';
-}
+};
 
 /**
  * Runs every check for the tick, records what broke and decides whether the run
@@ -163,7 +163,7 @@ function isFatal(fault: Fault): boolean {
  * swallowing it into the fault list it exists to produce would hide it behind
  * the very mechanism meant to surface it.
  */
-function observeFaults(execution: Execution): void {
+const observeFaults = (execution: Execution): void => {
   const faults = checkInvariants(execution.run, execution.watch);
   if (faults.length === 0) return;
   for (const fault of faults) recordFault(execution, fault);
@@ -173,17 +173,17 @@ function observeFaults(execution: Execution): void {
     execution.stop = 'faulted';
   }
   execution.onBroken?.(faults, execution.run);
-}
+};
 
-function notifyListeners(
+const notifyListeners = (
   execution: Execution,
   command: TickCommand,
   events: readonly SimEvent[],
-): void {
+): void => {
   for (const listener of execution.listeners) {
     listener(execution.run.tick, command, events, execution.run);
   }
-}
+};
 
 /**
  * One tick, executed: quantised, stepped, checked, and announced.
@@ -205,10 +205,10 @@ function notifyListeners(
  * ending guard can carry ticks after the ending, and a readback must feed
  * every command a tape holds.
  */
-export function executeTick(
+const executeTick = (
   execution: Execution,
   command: TickCommand,
-): readonly SimEvent[] {
+): readonly SimEvent[] => {
   const consumed = quantiseCommand(command);
   const events = step(execution.run, consumed);
   // Unconditionally: the checks are always on in every build, and there is
@@ -216,7 +216,7 @@ export function executeTick(
   observeFaults(execution);
   notifyListeners(execution, consumed, events);
   return events;
-}
+};
 
 /**
  * A developer's handler: it reports and never throws, and it halts once per
@@ -245,7 +245,7 @@ export function executeTick(
  * is loud here and still never terminates execution. Loudness and severity are
  * separate axes, and only the build decides loudness.
  */
-export function createDevBrokenHandler(): BrokenHandler {
+const createDevBrokenHandler = (): BrokenHandler => {
   const halted = new Set<FaultIdentity>();
   return (faults, state) => {
     const fresh = faults.filter((fault) => !halted.has(fault.identity));
@@ -259,7 +259,22 @@ export function createDevBrokenHandler(): BrokenHandler {
     // eslint-disable-next-line no-debugger -- ADR 0017 ruling H: the dev handler halts here and never throws.
     debugger;
   };
-}
+};
 
 /** The one a developer's build installs, made here so its identities span the session. */
-export const devBrokenHandler: BrokenHandler = createDevBrokenHandler();
+const devBrokenHandler: BrokenHandler = createDevBrokenHandler();
+
+export {
+  createExecution,
+  executeTick,
+  createDevBrokenHandler,
+  devBrokenHandler,
+};
+export type {
+  TickListener,
+  BrokenHandler,
+  StopReason,
+  FaultRecord,
+  Execution,
+  ExecutionOptions,
+};

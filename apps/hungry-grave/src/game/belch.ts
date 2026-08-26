@@ -19,7 +19,7 @@ import type { RunState } from './run';
 import { RESERVOIR_CAPACITY } from './tuning';
 
 /** Takes every live shot off the field, and reports how many went. */
-function cancelMobFire(state: RunState): number {
+const cancelMobFire = (state: RunState): number => {
   let cancelled = 0;
   for (const shot of state.mobFire) {
     if (!shot.alive) continue;
@@ -27,7 +27,7 @@ function cancelMobFire(state: RunState): number {
     cancelled += 1;
   }
   return cancelled;
-}
+};
 
 /**
  * Kills every mob that has entered the field, and reports how many went.
@@ -41,7 +41,7 @@ function cancelMobFire(state: RunState): number {
  * on screen, and reaching past the edge would silently delete authored content
  * a player never saw arrive.
  */
-function wipeEnteredMobs(state: RunState, events: SimEvent[]): number {
+const wipeEnteredMobs = (state: RunState, events: SimEvent[]): number => {
   let killed = 0;
   for (const mob of state.mobs) {
     if (!mob.alive || !hasEntered(mob)) continue;
@@ -49,7 +49,7 @@ function wipeEnteredMobs(state: RunState, events: SimEvent[]): number {
     killed += 1;
   }
   return killed;
-}
+};
 
 /**
  * Cancels every mob-fire shot on the field, kills every mob on screen, and
@@ -59,11 +59,13 @@ function wipeEnteredMobs(state: RunState, events: SimEvent[]): number {
  * never push a boss, and there is no boss in this build for the rule to branch
  * on, so it is a stub the boss dispatch fills rather than a rule written blind.
  */
-export function fireBelch(state: RunState): SimEvent[] {
+const fireBelch = (state: RunState): SimEvent[] => {
   if (state.reservoir < RESERVOIR_CAPACITY) return [];
   const cancelled = cancelMobFire(state);
   const kills: SimEvent[] = [];
   const killed = wipeEnteredMobs(state, kills);
   state.reservoir = 0;
   return [{ type: 'belched', cancelled, killed }, ...kills];
-}
+};
+
+export { fireBelch };

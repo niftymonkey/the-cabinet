@@ -34,12 +34,12 @@ import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from './tuning';
  * Seven units puts it clearly under the smallest mob body and clearly over a
  * drop, so the three silhouettes stay ordered by size.
  */
-export const CORPSE_HALF_EXTENT = 7;
+const CORPSE_HALF_EXTENT = 7;
 
 /** How much freshness one tick drains. Derived from the seconds, which are themselves derived from the scroll. */
-export const FRESHNESS_PER_TICK = 1 / (FRESHNESS_SECONDS * TICK_HZ);
+const FRESHNESS_PER_TICK = 1 / (FRESHNESS_SECONDS * TICK_HZ);
 
-export interface Corpse {
+interface Corpse {
   alive: boolean;
   id: number;
   x: number;
@@ -64,7 +64,7 @@ export interface Corpse {
   halfExtent: number;
 }
 
-function blankCorpse(): Corpse {
+const blankCorpse = (): Corpse => {
   return {
     alive: false,
     id: 0,
@@ -78,20 +78,20 @@ function blankCorpse(): Corpse {
     line: undefined,
     halfExtent: CORPSE_HALF_EXTENT,
   };
-}
+};
 
-export function createCorpsePool(): Corpse[] {
+const createCorpsePool = (): Corpse[] => {
   return createPool(CORPSE_CAP, blankCorpse);
-}
+};
 
-export function corpseHitbox(corpse: Corpse): Rect {
+const corpseHitbox = (corpse: Corpse): Rect => {
   return {
     x: corpse.x - corpse.halfExtent,
     y: corpse.y - corpse.halfExtent,
     width: corpse.halfExtent * 2,
     height: corpse.halfExtent * 2,
   };
-}
+};
 
 /**
  * A corpse as the value swallow.ts takes. It stays a conversion rather than the
@@ -99,14 +99,14 @@ export function corpseHitbox(corpse: Corpse): Rect {
  * entity: entities are pooled and mutated in place, so a held reference is a
  * recycled slot by the time anything reads it.
  */
-export function asSwallowable(corpse: Corpse): Swallowable {
+const asSwallowable = (corpse: Corpse): Swallowable => {
   return {
     kind: corpse.kind,
     freshness: corpse.freshness,
     payout: corpse.payout,
     line: corpse.line,
   };
-}
+};
 
 /**
  * The oldest live food the cap policy may take, which is never treasure.
@@ -117,14 +117,14 @@ export function asSwallowable(corpse: Corpse): Swallowable {
  * covers drops and the boss feasts, and if every slot holds treasure the spawn
  * is refused instead.
  */
-function oldestEvictable(pool: readonly Corpse[]): Corpse | null {
+const oldestEvictable = (pool: readonly Corpse[]): Corpse | null => {
   let oldest: Corpse | null = null;
   for (const corpse of pool) {
     if (!corpse.alive || !corpse.decays) continue;
     if (oldest === null || corpse.id < oldest.id) oldest = corpse;
   }
   return oldest;
-}
+};
 
 /**
  * Room for one more corpse. At the cap the oldest live corpse by id is taken
@@ -133,7 +133,7 @@ function oldestEvictable(pool: readonly Corpse[]): Corpse | null {
  * dropping the oldest costs the player the least. Refusing the spawn instead
  * would silently punish killing a lot at once, which is the best play.
  */
-function claimSlot(state: RunState, events: SimEvent[]): Corpse | null {
+const claimSlot = (state: RunState, events: SimEvent[]): Corpse | null => {
   const free = takeSlot(state.corpses, state.nextEntityId);
   if (free !== null) {
     state.nextEntityId += 1;
@@ -150,10 +150,10 @@ function claimSlot(state: RunState, events: SimEvent[]): Corpse | null {
   evicted.id = state.nextEntityId;
   state.nextEntityId += 1;
   return evicted;
-}
+};
 
 /** What a kill leaves behind: fully fresh, at the dead mob's centre, with no velocity of its own. */
-export function spawnCorpse(state: RunState, mob: Mob): SimEvent[] {
+const spawnCorpse = (state: RunState, mob: Mob): SimEvent[] => {
   const events: SimEvent[] = [];
   const corpse = claimSlot(state, events);
   if (corpse === null) return events;
@@ -170,19 +170,19 @@ export function spawnCorpse(state: RunState, mob: Mob): SimEvent[] {
   corpse.line = undefined;
   corpse.halfExtent = CORPSE_HALF_EXTENT;
   return events;
-}
+};
 
 /**
  * A boss-shed reward corpse that never decays (ADR 0004). Nothing in this
  * dispatch spawns one; the boss dispatch authors the shed and inherits the
  * mechanism rather than inventing it.
  */
-export function spawnFeast(
+const spawnFeast = (
   state: RunState,
   x: number,
   y: number,
   payout: number,
-): SimEvent[] {
+): SimEvent[] => {
   const events: SimEvent[] = [];
   const corpse = claimSlot(state, events);
   if (corpse === null) return events;
@@ -198,7 +198,7 @@ export function spawnFeast(
   corpse.line = undefined;
   corpse.halfExtent = CORPSE_HALF_EXTENT;
   return events;
-}
+};
 
 /**
  * A drop, on the food pool rather than in a second one. It reuses claimSlot, so
@@ -208,12 +208,12 @@ export function spawnFeast(
  * Fully fresh and never decaying, so a maxed line's drop still pays growth,
  * reservoir and overflow: nothing swallowed is ever worthless (ADR 0002).
  */
-export function spawnDrop(
+const spawnDrop = (
   state: RunState,
   x: number,
   y: number,
   line: WeaponLine,
-): SimEvent[] {
+): SimEvent[] => {
   const events: SimEvent[] = [];
   const corpse = claimSlot(state, events);
   if (corpse === null) return events;
@@ -230,10 +230,10 @@ export function spawnDrop(
   corpse.halfExtent = DROP_HALF_EXTENT;
   events.push({ type: 'dropSpawned', line, x, y });
   return events;
-}
+};
 
 /** Freshness drains linearly, and at empty the dirt takes the corpse under. */
-export function advanceCorpses(state: RunState): SimEvent[] {
+const advanceCorpses = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   for (const corpse of state.corpses) {
     if (!corpse.alive || !corpse.decays) continue;
@@ -243,14 +243,14 @@ export function advanceCorpses(state: RunState): SimEvent[] {
     events.push({ type: 'corpseExpired', x: corpse.x, y: corpse.y });
   }
   return events;
-}
+};
 
 /**
  * A corpse off the bottom edge with value left. It is a different read from an
  * expired one and so a different event: one is greed that ran out of time, the
  * other is a dive never attempted.
  */
-export function cullCorpses(state: RunState): SimEvent[] {
+const cullCorpses = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
@@ -265,4 +265,18 @@ export function cullCorpses(state: RunState): SimEvent[] {
     });
   }
   return events;
-}
+};
+
+export {
+  createCorpsePool,
+  corpseHitbox,
+  asSwallowable,
+  spawnCorpse,
+  spawnFeast,
+  spawnDrop,
+  advanceCorpses,
+  cullCorpses,
+  CORPSE_HALF_EXTENT,
+  FRESHNESS_PER_TICK,
+};
+export type { Corpse };

@@ -24,9 +24,9 @@ import type { RunState } from '../run';
 import type { TemplateName } from './templates';
 import { place } from './templates';
 
-export type PhaseName = 'ramp' | 'banshee' | 'backHalf' | 'undertaker' | 'over';
+type PhaseName = 'ramp' | 'banshee' | 'backHalf' | 'undertaker' | 'over';
 
-export interface StageRow {
+interface StageRow {
   /** Phase-local seconds. Rows fire when the phase-local tick passes this time. */
   readonly t: number;
   readonly template: TemplateName;
@@ -58,7 +58,7 @@ export interface StageRow {
  * phase begins, asserted across all five seeds in src/dev/bot.test.ts. This
  * magnitude follows that property and never the other way round.
  */
-export const DRAIN_OUT_SECONDS = 16;
+const DRAIN_OUT_SECONDS = 16;
 
 /**
  * The first 45 seconds are Drips and one File; Files, Vs and Pincers then
@@ -71,7 +71,7 @@ export const DRAIN_OUT_SECONDS = 16;
  * it is the only place in the game where a player sees armed and unarmed side
  * by side in one glance and can calibrate the marker.
  */
-export const RAMP_ROWS: readonly StageRow[] = [
+const RAMP_ROWS: readonly StageRow[] = [
   { t: 2, template: 'drip', count: 1, type: 'shambler' },
   { t: 8, template: 'drip', count: 1, type: 'shambler' },
   { t: 14, template: 'drip', count: 3, type: 'shambler' },
@@ -103,7 +103,7 @@ export const RAMP_ROWS: readonly StageRow[] = [
  * stubbed to end on the tick it begins, its row at phase-local t=2 lands two
  * seconds into the back half, which is where the concept doc puts it.
  */
-export const BACK_HALF_ROWS: readonly StageRow[] = [
+const BACK_HALF_ROWS: readonly StageRow[] = [
   { t: 2, template: 'wall', count: 22, type: 'shambler' },
   { t: 10, template: 'rain', count: 6, type: 'shambler' },
   { t: 14, template: 'pincer', count: 8, type: 'shambler' },
@@ -125,7 +125,7 @@ export const BACK_HALF_ROWS: readonly StageRow[] = [
   { t: 68, template: 'rain', count: 12, type: 'shambler' },
 ];
 
-export interface Phase {
+interface Phase {
   readonly name: PhaseName;
   readonly rows: readonly StageRow[];
 }
@@ -136,7 +136,7 @@ export interface Phase {
  * the simplest possible stub, and the boss dispatch replaces it without moving
  * anything else about the timeline.
  */
-export const PHASES: readonly Phase[] = [
+const PHASES: readonly Phase[] = [
   { name: 'ramp', rows: RAMP_ROWS },
   { name: 'banshee', rows: [] },
   { name: 'backHalf', rows: BACK_HALF_ROWS },
@@ -144,7 +144,7 @@ export const PHASES: readonly Phase[] = [
   { name: 'over', rows: [] },
 ];
 
-export interface StageState {
+interface StageState {
   /** Which phase of PHASES the run is in. It only ever increases. */
   phaseIndex: number;
   /** Ticks since this phase began. It resets to zero at a boundary. */
@@ -153,27 +153,27 @@ export interface StageState {
   firedRows: number;
 }
 
-export function createStage(): StageState {
+const createStage = (): StageState => {
   return { phaseIndex: 0, phaseTick: 0, firedRows: 0 };
-}
+};
 
 /** A phase's length is its last row's time plus the drain-out. A phase with no rows ends on the tick it begins. */
-export function phaseLengthTicks(phase: Phase): number {
+const phaseLengthTicks = (phase: Phase): number => {
   if (phase.rows.length === 0) return 0;
   const last = phase.rows[phase.rows.length - 1].t;
   return (last + DRAIN_OUT_SECONDS) * TICK_HZ;
-}
+};
 
-function rowTicks(row: StageRow): number {
+const rowTicks = (row: StageRow): number => {
   return row.t * TICK_HZ;
-}
+};
 
 /**
  * Every row whose phase-local time this tick has passed. Every spawn draws from
  * the spawns stream and every placement scatter draws from it too, so an
  * identical seed gives an identical spawn sequence (ADRs 0006 and 0012).
  */
-function spawnDueRows(state: RunState, phase: Phase): void {
+const spawnDueRows = (state: RunState, phase: Phase): void => {
   const stage = state.stage;
   while (
     stage.firedRows < phase.rows.length &&
@@ -185,14 +185,14 @@ function spawnDueRows(state: RunState, phase: Phase): void {
       spawnMob(state, row.type, order);
     }
   }
-}
+};
 
 /**
  * Victory is stubbed. In the finished game the Undertaker's death is the ending
  * and his swallow is the animation (ADR 0007); the stub exists so that every
  * deploy from this dispatch on is a complete run in both directions.
  */
-function enterNextPhase(state: RunState, events: SimEvent[]): void {
+const enterNextPhase = (state: RunState, events: SimEvent[]): void => {
   const stage = state.stage;
   stage.phaseIndex += 1;
   stage.phaseTick = 0;
@@ -202,14 +202,14 @@ function enterNextPhase(state: RunState, events: SimEvent[]): void {
   if (phase.name !== 'over') return;
   state.ending = 'victory';
   events.push({ type: 'victory', tick: state.tick });
-}
+};
 
 /**
  * This tick's spawns, and any phase boundary it crosses. More than one boundary
  * can fall on one tick, because a stubbed boss phase ends on the tick it
  * begins, so the loop runs until a phase is still live or the stage is over.
  */
-export function advanceStage(state: RunState): SimEvent[] {
+const advanceStage = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   while (state.stage.phaseIndex < PHASES.length - 1) {
     const phase = PHASES[state.stage.phaseIndex];
@@ -218,4 +218,15 @@ export function advanceStage(state: RunState): SimEvent[] {
     enterNextPhase(state, events);
   }
   return events;
-}
+};
+
+export {
+  createStage,
+  phaseLengthTicks,
+  advanceStage,
+  DRAIN_OUT_SECONDS,
+  RAMP_ROWS,
+  BACK_HALF_ROWS,
+  PHASES,
+};
+export type { PhaseName, StageRow, Phase, StageState };

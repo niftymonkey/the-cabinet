@@ -19,9 +19,9 @@
  * heisenbug reachable on exactly one shared challenge URL.
  */
 
-export type StreamName = 'spawns' | 'drops' | 'mobFire' | 'shed';
+type StreamName = 'spawns' | 'drops' | 'mobFire' | 'shed';
 
-export interface Stream {
+interface Stream {
   /** The next draw, 0 inclusive to 1 exclusive. */
   next(): number;
   /** An integer in [0, bound), by rejection so the low bits are not favoured. */
@@ -39,7 +39,7 @@ const UINT32_LIMIT = 4294967296;
  * here because it fails avalanche outright, and on these four stream names it
  * differs in 7 of 32 bits where 16 is expected.
  */
-function xmur3(text: string): () => number {
+const xmur3 = (text: string): (() => number) => {
   let h = 1779033703 ^ text.length;
   for (let i = 0; i < text.length; i++) {
     h = Math.imul(h ^ text.charCodeAt(i), 3432918353);
@@ -51,10 +51,10 @@ function xmur3(text: string): () => number {
     h ^= h >>> 16;
     return h >>> 0;
   };
-}
+};
 
 /** sfc32, PractRand-recommended, with 128 bits of state across four words. */
-function sfc32(a: number, b: number, c: number, d: number): () => number {
+const sfc32 = (a: number, b: number, c: number, d: number): (() => number) => {
   return () => {
     const t = (((a + b) | 0) + d) | 0;
     d = (d + 1) | 0;
@@ -64,10 +64,10 @@ function sfc32(a: number, b: number, c: number, d: number): () => number {
     c = (c + t) | 0;
     return (t >>> 0) / UINT32_LIMIT;
   };
-}
+};
 
 /** One named stream for one run seed. The same seed and name always give the same sequence. */
-export function stream(seed: number, name: StreamName): Stream {
+const stream = (seed: number, name: StreamName): Stream => {
   const offset = xmur3(name)();
   const words = xmur3(String((seed + offset) >>> 0));
   const draw = sfc32(words(), words(), words(), words());
@@ -109,4 +109,7 @@ export function stream(seed: number, name: StreamName): Stream {
       return drawn;
     },
   };
-}
+};
+
+export { stream };
+export type { StreamName, Stream };

@@ -6,9 +6,9 @@
  * lines/soulStream.ts and friends dispatch 5 adds.
  */
 
-export type WeaponLine = 'soulStream' | 'headstones' | 'wisps' | 'bell';
+type WeaponLine = 'soulStream' | 'headstones' | 'wisps' | 'bell';
 
-export const WEAPON_LINES: readonly WeaponLine[] = [
+const WEAPON_LINES: readonly WeaponLine[] = [
   'soulStream',
   'headstones',
   'wisps',
@@ -16,6 +16,9 @@ export const WEAPON_LINES: readonly WeaponLine[] = [
 ];
 
 /** The lines a run starts with (glossary: birthright). The floor's ladder strips back to exactly these. */
-export const BIRTHRIGHT: readonly WeaponLine[] = ['soulStream', 'headstones'];
+const BIRTHRIGHT: readonly WeaponLine[] = ['soulStream', 'headstones'];
 
-export const MAX_LEVEL = 5;
+const MAX_LEVEL = 5;
+
+export { WEAPON_LINES, BIRTHRIGHT, MAX_LEVEL };
+export type { WeaponLine };

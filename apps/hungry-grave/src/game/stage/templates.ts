@@ -20,9 +20,9 @@ import { FIELD_WIDTH } from '../field';
 import { normalize } from '../math';
 import type { Stream } from '../rng';
 
-export type TemplateName = 'drip' | 'file' | 'v' | 'pincer' | 'rain' | 'wall';
+type TemplateName = 'drip' | 'file' | 'v' | 'pincer' | 'rain' | 'wall';
 
-export interface SpawnOrder {
+interface SpawnOrder {
   readonly x: number;
   readonly y: number;
   /** The arriving direction, a unit vector. Speed is the mob type's. */
@@ -59,7 +59,7 @@ const ENTRY_DEPTH = BODY;
  * number, because it is a property of the placement library and everything
  * downstream reads it from one place.
  */
-export const MAX_ENTRY_DEPTH = 160;
+const MAX_ENTRY_DEPTH = 160;
 
 /** How far a lane or a scatter stays clear of the field's sides. */
 const EDGE_MARGIN = BODY / 2;
@@ -86,23 +86,23 @@ const PINCER_ANGLE = normalize(1, 1);
  * How far apart consecutive ranks sit along the entry direction, closed up if
  * the group would otherwise reach past the depth budget.
  */
-function rankStep(ranks: number, wanted: number): number {
+const rankStep = (ranks: number, wanted: number): number => {
   if (ranks <= 1) return wanted;
   return Math.min(wanted, (MAX_ENTRY_DEPTH - ENTRY_DEPTH) / (ranks - 1));
-}
+};
 
 /** Left arm or right arm, on the two mirrored templates. */
-function armSign(index: number): number {
+const armSign = (index: number): number => {
   return index % 2 === 0 ? -1 : 1;
-}
+};
 
 /** A mirrored template's position within its own arm. */
-function armRank(index: number): number {
+const armRank = (index: number): number => {
   return Math.floor(index / 2);
-}
+};
 
 /** Lone teaching kills: count mobs spread across the field's width at even spacing. */
-function drip(count: number): SpawnOrder[] {
+const drip = (count: number): SpawnOrder[] => {
   return Array.from({ length: count }, (_unused, index) => ({
     x: (FIELD_WIDTH * (index + 0.5)) / count,
     y: -ENTRY_DEPTH,
@@ -110,10 +110,10 @@ function drip(count: number): SpawnOrder[] {
     vy: DOWN.y,
     index,
   }));
-}
+};
 
 /** A single-file lane down one x, each mob one body length behind the last. Its corpses land in a trail, which is what teaches the dive. */
-function file(count: number, stream: Stream): SpawnOrder[] {
+const file = (count: number, stream: Stream): SpawnOrder[] => {
   const lane = EDGE_MARGIN + stream.next() * (FIELD_WIDTH - 2 * EDGE_MARGIN);
   const step = rankStep(count, BODY);
   return Array.from({ length: count }, (_unused, index) => ({
@@ -123,10 +123,10 @@ function file(count: number, stream: Stream): SpawnOrder[] {
     vy: DOWN.y,
     index,
   }));
-}
+};
 
 /** A spreading chevron, apex first, arms opening as they descend. */
-function chevron(count: number): SpawnOrder[] {
+const chevron = (count: number): SpawnOrder[] => {
   const step = rankStep(armRank(count - 1) + 1, V_SPREAD_Y);
   return Array.from({ length: count }, (_unused, order) => {
     const sign = armSign(order);
@@ -139,10 +139,10 @@ function chevron(count: number): SpawnOrder[] {
       index: rank,
     };
   });
-}
+};
 
 /** Two files angled in from opposite top corners. */
-function pincer(count: number): SpawnOrder[] {
+const pincer = (count: number): SpawnOrder[] => {
   const ranks = armRank(count - 1) + 1;
   const along = rankStep(ranks, BODY * PINCER_ANGLE.y) / PINCER_ANGLE.y;
   return Array.from({ length: count }, (_unused, order) => {
@@ -159,7 +159,7 @@ function pincer(count: number): SpawnOrder[] {
       index: rank,
     };
   });
-}
+};
 
 /**
  * A loose full-width scatter, the density filler. The looseness is in where and
@@ -167,7 +167,7 @@ function pincer(count: number): SpawnOrder[] {
  * the type supplies the speed, so a varied entry speed here would be the same
  * defect as an absolute velocity.
  */
-function rain(count: number, stream: Stream): SpawnOrder[] {
+const rain = (count: number, stream: Stream): SpawnOrder[] => {
   return Array.from({ length: count }, (_unused, index) => ({
     x: EDGE_MARGIN + stream.next() * (FIELD_WIDTH - 2 * EDGE_MARGIN),
     y: -ENTRY_DEPTH - stream.next() * RAIN_SPREAD,
@@ -175,10 +175,10 @@ function rain(count: number, stream: Stream): SpawnOrder[] {
     vy: DOWN.y,
     index,
   }));
-}
+};
 
 /** An edge-to-edge curtain, evenly spaced across the full width, entering together. */
-function wall(count: number): SpawnOrder[] {
+const wall = (count: number): SpawnOrder[] => {
   const spacing = FIELD_WIDTH / count;
   return Array.from({ length: count }, (_unused, index) => ({
     x: (index + 0.5) * spacing,
@@ -187,14 +187,14 @@ function wall(count: number): SpawnOrder[] {
     vy: DOWN.y,
     index,
   }));
-}
+};
 
 /** Where a group of `count` arrives and how it is arranged. Count comes from the row and never from the template (ADR 0006). */
-export function place(
+const place = (
   template: TemplateName,
   count: number,
   stream: Stream,
-): SpawnOrder[] {
+): SpawnOrder[] => {
   if (count <= 0) return [];
   if (template === 'drip') return drip(count);
   if (template === 'file') return file(count, stream);
@@ -202,4 +202,7 @@ export function place(
   if (template === 'pincer') return pincer(count);
   if (template === 'rain') return rain(count, stream);
   return wall(count);
-}
+};
+
+export { place, MAX_ENTRY_DEPTH };
+export type { TemplateName, SpawnOrder };

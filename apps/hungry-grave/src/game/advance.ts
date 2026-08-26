@@ -29,7 +29,7 @@ import type { TickCommand } from './run';
  * it on the first call, so repeat presses inside one frame are no-ops by the
  * resource. A force-false here would be dead code the next reader trusts.
  */
-export type CommandSource = (grave: FieldPoint) => TickCommand;
+type CommandSource = (grave: FieldPoint) => TickCommand;
 
 /**
  * Advances the run by however many whole ticks this frame's elapsed time buys,
@@ -54,12 +54,12 @@ export type CommandSource = (grave: FieldPoint) => TickCommand;
  * this rule can carry ticks after the ending, and a readback that stopped on
  * run.ending would cut short a tape it is obliged to reproduce in full.
  */
-export function advance(
+const advance = (
   execution: Execution,
   clock: Clock,
   elapsedMs: number,
   source: CommandSource,
-): SimEvent[] {
+): SimEvent[] => {
   const ticks = ticksFor(clock, elapsedMs);
   const events: SimEvent[] = [];
   for (let tick = 0; tick < ticks; tick++) {
@@ -67,4 +67,7 @@ export function advance(
     events.push(...executeTick(execution, source(execution.run.grave)));
   }
   return events;
-}
+};
+
+export { advance };
+export type { CommandSource };

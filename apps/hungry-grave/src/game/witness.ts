@@ -49,7 +49,7 @@ const STREAM_ORDER: readonly StreamName[] = [
  * and read back there, so it moves only when the order or the field list below
  * moves.
  */
-export const WITNESS_VERSION = 1;
+const WITNESS_VERSION = 1;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -61,22 +61,22 @@ export const WITNESS_VERSION = 1;
  * accumulated into position. Math.round(760 * 1e9) stays inside ToInt32's range
  * deterministically, so the finer fold costs nothing.
  */
-function fold(checksum: number, value: number): number {
+const fold = (checksum: number, value: number): number => {
   return (Math.imul(checksum, 31) + Math.round(value * 1e9)) | 0;
-}
+};
 
 /**
  * The code a field takes when it is absent: a null ring, a corpse with no line.
  * No member of any code map below may ever take it, or an absent field and a
  * present one become the same witness.
  */
-export const ABSENT_CODE = 0;
+const ABSENT_CODE = 0;
 
 /**
  * What a wisp with no target folds through. nextEntityId starts at 1 and only
  * ever increases, so 0 is an id no entity can hold.
  */
-export const NO_TARGET_ID = 0;
+const NO_TARGET_ID = 0;
 
 /**
  * The string unions' codes, append-only and read by name. A code is never a
@@ -85,23 +85,23 @@ export const NO_TARGET_ID = 0;
  * dangerous. Each map is typed as a total Record, so adding a member to a union
  * fails the typecheck until somebody gives it a code.
  */
-export const RUN_ENDING_CODES: Readonly<Record<RunEnding, number>> = {
+const RUN_ENDING_CODES: Readonly<Record<RunEnding, number>> = {
   sealed: 1,
   victory: 2,
 };
 
-export const CORPSE_TIER_CODES: Readonly<Record<CorpseTier, number>> = {
+const CORPSE_TIER_CODES: Readonly<Record<CorpseTier, number>> = {
   trash: 1,
   rich: 2,
 };
 
-export const FOOD_KIND_CODES: Readonly<Record<FoodKind, number>> = {
+const FOOD_KIND_CODES: Readonly<Record<FoodKind, number>> = {
   corpse: 1,
   drop: 2,
   feast: 3,
 };
 
-export const WEAPON_LINE_CODES: Readonly<Record<WeaponLine, number>> = {
+const WEAPON_LINE_CODES: Readonly<Record<WeaponLine, number>> = {
   soulStream: 1,
   headstones: 2,
   wisps: 3,
@@ -109,18 +109,18 @@ export const WEAPON_LINE_CODES: Readonly<Record<WeaponLine, number>> = {
 };
 
 /** A boolean's encoding, spelled out so it is visible at the call site. */
-export function boolCode(value: boolean): number {
+const boolCode = (value: boolean): number => {
   return value ? 1 : 0;
-}
+};
 
-function foldGrave(checksum: number, grave: Grave): number {
+const foldGrave = (checksum: number, grave: Grave): number => {
   let next = fold(checksum, grave.x);
   next = fold(next, grave.y);
   next = fold(next, grave.size);
   return fold(next, grave.invulnerable);
-}
+};
 
-function foldMobs(checksum: number, run: RunState): number {
+const foldMobs = (checksum: number, run: RunState): number => {
   let next = checksum;
   for (const mob of run.mobs) {
     if (!mob.alive) continue;
@@ -129,24 +129,24 @@ function foldMobs(checksum: number, run: RunState): number {
     next = fold(next, boolCode(mob.armed));
   }
   return next;
-}
+};
 
-function foldMobFire(checksum: number, run: RunState): number {
+const foldMobFire = (checksum: number, run: RunState): number => {
   let next = checksum;
   for (const shot of run.mobFire) {
     if (!shot.alive) continue;
     next = fold(fold(fold(fold(next, shot.x), shot.y), shot.vx), shot.vy);
   }
   return next;
-}
+};
 
 /** A corpse's line is optional, so it folds through the reserved absent code. */
-function corpseLineCode(corpse: Corpse): number {
+const corpseLineCode = (corpse: Corpse): number => {
   if (corpse.line === undefined) return ABSENT_CODE;
   return WEAPON_LINE_CODES[corpse.line];
-}
+};
 
-function foldCorpses(checksum: number, run: RunState): number {
+const foldCorpses = (checksum: number, run: RunState): number => {
   let next = checksum;
   for (const corpse of run.corpses) {
     if (!corpse.alive) continue;
@@ -157,18 +157,18 @@ function foldCorpses(checksum: number, run: RunState): number {
     next = fold(next, corpseLineCode(corpse));
   }
   return next;
-}
+};
 
-function foldSkulls(checksum: number, run: RunState): number {
+const foldSkulls = (checksum: number, run: RunState): number => {
   let next = checksum;
   for (const skull of run.skulls) {
     if (!skull.alive) continue;
     next = fold(fold(fold(fold(next, skull.x), skull.y), skull.vx), skull.vy);
   }
   return next;
-}
+};
 
-function foldWisps(checksum: number, run: RunState): number {
+const foldWisps = (checksum: number, run: RunState): number => {
   let next = checksum;
   for (const wisp of run.wisps) {
     if (!wisp.alive) continue;
@@ -177,82 +177,82 @@ function foldWisps(checksum: number, run: RunState): number {
     next = fold(next, wisp.targetId ?? NO_TARGET_ID);
   }
   return next;
-}
+};
 
 /**
  * Every live entity's own state, in slot order. Slot order is the point as much
  * as the values are: a pool walked in a different order gives a different
  * checksum, so iteration order is verified rather than assumed.
  */
-function foldEntities(checksum: number, run: RunState): number {
+const foldEntities = (checksum: number, run: RunState): number => {
   let next = foldMobs(checksum, run);
   next = foldMobFire(next, run);
   next = foldCorpses(next, run);
   next = foldSkulls(next, run);
   return foldWisps(next, run);
-}
+};
 
 /** The economy and the run's own totals, ADR 0002's drop pricing included. */
-function foldTotals(checksum: number, run: RunState): number {
+const foldTotals = (checksum: number, run: RunState): number => {
   let next = fold(fold(checksum, run.score), run.reservoir);
   next = fold(next, endingCode(run.ending));
   next = fold(fold(next, run.killsSinceDrop), run.dropsPaid);
   return fold(next, run.nextEntityId);
-}
+};
 
 /** An absent ending is live rather than finished, so it takes the absent code. */
-function endingCode(ending: RunEnding | null): number {
+const endingCode = (ending: RunEnding | null): number => {
   if (ending === null) return ABSENT_CODE;
   return RUN_ENDING_CODES[ending];
-}
+};
 
-function foldLevels(checksum: number, run: RunState): number {
+const foldLevels = (checksum: number, run: RunState): number => {
   let next = checksum;
   for (const line of WEAPON_LINES) next = fold(next, run.levels[line]);
   return next;
-}
+};
 
-function foldStreams(checksum: number, run: RunState): number {
+const foldStreams = (checksum: number, run: RunState): number => {
   let next = checksum;
   for (const name of STREAM_ORDER) next = fold(next, run.streams[name].drawn);
   return next;
-}
+};
 
-function foldStage(checksum: number, stage: StageState): number {
+const foldStage = (checksum: number, stage: StageState): number => {
   const next = fold(fold(checksum, stage.phaseIndex), stage.phaseTick);
   return fold(next, stage.firedRows);
-}
+};
 
 /**
  * The ring's size folds before its members, and the members fold in iteration
  * order. That order is deterministic here because insertion follows the mob
  * pool's slot order.
  */
-function foldStruck(checksum: number, struck: ReadonlySet<number>): number {
+const foldStruck = (checksum: number, struck: ReadonlySet<number>): number => {
   let next = fold(checksum, struck.size);
   for (const id of struck) next = fold(next, id);
   return next;
-}
+};
 
 /**
  * An absent ring folds its own sentinel rather than being skipped. Skipping it
  * would make a run with no ring and a run whose ring folds to zero one witness.
  */
-function foldRing(checksum: number, ring: BellRing | null): number {
+const foldRing = (checksum: number, ring: BellRing | null): number => {
   if (ring === null) return fold(checksum, ABSENT_CODE);
   const next = fold(fold(checksum, 1), ring.level);
   return foldStruck(fold(next, ring.ticks), ring.struck);
-}
+};
 
-function foldLines(checksum: number, lines: LineState): number {
+const foldLines = (checksum: number, lines: LineState): number => {
   let next = fold(fold(checksum, lines.streamIn), lines.surgeVolleys);
   next = fold(next, lines.orbitPhase);
   for (const recharge of lines.stoneRecharge) next = fold(next, recharge);
   return foldRing(fold(next, lines.tollIn), lines.ring);
-}
+};
 
 /** The whole run, folded into one integer from a starting value (ADR 0019). */
-export function foldWitness(run: RunState, from: number): number {
+const foldWitness = (run: RunState, from: number): number => {
   let checksum = foldGrave(from, run.grave);
   checksum = foldEntities(checksum, run);
   checksum = foldTotals(checksum, run);
@@ -260,4 +260,16 @@ export function foldWitness(run: RunState, from: number): number {
   checksum = foldStreams(checksum, run);
   checksum = foldStage(checksum, run.stage);
   return foldLines(checksum, run.lines);
-}
+};
+
+export {
+  boolCode,
+  foldWitness,
+  WITNESS_VERSION,
+  ABSENT_CODE,
+  NO_TARGET_ID,
+  RUN_ENDING_CODES,
+  CORPSE_TIER_CODES,
+  FOOD_KIND_CODES,
+  WEAPON_LINE_CODES,
+};

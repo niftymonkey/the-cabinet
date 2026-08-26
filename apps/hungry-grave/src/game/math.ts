@@ -16,37 +16,37 @@
  */
 
 /** One number rounded to single precision. The gate every approximated result passes through. */
-export function f32(value: number): number {
+const f32 = (value: number): number => {
   return Math.fround(value);
-}
+};
 
-export function sin(radians: number): number {
+const sin = (radians: number): number => {
   return f32(Math.sin(radians));
-}
+};
 
-export function cos(radians: number): number {
+const cos = (radians: number): number => {
   return f32(Math.cos(radians));
-}
+};
 
-export function tan(radians: number): number {
+const tan = (radians: number): number => {
   return f32(Math.tan(radians));
-}
+};
 
-export function atan2(y: number, x: number): number {
+const atan2 = (y: number, x: number): number => {
   return f32(Math.atan2(y, x));
-}
+};
 
-export function exp(value: number): number {
+const exp = (value: number): number => {
   return f32(Math.exp(value));
-}
+};
 
-export function log(value: number): number {
+const log = (value: number): number => {
   return f32(Math.log(value));
-}
+};
 
-export function pow(base: number, exponent: number): number {
+const pow = (base: number, exponent: number): number => {
   return f32(Math.pow(base, exponent));
-}
+};
 
 /**
  * A vector as a unit direction and its length, using only multiply, divide and
@@ -57,14 +57,14 @@ export function pow(base: number, exponent: number): number {
  * A zero vector returns zero rather than NaN, because a zero move command is
  * the resting state of both input models and so the common case.
  */
-export function normalize(
+const normalize = (
   x: number,
   y: number,
-): { x: number; y: number; length: number } {
+): { x: number; y: number; length: number } => {
   const length = Math.sqrt(x * x + y * y);
   if (length === 0) return { x: 0, y: 0, length: 0 };
   return { x: x / length, y: y / length, length };
-}
+};
 
 /**
  * A unit heading rotated toward a unit target by at most one turn step, given
@@ -80,12 +80,12 @@ export function normalize(
  * It lives here rather than in mobs.ts because two owners need it and one
  * rotation that both share cannot drift apart the way two copies can.
  */
-export function rotateToward(
+const rotateToward = (
   heading: { x: number; y: number },
   target: { x: number; y: number },
   turnCos: number,
   turnSin: number,
-): { x: number; y: number } {
+): { x: number; y: number } => {
   const dot = heading.x * target.x + heading.y * target.y;
   if (dot >= turnCos) return target;
   const cross = heading.x * target.y - heading.y * target.x;
@@ -94,4 +94,6 @@ export function rotateToward(
     x: heading.x * turnCos - heading.y * sign * turnSin,
     y: heading.x * sign * turnSin + heading.y * turnCos,
   };
-}
+};
+
+export { f32, sin, cos, tan, atan2, exp, log, pow, normalize, rotateToward };

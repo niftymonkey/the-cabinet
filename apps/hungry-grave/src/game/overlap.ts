@@ -5,7 +5,7 @@
  */
 
 /** A rectangle in field units, as a top-left corner and a size. */
-export interface Rect {
+interface Rect {
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -20,11 +20,14 @@ export interface Rect {
  * the rim is a hit or a miss depending on it, and an unstated convention gets
  * flipped by the next person who reads the code.
  */
-export function overlaps(a: Rect, b: Rect): boolean {
+const overlaps = (a: Rect, b: Rect): boolean => {
   return (
     a.x < b.x + b.width &&
     b.x < a.x + a.width &&
     a.y < b.y + b.height &&
     b.y < a.y + a.height
   );
-}
+};
+
+export { overlaps };
+export type { Rect };

@@ -15,7 +15,7 @@ import type { Mob } from '../mobs';
 import { damageMob, SPAWN_MARGIN } from '../mobs';
 import type { RunState } from '../run';
 
-export interface BellRing {
+interface BellRing {
   readonly level: number;
   ticks: number;
   /**
@@ -35,14 +35,14 @@ export interface BellRing {
 }
 
 /** Ticks between tolls: three seconds, a rhythm to position against. */
-export const BELL_PERIOD = 180;
+const BELL_PERIOD = 180;
 
 /**
  * How long a ring takes to reach its full radius. It finishes well inside its
  * own period, so the player never sees two rings at once and one live ring at a
  * time is an invariant rather than an assumption.
  */
-export const BELL_EXPAND_TICKS = 45;
+const BELL_EXPAND_TICKS = 45;
 
 /**
  * How far each level's ring reaches, indexed by level. Level 5 reaches 250
@@ -52,27 +52,25 @@ export const BELL_EXPAND_TICKS = 45;
  * threat, so the first toll has something in it whenever the player is in any
  * danger at all.
  */
-export const BELL_RADIUS_BY_LEVEL: readonly number[] = [
-  0, 80, 122, 165, 207, 250,
-];
+const BELL_RADIUS_BY_LEVEL: readonly number[] = [0, 80, 122, 165, 207, 250];
 
 /** Damage at the grave itself. Three is one shambler exactly, so a maxed bell kills trash outright only where the player is standing. */
-export const BELL_DAMAGE_NEAR = 3;
+const BELL_DAMAGE_NEAR = 3;
 
 /** Damage at the ring's full radius. The far edge tickles, which is Mark's 2026-08-19 ruling recorded in ADR 0005. */
-export const BELL_DAMAGE_FAR = 0.5;
+const BELL_DAMAGE_FAR = 0.5;
 
 /**
  * How hard each level's ring shoves, in field units, indexed by level. ADR 0005
  * makes push a higher-level property rather than a level-1 one, and this is the
  * ladder.
  */
-export const BELL_PUSH_BY_LEVEL: readonly number[] = [0, 0, 0, 0, 20, 40];
+const BELL_PUSH_BY_LEVEL: readonly number[] = [0, 0, 0, 0, 20, 40];
 
 /** How far the ring's leading edge stands from the grave, at this much of its life. */
-export function ringRadius(ring: BellRing): number {
+const ringRadius = (ring: BellRing): number => {
   return BELL_RADIUS_BY_LEVEL[ring.level] * (ring.ticks / BELL_EXPAND_TICKS);
-}
+};
 
 /**
  * How much of the toll's power reaches this far out: one at the grave, nothing
@@ -82,10 +80,10 @@ export function ringRadius(ring: BellRing): number {
  * where the player is standing on both channels at once rather than falling off
  * two different ways.
  */
-function proximity(distance: number, full: number): number {
+const proximity = (distance: number, full: number): number => {
   if (full <= 0) return 0;
   return Math.max(0, 1 - distance / full);
-}
+};
 
 /**
  * Shoves a mob away from the grave, held inside the field widened by
@@ -97,13 +95,13 @@ function proximity(distance: number, full: number): number {
  * are already working from, so a level-up mid-ring cannot shove harder than the
  * ring that is shoving reaches.
  */
-function pushMob(
+const pushMob = (
   state: RunState,
   ring: BellRing,
   mob: Mob,
   distance: number,
   near: number,
-): void {
+): void => {
   const push = BELL_PUSH_BY_LEVEL[ring.level] * near;
   if (!Number.isFinite(push) || push <= 0 || distance === 0) return;
   const away = normalize(mob.x - state.grave.x, mob.y - state.grave.y);
@@ -118,11 +116,11 @@ function pushMob(
     -SPAWN_MARGIN,
     FIELD_HEIGHT + SPAWN_MARGIN,
   );
-}
+};
 
-function clamp(value: number, low: number, high: number): number {
+const clamp = (value: number, low: number, high: number): number => {
   return Math.min(Math.max(value, low), high);
-}
+};
 
 /**
  * Every mob the ring's leading edge reached this tick: inside the radius, and
@@ -133,7 +131,11 @@ function clamp(value: number, low: number, high: number): number {
  * annulus, it also catches a mob standing exactly on the grave, which an
  * annulus opening at zero never crosses.
  */
-function sweepRing(state: RunState, ring: BellRing, now: number): SimEvent[] {
+const sweepRing = (
+  state: RunState,
+  ring: BellRing,
+  now: number,
+): SimEvent[] => {
   const events: SimEvent[] = [];
   const full = BELL_RADIUS_BY_LEVEL[ring.level];
   for (const mob of state.mobs) {
@@ -150,24 +152,24 @@ function sweepRing(state: RunState, ring: BellRing, now: number): SimEvent[] {
     events.push(...damageMob(state, mob, damage, 'bell'));
   }
   return events;
-}
+};
 
 /** The live ring, one tick wider, and gone once it has reached its full radius. */
-function expandRing(state: RunState): SimEvent[] {
+const expandRing = (state: RunState): SimEvent[] => {
   const ring = state.lines.ring;
   if (ring === null) return [];
   ring.ticks += 1;
   const events = sweepRing(state, ring, ringRadius(ring));
   if (ring.ticks >= BELL_EXPAND_TICKS) state.lines.ring = null;
   return events;
-}
+};
 
 /**
  * The toll's clock. It runs whatever the level is and re-arms either way, so an
  * owned bell's first toll lands within one period of the drop rather than
  * waiting on a clock that only started then.
  */
-function tollClock(state: RunState): SimEvent[] {
+const tollClock = (state: RunState): SimEvent[] => {
   const lines = state.lines;
   lines.tollIn -= 1;
   if (lines.tollIn > 0) return [];
@@ -176,7 +178,7 @@ function tollClock(state: RunState): SimEvent[] {
   if (level === 0) return [];
   lines.ring = { level, ticks: 0, struck: new Set() };
   return [{ type: 'tolled', level, radius: BELL_RADIUS_BY_LEVEL[level] }];
-}
+};
 
 /**
  * The toll's clock, the live ring's expansion, and the damage its leading edge
@@ -186,8 +188,20 @@ function tollClock(state: RunState): SimEvent[] {
  * at nothing until the next one, the same rule that puts a skull at the mouth
  * for one tick.
  */
-export function advanceBell(state: RunState): SimEvent[] {
+const advanceBell = (state: RunState): SimEvent[] => {
   const events = expandRing(state);
   events.push(...tollClock(state));
   return events;
-}
+};
+
+export {
+  ringRadius,
+  advanceBell,
+  BELL_PERIOD,
+  BELL_EXPAND_TICKS,
+  BELL_RADIUS_BY_LEVEL,
+  BELL_DAMAGE_NEAR,
+  BELL_DAMAGE_FAR,
+  BELL_PUSH_BY_LEVEL,
+};
+export type { BellRing };

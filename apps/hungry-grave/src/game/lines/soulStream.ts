@@ -19,7 +19,7 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { cos, normalize, sin } from '../math';
 import type { RunState } from '../run';
 
-export interface Skull {
+interface Skull {
   alive: boolean;
   id: number;
   x: number;
@@ -29,7 +29,7 @@ export interface Skull {
 }
 
 /** How many columns each level fires, indexed by level. */
-export const COLUMNS_BY_LEVEL: readonly number[] = [0, 1, 2, 3, 4, 5];
+const COLUMNS_BY_LEVEL: readonly number[] = [0, 1, 2, 3, 4, 5];
 
 /**
  * Ticks between volleys, derived rather than picked. A shambler has 3 health and
@@ -38,7 +38,7 @@ export const COLUMNS_BY_LEVEL: readonly number[] = [0, 1, 2, 3, 4, 5];
  * level-1 stream, which is the "trash dies in a second or two" the drain-out is
  * re-derived against.
  */
-export const STREAM_INTERVAL = 30;
+const STREAM_INTERVAL = 30;
 
 /**
  * Field units per tick. Mob fire travels at 110 units per second and ADR 0014
@@ -47,7 +47,7 @@ export const STREAM_INTERVAL = 30;
  * faster. It crosses the field's height in about 1.8 seconds, which is a real
  * lead time and is why the stream is a saturation weapon rather than a sniper.
  */
-export const SKULL_SPEED = 420 / TICK_HZ;
+const SKULL_SPEED = 420 / TICK_HZ;
 
 /**
  * How far apart the columns stand, in degrees, symmetric about straight up. At
@@ -56,7 +56,7 @@ export const SKULL_SPEED = 420 / TICK_HZ;
  * quarter of the field's width, so the widest column still lands inside the
  * field from a centred grave and the fan reads as coverage rather than a spray.
  */
-export const FAN_STEP_DEGREES = 6;
+const FAN_STEP_DEGREES = 6;
 
 /**
  * How many volleys one swallow buys at the shortened interval, and Mark ruled
@@ -65,21 +65,21 @@ export const FAN_STEP_DEGREES = 6;
  * one extra volley is five skulls and six of the back half's seven ghouls is not
  * a cleared wave.
  */
-export const SURGE_VOLLEYS = 1;
+const SURGE_VOLLEYS = 1;
 
 /** The shortened interval a surged volley waits, in ticks. */
-export const SURGE_INTERVAL = 10;
+const SURGE_INTERVAL = 10;
 
-export const SKULL_HALF_EXTENT = 4;
-export const SKULL_DAMAGE = 1;
+const SKULL_HALF_EXTENT = 4;
+const SKULL_DAMAGE = 1;
 
-function blankSkull(): Skull {
+const blankSkull = (): Skull => {
   return { alive: false, id: 0, x: 0, y: 0, vx: 0, vy: 0 };
-}
+};
 
-export function createSkullPool(): Skull[] {
+const createSkullPool = (): Skull[] => {
   return createPool(SKULL_CAP, blankSkull);
-}
+};
 
 const DEGREES_TO_RADIANS = Math.PI / 180;
 
@@ -88,9 +88,9 @@ const DEGREES_TO_RADIANS = Math.PI / 180;
  * The columns straddle the centre, so an even count has none straight up and an
  * odd count has exactly one.
  */
-function columnAngle(column: number, columns: number): number {
+const columnAngle = (column: number, columns: number): number => {
   return (column - (columns - 1) / 2) * FAN_STEP_DEGREES;
-}
+};
 
 /**
  * A skull put on the field at the mouth, flying one column of the fan.
@@ -100,7 +100,11 @@ function columnAngle(column: number, columns: number): number {
  * the launch vector is exactly unit length whatever the f32 rounding did to the
  * sine and cosine, and the speed is then a single multiply.
  */
-function launchSkull(state: RunState, column: number, columns: number): void {
+const launchSkull = (
+  state: RunState,
+  column: number,
+  columns: number,
+): void => {
   const skull = takeSlot(state.skulls, state.nextEntityId);
   if (skull === null) return;
   state.nextEntityId += 1;
@@ -111,29 +115,29 @@ function launchSkull(state: RunState, column: number, columns: number): void {
   skull.y = state.grave.y - state.grave.size;
   skull.vx = heading.x * SKULL_SPEED;
   skull.vy = heading.y * SKULL_SPEED;
-}
+};
 
 /** Every column of one volley, in column order so the same level always fires the same sequence. */
-function fireVolley(state: RunState): void {
+const fireVolley = (state: RunState): void => {
   const columns = COLUMNS_BY_LEVEL[state.levels.soulStream];
   for (let column = 0; column < columns; column++) {
     launchSkull(state, column, columns);
   }
-}
+};
 
 /**
  * How long until the volley after this one, and the surge spent in the asking.
  * A surged volley is one scheduled at the shortened interval, so the count is
  * discharged here rather than at the moment that volley leaves.
  */
-function nextInterval(state: RunState): number {
+const nextInterval = (state: RunState): number => {
   if (state.lines.surgeVolleys <= 0) return STREAM_INTERVAL;
   state.lines.surgeVolleys -= 1;
   return SURGE_INTERVAL;
-}
+};
 
 /** A skull fully outside the field on any side is gone. */
-function cullSkulls(state: RunState): void {
+const cullSkulls = (state: RunState): void => {
   for (const skull of state.skulls) {
     if (!skull.alive) continue;
     const outside =
@@ -143,7 +147,7 @@ function cullSkulls(state: RunState): void {
       skull.y - SKULL_HALF_EXTENT > FIELD_HEIGHT;
     if (outside) skull.alive = false;
   }
-}
+};
 
 /**
  * One skull's flight for this tick, and the moment the next volley is due
@@ -151,7 +155,7 @@ function cullSkulls(state: RunState): void {
  * launched this tick does not also move this tick and the stream visibly pours
  * out of the mouth.
  */
-export function advanceStream(state: RunState): SimEvent[] {
+const advanceStream = (state: RunState): SimEvent[] => {
   for (const skull of state.skulls) {
     if (!skull.alive) continue;
     skull.x += skull.vx;
@@ -163,13 +167,28 @@ export function advanceStream(state: RunState): SimEvent[] {
   fireVolley(state);
   state.lines.streamIn = nextInterval(state);
   return [];
-}
+};
 
 /**
  * A swallow's surge. It sets the count rather than adding to it, which is Mark's
  * 2026-08-22 ruling said in code: one swallow buys one burst, and a swallow
  * chain overwrites an unspent volley instead of banking a queue.
  */
-export function surgeStream(state: RunState): void {
+const surgeStream = (state: RunState): void => {
   state.lines.surgeVolleys = SURGE_VOLLEYS;
-}
+};
+
+export {
+  createSkullPool,
+  advanceStream,
+  surgeStream,
+  COLUMNS_BY_LEVEL,
+  STREAM_INTERVAL,
+  SKULL_SPEED,
+  FAN_STEP_DEGREES,
+  SURGE_VOLLEYS,
+  SURGE_INTERVAL,
+  SKULL_HALF_EXTENT,
+  SKULL_DAMAGE,
+};
+export type { Skull };

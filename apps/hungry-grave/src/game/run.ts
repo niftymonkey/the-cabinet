@@ -20,7 +20,7 @@ import { createStage } from './stage/stage';
 import { SIZE_START } from './tuning';
 
 // A move command in base-speed units, produced by an input model (ADR 0011).
-export interface MoveCommand {
+interface MoveCommand {
   readonly x: number;
   readonly y: number;
 }
@@ -32,13 +32,13 @@ export interface MoveCommand {
  * which puts a game rule in a screen and puts the belch outside the order the
  * tick documents.
  */
-export interface TickCommand {
+interface TickCommand {
   readonly move: MoveCommand;
   readonly belch: boolean;
 }
 
 /** How a run finishes. Null while it is live. */
-export type RunEnding = 'sealed' | 'victory';
+type RunEnding = 'sealed' | 'victory';
 
 /**
  * The weapon lines' own clocks and phases, as one record rather than six fields
@@ -50,7 +50,7 @@ export type RunEnding = 'sealed' | 'victory';
  * read as one subsystem's state, and that createRun initializes them in one
  * place a reader can check at a glance.
  */
-export interface LineState {
+interface LineState {
   /** Ticks to the next stream volley. */
   streamIn: number;
   /** Surged volleys still owed, set by a swallow and never added to. */
@@ -76,7 +76,7 @@ export interface LineState {
  * it is derived where it is read. That is one less field in the digest and one
  * less thing that can drift out of step with the tick.
  */
-export interface RunState {
+interface RunState {
   // The seed this run was rolled or pinned with (ADR 0012).
   readonly seed: number;
   // A run's length is counted in ticks, never wall clock.
@@ -125,7 +125,7 @@ export interface RunState {
  * Exported so ?seed= can accept exactly the seeds the roll itself could have
  * produced (ADR 0012).
  */
-export const SEED_LIMIT = 0x7fffffff;
+const SEED_LIMIT = 0x7fffffff;
 
 /**
  * The one place chance enters a run. Everything after this reads the seeded
@@ -137,13 +137,13 @@ export const SEED_LIMIT = 0x7fffffff;
  * the sim's (ADR 0012), so this is the sim's one documented way past the rule
  * that otherwise keeps Math.random out of src/game.
  */
-function rollSeed(): number {
+const rollSeed = (): number => {
   // eslint-disable-next-line no-restricted-properties -- the carve-out above
   return Math.floor(Math.random() * SEED_LIMIT);
-}
+};
 
 /** Every line's clock at the top of a run, in one place. */
-function startingLines(): LineState {
+const startingLines = (): LineState => {
   return {
     streamIn: STREAM_INTERVAL,
     surgeVolleys: 0,
@@ -152,10 +152,10 @@ function startingLines(): LineState {
     tollIn: BELL_PERIOD,
     ring: null,
   };
-}
+};
 
 /** The levels a run starts with: the birthright lines at one, the rest unowned. */
-function birthrightLevels(): Record<WeaponLine, number> {
+const birthrightLevels = (): Record<WeaponLine, number> => {
   const levels: Record<WeaponLine, number> = {
     soulStream: 0,
     headstones: 0,
@@ -164,28 +164,28 @@ function birthrightLevels(): Record<WeaponLine, number> {
   };
   for (const line of BIRTHRIGHT) levels[line] = 1;
   return levels;
-}
+};
 
 /**
  * Every line at one level, which is the loadout pin's shape (ADR 0020): the
  * pin exists so a measurement's dense, levelled moment is reproducible, and
  * per-line syntax buys nothing that needs.
  */
-export function uniformLevels(level: number): Record<WeaponLine, number> {
+const uniformLevels = (level: number): Record<WeaponLine, number> => {
   return { soulStream: level, headstones: level, wisps: level, bell: level };
-}
+};
 
 /**
  * Whether these are the birthright levels, the ones a run is born with when
  * nothing pins them. A caller that treats a pinned run differently gates on
  * this rather than re-deriving the birthright for itself.
  */
-export function isBirthrightLevels(
+const isBirthrightLevels = (
   levels: Readonly<Record<WeaponLine, number>>,
-): boolean {
+): boolean => {
   const birthright = birthrightLevels();
   return WEAPON_LINES.every((line) => levels[line] === birthright[line]);
-}
+};
 
 /**
  * Starts a run: with no seed it rolls one, and with a seed it pins the run to
@@ -204,11 +204,11 @@ export function isBirthrightLevels(
  * and a tape's header rebuilds a pinned run from the resolved record it
  * carries (ADR 0018).
  */
-export function createRun(
+const createRun = (
   seed: number = rollSeed(),
   startingSize: number = SIZE_START,
   startingLevels: Readonly<Record<WeaponLine, number>> = birthrightLevels(),
-): RunState {
+): RunState => {
   return {
     seed,
     tick: 0,
@@ -234,4 +234,7 @@ export function createRun(
     dropsPaid: 0,
     nextEntityId: 1,
   };
-}
+};
+
+export { uniformLevels, isBirthrightLevels, createRun, SEED_LIMIT };
+export type { MoveCommand, TickCommand, RunEnding, LineState, RunState };

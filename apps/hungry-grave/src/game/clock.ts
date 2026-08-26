@@ -15,8 +15,8 @@
  * speed silently rescales the sim.
  */
 
-export const TICK_HZ = 60;
-export const TICK_MS = 1000 / TICK_HZ;
+const TICK_HZ = 60;
+const TICK_MS = 1000 / TICK_HZ;
 
 /**
  * The catch-up clamp, in ticks. A quarter second, which is the figure Gaffer on
@@ -26,7 +26,7 @@ export const TICK_MS = 1000 / TICK_HZ;
  * Math.round, not Math.floor: 1000 / 60 rounds up in binary64, so 250 / TICK_MS
  * is 14.999999999999998 and floor would silently give 14.
  */
-export const MAX_CATCHUP_TICKS = Math.round(250 / TICK_MS);
+const MAX_CATCHUP_TICKS = Math.round(250 / TICK_MS);
 
 /**
  * A whole number of ticks can land a few ulps short of its own boundary,
@@ -37,21 +37,21 @@ export const MAX_CATCHUP_TICKS = Math.round(250 / TICK_MS);
  */
 const TICK_TOLERANCE = 1e-9;
 
-export interface Clock {
+interface Clock {
   /** Real time carried over that did not add up to a whole tick yet. */
   remainderMs: number;
   /** Ticks the clamp has discarded over this clock's life. The tick-debt readout in 3b shows this. */
   debtTicks: number;
 }
 
-export function createClock(): Clock {
+const createClock = (): Clock => {
   return { remainderMs: 0, debtTicks: 0 };
-}
+};
 
 /** Whole ticks inside a span of real time. */
-function wholeTicksIn(elapsedMs: number): number {
+const wholeTicksIn = (elapsedMs: number): number => {
   return Math.floor(elapsedMs / TICK_MS + TICK_TOLERANCE);
-}
+};
 
 /**
  * Whole ticks to run for this frame's elapsed real time, clamped on the way in,
@@ -67,7 +67,7 @@ function wholeTicksIn(elapsedMs: number): number {
  * A negative, zero or non-finite elapsed time yields zero ticks and leaves the
  * remainder untouched. A browser reports all three across a tab switch.
  */
-export function ticksFor(clock: Clock, elapsedMs: number): number {
+const ticksFor = (clock: Clock, elapsedMs: number): number => {
   if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0;
   const spendable = Math.min(elapsedMs, MAX_CATCHUP_TICKS * TICK_MS);
   clock.debtTicks += wholeTicksIn(elapsedMs - spendable);
@@ -75,7 +75,7 @@ export function ticksFor(clock: Clock, elapsedMs: number): number {
   const ticks = wholeTicksIn(clock.remainderMs);
   clock.remainderMs = Math.max(0, clock.remainderMs - ticks * TICK_MS);
   return ticks;
-}
+};
 
 /**
  * Drops the accumulated remainder, without touching debt.
@@ -89,6 +89,16 @@ export function ticksFor(clock: Clock, elapsedMs: number): number {
  * tick is a real operation the autopilot may want, and it is named here as
  * unused rather than left claiming a caller it does not have.
  */
-export function resetClock(clock: Clock): void {
+const resetClock = (clock: Clock): void => {
   clock.remainderMs = 0;
-}
+};
+
+export {
+  createClock,
+  ticksFor,
+  resetClock,
+  TICK_HZ,
+  TICK_MS,
+  MAX_CATCHUP_TICKS,
+};
+export type { Clock };

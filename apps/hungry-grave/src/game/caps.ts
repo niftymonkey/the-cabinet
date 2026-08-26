@@ -33,9 +33,9 @@
  * that a runaway spawn cannot allocate without bound. The tuning dispatch owns
  * them if the storm changes the arithmetic.
  */
-export const MOB_CAP = 160;
-export const MOB_FIRE_CAP = 400;
-export const CORPSE_CAP = 200;
+const MOB_CAP = 160;
+const MOB_FIRE_CAP = 400;
+const CORPSE_CAP = 200;
 
 /**
  * What every pooled entity carries. The id only ever increases and is not
@@ -43,7 +43,7 @@ export const CORPSE_CAP = 200;
  * test that says "this corpse, not that one" needs a handle that a recycled
  * slot index cannot give it.
  */
-export interface PoolSlot {
+interface PoolSlot {
   alive: boolean;
   id: number;
 }
@@ -52,21 +52,21 @@ export interface PoolSlot {
  * A pool at full capacity, every slot dead. Pools are pre-allocated at
  * createRun and mutated in place, so a spawn never allocates.
  */
-export function createPool<T extends PoolSlot>(
+const createPool = <T extends PoolSlot>(
   capacity: number,
   make: () => T,
-): T[] {
+): T[] => {
   const pool: T[] = [];
   for (let index = 0; index < capacity; index++) pool.push(make());
   return pool;
-}
+};
 
 /**
  * The first dead slot, claimed and stamped with the id, or null when the pool
  * is full. This is the refusal policy: mobs and mob fire take a null answer and
  * do not spawn.
  */
-export function takeSlot<T extends PoolSlot>(pool: T[], id: number): T | null {
+const takeSlot = <T extends PoolSlot>(pool: T[], id: number): T | null => {
   for (const slot of pool) {
     if (slot.alive) continue;
     slot.alive = true;
@@ -74,7 +74,7 @@ export function takeSlot<T extends PoolSlot>(pool: T[], id: number): T | null {
     return slot;
   }
   return null;
-}
+};
 
 /**
  * The live slot with the lowest id, which is the oldest thing in the pool, or
@@ -82,19 +82,19 @@ export function takeSlot<T extends PoolSlot>(pool: T[], id: number): T | null {
  * and it is by id rather than by slot index because a recycled slot holds a
  * newer entity than one further along the array.
  */
-export function oldestLive<T extends PoolSlot>(pool: readonly T[]): T | null {
+const oldestLive = <T extends PoolSlot>(pool: readonly T[]): T | null => {
   let oldest: T | null = null;
   for (const slot of pool) {
     if (!slot.alive) continue;
     if (oldest === null || slot.id < oldest.id) oldest = slot;
   }
   return oldest;
-}
+};
 
 /** How many slots of a pool are live. */
-export function liveCount(pool: readonly PoolSlot[]): number {
+const liveCount = (pool: readonly PoolSlot[]): number => {
   return pool.reduce((count, slot) => count + (slot.alive ? 1 : 0), 0);
-}
+};
 
 /**
  * The storm's two pools. Both refuse the spawn at the cap, the same policy mobs
@@ -110,5 +110,18 @@ export function liveCount(pool: readonly PoolSlot[]): number {
  * ticks, holds 36. They are a safety net and not a tuning knob, exactly as
  * MOB_CAP is: a cap that binds in normal play is a bug rather than a policy.
  */
-export const SKULL_CAP = 120;
-export const WISP_CAP = 64;
+const SKULL_CAP = 120;
+const WISP_CAP = 64;
+
+export {
+  createPool,
+  takeSlot,
+  oldestLive,
+  liveCount,
+  MOB_CAP,
+  MOB_FIRE_CAP,
+  CORPSE_CAP,
+  SKULL_CAP,
+  WISP_CAP,
+};
+export type { PoolSlot };

@@ -9,5 +9,7 @@
  * sync.
  */
 
-export const FIELD_WIDTH = 540;
-export const FIELD_HEIGHT = 760;
+const FIELD_WIDTH = 540;
+const FIELD_HEIGHT = 760;
+
+export { FIELD_WIDTH, FIELD_HEIGHT };
