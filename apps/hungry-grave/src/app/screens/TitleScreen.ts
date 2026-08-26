@@ -14,7 +14,7 @@ import { GameScreen } from './game/GameScreen';
  * Screens inside the game navigate directly and never touch the hash; the one
  * exception is the way out to the prototype list, which is a route.
  */
-export class TitleScreen extends Container {
+class TitleScreen extends Container {
   // Assets bundles required by this screen
   public static assetBundles = ['main'];
 
@@ -91,3 +91,5 @@ export class TitleScreen extends Container {
       });
   }
 }
+
+export { TitleScreen };

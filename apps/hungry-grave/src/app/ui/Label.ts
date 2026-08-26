@@ -6,13 +6,13 @@ const defaultLabelStyle: Partial<TextStyleOptions> = {
   align: 'center',
 };
 
-export type LabelOptions = typeof defaultLabelStyle;
+type LabelOptions = typeof defaultLabelStyle;
 
 /**
  * A Text extension pre-formatted for this app, starting centred by default,
  * because it is the most common use in the app.
  */
-export class Label extends Text {
+class Label extends Text {
   constructor(opts?: TextOptions) {
     const style = { ...defaultLabelStyle, ...opts?.style };
     super({ ...opts, style });
@@ -20,3 +20,6 @@ export class Label extends Text {
     this.anchor.set(0.5);
   }
 }
+
+export { Label };
+export type { LabelOptions };

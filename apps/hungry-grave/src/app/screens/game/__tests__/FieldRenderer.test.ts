@@ -439,7 +439,7 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
     const source = fieldRendererSource;
     expect(source).toContain('ARMED_NOTCH_HEIGHT');
     // The armed mark is a rect and no mob body is.
-    const mark = source.slice(source.indexOf('function drawArmedMark'));
+    const mark = source.slice(source.indexOf('const drawArmedMark'));
     const body = mark.slice(0, mark.indexOf('\n}'));
     expect(body).toContain('.rect(');
     expect(body).not.toContain('polygon(');

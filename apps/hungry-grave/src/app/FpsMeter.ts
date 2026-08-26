@@ -9,7 +9,7 @@ const MARGIN = 12;
 const LINE_HEIGHT = 20;
 
 /** The font size the whole corner stack shares, because a shared line height presumes a shared size. */
-export const METER_FONT_SIZE = 16;
+const METER_FONT_SIZE = 16;
 
 /**
  * Where line `index` of the corner readout stack sits, as a constant offset
@@ -17,9 +17,9 @@ export const METER_FONT_SIZE = 16;
  * rest, and they position from this one function so the corner geometry has
  * exactly one declaration and the readouts cannot drift apart.
  */
-export function meterLinePosition(index: number): { x: number; y: number } {
+const meterLinePosition = (index: number): { x: number; y: number } => {
   return { x: MARGIN, y: MARGIN + index * LINE_HEIGHT };
-}
+};
 
 /**
  * The frame rate, shown quietly in the top-left corner of whatever screen is
@@ -27,7 +27,7 @@ export function meterLinePosition(index: number): { x: number; y: number } {
  * change moves the corner and the readout rides along with no work per resize
  * and none per frame beyond the sampler.
  */
-export class FpsMeter extends Container {
+class FpsMeter extends Container {
   private readonly readout: Label;
   private readonly sampler = new FpsSampler();
   private shown: number | null = null;
@@ -59,3 +59,5 @@ export class FpsMeter extends Container {
     this.readout.text = `${reading} FPS`;
   }
 }
+
+export { meterLinePosition, FpsMeter, METER_FONT_SIZE };

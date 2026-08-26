@@ -34,7 +34,7 @@ const TAPE_MISSING = "THAT RUN'S TAPE COULD NOT BE LOADED FROM THE STORE.";
 const BACK_WIDTH = 132;
 const BACK_HEIGHT = 68;
 
-export class RunsScreen extends Container {
+class RunsScreen extends Container {
   // Assets bundles required by this screen
   public static assetBundles = ['main'];
 
@@ -201,3 +201,5 @@ export class RunsScreen extends Container {
     this.backButton.position.set(cx, height * 0.9);
   }
 }
+
+export { RunsScreen };

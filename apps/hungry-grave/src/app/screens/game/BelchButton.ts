@@ -28,7 +28,7 @@ import { PALETTE } from '../../palette';
  * asserted rather than eyeballed, because the stage scales per viewport and the
  * phone is the case where it binds.
  */
-export const BELCH_SIZE = 108;
+const BELCH_SIZE = 108;
 
 /** How thick the ring is drawn, in stage units. */
 const RING_STROKE = 5;
@@ -50,13 +50,13 @@ const LIT_PULSE_TICKS = 40;
  * their belch lives by seeing the thing under their thumb change rather than by
  * reading a meter.
  */
-export function ringAlpha(loaded: boolean, tick: number): number {
+const ringAlpha = (loaded: boolean, tick: number): number => {
   if (!loaded) return QUIET_ALPHA;
   const phase = (tick % LIT_PULSE_TICKS) / LIT_PULSE_TICKS;
   return 1 - LIT_PULSE_DEPTH * (1 - Math.cos(phase * Math.PI * 2)) * 0.5;
-}
+};
 
-export class BelchButton extends Container {
+class BelchButton extends Container {
   private readonly ring = new Graphics();
 
   /**
@@ -127,3 +127,5 @@ export class BelchButton extends Container {
     };
   }
 }
+
+export { ringAlpha, BelchButton, BELCH_SIZE };

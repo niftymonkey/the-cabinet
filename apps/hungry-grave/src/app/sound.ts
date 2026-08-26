@@ -43,7 +43,7 @@ const LEVELS: Record<keyof typeof CLIPS, number> = {
  * The drop's own chime is chosen from the kind the chimed event already carries,
  * so telling treasure from a corpse needs no game rule here and no new event.
  */
-export function clipFor(event: SimEvent): keyof typeof CLIPS | null {
+const clipFor = (event: SimEvent): keyof typeof CLIPS | null => {
   if (event.type === 'chimed') {
     return event.kind === 'drop' ? 'treasure' : 'swallow';
   }
@@ -51,7 +51,7 @@ export function clipFor(event: SimEvent): keyof typeof CLIPS | null {
   if (event.type === 'graveHit') return 'hit';
   if (event.type === 'belched') return 'eruption';
   return null;
-}
+};
 
 /**
  * Plays whatever this event sounds like.
@@ -60,7 +60,7 @@ export function clipFor(event: SimEvent): keyof typeof CLIPS | null {
  * whose failure must never take the run with it, and a bundle still background
  * loading on the first swallow of a fresh boot is the ordinary case.
  */
-export function playFor(event: SimEvent): void {
+const playFor = (event: SimEvent): void => {
   const clip = clipFor(event);
   if (clip === null) return;
   try {
@@ -68,7 +68,7 @@ export function playFor(event: SimEvent): void {
   } catch {
     return;
   }
-}
+};
 
 /**
  * Unlocks the audio context on the first real user gesture.
@@ -82,8 +82,10 @@ export function playFor(event: SimEvent): void {
  * evaluated, and this module is on the import path of every screen test that
  * runs under node.
  */
-export function primeSound(): void {
+const primeSound = (): void => {
   void import('@pixi/sound')
     .then(({ sound }) => sound.context.audioContext.resume())
     .catch(() => undefined);
-}
+};
+
+export { clipFor, playFor, primeSound };

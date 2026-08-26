@@ -29,7 +29,7 @@ const GRAVE_CORNER_RATIO = 0.2;
  * drop. 3 is the only integer in that bracket with margin at both ends, and it
  * leaves a floor grave a mouth 12 units wide.
  */
-export const GRAVE_RIM_STROKE = 3;
+const GRAVE_RIM_STROKE = 3;
 
 /**
  * The rim's dark companion, stroked inward immediately inside the bright band,
@@ -48,7 +48,7 @@ export const GRAVE_RIM_STROKE = 3;
  * width and never the mouth's interior: ADR 0003 rules that size never gates a
  * swallow, so the mouth is not a gate.
  */
-export const GRAVE_RIM_SHADOW = 1;
+const GRAVE_RIM_SHADOW = 1;
 
 /**
  * The reservoir's glow is the rim's own band wearing treasure's colour, drawn
@@ -79,12 +79,12 @@ const GLOW_PULSE_DEPTH = 0.35;
  * doc's own language for the feast beat, and pulsing rather than brightening
  * further is what makes full a state rather than the top of a ramp.
  */
-export function glowAlpha(fullness: number, tick: number): number {
+const glowAlpha = (fullness: number, tick: number): number => {
   const charge = Math.max(0, Math.min(1, fullness));
   if (charge < 1) return charge;
   const phase = (tick % GLOW_PULSE_TICKS) / GLOW_PULSE_TICKS;
   return 1 - GLOW_PULSE_DEPTH * (1 - Math.cos(phase * Math.PI * 2)) * 0.5;
-}
+};
 
 /**
  * The grave on screen: a rounded rectangle drawn twice, once as the mouth
@@ -99,7 +99,7 @@ export function glowAlpha(fullness: number, tick: number): number {
  * live sim state is the thing the rest of this design works to avoid, and
  * fullness is everything it needs.
  */
-export class GraveRenderer {
+class GraveRenderer {
   private readonly mouth = new Graphics();
   private readonly rim = new Graphics();
   private readonly glow = new Graphics();
@@ -208,3 +208,5 @@ export class GraveRenderer {
       });
   }
 }
+
+export { glowAlpha, GraveRenderer, GRAVE_RIM_STROKE, GRAVE_RIM_SHADOW };

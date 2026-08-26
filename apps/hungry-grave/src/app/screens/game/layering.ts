@@ -13,7 +13,7 @@ import { Container } from 'pixi.js';
  * rather than as a window. Directly beneath mob fire is the highest place it
  * can go without occluding fire, which this ADR lets nothing do.
  */
-export const LAYER_ORDER = [
+const LAYER_ORDER = [
   'ground',
   'graveMouth',
   'belchEruption',
@@ -28,7 +28,7 @@ export const LAYER_ORDER = [
   'mobFire',
 ] as const;
 
-export type LayerName = (typeof LAYER_ORDER)[number];
+type LayerName = (typeof LAYER_ORDER)[number];
 
 /**
  * The field's draw stack as named empty containers, in ADR 0014's fixed order.
@@ -37,7 +37,7 @@ export type LayerName = (typeof LAYER_ORDER)[number];
  * renderer call addChild on the stack itself and land above mobFire, which is
  * what the ADR forbids, and no test on a fresh instance would ever see it.
  */
-export class FieldLayers {
+class FieldLayers {
   // A real private field rather than a TS one, so "there is no root to reach"
   // is a fact at runtime and a test can assert it.
   readonly #root: Container;
@@ -81,3 +81,6 @@ export class FieldLayers {
     }
   }
 }
+
+export { FieldLayers, LAYER_ORDER };
+export type { LayerName };

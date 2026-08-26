@@ -27,13 +27,13 @@ import { userSettings } from './utils/userSettings';
  * tapes from more than one pair of hands needs it to already be there, and
  * adding it later would invalidate every tape recorded before.
  */
-export const UNNAMED_AUTHOR = 'unknown';
+const UNNAMED_AUTHOR = 'unknown';
 
 /** Reserved for a resolvable build identity, whose machinery is deliberately not built. */
 const UNRESOLVED_BUILD = '';
 
 /** The conditions a run was played under, read once before its first tick. */
-export interface RunConditions {
+interface RunConditions {
   readonly inputDevice: TapeInputDevice;
   readonly keyboardSpeed: number;
   readonly rendererBackend: string;
@@ -55,10 +55,10 @@ export interface RunConditions {
  * every run, pinned or not, copied because the run levels up in place and the
  * header is a record of the start.
  */
-export function tapeHeaderFor(
+const tapeHeaderFor = (
   run: RunState,
   conditions: RunConditions,
-): TapeHeader {
+): TapeHeader => {
   return {
     seed: run.seed,
     startingSize: run.grave.size,
@@ -76,7 +76,7 @@ export function tapeHeaderFor(
     devicePixelRatio: conditions.devicePixelRatio,
     recordedAt: conditions.recordedAt,
   };
-}
+};
 
 /**
  * Which class of device steered the run.
@@ -87,9 +87,9 @@ export function tapeHeaderFor(
  * of which input model won would be a different fact and would belong in a
  * different section.
  */
-function inputDeviceHere(): TapeInputDevice {
+const inputDeviceHere = (): TapeInputDevice => {
   return window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keyboard';
-}
+};
 
 /**
  * The conditions this browser is playing under.
@@ -98,7 +98,7 @@ function inputDeviceHere(): TapeInputDevice {
  * because neither substitutes for the other: the engine snaps its resolution to
  * at least two, so a phone reporting three is running a renderer at two.
  */
-export function runConditionsHere(): RunConditions {
+const runConditionsHere = (): RunConditions => {
   const renderer = engine().renderer;
   return {
     inputDevice: inputDeviceHere(),
@@ -108,4 +108,7 @@ export function runConditionsHere(): RunConditions {
     devicePixelRatio: window.devicePixelRatio,
     recordedAt: Date.now(),
   };
-}
+};
+
+export { tapeHeaderFor, runConditionsHere, UNNAMED_AUTHOR };
+export type { RunConditions };

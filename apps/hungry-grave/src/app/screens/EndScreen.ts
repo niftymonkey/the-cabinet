@@ -43,7 +43,7 @@ const FAULTED_TITLE = 'THE GAME BROKE';
  * margin. screenLifecycle.test.ts holds every identity in the closed list
  * against the stage at a seven-digit tick.
  */
-export const FAULT_FONT_SIZE = 16;
+const FAULT_FONT_SIZE = 16;
 
 /**
  * Which fault stopped the run and its first tick, split onto two lines: as one
@@ -51,28 +51,28 @@ export const FAULT_FONT_SIZE = 16;
  * clips both ends on a 390-unit stage and drops the tick number, and the tick
  * is half of what filing a bug from a phone screenshot needs.
  */
-export function faultCaption(fault: FaultSummary): string {
+const faultCaption = (fault: FaultSummary): string => {
   return `FAULT ${fault.identity}\nAT TICK ${fault.firstTick}`;
-}
+};
 
 /**
  * Which title the handed-off run earns. A fault outranks an ending: when both
  * exist the run's numbers were taken past the moment the instrument declared
  * it broken, and the trailer's stop already says faulted for the same reason.
  */
-function titleFor(summary: RunSummary | null): string {
+const titleFor = (summary: RunSummary | null): string => {
   if (summary === null) return ABANDONED_TITLE;
   if (summary.fault !== null) return FAULTED_TITLE;
   return summary.ending !== null
     ? ENDING_TITLE[summary.ending]
     : ABANDONED_TITLE;
-}
+};
 
 /**
  * The screen a run ends on. Render only: it reports the run the game screen
  * recorded and offers another one.
  */
-export class EndScreen extends Container {
+class EndScreen extends Container {
   // Assets bundles required by this screen
   public static assetBundles = ['main'];
 
@@ -196,3 +196,5 @@ export class EndScreen extends Container {
       });
   }
 }
+
+export { faultCaption, EndScreen, FAULT_FONT_SIZE };

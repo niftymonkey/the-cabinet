@@ -18,7 +18,7 @@ import { Label } from '../ui/Label';
  * It lives here rather than under screens/game because it never draws while a
  * field is live, so it is outside the palette scan and may use MENU colours.
  */
-export class DigestScreen extends Container {
+class DigestScreen extends Container {
   // Assets bundles required by this screen
   public static assetBundles = ['main'];
 
@@ -122,36 +122,36 @@ export class DigestScreen extends Container {
 }
 
 /** The scenario's faults as readable lines, so a phone with no console can still say what broke. */
-function faultLines(faults: readonly FaultRecord[]): string {
+const faultLines = (faults: readonly FaultRecord[]): string => {
   return faults
     .map(
       (fault) =>
         `${fault.identity} (${fault.severity}) first at tick ${fault.firstTick}, ${fault.count} times: ${fault.detail}`,
     )
     .join('\n');
-}
+};
 
 /** The digest as readable lines, so a divergence can be read off a phone with no console. */
-function describe(digest: Digest): string {
+const describe = (digest: Digest): string => {
   return Object.entries(digest)
     .map(([field, value]) => `${field}: ${format(value)}`)
     .join('\n');
-}
+};
 
-function format(value: unknown): string {
+const format = (value: unknown): string => {
   return typeof value === 'object' && value !== null
     ? Object.entries(value)
         .map(([key, inner]) => `${key}=${inner}`)
         .join(' ')
     : String(value);
-}
+};
 
 /**
  * Every field that differs from the committed constant, named. A digest that
  * diverges here is a real finding on that device and not a test failure, and
  * the screen has to say which field it was because a phone shows no console.
  */
-function divergences(digest: Digest): string[] {
+const divergences = (digest: Digest): string[] => {
   const found: string[] = [];
   for (const [field, expected] of Object.entries(GOLDEN)) {
     const actual = digest[field as keyof Digest];
@@ -162,4 +162,6 @@ function divergences(digest: Digest): string[] {
     }
   }
   return found;
-}
+};
+
+export { DigestScreen };

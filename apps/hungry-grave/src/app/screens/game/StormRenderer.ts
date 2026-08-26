@@ -80,7 +80,7 @@ const SPLASH_SPOKES = 7;
  * covering test takes its bound over the registry rather than over a hand
  * list, the two-lists trap ADR 0019 closed for the witness fold.
  */
-export const STORM_RENDERER_TRANSIENT_TICKS = {
+const STORM_RENDERER_TRANSIENT_TICKS = {
   eruption: ERUPTION_TICKS,
   splash: SPLASH_TICKS,
 } as const;
@@ -89,13 +89,13 @@ export const STORM_RENDERER_TRANSIENT_TICKS = {
 const CHANNEL_MAX = 255;
 
 /** A grey tint at a given brightness, which is how a continuous state is shown without alpha. */
-function greyTint(brightness: number): number {
+const greyTint = (brightness: number): number => {
   const level = Math.max(
     0,
     Math.min(CHANNEL_MAX, Math.round(brightness * CHANNEL_MAX)),
   );
   return (level << 16) | (level << 8) | level;
-}
+};
 
 /**
  * A skull: a small round-topped silhouette, straight up and self-similar.
@@ -105,7 +105,7 @@ function greyTint(brightness: number): number {
  * shape before brightness, and small, regular and self-similar is the storm's
  * whole half of that grammar.
  */
-function drawSkull(into: Graphics): void {
+const drawSkull = (into: Graphics): void => {
   const r = SKULL_HALF_EXTENT;
   into
     .clear()
@@ -118,10 +118,10 @@ function drawSkull(into: Graphics): void {
       color: PALETTE.foodOutline.hex,
       alignment: 0.5,
     });
-}
+};
 
 /** A headstone: a squat slab with a rounded top, which is a circling solid and not a projectile. */
-function drawStone(into: Graphics): void {
+const drawStone = (into: Graphics): void => {
   const w = STONE_HALF_EXTENT;
   into
     .clear()
@@ -133,14 +133,14 @@ function drawStone(into: Graphics): void {
       color: PALETTE.foodOutline.hex,
       alignment: 0.5,
     });
-}
+};
 
 /**
  * A wisp: a trailing teardrop, drawn pointing along positive x and rotated to
  * its heading by the caller. The curving trail is the motion ADR 0005 says must
  * never blur with the other three.
  */
-function drawWisp(into: Graphics): void {
+const drawWisp = (into: Graphics): void => {
   const r = WISP_HALF_EXTENT;
   into
     .clear()
@@ -152,10 +152,10 @@ function drawWisp(into: Graphics): void {
       color: PALETTE.foodOutline.hex,
       alignment: 0.5,
     });
-}
+};
 
 /** The bell's ring at a live radius: a stroked circle, so the falloff in damage is visible as a falloff on screen. */
-function drawRing(into: Graphics, radius: number): void {
+const drawRing = (into: Graphics, radius: number): void => {
   into.clear();
   if (radius <= 0) return;
   into
@@ -171,10 +171,10 @@ function drawRing(into: Graphics, radius: number): void {
       color: PALETTE.bellRing.hex,
       alignment: 0.5,
     });
-}
+};
 
 /** The belch's shock front, leaving the mouth and expanding past the field's far corner. */
-function drawEruption(into: Graphics, progress: number): void {
+const drawEruption = (into: Graphics, progress: number): void => {
   into.clear();
   const radius = ERUPTION_REACH * progress;
   if (radius <= 0) return;
@@ -183,10 +183,10 @@ function drawEruption(into: Graphics, progress: number): void {
     color: PALETTE.belchEruption.hex,
     alignment: 0.5,
   });
-}
+};
 
 /** Charge going over the side: a short spray at the mouth, so wasting is visible rather than a silent clamp. */
-function drawSplash(into: Graphics, progress: number): void {
+const drawSplash = (into: Graphics, progress: number): void => {
   into.clear();
   const reach = SPLASH_REACH * progress;
   const drop = SPLASH_REACH * 0.22 * (1 - progress);
@@ -199,16 +199,16 @@ function drawSplash(into: Graphics, progress: number): void {
     );
   }
   into.fill({ color: PALETTE.splash.hex });
-}
+};
 
 /** A sprite pool at an entity pool's own capacity, so attach() can place them all and no spawn allocates. */
-function fill(sprites: Graphics[], capacity: number): void {
+const fill = (sprites: Graphics[], capacity: number): void => {
   while (sprites.length < capacity) {
     const sprite = new Graphics();
     sprite.visible = false;
     sprites.push(sprite);
   }
-}
+};
 
 /** One momentary effect at a place, on its own clock. */
 interface Burst {
@@ -218,11 +218,11 @@ interface Burst {
   y: number;
 }
 
-function blankBurst(): Burst {
+const blankBurst = (): Burst => {
   return { sprite: new Graphics(), born: -Infinity, x: 0, y: 0 };
-}
+};
 
-export class StormRenderer {
+class StormRenderer {
   private readonly skullSprites: Graphics[] = [];
   private readonly stoneSprites: Graphics[] = [];
   private readonly wispSprites: Graphics[] = [];
@@ -397,3 +397,5 @@ export class StormRenderer {
     draw(burst.sprite, age / life);
   }
 }
+
+export { StormRenderer, STORM_RENDERER_TRANSIENT_TICKS };

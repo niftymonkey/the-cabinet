@@ -152,7 +152,7 @@ const BLURRED_LAYERS = ['mobBodies', 'mobFire', 'corpses', 'treasure'] as const;
  */
 let sharedBlur: BlurFilter | null = null;
 
-function fieldBlur(): BlurFilter | null {
+const fieldBlur = (): BlurFilter | null => {
   if (sharedBlur !== null) return sharedBlur;
   try {
     sharedBlur = new BlurFilter({ strength: COUNTDOWN_BLUR_STRENGTH });
@@ -160,7 +160,7 @@ function fieldBlur(): BlurFilter | null {
     return null;
   }
   return sharedBlur;
-}
+};
 
 /**
  * The playfield's boundary readout. The engine's background and the field's
@@ -170,13 +170,13 @@ function fieldBlur(): BlurFilter | null {
  * width the floor depends on. It strokes inward so the whole of it stays inside
  * the field's own 540 by 760.
  */
-function boundaryReadout(): Graphics {
+const boundaryReadout = (): Graphics => {
   return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).stroke({
     width: BOUNDARY_STROKE,
     color: PALETTE.fieldFrame.hex,
     alignment: 1,
   });
-}
+};
 
 /**
  * The field's clip, exactly the field rect and nothing else.
@@ -196,12 +196,12 @@ function boundaryReadout(): Graphics {
  * source and means nothing, which is exactly what palette.test.ts's literal
  * scan is there to stop. The bare call takes Pixi's opaque default.
  */
-function fieldClip(): Graphics {
+const fieldClip = (): Graphics => {
   return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).fill();
-}
+};
 
 /** One line of the corner readout stack, in the shared size and anchored to its top-left. */
-function stackLine(index: number): Label {
+const stackLine = (index: number): Label => {
   const label = new Label({
     style: {
       fontFamily: 'monospace',
@@ -215,7 +215,7 @@ function stackLine(index: number): Label {
   const at = meterLinePosition(index);
   label.position.set(at.x, at.y);
   return label;
-}
+};
 
 /**
  * What one frame's work tells the frame seam above it.
@@ -241,7 +241,7 @@ const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
  * is held by, so the line hugs the corner on a 390-unit phone stage instead of
  * running nearly the full width of it.
  */
-export const FAULT_LINE_MAX_CHARS = 25;
+const FAULT_LINE_MAX_CHARS = 25;
 
 /** The fault line's prefix, counted inside FAULT_LINE_MAX_CHARS. */
 const FAULT_PREFIX = 'FAULT ';
@@ -255,11 +255,11 @@ const FAULT_PREFIX = 'FAULT ';
  * honestly that the name is cut, and the full identity is in the tape's own
  * fault record either way.
  */
-function shortIdentity(identity: FaultIdentity): string {
+const shortIdentity = (identity: FaultIdentity): string => {
   const budget = FAULT_LINE_MAX_CHARS - FAULT_PREFIX.length;
   if (identity.length <= budget) return identity;
   return `${identity.slice(0, budget - 1).trimEnd()}…`;
-}
+};
 
 /**
  * The HUD's fault line (ADR 0017 ruling C): a recoverable fault shows live,
@@ -269,33 +269,33 @@ function shortIdentity(identity: FaultIdentity): string {
  * the first fault fires and stays for the rest of the run, and it never
  * terminates or pauses anything, in any build.
  */
-export function faultReadout(faults: readonly FaultRecord[]): string {
+const faultReadout = (faults: readonly FaultRecord[]): string => {
   if (faults.length === 0) return '';
   if (faults.length === 1) {
     return `${FAULT_PREFIX}${shortIdentity(faults[0].identity)}`;
   }
   return `FAULTS ${faults.length}`;
-}
+};
 
 /**
  * The pinned-levels line's figure: one number when the four lines agree, which
  * is the only shape the pin produces, and all four in roster order otherwise.
  */
-export function levelsReadout(
+const levelsReadout = (
   levels: Readonly<Record<WeaponLine, number>>,
-): string {
+): string => {
   const values = WEAPON_LINES.map((line) => levels[line]);
   return values.every((value) => value === values[0])
     ? `${values[0]}`
     : values.join('/');
-}
+};
 
 /**
  * The screen a run plays on. Render only: it owns this run's state and shows
  * it, and holds no game rules. The rules live in src/game and reach the screen
  * through advance(), which converts one frame's elapsed time into whole ticks.
  */
-export class GameScreen extends Container {
+class GameScreen extends Container {
   // Assets bundles required by this screen
   public static assetBundles = ['main'];
 
@@ -1164,8 +1164,10 @@ export class GameScreen extends Container {
 }
 
 /** Whether this frame's events ended the run, either way (ADR 0003 and ADR 0007). */
-function endedIn(events: readonly SimEvent[]): boolean {
+const endedIn = (events: readonly SimEvent[]): boolean => {
   return events.some(
     (event) => event.type === 'sealed' || event.type === 'victory',
   );
-}
+};
+
+export { faultReadout, levelsReadout, GameScreen, FAULT_LINE_MAX_CHARS };

@@ -8,7 +8,7 @@ import { Label } from './Label';
  * takes a label, a min, a max and a value, so it serves a volume and a
  * keyboard speed alike.
  */
-export class SettingSlider extends Slider {
+class SettingSlider extends Slider {
   /** Message displayed for the slider */
   public messageLabel: Label;
 
@@ -76,3 +76,5 @@ export class SettingSlider extends Slider {
     this.addChild(this.messageLabel);
   }
 }
+
+export { SettingSlider };

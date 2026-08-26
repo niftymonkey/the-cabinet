@@ -9,7 +9,7 @@ import { MENU } from '../palette';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 
-export class PrototypesScreen extends Container {
+class PrototypesScreen extends Container {
   /** Assets bundles required by this screen */
   public static assetBundles = ['main'];
 
@@ -74,3 +74,5 @@ export class PrototypesScreen extends Container {
   /** Reset screen, after hidden */
   public reset() {}
 }
+
+export { PrototypesScreen };

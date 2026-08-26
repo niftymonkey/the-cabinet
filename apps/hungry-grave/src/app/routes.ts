@@ -11,7 +11,7 @@
 import type { PrototypeEntry } from '../prototypes';
 import { prototypeFromHash } from '../prototypes';
 
-export const PROTOTYPES_HASH = '#/prototypes';
+const PROTOTYPES_HASH = '#/prototypes';
 
 /**
  * The golden digest, run in whatever browser opened this URL. ADR 0015's claim
@@ -19,7 +19,7 @@ export const PROTOTYPES_HASH = '#/prototypes';
  * without a browser that runs the digest the claim goes unchecked until the
  * final dispatch.
  */
-export const DIGEST_HASH = '#/digest';
+const DIGEST_HASH = '#/digest';
 
 /**
  * The instrument route: a tape rendered at a chosen tick (ADR 0020). It is for
@@ -27,12 +27,12 @@ export const DIGEST_HASH = '#/digest';
  * is reserved as #/watch and deliberately not built, so a player-facing
  * feature is never built on a debug URL.
  */
-export const REPLAY_HASH = '#/replay';
+const REPLAY_HASH = '#/replay';
 
 /** The kept runs in this browser's tape store, listed with a way into replay. */
-export const RUNS_HASH = '#/runs';
+const RUNS_HASH = '#/runs';
 
-export type Route =
+type Route =
   | { kind: 'game' }
   | { kind: 'prototype-list' }
   | { kind: 'digest' }
@@ -46,17 +46,17 @@ export type Route =
  * to the route, so the match ends on a route boundary: the hash itself, or the
  * hash followed by a path or a query.
  */
-function isRouteHash(hash: string, route: string): boolean {
+const isRouteHash = (hash: string, route: string): boolean => {
   if (!hash.startsWith(route)) return false;
   const rest = hash.slice(route.length);
   return rest === '' || rest.startsWith('/') || rest.startsWith('?');
-}
+};
 
 /**
  * The default route is the game app rather than the prototype sandbox: the
  * prototypes live behind their own hash, and every other hash is the game's.
  */
-export function resolveRoute(hash: string): Route {
+const resolveRoute = (hash: string): Route => {
   const entry = prototypeFromHash(hash);
   if (entry) return { kind: 'prototype', entry };
   if (isRouteHash(hash, PROTOTYPES_HASH)) return { kind: 'prototype-list' };
@@ -64,4 +64,7 @@ export function resolveRoute(hash: string): Route {
   if (isRouteHash(hash, REPLAY_HASH)) return { kind: 'replay' };
   if (isRouteHash(hash, RUNS_HASH)) return { kind: 'runs' };
   return { kind: 'game' };
-}
+};
+
+export { resolveRoute, PROTOTYPES_HASH, DIGEST_HASH, REPLAY_HASH, RUNS_HASH };
+export type { Route };

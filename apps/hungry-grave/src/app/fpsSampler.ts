@@ -12,7 +12,7 @@ const DEFAULT_WINDOW_MS = 250;
  * Pure by design. It is driven by elapsed milliseconds handed to it, never by
  * a clock of its own, so a test can drive it with explicit values.
  */
-export class FpsSampler {
+class FpsSampler {
   private readonly windowMs: number;
   private frames = 0;
   private elapsedMs = 0;
@@ -35,3 +35,5 @@ export class FpsSampler {
     return fps;
   }
 }
+
+export { FpsSampler };

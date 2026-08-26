@@ -13,23 +13,23 @@ const KEY_KEYBOARD_SPEED = 'keyboard-speed';
  * than in the speed itself so the handle lands on a step: twentieths give 0.05
  * steps across ADR 0011's 0.75x to 1.5x.
  */
-export const KEYBOARD_SPEED_SLIDER_MIN = 15;
-export const KEYBOARD_SPEED_SLIDER_MAX = 30;
+const KEYBOARD_SPEED_SLIDER_MIN = 15;
+const KEYBOARD_SPEED_SLIDER_MAX = 30;
 const KEYBOARD_SPEED_SLIDER_DIVISOR = 20;
 
 /** A slider position as a speed multiplier. */
-export function keyboardSpeedFromSlider(value: number): number {
+const keyboardSpeedFromSlider = (value: number): number => {
   return Math.round(value) / KEYBOARD_SPEED_SLIDER_DIVISOR;
-}
+};
 
 /** A speed multiplier back as a slider position, so the popup can show the stored setting. */
-export function sliderFromKeyboardSpeed(speed: number): number {
+const sliderFromKeyboardSpeed = (speed: number): number => {
   return Math.round(speed * KEYBOARD_SPEED_SLIDER_DIVISOR);
-}
+};
 
-function clampKeyboardSpeed(value: number): number {
+const clampKeyboardSpeed = (value: number): number => {
   return Math.min(Math.max(value, MULTIPLIER_MIN), MULTIPLIER_MAX);
-}
+};
 
 /**
  * Persistent user settings of volumes.
@@ -90,4 +90,12 @@ class UserSettings {
 }
 
 /** SHared user settings instance */
-export const userSettings = new UserSettings();
+const userSettings = new UserSettings();
+
+export {
+  keyboardSpeedFromSlider,
+  sliderFromKeyboardSpeed,
+  KEYBOARD_SPEED_SLIDER_MIN,
+  KEYBOARD_SPEED_SLIDER_MAX,
+  userSettings,
+};

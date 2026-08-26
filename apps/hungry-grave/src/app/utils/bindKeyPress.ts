@@ -4,11 +4,13 @@
  * lifecycle hook must be released in its pair. Handing back the release rather
  * than exposing the handler keeps the two from drifting apart.
  */
-export function bindKeyPress(key: string, action: () => void): () => void {
+const bindKeyPress = (key: string, action: () => void): (() => void) => {
   const handler = (event: KeyboardEvent) => {
     if (event.key !== key) return;
     action();
   };
   window.addEventListener('keydown', handler);
   return () => window.removeEventListener('keydown', handler);
-}
+};
+
+export { bindKeyPress };

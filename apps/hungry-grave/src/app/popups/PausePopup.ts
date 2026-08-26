@@ -25,14 +25,14 @@ class PauseActions {
   }
 }
 
-export const pauseActions = new PauseActions();
+const pauseActions = new PauseActions();
 
 /** What End Run says before it is armed, and what it says once it is. */
 const END_RUN_LABEL = 'End Run';
 const END_RUN_CONFIRM = 'Sure?';
 
 /** Popup that shows up when gameplay is paused */
-export class PausePopup extends Container {
+class PausePopup extends Container {
   /** The dark semi-transparent background covering current screen */
   private bg: Sprite;
   /** Container for the popup UI components */
@@ -199,3 +199,5 @@ export class PausePopup extends Container {
     this.disarmEndRun();
   }
 }
+
+export { PausePopup, pauseActions };

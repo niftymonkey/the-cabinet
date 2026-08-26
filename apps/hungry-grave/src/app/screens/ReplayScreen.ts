@@ -62,7 +62,7 @@ type ReplayPhase =
   'idle' | 'fetching' | 'verifying' | 'fastForwarding' | 'playing' | 'played';
 
 /** One line of the corner readout stack (the game screen's own construction). */
-function stackLine(index: number): Label {
+const stackLine = (index: number): Label => {
   const label = new Label({
     style: {
       fontFamily: 'monospace',
@@ -74,21 +74,21 @@ function stackLine(index: number): Label {
   const at = meterLinePosition(index);
   label.position.set(at.x, at.y);
   return label;
-}
+};
 
 /** The playfield's boundary readout, the game screen's own (see GameScreen.ts). */
-function boundaryReadout(): Graphics {
+const boundaryReadout = (): Graphics => {
   return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).stroke({
     width: BOUNDARY_STROKE,
     color: PALETTE.fieldFrame.hex,
     alignment: 1,
   });
-}
+};
 
 /** The field's clip, exactly the field rect (see GameScreen.ts for the derivation). */
-function fieldClip(): Graphics {
+const fieldClip = (): Graphics => {
   return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).fill();
-}
+};
 
 /**
  * The tick of the last checkpoint this playback verified. The playback
@@ -96,41 +96,41 @@ function fieldClip(): Graphics {
  * disagreement, so the verified ones are exactly the first
  * checkpointsVerified entries.
  */
-function lastVerifiedTick(tape: Tape, result: PlaybackResult): number {
+const lastVerifiedTick = (tape: Tape, result: PlaybackResult): number => {
   if (result.checkpointsVerified === 0) return 0;
   return tape.checkpoints[result.checkpointsVerified - 1].index;
-}
+};
 
 /** The verified length, stated up front, with the divergence named when there is one. */
-function verifiedReadout(
+const verifiedReadout = (
   result: PlaybackResult,
   bound: number,
   bodyTicks: number,
-): string {
+): string => {
   const length = `VERIFIED ${bound} OF ${bodyTicks} TICKS`;
   if (result.firstDivergentCheckpoint === null) return length;
   return `${length}, DIVERGED AT CHECKPOINT ${result.firstDivergentCheckpoint}`;
-}
+};
 
 /**
  * The original run's tick debt, stated beside the verified length. A missing
  * trailer is itself the reading (ADR 0018): the run's stop is unknown and so
  * is its debt, and saying so is the honest line.
  */
-function debtReadout(tape: Tape): string {
+const debtReadout = (tape: Tape): string => {
   if (tape.trailer === null) return 'NO TRAILER: STOP AND DEBT UNKNOWN';
   return `ORIGINAL DEBT ${tape.trailer.debtTicks} TICKS`;
-}
+};
 
-function messageOf(error: unknown): string {
+const messageOf = (error: unknown): string => {
   return error instanceof Error ? error.message : String(error);
-}
+};
 
 /**
  * The screen a tape replays on. Render only: it reproduces the run through the
  * one playback loop and shows it, and holds no game rules and no player input.
  */
-export class ReplayScreen extends Container {
+class ReplayScreen extends Container {
   // Assets bundles required by this screen
   public static assetBundles = ['main'];
 
@@ -484,3 +484,5 @@ export class ReplayScreen extends Container {
     );
   }
 }
+
+export { ReplayScreen };

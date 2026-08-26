@@ -18,7 +18,7 @@ import {
 import { PausePopup } from './PausePopup';
 
 /** Popup for volume */
-export class SettingsPopup extends Container {
+class SettingsPopup extends Container {
   /** The dark semi-transparent background covering current screen */
   private bg: Sprite;
   /** Container for the popup UI components */
@@ -197,3 +197,5 @@ export class SettingsPopup extends Container {
   /** Reset screen, after hidden */
   public reset() {}
 }
+
+export { SettingsPopup };

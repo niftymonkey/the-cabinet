@@ -4,7 +4,7 @@ import type { ObjectTarget } from 'motion/react';
 import { Container, Sprite, Texture } from 'pixi.js';
 
 /** Screen shown while loading assets */
-export class LoadScreen extends Container {
+class LoadScreen extends Container {
   /** Assets bundles required by this screen */
   public static assetBundles = ['preload'];
   /** The PixiJS logo */
@@ -68,3 +68,5 @@ export class LoadScreen extends Container {
     this.progressBar.progress = 0;
   }
 }
+
+export { LoadScreen };

@@ -46,7 +46,7 @@ const FLICKER_BELOW = 0.2;
  * eleven-tick floor tuning.ts already derives from the three-flashes-a-second
  * limit. Nothing could produce a burst kill before the storm existed.
  */
-export const FLICKER_HALF_PERIOD = 12;
+const FLICKER_HALF_PERIOD = 12;
 
 /** How far the flicker drops on its dark half. */
 const FLICKER_DEPTH = 0.45;
@@ -65,7 +65,7 @@ const SCATTER_SLOTS = 24;
  * test takes its bound over the registry rather than over a hand list, which
  * is the two-lists trap ADR 0019 closed for the witness fold.
  */
-export const FIELD_RENDERER_TRANSIENT_TICKS = {
+const FIELD_RENDERER_TRANSIENT_TICKS = {
   scatter: SCATTER_TICKS,
 } as const;
 
@@ -79,7 +79,7 @@ export const FIELD_RENDERER_TRANSIENT_TICKS = {
  * every mob body. The hitbox does not move: this is a drawing constant and the
  * collision box stays where it is.
  */
-export const SHOT_DRAW_SCALE = 1.6;
+const SHOT_DRAW_SCALE = 1.6;
 
 /**
  * Half of a drop's drawn extent at the breath's peak: a 24-unit drawn ceiling
@@ -98,7 +98,7 @@ export const SHOT_DRAW_SCALE = 1.6;
  * The retired bound tying the drop's box to graveWidth(SIZE_FLOOR) is
  * superseded, written out in docs/design/drop-legibility-fix.md.
  */
-export const DROP_DRAW_HALF_EXTENT = 12;
+const DROP_DRAW_HALF_EXTENT = 12;
 
 /**
  * How long one breath takes, in ticks: 2.75 seconds, the period Mark played.
@@ -146,11 +146,11 @@ const DROP_BREATH_ID_STRIDE = 103;
  * the corpse flicker already uses, so a field of drops does not pulse in
  * lockstep.
  */
-function dropBreath(tick: number, id: number): number {
+const dropBreath = (tick: number, id: number): number => {
   const offset = id * DROP_BREATH_ID_STRIDE;
   const phase = ((tick + offset) / DROP_BREATH_TICKS) * Math.PI * 2;
   return 1 - DROP_BREATH_DEPTH * (0.5 + 0.5 * Math.sin(phase));
-}
+};
 
 /**
  * How much of the hitbox the bright core covers, so the core is the true box
@@ -160,7 +160,7 @@ function dropBreath(tick: number, id: number): number {
  * as the real danger under a larger body, and it is what makes the sprite
  * growing an honest change rather than a bigger lie about where the danger is.
  */
-export const SHOT_CORE_OF_HITBOX = 0.9;
+const SHOT_CORE_OF_HITBOX = 0.9;
 
 /** How far a scatter's spokes reach, as a multiple of the shot's own extent. */
 const SCATTER_REACH = 2.4;
@@ -169,7 +169,7 @@ const SCATTER_REACH = 2.4;
 const SCATTER_SPOKES = 6;
 
 /** The dark companion every mob body and corpse draws with (section 4.15.2). */
-export const SPRITE_STROKE = 1.5;
+const SPRITE_STROKE = 1.5;
 
 /** How many steps the revenant's tell is quantized into, so a lit tell redraws a bounded number of times. */
 const TELL_STEPS = 6;
@@ -178,26 +178,26 @@ const TELL_STEPS = 6;
 const CHANNEL_MAX = 255;
 
 /** A grey tint at a given brightness. pixi multiplies it into the drawn colour, which is what makes the fade a tint and not an alpha. */
-function greyTint(brightness: number): number {
+const greyTint = (brightness: number): number => {
   const level = Math.max(
     0,
     Math.min(CHANNEL_MAX, Math.round(brightness * CHANNEL_MAX)),
   );
   return (level << 16) | (level << 8) | level;
-}
+};
 
 /** A regular polygon's points, as a flat list, starting at the top. */
-function polygon(sides: number, radius: number, turn = 0): number[] {
+const polygon = (sides: number, radius: number, turn = 0): number[] => {
   const points: number[] = [];
   for (let corner = 0; corner < sides; corner++) {
     const angle = turn + (corner / sides) * Math.PI * 2 - Math.PI / 2;
     points.push(Math.cos(angle) * radius, Math.sin(angle) * radius);
   }
   return points;
-}
+};
 
 /** A soft star, alternating between two radii. Mob fire is large, slow and irregular, and this is the irregular half. */
-function star(points: number, outer: number, inner: number): number[] {
+const star = (points: number, outer: number, inner: number): number[] => {
   const flat: number[] = [];
   for (let corner = 0; corner < points * 2; corner++) {
     const angle = (corner / (points * 2)) * Math.PI * 2 - Math.PI / 2;
@@ -205,20 +205,20 @@ function star(points: number, outer: number, inner: number): number[] {
     flat.push(Math.cos(angle) * radius, Math.sin(angle) * radius);
   }
   return flat;
-}
+};
 
 /** What a mob's drawing depends on, so a sprite is rebuilt only when its look changes. */
-function mobLook(mob: Mob): string {
+const mobLook = (mob: Mob): string => {
   const fire = MOB_TYPES[mob.type].fire;
   const lit = mobTellLit(mob);
   const step = lit
     ? Math.round((1 - mob.fireIn / Math.max(1, fire.tellTicks)) * TELL_STEPS)
     : -1;
   return `${mob.type}|${mob.armed}|${step}`;
-}
+};
 
 /** The body outline of one mob type. A shambler is squat, a revenant is a diamond, and a ghoul is a wedge that points where it is going. */
-function drawBody(into: Graphics, type: MobType): void {
+const drawBody = (into: Graphics, type: MobType): void => {
   const row = MOB_TYPES[type];
   if (type === 'shambler') {
     into.roundRect(
@@ -235,7 +235,7 @@ function drawBody(into: Graphics, type: MobType): void {
     return;
   }
   into.poly(polygon(3, row.halfWidth, Math.PI));
-}
+};
 
 /** How tall the armed notch is cut, as a share of the mob's half-width. */
 const ARMED_NOTCH_HEIGHT = 0.28;
@@ -250,13 +250,13 @@ const ARMED_NOTCH_HEIGHT = 0.28;
  * discriminator between types: spending that channel on a fourth meaning is what
  * the notch avoids, since a horizontal bar is in no type's vocabulary.
  */
-function drawArmedMark(into: Graphics, type: MobType): void {
+const drawArmedMark = (into: Graphics, type: MobType): void => {
   const row = MOB_TYPES[type];
   const height = row.halfWidth * ARMED_NOTCH_HEIGHT;
   into
     .rect(-row.halfWidth * 0.6, -height / 2, row.halfWidth * 1.2, height)
     .fill({ color: PALETTE.foodOutline.hex });
-}
+};
 
 /** How thick the tell's closing iris is drawn, in field units. */
 const TELL_STROKE = 2;
@@ -271,7 +271,7 @@ const TELL_STROKE = 2;
  * arrived. The outer ring is the half that grows, so the tell rises into the
  * shot instead of falling away from it.
  */
-function drawTell(into: Graphics, type: MobType, progress: number): void {
+const drawTell = (into: Graphics, type: MobType, progress: number): void => {
   into.circle(0, 0, tellRadius(type, progress)).stroke({
     width: TELL_STROKE,
     color: PALETTE.foodOutline.hex,
@@ -282,21 +282,21 @@ function drawTell(into: Graphics, type: MobType, progress: number): void {
     color: PALETTE.foodOutline.hex,
     alignment: 0.5,
   });
-}
+};
 
 /** How wide the outer ring stands at this much of the way to the shot. It grows, where the iris closes. */
-export function alarmRadius(type: MobType, progress: number): number {
+const alarmRadius = (type: MobType, progress: number): number => {
   const row = MOB_TYPES[type];
   return row.halfWidth * (0.95 + 0.5 * progress);
-}
+};
 
 /** How wide the iris stands at this much of the way to the shot. It closes, so a player reads how long is left rather than only that something is coming. */
-export function tellRadius(type: MobType, progress: number): number {
+const tellRadius = (type: MobType, progress: number): number => {
   const row = MOB_TYPES[type];
   return Math.max(TELL_STROKE, row.halfWidth * (0.9 - 0.7 * progress));
-}
+};
 
-function drawMob(into: Graphics, mob: Mob): void {
+const drawMob = (into: Graphics, mob: Mob): void => {
   into.clear();
   drawBody(into, mob.type);
   into.fill({ color: PALETTE.mob.hex });
@@ -313,7 +313,7 @@ function drawMob(into: Graphics, mob: Mob): void {
     return;
   }
   drawArmedMark(into, mob.type);
-}
+};
 
 /**
  * Mob fire, as ADR 0014's three colours: a near-black outline so the sprite
@@ -329,7 +329,7 @@ function drawMob(into: Graphics, mob: Mob): void {
  * measured: a core at luma 90 drawn at alpha 0.90 over the night composites to
  * 81.7 and falls out of the band.
  */
-function drawShot(into: Graphics, shot: Shot): void {
+const drawShot = (into: Graphics, shot: Shot): void => {
   const sprite = MOB_FIRE.trash;
   const outer = shot.halfExtent * SHOT_DRAW_SCALE;
   into
@@ -347,7 +347,7 @@ function drawShot(into: Graphics, shot: Shot): void {
     // middle of the sprite is where the collision box really is.
     .circle(0, 0, shot.halfExtent * SHOT_CORE_OF_HITBOX)
     .fill({ color: sprite.core.hex });
-}
+};
 
 /**
  * A drop, as a steady-bright icon of its own line's silhouette.
@@ -368,7 +368,11 @@ function drawShot(into: Graphics, shot: Shot): void {
  * The extent passed in is the drawn one, already carrying the breath, and never
  * the hitbox.
  */
-function drawDropIcon(into: Graphics, line: WeaponLine, extent: number): void {
+const drawDropIcon = (
+  into: Graphics,
+  line: WeaponLine,
+  extent: number,
+): void => {
   const r = extent;
   if (line === 'soulStream') {
     into.circle(0, 0, r);
@@ -394,7 +398,7 @@ function drawDropIcon(into: Graphics, line: WeaponLine, extent: number): void {
     r,
     r * 0.52,
   ]);
-}
+};
 
 /**
  * A drop on the field: its line's silhouette in treasure's colour, with the food
@@ -410,7 +414,7 @@ function drawDropIcon(into: Graphics, line: WeaponLine, extent: number): void {
  * 0014's brackets grade. The per-tick rebuild is bounded by the handful of
  * drops alive at once, never a wave.
  */
-function drawDrop(into: Graphics, corpse: Corpse, extent: number): void {
+const drawDrop = (into: Graphics, corpse: Corpse, extent: number): void => {
   const line = corpse.line ?? 'soulStream';
   into.clear();
   drawDropIcon(into, line, extent);
@@ -421,9 +425,9 @@ function drawDrop(into: Graphics, corpse: Corpse, extent: number): void {
     color: PALETTE.foodOutline.hex,
     alignment: 0.5,
   });
-}
+};
 
-function drawCorpse(into: Graphics, corpse: Corpse): void {
+const drawCorpse = (into: Graphics, corpse: Corpse): void => {
   const tier = CORPSE_TIERS[corpse.tier];
   into
     .clear()
@@ -435,7 +439,7 @@ function drawCorpse(into: Graphics, corpse: Corpse): void {
       color: PALETTE.foodOutline.hex,
       alignment: 0.5,
     });
-}
+};
 
 /**
  * A cancelled shot's read. A shot vanishing into the grave's mouth with no
@@ -446,7 +450,11 @@ function drawCorpse(into: Graphics, corpse: Corpse): void {
  * The scatter shrinks rather than fading, because ADR 0014 forbids mob fire
  * drawing at anything but alpha 1.0 and this is mob fire coming apart.
  */
-function drawScatter(into: Graphics, extent: number, progress: number): void {
+const drawScatter = (
+  into: Graphics,
+  extent: number,
+  progress: number,
+): void => {
   const sprite = MOB_FIRE.trash;
   const reach = extent * SCATTER_REACH * progress;
   const length = extent * (1 - progress) + extent * 0.2;
@@ -458,19 +466,19 @@ function drawScatter(into: Graphics, extent: number, progress: number): void {
     into.circle(cx, cy, Math.max(0.5, length * 0.5));
   }
   into.fill({ color: sprite.body.hex });
-}
+};
 
 /**
  * A sprite pool at the entity pool's own capacity, so attach() can put every
  * one of them in its layer and no spawn ever allocates.
  */
-function fill(sprites: Graphics[], capacity: number): void {
+const fill = (sprites: Graphics[], capacity: number): void => {
   while (sprites.length < capacity) {
     const sprite = new Graphics();
     sprite.visible = false;
     sprites.push(sprite);
   }
-}
+};
 
 /** One cancelled shot, on its way out. */
 interface Scatter {
@@ -487,7 +495,7 @@ interface ShotMemory {
   extent: number;
 }
 
-export class FieldRenderer {
+class FieldRenderer {
   private readonly mobSprites: Graphics[] = [];
   private readonly shotSprites: Graphics[] = [];
   private readonly corpseSprites: Graphics[] = [];
@@ -730,7 +738,7 @@ export class FieldRenderer {
  *
  * Feasts never decay, so they never fade.
  */
-export function freshnessBrightness(corpse: Corpse, tick: number): number {
+const freshnessBrightness = (corpse: Corpse, tick: number): number => {
   if (!corpse.decays) return 1;
   const faded =
     CORPSE_FADE_FLOOR + (1 - CORPSE_FADE_FLOOR) * Math.max(0, corpse.freshness);
@@ -743,4 +751,17 @@ export function freshnessBrightness(corpse: Corpse, tick: number): number {
   // pure function of the sim's own state.
   const phase = Math.floor((tick + corpse.id) / FLICKER_HALF_PERIOD);
   return phase % 2 === 0 ? faded * FLICKER_DEPTH : faded;
-}
+};
+
+export {
+  alarmRadius,
+  tellRadius,
+  FieldRenderer,
+  freshnessBrightness,
+  FLICKER_HALF_PERIOD,
+  FIELD_RENDERER_TRANSIENT_TICKS,
+  SHOT_DRAW_SCALE,
+  DROP_DRAW_HALF_EXTENT,
+  SHOT_CORE_OF_HITBOX,
+  SPRITE_STROKE,
+};

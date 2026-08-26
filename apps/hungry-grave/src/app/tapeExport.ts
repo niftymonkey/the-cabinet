@@ -30,9 +30,9 @@ const NAME_HASH_LENGTH = 10;
 const REVOKE_DELAY_MS = 60_000;
 
 /** A name that identifies the run: the dice it rolled and the build that ran them. */
-export function tapeFileName(seed: number, commitHash: string): string {
+const tapeFileName = (seed: number, commitHash: string): string => {
   return `hungry-grave-${seed}-${commitHash.slice(0, NAME_HASH_LENGTH)}.tape`;
-}
+};
 
 /**
  * Hands sealed tape bytes to the browser as a file download.
@@ -41,7 +41,7 @@ export function tapeFileName(seed: number, commitHash: string): string {
  * re-encoded here: this module does not own the run and has no business
  * producing a second version of its record.
  */
-export function saveTapeFile(bytes: Uint8Array, fileName: string): void {
+const saveTapeFile = (bytes: Uint8Array, fileName: string): void => {
   const url = URL.createObjectURL(
     new Blob([bytes], { type: 'application/octet-stream' }),
   );
@@ -55,4 +55,6 @@ export function saveTapeFile(bytes: Uint8Array, fileName: string): void {
   anchor.click();
   anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
-}
+};
+
+export { tapeFileName, saveTapeFile };
