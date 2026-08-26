@@ -5,7 +5,6 @@ import type {
   RendererDestroyOptions,
 } from 'pixi.js';
 import { Application, Assets, extensions, ResizePlugin } from 'pixi.js';
-import 'pixi.js/app';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - This is a dynamically generated file by AssetPack
@@ -16,10 +15,18 @@ import { CreationNavigationPlugin } from './navigation/NavigationPlugin';
 import { CreationResizePlugin } from './resize/ResizePlugin';
 import { getResolution } from './utils/getResolution';
 
-extensions.remove(ResizePlugin);
-extensions.add(CreationResizePlugin);
-extensions.add(CreationAudioPlugin);
-extensions.add(CreationNavigationPlugin);
+/**
+ * Swaps Pixi's stock resize handling for the engine's own and adds the audio
+ * and navigation plugins the engine's API is built on. Application reads the
+ * plugin list inside init(), so this has to have run before an engine is
+ * initialised.
+ */
+const registerEnginePlugins = (): void => {
+  extensions.remove(ResizePlugin);
+  extensions.add(CreationResizePlugin);
+  extensions.add(CreationAudioPlugin);
+  extensions.add(CreationNavigationPlugin);
+};
 
 /**
  * The main creation engine class.
@@ -75,3 +82,5 @@ export class CreationEngine extends Application {
     }
   };
 }
+
+export { registerEnginePlugins };

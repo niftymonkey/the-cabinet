@@ -7,14 +7,17 @@ import { LoadScreen } from './app/screens/LoadScreen';
 import { PrototypesScreen } from './app/screens/PrototypesScreen';
 import { TitleScreen } from './app/screens/TitleScreen';
 import { userSettings } from './app/utils/userSettings';
-import { CreationEngine } from './engine/engine';
+import { CreationEngine, registerEnginePlugins } from './engine/engine';
 
 /**
- * Importing these modules will automatically register their plugins with the engine.
+ * These libraries register their plugins by being imported and offer no call to
+ * do it with, so the entry point is the only place they are imported.
  */
 import '@pixi/sound';
+import 'pixi.js/app';
 
 const initEngine = async (): Promise<CreationEngine> => {
+  registerEnginePlugins();
   const engine = new CreationEngine();
   setEngine(engine);
   await engine.init({
