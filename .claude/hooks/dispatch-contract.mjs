@@ -4,8 +4,32 @@
  */
 
 const AGENT_TOOL_NAMES = new Set(["Agent", "Task"]);
-const CODE_WRITING_SUBAGENT_TYPES = new Set(["general-purpose", "claude", "fork"]);
-const PLAYBOOK_POINTER = "feature-playbook.md";
+
+/**
+ * The dispatches that carry no code and therefore owe no contract.
+ *
+ * The list names what is exempt rather than what is caught, because a type this
+ * file has never heard of is far more likely to be a new coding agent than a new
+ * read-only one, and the cost of asking a review dispatch for a marker is one
+ * line while the cost of missing a coding dispatch is the whole gate.
+ */
+const NON_CODING_SUBAGENT_TYPES = new Set([
+  "explore",
+  "plan",
+  "claude-code-guide",
+  "statusline-setup",
+  "gate-game-design",
+  "gate-product-vision",
+  "gate-tech-architecture",
+]);
+
+/**
+ * The playbook's own path, not its bare filename.
+ *
+ * The contract is that the agent reads this file, so the prompt has to name the
+ * place it lives.
+ */
+const PLAYBOOK_POINTER = "docs/agents/feature-playbook.md";
 /**
  * The escape hatch, which must open only on its own line.
  *
@@ -32,15 +56,23 @@ async function readStdin() {
   return raw;
 }
 
+/**
+ * The Agent tool matches a subagent type without regard to case or separator,
+ * so the gate has to compare the same way or a spelling walks around it.
+ */
+function normalizeSubagentType(subagentType) {
+  return subagentType.toLowerCase().replace(/[_ ]/g, "-");
+}
+
 function isCodeWritingDispatch(toolName, toolInput) {
   if (!AGENT_TOOL_NAMES.has(toolName)) {
     return false;
   }
   const subagentType = toolInput.subagent_type;
-  if (subagentType === undefined) {
+  if (typeof subagentType !== "string") {
     return true;
   }
-  return CODE_WRITING_SUBAGENT_TYPES.has(subagentType);
+  return !NON_CODING_SUBAGENT_TYPES.has(normalizeSubagentType(subagentType));
 }
 
 function promptCarriesContract(prompt) {
@@ -86,9 +118,12 @@ async function main() {
 }
 
 // A broken hook must never block unrelated work: any failure allows the call.
+// The exit code is set rather than forced, because process.exit() can cut off a
+// denial that stdout has not finished writing, and a half-written denial is read
+// as no denial at all.
 try {
   await main();
-  process.exit(0);
+  process.exitCode = 0;
 } catch {
-  process.exit(0);
+  process.exitCode = 0;
 }
