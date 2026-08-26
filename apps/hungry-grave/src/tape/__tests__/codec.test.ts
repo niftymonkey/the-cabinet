@@ -10,12 +10,14 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TapeFormatError } from '../bytes';
+import { TapeFormatError } from '../tapeFormatError';
 import { CHUNK_FRAME_BYTES, CHUNK_TRAILER } from '../chunks';
 import { decodeTape } from '../decode';
-import { COMMAND_BYTES, encodeTape } from '../encode';
+import { encodeTape } from '../encode';
+import { COMMAND_BYTES } from '../segments';
 import type { Observation, Tape, TapeCheckpoint, TapeHeader } from '../tape';
-import { FORMAT_VERSION, stopOf, TAPE_MAGIC } from '../tape';
+import { stopOf } from '../tape';
+import { FORMAT_VERSION, TAPE_MAGIC } from '../wireCodes';
 
 /** Every field of the header's closed list, each a different value so none can stand in for another. */
 const HEADER: TapeHeader = {

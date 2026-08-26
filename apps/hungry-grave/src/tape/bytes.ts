@@ -1,5 +1,7 @@
 // The byte cursor a tape is written and read through.
 
+import { TapeFormatError } from './tapeFormatError';
+
 /**
  * Byte order is stated by the format rather than left to the platform (ADR
  * 0018), so every multi-byte read and write below passes LITTLE_ENDIAN
@@ -9,14 +11,6 @@ const LITTLE_ENDIAN = true;
 
 // Bytes a UTF-8 string's length prefix takes, so a caller can size a record.
 const STRING_LENGTH_BYTES = 2;
-
-// What a decoder throws when bytes are not a tape, rather than guessing.
-class TapeFormatError extends Error {
-  public constructor(message: string) {
-    super(message);
-    this.name = 'TapeFormatError';
-  }
-}
 
 interface ByteWriter {
   bytes: Uint8Array;
@@ -195,7 +189,6 @@ const sliceReader = (reader: ByteReader, size: number): ByteReader => {
 };
 
 export {
-  TapeFormatError,
   createWriter,
   writeU8,
   writeU16,

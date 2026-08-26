@@ -13,7 +13,6 @@ import {
   remaining,
   sliceReader,
   stringFits,
-  TapeFormatError,
 } from './bytes';
 import {
   CHUNK_BODY,
@@ -30,7 +29,7 @@ import {
   FAULT_OBSERVATION_FIXED_BYTES,
   FAULT_OBSERVATION_PREFIX_BYTES,
   FRAME_OBSERVATION_BYTES,
-} from './encode';
+} from './segments';
 import type {
   Observation,
   Tape,
@@ -38,6 +37,8 @@ import type {
   TapeHeader,
   TapeTrailer,
 } from './tape';
+import { FRAME_REASONS, TAPE_INPUT_DEVICES, TAPE_INTEGRITIES } from './tape';
+import { TapeFormatError } from './tapeFormatError';
 import {
   ABSENT_CODE,
   codeReader,
@@ -47,7 +48,6 @@ import {
   FAULT_SEVERITY_CODES,
   FORMAT_VERSION,
   FRAME_REASON_CODES,
-  FRAME_REASONS,
   HEADER_LEVELS_ORDER,
   INPUT_DEVICE_CODES,
   INTEGRITY_CODES,
@@ -55,10 +55,8 @@ import {
   RUN_ENDINGS,
   STOP_CODES,
   STOP_REASONS,
-  TAPE_INPUT_DEVICES,
-  TAPE_INTEGRITIES,
   TAPE_MAGIC,
-} from './tape';
+} from './wireCodes';
 import { FAULT_IDENTITIES } from '../game/faults';
 import type { WeaponLine } from '../game/lines/roster';
 import type { TickCommand } from '../game/command';

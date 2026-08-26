@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import { FAULT_IDENTITIES } from '../../game/faults';
 import { WEAPON_LINES } from '../../game/lines/roster';
+import { FRAME_REASONS, TAPE_INPUT_DEVICES, TAPE_INTEGRITIES } from '../tape';
 import {
   ABSENT_CODE,
   codeReader,
@@ -19,7 +20,6 @@ import {
   FAULT_SEVERITIES,
   FAULT_SEVERITY_CODES,
   FRAME_REASON_CODES,
-  FRAME_REASONS,
   HEADER_LEVELS_ORDER,
   INPUT_DEVICE_CODES,
   INTEGRITY_CODES,
@@ -28,9 +28,7 @@ import {
   RUN_ENDINGS,
   STOP_CODES,
   STOP_REASONS,
-  TAPE_INPUT_DEVICES,
-  TAPE_INTEGRITIES,
-} from '../tape';
+} from '../wireCodes';
 
 /**
  * One code map's three promises, asserted for whichever map it is handed.

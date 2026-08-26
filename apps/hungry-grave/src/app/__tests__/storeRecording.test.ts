@@ -16,7 +16,7 @@ import {
 import { decodeTape } from '../../tape/decode';
 import type { TapeRecorder } from '../../tape/recorder';
 import type { FrameObservation, TapeHeader } from '../../tape/tape';
-import { TAPE_MAGIC } from '../../tape/tape';
+import { TAPE_MAGIC } from '../../tape/wireCodes';
 import { recordRunToStore } from '../storeRecording';
 import type { TapePart, TapeStore } from '../tapeStore';
 

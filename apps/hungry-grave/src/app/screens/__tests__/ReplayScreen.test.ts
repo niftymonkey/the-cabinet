@@ -31,7 +31,7 @@ import { foldWitness, WITNESS_VERSION } from '../../../game/witness';
 import { encodeTape } from '../../../tape/encode';
 import { recordInto, sealTrailer, tapeOf } from '../../../tape/recorder';
 import type { Tape, TapeHeader } from '../../../tape/tape';
-import { RECORDER_CHECKPOINT_SPACING } from '../../../tape/tape';
+import { RECORDER_CHECKPOINT_SPACING } from '../../../tape/recorder';
 import { LAYER_ORDER } from '../game/layering';
 import { REPLAY_LEAD_IN_TICKS } from '../game/transients';
 import { ReplayScreen } from '../ReplayScreen';

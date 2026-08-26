@@ -5,7 +5,7 @@ import { TICK_HZ } from '../game/clock';
 import type { RunState } from '../game/run';
 import { WITNESS_VERSION } from '../game/witness';
 import type { TapeHeader, TapeInputDevice } from '../tape/tape';
-import { RECORDER_CHECKPOINT_SPACING } from '../tape/tape';
+import { RECORDER_CHECKPOINT_SPACING } from '../tape/recorder';
 import { engine } from './getEngine';
 import { userSettings } from './utils/userSettings';
 

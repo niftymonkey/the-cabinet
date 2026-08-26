@@ -58,7 +58,7 @@ import { WITNESS_VERSION } from '../../game/witness';
 import { encodeTape } from '../../tape/encode';
 import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
 import type { TapeHeader } from '../../tape/tape';
-import { RECORDER_CHECKPOINT_SPACING } from '../../tape/tape';
+import { RECORDER_CHECKPOINT_SPACING } from '../../tape/recorder';
 import { tapeFileName } from '../tapeExport';
 import type { StoredRunSummary, TapeStore } from '../tapeStore';
 import { RunsScreen } from '../screens/RunsScreen';

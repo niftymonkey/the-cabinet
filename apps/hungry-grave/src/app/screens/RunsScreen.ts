@@ -1,6 +1,6 @@
 import { Container } from 'pixi.js';
 
-import { TapeFormatError } from '../../tape/bytes';
+import { TapeFormatError } from '../../tape/tapeFormatError';
 import { decodeTape } from '../../tape/decode';
 import { MENU } from '../palette';
 import { REPLAY_HASH } from '../routes';

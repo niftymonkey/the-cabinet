@@ -2,12 +2,7 @@
 // whole tape a run's stop writes.
 
 import type { ByteWriter } from './bytes';
-import {
-  createWriter,
-  STRING_LENGTH_BYTES,
-  writeBytes,
-  writtenBytes,
-} from './bytes';
+import { createWriter, writeBytes, writtenBytes } from './bytes';
 import {
   bodySegment,
   headerSegment,
@@ -17,32 +12,6 @@ import {
 } from './segments';
 import type { Tape } from './tape';
 import type { TickCommand } from '../game/command';
-
-/**
- * Two float32 of steering and one flag byte, which is what a body row costs.
- *
- * Steering is two float32, one per axis, through the same single-precision
- * rounding the simulation already applies. It has no scale to derive, no range
- * limit and asks for no clamp in the input path, which is the shape ADR 0011
- * was already burned by.
- */
-const COMMAND_BYTES = 9;
-
-// The tick a body chunk starts at, which is the only field in front of its commands.
-const BODY_FIRST_TICK_BYTES = 4;
-
-// A checkpoint index and its witness.
-const CHECKPOINT_BYTES = 8;
-
-// A frame row's fixed width: it carries no string, so it has only one.
-const FRAME_OBSERVATION_BYTES = 25;
-
-// A fault row's kind, identity, severity, first tick and count, ahead of its detail string.
-const FAULT_OBSERVATION_PREFIX_BYTES = 12;
-
-// The same, plus the detail string's own length prefix.
-const FAULT_OBSERVATION_FIXED_BYTES =
-  FAULT_OBSERVATION_PREFIX_BYTES + STRING_LENGTH_BYTES;
 
 // The commands a body chunk holds, being everything up to the next checkpoint.
 const commandsUntil = (
@@ -117,12 +86,4 @@ const encodeTape = (tape: Tape): Uint8Array => {
   return writtenBytes(writer);
 };
 
-export {
-  encodeTape,
-  COMMAND_BYTES,
-  BODY_FIRST_TICK_BYTES,
-  CHECKPOINT_BYTES,
-  FRAME_OBSERVATION_BYTES,
-  FAULT_OBSERVATION_PREFIX_BYTES,
-  FAULT_OBSERVATION_FIXED_BYTES,
-};
+export { encodeTape };

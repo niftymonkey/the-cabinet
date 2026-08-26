@@ -9,23 +9,6 @@ import type { WeaponLine } from '../game/lines/roster';
 import type { TickCommand } from '../game/command';
 import type { RunEnding } from '../game/run';
 
-// The four bytes a tape opens with, so bytes that are not one are refused rather than parsed.
-const TAPE_MAGIC = 'HGTP';
-
-// The format's own version, separate from the witness version the header carries.
-const FORMAT_VERSION = 1;
-
-/**
- * The checkpoint spacing the recorder writes on day one.
- *
- * It is a written value rather than a rule (ADR 0018 and ADR 0019). A reader
- * obeys whatever the tape's header says, never this constant, so a later
- * measurement can move the spacing without versioning the format and without
- * invalidating a single tape already recorded. The name says whose it is for
- * exactly that reason.
- */
-const RECORDER_CHECKPOINT_SPACING = 60;
-
 /**
  * What steered the run, decided before the first tick because the header is
  * written before the first tick.
@@ -45,22 +28,6 @@ const TAPE_INPUT_DEVICES = [
 type TapeInputDevice = (typeof TAPE_INPUT_DEVICES)[number];
 
 /**
- * EVERY ENCODING HERE IS PERMANENT FROM THE FIRST TAPE. The code maps are
- * append-only and read by name, never by a member's ordinal position in its
- * union, because reordering a union would otherwise move every tape's meaning
- * with no version bump and no diff anybody reads as dangerous. Each is typed as
- * a total Record, so adding a member fails the typecheck until somebody gives
- * it a code.
- */
-const INPUT_DEVICE_CODES: Readonly<Record<TapeInputDevice, number>> = {
-  keyboard: 1,
-  touch: 2,
-  bot: 3,
-  script: 4,
-  unknown: 5,
-};
-
-/**
  * Whether the run a tape holds was sound (CONTEXT.md).
  *
  * Unchecked is a run that was recorded on an instrumentation build with the
@@ -71,95 +38,11 @@ const TAPE_INTEGRITIES = ['clean', 'faulted', 'unchecked'] as const;
 
 type TapeIntegrity = (typeof TAPE_INTEGRITIES)[number];
 
-const INTEGRITY_CODES: Readonly<Record<TapeIntegrity, number>> = {
-  clean: 1,
-  faulted: 2,
-  unchecked: 3,
-};
-
 /**
  * How a run stopped, as read off a tape. Unknown is what a missing trailer
  * says, so it is a reading rather than a value anything ever writes down.
  */
 type TapeStop = StopReason | 'unknown';
-
-/**
- * The members each code map is inverted through when a tape is read back.
- *
- * The map above each one is typed as a total Record over the real union, so the
- * compiler holds the map complete; this list is what a decoder walks, and
- * tape.test.ts holds the two against each other so neither can gain a member
- * the other has not heard of.
- */
-const STOP_REASONS = ['finished', 'quit', 'faulted'] as const;
-
-const STOP_CODES: Readonly<Record<StopReason, number>> = {
-  finished: 1,
-  quit: 2,
-  faulted: 3,
-};
-
-/**
- * How a run ended, which is a different fact from how it stopped and never
- * merged with it. The absent code is a run that ended neither way.
- *
- * These are the tape's codes and not the witness fold's, deliberately: the two
- * are versioned by different numbers, the format version and the witness
- * version, and sharing one map would let a widening of either silently move the
- * other.
- */
-const RUN_ENDINGS = ['sealed', 'victory'] as const;
-
-const ENDING_CODES: Readonly<Record<RunEnding, number>> = {
-  sealed: 1,
-  victory: 2,
-};
-
-// The code a field takes when it is absent. No member of any map above may take it.
-const ABSENT_CODE = 0;
-
-/**
- * A fault's identity, written down as its own code map (ADR 0017).
- *
- * It is deliberately not the index of FAULT_IDENTITIES: an identity is
- * append-only from the first tape and outlives the check that raises it, so a
- * tape read back after the checks have been rewritten must still name the same
- * fault.
- */
-const FAULT_IDENTITY_CODES: Readonly<Record<FaultIdentity, number>> = {
-  'no NaN': 1,
-  'size within floor and ceiling': 2,
-  'in bounds': 3,
-  'entities in bounds': 4,
-  'entity caps': 5,
-  'entity ids': 6,
-  'freshness in range': 7,
-  'reservoir in range': 8,
-  'levels in range': 9,
-  'one live ring': 10,
-  'phase index only increases': 11,
-  'phase tick resets at a boundary': 12,
-};
-
-const FAULT_SEVERITIES = ['fatal', 'recoverable'] as const;
-
-const FAULT_SEVERITY_CODES: Readonly<Record<FaultSeverity, number>> = {
-  fatal: 1,
-  recoverable: 2,
-};
-
-/**
- * The order the four lines' starting levels are written in, spelled out rather
- * than read off the record's keys: a layout whose order depends on key
- * insertion order is a layout nobody can reproduce from the type alone, and it
- * is permanent from the first tape.
- */
-const HEADER_LEVELS_ORDER: readonly WeaponLine[] = [
-  'soulStream',
-  'headstones',
-  'wisps',
-  'bell',
-];
 
 /**
  * The run's identity and its conditions, written before the first tick.
@@ -188,7 +71,7 @@ interface TapeHeader {
   readonly tickRate: number;
   // Ticks between checkpoints, obeyed by the reader rather than compiled into it.
   readonly checkpointSpacing: number;
-  // The fold's own version, separate from the format version above it.
+  // The fold's own version, separate from the tape's own format version.
   readonly witnessVersion: number;
   // Human-readable metadata, never a fidelity gate: a README typo must not invalidate every tape.
   readonly commitHash: string;
@@ -245,14 +128,6 @@ const FRAME_REASONS = [
 ] as const;
 
 type FrameReason = (typeof FRAME_REASONS)[number];
-
-const FRAME_REASON_CODES: Readonly<Record<FrameReason, number>> = {
-  live: 1,
-  ending: 2,
-  paused: 3,
-  backgrounded: 4,
-  countdown: 5,
-};
 
 /**
  * One rendered frame, as observed at the frame seam.
@@ -328,13 +203,6 @@ interface FaultObservation {
  */
 type Observation = FrameObservation | FaultObservation;
 
-const OBSERVATION_KINDS = ['frame', 'fault'] as const;
-
-const OBSERVATION_KIND_CODES: Readonly<Record<Observation['kind'], number>> = {
-  frame: 1,
-  fault: 2,
-};
-
 // What a run knows only once it stops, written once at the stop.
 interface TapeTrailer {
   readonly ending: RunEnding | null;
@@ -393,48 +261,13 @@ const faultObservations = (tape: Tape): FaultObservation[] => {
   );
 };
 
-/**
- * A code map read the other way, for a decoder.
- *
- * It is built from the members rather than from the record's own keys, because
- * a walk over an object's keys hands back strings and a decoder that has to
- * assert its way back to the union is a decoder that can lie about what it
- * found.
- */
-const codeReader = <T extends string>(
-  members: readonly T[],
-  codes: Readonly<Record<T, number>>,
-): ReadonlyMap<number, T> => {
-  const byCode = new Map<number, T>();
-  for (const member of members) byCode.set(codes[member], member);
-  return byCode;
-};
-
 export {
   stopOf,
   frameObservations,
   faultObservations,
-  codeReader,
-  TAPE_MAGIC,
-  FORMAT_VERSION,
-  RECORDER_CHECKPOINT_SPACING,
   TAPE_INPUT_DEVICES,
-  INPUT_DEVICE_CODES,
   TAPE_INTEGRITIES,
-  INTEGRITY_CODES,
-  STOP_REASONS,
-  STOP_CODES,
-  RUN_ENDINGS,
-  ENDING_CODES,
-  ABSENT_CODE,
-  FAULT_IDENTITY_CODES,
-  FAULT_SEVERITIES,
-  FAULT_SEVERITY_CODES,
-  HEADER_LEVELS_ORDER,
   FRAME_REASONS,
-  FRAME_REASON_CODES,
-  OBSERVATION_KINDS,
-  OBSERVATION_KIND_CODES,
 };
 export type {
   TapeInputDevice,

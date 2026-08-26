@@ -3,6 +3,7 @@
 import type { ByteWriter } from './bytes';
 import {
   createWriter,
+  STRING_LENGTH_BYTES,
   writeF32,
   writeF64,
   writeI32,
@@ -41,7 +42,7 @@ import {
   OBSERVATION_KIND_CODES,
   STOP_CODES,
   TAPE_MAGIC,
-} from './tape';
+} from './wireCodes';
 import type { TickCommand } from '../game/command';
 
 const writeMagic = (writer: ByteWriter): void => {
@@ -68,11 +69,24 @@ const writeHeaderRecord = (payload: ByteWriter, header: TapeHeader): void => {
   writeF64(payload, header.recordedAt);
 };
 
+/**
+ * Two float32 of steering and one flag byte, which is what a body row costs.
+ *
+ * Steering is two float32, one per axis, through the same single-precision
+ * rounding the simulation already applies. It has no scale to derive, no range
+ * limit and asks for no clamp in the input path, which is the shape ADR 0011
+ * was already burned by.
+ */
+const COMMAND_BYTES = 9;
+
 const writeCommand = (payload: ByteWriter, command: TickCommand): void => {
   writeF32(payload, command.move.x);
   writeF32(payload, command.move.y);
   writeU8(payload, command.belch ? 1 : 0);
 };
+
+// A checkpoint index and its witness.
+const CHECKPOINT_BYTES = 8;
 
 const writeCheckpoint = (
   payload: ByteWriter,
@@ -81,6 +95,9 @@ const writeCheckpoint = (
   writeU32(payload, checkpoint.index);
   writeI32(payload, checkpoint.witness);
 };
+
+// A frame row's fixed width: it carries no string, so it has only one.
+const FRAME_OBSERVATION_BYTES = 25;
 
 const writeFrameObservation = (
   payload: ByteWriter,
@@ -98,6 +115,13 @@ const writeFrameObservation = (
   writeF32(payload, frame.updateMs);
   writeU32(payload, frame.debtTicks);
 };
+
+// A fault row's kind, identity, severity, first tick and count, ahead of its detail string.
+const FAULT_OBSERVATION_PREFIX_BYTES = 12;
+
+// The same, plus the detail string's own length prefix.
+const FAULT_OBSERVATION_FIXED_BYTES =
+  FAULT_OBSERVATION_PREFIX_BYTES + STRING_LENGTH_BYTES;
 
 const writeFaultObservation = (
   payload: ByteWriter,
@@ -170,6 +194,9 @@ const headerSegment = (header: TapeHeader): Uint8Array => {
   return writtenBytes(writer);
 };
 
+// The tick a body chunk starts at, which is the only field in front of its commands.
+const BODY_FIRST_TICK_BYTES = 4;
+
 // A body chunk names the tick it starts at, which is what lets a store append.
 const bodySegment = (
   firstTick: number,
@@ -203,4 +230,10 @@ export {
   witnessSegment,
   observationsSegment,
   trailerSegment,
+  COMMAND_BYTES,
+  BODY_FIRST_TICK_BYTES,
+  CHECKPOINT_BYTES,
+  FRAME_OBSERVATION_BYTES,
+  FAULT_OBSERVATION_PREFIX_BYTES,
+  FAULT_OBSERVATION_FIXED_BYTES,
 };

@@ -16,6 +16,17 @@ import type {
   TapeTrailer,
 } from './tape';
 
+/**
+ * The checkpoint spacing the recorder writes on day one.
+ *
+ * It is a written value rather than a rule (ADR 0018 and ADR 0019). A reader
+ * obeys whatever the tape's header says, never this constant, so a later
+ * measurement can move the spacing without versioning the format and without
+ * invalidating a single tape already recorded. The name says whose it is for
+ * exactly that reason.
+ */
+const RECORDER_CHECKPOINT_SPACING = 60;
+
 interface TapeRecorder {
   readonly header: TapeHeader;
   readonly commands: TickCommand[];
@@ -221,5 +232,6 @@ export {
   integrityOf,
   sealTrailer,
   tapeOf,
+  RECORDER_CHECKPOINT_SPACING,
 };
 export type { TapeRecorder };

@@ -6,7 +6,7 @@ import { createClock, ticksFor } from '../../game/clock';
 import type { SimEvent } from '../../game/events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { RESERVOIR_CAPACITY } from '../../game/tuning';
-import { TapeFormatError } from '../../tape/bytes';
+import { TapeFormatError } from '../../tape/tapeFormatError';
 import type { DecodedTape } from '../../tape/decode';
 import { decodeTape } from '../../tape/decode';
 import type { Playback, PlaybackResult } from '../../tape/playback';

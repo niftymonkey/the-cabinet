@@ -15,7 +15,8 @@ import {
   witnessSegment,
 } from '../segments';
 import type { Observation, Tape, TapeCheckpoint, TapeHeader } from '../tape';
-import { FORMAT_VERSION, stopOf, TAPE_MAGIC } from '../tape';
+import { stopOf } from '../tape';
+import { FORMAT_VERSION, TAPE_MAGIC } from '../wireCodes';
 
 /** Every field a different value, so none can stand in for another. */
 const HEADER: TapeHeader = {
