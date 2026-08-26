@@ -1,5 +1,5 @@
 import type { Execution } from '../game/execution';
-import type { FaultIdentity } from '../game/invariants';
+import type { FaultIdentity } from '../game/faults';
 import type { RunEnding, RunState } from '../game/run';
 
 /**

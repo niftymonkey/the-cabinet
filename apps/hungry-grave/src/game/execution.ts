@@ -1,12 +1,8 @@
 // The one execution authority (ADR 0017).
 
 import type { SimEvent } from './events';
-import type {
-  Fault,
-  FaultIdentity,
-  FaultSeverity,
-  StageWatch,
-} from './invariants';
+import type { Fault, FaultIdentity, FaultSeverity } from './faults';
+import type { StageWatch } from './invariants';
 import { checkInvariants, createStageWatch } from './invariants';
 import { f32 } from './math';
 import type { MoveCommand, TickCommand } from './command';

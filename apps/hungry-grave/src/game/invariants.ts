@@ -6,6 +6,8 @@
 import type { PoolSlot } from './caps';
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP, SKULL_CAP, WISP_CAP } from './caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import type { Fault, FaultIdentity } from './faults';
+import { FAULT_SEVERITY } from './faults';
 import { graveHitbox } from './grave';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from './lines/roster';
 import { BELL_EXPAND_TICKS } from './lines/bell';
@@ -13,82 +15,6 @@ import { SKULL_HALF_EXTENT } from './lines/soulStream';
 import { SPAWN_MARGIN } from './mobs';
 import type { RunState } from './run';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from './tuning';
-
-/**
- * Every fault this harness can record, as a closed append-only list (ADR 0017).
- *
- * The identity is written down here rather than taken from whatever string a
- * check happens to carry, because a fault record goes into a tape's third
- * section and hardens the moment the first tape exists. Twelve identities
- * against ten checks: checkPools carries two, the caps and the ids, and
- * checkStage carries two, one for each of the two things it watches. The
- * grave's own bounds check is "in bounds" and sits beside a
- * separate "entities in bounds", one fatal and one recoverable, which is the
- * pair a severity table most easily confuses.
- */
-const FAULT_IDENTITIES = [
-  'no NaN',
-  'size within floor and ceiling',
-  'in bounds',
-  'entities in bounds',
-  'entity caps',
-  'entity ids',
-  'freshness in range',
-  'reservoir in range',
-  'levels in range',
-  'one live ring',
-  'phase index only increases',
-  'phase tick resets at a boundary',
-] as const;
-
-// One member of the closed list above.
-type FaultIdentity = (typeof FAULT_IDENTITIES)[number];
-
-// Whether the run can safely carry on past a fault (ADR 0017).
-type FaultSeverity = 'fatal' | 'recoverable';
-
-/**
- * How safe continued execution is after each fault, by semantic safety and
- * never by how cosmetic the symptom looks (ADR 0017).
- *
- * Fatal, six. NaN spreads and every comparison against it is false, so
- * containment, culling and collision quietly stop working. A level is an array
- * index rather than a meter, and every per-level table is sized to MAX_LEVEL.
- * Two live slots sharing an id send a wisp after a mob it never locked onto.
- * A grave outside the field puts the player off it, so collision and the Wall's
- * width arithmetic stop meaning anything. Size is health, so out of range means
- * the seal condition was missed and a run that should be over keeps playing.
- * And a pool whose shape changed means a structural assumption was violated
- * outside the pool API, after which no other check's answer is trustworthy.
- *
- * Recoverable, five checks and six identities. A stray entity is culled or
- * draws off-screen and nothing reads it wrong. A corpse pays the wrong amount
- * into a size the fatal check still guards. One line's charge is wrong and
- * payReservoir clamps it back. A bell ring over-expands within one line. And a
- * stage phase repeats or skips spawns while the simulation stays coherent.
- */
-const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
-  'no NaN': 'fatal',
-  'size within floor and ceiling': 'fatal',
-  'in bounds': 'fatal',
-  'entities in bounds': 'recoverable',
-  'entity caps': 'fatal',
-  'entity ids': 'fatal',
-  'freshness in range': 'recoverable',
-  'reservoir in range': 'recoverable',
-  'levels in range': 'fatal',
-  'one live ring': 'recoverable',
-  'phase index only increases': 'recoverable',
-  'phase tick resets at a boundary': 'recoverable',
-};
-
-// One invariant found broken on one tick.
-interface Fault {
-  readonly identity: FaultIdentity;
-  readonly severity: FaultSeverity;
-  // Where to find the offending number again, as "mob 12.vx is NaN".
-  readonly detail: string;
-}
 
 /**
  * Records a fault, at most once per identity per tick.
@@ -329,12 +255,9 @@ const within = (x: number, y: number, margin: number): boolean => {
   );
 };
 
-/**
- * Mobs and corpses legitimately exist above the top edge before they arrive, so
- * the box they are checked against is the field widened by a spawn margin.
- * Shots never spawn off the field, so they are only allowed their own extent.
- */
-const checkEntitiesInBounds = (state: RunState, faults: Fault[]): void => {
+// Mobs legitimately exist above the top edge before they arrive, so the box is
+// the field widened by a spawn margin rather than the field itself.
+const checkMobsInBounds = (state: RunState, faults: Fault[]): void => {
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     if (!within(mob.x, mob.y, SPAWN_MARGIN)) {
@@ -345,6 +268,10 @@ const checkEntitiesInBounds = (state: RunState, faults: Fault[]): void => {
       );
     }
   }
+};
+
+// A corpse is left where its mob died, so it is allowed the same box a mob is.
+const checkCorpsesInBounds = (state: RunState, faults: Fault[]): void => {
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
     if (!within(corpse.x, corpse.y, SPAWN_MARGIN)) {
@@ -355,6 +282,10 @@ const checkEntitiesInBounds = (state: RunState, faults: Fault[]): void => {
       );
     }
   }
+};
+
+// A shot never spawns off the field, so it is only allowed its own extent.
+const checkMobFireInBounds = (state: RunState, faults: Fault[]): void => {
   for (const shot of state.mobFire) {
     if (!shot.alive) continue;
     if (!within(shot.x, shot.y, shot.halfExtent)) {
@@ -365,8 +296,11 @@ const checkEntitiesInBounds = (state: RunState, faults: Fault[]): void => {
       );
     }
   }
-  // A skull is launched from the mouth and travels straight up, so its own
-  // extent is the right box, exactly as a shot's is.
+};
+
+// A skull is launched from the mouth and travels straight up, so its own extent
+// is the right box, exactly as a shot's is.
+const checkSkullsInBounds = (state: RunState, faults: Fault[]): void => {
   for (const skull of state.skulls) {
     if (!skull.alive) continue;
     if (!within(skull.x, skull.y, SKULL_HALF_EXTENT)) {
@@ -377,10 +311,15 @@ const checkEntitiesInBounds = (state: RunState, faults: Fault[]): void => {
       );
     }
   }
-  // A wisp is checked against the spawn margin and never against its own
-  // extent: cullMobs legitimately allows a mob out to SPAWN_MARGIN, a wisp
-  // homes on the mob it was given, and whichever box a wisp is checked against
-  // has to be the box its target is allowed to be in.
+};
+
+/**
+ * A wisp is checked against the spawn margin and never against its own extent:
+ * cullMobs legitimately allows a mob out to SPAWN_MARGIN, a wisp homes on the
+ * mob it was given, and whichever box a wisp is checked against has to be the
+ * box its target is allowed to be in.
+ */
+const checkWispsInBounds = (state: RunState, faults: Fault[]): void => {
   for (const wisp of state.wisps) {
     if (!wisp.alive) continue;
     if (!within(wisp.x, wisp.y, SPAWN_MARGIN)) {
@@ -570,8 +509,10 @@ const checkStage = (
  * observed. Under the throwing harness this replaced, the first fault aborted
  * every later check in the same tick: `entities in bounds` is recoverable and
  * ran fourth, ahead of the fatal `entity caps`, `entity ids` and `levels in
- * range`, so one recoverable fault switched three fatal ones off. A persistent
- * recoverable fault is the normal case here rather than an edge.
+ * range`, so one recoverable fault switched three fatal ones off. The five
+ * bounds checks that record that identity today run fourth through eighth,
+ * still ahead of those three, so the shape would be there to bite. A
+ * persistent recoverable fault is the normal case here rather than an edge.
  *
  * An unexpected failure inside the checking machinery itself is a different
  * thing and still throws. Detecting a violated invariant is the checker
@@ -599,7 +540,14 @@ const checkInvariants = (
   checkNoNaN(state, faults);
   checkSize(state, faults);
   checkInBounds(state, faults);
-  checkEntitiesInBounds(state, faults);
+  // The order of the five is load-bearing: they share one identity and record
+  // keeps the first detail per identity, so this order decides which entity a
+  // reader of an `entities in bounds` fault is pointed at.
+  checkMobsInBounds(state, faults);
+  checkCorpsesInBounds(state, faults);
+  checkMobFireInBounds(state, faults);
+  checkSkullsInBounds(state, faults);
+  checkWispsInBounds(state, faults);
   checkPools(state, faults);
   checkFreshness(state, faults);
   checkReservoir(state, faults);
@@ -609,5 +557,5 @@ const checkInvariants = (
   return faults;
 };
 
-export { createStageWatch, checkInvariants, FAULT_IDENTITIES, FAULT_SEVERITY };
-export type { FaultIdentity, FaultSeverity, Fault, StageWatch };
+export { createStageWatch, checkInvariants };
+export type { StageWatch };

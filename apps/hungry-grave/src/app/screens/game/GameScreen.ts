@@ -7,7 +7,7 @@ import type { Clock } from '../../../game/clock';
 import { createClock } from '../../../game/clock';
 import type { Execution, FaultRecord } from '../../../game/execution';
 import { createExecution, devBrokenHandler } from '../../../game/execution';
-import type { FaultIdentity } from '../../../game/invariants';
+import type { FaultIdentity } from '../../../game/faults';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import type { SimEvent } from '../../../game/events';
 import type { WeaponLine } from '../../../game/lines/roster';

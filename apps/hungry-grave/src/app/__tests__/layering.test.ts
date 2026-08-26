@@ -7,8 +7,8 @@ import { Container, Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { FaultRecord } from '../../game/execution';
-import type { FaultIdentity } from '../../game/invariants';
-import { FAULT_IDENTITIES, FAULT_SEVERITY } from '../../game/invariants';
+import type { FaultIdentity } from '../../game/faults';
+import { FAULT_IDENTITIES, FAULT_SEVERITY } from '../../game/faults';
 import { MAX_LEVEL } from '../../game/lines/roster';
 import { SEED_LIMIT } from '../../game/run';
 import { METER_FONT_SIZE, meterLinePosition } from '../FpsMeter';

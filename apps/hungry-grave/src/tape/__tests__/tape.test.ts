@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { FAULT_IDENTITIES } from '../../game/invariants';
+import { FAULT_IDENTITIES } from '../../game/faults';
 import { WEAPON_LINES } from '../../game/lines/roster';
 import {
   ABSENT_CODE,

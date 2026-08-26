@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
-import type { Fault } from '../../game/invariants';
+import type { Fault } from '../../game/faults';
 import type { TickCommand } from '../../game/command';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';

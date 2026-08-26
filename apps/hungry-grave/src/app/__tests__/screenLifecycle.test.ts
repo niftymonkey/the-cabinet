@@ -68,7 +68,7 @@ import { TICK_MS } from '../../game/clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
 import { SIZE_FLOOR } from '../../game/tuning';
-import { FAULT_IDENTITIES } from '../../game/invariants';
+import { FAULT_IDENTITIES } from '../../game/faults';
 import { pauseActions, PausePopup } from '../popups/PausePopup';
 import { runHandoff } from '../runHandoff';
 import { SettingsPopup } from '../popups/SettingsPopup';

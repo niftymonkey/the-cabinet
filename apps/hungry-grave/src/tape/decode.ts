@@ -59,7 +59,7 @@ import {
   TAPE_INTEGRITIES,
   TAPE_MAGIC,
 } from './tape';
-import { FAULT_IDENTITIES } from '../game/invariants';
+import { FAULT_IDENTITIES } from '../game/faults';
 import type { WeaponLine } from '../game/lines/roster';
 import type { TickCommand } from '../game/command';
 

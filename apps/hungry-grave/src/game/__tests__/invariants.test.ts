@@ -24,13 +24,9 @@ import type { Stream } from '../rng';
 import { MAX_LEVEL } from '../lines/roster';
 import { SKULL_HALF_EXTENT } from '../lines/soulStream';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from '../tuning';
-import type { Fault, FaultIdentity } from '../invariants';
-import {
-  checkInvariants,
-  createStageWatch,
-  FAULT_IDENTITIES,
-  FAULT_SEVERITY,
-} from '../invariants';
+import type { Fault, FaultIdentity } from '../faults';
+import { FAULT_IDENTITIES, FAULT_SEVERITY } from '../faults';
+import { checkInvariants, createStageWatch } from '../invariants';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
@@ -55,10 +51,10 @@ describe('the fault list itself (ADR 0017)', () => {
     );
   });
 
-  it('holds twelve identities against ten checks, six of them fatal', () => {
+  it('holds twelve identities against fourteen checks, six of them fatal', () => {
     // Two checks carry two identities each: checkPools records the caps and
-    // the ids, and checkStage records the two phase invariants, which is where
-    // the extra pair comes from.
+    // the ids, and checkStage records the two phase invariants. Against that,
+    // the five bounds checks share one identity between them.
     expect(FAULT_IDENTITIES).toHaveLength(12);
     const fatal = FAULT_IDENTITIES.filter(
       (identity) => FAULT_SEVERITY[identity] === 'fatal',
@@ -155,12 +151,12 @@ describe('every check for the tick runs (ADR 0017)', () => {
     const state = createRun(1);
     // Recoverable, and checked fourth: a mob well past the spawn margin.
     liveMob(state, 60, -SPAWN_MARGIN - 1);
-    // Fatal, and checked fifth: a pool longer than its cap.
+    // Fatal, and checked ninth: a pool longer than its cap.
     state.skulls.push({ ...state.skulls[0] });
-    // Fatal, and checked fifth as well: two live slots sharing an id.
+    // Fatal, and checked ninth as well: two live slots sharing an id.
     const first = liveMob(state, 120);
     liveMob(state, 180).id = first.id;
-    // Fatal, and checked eighth: a level outside the table it indexes.
+    // Fatal, and checked twelfth: a level outside the table it indexes.
     state.levels.bell = MAX_LEVEL + 1;
     return state;
   }
@@ -203,6 +199,45 @@ describe('every check for the tick runs (ADR 0017)', () => {
     const nan = faultsOn(state).filter((fault) => fault.identity === 'no NaN');
     expect(nan).toHaveLength(1);
     expect(nan[0].detail).toBe(`mob ${first.id}.vx is NaN`);
+  });
+
+  /** The five pools the bounds checks walk, in the order they are walked. */
+  const BOUNDS_POOLS = ['mob', 'corpse', 'shot', 'skull', 'wisp'] as const;
+
+  /** Puts one live slot of one pool a whole margin outside every allowed box. */
+  function strayIn(state: RunState, pool: (typeof BOUNDS_POOLS)[number]): void {
+    const outside = -SPAWN_MARGIN - SKULL_HALF_EXTENT - 1;
+    if (pool === 'mob') liveMob(state, 60, outside);
+    if (pool === 'corpse') {
+      Object.assign(state.corpses[0], { alive: true, x: 60, y: outside });
+    }
+    if (pool === 'shot') {
+      Object.assign(state.mobFire[0], { alive: true, x: 60, y: outside });
+    }
+    if (pool === 'skull') {
+      Object.assign(state.skulls[0], { alive: true, x: 60, y: outside });
+    }
+    if (pool === 'wisp') {
+      Object.assign(state.wisps[0], { alive: true, x: 60, y: outside });
+    }
+  }
+
+  it('runs the five bounds checks in the recorded order', () => {
+    // All five record the one `entities in bounds` identity and record keeps
+    // the first detail per identity, so the pool the detail names is the first
+    // of the five that ran. Breaking every pool from one onwards and reading
+    // that name back is the whole order, seen through the seam alone.
+    for (let first = 0; first < BOUNDS_POOLS.length; first++) {
+      const state = createRun(1);
+      for (const pool of BOUNDS_POOLS.slice(first)) strayIn(state, pool);
+      const faults = faultsOn(state);
+      expect(faults.map((fault) => fault.identity)).toEqual([
+        'entities in bounds',
+      ]);
+      expect(faults[0].detail).toMatch(
+        new RegExp(`^${BOUNDS_POOLS[first]} \\d+ is at `),
+      );
+    }
   });
 });
 

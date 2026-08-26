@@ -4,7 +4,7 @@
  */
 
 import type { StopReason } from '../game/execution';
-import type { FaultIdentity, FaultSeverity } from '../game/invariants';
+import type { FaultIdentity, FaultSeverity } from '../game/faults';
 import type { WeaponLine } from '../game/lines/roster';
 import type { TickCommand } from '../game/command';
 import type { RunEnding } from '../game/run';

@@ -1,7 +1,7 @@
 // The tape recorder: what turns one run into a tape as it plays.
 
 import type { Execution } from '../game/execution';
-import type { FaultIdentity } from '../game/invariants';
+import type { FaultIdentity } from '../game/faults';
 import type { TickCommand } from '../game/command';
 import type { RunState } from '../game/run';
 import { foldWitness } from '../game/witness';
