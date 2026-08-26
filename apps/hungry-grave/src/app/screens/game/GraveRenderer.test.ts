@@ -5,22 +5,11 @@
 
 import type { Graphics } from "pixi.js";
 import { describe, expect, it, vi } from "vitest";
-import { DROP_HALF_EXTENT } from "../../../game/drops";
 import type { Grave } from "../../../game/grave";
 import { createGrave, graveHitbox, graveWidth } from "../../../game/grave";
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from "../../../game/tuning";
 import { glowAlpha, GRAVE_RIM_STROKE, GraveRenderer } from "./GraveRenderer";
 import { FieldLayers } from "./layering";
-
-/**
- * A drop's width in field units, read from the constant rather than restated.
- *
- * The mouth is not what binds a drop, because ADR 0003 rules that size never
- * gates a swallow, and palette.test.ts's assertion 4 holds the real bound
- * against graveWidth(SIZE_FLOOR). What this file still cares about is that a
- * drop visibly falls into the mouth at the size floor rather than covering it.
- */
-const DROP_WIDTH = DROP_HALF_EXTENT * 2;
 
 function grave(size: number, x = 270, y = 600): Grave {
   return { x, y, size, invulnerable: 0 };
@@ -68,20 +57,18 @@ describe("GraveRenderer", () => {
     }
   });
 
-  it("the mouth stays a hole at SIZE_FLOOR, and the drop's own bound is the grave's width rather than the mouth's interior", () => {
+  it("the mouth stays a hole at SIZE_FLOOR", () => {
     // The instrument that survives a later retune of SIZE_FLOOR or
     // GRAVE_RIM_STROKE. The rendered check cannot replace it, and a rim derived
     // from BOUNDARY_STROKE's bracket lands on 8 and turns a floor grave into a
     // solid pill exactly when the player most needs to read it.
     //
-    // What the mouth's interior does not do is bind the drop. ADR 0003 rules
-    // that size never gates a swallow, so the mouth is not a gate and never
-    // was: the real bound is the grave's own width, and palette.test.ts's
-    // assertion 4 holds it there. A drop is wider than this interior by design.
+    // The mouth does not bind the drop: ADR 0003 rules that size never gates a
+    // swallow, and the drop's own bounds live in FieldRenderer.test.ts
+    // (docs/design/drop-legibility-fix.md carries the supersession).
     const interior = graveWidth(SIZE_FLOOR) - 2 * GRAVE_RIM_STROKE;
     expect(interior).toBeGreaterThan(0);
     expect(2 * GRAVE_RIM_STROKE).toBeLessThan(graveWidth(SIZE_FLOOR));
-    expect(DROP_WIDTH).toBeLessThan(graveWidth(SIZE_FLOOR));
   });
 
   it("the rim strokes inward, so the drawn outer edge equals graveHitbox exactly (ADR 0003)", () => {

@@ -88,7 +88,6 @@ export const PALETTE = {
   corpseRevenant: { hex: 0x93a85b, luma: 61.95 },
   feast: { hex: 0xb0ac9e, luma: 67.39 },
   drop: { hex: 0xd8a941, luma: 67.25 },
-  dropCore: { hex: 0x141a26, luma: 10.04 },
   /**
    * The dark companion every sprite in the food, mob and treasure layers draws
    * with. Without it the grave's rim meets a pile of food at APCA Lc 0.00 from
@@ -96,11 +95,9 @@ export const PALETTE = {
    * of one colour: of the thirteen declared colours between luma 61.95 and
    * 67.41, 72 of the 78 pairs measure exactly Lc 0.00.
    *
-   * The same hex as dropCore, declared apart with a written reason, which is
-   * the precedent hudDim and menuDim already set in this file. Measured: Lc
-   * 50.19 against corpse, 57.36 against feast, 59.64 against drop and 61.19
-   * against mob. Against night it is 3.4 luma brighter, so it costs nothing on
-   * bare field.
+   * Measured: Lc 50.19 against corpse, 57.36 against feast, 59.64 against
+   * drop and 61.19 against mob. Against night it is 3.4 luma brighter, so it
+   * costs nothing on bare field.
    */
   foodOutline: { hex: 0x141a26, luma: 10.04 },
 
