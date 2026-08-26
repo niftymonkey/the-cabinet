@@ -2,19 +2,13 @@ import type { Ticker } from 'pixi.js';
 import { Container, Graphics } from 'pixi.js';
 
 import type { SimEvent } from '../../game/events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import type { RunState } from '../../game/run';
 import { RESERVOIR_CAPACITY } from '../../game/tuning';
 import type { FieldPlacement } from '../layout';
-import {
-  BOUNDARY_STROKE,
-  DEGENERATE_PLACEMENT,
-  fitField,
-  READOUT_RESERVE,
-} from '../layout';
-import { PALETTE } from '../palette';
+import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
 import { atFromUrl, tapeFromUrl } from '../seedFromUrl';
 import { Button } from '../ui/Button';
+import { boundaryReadout, fieldClip } from './game/fieldFrame';
 import { FieldRenderer } from './game/FieldRenderer';
 import { GraveRenderer } from './game/GraveRenderer';
 import { FieldLayers } from './game/layering';
@@ -35,20 +29,6 @@ import { createTapePlaybackSession } from './tapePlaybackSession';
 // The back button's size, the pause button's own.
 const BACK_WIDTH = 132;
 const BACK_HEIGHT = 68;
-
-// The playfield's boundary readout, the game screen's own (see GameScreen.ts).
-const boundaryReadout = (): Graphics => {
-  return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).stroke({
-    width: BOUNDARY_STROKE,
-    color: PALETTE.fieldFrame.hex,
-    alignment: 1,
-  });
-};
-
-// The field's clip, exactly the field rect (see GameScreen.ts for the derivation).
-const fieldClip = (): Graphics => {
-  return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).fill();
-};
 
 /**
  * The screen a tape replays on. Render only: it wires the session that drives

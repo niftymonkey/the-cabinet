@@ -410,24 +410,24 @@ describe('the store recording', () => {
 
   it("sits after the frame's own row in the update path, outside the timed window", () => {
     // The instrument must not measure itself: the frame's updateMs window
-    // closes at the recordFrame call, so the store flush has to sit after it,
-    // and nowhere else in the screen. Guarded over the source the way
-    // boundary.test.ts guards imports, because no headless test can run the
-    // pooled screen itself.
+    // closes when the screen builds the row, so the store flush has to sit
+    // after the row goes in, and nowhere else in the recording. Guarded over
+    // the source the way boundary.test.ts guards imports, because no headless
+    // test can run the pooled screen itself.
     const source = readFileSync(
-      join(import.meta.dirname, '..', 'screens', 'game', 'GameScreen.ts'),
+      join(import.meta.dirname, '..', 'screens', 'game', 'runRecording.ts'),
       'utf8',
     );
     const updateBody = source.slice(
-      source.indexOf('public update('),
-      source.indexOf('private frameReason'),
+      source.indexOf('const recordRow'),
+      source.indexOf('const seal'),
     );
     const frameRowAt = updateBody.indexOf('recordFrame(');
     const flushAt = updateBody.indexOf('.flush()');
 
     expect(frameRowAt).toBeGreaterThan(-1);
     expect(flushAt).toBeGreaterThan(frameRowAt);
-    // Exactly one flush call in the whole screen: the one in the update path.
+    // Exactly one flush call in the whole recording: the one in the update path.
     expect(source.split('.flush()')).toHaveLength(2);
   });
 });

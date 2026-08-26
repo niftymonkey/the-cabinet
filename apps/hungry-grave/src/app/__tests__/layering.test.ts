@@ -35,12 +35,12 @@ vi.mock('../ui/Button', () => ({
   },
 }));
 
+import { GameScreen } from '../screens/game/GameScreen';
 import {
   FAULT_LINE_MAX_CHARS,
   faultReadout,
-  GameScreen,
   levelsReadout,
-} from '../screens/game/GameScreen';
+} from '../screens/game/RunHud';
 
 // The screen reads its persisted keyboard speed on construction, and an
 // unstubbed localStorage warns once through the storage guard.

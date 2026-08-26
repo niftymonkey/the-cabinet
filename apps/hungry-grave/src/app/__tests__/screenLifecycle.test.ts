@@ -205,7 +205,7 @@ describe('a screen whose navigation rejects', () => {
     showScreen.mockResolvedValueOnce(undefined);
     screen.update(frame(TICK_MS * 2));
 
-    expect(screen['run']?.tick).toBe(0);
+    expect(screen['session'].run?.tick).toBe(0);
     expect(showScreen).toHaveBeenCalledTimes(2);
   });
 });
@@ -254,13 +254,13 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     screen.prepare();
 
     screen.update(frame(TICK_MS * 3));
-    expect(screen['run']?.tick).toBe(3);
+    expect(screen['session'].run?.tick).toBe(3);
 
     screen.update(frame(TICK_MS * 0.5));
-    expect(screen['run']?.tick).toBe(3);
+    expect(screen['session'].run?.tick).toBe(3);
 
     screen.update(frame(TICK_MS * 0.6));
-    expect(screen['run']?.tick).toBe(4);
+    expect(screen['session'].run?.tick).toBe(4);
   });
 
   it('the second run out of the pool gets its own execution, so nothing of run one is carried into it', () => {
@@ -273,18 +273,18 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     const screen = new GameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 3));
-    const first = screen['execution'];
-    expect(first?.run).toBe(screen['run']);
+    const first = screen['session'].execution;
+    expect(first?.run).toBe(screen['session'].run);
     expect(first?.run.tick).toBe(3);
 
     screen.reset();
-    expect(screen['execution']).toBeNull();
+    expect(screen['session'].execution).toBeNull();
 
     screen.prepare();
     screen.update(frame(TICK_MS * 3));
-    const second = screen['execution'];
+    const second = screen['session'].execution;
     expect(second).not.toBe(first);
-    expect(second?.run).toBe(screen['run']);
+    expect(second?.run).toBe(screen['session'].run);
     expect(second?.run).not.toBe(first?.run);
     expect(second?.watch).not.toBe(first?.watch);
     expect(second?.faults).toEqual([]);
@@ -307,22 +307,22 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     // sim running on under the menu only shows from the second.
     screen.update(frame(10_000));
     screen.update(frame(10_000));
-    expect(screen['run']?.tick).toBe(0);
-    expect(screen['clock'].debtTicks).toBe(0);
+    expect(screen['session'].run?.tick).toBe(0);
+    expect(screen['session'].clock.debtTicks).toBe(0);
 
     void screen.resume();
     // The first frame back is skipped, because the whole backgrounded gap
     // arrives in Pixi's elapsedMS and nothing game-side can reach it, and the
     // resume countdown then holds the field until a thumb can get down.
     screen.update(frame(10_000));
-    expect(screen['countdownMs']).not.toBeNull();
+    expect(screen['countdown'].remainingMs).not.toBeNull();
     screen.update(frame(3000));
-    expect(screen['countdownMs']).toBeNull();
+    expect(screen['countdown'].remainingMs).toBeNull();
 
     screen.update(frame(TICK_MS * 5));
 
-    expect(screen['run']?.tick).toBe(5);
-    expect(screen['clock'].debtTicks).toBe(0);
+    expect(screen['session'].run?.tick).toBe(5);
+    expect(screen['session'].clock.debtTicks).toBe(0);
   });
 
   it('Escape inside Settings goes back to the pause menu and never into live play', async () => {
@@ -436,9 +436,9 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     screen.prepare();
     screen.resize(540, 760);
 
-    const grave = screen['run']!.grave;
-    screen['touch'].down(1, { x: 100, y: 100 }, grave);
-    screen['touch'].move(1, { x: 200, y: 100 });
+    const grave = screen['session'].run!.grave;
+    screen['steering'].touch.down(1, { x: 100, y: 100 }, grave);
+    screen['steering'].touch.move(1, { x: 200, y: 100 });
     press('ArrowRight', 'ArrowRight');
     // Standing in for the BlurFilter PausePopup.show() sets and only its own
     // hide() clears. A real one needs a document to compile its shader, and
@@ -448,8 +448,8 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     screen.reset();
     screen.prepare();
 
-    expect(screen['touch'].isSteering()).toBe(false);
-    expect(screen['keys'].command()).toEqual({ x: 0, y: 0 });
+    expect(screen['steering'].touch.isSteering()).toBe(false);
+    expect(screen['steering'].keys.command()).toEqual({ x: 0, y: 0 });
     expect(screen.filters).toHaveLength(0);
   });
 
@@ -503,7 +503,7 @@ describe('a screen on its way back to the pool', () => {
     screen.reset();
 
     expect(keyHandlers.size).toBe(0);
-    expect(screen['run']).toBeNull();
+    expect(screen['session'].run).toBeNull();
   });
 });
 
@@ -520,23 +520,23 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
     const screen = new GameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 3));
-    expect(screen['run']?.tick).toBe(3);
+    expect(screen['session'].run?.tick).toBe(3);
 
     void screen.pause();
     void screen.resume();
-    expect(screen['countdownLabel'].visible).toBe(true);
+    expect(screen['countdown'].view.visible).toBe(true);
 
     // The first frame back is skipped, so the count starts on the second.
     screen.update(frame(1000));
     screen.update(frame(1000));
-    expect(screen['run']?.tick).toBe(3);
+    expect(screen['session'].run?.tick).toBe(3);
     screen.update(frame(1000));
     screen.update(frame(1000));
-    expect(screen['countdownMs']).toBeNull();
-    expect(screen['countdownLabel'].visible).toBe(false);
+    expect(screen['countdown'].remainingMs).toBeNull();
+    expect(screen['countdown'].view.visible).toBe(false);
 
     screen.update(frame(TICK_MS * 2));
-    expect(screen['run']?.tick).toBe(5);
+    expect(screen['session'].run?.tick).toBe(5);
   });
 
   it('blurs the threat and food layers and spares the grave, then clears the blur on one', () => {
@@ -602,7 +602,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
       const screen = new GameScreen();
       screen.prepare();
       screen.resize(390, 844);
-      const run = screen['run']!;
+      const run = screen['session'].run!;
       expect(run.seed).toBe(7);
 
       for (let spent = 0; spent < 2400 && run.ending === null; spent += 10) {
@@ -626,7 +626,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
 
     screen.blur();
     screen.focus();
-    expect(screen['countdownMs']).not.toBeNull();
+    expect(screen['countdown'].remainingMs).not.toBeNull();
 
     // A focus() that lands while the menu is still up must not start one, or a
     // countdown runs behind the menu and a second stacks on resume.
@@ -635,9 +635,9 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
     void guarded.pause();
     guarded.blur();
     guarded.focus();
-    expect(guarded['countdownMs']).toBeNull();
+    expect(guarded['countdown'].remainingMs).toBeNull();
     void guarded.resume();
-    expect(guarded['countdownMs']).not.toBeNull();
+    expect(guarded['countdown'].remainingMs).not.toBeNull();
   });
 
   it('clears the count and the blur on a pooled reuse', () => {
@@ -647,15 +647,15 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
     screen.prepare();
     void screen.pause();
     void screen.resume();
-    expect(screen['countdownMs']).not.toBeNull();
+    expect(screen['countdown'].remainingMs).not.toBeNull();
 
     screen.reset();
-    expect(screen['countdownMs']).toBeNull();
+    expect(screen['countdown'].remainingMs).toBeNull();
     expect(screen['layers'].layer('mobBodies').filters).toHaveLength(0);
 
     screen.prepare();
-    expect(screen['countdownMs']).toBeNull();
-    expect(screen['countdownLabel'].visible).toBe(false);
+    expect(screen['countdown'].remainingMs).toBeNull();
+    expect(screen['countdown'].view.visible).toBe(false);
   });
 });
 
@@ -679,7 +679,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     screen.prepare();
     // A first run with something on the field: the ramp's first row is at two
     // seconds, so this is the earliest the field is not empty.
-    const first = screen['run']!;
+    const first = screen['session'].run!;
     // Far enough in that the storm cannot have cleared the field. Two hundred
     // ticks used to be enough, when the ramp's first two rows were Drips of one
     // and nothing could kill them; the birthright stream now does, so the run
@@ -710,7 +710,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     first.lines.ring = { level: 3, ticks: 10, struck: new Set() };
     // A belch asked for and not spent, which is per-run mutable state on a
     // pooled screen and the class of defect this app has shipped five times.
-    screen['belchRequested'] = true;
+    screen['steering'].requestBelch();
     screen.update(frame(TICK_MS));
     expect(first.mobFire.some((each) => each.alive)).toBe(true);
 
@@ -719,7 +719,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     screen.interactiveChildren = false;
     screen.prepare();
 
-    const second = screen['run']!;
+    const second = screen['session'].run!;
     expect(second).not.toBe(first);
     expect(second.tick).toBe(0);
     expect(second.mobs.some((mob) => mob.alive)).toBe(false);
@@ -728,7 +728,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     expect(second.skulls.some((skull) => skull.alive)).toBe(false);
     expect(second.wisps.some((each) => each.alive)).toBe(false);
     expect(second.lines.ring).toBeNull();
-    expect(screen['belchRequested']).toBe(false);
+    expect(screen['steering'].belchRequested).toBe(false);
     expect(screen.interactiveChildren).toBe(true);
 
     const layers = screen['layers'];
@@ -758,7 +758,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
   it('ends the run on sealed, and on victory too, so the deploy is a complete run in both directions', () => {
     const sealing = new GameScreen();
     sealing.prepare();
-    const run = sealing['run']!;
+    const run = sealing['session'].run!;
     // At the floor with nothing left to bleed, so the next contact seals.
     run.grave.size = SIZE_FLOOR;
     const mob = run.mobs[0];
@@ -770,7 +770,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
 
     sealing.update(frame(TICK_MS));
     expect(run.ending).toBe('sealed');
-    expect(sealing['ending']).toBe(true);
+    expect(sealing['ending'].ended).toBe(true);
     expect(showScreen).toHaveBeenCalledTimes(1);
     expect(runHandoff.read()?.ending).toBe('sealed');
 
@@ -778,12 +778,12 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     winning.prepare();
     // On the boundary of the last stubbed boss phase, which ends on the tick it
     // begins and hands the run to the over phase.
-    winning['run']!.stage.phaseIndex = 3;
-    winning['run']!.stage.phaseTick = 0;
+    winning['session'].run!.stage.phaseIndex = 3;
+    winning['session'].run!.stage.phaseTick = 0;
 
     winning.update(frame(TICK_MS));
-    expect(winning['run']!.ending).toBe('victory');
-    expect(winning['ending']).toBe(true);
+    expect(winning['session'].run!.ending).toBe('victory');
+    expect(winning['ending'].ended).toBe(true);
     expect(runHandoff.read()?.ending).toBe('victory');
   });
 });
@@ -800,7 +800,7 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
   it('plays a fresh run from prepare to its ending with nothing forced, so the live path is covered end to end', () => {
     const screen = new GameScreen();
     screen.prepare();
-    const run = screen['run']!;
+    const run = screen['session'].run!;
     expect(run.seed).toBe(5150);
     expect(run.ending).toBe(null);
 
@@ -822,7 +822,7 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
     expect(spawned).toBe(true);
     expect(run.ending).toBe('sealed');
     expect(run.tick).toBeGreaterThan(1000);
-    expect(screen['ending']).toBe(true);
+    expect(screen['ending'].ended).toBe(true);
     expect(showScreen).toHaveBeenCalledTimes(1);
     expect(runHandoff.read()?.ending).toBe('sealed');
   });
@@ -916,7 +916,7 @@ describe('the minimal export (dispatch 6a)', () => {
     const bytes = runHandoff.readTape();
     expect(bytes).not.toBeNull();
     const { tape } = decodeTape(bytes!);
-    expect(tape.header.seed).toBe(screen['run']!.seed);
+    expect(tape.header.seed).toBe(screen['session'].run!.seed);
     expect(tape.commands).toHaveLength(3);
     expect(tape.trailer).toMatchObject({ stop: 'quit' });
   });
@@ -929,7 +929,7 @@ describe('the minimal export (dispatch 6a)', () => {
     const screen = new GameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 2));
-    const run = screen['run']!;
+    const run = screen['session'].run!;
     // At the floor with nothing left to bleed, so the next contact seals.
     run.grave.size = SIZE_FLOOR;
     const mob = run.mobs[0];
@@ -1042,7 +1042,7 @@ describe('the loadout pin (dispatch 6a)', () => {
     const screen = new GameScreen();
     screen.prepare();
 
-    expect(screen['run']!.levels).toEqual(uniformLevels(MAX_LEVEL));
+    expect(screen['session'].run!.levels).toEqual(uniformLevels(MAX_LEVEL));
     screen.reset();
   });
 
@@ -1052,7 +1052,7 @@ describe('the loadout pin (dispatch 6a)', () => {
     // change what an old tape replays as.
     const unpinned = new GameScreen();
     unpinned.prepare();
-    expect(unpinned['recorder']!.header.startingLevels).toEqual({
+    expect(unpinned['recording'].recorder!.header.startingLevels).toEqual({
       soulStream: 1,
       headstones: 1,
       wisps: 0,
@@ -1063,7 +1063,9 @@ describe('the loadout pin (dispatch 6a)', () => {
     fakeLocation.search = '?seed=7&levels=2';
     const pinned = new GameScreen();
     pinned.prepare();
-    expect(pinned['recorder']!.header.startingLevels).toEqual(uniformLevels(2));
+    expect(pinned['recording'].recorder!.header.startingLevels).toEqual(
+      uniformLevels(2),
+    );
     pinned.reset();
   });
 
@@ -1074,13 +1076,13 @@ describe('the loadout pin (dispatch 6a)', () => {
     // definition not an ordinary run.
     const ordinary = new GameScreen();
     ordinary.prepare();
-    expect(ordinary['levelsLabel'].text).toBe('');
+    expect(ordinary['hud'].lines.levels.text).toBe('');
     ordinary.reset();
 
     fakeLocation.search = '?seed=7&levels=3';
     const pinned = new GameScreen();
     pinned.prepare();
-    expect(pinned['levelsLabel'].text).toBe('LEVELS 3 PINNED');
+    expect(pinned['hud'].lines.levels.text).toBe('LEVELS 3 PINNED');
     pinned.reset();
   });
 
@@ -1091,7 +1093,7 @@ describe('the loadout pin (dispatch 6a)', () => {
     fakeLocation.search = '?seed=7&levels=9';
     const screen = new GameScreen();
     screen.prepare();
-    expect(screen['levelsLabel'].text).toBe('');
+    expect(screen['hud'].lines.levels.text).toBe('');
     screen.reset();
   });
 
@@ -1153,7 +1155,7 @@ describe("the field's clip", () => {
     let sawOffField = false;
     for (let step = 0; step < 900 && !sawOffField; step += 1) {
       screen.update(frame(TICK_MS));
-      const run = screen['run'];
+      const run = screen['session'].run;
       if (!run) break;
       sawOffField = run.mobs.some((mob) => mob.alive && mob.y < 0);
     }
@@ -1172,7 +1174,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
   });
 
   function recorderOf(screen: GameScreen): TapeRecorder {
-    const recorder = screen['recorder'];
+    const recorder = screen['recording'].recorder;
     if (recorder === null) throw new Error('a live run has a recorder');
     return recorder;
   }
@@ -1260,7 +1262,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
 
     screen.update(frame(TICK_MS * 4));
 
-    expect(screen['countdownMs']).not.toBeNull();
+    expect(screen['countdown'].remainingMs).not.toBeNull();
     expect(lastRowOf(screen)).toMatchObject({
       reason: 'countdown',
       tickIndex: null,
@@ -1296,7 +1298,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
     screen.update(frame(TICK_MS));
     screen.update(frame(TICK_MS));
 
-    expect(screen['recorder']).toBeNull();
+    expect(screen['recording'].recorder).toBeNull();
     expect(recorder.observations).toHaveLength(before);
   });
 
@@ -1314,6 +1316,42 @@ describe('the frame observation seam (dispatch 6a)', () => {
     expect(second).not.toBe(first);
     expect(first.commands).toHaveLength(5);
     expect(second.commands).toHaveLength(2);
+  });
+
+  it("records the ending frame's own row before the run is ended", () => {
+    // The one ordering the split across the frame policy, the recording and
+    // the ending could break with every other test still green. ADR 0018: the
+    // exported tape must end on the frame that executed the run-ending tick,
+    // and the ending captures the sealed bytes, so the row has to be in the
+    // recorder before the ending is reached. Read at the moment of the capture
+    // rather than off the artifact, because that is the moment the order
+    // decides.
+    const screen = new GameScreen();
+    screen.prepare();
+    screen.update(frame(TICK_MS * 2));
+
+    const rowsAtCapture: number[] = [];
+    const record = vi.spyOn(runHandoff, 'record').mockImplementation(() => {
+      rowsAtCapture.push(rowsOf(screen).length);
+    });
+
+    const run = screen['session'].run!;
+    // At the floor with nothing left to bleed, so the next contact seals.
+    run.grave.size = SIZE_FLOOR;
+    const mob = run.mobs[0];
+    mob.alive = true;
+    mob.type = 'shambler';
+    mob.hp = MOB_TYPES.shambler.hp;
+    mob.x = run.grave.x;
+    mob.y = run.grave.y;
+
+    screen.update(frame(TICK_MS));
+
+    expect(run.ending).toBe('sealed');
+    // Two frames played, and the second is the one the run ended on.
+    expect(rowsAtCapture).toEqual([2]);
+    record.mockRestore();
+    screen.reset();
   });
 
   it('seals the trailer when the run is ended, so the tape says how it stopped', () => {
@@ -1347,7 +1385,7 @@ describe('a fatal fault reaches the end state (dispatch 6a)', () => {
 
   /** A state no rule produces, so the no NaN check fires on the next tick. */
   function breakRun(screen: GameScreen): void {
-    screen['run']!.grave.x = Number.NaN;
+    screen['session'].run!.grave.x = Number.NaN;
   }
 
   it('ends the run on screen through the authority, and never through an ending', () => {
@@ -1360,9 +1398,9 @@ describe('a fatal fault reaches the end state (dispatch 6a)', () => {
     breakRun(screen);
     screen.update(frame(TICK_MS));
 
-    expect(screen['execution']!.stop).toBe('faulted');
-    expect(screen['run']!.ending).toBeNull();
-    expect(screen['ending']).toBe(true);
+    expect(screen['session'].execution!.stop).toBe('faulted');
+    expect(screen['session'].run!.ending).toBeNull();
+    expect(screen['ending'].ended).toBe(true);
     expect(showScreen).toHaveBeenCalledTimes(1);
     const summary = runHandoff.read()!;
     expect(summary.ending).toBeNull();
@@ -1404,7 +1442,7 @@ describe('a fatal fault reaches the end state (dispatch 6a)', () => {
     end['saveTape']();
     expect(saveTapeFile).toHaveBeenCalledWith(
       bytes,
-      tapeFileName(screen['run']!.seed, COMMIT_HASH),
+      tapeFileName(screen['session'].run!.seed, COMMIT_HASH),
     );
     screen.reset();
   });
@@ -1428,7 +1466,7 @@ describe('a fatal fault reaches the end state (dispatch 6a)', () => {
     expect(
       frameObservations(decodeTape(runHandoff.readTape()!).tape),
     ).toHaveLength(exported.length);
-    const recorded = frameObservations(tapeOf(screen['recorder']!));
+    const recorded = frameObservations(tapeOf(screen['recording'].recorder!));
     expect(recorded).toHaveLength(exported.length + 2);
     expect(recorded[recorded.length - 1]).toMatchObject({
       reason: 'ending',
@@ -1464,8 +1502,10 @@ describe('a fatal fault reaches the end state (dispatch 6a)', () => {
     expect(frameObservations(decodeTape(exported!).tape)).toHaveLength(2);
     // The run held still, and the frames spent retrying read as what they
     // are, recorder-only ending frames.
-    expect(screen['run']!.tick).toBe(2);
-    const retrying = frameObservations(tapeOf(screen['recorder']!)).slice(-2);
+    expect(screen['session'].run!.tick).toBe(2);
+    const retrying = frameObservations(
+      tapeOf(screen['recording'].recorder!),
+    ).slice(-2);
     expect(retrying).toHaveLength(2);
     for (const row of retrying) {
       expect(row).toMatchObject({ reason: 'ending', ticksExecuted: 0 });
@@ -1486,7 +1526,7 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
 
   /** A corpse no rule produces, far from the grave, so freshness in range fires while the run plays on. */
   function rotCorpse(screen: GameScreen): void {
-    const corpse = screen['run']!.corpses[0];
+    const corpse = screen['session'].run!.corpses[0];
     corpse.alive = true;
     corpse.id = 1;
     corpse.x = 50;
@@ -1502,17 +1542,17 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
     const screen = new GameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS));
-    expect(screen['faultLabel'].text).toBe('');
+    expect(screen['hud'].lines.fault.text).toBe('');
 
     rotCorpse(screen);
     screen.update(frame(TICK_MS));
 
-    expect(screen['faultLabel'].text).toBe('FAULT freshness in range');
-    expect(screen['execution']!.stop).toBeNull();
+    expect(screen['hud'].lines.fault.text).toBe('FAULT freshness in range');
+    expect(screen['session'].execution!.stop).toBeNull();
     expect(showScreen).not.toHaveBeenCalled();
 
     screen.update(frame(TICK_MS * 2));
-    expect(screen['run']!.tick).toBe(4);
+    expect(screen['session'].run!.tick).toBe(4);
     screen.reset();
   });
 
@@ -1521,12 +1561,12 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
     screen.prepare();
     rotCorpse(screen);
     screen.update(frame(TICK_MS));
-    expect(screen['faultLabel'].text).toBe('FAULT freshness in range');
+    expect(screen['hud'].lines.fault.text).toBe('FAULT freshness in range');
 
-    screen['run']!.corpses[0].alive = false;
+    screen['session'].run!.corpses[0].alive = false;
     screen.update(frame(TICK_MS * 3));
 
-    expect(screen['faultLabel'].text).toBe('FAULT freshness in range');
+    expect(screen['hud'].lines.fault.text).toBe('FAULT freshness in range');
     screen.reset();
   });
 
@@ -1535,12 +1575,12 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
     screen.prepare();
     rotCorpse(screen);
     screen.update(frame(TICK_MS));
-    expect(screen['faultLabel'].text).not.toBe('');
+    expect(screen['hud'].lines.fault.text).not.toBe('');
 
     screen.reset();
     screen.prepare();
 
-    expect(screen['faultLabel'].text).toBe('');
+    expect(screen['hud'].lines.fault.text).toBe('');
     screen.reset();
   });
 });
