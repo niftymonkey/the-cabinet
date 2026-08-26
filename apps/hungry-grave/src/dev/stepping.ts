@@ -23,10 +23,10 @@
  * question to answer.
  */
 
-import type { Execution } from "../game/execution";
-import { createExecution, executeTick } from "../game/execution";
-import type { SimEvent } from "../game/events";
-import type { RunState, TickCommand } from "../game/run";
+import type { Execution } from '../game/execution';
+import { createExecution, executeTick } from '../game/execution';
+import type { SimEvent } from '../game/events';
+import type { RunState, TickCommand } from '../game/run';
 
 /** One run's steps, each returning the tick's events. */
 export type Stepper = (command: TickCommand) => readonly SimEvent[];
@@ -34,7 +34,7 @@ export type Stepper = (command: TickCommand) => readonly SimEvent[];
 function describeFaults(execution: Execution): string {
   return execution.faults
     .map((fault) => `${fault.identity} (${fault.severity}): ${fault.detail}`)
-    .join("; ");
+    .join('; ');
 }
 
 /**

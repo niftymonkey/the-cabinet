@@ -10,7 +10,7 @@
  * encoders against encodeTape.
  */
 
-import type { ByteWriter } from "./bytes";
+import type { ByteWriter } from './bytes';
 import {
   createWriter,
   writeF32,
@@ -21,7 +21,7 @@ import {
   writeU32,
   writeU8,
   writtenBytes,
-} from "./bytes";
+} from './bytes';
 import {
   CHUNK_BODY,
   CHUNK_HEADER,
@@ -29,7 +29,7 @@ import {
   CHUNK_TRAILER,
   CHUNK_WITNESS,
   writeChunk,
-} from "./chunks";
+} from './chunks';
 import type {
   FaultObservation,
   FrameObservation,
@@ -37,7 +37,7 @@ import type {
   TapeCheckpoint,
   TapeHeader,
   TapeTrailer,
-} from "./tape";
+} from './tape';
 import {
   ABSENT_CODE,
   ENDING_CODES,
@@ -51,8 +51,8 @@ import {
   OBSERVATION_KIND_CODES,
   STOP_CODES,
   TAPE_MAGIC,
-} from "./tape";
-import type { TickCommand } from "../game/run";
+} from './tape';
+import type { TickCommand } from '../game/run';
 
 const writeMagic = (writer: ByteWriter): void => {
   for (const character of TAPE_MAGIC) writeU8(writer, character.charCodeAt(0));
@@ -125,7 +125,7 @@ const writeObservation = (
   payload: ByteWriter,
   observation: Observation,
 ): void => {
-  if (observation.kind === "frame") {
+  if (observation.kind === 'frame') {
     writeFrameObservation(payload, observation);
     return;
   }

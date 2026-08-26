@@ -4,19 +4,19 @@
  * and never a state the game branches on; nothing here re-fixes that path.
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
-import { MULTIPLIER_MAX, MULTIPLIER_MIN } from "../../input/keys";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { MULTIPLIER_MAX, MULTIPLIER_MIN } from '../../input/keys';
 import {
   KEYBOARD_SPEED_SLIDER_MAX,
   KEYBOARD_SPEED_SLIDER_MIN,
   keyboardSpeedFromSlider,
   sliderFromKeyboardSpeed,
   userSettings,
-} from "./userSettings";
+} from './userSettings';
 
 function useLocalStorage(): void {
   const map = new Map<string, string>();
-  Object.defineProperty(globalThis, "localStorage", {
+  Object.defineProperty(globalThis, 'localStorage', {
     value: {
       getItem: (key: string) => map.get(key) ?? null,
       setItem: (key: string, value: string) => void map.set(key, value),
@@ -25,14 +25,14 @@ function useLocalStorage(): void {
   });
 }
 
-describe("the persisted keyboard speed setting (ADR 0011)", () => {
+describe('the persisted keyboard speed setting (ADR 0011)', () => {
   beforeEach(() => useLocalStorage());
 
-  it("getKeyboardSpeed defaults to 1 with nothing stored", () => {
+  it('getKeyboardSpeed defaults to 1 with nothing stored', () => {
     expect(userSettings.getKeyboardSpeed()).toBe(1);
   });
 
-  it("a value set is a value read back, so it persists (tracer plan section 5)", () => {
+  it('a value set is a value read back, so it persists (tracer plan section 5)', () => {
     userSettings.setKeyboardSpeed(1.35);
     expect(userSettings.getKeyboardSpeed()).toBeCloseTo(1.35, 12);
   });
@@ -40,10 +40,10 @@ describe("the persisted keyboard speed setting (ADR 0011)", () => {
   it("a stored value outside 0.75 to 1.5 is clamped on read, covering a hand-edited localStorage and an earlier build's wider range", () => {
     // 2.0 is exactly what an earlier build under the old 0.5x to 2.0x range
     // could have written, so this is a real input and not a hypothetical one.
-    localStorage.setItem("keyboard-speed", "2");
+    localStorage.setItem('keyboard-speed', '2');
     expect(userSettings.getKeyboardSpeed()).toBe(MULTIPLIER_MAX);
 
-    localStorage.setItem("keyboard-speed", "0.5");
+    localStorage.setItem('keyboard-speed', '0.5');
     expect(userSettings.getKeyboardSpeed()).toBe(MULTIPLIER_MIN);
 
     userSettings.setKeyboardSpeed(9);

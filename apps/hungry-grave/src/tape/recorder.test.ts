@@ -8,23 +8,23 @@
  * tape without one reads as a stop of unknown.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { TICK_HZ } from "../game/clock";
-import { createExecution, executeTick } from "../game/execution";
-import type { Fault } from "../game/invariants";
-import type { RunState, TickCommand } from "../game/run";
-import { createRun } from "../game/run";
-import { foldWitness, WITNESS_VERSION } from "../game/witness";
+import { TICK_HZ } from '../game/clock';
+import { createExecution, executeTick } from '../game/execution';
+import type { Fault } from '../game/invariants';
+import type { RunState, TickCommand } from '../game/run';
+import { createRun } from '../game/run';
+import { foldWitness, WITNESS_VERSION } from '../game/witness';
 import {
   integrityOf,
   recordFrame,
   recordInto,
   sealTrailer,
   tapeOf,
-} from "./recorder";
-import type { TapeHeader } from "./tape";
-import { faultObservations, frameObservations, stopOf } from "./tape";
+} from './recorder';
+import type { TapeHeader } from './tape';
+import { faultObservations, frameObservations, stopOf } from './tape';
 
 const SEED = 20260823;
 
@@ -37,12 +37,12 @@ function header(run: RunState, spacing = 5): TapeHeader {
     tickRate: TICK_HZ,
     checkpointSpacing: spacing,
     witnessVersion: WITNESS_VERSION,
-    commitHash: "abc1234",
-    buildIdentity: "",
-    author: "unknown",
-    inputDevice: "script",
+    commitHash: 'abc1234',
+    buildIdentity: '',
+    author: 'unknown',
+    inputDevice: 'script',
     keyboardSpeed: 1,
-    rendererBackend: "webgl",
+    rendererBackend: 'webgl',
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_700_000_000_000,
@@ -57,8 +57,8 @@ function steer(tick: number): TickCommand {
   };
 }
 
-describe("the tape recorder", () => {
-  it("stamps checkpoint zero before a single tick has run", () => {
+describe('the tape recorder', () => {
+  it('stamps checkpoint zero before a single tick has run', () => {
     // ADR 0019: the checkpoint at index N is the fold of the state after
     // executeTick has run N times, so index 0 is the state before any tick, and
     // that is what "the very first tick is witnessed" has to mean.
@@ -82,7 +82,7 @@ describe("the tape recorder", () => {
     ]);
   });
 
-  it("stamps each checkpoint as an independent snapshot rather than a running total", () => {
+  it('stamps each checkpoint as an independent snapshot rather than a running total', () => {
     // ADR 0019: a chained fold only ever says something went wrong somewhere
     // before here, so a divergence could not be named at a checkpoint.
     const run = createRun(SEED);
@@ -97,7 +97,7 @@ describe("the tape recorder", () => {
     });
   });
 
-  it("records exactly the commands the simulation consumed, quantised", () => {
+  it('records exactly the commands the simulation consumed, quantised', () => {
     // ADR 0018: the quantiser lives inside the authority, so the tape always
     // holds what the simulation actually ran and never a caller's rounding.
     const run = createRun(SEED);
@@ -113,7 +113,7 @@ describe("the tape recorder", () => {
     expect(recorded.move.y).toBe(Math.fround(offered.move.y));
   });
 
-  it("records the belch the tick consumed", () => {
+  it('records the belch the tick consumed', () => {
     const run = createRun(SEED);
     const execution = createExecution(run);
     const recorder = recordInto(execution, header(run));
@@ -133,7 +133,7 @@ describe("the tape recorder", () => {
     const recorder = recordInto(execution, header(run));
 
     recordFrame(recorder, {
-      reason: "live",
+      reason: 'live',
       tickIndex: 0,
       ticksExecuted: 2,
       intervalMs: 33,
@@ -144,8 +144,8 @@ describe("the tape recorder", () => {
 
     expect(frameObservations(tapeOf(recorder))).toEqual([
       {
-        kind: "frame",
-        reason: "live",
+        kind: 'frame',
+        reason: 'live',
         tickIndex: 0,
         ticksExecuted: 2,
         intervalMs: 33,
@@ -156,12 +156,12 @@ describe("the tape recorder", () => {
     ]);
   });
 
-  it("takes no frame row when there is no recorder to write it into", () => {
+  it('takes no frame row when there is no recorder to write it into', () => {
     // ADR 0018 ruling F: a run-less frame has no tape to be written into, so
     // the seam hands the row to nothing rather than orphaning it.
     expect(() =>
       recordFrame(null, {
-        reason: "paused",
+        reason: 'paused',
         tickIndex: null,
         ticksExecuted: 0,
         intervalMs: 16,
@@ -172,7 +172,7 @@ describe("the tape recorder", () => {
     ).not.toThrow();
   });
 
-  it("writes a fault as an observation, with the tick it first fired on and its count", () => {
+  it('writes a fault as an observation, with the tick it first fired on and its count', () => {
     // ADR 0017 and ADR 0018: fault records are per-tick, so they live in the
     // observations section rather than in the trailer, de-duplicated by
     // identity because a persistent recoverable fault fires on every tick.
@@ -180,9 +180,9 @@ describe("the tape recorder", () => {
     const execution = createExecution(run);
     const recorder = recordInto(execution, header(run));
     const fault: Fault = {
-      identity: "entities in bounds",
-      severity: "recoverable",
-      detail: "mob 3.x is off the field",
+      identity: 'entities in bounds',
+      severity: 'recoverable',
+      detail: 'mob 3.x is off the field',
     };
     execution.faults.push({ ...fault, firstTick: 0, count: 1 });
 
@@ -192,19 +192,19 @@ describe("the tape recorder", () => {
 
     expect(faultObservations(tapeOf(recorder))).toEqual([
       {
-        kind: "fault",
-        identity: "entities in bounds",
-        severity: "recoverable",
+        kind: 'fault',
+        identity: 'entities in bounds',
+        severity: 'recoverable',
         firstTick: 0,
-        detail: "mob 3.x is off the field",
+        detail: 'mob 3.x is off the field',
         count: 2,
       },
     ]);
   });
 });
 
-describe("the trailer", () => {
-  it("is absent until the stop, and an absent one reads as a stop of unknown", () => {
+describe('the trailer', () => {
+  it('is absent until the stop, and an absent one reads as a stop of unknown', () => {
     // ADR 0018: the trailer is written last on purpose, and a reader that finds
     // none reads unknown, which is the tab-closed case the instrument most
     // needs to see.
@@ -213,12 +213,12 @@ describe("the trailer", () => {
     const recorder = recordInto(execution, header(run));
 
     expect(recorder.trailer).toBeNull();
-    expect(stopOf(tapeOf(recorder))).toBe("unknown");
+    expect(stopOf(tapeOf(recorder))).toBe('unknown');
   });
 
-  it("reads a run with an ending as finished, and one without as quit", () => {
+  it('reads a run with an ending as finished, and one without as quit', () => {
     const finished = createRun(SEED);
-    finished.ending = "sealed";
+    finished.ending = 'sealed';
     const finishedExecution = createExecution(finished);
     const finishedRecorder = recordInto(finishedExecution, header(finished));
     sealTrailer(finishedRecorder, finishedExecution, 0);
@@ -229,43 +229,43 @@ describe("the trailer", () => {
     sealTrailer(abandonedRecorder, abandonedExecution, 0);
 
     expect(finishedRecorder.trailer).toMatchObject({
-      ending: "sealed",
-      stop: "finished",
+      ending: 'sealed',
+      stop: 'finished',
     });
     expect(abandonedRecorder.trailer).toMatchObject({
       ending: null,
-      stop: "quit",
+      stop: 'quit',
     });
   });
 
-  it("keeps the ending and the stop as two facts", () => {
+  it('keeps the ending and the stop as two facts', () => {
     // ADR 0018: a fault is not an ending, so a run stopped by one still says it
     // ended neither way.
     const run = createRun(SEED);
     const execution = createExecution(run);
     const recorder = recordInto(execution, header(run));
-    execution.stop = "faulted";
+    execution.stop = 'faulted';
 
     sealTrailer(recorder, execution, 7);
 
     expect(recorder.trailer).toEqual({
       ending: null,
-      stop: "faulted",
-      integrity: "clean",
+      stop: 'faulted',
+      integrity: 'clean',
       debtTicks: 7,
     });
   });
 
-  it("is written once, so a later call cannot rewrite how a run stopped", () => {
+  it('is written once, so a later call cannot rewrite how a run stopped', () => {
     const run = createRun(SEED);
     const execution = createExecution(run);
     const recorder = recordInto(execution, header(run));
 
     sealTrailer(recorder, execution, 3);
-    execution.stop = "faulted";
+    execution.stop = 'faulted';
     sealTrailer(recorder, execution, 99);
 
-    expect(recorder.trailer).toMatchObject({ stop: "quit", debtTicks: 3 });
+    expect(recorder.trailer).toMatchObject({ stop: 'quit', debtTicks: 3 });
   });
 
   it("carries the run's discarded ticks, which the body cannot show", () => {
@@ -283,20 +283,20 @@ describe("the trailer", () => {
 });
 
 describe("a run's integrity", () => {
-  it("reads clean when the checks ran and nothing fired", () => {
-    expect(integrityOf(createExecution(createRun(SEED)))).toBe("clean");
+  it('reads clean when the checks ran and nothing fired', () => {
+    expect(integrityOf(createExecution(createRun(SEED)))).toBe('clean');
   });
 
-  it("reads faulted when something fired, fatal or not", () => {
+  it('reads faulted when something fired, fatal or not', () => {
     const execution = createExecution(createRun(SEED));
     execution.faults.push({
-      identity: "one live ring",
-      severity: "recoverable",
+      identity: 'one live ring',
+      severity: 'recoverable',
       firstTick: 4,
-      detail: "two rings live",
+      detail: 'two rings live',
       count: 1,
     });
 
-    expect(integrityOf(execution)).toBe("faulted");
+    expect(integrityOf(execution)).toBe('faulted');
   });
 });

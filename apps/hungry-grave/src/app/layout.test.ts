@@ -4,17 +4,17 @@
  * given, never read back out of the implementation.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { resize } from "../engine/resize/resize";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
-import type { FieldPlacement, ReadoutReserve } from "./layout";
+import { resize } from '../engine/resize/resize';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
+import type { FieldPlacement, ReadoutReserve } from './layout';
 import {
   DEGENERATE_PLACEMENT,
   fitField,
   READOUT_RESERVE,
   screenToField,
-} from "./layout";
+} from './layout';
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
@@ -58,21 +58,21 @@ function expectWholeFieldInside(
 }
 
 describe("the field's unit space (ADR 0003)", () => {
-  it("is 540 by 760 and is not a tuning knob", () => {
+  it('is 540 by 760 and is not a tuning knob', () => {
     expect(FIELD_WIDTH).toBe(540);
     expect(FIELD_HEIGHT).toBe(760);
   });
 });
 
-describe("fitField", () => {
-  it("presents the whole field on a 1440 by 900 desktop viewport", () => {
+describe('fitField', () => {
+  it('presents the whole field on a 1440 by 900 desktop viewport', () => {
     const placement = fitField(DESKTOP.width, DESKTOP.height);
     // The desktop viewport is wide, so height is the binding axis.
     expect(placement.scale).toBeCloseTo(DESKTOP.height / FIELD_HEIGHT, 10);
     expectWholeFieldInside(placement, DESKTOP.width, DESKTOP.height);
   });
 
-  it("presents the whole field on a 390 by 844 phone viewport", () => {
+  it('presents the whole field on a 390 by 844 phone viewport', () => {
     const placement = fitField(PHONE.width, PHONE.height);
     // The phone viewport is narrow, so width is the binding axis.
     expect(placement.scale).toBeCloseTo(PHONE.width / FIELD_WIDTH, 10);
@@ -99,7 +99,7 @@ describe("fitField", () => {
     }
   });
 
-  it("centres the field, with equal non-negative margins on both axes", () => {
+  it('centres the field, with equal non-negative margins on both axes', () => {
     // Neither of these viewports refits, so the landed centring rule is
     // untouched by the reserve.
     for (const viewport of [DESKTOP, PHONE]) {
@@ -125,7 +125,7 @@ describe("fitField", () => {
     });
   });
 
-  it("falls back to a stated placement on a degenerate viewport", () => {
+  it('falls back to a stated placement on a degenerate viewport', () => {
     // A browser reports one of these during boot and during an orientation
     // change, and a NaN scale poisons every coordinate downstream. The fallback
     // is pinned by value, not by being finite and positive, so the choice is
@@ -142,7 +142,7 @@ describe("fitField", () => {
   });
 });
 
-describe("screenToField", () => {
+describe('screenToField', () => {
   it("inverts the placement at the field's corners and its centre", () => {
     const placement = fitField(DESKTOP.width, DESKTOP.height);
     const corners = [
@@ -230,12 +230,12 @@ function staged(viewport: { width: number; height: number }) {
   return { stage, placement: fitField(stage.width, stage.height) };
 }
 
-describe("the reserved gutter (dispatch 4 section 4.16)", () => {
+describe('the reserved gutter (dispatch 4 section 4.16)', () => {
   const VIEWPORTS = [
-    { name: "desktop", viewport: DESKTOP },
-    { name: "narrow desktop", viewport: NARROW_DESKTOP },
-    { name: "tablet portrait", viewport: TABLET_PORTRAIT },
-    { name: "phone", viewport: PHONE },
+    { name: 'desktop', viewport: DESKTOP },
+    { name: 'narrow desktop', viewport: NARROW_DESKTOP },
+    { name: 'tablet portrait', viewport: TABLET_PORTRAIT },
+    { name: 'phone', viewport: PHONE },
     { name: "the field's own size", viewport: { width: 540, height: 760 } },
   ];
 
@@ -251,7 +251,7 @@ describe("the reserved gutter (dispatch 4 section 4.16)", () => {
     (_, index) => 400 + index * 10,
   );
 
-  it("never pays field width for a readout, at any viewport", () => {
+  it('never pays field width for a readout, at any viewport', () => {
     // Mark's ruling, 2026-08-22. The reserve may move the field and may never
     // shrink it, so this compares against the same fit with nothing reserved.
     for (const { name, viewport } of VIEWPORTS) {
@@ -273,7 +273,7 @@ describe("the reserved gutter (dispatch 4 section 4.16)", () => {
     }
   });
 
-  it("lifts the readouts clear of the field wherever that costs the field nothing", () => {
+  it('lifts the readouts clear of the field wherever that costs the field nothing', () => {
     // A phone window tall enough that the field's own vertical slack pays for
     // the reserve. The field keeps every unit of its width and moves down.
     const { stage, placement } = staged({ width: PHONE.width, height: 700 });
@@ -286,7 +286,7 @@ describe("the reserved gutter (dispatch 4 section 4.16)", () => {
     }
   });
 
-  it("lets the readouts sit over the field once clearing them would cost width", () => {
+  it('lets the readouts sit over the field once clearing them would cost width', () => {
     // The other side of the same rule, and the case Mark ruled on. The corner
     // readouts are dev-only and come out before v1, and the pause button is a
     // solid shape a mob can pass behind for a moment.
@@ -299,14 +299,14 @@ describe("the reserved gutter (dispatch 4 section 4.16)", () => {
     expect(covered.length).toBeGreaterThan(0);
   });
 
-  it("leaves a 1440 by 900 desktop exactly where it was, because its gutter already holds the stack", () => {
+  it('leaves a 1440 by 900 desktop exactly where it was, because its gutter already holds the stack', () => {
     const { stage, placement } = staged(DESKTOP);
     expect(placement).toEqual(fitField(stage.width, stage.height, NO_RESERVE));
     expect(placement.offsetY).toBeCloseTo(0, 9);
     expect(placement.offsetX).toBeGreaterThan(READOUT_RESERVE.width);
   });
 
-  it("stops refitting a 1024 by 900 desktop, which used to buy its gutter with field width", () => {
+  it('stops refitting a 1024 by 900 desktop, which used to buy its gutter with field width', () => {
     // This viewport refitted until 2026-08-22 and no longer does: the field
     // fills the window's height there, so lowering it below the reserve is
     // only ever paid for in width. Same ruling as the phone, same reason.
@@ -316,7 +316,7 @@ describe("the reserved gutter (dispatch 4 section 4.16)", () => {
     expect(natural.offsetX).toBeLessThan(READOUT_RESERVE.width);
   });
 
-  it("stops refitting an 820 by 1180 tablet in portrait, for the same reason", () => {
+  it('stops refitting an 820 by 1180 tablet in portrait, for the same reason', () => {
     const { stage, placement } = staged(TABLET_PORTRAIT);
     const natural = fitField(stage.width, stage.height, NO_RESERVE);
     expect(placement).toEqual(natural);

@@ -21,13 +21,13 @@
  * it a code.
  */
 
-import type { StopReason } from "../game/execution";
-import type { FaultIdentity, FaultSeverity } from "../game/invariants";
-import type { WeaponLine } from "../game/lines/roster";
-import type { RunEnding, TickCommand } from "../game/run";
+import type { StopReason } from '../game/execution';
+import type { FaultIdentity, FaultSeverity } from '../game/invariants';
+import type { WeaponLine } from '../game/lines/roster';
+import type { RunEnding, TickCommand } from '../game/run';
 
 /** The four bytes a tape opens with, so bytes that are not one are refused rather than parsed. */
-export const TAPE_MAGIC = "HGTP";
+export const TAPE_MAGIC = 'HGTP';
 
 /** The format's own version, separate from the witness version the header carries. */
 export const FORMAT_VERSION = 1;
@@ -52,11 +52,11 @@ export const RECORDER_CHECKPOINT_SPACING = 60;
  * header exists to make, and that is a constant for a run.
  */
 export const TAPE_INPUT_DEVICES = [
-  "keyboard",
-  "touch",
-  "bot",
-  "script",
-  "unknown",
+  'keyboard',
+  'touch',
+  'bot',
+  'script',
+  'unknown',
 ] as const;
 
 export type TapeInputDevice = (typeof TAPE_INPUT_DEVICES)[number];
@@ -76,7 +76,7 @@ export const INPUT_DEVICE_CODES: Readonly<Record<TapeInputDevice, number>> = {
  * invariant checks switched off, which is the one case where an empty fault
  * list is not evidence of a sound run.
  */
-export const TAPE_INTEGRITIES = ["clean", "faulted", "unchecked"] as const;
+export const TAPE_INTEGRITIES = ['clean', 'faulted', 'unchecked'] as const;
 
 export type TapeIntegrity = (typeof TAPE_INTEGRITIES)[number];
 
@@ -90,7 +90,7 @@ export const INTEGRITY_CODES: Readonly<Record<TapeIntegrity, number>> = {
  * How a run stopped, as read off a tape. Unknown is what a missing trailer
  * says, so it is a reading rather than a value anything ever writes down.
  */
-export type TapeStop = StopReason | "unknown";
+export type TapeStop = StopReason | 'unknown';
 
 /**
  * The members each code map is inverted through when a tape is read back.
@@ -100,7 +100,7 @@ export type TapeStop = StopReason | "unknown";
  * tape.test.ts holds the two against each other so neither can gain a member
  * the other has not heard of.
  */
-export const STOP_REASONS = ["finished", "quit", "faulted"] as const;
+export const STOP_REASONS = ['finished', 'quit', 'faulted'] as const;
 
 export const STOP_CODES: Readonly<Record<StopReason, number>> = {
   finished: 1,
@@ -117,7 +117,7 @@ export const STOP_CODES: Readonly<Record<StopReason, number>> = {
  * version, and sharing one map would let a widening of either silently move the
  * other.
  */
-export const RUN_ENDINGS = ["sealed", "victory"] as const;
+export const RUN_ENDINGS = ['sealed', 'victory'] as const;
 
 export const ENDING_CODES: Readonly<Record<RunEnding, number>> = {
   sealed: 1,
@@ -136,21 +136,21 @@ export const ABSENT_CODE = 0;
  * fault.
  */
 export const FAULT_IDENTITY_CODES: Readonly<Record<FaultIdentity, number>> = {
-  "no NaN": 1,
-  "size within floor and ceiling": 2,
-  "in bounds": 3,
-  "entities in bounds": 4,
-  "entity caps": 5,
-  "entity ids": 6,
-  "freshness in range": 7,
-  "reservoir in range": 8,
-  "levels in range": 9,
-  "one live ring": 10,
-  "phase index only increases": 11,
-  "phase tick resets at a boundary": 12,
+  'no NaN': 1,
+  'size within floor and ceiling': 2,
+  'in bounds': 3,
+  'entities in bounds': 4,
+  'entity caps': 5,
+  'entity ids': 6,
+  'freshness in range': 7,
+  'reservoir in range': 8,
+  'levels in range': 9,
+  'one live ring': 10,
+  'phase index only increases': 11,
+  'phase tick resets at a boundary': 12,
 };
 
-export const FAULT_SEVERITIES = ["fatal", "recoverable"] as const;
+export const FAULT_SEVERITIES = ['fatal', 'recoverable'] as const;
 
 export const FAULT_SEVERITY_CODES: Readonly<Record<FaultSeverity, number>> = {
   fatal: 1,
@@ -164,10 +164,10 @@ export const FAULT_SEVERITY_CODES: Readonly<Record<FaultSeverity, number>> = {
  * is permanent from the first tape.
  */
 export const HEADER_LEVELS_ORDER: readonly WeaponLine[] = [
-  "soulStream",
-  "headstones",
-  "wisps",
-  "bell",
+  'soulStream',
+  'headstones',
+  'wisps',
+  'bell',
 ];
 
 /**
@@ -246,11 +246,11 @@ export interface TapeCheckpoint {
  * history the tape has to write down or lose.
  */
 export const FRAME_REASONS = [
-  "live",
-  "ending",
-  "paused",
-  "backgrounded",
-  "countdown",
+  'live',
+  'ending',
+  'paused',
+  'backgrounded',
+  'countdown',
 ] as const;
 
 export type FrameReason = (typeof FRAME_REASONS)[number];
@@ -272,7 +272,7 @@ export const FRAME_REASON_CODES: Readonly<Record<FrameReason, number>> = {
  * what a replay could never recompute.
  */
 export interface FrameObservation {
-  readonly kind: "frame";
+  readonly kind: 'frame';
   /**
    * Why the frame is what it is. When more than one holding condition is true
    * at once, the seam records the first in its guard's own order: ending, then
@@ -319,7 +319,7 @@ export interface FrameObservation {
  * first seen and the tally goes on climbing behind it.
  */
 export interface FaultObservation {
-  readonly kind: "fault";
+  readonly kind: 'fault';
   readonly identity: FaultIdentity;
   readonly severity: FaultSeverity;
   readonly firstTick: number;
@@ -337,10 +337,10 @@ export interface FaultObservation {
  */
 export type Observation = FrameObservation | FaultObservation;
 
-export const OBSERVATION_KINDS = ["frame", "fault"] as const;
+export const OBSERVATION_KINDS = ['frame', 'fault'] as const;
 
 export const OBSERVATION_KIND_CODES: Readonly<
-  Record<Observation["kind"], number>
+  Record<Observation['kind'], number>
 > = {
   frame: 1,
   fault: 2,
@@ -372,7 +372,7 @@ export interface Tape {
  * easy" takes is not dying but losing interest and closing the tab.
  */
 export function stopOf(tape: Tape): TapeStop {
-  if (tape.trailer === null) return "unknown";
+  if (tape.trailer === null) return 'unknown';
   return tape.trailer.stop;
 }
 
@@ -380,7 +380,7 @@ export function stopOf(tape: Tape): TapeStop {
 export function frameObservations(tape: Tape): FrameObservation[] {
   return tape.observations.filter(
     (observation): observation is FrameObservation =>
-      observation.kind === "frame",
+      observation.kind === 'frame',
   );
 }
 
@@ -388,7 +388,7 @@ export function frameObservations(tape: Tape): FrameObservation[] {
 export function faultObservations(tape: Tape): FaultObservation[] {
   return tape.observations.filter(
     (observation): observation is FaultObservation =>
-      observation.kind === "fault",
+      observation.kind === 'fault',
   );
 }
 

@@ -22,9 +22,9 @@
  * claim, which is why the dispatch that writes the fold also reads one back.
  */
 
-import { playTape } from "./playback";
-import type { PlaybackOutcome, PlaybackResult } from "./playback";
-import type { Tape } from "./tape";
+import { playTape } from './playback';
+import type { PlaybackOutcome, PlaybackResult } from './playback';
+import type { Tape } from './tape';
 
 type VerificationOutcome = PlaybackOutcome;
 

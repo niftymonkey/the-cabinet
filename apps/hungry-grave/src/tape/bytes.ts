@@ -21,7 +21,7 @@ export const STRING_LENGTH_BYTES = 2;
 export class TapeFormatError extends Error {
   public constructor(message: string) {
     super(message);
-    this.name = "TapeFormatError";
+    this.name = 'TapeFormatError';
   }
 }
 
@@ -139,32 +139,32 @@ function take(reader: ByteReader, size: number, what: string): number {
 }
 
 export function readU8(reader: ByteReader): number {
-  return reader.view.getUint8(take(reader, 1, "a u8"));
+  return reader.view.getUint8(take(reader, 1, 'a u8'));
 }
 
 export function readU16(reader: ByteReader): number {
-  return reader.view.getUint16(take(reader, 2, "a u16"), LITTLE_ENDIAN);
+  return reader.view.getUint16(take(reader, 2, 'a u16'), LITTLE_ENDIAN);
 }
 
 export function readU32(reader: ByteReader): number {
-  return reader.view.getUint32(take(reader, 4, "a u32"), LITTLE_ENDIAN);
+  return reader.view.getUint32(take(reader, 4, 'a u32'), LITTLE_ENDIAN);
 }
 
 export function readI32(reader: ByteReader): number {
-  return reader.view.getInt32(take(reader, 4, "an i32"), LITTLE_ENDIAN);
+  return reader.view.getInt32(take(reader, 4, 'an i32'), LITTLE_ENDIAN);
 }
 
 export function readF32(reader: ByteReader): number {
-  return reader.view.getFloat32(take(reader, 4, "an f32"), LITTLE_ENDIAN);
+  return reader.view.getFloat32(take(reader, 4, 'an f32'), LITTLE_ENDIAN);
 }
 
 export function readF64(reader: ByteReader): number {
-  return reader.view.getFloat64(take(reader, 8, "an f64"), LITTLE_ENDIAN);
+  return reader.view.getFloat64(take(reader, 8, 'an f64'), LITTLE_ENDIAN);
 }
 
 export function readString(reader: ByteReader): string {
   const size = readU16(reader);
-  const at = take(reader, size, "a string body");
+  const at = take(reader, size, 'a string body');
   return decoder.decode(reader.bytes.subarray(at, at + size));
 }
 
@@ -184,6 +184,6 @@ export function stringFits(reader: ByteReader, at: number): boolean {
 
 /** A reader over a window of another reader's bytes, for one framed section. */
 export function sliceReader(reader: ByteReader, size: number): ByteReader {
-  const at = take(reader, size, "a section body");
+  const at = take(reader, size, 'a section body');
   return createReader(reader.bytes.subarray(at, at + size));
 }

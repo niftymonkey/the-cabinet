@@ -4,12 +4,12 @@
  * the grave actually ends up, clamp and all.
  */
 
-import { describe, expect, it } from "vitest";
-import { FIELD_HEIGHT } from "../game/field";
-import type { Grave } from "../game/grave";
-import { moveGrave } from "../game/grave";
-import { BASE_SPEED, SIZE_START } from "../game/tuning";
-import { DRAG_RATIO, STEER_SLOP, TouchSteer } from "./touch";
+import { describe, expect, it } from 'vitest';
+import { FIELD_HEIGHT } from '../game/field';
+import type { Grave } from '../game/grave';
+import { moveGrave } from '../game/grave';
+import { BASE_SPEED, SIZE_START } from '../game/tuning';
+import { DRAG_RATIO, STEER_SLOP, TouchSteer } from './touch';
 
 function grave(x: number, y: number): Grave {
   return { x, y, size: SIZE_START, invulnerable: 0 };
@@ -31,14 +31,14 @@ function anchored(
   return { x: origin.x + STEER_SLOP, y: origin.y };
 }
 
-describe("TouchSteer", () => {
-  it("with no pointer down the command is zero and isSteering is false", () => {
+describe('TouchSteer', () => {
+  it('with no pointer down the command is zero and isSteering is false', () => {
     const touch = new TouchSteer();
     expect(touch.isSteering()).toBe(false);
     expect(touch.command(grave(270, 600))).toEqual({ x: 0, y: 0 });
   });
 
-  it("a pointer that has not moved past STEER_SLOP does not steer, and the command stays zero", () => {
+  it('a pointer that has not moved past STEER_SLOP does not steer, and the command stays zero', () => {
     // Oldest-pointer-down dies on a normal phone grip: an off-hand thumb
     // brushing the glass would own the control and never move it.
     const touch = new TouchSteer();
@@ -49,7 +49,7 @@ describe("TouchSteer", () => {
     expect(touch.command(g)).toEqual({ x: 0, y: 0 });
   });
 
-  it("a drag of d units past the anchor lands the grave d * DRAG_RATIO away in one tick, the anchor being the crossing point (ADR 0011)", () => {
+  it('a drag of d units past the anchor lands the grave d * DRAG_RATIO away in one tick, the anchor being the crossing point (ADR 0011)', () => {
     // The anchor is the crossing point and not the down position, so the slop
     // travel is discarded rather than delivered as a jump. UIScrollView and
     // AOSP's ScrollView both do exactly that.
@@ -64,7 +64,7 @@ describe("TouchSteer", () => {
     expect(g.y).toBeCloseTo(500 + 12 * DRAG_RATIO, 9);
   });
 
-  it("a first move far past STEER_SLOP discards the slop distance and delivers the rest, never the whole move", () => {
+  it('a first move far past STEER_SLOP discards the slop distance and delivers the rest, never the whole move', () => {
     // A flick arrives as one coarse pointermove on a phone, so the first move
     // can land far past the threshold. Anchoring at that endpoint swallows all
     // of it: the next command is a zero position error and a quick swipe moves
@@ -92,7 +92,7 @@ describe("TouchSteer", () => {
     expect(d.y).toBeCloseTo(400 + 0.8 * (100 - STEER_SLOP) * DRAG_RATIO, 9);
   });
 
-  it("the command is uncapped: any target inside the field is reached in one tick however far away (ADR 0011)", () => {
+  it('the command is uncapped: any target inside the field is reached in one tick however far away (ADR 0011)', () => {
     // Capping the drag at keyboard speed for fairness WAS the input lag felt
     // on device, which is why nothing clamps here and nothing clamps in
     // moveGrave either.
@@ -140,7 +140,7 @@ describe("TouchSteer", () => {
     expect(pressed.x).toBeCloseTo(295, 9);
   });
 
-  it("anti-windup: after a target outside the field clamped the grave short, reversing the pointer moves the grave immediately", () => {
+  it('anti-windup: after a target outside the field clamped the grave short, reversing the pointer moves the grave immediately', () => {
     // Without conditional integration the grave would not move at all until
     // the whole banked overshoot was repaid, which gives every field edge a
     // dead zone.
@@ -157,7 +157,7 @@ describe("TouchSteer", () => {
     expect(g.y).toBeCloseTo(FIELD_HEIGHT - SIZE_START - 5 * DRAG_RATIO, 9);
   });
 
-  it("anti-windup does not eat the delta: clamped against the bottom edge, each sideways delta arrives in full", () => {
+  it('anti-windup does not eat the delta: clamped against the bottom edge, each sideways delta arrives in full', () => {
     // The re-anchor takes the pointer position that produced the previous
     // target, not the pointer's current position. Re-anchoring to the current
     // pointer gives 6, 0, 6, 0 where this asserts 6, 6, 6, 6: it discards the
@@ -182,7 +182,7 @@ describe("TouchSteer", () => {
     expect(deltas).toEqual([6, 6, 6, 6, 6, 6, 6, 6]);
   });
 
-  it("move twice with the same point gives the same command as once, because globalpointermove is dispatched twice per DOM move", () => {
+  it('move twice with the same point gives the same command as once, because globalpointermove is dispatched twice per DOM move', () => {
     // EventBoundary pushes the current target into _allInteractiveElements
     // twice when a child produced a hit, and all() notifies every entry.
     const once = new TouchSteer();
@@ -199,7 +199,7 @@ describe("TouchSteer", () => {
     expect(twice.command(b)).toEqual(once.command(a));
   });
 
-  it("a second pointer down does not steer, and the steering pointer does not change", () => {
+  it('a second pointer down does not steer, and the steering pointer does not change', () => {
     const touch = new TouchSteer();
     const g = grave(270, 500);
     const anchor = anchored(touch, 1, { x: 100, y: 400 }, g);
@@ -214,7 +214,7 @@ describe("TouchSteer", () => {
     });
   });
 
-  it("carries no belch at all: a second pointer only ever steers or waits", () => {
+  it('carries no belch at all: a second pointer only ever steers or waits', () => {
     // Mark ruled on 2026-08-22 that the belch binds to a dedicated corner
     // button. The belch is the scarcest object in the game and is spendable
     // only at the moment it is worth most, so a binding that can misfire on a
@@ -225,11 +225,11 @@ describe("TouchSteer", () => {
     anchored(touch, 1, { x: 100, y: 400 }, g);
     touch.down(2, { x: 480, y: 120 }, g);
 
-    expect("takeBelch" in touch).toBe(false);
+    expect('takeBelch' in touch).toBe(false);
     expect(touch.isSteering()).toBe(true);
   });
 
-  it("the #33 lesson: a steering lift clears the drag and the remaining pointer earns the role by crossing STEER_SLOP from where it now is", () => {
+  it('the #33 lesson: a steering lift clears the drag and the remaining pointer earns the role by crossing STEER_SLOP from where it now is', () => {
     // Handing off instead would promote a pointer that never crossed the slop,
     // which rebuilds the grip disaster the slop rule exists to prevent.
     const touch = new TouchSteer();
@@ -259,7 +259,7 @@ describe("TouchSteer", () => {
     expect(g.y).toBeCloseTo(before.y, 9);
   });
 
-  it("cancelAll clears the pointers and the anchor, which pause, blur and pointercancel all call", () => {
+  it('cancelAll clears the pointers and the anchor, which pause, blur and pointercancel all call', () => {
     const touch = new TouchSteer();
     const g = grave(270, 500);
     const anchor = anchored(touch, 1, { x: 100, y: 400 }, g);
@@ -272,7 +272,7 @@ describe("TouchSteer", () => {
     expect(touch.command(g)).toEqual({ x: 0, y: 0 });
   });
 
-  it("an up for a pointer that was never down changes nothing", () => {
+  it('an up for a pointer that was never down changes nothing', () => {
     const touch = new TouchSteer();
     const g = grave(270, 500);
     const anchor = anchored(touch, 1, { x: 100, y: 400 }, g);

@@ -4,7 +4,7 @@
  * deterministic is the sim, which only ever sees whole ticks.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 import {
   createClock,
   MAX_CATCHUP_TICKS,
@@ -12,10 +12,10 @@ import {
   TICK_HZ,
   TICK_MS,
   ticksFor,
-} from "./clock";
+} from './clock';
 
-describe("the tick accumulator", () => {
-  it("emits whole ticks only and carries the remainder: 25 ms is one tick, and a second 25 ms is two", () => {
+describe('the tick accumulator', () => {
+  it('emits whole ticks only and carries the remainder: 25 ms is one tick, and a second 25 ms is two', () => {
     const clock = createClock();
     // 25 ms is a tick and a half, so one tick runs and half a tick is carried.
     expect(ticksFor(clock, 25)).toBe(1);
@@ -23,26 +23,26 @@ describe("the tick accumulator", () => {
     // The carried half plus another one and a half is three halves of a tick.
     expect(ticksFor(clock, 25)).toBe(2);
   });
-  it("exactly TICK_MS yields exactly one tick and a zero remainder", () => {
+  it('exactly TICK_MS yields exactly one tick and a zero remainder', () => {
     const clock = createClock();
     expect(ticksFor(clock, TICK_MS)).toBe(1);
     expect(clock.remainderMs).toBe(0);
     expect(clock.debtTicks).toBe(0);
   });
-  it("catch-up is clamped: a 5000 ms frame yields MAX_CATCHUP_TICKS and never 300 (ADR 0015)", () => {
+  it('catch-up is clamped: a 5000 ms frame yields MAX_CATCHUP_TICKS and never 300 (ADR 0015)', () => {
     const clock = createClock();
     // Five seconds of real time is three hundred ticks. A backgrounded tab
     // must not fire a burst the player has no chance to answer.
     expect(ticksFor(clock, 5000)).toBe(MAX_CATCHUP_TICKS);
     expect(MAX_CATCHUP_TICKS).toBeLessThan(300);
   });
-  it("the clamp records what it discarded as debtTicks, so a struggling phone is not invisible behind a healthy frame rate", () => {
+  it('the clamp records what it discarded as debtTicks, so a struggling phone is not invisible behind a healthy frame rate', () => {
     const clock = createClock();
     ticksFor(clock, 5000);
     const ticksOfRealTime = (5000 / 1000) * TICK_HZ;
     expect(clock.debtTicks).toBe(ticksOfRealTime - MAX_CATCHUP_TICKS);
   });
-  it("after a clamped frame a normal frame yields a normal tick count, which is the spiral of death arrived at through the clamp", () => {
+  it('after a clamped frame a normal frame yields a normal tick count, which is the spiral of death arrived at through the clamp', () => {
     // Clamping the tick count instead of the elapsed time leaves the
     // accumulator saturated, and every later frame then clamps forever. The two
     // tests above both pass in that state, so this is the one that sees it.
@@ -51,7 +51,7 @@ describe("the tick accumulator", () => {
     expect(ticksFor(clock, 16.7)).toBe(1);
     expect(ticksFor(clock, 16.7)).toBe(1);
   });
-  it("resetClock clears the remainder and does not touch debtTicks, so a tab switch does not read as a struggling phone", () => {
+  it('resetClock clears the remainder and does not touch debtTicks, so a tab switch does not read as a struggling phone', () => {
     const clock = createClock();
     ticksFor(clock, 5000);
     ticksFor(clock, 25);
@@ -62,7 +62,7 @@ describe("the tick accumulator", () => {
     expect(clock.remainderMs).toBe(0);
     expect(clock.debtTicks).toBe(debt);
   });
-  it("zero, negative and non-finite elapsed times yield zero ticks and leave the remainder untouched", () => {
+  it('zero, negative and non-finite elapsed times yield zero ticks and leave the remainder untouched', () => {
     // A browser reports all three across a tab switch.
     const clock = createClock();
     ticksFor(clock, 25);
@@ -73,7 +73,7 @@ describe("the tick accumulator", () => {
       expect(clock.debtTicks).toBe(0);
     }
   });
-  it("two clocks fed the same elapsed sequence produce the same tick sequence, so the bot and the screen share one implementation (ADR 0015)", () => {
+  it('two clocks fed the same elapsed sequence produce the same tick sequence, so the bot and the screen share one implementation (ADR 0015)', () => {
     const frames = [16.7, 16.6, 33.4, 8.2, 5000, 16.7, 12, 40, 0, 16.7];
     const bot = createClock();
     const screen = createClock();

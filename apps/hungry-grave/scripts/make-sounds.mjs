@@ -11,11 +11,11 @@
  * Run with: node scripts/make-sounds.mjs
  */
 
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const RATE = 44100;
-const OUT = join(import.meta.dirname, "..", "raw-assets", "main{m}", "sounds");
+const OUT = join(import.meta.dirname, '..', 'raw-assets', 'main{m}', 'sounds');
 
 /** One partial of an inharmonic bell, as a frequency and how loudly it enters. */
 function partial(frequency, gain, decay) {
@@ -36,7 +36,10 @@ function strike(seconds, partials, attack = 0.002) {
     const t = index / RATE;
     let value = 0;
     for (const p of partials) {
-      value += p.gain * Math.sin(2 * Math.PI * p.frequency * t) * Math.exp(-t / p.decay);
+      value +=
+        p.gain *
+        Math.sin(2 * Math.PI * p.frequency * t) *
+        Math.exp(-t / p.decay);
     }
     const envelope = t < attack ? t / attack : 1;
     data[index] = value * envelope;
@@ -64,7 +67,8 @@ function mix(...tracks) {
   const length = Math.max(...tracks.map((track) => track.length));
   const out = new Float32Array(length);
   for (const track of tracks) {
-    for (let index = 0; index < track.length; index++) out[index] += track[index];
+    for (let index = 0; index < track.length; index++)
+      out[index] += track[index];
   }
   return out;
 }
@@ -83,10 +87,10 @@ function normalize(data, peak = 0.89) {
 function wav(data) {
   const bytes = data.length * 2;
   const buffer = Buffer.alloc(44 + bytes);
-  buffer.write("RIFF", 0);
+  buffer.write('RIFF', 0);
   buffer.writeUInt32LE(36 + bytes, 4);
-  buffer.write("WAVE", 8);
-  buffer.write("fmt ", 12);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
   buffer.writeUInt32LE(16, 16);
   buffer.writeUInt16LE(1, 20);
   buffer.writeUInt16LE(1, 22);
@@ -94,7 +98,7 @@ function wav(data) {
   buffer.writeUInt32LE(RATE * 2, 28);
   buffer.writeUInt16LE(2, 32);
   buffer.writeUInt16LE(16, 34);
-  buffer.write("data", 36);
+  buffer.write('data', 36);
   for (let index = 0; index < data.length; index++) {
     const clamped = Math.max(-1, Math.min(1, data[index]));
     buffer.writeInt16LE(Math.round(clamped * 32767), 44 + index * 2);
@@ -104,21 +108,21 @@ function wav(data) {
 
 const CLIPS = {
   // Every swallow, from the very first, whatever the loadout.
-  "sfx-swallow": strike(0.28, [
+  'sfx-swallow': strike(0.28, [
     partial(523, 0.6, 0.09),
     partial(1046, 0.3, 0.06),
     partial(1571, 0.14, 0.04),
   ]),
   // A drop. Brighter and longer than the corpse chime, because the scarcest
   // object in the game must not sound like the commonest.
-  "sfx-treasure": strike(0.75, [
+  'sfx-treasure': strike(0.75, [
     partial(784, 0.55, 0.28),
     partial(1176, 0.35, 0.22),
     partial(1568, 0.24, 0.16),
     partial(2352, 0.12, 0.1),
   ]),
   // The bell's toll: low, inharmonic, and long.
-  "sfx-toll": strike(1.6, [
+  'sfx-toll': strike(1.6, [
     partial(196, 0.7, 0.85),
     partial(392, 0.4, 0.55),
     partial(553, 0.25, 0.4),
@@ -127,12 +131,12 @@ const CLIPS = {
   ]),
   // The hit. ADR 0014's own text makes the rim the second damage channel until
   // sound arrives, and this is where sound arrives.
-  "sfx-hit": mix(
+  'sfx-hit': mix(
     rumble(0.22, 900, 0.06),
     strike(0.22, [partial(110, 0.5, 0.05), partial(146, 0.3, 0.04)]),
   ),
   // The eruption: the single loudest thing the player can do.
-  "sfx-eruption": mix(
+  'sfx-eruption': mix(
     rumble(1.1, 500, 0.32),
     strike(1.1, [
       partial(58, 0.8, 0.4),

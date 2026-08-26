@@ -8,10 +8,10 @@
  * This module stays free of pixi so the routing rules are unit-testable.
  */
 
-import type { PrototypeEntry } from "../prototypes";
-import { prototypeFromHash } from "../prototypes";
+import type { PrototypeEntry } from '../prototypes';
+import { prototypeFromHash } from '../prototypes';
 
-export const PROTOTYPES_HASH = "#/prototypes";
+export const PROTOTYPES_HASH = '#/prototypes';
 
 /**
  * The golden digest, run in whatever browser opened this URL. ADR 0015's claim
@@ -19,7 +19,7 @@ export const PROTOTYPES_HASH = "#/prototypes";
  * without a browser that runs the digest the claim goes unchecked until the
  * final dispatch.
  */
-export const DIGEST_HASH = "#/digest";
+export const DIGEST_HASH = '#/digest';
 
 /**
  * The instrument route: a tape rendered at a chosen tick (ADR 0020). It is for
@@ -27,18 +27,18 @@ export const DIGEST_HASH = "#/digest";
  * is reserved as #/watch and deliberately not built, so a player-facing
  * feature is never built on a debug URL.
  */
-export const REPLAY_HASH = "#/replay";
+export const REPLAY_HASH = '#/replay';
 
 /** The kept runs in this browser's tape store, listed with a way into replay. */
-export const RUNS_HASH = "#/runs";
+export const RUNS_HASH = '#/runs';
 
 export type Route =
-  | { kind: "game" }
-  | { kind: "prototype-list" }
-  | { kind: "digest" }
-  | { kind: "replay" }
-  | { kind: "runs" }
-  | { kind: "prototype"; entry: PrototypeEntry };
+  | { kind: 'game' }
+  | { kind: 'prototype-list' }
+  | { kind: 'digest' }
+  | { kind: 'replay' }
+  | { kind: 'runs' }
+  | { kind: 'prototype'; entry: PrototypeEntry };
 
 /**
  * True for a route's own hash and for anything below it, and false for a
@@ -49,7 +49,7 @@ export type Route =
 function isRouteHash(hash: string, route: string): boolean {
   if (!hash.startsWith(route)) return false;
   const rest = hash.slice(route.length);
-  return rest === "" || rest.startsWith("/") || rest.startsWith("?");
+  return rest === '' || rest.startsWith('/') || rest.startsWith('?');
 }
 
 /**
@@ -58,10 +58,10 @@ function isRouteHash(hash: string, route: string): boolean {
  */
 export function resolveRoute(hash: string): Route {
   const entry = prototypeFromHash(hash);
-  if (entry) return { kind: "prototype", entry };
-  if (isRouteHash(hash, PROTOTYPES_HASH)) return { kind: "prototype-list" };
-  if (isRouteHash(hash, DIGEST_HASH)) return { kind: "digest" };
-  if (isRouteHash(hash, REPLAY_HASH)) return { kind: "replay" };
-  if (isRouteHash(hash, RUNS_HASH)) return { kind: "runs" };
-  return { kind: "game" };
+  if (entry) return { kind: 'prototype', entry };
+  if (isRouteHash(hash, PROTOTYPES_HASH)) return { kind: 'prototype-list' };
+  if (isRouteHash(hash, DIGEST_HASH)) return { kind: 'digest' };
+  if (isRouteHash(hash, REPLAY_HASH)) return { kind: 'replay' };
+  if (isRouteHash(hash, RUNS_HASH)) return { kind: 'runs' };
+  return { kind: 'game' };
 }

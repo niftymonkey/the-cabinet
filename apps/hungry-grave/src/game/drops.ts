@@ -9,11 +9,11 @@
  * entirely.
  */
 
-import { spawnDrop } from "./corpses";
-import type { SimEvent } from "./events";
-import type { WeaponLine } from "./lines/roster";
-import { WEAPON_LINES } from "./lines/roster";
-import type { RunState } from "./run";
+import { spawnDrop } from './corpses';
+import type { SimEvent } from './events';
+import type { WeaponLine } from './lines/roster';
+import { WEAPON_LINES } from './lines/roster';
+import type { RunState } from './run';
 
 /**
  * What each drop of a run costs, in kills.

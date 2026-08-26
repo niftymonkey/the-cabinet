@@ -1,7 +1,7 @@
-import type { FederatedPointerEvent } from "pixi.js";
-import { Container, Graphics } from "pixi.js";
+import type { FederatedPointerEvent } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 
-import { PALETTE } from "../../palette";
+import { PALETTE } from '../../palette';
 
 /**
  * The belch's one control: a Container holding a Graphics, and deliberately not
@@ -74,14 +74,14 @@ export class BelchButton extends Container {
   constructor(private readonly onFire: () => void) {
     super();
     this.addChild(this.ring);
-    this.eventMode = "static";
+    this.eventMode = 'static';
     // On press and never on release. The belch runs before overlap resolution
     // precisely so a bomb pressed on the frame a shot would land saves the
     // player, and firing on release gives that back as input latency at exactly
     // that moment.
-    this.on("pointerdown", this.onDown, this);
-    this.on("pointerup", this.onUp, this);
-    this.on("pointerupoutside", this.onUp, this);
+    this.on('pointerdown', this.onDown, this);
+    this.on('pointerup', this.onUp, this);
+    this.on('pointerupoutside', this.onUp, this);
   }
 
   private onDown(event: FederatedPointerEvent): void {

@@ -5,13 +5,13 @@
  * both sit on this primitive.
  */
 
-import { createExecution, executeTick } from "../game/execution";
-import type { FaultRecord, TickListener } from "../game/execution";
-import { createRun } from "../game/run";
-import type { RunState } from "../game/run";
-import { foldWitness, WITNESS_VERSION } from "../game/witness";
-import type { FaultObservation, Tape, TapeCheckpoint } from "./tape";
-import { faultObservations } from "./tape";
+import { createExecution, executeTick } from '../game/execution';
+import type { FaultRecord, TickListener } from '../game/execution';
+import { createRun } from '../game/run';
+import type { RunState } from '../game/run';
+import { foldWitness, WITNESS_VERSION } from '../game/witness';
+import type { FaultObservation, Tape, TapeCheckpoint } from './tape';
+import { faultObservations } from './tape';
 
 /**
  * What a playback concluded.
@@ -21,7 +21,7 @@ import { faultObservations } from "./tape";
  * before a widening would report that the run did not happen, and there would
  * be nothing to tell a widened fold apart from a tape of some other run.
  */
-type PlaybackOutcome = "verified" | "diverged" | "witnessVersionMismatch";
+type PlaybackOutcome = 'verified' | 'diverged' | 'witnessVersionMismatch';
 
 interface PlaybackResult {
   readonly outcome: PlaybackOutcome;
@@ -95,7 +95,7 @@ const countReachable = (
  * rather than failing confusingly, and it does not run a single tick.
  */
 const versionMismatch = (tape: Tape): PlaybackResult => ({
-  outcome: "witnessVersionMismatch",
+  outcome: 'witnessVersionMismatch',
   tapeWitnessVersion: tape.header.witnessVersion,
   readerWitnessVersion: WITNESS_VERSION,
   checkpointsVerified: 0,
@@ -162,7 +162,7 @@ const createPlayback = (tape: Tape, observer?: TickListener): Playback => {
   };
 
   const verdictSoFar = (): PlaybackResult => ({
-    outcome: firstDivergentCheckpoint === null ? "verified" : "diverged",
+    outcome: firstDivergentCheckpoint === null ? 'verified' : 'diverged',
     tapeWitnessVersion: tape.header.witnessVersion,
     readerWitnessVersion: WITNESS_VERSION,
     checkpointsVerified,

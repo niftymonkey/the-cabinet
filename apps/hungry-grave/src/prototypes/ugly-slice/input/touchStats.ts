@@ -85,7 +85,7 @@ export class TouchStats {
 
   public lines(): string[] {
     return [
-      "TOUCH",
+      'TOUCH',
       `moves/s           ${this.eventAge.count}`,
       `event age ms      ${this.eventAge.avg.toFixed(1)} avg / ${this.eventAge.max.toFixed(1)} max`,
       `move gap ms       ${this.moveGap.avg.toFixed(1)} avg / ${this.moveGap.max.toFixed(1)} max`,

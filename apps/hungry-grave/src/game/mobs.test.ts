@@ -9,26 +9,26 @@
  * stated as a pair of relations rather than as a speed.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
 // The module's own text, as a Vite raw import rather than through node:fs, so
 // the source scan below stays inside the boundary src/boundary.test.ts holds.
-import mobsSource from "./mobs.ts?raw";
+import mobsSource from './mobs.ts?raw';
 
-import type { Stepper } from "../dev/stepping";
-import { stepping } from "../dev/stepping";
-import { fireBelch } from "./belch";
-import { advanceBell } from "./lines/bell";
+import type { Stepper } from '../dev/stepping';
+import { stepping } from '../dev/stepping';
+import { fireBelch } from './belch';
+import { advanceBell } from './lines/bell';
 import {
   RESERVOIR_CAPACITY,
   SCROLL_SPEED,
   TRASH_CORPSE_PAYOUT,
-} from "./tuning";
-import { TICK_HZ } from "./clock";
-import type { SimEvent } from "./events";
-import { FIELD_HEIGHT } from "./field";
-import { graveHitbox } from "./grave";
-import type { Mob } from "./mobs";
+} from './tuning';
+import { TICK_HZ } from './clock';
+import type { SimEvent } from './events';
+import { FIELD_HEIGHT } from './field';
+import { graveHitbox } from './grave';
+import type { Mob } from './mobs';
 import {
   advanceMobs,
   ARRIVE_TICKS,
@@ -38,22 +38,22 @@ import {
   mobTellLit,
   resolveStorm,
   spawnMob,
-} from "./mobs";
-import { headstoneAt, STONE_DAMAGE, STONE_RECHARGE } from "./lines/headstones";
-import { MAX_LEVEL, WEAPON_LINES } from "./lines/roster";
+} from './mobs';
+import { headstoneAt, STONE_DAMAGE, STONE_RECHARGE } from './lines/headstones';
+import { MAX_LEVEL, WEAPON_LINES } from './lines/roster';
 import {
   advanceStream,
   SKULL_DAMAGE,
   STREAM_INTERVAL,
   SURGE_INTERVAL,
   surgeStream,
-} from "./lines/soulStream";
-import { advanceWisps, launchWisps, WISP_DAMAGE } from "./lines/wisps";
-import type { RunState, TickCommand } from "./run";
-import { createRun } from "./run";
-import { RAMP_ROWS } from "./stage/stage";
-import type { SpawnOrder } from "./stage/templates";
-import { place } from "./stage/templates";
+} from './lines/soulStream';
+import { advanceWisps, launchWisps, WISP_DAMAGE } from './lines/wisps';
+import type { RunState, TickCommand } from './run';
+import { createRun } from './run';
+import { RAMP_ROWS } from './stage/stage';
+import type { SpawnOrder } from './stage/templates';
+import { place } from './stage/templates';
 
 /** A tick that only steers, which is every tick these tests are about. */
 function drift(x: number, y: number): TickCommand {
@@ -88,7 +88,7 @@ function stormRun(seed = 4): RunState {
 }
 
 /** A live mob of a stated type, past its arriving beat. */
-function putMob(state: RunState, type: Mob["type"], x: number, y: number): Mob {
+function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
   const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
   mob.beat = 0;
   return mob;
@@ -97,7 +97,7 @@ function putMob(state: RunState, type: Mob["type"], x: number, y: number): Mob {
 /** A mob standing exactly where this run's one headstone is. */
 function stoneVictim(state: RunState): Mob {
   const at = headstoneAt(state, 0)!;
-  return putMob(state, "shambler", at.x, at.y);
+  return putMob(state, 'shambler', at.x, at.y);
 }
 
 function putSkull(state: RunState, x: number, y: number) {
@@ -149,12 +149,12 @@ function run(
   return events;
 }
 
-function types(events: SimEvent[], type: SimEvent["type"]): SimEvent[] {
+function types(events: SimEvent[], type: SimEvent['type']): SimEvent[] {
   return events.filter((event) => event.type === type);
 }
 
-describe("the mob type table (ADR 0016)", () => {
-  it("gives each type the descent, health, corpse payout and size the table states", () => {
+describe('the mob type table (ADR 0016)', () => {
+  it('gives each type the descent, health, corpse payout and size the table states', () => {
     expect(MOB_TYPES.shambler.speed).toBeCloseTo(0.5 * SCROLL_SPEED, 12);
     expect(MOB_TYPES.revenant.speed).toBeCloseTo(0.35 * SCROLL_SPEED, 12);
 
@@ -166,9 +166,9 @@ describe("the mob type table (ADR 0016)", () => {
     expect(MOB_TYPES.revenant.corpsePayout).toBe(2 * TRASH_CORPSE_PAYOUT);
     expect(MOB_TYPES.ghoul.corpsePayout).toBe(TRASH_CORPSE_PAYOUT);
 
-    expect(MOB_TYPES.shambler.corpseTier).toBe("trash");
-    expect(MOB_TYPES.revenant.corpseTier).toBe("rich");
-    expect(MOB_TYPES.ghoul.corpseTier).toBe("trash");
+    expect(MOB_TYPES.shambler.corpseTier).toBe('trash');
+    expect(MOB_TYPES.revenant.corpseTier).toBe('rich');
+    expect(MOB_TYPES.ghoul.corpseTier).toBe('trash');
 
     expect([
       MOB_TYPES.shambler.halfWidth,
@@ -188,17 +188,17 @@ describe("the mob type table (ADR 0016)", () => {
     // What is pinned is that it is fast enough to be a threat at all: a chaser
     // slower than the scroll it rides can never intercept anything.
     expect(MOB_TYPES.ghoul.speed).toBeGreaterThan(SCROLL_SPEED);
-    expect(MOB_TYPES.ghoul.motion).toBe("chases");
+    expect(MOB_TYPES.ghoul.motion).toBe('chases');
   });
 });
 
-describe("the arriving beat (ADR 0016)", () => {
+describe('the arriving beat (ADR 0016)', () => {
   it("holds the template's arriving velocity for ARRIVE_TICKS and then moves under the type's own rule", () => {
     const state = quietRun();
     const step = stepping(state);
     // A V's arm arrives on a diagonal, which is the case where the beat bites.
-    const arm = place("v", 2, state.streams.spawns)[0];
-    spawnMob(state, "shambler", order(200, 11, arm.vx, arm.vy));
+    const arm = place('v', 2, state.streams.spawns)[0];
+    spawnMob(state, 'shambler', order(200, 11, arm.vx, arm.vy));
     const mob = only(state);
     const arriving = { vx: mob.vx, vy: mob.vy };
     expect(arriving.vx).not.toBe(0);
@@ -213,7 +213,7 @@ describe("the arriving beat (ADR 0016)", () => {
   });
 
   it("gives a mob the template's direction times its own type speed, so a straight-down entry changes speed by nothing when the beat ends", () => {
-    for (const type of ["shambler", "revenant"] as const) {
+    for (const type of ['shambler', 'revenant'] as const) {
       const state = quietRun();
       const step = stepping(state);
       spawnMob(state, type, order(200, MOB_TYPES[type].halfHeight));
@@ -227,12 +227,12 @@ describe("the arriving beat (ADR 0016)", () => {
     }
   });
 
-  it("counts the beat from the top-edge crossing and never from the spawn", () => {
+  it('counts the beat from the top-edge crossing and never from the spawn', () => {
     const state = quietRun();
     const step = stepping(state);
     const deep = -120;
-    const arm = place("v", 2, state.streams.spawns)[0];
-    spawnMob(state, "shambler", order(200, deep, arm.vx, arm.vy));
+    const arm = place('v', 2, state.streams.spawns)[0];
+    spawnMob(state, 'shambler', order(200, deep, arm.vx, arm.vy));
     const mob = only(state);
     const arriving = { vx: mob.vx, vy: mob.vy };
 
@@ -249,8 +249,8 @@ describe("the arriving beat (ADR 0016)", () => {
   it("leaves a ghoul flying the template's arriving direction at the tick its beat ends, not straight down", () => {
     const state = quietRun();
     const step = stepping(state);
-    const arm = place("pincer", 2, state.streams.spawns)[0];
-    spawnMob(state, "ghoul", order(200, 9, arm.vx, arm.vy));
+    const arm = place('pincer', 2, state.streams.spawns)[0];
+    spawnMob(state, 'ghoul', order(200, 9, arm.vx, arm.vy));
     const mob = only(state);
     expect(mob.vx).not.toBe(0);
     // Straight below, so the turn has nothing to correct and only the stored
@@ -263,11 +263,11 @@ describe("the arriving beat (ADR 0016)", () => {
   });
 });
 
-describe("the ghoul (ADR 0016)", () => {
-  it("always descends at least 1.35 times the scroll, so it can never climb or hold station", () => {
+describe('the ghoul (ADR 0016)', () => {
+  it('always descends at least 1.35 times the scroll, so it can never climb or hold station', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, "ghoul", order(120, 60));
+    spawnMob(state, 'ghoul', order(120, 60));
     const mob = only(state);
     // Level with the ghoul and far to the side, which is the heading that would
     // let it hold station if the floor were not there.
@@ -284,7 +284,7 @@ describe("the ghoul (ADR 0016)", () => {
     expect(mob.alive).toBe(false);
   });
 
-  it("is beaten by a grave that commits early, and beats one that commits inside the last few ticks", () => {
+  it('is beaten by a grave that commits early, and beats one that commits inside the last few ticks', () => {
     // The pair, and neither half asserts a magnitude. One alone only proves the
     // ghoul is not cheap; the pair is the only thing that would catch the
     // tuning dispatch turning it into scenery.
@@ -296,10 +296,10 @@ describe("the ghoul (ADR 0016)", () => {
     );
 
     const early = ghoulRun(0, contact);
-    expect(types(early, "graveHit")).toHaveLength(0);
+    expect(types(early, 'graveHit')).toHaveLength(0);
 
     const late = ghoulRun(contact - 3, contact);
-    expect(types(late, "graveHit").length).toBeGreaterThan(0);
+    expect(types(late, 'graveHit').length).toBeGreaterThan(0);
   });
 });
 
@@ -311,7 +311,7 @@ describe("the ghoul (ADR 0016)", () => {
 function ghoulRun(commitAt: number, contact: number): SimEvent[] {
   const state = quietRun();
   const step = stepping(state);
-  spawnMob(state, "ghoul", order(state.grave.x, 400));
+  spawnMob(state, 'ghoul', order(state.grave.x, 400));
   const events: SimEvent[] = [];
   for (let tick = 0; tick < contact + 400; tick++) {
     events.push(...step(tick < commitAt ? STILL : RIGHT));
@@ -319,12 +319,12 @@ function ghoulRun(commitAt: number, contact: number): SimEvent[] {
   return events;
 }
 
-describe("the armed share (ADR 0016)", () => {
-  it("arms a mob when its group index modulo three is two, so no Drip of one or two is ever armed", () => {
+describe('the armed share (ADR 0016)', () => {
+  it('arms a mob when its group index modulo three is two, so no Drip of one or two is ever armed', () => {
     for (const count of [1, 2, 3, 6]) {
       const state = quietRun();
-      for (const at of place("drip", count, state.streams.spawns)) {
-        spawnMob(state, "shambler", at);
+      for (const at of place('drip', count, state.streams.spawns)) {
+        spawnMob(state, 'shambler', at);
       }
       const armed = state.mobs.filter((mob) => mob.alive && mob.armed);
       expect(`drip of ${count}: ${armed.length}`).toBe(
@@ -333,25 +333,25 @@ describe("the armed share (ADR 0016)", () => {
     }
   });
 
-  it("arms every revenant and no ghoul", () => {
+  it('arms every revenant and no ghoul', () => {
     const state = quietRun();
-    for (const at of place("drip", 4, state.streams.spawns)) {
-      spawnMob(state, "revenant", at);
+    for (const at of place('drip', 4, state.streams.spawns)) {
+      spawnMob(state, 'revenant', at);
     }
     expect(state.mobs.filter((mob) => mob.alive && mob.armed)).toHaveLength(4);
 
     const ghouls = quietRun();
-    for (const at of place("drip", 9, ghouls.streams.spawns)) {
-      spawnMob(ghouls, "ghoul", at);
+    for (const at of place('drip', 9, ghouls.streams.spawns)) {
+      spawnMob(ghouls, 'ghoul', at);
     }
     expect(ghouls.mobs.filter((mob) => mob.alive && mob.armed)).toHaveLength(0);
   });
 
-  it("indexes the share per arm on the V and the Pincer, so a mirrored template arms symmetrically", () => {
-    for (const template of ["v", "pincer"] as const) {
+  it('indexes the share per arm on the V and the Pincer, so a mirrored template arms symmetrically', () => {
+    for (const template of ['v', 'pincer'] as const) {
       const state = quietRun();
       const orders = place(template, 6, state.streams.spawns);
-      for (const at of orders) spawnMob(state, "shambler", at);
+      for (const at of orders) spawnMob(state, 'shambler', at);
       const live = state.mobs.filter((mob) => mob.alive);
       const armedLeft = live.filter(
         (mob, index) => mob.armed && index % 2 === 0,
@@ -365,35 +365,35 @@ describe("the armed share (ADR 0016)", () => {
     }
   });
 
-  it("never lets an unarmed shambler fire", () => {
+  it('never lets an unarmed shambler fire', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, "shambler", order(200, 11, 0, 1, 0));
+    spawnMob(state, 'shambler', order(200, 11, 0, 1, 0));
     expect(only(state).armed).toBe(false);
-    expect(types(run(step, 600), "mobFired")).toHaveLength(0);
+    expect(types(run(step, 600), 'mobFired')).toHaveLength(0);
   });
 });
 
-describe("mob fire (ADR 0016 and ADR 0014)", () => {
+describe('mob fire (ADR 0016 and ADR 0014)', () => {
   it("lights a revenant's tell as it enters and lands its first shot at the end of the beat", () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, "revenant", order(200, MOB_TYPES.revenant.halfHeight));
+    spawnMob(state, 'revenant', order(200, MOB_TYPES.revenant.halfHeight));
     const mob = only(state);
     expect(hasEntered(mob)).toBe(true);
     expect(mobTellLit(mob)).toBe(true);
 
     const before = run(step, ARRIVE_TICKS - 1);
-    expect(types(before, "mobFired")).toHaveLength(0);
+    expect(types(before, 'mobFired')).toHaveLength(0);
     expect(mobTellLit(mob)).toBe(true);
 
-    expect(types(run(step, 1), "mobFired")).toHaveLength(1);
+    expect(types(run(step, 1), 'mobFired')).toHaveLength(1);
   });
 
   it("puts the same tell lead in front of every shot over a revenant's whole pass", () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, "revenant", order(200, MOB_TYPES.revenant.halfHeight));
+    spawnMob(state, 'revenant', order(200, MOB_TYPES.revenant.halfHeight));
     const mob = only(state);
     const lead = MOB_TYPES.revenant.fire.tellTicks;
 
@@ -404,7 +404,7 @@ describe("mob fire (ADR 0016 and ADR 0014)", () => {
       const events = step(STILL);
       if (!wasLit && mobTellLit(mob)) lit.push(state.tick);
       for (const event of events) {
-        if (event.type === "mobFired") fired.push(state.tick);
+        if (event.type === 'mobFired') fired.push(state.tick);
       }
     }
     expect(fired.length).toBeGreaterThan(3);
@@ -417,10 +417,10 @@ describe("mob fire (ADR 0016 and ADR 0014)", () => {
     }
   });
 
-  it("spreads a File of armed shamblers with a per-mob offset, so it does not fire as one volley", () => {
+  it('spreads a File of armed shamblers with a per-mob offset, so it does not fire as one volley', () => {
     const state = quietRun();
-    for (const at of place("file", 9, state.streams.spawns)) {
-      spawnMob(state, "shambler", at);
+    for (const at of place('file', 9, state.streams.spawns)) {
+      spawnMob(state, 'shambler', at);
     }
     const armed = state.mobs.filter((mob) => mob.alive && mob.armed);
     expect(armed.length).toBe(3);
@@ -430,7 +430,7 @@ describe("mob fire (ADR 0016 and ADR 0014)", () => {
   it("aims at the grave's centre at the moment of firing and never changes direction after", () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, "revenant", order(120, MOB_TYPES.revenant.halfHeight));
+    spawnMob(state, 'revenant', order(120, MOB_TYPES.revenant.halfHeight));
     const mob = only(state);
     run(step, ARRIVE_TICKS);
 
@@ -448,10 +448,10 @@ describe("mob fire (ADR 0016 and ADR 0014)", () => {
     expect(shot.vy).toBe(aimed.vy);
   });
 
-  it("does not carry the scroll", () => {
+  it('does not carry the scroll', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, "revenant", order(200, MOB_TYPES.revenant.halfHeight));
+    spawnMob(state, 'revenant', order(200, MOB_TYPES.revenant.halfHeight));
     run(step, ARRIVE_TICKS);
     const shot = state.mobFire.find((each) => each.alive)!;
     const from = shot.y;
@@ -462,10 +462,10 @@ describe("mob fire (ADR 0016 and ADR 0014)", () => {
   it("keeps every firing number on the type's row, the tell lead included", () => {
     // A source scan, because the failure this guards against is a shared module
     // constant, and no assertion over the table's values can see one.
-    for (const type of ["shambler", "revenant"] as const) {
+    for (const type of ['shambler', 'revenant'] as const) {
       const fire = MOB_TYPES[type].fire;
       for (const [field, value] of Object.entries(fire)) {
-        if (field === "armedShare") continue;
+        if (field === 'armedShare') continue;
         expect(`${type}.${field} ${typeof value}`).toBe(
           `${type}.${field} number`,
         );
@@ -490,7 +490,7 @@ describe("mob fire (ADR 0016 and ADR 0014)", () => {
     expect(firing).toEqual([]);
   });
 
-  it("states the shot speed as a reaction budget: a shot from mid-field reaches the starting mark in about two seconds", () => {
+  it('states the shot speed as a reaction budget: a shot from mid-field reaches the starting mark in about two seconds', () => {
     const state = quietRun();
     const distance = state.grave.y - FIELD_HEIGHT / 2;
     const seconds = distance / (MOB_TYPES.revenant.fire.shotSpeed * TICK_HZ);
@@ -500,89 +500,89 @@ describe("mob fire (ADR 0016 and ADR 0014)", () => {
 });
 
 describe("a mob's death (ADR 0005)", () => {
-  it("kills at or below zero health, frees the slot, leaves a corpse and reports the kill", () => {
+  it('kills at or below zero health, frees the slot, leaves a corpse and reports the kill', () => {
     const state = quietRun();
-    spawnMob(state, "shambler", order(200, 100));
+    spawnMob(state, 'shambler', order(200, 100));
     const mob = only(state);
 
-    expect(damageMob(state, mob, MOB_TYPES.shambler.hp - 1, "bell")).toEqual([
+    expect(damageMob(state, mob, MOB_TYPES.shambler.hp - 1, 'bell')).toEqual([
       {
-        type: "mobDamaged",
+        type: 'mobDamaged',
         id: mob.id,
         amount: MOB_TYPES.shambler.hp - 1,
-        source: "bell",
+        source: 'bell',
       },
     ]);
     expect(mob.alive).toBe(true);
 
-    const events = damageMob(state, mob, 1, "bell");
+    const events = damageMob(state, mob, 1, 'bell');
     expect(mob.alive).toBe(false);
     expect(events).toEqual([
-      { type: "mobDamaged", id: mob.id, amount: 1, source: "bell" },
-      { type: "mobKilled", id: mob.id, mob: "shambler", x: 200, y: 100 },
+      { type: 'mobDamaged', id: mob.id, amount: 1, source: 'bell' },
+      { type: 'mobKilled', id: mob.id, mob: 'shambler', x: 200, y: 100 },
     ]);
     const corpses = state.corpses.filter((corpse) => corpse.alive);
     expect(corpses).toHaveLength(1);
     expect(corpses[0].payout).toBe(MOB_TYPES.shambler.corpsePayout);
   });
 
-  it("spells each storm source as its line: soulStream, then headstones, then wisps", () => {
+  it('spells each storm source as its line: soulStream, then headstones, then wisps', () => {
     // The source vocabulary is the roster's own spelling (#48): an instrument
     // grouping damage by weapon line must never meet a fifth spelling.
     const state = stormRun();
-    const skulled = putMob(state, "shambler", 100, 100);
+    const skulled = putMob(state, 'shambler', 100, 100);
     stoneVictim(state);
-    const wisped = putMob(state, "shambler", 300, 100);
+    const wisped = putMob(state, 'shambler', 300, 100);
     putSkull(state, skulled.x, skulled.y);
     putWisp(state, wisped.x, wisped.y);
 
     const sources = resolveStorm(state)
-      .filter((event) => event.type === "mobDamaged")
-      .map((event) => (event.type === "mobDamaged" ? event.source : ""));
-    expect(sources).toEqual(["soulStream", "headstones", "wisps"]);
+      .filter((event) => event.type === 'mobDamaged')
+      .map((event) => (event.type === 'mobDamaged' ? event.source : ''));
+    expect(sources).toEqual(['soulStream', 'headstones', 'wisps']);
   });
 
   it("names the bell's own damage bell", () => {
     const state = quietRun();
-    putMob(state, "shambler", state.grave.x, state.grave.y);
+    putMob(state, 'shambler', state.grave.x, state.grave.y);
     state.levels.bell = 1;
     state.lines.tollIn = 1;
-    expect(types(advanceBell(state), "tolled")).toHaveLength(1);
+    expect(types(advanceBell(state), 'tolled')).toHaveLength(1);
 
-    const struck = types(advanceBell(state), "mobDamaged");
+    const struck = types(advanceBell(state), 'mobDamaged');
     expect(struck).toEqual([
-      expect.objectContaining({ type: "mobDamaged", source: "bell" }),
+      expect.objectContaining({ type: 'mobDamaged', source: 'bell' }),
     ]);
   });
 
   it("names the belch's wipe belch", () => {
     const state = quietRun();
-    putMob(state, "shambler", 100, 100);
+    putMob(state, 'shambler', 100, 100);
     state.reservoir = RESERVOIR_CAPACITY;
 
-    const struck = types(fireBelch(state), "mobDamaged");
+    const struck = types(fireBelch(state), 'mobDamaged');
     expect(struck).toEqual([
-      expect.objectContaining({ type: "mobDamaged", source: "belch" }),
+      expect.objectContaining({ type: 'mobDamaged', source: 'belch' }),
     ]);
   });
 
-  it("never kills a mob on contact and never leaves a corpse for one, however long the grave sits under it", () => {
+  it('never kills a mob on contact and never leaves a corpse for one, however long the grave sits under it', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, "shambler", order(state.grave.x, 300));
+    spawnMob(state, 'shambler', order(state.grave.x, 300));
     const mob = only(state);
     const events = run(step, 600);
-    expect(types(events, "graveHit").length).toBeGreaterThan(0);
-    expect(types(events, "mobKilled")).toHaveLength(0);
+    expect(types(events, 'graveHit').length).toBeGreaterThan(0);
+    expect(types(events, 'mobKilled')).toHaveLength(0);
     expect(state.corpses.some((corpse) => corpse.alive)).toBe(false);
     // Gone off the bottom edge rather than killed.
     expect(mob.alive).toBe(false);
   });
 
-  it("culls a mob past the bottom edge, and it costs the player nothing", () => {
+  it('culls a mob past the bottom edge, and it costs the player nothing', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, "shambler", order(60, 700));
+    spawnMob(state, 'shambler', order(60, 700));
     const mob = only(state);
     const events = run(step, 200);
     expect(mob.alive).toBe(false);
@@ -591,72 +591,72 @@ describe("a mob's death (ADR 0005)", () => {
   });
 });
 
-describe("damage attribution (#48)", () => {
+describe('damage attribution (#48)', () => {
   it("reports every hit as mobDamaged carrying the mob's id, the amount and the source", () => {
     // The instrument joins damage to its dealer by these three fields; a hit
     // that leaves no mobDamaged is damage nobody dealt.
     const state = quietRun();
-    spawnMob(state, "shambler", order(200, 100));
+    spawnMob(state, 'shambler', order(200, 100));
     const mob = only(state);
 
-    const events = damageMob(state, mob, 1, "bell");
+    const events = damageMob(state, mob, 1, 'bell');
     expect(events).toEqual([
-      { type: "mobDamaged", id: mob.id, amount: 1, source: "bell" },
+      { type: 'mobDamaged', id: mob.id, amount: 1, source: 'bell' },
     ]);
     expect(mob.alive).toBe(true);
   });
 
-  it("reports a fatal blow as mobDamaged then mobKilled, joined by the same id", () => {
+  it('reports a fatal blow as mobDamaged then mobKilled, joined by the same id', () => {
     // The kill's dealer is not on mobKilled; the join to the fatal mobDamaged
     // by id is what names it, so the pair must share the id and the order.
     const state = quietRun();
-    spawnMob(state, "ghoul", order(200, 100));
+    spawnMob(state, 'ghoul', order(200, 100));
     const mob = only(state);
     const id = mob.id;
 
-    const events = damageMob(state, mob, MOB_TYPES.ghoul.hp, "bell");
+    const events = damageMob(state, mob, MOB_TYPES.ghoul.hp, 'bell');
     expect(events[0]).toEqual({
-      type: "mobDamaged",
+      type: 'mobDamaged',
       id,
       amount: MOB_TYPES.ghoul.hp,
-      source: "bell",
+      source: 'bell',
     });
     expect(events[1]).toEqual({
-      type: "mobKilled",
+      type: 'mobKilled',
       id,
-      mob: "ghoul",
+      mob: 'ghoul',
       x: 200,
       y: 100,
     });
   });
 });
 
-describe("the storm meeting a mob (plan 6.7)", () => {
-  it("resolves skulls, then headstones, then wisps, so the same seed kills in the same order", () => {
+describe('the storm meeting a mob (plan 6.7)', () => {
+  it('resolves skulls, then headstones, then wisps, so the same seed kills in the same order', () => {
     // The order is stated rather than incidental: three pools read in one pass,
     // and a different order is a different set of kills on the same seed.
     const state = stormRun();
-    const skulled = putMob(state, "shambler", 100, 100);
+    const skulled = putMob(state, 'shambler', 100, 100);
     const stoned = stoneVictim(state);
-    const wisped = putMob(state, "shambler", 300, 100);
+    const wisped = putMob(state, 'shambler', 300, 100);
     putSkull(state, skulled.x, skulled.y);
     putWisp(state, wisped.x, wisped.y);
 
     const killed = resolveStorm(state)
-      .filter((event) => event.type === "mobKilled")
-      .map((event) => (event.type === "mobKilled" ? event.x : -1));
+      .filter((event) => event.type === 'mobKilled')
+      .map((event) => (event.type === 'mobKilled' ? event.x : -1));
     expect(killed).toEqual([]);
     expect(skulled.hp).toBe(MOB_TYPES.shambler.hp - SKULL_DAMAGE);
     expect(stoned.hp).toBe(MOB_TYPES.shambler.hp - STONE_DAMAGE);
     expect(wisped.hp).toBe(MOB_TYPES.shambler.hp - WISP_DAMAGE);
   });
 
-  it("consumes a skull and a wisp on the mob they hit, and never a stone", () => {
+  it('consumes a skull and a wisp on the mob they hit, and never a stone', () => {
     // A stone is an orbiting solid: it goes inert instead, so it can carry a
     // mob out of the way rather than dying on it.
     const state = stormRun();
-    const skulled = putMob(state, "shambler", 100, 100);
-    const wisped = putMob(state, "shambler", 300, 100);
+    const skulled = putMob(state, 'shambler', 100, 100);
+    const wisped = putMob(state, 'shambler', 300, 100);
     const skull = putSkull(state, skulled.x, skulled.y);
     const wisp = putWisp(state, wisped.x, wisped.y);
     stoneVictim(state);
@@ -667,19 +667,19 @@ describe("the storm meeting a mob (plan 6.7)", () => {
     expect(state.lines.stoneRecharge[0]).toBe(STONE_RECHARGE);
   });
 
-  it("takes every death through damageMob, so a kill leaves a corpse and emits mobKilled with no second path", () => {
+  it('takes every death through damageMob, so a kill leaves a corpse and emits mobKilled with no second path', () => {
     const state = stormRun();
-    const doomed = putMob(state, "shambler", 100, 100);
+    const doomed = putMob(state, 'shambler', 100, 100);
     doomed.hp = 1;
     putSkull(state, doomed.x, doomed.y);
 
     const events = resolveStorm(state);
-    expect(events.map((event) => event.type)).toContain("mobKilled");
+    expect(events.map((event) => event.type)).toContain('mobKilled');
     expect(doomed.alive).toBe(false);
     expect(state.corpses.filter((corpse) => corpse.alive)).toHaveLength(1);
   });
 
-  it("leaves an inert stone doing nothing until it recovers", () => {
+  it('leaves an inert stone doing nothing until it recovers', () => {
     const state = stormRun();
     const victim = stoneVictim(state);
     resolveStorm(state);
@@ -697,8 +697,8 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
    * pass the defect all three gates found.
    */
   for (const wave of [
-    { type: "ghoul" as const, count: 7 },
-    { type: "shambler" as const, count: 22 },
+    { type: 'ghoul' as const, count: 7 },
+    { type: 'shambler' as const, count: 22 },
   ]) {
     it(`leaves survivors from ${wave.count} ${wave.type}s at every line's ceiling`, () => {
       const state = stormRun();
@@ -742,14 +742,14 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
   }
 });
 
-describe("an armed mob that has passed the grave (plan 6.10)", () => {
-  it("does not fire, because a mob shooting upward at the player from behind reads as unfair", () => {
+describe('an armed mob that has passed the grave (plan 6.10)', () => {
+  it('does not fire, because a mob shooting upward at the player from behind reads as unfair', () => {
     // Watched go red with the guard removed. Mobs are culled only past the
     // bottom edge, so without it a mob at y=734 aims back up at a grave at 711.
     const state = stormRun();
     const behind = putMob(
       state,
-      "revenant",
+      'revenant',
       state.grave.x,
       state.grave.y + state.grave.size + MOB_TYPES.revenant.halfHeight + 5,
     );
@@ -757,17 +757,17 @@ describe("an armed mob that has passed the grave (plan 6.10)", () => {
     behind.fireIn = 1;
 
     const events = advanceMobs(state);
-    expect(events.map((event) => event.type)).not.toContain("mobFired");
+    expect(events.map((event) => event.type)).not.toContain('mobFired');
     expect(state.mobFire.filter((shot) => shot.alive)).toHaveLength(0);
   });
 
-  it("still fires while it is level with or above the grave", () => {
+  it('still fires while it is level with or above the grave', () => {
     const state = stormRun();
-    const ahead = putMob(state, "revenant", state.grave.x, state.grave.y - 100);
+    const ahead = putMob(state, 'revenant', state.grave.x, state.grave.y - 100);
     ahead.armed = true;
     ahead.fireIn = 1;
 
     const events = advanceMobs(state);
-    expect(events.map((event) => event.type)).toContain("mobFired");
+    expect(events.map((event) => event.type)).toContain('mobFired');
   });
 });

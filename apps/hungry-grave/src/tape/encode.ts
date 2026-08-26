@@ -18,22 +18,22 @@
  * the whole tape a run's stop writes.
  */
 
-import type { ByteWriter } from "./bytes";
+import type { ByteWriter } from './bytes';
 import {
   createWriter,
   STRING_LENGTH_BYTES,
   writeBytes,
   writtenBytes,
-} from "./bytes";
+} from './bytes';
 import {
   bodySegment,
   headerSegment,
   observationsSegment,
   trailerSegment,
   witnessSegment,
-} from "./segments";
-import type { Tape } from "./tape";
-import type { TickCommand } from "../game/run";
+} from './segments';
+import type { Tape } from './tape';
+import type { TickCommand } from '../game/run';
 
 /** Two float32 of steering and one flag byte, which is what a body row costs. */
 export const COMMAND_BYTES = 9;

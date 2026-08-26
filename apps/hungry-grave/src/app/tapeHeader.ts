@@ -12,13 +12,13 @@
  * be an observation instead.
  */
 
-import { TICK_HZ } from "../game/clock";
-import type { RunState } from "../game/run";
-import { WITNESS_VERSION } from "../game/witness";
-import type { TapeHeader, TapeInputDevice } from "../tape/tape";
-import { RECORDER_CHECKPOINT_SPACING } from "../tape/tape";
-import { engine } from "./getEngine";
-import { userSettings } from "./utils/userSettings";
+import { TICK_HZ } from '../game/clock';
+import type { RunState } from '../game/run';
+import { WITNESS_VERSION } from '../game/witness';
+import type { TapeHeader, TapeInputDevice } from '../tape/tape';
+import { RECORDER_CHECKPOINT_SPACING } from '../tape/tape';
+import { engine } from './getEngine';
+import { userSettings } from './utils/userSettings';
 
 /**
  * What the author field holds until something in the game names an author.
@@ -27,10 +27,10 @@ import { userSettings } from "./utils/userSettings";
  * tapes from more than one pair of hands needs it to already be there, and
  * adding it later would invalidate every tape recorded before.
  */
-export const UNNAMED_AUTHOR = "unknown";
+export const UNNAMED_AUTHOR = 'unknown';
 
 /** Reserved for a resolvable build identity, whose machinery is deliberately not built. */
-const UNRESOLVED_BUILD = "";
+const UNRESOLVED_BUILD = '';
 
 /** The conditions a run was played under, read once before its first tick. */
 export interface RunConditions {
@@ -88,7 +88,7 @@ export function tapeHeaderFor(
  * different section.
  */
 function inputDeviceHere(): TapeInputDevice {
-  return window.matchMedia("(pointer: coarse)").matches ? "touch" : "keyboard";
+  return window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keyboard';
 }
 
 /**

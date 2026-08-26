@@ -1,9 +1,9 @@
-import { Graphics } from "pixi.js";
+import { Graphics } from 'pixi.js';
 
-import type { Grave } from "../../../game/grave";
-import { graveWidth } from "../../../game/grave";
-import { PALETTE } from "../../palette";
-import type { FieldLayers } from "./layering";
+import type { Grave } from '../../../game/grave';
+import { graveWidth } from '../../../game/grave';
+import { PALETTE } from '../../palette';
+import type { FieldLayers } from './layering';
 
 /** The rounded rectangle's corner radius, as a share of the grave's width. */
 const GRAVE_CORNER_RATIO = 0.2;
@@ -112,11 +112,11 @@ export class GraveRenderer {
    * assume it is still attached.
    */
   public attach(layers: FieldLayers): void {
-    layers.layer("graveMouth").addChild(this.mouth);
-    layers.layer("graveRim").addChild(this.rim);
+    layers.layer('graveMouth').addChild(this.mouth);
+    layers.layer('graveRim').addChild(this.rim);
     // Over the rim in the same layer, at the rim's own geometry, so a charged
     // grave reads as the rim itself warming rather than as a second shape.
-    layers.layer("graveRim").addChild(this.glow);
+    layers.layer('graveRim').addChild(this.glow);
   }
 
   public detach(): void {

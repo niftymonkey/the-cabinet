@@ -11,8 +11,8 @@
  * and must never break.
  */
 
-import { TICK_HZ } from "./clock";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
+import { TICK_HZ } from './clock';
+import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 
 /** Base speed in field units per tick. ADR 0003: crossing the field's width takes about two seconds. */
 export const BASE_SPEED = FIELD_WIDTH / (2 * TICK_HZ);

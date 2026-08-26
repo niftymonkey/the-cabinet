@@ -1,11 +1,11 @@
-import { animate } from "motion";
-import { BlurFilter, Container, Sprite, Texture } from "pixi.js";
+import { animate } from 'motion';
+import { BlurFilter, Container, Sprite, Texture } from 'pixi.js';
 
-import { engine } from "../getEngine";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
-import { RoundedBox } from "../ui/RoundedBox";
-import { SettingsPopup } from "./SettingsPopup";
+import { engine } from '../getEngine';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+import { RoundedBox } from '../ui/RoundedBox';
+import { SettingsPopup } from './SettingsPopup';
 
 /**
  * What End Run does, set by the screen that opened the menu. Popups are pooled
@@ -28,8 +28,8 @@ class PauseActions {
 export const pauseActions = new PauseActions();
 
 /** What End Run says before it is armed, and what it says once it is. */
-const END_RUN_LABEL = "End Run";
-const END_RUN_CONFIRM = "Sure?";
+const END_RUN_LABEL = 'End Run';
+const END_RUN_CONFIRM = 'Sure?';
 
 /** Popup that shows up when gameplay is paused */
 export class PausePopup extends Container {
@@ -72,19 +72,19 @@ export class PausePopup extends Container {
     this.panel.addChild(this.panelBase);
 
     this.title = new Label({
-      text: "Paused",
+      text: 'Paused',
       style: { fill: 0xec1561, fontSize: 50 },
     });
     this.title.y = -150;
     this.panel.addChild(this.title);
 
-    this.doneButton = new Button({ text: "Resume", width: 260, height: 80 });
+    this.doneButton = new Button({ text: 'Resume', width: 260, height: 80 });
     this.doneButton.y = -30;
     this.doneButton.onPress.connect(() => this.dismiss());
     this.panel.addChild(this.doneButton);
 
     this.settingsButton = new Button({
-      text: "Settings",
+      text: 'Settings',
       width: 260,
       height: 80,
     });
@@ -171,11 +171,11 @@ export class PausePopup extends Container {
     }
     this.bg.alpha = 0;
     this.panel.pivot.y = -400;
-    animate(this.bg, { alpha: 0.8 }, { duration: 0.2, ease: "linear" });
+    animate(this.bg, { alpha: 0.8 }, { duration: 0.2, ease: 'linear' });
     await animate(
       this.panel.pivot,
       { y: 0 },
-      { duration: 0.3, ease: "backOut" },
+      { duration: 0.3, ease: 'backOut' },
     );
   }
 
@@ -186,11 +186,11 @@ export class PausePopup extends Container {
     if (currentEngine.navigation.currentScreen) {
       currentEngine.navigation.currentScreen.filters = [];
     }
-    animate(this.bg, { alpha: 0 }, { duration: 0.2, ease: "linear" });
+    animate(this.bg, { alpha: 0 }, { duration: 0.2, ease: 'linear' });
     await animate(
       this.panel.pivot,
       { y: -500 },
-      { duration: 0.3, ease: "backIn" },
+      { duration: 0.3, ease: 'backIn' },
     );
   }
 

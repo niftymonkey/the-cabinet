@@ -2,7 +2,7 @@
 // read back, kept by the sim and shown in the HUD's instrument panel.
 
 export type BelchOnWallOutcome =
-  "pending" | "landedOnWall" | "emptySky" | "noBelch";
+  'pending' | 'landedOnWall' | 'emptySky' | 'noBelch';
 
 export interface HitRecord {
   t: number;
@@ -53,7 +53,7 @@ export function createInstruments(): Instruments {
     freshnessSum: 0,
     swallowsWithBellLeveled: 0,
     freshnessSumWithBellLeveled: 0,
-    belchOnWall: "pending",
+    belchOnWall: 'pending',
     belchesInBansheeFight: 0,
     belchesInUndertakerFight: 0,
     chunkEndedMidEmit: 0,

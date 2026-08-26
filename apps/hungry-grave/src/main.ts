@@ -1,18 +1,18 @@
-import { FpsMeter } from "./app/FpsMeter";
-import { setEngine } from "./app/getEngine";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "./game/field";
-import { PALETTE } from "./app/palette";
-import { resolveRoute } from "./app/routes";
-import { LoadScreen } from "./app/screens/LoadScreen";
-import { PrototypesScreen } from "./app/screens/PrototypesScreen";
-import { TitleScreen } from "./app/screens/TitleScreen";
-import { userSettings } from "./app/utils/userSettings";
-import { CreationEngine } from "./engine/engine";
+import { FpsMeter } from './app/FpsMeter';
+import { setEngine } from './app/getEngine';
+import { FIELD_HEIGHT, FIELD_WIDTH } from './game/field';
+import { PALETTE } from './app/palette';
+import { resolveRoute } from './app/routes';
+import { LoadScreen } from './app/screens/LoadScreen';
+import { PrototypesScreen } from './app/screens/PrototypesScreen';
+import { TitleScreen } from './app/screens/TitleScreen';
+import { userSettings } from './app/utils/userSettings';
+import { CreationEngine } from './engine/engine';
 
 /**
  * Importing these modules will automatically register their plugins with the engine.
  */
-import "@pixi/sound";
+import '@pixi/sound';
 
 async function initEngine(): Promise<CreationEngine> {
   const engine = new CreationEngine();
@@ -55,16 +55,16 @@ function attachFpsMeter(engine: CreationEngine): void {
  */
 async function resolveScreen(hash: string) {
   const route = resolveRoute(hash);
-  if (route.kind === "prototype") return await route.entry.load();
-  if (route.kind === "prototype-list") return PrototypesScreen;
-  if (route.kind === "digest") {
-    return (await import("./app/screens/DigestScreen")).DigestScreen;
+  if (route.kind === 'prototype') return await route.entry.load();
+  if (route.kind === 'prototype-list') return PrototypesScreen;
+  if (route.kind === 'digest') {
+    return (await import('./app/screens/DigestScreen')).DigestScreen;
   }
-  if (route.kind === "replay") {
-    return (await import("./app/screens/ReplayScreen")).ReplayScreen;
+  if (route.kind === 'replay') {
+    return (await import('./app/screens/ReplayScreen')).ReplayScreen;
   }
-  if (route.kind === "runs") {
-    return (await import("./app/screens/RunsScreen")).RunsScreen;
+  if (route.kind === 'runs') {
+    return (await import('./app/screens/RunsScreen')).RunsScreen;
   }
   return TitleScreen;
 }
@@ -89,7 +89,7 @@ function startRouter(engine: CreationEngine): Promise<void> {
   const queueRoute = () => {
     pending = pending.then(route).catch((error) => console.error(error));
   };
-  window.addEventListener("hashchange", queueRoute);
+  window.addEventListener('hashchange', queueRoute);
   queueRoute();
   return pending;
 }

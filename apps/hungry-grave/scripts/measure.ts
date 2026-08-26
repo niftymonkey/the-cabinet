@@ -8,15 +8,15 @@
  * is the verification run on a real sealed tape.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync } from 'node:fs';
 
-import { measure } from "../src/dev/measure";
-import { decodeTape } from "../src/tape/decode";
+import { measure } from '../src/dev/measure';
+import { decodeTape } from '../src/tape/decode';
 
 const main = (): void => {
   const path = process.argv[2];
   if (path === undefined) {
-    console.error("usage: pnpm vite-node scripts/measure.ts <tape-file>");
+    console.error('usage: pnpm vite-node scripts/measure.ts <tape-file>');
     process.exitCode = 1;
     return;
   }

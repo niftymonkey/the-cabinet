@@ -1,6 +1,6 @@
 # The Hungry Grave
 
-**You are a grave.** 
+**You are a grave.**
 
 Not a gravedigger, and not a character standing over one. The hole itself: an open grave moving up a Halloween hillside while the dead come down to meet it.
 

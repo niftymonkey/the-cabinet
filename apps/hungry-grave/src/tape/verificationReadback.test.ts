@@ -12,20 +12,20 @@
  * run.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { TICK_HZ } from "../game/clock";
-import { createExecution, executeTick } from "../game/execution";
-import { MAX_LEVEL } from "../game/lines/roster";
-import type { WeaponLine } from "../game/lines/roster";
-import type { RunState, TickCommand } from "../game/run";
-import { createRun, uniformLevels } from "../game/run";
-import { WITNESS_VERSION } from "../game/witness";
-import { decodeTape } from "./decode";
-import { encodeTape } from "./encode";
-import { recordFrame, recordInto, sealTrailer, tapeOf } from "./recorder";
-import type { Tape, TapeHeader } from "./tape";
-import { readBackForVerification } from "./verificationReadback";
+import { TICK_HZ } from '../game/clock';
+import { createExecution, executeTick } from '../game/execution';
+import { MAX_LEVEL } from '../game/lines/roster';
+import type { WeaponLine } from '../game/lines/roster';
+import type { RunState, TickCommand } from '../game/run';
+import { createRun, uniformLevels } from '../game/run';
+import { WITNESS_VERSION } from '../game/witness';
+import { decodeTape } from './decode';
+import { encodeTape } from './encode';
+import { recordFrame, recordInto, sealTrailer, tapeOf } from './recorder';
+import type { Tape, TapeHeader } from './tape';
+import { readBackForVerification } from './verificationReadback';
 
 const SEED = 20260823;
 const SPACING = 20;
@@ -39,12 +39,12 @@ function header(run: RunState): TapeHeader {
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
-    commitHash: "f389eb55ff",
-    buildIdentity: "",
-    author: "unknown",
-    inputDevice: "script",
+    commitHash: 'f389eb55ff',
+    buildIdentity: '',
+    author: 'unknown',
+    inputDevice: 'script',
     keyboardSpeed: 1,
-    rendererBackend: "webgl",
+    rendererBackend: 'webgl',
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
@@ -70,7 +70,7 @@ function recordARun(
   for (let tick = 0; tick < ticks; tick++) {
     executeTick(execution, steer(tick));
     recordFrame(recorder, {
-      reason: "live",
+      reason: 'live',
       tickIndex: tick,
       ticksExecuted: 1,
       intervalMs: 16.7,
@@ -83,25 +83,25 @@ function recordARun(
   return tapeOf(recorder);
 }
 
-describe("verification readback", () => {
-  it("reproduces the run a tape holds and agrees with every checkpoint", () => {
+describe('verification readback', () => {
+  it('reproduces the run a tape holds and agrees with every checkpoint', () => {
     const result = readBackForVerification(recordARun());
 
-    expect(result.outcome).toBe("verified");
+    expect(result.outcome).toBe('verified');
     expect(result.firstDivergentCheckpoint).toBeNull();
     expect(result.ticksReproduced).toBe(TICKS);
     expect(result.checkpointsVerified).toBe(5);
     expect(result.checkpointsUnreachable).toBe(0);
   });
 
-  it("survives the bytes, so the artifact is what was verified and not the record in memory", () => {
+  it('survives the bytes, so the artifact is what was verified and not the record in memory', () => {
     const { tape, truncated } = decodeTape(encodeTape(recordARun()));
 
     expect(truncated).toBe(false);
-    expect(readBackForVerification(tape).outcome).toBe("verified");
+    expect(readBackForVerification(tape).outcome).toBe('verified');
   });
 
-  it("gives the same run twice from one tape", () => {
+  it('gives the same run twice from one tape', () => {
     // ADR 0015 already records that this is structurally blind to the engine,
     // so it is a regression test and never the cross-device claim.
     const tape = recordARun();
@@ -113,7 +113,7 @@ describe("verification readback", () => {
     expect(second.finalWitness).toBe(first.finalWitness);
   });
 
-  it("names the first checkpoint that disagrees, and stops there", () => {
+  it('names the first checkpoint that disagrees, and stops there', () => {
     // ADR 0019: each checkpoint is an independent snapshot rather than a link
     // in a chain, which is what lets the first failing one be named at all.
     const sound = recordARun();
@@ -125,7 +125,7 @@ describe("verification readback", () => {
 
     const result = readBackForVerification({ ...sound, checkpoints: bent });
 
-    expect(result.outcome).toBe("diverged");
+    expect(result.outcome).toBe('diverged');
     expect(result.firstDivergentCheckpoint).toBe(40);
     expect(result.checkpointsVerified).toBe(2);
     expect(result.ticksReproduced).toBe(40);
@@ -144,11 +144,11 @@ describe("verification readback", () => {
       header: { ...tape.header, startingSize: tape.header.startingSize + 1 },
     });
 
-    expect(result.outcome).toBe("diverged");
+    expect(result.outcome).toBe('diverged');
     expect(result.firstDivergentCheckpoint).toBe(0);
   });
 
-  it("verifies a run recorded under pinned levels, rebuilt from the header alone", () => {
+  it('verifies a run recorded under pinned levels, rebuilt from the header alone', () => {
     // The header records the resolved starting levels for every run (ruled by
     // Mark 2026-08-24) so a ?levels= run's tape verifies instead of diverging
     // at checkpoint zero: the witness folds run.levels, and a readback seeded
@@ -159,7 +159,7 @@ describe("verification readback", () => {
 
     expect(pinned.header.startingLevels).toEqual(uniformLevels(MAX_LEVEL));
     const result = readBackForVerification(pinned);
-    expect(result.outcome).toBe("verified");
+    expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(TICKS);
   });
 
@@ -176,7 +176,7 @@ describe("verification readback", () => {
       },
     });
 
-    expect(result.outcome).toBe("diverged");
+    expect(result.outcome).toBe('diverged');
     expect(result.firstDivergentCheckpoint).toBe(0);
   });
 
@@ -195,12 +195,12 @@ describe("verification readback", () => {
       header: { ...tape.header, seed: tape.header.seed + 1 },
     });
 
-    expect(result.outcome).toBe("diverged");
+    expect(result.outcome).toBe('diverged');
     expect(result.firstDivergentCheckpoint).not.toBeNull();
     expect(result.ticksReproduced).toBeLessThan(1000);
   });
 
-  it("says a tape was recorded against a different fold, and never that it diverged", () => {
+  it('says a tape was recorded against a different fold, and never that it diverged', () => {
     // ADR 0019: the fold demonstrably widens, so without this every tape
     // recorded before a widening would read as a run that did not happen.
     const tape = recordARun();
@@ -210,7 +210,7 @@ describe("verification readback", () => {
       header: { ...tape.header, witnessVersion: WITNESS_VERSION + 1 },
     });
 
-    expect(result.outcome).toBe("witnessVersionMismatch");
+    expect(result.outcome).toBe('witnessVersionMismatch');
     expect(result.firstDivergentCheckpoint).toBeNull();
     expect(result.ticksReproduced).toBe(0);
     expect(result.tapeWitnessVersion).toBe(WITNESS_VERSION + 1);
@@ -234,11 +234,11 @@ describe("verification readback", () => {
     expect(recorder.checkpoints.map((point) => point.index)).toEqual([
       0, 7, 14, 21, 28,
     ]);
-    expect(result.outcome).toBe("verified");
+    expect(result.outcome).toBe('verified');
     expect(result.checkpointsVerified).toBe(5);
   });
 
-  it("verifies a cut tape as far as it goes, and says how far that was", () => {
+  it('verifies a cut tape as far as it goes, and says how far that was', () => {
     const whole = recordARun();
     const cut: Tape = {
       ...whole,
@@ -248,13 +248,13 @@ describe("verification readback", () => {
 
     const result = readBackForVerification(cut);
 
-    expect(result.outcome).toBe("verified");
+    expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(45);
     expect(result.checkpointsVerified).toBe(3);
     expect(result.checkpointsUnreachable).toBe(2);
   });
 
-  it("keeps the observations outside the witness, so a tape verifies whatever they say", () => {
+  it('keeps the observations outside the witness, so a tape verifies whatever they say', () => {
     // ADR 0018: a tape recorded on a phone must not refuse itself when it is
     // read back on a desktop, which is why the wall-clock section sits outside
     // the fold entirely.
@@ -263,19 +263,19 @@ describe("verification readback", () => {
     const withOtherTimings = readBackForVerification({
       ...tape,
       observations: tape.observations.map((observation) =>
-        observation.kind === "frame"
+        observation.kind === 'frame'
           ? { ...observation, updateMs: 99, intervalMs: 250 }
           : observation,
       ),
     });
 
-    expect(withOtherTimings.outcome).toBe("verified");
+    expect(withOtherTimings.outcome).toBe('verified');
     expect(withOtherTimings.finalWitness).toBe(
       readBackForVerification(tape).finalWitness,
     );
   });
 
-  it("reproduces every tick of a tape that carries ticks after its ending", () => {
+  it('reproduces every tick of a tape that carries ticks after its ending', () => {
     // The frame loop stops on run.ending now (#52), but a sealed
     // FORMAT_VERSION 1 tape recorded before that guard can carry ticks after
     // the ending, and a readback obliged to reproduce a tape in full must keep
@@ -288,7 +288,7 @@ describe("verification readback", () => {
     for (let tick = 0; tick < 6000 && run.ending === null; tick++) {
       executeTick(execution, steer(tick));
     }
-    expect(run.ending).toBe("sealed");
+    expect(run.ending).toBe('sealed');
     const endedAt = run.tick;
     for (let extra = 0; extra < 30; extra++) {
       executeTick(execution, steer(endedAt + extra));
@@ -297,7 +297,7 @@ describe("verification readback", () => {
     expect(tape.commands.length).toBe(endedAt + 30);
 
     const result = readBackForVerification(tape);
-    expect(result.outcome).toBe("verified");
+    expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(tape.commands.length);
     expect(result.checkpointsUnreachable).toBe(0);
   });
@@ -312,11 +312,11 @@ describe("verification readback", () => {
       observations: [
         ...tape.observations,
         {
-          kind: "fault",
-          identity: "reservoir in range",
-          severity: "recoverable",
+          kind: 'fault',
+          identity: 'reservoir in range',
+          severity: 'recoverable',
           firstTick: 12,
-          detail: "reservoir is 1.4",
+          detail: 'reservoir is 1.4',
           count: 3,
         },
       ],
@@ -326,11 +326,11 @@ describe("verification readback", () => {
 
     expect(result.recordedFaults).toEqual([
       {
-        kind: "fault",
-        identity: "reservoir in range",
-        severity: "recoverable",
+        kind: 'fault',
+        identity: 'reservoir in range',
+        severity: 'recoverable',
         firstTick: 12,
-        detail: "reservoir is 1.4",
+        detail: 'reservoir is 1.4',
         count: 3,
       },
     ]);

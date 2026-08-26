@@ -6,9 +6,9 @@
  * a later edit. An allowlist closes that case by induction.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 const SRC = resolve(import.meta.dirname);
 
@@ -40,10 +40,10 @@ const BOUNDARIES: Boundary[] = [
   // Shipped code under src/game still reaches only src/game, and that is why
   // the ADR 0013 invariant harness moved into src/game: advance() calls it
   // inside its own tick loop, and advance() is shipped.
-  { root: "game", mayReach: ["game"], mayReachInTests: ["dev"], mayImport: [] },
+  { root: 'game', mayReach: ['game'], mayReachInTests: ['dev'], mayImport: [] },
   {
-    root: "input",
-    mayReach: ["input", "game"],
+    root: 'input',
+    mayReach: ['input', 'game'],
     mayReachInTests: [],
     mayImport: [],
   },
@@ -55,8 +55,8 @@ const BOUNDARIES: Boundary[] = [
   // row below still reaches only tape and game, so the rig cannot become
   // load-bearing in a shipped recording.
   {
-    root: "dev",
-    mayReach: ["dev", "game", "tape"],
+    root: 'dev',
+    mayReach: ['dev', 'game', 'tape'],
     mayReachInTests: [],
     mayImport: [],
   },
@@ -77,8 +77,8 @@ const BOUNDARIES: Boundary[] = [
    * headless test run a tape.
    */
   {
-    root: "tape",
-    mayReach: ["tape", "game"],
+    root: 'tape',
+    mayReach: ['tape', 'game'],
     mayReachInTests: [],
     mayImport: [],
   },
@@ -93,22 +93,22 @@ const BOUNDARIES: Boundary[] = [
    * game would red-light on its own first commit.
    */
   {
-    root: "app",
-    only: ["sound.ts"],
-    mayReach: ["app/getEngine", "game/events", "engine/audio/audio"],
+    root: 'app',
+    only: ['sound.ts'],
+    mayReach: ['app/getEngine', 'game/events', 'engine/audio/audio'],
     mayReachInTests: [],
-    mayImport: ["@pixi/sound"],
+    mayImport: ['@pixi/sound'],
   },
 ];
 
 // Packages any test file may import, whatever side of a boundary it is on.
-const TEST_PACKAGES = ["vitest"];
+const TEST_PACKAGES = ['vitest'];
 
 function typescriptFilesUnder(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) return typescriptFilesUnder(path);
-    return name.endsWith(".ts") ? [path] : [];
+    return name.endsWith('.ts') ? [path] : [];
   });
 }
 
@@ -128,7 +128,7 @@ function importsOf(source: string): string[] {
  */
 function pathReachedBy(file: string, specifier: string): string {
   const target = resolve(dirname(file), specifier);
-  return relative(SRC, target).split(/[/\\]/).join("/").replace(/\.ts$/, "");
+  return relative(SRC, target).split(/[/\\]/).join('/').replace(/\.ts$/, '');
 }
 
 /**
@@ -141,7 +141,7 @@ function covers(allowed: string, path: string): boolean {
 }
 
 function isTest(file: string): boolean {
-  return file.endsWith(".test.ts");
+  return file.endsWith('.test.ts');
 }
 
 function packagesAllowedIn(file: string, boundary: Boundary): string[] {
@@ -167,7 +167,7 @@ function violationsInSource(
 ): string[] {
   const where = relative(SRC, file);
   return importsOf(source).flatMap((specifier) => {
-    const allowed = specifier.startsWith(".")
+    const allowed = specifier.startsWith('.')
       ? foldersAllowedIn(file, boundary).some((entry) =>
           covers(entry, pathReachedBy(file, specifier)),
         )
@@ -177,7 +177,7 @@ function violationsInSource(
 }
 
 function violationsIn(file: string, boundary: Boundary): string[] {
-  return violationsInSource(file, readFileSync(file, "utf8"), boundary);
+  return violationsInSource(file, readFileSync(file, 'utf8'), boundary);
 }
 
 /** The files a boundary governs: its whole folder, or only the ones it names. */
@@ -186,16 +186,16 @@ function filesGovernedBy(root: string, boundary: Boundary): string[] {
   return boundary.only.map((name) => join(root, name));
 }
 
-describe("the rendering-import boundary", () => {
+describe('the rendering-import boundary', () => {
   for (const boundary of BOUNDARIES) {
     const root = join(SRC, boundary.root);
     const reach = boundary.mayReach
       .map((folder) => `src/${folder}`)
-      .join(" and ");
+      .join(' and ');
     const governed = boundary.only
       ? boundary.only
           .map((name) => `src/${boundary.root}/${name}`)
-          .join(" and ")
+          .join(' and ')
       : `src/${boundary.root}`;
     const title = `${governed} imports only from ${reach}`;
 
@@ -212,66 +212,66 @@ describe("the rendering-import boundary", () => {
     });
   }
 
-  it("the only field governs one file rather than a whole folder", () => {
+  it('the only field governs one file rather than a whole folder', () => {
     // Asserted the way the mayReachInTests case is: a hand-written source
     // string for both the allowed and the forbidden import, with no file
     // behind either.
     const sound = BOUNDARIES.find((boundary) => boundary.only !== undefined)!;
-    expect(sound.only).toEqual(["sound.ts"]);
+    expect(sound.only).toEqual(['sound.ts']);
 
     const allowed = violationsInSource(
-      join(SRC, "app", "sound.ts"),
+      join(SRC, 'app', 'sound.ts'),
       'import type { SimEvent } from "../game/events";',
       sound,
     );
     expect(allowed).toEqual([]);
 
     const forbidden = violationsInSource(
-      join(SRC, "app", "sound.ts"),
+      join(SRC, 'app', 'sound.ts'),
       'import { damageMob } from "../game/mobs";',
       sound,
     );
     expect(forbidden).toHaveLength(1);
-    expect(forbidden[0]).toContain("../game/mobs");
+    expect(forbidden[0]).toContain('../game/mobs');
   });
 
-  it("narrows the target too, so reaching game/events does not open the whole sim", () => {
+  it('narrows the target too, so reaching game/events does not open the whole sim', () => {
     // Without the path-level match, mayReach: ["game/events"] would resolve to
     // the top-level folder "game" and permit every module in it, which is the
     // exact thing the sound rule exists to forbid. This is the assertion that
     // makes the rule a rule.
     const sound = BOUNDARIES.find((boundary) => boundary.only !== undefined)!;
-    const file = join(SRC, "app", "sound.ts");
-    expect(pathReachedBy(file, "../game/events")).toBe("game/events");
-    expect(pathReachedBy(file, "../game/mobs")).toBe("game/mobs");
-    expect(covers("game/events", "game/mobs")).toBe(false);
-    expect(sound.mayReach.some((entry) => covers(entry, "game/mobs"))).toBe(
+    const file = join(SRC, 'app', 'sound.ts');
+    expect(pathReachedBy(file, '../game/events')).toBe('game/events');
+    expect(pathReachedBy(file, '../game/mobs')).toBe('game/mobs');
+    expect(covers('game/events', 'game/mobs')).toBe(false);
+    expect(sound.mayReach.some((entry) => covers(entry, 'game/mobs'))).toBe(
       false,
     );
   });
 
-  it("keeps the existing folder-level entries matching, so game still reaches game/mobs", () => {
-    const game = BOUNDARIES.find((boundary) => boundary.root === "game")!;
-    expect(game.mayReach).toEqual(["game"]);
-    expect(covers("game", "game/mobs")).toBe(true);
-    expect(covers("game", "game/lines/soulStream")).toBe(true);
-    expect(covers("game", "gamepad/thing")).toBe(false);
+  it('keeps the existing folder-level entries matching, so game still reaches game/mobs', () => {
+    const game = BOUNDARIES.find((boundary) => boundary.root === 'game')!;
+    expect(game.mayReach).toEqual(['game']);
+    expect(covers('game', 'game/mobs')).toBe(true);
+    expect(covers('game', 'game/lines/soulStream')).toBe(true);
+    expect(covers('game', 'gamepad/thing')).toBe(false);
   });
 
-  it("the src/dev allowance under src/game is for test files alone", () => {
-    const game = BOUNDARIES.find((boundary) => boundary.root === "game")!;
+  it('the src/dev allowance under src/game is for test files alone', () => {
+    const game = BOUNDARIES.find((boundary) => boundary.root === 'game')!;
     const source = 'import { GOLDEN } from "../dev/digest";';
 
     const shipped = violationsInSource(
-      join(SRC, "game", "sim.ts"),
+      join(SRC, 'game', 'sim.ts'),
       source,
       game,
     );
     expect(shipped).toHaveLength(1);
-    expect(shipped[0]).toContain("../dev/digest");
+    expect(shipped[0]).toContain('../dev/digest');
 
     const test = violationsInSource(
-      join(SRC, "game", "sim.test.ts"),
+      join(SRC, 'game', 'sim.test.ts'),
       source,
       game,
     );

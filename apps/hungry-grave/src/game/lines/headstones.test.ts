@@ -4,14 +4,14 @@
  * 0005 and dispatch 5's plan section 6.4.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { graveHitbox, graveWidth } from "../grave";
-import { atan2 } from "../math";
-import type { RunState } from "../run";
-import { createRun } from "../run";
-import { RAMP_ROWS } from "../stage/stage";
-import { SIZE_CEILING, SIZE_FLOOR } from "../tuning";
+import { graveHitbox, graveWidth } from '../grave';
+import { atan2 } from '../math';
+import type { RunState } from '../run';
+import { createRun } from '../run';
+import { RAMP_ROWS } from '../stage/stage';
+import { SIZE_CEILING, SIZE_FLOOR } from '../tuning';
 import {
   advanceHeadstones,
   headstoneAt,
@@ -22,8 +22,8 @@ import {
   STONE_STANDOFF,
   stoneCount,
   STONES_BY_LEVEL,
-} from "./headstones";
-import { MAX_LEVEL } from "./roster";
+} from './headstones';
+import { MAX_LEVEL } from './roster';
 
 function quietRun(seed = 6): RunState {
   const run = createRun(seed);
@@ -57,8 +57,8 @@ function turned(from: number, to: number): number {
   return delta;
 }
 
-describe("the stone count per level (plan 6.4)", () => {
-  it("is the declared table, from one at level 1 to six at level 5", () => {
+describe('the stone count per level (plan 6.4)', () => {
+  it('is the declared table, from one at level 1 to six at level 5', () => {
     expect(STONES_BY_LEVEL).toEqual([0, 1, 2, 3, 4, 6]);
     for (let level = 0; level <= MAX_LEVEL; level++) {
       const state = quietRun();
@@ -70,7 +70,7 @@ describe("the stone count per level (plan 6.4)", () => {
     }
   });
 
-  it("splits levels 4 and 5 across two rings, the first holding no more than RING_CAPACITY", () => {
+  it('splits levels 4 and 5 across two rings, the first holding no more than RING_CAPACITY', () => {
     // The concept doc's endpoints are one slow stone and six in two rings, so
     // the first ring fills to three and a second opens at level 4.
     for (const level of [4, MAX_LEVEL]) {
@@ -84,7 +84,7 @@ describe("the stone count per level (plan 6.4)", () => {
     }
   });
 
-  it("keeps a level below 4 on one ring alone", () => {
+  it('keeps a level below 4 on one ring alone', () => {
     for (const level of [1, 2, 3]) {
       const state = quietRun();
       state.levels.headstones = level;
@@ -93,8 +93,8 @@ describe("the stone count per level (plan 6.4)", () => {
   });
 });
 
-describe("the two rings counter-rotate (ADR 0005)", () => {
-  it("carries the second ring the opposite way round from the first", () => {
+describe('the two rings counter-rotate (ADR 0005)', () => {
+  it('carries the second ring the opposite way round from the first', () => {
     const state = quietRun();
     state.levels.headstones = MAX_LEVEL;
     const before = stonesOf(state).map((at) => bearing(state, at));
@@ -109,7 +109,7 @@ describe("the two rings counter-rotate (ADR 0005)", () => {
   });
 });
 
-describe("the orbit clears the grave (plan 6.4)", () => {
+describe('the orbit clears the grave (plan 6.4)', () => {
   it("clears the grave's own hitbox on both axes, at the size floor and at the size ceiling", () => {
     // The elliptical orbit is what makes this true on the second axis. The
     // radii are the grave's own half-extents pushed out by a fixed margin, so
@@ -134,7 +134,7 @@ describe("the orbit clears the grave (plan 6.4)", () => {
     }
   });
 
-  it("would pass straight through the grave vertically on a circular orbit, which is why it is elliptical", () => {
+  it('would pass straight through the grave vertically on a circular orbit, which is why it is elliptical', () => {
     // The defect the ellipse exists to answer, stated as arithmetic rather than
     // as intent: a circle sized to clear the rim across sits well inside the
     // grave's own height at the size ceiling, so a stone on it would spend half
@@ -163,7 +163,7 @@ describe("the orbit clears the grave (plan 6.4)", () => {
 });
 
 describe("the orbit's clock (plan 6.4)", () => {
-  it("comes back to where it started after exactly ORBIT_TICKS", () => {
+  it('comes back to where it started after exactly ORBIT_TICKS', () => {
     const state = quietRun();
     state.levels.headstones = 1;
     const [start] = stonesOf(state);
@@ -173,7 +173,7 @@ describe("the orbit's clock (plan 6.4)", () => {
     expect(end.y).toBeCloseTo(start.y, 4);
   });
 
-  it("wraps the phase into zero to two pi rather than growing without bound", () => {
+  it('wraps the phase into zero to two pi rather than growing without bound', () => {
     // A phase that grew all run would lose precision in a long one, and the
     // orbit is on the digest's path every tick of every run.
     const state = quietRun();
@@ -186,8 +186,8 @@ describe("the orbit's clock (plan 6.4)", () => {
   });
 });
 
-describe("a stone that hits (plan 6.4)", () => {
-  it("goes inert for STONE_RECHARGE and recovers, without the mob carrying any cooldown", () => {
+describe('a stone that hits (plan 6.4)', () => {
+  it('goes inert for STONE_RECHARGE and recovers, without the mob carrying any cooldown', () => {
     const state = quietRun();
     state.levels.headstones = 1;
     state.lines.stoneRecharge[0] = STONE_RECHARGE;
@@ -199,7 +199,7 @@ describe("a stone that hits (plan 6.4)", () => {
     expect(state.lines.stoneRecharge[0]).toBe(0);
   });
 
-  it("keeps drawing while inert, because a spent defense the player cannot see is a lie", () => {
+  it('keeps drawing while inert, because a spent defense the player cannot see is a lie', () => {
     const state = quietRun();
     state.levels.headstones = 1;
     state.lines.stoneRecharge[0] = STONE_RECHARGE;
@@ -207,7 +207,7 @@ describe("a stone that hits (plan 6.4)", () => {
     expect(headstoneAt(state, 0)).not.toBeNull();
   });
 
-  it("never lets a recharge fall below zero", () => {
+  it('never lets a recharge fall below zero', () => {
     const state = quietRun();
     state.levels.headstones = MAX_LEVEL;
     for (let tick = 0; tick < 10; tick++) advanceHeadstones(state);

@@ -1,75 +1,75 @@
-import type { FederatedPointerEvent, Ticker } from "pixi.js";
-import { BlurFilter, Container, Graphics, Rectangle } from "pixi.js";
+import type { FederatedPointerEvent, Ticker } from 'pixi.js';
+import { BlurFilter, Container, Graphics, Rectangle } from 'pixi.js';
 
-import type { CommandSource } from "../../../game/advance";
-import { advance } from "../../../game/advance";
-import type { Clock } from "../../../game/clock";
-import { createClock } from "../../../game/clock";
-import type { Execution, FaultRecord } from "../../../game/execution";
-import { createExecution, devBrokenHandler } from "../../../game/execution";
-import type { FaultIdentity } from "../../../game/invariants";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
-import type { SimEvent } from "../../../game/events";
-import type { WeaponLine } from "../../../game/lines/roster";
-import { WEAPON_LINES } from "../../../game/lines/roster";
-import type { RunState } from "../../../game/run";
+import type { CommandSource } from '../../../game/advance';
+import { advance } from '../../../game/advance';
+import type { Clock } from '../../../game/clock';
+import { createClock } from '../../../game/clock';
+import type { Execution, FaultRecord } from '../../../game/execution';
+import { createExecution, devBrokenHandler } from '../../../game/execution';
+import type { FaultIdentity } from '../../../game/invariants';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import type { SimEvent } from '../../../game/events';
+import type { WeaponLine } from '../../../game/lines/roster';
+import { WEAPON_LINES } from '../../../game/lines/roster';
+import type { RunState } from '../../../game/run';
 import {
   createRun,
   isBirthrightLevels,
   uniformLevels,
-} from "../../../game/run";
-import { RESERVOIR_CAPACITY } from "../../../game/tuning";
-import { encodeTape } from "../../../tape/encode";
-import type { TapeRecorder } from "../../../tape/recorder";
+} from '../../../game/run';
+import { RESERVOIR_CAPACITY } from '../../../game/tuning';
+import { encodeTape } from '../../../tape/encode';
+import type { TapeRecorder } from '../../../tape/recorder';
 import {
   recordFrame,
   recordInto,
   sealTrailer,
   tapeOf,
-} from "../../../tape/recorder";
-import type { FrameReason } from "../../../tape/tape";
-import { KeySteer } from "../../../input/keys";
-import { combineSteer } from "../../../input/steering";
-import { TouchSteer } from "../../../input/touch";
-import { meterLinePosition, METER_FONT_SIZE } from "../../FpsMeter";
-import { engine } from "../../getEngine";
-import type { FieldPlacement } from "../../layout";
+} from '../../../tape/recorder';
+import type { FrameReason } from '../../../tape/tape';
+import { KeySteer } from '../../../input/keys';
+import { combineSteer } from '../../../input/steering';
+import { TouchSteer } from '../../../input/touch';
+import { meterLinePosition, METER_FONT_SIZE } from '../../FpsMeter';
+import { engine } from '../../getEngine';
+import type { FieldPlacement } from '../../layout';
 import {
   BOUNDARY_STROKE,
   DEGENERATE_PLACEMENT,
   fitField,
   READOUT_RESERVE,
   screenToField,
-} from "../../layout";
-import { PALETTE } from "../../palette";
-import { pauseActions, PausePopup } from "../../popups/PausePopup";
-import { SettingsPopup } from "../../popups/SettingsPopup";
-import { runHandoff, summarizeRun } from "../../runHandoff";
-import { playFor } from "../../sound";
-import type { StoreRecording } from "../../storeRecording";
-import { recordRunToStore } from "../../storeRecording";
-import type { TapeStore } from "../../tapeStore";
-import { openTapeStore } from "../../tapeStore";
-import { runConditionsHere, tapeHeaderFor } from "../../tapeHeader";
-import { levelsFromUrl, seedFromUrl, sizeFromUrl } from "../../seedFromUrl";
-import { Button } from "../../ui/Button";
-import { Label } from "../../ui/Label";
-import { bindKeyPress } from "../../utils/bindKeyPress";
-import { userSettings } from "../../utils/userSettings";
-import { EndScreen } from "../EndScreen";
-import { BELCH_SIZE, BelchButton } from "./BelchButton";
-import { FieldRenderer } from "./FieldRenderer";
-import { GraveRenderer } from "./GraveRenderer";
-import { FieldLayers } from "./layering";
-import { StormRenderer } from "./StormRenderer";
+} from '../../layout';
+import { PALETTE } from '../../palette';
+import { pauseActions, PausePopup } from '../../popups/PausePopup';
+import { SettingsPopup } from '../../popups/SettingsPopup';
+import { runHandoff, summarizeRun } from '../../runHandoff';
+import { playFor } from '../../sound';
+import type { StoreRecording } from '../../storeRecording';
+import { recordRunToStore } from '../../storeRecording';
+import type { TapeStore } from '../../tapeStore';
+import { openTapeStore } from '../../tapeStore';
+import { runConditionsHere, tapeHeaderFor } from '../../tapeHeader';
+import { levelsFromUrl, seedFromUrl, sizeFromUrl } from '../../seedFromUrl';
+import { Button } from '../../ui/Button';
+import { Label } from '../../ui/Label';
+import { bindKeyPress } from '../../utils/bindKeyPress';
+import { userSettings } from '../../utils/userSettings';
+import { EndScreen } from '../EndScreen';
+import { BELCH_SIZE, BelchButton } from './BelchButton';
+import { FieldRenderer } from './FieldRenderer';
+import { GraveRenderer } from './GraveRenderer';
+import { FieldLayers } from './layering';
+import { StormRenderer } from './StormRenderer';
 
 /** The codes the page would otherwise scroll on. Space joins them so the page cannot scroll under a belch. */
 const SCROLL_CODES = [
-  "ArrowUp",
-  "ArrowDown",
-  "ArrowLeft",
-  "ArrowRight",
-  "Space",
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Space',
 ];
 
 /**
@@ -79,10 +79,10 @@ const SCROLL_CODES = [
  * bind it to, Shift is already focus, and WASD and the arrows are steering. KeyX
  * rides alongside it for the Touhou muscle memory, where X is the bomb.
  */
-const BELCH_CODES = ["Space", "KeyX"];
+const BELCH_CODES = ['Space', 'KeyX'];
 
 /** The pointer kinds TouchSteer is reasoned about in. A mouse steers with the keyboard by design. */
-const STEERING_POINTERS = ["touch", "pen"];
+const STEERING_POINTERS = ['touch', 'pen'];
 
 /**
  * How far a finger must travel to be the steering pointer, in stage units. It
@@ -128,7 +128,7 @@ const COUNTDOWN_BLUR_STRENGTH = 5;
  * rule already settles the principle that the channel a player is being asked
  * to re-read is never occluded.
  */
-const BLURRED_LAYERS = ["mobBodies", "mobFire", "corpses", "treasure"] as const;
+const BLURRED_LAYERS = ['mobBodies', 'mobFire', 'corpses', 'treasure'] as const;
 
 /**
  * One BlurFilter for the whole app, built on first use and then reused.
@@ -204,7 +204,7 @@ function fieldClip(): Graphics {
 function stackLine(index: number): Label {
   const label = new Label({
     style: {
-      fontFamily: "monospace",
+      fontFamily: 'monospace',
       fill: PALETTE.hudDim.hex,
       fontSize: METER_FONT_SIZE,
     },
@@ -244,7 +244,7 @@ const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
 export const FAULT_LINE_MAX_CHARS = 25;
 
 /** The fault line's prefix, counted inside FAULT_LINE_MAX_CHARS. */
-const FAULT_PREFIX = "FAULT ";
+const FAULT_PREFIX = 'FAULT ';
 
 /**
  * A fault's identity, cut to the line's budget where it must be.
@@ -270,7 +270,7 @@ function shortIdentity(identity: FaultIdentity): string {
  * terminates or pauses anything, in any build.
  */
 export function faultReadout(faults: readonly FaultRecord[]): string {
-  if (faults.length === 0) return "";
+  if (faults.length === 0) return '';
   if (faults.length === 1) {
     return `${FAULT_PREFIX}${shortIdentity(faults[0].identity)}`;
   }
@@ -287,7 +287,7 @@ export function levelsReadout(
   const values = WEAPON_LINES.map((line) => levels[line]);
   return values.every((value) => value === values[0])
     ? `${values[0]}`
-    : values.join("/");
+    : values.join('/');
 }
 
 /**
@@ -297,7 +297,7 @@ export function levelsReadout(
  */
 export class GameScreen extends Container {
   // Assets bundles required by this screen
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   /**
    * The field, carrying exactly the placement fitField returns and nothing
@@ -489,7 +489,7 @@ export class GameScreen extends Container {
     this.faultLabel = stackLine(6);
     this.countdownLabel = new Label({
       style: {
-        fontFamily: "monospace",
+        fontFamily: 'monospace',
         fill: PALETTE.hudInk.hex,
         fontSize: 72,
       },
@@ -497,7 +497,7 @@ export class GameScreen extends Container {
     this.countdownLabel.visible = false;
 
     this.pauseButton = new Button({
-      text: "PAUSE",
+      text: 'PAUSE',
       width: PAUSE_WIDTH,
       height: PAUSE_HEIGHT,
       fontSize: 18,
@@ -524,16 +524,16 @@ export class GameScreen extends Container {
     // screens are pooled, so a .on added in prepare without a matching .off
     // gives the second run two handlers and the third three, and the lifecycle
     // test counts only window handlers and cannot see it.
-    this.eventMode = "static";
-    this.on("pointerdown", this.onPointerDown, this);
-    this.on("globalpointermove", this.onPointerMove, this);
-    this.on("pointerup", this.onPointerUp, this);
-    this.on("pointerupoutside", this.onPointerUp, this);
+    this.eventMode = 'static';
+    this.on('pointerdown', this.onPointerDown, this);
+    this.on('globalpointermove', this.onPointerMove, this);
+    this.on('pointerup', this.onPointerUp, this);
+    this.on('pointerupoutside', this.onPointerUp, this);
   }
 
   /** The field's own furniture, put back after any clear() (see reset). */
   private dressField(): void {
-    this.layers.layer("fieldBoundary").addChild(this.frame);
+    this.layers.layer('fieldBoundary').addChild(this.frame);
     this.fieldRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
@@ -555,7 +555,7 @@ export class GameScreen extends Container {
     this.shownDebt = null;
     this.shownTick = null;
     this.shownFaults = 0;
-    this.faultLabel.text = "";
+    this.faultLabel.text = '';
     // A pooled screen must not inherit the previous run's held keys, drag
     // anchor or blur.
     this.keys.releaseAll();
@@ -591,7 +591,7 @@ export class GameScreen extends Container {
     this.syncReadouts();
 
     pauseActions.setEndRun(() => this.endRun());
-    this.releaseKeys = bindKeyPress("Escape", () => this.togglePause());
+    this.releaseKeys = bindKeyPress('Escape', () => this.togglePause());
     this.releaseListeners = this.listen();
   }
 
@@ -620,13 +620,13 @@ export class GameScreen extends Container {
 
     this.seedLabel.text =
       seed === null ? `SEED ${run.seed}` : `SEED ${run.seed} PINNED`;
-    this.sizeLabel.text = size === null ? "" : `SIZE ${run.grave.size} PINNED`;
+    this.sizeLabel.text = size === null ? '' : `SIZE ${run.grave.size} PINNED`;
     // The resolved start levels and never the parameter (Mark's ruling): what
     // the run was actually born with, read before any tick can level it up.
     // Gated on differing from the birthright rather than on the parameter's
     // presence, which is what keeps ordinary runs untouched.
     this.levelsLabel.text = isBirthrightLevels(run.levels)
-      ? ""
+      ? ''
       : `LEVELS ${levelsReadout(run.levels)} PINNED`;
     return run;
   }
@@ -667,16 +667,16 @@ export class GameScreen extends Container {
     };
     const canvas = engine().canvas;
 
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", onBlur);
-    canvas?.addEventListener("pointercancel", onPointerCancel);
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    canvas?.addEventListener('pointercancel', onPointerCancel);
 
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", onBlur);
-      canvas?.removeEventListener("pointercancel", onPointerCancel);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+      canvas?.removeEventListener('pointercancel', onPointerCancel);
     };
   }
 
@@ -799,11 +799,11 @@ export class GameScreen extends Container {
    * tick is the tick index's fact, not this one's.
    */
   private frameReason(): FrameReason {
-    if (this.ending) return "ending";
-    if (this.menuPaused) return "paused";
-    if (this.backgrounded) return "backgrounded";
-    if (this.countdownMs !== null) return "countdown";
-    return "live";
+    if (this.ending) return 'ending';
+    if (this.menuPaused) return 'paused';
+    if (this.backgrounded) return 'backgrounded';
+    if (this.countdownMs !== null) return 'countdown';
+    return 'live';
   }
 
   /**
@@ -830,11 +830,11 @@ export class GameScreen extends Container {
     execution: Execution,
     reason: FrameReason,
   ): FrameWork {
-    if (reason === "countdown") {
+    if (reason === 'countdown') {
       this.countDown(this.takeElapsed(ticker.elapsedMS));
       return HELD_FRAME;
     }
-    if (reason !== "live") return HELD_FRAME;
+    if (reason !== 'live') return HELD_FRAME;
     const keyCommand = this.keys.command();
     const source: CommandSource = (grave) => {
       // Read and cleared here rather than in advance: the closure is only
@@ -894,8 +894,8 @@ export class GameScreen extends Container {
   private announce(run: RunState, events: readonly SimEvent[]): void {
     for (const event of events) {
       playFor(event);
-      if (event.type === "belched") this.stormRenderer.erupt(run);
-      if (event.type === "splashed") this.stormRenderer.splashed(run);
+      if (event.type === 'belched') this.stormRenderer.erupt(run);
+      if (event.type === 'splashed') this.stormRenderer.splashed(run);
     }
   }
 
@@ -1166,6 +1166,6 @@ export class GameScreen extends Container {
 /** Whether this frame's events ended the run, either way (ADR 0003 and ADR 0007). */
 function endedIn(events: readonly SimEvent[]): boolean {
   return events.some(
-    (event) => event.type === "sealed" || event.type === "victory",
+    (event) => event.type === 'sealed' || event.type === 'victory',
   );
 }

@@ -1,13 +1,13 @@
-import { Container } from "pixi.js";
+import { Container } from 'pixi.js';
 
-import { engine } from "../getEngine";
-import { primeSound } from "../sound";
-import { MENU } from "../palette";
-import { PROTOTYPES_HASH } from "../routes";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
-import { bindKeyPress } from "../utils/bindKeyPress";
-import { GameScreen } from "./game/GameScreen";
+import { engine } from '../getEngine';
+import { primeSound } from '../sound';
+import { MENU } from '../palette';
+import { PROTOTYPES_HASH } from '../routes';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+import { bindKeyPress } from '../utils/bindKeyPress';
+import { GameScreen } from './game/GameScreen';
 
 /**
  * The game's front door. Render only: it names the game and offers the way in.
@@ -16,7 +16,7 @@ import { GameScreen } from "./game/GameScreen";
  */
 export class TitleScreen extends Container {
   // Assets bundles required by this screen
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   private readonly title: Label;
   private readonly tagline: Label;
@@ -29,17 +29,17 @@ export class TitleScreen extends Container {
     super();
 
     this.title = new Label({
-      text: "THE HUNGRY GRAVE",
+      text: 'THE HUNGRY GRAVE',
       style: { fill: MENU.menuInk.hex, fontSize: 44, letterSpacing: 6 },
     });
     this.tagline = new Label({
-      text: "Swallow the dead. Feed the grave.",
+      text: 'Swallow the dead. Feed the grave.',
       style: { fill: MENU.menuDim.hex, fontSize: 16 },
     });
-    this.riseButton = new Button({ text: "RISE", width: 300, height: 100 });
+    this.riseButton = new Button({ text: 'RISE', width: 300, height: 100 });
     this.riseButton.onPress.connect(() => this.rise());
     this.prototypesButton = new Button({
-      text: "PROTOTYPES",
+      text: 'PROTOTYPES',
       width: 220,
       height: 70,
       fontSize: 16,
@@ -59,7 +59,7 @@ export class TitleScreen extends Container {
 
   public prepare() {
     this.rising = false;
-    this.releaseKeys = bindKeyPress("Enter", () => this.rise());
+    this.releaseKeys = bindKeyPress('Enter', () => this.rise());
   }
 
   public reset() {

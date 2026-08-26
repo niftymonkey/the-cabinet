@@ -1,16 +1,16 @@
-import { Container } from "pixi.js";
+import { Container } from 'pixi.js';
 
-import { TapeFormatError } from "../../tape/bytes";
-import { decodeTape } from "../../tape/decode";
-import { MENU } from "../palette";
-import { REPLAY_HASH } from "../routes";
-import { saveTapeFile, tapeFileName } from "../tapeExport";
-import type { TapeStore } from "../tapeStore";
-import { openTapeStore } from "../tapeStore";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
-import type { RunList } from "./runList";
-import { createRunList } from "./runList";
+import { TapeFormatError } from '../../tape/bytes';
+import { decodeTape } from '../../tape/decode';
+import { MENU } from '../palette';
+import { REPLAY_HASH } from '../routes';
+import { saveTapeFile, tapeFileName } from '../tapeExport';
+import type { TapeStore } from '../tapeStore';
+import { openTapeStore } from '../tapeStore';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+import type { RunList } from './runList';
+import { createRunList } from './runList';
 
 /**
  * The recent runs this browser's tape store kept (#58), each offering
@@ -24,9 +24,9 @@ import { createRunList } from "./runList";
  */
 
 const STORE_UNAVAILABLE =
-  "THE TAPE STORE IS UNAVAILABLE IN THIS BROWSER, SO NO RUNS ARE KEPT HERE.";
+  'THE TAPE STORE IS UNAVAILABLE IN THIS BROWSER, SO NO RUNS ARE KEPT HERE.';
 
-const NO_RUNS = "NO RUNS KEPT YET.";
+const NO_RUNS = 'NO RUNS KEPT YET.';
 
 const TAPE_MISSING = "THAT RUN'S TAPE COULD NOT BE LOADED FROM THE STORE.";
 
@@ -36,7 +36,7 @@ const BACK_HEIGHT = 68;
 
 export class RunsScreen extends Container {
   // Assets bundles required by this screen
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   private readonly title: Label;
   /** Store-unavailable, an empty store, and a load that came back empty: facts, stated. */
@@ -62,7 +62,7 @@ export class RunsScreen extends Container {
     super();
 
     this.title = new Label({
-      text: "RUNS",
+      text: 'RUNS',
       style: { fill: MENU.menuInk.hex, fontSize: 44, letterSpacing: 8 },
     });
     this.statement = new Label({
@@ -74,14 +74,14 @@ export class RunsScreen extends Container {
       remove: (runId) => void this.deleteRun(runId),
     });
     this.backButton = new Button({
-      text: "BACK",
+      text: 'BACK',
       width: BACK_WIDTH,
       height: BACK_HEIGHT,
       fontSize: 18,
     });
     this.backButton.onPress.connect(() => {
       // The router in main.ts observes the hash and shows the title screen.
-      window.location.hash = "#/";
+      window.location.hash = '#/';
     });
 
     this.addChild(this.title, this.statement, this.list.view, this.backButton);
@@ -93,7 +93,7 @@ export class RunsScreen extends Container {
     // gives them back to a screen that declares show(); without this every
     // button is dead on every showing after the first.
     this.interactiveChildren = true;
-    this.statement.text = "";
+    this.statement.text = '';
     this.list.render([]);
     this.store ??= openTapeStore();
     void this.refresh(this.generation);
@@ -101,7 +101,7 @@ export class RunsScreen extends Container {
 
   public reset(): void {
     this.generation += 1;
-    this.statement.text = "";
+    this.statement.text = '';
     this.list.render([]);
   }
 
@@ -119,7 +119,7 @@ export class RunsScreen extends Container {
     const rows = await store.list();
     if (generation !== this.generation) return;
     this.list.render(rows);
-    this.statement.text = rows.length === 0 ? NO_RUNS : "";
+    this.statement.text = rows.length === 0 ? NO_RUNS : '';
   }
 
   private async loadedTape(runId: string): Promise<Uint8Array | null> {
@@ -147,7 +147,7 @@ export class RunsScreen extends Container {
       return;
     }
     const url = URL.createObjectURL(
-      new Blob([bytes], { type: "application/octet-stream" }),
+      new Blob([bytes], { type: 'application/octet-stream' }),
     );
     window.location.hash = `${REPLAY_HASH}?tape=${encodeURIComponent(url)}`;
   }

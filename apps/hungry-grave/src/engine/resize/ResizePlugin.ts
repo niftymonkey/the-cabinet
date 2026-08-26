@@ -1,12 +1,12 @@
-import { ExtensionType } from "pixi.js";
+import { ExtensionType } from 'pixi.js';
 import type {
   Application,
   ApplicationOptions,
   ExtensionMetadata,
   ResizePluginOptions,
-} from "pixi.js";
+} from 'pixi.js';
 
-import { resize } from "./resize";
+import { resize } from './resize';
 
 // Custom utility type:
 export type DeepRequired<T> = Required<{
@@ -55,17 +55,17 @@ export class CreationResizePlugin {
 
     Object.defineProperty(
       app,
-      "resizeTo",
+      'resizeTo',
       /**
        * The HTML element or window to automatically resize the
        * renderer's view element to match width and height.
        */
       {
         set(dom: Window | HTMLElement) {
-          globalThis.removeEventListener("resize", app.queueResize);
+          globalThis.removeEventListener('resize', app.queueResize);
           this._resizeTo = dom;
           if (dom) {
-            globalThis.addEventListener("resize", app.queueResize);
+            globalThis.addEventListener('resize', app.queueResize);
             app.resize();
           }
         },
@@ -158,7 +158,7 @@ export class CreationResizePlugin {
   public static destroy(): void {
     const app = this as unknown as Application;
 
-    globalThis.removeEventListener("resize", app.queueResize);
+    globalThis.removeEventListener('resize', app.queueResize);
     this._cancelResize!();
     this._cancelResize = null;
     app.queueResize = null as unknown as () => void;

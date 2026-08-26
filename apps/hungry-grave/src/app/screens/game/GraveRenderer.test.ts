@@ -3,13 +3,13 @@
  * it, and holds no rules.
  */
 
-import type { Graphics } from "pixi.js";
-import { describe, expect, it, vi } from "vitest";
-import type { Grave } from "../../../game/grave";
-import { createGrave, graveHitbox, graveWidth } from "../../../game/grave";
-import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from "../../../game/tuning";
-import { glowAlpha, GRAVE_RIM_STROKE, GraveRenderer } from "./GraveRenderer";
-import { FieldLayers } from "./layering";
+import type { Graphics } from 'pixi.js';
+import { describe, expect, it, vi } from 'vitest';
+import type { Grave } from '../../../game/grave';
+import { createGrave, graveHitbox, graveWidth } from '../../../game/grave';
+import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../../../game/tuning';
+import { glowAlpha, GRAVE_RIM_STROKE, GraveRenderer } from './GraveRenderer';
+import { FieldLayers } from './layering';
 
 function grave(size: number, x = 270, y = 600): Grave {
   return { x, y, size, invulnerable: 0 };
@@ -23,31 +23,31 @@ function attached(): { layers: FieldLayers; renderer: GraveRenderer } {
 }
 
 function mouthOf(layers: FieldLayers): Graphics {
-  return layers.layer("graveMouth").children[0] as Graphics;
+  return layers.layer('graveMouth').children[0] as Graphics;
 }
 
 function rimOf(layers: FieldLayers): Graphics {
-  return layers.layer("graveRim").children[0] as Graphics;
+  return layers.layer('graveRim').children[0] as Graphics;
 }
 
 function glowOf(layers: FieldLayers): Graphics {
-  return layers.layer("graveRim").children[1] as Graphics;
+  return layers.layer('graveRim').children[1] as Graphics;
 }
 
-describe("GraveRenderer", () => {
-  it("the mouth lands in the graveMouth layer and the rim in the graveRim layer (ADR 0014)", () => {
+describe('GraveRenderer', () => {
+  it('the mouth lands in the graveMouth layer and the rim in the graveRim layer (ADR 0014)', () => {
     // Two Graphics and not one: the hole's interior must sit under whatever is
     // falling into it while the rim stays legible over the top, and one
     // Graphics cannot be in two layers.
     const { layers } = attached();
-    expect(layers.layer("graveMouth").children).toHaveLength(1);
+    expect(layers.layer('graveMouth').children).toHaveLength(1);
     // The rim and the reservoir's glow, which is the rim's own band in
     // treasure's colour drawn over it at the identical geometry.
-    expect(layers.layer("graveRim").children).toHaveLength(2);
+    expect(layers.layer('graveRim').children).toHaveLength(2);
     expect(mouthOf(layers)).not.toBe(rimOf(layers));
   });
 
-  it("the drawn width is graveWidth(size) and the height twice the size, at the floor, the start size and the ceiling", () => {
+  it('the drawn width is graveWidth(size) and the height twice the size, at the floor, the start size and the ceiling', () => {
     const { layers, renderer } = attached();
     for (const size of [SIZE_FLOOR, SIZE_START, SIZE_CEILING]) {
       renderer.sync(grave(size), 0, 0);
@@ -57,7 +57,7 @@ describe("GraveRenderer", () => {
     }
   });
 
-  it("the mouth stays a hole at SIZE_FLOOR", () => {
+  it('the mouth stays a hole at SIZE_FLOOR', () => {
     // The instrument that survives a later retune of SIZE_FLOOR or
     // GRAVE_RIM_STROKE. The rendered check cannot replace it, and a rim derived
     // from BOUNDARY_STROKE's bracket lands on 8 and turns a floor grave into a
@@ -71,7 +71,7 @@ describe("GraveRenderer", () => {
     expect(2 * GRAVE_RIM_STROKE).toBeLessThan(graveWidth(SIZE_FLOOR));
   });
 
-  it("the rim strokes inward, so the drawn outer edge equals graveHitbox exactly (ADR 0003)", () => {
+  it('the rim strokes inward, so the drawn outer edge equals graveHitbox exactly (ADR 0003)', () => {
     // ADR 0003 makes the drawn grave the health bar, and a player reads the
     // outer edge as what they pass under and swallow. A default centred stroke
     // would draw it half a stroke wider on every side than the hitbox reports.
@@ -87,7 +87,7 @@ describe("GraveRenderer", () => {
     expect(bounds.height).toBeCloseTo(box.height, 9);
   });
 
-  it("position follows grave.x and grave.y", () => {
+  it('position follows grave.x and grave.y', () => {
     const { layers, renderer } = attached();
     renderer.sync(grave(SIZE_START, 123, 456), 0, 0);
     for (const piece of [mouthOf(layers), rimOf(layers)]) {
@@ -96,12 +96,12 @@ describe("GraveRenderer", () => {
     }
   });
 
-  it("a sync at an unchanged size does not rebuild the geometry, and a sync at a changed size does", () => {
+  it('a sync at an unchanged size does not rebuild the geometry, and a sync at a changed size does', () => {
     // Position is a container transform and is free; rebuilding the rounded
     // rect every frame is not, and the size only changes on a swallow or a hit.
     const { layers, renderer } = attached();
     renderer.sync(grave(SIZE_START), 0, 0);
-    const redrawn = vi.spyOn(mouthOf(layers), "clear");
+    const redrawn = vi.spyOn(mouthOf(layers), 'clear');
 
     renderer.sync(grave(SIZE_START, 300, 400), 0, 0);
     expect(redrawn).not.toHaveBeenCalled();
@@ -122,27 +122,27 @@ describe("GraveRenderer", () => {
     expect(glow.height).toBeCloseTo(rim.height, 9);
   });
 
-  it("detach then attach puts both pieces back, which FieldLayers.clear() between runs requires", () => {
+  it('detach then attach puts both pieces back, which FieldLayers.clear() between runs requires', () => {
     const { layers, renderer } = attached();
     renderer.detach();
-    expect(layers.layer("graveMouth").children).toHaveLength(0);
-    expect(layers.layer("graveRim").children).toHaveLength(0);
+    expect(layers.layer('graveMouth').children).toHaveLength(0);
+    expect(layers.layer('graveRim').children).toHaveLength(0);
 
     layers.clear();
     renderer.attach(layers);
-    expect(layers.layer("graveMouth").children).toHaveLength(1);
-    expect(layers.layer("graveRim").children).toHaveLength(2);
+    expect(layers.layer('graveMouth').children).toHaveLength(1);
+    expect(layers.layer('graveRim').children).toHaveLength(2);
   });
 });
 
 describe("the reservoir's diegetic tell (plan 6.18)", () => {
-  it("builds the glow with fullness, so an empty reservoir shows nothing", () => {
+  it('builds the glow with fullness, so an empty reservoir shows nothing', () => {
     expect(glowAlpha(0, 0)).toBe(0);
     expect(glowAlpha(0.5, 0)).toBeCloseTo(0.5, 6);
     expect(glowAlpha(0.9, 0)).toBeCloseTo(0.9, 6);
   });
 
-  it("pulses at full rather than simply reaching the top of the ramp", () => {
+  it('pulses at full rather than simply reaching the top of the ramp', () => {
     // Two tells rather than one is deliberate: the button is where the thumb
     // is and the glow is where the eyes are, and a player mid-dodge is looking
     // at the grave. Pulsing is what makes full a state and not a maximum.
@@ -153,12 +153,12 @@ describe("the reservoir's diegetic tell (plan 6.18)", () => {
     expect(Math.min(...across)).toBeGreaterThan(glowAlpha(0.5, 0));
   });
 
-  it("clamps a fullness outside zero to one rather than trusting the caller", () => {
+  it('clamps a fullness outside zero to one rather than trusting the caller', () => {
     expect(glowAlpha(-1, 0)).toBe(0);
     expect(glowAlpha(2, 0)).toBeLessThanOrEqual(1);
   });
 
-  it("takes a number and never the run state", () => {
+  it('takes a number and never the run state', () => {
     // Handing a renderer live sim state is the thing the rest of this design
     // works to avoid, and fullness is everything the glow needs.
     const layers = new FieldLayers();

@@ -8,14 +8,14 @@
  * still accepting a recording that stopped mid-stream.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { TapeFormatError } from "./bytes";
-import { CHUNK_FRAME_BYTES, CHUNK_TRAILER } from "./chunks";
-import { decodeTape } from "./decode";
-import { COMMAND_BYTES, encodeTape } from "./encode";
-import type { Observation, Tape, TapeCheckpoint, TapeHeader } from "./tape";
-import { FORMAT_VERSION, stopOf, TAPE_MAGIC } from "./tape";
+import { TapeFormatError } from './bytes';
+import { CHUNK_FRAME_BYTES, CHUNK_TRAILER } from './chunks';
+import { decodeTape } from './decode';
+import { COMMAND_BYTES, encodeTape } from './encode';
+import type { Observation, Tape, TapeCheckpoint, TapeHeader } from './tape';
+import { FORMAT_VERSION, stopOf, TAPE_MAGIC } from './tape';
 
 /** Every field of the header's closed list, each a different value so none can stand in for another. */
 const HEADER: TapeHeader = {
@@ -25,12 +25,12 @@ const HEADER: TapeHeader = {
   tickRate: 60,
   checkpointSpacing: 4,
   witnessVersion: 1,
-  commitHash: "f389eb55ff",
-  buildIdentity: "",
-  author: "unknown",
-  inputDevice: "touch",
+  commitHash: 'f389eb55ff',
+  buildIdentity: '',
+  author: 'unknown',
+  inputDevice: 'touch',
   keyboardSpeed: 1.25,
-  rendererBackend: "webgpu",
+  rendererBackend: 'webgpu',
   rendererResolution: 2,
   devicePixelRatio: 3,
   recordedAt: 1_766_000_000_123,
@@ -49,8 +49,8 @@ function checkpoints(indices: readonly number[]): TapeCheckpoint[] {
 
 const OBSERVATIONS: Observation[] = [
   {
-    kind: "frame",
-    reason: "live",
+    kind: 'frame',
+    reason: 'live',
     tickIndex: 0,
     ticksExecuted: 2,
     intervalMs: Math.fround(33.4),
@@ -59,8 +59,8 @@ const OBSERVATIONS: Observation[] = [
     debtTicks: 0,
   },
   {
-    kind: "frame",
-    reason: "backgrounded",
+    kind: 'frame',
+    reason: 'backgrounded',
     tickIndex: null,
     ticksExecuted: 0,
     intervalMs: Math.fround(16.7),
@@ -69,11 +69,11 @@ const OBSERVATIONS: Observation[] = [
     debtTicks: 4,
   },
   {
-    kind: "fault",
-    identity: "freshness in range",
-    severity: "recoverable",
+    kind: 'fault',
+    identity: 'freshness in range',
+    severity: 'recoverable',
     firstTick: 3,
-    detail: "corpse 7.freshness is 1.4",
+    detail: 'corpse 7.freshness is 1.4',
     count: 9,
   },
 ];
@@ -84,15 +84,15 @@ const FULL: Tape = {
   checkpoints: checkpoints([0, 4, 8]),
   observations: OBSERVATIONS,
   trailer: {
-    ending: "sealed",
-    stop: "finished",
-    integrity: "faulted",
+    ending: 'sealed',
+    stop: 'finished',
+    integrity: 'faulted',
     debtTicks: 12,
   },
 };
 
 describe("a tape's bytes", () => {
-  it("are bytes and not a JSON string", () => {
+  it('are bytes and not a JSON string', () => {
     const bytes = encodeTape(FULL);
 
     expect(bytes).toBeInstanceOf(Uint8Array);
@@ -103,13 +103,13 @@ describe("a tape's bytes", () => {
     expect(bytes.length).toBeLessThan(JSON.stringify(FULL).length);
   });
 
-  it("round-trip the whole closed list of the header", () => {
+  it('round-trip the whole closed list of the header', () => {
     const { tape } = decodeTape(encodeTape(FULL));
 
     expect(tape.header).toEqual(HEADER);
   });
 
-  it("round-trip the body, the witness, the observations and the trailer", () => {
+  it('round-trip the body, the witness, the observations and the trailer', () => {
     const { tape, truncated } = decodeTape(encodeTape(FULL));
 
     expect(tape.commands).toEqual(FULL.commands);
@@ -119,7 +119,7 @@ describe("a tape's bytes", () => {
     expect(truncated).toBe(false);
   });
 
-  it("carry the checkpoint spacing so a reader obeys the tape and not a constant", () => {
+  it('carry the checkpoint spacing so a reader obeys the tape and not a constant', () => {
     // ADR 0019: a later measurement can move the spacing without versioning the
     // format and without invalidating a tape already recorded.
     const { tape } = decodeTape(encodeTape(FULL));
@@ -139,7 +139,7 @@ describe("a tape's bytes", () => {
     expect(view.getUint32(headerAt, false)).not.toBe(HEADER.seed);
   });
 
-  it("carry an unchecked integrity as the literal byte 3, frozen for as long as the format lives", () => {
+  it('carry an unchecked integrity as the literal byte 3, frozen for as long as the format lives', () => {
     // Sealed FORMAT_VERSION 1 tapes outside this tree were recorded with the
     // checks switched off, and their trailer's integrity byte is 3. Nothing
     // writes unchecked any more, so this byte and its meaning are pinned here
@@ -147,9 +147,9 @@ describe("a tape's bytes", () => {
     const bytes = encodeTape({
       ...FULL,
       trailer: {
-        ending: "sealed",
-        stop: "finished",
-        integrity: "unchecked",
+        ending: 'sealed',
+        stop: 'finished',
+        integrity: 'unchecked',
         debtTicks: 12,
       },
     });
@@ -162,12 +162,12 @@ describe("a tape's bytes", () => {
     // The trailer's payload is the ending, the stop, then the integrity, one
     // byte each.
     expect(view.getUint8(at + CHUNK_FRAME_BYTES + 2)).toBe(3);
-    expect(decodeTape(bytes).tape.trailer?.integrity).toBe("unchecked");
+    expect(decodeTape(bytes).tape.trailer?.integrity).toBe('unchecked');
   });
 });
 
 describe("a tape's sections", () => {
-  it("are separable, so a reader skips a chunk kind it does not understand", () => {
+  it('are separable, so a reader skips a chunk kind it does not understand', () => {
     // ADR 0018: saying there are three sections is not the same as making them
     // separable. The length in front of each one is what does that, and a tape
     // written by a later recorder still reads here, minus what it added.
@@ -186,7 +186,7 @@ describe("a tape's sections", () => {
     expect(tape.commands).toEqual(FULL.commands);
   });
 
-  it("can be written as several chunks each, so nothing waits for a value known at run end", () => {
+  it('can be written as several chunks each, so nothing waits for a value known at run end', () => {
     // The encoder writes the witness and the body interleaved, a checkpoint
     // then the ticks behind it, which is the order a run produces them. That is
     // the property that lets a store append during a run rather than going back
@@ -205,7 +205,7 @@ describe("a tape's sections", () => {
   });
 });
 
-describe("a tape that stopped mid-stream", () => {
+describe('a tape that stopped mid-stream', () => {
   /** The bytes of a tape whose recording was cut off after its second checkpoint. */
   function cutAfterSecondCheckpoint(): Uint8Array {
     const bytes = encodeTape(FULL);
@@ -220,7 +220,7 @@ describe("a tape that stopped mid-stream", () => {
     return bytes.slice(0, at + CHUNK_FRAME_BYTES + 4 + COMMAND_BYTES);
   }
 
-  it("decodes, and says it was cut off", () => {
+  it('decodes, and says it was cut off', () => {
     // ADR 0018: one of the two shapes "too easy" takes is not dying but losing
     // interest and closing the tab, so a format that only yielded tapes for
     // finished runs would be blind to the failure it was built to find.
@@ -230,22 +230,22 @@ describe("a tape that stopped mid-stream", () => {
     expect(tape.header).toEqual(HEADER);
   });
 
-  it("keeps every whole record it managed to write, and no half of one", () => {
+  it('keeps every whole record it managed to write, and no half of one', () => {
     const { tape } = decodeTape(cutAfterSecondCheckpoint());
 
     expect(tape.checkpoints).toEqual(checkpoints([0, 4]));
     expect(tape.commands).toEqual(FULL.commands.slice(0, 5));
   });
 
-  it("has no trailer, so it reads as a stop of unknown", () => {
+  it('has no trailer, so it reads as a stop of unknown', () => {
     const { tape } = decodeTape(cutAfterSecondCheckpoint());
 
     expect(tape.trailer).toBeNull();
-    expect(stopOf(tape)).toBe("unknown");
+    expect(stopOf(tape)).toBe('unknown');
   });
 });
 
-describe("a tape cut at any byte at all", () => {
+describe('a tape cut at any byte at all', () => {
   /** A run long enough that every chunk kind appears several times over. */
   const SWEPT: Tape = {
     header: HEADER,
@@ -253,9 +253,9 @@ describe("a tape cut at any byte at all", () => {
     checkpoints: checkpoints([0, 10, 20, 30, 40, 50, 60]),
     observations: OBSERVATIONS,
     trailer: {
-      ending: "sealed",
-      stop: "finished",
-      integrity: "clean",
+      ending: 'sealed',
+      stop: 'finished',
+      integrity: 'clean',
       debtTicks: 3,
     },
   };
@@ -293,7 +293,7 @@ describe("a tape cut at any byte at all", () => {
     return null;
   }
 
-  it("decodes to its last complete record, wherever the cut lands", () => {
+  it('decodes to its last complete record, wherever the cut lands', () => {
     // A closed tab cuts wherever it cuts, so the property is swept rather than
     // sampled. The regression it pins: the body read its four-byte first-tick
     // field before checking four bytes were there, so a cut landing inside
@@ -309,7 +309,7 @@ describe("a tape cut at any byte at all", () => {
     expect(misbehaved).toEqual([]);
   });
 
-  it("still refuses a complete body chunk carrying a stray byte or three", () => {
+  it('still refuses a complete body chunk carrying a stray byte or three', () => {
     // The fix above is about bytes that are absent, and this is the case that
     // proves it did not become a licence to ignore bytes that are present.
     const bytes = encodeTape({ ...SWEPT, observations: [], trailer: null });
@@ -325,14 +325,14 @@ describe("a tape cut at any byte at all", () => {
   });
 });
 
-describe("a tape a reader should refuse", () => {
-  it("refuses bytes that do not open as a tape", () => {
+describe('a tape a reader should refuse', () => {
+  it('refuses bytes that do not open as a tape', () => {
     expect(() => decodeTape(new Uint8Array([1, 2, 3, 4, 5, 6]))).toThrow(
       TapeFormatError,
     );
   });
 
-  it("refuses a format version it does not know, rather than guessing a layout", () => {
+  it('refuses a format version it does not know, rather than guessing a layout', () => {
     const bytes = encodeTape(FULL);
     new DataView(bytes.buffer).setUint16(
       TAPE_MAGIC.length,
@@ -343,7 +343,7 @@ describe("a tape a reader should refuse", () => {
     expect(() => decodeTape(bytes)).toThrow(/format version/);
   });
 
-  it("refuses a section length longer than the buffer rather than allocating for it", () => {
+  it('refuses a section length longer than the buffer rather than allocating for it', () => {
     // ADR 0018: the instrument route feeds arbitrary bytes from an arbitrary
     // URL into this, and a replay file from a stranger is the classic vector.
     // The length is checked against the bytes in hand before one is read, so a
@@ -361,7 +361,7 @@ describe("a tape a reader should refuse", () => {
     expect(() => decodeTape(bytes)).toThrow(TapeFormatError);
   });
 
-  it("refuses a complete chunk carrying bytes that are not a whole record", () => {
+  it('refuses a complete chunk carrying bytes that are not a whole record', () => {
     const bytes = encodeTape({ ...FULL, observations: [], trailer: null });
     const head = TAPE_MAGIC.length + 2;
     const view = new DataView(bytes.buffer);
@@ -375,7 +375,7 @@ describe("a tape a reader should refuse", () => {
     expect(() => decodeTape(bytes)).toThrow(/not a whole record/);
   });
 
-  it("refuses a body whose ticks do not carry on from the ticks before them", () => {
+  it('refuses a body whose ticks do not carry on from the ticks before them', () => {
     const bytes = encodeTape(FULL);
     const head = TAPE_MAGIC.length + 2;
     const view = new DataView(bytes.buffer);
@@ -388,7 +388,7 @@ describe("a tape a reader should refuse", () => {
     expect(() => decodeTape(bytes)).toThrow(/body chunk starts at tick 7/);
   });
 
-  it("refuses a code no reader of this format knows", () => {
+  it('refuses a code no reader of this format knows', () => {
     const bytes = encodeTape(FULL);
     const head = TAPE_MAGIC.length + 2;
     // The input device code sits after the seed, size, rates, version and the
@@ -403,7 +403,7 @@ describe("a tape a reader should refuse", () => {
     ).toThrow(TapeFormatError);
   });
 
-  it("refuses a tape with no header at all", () => {
+  it('refuses a tape with no header at all', () => {
     const head = TAPE_MAGIC.length + 2;
 
     expect(() => decodeTape(encodeTape(FULL).slice(0, head))).toThrow(

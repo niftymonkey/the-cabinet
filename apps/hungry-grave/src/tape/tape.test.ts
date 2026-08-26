@@ -7,10 +7,10 @@
  * reads as dangerous, which is exactly the failure the maps exist to prevent.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { FAULT_IDENTITIES } from "../game/invariants";
-import { WEAPON_LINES } from "../game/lines/roster";
+import { FAULT_IDENTITIES } from '../game/invariants';
+import { WEAPON_LINES } from '../game/lines/roster';
 import {
   ABSENT_CODE,
   codeReader,
@@ -30,7 +30,7 @@ import {
   STOP_REASONS,
   TAPE_INPUT_DEVICES,
   TAPE_INTEGRITIES,
-} from "./tape";
+} from './tape';
 
 /**
  * One code map's three promises, asserted for whichever map it is handed.
@@ -65,14 +65,14 @@ function itNamesEvery<T extends string>(
 }
 
 describe("the tape's code maps", () => {
-  itNamesEvery("run ending", RUN_ENDINGS, ENDING_CODES);
-  itNamesEvery("stop", STOP_REASONS, STOP_CODES);
-  itNamesEvery("integrity", TAPE_INTEGRITIES, INTEGRITY_CODES);
-  itNamesEvery("input device", TAPE_INPUT_DEVICES, INPUT_DEVICE_CODES);
-  itNamesEvery("fault severity", FAULT_SEVERITIES, FAULT_SEVERITY_CODES);
-  itNamesEvery("fault identity", FAULT_IDENTITIES, FAULT_IDENTITY_CODES);
-  itNamesEvery("observation kind", OBSERVATION_KINDS, OBSERVATION_KIND_CODES);
-  itNamesEvery("frame reason", FRAME_REASONS, FRAME_REASON_CODES);
+  itNamesEvery('run ending', RUN_ENDINGS, ENDING_CODES);
+  itNamesEvery('stop', STOP_REASONS, STOP_CODES);
+  itNamesEvery('integrity', TAPE_INTEGRITIES, INTEGRITY_CODES);
+  itNamesEvery('input device', TAPE_INPUT_DEVICES, INPUT_DEVICE_CODES);
+  itNamesEvery('fault severity', FAULT_SEVERITIES, FAULT_SEVERITY_CODES);
+  itNamesEvery('fault identity', FAULT_IDENTITIES, FAULT_IDENTITY_CODES);
+  itNamesEvery('observation kind', OBSERVATION_KINDS, OBSERVATION_KIND_CODES);
+  itNamesEvery('frame reason', FRAME_REASONS, FRAME_REASON_CODES);
 
   it("names every weapon line in the header's levels order, exactly once and in a pinned order", () => {
     // The order is the layout: a fifth line added to the union without a place
@@ -80,10 +80,10 @@ describe("the tape's code maps", () => {
     // is pinned too, because it is permanent from the first tape.
     expect([...HEADER_LEVELS_ORDER].sort()).toEqual([...WEAPON_LINES].sort());
     expect(HEADER_LEVELS_ORDER).toEqual([
-      "soulStream",
-      "headstones",
-      "wisps",
-      "bell",
+      'soulStream',
+      'headstones',
+      'wisps',
+      'bell',
     ]);
   });
 
@@ -93,8 +93,8 @@ describe("the tape's code maps", () => {
     // sit in FAULT_IDENTITIES today. The two agree by name and the codes are
     // written down, which is what lets the list be reordered without moving a
     // single tape's meaning.
-    expect(FAULT_IDENTITY_CODES["no NaN"]).toBe(1);
-    expect(FAULT_IDENTITY_CODES["phase tick resets at a boundary"]).toBe(12);
+    expect(FAULT_IDENTITY_CODES['no NaN']).toBe(1);
+    expect(FAULT_IDENTITY_CODES['phase tick resets at a boundary']).toBe(12);
     expect(Object.keys(FAULT_IDENTITY_CODES).length).toBe(
       FAULT_IDENTITIES.length,
     );

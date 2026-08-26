@@ -3,7 +3,7 @@
 // through this list, and only by dynamic import. Removing a prototype is
 // deleting its folder and its entry, and the base app stays a blank scaffold.
 
-import type { Container } from "pixi.js";
+import type { Container } from 'pixi.js';
 
 /** Pooled like any screen, so a prototype clears its own state too. */
 interface PrototypeScreen extends Container {
@@ -24,12 +24,12 @@ export interface PrototypeEntry {
 
 export const PROTOTYPES: readonly PrototypeEntry[] = [
   {
-    id: "ugly-slice",
-    title: "THE UGLY SLICE",
+    id: 'ugly-slice',
+    title: 'THE UGLY SLICE',
     blurb:
-      "The five-minute rectangle slice from ticket #30: swallow, grow, belch, two bosses.",
+      'The five-minute rectangle slice from ticket #30: swallow, grow, belch, two bosses.',
     load: async () =>
-      (await import("./ugly-slice/screens/TitleScreen")).TitleScreen,
+      (await import('./ugly-slice/screens/TitleScreen')).TitleScreen,
   },
 ];
 

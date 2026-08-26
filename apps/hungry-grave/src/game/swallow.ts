@@ -14,16 +14,16 @@
  * and the eruption when dispatch 5 arrives, so that dispatch is purely additive.
  */
 
-import type { SimEvent } from "./events";
-import { growGrave } from "./grave";
-import type { WeaponLine } from "./lines/roster";
-import { MAX_LEVEL } from "./lines/roster";
-import { surgeStream } from "./lines/soulStream";
-import { launchWisps } from "./lines/wisps";
-import type { RunState } from "./run";
-import { FRESHNESS_PAYOUT_FLOOR, RESERVOIR_CAPACITY } from "./tuning";
+import type { SimEvent } from './events';
+import { growGrave } from './grave';
+import type { WeaponLine } from './lines/roster';
+import { MAX_LEVEL } from './lines/roster';
+import { surgeStream } from './lines/soulStream';
+import { launchWisps } from './lines/wisps';
+import type { RunState } from './run';
+import { FRESHNESS_PAYOUT_FLOOR, RESERVOIR_CAPACITY } from './tuning';
 
-export type FoodKind = "corpse" | "drop" | "feast";
+export type FoodKind = 'corpse' | 'drop' | 'feast';
 
 export interface Swallowable {
   readonly kind: FoodKind;
@@ -49,7 +49,7 @@ function payGrowth(
   const overflow = growGrave(state.grave, amount);
   const grown = amount - overflow;
   if (grown > 0) {
-    events.push({ type: "grew", amount: grown, size: state.grave.size });
+    events.push({ type: 'grew', amount: grown, size: state.grave.size });
   }
   return overflow;
 }
@@ -70,17 +70,17 @@ function payReservoir(
   state.reservoir += taken;
   if (taken > 0) {
     events.push({
-      type: "reservoirCharged",
+      type: 'reservoirCharged',
       amount: taken,
       reservoir: state.reservoir,
     });
   }
   if (!wasFull && state.reservoir >= RESERVOIR_CAPACITY) {
-    events.push({ type: "reservoirFull", reservoir: state.reservoir });
+    events.push({ type: 'reservoirFull', reservoir: state.reservoir });
   }
   const wasted = amount - taken;
   if (wasted > 0) {
-    events.push({ type: "splashed", wasted, reservoir: state.reservoir });
+    events.push({ type: 'splashed', wasted, reservoir: state.reservoir });
   }
 }
 
@@ -98,7 +98,7 @@ function payLevel(
 ): number {
   if (state.levels[line] >= MAX_LEVEL) return amount;
   state.levels[line] += 1;
-  events.push({ type: "weaponLeveled", line, level: state.levels[line] });
+  events.push({ type: 'weaponLeveled', line, level: state.levels[line] });
   return 0;
 }
 
@@ -107,12 +107,12 @@ export function swallow(state: RunState, food: Swallowable): SimEvent[] {
   const paid = food.payout * freshnessScale(food.freshness);
   const events: SimEvent[] = [
     {
-      type: "swallowed",
+      type: 'swallowed',
       kind: food.kind,
       freshness: food.freshness,
       payout: food.payout,
     },
-    { type: "chimed", kind: food.kind },
+    { type: 'chimed', kind: food.kind },
   ];
 
   let overflow = payGrowth(state, paid, events);
@@ -122,7 +122,7 @@ export function swallow(state: RunState, food: Swallowable): SimEvent[] {
   }
   if (overflow > 0) {
     state.score += overflow;
-    events.push({ type: "overflowed", amount: overflow, score: state.score });
+    events.push({ type: 'overflowed', amount: overflow, score: state.score });
   }
 
   // The on-swallow lines, after the payouts. They fire here rather than from the

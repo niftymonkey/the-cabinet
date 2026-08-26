@@ -9,30 +9,30 @@
  * an estimate of one.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import type { SimEvent } from "../game/events";
-import { MAX_LEVEL, WEAPON_LINES } from "../game/lines/roster";
-import { spawnMob } from "../game/mobs";
-import type { RunState } from "../game/run";
-import { createRun } from "../game/run";
+import type { SimEvent } from '../game/events';
+import { MAX_LEVEL, WEAPON_LINES } from '../game/lines/roster';
+import { spawnMob } from '../game/mobs';
+import type { RunState } from '../game/run';
+import { createRun } from '../game/run';
 import {
   BACK_HALF_ROWS,
   PHASES,
   phaseLengthTicks,
   RAMP_ROWS,
-} from "../game/stage/stage";
-import { place } from "../game/stage/templates";
-import { RESERVOIR_CAPACITY, SIZE_CEILING } from "../game/tuning";
-import { createExecution } from "../game/execution";
-import type { Policy, PolicyRun } from "./bot";
+} from '../game/stage/stage';
+import { place } from '../game/stage/templates';
+import { RESERVOIR_CAPACITY, SIZE_CEILING } from '../game/tuning';
+import { createExecution } from '../game/execution';
+import type { Policy, PolicyRun } from './bot';
 import {
   belchingPolicy,
   dodgePolicy,
   hitTakingPolicy,
   runPolicy,
   unloadedPolicy,
-} from "./bot";
+} from './bot';
 
 /**
  * A policy run through its own authority (ADR 0017), with any fault the run
@@ -75,16 +75,16 @@ const AUTHORED_MOBS = [...RAMP_ROWS, ...BACK_HALF_ROWS].reduce(
 );
 
 /** The Wall's own row, so its property is tested against the curtain the stage really contains. */
-const WALL_ROW = BACK_HALF_ROWS.find((row) => row.template === "wall")!;
+const WALL_ROW = BACK_HALF_ROWS.find((row) => row.template === 'wall')!;
 
-function count(events: SimEvent[], type: SimEvent["type"]): number {
+function count(events: SimEvent[], type: SimEvent['type']): number {
   return events.filter((event) => event.type === type).length;
 }
 
 function phaseOrder(events: SimEvent[]): string[] {
   return events
-    .filter((event) => event.type === "phaseChanged")
-    .map((event) => (event.type === "phaseChanged" ? event.phase : ""));
+    .filter((event) => event.type === 'phaseChanged')
+    .map((event) => (event.type === 'phaseChanged' ? event.phase : ''));
 }
 
 /**
@@ -106,7 +106,7 @@ function playRun(seed: number, startingSize?: number) {
 }
 
 function fullRun(seed: number, startingSize?: number) {
-  const key = `${seed}|${startingSize ?? "fresh"}`;
+  const key = `${seed}|${startingSize ?? 'fresh'}`;
   const cached = runs.get(key);
   if (cached !== undefined) return cached;
   const played = playRun(seed, startingSize);
@@ -114,10 +114,10 @@ function fullRun(seed: number, startingSize?: number) {
   return played;
 }
 
-describe("dodgePolicy over the whole stage (ADR 0013)", () => {
+describe('dodgePolicy over the whole stage (ADR 0013)', () => {
   for (const seed of SEEDS) {
     const survives = !SEALS_IN_THE_RAMP.includes(seed);
-    it(`${survives ? "survives" : "seals shut inside"} the ramp on seed ${seed}`, () => {
+    it(`${survives ? 'survives' : 'seals shut inside'} the ramp on seed ${seed}`, () => {
       // Three of these five were declared expected failures before weapons
       // existed, and dispatch 5 is what turns them into ordinary assertions:
       // the storm cuts how long an armed mob lives, and a weaponless build
@@ -126,7 +126,7 @@ describe("dodgePolicy over the whole stage (ADR 0013)", () => {
       const state = createRun(seed);
       play(state, dodgePolicy, RAMP_TICKS);
       if (survives) expect(state.ending).toBeNull();
-      else expect(state.ending).toBe("sealed");
+      else expect(state.ending).toBe('sealed');
     });
   }
 
@@ -136,21 +136,21 @@ describe("dodgePolicy over the whole stage (ADR 0013)", () => {
       const crossed = phaseOrder(events);
       // A run that seals inside the ramp crosses nothing at all.
       if (SEALS_IN_THE_RAMP.includes(seed)) expect(crossed).toEqual([]);
-      else expect(crossed[0]).toBe("banshee");
+      else expect(crossed[0]).toBe('banshee');
       expect(crossed).toEqual(
-        ["banshee", "backHalf", "undertaker", "over"].slice(0, crossed.length),
+        ['banshee', 'backHalf', 'undertaker', 'over'].slice(0, crossed.length),
       );
     });
   }
 
-  it("reaches both endings across the five seeds, so neither is unreachable", () => {
+  it('reaches both endings across the five seeds, so neither is unreachable', () => {
     // Victory is still dispatch 4's stub firing on the over phase, and sealed
     // shut is the real ladder. Both have to be reachable or the full-run test
     // is only ever exercising one half of the run's shape, and this is the
     // first build where a fresh run reaches either by playing.
     const endings = new Set(SEEDS.map((seed) => fullRun(seed).state.ending));
-    expect(endings.has("victory")).toBe(true);
-    expect(endings.has("sealed")).toBe(true);
+    expect(endings.has('victory')).toBe(true);
+    expect(endings.has('sealed')).toBe(true);
   });
 
   for (const seed of SEEDS) {
@@ -181,12 +181,12 @@ describe("dodgePolicy over the whole stage (ADR 0013)", () => {
   for (const seed of SEEDS) {
     it(`makes kills, corpses and swallows on seed ${seed}, all from real weapons`, () => {
       const { events } = fullRun(seed);
-      const kills = count(events, "mobKilled");
+      const kills = count(events, 'mobKilled');
       expect(kills).toBeGreaterThan(0);
       expect(kills).toBeLessThanOrEqual(AUTHORED_MOBS);
-      expect(count(events, "swallowed")).toBeGreaterThan(0);
-      expect(count(events, "grew")).toBeGreaterThan(0);
-      expect(count(events, "dropSpawned")).toBeGreaterThan(0);
+      expect(count(events, 'swallowed')).toBeGreaterThan(0);
+      expect(count(events, 'grew')).toBeGreaterThan(0);
+      expect(count(events, 'dropSpawned')).toBeGreaterThan(0);
     });
   }
 });
@@ -212,11 +212,11 @@ describe("dodgePolicy over the whole stage (ADR 0013)", () => {
  * asks to be rewritten as ordinary assertions. The price table is not moved and
  * the bot is not improved, both of which dispatch 5's plan forbids by name.
  */
-describe("the band ADR 0013 asks for, and the band the storm reaches", () => {
+describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
   for (const seed of SEEDS) {
     it.fails(`lands ten to twelve drops on seed ${seed}`, () => {
       const { events } = fullRun(seed);
-      const drops = count(events, "dropSpawned");
+      const drops = count(events, 'dropSpawned');
       expect(drops).toBeGreaterThanOrEqual(10);
       expect(drops).toBeLessThanOrEqual(12);
     });
@@ -225,7 +225,7 @@ describe("the band ADR 0013 asks for, and the band the storm reaches", () => {
   for (const seed of SEEDS) {
     it.fails(`meets most of the authored timeline on seed ${seed}`, () => {
       const { events } = fullRun(seed);
-      expect(count(events, "mobKilled")).toBeGreaterThan(AUTHORED_MOBS / 2);
+      expect(count(events, 'mobKilled')).toBeGreaterThan(AUTHORED_MOBS / 2);
     });
   }
 
@@ -237,13 +237,13 @@ describe("the band ADR 0013 asks for, and the band the storm reaches", () => {
       // (SEALS_IN_THE_RAMP carries the ruling): seed 505 now seals at twelve
       // kills and two drops.
       const { events } = fullRun(seed);
-      expect(count(events, "mobKilled")).toBeGreaterThanOrEqual(12);
-      expect(count(events, "dropSpawned")).toBeGreaterThanOrEqual(2);
+      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(12);
+      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(2);
     });
   }
 });
 
-describe("dodgePolicy from the size ceiling", () => {
+describe('dodgePolicy from the size ceiling', () => {
   for (const seed of SEEDS) {
     it(`ends the run one way or the other on seed ${seed}, and the test says which`, () => {
       // Every one of these was a declared expected failure before weapons
@@ -255,13 +255,13 @@ describe("dodgePolicy from the size ceiling", () => {
       const { state, events } = fullRun(seed, SIZE_CEILING);
       const reached = phaseOrder(events);
       if (seed === 101) {
-        expect(reached).toContain("over");
-        expect(state.ending).toBe("victory");
+        expect(reached).toContain('over');
+        expect(state.ending).toBe('victory');
         return;
       }
-      expect(reached).toContain("backHalf");
-      expect(reached).not.toContain("over");
-      expect(state.ending).toBe("sealed");
+      expect(reached).toContain('backHalf');
+      expect(reached).not.toContain('over');
+      expect(state.ending).toBe('sealed');
     });
   }
 });
@@ -276,18 +276,18 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
       const state = createRun(seed, SIZE_CEILING);
       const { events } = play(state, hitTakingPolicy, RAMP_TICKS);
 
-      expect(state.ending).toBe("sealed");
-      expect(count(events, "sealed")).toBe(1);
-      expect(count(events, "graveHit")).toBeGreaterThan(10);
+      expect(state.ending).toBe('sealed');
+      expect(count(events, 'sealed')).toBe(1);
+      expect(count(events, 'graveHit')).toBeGreaterThan(10);
       // The first rung is now real: overflow from a swallow pays score, and the
       // ladder bleeds it before anything else. The second rung is not reached,
       // because a policy that steers into the nearest threat collects nothing
       // and no line ever rises above the birthright it cannot be stripped below.
-      expect(count(events, "scoreBled")).toBe(1);
-      expect(count(events, "weaponStripped")).toBe(0);
+      expect(count(events, 'scoreBled')).toBe(1);
+      expect(count(events, 'weaponStripped')).toBe(0);
       for (const line of WEAPON_LINES) {
         expect(`${line} ${state.levels[line]}`).toBe(
-          `${line} ${["soulStream", "headstones"].includes(line) ? 1 : 0}`,
+          `${line} ${['soulStream', 'headstones'].includes(line) ? 1 : 0}`,
         );
       }
     });
@@ -340,10 +340,10 @@ describe("the Wall's two-sided property (ADR 0016)", () => {
 
       expect(state.ending).toBeNull();
       expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(0);
-      expect(count(events, "belched")).toBe(0);
+      expect(count(events, 'belched')).toBe(0);
       // The cost, which is the half of the property that stops the curtain
       // becoming comfortable.
-      expect(count(events, "graveHit")).toBeGreaterThan(0);
+      expect(count(events, 'graveHit')).toBeGreaterThan(0);
       expect(state.grave.size).toBeLessThan(before);
     });
   }
@@ -356,8 +356,8 @@ describe("the Wall's two-sided property (ADR 0016)", () => {
 
       expect(state.ending).toBeNull();
       expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(0);
-      expect(count(events, "belched")).toBeGreaterThan(0);
-      expect(count(events, "graveHit")).toBe(0);
+      expect(count(events, 'belched')).toBeGreaterThan(0);
+      expect(count(events, 'graveHit')).toBe(0);
       expect(state.grave.size).toBe(before);
     });
   }
@@ -383,16 +383,16 @@ describe("the drain-out's property (plan 6.29)", () => {
         state.ending = null;
         const alive = state.mobs.filter((mob) => mob.alive).length;
         for (const event of events) {
-          if (event.type !== "phaseChanged") continue;
+          if (event.type !== 'phaseChanged') continue;
           atBoundary.push(`${event.phase}=${alive}`);
         }
       }
       expect(execution.faults).toEqual([]);
       expect(atBoundary).toEqual([
-        "banshee=0",
-        "backHalf=0",
-        "undertaker=0",
-        "over=0",
+        'banshee=0',
+        'backHalf=0',
+        'undertaker=0',
+        'over=0',
       ]);
     });
   }

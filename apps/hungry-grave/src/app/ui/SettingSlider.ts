@@ -1,7 +1,7 @@
-import { Slider } from "@pixi/ui";
-import { Graphics } from "pixi.js";
+import { Slider } from '@pixi/ui';
+import { Graphics } from 'pixi.js';
 
-import { Label } from "./Label";
+import { Label } from './Label';
 
 /**
  * A labelled slider for one persisted setting, used in the Settings popup. It
@@ -65,7 +65,7 @@ export class SettingSlider extends Slider {
     this.messageLabel = new Label({
       text: label,
       style: {
-        align: "left",
+        align: 'left',
         fill: 0x4a4a4a,
         fontSize: 18,
       },

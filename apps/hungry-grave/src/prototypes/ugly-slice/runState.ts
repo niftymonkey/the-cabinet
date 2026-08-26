@@ -1,27 +1,27 @@
 // Shared run state between screens. Navigation constructs screens with no
 // arguments, so the finished run travels through this module instead.
 
-import type { Sim } from "./game/sim";
+import type { Sim } from './game/sim';
 
 export interface RunState {
   seed: number;
-  outcome: "dead" | "victory";
+  outcome: 'dead' | 'victory';
   lastSim: Sim | null;
 }
 
 // The seed may ride the hash query (#/prototypes/ugly-slice?seed=7) or the
 // search before the hash (?seed=7#/...); pure so both URL forms are testable.
 export function parseSeedParam(hash: string, search: string): number | null {
-  const hashQuery = hash.split("?")[1] ?? "";
+  const hashQuery = hash.split('?')[1] ?? '';
   const param =
-    new URLSearchParams(hashQuery).get("seed") ??
-    new URLSearchParams(search).get("seed");
+    new URLSearchParams(hashQuery).get('seed') ??
+    new URLSearchParams(search).get('seed');
   const seed = param === null ? NaN : Number(param);
   return Number.isFinite(seed) ? seed : null;
 }
 
 function pinnedSeedFromUrl(): number | null {
-  if (typeof window === "undefined") return 42;
+  if (typeof window === 'undefined') return 42;
   return parseSeedParam(window.location.hash, window.location.search);
 }
 
@@ -45,6 +45,6 @@ export function nextRunSeed(): number {
 
 export const runState: RunState = {
   seed: pinnedSeed ?? randomSeed(),
-  outcome: "dead",
+  outcome: 'dead',
   lastSim: null,
 };

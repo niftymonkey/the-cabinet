@@ -14,15 +14,15 @@
  * trailerless, which is a different fact.
  */
 
-import type { TickListener } from "../game/execution";
-import type { WeaponLine } from "../game/lines/roster";
-import type { DamageSource } from "../game/mobs";
-import type { RunEnding, RunState } from "../game/run";
-import { isBirthrightLevels } from "../game/run";
-import { SIZE_START } from "../game/tuning";
-import type { DecodedTape } from "../tape/decode";
-import { playTape } from "../tape/playback";
-import type { PlaybackResult } from "../tape/playback";
+import type { TickListener } from '../game/execution';
+import type { WeaponLine } from '../game/lines/roster';
+import type { DamageSource } from '../game/mobs';
+import type { RunEnding, RunState } from '../game/run';
+import { isBirthrightLevels } from '../game/run';
+import { SIZE_START } from '../game/tuning';
+import type { DecodedTape } from '../tape/decode';
+import { playTape } from '../tape/playback';
+import type { PlaybackResult } from '../tape/playback';
 import type {
   FaultObservation,
   FrameObservation,
@@ -32,8 +32,8 @@ import type {
   TapeInputDevice,
   TapeIntegrity,
   TapeStop,
-} from "../tape/tape";
-import { frameObservations, stopOf } from "../tape/tape";
+} from '../tape/tape';
+import { frameObservations, stopOf } from '../tape/tape';
 
 /**
  * The frame interval past which a frame is reported as expensive, in
@@ -143,7 +143,7 @@ interface PerformanceReport {
  * own rule that aggregates exclude faulted runs by default.
  */
 type AggregateExclusion =
-  "bot" | "script" | "conditioned" | "faulted" | "unchecked";
+  'bot' | 'script' | 'conditioned' | 'faulted' | 'unchecked';
 
 /** Who and what produced the run, and whether it belongs in default aggregates. */
 interface Provenance {
@@ -160,7 +160,7 @@ interface Provenance {
 
 /** Everything a verified replay can say about a run. */
 interface Metrics {
-  readonly outcome: "verified";
+  readonly outcome: 'verified';
   readonly run: RunSummary;
   /** Damage dealt per weapon line, with the belch as its own arm beside the four. */
   readonly damage: Readonly<Record<DamageSource, number>>;
@@ -171,13 +171,13 @@ interface Metrics {
   /** The faults the tape carries: the original run's history, never rewritten (ADR 0017). */
   readonly recordedFaults: readonly FaultObservation[];
   /** What today's checks said about the reproduced run, kept a separate list. */
-  readonly readbackFaults: PlaybackResult["readbackFaults"];
+  readonly readbackFaults: PlaybackResult['readbackFaults'];
   readonly provenance: Provenance;
 }
 
 /** The replay stopped agreeing with the tape, and nothing after that is the recorded run. */
 interface Divergence {
-  readonly outcome: "diverged";
+  readonly outcome: 'diverged';
   readonly firstDivergentCheckpoint: number;
   readonly checkpointsVerified: number;
   readonly ticksReproduced: number;
@@ -185,7 +185,7 @@ interface Divergence {
 
 /** The tape was recorded against a different fold, so not a single tick was run (ADR 0019). */
 interface Refusal {
-  readonly outcome: "witnessVersionMismatch";
+  readonly outcome: 'witnessVersionMismatch';
   readonly tapeWitnessVersion: number;
   readonly readerWitnessVersion: number;
 }
@@ -256,11 +256,11 @@ const observeInto = (
 ): TickListener => {
   return (tick, _command, events, state) => {
     for (const event of events) {
-      if (event.type === "mobDamaged") {
+      if (event.type === 'mobDamaged') {
         tallies.damage[event.source] += event.amount;
       }
-      if (event.type === "mobKilled") tallies.kills += 1;
-      if (event.type === "weaponLeveled") {
+      if (event.type === 'mobKilled') tallies.kills += 1;
+      if (event.type === 'weaponLeveled') {
         tallies.levelUps.push({ line: event.line, level: event.level, tick });
       }
     }
@@ -361,13 +361,13 @@ const exclusionsOf = (
 ): AggregateExclusion[] => {
   const exclusions: AggregateExclusion[] = [];
   const device = tape.header.inputDevice;
-  if (device === "bot" || device === "script") exclusions.push(device);
-  if (isConditioned(tape.header)) exclusions.push("conditioned");
+  if (device === 'bot' || device === 'script') exclusions.push(device);
+  if (isConditioned(tape.header)) exclusions.push('conditioned');
   const integrity = tape.trailer?.integrity ?? null;
-  if (integrity === "faulted" || recordedFaults.length > 0) {
-    exclusions.push("faulted");
+  if (integrity === 'faulted' || recordedFaults.length > 0) {
+    exclusions.push('faulted');
   }
-  if (integrity === "unchecked") exclusions.push("unchecked");
+  if (integrity === 'unchecked') exclusions.push('unchecked');
   return exclusions;
 };
 
@@ -427,23 +427,23 @@ const measure = (decoded: DecodedTape): Measurement => {
 
   const result = playTape(decoded.tape, observeInto(tallies, sampleAt));
 
-  if (result.outcome === "witnessVersionMismatch") {
+  if (result.outcome === 'witnessVersionMismatch') {
     return {
-      outcome: "witnessVersionMismatch",
+      outcome: 'witnessVersionMismatch',
       tapeWitnessVersion: result.tapeWitnessVersion,
       readerWitnessVersion: result.readerWitnessVersion,
     };
   }
   if (result.firstDivergentCheckpoint !== null) {
     return {
-      outcome: "diverged",
+      outcome: 'diverged',
       firstDivergentCheckpoint: result.firstDivergentCheckpoint,
       checkpointsVerified: result.checkpointsVerified,
       ticksReproduced: result.ticksReproduced,
     };
   }
   return {
-    outcome: "verified",
+    outcome: 'verified',
     run: runSummaryOf(decoded, result, tallies),
     damage: tallies.damage,
     levelUps: tallies.levelUps,

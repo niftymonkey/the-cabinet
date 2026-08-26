@@ -4,15 +4,15 @@
  * `docs/research/readability-value-band.md` section 0.4 that it implements.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
-import { resize } from "../engine/resize/resize";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
-import { apcaLc, hsv, luma, observerLuma } from "./color";
-import { BOUNDARY_STROKE, fitField } from "./layout";
-import type { FireEmitter, PaletteEntry } from "./palette";
+import { resize } from '../engine/resize/resize';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
+import { apcaLc, hsv, luma, observerLuma } from './color';
+import { BOUNDARY_STROKE, fitField } from './layout';
+import type { FireEmitter, PaletteEntry } from './palette';
 import {
   BAND_MARGIN_MIN,
   CORPSE_TIERS,
@@ -22,12 +22,12 @@ import {
   MOB_FIRE_BAND_MIN,
   PALETTE,
   SPRITE_OUTLINE,
-} from "./palette";
+} from './palette';
 import {
   GRAVE_RIM_SHADOW,
   GRAVE_RIM_STROKE,
-} from "./screens/game/GraveRenderer";
-import { LAYER_ORDER } from "./screens/game/layering";
+} from './screens/game/GraveRenderer';
+import { LAYER_ORDER } from './screens/game/layering';
 
 /** APCA's stated minimum for fine-detail pictograms, which is what a bullet is. */
 const CORE_MIN_LC = 45;
@@ -68,7 +68,7 @@ const RIM_STROKE_MIN_CSS = 2.0;
 const RIM_BAND_MAX = 4;
 
 /** The colours in PALETTE that are not sprites the player tells apart mid-dodge. */
-const NOT_SPRITES = ["hudInk", "hudDim", "night", "nightSpeckle", "fieldFrame"];
+const NOT_SPRITES = ['hudInk', 'hudDim', 'night', 'nightSpeckle', 'fieldFrame'];
 
 /**
  * Every pair the sprite-separation check is allowed to fail on, each with the
@@ -76,7 +76,7 @@ const NOT_SPRITES = ["hudInk", "hudDim", "night", "nightSpeckle", "fieldFrame"];
  * not an exception, it is a defect.
  */
 const MID_BAND_BODY =
-  "a mid-band body colour is where neither a light nor a dark companion reads, and the boss dispatch owns both this colour and the renderer that draws it";
+  'a mid-band body colour is where neither a light nor a dark companion reads, and the boss dispatch owns both this colour and the renderer that draws it';
 
 /**
  * The splash as a background, re-argued on what it is now that dispatch 5 draws
@@ -106,7 +106,7 @@ const OVER_THE_SPLASH =
  * frames.
  */
 const OVER_THE_SKULL =
-  "44.98, 0.02 short: a skull occupies a given pixel for a frame or two at 420 units a second, where the fine-detail bracket grades a static mark on a static ground";
+  '44.98, 0.02 short: a skull occupies a given pixel for a frame or two at 420 units a second, where the fine-detail bracket grades a static mark on a static ground';
 
 /**
  * The grave's mouth as a background for the two things that come out of it.
@@ -118,71 +118,71 @@ const OVER_THE_SKULL =
  * the mouth by construction and is the same momentary effect argued above.
  */
 const OVER_THE_MOUTH =
-  "a bright sprite on the darkest declared colour, at reverse polarity, and over the mouth for at most the tick it leaves it";
+  'a bright sprite on the darkest declared colour, at reverse polarity, and over the mouth for at most the tick it leaves it';
 
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
-    pair: ["graveRim", "stone"],
+    pair: ['graveRim', 'stone'],
     because:
       "the rim is a large outline fixed to the grave and a headstone is a small orbiting sprite, so ADR 0014's silhouette-first rule carries them",
   },
   {
-    pair: ["graveGlow", "drop"],
+    pair: ['graveGlow', 'drop'],
     because:
       "the glow is the grave wearing treasure's own colour, always at the grave's position and pulsing where a drop is steady",
   },
   {
-    pair: ["feast", "belchEruption"],
+    pair: ['feast', 'belchEruption'],
     because:
-      "a feast is a small steady sprite in the food layer and the eruption is a momentary full-field event two layers below it",
+      'a feast is a small steady sprite in the food layer and the eruption is a momentary full-field event two layers below it',
   },
   // Assertion 3's exceptions, each with the best figure either half of the pair
   // reaches against that background. The threshold is not lowered for anything;
   // these are named instead.
   {
-    pair: ["graveRim", "mobDark"],
+    pair: ['graveRim', 'mobDark'],
     because:
       "43.10: mobDark is a mob body's own dark half and no renderer draws it, so the pair has no instant on screen. Trigger: the dispatch that gives a mob body its dark half",
   },
-  { pair: ["graveRim", "bansheeDark"], because: `29.53: ${MID_BAND_BODY}` },
-  { pair: ["graveRim", "undertaker"], because: `27.86: ${MID_BAND_BODY}` },
-  { pair: ["feast", "bansheeDark"], because: `29.28: ${MID_BAND_BODY}` },
-  { pair: ["feast", "undertaker"], because: `31.71: ${MID_BAND_BODY}` },
-  { pair: ["drop", "bansheeDark"], because: `31.66: ${MID_BAND_BODY}` },
-  { pair: ["drop", "undertaker"], because: `34.09: ${MID_BAND_BODY}` },
-  { pair: ["graveGlow", "bansheeDark"], because: `31.66: ${MID_BAND_BODY}` },
-  { pair: ["graveGlow", "undertaker"], because: `34.09: ${MID_BAND_BODY}` },
-  { pair: ["undertaker", "graveHole"], because: `24.72: ${MID_BAND_BODY}` },
-  { pair: ["undertaker", "foodOutline"], because: `23.42: ${MID_BAND_BODY}` },
+  { pair: ['graveRim', 'bansheeDark'], because: `29.53: ${MID_BAND_BODY}` },
+  { pair: ['graveRim', 'undertaker'], because: `27.86: ${MID_BAND_BODY}` },
+  { pair: ['feast', 'bansheeDark'], because: `29.28: ${MID_BAND_BODY}` },
+  { pair: ['feast', 'undertaker'], because: `31.71: ${MID_BAND_BODY}` },
+  { pair: ['drop', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
+  { pair: ['drop', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
+  { pair: ['graveGlow', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
+  { pair: ['graveGlow', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
+  { pair: ['undertaker', 'graveHole'], because: `24.72: ${MID_BAND_BODY}` },
+  { pair: ['undertaker', 'foodOutline'], because: `23.42: ${MID_BAND_BODY}` },
   // Over the splash, which dispatch 5 draws for the first time.
-  { pair: ["graveRim", "splash"], because: OVER_THE_SPLASH },
+  { pair: ['graveRim', 'splash'], because: OVER_THE_SPLASH },
   {
-    pair: ["graveGlow", "splash"],
+    pair: ['graveGlow', 'splash'],
     because: `43.16, and ${OVER_THE_SPLASH}`,
   },
-  { pair: ["corpse", "splash"], because: OVER_THE_SPLASH },
-  { pair: ["corpseRevenant", "splash"], because: OVER_THE_SPLASH },
-  { pair: ["feast", "splash"], because: OVER_THE_SPLASH },
-  { pair: ["drop", "splash"], because: OVER_THE_SPLASH },
-  { pair: ["mob", "splash"], because: OVER_THE_SPLASH },
-  { pair: ["banshee", "splash"], because: OVER_THE_SPLASH },
-  { pair: ["undertaker", "splash"], because: OVER_THE_SPLASH },
-  { pair: ["skull", "splash"], because: OVER_THE_SPLASH },
-  { pair: ["stone", "splash"], because: OVER_THE_SPLASH },
-  { pair: ["wisp", "splash"], because: OVER_THE_SPLASH },
-  { pair: ["bellRing", "splash"], because: OVER_THE_SPLASH },
+  { pair: ['corpse', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['corpseRevenant', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['feast', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['drop', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['mob', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['banshee', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['undertaker', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['skull', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['stone', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['wisp', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['bellRing', 'splash'], because: OVER_THE_SPLASH },
   // Over the skull, which dispatch 5 draws for the first time.
-  { pair: ["graveRim", "skull"], because: OVER_THE_SKULL },
-  { pair: ["corpse", "skull"], because: OVER_THE_SKULL },
-  { pair: ["corpseRevenant", "skull"], because: OVER_THE_SKULL },
-  { pair: ["feast", "skull"], because: OVER_THE_SKULL },
-  { pair: ["drop", "skull"], because: OVER_THE_SKULL },
-  { pair: ["mob", "skull"], because: OVER_THE_SKULL },
-  { pair: ["banshee", "skull"], because: OVER_THE_SKULL },
-  { pair: ["undertaker", "skull"], because: OVER_THE_SKULL },
+  { pair: ['graveRim', 'skull'], because: OVER_THE_SKULL },
+  { pair: ['corpse', 'skull'], because: OVER_THE_SKULL },
+  { pair: ['corpseRevenant', 'skull'], because: OVER_THE_SKULL },
+  { pair: ['feast', 'skull'], because: OVER_THE_SKULL },
+  { pair: ['drop', 'skull'], because: OVER_THE_SKULL },
+  { pair: ['mob', 'skull'], because: OVER_THE_SKULL },
+  { pair: ['banshee', 'skull'], because: OVER_THE_SKULL },
+  { pair: ['undertaker', 'skull'], because: OVER_THE_SKULL },
   // Out of the mouth.
-  { pair: ["skull", "graveHole"], because: `44.42: ${OVER_THE_MOUTH}` },
-  { pair: ["splash", "graveHole"], because: `40.81: ${OVER_THE_MOUTH}` },
+  { pair: ['skull', 'graveHole'], because: `44.42: ${OVER_THE_MOUTH}` },
+  { pair: ['splash', 'graveHole'], because: `40.81: ${OVER_THE_MOUTH}` },
 ];
 
 /**
@@ -192,26 +192,26 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
  * from here.
  */
 const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
-  graveHole: "graveMouth",
-  graveRim: "graveRim",
-  graveGlow: "graveRim",
-  mob: "mobBodies",
-  mobDark: "mobBodies",
-  banshee: "mobBodies",
-  bansheeDark: "mobBodies",
-  undertaker: "mobBodies",
-  undertakerDark: "mobBodies",
-  skull: "storm",
-  stone: "storm",
-  wisp: "storm",
-  bellRing: "bellRing",
-  corpse: "corpses",
-  corpseRevenant: "corpses",
-  foodOutline: "corpses",
-  feast: "treasure",
-  drop: "treasure",
-  belchEruption: "belchEruption",
-  splash: "belchEruption",
+  graveHole: 'graveMouth',
+  graveRim: 'graveRim',
+  graveGlow: 'graveRim',
+  mob: 'mobBodies',
+  mobDark: 'mobBodies',
+  banshee: 'mobBodies',
+  bansheeDark: 'mobBodies',
+  undertaker: 'mobBodies',
+  undertakerDark: 'mobBodies',
+  skull: 'storm',
+  stone: 'storm',
+  wisp: 'storm',
+  bellRing: 'bellRing',
+  corpse: 'corpses',
+  corpseRevenant: 'corpses',
+  foodOutline: 'corpses',
+  feast: 'treasure',
+  drop: 'treasure',
+  belchEruption: 'belchEruption',
+  splash: 'belchEruption',
 };
 
 /**
@@ -221,11 +221,11 @@ const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
  * called something that ends in Dark.
  */
 const DARK_HALVES: { name: string; because: string }[] = [
-  { name: "graveHole", because: "the rim's own dark band, and the mouth" },
-  { name: "foodOutline", because: "the companion the food layers all share" },
-  { name: "mobDark", because: "a mob body's own dark half" },
-  { name: "bansheeDark", because: "the Banshee's own dark half" },
-  { name: "undertakerDark", because: "the Undertaker's own dark half" },
+  { name: 'graveHole', because: "the rim's own dark band, and the mouth" },
+  { name: 'foodOutline', because: 'the companion the food layers all share' },
+  { name: 'mobDark', because: "a mob body's own dark half" },
+  { name: 'bansheeDark', because: "the Banshee's own dark half" },
+  { name: 'undertakerDark', because: "the Undertaker's own dark half" },
 ];
 
 /**
@@ -239,14 +239,14 @@ const DARK_HALVES: { name: string; because: string }[] = [
  */
 const AWAITING_A_COMPANION: { name: string; because: string }[] = [];
 
-const EMITTERS: FireEmitter[] = ["trash", "tear", "clod", "spiral"];
+const EMITTERS: FireEmitter[] = ['trash', 'tear', 'clod', 'spiral'];
 
 /** The backgrounds a mob-fire core can be drawn over (assertion 8). */
 const BACKGROUNDS: [string, PaletteEntry][] = [
-  ["night", PALETTE.night],
-  ["nightSpeckle", PALETTE.nightSpeckle],
-  ["fieldFrame", PALETTE.fieldFrame],
-  ["graveHole", PALETTE.graveHole],
+  ['night', PALETTE.night],
+  ['nightSpeckle', PALETTE.nightSpeckle],
+  ['fieldFrame', PALETTE.fieldFrame],
+  ['graveHole', PALETTE.graveHole],
 ];
 
 function paletteEntries(): [string, PaletteEntry][] {
@@ -284,8 +284,8 @@ function hueGap(a: number, b: number): number {
   return gap > 180 ? 360 - gap : gap;
 }
 
-describe("the declared palette (ADR 0014)", () => {
-  it("declares a luma that matches its hex, across PALETTE and MENU", () => {
+describe('the declared palette (ADR 0014)', () => {
+  it('declares a luma that matches its hex, across PALETTE and MENU', () => {
     // Assertion 1. Without it the declared numbers drift the first time a hex
     // is nudged, and every other assertion is then checking a fiction.
     const all = [...paletteEntries(), ...Object.entries(MENU)];
@@ -298,16 +298,16 @@ describe("the declared palette (ADR 0014)", () => {
     }
   });
 
-  it("declares nothing named hitFlash", () => {
+  it('declares nothing named hitFlash', () => {
     // ADR 0014 amendment 2026-08-20: retired, not re-valued. The hit announces
     // by dimming the field with mob fire and the grave's rim both spared.
-    expect(PALETTE).not.toHaveProperty("hitFlash");
-    expect(MENU).not.toHaveProperty("hitFlash");
+    expect(PALETTE).not.toHaveProperty('hitFlash');
+    expect(MENU).not.toHaveProperty('hitFlash');
   });
 });
 
-describe("the reserved band (ADR 0014)", () => {
-  it("puts every mob-fire core at or above MOB_FIRE_BAND_MIN", () => {
+describe('the reserved band (ADR 0014)', () => {
+  it('puts every mob-fire core at or above MOB_FIRE_BAND_MIN', () => {
     // Assertion 2, presence.
     const declared = [...cores()];
     expect(declared.length).toBeGreaterThan(0);
@@ -316,7 +316,7 @@ describe("the reserved band (ADR 0014)", () => {
     }
   });
 
-  it("puts every other field colour at or below FIELD_LUMA_CEILING", () => {
+  it('puts every other field colour at or below FIELD_LUMA_CEILING', () => {
     // Assertion 3, exclusivity. MENU is exempt and held so by the source scan.
     const declared = nonCoreEntries();
     expect(declared.length).toBeGreaterThan(0);
@@ -327,7 +327,7 @@ describe("the reserved band (ADR 0014)", () => {
     }
   });
 
-  it("keeps at least BAND_MARGIN_MIN between the ceiling and the floor", () => {
+  it('keeps at least BAND_MARGIN_MIN between the ceiling and the floor', () => {
     // Assertion 4, its own test so shrinking the margin is a deliberate edit
     // with a failing test attached rather than a side effect.
     expect(MOB_FIRE_BAND_MIN - FIELD_LUMA_CEILING).toBeGreaterThanOrEqual(
@@ -335,7 +335,7 @@ describe("the reserved band (ADR 0014)", () => {
     );
   });
 
-  it("names a core, a body and an outline for all four emitters", () => {
+  it('names a core, a body and an outline for all four emitters', () => {
     // Assertion 5, coverage: exclusivity alone is satisfied by an empty band.
     expect(Object.keys(MOB_FIRE).sort()).toEqual([...EMITTERS].sort());
     for (const emitter of EMITTERS) {
@@ -346,10 +346,10 @@ describe("the reserved band (ADR 0014)", () => {
     }
   });
 
-  it("keeps the lowest core 20 clear of the highest non-core for a protan and a deutan observer", () => {
+  it('keeps the lowest core 20 clear of the highest non-core for a protan and a deutan observer', () => {
     // Assertion 6, restated as a separation because the observer estimate is on
     // its own scale and the two scales agree only on neutral greys (7.4).
-    for (const observer of ["protan", "deutan"] as const) {
+    for (const observer of ['protan', 'deutan'] as const) {
       const lowestCore = Math.min(
         ...[...cores()].map((core) => observerLuma(core.hex, observer)),
       );
@@ -364,7 +364,7 @@ describe("the reserved band (ADR 0014)", () => {
     }
   });
 
-  it("shares no hex between mob fire and anything else", () => {
+  it('shares no hex between mob fire and anything else', () => {
     // Assertion 7. This is what would have caught hitFlash outright.
     const isFire = fireColours();
     const fireHexes = new Set([...isFire].map((entry) => entry.hex));
@@ -377,7 +377,7 @@ describe("the reserved band (ADR 0014)", () => {
     }
   });
 
-  it("clears APCA Lc 45 for every core against every background it draws on", () => {
+  it('clears APCA Lc 45 for every core against every background it draws on', () => {
     // Assertion 8. Exclusivity says fire is not confusable with other sprites;
     // it does not say fire is visible at all. APCA is signed, so the threshold
     // is on the magnitude: a near-white core on the night sky reads about -97.
@@ -400,7 +400,7 @@ describe("the reserved band (ADR 0014)", () => {
     }
   });
 
-  it("keeps every non-fire hue at least 20 degrees off every mob-fire body hue", () => {
+  it('keeps every non-fire hue at least 20 degrees off every mob-fire body hue', () => {
     // Assertion 10, and it is a tripwire rather than the rule: the floor was
     // fitted just under the tightest gap in the palette it checks, so a pass
     // means no new colour has walked into fire's family (7.4).
@@ -428,7 +428,7 @@ describe("the reserved band (ADR 0014)", () => {
 });
 
 describe("the field's boundary (ADR 0014)", () => {
-  it("clears APCA Lc 45 against the ground it is drawn on", () => {
+  it('clears APCA Lc 45 against the ground it is drawn on', () => {
     // The band gives mob fire a floor and everything else a ceiling, and asks
     // of nothing else that it be visible at all. That is how this boundary sat
     // at Lc 0.00 through three gates: night is both the engine's background and
@@ -443,7 +443,7 @@ describe("the field's boundary (ADR 0014)", () => {
     expect(Math.abs(lc)).toBeGreaterThanOrEqual(BOUNDARY_MIN_LC);
   });
 
-  it("keeps every mob-fire core clear of Lc 45 against it, which is what caps its brightness", () => {
+  it('keeps every mob-fire core clear of Lc 45 against it, which is what caps its brightness', () => {
     // This is the assertion the thinning is bought from. The boundary reaches
     // its bracket by getting brighter, fire is drawn over it wherever a shot
     // reaches an edge, and every point the frame rises comes straight out of
@@ -468,7 +468,7 @@ describe("the field's boundary (ADR 0014)", () => {
     ).toBeGreaterThanOrEqual(1);
   });
 
-  it("stays clear of every mob-fire body on luma, so fire crossing it still reads in grayscale", () => {
+  it('stays clear of every mob-fire body on luma, so fire crossing it still reads in grayscale', () => {
     // The boundary is not a sprite, so sprite separation skips it, and fire
     // crosses it every time a bullet reaches an edge. A body at the frame's own
     // luma vanishes into it wherever the core and outline do not fall.
@@ -479,8 +479,8 @@ describe("the field's boundary (ADR 0014)", () => {
   });
 });
 
-describe("the standing colour bans", () => {
-  it("declares no brown", () => {
+describe('the standing colour bans', () => {
+  it('declares no brown', () => {
     // Dark, saturated orange is the definition of brown. This is the ban that
     // retired the old dropCore hex (#30), by measurement rather than by eye;
     // color.test.ts keeps that hex's measurement.
@@ -495,8 +495,8 @@ describe("the standing colour bans", () => {
   });
 });
 
-describe("sprite separation (research 7.4)", () => {
-  it("keeps every pair of field sprites apart on luma, hue or saturation", () => {
+describe('sprite separation (research 7.4)', () => {
+  it('keeps every pair of field sprites apart on luma, hue or saturation', () => {
     const collisions = spriteCollisions().filter(
       (pair) => !isExcepted(pair[0], pair[1]),
     );
@@ -523,7 +523,7 @@ describe("sprite separation (research 7.4)", () => {
           );
         })
         .map(([name]) => name);
-      expect(`${tier} ${collisions.join(",")}`).toBe(`${tier} `);
+      expect(`${tier} ${collisions.join(',')}`).toBe(`${tier} `);
     }
   });
 });
@@ -542,8 +542,8 @@ function backgroundsUnder(name: string): [string, PaletteEntry][] {
   );
 }
 
-describe("the sprite outline table (ADR 0014)", () => {
-  it("gives every sprite in a layer beneath mob fire a dark companion, or names the dispatch that owes it one", () => {
+describe('the sprite outline table (ADR 0014)', () => {
+  it('gives every sprite in a layer beneath mob fire a dark companion, or names the dispatch that owes it one', () => {
     // Assertion 1. Written as a table over the layers rather than as a list of
     // the sprites that happen to exist today, so a new sprite with no companion
     // fails rather than passing quietly.
@@ -565,10 +565,10 @@ describe("the sprite outline table (ADR 0014)", () => {
         `${each.name} declared true`,
       );
     }
-    expect(SPRITE_OUTLINE.graveRim).toBe("graveHole");
+    expect(SPRITE_OUTLINE.graveRim).toBe('graveHole');
   });
 
-  it("spans at least INTERNAL_SPAN_MIN luma from a sprite to its companion", () => {
+  it('spans at least INTERNAL_SPAN_MIN luma from a sprite to its companion', () => {
     // Assertion 2, reusing assertion 9's own constant: a pair carrying light
     // against dark internally reads on a background the palette never planned.
     for (const [name, companion] of Object.entries(SPRITE_OUTLINE)) {
@@ -580,7 +580,7 @@ describe("the sprite outline table (ADR 0014)", () => {
     }
   });
 
-  it("clears APCA Lc 45 on at least one half of each pair, against every sprite it can be drawn over", () => {
+  it('clears APCA Lc 45 on at least one half of each pair, against every sprite it can be drawn over', () => {
     // Assertion 3, and it has to be one half rather than the dark half alone:
     // foodOutline against night is exactly Lc 0.00, and graveHole is 0.00
     // against night, nightSpeckle and undertakerDark.
@@ -617,16 +617,16 @@ describe("the sprite outline table (ADR 0014)", () => {
   });
 });
 
-describe("the corpse tiers (tracer plan section 4)", () => {
+describe('the corpse tiers (tracer plan section 4)', () => {
   const tiers = Object.entries(CORPSE_TIERS);
 
-  it("declares the same luma for every tier, so the tier stays out of the freshness channel", () => {
+  it('declares the same luma for every tier, so the tier stays out of the freshness channel', () => {
     // Assertion 6. Brightness is freshness and nothing else.
     expect(tiers.length).toBeGreaterThan(1);
     expect(new Set(tiers.map(([, entry]) => entry.luma)).size).toBe(1);
   });
 
-  it("keeps every pair of tiers at least 25 hue degrees apart", () => {
+  it('keeps every pair of tiers at least 25 hue degrees apart', () => {
     // Assertion 7. The 15-degree gate in sprite separation is a collision
     // tripwire, not a legibility floor.
     for (let i = 0; i < tiers.length; i++) {
@@ -639,11 +639,11 @@ describe("the corpse tiers (tracer plan section 4)", () => {
     }
   });
 
-  it("keeps every pair of tiers within 2.5 for a protan and a deutan observer", () => {
+  it('keeps every pair of tiers within 2.5 for a protan and a deutan observer', () => {
     // Assertion 8. If two tiers shared Rec.709 luma but differed on an observer
     // scale, a colour-blind player would read the tier difference as a
     // freshness difference, which corrupts the one channel that survives.
-    for (const observer of ["protan", "deutan"] as const) {
+    for (const observer of ['protan', 'deutan'] as const) {
       for (let i = 0; i < tiers.length; i++) {
         for (let j = i + 1; j < tiers.length; j++) {
           const drift = Math.abs(
@@ -658,7 +658,7 @@ describe("the corpse tiers (tracer plan section 4)", () => {
     }
   });
 
-  it("clears the treasure class on hue or on saturation", () => {
+  it('clears the treasure class on hue or on saturation', () => {
     // Assertion 9, written as an either-or deliberately: corpseRevenant against
     // drop measures 0.241 on saturation, just under, and passes on hue at
     // 35.04. Confusing a corpse with treasure is a misread payout either way.
@@ -670,10 +670,10 @@ describe("the corpse tiers (tracer plan section 4)", () => {
     // changes a hex, because the values are right and only the claims about
     // them were wrong; what separates the two on screen is the outline
     // construction, and a feast is a boss-shed corpse before it is treasure.
-    const excepted = new Set(["trash vs feast"]);
+    const excepted = new Set(['trash vs feast']);
     for (const [tier, entry] of tiers) {
       const shape = hsv(entry.hex);
-      for (const name of ["drop", "feast"] as const) {
+      for (const name of ['drop', 'feast'] as const) {
         if (excepted.has(`${tier} vs ${name}`)) continue;
         const treasure = hsv(PALETTE[name].hex);
         const clears =
@@ -733,9 +733,9 @@ const APP = resolve(import.meta.dirname);
  * the grayscale differential can.
  */
 const DRAWS_DURING_A_RUN = [
-  join(APP, "screens", "game"),
-  join(APP, "FpsMeter.ts"),
-  join(APP, "..", "main.ts"),
+  join(APP, 'screens', 'game'),
+  join(APP, 'FpsMeter.ts'),
+  join(APP, '..', 'main.ts'),
 ];
 
 /**
@@ -747,12 +747,12 @@ const DRAWS_DURING_A_RUN = [
  * blend mode, the rule that eats the whole 20-point margin when it is broken.
  */
 const FORBIDDEN = [
-  { rule: "reaches a MENU colour", pattern: /\bMENU\b/ },
+  { rule: 'reaches a MENU colour', pattern: /\bMENU\b/ },
   {
-    rule: "writes a colour literal",
+    rule: 'writes a colour literal',
     pattern: /0x[0-9a-fA-F]{3,8}\b|["']#[0-9a-fA-F]{3,8}["']/,
   },
-  { rule: "sets a blendMode", pattern: /\bblendMode\b/ },
+  { rule: 'sets a blendMode', pattern: /\bblendMode\b/ },
 ];
 
 /**
@@ -769,7 +769,7 @@ function typescriptFilesUnder(path: string): string[] {
     );
   }
   if (!statSync(path).isDirectory()) {
-    return path.endsWith(".ts") && !/\.(test|spec)\.ts$/.test(path)
+    return path.endsWith('.ts') && !/\.(test|spec)\.ts$/.test(path)
       ? [path]
       : [];
   }
@@ -779,21 +779,21 @@ function typescriptFilesUnder(path: string): string[] {
 }
 
 function forbiddenIn(file: string): string[] {
-  const source = readFileSync(file, "utf8");
+  const source = readFileSync(file, 'utf8');
   const where = relative(APP, file);
   return FORBIDDEN.filter(({ pattern }) => pattern.test(source)).map(
     ({ rule }) => `${where} ${rule}`,
   );
 }
 
-describe("the source scan over the modules that draw during a run (ADR 0014)", () => {
-  it("reaches no MENU colour, writes no colour literal, and sets no blendMode", () => {
+describe('the source scan over the modules that draw during a run (ADR 0014)', () => {
+  it('reaches no MENU colour, writes no colour literal, and sets no blendMode', () => {
     const files = DRAWS_DURING_A_RUN.flatMap(typescriptFilesUnder);
     expect(files.length).toBeGreaterThan(0);
     expect(files.flatMap(forbiddenIn)).toEqual([]);
   });
 
   it.todo(
-    "covers src/app/ui, whose widgets draw over the field and are dressed at #38",
+    'covers src/app/ui, whose widgets draw over the field and are dressed at #38',
   );
 });

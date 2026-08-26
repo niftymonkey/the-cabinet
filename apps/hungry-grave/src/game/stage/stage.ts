@@ -16,15 +16,15 @@
  * shambler's width.
  */
 
-import { TICK_HZ } from "../clock";
-import type { SimEvent } from "../events";
-import type { MobType } from "../mobs";
-import { spawnMob } from "../mobs";
-import type { RunState } from "../run";
-import type { TemplateName } from "./templates";
-import { place } from "./templates";
+import { TICK_HZ } from '../clock';
+import type { SimEvent } from '../events';
+import type { MobType } from '../mobs';
+import { spawnMob } from '../mobs';
+import type { RunState } from '../run';
+import type { TemplateName } from './templates';
+import { place } from './templates';
 
-export type PhaseName = "ramp" | "banshee" | "backHalf" | "undertaker" | "over";
+export type PhaseName = 'ramp' | 'banshee' | 'backHalf' | 'undertaker' | 'over';
 
 export interface StageRow {
   /** Phase-local seconds. Rows fire when the phase-local tick passes this time. */
@@ -72,27 +72,27 @@ export const DRAIN_OUT_SECONDS = 16;
  * by side in one glance and can calibrate the marker.
  */
 export const RAMP_ROWS: readonly StageRow[] = [
-  { t: 2, template: "drip", count: 1, type: "shambler" },
-  { t: 8, template: "drip", count: 1, type: "shambler" },
-  { t: 14, template: "drip", count: 3, type: "shambler" },
-  { t: 20, template: "file", count: 5, type: "shambler" },
-  { t: 30, template: "drip", count: 2, type: "shambler" },
-  { t: 36, template: "drip", count: 3, type: "shambler" },
-  { t: 42, template: "drip", count: 1, type: "revenant" },
-  { t: 46, template: "v", count: 5, type: "shambler" },
-  { t: 52, template: "file", count: 6, type: "shambler" },
-  { t: 56, template: "pincer", count: 6, type: "shambler" },
-  { t: 62, template: "drip", count: 1, type: "ghoul" },
-  { t: 66, template: "v", count: 7, type: "shambler" },
-  { t: 70, template: "rain", count: 6, type: "shambler" },
-  { t: 74, template: "file", count: 4, type: "revenant" },
-  { t: 78, template: "pincer", count: 8, type: "shambler" },
-  { t: 83, template: "v", count: 7, type: "ghoul" },
-  { t: 88, template: "rain", count: 6, type: "shambler" },
-  { t: 92, template: "file", count: 6, type: "shambler" },
-  { t: 96, template: "pincer", count: 8, type: "shambler" },
-  { t: 101, template: "rain", count: 8, type: "shambler" },
-  { t: 105, template: "v", count: 7, type: "shambler" },
+  { t: 2, template: 'drip', count: 1, type: 'shambler' },
+  { t: 8, template: 'drip', count: 1, type: 'shambler' },
+  { t: 14, template: 'drip', count: 3, type: 'shambler' },
+  { t: 20, template: 'file', count: 5, type: 'shambler' },
+  { t: 30, template: 'drip', count: 2, type: 'shambler' },
+  { t: 36, template: 'drip', count: 3, type: 'shambler' },
+  { t: 42, template: 'drip', count: 1, type: 'revenant' },
+  { t: 46, template: 'v', count: 5, type: 'shambler' },
+  { t: 52, template: 'file', count: 6, type: 'shambler' },
+  { t: 56, template: 'pincer', count: 6, type: 'shambler' },
+  { t: 62, template: 'drip', count: 1, type: 'ghoul' },
+  { t: 66, template: 'v', count: 7, type: 'shambler' },
+  { t: 70, template: 'rain', count: 6, type: 'shambler' },
+  { t: 74, template: 'file', count: 4, type: 'revenant' },
+  { t: 78, template: 'pincer', count: 8, type: 'shambler' },
+  { t: 83, template: 'v', count: 7, type: 'ghoul' },
+  { t: 88, template: 'rain', count: 6, type: 'shambler' },
+  { t: 92, template: 'file', count: 6, type: 'shambler' },
+  { t: 96, template: 'pincer', count: 8, type: 'shambler' },
+  { t: 101, template: 'rain', count: 8, type: 'shambler' },
+  { t: 105, template: 'v', count: 7, type: 'shambler' },
 ];
 
 /**
@@ -104,25 +104,25 @@ export const RAMP_ROWS: readonly StageRow[] = [
  * seconds into the back half, which is where the concept doc puts it.
  */
 export const BACK_HALF_ROWS: readonly StageRow[] = [
-  { t: 2, template: "wall", count: 22, type: "shambler" },
-  { t: 10, template: "rain", count: 6, type: "shambler" },
-  { t: 14, template: "pincer", count: 8, type: "shambler" },
-  { t: 19, template: "v", count: 7, type: "ghoul" },
-  { t: 23, template: "rain", count: 8, type: "shambler" },
-  { t: 26, template: "file", count: 5, type: "revenant" },
-  { t: 30, template: "pincer", count: 8, type: "shambler" },
-  { t: 32, template: "rain", count: 8, type: "shambler" },
-  { t: 37, template: "v", count: 7, type: "shambler" },
-  { t: 40, template: "rain", count: 10, type: "shambler" },
-  { t: 43, template: "pincer", count: 8, type: "ghoul" },
-  { t: 46, template: "v", count: 7, type: "shambler" },
-  { t: 50, template: "rain", count: 10, type: "shambler" },
-  { t: 53, template: "file", count: 6, type: "revenant" },
-  { t: 56, template: "pincer", count: 8, type: "shambler" },
-  { t: 58, template: "rain", count: 12, type: "shambler" },
-  { t: 62, template: "v", count: 7, type: "ghoul" },
-  { t: 65, template: "pincer", count: 8, type: "shambler" },
-  { t: 68, template: "rain", count: 12, type: "shambler" },
+  { t: 2, template: 'wall', count: 22, type: 'shambler' },
+  { t: 10, template: 'rain', count: 6, type: 'shambler' },
+  { t: 14, template: 'pincer', count: 8, type: 'shambler' },
+  { t: 19, template: 'v', count: 7, type: 'ghoul' },
+  { t: 23, template: 'rain', count: 8, type: 'shambler' },
+  { t: 26, template: 'file', count: 5, type: 'revenant' },
+  { t: 30, template: 'pincer', count: 8, type: 'shambler' },
+  { t: 32, template: 'rain', count: 8, type: 'shambler' },
+  { t: 37, template: 'v', count: 7, type: 'shambler' },
+  { t: 40, template: 'rain', count: 10, type: 'shambler' },
+  { t: 43, template: 'pincer', count: 8, type: 'ghoul' },
+  { t: 46, template: 'v', count: 7, type: 'shambler' },
+  { t: 50, template: 'rain', count: 10, type: 'shambler' },
+  { t: 53, template: 'file', count: 6, type: 'revenant' },
+  { t: 56, template: 'pincer', count: 8, type: 'shambler' },
+  { t: 58, template: 'rain', count: 12, type: 'shambler' },
+  { t: 62, template: 'v', count: 7, type: 'ghoul' },
+  { t: 65, template: 'pincer', count: 8, type: 'shambler' },
+  { t: 68, template: 'rain', count: 12, type: 'shambler' },
 ];
 
 export interface Phase {
@@ -137,11 +137,11 @@ export interface Phase {
  * anything else about the timeline.
  */
 export const PHASES: readonly Phase[] = [
-  { name: "ramp", rows: RAMP_ROWS },
-  { name: "banshee", rows: [] },
-  { name: "backHalf", rows: BACK_HALF_ROWS },
-  { name: "undertaker", rows: [] },
-  { name: "over", rows: [] },
+  { name: 'ramp', rows: RAMP_ROWS },
+  { name: 'banshee', rows: [] },
+  { name: 'backHalf', rows: BACK_HALF_ROWS },
+  { name: 'undertaker', rows: [] },
+  { name: 'over', rows: [] },
 ];
 
 export interface StageState {
@@ -198,10 +198,10 @@ function enterNextPhase(state: RunState, events: SimEvent[]): void {
   stage.phaseTick = 0;
   stage.firedRows = 0;
   const phase = PHASES[stage.phaseIndex];
-  events.push({ type: "phaseChanged", phase: phase.name, tick: state.tick });
-  if (phase.name !== "over") return;
-  state.ending = "victory";
-  events.push({ type: "victory", tick: state.tick });
+  events.push({ type: 'phaseChanged', phase: phase.name, tick: state.tick });
+  if (phase.name !== 'over') return;
+  state.ending = 'victory';
+  events.push({ type: 'victory', tick: state.tick });
 }
 
 /**

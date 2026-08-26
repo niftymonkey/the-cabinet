@@ -3,13 +3,13 @@
  * Hides ADR 0003 entirely: no other module knows what a hit costs.
  */
 
-import type { SimEvent } from "./events";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
-import type { MobType } from "./mobs";
-import type { WeaponLine } from "./lines/roster";
-import { BIRTHRIGHT, WEAPON_LINES } from "./lines/roster";
-import type { Rect } from "./overlap";
-import type { MoveCommand, RunState } from "./run";
+import type { SimEvent } from './events';
+import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import type { MobType } from './mobs';
+import type { WeaponLine } from './lines/roster';
+import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
+import type { Rect } from './overlap';
+import type { MoveCommand, RunState } from './run';
 import {
   BASE_SPEED,
   GRAVE_ASPECT,
@@ -18,7 +18,7 @@ import {
   SIZE_CEILING,
   SIZE_FLOOR,
   SIZE_START,
-} from "./tuning";
+} from './tuning';
 
 // Where a run's grave stands: centred across the field and low in it, the
 // shmup's own starting mark, with the whole field ahead of it.
@@ -26,7 +26,7 @@ const START_X = FIELD_WIDTH / 2;
 const START_Y = FIELD_HEIGHT * 0.8;
 
 /** Who hurt the player (#48): the mob type whose shot landed, or body contact. */
-export type GraveHitSource = MobType | "contact";
+export type GraveHitSource = MobType | 'contact';
 
 export interface Grave {
   x: number;
@@ -133,7 +133,7 @@ export function ageGrave(grave: Grave): void {
 function bleedScore(state: RunState): SimEvent[] {
   const amount = state.score;
   state.score = 0;
-  return [{ type: "scoreBled", amount }];
+  return [{ type: 'scoreBled', amount }];
 }
 
 /** The level a line can never be stripped below (glossary: birthright). */
@@ -154,12 +154,12 @@ function strippableLines(state: RunState): WeaponLine[] {
 function stripLevels(state: RunState): SimEvent[] {
   const lines = strippableLines(state);
   for (const line of lines) state.levels[line] -= 1;
-  return [{ type: "weaponStripped", lines }];
+  return [{ type: 'weaponStripped', lines }];
 }
 
 function sealShut(state: RunState): SimEvent[] {
-  state.ending = "sealed";
-  return [{ type: "sealed", tick: state.tick }];
+  state.ending = 'sealed';
+  return [{ type: 'sealed', tick: state.tick }];
 }
 
 /**
@@ -194,7 +194,7 @@ export function hitGrave(state: RunState, source: GraveHitSource): SimEvent[] {
   if (!atFloor) grave.size = Math.max(SIZE_FLOOR, grave.size - HIT_SHRINK);
   grave.invulnerable = INVULNERABLE_TICKS;
   const hit: SimEvent = {
-    type: "graveHit",
+    type: 'graveHit',
     source,
     size: grave.size,
     invulnerable: grave.invulnerable,

@@ -9,7 +9,7 @@ function warnOnce(error: unknown) {
   if (warned) return;
   warned = true;
   console.warn(
-    "Local storage is unavailable; settings will not persist.",
+    'Local storage is unavailable; settings will not persist.',
     error,
   );
 }
@@ -66,8 +66,8 @@ class StorageWrapper {
     // Parsed rather than coerced: Boolean("false") is true, so a coerced read
     // never round-trips a stored false and never reports an unusable value.
     const raw = readRaw(key)?.toLowerCase();
-    if (raw === "true") return true;
-    if (raw === "false") return false;
+    if (raw === 'true') return true;
+    if (raw === 'false') return false;
     return undefined;
   }
 

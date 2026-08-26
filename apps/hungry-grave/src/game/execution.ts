@@ -21,17 +21,17 @@
  * shipped that defect five times.
  */
 
-import type { SimEvent } from "./events";
+import type { SimEvent } from './events';
 import type {
   Fault,
   FaultIdentity,
   FaultSeverity,
   StageWatch,
-} from "./invariants";
-import { checkInvariants, createStageWatch } from "./invariants";
-import { f32 } from "./math";
-import type { MoveCommand, RunState, TickCommand } from "./run";
-import { step } from "./step";
+} from './invariants';
+import { checkInvariants, createStageWatch } from './invariants';
+import { f32 } from './math';
+import type { MoveCommand, RunState, TickCommand } from './run';
+import { step } from './step';
 
 /**
  * Anything watching the simulation, told once per executed tick.
@@ -62,7 +62,7 @@ export type BrokenHandler = (faults: readonly Fault[], state: RunState) => void;
  * fourth reading, unknown, which is what a recording that simply breaks off
  * leaves behind. This authority only ever writes "faulted".
  */
-export type StopReason = "finished" | "quit" | "faulted";
+export type StopReason = 'finished' | 'quit' | 'faulted';
 
 /**
  * One invariant, broken at least once during this run.
@@ -152,7 +152,7 @@ function recordFault(execution: Execution, fault: Fault): void {
 }
 
 function isFatal(fault: Fault): boolean {
-  return fault.severity === "fatal";
+  return fault.severity === 'fatal';
 }
 
 /**
@@ -170,7 +170,7 @@ function observeFaults(execution: Execution): void {
   // The stop is set before the handler is told, so a handler that reads the
   // Execution sees the outcome rather than racing it.
   if (faults.some(isFatal) && execution.stop === null) {
-    execution.stop = "faulted";
+    execution.stop = 'faulted';
   }
   execution.onBroken?.(faults, execution.run);
 }

@@ -1,4 +1,4 @@
-import { Container } from "pixi.js";
+import { Container } from 'pixi.js';
 
 /**
  * The field's draw stack, bottom to top, exactly as ADR 0014 fixes it. Reversed
@@ -14,18 +14,18 @@ import { Container } from "pixi.js";
  * can go without occluding fire, which this ADR lets nothing do.
  */
 export const LAYER_ORDER = [
-  "ground",
-  "graveMouth",
-  "belchEruption",
-  "bellRing",
-  "storm",
-  "corpses",
-  "mobBodies",
-  "treasure",
-  "hitDim",
-  "graveRim",
-  "fieldBoundary",
-  "mobFire",
+  'ground',
+  'graveMouth',
+  'belchEruption',
+  'bellRing',
+  'storm',
+  'corpses',
+  'mobBodies',
+  'treasure',
+  'hitDim',
+  'graveRim',
+  'fieldBoundary',
+  'mobFire',
 ] as const;
 
 export type LayerName = (typeof LAYER_ORDER)[number];

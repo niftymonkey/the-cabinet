@@ -1,12 +1,12 @@
-import { storage } from "../../engine/utils/storage";
-import { MULTIPLIER_MAX, MULTIPLIER_MIN } from "../../input/keys";
-import { engine } from "../getEngine";
+import { storage } from '../../engine/utils/storage';
+import { MULTIPLIER_MAX, MULTIPLIER_MIN } from '../../input/keys';
+import { engine } from '../getEngine';
 
 // Keys for saved items in storage
-const KEY_VOLUME_MASTER = "volume-master";
-const KEY_VOLUME_BGM = "volume-bgm";
-const KEY_VOLUME_SFX = "volume-sfx";
-const KEY_KEYBOARD_SPEED = "keyboard-speed";
+const KEY_VOLUME_MASTER = 'volume-master';
+const KEY_VOLUME_BGM = 'volume-bgm';
+const KEY_VOLUME_SFX = 'volume-sfx';
+const KEY_KEYBOARD_SPEED = 'keyboard-speed';
 
 /**
  * The keyboard speed slider's own range. It runs in integer positions rather

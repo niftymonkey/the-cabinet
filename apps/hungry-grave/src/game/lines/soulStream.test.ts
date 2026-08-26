@@ -4,15 +4,15 @@
  * dispatch 5's plan section 6.3, never from running the module.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { SKULL_CAP } from "../caps";
-import { FIELD_HEIGHT } from "../field";
-import { atan2 } from "../math";
-import type { RunState } from "../run";
-import { createRun } from "../run";
-import { RAMP_ROWS } from "../stage/stage";
-import { MAX_LEVEL } from "./roster";
+import { SKULL_CAP } from '../caps';
+import { FIELD_HEIGHT } from '../field';
+import { atan2 } from '../math';
+import type { RunState } from '../run';
+import { createRun } from '../run';
+import { RAMP_ROWS } from '../stage/stage';
+import { MAX_LEVEL } from './roster';
 import {
   advanceStream,
   COLUMNS_BY_LEVEL,
@@ -22,7 +22,7 @@ import {
   SURGE_INTERVAL,
   SURGE_VOLLEYS,
   surgeStream,
-} from "./soulStream";
+} from './soulStream';
 
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
@@ -75,8 +75,8 @@ function holdFire(state: RunState): void {
   state.lines.streamIn = Number.MAX_SAFE_INTEGER;
 }
 
-describe("the level curve is columns and nothing else (plan 6.3)", () => {
-  it("fires one column at level 1 and five at level 5", () => {
+describe('the level curve is columns and nothing else (plan 6.3)', () => {
+  it('fires one column at level 1 and five at level 5', () => {
     for (let level = 1; level <= MAX_LEVEL; level++) {
       const state = quietRun();
       state.levels.soulStream = level;
@@ -86,7 +86,7 @@ describe("the level curve is columns and nothing else (plan 6.3)", () => {
     }
   });
 
-  it("holds the interval fixed across levels, so growth is on the field and never in the cadence", () => {
+  it('holds the interval fixed across levels, so growth is on the field and never in the cadence', () => {
     const counts = [1, MAX_LEVEL].map((level) => {
       const state = quietRun();
       state.levels.soulStream = level;
@@ -104,8 +104,8 @@ describe("the level curve is columns and nothing else (plan 6.3)", () => {
   });
 });
 
-describe("the fan (plan 6.3)", () => {
-  it("spaces the columns FAN_STEP_DEGREES apart, symmetric about straight up", () => {
+describe('the fan (plan 6.3)', () => {
+  it('spaces the columns FAN_STEP_DEGREES apart, symmetric about straight up', () => {
     const state = quietRun();
     state.levels.soulStream = MAX_LEVEL;
     const angles = nextVolley(state)
@@ -122,14 +122,14 @@ describe("the fan (plan 6.3)", () => {
     expect(angles[0] + angles[angles.length - 1]).toBeCloseTo(0, 4);
   });
 
-  it("puts a single column straight up, so a level-1 stream is not a diagonal", () => {
+  it('puts a single column straight up, so a level-1 stream is not a diagonal', () => {
     const state = quietRun();
     const [only] = nextVolley(state);
     expect(only.vx).toBeCloseTo(0, 6);
     expect(only.vy).toBeCloseTo(-SKULL_SPEED, 6);
   });
 
-  it("holds the widest column inside the field over the whole height, from a centred grave", () => {
+  it('holds the widest column inside the field over the whole height, from a centred grave', () => {
     // Twelve degrees off vertical drifts a skull about a quarter of the field's
     // width over the field's own height, so the fan reads as coverage rather
     // than as a spray that leaves the play area.
@@ -147,7 +147,7 @@ describe("the fan (plan 6.3)", () => {
   });
 });
 
-describe("the stream never homes (ADR 0005)", () => {
+describe('the stream never homes (ADR 0005)', () => {
   it("keeps a skull's velocity identical on its first tick and its last", () => {
     const state = quietRun();
     const [skull] = nextVolley(state);
@@ -170,8 +170,8 @@ describe("the stream never homes (ADR 0005)", () => {
   });
 });
 
-describe("the surge is a rate change and never a damage bonus (plan section 3)", () => {
-  it("a swallow sets the surge, and the next volley comes at SURGE_INTERVAL rather than STREAM_INTERVAL", () => {
+describe('the surge is a rate change and never a damage bonus (plan section 3)', () => {
+  it('a swallow sets the surge, and the next volley comes at SURGE_INTERVAL rather than STREAM_INTERVAL', () => {
     const state = quietRun();
     nextVolley(state);
     surgeStream(state);
@@ -190,7 +190,7 @@ describe("the surge is a rate change and never a damage bonus (plan section 3)",
     expect(waited).toBeGreaterThan(0);
   });
 
-  it("spends the surge after exactly SURGE_VOLLEYS volleys and then returns to the fixed interval", () => {
+  it('spends the surge after exactly SURGE_VOLLEYS volleys and then returns to the fixed interval', () => {
     const state = quietRun();
     surgeStream(state);
     for (let volley = 0; volley < SURGE_VOLLEYS + 1; volley++) {
@@ -201,7 +201,7 @@ describe("the surge is a rate change and never a damage bonus (plan section 3)",
     expect(state.lines.streamIn).toBeGreaterThan(SURGE_INTERVAL);
   });
 
-  it("one swallow buys exactly SURGE_VOLLEYS shortened gaps and the cadence then returns to fixed", () => {
+  it('one swallow buys exactly SURGE_VOLLEYS shortened gaps and the cadence then returns to fixed', () => {
     const plain = quietRun();
     expect(new Set(gapsBetween(volleyTicks(plain, 300)))).toEqual(
       new Set([STREAM_INTERVAL]),
@@ -218,7 +218,7 @@ describe("the surge is a rate change and never a damage bonus (plan section 3)",
     );
   });
 
-  it("a swallow chain cannot hold the surge open, because surgeStream sets rather than adds", () => {
+  it('a swallow chain cannot hold the surge open, because surgeStream sets rather than adds', () => {
     // Mark's 2026-08-22 ruling, and the half of the fix a count alone would not
     // give. Ten swallows land before the pending surge is spent, so they
     // overwrite one another rather than banking a queue of ten.
@@ -233,7 +233,7 @@ describe("the surge is a rate change and never a damage bonus (plan section 3)",
     );
   });
 
-  it("changes the volley count and never the damage per skull", () => {
+  it('changes the volley count and never the damage per skull', () => {
     // The one-swallow ordnance bound has one body of margin at the ceiling, and
     // a damage surge would spend it. A skull carries no damage of its own at
     // all: SKULL_DAMAGE is a module constant, so there is nothing on the
@@ -245,19 +245,19 @@ describe("the surge is a rate change and never a damage bonus (plan section 3)",
     expect(volley.length).toBe(COLUMNS_BY_LEVEL[MAX_LEVEL]);
     for (const skull of volley) {
       expect(Object.keys(skull).sort()).toEqual([
-        "alive",
-        "id",
-        "vx",
-        "vy",
-        "x",
-        "y",
+        'alive',
+        'id',
+        'vx',
+        'vy',
+        'x',
+        'y',
       ]);
     }
   });
 });
 
-describe("the cap policy (plan 6.2)", () => {
-  it("refuses the spawn at the cap and removes nothing already on the field", () => {
+describe('the cap policy (plan 6.2)', () => {
+  it('refuses the spawn at the cap and removes nothing already on the field', () => {
     const state = quietRun();
     state.levels.soulStream = MAX_LEVEL;
     for (const skull of state.skulls) {
@@ -277,7 +277,7 @@ describe("the cap policy (plan 6.2)", () => {
   });
 });
 
-describe("a skull leaving the field (plan 6.7)", () => {
+describe('a skull leaving the field (plan 6.7)', () => {
   it("is culled by the motion that took it out, because a cull is motion's own consequence", () => {
     const state = quietRun();
     const [skull] = nextVolley(state);

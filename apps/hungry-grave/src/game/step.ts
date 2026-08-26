@@ -1,17 +1,17 @@
-import { fireBelch } from "./belch";
+import { fireBelch } from './belch';
 import {
   advanceCorpses,
   asSwallowable,
   corpseHitbox,
   cullCorpses,
-} from "./corpses";
-import { creditKill } from "./drops";
-import type { SimEvent } from "./events";
-import { ageGrave, graveHitbox, hitGrave, moveGrave } from "./grave";
-import { advanceBell } from "./lines/bell";
-import { advanceHeadstones } from "./lines/headstones";
-import { advanceStream } from "./lines/soulStream";
-import { advanceWisps } from "./lines/wisps";
+} from './corpses';
+import { creditKill } from './drops';
+import type { SimEvent } from './events';
+import { ageGrave, graveHitbox, hitGrave, moveGrave } from './grave';
+import { advanceBell } from './lines/bell';
+import { advanceHeadstones } from './lines/headstones';
+import { advanceStream } from './lines/soulStream';
+import { advanceWisps } from './lines/wisps';
 import {
   advanceMobs,
   cullMobs,
@@ -19,12 +19,12 @@ import {
   mobHitbox,
   resolveStorm,
   shotHitbox,
-} from "./mobs";
-import { overlaps } from "./overlap";
-import type { RunState, TickCommand } from "./run";
-import { advanceStage } from "./stage/stage";
-import { swallow } from "./swallow";
-import { SCROLL_SPEED } from "./tuning";
+} from './mobs';
+import { overlaps } from './overlap';
+import type { RunState, TickCommand } from './run';
+import { advanceStage } from './stage/stage';
+import { swallow } from './swallow';
+import { SCROLL_SPEED } from './tuning';
 
 /**
  * The constant downward drift of everything on the field. Mob fire does not
@@ -67,7 +67,7 @@ function resolveMobContact(state: RunState, events: SimEvent[]): void {
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     if (!overlaps(mobHitbox(mob), box)) continue;
-    events.push(...hitGrave(state, "contact"));
+    events.push(...hitGrave(state, 'contact'));
   }
 }
 
@@ -134,7 +134,7 @@ function resolveDeaths(
   const struck = resolveStorm(state);
   const paid: SimEvent[] = [];
   for (const event of [...earlier, ...struck]) {
-    if (event.type !== "mobKilled") continue;
+    if (event.type !== 'mobKilled') continue;
     paid.push(...creditKill(state, event.x, event.y));
   }
   return [...struck, ...paid];

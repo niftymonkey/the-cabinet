@@ -1,11 +1,11 @@
 // The dev instrument panel: every slice instrument readable live, plus any
 // invariant fire (decision-log entry 6.5). Toggled with the backquote key.
 
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Text } from 'pixi.js';
 
-import { summarize } from "../../game/instruments";
-import type { Sim } from "../../game/sim";
-import { PALETTE } from "../../palette";
+import { summarize } from '../../game/instruments';
+import type { Sim } from '../../game/sim';
+import { PALETTE } from '../../palette';
 
 export class DebugPanel extends Container {
   private readonly body: Text;
@@ -16,11 +16,11 @@ export class DebugPanel extends Container {
     super();
     this.bg = new Graphics();
     this.body = new Text({
-      text: "",
+      text: '',
       style: {
         fill: PALETTE.corpse,
         fontSize: 12,
-        fontFamily: "monospace",
+        fontFamily: 'monospace',
         lineHeight: 17,
       },
     });
@@ -44,11 +44,11 @@ export class DebugPanel extends Container {
     this.clock = 0;
     const s = summarize(sim.instruments);
     const lines = [
-      "INSTRUMENTS",
+      'INSTRUMENTS',
       `seed              ${seed}`,
       `phase             ${sim.phase} @ ${sim.phaseT.toFixed(1)}s`,
       `run               ${s.runSeconds.toFixed(1)}s`,
-      `autopilot         ${autopilot ? "ON (P)" : "off (P)"}`,
+      `autopilot         ${autopilot ? 'ON (P)' : 'off (P)'}`,
       `off-bottom        ${(s.offBottomFraction * 100).toFixed(1)}%`,
       `kills             ${s.kills}`,
       `hits              ${s.hits}`,
@@ -69,7 +69,7 @@ export class DebugPanel extends Container {
       ...lastViolations.map((v) => `! ${v}`),
       ...extraLines,
     ];
-    this.body.text = lines.join("\n");
+    this.body.text = lines.join('\n');
     this.bg.clear();
     this.bg
       .roundRect(0, 0, this.body.width + 20, this.body.height + 16, 6)

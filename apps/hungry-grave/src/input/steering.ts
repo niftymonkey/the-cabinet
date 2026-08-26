@@ -9,9 +9,9 @@
  * the slop silently disables the keyboard until it lifts.
  */
 
-import type { FieldPoint } from "../game/grave";
-import type { MoveCommand } from "../game/run";
-import type { TouchSteer } from "./touch";
+import type { FieldPoint } from '../game/grave';
+import type { MoveCommand } from '../game/run';
+import type { TouchSteer } from './touch';
 
 export function combineSteer(
   keys: MoveCommand,

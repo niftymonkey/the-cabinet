@@ -149,24 +149,24 @@ export const MENU = {
  * the four that do not named in palette.test.ts with their figures.
  */
 export const SPRITE_OUTLINE = {
-  graveRim: "graveHole",
+  graveRim: 'graveHole',
   // The glow is the rim's own band in treasure's colour, drawn over it at the
   // identical geometry, so its dark companion is the rim's: the one-unit
   // graveHole band already stroked immediately inside it.
-  graveGlow: "graveHole",
-  corpse: "foodOutline",
-  corpseRevenant: "foodOutline",
-  feast: "foodOutline",
-  drop: "foodOutline",
-  mob: "foodOutline",
-  banshee: "foodOutline",
-  undertaker: "foodOutline",
-  skull: "foodOutline",
-  stone: "foodOutline",
-  wisp: "foodOutline",
-  bellRing: "foodOutline",
-  belchEruption: "foodOutline",
-  splash: "foodOutline",
+  graveGlow: 'graveHole',
+  corpse: 'foodOutline',
+  corpseRevenant: 'foodOutline',
+  feast: 'foodOutline',
+  drop: 'foodOutline',
+  mob: 'foodOutline',
+  banshee: 'foodOutline',
+  undertaker: 'foodOutline',
+  skull: 'foodOutline',
+  stone: 'foodOutline',
+  wisp: 'foodOutline',
+  bellRing: 'foodOutline',
+  belchEruption: 'foodOutline',
+  splash: 'foodOutline',
 } as const satisfies Record<string, keyof typeof PALETTE>;
 
 /**
@@ -179,7 +179,7 @@ export const CORPSE_TIERS = {
   rich: PALETTE.corpseRevenant,
 } as const satisfies Record<string, PaletteEntry>;
 
-export type FireEmitter = "trash" | "tear" | "clod" | "spiral";
+export type FireEmitter = 'trash' | 'tear' | 'clod' | 'spiral';
 
 export interface FireSprite {
   readonly core: PaletteEntry;

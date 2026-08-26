@@ -15,10 +15,10 @@
  * simulation, while frame cadence lives above it.
  */
 
-import type { Execution } from "../game/execution";
-import type { FaultIdentity } from "../game/invariants";
-import type { RunState, TickCommand } from "../game/run";
-import { foldWitness } from "../game/witness";
+import type { Execution } from '../game/execution';
+import type { FaultIdentity } from '../game/invariants';
+import type { RunState, TickCommand } from '../game/run';
+import { foldWitness } from '../game/witness';
 import type {
   FaultObservation,
   FrameObservation,
@@ -28,7 +28,7 @@ import type {
   TapeHeader,
   TapeIntegrity,
   TapeTrailer,
-} from "./tape";
+} from './tape';
 
 export interface TapeRecorder {
   readonly header: TapeHeader;
@@ -102,7 +102,7 @@ function syncFaults(recorder: TapeRecorder, execution: Execution): void {
       continue;
     }
     const row: FaultObservation = {
-      kind: "fault",
+      kind: 'fault',
       identity: record.identity,
       severity: record.severity,
       firstTick: record.firstTick,
@@ -150,15 +150,15 @@ export function recordInto(
  */
 export function recordFrame(
   recorder: TapeRecorder | null,
-  observation: Omit<FrameObservation, "kind">,
+  observation: Omit<FrameObservation, 'kind'>,
 ): void {
   if (recorder === null) return;
-  recorder.observations.push({ kind: "frame", ...observation });
+  recorder.observations.push({ kind: 'frame', ...observation });
 }
 
 /** Whether the run this authority ran was sound. */
 export function integrityOf(execution: Execution): TapeIntegrity {
-  return execution.faults.length === 0 ? "clean" : "faulted";
+  return execution.faults.length === 0 ? 'clean' : 'faulted';
 }
 
 /**
@@ -181,7 +181,7 @@ export function sealTrailer(
   recorder.trailer = {
     ending: execution.run.ending,
     stop:
-      execution.stop ?? (execution.run.ending === null ? "quit" : "finished"),
+      execution.stop ?? (execution.run.ending === null ? 'quit' : 'finished'),
     integrity: integrityOf(execution),
     debtTicks,
   };

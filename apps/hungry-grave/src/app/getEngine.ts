@@ -1,4 +1,4 @@
-import type { CreationEngine } from "../engine/engine";
+import type { CreationEngine } from '../engine/engine';
 
 let instance: CreationEngine | null = null;
 

@@ -11,8 +11,8 @@
  * at least as long as the longest lifetime here.
  */
 
-import { FIELD_RENDERER_TRANSIENT_TICKS } from "./FieldRenderer";
-import { STORM_RENDERER_TRANSIENT_TICKS } from "./StormRenderer";
+import { FIELD_RENDERER_TRANSIENT_TICKS } from './FieldRenderer';
+import { STORM_RENDERER_TRANSIENT_TICKS } from './StormRenderer';
 
 const HELD_TRANSIENT_TICKS = {
   ...FIELD_RENDERER_TRANSIENT_TICKS,

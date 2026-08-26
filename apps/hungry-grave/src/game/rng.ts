@@ -19,7 +19,7 @@
  * heisenbug reachable on exactly one shared challenge URL.
  */
 
-export type StreamName = "spawns" | "drops" | "mobFire" | "shed";
+export type StreamName = 'spawns' | 'drops' | 'mobFire' | 'shed';
 
 export interface Stream {
   /** The next draw, 0 inclusive to 1 exclusive. */

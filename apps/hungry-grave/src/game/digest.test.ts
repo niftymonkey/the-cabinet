@@ -38,11 +38,11 @@
  * state so a divergence that later re-converges still shows.
  */
 
-import { describe, expect, it } from "vitest";
-import { GOLDEN, runScenario } from "../dev/digest";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
-import { SIZE_START } from "./tuning";
-import { foldWitness } from "./witness";
+import { describe, expect, it } from 'vitest';
+import { GOLDEN, runScenario } from '../dev/digest';
+import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import { SIZE_START } from './tuning';
+import { foldWitness } from './witness';
 
 /** What the scenario's grave starts at, so growth from its one swallow is visible. */
 const GOLDEN_START_SIZE = SIZE_START;
@@ -50,8 +50,8 @@ const GOLDEN_START_SIZE = SIZE_START;
 /** One unit in the last place of a single-precision significand, 2 to the -23. */
 const SINGLE_PRECISION_EPSILON = 1.1920928955078125e-7;
 
-describe("the golden digest", () => {
-  it("a golden digest over a short scripted scenario matches the committed constant (ADR 0015)", () => {
+describe('the golden digest', () => {
+  it('a golden digest over a short scripted scenario matches the committed constant (ADR 0015)', () => {
     const { digest, faults } = runScenario();
     // The invariants over the scenario's scripted ticks are asserted here
     // because this is the only place left that reads them headlessly: a check
@@ -86,7 +86,7 @@ describe("the golden digest", () => {
     expect(foldWitness(state, 0)).not.toBe(before);
   });
 
-  it("detects a divergence at ulp scale, which is the size ADR 0015 exists to catch", () => {
+  it('detects a divergence at ulp scale, which is the size ADR 0015 exists to catch', () => {
     // One f32 ulp at the ghoul's turn cosine is about 1.19e-7. The assertion
     // used to sit at 1e-5, a hundred times coarser, so a single-tick divergence
     // of exactly the size this instrument is for was invisible until it had
@@ -109,7 +109,7 @@ describe("the golden digest", () => {
     );
   });
 
-  it("folds the skull and wisp pools, so a divergence in the storm moves the digest", () => {
+  it('folds the skull and wisp pools, so a divergence in the storm moves the digest', () => {
     const { state } = runScenario();
     const skull = state.skulls.find((each) => each.alive);
     expect(skull).toBeDefined();
@@ -127,7 +127,7 @@ describe("the golden digest", () => {
     expect(foldWitness(state, 0)).not.toBe(before);
   });
 
-  it("makes the spawns and mobFire streams both draw, which they never used to", () => {
+  it('makes the spawns and mobFire streams both draw, which they never used to', () => {
     // At 600 ticks the scenario made zero draws on every stream, because the
     // only rows inside its window are two Drips of one, a Drip draws nothing,
     // and index 0 is never armed. The scripted File is what fixes that: its
@@ -155,7 +155,7 @@ describe("the golden digest", () => {
     expect(digest.size).toBeLessThan(GOLDEN_START_SIZE);
   });
 
-  it("the script never reaches the field boundary, so no clamp erases a divergence", () => {
+  it('the script never reaches the field boundary, so no clamp erases a divergence', () => {
     // Recorded blindness two, kept as an assertion after the scenario moved to
     // src/dev, which may import no bare packages and so cannot carry expect().
     const { boundary } = runScenario();

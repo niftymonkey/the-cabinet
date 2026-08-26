@@ -7,7 +7,7 @@
 // the grave IS the finger (decision-log entry 12). The keyboard's designated
 // speed is its own setting and no longer bounds touch.
 
-import { FIELD_H, FIELD_W } from "../game/tuning";
+import { FIELD_H, FIELD_W } from '../game/tuning';
 
 export interface SteerRead {
   moveX: number;

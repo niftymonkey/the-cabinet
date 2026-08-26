@@ -5,10 +5,10 @@
  * that one only counts window listeners.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { SimEvent } from "./events";
-import type { RunState, TickCommand } from "./run";
+import type { SimEvent } from './events';
+import type { RunState, TickCommand } from './run';
 
 /**
  * The step module is mocked so this file can drive the concatenation contract
@@ -28,19 +28,19 @@ const { stepMock } = vi.hoisted(() => ({
   stepMock: vi.fn<(state: RunState, command: TickCommand) => SimEvent[]>(),
 }));
 
-vi.mock("./step", () => ({ step: stepMock }));
+vi.mock('./step', () => ({ step: stepMock }));
 
-const bareStep = (await vi.importActual<typeof import("./step")>("./step"))
+const bareStep = (await vi.importActual<typeof import('./step')>('./step'))
   .step;
 
-import type { CommandSource } from "./advance";
-import { advance } from "./advance";
-import { createClock, ticksFor, TICK_MS } from "./clock";
-import type { Execution } from "./execution";
-import { createExecution } from "./execution";
-import type { FieldPoint } from "./grave";
-import { createRun } from "./run";
-import { BASE_SPEED, RESERVOIR_CAPACITY } from "./tuning";
+import type { CommandSource } from './advance';
+import { advance } from './advance';
+import { createClock, ticksFor, TICK_MS } from './clock';
+import type { Execution } from './execution';
+import { createExecution } from './execution';
+import type { FieldPoint } from './grave';
+import { createRun } from './run';
+import { BASE_SPEED, RESERVOIR_CAPACITY } from './tuning';
 
 const STILL: CommandSource = () => ({ move: { x: 0, y: 0 }, belch: false });
 
@@ -87,7 +87,7 @@ beforeEach(() => {
   stepMock.mockImplementation(bareStep);
 });
 
-describe("advance", () => {
+describe('advance', () => {
   it("steps exactly ticksFor times for a given elapsed time, and the run's tick count matches", () => {
     const execution = playing(7);
     const clock = createClock();
@@ -102,7 +102,7 @@ describe("advance", () => {
     expect(execution.run.tick).toBe(7);
   });
 
-  it("the touch overshoot: a per-tick recomputed steer lands on the target and stays, a frame-constant position error lands on 2T - P", () => {
+  it('the touch overshoot: a per-tick recomputed steer lands on the target and stays, a frame-constant position error lands on 2T - P', () => {
     // This is the defect this seam exists to make visible. The touch command
     // is a position error and not a velocity, so applying the same one twice
     // doubles the travel; recomputing per tick converges instead, because once
@@ -128,22 +128,22 @@ describe("advance", () => {
     expect(sampledOnce.run.grave.y).toBeCloseTo(2 * target.y - start.y, 4);
   });
 
-  it("events from every tick in the frame are returned, in order", () => {
+  it('events from every tick in the frame are returned, in order', () => {
     const execution = playing(7);
     stepMock.mockImplementation((state) => {
       state.tick += 1;
-      return [{ type: "grew", amount: state.tick, size: state.grave.size }];
+      return [{ type: 'grew', amount: state.tick, size: state.grave.size }];
     });
 
     const events = advance(execution, createClock(), TICK_MS * 3, STILL);
 
     expect(events).toHaveLength(3);
     expect(
-      events.map((event) => (event.type === "grew" ? event.amount : null)),
+      events.map((event) => (event.type === 'grew' ? event.amount : null)),
     ).toEqual([1, 2, 3]);
   });
 
-  it("passes the whole TickCommand through unchanged, once per tick", () => {
+  it('passes the whole TickCommand through unchanged, once per tick', () => {
     // This is what makes the two properties below properties of the seam rather
     // than of whatever caller happens to be driving it. The move components are
     // exact in float32, so quantisation leaves them alone.
@@ -168,7 +168,7 @@ describe("advance", () => {
     ]);
   });
 
-  it("a frame that buys three ticks belches once", () => {
+  it('a frame that buys three ticks belches once', () => {
     // The one-shot rule lives in the command source and in fireBelch, never in
     // advance: a force-false here would be unreachable, because the closure
     // already reports false on the later ticks of a frame.
@@ -179,10 +179,10 @@ describe("advance", () => {
 
     const events = advance(execution, createClock(), TICK_MS * 3, source);
     expect(execution.run.tick).toBe(3);
-    expect(events.filter((event) => event.type === "belched")).toHaveLength(1);
+    expect(events.filter((event) => event.type === 'belched')).toHaveLength(1);
   });
 
-  it("a frame that buys zero ticks does not consume the flag", () => {
+  it('a frame that buys zero ticks does not consume the flag', () => {
     const execution = playing(7);
     execution.run.reservoir = RESERVOIR_CAPACITY;
     const clock = createClock();
@@ -191,17 +191,17 @@ describe("advance", () => {
 
     expect(advance(execution, clock, 0, source)).toEqual([]);
     const later = advance(execution, clock, TICK_MS, source);
-    expect(later.filter((event) => event.type === "belched")).toHaveLength(1);
+    expect(later.filter((event) => event.type === 'belched')).toHaveLength(1);
   });
 
-  it("zero elapsed time steps nothing and returns no events", () => {
+  it('zero elapsed time steps nothing and returns no events', () => {
     const execution = playing(7);
     const events = advance(execution, createClock(), 0, STILL);
     expect(execution.run.tick).toBe(0);
     expect(events).toEqual([]);
   });
 
-  it("a fatal fault on the first of three ticks stops the frame there", () => {
+  it('a fatal fault on the first of three ticks stops the frame there', () => {
     // The reason the loop reads its stop condition off the Execution: the
     // catch-up clamp buys up to fifteen ticks in one frame, so one fatal fault
     // would otherwise re-fire fourteen more times inside the frame that caught
@@ -215,17 +215,17 @@ describe("advance", () => {
     const checked = playing(7);
     advance(checked, createClock(), TICK_MS * 3, STILL);
     expect(checked.run.tick).toBe(1);
-    expect(checked.stop).toBe("faulted");
-    expect(checked.faults.map((fault) => fault.identity)).toContain("no NaN");
+    expect(checked.stop).toBe('faulted');
+    expect(checked.faults.map((fault) => fault.identity)).toContain('no NaN');
   });
 
-  it("a run that seals on tick one of a three-tick frame executes no further ticks in that frame", () => {
+  it('a run that seals on tick one of a three-tick frame executes no further ticks in that frame', () => {
     // The final tick count and score a player sees are the ending's, so a seal
     // on tick one of a fifteen-tick catch-up frame must not buy fourteen more
     // ticks of simulation after the run is over (#52).
     stepMock.mockImplementation((state, command) => {
       const events = bareStep(state, command);
-      if (state.tick === 1) state.ending = "sealed";
+      if (state.tick === 1) state.ending = 'sealed';
       return events;
     });
     // The mock's call record spans the file, so the count starts here.
@@ -238,10 +238,10 @@ describe("advance", () => {
     expect(stepMock).toHaveBeenCalledTimes(1);
   });
 
-  it("a run that wins mid-frame stops the frame the same way", () => {
+  it('a run that wins mid-frame stops the frame the same way', () => {
     stepMock.mockImplementation((state, command) => {
       const events = bareStep(state, command);
-      if (state.tick === 1) state.ending = "victory";
+      if (state.tick === 1) state.ending = 'victory';
       return events;
     });
 
@@ -250,33 +250,33 @@ describe("advance", () => {
     expect(execution.run.tick).toBe(1);
     expect(execution.stop).toBeNull();
   });
-  it("advance on a run whose ending is already set executes zero ticks and returns no events", () => {
+  it('advance on a run whose ending is already set executes zero ticks and returns no events', () => {
     const execution = playing(7);
-    execution.run.ending = "sealed";
+    execution.run.ending = 'sealed';
 
     const events = advance(execution, createClock(), TICK_MS * 3, STILL);
     expect(execution.run.tick).toBe(0);
     expect(events).toEqual([]);
   });
-  it("events from every tick up to and including the ending tick are returned in order", () => {
+  it('events from every tick up to and including the ending tick are returned in order', () => {
     // The ending tick's own events carry the seal itself, so a guard that
     // dropped them would end the run and swallow the evidence.
     const execution = playing(7);
     stepMock.mockImplementation((state) => {
       state.tick += 1;
-      if (state.tick === 2) state.ending = "sealed";
-      return [{ type: "grew", amount: state.tick, size: state.grave.size }];
+      if (state.tick === 2) state.ending = 'sealed';
+      return [{ type: 'grew', amount: state.tick, size: state.grave.size }];
     });
 
     const events = advance(execution, createClock(), TICK_MS * 3, STILL);
 
     expect(execution.run.tick).toBe(2);
     expect(
-      events.map((event) => (event.type === "grew" ? event.amount : null)),
+      events.map((event) => (event.type === 'grew' ? event.amount : null)),
     ).toEqual([1, 2]);
   });
 
-  it("a run that ends by its own rules mid-frame stops at the ending tick", () => {
+  it('a run that ends by its own rules mid-frame stops at the ending tick', () => {
     // Nothing scripted: beforeEach points the mock at the real step, so this
     // covers the path from the seal in grave.ts to the guard with no mock in
     // between. The listener sees the ending exactly once, on the ending tick
@@ -297,7 +297,7 @@ describe("advance", () => {
     ) {
       advance(execution, clock, TICK_MS * 15, STILL);
     }
-    expect(execution.run.ending).toBe("sealed");
+    expect(execution.run.ending).toBe('sealed');
     expect(endingSeen).toEqual([execution.run.tick]);
   });
 });

@@ -29,15 +29,15 @@
  * witness of this one canonical scenario, chained across its ticks.
  */
 
-import { graveHitbox } from "../game/grave";
-import type { Mob } from "../game/mobs";
-import { damageMob, spawnMob } from "../game/mobs";
-import type { MoveCommand, RunState } from "../game/run";
-import { createRun } from "../game/run";
-import { place } from "../game/stage/templates";
-import type { FaultRecord } from "../game/execution";
-import { createExecution, executeTick } from "../game/execution";
-import { foldWitness } from "../game/witness";
+import { graveHitbox } from '../game/grave';
+import type { Mob } from '../game/mobs';
+import { damageMob, spawnMob } from '../game/mobs';
+import type { MoveCommand, RunState } from '../game/run';
+import { createRun } from '../game/run';
+import { place } from '../game/stage/templates';
+import type { FaultRecord } from '../game/execution';
+import { createExecution, executeTick } from '../game/execution';
+import { foldWitness } from '../game/witness';
 
 const SEED = 20260820;
 const TICKS = 600;
@@ -179,7 +179,7 @@ function digestOf(run: RunState, checksum: number, kills: number): Digest {
 
 /** A mob put exactly where the script wants one, outside the stage's own rows. */
 function put(run: RunState, x: number, y: number): Mob | null {
-  return spawnMob(run, "shambler", { x, y, vx: 0, vy: 1, index: 0 });
+  return spawnMob(run, 'shambler', { x, y, vx: 0, vy: 1, index: 0 });
 }
 
 /**
@@ -188,12 +188,12 @@ function put(run: RunState, x: number, y: number): Mob | null {
  */
 function scriptedKills(run: RunState, tick: number): number {
   if (tick === GHOUL_AT) {
-    spawnMob(run, "ghoul", { x: 120, y: 20, vx: 0, vy: 1, index: 0 });
+    spawnMob(run, 'ghoul', { x: 120, y: 20, vx: 0, vy: 1, index: 0 });
     return 0;
   }
   if (tick === FILE_AT) {
-    for (const order of place("file", FILE_COUNT, run.streams.spawns)) {
-      spawnMob(run, "shambler", { ...order, x: FILE_X });
+    for (const order of place('file', FILE_COUNT, run.streams.spawns)) {
+      spawnMob(run, 'shambler', { ...order, x: FILE_X });
     }
     return 0;
   }
@@ -204,7 +204,7 @@ function scriptedKills(run: RunState, tick: number): number {
       : { x: 60, y: 300 };
   const victim = put(run, where.x, where.y);
   if (victim === null) return 0;
-  damageMob(run, victim, victim.hp, "soulStream");
+  damageMob(run, victim, victim.hp, 'soulStream');
   return 1;
 }
 

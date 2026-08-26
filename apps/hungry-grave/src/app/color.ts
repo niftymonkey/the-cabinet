@@ -5,7 +5,7 @@
  * and the grayscale screenshot check cannot disagree about what they measure.
  */
 
-export type Observer = "normal" | "protan" | "deutan";
+export type Observer = 'normal' | 'protan' | 'deutan';
 
 /** Rec.709 luminance weights, red then green then blue (research 0.1). */
 const REC709 = [0.2126, 0.7152, 0.0722] as const;

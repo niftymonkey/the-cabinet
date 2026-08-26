@@ -1,6 +1,6 @@
-import type { Execution } from "../game/execution";
-import type { FaultIdentity } from "../game/invariants";
-import type { RunEnding, RunState } from "../game/run";
+import type { Execution } from '../game/execution';
+import type { FaultIdentity } from '../game/invariants';
+import type { RunEnding, RunState } from '../game/run';
 
 /**
  * The fatal fault that stopped a run: its identity and the tick it first fired
@@ -40,8 +40,8 @@ export interface RunSummary {
  * the authority did not stop the run.
  */
 function stoppingFault(execution: Execution): FaultSummary | null {
-  if (execution.stop !== "faulted") return null;
-  const fatal = execution.faults.find((record) => record.severity === "fatal");
+  if (execution.stop !== 'faulted') return null;
+  const fatal = execution.faults.find((record) => record.severity === 'fatal');
   if (fatal === undefined) return null;
   return { identity: fatal.identity, firstTick: fatal.firstTick };
 }

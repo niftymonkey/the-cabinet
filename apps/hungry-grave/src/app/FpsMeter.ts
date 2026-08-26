@@ -1,9 +1,9 @@
-import type { Ticker } from "pixi.js";
-import { Container } from "pixi.js";
+import type { Ticker } from 'pixi.js';
+import { Container } from 'pixi.js';
 
-import { FpsSampler } from "./fpsSampler";
-import { PALETTE } from "./palette";
-import { Label } from "./ui/Label";
+import { FpsSampler } from './fpsSampler';
+import { PALETTE } from './palette';
+import { Label } from './ui/Label';
 
 const MARGIN = 12;
 const LINE_HEIGHT = 20;
@@ -39,7 +39,7 @@ export class FpsMeter extends Container {
       // Monospace so the number holds its width as the digits change.
       // The meter draws over the field, so it is inside ADR 0014's ceiling.
       style: {
-        fontFamily: "monospace",
+        fontFamily: 'monospace',
         fill: PALETTE.hudDim.hex,
         fontSize: METER_FONT_SIZE,
       },

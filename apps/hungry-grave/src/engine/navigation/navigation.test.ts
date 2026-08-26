@@ -5,10 +5,10 @@
  * fresh screen and orphans the canvas-backed text textures of the old one.
  */
 
-import { Container } from "pixi.js";
-import { describe, expect, it } from "vitest";
-import type { CreationEngine } from "../engine";
-import { Navigation } from "./navigation";
+import { Container } from 'pixi.js';
+import { describe, expect, it } from 'vitest';
+import type { CreationEngine } from '../engine';
+import { Navigation } from './navigation';
 
 /** Everything navigation touches on the engine: a stage and a ticker. */
 function fakeEngine() {
@@ -47,7 +47,7 @@ function screenClass() {
 }
 
 describe("navigation's screen pooling", () => {
-  it("a screen shown again is the instance the pool kept", async () => {
+  it('a screen shown again is the instance the pool kept', async () => {
     const nav = navigationOnFakeEngine();
     const first = screenClass();
     const second = screenClass();
@@ -60,7 +60,7 @@ describe("navigation's screen pooling", () => {
     expect(nav.currentScreen).toBe(first.built[0]);
   });
 
-  it("a screen is off the stage and reset before the pool takes it", async () => {
+  it('a screen is off the stage and reset before the pool takes it', async () => {
     const nav = navigationOnFakeEngine();
     const first = screenClass();
     const second = screenClass();
@@ -72,7 +72,7 @@ describe("navigation's screen pooling", () => {
     expect(first.built[0].armed).toBe(false);
   });
 
-  it("a reused screen is prepared again for its next showing", async () => {
+  it('a reused screen is prepared again for its next showing', async () => {
     const nav = navigationOnFakeEngine();
     const first = screenClass();
     const second = screenClass();
@@ -84,7 +84,7 @@ describe("navigation's screen pooling", () => {
     expect(first.built[0].armed).toBe(true);
   });
 
-  it("a screen shown again from the pool gets its children back, with or without a show()", async () => {
+  it('a screen shown again from the pool gets its children back, with or without a show()', async () => {
     const nav = navigationOnFakeEngine();
     const first = screenClass();
     const second = screenClass();
@@ -102,7 +102,7 @@ describe("navigation's screen pooling", () => {
     expect(first.built[0].interactiveChildren).toBe(true);
   });
 
-  it("a popup is pooled too, so returning one is never a one-way trip", async () => {
+  it('a popup is pooled too, so returning one is never a one-way trip', async () => {
     const nav = navigationOnFakeEngine();
     const popup = screenClass();
 

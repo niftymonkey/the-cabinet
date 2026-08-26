@@ -1,28 +1,28 @@
 // The in-canvas HUD: score, clock, phase or boss health, the belch reservoir,
 // and the four weapon-line pips. Built from the template's Label component.
 
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 
-import type { Sim } from "../../game/sim";
-import * as T from "../../game/tuning";
-import { LINE_NAMES, type LineName } from "../../game/types";
-import { PALETTE } from "../../palette";
-import { Label } from "../../../../app/ui/Label";
+import type { Sim } from '../../game/sim';
+import * as T from '../../game/tuning';
+import { LINE_NAMES, type LineName } from '../../game/types';
+import { PALETTE } from '../../palette';
+import { Label } from '../../../../app/ui/Label';
 
 const LINE_LABEL: Record<LineName, string> = {
-  soul: "SOUL",
-  stone: "STONE",
-  wisp: "WISP",
-  bell: "BELL",
+  soul: 'SOUL',
+  stone: 'STONE',
+  wisp: 'WISP',
+  bell: 'BELL',
 };
 
 const PHASE_LABEL: Record<string, string> = {
-  ramp: "THE RAMP",
-  bansheeDrain: "SOMETHING IS COMING",
-  banshee: "THE BANSHEE",
-  backhalf: "THE FEAST",
-  undertakerDrain: "HE IS COMING",
-  undertaker: "THE UNDERTAKER",
+  ramp: 'THE RAMP',
+  bansheeDrain: 'SOMETHING IS COMING',
+  banshee: 'THE BANSHEE',
+  backhalf: 'THE FEAST',
+  undertakerDrain: 'HE IS COMING',
+  undertaker: 'THE UNDERTAKER',
 };
 
 export class GameHud extends Container {
@@ -43,33 +43,33 @@ export class GameHud extends Container {
   private lastScore = -1;
   private lastKills = -1;
   private lastSecond = -1;
-  private lastCenter = "";
+  private lastCenter = '';
 
   constructor() {
     super();
 
     this.scoreLabel = new Label({
-      text: "0",
+      text: '0',
       style: { fill: PALETTE.drop, fontSize: 26 },
     });
     this.scoreLabel.anchor.set(0, 0);
     this.killsLabel = new Label({
-      text: "0 kills",
+      text: '0 kills',
       style: { fill: PALETTE.skull, fontSize: 13 },
     });
     this.killsLabel.anchor.set(0, 0);
     this.timerLabel = new Label({
-      text: "0:00",
+      text: '0:00',
       style: { fill: PALETTE.skull, fontSize: 16 },
     });
     this.timerLabel.anchor.set(1, 0);
     this.centerLabel = new Label({
-      text: "",
+      text: '',
       style: { fill: PALETTE.skull, fontSize: 14, letterSpacing: 4 },
     });
     this.centerLabel.anchor.set(0.5, 0);
     this.pilotLabel = new Label({
-      text: "AUTOPILOT",
+      text: 'AUTOPILOT',
       style: { fill: PALETTE.enemy, fontSize: 13 },
     });
     this.pilotLabel.anchor.set(1, 0);
@@ -94,7 +94,7 @@ export class GameHud extends Container {
     this.belchBarFill.height = 12;
     this.belchBarBg.addChild(this.belchBarFill);
     this.belchLabel = new Label({
-      text: "BELCH",
+      text: 'BELCH',
       style: { fill: PALETTE.skull, fontSize: 11, letterSpacing: 2 },
     });
 
@@ -102,7 +102,7 @@ export class GameHud extends Container {
     // tap itself is routed by GameScreen's pointer handler, not pixi events,
     // so a chip tap never doubles as a belch tap.
     this.ratioChip = new Label({
-      text: "",
+      text: '',
       style: { fill: PALETTE.skull, fontSize: 12, letterSpacing: 1 },
     });
     this.ratioChip.anchor.set(1, 1);
@@ -111,7 +111,7 @@ export class GameHud extends Container {
 
     // Entry 12: the designated keyboard speed, tuned with - and =.
     this.keysChip = new Label({
-      text: "",
+      text: '',
       style: { fill: PALETTE.skull, fontSize: 12, letterSpacing: 1 },
     });
     this.keysChip.anchor.set(1, 1);
@@ -119,19 +119,19 @@ export class GameHud extends Container {
 
     this.lineLabels = {
       soul: new Label({
-        text: "",
+        text: '',
         style: { fill: PALETTE.skull, fontSize: 12 },
       }),
       stone: new Label({
-        text: "",
+        text: '',
         style: { fill: PALETTE.skull, fontSize: 12 },
       }),
       wisp: new Label({
-        text: "",
+        text: '',
         style: { fill: PALETTE.skull, fontSize: 12 },
       }),
       bell: new Label({
-        text: "",
+        text: '',
         style: { fill: PALETTE.skull, fontSize: 12 },
       }),
     };
@@ -166,7 +166,7 @@ export class GameHud extends Container {
     if (second !== this.lastSecond) {
       this.lastSecond = second;
       const m = Math.floor(second / 60);
-      const s = String(second % 60).padStart(2, "0");
+      const s = String(second % 60).padStart(2, '0');
       this.timerLabel.text = `${m}:${s}`;
     }
     this.pilotLabel.visible = autopilot;
@@ -174,9 +174,9 @@ export class GameHud extends Container {
     const boss = sim.boss;
     if (boss !== null && boss.entering <= 0) {
       const maxHp =
-        boss.kind === "banshee" ? T.BANSHEE_CHUNK_HP : T.UNDERTAKER_CHUNK_HP;
-      const name = boss.kind === "banshee" ? "THE BANSHEE" : "THE UNDERTAKER";
-      const chunks = boss.chunkIndex === 0 ? "◆◆" : "◆";
+        boss.kind === 'banshee' ? T.BANSHEE_CHUNK_HP : T.UNDERTAKER_CHUNK_HP;
+      const name = boss.kind === 'banshee' ? 'THE BANSHEE' : 'THE UNDERTAKER';
+      const chunks = boss.chunkIndex === 0 ? '◆◆' : '◆';
       const center = `${name}  ${chunks}`;
       if (center !== this.lastCenter) {
         this.lastCenter = center;
@@ -187,7 +187,7 @@ export class GameHud extends Container {
       this.bossBarFill.width = Math.max(0, (boss.chunkHp / maxHp) * 320);
     } else {
       this.bossBarBg.visible = false;
-      const center = PHASE_LABEL[sim.phase] ?? "";
+      const center = PHASE_LABEL[sim.phase] ?? '';
       if (center !== this.lastCenter) {
         this.lastCenter = center;
         this.centerLabel.text = center;
@@ -201,18 +201,18 @@ export class GameHud extends Container {
     if (full) {
       this.belchBarFill.alpha = 0.6 + 0.4 * Math.sin(sim.t * 10);
       this.belchLabel.text = touchUsed
-        ? "BELCH READY · TAP 2ND FINGER"
-        : "BELCH READY · SPACE";
+        ? 'BELCH READY · TAP 2ND FINGER'
+        : 'BELCH READY · SPACE';
       this.belchLabel.style.fill = PALETTE.graveGlow;
     } else {
       this.belchBarFill.alpha = 1;
-      this.belchLabel.text = "BELCH";
+      this.belchLabel.text = 'BELCH';
       this.belchLabel.style.fill = PALETTE.skull;
     }
 
     for (const line of LINE_NAMES) {
       const level = p.lines[line];
-      const pips = "●".repeat(level) + "○".repeat(T.MAX_LINE_LEVEL - level);
+      const pips = '●'.repeat(level) + '○'.repeat(T.MAX_LINE_LEVEL - level);
       const label = this.lineLabels[line];
       const text = `${LINE_LABEL[line]} ${pips}`;
       if (label.text !== text) {

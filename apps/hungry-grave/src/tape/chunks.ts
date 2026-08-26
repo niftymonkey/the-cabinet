@@ -14,14 +14,14 @@
  * ends after the last whole command it managed to write.
  */
 
-import type { ByteWriter } from "./bytes";
+import type { ByteWriter } from './bytes';
 import {
   createWriter,
   writeBytes,
   writeU32,
   writeU8,
   writtenBytes,
-} from "./bytes";
+} from './bytes';
 
 export const CHUNK_HEADER = 1;
 export const CHUNK_BODY = 2;

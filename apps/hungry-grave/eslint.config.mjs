@@ -1,6 +1,6 @@
-import js from "@eslint/js";
-import prettier from "eslint-plugin-prettier/recommended";
-import tseslint from "typescript-eslint";
+import js from '@eslint/js';
+import prettier from 'eslint-plugin-prettier/recommended';
+import tseslint from 'typescript-eslint';
 
 /**
  * ECMA-262's implementation-approximated functions, which engines are permitted
@@ -14,55 +14,55 @@ import tseslint from "typescript-eslint";
  * unrounded call through.
  */
 const APPROXIMATED = [
-  "acos",
-  "acosh",
-  "asin",
-  "asinh",
-  "atan",
-  "atanh",
-  "atan2",
-  "cbrt",
-  "cos",
-  "cosh",
-  "exp",
-  "expm1",
-  "hypot",
-  "log",
-  "log1p",
-  "log10",
-  "log2",
-  "pow",
-  "sin",
-  "sinh",
-  "tan",
-  "tanh",
+  'acos',
+  'acosh',
+  'asin',
+  'asinh',
+  'atan',
+  'atanh',
+  'atan2',
+  'cbrt',
+  'cos',
+  'cosh',
+  'exp',
+  'expm1',
+  'hypot',
+  'log',
+  'log1p',
+  'log10',
+  'log2',
+  'pow',
+  'sin',
+  'sinh',
+  'tan',
+  'tanh',
 ];
 
 const approximated = APPROXIMATED.map((property) => ({
-  object: "Math",
+  object: 'Math',
   property,
   message: `Math.${property} is implementation-approximated, so two engines may differ in the last bit and the same seed stops being the same run (ADR 0015). Go through src/game/math.ts, which rounds every result to single precision. If it has no wrapper for this one yet, that is a conversation rather than a call to let through.`,
 }));
 
 const random = {
-  object: "Math",
-  property: "random",
+  object: 'Math',
+  property: 'random',
   message:
     "Math.random breaks determinism outright (ADR 0015). The named seeded streams in src/game/rng.ts are the sim's only source of dice.",
 };
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  { ignores: ['dist'] },
   {
     extends: [
       js.configs.recommended,
       ...tseslint.configs.recommended,
       prettier,
     ],
-    files: ["**/*.{ts,tsx}"],
+    files: ['**/*.{ts,tsx}'],
     languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
+      ecmaVersion: 'latest',
+      sourceType: 'module',
     },
     rules: {},
   },
@@ -77,24 +77,24 @@ export default tseslint.config(
     // The one path this leaves open is the SteerSource closure, which is
     // written in src/app where no fence reaches; in practice it only picks
     // between two commands through combineSteer.
-    files: ["src/game/**/*.ts", "src/input/**/*.ts"],
+    files: ['src/game/**/*.ts', 'src/input/**/*.ts'],
     rules: {
-      "no-restricted-properties": ["error", ...approximated, random],
-      "no-restricted-globals": [
-        "error",
+      'no-restricted-properties': ['error', ...approximated, random],
+      'no-restricted-globals': [
+        'error',
         {
-          name: "Date",
+          name: 'Date',
           message:
             "Wall clock inside the sim breaks determinism exactly as a raw approximated operation does, and a run's length is counted in ticks (ADR 0015).",
         },
         {
-          name: "performance",
+          name: 'performance',
           message:
             "Wall clock inside the sim breaks determinism exactly as a raw approximated operation does, and a run's length is counted in ticks (ADR 0015).",
         },
       ],
-      "no-restricted-syntax": [
-        "error",
+      'no-restricted-syntax': [
+        'error',
         {
           selector: 'BinaryExpression[operator="**"]',
           message:
@@ -107,9 +107,9 @@ export default tseslint.config(
     // math.ts wraps the approximated operations, and rng.ts is built on
     // Math.imul, which is exactly specified and is the generator's core
     // operation. Neither is exempt from the Math.random rule.
-    files: ["src/game/math.ts", "src/game/rng.ts"],
+    files: ['src/game/math.ts', 'src/game/rng.ts'],
     rules: {
-      "no-restricted-properties": ["error", random],
+      'no-restricted-properties': ['error', random],
     },
   },
   {
@@ -139,16 +139,16 @@ export default tseslint.config(
     // listed here instead: "**/step" does not match "./step.js", which Vite
     // resolves happily, so the group names both. The spelling test in
     // src/executionFence.test.ts is what keeps the claim it does make honest.
-    files: ["src/**/*.ts"],
+    files: ['src/**/*.ts'],
     rules: {
-      "no-restricted-imports": [
-        "error",
+      'no-restricted-imports': [
+        'error',
         {
           patterns: [
             {
-              group: ["**/step", "**/step.js"],
+              group: ['**/step', '**/step.js'],
               message:
-                "Every executed tick crosses executeTick in src/game/execution.ts (ADR 0017). A fourth path into step() is a hole in every recording, so this is a build failure rather than something a review has to catch.",
+                'Every executed tick crosses executeTick in src/game/execution.ts (ADR 0017). A fourth path into step() is a hole in every recording, so this is a build failure rather than something a review has to catch.',
             },
           ],
         },
@@ -162,9 +162,9 @@ export default tseslint.config(
     // the only import restriction in the block above today, so the narrower
     // content is an empty pattern list; a second restriction added there would
     // silently not apply here under an "off", and belongs in this list too.
-    files: ["src/game/execution.ts"],
+    files: ['src/game/execution.ts'],
     rules: {
-      "no-restricted-imports": ["error", { patterns: [] }],
+      'no-restricted-imports': ['error', { patterns: [] }],
     },
   },
 );

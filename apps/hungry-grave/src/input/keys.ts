@@ -8,7 +8,7 @@
  * undo the ADR's uncapped touch drag.
  */
 
-import type { MoveCommand } from "../game/run";
+import type { MoveCommand } from '../game/run';
 
 /**
  * How much of the designated speed a held focus key leaves (glossary: focus).
@@ -45,7 +45,7 @@ const DIRECTIONS: Readonly<Record<string, MoveCommand>> = {
   ArrowRight: { x: 1, y: 0 },
 };
 
-const FOCUS_CODES = ["ShiftLeft", "ShiftRight"];
+const FOCUS_CODES = ['ShiftLeft', 'ShiftRight'];
 
 const STILL: MoveCommand = { x: 0, y: 0 };
 

@@ -1,34 +1,34 @@
-import type { Ticker } from "pixi.js";
-import { Container, Graphics } from "pixi.js";
+import type { Ticker } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 
-import type { Clock } from "../../game/clock";
-import { createClock, ticksFor } from "../../game/clock";
-import type { SimEvent } from "../../game/events";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../../game/field";
-import { RESERVOIR_CAPACITY } from "../../game/tuning";
-import { TapeFormatError } from "../../tape/bytes";
-import type { DecodedTape } from "../../tape/decode";
-import { decodeTape } from "../../tape/decode";
-import type { Playback, PlaybackResult } from "../../tape/playback";
-import { createPlayback } from "../../tape/playback";
-import type { Tape } from "../../tape/tape";
-import { meterLinePosition, METER_FONT_SIZE } from "../FpsMeter";
-import type { FieldPlacement } from "../layout";
+import type { Clock } from '../../game/clock';
+import { createClock, ticksFor } from '../../game/clock';
+import type { SimEvent } from '../../game/events';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
+import { RESERVOIR_CAPACITY } from '../../game/tuning';
+import { TapeFormatError } from '../../tape/bytes';
+import type { DecodedTape } from '../../tape/decode';
+import { decodeTape } from '../../tape/decode';
+import type { Playback, PlaybackResult } from '../../tape/playback';
+import { createPlayback } from '../../tape/playback';
+import type { Tape } from '../../tape/tape';
+import { meterLinePosition, METER_FONT_SIZE } from '../FpsMeter';
+import type { FieldPlacement } from '../layout';
 import {
   BOUNDARY_STROKE,
   DEGENERATE_PLACEMENT,
   fitField,
   READOUT_RESERVE,
-} from "../layout";
-import { PALETTE } from "../palette";
-import { atFromUrl, tapeFromUrl } from "../seedFromUrl";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
-import { FieldRenderer } from "./game/FieldRenderer";
-import { GraveRenderer } from "./game/GraveRenderer";
-import { FieldLayers } from "./game/layering";
-import { StormRenderer } from "./game/StormRenderer";
-import { REPLAY_LEAD_IN_TICKS } from "./game/transients";
+} from '../layout';
+import { PALETTE } from '../palette';
+import { atFromUrl, tapeFromUrl } from '../seedFromUrl';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+import { FieldRenderer } from './game/FieldRenderer';
+import { GraveRenderer } from './game/GraveRenderer';
+import { FieldLayers } from './game/layering';
+import { StormRenderer } from './game/StormRenderer';
+import { REPLAY_LEAD_IN_TICKS } from './game/transients';
 
 /**
  * The instrument replay route (ADR 0020): a kept or fetched tape rendered at a
@@ -59,13 +59,13 @@ const BACK_HEIGHT = 68;
  * do: no tape named, a refused tape, or a statement standing in for playback.
  */
 type ReplayPhase =
-  "idle" | "fetching" | "verifying" | "fastForwarding" | "playing" | "played";
+  'idle' | 'fetching' | 'verifying' | 'fastForwarding' | 'playing' | 'played';
 
 /** One line of the corner readout stack (the game screen's own construction). */
 function stackLine(index: number): Label {
   const label = new Label({
     style: {
-      fontFamily: "monospace",
+      fontFamily: 'monospace',
       fill: PALETTE.hudDim.hex,
       fontSize: METER_FONT_SIZE,
     },
@@ -118,7 +118,7 @@ function verifiedReadout(
  * is its debt, and saying so is the honest line.
  */
 function debtReadout(tape: Tape): string {
-  if (tape.trailer === null) return "NO TRAILER: STOP AND DEBT UNKNOWN";
+  if (tape.trailer === null) return 'NO TRAILER: STOP AND DEBT UNKNOWN';
   return `ORIGINAL DEBT ${tape.trailer.debtTicks} TICKS`;
 }
 
@@ -132,7 +132,7 @@ function messageOf(error: unknown): string {
  */
 export class ReplayScreen extends Container {
   // Assets bundles required by this screen
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   private readonly field: Container;
   private readonly layers: FieldLayers;
@@ -153,7 +153,7 @@ export class ReplayScreen extends Container {
   private readonly backButton: Button;
 
   private placement: FieldPlacement = DEGENERATE_PLACEMENT;
-  private phase: ReplayPhase = "idle";
+  private phase: ReplayPhase = 'idle';
   private tape: Tape | null = null;
   /**
    * The verification pre-pass: the whole tape reproduced headless through the
@@ -200,21 +200,21 @@ export class ReplayScreen extends Container {
     this.tickLabel = stackLine(4);
     this.statement = new Label({
       style: {
-        fontFamily: "monospace",
+        fontFamily: 'monospace',
         fill: PALETTE.hudInk.hex,
         fontSize: METER_FONT_SIZE,
         wordWrap: true,
       },
     });
     this.backButton = new Button({
-      text: "BACK",
+      text: 'BACK',
       width: BACK_WIDTH,
       height: BACK_HEIGHT,
       fontSize: 18,
     });
     this.backButton.onPress.connect(() => {
       // The router in main.ts observes the hash and shows the title screen.
-      window.location.hash = "#/";
+      window.location.hash = '#/';
     });
 
     this.addChild(
@@ -230,7 +230,7 @@ export class ReplayScreen extends Container {
 
   /** The field's own furniture, put back after any clear() (see reset). */
   private dressField(): void {
-    this.layers.layer("fieldBoundary").addChild(this.frame);
+    this.layers.layer('fieldBoundary').addChild(this.frame);
     this.fieldRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
@@ -246,7 +246,7 @@ export class ReplayScreen extends Container {
     // the first sync, and a showing that refuses never syncs; hide the field
     // until the first real frame reveals it (syncScreen).
     this.field.visible = false;
-    this.phase = "idle";
+    this.phase = 'idle';
     this.tape = null;
     this.verification = null;
     this.playback = null;
@@ -254,28 +254,28 @@ export class ReplayScreen extends Container {
     this.bound = 0;
     this.clock = createClock();
     this.shownTick = null;
-    this.postureLabel.text = "";
-    this.verifiedLabel.text = "";
-    this.debtLabel.text = "";
-    this.tickLabel.text = "";
-    this.statement.text = "";
+    this.postureLabel.text = '';
+    this.verifiedLabel.text = '';
+    this.debtLabel.text = '';
+    this.tickLabel.text = '';
+    this.statement.text = '';
 
     const search = window.location.search;
     const hash = window.location.hash;
     this.target = atFromUrl(search, hash) ?? 0;
     const url = tapeFromUrl(search, hash);
     if (url === null) {
-      this.refuse("NO TAPE NAMED: #/replay?tape=<url>&at=<tick> NAMES ONE.");
+      this.refuse('NO TAPE NAMED: #/replay?tape=<url>&at=<tick> NAMES ONE.');
       return;
     }
-    this.phase = "fetching";
-    this.postureLabel.text = "FETCHING TAPE";
+    this.phase = 'fetching';
+    this.postureLabel.text = 'FETCHING TAPE';
     void this.fetchTape(url, this.generation);
   }
 
   public reset(): void {
     this.generation += 1;
-    this.phase = "idle";
+    this.phase = 'idle';
     this.tape = null;
     this.verification = null;
     this.playback = null;
@@ -283,19 +283,19 @@ export class ReplayScreen extends Container {
     this.bound = 0;
     this.target = 0;
     this.shownTick = null;
-    this.postureLabel.text = "";
-    this.verifiedLabel.text = "";
-    this.debtLabel.text = "";
-    this.tickLabel.text = "";
-    this.statement.text = "";
+    this.postureLabel.text = '';
+    this.verifiedLabel.text = '';
+    this.debtLabel.text = '';
+    this.tickLabel.text = '';
+    this.statement.text = '';
     this.layers.clear();
     this.dressField();
   }
 
   /** A statement instead of a playback: the screen reports and plays nothing. */
   private refuse(statement: string): void {
-    this.phase = "idle";
-    this.postureLabel.text = "NO REPLAY";
+    this.phase = 'idle';
+    this.postureLabel.text = 'NO REPLAY';
     this.statement.text = statement;
   }
 
@@ -333,11 +333,11 @@ export class ReplayScreen extends Container {
     this.tape = decoded.tape;
     if (decoded.truncated) {
       this.statement.text =
-        "THE TAPE IS CUT SHORT: IT READS TO ITS LAST WHOLE RECORD AND PLAYS TO ITS LAST VERIFIED CHECKPOINT.";
+        'THE TAPE IS CUT SHORT: IT READS TO ITS LAST WHOLE RECORD AND PLAYS TO ITS LAST VERIFIED CHECKPOINT.';
     }
     this.verification = createPlayback(decoded.tape);
-    this.phase = "verifying";
-    this.postureLabel.text = "VERIFYING";
+    this.phase = 'verifying';
+    this.postureLabel.text = 'VERIFYING';
   }
 
   /**
@@ -346,15 +346,15 @@ export class ReplayScreen extends Container {
    * playing phase spends real time as ticks the way the game does.
    */
   public update(ticker: Ticker): void {
-    if (this.phase === "verifying") {
+    if (this.phase === 'verifying') {
       this.verifyChunk();
       return;
     }
-    if (this.phase === "fastForwarding") {
+    if (this.phase === 'fastForwarding') {
       this.fastForwardChunk();
       return;
     }
-    if (this.phase === "playing") this.playFrame(ticker.elapsedMS);
+    if (this.phase === 'playing') this.playFrame(ticker.elapsedMS);
   }
 
   private verifyChunk(): void {
@@ -384,7 +384,7 @@ export class ReplayScreen extends Container {
       tape.commands.length,
     );
     this.debtLabel.text = debtReadout(tape);
-    if (result.outcome === "witnessVersionMismatch") {
+    if (result.outcome === 'witnessVersionMismatch') {
       this.refuse(
         `THIS TAPE'S WITNESS IS VERSION ${result.tapeWitnessVersion} AND THIS READER FOLDS VERSION ${result.readerWitnessVersion}: IT CANNOT BE VERIFIED HERE.`,
       );
@@ -394,8 +394,8 @@ export class ReplayScreen extends Container {
     this.playback = createPlayback(tape, (_tick, _command, events) => {
       for (const event of events) this.frameEvents.push(event);
     });
-    this.phase = "fastForwarding";
-    this.postureLabel.text = "FAST-FORWARDING";
+    this.phase = 'fastForwarding';
+    this.postureLabel.text = 'FAST-FORWARDING';
     this.fastForwardChunk();
   }
 
@@ -428,8 +428,8 @@ export class ReplayScreen extends Container {
     this.fieldRenderer.forgetPreviousRun();
     this.stormRenderer.forgetPreviousRun();
     this.clock = createClock();
-    this.phase = "playing";
-    this.postureLabel.text = "REPLAYING";
+    this.phase = 'playing';
+    this.postureLabel.text = 'REPLAYING';
     this.syncScreen(playback);
   }
 
@@ -445,7 +445,7 @@ export class ReplayScreen extends Container {
     }
     this.syncScreen(playback);
     if (!rolling || playback.run.tick >= this.bound) {
-      this.phase = "played";
+      this.phase = 'played';
       this.postureLabel.text = `PLAYED TO TICK ${playback.run.tick}, THE LAST VERIFIED CHECKPOINT`;
     }
   }
@@ -459,8 +459,8 @@ export class ReplayScreen extends Container {
     this.field.visible = true;
     const run = playback.run;
     for (const event of this.frameEvents) {
-      if (event.type === "belched") this.stormRenderer.erupt(run);
-      if (event.type === "splashed") this.stormRenderer.splashed(run);
+      if (event.type === 'belched') this.stormRenderer.erupt(run);
+      if (event.type === 'splashed') this.stormRenderer.splashed(run);
     }
     this.frameEvents.length = 0;
     this.grave.sync(run.grave, run.reservoir / RESERVOIR_CAPACITY, run.tick);

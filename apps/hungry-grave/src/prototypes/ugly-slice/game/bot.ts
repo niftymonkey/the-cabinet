@@ -3,11 +3,11 @@
 // is what the screen shows. It steers by scoring nine candidate moves on
 // bullet closest-approach danger plus distance to the current meal.
 
-import { graveHalfW } from "./grave";
-import { step, type Sim } from "./sim";
-import { WALL_LANDED_MIN } from "./stage";
-import * as T from "./tuning";
-import type { Input, PhaseName } from "./types";
+import { graveHalfW } from './grave';
+import { step, type Sim } from './sim';
+import { WALL_LANDED_MIN } from './stage';
+import * as T from './tuning';
+import type { Input, PhaseName } from './types';
 
 const HORIZON = 1.1;
 const MOVE_TAU = 0.32;
@@ -58,7 +58,7 @@ function pickTarget(sim: Sim): Target {
   const boss = sim.boss;
   // The curtain: hug the moving gap the Undertaker leaves open.
   if (
-    boss?.kind === "undertaker" &&
+    boss?.kind === 'undertaker' &&
     boss.chunkIndex === 0 &&
     boss.entering <= 0
   ) {
@@ -74,8 +74,8 @@ function pickTarget(sim: Sim): Target {
     }
   }
   for (const corpse of sim.corpses) {
-    if (corpse.kind === "corpse" && corpse.freshness < 0.3) continue;
-    const worth = corpse.kind === "corpse" ? 1 : 0.3;
+    if (corpse.kind === 'corpse' && corpse.freshness < 0.3) continue;
+    const worth = corpse.kind === 'corpse' ? 1 : 0.3;
     const cost = Math.hypot(corpse.x - p.x, corpse.y - p.y) * worth;
     if (cost < bestCost) {
       bestCost = cost;
@@ -117,7 +117,7 @@ function wallAliveOnScreen(sim: Sim): number {
 function wantBelch(sim: Sim): boolean {
   if (sim.player.reservoir < T.BELCH_CAP) return false;
   // The loaded post-Banshee belch is saved for the Wall, never empty sky.
-  if (sim.phase === "backhalf")
+  if (sim.phase === 'backhalf')
     return wallAliveOnScreen(sim) >= WALL_LANDED_MIN;
   const boss = sim.boss;
   if (
@@ -178,13 +178,13 @@ export function botInput(sim: Sim): Input {
 }
 
 export const PHASE_ORDER: readonly PhaseName[] = [
-  "ramp",
-  "bansheeDrain",
-  "banshee",
-  "backhalf",
-  "undertakerDrain",
-  "undertaker",
-  "victory",
+  'ramp',
+  'bansheeDrain',
+  'banshee',
+  'backhalf',
+  'undertakerDrain',
+  'undertaker',
+  'victory',
 ];
 
 // Fast-forward by honestly playing: the dev phase-skip keys and tests step
@@ -197,7 +197,7 @@ export function advanceToPhase(
   const dt = 1 / 60;
   let elapsed = 0;
   while (sim.phase !== target && elapsed < maxSeconds) {
-    if (sim.phase === "victory" || sim.phase === "dead") break;
+    if (sim.phase === 'victory' || sim.phase === 'dead') break;
     step(sim, botInput(sim), dt);
     elapsed += dt;
   }

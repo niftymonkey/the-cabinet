@@ -1,8 +1,8 @@
-import { sound } from "@pixi/sound";
-import { ExtensionType } from "pixi.js";
-import type { Application, ExtensionMetadata } from "pixi.js";
+import { sound } from '@pixi/sound';
+import { ExtensionType } from 'pixi.js';
+import type { Application, ExtensionMetadata } from 'pixi.js';
 
-import { BGM, SFX } from "./audio";
+import { BGM, SFX } from './audio';
 
 /**
  * Middleware for Application's audio functionality.
@@ -44,6 +44,6 @@ export class CreationAudioPlugin {
    */
   public static destroy(): void {
     const app = this as unknown as Application;
-    app.audio = null as unknown as Application["audio"];
+    app.audio = null as unknown as Application['audio'];
   }
 }

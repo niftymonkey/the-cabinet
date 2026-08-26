@@ -8,8 +8,8 @@
  * save works with no store at all.
  */
 
-import type { RunEnding } from "../game/run";
-import type { TapeInputDevice, TapeIntegrity, TapeStop } from "../tape/tape";
+import type { RunEnding } from '../game/run';
+import type { TapeInputDevice, TapeIntegrity, TapeStop } from '../tape/tape';
 
 /**
  * How many tapes the rolling queue keeps, newest first, and how many more the
@@ -20,10 +20,10 @@ import type { TapeInputDevice, TapeIntegrity, TapeStop } from "../tape/tape";
 const STORE_KEPT_RECENT_TAPES = 20;
 const STORE_KEPT_SPARED_TAPES = 5;
 
-const TAPE_DB_NAME = "hungry-grave-tapes";
+const TAPE_DB_NAME = 'hungry-grave-tapes';
 const TAPE_DB_VERSION = 1;
-const RUNS = "runs";
-const SEGMENTS = "segments";
+const RUNS = 'runs';
+const SEGMENTS = 'segments';
 
 /**
  * The summary fields the recorder itself knows, written from its own header
@@ -52,13 +52,13 @@ interface StoredRunSummary extends RunSummaryValues {
  */
 type TapePart =
   | {
-      readonly kind: "header";
+      readonly kind: 'header';
       readonly bytes: Uint8Array;
       readonly summary: RunSummaryValues;
     }
-  | { readonly kind: "chunk"; readonly bytes: Uint8Array }
+  | { readonly kind: 'chunk'; readonly bytes: Uint8Array }
   | {
-      readonly kind: "trailer";
+      readonly kind: 'trailer';
       readonly bytes: Uint8Array;
       readonly summary: RunSummaryValues;
     };
@@ -78,7 +78,7 @@ interface TapeStore {
 interface SegmentRow {
   readonly runId: string;
   readonly sequence: number;
-  readonly kind: "chunk" | "trailer";
+  readonly kind: 'chunk' | 'trailer';
   readonly bytes: Uint8Array;
 }
 
@@ -86,16 +86,16 @@ const settled = <T>(request: IDBRequest<T>): Promise<T> =>
   new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () =>
-      reject(request.error ?? new Error("IndexedDB request failed"));
+      reject(request.error ?? new Error('IndexedDB request failed'));
   });
 
 const completed = (transaction: IDBTransaction): Promise<void> =>
   new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
     transaction.onerror = () =>
-      reject(transaction.error ?? new Error("IndexedDB transaction failed"));
+      reject(transaction.error ?? new Error('IndexedDB transaction failed'));
     transaction.onabort = () =>
-      reject(transaction.error ?? new Error("IndexedDB transaction aborted"));
+      reject(transaction.error ?? new Error('IndexedDB transaction aborted'));
   });
 
 const openDatabase = (): Promise<IDBDatabase> =>
@@ -103,14 +103,14 @@ const openDatabase = (): Promise<IDBDatabase> =>
     const request = indexedDB.open(TAPE_DB_NAME, TAPE_DB_VERSION);
     request.onupgradeneeded = () => {
       const database = request.result;
-      database.createObjectStore(RUNS, { keyPath: "id" });
+      database.createObjectStore(RUNS, { keyPath: 'id' });
       // Keyed run id plus sequence, so appending never reads what is there.
-      database.createObjectStore(SEGMENTS, { keyPath: ["runId", "sequence"] });
+      database.createObjectStore(SEGMENTS, { keyPath: ['runId', 'sequence'] });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () =>
-      reject(request.error ?? new Error("IndexedDB open failed"));
-    request.onblocked = () => reject(new Error("IndexedDB open blocked"));
+      reject(request.error ?? new Error('IndexedDB open failed'));
+    request.onblocked = () => reject(new Error('IndexedDB open blocked'));
   });
 
 /** Every segment row of one run, bounded so no other run's rows can match. */
@@ -124,9 +124,9 @@ const wholeRun = (runId: string): IDBKeyRange =>
  * may be rolled over by ordinary play.
  */
 const spared = (row: StoredRunSummary): boolean =>
-  row.stop === "unknown" ||
-  row.stop === "faulted" ||
-  row.integrity === "faulted";
+  row.stop === 'unknown' ||
+  row.stop === 'faulted' ||
+  row.integrity === 'faulted';
 
 const newestFirst = (rows: StoredRunSummary[]): StoredRunSummary[] =>
   [...rows].sort((a, b) => b.recordedAt - a.recordedAt);
@@ -181,22 +181,22 @@ const createStore = (database: IDBDatabase): TapeStore => {
       const row: SegmentRow = {
         runId,
         sequence: nextSequence(runId),
-        kind: part.kind === "trailer" ? "trailer" : "chunk",
+        kind: part.kind === 'trailer' ? 'trailer' : 'chunk',
         bytes: part.bytes,
       };
-      const stores = part.kind === "chunk" ? [SEGMENTS] : [SEGMENTS, RUNS];
-      const transaction = database.transaction(stores, "readwrite");
+      const stores = part.kind === 'chunk' ? [SEGMENTS] : [SEGMENTS, RUNS];
+      const transaction = database.transaction(stores, 'readwrite');
       transaction.objectStore(SEGMENTS).add(row);
-      if (part.kind !== "chunk") {
+      if (part.kind !== 'chunk') {
         const summary: StoredRunSummary = { id: runId, ...part.summary };
         transaction.objectStore(RUNS).put(summary);
       }
       await completed(transaction);
       // A summary write is the only moment a run enters a bin or moves
       // between them, so it is the only moment the dashcam loop can roll.
-      if (part.kind !== "chunk") await evict();
+      if (part.kind !== 'chunk') await evict();
     } catch (error) {
-      failed("append", error);
+      failed('append', error);
     }
   };
 
@@ -206,7 +206,7 @@ const createStore = (database: IDBDatabase): TapeStore => {
    * count, so ordinary play can never roll the evidence away.
    */
   const evict = async (): Promise<void> => {
-    const transaction = database.transaction(RUNS, "readonly");
+    const transaction = database.transaction(RUNS, 'readonly');
     const rows = (await settled(
       transaction.objectStore(RUNS).getAll(),
     )) as StoredRunSummary[];
@@ -223,13 +223,13 @@ const createStore = (database: IDBDatabase): TapeStore => {
   const list = async (): Promise<StoredRunSummary[]> => {
     if (unavailable) return [];
     try {
-      const transaction = database.transaction(RUNS, "readonly");
+      const transaction = database.transaction(RUNS, 'readonly');
       const rows = (await settled(
         transaction.objectStore(RUNS).getAll(),
       )) as StoredRunSummary[];
       return newestFirst(rows);
     } catch (error) {
-      failed("list", error);
+      failed('list', error);
       return [];
     }
   };
@@ -237,7 +237,7 @@ const createStore = (database: IDBDatabase): TapeStore => {
   const load = async (runId: string): Promise<Uint8Array | null> => {
     if (unavailable) return null;
     try {
-      const transaction = database.transaction(SEGMENTS, "readonly");
+      const transaction = database.transaction(SEGMENTS, 'readonly');
       // getAll over a keyPath range comes back in key order, which is the
       // append order the sequence numbers spell.
       const rows = (await settled(
@@ -248,11 +248,11 @@ const createStore = (database: IDBDatabase): TapeStore => {
       // bytes last. Post-seal frame rows arrive as chunk parts after the
       // trailer part by design, so the reorder happens here, once, on the way
       // out.
-      const chunks = rows.filter((row) => row.kind === "chunk");
-      const trailers = rows.filter((row) => row.kind === "trailer");
+      const chunks = rows.filter((row) => row.kind === 'chunk');
+      const trailers = rows.filter((row) => row.kind === 'trailer');
       return concatenated([...chunks, ...trailers].map((row) => row.bytes));
     } catch (error) {
-      failed("load", error);
+      failed('load', error);
       return null;
     }
   };
@@ -260,12 +260,12 @@ const createStore = (database: IDBDatabase): TapeStore => {
   const remove = async (runId: string): Promise<void> => {
     if (unavailable) return;
     try {
-      const transaction = database.transaction([RUNS, SEGMENTS], "readwrite");
+      const transaction = database.transaction([RUNS, SEGMENTS], 'readwrite');
       transaction.objectStore(RUNS).delete(runId);
       transaction.objectStore(SEGMENTS).delete(wholeRun(runId));
       await completed(transaction);
     } catch (error) {
-      failed("delete", error);
+      failed('delete', error);
     }
   };
 
@@ -274,7 +274,7 @@ const createStore = (database: IDBDatabase): TapeStore => {
 
 /** Null is the designed store-unavailable state, never an error a caller feels. */
 const openTapeStore = async (): Promise<TapeStore | null> => {
-  if (typeof indexedDB === "undefined") {
+  if (typeof indexedDB === 'undefined') {
     console.warn(
       "this browser offers no IndexedDB; tapes are kept for the run only and the end screen's file save still works",
     );

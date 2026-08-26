@@ -11,18 +11,18 @@
  * construction rather than by two numbers agreeing.
  */
 
-import { CORPSE_CAP, createPool, takeSlot } from "./caps";
-import { TICK_HZ } from "./clock";
-import { DROP_HALF_EXTENT } from "./drops";
-import type { SimEvent } from "./events";
-import { FIELD_HEIGHT } from "./field";
-import type { WeaponLine } from "./lines/roster";
-import type { CorpseTier, Mob } from "./mobs";
-import { MOB_TYPES } from "./mobs";
-import type { Rect } from "./overlap";
-import type { RunState } from "./run";
-import type { FoodKind, Swallowable } from "./swallow";
-import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from "./tuning";
+import { CORPSE_CAP, createPool, takeSlot } from './caps';
+import { TICK_HZ } from './clock';
+import { DROP_HALF_EXTENT } from './drops';
+import type { SimEvent } from './events';
+import { FIELD_HEIGHT } from './field';
+import type { WeaponLine } from './lines/roster';
+import type { CorpseTier, Mob } from './mobs';
+import { MOB_TYPES } from './mobs';
+import type { Rect } from './overlap';
+import type { RunState } from './run';
+import type { FoodKind, Swallowable } from './swallow';
+import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from './tuning';
 
 /**
  * Corpse size is constant across mob types, even though a revenant's payout is
@@ -72,8 +72,8 @@ function blankCorpse(): Corpse {
     y: 0,
     freshness: 0,
     payout: 0,
-    tier: "trash",
-    kind: "corpse",
+    tier: 'trash',
+    kind: 'corpse',
     decays: true,
     line: undefined,
     halfExtent: CORPSE_HALF_EXTENT,
@@ -142,7 +142,7 @@ function claimSlot(state: RunState, events: SimEvent[]): Corpse | null {
   const evicted = oldestEvictable(state.corpses);
   if (evicted === null) return null;
   events.push({
-    type: "corpseEvicted",
+    type: 'corpseEvicted',
     x: evicted.x,
     y: evicted.y,
     freshness: evicted.freshness,
@@ -165,7 +165,7 @@ export function spawnCorpse(state: RunState, mob: Mob): SimEvent[] {
   corpse.freshness = 1;
   corpse.payout = row.corpsePayout;
   corpse.tier = row.corpseTier;
-  corpse.kind = "corpse";
+  corpse.kind = 'corpse';
   corpse.decays = true;
   corpse.line = undefined;
   corpse.halfExtent = CORPSE_HALF_EXTENT;
@@ -192,8 +192,8 @@ export function spawnFeast(
   corpse.y = y;
   corpse.freshness = 1;
   corpse.payout = payout;
-  corpse.tier = "rich";
-  corpse.kind = "feast";
+  corpse.tier = 'rich';
+  corpse.kind = 'feast';
   corpse.decays = false;
   corpse.line = undefined;
   corpse.halfExtent = CORPSE_HALF_EXTENT;
@@ -223,12 +223,12 @@ export function spawnDrop(
   corpse.y = y;
   corpse.freshness = 1;
   corpse.payout = TRASH_CORPSE_PAYOUT;
-  corpse.tier = "trash";
-  corpse.kind = "drop";
+  corpse.tier = 'trash';
+  corpse.kind = 'drop';
   corpse.decays = false;
   corpse.line = line;
   corpse.halfExtent = DROP_HALF_EXTENT;
-  events.push({ type: "dropSpawned", line, x, y });
+  events.push({ type: 'dropSpawned', line, x, y });
   return events;
 }
 
@@ -240,7 +240,7 @@ export function advanceCorpses(state: RunState): SimEvent[] {
     corpse.freshness = Math.max(0, corpse.freshness - FRESHNESS_PER_TICK);
     if (corpse.freshness > 0) continue;
     corpse.alive = false;
-    events.push({ type: "corpseExpired", x: corpse.x, y: corpse.y });
+    events.push({ type: 'corpseExpired', x: corpse.x, y: corpse.y });
   }
   return events;
 }
@@ -257,7 +257,7 @@ export function cullCorpses(state: RunState): SimEvent[] {
     if (corpse.y - corpse.halfExtent <= FIELD_HEIGHT) continue;
     corpse.alive = false;
     events.push({
-      type: "corpseLost",
+      type: 'corpseLost',
       kind: corpse.kind,
       x: corpse.x,
       y: corpse.y,

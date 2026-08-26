@@ -5,26 +5,26 @@
 
 // The library's installer is the only way it hands out the whole global
 // surface (IDBKeyRange included); each test then swaps in a fresh factory.
-import "fake-indexeddb/auto";
-import { IDBFactory } from "fake-indexeddb";
-import { beforeEach, describe, expect, it } from "vitest";
+import 'fake-indexeddb/auto';
+import { IDBFactory } from 'fake-indexeddb';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { decodeTape } from "../../tape/decode";
+import { decodeTape } from '../../tape/decode';
 import {
   bodySegment,
   headerSegment,
   observationsSegment,
   trailerSegment,
   witnessSegment,
-} from "../../tape/segments";
-import type { TapeHeader, TapeTrailer } from "../../tape/tape";
-import { stopOf } from "../../tape/tape";
+} from '../../tape/segments';
+import type { TapeHeader, TapeTrailer } from '../../tape/tape';
+import { stopOf } from '../../tape/tape';
 import {
   openTapeStore,
   STORE_KEPT_RECENT_TAPES,
   STORE_KEPT_SPARED_TAPES,
-} from "../tapeStore";
-import type { RunSummaryValues, TapeStore } from "../tapeStore";
+} from '../tapeStore';
+import type { RunSummaryValues, TapeStore } from '../tapeStore';
 
 const HEADER: TapeHeader = {
   seed: 77,
@@ -33,21 +33,21 @@ const HEADER: TapeHeader = {
   tickRate: 60,
   checkpointSpacing: 4,
   witnessVersion: 1,
-  commitHash: "aa038cb310",
-  buildIdentity: "",
-  author: "unknown",
-  inputDevice: "keyboard",
+  commitHash: 'aa038cb310',
+  buildIdentity: '',
+  author: 'unknown',
+  inputDevice: 'keyboard',
   keyboardSpeed: 1,
-  rendererBackend: "webgl",
+  rendererBackend: 'webgl',
   rendererResolution: 2,
   devicePixelRatio: 2,
   recordedAt: 1_766_200_000_000,
 };
 
 const TRAILER: TapeTrailer = {
-  ending: "sealed",
-  stop: "finished",
-  integrity: "clean",
+  ending: 'sealed',
+  stop: 'finished',
+  integrity: 'clean',
   debtTicks: 0,
 };
 
@@ -67,7 +67,7 @@ function birthSummary(over: Partial<RunSummaryValues> = {}): RunSummaryValues {
     recordedAt: HEADER.recordedAt,
     inputDevice: HEADER.inputDevice,
     ending: null,
-    stop: "unknown",
+    stop: 'unknown',
     integrity: null,
     debtTicks: null,
     ...over,
@@ -99,7 +99,7 @@ function concatenated(segments: readonly Uint8Array[]): Uint8Array {
 async function freshStore(): Promise<TapeStore> {
   globalThis.indexedDB = new IDBFactory();
   const store = await openTapeStore();
-  if (store === null) throw new Error("the fake IndexedDB failed to open");
+  if (store === null) throw new Error('the fake IndexedDB failed to open');
   return store;
 }
 
@@ -110,16 +110,16 @@ async function appendSealedRun(
   recordedAt: number,
 ): Promise<void> {
   await store.append(runId, {
-    kind: "header",
+    kind: 'header',
     bytes: headerSegment({ ...HEADER, recordedAt }),
     summary: birthSummary({ recordedAt }),
   });
   await store.append(runId, {
-    kind: "chunk",
+    kind: 'chunk',
     bytes: witnessSegment([{ index: 0, witness: -7 }]),
   });
   await store.append(runId, {
-    kind: "trailer",
+    kind: 'trailer',
     bytes: trailerSegment(TRAILER),
     summary: sealedSummary({ recordedAt }),
   });
@@ -132,7 +132,7 @@ async function appendUnknownRun(
   recordedAt: number,
 ): Promise<void> {
   await store.append(runId, {
-    kind: "header",
+    kind: 'header',
     bytes: headerSegment({ ...HEADER, recordedAt }),
     summary: birthSummary({ recordedAt }),
   });
@@ -142,8 +142,8 @@ beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
 });
 
-describe("the tape store", () => {
-  it("loads a stored run back as the byte-identical canonical stream", async () => {
+describe('the tape store', () => {
+  it('loads a stored run back as the byte-identical canonical stream', async () => {
     const store = await freshStore();
     const segments = [
       headerSegment(HEADER),
@@ -154,21 +154,21 @@ describe("the tape store", () => {
       trailerSegment(TRAILER),
     ];
 
-    await store.append("run-1", {
-      kind: "header",
+    await store.append('run-1', {
+      kind: 'header',
       bytes: segments[0],
       summary: birthSummary(),
     });
     for (const bytes of segments.slice(1, 5)) {
-      await store.append("run-1", { kind: "chunk", bytes });
+      await store.append('run-1', { kind: 'chunk', bytes });
     }
-    await store.append("run-1", {
-      kind: "trailer",
+    await store.append('run-1', {
+      kind: 'trailer',
       bytes: segments[5],
       summary: sealedSummary(),
     });
 
-    const loaded = await store.load("run-1");
+    const loaded = await store.load('run-1');
     expect(loaded).toEqual(concatenated(segments));
 
     const { tape, truncated } = decodeTape(loaded ?? new Uint8Array());
@@ -177,7 +177,7 @@ describe("the tape store", () => {
     expect(tape.trailer).toEqual(TRAILER);
   });
 
-  it("loads an interrupted run with no trailer part as a clean trailerless stream", async () => {
+  it('loads an interrupted run with no trailer part as a clean trailerless stream', async () => {
     // The tab-closed case is the reading the instrument most needs: the
     // stream must decode as a stop of unknown, not as a truncated tape.
     const store = await freshStore();
@@ -188,26 +188,26 @@ describe("the tape store", () => {
       witnessSegment([{ index: 4, witness: -11 }]),
     ];
 
-    await store.append("run-cut", {
-      kind: "header",
+    await store.append('run-cut', {
+      kind: 'header',
       bytes: segments[0],
       summary: birthSummary(),
     });
     for (const bytes of segments.slice(1)) {
-      await store.append("run-cut", { kind: "chunk", bytes });
+      await store.append('run-cut', { kind: 'chunk', bytes });
     }
 
-    const loaded = await store.load("run-cut");
+    const loaded = await store.load('run-cut');
     expect(loaded).toEqual(concatenated(segments));
 
     const { tape, truncated } = decodeTape(loaded ?? new Uint8Array());
     expect(truncated).toBe(false);
     expect(tape.trailer).toBeNull();
-    expect(stopOf(tape)).toBe("unknown");
+    expect(stopOf(tape)).toBe('unknown');
     expect(tape.commands).toEqual(commands(0, 4));
   });
 
-  it("yields observation parts appended after the trailer before it, so the trailer stays last", async () => {
+  it('yields observation parts appended after the trailer before it, so the trailer stays last', async () => {
     // The frames a run spends on its own end state arrive after the seal by
     // design (recorder.ts), and the ruled canonical yield puts the trailer
     // last whatever order the parts arrived in.
@@ -216,8 +216,8 @@ describe("the tape store", () => {
     const trailer = trailerSegment(TRAILER);
     const postSeal = observationsSegment([
       {
-        kind: "frame",
-        reason: "ending",
+        kind: 'frame',
+        reason: 'ending',
         tickIndex: null,
         ticksExecuted: 0,
         intervalMs: Math.fround(16.7),
@@ -227,19 +227,19 @@ describe("the tape store", () => {
       },
     ]);
 
-    await store.append("run-ended", {
-      kind: "header",
+    await store.append('run-ended', {
+      kind: 'header',
       bytes: header,
       summary: birthSummary(),
     });
-    await store.append("run-ended", {
-      kind: "trailer",
+    await store.append('run-ended', {
+      kind: 'trailer',
       bytes: trailer,
       summary: sealedSummary(),
     });
-    await store.append("run-ended", { kind: "chunk", bytes: postSeal });
+    await store.append('run-ended', { kind: 'chunk', bytes: postSeal });
 
-    const loaded = await store.load("run-ended");
+    const loaded = await store.load('run-ended');
     expect(loaded).toEqual(concatenated([header, postSeal, trailer]));
 
     const { tape } = decodeTape(loaded ?? new Uint8Array());
@@ -247,33 +247,33 @@ describe("the tape store", () => {
     expect(tape.observations).toHaveLength(1);
   });
 
-  it("reads the summary rows newest first, with the stop unknown until the seal", async () => {
+  it('reads the summary rows newest first, with the stop unknown until the seal', async () => {
     // The stop is a reading and never a written value: a row with no seal is
     // the tab-closed run, and it must say so rather than claim an outcome.
     // Ids deliberately sort against recency, so the order can only come
     // from the recordedAt sort and never from the key order getAll returns.
     const store = await freshStore();
-    await appendSealedRun(store, "run-a-old", 1000);
-    await appendUnknownRun(store, "run-c-live", 3000);
-    await appendSealedRun(store, "run-b-mid", 2000);
+    await appendSealedRun(store, 'run-a-old', 1000);
+    await appendUnknownRun(store, 'run-c-live', 3000);
+    await appendSealedRun(store, 'run-b-mid', 2000);
 
     const rows = await store.list();
 
     expect(rows.map((row) => row.id)).toEqual([
-      "run-c-live",
-      "run-b-mid",
-      "run-a-old",
+      'run-c-live',
+      'run-b-mid',
+      'run-a-old',
     ]);
-    expect(rows[0].stop).toBe("unknown");
+    expect(rows[0].stop).toBe('unknown');
     expect(rows[0].integrity).toBeNull();
-    expect(rows[1].stop).toBe("finished");
-    expect(rows[1].integrity).toBe("clean");
+    expect(rows[1].stop).toBe('finished');
+    expect(rows[1].integrity).toBe('clean');
     expect(rows[1].debtTicks).toBe(TRAILER.debtTicks);
     expect(rows[1].seed).toBe(HEADER.seed);
     expect(rows[1].inputDevice).toBe(HEADER.inputDevice);
   });
 
-  it("keeps the newest tapes in the rolling queue and lets the oldest go", async () => {
+  it('keeps the newest tapes in the rolling queue and lets the oldest go', async () => {
     // Dashcam-style: the count is a named starting value in the store's
     // config, data to tune, never a rule compiled into a reader.
     const store = await freshStore();
@@ -283,21 +283,21 @@ describe("the tape store", () => {
 
     const rows = await store.list();
     expect(rows).toHaveLength(STORE_KEPT_RECENT_TAPES);
-    expect(rows.map((row) => row.id)).not.toContain("run-0");
+    expect(rows.map((row) => row.id)).not.toContain('run-0');
     // The evicted run's segments go with its row.
-    expect(await store.load("run-0")).toBeNull();
+    expect(await store.load('run-0')).toBeNull();
   });
 
-  it("spares faulted and unknown-stop tapes from the rolling queue in their own smaller count", async () => {
+  it('spares faulted and unknown-stop tapes from the rolling queue in their own smaller count', async () => {
     const store = await freshStore();
     // An old unknown-stop run, then a full rolling queue of newer sealed
     // runs: the old run is spared however far the rolling queue rolls.
-    await appendUnknownRun(store, "run-spared", 1);
+    await appendUnknownRun(store, 'run-spared', 1);
     for (let at = 0; at <= STORE_KEPT_RECENT_TAPES; at++) {
       await appendSealedRun(store, `run-${at}`, 1000 + at);
     }
     const afterRolling = await store.list();
-    expect(afterRolling.map((row) => row.id)).toContain("run-spared");
+    expect(afterRolling.map((row) => row.id)).toContain('run-spared');
 
     // The spared bin has its own smaller count: one more unknown-stop run
     // than it holds, and the oldest spared run is the one that goes.
@@ -305,31 +305,31 @@ describe("the tape store", () => {
       await appendUnknownRun(store, `run-unknown-${at}`, 2000 + at);
     }
     const rows = await store.list();
-    const spared = rows.filter((row) => row.stop === "unknown");
+    const spared = rows.filter((row) => row.stop === 'unknown');
     expect(spared).toHaveLength(STORE_KEPT_SPARED_TAPES);
-    expect(spared.map((row) => row.id)).not.toContain("run-spared");
+    expect(spared.map((row) => row.id)).not.toContain('run-spared');
     // The rolling queue is untouched by the spared bin filling up.
-    expect(rows.filter((row) => row.stop === "finished")).toHaveLength(
+    expect(rows.filter((row) => row.stop === 'finished')).toHaveLength(
       STORE_KEPT_RECENT_TAPES,
     );
   });
 
   it("deletes a run's row and its segments together", async () => {
     const store = await freshStore();
-    await appendSealedRun(store, "run-kept", 1000);
-    await appendSealedRun(store, "run-gone", 2000);
+    await appendSealedRun(store, 'run-kept', 1000);
+    await appendSealedRun(store, 'run-gone', 2000);
 
-    await store.delete("run-gone");
+    await store.delete('run-gone');
 
-    expect((await store.list()).map((row) => row.id)).toEqual(["run-kept"]);
-    expect(await store.load("run-gone")).toBeNull();
-    expect(await store.load("run-kept")).not.toBeNull();
+    expect((await store.list()).map((row) => row.id)).toEqual(['run-kept']);
+    expect(await store.load('run-gone')).toBeNull();
+    expect(await store.load('run-kept')).not.toBeNull();
   });
 
-  it("is the designed unavailable state when it cannot open", async () => {
+  it('is the designed unavailable state when it cannot open', async () => {
     // Private mode is the classic case: openTapeStore answers null, never an
     // error, and the end screen's file save needs no store.
-    Reflect.deleteProperty(globalThis, "indexedDB");
+    Reflect.deleteProperty(globalThis, 'indexedDB');
 
     expect(await openTapeStore()).toBeNull();
   });

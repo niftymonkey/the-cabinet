@@ -1,17 +1,17 @@
-import { Graphics } from "pixi.js";
+import { Graphics } from 'pixi.js';
 
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from "../../../game/caps";
-import { TICK_HZ } from "../../../game/clock";
-import type { Corpse } from "../../../game/corpses";
-import { CORPSE_HALF_EXTENT } from "../../../game/corpses";
-import type { WeaponLine } from "../../../game/lines/roster";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
-import type { Mob, MobType, Shot } from "../../../game/mobs";
-import { MOB_TYPES, mobTellLit } from "../../../game/mobs";
-import type { RunState } from "../../../game/run";
-import { INVULNERABLE_TICKS } from "../../../game/tuning";
-import { CORPSE_TIERS, MOB_FIRE, PALETTE } from "../../palette";
-import type { FieldLayers } from "./layering";
+import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../../../game/caps';
+import { TICK_HZ } from '../../../game/clock';
+import type { Corpse } from '../../../game/corpses';
+import { CORPSE_HALF_EXTENT } from '../../../game/corpses';
+import type { WeaponLine } from '../../../game/lines/roster';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import type { Mob, MobType, Shot } from '../../../game/mobs';
+import { MOB_TYPES, mobTellLit } from '../../../game/mobs';
+import type { RunState } from '../../../game/run';
+import { INVULNERABLE_TICKS } from '../../../game/tuning';
+import { CORPSE_TIERS, MOB_FIRE, PALETTE } from '../../palette';
+import type { FieldLayers } from './layering';
 
 /**
  * Everything on the field, drawn from the sim's own pools.
@@ -220,7 +220,7 @@ function mobLook(mob: Mob): string {
 /** The body outline of one mob type. A shambler is squat, a revenant is a diamond, and a ghoul is a wedge that points where it is going. */
 function drawBody(into: Graphics, type: MobType): void {
   const row = MOB_TYPES[type];
-  if (type === "shambler") {
+  if (type === 'shambler') {
     into.roundRect(
       -row.halfWidth,
       -row.halfHeight,
@@ -230,7 +230,7 @@ function drawBody(into: Graphics, type: MobType): void {
     );
     return;
   }
-  if (type === "revenant") {
+  if (type === 'revenant') {
     into.poly(polygon(4, row.halfWidth));
     return;
   }
@@ -370,15 +370,15 @@ function drawShot(into: Graphics, shot: Shot): void {
  */
 function drawDropIcon(into: Graphics, line: WeaponLine, extent: number): void {
   const r = extent;
-  if (line === "soulStream") {
+  if (line === 'soulStream') {
     into.circle(0, 0, r);
     return;
   }
-  if (line === "headstones") {
+  if (line === 'headstones') {
     into.poly([-r * 0.34, -r, r * 0.34, -r, r * 0.34, r, -r * 0.34, r]);
     return;
   }
-  if (line === "wisps") {
+  if (line === 'wisps') {
     // The half-width is set so the kite's own filled area beats a corpse's
     // hexagon at the breath's peak; at 0.42 it measured five percent under.
     into.poly([0, -r, r * 0.48, r * 0.72, 0, r, -r * 0.48, r * 0.72]);
@@ -411,7 +411,7 @@ function drawDropIcon(into: Graphics, line: WeaponLine, extent: number): void {
  * drops alive at once, never a wave.
  */
 function drawDrop(into: Graphics, corpse: Corpse, extent: number): void {
-  const line = corpse.line ?? "soulStream";
+  const line = corpse.line ?? 'soulStream';
   into.clear();
   drawDropIcon(into, line, extent);
   into.fill({ color: PALETTE.drop.hex });
@@ -516,16 +516,16 @@ export class FieldRenderer {
   public attach(layers: FieldLayers): void {
     this.build();
     this.forgetPreviousRun();
-    const corpses = layers.layer("corpses");
-    const treasure = layers.layer("treasure");
-    const bodies = layers.layer("mobBodies");
-    const fire = layers.layer("mobFire");
+    const corpses = layers.layer('corpses');
+    const treasure = layers.layer('treasure');
+    const bodies = layers.layer('mobBodies');
+    const fire = layers.layer('mobFire');
     for (const sprite of this.corpseSprites) corpses.addChild(sprite);
     for (const sprite of this.treasureSprites) treasure.addChild(sprite);
     for (const sprite of this.mobSprites) bodies.addChild(sprite);
     for (const sprite of this.shotSprites) fire.addChild(sprite);
     for (const scatter of this.scatters) fire.addChild(scatter.sprite);
-    layers.layer("hitDim").addChild(this.dim);
+    layers.layer('hitDim').addChild(this.dim);
   }
 
   /**
@@ -611,7 +611,7 @@ export class FieldRenderer {
       // A wedge that points where it is going is what makes the ghoul's turn
       // readable at all; the other two types are drawn upright.
       sprite.rotation =
-        MOB_TYPES[mob.type].motion === "chases"
+        MOB_TYPES[mob.type].motion === 'chases'
           ? Math.atan2(mob.vy, mob.vx) - Math.PI / 2
           : 0;
     }
@@ -652,7 +652,7 @@ export class FieldRenderer {
   private syncCorpses(run: RunState): void {
     for (let slot = 0; slot < run.corpses.length; slot++) {
       const corpse = run.corpses[slot];
-      const treasure = corpse.kind === "drop";
+      const treasure = corpse.kind === 'drop';
       const sprite = treasure
         ? this.treasureSprites[slot]
         : this.corpseSprites[slot];

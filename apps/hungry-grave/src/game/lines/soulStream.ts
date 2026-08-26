@@ -12,12 +12,12 @@
  * screen.
  */
 
-import { createPool, SKULL_CAP, takeSlot } from "../caps";
-import { TICK_HZ } from "../clock";
-import type { SimEvent } from "../events";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../field";
-import { cos, normalize, sin } from "../math";
-import type { RunState } from "../run";
+import { createPool, SKULL_CAP, takeSlot } from '../caps';
+import { TICK_HZ } from '../clock';
+import type { SimEvent } from '../events';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { cos, normalize, sin } from '../math';
+import type { RunState } from '../run';
 
 export interface Skull {
   alive: boolean;

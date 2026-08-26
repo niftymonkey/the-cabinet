@@ -18,13 +18,13 @@
  * rather than a blank screen.
  */
 
-import { MAX_LEVEL } from "../game/lines/roster";
-import { SEED_LIMIT } from "../game/run";
+import { MAX_LEVEL } from '../game/lines/roster';
+import { SEED_LIMIT } from '../game/run';
 
 /** The query the hash carries, which is everything after its first question mark. */
 function hashQuery(hash: string): string {
-  const start = hash.indexOf("?");
-  return start < 0 ? "" : hash.slice(start + 1);
+  const start = hash.indexOf('?');
+  return start < 0 ? '' : hash.slice(start + 1);
 }
 
 /** The parameter as the URL states it, hash first, or null when neither form names it. */
@@ -45,7 +45,7 @@ function ignore(name: string, raw: string): null {
 
 /** A number the string actually spells. Number("") is 0, which would pin seed zero on an empty parameter. */
 function parsed(raw: string): number | null {
-  if (raw.trim() === "") return null;
+  if (raw.trim() === '') return null;
   const value = Number(raw);
   return Number.isFinite(value) ? value : null;
 }
@@ -56,11 +56,11 @@ function parsed(raw: string): number | null {
  * SEED_LIMIT.
  */
 export function seedFromUrl(search: string, hash: string): number | null {
-  const raw = rawParameter("seed", search, hash);
+  const raw = rawParameter('seed', search, hash);
   if (raw === null) return null;
   const value = parsed(raw);
-  if (value === null || !Number.isInteger(value)) return ignore("seed", raw);
-  if (value < 0 || value >= SEED_LIMIT) return ignore("seed", raw);
+  if (value === null || !Number.isInteger(value)) return ignore('seed', raw);
+  if (value < 0 || value >= SEED_LIMIT) return ignore('seed', raw);
   return value;
 }
 
@@ -74,10 +74,10 @@ export function seedFromUrl(search: string, hash: string): number | null {
  * names no number at all.
  */
 export function sizeFromUrl(search: string, hash: string): number | null {
-  const raw = rawParameter("size", search, hash);
+  const raw = rawParameter('size', search, hash);
   if (raw === null) return null;
   const value = parsed(raw);
-  if (value === null) return ignore("size", raw);
+  if (value === null) return ignore('size', raw);
   return value;
 }
 
@@ -102,7 +102,7 @@ function ignoreLevels(raw: string): null {
  * gate rather than a naming convention.
  */
 export function levelsFromUrl(search: string, hash: string): number | null {
-  const raw = rawParameter("levels", search, hash);
+  const raw = rawParameter('levels', search, hash);
   if (raw === null) return null;
   const value = parsed(raw);
   if (value === null || !Number.isInteger(value)) return ignoreLevels(raw);
@@ -119,10 +119,10 @@ export function levelsFromUrl(search: string, hash: string): number | null {
  * warning is kinder than a silent blank replay.
  */
 export function tapeFromUrl(search: string, hash: string): string | null {
-  const raw = rawParameter("tape", search, hash);
+  const raw = rawParameter('tape', search, hash);
   if (raw === null) return null;
-  if (raw.trim() === "") {
-    console.warn("Ignoring an empty ?tape=: there is no tape to fetch.");
+  if (raw.trim() === '') {
+    console.warn('Ignoring an empty ?tape=: there is no tape to fetch.');
     return null;
   }
   return raw;
@@ -141,7 +141,7 @@ function ignoreAt(raw: string): null {
  * same split sizeFromUrl records for ADR 0003's floor and ceiling.
  */
 export function atFromUrl(search: string, hash: string): number | null {
-  const raw = rawParameter("at", search, hash);
+  const raw = rawParameter('at', search, hash);
   if (raw === null) return null;
   const value = parsed(raw);
   if (value === null || !Number.isInteger(value)) return ignoreAt(raw);

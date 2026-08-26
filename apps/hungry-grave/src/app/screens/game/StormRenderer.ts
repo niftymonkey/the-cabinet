@@ -1,18 +1,18 @@
-import { Graphics } from "pixi.js";
+import { Graphics } from 'pixi.js';
 
-import { SKULL_CAP, WISP_CAP } from "../../../game/caps";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../../../game/field";
-import { BELL_EXPAND_TICKS, ringRadius } from "../../../game/lines/bell";
+import { SKULL_CAP, WISP_CAP } from '../../../game/caps';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import { BELL_EXPAND_TICKS, ringRadius } from '../../../game/lines/bell';
 import {
   headstoneAt,
   MAX_STONES,
   STONE_HALF_EXTENT,
-} from "../../../game/lines/headstones";
-import { SKULL_HALF_EXTENT } from "../../../game/lines/soulStream";
-import { WISP_HALF_EXTENT } from "../../../game/lines/wisps";
-import type { RunState } from "../../../game/run";
-import { PALETTE } from "../../palette";
-import type { FieldLayers } from "./layering";
+} from '../../../game/lines/headstones';
+import { SKULL_HALF_EXTENT } from '../../../game/lines/soulStream';
+import { WISP_HALF_EXTENT } from '../../../game/lines/wisps';
+import type { RunState } from '../../../game/run';
+import { PALETTE } from '../../palette';
+import type { FieldLayers } from './layering';
 
 /**
  * The player's own fire on screen: skulls, headstones, wisps, the bell's ring,
@@ -243,13 +243,13 @@ export class StormRenderer {
   public attach(layers: FieldLayers): void {
     this.build();
     this.forgetPreviousRun();
-    const storm = layers.layer("storm");
+    const storm = layers.layer('storm');
     for (const sprite of this.skullSprites) storm.addChild(sprite);
     for (const sprite of this.stoneSprites) storm.addChild(sprite);
     for (const sprite of this.wispSprites) storm.addChild(sprite);
-    layers.layer("bellRing").addChild(this.ring);
-    layers.layer("belchEruption").addChild(this.eruption.sprite);
-    layers.layer("belchEruption").addChild(this.splash.sprite);
+    layers.layer('bellRing').addChild(this.ring);
+    layers.layer('belchEruption').addChild(this.eruption.sprite);
+    layers.layer('belchEruption').addChild(this.splash.sprite);
   }
 
   /**

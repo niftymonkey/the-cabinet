@@ -1,4 +1,4 @@
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
 
 /**
  * The fixed field fitted into any viewport. The only module in the app that

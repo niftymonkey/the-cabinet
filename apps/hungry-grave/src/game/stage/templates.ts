@@ -16,11 +16,11 @@
  * screen to explain it.
  */
 
-import { FIELD_WIDTH } from "../field";
-import { normalize } from "../math";
-import type { Stream } from "../rng";
+import { FIELD_WIDTH } from '../field';
+import { normalize } from '../math';
+import type { Stream } from '../rng';
 
-export type TemplateName = "drip" | "file" | "v" | "pincer" | "rain" | "wall";
+export type TemplateName = 'drip' | 'file' | 'v' | 'pincer' | 'rain' | 'wall';
 
 export interface SpawnOrder {
   readonly x: number;
@@ -196,10 +196,10 @@ export function place(
   stream: Stream,
 ): SpawnOrder[] {
   if (count <= 0) return [];
-  if (template === "drip") return drip(count);
-  if (template === "file") return file(count, stream);
-  if (template === "v") return chevron(count);
-  if (template === "pincer") return pincer(count);
-  if (template === "rain") return rain(count, stream);
+  if (template === 'drip') return drip(count);
+  if (template === 'file') return file(count, stream);
+  if (template === 'v') return chevron(count);
+  if (template === 'pincer') return pincer(count);
+  if (template === 'rain') return rain(count, stream);
   return wall(count);
 }

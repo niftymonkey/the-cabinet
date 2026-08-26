@@ -14,9 +14,9 @@
  * it is worth most, so a binding that can misfire is the wrong one.
  */
 
-import type { FieldPoint } from "../game/grave";
-import type { MoveCommand } from "../game/run";
-import { BASE_SPEED } from "../game/tuning";
+import type { FieldPoint } from '../game/grave';
+import type { MoveCommand } from '../game/run';
+import { BASE_SPEED } from '../game/tuning';
 
 export type { FieldPoint };
 

@@ -3,16 +3,16 @@
  * them, and holds no rules.
  */
 
-import type { Graphics } from "pixi.js";
-import { describe, expect, it } from "vitest";
+import type { Graphics } from 'pixi.js';
+import { describe, expect, it } from 'vitest';
 
-import { SKULL_CAP, WISP_CAP } from "../../../game/caps";
-import { MAX_STONES } from "../../../game/lines/headstones";
-import type { RunState } from "../../../game/run";
-import { createRun } from "../../../game/run";
-import { RAMP_ROWS } from "../../../game/stage/stage";
-import { FieldLayers } from "./layering";
-import { StormRenderer } from "./StormRenderer";
+import { SKULL_CAP, WISP_CAP } from '../../../game/caps';
+import { MAX_STONES } from '../../../game/lines/headstones';
+import type { RunState } from '../../../game/run';
+import { createRun } from '../../../game/run';
+import { RAMP_ROWS } from '../../../game/stage/stage';
+import { FieldLayers } from './layering';
+import { StormRenderer } from './StormRenderer';
 
 function attached(): { layers: FieldLayers; renderer: StormRenderer } {
   const layers = new FieldLayers();
@@ -29,7 +29,7 @@ function quietRun(seed = 18): RunState {
 
 function children(
   layers: FieldLayers,
-  name: "storm" | "bellRing" | "belchEruption",
+  name: 'storm' | 'bellRing' | 'belchEruption',
 ) {
   return layers.layer(name).children as Graphics[];
 }
@@ -59,42 +59,42 @@ function putWisp(state: RunState, slot: number, x: number, y: number) {
 }
 
 describe("the storm's sprite pools (plan 6.19)", () => {
-  it("holds a sprite per entity cap, so a spawn never allocates", () => {
+  it('holds a sprite per entity cap, so a spawn never allocates', () => {
     const { layers } = attached();
     // The storm layer carries the skulls, the stones and the wisps.
-    expect(children(layers, "storm")).toHaveLength(
+    expect(children(layers, 'storm')).toHaveLength(
       SKULL_CAP + MAX_STONES + WISP_CAP,
     );
-    expect(children(layers, "bellRing")).toHaveLength(1);
+    expect(children(layers, 'bellRing')).toHaveLength(1);
     // The eruption and the splash, both momentary and both with no sim entity.
-    expect(children(layers, "belchEruption")).toHaveLength(2);
+    expect(children(layers, 'belchEruption')).toHaveLength(2);
   });
 
-  it("allocates nothing when a skull or a wisp spawns", () => {
+  it('allocates nothing when a skull or a wisp spawns', () => {
     const { layers, renderer } = attached();
     const state = quietRun();
-    const before = children(layers, "storm").length;
+    const before = children(layers, 'storm').length;
     putSkull(state, 0, 100, 100);
     putWisp(state, 0, 200, 200);
     renderer.sync(state);
-    expect(children(layers, "storm")).toHaveLength(before);
+    expect(children(layers, 'storm')).toHaveLength(before);
   });
 
-  it("draws in the four layers SPRITE_LAYER assigns, and nowhere else", () => {
+  it('draws in the four layers SPRITE_LAYER assigns, and nowhere else', () => {
     // The order is ADR 0014's and it is not this renderer's to choose: the
     // storm and the bell's ring sit beneath the food, and the eruption beneath
     // both, so no player effect can occlude mob fire.
     const { layers } = attached();
     for (const name of [
-      "ground",
-      "graveMouth",
-      "corpses",
-      "mobBodies",
-      "treasure",
-      "hitDim",
-      "graveRim",
-      "fieldBoundary",
-      "mobFire",
+      'ground',
+      'graveMouth',
+      'corpses',
+      'mobBodies',
+      'treasure',
+      'hitDim',
+      'graveRim',
+      'fieldBoundary',
+      'mobFire',
     ] as const) {
       expect(`${name}: ${layers.layer(name).children.length}`).toBe(
         `${name}: 0`,
@@ -103,14 +103,14 @@ describe("the storm's sprite pools (plan 6.19)", () => {
   });
 });
 
-describe("sprites follow their slots (plan 6.19)", () => {
-  it("shows a live slot at its own position and hides a dead one", () => {
+describe('sprites follow their slots (plan 6.19)', () => {
+  it('shows a live slot at its own position and hides a dead one', () => {
     const { layers, renderer } = attached();
     const state = quietRun();
     putSkull(state, 3, 120, 340);
     renderer.sync(state);
 
-    const sprites = children(layers, "storm");
+    const sprites = children(layers, 'storm');
     expect(sprites[3].visible).toBe(true);
     expect(sprites[3].position.x).toBe(120);
     expect(sprites[3].position.y).toBe(340);
@@ -121,12 +121,12 @@ describe("sprites follow their slots (plan 6.19)", () => {
     expect(sprites[3].visible).toBe(false);
   });
 
-  it("orients a wisp to its heading, which is what makes the curve readable", () => {
+  it('orients a wisp to its heading, which is what makes the curve readable', () => {
     const { layers, renderer } = attached();
     const state = quietRun();
     const wisp = putWisp(state, 0, 200, 200);
     renderer.sync(state);
-    const sprite = children(layers, "storm")[SKULL_CAP + MAX_STONES];
+    const sprite = children(layers, 'storm')[SKULL_CAP + MAX_STONES];
     expect(sprite.rotation).toBeCloseTo(0, 6);
 
     wisp.vx = 0;
@@ -141,7 +141,7 @@ describe("sprites follow their slots (plan 6.19)", () => {
     state.levels.headstones = 3;
     renderer.sync(state);
 
-    const stones = children(layers, "storm").slice(
+    const stones = children(layers, 'storm').slice(
       SKULL_CAP,
       SKULL_CAP + MAX_STONES,
     );
@@ -157,16 +157,16 @@ describe("sprites follow their slots (plan 6.19)", () => {
     const { layers, renderer } = attached();
     const state = quietRun();
     renderer.sync(state);
-    expect(children(layers, "bellRing")[0].visible).toBe(false);
+    expect(children(layers, 'bellRing')[0].visible).toBe(false);
 
     state.lines.ring = { level: 4, ticks: 12, struck: new Set() };
     renderer.sync(state);
-    expect(children(layers, "bellRing")[0].visible).toBe(true);
+    expect(children(layers, 'bellRing')[0].visible).toBe(true);
   });
 });
 
 describe("a second run out of the pool (this app's own lesson)", () => {
-  it("starts with an empty storm, on the frame before anything is synced", () => {
+  it('starts with an empty storm, on the frame before anything is synced', () => {
     // The leak this renderer can actually have. A sync corrects a pooled
     // entity's visibility from the sim's own pools, so a skull or a wisp
     // cannot survive a run on its own; what has no sim entity behind it is the
@@ -179,16 +179,16 @@ describe("a second run out of the pool (this app's own lesson)", () => {
     renderer.erupt(first);
     renderer.splashed(first);
     renderer.sync(first);
-    expect(children(layers, "belchEruption")[0].visible).toBe(true);
+    expect(children(layers, 'belchEruption')[0].visible).toBe(true);
 
     layers.clear();
     renderer.attach(layers);
 
     // Nothing is drawn before the first sync of the new run, which is the frame
     // a leaked sprite would be visible on.
-    expect(children(layers, "storm").every((each) => !each.visible)).toBe(true);
-    expect(children(layers, "bellRing")[0].visible).toBe(false);
-    for (const burst of children(layers, "belchEruption")) {
+    expect(children(layers, 'storm').every((each) => !each.visible)).toBe(true);
+    expect(children(layers, 'bellRing')[0].visible).toBe(false);
+    for (const burst of children(layers, 'belchEruption')) {
       expect(burst.visible).toBe(false);
     }
 
@@ -198,19 +198,19 @@ describe("a second run out of the pool (this app's own lesson)", () => {
     const second = quietRun(19);
     second.tick = 8;
     renderer.sync(second);
-    for (const burst of children(layers, "belchEruption")) {
+    for (const burst of children(layers, 'belchEruption')) {
       expect(burst.visible).toBe(false);
     }
   });
 });
 
-describe("the momentary effects (plan 6.19)", () => {
-  it("shows the eruption for its own life and then never again", () => {
+describe('the momentary effects (plan 6.19)', () => {
+  it('shows the eruption for its own life and then never again', () => {
     const { layers, renderer } = attached();
     const state = quietRun();
     renderer.erupt(state);
     renderer.sync(state);
-    const eruption = children(layers, "belchEruption")[0];
+    const eruption = children(layers, 'belchEruption')[0];
     expect(eruption.visible).toBe(true);
 
     state.tick += 100;
@@ -218,10 +218,10 @@ describe("the momentary effects (plan 6.19)", () => {
     expect(eruption.visible).toBe(false);
   });
 
-  it("shows the splash, so charge wasted at a full reservoir is visible rather than a silent clamp", () => {
+  it('shows the splash, so charge wasted at a full reservoir is visible rather than a silent clamp', () => {
     const { layers, renderer } = attached();
     const state = quietRun();
-    const splash = children(layers, "belchEruption")[1];
+    const splash = children(layers, 'belchEruption')[1];
     renderer.sync(state);
     expect(splash.visible).toBe(false);
 
@@ -236,7 +236,7 @@ describe("the momentary effects (plan 6.19)", () => {
     renderer.erupt(state);
     renderer.splashed(state);
     renderer.sync(state);
-    for (const burst of children(layers, "belchEruption")) {
+    for (const burst of children(layers, 'belchEruption')) {
       expect(burst.position.x).toBe(state.grave.x);
       expect(burst.position.y).toBe(state.grave.y - state.grave.size);
     }

@@ -8,12 +8,12 @@
  * hitbox it does not have.
  */
 
-import type { SimEvent } from "../events";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../field";
-import { normalize } from "../math";
-import type { Mob } from "../mobs";
-import { damageMob, SPAWN_MARGIN } from "../mobs";
-import type { RunState } from "../run";
+import type { SimEvent } from '../events';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { normalize } from '../math';
+import type { Mob } from '../mobs';
+import { damageMob, SPAWN_MARGIN } from '../mobs';
+import type { RunState } from '../run';
 
 export interface BellRing {
   readonly level: number;
@@ -147,7 +147,7 @@ function sweepRing(state: RunState, ring: BellRing, now: number): SimEvent[] {
     const damage =
       BELL_DAMAGE_FAR + (BELL_DAMAGE_NEAR - BELL_DAMAGE_FAR) * near;
     pushMob(state, ring, mob, distance, near);
-    events.push(...damageMob(state, mob, damage, "bell"));
+    events.push(...damageMob(state, mob, damage, 'bell'));
   }
   return events;
 }
@@ -175,7 +175,7 @@ function tollClock(state: RunState): SimEvent[] {
   const level = state.levels.bell;
   if (level === 0) return [];
   lines.ring = { level, ticks: 0, struck: new Set() };
-  return [{ type: "tolled", level, radius: BELL_RADIUS_BY_LEVEL[level] }];
+  return [{ type: 'tolled', level, radius: BELL_RADIUS_BY_LEVEL[level] }];
 }
 
 /**

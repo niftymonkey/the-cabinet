@@ -43,9 +43,9 @@ export function tapeFileName(seed: number, commitHash: string): string {
  */
 export function saveTapeFile(bytes: Uint8Array, fileName: string): void {
   const url = URL.createObjectURL(
-    new Blob([bytes], { type: "application/octet-stream" }),
+    new Blob([bytes], { type: 'application/octet-stream' }),
   );
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = fileName;
   // In the document for the click, FileSaver-style: iOS Safari honours a

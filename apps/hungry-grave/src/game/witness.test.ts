@@ -12,13 +12,13 @@
  * field added to neither list would then simply be absent from both.
  */
 
-import { describe, expect, it } from "vitest";
-import { stepping } from "../dev/stepping";
-import type { BellRing } from "./lines/bell";
-import type { WeaponLine } from "./lines/roster";
-import { WEAPON_LINES } from "./lines/roster";
-import type { RunState } from "./run";
-import { createRun } from "./run";
+import { describe, expect, it } from 'vitest';
+import { stepping } from '../dev/stepping';
+import type { BellRing } from './lines/bell';
+import type { WeaponLine } from './lines/roster';
+import { WEAPON_LINES } from './lines/roster';
+import type { RunState } from './run';
+import { createRun } from './run';
 import {
   ABSENT_CODE,
   boolCode,
@@ -28,7 +28,7 @@ import {
   NO_TARGET_ID,
   RUN_ENDING_CODES,
   WEAPON_LINE_CODES,
-} from "./witness";
+} from './witness';
 
 const FIXTURE_SEED = 20260823;
 
@@ -93,7 +93,7 @@ function fillMob(run: RunState): void {
   const mob = run.mobs[0];
   mob.alive = true;
   mob.id = 11;
-  mob.type = "ghoul";
+  mob.type = 'ghoul';
   mob.x = 60.25;
   mob.y = 90.5;
   mob.vx = 0.75;
@@ -108,7 +108,7 @@ function fillShot(run: RunState): void {
   const shot = run.mobFire[0];
   shot.alive = true;
   shot.id = 12;
-  shot.emitter = "revenant";
+  shot.emitter = 'revenant';
   shot.x = 200.5;
   shot.y = 310.75;
   shot.vx = -0.5;
@@ -124,10 +124,10 @@ function fillCorpse(run: RunState): void {
   corpse.y = 120.25;
   corpse.freshness = 0.625;
   corpse.payout = 1.5;
-  corpse.tier = "rich";
-  corpse.kind = "drop";
+  corpse.tier = 'rich';
+  corpse.kind = 'drop';
   corpse.decays = false;
-  corpse.line = "wisps";
+  corpse.line = 'wisps';
   corpse.halfExtent = 9;
 }
 
@@ -167,167 +167,167 @@ interface FieldCase {
 
 const ENTITY_CASES: readonly FieldCase[] = [
   {
-    path: "grave.x",
+    path: 'grave.x',
     move: (run) => void (run.grave.x += 1e-6),
     restore: (run) => void (run.grave.x -= 1e-6),
   },
   {
-    path: "grave.y",
+    path: 'grave.y',
     move: (run) => void (run.grave.y += 1e-6),
     restore: (run) => void (run.grave.y -= 1e-6),
   },
   {
-    path: "grave.size",
+    path: 'grave.size',
     move: (run) => void (run.grave.size += 1e-6),
     restore: (run) => void (run.grave.size -= 1e-6),
   },
   {
-    path: "grave.invulnerable",
+    path: 'grave.invulnerable',
     move: (run) => void (run.grave.invulnerable -= 1),
     restore: (run) => void (run.grave.invulnerable += 1),
   },
   {
-    path: "mobs[].x",
+    path: 'mobs[].x',
     move: (run) => void (run.mobs[0].x += 1e-6),
     restore: (run) => void (run.mobs[0].x -= 1e-6),
   },
   {
-    path: "mobs[].y",
+    path: 'mobs[].y',
     move: (run) => void (run.mobs[0].y += 1e-6),
     restore: (run) => void (run.mobs[0].y -= 1e-6),
   },
   {
-    path: "mobs[].vx",
+    path: 'mobs[].vx',
     move: (run) => void (run.mobs[0].vx += 1e-6),
     restore: (run) => void (run.mobs[0].vx -= 1e-6),
   },
   {
-    path: "mobs[].vy",
+    path: 'mobs[].vy',
     move: (run) => void (run.mobs[0].vy += 1e-6),
     restore: (run) => void (run.mobs[0].vy -= 1e-6),
   },
   {
-    path: "mobs[].hp",
+    path: 'mobs[].hp',
     move: (run) => void (run.mobs[0].hp -= 1),
     restore: (run) => void (run.mobs[0].hp += 1),
   },
   {
-    path: "mobs[].beat",
+    path: 'mobs[].beat',
     move: (run) => void (run.mobs[0].beat -= 1),
     restore: (run) => void (run.mobs[0].beat += 1),
   },
   {
-    path: "mobs[].fireIn",
+    path: 'mobs[].fireIn',
     move: (run) => void (run.mobs[0].fireIn -= 1),
     restore: (run) => void (run.mobs[0].fireIn += 1),
   },
   {
-    path: "mobs[].armed",
+    path: 'mobs[].armed',
     move: (run) => void (run.mobs[0].armed = false),
     restore: (run) => void (run.mobs[0].armed = true),
   },
   {
-    path: "mobFire[].x",
+    path: 'mobFire[].x',
     move: (run) => void (run.mobFire[0].x += 1e-6),
     restore: (run) => void (run.mobFire[0].x -= 1e-6),
   },
   {
-    path: "mobFire[].y",
+    path: 'mobFire[].y',
     move: (run) => void (run.mobFire[0].y += 1e-6),
     restore: (run) => void (run.mobFire[0].y -= 1e-6),
   },
   {
-    path: "mobFire[].vx",
+    path: 'mobFire[].vx',
     move: (run) => void (run.mobFire[0].vx += 1e-6),
     restore: (run) => void (run.mobFire[0].vx -= 1e-6),
   },
   {
-    path: "mobFire[].vy",
+    path: 'mobFire[].vy',
     move: (run) => void (run.mobFire[0].vy += 1e-6),
     restore: (run) => void (run.mobFire[0].vy -= 1e-6),
   },
   {
-    path: "corpses[].x",
+    path: 'corpses[].x',
     move: (run) => void (run.corpses[0].x += 1e-6),
     restore: (run) => void (run.corpses[0].x -= 1e-6),
   },
   {
-    path: "corpses[].y",
+    path: 'corpses[].y',
     move: (run) => void (run.corpses[0].y += 1e-6),
     restore: (run) => void (run.corpses[0].y -= 1e-6),
   },
   {
-    path: "corpses[].freshness",
+    path: 'corpses[].freshness',
     move: (run) => void (run.corpses[0].freshness -= 1e-6),
     restore: (run) => void (run.corpses[0].freshness += 1e-6),
   },
   {
-    path: "corpses[].payout",
+    path: 'corpses[].payout',
     move: (run) => void (run.corpses[0].payout += 1e-6),
     restore: (run) => void (run.corpses[0].payout -= 1e-6),
   },
   {
-    path: "corpses[].tier",
-    move: (run) => void (run.corpses[0].tier = "trash"),
-    restore: (run) => void (run.corpses[0].tier = "rich"),
+    path: 'corpses[].tier',
+    move: (run) => void (run.corpses[0].tier = 'trash'),
+    restore: (run) => void (run.corpses[0].tier = 'rich'),
   },
   {
-    path: "corpses[].kind",
-    move: (run) => void (run.corpses[0].kind = "feast"),
-    restore: (run) => void (run.corpses[0].kind = "drop"),
+    path: 'corpses[].kind',
+    move: (run) => void (run.corpses[0].kind = 'feast'),
+    restore: (run) => void (run.corpses[0].kind = 'drop'),
   },
   {
-    path: "corpses[].line",
-    move: (run) => void (run.corpses[0].line = "bell"),
-    restore: (run) => void (run.corpses[0].line = "wisps"),
+    path: 'corpses[].line',
+    move: (run) => void (run.corpses[0].line = 'bell'),
+    restore: (run) => void (run.corpses[0].line = 'wisps'),
   },
   {
-    path: "skulls[].x",
+    path: 'skulls[].x',
     move: (run) => void (run.skulls[0].x += 1e-6),
     restore: (run) => void (run.skulls[0].x -= 1e-6),
   },
   {
-    path: "skulls[].y",
+    path: 'skulls[].y',
     move: (run) => void (run.skulls[0].y += 1e-6),
     restore: (run) => void (run.skulls[0].y -= 1e-6),
   },
   {
-    path: "skulls[].vx",
+    path: 'skulls[].vx',
     move: (run) => void (run.skulls[0].vx += 1e-6),
     restore: (run) => void (run.skulls[0].vx -= 1e-6),
   },
   {
-    path: "skulls[].vy",
+    path: 'skulls[].vy',
     move: (run) => void (run.skulls[0].vy += 1e-6),
     restore: (run) => void (run.skulls[0].vy -= 1e-6),
   },
   {
-    path: "wisps[].x",
+    path: 'wisps[].x',
     move: (run) => void (run.wisps[0].x += 1e-6),
     restore: (run) => void (run.wisps[0].x -= 1e-6),
   },
   {
-    path: "wisps[].y",
+    path: 'wisps[].y',
     move: (run) => void (run.wisps[0].y += 1e-6),
     restore: (run) => void (run.wisps[0].y -= 1e-6),
   },
   {
-    path: "wisps[].vx",
+    path: 'wisps[].vx',
     move: (run) => void (run.wisps[0].vx += 1e-6),
     restore: (run) => void (run.wisps[0].vx -= 1e-6),
   },
   {
-    path: "wisps[].vy",
+    path: 'wisps[].vy',
     move: (run) => void (run.wisps[0].vy += 1e-6),
     restore: (run) => void (run.wisps[0].vy -= 1e-6),
   },
   {
-    path: "wisps[].life",
+    path: 'wisps[].life',
     move: (run) => void (run.wisps[0].life -= 1),
     restore: (run) => void (run.wisps[0].life += 1),
   },
   {
-    path: "wisps[].targetId",
+    path: 'wisps[].targetId',
     move: (run) => void (run.wisps[0].targetId = null),
     restore: (run) => void (run.wisps[0].targetId = 11),
   },
@@ -335,119 +335,119 @@ const ENTITY_CASES: readonly FieldCase[] = [
 
 const RUN_CASES: readonly FieldCase[] = [
   {
-    path: "score",
+    path: 'score',
     move: (run) => void (run.score += 1e-6),
     restore: (run) => void (run.score -= 1e-6),
   },
   {
-    path: "reservoir",
+    path: 'reservoir',
     move: (run) => void (run.reservoir += 1e-6),
     restore: (run) => void (run.reservoir -= 1e-6),
   },
   {
-    path: "ending",
-    move: (run) => void (run.ending = "sealed"),
+    path: 'ending',
+    move: (run) => void (run.ending = 'sealed'),
     restore: (run) => void (run.ending = null),
   },
   {
-    path: "killsSinceDrop",
+    path: 'killsSinceDrop',
     move: (run) => void (run.killsSinceDrop += 1),
     restore: (run) => void (run.killsSinceDrop -= 1),
   },
   {
-    path: "dropsPaid",
+    path: 'dropsPaid',
     move: (run) => void (run.dropsPaid += 1),
     restore: (run) => void (run.dropsPaid -= 1),
   },
   {
-    path: "nextEntityId",
+    path: 'nextEntityId',
     move: (run) => void (run.nextEntityId += 1),
     restore: (run) => void (run.nextEntityId -= 1),
   },
   {
-    path: "levels.soulStream",
+    path: 'levels.soulStream',
     move: (run) => void (run.levels.soulStream += 1),
     restore: (run) => void (run.levels.soulStream -= 1),
   },
   {
-    path: "levels.headstones",
+    path: 'levels.headstones',
     move: (run) => void (run.levels.headstones += 1),
     restore: (run) => void (run.levels.headstones -= 1),
   },
   {
-    path: "levels.wisps",
+    path: 'levels.wisps',
     move: (run) => void (run.levels.wisps += 1),
     restore: (run) => void (run.levels.wisps -= 1),
   },
   {
-    path: "levels.bell",
+    path: 'levels.bell',
     move: (run) => void (run.levels.bell += 1),
     restore: (run) => void (run.levels.bell -= 1),
   },
   {
-    path: "streams.spawns.drawn",
+    path: 'streams.spawns.drawn',
     move: (run) => void run.streams.spawns.next(),
   },
-  { path: "streams.drops.drawn", move: (run) => void run.streams.drops.next() },
+  { path: 'streams.drops.drawn', move: (run) => void run.streams.drops.next() },
   {
-    path: "streams.mobFire.drawn",
+    path: 'streams.mobFire.drawn',
     move: (run) => void run.streams.mobFire.next(),
   },
-  { path: "streams.shed.drawn", move: (run) => void run.streams.shed.next() },
+  { path: 'streams.shed.drawn', move: (run) => void run.streams.shed.next() },
   {
-    path: "stage.phaseIndex",
+    path: 'stage.phaseIndex',
     move: (run) => void (run.stage.phaseIndex += 1),
     restore: (run) => void (run.stage.phaseIndex -= 1),
   },
   {
-    path: "stage.phaseTick",
+    path: 'stage.phaseTick',
     move: (run) => void (run.stage.phaseTick += 1),
     restore: (run) => void (run.stage.phaseTick -= 1),
   },
   {
-    path: "stage.firedRows",
+    path: 'stage.firedRows',
     move: (run) => void (run.stage.firedRows += 1),
     restore: (run) => void (run.stage.firedRows -= 1),
   },
   {
-    path: "lines.streamIn",
+    path: 'lines.streamIn',
     move: (run) => void (run.lines.streamIn -= 1),
     restore: (run) => void (run.lines.streamIn += 1),
   },
   {
-    path: "lines.surgeVolleys",
+    path: 'lines.surgeVolleys',
     move: (run) => void (run.lines.surgeVolleys -= 1),
     restore: (run) => void (run.lines.surgeVolleys += 1),
   },
   {
-    path: "lines.orbitPhase",
+    path: 'lines.orbitPhase',
     move: (run) => void (run.lines.orbitPhase += 1e-6),
     restore: (run) => void (run.lines.orbitPhase -= 1e-6),
   },
   {
-    path: "lines.stoneRecharge[]",
+    path: 'lines.stoneRecharge[]',
     move: (run) => void (run.lines.stoneRecharge[1] -= 1),
     restore: (run) => void (run.lines.stoneRecharge[1] += 1),
   },
   {
-    path: "lines.tollIn",
+    path: 'lines.tollIn',
     move: (run) => void (run.lines.tollIn -= 1),
     restore: (run) => void (run.lines.tollIn += 1),
   },
   {
-    path: "lines.ring.level",
+    path: 'lines.ring.level',
     // The level is captured at strike time and read-only on the record, so the
     // only way to move it is to hand the line a different ring.
     move: (run) => void (run.lines.ring = { ...ring(), level: RING_LEVEL + 1 }),
     restore: (run) => void (run.lines.ring = ring()),
   },
   {
-    path: "lines.ring.ticks",
+    path: 'lines.ring.ticks',
     move: (run) => void (run.lines.ring!.ticks += 1),
     restore: (run) => void (run.lines.ring!.ticks -= 1),
   },
   {
-    path: "lines.ring.struck",
+    path: 'lines.ring.struck',
     move: (run) => void run.lines.ring!.struck.add(13),
     restore: (run) => void run.lines.ring!.struck.delete(13),
   },
@@ -467,64 +467,64 @@ function runFieldCase(field: FieldCase): void {
 
 /** Every field the fold covers. One half of the partition (ADR 0019). */
 const FOLDED: readonly string[] = [
-  "grave.x",
-  "grave.y",
-  "grave.size",
-  "grave.invulnerable",
-  "mobs[].x",
-  "mobs[].y",
-  "mobs[].vx",
-  "mobs[].vy",
-  "mobs[].hp",
-  "mobs[].beat",
-  "mobs[].fireIn",
-  "mobs[].armed",
-  "mobFire[].x",
-  "mobFire[].y",
-  "mobFire[].vx",
-  "mobFire[].vy",
-  "corpses[].x",
-  "corpses[].y",
-  "corpses[].freshness",
-  "corpses[].payout",
-  "corpses[].tier",
-  "corpses[].kind",
-  "corpses[].line",
-  "skulls[].x",
-  "skulls[].y",
-  "skulls[].vx",
-  "skulls[].vy",
-  "wisps[].x",
-  "wisps[].y",
-  "wisps[].vx",
-  "wisps[].vy",
-  "wisps[].life",
-  "wisps[].targetId",
-  "score",
-  "reservoir",
-  "ending",
-  "killsSinceDrop",
-  "dropsPaid",
-  "nextEntityId",
-  "levels.soulStream",
-  "levels.headstones",
-  "levels.wisps",
-  "levels.bell",
-  "streams.spawns.drawn",
-  "streams.drops.drawn",
-  "streams.mobFire.drawn",
-  "streams.shed.drawn",
-  "stage.phaseIndex",
-  "stage.phaseTick",
-  "stage.firedRows",
-  "lines.streamIn",
-  "lines.surgeVolleys",
-  "lines.orbitPhase",
-  "lines.stoneRecharge[]",
-  "lines.tollIn",
-  "lines.ring.level",
-  "lines.ring.ticks",
-  "lines.ring.struck",
+  'grave.x',
+  'grave.y',
+  'grave.size',
+  'grave.invulnerable',
+  'mobs[].x',
+  'mobs[].y',
+  'mobs[].vx',
+  'mobs[].vy',
+  'mobs[].hp',
+  'mobs[].beat',
+  'mobs[].fireIn',
+  'mobs[].armed',
+  'mobFire[].x',
+  'mobFire[].y',
+  'mobFire[].vx',
+  'mobFire[].vy',
+  'corpses[].x',
+  'corpses[].y',
+  'corpses[].freshness',
+  'corpses[].payout',
+  'corpses[].tier',
+  'corpses[].kind',
+  'corpses[].line',
+  'skulls[].x',
+  'skulls[].y',
+  'skulls[].vx',
+  'skulls[].vy',
+  'wisps[].x',
+  'wisps[].y',
+  'wisps[].vx',
+  'wisps[].vy',
+  'wisps[].life',
+  'wisps[].targetId',
+  'score',
+  'reservoir',
+  'ending',
+  'killsSinceDrop',
+  'dropsPaid',
+  'nextEntityId',
+  'levels.soulStream',
+  'levels.headstones',
+  'levels.wisps',
+  'levels.bell',
+  'streams.spawns.drawn',
+  'streams.drops.drawn',
+  'streams.mobFire.drawn',
+  'streams.shed.drawn',
+  'stage.phaseIndex',
+  'stage.phaseTick',
+  'stage.firedRows',
+  'lines.streamIn',
+  'lines.surgeVolleys',
+  'lines.orbitPhase',
+  'lines.stoneRecharge[]',
+  'lines.tollIn',
+  'lines.ring.level',
+  'lines.ring.ticks',
+  'lines.ring.struck',
 ];
 
 /**
@@ -535,36 +535,36 @@ const FOLDED: readonly string[] = [
 const EXCLUDED: Readonly<Record<string, string>> = {
   seed: "the run's identity, fixed by createRun and never mutated by the rules. The tape header carries it.",
   tick: "the witness's own address. A checkpoint at index N is by definition the state after executeTick has run N times, so the tick names a fold rather than being part of one.",
-  "mobs[].alive":
-    "gates the walk. A dead slot contributes nothing at all, so liveness already moves the fold by deciding which entities are folded.",
-  "mobs[].id":
+  'mobs[].alive':
+    'gates the walk. A dead slot contributes nothing at all, so liveness already moves the fold by deciding which entities are folded.',
+  'mobs[].id':
     "spawn identity, summarised by nextEntityId, which is folded. A slot's own id follows from the spawn order the walk already witnesses.",
-  "mobs[].type":
-    "written once at spawn (mobs.ts:340) and never mutated. A divergence in type shows through the hp, motion and hitbox the walk folds.",
-  "mobFire[].alive": "gates the walk, as mobs[].alive does.",
-  "mobFire[].id": "spawn identity, as mobs[].id is.",
-  "mobFire[].emitter":
+  'mobs[].type':
+    'written once at spawn (mobs.ts:340) and never mutated. A divergence in type shows through the hp, motion and hitbox the walk folds.',
+  'mobFire[].alive': 'gates the walk, as mobs[].alive does.',
+  'mobFire[].id': 'spawn identity, as mobs[].id is.',
+  'mobFire[].emitter':
     "written once at spawn from the firing mob's type (mobs.ts:416) and never mutated.",
-  "mobFire[].halfExtent":
+  'mobFire[].halfExtent':
     "written once at spawn from the emitter's fire row (mobs.ts:421) and never mutated.",
-  "corpses[].alive": "gates the walk, as mobs[].alive does.",
-  "corpses[].id": "spawn identity, as mobs[].id is.",
-  "corpses[].decays":
-    "written once at spawn from the kind, which is folded: treasure never decays and a corpse always does.",
-  "corpses[].halfExtent":
-    "written once at spawn from the kind, which is folded: a drop is larger than a corpse.",
-  "skulls[].alive": "gates the walk, as mobs[].alive does.",
-  "skulls[].id": "spawn identity, as mobs[].id is.",
-  "wisps[].alive": "gates the walk, as mobs[].alive does.",
-  "wisps[].id": "spawn identity, as mobs[].id is.",
-  "streams.spawns.next": "a draw function, not state. Its cursor is folded.",
-  "streams.spawns.nextInt": "a draw function, not state.",
-  "streams.drops.next": "a draw function, not state. Its cursor is folded.",
-  "streams.drops.nextInt": "a draw function, not state.",
-  "streams.mobFire.next": "a draw function, not state. Its cursor is folded.",
-  "streams.mobFire.nextInt": "a draw function, not state.",
-  "streams.shed.next": "a draw function, not state. Its cursor is folded.",
-  "streams.shed.nextInt": "a draw function, not state.",
+  'corpses[].alive': 'gates the walk, as mobs[].alive does.',
+  'corpses[].id': 'spawn identity, as mobs[].id is.',
+  'corpses[].decays':
+    'written once at spawn from the kind, which is folded: treasure never decays and a corpse always does.',
+  'corpses[].halfExtent':
+    'written once at spawn from the kind, which is folded: a drop is larger than a corpse.',
+  'skulls[].alive': 'gates the walk, as mobs[].alive does.',
+  'skulls[].id': 'spawn identity, as mobs[].id is.',
+  'wisps[].alive': 'gates the walk, as mobs[].alive does.',
+  'wisps[].id': 'spawn identity, as mobs[].id is.',
+  'streams.spawns.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.spawns.nextInt': 'a draw function, not state.',
+  'streams.drops.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.drops.nextInt': 'a draw function, not state.',
+  'streams.mobFire.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.mobFire.nextInt': 'a draw function, not state.',
+  'streams.shed.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.shed.nextInt': 'a draw function, not state.',
 };
 
 /**
@@ -574,15 +574,15 @@ const EXCLUDED: Readonly<Record<string, string>> = {
  */
 function fieldPaths(value: unknown, path: string): string[] {
   if (value === null || value === undefined) return [path];
-  if (typeof value === "function") return [path];
+  if (typeof value === 'function') return [path];
   if (value instanceof Set) return [path];
   if (Array.isArray(value)) {
     if (value.length === 0) return [path];
     return fieldPaths(value[0], `${path}[]`);
   }
-  if (typeof value !== "object") return [path];
+  if (typeof value !== 'object') return [path];
   return Object.entries(value).flatMap(([key, nested]) =>
-    fieldPaths(nested, path === "" ? key : `${path}.${key}`),
+    fieldPaths(nested, path === '' ? key : `${path}.${key}`),
   );
 }
 
@@ -594,9 +594,9 @@ function undecided(paths: readonly string[]): string[] {
     .sort();
 }
 
-describe("the closed field list", () => {
-  it("every nested field is either folded or excluded with a reason beside it", () => {
-    const walked = fieldPaths(fixture(), "");
+describe('the closed field list', () => {
+  it('every nested field is either folded or excluded with a reason beside it', () => {
+    const walked = fieldPaths(fixture(), '');
     expect(undecided(walked)).toEqual([]);
     // And the other direction, so a field that goes away takes its entry with
     // it rather than leaving a name nothing answers to.
@@ -604,25 +604,25 @@ describe("the closed field list", () => {
     expect(listed.filter((path) => !walked.includes(path)).sort()).toEqual([]);
   });
 
-  it("a field in neither list fails the assertion", () => {
+  it('a field in neither list fails the assertion', () => {
     // The proof that the guard is a guard: a nested field nobody has decided
     // about is named, rather than passing over an empty set.
-    const invented = fieldPaths({ stage: { phaseIndex: 0, drainOut: 0 } }, "");
-    expect(undecided(invented)).toEqual(["stage.drainOut"]);
+    const invented = fieldPaths({ stage: { phaseIndex: 0, drainOut: 0 } }, '');
+    expect(undecided(invented)).toEqual(['stage.drainOut']);
   });
 
-  it("every folded field carries a perturbation, so none goes untested", () => {
+  it('every folded field carries a perturbation, so none goes untested', () => {
     const perturbed = FIELD_CASES.map((field) => field.path);
     expect(FOLDED.filter((path) => !perturbed.includes(path))).toEqual([]);
     expect(perturbed.filter((path) => !FOLDED.includes(path))).toEqual([]);
   });
 
-  it("no field appears in both halves of the partition", () => {
+  it('no field appears in both halves of the partition', () => {
     expect(FOLDED.filter((path) => EXCLUDED_PATHS.has(path))).toEqual([]);
   });
 });
 
-describe("one field at a time", () => {
+describe('one field at a time', () => {
   for (const field of FIELD_CASES) {
     it(`the fold moves when ${field.path} alone moves`, () => {
       runFieldCase(field);
@@ -631,28 +631,28 @@ describe("one field at a time", () => {
 });
 
 const WEAPON_LINE_NAMES: readonly WeaponLine[] = [
-  "soulStream",
-  "headstones",
-  "wisps",
-  "bell",
+  'soulStream',
+  'headstones',
+  'wisps',
+  'bell',
 ];
 
-describe("the fold order over the weapon lines", () => {
+describe('the fold order over the weapon lines', () => {
   it("WEAPON_LINES is frozen in the order every sealed tape's witness folded", () => {
     // The witness fold traverses WEAPON_LINES in array order and sealed tapes
     // exist outside the tree, so a reorder silently changes every witness. A
     // change to this order needs a witness version bump, never a test update.
-    expect(WEAPON_LINES).toEqual(["soulStream", "headstones", "wisps", "bell"]);
+    expect(WEAPON_LINES).toEqual(['soulStream', 'headstones', 'wisps', 'bell']);
   });
 });
 
-describe("the four non-numeric encodings", () => {
-  it("a boolean folds through an explicit 0 or 1", () => {
+describe('the four non-numeric encodings', () => {
+  it('a boolean folds through an explicit 0 or 1', () => {
     expect(boolCode(false)).toBe(0);
     expect(boolCode(true)).toBe(1);
   });
 
-  it("an absent wisp target folds through the 0 sentinel no id can take", () => {
+  it('an absent wisp target folds through the 0 sentinel no id can take', () => {
     expect(NO_TARGET_ID).toBe(0);
     // The sentinel is safe only because no entity can ever hold id 0.
     expect(createRun(FIXTURE_SEED).nextEntityId).toBe(1);
@@ -664,22 +664,22 @@ describe("the four non-numeric encodings", () => {
     expect(foldWitness(absent, 0)).toBe(foldWitness(zero, 0));
   });
 
-  it("the run ending code map is pinned by name and never by ordinal", () => {
+  it('the run ending code map is pinned by name and never by ordinal', () => {
     // Read by name, so reordering the union cannot move a single tape's
     // witness, and typed as a total Record, so adding a member fails the
     // typecheck until somebody gives it a code.
     expect(RUN_ENDING_CODES).toEqual({ sealed: 1, victory: 2 });
   });
 
-  it("the corpse tier code map is pinned by name and never by ordinal", () => {
+  it('the corpse tier code map is pinned by name and never by ordinal', () => {
     expect(CORPSE_TIER_CODES).toEqual({ trash: 1, rich: 2 });
   });
 
-  it("the food kind code map is pinned by name and never by ordinal", () => {
+  it('the food kind code map is pinned by name and never by ordinal', () => {
     expect(FOOD_KIND_CODES).toEqual({ corpse: 1, drop: 2, feast: 3 });
   });
 
-  it("the weapon line code map is pinned by name and never by ordinal", () => {
+  it('the weapon line code map is pinned by name and never by ordinal', () => {
     expect(WEAPON_LINE_CODES).toEqual({
       soulStream: 1,
       headstones: 2,
@@ -688,7 +688,7 @@ describe("the four non-numeric encodings", () => {
     });
   });
 
-  it("no code map member may take the reserved absent code", () => {
+  it('no code map member may take the reserved absent code', () => {
     const codes = [
       ...Object.values(RUN_ENDING_CODES),
       ...Object.values(CORPSE_TIER_CODES),
@@ -698,7 +698,7 @@ describe("the four non-numeric encodings", () => {
     expect(codes.filter((code) => code === ABSENT_CODE)).toEqual([]);
   });
 
-  it("an absent corpse line folds through the reserved absent code", () => {
+  it('an absent corpse line folds through the reserved absent code', () => {
     const absent = fixture();
     absent.corpses[0].line = undefined;
     const witness = foldWitness(absent, 0);
@@ -709,7 +709,7 @@ describe("the four non-numeric encodings", () => {
     }
   });
 
-  it("an absent ring folds differently from a ring whose fields are zero", () => {
+  it('an absent ring folds differently from a ring whose fields are zero', () => {
     const absent = fixture();
     absent.lines.ring = null;
     const zeroed = fixture();
@@ -717,7 +717,7 @@ describe("the four non-numeric encodings", () => {
     expect(foldWitness(zeroed, 0)).not.toBe(foldWitness(absent, 0));
   });
 
-  it("the struck set folds its members in iteration order", () => {
+  it('the struck set folds its members in iteration order', () => {
     const forward = fixture();
     forward.lines.ring = { ...ring(), struck: new Set([21, 22]) };
     const backward = fixture();
@@ -726,17 +726,17 @@ describe("the four non-numeric encodings", () => {
   });
 });
 
-describe("chained across ticks and snapshotted at a checkpoint", () => {
-  it("the same state and the same starting value give the same number", () => {
+describe('chained across ticks and snapshotted at a checkpoint', () => {
+  it('the same state and the same starting value give the same number', () => {
     expect(foldWitness(fixture(), 0)).toBe(foldWitness(fixture(), 0));
   });
 
-  it("the starting value changes the result, which is what chaining uses", () => {
+  it('the starting value changes the result, which is what chaining uses', () => {
     const run = fixture();
     expect(foldWitness(run, 1)).not.toBe(foldWitness(run, 0));
   });
 
-  it("a snapshot depends only on the state at that checkpoint", () => {
+  it('a snapshot depends only on the state at that checkpoint', () => {
     // Each checkpoint is an independent snapshot rather than a link in a chain
     // (ADR 0019), so a fold taken at tick 30 cannot depend on whether folds
     // were taken at ticks 10 and 20 of the same run.

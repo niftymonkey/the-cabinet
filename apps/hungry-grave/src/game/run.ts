@@ -1,23 +1,23 @@
-import type { Corpse } from "./corpses";
-import { createCorpsePool } from "./corpses";
-import type { Grave } from "./grave";
-import { createGrave } from "./grave";
-import type { BellRing } from "./lines/bell";
-import { BELL_PERIOD } from "./lines/bell";
-import { MAX_STONES } from "./lines/headstones";
-import type { WeaponLine } from "./lines/roster";
-import { BIRTHRIGHT, WEAPON_LINES } from "./lines/roster";
-import type { Skull } from "./lines/soulStream";
-import { createSkullPool, STREAM_INTERVAL } from "./lines/soulStream";
-import type { Wisp } from "./lines/wisps";
-import { createWispPool } from "./lines/wisps";
-import type { Mob, Shot } from "./mobs";
-import { createMobPool, createShotPool } from "./mobs";
-import type { Stream, StreamName } from "./rng";
-import { stream } from "./rng";
-import type { StageState } from "./stage/stage";
-import { createStage } from "./stage/stage";
-import { SIZE_START } from "./tuning";
+import type { Corpse } from './corpses';
+import { createCorpsePool } from './corpses';
+import type { Grave } from './grave';
+import { createGrave } from './grave';
+import type { BellRing } from './lines/bell';
+import { BELL_PERIOD } from './lines/bell';
+import { MAX_STONES } from './lines/headstones';
+import type { WeaponLine } from './lines/roster';
+import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
+import type { Skull } from './lines/soulStream';
+import { createSkullPool, STREAM_INTERVAL } from './lines/soulStream';
+import type { Wisp } from './lines/wisps';
+import { createWispPool } from './lines/wisps';
+import type { Mob, Shot } from './mobs';
+import { createMobPool, createShotPool } from './mobs';
+import type { Stream, StreamName } from './rng';
+import { stream } from './rng';
+import type { StageState } from './stage/stage';
+import { createStage } from './stage/stage';
+import { SIZE_START } from './tuning';
 
 // A move command in base-speed units, produced by an input model (ADR 0011).
 export interface MoveCommand {
@@ -38,7 +38,7 @@ export interface TickCommand {
 }
 
 /** How a run finishes. Null while it is live. */
-export type RunEnding = "sealed" | "victory";
+export type RunEnding = 'sealed' | 'victory';
 
 /**
  * The weapon lines' own clocks and phases, as one record rather than six fields
@@ -218,10 +218,10 @@ export function createRun(
     levels: { ...startingLevels },
     ending: null,
     streams: {
-      spawns: stream(seed, "spawns"),
-      drops: stream(seed, "drops"),
-      mobFire: stream(seed, "mobFire"),
-      shed: stream(seed, "shed"),
+      spawns: stream(seed, 'spawns'),
+      drops: stream(seed, 'drops'),
+      mobFire: stream(seed, 'mobFire'),
+      shed: stream(seed, 'shed'),
     },
     mobs: createMobPool(),
     mobFire: createShotPool(),

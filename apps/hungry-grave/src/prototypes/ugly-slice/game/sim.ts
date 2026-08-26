@@ -1,17 +1,17 @@
 // The whole game state and one fixed-timestep step function. Pure data in,
 // events out; rendering and audio subscribe to the event list per frame.
 
-import { circleTouchesGrave, graveHalfW } from "./grave";
-import { createInstruments, type Instruments } from "./instruments";
-import { createStream, type Rng } from "./rng";
+import { circleTouchesGrave, graveHalfW } from './grave';
+import { createInstruments, type Instruments } from './instruments';
+import { createStream, type Rng } from './rng';
 import {
   BACKHALF_ROWS,
   expandPhase,
   RAMP_ROWS,
   WALL_LANDED_MIN,
   type SpawnOrder,
-} from "./stage";
-import * as T from "./tuning";
+} from './stage';
+import * as T from './tuning';
 import {
   LINE_NAMES,
   type Boss,
@@ -25,7 +25,7 @@ import {
   type PhaseName,
   type Player,
   type PlayerBullet,
-} from "./types";
+} from './types';
 
 export interface Sim {
   seed: number;
@@ -70,7 +70,7 @@ export function createSim(seed: number): Sim {
   return {
     seed,
     t: 0,
-    phase: "ramp",
+    phase: 'ramp',
     phaseT: 0,
     player: {
       x: T.FIELD_W / 2,
@@ -94,7 +94,7 @@ export function createSim(seed: number): Sim {
     corpses: [],
     drops: [],
     boss: null,
-    pendingSpawns: expandPhase(RAMP_ROWS, "ramp", seed),
+    pendingSpawns: expandPhase(RAMP_ROWS, 'ramp', seed),
     spawnCursor: 0,
     kills: 0,
     dropsPaid: 0,
@@ -107,10 +107,10 @@ export function createSim(seed: number): Sim {
     spiralSinceChunk: 0,
     emissionsThisChunk: 0,
     rng: {
-      enemyFire: createStream(seed, "enemyFire"),
-      dropLine: createStream(seed, "dropLine"),
-      gapWalk: createStream(seed, "gapWalk"),
-      ringGap: createStream(seed, "ringGap"),
+      enemyFire: createStream(seed, 'enemyFire'),
+      dropLine: createStream(seed, 'dropLine'),
+      gapWalk: createStream(seed, 'gapWalk'),
+      ringGap: createStream(seed, 'ringGap'),
     },
   };
 }
@@ -158,12 +158,12 @@ function killEnemy(sim: Sim, enemy: Enemy): void {
   sim.kills++;
   sim.instruments.killsTotal++;
   sim.player.score += T.SCORE_PER_KILL;
-  sim.events.push({ kind: "kill", x: enemy.x, y: enemy.y });
+  sim.events.push({ kind: 'kill', x: enemy.x, y: enemy.y });
   sim.corpses.push({
     x: enemy.x,
     y: enemy.y,
     radius: T.CORPSE_RADIUS,
-    kind: "corpse",
+    kind: 'corpse',
     freshness: 1,
     growth: T.CORPSE_GROWTH,
     belchCharge: T.BELCH_CHARGE_PER_CORPSE,
@@ -178,7 +178,7 @@ function killEnemy(sim: Sim, enemy: Enemy): void {
     });
     sim.instruments.dropsSpawned++;
     sim.instruments.dropSpawnTimes.push(sim.t);
-    sim.events.push({ kind: "drop", x: enemy.x, y: enemy.y });
+    sim.events.push({ kind: 'drop', x: enemy.x, y: enemy.y });
   }
 }
 
@@ -186,7 +186,7 @@ function shrinkPlayer(sim: Sim, cause: string, x: number, y: number): void {
   if (sim.invulnLeft > 0) return;
   sim.invulnLeft = T.HIT_INVULN_SECONDS;
   sim.instruments.hits.push({ t: sim.t, cause });
-  sim.events.push({ kind: "hit", x, y, cause });
+  sim.events.push({ kind: 'hit', x, y, cause });
   const p = sim.player;
   if (p.halfH - T.HIT_SHRINK >= T.GRAVE_MIN_HALF_H) {
     p.halfH -= T.HIT_SHRINK;
@@ -200,7 +200,7 @@ function shrinkPlayer(sim: Sim, cause: string, x: number, y: number): void {
     return;
   }
   const strippable = LINE_NAMES.filter((line) => {
-    const base = line === "soul" || line === "stone" ? 1 : 0;
+    const base = line === 'soul' || line === 'stone' ? 1 : 0;
     return p.lines[line] > base;
   });
   const line = strippable[strippable.length - 1];
@@ -208,8 +208,8 @@ function shrinkPlayer(sim: Sim, cause: string, x: number, y: number): void {
     p.lines[line] -= 1;
     return;
   }
-  sim.phase = "dead";
-  sim.events.push({ kind: "sealed" });
+  sim.phase = 'dead';
+  sim.events.push({ kind: 'sealed' });
 }
 
 // Growth respects the hard ceiling; whatever would not fit becomes score,
@@ -227,14 +227,14 @@ function growGrave(sim: Sim, amount: number, x: number, y: number): void {
     const score = Math.round(excess * T.OVERSIZE_SCORE_PER_UNIT);
     p.score += score;
     sim.instruments.oversizeScore += score;
-    sim.events.push({ kind: "sizeOverflow", x, y });
+    sim.events.push({ kind: 'sizeOverflow', x, y });
   }
 }
 
 function swallowPayout(sim: Sim, corpse: Corpse): void {
   const p = sim.player;
   const freshness =
-    corpse.kind === "corpse"
+    corpse.kind === 'corpse'
       ? Math.max(T.FRESHNESS_FLOOR, corpse.freshness)
       : 1;
   sim.instruments.swallowCount++;
@@ -245,12 +245,12 @@ function swallowPayout(sim: Sim, corpse: Corpse): void {
     sim.instruments.freshnessSumWithBellLeveled += freshness;
   }
   growGrave(sim, corpse.growth * freshness, corpse.x, corpse.y);
-  if (corpse.kind === "bansheeFeast") {
+  if (corpse.kind === 'bansheeFeast') {
     // Only the swallow slams the reservoir and fires the glow (entry 5.11).
     p.reservoir = T.BELCH_CAP;
     sim.belchGlow = true;
-    sim.events.push({ kind: "feast", x: corpse.x, y: corpse.y });
-    sim.events.push({ kind: "belchReady" });
+    sim.events.push({ kind: 'feast', x: corpse.x, y: corpse.y });
+    sim.events.push({ kind: 'belchReady' });
   } else {
     const before = p.reservoir;
     p.reservoir = Math.min(
@@ -260,13 +260,13 @@ function swallowPayout(sim: Sim, corpse: Corpse): void {
     const waste = corpse.belchCharge * freshness - (p.reservoir - before);
     if (waste > 0.01) {
       sim.instruments.wastedCharge += waste;
-      sim.events.push({ kind: "splashWaste", x: corpse.x, y: corpse.y });
+      sim.events.push({ kind: 'splashWaste', x: corpse.x, y: corpse.y });
     }
     if (p.reservoir >= T.BELCH_CAP && before < T.BELCH_CAP) {
-      sim.events.push({ kind: "belchReady" });
+      sim.events.push({ kind: 'belchReady' });
     }
   }
-  sim.events.push({ kind: "eat", x: corpse.x, y: corpse.y, freshness });
+  sim.events.push({ kind: 'eat', x: corpse.x, y: corpse.y, freshness });
   // Every swallow fires the burst lines the player has earned, plus the
   // baseline chime; the bell upgrades the chime into the damage ring.
   p.surgeLeft = T.SOUL_SURGE_SECONDS;
@@ -286,11 +286,11 @@ function swallowPayout(sim: Sim, corpse: Corpse): void {
         vx: Math.cos(angle) * T.WISP_SPEED,
         vy: Math.sin(angle) * T.WISP_SPEED,
         damage: T.WISP_DAMAGE,
-        kind: "wisp",
+        kind: 'wisp',
         lifetime: T.WISP_LIFETIME,
       });
     }
-    sim.events.push({ kind: "burst", x: corpse.x, y: corpse.y });
+    sim.events.push({ kind: 'burst', x: corpse.x, y: corpse.y });
   }
   const bellLevel = p.lines.bell;
   if (bellLevel > 0) {
@@ -304,9 +304,9 @@ function swallowPayout(sim: Sim, corpse: Corpse): void {
       hitEnemies: new Set(),
       hitBoss: false,
     });
-    sim.events.push({ kind: "bell", x: p.x, y: p.y });
+    sim.events.push({ kind: 'bell', x: p.x, y: p.y });
   } else {
-    sim.events.push({ kind: "chime", x: p.x, y: p.y });
+    sim.events.push({ kind: 'chime', x: p.x, y: p.y });
   }
 }
 
@@ -318,12 +318,12 @@ function applyUpgradeDrop(sim: Sim): void {
     growGrave(sim, T.OVERFLOW_GROWTH, p.x, p.y);
     p.score += T.OVERFLOW_SCORE;
     p.reservoir = Math.min(T.BELCH_CAP, p.reservoir + T.OVERFLOW_BELCH_CHARGE);
-    sim.events.push({ kind: "overflowEat" });
+    sim.events.push({ kind: 'overflowEat' });
     return;
   }
   const line = sim.rng.dropLine.pick(openLines);
   p.lines[line] += 1;
-  sim.events.push({ kind: "levelUp", line, level: p.lines[line] });
+  sim.events.push({ kind: 'levelUp', line, level: p.lines[line] });
 }
 
 function fireBelch(sim: Sim): void {
@@ -341,7 +341,7 @@ function fireBelch(sim: Sim): void {
     sim.instruments.timeAtFullReservoir += sim.t - sim.instruments.fullSince;
     sim.instruments.fullSince = null;
   }
-  sim.events.push({ kind: "belch" });
+  sim.events.push({ kind: 'belch' });
   // The bomb everywhere: every enemy bullet cancelled, boss patterns included.
   sim.enemyBullets.length = 0;
   let wallKills = 0;
@@ -359,25 +359,25 @@ function fireBelch(sim: Sim): void {
   ) {
     damageBoss(sim, boss, T.BELCH_BOSS_DAMAGE);
   }
-  if (bossKindAtFire === "banshee") sim.instruments.belchesInBansheeFight++;
-  if (bossKindAtFire === "undertaker")
+  if (bossKindAtFire === 'banshee') sim.instruments.belchesInBansheeFight++;
+  if (bossKindAtFire === 'undertaker')
     sim.instruments.belchesInUndertakerFight++;
   // The belch-on-wave instrument: the first belch of the back half either
   // lands on the Wall or is spent on empty sky.
-  if (sim.instruments.belchOnWall === "pending" && phaseAtFire === "backhalf") {
+  if (sim.instruments.belchOnWall === 'pending' && phaseAtFire === 'backhalf') {
     sim.instruments.belchOnWall =
-      wallKills >= WALL_LANDED_MIN ? "landedOnWall" : "emptySky";
+      wallKills >= WALL_LANDED_MIN ? 'landedOnWall' : 'emptySky';
   }
 }
 
-function spawnBoss(sim: Sim, kind: "banshee" | "undertaker"): void {
+function spawnBoss(sim: Sim, kind: 'banshee' | 'undertaker'): void {
   sim.boss = {
     kind,
     x: T.FIELD_W / 2,
     y: -60,
-    radius: kind === "banshee" ? 34 : 42,
+    radius: kind === 'banshee' ? 34 : 42,
     chunkIndex: 0,
-    chunkHp: kind === "banshee" ? T.BANSHEE_CHUNK_HP : T.UNDERTAKER_CHUNK_HP,
+    chunkHp: kind === 'banshee' ? T.BANSHEE_CHUNK_HP : T.UNDERTAKER_CHUNK_HP,
     flashLeft: 0,
     entering: T.BOSS_ENTER_SECONDS,
     emitTimer: 1.2,
@@ -401,7 +401,7 @@ function damageBoss(sim: Sim, boss: Boss, amount: number): void {
   // whether the chunk ended before finishing one full rotation.
   if (
     sim.emissionsThisChunk === 0 ||
-    (boss.kind === "undertaker" &&
+    (boss.kind === 'undertaker' &&
       boss.chunkIndex === 1 &&
       sim.spiralSinceChunk % (Math.PI * 2) > 0.4)
   ) {
@@ -410,17 +410,17 @@ function damageBoss(sim: Sim, boss: Boss, amount: number): void {
   if (boss.chunkIndex === 0) {
     boss.chunkIndex = 1;
     boss.chunkHp =
-      boss.kind === "banshee" ? T.BANSHEE_CHUNK_HP : T.UNDERTAKER_CHUNK_HP;
+      boss.kind === 'banshee' ? T.BANSHEE_CHUNK_HP : T.UNDERTAKER_CHUNK_HP;
     boss.flashLeft = T.CHUNK_BREAK_FLASH;
     sim.spiralSinceChunk = 0;
     sim.emissionsThisChunk = 0;
-    sim.events.push({ kind: "chunkBreak", x: boss.x, y: boss.y });
+    sim.events.push({ kind: 'chunkBreak', x: boss.x, y: boss.y });
     // The phase-break feast chunk never decays: treasure class.
     sim.corpses.push({
       x: boss.x,
       y: boss.y + boss.radius + 12,
       radius: T.CORPSE_RADIUS * 1.6,
-      kind: "feast",
+      kind: 'feast',
       freshness: 1,
       growth: T.CHUNK_FEAST_GROWTH,
       belchCharge: T.CHUNK_FEAST_BELCH_CHARGE,
@@ -428,13 +428,13 @@ function damageBoss(sim: Sim, boss: Boss, amount: number): void {
     return;
   }
   // The boss is dead.
-  sim.events.push({ kind: "bossDeath", boss: boss.kind });
-  if (boss.kind === "banshee") {
+  sim.events.push({ kind: 'bossDeath', boss: boss.kind });
+  if (boss.kind === 'banshee') {
     sim.corpses.push({
       x: boss.x,
       y: boss.y,
       radius: T.CORPSE_RADIUS * 2.2,
-      kind: "bansheeFeast",
+      kind: 'bansheeFeast',
       freshness: 1,
       growth: T.BANSHEE_FEAST_GROWTH,
       belchCharge: 0,
@@ -442,11 +442,11 @@ function damageBoss(sim: Sim, boss: Boss, amount: number): void {
     sim.boss = null;
     // Her death starts the Wall clock (entry 5.11): the back half's rows are
     // phase-local to this moment, the Wall itself two seconds in.
-    sim.phase = "backhalf";
+    sim.phase = 'backhalf';
     sim.phaseT = 0;
-    sim.pendingSpawns = expandPhase(BACKHALF_ROWS, "backhalf", sim.seed);
+    sim.pendingSpawns = expandPhase(BACKHALF_ROWS, 'backhalf', sim.seed);
     sim.spawnCursor = 0;
-    sim.events.push({ kind: "wallIncoming" });
+    sim.events.push({ kind: 'wallIncoming' });
   } else {
     boss.toppleLeft = T.VICTORY_TOPPLE_SECONDS;
   }
@@ -464,24 +464,24 @@ function stepBoss(sim: Sim, dt: number): void {
     boss.y += (p.y - boss.y) * dt * 1.4;
     boss.radius = Math.max(4, boss.radius - dt * 16);
     if (boss.toppleLeft <= 0) {
-      sim.phase = "victory";
+      sim.phase = 'victory';
       sim.boss = null;
     }
     return;
   }
   if (boss.entering > 0) {
     boss.entering -= dt;
-    boss.y += ((boss.kind === "banshee" ? 140 : 120) - boss.y) * dt * 1.8;
+    boss.y += ((boss.kind === 'banshee' ? 140 : 120) - boss.y) * dt * 1.8;
     return;
   }
   if (boss.flashLeft > 0) boss.flashLeft -= dt;
   boss.x =
     T.FIELD_W / 2 +
-    Math.sin(sim.phaseT * (boss.kind === "banshee" ? 0.55 : 0.3)) *
-      (boss.kind === "banshee" ? 130 : 90);
+    Math.sin(sim.phaseT * (boss.kind === 'banshee' ? 0.55 : 0.3)) *
+      (boss.kind === 'banshee' ? 130 : 90);
 
   boss.emitTimer -= dt;
-  if (boss.kind === "banshee") {
+  if (boss.kind === 'banshee') {
     const interval =
       boss.chunkIndex === 0
         ? T.BANSHEE_RING_INTERVAL
@@ -507,7 +507,7 @@ function stepBoss(sim: Sim, dt: number): void {
           vx: Math.cos(angle) * T.BANSHEE_RING_SPEED,
           vy: Math.sin(angle) * T.BANSHEE_RING_SPEED,
           radius: T.ENEMY_BULLET_RADIUS,
-          kind: "tear",
+          kind: 'tear',
         });
       }
       // Chunk one teaches one lane: the gap holds, the player learns to sit
@@ -540,7 +540,7 @@ function stepBoss(sim: Sim, dt: number): void {
           vx: 0,
           vy: T.CURTAIN_FALL_SPEED,
           radius: T.CLOD_RADIUS,
-          kind: "clod",
+          kind: 'clod',
         });
       }
     }
@@ -558,7 +558,7 @@ function stepBoss(sim: Sim, dt: number): void {
       vx: Math.cos(boss.spiralAngle) * T.SPIRAL_BULLET_SPEED,
       vy: Math.sin(boss.spiralAngle) * T.SPIRAL_BULLET_SPEED,
       radius: T.ENEMY_BULLET_RADIUS,
-      kind: "spiral",
+      kind: 'spiral',
     });
   }
   boss.summonTimer -= dt;
@@ -596,7 +596,7 @@ function stepWeapons(sim: Sim, dt: number): void {
         vx: Math.cos(angle) * T.SOUL_SPEED,
         vy: Math.sin(angle) * T.SOUL_SPEED,
         damage: T.SOUL_DAMAGE,
-        kind: "skull",
+        kind: 'skull',
         lifetime: 3,
       });
     }
@@ -607,7 +607,7 @@ function stepWeapons(sim: Sim, dt: number): void {
 
   // Wisps home; everything else flies dumb and straight.
   for (const bullet of sim.playerBullets) {
-    if (bullet.kind === "wisp") {
+    if (bullet.kind === 'wisp') {
       const target = nearestTarget(sim, bullet.x, bullet.y);
       if (target !== null) {
         const desired = Math.atan2(target.y - bullet.y, target.x - bullet.x);
@@ -804,7 +804,7 @@ function stepCollisions(sim: Sim, dt: number): void {
         0.8,
       )
     ) {
-      shrinkPlayer(sim, "contact", enemy.x, enemy.y);
+      shrinkPlayer(sim, 'contact', enemy.x, enemy.y);
     }
   }
 
@@ -855,55 +855,55 @@ function stepCollisions(sim: Sim, dt: number): void {
 function stepPhase(sim: Sim, dt: number): void {
   sim.phaseT += dt;
   switch (sim.phase) {
-    case "ramp": {
+    case 'ramp': {
       if (sim.phaseT >= T.RAMP_END) {
-        sim.phase = "bansheeDrain";
+        sim.phase = 'bansheeDrain';
         sim.phaseT = 0;
       }
       break;
     }
-    case "bansheeDrain": {
+    case 'bansheeDrain': {
       if (sim.phaseT >= T.DRAIN_SECONDS) {
-        sim.phase = "banshee";
+        sim.phase = 'banshee';
         sim.phaseT = 0;
-        spawnBoss(sim, "banshee");
+        spawnBoss(sim, 'banshee');
       }
       break;
     }
-    case "banshee":
+    case 'banshee':
       break;
-    case "backhalf": {
+    case 'backhalf': {
       if (!sim.wallSpawned && sim.phaseT >= T.WALL_DELAY_AFTER_BANSHEE) {
         sim.wallSpawned = true;
       }
       if (sim.phaseT >= T.BACKHALF_END) {
         // If the loaded belch was never fired by the time the back half
         // drains, the no-belch Wall outcome is recorded as the third case.
-        if (sim.instruments.belchOnWall === "pending") {
-          sim.instruments.belchOnWall = "noBelch";
+        if (sim.instruments.belchOnWall === 'pending') {
+          sim.instruments.belchOnWall = 'noBelch';
         }
-        sim.phase = "undertakerDrain";
+        sim.phase = 'undertakerDrain';
         sim.phaseT = 0;
       }
       break;
     }
-    case "undertakerDrain": {
+    case 'undertakerDrain': {
       if (sim.phaseT >= T.DRAIN_SECONDS) {
-        sim.phase = "undertaker";
+        sim.phase = 'undertaker';
         sim.phaseT = 0;
-        spawnBoss(sim, "undertaker");
+        spawnBoss(sim, 'undertaker');
       }
       break;
     }
-    case "undertaker":
-    case "victory":
-    case "dead":
+    case 'undertaker':
+    case 'victory':
+    case 'dead':
       break;
   }
 }
 
 export function step(sim: Sim, input: Input, dt: number): void {
-  if (sim.phase === "victory" || sim.phase === "dead") return;
+  if (sim.phase === 'victory' || sim.phase === 'dead') return;
   sim.t += dt;
   sim.instruments.runSeconds = sim.t;
   if (sim.invulnLeft > 0) sim.invulnLeft -= dt;
@@ -911,12 +911,12 @@ export function step(sim: Sim, input: Input, dt: number): void {
 
   // Spawns from the authored rows (ramp and back half run rows; boss phases
   // spawn nothing except what the boss summons).
-  if (sim.phase === "ramp" || sim.phase === "backhalf") {
+  if (sim.phase === 'ramp' || sim.phase === 'backhalf') {
     while (sim.spawnCursor < sim.pendingSpawns.length) {
       const order = sim.pendingSpawns[sim.spawnCursor];
       if (order === undefined || order.t > sim.phaseT) break;
       const isWall =
-        sim.phase === "backhalf" &&
+        sim.phase === 'backhalf' &&
         order.t <= T.WALL_DELAY_AFTER_BANSHEE + 0.01;
       spawnEnemy(sim, order.x, order.vx, order.vy, isWall);
       sim.spawnCursor++;
@@ -971,7 +971,7 @@ export function step(sim: Sim, input: Input, dt: number): void {
         vx: Math.cos(angle) * T.ENEMY_BULLET_SPEED,
         vy: Math.sin(angle) * T.ENEMY_BULLET_SPEED,
         radius: T.ENEMY_BULLET_RADIUS,
-        kind: "shot",
+        kind: 'shot',
       });
     }
   }
@@ -995,11 +995,11 @@ export function step(sim: Sim, input: Input, dt: number): void {
   const keptCorpses: Corpse[] = [];
   for (const corpse of sim.corpses) {
     corpse.y += T.SCROLL_SPEED * dt;
-    if (corpse.kind === "corpse") {
+    if (corpse.kind === 'corpse') {
       corpse.freshness -= dt / T.FRESHNESS_SECONDS;
       if (corpse.freshness <= 0) {
         sim.instruments.corpsesSuckedUnder++;
-        sim.events.push({ kind: "suckedUnder", x: corpse.x, y: corpse.y });
+        sim.events.push({ kind: 'suckedUnder', x: corpse.x, y: corpse.y });
         continue;
       }
     }
@@ -1023,7 +1023,7 @@ export function step(sim: Sim, input: Input, dt: number): void {
   // The no-belch Wall third case can also resolve early: every Wall enemy
   // gone with no belch fired means the crossing happened on skill alone.
   if (
-    sim.instruments.belchOnWall === "pending" &&
+    sim.instruments.belchOnWall === 'pending' &&
     sim.wallSpawned &&
     sim.wallEnemyIds.size > 0
   ) {
@@ -1034,7 +1034,7 @@ export function step(sim: Sim, input: Input, dt: number): void {
         break;
       }
     }
-    if (!anyAlive) sim.instruments.belchOnWall = "noBelch";
+    if (!anyAlive) sim.instruments.belchOnWall = 'noBelch';
   }
 }
 

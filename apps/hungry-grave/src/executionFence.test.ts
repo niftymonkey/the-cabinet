@@ -16,12 +16,12 @@
  * root because no boundary governs it, which is what lets it import eslint.
  */
 
-import { resolve } from "node:path";
-import { ESLint } from "eslint";
-import { describe, expect, it } from "vitest";
+import { resolve } from 'node:path';
+import { ESLint } from 'eslint';
+import { describe, expect, it } from 'vitest';
 
-const APP = resolve(import.meta.dirname, "..");
-const RULE = "no-restricted-imports";
+const APP = resolve(import.meta.dirname, '..');
+const RULE = 'no-restricted-imports';
 
 const eslint = new ESLint({ cwd: APP });
 
@@ -43,36 +43,36 @@ function importing(specifier: string): string {
   return `import { step } from "${specifier}";\n`;
 }
 
-describe("the step fence (ADR 0017)", () => {
-  it("blocks every spelling that reaches the step module", async () => {
+describe('the step fence (ADR 0017)', () => {
+  it('blocks every spelling that reaches the step module', async () => {
     const spellings: [string, string][] = [
-      ["src/game/sim.ts", "./step"],
-      ["src/game/lines/sim.ts", "../step"],
-      ["src/app/sim.ts", "../game/step"],
-      ["src/dev/sim.ts", "../game/step"],
-      ["src/game/sim.ts", "./step.js"],
+      ['src/game/sim.ts', './step'],
+      ['src/game/lines/sim.ts', '../step'],
+      ['src/app/sim.ts', '../game/step'],
+      ['src/dev/sim.ts', '../game/step'],
+      ['src/game/sim.ts', './step.js'],
     ];
     for (const [path, specifier] of spellings) {
       const messages = await fenceMessages(path, importing(specifier));
       expect(messages, `${path} importing ${specifier}`).toHaveLength(1);
-      expect(messages[0]).toContain("executeTick");
+      expect(messages[0]).toContain('executeTick');
     }
   });
 
-  it("passes from the execution module alone", async () => {
-    for (const specifier of ["./step", "./step.js"]) {
+  it('passes from the execution module alone', async () => {
+    for (const specifier of ['./step', './step.js']) {
       const messages = await fenceMessages(
-        "src/game/execution.ts",
+        'src/game/execution.ts',
         importing(specifier),
       );
       expect(messages, specifier).toEqual([]);
     }
   });
 
-  it("leaves every other import alone, so the glob is a fence and not a net", async () => {
-    for (const specifier of ["./stepper", "./stage/stage", "./lines/bell"]) {
+  it('leaves every other import alone, so the glob is a fence and not a net', async () => {
+    for (const specifier of ['./stepper', './stage/stage', './lines/bell']) {
       const messages = await fenceMessages(
-        "src/game/sim.ts",
+        'src/game/sim.ts',
         importing(specifier),
       );
       expect(messages, specifier).toEqual([]);

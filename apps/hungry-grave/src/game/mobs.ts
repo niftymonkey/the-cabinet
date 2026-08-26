@@ -13,47 +13,47 @@
  * count derives from it.
  */
 
-import { createPool, MOB_CAP, MOB_FIRE_CAP, takeSlot } from "./caps";
-import { TICK_HZ } from "./clock";
-import { spawnCorpse } from "./corpses";
-import type { SimEvent } from "./events";
-import { FIELD_HEIGHT, FIELD_WIDTH } from "./field";
-import type { Grave } from "./grave";
+import { createPool, MOB_CAP, MOB_FIRE_CAP, takeSlot } from './caps';
+import { TICK_HZ } from './clock';
+import { spawnCorpse } from './corpses';
+import type { SimEvent } from './events';
+import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import type { Grave } from './grave';
 import {
   headstoneAt,
   STONE_DAMAGE,
   STONE_HALF_EXTENT,
   STONE_RECHARGE,
   stoneCount,
-} from "./lines/headstones";
-import type { WeaponLine } from "./lines/roster";
-import { SKULL_DAMAGE, SKULL_HALF_EXTENT } from "./lines/soulStream";
-import { WISP_DAMAGE, WISP_HALF_EXTENT } from "./lines/wisps";
-import { cos, normalize, rotateToward, sin } from "./math";
-import type { Rect } from "./overlap";
-import { overlaps } from "./overlap";
-import type { RunState } from "./run";
-import type { SpawnOrder } from "./stage/templates";
-import { MAX_ENTRY_DEPTH } from "./stage/templates";
-import { BASE_SPEED, SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from "./tuning";
+} from './lines/headstones';
+import type { WeaponLine } from './lines/roster';
+import { SKULL_DAMAGE, SKULL_HALF_EXTENT } from './lines/soulStream';
+import { WISP_DAMAGE, WISP_HALF_EXTENT } from './lines/wisps';
+import { cos, normalize, rotateToward, sin } from './math';
+import type { Rect } from './overlap';
+import { overlaps } from './overlap';
+import type { RunState } from './run';
+import type { SpawnOrder } from './stage/templates';
+import { MAX_ENTRY_DEPTH } from './stage/templates';
+import { BASE_SPEED, SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from './tuning';
 
-export type MobType = "shambler" | "revenant" | "ghoul";
+export type MobType = 'shambler' | 'revenant' | 'ghoul';
 
 /** Which corpse a kill leaves. The tier is a payout read and never a size (ADR 0014). */
-export type CorpseTier = "trash" | "rich";
+export type CorpseTier = 'trash' | 'rich';
 
 /**
  * Whatever can hit a mob, spelled as the roster's own line names so an
  * instrument grouping damage by line never meets a second spelling (#48).
  * Contact is absent because contact never damages a mob (ADR 0005).
  */
-export type DamageSource = WeaponLine | "belch";
+export type DamageSource = WeaponLine | 'belch';
 
 /** How much of a wave carries fire at all. */
-export type ArmedShare = "none" | "everyThird" | "all";
+export type ArmedShare = 'none' | 'everyThird' | 'all';
 
 /** How a type moves once its arriving beat has passed. */
-export type MobMotion = "falls" | "chases";
+export type MobMotion = 'falls' | 'chases';
 
 /**
  * Every firing number a type owns. They are data from the first commit and not
@@ -98,7 +98,7 @@ export interface MobRow {
 
 /** A type that never fires still declares the row, so nothing branches on a missing field. */
 const NEVER_FIRES: FireRow = {
-  armedShare: "none",
+  armedShare: 'none',
   interval: 0,
   firstShotJitter: 0,
   tellTicks: 0,
@@ -116,11 +116,11 @@ export const MOB_TYPES = {
     halfHeight: 11,
     hp: 3,
     corpsePayout: TRASH_CORPSE_PAYOUT,
-    corpseTier: "trash",
+    corpseTier: 'trash',
     speed: 0.5 * SCROLL_SPEED,
-    motion: "falls",
+    motion: 'falls',
     fire: {
-      armedShare: "everyThird",
+      armedShare: 'everyThird',
       interval: 180,
       firstShotJitter: 45,
       tellTicks: 45,
@@ -133,11 +133,11 @@ export const MOB_TYPES = {
     halfHeight: 13,
     hp: 5,
     corpsePayout: 2 * TRASH_CORPSE_PAYOUT,
-    corpseTier: "rich",
+    corpseTier: 'rich',
     speed: 0.35 * SCROLL_SPEED,
-    motion: "falls",
+    motion: 'falls',
     fire: {
-      armedShare: "all",
+      armedShare: 'all',
       interval: 150,
       firstShotJitter: 0,
       tellTicks: 45,
@@ -152,20 +152,20 @@ export const MOB_TYPES = {
     halfHeight: 9,
     hp: 2,
     corpsePayout: TRASH_CORPSE_PAYOUT,
-    corpseTier: "trash",
+    corpseTier: 'trash',
     // A real fraction of the grave's own speed, because ADR 0016 bounds this
     // type by its turn rate rather than by a speed cap, and that is only a
     // meaningful safety valve if the speed is meaningful.
     speed: 0.35 * BASE_SPEED,
-    motion: "chases",
+    motion: 'chases',
     fire: NEVER_FIRES,
   },
 } as const satisfies Record<MobType, MobRow>;
 
 export const MOB_TYPE_NAMES: readonly MobType[] = [
-  "shambler",
-  "revenant",
-  "ghoul",
+  'shambler',
+  'revenant',
+  'ghoul',
 ];
 
 /**
@@ -252,7 +252,7 @@ function blankMob(): Mob {
   return {
     alive: false,
     id: 0,
-    type: "shambler",
+    type: 'shambler',
     x: 0,
     y: 0,
     vx: 0,
@@ -268,7 +268,7 @@ function blankShot(): Shot {
   return {
     alive: false,
     id: 0,
-    emitter: "shambler",
+    emitter: 'shambler',
     x: 0,
     y: 0,
     vx: 0,
@@ -320,8 +320,8 @@ export function hasEntered(mob: Mob): boolean {
  * first mob in the game would shoot with no teaching beat at all.
  */
 function isArmed(share: ArmedShare, index: number): boolean {
-  if (share === "none") return false;
-  if (share === "all") return true;
+  if (share === 'none') return false;
+  if (share === 'all') return true;
   return index % 3 === 2;
 }
 
@@ -392,7 +392,7 @@ function moveMob(mob: Mob, grave: Grave): void {
   if (hasEntered(mob)) {
     if (mob.beat > 0) {
       mob.beat -= 1;
-    } else if (MOB_TYPES[mob.type].motion === "chases") {
+    } else if (MOB_TYPES[mob.type].motion === 'chases') {
       chase(mob, grave);
     } else {
       fall(mob);
@@ -424,7 +424,7 @@ function fireShot(state: RunState, mob: Mob): SimEvent[] {
   shot.vx = direction.x * row.fire.shotSpeed;
   shot.vy = direction.y * row.fire.shotSpeed;
   shot.halfExtent = row.fire.shotHalfExtent;
-  return [{ type: "mobFired", emitter: mob.type, x: mob.x, y: mob.y }];
+  return [{ type: 'mobFired', emitter: mob.type, x: mob.x, y: mob.y }];
 }
 
 /**
@@ -492,12 +492,12 @@ export function damageMob(
   if (!mob.alive) return [];
   mob.hp -= amount;
   const events: SimEvent[] = [
-    { type: "mobDamaged", id: mob.id, amount, source },
+    { type: 'mobDamaged', id: mob.id, amount, source },
   ];
   if (mob.hp > 0) return events;
   mob.alive = false;
   events.push({
-    type: "mobKilled",
+    type: 'mobKilled',
     id: mob.id,
     mob: mob.type,
     x: mob.x,
@@ -535,7 +535,7 @@ function resolveSkulls(state: RunState): SimEvent[] {
     const mob = mobUnder(state, box);
     if (mob === null) continue;
     skull.alive = false;
-    events.push(...damageMob(state, mob, SKULL_DAMAGE, "soulStream"));
+    events.push(...damageMob(state, mob, SKULL_DAMAGE, 'soulStream'));
   }
   return events;
 }
@@ -555,7 +555,7 @@ function resolveHeadstones(state: RunState): SimEvent[] {
     const mob = mobUnder(state, squareAt(at.x, at.y, STONE_HALF_EXTENT));
     if (mob === null) continue;
     state.lines.stoneRecharge[index] = STONE_RECHARGE;
-    events.push(...damageMob(state, mob, STONE_DAMAGE, "headstones"));
+    events.push(...damageMob(state, mob, STONE_DAMAGE, 'headstones'));
   }
   return events;
 }
@@ -571,7 +571,7 @@ function resolveWisps(state: RunState): SimEvent[] {
     const mob = mobUnder(state, squareAt(wisp.x, wisp.y, WISP_HALF_EXTENT));
     if (mob === null) continue;
     wisp.alive = false;
-    events.push(...damageMob(state, mob, WISP_DAMAGE, "wisps"));
+    events.push(...damageMob(state, mob, WISP_DAMAGE, 'wisps'));
   }
   return events;
 }

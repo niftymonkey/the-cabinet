@@ -8,10 +8,10 @@
  * truth for how many stones exist, and the level is already the answer.
  */
 
-import type { SimEvent } from "../events";
-import { graveWidth } from "../grave";
-import { cos, sin } from "../math";
-import type { RunState } from "../run";
+import type { SimEvent } from '../events';
+import { graveWidth } from '../grave';
+import { cos, sin } from '../math';
+import type { RunState } from '../run';
 
 /**
  * How many stones each level orbits, indexed by level. The concept doc's

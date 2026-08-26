@@ -9,6 +9,6 @@ export function bindKeyPress(key: string, action: () => void): () => void {
     if (event.key !== key) return;
     action();
   };
-  window.addEventListener("keydown", handler);
-  return () => window.removeEventListener("keydown", handler);
+  window.addEventListener('keydown', handler);
+  return () => window.removeEventListener('keydown', handler);
 }

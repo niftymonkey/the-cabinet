@@ -18,7 +18,7 @@
  * Anything structurally impossible, rather than merely cut short, is refused.
  */
 
-import type { ByteReader } from "./bytes";
+import type { ByteReader } from './bytes';
 import {
   createReader,
   readF32,
@@ -32,7 +32,7 @@ import {
   sliceReader,
   stringFits,
   TapeFormatError,
-} from "./bytes";
+} from './bytes';
 import {
   CHUNK_BODY,
   CHUNK_FRAME_BYTES,
@@ -40,7 +40,7 @@ import {
   CHUNK_OBSERVATIONS,
   CHUNK_TRAILER,
   CHUNK_WITNESS,
-} from "./chunks";
+} from './chunks';
 import {
   BODY_FIRST_TICK_BYTES,
   CHECKPOINT_BYTES,
@@ -48,14 +48,14 @@ import {
   FAULT_OBSERVATION_FIXED_BYTES,
   FAULT_OBSERVATION_PREFIX_BYTES,
   FRAME_OBSERVATION_BYTES,
-} from "./encode";
+} from './encode';
 import type {
   Observation,
   Tape,
   TapeCheckpoint,
   TapeHeader,
   TapeTrailer,
-} from "./tape";
+} from './tape';
 import {
   ABSENT_CODE,
   codeReader,
@@ -76,10 +76,10 @@ import {
   TAPE_INPUT_DEVICES,
   TAPE_INTEGRITIES,
   TAPE_MAGIC,
-} from "./tape";
-import { FAULT_IDENTITIES } from "../game/invariants";
-import type { WeaponLine } from "../game/lines/roster";
-import type { TickCommand } from "../game/run";
+} from './tape';
+import { FAULT_IDENTITIES } from '../game/invariants';
+import type { WeaponLine } from '../game/lines/roster';
+import type { TickCommand } from '../game/run';
 
 const INPUT_DEVICES_BY_CODE = codeReader(
   TAPE_INPUT_DEVICES,
@@ -120,7 +120,7 @@ function named<T extends string>(
 }
 
 function readMagic(reader: ByteReader): void {
-  let magic = "";
+  let magic = '';
   for (let index = 0; index < TAPE_MAGIC.length; index++) {
     magic += String.fromCharCode(readU8(reader));
   }
@@ -156,7 +156,7 @@ function readHeader(payload: ByteReader): TapeHeader {
   const inputDevice = named(
     INPUT_DEVICES_BY_CODE,
     readU8(payload),
-    "an input device",
+    'an input device',
   );
   const keyboardSpeed = readF32(payload);
   const rendererBackend = readString(payload);
@@ -164,7 +164,7 @@ function readHeader(payload: ByteReader): TapeHeader {
   const devicePixelRatio = readF32(payload);
   const recordedAt = readF64(payload);
   if (checkpointSpacing < 1) {
-    throw new TapeFormatError("a checkpoint spacing below one stamps nothing");
+    throw new TapeFormatError('a checkpoint spacing below one stamps nothing');
   }
   return {
     seed,
@@ -272,12 +272,12 @@ function readObservation(payload: ByteReader): Observation {
     const reason = named(
       FRAME_REASONS_BY_CODE,
       readU8(payload),
-      "a frame reason",
+      'a frame reason',
     );
     const present = readU8(payload) === 1;
     const tickIndex = readU32(payload);
     return {
-      kind: "frame",
+      kind: 'frame',
       reason,
       tickIndex: present ? tickIndex : null,
       ticksExecuted: readU16(payload),
@@ -288,9 +288,9 @@ function readObservation(payload: ByteReader): Observation {
     };
   }
   return {
-    kind: "fault",
-    identity: named(IDENTITIES_BY_CODE, readU16(payload), "a fault identity"),
-    severity: named(SEVERITIES_BY_CODE, readU8(payload), "a fault severity"),
+    kind: 'fault',
+    identity: named(IDENTITIES_BY_CODE, readU16(payload), 'a fault identity'),
+    severity: named(SEVERITIES_BY_CODE, readU8(payload), 'a fault severity'),
     firstTick: readU32(payload),
     count: readU32(payload),
     detail: readString(payload),
@@ -310,9 +310,9 @@ function readTrailer(payload: ByteReader): TapeTrailer {
     ending:
       endingCode === ABSENT_CODE
         ? null
-        : named(ENDINGS_BY_CODE, endingCode, "an ending"),
-    stop: named(STOPS_BY_CODE, readU8(payload), "a stop"),
-    integrity: named(INTEGRITIES_BY_CODE, readU8(payload), "an integrity"),
+        : named(ENDINGS_BY_CODE, endingCode, 'an ending'),
+    stop: named(STOPS_BY_CODE, readU8(payload), 'a stop'),
+    integrity: named(INTEGRITIES_BY_CODE, readU8(payload), 'an integrity'),
     debtTicks: readU32(payload),
   };
 }
@@ -360,29 +360,29 @@ function readChunk(
 ): void {
   if (kind === CHUNK_HEADER) {
     sections.header = readHeader(payload);
-    refuseLeftovers(payload, complete, "the header");
+    refuseLeftovers(payload, complete, 'the header');
     return;
   }
   if (kind === CHUNK_BODY) {
     readBody(payload, sections.commands);
-    refuseLeftovers(payload, complete, "a body chunk");
+    refuseLeftovers(payload, complete, 'a body chunk');
     return;
   }
   if (kind === CHUNK_WITNESS) {
     readCheckpoints(payload, sections.checkpoints);
-    refuseLeftovers(payload, complete, "a witness chunk");
+    refuseLeftovers(payload, complete, 'a witness chunk');
     return;
   }
   if (kind === CHUNK_OBSERVATIONS) {
     readObservations(payload, sections.observations);
-    refuseLeftovers(payload, complete, "an observations chunk");
+    refuseLeftovers(payload, complete, 'an observations chunk');
     return;
   }
   // A trailer is written in one go at the stop, so half of one is no trailer at
   // all rather than a trailer with some fields missing.
   if (kind !== CHUNK_TRAILER || !complete) return;
   sections.trailer = readTrailer(payload);
-  refuseLeftovers(payload, complete, "the trailer");
+  refuseLeftovers(payload, complete, 'the trailer');
 }
 
 /**
@@ -429,7 +429,7 @@ export function decodeTape(bytes: Uint8Array): DecodedTape {
 
   const header = sections.header;
   if (header === null) {
-    throw new TapeFormatError("this tape has no header");
+    throw new TapeFormatError('this tape has no header');
   }
   return {
     tape: {

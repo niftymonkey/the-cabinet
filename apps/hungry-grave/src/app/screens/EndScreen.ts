@@ -1,15 +1,15 @@
-import { Container } from "pixi.js";
+import { Container } from 'pixi.js';
 
-import type { RunEnding } from "../../game/run";
-import { engine } from "../getEngine";
-import { MENU } from "../palette";
-import type { FaultSummary, RunSummary } from "../runHandoff";
-import { runHandoff } from "../runHandoff";
-import { saveTapeFile, tapeFileName } from "../tapeExport";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
-import { bindKeyPress } from "../utils/bindKeyPress";
-import { GameScreen } from "./game/GameScreen";
+import type { RunEnding } from '../../game/run';
+import { engine } from '../getEngine';
+import { MENU } from '../palette';
+import type { FaultSummary, RunSummary } from '../runHandoff';
+import { runHandoff } from '../runHandoff';
+import { saveTapeFile, tapeFileName } from '../tapeExport';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
+import { bindKeyPress } from '../utils/bindKeyPress';
+import { GameScreen } from './game/GameScreen';
 
 /**
  * What the end screen says happened. Sealed shut is ADR 0003's death and the
@@ -18,12 +18,12 @@ import { GameScreen } from "./game/GameScreen";
  * victory the player sees, so it does not admit to being one.
  */
 const ENDING_TITLE: Record<RunEnding, string> = {
-  sealed: "SEALED SHUT",
-  victory: "THE STAGE SURVIVED",
+  sealed: 'SEALED SHUT',
+  victory: 'THE STAGE SURVIVED',
 };
 
 /** A run the player ended themselves, which is neither ending. */
-const ABANDONED_TITLE = "THE RUN IS OVER";
+const ABANDONED_TITLE = 'THE RUN IS OVER';
 
 /**
  * A run the instrument stopped (ADR 0017 ruling 2). No new screen: the fatal
@@ -34,7 +34,7 @@ const ABANDONED_TITLE = "THE RUN IS OVER";
  * Minecraft's fatal-error state, distinct from both death and quit because the
  * player's next action differs.
  */
-const FAULTED_TITLE = "THE GAME BROKE";
+const FAULTED_TITLE = 'THE GAME BROKE';
 
 /**
  * The fault line's size, half a step under the menu's 18. The widest identity
@@ -74,7 +74,7 @@ function titleFor(summary: RunSummary | null): string {
  */
 export class EndScreen extends Container {
   // Assets bundles required by this screen
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   private readonly title: Label;
   private readonly seedLabel: Label;
@@ -114,20 +114,20 @@ export class EndScreen extends Container {
     // renderer, and a diagnostic readout wears the diagnostic face.
     this.faultLabel = new Label({
       style: {
-        fontFamily: "monospace",
+        fontFamily: 'monospace',
         fill: MENU.menuDim.hex,
         fontSize: FAULT_FONT_SIZE,
       },
     });
     this.againButton = new Button({
-      text: "RISE AGAIN",
+      text: 'RISE AGAIN',
       width: 300,
       height: 100,
       fontSize: 24,
     });
     this.againButton.onPress.connect(() => this.riseAgain());
     this.saveButton = new Button({
-      text: "SAVE TAPE",
+      text: 'SAVE TAPE',
       width: 300,
       height: 70,
       fontSize: 18,
@@ -149,11 +149,11 @@ export class EndScreen extends Container {
     const summary = runHandoff.read();
     this.title.text = titleFor(summary);
     const fault = summary === null ? null : summary.fault;
-    this.faultLabel.text = fault === null ? "" : faultCaption(fault);
-    this.seedLabel.text = summary ? `SEED ${summary.seed}` : "NO RUN RECORDED";
-    this.tickLabel.text = summary ? `${summary.ticks} TICKS` : "";
+    this.faultLabel.text = fault === null ? '' : faultCaption(fault);
+    this.seedLabel.text = summary ? `SEED ${summary.seed}` : 'NO RUN RECORDED';
+    this.tickLabel.text = summary ? `${summary.ticks} TICKS` : '';
     this.saveButton.visible = runHandoff.readTape() !== null;
-    this.releaseKeys = bindKeyPress("Enter", () => this.riseAgain());
+    this.releaseKeys = bindKeyPress('Enter', () => this.riseAgain());
   }
 
   public reset() {

@@ -1,17 +1,17 @@
 // The base app's only screen: the list of prototypes. It knows nothing about
 // any prototype's insides; it renders the registry and routes into one.
 
-import type { Container as ContainerType } from "pixi.js";
-import { Container } from "pixi.js";
+import type { Container as ContainerType } from 'pixi.js';
+import { Container } from 'pixi.js';
 
-import { prototypeHash, PROTOTYPES } from "../../prototypes";
-import { MENU } from "../palette";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/Label";
+import { prototypeHash, PROTOTYPES } from '../../prototypes';
+import { MENU } from '../palette';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/Label';
 
 export class PrototypesScreen extends Container {
   /** Assets bundles required by this screen */
-  public static assetBundles = ["main"];
+  public static assetBundles = ['main'];
 
   private readonly title: Label;
   private readonly tagline: Label;
@@ -22,11 +22,11 @@ export class PrototypesScreen extends Container {
     super();
 
     this.title = new Label({
-      text: "PROTOTYPES",
+      text: 'PROTOTYPES',
       style: { fill: MENU.menuInk.hex, fontSize: 44, letterSpacing: 8 },
     });
     this.tagline = new Label({
-      text: "Throwaway builds that answer design questions. Play, learn, discard.",
+      text: 'Throwaway builds that answer design questions. Play, learn, discard.',
       style: { fill: MENU.menuDim.hex, fontSize: 16 },
     });
     this.rows = PROTOTYPES.map((entry) => {
@@ -48,7 +48,7 @@ export class PrototypesScreen extends Container {
     });
     if (PROTOTYPES.length === 0) {
       this.empty = new Label({
-        text: "No prototypes right now. The scaffold waits, blank on purpose.",
+        text: 'No prototypes right now. The scaffold waits, blank on purpose.',
         style: { fill: MENU.menuDim.hex, fontSize: 16 },
       });
       this.addChild(this.empty);

@@ -16,16 +16,16 @@
  * already in place. Readability loses to a stable baseline in this file.
  */
 
-import type { Corpse } from "./corpses";
-import type { Grave } from "./grave";
-import type { BellRing } from "./lines/bell";
-import type { WeaponLine } from "./lines/roster";
-import { WEAPON_LINES } from "./lines/roster";
-import type { CorpseTier } from "./mobs";
-import type { StreamName } from "./rng";
-import type { LineState, RunEnding, RunState } from "./run";
-import type { StageState } from "./stage/stage";
-import type { FoodKind } from "./swallow";
+import type { Corpse } from './corpses';
+import type { Grave } from './grave';
+import type { BellRing } from './lines/bell';
+import type { WeaponLine } from './lines/roster';
+import { WEAPON_LINES } from './lines/roster';
+import type { CorpseTier } from './mobs';
+import type { StreamName } from './rng';
+import type { LineState, RunEnding, RunState } from './run';
+import type { StageState } from './stage/stage';
+import type { FoodKind } from './swallow';
 
 /**
  * The order the four streams' cursors fold in. It is spelled out rather than
@@ -33,10 +33,10 @@ import type { FoodKind } from "./swallow";
  * order is a fold nobody can reproduce from the type alone.
  */
 const STREAM_ORDER: readonly StreamName[] = [
-  "spawns",
-  "drops",
-  "mobFire",
-  "shed",
+  'spawns',
+  'drops',
+  'mobFire',
+  'shed',
 ];
 
 /**

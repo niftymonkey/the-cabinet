@@ -3,15 +3,15 @@
  * come from the ADR and from dispatch 5's plan section 6.14.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { fireBelch } from "./belch";
-import type { Mob } from "./mobs";
-import { hasEntered, spawnMob } from "./mobs";
-import type { RunState } from "./run";
-import { createRun } from "./run";
-import { RAMP_ROWS } from "./stage/stage";
-import { RESERVOIR_CAPACITY } from "./tuning";
+import { fireBelch } from './belch';
+import type { Mob } from './mobs';
+import { hasEntered, spawnMob } from './mobs';
+import type { RunState } from './run';
+import { createRun } from './run';
+import { RAMP_ROWS } from './stage/stage';
+import { RESERVOIR_CAPACITY } from './tuning';
 
 function quietRun(seed = 16): RunState {
   const run = createRun(seed);
@@ -38,7 +38,7 @@ function armField(state: RunState, count: number): void {
 function fillField(state: RunState, count: number): Mob[] {
   const mobs: Mob[] = [];
   for (let index = 0; index < count; index++) {
-    const mob = spawnMob(state, "shambler", {
+    const mob = spawnMob(state, 'shambler', {
       x: 40 + index * 24,
       y: 100,
       vx: 0,
@@ -63,8 +63,8 @@ function liveCorpses(state: RunState): number {
   return state.corpses.filter((corpse) => corpse.alive).length;
 }
 
-describe("the belch is full only (ADR 0008)", () => {
-  it("does nothing below a full reservoir, at any level of charge", () => {
+describe('the belch is full only (ADR 0008)', () => {
+  it('does nothing below a full reservoir, at any level of charge', () => {
     // There is no partial bomb: one big earned moment, and a partial would
     // dilute the feast set piece and muddy the belch-timing instruments.
     for (const share of [0, 0.25, 0.5, 0.9, 0.999]) {
@@ -80,7 +80,7 @@ describe("the belch is full only (ADR 0008)", () => {
     }
   });
 
-  it("cancels every live shot on the field and empties the reservoir at full", () => {
+  it('cancels every live shot on the field and empties the reservoir at full', () => {
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     armField(state, 40);
@@ -89,15 +89,15 @@ describe("the belch is full only (ADR 0008)", () => {
     expect(state.reservoir).toBe(0);
   });
 
-  it("emits belched with zero on an empty sky, so a wipe spent on nothing is still legible", () => {
+  it('emits belched with zero on an empty sky, so a wipe spent on nothing is still legible', () => {
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     expect(fireBelch(state)).toEqual([
-      { type: "belched", cancelled: 0, killed: 0 },
+      { type: 'belched', cancelled: 0, killed: 0 },
     ]);
   });
 
-  it("does nothing on a second press immediately after, by the resource and not by a flag", () => {
+  it('does nothing on a second press immediately after, by the resource and not by a flag', () => {
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     armField(state, 5);
@@ -110,8 +110,8 @@ describe("the belch is full only (ADR 0008)", () => {
   });
 });
 
-describe("the belch wipes the mobs on screen (ADR 0008)", () => {
-  it("kills every mob that has entered the field, one mobKilled each", () => {
+describe('the belch wipes the mobs on screen (ADR 0008)', () => {
+  it('kills every mob that has entered the field, one mobKilled each', () => {
     // The prototype's belch did this from the first build and the ADR lost it
     // by omission. Without it a belch into the Wall cancels bullets the Wall
     // never fired, and the curtain that damages by contact walks on through.
@@ -123,16 +123,16 @@ describe("the belch wipes the mobs on screen (ADR 0008)", () => {
 
     expect(mobs.filter((mob) => mob.alive)).toHaveLength(0);
     expect(liveMobs(state)).toBe(0);
-    expect(events.filter((event) => event.type === "mobKilled")).toHaveLength(
+    expect(events.filter((event) => event.type === 'mobKilled')).toHaveLength(
       6,
     );
   });
 
-  it("leaves a mob still above the top edge alive, because the bomb is scoped to what is on screen", () => {
+  it('leaves a mob still above the top edge alive, because the bomb is scoped to what is on screen', () => {
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     const onScreen = fillField(state, 1)[0];
-    const above = spawnMob(state, "shambler", {
+    const above = spawnMob(state, 'shambler', {
       x: 200,
       y: -40,
       vx: 0,
@@ -147,7 +147,7 @@ describe("the belch wipes the mobs on screen (ADR 0008)", () => {
     expect(above.alive).toBe(true);
   });
 
-  it("leaves a corpse in the food pool for every mob it kills", () => {
+  it('leaves a corpse in the food pool for every mob it kills', () => {
     // The wipe routes through the normal kill path, so the reward is the same
     // rain of corpses any other kill leaves and the drop economy keeps running.
     const state = quietRun();
@@ -160,7 +160,7 @@ describe("the belch wipes the mobs on screen (ADR 0008)", () => {
     expect(liveCorpses(state)).toBe(4);
   });
 
-  it("carries the cancelled shot count and the killed mob count on one belched event", () => {
+  it('carries the cancelled shot count and the killed mob count on one belched event', () => {
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     armField(state, 17);
@@ -168,8 +168,8 @@ describe("the belch wipes the mobs on screen (ADR 0008)", () => {
 
     const events = fireBelch(state);
 
-    expect(events.filter((event) => event.type === "belched")).toEqual([
-      { type: "belched", cancelled: 17, killed: 3 },
+    expect(events.filter((event) => event.type === 'belched')).toEqual([
+      { type: 'belched', cancelled: 17, killed: 3 },
     ]);
   });
 });

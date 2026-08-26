@@ -4,32 +4,32 @@
  * defend, and hitGrave is the only other thing that changes size at all.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from "./caps";
-import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from "./lines/roster";
-import { createRun, uniformLevels } from "./run";
-import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from "./tuning";
+import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from './caps';
+import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from './lines/roster';
+import { createRun, uniformLevels } from './run';
+import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from './tuning';
 
-describe("createRun", () => {
-  it("starts at SIZE_START when no starting size is asked for", () => {
+describe('createRun', () => {
+  it('starts at SIZE_START when no starting size is asked for', () => {
     expect(createRun(1).grave.size).toBe(SIZE_START);
   });
 
-  it("takes a starting size inside the bounds exactly as given", () => {
+  it('takes a starting size inside the bounds exactly as given', () => {
     expect(createRun(1, SIZE_FLOOR).grave.size).toBe(SIZE_FLOOR);
     expect(createRun(1, SIZE_CEILING).grave.size).toBe(SIZE_CEILING);
     expect(createRun(1, 40).grave.size).toBe(40);
   });
 
-  it("clamps a starting size below the floor and above the ceiling", () => {
+  it('clamps a starting size below the floor and above the ceiling', () => {
     expect(createRun(1, SIZE_FLOOR - 10).grave.size).toBe(SIZE_FLOOR);
     expect(createRun(1, 0).grave.size).toBe(SIZE_FLOOR);
     expect(createRun(1, SIZE_CEILING + 10).grave.size).toBe(SIZE_CEILING);
     expect(createRun(1, 10_000).grave.size).toBe(SIZE_CEILING);
   });
 
-  it("pre-allocates every pool at full capacity, with nothing alive", () => {
+  it('pre-allocates every pool at full capacity, with nothing alive', () => {
     const run = createRun(1);
     expect(run.mobs).toHaveLength(MOB_CAP);
     expect(run.mobFire).toHaveLength(MOB_FIRE_CAP);
@@ -40,12 +40,12 @@ describe("createRun", () => {
     expect(run.nextEntityId).toBeGreaterThan(0);
   });
 
-  it("starts the stage at its first phase", () => {
+  it('starts the stage at its first phase', () => {
     const run = createRun(1);
     expect(run.stage).toEqual({ phaseIndex: 0, phaseTick: 0, firedRows: 0 });
   });
 
-  it("starts at the birthright when no levels are asked for", () => {
+  it('starts at the birthright when no levels are asked for', () => {
     const run = createRun(1);
     for (const line of WEAPON_LINES) {
       expect(run.levels[line]).toBe(BIRTHRIGHT.includes(line) ? 1 : 0);
@@ -72,7 +72,7 @@ describe("createRun", () => {
     });
   });
 
-  it("copies the given levels rather than aliasing them, because the rules mutate them in place", () => {
+  it('copies the given levels rather than aliasing them, because the rules mutate them in place', () => {
     const given = uniformLevels(3);
     const run = createRun(1, undefined, given);
 

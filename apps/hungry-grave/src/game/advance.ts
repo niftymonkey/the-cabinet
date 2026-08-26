@@ -9,13 +9,13 @@
  * autopilot would write a second one.
  */
 
-import type { Clock } from "./clock";
-import { ticksFor } from "./clock";
-import type { SimEvent } from "./events";
-import type { Execution } from "./execution";
-import { executeTick } from "./execution";
-import type { FieldPoint } from "./grave";
-import type { TickCommand } from "./run";
+import type { Clock } from './clock';
+import { ticksFor } from './clock';
+import type { SimEvent } from './events';
+import type { Execution } from './execution';
+import { executeTick } from './execution';
+import type { FieldPoint } from './grave';
+import type { TickCommand } from './run';
 
 /**
  * Where this tick's command comes from. It takes a point and not a Grave

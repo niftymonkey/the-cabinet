@@ -3,28 +3,28 @@
  * and holds no rules.
  */
 
-import type { Bounds, Graphics } from "pixi.js";
-import { describe, expect, it } from "vitest";
+import type { Bounds, Graphics } from 'pixi.js';
+import { describe, expect, it } from 'vitest';
 
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from "../../../game/caps";
-import { TICK_HZ } from "../../../game/clock";
-import { FIELD_HEIGHT } from "../../../game/field";
-import type { Corpse } from "../../../game/corpses";
+import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../../../game/caps';
+import { TICK_HZ } from '../../../game/clock';
+import { FIELD_HEIGHT } from '../../../game/field';
+import type { Corpse } from '../../../game/corpses';
 import {
   CORPSE_HALF_EXTENT,
   spawnCorpse,
   spawnDrop,
-} from "../../../game/corpses";
-import type { WeaponLine } from "../../../game/lines/roster";
-import { WEAPON_LINES } from "../../../game/lines/roster";
-import type { MobType } from "../../../game/mobs";
-import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from "../../../game/mobs";
-import type { RunState } from "../../../game/run";
-import { createRun } from "../../../game/run";
-import { DROP_HALF_EXTENT } from "../../../game/drops";
-import { INVULNERABLE_TICKS } from "../../../game/tuning";
-import { CORPSE_TIERS, PALETTE } from "../../palette";
-import fieldRendererSource from "./FieldRenderer.ts?raw";
+} from '../../../game/corpses';
+import type { WeaponLine } from '../../../game/lines/roster';
+import { WEAPON_LINES } from '../../../game/lines/roster';
+import type { MobType } from '../../../game/mobs';
+import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../../../game/mobs';
+import type { RunState } from '../../../game/run';
+import { createRun } from '../../../game/run';
+import { DROP_HALF_EXTENT } from '../../../game/drops';
+import { INVULNERABLE_TICKS } from '../../../game/tuning';
+import { CORPSE_TIERS, PALETTE } from '../../palette';
+import fieldRendererSource from './FieldRenderer.ts?raw';
 import {
   alarmRadius,
   DROP_DRAW_HALF_EXTENT,
@@ -35,8 +35,8 @@ import {
   SHOT_DRAW_SCALE,
   SPRITE_STROKE,
   tellRadius,
-} from "./FieldRenderer";
-import { FieldLayers } from "./layering";
+} from './FieldRenderer';
+import { FieldLayers } from './layering';
 
 function attached(): { layers: FieldLayers; renderer: FieldRenderer } {
   const layers = new FieldLayers();
@@ -57,7 +57,7 @@ function put(state: RunState, type: MobType, x: number, y: number) {
 function flickering(state: RunState, count: number): Corpse[] {
   const dead = [];
   for (let index = 0; index < count; index++) {
-    const mob = put(state, "shambler", 40 + index * 30, 100);
+    const mob = put(state, 'shambler', 40 + index * 30, 100);
     mob.alive = false;
     dead.push(mob);
   }
@@ -67,7 +67,7 @@ function flickering(state: RunState, count: number): Corpse[] {
   return wave;
 }
 
-function sprites(layers: FieldLayers, name: "corpses" | "mobBodies") {
+function sprites(layers: FieldLayers, name: 'corpses' | 'mobBodies') {
   return layers.layer(name).children as Graphics[];
 }
 
@@ -76,7 +76,7 @@ function putShot(state: RunState, x: number, y: number) {
   const shot = state.mobFire[0];
   shot.alive = true;
   shot.id = 1;
-  shot.emitter = "shambler";
+  shot.emitter = 'shambler';
   shot.x = x;
   shot.y = y;
   shot.vx = 0;
@@ -87,81 +87,81 @@ function putShot(state: RunState, x: number, y: number) {
 
 /** attach() adds the scatters after the shot pool, so they are the tail of the layer. */
 function visibleScatters(layers: FieldLayers): number {
-  const fire = layers.layer("mobFire").children as Graphics[];
+  const fire = layers.layer('mobFire').children as Graphics[];
   return fire.slice(MOB_FIRE_CAP).filter((each) => each.visible).length;
 }
 
-describe("FieldRenderer", () => {
-  it("draws each entity kind into the layer layering.ts names for it (ADR 0014)", () => {
+describe('FieldRenderer', () => {
+  it('draws each entity kind into the layer layering.ts names for it (ADR 0014)', () => {
     const { layers } = attached();
-    expect(layers.layer("corpses").children).toHaveLength(CORPSE_CAP);
-    expect(layers.layer("mobBodies").children).toHaveLength(MOB_CAP);
+    expect(layers.layer('corpses').children).toHaveLength(CORPSE_CAP);
+    expect(layers.layer('mobBodies').children).toHaveLength(MOB_CAP);
     // The shot pool plus the cancelled-shot scatters, which share the layer
     // because a cancel is mob fire coming apart.
-    expect(layers.layer("mobFire").children.length).toBeGreaterThanOrEqual(
+    expect(layers.layer('mobFire').children.length).toBeGreaterThanOrEqual(
       MOB_FIRE_CAP,
     );
-    expect(layers.layer("hitDim").children).toHaveLength(1);
+    expect(layers.layer('hitDim').children).toHaveLength(1);
     // A sprite per corpse slot in the treasure layer too: drops ride the corpse
     // pool and ADR 0014's stack puts treasure two layers above corpses, so one
     // slot needs a sprite in each and which one shows is decided by its kind.
-    expect(layers.layer("treasure").children).toHaveLength(CORPSE_CAP);
-    expect(layers.layer("storm").children).toHaveLength(0);
+    expect(layers.layer('treasure').children).toHaveLength(CORPSE_CAP);
+    expect(layers.layer('storm').children).toHaveLength(0);
   });
 
-  it("shows a sprite only while its slot is alive", () => {
+  it('shows a sprite only while its slot is alive', () => {
     const { layers, renderer } = attached();
     const state = createRun(1);
     renderer.sync(state);
-    expect(sprites(layers, "mobBodies").every((each) => !each.visible)).toBe(
+    expect(sprites(layers, 'mobBodies').every((each) => !each.visible)).toBe(
       true,
     );
 
-    const mob = put(state, "shambler", 100, 100);
+    const mob = put(state, 'shambler', 100, 100);
     renderer.sync(state);
     const slot = state.mobs.indexOf(mob);
-    expect(sprites(layers, "mobBodies")[slot].visible).toBe(true);
-    expect(sprites(layers, "mobBodies")[slot].position.x).toBe(100);
+    expect(sprites(layers, 'mobBodies')[slot].visible).toBe(true);
+    expect(sprites(layers, 'mobBodies')[slot].position.x).toBe(100);
 
     mob.alive = false;
     renderer.sync(state);
-    expect(sprites(layers, "mobBodies")[slot].visible).toBe(false);
+    expect(sprites(layers, 'mobBodies')[slot].visible).toBe(false);
   });
 
-  it("pools its sprites the way the entities are pooled: a spawn after a death reuses one", () => {
+  it('pools its sprites the way the entities are pooled: a spawn after a death reuses one', () => {
     // Allocating a sprite per spawn is what makes a wave hitch, and this app's
     // whole defect history is pooled things nobody reset.
     const { layers, renderer } = attached();
     const state = createRun(1);
-    const first = put(state, "shambler", 100, 100);
+    const first = put(state, 'shambler', 100, 100);
     renderer.sync(state);
     const slot = state.mobs.indexOf(first);
-    const sprite = sprites(layers, "mobBodies")[slot];
+    const sprite = sprites(layers, 'mobBodies')[slot];
 
     first.alive = false;
-    const second = put(state, "revenant", 300, 200);
+    const second = put(state, 'revenant', 300, 200);
     expect(state.mobs.indexOf(second)).toBe(slot);
     renderer.sync(state);
 
-    expect(sprites(layers, "mobBodies")).toHaveLength(MOB_CAP);
-    expect(sprites(layers, "mobBodies")[slot]).toBe(sprite);
+    expect(sprites(layers, 'mobBodies')).toHaveLength(MOB_CAP);
+    expect(sprites(layers, 'mobBodies')[slot]).toBe(sprite);
     expect(sprite.position.x).toBe(300);
   });
 
-  it("fades a corpse by its freshness, as a tint on the declared hex and never as an alpha", () => {
+  it('fades a corpse by its freshness, as a tint on the declared hex and never as an alpha', () => {
     // An alpha fade would rotate a cream corpse's hue toward the night as it
     // drains, so every hue check in the palette test would be reasoning about a
     // colour the sprite never is (section 4.15.4).
     const { layers, renderer } = attached();
     const state = createRun(1);
-    const dead = put(state, "shambler", 60, 100);
+    const dead = put(state, 'shambler', 60, 100);
     dead.alive = false;
     spawnCorpse(state, dead);
     const corpse = state.corpses.find((each) => each.alive)!;
     const slot = state.corpses.indexOf(corpse);
 
     renderer.sync(state);
-    const sprite = sprites(layers, "corpses")[slot];
+    const sprite = sprites(layers, 'corpses')[slot];
     expect(sprite.alpha).toBe(1);
     const fresh = sprite.tint;
 
@@ -178,9 +178,9 @@ describe("FieldRenderer", () => {
     );
   });
 
-  it("flickers a nearly empty corpse and never a feast", () => {
+  it('flickers a nearly empty corpse and never a feast', () => {
     const state = createRun(1);
-    const dead = put(state, "shambler", 60, 100);
+    const dead = put(state, 'shambler', 60, 100);
     dead.alive = false;
     spawnCorpse(state, dead);
     const corpse = state.corpses.find((each) => each.alive)!;
@@ -195,20 +195,20 @@ describe("FieldRenderer", () => {
     expect(freshnessBrightness(feast, 6)).toBe(1);
   });
 
-  it("tells an armed mob from an unarmed one, and a lit tell from an unlit one", () => {
+  it('tells an armed mob from an unarmed one, and a lit tell from an unlit one', () => {
     // ADR 0016 puts this ahead of everything else about the mob pool: a
     // shambler that will never shoot and one that will must not be the same
     // drawing, and a revenant's tell has to precede its shot.
     const { layers, renderer } = attached();
     const state = createRun(1);
-    const plain = spawnMob(state, "shambler", {
+    const plain = spawnMob(state, 'shambler', {
       x: 60,
       y: MOB_TYPES.shambler.halfHeight,
       vx: 0,
       vy: 1,
       index: 0,
     })!;
-    const armed = spawnMob(state, "shambler", {
+    const armed = spawnMob(state, 'shambler', {
       x: 120,
       y: MOB_TYPES.shambler.halfHeight,
       vx: 0,
@@ -221,14 +221,14 @@ describe("FieldRenderer", () => {
 
     // What was drawn, as the list of drawing actions pixi recorded.
     const drawn = (mob: typeof plain) =>
-      sprites(layers, "mobBodies")
+      sprites(layers, 'mobBodies')
         [state.mobs.indexOf(mob)].context.instructions.map(
           (each) => each.action,
         )
-        .join(",");
+        .join(',');
     expect(drawn(plain)).not.toBe(drawn(armed));
 
-    const revenant = spawnMob(state, "revenant", {
+    const revenant = spawnMob(state, 'revenant', {
       x: 200,
       y: MOB_TYPES.revenant.halfHeight,
       vx: 0,
@@ -245,15 +245,15 @@ describe("FieldRenderer", () => {
     // And the tell closes as the shot approaches, rather than only switching
     // on, so a player reads how long is left and not just that something is
     // coming.
-    expect(tellRadius("revenant", 1)).toBeLessThan(tellRadius("revenant", 0));
-    expect(tellRadius("revenant", 0.5)).toBeLessThan(tellRadius("revenant", 0));
-    expect(tellRadius("revenant", 1)).toBeGreaterThan(0);
+    expect(tellRadius('revenant', 1)).toBeLessThan(tellRadius('revenant', 0));
+    expect(tellRadius('revenant', 0.5)).toBeLessThan(tellRadius('revenant', 0));
+    expect(tellRadius('revenant', 1)).toBeGreaterThan(0);
   });
 
-  it("draws the hit dim in its own layer, following the window down to zero", () => {
+  it('draws the hit dim in its own layer, following the window down to zero', () => {
     const { layers, renderer } = attached();
     const state = createRun(1);
-    const dim = layers.layer("hitDim").children[0] as Graphics;
+    const dim = layers.layer('hitDim').children[0] as Graphics;
 
     renderer.sync(state);
     expect(dim.alpha).toBe(0);
@@ -273,14 +273,14 @@ describe("FieldRenderer", () => {
     expect(dim.alpha).toBe(0);
   });
 
-  it("names a colour for every corpse tier the sim can produce", () => {
-    for (const type of ["shambler", "revenant", "ghoul"] as const) {
+  it('names a colour for every corpse tier the sim can produce', () => {
+    for (const type of ['shambler', 'revenant', 'ghoul'] as const) {
       const tier = MOB_TYPES[type].corpseTier;
       expect(`${type} ${tier in CORPSE_TIERS}`).toBe(`${type} true`);
     }
   });
 
-  it("draws a cancel scatter where a shot stopped being alive inside the field", () => {
+  it('draws a cancel scatter where a shot stopped being alive inside the field', () => {
     const { layers, renderer } = attached();
     const state = createRun(1);
     putShot(state, 200, 300);
@@ -294,7 +294,7 @@ describe("FieldRenderer", () => {
     expect(visibleScatters(layers)).toBe(1);
   });
 
-  it("does not scatter for a shot that left the field, which was culled rather than cancelled", () => {
+  it('does not scatter for a shot that left the field, which was culled rather than cancelled', () => {
     const { layers, renderer } = attached();
     const state = createRun(1);
     putShot(state, 200, FIELD_HEIGHT + 40);
@@ -304,7 +304,7 @@ describe("FieldRenderer", () => {
     expect(visibleScatters(layers)).toBe(0);
   });
 
-  it("starts a second run with no scatter left over from the first, because the screen is pooled", () => {
+  it('starts a second run with no scatter left over from the first, because the screen is pooled', () => {
     // The fifth leak of this kind in this app. reset() calls layers.clear()
     // and then dressField(), so attach() is the one place a renderer is put
     // back, and anything it remembers about the previous run has to die there.
@@ -326,7 +326,7 @@ describe("FieldRenderer", () => {
     expect(visibleScatters(layers)).toBe(0);
   });
 
-  it("gives a second run the whole scatter pool, not the slots the first run left unused", () => {
+  it('gives a second run the whole scatter pool, not the slots the first run left unused', () => {
     // oldestScatter() picks the smallest born. A scatter carrying run one's
     // tick is larger than anything run two can produce for its first fifteen
     // seconds, so without the clear those slots are never reused and the pool
@@ -353,18 +353,18 @@ describe("FieldRenderer", () => {
     expect(visibleScatters(layers)).toBe(1);
   });
 
-  it("detach then attach puts everything back, which FieldLayers.clear() between runs requires", () => {
+  it('detach then attach puts everything back, which FieldLayers.clear() between runs requires', () => {
     const { layers, renderer } = attached();
     renderer.detach();
-    for (const name of ["corpses", "mobBodies", "mobFire", "hitDim"] as const) {
+    for (const name of ['corpses', 'mobBodies', 'mobFire', 'hitDim'] as const) {
       expect(layers.layer(name).children).toHaveLength(0);
     }
 
     layers.clear();
     renderer.attach(layers);
-    expect(layers.layer("corpses").children).toHaveLength(CORPSE_CAP);
-    expect(layers.layer("mobBodies").children).toHaveLength(MOB_CAP);
-    expect(layers.layer("hitDim").children).toHaveLength(1);
+    expect(layers.layer('corpses').children).toHaveLength(CORPSE_CAP);
+    expect(layers.layer('mobBodies').children).toHaveLength(MOB_CAP);
+    expect(layers.layer('hitDim').children).toHaveLength(1);
   });
 });
 
@@ -384,7 +384,7 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
     expect(flashesPerSecond).toBeLessThanOrEqual(3);
   });
 
-  it("flickers two corpses killed on the same tick out of phase", () => {
+  it('flickers two corpses killed on the same tick out of phase', () => {
     // The pair is two ids apart rather than adjacent. An offset that reduces
     // to the id's parity puts every corpse in one of two lockstep halves, and
     // two adjacent ids land in different halves, so an adjacent pair reads as
@@ -403,7 +403,7 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
     expect(differed.some((apart) => apart)).toBe(true);
   });
 
-  it("switches only a fraction of a burst-killed wave on any one tick", () => {
+  it('switches only a fraction of a burst-killed wave on any one tick', () => {
     // The hazard SC 2.3.1 is written about is a large area changing luminance
     // together, so what the offset has to buy is a small area per switch. A
     // wave in two halves changes half of itself at once; spread across the
@@ -426,26 +426,26 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
   it("gives the revenant's tell a component that grows as the shot approaches", () => {
     // The closing iris is a countdown and it stays. What it could not do alone
     // is hold salience: it closes to nothing at the moment of maximum urgency.
-    const early = alarmRadius("revenant", 0);
-    const late = alarmRadius("revenant", 1);
+    const early = alarmRadius('revenant', 0);
+    const late = alarmRadius('revenant', 1);
     expect(late).toBeGreaterThan(early);
     // And the iris still closes, so the pair is a countdown and an alarm.
-    expect(tellRadius("revenant", 1)).toBeLessThan(tellRadius("revenant", 0));
+    expect(tellRadius('revenant', 1)).toBeLessThan(tellRadius('revenant', 0));
   });
 
   it("draws the armed marker as something in no mob type's silhouette", () => {
     // It was a down-pointing triangle, which is the ghoul's own body shape, and
     // ADR 0014 makes silhouette the first discriminator between types.
     const source = fieldRendererSource;
-    expect(source).toContain("ARMED_NOTCH_HEIGHT");
+    expect(source).toContain('ARMED_NOTCH_HEIGHT');
     // The armed mark is a rect and no mob body is.
-    const mark = source.slice(source.indexOf("function drawArmedMark"));
-    const body = mark.slice(0, mark.indexOf("\n}"));
-    expect(body).toContain(".rect(");
-    expect(body).not.toContain("polygon(");
+    const mark = source.slice(source.indexOf('function drawArmedMark'));
+    const body = mark.slice(0, mark.indexOf('\n}'));
+    expect(body).toContain('.rect(');
+    expect(body).not.toContain('polygon(');
   });
 
-  it("draws a shot larger than its hitbox and its core no larger than its hitbox", () => {
+  it('draws a shot larger than its hitbox and its core no larger than its hitbox', () => {
     // The assertion that would have caught an earlier draft raising the
     // collision box in the name of readability. The sprite grew; the box did not.
     expect(SHOT_DRAW_SCALE).toBeGreaterThan(1);
@@ -455,7 +455,7 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
     const state = createRun(3);
     const shot = putShot(state, 200, 300);
     renderer.sync(state);
-    const sprite = (layers.layer("mobFire").children as Graphics[])[0];
+    const sprite = (layers.layer('mobFire').children as Graphics[])[0];
     const drawn = sprite.getLocalBounds();
     expect(Math.max(drawn.width, drawn.height) / 2).toBeGreaterThan(
       shot.halfExtent,
@@ -463,27 +463,27 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
   });
 });
 
-describe("a drop on the field (plan 6.8)", () => {
+describe('a drop on the field (plan 6.8)', () => {
   function dropAt(state: RunState, line: WeaponLine) {
     spawnDrop(state, 200, 300, line);
     return state.corpses.find((corpse) => corpse.alive)!;
   }
 
-  it("draws in the treasure layer and never in the corpses layer", () => {
+  it('draws in the treasure layer and never in the corpses layer', () => {
     // ADR 0014's stack puts treasure above mob bodies and corpses below them,
     // so a drop under a pile still reads as the thing worth diving for.
     const { layers, renderer } = attached();
     const state = createRun(3);
-    dropAt(state, "bell");
+    dropAt(state, 'bell');
     renderer.sync(state);
 
-    const treasure = layers.layer("treasure").children as Graphics[];
-    const corpses = layers.layer("corpses").children as Graphics[];
+    const treasure = layers.layer('treasure').children as Graphics[];
+    const corpses = layers.layer('corpses').children as Graphics[];
     expect(treasure.filter((each) => each.visible)).toHaveLength(1);
     expect(corpses.filter((each) => each.visible)).toHaveLength(0);
   });
 
-  it("draws a different silhouette for each of the four lines", () => {
+  it('draws a different silhouette for each of the four lines', () => {
     // The at-a-glance line read: four icons that must be told apart mid-dodge
     // with no HUD glance. Size separates a drop from a shot, 24 drawn units
     // against 16, and the drop breathes on size where a shot never does;
@@ -494,7 +494,7 @@ describe("a drop on the field (plan 6.8)", () => {
       const state = createRun(3);
       dropAt(state, line);
       renderer.sync(state);
-      const sprite = (layers.layer("treasure").children as Graphics[]).find(
+      const sprite = (layers.layer('treasure').children as Graphics[]).find(
         (each) => each.visible,
       )!;
       const bounds = sprite.getLocalBounds();
@@ -503,17 +503,17 @@ describe("a drop on the field (plan 6.8)", () => {
     expect(shapes.size).toBe(WEAPON_LINES.length);
   });
 
-  it("stays steady-bright where a corpse fades, whatever the tick", () => {
+  it('stays steady-bright where a corpse fades, whatever the tick', () => {
     // Steady-bright always means treasure (ADR 0004), so a drop never takes the
     // freshness tint and never flickers.
     const { layers, renderer } = attached();
     const state = createRun(3);
-    const drop = dropAt(state, "wisps");
+    const drop = dropAt(state, 'wisps');
     const tints = new Set<number>();
     for (const tick of [0, 7, 13, 40, 121]) {
       state.tick = tick;
       renderer.sync(state);
-      const sprite = (layers.layer("treasure").children as Graphics[]).find(
+      const sprite = (layers.layer('treasure').children as Graphics[]).find(
         (each) => each.visible,
       )!;
       tints.add(sprite.tint);
@@ -522,12 +522,12 @@ describe("a drop on the field (plan 6.8)", () => {
     expect(freshnessBrightness(drop, 0)).toBe(1);
   });
 
-  it("draws larger than a corpse, which is the size rule Mark reversed on 2026-08-22", () => {
+  it('draws larger than a corpse, which is the size rule Mark reversed on 2026-08-22', () => {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    const drop = dropAt(state, "headstones");
+    const drop = dropAt(state, 'headstones');
     renderer.sync(state);
-    const sprite = (layers.layer("treasure").children as Graphics[]).find(
+    const sprite = (layers.layer('treasure').children as Graphics[]).find(
       (each) => each.visible,
     )!;
     expect(drop.halfExtent).toBeGreaterThan(CORPSE_HALF_EXTENT);
@@ -542,7 +542,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     const state = createRun(3);
     spawnDrop(state, 200, 300, line);
     renderer.sync(state);
-    const sprite = (layers.layer("treasure").children as Graphics[]).find(
+    const sprite = (layers.layer('treasure').children as Graphics[]).find(
       (each) => each.visible,
     )!;
     return sprite.getLocalBounds();
@@ -558,7 +558,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
    * mostly empty.
    */
   interface RecordedInk {
-    action: "fill" | "cut";
+    action: 'fill' | 'cut';
     color: number;
     area: number;
     minX: number;
@@ -581,12 +581,12 @@ describe("a drop's legibility (the fix inside #36)", () => {
   function recordedInk(sprite: Graphics): RecordedInk[] {
     const inks: RecordedInk[] = [];
     for (const instruction of sprite.context.instructions) {
-      if (instruction.action !== "fill" && instruction.action !== "cut") {
+      if (instruction.action !== 'fill' && instruction.action !== 'cut') {
         continue;
       }
       const color = instruction.data.style.color;
       for (const piece of instruction.data.path.instructions) {
-        if (piece.action === "poly") {
+        if (piece.action === 'poly') {
           const points: number[] = piece.data[0];
           const xs = points.filter((_, index) => index % 2 === 0);
           const ys = points.filter((_, index) => index % 2 === 1);
@@ -600,7 +600,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
             maxY: Math.max(...ys),
           });
         }
-        if (piece.action === "circle") {
+        if (piece.action === 'circle') {
           const [x, y, radius]: number[] = piece.data;
           inks.push({
             action: instruction.action,
@@ -621,14 +621,14 @@ describe("a drop's legibility (the fix inside #36)", () => {
   function brightInkArea(sprite: Graphics): number {
     const scale = sprite.scale.x;
     return recordedInk(sprite)
-      .filter((ink) => ink.action === "fill" && ink.color === PALETTE.drop.hex)
+      .filter((ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex)
       .reduce((sum, ink) => sum + ink.area * scale * scale, 0);
   }
 
   /** The box a drop's bright ink spans, on screen, as its longest side. */
   function drawnLongAxis(sprite: Graphics): number {
     const bright = recordedInk(sprite).filter(
-      (ink) => ink.action === "fill" && ink.color === PALETTE.drop.hex,
+      (ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex,
     );
     const width =
       Math.max(...bright.map((ink) => ink.maxX)) -
@@ -642,7 +642,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
   /** The box a drop's bright ink spans, as width over height. Scale cancels. */
   function inkAspect(sprite: Graphics): number {
     const bright = recordedInk(sprite).filter(
-      (ink) => ink.action === "fill" && ink.color === PALETTE.drop.hex,
+      (ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex,
     );
     const width =
       Math.max(...bright.map((ink) => ink.maxX)) -
@@ -662,10 +662,10 @@ describe("a drop's legibility (the fix inside #36)", () => {
   function coverage(sprite: Graphics): number {
     const inks = recordedInk(sprite);
     const bright = inks.filter(
-      (ink) => ink.action === "fill" && ink.color === PALETTE.drop.hex,
+      (ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex,
     );
     const dark = inks.filter(
-      (ink) => ink.action === "cut" || ink.color !== PALETTE.drop.hex,
+      (ink) => ink.action === 'cut' || ink.color !== PALETTE.drop.hex,
     );
     const width =
       Math.max(...bright.map((ink) => ink.maxX)) -
@@ -690,7 +690,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     return ticks.map((tick) => {
       state.tick = tick;
       renderer.sync(state);
-      const sprite = (layers.layer("treasure").children as Graphics[]).find(
+      const sprite = (layers.layer('treasure').children as Graphics[]).find(
         (each) => each.visible,
       )!;
       return read(sprite);
@@ -716,13 +716,13 @@ describe("a drop's legibility (the fix inside #36)", () => {
   function corpseInk(): number {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    const dead = put(state, "shambler", 60, 100);
+    const dead = put(state, 'shambler', 60, 100);
     dead.alive = false;
     spawnCorpse(state, dead);
     renderer.sync(state);
-    const sprite = sprites(layers, "corpses").find((each) => each.visible)!;
+    const sprite = sprites(layers, 'corpses').find((each) => each.visible)!;
     return recordedInk(sprite)
-      .filter((ink) => ink.action === "fill")
+      .filter((ink) => ink.action === 'fill')
       .reduce((sum, ink) => sum + ink.area, 0);
   }
 
@@ -752,7 +752,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     }
   });
 
-  it("splits the four silhouettes on the coarsest axis a shape has", () => {
+  it('splits the four silhouettes on the coarsest axis a shape has', () => {
     // Tall, round, pointed, wide. A corner-of-the-eye read resolves an aspect
     // ratio and nothing finer, so four outlines that differ only in detail are
     // one shape to the player who is dodging. #38 may replace the imagery and
@@ -771,11 +771,11 @@ describe("a drop's legibility (the fix inside #36)", () => {
   function overTicks(ticks: readonly number[]) {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 200, 300, "wisps");
+    spawnDrop(state, 200, 300, 'wisps');
     return ticks.map((tick) => {
       state.tick = tick;
       renderer.sync(state);
-      const sprite = (layers.layer("treasure").children as Graphics[]).find(
+      const sprite = (layers.layer('treasure').children as Graphics[]).find(
         (each) => each.visible,
       )!;
       return {
@@ -833,12 +833,12 @@ describe("a drop's legibility (the fix inside #36)", () => {
     }
   });
 
-  it("breathes inward from a ceiling of 24 drawn units, by the played depth on the played period", () => {
+  it('breathes inward from a ceiling of 24 drawn units, by the played depth on the played period', () => {
     // Mark's ruling, 2026-08-25: "Keep 24 as the maximum and have the size
     // breath move inward from there." 24, the 0.18 depth and the 2.75 second
     // period are the values Mark played in the prototype, measured rather
     // than derived, so they stand here as their own numbers.
-    const sizes = dropOverTicks("headstones", breathTicks(), drawnLongAxis);
+    const sizes = dropOverTicks('headstones', breathTicks(), drawnLongAxis);
     const peak = Math.max(...sizes);
     const trough = Math.min(...sizes);
     expect(peak).toBeLessThanOrEqual(24);
@@ -846,7 +846,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     expect(trough).toBeCloseTo(24 * (1 - 0.18), 2);
   });
 
-  it("holds two neighbouring drops visibly apart in the breath, not merely unequal", () => {
+  it('holds two neighbouring drops visibly apart in the breath, not merely unequal', () => {
     // On the tick alone every drop pulses together, and a drop can be born at
     // its smallest, the moment it most needs to be seen. The offset is the
     // drop's own id, the same device the corpse flicker already uses, because
@@ -859,14 +859,14 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // see.
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 100, 100, "wisps");
-    spawnDrop(state, 300, 300, "wisps");
+    spawnDrop(state, 100, 100, 'wisps');
+    spawnDrop(state, 300, 300, 'wisps');
     const travel = 24 * 0.18;
     let widest = 0;
     for (const tick of breathTicks()) {
       state.tick = tick;
       renderer.sync(state);
-      const visible = (layers.layer("treasure").children as Graphics[]).filter(
+      const visible = (layers.layer('treasure').children as Graphics[]).filter(
         (each) => each.visible,
       );
       expect(visible).toHaveLength(2);
@@ -878,15 +878,15 @@ describe("a drop's legibility (the fix inside #36)", () => {
     expect(widest).toBeGreaterThanOrEqual(travel / 3);
   });
 
-  it("holds the on-screen stroke at SPRITE_STROKE through every phase of the breath", () => {
+  it('holds the on-screen stroke at SPRITE_STROKE through every phase of the breath', () => {
     // ADR 0014 grades strokes in APCA brackets that carry width terms, and
     // every other food sprite draws its companion at SPRITE_STROKE. A breath
     // that scaled the sprite scaled the stroke with it.
     const phases = [0, 41, 82, 124].map((tick) =>
-      dropOverTicks("bell", [tick], (sprite) => ({
+      dropOverTicks('bell', [tick], (sprite) => ({
         scale: sprite.scale.x,
         widths: sprite.context.instructions
-          .filter((instruction) => instruction.action === "stroke")
+          .filter((instruction) => instruction.action === 'stroke')
           .map((instruction) => instruction.data.style.width),
       })),
     );
@@ -905,15 +905,15 @@ describe("a drop's legibility (the fix inside #36)", () => {
     const aspectOf = (line: WeaponLine) =>
       dropOverTicks(line, [0], inkAspect)[0];
     for (const line of WEAPON_LINES) {
-      if (line === "headstones") continue;
-      expect(`${line} ${aspectOf(line) > aspectOf("headstones")}`).toBe(
+      if (line === 'headstones') continue;
+      expect(`${line} ${aspectOf(line) > aspectOf('headstones')}`).toBe(
         `${line} true`,
       );
     }
-    expect(aspectOf("soulStream")).toBeCloseTo(1, 5);
+    expect(aspectOf('soulStream')).toBeCloseTo(1, 5);
   });
 
-  it("bounds the drawn peak at 24 units and the catch box below by the drawn peak", () => {
+  it('bounds the drawn peak at 24 units and the catch box below by the drawn peak', () => {
     // The two bounds that supersede palette.test.ts's retired
     // graveWidth(SIZE_FLOOR) bound, each on the thing it actually governs; the
     // supersession is written out in docs/design/drop-legibility-fix.md. The

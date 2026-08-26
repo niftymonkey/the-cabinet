@@ -28,7 +28,7 @@ function mulberry32(a: number): () => number {
 }
 
 const HASH_CHARSET =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
 /**
  * Creates a seeded random function similar to Math.random() based on given seed hash
@@ -128,7 +128,7 @@ export function randomHash(
   charset = HASH_CHARSET,
 ): string {
   const charsetLength = charset.length;
-  let result = "";
+  let result = '';
 
   for (let i = 0; i < length; i++) {
     result += charset.charAt(Math.floor(random() * charsetLength));

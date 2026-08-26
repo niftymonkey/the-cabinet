@@ -11,14 +11,14 @@
  * the input-model fence.
  */
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from "../game/field";
-import type { SimEvent } from "../game/events";
-import { graveWidth } from "../game/grave";
-import { MOB_TYPES } from "../game/mobs";
-import type { MoveCommand, RunState, TickCommand } from "../game/run";
-import { BASE_SPEED, RESERVOIR_CAPACITY, SCROLL_SPEED } from "../game/tuning";
-import type { Execution } from "../game/execution";
-import { executeTick } from "../game/execution";
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
+import type { SimEvent } from '../game/events';
+import { graveWidth } from '../game/grave';
+import { MOB_TYPES } from '../game/mobs';
+import type { MoveCommand, RunState, TickCommand } from '../game/run';
+import { BASE_SPEED, RESERVOIR_CAPACITY, SCROLL_SPEED } from '../game/tuning';
+import type { Execution } from '../game/execution';
+import { executeTick } from '../game/execution';
 
 /**
  * A policy's whole command for this tick, the belch included. Anything the rig

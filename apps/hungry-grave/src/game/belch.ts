@@ -13,10 +13,10 @@
  * own header demands, so this dispatch is purely additive on that seam.
  */
 
-import type { SimEvent } from "./events";
-import { damageMob, hasEntered } from "./mobs";
-import type { RunState } from "./run";
-import { RESERVOIR_CAPACITY } from "./tuning";
+import type { SimEvent } from './events';
+import { damageMob, hasEntered } from './mobs';
+import type { RunState } from './run';
+import { RESERVOIR_CAPACITY } from './tuning';
 
 /** Takes every live shot off the field, and reports how many went. */
 function cancelMobFire(state: RunState): number {
@@ -45,7 +45,7 @@ function wipeEnteredMobs(state: RunState, events: SimEvent[]): number {
   let killed = 0;
   for (const mob of state.mobs) {
     if (!mob.alive || !hasEntered(mob)) continue;
-    events.push(...damageMob(state, mob, mob.hp, "belch"));
+    events.push(...damageMob(state, mob, mob.hp, 'belch'));
     killed += 1;
   }
   return killed;
@@ -65,5 +65,5 @@ export function fireBelch(state: RunState): SimEvent[] {
   const kills: SimEvent[] = [];
   const killed = wipeEnteredMobs(state, kills);
   state.reservoir = 0;
-  return [{ type: "belched", cancelled, killed }, ...kills];
+  return [{ type: 'belched', cancelled, killed }, ...kills];
 }
