@@ -29,8 +29,9 @@ import {
   tapeOf,
 } from '../../tape/recorder';
 import type { FrameObservation, Tape, TapeHeader } from '../../tape/tape';
-import type { FieldDensity, LevelUp, Measurement, Metrics } from '../measure';
+import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
+import type { FieldDensity, LevelUp } from '../replayTallies';
 
 const SEED = 20260823;
 const SPACING = 20;
