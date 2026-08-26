@@ -53,6 +53,20 @@ const clipFor = (event: SimEvent): keyof typeof CLIPS | null => {
   return null;
 };
 
+// Once per session, because playFor runs on every event a run emits and a
+// bundle that has not arrived is not there for the next event either.
+let reportedSilence = false;
+
+// Says that a sound was lost, because nothing abnormal is silent.
+const reportSilence = (clip: keyof typeof CLIPS, error: unknown): void => {
+  if (reportedSilence) return;
+  reportedSilence = true;
+  console.warn(
+    `the ${clip} sound would not play; the run carries on in silence and no later sound failure is reported`,
+    error,
+  );
+};
+
 /**
  * Plays whatever this event sounds like.
  *
@@ -65,7 +79,8 @@ const playFor = (event: SimEvent): void => {
   if (clip === null) return;
   try {
     engine().audio.sfx.play(CLIPS[clip], { volume: LEVELS[clip] });
-  } catch {
+  } catch (error) {
+    reportSilence(clip, error);
     return;
   }
 };

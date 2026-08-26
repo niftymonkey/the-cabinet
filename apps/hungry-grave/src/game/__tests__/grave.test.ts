@@ -3,7 +3,7 @@
  * sealed shut is death.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import {
   ageGrave,
@@ -42,6 +42,35 @@ const SIZES = [
   (SIZE_START + SIZE_CEILING) / 2,
   SIZE_CEILING,
 ];
+
+describe('a starting size the sim will not honour', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("a starting size outside ADR 0003's bounds is not silent", () => {
+    // ?size= parses without clamping and a tape header carries whatever it was
+    // written with, so both arrive here unchecked.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(createGrave(SIZE_CEILING + 100).size).toBe(SIZE_CEILING);
+
+    const said = warn.mock.calls.map((call) => call.join(' '));
+    expect(said).toHaveLength(1);
+    // What happened, and what it costs.
+    expect(said[0]).toContain(String(SIZE_CEILING + 100));
+    expect(said[0]).toContain(String(SIZE_CEILING));
+    expect(said[0]).toContain('starts at');
+  });
+
+  it('a size inside the bounds says nothing, and so does the default', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    createGrave();
+    createGrave(SIZE_CEILING);
+    createGrave(SIZE_FLOOR);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
 
 describe('the grave', () => {
   it('width derives from the one scalar at the fixed aspect, and the grave is taller than wide at every size (ADR 0003)', () => {

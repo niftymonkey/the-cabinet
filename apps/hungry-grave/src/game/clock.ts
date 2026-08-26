@@ -49,6 +49,26 @@ const wholeTicksIn = (elapsedMs: number): number => {
   return Math.floor(elapsedMs / TICK_MS + TICK_TOLERANCE);
 };
 
+// Once per session, because ticksFor runs every frame and a clock handed one
+// broken elapsed time is usually handed one on every frame after it.
+let reportedUnusableElapsed = false;
+
+/**
+ * Says that an elapsed time was no real span, because nothing abnormal is
+ * silent.
+ *
+ * A zero never reaches here. GameScreen.takeElapsed hands one over on purpose
+ * on the first frame back from a pause, so a zero is an expected input and
+ * running no ticks for it is the designed answer rather than a repair.
+ */
+const reportUnusableElapsed = (elapsedMs: number): void => {
+  if (reportedUnusableElapsed) return;
+  reportedUnusableElapsed = true;
+  console.warn(
+    `the clock was handed ${elapsedMs} ms of elapsed time, which is no real span; the frame runs no ticks and the sim does not advance, and only this first one is reported`,
+  );
+};
+
 /**
  * Whole ticks to run for this frame's elapsed real time, clamped on the way in,
  * with the discarded ticks recorded as debt.
@@ -70,7 +90,9 @@ const wholeTicksIn = (elapsedMs: number): number => {
  * remainder untouched. A browser reports all three across a tab switch.
  */
 const ticksFor = (clock: Clock, elapsedMs: number): number => {
-  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0;
+  const usable = Number.isFinite(elapsedMs) && elapsedMs > 0;
+  if (!usable && elapsedMs !== 0) reportUnusableElapsed(elapsedMs);
+  if (!usable) return 0;
   const spendable = Math.min(elapsedMs, MAX_CATCHUP_TICKS * TICK_MS);
   clock.debtTicks += wholeTicksIn(elapsedMs - spendable);
   clock.remainderMs += spendable;

@@ -4,7 +4,7 @@
  * deterministic is the sim, which only ever sees whole ticks.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createClock,
   MAX_CATCHUP_TICKS,
@@ -13,6 +13,51 @@ import {
   TICK_MS,
   ticksFor,
 } from '../clock';
+
+beforeEach(() => {
+  vi.resetModules();
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
+afterEach(() => vi.restoreAllMocks());
+
+describe('an elapsed time that is no real span', () => {
+  it('a negative or non-finite elapsed time is not silent', async () => {
+    // A fresh module per test: the report is once per session, so a stale flag
+    // would make a green test green for the wrong reason.
+    const { createClock, ticksFor } = await import('../clock');
+    const clock = createClock();
+
+    expect(ticksFor(clock, Number.NaN)).toBe(0);
+
+    const said = vi
+      .mocked(console.warn)
+      .mock.calls.map((call) => call.join(' '));
+    expect(said).toHaveLength(1);
+    // What happened, and what it costs.
+    expect(said[0]).toContain('NaN');
+    expect(said[0]).toContain('no ticks');
+  });
+
+  it('the repair logs once, not once per frame', async () => {
+    const { createClock, ticksFor } = await import('../clock');
+    const clock = createClock();
+
+    for (let frame = 0; frame < 600; frame += 1) ticksFor(clock, -16.7);
+
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('a zero elapsed time stays quiet, because the screen hands one over on purpose', async () => {
+    // GameScreen.takeElapsed returns zero on the first frame back from a pause
+    // or a backgrounded tab, so a zero is an expected input and not a repair.
+    const { createClock, ticksFor } = await import('../clock');
+    const clock = createClock();
+
+    expect(ticksFor(clock, 0)).toBe(0);
+
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+});
 
 describe('the tick accumulator', () => {
   it('emits whole ticks only and carries the remainder: 25 ms is one tick, and a second 25 ms is two', () => {

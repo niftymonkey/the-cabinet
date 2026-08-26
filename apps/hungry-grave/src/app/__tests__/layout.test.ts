@@ -4,7 +4,7 @@
  * given, never read back out of the implementation.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resize } from '../../engine/resize/resize';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
@@ -15,6 +15,12 @@ import {
   READOUT_RESERVE,
   screenToField,
 } from '../layout';
+
+beforeEach(() => {
+  vi.resetModules();
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
+afterEach(() => vi.restoreAllMocks());
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
@@ -123,6 +129,31 @@ describe('fitField', () => {
       offsetX: 0,
       offsetY: 0,
     });
+  });
+
+  it('a degenerate viewport is not silent', async () => {
+    // A fresh module per test: the fallback reports once per session, so a
+    // stale flag would make a green test green for the wrong reason.
+    const layout = await import('../layout');
+
+    expect(layout.fitField(0, Number.NaN)).toEqual(layout.DEGENERATE_PLACEMENT);
+
+    const said = vi
+      .mocked(console.warn)
+      .mock.calls.map((call) => call.join(' '));
+    expect(said).toHaveLength(1);
+    // What happened, and what it costs.
+    expect(said[0]).toContain('NaN');
+    expect(said[0]).toContain('0');
+    expect(said[0]).toContain('unscaled');
+  });
+
+  it('the fallback reports once, not once per resize', async () => {
+    const layout = await import('../layout');
+
+    for (let resizes = 0; resizes < 200; resizes += 1) layout.fitField(0, 0);
+
+    expect(console.warn).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to a stated placement on a degenerate viewport', () => {

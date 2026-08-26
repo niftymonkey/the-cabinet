@@ -346,6 +346,29 @@ const refuseLeftovers = (
   );
 };
 
+// Once per session: a tape from a later recorder usually carries the same
+// unknown kind in every one of its segments.
+let reportedUnknownChunk = false;
+
+// Says what a forward-compatible skip cost, because nothing abnormal is silent.
+const reportUnknownChunk = (kind: number): void => {
+  if (reportedUnknownChunk) return;
+  reportedUnknownChunk = true;
+  console.warn(
+    `this tape carries a chunk of kind ${kind} that this reader does not know; it is skipped, so whatever a later recorder wrote into it is missing from the tape you get, and no later skip is reported`,
+  );
+};
+
+/**
+ * Says that a trailer was cut short, because nothing abnormal is silent. No
+ * flag guards it: a tape has one trailer, so this fires at most once per decode.
+ */
+const reportCutTrailer = (): void => {
+  console.warn(
+    "this tape's trailer was cut off part-written; it reads back with no ending, no stop reason and no tick debt, so how the run finished is gone",
+  );
+};
+
 const readChunk = (
   kind: number,
   payload: ByteReader,
@@ -372,9 +395,16 @@ const readChunk = (
     refuseLeftovers(payload, complete, 'an observations chunk');
     return;
   }
+  if (kind !== CHUNK_TRAILER) {
+    reportUnknownChunk(kind);
+    return;
+  }
   // A trailer is written in one go at the stop, so half of one is no trailer at
   // all rather than a trailer with some fields missing.
-  if (kind !== CHUNK_TRAILER || !complete) return;
+  if (!complete) {
+    reportCutTrailer();
+    return;
+  }
   sections.trailer = readTrailer(payload);
   refuseLeftovers(payload, complete, 'the trailer');
 };

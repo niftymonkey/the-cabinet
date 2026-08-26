@@ -158,6 +158,22 @@ const integrityOf = (execution: Execution): TapeIntegrity => {
 };
 
 /**
+ * Says that a second seal was refused, because nothing abnormal is silent.
+ *
+ * No flag guards it. GameScreen latches its ending, so nothing in the shipped
+ * app seals twice at all, and every one of these is a caller worth seeing.
+ */
+const reportSecondSeal = (
+  recorder: TapeRecorder,
+  execution: Execution,
+  debtTicks: number,
+): void => {
+  console.warn(
+    `this tape's trailer already says the run stopped as ${recorder.trailer?.stop}; a second seal offering ${execution.stop ?? 'no stop reason'} and ${debtTicks} debt ticks is ignored, and a second seal is this repo's own bug`,
+  );
+};
+
+/**
  * Writes the trailer, once, at the stop.
  *
  * The stop reason is the authority's when it has one, because only the
@@ -172,7 +188,10 @@ const sealTrailer = (
   execution: Execution,
   debtTicks: number,
 ): void => {
-  if (recorder.trailer !== null) return;
+  if (recorder.trailer !== null) {
+    reportSecondSeal(recorder, execution, debtTicks);
+    return;
+  }
   syncFaults(recorder, execution);
   recorder.trailer = {
     ending: execution.run.ending,

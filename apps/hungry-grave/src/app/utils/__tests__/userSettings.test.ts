@@ -4,7 +4,7 @@
  * and never a state the game branches on; nothing here re-fixes that path.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MULTIPLIER_MAX, MULTIPLIER_MIN } from '../../../input/keys';
 import {
   KEYBOARD_SPEED_SLIDER_MAX,
@@ -27,6 +27,7 @@ function useLocalStorage(): void {
 
 describe('the persisted keyboard speed setting (ADR 0011)', () => {
   beforeEach(() => useLocalStorage());
+  afterEach(() => vi.restoreAllMocks());
 
   it('getKeyboardSpeed defaults to 1 with nothing stored', () => {
     expect(userSettings.getKeyboardSpeed()).toBe(1);
@@ -48,6 +49,26 @@ describe('the persisted keyboard speed setting (ADR 0011)', () => {
 
     userSettings.setKeyboardSpeed(9);
     expect(userSettings.getKeyboardSpeed()).toBe(MULTIPLIER_MAX);
+  });
+
+  it('a stored speed outside the range is not silent', () => {
+    // The nearest informed owner: this module holds the storage key and the raw
+    // value, and src/input/keys.ts sees only the multiplier it is handed.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    localStorage.setItem('keyboard-speed', '2');
+
+    expect(userSettings.getKeyboardSpeed()).toBe(MULTIPLIER_MAX);
+    userSettings.setKeyboardSpeed(9);
+
+    const said = warn.mock.calls.map((call) => call.join(' '));
+    expect(said).toHaveLength(2);
+    // What happened, and what it costs.
+    expect(said[0]).toContain('keyboard-speed');
+    expect(said[0]).toContain('2');
+    expect(said[0]).toContain(String(MULTIPLIER_MAX));
+    expect(said[0]).toContain('steer');
+    expect(said[1]).toContain('9');
+    expect(said[1]).toContain('steer');
   });
 
   it("the slider's 15 to 30 range maps to 0.05 steps across 0.75 to 1.5", () => {

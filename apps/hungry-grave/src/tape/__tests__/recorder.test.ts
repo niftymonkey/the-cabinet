@@ -8,7 +8,7 @@
  * tape without one reads as a stop of unknown.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
@@ -56,6 +56,8 @@ function steer(tick: number): TickCommand {
     belch: false,
   };
 }
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('the tape recorder', () => {
   it('stamps checkpoint zero before a single tick has run', () => {
@@ -257,6 +259,7 @@ describe('the trailer', () => {
   });
 
   it('is written once, so a later call cannot rewrite how a run stopped', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const run = createRun(SEED);
     const execution = createExecution(run);
     const recorder = recordInto(execution, header(run));
@@ -266,6 +269,36 @@ describe('the trailer', () => {
     sealTrailer(recorder, execution, 99);
 
     expect(recorder.trailer).toMatchObject({ stop: 'quit', debtTicks: 3 });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('a second seal is not silent', () => {
+    // GameScreen latches its ending, so nothing in the shipped app reaches
+    // here: a second seal is a caller's bug and says so.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const run = createRun(SEED);
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run));
+
+    sealTrailer(recorder, execution, 3);
+    execution.stop = 'faulted';
+    sealTrailer(recorder, execution, 99);
+
+    const said = warn.mock.calls.map((call) => call.join(' '));
+    expect(said).toHaveLength(1);
+    // What happened, and what it costs.
+    expect(said[0]).toContain('faulted');
+    expect(said[0]).toContain('bug');
+  });
+
+  it('a single seal says nothing', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const run = createRun(SEED);
+    const execution = createExecution(run);
+
+    sealTrailer(recordInto(execution, header(run)), execution, 3);
+
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("carries the run's discarded ticks, which the body cannot show", () => {

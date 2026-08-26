@@ -8,7 +8,7 @@
  * still accepting a recording that stopped mid-stream.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TapeFormatError } from '../bytes';
 import { CHUNK_FRAME_BYTES, CHUNK_TRAILER } from '../chunks';
@@ -167,10 +167,14 @@ describe("a tape's bytes", () => {
 });
 
 describe("a tape's sections", () => {
-  it('are separable, so a reader skips a chunk kind it does not understand', () => {
-    // ADR 0018: saying there are three sections is not the same as making them
-    // separable. The length in front of each one is what does that, and a tape
-    // written by a later recorder still reads here, minus what it added.
+  beforeEach(() => {
+    vi.resetModules();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  /** A tape with a three-byte chunk of an unknown kind wedged in after the magic. */
+  function withUnknownChunk(): Uint8Array {
     const bytes = encodeTape(FULL);
     const unknown = new Uint8Array(bytes.length + CHUNK_FRAME_BYTES + 3);
     const head = TAPE_MAGIC.length + 2;
@@ -179,8 +183,65 @@ describe("a tape's sections", () => {
     new DataView(unknown.buffer).setUint32(head + 1, 3, true);
     unknown.set([1, 2, 3], head + CHUNK_FRAME_BYTES);
     unknown.set(bytes.subarray(head), head + CHUNK_FRAME_BYTES + 3);
+    return unknown;
+  }
 
-    const { tape } = decodeTape(unknown);
+  /** The bytes of a tape cut off two bytes into its trailer. */
+  function cutInsideTheTrailer(): Uint8Array {
+    const bytes = encodeTape(FULL);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let at = TAPE_MAGIC.length + 2;
+    while (view.getUint8(at) !== CHUNK_TRAILER) {
+      at += CHUNK_FRAME_BYTES + view.getUint32(at + 1, true);
+    }
+    return bytes.slice(0, at + CHUNK_FRAME_BYTES + 2);
+  }
+
+  it('a chunk kind this reader does not know is not silent', async () => {
+    // A fresh module per test: the skip reports once per session, because a
+    // tape from a later recorder carries the same unknown kind in every segment.
+    const { decodeTape: decodeFresh } = await import('../decode');
+
+    expect(decodeFresh(withUnknownChunk()).tape.header).toEqual(HEADER);
+
+    const said = vi
+      .mocked(console.warn)
+      .mock.calls.map((call) => call.join(' '));
+    expect(said).toHaveLength(1);
+    // What happened, and what it costs.
+    expect(said[0]).toContain('99');
+    expect(said[0]).toContain('skipped');
+  });
+
+  it('a trailer cut short is not silent', async () => {
+    const { decodeTape: decodeFresh } = await import('../decode');
+
+    const { tape, truncated } = decodeFresh(cutInsideTheTrailer());
+    expect(tape.trailer).toBeNull();
+    expect(truncated).toBe(true);
+
+    const said = vi
+      .mocked(console.warn)
+      .mock.calls.map((call) => call.join(' '));
+    expect(said).toHaveLength(1);
+    // What happened, and what it costs.
+    expect(said[0]).toContain('trailer');
+    expect(said[0]).toContain('ending');
+  });
+
+  it('a whole tape this reader knows every kind of says nothing', async () => {
+    const { decodeTape: decodeFresh } = await import('../decode');
+
+    decodeFresh(encodeTape(FULL));
+
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it('are separable, so a reader skips a chunk kind it does not understand', () => {
+    // ADR 0018: saying there are three sections is not the same as making them
+    // separable. The length in front of each one is what does that, and a tape
+    // written by a later recorder still reads here, minus what it added.
+    const { tape } = decodeTape(withUnknownChunk());
 
     expect(tape.header).toEqual(HEADER);
     expect(tape.commands).toEqual(FULL.commands);

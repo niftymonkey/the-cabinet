@@ -69,12 +69,25 @@ class UserSettings {
    * persisted by an earlier build under the old 0.5x to 2.0x range.
    */
   public getKeyboardSpeed() {
-    return clampKeyboardSpeed(storage.getNumber(KEY_KEYBOARD_SPEED) ?? 1);
+    const stored = storage.getNumber(KEY_KEYBOARD_SPEED) ?? 1;
+    const speed = clampKeyboardSpeed(stored);
+    if (speed !== stored) {
+      console.warn(
+        `${KEY_KEYBOARD_SPEED} holds ${stored}, outside ADR 0011's ${MULTIPLIER_MIN} to ${MULTIPLIER_MAX} range; the keys steer at ${speed} instead`,
+      );
+    }
+    return speed;
   }
 
   // Set the keyboard speed multiplier
   public setKeyboardSpeed(value: number) {
-    storage.setNumber(KEY_KEYBOARD_SPEED, clampKeyboardSpeed(value));
+    const speed = clampKeyboardSpeed(value);
+    if (speed !== value) {
+      console.warn(
+        `a keyboard speed of ${value} was asked for, outside ADR 0011's ${MULTIPLIER_MIN} to ${MULTIPLIER_MAX} range; ${speed} is stored and the keys steer at that instead`,
+      );
+    }
+    storage.setNumber(KEY_KEYBOARD_SPEED, speed);
   }
 
   // Get sound effects volume

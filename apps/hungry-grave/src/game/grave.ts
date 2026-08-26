@@ -47,15 +47,28 @@ interface FieldPoint {
 }
 
 /**
+ * Says that a run did not start at the size it asked for, because nothing
+ * abnormal is silent. It fires at most once per run: one createGrave call is
+ * what a run is born from, so no flag is needed to keep the sim from flooding.
+ */
+const reportUnhonouredSize = (asked: number, started: number): void => {
+  console.warn(
+    `a run asked to start at size ${asked}, outside ADR 0003's ${SIZE_FLOOR} to ${SIZE_CEILING}; it starts at ${started} instead, so a pinned ?size= or a replayed tape header does not get the grave it named`,
+  );
+};
+
+/**
  * A grave at the starting mark, at the size the run asks for. The size is
  * clamped here rather than by the caller, because ADR 0003's floor and ceiling
  * are this module's to defend and ?size= arrives from src/app unclamped.
  */
 const createGrave = (size: number = SIZE_START): Grave => {
+  const started = clamp(size, SIZE_FLOOR, SIZE_CEILING);
+  if (started !== size) reportUnhonouredSize(size, started);
   return {
     x: START_X,
     y: START_Y,
-    size: clamp(size, SIZE_FLOOR, SIZE_CEILING),
+    size: started,
     invulnerable: 0,
   };
 };

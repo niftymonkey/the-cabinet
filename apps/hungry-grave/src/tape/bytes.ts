@@ -28,7 +28,13 @@ interface ByteWriter {
 const INITIAL_CAPACITY = 1024;
 
 const createWriter = (capacity: number = INITIAL_CAPACITY): ByteWriter => {
-  const bytes = new Uint8Array(Math.max(capacity, 1));
+  const room = Math.max(capacity, 1);
+  if (room !== capacity) {
+    console.warn(
+      `a byte writer was asked for a capacity of ${capacity}; it is built with one byte and grows from there, and a capacity no byte fits in is this repo's own bug rather than a tape's`,
+    );
+  }
+  const bytes = new Uint8Array(room);
   return { bytes, view: new DataView(bytes.buffer), length: 0 };
 };
 

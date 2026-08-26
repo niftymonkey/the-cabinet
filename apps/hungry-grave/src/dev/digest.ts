@@ -162,6 +162,18 @@ const put = (run: RunState, x: number, y: number): Mob | null => {
 };
 
 /**
+ * Says that a scripted kill did not happen, because nothing abnormal is silent.
+ *
+ * No flag guards it: the scenario scripts two of these and runs each once, so
+ * it fires at most twice per run.
+ */
+const reportUnplaceableVictim = (tick: number): void => {
+  console.warn(
+    `the digest scenario had no room to put a mob down at tick ${tick}; its scripted kill does not happen, so this digest is not the scenario the golden was taken from and a mismatch says nothing about determinism`,
+  );
+};
+
+/**
  * The scripted deaths. They stand in for the weapon lines the scenario does not
  * have, so the digest's path carries a kill, a corpse and a swallow.
  */
@@ -182,7 +194,10 @@ const scriptedKills = (run: RunState, tick: number): number => {
       ? { x: run.grave.x, y: run.grave.y }
       : { x: 60, y: 300 };
   const victim = put(run, where.x, where.y);
-  if (victim === null) return 0;
+  if (victim === null) {
+    reportUnplaceableVictim(tick);
+    return 0;
+  }
   damageMob(run, victim, victim.hp, 'soulStream');
   return 1;
 };

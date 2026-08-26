@@ -5,7 +5,7 @@
 
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SimEvent } from '../../game/events';
 import { clipFor } from '../sound';
@@ -80,6 +80,41 @@ describe('the swallow chime and the treasure chime (plan 6.22)', () => {
     expect(clipFor({ type: 'chimed', kind: 'drop' })).not.toBe(
       clipFor({ type: 'chimed', kind: 'corpse' }),
     );
+  });
+});
+
+describe('a clip that will not play', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('a clip that will not play is not silent', async () => {
+    // No engine has been set in this process, so the play call throws exactly
+    // the way a missing clip does. A fresh module per test, because the report
+    // is once per session.
+    const { playFor } = await import('../sound');
+
+    playFor({ type: 'chimed', kind: 'corpse' });
+
+    const said = vi
+      .mocked(console.warn)
+      .mock.calls.map((call) => call.map(String).join(' '));
+    expect(said).toHaveLength(1);
+    // What happened, and what it costs.
+    expect(said[0]).toContain('swallow');
+    expect(said[0]).toContain('silence');
+  });
+
+  it('reports once, not once per event', async () => {
+    const { playFor } = await import('../sound');
+
+    for (let event = 0; event < 500; event += 1) {
+      playFor({ type: 'chimed', kind: 'corpse' });
+    }
+
+    expect(console.warn).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -90,6 +90,19 @@ const isMeasurable = (dimension: number): boolean => {
   return Number.isFinite(dimension) && dimension > 0;
 };
 
+// Once per session, because a resize storm on a hidden tab would otherwise
+// report the same unmeasurable viewport on every event.
+let reportedDegenerate = false;
+
+// Says that a viewport could not be measured, because nothing abnormal is silent.
+const reportDegenerate = (width: number, height: number): void => {
+  if (reportedDegenerate) return;
+  reportedDegenerate = true;
+  console.warn(
+    `the viewport measured ${width} by ${height}, which no placement can be computed from; the field is drawn unscaled at the origin until the next measurable resize, and only this first one is reported`,
+  );
+};
+
 // The whole field, centred inside a box of this size at this top offset.
 const centred = (
   viewportWidth: number,
@@ -172,6 +185,7 @@ const fitField = (
   reserve: ReadoutReserve = READOUT_RESERVE,
 ): FieldPlacement => {
   if (!isMeasurable(viewportWidth) || !isMeasurable(viewportHeight)) {
+    reportDegenerate(viewportWidth, viewportHeight);
     return DEGENERATE_PLACEMENT;
   }
   const natural = centred(viewportWidth, viewportHeight, 0);
