@@ -70,6 +70,8 @@ const titleFor = (summary: RunSummary | null): string => {
 interface EndScreenProps {
   // The next run RISE AGAIN starts. Its rejection is what releases the guard below.
   onRiseAgain(): Promise<void>;
+  // The chrome a button on this screen makes on hover and on press.
+  playButtonSound(alias: string): void;
 }
 
 /**
@@ -133,6 +135,7 @@ class EndScreen extends Container {
       width: 300,
       height: 100,
       fontSize: 24,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.againButton.onPress.connect(() => this.riseAgain());
     this.saveButton = new Button({
@@ -140,6 +143,7 @@ class EndScreen extends Container {
       width: 300,
       height: 70,
       fontSize: 18,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.saveButton.onPress.connect(() => this.saveTape());
 

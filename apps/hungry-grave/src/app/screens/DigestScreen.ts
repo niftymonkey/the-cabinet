@@ -10,6 +10,8 @@ import { Label } from '../ui/Label';
 /** The one way off the digest screen, owned by the driver in main.ts. */
 interface DigestScreenProps {
   onBack(): void;
+  // The chrome a button on this screen makes on hover and on press.
+  playButtonSound(alias: string): void;
 }
 
 /**
@@ -59,6 +61,7 @@ class DigestScreen extends Container {
       width: 220,
       height: 70,
       fontSize: 18,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.backButton.onPress.connect(() => this.props.onBack());
 

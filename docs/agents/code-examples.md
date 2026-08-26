@@ -14,7 +14,7 @@ import { FpsSampler } from "./app/FpsSampler";
 import { LoadScreen } from "./app/screens/LoadScreen";
 import { PrototypesScreen } from "./app/screens/PrototypesScreen";
 import { TitleScreen } from "./app/screens/TitleScreen";
-import { userSettings } from "./app/utils/userSettings";
+import { userSettings } from "./app/userSettings";
 import { CreationEngine } from "./engine/engine";
 
 /**
@@ -102,7 +102,9 @@ main().catch((error) => console.error(error));
 
 ## Rule 2: dumb display components (verified by Mark 2026-08-24, specimen `apps/hungry-grave/src/app/FpsMeter.ts` rewritten side by side)
 
-Rejected side by side: the class extending a framework container that owns its own ticker subscription and sampling. The production `FpsMeter.ts` predates this rule and does not yet follow it.
+Rejected side by side: the class extending a framework container that owns its own ticker subscription and sampling. The production `FpsMeter.ts` is the example below: `createFpsMeter()` returns `{ view, render(fps) }`, and the sampling and the loop live in the driver.
+
+Confirmed library-boundary instance: `@pixi/ui` offers a button only as a class to extend (`node_modules/@pixi/ui/lib/FancyButton.d.ts:102`), so `src/app/ui/Button.ts` stays `class Button extends FancyButton` and takes the one thing it cannot reach as a prop instead of a singleton: `new Button({ text: 'RISE', playSound })`. Mark's ruling: the verified code wins over the rule's sentence, because the example below constructs `new Label({ ... })`, which is the same boundary one level down.
 
 The verified example, both halves:
 
@@ -162,7 +164,7 @@ const attachFpsMeter = (engine: CreationEngine): void => {
 
 Rejected side by side: the module-level singleton accessor, pinned against the `engine()` accessor in `src/app/getEngine.ts` with its 23 call sites.
 
-Recorded consequence: navigation must accept screen factories instead of zero-argument constructors, and the screen pool contract changes to match.
+Superseded consequence: the record said removing `engine()` forces navigation onto screen factories and changes the screen pool contract. It does neither. What stands is the rule itself, that powers arrive as props at construction. What the consequence could not have known is that the seam was already in the pool: `Pool.get(data)` ends `item.init?.(data); return item;` (`pixi.js/lib/utils/pool/Pool.mjs:41`), `PoolGroup.get(Class, data)` forwards it (`PoolGroup.mjs:32`), and `Pool.d.ts:8` types that argument as `Parameters<NonNullable<T['init']>>[0]`, so a screen's props type flows through the pool unchanged. Screens keep their class, their pool key and their `assetBundles` statics, and the powers arrive through `init(props)` rather than through the constructor below.
 
 The verified example:
 

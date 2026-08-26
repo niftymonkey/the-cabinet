@@ -67,6 +67,8 @@ interface GameScreenProps {
   showEnd(): Promise<void>;
   // Every sound this run's events make.
   playSound(event: SimEvent): void;
+  // The chrome the pause button makes on hover and on press.
+  playButtonSound(alias: string): void;
   // The canvas a gesture the platform took away is announced on.
   canvas: HTMLCanvasElement | null;
   // What the renderer says about itself, for this run's tape header.
@@ -193,6 +195,7 @@ class GameScreen extends Container {
       width: PAUSE_WIDTH,
       height: PAUSE_HEIGHT,
       fontSize: 18,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.pauseButton.onPress.connect(() => this.togglePause());
 

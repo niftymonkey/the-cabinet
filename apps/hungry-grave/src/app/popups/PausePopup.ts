@@ -16,6 +16,8 @@ interface PausePopupProps {
   // The screen behind the panel, blurred while the panel is up.
   blurBackdrop(strength: number): void;
   clearBackdrop(): void;
+  // The chrome a button on this panel makes on hover and on press.
+  playButtonSound(alias: string): void;
 }
 
 // What End Run says before it is armed, and what it says once it is.
@@ -73,7 +75,12 @@ class PausePopup extends Container {
     this.title.y = -150;
     this.panel.addChild(this.title);
 
-    this.doneButton = new Button({ text: 'Resume', width: 260, height: 80 });
+    this.doneButton = new Button({
+      text: 'Resume',
+      width: 260,
+      height: 80,
+      playSound: (alias) => this.props.playButtonSound(alias),
+    });
     this.doneButton.y = -30;
     this.doneButton.onPress.connect(() => this.dismiss());
     this.panel.addChild(this.doneButton);
@@ -82,6 +89,7 @@ class PausePopup extends Container {
       text: 'Settings',
       width: 260,
       height: 80,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.settingsButton.y = 55;
     this.settingsButton.onPress.connect(() => this.openSettings());
@@ -92,6 +100,7 @@ class PausePopup extends Container {
       width: 200,
       height: 68,
       fontSize: 22,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.endRunButton.y = 160;
     this.endRunButton.onPress.connect(() => this.endRun());

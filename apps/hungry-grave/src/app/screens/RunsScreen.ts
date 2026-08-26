@@ -27,6 +27,8 @@ interface RunsScreenProps {
   // Opens one kept run in the replay route, by a URL the replay screen fetches.
   onOpenReplay(tapeUrl: string): void;
   onBack(): void;
+  // The chrome a button on this screen makes on hover and on press.
+  playButtonSound(alias: string): void;
 }
 
 const STORE_UNAVAILABLE =
@@ -80,6 +82,7 @@ class RunsScreen extends Container {
       style: { fill: MENU.menuDim.hex, fontSize: 16, wordWrap: true },
     });
     this.list = createRunList({
+      playSound: (alias) => this.props.playButtonSound(alias),
       open: (runId) => void this.openInReplay(runId),
       save: (runId) => void this.saveFile(runId),
       remove: (runId) => void this.deleteRun(runId),
@@ -89,6 +92,7 @@ class RunsScreen extends Container {
       width: BACK_WIDTH,
       height: BACK_HEIGHT,
       fontSize: 18,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.backButton.onPress.connect(() => this.props.onBack());
 

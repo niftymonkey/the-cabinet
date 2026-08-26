@@ -37,13 +37,19 @@ export class EndScreen extends Container {
       text: '',
       style: { fill: PALETTE.corpse, fontSize: 17, lineHeight: 28 },
     });
-    this.againButton = new Button({ text: '', width: 320, height: 100 });
+    this.againButton = new Button({
+      text: '',
+      width: 320,
+      height: 100,
+      playSound: (alias) => engine().audio.sfx.play(alias),
+    });
     this.againButton.onPress.connect(() => this.again());
     this.backButton = new Button({
       text: 'PROTOTYPES',
       width: 190,
       height: 70,
       fontSize: 16,
+      playSound: (alias) => engine().audio.sfx.play(alias),
     });
     this.backButton.onPress.connect(() => {
       // The router in main.ts observes the hash and shows the list.

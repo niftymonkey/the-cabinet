@@ -33,6 +33,8 @@ interface SettingsPopupProps {
   // The screen behind the panel, blurred while the panel is up.
   blurBackdrop(strength: number): void;
   clearBackdrop(): void;
+  // The chrome a button on this panel makes on hover and on press.
+  playButtonSound(alias: string): void;
 }
 
 // Popup for volume
@@ -89,7 +91,10 @@ class SettingsPopup extends Container {
     this.title.y = -this.panelBase.boxHeight * 0.5 + 60;
     this.panel.addChild(this.title);
 
-    this.doneButton = new Button({ text: 'OK' });
+    this.doneButton = new Button({
+      text: 'OK',
+      playSound: (alias) => this.props.playButtonSound(alias),
+    });
     this.doneButton.y = this.panelBase.boxHeight * 0.5 - 78;
     // Back to the pause menu and not to the run. presentPopup replaces rather
     // than stacks, so opening Settings destroyed the menu, and dismissing here

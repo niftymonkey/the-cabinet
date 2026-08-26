@@ -42,7 +42,7 @@ const fakeLocation = { search: '', hash: '' };
 /** A replay screen holding faked powers, the way navigation hands them in. */
 function replayScreen(): ReplayScreen {
   const screen = new ReplayScreen();
-  screen.init({ onBack: () => {} });
+  screen.init({ onBack: () => {}, playButtonSound: () => {} });
   return screen;
 }
 

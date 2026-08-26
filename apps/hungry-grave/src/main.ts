@@ -104,6 +104,18 @@ const backdropPowers = (engine: CreationEngine) => ({
   },
 });
 
+/**
+ * The chrome every button makes on hover and on press. A widget under
+ * src/app/ui reaches nothing in the app (src/__tests__/boundary.test.ts), so
+ * the one thing a button cannot do for itself arrives from here, through the
+ * screen that builds it.
+ */
+const buttonSound = (engine: CreationEngine) => ({
+  playButtonSound: (alias: string): void => {
+    engine.audio.sfx.play(alias);
+  },
+});
+
 /** A volume the player moved: heard now, and kept for the next sitting. */
 const volumePowers = (engine: CreationEngine) => ({
   setMasterVolume: (value: number): void => {
@@ -132,6 +144,7 @@ const showSettings = (
   engine.navigation.presentPopup(SettingsPopup, {
     ...backdropPowers(engine),
     ...volumePowers(engine),
+    ...buttonSound(engine),
     onDone: () => showPauseMenu(engine, endRun),
   });
 
@@ -142,6 +155,7 @@ const showPauseMenu = (
 ): Promise<void> =>
   engine.navigation.presentPopup(PausePopup, {
     ...backdropPowers(engine),
+    ...buttonSound(engine),
     onDismiss: () => engine.navigation.dismissPopup(),
     onSettings: () => showSettings(engine, endRun),
     onEndRun: endRun,
@@ -151,6 +165,7 @@ const showPauseMenu = (
 const showEnd = (engine: CreationEngine): Promise<void> =>
   engine.navigation.showScreen(EndScreen, {
     onRiseAgain: () => showGame(engine),
+    ...buttonSound(engine),
   });
 
 /** A run, and every power the screen it plays on cannot reach on its own. */
@@ -161,6 +176,7 @@ const showGame = (engine: CreationEngine): Promise<void> =>
     menuShowing: () => engine.navigation.currentPopup instanceof PausePopup,
     showEnd: () => showEnd(engine),
     playSound: (event) => playFor(engine.audio.sfx, event),
+    ...buttonSound(engine),
     canvas: engine.canvas,
     renderer: engine.renderer,
   });
@@ -172,6 +188,7 @@ const showTitle = (engine: CreationEngine): Promise<void> =>
     onPrototypes: () => {
       window.location.hash = PROTOTYPES_HASH;
     },
+    ...buttonSound(engine),
   });
 
 /** The prototype list, which routes into one prototype by its registry id. */
@@ -180,6 +197,7 @@ const showPrototypes = (engine: CreationEngine): Promise<void> =>
     onOpen: (id) => {
       window.location.hash = prototypeHash(id);
     },
+    ...buttonSound(engine),
   });
 
 /** The kept runs, and the replay route each row can be opened in. */
@@ -190,13 +208,17 @@ const showRuns = async (engine: CreationEngine): Promise<void> => {
       window.location.hash = `${REPLAY_HASH}?tape=${encodeURIComponent(tapeUrl)}`;
     },
     onBack: goHome,
+    ...buttonSound(engine),
   });
 };
 
 /** One tape, rendered at the tick its URL asked for (ADR 0020). */
 const showReplay = async (engine: CreationEngine): Promise<void> => {
   const { ReplayScreen } = await import('./app/screens/ReplayScreen');
-  await engine.navigation.showScreen(ReplayScreen, { onBack: goHome });
+  await engine.navigation.showScreen(ReplayScreen, {
+    onBack: goHome,
+    ...buttonSound(engine),
+  });
 };
 
 /**
@@ -206,7 +228,10 @@ const showReplay = async (engine: CreationEngine): Promise<void> => {
  */
 const showDigest = async (engine: CreationEngine): Promise<void> => {
   const { DigestScreen } = await import('./app/screens/DigestScreen');
-  await engine.navigation.showScreen(DigestScreen, { onBack: goHome });
+  await engine.navigation.showScreen(DigestScreen, {
+    onBack: goHome,
+    ...buttonSound(engine),
+  });
 };
 
 /**

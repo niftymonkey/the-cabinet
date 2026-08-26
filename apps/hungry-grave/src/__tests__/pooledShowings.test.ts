@@ -104,6 +104,8 @@ function showing(tag: string, menusOpened: string[]): Showing {
       menuShowing: () => false,
       showEnd: () => Promise.resolve(),
       playSound: () => {},
+      // Button is faked in this file, so no button ever asks for a sound.
+      playButtonSound: () => {},
       canvas: null,
       renderer: { name: 'webgl', resolution: 2 },
     },
@@ -154,6 +156,7 @@ describe('a screen shown a second time out of the pool', () => {
     first.endRun();
     await navigation.showScreen(EndScreen, {
       onRiseAgain: () => Promise.resolve(),
+      playButtonSound: () => {},
     });
 
     // The next run, which the pool answers with the instance it kept.

@@ -103,6 +103,7 @@ function gameScreen(): GameScreen {
     menuShowing: () => navigation.currentPopup instanceof PausePopup,
     showEnd: () => Promise.resolve(navigation.showScreen(EndScreen)),
     playSound: () => {},
+    playButtonSound: () => {},
     canvas,
     // The tape header records the renderer's backend and resolution once per
     // run, for its runtime context (ADR 0018).
@@ -116,6 +117,7 @@ function titleScreen(): TitleScreen {
   screen.init({
     onRise: () => Promise.resolve(navigation.showScreen(GameScreen)),
     onPrototypes: () => {},
+    playButtonSound: () => {},
   });
   return screen;
 }
@@ -124,6 +126,7 @@ function endScreen(): EndScreen {
   const screen = new EndScreen();
   screen.init({
     onRiseAgain: () => Promise.resolve(navigation.showScreen(GameScreen)),
+    playButtonSound: () => {},
   });
   return screen;
 }

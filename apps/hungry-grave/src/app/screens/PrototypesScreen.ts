@@ -13,6 +13,8 @@ import { Label } from '../ui/Label';
 interface PrototypesScreenProps {
   // Opens one prototype, named by the id its registry entry carries.
   onOpen(id: string): void;
+  // The chrome a button on this screen makes on hover and on press.
+  playButtonSound(alias: string): void;
 }
 
 class PrototypesScreen extends Container {
@@ -46,6 +48,7 @@ class PrototypesScreen extends Container {
         width: 420,
         height: 100,
         fontSize: 24,
+        playSound: (alias) => this.props.playButtonSound(alias),
       });
       button.onPress.connect(() => this.props.onOpen(entry.id));
       const blurb = new Label({

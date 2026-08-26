@@ -54,7 +54,7 @@ const RECOVERABLE: FaultRecord = {
 function prepared(faults: readonly FaultRecord[]): DigestScreen {
   runScenario.mockReturnValue({ digest: GOLDEN, faults });
   const screen = new DigestScreen();
-  screen.init({ onBack: () => {} });
+  screen.init({ onBack: () => {}, playButtonSound: () => {} });
   screen.prepare();
   return screen;
 }

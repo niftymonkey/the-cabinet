@@ -78,6 +78,7 @@ function runsScreen(): RunsScreen {
       fakeLocation.hash = `${REPLAY_HASH}?tape=${encodeURIComponent(tapeUrl)}`;
     },
     onBack: () => {},
+    playButtonSound: () => {},
   });
   return screen;
 }

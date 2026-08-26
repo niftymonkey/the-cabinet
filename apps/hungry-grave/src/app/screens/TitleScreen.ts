@@ -12,6 +12,8 @@ interface TitleScreenProps {
   onRise(): Promise<void>;
   // The way out to the prototype list.
   onPrototypes(): void;
+  // The chrome a button on this screen makes on hover and on press.
+  playButtonSound(alias: string): void;
 }
 
 /**
@@ -45,13 +47,19 @@ class TitleScreen extends Container {
       text: 'Swallow the dead. Feed the grave.',
       style: { fill: MENU.menuDim.hex, fontSize: 16 },
     });
-    this.riseButton = new Button({ text: 'RISE', width: 300, height: 100 });
+    this.riseButton = new Button({
+      text: 'RISE',
+      width: 300,
+      height: 100,
+      playSound: (alias) => this.props.playButtonSound(alias),
+    });
     this.riseButton.onPress.connect(() => this.rise());
     this.prototypesButton = new Button({
       text: 'PROTOTYPES',
       width: 220,
       height: 70,
       fontSize: 16,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.prototypesButton.onPress.connect(() => this.props.onPrototypes());
 

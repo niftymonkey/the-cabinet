@@ -33,6 +33,8 @@ const BACK_HEIGHT = 68;
 /** The one way off the replay screen, owned by the driver in main.ts. */
 interface ReplayScreenProps {
   onBack(): void;
+  // The chrome a button on this screen makes on hover and on press.
+  playButtonSound(alias: string): void;
 }
 
 /**
@@ -82,6 +84,7 @@ class ReplayScreen extends Container {
       width: BACK_WIDTH,
       height: BACK_HEIGHT,
       fontSize: 18,
+      playSound: (alias) => this.props.playButtonSound(alias),
     });
     this.backButton.onPress.connect(() => this.props.onBack());
 

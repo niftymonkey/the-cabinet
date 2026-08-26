@@ -44,8 +44,19 @@ const backdropPowers = () => ({
   },
 });
 
+/**
+ * The chrome the base app's buttons make. They take it as a prop now, and in
+ * this prototype the engine accessor is still where it comes from.
+ */
+const buttonSound = () => ({
+  playButtonSound: (alias: string): void => {
+    engine().audio.sfx.play(alias);
+  },
+});
+
 const settingsProps = (): SettingsPopupProps => ({
   ...backdropPowers(),
+  ...buttonSound(),
   setMasterVolume: (value) => {
     engine().audio.setMasterVolume(value);
     userSettings.setMasterVolume(value);
@@ -63,6 +74,7 @@ const settingsProps = (): SettingsPopupProps => ({
 
 const pauseMenuProps = (): PausePopupProps => ({
   ...backdropPowers(),
+  ...buttonSound(),
   onDismiss: () => engine().navigation.dismissPopup(),
   onSettings: () =>
     engine().navigation.presentPopup(SettingsPopup, settingsProps()),

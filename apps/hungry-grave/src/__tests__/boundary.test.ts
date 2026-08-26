@@ -112,6 +112,22 @@ const BOUNDARIES: Boundary[] = [
     mayReachInTests: [],
     mayImport: ['@pixi/sound'],
   },
+  /**
+   * The widget set: buttons, labels, sliders, boxes. A widget that reaches into
+   * the app is a widget that cannot be reused or tested on its own, and Button
+   * reaching src/app/getEngine for a hover chime is the instance that proved
+   * it: two lines of sound made the whole folder need a booted engine.
+   *
+   * Its reach is the folder itself, because widgets are built out of each other
+   * (a button holds a label, a slider holds a label). Everything else a widget
+   * needs arrives as a prop from whoever builds it.
+   */
+  {
+    root: 'app/ui',
+    mayReach: ['app/ui'],
+    mayReachInTests: [],
+    mayImport: ['pixi.js', '@pixi/ui'],
+  },
 ];
 
 // Packages any test file may import, whatever side of a boundary it is on.
@@ -125,8 +141,18 @@ function typescriptFilesUnder(dir: string): string[] {
   });
 }
 
+/**
+ * The specifiers a file imports, static and dynamic alike.
+ *
+ * The keyword has to stand on its own: `Texture.from('rounded-rectangle.png')`
+ * is a method call and an asset name, not an import, and every fence in this
+ * file reads through here. src/app/ui is where that first mattered, because a
+ * widget names its own artwork that way.
+ */
 function importsOf(source: string): string[] {
-  const matches = source.matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g);
+  const matches = source.matchAll(
+    /(?<![.\w$])(?:from|import)\s*\(?\s*["']([^"']+)["']/g,
+  );
   return [...matches].map((match) => match[1]);
 }
 
@@ -265,6 +291,21 @@ describe('the rendering-import boundary', () => {
     expect(sound.mayReach.some((entry) => covers(entry, 'game/mobs'))).toBe(
       false,
     );
+  });
+
+  it('counts an import and not a method that happens to be called from', () => {
+    // src/app/ui names its own artwork with Texture.from('...'), and a fence
+    // that read those as imports could only go green by calling a png an
+    // allowed package, which would be a lie about what the folder depends on.
+    expect(importsOf("import { Container } from 'pixi.js';")).toEqual([
+      'pixi.js',
+    ]);
+    expect(importsOf("const mod = await import('./thing');")).toEqual([
+      './thing',
+    ]);
+    expect(
+      importsOf("texture: Texture.from('rounded-rectangle.png'),"),
+    ).toEqual([]);
   });
 
   it('keeps the existing folder-level entries matching, so game still reaches game/mobs', () => {
@@ -505,6 +546,78 @@ describe('the screen graph is declared in one place', () => {
       screensReachedInSource(
         join(SRC, 'app', 'screens', 'TitleScreen.ts'),
         "import { primeSound } from '../sound';",
+      ),
+    ).toEqual([]);
+  });
+});
+
+/** The module the engine instance is set on and read back from. */
+const ENGINE_ACCESSOR = 'app/getEngine';
+
+/**
+ * The names one import statement binds, read off the braces that name them.
+ * The module alone cannot settle this rule: setEngine and engine live in the
+ * same file and only one of them is forbidden here.
+ */
+const namesBoundFrom = (source: string, specifier: string): string[] => {
+  const quoted = specifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const statement = new RegExp(
+    `import\\s*\\{([^}]*)\\}\\s*from\\s*['"]${quoted}['"]`,
+    'g',
+  );
+  return [...source.matchAll(statement)].flatMap((match) =>
+    match[1].split(',').map((name) =>
+      name
+        .trim()
+        .split(/\s+as\s+/)[0]
+        .trim(),
+    ),
+  );
+};
+
+/** Every reach for the engine accessor a file makes, by the name it took. */
+const accessorReachedInSource = (file: string, source: string): string[] => {
+  const where = relative(SRC, file).split(/[/\\]/).join('/');
+  return importsOf(source)
+    .filter((specifier) => specifier.startsWith('.'))
+    .filter((specifier) => pathReachedBy(file, specifier) === ENGINE_ACCESSOR)
+    .flatMap((specifier) => namesBoundFrom(source, specifier))
+    .filter((name) => name === 'engine')
+    .map((name) => `${where} imports ${name}`);
+};
+
+const accessorReachedIn = (file: string): string[] =>
+  accessorReachedInSource(file, readFileSync(file, 'utf8'));
+
+describe('the engine accessor is out of the app', () => {
+  it('no module under src/app reaches for engine()', () => {
+    // Every power a screen, a popup or a widget needs arrives as a prop from
+    // src/main.ts, which is the only place that knows the engine. The accessor
+    // itself survives for src/prototypes alone, and this is what keeps it from
+    // coming back through the shell.
+    const files = typescriptFilesUnder(join(SRC, 'app'));
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.flatMap(accessorReachedIn)).toEqual([]);
+  });
+
+  it('catches a widget reaching for the accessor again', () => {
+    // The exact import src/app/ui/Button.ts carried, for the two lines of
+    // hover and press sound that made a widget need a booted engine.
+    const violations = accessorReachedInSource(
+      join(SRC, 'app', 'ui', 'Button.ts'),
+      "import { engine } from '../getEngine';",
+    );
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('engine');
+  });
+
+  it('says nothing about setEngine, which the boot has to call', () => {
+    // The rule is about the name and not about the module: src/main.ts sets the
+    // instance at boot, and that is the one call that should exist.
+    expect(
+      accessorReachedInSource(
+        join(SRC, 'app', 'ui', 'Button.ts'),
+        "import { setEngine } from '../getEngine';",
       ),
     ).toEqual([]);
   });

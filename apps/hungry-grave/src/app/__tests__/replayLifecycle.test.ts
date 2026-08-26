@@ -68,6 +68,7 @@ function gameScreen(): GameScreen {
     menuShowing: () => navigation.currentPopup instanceof PausePopup,
     showEnd: () => Promise.resolve(navigation.showScreen()),
     playSound: () => {},
+    playButtonSound: () => {},
     canvas,
     // The tape header records the renderer's backend and resolution once per
     // run, for its runtime context (ADR 0018).
@@ -79,7 +80,7 @@ function gameScreen(): GameScreen {
 /** A replay screen holding faked powers, the way navigation hands them in. */
 function replayScreen(): ReplayScreen {
   const screen = new ReplayScreen();
-  screen.init({ onBack: () => {} });
+  screen.init({ onBack: () => {}, playButtonSound: () => {} });
   return screen;
 }
 

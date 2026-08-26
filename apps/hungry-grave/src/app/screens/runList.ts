@@ -9,6 +9,8 @@ import { Label } from '../ui/Label';
 
 // What the list can ask its driver for, one callback per row offer.
 interface RunActions {
+  // The chrome a row's buttons make on hover and on press.
+  playSound(alias: string): void;
   open(runId: string): void;
   save(runId: string): void;
   remove(runId: string): void;
@@ -55,12 +57,17 @@ const summaryLine = (row: StoredRunSummary): Label =>
     style: { fontFamily: 'monospace', fill: MENU.menuInk.hex, fontSize: 16 },
   });
 
-const offerButton = (text: string, onPress: () => void): Button => {
+const offerButton = (
+  text: string,
+  playSound: (alias: string) => void,
+  onPress: () => void,
+): Button => {
   const button = new Button({
     text,
     width: BUTTON_WIDTH,
     height: BUTTON_HEIGHT,
     fontSize: 14,
+    playSound,
   });
   button.onPress.connect(onPress);
   return button;
@@ -83,11 +90,17 @@ const createRunList = (actions: RunActions): RunList => {
       const y = index * ROW_SPACING;
       const line = summaryLine(row);
       line.position.set(0, y);
-      const replay = offerButton('REPLAY', () => actions.open(row.id));
+      const replay = offerButton('REPLAY', actions.playSound, () =>
+        actions.open(row.id),
+      );
       replay.position.set(-BUTTON_GAP, y + BUTTON_ROW_OFFSET);
-      const save = offerButton('SAVE', () => actions.save(row.id));
+      const save = offerButton('SAVE', actions.playSound, () =>
+        actions.save(row.id),
+      );
       save.position.set(0, y + BUTTON_ROW_OFFSET);
-      const remove = offerButton('DELETE', () => actions.remove(row.id));
+      const remove = offerButton('DELETE', actions.playSound, () =>
+        actions.remove(row.id),
+      );
       remove.position.set(BUTTON_GAP, y + BUTTON_ROW_OFFSET);
       view.addChild(line, replay, save, remove);
     });

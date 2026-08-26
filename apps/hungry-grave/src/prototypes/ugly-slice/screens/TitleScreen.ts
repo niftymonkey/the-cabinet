@@ -70,13 +70,19 @@ export class TitleScreen extends Container {
           style: { fill: PALETTE.corpse, fontSize: 16 },
         }),
     );
-    this.startButton = new Button({ text: 'RISE', width: 260, height: 100 });
+    this.startButton = new Button({
+      text: 'RISE',
+      width: 260,
+      height: 100,
+      playSound: (alias) => engine().audio.sfx.play(alias),
+    });
     this.startButton.onPress.connect(() => this.start());
     this.backButton = new Button({
       text: 'PROTOTYPES',
       width: 190,
       height: 70,
       fontSize: 16,
+      playSound: (alias) => engine().audio.sfx.play(alias),
     });
     this.backButton.onPress.connect(() => {
       // The router in main.ts observes the hash and shows the list.
