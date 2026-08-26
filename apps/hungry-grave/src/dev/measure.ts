@@ -53,16 +53,16 @@ const EXPENSIVE_FRAME_INTERVAL_MS = 25;
  * unknown.
  */
 interface RunSummary {
-  /** Ticks the verified replay reproduced. */
+  // Ticks the verified replay reproduced.
   readonly ticks: number;
-  /** How the run ended, recomputed from the replay rather than read off the trailer. */
+  // How the run ended, recomputed from the replay rather than read off the trailer.
   readonly ending: RunEnding | null;
   readonly stop: TapeStop;
-  /** The trailer's integrity, or null when there is no trailer to say. */
+  // The trailer's integrity, or null when there is no trailer to say.
   readonly integrity: TapeIntegrity | null;
-  /** The replayed run's final score. */
+  // The replayed run's final score.
   readonly score: number;
-  /** Mobs the replayed run killed. */
+  // Mobs the replayed run killed.
   readonly kills: number;
   readonly checkpointsVerified: number;
   readonly checkpointsUnreachable: number;
@@ -70,14 +70,14 @@ interface RunSummary {
   readonly sealed: boolean;
 }
 
-/** One line reaching one level, at the tick the drop landed (#45). */
+// One line reaching one level, at the tick the drop landed (#45).
 interface LevelUp {
   readonly line: WeaponLine;
   readonly level: number;
   readonly tick: number;
 }
 
-/** The live field at one tick, counted from the replayed run's pools. */
+// The live field at one tick, counted from the replayed run's pools.
 interface FieldDensity {
   readonly mobs: number;
   readonly shots: number;
@@ -86,7 +86,7 @@ interface FieldDensity {
   readonly wisps: number;
 }
 
-/** One timing series summarised. Nearest-rank percentiles; all zero when the series is empty. */
+// One timing series summarised. Nearest-rank percentiles; all zero when the series is empty.
 interface Distribution {
   readonly count: number;
   readonly min: number;
@@ -97,9 +97,9 @@ interface Distribution {
   readonly p99: number;
 }
 
-/** The tick debt as of one frame row, recorded only where it changed. */
+// The tick debt as of one frame row, recorded only where it changed.
 interface DebtSample {
-  /** The row's index among the tape's frame observations. */
+  // The row's index among the tape's frame observations.
   readonly frame: number;
   readonly tick: number | null;
   readonly debtTicks: number;
@@ -111,7 +111,7 @@ interface DebtSample {
  * null when the frame bought no tick or the replay never reached its tick.
  */
 interface ExpensiveFrame {
-  /** The row's index among the tape's frame observations. */
+  // The row's index among the tape's frame observations.
   readonly frame: number;
   readonly reason: FrameReason;
   readonly tick: number | null;
@@ -123,14 +123,14 @@ interface ExpensiveFrame {
   readonly density: FieldDensity | null;
 }
 
-/** The performance read off the tape's frame rows (ADR 0018). */
+// The performance read off the tape's frame rows (ADR 0018).
 interface PerformanceReport {
   readonly frames: number;
   readonly interval: Distribution;
   readonly advance: Distribution;
   readonly update: Distribution;
   readonly ticksPerFrame: Distribution;
-  /** Frames that bought more than one tick. */
+  // Frames that bought more than one tick.
   readonly catchUpFrames: number;
   readonly debtOverTime: readonly DebtSample[];
   readonly expensiveFrames: readonly ExpensiveFrame[];
@@ -145,7 +145,7 @@ interface PerformanceReport {
 type AggregateExclusion =
   'bot' | 'script' | 'conditioned' | 'faulted' | 'unchecked';
 
-/** Who and what produced the run, and whether it belongs in default aggregates. */
+// Who and what produced the run, and whether it belongs in default aggregates.
 interface Provenance {
   readonly inputDevice: TapeInputDevice;
   /**
@@ -154,28 +154,28 @@ interface Provenance {
    * which is the safe direction.
    */
   readonly conditioned: boolean;
-  /** Empty means the run belongs in default aggregates. */
+  // Empty means the run belongs in default aggregates.
   readonly exclusions: readonly AggregateExclusion[];
 }
 
-/** Everything a verified replay can say about a run. */
+// Everything a verified replay can say about a run.
 interface Metrics {
   readonly outcome: 'verified';
   readonly run: RunSummary;
-  /** Damage dealt per weapon line, with the belch as its own arm beside the four. */
+  // Damage dealt per weapon line, with the belch as its own arm beside the four.
   readonly damage: Readonly<Record<DamageSource, number>>;
   readonly levelUps: readonly LevelUp[];
-  /** Index N is the live mob count after N ticks, so index 0 is the empty starting field. */
+  // Index N is the live mob count after N ticks, so index 0 is the empty starting field.
   readonly mobsAlivePerTick: readonly number[];
   readonly performance: PerformanceReport;
-  /** The faults the tape carries: the original run's history, never rewritten (ADR 0017). */
+  // The faults the tape carries: the original run's history, never rewritten (ADR 0017).
   readonly recordedFaults: readonly FaultObservation[];
-  /** What today's checks said about the reproduced run, kept a separate list. */
+  // What today's checks said about the reproduced run, kept a separate list.
   readonly readbackFaults: PlaybackResult['readbackFaults'];
   readonly provenance: Provenance;
 }
 
-/** The replay stopped agreeing with the tape, and nothing after that is the recorded run. */
+// The replay stopped agreeing with the tape, and nothing after that is the recorded run.
 interface Divergence {
   readonly outcome: 'diverged';
   readonly firstDivergentCheckpoint: number;
@@ -183,7 +183,7 @@ interface Divergence {
   readonly ticksReproduced: number;
 }
 
-/** The tape was recorded against a different fold, so not a single tick was run (ADR 0019). */
+// The tape was recorded against a different fold, so not a single tick was run (ADR 0019).
 interface Refusal {
   readonly outcome: 'witnessVersionMismatch';
   readonly tapeWitnessVersion: number;
@@ -192,7 +192,7 @@ interface Refusal {
 
 type Measurement = Metrics | Divergence | Refusal;
 
-/** All five damage arms present from the first tick, so an unused line reads zero rather than absent. */
+// All five damage arms present from the first tick, so an unused line reads zero rather than absent.
 const emptyDamage = (): Record<DamageSource, number> => ({
   soulStream: 0,
   headstones: 0,
@@ -212,7 +212,7 @@ const densityOf = (run: RunState): FieldDensity => ({
   wisps: liveCount(run.wisps),
 });
 
-/** The field before any tick has run: every pool starts empty. */
+// The field before any tick has run: every pool starts empty.
 const EMPTY_FIELD: FieldDensity = {
   mobs: 0,
   shots: 0,
@@ -221,12 +221,12 @@ const EMPTY_FIELD: FieldDensity = {
   wisps: 0,
 };
 
-/** Everything the one replay pass collects through its observer. */
+// Everything the one replay pass collects through its observer.
 interface ReplayTallies {
   readonly damage: Record<DamageSource, number>;
   readonly levelUps: LevelUp[];
   readonly mobsAlivePerTick: number[];
-  /** The field at each sampled tick, for the expensive-frame join. */
+  // The field at each sampled tick, for the expensive-frame join.
   readonly densities: Map<number, FieldDensity>;
   kills: number;
   score: number;
@@ -273,7 +273,7 @@ const observeInto = (
   };
 };
 
-/** Nearest-rank percentile over an ascending series. */
+// Nearest-rank percentile over an ascending series.
 const percentile = (sorted: readonly number[], rank: number): number =>
   sorted[Math.max(0, Math.ceil(rank * sorted.length) - 1)];
 
@@ -294,7 +294,7 @@ const distributionOf = (values: readonly number[]): Distribution => {
   };
 };
 
-/** The debt series compacted to the frames where it changed, the first row always included. */
+// The debt series compacted to the frames where it changed, the first row always included.
 const debtSamplesOf = (frames: readonly FrameObservation[]): DebtSample[] => {
   const samples: DebtSample[] = [];
   let last: number | null = null;
@@ -397,7 +397,7 @@ const runSummaryOf = (
   sealed: decoded.tape.trailer !== null,
 });
 
-/** The ticks the expensive frames began at, decided before the pass so the join needs only one. */
+// The ticks the expensive frames began at, decided before the pass so the join needs only one.
 const ticksToSample = (
   frames: readonly FrameObservation[],
 ): ReadonlySet<number> => {

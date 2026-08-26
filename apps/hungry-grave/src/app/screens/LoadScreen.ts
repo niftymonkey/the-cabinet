@@ -3,13 +3,11 @@ import { animate } from 'motion';
 import type { ObjectTarget } from 'motion/react';
 import { Container, Sprite, Texture } from 'pixi.js';
 
-/** Screen shown while loading assets */
+// Screen shown while loading assets
 class LoadScreen extends Container {
-  /** Assets bundles required by this screen */
+  // Assets bundles required by this screen
   public static assetBundles = ['preload'];
-  /** The PixiJS logo */
   private pixiLogo: Sprite;
-  /** Progress Bar */
   private progressBar: CircularProgressBar;
 
   constructor() {
@@ -43,18 +41,18 @@ class LoadScreen extends Container {
     this.progressBar.progress = progress;
   }
 
-  /** Resize the screen, fired whenever window size changes  */
+  // Resize the screen, fired whenever window size changes
   public resize(width: number, height: number) {
     this.pixiLogo.position.set(width * 0.5, height * 0.5);
     this.progressBar.position.set(width * 0.5, height * 0.5);
   }
 
-  /** Show screen with animations */
+  // Show screen with animations
   public async show() {
     this.alpha = 1;
   }
 
-  /** Hide screen with animations */
+  // Hide screen with animations
   public async hide() {
     await animate(this, { alpha: 0 } as ObjectTarget<this>, {
       duration: 0.3,
@@ -63,7 +61,7 @@ class LoadScreen extends Container {
     });
   }
 
-  /** Reset screen, after hidden */
+  // Reset screen, after hidden
   public reset() {
     this.progressBar.progress = 0;
   }

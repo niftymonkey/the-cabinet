@@ -28,7 +28,7 @@ interface Skull {
   vy: number;
 }
 
-/** How many columns each level fires, indexed by level. */
+// How many columns each level fires, indexed by level.
 const COLUMNS_BY_LEVEL: readonly number[] = [0, 1, 2, 3, 4, 5];
 
 /**
@@ -67,7 +67,7 @@ const FAN_STEP_DEGREES = 6;
  */
 const SURGE_VOLLEYS = 1;
 
-/** The shortened interval a surged volley waits, in ticks. */
+// The shortened interval a surged volley waits, in ticks.
 const SURGE_INTERVAL = 10;
 
 const SKULL_HALF_EXTENT = 4;
@@ -117,7 +117,7 @@ const launchSkull = (
   skull.vy = heading.y * SKULL_SPEED;
 };
 
-/** Every column of one volley, in column order so the same level always fires the same sequence. */
+// Every column of one volley, in column order so the same level always fires the same sequence.
 const fireVolley = (state: RunState): void => {
   const columns = COLUMNS_BY_LEVEL[state.levels.soulStream];
   for (let column = 0; column < columns; column++) {
@@ -136,7 +136,7 @@ const nextInterval = (state: RunState): number => {
   return SURGE_INTERVAL;
 };
 
-/** A skull fully outside the field on any side is gone. */
+// A skull fully outside the field on any side is gone.
 const cullSkulls = (state: RunState): void => {
   for (const skull of state.skulls) {
     if (!skull.alive) continue;

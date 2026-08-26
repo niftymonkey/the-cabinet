@@ -36,7 +36,7 @@ import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from './tuning';
  */
 const CORPSE_HALF_EXTENT = 7;
 
-/** How much freshness one tick drains. Derived from the seconds, which are themselves derived from the scroll. */
+// How much freshness one tick drains. Derived from the seconds, which are themselves derived from the scroll.
 const FRESHNESS_PER_TICK = 1 / (FRESHNESS_SECONDS * TICK_HZ);
 
 interface Corpse {
@@ -44,15 +44,15 @@ interface Corpse {
   id: number;
   x: number;
   y: number;
-  /** One meter, from kill to gone (ADR 0004). Treasure is always 1. */
+  // One meter, from kill to gone (ADR 0004). Treasure is always 1.
   freshness: number;
-  /** What this corpse pays before freshness scales it, in size units. */
+  // What this corpse pays before freshness scales it, in size units.
   payout: number;
   tier: CorpseTier;
   kind: FoodKind;
-  /** Feasts never decay (ADR 0004), and the flag lives on the record so the boss dispatch authors a shed rather than a mechanism. */
+  // Feasts never decay (ADR 0004), and the flag lives on the record so the boss dispatch authors a shed rather than a mechanism.
   decays: boolean;
-  /** Which line a drop levels, decided by the dice at spawn (ADR 0002). Absent on corpses and feasts. */
+  // Which line a drop levels, decided by the dice at spawn (ADR 0002). Absent on corpses and feasts.
   line?: WeaponLine;
   /**
    * How large this food is swallowed at. It lives on the record rather than
@@ -152,7 +152,7 @@ const claimSlot = (state: RunState, events: SimEvent[]): Corpse | null => {
   return evicted;
 };
 
-/** What a kill leaves behind: fully fresh, at the dead mob's centre, with no velocity of its own. */
+// What a kill leaves behind: fully fresh, at the dead mob's centre, with no velocity of its own.
 const spawnCorpse = (state: RunState, mob: Mob): SimEvent[] => {
   const events: SimEvent[] = [];
   const corpse = claimSlot(state, events);
@@ -232,7 +232,7 @@ const spawnDrop = (
   return events;
 };
 
-/** Freshness drains linearly, and at empty the dirt takes the corpse under. */
+// Freshness drains linearly, and at empty the dirt takes the corpse under.
 const advanceCorpses = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   for (const corpse of state.corpses) {

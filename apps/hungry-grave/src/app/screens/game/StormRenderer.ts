@@ -31,16 +31,16 @@ import type { FieldLayers } from './layering';
  * rings. That is a silhouette-and-motion requirement and no test can see it.
  */
 
-/** The dark companion every storm sprite carries (ADR 0014's own construction). */
+// The dark companion every storm sprite carries (ADR 0014's own construction).
 const SPRITE_STROKE = 1.2;
 
-/** How dim a spent headstone draws, so the player can see their defense is inert. */
+// How dim a spent headstone draws, so the player can see their defense is inert.
 const INERT_TINT = 0.45;
 
-/** How thick the bell's ring is stroked, in field units. */
+// How thick the bell's ring is stroked, in field units.
 const RING_STROKE = 2.5;
 
-/** The alpha a bell ring starts at, fading to nothing as it reaches its full radius. */
+// The alpha a bell ring starts at, fading to nothing as it reaches its full radius.
 const RING_ALPHA = 0.85;
 
 /**
@@ -64,10 +64,10 @@ const ERUPTION_REACH = Math.sqrt(
   FIELD_WIDTH * FIELD_WIDTH + FIELD_HEIGHT * FIELD_HEIGHT,
 );
 
-/** How thick the eruption's front is stroked, in field units. */
+// How thick the eruption's front is stroked, in field units.
 const ERUPTION_STROKE = 14;
 
-/** How long the splash reads for, in ticks, and how far its spray throws. */
+// How long the splash reads for, in ticks, and how far its spray throws.
 const SPLASH_TICKS = 18;
 const SPLASH_REACH = 26;
 const SPLASH_SPOKES = 7;
@@ -85,10 +85,10 @@ const STORM_RENDERER_TRANSIENT_TICKS = {
   splash: SPLASH_TICKS,
 } as const;
 
-/** One byte's full value, for building a grey tint without writing a colour literal. */
+// One byte's full value, for building a grey tint without writing a colour literal.
 const CHANNEL_MAX = 255;
 
-/** A grey tint at a given brightness, which is how a continuous state is shown without alpha. */
+// A grey tint at a given brightness, which is how a continuous state is shown without alpha.
 const greyTint = (brightness: number): number => {
   const level = Math.max(
     0,
@@ -120,7 +120,7 @@ const drawSkull = (into: Graphics): void => {
     });
 };
 
-/** A headstone: a squat slab with a rounded top, which is a circling solid and not a projectile. */
+// A headstone: a squat slab with a rounded top, which is a circling solid and not a projectile.
 const drawStone = (into: Graphics): void => {
   const w = STONE_HALF_EXTENT;
   into
@@ -154,7 +154,7 @@ const drawWisp = (into: Graphics): void => {
     });
 };
 
-/** The bell's ring at a live radius: a stroked circle, so the falloff in damage is visible as a falloff on screen. */
+// The bell's ring at a live radius: a stroked circle, so the falloff in damage is visible as a falloff on screen.
 const drawRing = (into: Graphics, radius: number): void => {
   into.clear();
   if (radius <= 0) return;
@@ -173,7 +173,7 @@ const drawRing = (into: Graphics, radius: number): void => {
     });
 };
 
-/** The belch's shock front, leaving the mouth and expanding past the field's far corner. */
+// The belch's shock front, leaving the mouth and expanding past the field's far corner.
 const drawEruption = (into: Graphics, progress: number): void => {
   into.clear();
   const radius = ERUPTION_REACH * progress;
@@ -185,7 +185,7 @@ const drawEruption = (into: Graphics, progress: number): void => {
   });
 };
 
-/** Charge going over the side: a short spray at the mouth, so wasting is visible rather than a silent clamp. */
+// Charge going over the side: a short spray at the mouth, so wasting is visible rather than a silent clamp.
 const drawSplash = (into: Graphics, progress: number): void => {
   into.clear();
   const reach = SPLASH_REACH * progress;
@@ -201,7 +201,7 @@ const drawSplash = (into: Graphics, progress: number): void => {
   into.fill({ color: PALETTE.splash.hex });
 };
 
-/** A sprite pool at an entity pool's own capacity, so attach() can place them all and no spawn allocates. */
+// A sprite pool at an entity pool's own capacity, so attach() can place them all and no spawn allocates.
 const fill = (sprites: Graphics[], capacity: number): void => {
   while (sprites.length < capacity) {
     const sprite = new Graphics();
@@ -210,7 +210,7 @@ const fill = (sprites: Graphics[], capacity: number): void => {
   }
 };
 
-/** One momentary effect at a place, on its own clock. */
+// One momentary effect at a place, on its own clock.
 interface Burst {
   readonly sprite: Graphics;
   born: number;
@@ -294,7 +294,7 @@ class StormRenderer {
     fill(this.wispSprites, WISP_CAP);
   }
 
-  /** The storm as the sim says it is. */
+  // The storm as the sim says it is.
   public sync(run: RunState): void {
     this.syncSkulls(run);
     this.syncStones(run);
@@ -303,14 +303,14 @@ class StormRenderer {
     this.syncBursts(run);
   }
 
-  /** The belch landed. It is an event and not a state, so the screen tells the renderer. */
+  // The belch landed. It is an event and not a state, so the screen tells the renderer.
   public erupt(run: RunState): void {
     this.eruption.born = run.tick;
     this.eruption.x = run.grave.x;
     this.eruption.y = run.grave.y - run.grave.size;
   }
 
-  /** Charge went over the side at a full reservoir (ADR 0008). */
+  // Charge went over the side at a full reservoir (ADR 0008).
   public splashed(run: RunState): void {
     this.splash.born = run.tick;
     this.splash.x = run.grave.x;

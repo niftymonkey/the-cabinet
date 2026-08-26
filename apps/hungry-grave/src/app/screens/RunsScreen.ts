@@ -30,7 +30,7 @@ const NO_RUNS = 'NO RUNS KEPT YET.';
 
 const TAPE_MISSING = "THAT RUN'S TAPE COULD NOT BE LOADED FROM THE STORE.";
 
-/** The back button's size, the pause button's own. */
+// The back button's size, the pause button's own.
 const BACK_WIDTH = 132;
 const BACK_HEIGHT = 68;
 
@@ -39,7 +39,7 @@ class RunsScreen extends Container {
   public static assetBundles = ['main'];
 
   private readonly title: Label;
-  /** Store-unavailable, an empty store, and a load that came back empty: facts, stated. */
+  // Store-unavailable, an empty store, and a load that came back empty: facts, stated.
   private readonly statement: Label;
   private readonly list: RunList;
   private readonly backButton: Button;

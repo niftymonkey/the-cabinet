@@ -72,7 +72,7 @@ const priceOfNextDrop = (dropsPaid: number): number => {
  */
 const SEEDING_DROP = 1;
 
-/** The lines a run has yet to open. */
+// The lines a run has yet to open.
 const unownedLines = (state: RunState): readonly WeaponLine[] => {
   return WEAPON_LINES.filter((line) => state.levels[line] === 0);
 };

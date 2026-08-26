@@ -17,15 +17,15 @@ import type { FrameObservation, Observation } from '../tape/tape';
 import type { RunSummaryValues, TapePart, TapeStore } from './tapeStore';
 
 interface StoreRecording {
-  /** Queues whatever a new checkpoint boundary makes appendable. Called outside the frame's timed window. */
+  // Queues whatever a new checkpoint boundary makes appendable. Called outside the frame's timed window.
   flush(): void;
-  /** Appends everything up to the stop and then the trailer part. Called once, at the seal. */
+  // Appends everything up to the stop and then the trailer part. Called once, at the seal.
   seal(): void;
-  /** Flushes what is pending and detaches; every later call is a no-op. */
+  // Flushes what is pending and detaches; every later call is a no-op.
   detach(): void;
 }
 
-/** The summary row as the recorder can state it right now, header and trailer both its own. */
+// The summary row as the recorder can state it right now, header and trailer both its own.
 const summaryOf = (recorder: TapeRecorder): RunSummaryValues => ({
   seed: recorder.header.seed,
   recordedAt: recorder.header.recordedAt,

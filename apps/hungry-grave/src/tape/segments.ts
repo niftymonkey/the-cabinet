@@ -145,7 +145,7 @@ const writeTrailerRecord = (
   writeU32(payload, trailer.debtTicks);
 };
 
-/** One chunk's bytes: the kind, the length and the payload the fill wrote. */
+// One chunk's bytes: the kind, the length and the payload the fill wrote.
 const chunkBytes = (
   kind: number,
   fill: (payload: ByteWriter) => void,
@@ -170,7 +170,7 @@ const headerSegment = (header: TapeHeader): Uint8Array => {
   return writtenBytes(writer);
 };
 
-/** A body chunk names the tick it starts at, which is what lets a store append. */
+// A body chunk names the tick it starts at, which is what lets a store append.
 const bodySegment = (
   firstTick: number,
   commands: readonly TickCommand[],

@@ -121,7 +121,7 @@ class DigestScreen extends Container {
   }
 }
 
-/** The scenario's faults as readable lines, so a phone with no console can still say what broke. */
+// The scenario's faults as readable lines, so a phone with no console can still say what broke.
 const faultLines = (faults: readonly FaultRecord[]): string => {
   return faults
     .map(
@@ -131,7 +131,7 @@ const faultLines = (faults: readonly FaultRecord[]): string => {
     .join('\n');
 };
 
-/** The digest as readable lines, so a divergence can be read off a phone with no console. */
+// The digest as readable lines, so a divergence can be read off a phone with no console.
 const describe = (digest: Digest): string => {
   return Object.entries(digest)
     .map(([field, value]) => `${field}: ${format(value)}`)

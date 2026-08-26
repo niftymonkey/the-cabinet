@@ -123,10 +123,10 @@ export default tseslint.config(
     // string as written, so a rule on "./step" blocks nothing spelled
     // "../step" from src/game/lines. And it covers src/** rather than
     // src/game/**, because the raw calls this exists for were in src/app and
-    // src/boundary.test.ts separately permits src/dev to reach game/step, so
-    // both roots that can break it sit outside a src/game/** scope. That is
-    // the same hole the math fence documents above, where the SteerSource
-    // closure in src/app is out of reach.
+    // src/__tests__/boundary.test.ts separately permits src/dev to reach
+    // game/step, so both roots that can break it sit outside a src/game/**
+    // scope. That is the same hole the math fence documents above, where the
+    // SteerSource closure in src/app is out of reach.
     //
     // patterns matches gitignore-style globs against the import source string
     // and never resolves a module, so this is containment rather than proof:
@@ -138,7 +138,8 @@ export default tseslint.config(
     // report. The extension-carrying spelling is not one of those holes and is
     // listed here instead: "**/step" does not match "./step.js", which Vite
     // resolves happily, so the group names both. The spelling test in
-    // src/executionFence.test.ts is what keeps the claim it does make honest.
+    // src/__tests__/executionFence.test.ts is what keeps the claim it does
+    // make honest.
     files: ['src/**/*.ts'],
     rules: {
       'no-restricted-imports': [

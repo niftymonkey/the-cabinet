@@ -14,7 +14,7 @@
 import { TICK_HZ } from './clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 
-/** Base speed in field units per tick. ADR 0003: crossing the field's width takes about two seconds. */
+// Base speed in field units per tick. ADR 0003: crossing the field's width takes about two seconds.
 const BASE_SPEED = FIELD_WIDTH / (2 * TICK_HZ);
 
 /**
@@ -36,7 +36,7 @@ const SCROLL_SPEED = 38 / TICK_HZ;
  */
 const FRESHNESS_SECONDS = FIELD_HEIGHT / 2 / (SCROLL_SPEED * TICK_HZ);
 
-/** ADR 0004: freshness scales every payout down to this floor, never to zero. */
+// ADR 0004: freshness scales every payout down to this floor, never to zero.
 const FRESHNESS_PAYOUT_FLOOR = 0.25;
 
 /**
@@ -49,7 +49,7 @@ const FRESHNESS_PAYOUT_FLOOR = 0.25;
  */
 const GRAVE_ASPECT = 2;
 
-/** ADR 0003: the grave stands about a quarter of the field's width tall at its ceiling. */
+// ADR 0003: the grave stands about a quarter of the field's width tall at its ceiling.
 const SIZE_CEILING = FIELD_WIDTH / 8;
 
 /**
@@ -65,7 +65,7 @@ const SIZE_START = 27;
  */
 const SIZE_FLOOR = 18;
 
-/** Three hits take a fresh run from its start to its floor, the shmup convention. */
+// Three hits take a fresh run from its start to its floor, the shmup convention.
 const HIT_SHRINK = 3;
 
 /**
@@ -92,13 +92,13 @@ const HIT_SHRINK = 3;
  */
 const INVULNERABLE_TICKS = 24;
 
-/** How many fully fresh trash corpses grow a run from its start to its ceiling. The economy's one declared magnitude. */
+// How many fully fresh trash corpses grow a run from its start to its ceiling. The economy's one declared magnitude.
 const CORPSES_TO_CEILING = 80;
 
-/** The unit of food. Every mob's payout in dispatch 4 is stated as a multiple of this. */
+// The unit of food. Every mob's payout in dispatch 4 is stated as a multiple of this.
 const TRASH_CORPSE_PAYOUT = (SIZE_CEILING - SIZE_START) / CORPSES_TO_CEILING;
 
-/** Decision-log entry 5.11: the Banshee's feast pays growth worth 8 to 10 fresh trash corpses. */
+// Decision-log entry 5.11: the Banshee's feast pays growth worth 8 to 10 fresh trash corpses.
 const FEAST_PAYOUT = 9 * TRASH_CORPSE_PAYOUT;
 
 /**

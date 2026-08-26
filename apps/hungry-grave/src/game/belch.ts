@@ -18,7 +18,7 @@ import { damageMob, hasEntered } from './mobs';
 import type { RunState } from './run';
 import { RESERVOIR_CAPACITY } from './tuning';
 
-/** Takes every live shot off the field, and reports how many went. */
+// Takes every live shot off the field, and reports how many went.
 const cancelMobFire = (state: RunState): number => {
   let cancelled = 0;
   for (const shot of state.mobFire) {

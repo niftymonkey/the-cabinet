@@ -9,7 +9,6 @@ import { Label } from './Label';
  * keyboard speed alike.
  */
 class SettingSlider extends Slider {
-  /** Message displayed for the slider */
   public messageLabel: Label;
 
   constructor(label: string, min = -0.1, max = 100, value = 100) {

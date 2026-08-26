@@ -21,10 +21,10 @@ import type { RunState } from '../run';
  */
 const STONES_BY_LEVEL: readonly number[] = [0, 1, 2, 3, 4, 6];
 
-/** How many stones the first ring holds before a second ring opens. */
+// How many stones the first ring holds before a second ring opens.
 const RING_CAPACITY = 3;
 
-/** The most stones any level orbits, which is how long stoneRecharge is pre-allocated. */
+// The most stones any level orbits, which is how long stoneRecharge is pre-allocated.
 const MAX_STONES = STONES_BY_LEVEL[STONES_BY_LEVEL.length - 1];
 
 /**
@@ -52,13 +52,13 @@ const ORBIT_TICKS = 120;
  */
 const STONE_RECHARGE = 30;
 
-/** How far the orbit turns in one tick, in radians. */
+// How far the orbit turns in one tick, in radians.
 const ORBIT_STEP = (2 * Math.PI) / ORBIT_TICKS;
 
 const STONE_HALF_EXTENT = 5;
 const STONE_DAMAGE = 1;
 
-/** How many stones this run's headstone level orbits. */
+// How many stones this run's headstone level orbits.
 const stoneCount = (state: RunState): number => {
   return STONES_BY_LEVEL[state.levels.headstones];
 };

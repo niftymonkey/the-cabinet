@@ -27,7 +27,7 @@ import { place } from './templates';
 type PhaseName = 'ramp' | 'banshee' | 'backHalf' | 'undertaker' | 'over';
 
 interface StageRow {
-  /** Phase-local seconds. Rows fire when the phase-local tick passes this time. */
+  // Phase-local seconds. Rows fire when the phase-local tick passes this time.
   readonly t: number;
   readonly template: TemplateName;
   readonly count: number;
@@ -55,8 +55,9 @@ interface StageRow {
  * no more than that at the birthright build a run spends most of its length in.
  *
  * What is pinned by test is the property, that the field is empty when the boss
- * phase begins, asserted across all five seeds in src/dev/bot.test.ts. This
- * magnitude follows that property and never the other way round.
+ * phase begins, asserted across all five seeds in
+ * src/dev/__tests__/bot.test.ts. This magnitude follows that property and never
+ * the other way round.
  */
 const DRAIN_OUT_SECONDS = 16;
 
@@ -145,11 +146,11 @@ const PHASES: readonly Phase[] = [
 ];
 
 interface StageState {
-  /** Which phase of PHASES the run is in. It only ever increases. */
+  // Which phase of PHASES the run is in. It only ever increases.
   phaseIndex: number;
-  /** Ticks since this phase began. It resets to zero at a boundary. */
+  // Ticks since this phase began. It resets to zero at a boundary.
   phaseTick: number;
-  /** How many of this phase's rows have fired. */
+  // How many of this phase's rows have fired.
   firedRows: number;
 }
 
@@ -157,7 +158,7 @@ const createStage = (): StageState => {
   return { phaseIndex: 0, phaseTick: 0, firedRows: 0 };
 };
 
-/** A phase's length is its last row's time plus the drain-out. A phase with no rows ends on the tick it begins. */
+// A phase's length is its last row's time plus the drain-out. A phase with no rows ends on the tick it begins.
 const phaseLengthTicks = (phase: Phase): number => {
   if (phase.rows.length === 0) return 0;
   const last = phase.rows[phase.rows.length - 1].t;

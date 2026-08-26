@@ -14,10 +14,10 @@
 
 const LITTLE_ENDIAN = true;
 
-/** Bytes a UTF-8 string's length prefix takes, so a caller can size a record. */
+// Bytes a UTF-8 string's length prefix takes, so a caller can size a record.
 const STRING_LENGTH_BYTES = 2;
 
-/** What a decoder throws when bytes are not a tape, rather than guessing. */
+// What a decoder throws when bytes are not a tape, rather than guessing.
 class TapeFormatError extends Error {
   public constructor(message: string) {
     super(message);
@@ -28,7 +28,7 @@ class TapeFormatError extends Error {
 interface ByteWriter {
   bytes: Uint8Array;
   view: DataView;
-  /** How much of the buffer is written, which is the tape's length so far. */
+  // How much of the buffer is written, which is the tape's length so far.
   length: number;
 }
 
@@ -39,7 +39,7 @@ const createWriter = (capacity: number = INITIAL_CAPACITY): ByteWriter => {
   return { bytes, view: new DataView(bytes.buffer), length: 0 };
 };
 
-/** Doubles until the next write fits, so a long run pays a handful of copies rather than one per tick. */
+// Doubles until the next write fits, so a long run pays a handful of copies rather than one per tick.
 const reserve = (writer: ByteWriter, extra: number): void => {
   const needed = writer.length + extra;
   if (needed <= writer.bytes.length) return;
@@ -96,7 +96,7 @@ const writeBytes = (writer: ByteWriter, source: Uint8Array): void => {
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-/** A UTF-8 string behind a 16-bit length, so a reader can skip one it does not want. */
+// A UTF-8 string behind a 16-bit length, so a reader can skip one it does not want.
 const writeString = (writer: ByteWriter, value: string): void => {
   const encoded = encoder.encode(value);
   if (encoded.length > 0xffff) {
@@ -106,7 +106,7 @@ const writeString = (writer: ByteWriter, value: string): void => {
   writeBytes(writer, encoded);
 };
 
-/** Everything written so far, copied out so a later write cannot move it. */
+// Everything written so far, copied out so a later write cannot move it.
 const writtenBytes = (writer: ByteWriter): Uint8Array => {
   return writer.bytes.slice(0, writer.length);
 };
@@ -122,7 +122,7 @@ const createReader = (bytes: Uint8Array): ByteReader => {
   return { bytes, view, offset: 0 };
 };
 
-/** Bytes left in front of the cursor. Every read checks this before it takes any. */
+// Bytes left in front of the cursor. Every read checks this before it takes any.
 const remaining = (reader: ByteReader): number => {
   return reader.bytes.byteLength - reader.offset;
 };
@@ -182,7 +182,7 @@ const stringFits = (reader: ByteReader, at: number): boolean => {
   return reader.bytes.byteLength - at - STRING_LENGTH_BYTES >= size;
 };
 
-/** A reader over a window of another reader's bytes, for one framed section. */
+// A reader over a window of another reader's bytes, for one framed section.
 const sliceReader = (reader: ByteReader, size: number): ByteReader => {
   const at = take(reader, size, 'a section body');
   return createReader(reader.bytes.subarray(at, at + size));

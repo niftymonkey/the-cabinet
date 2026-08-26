@@ -39,29 +39,26 @@ const writeRaw = (key: string, value: string): void => {
 
 // Every access goes through readRaw/writeRaw, never localStorage directly.
 class StorageWrapper {
-  /** Get a string value from storage */
   public getString(key: string) {
     return readRaw(key) ?? undefined;
   }
 
-  /** Set a string value to storage */
   public setString(key: string, value: string) {
     writeRaw(key, value);
   }
 
-  /** Get a number value from storage or undefined if value can't be converted */
+  // Get a number value from storage or undefined if value can't be converted
   public getNumber(key: string) {
     const str = this.getString(key) ?? undefined;
     const value = Number(str);
     return isNaN(value) ? null : value;
   }
 
-  /** Set a number value to storage */
   public setNumber(key: string, value: number) {
     this.setString(key, String(value));
   }
 
-  /** Get a boolean value from storage or undefined if value can't be converted */
+  // Get a boolean value from storage or undefined if value can't be converted
   public getBool(key: string) {
     // Parsed rather than coerced: Boolean("false") is true, so a coerced read
     // never round-trips a stored false and never reports an unusable value.
@@ -71,12 +68,11 @@ class StorageWrapper {
     return undefined;
   }
 
-  /** Set a boolean value to storage */
   public setBool(key: string, value: boolean) {
     writeRaw(key, String(value));
   }
 
-  /** Get an object value from storage or undefined if value can't be parsed */
+  // Get an object value from storage or undefined if value can't be parsed
   public getObject(key: string) {
     const str = this.getString(key);
     if (!str) return undefined;
@@ -88,7 +84,6 @@ class StorageWrapper {
     }
   }
 
-  /** Set an object value to storage */
   public setObject(key: string, value: Record<string, unknown>) {
     this.setString(key, JSON.stringify(value));
   }

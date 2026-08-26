@@ -38,9 +38,9 @@ const MAX_CATCHUP_TICKS = Math.round(250 / TICK_MS);
 const TICK_TOLERANCE = 1e-9;
 
 interface Clock {
-  /** Real time carried over that did not add up to a whole tick yet. */
+  // Real time carried over that did not add up to a whole tick yet.
   remainderMs: number;
-  /** Ticks the clamp has discarded over this clock's life. The tick-debt readout in 3b shows this. */
+  // Ticks the clamp has discarded over this clock's life. The tick-debt readout in 3b shows this.
   debtTicks: number;
 }
 
@@ -48,7 +48,7 @@ const createClock = (): Clock => {
   return { remainderMs: 0, debtTicks: 0 };
 };
 
-/** Whole ticks inside a span of real time. */
+// Whole ticks inside a span of real time.
 const wholeTicksIn = (elapsedMs: number): number => {
   return Math.floor(elapsedMs / TICK_MS + TICK_TOLERANCE);
 };

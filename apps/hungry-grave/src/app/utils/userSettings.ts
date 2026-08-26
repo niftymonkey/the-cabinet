@@ -17,12 +17,12 @@ const KEYBOARD_SPEED_SLIDER_MIN = 15;
 const KEYBOARD_SPEED_SLIDER_MAX = 30;
 const KEYBOARD_SPEED_SLIDER_DIVISOR = 20;
 
-/** A slider position as a speed multiplier. */
+// A slider position as a speed multiplier.
 const keyboardSpeedFromSlider = (value: number): number => {
   return Math.round(value) / KEYBOARD_SPEED_SLIDER_DIVISOR;
 };
 
-/** A speed multiplier back as a slider position, so the popup can show the stored setting. */
+// A speed multiplier back as a slider position, so the popup can show the stored setting.
 const sliderFromKeyboardSpeed = (speed: number): number => {
   return Math.round(speed * KEYBOARD_SPEED_SLIDER_DIVISOR);
 };
@@ -41,23 +41,23 @@ class UserSettings {
     engine().audio.sfx.setVolume(this.getSfxVolume());
   }
 
-  /** Get overall sound volume */
+  // Get overall sound volume
   public getMasterVolume() {
     return storage.getNumber(KEY_VOLUME_MASTER) ?? 0.5;
   }
 
-  /** Set overall sound volume */
+  // Set overall sound volume
   public setMasterVolume(value: number) {
     engine().audio.setMasterVolume(value);
     storage.setNumber(KEY_VOLUME_MASTER, value);
   }
 
-  /** Get background music volume */
+  // Get background music volume
   public getBgmVolume() {
     return storage.getNumber(KEY_VOLUME_BGM) ?? 1;
   }
 
-  /** Set background music volume */
+  // Set background music volume
   public setBgmVolume(value: number) {
     engine().audio.bgm.setVolume(value);
     storage.setNumber(KEY_VOLUME_BGM, value);
@@ -72,24 +72,23 @@ class UserSettings {
     return clampKeyboardSpeed(storage.getNumber(KEY_KEYBOARD_SPEED) ?? 1);
   }
 
-  /** Set the keyboard speed multiplier */
+  // Set the keyboard speed multiplier
   public setKeyboardSpeed(value: number) {
     storage.setNumber(KEY_KEYBOARD_SPEED, clampKeyboardSpeed(value));
   }
 
-  /** Get sound effects volume */
+  // Get sound effects volume
   public getSfxVolume() {
     return storage.getNumber(KEY_VOLUME_SFX) ?? 1;
   }
 
-  /** Set sound effects volume */
+  // Set sound effects volume
   public setSfxVolume(value: number) {
     engine().audio.sfx.setVolume(value);
     storage.setNumber(KEY_VOLUME_SFX, value);
   }
 }
 
-/** SHared user settings instance */
 const userSettings = new UserSettings();
 
 export {

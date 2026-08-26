@@ -3,17 +3,12 @@ import { Assets, BigPool, Container } from 'pixi.js';
 
 import type { CreationEngine } from '../engine';
 
-/** Interface for app screens */
 interface AppScreen extends Container {
-  /** Show the screen */
   show?(): Promise<void>;
-  /** Hide the screen */
   hide?(): Promise<void>;
-  /** Pause the screen */
   pause?(): Promise<void>;
-  /** Resume the screen */
   resume?(): Promise<void>;
-  /** Prepare screen, before showing */
+  // Prepare screen, before showing
   prepare?(): void;
   /**
    * Reset screen, after hidden. Required, not optional: screens are pooled
@@ -21,49 +16,40 @@ interface AppScreen extends Container {
    * calls this, and it must stay idempotent.
    */
   reset(): void;
-  /** Update the screen, passing delta time/step */
+  // Update the screen, passing delta time/step
   update?(time: Ticker): void;
-  /** Resize the screen */
   resize?(width: number, height: number): void;
-  /** Blur the screen */
   blur?(): void;
-  /** Focus the screen */
   focus?(): void;
-  /** Method to react on assets loading progress */
+  // Method to react on assets loading progress
   onLoad?: (progress: number) => void;
 }
 
-/** Interface for app screens constructors */
 interface AppScreenConstructor {
   new (): AppScreen;
-  /** List of assets bundles required by the screen */
+  // List of assets bundles required by the screen
   assetBundles?: string[];
 }
 
 class Navigation {
-  /** Reference to the main application */
   public app!: CreationEngine;
 
-  /** Container for screens */
+  // Container for screens
   public container = new Container();
 
-  /** Application width */
   public width = 0;
 
-  /** Application height */
   public height = 0;
 
-  /** Current screen being displayed */
   public currentScreen?: AppScreen;
 
-  /** Current popup being displayed */
   public currentPopup?: AppScreen;
 
   public init(app: CreationEngine) {
     this.app = app;
   }
 
-  /** Add screen to the stage, link update & resize functions */
+  // Add screen to the stage, link update & resize functions
   private async addAndShowScreen(screen: AppScreen) {
     // Add navigation container to stage if it does not have a parent yet
     if (!this.container.parent) {

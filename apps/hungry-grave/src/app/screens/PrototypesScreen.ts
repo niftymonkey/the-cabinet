@@ -10,7 +10,7 @@ import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 
 class PrototypesScreen extends Container {
-  /** Assets bundles required by this screen */
+  // Assets bundles required by this screen
   public static assetBundles = ['main'];
 
   private readonly title: Label;
@@ -71,7 +71,7 @@ class PrototypesScreen extends Container {
     this.empty?.position.set(cx, height * 0.4);
   }
 
-  /** Reset screen, after hidden */
+  // Reset screen, after hidden
   public reset() {}
 }
 

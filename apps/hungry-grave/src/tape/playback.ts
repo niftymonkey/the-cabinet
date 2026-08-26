@@ -27,17 +27,17 @@ interface PlaybackResult {
   readonly outcome: PlaybackOutcome;
   readonly tapeWitnessVersion: number;
   readonly readerWitnessVersion: number;
-  /** Checkpoints this playback recomputed and agreed with. */
+  // Checkpoints this playback recomputed and agreed with.
   readonly checkpointsVerified: number;
   /**
    * Checkpoints the body could not reach, which is how a tape cut off mid-body
    * says it verified as far as it goes rather than claiming the whole run.
    */
   readonly checkpointsUnreachable: number;
-  /** The first checkpoint that disagreed, or null when none did. */
+  // The first checkpoint that disagreed, or null when none did.
   readonly firstDivergentCheckpoint: number | null;
   readonly ticksReproduced: number;
-  /** The fold of the reproduced run at its last reproduced tick. */
+  // The fold of the reproduced run at its last reproduced tick.
   readonly finalWitness: number;
   /**
    * The faults the tape carries, which are the original run's history. A
@@ -61,13 +61,13 @@ interface PlaybackResult {
 interface Playback {
   readonly run: RunState;
   readonly ticksReproduced: number;
-  /** False when the tape or the verified bound is exhausted. */
+  // False when the tape or the verified bound is exhausted.
   advanceTick(): boolean;
-  /** The verdict so far. */
+  // The verdict so far.
   result(): PlaybackResult;
 }
 
-/** The tape's checkpoints by index, so the loop can ask for one by tick count. */
+// The tape's checkpoints by index, so the loop can ask for one by tick count.
 const checkpointsByIndex = (
   checkpoints: readonly TapeCheckpoint[],
 ): ReadonlyMap<number, number> => {
@@ -78,7 +78,7 @@ const checkpointsByIndex = (
   return byIndex;
 };
 
-/** How many of a tape's checkpoints sit at or before the ticks reproduced so far. */
+// How many of a tape's checkpoints sit at or before the ticks reproduced so far.
 const countReachable = (
   expected: ReadonlyMap<number, number>,
   ticksReproduced: number,
@@ -188,7 +188,7 @@ const createPlayback = (tape: Tape, observer?: TickListener): Playback => {
   };
 };
 
-/** Drives createPlayback to the end, through the same loop the stepwise form steps. */
+// Drives createPlayback to the end, through the same loop the stepwise form steps.
 const playTape = (tape: Tape, observer?: TickListener): PlaybackResult => {
   const playback = createPlayback(tape, observer);
   let advancing = true;

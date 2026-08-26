@@ -64,7 +64,7 @@ class FieldLayers {
     parent.addChild(this.#root);
   }
 
-  /** The one way to reach a layer. */
+  // The one way to reach a layer.
   public layer(name: LayerName): Container {
     // LayerName is exactly LAYER_ORDER, and the constructor fills every name.
     return this.layers.get(name)!;

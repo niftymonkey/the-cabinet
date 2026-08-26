@@ -17,29 +17,27 @@ import {
 } from '../utils/userSettings';
 import { PausePopup } from './PausePopup';
 
-/** Popup for volume */
+// Popup for volume
 class SettingsPopup extends Container {
-  /** The dark semi-transparent background covering current screen */
+  // The dark semi-transparent background covering current screen
   private bg: Sprite;
-  /** Container for the popup UI components */
+  // Container for the popup UI components
   private panel: Container;
-  /** The popup title label */
   private title: Text;
-  /** Button that closes the popup */
+  // Button that closes the popup
   private doneButton: Button;
-  /** The panel background */
+  // The panel background
   private panelBase: RoundedBox;
-  /** The build version label */
   private versionLabel: Text;
-  /** Layout that organises the UI components */
+  // Layout that organises the UI components
   private layout: List;
-  /** Slider that changes the master volume */
+  // Slider that changes the master volume
   private masterSlider: SettingSlider;
-  /** Slider that changes background music volume */
+  // Slider that changes background music volume
   private bgmSlider: SettingSlider;
-  /** Slider that changes sound effects volume */
+  // Slider that changes sound effects volume
   private sfxSlider: SettingSlider;
-  /** Slider that changes the keyboard's designated speed (ADR 0011) */
+  // Slider that changes the keyboard's designated speed (ADR 0011)
   private keyboardSpeedSlider: SettingSlider;
 
   constructor() {
@@ -138,7 +136,7 @@ class SettingsPopup extends Container {
     this.keyboardSpeedSlider.messageLabel.text = `Keyboard Speed  ${speed.toFixed(2)}x`;
   }
 
-  /** Resize the popup, fired whenever window size changes */
+  // Resize the popup, fired whenever window size changes
   public resize(width: number, height: number) {
     this.bg.width = width;
     this.bg.height = height;
@@ -146,7 +144,7 @@ class SettingsPopup extends Container {
     this.panel.y = height * 0.5;
   }
 
-  /** Set things up just before showing the popup */
+  // Set things up just before showing the popup
   public prepare() {
     this.masterSlider.value = userSettings.getMasterVolume() * 100;
     this.bgmSlider.value = userSettings.getBgmVolume() * 100;
@@ -158,7 +156,7 @@ class SettingsPopup extends Container {
     this.showKeyboardSpeed(speed);
   }
 
-  /** Present the popup, animated */
+  // Present the popup, animated
   public async show() {
     const currentEngine = engine();
     if (currentEngine.navigation.currentScreen) {
@@ -177,7 +175,7 @@ class SettingsPopup extends Container {
     );
   }
 
-  /** Dismiss the popup, animated */
+  // Dismiss the popup, animated
   public async hide() {
     const currentEngine = engine();
     if (currentEngine.navigation.currentScreen) {
@@ -194,7 +192,7 @@ class SettingsPopup extends Container {
     );
   }
 
-  /** Reset screen, after hidden */
+  // Reset screen, after hidden
   public reset() {}
 }
 

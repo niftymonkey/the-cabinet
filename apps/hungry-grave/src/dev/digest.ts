@@ -1,34 +1,9 @@
+// The golden digest's scenario and its committed constant (ADR 0015).
+
 /**
- * The golden digest's scenario and its committed constant (ADR 0015).
- *
- * It lives in src/dev rather than inside the test because two callers need it:
- * the test in src/game, and the #/digest screen, which runs the same scenario
- * in whatever browser opened the URL. CI and the developer's machine are the
- * same Node, so a browser is the only place ADR 0015's cross-engine claim can
- * actually be checked before the final dispatch.
- *
  * src/dev may reach src/game and imports no bare packages, which is what keeps
  * this module pixi-free and usable from a screen.
- *
- * THE BLINDNESS THIS DISPATCH CLOSED, AND HOW.
- *
- * Nothing on the digest's path called math.ts before the field existed, so a
- * green digest was not determinism verified at all. The scenario now spawns a
- * ghoul and runs it long enough to turn, which is the first thing in the game
- * to need trigonometry.
- *
- * Extending the scenario is not enough on its own. The checksum used to fold
- * only the grave's x, y and size, and a ghoul's turn reaches none of those at
- * the precision an f32 divergence lives at: an ulp in cos will never move the
- * grave. It now folds every live entity's own state in slot order, which is
- * what actually puts math.ts on the path and buys coverage of the spawn
- * sequence and of pool iteration order at the same time.
- *
- * The fold itself lives in src/game/witness.ts (ADR 0019), because a replay
- * ships and ADR 0013 keeps this rig out of the shipped game. The digest is the
- * witness of this one canonical scenario, chained across its ticks.
  */
-
 import { graveHitbox } from '../game/grave';
 import type { Mob } from '../game/mobs';
 import { damageMob, spawnMob } from '../game/mobs';
@@ -42,13 +17,17 @@ import { foldWitness } from '../game/witness';
 const SEED = 20260820;
 const TICKS = 600;
 
-/** The tick the scripted ghoul enters, early enough that its beat ends and it turns for most of the run. */
+/**
+ * The tick the scripted ghoul enters, early enough that its beat ends and it
+ * turns for most of the run. The turn is the first thing in the game to need
+ * trigonometry, so it is what puts math.ts on the digest's path at all.
+ */
 const GHOUL_AT = 30;
 
-/** The tick a mob is put under the grave and killed, so a corpse is made and swallowed on the next one. */
+// The tick a mob is put under the grave and killed, so a corpse is made and swallowed on the next one.
 const SWALLOW_AT = 240;
 
-/** The tick a mob is killed away from the grave, so a corpse is still draining when the scenario ends. */
+// The tick a mob is killed away from the grave, so a corpse is still draining when the scenario ends.
 const LEFTOVER_AT = 540;
 
 /**
@@ -177,7 +156,7 @@ const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
   };
 };
 
-/** A mob put exactly where the script wants one, outside the stage's own rows. */
+// A mob put exactly where the script wants one, outside the stage's own rows.
 const put = (run: RunState, x: number, y: number): Mob | null => {
   return spawnMob(run, 'shambler', { x, y, vx: 0, vy: 1, index: 0 });
 };
@@ -208,7 +187,22 @@ const scriptedKills = (run: RunState, tick: number): number => {
   return 1;
 };
 
-/** Runs the scenario, returning its digest, how close it came to the field boundary, the run itself and any faults it broke. */
+/**
+ * Runs the scenario, returning its digest, how close it came to the field
+ * boundary, the run itself and any faults it broke.
+ *
+ * It lives in src/dev rather than inside the test because two callers need it:
+ * the test in src/game, and the #/digest screen, which runs the same scenario
+ * in whatever browser opened the URL. CI and the developer's machine are the
+ * same Node, so a browser is the only place ADR 0015's cross-engine claim can
+ * actually be checked.
+ *
+ * The fold itself lives in src/game/witness.ts (ADR 0019), because a replay
+ * ships and ADR 0013 keeps this rig out of the shipped game. The digest is the
+ * witness of this one canonical scenario, chained across its ticks: it folds
+ * every live entity's own state in slot order, which is what puts math.ts on
+ * the path and covers the spawn sequence and pool iteration order with it.
+ */
 const runScenario = (): ScenarioResult => {
   const run = createRun(SEED);
   const execution = createExecution(run);

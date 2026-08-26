@@ -15,7 +15,7 @@ const WEAPON_LINES: readonly WeaponLine[] = [
   'bell',
 ];
 
-/** The lines a run starts with (glossary: birthright). The floor's ladder strips back to exactly these. */
+// The lines a run starts with (glossary: birthright). The floor's ladder strips back to exactly these.
 const BIRTHRIGHT: readonly WeaponLine[] = ['soulStream', 'headstones'];
 
 const MAX_LEVEL = 5;

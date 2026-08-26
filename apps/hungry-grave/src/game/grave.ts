@@ -25,15 +25,15 @@ import {
 const START_X = FIELD_WIDTH / 2;
 const START_Y = FIELD_HEIGHT * 0.8;
 
-/** Who hurt the player (#48): the mob type whose shot landed, or body contact. */
+// Who hurt the player (#48): the mob type whose shot landed, or body contact.
 type GraveHitSource = MobType | 'contact';
 
 interface Grave {
   x: number;
   y: number;
-  /** The one scalar: the half-height. Width follows at a fixed aspect. */
+  // The one scalar: the half-height. Width follows at a fixed aspect.
   size: number;
-  /** Ticks of invulnerability left. Zero means a hit lands. */
+  // Ticks of invulnerability left. Zero means a hit lands.
   invulnerable: number;
 }
 
@@ -89,7 +89,7 @@ const clamp = (value: number, low: number, high: number): number => {
   return Math.min(Math.max(value, low), high);
 };
 
-/** Holds the whole grave inside the field, accounting for its own width and height. */
+// Holds the whole grave inside the field, accounting for its own width and height.
 const containGrave = (grave: Grave): void => {
   const halfWidth = graveWidth(grave.size) / 2;
   grave.x = clamp(grave.x, halfWidth, FIELD_WIDTH - halfWidth);
@@ -124,19 +124,19 @@ const growGrave = (grave: Grave, amount: number): number => {
   return Math.max(0, grown - SIZE_CEILING);
 };
 
-/** One tick of the grave: invulnerability counts down. */
+// One tick of the grave: invulnerability counts down.
 const ageGrave = (grave: Grave): void => {
   if (grave.invulnerable > 0) grave.invulnerable -= 1;
 };
 
-/** The whole score, gone. The score tier is exactly one rung, so it never partly bleeds. */
+// The whole score, gone. The score tier is exactly one rung, so it never partly bleeds.
 const bleedScore = (state: RunState): SimEvent[] => {
   const amount = state.score;
   state.score = 0;
   return [{ type: 'scoreBled', amount }];
 };
 
-/** The level a line can never be stripped below (glossary: birthright). */
+// The level a line can never be stripped below (glossary: birthright).
 const levelFloor = (line: WeaponLine): number => {
   return BIRTHRIGHT.includes(line) ? 1 : 0;
 };

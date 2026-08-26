@@ -37,7 +37,7 @@ interface TickCommand {
   readonly belch: boolean;
 }
 
-/** How a run finishes. Null while it is live. */
+// How a run finishes. Null while it is live.
 type RunEnding = 'sealed' | 'victory';
 
 /**
@@ -51,20 +51,20 @@ type RunEnding = 'sealed' | 'victory';
  * place a reader can check at a glance.
  */
 interface LineState {
-  /** Ticks to the next stream volley. */
+  // Ticks to the next stream volley.
   streamIn: number;
-  /** Surged volleys still owed, set by a swallow and never added to. */
+  // Surged volleys still owed, set by a swallow and never added to.
   surgeVolleys: number;
-  /** The headstones' orbit, in radians, wrapped into zero to two pi every tick. */
+  // The headstones' orbit, in radians, wrapped into zero to two pi every tick.
   orbitPhase: number;
   /**
    * Ticks of inert left, per stone slot. Pre-allocated at the maximum stone
    * count and never resized, so a level change cannot reallocate mid-run.
    */
   readonly stoneRecharge: number[];
-  /** Ticks to the next toll. */
+  // Ticks to the next toll.
   tollIn: number;
-  /** The one live ring, or null between tolls. */
+  // The one live ring, or null between tolls.
   ring: BellRing | null;
 }
 
@@ -107,9 +107,9 @@ interface RunState {
   readonly wisps: Wisp[];
   readonly stage: StageState;
   readonly lines: LineState;
-  /** Kills since the last drop was paid for, against the price of the next one (ADR 0002). */
+  // Kills since the last drop was paid for, against the price of the next one (ADR 0002).
   killsSinceDrop: number;
-  /** How many drops this run has bought, which is the index into the price table. */
+  // How many drops this run has bought, which is the index into the price table.
   dropsPaid: number;
   /**
    * The next entity id, only ever increasing. It is not cosmetic: the cap
@@ -142,7 +142,7 @@ const rollSeed = (): number => {
   return Math.floor(Math.random() * SEED_LIMIT);
 };
 
-/** Every line's clock at the top of a run, in one place. */
+// Every line's clock at the top of a run, in one place.
 const startingLines = (): LineState => {
   return {
     streamIn: STREAM_INTERVAL,
@@ -154,7 +154,7 @@ const startingLines = (): LineState => {
   };
 };
 
-/** The levels a run starts with: the birthright lines at one, the rest unowned. */
+// The levels a run starts with: the birthright lines at one, the rest unowned.
 const birthrightLevels = (): Record<WeaponLine, number> => {
   const levels: Record<WeaponLine, number> = {
     soulStream: 0,

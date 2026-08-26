@@ -30,17 +30,17 @@ import { PALETTE } from '../../palette';
  */
 const BELCH_SIZE = 108;
 
-/** How thick the ring is drawn, in stage units. */
+// How thick the ring is drawn, in stage units.
 const RING_STROKE = 5;
 
-/** How thick the inner mark is drawn, and how far in it sits. */
+// How thick the inner mark is drawn, and how far in it sits.
 const MARK_STROKE = 4;
 const MARK_INSET = 0.42;
 
-/** How dim the ring draws while the reservoir is still filling. */
+// How dim the ring draws while the reservoir is still filling.
 const QUIET_ALPHA = 0.32;
 
-/** How far the lit ring pulses, and how fast, in ticks per cycle. */
+// How far the lit ring pulses, and how fast, in ticks per cycle.
 const LIT_PULSE_DEPTH = 0.22;
 const LIT_PULSE_TICKS = 40;
 
@@ -93,17 +93,17 @@ class BelchButton extends Container {
     if (this.claimed === event.pointerId) this.claimed = null;
   }
 
-  /** Whether this pointer belongs to the button, so the steer model can ignore it. */
+  // Whether this pointer belongs to the button, so the steer model can ignore it.
   public owns(pointerId: number): boolean {
     return this.claimed === pointerId;
   }
 
-  /** Every claim dropped, which pause, blur and pointercancel all need. */
+  // Every claim dropped, which pause, blur and pointercancel all need.
   public release(): void {
     this.claimed = null;
   }
 
-  /** The loaded tell. Quiet while the reservoir fills, lit at full. */
+  // The loaded tell. Quiet while the reservoir fills, lit at full.
   public sync(loaded: boolean, tick: number): void {
     if (!this.drawn) {
       this.drawn = true;

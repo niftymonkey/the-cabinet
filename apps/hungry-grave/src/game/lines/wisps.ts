@@ -25,9 +25,9 @@ interface Wisp {
   y: number;
   vx: number;
   vy: number;
-  /** Ticks of flight left. A wisp that finds nothing expires rather than persisting (ADR 0005). */
+  // Ticks of flight left. A wisp that finds nothing expires rather than persisting (ADR 0005).
   life: number;
-  /** The id of the mob this wisp is flying at, or null when the field is empty. */
+  // The id of the mob this wisp is flying at, or null when the field is empty.
   targetId: number | null;
 }
 
@@ -82,7 +82,7 @@ const TURN_RADIANS = (WISP_TURN_DEGREES_PER_SECOND * Math.PI) / 180 / TICK_HZ;
 const TURN_COS = cos(TURN_RADIANS);
 const TURN_SIN = sin(TURN_RADIANS);
 
-/** The live mob a wisp is flying at, or null once that mob is gone. */
+// The live mob a wisp is flying at, or null once that mob is gone.
 const targetOf = (state: RunState, wisp: Wisp): Mob | null => {
   if (wisp.targetId === null) return null;
   for (const mob of state.mobs) {
@@ -91,7 +91,7 @@ const targetOf = (state: RunState, wisp: Wisp): Mob | null => {
   return null;
 };
 
-/** How many live wisps are already flying at this mob. */
+// How many live wisps are already flying at this mob.
 const committedTo = (state: RunState, mobId: number): number => {
   let committed = 0;
   for (const wisp of state.wisps) {
@@ -100,7 +100,7 @@ const committedTo = (state: RunState, mobId: number): number => {
   return committed;
 };
 
-/** The squared distance from a point to a mob, which orders targets without a square root. */
+// The squared distance from a point to a mob, which orders targets without a square root.
 const distanceTo = (mob: Mob, x: number, y: number): number => {
   const dx = mob.x - x;
   const dy = mob.y - y;
@@ -136,7 +136,7 @@ const nearestMob = (
   return nearest;
 };
 
-/** Points a wisp at a mob, or straight up when the field holds nothing to hunt. */
+// Points a wisp at a mob, or straight up when the field holds nothing to hunt.
 const aim = (wisp: Wisp, target: Mob | null): void => {
   wisp.targetId = target === null ? null : target.id;
   const heading =
@@ -180,7 +180,7 @@ const launchWisps = (
   }
 };
 
-/** A wisp fully outside the field on any side is gone. */
+// A wisp fully outside the field on any side is gone.
 const cullWisps = (state: RunState): void => {
   for (const wisp of state.wisps) {
     if (!wisp.alive) continue;
@@ -222,7 +222,7 @@ const flyWisp = (state: RunState, wisp: Wisp): void => {
   wisp.y += wisp.vy;
 };
 
-/** Every live wisp's turn, flight and expiry, one tick on. */
+// Every live wisp's turn, flight and expiry, one tick on.
 const advanceWisps = (state: RunState): SimEvent[] => {
   for (const wisp of state.wisps) {
     if (!wisp.alive) continue;

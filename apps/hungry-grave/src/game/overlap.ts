@@ -4,7 +4,7 @@
  * answers whether there is one.
  */
 
-/** A rectangle in field units, as a top-left corner and a size. */
+// A rectangle in field units, as a top-left corner and a size.
 interface Rect {
   readonly x: number;
   readonly y: number;

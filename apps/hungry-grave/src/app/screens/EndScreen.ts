@@ -22,7 +22,7 @@ const ENDING_TITLE: Record<RunEnding, string> = {
   victory: 'THE STAGE SURVIVED',
 };
 
-/** A run the player ended themselves, which is neither ending. */
+// A run the player ended themselves, which is neither ending.
 const ABANDONED_TITLE = 'THE RUN IS OVER';
 
 /**

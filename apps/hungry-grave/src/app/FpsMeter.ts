@@ -8,7 +8,7 @@ import { Label } from './ui/Label';
 const MARGIN = 12;
 const LINE_HEIGHT = 20;
 
-/** The font size the whole corner stack shares, because a shared line height presumes a shared size. */
+// The font size the whole corner stack shares, because a shared line height presumes a shared size.
 const METER_FONT_SIZE = 16;
 
 /**

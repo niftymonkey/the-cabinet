@@ -39,7 +39,7 @@ import { BASE_SPEED, SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from './tuning';
 
 type MobType = 'shambler' | 'revenant' | 'ghoul';
 
-/** Which corpse a kill leaves. The tier is a payout read and never a size (ADR 0014). */
+// Which corpse a kill leaves. The tier is a payout read and never a size (ADR 0014).
 type CorpseTier = 'trash' | 'rich';
 
 /**
@@ -49,10 +49,10 @@ type CorpseTier = 'trash' | 'rich';
  */
 type DamageSource = WeaponLine | 'belch';
 
-/** How much of a wave carries fire at all. */
+// How much of a wave carries fire at all.
 type ArmedShare = 'none' | 'everyThird' | 'all';
 
-/** How a type moves once its arriving beat has passed. */
+// How a type moves once its arriving beat has passed.
 type MobMotion = 'falls' | 'chases';
 
 /**
@@ -64,7 +64,7 @@ type MobMotion = 'falls' | 'chases';
  */
 interface FireRow {
   readonly armedShare: ArmedShare;
-  /** Ticks between shots. */
+  // Ticks between shots.
   readonly interval: number;
   /**
    * How many ticks of per-mob offset the first shot may carry, drawn from the
@@ -79,7 +79,7 @@ interface FireRow {
    * rules compose.
    */
   readonly tellTicks: number;
-  /** Field units per tick. A reaction budget: a shot from mid-field reaches the starting mark in about two seconds. */
+  // Field units per tick. A reaction budget: a shot from mid-field reaches the starting mark in about two seconds.
   readonly shotSpeed: number;
   readonly shotHalfExtent: number;
 }
@@ -90,13 +90,13 @@ interface MobRow {
   readonly hp: number;
   readonly corpsePayout: number;
   readonly corpseTier: CorpseTier;
-  /** The type's own speed in field units per tick. The scroll is added separately. */
+  // The type's own speed in field units per tick. The scroll is added separately.
   readonly speed: number;
   readonly motion: MobMotion;
   readonly fire: FireRow;
 }
 
-/** A type that never fires still declares the row, so nothing branches on a missing field. */
+// A type that never fires still declares the row, so nothing branches on a missing field.
 const NEVER_FIRES: FireRow = {
   armedShare: 'none',
   interval: 0,
@@ -217,7 +217,7 @@ interface Mob {
   type: MobType;
   x: number;
   y: number;
-  /** The mob's own motion in field units per tick. The scroll is added separately, in step. */
+  // The mob's own motion in field units per tick. The scroll is added separately, in step.
   vx: number;
   vy: number;
   hp: number;
@@ -228,7 +228,7 @@ interface Mob {
    * have expired before anyone saw the placement it exists to show.
    */
   beat: number;
-  /** Ticks until this mob's next shot, counted on the same trigger as the beat. */
+  // Ticks until this mob's next shot, counted on the same trigger as the beat.
   fireIn: number;
   armed: boolean;
 }
@@ -300,7 +300,7 @@ const shotHitbox = (shot: Shot): Rect => {
   };
 };
 
-/** Whether the mob's top edge is inside the field, which is what starts its beat and its fire clock. */
+// Whether the mob's top edge is inside the field, which is what starts its beat and its fire clock.
 const hasEntered = (mob: Mob): boolean => {
   return mob.y - MOB_TYPES[mob.type].halfHeight >= 0;
 };
@@ -321,13 +321,13 @@ const isArmed = (share: ArmedShare, index: number): boolean => {
   return index % 3 === 2;
 };
 
-/** The tell the renderer draws, and the only warning a shot gets. */
+// The tell the renderer draws, and the only warning a shot gets.
 const mobTellLit = (mob: Mob): boolean => {
   if (!mob.armed || !hasEntered(mob)) return false;
   return mob.fireIn <= MOB_TYPES[mob.type].fire.tellTicks;
 };
 
-/** Puts one mob on the field in the placement the template asked for, or refuses at the cap. */
+// Puts one mob on the field in the placement the template asked for, or refuses at the cap.
 const spawnMob = (
   state: RunState,
   type: MobType,
@@ -350,7 +350,7 @@ const spawnMob = (
   return mob;
 };
 
-/** A per-mob offset on the first shot, so a File of armed mobs does not fire as one volley. */
+// A per-mob offset on the first shot, so a File of armed mobs does not fire as one volley.
 const firstShotOffset = (state: RunState, row: MobRow): number => {
   if (row.fire.firstShotJitter <= 0) return 0;
   return state.streams.mobFire.nextInt(row.fire.firstShotJitter);
@@ -377,13 +377,13 @@ const chase = (mob: Mob, grave: Grave): void => {
   mob.vy = Math.max(turned.y * row.speed, GHOUL_DESCENT_FLOOR);
 };
 
-/** A falling type's own rule: straight down at its own speed, whatever direction it arrived on. */
+// A falling type's own rule: straight down at its own speed, whatever direction it arrived on.
 const fall = (mob: Mob): void => {
   mob.vx = 0;
   mob.vy = MOB_TYPES[mob.type].speed;
 };
 
-/** One mob's motion for this tick: the arriving beat first, then its own rule. */
+// One mob's motion for this tick: the arriving beat first, then its own rule.
 const moveMob = (mob: Mob, grave: Grave): void => {
   if (hasEntered(mob)) {
     if (mob.beat > 0) {
@@ -434,7 +434,7 @@ const hasPassed = (mob: Mob, grave: Grave): boolean => {
   return mob.y - MOB_TYPES[mob.type].halfHeight > grave.y + grave.size;
 };
 
-/** One mob's fire clock. It runs on the same trigger as the beat and is never delayed by it. */
+// One mob's fire clock. It runs on the same trigger as the beat and is never delayed by it.
 const tickFire = (state: RunState, mob: Mob): SimEvent[] => {
   if (!mob.armed || !hasEntered(mob)) return [];
   if (hasPassed(mob, state.grave)) return [];
@@ -503,7 +503,7 @@ const damageMob = (
   return events;
 };
 
-/** A square hitbox centred on a point, which is what every storm entity carries. */
+// A square hitbox centred on a point, which is what every storm entity carries.
 const squareAt = (x: number, y: number, halfExtent: number): Rect => {
   return {
     x: x - halfExtent,
@@ -513,7 +513,7 @@ const squareAt = (x: number, y: number, halfExtent: number): Rect => {
   };
 };
 
-/** The first live mob a box overlaps, in slot order, or null. */
+// The first live mob a box overlaps, in slot order, or null.
 const mobUnder = (state: RunState, box: Rect): Mob | null => {
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
@@ -522,7 +522,7 @@ const mobUnder = (state: RunState, box: Rect): Mob | null => {
   return null;
 };
 
-/** Skulls meeting mobs. A skull is consumed by the mob it hits, one mob per skull. */
+// Skulls meeting mobs. A skull is consumed by the mob it hits, one mob per skull.
 const resolveSkulls = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   for (const skull of state.skulls) {
@@ -612,7 +612,7 @@ const cullMobs = (state: RunState): void => {
   }
 };
 
-/** A shot fully outside the field on any side is gone. */
+// A shot fully outside the field on any side is gone.
 const cullShots = (state: RunState): void => {
   for (const shot of state.mobFire) {
     if (!shot.alive) continue;

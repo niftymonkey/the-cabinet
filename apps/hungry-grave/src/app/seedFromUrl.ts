@@ -21,13 +21,13 @@
 import { MAX_LEVEL } from '../game/lines/roster';
 import { SEED_LIMIT } from '../game/run';
 
-/** The query the hash carries, which is everything after its first question mark. */
+// The query the hash carries, which is everything after its first question mark.
 const hashQuery = (hash: string): string => {
   const start = hash.indexOf('?');
   return start < 0 ? '' : hash.slice(start + 1);
 };
 
-/** The parameter as the URL states it, hash first, or null when neither form names it. */
+// The parameter as the URL states it, hash first, or null when neither form names it.
 const rawParameter = (
   name: string,
   search: string,
@@ -43,7 +43,7 @@ const ignore = (name: string, raw: string): null => {
   return null;
 };
 
-/** A number the string actually spells. Number("") is 0, which would pin seed zero on an empty parameter. */
+// A number the string actually spells. Number("") is 0, which would pin seed zero on an empty parameter.
 const parsed = (raw: string): number | null => {
   if (raw.trim() === '') return null;
   const value = Number(raw);
@@ -81,7 +81,7 @@ const sizeFromUrl = (search: string, hash: string): number | null => {
   return value;
 };
 
-/** The same, for the loadout pin, where falling back means the birthright levels. */
+// The same, for the loadout pin, where falling back means the birthright levels.
 const ignoreLevels = (raw: string): null => {
   console.warn(
     `Ignoring ?levels=${raw}: the run keeps its birthright instead.`,
@@ -128,7 +128,7 @@ const tapeFromUrl = (search: string, hash: string): string | null => {
   return raw;
 };
 
-/** The same, for the replay's opening tick, where falling back means the start. */
+// The same, for the replay's opening tick, where falling back means the start.
 const ignoreAt = (raw: string): null => {
   console.warn(`Ignoring ?at=${raw}: the replay opens at its start instead.`);
   return null;

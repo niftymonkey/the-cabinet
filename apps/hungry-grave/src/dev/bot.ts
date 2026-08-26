@@ -58,7 +58,7 @@ const runPolicy = (
   return { events, ticks };
 };
 
-/** The nine moves a thumb can make, as unit commands. Staying put is one of them. */
+// The nine moves a thumb can make, as unit commands. Staying put is one of them.
 const DIAGONAL = 1 / Math.SQRT2;
 const MOVES: readonly MoveCommand[] = [
   { x: 0, y: 0 },
@@ -81,13 +81,13 @@ const MOVES: readonly MoveCommand[] = [
 const LOOKAHEAD_SAMPLES = [5, 12, 20, 30];
 const LOOKAHEAD_TICKS = LOOKAHEAD_SAMPLES[LOOKAHEAD_SAMPLES.length - 1];
 
-/** Only threats this close are considered, so the policy stays a local read rather than a search. */
+// Only threats this close are considered, so the policy stays a local read rather than a search.
 const THREAT_RADIUS = 240;
 
-/** Clearance past this counts as safe, and drifting back toward the centre decides instead. */
+// Clearance past this counts as safe, and drifting back toward the centre decides instead.
 const ENOUGH_CLEARANCE = 60;
 
-/** Where the policy drifts when nothing is closing: the shmup's own starting mark. */
+// Where the policy drifts when nothing is closing: the shmup's own starting mark.
 const HOME = { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT * 0.8 };
 
 interface Threat {
@@ -138,7 +138,7 @@ const threatsNear = (state: RunState): Threat[] => {
   return threats;
 };
 
-/** Where a move would put the grave after some ticks, held inside the field. */
+// Where a move would put the grave after some ticks, held inside the field.
 const graveAfter = (
   state: RunState,
   move: MoveCommand,
@@ -159,7 +159,7 @@ const graveAfter = (
   };
 };
 
-/** How far apart the two boxes are on their widest separating axis. Negative means they overlap. */
+// How far apart the two boxes are on their widest separating axis. Negative means they overlap.
 const clearanceAt = (
   state: RunState,
   at: { x: number; y: number },
@@ -218,7 +218,7 @@ const dodgePolicy: Policy = (state) => {
   return { move: bestDodge(state), belch: false };
 };
 
-/** The roomiest of the nine moves a thumb can make, which is the whole of the dodge. */
+// The roomiest of the nine moves a thumb can make, which is the whole of the dodge.
 const bestDodge = (state: RunState): MoveCommand => {
   const threats = threatsNear(state);
   let best = MOVES[0];
@@ -269,7 +269,7 @@ const belchingPolicy: Policy = (state, caused) => {
   };
 };
 
-/** The nearest live mob or shot to the grave, or null when the field is empty. */
+// The nearest live mob or shot to the grave, or null when the field is empty.
 const nearestThreat = (state: RunState): Threat | null => {
   let nearest: Threat | null = null;
   let best = Infinity;
@@ -321,7 +321,7 @@ const hitTakingPolicy: Policy = (state) => {
   return { move: towardNearest(state), belch: false };
 };
 
-/** Straight at whatever is closest, which is how this policy reaches sealed shut. */
+// Straight at whatever is closest, which is how this policy reaches sealed shut.
 const towardNearest = (state: RunState): MoveCommand => {
   const target = nearestThreat(state);
   if (target === null) return { x: 0, y: 0 };

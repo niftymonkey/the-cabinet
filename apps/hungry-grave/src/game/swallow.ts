@@ -27,20 +27,20 @@ type FoodKind = 'corpse' | 'drop' | 'feast';
 
 interface Swallowable {
   readonly kind: FoodKind;
-  /** 0 to 1. Treasure is always 1: drops and feasts never decay (ADR 0004). */
+  // 0 to 1. Treasure is always 1: drops and feasts never decay (ADR 0004).
   readonly freshness: number;
-  /** What this food pays before freshness scales it, in size units. */
+  // What this food pays before freshness scales it, in size units.
   readonly payout: number;
-  /** Which line a drop levels, decided by the dice at spawn (ADR 0002). Absent on corpses and feasts. */
+  // Which line a drop levels, decided by the dice at spawn (ADR 0002). Absent on corpses and feasts.
   readonly line?: WeaponLine;
 }
 
-/** Freshness scales a payout down to a floor and never to zero (ADR 0004). */
+// Freshness scales a payout down to a floor and never to zero (ADR 0004).
 const freshnessScale = (freshness: number): number => {
   return Math.max(freshness, FRESHNESS_PAYOUT_FLOOR);
 };
 
-/** Growth, with anything past the ceiling handed back as overflow (ADR 0003). */
+// Growth, with anything past the ceiling handed back as overflow (ADR 0003).
 const payGrowth = (
   state: RunState,
   amount: number,
@@ -102,7 +102,7 @@ const payLevel = (
   return 0;
 };
 
-/** The grave passes under food and it falls in. The only way anything is ever paid (ADR 0002). */
+// The grave passes under food and it falls in. The only way anything is ever paid (ADR 0002).
 const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
   const paid = food.payout * freshnessScale(food.freshness);
   const events: SimEvent[] = [

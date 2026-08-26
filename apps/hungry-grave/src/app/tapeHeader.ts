@@ -29,17 +29,17 @@ import { userSettings } from './utils/userSettings';
  */
 const UNNAMED_AUTHOR = 'unknown';
 
-/** Reserved for a resolvable build identity, whose machinery is deliberately not built. */
+// Reserved for a resolvable build identity, whose machinery is deliberately not built.
 const UNRESOLVED_BUILD = '';
 
-/** The conditions a run was played under, read once before its first tick. */
+// The conditions a run was played under, read once before its first tick.
 interface RunConditions {
   readonly inputDevice: TapeInputDevice;
   readonly keyboardSpeed: number;
   readonly rendererBackend: string;
   readonly rendererResolution: number;
   readonly devicePixelRatio: number;
-  /** Wall clock at the top of the run, so a folder of tapes has an order. */
+  // Wall clock at the top of the run, so a folder of tapes has an order.
   readonly recordedAt: number;
 }
 

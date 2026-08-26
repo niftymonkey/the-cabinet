@@ -71,7 +71,7 @@ const resolveMobContact = (state: RunState, events: SimEvent[]): void => {
   }
 };
 
-/** Food meeting the grave. The grave passes under it and it falls in. */
+// Food meeting the grave. The grave passes under it and it falls in.
 const resolveSwallows = (state: RunState, events: SimEvent[]): void => {
   const box = graveHitbox(state.grave);
   for (const corpse of state.corpses) {

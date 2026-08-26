@@ -14,16 +14,16 @@ interface PaletteEntry {
   readonly luma: number;
 }
 
-/** Only a mob-fire core may sit at or above this luma. */
+// Only a mob-fire core may sit at or above this luma.
 const MOB_FIRE_BAND_MIN = 88;
 
-/** Every other field colour sits at or below this luma. */
+// Every other field colour sits at or below this luma.
 const FIELD_LUMA_CEILING = 68;
 
-/** The floor under the gap between the two, stated as a floor and not derived. */
+// The floor under the gap between the two, stated as a floor and not derived.
 const BAND_MARGIN_MIN = 20;
 
-/** Every colour drawn while the field is live, the readouts over it included (ADR 0014). */
+// Every colour drawn while the field is live, the readouts over it included (ADR 0014).
 const PALETTE = {
   // the night field
   night: { hex: 0x0e1119, luma: 6.64 },

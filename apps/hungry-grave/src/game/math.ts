@@ -15,7 +15,7 @@
  * round correct answers and imply a hazard that is not there.
  */
 
-/** One number rounded to single precision. The gate every approximated result passes through. */
+// One number rounded to single precision. The gate every approximated result passes through.
 const f32 = (value: number): number => {
   return Math.fround(value);
 };

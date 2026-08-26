@@ -92,7 +92,7 @@ const SEVERITIES_BY_CODE = codeReader(FAULT_SEVERITIES, FAULT_SEVERITY_CODES);
 const FRAME_REASONS_BY_CODE = codeReader(FRAME_REASONS, FRAME_REASON_CODES);
 const IDENTITIES_BY_CODE = codeReader(FAULT_IDENTITIES, FAULT_IDENTITY_CODES);
 
-/** A decoded tape, plus whether the bytes ran out before the recording did. */
+// A decoded tape, plus whether the bytes ran out before the recording did.
 interface DecodedTape {
   readonly tape: Tape;
   /**
@@ -131,7 +131,7 @@ const readMagic = (reader: ByteReader): void => {
   }
 };
 
-/** The four starting levels, read in the same spelled-out order they were written. */
+// The four starting levels, read in the same spelled-out order they were written.
 const readStartingLevels = (
   payload: ByteReader,
 ): Record<WeaponLine, number> => {
@@ -319,7 +319,7 @@ const readTrailer = (payload: ByteReader): TapeTrailer => {
   };
 };
 
-/** How much of a chunk is actually present, which is never more than the buffer holds. */
+// How much of a chunk is actually present, which is never more than the buffer holds.
 const presentBytes = (reader: ByteReader, declared: number): number => {
   return Math.min(declared, remaining(reader));
 };

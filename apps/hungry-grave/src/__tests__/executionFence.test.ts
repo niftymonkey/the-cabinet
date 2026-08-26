@@ -3,7 +3,7 @@
  * convention: nothing under src may import the step module except the authority
  * itself.
  *
- * src/boundary.test.ts cannot express this. Its game row reads
+ * src/__tests__/boundary.test.ts cannot express this. Its game row reads
  * mayReach: ["game"], which is prefix-matched and covers game/step by
  * construction, so the rule has to be an ESLint one and this is where it is
  * tested.
@@ -12,8 +12,9 @@
  * three of them, which is how the first draft of this fence failed, and a scope
  * of src/game/** misses the two roots that actually broke it. The fifth
  * spelling carries the extension, because the extensionless glob does not match
- * "./step.js" and Vite resolves that one happily. This file sits at the src
- * root because no boundary governs it, which is what lets it import eslint.
+ * "./step.js" and Vite resolves that one happily. This file sits in
+ * src/__tests__ because no boundary governs it there, which is what lets it
+ * import eslint.
  */
 
 import { resolve } from 'node:path';

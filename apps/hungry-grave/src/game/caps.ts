@@ -91,7 +91,7 @@ const oldestLive = <T extends PoolSlot>(pool: readonly T[]): T | null => {
   return oldest;
 };
 
-/** How many slots of a pool are live. */
+// How many slots of a pool are live.
 const liveCount = (pool: readonly PoolSlot[]): number => {
   return pool.reduce((count, slot) => count + (slot.alive ? 1 : 0), 0);
 };

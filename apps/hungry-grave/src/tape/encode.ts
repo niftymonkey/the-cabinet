@@ -35,26 +35,26 @@ import {
 import type { Tape } from './tape';
 import type { TickCommand } from '../game/run';
 
-/** Two float32 of steering and one flag byte, which is what a body row costs. */
+// Two float32 of steering and one flag byte, which is what a body row costs.
 const COMMAND_BYTES = 9;
 
-/** The tick a body chunk starts at, which is the only field in front of its commands. */
+// The tick a body chunk starts at, which is the only field in front of its commands.
 const BODY_FIRST_TICK_BYTES = 4;
 
-/** A checkpoint index and its witness. */
+// A checkpoint index and its witness.
 const CHECKPOINT_BYTES = 8;
 
-/** A frame row's fixed width: it carries no string, so it has only one. */
+// A frame row's fixed width: it carries no string, so it has only one.
 const FRAME_OBSERVATION_BYTES = 25;
 
-/** A fault row's kind, identity, severity, first tick and count, ahead of its detail string. */
+// A fault row's kind, identity, severity, first tick and count, ahead of its detail string.
 const FAULT_OBSERVATION_PREFIX_BYTES = 12;
 
-/** The same, plus the detail string's own length prefix. */
+// The same, plus the detail string's own length prefix.
 const FAULT_OBSERVATION_FIXED_BYTES =
   FAULT_OBSERVATION_PREFIX_BYTES + STRING_LENGTH_BYTES;
 
-/** The commands a body chunk holds, being everything up to the next checkpoint. */
+// The commands a body chunk holds, being everything up to the next checkpoint.
 const commandsUntil = (
   tape: Tape,
   from: number,

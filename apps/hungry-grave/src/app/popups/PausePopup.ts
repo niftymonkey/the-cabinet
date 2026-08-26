@@ -27,25 +27,24 @@ class PauseActions {
 
 const pauseActions = new PauseActions();
 
-/** What End Run says before it is armed, and what it says once it is. */
+// What End Run says before it is armed, and what it says once it is.
 const END_RUN_LABEL = 'End Run';
 const END_RUN_CONFIRM = 'Sure?';
 
-/** Popup that shows up when gameplay is paused */
+// Popup that shows up when gameplay is paused
 class PausePopup extends Container {
-  /** The dark semi-transparent background covering current screen */
+  // The dark semi-transparent background covering current screen
   private bg: Sprite;
-  /** Container for the popup UI components */
+  // Container for the popup UI components
   private panel: Container;
-  /** The popup title label */
   private title: Label;
-  /** Button that closes the popup */
+  // Button that closes the popup
   private doneButton: Button;
-  /** Button that opens the settings */
+  // Button that opens the settings
   private settingsButton: Button;
-  /** Button that ends the run, set visually apart because it is the destructive one */
+  // Button that ends the run, set visually apart because it is the destructive one
   private endRunButton: Button;
-  /** The panel background */
+  // The panel background
   private panelBase: RoundedBox;
   /**
    * Whether End Run has been pressed once and is waiting for the second.
@@ -148,7 +147,7 @@ class PausePopup extends Container {
       .catch((error) => console.error(error));
   }
 
-  /** Resize the popup, fired whenever window size changes */
+  // Resize the popup, fired whenever window size changes
   public resize(width: number, height: number) {
     this.bg.width = width;
     this.bg.height = height;
@@ -179,7 +178,7 @@ class PausePopup extends Container {
     );
   }
 
-  /** Dismiss the popup, animated */
+  // Dismiss the popup, animated
   public async hide() {
     this.disarmEndRun();
     const currentEngine = engine();
@@ -194,7 +193,7 @@ class PausePopup extends Container {
     );
   }
 
-  /** Reset screen, after hidden */
+  // Reset screen, after hidden
   public reset() {
     this.disarmEndRun();
   }

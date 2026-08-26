@@ -27,13 +27,13 @@ import type { FieldLayers } from './layering';
  * a wave hitch.
  */
 
-/** How dark the field goes at the instant of a hit. It is a subtraction and never a flash (ADR 0014). */
+// How dark the field goes at the instant of a hit. It is a subtraction and never a flash (ADR 0014).
 const HIT_DIM_ALPHA = 0.5;
 
-/** How dark a corpse fades to at empty, as a share of its declared colour. */
+// How dark a corpse fades to at empty, as a share of its declared colour.
 const CORPSE_FADE_FLOOR = 0.25;
 
-/** Below this freshness a corpse flickers, which is its last-chance warning (ADR 0004). */
+// Below this freshness a corpse flickers, which is its last-chance warning (ADR 0004).
 const FLICKER_BELOW = 0.2;
 
 /**
@@ -48,13 +48,13 @@ const FLICKER_BELOW = 0.2;
  */
 const FLICKER_HALF_PERIOD = 12;
 
-/** How far the flicker drops on its dark half. */
+// How far the flicker drops on its dark half.
 const FLICKER_DEPTH = 0.45;
 
-/** How long a cancelled shot's scatter reads for, in ticks. */
+// How long a cancelled shot's scatter reads for, in ticks.
 const SCATTER_TICKS = 12;
 
-/** How many scatters can be on the field at once before the oldest is reused. */
+// How many scatters can be on the field at once before the oldest is reused.
 const SCATTER_SLOTS = 24;
 
 /**
@@ -162,22 +162,22 @@ const dropBreath = (tick: number, id: number): number => {
  */
 const SHOT_CORE_OF_HITBOX = 0.9;
 
-/** How far a scatter's spokes reach, as a multiple of the shot's own extent. */
+// How far a scatter's spokes reach, as a multiple of the shot's own extent.
 const SCATTER_REACH = 2.4;
 
-/** How many spokes a scatter throws. */
+// How many spokes a scatter throws.
 const SCATTER_SPOKES = 6;
 
-/** The dark companion every mob body and corpse draws with (section 4.15.2). */
+// The dark companion every mob body and corpse draws with (section 4.15.2).
 const SPRITE_STROKE = 1.5;
 
-/** How many steps the revenant's tell is quantized into, so a lit tell redraws a bounded number of times. */
+// How many steps the revenant's tell is quantized into, so a lit tell redraws a bounded number of times.
 const TELL_STEPS = 6;
 
-/** One byte's full value, for building a grey tint without writing a colour literal. */
+// One byte's full value, for building a grey tint without writing a colour literal.
 const CHANNEL_MAX = 255;
 
-/** A grey tint at a given brightness. pixi multiplies it into the drawn colour, which is what makes the fade a tint and not an alpha. */
+// A grey tint at a given brightness. pixi multiplies it into the drawn colour, which is what makes the fade a tint and not an alpha.
 const greyTint = (brightness: number): number => {
   const level = Math.max(
     0,
@@ -186,7 +186,7 @@ const greyTint = (brightness: number): number => {
   return (level << 16) | (level << 8) | level;
 };
 
-/** A regular polygon's points, as a flat list, starting at the top. */
+// A regular polygon's points, as a flat list, starting at the top.
 const polygon = (sides: number, radius: number, turn = 0): number[] => {
   const points: number[] = [];
   for (let corner = 0; corner < sides; corner++) {
@@ -196,7 +196,7 @@ const polygon = (sides: number, radius: number, turn = 0): number[] => {
   return points;
 };
 
-/** A soft star, alternating between two radii. Mob fire is large, slow and irregular, and this is the irregular half. */
+// A soft star, alternating between two radii. Mob fire is large, slow and irregular, and this is the irregular half.
 const star = (points: number, outer: number, inner: number): number[] => {
   const flat: number[] = [];
   for (let corner = 0; corner < points * 2; corner++) {
@@ -207,7 +207,7 @@ const star = (points: number, outer: number, inner: number): number[] => {
   return flat;
 };
 
-/** What a mob's drawing depends on, so a sprite is rebuilt only when its look changes. */
+// What a mob's drawing depends on, so a sprite is rebuilt only when its look changes.
 const mobLook = (mob: Mob): string => {
   const fire = MOB_TYPES[mob.type].fire;
   const lit = mobTellLit(mob);
@@ -217,7 +217,7 @@ const mobLook = (mob: Mob): string => {
   return `${mob.type}|${mob.armed}|${step}`;
 };
 
-/** The body outline of one mob type. A shambler is squat, a revenant is a diamond, and a ghoul is a wedge that points where it is going. */
+// The body outline of one mob type. A shambler is squat, a revenant is a diamond, and a ghoul is a wedge that points where it is going.
 const drawBody = (into: Graphics, type: MobType): void => {
   const row = MOB_TYPES[type];
   if (type === 'shambler') {
@@ -237,7 +237,7 @@ const drawBody = (into: Graphics, type: MobType): void => {
   into.poly(polygon(3, row.halfWidth, Math.PI));
 };
 
-/** How tall the armed notch is cut, as a share of the mob's half-width. */
+// How tall the armed notch is cut, as a share of the mob's half-width.
 const ARMED_NOTCH_HEIGHT = 0.28;
 
 /**
@@ -258,7 +258,7 @@ const drawArmedMark = (into: Graphics, type: MobType): void => {
     .fill({ color: PALETTE.foodOutline.hex });
 };
 
-/** How thick the tell's closing iris is drawn, in field units. */
+// How thick the tell's closing iris is drawn, in field units.
 const TELL_STROKE = 2;
 
 /**
@@ -284,13 +284,13 @@ const drawTell = (into: Graphics, type: MobType, progress: number): void => {
   });
 };
 
-/** How wide the outer ring stands at this much of the way to the shot. It grows, where the iris closes. */
+// How wide the outer ring stands at this much of the way to the shot. It grows, where the iris closes.
 const alarmRadius = (type: MobType, progress: number): number => {
   const row = MOB_TYPES[type];
   return row.halfWidth * (0.95 + 0.5 * progress);
 };
 
-/** How wide the iris stands at this much of the way to the shot. It closes, so a player reads how long is left rather than only that something is coming. */
+// How wide the iris stands at this much of the way to the shot. It closes, so a player reads how long is left rather than only that something is coming.
 const tellRadius = (type: MobType, progress: number): number => {
   const row = MOB_TYPES[type];
   return Math.max(TELL_STROKE, row.halfWidth * (0.9 - 0.7 * progress));
@@ -480,14 +480,14 @@ const fill = (sprites: Graphics[], capacity: number): void => {
   }
 };
 
-/** One cancelled shot, on its way out. */
+// One cancelled shot, on its way out.
 interface Scatter {
   readonly sprite: Graphics;
   born: number;
   extent: number;
 }
 
-/** What the renderer remembers about a shot slot between frames, so a cancel can be told from a cull. */
+// What the renderer remembers about a shot slot between frames, so a cancel can be told from a cull.
 interface ShotMemory {
   alive: boolean;
   x: number;
@@ -594,7 +594,7 @@ class FieldRenderer {
     }
   }
 
-  /** The field as the sim says it is. */
+  // The field as the sim says it is.
   public sync(run: RunState): void {
     this.syncCorpses(run);
     this.syncMobs(run);

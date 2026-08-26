@@ -29,7 +29,7 @@ const CHUNK_WITNESS = 3;
 const CHUNK_OBSERVATIONS = 4;
 const CHUNK_TRAILER = 5;
 
-/** A chunk's kind byte and its 32-bit length, which every reader needs before its payload. */
+// A chunk's kind byte and its 32-bit length, which every reader needs before its payload.
 const CHUNK_FRAME_BYTES = 5;
 
 /**

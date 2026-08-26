@@ -34,7 +34,7 @@ interface BellRing {
   readonly struck: Set<number>;
 }
 
-/** Ticks between tolls: three seconds, a rhythm to position against. */
+// Ticks between tolls: three seconds, a rhythm to position against.
 const BELL_PERIOD = 180;
 
 /**
@@ -54,10 +54,10 @@ const BELL_EXPAND_TICKS = 45;
  */
 const BELL_RADIUS_BY_LEVEL: readonly number[] = [0, 80, 122, 165, 207, 250];
 
-/** Damage at the grave itself. Three is one shambler exactly, so a maxed bell kills trash outright only where the player is standing. */
+// Damage at the grave itself. Three is one shambler exactly, so a maxed bell kills trash outright only where the player is standing.
 const BELL_DAMAGE_NEAR = 3;
 
-/** Damage at the ring's full radius. The far edge tickles, which is Mark's 2026-08-19 ruling recorded in ADR 0005. */
+// Damage at the ring's full radius. The far edge tickles, which is Mark's 2026-08-19 ruling recorded in ADR 0005.
 const BELL_DAMAGE_FAR = 0.5;
 
 /**
@@ -67,7 +67,7 @@ const BELL_DAMAGE_FAR = 0.5;
  */
 const BELL_PUSH_BY_LEVEL: readonly number[] = [0, 0, 0, 0, 20, 40];
 
-/** How far the ring's leading edge stands from the grave, at this much of its life. */
+// How far the ring's leading edge stands from the grave, at this much of its life.
 const ringRadius = (ring: BellRing): number => {
   return BELL_RADIUS_BY_LEVEL[ring.level] * (ring.ticks / BELL_EXPAND_TICKS);
 };
@@ -154,7 +154,7 @@ const sweepRing = (
   return events;
 };
 
-/** The live ring, one tick wider, and gone once it has reached its full radius. */
+// The live ring, one tick wider, and gone once it has reached its full radius.
 const expandRing = (state: RunState): SimEvent[] => {
   const ring = state.lines.ring;
   if (ring === null) return [];

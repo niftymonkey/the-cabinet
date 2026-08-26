@@ -80,7 +80,7 @@ class RunHandoff {
     return this.summary;
   }
 
-  /** The last run's sealed tape, or null when that run left none. */
+  // The last run's sealed tape, or null when that run left none.
   public readTape(): Uint8Array | null {
     return this.tape;
   }

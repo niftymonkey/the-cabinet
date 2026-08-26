@@ -63,7 +63,7 @@ import { GraveRenderer } from './GraveRenderer';
 import { FieldLayers } from './layering';
 import { StormRenderer } from './StormRenderer';
 
-/** The codes the page would otherwise scroll on. Space joins them so the page cannot scroll under a belch. */
+// The codes the page would otherwise scroll on. Space joins them so the page cannot scroll under a belch.
 const SCROLL_CODES = [
   'ArrowUp',
   'ArrowDown',
@@ -81,7 +81,7 @@ const SCROLL_CODES = [
  */
 const BELCH_CODES = ['Space', 'KeyX'];
 
-/** The pointer kinds TouchSteer is reasoned about in. A mouse steers with the keyboard by design. */
+// The pointer kinds TouchSteer is reasoned about in. A mouse steers with the keyboard by design.
 const STEERING_POINTERS = ['touch', 'pen'];
 
 /**
@@ -93,7 +93,7 @@ const STEERING_POINTERS = ['touch', 'pen'];
  */
 const STEER_SLOP_STAGE_UNITS = 3;
 
-/** The pause button's size, in stage units. Its corner inset comes from the readout reserve, which is what layout.ts fits the field around. */
+// The pause button's size, in stage units. Its corner inset comes from the readout reserve, which is what layout.ts fits the field around.
 const PAUSE_WIDTH = 132;
 const PAUSE_HEIGHT = 68;
 
@@ -118,7 +118,7 @@ const COUNTDOWN_MS = 3000;
  */
 const COUNTDOWN_CLEAR_BLUR_MS = 1000;
 
-/** How strong the countdown's blur is. It is the pause menu's own strength, because it is the same read continuing. */
+// How strong the countdown's blur is. It is the pause menu's own strength, because it is the same read continuing.
 const COUNTDOWN_BLUR_STRENGTH = 5;
 
 /**
@@ -200,7 +200,7 @@ const fieldClip = (): Graphics => {
   return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).fill();
 };
 
-/** One line of the corner readout stack, in the shared size and anchored to its top-left. */
+// One line of the corner readout stack, in the shared size and anchored to its top-left.
 const stackLine = (index: number): Label => {
   const label = new Label({
     style: {
@@ -225,13 +225,13 @@ const stackLine = (index: number): Label => {
  * capture taken mid-frame would cut the ending frame out of the exported tape.
  */
 interface FrameWork {
-  /** Milliseconds spent inside advance, zero on a frame the sim held still through. */
+  // Milliseconds spent inside advance, zero on a frame the sim held still through.
   readonly advanceMs: number;
-  /** Whether this frame's events ended the run by play. */
+  // Whether this frame's events ended the run by play.
   readonly endedRun: boolean;
 }
 
-/** The report of a frame the sim held still through: no advance, no ending. */
+// The report of a frame the sim held still through: no advance, no ending.
 const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
 
 /**
@@ -243,7 +243,7 @@ const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
  */
 const FAULT_LINE_MAX_CHARS = 25;
 
-/** The fault line's prefix, counted inside FAULT_LINE_MAX_CHARS. */
+// The fault line's prefix, counted inside FAULT_LINE_MAX_CHARS.
 const FAULT_PREFIX = 'FAULT ';
 
 /**
@@ -337,7 +337,7 @@ class GameScreen extends Container {
    * when they differ from the birthright, so ordinary runs are untouched.
    */
   private readonly levelsLabel: Label;
-  /** The recoverable-fault line, filled by syncReadouts (see faultReadout). */
+  // The recoverable-fault line, filled by syncReadouts (see faultReadout).
   private readonly faultLabel: Label;
   private readonly countdownLabel: Label;
   private readonly pauseButton: Button;
@@ -531,7 +531,7 @@ class GameScreen extends Container {
     this.on('pointerupoutside', this.onPointerUp, this);
   }
 
-  /** The field's own furniture, put back after any clear() (see reset). */
+  // The field's own furniture, put back after any clear() (see reset).
   private dressField(): void {
     this.layers.layer('fieldBoundary').addChild(this.frame);
     this.fieldRenderer.attach(this.layers);
@@ -539,7 +539,7 @@ class GameScreen extends Container {
     this.grave.attach(this.layers);
   }
 
-  /** A belch asked for, by the button or by the keyboard. */
+  // A belch asked for, by the button or by the keyboard.
   private requestBelch(): void {
     this.belchRequested = true;
   }
@@ -935,7 +935,7 @@ class GameScreen extends Container {
     this.setFieldBlur();
   }
 
-  /** The threat layers, blurred. The grave and its rim are spared, so the player can re-find them. */
+  // The threat layers, blurred. The grave and its rim are spared, so the player can re-find them.
   private setFieldBlur(): void {
     const blur = fieldBlur();
     if (blur === null) return;
@@ -966,7 +966,7 @@ class GameScreen extends Container {
     return 0;
   }
 
-  /** Each readout writes only when its own number changes, as the meter already does. */
+  // Each readout writes only when its own number changes, as the meter already does.
   private syncReadouts(): void {
     if (!this.run) return;
     if (this.clock.debtTicks !== this.shownDebt) {
@@ -1012,7 +1012,7 @@ class GameScreen extends Container {
     );
   }
 
-  /** A finger landing, in field units. A mouse is filtered out: desktop steering is the keyboard by design. */
+  // A finger landing, in field units. A mouse is filtered out: desktop steering is the keyboard by design.
   private onPointerDown(event: FederatedPointerEvent): void {
     // A tap on the pause button propagates root to target and would otherwise
     // anchor a drag as well, which is the defect the old END RUN button had.
@@ -1074,7 +1074,7 @@ class GameScreen extends Container {
       });
   }
 
-  /** A lost keyup or a drag interrupted by a popup must not survive into the resumed run. */
+  // A lost keyup or a drag interrupted by a popup must not survive into the resumed run.
   private goQuiet(): void {
     this.keys.releaseAll();
     this.touch.cancelAll();
@@ -1085,7 +1085,7 @@ class GameScreen extends Container {
     this.countdownLabel.visible = false;
   }
 
-  /** The first frame back is skipped whichever reason lifted, because either one leaves a gap in Ticker.lastTime. */
+  // The first frame back is skipped whichever reason lifted, because either one leaves a gap in Ticker.lastTime.
   private comeBack(): void {
     this.skipElapsed = true;
     this.keys.setMultiplier(userSettings.getKeyboardSpeed());
@@ -1163,7 +1163,7 @@ class GameScreen extends Container {
   }
 }
 
-/** Whether this frame's events ended the run, either way (ADR 0003 and ADR 0007). */
+// Whether this frame's events ended the run, either way (ADR 0003 and ADR 0007).
 const endedIn = (events: readonly SimEvent[]): boolean => {
   return events.some(
     (event) => event.type === 'sealed' || event.type === 'victory',

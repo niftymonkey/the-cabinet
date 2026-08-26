@@ -1,24 +1,6 @@
 /**
  * What one run is recorded onto (ADR 0018): a header, three separable sections
  * and a trailer.
- *
- * The body holds the run's dice, its resolved starting size and the exact
- * steering the simulation consumed, tick by tick. The second section holds the
- * witness at checkpoints. The third holds observations, which are the things
- * replaying the tape could never recompute. The trailer is written last on
- * purpose, so a tape off a tab somebody simply closed has none and reads as a
- * stop of unknown.
- *
- * A tape holds no field state. Anything a replay can rebuild is computed by
- * replaying it, which is what lets a tape recorded today answer a question
- * nobody has thought of yet.
- *
- * EVERY ENCODING HERE IS PERMANENT FROM THE FIRST TAPE. The code maps are
- * append-only and read by name, never by a member's ordinal position in its
- * union, because reordering a union would otherwise move every tape's meaning
- * with no version bump and no diff anybody reads as dangerous. Each is typed as
- * a total Record, so adding a member fails the typecheck until somebody gives
- * it a code.
  */
 
 import type { StopReason } from '../game/execution';
@@ -26,10 +8,10 @@ import type { FaultIdentity, FaultSeverity } from '../game/invariants';
 import type { WeaponLine } from '../game/lines/roster';
 import type { RunEnding, TickCommand } from '../game/run';
 
-/** The four bytes a tape opens with, so bytes that are not one are refused rather than parsed. */
+// The four bytes a tape opens with, so bytes that are not one are refused rather than parsed.
 const TAPE_MAGIC = 'HGTP';
 
-/** The format's own version, separate from the witness version the header carries. */
+// The format's own version, separate from the witness version the header carries.
 const FORMAT_VERSION = 1;
 
 /**
@@ -61,6 +43,14 @@ const TAPE_INPUT_DEVICES = [
 
 type TapeInputDevice = (typeof TAPE_INPUT_DEVICES)[number];
 
+/**
+ * EVERY ENCODING HERE IS PERMANENT FROM THE FIRST TAPE. The code maps are
+ * append-only and read by name, never by a member's ordinal position in its
+ * union, because reordering a union would otherwise move every tape's meaning
+ * with no version bump and no diff anybody reads as dangerous. Each is typed as
+ * a total Record, so adding a member fails the typecheck until somebody gives
+ * it a code.
+ */
 const INPUT_DEVICE_CODES: Readonly<Record<TapeInputDevice, number>> = {
   keyboard: 1,
   touch: 2,
@@ -124,7 +114,7 @@ const ENDING_CODES: Readonly<Record<RunEnding, number>> = {
   victory: 2,
 };
 
-/** The code a field takes when it is absent. No member of any map above may take it. */
+// The code a field takes when it is absent. No member of any map above may take it.
 const ABSENT_CODE = 0;
 
 /**
@@ -193,13 +183,13 @@ interface TapeHeader {
    * by the same record-the-resolved-value argument as the size above).
    */
   readonly startingLevels: Readonly<Record<WeaponLine, number>>;
-  /** What makes "one command per tick" mean anything, and what the observations join to wall clock through. */
+  // What makes "one command per tick" mean anything, and what the observations join to wall clock through.
   readonly tickRate: number;
-  /** Ticks between checkpoints, obeyed by the reader rather than compiled into it. */
+  // Ticks between checkpoints, obeyed by the reader rather than compiled into it.
   readonly checkpointSpacing: number;
-  /** The fold's own version, separate from the format version above it. */
+  // The fold's own version, separate from the format version above it.
   readonly witnessVersion: number;
-  /** Human-readable metadata, never a fidelity gate: a README typo must not invalidate every tape. */
+  // Human-readable metadata, never a fidelity gate: a README typo must not invalidate every tape.
   readonly commitHash: string;
   /**
    * Reserved for a resolvable build identity. The machinery that would resolve
@@ -214,14 +204,14 @@ interface TapeHeader {
    */
   readonly author: string;
   readonly inputDevice: TapeInputDevice;
-  /** ADR 0011's keyboard speed multiplier, which changes what a command means. */
+  // ADR 0011's keyboard speed multiplier, which changes what a command means.
   readonly keyboardSpeed: number;
-  /** "webgl" or "webgpu", a constant for a run rather than a per-frame series. */
+  // "webgl" or "webgpu", a constant for a run rather than a per-frame series.
   readonly rendererBackend: string;
-  /** The renderer's own resolution, which is not the device pixel ratio and does not substitute for it. */
+  // The renderer's own resolution, which is not the device pixel ratio and does not substitute for it.
   readonly rendererResolution: number;
   readonly devicePixelRatio: number;
-  /** Wall clock, in epoch milliseconds, so a folder of tapes has an order. */
+  // Wall clock, in epoch milliseconds, so a folder of tapes has an order.
   readonly recordedAt: number;
 }
 
@@ -290,9 +280,9 @@ interface FrameObservation {
    */
   readonly tickIndex: number | null;
   readonly ticksExecuted: number;
-  /** The raw interval since the previous frame. It says a frame was late and never what made it late. */
+  // The raw interval since the previous frame. It says a frame was late and never what made it late.
   readonly intervalMs: number;
-  /** Time inside advance, which is where the simulation and its invariant checks both sit. */
+  // Time inside advance, which is where the simulation and its invariant checks both sit.
   readonly advanceMs: number;
   /**
    * Time inside `GameScreen.update`, which is the frame's simulation work and
@@ -306,7 +296,7 @@ interface FrameObservation {
    * costs ADR 0020 names.
    */
   readonly updateMs: number;
-  /** The run's discarded ticks so far, which are invisible in a body holding only executed ticks. */
+  // The run's discarded ticks so far, which are invisible in a body holding only executed ticks.
   readonly debtTicks: number;
 }
 
@@ -344,7 +334,7 @@ const OBSERVATION_KIND_CODES: Readonly<Record<Observation['kind'], number>> = {
   fault: 2,
 };
 
-/** What a run knows only once it stops, written once at the stop. */
+// What a run knows only once it stops, written once at the stop.
 interface TapeTrailer {
   readonly ending: RunEnding | null;
   readonly stop: StopReason;
@@ -352,13 +342,25 @@ interface TapeTrailer {
   readonly debtTicks: number;
 }
 
+/**
+ * The body holds the run's dice, its resolved starting size and the exact
+ * steering the simulation consumed, tick by tick. The second section holds the
+ * witness at checkpoints. The third holds observations, which are the things
+ * replaying the tape could never recompute. The trailer is written last on
+ * purpose, so a tape off a tab somebody simply closed has none and reads as a
+ * stop of unknown.
+ *
+ * A tape holds no field state. Anything a replay can rebuild is computed by
+ * replaying it, which is what lets a tape recorded today answer a question
+ * nobody has thought of yet.
+ */
 interface Tape {
   readonly header: TapeHeader;
-  /** Exactly the commands the simulation consumed, in tick order from tick zero. */
+  // Exactly the commands the simulation consumed, in tick order from tick zero.
   readonly commands: readonly TickCommand[];
   readonly checkpoints: readonly TapeCheckpoint[];
   readonly observations: readonly Observation[];
-  /** Null on a tape whose run never reached its stop. */
+  // Null on a tape whose run never reached its stop.
   readonly trailer: TapeTrailer | null;
 }
 
@@ -374,7 +376,7 @@ const stopOf = (tape: Tape): TapeStop => {
   return tape.trailer.stop;
 };
 
-/** Only the frame rows, which are the only observation kind with timings on it. */
+// Only the frame rows, which are the only observation kind with timings on it.
 const frameObservations = (tape: Tape): FrameObservation[] => {
   return tape.observations.filter(
     (observation): observation is FrameObservation =>
@@ -382,7 +384,7 @@ const frameObservations = (tape: Tape): FrameObservation[] => {
   );
 };
 
-/** Only the fault records, which a readback reports and never rewrites. */
+// Only the fault records, which a readback reports and never rewrites.
 const faultObservations = (tape: Tape): FaultObservation[] => {
   return tape.observations.filter(
     (observation): observation is FaultObservation =>

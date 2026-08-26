@@ -1,25 +1,4 @@
-/**
- * The one execution authority (ADR 0017). Every executed tick crosses
- * executeTick, and reaching around it is a build failure rather than a
- * convention: eslint.config.mjs fences src/** off this module's step import,
- * and this is the only file exempt from that fence.
- *
- * Three paths reached the simulation before this existed, so a recording seam
- * anywhere else had a hole in it by construction: advance()'s inner loop, the
- * invariant harness's own step wrapper, and four raw step() calls in a screen
- * test. All three are absorbed here, and advance(), the bot's runPolicy and the
- * golden scenario are loops over this function.
- *
- * Execution is a plain record and not a class. It holds the run, an ordered
- * listener array, the stage watch, the broken-invariant handler and the run's
- * fault history. Listener order is array order, so the fan-out is deterministic
- * and one test cannot leak into another.
- *
- * ITS LIFETIME IS THE RUN'S, and it is created where the run is created. The
- * WeakMap the stage watch used to live in was giving that away for free; a
- * pooled screen leaks anything nobody explicitly clears, and this app has
- * shipped that defect five times.
- */
+// The one execution authority (ADR 0017).
 
 import type { SimEvent } from './events';
 import type {
@@ -31,6 +10,11 @@ import type {
 import { checkInvariants, createStageWatch } from './invariants';
 import { f32 } from './math';
 import type { MoveCommand, RunState, TickCommand } from './run';
+/**
+ * Every executed tick crosses executeTick, and reaching around it is a build
+ * failure rather than a convention: eslint.config.mjs fences src/** off this
+ * module's step import, and this is the only file exempt from that fence.
+ */
 import { step } from './step';
 
 /**
@@ -75,23 +59,27 @@ type StopReason = 'finished' | 'quit' | 'faulted';
 interface FaultRecord {
   readonly identity: FaultIdentity;
   readonly severity: FaultSeverity;
-  /** The run tick this identity was first seen on. */
+  // The run tick this identity was first seen on.
   readonly firstTick: number;
-  /** The detail from the first time it fired, kept so a reader has one number to chase. */
+  // The detail from the first time it fired, kept so a reader has one number to chase.
   readonly detail: string;
-  /** How many ticks it has fired on, this one included. */
+  // How many ticks it has fired on, this one included.
   count: number;
 }
 
 interface Execution {
   readonly run: RunState;
-  /** Fired in array order after every executed tick. */
+  /**
+   * Fired in array order after every executed tick. Listener order is array
+   * order, so the fan-out is deterministic and one test cannot leak into
+   * another.
+   */
   readonly listeners: TickListener[];
   readonly watch: StageWatch;
   readonly onBroken: BrokenHandler | null;
-  /** Every fault this run has seen, de-duplicated by identity, in first-seen order. */
+  // Every fault this run has seen, de-duplicated by identity, in first-seen order.
   readonly faults: FaultRecord[];
-  /** Null while the run may keep executing. */
+  // Null while the run may keep executing.
   stop: StopReason | null;
 }
 
@@ -100,7 +88,12 @@ interface ExecutionOptions {
   readonly onBroken?: BrokenHandler;
 }
 
-/** The authority for one run, made where the run is made. */
+/**
+ * The authority for one run, made where the run is made.
+ *
+ * ITS LIFETIME IS THE RUN'S. A pooled screen leaks anything nobody explicitly
+ * clears, and this app has shipped that defect five times.
+ */
 const createExecution = (
   run: RunState,
   options: ExecutionOptions = {},
@@ -133,7 +126,7 @@ const quantiseCommand = (command: TickCommand): TickCommand => {
   return { move: quantiseMove(command.move), belch: command.belch };
 };
 
-/** Folds one tick's fault into the run's history, or counts it against the record already there. */
+// Folds one tick's fault into the run's history, or counts it against the record already there.
 const recordFault = (execution: Execution, fault: Fault): void => {
   const seen = execution.faults.find(
     (record) => record.identity === fault.identity,
@@ -261,7 +254,7 @@ const createDevBrokenHandler = (): BrokenHandler => {
   };
 };
 
-/** The one a developer's build installs, made here so its identities span the session. */
+// The one a developer's build installs, made here so its identities span the session.
 const devBrokenHandler: BrokenHandler = createDevBrokenHandler();
 
 export {

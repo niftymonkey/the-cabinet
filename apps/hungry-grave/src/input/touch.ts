@@ -54,7 +54,7 @@ const TARGET_TOLERANCE = 1e-6;
 const STILL: MoveCommand = { x: 0, y: 0 };
 
 interface PointerTrack {
-  /** Where the slop is measured from: the down position, or the current position after a steering lift. */
+  // Where the slop is measured from: the down position, or the current position after a steering lift.
   origin: FieldPoint;
   current: FieldPoint;
 }
@@ -65,7 +65,7 @@ const distance = (from: FieldPoint, to: FieldPoint): number => {
   return Math.sqrt(dx * dx + dy * dy);
 };
 
-/** The point a fraction of the way along the segment from one point to another. */
+// The point a fraction of the way along the segment from one point to another.
 const along = (
   from: FieldPoint,
   to: FieldPoint,
@@ -89,22 +89,22 @@ class TouchSteer {
   private steeringId: number | null = null;
   private slop = STEER_SLOP;
 
-  /** Where the steering pointer was when it crossed the slop, and where the grave was then. */
+  // Where the steering pointer was when it crossed the slop, and where the grave was then.
   private anchor: FieldPoint | null = null;
   private graveAtAnchor: FieldPoint | null = null;
 
-  /** The previous call's target and the pointer position that produced it, both needed by the re-anchor. */
+  // The previous call's target and the pointer position that produced it, both needed by the re-anchor.
   private previousTarget: FieldPoint | null = null;
   private previousPointer: FieldPoint | null = null;
 
-  /** The grave as recently as this model has been told, so a promotion anchors to where it is now. */
+  // The grave as recently as this model has been told, so a promotion anchors to where it is now.
   private lastGrave: FieldPoint = { x: 0, y: 0 };
 
   public setSlop(fieldUnits: number): void {
     if (Number.isFinite(fieldUnits) && fieldUnits > 0) this.slop = fieldUnits;
   }
 
-  /** A pointer landing. */
+  // A pointer landing.
   public down(id: number, point: FieldPoint, grave: FieldPoint): void {
     this.lastGrave = { x: grave.x, y: grave.y };
     this.pointers.set(id, { origin: point, current: point });
@@ -170,7 +170,7 @@ class TouchSteer {
     this.previousPointer = null;
   }
 
-  /** Every pointer gone. Pause, blur and pointercancel all call this. */
+  // Every pointer gone. Pause, blur and pointercancel all call this.
   public cancelAll(): void {
     this.pointers.clear();
     this.clearSteering();

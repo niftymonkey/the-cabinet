@@ -50,7 +50,7 @@ import { REPLAY_LEAD_IN_TICKS } from './game/transients';
  */
 const HEADLESS_TICKS_PER_FRAME = 120;
 
-/** The back button's size, the pause button's own. */
+// The back button's size, the pause button's own.
 const BACK_WIDTH = 132;
 const BACK_HEIGHT = 68;
 
@@ -61,7 +61,7 @@ const BACK_HEIGHT = 68;
 type ReplayPhase =
   'idle' | 'fetching' | 'verifying' | 'fastForwarding' | 'playing' | 'played';
 
-/** One line of the corner readout stack (the game screen's own construction). */
+// One line of the corner readout stack (the game screen's own construction).
 const stackLine = (index: number): Label => {
   const label = new Label({
     style: {
@@ -76,7 +76,7 @@ const stackLine = (index: number): Label => {
   return label;
 };
 
-/** The playfield's boundary readout, the game screen's own (see GameScreen.ts). */
+// The playfield's boundary readout, the game screen's own (see GameScreen.ts).
 const boundaryReadout = (): Graphics => {
   return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).stroke({
     width: BOUNDARY_STROKE,
@@ -85,7 +85,7 @@ const boundaryReadout = (): Graphics => {
   });
 };
 
-/** The field's clip, exactly the field rect (see GameScreen.ts for the derivation). */
+// The field's clip, exactly the field rect (see GameScreen.ts for the derivation).
 const fieldClip = (): Graphics => {
   return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).fill();
 };
@@ -101,7 +101,7 @@ const lastVerifiedTick = (tape: Tape, result: PlaybackResult): number => {
   return tape.checkpoints[result.checkpointsVerified - 1].index;
 };
 
-/** The verified length, stated up front, with the divergence named when there is one. */
+// The verified length, stated up front, with the divergence named when there is one.
 const verifiedReadout = (
   result: PlaybackResult,
   bound: number,
@@ -136,9 +136,9 @@ class ReplayScreen extends Container {
 
   private readonly field: Container;
   private readonly layers: FieldLayers;
-  /** The boundary readout, held rather than rebuilt (reset() empties the layers). */
+  // The boundary readout, held rather than rebuilt (reset() empties the layers).
   private readonly frame: Graphics;
-  /** The field's clip: a mask is not a layer, so it is built once and survives clear(). */
+  // The field's clip: a mask is not a layer, so it is built once and survives clear().
   private readonly clip: Graphics;
   private readonly grave = new GraveRenderer();
   private readonly fieldRenderer = new FieldRenderer();
@@ -148,7 +148,7 @@ class ReplayScreen extends Container {
   private readonly verifiedLabel: Label;
   private readonly debtLabel: Label;
   private readonly tickLabel: Label;
-  /** The plain statements: a format error, a truncation, a refusal. */
+  // The plain statements: a format error, a truncation, a refusal.
   private readonly statement: Label;
   private readonly backButton: Button;
 
@@ -164,13 +164,13 @@ class ReplayScreen extends Container {
    * into a replay.
    */
   private verification: Playback | null = null;
-  /** The reproduction being rendered, bounded by the last verified checkpoint. */
+  // The reproduction being rendered, bounded by the last verified checkpoint.
   private playback: Playback | null = null;
-  /** This frame's events, buffered from the playback's tick observer. */
+  // This frame's events, buffered from the playback's tick observer.
   private readonly frameEvents: SimEvent[] = [];
-  /** The last verified checkpoint's tick, which playback never renders past (ADR 0019). */
+  // The last verified checkpoint's tick, which playback never renders past (ADR 0019).
   private bound = 0;
-  /** The tick the URL asked to open at, clamped to the bound once that is known. */
+  // The tick the URL asked to open at, clamped to the bound once that is known.
   private target = 0;
   private clock: Clock = createClock();
   private shownTick: number | null = null;
@@ -228,7 +228,7 @@ class ReplayScreen extends Container {
     );
   }
 
-  /** The field's own furniture, put back after any clear() (see reset). */
+  // The field's own furniture, put back after any clear() (see reset).
   private dressField(): void {
     this.layers.layer('fieldBoundary').addChild(this.frame);
     this.fieldRenderer.attach(this.layers);
@@ -292,7 +292,7 @@ class ReplayScreen extends Container {
     this.dressField();
   }
 
-  /** A statement instead of a playback: the screen reports and plays nothing. */
+  // A statement instead of a playback: the screen reports and plays nothing.
   private refuse(statement: string): void {
     this.phase = 'idle';
     this.postureLabel.text = 'NO REPLAY';
@@ -433,7 +433,7 @@ class ReplayScreen extends Container {
     this.syncScreen(playback);
   }
 
-  /** Real elapsed time spent as ticks (ADR 0015), stopping at the bound. */
+  // Real elapsed time spent as ticks (ADR 0015), stopping at the bound.
   private playFrame(elapsedMs: number): void {
     const playback = this.playback;
     if (playback === null) return;

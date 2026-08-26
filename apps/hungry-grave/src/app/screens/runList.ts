@@ -12,7 +12,7 @@ import type { StoredRunSummary } from '../tapeStore';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 
-/** What the list can ask its driver for, one callback per row offer. */
+// What the list can ask its driver for, one callback per row offer.
 interface RunActions {
   open(runId: string): void;
   save(runId: string): void;
@@ -24,17 +24,17 @@ interface RunList {
   render(rows: readonly StoredRunSummary[]): void;
 }
 
-/** One row's vertical footprint, summary line plus its button rank. */
+// One row's vertical footprint, summary line plus its button rank.
 const ROW_SPACING = 150;
 
-/** Where the button rank sits under its summary line. */
+// Where the button rank sits under its summary line.
 const BUTTON_ROW_OFFSET = 60;
 
 const BUTTON_WIDTH = 150;
 const BUTTON_HEIGHT = 60;
 const BUTTON_GAP = 160;
 
-/** Wall clock as a sortable line: UTC to the minute, because rows are evidence rather than prose. */
+// Wall clock as a sortable line: UTC to the minute, because rows are evidence rather than prose.
 const describeWhen = (recordedAt: number): string =>
   new Date(recordedAt).toISOString().slice(0, 16).replace('T', ' ');
 

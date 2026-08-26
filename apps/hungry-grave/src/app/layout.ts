@@ -58,11 +58,11 @@ interface FieldPlacement {
  * file cannot falsify.
  */
 interface ReadoutReserve {
-  /** How far the readouts sit in from the stage's corner. */
+  // How far the readouts sit in from the stage's corner.
   readonly margin: number;
-  /** How wide a corner the readouts claim, on each side. */
+  // How wide a corner the readouts claim, on each side.
   readonly width: number;
-  /** How far down from the top they reach. */
+  // How far down from the top they reach.
   readonly height: number;
 }
 
@@ -85,12 +85,12 @@ const DEGENERATE_PLACEMENT: FieldPlacement = {
   offsetY: 0,
 };
 
-/** A viewport dimension the placement can be computed from at all. */
+// A viewport dimension the placement can be computed from at all.
 const isMeasurable = (dimension: number): boolean => {
   return Number.isFinite(dimension) && dimension > 0;
 };
 
-/** The whole field, centred inside a box of this size at this top offset. */
+// The whole field, centred inside a box of this size at this top offset.
 const centred = (
   viewportWidth: number,
   height: number,
@@ -109,7 +109,7 @@ const centred = (
   };
 };
 
-/** Half-open on both axes, the same convention the sim's own overlap uses, so touching edges do not intersect. */
+// Half-open on both axes, the same convention the sim's own overlap uses, so touching edges do not intersect.
 const intersects = (
   placement: FieldPlacement,
   corner: { x: number; width: number; height: number },
@@ -126,7 +126,7 @@ const intersects = (
   );
 };
 
-/** Whether either readout corner would sit over the field at this placement. */
+// Whether either readout corner would sit over the field at this placement.
 const coversAReadout = (
   placement: FieldPlacement,
   viewportWidth: number,
@@ -193,7 +193,7 @@ const fitField = (
   return lowered;
 };
 
-/** A viewport point back in field units. The inverse of the placement, and how touch input reaches the sim. */
+// A viewport point back in field units. The inverse of the placement, and how touch input reaches the sim.
 const screenToField = (
   placement: FieldPlacement,
   screenX: number,

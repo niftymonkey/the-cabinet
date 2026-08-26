@@ -1,30 +1,6 @@
 /**
  * The sim invariant harness (ADR 0013): in bounds, size within floor and
  * ceiling, no NaN, entity caps, checked on every executed tick.
- *
- * It lives in src/game so executeTick() can run it inside the one authority
- * every tick crosses. That is the only place the check can see the case that
- * matters: the catch-up clamp runs up to fifteen ticks in one frame, and a
- * check fired once per frame reads the last of those ticks and misses the other
- * fourteen. src/boundary.test.ts lets shipped code under src/game reach only
- * src/game, so a harness reachable from the authority has to be here.
- *
- * A CHECK RECORDS A FAULT AND RETURNS; IT DOES NOT THROW (ADR 0017).
- *
- * Every check for the tick runs, so the authority sees the complete fault set
- * before it decides anything, and check ordering cannot decide which faults are
- * observed. Under the throwing harness this replaced, the first fault aborted
- * every later check in the same tick: `entities in bounds` is recoverable and
- * ran fourth, ahead of the fatal `entity caps`, `entity ids` and `levels in
- * range`, so one recoverable fault switched three fatal ones off. A persistent
- * recoverable fault is the normal case here rather than an edge.
- *
- * An unexpected failure inside the checking machinery itself is a different
- * thing and still throws. Detecting a violated invariant is the checker
- * working; a checker that cannot run is a bug in the checker, and it must not
- * be swallowed into the list it exists to produce. So nothing here catches.
- *
- * Checking a cap is not enforcing one. caps.ts enforces; this only notices.
  */
 
 import type { PoolSlot } from './caps';
@@ -65,10 +41,10 @@ const FAULT_IDENTITIES = [
   'phase tick resets at a boundary',
 ] as const;
 
-/** One member of the closed list above. */
+// One member of the closed list above.
 type FaultIdentity = (typeof FAULT_IDENTITIES)[number];
 
-/** Whether the run can safely carry on past a fault (ADR 0017). */
+// Whether the run can safely carry on past a fault (ADR 0017).
 type FaultSeverity = 'fatal' | 'recoverable';
 
 /**
@@ -106,11 +82,11 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'phase tick resets at a boundary': 'recoverable',
 };
 
-/** One invariant found broken on one tick. */
+// One invariant found broken on one tick.
 interface Fault {
   readonly identity: FaultIdentity;
   readonly severity: FaultSeverity;
-  /** Where to find the offending number again, as "mob 12.vx is NaN". */
+  // Where to find the offending number again, as "mob 12.vx is NaN".
   readonly detail: string;
 }
 
@@ -143,7 +119,7 @@ const checkFinite = (faults: Fault[], where: string, value: number): void => {
   if (!Number.isFinite(value)) record(faults, 'no NaN', `${where} is ${value}`);
 };
 
-/** One field of one slot in a pool, as "mob 12.vx is NaN". */
+// One field of one slot in a pool, as "mob 12.vx is NaN".
 const checkSlotFinite = (
   faults: Fault[],
   pool: string,
@@ -156,7 +132,7 @@ const checkSlotFinite = (
   }
 };
 
-/** One cell of a fixed-length array, as "lines.stoneRecharge[2] is NaN". */
+// One cell of a fixed-length array, as "lines.stoneRecharge[2] is NaN".
 const checkCellFinite = (
   faults: Fault[],
   where: string,
@@ -168,7 +144,7 @@ const checkCellFinite = (
   }
 };
 
-/** The run's own numbers, and the grave's. */
+// The run's own numbers, and the grave's.
 const checkRunNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'tick', state.tick);
   checkFinite(faults, 'score', state.score);
@@ -259,7 +235,7 @@ const checkLinesNoNaN = (state: RunState, faults: Fault[]): void => {
   }
 };
 
-/** The stage cursor's three counters. */
+// The stage cursor's three counters.
 const checkStageNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'stage.phaseIndex', state.stage.phaseIndex);
   checkFinite(faults, 'stage.phaseTick', state.stage.phaseTick);
@@ -280,7 +256,7 @@ const checkLevelsNoNaN = (state: RunState, faults: Fault[]): void => {
   }
 };
 
-/** The four stream cursors, each a getter over a closure counter (rng.ts). */
+// The four stream cursors, each a getter over a closure counter (rng.ts).
 const checkStreamsNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'streams.spawns.drawn', state.streams.spawns.drawn);
   checkFinite(faults, 'streams.drops.drawn', state.streams.drops.drawn);
@@ -307,7 +283,7 @@ const checkNoNaN = (state: RunState, faults: Fault[]): void => {
   checkStreamsNoNaN(state, faults);
 };
 
-/** Size is health, and ADR 0003 makes both ends of it hard. */
+// Size is health, and ADR 0003 makes both ends of it hard.
 const checkSize = (state: RunState, faults: Fault[]): void => {
   const { size } = state.grave;
   if (size < SIZE_FLOOR || size > SIZE_CEILING) {
@@ -326,7 +302,7 @@ const checkSize = (state: RunState, faults: Fault[]): void => {
  */
 const BOUNDS_TOLERANCE = 1e-9;
 
-/** The whole grave, not just its centre, stays on the field. */
+// The whole grave, not just its centre, stays on the field.
 const checkInBounds = (state: RunState, faults: Fault[]): void => {
   const box = graveHitbox(state.grave);
   const inside =
@@ -343,7 +319,7 @@ const checkInBounds = (state: RunState, faults: Fault[]): void => {
   }
 };
 
-/** A point inside the field widened by a margin on every side. */
+// A point inside the field widened by a margin on every side.
 const within = (x: number, y: number, margin: number): boolean => {
   return (
     x >= -margin &&
@@ -444,6 +420,7 @@ const checkPool = (
   }
 };
 
+// Checking a cap is not enforcing one. caps.ts enforces; this only notices.
 const checkPools = (state: RunState, faults: Fault[]): void => {
   checkPool(faults, 'mob', state.mobs, MOB_CAP);
   checkPool(faults, 'mob fire', state.mobFire, MOB_FIRE_CAP);
@@ -463,7 +440,7 @@ const checkPools = (state: RunState, faults: Fault[]): void => {
  */
 const RESERVOIR_TOLERANCE = 1e-9;
 
-/** The belch's charge is a meter with two hard ends, and the belch now empties it (ADR 0008). */
+// The belch's charge is a meter with two hard ends, and the belch now empties it (ADR 0008).
 const checkReservoir = (state: RunState, faults: Fault[]): void => {
   const { reservoir } = state;
   if (
@@ -501,7 +478,7 @@ const checkRing = (state: RunState, faults: Fault[]): void => {
   }
 };
 
-/** Freshness is a meter from 1 to 0 and never leaves that range (ADR 0004). */
+// Freshness is a meter from 1 to 0 and never leaves that range (ADR 0004).
 const checkFreshness = (state: RunState, faults: Fault[]): void => {
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
@@ -515,7 +492,7 @@ const checkFreshness = (state: RunState, faults: Fault[]): void => {
   }
 };
 
-/** One reading of the stage cursor, as the last passing check saw it. */
+// One reading of the stage cursor, as the last passing check saw it.
 interface StagePhase {
   readonly phaseIndex: number;
   readonly phaseTick: number;
@@ -534,7 +511,7 @@ interface StagePhase {
  * watch is neither the run's identity nor something the rules mutate.
  */
 interface StageWatch {
-  /** Null before the first check, which has nothing to compare against. */
+  // Null before the first check, which has nothing to compare against.
   seen: StagePhase | null;
 }
 
@@ -585,6 +562,29 @@ const checkStage = (
 /**
  * Every invariant the rules must never break, checked once, with the faults
  * found returned rather than thrown (ADR 0013, ADR 0017).
+ *
+ * A CHECK RECORDS A FAULT AND RETURNS; IT DOES NOT THROW (ADR 0017).
+ *
+ * Every check for the tick runs, so the authority sees the complete fault set
+ * before it decides anything, and check ordering cannot decide which faults are
+ * observed. Under the throwing harness this replaced, the first fault aborted
+ * every later check in the same tick: `entities in bounds` is recoverable and
+ * ran fourth, ahead of the fatal `entity caps`, `entity ids` and `levels in
+ * range`, so one recoverable fault switched three fatal ones off. A persistent
+ * recoverable fault is the normal case here rather than an edge.
+ *
+ * An unexpected failure inside the checking machinery itself is a different
+ * thing and still throws. Detecting a violated invariant is the checker
+ * working; a checker that cannot run is a bug in the checker, and it must not
+ * be swallowed into the list it exists to produce. So nothing here catches.
+ *
+ * The harness lives in src/game so executeTick() can run it inside the one
+ * authority every tick crosses. That is the only place the check can see the
+ * case that matters: the catch-up clamp runs up to fifteen ticks in one frame,
+ * and a check fired once per frame reads the last of those ticks and misses the
+ * other fourteen. src/__tests__/boundary.test.ts lets shipped code under
+ * src/game reach only src/game, so a harness reachable from the authority has
+ * to be here.
  *
  * The watch is a required parameter and never an optional one. Made optional,
  * the direct call sites would silently stop checking phase monotonicity and

@@ -29,7 +29,7 @@ const DIGEST_HASH = '#/digest';
  */
 const REPLAY_HASH = '#/replay';
 
-/** The kept runs in this browser's tape store, listed with a way into replay. */
+// The kept runs in this browser's tape store, listed with a way into replay.
 const RUNS_HASH = '#/runs';
 
 type Route =

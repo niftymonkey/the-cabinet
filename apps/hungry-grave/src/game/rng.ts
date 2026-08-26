@@ -22,11 +22,11 @@
 type StreamName = 'spawns' | 'drops' | 'mobFire' | 'shed';
 
 interface Stream {
-  /** The next draw, 0 inclusive to 1 exclusive. */
+  // The next draw, 0 inclusive to 1 exclusive.
   next(): number;
-  /** An integer in [0, bound), by rejection so the low bits are not favoured. */
+  // An integer in [0, bound), by rejection so the low bits are not favoured.
   nextInt(bound: number): number;
-  /** How many draws this stream has made. The digest reads it, and 3b's replay resumes from it. */
+  // How many draws this stream has made. The digest reads it, and 3b's replay resumes from it.
   readonly drawn: number;
 }
 
@@ -53,7 +53,7 @@ const xmur3 = (text: string): (() => number) => {
   };
 };
 
-/** sfc32, PractRand-recommended, with 128 bits of state across four words. */
+// sfc32, PractRand-recommended, with 128 bits of state across four words.
 const sfc32 = (a: number, b: number, c: number, d: number): (() => number) => {
   return () => {
     const t = (((a + b) | 0) + d) | 0;
@@ -66,7 +66,7 @@ const sfc32 = (a: number, b: number, c: number, d: number): (() => number) => {
   };
 };
 
-/** One named stream for one run seed. The same seed and name always give the same sequence. */
+// One named stream for one run seed. The same seed and name always give the same sequence.
 const stream = (seed: number, name: StreamName): Stream => {
   const offset = xmur3(name)();
   const words = xmur3(String((seed + offset) >>> 0));

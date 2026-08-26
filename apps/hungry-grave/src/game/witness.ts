@@ -108,7 +108,7 @@ const WEAPON_LINE_CODES: Readonly<Record<WeaponLine, number>> = {
   bell: 4,
 };
 
-/** A boolean's encoding, spelled out so it is visible at the call site. */
+// A boolean's encoding, spelled out so it is visible at the call site.
 const boolCode = (value: boolean): number => {
   return value ? 1 : 0;
 };
@@ -140,7 +140,7 @@ const foldMobFire = (checksum: number, run: RunState): number => {
   return next;
 };
 
-/** A corpse's line is optional, so it folds through the reserved absent code. */
+// A corpse's line is optional, so it folds through the reserved absent code.
 const corpseLineCode = (corpse: Corpse): number => {
   if (corpse.line === undefined) return ABSENT_CODE;
   return WEAPON_LINE_CODES[corpse.line];
@@ -192,7 +192,7 @@ const foldEntities = (checksum: number, run: RunState): number => {
   return foldWisps(next, run);
 };
 
-/** The economy and the run's own totals, ADR 0002's drop pricing included. */
+// The economy and the run's own totals, ADR 0002's drop pricing included.
 const foldTotals = (checksum: number, run: RunState): number => {
   let next = fold(fold(checksum, run.score), run.reservoir);
   next = fold(next, endingCode(run.ending));
@@ -200,7 +200,7 @@ const foldTotals = (checksum: number, run: RunState): number => {
   return fold(next, run.nextEntityId);
 };
 
-/** An absent ending is live rather than finished, so it takes the absent code. */
+// An absent ending is live rather than finished, so it takes the absent code.
 const endingCode = (ending: RunEnding | null): number => {
   if (ending === null) return ABSENT_CODE;
   return RUN_ENDING_CODES[ending];
@@ -251,7 +251,7 @@ const foldLines = (checksum: number, lines: LineState): number => {
   return foldRing(fold(next, lines.tollIn), lines.ring);
 };
 
-/** The whole run, folded into one integer from a starting value (ADR 0019). */
+// The whole run, folded into one integer from a starting value (ADR 0019).
 const foldWitness = (run: RunState, from: number): number => {
   let checksum = foldGrave(from, run.grave);
   checksum = foldEntities(checksum, run);

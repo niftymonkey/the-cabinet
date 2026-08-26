@@ -44,7 +44,7 @@ interface TapeRecorder {
    * that fires on every tick of a run with a frame row on every frame.
    */
   readonly faultRows: Map<FaultIdentity, FaultObservation>;
-  /** Written once, at the stop. Null until then, which is itself the reading. */
+  // Written once, at the stop. Null until then, which is itself the reading.
   trailer: TapeTrailer | null;
 }
 
@@ -59,7 +59,7 @@ const createRecorder = (header: TapeHeader): TapeRecorder => {
   };
 };
 
-/** Whether a tick count lands on one of this tape's checkpoints. */
+// Whether a tick count lands on one of this tape's checkpoints.
 const isCheckpoint = (recorder: TapeRecorder, ticksRun: number): boolean => {
   return ticksRun % recorder.header.checkpointSpacing === 0;
 };
@@ -153,7 +153,7 @@ const recordFrame = (
   recorder.observations.push({ kind: 'frame', ...observation });
 };
 
-/** Whether the run this authority ran was sound. */
+// Whether the run this authority ran was sound.
 const integrityOf = (execution: Execution): TapeIntegrity => {
   return execution.faults.length === 0 ? 'clean' : 'faulted';
 };
@@ -184,7 +184,7 @@ const sealTrailer = (
   };
 };
 
-/** The tape as it stands, which is a complete tape whether or not the run has stopped. */
+// The tape as it stands, which is a complete tape whether or not the run has stopped.
 const tapeOf = (recorder: TapeRecorder): Tape => {
   return {
     header: recorder.header,

@@ -5,7 +5,7 @@ import { graveWidth } from '../../../game/grave';
 import { PALETTE } from '../../palette';
 import type { FieldLayers } from './layering';
 
-/** The rounded rectangle's corner radius, as a share of the grave's width. */
+// The rounded rectangle's corner radius, as a share of the grave's width.
 const GRAVE_CORNER_RATIO = 0.2;
 
 /**
@@ -65,10 +65,10 @@ const GRAVE_RIM_SHADOW = 1;
  * inside it, so the pair is the construction ADR 0014 asks for without a second
  * dark edge of its own.
  */
-/** How fast the glow pulses at a full reservoir, in ticks per cycle. */
+// How fast the glow pulses at a full reservoir, in ticks per cycle.
 const GLOW_PULSE_TICKS = 40;
 
-/** How far the pulse swings, as a share of full brightness. */
+// How far the pulse swings, as a share of full brightness.
 const GLOW_PULSE_DEPTH = 0.35;
 
 /**

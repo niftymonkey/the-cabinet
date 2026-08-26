@@ -66,7 +66,7 @@ type TapePart =
 interface TapeStore {
   append(runId: string, part: TapePart): Promise<void>;
   list(): Promise<StoredRunSummary[]>;
-  /** The canonical stream: chunk parts in sequence order, trailer bytes last. */
+  // The canonical stream: chunk parts in sequence order, trailer bytes last.
   load(runId: string): Promise<Uint8Array | null>;
   delete(runId: string): Promise<void>;
 }
@@ -113,7 +113,7 @@ const openDatabase = (): Promise<IDBDatabase> =>
     request.onblocked = () => reject(new Error('IndexedDB open blocked'));
   });
 
-/** Every segment row of one run, bounded so no other run's rows can match. */
+// Every segment row of one run, bounded so no other run's rows can match.
 const wholeRun = (runId: string): IDBKeyRange =>
   IDBKeyRange.bound([runId, -Infinity], [runId, Infinity]);
 
@@ -272,7 +272,7 @@ const createStore = (database: IDBDatabase): TapeStore => {
   return { append, list, load, delete: remove };
 };
 
-/** Null is the designed store-unavailable state, never an error a caller feels. */
+// Null is the designed store-unavailable state, never an error a caller feels.
 const openTapeStore = async (): Promise<TapeStore | null> => {
   if (typeof indexedDB === 'undefined') {
     console.warn(

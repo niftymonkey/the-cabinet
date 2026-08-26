@@ -29,7 +29,7 @@ const NAME_HASH_LENGTH = 10;
  */
 const REVOKE_DELAY_MS = 60_000;
 
-/** A name that identifies the run: the dice it rolled and the build that ran them. */
+// A name that identifies the run: the dice it rolled and the build that ran them.
 const tapeFileName = (seed: number, commitHash: string): string => {
   return `hungry-grave-${seed}-${commitHash.slice(0, NAME_HASH_LENGTH)}.tape`;
 };

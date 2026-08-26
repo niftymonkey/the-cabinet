@@ -15,7 +15,7 @@ import type { DamageSource, MobType } from './mobs';
 import type { PhaseName } from './stage/stage';
 import type { FoodKind } from './swallow';
 
-/** Food went in. The weapon lines subscribe to this in dispatch 5. */
+// Food went in. The weapon lines subscribe to this in dispatch 5.
 interface Swallowed {
   readonly type: 'swallowed';
   readonly kind: FoodKind;
@@ -23,47 +23,47 @@ interface Swallowed {
   readonly payout: number;
 }
 
-/** The swallow chime, on every swallow from the very first, whatever the loadout. */
+// The swallow chime, on every swallow from the very first, whatever the loadout.
 interface Chimed {
   readonly type: 'chimed';
   readonly kind: FoodKind;
 }
 
-/** The grave grew. Size is the new size, so a renderer needs nothing else. */
+// The grave grew. Size is the new size, so a renderer needs nothing else.
 interface Grew {
   readonly type: 'grew';
   readonly amount: number;
   readonly size: number;
 }
 
-/** Growth the ceiling could not take, or a maxed line's drop, converted to score (ADR 0003). */
+// Growth the ceiling could not take, or a maxed line's drop, converted to score (ADR 0003).
 interface Overflowed {
   readonly type: 'overflowed';
   readonly amount: number;
   readonly score: number;
 }
 
-/** The reservoir took charge from a swallow (ADR 0008). */
+// The reservoir took charge from a swallow (ADR 0008).
 interface ReservoirCharged {
   readonly type: 'reservoirCharged';
   readonly amount: number;
   readonly reservoir: number;
 }
 
-/** Charge past full, visibly wasted rather than silently clamped (ADR 0008). */
+// Charge past full, visibly wasted rather than silently clamped (ADR 0008).
 interface Splashed {
   readonly type: 'splashed';
   readonly wasted: number;
   readonly reservoir: number;
 }
 
-/** The reservoir reached capacity, so the one button is armed (ADR 0008). */
+// The reservoir reached capacity, so the one button is armed (ADR 0008).
 interface ReservoirFull {
   readonly type: 'reservoirFull';
   readonly reservoir: number;
 }
 
-/** A drop levelled its line (ADR 0002). */
+// A drop levelled its line (ADR 0002).
 interface WeaponLeveled {
   readonly type: 'weaponLeveled';
   readonly line: WeaponLine;
@@ -81,25 +81,25 @@ interface GraveHit {
   readonly invulnerable: number;
 }
 
-/** The floor ladder's first rung: the whole score, gone (ADR 0003). */
+// The floor ladder's first rung: the whole score, gone (ADR 0003).
 interface ScoreBled {
   readonly type: 'scoreBled';
   readonly amount: number;
 }
 
-/** The floor ladder's second rung: one level off every line at once (ADR 0003). */
+// The floor ladder's second rung: one level off every line at once (ADR 0003).
 interface WeaponStripped {
   readonly type: 'weaponStripped';
   readonly lines: readonly WeaponLine[];
 }
 
-/** The end of the ladder, and of the run (ADR 0003). */
+// The end of the ladder, and of the run (ADR 0003).
 interface Sealed {
   readonly type: 'sealed';
   readonly tick: number;
 }
 
-/** The mirror of sealed: the stage is behind the grave (ADR 0007's ending, stubbed here). */
+// The mirror of sealed: the stage is behind the grave (ADR 0007's ending, stubbed here).
 interface Victory {
   readonly type: 'victory';
   readonly tick: number;
@@ -129,7 +129,7 @@ interface MobKilled {
   readonly y: number;
 }
 
-/** A mob put a shot on the field. The mob-fire sound, and ADR 0014's airborne-projectile instrument. */
+// A mob put a shot on the field. The mob-fire sound, and ADR 0014's airborne-projectile instrument.
 interface MobFired {
   readonly type: 'mobFired';
   readonly emitter: MobType;
@@ -137,7 +137,7 @@ interface MobFired {
   readonly y: number;
 }
 
-/** The dirt took an empty corpse under (ADR 0004). The missed-food instrument reads it. */
+// The dirt took an empty corpse under (ADR 0004). The missed-food instrument reads it.
 interface CorpseExpired {
   readonly type: 'corpseExpired';
   readonly x: number;
@@ -172,7 +172,7 @@ interface CorpseLost {
   readonly freshness: number;
 }
 
-/** The bell rang. Its sound cue, and the radius the ring will reach. */
+// The bell rang. Its sound cue, and the radius the ring will reach.
 interface Tolled {
   readonly type: 'tolled';
   readonly level: number;
@@ -192,7 +192,7 @@ interface Belched {
   readonly killed: number;
 }
 
-/** A drop arrived on the field. The denominator for drops swallowed versus scrolled off. */
+// A drop arrived on the field. The denominator for drops swallowed versus scrolled off.
 interface DropSpawned {
   readonly type: 'dropSpawned';
   readonly line: WeaponLine;
@@ -200,7 +200,7 @@ interface DropSpawned {
   readonly y: number;
 }
 
-/** The stage crossed a phase boundary (ADR 0006). Dispatch 5's music cue hangs here. */
+// The stage crossed a phase boundary (ADR 0006). Dispatch 5's music cue hangs here.
 interface PhaseChanged {
   readonly type: 'phaseChanged';
   readonly phase: PhaseName;

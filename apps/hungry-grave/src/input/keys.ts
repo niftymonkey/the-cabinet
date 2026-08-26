@@ -20,12 +20,12 @@ import type { MoveCommand } from '../game/run';
  */
 const FOCUS_FACTOR = 0.5;
 
-/** ADR 0011's narrowed player speed range, 0.75x to 1.5x. */
+// ADR 0011's narrowed player speed range, 0.75x to 1.5x.
 const MULTIPLIER_MIN = 0.75;
 const MULTIPLIER_MAX = 1.5;
 
 interface KeySteerOptions {
-  /** The persisted player speed setting, 0.75 to 1.5 (ADR 0011). */
+  // The persisted player speed setting, 0.75 to 1.5 (ADR 0011).
   readonly multiplier: number;
 }
 
@@ -108,7 +108,7 @@ class KeySteer {
     this.held.delete(code);
   }
 
-  /** Every key let go at once, which is what a window blur and a pause both need. */
+  // Every key let go at once, which is what a window blur and a pause both need.
   public releaseAll(): void {
     this.held.clear();
   }
