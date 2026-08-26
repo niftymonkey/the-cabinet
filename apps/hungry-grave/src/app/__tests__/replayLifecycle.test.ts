@@ -19,19 +19,6 @@ const { navigation, canvasListeners } = vi.hoisted(() => ({
   canvasListeners: new Set<() => void>(),
 }));
 
-vi.mock('../getEngine', () => ({
-  engine: () => ({
-    navigation,
-    renderer: { name: 'webgl', resolution: 2 },
-    canvas: {
-      addEventListener: (_type: string, handler: () => void) =>
-        canvasListeners.add(handler),
-      removeEventListener: (_type: string, handler: () => void) =>
-        canvasListeners.delete(handler),
-    },
-  }),
-}));
-
 /** The real widgets need a renderer: text metrics and a loaded texture. */
 vi.mock('../ui/Label', () => ({
   Label: class extends Container {
@@ -52,11 +39,59 @@ vi.mock('../ui/Button', () => ({
 }));
 
 import { TICK_MS } from '../../game/clock';
-import { pauseActions } from '../popups/PausePopup';
+import { PausePopup } from '../popups/PausePopup';
 import { runHandoff } from '../runHandoff';
 import { GameScreen } from '../screens/game/GameScreen';
 import { REPLAY_LEAD_IN_TICKS } from '../screens/game/transients';
 import { ReplayScreen } from '../screens/ReplayScreen';
+
+/** The canvas the run listens on for a gesture the platform took away. */
+const canvas = {
+  addEventListener: (_type: string, handler: () => void) =>
+    canvasListeners.add(handler),
+  removeEventListener: (_type: string, handler: () => void) =>
+    canvasListeners.delete(handler),
+} as unknown as HTMLCanvasElement;
+
+/** The End Run the fake driver armed the pause menu with. */
+const armed: { endRun: (() => void) | null } = { endRun: null };
+
+/** A game screen holding faked powers, the way navigation hands them in. */
+function gameScreen(): GameScreen {
+  const screen = new GameScreen();
+  screen.init({
+    openMenu: (endRun) => {
+      armed.endRun = endRun;
+      return Promise.resolve(navigation.presentPopup(PausePopup));
+    },
+    closeMenu: () => Promise.resolve(navigation.dismissPopup()),
+    menuShowing: () => navigation.currentPopup instanceof PausePopup,
+    showEnd: () => Promise.resolve(navigation.showScreen()),
+    playSound: () => {},
+    canvas,
+    // The tape header records the renderer's backend and resolution once per
+    // run, for its runtime context (ADR 0018).
+    renderer: { name: 'webgl', resolution: 2 },
+  });
+  return screen;
+}
+
+/** A replay screen holding faked powers, the way navigation hands them in. */
+function replayScreen(): ReplayScreen {
+  const screen = new ReplayScreen();
+  screen.init({ onBack: () => {} });
+  return screen;
+}
+
+/**
+ * End Run, reached the way a player reaches it: Escape opens the pause menu,
+ * which is where the action lives, and its End Run is pressed.
+ */
+function endRunFromMenu(): void {
+  const event = { key: 'Escape', code: '', preventDefault: () => {} };
+  for (const handler of [...keyHandlers]) handler(event as KeyboardEvent);
+  armed.endRun!();
+}
 
 const keyHandlers = new Set<(event: KeyboardEvent) => void>();
 
@@ -129,12 +164,12 @@ describe('a played run opens in replay (dispatch 6b)', () => {
   it('plays a run, ends it, and the pooled replay screen renders the kept tape to its bound, twice', async () => {
     // The run, played through the URL the game screen really reads.
     fakeLocation.search = '?seed=7';
-    const game = new GameScreen();
+    const game = gameScreen();
     game.prepare();
     for (let spent = 0; spent < 180; spent += 10) {
       game.update(frame(TICK_MS * 10));
     }
-    pauseActions.endRun();
+    endRunFromMenu();
     const bytes = runHandoff.readTape();
     expect(bytes).not.toBeNull();
     game.reset();
@@ -145,7 +180,7 @@ describe('a played run opens in replay (dispatch 6b)', () => {
     // verified checkpoint is the whole run.
     serveTape(bytes!);
     fakeLocation.hash = '#/replay?tape=blob%3Akept&at=100';
-    const replay = new ReplayScreen();
+    const replay = replayScreen();
     // What navigation leaves behind on the way out.
     replay.interactiveChildren = false;
     replay.prepare();

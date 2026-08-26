@@ -7,6 +7,11 @@ import { MENU } from '../palette';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 
+/** The one way off the digest screen, owned by the driver in main.ts. */
+interface DigestScreenProps {
+  onBack(): void;
+}
+
 /**
  * The golden digest, run in whatever browser opened this URL.
  *
@@ -26,6 +31,11 @@ class DigestScreen extends Container {
   private readonly detail: Label;
   private readonly caveat: Label;
   private readonly backButton: Button;
+  /**
+   * The powers this showing was handed. The pool calls init() before the screen
+   * reaches the stage, so it is set before the back button can be pressed.
+   */
+  private props!: DigestScreenProps;
 
   constructor() {
     super();
@@ -50,12 +60,13 @@ class DigestScreen extends Container {
       height: 70,
       fontSize: 18,
     });
-    this.backButton.onPress.connect(() => {
-      // The router in main.ts observes the hash and shows the title screen.
-      window.location.hash = '#/';
-    });
+    this.backButton.onPress.connect(() => this.props.onBack());
 
     this.addChild(this.verdict, this.detail, this.caveat, this.backButton);
+  }
+
+  public init(props: DigestScreenProps) {
+    this.props = props;
   }
 
   public prepare() {

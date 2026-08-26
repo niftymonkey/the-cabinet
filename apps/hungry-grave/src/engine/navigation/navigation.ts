@@ -3,6 +3,7 @@ import { Assets, BigPool, Container } from 'pixi.js';
 
 import type { CreationEngine } from '../engine';
 
+/** What the navigation does to a screen once it is holding one. */
 interface AppScreen extends Container {
   show?(): Promise<void>;
   hide?(): Promise<void>;
@@ -25,11 +26,30 @@ interface AppScreen extends Container {
   onLoad?: (progress: number) => void;
 }
 
-interface AppScreenConstructor {
-  new (): AppScreen;
+/**
+ * A screen as its own showing knows it: the lifecycle above, plus the powers it
+ * is handed. Pool.get calls init before the screen reaches the stage, so a
+ * pooled screen comes back holding this showing's powers and never the last
+ * one's. Only the showing knows the props type, which is why the field the
+ * navigation holds a screen in is the bare AppScreen above.
+ */
+interface PoweredScreen<Props> extends AppScreen {
+  init?(props: Props): void;
+}
+
+interface AppScreenConstructor<Props = void> {
+  new (): PoweredScreen<Props>;
   // List of assets bundles required by the screen
   assetBundles?: string[];
 }
+
+/**
+ * How a screen's props reach showScreen: as one argument, or as no argument at
+ * all for a screen that declares no init and therefore takes no powers. Written
+ * as an argument list rather than an optional parameter so a screen that needs
+ * powers cannot be shown without them.
+ */
+type ScreenArgs<Props> = [Props] extends [void] ? [] : [props: Props];
 
 class Navigation {
   public app!: CreationEngine;
@@ -123,7 +143,10 @@ class Navigation {
    * Hide current screen (if there is one) and present a new screen.
    * Any class that matches AppScreen interface can be used here.
    */
-  public async showScreen(ctor: AppScreenConstructor) {
+  public async showScreen<Props = void>(
+    ctor: AppScreenConstructor<Props>,
+    ...args: ScreenArgs<Props>
+  ) {
     // Block interactivity in current screen
     if (this.currentScreen) {
       this.currentScreen.interactiveChildren = false;
@@ -149,7 +172,7 @@ class Navigation {
     }
 
     // Create the new screen and add that to the stage
-    this.currentScreen = BigPool.get(ctor);
+    this.currentScreen = BigPool.get(ctor, ...args);
     await this.addAndShowScreen(this.currentScreen);
   }
 
@@ -168,7 +191,10 @@ class Navigation {
   /**
    * Show up a popup over current screen
    */
-  public async presentPopup(ctor: AppScreenConstructor) {
+  public async presentPopup<Props = void>(
+    ctor: AppScreenConstructor<Props>,
+    ...args: ScreenArgs<Props>
+  ) {
     if (this.currentScreen) {
       this.currentScreen.interactiveChildren = false;
       await this.currentScreen.pause?.();
@@ -179,7 +205,7 @@ class Navigation {
     }
 
     // From the pool, because hideAndRemoveScreen returns popups to it too
-    this.currentPopup = BigPool.get(ctor);
+    this.currentPopup = BigPool.get(ctor, ...args);
     await this.addAndShowScreen(this.currentPopup);
   }
 

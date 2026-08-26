@@ -13,13 +13,14 @@ import {
 import type { FrameObservation } from '../../../tape/tape';
 import type { StoreRecording } from '../../storeRecording';
 import { recordRunToStore } from '../../storeRecording';
-import { runConditionsHere, tapeHeaderFor } from '../../tapeHeader';
+import type { RunConditions } from '../../tapeHeader';
+import { tapeHeaderFor } from '../../tapeHeader';
 import type { TapeStore } from '../../tapeStore';
 import { openTapeStore } from '../../tapeStore';
 
 interface RunRecording {
   readonly recorder: TapeRecorder | null;
-  begin(run: RunState, execution: Execution): void;
+  begin(run: RunState, execution: Execution, conditions: RunConditions): void;
   // One frame's row, then the spool's flush, in that order and only that order.
   recordRow(observation: Omit<FrameObservation, 'kind'>): void;
   // The tape's trailer, written once at the stop.
@@ -58,13 +59,11 @@ const begin = (
   recording: Recording,
   run: RunState,
   execution: Execution,
+  conditions: RunConditions,
 ): void => {
   // Before the first tick, because the header is written before the first
   // tick and checkpoint zero is the state before any tick has run.
-  recording.recorder = recordInto(
-    execution,
-    tapeHeaderFor(run, runConditionsHere()),
-  );
+  recording.recorder = recordInto(execution, tapeHeaderFor(run, conditions));
   recording.store ??= openTapeStore();
   recording.spool = recordRunToStore(recording.store, recording.recorder);
 };
@@ -124,7 +123,8 @@ const createRunRecording = (): RunRecording => {
     get recorder() {
       return recording.recorder;
     },
-    begin: (run, execution) => begin(recording, run, execution),
+    begin: (run, execution, conditions) =>
+      begin(recording, run, execution, conditions),
     recordRow: (observation) => recordRow(recording, observation),
     seal: (execution, debtTicks) => seal(recording, execution, debtTicks),
     bytes: () => bytes(recording),

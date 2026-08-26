@@ -1,7 +1,6 @@
 import { Container } from 'pixi.js';
 
 import type { RunEnding } from '../../game/run';
-import { engine } from '../getEngine';
 import { MENU } from '../palette';
 import { runHandoff } from '../runHandoff';
 import type { FaultSummary, RunSummary } from '../runSummary';
@@ -9,7 +8,6 @@ import { saveTapeFile, tapeFileName } from '../tapeExport';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 import { bindKeyPress } from './keyBinding';
-import { GameScreen } from './game/GameScreen';
 
 /**
  * What the end screen says happened. Sealed shut is ADR 0003's death and the
@@ -68,6 +66,12 @@ const titleFor = (summary: RunSummary | null): string => {
     : ABANDONED_TITLE;
 };
 
+/** The one way off the end screen, owned by the driver in main.ts. */
+interface EndScreenProps {
+  // The next run RISE AGAIN starts. Its rejection is what releases the guard below.
+  onRiseAgain(): Promise<void>;
+}
+
 /**
  * The screen a run ends on. Render only: it reports the run the game screen
  * recorded and offers another one.
@@ -95,6 +99,11 @@ class EndScreen extends Container {
   private readonly saveButton: Button;
   private releaseKeys: (() => void) | null = null;
   private rising = false;
+  /**
+   * The powers this showing was handed. The pool calls init() before the screen
+   * reaches the stage, so it is set before any handler below can run.
+   */
+  private props!: EndScreenProps;
 
   constructor() {
     super();
@@ -144,6 +153,10 @@ class EndScreen extends Container {
     );
   }
 
+  public init(props: EndScreenProps) {
+    this.props = props;
+  }
+
   public prepare() {
     this.rising = false;
     const summary = runHandoff.read();
@@ -186,14 +199,12 @@ class EndScreen extends Container {
   private riseAgain() {
     if (this.rising) return;
     this.rising = true;
-    engine()
-      .navigation.showScreen(GameScreen)
-      .catch((error) => {
-        // A failed navigation releases the guard, or RISE AGAIN never fires
-        // again and the run cannot be left.
-        this.rising = false;
-        console.error(error);
-      });
+    this.props.onRiseAgain().catch((error) => {
+      // A failed navigation releases the guard, or RISE AGAIN never fires
+      // again and the run cannot be left.
+      this.rising = false;
+      console.error(error);
+    });
   }
 }
 

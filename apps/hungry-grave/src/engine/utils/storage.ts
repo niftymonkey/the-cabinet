@@ -14,8 +14,8 @@ const warnOnce = (error: unknown) => {
 
 /**
  * Reads through the guard. A browser blocking cookies throws on localStorage
- * itself, and an unguarded read from userSettings.init() in main() takes the
- * whole boot down with it.
+ * itself, and an unguarded read of the saved volumes main() applies at boot
+ * takes the whole boot down with it.
  */
 const readRaw = (key: string): string | null => {
   try {

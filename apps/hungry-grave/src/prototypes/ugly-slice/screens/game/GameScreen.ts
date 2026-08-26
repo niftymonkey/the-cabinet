@@ -4,7 +4,7 @@
 // (decision-log entry 6.5).
 
 import type { Ticker } from 'pixi.js';
-import { Container } from 'pixi.js';
+import { BlurFilter, Container } from 'pixi.js';
 
 import { advanceToPhase, botInput, PHASE_ORDER } from '../../game/bot';
 import { checkInvariants } from '../../game/invariants';
@@ -12,7 +12,11 @@ import { createSim, step, type Sim } from '../../game/sim';
 import * as T from '../../game/tuning';
 import type { Input } from '../../game/types';
 import { engine } from '../../../../app/getEngine';
+import type { PausePopupProps } from '../../../../app/popups/PausePopup';
 import { PausePopup } from '../../../../app/popups/PausePopup';
+import type { SettingsPopupProps } from '../../../../app/popups/SettingsPopup';
+import { SettingsPopup } from '../../../../app/popups/SettingsPopup';
+import { userSettings } from '../../../../app/userSettings';
 import { keysToMove } from '../../input/keys';
 import { TouchSteer } from '../../input/touch';
 import { TouchStats } from '../../input/touchStats';
@@ -23,6 +27,49 @@ import { EndScreen } from '../EndScreen';
 import { DebugPanel } from './DebugPanel';
 import { FieldRenderer } from './FieldRenderer';
 import { GameHud } from './GameHud';
+
+/**
+ * The screen behind a popup, blurred while the panel is up. The base app's
+ * popups take their powers from whoever shows them, and in this prototype that
+ * is this screen.
+ */
+const backdropPowers = () => ({
+  blurBackdrop: (strength: number): void => {
+    const behind = engine().navigation.currentScreen;
+    if (behind) behind.filters = [new BlurFilter({ strength })];
+  },
+  clearBackdrop: (): void => {
+    const behind = engine().navigation.currentScreen;
+    if (behind) behind.filters = [];
+  },
+});
+
+const settingsProps = (): SettingsPopupProps => ({
+  ...backdropPowers(),
+  setMasterVolume: (value) => {
+    engine().audio.setMasterVolume(value);
+    userSettings.setMasterVolume(value);
+  },
+  setBgmVolume: (value) => {
+    engine().audio.bgm.setVolume(value);
+    userSettings.setBgmVolume(value);
+  },
+  setSfxVolume: (value) => {
+    engine().audio.sfx.setVolume(value);
+    userSettings.setSfxVolume(value);
+  },
+  onDone: () => engine().navigation.presentPopup(PausePopup, pauseMenuProps()),
+});
+
+const pauseMenuProps = (): PausePopupProps => ({
+  ...backdropPowers(),
+  onDismiss: () => engine().navigation.dismissPopup(),
+  onSettings: () =>
+    engine().navigation.presentPopup(SettingsPopup, settingsProps()),
+  // End Run does nothing in this prototype, which is what it did before the
+  // menu took its actions as props: the prototype never armed the handoff.
+  onEndRun: () => undefined,
+});
 
 const DT = 1 / 60;
 const MAX_STEPS_PER_FRAME = 6;
@@ -260,7 +307,7 @@ export class GameScreen extends Container {
       // paused flips only once the popup is presented, so a double-tap of
       // Escape in that gap would re-present it without this check.
       if (!engine().navigation.currentPopup) {
-        void engine().navigation.presentPopup(PausePopup);
+        void engine().navigation.presentPopup(PausePopup, pauseMenuProps());
       }
       return;
     }
@@ -352,7 +399,7 @@ export class GameScreen extends Container {
   /** Auto pause when the window loses focus */
   public blur() {
     if (!engine().navigation.currentPopup && !this.ended) {
-      void engine().navigation.presentPopup(PausePopup);
+      void engine().navigation.presentPopup(PausePopup, pauseMenuProps());
     }
   }
 }

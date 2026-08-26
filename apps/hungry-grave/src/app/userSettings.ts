@@ -2,7 +2,6 @@
 
 import { storage } from '../engine/utils/storage';
 import { MULTIPLIER_MAX, MULTIPLIER_MIN } from '../input/keys';
-import { engine } from './getEngine';
 
 // Keys for saved items in storage
 const KEY_VOLUME_MASTER = 'volume-master';
@@ -14,13 +13,12 @@ const clampKeyboardSpeed = (value: number): number => {
   return Math.min(Math.max(value, MULTIPLIER_MIN), MULTIPLIER_MAX);
 };
 
+/**
+ * What the player set, and only that. Telling the audio system about a volume
+ * is the driver's hop and not this store's: main.ts applies the saved volumes
+ * at boot and the settings panel is handed the same power as a prop.
+ */
 class UserSettings {
-  public init() {
-    engine().audio.setMasterVolume(this.getMasterVolume());
-    engine().audio.bgm.setVolume(this.getBgmVolume());
-    engine().audio.sfx.setVolume(this.getSfxVolume());
-  }
-
   // Get overall sound volume
   public getMasterVolume() {
     return storage.getNumber(KEY_VOLUME_MASTER) ?? 0.5;
@@ -28,7 +26,6 @@ class UserSettings {
 
   // Set overall sound volume
   public setMasterVolume(value: number) {
-    engine().audio.setMasterVolume(value);
     storage.setNumber(KEY_VOLUME_MASTER, value);
   }
 
@@ -39,7 +36,6 @@ class UserSettings {
 
   // Set background music volume
   public setBgmVolume(value: number) {
-    engine().audio.bgm.setVolume(value);
     storage.setNumber(KEY_VOLUME_BGM, value);
   }
 
@@ -77,7 +73,6 @@ class UserSettings {
 
   // Set sound effects volume
   public setSfxVolume(value: number) {
-    engine().audio.sfx.setVolume(value);
     storage.setNumber(KEY_VOLUME_SFX, value);
   }
 }

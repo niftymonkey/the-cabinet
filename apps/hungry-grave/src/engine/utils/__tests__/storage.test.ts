@@ -1,7 +1,7 @@
 /**
  * A browser with cookies blocked throws on any localStorage access. Without
- * the guard, userSettings.init() in main() throws and the playtester gets a
- * blank screen with a console error nobody reads.
+ * the guard, reading the saved volumes at boot throws and the playtester gets
+ * a blank screen with a console error nobody reads.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

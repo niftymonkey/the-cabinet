@@ -7,12 +7,10 @@ import type { SimEvent } from '../../../game/events';
 import type { RunState } from '../../../game/run';
 import { RESERVOIR_CAPACITY } from '../../../game/tuning';
 import type { FrameReason } from '../../../tape/tape';
-import { engine } from '../../getEngine';
 import type { FieldPlacement } from '../../layout';
 import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../../layout';
-import { pauseActions, PausePopup } from '../../popups/PausePopup';
-import { SettingsPopup } from '../../popups/SettingsPopup';
-import { playFor } from '../../sound';
+import type { RendererIdentity } from '../../tapeHeader';
+import { runConditionsHere } from '../../tapeHeader';
 import { Button } from '../../ui/Button';
 import { bindKeyPress } from '../keyBinding';
 import { BELCH_SIZE, BelchButton } from './BelchButton';
@@ -52,6 +50,28 @@ interface FrameWork {
 
 // The report of a frame the sim held still through: no advance, no ending.
 const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
+
+/**
+ * What a run needs from the app around it. Every entry is a power the screen
+ * cannot reach on its own; the graph they belong to lives in src/main.ts, and
+ * this screen knows none of it.
+ */
+interface GameScreenProps {
+  // Opens the pause menu over the live run, armed with what its End Run does.
+  openMenu(endRun: () => void): Promise<void>;
+  // Takes the pause menu away, back to the run.
+  closeMenu(): Promise<void>;
+  // Whether the pause menu itself is the popup currently up.
+  menuShowing(): boolean;
+  // The way out to the end state, retried from the frame seam when it rejects.
+  showEnd(): Promise<void>;
+  // Every sound this run's events make.
+  playSound(event: SimEvent): void;
+  // The canvas a gesture the platform took away is announced on.
+  canvas: HTMLCanvasElement | null;
+  // What the renderer says about itself, for this run's tape header.
+  renderer: RendererIdentity;
+}
 
 /**
  * The screen a run plays on. Render only: it wires the drivers that own the
@@ -127,6 +147,11 @@ class GameScreen extends Container {
    * on" without a second field for prepare() to keep in step.
    */
   private menuTransition: Promise<void> | null = null;
+  /**
+   * The powers this showing was handed. The pool calls init() before the screen
+   * reaches the stage, so it is set before prepare() and before any frame.
+   */
+  private props!: GameScreenProps;
 
   constructor() {
     super();
@@ -153,12 +178,14 @@ class GameScreen extends Container {
     this.steering = createRunSteering({
       claimsPointer: (pointerId) => this.belchButton.owns(pointerId),
       releaseClaim: () => this.belchButton.release(),
+      canvas: () => this.props.canvas,
     });
     this.ending = createRunEnding({
       sealTape: (execution) =>
         this.recording.seal(execution, this.session.clock.debtTicks),
       tapeBytes: () => this.recording.bytes(),
       clearFieldBlur: () => this.countdown.clearBlur(),
+      showEnd: () => this.props.showEnd(),
     });
 
     this.pauseButton = new Button({
@@ -196,6 +223,10 @@ class GameScreen extends Container {
     this.grave.attach(this.layers);
   }
 
+  public init(props: GameScreenProps) {
+    this.props = props;
+  }
+
   public prepare() {
     this.ending.reset();
     this.framePolicy.reset();
@@ -216,12 +247,15 @@ class GameScreen extends Container {
     this.interactiveChildren = true;
 
     const started = this.session.begin();
-    this.recording.begin(started.run, started.execution);
+    this.recording.begin(
+      started.run,
+      started.execution,
+      runConditionsHere(this.props.renderer),
+    );
     this.hud.showIdentity(started.identity);
     this.syncScreen(started.run);
     this.hud.render(this.session.readout);
 
-    pauseActions.setEndRun(() => this.endRun());
     this.releaseKeys = bindKeyPress('Escape', () => this.togglePause());
     this.releaseListeners = this.steering.listen();
   }
@@ -231,7 +265,6 @@ class GameScreen extends Container {
     this.releaseKeys = null;
     this.releaseListeners?.();
     this.releaseListeners = null;
-    pauseActions.setEndRun(null);
     this.steering.goQuiet();
     // The pause menu sets a BlurFilter on this screen and only its own hide()
     // clears it, so a run ended from inside the menu would otherwise come back
@@ -361,7 +394,7 @@ class GameScreen extends Container {
    */
   private announce(run: RunState, events: readonly SimEvent[]): void {
     for (const event of events) {
-      playFor(event);
+      this.props.playSound(event);
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
     }
@@ -425,13 +458,11 @@ class GameScreen extends Container {
    * nothing, on the very flow the speed slider exists for.
    */
   private togglePause(): void {
-    const navigation = engine().navigation;
-    const popup = navigation.currentPopup;
-    const opensMenu = !popup || popup instanceof SettingsPopup;
+    const opensMenu = !this.props.menuShowing();
     if (opensMenu && this.menuTransition) return;
     const change = opensMenu
-      ? navigation.presentPopup(PausePopup)
-      : navigation.dismissPopup();
+      ? this.props.openMenu(() => this.endRun())
+      : this.props.closeMenu();
     this.menuTransition = opensMenu ? change : null;
     change
       .catch((error) => console.error(error))
@@ -490,3 +521,4 @@ class GameScreen extends Container {
 }
 
 export { GameScreen };
+export type { GameScreenProps };

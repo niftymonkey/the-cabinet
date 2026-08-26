@@ -100,14 +100,15 @@ const BOUNDARIES: Boundary[] = [
    * nicely: src/app/sound.ts was governed by nothing at all, which dispatch 4
    * named as a tripwire.
    *
-   * The engine entry is not optional. The SFX class this builds on lives at
-   * src/engine/audio/audio.ts, outside src/app entirely, so a rule listing only
-   * game would red-light on its own first commit.
+   * The event list is the whole of its reach. Where a clip comes out arrives as
+   * an argument, so the module names no engine and no audio class at all; the
+   * package entry stays because priming the audio context is a dynamic import
+   * of @pixi/sound and nothing else can do it.
    */
   {
     root: 'app',
     only: ['sound.ts'],
-    mayReach: ['app/getEngine', 'game/events', 'engine/audio/audio'],
+    mayReach: ['game/events'],
     mayReachInTests: [],
     mayImport: ['@pixi/sound'],
   },
@@ -448,6 +449,64 @@ describe('the test-span fence', () => {
     );
     expect(forbidden).toHaveLength(1);
     expect(forbidden[0]).toContain('../../DigestScreen');
+  });
+});
+
+/**
+ * A screen module: one screen or popup class, and a place the app can navigate
+ * to. Recognised by the file's own name rather than listed, so a new screen
+ * joins the fence by existing.
+ */
+const isScreenModule = (path: string): boolean =>
+  /(Screen|Popup)$/.test(path.split('/').at(-1) ?? '');
+
+/**
+ * Every screen a file under src/app names. src/main.ts is outside src/app and
+ * is therefore the one module left that may name one, which is what makes it
+ * the single declaration of the screen graph.
+ */
+const screensReachedInSource = (file: string, source: string): string[] => {
+  const where = relative(SRC, file).split(/[/\\]/).join('/');
+  return importsOf(source)
+    .filter((specifier) => specifier.startsWith('.'))
+    .filter((specifier) => isScreenModule(pathReachedBy(file, specifier)))
+    .map((specifier) => `${where} imports ${specifier}`);
+};
+
+const screensReachedIn = (file: string): string[] =>
+  screensReachedInSource(file, readFileSync(file, 'utf8'));
+
+describe('the screen graph is declared in one place', () => {
+  it('no screen imports another screen', () => {
+    // The durable form of the rule that powers arrive as props: a screen that
+    // names another screen is a hop declared inside a component instead of by
+    // the driver, and it comes back the moment somebody finds it convenient.
+    // Test files are outside the rule; they construct screens to test them.
+    const files = typescriptFilesUnder(join(SRC, 'app')).filter(
+      (file) => !isTest(file),
+    );
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.flatMap(screensReachedIn)).toEqual([]);
+  });
+
+  it('catches one screen reaching for another', () => {
+    // Handed a source string with no file behind it, the way the fences above
+    // are, and it is the exact import the title screen used to carry.
+    const violations = screensReachedInSource(
+      join(SRC, 'app', 'screens', 'TitleScreen.ts'),
+      "import { GameScreen } from './game/GameScreen';",
+    );
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('./game/GameScreen');
+  });
+
+  it('leaves a screen free to reach anything that is not a screen', () => {
+    expect(
+      screensReachedInSource(
+        join(SRC, 'app', 'screens', 'TitleScreen.ts'),
+        "import { primeSound } from '../sound';",
+      ),
+    ).toEqual([]);
   });
 });
 

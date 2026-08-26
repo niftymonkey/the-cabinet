@@ -4,10 +4,16 @@
 import type { Container as ContainerType } from 'pixi.js';
 import { Container } from 'pixi.js';
 
-import { prototypeHash, PROTOTYPES } from '../../prototypes';
+import { PROTOTYPES } from '../../prototypes';
 import { MENU } from '../palette';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
+
+/** The one way off the prototype list, owned by the driver in main.ts. */
+interface PrototypesScreenProps {
+  // Opens one prototype, named by the id its registry entry carries.
+  onOpen(id: string): void;
+}
 
 class PrototypesScreen extends Container {
   // Assets bundles required by this screen
@@ -17,6 +23,11 @@ class PrototypesScreen extends Container {
   private readonly tagline: Label;
   private readonly rows: { button: Button; blurb: Label }[];
   private readonly empty: Label | null = null;
+  /**
+   * The powers this showing was handed. The pool calls init() before the screen
+   * reaches the stage, so it is set before any row can be pressed.
+   */
+  private props!: PrototypesScreenProps;
 
   constructor() {
     super();
@@ -36,10 +47,7 @@ class PrototypesScreen extends Container {
         height: 100,
         fontSize: 24,
       });
-      button.onPress.connect(() => {
-        // The router in main.ts observes the hash and shows the screen.
-        window.location.hash = prototypeHash(entry.id);
-      });
+      button.onPress.connect(() => this.props.onOpen(entry.id));
       const blurb = new Label({
         text: entry.blurb,
         style: { fill: MENU.menuDim.hex, fontSize: 14 },
@@ -57,6 +65,10 @@ class PrototypesScreen extends Container {
     const children: ContainerType[] = [this.title, this.tagline];
     for (const row of this.rows) children.push(row.button, row.blurb);
     this.addChild(...children);
+  }
+
+  public init(props: PrototypesScreenProps) {
+    this.props = props;
   }
 
   public resize(width: number, height: number) {

@@ -83,6 +83,13 @@ describe('the swallow chime and the treasure chime (plan 6.22)', () => {
   });
 });
 
+/** A clip that is not there: what @pixi/sound does with an unloaded alias. */
+const missingClip = {
+  play: () => {
+    throw new Error('Cannot find sound');
+  },
+};
+
 describe('a clip that will not play', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -91,12 +98,10 @@ describe('a clip that will not play', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('a clip that will not play is not silent', async () => {
-    // No engine has been set in this process, so the play call throws exactly
-    // the way a missing clip does. A fresh module per test, because the report
-    // is once per session.
+    // A fresh module per test, because the report is once per session.
     const { playFor } = await import('../sound');
 
-    playFor({ type: 'chimed', kind: 'corpse' });
+    playFor(missingClip, { type: 'chimed', kind: 'corpse' });
 
     const said = vi
       .mocked(console.warn)
@@ -111,7 +116,7 @@ describe('a clip that will not play', () => {
     const { playFor } = await import('../sound');
 
     for (let event = 0; event < 500; event += 1) {
-      playFor({ type: 'chimed', kind: 'corpse' });
+      playFor(missingClip, { type: 'chimed', kind: 'corpse' });
     }
 
     expect(console.warn).toHaveBeenCalledTimes(1);
@@ -133,9 +138,10 @@ describe('it holds no game rule (plan 6.22)', () => {
     // src/boundary.test.ts holds this mechanically; this is the readable half,
     // so a reader of the module sees what it is allowed to reach.
     const source = readFileSync(join(SRC, 'app', 'sound.ts'), 'utf8');
-    const specifiers = [...source.matchAll(/from\s+"([^"]+)"/g)].map(
+    const specifiers = [...source.matchAll(/from\s+'([^']+)'/g)].map(
       (match) => match[1],
     );
+    expect(specifiers.length).toBeGreaterThan(0);
     for (const specifier of specifiers) {
       const inside =
         !specifier.startsWith('../game') || specifier === '../game/events';

@@ -1,13 +1,26 @@
+import { BlurFilter } from 'pixi.js';
+
 import { createFpsMeter } from './app/FpsMeter';
 import { FpsSampler } from './app/FpsSampler';
 import { setEngine } from './app/getEngine';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './game/field';
 import { PALETTE } from './app/palette';
-import { resolveRoute } from './app/routes';
+import { PausePopup } from './app/popups/PausePopup';
+import { SettingsPopup } from './app/popups/SettingsPopup';
+import {
+  HOME_HASH,
+  PROTOTYPES_HASH,
+  REPLAY_HASH,
+  resolveRoute,
+} from './app/routes';
+import { EndScreen } from './app/screens/EndScreen';
+import { GameScreen } from './app/screens/game/GameScreen';
 import { LoadScreen } from './app/screens/LoadScreen';
 import { PrototypesScreen } from './app/screens/PrototypesScreen';
 import { TitleScreen } from './app/screens/TitleScreen';
+import { playFor } from './app/sound';
 import { userSettings } from './app/userSettings';
+import { prototypeHash } from './prototypes';
 import { CreationEngine, registerEnginePlugins } from './engine/engine';
 
 /**
@@ -36,6 +49,17 @@ const initEngine = async (): Promise<CreationEngine> => {
 };
 
 /**
+ * The volumes the player last set, told to the audio system before the first
+ * sound. The settings store keeps them and nothing else, so somebody has to
+ * say them out loud, and this is the boot's own step for it.
+ */
+const applySavedVolumes = (audio: CreationEngine['audio']): void => {
+  audio.setMasterVolume(userSettings.getMasterVolume());
+  audio.bgm.setVolume(userSettings.getBgmVolume());
+  audio.sfx.setVolume(userSettings.getSfxVolume());
+};
+
+/**
  * Puts the frame-rate readout on the stage, above every screen. Navigation
  * adds its own container to the stage lazily, when the first screen is shown
  * (src/engine/navigation/navigation.ts), so a meter added earlier would end up
@@ -59,35 +83,160 @@ const attachFpsMeter = (engine: CreationEngine): void => {
   });
 };
 
+// Where every BACK button sends the player: the router answers the write.
+const goHome = (): void => {
+  window.location.hash = HOME_HASH;
+};
+
 /**
- * The digest screen is imported dynamically, the way the prototypes already
- * are, or src/dev/digest.ts lands in the boot chunk of every player's first
- * load. resolveScreen is an if-chain ending in TitleScreen,
- * so a new route kind with no branch here compiles cleanly and silently sends
- * its hash to the title screen.
+ * The screen a popup opened over, blurred while the panel is up and cleared on
+ * the way out. Which screen that is is the engine's answer and not the popup's,
+ * so a popup asks for a strength and never for the screen.
  */
-const resolveScreen = async (hash: string) => {
+const backdropPowers = (engine: CreationEngine) => ({
+  blurBackdrop: (strength: number): void => {
+    const behind = engine.navigation.currentScreen;
+    if (behind) behind.filters = [new BlurFilter({ strength })];
+  },
+  clearBackdrop: (): void => {
+    const behind = engine.navigation.currentScreen;
+    if (behind) behind.filters = [];
+  },
+});
+
+/** A volume the player moved: heard now, and kept for the next sitting. */
+const volumePowers = (engine: CreationEngine) => ({
+  setMasterVolume: (value: number): void => {
+    engine.audio.setMasterVolume(value);
+    userSettings.setMasterVolume(value);
+  },
+  setBgmVolume: (value: number): void => {
+    engine.audio.bgm.setVolume(value);
+    userSettings.setBgmVolume(value);
+  },
+  setSfxVolume: (value: number): void => {
+    engine.audio.sfx.setVolume(value);
+    userSettings.setSfxVolume(value);
+  },
+});
+
+/**
+ * The settings panel, which replaces the pause menu rather than stacking on it.
+ * OK goes back to the menu with the same End Run it was opened holding, because
+ * presentPopup replaces: dismissing here would drop the player into live play.
+ */
+const showSettings = (
+  engine: CreationEngine,
+  endRun: () => void,
+): Promise<void> =>
+  engine.navigation.presentPopup(SettingsPopup, {
+    ...backdropPowers(engine),
+    ...volumePowers(engine),
+    onDone: () => showPauseMenu(engine, endRun),
+  });
+
+/** The pause menu over a live run, armed with what that run's End Run does. */
+const showPauseMenu = (
+  engine: CreationEngine,
+  endRun: () => void,
+): Promise<void> =>
+  engine.navigation.presentPopup(PausePopup, {
+    ...backdropPowers(engine),
+    onDismiss: () => engine.navigation.dismissPopup(),
+    onSettings: () => showSettings(engine, endRun),
+    onEndRun: endRun,
+  });
+
+/** The screen a run ends on, and the only way back into another one. */
+const showEnd = (engine: CreationEngine): Promise<void> =>
+  engine.navigation.showScreen(EndScreen, {
+    onRiseAgain: () => showGame(engine),
+  });
+
+/** A run, and every power the screen it plays on cannot reach on its own. */
+const showGame = (engine: CreationEngine): Promise<void> =>
+  engine.navigation.showScreen(GameScreen, {
+    openMenu: (endRun) => showPauseMenu(engine, endRun),
+    closeMenu: () => engine.navigation.dismissPopup(),
+    menuShowing: () => engine.navigation.currentPopup instanceof PausePopup,
+    showEnd: () => showEnd(engine),
+    playSound: (event) => playFor(engine.audio.sfx, event),
+    canvas: engine.canvas,
+    renderer: engine.renderer,
+  });
+
+/** The front door, and the two places it leads. */
+const showTitle = (engine: CreationEngine): Promise<void> =>
+  engine.navigation.showScreen(TitleScreen, {
+    onRise: () => showGame(engine),
+    onPrototypes: () => {
+      window.location.hash = PROTOTYPES_HASH;
+    },
+  });
+
+/** The prototype list, which routes into one prototype by its registry id. */
+const showPrototypes = (engine: CreationEngine): Promise<void> =>
+  engine.navigation.showScreen(PrototypesScreen, {
+    onOpen: (id) => {
+      window.location.hash = prototypeHash(id);
+    },
+  });
+
+/** The kept runs, and the replay route each row can be opened in. */
+const showRuns = async (engine: CreationEngine): Promise<void> => {
+  const { RunsScreen } = await import('./app/screens/RunsScreen');
+  await engine.navigation.showScreen(RunsScreen, {
+    onOpenReplay: (tapeUrl) => {
+      window.location.hash = `${REPLAY_HASH}?tape=${encodeURIComponent(tapeUrl)}`;
+    },
+    onBack: goHome,
+  });
+};
+
+/** One tape, rendered at the tick its URL asked for (ADR 0020). */
+const showReplay = async (engine: CreationEngine): Promise<void> => {
+  const { ReplayScreen } = await import('./app/screens/ReplayScreen');
+  await engine.navigation.showScreen(ReplayScreen, { onBack: goHome });
+};
+
+/**
+ * The golden digest, run in this browser. It is imported dynamically, the way
+ * the prototypes already are, or src/dev/digest.ts lands in the boot chunk of
+ * every player's first load.
+ */
+const showDigest = async (engine: CreationEngine): Promise<void> => {
+  const { DigestScreen } = await import('./app/screens/DigestScreen');
+  await engine.navigation.showScreen(DigestScreen, { onBack: goHome });
+};
+
+/**
+ * The showing a hash asks for, resolved before it is performed so a route whose
+ * hash went stale while its module loaded can step aside. resolveShowing is an
+ * if-chain ending in the title screen, so a new route kind with no branch here
+ * compiles cleanly and silently sends its hash to the title screen.
+ */
+const resolveShowing = async (
+  engine: CreationEngine,
+  hash: string,
+): Promise<() => Promise<void>> => {
   const route = resolveRoute(hash);
-  if (route.kind === 'prototype') return await route.entry.load();
-  if (route.kind === 'prototype-list') return PrototypesScreen;
-  if (route.kind === 'digest') {
-    return (await import('./app/screens/DigestScreen')).DigestScreen;
+  if (route.kind === 'prototype') {
+    const screen = await route.entry.load();
+    return () => engine.navigation.showScreen(screen);
   }
-  if (route.kind === 'replay') {
-    return (await import('./app/screens/ReplayScreen')).ReplayScreen;
-  }
-  if (route.kind === 'runs') {
-    return (await import('./app/screens/RunsScreen')).RunsScreen;
-  }
-  return TitleScreen;
+  if (route.kind === 'prototype-list') return () => showPrototypes(engine);
+  if (route.kind === 'digest') return () => showDigest(engine);
+  if (route.kind === 'replay') return () => showReplay(engine);
+  if (route.kind === 'runs') return () => showRuns(engine);
+  return () => showTitle(engine);
 };
 
 /**
  * Answers every navigation the URL fragment can produce: boot, in-app hash
  * writes, and the browser's back and forward buttons alike. The fragment is
  * the single navigation authority between the game and the prototypes, and
- * buttons only assign location.hash; screens inside the game navigate directly
- * and never touch it. Routes are chained so two showScreen calls can never
+ * buttons only signal outward; screens inside the game navigate through the
+ * graph above and never touch it. Routes are chained so two showings can never
  * interleave, and a route whose hash went stale while its module loaded steps
  * aside.
  */
@@ -95,9 +244,9 @@ const startRouter = (engine: CreationEngine): Promise<void> => {
   let pending: Promise<void> = Promise.resolve();
   const route = async () => {
     const hash = window.location.hash;
-    const screen = await resolveScreen(hash);
+    const show = await resolveShowing(engine, hash);
     if (window.location.hash !== hash) return;
-    await engine.navigation.showScreen(screen);
+    await show();
   };
   const queueRoute = () => {
     pending = pending.then(route).catch((error) => console.error(error));
@@ -109,7 +258,7 @@ const startRouter = (engine: CreationEngine): Promise<void> => {
 
 const main = async (): Promise<void> => {
   const engine = await initEngine();
-  userSettings.init();
+  applySavedVolumes(engine.audio);
   attachFpsMeter(engine);
   // The load screen holds the stage while the router resolves the first route.
   await engine.navigation.showScreen(LoadScreen);

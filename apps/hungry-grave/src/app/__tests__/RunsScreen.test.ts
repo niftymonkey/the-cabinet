@@ -59,11 +59,28 @@ import { encodeTape } from '../../tape/encode';
 import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
 import type { TapeHeader } from '../../tape/tape';
 import { RECORDER_CHECKPOINT_SPACING } from '../../tape/recorder';
+import { REPLAY_HASH } from '../routes';
 import { tapeFileName } from '../tapeExport';
 import type { StoredRunSummary, TapeStore } from '../tapeStore';
 import { RunsScreen } from '../screens/RunsScreen';
 
 const fakeLocation = { search: '', hash: '' };
+
+/**
+ * A runs screen holding faked powers, the way navigation hands them in. The
+ * replay hop is wired the way src/main.ts wires it, because the hash the route
+ * is opened by is the driver's to write and this stands in for the driver.
+ */
+function runsScreen(): RunsScreen {
+  const screen = new RunsScreen();
+  screen.init({
+    onOpenReplay: (tapeUrl) => {
+      fakeLocation.hash = `${REPLAY_HASH}?tape=${encodeURIComponent(tapeUrl)}`;
+    },
+    onBack: () => {},
+  });
+  return screen;
+}
 
 Object.defineProperty(globalThis, 'window', {
   value: { location: fakeLocation },
@@ -182,7 +199,7 @@ describe('the runs screen', () => {
       }),
     ];
     openTapeStore.mockResolvedValue(fakeStore(rows, null));
-    const screen = new RunsScreen();
+    const screen = runsScreen();
     screen.prepare();
     await listed(screen, 2);
 
@@ -204,7 +221,7 @@ describe('the runs screen', () => {
     // policy both land there, and the screen reports the fact and offers
     // nothing it cannot do.
     openTapeStore.mockResolvedValue(null);
-    const screen = new RunsScreen();
+    const screen = runsScreen();
     screen.prepare();
 
     await vi.waitFor(() =>
@@ -225,7 +242,7 @@ describe('the runs screen', () => {
       created.push(blob);
       return 'blob:fake';
     });
-    const screen = new RunsScreen();
+    const screen = runsScreen();
     screen.prepare();
     await listed(screen, 1);
 
@@ -243,7 +260,7 @@ describe('the runs screen', () => {
     openTapeStore.mockResolvedValue(
       fakeStore([summaryRow({ id: 'run-2', seed: 505 })], bytes),
     );
-    const screen = new RunsScreen();
+    const screen = runsScreen();
     screen.prepare();
     await listed(screen, 1);
 
@@ -259,7 +276,7 @@ describe('the runs screen', () => {
   it('delete removes the run from the store and relists', async () => {
     const store = fakeStore([summaryRow({ id: 'run-1' })], null);
     openTapeStore.mockResolvedValue(store);
-    const screen = new RunsScreen();
+    const screen = runsScreen();
     screen.prepare();
     await listed(screen, 1);
 
@@ -272,7 +289,7 @@ describe('the runs screen', () => {
   it('a pooled second showing lists afresh, and reset is idempotent', async () => {
     const store = fakeStore([summaryRow({ id: 'run-1' })], null);
     openTapeStore.mockResolvedValue(store);
-    const screen = new RunsScreen();
+    const screen = runsScreen();
     screen.prepare();
     await listed(screen, 1);
 

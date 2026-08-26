@@ -30,6 +30,11 @@ import { createTapePlaybackSession } from './tapePlaybackSession';
 const BACK_WIDTH = 132;
 const BACK_HEIGHT = 68;
 
+/** The one way off the replay screen, owned by the driver in main.ts. */
+interface ReplayScreenProps {
+  onBack(): void;
+}
+
 /**
  * The screen a tape replays on. Render only: it wires the session that drives
  * the one playback loop to the renderers and the readout that show it, and
@@ -53,6 +58,11 @@ class ReplayScreen extends Container {
   private readonly backButton: Button;
 
   private placement: FieldPlacement = DEGENERATE_PLACEMENT;
+  /**
+   * The powers this showing was handed. The pool calls init() before the screen
+   * reaches the stage, so it is set before the back button can be pressed.
+   */
+  private props!: ReplayScreenProps;
 
   constructor() {
     super();
@@ -73,10 +83,7 @@ class ReplayScreen extends Container {
       height: BACK_HEIGHT,
       fontSize: 18,
     });
-    this.backButton.onPress.connect(() => {
-      // The router in main.ts observes the hash and shows the title screen.
-      window.location.hash = '#/';
-    });
+    this.backButton.onPress.connect(() => this.props.onBack());
 
     this.addChild(this.field, this.readout.view, this.backButton);
   }
@@ -87,6 +94,10 @@ class ReplayScreen extends Container {
     this.fieldRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
+  }
+
+  public init(props: ReplayScreenProps): void {
+    this.props = props;
   }
 
   public prepare(): void {

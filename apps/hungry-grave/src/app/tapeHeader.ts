@@ -6,7 +6,6 @@ import type { RunState } from '../game/run';
 import { WITNESS_VERSION } from '../game/witness';
 import type { TapeHeader, TapeInputDevice } from '../tape/tape';
 import { RECORDER_CHECKPOINT_SPACING } from '../tape/recorder';
-import { engine } from './getEngine';
 import { userSettings } from './userSettings';
 
 /**
@@ -20,6 +19,12 @@ const UNNAMED_AUTHOR = 'unknown';
 
 // Reserved for a resolvable build identity, whose machinery is deliberately not built.
 const UNRESOLVED_BUILD = '';
+
+/** What the renderer says about itself, which is all the header records of it. */
+interface RendererIdentity {
+  readonly name: string;
+  readonly resolution: number;
+}
 
 /**
  * The conditions a run was played under, read once before its first tick.
@@ -99,8 +104,7 @@ const inputDeviceHere = (): TapeInputDevice => {
  * because neither substitutes for the other: the engine snaps its resolution to
  * at least two, so a phone reporting three is running a renderer at two.
  */
-const runConditionsHere = (): RunConditions => {
-  const renderer = engine().renderer;
+const runConditionsHere = (renderer: RendererIdentity): RunConditions => {
   return {
     inputDevice: inputDeviceHere(),
     keyboardSpeed: userSettings.getKeyboardSpeed(),
@@ -112,4 +116,4 @@ const runConditionsHere = (): RunConditions => {
 };
 
 export { tapeHeaderFor, runConditionsHere, UNNAMED_AUTHOR };
-export type { RunConditions };
+export type { RendererIdentity, RunConditions };

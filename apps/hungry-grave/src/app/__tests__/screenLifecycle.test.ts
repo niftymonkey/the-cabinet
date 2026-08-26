@@ -27,21 +27,6 @@ const { navigation, canvasListeners } = vi.hoisted(() => ({
 
 const { showScreen, presentPopup, dismissPopup } = navigation;
 
-vi.mock('../getEngine', () => ({
-  engine: () => ({
-    navigation,
-    // The game screen reads the renderer's backend and resolution once per run,
-    // for the tape header's runtime context (ADR 0018).
-    renderer: { name: 'webgl', resolution: 2 },
-    canvas: {
-      addEventListener: (_type: string, handler: () => void) =>
-        canvasListeners.add(handler),
-      removeEventListener: (_type: string, handler: () => void) =>
-        canvasListeners.delete(handler),
-    },
-  }),
-}));
-
 /** The real widgets need a renderer: text metrics and a loaded texture. */
 vi.mock('../ui/Label', () => ({
   Label: class extends Container {
@@ -69,7 +54,7 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
 import { SIZE_FLOOR } from '../../game/tuning';
 import { FAULT_IDENTITIES } from '../../game/faults';
-import { pauseActions, PausePopup } from '../popups/PausePopup';
+import { PausePopup } from '../popups/PausePopup';
 import { runHandoff } from '../runHandoff';
 import { SettingsPopup } from '../popups/SettingsPopup';
 import { EndScreen, FAULT_FONT_SIZE, faultCaption } from '../screens/EndScreen';
@@ -85,6 +70,73 @@ import type { FrameObservation } from '../../tape/tape';
 import { faultObservations, frameObservations } from '../../tape/tape';
 import { MAX_LEVEL } from '../../game/lines/roster';
 import { uniformLevels } from '../../game/run';
+
+/** The canvas the run listens on for a gesture the platform took away. */
+const canvas = {
+  addEventListener: (_type: string, handler: () => void) =>
+    canvasListeners.add(handler),
+  removeEventListener: (_type: string, handler: () => void) =>
+    canvasListeners.delete(handler),
+} as unknown as HTMLCanvasElement;
+
+/**
+ * The End Run the fake driver armed the pause menu with. It is the handler the
+ * screen hands out when its menu opens, which is the only way End Run exists.
+ */
+const armed: { endRun: (() => void) | null } = { endRun: null };
+
+/**
+ * A game screen holding faked powers, the way navigation hands them in. Every
+ * hop goes to the navigation fake above, so the assertions below still count
+ * what the driver was asked to do.
+ */
+function gameScreen(): GameScreen {
+  const screen = new GameScreen();
+  screen.init({
+    openMenu: (endRun) => {
+      armed.endRun = endRun;
+      // Resolved through Promise.resolve because the mock answers undefined
+      // until a test configures it, and the screen awaits what it is given.
+      return Promise.resolve(navigation.presentPopup(PausePopup));
+    },
+    closeMenu: () => Promise.resolve(navigation.dismissPopup()),
+    menuShowing: () => navigation.currentPopup instanceof PausePopup,
+    showEnd: () => Promise.resolve(navigation.showScreen(EndScreen)),
+    playSound: () => {},
+    canvas,
+    // The tape header records the renderer's backend and resolution once per
+    // run, for its runtime context (ADR 0018).
+    renderer: { name: 'webgl', resolution: 2 },
+  });
+  return screen;
+}
+
+function titleScreen(): TitleScreen {
+  const screen = new TitleScreen();
+  screen.init({
+    onRise: () => Promise.resolve(navigation.showScreen(GameScreen)),
+    onPrototypes: () => {},
+  });
+  return screen;
+}
+
+function endScreen(): EndScreen {
+  const screen = new EndScreen();
+  screen.init({
+    onRiseAgain: () => Promise.resolve(navigation.showScreen(GameScreen)),
+  });
+  return screen;
+}
+
+/**
+ * End Run, reached the way a player reaches it: the pause menu is opened and
+ * its End Run pressed. The action lives on the menu now, so getting at it means
+ * opening the menu first.
+ */
+function endRunFromMenu(): void {
+  press('Escape');
+  armed.endRun!();
+}
 
 const keyHandlers = new Set<(event: KeyboardEvent) => void>();
 
@@ -152,7 +204,7 @@ describe('a screen whose navigation rejects', () => {
 
   it('the title screen offers the way in again', async () => {
     showScreen.mockRejectedValueOnce(new Error('no screen'));
-    const screen = new TitleScreen();
+    const screen = titleScreen();
     screen.prepare();
 
     press('Enter');
@@ -165,7 +217,7 @@ describe('a screen whose navigation rejects', () => {
 
   it('the end screen offers another run again', async () => {
     showScreen.mockRejectedValueOnce(new Error('no screen'));
-    const screen = new EndScreen();
+    const screen = endScreen();
     screen.prepare();
 
     press('Enter');
@@ -180,14 +232,14 @@ describe('a screen whose navigation rejects', () => {
     // End Run reaches the screen through the pause menu's handoff now, because
     // Escape opens the menu rather than ending the run.
     showScreen.mockRejectedValueOnce(new Error('no screen'));
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
-    pauseActions.endRun();
+    endRunFromMenu();
     await settle();
 
     showScreen.mockResolvedValueOnce(undefined);
-    pauseActions.endRun();
+    endRunFromMenu();
     expect(showScreen).toHaveBeenCalledTimes(2);
   });
 
@@ -197,10 +249,10 @@ describe('a screen whose navigation rejects', () => {
     // read live on a run whose own record says it stopped (ADR 0018). The
     // frame seam retries the navigation instead, until the end state takes.
     showScreen.mockRejectedValueOnce(new Error('no screen'));
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
-    pauseActions.endRun();
+    endRunFromMenu();
     await settle();
     showScreen.mockResolvedValueOnce(undefined);
     screen.update(frame(TICK_MS * 2));
@@ -220,7 +272,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
   });
 
   it('reset() removes every listener prepare() added: the key listeners, the blur listener and the canvas pointercancel listener', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     // Escape, keydown, keyup and blur on window; pointercancel on the canvas.
     expect(keyHandlers.size).toBe(4);
@@ -237,7 +289,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     // Pixi v8 maps no pointercancel, so no federated pointerup ever arrives to
     // clear the claim and this listener is the only thing that can. A claim
     // left standing is a pointer id the steer model goes on ignoring.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     const button = screen['belchButton'];
     button.emit('pointerdown', { pointerId: 5 } as never);
@@ -250,7 +302,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
   it('update is called with a ticker and the tick count matches the elapsed time', () => {
     // One tick per rendered frame is gone: the sim advances on clock.ts, so a
     // 144 Hz display and a 60 Hz display play the same game (ADR 0015).
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
     screen.update(frame(TICK_MS * 3));
@@ -270,7 +322,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     // nobody clears is the class of defect this app has shipped five times. A
     // watch carried over would compare run two's first phase with run one's
     // last, and a stale fault history would belong to a run that is over.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 3));
     const first = screen['session'].execution;
@@ -297,7 +349,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     // screen with no regard for currentPopup, so one pause flag let the sim run
     // on under the blurred menu with the keyboard still steering, and the debt
     // readout then reported a gap the player never played through.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     void screen.pause();
     screen.blur();
@@ -329,7 +381,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     // presentPopup replaces rather than stacks, so dismissing from Settings
     // resumes the run instantly. That is the flow the keyboard speed slider
     // exists for, and it is the flow the on-device read walks every time.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
     press('Escape');
@@ -356,7 +408,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     // undefined, opens again, and presentPopup tears the opening menu down to
     // animate a fresh one in. Escape auto-repeats while it is held, so one
     // finger reaches this.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
     let menuUp!: () => void;
@@ -383,7 +435,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     // The guard is a lifecycle flag, so it is cleared in prepare() with the
     // rest. Left set, a screen returned to the pool mid-open would come back
     // unpausable for the whole of the next run.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     presentPopup.mockReturnValueOnce(new Promise<void>(() => {}));
 
@@ -405,7 +457,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     // fresh one in: exactly what the guard exists to prevent. End Run inside
     // the menu is the only way to end a run today, so nothing can reach this
     // yet; a death landing while the menu animates reaches it in dispatch 4.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
     let abandonedMenuUp!: () => void;
@@ -432,7 +484,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
   });
 
   it('prepare() twice on a pooled screen starts the second run with no pointers down, no keys held and no filters', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.resize(540, 760);
 
@@ -454,7 +506,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
   });
 
   it('prepare() gives a pooled screen its children back, so the pause button is tappable on every run and not only the first', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
 
     // What navigation leaves behind on the way out: showScreen and
     // hideAndRemoveScreen both set interactiveChildren false, and
@@ -473,7 +525,7 @@ describe('a screen on its way back to the pool', () => {
   beforeEach(() => keyHandlers.clear());
 
   it("the title screen's reset runs twice and still unbinds its key", () => {
-    const screen = new TitleScreen();
+    const screen = titleScreen();
     screen.prepare();
     expect(keyHandlers.size).toBe(1);
 
@@ -484,7 +536,7 @@ describe('a screen on its way back to the pool', () => {
   });
 
   it("the end screen's reset runs twice and still unbinds its key", () => {
-    const screen = new EndScreen();
+    const screen = endScreen();
     screen.prepare();
     expect(keyHandlers.size).toBe(1);
 
@@ -495,7 +547,7 @@ describe('a screen on its way back to the pool', () => {
   });
 
   it("the game screen's reset runs twice and still drops the run", () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     expect(keyHandlers.size).toBe(4);
 
@@ -517,7 +569,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
   });
 
   it('holds the sim still through three, two and one before the field is live again', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 3));
     expect(screen['session'].run?.tick).toBe(3);
@@ -548,7 +600,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
     // blur was written against is that a frozen sharp field hands the player
     // free seconds to plan, and a corpse field is exactly what a dive is
     // planned through, because freshness is a deadline.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     const layers = screen['layers'];
     void screen.pause();
@@ -573,7 +625,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
     // fires on every resume and every return from a backgrounded tab. Sharing
     // one is Pixi's own guidance, and it is also what settled the standing
     // unhandled rejection under node.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     const layers = screen['layers'];
 
@@ -599,7 +651,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
     showScreen.mockReset().mockResolvedValue(undefined);
     fakeLocation.search = '?seed=7';
     try {
-      const screen = new GameScreen();
+      const screen = gameScreen();
       screen.prepare();
       screen.resize(390, 844);
       const run = screen['session'].run!;
@@ -621,7 +673,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
   });
 
   it('counts down on a tab return too, and never behind the pause menu', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
     screen.blur();
@@ -630,7 +682,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
 
     // A focus() that lands while the menu is still up must not start one, or a
     // countdown runs behind the menu and a second stacks on resume.
-    const guarded = new GameScreen();
+    const guarded = gameScreen();
     guarded.prepare();
     void guarded.pause();
     guarded.blur();
@@ -643,7 +695,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
   it('clears the count and the blur on a pooled reuse', () => {
     // Per-run mutable state with a timer in it, on a pooled screen. This app
     // has now shipped three pooled-screen leaks.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     void screen.pause();
     void screen.resume();
@@ -675,7 +727,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
   }
 
   it('starts with an empty field, no live entities from the first run, and a live pause button', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     // A first run with something on the field: the ramp's first row is at two
     // seconds, so this is the earliest the field is not empty.
@@ -756,7 +808,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
   });
 
   it('ends the run on sealed, and on victory too, so the deploy is a complete run in both directions', () => {
-    const sealing = new GameScreen();
+    const sealing = gameScreen();
     sealing.prepare();
     const run = sealing['session'].run!;
     // At the floor with nothing left to bleed, so the next contact seals.
@@ -774,7 +826,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     expect(showScreen).toHaveBeenCalledTimes(1);
     expect(runHandoff.read()?.ending).toBe('sealed');
 
-    const winning = new GameScreen();
+    const winning = gameScreen();
     winning.prepare();
     // On the boundary of the last stubbed boss phase, which ends on the tick it
     // begins and hands the run to the over phase.
@@ -798,7 +850,7 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
   });
 
   it('plays a fresh run from prepare to its ending with nothing forced, so the live path is covered end to end', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     const run = screen['session'].run!;
     expect(run.seed).toBe(5150);
@@ -832,7 +884,7 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
   it('renders the victory branch, which no played run in this dispatch can reach', () => {
     // Victory is unreachable by hand here and the played run always ends
     // sealed, so without this the victory copy ships drawn by nobody.
-    const screen = new EndScreen();
+    const screen = endScreen();
     runHandoff.record(
       { seed: 3, ticks: 12780, ending: 'victory', fault: null },
       null,
@@ -858,7 +910,7 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
     // which. A fatal fault is never a player death, so the copy wears no
     // sealing vocabulary; the fault line is enough to file a bug from a phone
     // screenshot.
-    const screen = new EndScreen();
+    const screen = endScreen();
     runHandoff.record(
       {
         seed: 3,
@@ -907,11 +959,11 @@ describe('the minimal export (dispatch 6a)', () => {
   it("hands the ended run's sealed tape to the handoff as decodable bytes", () => {
     // ADR 0020: the export is what first lets a tape outlive its run, because
     // reset() nulls the recorder and nothing else keeps the record.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 3));
 
-    pauseActions.endRun();
+    endRunFromMenu();
 
     const bytes = runHandoff.readTape();
     expect(bytes).not.toBeNull();
@@ -926,7 +978,7 @@ describe('the minimal export (dispatch 6a)', () => {
     // are the artifact that claim is judged on. The run that ends by play ends
     // inside the frame's own work, so a capture taken there seals the tape one
     // row short: the frame with the death's tick index and timings on it.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 2));
     const run = screen['session'].run!;
@@ -957,12 +1009,12 @@ describe('the minimal export (dispatch 6a)', () => {
     // The quit path calls endRun outside the frame seam, so its last live frame
     // was already recorded when the bytes are captured; the frames the run then
     // spends on its own end state stay in the recorder only.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 3));
     screen.update(frame(TICK_MS));
 
-    pauseActions.endRun();
+    endRunFromMenu();
     screen.update(frame(TICK_MS));
 
     const { tape } = decodeTape(runHandoff.readTape()!);
@@ -977,7 +1029,7 @@ describe('the minimal export (dispatch 6a)', () => {
   });
 
   it('offers the save button only when the handoff holds a tape', () => {
-    const screen = new EndScreen();
+    const screen = endScreen();
 
     runHandoff.record(
       { seed: 3, ticks: 400, ending: 'sealed', fault: null },
@@ -1000,7 +1052,7 @@ describe('the minimal export (dispatch 6a)', () => {
       { seed: 505, ticks: 400, ending: 'sealed', fault: null },
       bytes,
     );
-    const screen = new EndScreen();
+    const screen = endScreen();
     screen.prepare();
 
     screen['saveTape']();
@@ -1016,7 +1068,7 @@ describe('the minimal export (dispatch 6a)', () => {
       { seed: 505, ticks: 400, ending: 'sealed', fault: null },
       null,
     );
-    const screen = new EndScreen();
+    const screen = endScreen();
     screen.prepare();
 
     screen['saveTape']();
@@ -1039,7 +1091,7 @@ describe('the loadout pin (dispatch 6a)', () => {
     // never a player-facing feature; it waits on the instrumentation build's
     // gate.
     fakeLocation.search = '?seed=7&levels=5';
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
     expect(screen['session'].run!.levels).toEqual(uniformLevels(MAX_LEVEL));
@@ -1050,7 +1102,7 @@ describe('the loadout pin (dispatch 6a)', () => {
     // Ruled by Mark 2026-08-24: the resolved value and never a nullable
     // "pinned or not", so a later tune of the birthright cannot silently
     // change what an old tape replays as.
-    const unpinned = new GameScreen();
+    const unpinned = gameScreen();
     unpinned.prepare();
     expect(unpinned['recording'].recorder!.header.startingLevels).toEqual({
       soulStream: 1,
@@ -1061,7 +1113,7 @@ describe('the loadout pin (dispatch 6a)', () => {
     unpinned.reset();
 
     fakeLocation.search = '?seed=7&levels=2';
-    const pinned = new GameScreen();
+    const pinned = gameScreen();
     pinned.prepare();
     expect(pinned['recording'].recorder!.header.startingLevels).toEqual(
       uniformLevels(2),
@@ -1074,13 +1126,13 @@ describe('the loadout pin (dispatch 6a)', () => {
     // readout. The gate is the difference from the birthright rather than the
     // parameter's presence, so ordinary runs are untouched: a pinned run is by
     // definition not an ordinary run.
-    const ordinary = new GameScreen();
+    const ordinary = gameScreen();
     ordinary.prepare();
     expect(ordinary['hud'].lines.levels.text).toBe('');
     ordinary.reset();
 
     fakeLocation.search = '?seed=7&levels=3';
-    const pinned = new GameScreen();
+    const pinned = gameScreen();
     pinned.prepare();
     expect(pinned['hud'].lines.levels.text).toBe('LEVELS 3 PINNED');
     pinned.reset();
@@ -1091,7 +1143,7 @@ describe('the loadout pin (dispatch 6a)', () => {
     // parse the URL again. ?levels=9 is refused by the parser and the run
     // keeps its birthright, so the readout has nothing to say.
     fakeLocation.search = '?seed=7&levels=9';
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     expect(screen['hud'].lines.levels.text).toBe('');
     screen.reset();
@@ -1102,13 +1154,13 @@ describe('the loadout pin (dispatch 6a)', () => {
     // run from the header alone, and the witness folds run.levels, so without
     // it a pinned run's tape diverges at checkpoint zero.
     fakeLocation.search = '?seed=7&levels=5';
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     for (let spent = 0; spent < 120; spent += 10) {
       screen.update(frame(TICK_MS * 10));
     }
 
-    pauseActions.endRun();
+    endRunFromMenu();
 
     const { tape, truncated } = decodeTape(runHandoff.readTape()!);
     expect(truncated).toBe(false);
@@ -1123,7 +1175,7 @@ describe('the loadout pin (dispatch 6a)', () => {
 
 describe("the field's clip", () => {
   it('masks the field to exactly its own rect, and keeps it across a pooled run', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
     const field = screen['field'];
@@ -1149,7 +1201,7 @@ describe("the field's clip", () => {
   it('has something to clip: the sim really does hold mobs above the top edge', () => {
     // Without this the first test passes over a clip that never cuts anything,
     // and the defect it exists for would be invisible to the suite.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
     let sawOffField = false;
@@ -1191,7 +1243,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
   }
 
   it('carries the tick the frame started at, and how many it bought', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
 
     screen.update(frame(TICK_MS * 3));
@@ -1210,7 +1262,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
     // 120Hz refresh against the 60Hz tick rate roughly half of ordinary live
     // frames buy no tick, and the reason byte is what tells such a frame from
     // a held one now that the export lets a tape outlive its run.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS));
 
@@ -1227,7 +1279,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
     // ADR 0018 ruling F: a skipped frame has to be marked, or the record cannot
     // say the run stalled at all, and its tick index is absent rather than
     // fabricated because the frame bought no ticks.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     await screen.pause();
 
@@ -1241,7 +1293,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
   });
 
   it('marks a backgrounded frame the same way', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.blur();
 
@@ -1255,7 +1307,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
   });
 
   it('marks a countdown frame, which is the resume the sim does not advance through', async () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     await screen.pause();
     await screen.resume();
@@ -1271,9 +1323,9 @@ describe('the frame observation seam (dispatch 6a)', () => {
   });
 
   it('marks an ending frame, which is the one the run is already over on', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
-    pauseActions.endRun();
+    endRunFromMenu();
 
     screen.update(frame(TICK_MS * 4));
 
@@ -1288,7 +1340,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
     // ADR 0018 ruling F, proven against a pooled screen still being ticked
     // after reset() rather than by reading the source. A row for a run-less
     // frame would have to be orphaned from every tape there is.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS));
     const recorder = recorderOf(screen);
@@ -1303,7 +1355,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
   });
 
   it("gives a pooled screen's second run its own tape", () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 5));
     const first = recorderOf(screen);
@@ -1326,7 +1378,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
     // recorder before the ending is reached. Read at the moment of the capture
     // rather than off the artifact, because that is the moment the order
     // decides.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 2));
 
@@ -1355,12 +1407,12 @@ describe('the frame observation seam (dispatch 6a)', () => {
   });
 
   it('seals the trailer when the run is ended, so the tape says how it stopped', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 3));
     const recorder = recorderOf(screen);
 
-    pauseActions.endRun();
+    endRunFromMenu();
 
     expect(recorder.trailer).toMatchObject({
       ending: null,
@@ -1392,7 +1444,7 @@ describe('a fatal fault reaches the end state (dispatch 6a)', () => {
     // ADR 0017: a fatal fault never sets run.ending, so the transition keys
     // off execution.stop. Before this, the field froze and the run never ended
     // on screen, which is the opening bug of that ADR minus the missing tape.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 2));
     breakRun(screen);
@@ -1412,7 +1464,7 @@ describe('a fatal fault reaches the end state (dispatch 6a)', () => {
     // A faulted run's tape is precisely the evidence the instrument exists to
     // collect. The faulting frame's row reaches the recorder before the bytes
     // are captured, exactly as the end-by-play path records its death frame.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS * 2));
     breakRun(screen);
@@ -1436,7 +1488,7 @@ describe('a fatal fault reaches the end state (dispatch 6a)', () => {
       'no NaN',
     );
 
-    const end = new EndScreen();
+    const end = endScreen();
     end.prepare();
     expect(end['saveButton'].visible).toBe(true);
     end['saveTape']();
@@ -1453,7 +1505,7 @@ describe('a fatal fault reaches the end state (dispatch 6a)', () => {
     // fatal stop and the end state exists in the exported artifact, and the
     // frames the run then spends on its own end state stay in the recorder
     // only, held and named by the same guard as an end by play.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS));
     breakRun(screen);
@@ -1483,7 +1535,7 @@ describe('a fatal fault reaches the end state (dispatch 6a)', () => {
     // across the failure, so no post-stop frame ever reads live or steps the
     // stopped run.
     showScreen.mockRejectedValue(new Error('no screen'));
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS));
     breakRun(screen);
@@ -1539,7 +1591,7 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
     // never spends minutes evaluating feel without knowing the run's tuning
     // evidence may be compromised. Never a modal, an interruption or a
     // dedicated debugging surface, and it terminates nothing in any build.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     screen.update(frame(TICK_MS));
     expect(screen['hud'].lines.fault.text).toBe('');
@@ -1557,7 +1609,7 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
   });
 
   it('stays for the rest of the run after the fault stops firing', () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     rotCorpse(screen);
     screen.update(frame(TICK_MS));
@@ -1571,7 +1623,7 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
   });
 
   it("starts a pooled screen's next run with a clean line", () => {
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.prepare();
     rotCorpse(screen);
     screen.update(frame(TICK_MS));

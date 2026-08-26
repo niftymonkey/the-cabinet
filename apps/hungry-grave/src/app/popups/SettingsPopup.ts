@@ -1,9 +1,8 @@
 import { List } from '@pixi/ui';
 import { animate } from 'motion';
 import type { Text } from 'pixi.js';
-import { BlurFilter, Container, Sprite, Texture } from 'pixi.js';
+import { Container, Sprite, Texture } from 'pixi.js';
 
-import { engine } from '../getEngine';
 import {
   KEYBOARD_SPEED_SLIDER_MAX,
   KEYBOARD_SPEED_SLIDER_MIN,
@@ -15,7 +14,26 @@ import { Label } from '../ui/Label';
 import { RoundedBox } from '../ui/RoundedBox';
 import { SettingSlider } from '../ui/SettingSlider';
 import { userSettings } from '../userSettings';
-import { PausePopup } from './PausePopup';
+
+/**
+ * What the settings panel can do, all of it owned by the driver in main.ts.
+ *
+ * The three volumes arrive as powers and the keyboard speed does not, and the
+ * asymmetry is the rule working: a volume has to be heard as well as stored,
+ * and only the driver holds the audio system. The speed is stored and nothing
+ * else, so this panel writes it itself.
+ */
+interface SettingsPopupProps {
+  // Back to the pause menu, which is where OK and Escape both go.
+  onDone(): Promise<void>;
+  // The player's volumes: stored, and heard now.
+  setMasterVolume(value: number): void;
+  setBgmVolume(value: number): void;
+  setSfxVolume(value: number): void;
+  // The screen behind the panel, blurred while the panel is up.
+  blurBackdrop(strength: number): void;
+  clearBackdrop(): void;
+}
 
 // Popup for volume
 class SettingsPopup extends Container {
@@ -39,6 +57,11 @@ class SettingsPopup extends Container {
   private sfxSlider: SettingSlider;
   // Slider that changes the keyboard's designated speed (ADR 0011)
   private keyboardSpeedSlider: SettingSlider;
+  /**
+   * The powers this showing was handed. The pool calls init() before the popup
+   * reaches the stage, so it is set before show() and before any drag.
+   */
+  private props!: SettingsPopupProps;
 
   constructor() {
     super();
@@ -72,9 +95,7 @@ class SettingsPopup extends Container {
     // than stacks, so opening Settings destroyed the menu, and dismissing here
     // would drop the player straight into live play holding nothing.
     this.doneButton.onPress.connect(() => {
-      engine()
-        .navigation.presentPopup(PausePopup)
-        .catch((error) => console.error(error));
+      this.props.onDone().catch((error) => console.error(error));
     });
     this.panel.addChild(this.doneButton);
 
@@ -96,19 +117,19 @@ class SettingsPopup extends Container {
 
     this.masterSlider = new SettingSlider('Master Volume');
     this.masterSlider.onUpdate.connect((v) => {
-      userSettings.setMasterVolume(v / 100);
+      this.props.setMasterVolume(v / 100);
     });
     this.layout.addChild(this.masterSlider);
 
     this.bgmSlider = new SettingSlider('BGM Volume');
     this.bgmSlider.onUpdate.connect((v) => {
-      userSettings.setBgmVolume(v / 100);
+      this.props.setBgmVolume(v / 100);
     });
     this.layout.addChild(this.bgmSlider);
 
     this.sfxSlider = new SettingSlider('SFX Volume');
     this.sfxSlider.onUpdate.connect((v) => {
-      userSettings.setSfxVolume(v / 100);
+      this.props.setSfxVolume(v / 100);
     });
     this.layout.addChild(this.sfxSlider);
 
@@ -144,6 +165,10 @@ class SettingsPopup extends Container {
     this.panel.y = height * 0.5;
   }
 
+  public init(props: SettingsPopupProps) {
+    this.props = props;
+  }
+
   // Set things up just before showing the popup
   public prepare() {
     this.masterSlider.value = userSettings.getMasterVolume() * 100;
@@ -158,12 +183,7 @@ class SettingsPopup extends Container {
 
   // Present the popup, animated
   public async show() {
-    const currentEngine = engine();
-    if (currentEngine.navigation.currentScreen) {
-      currentEngine.navigation.currentScreen.filters = [
-        new BlurFilter({ strength: 4 }),
-      ];
-    }
+    this.props.blurBackdrop(4);
 
     this.bg.alpha = 0;
     this.panel.pivot.y = -400;
@@ -177,10 +197,7 @@ class SettingsPopup extends Container {
 
   // Dismiss the popup, animated
   public async hide() {
-    const currentEngine = engine();
-    if (currentEngine.navigation.currentScreen) {
-      currentEngine.navigation.currentScreen.filters = [];
-    }
+    this.props.clearBackdrop();
     animate(this.bg, { alpha: 0 }, { duration: 0.2, ease: 'linear' });
     await animate(
       this.panel.pivot,
@@ -197,3 +214,4 @@ class SettingsPopup extends Container {
 }
 
 export { SettingsPopup };
+export type { SettingsPopupProps };

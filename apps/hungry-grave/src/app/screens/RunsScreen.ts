@@ -3,7 +3,6 @@ import { Container } from 'pixi.js';
 import { TapeFormatError } from '../../tape/tapeFormatError';
 import { decodeTape } from '../../tape/decode';
 import { MENU } from '../palette';
-import { REPLAY_HASH } from '../routes';
 import { saveTapeFile, tapeFileName } from '../tapeExport';
 import type { TapeStore } from '../tapeStore';
 import { openTapeStore } from '../tapeStore';
@@ -22,6 +21,13 @@ import { createRunList } from './runList';
  * beside it, it is the instrument's surface, and the reserved player route
  * #/watch stays unbuilt (ADR 0020).
  */
+
+/** The two ways off the runs list, both owned by the driver in main.ts. */
+interface RunsScreenProps {
+  // Opens one kept run in the replay route, by a URL the replay screen fetches.
+  onOpenReplay(tapeUrl: string): void;
+  onBack(): void;
+}
 
 const STORE_UNAVAILABLE =
   'THE TAPE STORE IS UNAVAILABLE IN THIS BROWSER, SO NO RUNS ARE KEPT HERE.';
@@ -57,6 +63,11 @@ class RunsScreen extends Container {
    * showing with an earlier one's rows.
    */
   private generation = 0;
+  /**
+   * The powers this showing was handed. The pool calls init() before the screen
+   * reaches the stage, so it is set before any row or button can be pressed.
+   */
+  private props!: RunsScreenProps;
 
   constructor() {
     super();
@@ -79,12 +90,13 @@ class RunsScreen extends Container {
       height: BACK_HEIGHT,
       fontSize: 18,
     });
-    this.backButton.onPress.connect(() => {
-      // The router in main.ts observes the hash and shows the title screen.
-      window.location.hash = '#/';
-    });
+    this.backButton.onPress.connect(() => this.props.onBack());
 
     this.addChild(this.title, this.statement, this.list.view, this.backButton);
+  }
+
+  public init(props: RunsScreenProps): void {
+    this.props = props;
   }
 
   public prepare(): void {
@@ -130,8 +142,8 @@ class RunsScreen extends Container {
 
   /**
    * The kept run, opened in the replay route by the same path any later tape
-   * source uses: a URL the replay screen fetches, with where the bytes came
-   * from not its business (#58).
+   * source uses: a URL the driver hands to the replay route, with where the
+   * bytes came from not its business (#58).
    *
    * The blob URL is deliberately never revoked here. The replay hash keeps
    * pointing at it, so the browser's back and forward buttons can re-enter the
@@ -146,10 +158,11 @@ class RunsScreen extends Container {
       this.statement.text = TAPE_MISSING;
       return;
     }
-    const url = URL.createObjectURL(
-      new Blob([bytes], { type: 'application/octet-stream' }),
+    this.props.onOpenReplay(
+      URL.createObjectURL(
+        new Blob([bytes], { type: 'application/octet-stream' }),
+      ),
     );
-    window.location.hash = `${REPLAY_HASH}?tape=${encodeURIComponent(url)}`;
   }
 
   /**

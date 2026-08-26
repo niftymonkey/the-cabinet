@@ -3,6 +3,9 @@
 import type { PrototypeEntry } from '../prototypes';
 import { prototypeFromHash } from '../prototypes';
 
+// The game itself, which is also where every BACK button sends the player.
+const HOME_HASH = '#/';
+
 const PROTOTYPES_HASH = '#/prototypes';
 
 /**
@@ -49,9 +52,11 @@ const isRouteHash = (hash: string, route: string): boolean => {
  * prototypes live behind their own hash, and every other hash is the game's.
  *
  * The URL fragment is the single navigation authority between the game and the
- * prototype list: buttons only assign location.hash, and the router in main.ts
- * answers boot, in-app hash writes, and the browser's back and forward buttons
- * alike. Screens inside the game navigate directly and never touch the hash.
+ * prototype list: the driver in main.ts assigns location.hash for the hops that
+ * cross it, and its router answers boot, those writes, and the browser's back
+ * and forward buttons alike. The hops inside the game are calls the driver
+ * makes on the navigation and never touch the hash. No screen writes either
+ * one: a screen signals the intent and the driver decides which it is.
  */
 const resolveRoute = (hash: string): Route => {
   const entry = prototypeFromHash(hash);
@@ -63,5 +68,12 @@ const resolveRoute = (hash: string): Route => {
   return { kind: 'game' };
 };
 
-export { resolveRoute, PROTOTYPES_HASH, DIGEST_HASH, REPLAY_HASH, RUNS_HASH };
+export {
+  resolveRoute,
+  HOME_HASH,
+  PROTOTYPES_HASH,
+  DIGEST_HASH,
+  REPLAY_HASH,
+  RUNS_HASH,
+};
 export type { Route };

@@ -39,6 +39,13 @@ import { ReplayScreen } from '../ReplayScreen';
 /** The URL the replay screen reads its tape and tick off. */
 const fakeLocation = { search: '', hash: '' };
 
+/** A replay screen holding faked powers, the way navigation hands them in. */
+function replayScreen(): ReplayScreen {
+  const screen = new ReplayScreen();
+  screen.init({ onBack: () => {} });
+  return screen;
+}
+
 Object.defineProperty(globalThis, 'window', {
   value: { location: fakeLocation },
   configurable: true,
@@ -170,7 +177,7 @@ describe('the replay screen', () => {
     serveTape(bytes);
 
     fakeLocation.hash = '#/replay?tape=blob%3Atape&at=300';
-    const skipped = new ReplayScreen();
+    const skipped = replayScreen();
     skipped.prepare();
     await settled(skipped);
     driveTo(skipped, 'playing');
@@ -179,7 +186,7 @@ describe('the replay screen', () => {
     expect(tickOf(skipped)).toBe(300);
 
     fakeLocation.hash = '#/replay?tape=blob%3Atape&at=0';
-    const walked = new ReplayScreen();
+    const walked = replayScreen();
     walked.prepare();
     await settled(walked);
     driveTo(walked, 'playing');
@@ -211,7 +218,7 @@ describe('the replay screen', () => {
     serveTape(encodeTape(tampered));
 
     fakeLocation.hash = '#/replay?tape=blob%3Atape&at=9000';
-    const screen = new ReplayScreen();
+    const screen = replayScreen();
     screen.prepare();
     await settled(screen);
     driveTo(screen, 'played');
@@ -234,7 +241,7 @@ describe('the replay screen', () => {
     const { tape, bytes } = scriptedTape(360);
     serveTape(bytes);
     fakeLocation.hash = '#/replay?tape=blob%3Atape&at=300';
-    const screen = new ReplayScreen();
+    const screen = replayScreen();
     screen.prepare();
     await settled(screen);
     driveTo(screen, 'fastForwarding');
@@ -251,7 +258,7 @@ describe('the replay screen', () => {
   it('shows a TapeFormatError as its own plain statement, and plays nothing', async () => {
     serveTape(new Uint8Array([9, 9, 9, 9, 9, 9]));
     fakeLocation.hash = '#/replay?tape=blob%3Agarbage';
-    const screen = new ReplayScreen();
+    const screen = replayScreen();
     screen.prepare();
     await settled(screen);
 
@@ -265,7 +272,7 @@ describe('the replay screen', () => {
     const { bytes } = scriptedTape(360);
     serveTape(bytes.slice(0, bytes.length - 3));
     fakeLocation.hash = '#/replay?tape=blob%3Acut';
-    const screen = new ReplayScreen();
+    const screen = replayScreen();
     screen.prepare();
     await settled(screen);
     driveTo(screen, 'playing');
@@ -283,7 +290,7 @@ describe('the replay screen', () => {
     const { tape, bytes } = scriptedTape(360);
     serveTape(bytes);
     fakeLocation.hash = '#/replay?tape=blob%3Atape&at=300';
-    const screen = new ReplayScreen();
+    const screen = replayScreen();
     screen.prepare();
     await settled(screen);
     driveTo(screen, 'playing');
@@ -306,7 +313,7 @@ describe('the replay screen', () => {
 
   it('states that no tape was named when the URL names none', () => {
     fakeLocation.hash = '#/replay';
-    const screen = new ReplayScreen();
+    const screen = replayScreen();
     screen.prepare();
 
     expect(screen['session'].phase).toBe('idle');

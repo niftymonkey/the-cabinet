@@ -1,31 +1,22 @@
 import { animate } from 'motion';
-import { BlurFilter, Container, Sprite, Texture } from 'pixi.js';
+import { Container, Sprite, Texture } from 'pixi.js';
 
-import { engine } from '../getEngine';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 import { RoundedBox } from '../ui/RoundedBox';
-import { SettingsPopup } from './SettingsPopup';
 
-/**
- * What End Run does, set by the screen that opened the menu. Popups are pooled
- * and constructed with no arguments (see src/engine/navigation/navigation.ts),
- * so a popup cannot be handed its actions at construction and the handoff needs
- * a home outside both. Same shape as runHandoff between the two screens.
- */
-class PauseActions {
-  private handler: (() => void) | null = null;
-
-  public setEndRun(handler: (() => void) | null): void {
-    this.handler = handler;
-  }
-
-  public endRun(): void {
-    this.handler?.();
-  }
+/** What the pause menu can do, all of it owned by the driver in main.ts. */
+interface PausePopupProps {
+  // Takes this menu away, back to the run behind it.
+  onDismiss(): Promise<void>;
+  // Replaces this menu with the settings panel.
+  onSettings(): Promise<void>;
+  // Ends the run this menu was opened over, called with the menu already gone.
+  onEndRun(): void;
+  // The screen behind the panel, blurred while the panel is up.
+  blurBackdrop(strength: number): void;
+  clearBackdrop(): void;
 }
-
-const pauseActions = new PauseActions();
 
 // What End Run says before it is armed, and what it says once it is.
 const END_RUN_LABEL = 'End Run';
@@ -55,6 +46,11 @@ class PausePopup extends Container {
    * no state that outlives the menu.
    */
   private endRunArmed = false;
+  /**
+   * The powers this showing was handed. The pool calls init() before the popup
+   * reaches the stage, so it is set before show() and before any press.
+   */
+  private props!: PausePopupProps;
 
   constructor() {
     super();
@@ -102,24 +98,24 @@ class PausePopup extends Container {
     this.panel.addChild(this.endRunButton);
   }
 
+  public init(props: PausePopupProps): void {
+    this.props = props;
+  }
+
   /**
    * Back to the run. Named dismiss and not resume because AppScreen declares an
    * optional resume() of its own, and a private method of that name makes this
    * class unassignable to it.
    */
   private dismiss(): void {
-    engine()
-      .navigation.dismissPopup()
-      .catch((error) => console.error(error));
+    this.props.onDismiss().catch((error) => console.error(error));
   }
 
   private openSettings(): void {
     // Opening Settings disarms it, so a confirm cannot be left standing behind
     // another screen and answered by a press that meant something else.
     this.disarmEndRun();
-    engine()
-      .navigation.presentPopup(SettingsPopup)
-      .catch((error) => console.error(error));
+    this.props.onSettings().catch((error) => console.error(error));
   }
 
   private disarmEndRun(): void {
@@ -141,9 +137,9 @@ class PausePopup extends Container {
       return;
     }
     this.disarmEndRun();
-    engine()
-      .navigation.dismissPopup()
-      .then(() => pauseActions.endRun())
+    this.props
+      .onDismiss()
+      .then(() => this.props.onEndRun())
       .catch((error) => console.error(error));
   }
 
@@ -162,12 +158,7 @@ class PausePopup extends Container {
    */
   public async show() {
     this.disarmEndRun();
-    const currentEngine = engine();
-    if (currentEngine.navigation.currentScreen) {
-      currentEngine.navigation.currentScreen.filters = [
-        new BlurFilter({ strength: 5 }),
-      ];
-    }
+    this.props.blurBackdrop(5);
     this.bg.alpha = 0;
     this.panel.pivot.y = -400;
     animate(this.bg, { alpha: 0.8 }, { duration: 0.2, ease: 'linear' });
@@ -181,10 +172,7 @@ class PausePopup extends Container {
   // Dismiss the popup, animated
   public async hide() {
     this.disarmEndRun();
-    const currentEngine = engine();
-    if (currentEngine.navigation.currentScreen) {
-      currentEngine.navigation.currentScreen.filters = [];
-    }
+    this.props.clearBackdrop();
     animate(this.bg, { alpha: 0 }, { duration: 0.2, ease: 'linear' });
     await animate(
       this.panel.pivot,
@@ -199,4 +187,5 @@ class PausePopup extends Container {
   }
 }
 
-export { PausePopup, pauseActions };
+export { PausePopup };
+export type { PausePopupProps };

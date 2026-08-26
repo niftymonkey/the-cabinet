@@ -17,10 +17,6 @@ import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
 import type { LayerName } from '../screens/game/layering';
 import { FieldLayers, LAYER_ORDER } from '../screens/game/layering';
 
-vi.mock('../getEngine', () => ({
-  engine: () => ({ navigation: { showScreen: vi.fn() } }),
-}));
-
 /** The real widgets need a renderer: text metrics and a loaded texture. */
 vi.mock('../ui/Label', () => ({
   Label: class extends Container {
@@ -41,6 +37,24 @@ import {
   faultReadout,
   levelsReadout,
 } from '../screens/game/RunHud';
+
+/**
+ * A game screen holding faked powers, the way navigation hands them in. None
+ * of them fire here: this file only measures where things are drawn.
+ */
+function gameScreen(): GameScreen {
+  const screen = new GameScreen();
+  screen.init({
+    openMenu: () => Promise.resolve(),
+    closeMenu: () => Promise.resolve(),
+    menuShowing: () => false,
+    showEnd: () => Promise.resolve(),
+    playSound: () => {},
+    canvas: null,
+    renderer: { name: 'webgl', resolution: 2 },
+  });
+  return screen;
+}
 
 // The screen reads its persisted keyboard speed on construction, and an
 // unstubbed localStorage warns once through the storage guard.
@@ -170,7 +184,7 @@ describe("the game screen's field container", () => {
       [1440, 900],
       [390, 844],
     ]) {
-      const screen = new GameScreen();
+      const screen = gameScreen();
       screen.resize(width, height);
 
       const placement = fitField(width, height);
@@ -187,7 +201,7 @@ describe("the game screen's field container", () => {
     // screenToField inverts this exact value. A handler calling fitField again
     // at event time computes the placement a second time, and the two agree
     // only until something moves one of them.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     expect(screen['placement']).toEqual(DEGENERATE_PLACEMENT);
 
     screen.resize(1440, 900);
@@ -204,7 +218,7 @@ describe('the game screen across a pooled reuse', () => {
     // the first run's sprites still on the field. What dressField() puts back
     // is the boundary readout and the pooled entity sprites, every one of them
     // invisible until a live entity claims it; anything else is a leak.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     const layers: FieldLayers = screen['layers'];
     const frame = screen['frame'];
     const stray = new Container();
@@ -224,7 +238,7 @@ describe('the game screen across a pooled reuse', () => {
 
   it('keeps the same boundary readout instance across repeated resets', () => {
     // Rebuilding it per run would allocate a Graphics on every reuse.
-    const screen = new GameScreen();
+    const screen = gameScreen();
     const frame = screen['frame'];
     screen.reset();
     screen.reset();
@@ -319,7 +333,7 @@ describe('the readouts stay inside the reserve the field is fitted around', () =
       meterLinePosition(RESERVED_LINES - 1).y + METER_FONT_SIZE * 1.5;
     expect(stackBottom).toBeLessThanOrEqual(READOUT_RESERVE.height);
 
-    const screen = new GameScreen();
+    const screen = gameScreen();
     screen.resize(1440, 900);
     const button = screen['pauseButton'];
     const halfWidth = 132 / 2;

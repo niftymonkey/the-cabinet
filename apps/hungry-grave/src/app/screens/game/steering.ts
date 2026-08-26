@@ -7,7 +7,6 @@ import type { FieldPoint } from '../../../game/field';
 import { KeySteer } from '../../../input/keys';
 import { combineSteer } from '../../../input/steering';
 import { TouchSteer } from '../../../input/touch';
-import { engine } from '../../getEngine';
 import type { FieldPlacement } from '../../layout';
 import { screenToField } from '../../layout';
 import { userSettings } from '../../userSettings';
@@ -42,12 +41,14 @@ const STEERING_POINTERS = ['touch', 'pen'];
  */
 const STEER_SLOP_STAGE_UNITS = 3;
 
-/** The belch button's pointer claim, which steering must neither steal nor outlive. */
+/** What the run's controls need from the screen around them. */
 interface SteeringPowers {
   // Whether the button already owns this pointer, so a thumb that rolls off it does not drag the grave.
   claimsPointer(pointerId: number): boolean;
   // Drops that claim, for a gesture the platform took away.
   releaseClaim(): void;
+  // The canvas a gesture the platform took away is announced on.
+  canvas(): HTMLCanvasElement | null;
 }
 
 interface RunSteering {
@@ -134,7 +135,7 @@ const listen = (steering: Steering): (() => void) => {
     steering.touch.cancelAll();
     steering.powers.releaseClaim();
   };
-  const canvas = engine().canvas;
+  const canvas = steering.powers.canvas();
 
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);

@@ -9,12 +9,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { setEngine } from '../app/getEngine';
 import { fitField } from '../app/layout';
 import { playFor } from '../app/sound';
 import { userSettings } from '../app/userSettings';
 import { dodgePolicy, belchingPolicy, runPolicy } from '../dev/bot';
-import type { CreationEngine } from '../engine/engine';
 import { getResolution } from '../engine/utils/getResolution';
 import { createExecution } from '../game/execution';
 import { createRun } from '../game/run';
@@ -39,11 +37,8 @@ function useEmptyStorage(): void {
   });
 }
 
-/** An engine whose sound plays, which is what a loaded bundle gives. */
-function useWorkingSound(): void {
-  const audio = { sfx: { play: () => undefined } };
-  setEngine({ audio } as unknown as CreationEngine);
-}
+/** An effects channel whose clips play, which is what a loaded bundle gives. */
+const workingSound = { play: () => undefined };
 
 describe('a normal boot', () => {
   beforeEach(() => {
@@ -52,7 +47,6 @@ describe('a normal boot', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     useOrdinaryDisplay();
     useEmptyStorage();
-    useWorkingSound();
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -61,8 +55,8 @@ describe('a normal boot', () => {
     expect(getResolution()).toBe(2);
     expect(userSettings.getKeyboardSpeed()).toBe(1);
     fitField(1440, 900);
-    playFor({ type: 'chimed', kind: 'corpse' });
-    playFor({ type: 'belched', cancelled: 3, killed: 1 });
+    playFor(workingSound, { type: 'chimed', kind: 'corpse' });
+    playFor(workingSound, { type: 'belched', cancelled: 3, killed: 1 });
 
     expect(console.log).not.toHaveBeenCalled();
     expect(console.warn).not.toHaveBeenCalled();

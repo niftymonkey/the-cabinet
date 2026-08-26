@@ -3,10 +3,8 @@
 import type { SimEvent } from '../../../game/events';
 import type { Execution } from '../../../game/execution';
 import type { RunState } from '../../../game/run';
-import { engine } from '../../getEngine';
 import { runHandoff } from '../../runHandoff';
 import { summarizeRun } from '../../runSummary';
-import { EndScreen } from '../EndScreen';
 
 /** What the ending needs from the run around it, at the moment it takes the run away. */
 interface EndingPowers {
@@ -16,6 +14,8 @@ interface EndingPowers {
   tapeBytes(): Uint8Array | null;
   // The countdown's blur, so the end state is never reached from behind it.
   clearFieldBlur(): void;
+  // The way out to the end state, retried from the frame seam when it rejects.
+  showEnd(): Promise<void>;
 }
 
 interface RunEnding {
@@ -77,15 +77,13 @@ const end = (
   }
   if (ending.navigating) return;
   ending.navigating = true;
-  engine()
-    .navigation.showScreen(EndScreen)
-    .catch((error) => {
-      // A failed navigation releases the navigation guard alone, so the
-      // frame seam retries the way out. The ending latch stays up: lowering
-      // it would let a post-stop frame read live and step a stopped run.
-      ending.navigating = false;
-      console.error(error);
-    });
+  ending.powers.showEnd().catch((error) => {
+    // A failed navigation releases the navigation guard alone, so the
+    // frame seam retries the way out. The ending latch stays up: lowering
+    // it would let a post-stop frame read live and step a stopped run.
+    ending.navigating = false;
+    console.error(error);
+  });
 };
 
 const createRunEnding = (powers: EndingPowers): RunEnding => {
