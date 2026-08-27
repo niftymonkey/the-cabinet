@@ -331,16 +331,27 @@ const checkWispsInBounds = (state: RunState, faults: Fault[]): void => {
 };
 
 /**
- * A patch is checked against the spawn margin, the same box a mob is allowed in.
- * Placement legitimately puts one above the top edge and it simulates there, so
- * the field itself is the wrong box; the margin is what makes "off-field is not
- * inactive" and "a patch has not gone somewhere impossible" both true at once.
- * TERRITORY_OFFSET is held under that margin for exactly this reason.
+ * A patch has two positional bounds, on separate axes, and no third. Each comes
+ * from a structural rule rather than from a tuning number, so retuning where a
+ * swallow lays its ground can never make this fire on a legal move.
+ *
+ * Sideways it is held to the same box every entity is, the field widened by the
+ * spawn margin: nothing in the design puts claimed ground off the side of the
+ * field. Downward the bound is advanceTerritory's close rule restated, which
+ * ends a patch on the first tick its whole body clears the bottom edge, so a
+ * live one below there is corrupt state.
+ *
+ * Up-field there is no bound at all. Placement legitimately lays a patch above
+ * the top edge and it simulates there, and the harness's job is to say what is
+ * impossible, never how far up-field Territory may be tuned.
  */
 const checkPatchesInBounds = (state: RunState, faults: Fault[]): void => {
   for (const patch of state.patches) {
     if (!patch.alive) continue;
-    if (!within(patch.x, patch.y, SPAWN_MARGIN)) {
+    const offToTheSide =
+      patch.x < -SPAWN_MARGIN || patch.x > FIELD_WIDTH + SPAWN_MARGIN;
+    const pastTheCloseRule = patch.y - patch.radius > FIELD_HEIGHT;
+    if (offToTheSide || pastTheCloseRule) {
       record(
         faults,
         'entities in bounds',

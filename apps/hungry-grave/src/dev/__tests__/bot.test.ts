@@ -56,22 +56,26 @@ const SEEDS = [101, 202, 303, 404, 505];
  * The seeds whose fresh run seals shut inside the ramp on the current
  * birthright.
  *
- * Re-measured and re-pinned for #76, where Territory replaced the headstones in
- * the birthright and three seeds moved from surviving the ramp to sealing in
- * it. The cause is named rather than guessed at, and it is a property of this
- * policy rather than of the game: the headstones were always on from tick one
- * and killed at the grave's own rim, so a bot that only dodges still got a
- * second weapon and still had corpses land where it already stood. Territory
- * fires only on a swallow and claims ground up-field, so a run that has not
- * swallowed has one line rather than two, and the corpses it does make have to
- * be driven to. `dodgePolicy` never dives, so seeds 101 and 303 now swallow
- * nothing at all across a whole run.
+ * Re-measured and re-pinned for #76's placement move, where TERRITORY_OFFSET
+ * went from 150 to 456. A patch is now torn open that much further up-field of
+ * the grave, so it sweeps far more ground on its way back down and one swallow
+ * buys a great deal more killing than it used to. This policy's runs got
+ * materially longer with it: seed 505 left the ramp entirely and now runs 9678
+ * ticks before sealing, which leaves 101 and 303 as the only two that die
+ * inside it.
+ *
+ * Those two stay where they are for the reason the birthright swap left behind,
+ * and it is a property of this policy rather than of the game: Territory fires
+ * only on a swallow and claims ground up-field, so a run that has not swallowed
+ * carries one line rather than two, and the corpses it does make have to be
+ * driven to. `dodgePolicy` never dives, so seeds 101 and 303 swallow nothing at
+ * all across a whole run and play the soul stream alone.
  *
  * A person plays the other way round: they dive constantly, so nothing here is
  * evidence about Territory's strength in a hand. It is evidence about what the
  * dodger's runs now look like, which is what this file measures.
  */
-const SEALS_IN_THE_RAMP = [101, 303, 505];
+const SEALS_IN_THE_RAMP = [101, 303];
 
 /**
  * The seeds on which this policy never swallows anything at all.
@@ -82,6 +86,37 @@ const SEALS_IN_THE_RAMP = [101, 303, 505];
  * failing assertion needs in front of them.
  */
 const NEVER_FEEDS = [101, 303];
+
+/**
+ * The seeds whose fresh grave reaches victory on this policy.
+ *
+ * It was empty, and the test below is what said so: it stood as a tripwire over
+ * the fact that no fresh run reached the over phase, and #76's placement move
+ * from 150 to 456 fired it. Seed 404 now runs the whole stage and wins, at
+ * 12301 ticks with 66 kills and 16 swallows.
+ *
+ * The placement alone produces this. The same five runs were played again with
+ * TERRITORY_CAP put back to 8 and came out identical, down to seed 505's 9678
+ * ticks, so the cap of 24 causes none of the movement recorded in this file.
+ *
+ * It stays a tripwire in both directions, because the assertion is an equality:
+ * the day a second seed wins, or 404 stops winning, this file goes red and says
+ * so. And as with SEALS_IN_THE_RAMP, what it measures is a policy that only
+ * dodges rather than Territory's strength in a hand. Territory's whole payout
+ * is downstream of a swallow, and a person dives for one constantly.
+ */
+const REACHES_VICTORY_FRESH = [404];
+
+/**
+ * The seeds that reach victory from the size ceiling on this policy.
+ *
+ * Re-measured for the same placement move: the seed that gets there went from
+ * 404 to 202, which runs the whole stage at 12301 ticks with 51 kills and 17
+ * swallows while the other four seal shut inside the back half. Pinned as a
+ * constant rather than left a literal in the test, because a fresh grave now
+ * wins too and the two facts are different ones.
+ */
+const REACHES_VICTORY_FROM_THE_CEILING = [202];
 
 const RAMP_TICKS = phaseLengthTicks(PHASES[0]);
 const STAGE_TICKS = RAMP_TICKS + phaseLengthTicks(PHASES[2]);
@@ -141,7 +176,7 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
       // the storm cuts how long an armed mob lives, and a weaponless build
       // inflates mob fire by roughly a factor of five. SEALS_IN_THE_RAMP
       // carries the seeds that go the other way, and its comment carries why
-      // three of them moved with #76's birthright.
+      // that set moved again with #76's placement.
       const state = createRun(seed);
       play(state, dodgePolicy, RAMP_TICKS);
       if (survives) expect(state.ending).toBeNull();
@@ -162,12 +197,16 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
     });
   }
 
-  it('no fresh grave reaches victory on this policy', () => {
-    // The other half of the movement above, asserted rather than left implicit,
-    // so the day a fresh run reaches the over phase again this file goes red
-    // and says so instead of the fact passing unnoticed.
-    const fresh = SEEDS.map((seed) => fullRun(seed).state.ending);
-    expect(fresh).not.toContain('victory');
+  it('one fresh grave reaches victory on this policy, and the test says which', () => {
+    // This assertion used to read "no fresh grave reaches victory", and it went
+    // red on #76's placement move, which is exactly what it was put here to do.
+    // What replaces it is the same tripwire pointed at the new fact rather than
+    // the fact deleted: an equality, so it fires again the day the set moves in
+    // either direction. REACHES_VICTORY_FRESH carries the fact and its cause.
+    const winners = SEEDS.filter(
+      (seed) => fullRun(seed).state.ending === 'victory',
+    );
+    expect(winners).toEqual(REACHES_VICTORY_FRESH);
   });
 
   for (const seed of SEEDS) {
@@ -256,11 +295,12 @@ describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
     it(`stays inside the range the storm actually reaches on seed ${seed}`, () => {
       // The ordinary half, so a regression away from today's figures is caught
       // while the band above stays the thing being aimed at. The floors are
-      // the measured minima across the five seeds on #76's birthright
-      // (SEALS_IN_THE_RAMP carries the ruling): seed 505 seals at twelve kills
-      // and two drops, and no seed goes below either.
+      // the measured minima across the five seeds at #76's placement
+      // (SEALS_IN_THE_RAMP carries the ruling): seeds 101 and 303 seal inside
+      // the ramp at thirteen kills and two drops, and no seed goes below
+      // either.
       const { events } = fullRun(seed);
-      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(12);
+      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(13);
       expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(2);
     });
   }
@@ -272,13 +312,14 @@ describe('dodgePolicy from the size ceiling', () => {
       // Every one of these was a declared expected failure before weapons
       // existed. Dispatch 4's section 5 asserted victory from the ceiling and
       // its own section 8 proved it cannot, so what is asserted here is what
-      // the weapons actually do, re-measured on #76's birthright: seed 404
+      // the weapons actually do, re-measured at #76's placement: one seed
       // reaches the over phase and the other four seal shut inside the back
-      // half. The seed that gets there moved from 101 to 404 with the
-      // birthright, which is the same cause SEALS_IN_THE_RAMP carries.
+      // half. The seed that gets there moved from 404 to 202 when the placement
+      // did, which is the same cause SEALS_IN_THE_RAMP carries, and
+      // REACHES_VICTORY_FROM_THE_CEILING is where it is pinned.
       const { state, events } = fullRun(seed, SIZE_CEILING);
       const reached = phaseOrder(events);
-      if (seed === 404) {
+      if (REACHES_VICTORY_FROM_THE_CEILING.includes(seed)) {
         expect(reached).toContain('over');
         expect(state.ending).toBe('victory');
         return;
@@ -307,15 +348,14 @@ describe('both endings across the two loadouts', () => {
     // shut is the real ladder. Both have to be reachable or the full-run test
     // is only ever exercising one half of the run's shape.
     //
-    // Where victory comes from moved with #76's birthright and is recorded
-    // rather than quietly re-pinned. Measured on the headstones birthright, a
-    // fresh grave reached it on seed 303 at 12301 ticks, 46 kills and 12
-    // swallows; on Territory's, no fresh grave reaches it on any of the five
-    // and the only victory left is seed 404 from the size ceiling. The cause is
-    // the one SEALS_IN_THE_RAMP carries: this policy never dives, and a
-    // birthright whose second line is paid for by diving gives it nothing.
-    // Both loadouts are read here so the property is about the run's shape
-    // rather than about which starting size happens to reach it.
+    // Where victory comes from moved again with #76's placement and is
+    // recorded rather than quietly re-pinned. At an offset of 150 no fresh
+    // grave reached it on any of the five seeds and the only victory left was
+    // seed 404 from the size ceiling; at 456 a fresh grave wins on seed 404 and
+    // the ceiling's winner moved to seed 202. REACHES_VICTORY_FRESH and
+    // REACHES_VICTORY_FROM_THE_CEILING carry both facts and the cause they
+    // share. Both loadouts are read here so the property is about the run's
+    // shape rather than about which starting size happens to reach it.
     const endings = new Set([
       ...SEEDS.map((seed) => fullRun(seed).state.ending),
       ...SEEDS.map((seed) => fullRun(seed, SIZE_CEILING).state.ending),

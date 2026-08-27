@@ -97,11 +97,13 @@ const WISP_CAP = 64;
  * the claim refused, so the number decides how long a trail of claimed ground
  * is rather than guarding against a runaway. It is sized around the window a
  * patch is still above the grave and can catch something, about
- * TERRITORY_OFFSET over SCROLL_SPEED, against a measured swallow roughly every
- * 0.78 seconds, and not around a patch's full on-screen life: the rest of that
- * life is dead ground sitting in the food layer.
+ * TERRITORY_OFFSET over SCROLL_SPEED, near 12 seconds, against a measured
+ * swallow roughly every 0.78 seconds: about 15 patches inside that window, and
+ * the cap sits about half again above that so a burst is not evicting ground
+ * that can still catch. It is not sized around a patch's full on-screen life:
+ * the rest of that life is dead ground sitting in the food layer.
  */
-const TERRITORY_CAP = 8;
+const TERRITORY_CAP = 24;
 
 export {
   createPool,

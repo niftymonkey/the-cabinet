@@ -287,7 +287,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -23680391,
+  checksum: -100345223,
 };
 
 export { runScenario, GOLDEN };

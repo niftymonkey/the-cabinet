@@ -16,14 +16,14 @@ import { MAX_LEVEL } from './roster';
  * field units. The player's position at swallow time is the whole placement
  * input: no aim axis, and no reading of the mob list.
  *
- * PROVISIONAL, and it has a ceiling the harness enforces. A patch is checked
- * against the same box every entity is, the field widened by SPAWN_MARGIN, and
- * the grave's own centre can stand as high as SIZE_FLOOR. So an offset above
- * SPAWN_MARGIN + SIZE_FLOOR puts a legally placed patch outside the harness's
- * box and fires `entities in bounds` on a legal move. Raising this past 178
- * therefore means widening the patch's own box first, deliberately.
+ * PROVISIONAL, and the harness puts no ceiling on it. A patch's positional
+ * bounds are structural and neither reads this number: sideways it is held to
+ * the field widened by SPAWN_MARGIN, downward to the close rule below, which
+ * ends a patch once its whole body clears the bottom edge. Up-field is
+ * deliberately unbounded in position, so this is free to move on what the game
+ * wants rather than on what the harness will tolerate.
  */
-const TERRITORY_OFFSET = 150;
+const TERRITORY_OFFSET = 456;
 
 /**
  * The radius a fully fresh swallow claims, in field units. PROVISIONAL.

@@ -130,7 +130,12 @@ describe('a patch on the field', () => {
     swallow(run, FRESH_CORPSE);
     const patch = patchAt(run, 0)!;
     expect(patch.y).toBeLessThan(0);
-    for (let tick = 0; tick < 400; tick++) advanceTerritory(run);
+    // The window is derived from where this patch actually started and how
+    // fast the world moves, never a fixed budget, so a later retune of the
+    // placement cannot silently stop the test watching long enough to see the
+    // patch arrive.
+    const ticksToScrollIn = Math.ceil(-patch.y / SCROLL_SPEED) + 1;
+    for (let tick = 0; tick < ticksToScrollIn; tick++) advanceTerritory(run);
     expect(patch.alive).toBe(true);
     expect(patch.y).toBeGreaterThan(0);
   });

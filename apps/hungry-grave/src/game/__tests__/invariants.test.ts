@@ -23,7 +23,7 @@ import { BELL_EXPAND_TICKS } from '../lines/bell';
 import type { Stream } from '../rng';
 import { MAX_LEVEL } from '../lines/roster';
 import { SKULL_HALF_EXTENT } from '../lines/soulStream';
-import { TERRITORY_FULL_RADIUS, TERRITORY_OFFSET } from '../lines/territory';
+import { TERRITORY_FULL_RADIUS } from '../lines/territory';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from '../tuning';
 import type { Fault, FaultIdentity } from '../faults';
 import { checkInvariants, createStageWatch } from '../invariants';
@@ -1076,41 +1076,73 @@ describe('Territory under the harness (#76)', () => {
     );
   });
 
-  it('a patch outside the field widened by the spawn margin is caught by entities in bounds', () => {
-    // Placement legitimately puts a patch above the top edge and it simulates
-    // there, so the box is the field widened by the spawn margin rather than
-    // the field itself. TERRITORY_OFFSET is held under that margin so a legal
-    // placement never fires this on a legal move.
-    const legal = createRun(1);
-    legal.patches[0].alive = true;
-    legal.patches[0].x = 270;
-    legal.patches[0].y = -SPAWN_MARGIN;
-    expect(brokenOn(legal)).not.toContain('entities in bounds');
+  it('a patch laid far up-field of the top edge is not a fault', () => {
+    // Off-field up-field placement is legal by design (#76): the harness says
+    // what is impossible, never how far up-field Territory may be tuned, so the
+    // literal here is plainly extreme rather than one particular ceiling.
+    const run = createRun(1);
+    run.patches[0].alive = true;
+    run.patches[0].x = 270;
+    run.patches[0].y = -2000;
 
-    const gone = createRun(1);
-    gone.patches[0].alive = true;
-    gone.patches[0].x = 270;
-    gone.patches[0].y = -SPAWN_MARGIN - 1;
-    expect(brokenOn(gone)).toContain('entities in bounds');
+    expect(brokenOn(run)).not.toContain('entities in bounds');
   });
 
-  it('the deepest a legal placement reaches stays inside the harness’s own box', () => {
-    // The relation the constant's comment states, asserted rather than trusted:
-    // the grave's centre can stand as high as the size floor, so the highest
-    // patch a swallow can lay sits at SIZE_FLOOR minus the offset, and that has
-    // to be inside the box every entity is checked against.
-    expect(SIZE_FLOOR - TERRITORY_OFFSET).toBeGreaterThanOrEqual(-SPAWN_MARGIN);
+  it('a patch beyond the side margin is a fault', () => {
+    // Nothing in the design puts claimed ground sideways off the field, so the
+    // horizontal bound is independent of any Territory tuning: it is the same
+    // box every entity is held to, on that axis alone.
+    const right = createRun(1);
+    right.patches[0].alive = true;
+    right.patches[0].x = FIELD_WIDTH + SPAWN_MARGIN + 1;
+    right.patches[0].y = 200;
+    expect(brokenOn(right)).toContain('entities in bounds');
+
+    const left = createRun(1);
+    left.patches[0].alive = true;
+    left.patches[0].x = -SPAWN_MARGIN - 1;
+    left.patches[0].y = 200;
+    expect(brokenOn(left)).toContain('entities in bounds');
   });
 
-  it('the deepest a live patch drifts stays inside the harness’s own box', () => {
-    // The bottom edge's counterpart of the relation above, so a later retune of
-    // the radius alone meets a red test rather than `entities in bounds` firing
-    // on ground that was only drifting off. A patch closes on the first tick its
-    // whole body is past the bottom edge, so the deepest a live one sits is the
-    // field height plus its own radius, and a full-freshness swallow buys the
-    // largest radius there is.
-    const deepestLivePatch = FIELD_HEIGHT + TERRITORY_FULL_RADIUS;
+  it('a patch inside the side margin is not a fault', () => {
+    // The edge of the box itself, pinned so the horizontal check cannot
+    // silently tighten onto ground a legal placement can reach.
+    const right = createRun(1);
+    right.patches[0].alive = true;
+    right.patches[0].x = FIELD_WIDTH + SPAWN_MARGIN;
+    right.patches[0].y = 200;
+    expect(brokenOn(right)).not.toContain('entities in bounds');
 
-    expect(deepestLivePatch).toBeLessThanOrEqual(FIELD_HEIGHT + SPAWN_MARGIN);
+    const left = createRun(1);
+    left.patches[0].alive = true;
+    left.patches[0].x = -SPAWN_MARGIN;
+    left.patches[0].y = 200;
+    expect(brokenOn(left)).not.toContain('entities in bounds');
+  });
+
+  it('a live patch whose whole body is past the bottom edge is a fault', () => {
+    // advanceTerritory closes a patch on the first tick its whole body clears
+    // the bottom edge, so a live one below there is corrupt state. The bound is
+    // that close rule restated, never a tuning number.
+    const run = createRun(1);
+    run.patches[0].alive = true;
+    run.patches[0].x = 270;
+    run.patches[0].radius = TERRITORY_FULL_RADIUS;
+    run.patches[0].y = FIELD_HEIGHT + TERRITORY_FULL_RADIUS + 1;
+
+    expect(brokenOn(run)).toContain('entities in bounds');
+  });
+
+  it('a patch still touching the bottom edge is not a fault', () => {
+    // The off-by-one on the other side of the close rule: a patch whose top rim
+    // still touches the bottom edge is one the sim has not closed yet.
+    const run = createRun(1);
+    run.patches[0].alive = true;
+    run.patches[0].x = 270;
+    run.patches[0].radius = TERRITORY_FULL_RADIUS;
+    run.patches[0].y = FIELD_HEIGHT + TERRITORY_FULL_RADIUS;
+
+    expect(brokenOn(run)).not.toContain('entities in bounds');
   });
 });
