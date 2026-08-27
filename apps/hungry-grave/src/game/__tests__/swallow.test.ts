@@ -182,7 +182,7 @@ describe('the swallow', () => {
 
   it('the chime fires on every swallow including the very first, whatever the loadout (glossary: swallow chime)', () => {
     const run = createRun(1);
-    for (const line of ['soulStream', 'headstones', 'wisps', 'bell'] as const) {
+    for (const line of ['soulStream', 'territory', 'wisps', 'bell'] as const) {
       run.levels[line] = 0;
     }
     expect(kinds(swallow(run, corpse(1)))).toContain('chimed');

@@ -10,6 +10,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { WEAPON_LINES } from '../../game/lines/roster';
+
 import { TapeFormatError } from '../tapeFormatError';
 import { CHUNK_FRAME_BYTES, CHUNK_TRAILER } from '../chunks';
 import { decodeTape } from '../decode';
@@ -23,7 +25,8 @@ import { FORMAT_VERSION, TAPE_MAGIC } from '../wireCodes';
 const HEADER: TapeHeader = {
   seed: 20260823,
   startingSize: 24.5,
-  startingLevels: { soulStream: 5, headstones: 1, wisps: 0, bell: 3 },
+  recordedRoster: [...WEAPON_LINES],
+  startingLevels: { soulStream: 5, territory: 1, wisps: 0, bell: 3 },
   tickRate: 60,
   checkpointSpacing: 4,
   witnessVersion: 1,
@@ -472,5 +475,82 @@ describe('a tape a reader should refuse', () => {
     expect(() => decodeTape(encodeTape(FULL).slice(0, head))).toThrow(
       /no header/,
     );
+  });
+});
+
+/**
+ * The header carries the vocabulary its own level bytes are written in
+ * (ADR 0043), so a reader never supplies it from its own present-day world.
+ */
+describe('the self-describing header (#76, ADR 0043)', () => {
+  /** The same bytes, with the format version byte rewritten to another version. */
+  function atVersion(version: number): Uint8Array {
+    const bytes = encodeTape(FULL);
+    new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint16(
+      TAPE_MAGIC.length,
+      version,
+      true,
+    );
+    return bytes;
+  }
+
+  it('a format version 1 tape is refused with a format-version error, not decoded', () => {
+    // The accepted cost of making the roster self-describing, recorded here so
+    // it is never mistaken for an oversight: version 1 wrote one level byte per
+    // line positionally, so byte for byte a version-2 reader would return a
+    // headstones level presented as a Territory level. Byte count is not the
+    // test, and this is what "a reader refuses a version it does not know
+    // rather than guessing at a layout" costs, paid once.
+    expect(FORMAT_VERSION).toBe(2);
+    expect(() => decodeTape(atVersion(1))).toThrow(TapeFormatError);
+    expect(() => decodeTape(atVersion(1))).toThrow(/format version 1/);
+  });
+
+  it('a header round-trips the roster it was written against', () => {
+    const { tape } = decodeTape(encodeTape(FULL));
+
+    expect(tape.header.recordedRoster).toEqual([...WEAPON_LINES]);
+  });
+
+  it('a header naming a line this build does not implement is reported as recorded', () => {
+    // Reading and replaying are two different obligations. The tape said
+    // something true, and the reader's job is not to edit it: the name comes
+    // back as written, with its level, and nothing is coerced into the roster
+    // this build happens to have.
+    const bytes = encodeTape({
+      ...FULL,
+      header: {
+        ...HEADER,
+        recordedRoster: [...WEAPON_LINES, 'moonlight'],
+        startingLevels: { ...HEADER.startingLevels, moonlight: 4 },
+      },
+    });
+
+    const { tape } = decodeTape(bytes);
+    expect(tape.header.recordedRoster).toContain('moonlight');
+    expect(tape.header.startingLevels.moonlight).toBe(4);
+    expect(tape.header.startingLevels).toEqual({
+      ...HEADER.startingLevels,
+      moonlight: 4,
+    });
+  });
+
+  it('a header short of a line this build has is reported as recorded too', () => {
+    // The other direction, and it is not symmetric with the one above by
+    // accident: a tape written before a line existed says nothing about that
+    // line, and inventing a zero for it would be the reader making something
+    // up. ADR 0027 forbids an absence in a header, so the honest answer is that
+    // the recorded roster is short and this build cannot run it.
+    const older = [...WEAPON_LINES].filter((line) => line !== 'bell');
+    const levels = { ...HEADER.startingLevels };
+    delete levels.bell;
+    const bytes = encodeTape({
+      ...FULL,
+      header: { ...HEADER, recordedRoster: older, startingLevels: levels },
+    });
+
+    const { tape } = decodeTape(bytes);
+    expect(tape.header.recordedRoster).toEqual(older);
+    expect('bell' in tape.header.startingLevels).toBe(false);
   });
 });

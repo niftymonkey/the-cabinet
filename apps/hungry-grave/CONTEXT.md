@@ -40,15 +40,15 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 ### The arsenal
 
-**Weapon line**: One of the upgradable weapon systems, leveled one to five by drops. A weapon line owns its own properties: how it fires, whether the run starts with it, and how its levels grow. v1 ships four, the soul stream, the headstones, the wisps and the bell, and the pool is open by design. Each level must look different on screen. Short form "line" is fine once the term is established in a passage. _Avoid_: gun, upgrade track, skill.
+**Weapon line**: One of the upgradable weapon systems, leveled one to five by drops. A weapon line owns its own properties: how it fires, whether the run starts with it, and how its levels grow. v1 ships four, the soul stream, Territory, the wisps and the bell, and the pool is open by design. Each level must look different on screen. Short form "line" is fine once the term is established in a passage. _Avoid_: gun, upgrade track, skill.
 
 **Firing trigger**: How a weapon line fires: always-on, on each swallow, or on its own timer. A property each line owns, never a category of lines. _Avoid_: floor line, burst line, passive weapon, active weapon, proc.
 
-**Birthright**: The weapon lines a run starts with, currently the soul stream and the headstones. Damage at the size floor strips levels back to it. _Avoid_: starting loadout, base weapons.
+**Birthright**: The weapon lines a run starts with, currently the soul stream and Territory. Damage at the size floor strips levels back to it. _Avoid_: starting loadout, base weapons.
 
 **Soul stream**: Skulls pouring straight up out of the grave's mouth, in rigid fanned columns, surging after each swallow. It never homes. _Avoid_: main gun, vulcan, primary fire.
 
-**Headstones**: Orbiting stones, last-ditch close defense, in counter-rotating rings at higher levels. _Avoid_: orbitals, satellites, shield.
+**Territory**: Ground the grave claims ahead of itself: every swallow tears the earth open a fixed distance straight up-field, and after a short opening beat grasping hands take any mob whose body is over them. A fresher corpse claims more ground and a higher level buys more grabs, so size reads as freshness and capability reads as level. _Avoid_: zone, aura, trap, minefield, area denial.
 
 **Wisps**: Will-o-wisps, fired on each swallow: each swallowed corpse's soul tears loose and hunts. At most one weapon line homes at a time, and a homing line is never always-on, so homing is always bought with a dive. _Avoid_: missiles, seekers, homing shots.
 
@@ -70,7 +70,13 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Ring**: The expanding circle a toll puts on the field, damaging what its leading edge crosses and pushing at the higher levels. The Banshee's tear-rings are mob fire and are never a ring. _Avoid_: shockwave, wave, AOE.
 
-**Inert**: A headstone that has just hit something and is spent for a moment. It still orbits and still draws, dimmed, so a spent defense is visible. _Avoid_: on cooldown, disabled, recharging.
+**Patch**: One piece of claimed ground, torn open by one swallow. It belongs to the world rather than the screen, so it drifts down with the field while the grave keeps moving, and it is finished at birth: the radius its freshness bought and the budget its level bought never change afterwards. _Avoid_: zone, tile, puddle, hazard.
+
+**Claimed ground**: What Territory leaves on the field. Repeated swallows march a trail of patches down the field, and feeding while moving sideways smears that trail across it, so the ground the grave has taken is readable as a shape rather than a count. _Avoid_: zone of control, damage floor, territory (which is the line, not the ground).
+
+**Opening beat**: The phase a patch spends before its hands come up: it exists, is visible and drifts with the world, and it cannot damage. It runs in world time and off-field too, because visibility is never an activation condition, and it is what keeps Territory from collapsing into a placed detonation. _Avoid_: arming time, wind-up, cast time, cooldown.
+
+**Bite budget**: How many separate mobs one patch may grab before it closes and is gone. Level buys the budget and freshness buys the radius, so the two channels never confound. One bite per patch per mob, however long the mob stands there; a different patch may still take the same mob. _Avoid_: charges, uses, hits, ammo.
 
 **Price**: What the next drop costs, in kills, on a rising authored curve. A kill is a kill whatever weapon landed it. _Avoid_: threshold, cost curve, XP.
 

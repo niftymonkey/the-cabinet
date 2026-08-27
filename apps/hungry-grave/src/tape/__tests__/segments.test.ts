@@ -5,6 +5,8 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { WEAPON_LINES } from '../../game/lines/roster';
+
 import { decodeTape } from '../decode';
 import { encodeTape } from '../encode';
 import {
@@ -22,7 +24,8 @@ import { FORMAT_VERSION, TAPE_MAGIC } from '../wireCodes';
 const HEADER: TapeHeader = {
   seed: 20260824,
   startingSize: 26.5,
-  startingLevels: { soulStream: 2, headstones: 4, wisps: 1, bell: 0 },
+  recordedRoster: [...WEAPON_LINES],
+  startingLevels: { soulStream: 2, territory: 4, wisps: 1, bell: 0 },
   tickRate: 60,
   checkpointSpacing: 4,
   witnessVersion: 1,
@@ -181,5 +184,21 @@ describe('the segment encoders', () => {
     expect(stopOf(tape)).toBe('unknown');
     expect(tape.commands).toEqual(commands(0, 4));
     expect(tape.checkpoints).toEqual([checkpoint(0), checkpoint(4)]);
+  });
+});
+
+describe('the header writer and the roster it was handed (#76)', () => {
+  it('refuses to write a level for a recorded line the header carries none for', () => {
+    // The roster and the levels are written together by this build, so a line
+    // in one and not the other is a bug here and never a tape anyone holds.
+    // Writing a zero would repair a value our own code produced, and what it
+    // would say is that the run started with that line unowned: the exact ADR
+    // 0027 absence resolveStartingLevels exists to refuse on the way back in.
+    const missing: TapeHeader = {
+      ...HEADER,
+      recordedRoster: [...WEAPON_LINES, 'moonlight'],
+    };
+
+    expect(() => headerSegment(missing)).toThrowError(/moonlight/);
   });
 });

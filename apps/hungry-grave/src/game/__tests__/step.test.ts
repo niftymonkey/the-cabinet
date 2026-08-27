@@ -59,9 +59,12 @@ function snapshot(run: RunState) {
     corpses: run.corpses.map((corpse) => ({ ...corpse })),
     skulls: run.skulls.map((skull) => ({ ...skull })),
     wisps: run.wisps.map((wisp) => ({ ...wisp })),
+    patches: run.patches.map((patch) => ({
+      ...patch,
+      struck: [...patch.struck],
+    })),
     lines: {
       ...run.lines,
-      stoneRecharge: [...run.lines.stoneRecharge],
       ring:
         run.lines.ring === null
           ? null

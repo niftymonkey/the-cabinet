@@ -6,8 +6,8 @@
 import type { Graphics } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import { SKULL_CAP, WISP_CAP } from '../../../../game/caps';
-import { MAX_STONES } from '../../../../game/lines/headstones';
+import { SKULL_CAP, TERRITORY_CAP, WISP_CAP } from '../../../../game/caps';
+import { TERRITORY_OPENING_TICKS } from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { RAMP_ROWS } from '../../../../game/stage/stage';
@@ -61,9 +61,9 @@ function putWisp(state: RunState, slot: number, x: number, y: number) {
 describe("the storm's sprite pools (plan 6.19)", () => {
   it('holds a sprite per entity cap, so a spawn never allocates', () => {
     const { layers } = attached();
-    // The storm layer carries the skulls, the stones and the wisps.
+    // The storm layer carries the skulls, Territory's patches and the wisps.
     expect(children(layers, 'storm')).toHaveLength(
-      SKULL_CAP + MAX_STONES + WISP_CAP,
+      SKULL_CAP + TERRITORY_CAP + WISP_CAP,
     );
     expect(children(layers, 'bellRing')).toHaveLength(1);
     // The eruption and the splash, both momentary and both with no sim entity.
@@ -126,31 +126,13 @@ describe('sprites follow their slots (plan 6.19)', () => {
     const state = quietRun();
     const wisp = putWisp(state, 0, 200, 200);
     renderer.sync(state);
-    const sprite = children(layers, 'storm')[SKULL_CAP + MAX_STONES];
+    const sprite = children(layers, 'storm')[SKULL_CAP + TERRITORY_CAP];
     expect(sprite.rotation).toBeCloseTo(0, 6);
 
     wisp.vx = 0;
     wisp.vy = 5;
     renderer.sync(state);
     expect(sprite.rotation).toBeCloseTo(Math.PI / 2, 6);
-  });
-
-  it("draws the level's own stones and dims a spent one", () => {
-    const { layers, renderer } = attached();
-    const state = quietRun();
-    state.levels.headstones = 3;
-    renderer.sync(state);
-
-    const stones = children(layers, 'storm').slice(
-      SKULL_CAP,
-      SKULL_CAP + MAX_STONES,
-    );
-    expect(stones.filter((sprite) => sprite.visible)).toHaveLength(3);
-
-    const bright = stones[0].tint;
-    state.lines.stoneRecharge[0] = 20;
-    renderer.sync(state);
-    expect(stones[0].tint).not.toBe(bright);
   });
 
   it("shows the bell's ring only while one is live", () => {
@@ -240,5 +222,87 @@ describe('the momentary effects (plan 6.19)', () => {
       expect(burst.position.x).toBe(state.grave.x);
       expect(burst.position.y).toBe(state.grave.y - state.grave.size);
     }
+  });
+});
+
+/**
+ * Territory on screen (#76). The claimed ground is the one thing on the field
+ * whose drawn size is a gameplay fact: freshness scales the area the sim
+ * collides against, so a rim that disagreed with it would make the player's
+ * read of their own ground a lie.
+ */
+describe("Territory's claimed ground", () => {
+  function putPatch(
+    state: RunState,
+    slot: number,
+    radius: number,
+    opening = 0,
+    bites = 2,
+  ) {
+    const patch = state.patches[slot];
+    patch.alive = true;
+    patch.id = 300 + slot;
+    patch.x = 200;
+    patch.y = 300;
+    patch.radius = radius;
+    patch.opening = opening;
+    patch.bites = bites;
+    patch.struck.clear();
+    return patch;
+  }
+
+  function patchSprites(layers: FieldLayers) {
+    return children(layers, 'storm').slice(
+      SKULL_CAP,
+      SKULL_CAP + TERRITORY_CAP,
+    );
+  }
+
+  it('draws at the radius the sim collides against, so a stale patch is visibly smaller', () => {
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    putPatch(state, 0, 48);
+    putPatch(state, 1, 24);
+    renderer.sync(state);
+
+    const [full, stale] = patchSprites(layers);
+    expect(full.visible).toBe(true);
+    expect(stale.visible).toBe(true);
+    expect(full.getLocalBounds().width).toBeGreaterThan(
+      stale.getLocalBounds().width * 1.5,
+    );
+  });
+
+  it('draws opening ground differently from ground whose hands are up', () => {
+    // The beat has to read as anticipation rather than as a patch that missed,
+    // and it is the one interval where a mob standing in the circle takes
+    // nothing.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const patch = putPatch(state, 0, 48, TERRITORY_OPENING_TICKS);
+    renderer.sync(state);
+    const sprite = patchSprites(layers)[0];
+    const opening = `${sprite.tint} ${sprite.alpha}`;
+
+    patch.opening = 0;
+    renderer.sync(state);
+    expect(`${sprite.tint} ${sprite.alpha}`).not.toBe(opening);
+  });
+
+  it('nothing draws a stone', () => {
+    // A deliberate-absence test guarding the headstones' removal (#76). The
+    // storm layer is exactly the three pools it now has, and a run that has
+    // swallowed nothing draws nothing in it: an orbiting solid would show up
+    // here as a visible sprite around a grave that has claimed no ground.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    renderer.sync(state);
+
+    expect(children(layers, 'storm')).toHaveLength(
+      SKULL_CAP + TERRITORY_CAP + WISP_CAP,
+    );
+    expect(
+      children(layers, 'storm').filter((sprite) => sprite.visible),
+    ).toHaveLength(0);
   });
 });

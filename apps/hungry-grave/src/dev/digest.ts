@@ -283,11 +283,11 @@ const GOLDEN: Digest = {
   },
   levels: {
     soulStream: 1,
-    headstones: 1,
+    territory: 1,
     wisps: 0,
     bell: 0,
   },
-  checksum: -522074226,
+  checksum: -23680391,
 };
 
 export { runScenario, GOLDEN };

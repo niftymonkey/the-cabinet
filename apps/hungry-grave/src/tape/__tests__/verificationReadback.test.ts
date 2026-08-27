@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
-import { MAX_LEVEL } from '../../game/lines/roster';
+import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { TickCommand } from '../../game/command';
 import type { RunState } from '../../game/run';
@@ -36,6 +36,7 @@ function header(run: RunState): TapeHeader {
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    recordedRoster: [...WEAPON_LINES],
     startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
@@ -173,6 +174,7 @@ describe('verification readback', () => {
       ...tape,
       header: {
         ...tape.header,
+        recordedRoster: [...WEAPON_LINES],
         startingLevels: { ...tape.header.startingLevels, bell: 5 },
       },
     });

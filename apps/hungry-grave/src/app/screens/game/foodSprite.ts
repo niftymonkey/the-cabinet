@@ -175,8 +175,8 @@ const dropBreath = (tick: number, id: number): number => {
  * corner-of-the-eye read resolves an aspect ratio and nothing finer, so four
  * outlines differing in detail are one shape to the player who is dodging.
  *
- * The mapping follows the natural imagery, a headstone tall, a skull round, a
- * flame pointed, a bell wide, so #31's playtest never learns a mapping #38's
+ * The mapping follows the natural imagery, a grasping hand tall, a skull round,
+ * a flame pointed, a bell wide, so #31's playtest never learns a mapping #38's
  * art would invert.
  *
  * Each fills its box on its long axis. Ticket #38 may replace the imagery and
@@ -196,8 +196,42 @@ const drawDropIcon = (
     into.circle(0, 0, r);
     return;
   }
-  if (line === 'headstones') {
-    into.poly([-r * 0.34, -r, r * 0.34, -r, r * 0.34, r, -r * 0.34, r]);
+  if (line === 'territory') {
+    // A hand reaching up out of the ground: three fingers, a palm and a wrist,
+    // held inside the same tall box the headstone slab spanned so the four
+    // aspects stay exactly as far apart as they were. The imagery is a plain
+    // first pass and is #38's to replace; what it must keep is this aspect and
+    // the coverage floor beneath it.
+    into.poly([
+      -r * 0.34,
+      -r * 0.82,
+      -r * 0.15,
+      -r * 0.82,
+      -r * 0.15,
+      -r * 0.45,
+      -r * 0.08,
+      -r * 0.45,
+      -r * 0.08,
+      -r,
+      r * 0.08,
+      -r,
+      r * 0.08,
+      -r * 0.45,
+      r * 0.15,
+      -r * 0.45,
+      r * 0.15,
+      -r * 0.82,
+      r * 0.34,
+      -r * 0.82,
+      r * 0.34,
+      r * 0.55,
+      r * 0.22,
+      r,
+      -r * 0.22,
+      r,
+      -r * 0.34,
+      r * 0.55,
+    ]);
     return;
   }
   if (line === 'wisps') {

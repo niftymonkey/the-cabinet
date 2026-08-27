@@ -67,7 +67,7 @@ function quietRun(seed = 4): RunState {
 /** A run with a quiet stage and a headstone parked where a test can aim it. */
 function stormRun(seed = 4): RunState {
   const state = quietRun(seed);
-  state.levels.headstones = 1;
+  state.levels.territory = 1;
   return state;
 }
 

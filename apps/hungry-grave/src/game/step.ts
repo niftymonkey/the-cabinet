@@ -10,8 +10,8 @@ import { creditKill } from './drops';
 import type { SimEvent } from './events';
 import { ageGrave, graveHitbox, hitGrave, moveGrave } from './grave';
 import { advanceBell } from './lines/bell';
-import { advanceHeadstones } from './lines/headstones';
 import { advanceStream } from './lines/soulStream';
+import { advanceTerritory } from './lines/territory';
 import { advanceWisps } from './lines/wisps';
 import { cullShots, shotHitbox } from './mobFire';
 import { advanceMobs, cullMobs, mobHitbox } from './mobs';
@@ -104,7 +104,7 @@ const resolveOverlaps = (state: RunState): SimEvent[] => {
  */
 const advanceLines = (state: RunState): SimEvent[] => {
   const events = advanceStream(state);
-  events.push(...advanceHeadstones(state));
+  events.push(...advanceTerritory(state));
   events.push(...advanceWisps(state));
   events.push(...advanceBell(state));
   return events;

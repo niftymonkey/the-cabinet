@@ -58,7 +58,6 @@ import { PausePopup } from '../popups/PausePopup';
 import { runHandoff } from '../runHandoff';
 import { SettingsPopup } from '../popups/SettingsPopup';
 import { EndScreen, FAULT_FONT_SIZE, faultCaption } from '../screens/EndScreen';
-import { STONES_BY_LEVEL } from '../../game/lines/headstones';
 import { GameScreen } from '../screens/game/GameScreen';
 import { TitleScreen } from '../screens/TitleScreen';
 import { decodeTape } from '../../tape/decode';
@@ -666,8 +665,7 @@ describe('the resume countdown (dispatch 4 section 4.17)', () => {
 
       expect(run.tick).toBeGreaterThan(1000);
       // The storm ran, which is what makes this a run with weapons in it: the
-      // orbit turns on every tick of every run and the stream has fired.
-      expect(run.lines.orbitPhase).not.toBe(0);
+      // stream's clock has come round at least once.
       expect(run.tick).toBeGreaterThan(run.lines.streamIn);
       screen.reset();
     } finally {
@@ -799,15 +797,13 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
       expect(children.every((child) => !child.visible)).toBe(true);
     }
 
-    // The storm layer is not blanket-empty and must not be asserted as such:
-    // the headstones are a birthright line and always on, so a fresh run draws
-    // its level's own stones from the first tick. What must not survive is a
-    // skull or a wisp, and both pools are empty above.
+    // The storm layer holds a sprite per slot of every pool, so it is never
+    // empty; what must not survive a second run is a visible one. Territory
+    // lays nothing until a swallow, and the skull and wisp pools are empty
+    // above, so the fresh run's storm draws nothing at all.
     const storm = layers.layer('storm').children;
     expect(storm.length).toBeGreaterThan(0);
-    expect(storm.filter((child) => child.visible)).toHaveLength(
-      STONES_BY_LEVEL[second.levels.headstones],
-    );
+    expect(storm.filter((child) => child.visible)).toHaveLength(0);
   });
 
   it('ends the run on sealed, and on victory too, so the deploy is a complete run in both directions', () => {
@@ -1109,7 +1105,7 @@ describe('the loadout pin (dispatch 6a)', () => {
     unpinned.prepare();
     expect(unpinned['recording'].recorder!.header.startingLevels).toEqual({
       soulStream: 1,
-      headstones: 1,
+      territory: 1,
       wisps: 0,
       bell: 0,
     });

@@ -4,9 +4,10 @@ import type { Grave } from './grave';
 import { createGrave } from './grave';
 import type { BellRing } from './lines/bell';
 import { BELL_PERIOD } from './lines/bell';
-import { MAX_STONES } from './lines/headstones';
 import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
+import type { Patch } from './lines/territory';
+import { createTerritoryPool } from './lines/territory';
 import type { Skull } from './lines/soulStream';
 import { createSkullPool, STREAM_INTERVAL } from './lines/soulStream';
 import type { Wisp } from './lines/wisps';
@@ -39,13 +40,6 @@ interface LineState {
   streamIn: number;
   // Surged volleys still owed, set by a swallow and never added to.
   surgeVolleys: number;
-  // The headstones' orbit, in radians, wrapped into zero to two pi every tick.
-  orbitPhase: number;
-  /**
-   * Ticks of inert left, per stone slot. Pre-allocated at the maximum stone
-   * count and never resized, so a level change cannot reallocate mid-run.
-   */
-  readonly stoneRecharge: number[];
   // Ticks to the next toll.
   tollIn: number;
   // The one live ring, or null between tolls.
@@ -89,6 +83,7 @@ interface RunState {
   readonly corpses: Corpse[];
   readonly skulls: Skull[];
   readonly wisps: Wisp[];
+  readonly patches: Patch[];
   readonly stage: StageState;
   readonly lines: LineState;
   // Kills since the last drop was paid for, against the price of the next one (ADR 0002).
@@ -131,8 +126,6 @@ const startingLines = (): LineState => {
   return {
     streamIn: STREAM_INTERVAL,
     surgeVolleys: 0,
-    orbitPhase: 0,
-    stoneRecharge: new Array<number>(MAX_STONES).fill(0),
     tollIn: BELL_PERIOD,
     ring: null,
   };
@@ -142,7 +135,7 @@ const startingLines = (): LineState => {
 const birthrightLevels = (): Record<WeaponLine, number> => {
   const levels: Record<WeaponLine, number> = {
     soulStream: 0,
-    headstones: 0,
+    territory: 0,
     wisps: 0,
     bell: 0,
   };
@@ -156,7 +149,7 @@ const birthrightLevels = (): Record<WeaponLine, number> => {
  * per-line syntax buys nothing that needs.
  */
 const uniformLevels = (level: number): Record<WeaponLine, number> => {
-  return { soulStream: level, headstones: level, wisps: level, bell: level };
+  return { soulStream: level, territory: level, wisps: level, bell: level };
 };
 
 /**
@@ -212,6 +205,7 @@ const createRun = (
     corpses: createCorpsePool(),
     skulls: createSkullPool(),
     wisps: createWispPool(),
+    patches: createTerritoryPool(),
     stage: createStage(),
     lines: startingLines(),
     killsSinceDrop: 0,

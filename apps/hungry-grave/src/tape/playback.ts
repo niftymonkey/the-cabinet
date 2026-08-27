@@ -13,6 +13,8 @@ import type {
   TapeHeader,
 } from './tape';
 import { faultObservations } from './tape';
+import type { StartingLevels } from './startingLevels';
+import { resolveStartingLevels } from './startingLevels';
 
 /**
  * What a playback concluded.
@@ -21,8 +23,17 @@ import { faultObservations } from './tape';
  * fold demonstrably widens, so without the distinction every tape recorded
  * before a widening would report that the run did not happen, and there would
  * be nothing to tell a widened fold apart from a tape of some other run.
+ *
+ * An unimplemented roster is a third outcome and not a fourth spelling of the
+ * second (ADR 0043). The two versions answer different questions: the witness
+ * version says whether this reader folds the same way, and the recorded roster
+ * says whether this build has the lines to simulate at all. Merging them would
+ * let one stand in for the other, which is the substitution ADR 0043 forbids,
+ * and it would report "this reader folds differently" about a tape whose fold
+ * this reader has never reached.
  */
-type PlaybackOutcome = 'verified' | 'diverged' | 'witnessVersionMismatch';
+type PlaybackOutcome =
+  'verified' | 'diverged' | 'witnessVersionMismatch' | 'rosterNotImplemented';
 
 interface PlaybackResult {
   readonly outcome: PlaybackOutcome;
@@ -52,6 +63,11 @@ interface PlaybackResult {
    * line above rather than merged into it, so the two never become one list.
    */
   readonly readbackFaults: readonly FaultRecord[];
+  /**
+   * The roster the tape was recorded against, named only when this build cannot
+   * implement it, so the refusal is precise instead of blanket.
+   */
+  readonly unimplementedRoster: readonly string[] | null;
 }
 
 /**
@@ -95,8 +111,12 @@ const countReachable = (
  * The result a tape recorded against a different fold gets: it refuses clearly
  * rather than failing confusingly, and it does not run a single tick.
  */
-const versionMismatch = (tape: Tape): PlaybackResult => ({
-  outcome: 'witnessVersionMismatch',
+const refusal = (
+  tape: Tape,
+  outcome: PlaybackOutcome,
+  unimplementedRoster: readonly string[] | null,
+): PlaybackResult => ({
+  outcome,
   tapeWitnessVersion: tape.header.witnessVersion,
   readerWitnessVersion: WITNESS_VERSION,
   checkpointsVerified: 0,
@@ -106,6 +126,7 @@ const versionMismatch = (tape: Tape): PlaybackResult => ({
   finalWitness: 0,
   recordedFaults: faultObservations(tape),
   readbackFaults: [],
+  unimplementedRoster,
 });
 
 /**
@@ -119,8 +140,10 @@ interface Reproduction {
   readonly execution: Execution;
   // The witness this tape claims at each of its checkpoint indices.
   readonly expected: ReadonlyMap<number, number>;
-  // Set when the tape's fold is not this reader's, which stops it before tick one.
-  readonly refused: boolean;
+  // Set when the tape cannot be reproduced at all, which stops it before tick one.
+  readonly refused: PlaybackOutcome | null;
+  // Named only on a roster refusal, so the reason can say which roster.
+  readonly unimplementedRoster: readonly string[] | null;
   ticksReproduced: number;
   checkpointsVerified: number;
   firstDivergentCheckpoint: number | null;
@@ -129,12 +152,39 @@ interface Reproduction {
 }
 
 /**
+ * Why this tape cannot be reproduced at all, or null when it can.
+ *
+ * The roster is asked first because it is the cruder failure: a build without
+ * the lines cannot simulate the run whatever its fold does, and reporting a
+ * fold mismatch about a run it never attempted would be the less true of the
+ * two answers.
+ */
+const refusalFor = (
+  levels: StartingLevels,
+  header: TapeHeader,
+): PlaybackOutcome | null => {
+  if (levels.outcome === 'notImplemented') return 'rosterNotImplemented';
+  if (header.witnessVersion !== WITNESS_VERSION) {
+    return 'witnessVersionMismatch';
+  }
+  return null;
+};
+
+/**
  * The run a tape describes, rebuilt from the header alone: seed, resolved size
  * and resolved starting levels, so a pinned run's tape plays exactly as an
  * unpinned one's does.
+ *
+ * A roster this build cannot implement never reaches here. The run is built at
+ * the birthright in that case and no tick is ever fed into it, because a
+ * refused reproduction is exhausted before its first command.
  */
-const runFromHeader = (header: TapeHeader): RunState =>
-  createRun(header.seed, header.startingSize, header.startingLevels);
+const runFromHeader = (levels: StartingLevels, header: TapeHeader): RunState =>
+  createRun(
+    header.seed,
+    header.startingSize,
+    levels.outcome === 'implemented' ? levels.levels : undefined,
+  );
 
 /**
  * Whether the tape's witness at a checkpoint is the one this reproduction
@@ -163,7 +213,8 @@ const beginReproduction = (
   tape: Tape,
   observer?: TickListener,
 ): Reproduction => {
-  const run = runFromHeader(tape.header);
+  const levels = resolveStartingLevels(tape.header);
+  const run = runFromHeader(levels, tape.header);
   const reproduction: Reproduction = {
     tape,
     run,
@@ -171,7 +222,9 @@ const beginReproduction = (
       listeners: observer === undefined ? [] : [observer],
     }),
     expected: checkpointsByIndex(tape.checkpoints),
-    refused: tape.header.witnessVersion !== WITNESS_VERSION,
+    refused: refusalFor(levels, tape.header),
+    unimplementedRoster:
+      levels.outcome === 'notImplemented' ? levels.recordedRoster : null,
     ticksReproduced: 0,
     checkpointsVerified: 0,
     firstDivergentCheckpoint: null,
@@ -180,7 +233,7 @@ const beginReproduction = (
   // A refused tape never reaches checkpoint zero; otherwise index zero is
   // checked before a single command is fed in.
   reproduction.exhausted =
-    reproduction.refused || !checkpointAgrees(reproduction, 0);
+    reproduction.refused !== null || !checkpointAgrees(reproduction, 0);
   return reproduction;
 };
 
@@ -219,12 +272,17 @@ const verdictSoFar = (reproduction: Reproduction): PlaybackResult => ({
   finalWitness: foldWitness(reproduction.run, 0),
   recordedFaults: faultObservations(reproduction.tape),
   readbackFaults: reproduction.execution.faults,
+  unimplementedRoster: null,
 });
 
 const resultOf = (reproduction: Reproduction): PlaybackResult =>
-  reproduction.refused
-    ? versionMismatch(reproduction.tape)
-    : verdictSoFar(reproduction);
+  reproduction.refused === null
+    ? verdictSoFar(reproduction)
+    : refusal(
+        reproduction.tape,
+        reproduction.refused,
+        reproduction.unimplementedRoster,
+      );
 
 const createPlayback = (tape: Tape, observer?: TickListener): Playback => {
   const reproduction = beginReproduction(tape, observer);

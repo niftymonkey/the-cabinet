@@ -89,6 +89,20 @@ const liveCount = (pool: readonly PoolSlot[]): number => {
 const SKULL_CAP = 120;
 const WISP_CAP = 64;
 
+/**
+ * How many patches of claimed ground stand at once. PROVISIONAL.
+ *
+ * Alone among the pools here this one is a gameplay rule and not a safety net,
+ * which is why it is small: at the cap the oldest patch is evicted rather than
+ * the claim refused, so the number decides how long a trail of claimed ground
+ * is rather than guarding against a runaway. It is sized around the window a
+ * patch is still above the grave and can catch something, about
+ * TERRITORY_OFFSET over SCROLL_SPEED, against a measured swallow roughly every
+ * 0.78 seconds, and not around a patch's full on-screen life: the rest of that
+ * life is dead ground sitting in the food layer.
+ */
+const TERRITORY_CAP = 8;
+
 export {
   createPool,
   takeSlot,
@@ -98,5 +112,6 @@ export {
   CORPSE_CAP,
   SKULL_CAP,
   WISP_CAP,
+  TERRITORY_CAP,
 };
 export type { PoolSlot };

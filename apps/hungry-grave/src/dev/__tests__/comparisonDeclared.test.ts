@@ -10,6 +10,8 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { WEAPON_LINES } from '../../game/lines/roster';
+
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
 import { createRun } from '../../game/run';
@@ -29,6 +31,7 @@ const shortReport = (): Metrics => {
   const recorder = recordInto(execution, {
     seed: run.seed,
     startingSize: run.grave.size,
+    recordedRoster: [...WEAPON_LINES],
     startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: 20,

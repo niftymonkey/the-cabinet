@@ -76,7 +76,7 @@ describe('damage taken', () => {
     // asserted because the absence is the point.
     const levels: Record<WeaponLine, number> = {
       soulStream: 2,
-      headstones: 2,
+      territory: 2,
       wisps: 1,
       bell: 1,
     };

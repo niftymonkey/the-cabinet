@@ -10,7 +10,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { FAULT_IDENTITIES } from '../../game/faults';
-import { WEAPON_LINES } from '../../game/lines/roster';
 import { FRAME_REASONS, TAPE_INPUT_DEVICES, TAPE_INTEGRITIES } from '../tape';
 import {
   ABSENT_CODE,
@@ -20,7 +19,6 @@ import {
   FAULT_SEVERITIES,
   FAULT_SEVERITY_CODES,
   FRAME_REASON_CODES,
-  HEADER_LEVELS_ORDER,
   INPUT_DEVICE_CODES,
   INTEGRITY_CODES,
   OBSERVATION_KIND_CODES,
@@ -29,6 +27,7 @@ import {
   STOP_CODES,
   STOP_REASONS,
 } from '../wireCodes';
+import * as wireCodes from '../wireCodes';
 
 /**
  * One code map's three promises, asserted for whichever map it is handed.
@@ -62,6 +61,24 @@ function itNamesEvery<T extends string>(
   });
 }
 
+/**
+ * The positional levels order is gone and must stay gone (ADR 0043).
+ *
+ * A deliberate-absence test, per code-core: it fails if a positional order over
+ * the weapon roster reappears in this module. The roster is an open set, so a
+ * list that indexes it by position keeps its byte count while its meaning moves
+ * underneath, which is the specific mistake ADR 0043 was written against. The
+ * roster the header records is the order now.
+ */
+describe('no positional header levels order', () => {
+  it('nothing here exports an order over the weapon roster', () => {
+    const exported = Object.keys(wireCodes);
+    expect(exported).not.toContain('HEADER_LEVELS_ORDER');
+    const orders = exported.filter((name) => /LEVELS?_ORDER$/.test(name));
+    expect(orders).toEqual([]);
+  });
+});
+
 describe("the tape's code maps", () => {
   itNamesEvery('run ending', RUN_ENDINGS, ENDING_CODES);
   itNamesEvery('stop', STOP_REASONS, STOP_CODES);
@@ -71,19 +88,6 @@ describe("the tape's code maps", () => {
   itNamesEvery('fault identity', FAULT_IDENTITIES, FAULT_IDENTITY_CODES);
   itNamesEvery('observation kind', OBSERVATION_KINDS, OBSERVATION_KIND_CODES);
   itNamesEvery('frame reason', FRAME_REASONS, FRAME_REASON_CODES);
-
-  it("names every weapon line in the header's levels order, exactly once and in a pinned order", () => {
-    // The order is the layout: a fifth line added to the union without a place
-    // here would encode nothing and decode as zero, silently. The exact order
-    // is pinned too, because it is permanent from the first tape.
-    expect([...HEADER_LEVELS_ORDER].sort()).toEqual([...WEAPON_LINES].sort());
-    expect(HEADER_LEVELS_ORDER).toEqual([
-      'soulStream',
-      'headstones',
-      'wisps',
-      'bell',
-    ]);
-  });
 
   it("keeps the fault identity codes off the closed list's ordinals", () => {
     // ADR 0024: an identity is append-only from the first tape and outlives the

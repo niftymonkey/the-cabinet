@@ -69,7 +69,7 @@ const PALETTE = {
 
   // player fire
   skull: { hex: 0x8496a6, luma: 57.78 },
-  stone: { hex: 0x9aa4ad, luma: 63.73 },
+  territory: { hex: 0x9aa4ad, luma: 63.73 },
   wisp: { hex: 0x63b8ad, luma: 64.76 },
   bellRing: { hex: 0x9faebd, luma: 67.41 },
 
@@ -165,7 +165,7 @@ const SPRITE_OUTLINE = {
   banshee: 'foodOutline',
   undertaker: 'foodOutline',
   skull: 'foodOutline',
-  stone: 'foodOutline',
+  territory: 'foodOutline',
   wisp: 'foodOutline',
   bellRing: 'foodOutline',
   belchEruption: 'foodOutline',

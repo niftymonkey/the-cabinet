@@ -35,6 +35,12 @@ import {
 } from './freshness';
 import type { GravePath, GravePathAcc } from './gravePath';
 import { createGravePath, gravePathOf, observeGravePath } from './gravePath';
+import type { TerritoryPatches, TerritoryPatchesAcc } from './territoryPatches';
+import {
+  createTerritoryPatches,
+  observeTerritoryPatches,
+  territoryPatchesOf,
+} from './territoryPatches';
 import type { Engagements, EngagementsAcc } from './timeToKill';
 import {
   createEngagements,
@@ -51,6 +57,7 @@ interface TuningReadings {
   readonly freshnessPaid: FreshnessPaid;
   readonly belchCadence: BelchCadence;
   readonly dropLedger: DropLedger;
+  readonly territoryPatches: TerritoryPatches;
 }
 
 interface ReadingsAcc {
@@ -61,6 +68,7 @@ interface ReadingsAcc {
   readonly freshnessPaid: FreshnessPaidAcc;
   readonly belchCadence: BelchCadenceAcc;
   readonly dropLedger: DropLedgerAcc;
+  readonly territoryPatches: TerritoryPatchesAcc;
 }
 
 /**
@@ -81,6 +89,7 @@ const createReadings = (
   freshnessPaid: createFreshnessPaid(),
   belchCadence: createBelchCadence(),
   dropLedger: createDropLedger(),
+  territoryPatches: createTerritoryPatches(),
 });
 
 /**
@@ -105,6 +114,7 @@ const observeReadings = (
   observeFreshnessPaid(acc.freshnessPaid, events);
   observeBelchCadence(acc.belchCadence, tick, events, state);
   observeDropLedger(acc.dropLedger, events, state);
+  observeTerritoryPatches(acc.territoryPatches, events);
 };
 
 const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
@@ -115,6 +125,7 @@ const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   freshnessPaid: freshnessPaidOf(acc.freshnessPaid),
   belchCadence: belchCadenceOf(acc.belchCadence),
   dropLedger: dropLedgerOf(acc.dropLedger),
+  territoryPatches: territoryPatchesOf(acc.territoryPatches),
 });
 
 export { createReadings, observeReadings, readingsOf };

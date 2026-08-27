@@ -19,7 +19,6 @@ import type { SimEvent } from '../events';
 import { FIELD_HEIGHT } from '../field';
 import { graveHitbox } from '../grave';
 import { advanceBell } from '../lines/bell';
-import { headstoneAt } from '../lines/headstones';
 import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import {
   advanceStream,
@@ -67,16 +66,16 @@ function quietRun(seed = 4): RunState {
   // The stream is held as well as the rows. These tests are about how a mob
   // moves, fires and dies, and a birthright stream pouring up the middle of the
   // field kills the mob under test before it reaches the behaviour being
-  // measured. The headstones need no holding: their orbit clears the grave's
-  // own hitbox, so a mob standing on the grave's centre line is never in it.
+  // measured. Territory needs no holding either: a run lays no patch until it
+  // swallows something, and these tests never do.
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
 }
 
-/** A run with a quiet stage and a headstone parked where a test can aim it. */
+/** A run with a quiet stage and Territory owned, so a patch can be laid into it. */
 function stormRun(seed = 4): RunState {
   const state = quietRun(seed);
-  state.levels.headstones = 1;
+  state.levels.territory = 1;
   return state;
 }
 
@@ -87,10 +86,19 @@ function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
   return mob;
 }
 
-/** A mob standing exactly where this run's one headstone is. */
-function stoneVictim(state: RunState): Mob {
-  const at = headstoneAt(state, 0)!;
-  return putMob(state, 'shambler', at.x, at.y);
+/** A mob standing in an open patch of claimed ground. */
+function patchVictim(state: RunState, x = 200, y = 400): Mob {
+  const patch = state.patches.find((each) => !each.alive)!;
+  patch.alive = true;
+  patch.id = state.nextEntityId;
+  state.nextEntityId += 1;
+  patch.x = x;
+  patch.y = y;
+  patch.radius = 30;
+  patch.opening = 0;
+  patch.bites = 2;
+  patch.struck.clear();
+  return putMob(state, 'shambler', x, y);
 }
 
 function putSkull(state: RunState, x: number, y: number) {
@@ -339,12 +347,12 @@ describe("a mob's death (ADR 0037)", () => {
     expect(corpses[0].payout).toBe(MOB_TYPES.shambler.corpsePayout);
   });
 
-  it('spells each storm source as its line: soulStream, then headstones, then wisps', () => {
+  it('spells each storm source as its line: soulStream, then territory, then wisps', () => {
     // The source vocabulary is the roster's own spelling (#48): an instrument
     // grouping damage by weapon line must never meet a fifth spelling.
     const state = stormRun();
     const skulled = putMob(state, 'shambler', 100, 100);
-    stoneVictim(state);
+    patchVictim(state);
     const wisped = putMob(state, 'shambler', 300, 100);
     putSkull(state, skulled.x, skulled.y);
     putWisp(state, wisped.x, wisped.y);
@@ -352,7 +360,7 @@ describe("a mob's death (ADR 0037)", () => {
     const sources = resolveStorm(state)
       .filter((event) => event.type === 'mobDamaged')
       .map((event) => (event.type === 'mobDamaged' ? event.source : ''));
-    expect(sources).toEqual(['soulStream', 'headstones', 'wisps']);
+    expect(sources).toEqual(['soulStream', 'territory', 'wisps']);
   });
 
   it("names the bell's own damage bell", () => {

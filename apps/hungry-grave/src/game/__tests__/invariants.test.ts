@@ -23,6 +23,7 @@ import { BELL_EXPAND_TICKS } from '../lines/bell';
 import type { Stream } from '../rng';
 import { MAX_LEVEL } from '../lines/roster';
 import { SKULL_HALF_EXTENT } from '../lines/soulStream';
+import { TERRITORY_FULL_RADIUS, TERRITORY_OFFSET } from '../lines/territory';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from '../tuning';
 import type { Fault, FaultIdentity } from '../faults';
 import { checkInvariants, createStageWatch } from '../invariants';
@@ -337,13 +338,10 @@ describe("the storm's invariants (plan 6.26)", () => {
     wisp.wisps[0].life = NaN;
     expect(brokenOn(wisp)).toContain('no NaN');
 
-    const phase = createRun(1);
-    phase.lines.orbitPhase = NaN;
-    expect(brokenOn(phase)).toContain('no NaN');
-
-    const recharge = createRun(1);
-    recharge.lines.stoneRecharge[0] = NaN;
-    expect(brokenOn(recharge)).toContain('no NaN');
+    const patch = createRun(1);
+    patch.patches[0].alive = true;
+    patch.patches[0].radius = NaN;
+    expect(brokenOn(patch)).toContain('no NaN');
   });
 
   it('holds a skull to its own extent and a wisp to the spawn margin', () => {
@@ -449,6 +447,7 @@ function filledRun(): RunState {
   fillCorpse(run);
   fillSkull(run);
   fillWisp(run);
+  fillPatch(run);
   fillRun(run);
   return run;
 }
@@ -460,7 +459,7 @@ function fillRun(run: RunState): void {
   run.dropsPaid = 2;
   run.nextEntityId = 16;
   run.levels.soulStream = 2;
-  run.levels.headstones = 1;
+  run.levels.territory = 1;
   run.levels.wisps = 3;
   run.levels.bell = 4;
   run.stage.phaseIndex = 1;
@@ -468,8 +467,6 @@ function fillRun(run: RunState): void {
   run.stage.firedRows = 2;
   run.lines.streamIn = 17;
   run.lines.surgeVolleys = 2;
-  run.lines.orbitPhase = 1.25;
-  run.lines.stoneRecharge[1] = 8;
   run.lines.tollIn = 90;
   run.lines.ring = liveRing();
 }
@@ -543,6 +540,19 @@ function fillWisp(run: RunState): void {
   wisp.vy = -2.5;
   wisp.life = 45;
   wisp.targetId = 11;
+}
+
+function fillPatch(run: RunState): void {
+  const patch = run.patches[0];
+  patch.alive = true;
+  patch.id = 16;
+  patch.x = 210.5;
+  patch.y = 84.25;
+  patch.radius = 41.5;
+  patch.opening = 6;
+  patch.bites = 3;
+  patch.struck.clear();
+  patch.struck.add(11);
 }
 
 /**
@@ -821,9 +831,9 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
-    path: 'levels.headstones',
+    path: 'levels.territory',
     poison: (run) => {
-      run.levels.headstones = NaN;
+      run.levels.territory = NaN;
       return run;
     },
   },
@@ -905,16 +915,37 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
-    path: 'lines.orbitPhase',
+    path: 'patches[].x',
     poison: (run) => {
-      run.lines.orbitPhase = NaN;
+      run.patches[0].x = NaN;
       return run;
     },
   },
   {
-    path: 'lines.stoneRecharge[]',
+    path: 'patches[].y',
     poison: (run) => {
-      run.lines.stoneRecharge[1] = NaN;
+      run.patches[0].y = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].radius',
+    poison: (run) => {
+      run.patches[0].radius = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].opening',
+    poison: (run) => {
+      run.patches[0].opening = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].bites',
+    poison: (run) => {
+      run.patches[0].bites = NaN;
       return run;
     },
   },
@@ -955,6 +986,7 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'corpses[].halfExtent': 'written once at spawn and never mutated',
   'skulls[].id': 'spawn identity, never mutated after spawn',
   'wisps[].id': 'spawn identity, never mutated after spawn',
+  'patches[].id': 'spawn identity, never mutated after spawn',
   ending: 'a run ending name or null, never a number',
 };
 
@@ -1026,5 +1058,59 @@ describe('the no-NaN coverage is closed (ticket #54)', () => {
     const run = filledRun();
     run.wisps[0].targetId = null;
     expect(brokenOn(run)).not.toContain('no NaN');
+  });
+});
+
+describe('Territory under the harness (#76)', () => {
+  it('a patch pool over capacity is caught by the existing entity caps identity', () => {
+    // No new fault identity: a pool that has grown past its cap is the same
+    // fact for patches as for every other pool, and ADR 0024 makes an identity
+    // permanent from the first tape, so one is never minted for free.
+    const run = createRun(1);
+    run.patches.push(run.patches[0]);
+    const faults = faultsOn(run);
+
+    expect(faults.map((fault) => fault.identity)).toContain('entity caps');
+    expect(faults.map((fault) => fault.identity)).not.toContain(
+      'territory caps',
+    );
+  });
+
+  it('a patch outside the field widened by the spawn margin is caught by entities in bounds', () => {
+    // Placement legitimately puts a patch above the top edge and it simulates
+    // there, so the box is the field widened by the spawn margin rather than
+    // the field itself. TERRITORY_OFFSET is held under that margin so a legal
+    // placement never fires this on a legal move.
+    const legal = createRun(1);
+    legal.patches[0].alive = true;
+    legal.patches[0].x = 270;
+    legal.patches[0].y = -SPAWN_MARGIN;
+    expect(brokenOn(legal)).not.toContain('entities in bounds');
+
+    const gone = createRun(1);
+    gone.patches[0].alive = true;
+    gone.patches[0].x = 270;
+    gone.patches[0].y = -SPAWN_MARGIN - 1;
+    expect(brokenOn(gone)).toContain('entities in bounds');
+  });
+
+  it('the deepest a legal placement reaches stays inside the harness’s own box', () => {
+    // The relation the constant's comment states, asserted rather than trusted:
+    // the grave's centre can stand as high as the size floor, so the highest
+    // patch a swallow can lay sits at SIZE_FLOOR minus the offset, and that has
+    // to be inside the box every entity is checked against.
+    expect(SIZE_FLOOR - TERRITORY_OFFSET).toBeGreaterThanOrEqual(-SPAWN_MARGIN);
+  });
+
+  it('the deepest a live patch drifts stays inside the harness’s own box', () => {
+    // The bottom edge's counterpart of the relation above, so a later retune of
+    // the radius alone meets a red test rather than `entities in bounds` firing
+    // on ground that was only drifting off. A patch closes on the first tick its
+    // whole body is past the bottom edge, so the deepest a live one sits is the
+    // field height plus its own radius, and a full-freshness swallow buys the
+    // largest radius there is.
+    const deepestLivePatch = FIELD_HEIGHT + TERRITORY_FULL_RADIUS;
+
+    expect(deepestLivePatch).toBeLessThanOrEqual(FIELD_HEIGHT + SPAWN_MARGIN);
   });
 });

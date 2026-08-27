@@ -122,9 +122,9 @@ const OVER_THE_MOUTH =
 
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
-    pair: ['graveRim', 'stone'],
+    pair: ['graveRim', 'territory'],
     because:
-      "the rim is a large outline fixed to the grave and a headstone is a small orbiting sprite, so ADR 0014's silhouette-first rule carries them",
+      "the rim is a large outline fixed to the grave and a patch of claimed ground is a thin ring drifting up-field of it, so ADR 0014's silhouette-first rule carries them",
   },
   {
     pair: ['graveGlow', 'drop'],
@@ -168,7 +168,7 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['banshee', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['undertaker', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['skull', 'splash'], because: OVER_THE_SPLASH },
-  { pair: ['stone', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['territory', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['wisp', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['bellRing', 'splash'], because: OVER_THE_SPLASH },
   // Over the skull, which dispatch 5 draws for the first time.
@@ -202,7 +202,7 @@ const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
   undertaker: 'mobBodies',
   undertakerDark: 'mobBodies',
   skull: 'storm',
-  stone: 'storm',
+  territory: 'storm',
   wisp: 'storm',
   bellRing: 'bellRing',
   corpse: 'corpses',

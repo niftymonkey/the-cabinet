@@ -2,6 +2,7 @@
 
 import type { GraveHitSource } from './grave';
 import type { WeaponLine } from './lines/roster';
+import type { PatchClosing } from './lines/territory';
 import type { DamageSource, MobType } from './mobs';
 import type { PhaseName } from './stage/stage';
 import type { FoodKind } from './swallow';
@@ -163,6 +164,25 @@ interface CorpseLost {
   readonly freshness: number;
 }
 
+/**
+ * A patch of claimed ground left the field, and how it ended (#76).
+ *
+ * The three reasons stay one event with a closed reason rather than three
+ * events, because they are three ends of one thing rather than opposite
+ * meanings: a reading groups by the reason, and every patch reaches exactly one
+ * of them. `bitten` is what separates ground that scrolled away having grabbed
+ * nothing at all from ground that punished traffic and then drifted on, which
+ * is the read the headstones never had and the direct answer to whether
+ * Territory's prediction paid.
+ */
+interface PatchClosed {
+  readonly type: 'patchClosed';
+  readonly reason: PatchClosing;
+  readonly x: number;
+  readonly y: number;
+  readonly bitten: number;
+}
+
 // The bell rang. Its sound cue, and the radius the ring will reach.
 interface Tolled {
   readonly type: 'tolled';
@@ -231,6 +251,7 @@ type SimEvent =
   | CorpseEvicted
   | CorpseLost
   | Tolled
+  | PatchClosed
   | Belched
   | DropSpawned
   | PhaseChanged;

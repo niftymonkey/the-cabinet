@@ -452,6 +452,26 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.dropLedger.onFieldAtStop',
     (report) => report.tuning.dropLedger.onFieldAtStop,
   ),
+  scalarReading(
+    'tuning.territoryPatches.spent',
+    (report) => report.tuning.territoryPatches.spent,
+  ),
+  scalarReading(
+    'tuning.territoryPatches.scrolled',
+    (report) => report.tuning.territoryPatches.scrolled,
+  ),
+  scalarReading(
+    'tuning.territoryPatches.evicted',
+    (report) => report.tuning.territoryPatches.evicted,
+  ),
+  scalarReading(
+    'tuning.territoryPatches.emptied',
+    (report) => report.tuning.territoryPatches.emptied,
+  ),
+  scalarReading(
+    'tuning.territoryPatches.bitten',
+    (report) => report.tuning.territoryPatches.bitten,
+  ),
   scalarReading('performance.frames', (report) => report.performance.frames),
   namedNumbersReading('performance.interval', (report) =>
     distributionNumbers(report.performance.interval),

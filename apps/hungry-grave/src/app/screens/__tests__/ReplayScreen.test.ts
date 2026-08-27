@@ -8,6 +8,8 @@ import { Container } from 'pixi.js';
 import type { Ticker } from 'pixi.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { WEAPON_LINES } from '../../../game/lines/roster';
+
 /** The real widgets need a renderer: text metrics and a loaded texture. */
 vi.mock('../../ui/Label', () => ({
   Label: class extends Container {
@@ -60,6 +62,7 @@ function headerFor(run: RunState): TapeHeader {
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    recordedRoster: [...WEAPON_LINES],
     startingLevels: { ...run.levels },
     tickRate: 60,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,

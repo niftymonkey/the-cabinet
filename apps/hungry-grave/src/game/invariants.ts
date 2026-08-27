@@ -4,7 +4,14 @@
  */
 
 import type { PoolSlot } from './caps';
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP, SKULL_CAP, WISP_CAP } from './caps';
+import {
+  CORPSE_CAP,
+  MOB_CAP,
+  MOB_FIRE_CAP,
+  SKULL_CAP,
+  TERRITORY_CAP,
+  WISP_CAP,
+} from './caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { Fault, FaultIdentity } from './faults';
 import { FAULT_SEVERITY } from './faults';
@@ -34,7 +41,7 @@ const record = (
 };
 
 /**
- * The three no-NaN predicates take the number and the words that name it as
+ * The two no-NaN predicates take the number and the words that name it as
  * separate arguments, and join them only on the branch that fails. checkNoNaN
  * runs over every live entity on every tick, so a message built up front is a
  * string allocated per field per entity per tick and thrown away unread. The
@@ -55,18 +62,6 @@ const checkSlotFinite = (
 ): void => {
   if (!Number.isFinite(value)) {
     record(faults, 'no NaN', `${pool} ${id}.${field} is ${value}`);
-  }
-};
-
-// One cell of a fixed-length array, as "lines.stoneRecharge[2] is NaN".
-const checkCellFinite = (
-  faults: Fault[],
-  where: string,
-  index: number,
-  value: number,
-): void => {
-  if (!Number.isFinite(value)) {
-    record(faults, 'no NaN', `${where}[${index}] is ${value}`);
   }
 };
 
@@ -147,17 +142,19 @@ const checkLinesNoNaN = (state: RunState, faults: Fault[]): void => {
   const { lines } = state;
   checkFinite(faults, 'lines.streamIn', lines.streamIn);
   checkFinite(faults, 'lines.surgeVolleys', lines.surgeVolleys);
-  checkFinite(faults, 'lines.orbitPhase', lines.orbitPhase);
   checkFinite(faults, 'lines.tollIn', lines.tollIn);
   checkFinite(faults, 'lines.ring.ticks', lines.ring?.ticks ?? 0);
   checkFinite(faults, 'lines.ring.level', lines.ring?.level ?? 0);
-  for (let slot = 0; slot < lines.stoneRecharge.length; slot++) {
-    checkCellFinite(
-      faults,
-      'lines.stoneRecharge',
-      slot,
-      lines.stoneRecharge[slot],
-    );
+};
+
+const checkPatchesNoNaN = (state: RunState, faults: Fault[]): void => {
+  for (const patch of state.patches) {
+    if (!patch.alive) continue;
+    checkSlotFinite(faults, 'patch', patch.id, 'x', patch.x);
+    checkSlotFinite(faults, 'patch', patch.id, 'y', patch.y);
+    checkSlotFinite(faults, 'patch', patch.id, 'radius', patch.radius);
+    checkSlotFinite(faults, 'patch', patch.id, 'opening', patch.opening);
+    checkSlotFinite(faults, 'patch', patch.id, 'bites', patch.bites);
   }
 };
 
@@ -203,6 +200,7 @@ const checkNoNaN = (state: RunState, faults: Fault[]): void => {
   checkCorpsesNoNaN(state, faults);
   checkSkullsNoNaN(state, faults);
   checkWispsNoNaN(state, faults);
+  checkPatchesNoNaN(state, faults);
   checkLinesNoNaN(state, faults);
   checkStageNoNaN(state, faults);
   checkLevelsNoNaN(state, faults);
@@ -332,6 +330,26 @@ const checkWispsInBounds = (state: RunState, faults: Fault[]): void => {
   }
 };
 
+/**
+ * A patch is checked against the spawn margin, the same box a mob is allowed in.
+ * Placement legitimately puts one above the top edge and it simulates there, so
+ * the field itself is the wrong box; the margin is what makes "off-field is not
+ * inactive" and "a patch has not gone somewhere impossible" both true at once.
+ * TERRITORY_OFFSET is held under that margin for exactly this reason.
+ */
+const checkPatchesInBounds = (state: RunState, faults: Fault[]): void => {
+  for (const patch of state.patches) {
+    if (!patch.alive) continue;
+    if (!within(patch.x, patch.y, SPAWN_MARGIN)) {
+      record(
+        faults,
+        'entities in bounds',
+        `patch ${patch.id} is at ${patch.x}, ${patch.y}`,
+      );
+    }
+  }
+};
+
 const checkPool = (
   faults: Fault[],
   name: string,
@@ -366,6 +384,7 @@ const checkPools = (state: RunState, faults: Fault[]): void => {
   checkPool(faults, 'corpse', state.corpses, CORPSE_CAP);
   checkPool(faults, 'skull', state.skulls, SKULL_CAP);
   checkPool(faults, 'wisp', state.wisps, WISP_CAP);
+  checkPool(faults, 'patch', state.patches, TERRITORY_CAP);
 };
 
 /**
@@ -540,7 +559,7 @@ const checkInvariants = (
   checkNoNaN(state, faults);
   checkSize(state, faults);
   checkInBounds(state, faults);
-  // The order of the five is load-bearing: they share one identity and record
+  // The order of the six is load-bearing: they share one identity and record
   // keeps the first detail per identity, so this order decides which entity a
   // reader of an `entities in bounds` fault is pointed at.
   checkMobsInBounds(state, faults);
@@ -548,6 +567,7 @@ const checkInvariants = (
   checkMobFireInBounds(state, faults);
   checkSkullsInBounds(state, faults);
   checkWispsInBounds(state, faults);
+  checkPatchesInBounds(state, faults);
   checkPools(state, faults);
   checkFreshness(state, faults);
   checkReservoir(state, faults);
