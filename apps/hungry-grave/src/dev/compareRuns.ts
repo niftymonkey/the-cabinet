@@ -472,6 +472,22 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.territoryPatches.bitten',
     (report) => report.tuning.territoryPatches.bitten,
   ),
+  scalarReading(
+    'tuning.upfieldTraffic.swallows',
+    (report) => report.tuning.upfieldTraffic.swallows,
+  ),
+  namedNumbersReading(
+    'tuning.upfieldTraffic.perSwallow',
+    (report) => report.tuning.upfieldTraffic.perSwallow,
+  ),
+  scalarReading(
+    'tuning.upfieldTraffic.bandUnits',
+    (report) => report.tuning.upfieldTraffic.bandUnits,
+  ),
+  scalarReading(
+    'tuning.upfieldTraffic.lateralReach',
+    (report) => report.tuning.upfieldTraffic.lateralReach,
+  ),
   scalarReading('performance.frames', (report) => report.performance.frames),
   namedNumbersReading('performance.interval', (report) =>
     distributionNumbers(report.performance.interval),

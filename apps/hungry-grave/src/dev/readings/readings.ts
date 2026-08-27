@@ -47,6 +47,12 @@ import {
   engagementsOf,
   observeEngagements,
 } from './timeToKill';
+import type { UpfieldTraffic, UpfieldTrafficAcc } from './upfieldTraffic';
+import {
+  createUpfieldTraffic,
+  observeUpfieldTraffic,
+  upfieldTrafficOf,
+} from './upfieldTraffic';
 
 // Everything a run says about how it played, beside what it produced.
 interface TuningReadings {
@@ -58,6 +64,7 @@ interface TuningReadings {
   readonly belchCadence: BelchCadence;
   readonly dropLedger: DropLedger;
   readonly territoryPatches: TerritoryPatches;
+  readonly upfieldTraffic: UpfieldTraffic;
 }
 
 interface ReadingsAcc {
@@ -69,6 +76,7 @@ interface ReadingsAcc {
   readonly belchCadence: BelchCadenceAcc;
   readonly dropLedger: DropLedgerAcc;
   readonly territoryPatches: TerritoryPatchesAcc;
+  readonly upfieldTraffic: UpfieldTrafficAcc;
 }
 
 /**
@@ -90,6 +98,7 @@ const createReadings = (
   belchCadence: createBelchCadence(),
   dropLedger: createDropLedger(),
   territoryPatches: createTerritoryPatches(),
+  upfieldTraffic: createUpfieldTraffic(),
 });
 
 /**
@@ -115,6 +124,7 @@ const observeReadings = (
   observeBelchCadence(acc.belchCadence, tick, events, state);
   observeDropLedger(acc.dropLedger, events, state);
   observeTerritoryPatches(acc.territoryPatches, events);
+  observeUpfieldTraffic(acc.upfieldTraffic, events, state);
 };
 
 const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
@@ -126,6 +136,7 @@ const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   belchCadence: belchCadenceOf(acc.belchCadence),
   dropLedger: dropLedgerOf(acc.dropLedger),
   territoryPatches: territoryPatchesOf(acc.territoryPatches),
+  upfieldTraffic: upfieldTrafficOf(acc.upfieldTraffic),
 });
 
 export { createReadings, observeReadings, readingsOf };
