@@ -126,5 +126,5 @@ const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
   return events;
 };
 
-export { swallow };
+export { swallow, freshnessScale };
 export type { FoodKind, Swallowable };

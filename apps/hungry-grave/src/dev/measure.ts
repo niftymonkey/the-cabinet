@@ -1,6 +1,7 @@
 // Numbers off a tape: the instrument that turns a decoded recording into
 // metrics (#58 slice 4).
 
+import type { WeaponLine } from '../game/lines/roster';
 import type { DamageSource } from '../game/mobs';
 import type { RunEnding } from '../game/run';
 import { isBirthrightLevels } from '../game/run';
@@ -19,7 +20,17 @@ import type {
 import { frameObservations, stopOf } from '../tape/tape';
 import { performanceOf, ticksToSample } from './framePerformance';
 import type { PerformanceReport } from './framePerformance';
-import { createTallies, observeInto, EMPTY_FIELD } from './replayTallies';
+import { createReadings, readingsOf } from './readings/readings';
+import type { TuningReadings } from './readings/readings';
+import { linesInRun } from './readings/runLines';
+import { READINGS_VERSION } from './readingsVersion';
+import {
+  createTallies,
+  damageOf,
+  endLevelsOf,
+  observeInto,
+  EMPTY_FIELD,
+} from './replayTallies';
 import type { LevelUp, ReplayTallies } from './replayTallies';
 
 /**
@@ -71,15 +82,40 @@ interface Provenance {
   readonly exclusions: readonly AggregateExclusion[];
 }
 
+/**
+ * The build a tape was recorded against, carried verbatim off its header.
+ *
+ * It is here so a comparison of two runs can show both sides and let the reader
+ * judge. Neither field is a fidelity gate: the witness is the only thing that
+ * decides whether a tape reproduced its run, and the build identity is reserved
+ * and unresolved by deliberate decision (ADR 0018).
+ */
+interface RunIdentity {
+  readonly commitHash: string;
+  readonly buildIdentity: string;
+}
+
 // Everything a verified replay can say about a run.
 interface Metrics {
   readonly outcome: 'verified';
+  readonly identity: RunIdentity;
+  /**
+   * Which definitions the derived readings were computed under. It is a
+   * sibling of identity rather than a field inside it: identity is tape header
+   * data carried verbatim, and this is the instrument's own fact about the
+   * report it just produced.
+   */
+  readonly readingsVersion: number;
   readonly run: RunSummary;
-  // Damage dealt per weapon line, with the belch as its own arm beside the four.
+  // Damage dealt per weapon line, with the belch as its own arm beside them.
   readonly damage: Readonly<Record<DamageSource, number>>;
+  // Where every line finished, which is where two runs' end states meet.
+  readonly endLevels: Record<WeaponLine, number>;
   readonly levelUps: readonly LevelUp[];
   // Index N is the live mob count after N ticks, so index 0 is the empty starting field.
   readonly mobsAlivePerTick: readonly number[];
+  // What the run cost, how its fights went, and what its storm held (#74).
+  readonly tuning: TuningReadings;
   readonly performance: PerformanceReport;
   // The faults the tape carries: the original run's history, never rewritten (ADR 0024).
   readonly recordedFaults: readonly FaultObservation[];
@@ -171,14 +207,19 @@ const runSummaryOf = (
  * frame.
  */
 const measure = (decoded: DecodedTape): Measurement => {
+  const { startingLevels, startingSize } = decoded.tape.header;
   const frames = frameObservations(decoded.tape);
   const sampleAt = ticksToSample(frames);
-  const tallies = createTallies();
+  // The lines this run names, known before a tick has run, so every record the
+  // report promises whole is whole even when the tape carries no command.
+  const lines = linesInRun(startingLevels);
+  const readings = createReadings(startingSize, lines);
+  const tallies = createTallies(readings, lines, startingLevels);
   // A frame starting at tick 0 began on the empty field, which no listener
   // call ever sees: the observer fires only after a tick has run.
   if (sampleAt.has(0)) tallies.densities.set(0, EMPTY_FIELD);
 
-  const result = playTape(decoded.tape, observeInto(tallies, sampleAt));
+  const result = playTape(decoded.tape, observeInto(tallies, sampleAt, lines));
 
   if (result.outcome === 'witnessVersionMismatch') {
     return {
@@ -197,10 +238,17 @@ const measure = (decoded: DecodedTape): Measurement => {
   }
   return {
     outcome: 'verified',
+    identity: {
+      commitHash: decoded.tape.header.commitHash,
+      buildIdentity: decoded.tape.header.buildIdentity,
+    },
+    readingsVersion: READINGS_VERSION,
     run: runSummaryOf(decoded, result, tallies),
-    damage: tallies.damage,
+    damage: damageOf(tallies),
+    endLevels: endLevelsOf(tallies),
     levelUps: tallies.levelUps,
     mobsAlivePerTick: tallies.mobsAlivePerTick,
+    tuning: readingsOf(readings),
     performance: performanceOf(frames, tallies.densities),
     recordedFaults: result.recordedFaults,
     readbackFaults: result.readbackFaults,
@@ -216,5 +264,6 @@ export type {
   Metrics,
   Provenance,
   Refusal,
+  RunIdentity,
   RunSummary,
 };

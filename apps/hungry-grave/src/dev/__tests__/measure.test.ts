@@ -14,10 +14,10 @@ import { describe, expect, it } from 'vitest';
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
 import type { WeaponLine } from '../../game/lines/roster';
-import type { DamageSource } from '../../game/mobs';
 import type { TickCommand } from '../../game/command';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
+import { SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
 import type { DecodedTape } from '../../tape/decode';
 import { decodeTape } from '../../tape/decode';
@@ -31,6 +31,7 @@ import {
 import type { FrameObservation, Tape, TapeHeader } from '../../tape/tape';
 import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
+import { READINGS_VERSION } from '../readingsVersion';
 import type { FieldDensity, LevelUp } from '../replayTallies';
 
 const SEED = 20260823;
@@ -84,6 +85,31 @@ function recordARun(
   return tapeOf(recorder);
 }
 
+/**
+ * A run whose own levels record names a line the roster does not, so a report
+ * that enumerated a compiled list of names could not carry it.
+ */
+const PHANTOM_LINE = 'moonlight';
+
+function recordAPhantomLineRun(): Tape {
+  const levels: Record<WeaponLine, number> = {
+    soulStream: 1,
+    headstones: 1,
+    wisps: 0,
+    bell: 0,
+  };
+  const named: Record<string, number> = levels;
+  named[PHANTOM_LINE] = 1;
+  const run = createRun(SEED, undefined, levels);
+  const execution = createExecution(run);
+  const recorder = recordInto(execution, header(run));
+  for (let tick = 0; tick < SMALL_TICKS; tick++) {
+    executeTick(execution, steer(tick));
+  }
+  sealTrailer(recorder, execution, 0);
+  return tapeOf(recorder);
+}
+
 function decodedOf(tape: Tape): DecodedTape {
   return { tape, truncated: false };
 }
@@ -110,8 +136,15 @@ function densityOf(run: RunState): FieldDensity {
   };
 }
 
-function emptyDamage(): Record<DamageSource, number> {
-  return { soulStream: 0, headstones: 0, wisps: 0, bell: 0, belch: 0 };
+/**
+ * The damage arms the run itself names: the lines in its own levels record,
+ * with the belch beside them. Written this way rather than as five literals so
+ * the record-time tally and the report are enumerated from the same source.
+ */
+function emptyDamage(run: RunState): Record<string, number> {
+  const arms: Record<string, number> = { belch: 0 };
+  for (const line of Object.keys(run.levels)) arms[line] = 0;
+  return arms;
 }
 
 /**
@@ -143,7 +176,8 @@ function richSteer(tick: number): TickCommand {
 
 interface RichRecording {
   readonly measured: Metrics;
-  readonly damage: Record<DamageSource, number>;
+  readonly damage: Record<string, number>;
+  readonly endLevels: Record<string, number>;
   readonly levelUps: LevelUp[];
   readonly mobsAlive: number[];
   readonly kills: number;
@@ -158,7 +192,7 @@ function recordRichRun(): RichRecording {
     execution,
     header(run, { checkpointSpacing: RICH_SPACING }),
   );
-  const damage = emptyDamage();
+  const damage = emptyDamage(run);
   const levelUps: LevelUp[] = [];
   const mobsAlive: number[] = [0];
   const densities = new Map<number, FieldDensity>();
@@ -193,6 +227,7 @@ function recordRichRun(): RichRecording {
   return {
     measured,
     damage,
+    endLevels: { ...run.levels },
     levelUps,
     mobsAlive,
     kills,
@@ -208,12 +243,16 @@ function richFixture(): RichRecording {
 }
 
 describe('measure', () => {
-  it('reports damage per line from the replayed mobDamaged events, the belch its own arm', () => {
+  it("reports damage under the arms the run's own lines name, the belch beside them", () => {
     // #45's damage-contribution read: attribution is per source, and the belch
-    // is an arm beside the four lines rather than folded into any of them.
+    // is an arm beside the lines rather than folded into any of them. The arms
+    // come from the replayed run's own levels record (#74 story 11), so the
+    // expected key set is enumerated the same way rather than written out.
     const rich = richFixture();
+    const damage: Record<string, number> = rich.measured.damage;
 
-    expect(rich.measured.damage).toEqual(rich.damage);
+    expect(Object.keys(damage).sort()).toEqual(Object.keys(rich.damage).sort());
+    expect(damage).toEqual(rich.damage);
     expect(rich.measured.damage.soulStream).toBeGreaterThan(0);
     expect(rich.measured.damage.headstones).toBeGreaterThan(0);
     expect(rich.measured.damage.wisps).toBeGreaterThan(0);
@@ -570,6 +609,126 @@ describe('measure', () => {
       conditioned: false,
       exclusions: [],
     });
+  });
+
+  it("names the weapon lines from the run's own levels record and not from a compiled list", () => {
+    // Story 11: a line added to the pool appears in the readings without the
+    // instrument changing. The run names a line the roster does not, and the
+    // report carries it, which a compiled list of five names could not do.
+    const measured = verified(measure(decodedOf(recordAPhantomLineRun())));
+    const damage: Record<string, number> = measured.damage;
+    const endLevels: Record<string, number> = measured.endLevels;
+
+    expect(Object.keys(damage).sort()).toEqual([
+      'belch',
+      'bell',
+      'headstones',
+      PHANTOM_LINE,
+      'soulStream',
+      'wisps',
+    ]);
+    expect(damage[PHANTOM_LINE]).toBe(0);
+    expect(endLevels[PHANTOM_LINE]).toBe(1);
+  });
+
+  it('reports where every line finished', () => {
+    // Story 6: two runs' end states sit side by side, which needs the levels
+    // the run finished on rather than the ones it started from.
+    const rich = richFixture();
+    const endLevels: Record<string, number> = rich.measured.endLevels;
+
+    expect(endLevels).toEqual(rich.endLevels);
+    expect(endLevels).not.toEqual(RICH_LEVELS);
+  });
+
+  it('reports its own lines at zero when the tape carries no command', () => {
+    // ADR 0019's honesty rule reaches the shape of a reading and not only the
+    // arm it rides on: damage and endLevels are whole records, so a sealed tape
+    // with nothing in it reports the lines the run named and the levels it
+    // started from, never an empty record whose type claims a completeness it
+    // does not have.
+    const run = createRun(SEED);
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run));
+    sealTrailer(recorder, execution, 0);
+
+    const measured = verified(measure(decodedOf(tapeOf(recorder))));
+
+    expect(measured.run.ticks).toBe(0);
+    expect(measured.damage).toEqual(emptyDamage(run));
+    expect(measured.endLevels).toEqual({ ...run.levels });
+    expect(measured.tuning.engagements.hitsByLine).toEqual(emptyDamage(run));
+    expect(measured.tuning.engagements.fatalBlows).toEqual(emptyDamage(run));
+  });
+
+  it('carries the tuning readings on the verified arm only, never on a divergence or a refusal', () => {
+    // ADR 0019's honesty rule: metrics come only from a verified replay, so a
+    // diverged or refused tape carries no reading a caller could mistake for
+    // one. The readings ride the same arm as the rest of the report.
+    const rich = richFixture();
+    expect(rich.measured.tuning.gravePath.sizePerTick).toHaveLength(
+      RICH_TICKS + 1,
+    );
+
+    const sound = recordARun();
+    const bent = sound.checkpoints.map((checkpoint) =>
+      checkpoint.index === 40
+        ? { index: 40, witness: checkpoint.witness + 1 }
+        : checkpoint,
+    );
+    const diverged = measure(decodedOf({ ...sound, checkpoints: bent }));
+    const refused = measure(
+      decodedOf({
+        ...sound,
+        header: { ...sound.header, witnessVersion: WITNESS_VERSION + 1 },
+      }),
+    );
+
+    expect('tuning' in diverged).toBe(false);
+    expect('tuning' in refused).toBe(false);
+  });
+
+  it('carries the readings version on the verified arm, and never on a divergence or a refusal', () => {
+    // The witness proves a replay reproduced its recorded run. It says nothing
+    // about whether two reports measured the same thing the same way, and the
+    // readings version is the field that does. It rides the verified arm alone,
+    // because a divergence and a refusal carry no readings to have a version of.
+    const sound = recordARun();
+
+    const measured = verified(measure(decodedOf(sound)));
+
+    expect(measured.readingsVersion).toBe(READINGS_VERSION);
+    // A sibling of identity rather than a field inside it: identity is tape
+    // header data carried verbatim, and this is the instrument's own fact.
+    expect('readingsVersion' in measured.identity).toBe(false);
+
+    const bent = sound.checkpoints.map((checkpoint) =>
+      checkpoint.index === 40
+        ? { index: 40, witness: checkpoint.witness + 1 }
+        : checkpoint,
+    );
+    const diverged = measure(decodedOf({ ...sound, checkpoints: bent }));
+    const refused = measure(
+      decodedOf({
+        ...sound,
+        header: { ...sound.header, witnessVersion: WITNESS_VERSION + 1 },
+      }),
+    );
+
+    expect('readingsVersion' in diverged).toBe(false);
+    expect('readingsVersion' in refused).toBe(false);
+  });
+
+  it('keeps the existing provenance and exclusions applying with the new readings present', () => {
+    // Story 16: a bot run's readings are the policy's numbers, not a player's,
+    // so the exclusion has to keep travelling with them.
+    const measured = verified(
+      measure(decodedOf(recordARun({ inputDevice: 'bot' }))),
+    );
+
+    expect(measured.provenance.exclusions).toEqual(['bot']);
+    expect(measured.tuning.dropLedger.spawned).toBeGreaterThanOrEqual(0);
+    expect(measured.tuning.gravePath.sizePerTick[0]).toBe(SIZE_START);
   });
 
   it("keeps the tape's recorded faults and today's readback faults separate lists", () => {
