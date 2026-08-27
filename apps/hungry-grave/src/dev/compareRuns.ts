@@ -18,11 +18,28 @@ const ABSENT = 'absent';
 type Absent = typeof ABSENT;
 type NumberOrAbsent = number | Absent;
 
+/**
+ * A delta withheld because the two sides' readings were computed under
+ * different definitions.
+ *
+ * It is not ABSENT, and the two are never spelled the same. ABSENT says this
+ * side has no such key. This says both sides have one, both values are real,
+ * and subtracting them would be arithmetic across two different questions: the
+ * same tape once read 366 ticks near the bottom edge and later 560, because
+ * the reading's own definition changed underneath it.
+ */
+const INCOMPARABLE = 'incomparable';
+
+type Incomparable = typeof INCOMPARABLE;
+
+// What a delta can be: the arithmetic, no key to do it on, or no licence to.
+type Delta = number | Absent | Incomparable;
+
 interface NumberPair {
   readonly left: NumberOrAbsent;
   readonly right: NumberOrAbsent;
   // Arithmetic on two numbers that are both present, and nothing else.
-  readonly delta: NumberOrAbsent;
+  readonly delta: Delta;
 }
 
 /**
@@ -38,7 +55,7 @@ interface ScalarCompared {
   readonly meaning: 'scalar';
   readonly left: number;
   readonly right: number;
-  readonly delta: number;
+  readonly delta: Delta;
 }
 
 interface NamedNumbersCompared {
@@ -78,8 +95,23 @@ type ComparedReading =
   | ListCompared
   | DescriptiveCompared;
 
+/**
+ * What each side's readings mean, and whether the two agree.
+ *
+ * A witness verdict says a replay reproduced its recorded run. It says nothing
+ * about whether two reports counted the same things the same way, which is the
+ * question this answers.
+ */
+interface ReadingsVersions {
+  readonly left: number;
+  readonly right: number;
+  // False withholds every delta below, and leaves every value standing.
+  readonly matched: boolean;
+}
+
 interface ComparedRuns {
   readonly outcome: 'compared';
+  readonly readingsVersions: ReadingsVersions;
   readonly readings: readonly ComparedReading[];
 }
 
@@ -119,10 +151,7 @@ interface DeclaredReading {
   readonly compare: (left: Metrics, right: Metrics) => ComparedReading;
 }
 
-const deltaOf = (
-  left: NumberOrAbsent,
-  right: NumberOrAbsent,
-): NumberOrAbsent =>
+const deltaOf = (left: NumberOrAbsent, right: NumberOrAbsent): Delta =>
   typeof left === 'number' && typeof right === 'number' ? right - left : ABSENT;
 
 /**
@@ -259,6 +288,7 @@ const distributionNumbers = (distribution: Distribution): NumberRecord => ({
 const READING_COMPARISONS: readonly DeclaredReading[] = [
   descriptiveReading('outcome', (report) => report.outcome),
   descriptiveReading('identity', (report) => report.identity),
+  descriptiveReading('readingsVersion', (report) => report.readingsVersion),
   scalarReading('run.ticks', (report) => report.run.ticks),
   descriptiveReading('run.ending', (report) => report.run.ending),
   descriptiveReading('run.stop', (report) => report.run.stop),
@@ -452,17 +482,67 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
   descriptiveReading('provenance', (report) => report.provenance),
 ];
 
+const pairWithheld = (pair: NumberPair): NumberPair => ({
+  left: pair.left,
+  right: pair.right,
+  delta: INCOMPARABLE,
+});
+
+const pairsWithheld = (
+  pairs: Readonly<Record<string, NumberPair>>,
+): Record<string, NumberPair> =>
+  Object.fromEntries(
+    Object.entries(pairs).map(([name, pair]) => [name, pairWithheld(pair)]),
+  );
+
+/**
+ * A comparison meaning no branch below answers, which the ComparedReading union
+ * makes impossible: add a meaning without a withholding and this call stops
+ * compiling, rather than letting that meaning keep its arithmetic across two
+ * sets of definitions.
+ */
+const noWithholdingForMeaning = (reading: never): never => {
+  throw new Error(`unhandled comparison meaning: ${JSON.stringify(reading)}`);
+};
+
+/**
+ * One reading with its arithmetic withheld and both its values kept.
+ *
+ * A descriptive reading passes through untouched, because it never carried
+ * arithmetic to withhold.
+ */
+const deltasWithheld = (reading: ComparedReading): ComparedReading => {
+  if (reading.meaning === 'scalar') {
+    return { ...reading, delta: INCOMPARABLE };
+  }
+  if (reading.meaning === 'namedNumbers') {
+    return { ...reading, names: pairsWithheld(reading.names) };
+  }
+  if (reading.meaning === 'series') {
+    return { ...reading, summary: pairsWithheld(reading.summary) };
+  }
+  if (reading.meaning === 'list') {
+    return { ...reading, count: pairWithheld(reading.count) };
+  }
+  if (reading.meaning === 'descriptive') return reading;
+  return noWithholdingForMeaning(reading);
+};
+
+// What was wrong with this side, or its outcome alone when nothing was.
+const refusedSideOf = (measurement: Measurement): RefusedSide =>
+  measurement.outcome === 'verified' ? { outcome: 'verified' } : measurement;
+
 /**
  * Two measured runs, side by side. It is pure and replays nothing, so a
  * baseline survives a tuning change that stops its tape replaying (story 8).
  *
  * It refuses when either side is not a verified replay, because a divergence
  * and a refusal carry no metrics. It never refuses because the builds differ.
+ *
+ * A readings-version mismatch is not a refusal: both sides are real
+ * measurements taken under different definitions, so every value is shown and
+ * only the arithmetic between them is withheld.
  */
-// What was wrong with this side, or its outcome alone when nothing was.
-const refusedSideOf = (measurement: Measurement): RefusedSide =>
-  measurement.outcome === 'verified' ? { outcome: 'verified' } : measurement;
-
 const compareRuns = (left: Measurement, right: Measurement): Comparison => {
   if (left.outcome !== 'verified' || right.outcome !== 'verified') {
     return {
@@ -471,15 +551,22 @@ const compareRuns = (left: Measurement, right: Measurement): Comparison => {
       right: refusedSideOf(right),
     };
   }
+  const matched = left.readingsVersion === right.readingsVersion;
+  const readings = READING_COMPARISONS.map((declared) =>
+    declared.compare(left, right),
+  );
   return {
     outcome: 'compared',
-    readings: READING_COMPARISONS.map((declared) =>
-      declared.compare(left, right),
-    ),
+    readingsVersions: {
+      left: left.readingsVersion,
+      right: right.readingsVersion,
+      matched,
+    },
+    readings: matched ? readings : readings.map(deltasWithheld),
   };
 };
 
-export { compareRuns, READING_COMPARISONS, ABSENT };
+export { compareRuns, READING_COMPARISONS, ABSENT, INCOMPARABLE };
 export type {
   Absent,
   ComparedReading,
@@ -488,11 +575,14 @@ export type {
   ComparisonMeaning,
   ComparisonRefused,
   DeclaredReading,
+  Delta,
   DescriptiveCompared,
+  Incomparable,
   ListCompared,
   NamedNumbersCompared,
   NumberOrAbsent,
   NumberPair,
+  ReadingsVersions,
   RefusedSide,
   ScalarCompared,
   SeriesCompared,

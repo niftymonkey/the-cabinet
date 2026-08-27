@@ -66,11 +66,16 @@ interface ReadingsAcc {
 /**
  * The readings graph, made once per measurement. The starting size seeds the
  * grave's own series from the tape header's resolved value, so a conditioned
- * run reports the size it really began at.
+ * run reports the size it really began at, and the line set comes from that
+ * same header, so a reading keyed by line stands before the first tick rather
+ * than waiting to discover its names from one.
  */
-const createReadings = (startingSize: number): ReadingsAcc => ({
+const createReadings = (
+  startingSize: number,
+  lines: readonly WeaponLine[],
+): ReadingsAcc => ({
   damageTaken: createDamageTaken(),
-  engagements: createEngagements(),
+  engagements: createEngagements(lines),
   gravePath: createGravePath(startingSize),
   fieldPerLine: createFieldPerLine(),
   freshnessPaid: createFreshnessPaid(),
@@ -82,9 +87,9 @@ const createReadings = (startingSize: number): ReadingsAcc => ({
  * One tick, offered to every reading. This is the only place the readings graph
  * is declared, and it rides the single replay pass the instrument already runs.
  *
- * The run's line set arrives as an argument rather than being read here,
- * because it cannot change mid-run and so is read once for the whole
- * measurement by the observer that drives this graph.
+ * The run's line set arrives as an argument rather than being read here: it is
+ * known from the tape header before the first tick, and the field reading walks
+ * it every tick.
  */
 const observeReadings = (
   acc: ReadingsAcc,
@@ -94,7 +99,7 @@ const observeReadings = (
   lines: readonly WeaponLine[],
 ): void => {
   observeDamageTaken(acc.damageTaken, events);
-  observeEngagements(acc.engagements, tick, events, state, lines);
+  observeEngagements(acc.engagements, tick, events, state);
   observeGravePath(acc.gravePath, state);
   observeFieldPerLine(acc.fieldPerLine, state, lines);
   observeFreshnessPaid(acc.freshnessPaid, events);

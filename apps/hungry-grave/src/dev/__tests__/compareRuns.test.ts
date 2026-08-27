@@ -20,15 +20,17 @@ import type {
   ComparedRuns,
   Comparison,
   ComparisonRefused,
+  Delta,
   DescriptiveCompared,
   ListCompared,
   NamedNumbersCompared,
   ScalarCompared,
   SeriesCompared,
 } from '../compareRuns';
-import { ABSENT, compareRuns } from '../compareRuns';
+import { ABSENT, compareRuns, INCOMPARABLE } from '../compareRuns';
 import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
+import { READINGS_VERSION } from '../readingsVersion';
 
 const SEED = 20260826;
 const SPACING = 20;
@@ -180,6 +182,19 @@ function descriptiveNamed(
     throw new Error(`${name} is declared ${reading.meaning}, not descriptive`);
   }
   return reading;
+}
+
+/** Every delta one compared reading produced, whichever arm it answered in. */
+function deltasOf(reading: ComparedReading): Delta[] {
+  if (reading.meaning === 'scalar') return [reading.delta];
+  if (reading.meaning === 'namedNumbers') {
+    return Object.values(reading.names).map((pair) => pair.delta);
+  }
+  if (reading.meaning === 'series') {
+    return Object.values(reading.summary).map((pair) => pair.delta);
+  }
+  if (reading.meaning === 'list') return [reading.count.delta];
+  return [];
 }
 
 describe('compareRuns', () => {
@@ -406,6 +421,115 @@ describe('compareRuns', () => {
       commitHash: 'ff91230abc',
       buildIdentity: 'nightly-7',
     });
+  });
+
+  it("shows each side's readings version", () => {
+    // Subtracting two version numbers produces a number that means nothing, so
+    // the version shows side by side the way identity and provenance do.
+    const base = measured(recordARun());
+    const later: Metrics = {
+      ...base,
+      readingsVersion: base.readingsVersion + 1,
+    };
+
+    const comparison = compareRuns(base, later);
+    const version = descriptiveNamed(comparison, 'readingsVersion');
+
+    expect(version.left).toBe(READINGS_VERSION);
+    expect(version.right).toBe(READINGS_VERSION + 1);
+  });
+
+  it("withholds every delta when the two sides' readings versions differ, while still showing both sides' values", () => {
+    // Two reports whose readings mean different things are both real
+    // measurements, so their values stand. The arithmetic between them does
+    // not: the same tape once read 366 ticks near the bottom edge and later
+    // 560, and a delta of 194 would have been a subtraction across two
+    // questions rather than a measurement of anything.
+    const base = measured(recordARun());
+    const later: Metrics = {
+      ...base,
+      readingsVersion: base.readingsVersion + 1,
+      run: { ...base.run, kills: base.run.kills + 5 },
+    };
+
+    const comparison = compared(compareRuns(base, later));
+
+    expect(comparison.readingsVersions).toEqual({
+      left: base.readingsVersion,
+      right: base.readingsVersion + 1,
+      matched: false,
+    });
+    for (const reading of comparison.readings) {
+      for (const delta of deltasOf(reading)) {
+        expect(delta, `${reading.reading} kept a delta`).toBe(INCOMPARABLE);
+      }
+    }
+
+    const kills = scalarNamed(comparison, 'run.kills');
+    expect(kills.left).toBe(base.run.kills);
+    expect(kills.right).toBe(base.run.kills + 5);
+  });
+
+  it('marks a withheld delta incomparable rather than absent, so a definition mismatch is not read as a missing key', () => {
+    // Absent says this side has no such key. Incomparable says both sides have
+    // one and we will not subtract them. Spelling both silences the same word
+    // would blur exactly the distinction the readings version exists to draw.
+    const base = measured(recordARun());
+    const feasting: Metrics = {
+      ...base,
+      readingsVersion: base.readingsVersion + 1,
+      tuning: {
+        ...base.tuning,
+        freshnessPaid: {
+          ...base.tuning.freshnessPaid,
+          swallows: { ...base.tuning.freshnessPaid.swallows, feast: 2 },
+        },
+      },
+    };
+
+    const comparison = compareRuns(base, feasting);
+    const swallows = namedNumbersNamed(
+      comparison,
+      'tuning.freshnessPaid.swallows',
+    );
+    const kills = scalarNamed(comparison, 'run.kills');
+
+    expect(INCOMPARABLE).not.toBe(ABSENT);
+    // A key one side genuinely lacks still shows its absence where the value
+    // is; only the arithmetic is renamed.
+    expect(swallows.names.feast).toEqual({
+      left: ABSENT,
+      right: 2,
+      delta: INCOMPARABLE,
+    });
+    expect(kills.delta).toBe(INCOMPARABLE);
+    expect(kills.delta).not.toBe(ABSENT);
+  });
+
+  it("compares normally when the two sides' readings versions match", () => {
+    // The suppression is the exception and not the rule. Two reports computed
+    // under the same definitions subtract exactly as they did before.
+    const base = measured(recordARun());
+    const later: Metrics = {
+      ...base,
+      run: { ...base.run, kills: base.run.kills + 5 },
+    };
+
+    const comparison = compared(compareRuns(base, later));
+
+    expect(comparison.readingsVersions).toEqual({
+      left: base.readingsVersion,
+      right: base.readingsVersion,
+      matched: true,
+    });
+    expect(scalarNamed(comparison, 'run.kills').delta).toBe(5);
+    for (const reading of comparison.readings) {
+      for (const delta of deltasOf(reading)) {
+        expect(delta, `${reading.reading} withheld a delta`).not.toBe(
+          INCOMPARABLE,
+        );
+      }
+    }
   });
 
   it("carries a weapon line the run's own data names into the comparison with no change to the compare", () => {

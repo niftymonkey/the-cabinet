@@ -31,6 +31,7 @@ import {
 import type { FrameObservation, Tape, TapeHeader } from '../../tape/tape';
 import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
+import { READINGS_VERSION } from '../readingsVersion';
 import type { FieldDensity, LevelUp } from '../replayTallies';
 
 const SEED = 20260823;
@@ -640,6 +641,26 @@ describe('measure', () => {
     expect(endLevels).not.toEqual(RICH_LEVELS);
   });
 
+  it('reports its own lines at zero when the tape carries no command', () => {
+    // ADR 0019's honesty rule reaches the shape of a reading and not only the
+    // arm it rides on: damage and endLevels are whole records, so a sealed tape
+    // with nothing in it reports the lines the run named and the levels it
+    // started from, never an empty record whose type claims a completeness it
+    // does not have.
+    const run = createRun(SEED);
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run));
+    sealTrailer(recorder, execution, 0);
+
+    const measured = verified(measure(decodedOf(tapeOf(recorder))));
+
+    expect(measured.run.ticks).toBe(0);
+    expect(measured.damage).toEqual(emptyDamage(run));
+    expect(measured.endLevels).toEqual({ ...run.levels });
+    expect(measured.tuning.engagements.hitsByLine).toEqual(emptyDamage(run));
+    expect(measured.tuning.engagements.fatalBlows).toEqual(emptyDamage(run));
+  });
+
   it('carries the tuning readings on the verified arm only, never on a divergence or a refusal', () => {
     // ADR 0019's honesty rule: metrics come only from a verified replay, so a
     // diverged or refused tape carries no reading a caller could mistake for
@@ -665,6 +686,37 @@ describe('measure', () => {
 
     expect('tuning' in diverged).toBe(false);
     expect('tuning' in refused).toBe(false);
+  });
+
+  it('carries the readings version on the verified arm, and never on a divergence or a refusal', () => {
+    // The witness proves a replay reproduced its recorded run. It says nothing
+    // about whether two reports measured the same thing the same way, and the
+    // readings version is the field that does. It rides the verified arm alone,
+    // because a divergence and a refusal carry no readings to have a version of.
+    const sound = recordARun();
+
+    const measured = verified(measure(decodedOf(sound)));
+
+    expect(measured.readingsVersion).toBe(READINGS_VERSION);
+    // A sibling of identity rather than a field inside it: identity is tape
+    // header data carried verbatim, and this is the instrument's own fact.
+    expect('readingsVersion' in measured.identity).toBe(false);
+
+    const bent = sound.checkpoints.map((checkpoint) =>
+      checkpoint.index === 40
+        ? { index: 40, witness: checkpoint.witness + 1 }
+        : checkpoint,
+    );
+    const diverged = measure(decodedOf({ ...sound, checkpoints: bent }));
+    const refused = measure(
+      decodedOf({
+        ...sound,
+        header: { ...sound.header, witnessVersion: WITNESS_VERSION + 1 },
+      }),
+    );
+
+    expect('readingsVersion' in diverged).toBe(false);
+    expect('readingsVersion' in refused).toBe(false);
   });
 
   it('keeps the existing provenance and exclusions applying with the new readings present', () => {

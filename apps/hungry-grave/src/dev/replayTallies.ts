@@ -10,7 +10,6 @@ import type { NumberRecord } from './numbersByName';
 import { addTo } from './numbersByName';
 import type { ReadingsAcc } from './readings/readings';
 import { observeReadings } from './readings/readings';
-import { linesInRun } from './readings/runLines';
 import { greatestOf, lastOf, meanOf } from './seriesSummary';
 
 // One line reaching one level, at the tick the drop landed (#45).
@@ -40,19 +39,22 @@ interface ReplayTallies {
   kills: number;
   score: number;
   /**
-   * The run's own levels record, held rather than copied. It is the one thing
-   * here read after the pass instead of inside the call: a pool slot is reused
-   * for a different subject and so has to be read as values at the tick, but
-   * this record keeps the same keys for the whole run and only counts up and
-   * down, so reading it once at the end is reading where every line finished.
+   * Where every line stands: the tape header's starting levels until a tick has
+   * run, and the run's own record from the first tick on. It is the one thing
+   * here held rather than copied and read after the pass instead of inside the
+   * call: a pool slot is reused for a different subject and so has to be read as
+   * values at the tick, but this record keeps the same keys for the whole run
+   * and only counts up and down, so reading it once at the end is reading where
+   * every line finished.
    */
-  levels: Readonly<Record<string, number>> | null;
+  levels: Readonly<Record<string, number>>;
   ending: RunEnding | null;
 }
 
 /**
- * Every damage arm this run names, present from the first tick, so a line the
- * run owns but never fired reads zero rather than absent.
+ * Every damage arm this run names, present before the first tick, so a line the
+ * run owns but never fired reads zero rather than absent and a tape with no
+ * command in it still names its own lines.
  *
  * The arms are the run's own lines with the belch beside them, and never a list
  * of names compiled into the instrument: a line added to the roster appears in
@@ -86,39 +88,54 @@ const EMPTY_FIELD: FieldDensity = {
   wisps: 0,
 };
 
-const createTallies = (readings: ReadingsAcc): ReplayTallies => ({
-  damage: {},
-  levelUps: [],
-  // Index 0 is the empty starting field, matching ADR 0019's checkpoint
-  // indexing: index N is the state after N ticks have run.
-  mobsAlivePerTick: [0],
-  densities: new Map(),
-  readings,
-  kills: 0,
-  score: 0,
-  levels: null,
-  ending: null,
-});
+/**
+ * The tallies, carrying the whole records a report promises before the first
+ * tick: the damage arms this run's lines name, and the levels it started from.
+ * Both come off the tape header, so a run with no tick in it reports honest
+ * zeroes and its own starting levels rather than an empty record whose type
+ * claims a completeness it does not have (ADR 0019).
+ */
+const createTallies = (
+  readings: ReadingsAcc,
+  lines: readonly WeaponLine[],
+  startingLevels: Readonly<Record<WeaponLine, number>>,
+): ReplayTallies => {
+  const damage: Record<string, number> = {};
+  seedDamage(damage, lines);
+  return {
+    damage,
+    levelUps: [],
+    // Index 0 is the empty starting field, matching ADR 0019's checkpoint
+    // indexing: index N is the state after N ticks have run.
+    mobsAlivePerTick: [0],
+    densities: new Map(),
+    readings,
+    kills: 0,
+    score: 0,
+    levels: startingLevels,
+    ending: null,
+  };
+};
 
 /**
  * The one observer the single replay pass drives. Everything off the live
  * state is read inside the call and stored as values, never as references,
  * because the pools are mutated in place (events.ts carries the same rule).
  * The one exception is the levels record, and the field it is held in says why.
+ *
+ * The run's line set arrives as an argument, known from the tape header before
+ * the pass starts, so this listener stays the same interface live execution
+ * accepts.
  */
 const observeInto = (
   tallies: ReplayTallies,
   sampleAt: ReadonlySet<number>,
+  lines: readonly WeaponLine[],
 ): TickListener => {
-  // The run's line set, read once for the whole measurement. It cannot change
-  // mid-run: the sim only counts a level up and down and never adds or removes
-  // a key, so a per-tick read would be the same answer at a per-frame cost, and
-  // this listener is the same interface live execution accepts.
-  let lines: readonly WeaponLine[] | null = null;
   return (tick, _command, events, state) => {
-    lines ??= linesInRun(state);
-    tallies.levels ??= state.levels;
-    seedDamage(tallies.damage, lines);
+    // The run's own record takes over from the header's the first time a tick
+    // runs, and is the same record every tick after: the sim never swaps it.
+    tallies.levels = state.levels;
     for (const event of events) {
       if (event.type === 'mobDamaged') {
         addTo(tallies.damage, event.source, event.amount);
@@ -148,7 +165,7 @@ const damageOf = (tallies: ReplayTallies): Record<DamageSource, number> => {
   return arms;
 };
 
-// Where every line finished, copied out of the run's own record once the pass is over.
+// Where every line finished, copied out of the levels record once the pass is over.
 const endLevelsOf = (tallies: ReplayTallies): Record<WeaponLine, number> => {
   const lines: Record<string, number> = { ...tallies.levels };
   return lines;

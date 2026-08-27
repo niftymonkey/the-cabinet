@@ -22,6 +22,8 @@ import { performanceOf, ticksToSample } from './framePerformance';
 import type { PerformanceReport } from './framePerformance';
 import { createReadings, readingsOf } from './readings/readings';
 import type { TuningReadings } from './readings/readings';
+import { linesInRun } from './readings/runLines';
+import { READINGS_VERSION } from './readingsVersion';
 import {
   createTallies,
   damageOf,
@@ -97,6 +99,13 @@ interface RunIdentity {
 interface Metrics {
   readonly outcome: 'verified';
   readonly identity: RunIdentity;
+  /**
+   * Which definitions the derived readings were computed under. It is a
+   * sibling of identity rather than a field inside it: identity is tape header
+   * data carried verbatim, and this is the instrument's own fact about the
+   * report it just produced.
+   */
+  readonly readingsVersion: number;
   readonly run: RunSummary;
   // Damage dealt per weapon line, with the belch as its own arm beside them.
   readonly damage: Readonly<Record<DamageSource, number>>;
@@ -198,15 +207,19 @@ const runSummaryOf = (
  * frame.
  */
 const measure = (decoded: DecodedTape): Measurement => {
+  const { startingLevels, startingSize } = decoded.tape.header;
   const frames = frameObservations(decoded.tape);
   const sampleAt = ticksToSample(frames);
-  const readings = createReadings(decoded.tape.header.startingSize);
-  const tallies = createTallies(readings);
+  // The lines this run names, known before a tick has run, so every record the
+  // report promises whole is whole even when the tape carries no command.
+  const lines = linesInRun(startingLevels);
+  const readings = createReadings(startingSize, lines);
+  const tallies = createTallies(readings, lines, startingLevels);
   // A frame starting at tick 0 began on the empty field, which no listener
   // call ever sees: the observer fires only after a tick has run.
   if (sampleAt.has(0)) tallies.densities.set(0, EMPTY_FIELD);
 
-  const result = playTape(decoded.tape, observeInto(tallies, sampleAt));
+  const result = playTape(decoded.tape, observeInto(tallies, sampleAt, lines));
 
   if (result.outcome === 'witnessVersionMismatch') {
     return {
@@ -229,6 +242,7 @@ const measure = (decoded: DecodedTape): Measurement => {
       commitHash: decoded.tape.header.commitHash,
       buildIdentity: decoded.tape.header.buildIdentity,
     },
+    readingsVersion: READINGS_VERSION,
     run: runSummaryOf(decoded, result, tallies),
     damage: damageOf(tallies),
     endLevels: endLevelsOf(tallies),

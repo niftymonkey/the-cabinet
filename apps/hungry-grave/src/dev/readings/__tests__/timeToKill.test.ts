@@ -32,7 +32,7 @@ describe('time to kill', () => {
     // Story 3: a fight is measured from the first damage it took to its death,
     // per entity, and reported per type.
     const run = createRun(SEED);
-    const accumulator = createEngagements();
+    const accumulator = createEngagements(linesInRun(run.levels));
     const slow = standing(run, 'shambler', 100);
     const quick = standing(run, 'shambler', 200);
 
@@ -41,28 +41,24 @@ describe('time to kill', () => {
       10,
       damageMob(run, slow, 1, 'soulStream'),
       run,
-      linesInRun(run),
     );
     observeEngagements(
       accumulator,
       12,
       damageMob(run, quick, 1, 'soulStream'),
       run,
-      linesInRun(run),
     );
     observeEngagements(
       accumulator,
       17,
       damageMob(run, quick, quick.hp, 'soulStream'),
       run,
-      linesInRun(run),
     );
     observeEngagements(
       accumulator,
       25,
       damageMob(run, slow, slow.hp, 'soulStream'),
       run,
-      linesInRun(run),
     );
 
     const fights = engagementsOf(accumulator);
@@ -81,7 +77,7 @@ describe('time to kill', () => {
     // screen when the button went would drag the headline toward whatever the
     // reservoir's fill time was.
     const run = createRun(SEED);
-    const accumulator = createEngagements();
+    const accumulator = createEngagements(linesInRun(run.levels));
     const wiped = standing(run, 'shambler', 100);
     const shot = standing(run, 'shambler', 200);
 
@@ -93,21 +89,18 @@ describe('time to kill', () => {
         ...damageMob(run, shot, 1, 'wisps'),
       ],
       run,
-      linesInRun(run),
     );
     observeEngagements(
       accumulator,
       4,
       damageMob(run, shot, shot.hp, 'wisps'),
       run,
-      linesInRun(run),
     );
     observeEngagements(
       accumulator,
       10,
       damageMob(run, wiped, wiped.hp, 'belch'),
       run,
-      linesInRun(run),
     );
 
     const fights = engagementsOf(accumulator);
@@ -124,7 +117,7 @@ describe('time to kill', () => {
     // an engagement with no kill behind it and no live mob in front of it is
     // one that got away. It is never given a time.
     const run = createRun(SEED);
-    const accumulator = createEngagements();
+    const accumulator = createEngagements(linesInRun(run.levels));
     const fleeing = standing(run, 'ghoul', 100);
 
     observeEngagements(
@@ -132,11 +125,10 @@ describe('time to kill', () => {
       0,
       damageMob(run, fleeing, 1, 'soulStream'),
       run,
-      linesInRun(run),
     );
     fleeing.y = FIELD_HEIGHT * 2;
     cullMobs(run);
-    observeEngagements(accumulator, 1, [], run, linesInRun(run));
+    observeEngagements(accumulator, 1, [], run);
 
     const fights = engagementsOf(accumulator);
     expect(fights.engaged.ghoul).toBe(1);
@@ -151,7 +143,7 @@ describe('time to kill', () => {
     // A fight the run stopped in the middle of is not an escape and not a kill,
     // and merging it into either would move the headline.
     const run = createRun(SEED);
-    const accumulator = createEngagements();
+    const accumulator = createEngagements(linesInRun(run.levels));
     const survivor = standing(run, 'revenant', 100);
 
     observeEngagements(
@@ -159,9 +151,8 @@ describe('time to kill', () => {
       0,
       damageMob(run, survivor, 1, 'bell'),
       run,
-      linesInRun(run),
     );
-    observeEngagements(accumulator, 1, [], run, linesInRun(run));
+    observeEngagements(accumulator, 1, [], run);
 
     const fights = engagementsOf(accumulator);
     expect(fights.engaged.revenant).toBe(1);
@@ -175,7 +166,7 @@ describe('time to kill', () => {
     // even when both kill in the same time. The kill itself stays credited to
     // the blow that landed last, as the sim already does.
     const run = createRun(SEED);
-    const accumulator = createEngagements();
+    const accumulator = createEngagements(linesInRun(run.levels));
     const target = standing(run, 'revenant', 100);
 
     observeEngagements(
@@ -183,28 +174,24 @@ describe('time to kill', () => {
       0,
       damageMob(run, target, 1, 'soulStream'),
       run,
-      linesInRun(run),
     );
     observeEngagements(
       accumulator,
       1,
       damageMob(run, target, 1, 'soulStream'),
       run,
-      linesInRun(run),
     );
     observeEngagements(
       accumulator,
       2,
       damageMob(run, target, 1, 'soulStream'),
       run,
-      linesInRun(run),
     );
     observeEngagements(
       accumulator,
       3,
       damageMob(run, target, target.hp, 'headstones'),
       run,
-      linesInRun(run),
     );
 
     const fights = engagementsOf(accumulator);

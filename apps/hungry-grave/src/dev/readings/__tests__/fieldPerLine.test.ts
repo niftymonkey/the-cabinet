@@ -40,10 +40,10 @@ describe('field per line', () => {
     const stones = STONES_BY_LEVEL[HEADSTONE_LEVEL];
     const accumulator = createFieldPerLine();
 
-    observeFieldPerLine(accumulator, run, linesInRun(run));
+    observeFieldPerLine(accumulator, run, linesInRun(run.levels));
     for (let tick = 0; tick < BELL_PERIOD; tick++) advanceBell(run);
     expect(run.lines.ring).not.toBeNull();
-    observeFieldPerLine(accumulator, run, linesInRun(run));
+    observeFieldPerLine(accumulator, run, linesInRun(run.levels));
 
     const field = fieldPerLineOf(accumulator);
     expect(field.perLine.soulStream).toEqual([LIVE_SKULLS, LIVE_SKULLS]);
@@ -65,7 +65,7 @@ describe('field per line', () => {
     named.moonlight = 1;
     const accumulator = createFieldPerLine();
 
-    observeFieldPerLine(accumulator, run, linesInRun(run));
+    observeFieldPerLine(accumulator, run, linesInRun(run.levels));
 
     const field = fieldPerLineOf(accumulator);
     expect(Object.keys(ON_FIELD_BY_LINE)).not.toContain('moonlight');

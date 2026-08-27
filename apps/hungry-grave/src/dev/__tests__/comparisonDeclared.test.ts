@@ -77,6 +77,20 @@ const undeclaredUnder = (
   );
 };
 
+/**
+ * The value the declared path names, or undefined when the report does not
+ * carry it. Every segment is resolved, so a stale nested path is caught even
+ * when a sibling entry declares the branch it sits on.
+ */
+const valueAt = (report: Record<string, unknown>, path: string): unknown => {
+  let value: unknown = report;
+  for (const segment of path.split('.')) {
+    if (!isPlainObject(value)) return undefined;
+    value = value[segment];
+  }
+  return value;
+};
+
 describe('every reading declares what comparing it means', () => {
   it('every reading on a verified report carries a declared comparison meaning', () => {
     const declared = new Set(
@@ -92,13 +106,16 @@ describe('every reading declares what comparing it means', () => {
     ).toEqual(['run.hunger']);
 
     // And no entry declares a path the report does not carry, which would
-    // leave that reading guarded by a name and nothing else.
+    // leave that reading guarded by a name and nothing else. The whole path is
+    // resolved rather than its first segment: a stale nested entry beside a
+    // correct one passes the walk above on the correct entry's declaration, and
+    // then the compare dereferences nothing and puts a NaN in the comparison.
     const report: Record<string, unknown> = { ...shortReport() };
     for (const comparison of READING_COMPARISONS) {
-      const [root] = comparison.reading.split('.');
-      expect(report[root], `${comparison.reading} names no reading`).not.toBe(
-        undefined,
-      );
+      expect(
+        valueAt(report, comparison.reading),
+        `${comparison.reading} names no reading`,
+      ).not.toBe(undefined);
     }
   });
 });

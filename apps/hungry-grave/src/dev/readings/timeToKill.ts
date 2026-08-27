@@ -81,18 +81,6 @@ const noTicksByType = (): Record<string, number[]> => {
   return ticks;
 };
 
-const createEngagements = (): EngagementsAcc => ({
-  open: new Map(),
-  engaged: noneByType(),
-  killed: noneByType(),
-  timedKills: noneByType(),
-  ticks: noTicksByType(),
-  hits: noneByType(),
-  hitsByLine: {},
-  fatalBlows: {},
-  liveIds: new Set(),
-});
-
 /**
  * The damage arms this run names: its own lines, with the belch beside them.
  * An arm that never dealt a hit reads zero rather than absent.
@@ -103,6 +91,28 @@ const seedArms = (
 ): void => {
   for (const line of lines) arms[line] ??= 0;
   arms.belch ??= 0;
+};
+
+/**
+ * The accumulator, carrying every arm this run names before a tick has run. The
+ * line set is known from the tape header, so an arm never waits on a hit to
+ * exist and a run with nothing in it still reports its own lines at zero.
+ */
+const createEngagements = (lines: readonly WeaponLine[]): EngagementsAcc => {
+  const acc: EngagementsAcc = {
+    open: new Map(),
+    engaged: noneByType(),
+    killed: noneByType(),
+    timedKills: noneByType(),
+    ticks: noTicksByType(),
+    hits: noneByType(),
+    hitsByLine: {},
+    fatalBlows: {},
+    liveIds: new Set(),
+  };
+  seedArms(acc.hitsByLine, lines);
+  seedArms(acc.fatalBlows, lines);
+  return acc;
 };
 
 /**
@@ -184,10 +194,7 @@ const observeEngagements = (
   tick: number,
   events: readonly SimEvent[],
   state: RunState,
-  lines: readonly WeaponLine[],
 ): void => {
-  seedArms(acc.hitsByLine, lines);
-  seedArms(acc.fatalBlows, lines);
   for (const event of events) {
     if (event.type === 'mobDamaged') {
       takeHit(acc, tick, event.id, event.source, state);
