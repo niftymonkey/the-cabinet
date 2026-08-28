@@ -53,8 +53,18 @@ const BITES_BY_LEVEL: readonly number[] = [0, 2, 3, 4, 6, 8];
  */
 const TERRITORY_OPENING_TICKS = 24;
 
-// What one grab takes off a mob. PROVISIONAL.
-const TERRITORY_DAMAGE = 2;
+/**
+ * What one grab takes off a mob. PROVISIONAL, and a #76 pass A placeholder
+ * awaiting Territory's own redesign in pass B.
+ *
+ * Pass A rescaled every other line's damage against the ruled touch counts and
+ * held Territory's mechanic exactly where it was, so this number carries no
+ * touch-count ruling of its own. It is five pulses' worth, chosen because it
+ * keeps every one of Territory's kill relationships identical to what it was
+ * before the rescale: one patch never takes a shambler and two do, three take a
+ * revenant, and one takes a ghoul.
+ */
+const TERRITORY_DAMAGE = 25;
 
 /**
  * One patch of claimed ground.

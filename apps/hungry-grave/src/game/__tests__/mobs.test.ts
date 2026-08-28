@@ -24,6 +24,7 @@ import {
   advanceStream,
   STREAM_INTERVAL,
   SURGE_INTERVAL,
+  SURGE_VOLLEYS,
   surgeStream,
 } from '../lines/soulStream';
 import { advanceWisps, launchWisps } from '../lines/wisps';
@@ -159,9 +160,9 @@ describe('the mob type table (ADR 0016)', () => {
     expect(MOB_TYPES.shambler.speed).toBeCloseTo(0.5 * SCROLL_SPEED, 12);
     expect(MOB_TYPES.revenant.speed).toBeCloseTo(0.35 * SCROLL_SPEED, 12);
 
-    expect(MOB_TYPES.shambler.hp).toBe(3);
-    expect(MOB_TYPES.revenant.hp).toBe(5);
-    expect(MOB_TYPES.ghoul.hp).toBe(2);
+    expect(MOB_TYPES.shambler.hp).toBe(40);
+    expect(MOB_TYPES.revenant.hp).toBe(64);
+    expect(MOB_TYPES.ghoul.hp).toBe(24);
 
     expect(MOB_TYPES.shambler.corpsePayout).toBe(TRASH_CORPSE_PAYOUT);
     expect(MOB_TYPES.revenant.corpsePayout).toBe(2 * TRASH_CORPSE_PAYOUT);
@@ -468,7 +469,8 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
       for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
       // Every other test in this file holds the stream off, and this one is
       // measuring it, so its clock is armed to fire on the window's first tick.
-      // The surged volley follows SURGE_INTERVAL later, both inside the window.
+      // The surged volleys follow at SURGE_INTERVAL apart, and the window is
+      // sized to hold all of them plus one fixed interval of settle after.
       state.lines.streamIn = 1;
       const row = MOB_TYPES[wave.type];
       const mobs: Mob[] = [];
@@ -487,7 +489,11 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
       // stream volley its surge buys, resolved against the wave.
       launchWisps(state, []);
       surgeStream(state);
-      for (let tick = 0; tick < SURGE_INTERVAL + STREAM_INTERVAL; tick++) {
+      for (
+        let tick = 0;
+        tick < SURGE_VOLLEYS * SURGE_INTERVAL + STREAM_INTERVAL;
+        tick++
+      ) {
         advanceStream(state);
         advanceWisps(state);
         resolveStorm(state);
@@ -503,4 +509,47 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
       expect(mobs.filter((mob) => mob.alive).length).toBeGreaterThan(0);
     });
   }
+});
+
+describe("one swallow's surge clears two trash bodies (#76 pass A correction)", () => {
+  /**
+   * How many bodies the burst window clears, with and without the swallow that
+   * surges it. The magnitude only shows as a difference: what a surge buys is
+   * volleys the window would not otherwise have held, and one run alone cannot
+   * show the volleys that did not fire.
+   */
+  const bodiesClearedInBurst = (swallowed: boolean): number => {
+    const state = quietRun();
+    state.levels.soulStream = MAX_LEVEL;
+    // Stacked on the mouth, where every column of the fan launches, so one
+    // volley's five skulls all land on the first of them and a volley is one
+    // trash body exactly. Five is more than the burst can reach.
+    const mouth = { x: state.grave.x, y: state.grave.y - state.grave.size };
+    for (let index = 0; index < 5; index++) {
+      putMob(state, 'shambler', mouth.x, mouth.y);
+    }
+    // Armed to fire on the window's first tick, so the window holds the whole
+    // burst and the two runs start from the same volley.
+    state.lines.streamIn = 1;
+    if (swallowed) surgeStream(state);
+
+    let killed = 0;
+    for (let tick = 0; tick < SURGE_VOLLEYS * SURGE_INTERVAL + 1; tick++) {
+      advanceStream(state);
+      killed += resolveStorm(state).filter(
+        (event) => event.type === 'mobKilled',
+      ).length;
+    }
+    return killed;
+  };
+
+  it('kills two bodies the same window without a swallow never reaches', () => {
+    // Mark's 2026-08-27 ruling for the pass A correction: the surge is restored
+    // to the burst's old functional magnitude under the new touch counts,
+    // provisionally, and two is the nearest an integer count of volleys gets to
+    // the 1.67 bodies one extra volley used to clear. Pinned here because the
+    // number is provisional: moving it should be a deliberate act, not a
+    // side effect of another tuning pass.
+    expect(bodiesClearedInBurst(true) - bodiesClearedInBurst(false)).toBe(2);
+  });
 });

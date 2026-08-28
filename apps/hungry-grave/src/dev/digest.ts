@@ -272,7 +272,7 @@ const GOLDEN: Digest = {
   mobs: 6,
   shots: 2,
   corpses: 1,
-  skulls: 1,
+  skulls: 2,
   wisps: 0,
   kills: 2,
   drawn: {
@@ -287,7 +287,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -100345223,
+  checksum: 1444401929,
 };
 
 export { runScenario, GOLDEN };

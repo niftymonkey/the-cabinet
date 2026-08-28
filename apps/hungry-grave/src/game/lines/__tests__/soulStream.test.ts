@@ -7,11 +7,16 @@
 import { describe, expect, it } from 'vitest';
 
 import { SKULL_CAP } from '../../caps';
+import { TICK_HZ } from '../../clock';
+import type { SimEvent } from '../../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import { atan2 } from '../../math';
+import type { Mob } from '../../mobs';
+import { spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { RAMP_ROWS } from '../../stage/stage';
+import { resolveStorm } from '../../storm';
 import { MAX_LEVEL } from '../roster';
 import {
   advanceStream,
@@ -43,6 +48,28 @@ function nextVolley(state: RunState) {
     if (fresh.length > 0) return fresh;
   }
   return [];
+}
+
+/**
+ * A shambler parked on the grave's mouth, where a level-1 column launches. Every
+ * skull the column fires meets it on the tick it launches, so a volley and a
+ * touch are the same thing and the count reads as the touch count.
+ */
+function inTheColumn(state: RunState): Mob {
+  const mob = spawnMob(state, 'shambler', {
+    x: state.grave.x,
+    y: state.grave.y - state.grave.size,
+    vx: 0,
+    vy: 0,
+    index: 0,
+  })!;
+  mob.beat = 0;
+  return mob;
+}
+
+/** How many times the storm landed on a body this tick. */
+function hits(events: SimEvent[]): number {
+  return events.filter((event) => event.type === 'mobDamaged').length;
 }
 
 /**
@@ -234,10 +261,11 @@ describe('the surge is a rate change and never a damage bonus (plan section 3)',
   });
 
   it('changes the volley count and never the damage per skull', () => {
-    // The one-swallow ordnance bound has one body of margin at the ceiling, and
-    // a damage surge would spend it. A skull carries no damage of its own at
-    // all: SKULL_DAMAGE is a module constant, so there is nothing on the
-    // entity for a surge to raise.
+    // The surge moves when volleys fire and never what one carries, which is
+    // what keeps the one-swallow ordnance bound a statement about cadence. A
+    // skull carries no damage of its own at all: SKULL_DAMAGE is a module
+    // constant, so there is nothing on the entity for a surge to raise, and
+    // what this asserts is the shape of the entity rather than a magnitude.
     const state = quietRun();
     state.levels.soulStream = MAX_LEVEL;
     surgeStream(state);
@@ -253,6 +281,47 @@ describe('the surge is a rate change and never a damage bonus (plan section 3)',
         'y',
       ]);
     }
+  });
+});
+
+describe('what the stream costs a trash body (#76 pass A)', () => {
+  it('kills a shambler standing in its column with exactly five volleys', () => {
+    // Mark's 2026-08-27 ruling for #76 pass A: trash takes five skulls where it
+    // used to take three, so the same kill is reached through more touches.
+    // Counted rather than divided, because the ruling is about how often the
+    // player's fire lands on a body and not about the arithmetic behind it.
+    const state = quietRun();
+    state.levels.soulStream = 1;
+    const mob = inTheColumn(state);
+
+    let touches = 0;
+    for (let tick = 0; tick < STREAM_INTERVAL * 10 && mob.alive; tick++) {
+      advanceStream(state);
+      touches += hits(resolveStorm(state));
+    }
+
+    expect(mob.alive).toBe(false);
+    expect(touches).toBe(5);
+  });
+
+  it('still spends about a second and a half killing that shambler', () => {
+    // The kill time is what STREAM_INTERVAL exists to hold, and it is the
+    // "trash dies in a second or two" the drain-out is derived against. Five
+    // volleys at the shortened interval is the same span three volleys at the
+    // old one was, which is the whole point of moving both numbers together.
+    const state = quietRun();
+    state.levels.soulStream = 1;
+    const mob = inTheColumn(state);
+
+    let spent = 0;
+    for (let tick = 0; tick < STREAM_INTERVAL * 10 && mob.alive; tick++) {
+      advanceStream(state);
+      resolveStorm(state);
+      spent += 1;
+    }
+
+    expect(mob.alive).toBe(false);
+    expect(spent / TICK_HZ).toBeCloseTo(1.5, 1);
   });
 });
 

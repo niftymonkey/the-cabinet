@@ -78,13 +78,18 @@ const liveCount = (pool: readonly PoolSlot[]): number => {
  * own fire, the lines emit continuously, and one missing skull out of a hundred
  * is invisible where a vanishing mob shot is a lie.
  *
- * Both are derived from the densest thing each pool can produce and both sit far
+ * Both are derived from the densest thing each pool can produce and both sit
  * above that derivation on purpose. A skull crosses the field's height in 109
- * ticks, so a level-5 stream at its fixed interval holds about 18 alive, and a
+ * ticks, so a level-5 stream at its fixed interval holds about 30 alive, and a
  * swallow chained as often as the game allows adds one surged volley each time.
- * Eight wisps per swallow at a 90-tick life, with a swallow as often as every 20
- * ticks, holds 36. They are a safety net and not a tuning knob, exactly as
+ * Eleven wisps per swallow at a 90-tick life, with a swallow as often as every
+ * 20 ticks, holds 50. They are a safety net and not a tuning knob, exactly as
  * MOB_CAP is: a cap that binds in normal play is a bug rather than a policy.
+ *
+ * #76 pass A moved both densities up, the stream by shortening its interval and
+ * the wisps by widening the level-5 volley, so the headroom either cap carries
+ * is narrower than it was: the skulls keep four times their worst case and the
+ * wisps keep a quarter over theirs.
  */
 const SKULL_CAP = 120;
 const WISP_CAP = 64;

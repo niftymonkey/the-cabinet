@@ -153,16 +153,18 @@ describe('the damage falls off with distance (ADR 0005)', () => {
     expect(damageTo(atEdge)).toBeLessThan(BELL_DAMAGE_FAR * 1.2);
   });
 
-  it('crosses one point of damage at eighty percent of the radius', () => {
-    // Three is one shambler exactly, so a maxed bell kills trash outright only
-    // where the player is standing, and the far edge tickles.
+  it('takes about three tenths of a shambler at eighty percent of the radius', () => {
+    // BELL_DAMAGE_NEAR is one shambler exactly, so a maxed bell kills trash
+    // outright only where the player is standing, and the far edge tickles.
+    // What the falloff is worth out here is therefore stated as a fraction of a
+    // trash body: the raw number is a scale and the fraction is the ruling.
     const level = MAX_LEVEL;
     const at = BELL_RADIUS_BY_LEVEL[level] * 0.8;
     const state = quietRun();
     state.levels.bell = level;
     const mob = put(state, 'revenant', state.grave.x, state.grave.y - at);
     ringFor(state, BELL_PERIOD + BELL_EXPAND_TICKS);
-    expect(damageTo(mob)).toBeCloseTo(1, 1);
+    expect(damageTo(mob) / MOB_TYPES.shambler.hp).toBeCloseTo(0.3, 1);
   });
 
   it('damages a mob once as the leading edge crosses it, never twice and never on the tick after', () => {
@@ -179,6 +181,29 @@ describe('the damage falls off with distance (ADR 0005)', () => {
       before = mob.hp;
     }
     expect(hurtOn).toBe(1);
+  });
+});
+
+describe('what the toll costs a trash body at the far edge (#76 pass A)', () => {
+  it("takes exactly eight tolls to kill a shambler standing at the ring's full radius", () => {
+    // Mark's 2026-08-27 ruling for #76 pass A: the far edge chips eight times
+    // where it used to chip six, while the toll still kills a shambler outright
+    // at the grave. The two ends of the falloff are what moved, and this is the
+    // far one.
+    const state = quietRun();
+    state.levels.bell = MAX_LEVEL;
+    const full = BELL_RADIUS_BY_LEVEL[MAX_LEVEL];
+    const mob = put(state, 'shambler', state.grave.x, state.grave.y - full);
+
+    let chips = 0;
+    for (let tick = 0; tick < BELL_PERIOD * 20 && mob.alive; tick++) {
+      chips += advanceBell(state).filter(
+        (event) => event.type === 'mobDamaged',
+      ).length;
+    }
+
+    expect(mob.alive).toBe(false);
+    expect(chips).toBe(8);
   });
 });
 

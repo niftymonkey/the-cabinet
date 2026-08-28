@@ -24,14 +24,19 @@ interface Wisp {
 
 /**
  * How many wisps each swallow launches, indexed by level. The concept doc's
- * endpoints are one lazy wisp and a converging flight of seven or eight, and the
- * one-swallow ordnance bound is computed against a volley of eight, so level 5
- * is eight and the design and the arithmetic agree.
+ * endpoints are one lazy wisp and a converging flight of eleven, and the
+ * one-swallow ordnance bound is computed against a volley of eleven, so level 5
+ * is eleven and the design and the arithmetic agree.
+ *
+ * The ladder is sized against what a volley clears rather than against its own
+ * shape: #76 pass A costs a trash body four wisps where it used to cost three,
+ * and eleven at the ceiling is what keeps a maxed volley clearing the same
+ * couple of bodies it always did.
  *
  * Level 0 is zero, so the line is silent at the start of a run and arrives only
  * through a drop: homing is always bought with a dive.
  */
-const WISPS_BY_LEVEL: readonly number[] = [0, 1, 2, 4, 6, 8];
+const WISPS_BY_LEVEL: readonly number[] = [0, 1, 3, 5, 8, 11];
 
 /**
  * Field units per tick, against a 90-tick life: 450 units of travel, more than
@@ -50,7 +55,9 @@ const WISP_LIFETIME = 90;
 const WISP_TURN_DEGREES_PER_SECOND = 180;
 
 const WISP_HALF_EXTENT = 4;
-const WISP_DAMAGE = 1;
+
+// What one wisp takes off a mob. Four of these is a shambler exactly (#76 pass A).
+const WISP_DAMAGE = 10;
 
 const blankWisp = (): Wisp => {
   return {
