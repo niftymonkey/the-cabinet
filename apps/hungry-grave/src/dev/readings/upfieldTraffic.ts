@@ -1,4 +1,4 @@
-// How much live mob traffic stands up-field of the grave when the grave swallows.
+// How much live mob traffic stands up-field of the grave when ground is laid.
 
 import { TICK_HZ } from '../../game/clock';
 import type { SimEvent } from '../../game/events';
@@ -24,10 +24,10 @@ const BAND_UNITS = SCROLL_SPEED * TICK_HZ;
  * grave's x.
  *
  * This is a measurement boundary and nothing else. It is deliberately not
- * Territory's own radius: an instrument that moves when the thing it measures
- * is retuned cannot judge the retune, and this reading exists to be read
- * against a placement that is expected to change. It is a tenth of the field,
- * on the same footing as gravePath's bottom-edge margin, and because it
+ * Territory's own reach or radius: an instrument that moves when the thing it
+ * measures is retuned cannot judge the retune, and this reading exists to be
+ * read against a targeting that is expected to change. It is a tenth of the
+ * field, on the same footing as gravePath's bottom-edge margin, and because it
  * reaches either side it opens a column a fifth of the field wide. It is
  * reported on every report so the number is never silent.
  */
@@ -45,50 +45,41 @@ const LATERAL_REACH = FIELD_WIDTH / 10;
 const BAND_COUNT = Math.ceil((FIELD_HEIGHT + SPAWN_MARGIN) / BAND_UNITS);
 
 /**
- * The traffic a swallow could have covered, by distance up-field.
+ * The field traffic standing up-field at the moment ground was laid.
  *
- * `perSwallow` is a mean over swallows rather than a total, so two runs that
- * swallowed different amounts are comparable; `swallows` sits beside it as the
- * sample size under every figure. Both the band width and the lateral reach
- * are reported, because a histogram whose axis is a compiled constant says
+ * `perLay` is a mean over lays rather than a total, so two runs whose clocks
+ * ran different lengths are comparable; `lays` sits beside it as the sample
+ * size under every figure. Both the band width and the lateral reach are
+ * reported, because a histogram whose axis is a compiled constant says
  * nothing on its own.
  *
- * The sweep rule is what turns the bands into a placement answer. A patch
- * drifts at exactly the scroll, so relative to a patch a mob closes at its own
- * speed alone: ground laid at distance `d` that survives the whole drift down
- * to the grave meets whatever stood in `[d, d * (1 + ownSpeed / SCROLL_SPEED)]`.
- *
- * That window is the geometric upper bound and nothing more. A patch that is
- * spent or evicted before it drifts that far stops sweeping early, and its
- * real window is cut short in the same proportion as its life. How short is
- * the run's own Territory readings to answer, never this one's: naming a
- * Territory number here would tie the instrument to the tuning it exists to
- * judge, so a reader carries the shortfall in from beside this reading.
+ * What this reading is, said honestly: cadence-anchored field traffic, not
+ * what the lay covered. A lay lands up to 180 units off the grave's column
+ * while this instrument samples a 54-unit column at the grave's own x, so a
+ * band says what stood over the grave when the clock fired, never what the
+ * ground claimed. The targeting question belongs to `patchLaid.mobsUnder`
+ * and to territoryPatches' `emptied`, and reading it off these bands would
+ * be reading the wrong instrument.
  *
  * What it does not say is as fixed as what it does. It counts centres in a
- * column and never bodies against a radius, so it is not a count of grabs. It
- * does not know whether a mob it counted is still alive when ground laid now
- * arrives. And it counts bodies without their type: two types at one distance
- * are one band's two mobs, so a reader applying the sweep rule supplies
- * `ownSpeed` themselves. The window is not near enough between types to skip
- * that step, and it is widest by far for the chasing type, whose descent may
- * run to several times the scroll while the falling types close at a fraction
- * of it.
+ * column and never bodies against a radius. It does not know whether a mob it
+ * counted is still alive when ground laid now opens. And it counts bodies
+ * without their type: two types at one distance are one band's two mobs.
  */
 interface UpfieldTraffic {
-  readonly swallows: number;
-  readonly perSwallow: NumberRecord;
+  readonly lays: number;
+  readonly perLay: NumberRecord;
   readonly bandUnits: number;
   readonly lateralReach: number;
 }
 
 interface UpfieldTrafficAcc {
-  swallows: number;
+  lays: number;
   readonly perBand: number[];
 }
 
 const createUpfieldTraffic = (): UpfieldTrafficAcc => ({
-  swallows: 0,
+  lays: 0,
   perBand: new Array<number>(BAND_COUNT).fill(0),
 });
 
@@ -108,69 +99,64 @@ const bandOf = (distance: number): number | null => {
   return band < BAND_COUNT ? band : null;
 };
 
-// Whether ground claimed at the grave's own x could reach this mob's column.
+// Whether this mob's column sits over the grave's own x.
 const inTheColumn = (graveX: number, x: number): boolean =>
   Math.abs(x - graveX) <= LATERAL_REACH;
 
-/**
- * Every live mob in the column, added to its band once per swallow this tick.
- *
- * Two swallows on one tick are two samples of the same field, because two
- * patches were laid into it.
- */
+// Every live mob in the column, added to its band once per lay this tick.
 const countTheField = (
   acc: UpfieldTrafficAcc,
   state: RunState,
-  swallows: number,
+  lays: number,
 ): void => {
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     if (!inTheColumn(state.grave.x, mob.x)) continue;
     const band = bandOf(state.grave.y - mob.y);
     if (band === null) continue;
-    acc.perBand[band] += swallows;
+    acc.perBand[band] += lays;
   }
 };
 
 /**
- * One tick's swallows, each a sample of the field it was made in.
+ * One tick's lays, each a sample of the field it was made in.
  *
- * Every swallow counts whatever Territory's level is. A swallow at level 0
- * lays no patch, and the question is where ground could be claimed rather than
- * what this run's Territory did with it, so the reading reads the mobs and
- * never the patch pool.
+ * The observation moment is the lay because the question this reading was
+ * built for is what stood up-field when ground was laid, and that moment
+ * moved from the swallow to the line's own clock. The reading reads the mobs
+ * and never the patch pool.
  */
 const observeUpfieldTraffic = (
   acc: UpfieldTrafficAcc,
   events: readonly SimEvent[],
   state: RunState,
 ): void => {
-  let swallows = 0;
-  for (const event of events) if (event.type === 'swallowed') swallows += 1;
-  if (swallows === 0) return;
-  acc.swallows += swallows;
-  countTheField(acc, state, swallows);
+  let lays = 0;
+  for (const event of events) if (event.type === 'patchLaid') lays += 1;
+  if (lays === 0) return;
+  acc.lays += lays;
+  countTheField(acc, state, lays);
 };
 
 /**
- * The mean traffic per swallow, band by band, keyed by the band's near edge.
+ * The mean traffic per lay, band by band, keyed by the band's near edge.
  *
- * A run that swallowed nothing reports no bands at all: a measured zero is an
+ * A run that laid nothing reports no bands at all: a measured zero is an
  * answer and an unmeasured one would be the instrument inventing a reading it
- * never took. Once one swallow exists every band is present, zero included.
+ * never took. Once one lay exists every band is present, zero included.
  */
-const perSwallowOf = (acc: UpfieldTrafficAcc): NumberRecord => {
-  const perSwallow: Record<string, number> = {};
-  if (acc.swallows === 0) return perSwallow;
+const perLayOf = (acc: UpfieldTrafficAcc): NumberRecord => {
+  const perLay: Record<string, number> = {};
+  if (acc.lays === 0) return perLay;
   acc.perBand.forEach((total, band) => {
-    perSwallow[`${band * BAND_UNITS}`] = total / acc.swallows;
+    perLay[`${band * BAND_UNITS}`] = total / acc.lays;
   });
-  return perSwallow;
+  return perLay;
 };
 
 const upfieldTrafficOf = (acc: UpfieldTrafficAcc): UpfieldTraffic => ({
-  swallows: acc.swallows,
-  perSwallow: perSwallowOf(acc),
+  lays: acc.lays,
+  perLay: perLayOf(acc),
   bandUnits: BAND_UNITS,
   lateralReach: LATERAL_REACH,
 });

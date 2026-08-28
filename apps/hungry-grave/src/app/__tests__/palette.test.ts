@@ -122,11 +122,6 @@ const OVER_THE_MOUTH =
 
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
-    pair: ['graveRim', 'territory'],
-    because:
-      "the rim is a large outline fixed to the grave and a patch of claimed ground is a thin ring drifting up-field of it, so ADR 0014's silhouette-first rule carries them",
-  },
-  {
     pair: ['graveGlow', 'drop'],
     because:
       "the glow is the grave wearing treasure's own colour, always at the grave's position and pulsing where a drop is steady",

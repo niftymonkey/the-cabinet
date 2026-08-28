@@ -34,6 +34,10 @@ function glowOf(layers: FieldLayers): Graphics {
   return layers.layer('graveRim').children[1] as Graphics;
 }
 
+function arcOf(layers: FieldLayers): Graphics {
+  return layers.layer('graveRim').children[2] as Graphics;
+}
+
 describe('GraveRenderer', () => {
   it('the mouth lands in the graveMouth layer and the rim in the graveRim layer (ADR 0014)', () => {
     // Two Graphics and not one: the hole's interior must sit under whatever is
@@ -41,16 +45,16 @@ describe('GraveRenderer', () => {
     // Graphics cannot be in two layers.
     const { layers } = attached();
     expect(layers.layer('graveMouth').children).toHaveLength(1);
-    // The rim and the reservoir's glow, which is the rim's own band in
-    // treasure's colour drawn over it at the identical geometry.
-    expect(layers.layer('graveRim').children).toHaveLength(2);
+    // The rim, the reservoir's glow, and Territory's charge arc: three bands
+    // on one geometry, never a second shape.
+    expect(layers.layer('graveRim').children).toHaveLength(3);
     expect(mouthOf(layers)).not.toBe(rimOf(layers));
   });
 
   it('the drawn width is graveWidth(size) and the height twice the size, at the floor, the start size and the ceiling', () => {
     const { layers, renderer } = attached();
     for (const size of [SIZE_FLOOR, SIZE_START, SIZE_CEILING]) {
-      renderer.sync(grave(size), 0, 0);
+      renderer.sync(grave(size), 0, 0, 0);
       const bounds = mouthOf(layers).getLocalBounds();
       expect(bounds.width).toBeCloseTo(graveWidth(size), 9);
       expect(bounds.height).toBeCloseTo(size * 2, 9);
@@ -77,7 +81,7 @@ describe('GraveRenderer', () => {
     // would draw it half a stroke wider on every side than the hitbox reports.
     const { layers, renderer } = attached();
     const at = grave(SIZE_START);
-    renderer.sync(at, 0, 0);
+    renderer.sync(at, 0, 0, 0);
 
     const box = graveHitbox(at);
     const bounds = rimOf(layers).getBounds();
@@ -89,7 +93,7 @@ describe('GraveRenderer', () => {
 
   it('position follows grave.x and grave.y', () => {
     const { layers, renderer } = attached();
-    renderer.sync(grave(SIZE_START, 123, 456), 0, 0);
+    renderer.sync(grave(SIZE_START, 123, 456), 0, 0, 0);
     for (const piece of [mouthOf(layers), rimOf(layers)]) {
       expect(piece.position.x).toBe(123);
       expect(piece.position.y).toBe(456);
@@ -100,13 +104,13 @@ describe('GraveRenderer', () => {
     // Position is a container transform and is free; rebuilding the rounded
     // rect every frame is not, and the size only changes on a swallow or a hit.
     const { layers, renderer } = attached();
-    renderer.sync(grave(SIZE_START), 0, 0);
+    renderer.sync(grave(SIZE_START), 0, 0, 0);
     const redrawn = vi.spyOn(mouthOf(layers), 'clear');
 
-    renderer.sync(grave(SIZE_START, 300, 400), 0, 0);
+    renderer.sync(grave(SIZE_START, 300, 400), 0, 0, 0);
     expect(redrawn).not.toHaveBeenCalled();
 
-    renderer.sync(grave(SIZE_START + 3, 300, 400), 0, 0);
+    renderer.sync(grave(SIZE_START + 3, 300, 400), 0, 0, 0);
     expect(redrawn).toHaveBeenCalled();
   });
 
@@ -115,7 +119,7 @@ describe('GraveRenderer', () => {
     // under. A glow standing outside the rim would make the grave read wider
     // than the box, and one standing inside it would eat the mouth at the floor.
     const { layers, renderer } = attached();
-    renderer.sync(grave(SIZE_START), 1, 0);
+    renderer.sync(grave(SIZE_START), 1, 0, 0);
     const rim = rimOf(layers).getLocalBounds();
     const glow = glowOf(layers).getLocalBounds();
     expect(glow.width).toBeCloseTo(rim.width, 9);
@@ -131,7 +135,7 @@ describe('GraveRenderer', () => {
     layers.clear();
     renderer.attach(layers);
     expect(layers.layer('graveMouth').children).toHaveLength(1);
-    expect(layers.layer('graveRim').children).toHaveLength(2);
+    expect(layers.layer('graveRim').children).toHaveLength(3);
   });
 });
 
@@ -164,6 +168,48 @@ describe("the reservoir's diegetic tell (plan 6.18)", () => {
     const layers = new FieldLayers();
     const renderer = new GraveRenderer();
     renderer.attach(layers);
-    expect(() => renderer.sync(createGrave(27), 1, 10)).not.toThrow();
+    expect(() => renderer.sync(createGrave(27), 1, 10, 0)).not.toThrow();
+  });
+});
+
+describe("Territory's charge arc (#76)", () => {
+  it('zero charge draws nothing', () => {
+    // The arc empties on the lay, so an empty charge is an empty band rather
+    // than a full band at zero alpha a screenshot could still measure.
+    const { layers, renderer } = attached();
+    renderer.sync(grave(SIZE_START), 0, 0, 0);
+    expect(arcOf(layers).getLocalBounds().width).toBe(0);
+  });
+
+  it('a partial charge traces part of the rim and a fuller one traces more', () => {
+    // The trace runs clockwise from top-centre, so half a charge reaches the
+    // bottom-centre: the whole right side and neither left corner.
+    // The bounds rectangle is copied field by field: pixi hands back a reused
+    // instance that the next sync mutates in place.
+    const { layers, renderer } = attached();
+    renderer.sync(grave(SIZE_START), 0, 0, 0.5);
+    const half = arcOf(layers).getLocalBounds();
+    const halfWidth = half.width;
+    expect(half.height).toBeGreaterThan(0);
+    expect(halfWidth).toBeGreaterThan(graveWidth(SIZE_START) * 0.3);
+    expect(halfWidth).toBeLessThan(graveWidth(SIZE_START) * 0.75);
+
+    renderer.sync(grave(SIZE_START), 0, 0, 1);
+    const fullWidth = arcOf(layers).getLocalBounds().width;
+    expect(fullWidth).toBeGreaterThan(halfWidth);
+  });
+
+  it('a full charge traces the whole rim, its outer edge never outside the hitbox', () => {
+    // ADR 0003 makes the drawn grave the health bar, so the visible outer
+    // edge has to equal the hitbox at every size and every charge.
+    const { layers, renderer } = attached();
+    for (const size of [SIZE_FLOOR, SIZE_START, SIZE_CEILING]) {
+      renderer.sync(grave(size), 0, 0, 1);
+      const bounds = arcOf(layers).getLocalBounds();
+      expect(bounds.width).toBeLessThanOrEqual(graveWidth(size) + 1e-6);
+      expect(bounds.height).toBeLessThanOrEqual(size * 2 + 1e-6);
+      expect(bounds.width).toBeGreaterThan(graveWidth(size) * 0.9);
+      expect(bounds.height).toBeGreaterThan(size * 2 * 0.9);
+    }
   });
 });

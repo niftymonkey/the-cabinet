@@ -69,7 +69,27 @@ const PALETTE = {
 
   // player fire
   skull: { hex: 0x8496a6, luma: 57.78 },
-  territory: { hex: 0x9aa4ad, luma: 63.73 },
+  /**
+   * Claimed ground, and the charge arc that announces it.
+   *
+   * Re-valued on 2026-08-28 from `#9aa4ad` luma 63.73, a pale blue-grey at hue
+   * 208. The arc is the rim's own band wearing this colour, the construction
+   * graveGlow already uses, and on that band the old value was invisible: it
+   * sat 0.72 luma and 3 hue degrees from graveRim, inside the flat span where
+   * 72 of 78 pairs measure APCA Lc 0.00. Lightness cannot separate them,
+   * because the band ceiling caps both, so the separation has to be hue, which
+   * is how the glow reads at Lc 0.00 on the same geometry.
+   *
+   * The hue is forced rather than chosen. Fire's 20-degree exclusion closes 20
+   * to 39, amber at 41 is spoken for, purple is banned outright, and 175 to
+   * 220 is the grave's own family, which is what has to be left. That leaves
+   * the window between corpseRevenant at hue 76 and mob at hue 126, and 101 is
+   * its midpoint, 24 degrees off the moss and 25 off a mob body. Saturation
+   * 0.40 sits midway between the grave family's 0.11 to 0.22 and a mob's 0.56,
+   * so claimed ground parts from a mob on saturation as well as on hue. The
+   * luma is held at the old value so nothing else in the band moves.
+   */
+  territory: { hex: 0x82b26b, luma: 63.79 },
   wisp: { hex: 0x63b8ad, luma: 64.76 },
   bellRing: { hex: 0x9faebd, luma: 67.41 },
 

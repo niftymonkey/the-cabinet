@@ -145,6 +145,7 @@ const checkLinesNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'lines.tollIn', lines.tollIn);
   checkFinite(faults, 'lines.ring.ticks', lines.ring?.ticks ?? 0);
   checkFinite(faults, 'lines.ring.level', lines.ring?.level ?? 0);
+  checkFinite(faults, 'lines.layIn', lines.layIn);
 };
 
 const checkPatchesNoNaN = (state: RunState, faults: Fault[]): void => {
@@ -154,7 +155,7 @@ const checkPatchesNoNaN = (state: RunState, faults: Fault[]): void => {
     checkSlotFinite(faults, 'patch', patch.id, 'y', patch.y);
     checkSlotFinite(faults, 'patch', patch.id, 'radius', patch.radius);
     checkSlotFinite(faults, 'patch', patch.id, 'opening', patch.opening);
-    checkSlotFinite(faults, 'patch', patch.id, 'bites', patch.bites);
+    checkSlotFinite(faults, 'patch', patch.id, 'pulses', patch.pulses);
   }
 };
 

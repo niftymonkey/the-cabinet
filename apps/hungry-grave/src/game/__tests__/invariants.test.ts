@@ -23,7 +23,7 @@ import { BELL_EXPAND_TICKS } from '../lines/bell';
 import type { Stream } from '../rng';
 import { MAX_LEVEL } from '../lines/roster';
 import { SKULL_HALF_EXTENT } from '../lines/soulStream';
-import { TERRITORY_FULL_RADIUS } from '../lines/territory';
+import { RADIUS_BY_LEVEL } from '../lines/territory';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from '../tuning';
 import type { Fault, FaultIdentity } from '../faults';
 import { checkInvariants, createStageWatch } from '../invariants';
@@ -550,9 +550,9 @@ function fillPatch(run: RunState): void {
   patch.y = 84.25;
   patch.radius = 41.5;
   patch.opening = 6;
-  patch.bites = 3;
+  patch.pulses = 3;
   patch.struck.clear();
-  patch.struck.add(11);
+  patch.struck.set(11, 430);
 }
 
 /**
@@ -943,9 +943,9 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
-    path: 'patches[].bites',
+    path: 'patches[].pulses',
     poison: (run) => {
-      run.patches[0].bites = NaN;
+      run.patches[0].pulses = NaN;
       return run;
     },
   },
@@ -953,6 +953,13 @@ const NAN_CASES: readonly NanCase[] = [
     path: 'lines.tollIn',
     poison: (run) => {
       run.lines.tollIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'lines.layIn',
+    poison: (run) => {
+      run.lines.layIn = NaN;
       return run;
     },
   },
@@ -1128,8 +1135,8 @@ describe('Territory under the harness (#76)', () => {
     const run = createRun(1);
     run.patches[0].alive = true;
     run.patches[0].x = 270;
-    run.patches[0].radius = TERRITORY_FULL_RADIUS;
-    run.patches[0].y = FIELD_HEIGHT + TERRITORY_FULL_RADIUS + 1;
+    run.patches[0].radius = RADIUS_BY_LEVEL[1];
+    run.patches[0].y = FIELD_HEIGHT + RADIUS_BY_LEVEL[1] + 1;
 
     expect(brokenOn(run)).toContain('entities in bounds');
   });
@@ -1140,8 +1147,8 @@ describe('Territory under the harness (#76)', () => {
     const run = createRun(1);
     run.patches[0].alive = true;
     run.patches[0].x = 270;
-    run.patches[0].radius = TERRITORY_FULL_RADIUS;
-    run.patches[0].y = FIELD_HEIGHT + TERRITORY_FULL_RADIUS;
+    run.patches[0].radius = RADIUS_BY_LEVEL[1];
+    run.patches[0].y = FIELD_HEIGHT + RADIUS_BY_LEVEL[1];
 
     expect(brokenOn(run)).not.toContain('entities in bounds');
   });

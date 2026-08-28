@@ -62,76 +62,72 @@ const SEEDS = [101, 202, 303, 404, 505];
 
 /**
  * The seeds whose fresh run seals shut inside the ramp on the current
- * birthright.
+ * birthright, and there are none.
  *
- * Re-measured for the #76 edge walk-in, which slides a settled faller whose
- * body crosses a side edge back on-field. A curtain that used to leak its edge
- * mobs half off-field now holds its full width, and a mob a bell toll parked
- * past the rim walks back into the lane, so the dodger meets more bodies and
- * narrower gaps through the whole ramp. Seeds 202 and 404 now seal shut inside
- * it, at 5442 and 5456 ticks, ground to the size floor; the other three still
- * come out the far side, leaving the ramp at 25.4 on seed 101, 18.8 on 303 and
- * 18.6 on 505.
+ * Re-measured for #76 pass B, which put Territory on its own clock: the
+ * birthright line now lays ground and grinds mobs from tick 0 of every run,
+ * swallow or no swallow, so the dodger rides a field the storm keeps thinning
+ * the whole way. Every fresh seed comes out of the ramp's far side; the two
+ * that then seal do it deep in the back half, 101 at 8853 ticks and 202 at
+ * 11456.
  *
- * What it measures is still this policy rather than the game. `dodgePolicy`
- * never dives, so it reads the ramp at about the weakest play the sim can
- * produce, and a person who dives constantly is not described by it.
+ * Named rather than deleted so the day a seed seals inside the ramp again,
+ * this says which. What it measures is still this policy rather than the
+ * game: `dodgePolicy` never dives, so it reads the ramp at about the weakest
+ * play the sim can produce.
  */
-const SEALS_IN_THE_RAMP: number[] = [202, 404];
+const SEALS_IN_THE_RAMP: number[] = [];
 
 /**
- * The seeds on which this policy never swallows anything at all.
+ * The seeds on which this policy never swallows anything at all, and there
+ * are none.
  *
- * Re-measured for the #76 edge walk-in: seed 202 seals shut inside the ramp at
- * 5442 ticks without ever crossing a corpse, and the other four feed three to
- * four times a run.
+ * Re-measured for #76 pass B: an autonomous Territory grinds mobs into
+ * corpses across the whole field for the whole run, so every seed's dodger
+ * now crosses food, from 3 swallows on seed 101 up to 19 on 505.
  *
  * Those swallows are incidental, which is the thing to keep in front of a
  * reader. `dodgePolicy` scores its nine moves against mobs and mob fire alone
- * and looks at neither corpses nor drops, so it never once steers toward food.
- * A grave dodging through enough corpses crosses one sooner or later, and a
- * run cut short inside the ramp may never get the chance.
+ * and looks at neither corpses nor drops, so it never once steers toward
+ * food; the line simply litters the lane it dodges through.
  *
- * Named rather than folded into the assertions below, because "this policy never
- * fed" is a fact about the policy that a reader of a failing assertion needs in
- * front of them.
+ * Named rather than deleted so the day a seed stops feeding, this says which.
  */
-const NEVER_FEEDS: number[] = [202];
+const NEVER_FEEDS: number[] = [];
 
 /**
- * The seeds whose fresh grave reaches victory on this policy, and there are
- * none.
+ * The seeds whose fresh grave reaches victory on this policy.
  *
- * Measured across the five seeds after the #76 edge walk-in, every fresh run
- * seals shut: 202 and 404 inside the ramp, the other three inside the back
- * half, the longest of them seed 101 at 9898 ticks against a stage of 12300.
+ * Re-measured for #76 pass B: three of the five fresh seeds now run the full
+ * 12301 ticks and win, at 151, 132 and 157 kills, while 101 and 202 seal shut
+ * inside the back half. The cause is the trigger move: Territory's payout was
+ * downstream of a swallow this policy never aims for, and on its own clock
+ * the line fights all run for free, which is exactly the birthright change
+ * ADR 0044 records.
  *
- * It stays a tripwire in both directions, because the assertion is an equality:
- * the day any fresh seed wins, this file goes red and says which. And as with
- * SEALS_IN_THE_RAMP, what it measures is a policy that only dodges rather than
- * Territory's strength in a hand. Territory's whole payout is downstream of a
- * swallow, and a person dives for one constantly.
+ * It stays a tripwire in both directions, because the assertion is an
+ * equality: the day the set moves either way, this file goes red and says
+ * which seed did it. What it measures is still a policy that only dodges,
+ * never a hand that dives.
  */
-const REACHES_VICTORY_FRESH: number[] = [];
+const REACHES_VICTORY_FRESH: number[] = [303, 404, 505];
 
 /**
- * The seeds that reach victory from the size ceiling on this policy.
+ * The seeds that reach victory from the size ceiling on this policy, which is
+ * all five.
  *
- * Re-measured for the #76 edge walk-in, which took this set from three seeds
- * to two. Seeds 303 and 404 run the full 12301 ticks and win, at 50 and 53
- * kills off 15 and 19 swallows; 101, 202 and 505 seal shut inside the back
- * half at 8761, 11389 and 11159 ticks.
+ * Re-measured for #76 pass B: every ceiling run goes the full 12301 ticks and
+ * wins, at 140 to 183 kills off 28 to 51 swallows. Size still buys margin,
+ * and it shows most where feeding was scarce: seeds 101 and 202, the two the
+ * ceiling flips from sealed to victory, feed 44 and 28 times here against 3
+ * and 17 fresh. The line's own clock is what closed the rest of the gap: a
+ * Territory that fights without being fed keeps even a shrinking grave's
+ * field thin enough to cross.
  *
- * Size is what buys the win, and the swallow counts are where that shows. The
- * two winners feed fifteen and nineteen times, while the same five seeds run
- * fresh feed at most four: a grave at the ceiling absorbs enough of the ramp
- * and the back half to keep feeding, and everything Territory pays out is
- * downstream of feeding.
- *
- * Pinned as a constant rather than left a literal in the test, because no fresh
- * grave wins any more and the two facts are different ones.
+ * Pinned as a constant rather than left a literal in the test, because the
+ * fresh set and this one are different facts.
  */
-const REACHES_VICTORY_FROM_THE_CEILING = [303, 404];
+const REACHES_VICTORY_FROM_THE_CEILING = [101, 202, 303, 404, 505];
 
 const RAMP_TICKS = phaseLengthTicks(PHASES[0]);
 const STAGE_TICKS = RAMP_TICKS + phaseLengthTicks(PHASES[2]);
@@ -259,8 +255,8 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
       // empty rather than deleted so the day one stops, this says so. A corpse
       // still lands wherever Territory or the stream killed the mob rather than
       // at the grave's own rim, and this policy still never drives to food; the
-      // rescale simply puts enough corpses in the lane that a dodging grave
-      // crosses one. Growth follows feeding exactly, so it is asserted on the
+      // autonomous line simply litters the lane with enough corpses that a
+      // dodging grave crosses one. Growth follows feeding exactly, so it is asserted on the
       // same seeds and no others.
       const fed = !NEVER_FEEDS.includes(seed);
       expect(count(events, 'swallowed') > 0).toBe(fed);
@@ -270,26 +266,33 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
 });
 
 /**
+ * The seeds whose fresh run kills more than half the authored timeline.
+ *
+ * Re-measured for #76 pass B: the five fresh runs land 80 to 157 kills
+ * against 268 authored mobs, and 303 and 505 clear the half at 151 and 157.
+ * The autonomous Territory is what moved this from a tenth of the timeline
+ * to over a quarter everywhere: the loop that was bootstrapped (kills buy
+ * drops, drops buy columns, columns buy kills) now has an entry a dodging
+ * bot gets for free, because the line lays and grinds without being fed.
+ */
+const MEETS_THE_TIMELINE = [303, 505];
+
+/**
  * ADR 0013 asks a full run to land ten to twelve drops, and it does not.
  *
- * Measured on real weapons across the five fresh seeds after the #76 edge
- * walk-in: 13 to 31 kills and 2 to 4 drops, against a price table fitted to 268
- * authored mobs. The table is doing exactly what it was derived to do, because
- * 31 kills buys 4 drops off it; what is far below the derivation is the kill
- * rate, at roughly a tenth of the timeline rather than the six-in-ten the
- * ten-drop figure was fitted against.
+ * Re-measured for #76 pass B: 7 to 9 drops across the five fresh seeds,
+ * against a price table fitted to 268 authored mobs. The kill rate is no
+ * longer the far-below number it was; what still holds the band off is the
+ * table's rising prices against runs that stop feeding drops back into
+ * columns, and a dodging bot never dives for the drops it does spawn.
  *
- * The cause is named rather than guessed at. `dodgePolicy` maximizes clearance
- * and never aims, the birthright stream is a single column 8 units wide pouring
- * straight up from wherever the grave happens to be, and the loop that would fix
- * it is bootstrapped: kills buy drops, drops buy columns, columns buy kills. A
- * dodging bot never enters it, and a drop it does not dive for scrolls away.
- *
- * These are declared expected failures rather than left red so a genuinely new
- * break cannot hide among them, and they are a tripwire in the other direction
- * too: the day the storm or the bot reaches the band, this file goes red and
- * asks to be rewritten as ordinary assertions. The price table is not moved and
- * the bot is not improved, both of which dispatch 5's plan forbids by name.
+ * The drops half stays a declared expected failure so a genuinely new break
+ * cannot hide among red tests, and it is a tripwire in the other direction
+ * too: the day the storm reaches the band, this file goes red and asks to be
+ * rewritten as ordinary assertions. The timeline half fired that tripwire on
+ * two seeds this pass, and MEETS_THE_TIMELINE is the rewrite. The price
+ * table is not moved and the bot is not improved, both of which dispatch 5's
+ * plan forbids by name.
  */
 describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
   for (const seed of SEEDS) {
@@ -302,7 +305,9 @@ describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
   }
 
   for (const seed of SEEDS) {
-    it.fails(`meets most of the authored timeline on seed ${seed}`, () => {
+    const meets = MEETS_THE_TIMELINE.includes(seed);
+    const test = meets ? it : it.fails;
+    test(`${meets ? 'meets' : 'falls short of'} most of the authored timeline on seed ${seed}`, () => {
       const { events } = fullRun(seed);
       expect(count(events, 'mobKilled')).toBeGreaterThan(AUTHORED_MOBS / 2);
     });
@@ -311,14 +316,13 @@ describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
   for (const seed of SEEDS) {
     it(`stays inside the range the storm actually reaches on seed ${seed}`, () => {
       // The ordinary half, so a regression away from today's figures is caught
-      // while the band above stays the thing being aimed at. The floors are the
-      // measured minima across the five fresh runs after the #76 edge walk-in:
-      // seed 202 is lowest at 13 kills and 2 drops. Both are set by the two
-      // seeds that seal inside the ramp, whose short runs put the bottom well
-      // under the whole-run figures.
+      // while the band above stays the thing being aimed at. The floors are
+      // the measured minima across the five fresh runs after #76 pass B: seed
+      // 101 is lowest on both at 80 kills and 7 drops, set by the earliest
+      // seal in the back half.
       const { events } = fullRun(seed);
-      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(13);
-      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(2);
+      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(80);
+      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(7);
     });
   }
 });
@@ -364,10 +368,10 @@ describe('both endings across the two loadouts', () => {
     // shut is the real ladder. Both have to be reachable or the full-run test
     // is only ever exercising one half of the run's shape.
     //
-    // Where victory comes from moved again with the combat rescale and is
-    // recorded rather than quietly re-pinned. No fresh grave reaches it on any
-    // of the five seeds; from the size ceiling two of them do, so the whole
-    // of this property now rests on the ceiling loadout.
+    // Where each ending comes from moved again with #76 pass B and is
+    // recorded rather than quietly re-pinned. Victory is now the common end:
+    // three fresh seeds and all five ceiling runs reach it, so the whole of
+    // the sealed half of this property rests on fresh seeds 101 and 202.
     // REACHES_VICTORY_FRESH and REACHES_VICTORY_FROM_THE_CEILING carry both
     // facts and the cause they share. Both loadouts are read here so the
     // property is about the run's shape rather than about which starting size

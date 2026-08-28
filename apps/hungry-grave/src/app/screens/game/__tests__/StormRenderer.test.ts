@@ -4,7 +4,7 @@
  */
 
 import type { Graphics } from 'pixi.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { SKULL_CAP, TERRITORY_CAP, WISP_CAP } from '../../../../game/caps';
 import { TERRITORY_OPENING_TICKS } from '../../../../game/lines/territory';
@@ -237,7 +237,6 @@ describe("Territory's claimed ground", () => {
     slot: number,
     radius: number,
     opening = 0,
-    bites = 2,
   ) {
     const patch = state.patches[slot];
     patch.alive = true;
@@ -246,7 +245,7 @@ describe("Territory's claimed ground", () => {
     patch.y = 300;
     patch.radius = radius;
     patch.opening = opening;
-    patch.bites = bites;
+    patch.pulses = 0;
     patch.struck.clear();
     return patch;
   }
@@ -271,6 +270,51 @@ describe("Territory's claimed ground", () => {
     expect(full.getLocalBounds().width).toBeGreaterThan(
       stale.getLocalBounds().width * 1.5,
     );
+  });
+
+  it('scales the hands with the ground’s circumference, so level reads as size twice over', () => {
+    // round(radius / 8): 6 hands at the level-1 radius of 48 and 14 at the
+    // level-5 radius of 108. Bigger claimed ground visibly holds more hands,
+    // never the same six stretched thin.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    putPatch(state, 0, 48);
+    putPatch(state, 1, 108);
+    renderer.sync(state);
+
+    const circlesOf = (sprite: Graphics) =>
+      sprite.context.instructions
+        .flatMap((instruction) => {
+          const data = instruction.data as {
+            path?: { instructions?: { action: string }[] };
+          };
+          return data.path?.instructions ?? [];
+        })
+        .filter((shape) => shape.action === 'circle').length;
+    const [levelOne, levelFive] = patchSprites(layers);
+    // The rim is one circle; every other circle is a hand.
+    expect(circlesOf(levelOne)).toBe(1 + 6);
+    expect(circlesOf(levelFive)).toBe(1 + 14);
+  });
+
+  it('the look is the radius alone, so grinding never rebuilds the ground', () => {
+    // The pulse count and the re-hit map move constantly while a mob is held,
+    // and neither changes what the ground looks like.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const patch = putPatch(state, 0, 48);
+    renderer.sync(state);
+    const sprite = patchSprites(layers)[0];
+    const clear = vi.spyOn(sprite, 'clear');
+
+    patch.pulses += 5;
+    patch.struck.set(11, 430);
+    renderer.sync(state);
+    expect(clear).not.toHaveBeenCalled();
+
+    patch.radius = 59;
+    renderer.sync(state);
+    expect(clear).toHaveBeenCalled();
   });
 
   it('draws opening ground differently from ground whose hands are up', () => {

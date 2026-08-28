@@ -136,17 +136,19 @@ const drawSkull = (into: Graphics): void => {
 
 /**
  * A patch of claimed ground: a torn-open ring at the radius the sim uses, with
- * one hand inside it per grab it has left.
+ * hands inside it scaled to the ground's circumference, so bigger claimed
+ * ground visibly holds more hands and level reads as size twice over.
  *
- * The rim is the collision radius exactly, because freshness scales the claimed
- * area and a drawn size that disagreed with it would make the player's read of
- * their own ground a lie. The hands are what keep the four motions apart under
- * ADR 0005: the patch itself drifts with the food layer at the scroll speed, so
- * without motion of its own it would be an inert mark in the corpses' lane.
+ * The rim is the collision radius exactly, because a drawn size that disagreed
+ * with it would make the player's read of their own ground a lie. The hands
+ * are what keep the four motions apart under ADR 0005: the patch itself drifts
+ * with the food layer at the scroll speed, so without motion of its own it
+ * would be an inert mark in the corpses' lane.
  */
-const drawPatch = (into: Graphics, radius: number, hands: number): void => {
+const drawPatch = (into: Graphics, radius: number): void => {
   into.clear();
   if (radius <= 0) return;
+  const hands = Math.round(radius / 8);
   into.circle(0, 0, radius).stroke({
     width: PATCH_STROKE,
     color: PALETTE.territory.hex,
@@ -230,8 +232,8 @@ const drawSplash = (into: Graphics, progress: number): void => {
   into.fill({ color: PALETTE.splash.hex });
 };
 
-// What a patch sprite's geometry depends on, so a redraw happens only when one of them moves.
-const patchLook = (patch: Patch): string => `${patch.radius}|${patch.bites}`;
+// What a patch sprite's geometry depends on, so a redraw happens only when it moves.
+const patchLook = (patch: Patch): string => `${patch.radius}`;
 
 // A sprite pool at an entity pool's own capacity, so attach() can place them all and no spawn allocates.
 const fill = (sprites: Graphics[], capacity: number): void => {
@@ -378,7 +380,7 @@ class StormRenderer {
       const look = patchLook(patch);
       if (this.patchDrawn[slot] !== look) {
         this.patchDrawn[slot] = look;
-        drawPatch(sprite, patch.radius, patch.bites);
+        drawPatch(sprite, patch.radius);
       }
       sprite.position.set(patch.x, patch.y);
       // Ground still opening draws dimmed, so the beat before the hands come up

@@ -269,9 +269,9 @@ const GOLDEN: Digest = {
   size: 24.50625,
   score: 0,
   reservoir: 0.50625,
-  mobs: 6,
+  mobs: 5,
   shots: 2,
-  corpses: 1,
+  corpses: 2,
   skulls: 2,
   wisps: 0,
   kills: 2,
@@ -287,7 +287,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 1444401929,
+  checksum: 1304543197,
 };
 
 export { runScenario, GOLDEN };

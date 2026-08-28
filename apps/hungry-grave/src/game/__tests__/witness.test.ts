@@ -63,7 +63,10 @@ function fixture(): RunState {
 }
 
 /** The fixture patch's own state, so a per-field test can move one part of it. */
-const PATCH_STRUCK: readonly number[] = [21, 22];
+const PATCH_STRUCK: readonly (readonly [number, number])[] = [
+  [21, 430],
+  [22, 445],
+];
 
 function fillPatch(run: RunState): void {
   const patch = run.patches[0];
@@ -73,9 +76,9 @@ function fillPatch(run: RunState): void {
   patch.y = 84.25;
   patch.radius = 41.5;
   patch.opening = 6;
-  patch.bites = 3;
+  patch.pulses = 3;
   patch.struck.clear();
-  for (const id of PATCH_STRUCK) patch.struck.add(id);
+  for (const [id, eligibleAt] of PATCH_STRUCK) patch.struck.set(id, eligibleAt);
 }
 
 function fillRun(run: RunState): void {
@@ -95,6 +98,7 @@ function fillRun(run: RunState): void {
   run.lines.surgeVolleys = 2;
   run.lines.tollIn = 90;
   run.lines.ring = ring();
+  run.lines.layIn = 240;
 }
 
 function fillGrave(run: RunState): void {
@@ -367,13 +371,13 @@ const ENTITY_CASES: readonly FieldCase[] = [
     restore: (run) => void (run.patches[0].opening += 1),
   },
   {
-    path: 'patches[].bites',
-    move: (run) => void (run.patches[0].bites -= 1),
-    restore: (run) => void (run.patches[0].bites += 1),
+    path: 'patches[].pulses',
+    move: (run) => void (run.patches[0].pulses -= 1),
+    restore: (run) => void (run.patches[0].pulses += 1),
   },
   {
     path: 'patches[].struck',
-    move: (run) => void run.patches[0].struck.add(23),
+    move: (run) => void run.patches[0].struck.set(23, 460),
     restore: (run) => void run.patches[0].struck.delete(23),
   },
 ];
@@ -486,6 +490,11 @@ const RUN_CASES: readonly FieldCase[] = [
     move: (run) => void run.lines.ring!.struck.add(13),
     restore: (run) => void run.lines.ring!.struck.delete(13),
   },
+  {
+    path: 'lines.layIn',
+    move: (run) => void (run.lines.layIn -= 1),
+    restore: (run) => void (run.lines.layIn += 1),
+  },
 ];
 
 const FIELD_CASES: readonly FieldCase[] = [...ENTITY_CASES, ...RUN_CASES];
@@ -539,7 +548,7 @@ const FOLDED: readonly string[] = [
   'patches[].y',
   'patches[].radius',
   'patches[].opening',
-  'patches[].bites',
+  'patches[].pulses',
   'patches[].struck',
   'score',
   'reservoir',
@@ -564,6 +573,7 @@ const FOLDED: readonly string[] = [
   'lines.ring.level',
   'lines.ring.ticks',
   'lines.ring.struck',
+  'lines.layIn',
 ];
 
 /**
@@ -611,13 +621,13 @@ const EXCLUDED: Readonly<Record<string, string>> = {
 
 /**
  * Every leaf field of a value, as a path. Arrays walk their first element under
- * a `[]` segment because a pool's slots all carry the same fields, and a Set is
- * a leaf because its members are values rather than fields.
+ * a `[]` segment because a pool's slots all carry the same fields, and a Set
+ * or a Map is a leaf because its members are values rather than fields.
  */
 function fieldPaths(value: unknown, path: string): string[] {
   if (value === null || value === undefined) return [path];
   if (typeof value === 'function') return [path];
-  if (value instanceof Set) return [path];
+  if (value instanceof Set || value instanceof Map) return [path];
   if (Array.isArray(value)) {
     if (value.length === 0) return [path];
     return fieldPaths(value[0], `${path}[]`);
@@ -817,15 +827,36 @@ function snapshotAt30(foldAt: readonly number[]): number {
 }
 
 describe('Territory in the fold (#76)', () => {
-  it('two runs differing only in a patch’s remaining budget produce different witnesses', () => {
-    // The budget is state the rules mutate, so a replay that spent a patch
-    // differently has to be caught. This is why WITNESS_VERSION moved to 2.
-    const spent = fixture();
-    const unspent = fixture();
-    expect(foldWitness(spent, 0)).toBe(foldWitness(unspent, 0));
+  it('two runs differing only in a patch’s pulse count produce different witnesses', () => {
+    // The pulse count is state the rules mutate, so a replay that ground a
+    // patch differently has to be caught.
+    const ground = fixture();
+    const untouched = fixture();
+    expect(foldWitness(ground, 0)).toBe(foldWitness(untouched, 0));
 
-    spent.patches[0].bites -= 1;
-    expect(foldWitness(spent, 0)).not.toBe(foldWitness(unspent, 0));
+    ground.patches[0].pulses -= 1;
+    expect(foldWitness(ground, 0)).not.toBe(foldWitness(untouched, 0));
+  });
+
+  it('the re-hit map folds a moved deadline', () => {
+    // The deadline is what holds one pulse per window per mob, so a replay
+    // that re-hit early has to be caught.
+    const early = fixture();
+    const late = fixture();
+    late.patches[0].struck.set(21, 431);
+    expect(foldWitness(early, 0)).not.toBe(foldWitness(late, 0));
+  });
+
+  it('the re-hit map folds its entries in insertion order, never sorted', () => {
+    // With pruning, a re-added id moves to the end, so the order is
+    // chronological across resolve passes rather than slot order. It is still
+    // fully deterministic, because the hit history is deterministic, and
+    // sorting would fold a different order than the map actually holds.
+    const chronological = fixture();
+    const reAdded = fixture();
+    reAdded.patches[0].struck.delete(21);
+    reAdded.patches[0].struck.set(21, 430);
+    expect(foldWitness(reAdded, 0)).not.toBe(foldWitness(chronological, 0));
   });
 
   it('the fold covers a patch that is live and skips one that is not', () => {

@@ -453,8 +453,8 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     (report) => report.tuning.dropLedger.onFieldAtStop,
   ),
   scalarReading(
-    'tuning.territoryPatches.spent',
-    (report) => report.tuning.territoryPatches.spent,
+    'tuning.territoryPatches.laid',
+    (report) => report.tuning.territoryPatches.laid,
   ),
   scalarReading(
     'tuning.territoryPatches.scrolled',
@@ -469,16 +469,16 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     (report) => report.tuning.territoryPatches.emptied,
   ),
   scalarReading(
-    'tuning.territoryPatches.bitten',
-    (report) => report.tuning.territoryPatches.bitten,
+    'tuning.territoryPatches.pulses',
+    (report) => report.tuning.territoryPatches.pulses,
   ),
   scalarReading(
-    'tuning.upfieldTraffic.swallows',
-    (report) => report.tuning.upfieldTraffic.swallows,
+    'tuning.upfieldTraffic.lays',
+    (report) => report.tuning.upfieldTraffic.lays,
   ),
   namedNumbersReading(
-    'tuning.upfieldTraffic.perSwallow',
-    (report) => report.tuning.upfieldTraffic.perSwallow,
+    'tuning.upfieldTraffic.perLay',
+    (report) => report.tuning.upfieldTraffic.perLay,
   ),
   scalarReading(
     'tuning.upfieldTraffic.bandUnits',

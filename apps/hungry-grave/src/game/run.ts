@@ -7,7 +7,7 @@ import { BELL_PERIOD } from './lines/bell';
 import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
 import type { Patch } from './lines/territory';
-import { createTerritoryPool } from './lines/territory';
+import { createTerritoryPool, TERRITORY_PERIOD } from './lines/territory';
 import type { Skull } from './lines/soulStream';
 import { createSkullPool, STREAM_INTERVAL } from './lines/soulStream';
 import type { Wisp } from './lines/wisps';
@@ -44,6 +44,8 @@ interface LineState {
   tollIn: number;
   // The one live ring, or null between tolls.
   ring: BellRing | null;
+  // Ticks to the next Territory lay. Held at zero while nothing is eligible.
+  layIn: number;
 }
 
 /**
@@ -128,6 +130,7 @@ const startingLines = (): LineState => {
     surgeVolleys: 0,
     tollIn: BELL_PERIOD,
     ring: null,
+    layIn: TERRITORY_PERIOD,
   };
 };
 

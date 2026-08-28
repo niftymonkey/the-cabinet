@@ -64,12 +64,13 @@ const RIGHT: TickCommand = drift(1, 0);
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
   run.stage.firedRows = RAMP_ROWS.length;
-  // The stream is held as well as the rows. These tests are about how a mob
-  // moves, fires and dies, and a birthright stream pouring up the middle of the
-  // field kills the mob under test before it reaches the behaviour being
-  // measured. Territory needs no holding either: a run lays no patch until it
-  // swallows something, and these tests never do.
+  // The stream and Territory's clock are held as well as the rows. These tests
+  // are about how a mob moves, fires and dies, and both birthright lines act
+  // unprompted: the stream pours up the middle of the field, and Territory
+  // claims ground on the mob under test and grinds it down before it reaches
+  // the behaviour being measured.
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
+  run.lines.layIn = Number.MAX_SAFE_INTEGER;
   return run;
 }
 
@@ -97,7 +98,7 @@ function patchVictim(state: RunState, x = 200, y = 400): Mob {
   patch.y = y;
   patch.radius = 30;
   patch.opening = 0;
-  patch.bites = 2;
+  patch.pulses = 0;
   patch.struck.clear();
   return putMob(state, 'shambler', x, y);
 }

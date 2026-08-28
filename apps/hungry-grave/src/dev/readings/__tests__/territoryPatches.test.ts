@@ -1,8 +1,9 @@
 /**
- * Whether Territory's prediction paid: how every patch ended.
+ * Whether the targeting paid: every lay, how every patch ended, and how much
+ * the ground actually ground.
  *
  * The events are the source of truth, so the reading is fed the sim's own
- * closings rather than a hand-built list wherever a real run can produce them.
+ * events rather than a hand-built list wherever a real run can produce them.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -13,13 +14,9 @@ import type { Mob } from '../../../game/mobs';
 import { spawnMob } from '../../../game/mobs';
 import type { RunState } from '../../../game/run';
 import { createRun } from '../../../game/run';
-import { RAMP_ROWS } from '../../../game/stage/stage';
-import { swallow } from '../../../game/swallow';
 import {
   advanceTerritory,
-  patchAt,
   resolveTerritory,
-  TERRITORY_OFFSET,
 } from '../../../game/lines/territory';
 import {
   createTerritoryPatches,
@@ -29,26 +26,17 @@ import {
 
 const SEED = 20260827;
 
-/** A run with Territory owned and nothing else able to touch a mob. */
-function armedRun(): RunState {
-  const run = createRun(SEED);
-  run.stage.firedRows = RAMP_ROWS.length;
-  run.lines.streamIn = Number.MAX_SAFE_INTEGER;
-  run.levels.territory = 1;
-  return run;
-}
-
-/** A swallow laid at a chosen place, with its own events handed back. */
-function claimAt(state: RunState, x: number, y: number): SimEvent[] {
-  state.grave.x = x;
-  state.grave.y = y + TERRITORY_OFFSET;
-  return swallow(state, { kind: 'corpse', freshness: 1, payout: 0.1 });
-}
-
+/** A live mob standing still where the scan can see it. */
 function putMob(state: RunState, x: number, y: number): Mob {
   const mob = spawnMob(state, 'shambler', { x, y, vx: 0, vy: 0, index: 0 })!;
   mob.beat = 0;
   return mob;
+}
+
+/** One lay through the line's own clock, with the events it reported. */
+function layOnce(state: RunState, into: SimEvent[]): void {
+  state.lines.layIn = 1;
+  into.push(...advanceTerritory(state));
 }
 
 function openTheHands(state: RunState): void {
@@ -63,111 +51,119 @@ function scrollEverythingOff(state: RunState, into: SimEvent[]): void {
   }
 }
 
-describe('territoryPatches', () => {
-  it('counts a run’s patches by how they ended: spent, scrolled off, evicted', () => {
-    // The three ends stay apart. Spending a budget on real traffic is the line
-    // working; scrolling off with bites left and being taken by the cap are
-    // two different kinds of not working, and folding any two of them would
-    // make the reading unable to answer why.
-    const run = armedRun();
-    const events: SimEvent[] = [];
+function readingOf(events: readonly SimEvent[]) {
+  const acc = createTerritoryPatches();
+  observeTerritoryPatches(acc, events);
+  return territoryPatchesOf(acc);
+}
 
-    // One that spends: enough mobs standing in it to use the whole budget.
-    claimAt(run, 270, 300);
-    const spending = patchAt(run, 0)!;
-    for (let made = 0; made < spending.bites; made++) {
-      putMob(run, spending.x + made * 4, spending.y);
-    }
+describe('territoryPatches', () => {
+  it('counts every lay and both ends: scrolled off, and taken by the cap', () => {
+    // The two ends stay apart: drifting off the bottom and being taken by the
+    // cap are two different kinds of done, and folding them would make the
+    // reading unable to answer why ground left the field.
+    const run = createRun(SEED);
+    const events: SimEvent[] = [];
+    const target = putMob(run, run.grave.x, 300);
+
+    // One patch that grinds: a single pulse before the target dies.
+    layOnce(run, events);
     openTheHands(run);
     events.push(...resolveTerritory(run));
-
-    // Enough more to fill the cap, then one over it, which evicts the oldest.
-    for (let claim = 0; claim <= TERRITORY_CAP; claim++) {
-      events.push(...claimAt(run, 270, -120 + claim * 100));
-    }
-    // The rest scroll away with their budgets untouched.
+    target.alive = false;
     scrollEverythingOff(run, events);
 
-    const acc = createTerritoryPatches();
-    observeTerritoryPatches(acc, events);
-    const reading = territoryPatchesOf(acc);
+    // A full cap of empty ground, then one lay over it, which evicts the oldest.
+    const bystander = putMob(run, run.grave.x, 300);
+    for (let lay = 0; lay <= TERRITORY_CAP; lay++) {
+      layOnce(run, events);
+    }
+    bystander.alive = false;
+    scrollEverythingOff(run, events);
 
-    expect(reading.spent).toBe(1);
+    const reading = readingOf(events);
+    expect(reading.laid).toBe(TERRITORY_CAP + 2);
+    expect(reading.scrolled).toBe(TERRITORY_CAP + 1);
     expect(reading.evicted).toBe(1);
-    expect(reading.scrolled).toBe(TERRITORY_CAP);
-    expect(reading.bitten).toBe(spending.bites);
-    // Only the spending patch grabbed anything, so every other end is empty
-    // ground however it ended.
+    expect(reading.pulses).toBe(1);
+    // Every close is empty ground except the one patch that pulsed.
     expect(reading.emptied).toBe(TERRITORY_CAP + 1);
     // Every patch the run laid reached exactly one end, which is the reading's
     // own check on itself.
-    expect(reading.spent + reading.evicted + reading.scrolled).toBe(
-      TERRITORY_CAP + 2,
-    );
+    expect(reading.scrolled + reading.evicted).toBe(reading.laid);
   });
 
-  it('separates patches that closed having bitten nothing from those that bit some', () => {
+  it('separates ground that closed having pulsed nothing from ground that ground first', () => {
     // The direct answer to #65's charge: ground that punished traffic and then
     // drifted on is not the same finding as ground that was never crossed at
-    // all, and a reading that could not tell them apart would say nothing about
-    // whether the prediction paid.
-    const run = armedRun();
+    // all, and `emptied` is the read that judges the targeting.
+    const run = createRun(SEED);
     const events: SimEvent[] = [];
 
-    claimAt(run, 270, 300);
-    const used = patchAt(run, 0)!;
-    putMob(run, used.x, used.y);
+    const target = putMob(run, run.grave.x, 300);
+    layOnce(run, events);
     openTheHands(run);
     events.push(...resolveTerritory(run));
-    expect(used.bites).toBeGreaterThan(0);
+    target.alive = false;
 
-    claimAt(run, 120, 300);
+    const decoy = putMob(run, run.grave.x, 300);
+    layOnce(run, events);
+    decoy.alive = false;
     scrollEverythingOff(run, events);
 
-    const acc = createTerritoryPatches();
-    observeTerritoryPatches(acc, events);
-    const reading = territoryPatchesOf(acc);
-
+    const reading = readingOf(events);
+    expect(reading.laid).toBe(2);
     expect(reading.scrolled).toBe(2);
     expect(reading.emptied).toBe(1);
-    expect(reading.bitten).toBe(1);
+    expect(reading.pulses).toBe(1);
   });
 
-  it('counts ground the cap took having bitten nothing as empty too', () => {
-    // Eviction is the dominant end, not a rare one: the cap is small against
-    // the swallow rate, so a patch is usually taken well before its natural
-    // scroll life runs out. A reading that called only the scrolled ones empty
-    // would report near zero while most ground that grabbed nothing went
-    // uncounted, which is the instrument blindness #65 is about.
-    const run = armedRun();
+  it('counts ground the cap took having pulsed nothing as empty too', () => {
+    // Eviction is a real end, not bookkeeping: a patch the cap took before it
+    // could touch anything is exactly the empty ground the reading exists to
+    // surface, and counting only the scrolled ones would under-report it.
+    const run = createRun(SEED);
     const events: SimEvent[] = [];
 
-    for (let claim = 0; claim <= TERRITORY_CAP; claim++) {
-      events.push(...claimAt(run, 270, -120 + claim * 100));
+    putMob(run, run.grave.x, 300);
+    for (let lay = 0; lay <= TERRITORY_CAP; lay++) {
+      layOnce(run, events);
     }
 
-    const acc = createTerritoryPatches();
-    observeTerritoryPatches(acc, events);
-    const reading = territoryPatchesOf(acc);
-
+    const reading = readingOf(events);
     expect(reading.evicted).toBe(1);
     expect(reading.scrolled).toBe(0);
-    expect(reading.bitten).toBe(0);
+    expect(reading.pulses).toBe(0);
     expect(reading.emptied).toBe(1);
+  });
+
+  it('counts a lay while the ground is still live, so laid never waits for a close', () => {
+    // `laid` reads the lay event and never the closings: cadence is a fact the
+    // moment the ground opens, and a reading that waited for the close would
+    // undercount every run that stopped with ground still standing.
+    const run = createRun(SEED);
+    const events: SimEvent[] = [];
+
+    putMob(run, run.grave.x, 300);
+    layOnce(run, events);
+
+    const reading = readingOf(events);
+    expect(reading.laid).toBe(1);
+    expect(reading.scrolled).toBe(0);
+    expect(reading.evicted).toBe(0);
   });
 
   it('a run that lays no ground reports zeroes rather than absences', () => {
     // Zero is the honest answer here and absence would not be: the reading is
-    // built from closings, and a run that closed nothing closed nothing.
-    const acc = createTerritoryPatches();
-    observeTerritoryPatches(acc, []);
+    // built from events, and a run that laid nothing laid nothing.
+    const reading = readingOf([]);
 
-    expect(territoryPatchesOf(acc)).toEqual({
-      spent: 0,
+    expect(reading).toEqual({
+      laid: 0,
       scrolled: 0,
       evicted: 0,
       emptied: 0,
-      bitten: 0,
+      pulses: 0,
     });
   });
 });

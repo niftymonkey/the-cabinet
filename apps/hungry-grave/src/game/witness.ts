@@ -33,7 +33,7 @@ const STREAM_ORDER: readonly StreamName[] = [
  * and read back there, so it moves only when the order or the field list below
  * moves.
  */
-const WITNESS_VERSION = 2;
+const WITNESS_VERSION = 3;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -172,7 +172,7 @@ const foldWisps = (checksum: number, run: RunState): number => {
 /**
  * A set of struck mob ids: its size folds before its members, and the members
  * fold in iteration order. That order is deterministic because insertion
- * follows the mob pool's slot order, for a ring and for a patch alike.
+ * follows the mob pool's slot order.
  */
 const foldStruck = (checksum: number, struck: ReadonlySet<number>): number => {
   let next = fold(checksum, struck.size);
@@ -181,9 +181,28 @@ const foldStruck = (checksum: number, struck: ReadonlySet<number>): number => {
 };
 
 /**
- * A patch's own state, its struck set included: the set is what makes one bite
- * per patch per mob a fact a replay can check, and the remaining budget is what
- * says how much traffic the ground can still punish.
+ * A patch's re-hit map: its size folds before its entries, and each entry
+ * folds id then deadline, in insertion order. With pruning, a re-added id
+ * moves to the end, so the order is chronological across resolve passes
+ * rather than slot order, and it is still fully deterministic because the hit
+ * history is deterministic. IT IS NEVER SORTED: sorting would fold a
+ * different order than the map actually holds.
+ */
+const foldRehits = (
+  checksum: number,
+  struck: ReadonlyMap<number, number>,
+): number => {
+  let next = fold(checksum, struck.size);
+  for (const [id, eligibleAt] of struck) {
+    next = fold(fold(next, id), eligibleAt);
+  }
+  return next;
+};
+
+/**
+ * A patch's own state, its re-hit map included: the map is what makes one
+ * pulse per window per mob a fact a replay can check, and the pulse count is
+ * what says how much traffic the ground has punished.
  */
 const foldPatches = (checksum: number, run: RunState): number => {
   let next = checksum;
@@ -191,7 +210,7 @@ const foldPatches = (checksum: number, run: RunState): number => {
     if (!patch.alive) continue;
     next = fold(fold(next, patch.x), patch.y);
     next = fold(fold(next, patch.radius), patch.opening);
-    next = foldStruck(fold(next, patch.bites), patch.struck);
+    next = foldRehits(fold(next, patch.pulses), patch.struck);
   }
   return next;
 };
@@ -253,7 +272,9 @@ const foldRing = (checksum: number, ring: BellRing | null): number => {
 
 const foldLines = (checksum: number, lines: LineState): number => {
   const next = fold(fold(checksum, lines.streamIn), lines.surgeVolleys);
-  return foldRing(fold(next, lines.tollIn), lines.ring);
+  // layIn appends after the ring rather than sitting beside the other clocks,
+  // because a widening appends and never reshuffles what is already in place.
+  return fold(foldRing(fold(next, lines.tollIn), lines.ring), lines.layIn);
 };
 
 /**

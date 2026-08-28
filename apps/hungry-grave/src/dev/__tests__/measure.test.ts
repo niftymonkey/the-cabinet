@@ -188,7 +188,7 @@ interface RichRecording {
   readonly levelUps: LevelUp[];
   readonly mobsAlive: number[];
   readonly kills: number;
-  readonly swallows: number;
+  readonly lays: number;
   readonly score: number;
   readonly densities: Map<number, FieldDensity>;
 }
@@ -205,7 +205,7 @@ function recordRichRun(): RichRecording {
   const mobsAlive: number[] = [0];
   const densities = new Map<number, FieldDensity>();
   let kills = 0;
-  let swallows = 0;
+  let lays = 0;
   for (let tick = 0; tick < RICH_TICKS; tick++) {
     // The field as the frame starting at this tick would begin on: the state
     // after `tick` ticks have run, captured before this one executes.
@@ -216,7 +216,7 @@ function recordRichRun(): RichRecording {
     for (const event of events) {
       if (event.type === 'mobDamaged') damage[event.source] += event.amount;
       if (event.type === 'mobKilled') kills += 1;
-      if (event.type === 'swallowed') swallows += 1;
+      if (event.type === 'patchLaid') lays += 1;
       if (event.type === 'weaponLeveled') {
         levelUps.push({ line: event.line, level: event.level, tick: run.tick });
       }
@@ -241,7 +241,7 @@ function recordRichRun(): RichRecording {
     levelUps,
     mobsAlive,
     kills,
-    swallows,
+    lays,
     score: run.score,
     densities,
   };
@@ -754,18 +754,18 @@ describe('measure', () => {
     expect(measured.tuning.gravePath.sizePerTick[0]).toBe(SIZE_START);
   });
 
-  it("carries the up-field traffic reading, its sample count the run's swallows", () => {
+  it("carries the up-field traffic reading, its sample count the run's lays", () => {
     // The reading reaches a real report through measure, and its sample count
-    // is the run's own swallows rather than a figure read back off itself: the
+    // is the run's own lays rather than a figure read back off itself: the
     // count comes from the original run's event stream, which measure never
-    // touches. Every band is present once a swallow has been sampled, because a
-    // measured zero is where a patch would meet no traffic at all.
+    // touches. Every band is present once a lay has been sampled, because a
+    // measured zero is where ground would meet no traffic at all.
     const rich = richFixture();
     const traffic = rich.measured.tuning.upfieldTraffic;
 
-    expect(rich.swallows).toBeGreaterThan(0);
-    expect(traffic.swallows).toBe(rich.swallows);
-    expect(Object.keys(traffic.perSwallow)).toHaveLength(BAND_COUNT);
+    expect(rich.lays).toBeGreaterThan(0);
+    expect(traffic.lays).toBe(rich.lays);
+    expect(Object.keys(traffic.perLay)).toHaveLength(BAND_COUNT);
     expect(traffic.bandUnits).toBe(BAND_UNITS);
     expect(traffic.lateralReach).toBe(LATERAL_REACH);
   });

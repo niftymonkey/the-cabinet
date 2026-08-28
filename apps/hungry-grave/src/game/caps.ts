@@ -100,15 +100,14 @@ const WISP_CAP = 64;
  * Alone among the pools here this one is a gameplay rule and not a safety net,
  * which is why it is small: at the cap the oldest patch is evicted rather than
  * the claim refused, so the number decides how long a trail of claimed ground
- * is rather than guarding against a runaway. It is sized around the window a
- * patch is still above the grave and can catch something, about
- * TERRITORY_OFFSET over SCROLL_SPEED, near 12 seconds, against a measured
- * swallow roughly every 0.78 seconds: about 15 patches inside that window, and
- * the cap sits about half again above that so a burst is not evicting ground
- * that can still catch. It is not sized around a patch's full on-screen life:
- * the rest of that life is dead ground sitting in the food layer.
+ * is rather than guarding against a runaway. A lay comes at most every
+ * TERRITORY_PERIOD of 300 ticks, against a worst-case patch life of about
+ * 1620 ticks: laid at the top spawn margin and scrolled off the bottom at the
+ * biggest radius, at SCROLL_SPEED 38/60. That is at most 5.4 live at once,
+ * and the cap sits half again above so housekeeping never binds in normal
+ * play.
  */
-const TERRITORY_CAP = 24;
+const TERRITORY_CAP = 8;
 
 export {
   createPool,

@@ -5,7 +5,6 @@ import { growGrave } from './grave';
 import type { WeaponLine } from './lines/roster';
 import { MAX_LEVEL } from './lines/roster';
 import { surgeStream } from './lines/soulStream';
-import { launchTerritory } from './lines/territory';
 import { launchWisps } from './lines/wisps';
 import type { RunState } from './run';
 import { FRESHNESS_PAYOUT_FLOOR, RESERVOIR_CAPACITY } from './tuning';
@@ -124,7 +123,6 @@ const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
   // would read as the burst arriving after the dive rather than out of it.
   surgeStream(state);
   launchWisps(state, events);
-  launchTerritory(state, food.freshness, events);
   return events;
 };
 

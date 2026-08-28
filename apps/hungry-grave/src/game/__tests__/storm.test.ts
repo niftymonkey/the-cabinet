@@ -48,7 +48,7 @@ function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
 }
 
 /** A patch with its hands already up, parked where a test can aim it. */
-function putPatch(state: RunState, x: number, y: number, bites = 2) {
+function putPatch(state: RunState, x: number, y: number) {
   const patch = state.patches.find((each) => !each.alive)!;
   patch.alive = true;
   patch.id = state.nextEntityId;
@@ -57,7 +57,7 @@ function putPatch(state: RunState, x: number, y: number, bites = 2) {
   patch.y = y;
   patch.radius = 30;
   patch.opening = 0;
-  patch.bites = bites;
+  patch.pulses = 0;
   patch.struck.clear();
   return patch;
 }
@@ -115,8 +115,8 @@ describe('the storm meeting a mob (plan 6.7)', () => {
   });
 
   it('consumes a skull and a wisp on the mob they hit, and never a patch', () => {
-    // A patch is claimed ground and not ordnance: it spends one of its bites
-    // and stays until its budget runs out or the world carries it away.
+    // A patch is claimed ground and not ordnance: it grinds whatever stays
+    // and remains until the world carries it away.
     const state = stormRun();
     const skulled = putMob(state, 'shambler', 100, 100);
     const wisped = putMob(state, 'shambler', 300, 100);
@@ -142,8 +142,9 @@ describe('the storm meeting a mob (plan 6.7)', () => {
     expect(state.corpses.filter((corpse) => corpse.alive)).toHaveLength(1);
   });
 
-  it('never grabs the same mob twice with the same patch, however long it stands there', () => {
-    // One bite per patch per mob, held by the patch's own struck set.
+  it('never pulses the same mob twice inside the re-hit window with the same patch', () => {
+    // One pulse per window per mob, held by the patch's own re-hit map. The
+    // pass here holds one tick still, which is always inside the window.
     const state = stormRun();
     const victim = patchVictim(state, 200, 400);
     resolveStorm(state);

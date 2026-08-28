@@ -165,22 +165,34 @@ interface CorpseLost {
 }
 
 /**
+ * Territory claimed ground (#76). `mobsUnder` is the winning cluster score,
+ * the count of projected mobs the lay's radius covered, which is the direct
+ * read on whether the targeting found real traffic.
+ */
+interface PatchLaid {
+  readonly type: 'patchLaid';
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
+  readonly mobsUnder: number;
+}
+
+/**
  * A patch of claimed ground left the field, and how it ended (#76).
  *
- * The three reasons stay one event with a closed reason rather than three
- * events, because they are three ends of one thing rather than opposite
- * meanings: a reading groups by the reason, and every patch reaches exactly one
- * of them. `bitten` is what separates ground that scrolled away having grabbed
- * nothing at all from ground that punished traffic and then drifted on, which
- * is the read the headstones never had and the direct answer to whether
- * Territory's prediction paid.
+ * The two reasons stay one event with a closed reason rather than two events,
+ * because they are two ends of one thing rather than opposite meanings: a
+ * reading groups by the reason, and every patch reaches exactly one of them.
+ * `pulses` is what separates ground that left having touched nothing at all
+ * from ground that ground down traffic first, which is the read the
+ * headstones never had and the direct answer to whether the targeting paid.
  */
 interface PatchClosed {
   readonly type: 'patchClosed';
   readonly reason: PatchClosing;
   readonly x: number;
   readonly y: number;
-  readonly bitten: number;
+  readonly pulses: number;
 }
 
 // The bell rang. Its sound cue, and the radius the ring will reach.
@@ -251,6 +263,7 @@ type SimEvent =
   | CorpseEvicted
   | CorpseLost
   | Tolled
+  | PatchLaid
   | PatchClosed
   | Belched
   | DropSpawned

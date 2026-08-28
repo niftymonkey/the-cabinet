@@ -4,6 +4,7 @@ import type { FederatedPointerEvent, Ticker } from 'pixi.js';
 import { Container, Graphics, Rectangle } from 'pixi.js';
 
 import type { SimEvent } from '../../../game/events';
+import { territoryCharge } from '../../../game/lines/territory';
 import type { RunState } from '../../../game/run';
 import { RESERVOIR_CAPACITY } from '../../../game/tuning';
 import type { FrameReason } from '../../../tape/tape';
@@ -383,7 +384,12 @@ class GameScreen extends Container {
    * renderer live sim state is what the rest of this design works to avoid.
    */
   private syncScreen(run: RunState): void {
-    this.grave.sync(run.grave, run.reservoir / RESERVOIR_CAPACITY, run.tick);
+    this.grave.sync(
+      run.grave,
+      run.reservoir / RESERVOIR_CAPACITY,
+      run.tick,
+      territoryCharge(run),
+    );
     this.fieldRenderer.sync(run);
     this.stormRenderer.sync(run);
     this.belchButton.sync(run.reservoir >= RESERVOIR_CAPACITY, run.tick);
