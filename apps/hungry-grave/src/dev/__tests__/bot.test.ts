@@ -62,60 +62,49 @@ const SEEDS = [101, 202, 303, 404, 505];
 
 /**
  * The seeds whose fresh run seals shut inside the ramp on the current
- * birthright, and there are none.
+ * birthright.
  *
- * Re-measured for the combat rescale, which took a shambler from 3 health to 40
- * and a skull from 1 damage to 8 while the stream's interval went 30 to 18. Kill
- * time is held by construction and coverage is what moved: more skulls stand in
- * the air at once, so the dodger meets the ramp with a curtain rather than a
- * trickle. All five seeds now come out the far side of it, taking at most three
- * grave hits on the way, where 101 and 303 used to die inside it.
- *
- * Surviving is not thriving, and the sizes say so. Every seed leaves the ramp
- * smaller than the 27 it started at, from 18.1 on seed 202 up to 25.6 on 101.
- * The ramp is being paid for rather than walked through.
- *
- * The constant stays, and so do the branches it guards, rather than the empty
- * case being deleted. An empty set is the sharper tripwire: the day any seed
- * starts dying in the ramp again, this file goes red and names it.
- * REACHES_VICTORY_FRESH stood empty in exactly this shape and caught exactly
- * that.
+ * Re-measured for the #76 edge walk-in, which slides a settled faller whose
+ * body crosses a side edge back on-field. A curtain that used to leak its edge
+ * mobs half off-field now holds its full width, and a mob a bell toll parked
+ * past the rim walks back into the lane, so the dodger meets more bodies and
+ * narrower gaps through the whole ramp. Seeds 202 and 404 now seal shut inside
+ * it, at 5442 and 5456 ticks, ground to the size floor; the other three still
+ * come out the far side, leaving the ramp at 25.4 on seed 101, 18.8 on 303 and
+ * 18.6 on 505.
  *
  * What it measures is still this policy rather than the game. `dodgePolicy`
  * never dives, so it reads the ramp at about the weakest play the sim can
  * produce, and a person who dives constantly is not described by it.
  */
-const SEALS_IN_THE_RAMP: number[] = [];
+const SEALS_IN_THE_RAMP: number[] = [202, 404];
 
 /**
- * The seeds on which this policy never swallows anything at all, and there are
- * none left.
+ * The seeds on which this policy never swallows anything at all.
  *
- * Re-measured for the combat rescale. Every seed feeds now, from twice on seed
- * 303 to six times on 101 across a full fresh run, where 101 and 303 used to go
- * a whole run without a single swallow.
+ * Re-measured for the #76 edge walk-in: seed 202 seals shut inside the ramp at
+ * 5442 ticks without ever crossing a corpse, and the other four feed three to
+ * four times a run.
  *
  * Those swallows are incidental, which is the thing to keep in front of a
  * reader. `dodgePolicy` scores its nine moves against mobs and mob fire alone
  * and looks at neither corpses nor drops, so it never once steers toward food.
- * The ramp by itself now yields fifteen to twenty-one kills a seed, and a grave
- * dodging through that many corpses crosses one sooner or later.
+ * A grave dodging through enough corpses crosses one sooner or later, and a
+ * run cut short inside the ramp may never get the chance.
  *
  * Named rather than folded into the assertions below, because "this policy never
  * fed" is a fact about the policy that a reader of a failing assertion needs in
- * front of them, and empty says the same thing from the other side.
+ * front of them.
  */
-const NEVER_FEEDS: number[] = [];
+const NEVER_FEEDS: number[] = [202];
 
 /**
  * The seeds whose fresh grave reaches victory on this policy, and there are
  * none.
  *
- * The combat rescale emptied this set. Measured across the five seeds, every
- * fresh run seals shut inside the back half, the longest of them seed 404 at
- * 11207 ticks against a stage of 12300. That one seed is the whole of the
- * movement: it used to run the stage out and win, and it now falls about a
- * thousand ticks short.
+ * Measured across the five seeds after the #76 edge walk-in, every fresh run
+ * seals shut: 202 and 404 inside the ramp, the other three inside the back
+ * half, the longest of them seed 101 at 9898 ticks against a stage of 12300.
  *
  * It stays a tripwire in both directions, because the assertion is an equality:
  * the day any fresh seed wins, this file goes red and says which. And as with
@@ -128,21 +117,21 @@ const REACHES_VICTORY_FRESH: number[] = [];
 /**
  * The seeds that reach victory from the size ceiling on this policy.
  *
- * Re-measured for the combat rescale, which took this set from one seed to
- * three. Seeds 101, 303 and 404 each run the full 12301 ticks and win, at 37, 43
- * and 40 kills off 8, 8 and 17 swallows; 202 and 505 seal shut inside the back
- * half at 11395 and 9761 ticks.
+ * Re-measured for the #76 edge walk-in, which took this set from three seeds
+ * to two. Seeds 303 and 404 run the full 12301 ticks and win, at 50 and 53
+ * kills off 15 and 19 swallows; 101, 202 and 505 seal shut inside the back
+ * half at 8761, 11389 and 11159 ticks.
  *
  * Size is what buys the win, and the swallow counts are where that shows. The
- * three winners feed eight to seventeen times, while the same five seeds run
- * fresh feed only two to six: a grave at the ceiling absorbs enough of the ramp
+ * two winners feed fifteen and nineteen times, while the same five seeds run
+ * fresh feed at most four: a grave at the ceiling absorbs enough of the ramp
  * and the back half to keep feeding, and everything Territory pays out is
  * downstream of feeding.
  *
  * Pinned as a constant rather than left a literal in the test, because no fresh
  * grave wins any more and the two facts are different ones.
  */
-const REACHES_VICTORY_FROM_THE_CEILING = [101, 303, 404];
+const REACHES_VICTORY_FROM_THE_CEILING = [303, 404];
 
 const RAMP_TICKS = phaseLengthTicks(PHASES[0]);
 const STAGE_TICKS = RAMP_TICKS + phaseLengthTicks(PHASES[2]);
@@ -201,8 +190,8 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
       // existed, and dispatch 5 is what turns them into ordinary assertions:
       // the storm cuts how long an armed mob lives, and a weaponless build
       // inflates mob fire by roughly a factor of five. SEALS_IN_THE_RAMP
-      // carries the seeds that go the other way, and after the combat rescale
-      // it carries none: its comment is where that is measured.
+      // carries the seeds that go the other way: its comment is where that is
+      // measured.
       const state = createRun(seed);
       play(state, dodgePolicy, RAMP_TICKS);
       if (survives) expect(state.ending).toBeNull();
@@ -283,8 +272,8 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
 /**
  * ADR 0013 asks a full run to land ten to twelve drops, and it does not.
  *
- * Measured on real weapons across the five fresh seeds after the combat
- * rescale: 23 to 31 kills and 3 to 4 drops, against a price table fitted to 268
+ * Measured on real weapons across the five fresh seeds after the #76 edge
+ * walk-in: 13 to 31 kills and 2 to 4 drops, against a price table fitted to 268
  * authored mobs. The table is doing exactly what it was derived to do, because
  * 31 kills buys 4 drops off it; what is far below the derivation is the kill
  * rate, at roughly a tenth of the timeline rather than the six-in-ten the
@@ -323,14 +312,13 @@ describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
     it(`stays inside the range the storm actually reaches on seed ${seed}`, () => {
       // The ordinary half, so a regression away from today's figures is caught
       // while the band above stays the thing being aimed at. The floors are the
-      // measured minima across the five fresh runs after the combat rescale:
-      // seed 303 is lowest at 23 kills, and three drops is the floor on four of
-      // the five seeds. Both moved up because nothing seals inside the ramp any
-      // more, so every seed contributes a whole run rather than two short ones
-      // setting the bottom.
+      // measured minima across the five fresh runs after the #76 edge walk-in:
+      // seed 202 is lowest at 13 kills and 2 drops. Both are set by the two
+      // seeds that seal inside the ramp, whose short runs put the bottom well
+      // under the whole-run figures.
       const { events } = fullRun(seed);
-      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(23);
-      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(3);
+      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(13);
+      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(2);
     });
   }
 });
@@ -341,10 +329,10 @@ describe('dodgePolicy from the size ceiling', () => {
       // Every one of these was a declared expected failure before weapons
       // existed. Dispatch 4's section 5 asserted victory from the ceiling and
       // its own section 8 proved it cannot, so what is asserted here is what
-      // the weapons actually do, re-measured after the combat rescale: three of
-      // the five seeds reach the over phase and win, and the other two seal shut
-      // inside the back half. REACHES_VICTORY_FROM_THE_CEILING is where that set
-      // is pinned and where its cause is written down.
+      // the weapons actually do, re-measured after the #76 edge walk-in: two of
+      // the five seeds reach the over phase and win, and the other three seal
+      // shut inside the back half. REACHES_VICTORY_FROM_THE_CEILING is where
+      // that set is pinned and where its cause is written down.
       const { state, events } = fullRun(seed, SIZE_CEILING);
       const reached = phaseOrder(events);
       if (REACHES_VICTORY_FROM_THE_CEILING.includes(seed)) {
@@ -378,7 +366,7 @@ describe('both endings across the two loadouts', () => {
     //
     // Where victory comes from moved again with the combat rescale and is
     // recorded rather than quietly re-pinned. No fresh grave reaches it on any
-    // of the five seeds; from the size ceiling three of them do, so the whole
+    // of the five seeds; from the size ceiling two of them do, so the whole
     // of this property now rests on the ceiling loadout.
     // REACHES_VICTORY_FRESH and REACHES_VICTORY_FROM_THE_CEILING carry both
     // facts and the cause they share. Both loadouts are read here so the

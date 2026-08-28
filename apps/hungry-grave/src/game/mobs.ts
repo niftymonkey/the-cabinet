@@ -277,10 +277,24 @@ const chase = (mob: Mob, grave: Grave): void => {
   mob.vy = Math.max(turned.y * row.speed, GHOUL_DESCENT_FLOOR);
 };
 
-// A falling type's own rule: straight down at its own speed, whatever direction it arrived on.
+/**
+ * A falling type's own rule: straight down at its own speed, whatever direction
+ * it arrived on. A body split by a side edge first walks inward at that same
+ * speed, still descending, until it is fully on-field: templates place pincer
+ * trailing ranks outside the field on purpose, and a bell toll can park a mob
+ * there, so without the walk-in a settled faller can descend nearly invisible
+ * at the edge (#76).
+ */
 const fall = (mob: Mob): void => {
-  mob.vx = 0;
-  mob.vy = MOB_TYPES[mob.type].speed;
+  const row = MOB_TYPES[mob.type];
+  if (mob.x < row.halfWidth) {
+    mob.vx = row.speed;
+  } else if (mob.x > FIELD_WIDTH - row.halfWidth) {
+    mob.vx = -row.speed;
+  } else {
+    mob.vx = 0;
+  }
+  mob.vy = row.speed;
 };
 
 // One mob's motion for this tick: the arriving beat first, then its own rule.

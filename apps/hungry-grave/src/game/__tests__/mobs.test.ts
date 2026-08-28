@@ -16,7 +16,7 @@ import { stepping } from '../../dev/stepping';
 import { fireBelch } from '../belch';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { graveHitbox } from '../grave';
 import { advanceBell } from '../lines/bell';
 import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
@@ -551,5 +551,143 @@ describe("one swallow's surge clears two trash bodies (#76 pass A correction)", 
     // number is provisional: moving it should be a deliberate act, not a
     // side effect of another tuning pass.
     expect(bodiesClearedInBurst(true) - bodiesClearedInBurst(false)).toBe(2);
+  });
+});
+
+describe('a settled faller split by a side edge walks back on-field (#76)', () => {
+  it('walks a settled faller split by the left edge inward until its body is fully on-field, then descends straight', () => {
+    // At half-width 11, a shambler centred at x 2 spans -9 to 13: its body is
+    // split by the left edge, the confirmed near-invisible stack (#76).
+    const state = quietRun();
+    const step = stepping(state);
+    const mob = putMob(state, 'shambler', 2, 60);
+    const { halfWidth, speed } = MOB_TYPES.shambler;
+
+    // The walk-in is at the type's own speed, and the descent never pauses.
+    run(step, 1);
+    expect(mob.vx).toBeCloseTo(speed, 12);
+    expect(mob.y).toBeGreaterThan(60);
+
+    // Walking the centre from 2 to halfWidth takes (halfWidth - 2) / speed ticks.
+    run(step, Math.ceil((halfWidth - 2) / speed));
+    expect(mob.x).toBeGreaterThanOrEqual(halfWidth);
+
+    // Fully on-field, the slide ends and the descent is straight again.
+    const settledX = mob.x;
+    const settledY = mob.y;
+    run(step, 30);
+    expect(mob.vx).toBe(0);
+    expect(mob.x).toBe(settledX);
+    expect(mob.y).toBeGreaterThan(settledY);
+  });
+  it('walks a settled faller split by the right edge inward until its body is fully on-field, then descends straight', () => {
+    // The mirror: centred 2 units short of the right edge, the body reaches 9
+    // units past it, and fully on-field means the centre at FIELD_WIDTH - 11.
+    const state = quietRun();
+    const step = stepping(state);
+    const mob = putMob(state, 'shambler', FIELD_WIDTH - 2, 60);
+    const { halfWidth, speed } = MOB_TYPES.shambler;
+
+    run(step, 1);
+    expect(mob.vx).toBeCloseTo(-speed, 12);
+    expect(mob.y).toBeGreaterThan(60);
+
+    run(step, Math.ceil((halfWidth - 2) / speed));
+    expect(mob.x).toBeLessThanOrEqual(FIELD_WIDTH - halfWidth);
+
+    const settledX = mob.x;
+    run(step, 30);
+    expect(mob.vx).toBe(0);
+    expect(mob.x).toBe(settledX);
+  });
+  it('brings a pincer trailing mob fully on-field once its arriving beat has passed', () => {
+    // The confirmed producer: a pincer's trailing ranks sit back along the
+    // entry diagonal, laterally outside the field, and the arriving beat's 45
+    // ticks are not enough to carry the deepest rank all the way in.
+    const state = quietRun();
+    const step = stepping(state);
+    // Order 4 of a six-mob pincer is the left arm's deepest rank.
+    const trailing = place('pincer', 6, state.streams.spawns)[4];
+    expect(trailing.x).toBeLessThan(MOB_TYPES.shambler.halfWidth);
+    spawnMob(state, 'shambler', trailing);
+    const mob = only(state);
+
+    // Entry from 63 above the field plus the beat plus the walk-in all fit
+    // well inside 250 ticks at the shambler's descent, and the field's 760
+    // height means it is still far from the bottom edge when they are done.
+    run(step, 250);
+    expect(mob.alive).toBe(true);
+    expect(mob.vx).toBe(0);
+    expect(mob.x).toBeGreaterThanOrEqual(MOB_TYPES.shambler.halfWidth);
+    expect(mob.x).toBeLessThanOrEqual(
+      FIELD_WIDTH - MOB_TYPES.shambler.halfWidth,
+    );
+  });
+  it('returns a mob pushed past a side edge to the field', () => {
+    // The other confirmed producer: a bell toll clamps a pushed mob to the
+    // spawn margin rather than to the field, so a settled faller can be parked
+    // with its whole body past the edge. 60 units out is well inside the
+    // margin, so the cull never takes it and only the walk-in can explain a
+    // return.
+    const state = quietRun();
+    const step = stepping(state);
+    const mob = putMob(state, 'shambler', FIELD_WIDTH + 60, 30);
+
+    // The walk from 60 past the edge to fully on-field is 71 units at the
+    // shambler's speed, near 225 ticks, and the descent over 300 ticks stays
+    // above the bottom edge.
+    run(step, 300);
+    expect(mob.alive).toBe(true);
+    expect(mob.vx).toBe(0);
+    expect(mob.x).toBeLessThanOrEqual(
+      FIELD_WIDTH - MOB_TYPES.shambler.halfWidth,
+    );
+    expect(mob.x).toBeGreaterThanOrEqual(MOB_TYPES.shambler.halfWidth);
+  });
+  it("holds the template's arriving motion over an edge-split body until the beat ends", () => {
+    // Templates enter from outside on purpose, so the walk-in must not touch
+    // the arriving beat. The hard case is arriving motion pointing outward at
+    // an already split body: a walk-in that fired early would flip it.
+    const state = quietRun();
+    const step = stepping(state);
+    // The right arm's arriving direction heads left, outward at the left edge.
+    const arm = place('pincer', 2, state.streams.spawns)[1];
+    expect(arm.vx).toBeLessThan(0);
+    spawnMob(state, 'shambler', order(2, 11, arm.vx, arm.vy));
+    const mob = only(state);
+    const arriving = mob.vx;
+
+    run(step, ARRIVE_TICKS);
+    expect(mob.vx).toBeCloseTo(arriving, 12);
+    expect(mob.x).toBeLessThan(2);
+
+    // The tick after the beat, the walk-in takes over at the type's own speed.
+    run(step, 1);
+    expect(mob.vx).toBeCloseTo(MOB_TYPES.shambler.speed, 12);
+  });
+  it("steers a ghoul at the grave the same whether or not its body crosses the field's edge", () => {
+    // The walk-in is the falling types' rule only: a ghoul steers at the grave
+    // and never settles, so its path must depend on where the grave is
+    // relative to it and never on where the field's edge is. Two runs with the
+    // same relative geometry, one with the body split by the left edge, must
+    // trace the same path.
+    const trace = (mobX: number): number[] => {
+      const state = quietRun();
+      const step = stepping(state);
+      const mob = putMob(state, 'ghoul', mobX, 60);
+      state.grave.x = mobX + 28;
+      const offsets: number[] = [];
+      for (let tick = 0; tick < 90; tick++) {
+        step(STILL);
+        offsets.push(mob.x - mobX);
+      }
+      return offsets;
+    };
+
+    const atEdge = trace(2);
+    const midField = trace(202);
+    for (let tick = 0; tick < atEdge.length; tick++) {
+      expect(atEdge[tick]).toBeCloseTo(midField[tick], 9);
+    }
   });
 });
