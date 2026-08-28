@@ -19,8 +19,10 @@ const HELD_TRANSIENT_TICKS = {
  * How many ticks before its target a replay's fast-forward stops, to be played
  * out normally (#58, ratified). A named starting value on the same terms as
  * RECORDER_CHECKPOINT_SPACING, and never below the registry's longest
- * lifetime, which the covering test holds; today's max is the 90-tick arrival
- * mark, which is Territory's whole opening beat.
+ * lifetime, which the covering test holds; today's max is the 68-tick arrival
+ * mark, which is Territory's whole opening beat. It was 90 until that beat was
+ * shortened on 2026-08-28, and the lead-in is left where it is because the
+ * rule is a floor and nothing in the registry has grown.
  *
  * A replay fast-forwarded straight to a tick would show none of the held
  * transients, so the fast-forward stops a lead-in short of its target and

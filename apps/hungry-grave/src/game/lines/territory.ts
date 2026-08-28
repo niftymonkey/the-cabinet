@@ -49,7 +49,7 @@ const TERRITORY_REACH = 180;
 const RADIUS_BY_LEVEL: readonly number[] = [0, 32, 43, 58, 77, 104];
 
 /**
- * How long the ground takes to open, in ticks: a second and a half.
+ * How long the ground takes to open, in ticks: a little over a second.
  * PROVISIONAL.
  *
  * The beat is what keeps Territory from collapsing into a placed detonation
@@ -57,21 +57,40 @@ const RADIUS_BY_LEVEL: readonly number[] = [0, 32, 43, 58, 77, 104];
  * while the patch is still above the visible field, because visibility is
  * never an activation condition.
  *
- * At 90 it buys two things at once. The beat is long enough for a mark to
- * cross to the ground and read as a delivery rather than a blink, and the lead
- * rises with it, so the scan projects a shambler 28.5 field units instead of
- * 7.6, which is close to a whole level-1 radius. That is the "the lead should
- * be larger" half of the playtest note.
+ * It is now only how long the delivery takes to read. At 90, a second and a
+ * half, the delivery outstayed its welcome, and three quarters of that is
+ * 67.5, so 68. The other half of the old 90, that it also set how far the scan
+ * looked ahead, has gone to the lead below.
  */
-const TERRITORY_OPENING_TICKS = 90;
+const TERRITORY_OPENING_TICKS = 68;
 
 /**
- * How far ahead the scan projects each mob, in ticks. The lead is not a guess:
- * the patch cannot bite until the hands come up, so the scan asks where each
- * mob will stand exactly then. Because a laid patch rides the scroll, the
- * scroll term cancels and the projection is by the mob's own velocity alone.
+ * How far ahead the scan projects each mob, in ticks. PROVISIONAL.
+ *
+ * The lead deliberately overshoots the opening beat, and is no longer tied to
+ * it. Aiming at exactly the beat asks where a mob will stand at the instant
+ * the hands come up, which is the same as aiming at the crowd's own feet: the
+ * ground opens around them and reads as ground laid on top of them rather than
+ * as ground the grave put between itself and them.
+ *
+ * Measured against a shambler, whose own pace is 0.317 field units a tick. At
+ * 150 the lay lands 47.5 units down-field of where the crowd stands, outside a
+ * level-1 radius of 32, and the beat closes only 21.5 of that, so when the
+ * hands come up the crowd is still 26.0 units short of the centre and has 82
+ * more ticks to walk in. The old lead of 90 laid the ground 28.5 units ahead,
+ * already inside that same level-1 disc, and put the crowd exactly on the
+ * centre at the instant it opened. A revenant at 0.222 a tick covers 33.3
+ * units of lead and a ghoul at 1.575 covers 236, so the overshoot is a share
+ * of the approach rather than a fixed distance.
+ *
+ * It buys the same thing at the scan: a mob whose projection lands at or past
+ * the grave is not eligible at all, so the window the scan will not claim in
+ * front of the grave widens from 28.5 shambler units to 47.5.
+ *
+ * Because a laid patch rides the scroll, the scroll term cancels and the
+ * projection is by the mob's own velocity alone.
  */
-const TERRITORY_LEAD_TICKS = TERRITORY_OPENING_TICKS;
+const TERRITORY_LEAD_TICKS = 150;
 
 /**
  * What one dwell pulse takes off a mob. PROVISIONAL.
@@ -577,6 +596,7 @@ export {
   REHIT_BY_LEVEL,
   TERRITORY_SPREAD,
   TERRITORY_OPENING_TICKS,
+  TERRITORY_LEAD_TICKS,
   TERRITORY_DAMAGE,
   TERRITORY_PERIOD,
 };

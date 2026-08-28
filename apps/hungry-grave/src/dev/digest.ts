@@ -261,6 +261,13 @@ const runScenario = (): ScenarioResult => {
  * the reason in the commit message. Regeneration is a human paste: run
  * `pnpm digest`, and the test logs the regenerated object as a paste-ready
  * literal before it asserts.
+ *
+ * Re-pinned on 2026-08-28 for #76's Territory tuning: the opening beat went
+ * from 90 ticks to 68 and the scan's lead was decoupled from it and set to
+ * 150, so claimed ground is laid at a different point and opens sooner. Every
+ * other field held, the two lays and the two kills included; the checksum
+ * alone moved, from 439893635, because the witness folds the positions the
+ * ground took and the mobs it held.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -289,7 +296,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 439893635,
+  checksum: -362706426,
 };
 
 export { runScenario, GOLDEN };

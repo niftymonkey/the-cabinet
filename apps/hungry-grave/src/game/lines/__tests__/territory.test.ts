@@ -26,6 +26,7 @@ import {
   territoryCharge,
   territoryCount,
   TERRITORY_DAMAGE,
+  TERRITORY_LEAD_TICKS,
   TERRITORY_OPENING_TICKS,
   REHIT_BY_LEVEL,
   TERRITORY_PERIOD,
@@ -335,11 +336,11 @@ describe('the targeting', () => {
   });
 
   it('a moving mob is met at its projection, not its position', () => {
-    // The patch cannot bite until the hands come up, so the scan asks where
-    // the mob will stand exactly then. The patch rides the scroll, so the
+    // The scan asks where the mob will stand a whole lead from now, which is
+    // past the point the hands come up. The patch rides the scroll, so the
     // scroll term cancels and the projection is by the mob's own velocity
-    // alone: 90 ticks of (1, 0.5) from (200, 300) is (290, 345), and the lay
-    // then sits inside the seeded spread of that point rather than on it.
+    // alone: a lead of (1, 0.5) from (200, 300), and the lay then sits inside
+    // the seeded spread of that point rather than on it.
     const run = createRun(76);
     const mob = putMob(run, 200, 300);
     mob.vx = 1;
@@ -347,9 +348,13 @@ describe('the targeting', () => {
 
     layNow(run);
     const patch = livePatches(run)[0]!;
-    expect(offsetFrom(patch, 290, 345)).toBeLessThanOrEqual(
-      spreadBound(patch.radius),
-    );
+    expect(
+      offsetFrom(
+        patch,
+        200 + TERRITORY_LEAD_TICKS,
+        300 + TERRITORY_LEAD_TICKS * 0.5,
+      ),
+    ).toBeLessThanOrEqual(spreadBound(patch.radius));
     // Against the mob's own standing point, which is what the projection is
     // for: 100 units away, far outside anything the spread can explain.
     expect(offsetFrom(patch, 200, 300)).toBeGreaterThan(
@@ -776,23 +781,42 @@ describe('the wider cadence', () => {
     expect(territoryCount(run)).toBe(1);
   });
 
-  it('the opening beat is 90 ticks, and the lead is the opening beat', () => {
-    // The lead is not a second number: the patch cannot bite until the hands
-    // come up, so the scan asks where the mob stands exactly then. At the old
-    // 24 the projection was 66 units short of where the mob will be, which is
-    // far outside anything the spread can explain.
-    expect(TERRITORY_OPENING_TICKS).toBe(90);
+  it('the opening beat is 68 ticks', () => {
+    // The beat is now only how long the delivery takes to read, and at 90 it
+    // outstayed its welcome: three quarters of 90 is 67.5. The magnitude is
+    // pinned here and nowhere else; every other test reads the constant.
+    expect(TERRITORY_OPENING_TICKS).toBe(68);
+    const run = createRun(76);
+    putMob(run, 200, 300);
+
+    layNow(run);
+    expect(livePatches(run)[0]!.opening).toBe(TERRITORY_OPENING_TICKS);
+  });
+
+  it('the lead runs past the opening beat, so ground opens up-field of the crowd', () => {
+    // Aiming the scan at the beat aims it at the crowd's own feet: the mob
+    // arrives exactly as the hands come up, so the ground reads as laid on top
+    // of it. Overshooting the beat lays the ground between the crowd and the
+    // grave and opens it while they are still walking in. What is pinned is
+    // the relation and not the overshoot's size, so the two numbers can be
+    // tuned apart without rewriting the promise.
+    expect(TERRITORY_LEAD_TICKS).toBeGreaterThan(TERRITORY_OPENING_TICKS);
+
     const run = createRun(76);
     const mob = putMob(run, 200, 300);
     mob.vy = 1;
 
     layNow(run);
     const patch = livePatches(run)[0]!;
-    expect(patch.opening).toBe(TERRITORY_OPENING_TICKS);
-    expect(offsetFrom(patch, 200, 300 + TERRITORY_OPENING_TICKS)).toBeLessThan(
+    // The lay is at the lead's projection, not the beat's.
+    expect(offsetFrom(patch, 200, 300 + TERRITORY_LEAD_TICKS)).toBeLessThan(
       spreadBound(patch.radius),
     );
-    expect(offsetFrom(patch, 200, 324)).toBeGreaterThan(
+    // The patch rides the scroll, so where the mob stands when the hands come
+    // up is its own 68 ticks on. That point is still short of the ground by
+    // more than the spread can explain, which is the whole overshoot.
+    const whenTheHandsComeUp = 300 + TERRITORY_OPENING_TICKS;
+    expect(patch.y - whenTheHandsComeUp).toBeGreaterThan(
       spreadBound(patch.radius),
     );
   });

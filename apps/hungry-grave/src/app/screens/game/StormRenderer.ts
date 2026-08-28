@@ -203,7 +203,7 @@ const drawPatch = (into: Graphics, radius: number): void => {
   const hands = Math.round(radius / 8);
   into.circle(0, 0, radius).stroke({
     width: PATCH_STROKE,
-    color: PALETTE.territory.hex,
+    color: PALETTE.territoryGround.hex,
     alignment: 0.5,
   });
   for (let hand = 0; hand < hands; hand++) {
@@ -215,7 +215,7 @@ const drawPatch = (into: Graphics, radius: number): void => {
       radius * HAND_WIDTH,
     );
   }
-  if (hands > 0) into.fill({ color: PALETTE.territory.hex });
+  if (hands > 0) into.fill({ color: PALETTE.territoryGround.hex });
 };
 
 /**
@@ -237,7 +237,7 @@ const drawArrival = (into: Graphics, size: number): void => {
   }
   into
     .poly(outline)
-    .fill({ color: PALETTE.territory.hex })
+    .fill({ color: PALETTE.territoryGround.hex })
     .poly(outline)
     .stroke({
       width: SPRITE_STROKE,

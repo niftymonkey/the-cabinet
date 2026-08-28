@@ -36,20 +36,23 @@ interface StageRow {
  * nothing to do.
  *
  * The new number cannot be derived from falling either, because under the storm
- * the field is emptied partly by kills. It is measured instead: across the five
- * full-run seeds and both drain-outs the field empties 14.6 to 16.3 seconds
- * after a phase's last row, so seventeen is the smallest whole second that
- * clears every one of them. The storm is what buys the three seconds off the
- * weaponless twenty, and it buys no more than that at the birthright build a
- * run spends most of its length in.
+ * the field is emptied partly by kills. It is measured instead, across the five
+ * full-run seeds and both drain-outs with the grave held immortal, which is the
+ * same rig the property test uses. The storm is what buys the three seconds off
+ * the weaponless twenty, and it buys no more than that at the birthright build
+ * a run spends most of its length in.
  *
- * It was sixteen, measured the same way against a storm that killed trash at
- * every level. #76 pass C put Territory's dwell pace on a level ladder, and a
- * level-1 patch now releases an ordinary shambler alive instead of killing it,
- * so the birthright build clears the field a second slower and the measurement
- * moved with it. The worst case is the back half on seed 101, and the margin
- * against the weaponless eighteen is what says the storm is still doing work
- * at level 1 rather than nothing at all.
+ * Seventeen was the smallest whole second that cleared every seed when it was
+ * set: the field emptied 14.6 to 16.3 seconds after a phase's last row against
+ * a storm whose level-1 ground released an ordinary shambler alive.
+ * Re-measured after #76 pass D's delivery slice, which lays claimed ground
+ * up-field of a crowd instead of around it, the range is 14.98 to 15.47 and the
+ * smallest whole second that clears is sixteen. Seventeen is held rather than
+ * followed down: it clears every seed with a second to spare, the magnitude
+ * follows the property and the property is not in danger, and taking a second
+ * of authored silence out of both drain-outs is a pacing change nobody asked
+ * for. The slack is recorded here so the next pass sees it rather than
+ * rediscovering it.
  *
  * What is pinned by test is the property, that the field is empty when the boss
  * phase begins, asserted across all five seeds in
