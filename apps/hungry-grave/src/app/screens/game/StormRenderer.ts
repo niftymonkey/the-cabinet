@@ -43,6 +43,53 @@ const OPENING_TINT = 0.45;
 const PATCH_STROKE = 2;
 
 /**
+ * The arrival mark: what leaves the grave and travels to ground that is about
+ * to open, so the claim reads as something the grave sent rather than as
+ * ground that simply appeared. PROVISIONAL scaffolding for the #38 art pass.
+ *
+ * ADR 0044 holds that how the ground arrives is expression and not identity,
+ * so nothing here is named for a manner of delivery: it is the mark that
+ * arrives, and the art pass may make it anything.
+ *
+ * SWELL is how many times its own size it reaches at the top of the arc, and
+ * 2.2 is large enough to read at a glance against a field of small sprites.
+ * HANG is how much of the travel curve is the cubic term: at 0.7 the mark
+ * moves at 0.3 of linear pace through the middle and 2.4 times it at both
+ * ends, which is what makes the middle read as a hang rather than a constant
+ * slide. SIZE is the fraction of the ground's own radius the mark draws at, so
+ * bigger ground arrives as a bigger mark, with a floor so a level-1 mark is
+ * still a shape.
+ */
+const ARRIVAL_SWELL = 2.2;
+const ARRIVAL_HANG = 0.7;
+const ARRIVAL_SIZE = 0.28;
+const ARRIVAL_SIZE_FLOOR = 6;
+
+/**
+ * How high the arc lifts, as a share of the ground the mark covers, and the
+ * band it is held inside, both in field units.
+ *
+ * A lift proportional to the distance is what keeps a short delivery from
+ * looking like a long one played fast. The floor keeps a mark laid almost on
+ * the grave from travelling flat, and the ceiling keeps a full-field delivery
+ * from leaving the top of the screen.
+ */
+const ARRIVAL_RISE = 0.35;
+const ARRIVAL_RISE_FLOOR = 24;
+const ARRIVAL_RISE_CEILING = 90;
+
+/**
+ * The mark's outline: a fixed reach per vertex, so the shape is lumpy and
+ * hand-torn rather than a circle, and identical every time it is drawn.
+ *
+ * Fixed and not drawn from anything: the renderer holds no rules and takes no
+ * randomness, so an irregular shape has to be written down to be irregular.
+ */
+const ARRIVAL_WOBBLE: readonly number[] = [
+  1, 0.84, 1.13, 0.91, 1.07, 0.79, 1.11, 0.88, 1.05,
+];
+
+/**
  * How the hands are drawn: one mark per grab the patch has left, spaced around
  * its rim, so a higher-level patch visibly carries more of them and every grab
  * takes one away. PROVISIONAL: the visual treatment is deliberately unchosen
@@ -97,7 +144,12 @@ const SPLASH_SPOKES = 7;
 const STORM_RENDERER_TRANSIENT_TICKS = {
   eruption: ERUPTION_TICKS,
   splash: SPLASH_TICKS,
+  territoryArrival: TERRITORY_OPENING_TICKS,
 } as const;
+
+const clamp = (value: number, low: number, high: number): number => {
+  return Math.min(Math.max(value, low), high);
+};
 
 // One byte's full value, for building a grey tint without writing a colour literal.
 const CHANNEL_MAX = 255;
@@ -164,6 +216,34 @@ const drawPatch = (into: Graphics, radius: number): void => {
     );
   }
   if (hands > 0) into.fill({ color: PALETTE.territory.hex });
+};
+
+/**
+ * The arrival mark at one size: a lumpy nine-sided blob in the ground's own
+ * colour, drawn once per size and then only moved and scaled.
+ *
+ * It is the same construction drawWisp uses, a filled polygon under a dark
+ * companion stroke, because it belongs to the same layer and has to read as
+ * part of the storm rather than as a mob.
+ */
+const drawArrival = (into: Graphics, size: number): void => {
+  into.clear();
+  if (size <= 0) return;
+  const outline: number[] = [];
+  for (let vertex = 0; vertex < ARRIVAL_WOBBLE.length; vertex++) {
+    const angle = (vertex / ARRIVAL_WOBBLE.length) * Math.PI * 2;
+    const reach = size * ARRIVAL_WOBBLE[vertex];
+    outline.push(Math.cos(angle) * reach, Math.sin(angle) * reach);
+  }
+  into
+    .poly(outline)
+    .fill({ color: PALETTE.territory.hex })
+    .poly(outline)
+    .stroke({
+      width: SPRITE_STROKE,
+      color: PALETTE.foodOutline.hex,
+      alignment: 0.5,
+    });
 };
 
 /**
@@ -235,6 +315,18 @@ const drawSplash = (into: Graphics, progress: number): void => {
 // What a patch sprite's geometry depends on, so a redraw happens only when it moves.
 const patchLook = (patch: Patch): string => `${patch.radius}`;
 
+// How big the mark for one patch's ground is drawn, in field units.
+const arrivalSize = (patch: Patch): number => {
+  return Math.max(ARRIVAL_SIZE * patch.radius, ARRIVAL_SIZE_FLOOR);
+};
+
+/** Where one slot's mark set out from, and the patch it set out for. */
+interface ArrivalOrigin {
+  readonly id: number;
+  readonly x: number;
+  readonly y: number;
+}
+
 // A sprite pool at an entity pool's own capacity, so attach() can place them all and no spawn allocates.
 const fill = (sprites: Graphics[], capacity: number): void => {
   while (sprites.length < capacity) {
@@ -259,6 +351,7 @@ const blankBurst = (): Burst => {
 class StormRenderer {
   private readonly skullSprites: Graphics[] = [];
   private readonly patchSprites: Graphics[] = [];
+  private readonly arrivalSprites: Graphics[] = [];
   private readonly wispSprites: Graphics[] = [];
   private readonly ring = new Graphics();
   private readonly eruption = blankBurst();
@@ -271,6 +364,20 @@ class StormRenderer {
    * slot's radius and hand count both reset with the run.
    */
   private readonly patchDrawn: string[] = [];
+  /**
+   * The size each mark sprite last drew, on the same terms as patchDrawn: the
+   * blob is drawn once per size and only scaled after that.
+   */
+  private readonly arrivalDrawn: number[] = [];
+  /**
+   * Where each slot's mark set out from, captured the first frame the slot
+   * carries a patch this renderer has not seen before.
+   *
+   * Captured and not read live. The grave moves under the player's hand for
+   * the whole beat, and a tail that followed it would read as the mark being
+   * dragged along rather than as something already in the air.
+   */
+  private readonly arrivalOrigins: ArrivalOrigin[] = [];
   private readonly wispDrawn: boolean[] = [];
   private built = false;
 
@@ -286,6 +393,9 @@ class StormRenderer {
     for (const sprite of this.skullSprites) storm.addChild(sprite);
     for (const sprite of this.patchSprites) storm.addChild(sprite);
     for (const sprite of this.wispSprites) storm.addChild(sprite);
+    // Last into the storm layer, so a mark still in the air draws over the
+    // dimmed ground it is on its way to.
+    for (const sprite of this.arrivalSprites) storm.addChild(sprite);
     layers.layer('bellRing').addChild(this.ring);
     layers.layer('belchEruption').addChild(this.eruption.sprite);
     layers.layer('belchEruption').addChild(this.splash.sprite);
@@ -314,12 +424,16 @@ class StormRenderer {
     for (const sprite of this.skullSprites) sprite.visible = false;
     for (const sprite of this.patchSprites) sprite.visible = false;
     this.patchDrawn.length = 0;
+    for (const sprite of this.arrivalSprites) sprite.visible = false;
+    this.arrivalDrawn.length = 0;
+    this.arrivalOrigins.length = 0;
     for (const sprite of this.wispSprites) sprite.visible = false;
   }
 
   public detach(): void {
     for (const sprite of this.skullSprites) sprite.removeFromParent();
     for (const sprite of this.patchSprites) sprite.removeFromParent();
+    for (const sprite of this.arrivalSprites) sprite.removeFromParent();
     for (const sprite of this.wispSprites) sprite.removeFromParent();
     this.ring.removeFromParent();
     this.eruption.sprite.removeFromParent();
@@ -331,6 +445,7 @@ class StormRenderer {
     this.built = true;
     fill(this.skullSprites, SKULL_CAP);
     fill(this.patchSprites, TERRITORY_CAP);
+    fill(this.arrivalSprites, TERRITORY_CAP);
     fill(this.wispSprites, WISP_CAP);
   }
 
@@ -338,6 +453,7 @@ class StormRenderer {
   public sync(run: RunState): void {
     this.syncSkulls(run);
     this.syncPatches(run);
+    this.syncArrivals(run);
     this.syncWisps(run);
     this.syncRing(run);
     this.syncBursts(run);
@@ -390,6 +506,68 @@ class StormRenderer {
       sprite.alpha = opening
         ? 1 - patch.opening / (TERRITORY_OPENING_TICKS + 1)
         : 1;
+    }
+  }
+
+  /**
+   * Where this slot's mark set out from: the grave's mouth as it stood the
+   * frame the ground was claimed, remembered until the slot carries a
+   * different patch.
+   */
+  private originOf(run: RunState, slot: number, patch: Patch): ArrivalOrigin {
+    const remembered = this.arrivalOrigins[slot];
+    if (remembered !== undefined && remembered.id === patch.id) {
+      return remembered;
+    }
+    const fresh = {
+      id: patch.id,
+      x: run.grave.x,
+      y: run.grave.y - run.grave.size,
+    };
+    this.arrivalOrigins[slot] = fresh;
+    return fresh;
+  }
+
+  /**
+   * The mark on its way to ground that has not opened yet. It is derived
+   * wholly from a patch still in its beat, so the sim carries nothing for it
+   * and no event is plumbed: data in, pixels out.
+   *
+   * The arc is a fake Z. `height` peaks at 1 halfway through the beat and the
+   * mark is lifted by it, swollen by it, and set back down by it, so one
+   * number carries the whole read of something leaving the ground and landing.
+   */
+  private syncArrivals(run: RunState): void {
+    for (let slot = 0; slot < this.arrivalSprites.length; slot++) {
+      const sprite = this.arrivalSprites[slot];
+      const patch = patchAt(run, slot);
+      sprite.visible = patch !== null && patch.opening > 0;
+      if (patch === null || patch.opening <= 0) continue;
+
+      const size = arrivalSize(patch);
+      if (this.arrivalDrawn[slot] !== size) {
+        this.arrivalDrawn[slot] = size;
+        drawArrival(sprite, size);
+      }
+
+      const origin = this.originOf(run, slot, patch);
+      const spent =
+        (TERRITORY_OPENING_TICKS - patch.opening) / TERRITORY_OPENING_TICKS;
+      const swing = 2 * spent - 1;
+      const travel =
+        0.5 + 0.5 * ((1 - ARRIVAL_HANG) * swing + ARRIVAL_HANG * swing ** 3);
+      const height = 4 * spent * (1 - spent);
+      const rise = clamp(
+        ARRIVAL_RISE * Math.hypot(patch.x - origin.x, patch.y - origin.y),
+        ARRIVAL_RISE_FLOOR,
+        ARRIVAL_RISE_CEILING,
+      );
+
+      sprite.position.set(
+        origin.x + (patch.x - origin.x) * travel,
+        origin.y + (patch.y - origin.y) * travel - height * rise,
+      );
+      sprite.scale.set(1 + height * (ARRIVAL_SWELL - 1));
     }
   }
 

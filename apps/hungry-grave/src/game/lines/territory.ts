@@ -4,7 +4,7 @@
 import { createPool, takeSlot, TERRITORY_CAP } from '../caps';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
-import { normalize } from '../math';
+import { cos, normalize, sin } from '../math';
 import type { Mob } from '../mobs';
 import { damageMob, mobHitbox, SPAWN_MARGIN } from '../mobs';
 import { circleOverlapsBox } from '../overlap';
@@ -13,14 +13,15 @@ import { SCROLL_SPEED } from '../tuning';
 import { MAX_LEVEL } from './roster';
 
 /**
- * Ticks between lays: five seconds. PROVISIONAL, and the first number to move
- * under measurement.
+ * Ticks between lays: a little over eight seconds. PROVISIONAL, and the first
+ * number to move under measurement.
  *
- * The swallow trigger measured a lay every 0.78 seconds and was grossly
- * overpowered; this is 6.4 times sparser. It sits above the bell's 180 because
- * one patch does far more work than one toll.
+ * The first playtest of the autonomous line called the cadence too frequent
+ * and named roughly 60% of the rate as the first candidate, so 300 / 0.6 =
+ * 500. It stays far above the bell's 180 because one patch does far more work
+ * than one toll.
  */
-const TERRITORY_PERIOD = 300;
+const TERRITORY_PERIOD = 500;
 
 /**
  * The lateral half-window about the grave's own x the scan may see, in field
@@ -37,22 +38,32 @@ const TERRITORY_REACH = 180;
 /**
  * The radius a lay claims at each level, in field units. PROVISIONAL.
  *
- * Levels buy area and only area: area times 1.5 per level, so radius times
- * sqrt(1.5), from level 1 at today's 48. Because the pull outruns every
- * faller, any rung kills what it catches; the ladder prices the catch, not
- * the kill. Level 0 lays nothing, the bell's silent-at-0 pattern.
+ * Level 1 opens at 32 so a fresh patch reads as small; at the old 48 the first
+ * rung already covered enough ground that the climb above it had nothing left
+ * to say. Area times 1.8 per level from there, so radius times sqrt(1.8) =
+ * 1.34164: 32, 42.9, 57.6, 77.3, 103.7, rounded. The old ladder grew area by
+ * 1.5 and the steps did not read, and the ceiling is held near the old 108, so
+ * only the shape of the climb moved. Level 0 lays nothing, the bell's
+ * silent-at-0 pattern.
  */
-const RADIUS_BY_LEVEL: readonly number[] = [0, 48, 59, 72, 88, 108];
+const RADIUS_BY_LEVEL: readonly number[] = [0, 32, 43, 58, 77, 104];
 
 /**
- * How long the ground takes to open, in ticks. PROVISIONAL.
+ * How long the ground takes to open, in ticks: a second and a half.
+ * PROVISIONAL.
  *
  * The beat is what keeps Territory from collapsing into a placed detonation
  * when the scan picks a dense knot, and it runs in world time: it ticks down
  * while the patch is still above the visible field, because visibility is
  * never an activation condition.
+ *
+ * At 90 it buys two things at once. The beat is long enough for a mark to
+ * cross to the ground and read as a delivery rather than a blink, and the lead
+ * rises with it, so the scan projects a shambler 28.5 field units instead of
+ * 7.6, which is close to a whole level-1 radius. That is the "the lead should
+ * be larger" half of the playtest note.
  */
-const TERRITORY_OPENING_TICKS = 24;
+const TERRITORY_OPENING_TICKS = 90;
 
 /**
  * How far ahead the scan projects each mob, in ticks. The lead is not a guess:
@@ -72,41 +83,83 @@ const TERRITORY_LEAD_TICKS = TERRITORY_OPENING_TICKS;
 const TERRITORY_DAMAGE = 5;
 
 /**
- * Ticks a mob is held ineligible after a pulse: half a second. PROVISIONAL.
+ * Ticks a mob is held ineligible after a pulse, at each level. PROVISIONAL.
  *
- * The genre expresses ground zones as full damage on a per-enemy delay
- * clustered at 500ms and 1000ms. The ruled range was 6 to 10 pulses to kill
- * trash; 8 chosen, so a shambler dies in 210 ticks of dwell.
+ * The pace of the pulses is the third channel of control strength, beside the
+ * pull and the slow (ADR 0044, amended 2026-08-28). Every ruled touch count is
+ * untouched by it: TERRITORY_DAMAGE stays 5, so a shambler is still 8 pulses,
+ * a ghoul 5 and a revenant 13, and only the time the ground takes to deliver
+ * them moves with the level.
+ *
+ * Measured pure dwell for a shambler entering at the centre of open ground,
+ * damage off: 376 ticks at level 1, then 923, 937, 954 and 979, every rung
+ * above the first capped by the ground's own remaining life rather than by the
+ * crossing, because from level 2 the mob is held until the ground goes.
+ * Against those the ladder gives, at a centre entry: level 1 five pulses and
+ * 25 damage, so the mob walks out alive at 15 of 40; level 2 death after 434
+ * ticks of dwell; level 3 after 336; level 4 after 266; and level 5 after 210,
+ * which is exactly the old flat window's figure, so the top rung is pinned to
+ * the derivation the genre reading already settled, full damage on a per-enemy
+ * delay clustered at 500ms.
+ *
+ * Level 1 is the only rung an ordinary mob survives, and that is inherent
+ * rather than a chosen cutoff. From level 2 the pull is close enough to a
+ * shambler's own pace that it loiters, so dwell roughly doubles and no
+ * survivable window exists that is also shorter than level 1's. The bands the
+ * player reads are therefore level 1 as a speed bump, level 2 as where the
+ * ground starts killing, and level 3 and up as pinned and ground down faster
+ * each rung.
  */
-const TERRITORY_REHIT_TICKS = 30;
+const REHIT_BY_LEVEL: readonly number[] = [0, 80, 62, 48, 38, 30];
 
 /**
- * How far a held mob is drawn toward the patch centre per tick, in field
- * units. PROVISIONAL.
+ * How far a held mob is drawn toward the patch centre per tick at each level,
+ * in field units. PROVISIONAL.
  *
- * It undoes a worst-case level-5 toll shove in 80 ticks, and it is above every
- * faller's own speed (shambler 0.32, revenant 0.22 per tick), so a caught
- * faller cannot leave; only a ghoul can pull free.
+ * Levels buy control strength as well as area, and this ladder is where the
+ * early rungs stop being a death sentence. Own speeds per tick are shambler
+ * 0.317, revenant 0.222 and ghoul 1.575, and a mob over open ground keeps
+ * (1 - slow) of its own. Level 1: a shambler keeps 0.253 against a pull of
+ * 0.08, so it leaves at 0.173 a tick while taking chip damage. Level 3 is the
+ * turn, 0.190 against 0.22, held. Level 5 holds hard, 0.127 against 0.6. The
+ * ghoul is the one type that pulls free at every rung, 0.63 against 0.6 even
+ * at the top.
  */
-const TERRITORY_PULL = 0.5;
+const PULL_BY_LEVEL: readonly number[] = [0, 0.08, 0.13, 0.22, 0.36, 0.6];
 
 /**
- * The fraction of a mob's own motion undone while over open ground.
- * PROVISIONAL.
+ * The fraction of a mob's own motion undone while over open ground, at each
+ * level. PROVISIONAL.
  *
- * The ghoul is what this exists for: its natural crossing gives about 61
- * ticks of dwell against the 120 its 5 pulses need, and halving its pace is
- * what puts it over the line.
+ * Early levels are mostly slow and chip, so the ladder opens at 0.2 rather
+ * than the old flat 0.5 and reaches 0.6 at the top. The ghoul is what the top
+ * of it exists for: its natural crossing gives about 61 ticks of dwell against
+ * the 120 its 5 pulses need, and cutting its pace is what puts it over the
+ * line.
  */
-const TERRITORY_SLOW = 0.5;
+const SLOW_BY_LEVEL: readonly number[] = [0, 0.2, 0.3, 0.4, 0.5, 0.6];
+
+/**
+ * How far a lay may sit from the point the scan chose, as a fraction of the
+ * patch's own radius. PROVISIONAL.
+ *
+ * Ground that arrives with the cluster already at its centre reads as mobs
+ * spawning with the patch rather than as mobs being caught by it, so the lay
+ * is displaced into the disc of this bound around the chosen point. The draw
+ * is uniform over that disc, so the mean displacement is two thirds of the
+ * bound, 0.37 of the radius. It is relative to the radius at every level on
+ * purpose: ADR 0044 rules that higher levels must not converge on exact
+ * placement.
+ */
+const TERRITORY_SPREAD = 0.55;
 
 /**
  * One patch of claimed ground.
  *
- * It is a finished gameplay object at birth: the radius its level bought is
- * captured when it is created and never changes, so a level-up mid-run
- * reaches only patches laid after it. That is bell.ts's own precedent, where
- * a live ring keeps the level it was born with.
+ * It is a finished gameplay object at birth: the radius and the control
+ * strength its level bought are captured when it is created and never change,
+ * so a level-up mid-run reaches only patches laid after it. That is bell.ts's
+ * own precedent, where a live ring keeps the level it was born with.
  */
 interface Patch {
   alive: boolean;
@@ -115,6 +168,12 @@ interface Patch {
   y: number;
   // Field units, captured from the level's ladder at birth.
   radius: number;
+  // Field units per tick toward the centre, captured from the level's ladder at birth.
+  pull: number;
+  // The share of a mob's own motion undone, captured from the level's ladder at birth.
+  slow: number;
+  // Ticks between pulses on one mob, captured from the level's ladder at birth.
+  rehit: number;
   // Ticks of the opening beat left. Zero means the hands are up.
   opening: number;
   // Dwell pulses this patch has landed over its whole life.
@@ -138,6 +197,9 @@ const blankPatch = (): Patch => {
     x: 0,
     y: 0,
     radius: 0,
+    pull: 0,
+    slow: 0,
+    rehit: 0,
     opening: 0,
     pulses: 0,
     struck: new Map(),
@@ -217,6 +279,12 @@ interface KnotPoint {
   readonly y: number;
 }
 
+// How far and which way one lay is displaced from the point the scan chose, in field units.
+interface Spread {
+  readonly x: number;
+  readonly y: number;
+}
+
 /**
  * Every eligible standing point, in mob slot order: alive, projected strictly
  * ahead of the grave, projected at or below the visible top edge, and within
@@ -277,20 +345,32 @@ const clamp = (value: number, low: number, high: number): number => {
 };
 
 /**
- * One lay at the winning knot. The x is clamped to the field so claimed
- * ground is never laid where it cannot be stood on; the y is never clamped,
- * because up-field is legal and off-field is not inactive.
+ * One lay at the winning knot, displaced by the spread and then held inside
+ * the window the scan itself may see.
+ *
+ * The x is clamped to the field so claimed ground is never laid where it
+ * cannot be stood on. The y is clamped to the same window eligiblePoints
+ * scans, the visible top edge down to the grave, and both ends of that are
+ * load-bearing: the top one for the reason eligiblePoints states, and the
+ * lower one because ADR 0044's boundary reading against ADR 0035 rests on the
+ * scan being anchored ahead of the grave. A displacement that could break
+ * either would reopen both, so it is bounded here rather than trusted.
  */
 const layPatch = (
   state: RunState,
   point: KnotPoint,
+  spread: Spread,
   mobsUnder: number,
   events: SimEvent[],
 ): void => {
+  const level = Math.min(state.levels.territory, MAX_LEVEL);
   const patch = claimSlot(state, events);
-  patch.x = clamp(point.x, 0, FIELD_WIDTH);
-  patch.y = point.y;
-  patch.radius = RADIUS_BY_LEVEL[Math.min(state.levels.territory, MAX_LEVEL)];
+  patch.x = clamp(point.x + spread.x, 0, FIELD_WIDTH);
+  patch.y = clamp(point.y + spread.y, 0, state.grave.y);
+  patch.radius = RADIUS_BY_LEVEL[level];
+  patch.pull = PULL_BY_LEVEL[level];
+  patch.slow = SLOW_BY_LEVEL[level];
+  patch.rehit = REHIT_BY_LEVEL[level];
   patch.opening = TERRITORY_OPENING_TICKS;
   patch.pulses = 0;
   patch.struck.clear();
@@ -304,9 +384,30 @@ const layPatch = (
 };
 
 /**
+ * One lay's displacement: an angle and a distance, two draws from Territory's
+ * own named stream and no more.
+ *
+ * The square root is what makes the point uniform over the disc rather than
+ * crowded at its centre, and crowded at the centre is the very read the
+ * displacement exists to break. Math.sqrt is exactly specified so it needs no
+ * gate; the sine and cosine are approximated and go through math.ts, which is
+ * ADR 0015 and not a preference.
+ */
+const spreadOffset = (state: RunState, radius: number): Spread => {
+  const angle = state.streams.territory.next() * Math.PI * 2;
+  const distance =
+    Math.sqrt(state.streams.territory.next()) * TERRITORY_SPREAD * radius;
+  return { x: cos(angle) * distance, y: sin(angle) * distance };
+};
+
+/**
  * The line's own clock, the bell's ADR 0036 move: at level 0 it does not run,
  * and a full charge with nothing eligible holds full and rescans every tick,
  * so the ground is claimed the moment something stands where it can be.
+ *
+ * The stream is touched only once a knot has been chosen. A scan that finds
+ * nothing has to leave the cursor exactly where it was, or the ticks a full
+ * charge spends waiting would shift every later draw in the run.
  */
 const runTheClock = (state: RunState, events: SimEvent[]): void => {
   if (state.levels.territory <= 0) return;
@@ -317,7 +418,8 @@ const runTheClock = (state: RunState, events: SimEvent[]): void => {
   const radius = RADIUS_BY_LEVEL[Math.min(state.levels.territory, MAX_LEVEL)];
   const knot = densestKnot(points, radius);
   if (knot === null) return;
-  layPatch(state, knot.point, knot.count, events);
+  const spread = spreadOffset(state, radius);
+  layPatch(state, knot.point, spread, knot.count, events);
   lines.layIn = TERRITORY_PERIOD;
 };
 
@@ -341,16 +443,19 @@ const mobIsOverPatch = (patch: Patch, mob: Mob): boolean => {
  * written with the pushMob discipline (finite-check, zero-length guard, clamp
  * to the box the invariant harness checks).
  *
- * The slow touches position only, undoing half the motion moveMob just
+ * Both strengths are read off the patch and never off the run's levels, so a
+ * patch controls at the strength it was born with for its whole life.
+ *
+ * The slow touches position only, undoing part of the motion moveMob just
  * applied: mobs.ts learns nothing of Territory. The pull is clamped to the
  * remaining distance so a mob near the centre settles instead of oscillating
  * across it, and a mob at the exact centre has no direction to pull along.
  */
 const holdMob = (patch: Patch, mob: Mob): void => {
   const toCentre = normalize(patch.x - mob.x, patch.y - mob.y);
-  const pull = Math.min(TERRITORY_PULL, toCentre.length);
-  const dx = -TERRITORY_SLOW * mob.vx + toCentre.x * pull;
-  const dy = -TERRITORY_SLOW * mob.vy + toCentre.y * pull;
+  const pull = Math.min(patch.pull, toCentre.length);
+  const dx = -patch.slow * mob.vx + toCentre.x * pull;
+  const dy = -patch.slow * mob.vy + toCentre.y * pull;
   if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
   mob.x = clamp(mob.x + dx, -SPAWN_MARGIN, FIELD_WIDTH + SPAWN_MARGIN);
   mob.y = clamp(mob.y + dy, -SPAWN_MARGIN, FIELD_HEIGHT + SPAWN_MARGIN);
@@ -408,9 +513,10 @@ const advanceTerritory = (state: RunState): SimEvent[] => {
  * One patch's dwell pulses this tick: prune every expired map entry, then
  * pulse each overlapping mob with no live entry, in slot order.
  *
- * An entry is expired once its tick is reached, so the cadence is exactly one
- * pulse per window: a mob first pulsed at tick T is pulsed again at T plus
- * the window, and 8 windows take a shambler start to death in 210 ticks.
+ * An entry is expired once its tick is reached, so the pace is exactly one
+ * pulse per window: a mob first pulsed at tick T is pulsed again at T plus the
+ * window. The window is the patch's own, captured at birth like its pull and
+ * its slow, so a patch grinds at the pace its level bought for its whole life.
  */
 const pulseWithPatch = (state: RunState, patch: Patch): SimEvent[] => {
   for (const [id, eligibleAt] of patch.struck) {
@@ -420,7 +526,7 @@ const pulseWithPatch = (state: RunState, patch: Patch): SimEvent[] => {
   for (const mob of state.mobs) {
     if (!mob.alive || patch.struck.has(mob.id)) continue;
     if (!mobIsOverPatch(patch, mob)) continue;
-    patch.struck.set(mob.id, state.tick + TERRITORY_REHIT_TICKS);
+    patch.struck.set(mob.id, state.tick + patch.rehit);
     patch.pulses += 1;
     events.push(...damageMob(state, mob, TERRITORY_DAMAGE, 'territory'));
   }
@@ -466,9 +572,12 @@ export {
   patchAt,
   territoryCharge,
   RADIUS_BY_LEVEL,
+  PULL_BY_LEVEL,
+  SLOW_BY_LEVEL,
+  REHIT_BY_LEVEL,
+  TERRITORY_SPREAD,
   TERRITORY_OPENING_TICKS,
   TERRITORY_DAMAGE,
-  TERRITORY_REHIT_TICKS,
   TERRITORY_PERIOD,
 };
 export type { Patch, PatchClosing };

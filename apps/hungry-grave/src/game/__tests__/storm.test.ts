@@ -7,7 +7,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { SKULL_DAMAGE } from '../lines/soulStream';
-import { TERRITORY_DAMAGE } from '../lines/territory';
+import {
+  PULL_BY_LEVEL,
+  REHIT_BY_LEVEL,
+  SLOW_BY_LEVEL,
+  TERRITORY_DAMAGE,
+} from '../lines/territory';
 import { WISP_DAMAGE } from '../lines/wisps';
 import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
@@ -56,6 +61,9 @@ function putPatch(state: RunState, x: number, y: number) {
   patch.x = x;
   patch.y = y;
   patch.radius = 30;
+  patch.pull = PULL_BY_LEVEL[1];
+  patch.slow = SLOW_BY_LEVEL[1];
+  patch.rehit = REHIT_BY_LEVEL[1];
   patch.opening = 0;
   patch.pulses = 0;
   patch.struck.clear();

@@ -151,6 +151,7 @@ const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
       drops: run.streams.drops.drawn,
       mobFire: run.streams.mobFire.drawn,
       shed: run.streams.shed.drawn,
+      territory: run.streams.territory.drawn,
     },
     levels: { ...run.levels },
     checksum: checksum,
@@ -269,9 +270,9 @@ const GOLDEN: Digest = {
   size: 24.50625,
   score: 0,
   reservoir: 0.50625,
-  mobs: 5,
+  mobs: 6,
   shots: 2,
-  corpses: 2,
+  corpses: 1,
   skulls: 2,
   wisps: 0,
   kills: 2,
@@ -280,6 +281,7 @@ const GOLDEN: Digest = {
     drops: 0,
     mobFire: 1,
     shed: 0,
+    territory: 2,
   },
   levels: {
     soulStream: 1,
@@ -287,7 +289,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 1304543197,
+  checksum: 439893635,
 };
 
 export { runScenario, GOLDEN };

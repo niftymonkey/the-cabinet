@@ -549,6 +549,9 @@ function fillPatch(run: RunState): void {
   patch.x = 210.5;
   patch.y = 84.25;
   patch.radius = 41.5;
+  patch.pull = 0.22;
+  patch.slow = 0.4;
+  patch.rehit = 48;
   patch.opening = 6;
   patch.pulses = 3;
   patch.struck.clear();
@@ -901,6 +904,13 @@ const NAN_CASES: readonly NanCase[] = [
     }),
   },
   {
+    path: 'streams.territory.drawn',
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, territory: poisonedStream() },
+    }),
+  },
+  {
     path: 'lines.streamIn',
     poison: (run) => {
       run.lines.streamIn = NaN;
@@ -932,6 +942,27 @@ const NAN_CASES: readonly NanCase[] = [
     path: 'patches[].radius',
     poison: (run) => {
       run.patches[0].radius = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].pull',
+    poison: (run) => {
+      run.patches[0].pull = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].slow',
+    poison: (run) => {
+      run.patches[0].slow = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].rehit',
+    poison: (run) => {
+      run.patches[0].rehit = NaN;
       return run;
     },
   },

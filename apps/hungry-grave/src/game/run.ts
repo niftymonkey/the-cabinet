@@ -202,6 +202,7 @@ const createRun = (
       drops: stream(seed, 'drops'),
       mobFire: stream(seed, 'mobFire'),
       shed: stream(seed, 'shed'),
+      territory: stream(seed, 'territory'),
     },
     mobs: createMobPool(),
     mobFire: createShotPool(),

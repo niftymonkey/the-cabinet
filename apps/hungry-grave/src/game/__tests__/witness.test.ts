@@ -75,6 +75,9 @@ function fillPatch(run: RunState): void {
   patch.x = 210.5;
   patch.y = 84.25;
   patch.radius = 41.5;
+  patch.pull = 0.22;
+  patch.slow = 0.4;
+  patch.rehit = 48;
   patch.opening = 6;
   patch.pulses = 3;
   patch.struck.clear();
@@ -178,8 +181,8 @@ interface FieldCase {
   readonly move: (run: RunState) => void;
   /**
    * Puts the field back where it was. Absent only where the field cannot be
-   * moved backwards at all, which is the four stream cursors: `drawn` is a
-   * getter over a counter that only ever increases.
+   * moved backwards at all, which is the stream cursors: `drawn` is a getter
+   * over a counter that only ever increases.
    */
   readonly restore?: (run: RunState) => void;
 }
@@ -366,6 +369,21 @@ const ENTITY_CASES: readonly FieldCase[] = [
     restore: (run) => void (run.patches[0].radius -= 1e-6),
   },
   {
+    path: 'patches[].pull',
+    move: (run) => void (run.patches[0].pull += 1e-6),
+    restore: (run) => void (run.patches[0].pull -= 1e-6),
+  },
+  {
+    path: 'patches[].slow',
+    move: (run) => void (run.patches[0].slow += 1e-6),
+    restore: (run) => void (run.patches[0].slow -= 1e-6),
+  },
+  {
+    path: 'patches[].rehit',
+    move: (run) => void (run.patches[0].rehit += 1),
+    restore: (run) => void (run.patches[0].rehit -= 1),
+  },
+  {
     path: 'patches[].opening',
     move: (run) => void (run.patches[0].opening -= 1),
     restore: (run) => void (run.patches[0].opening += 1),
@@ -443,6 +461,10 @@ const RUN_CASES: readonly FieldCase[] = [
     move: (run) => void run.streams.mobFire.next(),
   },
   { path: 'streams.shed.drawn', move: (run) => void run.streams.shed.next() },
+  {
+    path: 'streams.territory.drawn',
+    move: (run) => void run.streams.territory.next(),
+  },
   {
     path: 'stage.phaseIndex',
     move: (run) => void (run.stage.phaseIndex += 1),
@@ -547,6 +569,9 @@ const FOLDED: readonly string[] = [
   'patches[].x',
   'patches[].y',
   'patches[].radius',
+  'patches[].pull',
+  'patches[].slow',
+  'patches[].rehit',
   'patches[].opening',
   'patches[].pulses',
   'patches[].struck',
@@ -564,6 +589,7 @@ const FOLDED: readonly string[] = [
   'streams.drops.drawn',
   'streams.mobFire.drawn',
   'streams.shed.drawn',
+  'streams.territory.drawn',
   'stage.phaseIndex',
   'stage.phaseTick',
   'stage.firedRows',
@@ -617,6 +643,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'streams.mobFire.nextInt': 'a draw function, not state.',
   'streams.shed.next': 'a draw function, not state. Its cursor is folded.',
   'streams.shed.nextInt': 'a draw function, not state.',
+  'streams.territory.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.territory.nextInt': 'a draw function, not state.',
 };
 
 /**

@@ -37,17 +37,26 @@ interface StageRow {
  *
  * The new number cannot be derived from falling either, because under the storm
  * the field is emptied partly by kills. It is measured instead: across the five
- * full-run seeds the field empties 15.0 to 15.5 seconds after a phase's last
- * row, so sixteen is the smallest whole second that clears every one of them.
- * The storm is what buys the four seconds off the weaponless twenty, and it buys
- * no more than that at the birthright build a run spends most of its length in.
+ * full-run seeds and both drain-outs the field empties 14.6 to 16.3 seconds
+ * after a phase's last row, so seventeen is the smallest whole second that
+ * clears every one of them. The storm is what buys the three seconds off the
+ * weaponless twenty, and it buys no more than that at the birthright build a
+ * run spends most of its length in.
+ *
+ * It was sixteen, measured the same way against a storm that killed trash at
+ * every level. #76 pass C put Territory's dwell pace on a level ladder, and a
+ * level-1 patch now releases an ordinary shambler alive instead of killing it,
+ * so the birthright build clears the field a second slower and the measurement
+ * moved with it. The worst case is the back half on seed 101, and the margin
+ * against the weaponless eighteen is what says the storm is still doing work
+ * at level 1 rather than nothing at all.
  *
  * What is pinned by test is the property, that the field is empty when the boss
  * phase begins, asserted across all five seeds in
  * src/dev/__tests__/bot.test.ts. This magnitude follows that property and never
  * the other way round.
  */
-const DRAIN_OUT_SECONDS = 16;
+const DRAIN_OUT_SECONDS = 17;
 
 /**
  * The first 45 seconds are Drips and one File; Files, Vs and Pincers then

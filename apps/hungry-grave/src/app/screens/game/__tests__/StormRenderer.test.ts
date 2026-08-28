@@ -61,9 +61,10 @@ function putWisp(state: RunState, slot: number, x: number, y: number) {
 describe("the storm's sprite pools (plan 6.19)", () => {
   it('holds a sprite per entity cap, so a spawn never allocates', () => {
     const { layers } = attached();
-    // The storm layer carries the skulls, Territory's patches and the wisps.
+    // The storm layer carries the skulls, Territory's patches, the wisps and
+    // one arrival mark per patch.
     expect(children(layers, 'storm')).toHaveLength(
-      SKULL_CAP + TERRITORY_CAP + WISP_CAP,
+      SKULL_CAP + 2 * TERRITORY_CAP + WISP_CAP,
     );
     expect(children(layers, 'bellRing')).toHaveLength(1);
     // The eruption and the splash, both momentary and both with no sim entity.
@@ -343,10 +344,179 @@ describe("Territory's claimed ground", () => {
     renderer.sync(state);
 
     expect(children(layers, 'storm')).toHaveLength(
-      SKULL_CAP + TERRITORY_CAP + WISP_CAP,
+      SKULL_CAP + 2 * TERRITORY_CAP + WISP_CAP,
     );
     expect(
       children(layers, 'storm').filter((sprite) => sprite.visible),
     ).toHaveLength(0);
+  });
+});
+
+/**
+ * The arrival mark (#76 pass C): a mark leaves the grave and travels to the
+ * ground about to open under it, so a claim reads as something the grave sent
+ * rather than as ground that simply appeared.
+ *
+ * It is derived wholly from a patch still in its opening beat, so every test
+ * here sets an opening and syncs. No sim state carries it and no event is
+ * plumbed for it.
+ */
+describe('the arrival mark', () => {
+  const PATCH_X = 200;
+  const PATCH_Y = 300;
+
+  function opening(state: RunState, ticks: number) {
+    const patch = state.patches[0];
+    patch.alive = true;
+    patch.id = 400;
+    patch.x = PATCH_X;
+    patch.y = PATCH_Y;
+    patch.radius = 32;
+    patch.pull = 0.08;
+    patch.slow = 0.2;
+    patch.opening = ticks;
+    patch.pulses = 0;
+    patch.struck.clear();
+    return patch;
+  }
+
+  function mark(layers: FieldLayers) {
+    return children(layers, 'storm')[SKULL_CAP + TERRITORY_CAP + WISP_CAP];
+  }
+
+  /** Where the mark sets out from: the grave's mouth, the point erupt uses. */
+  function mouth(state: RunState) {
+    return { x: state.grave.x, y: state.grave.y - state.grave.size };
+  }
+
+  /** How far along the straight line from the mouth to the ground the mark is. */
+  function covered(state: RunState, layers: FieldLayers): number {
+    return (
+      (mark(layers).position.x - mouth(state).x) / (PATCH_X - mouth(state).x)
+    );
+  }
+
+  it('ground still opening shows a mark between the grave and the ground', () => {
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const patch = opening(state, TERRITORY_OPENING_TICKS);
+    renderer.sync(state);
+    patch.opening = TERRITORY_OPENING_TICKS / 2;
+    renderer.sync(state);
+
+    const sprite = mark(layers);
+    expect(sprite.visible).toBe(true);
+    expect(sprite.position.x).toBeGreaterThan(
+      Math.min(PATCH_X, mouth(state).x),
+    );
+    expect(sprite.position.x).toBeLessThan(Math.max(PATCH_X, mouth(state).x));
+    expect(sprite.position.y).toBeGreaterThan(PATCH_Y);
+    expect(sprite.position.y).toBeLessThan(mouth(state).y);
+  });
+
+  it('the mark is largest around the middle of its travel and back to its own size on arrival', () => {
+    // One number carries the whole arc: the same height that lifts the mark
+    // swells it, so it cannot be big and low or small and high.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const patch = opening(state, TERRITORY_OPENING_TICKS);
+    const scales: number[] = [];
+    for (let spent = 0; spent < TERRITORY_OPENING_TICKS; spent++) {
+      patch.opening = TERRITORY_OPENING_TICKS - spent;
+      renderer.sync(state);
+      scales.push(mark(layers).scale.x);
+    }
+
+    expect(scales[0]).toBeCloseTo(1, 6);
+    const largest = Math.max(...scales);
+    expect(largest).toBeGreaterThan(2);
+    expect(scales.indexOf(largest)).toBe(TERRITORY_OPENING_TICKS / 2);
+    expect(scales[scales.length - 1]).toBeLessThan(1.1);
+  });
+
+  it('the mark rides above its own ground path through the middle of the travel', () => {
+    // The arc is a fake Z, so the mark has to leave the line it is travelling
+    // along rather than slide down it.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const patch = opening(state, TERRITORY_OPENING_TICKS);
+    renderer.sync(state);
+    patch.opening = TERRITORY_OPENING_TICKS / 2;
+    renderer.sync(state);
+
+    const along =
+      mouth(state).y + (PATCH_Y - mouth(state).y) * covered(state, layers);
+    expect(mark(layers).position.y).toBeLessThan(along);
+  });
+
+  it('the mark covers less of the distance through the middle than a straight run would', () => {
+    // The hang. Through the middle fifth of the beat the mark moves at a
+    // fraction of linear pace, which is what makes the top of the arc read as
+    // a hold rather than as a constant slide.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const patch = opening(state, TERRITORY_OPENING_TICKS);
+    renderer.sync(state);
+
+    patch.opening = TERRITORY_OPENING_TICKS * 0.6;
+    renderer.sync(state);
+    const early = covered(state, layers);
+    patch.opening = TERRITORY_OPENING_TICKS * 0.4;
+    renderer.sync(state);
+    const late = covered(state, layers);
+
+    // A straight run covers a fifth of the way in a fifth of the beat.
+    expect(late - early).toBeGreaterThan(0);
+    expect(late - early).toBeLessThan(0.2 / 2);
+  });
+
+  it('no mark shows once the hands are up', () => {
+    // The mark is the beat before the ground bites, and the opened ground is
+    // its own draw. Two of them on screen at once would say the claim arrived
+    // twice.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const patch = opening(state, TERRITORY_OPENING_TICKS / 2);
+    renderer.sync(state);
+    expect(mark(layers).visible).toBe(true);
+
+    patch.opening = 0;
+    renderer.sync(state);
+    expect(mark(layers).visible).toBe(false);
+  });
+
+  it('the mark keeps the origin it launched from when the grave moves', () => {
+    // Captured and not read live. The grave moves under the player's hand for
+    // the whole beat, and a tail that followed it would read as the mark being
+    // dragged rather than as something already in the air.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const patch = opening(state, TERRITORY_OPENING_TICKS);
+    state.grave.x = 100;
+    renderer.sync(state);
+    expect(mark(layers).position.x).toBeCloseTo(100, 6);
+
+    state.grave.x = 400;
+    patch.opening = TERRITORY_OPENING_TICKS;
+    renderer.sync(state);
+    expect(mark(layers).position.x).toBeCloseTo(100, 6);
+  });
+
+  it('forgetPreviousRun drops the remembered origins', () => {
+    // The pooled-screen leak this app has been bitten by five times: an origin
+    // is a memory of a past tick, so it has to die where every other per-run
+    // memory does.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const patch = opening(state, TERRITORY_OPENING_TICKS);
+    state.grave.x = 100;
+    renderer.sync(state);
+    expect(mark(layers).position.x).toBeCloseTo(100, 6);
+
+    renderer.forgetPreviousRun();
+    state.grave.x = 400;
+    patch.opening = TERRITORY_OPENING_TICKS;
+    renderer.sync(state);
+    expect(mark(layers).position.x).toBeCloseTo(400, 6);
   });
 });

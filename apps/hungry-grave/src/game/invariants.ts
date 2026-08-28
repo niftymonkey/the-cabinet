@@ -154,6 +154,9 @@ const checkPatchesNoNaN = (state: RunState, faults: Fault[]): void => {
     checkSlotFinite(faults, 'patch', patch.id, 'x', patch.x);
     checkSlotFinite(faults, 'patch', patch.id, 'y', patch.y);
     checkSlotFinite(faults, 'patch', patch.id, 'radius', patch.radius);
+    checkSlotFinite(faults, 'patch', patch.id, 'pull', patch.pull);
+    checkSlotFinite(faults, 'patch', patch.id, 'slow', patch.slow);
+    checkSlotFinite(faults, 'patch', patch.id, 'rehit', patch.rehit);
     checkSlotFinite(faults, 'patch', patch.id, 'opening', patch.opening);
     checkSlotFinite(faults, 'patch', patch.id, 'pulses', patch.pulses);
   }
@@ -186,6 +189,7 @@ const checkStreamsNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'streams.drops.drawn', state.streams.drops.drawn);
   checkFinite(faults, 'streams.mobFire.drawn', state.streams.mobFire.drawn);
   checkFinite(faults, 'streams.shed.drawn', state.streams.shed.drawn);
+  checkFinite(faults, 'streams.territory.drawn', state.streams.territory.drawn);
 };
 
 /**
@@ -342,9 +346,10 @@ const checkWispsInBounds = (state: RunState, faults: Fault[]): void => {
  * ends a patch on the first tick its whole body clears the bottom edge, so a
  * live one below there is corrupt state.
  *
- * Up-field there is no bound at all. Placement legitimately lays a patch above
- * the top edge and it simulates there, and the harness's job is to say what is
- * impossible, never how far up-field Territory may be tuned.
+ * Up-field there is no bound at all, and that is deliberate. Placement holds
+ * its own lay to the window the scan may see, but that is a rule the line owns
+ * and may retune; the harness's job is to say what is impossible, never how
+ * far up-field Territory may be placed.
  */
 const checkPatchesInBounds = (state: RunState, faults: Fault[]): void => {
   for (const patch of state.patches) {

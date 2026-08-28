@@ -12,15 +12,17 @@ import type { StageState } from './stage/stage';
 import type { FoodKind } from './swallow';
 
 /**
- * The order the four streams' cursors fold in. It is spelled out rather than
- * read off the record's keys, because a fold whose order depends on insertion
- * order is a fold nobody can reproduce from the type alone.
+ * The order the streams' cursors fold in. It is spelled out rather than read
+ * off the record's keys, because a fold whose order depends on insertion order
+ * is a fold nobody can reproduce from the type alone. It is append-only: a new
+ * name goes last, so every cursor keeps the place it already folded in.
  */
 const STREAM_ORDER: readonly StreamName[] = [
   'spawns',
   'drops',
   'mobFire',
   'shed',
+  'territory',
 ];
 
 /**
@@ -33,7 +35,7 @@ const STREAM_ORDER: readonly StreamName[] = [
  * and read back there, so it moves only when the order or the field list below
  * moves.
  */
-const WITNESS_VERSION = 3;
+const WITNESS_VERSION = 4;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -203,13 +205,20 @@ const foldRehits = (
  * A patch's own state, its re-hit map included: the map is what makes one
  * pulse per window per mob a fact a replay can check, and the pulse count is
  * what says how much traffic the ground has punished.
+ *
+ * The captured pull, slow and re-hit window fold beside the captured radius.
+ * All four are written once from the level's ladder and never move again, so
+ * they carry the same evidence: a patch controlling at a strength its birth
+ * level never bought is a divergence the levels alone cannot show.
  */
 const foldPatches = (checksum: number, run: RunState): number => {
   let next = checksum;
   for (const patch of run.patches) {
     if (!patch.alive) continue;
     next = fold(fold(next, patch.x), patch.y);
-    next = fold(fold(next, patch.radius), patch.opening);
+    next = fold(fold(next, patch.radius), patch.pull);
+    next = fold(fold(next, patch.slow), patch.rehit);
+    next = fold(next, patch.opening);
     next = foldRehits(fold(next, patch.pulses), patch.struck);
   }
   return next;
