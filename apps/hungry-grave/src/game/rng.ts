@@ -1,7 +1,7 @@
 // Named seeded streams from one run seed, independent by construction (tracer
 // plan section 3).
 
-type StreamName = 'spawns' | 'drops' | 'mobFire' | 'shed';
+type StreamName = 'spawns' | 'drops' | 'mobFire' | 'shed' | 'territory';
 
 interface Stream {
   // The next draw, 0 inclusive to 1 exclusive.
@@ -18,8 +18,9 @@ const UINT32_LIMIT = 4294967296;
 /**
  * xmur3, the standard companion to sfc32: it passes SMHasher's avalanche test
  * and produces the four 32-bit words sfc32's state needs. FNV-1a is not used
- * here because it fails avalanche outright, and on these four stream names it
- * differs in 7 of 32 bits where 16 is expected.
+ * here because it fails avalanche outright: across the stream names in this
+ * app its hashes sit 14.2 of 32 bits apart on average and as close as 12,
+ * where 16 is expected.
  */
 const xmur3 = (text: string): (() => number) => {
   let h = 1779033703 ^ text.length;

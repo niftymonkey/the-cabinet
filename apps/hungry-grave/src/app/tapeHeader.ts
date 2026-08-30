@@ -2,6 +2,7 @@
 // being played in.
 
 import { TICK_HZ } from '../game/clock';
+import { WEAPON_LINES } from '../game/lines/roster';
 import type { RunState } from '../game/run';
 import { WITNESS_VERSION } from '../game/witness';
 import type { TapeHeader, TapeInputDevice } from '../tape/tape';
@@ -60,6 +61,12 @@ interface RunConditions {
  * exactly the same terms (ruled by Mark 2026-08-24): the resolved record for
  * every run, pinned or not, copied because the run levels up in place and the
  * header is a record of the start.
+ *
+ * The roster goes in beside them so those levels stay readable when the roster
+ * moves again (ADR 0043). The lines this build implements are what the run
+ * really played, so recording them is the same record-the-resolved-value rule
+ * one level up: a later reader reads a level by the name it was written under
+ * rather than by a position it has to guess the meaning of.
  */
 const tapeHeaderFor = (
   run: RunState,
@@ -68,6 +75,7 @@ const tapeHeaderFor = (
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    recordedRoster: [...WEAPON_LINES],
     startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,

@@ -69,7 +69,74 @@ const PALETTE = {
 
   // player fire
   skull: { hex: 0x8496a6, luma: 57.78 },
-  stone: { hex: 0x9aa4ad, luma: 63.73 },
+  /**
+   * The charge arc that announces claimed ground, on the grave's own rim.
+   *
+   * Re-valued on 2026-08-28 from `#9aa4ad` luma 63.73, a pale blue-grey at hue
+   * 208. The arc is the rim's own band wearing this colour, the construction
+   * graveGlow already uses, and on that band the old value was invisible: it
+   * sat 0.72 luma and 3 hue degrees from graveRim, inside the flat span where
+   * 72 of 78 pairs measure APCA Lc 0.00. Lightness cannot separate them,
+   * because the band ceiling caps both, so the separation has to be hue, which
+   * is how the glow reads at Lc 0.00 on the same geometry.
+   *
+   * The hue is forced rather than chosen. Fire's 20-degree exclusion closes 20
+   * to 39, amber at 41 is spoken for, purple is banned outright, and 175 to
+   * 220 is the grave's own family, which is what has to be left. That leaves
+   * the window between corpseRevenant at hue 76 and mob at hue 126, and 101 is
+   * its midpoint, 24 degrees off the moss and 25 off a mob body. The luma is
+   * held at the old value so nothing else in the band moves.
+   *
+   * The ground itself left this entry the same day. It has to part from green
+   * mob bodies as well, which this hue cannot do at any saturation, so
+   * `territoryGround` carries the ground and this colour serves the arc alone.
+   */
+  territory: { hex: 0x82b26b, luma: 63.79 },
+  /**
+   * Claimed ground on the field, split from the charge arc's colour above on
+   * 2026-08-28.
+   *
+   * The arc and the ground are drawn over different things and one colour
+   * could not serve both. The arc is the rim's own band, so it needs hue to
+   * part from the rim, and that is what forced the green. The ground lies on
+   * the open field beneath mob bodies at hue 126 and revenant moss at 76, and
+   * green under green is the thing that could not be read.
+   *
+   * A cold slate at hue 237.5, saturation 0.140, luma 59.00. It parts from a
+   * mob body on all three channels rather than on hue alone, which is the
+   * defect: 7.63 luma against the 2.0 tripwire, 111.6 hue degrees against 15,
+   * and 0.418 saturation against 0.25. Against revenant moss it is 2.95, 161.1
+   * and 0.319 on the same three.
+   *
+   * Brighter was not available. A mob body sits at luma 66.63 against the
+   * band's own ceiling of 68, so there is no room above it for the 2.0 the
+   * luma channel needs, and the separation has to be bought by going down.
+   * How far down is closed from both sides. Below luma 58.3 claimed ground
+   * stops clearing APCA Lc 45 over the grave's own mouth, which it can be laid
+   * across, and a tenth of a luma point under that the food layer's dark
+   * companion stops clearing 45 over the ground itself. Above 59.95 the luma
+   * channel closes against revenant moss at 61.95. At 59.00 the two margins
+   * are 0.92 on the first and 0.95 on the second, and they cross at 59.01, so
+   * the value is close to forced rather than chosen.
+   *
+   * The hue is forced the same way. Fire's 20-degree exclusion and amber at 41
+   * close the warm end, purple is banned outright, corpse and feast already
+   * hold the warm bone at hue 45 where confusing ground with food would be a
+   * misread payout, the green family from 76 to 155 is the defect itself, and
+   * 175 to 220 is the grave's own family. What is left is the cold blue above
+   * it, and 237.5 is 26.1 degrees off the rim and 29.3 off a skull. The
+   * saturation is capped rather than picked: parting from the moss on
+   * saturation needs 0.208 or under, which is what makes claimed ground a
+   * near-neutral, and 0.140 leaves margin on both greens at once.
+   *
+   * Measured against everything it is drawn over: Lc 45.92 on the grave's
+   * mouth, 57.45 on an eruption and 57.48 on a bell ring. Over the splash it
+   * reaches 41.44, which is the figure every storm colour reaches there and is
+   * named in palette.test.ts with the rest of them. Measured for the sprites
+   * drawn over it: Lc 46.44 for the whole food and mob layer through
+   * foodOutline, and 48.16 for the rim.
+   */
+  territoryGround: { hex: 0x9495ac, luma: 59 },
   wisp: { hex: 0x63b8ad, luma: 64.76 },
   bellRing: { hex: 0x9faebd, luma: 67.41 },
 
@@ -144,12 +211,15 @@ const MENU = {
  * it is invisible, so the perceived hole keeps its width at the size floor and
  * the band reads as the hole continuing under the rim.
  *
- * The storm's six colours all take foodOutline rather than a companion of their
- * own. It clears the fine-detail bracket against every body they can be drawn
- * over and costs nothing over bare field, being 3.4 luma above night, and a
- * second near-black would be a colour with no reason to differ from the first.
- * Measured against the storm: Lc 44.98 to 57.48 for the pairs that clear, with
- * the four that do not named in palette.test.ts with their figures.
+ * The storm's seven colours all take foodOutline rather than a companion of
+ * their own. It clears the fine-detail bracket against every body they can be
+ * drawn over and costs nothing over bare field, being 3.4 luma above night, and
+ * a second near-black would be a colour with no reason to differ from the
+ * first. Measured over everything each of them is drawn on: Lc 45.92 to 57.48
+ * for the pairs that clear, with the seven that do not named in palette.test.ts
+ * with their figures. Claimed ground is the seventh colour, and it is what
+ * sets the low end: 45.92 on the grave's mouth, where the six before it
+ * cleared no lower than 53.61.
  */
 const SPRITE_OUTLINE = {
   graveRim: 'graveHole',
@@ -165,7 +235,8 @@ const SPRITE_OUTLINE = {
   banshee: 'foodOutline',
   undertaker: 'foodOutline',
   skull: 'foodOutline',
-  stone: 'foodOutline',
+  territory: 'foodOutline',
+  territoryGround: 'foodOutline',
   wisp: 'foodOutline',
   bellRing: 'foodOutline',
   belchEruption: 'foodOutline',

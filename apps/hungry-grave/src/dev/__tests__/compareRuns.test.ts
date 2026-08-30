@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { TICK_HZ } from '../../game/clock';
 import type { TickCommand } from '../../game/command';
 import { createExecution, executeTick } from '../../game/execution';
+import { WEAPON_LINES } from '../../game/lines/roster';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
@@ -46,6 +47,7 @@ function header(
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    recordedRoster: [...WEAPON_LINES],
     startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
@@ -532,25 +534,26 @@ describe('compareRuns', () => {
     }
   });
 
-  it("carries a weapon line the run's own data names into the comparison with no change to the compare", () => {
+  it("carries a weapon line one side's own data names into the comparison with no change to the compare", () => {
     // Story 11 inside the compare: the named-numbers rule walks the union of
-    // keys, so a line the run names arrives without the compare knowing it.
-    const levels: Record<WeaponLine, number> = {
-      soulStream: 1,
-      headstones: 1,
-      wisps: 0,
-      bell: 0,
-    };
-    const named: Record<string, number> = levels;
-    named[PHANTOM_LINE] = 1;
-    const base = measured(recordARun({}, levels));
+    // keys, so a line only one side names arrives without the compare knowing
+    // it. The extra name is put on the measurement rather than into a recorded
+    // run, because ADR 0043 makes a tape's roster the tape's own and this
+    // build's own: a tape naming a line this build cannot implement is refused
+    // for replay and yields no metrics at all, so it can no longer be the way
+    // an unexpected name reaches the compare.
+    const base = measured(recordARun());
+    const withExtra = { ...base.damage };
+    const named: Record<string, number> = withExtra;
+    named[PHANTOM_LINE] = 0;
+    const extra: Metrics = { ...base, damage: withExtra };
 
-    const damage = namedNumbersNamed(compareRuns(base, base), 'damage');
+    const damage = namedNumbersNamed(compareRuns(base, extra), 'damage');
 
     expect(damage.names[PHANTOM_LINE]).toEqual({
-      left: 0,
+      left: ABSENT,
       right: 0,
-      delta: 0,
+      delta: ABSENT,
     });
   });
 });

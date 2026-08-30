@@ -222,6 +222,17 @@ const primePlayback = (
     tape.commands.length,
   );
   session.lines.debt = debtReadout(tape);
+  // A roster this build does not have is asked first, because it is the reason
+  // the run could not be simulated at all: naming the fold's version instead
+  // would answer about a reproduction that never started (ADR 0043).
+  if (result.outcome === 'rosterNotImplemented') {
+    const roster = (result.unimplementedRoster ?? []).join(', ').toUpperCase();
+    refuse(
+      session,
+      `THIS TAPE WAS RECORDED AGAINST THE ROSTER ${roster}, WHICH THIS BUILD DOES NOT IMPLEMENT: IT CANNOT BE REPLAYED HERE.`,
+    );
+    return NOTHING_DRAWN;
+  }
   if (result.outcome === 'witnessVersionMismatch') {
     refuse(
       session,

@@ -12,6 +12,7 @@ import { MOB_TYPES, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { RAMP_ROWS } from '../../stage/stage';
+import { resolveStorm } from '../../storm';
 import { MAX_LEVEL } from '../roster';
 import {
   advanceWisps,
@@ -33,6 +34,14 @@ function put(state: RunState, type: MobType, x: number, y: number): Mob {
   const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
   mob.beat = 0;
   return mob;
+}
+
+/**
+ * How many wisps a body absorbs before it dies, which is what the no-overkill
+ * rule budgets in. A count of touches, never a health total.
+ */
+function wispsToKill(mob: Mob): number {
+  return Math.ceil(MOB_TYPES[mob.type].hp / WISP_DAMAGE);
 }
 
 function liveWisps(state: RunState) {
@@ -74,8 +83,8 @@ describe('the wisps are never on unless a swallow bought them (ADR 0005)', () =>
     expect(liveWisps(state)).toHaveLength(0);
   });
 
-  it("launches the level's own count, from one at level 1 to eight at level 5", () => {
-    expect(WISPS_BY_LEVEL).toEqual([0, 1, 2, 4, 6, 8]);
+  it("launches the level's own count, from one at level 1 to eleven at level 5", () => {
+    expect(WISPS_BY_LEVEL).toEqual([0, 1, 3, 5, 8, 11]);
     for (let level = 1; level <= MAX_LEVEL; level++) {
       const state = quietRun();
       put(state, 'shambler', 200, 300);
@@ -94,11 +103,45 @@ describe('the wisps are never on unless a swallow bought them (ADR 0005)', () =>
   });
 });
 
+describe('what a volley costs a trash body (#76 pass A)', () => {
+  it('takes exactly four wisps to kill a shambler', () => {
+    // Mark's 2026-08-27 ruling for #76 pass A: four wisps to a trash body where
+    // it used to be three, so a level-5 volley of eleven still clears about the
+    // same number of bodies it cleared at eight.
+    //
+    // Counted by feeding the mob one wisp at a time from the mouth it stands
+    // on, so what is asserted is how often the line has to land rather than the
+    // arithmetic the targeting rule does.
+    const state = quietRun();
+    const mob = put(
+      state,
+      'shambler',
+      state.grave.x,
+      state.grave.y - state.grave.size,
+    );
+
+    let touches = 0;
+    for (let launch = 0; launch < 10 && mob.alive; launch++) {
+      volley(state, 1);
+      touches += resolveStorm(state).filter(
+        (event) => event.type === 'mobDamaged',
+      ).length;
+    }
+
+    expect(mob.alive).toBe(false);
+    expect(touches).toBe(4);
+  });
+});
+
 describe('the no-overkill targeting rule (plan section 3)', () => {
-  it('never commits more wisps to one mob than its health, over a field of mixed types', () => {
-    // This is the rule the one-swallow ordnance bound depends on. Eight wisps
-    // that all pick the nearest mob put eight damage into a three-health
-    // shambler and kill one thing.
+  it('never commits more wisps to one mob than it takes to kill it, over a field of mixed types', () => {
+    // This is the rule the one-swallow ordnance bound depends on. A whole
+    // volley that all picked the nearest mob would spend itself on one body and
+    // kill one thing.
+    //
+    // The bound is a count of wisps, so it is stated as one: what a body can
+    // absorb is how many touches it takes to kill it, and never its raw health.
+    // Those were the same sentence only while a wisp did exactly one damage.
     const state = quietRun();
     const mobs = [
       put(state, 'shambler', 260, 500),
@@ -108,11 +151,11 @@ describe('the no-overkill targeting rule (plan section 3)', () => {
     const wisps = volley(state, MAX_LEVEL);
     expect(wisps).toHaveLength(WISPS_BY_LEVEL[MAX_LEVEL]);
 
-    const capacity = mobs.reduce((total, mob) => total + mob.hp, 0);
+    const capacity = mobs.reduce((total, mob) => total + wispsToKill(mob), 0);
     expect(wisps.length).toBeLessThanOrEqual(capacity);
     for (const mob of mobs) {
       const committed = wisps.filter((wisp) => wisp.targetId === mob.id).length;
-      expect(`${mob.type}: ${committed * WISP_DAMAGE <= mob.hp}`).toBe(
+      expect(`${mob.type}: ${committed <= wispsToKill(mob)}`).toBe(
         `${mob.type}: true`,
       );
     }
@@ -123,16 +166,17 @@ describe('the no-overkill targeting rule (plan section 3)', () => {
     const near = put(state, 'shambler', 270, 560);
     const far = put(state, 'shambler', 270, 300);
     const wisps = volley(state, 3);
+    const enough = wispsToKill(near);
     expect(wisps.filter((wisp) => wisp.targetId === near.id)).toHaveLength(
-      MOB_TYPES.shambler.hp,
+      enough,
     );
     expect(wisps.filter((wisp) => wisp.targetId === far.id)).toHaveLength(
-      WISPS_BY_LEVEL[3] - MOB_TYPES.shambler.hp,
+      WISPS_BY_LEVEL[3] - enough,
     );
   });
 
   it('over-commits the surplus onto the last target assigned, rather than holding wisps back', () => {
-    // The common case rather than a corner: eight wisps against one body runs
+    // The common case rather than a corner: a full volley against one body runs
     // out of uncommitted mobs immediately. Holding the surplus unlaunched would
     // make a levelled line visibly emit less against a thin field, which reads
     // as the upgrade breaking.

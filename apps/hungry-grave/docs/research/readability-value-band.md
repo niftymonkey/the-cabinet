@@ -517,7 +517,9 @@ For scale on the other side, at a band floor of luma 76 a WCAG ratio of 3:1 woul
 
 ## 5. The current palette, measured
 
-### 5.1 The band today
+### 5.1 The band as this pass found it
+
+**Historical, and written in the prototype names of the time.** `enemyShot`, `enemyClod`, `enemyTear`, `enemySpiral`, `waste`, `hitFlash` and `stone` are all retired terms. 7.3 holds the current palette, where `stone` is `territory` and the claimed ground it once painted is `territoryGround`.
 
 The four mob-fire colours are `enemyShot` `#ff4a3d` (43.74), `enemyClod` `#f5563d` (46.27), `enemyTear` `#ff6a55` (53.40), `enemySpiral` `#ff8248` (59.76). The band is **43.7 to 59.8** and three non-fire colours are inside it: `skull` 57.78 (a player weapon line), `waste` 54.99 (wasted belch charge), and `hitFlash` 43.74, which is the identical hex to `enemyShot`. These reproduce the measurements this pass was given, to two decimals.
 
@@ -735,7 +737,8 @@ Names are the ratified vocabulary from `CONTEXT.md`. The old prototype names app
 | name | hex | luma | was | note |
 | --- | --- | --- | --- | --- |
 | `skull` | `#8496a6` | 57.78 | `skull`, unchanged | |
-| `stone` | `#9aa4ad` | 63.73 | `stone`, unchanged | |
+| `territory` | `#82b26b` | 63.79 | `stone` `#9aa4ad` 63.73 | renamed, and re-hued 2026-08-28 (7.7); the charge arc on the grave's rim, after the split in 7.8 |
+| `territoryGround` | `#9495ac` | 59.00 | split out of `territory` 2026-08-28 | claimed ground on the open field (7.8) |
 | `wisp` | `#63b8ad` | 64.76 | `wisp`, unchanged | |
 | `bellRing` | `#9faebd` | 67.41 | `bellRing` `#aebfcf` 73.94 | lowered |
 
@@ -823,7 +826,7 @@ What makes it survivable is the same construction 7.4 already relies on, and it 
 
 **Fire's 20-degree exclusion closes hue 20 to 39 to every non-fire colour, and that is pumpkin orange.** With purple already banned by the project's standing rule, both of Halloween's signature colours are out of the non-fire palette, in a game whose one never-cut requirement is that it reads as Halloween within seconds. It is survivable: the fire itself is orange-red, `drop` and `graveGlow` are amber at 41, `mob` is graveyard green, and hue 50 to 125 and 175 to 205 are entirely empty. But #38 should meet it as a stated constraint and it belongs on that ticket as an acceptance criterion.
 
-**The per-line drop colours have no budget here, and neither do the per-tier corpse hues.** The v1 done-line requires every drop to show its weapon line at a glance mid-dodge, on the drop itself. The four player-fire colours are `skull` 57.78, `stone` 63.73, `wisp` 64.76 and `bellRing` 67.41, and three of the four are hue 208 to 210 at saturation 0.11 to 0.21: one pale blue-grey at three brightnesses. Sprite separation passes them all, because they are 3.7 to 9.6 luma apart and its threshold is 2.0, so that check will go green on four drops a player cannot tell apart. Hue is what is scarce: fire closes 0 to 39, the brown ban closes 20 to 50 at saturation, and amber at 41 is spoken for. Risk of Rain's answer to the same problem is hue tiering. The same squeeze applies to the corpse tiers.
+**The per-line drop colours have no budget here, and neither do the per-tier corpse hues.** The v1 done-line requires every drop to show its weapon line at a glance mid-dodge, on the drop itself. The four player-fire colours are `skull` 57.78, `territory` 63.79, `wisp` 64.76 and `bellRing` 67.41, and two of the four are still hue 208 at saturation 0.11 to 0.21: one pale blue-grey at two brightnesses. `territory` left that family on 2026-08-28 (7.7) because it had to, which is one line solved out of four and not a method for the rest. Sprite separation passes them all, because they are 3.7 to 9.6 luma apart and its threshold is 2.0, so that check will go green on four drops a player cannot tell apart. Hue is what is scarce: fire closes 0 to 39, the brown ban closes 20 to 50 at saturation, and amber at 41 is spoken for. Risk of Rain's answer to the same problem is hue tiering. The same squeeze applies to the corpse tiers.
 
 **A corpse's colour is animated and the separation check only sees its fresh value.** Freshness fades the sprite from 61.95 down toward nothing, so a corpse occupies a whole range rather than a point, and any colour in the cream family below 62 collides with it at some instant of every corpse's life. Today nothing is there. The check must compare `corpse` across its fade range rather than at one value, or the next colour added below 62 in that hue family passes a green test and fails on screen.
 
@@ -834,6 +837,28 @@ What makes it survivable is the same construction 7.4 already relies on, and it 
 **At the size floor there is no shrink, so the dim is the only field-side announcement.** ADR 0003's ladder bleeds score and then weapon levels instead of size, and the same dim currently says both "you took a hit" and "you just lost the wisps". The most consequential non-death event in the game has no tell of its own, and it fires exactly when the player is in the spiral the comeback design exists to rescue. That is the sim-core dispatch's problem, but this pass is where a colour for it would have been reserved and none was.
 
 **No colour here has been seen on a screen.** Everything above is arithmetic. The grayscale differential of section 0.5 runs at the weapon-lines dispatch and again at tuning, and the feel call stays Mark's after he plays it.
+
+### 7.7 `territory` re-hued, 2026-08-28
+
+**The finding that forced it.** Territory's charge arc is the grave rim's own band wearing the line's colour, which is the construction `graveGlow` already uses for the reservoir. Drawn in `stone` `#9aa4ad` the arc is invisible: it sits 0.72 luma and 3 hue degrees from `graveRim`, inside the flat span 7.5 measures, where 72 of 78 pairs read APCA Lc 0.00. This was found by pixel probe on a rendered build rather than by eye, and the arc draws correctly; only its colour fails.
+
+**Lightness cannot fix it and APCA cannot grade it.** Both colours are held under the band ceiling of 68, so neither can move far enough on luma, and every candidate at that luma measures Lc 0.00 against the rim whatever its hue, because APCA grades lightness alone. The reservoir glow is the proof that this is survivable: it also measures Lc 0.00 against the rim and reads plainly, on hue gap 170 and saturation gap 0.48. So the instrument here is 7.4's own separation rule and not APCA.
+
+**The hue was forced rather than chosen.** Fire's 20-degree exclusion closes 20 to 39, amber at 41 is spoken for by `drop` and `graveGlow`, purple is closed by the project's standing ban, and 175 to 220 is the grave's own family, which is the thing that has to be left. What remains is the window between `corpseRevenant` at hue 76 and `mob` at hue 126. Hue 101 is its midpoint: 24 degrees off the moss and 25 off a mob body, 111 off `graveRim` and 59 off `graveGlow`. Saturation 0.40 sits midway between the grave family's 0.11 to 0.22 and a mob's 0.56, so claimed ground parts from a mob on saturation as well as on hue. Luma is held at the old value, 63.79 against 63.73, so nothing else in the crowded band moves.
+
+**What it costs.** Claimed ground was green on a field whose trash mobs are green, and the two are 25 hue degrees and 2.84 luma apart, which clears 7.4's separation on hue and on luma. It is 0.16 saturation apart and does not clear that channel, and it does not have to: a violation needs all three at once, which is how `palette.test.ts` states it. The pair was also carried by silhouette, a large static circle against small moving bodies, which is the reasoning the retired `graveRim` and `territory` exception used to carry. That exception is deleted rather than left standing, because it now describes a collision that no longer exists. **The cost stood for one day.** 7.8 splits the entry and moves claimed ground off this colour, which now serves the charge arc alone.
+
+**Not seen on a screen at the time of writing.** The arithmetic above is checked by `palette.test.ts`; the feel call stays Mark's after he plays it.
+
+### 7.8 The entry split, and `territoryGround`, 2026-08-28
+
+**One entry was serving two jobs.** 7.7 re-hued `territory` for the charge arc on the grave's rim, which needs hue to part from the rim. The same entry also painted claimed ground on the open field, which needs to part from green mob bodies, and the playtest named that in as many words: there is so much green that the colours do not differ. The entry is therefore split. `territory` keeps 7.7's green and serves the arc alone; a new `territoryGround` `#9495ac` carries the ground.
+
+**Both channels are close to forced, and `palette.ts` holds the full derivation beside the value.** Luma 59.00: under 58.3 claimed ground stops clearing APCA Lc 45 over the grave's own mouth, which it can be laid across; a tenth of a point under that, `foodOutline` stops clearing 45 over the ground itself; over 59.95 the luma channel closes against revenant moss at 61.95. The two margins cross at 59.01. Brighter is not available at all, because `mob` sits at 66.63 under a ceiling of 68. Hue 237.5 is what is left once fire's exclusion and amber close the warm end, corpse and feast hold the warm bone, the green family from 76 to 155 is the defect itself, 175 to 220 is the grave's own family, and purple is closed by the standing ban. Saturation is capped rather than picked: parting from the moss needs 0.208 or under, and 0.140 leaves margin on both greens at once, which is what makes the entry read as cold stone rather than as a blue-violet.
+
+**Against a mob body** the pair is 7.63 luma, 111.6 degrees and 0.418 saturation apart, clearing 7.4's separation on all three channels at once. Measured against everything it is drawn over: Lc 45.92 on the grave's mouth, 57.45 on an eruption, 57.48 on a bell ring, and 41.44 over the splash, which is the figure every storm colour reaches there. For the sprites drawn over it: Lc 46.44 for the food and mob layer through `foodOutline`, and 48.16 for the rim.
+
+**Hue 237.5 sits next door to the banned family, so the feel call was flagged for veto on sight.** Mark played the build on 2026-08-29 with the colour named to him as the first thing to watch, and did not veto it.
 
 ### 7.6 Assertion 11, and why the boundary needed one
 

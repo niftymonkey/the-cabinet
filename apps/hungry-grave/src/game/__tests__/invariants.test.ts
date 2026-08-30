@@ -23,6 +23,7 @@ import { BELL_EXPAND_TICKS } from '../lines/bell';
 import type { Stream } from '../rng';
 import { MAX_LEVEL } from '../lines/roster';
 import { SKULL_HALF_EXTENT } from '../lines/soulStream';
+import { RADIUS_BY_LEVEL } from '../lines/territory';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from '../tuning';
 import type { Fault, FaultIdentity } from '../faults';
 import { checkInvariants, createStageWatch } from '../invariants';
@@ -337,13 +338,10 @@ describe("the storm's invariants (plan 6.26)", () => {
     wisp.wisps[0].life = NaN;
     expect(brokenOn(wisp)).toContain('no NaN');
 
-    const phase = createRun(1);
-    phase.lines.orbitPhase = NaN;
-    expect(brokenOn(phase)).toContain('no NaN');
-
-    const recharge = createRun(1);
-    recharge.lines.stoneRecharge[0] = NaN;
-    expect(brokenOn(recharge)).toContain('no NaN');
+    const patch = createRun(1);
+    patch.patches[0].alive = true;
+    patch.patches[0].radius = NaN;
+    expect(brokenOn(patch)).toContain('no NaN');
   });
 
   it('holds a skull to its own extent and a wisp to the spawn margin', () => {
@@ -449,6 +447,7 @@ function filledRun(): RunState {
   fillCorpse(run);
   fillSkull(run);
   fillWisp(run);
+  fillPatch(run);
   fillRun(run);
   return run;
 }
@@ -460,7 +459,7 @@ function fillRun(run: RunState): void {
   run.dropsPaid = 2;
   run.nextEntityId = 16;
   run.levels.soulStream = 2;
-  run.levels.headstones = 1;
+  run.levels.territory = 1;
   run.levels.wisps = 3;
   run.levels.bell = 4;
   run.stage.phaseIndex = 1;
@@ -468,8 +467,6 @@ function fillRun(run: RunState): void {
   run.stage.firedRows = 2;
   run.lines.streamIn = 17;
   run.lines.surgeVolleys = 2;
-  run.lines.orbitPhase = 1.25;
-  run.lines.stoneRecharge[1] = 8;
   run.lines.tollIn = 90;
   run.lines.ring = liveRing();
 }
@@ -543,6 +540,22 @@ function fillWisp(run: RunState): void {
   wisp.vy = -2.5;
   wisp.life = 45;
   wisp.targetId = 11;
+}
+
+function fillPatch(run: RunState): void {
+  const patch = run.patches[0];
+  patch.alive = true;
+  patch.id = 16;
+  patch.x = 210.5;
+  patch.y = 84.25;
+  patch.radius = 41.5;
+  patch.pull = 0.22;
+  patch.slow = 0.4;
+  patch.rehit = 48;
+  patch.opening = 6;
+  patch.pulses = 3;
+  patch.struck.clear();
+  patch.struck.set(11, 430);
 }
 
 /**
@@ -821,9 +834,9 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
-    path: 'levels.headstones',
+    path: 'levels.territory',
     poison: (run) => {
-      run.levels.headstones = NaN;
+      run.levels.territory = NaN;
       return run;
     },
   },
@@ -891,6 +904,13 @@ const NAN_CASES: readonly NanCase[] = [
     }),
   },
   {
+    path: 'streams.territory.drawn',
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, territory: poisonedStream() },
+    }),
+  },
+  {
     path: 'lines.streamIn',
     poison: (run) => {
       run.lines.streamIn = NaN;
@@ -905,16 +925,58 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
-    path: 'lines.orbitPhase',
+    path: 'patches[].x',
     poison: (run) => {
-      run.lines.orbitPhase = NaN;
+      run.patches[0].x = NaN;
       return run;
     },
   },
   {
-    path: 'lines.stoneRecharge[]',
+    path: 'patches[].y',
     poison: (run) => {
-      run.lines.stoneRecharge[1] = NaN;
+      run.patches[0].y = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].radius',
+    poison: (run) => {
+      run.patches[0].radius = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].pull',
+    poison: (run) => {
+      run.patches[0].pull = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].slow',
+    poison: (run) => {
+      run.patches[0].slow = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].rehit',
+    poison: (run) => {
+      run.patches[0].rehit = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].opening',
+    poison: (run) => {
+      run.patches[0].opening = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'patches[].pulses',
+    poison: (run) => {
+      run.patches[0].pulses = NaN;
       return run;
     },
   },
@@ -922,6 +984,13 @@ const NAN_CASES: readonly NanCase[] = [
     path: 'lines.tollIn',
     poison: (run) => {
       run.lines.tollIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'lines.layIn',
+    poison: (run) => {
+      run.lines.layIn = NaN;
       return run;
     },
   },
@@ -955,6 +1024,7 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'corpses[].halfExtent': 'written once at spawn and never mutated',
   'skulls[].id': 'spawn identity, never mutated after spawn',
   'wisps[].id': 'spawn identity, never mutated after spawn',
+  'patches[].id': 'spawn identity, never mutated after spawn',
   ending: 'a run ending name or null, never a number',
 };
 
@@ -1026,5 +1096,91 @@ describe('the no-NaN coverage is closed (ticket #54)', () => {
     const run = filledRun();
     run.wisps[0].targetId = null;
     expect(brokenOn(run)).not.toContain('no NaN');
+  });
+});
+
+describe('Territory under the harness (#76)', () => {
+  it('a patch pool over capacity is caught by the existing entity caps identity', () => {
+    // No new fault identity: a pool that has grown past its cap is the same
+    // fact for patches as for every other pool, and ADR 0024 makes an identity
+    // permanent from the first tape, so one is never minted for free.
+    const run = createRun(1);
+    run.patches.push(run.patches[0]);
+    const faults = faultsOn(run);
+
+    expect(faults.map((fault) => fault.identity)).toContain('entity caps');
+    expect(faults.map((fault) => fault.identity)).not.toContain(
+      'territory caps',
+    );
+  });
+
+  it('a patch laid far up-field of the top edge is not a fault', () => {
+    // Off-field up-field placement is legal by design (#76): the harness says
+    // what is impossible, never how far up-field Territory may be tuned, so the
+    // literal here is plainly extreme rather than one particular ceiling.
+    const run = createRun(1);
+    run.patches[0].alive = true;
+    run.patches[0].x = 270;
+    run.patches[0].y = -2000;
+
+    expect(brokenOn(run)).not.toContain('entities in bounds');
+  });
+
+  it('a patch beyond the side margin is a fault', () => {
+    // Nothing in the design puts claimed ground sideways off the field, so the
+    // horizontal bound is independent of any Territory tuning: it is the same
+    // box every entity is held to, on that axis alone.
+    const right = createRun(1);
+    right.patches[0].alive = true;
+    right.patches[0].x = FIELD_WIDTH + SPAWN_MARGIN + 1;
+    right.patches[0].y = 200;
+    expect(brokenOn(right)).toContain('entities in bounds');
+
+    const left = createRun(1);
+    left.patches[0].alive = true;
+    left.patches[0].x = -SPAWN_MARGIN - 1;
+    left.patches[0].y = 200;
+    expect(brokenOn(left)).toContain('entities in bounds');
+  });
+
+  it('a patch inside the side margin is not a fault', () => {
+    // The edge of the box itself, pinned so the horizontal check cannot
+    // silently tighten onto ground a legal placement can reach.
+    const right = createRun(1);
+    right.patches[0].alive = true;
+    right.patches[0].x = FIELD_WIDTH + SPAWN_MARGIN;
+    right.patches[0].y = 200;
+    expect(brokenOn(right)).not.toContain('entities in bounds');
+
+    const left = createRun(1);
+    left.patches[0].alive = true;
+    left.patches[0].x = -SPAWN_MARGIN;
+    left.patches[0].y = 200;
+    expect(brokenOn(left)).not.toContain('entities in bounds');
+  });
+
+  it('a live patch whose whole body is past the bottom edge is a fault', () => {
+    // advanceTerritory closes a patch on the first tick its whole body clears
+    // the bottom edge, so a live one below there is corrupt state. The bound is
+    // that close rule restated, never a tuning number.
+    const run = createRun(1);
+    run.patches[0].alive = true;
+    run.patches[0].x = 270;
+    run.patches[0].radius = RADIUS_BY_LEVEL[1];
+    run.patches[0].y = FIELD_HEIGHT + RADIUS_BY_LEVEL[1] + 1;
+
+    expect(brokenOn(run)).toContain('entities in bounds');
+  });
+
+  it('a patch still touching the bottom edge is not a fault', () => {
+    // The off-by-one on the other side of the close rule: a patch whose top rim
+    // still touches the bottom edge is one the sim has not closed yet.
+    const run = createRun(1);
+    run.patches[0].alive = true;
+    run.patches[0].x = 270;
+    run.patches[0].radius = RADIUS_BY_LEVEL[1];
+    run.patches[0].y = FIELD_HEIGHT + RADIUS_BY_LEVEL[1];
+
+    expect(brokenOn(run)).not.toContain('entities in bounds');
   });
 });

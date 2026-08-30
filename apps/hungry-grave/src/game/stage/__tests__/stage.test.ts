@@ -85,18 +85,20 @@ function recordStage(seed: number, ticks: number): Recording {
 describe('the rows as data (ADR 0006)', () => {
   it("gives a phase a length of its last row's time plus the drain-out", () => {
     // The relation is what is pinned. The drain-out's own magnitude is stated
-    // once, here, because dispatch 5 re-derived it against the storm and a
-    // later move should be a deliberate edit with a failing test attached.
-    expect(DRAIN_OUT_SECONDS).toBe(16);
+    // once, here, because it is re-derived against the storm whenever the storm
+    // changes and a move should be a deliberate edit with a failing test
+    // attached. It was 16 until #76 pass C weakened level-1 ground, and the
+    // constant's own JSDoc carries the measurement behind 17.
+    expect(DRAIN_OUT_SECONDS).toBe(17);
     expect(phaseLengthTicks(phase('ramp'))).toBe(
       (RAMP_ROWS[RAMP_ROWS.length - 1].t + DRAIN_OUT_SECONDS) * TICK_HZ,
     );
-    expect(phaseLengthTicks(phase('ramp'))).toBe(121 * TICK_HZ);
+    expect(phaseLengthTicks(phase('ramp'))).toBe(122 * TICK_HZ);
     expect(phaseLengthTicks(phase('backHalf'))).toBe(
       (BACK_HALF_ROWS[BACK_HALF_ROWS.length - 1].t + DRAIN_OUT_SECONDS) *
         TICK_HZ,
     );
-    expect(phaseLengthTicks(phase('backHalf'))).toBe(84 * TICK_HZ);
+    expect(phaseLengthTicks(phase('backHalf'))).toBe(85 * TICK_HZ);
   });
 
   it('leaves the drain-out silent: no row falls inside it', () => {

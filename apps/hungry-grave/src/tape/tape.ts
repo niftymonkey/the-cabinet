@@ -5,7 +5,6 @@
 
 import type { StopReason } from '../game/execution';
 import type { FaultIdentity, FaultSeverity } from '../game/faults';
-import type { WeaponLine } from '../game/lines/roster';
 import type { TickCommand } from '../game/command';
 import type { RunEnding } from '../game/run';
 
@@ -60,13 +59,29 @@ interface TapeHeader {
    */
   readonly startingSize: number;
   /**
-   * The starting level each line actually resolved to, for every run rather
-   * than only a pinned one: an unpinned run records its birthright the same
-   * way, or a later tune of the birthright would silently change what every
-   * old tape replays as (ruled by Mark 2026-08-24, widening the closed list
-   * by the same record-the-resolved-value argument as the size above).
+   * The weapon lines this tape was written against, in the order its level
+   * bytes follow (ADR 0043).
+   *
+   * It is recorded so the level bytes can be read by name instead of by
+   * position: the roster is an open set, so a reader that supplied the names
+   * from its own present-day world would return a wrong number the moment the
+   * set moved. Strings and not the WeaponLine union, because the whole point is
+   * to hold what the tape said even when this build does not implement it.
    */
-  readonly startingLevels: Readonly<Record<WeaponLine, number>>;
+  readonly recordedRoster: readonly string[];
+  /**
+   * The starting level each recorded line actually resolved to, keyed by the
+   * tape's own vocabulary rather than the reader's (ADR 0043).
+   *
+   * Resolved for every run rather than only a pinned one: an unpinned run
+   * records its birthright the same way, or a later tune of the birthright
+   * would silently change what every old tape replays as (ruled by Mark
+   * 2026-08-24, widening the closed list by the same record-the-resolved-value
+   * argument as the size above). `resolveStartingLevels` is the one step that
+   * asks whether this build can run what is written here, and it is the only
+   * thing that ever produces a Record over the current roster.
+   */
+  readonly startingLevels: Readonly<Record<string, number>>;
   // What makes "one command per tick" mean anything, and what the observations join to wall clock through.
   readonly tickRate: number;
   // Ticks between checkpoints, obeyed by the reader rather than compiled into it.

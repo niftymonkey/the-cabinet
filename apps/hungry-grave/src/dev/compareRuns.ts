@@ -452,6 +452,42 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.dropLedger.onFieldAtStop',
     (report) => report.tuning.dropLedger.onFieldAtStop,
   ),
+  scalarReading(
+    'tuning.territoryPatches.laid',
+    (report) => report.tuning.territoryPatches.laid,
+  ),
+  scalarReading(
+    'tuning.territoryPatches.scrolled',
+    (report) => report.tuning.territoryPatches.scrolled,
+  ),
+  scalarReading(
+    'tuning.territoryPatches.evicted',
+    (report) => report.tuning.territoryPatches.evicted,
+  ),
+  scalarReading(
+    'tuning.territoryPatches.emptied',
+    (report) => report.tuning.territoryPatches.emptied,
+  ),
+  scalarReading(
+    'tuning.territoryPatches.pulses',
+    (report) => report.tuning.territoryPatches.pulses,
+  ),
+  scalarReading(
+    'tuning.upfieldTraffic.lays',
+    (report) => report.tuning.upfieldTraffic.lays,
+  ),
+  namedNumbersReading(
+    'tuning.upfieldTraffic.perLay',
+    (report) => report.tuning.upfieldTraffic.perLay,
+  ),
+  scalarReading(
+    'tuning.upfieldTraffic.bandUnits',
+    (report) => report.tuning.upfieldTraffic.bandUnits,
+  ),
+  scalarReading(
+    'tuning.upfieldTraffic.lateralReach',
+    (report) => report.tuning.upfieldTraffic.lateralReach,
+  ),
   scalarReading('performance.frames', (report) => report.performance.frames),
   namedNumbersReading('performance.interval', (report) =>
     distributionNumbers(report.performance.interval),

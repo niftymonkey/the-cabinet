@@ -8,6 +8,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { WEAPON_LINES } from '../../game/lines/roster';
+
 import {
   CHUNK_BODY,
   CHUNK_OBSERVATIONS,
@@ -25,7 +27,8 @@ const SPACING = 4;
 const HEADER: TapeHeader = {
   seed: 41,
   startingSize: 24,
-  startingLevels: { soulStream: 0, headstones: 0, wisps: 0, bell: 0 },
+  recordedRoster: [...WEAPON_LINES],
+  startingLevels: { soulStream: 0, territory: 0, wisps: 0, bell: 0 },
   tickRate: 60,
   checkpointSpacing: SPACING,
   witnessVersion: 1,

@@ -287,7 +287,7 @@ const WIDEST_RESERVED_LINE = `SEED ${SEED_LIMIT - 1} PINNED`;
  */
 const WIDEST_LEVELS_LINE = `LEVELS ${levelsReadout({
   soulStream: MAX_LEVEL,
-  headstones: MAX_LEVEL,
+  territory: MAX_LEVEL,
   wisps: MAX_LEVEL,
   bell: 0,
 })} PINNED`;

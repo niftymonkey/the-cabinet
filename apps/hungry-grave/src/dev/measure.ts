@@ -8,6 +8,7 @@ import { isBirthrightLevels } from '../game/run';
 import { SIZE_START } from '../game/tuning';
 import type { DecodedTape } from '../tape/decode';
 import { playTape } from '../tape/playback';
+import { resolveStartingLevels } from '../tape/startingLevels';
 import type { PlaybackResult } from '../tape/playback';
 import type {
   FaultObservation,
@@ -133,32 +134,51 @@ interface Divergence {
 }
 
 // The tape was recorded against a different fold, so not a single tick was run (ADR 0019).
-interface Refusal {
+interface WitnessRefusal {
   readonly outcome: 'witnessVersionMismatch';
   readonly tapeWitnessVersion: number;
   readonly readerWitnessVersion: number;
 }
 
 /**
- * The three arms a measurement answers in (ADR 0019): metrics from a verified
- * replay, a divergence naming the first checkpoint that disagreed, or a
- * witness-version refusal. Metrics come only from a verified replay, so a
- * silently wrong metric is not a thing this interface can produce.
+ * The tape was recorded against a roster this build does not implement, so it
+ * could not be simulated at all (ADR 0043).
+ *
+ * It names the roster rather than saying only that it refused. The tape is
+ * still readable and everything that does not depend on simulating the missing
+ * content is still true of it; what this says is that this build cannot be the
+ * one to reproduce it.
+ */
+interface RosterRefusal {
+  readonly outcome: 'rosterNotImplemented';
+  readonly recordedRoster: readonly string[];
+}
+
+type Refusal = WitnessRefusal | RosterRefusal;
+
+/**
+ * The arms a measurement answers in (ADR 0019, ADR 0043): metrics from a
+ * verified replay, a divergence naming the first checkpoint that disagreed, or
+ * a refusal, which is either the fold's version or a roster this build cannot
+ * implement. Metrics come only from a verified replay, so a silently wrong
+ * metric is not a thing this interface can produce.
  */
 type Measurement = Metrics | Divergence | Refusal;
 
-const isConditioned = (header: TapeHeader): boolean =>
-  header.startingSize !== SIZE_START ||
-  !isBirthrightLevels(header.startingLevels);
+const isConditioned = (
+  header: TapeHeader,
+  levels: Readonly<Record<WeaponLine, number>>,
+): boolean => header.startingSize !== SIZE_START || !isBirthrightLevels(levels);
 
 const exclusionsOf = (
   tape: Tape,
+  levels: Readonly<Record<WeaponLine, number>>,
   recordedFaults: readonly FaultObservation[],
 ): AggregateExclusion[] => {
   const exclusions: AggregateExclusion[] = [];
   const device = tape.header.inputDevice;
   if (device === 'bot' || device === 'script') exclusions.push(device);
-  if (isConditioned(tape.header)) exclusions.push('conditioned');
+  if (isConditioned(tape.header, levels)) exclusions.push('conditioned');
   const integrity = tape.trailer?.integrity ?? null;
   if (integrity === 'faulted' || recordedFaults.length > 0) {
     exclusions.push('faulted');
@@ -169,11 +189,12 @@ const exclusionsOf = (
 
 const provenanceOf = (
   tape: Tape,
+  levels: Readonly<Record<WeaponLine, number>>,
   recordedFaults: readonly FaultObservation[],
 ): Provenance => ({
   inputDevice: tape.header.inputDevice,
-  conditioned: isConditioned(tape.header),
-  exclusions: exclusionsOf(tape, recordedFaults),
+  conditioned: isConditioned(tape.header, levels),
+  exclusions: exclusionsOf(tape, levels, recordedFaults),
 });
 
 const runSummaryOf = (
@@ -207,7 +228,18 @@ const runSummaryOf = (
  * frame.
  */
 const measure = (decoded: DecodedTape): Measurement => {
-  const { startingLevels, startingSize } = decoded.tape.header;
+  // Asked before anything is read off the header, because every reading below
+  // is keyed by this build's own line names and there are none to key by until
+  // the recorded roster turns out to be one this build has (ADR 0043).
+  const resolved = resolveStartingLevels(decoded.tape.header);
+  if (resolved.outcome === 'notImplemented') {
+    return {
+      outcome: 'rosterNotImplemented',
+      recordedRoster: resolved.recordedRoster,
+    };
+  }
+  const startingLevels = resolved.levels;
+  const { startingSize } = decoded.tape.header;
   const frames = frameObservations(decoded.tape);
   const sampleAt = ticksToSample(frames);
   // The lines this run names, known before a tick has run, so every record the
@@ -252,7 +284,11 @@ const measure = (decoded: DecodedTape): Measurement => {
     performance: performanceOf(frames, tallies.densities),
     recordedFaults: result.recordedFaults,
     readbackFaults: result.readbackFaults,
-    provenance: provenanceOf(decoded.tape, result.recordedFaults),
+    provenance: provenanceOf(
+      decoded.tape,
+      startingLevels,
+      result.recordedFaults,
+    ),
   };
 };
 

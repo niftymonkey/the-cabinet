@@ -122,11 +122,6 @@ const OVER_THE_MOUTH =
 
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
-    pair: ['graveRim', 'stone'],
-    because:
-      "the rim is a large outline fixed to the grave and a headstone is a small orbiting sprite, so ADR 0014's silhouette-first rule carries them",
-  },
-  {
     pair: ['graveGlow', 'drop'],
     because:
       "the glow is the grave wearing treasure's own colour, always at the grave's position and pulsing where a drop is steady",
@@ -168,7 +163,8 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['banshee', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['undertaker', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['skull', 'splash'], because: OVER_THE_SPLASH },
-  { pair: ['stone', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['territory', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['territoryGround', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['wisp', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['bellRing', 'splash'], because: OVER_THE_SPLASH },
   // Over the skull, which dispatch 5 draws for the first time.
@@ -202,7 +198,8 @@ const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
   undertaker: 'mobBodies',
   undertakerDark: 'mobBodies',
   skull: 'storm',
-  stone: 'storm',
+  territory: 'storm',
+  territoryGround: 'storm',
   wisp: 'storm',
   bellRing: 'bellRing',
   corpse: 'corpses',
@@ -496,6 +493,29 @@ describe('the standing colour bans', () => {
 });
 
 describe('sprite separation (research 7.4)', () => {
+  it('parts claimed ground from a mob body on luma and on saturation, not on hue alone', () => {
+    // The pair check below passes on any one channel, and hue alone is what
+    // claimed ground passed on while it wore the charge arc's colour: that
+    // colour is chosen to part from the grave's rim, and out on the field it
+    // landed among mob bodies and revenant moss. A hue-only assertion held
+    // while the ground could not be read at all, so the ground is held to all
+    // three channels and a green can never come back to it.
+    const ground = PALETTE.territoryGround;
+    const shape = hsv(ground.hex);
+    for (const name of ['mob', 'corpseRevenant'] as const) {
+      const green = PALETTE[name];
+      const other = hsv(green.hex);
+      const apart = {
+        luma: Math.abs(ground.luma - green.luma) >= SPRITE_SEPARATION.luma,
+        hue: hueGap(shape.h, other.h) >= SPRITE_SEPARATION.hue,
+        saturation: Math.abs(shape.s - other.s) >= SPRITE_SEPARATION.saturation,
+      };
+      expect(`${name} ${JSON.stringify(apart)}`).toBe(
+        `${name} {"luma":true,"hue":true,"saturation":true}`,
+      );
+    }
+  });
+
   it('keeps every pair of field sprites apart on luma, hue or saturation', () => {
     const collisions = spriteCollisions().filter(
       (pair) => !isExcepted(pair[0], pair[1]),

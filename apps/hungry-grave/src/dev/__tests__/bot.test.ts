@@ -7,6 +7,14 @@
  * run produces are now the game's, and `dodgePolicy` is a dodger rather than a
  * player, so the kill rate it reaches is a lower bound on a person's and never
  * an estimate of one.
+ *
+ * Every seed outcome pinned below is provisional, and the reason is one open
+ * number rather than a general disclaimer. The pins are measured against the
+ * combat scale standing in the tree, and that scale has a known unsettled
+ * corner: ghoul health 24 is not a multiple of wisp damage 10, so a maxed volley
+ * clears three ghouls where the touch counts say four. The candidate fix is held
+ * until after the playtest, and settling it will move seeds through these sets
+ * again.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -53,17 +61,75 @@ function play(state: RunState, policy: Policy, maxTicks: number): PolicyRun {
 const SEEDS = [101, 202, 303, 404, 505];
 
 /**
- * The seeds whose fresh run seals shut inside the ramp under the 28-unit catch
- * box.
+ * The seeds whose fresh run seals shut inside the ramp on the current
+ * birthright, and there are none again.
  *
- * DROP_HALF_EXTENT rose from 8 to 14 on Mark's 2026-08-25 ruling (the pickup
- * area stays more generous than the drawn peak;
- * docs/design/drop-legibility-fix.md), so a dodging bot now collects drops it
- * used to brush past and every full-run trajectory re-rolled. The per-seed
- * outcomes in this file are re-measured under the new box and re-pinned, the
- * same way they were pinned when weapons landed.
+ * Re-measured for #76 pass D, which cut Territory's opening beat from 90 ticks
+ * to 68 and decoupled the scan's lead from it at 150. Both pull the same way
+ * on a policy whose only weapon that fires for free is Territory: the ground
+ * is claimed further up-field, and it opens while the crowd is still walking
+ * in rather than around a crowd already standing on it. Seed 404 was the one
+ * seal at 5389 ticks and now runs the full 12421 and wins, and it is the seed
+ * that moved furthest, from 14 kills to 58.
+ *
+ * What it measures is still this policy rather than the game: `dodgePolicy`
+ * never dives, so it reads the ramp at about the weakest play the sim can
+ * produce. The set is left here empty rather than deleted, so the day a seed
+ * seals inside the ramp again this says which one.
  */
-const SEALS_IN_THE_RAMP = [505];
+const SEALS_IN_THE_RAMP: number[] = [];
+
+/**
+ * The seeds on which this policy never swallows anything at all, and there are
+ * none again.
+ *
+ * Re-measured after #76 pass D's delivery slice: every seed feeds, 1 to 20
+ * times. 404 was briefly in this set two slices ago, when it sealed early with
+ * nothing crossed; it now runs the whole stage and is the seed that feeds
+ * most.
+ *
+ * Those swallows are incidental, which is the thing to keep in front of a
+ * reader. `dodgePolicy` scores its nine moves against mobs and mob fire alone
+ * and looks at neither corpses nor drops, so it never once steers toward
+ * food; the line simply litters the lane it dodges through.
+ */
+const NEVER_FEEDS: number[] = [];
+
+/**
+ * The seeds whose fresh grave reaches victory on this policy, and there are two
+ * of them.
+ *
+ * The cause is the tuning pass itself rather than a break. Territory is the
+ * only line a dodger arms for free, and #76 pass D changed where its ground
+ * lands: the lead is no longer the opening beat, so the scan aims 150 ticks
+ * ahead of a mob instead of 68 and the ground opens up-field of the crowd
+ * rather than around it. Ground that is already waiting catches a mob for its
+ * whole crossing, and fresh kills rose from 14 to 43 across the five seeds to
+ * 28 to 58. 303 and 404 crossed to victory on that; 202, which won on the
+ * slice before, now seals at 10277.
+ *
+ * It stays a tripwire in both directions, because the assertion is an
+ * equality: the day the set moves either way, this file goes red and says
+ * which seed did it. What it measures is still a policy that only dodges,
+ * never a hand that dives, and it is the worst case for a ladder whose upper
+ * rungs a real player buys.
+ */
+const REACHES_VICTORY_FRESH: number[] = [303, 404];
+
+/**
+ * The seeds that reach victory from the size ceiling on this policy, which is
+ * four of the five.
+ *
+ * Re-measured after #76 pass D's delivery slice: 101, 303, 404 and 505 all go
+ * the full 12421 ticks and win, at 44 to 73 kills, and 202 alone seals, at
+ * 10982. Three of these four were sealing within 200 ticks of the end before
+ * the slice, so ground that opens up-field of a crowd rather than around it is
+ * worth about that much to a grave already at the ceiling.
+ *
+ * Pinned as a constant rather than left a literal in the test, because the
+ * fresh set and this one are different facts.
+ */
+const REACHES_VICTORY_FROM_THE_CEILING = [101, 303, 404, 505];
 
 const RAMP_TICKS = phaseLengthTicks(PHASES[0]);
 const STAGE_TICKS = RAMP_TICKS + phaseLengthTicks(PHASES[2]);
@@ -122,7 +188,8 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
       // existed, and dispatch 5 is what turns them into ordinary assertions:
       // the storm cuts how long an armed mob lives, and a weaponless build
       // inflates mob fire by roughly a factor of five. SEALS_IN_THE_RAMP
-      // carries the seeds the 28-unit catch box re-rolled the other way.
+      // carries the seeds that go the other way: its comment is where that is
+      // measured.
       const state = createRun(seed);
       play(state, dodgePolicy, RAMP_TICKS);
       if (survives) expect(state.ending).toBeNull();
@@ -143,14 +210,16 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
     });
   }
 
-  it('reaches both endings across the five seeds, so neither is unreachable', () => {
-    // Victory is still dispatch 4's stub firing on the over phase, and sealed
-    // shut is the real ladder. Both have to be reachable or the full-run test
-    // is only ever exercising one half of the run's shape, and this is the
-    // first build where a fresh run reaches either by playing.
-    const endings = new Set(SEEDS.map((seed) => fullRun(seed).state.ending));
-    expect(endings.has('victory')).toBe(true);
-    expect(endings.has('sealed')).toBe(true);
+  it('two fresh graves reach victory on this policy, and the test names the set', () => {
+    // Written as an equality against the pinned set rather than as "none win",
+    // so it fires the day the set moves in either direction and says which seed
+    // did it. It has fired both ways already, and after #76 pass D's delivery
+    // slice the set holds 303 and 404. REACHES_VICTORY_FRESH carries the fact
+    // and its cause.
+    const winners = SEEDS.filter(
+      (seed) => fullRun(seed).state.ending === 'victory',
+    );
+    expect(winners).toEqual(REACHES_VICTORY_FRESH);
   });
 
   for (const seed of SEEDS) {
@@ -179,38 +248,54 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
   }
 
   for (const seed of SEEDS) {
-    it(`makes kills, corpses and swallows on seed ${seed}, all from real weapons`, () => {
+    it(`makes kills and drops on seed ${seed}, all from real weapons`, () => {
       const { events } = fullRun(seed);
       const kills = count(events, 'mobKilled');
       expect(kills).toBeGreaterThan(0);
       expect(kills).toBeLessThanOrEqual(AUTHORED_MOBS);
-      expect(count(events, 'swallowed')).toBeGreaterThan(0);
-      expect(count(events, 'grew')).toBeGreaterThan(0);
       expect(count(events, 'dropSpawned')).toBeGreaterThan(0);
+      // Feeding is something every seed does again, and NEVER_FEEDS is left
+      // empty rather than deleted so the day one stops, this says so. A corpse
+      // still lands wherever Territory or the stream killed the mob rather than
+      // at the grave's own rim, and this policy still never drives to food; the
+      // autonomous line simply litters the lane with enough corpses that a
+      // dodging grave crosses one. Growth follows feeding exactly, so it is asserted on the
+      // same seeds and no others.
+      const fed = !NEVER_FEEDS.includes(seed);
+      expect(count(events, 'swallowed') > 0).toBe(fed);
+      expect(count(events, 'grew') > 0).toBe(fed);
     });
   }
 });
 
 /**
+ * The seeds whose fresh run kills more than half the authored timeline, and
+ * after #76 pass C there are none again.
+ *
+ * Re-measured after pass D's delivery slice: the five fresh runs land 28 to 58
+ * kills against 268 authored mobs, where pass B's ladder reached 80 to 157 and
+ * cleared the half on 303 and 505. The tripwire has now fired in both directions, which is
+ * what it is for. The delivery slice bought back half of what pass C's dwell
+ * ladder took, and it is still nowhere near the half.
+ */
+const MEETS_THE_TIMELINE: number[] = [];
+
+/**
  * ADR 0013 asks a full run to land ten to twelve drops, and it does not.
  *
- * Measured on real weapons across the five seeds: 23 to 42 kills and 3 to 5
- * drops, against a price table fitted to 268 authored mobs. The table is doing
- * exactly what it was derived to do, because 29 kills buys 4 drops off it; what
- * is far below the derivation is the kill rate, at roughly a tenth of the
- * timeline rather than the six-in-ten the ten-drop figure was fitted against.
+ * Re-measured after #76 pass D's delivery slice: 3 to 6 drops across the five
+ * fresh seeds against the same price table,
+ * against a price table fitted to 268 authored mobs. What holds the band off
+ * is the table's rising prices against runs that stop feeding drops back into
+ * columns, and a dodging bot never dives for the drops it does spawn.
  *
- * The cause is named rather than guessed at. `dodgePolicy` maximizes clearance
- * and never aims, the birthright stream is one 8-unit column pouring straight up
- * from wherever the grave happens to be, and the loop that would fix it is
- * bootstrapped: kills buy drops, drops buy columns, columns buy kills. A dodging
- * bot never enters it, and a drop it does not dive for scrolls away.
- *
- * These are declared expected failures rather than left red so a genuinely new
- * break cannot hide among them, and they are a tripwire in the other direction
- * too: the day the storm or the bot reaches the band, this file goes red and
- * asks to be rewritten as ordinary assertions. The price table is not moved and
- * the bot is not improved, both of which dispatch 5's plan forbids by name.
+ * Both halves are declared expected failures again so a genuinely new break
+ * cannot hide among red tests, and both are tripwires in the other direction
+ * too: the day the storm reaches either band, this file goes red and asks to
+ * be rewritten as ordinary assertions. The timeline half fired that tripwire
+ * one way in pass B and the other way in pass C, and MEETS_THE_TIMELINE
+ * carries where it stands. The price table is not moved and the bot is not
+ * improved, both of which dispatch 5's plan forbids by name.
  */
 describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
   for (const seed of SEEDS) {
@@ -223,7 +308,9 @@ describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
   }
 
   for (const seed of SEEDS) {
-    it.fails(`meets most of the authored timeline on seed ${seed}`, () => {
+    const meets = MEETS_THE_TIMELINE.includes(seed);
+    const test = meets ? it : it.fails;
+    test(`${meets ? 'meets' : 'falls short of'} most of the authored timeline on seed ${seed}`, () => {
       const { events } = fullRun(seed);
       expect(count(events, 'mobKilled')).toBeGreaterThan(AUTHORED_MOBS / 2);
     });
@@ -233,12 +320,12 @@ describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
     it(`stays inside the range the storm actually reaches on seed ${seed}`, () => {
       // The ordinary half, so a regression away from today's figures is caught
       // while the band above stays the thing being aimed at. The floors are
-      // the measured minima across the five seeds under the 28-unit catch box
-      // (SEALS_IN_THE_RAMP carries the ruling): seed 505 now seals at twelve
-      // kills and two drops.
+      // the measured minima across the five fresh runs after #76 pass D's
+      // delivery slice: seed 101 is lowest on both at 28 kills and 3 drops,
+      // and it is now the shortest run of the five rather than the one seal.
       const { events } = fullRun(seed);
-      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(12);
-      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(2);
+      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(28);
+      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(3);
     });
   }
 });
@@ -249,12 +336,14 @@ describe('dodgePolicy from the size ceiling', () => {
       // Every one of these was a declared expected failure before weapons
       // existed. Dispatch 4's section 5 asserted victory from the ceiling and
       // its own section 8 proved it cannot, so what is asserted here is what
-      // the weapons actually do, re-measured under the 28-unit catch box
-      // (SEALS_IN_THE_RAMP carries the ruling): seed 101 reaches the over
-      // phase and the other four seal shut inside the back half.
+      // the weapons actually do, re-measured after #76 pass D's delivery
+      // slice: four of the five seeds reach the over phase and win, and the
+      // fifth seals shut inside the back half.
+      // REACHES_VICTORY_FROM_THE_CEILING is where that set is pinned and where
+      // its cause is written down.
       const { state, events } = fullRun(seed, SIZE_CEILING);
       const reached = phaseOrder(events);
-      if (seed === 101) {
+      if (REACHES_VICTORY_FROM_THE_CEILING.includes(seed)) {
         expect(reached).toContain('over');
         expect(state.ending).toBe('victory');
         return;
@@ -264,6 +353,40 @@ describe('dodgePolicy from the size ceiling', () => {
       expect(state.ending).toBe('sealed');
     });
   }
+});
+
+/**
+ * The claim that spans both loadouts, read after both of them have run.
+ *
+ * It sits below the two loadout suites rather than inside either one, for what
+ * is really a single reason: it is a property of the run's shape rather than of
+ * one starting size, and every run it reads has by this point already been paid
+ * for by a suite that had its own reason to play it. Declared any earlier, one
+ * `it` would bill itself five whole-stage simulations that nothing else had
+ * warmed, which is a real cost landing in the wrong place rather than a slow
+ * test.
+ */
+describe('both endings across the two loadouts', () => {
+  it('reaches both endings across the five seeds, so neither is unreachable', () => {
+    // Victory is still dispatch 4's stub firing on the over phase, and sealed
+    // shut is the real ladder. Both have to be reachable or the full-run test
+    // is only ever exercising one half of the run's shape.
+    //
+    // Where each ending comes from moved again with #76 pass C's dwell slice
+    // and is recorded rather than quietly re-pinned. Two fresh seeds and four
+    // ceiling seeds reach victory, so the victory half of this property rests
+    // on six runs out of ten and the sealed half on the other four, which is
+    // the thinner of the two now. REACHES_VICTORY_FRESH and
+    // REACHES_VICTORY_FROM_THE_CEILING carry both facts and the cause they
+    // share. Both loadouts are read here so the property is about the run's
+    // shape rather than about which starting size happens to reach it.
+    const endings = new Set([
+      ...SEEDS.map((seed) => fullRun(seed).state.ending),
+      ...SEEDS.map((seed) => fullRun(seed, SIZE_CEILING).state.ending),
+    ]);
+    expect(endings.has('victory')).toBe(true);
+    expect(endings.has('sealed')).toBe(true);
+  });
 });
 
 describe("hitTakingPolicy walks ADR 0003's ladder", () => {
@@ -287,7 +410,7 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
       expect(count(events, 'weaponStripped')).toBe(0);
       for (const line of WEAPON_LINES) {
         expect(`${line} ${state.levels[line]}`).toBe(
-          `${line} ${['soulStream', 'headstones'].includes(line) ? 1 : 0}`,
+          `${line} ${['soulStream', 'territory'].includes(line) ? 1 : 0}`,
         );
       }
     });
@@ -331,7 +454,7 @@ describe("the Wall's two-sided property (ADR 0042)", () => {
       const state = wallRun(seed, false);
       expect(state.levels).toEqual({
         soulStream: 1,
-        headstones: 1,
+        territory: 1,
         wisps: 0,
         bell: 0,
       });

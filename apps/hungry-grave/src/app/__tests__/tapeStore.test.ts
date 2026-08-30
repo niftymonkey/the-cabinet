@@ -9,6 +9,8 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { WEAPON_LINES } from '../../game/lines/roster';
+
 import { decodeTape } from '../../tape/decode';
 import {
   bodySegment,
@@ -29,7 +31,8 @@ import type { RunSummaryValues, TapeStore } from '../tapeStore';
 const HEADER: TapeHeader = {
   seed: 77,
   startingSize: 24,
-  startingLevels: { soulStream: 0, headstones: 0, wisps: 0, bell: 0 },
+  recordedRoster: [...WEAPON_LINES],
+  startingLevels: { soulStream: 0, territory: 0, wisps: 0, bell: 0 },
   tickRate: 60,
   checkpointSpacing: 4,
   witnessVersion: 1,

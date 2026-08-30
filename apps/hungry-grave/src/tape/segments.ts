@@ -36,7 +36,6 @@ import {
   FAULT_SEVERITY_CODES,
   FORMAT_VERSION,
   FRAME_REASON_CODES,
-  HEADER_LEVELS_ORDER,
   INPUT_DEVICE_CODES,
   INTEGRITY_CODES,
   OBSERVATION_KIND_CODES,
@@ -49,11 +48,44 @@ const writeMagic = (writer: ByteWriter): void => {
   for (const character of TAPE_MAGIC) writeU8(writer, character.charCodeAt(0));
 };
 
+/**
+ * The level the header recorded for one of the lines its own roster names.
+ *
+ * Never a fallback. The roster and the levels are written together by this
+ * build, so a recorded line carrying no level is a bug here rather than
+ * anything a tape could hold, and a zero would repair a value our own code
+ * produced into "this run started with that line unowned": the ADR 0027
+ * absence `resolveStartingLevels` exists to refuse on the way back in. The
+ * record is widened to its honest partial type first, because the header's
+ * `Record<string, number>` hands back a `number` for a key it does not have.
+ */
+const recordedLevel = (header: TapeHeader, line: string): number => {
+  const recorded: Readonly<Partial<Record<string, number>>> =
+    header.startingLevels;
+  // An own property, never an inherited one. A header built as an ordinary
+  // object hands back Object.prototype for the line name `__proto__`, which is
+  // not undefined and would be written out as a byte.
+  const level = Object.prototype.hasOwnProperty.call(recorded, line)
+    ? recorded[line]
+    : undefined;
+  if (level === undefined) {
+    throw new Error(
+      `the header's roster names ${line} with no starting level recorded for it`,
+    );
+  }
+  return level;
+};
+
 const writeHeaderRecord = (payload: ByteWriter, header: TapeHeader): void => {
   writeU32(payload, header.seed);
   writeF64(payload, header.startingSize);
-  for (const line of HEADER_LEVELS_ORDER) {
-    writeU8(payload, header.startingLevels[line]);
+  // The roster first, then one level byte per recorded name in that same order,
+  // so the bytes carry their own vocabulary and a reader never supplies it from
+  // its own present-day world (ADR 0043).
+  writeU8(payload, header.recordedRoster.length);
+  for (const line of header.recordedRoster) writeString(payload, line);
+  for (const line of header.recordedRoster) {
+    writeU8(payload, recordedLevel(header, line));
   }
   writeU16(payload, header.tickRate);
   writeU32(payload, header.checkpointSpacing);
@@ -178,11 +210,10 @@ const chunkBytes = (
  * They travel as one segment because a header chunk without the magic in front
  * of it is not appendable to anything a reader accepts. Segments concatenated
  * in the order a run produces them are therefore themselves a canonical
- * FORMAT_VERSION 1 stream.
+ * FORMAT_VERSION 2 stream.
  *
- * The layout is frozen: sealed FORMAT_VERSION 1 tapes exist outside the tree,
- * so codec.test.ts pins encodeTape's bytes and segments.test.ts pins these
- * encoders against encodeTape.
+ * The layout is frozen at each version: codec.test.ts pins encodeTape's bytes
+ * and segments.test.ts pins these encoders against encodeTape.
  */
 const headerSegment = (header: TapeHeader): Uint8Array => {
   const writer = createWriter();

@@ -151,6 +151,7 @@ const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
       drops: run.streams.drops.drawn,
       mobFire: run.streams.mobFire.drawn,
       shed: run.streams.shed.drawn,
+      territory: run.streams.territory.drawn,
     },
     levels: { ...run.levels },
     checksum: checksum,
@@ -260,6 +261,13 @@ const runScenario = (): ScenarioResult => {
  * the reason in the commit message. Regeneration is a human paste: run
  * `pnpm digest`, and the test logs the regenerated object as a paste-ready
  * literal before it asserts.
+ *
+ * Re-pinned on 2026-08-28 for #76's Territory tuning: the opening beat went
+ * from 90 ticks to 68 and the scan's lead was decoupled from it and set to
+ * 150, so claimed ground is laid at a different point and opens sooner. Every
+ * other field held, the two lays and the two kills included; the checksum
+ * alone moved, from 439893635, because the witness folds the positions the
+ * ground took and the mobs it held.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -272,7 +280,7 @@ const GOLDEN: Digest = {
   mobs: 6,
   shots: 2,
   corpses: 1,
-  skulls: 1,
+  skulls: 2,
   wisps: 0,
   kills: 2,
   drawn: {
@@ -280,14 +288,15 @@ const GOLDEN: Digest = {
     drops: 0,
     mobFire: 1,
     shed: 0,
+    territory: 2,
   },
   levels: {
     soulStream: 1,
-    headstones: 1,
+    territory: 1,
     wisps: 0,
     bell: 0,
   },
-  checksum: -522074226,
+  checksum: -362706426,
 };
 
 export { runScenario, GOLDEN };

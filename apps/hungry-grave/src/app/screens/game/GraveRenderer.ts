@@ -87,6 +87,73 @@ const glowAlpha = (fullness: number, tick: number): number => {
 };
 
 /**
+ * How many segments Territory's charge arc is sampled at. It doubles as the
+ * redraw quantum: the charge moves every tick, and rebuilding the trace only
+ * when it crosses a segment keeps the redraw rate at the arc's own visible
+ * resolution rather than the clock's.
+ */
+const ARC_SEGMENTS = 64;
+
+/**
+ * A point this far around a rounded rectangle's perimeter, clockwise from
+ * top-centre, with `along` from 0 to 1. The rectangle is centred on the
+ * origin. Piecewise over the four edges and four corner arcs, so the trace
+ * follows the rim's own geometry exactly rather than approximating it with a
+ * circle the grave does not have.
+ */
+const perimeterPoint = (
+  width: number,
+  height: number,
+  corner: number,
+  along: number,
+): { x: number; y: number } => {
+  const straightX = width - 2 * corner;
+  const straightY = height - 2 * corner;
+  const quarter = (Math.PI * corner) / 2;
+  const total = 2 * straightX + 2 * straightY + 4 * quarter;
+  let s = along * total;
+
+  const cornerAt = (
+    cx: number,
+    cy: number,
+    from: number,
+    walked: number,
+  ): { x: number; y: number } => ({
+    x: cx + corner * Math.cos(from + walked / corner),
+    y: cy + corner * Math.sin(from + walked / corner),
+  });
+
+  if (s < straightX / 2) return { x: s, y: -height / 2 };
+  s -= straightX / 2;
+  if (s < quarter) {
+    return cornerAt(width / 2 - corner, -height / 2 + corner, -Math.PI / 2, s);
+  }
+  s -= quarter;
+  if (s < straightY) return { x: width / 2, y: -height / 2 + corner + s };
+  s -= straightY;
+  if (s < quarter) {
+    return cornerAt(width / 2 - corner, height / 2 - corner, 0, s);
+  }
+  s -= quarter;
+  if (s < straightX) return { x: width / 2 - corner - s, y: height / 2 };
+  s -= straightX;
+  if (s < quarter) {
+    return cornerAt(-width / 2 + corner, height / 2 - corner, Math.PI / 2, s);
+  }
+  s -= quarter;
+  if (s < straightY) return { x: -width / 2, y: height / 2 - corner - s };
+  s -= straightY;
+  if (s < quarter) {
+    return cornerAt(-width / 2 + corner, -height / 2 + corner, Math.PI, s);
+  }
+  s -= quarter;
+  return {
+    x: -width / 2 + corner + Math.min(s, straightX / 2),
+    y: -height / 2,
+  };
+};
+
+/**
  * The grave on screen: a rounded rectangle drawn twice, once as the mouth
  * beneath the food layers and once as the rim above them, with the reservoir's
  * glow around it.
@@ -103,11 +170,14 @@ class GraveRenderer {
   private readonly mouth = new Graphics();
   private readonly rim = new Graphics();
   private readonly glow = new Graphics();
+  private readonly arc = new Graphics();
   private drawnSize: number | null = null;
   private glowSize: number | null = null;
+  private arcSize: number | null = null;
+  private arcStep: number | null = null;
 
   /**
-   * Puts both pieces into their layers. FieldLayers.clear() empties every layer
+   * Puts the pieces into their layers. FieldLayers.clear() empties every layer
    * between runs, so the renderer has to be able to put itself back rather than
    * assume it is still attached.
    */
@@ -117,11 +187,15 @@ class GraveRenderer {
     // Over the rim in the same layer, at the rim's own geometry, so a charged
     // grave reads as the rim itself warming rather than as a second shape.
     layers.layer('graveRim').addChild(this.glow);
+    // Territory's charge arc rides the same band, over the glow, so the rim
+    // does three jobs on one geometry rather than growing a second shape.
+    layers.layer('graveRim').addChild(this.arc);
   }
 
   public detach(): void {
     this.mouth.removeFromParent();
     this.glow.removeFromParent();
+    this.arc.removeFromParent();
     this.rim.removeFromParent();
   }
 
@@ -131,9 +205,16 @@ class GraveRenderer {
    * re-derived here from the aspect.
    *
    * The geometry is rebuilt only when the size changes, which is on a swallow
-   * or a hit. Position is a container transform and is free.
+   * or a hit. Position is a container transform and is free. territoryCharge
+   * is territoryCharge(run), 0 to 1: the arc fills with it and empties on the
+   * lay, rebuilt only when the charge crosses a segment.
    */
-  public sync(grave: Grave, reservoirFullness: number, tick: number): void {
+  public sync(
+    grave: Grave,
+    reservoirFullness: number,
+    tick: number,
+    territoryCharge: number,
+  ): void {
     if (grave.size !== this.drawnSize) {
       this.redraw(grave.size);
       this.drawnSize = grave.size;
@@ -142,12 +223,54 @@ class GraveRenderer {
       this.redrawGlow(grave.size);
       this.glowSize = grave.size;
     }
+    const step = Math.round(
+      Math.max(0, Math.min(1, territoryCharge)) * ARC_SEGMENTS,
+    );
+    if (grave.size !== this.arcSize || step !== this.arcStep) {
+      this.redrawArc(grave.size, step);
+      this.arcSize = grave.size;
+      this.arcStep = step;
+    }
     this.mouth.position.set(grave.x, grave.y);
     this.rim.position.set(grave.x, grave.y);
     this.glow.position.set(grave.x, grave.y);
+    this.arc.position.set(grave.x, grave.y);
     // Alpha rather than a redraw, because the charge changes on every swallow
     // and the geometry only changes with the size.
     this.glow.alpha = glowAlpha(reservoirFullness, tick);
+  }
+
+  /**
+   * The filled share of the rim's perimeter in Territory's colour, clockwise
+   * from top-centre. The trace runs on the rim path inset by half the stroke
+   * and is stroked centred, so its outer edge equals the hitbox exactly: ADR
+   * 0003 makes the drawn grave the health bar, and the arc must never make it
+   * read wider.
+   */
+  private redrawArc(size: number, step: number): void {
+    this.arc.clear();
+    if (step <= 0) return;
+    const width = graveWidth(size) - GRAVE_RIM_STROKE;
+    const height = size * 2 - GRAVE_RIM_STROKE;
+    const corner = Math.max(
+      0,
+      graveWidth(size) * GRAVE_CORNER_RATIO - GRAVE_RIM_STROKE / 2,
+    );
+    const start = perimeterPoint(width, height, corner, 0);
+    this.arc.moveTo(start.x, start.y);
+    for (let segment = 1; segment <= step; segment++) {
+      const at = perimeterPoint(width, height, corner, segment / ARC_SEGMENTS);
+      this.arc.lineTo(at.x, at.y);
+    }
+    // Round caps and joins: a miter at a sampled corner would spike past the
+    // stroke's own envelope, and the envelope is what the hitbox bound rests on.
+    this.arc.stroke({
+      width: GRAVE_RIM_STROKE,
+      color: PALETTE.territory.hex,
+      alignment: 0.5,
+      cap: 'round',
+      join: 'round',
+    });
   }
 
   /**

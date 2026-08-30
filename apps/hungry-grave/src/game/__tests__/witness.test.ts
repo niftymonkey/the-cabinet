@@ -57,8 +57,31 @@ function fixture(): RunState {
   fillCorpse(run);
   fillSkull(run);
   fillWisp(run);
+  fillPatch(run);
   fillRun(run);
   return run;
+}
+
+/** The fixture patch's own state, so a per-field test can move one part of it. */
+const PATCH_STRUCK: readonly (readonly [number, number])[] = [
+  [21, 430],
+  [22, 445],
+];
+
+function fillPatch(run: RunState): void {
+  const patch = run.patches[0];
+  patch.alive = true;
+  patch.id = 16;
+  patch.x = 210.5;
+  patch.y = 84.25;
+  patch.radius = 41.5;
+  patch.pull = 0.22;
+  patch.slow = 0.4;
+  patch.rehit = 48;
+  patch.opening = 6;
+  patch.pulses = 3;
+  patch.struck.clear();
+  for (const [id, eligibleAt] of PATCH_STRUCK) patch.struck.set(id, eligibleAt);
 }
 
 function fillRun(run: RunState): void {
@@ -66,9 +89,9 @@ function fillRun(run: RunState): void {
   run.reservoir = 0.375;
   run.killsSinceDrop = 3;
   run.dropsPaid = 2;
-  run.nextEntityId = 16;
+  run.nextEntityId = 17;
   run.levels.soulStream = 2;
-  run.levels.headstones = 1;
+  run.levels.territory = 1;
   run.levels.wisps = 3;
   run.levels.bell = 4;
   run.stage.phaseIndex = 1;
@@ -76,10 +99,9 @@ function fillRun(run: RunState): void {
   run.stage.firedRows = 2;
   run.lines.streamIn = 17;
   run.lines.surgeVolleys = 2;
-  run.lines.orbitPhase = 1.25;
-  run.lines.stoneRecharge[1] = 8;
   run.lines.tollIn = 90;
   run.lines.ring = ring();
+  run.lines.layIn = 240;
 }
 
 function fillGrave(run: RunState): void {
@@ -159,8 +181,8 @@ interface FieldCase {
   readonly move: (run: RunState) => void;
   /**
    * Puts the field back where it was. Absent only where the field cannot be
-   * moved backwards at all, which is the four stream cursors: `drawn` is a
-   * getter over a counter that only ever increases.
+   * moved backwards at all, which is the stream cursors: `drawn` is a getter
+   * over a counter that only ever increases.
    */
   readonly restore?: (run: RunState) => void;
 }
@@ -331,6 +353,51 @@ const ENTITY_CASES: readonly FieldCase[] = [
     move: (run) => void (run.wisps[0].targetId = null),
     restore: (run) => void (run.wisps[0].targetId = 11),
   },
+  {
+    path: 'patches[].x',
+    move: (run) => void (run.patches[0].x += 1e-6),
+    restore: (run) => void (run.patches[0].x -= 1e-6),
+  },
+  {
+    path: 'patches[].y',
+    move: (run) => void (run.patches[0].y += 1e-6),
+    restore: (run) => void (run.patches[0].y -= 1e-6),
+  },
+  {
+    path: 'patches[].radius',
+    move: (run) => void (run.patches[0].radius += 1e-6),
+    restore: (run) => void (run.patches[0].radius -= 1e-6),
+  },
+  {
+    path: 'patches[].pull',
+    move: (run) => void (run.patches[0].pull += 1e-6),
+    restore: (run) => void (run.patches[0].pull -= 1e-6),
+  },
+  {
+    path: 'patches[].slow',
+    move: (run) => void (run.patches[0].slow += 1e-6),
+    restore: (run) => void (run.patches[0].slow -= 1e-6),
+  },
+  {
+    path: 'patches[].rehit',
+    move: (run) => void (run.patches[0].rehit += 1),
+    restore: (run) => void (run.patches[0].rehit -= 1),
+  },
+  {
+    path: 'patches[].opening',
+    move: (run) => void (run.patches[0].opening -= 1),
+    restore: (run) => void (run.patches[0].opening += 1),
+  },
+  {
+    path: 'patches[].pulses',
+    move: (run) => void (run.patches[0].pulses -= 1),
+    restore: (run) => void (run.patches[0].pulses += 1),
+  },
+  {
+    path: 'patches[].struck',
+    move: (run) => void run.patches[0].struck.set(23, 460),
+    restore: (run) => void run.patches[0].struck.delete(23),
+  },
 ];
 
 const RUN_CASES: readonly FieldCase[] = [
@@ -370,9 +437,9 @@ const RUN_CASES: readonly FieldCase[] = [
     restore: (run) => void (run.levels.soulStream -= 1),
   },
   {
-    path: 'levels.headstones',
-    move: (run) => void (run.levels.headstones += 1),
-    restore: (run) => void (run.levels.headstones -= 1),
+    path: 'levels.territory',
+    move: (run) => void (run.levels.territory += 1),
+    restore: (run) => void (run.levels.territory -= 1),
   },
   {
     path: 'levels.wisps',
@@ -394,6 +461,10 @@ const RUN_CASES: readonly FieldCase[] = [
     move: (run) => void run.streams.mobFire.next(),
   },
   { path: 'streams.shed.drawn', move: (run) => void run.streams.shed.next() },
+  {
+    path: 'streams.territory.drawn',
+    move: (run) => void run.streams.territory.next(),
+  },
   {
     path: 'stage.phaseIndex',
     move: (run) => void (run.stage.phaseIndex += 1),
@@ -420,16 +491,6 @@ const RUN_CASES: readonly FieldCase[] = [
     restore: (run) => void (run.lines.surgeVolleys += 1),
   },
   {
-    path: 'lines.orbitPhase',
-    move: (run) => void (run.lines.orbitPhase += 1e-6),
-    restore: (run) => void (run.lines.orbitPhase -= 1e-6),
-  },
-  {
-    path: 'lines.stoneRecharge[]',
-    move: (run) => void (run.lines.stoneRecharge[1] -= 1),
-    restore: (run) => void (run.lines.stoneRecharge[1] += 1),
-  },
-  {
     path: 'lines.tollIn',
     move: (run) => void (run.lines.tollIn -= 1),
     restore: (run) => void (run.lines.tollIn += 1),
@@ -450,6 +511,11 @@ const RUN_CASES: readonly FieldCase[] = [
     path: 'lines.ring.struck',
     move: (run) => void run.lines.ring!.struck.add(13),
     restore: (run) => void run.lines.ring!.struck.delete(13),
+  },
+  {
+    path: 'lines.layIn',
+    move: (run) => void (run.lines.layIn -= 1),
+    restore: (run) => void (run.lines.layIn += 1),
   },
 ];
 
@@ -500,6 +566,15 @@ const FOLDED: readonly string[] = [
   'wisps[].vy',
   'wisps[].life',
   'wisps[].targetId',
+  'patches[].x',
+  'patches[].y',
+  'patches[].radius',
+  'patches[].pull',
+  'patches[].slow',
+  'patches[].rehit',
+  'patches[].opening',
+  'patches[].pulses',
+  'patches[].struck',
   'score',
   'reservoir',
   'ending',
@@ -507,24 +582,24 @@ const FOLDED: readonly string[] = [
   'dropsPaid',
   'nextEntityId',
   'levels.soulStream',
-  'levels.headstones',
+  'levels.territory',
   'levels.wisps',
   'levels.bell',
   'streams.spawns.drawn',
   'streams.drops.drawn',
   'streams.mobFire.drawn',
   'streams.shed.drawn',
+  'streams.territory.drawn',
   'stage.phaseIndex',
   'stage.phaseTick',
   'stage.firedRows',
   'lines.streamIn',
   'lines.surgeVolleys',
-  'lines.orbitPhase',
-  'lines.stoneRecharge[]',
   'lines.tollIn',
   'lines.ring.level',
   'lines.ring.ticks',
   'lines.ring.struck',
+  'lines.layIn',
 ];
 
 /**
@@ -557,6 +632,9 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'skulls[].id': 'spawn identity, as mobs[].id is.',
   'wisps[].alive': 'gates the walk, as mobs[].alive does.',
   'wisps[].id': 'spawn identity, as mobs[].id is.',
+  'patches[].alive': 'gates the walk, as mobs[].alive does.',
+  'patches[].id':
+    "spawn identity, as mobs[].id is. Territory's cap orders eviction by it, and that ordering shows through which patches are still live in the walk.",
   'streams.spawns.next': 'a draw function, not state. Its cursor is folded.',
   'streams.spawns.nextInt': 'a draw function, not state.',
   'streams.drops.next': 'a draw function, not state. Its cursor is folded.',
@@ -565,17 +643,19 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'streams.mobFire.nextInt': 'a draw function, not state.',
   'streams.shed.next': 'a draw function, not state. Its cursor is folded.',
   'streams.shed.nextInt': 'a draw function, not state.',
+  'streams.territory.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.territory.nextInt': 'a draw function, not state.',
 };
 
 /**
  * Every leaf field of a value, as a path. Arrays walk their first element under
- * a `[]` segment because a pool's slots all carry the same fields, and a Set is
- * a leaf because its members are values rather than fields.
+ * a `[]` segment because a pool's slots all carry the same fields, and a Set
+ * or a Map is a leaf because its members are values rather than fields.
  */
 function fieldPaths(value: unknown, path: string): string[] {
   if (value === null || value === undefined) return [path];
   if (typeof value === 'function') return [path];
-  if (value instanceof Set) return [path];
+  if (value instanceof Set || value instanceof Map) return [path];
   if (Array.isArray(value)) {
     if (value.length === 0) return [path];
     return fieldPaths(value[0], `${path}[]`);
@@ -632,7 +712,7 @@ describe('one field at a time', () => {
 
 const WEAPON_LINE_NAMES: readonly WeaponLine[] = [
   'soulStream',
-  'headstones',
+  'territory',
   'wisps',
   'bell',
 ];
@@ -642,9 +722,16 @@ describe('the fold order over the weapon lines', () => {
     // The witness fold traverses WEAPON_LINES in array order and sealed tapes
     // exist outside the tree, so a reorder silently changes every witness. A
     // change to this order needs a witness version bump, never a test update.
-    expect(WEAPON_LINES).toEqual(['soulStream', 'headstones', 'wisps', 'bell']);
+    expect(WEAPON_LINES).toEqual(['soulStream', 'territory', 'wisps', 'bell']);
   });
 });
+
+/**
+ * The code the headstones held before #76 retired them. It is written down here
+ * and nowhere in production, because the whole point of a retired code is that
+ * nothing may ever take it again.
+ */
+const RETIRED_HEADSTONES_CODE = 2;
 
 describe('the four non-numeric encodings', () => {
   it('a boolean folds through an explicit 0 or 1', () => {
@@ -680,12 +767,21 @@ describe('the four non-numeric encodings', () => {
   });
 
   it('the weapon line code map is pinned by name and never by ordinal', () => {
+    // Territory took a new code rather than the vacated 2 (#76). The map is
+    // append-only under ADR 0019, and reusing a retired line's code would
+    // silently change what every tape recorded before the swap folded, which is
+    // exactly what reading by name rather than by position exists to prevent.
+    // Territory sits at 5 while its position in WEAPON_LINES is second.
     expect(WEAPON_LINE_CODES).toEqual({
       soulStream: 1,
-      headstones: 2,
       wisps: 3,
       bell: 4,
+      territory: 5,
     });
+    expect(WEAPON_LINE_CODES.territory).not.toBe(RETIRED_HEADSTONES_CODE);
+    expect(Object.values(WEAPON_LINE_CODES)).not.toContain(
+      RETIRED_HEADSTONES_CODE,
+    );
   });
 
   it('no code map member may take the reserved absent code', () => {
@@ -757,3 +853,50 @@ function snapshotAt30(foldAt: readonly number[]): number {
   }
   return snapshot;
 }
+
+describe('Territory in the fold (#76)', () => {
+  it('two runs differing only in a patch’s pulse count produce different witnesses', () => {
+    // The pulse count is state the rules mutate, so a replay that ground a
+    // patch differently has to be caught.
+    const ground = fixture();
+    const untouched = fixture();
+    expect(foldWitness(ground, 0)).toBe(foldWitness(untouched, 0));
+
+    ground.patches[0].pulses -= 1;
+    expect(foldWitness(ground, 0)).not.toBe(foldWitness(untouched, 0));
+  });
+
+  it('the re-hit map folds a moved deadline', () => {
+    // The deadline is what holds one pulse per window per mob, so a replay
+    // that re-hit early has to be caught.
+    const early = fixture();
+    const late = fixture();
+    late.patches[0].struck.set(21, 431);
+    expect(foldWitness(early, 0)).not.toBe(foldWitness(late, 0));
+  });
+
+  it('the re-hit map folds its entries in insertion order, never sorted', () => {
+    // With pruning, a re-added id moves to the end, so the order is
+    // chronological across resolve passes rather than slot order. It is still
+    // fully deterministic, because the hit history is deterministic, and
+    // sorting would fold a different order than the map actually holds.
+    const chronological = fixture();
+    const reAdded = fixture();
+    reAdded.patches[0].struck.delete(21);
+    reAdded.patches[0].struck.set(21, 430);
+    expect(foldWitness(reAdded, 0)).not.toBe(foldWitness(chronological, 0));
+  });
+
+  it('the fold covers a patch that is live and skips one that is not', () => {
+    // Liveness gates the walk, which is why patches[].alive is excluded from
+    // the partition rather than folded: a dead slot contributes nothing, so
+    // moving one cannot move the witness.
+    const run = fixture();
+    const before = foldWitness(run, 0);
+    run.patches[1].x = 999;
+    expect(foldWitness(run, 0)).toBe(before);
+
+    run.patches[1].alive = true;
+    expect(foldWitness(run, 0)).not.toBe(before);
+  });
+});

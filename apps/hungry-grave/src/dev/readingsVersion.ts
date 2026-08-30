@@ -19,7 +19,12 @@
  * corrected to measure the grave's bottom rim, and 560 after. Same tape, same
  * sim, same witness verdict, different question answered, and subtracting one
  * from the other would have been arithmetic across two definitions.
+ *
+ * Version 2: Territory became autonomous (#76 pass B). `bitten` and `spent`
+ * are gone with the bite budget, and upfieldTraffic changed meaning: it
+ * samples the field at the lay rather than at the swallow, so a version-1
+ * band and a version-2 band answer different questions.
  */
-const READINGS_VERSION = 1;
+const READINGS_VERSION = 2;
 
 export { READINGS_VERSION };

@@ -1,6 +1,6 @@
 // What the storm held on the field, line by line.
 
-import { stoneCount } from '../../game/lines/headstones';
+import { territoryCount } from '../../game/lines/territory';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { RunState } from '../../game/run';
 import type { NumberRecord } from '../numbersByName';
@@ -24,7 +24,9 @@ const liveCount = (pool: readonly { alive: boolean }[]): number =>
 const ON_FIELD_BY_LINE: Readonly<Partial<Record<WeaponLine, OnFieldCount>>> = {
   soulStream: (state) => liveCount(state.skulls),
   wisps: (state) => liveCount(state.wisps),
-  headstones: (state) => stoneCount(state),
+  // The line's own export and never a wrapper around it, so a walk of the patch
+  // pool written here fails a test rather than agreeing with the seam forever.
+  territory: territoryCount,
   bell: (state) => (state.lines.ring === null ? 0 : 1),
 };
 
@@ -36,9 +38,9 @@ const ON_FIELD_BY_LINE: Readonly<Partial<Record<WeaponLine, OnFieldCount>>> = {
  * counts as one.
  *
  * Index N is the field after tick N ran, so the arrays hold one entry per
- * executed tick. They carry no pre-run sample, because the headstones' count
- * before the first tick is a function of the starting levels rather than of
- * anything on the field.
+ * executed tick. They carry no pre-run sample, because nothing is on the field
+ * before the first tick and a zero there would read as a line that had drawn
+ * nothing rather than as a run that had not begun.
  */
 interface FieldPerLine {
   readonly perLine: Readonly<Partial<Record<WeaponLine, readonly number[]>>>;

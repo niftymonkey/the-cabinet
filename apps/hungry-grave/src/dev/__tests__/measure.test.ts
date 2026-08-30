@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
+import { WEAPON_LINES } from '../../game/lines/roster';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { TickCommand } from '../../game/command';
 import type { RunState } from '../../game/run';
@@ -31,6 +32,11 @@ import {
 import type { FrameObservation, Tape, TapeHeader } from '../../tape/tape';
 import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
+import {
+  BAND_COUNT,
+  BAND_UNITS,
+  LATERAL_REACH,
+} from '../readings/upfieldTraffic';
 import { READINGS_VERSION } from '../readingsVersion';
 import type { FieldDensity, LevelUp } from '../replayTallies';
 
@@ -45,6 +51,7 @@ function header(
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    recordedRoster: [...WEAPON_LINES],
     startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
@@ -86,28 +93,28 @@ function recordARun(
 }
 
 /**
- * A run whose own levels record names a line the roster does not, so a report
- * that enumerated a compiled list of names could not carry it.
+ * A line no build in this tree implements, used to stand for content a tape
+ * names and this reader does not have (ADR 0043).
  */
 const PHANTOM_LINE = 'moonlight';
 
-function recordAPhantomLineRun(): Tape {
-  const levels: Record<WeaponLine, number> = {
-    soulStream: 1,
-    headstones: 1,
-    wisps: 0,
-    bell: 0,
+/**
+ * A tape recorded against a roster this build does not implement.
+ *
+ * The roster is bent on the decoded header rather than played, because a run
+ * cannot be played on lines the simulation does not have: the tape is the
+ * artifact of some other build, which is exactly the case ADR 0043 is about.
+ */
+function aPhantomRosterTape(): Tape {
+  const tape = recordARun();
+  return {
+    ...tape,
+    header: {
+      ...tape.header,
+      recordedRoster: [...tape.header.recordedRoster, PHANTOM_LINE],
+      startingLevels: { ...tape.header.startingLevels, [PHANTOM_LINE]: 1 },
+    },
   };
-  const named: Record<string, number> = levels;
-  named[PHANTOM_LINE] = 1;
-  const run = createRun(SEED, undefined, levels);
-  const execution = createExecution(run);
-  const recorder = recordInto(execution, header(run));
-  for (let tick = 0; tick < SMALL_TICKS; tick++) {
-    executeTick(execution, steer(tick));
-  }
-  sealTrailer(recorder, execution, 0);
-  return tapeOf(recorder);
 }
 
 function decodedOf(tape: Tape): DecodedTape {
@@ -158,7 +165,7 @@ const RICH_SEED = 414243;
 const RICH_SIZE = 67;
 const RICH_LEVELS: Readonly<Record<WeaponLine, number>> = {
   soulStream: 5,
-  headstones: 4,
+  territory: 4,
   wisps: 3,
   bell: 2,
 };
@@ -181,6 +188,7 @@ interface RichRecording {
   readonly levelUps: LevelUp[];
   readonly mobsAlive: number[];
   readonly kills: number;
+  readonly lays: number;
   readonly score: number;
   readonly densities: Map<number, FieldDensity>;
 }
@@ -197,6 +205,7 @@ function recordRichRun(): RichRecording {
   const mobsAlive: number[] = [0];
   const densities = new Map<number, FieldDensity>();
   let kills = 0;
+  let lays = 0;
   for (let tick = 0; tick < RICH_TICKS; tick++) {
     // The field as the frame starting at this tick would begin on: the state
     // after `tick` ticks have run, captured before this one executes.
@@ -207,6 +216,7 @@ function recordRichRun(): RichRecording {
     for (const event of events) {
       if (event.type === 'mobDamaged') damage[event.source] += event.amount;
       if (event.type === 'mobKilled') kills += 1;
+      if (event.type === 'patchLaid') lays += 1;
       if (event.type === 'weaponLeveled') {
         levelUps.push({ line: event.line, level: event.level, tick: run.tick });
       }
@@ -231,6 +241,7 @@ function recordRichRun(): RichRecording {
     levelUps,
     mobsAlive,
     kills,
+    lays,
     score: run.score,
     densities,
   };
@@ -254,7 +265,7 @@ describe('measure', () => {
     expect(Object.keys(damage).sort()).toEqual(Object.keys(rich.damage).sort());
     expect(damage).toEqual(rich.damage);
     expect(rich.measured.damage.soulStream).toBeGreaterThan(0);
-    expect(rich.measured.damage.headstones).toBeGreaterThan(0);
+    expect(rich.measured.damage.territory).toBeGreaterThan(0);
     expect(rich.measured.damage.wisps).toBeGreaterThan(0);
     expect(rich.measured.damage.bell).toBeGreaterThan(0);
     expect(rich.measured.damage.belch).toBeGreaterThan(0);
@@ -611,24 +622,36 @@ describe('measure', () => {
     });
   });
 
-  it("names the weapon lines from the run's own levels record and not from a compiled list", () => {
+  it("names the weapon lines from the tape's own recorded roster and not from a compiled list", () => {
     // Story 11: a line added to the pool appears in the readings without the
-    // instrument changing. The run names a line the roster does not, and the
-    // report carries it, which a compiled list of five names could not do.
-    const measured = verified(measure(decodedOf(recordAPhantomLineRun())));
+    // instrument changing. What names the lines is the roster the tape carries,
+    // read back off the header before a tick has run, so a pool that grows
+    // needs no edit here.
+    const measured = verified(measure(decodedOf(recordARun())));
     const damage: Record<string, number> = measured.damage;
     const endLevels: Record<string, number> = measured.endLevels;
 
-    expect(Object.keys(damage).sort()).toEqual([
-      'belch',
-      'bell',
-      'headstones',
-      PHANTOM_LINE,
-      'soulStream',
-      'wisps',
-    ]);
-    expect(damage[PHANTOM_LINE]).toBe(0);
-    expect(endLevels[PHANTOM_LINE]).toBe(1);
+    expect(Object.keys(damage).sort()).toEqual(
+      ['belch', ...WEAPON_LINES].sort(),
+    );
+    expect(Object.keys(endLevels).sort()).toEqual([...WEAPON_LINES].sort());
+  });
+
+  it('refuses a tape whose recorded roster this build does not implement, and names it', () => {
+    // ADR 0043: reading and replaying are two different obligations. The header
+    // is still readable and says what it says, but a simulation cannot run a
+    // line it does not have, so the refusal is precise, naming the roster,
+    // rather than a fabricated set of metrics over a cast that never played.
+    //
+    // This supersedes the earlier shape of story 11's evidence, which measured
+    // a run whose levels record named a line the roster did not and expected
+    // metrics back. That is the exact case ADR 0043 rules must report nothing.
+    const measurement = measure(decodedOf(aPhantomRosterTape()));
+
+    expect(measurement.outcome).toBe('rosterNotImplemented');
+    if (measurement.outcome !== 'rosterNotImplemented') return;
+    expect(measurement.recordedRoster).toContain(PHANTOM_LINE);
+    expect('tuning' in measurement).toBe(false);
   });
 
   it('reports where every line finished', () => {
@@ -729,6 +752,22 @@ describe('measure', () => {
     expect(measured.provenance.exclusions).toEqual(['bot']);
     expect(measured.tuning.dropLedger.spawned).toBeGreaterThanOrEqual(0);
     expect(measured.tuning.gravePath.sizePerTick[0]).toBe(SIZE_START);
+  });
+
+  it("carries the up-field traffic reading, its sample count the run's lays", () => {
+    // The reading reaches a real report through measure, and its sample count
+    // is the run's own lays rather than a figure read back off itself: the
+    // count comes from the original run's event stream, which measure never
+    // touches. Every band is present once a lay has been sampled, because a
+    // measured zero is where ground would meet no traffic at all.
+    const rich = richFixture();
+    const traffic = rich.measured.tuning.upfieldTraffic;
+
+    expect(rich.lays).toBeGreaterThan(0);
+    expect(traffic.lays).toBe(rich.lays);
+    expect(Object.keys(traffic.perLay)).toHaveLength(BAND_COUNT);
+    expect(traffic.bandUnits).toBe(BAND_UNITS);
+    expect(traffic.lateralReach).toBe(LATERAL_REACH);
   });
 
   it("keeps the tape's recorded faults and today's readback faults separate lists", () => {

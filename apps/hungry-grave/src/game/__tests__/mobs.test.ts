@@ -16,15 +16,15 @@ import { stepping } from '../../dev/stepping';
 import { fireBelch } from '../belch';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { graveHitbox } from '../grave';
 import { advanceBell } from '../lines/bell';
-import { headstoneAt } from '../lines/headstones';
 import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import {
   advanceStream,
   STREAM_INTERVAL,
   SURGE_INTERVAL,
+  SURGE_VOLLEYS,
   surgeStream,
 } from '../lines/soulStream';
 import { advanceWisps, launchWisps } from '../lines/wisps';
@@ -64,19 +64,20 @@ const RIGHT: TickCommand = drift(1, 0);
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
   run.stage.firedRows = RAMP_ROWS.length;
-  // The stream is held as well as the rows. These tests are about how a mob
-  // moves, fires and dies, and a birthright stream pouring up the middle of the
-  // field kills the mob under test before it reaches the behaviour being
-  // measured. The headstones need no holding: their orbit clears the grave's
-  // own hitbox, so a mob standing on the grave's centre line is never in it.
+  // The stream and Territory's clock are held as well as the rows. These tests
+  // are about how a mob moves, fires and dies, and both birthright lines act
+  // unprompted: the stream pours up the middle of the field, and Territory
+  // claims ground on the mob under test and grinds it down before it reaches
+  // the behaviour being measured.
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
+  run.lines.layIn = Number.MAX_SAFE_INTEGER;
   return run;
 }
 
-/** A run with a quiet stage and a headstone parked where a test can aim it. */
+/** A run with a quiet stage and Territory owned, so a patch can be laid into it. */
 function stormRun(seed = 4): RunState {
   const state = quietRun(seed);
-  state.levels.headstones = 1;
+  state.levels.territory = 1;
   return state;
 }
 
@@ -87,10 +88,19 @@ function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
   return mob;
 }
 
-/** A mob standing exactly where this run's one headstone is. */
-function stoneVictim(state: RunState): Mob {
-  const at = headstoneAt(state, 0)!;
-  return putMob(state, 'shambler', at.x, at.y);
+/** A mob standing in an open patch of claimed ground. */
+function patchVictim(state: RunState, x = 200, y = 400): Mob {
+  const patch = state.patches.find((each) => !each.alive)!;
+  patch.alive = true;
+  patch.id = state.nextEntityId;
+  state.nextEntityId += 1;
+  patch.x = x;
+  patch.y = y;
+  patch.radius = 30;
+  patch.opening = 0;
+  patch.pulses = 0;
+  patch.struck.clear();
+  return putMob(state, 'shambler', x, y);
 }
 
 function putSkull(state: RunState, x: number, y: number) {
@@ -151,9 +161,9 @@ describe('the mob type table (ADR 0016)', () => {
     expect(MOB_TYPES.shambler.speed).toBeCloseTo(0.5 * SCROLL_SPEED, 12);
     expect(MOB_TYPES.revenant.speed).toBeCloseTo(0.35 * SCROLL_SPEED, 12);
 
-    expect(MOB_TYPES.shambler.hp).toBe(3);
-    expect(MOB_TYPES.revenant.hp).toBe(5);
-    expect(MOB_TYPES.ghoul.hp).toBe(2);
+    expect(MOB_TYPES.shambler.hp).toBe(40);
+    expect(MOB_TYPES.revenant.hp).toBe(64);
+    expect(MOB_TYPES.ghoul.hp).toBe(24);
 
     expect(MOB_TYPES.shambler.corpsePayout).toBe(TRASH_CORPSE_PAYOUT);
     expect(MOB_TYPES.revenant.corpsePayout).toBe(2 * TRASH_CORPSE_PAYOUT);
@@ -339,12 +349,12 @@ describe("a mob's death (ADR 0037)", () => {
     expect(corpses[0].payout).toBe(MOB_TYPES.shambler.corpsePayout);
   });
 
-  it('spells each storm source as its line: soulStream, then headstones, then wisps', () => {
+  it('spells each storm source as its line: soulStream, then territory, then wisps', () => {
     // The source vocabulary is the roster's own spelling (#48): an instrument
     // grouping damage by weapon line must never meet a fifth spelling.
     const state = stormRun();
     const skulled = putMob(state, 'shambler', 100, 100);
-    stoneVictim(state);
+    patchVictim(state);
     const wisped = putMob(state, 'shambler', 300, 100);
     putSkull(state, skulled.x, skulled.y);
     putWisp(state, wisped.x, wisped.y);
@@ -352,7 +362,7 @@ describe("a mob's death (ADR 0037)", () => {
     const sources = resolveStorm(state)
       .filter((event) => event.type === 'mobDamaged')
       .map((event) => (event.type === 'mobDamaged' ? event.source : ''));
-    expect(sources).toEqual(['soulStream', 'headstones', 'wisps']);
+    expect(sources).toEqual(['soulStream', 'territory', 'wisps']);
   });
 
   it("names the bell's own damage bell", () => {
@@ -460,7 +470,8 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
       for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
       // Every other test in this file holds the stream off, and this one is
       // measuring it, so its clock is armed to fire on the window's first tick.
-      // The surged volley follows SURGE_INTERVAL later, both inside the window.
+      // The surged volleys follow at SURGE_INTERVAL apart, and the window is
+      // sized to hold all of them plus one fixed interval of settle after.
       state.lines.streamIn = 1;
       const row = MOB_TYPES[wave.type];
       const mobs: Mob[] = [];
@@ -479,7 +490,11 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
       // stream volley its surge buys, resolved against the wave.
       launchWisps(state, []);
       surgeStream(state);
-      for (let tick = 0; tick < SURGE_INTERVAL + STREAM_INTERVAL; tick++) {
+      for (
+        let tick = 0;
+        tick < SURGE_VOLLEYS * SURGE_INTERVAL + STREAM_INTERVAL;
+        tick++
+      ) {
         advanceStream(state);
         advanceWisps(state);
         resolveStorm(state);
@@ -495,4 +510,185 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
       expect(mobs.filter((mob) => mob.alive).length).toBeGreaterThan(0);
     });
   }
+});
+
+describe("one swallow's surge clears two trash bodies (#76 pass A correction)", () => {
+  /**
+   * How many bodies the burst window clears, with and without the swallow that
+   * surges it. The magnitude only shows as a difference: what a surge buys is
+   * volleys the window would not otherwise have held, and one run alone cannot
+   * show the volleys that did not fire.
+   */
+  const bodiesClearedInBurst = (swallowed: boolean): number => {
+    const state = quietRun();
+    state.levels.soulStream = MAX_LEVEL;
+    // Stacked on the mouth, where every column of the fan launches, so one
+    // volley's five skulls all land on the first of them and a volley is one
+    // trash body exactly. Five is more than the burst can reach.
+    const mouth = { x: state.grave.x, y: state.grave.y - state.grave.size };
+    for (let index = 0; index < 5; index++) {
+      putMob(state, 'shambler', mouth.x, mouth.y);
+    }
+    // Armed to fire on the window's first tick, so the window holds the whole
+    // burst and the two runs start from the same volley.
+    state.lines.streamIn = 1;
+    if (swallowed) surgeStream(state);
+
+    let killed = 0;
+    for (let tick = 0; tick < SURGE_VOLLEYS * SURGE_INTERVAL + 1; tick++) {
+      advanceStream(state);
+      killed += resolveStorm(state).filter(
+        (event) => event.type === 'mobKilled',
+      ).length;
+    }
+    return killed;
+  };
+
+  it('kills two bodies the same window without a swallow never reaches', () => {
+    // Mark's 2026-08-27 ruling for the pass A correction: the surge is restored
+    // to the burst's old functional magnitude under the new touch counts,
+    // provisionally, and two is the nearest an integer count of volleys gets to
+    // the 1.67 bodies one extra volley used to clear. Pinned here because the
+    // number is provisional: moving it should be a deliberate act, not a
+    // side effect of another tuning pass.
+    expect(bodiesClearedInBurst(true) - bodiesClearedInBurst(false)).toBe(2);
+  });
+});
+
+describe('a settled faller split by a side edge walks back on-field (#76)', () => {
+  it('walks a settled faller split by the left edge inward until its body is fully on-field, then descends straight', () => {
+    // At half-width 11, a shambler centred at x 2 spans -9 to 13: its body is
+    // split by the left edge, the confirmed near-invisible stack (#76).
+    const state = quietRun();
+    const step = stepping(state);
+    const mob = putMob(state, 'shambler', 2, 60);
+    const { halfWidth, speed } = MOB_TYPES.shambler;
+
+    // The walk-in is at the type's own speed, and the descent never pauses.
+    run(step, 1);
+    expect(mob.vx).toBeCloseTo(speed, 12);
+    expect(mob.y).toBeGreaterThan(60);
+
+    // Walking the centre from 2 to halfWidth takes (halfWidth - 2) / speed ticks.
+    run(step, Math.ceil((halfWidth - 2) / speed));
+    expect(mob.x).toBeGreaterThanOrEqual(halfWidth);
+
+    // Fully on-field, the slide ends and the descent is straight again.
+    const settledX = mob.x;
+    const settledY = mob.y;
+    run(step, 30);
+    expect(mob.vx).toBe(0);
+    expect(mob.x).toBe(settledX);
+    expect(mob.y).toBeGreaterThan(settledY);
+  });
+  it('walks a settled faller split by the right edge inward until its body is fully on-field, then descends straight', () => {
+    // The mirror: centred 2 units short of the right edge, the body reaches 9
+    // units past it, and fully on-field means the centre at FIELD_WIDTH - 11.
+    const state = quietRun();
+    const step = stepping(state);
+    const mob = putMob(state, 'shambler', FIELD_WIDTH - 2, 60);
+    const { halfWidth, speed } = MOB_TYPES.shambler;
+
+    run(step, 1);
+    expect(mob.vx).toBeCloseTo(-speed, 12);
+    expect(mob.y).toBeGreaterThan(60);
+
+    run(step, Math.ceil((halfWidth - 2) / speed));
+    expect(mob.x).toBeLessThanOrEqual(FIELD_WIDTH - halfWidth);
+
+    const settledX = mob.x;
+    run(step, 30);
+    expect(mob.vx).toBe(0);
+    expect(mob.x).toBe(settledX);
+  });
+  it('brings a pincer trailing mob fully on-field once its arriving beat has passed', () => {
+    // The confirmed producer: a pincer's trailing ranks sit back along the
+    // entry diagonal, laterally outside the field, and the arriving beat's 45
+    // ticks are not enough to carry the deepest rank all the way in.
+    const state = quietRun();
+    const step = stepping(state);
+    // Order 4 of a six-mob pincer is the left arm's deepest rank.
+    const trailing = place('pincer', 6, state.streams.spawns)[4];
+    expect(trailing.x).toBeLessThan(MOB_TYPES.shambler.halfWidth);
+    spawnMob(state, 'shambler', trailing);
+    const mob = only(state);
+
+    // Entry from 63 above the field plus the beat plus the walk-in all fit
+    // well inside 250 ticks at the shambler's descent, and the field's 760
+    // height means it is still far from the bottom edge when they are done.
+    run(step, 250);
+    expect(mob.alive).toBe(true);
+    expect(mob.vx).toBe(0);
+    expect(mob.x).toBeGreaterThanOrEqual(MOB_TYPES.shambler.halfWidth);
+    expect(mob.x).toBeLessThanOrEqual(
+      FIELD_WIDTH - MOB_TYPES.shambler.halfWidth,
+    );
+  });
+  it('returns a mob pushed past a side edge to the field', () => {
+    // The other confirmed producer: a bell toll clamps a pushed mob to the
+    // spawn margin rather than to the field, so a settled faller can be parked
+    // with its whole body past the edge. 60 units out is well inside the
+    // margin, so the cull never takes it and only the walk-in can explain a
+    // return.
+    const state = quietRun();
+    const step = stepping(state);
+    const mob = putMob(state, 'shambler', FIELD_WIDTH + 60, 30);
+
+    // The walk from 60 past the edge to fully on-field is 71 units at the
+    // shambler's speed, near 225 ticks, and the descent over 300 ticks stays
+    // above the bottom edge.
+    run(step, 300);
+    expect(mob.alive).toBe(true);
+    expect(mob.vx).toBe(0);
+    expect(mob.x).toBeLessThanOrEqual(
+      FIELD_WIDTH - MOB_TYPES.shambler.halfWidth,
+    );
+    expect(mob.x).toBeGreaterThanOrEqual(MOB_TYPES.shambler.halfWidth);
+  });
+  it("holds the template's arriving motion over an edge-split body until the beat ends", () => {
+    // Templates enter from outside on purpose, so the walk-in must not touch
+    // the arriving beat. The hard case is arriving motion pointing outward at
+    // an already split body: a walk-in that fired early would flip it.
+    const state = quietRun();
+    const step = stepping(state);
+    // The right arm's arriving direction heads left, outward at the left edge.
+    const arm = place('pincer', 2, state.streams.spawns)[1];
+    expect(arm.vx).toBeLessThan(0);
+    spawnMob(state, 'shambler', order(2, 11, arm.vx, arm.vy));
+    const mob = only(state);
+    const arriving = mob.vx;
+
+    run(step, ARRIVE_TICKS);
+    expect(mob.vx).toBeCloseTo(arriving, 12);
+    expect(mob.x).toBeLessThan(2);
+
+    // The tick after the beat, the walk-in takes over at the type's own speed.
+    run(step, 1);
+    expect(mob.vx).toBeCloseTo(MOB_TYPES.shambler.speed, 12);
+  });
+  it("steers a ghoul at the grave the same whether or not its body crosses the field's edge", () => {
+    // The walk-in is the falling types' rule only: a ghoul steers at the grave
+    // and never settles, so its path must depend on where the grave is
+    // relative to it and never on where the field's edge is. Two runs with the
+    // same relative geometry, one with the body split by the left edge, must
+    // trace the same path.
+    const trace = (mobX: number): number[] => {
+      const state = quietRun();
+      const step = stepping(state);
+      const mob = putMob(state, 'ghoul', mobX, 60);
+      state.grave.x = mobX + 28;
+      const offsets: number[] = [];
+      for (let tick = 0; tick < 90; tick++) {
+        step(STILL);
+        offsets.push(mob.x - mobX);
+      }
+      return offsets;
+    };
+
+    const atEdge = trace(2);
+    const midField = trace(202);
+    for (let tick = 0; tick < atEdge.length; tick++) {
+      expect(atEdge[tick]).toBeCloseTo(midField[tick], 9);
+    }
+  });
 });

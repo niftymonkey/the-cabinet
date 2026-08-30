@@ -6,6 +6,8 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { WEAPON_LINES } from '../../game/lines/roster';
+
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
 import type { SimEvent } from '../../game/events';
@@ -26,6 +28,7 @@ function header(run: RunState): TapeHeader {
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    recordedRoster: [...WEAPON_LINES],
     startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
@@ -204,5 +207,64 @@ describe('the playback', () => {
     expect(readBackForVerification(tape)).toEqual(playTape(tape));
     expect(readBackForVerification(faulted)).toEqual(playTape(faulted));
     expect(readBackForVerification(faulted).ticksReproduced).toBe(TICKS);
+  });
+});
+
+describe('a roster this build does not implement (#76, ADR 0043)', () => {
+  it('is refused for replay without running a tick, and the refusal names the roster', () => {
+    // Reading and replaying are two different obligations. A simulation cannot
+    // run a line it does not have, so this refuses precisely, naming what it
+    // cannot implement, instead of failing to decode or fabricating a run over
+    // a cast that never played.
+    const tape = recordARun();
+    const recorded = [...tape.header.recordedRoster, 'moonlight'];
+    let observed = 0;
+
+    const playback = createPlayback(
+      {
+        ...tape,
+        header: {
+          ...tape.header,
+          recordedRoster: recorded,
+          startingLevels: { ...tape.header.startingLevels, moonlight: 1 },
+        },
+      },
+      () => {
+        observed += 1;
+      },
+    );
+
+    expect(playback.advanceTick()).toBe(false);
+    expect(observed).toBe(0);
+    const result = playback.result();
+    expect(result.outcome).toBe('rosterNotImplemented');
+    expect(result.unimplementedRoster).toEqual(recorded);
+    expect(result.ticksReproduced).toBe(0);
+    expect(result.checkpointsVerified).toBe(0);
+  });
+
+  it('is answered before the fold’s own version, so a run never attempted is not called a fold mismatch', () => {
+    // The two versions answer different questions and neither may stand in for
+    // the other (ADR 0043). A tape that is both unimplementable and folded
+    // differently reports the cruder failure, because the fold was never
+    // reached.
+    const tape = recordARun();
+    const result = playTape({
+      ...tape,
+      header: {
+        ...tape.header,
+        witnessVersion: WITNESS_VERSION + 1,
+        recordedRoster: [...tape.header.recordedRoster, 'moonlight'],
+        startingLevels: { ...tape.header.startingLevels, moonlight: 1 },
+      },
+    });
+
+    expect(result.outcome).toBe('rosterNotImplemented');
+  });
+
+  it('a verified playback names no unimplemented roster', () => {
+    // The field is null on every result that is not this refusal, so nothing
+    // downstream can read a roster name out of a tape this build did run.
+    expect(playTape(recordARun()).unimplementedRoster).toBeNull();
   });
 });

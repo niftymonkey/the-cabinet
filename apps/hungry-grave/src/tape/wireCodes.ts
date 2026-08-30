@@ -3,7 +3,6 @@
 
 import type { StopReason } from '../game/execution';
 import type { FaultIdentity, FaultSeverity } from '../game/faults';
-import type { WeaponLine } from '../game/lines/roster';
 import type { RunEnding } from '../game/run';
 import type {
   FrameReason,
@@ -15,8 +14,18 @@ import type {
 // The four bytes a tape opens with, so bytes that are not one are refused rather than parsed.
 const TAPE_MAGIC = 'HGTP';
 
-// The format's own version, separate from the witness version the header carries.
-const FORMAT_VERSION = 1;
+/**
+ * The format's own version, separate from the witness version the header
+ * carries and from the roster the header now records (ADR 0043).
+ *
+ * It moved to 2 with #76. A positional list of one level byte per line kept its
+ * byte count while its meaning moved underneath it, so a version-1 reader
+ * handed a version-2 tape would have returned a plausible wrong number: a
+ * headstones level presented as a Territory level. Byte count is not the test.
+ * The header now names the roster it was written against, so the next roster
+ * change costs no version at all.
+ */
+const FORMAT_VERSION = 2;
 
 /**
  * EVERY ENCODING HERE IS PERMANENT FROM THE FIRST TAPE. The code maps are
@@ -122,19 +131,6 @@ const OBSERVATION_KIND_CODES: Readonly<Record<Observation['kind'], number>> = {
 };
 
 /**
- * The order the four lines' starting levels are written in, spelled out rather
- * than read off the record's keys: a layout whose order depends on key
- * insertion order is a layout nobody can reproduce from the type alone, and it
- * is permanent from the first tape.
- */
-const HEADER_LEVELS_ORDER: readonly WeaponLine[] = [
-  'soulStream',
-  'headstones',
-  'wisps',
-  'bell',
-];
-
-/**
  * A code map read the other way, for a decoder.
  *
  * It is built from the members rather than from the record's own keys, because
@@ -168,5 +164,4 @@ export {
   FRAME_REASON_CODES,
   OBSERVATION_KINDS,
   OBSERVATION_KIND_CODES,
-  HEADER_LEVELS_ORDER,
 };

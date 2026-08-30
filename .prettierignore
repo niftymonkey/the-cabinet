@@ -10,9 +10,13 @@ docs/
 # Vendor agent skills dropped by the Upstash marketplace install. Not ours to format.
 .agents/
 
-# Session handoffs from /continue. Local state, never committed.
+# Session handoffs from /continue and task branches from /fork. Local state,
+# never committed. Both are hidden from git in .git/info/exclude, which prettier
+# does not read, so an open handoff would otherwise fail the gate for its author
+# alone.
 continue.md
 continue-*.md
+fork-*.md
 
 # The v1 roadmap's source, its build scripts and the page they generate. Local
 # iteration notes, excluded from git in .gitignore.

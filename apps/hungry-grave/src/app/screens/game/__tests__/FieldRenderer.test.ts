@@ -472,7 +472,7 @@ describe('a drop on the field (plan 6.8)', () => {
   it('draws larger than a corpse, which is the size rule Mark reversed on 2026-08-22', () => {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    const drop = dropAt(state, 'headstones');
+    const drop = dropAt(state, 'territory');
     renderer.sync(state);
     const sprite = (layers.layer('treasure').children as Graphics[]).find(
       (each) => each.visible,
@@ -785,7 +785,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // breath move inward from there." 24, the 0.18 depth and the 2.75 second
     // period are the values Mark played in the prototype, measured rather
     // than derived, so they stand here as their own numbers.
-    const sizes = dropOverTicks('headstones', breathTicks(), drawnLongAxis);
+    const sizes = dropOverTicks('territory', breathTicks(), drawnLongAxis);
     const peak = Math.max(...sizes);
     const trough = Math.min(...sizes);
     expect(peak).toBeLessThanOrEqual(24);
@@ -845,15 +845,20 @@ describe("a drop's legibility (the fix inside #36)", () => {
     }
   });
 
-  it("gives headstones the tall silhouette and soulStream the round one, the mapping #38's imagery keeps", () => {
-    // A headstone is tall and a skull is round. The first pass shipped the
+  it("gives Territory the tall silhouette and soulStream the round one, the mapping #38's imagery keeps", () => {
+    // A grasping hand is tall and a skull is round. The first pass shipped the
     // reverse, and #31's playtest must not learn a mapping #38's imagery then
     // inverts: any tester confusion would be unattributable.
+    //
+    // Territory took the tall axis the headstones vacated (#76), so the drop
+    // set still splits on tall, round, pointed and wide with nothing moved and
+    // nothing crowded, which the separation test above holds from the other
+    // side.
     const aspectOf = (line: WeaponLine) =>
       dropOverTicks(line, [0], inkAspect)[0];
     for (const line of WEAPON_LINES) {
-      if (line === 'headstones') continue;
-      expect(`${line} ${aspectOf(line) > aspectOf('headstones')}`).toBe(
+      if (line === 'territory') continue;
+      expect(`${line} ${aspectOf(line) > aspectOf('territory')}`).toBe(
         `${line} true`,
       );
     }

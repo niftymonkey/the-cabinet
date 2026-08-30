@@ -17,8 +17,9 @@ interface BellRing {
    * A radius-crossing test alone does not hold "damaged once by one ring" as
    * soon as the ring pushes: the push carries a mob back outside the edge that
    * has just passed it, and the edge then catches it again, so a level-5 toll
-   * strikes a mob at eighty percent of its radius six times for 5.03 damage
-   * where the rule asks for one strike and 1.00.
+   * strikes a mob at eighty percent of its radius six times for 58.4 damage
+   * where the rule asks for one strike and 12.0. That is a shambler and a half
+   * instead of three tenths of one.
    *
    * Keyed by entity id and never by slot, so this carries none of the recycled
    * slot hazard a per-mob cooldown field would: ids only ever increase, a
@@ -49,11 +50,11 @@ const BELL_EXPAND_TICKS = 45;
  */
 const BELL_RADIUS_BY_LEVEL: readonly number[] = [0, 80, 122, 165, 207, 250];
 
-// Damage at the grave itself. Three is one shambler exactly, so a maxed bell kills trash outright only where the player is standing.
-const BELL_DAMAGE_NEAR = 3;
+// Damage at the grave itself. One shambler exactly, so a maxed bell kills trash outright only where the player is standing.
+const BELL_DAMAGE_NEAR = 40;
 
-// Damage at the ring's full radius. The far edge tickles, which is Mark's 2026-08-19 ruling recorded in ADR 0005.
-const BELL_DAMAGE_FAR = 0.5;
+// Damage at the ring's full radius. The far edge tickles, which is Mark's 2026-08-19 ruling recorded in ADR 0005: eight tolls out here to take one trash body (#76 pass A).
+const BELL_DAMAGE_FAR = 5;
 
 /**
  * How hard each level's ring shoves, in field units, indexed by level. ADR 0005

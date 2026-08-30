@@ -12,15 +12,17 @@ import type { StageState } from './stage/stage';
 import type { FoodKind } from './swallow';
 
 /**
- * The order the four streams' cursors fold in. It is spelled out rather than
- * read off the record's keys, because a fold whose order depends on insertion
- * order is a fold nobody can reproduce from the type alone.
+ * The order the streams' cursors fold in. It is spelled out rather than read
+ * off the record's keys, because a fold whose order depends on insertion order
+ * is a fold nobody can reproduce from the type alone. It is append-only: a new
+ * name goes last, so every cursor keeps the place it already folded in.
  */
 const STREAM_ORDER: readonly StreamName[] = [
   'spawns',
   'drops',
   'mobFire',
   'shed',
+  'territory',
 ];
 
 /**
@@ -33,7 +35,7 @@ const STREAM_ORDER: readonly StreamName[] = [
  * and read back there, so it moves only when the order or the field list below
  * moves.
  */
-const WITNESS_VERSION = 1;
+const WITNESS_VERSION = 4;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -85,11 +87,17 @@ const FOOD_KIND_CODES: Readonly<Record<FoodKind, number>> = {
   feast: 3,
 };
 
+/**
+ * Code 2 was the headstones' and is retired rather than reused (#76). The map is
+ * append-only: handing Territory the vacated code would silently change what
+ * every tape recorded before the swap folded, which is precisely what reading
+ * by name rather than by position exists to prevent.
+ */
 const WEAPON_LINE_CODES: Readonly<Record<WeaponLine, number>> = {
   soulStream: 1,
-  headstones: 2,
   wisps: 3,
   bell: 4,
+  territory: 5,
 };
 
 // A boolean's encoding, spelled out so it is visible at the call site.
@@ -164,6 +172,59 @@ const foldWisps = (checksum: number, run: RunState): number => {
 };
 
 /**
+ * A set of struck mob ids: its size folds before its members, and the members
+ * fold in iteration order. That order is deterministic because insertion
+ * follows the mob pool's slot order.
+ */
+const foldStruck = (checksum: number, struck: ReadonlySet<number>): number => {
+  let next = fold(checksum, struck.size);
+  for (const id of struck) next = fold(next, id);
+  return next;
+};
+
+/**
+ * A patch's re-hit map: its size folds before its entries, and each entry
+ * folds id then deadline, in insertion order. With pruning, a re-added id
+ * moves to the end, so the order is chronological across resolve passes
+ * rather than slot order, and it is still fully deterministic because the hit
+ * history is deterministic. IT IS NEVER SORTED: sorting would fold a
+ * different order than the map actually holds.
+ */
+const foldRehits = (
+  checksum: number,
+  struck: ReadonlyMap<number, number>,
+): number => {
+  let next = fold(checksum, struck.size);
+  for (const [id, eligibleAt] of struck) {
+    next = fold(fold(next, id), eligibleAt);
+  }
+  return next;
+};
+
+/**
+ * A patch's own state, its re-hit map included: the map is what makes one
+ * pulse per window per mob a fact a replay can check, and the pulse count is
+ * what says how much traffic the ground has punished.
+ *
+ * The captured pull, slow and re-hit window fold beside the captured radius.
+ * All four are written once from the level's ladder and never move again, so
+ * they carry the same evidence: a patch controlling at a strength its birth
+ * level never bought is a divergence the levels alone cannot show.
+ */
+const foldPatches = (checksum: number, run: RunState): number => {
+  let next = checksum;
+  for (const patch of run.patches) {
+    if (!patch.alive) continue;
+    next = fold(fold(next, patch.x), patch.y);
+    next = fold(fold(next, patch.radius), patch.pull);
+    next = fold(fold(next, patch.slow), patch.rehit);
+    next = fold(next, patch.opening);
+    next = foldRehits(fold(next, patch.pulses), patch.struck);
+  }
+  return next;
+};
+
+/**
  * Every live entity's own state, in slot order. Slot order is the point as much
  * as the values are: a pool walked in a different order gives a different
  * checksum, so iteration order is verified rather than assumed.
@@ -173,7 +234,8 @@ const foldEntities = (checksum: number, run: RunState): number => {
   next = foldMobFire(next, run);
   next = foldCorpses(next, run);
   next = foldSkulls(next, run);
-  return foldWisps(next, run);
+  next = foldWisps(next, run);
+  return foldPatches(next, run);
 };
 
 // The economy and the run's own totals, ADR 0002's drop pricing included.
@@ -208,17 +270,6 @@ const foldStage = (checksum: number, stage: StageState): number => {
 };
 
 /**
- * The ring's size folds before its members, and the members fold in iteration
- * order. That order is deterministic here because insertion follows the mob
- * pool's slot order.
- */
-const foldStruck = (checksum: number, struck: ReadonlySet<number>): number => {
-  let next = fold(checksum, struck.size);
-  for (const id of struck) next = fold(next, id);
-  return next;
-};
-
-/**
  * An absent ring folds its own sentinel rather than being skipped. Skipping it
  * would make a run with no ring and a run whose ring folds to zero one witness.
  */
@@ -229,10 +280,10 @@ const foldRing = (checksum: number, ring: BellRing | null): number => {
 };
 
 const foldLines = (checksum: number, lines: LineState): number => {
-  let next = fold(fold(checksum, lines.streamIn), lines.surgeVolleys);
-  next = fold(next, lines.orbitPhase);
-  for (const recharge of lines.stoneRecharge) next = fold(next, recharge);
-  return foldRing(fold(next, lines.tollIn), lines.ring);
+  const next = fold(fold(checksum, lines.streamIn), lines.surgeVolleys);
+  // layIn appends after the ring rather than sitting beside the other clocks,
+  // because a widening appends and never reshuffles what is already in place.
+  return fold(foldRing(fold(next, lines.tollIn), lines.ring), lines.layIn);
 };
 
 /**

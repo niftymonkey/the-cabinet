@@ -2,6 +2,7 @@ import type { Ticker } from 'pixi.js';
 import { Container, Graphics } from 'pixi.js';
 
 import type { SimEvent } from '../../game/events';
+import { territoryCharge } from '../../game/lines/territory';
 import type { RunState } from '../../game/run';
 import { RESERVOIR_CAPACITY } from '../../game/tuning';
 import type { FieldPlacement } from '../layout';
@@ -146,7 +147,12 @@ class ReplayScreen extends Container {
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
     }
-    this.grave.sync(run.grave, run.reservoir / RESERVOIR_CAPACITY, run.tick);
+    this.grave.sync(
+      run.grave,
+      run.reservoir / RESERVOIR_CAPACITY,
+      run.tick,
+      territoryCharge(run),
+    );
     this.fieldRenderer.sync(run);
     this.stormRenderer.sync(run);
   }

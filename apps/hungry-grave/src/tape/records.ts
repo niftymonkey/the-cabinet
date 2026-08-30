@@ -36,7 +36,6 @@ import {
   FAULT_SEVERITIES,
   FAULT_SEVERITY_CODES,
   FRAME_REASON_CODES,
-  HEADER_LEVELS_ORDER,
   INPUT_DEVICE_CODES,
   INTEGRITY_CODES,
   OBSERVATION_KIND_CODES,
@@ -45,7 +44,6 @@ import {
   STOP_REASONS,
 } from './wireCodes';
 import { FAULT_IDENTITIES } from '../game/faults';
-import type { WeaponLine } from '../game/lines/roster';
 import type { TickCommand } from '../game/command';
 
 const INPUT_DEVICES_BY_CODE = codeReader(
@@ -73,24 +71,42 @@ const named = <T extends string>(
   return name;
 };
 
-// The four starting levels, read in the same spelled-out order they were written.
+// The line names this tape was written against, which are the order its level bytes follow.
+const readRecordedRoster = (payload: ByteReader): string[] => {
+  const roster: string[] = [];
+  const named = readU8(payload);
+  for (let line = 0; line < named; line++) roster.push(readString(payload));
+  return roster;
+};
+
+/**
+ * The starting levels, read by name against the roster the tape recorded and
+ * never by position (ADR 0043).
+ *
+ * Nothing is coerced into this build's own roster here. A tape naming a line
+ * this build does not implement is reported as recorded, because the tape said
+ * something true and the reader's job is not to edit it;
+ * `resolveStartingLevels` is the separate step that asks whether this build can
+ * run it.
+ */
 const readStartingLevels = (
   payload: ByteReader,
-): Record<WeaponLine, number> => {
-  const levels: Record<WeaponLine, number> = {
-    soulStream: 0,
-    headstones: 0,
-    wisps: 0,
-    bell: 0,
-  };
-  for (const line of HEADER_LEVELS_ORDER) levels[line] = readU8(payload);
+  roster: readonly string[],
+): Record<string, number> => {
+  // Prototype-free, because the roster is decoded bytes rather than our own
+  // vocabulary. A line named `__proto__` assigned into an ordinary object is
+  // swallowed by the prototype setter and reads back as an inherited object,
+  // which is not the missing level it actually is.
+  const levels: Record<string, number> = Object.create(null);
+  for (const line of roster) levels[line] = readU8(payload);
   return levels;
 };
 
 const readHeader = (payload: ByteReader): TapeHeader => {
   const seed = readU32(payload);
   const startingSize = readF64(payload);
-  const startingLevels = readStartingLevels(payload);
+  const recordedRoster = readRecordedRoster(payload);
+  const startingLevels = readStartingLevels(payload, recordedRoster);
   const tickRate = readU16(payload);
   const checkpointSpacing = readU32(payload);
   const witnessVersion = readU8(payload);
@@ -113,6 +129,7 @@ const readHeader = (payload: ByteReader): TapeHeader => {
   return {
     seed,
     startingSize,
+    recordedRoster,
     startingLevels,
     tickRate,
     checkpointSpacing,

@@ -1,13 +1,18 @@
 /**
- * The storm meeting the mobs: skulls, headstones and wisps resolved as overlaps
+ * The storm meeting the mobs: skulls, Territory and wisps resolved as overlaps
  * in one fixed order. What is pinned here is the order and what each
  * source spends on a hit, because the same seed has to kill the same mobs.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import { headstoneAt, STONE_DAMAGE, STONE_RECHARGE } from '../lines/headstones';
 import { SKULL_DAMAGE } from '../lines/soulStream';
+import {
+  PULL_BY_LEVEL,
+  REHIT_BY_LEVEL,
+  SLOW_BY_LEVEL,
+  TERRITORY_DAMAGE,
+} from '../lines/territory';
 import { WISP_DAMAGE } from '../lines/wisps';
 import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
@@ -27,16 +32,16 @@ function quietRun(seed = 4): RunState {
   // The stream is held as well as the rows. These tests are about how a mob
   // moves, fires and dies, and a birthright stream pouring up the middle of the
   // field kills the mob under test before it reaches the behaviour being
-  // measured. The headstones need no holding: their orbit clears the grave's
-  // own hitbox, so a mob standing on the grave's centre line is never in it.
+  // measured. Territory needs no holding either: a run lays no patch until it
+  // swallows something, and these tests never do.
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
 }
 
-/** A run with a quiet stage and a headstone parked where a test can aim it. */
+/** A run with a quiet stage and Territory owned, so a patch can be laid into it. */
 function stormRun(seed = 4): RunState {
   const state = quietRun(seed);
-  state.levels.headstones = 1;
+  state.levels.territory = 1;
   return state;
 }
 
@@ -47,10 +52,28 @@ function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
   return mob;
 }
 
-/** A mob standing exactly where this run's one headstone is. */
-function stoneVictim(state: RunState): Mob {
-  const at = headstoneAt(state, 0)!;
-  return putMob(state, 'shambler', at.x, at.y);
+/** A patch with its hands already up, parked where a test can aim it. */
+function putPatch(state: RunState, x: number, y: number) {
+  const patch = state.patches.find((each) => !each.alive)!;
+  patch.alive = true;
+  patch.id = state.nextEntityId;
+  state.nextEntityId += 1;
+  patch.x = x;
+  patch.y = y;
+  patch.radius = 30;
+  patch.pull = PULL_BY_LEVEL[1];
+  patch.slow = SLOW_BY_LEVEL[1];
+  patch.rehit = REHIT_BY_LEVEL[1];
+  patch.opening = 0;
+  patch.pulses = 0;
+  patch.struck.clear();
+  return patch;
+}
+
+/** A mob standing in an open patch of claimed ground. */
+function patchVictim(state: RunState, x = 200, y = 200): Mob {
+  putPatch(state, x, y);
+  return putMob(state, 'shambler', x, y);
 }
 
 function putSkull(state: RunState, x: number, y: number) {
@@ -80,12 +103,12 @@ function putWisp(state: RunState, x: number, y: number) {
 }
 
 describe('the storm meeting a mob (plan 6.7)', () => {
-  it('resolves skulls, then headstones, then wisps, so the same seed kills in the same order', () => {
-    // The order is stated rather than incidental: three pools read in one pass,
-    // and a different order is a different set of kills on the same seed.
+  it('resolves skulls, then Territory, then wisps, so the same seed kills in the same order', () => {
+    // The order is stated rather than incidental: the pass is read in one
+    // order, and a different order is a different set of kills on the same seed.
     const state = stormRun();
     const skulled = putMob(state, 'shambler', 100, 100);
-    const stoned = stoneVictim(state);
+    const grabbed = patchVictim(state, 200, 400);
     const wisped = putMob(state, 'shambler', 300, 100);
     putSkull(state, skulled.x, skulled.y);
     putWisp(state, wisped.x, wisped.y);
@@ -95,24 +118,24 @@ describe('the storm meeting a mob (plan 6.7)', () => {
       .map((event) => (event.type === 'mobKilled' ? event.x : -1));
     expect(killed).toEqual([]);
     expect(skulled.hp).toBe(MOB_TYPES.shambler.hp - SKULL_DAMAGE);
-    expect(stoned.hp).toBe(MOB_TYPES.shambler.hp - STONE_DAMAGE);
+    expect(grabbed.hp).toBe(MOB_TYPES.shambler.hp - TERRITORY_DAMAGE);
     expect(wisped.hp).toBe(MOB_TYPES.shambler.hp - WISP_DAMAGE);
   });
 
-  it('consumes a skull and a wisp on the mob they hit, and never a stone', () => {
-    // A stone is an orbiting solid: it goes inert instead, so it can carry a
-    // mob out of the way rather than dying on it.
+  it('consumes a skull and a wisp on the mob they hit, and never a patch', () => {
+    // A patch is claimed ground and not ordnance: it grinds whatever stays
+    // and remains until the world carries it away.
     const state = stormRun();
     const skulled = putMob(state, 'shambler', 100, 100);
     const wisped = putMob(state, 'shambler', 300, 100);
     const skull = putSkull(state, skulled.x, skulled.y);
     const wisp = putWisp(state, wisped.x, wisped.y);
-    stoneVictim(state);
+    patchVictim(state, 200, 400);
 
     resolveStorm(state);
     expect(skull.alive).toBe(false);
     expect(wisp.alive).toBe(false);
-    expect(state.lines.stoneRecharge[0]).toBe(STONE_RECHARGE);
+    expect(state.patches.filter((patch) => patch.alive)).toHaveLength(1);
   });
 
   it('takes every death through damageMob, so a kill leaves a corpse and emits mobKilled with no second path', () => {
@@ -127,9 +150,11 @@ describe('the storm meeting a mob (plan 6.7)', () => {
     expect(state.corpses.filter((corpse) => corpse.alive)).toHaveLength(1);
   });
 
-  it('leaves an inert stone doing nothing until it recovers', () => {
+  it('never pulses the same mob twice inside the re-hit window with the same patch', () => {
+    // One pulse per window per mob, held by the patch's own re-hit map. The
+    // pass here holds one tick still, which is always inside the window.
     const state = stormRun();
-    const victim = stoneVictim(state);
+    const victim = patchVictim(state, 200, 400);
     resolveStorm(state);
     const after = victim.hp;
     for (let again = 0; again < 5; again++) resolveStorm(state);

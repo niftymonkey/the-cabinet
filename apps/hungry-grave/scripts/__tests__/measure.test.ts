@@ -9,6 +9,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { WEAPON_LINES } from '../../src/game/lines/roster';
+
 import { measure } from '../../src/dev/measure';
 import { TICK_HZ } from '../../src/game/clock';
 import type { TickCommand } from '../../src/game/command';
@@ -31,6 +33,7 @@ function header(run: RunState): TapeHeader {
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    recordedRoster: [...WEAPON_LINES],
     startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: CHECKPOINT_SPACING,

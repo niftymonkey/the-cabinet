@@ -36,18 +36,30 @@ interface StageRow {
  * nothing to do.
  *
  * The new number cannot be derived from falling either, because under the storm
- * the field is emptied partly by kills. It is measured instead: across the five
- * full-run seeds the field empties 15.0 to 15.5 seconds after a phase's last
- * row, so sixteen is the smallest whole second that clears every one of them.
- * The storm is what buys the four seconds off the weaponless twenty, and it buys
- * no more than that at the birthright build a run spends most of its length in.
+ * the field is emptied partly by kills. It is measured instead, across the five
+ * full-run seeds and both drain-outs with the grave held immortal, which is the
+ * same rig the property test uses. The storm is what buys the three seconds off
+ * the weaponless twenty, and it buys no more than that at the birthright build
+ * a run spends most of its length in.
+ *
+ * Seventeen was the smallest whole second that cleared every seed when it was
+ * set: the field emptied 14.6 to 16.3 seconds after a phase's last row against
+ * a storm whose level-1 ground released an ordinary shambler alive.
+ * Re-measured after #76 pass D's delivery slice, which lays claimed ground
+ * up-field of a crowd instead of around it, the range is 14.98 to 15.47 and the
+ * smallest whole second that clears is sixteen. Seventeen is held rather than
+ * followed down: it clears every seed with a second to spare, the magnitude
+ * follows the property and the property is not in danger, and taking a second
+ * of authored silence out of both drain-outs is a pacing change nobody asked
+ * for. The slack is recorded here so the next pass sees it rather than
+ * rediscovering it.
  *
  * What is pinned by test is the property, that the field is empty when the boss
  * phase begins, asserted across all five seeds in
  * src/dev/__tests__/bot.test.ts. This magnitude follows that property and never
  * the other way round.
  */
-const DRAIN_OUT_SECONDS = 16;
+const DRAIN_OUT_SECONDS = 17;
 
 /**
  * The first 45 seconds are Drips and one File; Files, Vs and Pincers then

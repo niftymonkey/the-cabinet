@@ -58,16 +58,18 @@ function quietRun(seed = 4): RunState {
   // The stream is held as well as the rows. These tests are about how a mob
   // moves, fires and dies, and a birthright stream pouring up the middle of the
   // field kills the mob under test before it reaches the behaviour being
-  // measured. The headstones need no holding: their orbit clears the grave's
-  // own hitbox, so a mob standing on the grave's centre line is never in it.
+  // measured. Territory is birthright as well and is deliberately not held:
+  // its first lay is a whole period out at tick 500, and the one test here that
+  // runs past that is measuring a revenant's firing cadence, which claimed
+  // ground does not touch.
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
 }
 
-/** A run with a quiet stage and a headstone parked where a test can aim it. */
+/** A run with a quiet stage and Territory pinned to level 1, so a test that aims at claimed ground does not move if the birthright roster does. */
 function stormRun(seed = 4): RunState {
   const state = quietRun(seed);
-  state.levels.headstones = 1;
+  state.levels.territory = 1;
   return state;
 }
 

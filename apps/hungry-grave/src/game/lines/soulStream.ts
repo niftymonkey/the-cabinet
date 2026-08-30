@@ -30,13 +30,15 @@ const COLUMNS_BY_LEVEL: readonly number[] = [0, 1, 2, 3, 4, 5];
  * lane repeats, and a curve that moved both would make the two
  * indistinguishable to anyone reading the code or the screen.
  *
- * The magnitude is derived rather than picked. A shambler has 3 health and a
- * skull does 1 damage, so a mob standing in one column dies to three volleys.
- * Half a second between them puts a trash kill at about 1.5 seconds under a
- * level-1 stream, which is the "trash dies in a second or two" the drain-out is
- * re-derived against.
+ * The magnitude is derived rather than picked. A shambler takes five skulls
+ * (#76 pass A), so a mob standing in one column dies to five volleys, and three
+ * tenths of a second between them puts a trash kill at about 1.5 seconds under
+ * a level-1 stream, which is the "trash dies in a second or two" the drain-out
+ * is re-derived against. The kill time is the fixed thing here: pass A raises
+ * the touch count and shortens the gap by the same factor, so the stream reads
+ * denser and thinner on screen without trash surviving any longer.
  */
-const STREAM_INTERVAL = 30;
+const STREAM_INTERVAL = 18;
 
 /**
  * Field units per tick. Mob fire travels at 110 units per second and ADR 0014
@@ -57,19 +59,31 @@ const SKULL_SPEED = 420 / TICK_HZ;
 const FAN_STEP_DEGREES = 6;
 
 /**
- * How many volleys one swallow buys at the shortened interval, and Mark ruled
- * the shape on 2026-08-22: a fixed number of extra volleys, never a time window.
- * One is what the one-swallow ordnance bound can afford, because at the ceiling
- * one extra volley is five skulls and six of the back half's seven ghouls is not
- * a cleared wave.
+ * How many volleys one swallow buys at the shortened interval. Mark ruled the
+ * shape on 2026-08-22: a fixed number of extra volleys, never a time window.
+ *
+ * Two is a provisional restoration of the swallow burst's old functional
+ * magnitude under #76 pass A's touch counts. It is not a new tuning direction
+ * and not a permanent design rule. The rescale is neutral for a rate-based
+ * effect and a straight cut for a count-based one, and the surge is counted in
+ * volleys: at the ceiling one extra volley is five skulls, which used to be
+ * 1.67 shambler bodies and is exactly 1.0 after the rescale. Mark's reason for
+ * restoring it: "The old one-volley surge lost a large share of its functional
+ * value under the new touch counts, and because surge fires on every swallow it
+ * directly weakens the snowball loop." Two volleys clear 2.0 bodies against the
+ * old 1.67, so this over-restores slightly; no integer count lands on 1.67, and
+ * holding the burst's old magnitude is what the number is for.
  */
-const SURGE_VOLLEYS = 1;
+const SURGE_VOLLEYS = 2;
 
-// The shortened interval a surged volley waits, in ticks.
-const SURGE_INTERVAL = 10;
+// The shortened interval a surged volley waits, in ticks: a third of the fixed
+// one, which is the ratio it has always carried.
+const SURGE_INTERVAL = 6;
 
 const SKULL_HALF_EXTENT = 4;
-const SKULL_DAMAGE = 1;
+
+// What one skull takes off a mob. Five of these is a shambler exactly (#76 pass A).
+const SKULL_DAMAGE = 8;
 
 const blankSkull = (): Skull => {
   return { alive: false, id: 0, x: 0, y: 0, vx: 0, vy: 0 };

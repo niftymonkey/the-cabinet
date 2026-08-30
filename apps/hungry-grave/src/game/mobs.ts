@@ -57,6 +57,13 @@ interface MobRow {
  * Every magnitude here is a first pass owned by the tuning dispatch. The
  * derivations are what is pinned, and the one number that is load-bearing
  * rather than a first pass is the shambler's half-width.
+ *
+ * Health is on its own scale, and it is the one thing here read against the
+ * storm rather than against the field. #76 pass A rules the touch counts a
+ * trash body costs each weapon line: five skulls, four wisps, eight tolls at
+ * the bell's far edge, and one toll at the grave. 40 is the smallest health
+ * those four counts all divide, so each line's touch count is exact rather than
+ * rounded, and the other two rows are whole skull counts against it.
  */
 const MOB_TYPES = {
   shambler: {
@@ -66,7 +73,7 @@ const MOB_TYPES = {
     // grave can slip through at any size.
     halfWidth: 11,
     halfHeight: 11,
-    hp: 3,
+    hp: 40,
     corpsePayout: TRASH_CORPSE_PAYOUT,
     corpseTier: 'trash',
     speed: 0.5 * SCROLL_SPEED,
@@ -83,7 +90,7 @@ const MOB_TYPES = {
   revenant: {
     halfWidth: 13,
     halfHeight: 13,
-    hp: 5,
+    hp: 64,
     corpsePayout: 2 * TRASH_CORPSE_PAYOUT,
     corpseTier: 'rich',
     speed: 0.35 * SCROLL_SPEED,
@@ -102,7 +109,7 @@ const MOB_TYPES = {
     // or positioning stops being the answer to it.
     halfWidth: 9,
     halfHeight: 9,
-    hp: 2,
+    hp: 24,
     corpsePayout: TRASH_CORPSE_PAYOUT,
     corpseTier: 'trash',
     // A real fraction of the grave's own speed, because ADR 0016 bounds this
@@ -270,10 +277,24 @@ const chase = (mob: Mob, grave: Grave): void => {
   mob.vy = Math.max(turned.y * row.speed, GHOUL_DESCENT_FLOOR);
 };
 
-// A falling type's own rule: straight down at its own speed, whatever direction it arrived on.
+/**
+ * A falling type's own rule: straight down at its own speed, whatever direction
+ * it arrived on. A body split by a side edge first walks inward at that same
+ * speed, still descending, until it is fully on-field: templates place pincer
+ * trailing ranks outside the field on purpose, and a bell toll can park a mob
+ * there, so without the walk-in a settled faller can descend nearly invisible
+ * at the edge (#76).
+ */
 const fall = (mob: Mob): void => {
-  mob.vx = 0;
-  mob.vy = MOB_TYPES[mob.type].speed;
+  const row = MOB_TYPES[mob.type];
+  if (mob.x < row.halfWidth) {
+    mob.vx = row.speed;
+  } else if (mob.x > FIELD_WIDTH - row.halfWidth) {
+    mob.vx = -row.speed;
+  } else {
+    mob.vx = 0;
+  }
+  mob.vy = row.speed;
 };
 
 // One mob's motion for this tick: the arriving beat first, then its own rule.

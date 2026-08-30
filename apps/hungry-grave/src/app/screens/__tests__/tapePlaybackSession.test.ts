@@ -6,6 +6,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { WEAPON_LINES } from '../../../game/lines/roster';
+
 import { TICK_MS } from '../../../game/clock';
 import { createExecution, executeTick } from '../../../game/execution';
 import { createRun } from '../../../game/run';
@@ -29,6 +31,7 @@ function headerFor(run: RunState): TapeHeader {
   return {
     seed: run.seed,
     startingSize: run.grave.size,
+    recordedRoster: [...WEAPON_LINES],
     startingLevels: { ...run.levels },
     tickRate: 60,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,

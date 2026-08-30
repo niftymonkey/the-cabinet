@@ -190,16 +190,16 @@ describe('time to kill', () => {
     observeEngagements(
       accumulator,
       3,
-      damageMob(run, target, target.hp, 'headstones'),
+      damageMob(run, target, target.hp, 'territory'),
       run,
     );
 
     const fights = engagementsOf(accumulator);
     expect(fights.hitsByLine.soulStream).toBe(3);
-    expect(fights.hitsByLine.headstones).toBe(1);
+    expect(fights.hitsByLine.territory).toBe(1);
     expect(fights.hitsByLine.wisps).toBe(0);
     expect(fights.hitsByLine.belch).toBe(0);
-    expect(fights.fatalBlows.headstones).toBe(1);
+    expect(fights.fatalBlows.territory).toBe(1);
     expect(fights.fatalBlows.soulStream).toBe(0);
     expect(fights.hitsPerKill.revenant).toBe(4);
   });
