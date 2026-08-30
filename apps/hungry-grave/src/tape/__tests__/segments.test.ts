@@ -201,4 +201,33 @@ describe('the header writer and the roster it was handed (#76)', () => {
 
     expect(() => headerSegment(missing)).toThrowError(/moonlight/);
   });
+
+  it('refuses a recorded line named __proto__ rather than writing an inherited value', () => {
+    // A roster is decoded bytes, so its names are not our vocabulary. On an
+    // ordinary object `__proto__` reads back as Object.prototype, which is not
+    // undefined, so the guard above would pass it through and writeU8 would
+    // put a wrong byte in the tape with nothing said. That is the silent wrong
+    // number the tape format exists to make impossible.
+    const polluted: TapeHeader = {
+      ...HEADER,
+      recordedRoster: [...WEAPON_LINES, '__proto__'],
+    };
+
+    expect(() => headerSegment(polluted)).toThrowError(/__proto__/);
+  });
+
+  it("reads a level recorded against __proto__ back as that line's own level", () => {
+    // The decoder's record is prototype-free, so a name that collides with a
+    // prototype key is still the tape's own key and survives the round trip.
+    // The key is computed rather than written plainly, because `__proto__:` in
+    // an object literal sets the prototype instead of making an own property.
+    const named: TapeHeader = {
+      ...HEADER,
+      recordedRoster: [...WEAPON_LINES, '__proto__'],
+      startingLevels: { ...HEADER.startingLevels, ['__proto__']: 3 },
+    };
+
+    const { tape } = decodeTape(encodeTape({ ...FULL, header: named }));
+    expect(tape.header.startingLevels['__proto__']).toBe(3);
+  });
 });

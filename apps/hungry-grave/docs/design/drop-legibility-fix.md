@@ -23,7 +23,7 @@ The first plan for this ticket gave the four lines four hues. It was wrong, and 
 
 A full derivation was run anyway and confirmed the squeeze from the other side: four hues can be found at a shared luma 67.25, but they cannot also be separated on the protan and deutan scales, because sharing one luma and separating on an observer luma are the same requirement pulling opposite ways. The four candidate hexes and their measured table are not carried forward. **Colour is not the channel.**
 
-One finding came out of that derivation and is routed to #38: `skull` (hue 208.24), `territory` (208.42, named `stone` until #76 swapped the line) and `bellRing` (210.00) sit inside two degrees of each other, so three of the four weapon lines are one pale blue-grey on the field.
+One finding came out of that derivation and is routed to #38: `skull` (hue 208.24), `territory` (208.42, named `stone` until #76 swapped the line) and `bellRing` (210.00) sat inside two degrees of each other, so three of the four weapon lines were one pale blue-grey on the field. `territory` left that family on 2026-08-28 at hue 101, and claimed ground left it again for `territoryGround` (research 7.7 and 7.8), so what #38 inherits is the `skull` and `bellRing` pair.
 
 ## 1. The thing, in observable terms
 

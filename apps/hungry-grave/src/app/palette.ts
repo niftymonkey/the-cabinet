@@ -70,7 +70,7 @@ const PALETTE = {
   // player fire
   skull: { hex: 0x8496a6, luma: 57.78 },
   /**
-   * Claimed ground, and the charge arc that announces it.
+   * The charge arc that announces claimed ground, on the grave's own rim.
    *
    * Re-valued on 2026-08-28 from `#9aa4ad` luma 63.73, a pale blue-grey at hue
    * 208. The arc is the rim's own band wearing this colour, the construction
@@ -84,10 +84,12 @@ const PALETTE = {
    * to 39, amber at 41 is spoken for, purple is banned outright, and 175 to
    * 220 is the grave's own family, which is what has to be left. That leaves
    * the window between corpseRevenant at hue 76 and mob at hue 126, and 101 is
-   * its midpoint, 24 degrees off the moss and 25 off a mob body. Saturation
-   * 0.40 sits midway between the grave family's 0.11 to 0.22 and a mob's 0.56,
-   * so claimed ground parts from a mob on saturation as well as on hue. The
-   * luma is held at the old value so nothing else in the band moves.
+   * its midpoint, 24 degrees off the moss and 25 off a mob body. The luma is
+   * held at the old value so nothing else in the band moves.
+   *
+   * The ground itself left this entry the same day. It has to part from green
+   * mob bodies as well, which this hue cannot do at any saturation, so
+   * `territoryGround` carries the ground and this colour serves the arc alone.
    */
   territory: { hex: 0x82b26b, luma: 63.79 },
   /**

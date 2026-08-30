@@ -62,7 +62,12 @@ const writeMagic = (writer: ByteWriter): void => {
 const recordedLevel = (header: TapeHeader, line: string): number => {
   const recorded: Readonly<Partial<Record<string, number>>> =
     header.startingLevels;
-  const level = recorded[line];
+  // An own property, never an inherited one. A header built as an ordinary
+  // object hands back Object.prototype for the line name `__proto__`, which is
+  // not undefined and would be written out as a byte.
+  const level = Object.prototype.hasOwnProperty.call(recorded, line)
+    ? recorded[line]
+    : undefined;
   if (level === undefined) {
     throw new Error(
       `the header's roster names ${line} with no starting level recorded for it`,

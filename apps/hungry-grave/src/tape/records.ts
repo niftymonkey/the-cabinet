@@ -93,7 +93,11 @@ const readStartingLevels = (
   payload: ByteReader,
   roster: readonly string[],
 ): Record<string, number> => {
-  const levels: Record<string, number> = {};
+  // Prototype-free, because the roster is decoded bytes rather than our own
+  // vocabulary. A line named `__proto__` assigned into an ordinary object is
+  // swallowed by the prototype setter and reads back as an inherited object,
+  // which is not the missing level it actually is.
+  const levels: Record<string, number> = Object.create(null);
   for (const line of roster) levels[line] = readU8(payload);
   return levels;
 };

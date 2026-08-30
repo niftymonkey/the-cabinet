@@ -373,9 +373,10 @@ describe('both endings across the two loadouts', () => {
     // is only ever exercising one half of the run's shape.
     //
     // Where each ending comes from moved again with #76 pass C's dwell slice
-    // and is recorded rather than quietly re-pinned. Victory is now the rare
-    // end: one fresh seed and one ceiling seed reach it, so the victory half of
-    // this property rests on two runs out of ten. REACHES_VICTORY_FRESH and
+    // and is recorded rather than quietly re-pinned. Two fresh seeds and four
+    // ceiling seeds reach victory, so the victory half of this property rests
+    // on six runs out of ten and the sealed half on the other four, which is
+    // the thinner of the two now. REACHES_VICTORY_FRESH and
     // REACHES_VICTORY_FROM_THE_CEILING carry both facts and the cause they
     // share. Both loadouts are read here so the property is about the run's
     // shape rather than about which starting size happens to reach it.

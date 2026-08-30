@@ -517,7 +517,9 @@ For scale on the other side, at a band floor of luma 76 a WCAG ratio of 3:1 woul
 
 ## 5. The current palette, measured
 
-### 5.1 The band today
+### 5.1 The band as this pass found it
+
+**Historical, and written in the prototype names of the time.** `enemyShot`, `enemyClod`, `enemyTear`, `enemySpiral`, `waste`, `hitFlash` and `stone` are all retired terms. 7.3 holds the current palette, where `stone` is `territory` and the claimed ground it once painted is `territoryGround`.
 
 The four mob-fire colours are `enemyShot` `#ff4a3d` (43.74), `enemyClod` `#f5563d` (46.27), `enemyTear` `#ff6a55` (53.40), `enemySpiral` `#ff8248` (59.76). The band is **43.7 to 59.8** and three non-fire colours are inside it: `skull` 57.78 (a player weapon line), `waste` 54.99 (wasted belch charge), and `hitFlash` 43.74, which is the identical hex to `enemyShot`. These reproduce the measurements this pass was given, to two decimals.
 
