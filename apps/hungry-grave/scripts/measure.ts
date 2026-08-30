@@ -1,6 +1,7 @@
 /**
  * The headless measurement entry: a tape file in, the structured report out as
- * JSON. Run as `pnpm vite-node scripts/measure.ts <tape-file>`.
+ * JSON. Run as
+ * `pnpm vite-node --config vite.headless.config.ts scripts/measure.ts <tape-file>`.
  *
  * The logic lives in src/dev, across measure.ts, framePerformance.ts and
  * replayTallies.ts, all of which carry mayImport: [] and may not touch node:fs.
@@ -61,7 +62,9 @@ const decodeOrRefuse = (
 const main = (): void => {
   const path = process.argv[2];
   if (path === undefined) {
-    console.error('usage: pnpm vite-node scripts/measure.ts <tape-file>');
+    console.error(
+      'usage: pnpm vite-node --config vite.headless.config.ts scripts/measure.ts <tape-file>',
+    );
     process.exitCode = 1;
     return;
   }
