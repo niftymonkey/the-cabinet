@@ -210,11 +210,12 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
     });
   }
 
-  it('no fresh grave reaches victory on this policy, and the test names the set', () => {
+  it('two fresh graves reach victory on this policy, and the test names the set', () => {
     // Written as an equality against the pinned set rather than as "none win",
     // so it fires the day the set moves in either direction and says which seed
-    // did it. It has fired both ways already, and after the combat rescale the
-    // set is empty again. REACHES_VICTORY_FRESH carries the fact and its cause.
+    // did it. It has fired both ways already, and after #76 pass D's delivery
+    // slice the set holds 303 and 404. REACHES_VICTORY_FRESH carries the fact
+    // and its cause.
     const winners = SEEDS.filter(
       (seed) => fullRun(seed).state.ending === 'victory',
     );

@@ -735,7 +735,8 @@ Names are the ratified vocabulary from `CONTEXT.md`. The old prototype names app
 | name | hex | luma | was | note |
 | --- | --- | --- | --- | --- |
 | `skull` | `#8496a6` | 57.78 | `skull`, unchanged | |
-| `territory` | `#82b26b` | 63.79 | `stone` `#9aa4ad` 63.73 | renamed, and re-hued 2026-08-28 (7.7) |
+| `territory` | `#82b26b` | 63.79 | `stone` `#9aa4ad` 63.73 | renamed, and re-hued 2026-08-28 (7.7); the charge arc on the grave's rim, after the split in 7.8 |
+| `territoryGround` | `#9495ac` | 59.00 | split out of `territory` 2026-08-28 | claimed ground on the open field (7.8) |
 | `wisp` | `#63b8ad` | 64.76 | `wisp`, unchanged | |
 | `bellRing` | `#9faebd` | 67.41 | `bellRing` `#aebfcf` 73.94 | lowered |
 
@@ -843,9 +844,19 @@ What makes it survivable is the same construction 7.4 already relies on, and it 
 
 **The hue was forced rather than chosen.** Fire's 20-degree exclusion closes 20 to 39, amber at 41 is spoken for by `drop` and `graveGlow`, purple is closed by the project's standing ban, and 175 to 220 is the grave's own family, which is the thing that has to be left. What remains is the window between `corpseRevenant` at hue 76 and `mob` at hue 126. Hue 101 is its midpoint: 24 degrees off the moss and 25 off a mob body, 111 off `graveRim` and 59 off `graveGlow`. Saturation 0.40 sits midway between the grave family's 0.11 to 0.22 and a mob's 0.56, so claimed ground parts from a mob on saturation as well as on hue. Luma is held at the old value, 63.79 against 63.73, so nothing else in the crowded band moves.
 
-**What it costs.** Claimed ground is now green on a field whose trash mobs are green, and the two are 25 hue degrees, 0.16 saturation and 2.84 luma apart, which clears 7.4's thresholds on all three channels at once. The pair is also carried by silhouette, a large static circle against small moving bodies, which is the reasoning the retired `graveRim` and `territory` exception used to carry. That exception is deleted rather than left standing, because it now describes a collision that no longer exists.
+**What it costs.** Claimed ground was green on a field whose trash mobs are green, and the two are 25 hue degrees and 2.84 luma apart, which clears 7.4's separation on hue and on luma. It is 0.16 saturation apart and does not clear that channel, and it does not have to: a violation needs all three at once, which is how `palette.test.ts` states it. The pair was also carried by silhouette, a large static circle against small moving bodies, which is the reasoning the retired `graveRim` and `territory` exception used to carry. That exception is deleted rather than left standing, because it now describes a collision that no longer exists. **The cost stood for one day.** 7.8 splits the entry and moves claimed ground off this colour, which now serves the charge arc alone.
 
 **Not seen on a screen at the time of writing.** The arithmetic above is checked by `palette.test.ts`; the feel call stays Mark's after he plays it.
+
+### 7.8 The entry split, and `territoryGround`, 2026-08-28
+
+**One entry was serving two jobs.** 7.7 re-hued `territory` for the charge arc on the grave's rim, which needs hue to part from the rim. The same entry also painted claimed ground on the open field, which needs to part from green mob bodies, and the playtest named that in as many words: there is so much green that the colours do not differ. The entry is therefore split. `territory` keeps 7.7's green and serves the arc alone; a new `territoryGround` `#9495ac` carries the ground.
+
+**Both channels are close to forced, and `palette.ts` holds the full derivation beside the value.** Luma 59.00: under 58.3 claimed ground stops clearing APCA Lc 45 over the grave's own mouth, which it can be laid across; a tenth of a point under that, `foodOutline` stops clearing 45 over the ground itself; over 59.95 the luma channel closes against revenant moss at 61.95. The two margins cross at 59.01. Brighter is not available at all, because `mob` sits at 66.63 under a ceiling of 68. Hue 237.5 is what is left once fire's exclusion and amber close the warm end, corpse and feast hold the warm bone, the green family from 76 to 155 is the defect itself, 175 to 220 is the grave's own family, and purple is closed by the standing ban. Saturation is capped rather than picked: parting from the moss needs 0.208 or under, and 0.140 leaves margin on both greens at once, which is what makes the entry read as cold stone rather than as a blue-violet.
+
+**Against a mob body** the pair is 7.63 luma, 111.6 degrees and 0.418 saturation apart, clearing 7.4's separation on all three channels at once. Measured against everything it is drawn over: Lc 45.92 on the grave's mouth, 57.45 on an eruption, 57.48 on a bell ring, and 41.44 over the splash, which is the figure every storm colour reaches there. For the sprites drawn over it: Lc 46.44 for the food and mob layer through `foodOutline`, and 48.16 for the rim.
+
+**Hue 237.5 sits next door to the banned family, so the feel call was flagged for veto on sight.** Mark played the build on 2026-08-29 with the colour named to him as the first thing to watch, and did not veto it.
 
 ### 7.6 Assertion 11, and why the boundary needed one
 

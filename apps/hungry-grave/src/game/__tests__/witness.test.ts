@@ -71,7 +71,7 @@ const PATCH_STRUCK: readonly (readonly [number, number])[] = [
 function fillPatch(run: RunState): void {
   const patch = run.patches[0];
   patch.alive = true;
-  patch.id = 15;
+  patch.id = 16;
   patch.x = 210.5;
   patch.y = 84.25;
   patch.radius = 41.5;
@@ -89,7 +89,7 @@ function fillRun(run: RunState): void {
   run.reservoir = 0.375;
   run.killsSinceDrop = 3;
   run.dropsPaid = 2;
-  run.nextEntityId = 16;
+  run.nextEntityId = 17;
   run.levels.soulStream = 2;
   run.levels.territory = 1;
   run.levels.wisps = 3;
