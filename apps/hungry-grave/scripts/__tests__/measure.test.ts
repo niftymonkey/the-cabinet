@@ -86,28 +86,20 @@ function pathWithNoFile(name: string): string {
 }
 
 function runMeasure(...args: string[]) {
-  return spawnSync(VITE_NODE, ['scripts/measure.ts', ...args], {
-    cwd: APP,
-    encoding: 'utf8',
-  });
+  return spawnSync(
+    VITE_NODE,
+    ['--config', 'vite.headless.config.ts', 'scripts/measure.ts', ...args],
+    {
+      cwd: APP,
+      encoding: 'utf8',
+    },
+  );
 }
 
 /**
- * The report the tool printed, or null when it printed none.
- *
- * vite-node loads vite.config.ts, and the assetpack plugin there writes its own
- * progress to stdout before the script runs. The report is what follows: it is
- * printed last and it opens on the only line that is a bare brace.
- */
-function printedReport(stdout: string): string | null {
-  const start = stdout.search(/^\{$/m);
-  return start === -1 ? null : stdout.slice(start).trimEnd();
-}
-
-/**
- * Long because the subprocess is the seam. Every case pays a cold vite boot and
- * an assetpack pass before the script's first line runs, which is the cost of
- * seeing the real command line rather than a budget covering for a slow test.
+ * Long because the subprocess is the seam. Every case pays a cold vite boot
+ * before the script's first line runs, which is the cost of seeing the real
+ * command line rather than a budget covering for a slow test.
  */
 const SUBPROCESS_BUDGET_MS = 20_000;
 
@@ -119,8 +111,8 @@ describe('the measure tool', () => {
       const result = runMeasure(fileHolding('run.tape', bytes));
 
       expect(result.status).toBe(0);
-      expect(printedReport(result.stdout)).toBe(
-        JSON.stringify(measure(decodeTape(bytes)), null, 2),
+      expect(result.stdout).toBe(
+        JSON.stringify(measure(decodeTape(bytes)), null, 2) + '\n',
       );
     },
     SUBPROCESS_BUDGET_MS,
@@ -132,9 +124,9 @@ describe('the measure tool', () => {
       const result = runMeasure();
 
       expect(result.status).toBe(1);
-      expect(printedReport(result.stdout)).toBeNull();
+      expect(result.stdout).toBe('');
       expect(result.stderr).toContain(
-        'usage: pnpm vite-node scripts/measure.ts <tape-file>',
+        'usage: pnpm vite-node --config vite.headless.config.ts scripts/measure.ts <tape-file>',
       );
     },
     SUBPROCESS_BUDGET_MS,
@@ -148,7 +140,7 @@ describe('the measure tool', () => {
 
       // What failed and what it costs, the way tapeStore.ts says it.
       expect(result.status).toBe(1);
-      expect(printedReport(result.stdout)).toBeNull();
+      expect(result.stdout).toBe('');
       expect(result.stderr).toContain(path);
       expect(result.stderr).toContain('no measurement was taken');
       // An uncaught stack is neither a repair nor a useful message.
@@ -167,7 +159,7 @@ describe('the measure tool', () => {
       // A mistyped or moved path is the commonest way to run this tool wrong,
       // and the person holding it can only act on being told which path and why.
       expect(result.status).toBe(1);
-      expect(printedReport(result.stdout)).toBeNull();
+      expect(result.stdout).toBe('');
       expect(result.stderr).toContain(path);
       expect(result.stderr).toContain('no measurement was taken');
       // An uncaught stack out of node:fs is neither a repair nor a message.
