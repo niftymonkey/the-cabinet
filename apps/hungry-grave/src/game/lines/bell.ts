@@ -93,8 +93,8 @@ const proximity = (distance: number, full: number): number => {
  *
  * A shove that lands returns its mobShoved event, carrying the distance the
  * clamped move really covered rather than the nominal push; a shove refused
- * (no push at this level, a non-finite strength, a mob with no away direction)
- * returns null and reports nothing.
+ * (no push at this level, a non-finite strength, a mob with no away direction,
+ * a clamp that let the mob move nowhere) returns null and reports nothing.
  */
 const pushMob = (
   state: RunState,
@@ -121,11 +121,9 @@ const pushMob = (
   );
   const movedX = mob.x - fromX;
   const movedY = mob.y - fromY;
-  return {
-    type: 'mobShoved',
-    id: mob.id,
-    displacement: Math.sqrt(movedX * movedX + movedY * movedY),
-  };
+  const displacement = Math.sqrt(movedX * movedX + movedY * movedY);
+  if (displacement === 0) return null;
+  return { type: 'mobShoved', id: mob.id, displacement };
 };
 
 const clamp = (value: number, low: number, high: number): number => {

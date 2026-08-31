@@ -325,6 +325,26 @@ describe('pushback arrives at level 4 (ADR 0005)', () => {
     expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
   });
 
+  it('a mob pinned at the widened field boundary is struck but never shoved', () => {
+    // The clamp can refuse the whole move: a mob already at
+    // FIELD_WIDTH + SPAWN_MARGIN with the away direction pointing outward
+    // covers zero distance. The repel reading counts events, so a
+    // zero-distance shove would report a push that never happened.
+    const state = quietRun();
+    state.levels.bell = MAX_LEVEL;
+    state.grave.x = FIELD_WIDTH;
+    const mob = put(
+      state,
+      'revenant',
+      FIELD_WIDTH + SPAWN_MARGIN,
+      state.grave.y,
+    );
+    const events = ringFor(state, BELL_PERIOD + BELL_EXPAND_TICKS);
+    expect(events.filter((event) => event.type === 'mobShoved')).toEqual([]);
+    expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
+    expect(damageTo(mob)).toBeGreaterThan(0);
+  });
+
   it('a ring below level 4 emits no shove event', () => {
     // Push only exists at levels 4 and 5, so an ordinary run's tolls carry
     // zero shoves and the repel reading honestly reports them that way.
