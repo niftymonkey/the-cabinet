@@ -203,6 +203,21 @@ interface Tolled {
 }
 
 /**
+ * The ring shoved a mob (#79). The repel reading is what reads it, summing
+ * shoves per toll. It is one event per shove rather than a field on `tolled`
+ * because the shoves land across the ring's expansion, after the tolled event
+ * has already fired at ring birth, so no toll-time event can carry them.
+ * `displacement` is the distance the mob actually moved after the field
+ * clamp, not the nominal push, so a shove into the field's edge reports what
+ * it truly bought.
+ */
+interface MobShoved {
+  readonly type: 'mobShoved';
+  readonly id: number;
+  readonly displacement: number;
+}
+
+/**
  * The belch fired (ADR 0008). The counts are what the belch-on-wave instrument
  * reads to tell a wipe that landed on a curtain from one spent on empty sky.
  * Cancelled is mob fire taken off the field and killed is mobs taken off it,
@@ -263,6 +278,7 @@ type SimEvent =
   | CorpseEvicted
   | CorpseLost
   | Tolled
+  | MobShoved
   | PatchLaid
   | PatchClosed
   | Belched

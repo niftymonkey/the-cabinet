@@ -35,6 +35,20 @@ import {
 } from './freshness';
 import type { GravePath, GravePathAcc } from './gravePath';
 import { createGravePath, gravePathOf, observeGravePath } from './gravePath';
+import type { GroundHeld, GroundHeldAcc } from './groundHeld';
+import {
+  createGroundHeld,
+  groundHeldOf,
+  observeGroundHeld,
+} from './groundHeld';
+import type { Repel, RepelAcc } from './repel';
+import { createRepel, observeRepel, repelOf } from './repel';
+import type { TerritoryControl, TerritoryControlAcc } from './territoryControl';
+import {
+  createTerritoryControl,
+  observeTerritoryControl,
+  territoryControlOf,
+} from './territoryControl';
 import type { TerritoryPatches, TerritoryPatchesAcc } from './territoryPatches';
 import {
   createTerritoryPatches,
@@ -64,6 +78,9 @@ interface TuningReadings {
   readonly belchCadence: BelchCadence;
   readonly dropLedger: DropLedger;
   readonly territoryPatches: TerritoryPatches;
+  readonly territoryControl: TerritoryControl;
+  readonly groundHeld: GroundHeld;
+  readonly repel: Repel;
   readonly upfieldTraffic: UpfieldTraffic;
 }
 
@@ -76,6 +93,9 @@ interface ReadingsAcc {
   readonly belchCadence: BelchCadenceAcc;
   readonly dropLedger: DropLedgerAcc;
   readonly territoryPatches: TerritoryPatchesAcc;
+  readonly territoryControl: TerritoryControlAcc;
+  readonly groundHeld: GroundHeldAcc;
+  readonly repel: RepelAcc;
   readonly upfieldTraffic: UpfieldTrafficAcc;
 }
 
@@ -98,6 +118,9 @@ const createReadings = (
   belchCadence: createBelchCadence(),
   dropLedger: createDropLedger(),
   territoryPatches: createTerritoryPatches(),
+  territoryControl: createTerritoryControl(),
+  groundHeld: createGroundHeld(),
+  repel: createRepel(),
   upfieldTraffic: createUpfieldTraffic(),
 });
 
@@ -124,6 +147,9 @@ const observeReadings = (
   observeBelchCadence(acc.belchCadence, tick, events, state);
   observeDropLedger(acc.dropLedger, events, state);
   observeTerritoryPatches(acc.territoryPatches, events);
+  observeTerritoryControl(acc.territoryControl, tick, events, state);
+  observeGroundHeld(acc.groundHeld, state);
+  observeRepel(acc.repel, events);
   observeUpfieldTraffic(acc.upfieldTraffic, events, state);
 };
 
@@ -136,6 +162,9 @@ const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   belchCadence: belchCadenceOf(acc.belchCadence),
   dropLedger: dropLedgerOf(acc.dropLedger),
   territoryPatches: territoryPatchesOf(acc.territoryPatches),
+  territoryControl: territoryControlOf(acc.territoryControl),
+  groundHeld: groundHeldOf(acc.groundHeld),
+  repel: repelOf(acc.repel),
   upfieldTraffic: upfieldTrafficOf(acc.upfieldTraffic),
 });
 

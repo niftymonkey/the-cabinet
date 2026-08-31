@@ -13,15 +13,21 @@ import { SCROLL_SPEED } from '../tuning';
 import { MAX_LEVEL } from './roster';
 
 /**
- * Ticks between lays: a little over eight seconds. PROVISIONAL, and the first
- * number to move under measurement.
+ * Ticks between lays: a little under fourteen seconds. PROVISIONAL, and the
+ * first number to move under measurement.
  *
- * The first playtest of the autonomous line called the cadence too frequent
- * and named roughly 60% of the rate as the first candidate, so 300 / 0.6 =
- * 500. It stays far above the bell's 180 because one patch does far more work
- * than one toll.
+ * The 2026-08-30 desktop playtest on the instrument build called the 500-tick
+ * cadence spammy: less often and more deadly. The measured baseline (two
+ * tapes on #79) shows the clock maxed, 22 lays per 12421-tick run, one every
+ * ~565 ticks, with deadliness per crossing already saturated at 104 deaths in
+ * 105 crossings. The first playtest's cut named roughly 60% of the rate
+ * (300 / 0.6 = 500); the same cut applied again is 500 / 0.6 = 833.33, and it
+ * lands on 832 rather than 833 so the quarter-period checkpoints other tests
+ * read stay whole ticks; one tick has no gameplay meaning at this scale. The
+ * next tapes judge about 14 lays per run and more kills per lay than the
+ * baseline's ~2.4, because traffic accumulates longer between claims.
  */
-const TERRITORY_PERIOD = 500;
+const TERRITORY_PERIOD = 832;
 
 /**
  * The lateral half-window about the grave's own x the scan may see, in field
@@ -96,8 +102,8 @@ const TERRITORY_LEAD_TICKS = 150;
  * What one dwell pulse takes off a mob. PROVISIONAL.
  *
  * The ruled contract is shambler-denominated against the pass A health scale:
- * a shambler's 40 is 8 pulses exactly; the ghoul rounds up to 5 pulses and
- * the revenant to 13.
+ * a shambler's 40 is 8 pulses exactly, the ghoul's 20 is 4 pulses exactly
+ * (#79), and the revenant rounds up to 13.
  */
 const TERRITORY_DAMAGE = 5;
 
@@ -107,7 +113,7 @@ const TERRITORY_DAMAGE = 5;
  * The pace of the pulses is the third channel of control strength, beside the
  * pull and the slow (ADR 0044, amended 2026-08-28). Every ruled touch count is
  * untouched by it: TERRITORY_DAMAGE stays 5, so a shambler is still 8 pulses,
- * a ghoul 5 and a revenant 13, and only the time the ground takes to deliver
+ * a ghoul 4 and a revenant 13, and only the time the ground takes to deliver
  * them moves with the level.
  *
  * Measured pure dwell for a shambler entering at the centre of open ground,
@@ -183,6 +189,13 @@ const TERRITORY_SPREAD = 0.55;
 interface Patch {
   alive: boolean;
   id: number;
+  /**
+   * The birth rung: the line's level when the ground was laid. The strengths
+   * below are what the rung bought; the rung itself is kept so a reading can
+   * attribute a crossing to the rung the ground was born with rather than to
+   * the run's current level (#79).
+   */
+  level: number;
   x: number;
   y: number;
   // Field units, captured from the level's ladder at birth.
@@ -213,6 +226,7 @@ const blankPatch = (): Patch => {
   return {
     alive: false,
     id: 0,
+    level: 0,
     x: 0,
     y: 0,
     radius: 0,
@@ -384,6 +398,7 @@ const layPatch = (
 ): void => {
   const level = Math.min(state.levels.territory, MAX_LEVEL);
   const patch = claimSlot(state, events);
+  patch.level = level;
   patch.x = clamp(point.x + spread.x, 0, FIELD_WIDTH);
   patch.y = clamp(point.y + spread.y, 0, state.grave.y);
   patch.radius = RADIUS_BY_LEVEL[level];
@@ -576,6 +591,23 @@ const territoryCount = (state: RunState): number => {
   return live;
 };
 
+/**
+ * The open ground holding this mob: the first patch in slot order that is
+ * alive, past its opening beat, and whose ground holds the mob's body by the
+ * same overlap rule the control uses. Null where nothing holds it.
+ *
+ * First in slot order is the attribution decision the control reading states
+ * (#79): a mob over overlapping ground belongs to one patch, deterministically,
+ * rather than to whichever a walk happened to meet last.
+ */
+const holdingPatch = (state: RunState, mob: Mob): Patch | null => {
+  for (const patch of state.patches) {
+    if (!patch.alive || patch.opening > 0) continue;
+    if (mobIsOverPatch(patch, mob)) return patch;
+  }
+  return null;
+};
+
 // One pool slot's patch, or null where the slot holds nothing. For the renderer.
 const patchAt = (state: RunState, index: number): Patch | null => {
   const patch = state.patches[index];
@@ -589,6 +621,7 @@ export {
   resolveTerritory,
   territoryCount,
   patchAt,
+  holdingPatch,
   territoryCharge,
   RADIUS_BY_LEVEL,
   PULL_BY_LEVEL,

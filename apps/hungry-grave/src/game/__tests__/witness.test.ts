@@ -72,6 +72,7 @@ function fillPatch(run: RunState): void {
   const patch = run.patches[0];
   patch.alive = true;
   patch.id = 16;
+  patch.level = 3;
   patch.x = 210.5;
   patch.y = 84.25;
   patch.radius = 41.5;
@@ -635,6 +636,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'patches[].alive': 'gates the walk, as mobs[].alive does.',
   'patches[].id':
     "spawn identity, as mobs[].id is. Territory's cap orders eviction by it, and that ordering shows through which patches are still live in the walk.",
+  'patches[].level':
+    'written once at the lay (territory.ts layPatch) and never mutated, as mobs[].type is. A divergence in the birth rung shows through the radius, pull, slow and re-hit the walk folds, each captured from the same rung of a ladder with distinct values per rung.',
   'streams.spawns.next': 'a draw function, not state. Its cursor is folded.',
   'streams.spawns.nextInt': 'a draw function, not state.',
   'streams.drops.next': 'a draw function, not state. Its cursor is folded.',

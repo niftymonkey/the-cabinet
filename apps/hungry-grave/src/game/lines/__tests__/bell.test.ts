@@ -307,6 +307,71 @@ describe('pushback arrives at level 4 (ADR 0005)', () => {
     }
   });
 
+  it('a shove emits mobShoved carrying the distance the clamp let the mob move, not the nominal push', () => {
+    // Grave hard against the right edge, mob 150 out, level 5: near is
+    // 1 - 150/250 = 0.4, so the nominal push is 16, but the field clamp at
+    // FIELD_WIDTH + SPAWN_MARGIN leaves only 10 of it. The event reports the
+    // 10 the mob really moved, which is the only figure a repel reading can
+    // honestly sum.
+    const state = quietRun();
+    state.levels.bell = MAX_LEVEL;
+    state.grave.x = FIELD_WIDTH;
+    const mob = put(state, 'revenant', FIELD_WIDTH + 150, state.grave.y);
+    const events = ringFor(state, BELL_PERIOD + BELL_EXPAND_TICKS);
+    const shoves = events.filter((event) => event.type === 'mobShoved');
+    expect(shoves).toEqual([
+      { type: 'mobShoved', id: mob.id, displacement: 10 },
+    ]);
+    expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
+  });
+
+  it('a mob pinned at the widened field boundary is struck but never shoved', () => {
+    // The clamp can refuse the whole move: a mob already at
+    // FIELD_WIDTH + SPAWN_MARGIN with the away direction pointing outward
+    // covers zero distance. The repel reading counts events, so a
+    // zero-distance shove would report a push that never happened.
+    const state = quietRun();
+    state.levels.bell = MAX_LEVEL;
+    state.grave.x = FIELD_WIDTH;
+    const mob = put(
+      state,
+      'revenant',
+      FIELD_WIDTH + SPAWN_MARGIN,
+      state.grave.y,
+    );
+    const events = ringFor(state, BELL_PERIOD + BELL_EXPAND_TICKS);
+    expect(events.filter((event) => event.type === 'mobShoved')).toEqual([]);
+    expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
+    expect(damageTo(mob)).toBeGreaterThan(0);
+  });
+
+  it('a ring below level 4 emits no shove event', () => {
+    // Push only exists at levels 4 and 5, so an ordinary run's tolls carry
+    // zero shoves and the repel reading honestly reports them that way.
+    for (const level of [1, 2, 3]) {
+      const state = quietRun();
+      state.levels.bell = level;
+      put(state, 'revenant', state.grave.x + 40, state.grave.y);
+      const events = ringFor(state, BELL_PERIOD + BELL_EXPAND_TICKS);
+      expect(tolls(events)).toHaveLength(1);
+      expect(
+        events.filter((event) => event.type === 'mobShoved'),
+        `level ${level}`,
+      ).toEqual([]);
+    }
+  });
+
+  it('a mob standing at the exact grave centre is struck but never shoved', () => {
+    // Distance zero has no away direction, so the push refuses and no shove
+    // event exists to report; the strike itself still lands at full power.
+    const state = quietRun();
+    state.levels.bell = MAX_LEVEL;
+    const mob = put(state, 'revenant', state.grave.x, state.grave.y);
+    const events = ringFor(state, BELL_PERIOD + BELL_EXPAND_TICKS);
+    expect(events.filter((event) => event.type === 'mobShoved')).toEqual([]);
+    expect(damageTo(mob)).toBeCloseTo(BELL_DAMAGE_NEAR, 4);
+  });
+
   it('keeps a pushed mob inside the field widened by SPAWN_MARGIN', () => {
     // Without the clamp a mob near an edge is shoved out of the box the
     // invariant harness checks, by the player's own weapon, and the harness

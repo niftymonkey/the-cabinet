@@ -46,7 +46,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Birthright**: The weapon lines a run starts with, currently the soul stream and Territory. Damage at the size floor strips levels back to it. _Avoid_: starting loadout, base weapons.
 
-**Soul stream**: Skulls pouring straight up out of the grave's mouth, in rigid fanned columns, surging after each swallow. It never homes. _Avoid_: main gun, vulcan, primary fire.
+**Soul stream**: Skulls pouring straight up out of the grave's mouth, in distinct parallel streams from mounts across its width, surging after each swallow. It never homes. _Avoid_: main gun, vulcan, primary fire.
 
 **Territory**: Ground the grave claims ahead of itself: on its own clock the line tears the earth open over the densest knot of mobs ahead of the grave, and after a short opening beat grasping hands pull, slow and pulse damage into any mob whose body is over them. Levels buy area and control strength, the pull, the slow and the pace of the dwell pulses, so capability reads as bigger ground that is harder to leave. Its job is reclaiming space when overwhelmed, never a big damage number, and the tearing and the hands are expression, not identity (ADR 0044). _Avoid_: zone, aura, trap, minefield, area denial.
 
