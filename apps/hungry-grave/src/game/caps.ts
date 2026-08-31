@@ -101,11 +101,11 @@ const WISP_CAP = 64;
  * which is why it is small: at the cap the oldest patch is evicted rather than
  * the claim refused, so the number decides how long a trail of claimed ground
  * is rather than guarding against a runaway. A lay comes at most every
- * TERRITORY_PERIOD of 500 ticks, against a worst-case patch life of about
+ * TERRITORY_PERIOD of 832 ticks, against a worst-case patch life of about
  * 1364 ticks: laid at the visible top edge, which is the highest a lay is ever
  * held to, and scrolled off the bottom at the biggest radius of 104, so 864
- * field units at SCROLL_SPEED 38/60. That is at most 2.7 live at once, and the
- * cap keeps nearly three times that, so housekeeping never binds in normal
+ * field units at SCROLL_SPEED 38/60. That is at most 1.6 live at once, and the
+ * cap keeps about five times that, so housekeeping never binds in normal
  * play.
  *
  * The number itself does not move on this evidence: it is a rule about how

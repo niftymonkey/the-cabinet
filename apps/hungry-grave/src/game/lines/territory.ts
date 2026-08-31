@@ -13,15 +13,21 @@ import { SCROLL_SPEED } from '../tuning';
 import { MAX_LEVEL } from './roster';
 
 /**
- * Ticks between lays: a little over eight seconds. PROVISIONAL, and the first
- * number to move under measurement.
+ * Ticks between lays: a little under fourteen seconds. PROVISIONAL, and the
+ * first number to move under measurement.
  *
- * The first playtest of the autonomous line called the cadence too frequent
- * and named roughly 60% of the rate as the first candidate, so 300 / 0.6 =
- * 500. It stays far above the bell's 180 because one patch does far more work
- * than one toll.
+ * The 2026-08-30 desktop playtest on the instrument build called the 500-tick
+ * cadence spammy: less often and more deadly. The measured baseline (two
+ * tapes on #79) shows the clock maxed, 22 lays per 12421-tick run, one every
+ * ~565 ticks, with deadliness per crossing already saturated at 104 deaths in
+ * 105 crossings. The first playtest's cut named roughly 60% of the rate
+ * (300 / 0.6 = 500); the same cut applied again is 500 / 0.6 = 833.33, and it
+ * lands on 832 rather than 833 so the quarter-period checkpoints other tests
+ * read stay whole ticks; one tick has no gameplay meaning at this scale. The
+ * next tapes judge about 14 lays per run and more kills per lay than the
+ * baseline's ~2.4, because traffic accumulates longer between claims.
  */
-const TERRITORY_PERIOD = 500;
+const TERRITORY_PERIOD = 832;
 
 /**
  * The lateral half-window about the grave's own x the scan may see, in field

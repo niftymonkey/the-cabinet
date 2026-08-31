@@ -262,12 +262,12 @@ const runScenario = (): ScenarioResult => {
  * `pnpm digest`, and the test logs the regenerated object as a paste-ready
  * literal before it asserts.
  *
- * Re-pinned on 2026-08-28 for #76's Territory tuning: the opening beat went
- * from 90 ticks to 68 and the scan's lead was decoupled from it and set to
- * 150, so claimed ground is laid at a different point and opens sooner. Every
- * other field held, the two lays and the two kills included; the checksum
- * alone moved, from 439893635, because the witness folds the positions the
- * ground took and the mobs it held.
+ * Re-pinned on 2026-08-30 for #79's measured tuning pass: TERRITORY_PERIOD
+ * went from 500 to 832, a deliberate cadence change, so the 600-tick scenario
+ * no longer contains a lay at all. drawn.territory went from 2 to 0, the
+ * checksum moved from -362706426 because the witness folds the ground the
+ * scenario no longer claims, and every other field held, the two kills
+ * included.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -288,7 +288,7 @@ const GOLDEN: Digest = {
     drops: 0,
     mobFire: 1,
     shed: 0,
-    territory: 2,
+    territory: 0,
   },
   levels: {
     soulStream: 1,
@@ -296,7 +296,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -362706426,
+  checksum: 932198217,
 };
 
 export { runScenario, GOLDEN };

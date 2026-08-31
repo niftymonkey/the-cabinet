@@ -769,14 +769,21 @@ describe('the control ladders', () => {
 });
 
 describe('the wider cadence', () => {
-  it('the charge takes 500 ticks to fill', () => {
-    // The playtest called the cadence too frequent and named roughly 60% of
-    // the rate, so 300 / 0.6. The magnitude is pinned here and nowhere else;
-    // every other cadence test reads the constant.
-    expect(TERRITORY_PERIOD).toBe(500);
+  it('the charge takes 832 ticks to fill', () => {
+    // The 2026-08-30 desktop playtest called the 500-tick cadence spammy:
+    // less often and more deadly. The measured baseline (two tapes on #79)
+    // shows the clock maxed, 22 lays per 12421-tick run, with deadliness per
+    // crossing already saturated at 104 deaths in 105 crossings. The first
+    // playtest's cut was roughly 60% of the rate (300 / 0.6 = 500); the same
+    // cut again is 500 / 0.6 = 833.33, landing on 832 so the quarter-period
+    // checkpoints other tests read stay whole ticks; one tick has no gameplay
+    // meaning at this scale. The next tapes judge about 14 lays per run and
+    // more kills per lay than the baseline's ~2.4. The magnitude is pinned
+    // here and nowhere else; every other cadence test reads the constant.
+    expect(TERRITORY_PERIOD).toBe(832);
     const run = createRun(76);
     putMob(run, run.grave.x, 300);
-    for (let tick = 0; tick < 499; tick++) advanceTerritory(run);
+    for (let tick = 0; tick < 831; tick++) advanceTerritory(run);
     expect(territoryCount(run)).toBe(0);
     advanceTerritory(run);
     expect(territoryCount(run)).toBe(1);
