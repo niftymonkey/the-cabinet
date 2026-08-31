@@ -22,7 +22,7 @@ import { publishInstruction } from '../../local/publish-instruction.mjs';
 import { SOURCE, sourceHash, recordHash } from './v1-stamp.mjs';
 
 const require = createRequire(import.meta.url);
-const yaml = require('../../node_modules/.pnpm/js-yaml@4.3.1/node_modules/js-yaml');
+const yaml = require('js-yaml');
 
 const d = yaml.load(readFileSync(SOURCE, 'utf8'));
 const outKey = process.argv[2] ?? 'road_to_v1';
@@ -86,6 +86,18 @@ function checkTally() {
   if (bad.length) {
     throw new Error('tally disagrees with the data: ' +
       bad.map(([k, v]) => `${k} counts ${v}`).join('; ') + '. Fix one side before building.');
+  }
+  // The template hardcodes five theme columns, so any other count silently
+  // drops or orphans work cards.
+  if (d.themes.length !== 5) {
+    throw new Error(`the template draws exactly five theme columns and themes lists ` +
+      `${d.themes.length}. Fix one side before building.`);
+  }
+  // A `when` outside when_values renders as an unstyled card.
+  const badWhen = d.work.filter((w) => !d.when_values.includes(w.when));
+  if (badWhen.length) {
+    throw new Error('work cards carry a when outside when_values: ' +
+      badWhen.map((w) => `${w.id} says ${w.when}`).join('; ') + '. Fix one side before building.');
   }
 }
 
@@ -223,6 +235,7 @@ function build() {
     KEPT: String(totals.kept),
     TOTAL: String(d.promises.length),
     TOTAL_WORD: words(d.promises.length),
+    FAIL_COUNT_WORD: words(d.adr_failures.length),
     FOG_COUNT_WORD: cap(words(fogCount)),
     CROWN_SUB: t(d.meta.v1_in_one_line),
     COLS: cols(),

@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 import { publishInstruction } from '../../local/publish-instruction.mjs';
-import { SOURCE, sourceHash, readStamp, recordHash } from './v1-stamp.mjs';
+import { SOURCE, sourceHash, readStamp } from './v1-stamp.mjs';
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
 
@@ -48,7 +48,7 @@ function changedHash() {
 
 function outputs() {
   const require = createRequire(import.meta.url);
-  const yaml = require(`${ROOT}/node_modules/.pnpm/js-yaml@4.3.1/node_modules/js-yaml`);
+  const yaml = require('js-yaml');
   const d = yaml.load(readFileSync(`${ROOT}/${SOURCE}`, 'utf8'));
   return Object.entries(d.outputs);
 }
@@ -93,14 +93,14 @@ function report() {
 
 async function main() {
   const payload = JSON.parse(await readStdin());
-  // Belt and braces against re-entry. The real guard is the stamp below: the
-  // hash is recorded before the block, so the next stop sees no change at all.
+  // Belt and braces against re-entry. The real guard is the stamp: a
+  // successful rebuild records the hash itself, so the next stop sees no
+  // change, while a failed one leaves it unwritten and the next stop retries.
   if (payload.stop_hook_active === true) return;
 
   const hash = changedHash();
   if (hash === null) return;
 
-  recordHash(ROOT, hash);
   tellAgent(report());
 }
 
