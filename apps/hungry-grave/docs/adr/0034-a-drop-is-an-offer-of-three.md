@@ -1,0 +1,13 @@
+# A drop is an offer of three, touched to choose
+
+A drop no longer levels a line the dice picked: it spawns an offer, three options spinning around each other, and the grave gets exactly the one it touches, the other two vanishing. The offer is random and the take is chosen: options draw from the lines still unowned plus level-ups of owned, un-maxed lines, and a maxed line is never offered. The offer shrinks below three as lines max, and when nothing is offerable a paid drop converts to overflow, keeping ADR 0002's nothing-swallowed-is-worthless promise; ruled for now, revisitable once the difficulty-response fork is settled. The first offer of a run is fixed in shape, the skull stream and two unowned lines, so deepening the main gun and opening something new are both on the table from the first swallow.
+
+The evidence is the 2026-08-31 tape reading: the belch landed 35% and 46% of all kills in the baseline runs and fell to 13% in the one run whose drops built the storm early, so the game already contains the curve that removes the belch lean, and under a uniform roll reaching it was seed luck. Choice makes the good curve a strategy. Vampire Survivors' level-up choice is the precedent, made diegetic.
+
+This supersedes the seed-then-uniform roll (ruled 2026-08-22, itself a same-day refinement of full seeding). What stood: drops spawn on the field and are swallowed, the kill-priced drop curve (ADR 0002), and replay from the seed plus inputs alone, because the offer's contents are draws from the seeded drops stream and the touch is a movement input already on the tape. What the roll could not have known: no choice mechanic existed, so line access could only be priced in miss percentages under luck, and a run's build was dice rather than play. One consequence named: with maxed lines never offered, ADR 0002's overflow branch for a maxed line's drop goes dormant; overflow itself stands for growth past the ceiling.
+
+A choice-sphere wildcard, one offer slot that pauses the run and offers everything currently offerable, is recorded as a later candidate and deliberately not ruled here: it strictly dominates the spinning slots, and its menu pick needs either a tape format bump or a frozen-world sim mode, so it waits until the offer itself has tape (gate reviews, 2026-08-31).
+
+This ruling changes sim behavior, so the golden digest and bot test regenerate with it (regeneration commit first, ADR 0019); one regeneration covers this record and ADR 0008.
+
+Ruled by Mark 2026-08-31 in the belch-thread grilling. The research that surfaced the tape reading lives in [../research/panic-button-pricing.md](../research/panic-button-pricing.md).

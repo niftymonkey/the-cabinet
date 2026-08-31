@@ -30,7 +30,9 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Freshness**: A corpse's one meter, running from kill to gone in seconds derived from scroll speed. It scales every payout down to a floor, and at empty the dirt takes the corpse under. _Avoid_: decay, timer, expiry, TTL.
 
-**Drop**: A permanent upgrade a kill sometimes leaves, priced in kills on a rising curve. Swallowing it levels one weapon line, chosen by the dice. Drops never decay. _Avoid_: powerup, upgrade item, pickup, loot.
+**Drop**: A permanent upgrade a kill sometimes leaves, priced in kills on a rising curve. It spawns as an offer, and the grave gets the option it touches. Drops never decay. _Avoid_: powerup, upgrade item, pickup, loot.
+
+**Offer**: What a drop spawns: three options spinning around each other, and the grave gets exactly the one it touches while the others vanish. Options draw from unowned lines and level-ups of owned, un-maxed lines; a maxed line is never offered. _Avoid_: menu, loot table, choice wheel.
 
 **Feast**: A boss-shed reward corpse that never decays, dropped at chunk breaks and at a miniboss death; the death feast is big enough to jump the grave's size. _Avoid_: bonus, health pack, jackpot.
 
@@ -40,13 +42,13 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 ### The arsenal
 
-**Weapon line**: One of the upgradable weapon systems, leveled one to five by drops. A weapon line owns its own properties: how it fires, whether the run starts with it, and how its levels grow. v1 ships four, the soul stream, Territory, the wisps and the bell, and the pool is open by design. Each level must look different on screen. Short form "line" is fine once the term is established in a passage. _Avoid_: gun, upgrade track, skill.
+**Weapon line**: One of the upgradable weapon systems, leveled one to five by drops. A weapon line owns its own properties: how it fires, whether the run starts with it, and how its levels grow. v1 ships four, the skull stream, Territory, the wisps and the bell, and the pool is open by design. Each level must look different on screen. Short form "line" is fine once the term is established in a passage. _Avoid_: gun, upgrade track, skill.
 
 **Firing trigger**: How a weapon line fires: always-on, on each swallow, or on its own timer. A property each line owns, never a category of lines. _Avoid_: floor line, burst line, passive weapon, active weapon, proc.
 
-**Birthright**: The weapon lines a run starts with, currently the soul stream and Territory. Damage at the size floor strips levels back to it. _Avoid_: starting loadout, base weapons.
+**Birthright**: The weapon line a run starts with, the skull stream at level 1. Damage at the size floor strips levels back to it. _Avoid_: starting loadout, base weapons.
 
-**Soul stream**: Skulls pouring straight up out of the grave's mouth, in distinct parallel streams from mounts across its width, surging after each swallow. It never homes. _Avoid_: main gun, vulcan, primary fire.
+**Skull stream**: Skulls pouring straight up out of the grave's mouth, in distinct parallel streams from mounts across its width, surging after each swallow. It never homes. Renamed from the soul stream 2026-08-31; the old name is unclaimed, not banned, and the code and tape identifier follow the rename. _Avoid_: main gun, vulcan, primary fire.
 
 **Territory**: Ground the grave claims ahead of itself: on its own clock the line tears the earth open over the densest knot of mobs ahead of the grave, and after a short opening beat grasping hands pull, slow and pulse damage into any mob whose body is over them. Levels buy area and control strength, the pull, the slow and the pace of the dwell pulses, so capability reads as bigger ground that is harder to leave. Its job is reclaiming space when overwhelmed, never a big damage number, and the tearing and the hands are expression, not identity (ADR 0044). _Avoid_: zone, aura, trap, minefield, area denial.
 
@@ -56,7 +58,11 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Swallow chime**: The baseline sound and juice of every swallow, firing from the very first swallow regardless of loadout, so the early minutes are never silent. _Avoid_: eat-chime, pickup sound.
 
-**Belch**: The one button. It vomits the full reservoir as a screen-clearing eruption: every mob-fire shot cancelled, big boss damage, no boss push. It fires only at a full reservoir. _Avoid_: bomb, ult, special, screen clear.
+**Belch**: The one button. It vomits the full reservoir in two scopes at once, the gas and the burst. It fires only at a full reservoir. _Avoid_: bomb, ult, special, screen clear.
+
+**Gas**: The belch's field-wide half: it smothers every mob-fire shot on the field, boss patterns included, and kills nothing. _Avoid_: smoke, cloud, bullet clear.
+
+**Burst**: The belch's local half: the eruption that kills the mobs within a radius of the grave, lands the boss chunk when the boss is inside it, and never pushes a boss. _Avoid_: explosion, nova, wipe.
 
 **Reservoir**: The capped belch charge, filled by swallows. Charge past full visibly splashes and wastes, so belching is the greedy play. _Avoid_: meter, gauge, mana, energy.
 
@@ -64,7 +70,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Storm**: The player's own airborne projectiles at saturation, the bullet heaven the player builds. Mob fire is never the storm. _Avoid_: bullet spam, DPS, firepower.
 
-**Surge**: The soul stream's answer to a swallow: a fixed number of extra volleys at a shortened interval, never a damage bonus and never a time window. One swallow buys one burst, and a swallow chain overwrites an unspent one rather than banking a queue. _Avoid_: buff, haste, frenzy.
+**Surge**: The skull stream's answer to a swallow: a fixed number of extra volleys at a shortened interval, never a damage bonus and never a time window. One swallow buys one surge, and a swallow chain overwrites an unspent one rather than banking a queue. _Avoid_: buff, haste, frenzy.
 
 **Toll**: One firing of the bell, on its own clock and never bought by a swallow. _Avoid_: pulse, tick, cast.
 
@@ -110,7 +116,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Drain-out**: The deliberate spawn silence before a boss, letting the field empty so the boss arrives alone. _Avoid_: lull, break, intermission.
 
-**The Wall**: The feast wave: an edge-to-edge curtain of trash launched by the miniboss's death, deliberately oversized as the loaded belch's target. _Avoid_: swarm wave, horde.
+**The Wall**: The feast wave: an edge-to-edge curtain of trash launched by the miniboss's death. _Avoid_: swarm wave, horde.
 
 **Stage**: The authored content from first row to final boss; a run is one playthrough of it. _Avoid_: level, map, world.
 
