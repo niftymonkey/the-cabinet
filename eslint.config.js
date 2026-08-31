@@ -11,6 +11,7 @@ export default defineConfig([
     '**/node_modules/**',
     '**/playwright-report/**',
     '**/references/**',
+    'scripts/roadmap/**',
     '**/test-results/**',
   ]),
   eslint.configs.recommended,
