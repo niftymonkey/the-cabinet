@@ -1,0 +1,778 @@
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,900&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+  :root {
+    --ground:    #EDECE4;
+    --surface:   #FAF9F3;
+    --surface-2: #E3E1D5;
+    --ink:       #17201B;
+    --ink-2:     #4A574F;
+    --ink-3:     #7C8880;
+    --rule:      #D0CDBE;
+    --rule-soft: #E1DED1;
+    --line:      #B2AE9C;
+
+    --now:       #8A6110;  --now-bg:   #F6E9C2;  --now-line:   #C1932A;  --now-wash:  #FBF3DE;
+    --next:      #305F73;  --next-bg:  #D8E9EF;  --next-line:  #669AAD;  --next-wash: #EAF3F6;
+    --after:     #5E5D76;  --after-bg: #E3E2EA;  --after-line: #9391A8;  --after-wash:#EFEEF3;
+    --met:       #416B55;  --met-bg:   #DAE7DE;  --met-line:   #74997F;  --met-wash:  #EBF2ED;
+    --open:      #963044;  --open-bg:  #F2D8DD;  --open-line:  #C0697A;  --open-wash: #F8EAEE;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:    #0B100F;
+      --surface:   #151D1A;
+      --surface-2: #1D2723;
+      --ink:       #E9EAE3;
+      --ink-2:     #A5B1AA;
+      --ink-3:     #6C7A73;
+      --rule:      #29352F;
+      --rule-soft: #1F2B27;
+      --line:      #45564F;
+
+      --now:   #EAC367;  --now-bg:   #302713;  --now-line:   #A8802A;  --now-wash:  #1F1B0E;
+      --next:  #86C6D6;  --next-bg:  #12272E;  --next-line:  #3D6F7E;  --next-wash: #0F1D22;
+      --after: #B0AEC3;  --after-bg: #22212B;  --after-line: #5C5A72;  --after-wash:#191820;
+      --met:   #8CB598;  --met-bg:   #182A20;  --met-line:   #446B50;  --met-wash:  #121F18;
+      --open:  #E8869A;  --open-bg:  #311B21;  --open-line:  #8C3F51;  --open-wash: #22141A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:    #0B100F;
+    --surface:   #151D1A;
+    --surface-2: #1D2723;
+    --ink:       #E9EAE3;
+    --ink-2:     #A5B1AA;
+    --ink-3:     #6C7A73;
+    --rule:      #29352F;
+    --rule-soft: #1F2B27;
+    --line:      #45564F;
+
+    --now:   #EAC367;  --now-bg:   #302713;  --now-line:   #A8802A;  --now-wash:  #1F1B0E;
+    --next:  #86C6D6;  --next-bg:  #12272E;  --next-line:  #3D6F7E;  --next-wash: #0F1D22;
+    --after: #B0AEC3;  --after-bg: #22212B;  --after-line: #5C5A72;  --after-wash:#191820;
+    --met:   #8CB598;  --met-bg:   #182A20;  --met-line:   #446B50;  --met-wash:  #121F18;
+    --open:  #E8869A;  --open-bg:  #311B21;  --open-line:  #8C3F51;  --open-wash: #22141A;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* ============== thin bar ============== */
+
+  .bar {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 14px; height: 46px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .bar::-webkit-scrollbar { display: none; }
+
+  .brand { font-family: "Fraunces", Georgia, serif; font-weight: 900; font-size: 16px; letter-spacing: -.01em; white-space: nowrap; }
+  .brand b { color: var(--ink-3); font-weight: 600; }
+  .score { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .score b { color: var(--ink-2); }
+
+  .keys { display: flex; gap: 5px; }
+  .key {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 7px; border-radius: 3px; border: 1px solid; white-space: nowrap;
+  }
+  .key i { width: 7px; height: 7px; border-radius: 50%; display: block; }
+  .k-now   { background: var(--now-bg);   color: var(--now);   border-color: var(--now-line); }   .k-now i   { background: var(--now); }
+  .k-next  { background: var(--next-bg);  color: var(--next);  border-color: var(--next-line); }  .k-next i  { background: var(--next); }
+  .k-after { background: var(--after-bg); color: var(--after); border-color: var(--after-line); } .k-after i { background: var(--after); }
+  .k-open  { background: var(--open-bg);  color: var(--open);  border-color: var(--open-line); }  .k-open i  { background: var(--open); }
+
+  .spacer { flex: 1 1 auto; min-width: 8px; }
+
+  .ctl { display: flex; align-items: center; gap: 4px; }
+  .ctl button {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11.5px; font-weight: 600; color: var(--ink-2);
+    background: var(--surface-2); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 5px 9px; cursor: pointer; line-height: 1; white-space: nowrap;
+  }
+  .ctl button:hover { color: var(--ink); border-color: var(--ink-3); }
+  .ctl button[aria-current="true"] { color: var(--ink); border-color: var(--ink-3); background: var(--surface); }
+  .ctl button:focus-visible { outline: 2px solid var(--now-line); outline-offset: 2px; }
+  .ctl .pct { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: var(--ink-3); min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }
+  .sep { width: 1px; height: 20px; background: var(--rule); }
+
+  /* ============== viewport ============== */
+
+  #vp {
+    flex: 1 1 auto; position: relative; overflow: hidden;
+    cursor: grab; touch-action: none;
+    background: radial-gradient(circle at 1px 1px, var(--rule-soft) 1px, transparent 0) 0 0 / 24px 24px;
+  }
+  #vp, #vp * { user-select: none; -webkit-user-select: none; -moz-user-select: none; }
+  #vp.dragging { cursor: grabbing; }
+  #vp:focus-visible { outline: 2px solid var(--now-line); outline-offset: -3px; }
+
+  /* pan layer: translate only, never scaled, so nothing is bitmap stretched */
+  #pan { position: absolute; top: 0; left: 0; }
+
+  /* zoom is a real relayout: this font-size drives every dimension below it */
+  #board {
+    position: relative; font-size: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 5.5em; padding: 2em;
+  }
+
+  /* ============== shared bits ============== */
+
+  .ptitle { font-family: "Fraunces", Georgia, serif; font-weight: 900; font-size: 1.6em; letter-spacing: -.012em; margin: 0; }
+  .psub { font-size: .82em; color: var(--ink-2); margin: .5em 0 0; line-height: 1.5; max-width: 46em; }
+
+  .stamp {
+    margin-top: 1.6em; padding-top: .8em; border-top: 1px solid var(--rule);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .64em; color: var(--ink-3); line-height: 1.6;
+  }
+
+  /* ============== the road ============== */
+
+  .road { --colw: 14.6em; --gap: 1.3em; }
+  .roadw { width: calc(5 * var(--colw) + 4 * var(--gap)); }
+
+  .crownw { display: flex; justify-content: center; }
+  .crown {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 900; font-size: 1.7em; letter-spacing: .05em;
+    background: var(--met-bg); border: .09em solid var(--met-line); color: var(--met);
+    border-radius: .22em; padding: .5em 1.4em; text-align: center;
+  }
+  .crown small {
+    display: block; font-family: "Instrument Sans", sans-serif;
+    font-weight: 500; font-size: .42em; letter-spacing: 0; line-height: 1.35;
+    margin-top: .3em; opacity: .88;
+  }
+
+  .stem { display: flex; justify-content: center; }
+  .stem i { display: block; width: 0; height: 1.5em; border-left: .125em solid var(--line); }
+
+  .fan { position: relative; height: 1.6em; }
+  .fbar { position: absolute; top: 0; left: calc(var(--colw) / 2); right: calc(var(--colw) / 2); height: 0; border-top: .125em solid var(--line); }
+  .fstub {
+    position: absolute; top: 0; height: 1.6em; width: 0;
+    border-left: .125em solid var(--line);
+    left: calc(var(--colw) / 2 + var(--i) * (var(--colw) + var(--gap)));
+    margin-left: -.0625em;
+  }
+
+  .cols { display: flex; gap: var(--gap); align-items: flex-start; }
+  .col { width: var(--colw); position: relative; display: flex; flex-direction: column; gap: .7em; }
+  .col .spine { position: absolute; left: 50%; top: 0; bottom: 0; width: 0; border-left: .125em solid var(--line); margin-left: -.0625em; }
+
+  .thead, .card { position: relative; z-index: 1; }
+
+  .thead {
+    font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: 1.05em;
+    background: var(--surface); border: .11em solid var(--ink-3);
+    border-radius: .28em; padding: .5em .6em; text-align: center;
+  }
+  .thead small { display: block; font-family: "Instrument Sans", sans-serif; font-weight: 500; font-size: .66em; color: var(--ink-3); letter-spacing: 0; margin-top: .1em; }
+
+  .card { position: relative; border-radius: .28em; border: .125em solid var(--rule); background: var(--surface-2); padding: .6em .7em .65em; text-align: center; }
+  .card .what { font-size: .95em; font-weight: 700; margin-top: .15em; line-height: 1.2; }
+  .card .who { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .62em; margin-top: .2em; opacity: .78; }
+  .card .note { font-size: .7em; margin-top: .3em; line-height: 1.35; opacity: .82; }
+  .chead { display: flex; align-items: center; justify-content: space-between; gap: .5em; }
+  .card .when { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .6em; letter-spacing: .12em; text-transform: uppercase; }
+  .tix {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .62em; font-weight: 600; letter-spacing: .02em;
+    color: inherit; text-decoration: none;
+    border: 1px solid currentColor; border-radius: .3em;
+    padding: .15em .4em; opacity: .68; white-space: nowrap;
+    pointer-events: auto; cursor: pointer;
+  }
+  a.tix:hover { opacity: 1; background: var(--tix-fill, var(--ink)); color: var(--surface); border-color: var(--tix-fill, var(--ink)); }
+  a.tix:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; opacity: 1; }
+  .tix.na { border-style: dashed; opacity: .45; cursor: default; }
+
+  #roadInner { position: relative; }
+  #wires { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; overflow: visible; }
+
+  /* Pointing at one card quiets the rest. The quiet is a veil laid OVER each
+     card in the board's own ground colour, never opacity on the card itself:
+     a see-through card shows the structure lines running behind it, which
+     reads as the skeleton jumping to the front. */
+  .card { cursor: pointer; }
+  .road.quieted .card::after {
+    content: ""; position: absolute; inset: -.14em; border-radius: .32em;
+    background: var(--ground); opacity: .82; pointer-events: none; z-index: 2;
+  }
+  .road.quieted .card.opens::after,
+  .road.quieted .card.blocks::after,
+  .road.quieted .card.here::after { display: none; }
+
+  /* The structure lines step back too, so the only bright lines are the ones
+     that answer the question you just asked. */
+  .road.quieted .col .spine,
+  .road.quieted .fbar, .road.quieted .fstub, .road.quieted .stem i { opacity: .22; }
+  .road.quieted .thead, .road.quieted .crown, .road.quieted .roadnote,
+  .road.quieted .divider, .road.quieted .built { opacity: .34; }
+
+  .road.quieted .card.here { box-shadow: 0 0 0 .13em currentColor, 0 .8em 1.8em -1em rgba(0,0,0,.5); }
+  .road.pinned .card.here  { box-shadow: 0 0 0 .2em currentColor, 0 .8em 1.8em -1em rgba(0,0,0,.5); }
+
+  .pinnote {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; color: var(--now); white-space: nowrap;
+    border: 1px solid var(--now-line); background: var(--now-bg);
+    border-radius: 3px; padding: 3px 8px;
+  }
+  .pinnote:empty { display: none; }
+
+  .roadnote {
+    font-size: .74em; color: var(--ink-3); text-align: center;
+    margin-top: .9em; line-height: 1.45;
+  }
+  .roadnote b { color: var(--ink-2); font-weight: 600; }
+
+  .c-now   { background: var(--now-bg);   border-color: var(--now-line);   color: var(--now);   --tix-fill: var(--now); }
+  .c-next  { background: var(--next-bg);  border-color: var(--next-line);  color: var(--next);  --tix-fill: var(--next); }
+  .c-after { background: var(--after-bg); border-color: var(--after-line); color: var(--after); --tix-fill: var(--after); }
+  .c-open  { background: var(--open-bg);  border-color: var(--open-line);  color: var(--open); border-style: dashed; }
+
+  .divider { margin-top: 2.2em; }
+  .divider .say { display: flex; align-items: center; gap: .9em; }
+  .divider .say i { flex: 1; height: 0; border-top: 1px solid var(--rule); display: block; }
+  .divider .say span { font-size: .82em; color: var(--ink-2); white-space: nowrap; }
+  .divider .say b { color: var(--ink); font-weight: 700; }
+
+  .built { margin-top: 1.1em; }
+  .bhead {
+    font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: 1em; color: var(--met);
+    display: inline-block; background: var(--met-bg); border: .11em solid var(--met-line);
+    border-radius: .28em; padding: .35em .9em; margin-bottom: .8em;
+  }
+  .bgrid { display: flex; flex-wrap: wrap; gap: .7em; }
+  .bbox { flex: 1 1 17em; min-width: 16em; border: 1px solid var(--met-line); border-radius: .28em; background: var(--surface); padding: .6em .7em .65em; display: flex; flex-direction: column; }
+  .bbox h4 { font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: .88em; margin: 0; color: var(--ink); line-height: 1.25; }
+  .bbox p { margin: .3em 0 0; font-size: .72em; color: var(--ink-2); line-height: 1.38; }
+  .bbox .src { margin: auto 0 0; padding-top: .45em; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .62em; color: var(--ink-3); }
+
+  /* ============== promises ============== */
+
+  .promises { width: 61em; }
+
+  .statekey { display: flex; gap: .8em; margin: 1.1em 0 0; }
+  .skbox { flex: 1 1 0; border-radius: .28em; border: .11em solid; padding: .55em .7em .65em; }
+  .skbox .w { font-family: "Fraunces", Georgia, serif; font-weight: 900; font-size: 1em; letter-spacing: .02em; }
+  .skbox .d { font-size: .72em; margin-top: .2em; line-height: 1.4; color: var(--ink-2); }
+  .sk-met  { background: var(--met-wash);  border-color: var(--met-line); }  .sk-met .w  { color: var(--met); }
+  .sk-part { background: var(--now-wash);  border-color: var(--now-line); }  .sk-part .w { color: var(--now); }
+  .sk-open { background: var(--open-wash); border-color: var(--open-line); } .sk-open .w { color: var(--open); }
+
+  /* Shipped and wrong is not a shade of not-started. It inverts instead of
+     borrowing a fourth hue, so it is the only solid-filled chip on the page. */
+  .sk-fail { background: var(--open); border-color: var(--open); }
+  .sk-fail .w { color: var(--surface); }
+  .sk-fail .d { color: var(--surface); opacity: .92; }
+
+  .sect.failing { border-color: var(--open-line); background: var(--open-wash); }
+  .sect.failing .secthead h3 { color: var(--open); }
+  .failrow { display: flex; flex-direction: column; gap: .5em; }
+  .failcard { background: var(--surface); border: .11em solid var(--open-line); border-radius: .28em; padding: .5em .65em .6em; }
+  .failcard .t { font-size: .84em; font-weight: 700; line-height: 1.28; }
+  .failcard .n { font-size: .72em; color: var(--ink-2); line-height: 1.42; margin-top: .24em; }
+  .failtag {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .58em; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--surface); background: var(--open);
+    border-radius: .24em; padding: .18em .45em; margin-right: .55em; vertical-align: .14em;
+  }
+
+  .sects { display: flex; flex-direction: column; gap: 1.1em; margin-top: 1.3em; }
+
+  .sect { border: .11em solid var(--rule); border-radius: .34em; background: var(--surface); padding: .9em 1em 1em; }
+  .secthead { display: flex; align-items: baseline; gap: .8em; margin-bottom: .8em; }
+  .secthead h3 { font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: 1.05em; margin: 0; }
+  .secthead .from { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .6em; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .secthead .meter { margin-left: auto; display: flex; height: .45em; width: 9em; border-radius: .3em; overflow: hidden; background: var(--surface-2); }
+  .secthead .meter i { display: block; }
+  .m-met { background: var(--met-line); } .m-part { background: var(--now-line); } .m-open { background: var(--open-line); }
+
+  .bundles { display: flex; gap: .8em; align-items: stretch; }
+  .bundle { flex: 1 1 0; min-width: 0; border-radius: .3em; border: .11em solid; padding: .5em .55em .6em; display: flex; flex-direction: column; }
+  .bl-met  { background: var(--met-wash);  border-color: var(--met-line); }
+  .bl-part { background: var(--now-wash);  border-color: var(--now-line); }
+  .bl-open { background: var(--open-wash); border-color: var(--open-line); }
+
+  .blhead {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .6em; letter-spacing: .14em; text-transform: uppercase;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 .2em .5em;
+  }
+  .blhead b { font-family: "Fraunces", Georgia, serif; font-size: 1.5em; letter-spacing: 0; }
+  .bl-met  .blhead { color: var(--met); }
+  .bl-part .blhead { color: var(--now); }
+  .bl-open .blhead { color: var(--open); }
+
+  .chips { display: flex; flex-direction: column; gap: .38em; }
+  .pchip { background: var(--surface); border: 1px solid var(--rule); border-radius: .24em; padding: .38em .5em .42em; }
+  .pchip .t { font-size: .76em; font-weight: 600; line-height: 1.28; color: var(--ink); }
+  .pchip .n { font-size: .64em; color: var(--ink-3); line-height: 1.35; margin-top: .18em; }
+  .bl-met  .pchip { border-color: var(--met-line); }
+  .bl-part .pchip { border-color: var(--now-line); }
+  .bl-open .pchip { border-color: var(--open-line); }
+
+  /* ============== fog ============== */
+
+  .fog { width: 61em; }
+  .fgroups { display: flex; flex-wrap: wrap; gap: 1em; margin-top: 1.3em; align-items: flex-start; }
+
+  .fgroup { border-radius: .34em; border: .11em solid var(--next-line); background: var(--next-wash); padding: .8em .85em .9em; }
+  .fgroup.g-wide { width: 100%; }
+  .fgroup.g-half { width: calc(50% - .5em); }
+  .fgroup.g-cand { border-color: var(--open-line); background: var(--open-wash); }
+
+  .fghead { display: flex; align-items: baseline; gap: .6em; margin-bottom: .7em; }
+  .fghead h3 { font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: 1em; margin: 0; color: var(--next); }
+  .fgroup.g-cand .fghead h3 { color: var(--open); }
+  .fghead .count {
+    font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .6em;
+    border: 1px solid var(--next-line); color: var(--next);
+    border-radius: 1em; padding: .18em .55em;
+  }
+  .fgroup.g-cand .fghead .count { border-color: var(--open-line); color: var(--open); }
+  .fghead .how { font-size: .68em; color: var(--ink-2); margin-left: auto; text-align: right; line-height: 1.35; max-width: 20em; }
+
+  .fcards { display: flex; gap: .6em; flex-wrap: wrap; }
+  .fcard { flex: 1 1 15em; min-width: 13em; background: var(--surface); border: 1px solid var(--rule); border-radius: .26em; padding: .55em .65em .65em; }
+  .fcard h4 { font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: .88em; margin: 0; line-height: 1.25; }
+  .fcard p { margin: .3em 0 0; font-size: .7em; color: var(--ink-2); line-height: 1.42; }
+  .fcard .by { margin: .35em 0 0; font-size: .64em; color: var(--ink-3); }
+  .fcard .by b { color: var(--ink-2); font-weight: 600; }
+
+  .offbox { width: 100%; border: 1px dashed var(--rule); border-radius: .34em; padding: .8em .9em .9em; margin-top: .2em; }
+  .offbox h3 { font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: 1em; margin: 0 0 .5em; color: var(--ink-3); }
+  .offlist { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .5em; }
+  .offlist li { flex: 1 1 17em; font-size: .72em; color: var(--ink-2); line-height: 1.4; background: var(--surface); border: 1px solid var(--rule-soft); border-radius: .24em; padding: .45em .6em; }
+  .offlist li b { color: var(--ink); font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .sectfoot { font-size:.72em; color:var(--ink-3); line-height:1.45; margin:.7em 0 0; }
+</style>
+
+<div class="bar">
+  <div class="brand">{{TITLE}} <b>· {{BRAND_SUFFIX}}</b></div>
+  <div class="score"><b>{{KEPT}} / {{TOTAL}}</b> promises kept</div>
+  <div class="keys">
+    <span class="key k-now"><i></i>Now</span>
+    <span class="key k-next"><i></i>Next</span>
+    <span class="key k-after"><i></i>After</span>
+  </div>
+  <span class="pinnote" id="pinnote"></span>
+  <div class="spacer"></div>
+  <div class="ctl">
+    <button data-go="road">Road</button>
+    <button data-go="promises">Promises</button>
+    <button data-go="fog">Fog</button>
+    <span class="sep"></span>
+    <button id="zout" aria-label="Zoom out">&minus;</button>
+    <span class="pct" id="pct">100%</span>
+    <button id="zin" aria-label="Zoom in">+</button>
+    <button id="fitall">All</button>
+  </div>
+</div>
+
+<div id="vp" tabindex="0" role="group" aria-label="Roadmap. Drag to pan, scroll to zoom.">
+  <div id="pan">
+    <div id="board">
+
+      <!-- ================= THE ROAD ================= -->
+      <div class="road" id="r-road">
+        <div class="roadw" id="roadInner">
+          <svg id="wires" aria-hidden="true"></svg>
+
+          <div class="crownw">
+            <div class="crown">V1<small>{{CROWN_SUB}}</small></div>
+          </div>
+          <div class="roadnote"><b>Colour says when.</b> Point at any card to see what closing it opens, and what is standing in its way. A card's height inside its column is only reading order.</div>
+          <div class="stem"><i></i></div>
+
+          <div class="fan roadw">
+            <div class="fbar"></div>
+            <div class="fstub" style="--i:0"></div>
+            <div class="fstub" style="--i:1"></div>
+            <div class="fstub" style="--i:2"></div>
+            <div class="fstub" style="--i:3"></div>
+            <div class="fstub" style="--i:4"></div>
+          </div>
+
+          <div class="cols">
+{{COLS}}
+          </div>
+
+          <div class="divider">
+            <div class="say">
+              <span>Above this line: <b>still to build.</b></span>
+              <i></i>
+              <span>Below this line: <b>already built and merged.</b></span>
+            </div>
+          </div>
+
+          <div class="built">
+            <div class="bhead">Already built</div>
+            <div class="bgrid">
+{{BUILT_BOXES}}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ================= PROMISES ================= -->
+      <div class="promises" id="r-promises">
+        <h2 class="ptitle">How far is V1?</h2>
+        <p class="psub">V1 is not one thing, it is {{TOTAL_WORD}} written promises from three places. Each one is in one of three states. Underneath them sit about seventy further rules from the ADRs, which are not counted here because they already live in the ADRs; the {{FAIL_COUNT_WORD}} of those that shipped and are wrong get their own band at the bottom.</p>
+
+        <div class="statekey">
+{{STATEKEY}}
+</div>
+
+        <div class="sects">
+{{PROMISE_SECTS}}
+        </div>
+
+        <div class="stamp">
+{{STAMP}}
+</div>
+      </div>
+
+      <!-- ================= FOG ================= -->
+      <div class="fog" id="r-fog">
+        <h2 class="ptitle">The fog</h2>
+        <p class="psub">{{FOG_COUNT_WORD}} things nobody knows yet, grouped by the kind of thing that would settle each one. None of this has been turned into work by guessing. The red group is the one that cannot become a ticket until somebody goes and finds out.</p>
+
+        <div class="fgroups">
+{{FOG_GROUPS}}
+
+          <div class="offbox">
+            <h3>Deliberately not on this road</h3>
+            <ul class="offlist">
+{{OFFLIST}}
+</ul>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var vp = document.getElementById('vp');
+  var pan = document.getElementById('pan');
+  var board = document.getElementById('board');
+  var pct = document.getElementById('pct');
+  var navs = Array.prototype.slice.call(document.querySelectorAll('[data-go]'));
+
+  var BASE = 16, MIN = 0.2, MAX = 3;
+  var scale = 1, tx = 0, ty = 0, queued = false;
+
+  // Zoom is a relayout, not a composited scale: the board's font-size drives
+  // every dimension below it, so text is redrawn at the new size and stays sharp.
+  function paint() {
+    queued = false;
+    board.style.fontSize = (BASE * scale).toFixed(3) + 'px';
+    pan.style.transform = 'translate(' + Math.round(tx) + 'px,' + Math.round(ty) + 'px)';
+    pct.textContent = Math.round(scale * 100) + '%';
+  }
+  function schedule() { if (!queued) { queued = true; requestAnimationFrame(paint); } }
+  function clamp(v) { return Math.min(MAX, Math.max(MIN, v)); }
+  function relayout() { board.style.fontSize = (BASE * scale).toFixed(3) + 'px'; return board.offsetWidth; }
+
+  function mark(id) {
+    navs.forEach(function (b) {
+      if (id && b.getAttribute('data-go') === id) b.setAttribute('aria-current', 'true');
+      else b.removeAttribute('aria-current');
+    });
+  }
+
+  function zoomAt(cx, cy, next) {
+    next = clamp(next);
+    if (Math.abs(next - scale) < 1e-4) return;
+    tx = cx - (cx - tx) * (next / scale);
+    ty = cy - (cy - ty) * (next / scale);
+    scale = next;
+    mark(null);
+    schedule();
+  }
+
+  // fit any element, both directions, and centre it
+  function frame(el, id) {
+    var vw = vp.clientWidth, vh = vp.clientHeight, pad = 34;
+    scale = 1; relayout();
+    var w = el.offsetWidth, h = el.offsetHeight;
+    if (!w || !h) return;
+    scale = clamp(Math.min((vw - pad * 2) / w, (vh - pad * 2) / h));
+    relayout();
+    tx = -el.offsetLeft + (vw - el.offsetWidth) / 2;
+    ty = -el.offsetTop + (vh - el.offsetHeight) / 2;
+    mark(id || null);
+    paint();
+  }
+
+  function goTo(id) {
+    var el = document.getElementById('r-' + id);
+    if (el) frame(el, id);
+  }
+  function fitAll() { frame(board, null); }
+
+  navs.forEach(function (b) {
+    b.addEventListener('click', function () { goTo(b.getAttribute('data-go')); });
+  });
+  document.getElementById('zin').addEventListener('click', function () {
+    zoomAt(vp.clientWidth / 2, vp.clientHeight / 2, scale * 1.25);
+  });
+  document.getElementById('zout').addEventListener('click', function () {
+    zoomAt(vp.clientWidth / 2, vp.clientHeight / 2, scale / 1.25);
+  });
+  document.getElementById('fitall').addEventListener('click', fitAll);
+
+  vp.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var r = vp.getBoundingClientRect();
+    var f = Math.pow(0.999, e.deltaY * (e.ctrlKey ? 4 : 1.7));
+    zoomAt(e.clientX - r.left, e.clientY - r.top, scale * f);
+  }, { passive: false });
+
+  vp.addEventListener('dblclick', function (e) {
+    var r = vp.getBoundingClientRect();
+    zoomAt(e.clientX - r.left, e.clientY - r.top, scale * 1.6);
+  });
+
+  var moved = 0;
+  vp.addEventListener('click', function (e) {
+    if (moved > 6 && e.target.closest && e.target.closest('a')) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+
+  var pts = {}, last = null, pinch = null;
+
+  vp.addEventListener('pointerdown', function (e) {
+    pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(pts);
+    if (ids.length === 1) { last = { x: e.clientX, y: e.clientY }; moved = 0; vp.classList.add('dragging'); }
+    else if (ids.length === 2) {
+      var a = pts[ids[0]], b = pts[ids[1]];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), s: scale };
+      last = null;
+    }
+  });
+
+  window.addEventListener('pointermove', function (e) {
+    if (!pts[e.pointerId]) return;
+    pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(pts);
+    if (ids.length === 2 && pinch) {
+      var a = pts[ids[0]], b = pts[ids[1]];
+      var d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch.d > 0) {
+        var r = vp.getBoundingClientRect();
+        zoomAt((a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top, pinch.s * (d / pinch.d));
+      }
+      return;
+    }
+    if (last) {
+      moved += Math.abs(e.clientX - last.x) + Math.abs(e.clientY - last.y);
+      tx += e.clientX - last.x;
+      ty += e.clientY - last.y;
+      last = { x: e.clientX, y: e.clientY };
+      mark(null);
+      schedule();
+    }
+  });
+
+  function release(e) {
+    delete pts[e.pointerId];
+    var ids = Object.keys(pts);
+    if (ids.length < 2) pinch = null;
+    if (ids.length === 0) { last = null; vp.classList.remove('dragging'); }
+    else if (ids.length === 1) { last = { x: pts[ids[0]].x, y: pts[ids[0]].y }; }
+  }
+  window.addEventListener('pointerup', release);
+  window.addEventListener('pointercancel', release);
+
+  vp.addEventListener('keydown', function (e) {
+    var cx = vp.clientWidth / 2, cy = vp.clientHeight / 2, step = 70;
+    if (e.key === '+' || e.key === '=') { zoomAt(cx, cy, scale * 1.25); e.preventDefault(); }
+    else if (e.key === '-' || e.key === '_') { zoomAt(cx, cy, scale / 1.25); e.preventDefault(); }
+    else if (e.key === '0') { fitAll(); e.preventDefault(); }
+    else if (e.key === '1') { goTo('road'); e.preventDefault(); }
+    else if (e.key === '2') { goTo('promises'); e.preventDefault(); }
+    else if (e.key === '3') { goTo('fog'); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft')  { tx += step; schedule(); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { tx -= step; schedule(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp')    { ty += step; schedule(); e.preventDefault(); }
+    else if (e.key === 'ArrowDown')  { ty -= step; schedule(); e.preventDefault(); }
+  });
+
+  // ---- relationships, drawn the way the wayfinder map draws them ----
+  // Lines exist only for the card you are pointing at. Everything else quiets.
+  // OPENS: what closing this card sets free. BLOCKS: what is in this card's way.
+  // Every arrowhead lands on the ticket that is waiting, whichever way it runs.
+  var BLOCKED_BY = {
+{{BLOCKED_BY}}
+  var OPENS = {};
+  Object.keys(BLOCKED_BY).forEach(function (k) {
+    BLOCKED_BY[k].forEach(function (b) { (OPENS[b] = OPENS[b] || []).push(k); });
+  });
+
+  var roadEl = document.querySelector('.road');
+  var wires = document.getElementById('wires');
+  var host = document.getElementById('roadInner');
+  var pinnedCard = null;
+  var note = document.getElementById('pinnote');
+
+  function allCards() { return Array.prototype.slice.call(document.querySelectorAll('.road .card')); }
+
+  function drawLines(id) {
+    if (!wires || !host) return;
+    wires.textContent = '';
+    if (!id) { wires.setAttribute('width', 0); wires.setAttribute('height', 0); return; }
+
+    var u = parseFloat(getComputedStyle(board).fontSize) || 16;
+    var H = host.getBoundingClientRect();
+    function box(el) {
+      var r = el.getBoundingClientRect();
+      return { x: (r.left - H.left) / u, y: (r.top - H.top) / u, w: r.width / u, h: r.height / u };
+    }
+    var src = document.getElementById(id);
+    if (!src) return;
+    var a = box(src);
+
+    var out = [];
+
+    // One line per relationship, and no two ever lie on top of each other.
+    // Siblings at the same height arch over the top, each arch lifted by how
+    // far it travels, so a short hop nests inside a long one. Anything on a
+    // different row gets the map's own S-curve between the facing edges.
+    function arc(kind, other, i, n) {
+      var b = box(other);
+      var down = kind === 'opens';
+      var from = down ? a : b, to = down ? b : a;
+      var fy = from.y + from.h / 2, ty = to.y + to.h / 2;
+      var spread = Math.min(from.w * 0.52, 3.6);
+      var fx = from.x + from.w / 2 + (n > 1 ? (i - (n - 1) / 2) * (spread / (n - 1 || 1)) : 0);
+      var tx = to.x + to.w / 2;
+      var d;
+
+      if (Math.abs(ty - fy) < 1.2) {
+        var top = Math.min(from.y, to.y);
+        var lift = 1.15 + Math.min(4.2, Math.abs(tx - fx) * 0.115);
+        var cy = top - lift;
+        d = 'M ' + fx.toFixed(2) + ',' + from.y.toFixed(2) +
+            ' C ' + fx.toFixed(2) + ',' + cy.toFixed(2) + ' ' + tx.toFixed(2) + ',' + cy.toFixed(2) +
+            ' ' + tx.toFixed(2) + ',' + to.y.toFixed(2);
+      } else {
+        var up = ty < fy;
+        var y1 = up ? from.y : from.y + from.h;
+        var y2 = up ? to.y + to.h : to.y;
+        var my = (y1 + y2) / 2;
+        var bow = (up ? -1 : 1) * Math.min(2.4, Math.abs(tx - fx) * 0.16);
+        d = 'M ' + fx.toFixed(2) + ',' + y1.toFixed(2) +
+            ' C ' + fx.toFixed(2) + ',' + (my + bow).toFixed(2) + ' ' +
+            tx.toFixed(2) + ',' + (my - bow).toFixed(2) + ' ' +
+            tx.toFixed(2) + ',' + y2.toFixed(2);
+      }
+
+      out.push('<path class="' + kind + '" d="' + d + '" stroke="var(--' + (down ? 'now' : 'next') +
+        '-line)" marker-end="url(#ah-' + kind + ')"' +
+        (down ? '' : ' stroke-dasharray="0.42 0.34"') + ' />');
+    }
+
+    var op = (OPENS[id] || []).filter(function (k) { return document.getElementById(k); });
+    var bl = (BLOCKED_BY[id] || []).filter(function (k) { return document.getElementById(k); });
+    op.forEach(function (k, i) { arc('opens', document.getElementById(k), i, op.length); });
+    bl.forEach(function (k, i) { arc('blocks', document.getElementById(k), i, bl.length); });
+
+    wires.setAttribute('viewBox', '0 0 ' + host.offsetWidth / u + ' ' + host.offsetHeight / u);
+    wires.style.width = (host.offsetWidth / u) + 'em';
+    wires.style.height = (host.offsetHeight / u) + 'em';
+    wires.innerHTML =
+      '<defs>' +
+      '<marker id="ah-opens" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="4.4" markerHeight="4.4" orient="auto">' +
+      '<path d="M0.5 1 L9 5 L0.5 9 z" fill="var(--now-line)"/></marker>' +
+      '<marker id="ah-blocks" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="4.4" markerHeight="4.4" orient="auto">' +
+      '<path d="M0.5 1 L9 5 L0.5 9 z" fill="var(--next-line)"/></marker>' +
+      '</defs><g fill="none" stroke-width="0.13" stroke-linecap="round">' + out.join('') + '</g>';
+  }
+
+  function select(id) {
+    var cards = allCards();
+    if (!id) {
+      roadEl.classList.remove('quieted', 'pinned');
+      note.textContent = '';
+      cards.forEach(function (el) { el.classList.remove('here', 'opens', 'blocks'); });
+      drawLines(null);
+      return;
+    }
+    var opens = OPENS[id] || [], blocks = BLOCKED_BY[id] || [];
+    roadEl.classList.add('quieted');
+    roadEl.classList.toggle('pinned', pinnedCard === id);
+    note.textContent = pinnedCard === id
+      ? 'pinned ' + (document.querySelector('#' + id + ' .tix') || {}).textContent + ' · click again or Esc to release'
+      : '';
+    cards.forEach(function (el) {
+      el.classList.toggle('here', el.id === id);
+      el.classList.toggle('opens', opens.indexOf(el.id) > -1);
+      el.classList.toggle('blocks', blocks.indexOf(el.id) > -1);
+    });
+    drawLines(id);
+  }
+
+  allCards().forEach(function (el) {
+    el.addEventListener('mouseenter', function () { if (!pinnedCard) select(el.id); });
+    el.addEventListener('click', function (e) {
+      if (moved > 6) return;
+      if (e.target.closest && e.target.closest('a')) return;   // the ticket link is its own thing
+      pinnedCard = (pinnedCard === el.id) ? null : el.id;
+      select(pinnedCard || el.id);
+    });
+  });
+  roadEl.addEventListener('mouseleave', function () { if (!pinnedCard) select(null); });
+  vp.addEventListener('click', function (e) {
+    if (moved > 6) return;
+    if (!e.target.closest || !e.target.closest('.card')) { pinnedCard = null; select(null); }
+  });
+  // on window, not the viewport: Escape has to work whether or not the board
+  // happens to hold focus
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && pinnedCard) { pinnedCard = null; select(null); }
+  });
+
+  window.addEventListener('resize', function () { goTo('road'); });
+
+  function start() { goTo('road'); }
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(start); }
+  start();
+})();
+</script>

@@ -14,3 +14,6 @@ test-results/
 # .prettierignore and eslint.config.js already exclude this folder; without the
 # line here a fresh clone would offer it up for commit.
 local/
+
+# Generated roadmap page and its build stamp, rebuilt from scripts/roadmap/v1.yaml.
+scripts/roadmap/build/

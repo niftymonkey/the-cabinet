@@ -23,6 +23,7 @@
     "eslint": "catalog:",
     "eslint-plugin-react-hooks": "catalog:",
     "globals": "catalog:",
+    "js-yaml": "^4.3.1",
     "prettier": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:"

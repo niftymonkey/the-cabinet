@@ -18,9 +18,13 @@ continue.md
 continue-*.md
 fork-*.md
 
-# The v1 roadmap's source, its build scripts and the page they generate. Local
-# iteration notes, excluded from git in .gitignore.
+# Local iteration notes and one-off verification instruments, excluded from git
+# in .gitignore.
 local/
+
+# The v1 roadmap's source, its build scripts and the page they generate. The
+# yaml and template are hand-shaped; prettier would churn both.
+scripts/roadmap/
 
 # Assetpack's cache and its output. Generated on every typecheck and build, and
 # git ignores all three (apps/hungry-grave/.gitignore).
