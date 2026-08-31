@@ -1025,6 +1025,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'skulls[].id': 'spawn identity, never mutated after spawn',
   'wisps[].id': 'spawn identity, never mutated after spawn',
   'patches[].id': 'spawn identity, never mutated after spawn',
+  'patches[].level':
+    'written once at the lay and never mutated, from a levels value the harness NaN-checks at its source every tick',
   ending: 'a run ending name or null, never a number',
 };
 

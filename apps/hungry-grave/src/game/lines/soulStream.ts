@@ -1,12 +1,11 @@
 // The soul stream: skulls pouring straight up out of the grave's mouth in
-// rigid fanned columns, always on from level 1, surging after every swallow
-// (ADR 0005).
+// distinct parallel streams from mounts across its width, always on from
+// level 1, surging after every swallow (ADR 0005, geometry per #79).
 
 import { createPool, SKULL_CAP, takeSlot } from '../caps';
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
-import { cos, normalize, sin } from '../math';
 import type { RunState } from '../run';
 
 interface Skull {
@@ -50,15 +49,6 @@ const STREAM_INTERVAL = 18;
 const SKULL_SPEED = 420 / TICK_HZ;
 
 /**
- * How far apart the columns stand, in degrees, symmetric about straight up. At
- * five columns the fan spans minus twelve to plus twelve, and twelve degrees off
- * vertical drifts a skull 128 units sideways over 600 units of travel, about a
- * quarter of the field's width, so the widest column still lands inside the
- * field from a centred grave and the fan reads as coverage rather than a spray.
- */
-const FAN_STEP_DEGREES = 6;
-
-/**
  * How many volleys one swallow buys at the shortened interval. Mark ruled the
  * shape on 2026-08-22: a fixed number of extra volleys, never a time window.
  *
@@ -93,24 +83,61 @@ const createSkullPool = (): Skull[] => {
   return createPool(SKULL_CAP, blankSkull);
 };
 
-const DEGREES_TO_RADIANS = Math.PI / 180;
+/**
+ * The fraction of the grave's size between adjacent mounts, so the storm's
+ * footprint breathes with growth. PROVISIONAL; the playtest judges the value,
+ * this comment owns the reasoning.
+ *
+ * The mouth's full width equals the size scalar (graveWidth at GRAVE_ASPECT 2),
+ * so the mouth's edge is half the size from the centre. At five columns the
+ * outer pair stands two steps out, 0.4 of the size, spanning 80% of the mouth
+ * with a tenth of the size spare each side: the storm still pours out of the
+ * hole rather than reading as hardpoints, and the outer pair never leaves the
+ * mouth. The tests hold the plan's looser bound, offset at most the grave's
+ * size.
+ *
+ * The standing-lane consequence the spec carries knowingly, in numbers: at a
+ * typical mid-run size of 45 (start 27, ceiling 67.5), adjacent streams stand
+ * 0.2 x 45 = 9 units apart centre to centre, and a skull is 8 wide, so the
+ * clear lane between adjacent streams is 1 unit. The widest mob, the revenant
+ * at half-width 13, needs 13 + 4 = 17 units clear of each neighbouring stream
+ * centre, a 34-unit gap, to stand between streams untouched, and no reachable
+ * size grants that (the ceiling grave's gap is 13.5). The standing room this
+ * geometry concedes is at the storm's flanks: parallel streams hold one width
+ * at every range, so everything beyond the outermost stream is never under
+ * the storm.
+ */
+const MOUNT_STEP_FRACTION = 0.2;
 
 /**
- * How far off straight up one column of a fan of this width stands, in degrees.
- * The columns straddle the centre, so an even count has none straight up and an
- * odd count has exactly one.
+ * How far from the grave's x one mount of a row of this many stands, in field
+ * units, at this grave size. The mounts straddle the centre, so an even count
+ * has none at the centre and an odd count has exactly one.
  */
-const columnAngle = (column: number, columns: number): number => {
-  return (column - (columns - 1) / 2) * FAN_STEP_DEGREES;
+const mountOffset = (column: number, columns: number, size: number): number => {
+  return (column - (columns - 1) / 2) * MOUNT_STEP_FRACTION * size;
 };
 
 /**
- * A skull put on the field at the mouth, flying one column of the fan.
+ * The mount held inside the field with the skull's own half-extent as margin,
+ * so a wall-hugging grave's outer columns clamp inward and survive the cull
+ * instead of dying on their first tick.
+ */
+const mountIntoField = (x: number): number => {
+  return Math.min(
+    Math.max(x, SKULL_HALF_EXTENT),
+    FIELD_WIDTH - SKULL_HALF_EXTENT,
+  );
+};
+
+/**
+ * A skull put on the field at its mount across the mouth, flying one column of
+ * the storm.
  *
- * The direction is built once here and never touched again, which is what makes
- * "rigid" and "never homes" the same requirement. It goes through normalize so
- * the launch vector is exactly unit length whatever the f32 rounding did to the
- * sine and cosine, and the speed is then a single multiply.
+ * The heading is built once here and never touched again, which is what makes
+ * "rigid" and "never homes" the same requirement. Straight up is assigned
+ * rather than computed, so the heading is exact and owes nothing to trig
+ * rounding.
  */
 const launchSkull = (
   state: RunState,
@@ -121,12 +148,12 @@ const launchSkull = (
   if (skull === null) return;
   state.nextEntityId += 1;
 
-  const radians = columnAngle(column, columns) * DEGREES_TO_RADIANS;
-  const heading = normalize(sin(radians), -cos(radians));
-  skull.x = state.grave.x;
+  skull.x = mountIntoField(
+    state.grave.x + mountOffset(column, columns, state.grave.size),
+  );
   skull.y = state.grave.y - state.grave.size;
-  skull.vx = heading.x * SKULL_SPEED;
-  skull.vy = heading.y * SKULL_SPEED;
+  skull.vx = 0;
+  skull.vy = -SKULL_SPEED;
 };
 
 // Every column of one volley, in column order so the same level always fires the same sequence.
@@ -197,7 +224,6 @@ export {
   COLUMNS_BY_LEVEL,
   STREAM_INTERVAL,
   SKULL_SPEED,
-  FAN_STEP_DEGREES,
   SURGE_VOLLEYS,
   SURGE_INTERVAL,
   SKULL_HALF_EXTENT,

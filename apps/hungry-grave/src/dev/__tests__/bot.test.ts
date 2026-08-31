@@ -118,18 +118,20 @@ const REACHES_VICTORY_FRESH: number[] = [303, 404];
 
 /**
  * The seeds that reach victory from the size ceiling on this policy, which is
- * four of the five.
+ * three of the five.
  *
- * Re-measured after #76 pass D's delivery slice: 101, 303, 404 and 505 all go
- * the full 12421 ticks and win, at 44 to 73 kills, and 202 alone seals, at
- * 10982. Three of these four were sealing within 200 ticks of the end before
- * the slice, so ground that opens up-field of a crowd rather than around it is
- * worth about that much to a grave already at the ceiling.
+ * Re-measured after #79's mounted streams: parallel columns hold the storm
+ * within the mouth's own width at every range, so a ceiling grave's storm
+ * covers one fixed slice of the field where it used to widen with distance,
+ * and the ceiling loadout pays the most for that because its five columns
+ * reached widest. 101, 303 and 404 still go the full 12421 ticks and win, at
+ * 44 to 85 kills; 202 still seals at 10982, and 505, a winner before the
+ * geometry moved, now seals at 11196 with 54 kills.
  *
  * Pinned as a constant rather than left a literal in the test, because the
  * fresh set and this one are different facts.
  */
-const REACHES_VICTORY_FROM_THE_CEILING = [101, 303, 404, 505];
+const REACHES_VICTORY_FROM_THE_CEILING = [101, 303, 404];
 
 const RAMP_TICKS = phaseLengthTicks(PHASES[0]);
 const STAGE_TICKS = RAMP_TICKS + phaseLengthTicks(PHASES[2]);
@@ -336,9 +338,9 @@ describe('dodgePolicy from the size ceiling', () => {
       // Every one of these was a declared expected failure before weapons
       // existed. Dispatch 4's section 5 asserted victory from the ceiling and
       // its own section 8 proved it cannot, so what is asserted here is what
-      // the weapons actually do, re-measured after #76 pass D's delivery
-      // slice: four of the five seeds reach the over phase and win, and the
-      // fifth seals shut inside the back half.
+      // the weapons actually do, re-measured after #79's mounted streams:
+      // three of the five seeds reach the over phase and win, and two seal
+      // shut inside the back half.
       // REACHES_VICTORY_FROM_THE_CEILING is where that set is pinned and where
       // its cause is written down.
       const { state, events } = fullRun(seed, SIZE_CEILING);

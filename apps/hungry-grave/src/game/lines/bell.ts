@@ -90,6 +90,11 @@ const proximity = (distance: number, full: number): number => {
  * The force comes from the ring's own level, the level the radius and the sweep
  * are already working from, so a level-up mid-ring cannot shove harder than the
  * ring that is shoving reaches.
+ *
+ * A shove that lands returns its mobShoved event, carrying the distance the
+ * clamped move really covered rather than the nominal push; a shove refused
+ * (no push at this level, a non-finite strength, a mob with no away direction)
+ * returns null and reports nothing.
  */
 const pushMob = (
   state: RunState,
@@ -97,11 +102,13 @@ const pushMob = (
   mob: Mob,
   distance: number,
   near: number,
-): void => {
+): SimEvent | null => {
   const push = BELL_PUSH_BY_LEVEL[ring.level] * near;
-  if (!Number.isFinite(push) || push <= 0 || distance === 0) return;
+  if (!Number.isFinite(push) || push <= 0 || distance === 0) return null;
   const away = normalize(mob.x - state.grave.x, mob.y - state.grave.y);
-  if (away.length === 0) return;
+  if (away.length === 0) return null;
+  const fromX = mob.x;
+  const fromY = mob.y;
   mob.x = clamp(
     mob.x + away.x * push,
     -SPAWN_MARGIN,
@@ -112,6 +119,13 @@ const pushMob = (
     -SPAWN_MARGIN,
     FIELD_HEIGHT + SPAWN_MARGIN,
   );
+  const movedX = mob.x - fromX;
+  const movedY = mob.y - fromY;
+  return {
+    type: 'mobShoved',
+    id: mob.id,
+    displacement: Math.sqrt(movedX * movedX + movedY * movedY),
+  };
 };
 
 const clamp = (value: number, low: number, high: number): number => {
@@ -149,7 +163,8 @@ const sweepRing = (
     const near = proximity(distance, full);
     const damage =
       BELL_DAMAGE_FAR + (BELL_DAMAGE_NEAR - BELL_DAMAGE_FAR) * near;
-    pushMob(state, ring, mob, distance, near);
+    const shoved = pushMob(state, ring, mob, distance, near);
+    if (shoved !== null) events.push(shoved);
     events.push(...damageMob(state, mob, damage, 'bell'));
   }
   return events;

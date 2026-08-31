@@ -5,6 +5,8 @@ import type { Divergence, Measurement, Metrics, Refusal } from './measure';
 import type { NumberRecord } from './numbersByName';
 import { fieldSummary, perLineSummary } from './readings/fieldPerLine';
 import { sizeSummary } from './readings/gravePath';
+import { groundSummary } from './readings/groundHeld';
+import { endNumbers, pacingSummary } from './readings/territoryControl';
 import { populationSummary } from './replayTallies';
 
 /**
@@ -471,6 +473,40 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
   scalarReading(
     'tuning.territoryPatches.pulses',
     (report) => report.tuning.territoryPatches.pulses,
+  ),
+  listReading(
+    'tuning.territoryControl.crossings',
+    (report) => report.tuning.territoryControl.crossings,
+  ),
+  namedNumbersReading('tuning.territoryControl.dwellByEnd.death', (report) =>
+    endNumbers(report.tuning.territoryControl.dwellByEnd.death),
+  ),
+  namedNumbersReading('tuning.territoryControl.dwellByEnd.escape', (report) =>
+    endNumbers(report.tuning.territoryControl.dwellByEnd.escape),
+  ),
+  namedNumbersReading('tuning.territoryControl.dwellByEnd.closed', (report) =>
+    endNumbers(report.tuning.territoryControl.dwellByEnd.closed),
+  ),
+  scalarReading(
+    'tuning.territoryControl.unfinishedAtStop',
+    (report) => report.tuning.territoryControl.unfinishedAtStop,
+  ),
+  namedNumbersReading('tuning.territoryControl.pulseIntervals', (report) =>
+    pacingSummary(report.tuning.territoryControl.pulseIntervals),
+  ),
+  seriesReading(
+    'tuning.groundHeld.fraction',
+    (report) => report.tuning.groundHeld.fraction,
+    groundSummary,
+  ),
+  listReading('tuning.repel.tolls', (report) => report.tuning.repel.tolls),
+  scalarReading(
+    'tuning.repel.totalShoves',
+    (report) => report.tuning.repel.totalShoves,
+  ),
+  scalarReading(
+    'tuning.repel.totalDistance',
+    (report) => report.tuning.repel.totalDistance,
   ),
   scalarReading(
     'tuning.upfieldTraffic.lays',

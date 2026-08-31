@@ -1,7 +1,8 @@
 /**
- * The soul stream (ADR 0005): always on from level 1, rigid fanned columns, and
- * it never homes. Every expected value here comes from ADR 0005 and from
- * dispatch 5's plan section 6.3, never from running the module.
+ * The soul stream (ADR 0005): always on from level 1, distinct straight
+ * parallel streams from mounts across the mouth (#79), and it never homes.
+ * Every expected value here comes from ADR 0005, from dispatch 5's plan
+ * section 6.3, and from #79's spec, never from running the module.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -10,7 +11,6 @@ import { SKULL_CAP } from '../../caps';
 import { TICK_HZ } from '../../clock';
 import type { SimEvent } from '../../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
-import { atan2 } from '../../math';
 import type { Mob } from '../../mobs';
 import { spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
@@ -21,7 +21,7 @@ import { MAX_LEVEL } from '../roster';
 import {
   advanceStream,
   COLUMNS_BY_LEVEL,
-  FAN_STEP_DEGREES,
+  SKULL_HALF_EXTENT,
   SKULL_SPEED,
   STREAM_INTERVAL,
   SURGE_INTERVAL,
@@ -70,15 +70,6 @@ function inTheColumn(state: RunState): Mob {
 /** How many times the storm landed on a body this tick. */
 function hits(events: SimEvent[]): number {
   return events.filter((event) => event.type === 'mobDamaged').length;
-}
-
-/**
- * How many degrees off straight up a skull is flying, measured through math.ts
- * so this file needs no carve-out from the rule that keeps the sim off raw
- * implementation-approximated operations.
- */
-function angleFromVertical(skull: { vx: number; vy: number }): number {
-  return (atan2(skull.vx, -skull.vy) * 180) / Math.PI;
 }
 
 /** Which ticks of a window a volley fired on, read from the stream's own clock. */
@@ -131,24 +122,7 @@ describe('the level curve is columns and nothing else (plan 6.3)', () => {
   });
 });
 
-describe('the fan (plan 6.3)', () => {
-  it('spaces the columns FAN_STEP_DEGREES apart, symmetric about straight up', () => {
-    const state = quietRun();
-    state.levels.soulStream = MAX_LEVEL;
-    const angles = nextVolley(state)
-      .map(angleFromVertical)
-      .sort((a, b) => a - b);
-    expect(angles).toHaveLength(COLUMNS_BY_LEVEL[MAX_LEVEL]);
-    for (let column = 1; column < angles.length; column++) {
-      expect(angles[column] - angles[column - 1]).toBeCloseTo(
-        FAN_STEP_DEGREES,
-        4,
-      );
-    }
-    // Symmetric: the fan's own centre of mass is straight up.
-    expect(angles[0] + angles[angles.length - 1]).toBeCloseTo(0, 4);
-  });
-
+describe('the columns (plan 6.3)', () => {
   it('puts a single column straight up, so a level-1 stream is not a diagonal', () => {
     const state = quietRun();
     const [only] = nextVolley(state);
@@ -157,9 +131,8 @@ describe('the fan (plan 6.3)', () => {
   });
 
   it('holds the widest column inside the field over the whole height, from a centred grave', () => {
-    // Twelve degrees off vertical drifts a skull about a quarter of the field's
-    // width over the field's own height, so the fan reads as coverage rather
-    // than as a spray that leaves the play area.
+    // A parallel stream never drifts, so a column stays wherever its clamped
+    // mount put it, and the mounts sit within the mouth of a contained grave.
     const state = quietRun();
     state.levels.soulStream = MAX_LEVEL;
     const volley = nextVolley(state);
@@ -343,6 +316,89 @@ describe('the cap policy (plan 6.2)', () => {
     advanceStream(state);
     expect(liveSkulls(state)).toHaveLength(SKULL_CAP);
     for (const skull of state.skulls) expect(skull.alive).toBe(true);
+  });
+});
+
+describe('mounted streams (#79)', () => {
+  it("every launched skull's heading is exactly straight up, at every level's column count", () => {
+    // Exact, not approximate: straight up is assigned rather than computed, so
+    // there is no trig rounding for a tolerance to forgive.
+    for (let level = 1; level <= MAX_LEVEL; level++) {
+      const state = quietRun();
+      state.levels.soulStream = level;
+      const volley = nextVolley(state);
+      expect(volley).toHaveLength(COLUMNS_BY_LEVEL[level]);
+      for (const skull of volley) {
+        expect(skull.vx).toBe(0);
+        expect(skull.vy).toBe(-SKULL_SPEED);
+      }
+    }
+  });
+  it("an odd column count has one mount exactly at the grave's x, and mounts straddle the centre symmetrically", () => {
+    const odd = quietRun();
+    odd.levels.soulStream = MAX_LEVEL;
+    const centre = odd.grave.x;
+    const mounts = nextVolley(odd)
+      .map((skull) => skull.x)
+      .sort((a, b) => a - b);
+    expect(mounts).toHaveLength(5);
+    // Five distinct streams, not five skulls sharing one origin.
+    expect(new Set(mounts).size).toBe(5);
+    expect(mounts[2]).toBe(centre);
+    expect(mounts[0] + mounts[4]).toBeCloseTo(2 * centre, 6);
+    expect(mounts[1] + mounts[3]).toBeCloseTo(2 * centre, 6);
+
+    const even = quietRun();
+    even.levels.soulStream = 4;
+    const pair = nextVolley(even)
+      .map((skull) => skull.x)
+      .sort((a, b) => a - b);
+    expect(pair).toHaveLength(4);
+    expect(new Set(pair).size).toBe(4);
+    // An even count straddles the centre with no mount on it.
+    expect(pair).not.toContain(centre);
+    expect(pair[0] + pair[3]).toBeCloseTo(2 * centre, 6);
+    expect(pair[1] + pair[2]).toBeCloseTo(2 * centre, 6);
+  });
+  it("mount offsets ride the grave's size, and the outermost of five mounts stays within the grave's size of its centre", () => {
+    /** The widest offsets a five-column volley launches at this grave size. */
+    function spreadAt(size: number) {
+      const state = quietRun();
+      state.levels.soulStream = MAX_LEVEL;
+      state.grave.size = size;
+      const offsets = nextVolley(state).map((skull) =>
+        Math.abs(skull.x - state.grave.x),
+      );
+      for (const offset of offsets) {
+        expect(offset).toBeLessThanOrEqual(size);
+      }
+      return Math.max(...offsets);
+    }
+
+    const small = spreadAt(27);
+    const doubled = spreadAt(54);
+    expect(small).toBeGreaterThan(0);
+    // The storm's footprint breathes with growth: twice the grave, twice the spread.
+    expect(doubled / small).toBeCloseTo(2, 6);
+  });
+  it("a grave at the field's left edge launches every column inside the field, none culled on their first advance", () => {
+    // The wall-hugging grave keeps its whole storm: mounts clamp inward rather
+    // than launching skulls the cull kills on their next tick. x = 0 is harder
+    // than containment ever allows, so the clamp is exercised whatever the
+    // step fraction; the contained hugger below is the position play reaches.
+    for (const edgeX of [0, 13.5]) {
+      const state = quietRun();
+      state.levels.soulStream = MAX_LEVEL;
+      state.grave.x = edgeX;
+      const volley = nextVolley(state);
+      expect(volley).toHaveLength(COLUMNS_BY_LEVEL[MAX_LEVEL]);
+      holdFire(state);
+      advanceStream(state);
+      for (const skull of volley) {
+        expect(skull.alive).toBe(true);
+        expect(skull.x - SKULL_HALF_EXTENT).toBeGreaterThanOrEqual(0);
+      }
+    }
   });
 });
 

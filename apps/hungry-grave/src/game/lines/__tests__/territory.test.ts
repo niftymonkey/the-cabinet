@@ -19,6 +19,7 @@ import { MAX_LEVEL } from '../roster';
 import type { Patch } from '../territory';
 import {
   advanceTerritory,
+  holdingPatch,
   PULL_BY_LEVEL,
   RADIUS_BY_LEVEL,
   resolveTerritory,
@@ -1068,5 +1069,81 @@ describe('the dwell ladder', () => {
     expect(counts.get('shambler')).toBe(8);
     expect(counts.get('ghoul')).toBe(5);
     expect(counts.get('revenant')).toBe(13);
+  });
+});
+
+/**
+ * #79: the holding-ground seam and the patch's birth rung, the one new game
+ * seam the control reading asks instead of duplicating the body-overlap rule.
+ */
+describe('the holding ground', () => {
+  it('the holding patch is found by body overlap, never by centre distance', () => {
+    // The seam answers with the same rule the control uses: a mob visibly
+    // standing in the hands is held even when its centre sits outside the
+    // radius. A level-1 patch reaches 32 and a shambler's half-width is 11, so
+    // a centre 42 out overlaps by body while a centre-distance rule says no.
+    const run = createRun(79);
+    putMob(run, run.grave.x, 300);
+    layNow(run);
+    openTheHands(run);
+    const patch = livePatches(run)[0]!;
+
+    const held = putMob(run, patch.x + 42, patch.y);
+    expect(holdingPatch(run, held)).toBe(patch);
+
+    // And two units further the body clears the ground, so the overlap rule
+    // is what answered rather than any looser reach.
+    const clear = putMob(run, patch.x + 44, patch.y);
+    expect(holdingPatch(run, clear)).toBeNull();
+  });
+
+  it('ground still opening holds nothing', () => {
+    // Open means the hands are up: a patch in its opening beat cannot control
+    // or pulse, so it must not be anyone's holding ground either.
+    const run = createRun(79);
+    putMob(run, run.grave.x, 300);
+    layNow(run);
+    const patch = livePatches(run)[0]!;
+    expect(patch.opening).toBeGreaterThan(0);
+
+    const mob = putMob(run, patch.x, patch.y);
+    expect(holdingPatch(run, mob)).toBeNull();
+
+    openTheHands(run);
+    expect(holdingPatch(run, mob)).toBe(patch);
+  });
+
+  it('overlapping ground answers with the first patch in slot order', () => {
+    // Attribution is a decision rather than an accident (#79 spec): a mob over
+    // two overlapping patches belongs to the first in slot order, so a reading
+    // asking the seam gets one deterministic answer.
+    const run = createRun(79);
+    putMob(run, run.grave.x, 300);
+    layNow(run);
+    layNow(run);
+    openTheHands(run);
+    const [first, second] = livePatches(run);
+    second!.x = first!.x;
+    second!.y = first!.y;
+
+    const mob = putMob(run, first!.x, first!.y);
+    expect(holdingPatch(run, mob)).toBe(run.patches[0]);
+  });
+
+  it('the birth rung is captured at the lay and survives a level-up', () => {
+    // The rung joins the radius and the strengths the level bought, on the
+    // same frozen-at-birth terms: a patch laid at level 1 answers for level 1
+    // ground however far the line climbs under it.
+    const run = createRun(79);
+    putMob(run, run.grave.x, 300);
+    layNow(run);
+    const early = livePatches(run)[0]!;
+    expect(early.level).toBe(1);
+
+    run.levels.territory = 5;
+    layNow(run);
+    const late = livePatches(run).find((patch) => patch !== early)!;
+    expect(late.level).toBe(5);
+    expect(early.level).toBe(1);
   });
 });

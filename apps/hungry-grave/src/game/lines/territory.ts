@@ -183,6 +183,13 @@ const TERRITORY_SPREAD = 0.55;
 interface Patch {
   alive: boolean;
   id: number;
+  /**
+   * The birth rung: the line's level when the ground was laid. The strengths
+   * below are what the rung bought; the rung itself is kept so a reading can
+   * attribute a crossing to the rung the ground was born with rather than to
+   * the run's current level (#79).
+   */
+  level: number;
   x: number;
   y: number;
   // Field units, captured from the level's ladder at birth.
@@ -213,6 +220,7 @@ const blankPatch = (): Patch => {
   return {
     alive: false,
     id: 0,
+    level: 0,
     x: 0,
     y: 0,
     radius: 0,
@@ -384,6 +392,7 @@ const layPatch = (
 ): void => {
   const level = Math.min(state.levels.territory, MAX_LEVEL);
   const patch = claimSlot(state, events);
+  patch.level = level;
   patch.x = clamp(point.x + spread.x, 0, FIELD_WIDTH);
   patch.y = clamp(point.y + spread.y, 0, state.grave.y);
   patch.radius = RADIUS_BY_LEVEL[level];
@@ -576,6 +585,23 @@ const territoryCount = (state: RunState): number => {
   return live;
 };
 
+/**
+ * The open ground holding this mob: the first patch in slot order that is
+ * alive, past its opening beat, and whose ground holds the mob's body by the
+ * same overlap rule the control uses. Null where nothing holds it.
+ *
+ * First in slot order is the attribution decision the control reading states
+ * (#79): a mob over overlapping ground belongs to one patch, deterministically,
+ * rather than to whichever a walk happened to meet last.
+ */
+const holdingPatch = (state: RunState, mob: Mob): Patch | null => {
+  for (const patch of state.patches) {
+    if (!patch.alive || patch.opening > 0) continue;
+    if (mobIsOverPatch(patch, mob)) return patch;
+  }
+  return null;
+};
+
 // One pool slot's patch, or null where the slot holds nothing. For the renderer.
 const patchAt = (state: RunState, index: number): Patch | null => {
   const patch = state.patches[index];
@@ -589,6 +615,7 @@ export {
   resolveTerritory,
   territoryCount,
   patchAt,
+  holdingPatch,
   territoryCharge,
   RADIUS_BY_LEVEL,
   PULL_BY_LEVEL,
