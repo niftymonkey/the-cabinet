@@ -102,8 +102,8 @@ const TERRITORY_LEAD_TICKS = 150;
  * What one dwell pulse takes off a mob. PROVISIONAL.
  *
  * The ruled contract is shambler-denominated against the pass A health scale:
- * a shambler's 40 is 8 pulses exactly; the ghoul rounds up to 5 pulses and
- * the revenant to 13.
+ * a shambler's 40 is 8 pulses exactly, the ghoul's 20 is 4 pulses exactly
+ * (#79), and the revenant rounds up to 13.
  */
 const TERRITORY_DAMAGE = 5;
 
@@ -113,7 +113,7 @@ const TERRITORY_DAMAGE = 5;
  * The pace of the pulses is the third channel of control strength, beside the
  * pull and the slow (ADR 0044, amended 2026-08-28). Every ruled touch count is
  * untouched by it: TERRITORY_DAMAGE stays 5, so a shambler is still 8 pulses,
- * a ghoul 5 and a revenant 13, and only the time the ground takes to deliver
+ * a ghoul 4 and a revenant 13, and only the time the ground takes to deliver
  * them moves with the level.
  *
  * Measured pure dwell for a shambler entering at the centre of open ground,

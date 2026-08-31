@@ -163,7 +163,7 @@ describe('the mob type table (ADR 0016)', () => {
 
     expect(MOB_TYPES.shambler.hp).toBe(40);
     expect(MOB_TYPES.revenant.hp).toBe(64);
-    expect(MOB_TYPES.ghoul.hp).toBe(24);
+    expect(MOB_TYPES.ghoul.hp).toBe(20);
 
     expect(MOB_TYPES.shambler.corpsePayout).toBe(TRASH_CORPSE_PAYOUT);
     expect(MOB_TYPES.revenant.corpsePayout).toBe(2 * TRASH_CORPSE_PAYOUT);

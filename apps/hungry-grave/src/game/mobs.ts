@@ -109,7 +109,7 @@ const MOB_TYPES = {
     // or positioning stops being the answer to it.
     halfWidth: 9,
     halfHeight: 9,
-    hp: 24,
+    hp: 20,
     corpsePayout: TRASH_CORPSE_PAYOUT,
     corpseTier: 'trash',
     // A real fraction of the grave's own speed, because ADR 0016 bounds this

@@ -268,6 +268,10 @@ const runScenario = (): ScenarioResult => {
  * checksum moved from -362706426 because the witness folds the ground the
  * scenario no longer claims, and every other field held, the two kills
  * included.
+ *
+ * Re-pinned on 2026-08-31 for ghoul 20 (#79 ruling): the ghoul's health went
+ * from 24 to 20, the witness folds every live mob's hp, and the checksum
+ * moved from 932198217. Every other field held, the two kills included.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -296,7 +300,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 932198217,
+  checksum: -1401997495,
 };
 
 export { runScenario, GOLDEN };

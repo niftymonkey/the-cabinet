@@ -8,13 +8,10 @@
  * player, so the kill rate it reaches is a lower bound on a person's and never
  * an estimate of one.
  *
- * Every seed outcome pinned below is provisional, and the reason is one open
- * number rather than a general disclaimer. The pins are measured against the
- * combat scale standing in the tree, and that scale has a known unsettled
- * corner: ghoul health 24 is not a multiple of wisp damage 10, so a maxed volley
- * clears three ghouls where the touch counts say four. The candidate fix is held
- * until after the playtest, and settling it will move seeds through these sets
- * again.
+ * Every seed outcome pinned below is provisional: the pins are measured
+ * against the combat scale standing in the tree, and any tuning ruling moves
+ * seeds through these sets again. Ghoul health is 20 (#79 ruling), an exact
+ * two wisps, so a maxed volley clears whole ghouls with nothing stranded.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -78,10 +75,11 @@ const SEEDS = [101, 202, 303, 404, 505];
 const SEALS_IN_THE_RAMP: number[] = [202, 404, 505];
 
 /**
- * The seeds on which this policy never swallows anything at all, and under
- * #79's 832-tick territory period there are two: 202 and 404, both sealed
- * inside the ramp with nothing crossed. 505 seals just as early yet feeds
- * twice; 101 and 303 outlive the ramp and feed three times each.
+ * The seeds on which this policy never swallows anything at all, and there
+ * are two: 202 and 404, both sealed inside the ramp with nothing crossed.
+ * Re-measured for ghoul 20 (#79 ruling), and the set held: 505 seals just as
+ * early yet feeds twice; 101 outlives the ramp and feeds three times, 303
+ * twice.
  *
  * Those swallows are incidental, which is the thing to keep in front of a
  * reader. `dodgePolicy` scores its nine moves against mobs and mob fire alone
@@ -113,10 +111,10 @@ const REACHES_VICTORY_FRESH: number[] = [];
  * The seeds that reach victory from the size ceiling on this policy, which is
  * one of the five.
  *
- * Re-measured for #79's 832-tick territory period: the same 40% cut in
- * cleared traffic pulls 101, 303 and 404 out of the set, sealing in the back
- * half at 10050, 11155 and 10319 ticks. 202, a back-half seal before the
- * period moved, now runs the full 12421 and wins at 77 kills.
+ * Re-measured for ghoul 20 (#79 ruling), and the set held: the 832-tick
+ * territory period's cut in cleared traffic keeps 101, 303 and 404 out, all
+ * sealing in the back half at 10050, 11227 and 10319 ticks, and 202 runs the
+ * full 12421 and wins at 112 kills.
  *
  * Pinned as a constant rather than left a literal in the test, because the
  * fresh set and this one are different facts.

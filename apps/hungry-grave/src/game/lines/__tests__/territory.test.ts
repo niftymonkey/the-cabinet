@@ -1062,8 +1062,9 @@ describe('the dwell ladder', () => {
 
   it('the top rung is the old flat window, so the ruled touch counts are unmoved', () => {
     // The ladder moves the pace and nothing else. TERRITORY_DAMAGE stays 5
-    // against the pass A health scale, so the counts the record rules are the
-    // counts the ground still takes: a shambler 8, a ghoul 5, a revenant 13.
+    // against the ruled health scale (#76 pass A, ghoul 20 by #79), so the
+    // counts the record rules are the counts the ground still takes: a
+    // shambler 8, a ghoul 4, a revenant 13.
     expect(REHIT_BY_LEVEL[MAX_LEVEL]).toBe(30);
 
     const counts = new Map<Mob['type'], number>();
@@ -1074,7 +1075,7 @@ describe('the dwell ladder', () => {
       counts.set(type, pulsesToKill(run, mob));
     }
     expect(counts.get('shambler')).toBe(8);
-    expect(counts.get('ghoul')).toBe(5);
+    expect(counts.get('ghoul')).toBe(4);
     expect(counts.get('revenant')).toBe(13);
   });
 });

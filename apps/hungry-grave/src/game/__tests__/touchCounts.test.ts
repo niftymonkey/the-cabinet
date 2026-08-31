@@ -19,12 +19,13 @@ import { MOB_TYPES } from '../mobs';
 const touches = (hp: number, damage: number): number => Math.ceil(hp / damage);
 
 describe('the ruled touch counts', () => {
-  it('Territory pulses take a shambler in 8, a ghoul in 5, a revenant in 13', () => {
+  it('Territory pulses take a shambler in 8, a ghoul in 4, a revenant in 13', () => {
     // The ruled contract is shambler-denominated against the pass A health
     // scale (TERRITORY_DAMAGE's own JSDoc in territory.ts): a shambler's 40 is
-    // 8 pulses exactly; the ghoul rounds up to 5 and the revenant to 13.
+    // 8 pulses exactly, the ghoul's 20 is 4 exactly (#79), and the revenant
+    // rounds up to 13.
     expect(touches(MOB_TYPES.shambler.hp, TERRITORY_DAMAGE)).toBe(8);
-    expect(touches(MOB_TYPES.ghoul.hp, TERRITORY_DAMAGE)).toBe(5);
+    expect(touches(MOB_TYPES.ghoul.hp, TERRITORY_DAMAGE)).toBe(4);
     expect(touches(MOB_TYPES.revenant.hp, TERRITORY_DAMAGE)).toBe(13);
   });
 
@@ -36,12 +37,12 @@ describe('the ruled touch counts', () => {
     expect(touches(MOB_TYPES.revenant.hp, SKULL_DAMAGE)).toBe(8);
   });
 
-  it('wisps take a shambler in 4, a ghoul in 3, a revenant in 7', () => {
+  it('wisps take a shambler in 4, a ghoul in 2, a revenant in 7', () => {
     // Four wisps a trash body (#76 pass A, the MOB_TYPES header). The ghoul's
-    // 3 is the pinch #79's spec carries to Mark: two was the intent, and any
-    // amendment lands here in the same motion as his ruling.
+    // health is 20 by Mark's #79 ruling: two wisps is the intent, and the
+    // Territory pulse and far-edge toll dropping to 4 each is paid knowingly.
     expect(touches(MOB_TYPES.shambler.hp, WISP_DAMAGE)).toBe(4);
-    expect(touches(MOB_TYPES.ghoul.hp, WISP_DAMAGE)).toBe(3);
+    expect(touches(MOB_TYPES.ghoul.hp, WISP_DAMAGE)).toBe(2);
     expect(touches(MOB_TYPES.revenant.hp, WISP_DAMAGE)).toBe(7);
   });
 
