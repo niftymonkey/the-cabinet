@@ -72,7 +72,7 @@ None of these has a ticket or a card, and each one shapes what a real path shoul
 The roadmap was cut from what already existed, which means it sequences finishing work around the two systems above as though they were settled.
 
 - **The tuning pass (#39) is a `now` card that tunes a fixed row density that directed density (#85) then turns into a floor.** Three review gates flagged the ordering and all three left it unresolved.
-- **No card represents any of the six unbuilt rulings.** The largest block of decided work is invisible on the plan.
+- **Only one of the six unbuilt rulings has a card.** Directed density is n85; the offer of three, the belch split, the thinned birthright, the per-run roster and the skull stream rename have none, so most of the decided work is invisible on the plan.
 - **`blocked_by` in the roadmap source declares itself the complete edge set and gives the two newest cards no edges at all**, and the build does not validate edges, so nothing catches a missing one.
 - **The promises the plan counts are the old promises.** Some of them, particularly around a shared seed producing the same run, have since been superseded.
 

@@ -26,7 +26,7 @@ How the game decides what to throw at you, when, and how much, and how that answ
 
 - **Stance:** take
 - **Concept:** the drama band.  
-The AI Director paces to how much pressure the players are under, building to a peak, holding, then granting a breather, so even a weak run keeps its dramatic wave shape and is never boring or flat. Valve scales frequency rather than amplitude, and keeps the skeleton hand-authored while directing only the population between the beats. We follow the same split: authored phases, bosses, and templates, with a director setting density and timing inside them, keyed to the power the player holds, superseding part of ADR 0006 (authored rows, not a director).
+The AI Director paces to how much pressure the players are under, building to a peak, holding, then granting a breather, so even a weak run keeps its dramatic wave shape and is never boring or flat. Valve scales frequency rather than amplitude, and keeps the skeleton hand-authored while directing only the population between the beats. We follow the same split: authored phases, bosses, and templates, with a director setting density and timing inside them, keyed to the pressure the player is under and never to the power they hold, superseding part of ADR 0006 (authored rows, not a director) in ADR 0047.
 - **Sources:**
   - [The AI Systems of Left 4 Dead, Michael Booth, GDC 2009](https://steamcdn-a.akamaihd.net/apps/valve/2009/ai_systems_of_l4d_mike_booth.pdf)
   - [The Left 4 Dead AI Director, CenterConsulting](https://www.centerconsulting.com/ai-library/concepts/l4d-director)
