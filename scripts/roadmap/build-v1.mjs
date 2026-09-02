@@ -186,10 +186,7 @@ function promiseSects() {
 }
 
 function stamp() {
-  const tree = d.meta.uncommitted.length
-    ? `, plus ${d.meta.uncommitted.map(t).join('; ')}` : ', with a clean tree';
-  return `          Drawn from ${SOURCE}, marked ${d.meta.marked}<br>\n` +
-    `          against ${t(d.meta.branch)} @ ${t(d.meta.commit)}${tree}.<br>\n` +
+  return `          Drawn from ${SOURCE}.<br>\n` +
     `          Ticket state is read from the tracker and is never typed into that file.`;
 }
 

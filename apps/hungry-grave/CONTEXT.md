@@ -118,15 +118,15 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **The Wall**: The feast wave: an edge-to-edge curtain of trash launched by the miniboss's death. _Avoid_: swarm wave, horde.
 
-**Stage**: The authored content from first row to final boss; a run is one playthrough of it. _Avoid_: level, map, world.
+**Stage**: The content from first row to final boss, authored beats filled with directed density; a run is one playthrough of it. _Avoid_: level, map, world.
 
 **Run**: One playthrough of a stage, from its seed roll to sealed shut or victory. _Avoid_: game, session, attempt, playthrough.
 
-**Seed**: The dice a run rolls from. Every fresh run rolls a fresh seed, and a seed in the URL pins the run. A run's seed stays visible so it can be shared. _Avoid_: RNG state, random seed value.
+**Seed**: The dice a run rolls from. Every fresh run rolls a fresh seed, and a seed in the URL pins the run. _Avoid_: RNG state, random seed value.
 
-**Pinned run**: A run whose seed came from the URL, so it rolls the same dice every time. The playtest instrument. _Avoid_: fixed run.
+**Pinned run**: A run whose seed came from the URL, so it rolls the same dice every time. It pins the dice, not the stage, because directed density answers the hands that play it. _Avoid_: fixed run.
 
-**Challenge**: A seed shared so somebody else can play it. Same dice, their hands, their run. A challenge is played, never watched. _Avoid_: seed share, ghost, replay.
+**Directed density**: The mobs the game adds between the authored rows, raised and lowered by the pressure the run is putting on the player. It never removes an authored row, so it rises and falls only over what it added itself, and it is silent during boss phases, the drain-out, and the Wall. _Avoid_: director, faucet, spawn rate, dynamic difficulty.
 
 **Tape**: What one run is recorded onto: a header, three separable sections, and a trailer. The body holds the seed, the resolved starting size and the exact commands the grave was steered by, tick by tick; the second section holds the run's witness at checkpoints along the way; and the third holds the run's observations. A tape holds no field state, so anything a replay can rebuild is computed by replaying it, which is why a tape recorded today can answer a question nobody has thought of yet. _Avoid_: recording, demo, log, save file, ghost.
 

@@ -86,13 +86,7 @@
 # =============================================================================
 
 meta:
-  marked: "2026-08-31"
   repo: "niftymonkey/the-cabinet"
-  branch: "main"
-  commit: "f6128e04db"
-  # Anything true of the working tree that the commit alone does not say. One
-  # entry per uncommitted thing. Empty list means the tree is clean.
-  uncommitted: []
   ticket_url_base: "https://github.com/niftymonkey/the-cabinet/issues/"
   v1_in_one_line: "one stage, a final boss, dressed,//played on desktop and phone"
 
@@ -126,7 +120,7 @@ tally:
   by_state: { kept: 15, part: 10, open: 4 }
   by_primary: { box: 14, s1: 14, s7: 1 }
   adr_failures: 3
-  work_cards: 12
+  work_cards: 14
   fog_items: 16
 
 # The display wording for each state, when an output shows a key or legend.
@@ -889,6 +883,24 @@ work:
       no collision keeps mobs or corpses apart, and the #79 playtest verdict
       says the pile is unreadable at density. Where it lands is not yet ruled.
 
+  - id: n85
+    ticket: 85
+    theme: stage
+    when: next
+    title: "The stage answers the player"
+    note: >-
+      authored beats stay; density and timing rise and fall with the pressure
+      the player is under, and never during a boss, the drain-out or the Wall.
+      ADR 0047 rules it.
+
+  - id: n86
+    ticket: 86
+    theme: foundations
+    when: next
+    title: "Old design docs read as current"
+    note: >-
+      update, prune, or mark each design doc as a stage record.
+
 # The COMPLETE set of relationship edges, read from the tracker. If a pair is
 # not listed here, there is no edge between them. Never add one to make a
 # picture tidier. `opens` is the reverse of this map and is derived, never
@@ -1000,7 +1012,7 @@ fog_groups:
           while both bosses are stubs and every tape ends in the same victory.
           The tuning loop answers it, over damage taken, damage dealt, time to
           kill and belch growth.
-        home: { kind: inside, text: "the tuning pass, #39" }
+        home: { kind: inside, text: "the tuning pass #39; the levelled-player half is now #85" }
 
       - title: "How dense does the tuned field actually get?"
         note: >-
