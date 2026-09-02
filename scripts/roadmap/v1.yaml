@@ -86,7 +86,6 @@
 # =============================================================================
 
 meta:
-  repo: "niftymonkey/the-cabinet"
   ticket_url_base: "https://github.com/niftymonkey/the-cabinet/issues/"
   v1_in_one_line: "one stage, a final boss, dressed,//played on desktop and phone"
 
