@@ -16,4 +16,4 @@ The fully composited alternative is `HTMLSource`, which turns a live element int
 
 ## Consequences
 
-This breaks the composition approach inherited from Nostalgia, which built each application independently and copied the resulting `dist` trees into one static site. That assumed every application produces a page, and a game offered as a download has an artifact and no page. The copied scripts were deleted rather than kept as a half-answer, and the real composition step gets written once the launcher exists and it is clear how each kind of game is reached.
+This breaks the composition approach inherited from Nostalgia, which built each application independently and copied the resulting `dist` trees into one static site. That assumed every application produces a page, and a game offered as a download has an artifact and no page. The copied scripts were deleted rather than kept as a half-answer. ADR 0004 later closed the question: nothing composes the site, and each application deploys on its own.
