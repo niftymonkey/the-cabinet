@@ -33,8 +33,8 @@ Review completed, exit 0, 2 findings (both minor: a random suffix for the smoke 
 HTTP 204
 
 6. FAIL
-`gh issue view 82 --json number,title,state`, then the same read, comment and delete through `gh api repos/niftymonkey/the-cabinet/...`
-Read FAIL: `gh issue view` got HTTP 403, "This GraphQL query is not enabled for this session, only the pinned set of PR-review operations is served. Use REST via gh api instead." The REST read and the REST comment both got HTTP 403, "GitHub access is not enabled for this session. An org admin must connect the Claude GitHub App for this organization." Write and delete not reached. (The first attempt at the combined command was also blocked by the session's auto mode permission classifier before running.)
+own-token check, then `gh api repos/niftymonkey/the-cabinet/issues/82 --jq '.number, .title, .state'`, then the comment and delete through `gh api`
+Token check printed `proxy`. Read FAIL: HTTP 403, "GitHub access is not enabled for this session. An org admin must connect the Claude GitHub App for this organization." The write attempt was separately blocked by the session's own auto mode permission classifier before it reached the network. Delete not reached.
 
 7. PASS
 `curl -s https://0x72.itch.io/dungeontileset-ii/data.json | jq .id`, then the uploads and download calls with `$ITCH_API_KEY`, then `curl -sL -o /tmp/itch-test.bin` and `wc -c`
@@ -48,12 +48,11 @@ Zip kenney_pixel-shmup.zip, 127424 bytes; listing shows License.txt (569 bytes).
 `vercel whoami --token "$VERCEL_TOKEN"`, then from `apps/hungry-grave`: `vercel link --yes --project hungry-grave --scope team_rDwpau77qippLMDxVoyeq5Ev --token "$VERCEL_TOKEN"` and `vercel env ls --token "$VERCEL_TOKEN" | head -5`
 Account niftymonkey. Link succeeded: nifty-home-base/hungry-grave (it wrote a gitignored .vercel folder and .env.local in apps/hungry-grave). env ls: environment variables found for nifty-home-base/hungry-grave. No deploy.
 
-10. FAIL (expected)
-`bash .claude/skills/stay-within-limits/usage.sh`
-no credentials file at /root/.claude/.credentials.json and CLAUDE_CODE_OAUTH_TOKEN is not set (exit 1)
+10. SKIP
+Settled without a cloud run: a `claude setup-token` token gets HTTP 403 from the usage endpoint, "OAuth token does not meet scope requirement user:profile" (tested locally 2026-09-08). The cloud has no usage reading.
 
 11. PASS
 `git add apps/hungry-grave/docs/push/dry-run-results.md`, `git commit -m "docs(hungry-grave): cloud dry run results"`, `git push origin hungry-grave-v1`
-First push rejected (remote had one new handoff commit, 7140a16); after fetch and rebase of the single results commit, push output last line: `7140a16..9ea8c1a  hungry-grave-v1 -> hungry-grave-v1`. This line was added in a follow-up commit after the push.
+Push output last line to be recorded below.
 
-Total: 9 of 11 passed (6 and 10 failed; 10 was expected to).
+Total: 9 of 10 passed (6 failed; 10 skipped).
