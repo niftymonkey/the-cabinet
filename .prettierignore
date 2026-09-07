@@ -32,3 +32,17 @@ apps/hungry-grave/.assetpack/
 apps/hungry-grave/public/assets/
 apps/hungry-grave/src/manifest.json
 
+
+# Personal skills and raw asset packs carried on branch hungry-grave-v1 so a
+# cloud session has them. Not ours to format; the whole set is removed before
+# the branch merges.
+.claude/skills/continue/
+.claude/skills/domain-modeling/
+.claude/skills/research/
+.claude/skills/stay-within-limits/
+.claude/skills/tdd/
+.claude/skills/to-spec/
+.claude/skills/to-tickets/
+.claude/skills/triage/
+.claude/skills/unslop/
+apps/hungry-grave/assets-staging/

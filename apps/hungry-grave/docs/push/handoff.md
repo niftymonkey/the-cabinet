@@ -2,7 +2,7 @@
 
 > **Last updated:** 2026-09-08T01:30:00Z
 > **Branch:** `hungry-grave-v1` in worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1` (799bfa35f4 chore(hungry-grave): stage assets, carry push skills and the cloud dry-run checklist on the branch), pushed; main is 41b7a5854c
-> **Working tree:** dirty: this file and `path-draft.md` edited after 799bfa35f4, not yet committed (Mark's yes needed)
+> **Working tree:** dirty: dry-run repairs after 3b2ee2621f, not yet committed (Mark's yes needed)
 
 ## FIRST ACTION: enter the worktree
 
@@ -17,7 +17,7 @@ The grill is complete (decisions 1 to 26). The prerequisites are complete: asset
 1. **Commit this handoff and the path-draft edits** (Mark's yes needed; one commit, then push).
 2. **Mark runs `/remote-env`** in his terminal and picks the environment `hungry-grave`. This is a one-time pick.
 3. **Launch the dry run** from the worktree: `claude --cloud "Read apps/hungry-grave/docs/push/dry-run.md and do every step, then stop."` The cloud VM clones origin at the branch, so the branch must be pushed first (it is, at 799bfa35f4). The dry run posts two Discord messages and pushes `dry-run-results.md` to the branch.
-4. **Read `apps/hungry-grave/docs/push/dry-run-results.md`** after `git pull`. Fix whatever failed (environment variable, setup script, allowlist) and re-run only the failed steps. Step 10 (the usage script) is expected to fail; its error text decides the cloud form of `stay-within-limits`.
+4. **Dry run read and repaired locally (2026-09-07):** 8 of 11 passed. Step 2 (Prettier on the carried skills and the music manifest) is fixed by `.prettierignore` entries. Step 4's CodeRabbit findings on `store-smoke.mjs` are applied and the script re-verified against the real store; the review command is now `--base-commit HEAD~1`, since the cloud clone has no `main`. Step 6 (`gh` missing, GitHub API proxied with a 403) needs Mark: run `/web-setup` in his terminal to sync his `gh` token to the cloud, and add `apt-get install -y gh` to the environment's setup script. Step 10 needs Mark: run `claude setup-token` and set the value as `CLAUDE_CODE_OAUTH_TOKEN` on the cloud environment; `usage.sh` now reads it when the credentials file is absent, and whether that token can read the usage endpoint is unproven until the re-run. Re-run steps 2, 6 and 10 in the cloud after both.
 5. **Confirm the done line with Mark** (in `pre-authorizations.md` under "Needed from Mark"). He asked to do this after the dry run passes.
 6. **Then the push**, per `path-draft.md` and `pre-authorizations.md`: docs first (ADRs, learnings, tickets) as one review stop, then code to the done line, one writer at a time, CodeRabbit CLI before every code commit, gates as relevant. Roadmap edits are struck.
 

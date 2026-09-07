@@ -1,29 +1,38 @@
 // Store smoke test: one row through Neon and one gzipped blob through Vercel Blob.
-import { randomBytes } from "node:crypto";
-import { gzipSync } from "node:zlib";
-import { neon } from "@neondatabase/serverless";
-import { del, get, put } from "@vercel/blob";
+import { randomBytes } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
+import { neon } from '@neondatabase/serverless';
+import { del, get, put } from '@vercel/blob';
 
 async function rowRoundTrip() {
-  const sql = neon(requireEnv("DATABASE_URL"));
-  await sql`CREATE TABLE dry_run_smoke (note text)`;
+  const sql = neon(requireEnv('DATABASE_URL'));
+  // One table per run, so an interrupted or concurrent run never collides.
+  const table = `dry_run_smoke_${Date.now()}`;
+  await sql.query(`CREATE TABLE ${table} (note text)`);
   try {
-    await sql`INSERT INTO dry_run_smoke (note) VALUES ('hello from the cloud')`;
-    const rows = await sql`SELECT note FROM dry_run_smoke`;
-    const ok = rows.length === 1 && rows[0].note === "hello from the cloud";
-    return ok ? "row round trip OK" : `row round trip mismatch: ${JSON.stringify(rows)}`;
+    await sql.query(`INSERT INTO ${table} (note) VALUES ($1)`, [
+      'hello from the cloud',
+    ]);
+    const rows = await sql.query(`SELECT note FROM ${table}`);
+    const ok = rows.length === 1 && rows[0].note === 'hello from the cloud';
+    return ok
+      ? 'row round trip OK'
+      : `row round trip mismatch: ${JSON.stringify(rows)}`;
   } finally {
-    await sql`DROP TABLE dry_run_smoke`;
+    await sql.query(`DROP TABLE ${table}`);
   }
 }
 
 async function blobRoundTrip() {
-  requireEnv("BLOB_READ_WRITE_TOKEN");
+  requireEnv('BLOB_READ_WRITE_TOKEN');
   const bytes = gzipSync(randomBytes(200 * 1024));
   const pathname = `dry-run/${Date.now()}.gz`;
-  const { url } = await put(pathname, bytes, { access: "private" });
+  const { url } = await put(pathname, bytes, {
+    access: 'private',
+    addRandomSuffix: true,
+  });
   try {
-    const result = await get(url, { access: "private", useCache: false });
+    const result = await get(url, { access: 'private', useCache: false });
     if (result === null) return `blob not found after upload: ${url}`;
     const back = Buffer.from(await new Response(result.stream).arrayBuffer());
     const equal = back.equals(bytes);
@@ -46,7 +55,9 @@ async function main() {
     try {
       console.log(await step());
     } catch (error) {
-      console.log(`${step.name} error: ${error instanceof Error ? error.message : String(error)}`);
+      console.log(
+        `${step.name} error: ${error instanceof Error ? error.message : String(error)}`,
+      );
       process.exitCode = 1;
     }
   }

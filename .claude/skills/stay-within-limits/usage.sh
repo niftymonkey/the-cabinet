@@ -10,9 +10,19 @@
 # A window the account does not have is reported as null.
 set -euo pipefail
 
+# In the cloud there is no credentials file. A token minted by `claude
+# setup-token` and set as CLAUDE_CODE_OAUTH_TOKEN on the environment is used
+# instead when the file is absent.
 CREDENTIALS="${CLAUDE_CREDENTIALS:-$HOME/.claude/.credentials.json}"
 
-token=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['claudeAiOauth']['accessToken'])" "$CREDENTIALS")
+if [ -f "$CREDENTIALS" ]; then
+  token=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['claudeAiOauth']['accessToken'])" "$CREDENTIALS")
+elif [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+  token="$CLAUDE_CODE_OAUTH_TOKEN"
+else
+  echo "no credentials file at $CREDENTIALS and CLAUDE_CODE_OAUTH_TOKEN is not set" >&2
+  exit 1
+fi
 
 curl -sf \
   -H "Authorization: Bearer $token" \

@@ -9,7 +9,7 @@ check-tools: all tool validations passed. node v22.22.2, pnpm 10.26.2, Vercel CL
 2. FAIL
 `pnpm install --frozen-lockfile` then `pnpm verify`
 Install: "Lockfile is up to date, resolution step is skipped", done in 9.1s; pnpm warns that build scripts for @ffmpeg-installer/linux-x64, cpu-features, esbuild and sharp were ignored. Verify exits 1 at the first stage, format:check. Last ten lines:
-```
+```text
 [warn] .claude/skills/tdd/mocking.md
 [warn] .claude/skills/tdd/tests.md
 [warn] .claude/skills/to-spec/agents/openai.yaml
@@ -53,7 +53,7 @@ Account: niftymonkey. Link succeeded (linked to nifty-home-base/hungry-grave, wr
 
 10. FAIL (expected)
 `bash .claude/skills/stay-within-limits/usage.sh`
-```
+```text
 Traceback (most recent call last):
   File "<string>", line 1, in <module>
 FileNotFoundError: [Errno 2] No such file or directory: '/root/.claude/.credentials.json'
