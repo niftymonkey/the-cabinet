@@ -31,6 +31,7 @@ Nostalgia's games (Gorillaz, Nibblez) were never implemented, only scaffolded. I
 - **2026-09-07** The cabinet lives at `cabinet.niftymonkey.dev`, in `apps/cabinet`, and the repository root's Vercel link belongs to it.
 - **2026-09-07** The first cabinet ships with The Hungry Grave as its one game. Picking it sends the same tab to the game's own address. Embedding a game inside the cabinet screen stays open per ADR 0002 and gets its own effort later.
 - **2026-09-07** Phones get the same cabinet: drag to move around it, tap to zoom in. Tilt is not part of the first cabinet.
+- **2026-09-07** The PixiJS showcase turned out to hold no whole-site entry; the shipped exemplars sit outside it, two of them in Three.js. The direction stands on those, per `apps/cabinet/docs/research/whole-site-pixi-precedent.md`.
 
 ## Launcher direction: the site is the cabinet
 

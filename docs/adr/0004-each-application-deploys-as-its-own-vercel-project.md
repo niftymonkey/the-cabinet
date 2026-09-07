@@ -1,6 +1,6 @@
 # Each application deploys as its own Vercel project, and the cabinet reaches games by public URL
 
-The cabinet and every game each deploy as a separate Vercel project with their own public address, and the cabinet reaches a game by that address. The repository root's Vercel link belongs to the cabinet, and each game's link lives in its own `apps/<game>` directory. Nothing composes the applications into one site.
+The cabinet and every game each deploy as a separate Vercel project with their own public address, and the cabinet reaches a game by that address. Nothing composes the applications into one site.
 
 ## Considered options
 
