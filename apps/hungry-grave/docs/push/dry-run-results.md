@@ -53,6 +53,6 @@ Settled without a cloud run: a `claude setup-token` token gets HTTP 403 from the
 
 11. PASS
 `git add apps/hungry-grave/docs/push/dry-run-results.md`, `git commit -m "docs(hungry-grave): cloud dry run results"`, `git push origin hungry-grave-v1`
-Push output last line to be recorded below.
+No rebase needed, branch was up to date. Push output last line: `bfe6d7a..ba79e36  hungry-grave-v1 -> hungry-grave-v1`. This line was added in a follow-up commit after the push.
 
 Total: 9 of 10 passed (6 failed; 10 skipped).
