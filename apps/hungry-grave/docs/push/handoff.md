@@ -1,8 +1,8 @@
 # Continue: The Hungry Grave
 
-> **Last updated:** 2026-09-08T01:30:00Z
-> **Branch:** `hungry-grave-v1` in worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1` (799bfa35f4 chore(hungry-grave): stage assets, carry push skills and the cloud dry-run checklist on the branch), pushed; main is 41b7a5854c
-> **Working tree:** dirty: dry-run repairs after 3b2ee2621f, not yet committed (Mark's yes needed)
+> **Last updated:** 2026-09-08T03:10:00Z
+> **Branch:** `hungry-grave-v1` in worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1` (7ae550906b chore(hungry-grave): repair the cloud dry run findings and make the checklist re-runnable), pushed; main is 41b7a5854c
+> **Working tree:** clean after this handoff commit
 
 ## FIRST ACTION: enter the worktree
 
@@ -17,7 +17,7 @@ The grill is complete (decisions 1 to 26). The prerequisites are complete: asset
 1. **Commit this handoff and the path-draft edits** (Mark's yes needed; one commit, then push).
 2. **Mark runs `/remote-env`** in his terminal and picks the environment `hungry-grave`. This is a one-time pick.
 3. **Launch the dry run** from the worktree: `claude --cloud "Read apps/hungry-grave/docs/push/dry-run.md and do every step, then stop."` The cloud VM clones origin at the branch, so the branch must be pushed first (it is, at 799bfa35f4). The dry run posts two Discord messages and pushes `dry-run-results.md` to the branch.
-4. **Dry run read and repaired locally (2026-09-07):** 8 of 11 passed. Step 2 (Prettier on the carried skills and the music manifest) is fixed by `.prettierignore` entries. Step 4's CodeRabbit findings on `store-smoke.mjs` are applied and the script re-verified against the real store; the review command is now `--base-commit HEAD~1`, since the cloud clone has no `main`. Step 6 (`gh` missing, GitHub API proxied with a 403) needs Mark: run `/web-setup` in his terminal to sync his `gh` token to the cloud, and add `apt-get install -y gh` to the environment's setup script. Step 10 needs Mark: run `claude setup-token` and set the value as `CLAUDE_CODE_OAUTH_TOKEN` on the cloud environment; `usage.sh` now reads it when the credentials file is absent, and whether that token can read the usage endpoint is unproven until the re-run. Re-run steps 2, 6 and 10 in the cloud after both.
+4. **First dry run read and repaired (2026-09-07), second full run in flight.** First run: 8 of 11 passed (results as of 3b2ee2621f). Fixes in 7ae550906b: `.prettierignore` entries for the carried skills and the asset staging folder; CodeRabbit's findings on `store-smoke.mjs` applied and the script re-verified against the real store; the review command is `--base-commit HEAD~1` because the cloud clone has no `main`; `usage.sh` reads `CLAUDE_CODE_OAUTH_TOKEN` when the credentials file is absent; the checklist is safe to repeat. Mark then ran `/web-setup` (GitHub connected as niftymonkey), added `gh` to the setup script, ran `claude setup-token` and put the token on the environment as `CLAUDE_CODE_OAUTH_TOKEN`, and launched a brand-new full dry run from the web UI with `hungry-grave` selected. **Next: on the Discord done message, `git pull` and read `dry-run-results.md`.** Two things to know when reading it: `GH_TOKEN` was still on the environment during this run, and the docs say a set token is used as is instead of the proxy's signing, so a step 6 failure may be that; Mark is removing it, which takes effect from the next session. Step 10 is the open test of whether a setup-token can read the usage endpoint; if it cannot, the cloud form of `stay-within-limits` has no reading and needs a ruling from Mark. `/remote-env` is still unset locally, so `claude --cloud` from the terminal would land in the wrong environment until he runs it.
 5. **Confirm the done line with Mark** (in `pre-authorizations.md` under "Needed from Mark"). He asked to do this after the dry run passes.
 6. **Then the push**, per `path-draft.md` and `pre-authorizations.md`: docs first (ADRs, learnings, tickets) as one review stop, then code to the done line, one writer at a time, CodeRabbit CLI before every code commit, gates as relevant. Roadmap edits are struck.
 
@@ -77,7 +77,8 @@ Mark's answers from 2026-08-31, recorded nowhere else (verbatim original in the 
 4. **Stamp-order trigger** on PR #84's stamp thread: a second output in `v1.yaml` `outputs:` moves the stamp into the hook. Dormant while roadmap edits are struck.
 5. **Stream flank narrowness**, Mark: "the edge thing could be an issue". Watch item, arithmetic in `soulStream.ts` JSDoc.
 6. **`local/grill/` at the main checkout is stale** (moved onto the branch 2026-09-07); Mark can delete it.
-7. **Config repo**: the rewritten `stay-within-limits` skill files are uncommitted at `/home/mlo/dev/niftymonkey/claude/skills/stay-within-limits/`; the worktree guard blocks git there from this session.
+7. **Config repo**: the rewritten `stay-within-limits` skill files are uncommitted at `/home/mlo/dev/niftymonkey/claude/skills/stay-within-limits/` (`usage.sh` there was synced with the branch copy 2026-09-07); the worktree guard blocks git there from this session.
+8. **Cloud push playbook** written from this exercise, at https://md.niftymonkey.dev/v/NCQUpIOq (memory `cloud-push-playbook`). Mark wants it refined in place after each cloud run; the second dry run's results are the first input.
 
 ## Standing rules and facts, still true
 
