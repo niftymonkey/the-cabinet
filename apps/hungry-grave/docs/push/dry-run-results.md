@@ -51,3 +51,9 @@ Account niftymonkey. Link succeeded: nifty-home-base/hungry-grave (it wrote a gi
 10. FAIL (expected)
 `bash .claude/skills/stay-within-limits/usage.sh`
 no credentials file at /root/.claude/.credentials.json and CLAUDE_CODE_OAUTH_TOKEN is not set (exit 1)
+
+11. PASS
+`git add apps/hungry-grave/docs/push/dry-run-results.md`, `git commit -m "docs(hungry-grave): cloud dry run results"`, `git push origin hungry-grave-v1`
+First push rejected (remote had one new handoff commit, 7140a16); after fetch and rebase of the single results commit, push output last line: `7140a16..9ea8c1a  hungry-grave-v1 -> hungry-grave-v1`. This line was added in a follow-up commit after the push.
+
+Total: 9 of 11 passed (6 and 10 failed; 10 was expected to).
