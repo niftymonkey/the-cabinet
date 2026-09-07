@@ -58,3 +58,9 @@ Traceback (most recent call last):
   File "<string>", line 1, in <module>
 FileNotFoundError: [Errno 2] No such file or directory: '/root/.claude/.credentials.json'
 ```
+
+11. PASS
+`git commit -m "docs(hungry-grave): cloud dry run results"` (92e576d, which also carries the working-agreement change from step 4) then `git push origin hungry-grave-v1`
+Last line: "branch 'hungry-grave-v1' set up to track 'origin/hungry-grave-v1'." Preceded by "b5929c7..92e576d  hungry-grave-v1 -> hungry-grave-v1". This line was added in a second commit after the push.
+
+Total: 8 of 11 passed. Failed: 2 (Prettier on carried docs), 6 (no gh, and the API is proxied), 10 (expected).
