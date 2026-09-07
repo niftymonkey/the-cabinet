@@ -24,12 +24,19 @@ else
   exit 1
 fi
 
-curl -sf \
+body=$(mktemp)
+trap 'rm -f "$body"' EXIT
+status=$(curl -s -o "$body" -w '%{http_code}' \
   -H "Authorization: Bearer $token" \
   -H "anthropic-beta: oauth-2025-04-20" \
   -H "Accept: application/json" \
-  https://api.anthropic.com/api/oauth/usage \
-| python3 -c '
+  https://api.anthropic.com/api/oauth/usage)
+if [ "$status" != "200" ]; then
+  echo "usage endpoint returned HTTP $status: $(head -c 300 "$body")" >&2
+  exit 1
+fi
+
+python3 -c '
 import json, sys
 d = json.load(sys.stdin)
 out = {"session": None, "weekly_all": None, "weekly_fable": None}
@@ -45,4 +52,4 @@ for lim in d.get("limits", []):
         if (scope.get("display_name") or "").lower() == "fable":
             out["weekly_fable"] = row
 print(json.dumps(out))
-'
+' < "$body"

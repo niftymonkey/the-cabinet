@@ -7,7 +7,7 @@ import { del, get, put } from '@vercel/blob';
 async function rowRoundTrip() {
   const sql = neon(requireEnv('DATABASE_URL'));
   // One table per run, so an interrupted or concurrent run never collides.
-  const table = `dry_run_smoke_${Date.now()}`;
+  const table = `dry_run_smoke_${Date.now()}_${randomBytes(4).toString('hex')}`;
   await sql.query(`CREATE TABLE ${table} (note text)`);
   try {
     await sql.query(`INSERT INTO ${table} (note) VALUES ($1)`, [
