@@ -1,6 +1,6 @@
 # The Cabinet
 
-The place where you can play all the games Mark has built. A launcher plus independently built browser games, all hosted off one site.
+The place where you can play all the games Mark has built. A launcher plus independently built browser games, each at its own address.
 
 Name reads two ways on purpose: an arcade cabinet and a cabinet of curiosities. It does not presume an era, so games from any period or genre fit.
 
@@ -14,7 +14,6 @@ What Nostalgia got right and we are keeping:
 - Parent launcher knows only public routes. It never imports a game and never holds game state.
 - Each game is a full, independently runnable and buildable Vite application.
 - Games do not import each other. No shared package until at least two real callers need the same stable behaviour.
-- A build script composes the independent output directories into one static `dist/` tree. No SPA fallback, no backend, deployable to any static host.
 - A typed game registry in the launcher, so adding a game is one local data entry.
 
 What is not carrying over: the Nostalgia product identity. That was specifically about rebuilding QBasic-era games that mattered to Mark before he was an engineer, with QBasic menus and shareware CD launchers as the visual anchors. The Cabinet is a wider box and needs its own framing.
@@ -28,6 +27,10 @@ Nostalgia's games (Gorillaz, Nibblez) were never implemented, only scaffolded. I
 - **2026-08-06** Architecture copied from Nostalgia, listed above.
 - **2026-08-06** The launcher is itself a PixiJS application rendering a game cabinet you move around and zoom into, following showcase entries where the whole site is a Pixi app. Games may open in a new window or offer a download; the launcher need not embed them.
 - **2026-08-06** One repo holds the launcher and every game, each game a self-contained app with its own code, tests, assets, dependencies and technology stack. Games may be built in different technologies. Rejected a repo per game: it costs an install, a tracker and a deploy each, for a solo project, and buys nothing this does not already give. Shared tooling config lives at the root, which is one of the things one repo is for.
+- **2026-09-07** Nothing composes the site. The cabinet and each game deploy as their own Vercel project with their own public address, and the cabinet reaches a game by that address. ADR 0004.
+- **2026-09-07** The cabinet lives at `cabinet.niftymonkey.dev`, in `apps/cabinet`, and the repository root's Vercel link belongs to it.
+- **2026-09-07** The first cabinet ships with The Hungry Grave as its one game. Picking it sends the same tab to the game's own address. Embedding a game inside the cabinet screen stays open per ADR 0002 and gets its own effort later.
+- **2026-09-07** Phones get the same cabinet: drag to move around it, tap to zoom in. Tilt is not part of the first cabinet.
 
 ## Launcher direction: the site is the cabinet
 
@@ -49,8 +52,6 @@ It reinforces the build order: prototype the game's deduction loop first, standa
 
 ## Open
 
-- How the site gets composed. Nostalgia built each app independently and copied the `dist` folders into one tree, which assumes every app produces a page. A game offered as a download has an artifact and no page, so that assumption does not survive. The scripts copied from Nostalgia were deleted rather than kept as a half-answer; write the real thing once the launcher exists and it is clear how each kind of game is reached.
 - What is playing on the cabinet's screen while you stand in front of it.
 - How the in-screen game selection actually works once you have zoomed in.
 - Whether the launcher has a notion of collections or shelves, which would let a Nostalgia shelf exist inside The Cabinet without diluting either.
-- First game to actually ship in it is the Spooky/Spoopy jam game. See `apps/housewarming/docs/design/game-concept.md`.
