@@ -135,8 +135,10 @@ interface StageRow {
   readonly template: TemplateName;
   readonly count: number;
   readonly type: MobType;
-  // Which placement indices of this row carry the offer (step 1's column).
-  readonly carrying: readonly number[];
+  // Whether this row's mob is a carrier (step 1's column, `carries` on `StageRow`
+  // in `stage.ts`); which placement carries is `carriers.ts`'s rule (`carrierRow`,
+  // `carriesAt`), never a list on the row.
+  readonly carries: boolean;
   // Whether the director may spend in the span this row opens (ADR 0047, ADR 0056).
   readonly directed: boolean;
 }
@@ -858,7 +860,30 @@ The same rule as the block above: next free numbers, no insertions, every existi
 130. `enterNextPhase` reads the phase's own columns and never switches on `PhaseName`: adding a phase whose columns are filled in needs no edit in that function.
 131. Every member of `PhaseMusic` has an alias in `src/app`'s table and every alias is named by some phase, so three loops and six are the same edit and neither can half-land.
 
-**Counts: 65 spec tests, 59 module tests, 7 fence and cross-cutting guards. 131 in all.**
+### Added after step 1's implementation gates, 2026-09-08
+
+Step 1 landed (last code commit 8a7ecc5c31) and its tech architecture gate read this plan against the tree. Three corrections, same numbering rule as the blocks above.
+
+**The carrier column is `carries: boolean`, not `carrying: readonly number[]`.** Step 1 put the flag on `StageRow` and the placement rule in `carriers.ts` (`carrierRow`, `carriesAt`), so a row says whether its mob carries and the module says which placement. The `rows.ts` seam above is corrected in place; every schedule this plan authors sets the flag per row and lets `carriers.ts` place it. `carriersScheduled()` must still meet `carriersForFullBuild()` across the new stage, and `carriers.test.ts:228` pins the count literally, so the slice that rewrites the schedule rewrites that pin with the cause written down.
+
+**The bank needs an opening site that is not a take or a loss.** Step 1's `openBanked` (`offer.ts:256-260`) runs only from `resolveOffer` and `loseOffer`, so a bank held shut through a phase that does not permit it would never reopen once the phase ends: there is no offer to take or lose. This step adds the site and the column together, in the slice that lands the phase columns: a `Phase.bankOpens` boolean, and a per-tick check in `offer.ts` ("no offer live, bank above zero, phase permits: open one") called from `step.ts` beside `advanceLines`. Which phases set the column false is the question the step 1 plan gate deferred here (a boss phase, the sparse last row); the default is true everywhere, and a phase is set false only where the record names the reason, written beside the row. The harness at step 3 reads take-by-slot on banked offers, so the value is a data row and not a ruling.
+
+**Supply must not vanish at a cap.** Step 1's `standOffer` with every body refused (`offer.ts:178`) returns no event, no fault and no bank increment, and `spawnDueRows` drops `spawnMob`'s null, so a refused carrier is never `carrierLost`. Both are unreachable today and reachable the moment slice 5's corpse cap refuses. Slice 5 therefore lands: a refused carrier spawn raises `carrierLost` with its reason; an offer whose bodies are all refused banks rather than disappears, opening through the site above; and a recoverable fault identity for each, with its wire code, beside the corpse-refusal identity that slice already carries.
+
+**`src/game/stage/__tests__/rows.test.ts`** (module, changed)
+
+132. A row carries or does not, and `carriers.ts` alone says which placement of a carrying row holds the offer.
+
+**`src/game/__tests__/offer.test.ts`** (spec, extended)
+
+133. A banked offer opens on the first tick with no offer live in a phase that permits it, and stays banked through a phase that does not, then opens on the first permitting tick after; ADR 0048's "missed is missed" still holds because the bank only ever holds offers a carrier's death already paid.
+134. An offer whose three bodies are all refused at the corpse cap is banked, not lost, and a fault with its own identity records the refusal.
+
+**`src/game/stage/__tests__/stage.test.ts`** (module, changed)
+
+135. A carrier the mob cap refuses to spawn is announced as `carrierLost` with the cap as its reason, so the carrier ledger's taken plus lost plus live still accounts for every scheduled carrier.
+
+**Counts: 67 spec tests, 61 module tests, 7 fence and cross-cutting guards. 135 in all.**
 
 ---
 
