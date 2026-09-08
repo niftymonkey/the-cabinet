@@ -1,7 +1,7 @@
 // Territory: autonomous controlling ground, claimed on the line's own clock
 // where mobs stand thickest ahead of the grave (ADR 0044).
 
-import { createPool, takeSlot, TERRITORY_CAP } from '../caps';
+import { createPool, takeSlot } from '../caps';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { cos, normalize, sin } from '../math';
@@ -177,6 +177,25 @@ const SLOW_BY_LEVEL: readonly number[] = [0, 0.2, 0.3, 0.4, 0.5, 0.6];
  * placement.
  */
 const TERRITORY_SPREAD = 0.55;
+
+/**
+ * How many patches of claimed ground stand at once. PROVISIONAL.
+ *
+ * It is a gameplay rule and not a safety net, which is why it is small and why
+ * it is declared here rather than beside the pool capacities in caps.ts: at the
+ * cap the oldest patch is evicted rather than the claim refused, so the number
+ * decides how long a trail of claimed ground is. A lay comes at most every
+ * TERRITORY_PERIOD of 832 ticks, against a worst-case patch life of about 1364
+ * ticks: laid at the visible top edge, which is the highest a lay is ever held
+ * to, and scrolled off the bottom at the biggest radius of 104, so 864 field
+ * units at SCROLL_SPEED 38/60. That is at most 1.6 live at once, and the cap
+ * keeps about five times that, so housekeeping never binds in normal play.
+ *
+ * The number itself does not move on this evidence: it is a rule about how
+ * long a trail of claimed ground may be, not a headroom figure derived from
+ * the cadence.
+ */
+const TERRITORY_CAP = 8;
 
 /**
  * One patch of claimed ground.
@@ -632,5 +651,6 @@ export {
   TERRITORY_LEAD_TICKS,
   TERRITORY_DAMAGE,
   TERRITORY_PERIOD,
+  TERRITORY_CAP,
 };
 export type { Patch, PatchClosing };

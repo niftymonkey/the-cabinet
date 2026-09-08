@@ -8,7 +8,6 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { TERRITORY_CAP } from '../../../game/caps';
 import type { SimEvent } from '../../../game/events';
 import type { Mob } from '../../../game/mobs';
 import { spawnMob } from '../../../game/mobs';
@@ -17,6 +16,7 @@ import { createRun } from '../../../game/run';
 import {
   advanceTerritory,
   resolveTerritory,
+  TERRITORY_CAP,
 } from '../../../game/lines/territory';
 import {
   createTerritoryPatches,

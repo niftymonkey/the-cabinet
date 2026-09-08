@@ -5,6 +5,13 @@
  * than a housekeeping detail. That is why the policy lives in src/game and not
  * in invariants.ts: checking a cap is not enforcing one, and a policy in
  * src/dev would make the test rig load-bearing in the shipped game.
+ *
+ * Every capacity declared here is a safety net: a number far enough above the
+ * densest thing its pool can hold that reaching it means something has gone
+ * wrong. A capacity that decides how a line plays is not one of those and lives
+ * in that line's own module, where the rows it is measured against are. That is
+ * where TERRITORY_CAP is: it sets how long a trail of claimed ground may be,
+ * which is a gameplay rule rather than a guard against a runaway.
  */
 
 /**
@@ -94,26 +101,6 @@ const liveCount = (pool: readonly PoolSlot[]): number => {
 const SKULL_CAP = 120;
 const WISP_CAP = 64;
 
-/**
- * How many patches of claimed ground stand at once. PROVISIONAL.
- *
- * Alone among the pools here this one is a gameplay rule and not a safety net,
- * which is why it is small: at the cap the oldest patch is evicted rather than
- * the claim refused, so the number decides how long a trail of claimed ground
- * is rather than guarding against a runaway. A lay comes at most every
- * TERRITORY_PERIOD of 832 ticks, against a worst-case patch life of about
- * 1364 ticks: laid at the visible top edge, which is the highest a lay is ever
- * held to, and scrolled off the bottom at the biggest radius of 104, so 864
- * field units at SCROLL_SPEED 38/60. That is at most 1.6 live at once, and the
- * cap keeps about five times that, so housekeeping never binds in normal
- * play.
- *
- * The number itself does not move on this evidence: it is a rule about how
- * long a trail of claimed ground may be, not a headroom figure derived from
- * the cadence.
- */
-const TERRITORY_CAP = 8;
-
 export {
   createPool,
   takeSlot,
@@ -123,6 +110,5 @@ export {
   CORPSE_CAP,
   SKULL_CAP,
   WISP_CAP,
-  TERRITORY_CAP,
 };
 export type { PoolSlot };

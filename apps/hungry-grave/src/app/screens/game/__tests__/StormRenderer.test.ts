@@ -6,9 +6,12 @@
 import type { Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import { SKULL_CAP, TERRITORY_CAP, WISP_CAP } from '../../../../game/caps';
+import { SKULL_CAP, WISP_CAP } from '../../../../game/caps';
 import { MAX_LEVEL } from '../../../../game/lines/roster';
-import { TERRITORY_OPENING_TICKS } from '../../../../game/lines/territory';
+import {
+  TERRITORY_CAP,
+  TERRITORY_OPENING_TICKS,
+} from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { RAMP_ROWS } from '../../../../game/stage/stage';

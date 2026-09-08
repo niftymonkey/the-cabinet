@@ -7,7 +7,6 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { TERRITORY_CAP } from '../../caps';
 import type { SimEvent } from '../../events';
 import { FIELD_HEIGHT } from '../../field';
 import type { Mob } from '../../mobs';
@@ -26,6 +25,7 @@ import {
   SLOW_BY_LEVEL,
   territoryCharge,
   territoryCount,
+  TERRITORY_CAP,
   TERRITORY_DAMAGE,
   TERRITORY_LEAD_TICKS,
   TERRITORY_OPENING_TICKS,

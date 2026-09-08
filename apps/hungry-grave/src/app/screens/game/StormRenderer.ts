@@ -1,6 +1,6 @@
 import { Graphics } from 'pixi.js';
 
-import { SKULL_CAP, TERRITORY_CAP, WISP_CAP } from '../../../game/caps';
+import { SKULL_CAP, WISP_CAP } from '../../../game/caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import {
   BELL_CONE_ROWS,
@@ -12,6 +12,7 @@ import { SKULL_HALF_EXTENT } from '../../../game/lines/skullStream';
 import type { Patch } from '../../../game/lines/territory';
 import {
   patchAt,
+  TERRITORY_CAP,
   TERRITORY_OPENING_TICKS,
 } from '../../../game/lines/territory';
 import { WISP_HALF_EXTENT } from '../../../game/lines/wisps';

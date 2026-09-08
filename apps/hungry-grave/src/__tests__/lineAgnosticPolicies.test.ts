@@ -1,9 +1,17 @@
 /**
- * The two fences that keep a weapon line's rules inside the line's own module:
- * a policy never names a line, and a constant carrying a line's name is
- * declared where that line is. Together they are what makes the standing
- * extensibility constraint mechanical, so a fifth line stays one module plus
- * its rows rather than an edit spread across the sim.
+ * The three fences a policy module's own prose rests on, all of them read off
+ * the source text of the tree.
+ *
+ * Two keep a weapon line's rules inside the line's own module: a policy never
+ * names a line, and a constant carrying a line's name is declared where that
+ * line is. Together they are what makes the standing extensibility constraint
+ * mechanical, so a fifth line stays one module plus its rows rather than an
+ * edit spread across the sim.
+ *
+ * The third holds the offer's own claim. `isFirstOffer` reads the run's first
+ * offer off the drops stream's cursor (offer.ts:84-97), which is sound only
+ * while the offer is the one thing that moves that cursor. That sentence was a
+ * comment and nothing else, so it is a walk now.
  *
  * They span src/game and src/dev, so they sit at the src root rather than
  * inside either of them.
@@ -23,14 +31,15 @@ const modulePathOf = (file: string): string =>
   relative(SRC, file).split(/[/\\]/).join('/');
 
 /**
- * Both fences read the source text rather than importing the module, and that
- * is the ruling this file rests on.
+ * Every fence here reads the source text rather than importing the module, and
+ * that is the ruling this file rests on.
  *
- * Importing cannot see either property. A string literal inside a function
- * body and the name a constant is declared under are both gone by the time a
- * module is a value: an import shows what a module exports, and what these
- * fences guard is what a module is written to contain. A module could name
- * every line in a private branch and export nothing that says so.
+ * Importing cannot see any of the three properties. A string literal inside a
+ * function body, the name a constant is declared under, and which module holds
+ * a line that draws are all gone by the time a module is a value: an import
+ * shows what a module exports, and what these fences guard is what a module is
+ * written to contain. A module could name every line in a private branch and
+ * export nothing that says so.
  *
  * Reading the text is also what stays honest when a fifth line arrives. The
  * line list comes from the roster, the module list comes from the disk, and a
@@ -115,32 +124,100 @@ const carriesPrefixOf = (name: string, line: WeaponLine): boolean =>
   );
 
 /**
- * The one exception, and both halves of it carry the reason.
+ * The one exception, and it is two names rather than a shape a name can wear.
  *
- * src/game/caps.ts owns the entity cap policy (caps.ts:1-8): a pool's capacity
- * is a safety net over a shared pool, read beside MOB_CAP and derived the same
- * way, rather than a rung of a line's ladder. A fifth line's pool needs its
- * capacity there beside the others, so the recipe stays four registrations.
+ * src/game/caps.ts owns the entity cap policy (caps.ts:1-15): a safety net is a
+ * number far enough above the densest thing its pool can hold that reaching it
+ * means something has gone wrong, read beside MOB_CAP and derived the same way,
+ * rather than a rung of a line's ladder. The skulls' and the wisps' pools are
+ * sized exactly that way (caps.ts:82-102), so a fifth line's safety net joins
+ * them there and the recipe stays four registrations.
  *
- * The suffix is what keeps this from being a hole. A tuning row named for a
- * line still fails inside caps.ts, and a constant named `_CAP` still fails
- * everywhere else.
+ * The `_CAP` suffix is deliberately not what excuses a name, because a suffix
+ * excuses any row a line dresses in it. TERRITORY_CAP wore one while deciding
+ * how long a trail of claimed ground is, which caps.ts itself called a gameplay
+ * rule and not a safety net; it is a Territory tuning row and it is declared in
+ * lines/territory.ts now. A BELL_REACH_CAP written into caps.ts fails here.
  */
 const CAP_POLICY = 'game/caps.ts';
+const SAFETY_NET_CAPS: readonly string[] = ['SKULL_CAP', 'WISP_CAP'];
 
-const isPoolCapacity = (module: string, name: string): boolean =>
-  module === CAP_POLICY && name.endsWith('_CAP');
+const isSafetyNetCapacity = (module: string, name: string): boolean =>
+  module === CAP_POLICY && SAFETY_NET_CAPS.includes(name);
 
 /** Where a constant carrying a line's name is declared outside that line's module. */
 const strayLineConstantsIn = (module: string, source: string): string[] =>
   constantsDeclaredIn(source).flatMap((name) => {
-    if (isPoolCapacity(module, name)) return [];
+    if (isSafetyNetCapacity(module, name)) return [];
     const claimed = WEAPON_LINES.filter(
       (line) =>
         module !== `game/lines/${line}.ts` && carriesPrefixOf(name, line),
     );
     return claimed.map((line) => `${module} declares ${name} (${line})`);
   });
+
+/**
+ * The sim: the modules isFirstOffer's "nothing else in the sim" is about, which
+ * is src/game and not src/dev. A reading or the bot reading a cursor is outside
+ * the shipped game, and neither may draw either, but the sentence the offer
+ * rests on is about the sim's own modules.
+ */
+const simModulesUnder = (dir: string): string[] =>
+  productionModulesUnder(dir).filter((module) => module.startsWith('game/'));
+
+/**
+ * The one module that may move the drops cursor. game/offer.ts draws the
+ * options an offer holds, and isFirstOffer reads a cursor still at zero as a
+ * run that has never opened one (offer.ts:84-97).
+ */
+const DROPS_DRAWER = 'game/offer.ts';
+
+/**
+ * Every reach into the drops stream a source makes, as written: the member
+ * taken, in the dot spelling or the bracket one, a bare `streams.drops` where
+ * the stream itself is taken, and a destructure that binds `drops` off a run's
+ * streams.
+ *
+ * The destructure is in here because it is the one alias this walk could
+ * otherwise not see at all. `const { drops } = state.streams` hands a module
+ * the stream under a name no text match can follow, so the binding itself is
+ * the failure rather than whatever it goes on to do.
+ *
+ * Two forms stay outside, and neither is claimed closed. A computed index is
+ * one: witness.ts folds every stream's cursor through `run.streams[name].drawn`
+ * (witness.ts:262), which no text match can tell from a draw, so the witness
+ * guard covers that fold on its own. Aliasing the whole streams record is the
+ * other.
+ */
+const DROPS_MEMBER =
+  /streams\s*(?:\.\s*drops|\[\s*['"`]drops['"`]\s*\])(?:\s*\.\s*([A-Za-z_$][\w$]*))?/g;
+const DROPS_BINDING = /\{[^{}]*\bdrops\b[^{}]*\}\s*=[^;\n]*\bstreams\b/g;
+
+const dropsReachesIn = (source: string): string[] => [
+  ...[...source.matchAll(DROPS_MEMBER)].map((match) =>
+    match[1] === undefined ? 'streams.drops' : `streams.drops.${match[1]}`,
+  ),
+  ...[...source.matchAll(DROPS_BINDING)].map(
+    () => 'streams.drops through a destructured binding',
+  ),
+];
+
+/**
+ * Where a module other than the offer could move the drops cursor.
+ *
+ * `.drawn` is excused everywhere, and it is the only member that is. It is a
+ * getter over a counter, so a module reading it cannot advance the cursor
+ * isFirstOffer reads: invariants.ts checks it is finite (invariants.ts:188) and
+ * src/dev's digest folds it into a reading, and neither is a draw. Everything
+ * else fails, the bare `streams.drops` of an alias included, because a stream
+ * held in a local is a draw this walk can no longer see.
+ */
+const strayDropsReachesIn = (module: string, source: string): string[] => {
+  if (module === DROPS_DRAWER) return [];
+  return dropsReachesIn(source)
+    .filter((reach) => reach !== 'streams.drops.drawn')
+    .map((reach) => `${module} reaches ${reach}`);
+};
 
 describe('a policy names no weapon line', () => {
   for (const module of POLICY_MODULES) {
@@ -221,7 +298,7 @@ describe("a line's constants are declared in that line's own module", () => {
     ]);
   });
 
-  it('excuses a pool capacity in the cap policy and nowhere else', () => {
+  it('excuses a safety net in the cap policy and nowhere else', () => {
     const cap = 'const SKULL_CAP = 120;\n';
     expect(strayLineConstantsIn(CAP_POLICY, cap)).toEqual([]);
     expect(strayLineConstantsIn('game/tuning.ts', cap)).toEqual([
@@ -230,5 +307,95 @@ describe("a line's constants are declared in that line's own module", () => {
     expect(
       strayLineConstantsIn(CAP_POLICY, 'const BELL_CONE_ROWS = [];\n'),
     ).toEqual([`${CAP_POLICY} declares BELL_CONE_ROWS (bell)`]);
+  });
+
+  it('fails a row that only wears the cap suffix, inside the cap policy too', () => {
+    // The half the suffix form could not hold. A line's tuning row named _CAP
+    // is still a line's tuning row, and caps.ts is not where it lives.
+    expect(
+      strayLineConstantsIn(CAP_POLICY, 'const BELL_REACH_CAP = 90;\n'),
+    ).toEqual([`${CAP_POLICY} declares BELL_REACH_CAP (bell)`]);
+  });
+
+  it('excuses only names the cap policy really declares', () => {
+    // The exception is a list of names, so a safety net renamed or moved out
+    // would leave the list excusing nothing and the fence reading green while
+    // holding a name that is no longer there.
+    const declared = constantsDeclaredIn(sourceOf(CAP_POLICY));
+    for (const name of SAFETY_NET_CAPS) expect(declared, name).toContain(name);
+  });
+});
+
+describe('only the offer draws from the drops stream', () => {
+  it('no module in the sim outside the offer reaches that stream to draw', () => {
+    const modules = simModulesUnder(SRC);
+    expect(modules).toContain(DROPS_DRAWER);
+    expect(
+      modules.flatMap((module) =>
+        strayDropsReachesIn(module, sourceOf(module)),
+      ),
+    ).toEqual([]);
+  });
+
+  it('the offer still draws, so the fence guards a claim and not an empty set', () => {
+    // isFirstOffer's whole reading is that a cursor at zero means no offer has
+    // opened yet. A drawer that stopped drawing would leave the cursor at zero
+    // for a whole run, and the walk above would stay green straight through it.
+    expect(dropsReachesIn(sourceOf(DROPS_DRAWER))).toContain(
+      'streams.drops.nextInt',
+    );
+  });
+
+  it('catches a draw planted outside the offer, and an alias that would hide one', () => {
+    expect(
+      strayDropsReachesIn('game/storm.ts', 'state.streams.drops.next();\n'),
+    ).toEqual(['game/storm.ts reaches streams.drops.next']);
+    expect(
+      strayDropsReachesIn(
+        'game/storm.ts',
+        'const roll = state.streams.drops;\n',
+      ),
+    ).toEqual(['game/storm.ts reaches streams.drops']);
+    expect(
+      strayDropsReachesIn(DROPS_DRAWER, 'state.streams.drops.next();\n'),
+    ).toEqual([]);
+  });
+
+  it('catches the bracket spelling and a destructured binding, not the dot form alone', () => {
+    // Both are the same draw written another way, and a fence that only knew
+    // `streams.drops.next` would read green through either.
+    expect(
+      strayDropsReachesIn('game/storm.ts', "state.streams['drops'].next();\n"),
+    ).toEqual(['game/storm.ts reaches streams.drops.next']);
+    expect(
+      strayDropsReachesIn(
+        'game/storm.ts',
+        'const { drops } = state.streams;\n',
+      ),
+    ).toEqual([
+      'game/storm.ts reaches streams.drops through a destructured binding',
+    ]);
+  });
+
+  it('reads the run state builder as a literal and not as a binding', () => {
+    // run.ts writes the streams record as `{ ..., drops: stream(seed, 'drops'),
+    // ... }`, which names drops inside braces without binding it off anything.
+    // A binding matcher that could not tell those apart would fail the module
+    // that creates the stream in the first place.
+    expect(
+      strayDropsReachesIn(
+        'game/run.ts',
+        "streams: {\n  spawns: stream(seed, 'spawns'),\n  drops: stream(seed, 'drops'),\n},\n",
+      ),
+    ).toEqual([]);
+  });
+
+  it('leaves a cursor read alone, because reading a counter cannot move it', () => {
+    expect(
+      strayDropsReachesIn(
+        'game/invariants.ts',
+        "checkFinite(faults, 'streams.drops.drawn', state.streams.drops.drawn);\n",
+      ),
+    ).toEqual([]);
   });
 });

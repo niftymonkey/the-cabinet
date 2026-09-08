@@ -4,14 +4,7 @@
  */
 
 import type { PoolSlot } from './caps';
-import {
-  CORPSE_CAP,
-  MOB_CAP,
-  MOB_FIRE_CAP,
-  SKULL_CAP,
-  TERRITORY_CAP,
-  WISP_CAP,
-} from './caps';
+import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP, SKULL_CAP, WISP_CAP } from './caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { Fault, FaultIdentity } from './faults';
 import { FAULT_SEVERITY } from './faults';
@@ -19,6 +12,7 @@ import { graveHitbox } from './grave';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from './lines/roster';
 import { BELL_EXPAND_TICKS } from './lines/bell';
 import { SKULL_HALF_EXTENT } from './lines/skullStream';
+import { TERRITORY_CAP } from './lines/territory';
 import { SPAWN_MARGIN } from './mobs';
 import type { RunState } from './run';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from './tuning';
