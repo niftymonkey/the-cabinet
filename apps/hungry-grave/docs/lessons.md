@@ -20,6 +20,8 @@ Defects this app has actually shipped, and the shape that produces them. Repo-wi
 
 **An invariant that records its watch before it validates leaves a rejected value in the watch**, so the next check on the same run reads the broken state as healthy. Record after both checks.
 
+**A witness version stamped before the fold stops moving names several folds.** Step 1 moved `WITNESS_VERSION` to 5 in its second slice and then widened the fold twice more, so a tape recorded between those slices reads at the tip as a divergence rather than a version refusal, which is the one failure the version exists to prevent. Stamp the version in the last slice of a step that changes the fold, and declare every new folded field in that same commit, even if a later slice fills it.
+
 ## The bot
 
 **A stand-in bot can be structurally incapable of the very manoeuvre a mechanic is bounded by.** `dodgePolicy` maximizes the tightest clearance over a half-second lookahead and projects threats at constant velocity, so it always flees a chaser radially. Cutting hard across a ghoul means accepting less clearance early to get behind its turn, which that scoring can never pick. **The turn-rate fairness bound on the ghoul therefore has no evidence behind it.** Read it by hand; do not improve the bot to make a test pass.
