@@ -1,6 +1,6 @@
 // The screen a run plays on: the named children a run is made of, and the lifecycle they are forwarded.
 
-import type { FederatedPointerEvent, Ticker } from 'pixi.js';
+import type { FederatedPointerEvent, Texture, Ticker } from 'pixi.js';
 import { Container, Graphics, Rectangle } from 'pixi.js';
 
 import type { SimEvent } from '../../../game/events';
@@ -16,6 +16,7 @@ import { runConditionsHere } from '../../tapeHeader';
 import type { ButtonChrome } from '../../ui/Button';
 import { Button } from '../../ui/Button';
 import { bindKeyPress } from '../keyBinding';
+import { BackgroundRenderer } from './BackgroundRenderer';
 import { BELCH_SIZE, BelchButton } from './BelchButton';
 import { FieldRenderer } from './FieldRenderer';
 import { boundaryReadout, fieldClip } from './fieldFrame';
@@ -72,6 +73,8 @@ interface GameScreenProps extends ButtonChrome {
   playSound(event: SimEvent): void;
   // The loop the section this run is in plays (ADR 0049).
   playMusic(event: SimEvent): void;
+  // A stand-in texture, or null while its bundle is still coming (ADR 0049).
+  standInArt(alias: string): Texture | null;
   // The canvas a gesture the platform took away is announced on.
   canvas: HTMLCanvasElement | null;
   // What the renderer says about itself, for this run's tape header.
@@ -113,6 +116,14 @@ class GameScreen extends Container {
    */
   private readonly clip: Graphics;
   private readonly grave: GraveRenderer;
+  /**
+   * The ground, handed the one power it cannot reach: where a stand-in texture
+   * comes from. The lookup is read at sync time and never here, so it is safe
+   * that the pool sets props after this screen is constructed.
+   */
+  private readonly background = new BackgroundRenderer({
+    standInArt: (alias) => this.props.standInArt(alias),
+  });
   private readonly fieldRenderer = new FieldRenderer();
   private readonly stormRenderer = new StormRenderer();
 
@@ -224,6 +235,7 @@ class GameScreen extends Container {
   // The field's own furniture, put back after any clear() (see reset).
   private dressField(): void {
     this.layers.layer('fieldBoundary').addChild(this.frame);
+    this.background.attach(this.layers);
     this.fieldRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
@@ -396,6 +408,7 @@ class GameScreen extends Container {
       run.tick,
       territoryCharge(run),
     );
+    this.background.sync(run);
     this.fieldRenderer.sync(run);
     this.stormRenderer.sync(run);
     this.belchButton.sync(run.reservoir >= RESERVOIR_CAPACITY, run.tick);

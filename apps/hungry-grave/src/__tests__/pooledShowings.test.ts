@@ -110,6 +110,7 @@ function showing(tag: string, menusOpened: string[]): Showing {
         return Promise.resolve();
       },
       closeMenu: () => Promise.resolve(),
+      standInArt: () => null,
       menuShowing: () => false,
       showEnd: () => Promise.resolve(),
       playSound: () => {},

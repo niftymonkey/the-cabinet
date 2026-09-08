@@ -175,6 +175,55 @@ const PALETTE = {
   belchEruption: { hex: 0xb5ac8e, luma: 67.35 },
   splash: { hex: 0x7f9184, luma: 54.99 },
 
+  /**
+   * The stand-in ground, per section (ADR 0049, decision 22's amendment). Every
+   * one of them is a `standIn` prefix on purpose: decision 13 asks that a
+   * tester's reaction to the look be separable from a reaction to the game, so
+   * a report can say which build drew stand-ins.
+   *
+   * The ground tile itself is not here. It wears `nightSpeckle`, which was
+   * declared and drawn nowhere at all, and the ground is its consumer.
+   *
+   * The three dressing tints sit at the bottom of the value range because they
+   * are the ground and not a sprite, which is why they are excluded from sprite
+   * separation with `night` and `nightSpeckle` rather than beside the bodies.
+   * What that costs is measured rather than assumed: a corpse over the
+   * Procession's statues reads APCA Lc 42.4 against 47.0 over bare ground, and
+   * every mob-fire core clears Lc 70.9 over the brightest of them, which is the
+   * check the band is actually about.
+   */
+  standInGroundDressCold: { hex: 0x303947, luma: 22 },
+  standInGroundDressWet: { hex: 0x2d423d, luma: 23.99 },
+  /**
+   * The Vigil's one real departure, and the only colour this game adds after
+   * the first two sections (Downwell's move: spent once or not at all).
+   *
+   * Deep teal-cyan at hue 190.43. `docs/research/readability-value-band.md`
+   * section 7.5 records hue 175 to 205 as entirely empty and it still is: the
+   * nearest occupants are `wisp` at 172.24 and `skull` at 208.24, so 190 sits
+   * eighteen degrees clear of each against a fifteen-degree sprite-separation
+   * minimum. It carries the highest saturation of the four ground colours,
+   * 0.500, because the addition has to be the event.
+   */
+  standInVigilTint: { hex: 0x2e545c, luma: 30 },
+  /**
+   * The Waking's source, and its own dark companion.
+   *
+   * It takes the Crowd's family at hue 164.68 rather than the Vigil's, because
+   * it is placed by a Crowd row and opens as the Crowd's boundary event, and
+   * giving it the hue 190 entry would spend the fourth colour a section early.
+   * What that costs is a source in the same family as the Crowd's own eye
+   * dressing, and the stand-in answer is size (design record section 7).
+   *
+   * It is the brightest thing the ground layer draws, Lc 23.45 over the ground
+   * tile, because it is the loudest beat in the run. That is bought from the
+   * sprites crossing it: a corpse over its body reads Lc 22.8, which is the
+   * measured cost of a source that can be seen at all, and it is why the
+   * companion is drawn as a rim past the body rather than behind it.
+   */
+  standInWaking: { hex: 0x47766a, luma: 42.02 },
+  standInWakingDark: { hex: 0x13221f, luma: 12 },
+
   // readouts drawn over the field, inside the ceiling because they draw over play
   hudInk: { hex: 0xa8acb0, luma: 67.23 },
   hudDim: { hex: 0x76839a, luma: 50.94 },

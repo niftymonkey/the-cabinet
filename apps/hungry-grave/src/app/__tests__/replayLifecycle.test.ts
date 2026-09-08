@@ -69,6 +69,7 @@ function gameScreen(): GameScreen {
     showEnd: () => Promise.resolve(navigation.showScreen()),
     playSound: () => {},
     playMusic: () => {},
+    standInArt: () => null,
     playButtonSound: () => {},
     canvas,
     // The tape header records the renderer's backend and resolution once per
@@ -81,7 +82,11 @@ function gameScreen(): GameScreen {
 /** A replay screen holding faked powers, the way navigation hands them in. */
 function replayScreen(): ReplayScreen {
   const screen = new ReplayScreen();
-  screen.init({ onBack: () => {}, playButtonSound: () => {} });
+  screen.init({
+    onBack: () => {},
+    playButtonSound: () => {},
+    standInArt: () => null,
+  });
   return screen;
 }
 

@@ -53,6 +53,7 @@ function gameScreen(): GameScreen {
     showEnd: () => Promise.resolve(),
     playSound: () => {},
     playMusic: () => {},
+    standInArt: () => null,
     playButtonSound: () => {},
     canvas: null,
     renderer: { name: 'webgl', resolution: 2 },

@@ -68,8 +68,36 @@ const RIM_STROKE_MIN_CSS = 2.0;
 /** The thick end of GRAVE_RIM_STROKE's bracket, in field units, now that the rim is two bands. */
 const RIM_BAND_MAX = 4;
 
-/** The colours in PALETTE that are not sprites the player tells apart mid-dodge. */
-const NOT_SPRITES = ['hudInk', 'hudDim', 'night', 'nightSpeckle', 'fieldFrame'];
+/**
+ * The colours in PALETTE that are not sprites the player tells apart mid-dodge.
+ *
+ * The stand-in ground joins night and nightSpeckle here rather than beside the
+ * bodies, because it is what those two were: the ground the field stands on,
+ * drawn in the bottom layer under everything. The Waking's own source is on the
+ * same list for the reason the design record gives it, that it is background
+ * art by construction, and what holds it readable is the bespoke check below
+ * rather than the pair table, exactly as the field's boundary is held.
+ */
+const NOT_SPRITES = [
+  'hudInk',
+  'hudDim',
+  'night',
+  'nightSpeckle',
+  'fieldFrame',
+  'standInGroundDressCold',
+  'standInGroundDressWet',
+  'standInVigilTint',
+  'standInWaking',
+  'standInWakingDark',
+];
+
+/** The stand-in ground's own colours, in the order the run meets them. */
+const STAND_IN_GROUND = [
+  'nightSpeckle',
+  'standInGroundDressCold',
+  'standInGroundDressWet',
+  'standInVigilTint',
+] as const;
 
 /**
  * Every pair the sprite-separation check is allowed to fail on, each with the
@@ -239,12 +267,21 @@ const AWAITING_A_COMPANION: { name: string; because: string }[] = [];
 
 const EMITTERS: FireEmitter[] = ['trash', 'tear', 'clod', 'spiral'];
 
-/** The backgrounds a mob-fire core can be drawn over (assertion 8). */
+/**
+ * The backgrounds a mob-fire core can be drawn over (assertion 8). The
+ * stand-in ground joined it when the ground was first drawn: fire crosses the
+ * dressing and the Waking's own body every run, and the whole reason the art is
+ * imported grayscale is so a check like this one binds on it.
+ */
 const BACKGROUNDS: [string, PaletteEntry][] = [
   ['night', PALETTE.night],
   ['nightSpeckle', PALETTE.nightSpeckle],
   ['fieldFrame', PALETTE.fieldFrame],
   ['graveHole', PALETTE.graveHole],
+  ['standInGroundDressCold', PALETTE.standInGroundDressCold],
+  ['standInGroundDressWet', PALETTE.standInGroundDressWet],
+  ['standInVigilTint', PALETTE.standInVigilTint],
+  ['standInWaking', PALETTE.standInWaking],
 ];
 
 function paletteEntries(): [string, PaletteEntry][] {
@@ -831,6 +868,80 @@ describe('the source scan over the modules that draw during a run (ADR 0014)', (
   );
 });
 
+/** The two modules that draw the stand-in ground, which the scan above must reach. */
+const GROUND_MODULES = [
+  join(APP, 'screens', 'game', 'BackgroundRenderer.ts'),
+  join(APP, 'screens', 'game', 'groundDressing.ts'),
+];
+
+/** Every PALETTE entry a module names, read out of its source. */
+const paletteNamesIn = (file: string): string[] => {
+  const source = readFileSync(file, 'utf8');
+  return [...source.matchAll(/\bPALETTE\.([A-Za-z0-9_]+)/g)].map(
+    (match) => match[1],
+  );
+};
+
+describe('the stand-in ground (ADR 0049, decision 22, #38)', () => {
+  it("puts the Vigil's departure in the hue band the readability record records as empty", () => {
+    // Spec 59. `docs/research/readability-value-band.md` section 7.5, quoted in
+    // #38's second comment: "hue 50 to 125 and 175 to 205 are entirely empty."
+    // The teal half is the one still empty today, because territory sits at hue
+    // 95 and mob at about 127.
+    const hue = hsv(PALETTE.standInVigilTint.hex).h;
+    expect(`${hue.toFixed(2)} in band ${hue >= 175 && hue <= 205}`).toBe(
+      `${hue.toFixed(2)} in band true`,
+    );
+    for (const name of ['wisp', 'skull'] as const) {
+      const gap = hueGap(hue, hsv(PALETTE[name].hex).h);
+      expect(`${name} ${gap >= SPRITE_SEPARATION.hue}`).toBe(`${name} true`);
+    }
+  });
+
+  it('gives the departure the highest saturation of the four ground colours, so the addition is the event', () => {
+    // Downwell's move, from the design record's section 7: two sections on the
+    // base palette with dressing changes only, and the fourth colour held back.
+    const saturations = STAND_IN_GROUND.map((name) => hsv(PALETTE[name].hex).s);
+    const departure = hsv(PALETTE.standInVigilTint.hex).s;
+    expect(`${Math.max(...saturations) === departure}`).toBe('true');
+  });
+
+  it('draws every colour of the ground from a declared palette entry', () => {
+    // Spec 60. The scan below forbids a colour literal in these modules, and
+    // this is its other half: a name that is not an entry cannot compile, but a
+    // module that reached MENU or named nothing at all would pass the scan
+    // while drawing a colour the band never measured.
+    const named = GROUND_MODULES.flatMap(paletteNamesIn);
+    expect(named.length).toBeGreaterThan(0);
+    expect(named.filter((name) => !(name in PALETTE))).toEqual([]);
+  });
+
+  it('is inside the source scan, so the ground cannot write a colour of its own', () => {
+    // Fence 114. The scan walks a folder, so a new renderer joins it by
+    // existing; what can go wrong is the folder, and this says the two files
+    // are in the list the scan actually built.
+    const files = DRAWS_DURING_A_RUN.flatMap(typescriptFilesUnder);
+    for (const module of GROUND_MODULES) expect(files).toContain(module);
+    expect(GROUND_MODULES.flatMap(forbiddenIn)).toEqual([]);
+  });
+
+  it("keeps the Waking's source apart from every ground colour it drifts over", () => {
+    // The source is background art by construction (decision 25 puts it on the
+    // ground layer), so the sprite pair table does not cover it and this does.
+    // It is the brightest thing the ground layer draws, because it is the
+    // loudest beat in the run, and it carries its own dark companion out past
+    // its body so it reads against the dressing as well as against the tile.
+    const source = PALETTE.standInWaking;
+    for (const name of STAND_IN_GROUND) {
+      const gap = source.luma - PALETTE[name].luma;
+      expect(`${name} ${gap >= SPRITE_SEPARATION.luma}`).toBe(`${name} true`);
+    }
+    expect(source.luma - PALETTE.standInWakingDark.luma).toBeGreaterThanOrEqual(
+      INTERNAL_SPAN_MIN,
+    );
+  });
+});
+
 /**
  * The stand-in art the grayscale import writes (`scripts/grayscale-import.ts`).
  * Only this folder: the create-pixi UI art under raw-assets/main{m} is not pixel
@@ -872,6 +983,32 @@ const huedPixelsIn = (file: string): string[] => {
   ];
 };
 
+/** The top of an eight-bit channel, which the stretched art's body reaches. */
+const FULL_RANGE = 255;
+
+/**
+ * The share of a sprite's own pixels the stretch puts at the top, which is the
+ * import's own row (`scripts/grayscale-import.ts`). Held here at the same value
+ * because what the fence measures is the property the stretch exists for: the
+ * body of the art reaching the range, not one specular pixel doing it.
+ */
+const STRETCH_PERCENTILE = 0.98;
+
+/** The grey at the stretch's own percentile of a file's opaque pixels. */
+const bodyGreyIn = (file: string): number => {
+  const image = PNG.sync.read(readFileSync(file));
+  const greys: number[] = [];
+  for (let at = 0; at < image.data.length; at += 4) {
+    if (image.data[at + 3] === 0) continue;
+    greys.push(image.data[at]);
+  }
+  if (greys.length === 0) return 0;
+  greys.sort((first, second) => first - second);
+  return greys[
+    Math.min(greys.length - 1, Math.floor(greys.length * STRETCH_PERCENTILE))
+  ];
+};
+
 describe('the grayscale import over the stand-in art (#38, ADR 0014)', () => {
   it('leaves no pixel with a hue in any sprite or tile it staged', () => {
     // The source scan above reads modules for hex literals and cannot see a
@@ -881,5 +1018,26 @@ describe('the grayscale import over the stand-in art (#38, ADR 0014)', () => {
     const files = pngsUnder(STAND_IN_ART);
     expect(files.length).toBeGreaterThan(0);
     expect(files.flatMap(huedPixelsIn)).toEqual([]);
+  });
+
+  it('leaves every sprite and tile reaching the top of the value range, so a tint is a colour', () => {
+    // A PixiJS tint multiplies, so the palette entry is a ceiling and never a
+    // value: what draws is the art's own grey times the entry. The staged pack
+    // is a dark one and most of it peaked at 17 to 72 of 255, which put the
+    // whole ground two luma points off night whatever entry it wore, and the
+    // rendered check at slice 13b is what saw it. Stretching each file on
+    // import is what makes "coloured only by its palette entry" true rather
+    // than an intention: at the top of its own range a sprite's brightest
+    // surface is the entry, and everything under it is that colour's own
+    // shading. It is the body of the art and never its brightest pixel,
+    // because a pack puts a handful of speculars at the top and stretching to
+    // those leaves the body exactly where it was.
+    const dim = pngsUnder(STAND_IN_ART).flatMap((file) => {
+      const body = bodyGreyIn(file);
+      return body === FULL_RANGE
+        ? []
+        : [`${relative(STAND_IN_ART, file)}: its body reaches only ${body}`];
+    });
+    expect(dim).toEqual([]);
   });
 });

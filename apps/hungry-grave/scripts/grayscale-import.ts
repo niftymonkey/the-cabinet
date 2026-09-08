@@ -192,6 +192,64 @@ const desaturate = (image: PNG): void => {
   }
 };
 
+/** The top of an eight-bit channel, which the stretch lifts the art's body to. */
+const FULL_RANGE = 255;
+
+/**
+ * Where the stretch takes its top from: the 98th percentile of the art's own
+ * opaque greys, not its brightest pixel.
+ *
+ * A handful of specular pixels is what the packs put at the top of their range,
+ * and stretching to the brightest of them leaves the body of a sprite where it
+ * was: the Waking's two frames are the case that showed it, one with bright
+ * eyes and one without, which the maximum scaled by 3.5 apart from each other.
+ * Clipping the top two percent costs highlights that then draw at the palette
+ * entry itself, which is what a highlight is.
+ */
+const STRETCH_PERCENTILE = 0.98;
+
+/** The grey at a percentile of a grayscale image's opaque pixels. */
+const greyAtPercentile = (image: PNG, share: number): number => {
+  const greys: number[] = [];
+  for (let at = 0; at < image.data.length; at += 4) {
+    if (image.data[at + 3] === 0) continue;
+    greys.push(image.data[at]);
+  }
+  if (greys.length === 0) return 0;
+  greys.sort((first, second) => first - second);
+  return greys[Math.min(greys.length - 1, Math.floor(greys.length * share))];
+};
+
+/**
+ * The image's own greys stretched so the body of the art reaches the top of the
+ * range, with everything under it scaled by the same factor and anything over
+ * the top clipped to it.
+ *
+ * A PixiJS tint multiplies, so a palette entry is a ceiling and never a value:
+ * what draws is the art's own grey times the entry. This pack is a dark one,
+ * most of it peaking between 17 and 72 of 255, so tinted as staged the whole
+ * ground drew two luma points off night whatever entry it wore, and the
+ * rendered check at slice 13b is what saw it. Stretched, a sprite's brightest
+ * surface is the entry itself and everything under it is that colour's own
+ * shading, which is what "coloured only by its palette entry" has to mean.
+ *
+ * The stretch is one factor over the whole image rather than per channel, which
+ * is what keeps a grayscale image grayscale.
+ */
+const stretchToFullRange = (image: PNG): void => {
+  const top = greyAtPercentile(image, STRETCH_PERCENTILE);
+  if (top === 0 || top === FULL_RANGE) return;
+  for (let at = 0; at < image.data.length; at += 4) {
+    const lifted = Math.min(
+      FULL_RANGE,
+      Math.round((image.data[at] * FULL_RANGE) / top),
+    );
+    image.data[at] = lifted;
+    image.data[at + 1] = lifted;
+    image.data[at + 2] = lifted;
+  }
+};
+
 /** The staged sheet at a path, decoded to eight-bit RGBA. */
 const stagedSheet = (from: string): PNG =>
   PNG.sync.read(readFileSync(join(STAGED, from)));
@@ -218,6 +276,7 @@ const cutOut = (from: string, sheet: PNG, cell: Cell): PNG => {
 const writeImported = (to: string, image: PNG): number => {
   const path = join(IMPORTED, to);
   desaturate(image);
+  stretchToFullRange(image);
   const bytes = PNG.sync.write(image);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, bytes);

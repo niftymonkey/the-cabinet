@@ -1,4 +1,4 @@
-import { Assets, BlurFilter } from 'pixi.js';
+import { Assets, BlurFilter, Cache, Texture } from 'pixi.js';
 
 import { createFpsMeter } from './app/FpsMeter';
 import { FpsSampler } from './app/FpsSampler';
@@ -14,6 +14,7 @@ import {
   resolveRoute,
 } from './app/routes';
 import { EndScreen } from './app/screens/EndScreen';
+import { STAND_IN_BUNDLE } from './app/screens/game/groundDressing';
 import { GameScreen } from './app/screens/game/GameScreen';
 import { LoadScreen } from './app/screens/LoadScreen';
 import { PrototypesScreen } from './app/screens/PrototypesScreen';
@@ -140,6 +141,26 @@ const musicChannel = (engine: CreationEngine): MusicOutput => ({
   },
 });
 
+/**
+ * Where the stand-in ground's art comes from, and what holds it until it is
+ * there.
+ *
+ * The stand-in bundle is background loaded and no screen declares it, so a
+ * renderer can ask for a tile before the file is registered and Cache.get warns
+ * on every miss. Asking the cache first turns that into a ground that arrives
+ * late rather than a warning per sprite per frame, and the load is started here
+ * so the wait is bounded by the file and not by the background queue.
+ */
+const standInArt = (): ((alias: string) => Texture | null) => {
+  void Assets.loadBundle(STAND_IN_BUNDLE).catch((error) =>
+    console.warn(
+      'the stand-in ground would not load; the run carries on without it',
+      error,
+    ),
+  );
+  return (alias) => (Cache.has(alias) ? Texture.from(alias) : null);
+};
+
 /** A volume the player moved: heard now, and kept for the next sitting. */
 const volumePowers = (engine: CreationEngine) => ({
   setMasterVolume: (value: number): void => {
@@ -197,6 +218,7 @@ const showGame = (engine: CreationEngine): Promise<void> => {
   // One channel per showing rather than one per event: the screen asks on every
   // event a run emits.
   const music = musicChannel(engine);
+  const art = standInArt();
   return engine.navigation.showScreen(GameScreen, {
     openMenu: (endRun) => showPauseMenu(engine, endRun),
     closeMenu: () => engine.navigation.dismissPopup(),
@@ -204,6 +226,7 @@ const showGame = (engine: CreationEngine): Promise<void> => {
     showEnd: () => showEnd(engine),
     playSound: (event) => playFor(engine.audio.sfx, event),
     playMusic: (event) => playMusicFor(music, event),
+    standInArt: art,
     ...buttonSound(engine),
     canvas: engine.canvas,
     renderer: engine.renderer,
@@ -246,6 +269,7 @@ const showReplay = async (engine: CreationEngine): Promise<void> => {
   const { ReplayScreen } = await import('./app/screens/ReplayScreen');
   await engine.navigation.showScreen(ReplayScreen, {
     onBack: goHome,
+    standInArt: standInArt(),
     ...buttonSound(engine),
   });
 };

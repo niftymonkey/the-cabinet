@@ -1,4 +1,4 @@
-import type { Ticker } from 'pixi.js';
+import type { Texture, Ticker } from 'pixi.js';
 import { Container, Graphics } from 'pixi.js';
 
 import type { SimEvent } from '../../game/events';
@@ -10,6 +10,7 @@ import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
 import { atFromUrl, tapeFromUrl } from '../seedFromUrl';
 import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
+import { BackgroundRenderer } from './game/BackgroundRenderer';
 import { boundaryReadout, fieldClip } from './game/fieldFrame';
 import { FieldRenderer } from './game/FieldRenderer';
 import { GraveRenderer } from './game/GraveRenderer';
@@ -35,6 +36,12 @@ const BACK_HEIGHT = 68;
 /** The one way off the replay screen, owned by the driver in main.ts. */
 interface ReplayScreenProps extends ButtonChrome {
   onBack(): void;
+  /**
+   * A stand-in texture, or null while its bundle is still coming. The replay
+   * takes it for the reason the game screen does: a renderer wired into one of
+   * the two dressField sites and not the other is how a renderer ships unseen.
+   */
+  standInArt(alias: string): Texture | null;
 }
 
 /**
@@ -53,6 +60,10 @@ class ReplayScreen extends Container {
   // The field's clip: a mask is not a layer, so it is built once and survives clear().
   private readonly clip: Graphics;
   private readonly grave = new GraveRenderer();
+  // The lookup is read at sync time, so props being set after construction is safe.
+  private readonly background = new BackgroundRenderer({
+    standInArt: (alias) => this.props.standInArt(alias),
+  });
   private readonly fieldRenderer = new FieldRenderer();
   private readonly stormRenderer = new StormRenderer();
   private readonly readout = createReplayReadout();
@@ -94,6 +105,7 @@ class ReplayScreen extends Container {
   // The field's own furniture, put back after any clear() (see reset).
   private dressField(): void {
     this.layers.layer('fieldBoundary').addChild(this.frame);
+    this.background.attach(this.layers);
     this.fieldRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
@@ -153,6 +165,7 @@ class ReplayScreen extends Container {
       run.tick,
       territoryCharge(run),
     );
+    this.background.sync(run);
     this.fieldRenderer.sync(run);
     this.stormRenderer.sync(run);
   }

@@ -109,6 +109,7 @@ function gameScreen(): GameScreen {
     showEnd: () => Promise.resolve(navigation.showScreen(EndScreen)),
     playSound: () => {},
     playMusic: (event) => void musicCued.push(event),
+    standInArt: () => null,
     playButtonSound: () => {},
     canvas,
     // The tape header records the renderer's backend and resolution once per
