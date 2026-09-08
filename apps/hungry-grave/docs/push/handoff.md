@@ -1,8 +1,8 @@
 # Continue: The Hungry Grave
 
 > **Last updated:** 2026-09-08 (session 8)
-> **Branch:** `hungry-grave-v1`, a clean branch off `main`, in worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1`. The earlier branch with the cloud scaffolding (personal skills, a rules copy, raw asset packs, dry-run records) is archived locally as `hungry-grave-v1-cloud`; on origin it still sits under the name `hungry-grave-v1` until Mark rules on the remote naming (see "Needed from Mark" below).
-> **Working tree:** clean after the commit named in "Where we are".
+> **Branch:** `hungry-grave-v1`, a clean branch off `main`, in worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1`. The earlier branch with the cloud scaffolding (personal skills, a rules copy, raw asset packs, dry-run records) is archived as `hungry-grave-v1-cloud`, locally and on origin. The clean branch is pushed to origin as `hungry-grave-v1` (Mark's yes, 2026-09-08) and tracks it.
+> **Working tree:** clean; tip is the handoff commit after 17115281fd (carry-over) and 8c43e70480 (ADR step), both pushed.
 
 ## FIRST ACTION: enter the worktree
 
@@ -20,8 +20,7 @@ The done line is confirmed by Mark (2026-09-08, `pre-authorizations.md`). The bu
 
 ### Needed from Mark
 
-- **Remote naming.** Origin's `hungry-grave-v1` still holds the cloud history. Force-pushing and deleting remote branches are not pre-authorized. Options: push the clean branch under a new name (the pointer file on `main` then names a stale branch, harmless since it also names the worktree path); or Mark deletes or renames the remote branch himself and the clean branch is pushed as `hungry-grave-v1`. Until then the clean branch is unpushed.
-- **A new session** once the switch is committed, so the doubled skills and rules drop out of context (Mark asked for this, 2026-09-08).
+- Nothing. The remote naming is settled (archive pushed as `hungry-grave-v1-cloud`, old remote name deleted, clean branch pushed as `hungry-grave-v1`, all with Mark's yes 2026-09-08). Mark then started a fresh session so the doubled skills and rules drop out of context; the next session begins at step 1 of "The next steps" with no question pending.
 
 ### Deferred by the tech gate to the store step (step 6 spec)
 
