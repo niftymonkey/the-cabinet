@@ -82,8 +82,17 @@ Nothing yet.
 
 ## 6. The baseline tapes
 
-Nothing yet.
+Recorded at the branch tip `ed2ad14108` before any step 2 edit, saved outside the repo under `local/step2/` (gitignored). They are the input to verification steps 5 and 10.
+
+- `local/step2/baseline-a.tape`: seed 2093383922, 12000 ticks, the birthright only (`skullStream=1 territory=0 wisps=0 bell=0`).
+- `local/step2/baseline-b.tape`: the same seed and ticks, every line at level 5 (`skullStream=5 territory=5 wisps=5 bell=5`).
+- `local/step2/baseline-a.measure.txt`: `measure.ts` against baseline-a. The run ends `sealed` at tick 1746.
+- `local/step2/baseline-b.measure.txt`: `measure.ts` against baseline-b. The run ends `sealed` at tick 3393.
+
+The recorder is `scripts/record-conditioned.ts`; its argument names are the current weapon lines (`skullStream`, `territory`, `wisps`, `bell`), read from `WEAPON_LINES` in `src/game/lines/roster.ts` rather than trusted from the handoff, whose own example still says `soulStream`. Neither recording raised a fault.
+
+The test-name baseline for verification step 5: `local/step2/tests-baseline.json` (`vitest list --json`, with the AssetPack log lines the command prints before the array stripped so the file parses as JSON) and `local/step2/tests-baseline.txt` (a sorted plain list, one `file :: name` per line, for a later agent's diff). 1423 tests, all unique.
 
 ## 7. Verification steps run
 
-Nothing yet.
+Slice 0: the step 5 and step 10 baselines recorded, see section 6.
