@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../caps';
+import type { WeaponLine } from '../lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import { createRun, uniformLevels } from '../run';
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../tuning';
@@ -88,5 +89,33 @@ describe('createRun', () => {
       wisps: 2,
       bell: 2,
     });
+  });
+
+  it('fields the whole pool when no roster is asked for, at the birthright levels', () => {
+    // ADR 0046: a run fields a roster drawn from the pool. Nothing unlocks
+    // anything yet, so every run's roster is the whole pool, and the interface
+    // is what this slice buys rather than a visible change.
+    const run = createRun(1);
+    expect([...run.roster]).toEqual([...WEAPON_LINES]);
+    for (const line of WEAPON_LINES) {
+      expect(run.levels[line]).toBe(BIRTHRIGHT.includes(line) ? 1 : 0);
+    }
+  });
+
+  it('carries a smaller roster and holds the lines outside it at zero', () => {
+    const roster: readonly WeaponLine[] = [...BIRTHRIGHT, 'bell'];
+    const run = createRun(1, undefined, undefined, roster);
+    expect([...run.roster]).toEqual([...roster]);
+    expect(run.levels.wisps).toBe(0);
+    for (const line of BIRTHRIGHT) expect(run.levels[line]).toBe(1);
+  });
+
+  it('copies the given roster rather than aliasing the caller list', () => {
+    const given: WeaponLine[] = [...BIRTHRIGHT];
+    const run = createRun(1, undefined, undefined, given);
+
+    given.push('bell');
+
+    expect([...run.roster]).toEqual([...BIRTHRIGHT]);
   });
 });

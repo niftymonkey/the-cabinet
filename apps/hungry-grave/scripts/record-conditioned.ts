@@ -140,7 +140,7 @@ const headerFor = (run: RunState): TapeHeader => {
   return {
     seed: run.seed,
     startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
+    recordedRoster: [...run.roster],
     startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,

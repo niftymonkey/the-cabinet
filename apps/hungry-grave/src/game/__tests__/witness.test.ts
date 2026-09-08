@@ -610,6 +610,8 @@ const FOLDED: readonly string[] = [
  */
 const EXCLUDED: Readonly<Record<string, string>> = {
   seed: "the run's identity, fixed by createRun and never mutated by the rules. The tape header carries it.",
+  'roster[]':
+    "the run's identity, as the seed is: resolved once by createRun and never mutated by the rules (ADR 0046). The tape header records it, and what the roster decides shows through the levels the walk already folds.",
   tick: "the witness's own address. A checkpoint at index N is by definition the state after executeTick has run N times, so the tick names a fold rather than being part of one.",
   'mobs[].alive':
     'gates the walk. A dead slot contributes nothing at all, so liveness already moves the fold by deciding which entities are folded.',

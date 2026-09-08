@@ -59,6 +59,14 @@ interface LineState {
 interface RunState {
   // The seed this run was rolled or pinned with (ADR 0012).
   readonly seed: number;
+  /**
+   * The weapon lines this run is fielding, resolved once at createRun from the
+   * pool the build holds (ADR 0046). It is the run's identity in the same way
+   * the seed is: the rules read it and never write it, and the tape header
+   * records it so a replay fields the roster the run played rather than the
+   * roster the reading build happens to compile.
+   */
+  readonly roster: readonly WeaponLine[];
   // A run's length is counted in ticks, never wall clock.
   tick: number;
   readonly grave: Grave;
@@ -134,15 +142,26 @@ const startingLines = (): LineState => {
   };
 };
 
-// The levels a run starts with: the birthright lines at one, the rest unowned.
-const birthrightLevels = (): Record<WeaponLine, number> => {
+/**
+ * The levels a run starts with: the birthright lines this run fields at one,
+ * every other line unowned.
+ *
+ * A birthright line outside the run's roster is not fielded at all, so it
+ * starts unowned rather than at one: the roster decides what a run has and the
+ * birthright decides which of those it is born holding (ADR 0046).
+ */
+const birthrightLevels = (
+  roster: readonly WeaponLine[] = WEAPON_LINES,
+): Record<WeaponLine, number> => {
   const levels: Record<WeaponLine, number> = {
     skullStream: 0,
     territory: 0,
     wisps: 0,
     bell: 0,
   };
-  for (const line of BIRTHRIGHT) levels[line] = 1;
+  for (const line of BIRTHRIGHT) {
+    if (roster.includes(line)) levels[line] = 1;
+  }
   return levels;
 };
 
@@ -183,19 +202,26 @@ const isBirthrightLevels = (
  * are in this signature for the same reason the size is: ?levels= pins them,
  * and a tape's header rebuilds a pinned run from the resolved record it
  * carries (ADR 0027).
+ *
+ * The roster defaults to the whole pool, which is every run today, and is
+ * copied for the same reason the levels are: the caller's list is the caller's.
+ * It is in the signature because a replay fields the roster its tape recorded
+ * (ADR 0046), not the one this build happens to compile.
  */
 const createRun = (
   seed: number = rollSeed(),
   startingSize: number = SIZE_START,
-  startingLevels: Readonly<Record<WeaponLine, number>> = birthrightLevels(),
+  startingLevels?: Readonly<Record<WeaponLine, number>>,
+  roster: readonly WeaponLine[] = WEAPON_LINES,
 ): RunState => {
   return {
     seed,
+    roster: [...roster],
     tick: 0,
     grave: createGrave(startingSize),
     score: 0,
     reservoir: 0,
-    levels: { ...startingLevels },
+    levels: { ...(startingLevels ?? birthrightLevels(roster)) },
     ending: null,
     streams: {
       spawns: stream(seed, 'spawns'),

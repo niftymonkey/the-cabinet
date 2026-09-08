@@ -2,7 +2,6 @@
 // being played in.
 
 import { TICK_HZ } from '../game/clock';
-import { WEAPON_LINES } from '../game/lines/roster';
 import type { RunState } from '../game/run';
 import { WITNESS_VERSION } from '../game/witness';
 import type { TapeHeader, TapeInputDevice } from '../tape/tape';
@@ -63,9 +62,9 @@ interface RunConditions {
  * header is a record of the start.
  *
  * The roster goes in beside them so those levels stay readable when the roster
- * moves again (ADR 0043). The lines this build implements are what the run
- * really played, so recording them is the same record-the-resolved-value rule
- * one level up: a later reader reads a level by the name it was written under
+ * moves again (ADR 0043). What is recorded is the run's own resolved roster and
+ * not the build's compiled pool (ADR 0046), so a replay fields what the run
+ * fielded and a later reader reads a level by the name it was written under
  * rather than by a position it has to guess the meaning of.
  */
 const tapeHeaderFor = (
@@ -75,7 +74,7 @@ const tapeHeaderFor = (
   return {
     seed: run.seed,
     startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
+    recordedRoster: [...run.roster],
     startingLevels: { ...run.levels },
     tickRate: TICK_HZ,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,

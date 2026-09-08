@@ -35,7 +35,7 @@ const STREAM_ORDER: readonly StreamName[] = [
  * and read back there, so it moves only when the order or the field list below
  * moves.
  */
-const WITNESS_VERSION = 4;
+const WITNESS_VERSION = 5;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot

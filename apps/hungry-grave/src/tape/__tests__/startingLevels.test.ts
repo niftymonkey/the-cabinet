@@ -67,21 +67,46 @@ describe('resolveStartingLevels', () => {
     expect(resolved.recordedRoster).toEqual(recorded);
   });
 
-  it('refuses a roster short of a line this build has, rather than filling it in', () => {
-    // The absence is the tape's, and ADR 0027 rules that a header records
-    // resolved values and never absences: a zero invented here would be this
-    // reader claiming the run started with the bell unowned, which the tape
-    // never said.
-    const older = [...WEAPON_LINES].filter((line) => line !== 'bell');
+  it('implements a roster naming fewer lines than this build has, and fields exactly those', () => {
+    // ADR 0046: "a tape must replay without the player's unlock state, so the
+    // header records the run's resolved roster." A run that never fielded the
+    // bell is an ordinary run, not an older format, so the roster resolves and
+    // the lines it does not name are unowned rather than unsaid.
+    const smaller = [...WEAPON_LINES].filter((line) => line !== 'bell');
     const levels = { ...BASE.startingLevels };
     delete levels.bell;
     const resolved = resolveStartingLevels(
-      headerWith({ recordedRoster: older, startingLevels: levels }),
+      headerWith({ recordedRoster: smaller, startingLevels: levels }),
+    );
+
+    expect(resolved.outcome).toBe('implemented');
+    if (resolved.outcome !== 'implemented') return;
+    expect([...resolved.roster]).toEqual(smaller);
+    expect(resolved.levels).toEqual({
+      skullStream: 1,
+      territory: 3,
+      wisps: 0,
+      bell: 0,
+    });
+  });
+
+  it('reports a tape recorded under the old stream name and refuses to replay it', () => {
+    // ADR 0043: "A tape naming a line this build does not implement is still
+    // readable: its header is reported as recorded, in the tape's own
+    // vocabulary." The rename spends no format version, so the bytes still
+    // decode and the refusal is precise rather than blanket.
+    const old = ['soulStream', 'territory', 'wisps', 'bell'];
+    const resolved = resolveStartingLevels(
+      headerWith({
+        recordedRoster: old,
+        startingLevels: { soulStream: 1, territory: 3, wisps: 0, bell: 5 },
+      }),
     );
 
     expect(resolved.outcome).toBe('notImplemented');
     if (resolved.outcome !== 'notImplemented') return;
-    expect(resolved.recordedRoster).toEqual(older);
+    expect(resolved.recordedRoster).toEqual(old);
+    expect(resolved.recordedRoster).toContain('soulStream');
   });
 
   it('refuses a roster that names the same line twice', () => {

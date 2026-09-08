@@ -535,22 +535,23 @@ describe('the self-describing header (#76, ADR 0043)', () => {
     });
   });
 
-  it('a header short of a line this build has is reported as recorded too', () => {
-    // The other direction, and it is not symmetric with the one above by
-    // accident: a tape written before a line existed says nothing about that
-    // line, and inventing a zero for it would be the reader making something
-    // up. ADR 0027 forbids an absence in a header, so the honest answer is that
-    // the recorded roster is short and this build cannot run it.
-    const older = [...WEAPON_LINES].filter((line) => line !== 'bell');
+  it('a header carrying a three-line roster round-trips unchanged', () => {
+    // A run fields a roster drawn from the pool (ADR 0046), so a header naming
+    // three lines is an ordinary header. The wire carries it because the roster
+    // is written length-prefixed by name with one level byte per recorded name,
+    // and inventing a zero for the line it never named would be the reader
+    // making something up, which ADR 0027 forbids.
+    const smaller = [...WEAPON_LINES].filter((line) => line !== 'bell');
     const levels = { ...HEADER.startingLevels };
     delete levels.bell;
     const bytes = encodeTape({
       ...FULL,
-      header: { ...HEADER, recordedRoster: older, startingLevels: levels },
+      header: { ...HEADER, recordedRoster: smaller, startingLevels: levels },
     });
 
     const { tape } = decodeTape(bytes);
-    expect(tape.header.recordedRoster).toEqual(older);
+    expect(tape.header.recordedRoster).toEqual(smaller);
+    expect(tape.header.startingLevels).toEqual(levels);
     expect('bell' in tape.header.startingLevels).toBe(false);
   });
 });

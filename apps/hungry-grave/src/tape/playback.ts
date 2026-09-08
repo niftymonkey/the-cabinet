@@ -184,6 +184,7 @@ const runFromHeader = (levels: StartingLevels, header: TapeHeader): RunState =>
     header.seed,
     header.startingSize,
     levels.outcome === 'implemented' ? levels.levels : undefined,
+    levels.outcome === 'implemented' ? levels.roster : undefined,
   );
 
 /**
