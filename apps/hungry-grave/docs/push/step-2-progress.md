@@ -71,6 +71,7 @@ Every other section 9 item is carried by a slice: 1 by slice 2's glossary commit
 | 8 | `31c48ee1e8` | feat(hungry-grave): the Undertaker fights in three chunks of curtains, spiral and diggers (#97) |
 | 9 | `e024ebb7c8` | feat(hungry-grave): victory is the Undertaker's death and the ladder falls in order (#97) |
 | 10 | `b0b4f4a4f5` | feat(hungry-grave): the Waking opens mid-field and pours until its budget is spent (#97) |
+| 11 | `55ed3230c7` | feat(hungry-grave): a section timeline reading reports what each section held (#97) |
 
 Slice 0 records the baseline tapes and makes no commit.
 
@@ -96,6 +97,8 @@ Slice 9: none, and the slice claimed none. What moved is when the run's ending f
 
 Slice 10: none, and the slice claimed none. `GOLDEN`'s scenario is 600 ticks from the top of the Procession, and the source is placed at the Crowd's own t=120, two sections and a fight past it. `src/dev/digest.ts` is not in the commit and the digest test is green.
 
+Slice 11: none, and none was possible. The commit holds one new reading, its registration, its comparison entry and two tests, and not one line the simulation runs: a reading is a fold over events the sim already emitted, so nothing the digest reads can have moved. `src/dev/digest.ts` is not in the commit and the digest test is green.
+
 ## 3. CodeRabbit
 
 Slice 1: `coderabbit review --agent --uncommitted` on the staged work, all eighteen files reviewed, **zero findings**. Nothing applied and nothing declined.
@@ -120,6 +123,8 @@ Slice 8: one run of `coderabbit review --agent --uncommitted` over the eight sta
 Slice 9: one run of `coderabbit review --agent --uncommitted` over the nine staged files, **zero findings**. Nothing applied and nothing declined.
 
 Slice 10: two runs, the first over fourteen staged files and the second over sixteen. The first found one Minor and it was real: `observeTerritoryControl` records a pulse pace off any territory-sourced `mobDamaged`, and the storm now reaches a boss and the set piece's source through the same seam it reaches a mob through, so a source standing under one patch for a whole pour would report a pace no mob ever walked, and its entry would never be cleared, because what clears one is a `mobKilled`. **Applied**: a pulse is recorded only for an id standing in the mob pool, with a test that a hit on something outside it reads no pace and that the same two ticks on a real mob do. The defect is older than this slice, since a boss has reached that seam since slice 6, and what this slice did was widen it. The second run, on the fixed tree, reported zero findings. Nothing declined.
+
+Slice 11: one run of `coderabbit review --agent --uncommitted` over the six staged files, **zero findings**. Nothing applied and nothing declined.
 
 ## 4. Plan claims found false against the tree
 
@@ -195,6 +200,14 @@ Seven from slice 10, and the first is the ruling slice 3's note left here.
 41. **Fence 110 is in no slice's list at all.** Section 6 declares it, "no boss module and no set piece module names a weapon line", and section 10 never assigns it. It landed here, because this is the slice that creates the second of the two module families it covers, and it reads the boss half off the folder so a third boss joins it without an edit.
 42. **Test 19's sentence is stronger than the code, and what landed is the quantity the code supports.** "Nothing the set piece does fills the reservoir": swallowing an ordinary corpse charges the reservoir a little, as every corpse does, so a pour the player eats does raise it. What ADR 0050 rules out is a gift, and that is what the test holds: the source sheds no treasure and charges nothing itself, a whole pour nobody eats leaves the reservoir where it found it, and a feast in the same rig does charge.
 43. **The Waking's property is a tendency across seeds rather than a per-seed law.** Section 6's tests 16 and 17 read as per-seed claims, like the Wall's, and the Wall's are survival claims where these are a quantity. Measured over twelve seeds, eleven went the committing way and one the other, and which one moved with the window the trail was read over. The test therefore holds the total across its seeds and pins the exceptions as a set, which is the `STRIPS_A_RUNG` idiom; section 17 carries the figures.
+
+Four from slice 11, and the first is a place the plan counts and the tree guards.
+
+44. **The readings graph is declared in six places and the plan names five.** The planning read corrected the count from three to five (`TuningReadings`, `ReadingsAcc`, `createReadings`, `observeReadings`, `readingsOf`), and the sixth is `READING_COMPARISONS` in `src/dev/compareRuns.ts`, whose own comment says a reading with no entry there is a hole. `src/dev/__tests__/comparisonDeclared.test.ts` went red the moment the reading joined `TuningReadings`, naming `tuning.sectionTimeline.spans` as undeclared, and it was green again once the entry landed. **It is declared as a list and not a series**: the spans are one entry per phase crossed, two runs that crossed a different number of phases have no index to pair, and the count is how far through the stage each side reached.
+45. **Section 6 puts both tests in `src/dev/readings/__tests__/sectionTimeline.test.ts`, and test 101 cannot live there.** It is a claim about what a measured tape reports, so it reaches `src/dev/measure.ts`, and the test-span fence in `src/__tests__/boundary.test.ts` refuses a test under `dev/readings` that imports from outside that subtree: it named both `../../bot` and `../../measure` the first time it was run. **Test 101 landed in `src/dev/__tests__/measure.test.ts`**, which is the test folder of the lowest folder containing everything it spans and where the up-field traffic reading's own claim already sits, and it reads the file's existing rich fixture rather than recording a second long run: that fixture already stops at 9000 ticks inside the Banshee's fight, which is exactly the tape the test needs. Test 100 stayed beside the module.
+46. **Verification step 9 says to record a full run with `record-conditioned.ts`, and no tape that tool records crosses a boundary.** Its steering script is a fixed wander (`scripts/record-conditioned.ts:165-170`), and a wandering hand takes fire from every row it crosses: at every line pinned to level 5 on seed 101 it sealed shut at tick 3453, inside the Procession, and the reading reported the one open span that says so. **The step ran on a tape recorded through the same authority under the maxed dodge bot**, which is the hand the plan's own verification step 7 already uses for the same reason, that only a pinned build crosses the stage headlessly. The tables are in section 18.
+47. **Verification step 9's eight-to-ten-minute criterion holds on neither hand, and section 17 had already measured why.** The maxed dodge bot's whole run is 25862 ticks, 7.18 minutes, and the birthright still hand's is 38510, 10.70. Every other criterion of the step passes on the taped run: seven phases in order, the Procession shorter than the Crowd, the Vigil shorter than the Procession, and both boss phases beginning on a tick with zero live mobs. The two hands are the band's own edges rather than a defect here, which is the reading section 17 already took from the other side, and what stands between them is spec test 3's derived nominal of 8.2 minutes. **It is the tuning pass's question and not this slice's**, and it is now measured rather than intended, which is what the step exists for.
+
 
 ## 5. Gate corrections
 
@@ -325,6 +338,18 @@ Slice 10, from the plan's section 3:
 - **Step 7, the headless run to victory.** **Ran, and passed.** All five seeds reach victory from a build pinned through `createRun`'s third parameter with `uniformLevels(MAX_LEVEL)`, the seed set did not move, and on every one of them victory fires behind the Undertaker's own `bossKilled` on the same tick rather than on a phase index, with no fault recorded. `maxedRun` now takes its build through that parameter rather than writing the levels after `createRun`, which is the plan's own wording and moved no seed.
 - **Step 8, the headless run to sealed shut.** **Ran, and passed on all five seeds**, through `scoreBled`, then `weaponStripped`, then `sealed`, in that order, with every line back at the birthright. It is not at the birthright loadout, which the plan's wording asks for, and section 17 says why: slice 9 measured that a birthright run reaches the floor with nothing to bleed, so the run is pinned at level two with score on it, the same two pins `endings.test.ts` carries.
 - **Steps 9 to 14 and the rendered checks** belong to later slices and were not run, though section 17 carries the whole-run clock this slice measured while writing spec test 3. **Steps 16 to 22 are Mark's and stay open**, and step 19, whether the Waking reads as heaven rather than as a wall, is the one this slice is waiting on: the corpse figures it can report are in section 17 and whether it feels like a reward is a hand question.
+
+Slice 11, from the plan's section 3:
+
+- **Step 1, unit tests.** Green. 117 files, 1595 passed, 10 expected fail, 3 todo.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 3, `pnpm build`.** Green, lint and typecheck included, and its two warnings are the two standing ones. **It failed first, on the throwaway instrument this slice wrote under `local/`, which is section 17's own recorded finding firing on the trigger it names.** The app's `eslint.config.mjs` ignored `dist` alone where the repo root's config already names `**/local/**`, so a folder deliberately kept out of git and out of prettier could break the standing checks on a tree that is otherwise green. The ignore list now names `local` with the reason beside it, and the finding is closed rather than worked around by deleting the instrument.
+- **Step 4, `pnpm verify` at the repo root.** Green, run from inside the worktree, exit 0.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step2/tests-baseline.txt`. The whole diff is 209 added and 27 removed, and **all 27 removals and 207 of the additions belong to slices 1 to 10 and are already accounted for above**. **Slice 11's own share is 2 added, nothing removed and nothing renamed**: `section timeline > reports one span per phase, in order, with the tick each began on` in the new `sectionTimeline.test.ts`, and `measure > reports one span per section crossed, the live one open where the tape stops` in `measure.test.ts`. The three todos left in the suite are `swallow.test.ts`'s one and `palette.test.ts`'s two, none of them this step's.
+- **Step 6, GOLDEN.** Did not move, and could not. See section 2.
+- **Step 9, the section timeline read off a tape.** **Ran.** Four of its five criteria pass on the taped maxed run and the clock does not, which section 4's item 47 records and section 18 tables.
+- **Steps 7, 8 and 10 to 14 and the rendered checks** belong to other slices and were not re-run here. **Steps 16 to 22 are Mark's and stay open**, and step 20, whether nine minutes is bearable, is the one this slice's numbers speak to without answering: a hand can be shown 7.18 minutes or 10.70 depending on what it is holding, and which of those a person will play is not a measurement.
+
 
 ## 8. Slice 1, the rows module
 
@@ -543,3 +568,45 @@ A window is half-open, `[t, t + seconds)`, and only a window that opens on a row
 - **`pnpm verify` was run once from the shared checkout at `/home/mlo/dev/niftymonkey/the-cabinet` by mistake.** It is read-only, it failed on the worktree's own `scripts/roadmap/` files exactly as slice 1's note predicts, and nothing was written; it was re-run from inside the worktree and is green. The failure mode is still live and the note's instruction still stands.
 
 **The tests were proved to bite rather than assumed to.** Nine mutations, each reverted, and every one turned at least one of this slice's tests red: a dormant source that takes damage (the immunity test); the source dropped from the target seam's list (three, including the property itself); a pour from one point rather than alternating lips (the no-stack test); a pour with no draw behind it (the stream test); the Crowd ending on its rows again (both Crowd tests); a sweep across the whole field rather than its authored bounds (three, the property among them); a killed source that keeps its budget (three); a pour row that carries the offer (the share test); and the Waking draining before the Vigil (the parking rule's own test).
+
+## 18. Slice 11, the section timeline
+
+**A span's `to` is the tick the next section began, and it is the convention the tree already reads spans by.** Section 4 declares `from` and a nullable `to` and says nothing about which tick the boundary belongs to. The two spans either side of a boundary both name it, so a section held `to - from` ticks, which is exactly what `spanOf` and `foodPerSecond` in `stage.test.ts` already do with the same boundaries (`[from, boundary.tick]`, then `foodPaid.slice(from, to)`). The alternative, a `to` one tick before the successor's `from`, reads well in a table and produces a span of minus one ticks the day two boundaries fall on one tick, which is a thing the stage forbade at slice 8 rather than a thing the reading can rely on.
+
+**The first span is the reading's own, because the stage announces only crossings.** `enterNextPhase` is the one site that pushes `phaseChanged`, so the Procession has no event of its own and a fold over the event stream alone would report a run that began in the Banshee. The accumulator therefore opens at tick 0 on the table's first phase, which is where `createStage` puts a run and where a measured tape begins with it: a tape is a recording of a run from its own first tick.
+
+**Every bound is the event's own tick and never the observer's.** The two are one apart: `step` announces the boundary while it is spending tick N and increments the counter at the end, so the listener is told N+1. The reading takes `event.tick`, which is the clock the arrivals, the deaths and `stage.test.ts`'s own timeline are all read on.
+
+**The reading joins no entity id, so slice 6's null rule has nothing to bind here.** The dispatch carried the warning that the two readings joining `mobDamaged.id` return null on an id with no pool slot rather than throwing. This one folds `phaseChanged` and reads no pool at all, so there is no id to miss.
+
+**Verification step 9, on the maxed dodge bot, recorded as a tape and read through `scripts/measure.ts`.** Seed 101, every line pinned to level 5, 25862 ticks, ending victory, no fault recorded. Food per second is growth paid by the tick's kills in size units, which is the design record's scarcity measure and the same quantity `stage.test.ts` reads. The live-mob column is the report's own `mobsAlivePerTick` at each span's first tick, which is what verification step 9's empty-field criterion asks for.
+
+| phase | from | to | ticks | seconds | food/second | live mobs as it began |
+| --- | --- | --- | --- | --- | --- | --- |
+| procession | 0 | 7284 | 7284 | 121.4 | 0.24 | 0 |
+| banshee | 7284 | 8526 | 1242 | 20.7 | 0.00 | 0 |
+| crowd | 8526 | 16927 | 8401 | 140.0 | 0.78 | 0 |
+| waking | 16927 | 17827 | 900 | 15.0 | 0.74 | 21 |
+| vigil | 17827 | 22022 | 4195 | 69.9 | 0.61 | 19 |
+| undertaker | 22022 | 25861 | 3839 | 64.0 | 0.16 | 0 |
+| over | 25861 | open | 1 | 0.0 | 0.00 | 4 |
+
+**And on the birthright still hand, which is a rig run and not a tape.** Seed 101, parked, firing only what it was born with, with the grave held immortal exactly as `stage.test.ts`'s rig holds it. It is not a tape and cannot be one: a recording replays commands from a fresh run, so a rig that restores the grave every tick would diverge from its own witness. A birthright hand that is not held seals inside the Procession, which is what `stage.test.ts` says in as many words and what the wandering recorder measured from the other side.
+
+| phase | from | to | ticks | seconds | food/second |
+| --- | --- | --- | --- | --- | --- |
+| procession | 0 | 7107 | 7107 | 118.5 | 0.06 |
+| banshee | 7107 | 12056 | 4949 | 82.5 | 0.00 |
+| crowd | 12056 | 20457 | 8401 | 140.0 | 0.04 |
+| waking | 20457 | 21357 | 900 | 15.0 | 0.27 |
+| vigil | 21357 | 25526 | 4169 | 69.5 | 0.07 |
+| undertaker | 25526 | 38509 | 12983 | 216.4 | 0.05 |
+| over | 38509 | open | 1 | 0.0 | 0.00 |
+
+**What the two tables say, beyond the reading working.** Under the bot the Vigil pays less per second than the Crowd, 0.61 against 0.78, which is the section's own property. Under the still hand the same pair reads 0.07 against 0.04 and the order inverts, because a hand that kills nothing is measuring what wanders into its birthright storm rather than what the section serves: the scarcity property is spec test 8's and is held under the sharp hand the design record derives it under, so nothing here contradicts it and the still hand's column is a reading of the rig. **The Crowd is the best-fed section under the hand that plays, and the Banshee's fight pays nothing at all on either hand**, because her feast falls on the tick she dies and that tick is the tick her phase gives way, so the payout lands in the Crowd's first tick. Worth knowing before the tuning pass reads any of these as a section's own rate.
+
+**The still hand's timeline reproduces section 17's independently measured clock.** That section recorded 38432 ticks and 118, 81, 140, 15, 69 and 216 seconds, measured while writing spec test 3 with no reading in the tree. This slice's reading reports 38510 ticks and 118.5, 82.5, 140.0, 15.0, 69.5 and 216.4 on the same hand. Two instruments written a slice apart agreeing to a second is the strongest thing said about the reading here, and it is why these tables are worth more than the two tests are.
+
+**The instrument is `local/step2/slice11-timeline.ts` in the app, with its tape and its measured report beside it.** It is a throwaway in the ignored folder, kept rather than deleted because it is the only thing that reproduces these tables, and it is what found the lint hole section 7 records.
+
+**The tests were proved to bite rather than assumed to.** Four mutations, each reverted. Dropping the opening span turned both tests red. Never closing a span, and a span that forgets which tick it began on, each turned test 100 red. Dropping `observeSectionTimeline` from `observeReadings` turned test 101 red and nothing else, which is the mutation that matters: **it turned nothing red at all against the first draft of test 101**, whose tape was sixty ticks long and crossed no boundary, so a test claiming a span is never closed at the last tick was asserting an absence its own input could not produce. That is `docs/agents/lessons.md`'s named trap, and the fix was to read a tape that had already closed one.
