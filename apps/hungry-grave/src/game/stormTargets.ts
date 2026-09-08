@@ -30,7 +30,6 @@ import type { Rect } from './overlap';
 import type { RunState } from './run';
 import type { SetPiece } from './stage/setPiece';
 import { damageSetPiece, setPieceHitbox } from './stage/setPiece';
-import { SET_PIECE_DRIFT_SHARE } from './stage/rows';
 import { SCROLL_SPEED } from './tuning';
 
 /**
@@ -179,8 +178,9 @@ const fillFromBoss = (slot: TargetSlot, boss: Boss): void => {
  * is sized to outlive its own pour, and a belch that deleted the moment in one
  * press is exactly what that row exists to prevent.
  *
- * Its velocity is its own drift, which is the field's scroll at the share the
- * stage authors, so a line aiming ahead of a travelling body reads it right.
+ * Its velocity is its own drift, which is the field's own scroll, because the
+ * source is a place on the ground and the ground moves at the scroll. A line
+ * aiming ahead of a travelling body reads it right.
  */
 const fillFromSetPiece = (
   slot: TargetSlot,
@@ -191,7 +191,7 @@ const fillFromSetPiece = (
   slot.x = piece.x;
   slot.y = piece.y;
   slot.vx = 0;
-  slot.vy = SCROLL_SPEED * SET_PIECE_DRIFT_SHARE;
+  slot.vy = SCROLL_SPEED;
   fillBox(slot, box);
   slot.hp = piece.hp;
   slot.entered = true;

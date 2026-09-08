@@ -707,31 +707,31 @@ const SET_PIECE_SWEEP_MAX_X = 432;
 /**
  * The phase-local second the Crowd places the dormant source (ADR 0050).
  *
- * Two seconds before its own last row, so the eye rides down through the climb
- * the section ends on and opens a beat after the last group falls. Any later
- * and the Crowd would hold a stretch with nothing due while the eye drifted,
+ * Five seconds before the eye opens, so it opens a beat after the section's own
+ * last group falls at second 138 and the Crowd's climax fires before the eye
+ * ends the section. Placed any earlier the eye rides down through rows it is
+ * about to cut off; any later and the Crowd holds a stretch with nothing due,
  * which is the spawn silence ADR 0051 retired.
- */
-const SET_PIECE_PLACED_AT = 120;
-
-/**
- * How deep the source opens, as a share of the field's height (ADR 0050: "it
- * opens around mid-field"). A share rather than a depth in field units, because
- * this module cannot read the field and the fact being authored is where in the
- * player's view it happens rather than how many units down that is.
- */
-const SET_PIECE_OPEN_DEPTH = 0.5;
-
-/**
- * How fast the source drifts, as a share of the scroll. Half, so it is on
- * screen several times longer than a mob: it is a place the field is arriving
- * at rather than a body falling through it.
  *
- * A share rather than a speed for the same reason the depth above is a share:
- * what is authored is that the source is slower than everything else on the
- * field, and setPiece.ts holds the scroll and multiplies.
+ * The five seconds are the fall to the opening depth below at the field's own
+ * scroll, authored rather than computed: this module value-imports nothing, so
+ * it cannot read the field's height or the scroll to derive it.
  */
-const SET_PIECE_DRIFT_SHARE = 0.5;
+const SET_PIECE_PLACED_AT = 135;
+
+/**
+ * How deep the source opens, as a share of the field's height. A share rather
+ * than a depth in field units, because this module cannot read the field and
+ * the fact being authored is where in the player's view it happens rather than
+ * how many units down that is.
+ *
+ * A quarter down, so the pour's own fifteen seconds at the field's scroll fit
+ * between the opening and the bottom edge with a body's fall to spare: the
+ * source's ordinary end is its budget running out and never the edge arriving.
+ * Mark's ruling of 2026-09-08 supersedes decision 25's "opens around mid-field",
+ * which was written while the source drifted at half the scroll.
+ */
+const SET_PIECE_OPEN_DEPTH = 0.25;
 
 /**
  * The body the storm meets once the source has opened, in field units. Initial
@@ -940,7 +940,6 @@ export {
   SET_PIECE_SWEEP_MAX_X,
   SET_PIECE_PLACED_AT,
   SET_PIECE_OPEN_DEPTH,
-  SET_PIECE_DRIFT_SHARE,
   SET_PIECE_HALF_WIDTH,
   SET_PIECE_HALF_HEIGHT,
   POUR_TYPE,

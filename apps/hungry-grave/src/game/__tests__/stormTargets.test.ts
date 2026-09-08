@@ -16,7 +16,11 @@ import { MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
 import { SET_PIECE_HP } from '../stage/rows';
-import { placeSetPiece, setPieceHitbox } from '../stage/setPiece';
+import {
+  advanceSetPiece,
+  placeSetPiece,
+  setPieceHitbox,
+} from '../stage/setPiece';
 import {
   damageStormTarget,
   moveStormTarget,
@@ -95,6 +99,24 @@ describe('what the storm can hit', () => {
       mob.id,
       boss.id,
     ]);
+  });
+
+  it('reads the source travelling at the fall the source actually takes', () => {
+    // A line aiming ahead of a travelling body reads its velocity off the seam,
+    // so what the seam answers and what the source does have to be one number.
+    // The source rides the ground at the field's own scroll (Mark's ruling of
+    // 2026-09-08, after ground adjustment 1), and a lead built on half of that
+    // would aim where the mouth used to be. It is read off the source's own
+    // fall rather than off a row, so the two cannot drift apart.
+    const state = createRun(SEED);
+    const piece = placeSetPiece(state);
+    piece.open = true;
+    const stood = piece.y;
+    advanceSetPiece(state);
+    const fell = piece.y - stood;
+
+    expect(fell).toBeGreaterThan(0);
+    expect(stormTargets(state)[0].vy).toBeCloseTo(fell, 10);
   });
 
   it('carries damage to an open source and moves it for nobody', () => {

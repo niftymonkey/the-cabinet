@@ -136,6 +136,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **The Waking**: The swarm set piece that ends the Crowd: a dormant eye placed by a Crowd row, riding the ground down until it opens around mid-field and pours trash from its one point while the source drags across. It fires nothing and never touches the grave, and its corpses are the payout. _Avoid_: the swarm, the eye event, the mouth.
 
+**Amended 2026-09-08, Mark's ruling after ground adjustment 1:** the eye rides the ground at the field's own scroll and opens a quarter of the way down, not around mid-field. What stood: everything else in the entry, the placing row, the pour from one point, the drag across, the silence, the parking rule, and the corpses as the payout. What changed: the opening depth, and with it the time the eye is on screen, about one crossing rather than several times a mob's. What the entry could not have known: the ground was at half the field's scroll when it was written.
+
 **Stage**: The content from first row to final boss, authored beats filled with directed density; a run is one playthrough of it. _Avoid_: level, map, world.
 
 **Run**: One playthrough of a stage, from its seed roll to sealed shut or victory. _Avoid_: game, session, attempt, playthrough.

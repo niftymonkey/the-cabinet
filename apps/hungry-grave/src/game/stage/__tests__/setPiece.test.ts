@@ -1,6 +1,7 @@
 /**
- * The Waking (ADR 0042, ADR 0050): a source that rides the ground down, opens
- * around mid-field and pours trash from its one point while it drags across.
+ * The Waking (ADR 0042, ADR 0050): a source that rides the ground down at the
+ * field's own scroll, opens a quarter of the way down and pours trash from its
+ * one point while it drags across.
  *
  * The property it must keep is a comparison between two hands and never a
  * magnitude, so the two policies that carry it play whole ticks through the
@@ -25,6 +26,7 @@ import type { SimEvent } from '../../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import { BELL_DAMAGE_NEAR, BELL_PERIOD } from '../../lines/bell';
 import { BIRTHRIGHT, MAX_LEVEL } from '../../lines/roster';
+import { advanceTerritory } from '../../lines/territory';
 import {
   COLUMNS_BY_LEVEL,
   SKULL_DAMAGE,
@@ -390,21 +392,50 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     expect(new Set(first.map((event) => event.x)).size).toBeGreaterThan(2);
   });
 
-  it('drifts slower than the field, so it is on screen longer than a mob', () => {
-    // It is a place the field arrives at rather than a body falling through it,
-    // which is what makes the trail a curve a dive can follow.
+  it("falls at the field's own scroll, so it stays in the rock it sits in", () => {
+    // Mark's ruling of 2026-09-08, after ground adjustment 1 put the ground at
+    // the field's own scroll: the source is a place on that ground rather than
+    // a body falling through it, so the rock and the mouth in it move as one.
+    // The rate is read by drifting a real patch beside the source rather than
+    // off this module's own row, which is how the renderer's patch test reads
+    // the same fact from the other side.
     const source = atTheSource();
-    const from = source.state.setPiece!.y;
-    source.tick();
-    const drift = source.state.setPiece!.y - from;
+    const patch = source.state.patches[0];
+    patch.alive = true;
+    patch.y = 100;
+    patch.radius = 40;
+    const patchStood = patch.y;
+    const sourceStood = source.state.setPiece!.y;
+    const ticks = 120;
+    for (let tick = 0; tick < ticks; tick++) {
+      advanceTerritory(source.state);
+      source.tick();
+    }
+    const patchFell = patch.y - patchStood;
+    const sourceFell = source.state.setPiece!.y - sourceStood;
 
-    expect(drift).toBeGreaterThan(0);
-    expect(drift).toBeLessThan(SCROLL_SPEED);
-    const slowest = Math.min(
-      ...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].speed),
-    );
-    expect(FIELD_HEIGHT / drift).toBeGreaterThan(
-      FIELD_HEIGHT / (SCROLL_SPEED + slowest),
+    expect(patchFell).toBeGreaterThan(0);
+    expect(sourceFell).toBeCloseTo(patchFell, 6);
+    expect(sourceFell).toBeCloseTo(SCROLL_SPEED * ticks, 6);
+  });
+
+  it('spends its whole budget before the bottom edge, with a body of margin', () => {
+    // The pour is the moment, so the ordinary end is the budget running out and
+    // never the edge arriving: at the field's own scroll the opening depth is
+    // the row that buys that, and what it has to buy is the whole pour plus at
+    // least one more body's worth of fall.
+    const source = atTheSource();
+    const events = tickUntilItCloses(source);
+    const closed = only(events, 'setPieceClosed');
+    const poured = only(events, 'setPiecePoured');
+    const spentAt = poured[poured.length - 1].y;
+    const leavesAt = FIELD_HEIGHT + SET_PIECE_HALF_HEIGHT;
+
+    expect(closed).toHaveLength(1);
+    expect(closed[0].reason).toBe('spent');
+    expect(poured).toHaveLength(SET_PIECE_BUDGET);
+    expect(leavesAt - spentAt).toBeGreaterThan(
+      SCROLL_SPEED * SET_PIECE_POUR_SECONDS * TICK_HZ,
     );
   });
 

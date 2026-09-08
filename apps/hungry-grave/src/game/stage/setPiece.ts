@@ -15,7 +15,6 @@ import {
   POUR_LIP_X,
   POUR_TYPE,
   SET_PIECE_BUDGET,
-  SET_PIECE_DRIFT_SHARE,
   SET_PIECE_HALF_HEIGHT,
   SET_PIECE_HALF_WIDTH,
   SET_PIECE_HP,
@@ -62,7 +61,9 @@ interface SetPiece {
  * the pour's rate and a rows.ts that reached this module would close the cycle
  * that derivation lives inside: behaviour here, data there.
  */
-const DRIFT_PER_TICK = SCROLL_SPEED * SET_PIECE_DRIFT_SHARE;
+// The scroll itself: the source is a place on the ground, and the ground moves
+// at the field's own scroll, so anything slower slides out of its own rock.
+const DRIFT_PER_TICK = SCROLL_SPEED;
 const OPENS_BELOW = FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
 const POUR_INTERVAL_TICKS = SET_PIECE_POUR_SECONDS * TICK_HZ;
 
@@ -138,6 +139,15 @@ const closeSetPiece = (
 };
 
 /**
+ * How far the further of the two lips can ever stand off the mouth's centre.
+ * The pour is placed off a centre held this far inside the authored bounds, so
+ * a lip is never folded back onto the edge: folding one back puts it on top of
+ * the body the other lip just laid there, which is the one thing the alternating
+ * lips exist to prevent.
+ */
+const POUR_REACH = POUR_LIP_X + POUR_JITTER_X;
+
+/**
  * One body out of the mouth, at whichever lip is next.
  *
  * The lips alternate so two bodies in a row never stand on each other, and the
@@ -154,11 +164,12 @@ const pourBody = (state: RunState, piece: SetPiece): SimEvent[] => {
   const side = poured % 2 === 0 ? 1 : -1;
   const off =
     POUR_LIP_X + (state.streams.spawns.next() - 0.5) * 2 * POUR_JITTER_X;
-  const x = clamp(
-    piece.x + side * off,
-    SET_PIECE_SWEEP_MIN_X,
-    SET_PIECE_SWEEP_MAX_X,
+  const centre = clamp(
+    piece.x,
+    SET_PIECE_SWEEP_MIN_X + POUR_REACH,
+    SET_PIECE_SWEEP_MAX_X - POUR_REACH,
   );
+  const x = centre + side * off;
   spawnMob(
     state,
     POUR_TYPE,
@@ -179,7 +190,7 @@ const pourIfDue = (state: RunState, piece: SetPiece): SimEvent[] => {
 
 /**
  * The dormant half of the stay: it drifts, and it opens the tick it reaches its
- * own depth (ADR 0050, "it opens around mid-field").
+ * own authored depth.
  *
  * It always reaches that depth, because the depth is inside the field and the
  * drift is downward and never zero, so the phase that ends on the eye opening
