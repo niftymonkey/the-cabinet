@@ -40,7 +40,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Treasure**: The never-decaying class of food: drops and feasts. Steady-bright beside fading corpses, so steady-bright always means treasure. _Avoid_: rare drop, special item.
 
-**Overflow**: The payout when a swallow cannot pay its normal way: a maxed weapon line's drop or growth past the ceiling converts to score, radius, or reservoir charge. Nothing swallowed is ever worthless. _Avoid_: waste, surplus, refund.
+**Overflow**: The payout when a swallow cannot pay its normal way: growth past the size ceiling converts to score. ADR 0002's other branch, a maxed weapon line's drop, is dormant under ADR 0034, which never offers a maxed line; a carrier's body with no option left to give is swallowed like any other food and pays growth, reservoir charge and overflow. Nothing swallowed is ever worthless. _Avoid_: waste, surplus, refund.
 
 ### The arsenal
 

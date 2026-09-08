@@ -588,7 +588,7 @@ Every module is owned by this dispatch unless its row says otherwise.
 
 ### Where the tuning rows live
 
-Each boss's per-chunk rows live in that boss's own module and are exported at its module end, which is the shape `tuning.ts:1-3` already declares for weapon lines and which keeps one boss's numbers out of the other's file. The stage's rows live in `rows.ts`. The set piece's live in `setPiece.ts`. Nothing outside a module indexes another's rows.
+Each boss's per-chunk rows live in that boss's own module and are exported at its module end, which is the shape `tuning.ts:1-3` already declares for weapon lines and which keeps one boss's numbers out of the other's file. The stage's rows live in `rows.ts`, and so do the set piece's: `setPiece.ts` declares no magnitude of its own and imports its budget, pour interval, health and sweep bounds from `rows.ts`, because `peakArrivals` reads those same rows and a `rows.ts` that reached `setPiece.ts` would close the import cycle section 4 rejects. Behaviour in `setPiece.ts`, data in `rows.ts`. Nothing outside a module indexes another's rows.
 
 **No boss module names a weapon line.** The standing extensibility constraint (`path-draft.md:21`) binds here too: a boss takes damage from a `DamageSource` (`mobs.ts:36`) and never asks which line landed it, so a fifth line needs no edit in `bosses/`. The fence in section 6 holds it.
 
