@@ -1,4 +1,5 @@
 import { fireBelch } from './belch';
+import { advanceBoss } from './bosses/chunks';
 import type { TickCommand } from './command';
 import type { Corpse } from './corpses';
 import {
@@ -195,8 +196,13 @@ const resolveDeaths = (
  * place are the right answer.
  *
  * The order is scroll, the move command, the belch, spawns, mob motion and fire,
- * the weapon lines, the bank's own tick, overlap detection, deaths, decay,
- * culling, the offer's own loss, then the grave's own tick and the counters.
+ * the boss's own tick, the weapon lines, the bank's own tick, overlap
+ * detection, deaths, decay, culling, the offer's own loss, then the grave's own
+ * tick and the counters.
+ *
+ * The boss ticks with the mobs and before the lines, because its pattern is
+ * fire on the field and a shot fired this tick must not also fly this tick,
+ * which is the rule mob fire already has.
  *
  * The belch runs before spawns and before every overlap. A bomb pressed on the
  * frame a shot would land has to save the player, or the button is a lie at the
@@ -222,6 +228,7 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   if (command.belch) events.push(...fireBelch(state));
   events.push(...advanceStage(state));
   events.push(...advanceMobs(state));
+  events.push(...advanceBoss(state));
   events.push(...advanceLines(state));
   events.push(...openBankedOffer(state, bankOpensNow(state)));
   events.push(...resolveOverlaps(state));

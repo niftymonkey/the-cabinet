@@ -534,7 +534,35 @@ function filledRun(): RunState {
   fillPatch(run);
   fillRun(run);
   fillOffer(run);
+  fillBoss(run);
+  fillSetPiece(run);
   return run;
+}
+
+/** The fixture's boss, mid-fight rather than freshly arrived. */
+function fillBoss(run: RunState): void {
+  run.boss = {
+    id: 17,
+    kind: 'undertaker',
+    chunk: 1,
+    hp: 820,
+    x: 270,
+    y: 110,
+    flash: 0,
+    patternTick: 34,
+  };
+}
+
+/** The fixture's set piece, open and part-way through its pour. */
+function fillSetPiece(run: RunState): void {
+  run.setPiece = {
+    x: 300,
+    y: 240,
+    open: true,
+    budget: 41,
+    pourIn: 7,
+    hp: 1900,
+  };
 }
 
 /**
@@ -1094,6 +1122,83 @@ const NAN_CASES: readonly NanCase[] = [
       return run;
     },
   },
+  {
+    path: 'boss.chunk',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.chunk = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.hp',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.hp = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.x',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.x = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.y',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.y = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.flash',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.flash = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.patternTick',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.patternTick = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'setPiece.x',
+    poison: (run) => {
+      if (run.setPiece !== null) run.setPiece.x = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'setPiece.y',
+    poison: (run) => {
+      if (run.setPiece !== null) run.setPiece.y = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'setPiece.budget',
+    poison: (run) => {
+      if (run.setPiece !== null) run.setPiece.budget = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'setPiece.pourIn',
+    poison: (run) => {
+      if (run.setPiece !== null) run.setPiece.pourIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'setPiece.hp',
+    poison: (run) => {
+      if (run.setPiece !== null) run.setPiece.hp = NaN;
+      return run;
+    },
+  },
 ];
 
 /**
@@ -1120,6 +1225,7 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     "a tick's own refusal count, cleared to zero at the top of the tick and only ever incremented by one, so no arithmetic that could produce a NaN reaches it. What it feeds is a fault rather than a rule",
   'refusals.carriers': "a tick's own refusal count, as refusals.food is",
   'refusals.offers': "a tick's own refusal count, as refusals.food is",
+  'boss.id': 'spawn identity, never mutated after spawn',
 };
 
 /**
@@ -1142,6 +1248,70 @@ function numericLeafPaths(value: unknown, path: string): string[] {
     numericLeafPaths(nested, path === '' ? key : `${path}.${key}`),
   );
 }
+
+describe('the boss and the set piece (ADR 0007, ADR 0042)', () => {
+  it("records a recoverable fault when a boss's chunk index falls", () => {
+    // ADR 0052 buys the fight's length across chunks, so a chunk that came
+    // back is a pattern the player has already beaten being played at them
+    // again. Recoverable: the fight is spoiled and no number downstream of it
+    // is poisoned, and killing the run at the climax is the worse answer.
+    const state = filledRun();
+    const watch = createStageWatch();
+    expect(checkInvariants(state, watch)).toEqual([]);
+
+    state.boss!.chunk -= 1;
+    const faults = checkInvariants(state, watch);
+
+    expect(faults.map((fault) => fault.identity)).toEqual([
+      'boss chunk only increases',
+    ]);
+    expect(faults[0].severity).toBe('recoverable');
+    expect(faults[0].detail).toContain('undertaker');
+  });
+
+  it('says nothing when a second boss arrives at its own first chunk', () => {
+    // Two bosses run in one run. The second arrives at chunk zero long after
+    // the first died at its last, and a memory of the chunk alone would read
+    // that arrival as the index going backwards.
+    const state = filledRun();
+    const watch = createStageWatch();
+    checkInvariants(state, watch);
+
+    state.boss = null;
+    expect(checkInvariants(state, watch)).toEqual([]);
+
+    state.boss = { ...filledRun().boss!, id: 99, kind: 'banshee', chunk: 0 };
+    expect(checkInvariants(state, watch)).toEqual([]);
+  });
+
+  it('records a recoverable fault when the pour has less than nothing left', () => {
+    // A budget below zero pours nothing and reads as spent one body early, and
+    // a fraction is caught here rather than a tick later: half a body still
+    // reads as one left, so the next pour spends it and leaves the budget at
+    // minus a half against a state one tick removed from the bad write.
+    const state = filledRun();
+    expect(brokenOn(state)).toEqual([]);
+
+    state.setPiece!.budget = -1;
+    expect(brokenOn(state)).toEqual(['set piece budget not negative']);
+    expect(faultsOn(state)[0].severity).toBe('recoverable');
+
+    state.setPiece!.budget = 0.5;
+    expect(brokenOn(state)).toEqual(['set piece budget not negative']);
+
+    state.setPiece!.budget = 0;
+    expect(brokenOn(state)).toEqual([]);
+  });
+
+  it('says nothing about a boss or a source that is not on the field', () => {
+    // The guard is that a check over an absent thing is a check nobody wrote a
+    // reason for: an empty field is the ordinary state of a run, not a fault.
+    const state = filledRun();
+    state.boss = null;
+    state.setPiece = null;
+    expect(brokenOn(state)).toEqual([]);
+  });
+});
 
 describe('what a cap refused this tick (ADR 0056)', () => {
   /** Every corpse slot taken, which is the state the next kill is refused in. */

@@ -6,9 +6,11 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { stepping } from '../../dev/stepping';
+import { spawnBoss } from '../bosses/chunks';
 import { spawnCorpse } from '../corpses';
 import type { SimEvent } from '../events';
 import { graveHitbox } from '../grave';
+import { fireDirectedShot } from '../mobFire';
 import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
@@ -399,6 +401,62 @@ describe('the belch in the tick order (plan 6.13)', () => {
     const events = step(STILL);
     expect(typesOf(events)).not.toContain('belched');
     expect(state.reservoir).toBe(RESERVOIR_CAPACITY);
+  });
+
+  it("still runs before every overlap pass with a boss's pattern on the field", () => {
+    // The same argument, guarded through the boss's arrival in the tick order.
+    // A boss's shots are on the same pool as a mob's, so the gas has to take
+    // them on the frame they would land or the button becomes a lie at the one
+    // moment a boss fight makes it matter most.
+    const state = quietRun();
+    const step = stepping(state);
+    state.reservoir = RESERVOIR_CAPACITY;
+    spawnBoss(state, 'undertaker');
+    const clod = shotOnGrave(state);
+    clod.emitter = 'undertaker';
+    clod.kind = 'clod';
+    const before = state.grave.size;
+
+    const events = step({ move: { x: 0, y: 0 }, belch: true });
+
+    expect(typesOf(events)).toContain('belched');
+    expect(typesOf(events)).not.toContain('graveHit');
+    expect(state.grave.size).toBe(before);
+    expect(clod.alive).toBe(false);
+  });
+});
+
+describe("a boss's fire in the tick order (ADR 0007)", () => {
+  it('shares the one shot pool and the one cull with a mob', () => {
+    // A boss's pattern is mob fire by the glossary's own definition, so it
+    // takes slots from the same pool, flies under the same advance and leaves
+    // by the same cull. A second pool would need a second cap, a second cull
+    // and a second renderer, and the cap the mob fire pool already carries is
+    // what bounds what a fight can put on the field.
+    const state = quietRun();
+    const step = stepping(state);
+    const trash = shotOnGrave(state);
+    trash.x = 40;
+    trash.y = 20;
+    trash.vy = 0;
+    trash.vx = -MOB_TYPES.revenant.fire.shotSpeed;
+
+    fireDirectedShot(
+      state,
+      { x: 60, y: 20 },
+      { x: -1, y: 0 },
+      MOB_TYPES.revenant.fire,
+      'undertaker',
+      'clod',
+    );
+    const live = state.mobFire.filter((shot) => shot.alive);
+    expect(live).toHaveLength(2);
+    expect(live.map((shot) => shot.kind)).toEqual(['trash', 'clod']);
+
+    // Both fly off the same left edge, and the same cull takes them on the
+    // same tick.
+    for (let tick = 0; tick < 40; tick++) step(STILL);
+    expect(state.mobFire.filter((shot) => shot.alive)).toEqual([]);
   });
 });
 

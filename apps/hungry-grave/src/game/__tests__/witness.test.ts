@@ -60,7 +60,35 @@ function fixture(): RunState {
   fillWisp(run);
   fillPatch(run);
   fillRun(run);
+  fillBoss(run);
+  fillSetPiece(run);
   return run;
+}
+
+/** The fixture's boss, mid-fight rather than freshly arrived. */
+function fillBoss(run: RunState): void {
+  run.boss = {
+    id: 17,
+    kind: 'undertaker',
+    chunk: 1,
+    hp: 820,
+    x: 270,
+    y: 110,
+    flash: 3,
+    patternTick: 34,
+  };
+}
+
+/** The fixture's set piece, open and part-way through its pour. */
+function fillSetPiece(run: RunState): void {
+  run.setPiece = {
+    x: 300,
+    y: 240,
+    open: true,
+    budget: 41,
+    pourIn: 7,
+    hp: 1900,
+  };
 }
 
 /** The fixture patch's own state, so a per-field test can move one part of it. */
@@ -552,6 +580,73 @@ const RUN_CASES: readonly FieldCase[] = [
     move: (run) => void (run.bankedOffers += 1),
     restore: (run) => void (run.bankedOffers -= 1),
   },
+  {
+    path: 'boss.kind',
+    // The kind is read-only on the record, so the only way to move it is to
+    // hand the run a different boss, exactly as the ring's level is moved.
+    move: (run) => void (run.boss = { ...run.boss!, kind: 'banshee' }),
+    restore: (run) => void fillBoss(run),
+  },
+  {
+    path: 'boss.chunk',
+    move: (run) => void (run.boss!.chunk += 1),
+    restore: (run) => void (run.boss!.chunk -= 1),
+  },
+  {
+    path: 'boss.hp',
+    move: (run) => void (run.boss!.hp -= 1),
+    restore: (run) => void (run.boss!.hp += 1),
+  },
+  {
+    path: 'boss.x',
+    move: (run) => void (run.boss!.x += 1e-6),
+    restore: (run) => void (run.boss!.x -= 1e-6),
+  },
+  {
+    path: 'boss.y',
+    move: (run) => void (run.boss!.y += 1e-6),
+    restore: (run) => void (run.boss!.y -= 1e-6),
+  },
+  {
+    path: 'boss.flash',
+    move: (run) => void (run.boss!.flash -= 1),
+    restore: (run) => void (run.boss!.flash += 1),
+  },
+  {
+    path: 'boss.patternTick',
+    move: (run) => void (run.boss!.patternTick += 1),
+    restore: (run) => void (run.boss!.patternTick -= 1),
+  },
+  {
+    path: 'setPiece.x',
+    move: (run) => void (run.setPiece!.x += 1e-6),
+    restore: (run) => void (run.setPiece!.x -= 1e-6),
+  },
+  {
+    path: 'setPiece.y',
+    move: (run) => void (run.setPiece!.y += 1e-6),
+    restore: (run) => void (run.setPiece!.y -= 1e-6),
+  },
+  {
+    path: 'setPiece.open',
+    move: (run) => void (run.setPiece!.open = false),
+    restore: (run) => void (run.setPiece!.open = true),
+  },
+  {
+    path: 'setPiece.budget',
+    move: (run) => void (run.setPiece!.budget -= 1),
+    restore: (run) => void (run.setPiece!.budget += 1),
+  },
+  {
+    path: 'setPiece.pourIn',
+    move: (run) => void (run.setPiece!.pourIn -= 1),
+    restore: (run) => void (run.setPiece!.pourIn += 1),
+  },
+  {
+    path: 'setPiece.hp',
+    move: (run) => void (run.setPiece!.hp -= 1),
+    restore: (run) => void (run.setPiece!.hp += 1),
+  },
 ];
 
 const FIELD_CASES: readonly FieldCase[] = [...ENTITY_CASES, ...RUN_CASES];
@@ -637,6 +732,19 @@ const FOLDED: readonly string[] = [
   'offer.options[]',
   'offer.bodyIds[]',
   'bankedOffers',
+  'boss.kind',
+  'boss.chunk',
+  'boss.hp',
+  'boss.x',
+  'boss.y',
+  'boss.flash',
+  'boss.patternTick',
+  'setPiece.x',
+  'setPiece.y',
+  'setPiece.open',
+  'setPiece.budget',
+  'setPiece.pourIn',
+  'setPiece.hp',
 ];
 
 /**
@@ -661,6 +769,10 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     "written once at spawn from the firing mob's type (mobs.ts:416) and never mutated.",
   'mobFire[].halfExtent':
     "written once at spawn from the emitter's fire row (mobs.ts:421) and never mutated.",
+  'mobFire[].kind':
+    'written once at spawn from the pattern that fired it and never mutated. It answers what a shot looks like rather than where it goes, so the renderer reads it and the rules never do.',
+  'boss.id':
+    'spawn identity, summarised by nextEntityId, which is folded. It is the join key a mobDamaged carries and never something the rules move.',
   'corpses[].alive': 'gates the walk, as mobs[].alive does.',
   'corpses[].id': 'spawn identity, as mobs[].id is.',
   'corpses[].decays':

@@ -6,8 +6,9 @@ import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { cos, normalize, rotateToward, sin } from '../math';
-import type { Mob } from '../mobs';
 import type { RunState } from '../run';
+import type { StormTarget } from '../stormTargets';
+import { stormTarget, stormTargets } from '../stormTargets';
 import { freshnessScale } from '../tuning';
 
 interface Wisp {
@@ -19,7 +20,7 @@ interface Wisp {
   vy: number;
   // Ticks of flight left. A wisp that finds nothing expires rather than persisting (ADR 0005).
   life: number;
-  // The id of the mob this wisp is flying at, or null when the field is empty.
+  // The id of the thing this wisp is flying at, or null when the field is empty.
   targetId: number | null;
 }
 
@@ -93,62 +94,58 @@ const TURN_RADIANS = (WISP_TURN_DEGREES_PER_SECOND * Math.PI) / 180 / TICK_HZ;
 const TURN_COS = cos(TURN_RADIANS);
 const TURN_SIN = sin(TURN_RADIANS);
 
-// The live mob a wisp is flying at, or null once that mob is gone.
-const targetOf = (state: RunState, wisp: Wisp): Mob | null => {
+// The live target a wisp is flying at, or null once it is gone.
+const targetOf = (state: RunState, wisp: Wisp): StormTarget | null => {
   if (wisp.targetId === null) return null;
-  for (const mob of state.mobs) {
-    if (mob.alive && mob.id === wisp.targetId) return mob;
-  }
-  return null;
+  return stormTarget(state, wisp.targetId);
 };
 
-// How many live wisps are already flying at this mob.
-const committedTo = (state: RunState, mobId: number): number => {
+// How many live wisps are already flying at this target.
+const committedTo = (state: RunState, targetId: number): number => {
   let committed = 0;
   for (const wisp of state.wisps) {
-    if (wisp.alive && wisp.targetId === mobId) committed += 1;
+    if (wisp.alive && wisp.targetId === targetId) committed += 1;
   }
   return committed;
 };
 
-// The squared distance from a point to a mob, which orders targets without a square root.
-const distanceTo = (mob: Mob, x: number, y: number): number => {
-  const dx = mob.x - x;
-  const dy = mob.y - y;
+// The squared distance from a point to a target, which orders them without a square root.
+const distanceTo = (target: StormTarget, x: number, y: number): number => {
+  const dx = target.x - x;
+  const dy = target.y - y;
   return dx * dx + dy * dy;
 };
 
 /**
- * The nearest live mob, optionally only those with room for one more wisp.
+ * The nearest live target, optionally only those with room for one more wisp.
  *
  * Room is what makes the ordnance bound a fact rather than an intention: a
  * volley whose damage spreads kills exactly as many bodies as the bound is
- * checked against, where a volley that piled onto the nearest mob would
- * overkill one body and stop being meaningful ordnance.
+ * checked against, where a volley that piled onto the nearest body would
+ * overkill one and stop being meaningful ordnance.
  */
-const nearestMob = (
+const nearestTarget = (
   state: RunState,
   x: number,
   y: number,
   withRoom: boolean,
-): Mob | null => {
-  let nearest: Mob | null = null;
+): StormTarget | null => {
+  let nearest: StormTarget | null = null;
   let best = Infinity;
-  for (const mob of state.mobs) {
-    if (!mob.alive) continue;
-    if (withRoom && committedTo(state, mob.id) * WISP_DAMAGE >= mob.hp) {
+  for (const target of stormTargets(state)) {
+    if (withRoom && committedTo(state, target.id) * WISP_DAMAGE >= target.hp) {
       continue;
     }
-    const distance = distanceTo(mob, x, y);
+    const distance = distanceTo(target, x, y);
     if (distance >= best) continue;
     best = distance;
-    nearest = mob;
+    nearest = target;
   }
   return nearest;
 };
 
-// Points a wisp at a mob, or straight up when the field holds nothing to hunt.
-const aim = (wisp: Wisp, target: Mob | null): void => {
+// Points a wisp at a target, or straight up when the field holds nothing to hunt.
+const aim = (wisp: Wisp, target: StormTarget | null): void => {
   wisp.targetId = target === null ? null : target.id;
   const heading =
     target === null
@@ -185,10 +182,10 @@ const soulsForSwallow = (level: number, freshness: number): number => {
  * from swallow.ts and never from the tick loop: a tick of lag would read as the
  * burst arriving after the dive rather than out of it.
  *
- * Wisps are walked in slot order and each takes the nearest live mob with room
- * for it. Surplus wisps over-commit onto the last target assigned, which costs
- * the bound nothing because a dead mob does not die twice, and which looks like
- * the converging flight the concept doc promises.
+ * Wisps are walked in slot order and each takes the nearest live target with
+ * room for it. Surplus wisps over-commit onto the last target assigned, which
+ * costs the bound nothing because a dead body does not die twice, and which
+ * looks like the converging flight the concept doc promises.
  */
 const launchWisps = (
   state: RunState,
@@ -200,7 +197,10 @@ const launchWisps = (
   const count = soulsForSwallow(state.levels.wisps, freshness);
   const x = state.grave.x;
   const y = state.grave.y - state.grave.size;
-  let last: Mob | null = null;
+  // The over-commit target is carried by id and asked for again rather than
+  // held: the seam answers for the moment it is asked, so a record kept across
+  // one is a record of whatever now stands in that place.
+  let lastId: number | null = null;
   for (let launched = 0; launched < count; launched++) {
     const wisp = takeSlot(state.wisps, state.nextEntityId);
     if (wisp === null) return;
@@ -208,9 +208,11 @@ const launchWisps = (
     wisp.x = x;
     wisp.y = y;
     wisp.life = WISP_LIFETIME;
-    const target: Mob | null = nearestMob(state, x, y, true) ?? last;
+    const nearest = nearestTarget(state, x, y, true);
+    const target: StormTarget | null =
+      nearest ?? (lastId === null ? null : stormTarget(state, lastId));
     aim(wisp, target);
-    if (target !== null) last = target;
+    if (target !== null) lastId = target.id;
   }
 };
 
@@ -236,11 +238,11 @@ const cullWisps = (state: RunState): void => {
  * let the speed drift, and the speed is what the lifetime is derived against.
  */
 const flyWisp = (state: RunState, wisp: Wisp): void => {
-  let target: Mob | null = targetOf(state, wisp);
+  let target: StormTarget | null = targetOf(state, wisp);
   if (target === null && wisp.targetId !== null) {
     target =
-      nearestMob(state, wisp.x, wisp.y, true) ??
-      nearestMob(state, wisp.x, wisp.y, false);
+      nearestTarget(state, wisp.x, wisp.y, true) ??
+      nearestTarget(state, wisp.x, wisp.y, false);
     aim(wisp, target);
   }
   if (target !== null) {

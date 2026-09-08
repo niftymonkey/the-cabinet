@@ -8,9 +8,21 @@ import { normalize } from './math';
 import type { Mob, MobType } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
+import type { BossKind } from './stage/rows';
 
 // How much of a wave carries fire at all.
 type ArmedShare = 'none' | 'everyThird' | 'all';
+
+/**
+ * Which of the four authored fire reads a shot draws in. It is the sim's word
+ * and the renderer's key, and palette.ts already declares all four sprites.
+ *
+ * It is a field of its own beside the emitter because who fired a shot and what
+ * the shot looks like are two different questions and neither answers the
+ * other: the Banshee's rings and her adds' shots share an emitter and not a
+ * read, and a clod and a tear share a boss and not a read.
+ */
+type FireKind = 'trash' | 'tear' | 'clod' | 'spiral';
 
 /**
  * Every firing number a type owns. The rows sit on the mob table in mobs.ts and
@@ -67,7 +79,9 @@ const NEVER_FIRES: FireRow = {
 interface Shot {
   alive: boolean;
   id: number;
-  emitter: MobType;
+  // Who fired it. A boss's pattern is mob fire by the glossary's own definition.
+  emitter: MobType | BossKind;
+  kind: FireKind;
   x: number;
   y: number;
   vx: number;
@@ -80,6 +94,7 @@ const blankShot = (): Shot => {
     alive: false,
     id: 0,
     emitter: 'shambler',
+    kind: 'trash',
     x: 0,
     y: 0,
     vx: 0,
@@ -139,12 +154,52 @@ const fireShot = (state: RunState, mob: Mob, fire: FireRow): SimEvent[] => {
   const aim = normalize(state.grave.x - mob.x, state.grave.y - mob.y);
   const direction = aim.length === 0 ? { x: 0, y: 1 } : aim;
   shot.emitter = mob.type;
+  shot.kind = 'trash';
   shot.x = mob.x;
   shot.y = mob.y;
   shot.vx = direction.x * fire.shotSpeed;
   shot.vy = direction.y * fire.shotSpeed;
   shot.halfExtent = fire.shotHalfExtent;
-  return [{ type: 'mobFired', emitter: mob.type, x: mob.x, y: mob.y }];
+  return [
+    { type: 'mobFired', emitter: mob.type, kind: 'trash', x: mob.x, y: mob.y },
+  ];
+};
+
+/**
+ * One shot along a direction its emitter authored, which is what every boss
+ * pattern needs (ADR 0007): a ring's spoke, a curtain's clod, a spiral's arm.
+ *
+ * It is never re-aimed, and that is the whole difference from fireShot. An
+ * authored pattern is a shape the player reads and moves through, so a spoke
+ * that turned toward the grave after leaving would make the shape a lie.
+ *
+ * The direction is normalized here rather than by the caller, so a pattern
+ * writes the bearing it means and never a speed by accident. A zero-length
+ * direction fires downward, which is the same repair fireShot makes when the
+ * grave is exactly under the mob.
+ */
+const fireDirectedShot = (
+  state: RunState,
+  from: { x: number; y: number },
+  direction: { x: number; y: number },
+  fire: FireRow,
+  emitter: MobType | BossKind,
+  kind: FireKind,
+): SimEvent[] => {
+  const shot = takeSlot(state.mobFire, state.nextEntityId);
+  if (shot === null) return [];
+  state.nextEntityId += 1;
+
+  const aim = normalize(direction.x, direction.y);
+  const heading = aim.length === 0 ? { x: 0, y: 1 } : aim;
+  shot.emitter = emitter;
+  shot.kind = kind;
+  shot.x = from.x;
+  shot.y = from.y;
+  shot.vx = heading.x * fire.shotSpeed;
+  shot.vy = heading.y * fire.shotSpeed;
+  shot.halfExtent = fire.shotHalfExtent;
+  return [{ type: 'mobFired', emitter, kind, x: from.x, y: from.y }];
 };
 
 // Every live shot, one tick of flight on.
@@ -175,8 +230,9 @@ export {
   isArmed,
   firstShotOffset,
   fireShot,
+  fireDirectedShot,
   advanceShots,
   cullShots,
   NEVER_FIRES,
 };
-export type { ArmedShare, FireRow, Shot };
+export type { ArmedShare, FireKind, FireRow, Shot };

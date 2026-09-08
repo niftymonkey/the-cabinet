@@ -24,6 +24,8 @@ import { TICK_HZ } from '../clock';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT } from '../field';
+import type { Shot } from '../mobFire';
+import { fireDirectedShot, fireShot } from '../mobFire';
 import type { Mob } from '../mobs';
 import {
   advanceMobs,
@@ -334,5 +336,138 @@ describe('an armed mob that has passed the grave (plan 6.10)', () => {
 
     const events = advanceMobs(state);
     expect(events.map((event) => event.type)).toContain('mobFired');
+  });
+});
+
+describe('a shot with an authored direction (ADR 0007)', () => {
+  /** The one shot a test put on the field. */
+  function onlyShot(state: RunState): Shot {
+    const live = state.mobFire.filter((shot) => shot.alive);
+    expect(live).toHaveLength(1);
+    return live[0];
+  }
+
+  it('travels the direction it was given, and is never re-aimed at the grave', () => {
+    // Every boss pattern needs this and no mob does: an authored pattern is a
+    // shape the player reads and moves through, so a spoke that turned toward
+    // the grave after leaving would make the shape a lie. The grave stands
+    // where the aimed rule would plainly pull the shot toward, so the two
+    // rules cannot pass for each other.
+    const state = quietRun();
+    const step = stepping(state);
+    state.grave.x = 20;
+    state.grave.y = FIELD_HEIGHT - 40;
+
+    fireDirectedShot(
+      state,
+      { x: 270, y: 100 },
+      { x: 1, y: 0 },
+      MOB_TYPES.revenant.fire,
+      'undertaker',
+      'clod',
+    );
+    const shot = onlyShot(state);
+    const speed = MOB_TYPES.revenant.fire.shotSpeed;
+
+    expect(shot.vx).toBeCloseTo(speed, 10);
+    expect(shot.vy).toBeCloseTo(0, 10);
+
+    run(step, 10);
+    expect(shot.vx).toBeCloseTo(speed, 10);
+    expect(shot.vy).toBeCloseTo(0, 10);
+    expect(shot.y).toBeCloseTo(100, 10);
+  });
+
+  it('normalizes the direction, so a pattern writes a bearing and never a speed', () => {
+    // A pattern that had to hand over a unit vector would carry the fire row's
+    // speed in every one of its own rows, and a bearing written slightly long
+    // would be a faster shot nobody meant.
+    const state = quietRun();
+    fireDirectedShot(
+      state,
+      { x: 270, y: 100 },
+      { x: 30, y: 40 },
+      MOB_TYPES.revenant.fire,
+      'banshee',
+      'tear',
+    );
+    const shot = onlyShot(state);
+    const speed = MOB_TYPES.revenant.fire.shotSpeed;
+
+    // Math.sqrt rather than Math.hypot: hypot is implementation-approximated
+    // and the sim is held to exactly-specified operations (ADR 0015).
+    const travelled = Math.sqrt(shot.vx * shot.vx + shot.vy * shot.vy);
+    expect(travelled).toBeCloseTo(speed, 10);
+    expect(shot.vx).toBeCloseTo(speed * 0.6, 10);
+    expect(shot.vy).toBeCloseTo(speed * 0.8, 10);
+  });
+
+  it('still aims a mob shot at the grave, so the existing rule is unchanged', () => {
+    // The aimed shot is what a mob fires and it is untouched by the directed
+    // one: mob fire is a line from a mob to where the player was, and that
+    // grammar is ADR 0014's.
+    const state = quietRun();
+    state.grave.x = 20;
+    state.grave.y = FIELD_HEIGHT - 40;
+    const mob = putMob(state, 'revenant', 400, 120);
+
+    fireShot(state, mob, MOB_TYPES.revenant.fire);
+    const shot = onlyShot(state);
+
+    expect(shot.vx).toBeLessThan(0);
+    expect(shot.vy).toBeGreaterThan(0);
+    expect(shot.kind).toBe('trash');
+    expect(shot.emitter).toBe('revenant');
+  });
+
+  it('carries the fire kind its emitter authored, beside who fired it', () => {
+    // Who fired and what it looks like are two questions and neither answers
+    // the other: a boss's rings and its adds' shots share an emitter and not a
+    // read, and a clod and a tear share a boss and not a read. So the kind
+    // travels on the shot and on the event, and the renderer keys on it.
+    const state = quietRun();
+    const fired = fireDirectedShot(
+      state,
+      { x: 270, y: 100 },
+      { x: 0, y: 1 },
+      MOB_TYPES.revenant.fire,
+      'undertaker',
+      'spiral',
+    );
+
+    expect(fired).toEqual([
+      {
+        type: 'mobFired',
+        emitter: 'undertaker',
+        kind: 'spiral',
+        x: 270,
+        y: 100,
+      },
+    ]);
+    expect(onlyShot(state).kind).toBe('spiral');
+    expect(onlyShot(state).emitter).toBe('undertaker');
+  });
+
+  it("counts a boss's landed shot under that boss, and never under a mob", () => {
+    // The widened emitter reaches the grave through step.ts, which hands
+    // hitGrave whatever the shot carried, so DamageTaken.hits separates a
+    // boss's pattern from a trash shot without a second event and without a
+    // second field (#48).
+    const state = quietRun();
+    const step = stepping(state);
+    state.grave.invulnerable = 0;
+
+    fireDirectedShot(
+      state,
+      { x: state.grave.x, y: state.grave.y - 8 },
+      { x: 0, y: 1 },
+      MOB_TYPES.revenant.fire,
+      'banshee',
+      'tear',
+    );
+    const hits = types(run(step, 3), 'graveHit');
+
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ source: 'banshee' });
   });
 });

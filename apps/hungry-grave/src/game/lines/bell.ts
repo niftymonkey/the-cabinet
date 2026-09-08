@@ -2,11 +2,14 @@
 // never fired by a swallow (ADR 0005). What a toll throws is cones (ADR 0036).
 
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { atan2, normalize } from '../math';
-import type { Mob } from '../mobs';
-import { damageMob, SPAWN_MARGIN } from '../mobs';
 import type { RunState } from '../run';
+import type { StormTarget } from '../stormTargets';
+import {
+  damageStormTarget,
+  moveStormTarget,
+  stormTargets,
+} from '../stormTargets';
 
 /**
  * What one level's toll throws: where its cones point, how wide each one opens,
@@ -187,24 +190,27 @@ const proximity = (distance: number, full: number): number => {
 };
 
 /**
- * Shoves a mob away from the grave, held inside the field widened by
- * SPAWN_MARGIN. Without the clamp a mob near an edge is pushed out of the box
- * the invariant harness checks, by the player's own weapon, and the harness
- * fires on a legal move.
+ * Shoves a target away from the grave. The line keeps its own push arithmetic
+ * and only asks the seam to apply the move, which is what holds the field
+ * bounds: the seam holds a body inside the field widened by SPAWN_MARGIN, so
+ * the player's own weapon can never push something out of the box the invariant
+ * harness checks.
  *
  * The force comes from the toll's own level, the level the reach and the sweep
  * are already working from, so a level-up mid-toll cannot shove harder than the
  * toll that is shoving reaches.
  *
  * A shove that lands returns its mobShoved event, carrying the distance the
- * clamped move really covered rather than the nominal push; a shove refused
- * (no push at this level, a non-finite strength, a mob with no away direction,
- * a clamp that let the mob move nowhere) returns null and reports nothing.
+ * move really covered rather than the nominal push, read back off the target
+ * rather than assumed. A shove refused returns null and reports nothing, and
+ * the refusals are one list whatever the reason: no push at this level, a
+ * non-finite strength, a target with no away direction, a target the seam does
+ * not move at all, or one the bounds let move nowhere.
  */
-const pushMob = (
+const pushTarget = (
   state: RunState,
   toll: BellToll,
-  mob: Mob,
+  target: StormTarget,
   distance: number,
   near: number,
 ): SimEvent | null => {
@@ -212,33 +218,20 @@ const pushMob = (
   if (row === undefined) return null;
   const push = row.push * near;
   if (!Number.isFinite(push) || push <= 0 || distance === 0) return null;
-  const away = normalize(mob.x - state.grave.x, mob.y - state.grave.y);
+  const away = normalize(target.x - state.grave.x, target.y - state.grave.y);
   if (away.length === 0) return null;
-  const fromX = mob.x;
-  const fromY = mob.y;
-  mob.x = clamp(
-    mob.x + away.x * push,
-    -SPAWN_MARGIN,
-    FIELD_WIDTH + SPAWN_MARGIN,
-  );
-  mob.y = clamp(
-    mob.y + away.y * push,
-    -SPAWN_MARGIN,
-    FIELD_HEIGHT + SPAWN_MARGIN,
-  );
-  const movedX = mob.x - fromX;
-  const movedY = mob.y - fromY;
+  const fromX = target.x;
+  const fromY = target.y;
+  moveStormTarget(state, target, fromX + away.x * push, fromY + away.y * push);
+  const movedX = target.x - fromX;
+  const movedY = target.y - fromY;
   const displacement = Math.sqrt(movedX * movedX + movedY * movedY);
   if (displacement === 0) return null;
-  return { type: 'mobShoved', id: mob.id, displacement };
-};
-
-const clamp = (value: number, low: number, high: number): number => {
-  return Math.min(Math.max(value, low), high);
+  return { type: 'mobShoved', id: target.id, displacement };
 };
 
 /**
- * Every mob a cone of this toll reached this tick: inside the leading edge,
+ * Every target a cone of this toll reached this tick: inside the leading edge,
  * inside one of the cones, and not struck by this toll already.
  *
  * The toll's damage resolves here rather than in the storm's overlap pass,
@@ -261,24 +254,24 @@ const sweepToll = (
   const events: SimEvent[] = [];
   const row = rowFor(toll.level);
   if (row === undefined) return events;
-  for (const mob of state.mobs) {
-    if (!mob.alive || toll.struck.has(mob.id)) continue;
-    const dx = mob.x - state.grave.x;
-    const dy = mob.y - state.grave.y;
+  for (const target of stormTargets(state)) {
+    if (toll.struck.has(target.id)) continue;
+    const dx = target.x - state.grave.x;
+    const dy = target.y - state.grave.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance > now) continue;
-    // A mob standing on the grave has no bearing to test and is inside every
+    // A body standing on the grave has no bearing to test and is inside every
     // cone: the toll leaves from under it.
     const held =
       distance === 0 || insideCone(toll.level, bearingFromGrave(dx, dy));
     if (!held) continue;
-    toll.struck.add(mob.id);
+    toll.struck.add(target.id);
     const near = proximity(distance, row.reach);
     const damage =
       BELL_DAMAGE_FAR + (BELL_DAMAGE_NEAR - BELL_DAMAGE_FAR) * near;
-    const shoved = pushMob(state, toll, mob, distance, near);
+    const shoved = pushTarget(state, toll, target, distance, near);
     if (shoved !== null) events.push(shoved);
-    events.push(...damageMob(state, mob, damage, 'bell'));
+    events.push(...damageStormTarget(state, target, damage, 'bell'));
   }
   return events;
 };

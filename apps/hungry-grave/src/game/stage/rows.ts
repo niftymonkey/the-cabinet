@@ -36,6 +36,14 @@ interface StageRow {
 type BossKind = 'banshee' | 'undertaker';
 
 /**
+ * The two kinds as a list, so a reader that has to name a row per boss walks
+ * them rather than spelling them out. The type is declared above rather than
+ * derived from this, so a phase column reads as a union and never as an index
+ * into a table.
+ */
+const BOSS_KINDS: readonly BossKind[] = ['banshee', 'undertaker'];
+
+/**
  * The three sections, as the tables' own key (ADR 0049, ADR 0050). It is the
  * key the pour's shares are read by, so a section and the rate it keeps firing
  * at under the pour cannot come apart.
@@ -814,6 +822,7 @@ export {
   POUR_SHARES,
   BOSS_ADD_ALLOWANCE,
   RUNG_ALLOWANCE,
+  BOSS_KINDS,
   peakArrivals,
 };
 export type { StageRow, BossKind, SectionName, SparseShape };

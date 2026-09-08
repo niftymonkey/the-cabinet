@@ -3,7 +3,9 @@
 import type { GraveHitSource } from './grave';
 import type { WeaponLine } from './lines/roster';
 import type { PatchClosing } from './lines/territory';
+import type { FireKind } from './mobFire';
 import type { DamageSource, MobType } from './mobs';
+import type { BossKind } from './stage/rows';
 import type { PhaseName } from './stage/stage';
 import type { FoodKind } from './swallow';
 
@@ -154,12 +156,85 @@ interface CarrierLost {
   readonly reason: CarrierLoss;
 }
 
-// A mob put a shot on the field. The mob-fire sound, and ADR 0014's airborne-projectile instrument.
+/**
+ * A shot went on the field. The mob-fire sound, and ADR 0014's
+ * airborne-projectile instrument.
+ *
+ * The emitter names who fired and the kind names what it looks like, and the
+ * two are separate fields because neither answers the other: a boss's rings and
+ * its adds' shots share an emitter and not a read.
+ */
 interface MobFired {
   readonly type: 'mobFired';
-  readonly emitter: MobType;
+  readonly emitter: MobType | BossKind;
+  readonly kind: FireKind;
   readonly x: number;
   readonly y: number;
+}
+
+/**
+ * A boss arrived on a phase boundary, with the number of chunks it will run
+ * (ADR 0007). It is the phase's own report of what it carries, so the section
+ * timeline and the harness's boss report read the fight's shape without asking
+ * the boss module anything.
+ */
+interface BossArrived {
+  readonly type: 'bossArrived';
+  readonly boss: BossKind;
+  readonly chunks: number;
+}
+
+// One chunk of a boss emptied and the next is live (ADR 0007, ADR 0052).
+interface ChunkBroke {
+  readonly type: 'chunkBroke';
+  readonly boss: BossKind;
+  readonly chunk: number;
+}
+
+/**
+ * A boss's last chunk emptied. It carries where the body fell, because what a
+ * death sheds is placed there, and it is what the Undertaker's ending fires on
+ * rather than a phase index (ADR 0007).
+ */
+interface BossKilled {
+  readonly type: 'bossKilled';
+  readonly boss: BossKind;
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * The set piece's source opened and began to pour (ADR 0042, ADR 0050). It is
+ * the Crowd's own boundary event, and the budget is what the pour has to spend.
+ * Fired by stage/setPiece.ts, which owns the source's behaviour.
+ */
+interface SetPieceOpened {
+  readonly type: 'setPieceOpened';
+  readonly x: number;
+  readonly y: number;
+  readonly budget: number;
+}
+
+// One body poured from the source, and what is left of the budget behind it.
+interface SetPiecePoured {
+  readonly type: 'setPiecePoured';
+  readonly x: number;
+  readonly y: number;
+  readonly left: number;
+}
+
+/**
+ * How a set piece ended. One event with a closed reason rather than three
+ * events, on the PatchClosed precedent: the three are ends of one thing rather
+ * than opposite meanings, every set piece reaches exactly one of them, and a
+ * reading groups by the reason.
+ */
+type SetPieceClosing = 'spent' | 'killed' | 'scrolled';
+
+interface SetPieceClosed {
+  readonly type: 'setPieceClosed';
+  readonly reason: SetPieceClosing;
+  readonly left: number;
 }
 
 // The dirt took an empty corpse under (ADR 0004). The missed-food instrument reads it.
@@ -343,6 +418,12 @@ type SimEvent =
   | MobKilled
   | CarrierLost
   | MobFired
+  | BossArrived
+  | ChunkBroke
+  | BossKilled
+  | SetPieceOpened
+  | SetPiecePoured
+  | SetPieceClosed
   | CorpseExpired
   | CorpseLost
   | Tolled
@@ -357,4 +438,4 @@ type SimEvent =
   | OfferLost
   | PhaseChanged;
 
-export type { CarrierLoss, SimEvent };
+export type { CarrierLoss, SetPieceClosing, SimEvent };

@@ -6,9 +6,16 @@ import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { cos, normalize, sin } from '../math';
 import type { Mob } from '../mobs';
-import { damageMob, mobHitbox, SPAWN_MARGIN } from '../mobs';
+import { mobHitbox } from '../mobs';
+import type { Rect } from '../overlap';
 import { circleOverlapsBox } from '../overlap';
 import type { RunState } from '../run';
+import type { StormTarget } from '../stormTargets';
+import {
+  damageStormTarget,
+  moveStormTarget,
+  stormTargets,
+} from '../stormTargets';
 import { SCROLL_SPEED } from '../tuning';
 import { MAX_LEVEL } from './roster';
 
@@ -350,10 +357,9 @@ interface Spread {
  */
 const eligiblePoints = (state: RunState): KnotPoint[] => {
   const points: KnotPoint[] = [];
-  for (const mob of state.mobs) {
-    if (!mob.alive) continue;
-    const x = mob.x + mob.vx * TERRITORY_LEAD_TICKS;
-    const y = mob.y + mob.vy * TERRITORY_LEAD_TICKS;
+  for (const target of stormTargets(state)) {
+    const x = target.x + target.vx * TERRITORY_LEAD_TICKS;
+    const y = target.y + target.vy * TERRITORY_LEAD_TICKS;
     if (y >= state.grave.y || y < 0) continue;
     if (Math.abs(x - state.grave.x) > TERRITORY_REACH) continue;
     points.push({ x, y });
@@ -477,56 +483,63 @@ const runTheClock = (state: RunState, events: SimEvent[]): void => {
 };
 
 /**
- * Whether a mob's body is over this patch's hands.
+ * Whether a body is over this patch's hands.
  *
- * The mob's body and never its centre point: the visible patch is the ground
- * it claims, so a mob visibly standing in the hands must not be immune because
+ * The body and never the centre point: the visible patch is the ground it
+ * claims, so a body visibly standing in the hands must not be immune because
  * its centre sits a unit outside the radius. This is why the bell's
  * centre-point distance test is not reused here.
  */
-const mobIsOverPatch = (patch: Patch, mob: Mob): boolean => {
+const patchHolds = (patch: Patch, box: Rect): boolean => {
   return circleOverlapsBox(
     { x: patch.x, y: patch.y, radius: patch.radius },
-    mobHitbox(mob),
+    box,
   );
 };
 
 /**
- * One mob held by open ground: one displacement, slow and pull combined,
- * written with the pushMob discipline (finite-check, zero-length guard, clamp
- * to the box the invariant harness checks).
+ * One target held by open ground: one displacement, slow and pull combined,
+ * written with the toll's push discipline (finite-check, zero-length guard, and
+ * the seam holding the move inside the box the invariant harness checks).
  *
  * Both strengths are read off the patch and never off the run's levels, so a
  * patch controls at the strength it was born with for its whole life.
  *
  * The slow touches position only, undoing part of the motion moveMob just
  * applied: mobs.ts learns nothing of Territory. The pull is clamped to the
- * remaining distance so a mob near the centre settles instead of oscillating
- * across it, and a mob at the exact centre has no direction to pull along.
+ * remaining distance so a body near the centre settles instead of oscillating
+ * across it, and one at the exact centre has no direction to pull along.
  */
-const holdMob = (patch: Patch, mob: Mob): void => {
-  const toCentre = normalize(patch.x - mob.x, patch.y - mob.y);
+const holdTarget = (
+  state: RunState,
+  patch: Patch,
+  target: StormTarget,
+): void => {
+  const toCentre = normalize(patch.x - target.x, patch.y - target.y);
   const pull = Math.min(patch.pull, toCentre.length);
-  const dx = -patch.slow * mob.vx + toCentre.x * pull;
-  const dy = -patch.slow * mob.vy + toCentre.y * pull;
+  const dx = -patch.slow * target.vx + toCentre.x * pull;
+  const dy = -patch.slow * target.vy + toCentre.y * pull;
   if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
-  mob.x = clamp(mob.x + dx, -SPAWN_MARGIN, FIELD_WIDTH + SPAWN_MARGIN);
-  mob.y = clamp(mob.y + dy, -SPAWN_MARGIN, FIELD_HEIGHT + SPAWN_MARGIN);
+  moveStormTarget(state, target, target.x + dx, target.y + dy);
 };
 
 /**
- * The control: every live mob whose body is over open ground is held, per
- * patch in slot order, mobs in slot order. A mob over two overlapping patches
- * is displaced by each: overlapping claimed ground holds harder, accepted and
- * stated in the plan. Arriving mobs are held too, on the bell's precedent of
- * a toll shoving arriving mobs.
+ * The control: every live target whose body is over open ground is held, per
+ * patch in slot order, targets in the seam's own order. A body over two
+ * overlapping patches is displaced by each: overlapping claimed ground holds
+ * harder, accepted and stated in the plan. Arriving mobs are held too, on the
+ * bell's precedent of a toll shoving arriving mobs.
+ *
+ * The list is taken once for the whole pass, which is exactly what the pass
+ * is: nothing here kills, so no target it holds can stop being live inside it.
  */
-const controlMobs = (state: RunState): void => {
+const controlTargets = (state: RunState): void => {
+  const targets = stormTargets(state);
   for (const patch of state.patches) {
     if (!patch.alive || patch.opening > 0) continue;
-    for (const mob of state.mobs) {
-      if (!mob.alive || !mobIsOverPatch(patch, mob)) continue;
-      holdMob(patch, mob);
+    for (const target of targets) {
+      if (!patchHolds(patch, target.box)) continue;
+      holdTarget(state, patch, target);
     }
   }
 };
@@ -557,7 +570,7 @@ const advanceTerritory = (state: RunState): SimEvent[] => {
       events.push(closePatch(patch, 'scrolled'));
     }
   }
-  controlMobs(state);
+  controlTargets(state);
   runTheClock(state, events);
   return events;
 };
@@ -576,12 +589,14 @@ const pulseWithPatch = (state: RunState, patch: Patch): SimEvent[] => {
     if (eligibleAt <= state.tick) patch.struck.delete(id);
   }
   const events: SimEvent[] = [];
-  for (const mob of state.mobs) {
-    if (!mob.alive || patch.struck.has(mob.id)) continue;
-    if (!mobIsOverPatch(patch, mob)) continue;
-    patch.struck.set(mob.id, state.tick + patch.rehit);
+  for (const target of stormTargets(state)) {
+    if (patch.struck.has(target.id)) continue;
+    if (!patchHolds(patch, target.box)) continue;
+    patch.struck.set(target.id, state.tick + patch.rehit);
     patch.pulses += 1;
-    events.push(...damageMob(state, mob, TERRITORY_DAMAGE, 'territory'));
+    events.push(
+      ...damageStormTarget(state, target, TERRITORY_DAMAGE, 'territory'),
+    );
   }
   return events;
 };
@@ -622,7 +637,7 @@ const territoryCount = (state: RunState): number => {
 const holdingPatch = (state: RunState, mob: Mob): Patch | null => {
   for (const patch of state.patches) {
     if (!patch.alive || patch.opening > 0) continue;
-    if (mobIsOverPatch(patch, mob)) return patch;
+    if (patchHolds(patch, mobHitbox(mob))) return patch;
   }
   return null;
 };

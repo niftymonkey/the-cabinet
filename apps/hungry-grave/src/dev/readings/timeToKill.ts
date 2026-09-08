@@ -116,17 +116,26 @@ const createEngagements = (lines: readonly WeaponLine[]): EngagementsAcc => {
 };
 
 /**
- * The type of the mob this id belongs to. The pool slot still carries its own
- * id and type when the observer reads it, whether the mob is alive or was
- * culled this tick: a tick runs its spawns before any damage, so nothing has
- * taken the slot back. An id with no slot behind it would mean that order
- * changed underneath the instrument, which is a bug rather than a reading.
+ * The type of the mob this id belongs to, or null where the id is not a mob's.
+ *
+ * THIS READING COVERS THE MOB POOL AND NOTHING ELSE. A boss takes storm damage
+ * and reports it as mobDamaged like anything else, and a boss is not in the
+ * pool, so its damage has no type here and no engagement is opened for it. A
+ * fight against a boss is read from its own vocabulary instead, bossArrived,
+ * chunkBroke and bossKilled.
+ *
+ * That is why this returns rather than throwing on a missing slot, and the
+ * guard it used to carry has not been given up: an engagement that never
+ * closes is caught on the kill side by closeEngagement, whose event is a mob's
+ * by construction. The pool slot still carries its own id and type when the
+ * observer reads it, whether the mob is alive or was culled this tick, because
+ * a tick runs its spawns before any damage.
  */
-const typeOfMob = (state: RunState, id: number): MobType => {
+const mobTypeOf = (state: RunState, id: number): MobType | null => {
   for (const mob of state.mobs) {
     if (mob.id === id) return mob.type;
   }
-  throw new Error(`mob ${id} took damage with no pool slot carrying its type`);
+  return null;
 };
 
 const openEngagement = (
@@ -135,8 +144,9 @@ const openEngagement = (
   id: number,
   source: DamageSource,
   state: RunState,
-): Engagement => {
-  const type = typeOfMob(state, id);
+): Engagement | null => {
+  const type = mobTypeOf(state, id);
+  if (type === null) return null;
   acc.engaged[type] += 1;
   const engagement: Engagement = {
     type,
@@ -158,6 +168,7 @@ const takeHit = (
 ): void => {
   const engagement =
     acc.open.get(id) ?? openEngagement(acc, tick, id, source, state);
+  if (engagement === null) return;
   engagement.hits += 1;
   addTo(engagement.hitsByLine, source, 1);
   engagement.lastSource = source;

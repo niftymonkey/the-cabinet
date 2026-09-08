@@ -2,8 +2,8 @@
 // the gas over the whole field and the burst around the grave.
 
 import type { SimEvent } from './events';
-import { damageMob, hasEntered } from './mobs';
 import type { RunState } from './run';
+import { damageStormTarget, stormTargets } from './stormTargets';
 import { RESERVOIR_CAPACITY } from './tuning';
 
 /**
@@ -29,7 +29,7 @@ const cancelMobFire = (state: RunState): number => {
   return cancelled;
 };
 
-// Whether a mob stands inside the burst, measured centre to centre from the
+// Whether a body stands inside the burst, measured centre to centre from the
 // grave. Squared, so the reach needs no square root to order.
 const insideBurst = (state: RunState, x: number, y: number): boolean => {
   const dx = x - state.grave.x;
@@ -38,25 +38,29 @@ const insideBurst = (state: RunState, x: number, y: number): boolean => {
 };
 
 /**
- * Kills the mobs standing inside the burst, and reports how many went.
+ * Kills what stands inside the burst, and reports how many went.
  *
- * The kills route through damageMob rather than clearing the pool, so a belched
- * mob leaves a corpse exactly as any other kill does: the burst restarts the
- * swallow economy instead of emptying the field of it.
+ * The kills route through the seam's damage rather than clearing a pool, so a
+ * belched body leaves a corpse exactly as any other kill does: the burst
+ * restarts the swallow economy instead of emptying the field of it.
  *
- * Two things are outside its reach. A mob further out than the radius, which is
- * the whole of the split: a press that clears the air and leaves the crowd
- * walking hands the wave back to the storm. And a mob still above the top edge,
+ * Three things are outside its reach. A body further out than the radius, which
+ * is the whole of the split: a press that clears the air and leaves the crowd
+ * walking hands the wave back to the storm. A body still above the top edge,
  * which is ADR 0008's older scope limit standing through the split, because
  * reaching past the edge would silently delete authored content a player never
- * saw arrive.
+ * saw arrive. And a target one hit cannot take whole, because the burst is a
+ * kill rule rather than a damage number and a kill rule applied to chunked
+ * health would break a chunk outright, which is a skip rather than the breath
+ * the belch buys. What the belch still does against one of those is what the
+ * gas already does, and the gas is field-wide.
  */
-const burstNearbyMobs = (state: RunState, events: SimEvent[]): number => {
+const burstNearbyTargets = (state: RunState, events: SimEvent[]): number => {
   let killed = 0;
-  for (const mob of state.mobs) {
-    if (!mob.alive || !hasEntered(mob)) continue;
-    if (!insideBurst(state, mob.x, mob.y)) continue;
-    events.push(...damageMob(state, mob, mob.hp, 'belch'));
+  for (const target of stormTargets(state)) {
+    if (!target.entered || !target.killableOutright) continue;
+    if (!insideBurst(state, target.x, target.y)) continue;
+    events.push(...damageStormTarget(state, target, target.hp, 'belch'));
     killed += 1;
   }
   return killed;
@@ -64,8 +68,8 @@ const burstNearbyMobs = (state: RunState, events: SimEvent[]): number => {
 
 /**
  * The two scopes at once: the gas takes every mob-fire shot on the whole field
- * and kills nothing, the burst kills the mobs within a radius of the grave, and
- * the reservoir empties.
+ * and kills nothing, the burst kills what stands within a radius of the grave,
+ * and the reservoir empties.
  *
  * It fires only at a full reservoir and does nothing otherwise, which is why
  * there is no partial bomb anywhere in the signature. That full-only rule is
@@ -73,16 +77,16 @@ const burstNearbyMobs = (state: RunState, events: SimEvent[]): number => {
  * so repeat calls inside one frame are no-ops by the resource rather than by a
  * flag somebody has to remember to clear.
  *
- * Boss damage is not here. ADR 0008 makes the belch deal a big chunk of it when
- * the boss is inside the burst and never push a boss, and there is no boss in
- * this build for the rule to branch on, so it is a stub the boss dispatch fills
- * rather than a rule written blind.
+ * Nothing here branches on what it is hitting, and that is the constraint: the
+ * burst asks the seam what its kill rule may be applied to and the seam
+ * answers, so a body whose health is chunked is skipped without this module
+ * ever learning that such a body exists.
  */
 const fireBelch = (state: RunState): SimEvent[] => {
   if (state.reservoir < RESERVOIR_CAPACITY) return [];
   const cancelled = cancelMobFire(state);
   const kills: SimEvent[] = [];
-  const killed = burstNearbyMobs(state, kills);
+  const killed = burstNearbyTargets(state, kills);
   state.reservoir = 0;
   return [{ type: 'belched', cancelled, killed }, ...kills];
 };

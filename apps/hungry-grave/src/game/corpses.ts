@@ -187,9 +187,10 @@ const spawnCorpse = (
 };
 
 /**
- * A boss-shed reward corpse that never decays (ADR 0004). Nothing in the game
- * spawns one yet; the boss dispatch authors the shed and inherits the mechanism
- * rather than inventing it.
+ * A boss-shed reward corpse that never decays (ADR 0004). A chunk break sheds
+ * one, which is what keeps ADR 0007's shed-food promise inside the fight rather
+ * than at the end of it: a player who cannot dive through the pattern yet still
+ * has it waiting.
  */
 const spawnFeast = (
   state: RunState,

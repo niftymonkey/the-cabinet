@@ -7,8 +7,8 @@
  *
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
- * section and hardens the moment the first tape exists. Eighteen identities
- * against nineteen checks: checkPools carries two, the caps and the ids,
+ * section and hardens the moment the first tape exists. Twenty identities
+ * against twenty-one checks: checkPools carries two, the caps and the ids,
  * checkStage carries two, one for each of the two things it watches, and
  * checkRefusals carries three, one per cap that can turn something away, while
  * the six bounds checks share one identity between them. The grave's own bounds
@@ -35,6 +35,8 @@ const FAULT_IDENTITIES = [
   'corpse cap never binds',
   'carrier spawn never refused',
   'offer stands a body',
+  'boss chunk only increases',
+  'set piece budget not negative',
 ] as const;
 
 // One member of the closed list above.
@@ -79,6 +81,12 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * carrier or an offer that the game itself could not deliver. The run is coherent
  * and one body poorer, which is exactly a state to report loudly and carry on
  * from, and terminating it would take a whole run away over food.
+ *
+ * The boss's chunk and the set piece's budget are recoverable on the stage's
+ * own reading (ADR 0007, ADR 0042). A chunk that went backwards replays a
+ * pattern the player has already beaten and a budget below zero pours nothing;
+ * both spoil a fight without poisoning a number anything downstream reads, and
+ * killing the run at the climax is a worse answer than reporting it.
  */
 const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'no NaN': 'fatal',
@@ -99,6 +107,8 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'corpse cap never binds': 'recoverable',
   'carrier spawn never refused': 'recoverable',
   'offer stands a body': 'recoverable',
+  'boss chunk only increases': 'recoverable',
+  'set piece budget not negative': 'recoverable',
 };
 
 // One invariant found broken on one tick.

@@ -1,5 +1,6 @@
 // The witness (ADR 0019): the number a run folds its own state down to.
 
+import type { Boss } from './bosses/chunks';
 import type { Corpse } from './corpses';
 import type { Grave } from './grave';
 import type { BellToll } from './lines/bell';
@@ -8,6 +9,8 @@ import { WEAPON_LINES } from './lines/roster';
 import type { CorpseTier } from './mobs';
 import type { StreamName } from './rng';
 import type { LineState, RunEnding, RunState } from './run';
+import type { BossKind } from './stage/rows';
+import type { SetPiece } from './stage/setPiece';
 import type { StageState } from './stage/stage';
 import type { FoodKind } from './swallow';
 
@@ -35,7 +38,7 @@ const STREAM_ORDER: readonly StreamName[] = [
  * and read back there, so it moves only when the order or the field list below
  * moves.
  */
-const WITNESS_VERSION = 5;
+const WITNESS_VERSION = 6;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -98,6 +101,13 @@ const WEAPON_LINE_CODES: Readonly<Record<WeaponLine, number>> = {
   wisps: 3,
   bell: 4,
   territory: 5,
+};
+
+// Which boss stands on the field, on the same append-only terms as every other
+// union here: read by name, never by a member's position.
+const BOSS_KIND_CODES: Readonly<Record<BossKind, number>> = {
+  banshee: 1,
+  undertaker: 2,
 };
 
 // A boolean's encoding, spelled out so it is visible at the call site.
@@ -306,6 +316,38 @@ const foldOffer = (checksum: number, run: RunState): number => {
 };
 
 /**
+ * The one boss on the field (ADR 0007).
+ *
+ * An absent boss folds its own sentinel rather than being skipped, exactly as
+ * an absent ring does. Which boss stands folds beside its state rather than
+ * being left to the state to imply, because the two bosses are one record's
+ * worth of numbers apart and which one the fight is against is the whole of it.
+ *
+ * The chunk and the flash fold beside the health because they are what the
+ * health means: the same hp under a different chunk is a different fight, and a
+ * live flash is a tick on which the storm does nothing.
+ */
+const foldBoss = (checksum: number, boss: Boss | null): number => {
+  if (boss === null) return fold(checksum, ABSENT_CODE);
+  let next = fold(fold(checksum, 1), BOSS_KIND_CODES[boss.kind]);
+  next = fold(fold(fold(next, boss.chunk), boss.hp), boss.flash);
+  return fold(fold(fold(next, boss.x), boss.y), boss.patternTick);
+};
+
+/**
+ * The one set piece on the field (ADR 0042), on the same terms as the boss: an
+ * absent one folds its own sentinel, and what is folded is what the rules
+ * mutate, the source's place, whether it has opened, what it has left to pour,
+ * its own clock and its health.
+ */
+const foldSetPiece = (checksum: number, piece: SetPiece | null): number => {
+  if (piece === null) return fold(checksum, ABSENT_CODE);
+  let next = fold(fold(fold(checksum, 1), piece.x), piece.y);
+  next = fold(next, boolCode(piece.open));
+  return fold(fold(fold(next, piece.budget), piece.pourIn), piece.hp);
+};
+
+/**
  * The whole run, folded into one integer from a starting value (ADR 0019). One
  * function with a starting-value parameter, used two ways rather than being two
  * behaviours: chained across ticks for the golden digest's accumulator, and as
@@ -328,7 +370,8 @@ const foldWitness = (run: RunState, from: number): number => {
   checksum = foldLevels(checksum, run);
   checksum = foldStreams(checksum, run);
   checksum = foldStage(checksum, run.stage);
-  return foldOffer(foldLines(checksum, run.lines), run);
+  checksum = foldOffer(foldLines(checksum, run.lines), run);
+  return foldSetPiece(foldBoss(checksum, run.boss), run.setPiece);
 };
 
 export {
@@ -338,6 +381,7 @@ export {
   ABSENT_CODE,
   NO_TARGET_ID,
   RUN_ENDING_CODES,
+  BOSS_KIND_CODES,
   CORPSE_TIER_CODES,
   FOOD_KIND_CODES,
   WEAPON_LINE_CODES,

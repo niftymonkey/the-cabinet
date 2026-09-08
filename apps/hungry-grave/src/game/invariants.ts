@@ -155,6 +155,31 @@ const checkPatchesNoNaN = (state: RunState, faults: Fault[]): void => {
   }
 };
 
+/**
+ * The boss's own numbers and the set piece's, each absent one reading as zero
+ * rather than being skipped, on the ring's own precedent: a field that is only
+ * checked when something stands there is a field nothing checks on the tick it
+ * is written.
+ */
+const checkBossNoNaN = (state: RunState, faults: Fault[]): void => {
+  const boss = state.boss;
+  checkFinite(faults, 'boss.chunk', boss?.chunk ?? 0);
+  checkFinite(faults, 'boss.hp', boss?.hp ?? 0);
+  checkFinite(faults, 'boss.x', boss?.x ?? 0);
+  checkFinite(faults, 'boss.y', boss?.y ?? 0);
+  checkFinite(faults, 'boss.flash', boss?.flash ?? 0);
+  checkFinite(faults, 'boss.patternTick', boss?.patternTick ?? 0);
+};
+
+const checkSetPieceNoNaN = (state: RunState, faults: Fault[]): void => {
+  const piece = state.setPiece;
+  checkFinite(faults, 'setPiece.x', piece?.x ?? 0);
+  checkFinite(faults, 'setPiece.y', piece?.y ?? 0);
+  checkFinite(faults, 'setPiece.budget', piece?.budget ?? 0);
+  checkFinite(faults, 'setPiece.pourIn', piece?.pourIn ?? 0);
+  checkFinite(faults, 'setPiece.hp', piece?.hp ?? 0);
+};
+
 // The stage cursor's three counters.
 const checkStageNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'stage.phaseIndex', state.stage.phaseIndex);
@@ -200,6 +225,8 @@ const checkNoNaN = (state: RunState, faults: Fault[]): void => {
   checkWispsNoNaN(state, faults);
   checkPatchesNoNaN(state, faults);
   checkLinesNoNaN(state, faults);
+  checkBossNoNaN(state, faults);
+  checkSetPieceNoNaN(state, faults);
   checkStageNoNaN(state, faults);
   checkLevelsNoNaN(state, faults);
   checkStreamsNoNaN(state, faults);
@@ -595,8 +622,9 @@ interface StagePhase {
 }
 
 /**
- * What the last check saw of the stage, so the two invariants that are about
- * change rather than about a single state have something to compare with.
+ * What the last check saw of the stage and of the boss standing in it, so the
+ * invariants that are about change rather than about a single state have
+ * something to compare with.
  *
  * It is a field on Execution and never on RunState (ADR 0025). The WeakMap this
  * replaced was giving lifetime away for free: the watch died with the run, and
@@ -609,10 +637,77 @@ interface StagePhase {
 interface StageWatch {
   // Null before the first check, which has nothing to compare against.
   seen: StagePhase | null;
+  /**
+   * The boss the last check saw, by id and chunk, or null when no boss stood.
+   *
+   * The id is in here and not only the chunk, because two bosses run in one
+   * run: the second arrives at chunk zero long after the first died at its
+   * last, and a memory of the chunk alone would read that arrival as the index
+   * going backwards.
+   */
+  seenBoss: BossChunk | null;
+}
+
+// One reading of the boss on the field, as the last passing check saw it.
+interface BossChunk {
+  readonly id: number;
+  readonly chunk: number;
 }
 
 const createStageWatch = (): StageWatch => {
-  return { seen: null };
+  return { seen: null, seenBoss: null };
+};
+
+/**
+ * A boss's chunk only ever increases (ADR 0007, ADR 0052): the fight gets
+ * there across chunks, and a chunk that came back is a pattern the player has
+ * already beaten being played at them again.
+ *
+ * It is recorded only against the same boss. An empty field clears the memory,
+ * which is what makes the next boss's chunk zero an arrival rather than a fall.
+ */
+const checkBossChunk = (
+  state: RunState,
+  watch: StageWatch,
+  faults: Fault[],
+): void => {
+  const boss = state.boss;
+  if (boss === null) {
+    watch.seenBoss = null;
+    return;
+  }
+  const seen = watch.seenBoss;
+  if (seen !== null && seen.id === boss.id && boss.chunk < seen.chunk) {
+    record(
+      faults,
+      'boss chunk only increases',
+      `the ${boss.kind} went from chunk ${seen.chunk} to ${boss.chunk}`,
+    );
+    return;
+  }
+  watch.seenBoss = { id: boss.id, chunk: boss.chunk };
+};
+
+/**
+ * The set piece pours whole bodies out of a whole budget, so what is left is a
+ * count and never goes below zero (ADR 0042).
+ *
+ * A fraction is caught here rather than a tick later, on the bank's own
+ * reading: half a body still reads as one left to pour, so the next pour spends
+ * it and leaves the budget at minus a half, which this identity would then
+ * record against a state one tick removed from the write that broke it.
+ */
+const checkSetPieceBudget = (state: RunState, faults: Fault[]): void => {
+  const piece = state.setPiece;
+  if (piece === null) return;
+  const budget = piece.budget;
+  if (!Number.isInteger(budget) || budget < 0) {
+    record(
+      faults,
+      'set piece budget not negative',
+      `the set piece has ${budget} bodies left to pour`,
+    );
+  }
 };
 
 /**
@@ -715,7 +810,9 @@ const checkInvariants = (
   checkOneLiveOffer(state, faults);
   checkOfferBodies(state, faults);
   checkBank(state, faults);
+  checkSetPieceBudget(state, faults);
   checkStage(state, watch, faults);
+  checkBossChunk(state, watch, faults);
   return faults;
 };
 

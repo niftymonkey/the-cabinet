@@ -1,5 +1,5 @@
 /**
- * The three fences a policy module's own prose rests on, all of them read off
+ * The four fences a policy module's own prose rests on, all of them read off
  * the source text of the tree.
  *
  * Two keep a weapon line's rules inside the line's own module: a policy never
@@ -12,6 +12,12 @@
  * offer off the drops stream's cursor (offer.ts:84-97), which is sound only
  * while the offer is the one thing that moves that cursor. That sentence was a
  * comment and nothing else, so it is a walk now.
+ *
+ * The fourth is the same extensibility constraint read from the other side: no
+ * weapon line walks the mob pool. A boss and a set piece stand on the field and
+ * are not in that pool, so a line that walked it would go past them, and five
+ * lines each carrying their own branch is exactly how a line learns that a boss
+ * exists. They reach what they can hit through stormTargets.ts instead.
  *
  * They span src/game and src/dev, so they sit at the src root rather than
  * inside either of them.
@@ -218,6 +224,106 @@ const strayDropsReachesIn = (module: string, source: string): string[] => {
     .filter((reach) => reach !== 'streams.drops.drawn')
     .map((reach) => `${module} reaches ${reach}`);
 };
+
+/**
+ * The five modules that carry a weapon line's own pass over what it can hit:
+ * the four lines plus the belch, whose burst is a kill rule over the same
+ * field. Each used to walk state.mobs for itself, and each reaches the seam
+ * now.
+ *
+ * They are named here rather than swept off disk because the property is about
+ * these five passes and not about every module in the tree: step.ts, mobs.ts,
+ * invariants.ts and witness.ts all walk the pool and all should.
+ */
+const STORM_MODULES: readonly string[] = [
+  'game/storm.ts',
+  'game/belch.ts',
+  'game/lines/bell.ts',
+  'game/lines/territory.ts',
+  'game/lines/wisps.ts',
+];
+
+// The one seam a storm module reaches its targets through.
+const TARGET_SEAM = 'stormTargets';
+
+/**
+ * Every read of the run's mob pool a source makes, as written: the dot
+ * spelling, the bracket one, and a destructure that binds `mobs` off a run.
+ *
+ * A boss and a set piece are not in that pool, so any one of these is a line
+ * deciding for itself what the storm may hit, which is the decision this fence
+ * moves to one place.
+ */
+const MOB_POOL_READ = /\.\s*mobs\b|\[\s*['"`]mobs['"`]\s*\]/g;
+const MOB_POOL_BINDING = /\{[^{}]*\bmobs\b[^{}]*\}\s*=/g;
+
+const mobPoolReachesIn = (source: string): string[] => [
+  ...[...source.matchAll(MOB_POOL_READ)].map(() => 'the mob pool'),
+  ...[...source.matchAll(MOB_POOL_BINDING)].map(
+    () => 'the mob pool through a destructured binding',
+  ),
+];
+
+const strayMobPoolReachesIn = (module: string, source: string): string[] =>
+  mobPoolReachesIn(source).map((reach) => `${module} walks ${reach}`);
+
+describe('no weapon line walks the mob pool', () => {
+  for (const module of STORM_MODULES) {
+    it(`src/${module} reaches what it can hit through the seam`, () => {
+      const source = sourceOf(module);
+      expect(strayMobPoolReachesIn(module, source)).toEqual([]);
+      // And the other half: a module that reached nothing at all would pass
+      // the walk above while having stopped hitting anything.
+      expect(source).toContain(TARGET_SEAM);
+    });
+  }
+
+  it('catches a walk planted in a line, and an alias that would hide one', () => {
+    expect(
+      strayMobPoolReachesIn(
+        'game/storm.ts',
+        'for (const mob of state.mobs) {}\n',
+      ),
+    ).toEqual(['game/storm.ts walks the mob pool']);
+    expect(
+      strayMobPoolReachesIn('game/storm.ts', "const pool = run['mobs'];\n"),
+    ).toEqual(['game/storm.ts walks the mob pool']);
+    expect(
+      strayMobPoolReachesIn('game/belch.ts', 'const { mobs } = state;\n'),
+    ).toEqual([
+      'game/belch.ts walks the mob pool through a destructured binding',
+    ]);
+  });
+
+  it('leaves the modules that own the pool alone, because they should walk it', () => {
+    // The fence is about a weapon line deciding what it may hit, not about the
+    // pool being private. The tick, the mob table and the harness all walk it,
+    // and a fence that swept the whole tree would forbid the sim from running.
+    const owners = ['game/step.ts', 'game/mobs.ts', 'game/invariants.ts'];
+    for (const module of owners) {
+      expect(mobPoolReachesIn(sourceOf(module)).length, module).toBeGreaterThan(
+        0,
+      );
+      expect(STORM_MODULES).not.toContain(module);
+    }
+  });
+
+  it('holds every line in the pool, so a fifth cannot arrive outside the fence', () => {
+    // The line list comes from the roster rather than from the five modules
+    // named above, so a fifth line is inside this fence from its first commit
+    // whether or not anybody remembered to add it to STORM_MODULES.
+    //
+    // The skull stream is why the two lists are not one: its targeting lives in
+    // storm.ts, which is named above, so its own module walks nothing and has
+    // nothing to reach the seam for. What binds every line is this, that no
+    // line's module walks the pool at all.
+    for (const line of WEAPON_LINES) {
+      expect(mobPoolReachesIn(sourceOf(`game/lines/${line}.ts`)), line).toEqual(
+        [],
+      );
+    }
+  });
+});
 
 describe('a policy names no weapon line', () => {
   for (const module of POLICY_MODULES) {

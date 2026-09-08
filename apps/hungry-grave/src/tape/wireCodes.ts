@@ -112,6 +112,8 @@ const FAULT_IDENTITY_CODES: Readonly<Record<FaultIdentity, number>> = {
   'corpse cap never binds': 16,
   'carrier spawn never refused': 17,
   'offer stands a body': 18,
+  'boss chunk only increases': 19,
+  'set piece budget not negative': 20,
 };
 
 const FAULT_SEVERITIES = ['fatal', 'recoverable'] as const;

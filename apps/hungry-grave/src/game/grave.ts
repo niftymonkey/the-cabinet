@@ -9,6 +9,7 @@ import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
+import type { BossKind } from './stage/rows';
 import {
   BASE_SPEED,
   GRAVE_ASPECT,
@@ -24,8 +25,15 @@ import {
 const START_X = FIELD_WIDTH / 2;
 const START_Y = FIELD_HEIGHT * 0.8;
 
-// Who hurt the player (#48): the mob type whose shot landed, or body contact.
-type GraveHitSource = MobType | 'contact';
+/**
+ * Who hurt the player (#48): the mob type whose shot landed, the boss whose
+ * pattern landed, or body contact.
+ *
+ * A boss is one of the answers because a boss's pattern is mob fire by the
+ * glossary's own definition, and which boss's pattern is landing on the player
+ * is exactly what the harness's damage reading is asked.
+ */
+type GraveHitSource = MobType | BossKind | 'contact';
 
 interface Grave {
   x: number;

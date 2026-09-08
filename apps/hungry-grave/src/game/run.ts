@@ -1,3 +1,4 @@
+import type { Boss } from './bosses/chunks';
 import type { Corpse } from './corpses';
 import { createCorpsePool } from './corpses';
 import type { Grave } from './grave';
@@ -19,6 +20,7 @@ import { createMobPool } from './mobs';
 import type { Offer } from './offer';
 import type { Stream, StreamName } from './rng';
 import { stream } from './rng';
+import type { SetPiece } from './stage/setPiece';
 import type { StageState } from './stage/stage';
 import { createStage } from './stage/stage';
 import { SIZE_START } from './tuning';
@@ -117,6 +119,14 @@ interface RunState {
   readonly wisps: Wisp[];
   readonly patches: Patch[];
   readonly stage: StageState;
+  /**
+   * The one boss on the field, or null between them (ADR 0007). A field and
+   * never a pool: there is exactly one at a time, ever, and a pool of one is a
+   * lie about the design.
+   */
+  boss: Boss | null;
+  // The one set piece on the field, or null (ADR 0042). A field for the same reason.
+  setPiece: SetPiece | null;
   readonly lines: LineState;
   /**
    * What a cap refused on this tick, cleared at the top of every one and read
@@ -268,6 +278,8 @@ const createRun = (
     wisps: createWispPool(),
     patches: createTerritoryPool(),
     stage: createStage(),
+    boss: null,
+    setPiece: null,
     lines: startingLines(),
     refusals: { food: 0, carriers: 0, offers: 0 },
     nextEntityId: 1,

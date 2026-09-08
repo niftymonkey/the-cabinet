@@ -33,7 +33,7 @@ const EVERY_EVENT: SimEvent[] = [
   { type: 'victory', tick: 10 },
   { type: 'mobKilled', id: 7, mob: 'shambler', x: 1, y: 2, carried: false },
   { type: 'carrierLost', mob: 'shambler', x: 1, reason: 'leftField' },
-  { type: 'mobFired', emitter: 'shambler', x: 1, y: 2 },
+  { type: 'mobFired', emitter: 'shambler', kind: 'trash', x: 1, y: 2 },
   { type: 'corpseExpired', x: 1, y: 2 },
   { type: 'corpseLost', kind: 'corpse', x: 1, y: 2, freshness: 0.5 },
   { type: 'tolled', level: 3, radius: 165 },

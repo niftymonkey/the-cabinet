@@ -49,8 +49,26 @@ describe('damage taken', () => {
       shambler: 2,
       revenant: 0,
       ghoul: 1,
+      banshee: 0,
+      undertaker: 0,
       contact: 0,
     });
+    expect(taken.totalHits).toBe(3);
+  });
+
+  it("counts a boss's pattern under that boss and never under a mob", () => {
+    // Who hurt the player is a question a boss is allowed to be the answer to
+    // (#48), and which boss's pattern is landing is the thing a fight's
+    // reading is asked. A boss row folded into a mob's would answer neither.
+    const taken = takenFrom(createRun(SEED), [
+      'undertaker',
+      'shambler',
+      'undertaker',
+    ]);
+
+    expect(taken.hits.undertaker).toBe(2);
+    expect(taken.hits.banshee).toBe(0);
+    expect(taken.hits.shambler).toBe(1);
     expect(taken.totalHits).toBe(3);
   });
 

@@ -3,6 +3,7 @@
 import type { SimEvent } from '../../game/events';
 import type { GraveHitSource } from '../../game/grave';
 import { MOB_TYPE_NAMES } from '../../game/mobs';
+import { BOSS_KINDS } from '../../game/stage/rows';
 import { addTo } from '../numbersByName';
 
 /**
@@ -16,7 +17,7 @@ import { addTo } from '../numbersByName';
  */
 interface DamageTaken {
   readonly totalHits: number;
-  // Hits under the mob type whose shot landed, or under body contact.
+  // Hits under the mob type or boss whose shot landed, or under body contact.
   readonly hits: Record<GraveHitSource, number>;
   // The ladder's first rung: how often it bled the score, and the score it took.
   readonly scoreBleeds: number;
@@ -39,12 +40,17 @@ interface DamageTakenAcc {
 }
 
 /**
- * Every mob type present from the first tick, so a type that never landed a hit
- * reads zero rather than absent, and body contact beside them.
+ * Every mob type and every boss present from the first tick, so one that never
+ * landed a hit reads zero rather than absent, and body contact beside them.
+ *
+ * The bosses are rows of their own rather than one boss row, because which
+ * boss's pattern is landing on the player is the question this reading is
+ * asked in a fight.
  */
 const noHits = (): Record<string, number> => {
   const hits: Record<string, number> = { contact: 0 };
   for (const mob of MOB_TYPE_NAMES) hits[mob] = 0;
+  for (const boss of BOSS_KINDS) hits[boss] = 0;
   return hits;
 };
 

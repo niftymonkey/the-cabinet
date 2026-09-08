@@ -137,6 +137,10 @@ const observeInto = (
     // runs, and is the same record every tick after: the sim never swaps it.
     tallies.levels = state.levels;
     for (const event of events) {
+      // The damage total is every point a line landed, a boss's chunks
+      // included, because that is what the line did. The kill count is the mob
+      // pool's alone: a boss's death is a bossKilled and never a mobKilled, so
+      // a fight is read from its own vocabulary rather than folded in here.
       if (event.type === 'mobDamaged') {
         addTo(tallies.damage, event.source, event.amount);
       }

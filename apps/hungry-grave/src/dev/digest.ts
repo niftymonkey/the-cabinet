@@ -302,6 +302,14 @@ const runScenario = (): ScenarioResult => {
  * position, its size, the reservoir, the two scripted kills and every stream
  * cursor all held, because the scenario's own script is unchanged and the one
  * body it lost carries nothing and draws nothing.
+ *
+ * Re-pinned for the boss machine and the set piece's record (ADR 0007,
+ * ADR 0042): the witness now folds the one boss on the field and the one set
+ * piece, so the checksum moved from -141809765. Only the checksum moved. The
+ * scenario meets neither, so what the fold gained here is the two absent
+ * sentinels and nothing else, which is exactly what ADR 0019's rule that an
+ * absent field folds its own code rather than being skipped costs. It is the
+ * one WITNESS_VERSION move of this step, 5 to 6.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -330,7 +338,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -141809765,
+  checksum: -36124581,
 };
 
 export { runScenario, GOLDEN };
