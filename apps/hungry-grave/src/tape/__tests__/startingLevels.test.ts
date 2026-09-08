@@ -10,7 +10,7 @@ const BASE: TapeHeader = {
   seed: 20260827,
   startingSize: 27,
   recordedRoster: [...WEAPON_LINES],
-  startingLevels: { soulStream: 1, territory: 3, wisps: 0, bell: 5 },
+  startingLevels: { skullStream: 1, territory: 3, wisps: 0, bell: 5 },
   tickRate: 60,
   checkpointSpacing: 60,
   witnessVersion: 2,
@@ -43,7 +43,7 @@ describe('resolveStartingLevels', () => {
     expect(resolved.outcome).toBe('implemented');
     if (resolved.outcome !== 'implemented') return;
     expect(resolved.levels).toEqual({
-      soulStream: 1,
+      skullStream: 1,
       territory: 3,
       wisps: 0,
       bell: 5,

@@ -26,7 +26,7 @@ import {
   SURGE_INTERVAL,
   SURGE_VOLLEYS,
   surgeStream,
-} from '../lines/soulStream';
+} from '../lines/skullStream';
 import { advanceWisps, launchWisps } from '../lines/wisps';
 import type { Mob } from '../mobs';
 import {
@@ -349,7 +349,7 @@ describe("a mob's death (ADR 0037)", () => {
     expect(corpses[0].payout).toBe(MOB_TYPES.shambler.corpsePayout);
   });
 
-  it('spells each storm source as its line: soulStream, then territory, then wisps', () => {
+  it('spells each storm source as its line: skullStream, then territory, then wisps', () => {
     // The source vocabulary is the roster's own spelling (#48): an instrument
     // grouping damage by weapon line must never meet a fifth spelling.
     const state = stormRun();
@@ -362,7 +362,7 @@ describe("a mob's death (ADR 0037)", () => {
     const sources = resolveStorm(state)
       .filter((event) => event.type === 'mobDamaged')
       .map((event) => (event.type === 'mobDamaged' ? event.source : ''));
-    expect(sources).toEqual(['soulStream', 'territory', 'wisps']);
+    expect(sources).toEqual(['skullStream', 'territory', 'wisps']);
   });
 
   it("names the bell's own damage bell", () => {
@@ -521,7 +521,7 @@ describe("one swallow's surge clears two trash bodies (#76 pass A correction)", 
    */
   const bodiesClearedInBurst = (swallowed: boolean): number => {
     const state = quietRun();
-    state.levels.soulStream = MAX_LEVEL;
+    state.levels.skullStream = MAX_LEVEL;
     // Stacked on the mouth, where every column of the fan launches, so one
     // volley's five skulls all land on the first of them and a volley is one
     // trash body exactly. Five is more than the burst can reach.

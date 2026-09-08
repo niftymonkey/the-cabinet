@@ -320,10 +320,10 @@ describe('a drop on the food pool (plan 6.9)', () => {
 
   it("emits dropSpawned with the line and the place, which is the drops instrument's denominator", () => {
     const state = quietRun();
-    const events = spawnDrop(state, 210, 320, 'soulStream');
+    const events = spawnDrop(state, 210, 320, 'skullStream');
     expect(events).toContainEqual({
       type: 'dropSpawned',
-      line: 'soulStream',
+      line: 'skullStream',
       x: 210,
       y: 320,
     });

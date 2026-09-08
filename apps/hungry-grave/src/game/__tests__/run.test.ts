@@ -59,13 +59,13 @@ describe('createRun', () => {
     }
 
     const uneven = createRun(1, undefined, {
-      soulStream: 2,
+      skullStream: 2,
       territory: 0,
       wisps: 4,
       bell: 1,
     });
     expect(uneven.levels).toEqual({
-      soulStream: 2,
+      skullStream: 2,
       territory: 0,
       wisps: 4,
       bell: 1,
@@ -83,7 +83,7 @@ describe('createRun', () => {
 
   it("spells the loadout pin's shape: every line at one level", () => {
     expect(uniformLevels(2)).toEqual({
-      soulStream: 2,
+      skullStream: 2,
       territory: 2,
       wisps: 2,
       bell: 2,

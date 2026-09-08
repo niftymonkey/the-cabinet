@@ -21,7 +21,7 @@
  */
 
 import type { SimEvent } from './events';
-import { SKULL_DAMAGE, SKULL_HALF_EXTENT } from './lines/soulStream';
+import { SKULL_DAMAGE, SKULL_HALF_EXTENT } from './lines/skullStream';
 import { resolveTerritory } from './lines/territory';
 import { WISP_DAMAGE, WISP_HALF_EXTENT } from './lines/wisps';
 import type { Mob } from './mobs';
@@ -58,7 +58,7 @@ const resolveSkulls = (state: RunState): SimEvent[] => {
     const mob = mobUnder(state, box);
     if (mob === null) continue;
     skull.alive = false;
-    events.push(...damageMob(state, mob, SKULL_DAMAGE, 'soulStream'));
+    events.push(...damageMob(state, mob, SKULL_DAMAGE, 'skullStream'));
   }
   return events;
 };

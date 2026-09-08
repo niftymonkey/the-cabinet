@@ -75,7 +75,7 @@ describe('damage taken', () => {
     // total would be two different things added together. The key set is
     // asserted because the absence is the point.
     const levels: Record<WeaponLine, number> = {
-      soulStream: 2,
+      skullStream: 2,
       territory: 2,
       wisps: 1,
       bell: 1,

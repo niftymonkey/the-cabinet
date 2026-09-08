@@ -94,7 +94,7 @@ const FOOD_KIND_CODES: Readonly<Record<FoodKind, number>> = {
  * by name rather than by position exists to prevent.
  */
 const WEAPON_LINE_CODES: Readonly<Record<WeaponLine, number>> = {
-  soulStream: 1,
+  skullStream: 1,
   wisps: 3,
   bell: 4,
   territory: 5,

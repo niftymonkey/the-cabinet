@@ -1,5 +1,5 @@
 /**
- * The soul stream (ADR 0005): always on from level 1, distinct straight
+ * The skull stream (ADR 0005): always on from level 1, distinct straight
  * parallel streams from mounts across the mouth (#79), and it never homes.
  * Every expected value here comes from ADR 0005, from dispatch 5's plan
  * section 6.3, and from #79's spec, never from running the module.
@@ -27,7 +27,7 @@ import {
   SURGE_INTERVAL,
   SURGE_VOLLEYS,
   surgeStream,
-} from '../soulStream';
+} from '../skullStream';
 
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
@@ -97,7 +97,7 @@ describe('the level curve is columns and nothing else (plan 6.3)', () => {
   it('fires one column at level 1 and five at level 5', () => {
     for (let level = 1; level <= MAX_LEVEL; level++) {
       const state = quietRun();
-      state.levels.soulStream = level;
+      state.levels.skullStream = level;
       expect(`level ${level}: ${nextVolley(state).length}`).toBe(
         `level ${level}: ${COLUMNS_BY_LEVEL[level]}`,
       );
@@ -107,7 +107,7 @@ describe('the level curve is columns and nothing else (plan 6.3)', () => {
   it('holds the interval fixed across levels, so growth is on the field and never in the cadence', () => {
     const counts = [1, MAX_LEVEL].map((level) => {
       const state = quietRun();
-      state.levels.soulStream = level;
+      state.levels.skullStream = level;
       let volleys = 0;
       let last = 0;
       for (let tick = 0; tick < 300; tick++) {
@@ -134,16 +134,22 @@ describe('the columns (plan 6.3)', () => {
     // A parallel stream never drifts, so a column stays wherever its clamped
     // mount put it, and the mounts sit within the mouth of a contained grave.
     const state = quietRun();
-    state.levels.soulStream = MAX_LEVEL;
+    state.levels.skullStream = MAX_LEVEL;
     const volley = nextVolley(state);
+    // The bounds are read every tick rather than only at the end, because a
+    // volley flown the whole height of the field is gone by then and a check
+    // over the dead reads as a pass over an empty set.
+    let checked = 0;
     for (let tick = 0; tick < FIELD_HEIGHT / SKULL_SPEED; tick++) {
       advanceStream(state);
+      for (const skull of volley) {
+        if (!skull.alive) continue;
+        checked += 1;
+        expect(skull.x).toBeGreaterThan(0);
+        expect(skull.x).toBeLessThan(FIELD_WIDTH);
+      }
     }
-    for (const skull of volley) {
-      if (!skull.alive) continue;
-      expect(skull.x).toBeGreaterThan(0);
-      expect(skull.x).toBeLessThan(FIELD_WIDTH);
-    }
+    expect(checked).toBeGreaterThan(0);
   });
 });
 
@@ -240,7 +246,7 @@ describe('the surge is a rate change and never a damage bonus (plan section 3)',
     // constant, so there is nothing on the entity for a surge to raise, and
     // what this asserts is the shape of the entity rather than a magnitude.
     const state = quietRun();
-    state.levels.soulStream = MAX_LEVEL;
+    state.levels.skullStream = MAX_LEVEL;
     surgeStream(state);
     const volley = nextVolley(state);
     expect(volley.length).toBe(COLUMNS_BY_LEVEL[MAX_LEVEL]);
@@ -264,7 +270,7 @@ describe('what the stream costs a trash body (#76 pass A)', () => {
     // Counted rather than divided, because the ruling is about how often the
     // player's fire lands on a body and not about the arithmetic behind it.
     const state = quietRun();
-    state.levels.soulStream = 1;
+    state.levels.skullStream = 1;
     const mob = inTheColumn(state);
 
     let touches = 0;
@@ -283,7 +289,7 @@ describe('what the stream costs a trash body (#76 pass A)', () => {
     // volleys at the shortened interval is the same span three volleys at the
     // old one was, which is the whole point of moving both numbers together.
     const state = quietRun();
-    state.levels.soulStream = 1;
+    state.levels.skullStream = 1;
     const mob = inTheColumn(state);
 
     let spent = 0;
@@ -301,7 +307,7 @@ describe('what the stream costs a trash body (#76 pass A)', () => {
 describe('the cap policy (plan 6.2)', () => {
   it('refuses the spawn at the cap and removes nothing already on the field', () => {
     const state = quietRun();
-    state.levels.soulStream = MAX_LEVEL;
+    state.levels.skullStream = MAX_LEVEL;
     for (const skull of state.skulls) {
       skull.alive = true;
       skull.id = 1;
@@ -325,7 +331,7 @@ describe('mounted streams (#79)', () => {
     // there is no trig rounding for a tolerance to forgive.
     for (let level = 1; level <= MAX_LEVEL; level++) {
       const state = quietRun();
-      state.levels.soulStream = level;
+      state.levels.skullStream = level;
       const volley = nextVolley(state);
       expect(volley).toHaveLength(COLUMNS_BY_LEVEL[level]);
       for (const skull of volley) {
@@ -336,7 +342,7 @@ describe('mounted streams (#79)', () => {
   });
   it("an odd column count has one mount exactly at the grave's x, and mounts straddle the centre symmetrically", () => {
     const odd = quietRun();
-    odd.levels.soulStream = MAX_LEVEL;
+    odd.levels.skullStream = MAX_LEVEL;
     const centre = odd.grave.x;
     const mounts = nextVolley(odd)
       .map((skull) => skull.x)
@@ -349,7 +355,7 @@ describe('mounted streams (#79)', () => {
     expect(mounts[1] + mounts[3]).toBeCloseTo(2 * centre, 6);
 
     const even = quietRun();
-    even.levels.soulStream = 4;
+    even.levels.skullStream = 4;
     const pair = nextVolley(even)
       .map((skull) => skull.x)
       .sort((a, b) => a - b);
@@ -364,7 +370,7 @@ describe('mounted streams (#79)', () => {
     /** The widest offsets a five-column volley launches at this grave size. */
     function spreadAt(size: number) {
       const state = quietRun();
-      state.levels.soulStream = MAX_LEVEL;
+      state.levels.skullStream = MAX_LEVEL;
       state.grave.size = size;
       const offsets = nextVolley(state).map((skull) =>
         Math.abs(skull.x - state.grave.x),
@@ -388,7 +394,7 @@ describe('mounted streams (#79)', () => {
     // step fraction; the contained hugger below is the position play reaches.
     for (const edgeX of [0, 13.5]) {
       const state = quietRun();
-      state.levels.soulStream = MAX_LEVEL;
+      state.levels.skullStream = MAX_LEVEL;
       state.grave.x = edgeX;
       const volley = nextVolley(state);
       expect(volley).toHaveLength(COLUMNS_BY_LEVEL[MAX_LEVEL]);

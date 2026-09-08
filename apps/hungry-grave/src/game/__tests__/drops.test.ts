@@ -148,7 +148,7 @@ describe('a kill is a kill, whatever landed it (plan 6.8)', () => {
     // would move a drop boundary for a reason no player could read.
     const storm = quietRun();
     const victim = put(storm, 'shambler', 100, 100);
-    damageMob(storm, victim, victim.hp, 'soulStream');
+    damageMob(storm, victim, victim.hp, 'skullStream');
     creditKill(storm, victim.x, victim.y);
 
     const bell = quietRun();
@@ -201,10 +201,10 @@ describe('the dice go deep after the first drop (Mark, 2026-08-22)', () => {
     expect([...seen].sort()).toEqual([...WEAPON_LINES].sort());
   });
 
-  it('lets one line go deep: a soul stream past level 1 with lines still unowned', () => {
+  it('lets one line go deep: a skull stream past level 1 with lines still unowned', () => {
     // The defect the ruling fixes, read the way a player reads it. Under the
     // old rule the first three drops of a run went to three different lines, so
-    // the soul stream could not reach level two until every line was open.
+    // the skull stream could not reach level two until every line was open.
     const deepened: number[] = [];
     for (let seed = 1; seed <= 60; seed++) {
       const state = quietRun(seed);
@@ -213,7 +213,7 @@ describe('the dice go deep after the first drop (Mark, 2026-08-22)', () => {
         if (state.levels[line] < MAX_LEVEL) state.levels[line] += 1;
       }
       const unowned = WEAPON_LINES.filter((line) => state.levels[line] === 0);
-      if (state.levels.soulStream > 1 && unowned.length > 0)
+      if (state.levels.skullStream > 1 && unowned.length > 0)
         deepened.push(seed);
     }
     expect(deepened.length).toBeGreaterThan(0);

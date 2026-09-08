@@ -91,7 +91,7 @@ function fillRun(run: RunState): void {
   run.killsSinceDrop = 3;
   run.dropsPaid = 2;
   run.nextEntityId = 17;
-  run.levels.soulStream = 2;
+  run.levels.skullStream = 2;
   run.levels.territory = 1;
   run.levels.wisps = 3;
   run.levels.bell = 4;
@@ -433,9 +433,9 @@ const RUN_CASES: readonly FieldCase[] = [
     restore: (run) => void (run.nextEntityId -= 1),
   },
   {
-    path: 'levels.soulStream',
-    move: (run) => void (run.levels.soulStream += 1),
-    restore: (run) => void (run.levels.soulStream -= 1),
+    path: 'levels.skullStream',
+    move: (run) => void (run.levels.skullStream += 1),
+    restore: (run) => void (run.levels.skullStream -= 1),
   },
   {
     path: 'levels.territory',
@@ -582,7 +582,7 @@ const FOLDED: readonly string[] = [
   'killsSinceDrop',
   'dropsPaid',
   'nextEntityId',
-  'levels.soulStream',
+  'levels.skullStream',
   'levels.territory',
   'levels.wisps',
   'levels.bell',
@@ -714,7 +714,7 @@ describe('one field at a time', () => {
 });
 
 const WEAPON_LINE_NAMES: readonly WeaponLine[] = [
-  'soulStream',
+  'skullStream',
   'territory',
   'wisps',
   'bell',
@@ -725,7 +725,7 @@ describe('the fold order over the weapon lines', () => {
     // The witness fold traverses WEAPON_LINES in array order and sealed tapes
     // exist outside the tree, so a reorder silently changes every witness. A
     // change to this order needs a witness version bump, never a test update.
-    expect(WEAPON_LINES).toEqual(['soulStream', 'territory', 'wisps', 'bell']);
+    expect(WEAPON_LINES).toEqual(['skullStream', 'territory', 'wisps', 'bell']);
   });
 });
 
@@ -776,7 +776,7 @@ describe('the four non-numeric encodings', () => {
     // exactly what reading by name rather than by position exists to prevent.
     // Territory sits at 5 while its position in WEAPON_LINES is second.
     expect(WEAPON_LINE_CODES).toEqual({
-      soulStream: 1,
+      skullStream: 1,
       wisps: 3,
       bell: 4,
       territory: 5,
@@ -785,6 +785,14 @@ describe('the four non-numeric encodings', () => {
     expect(Object.values(WEAPON_LINE_CODES)).not.toContain(
       RETIRED_HEADSTONES_CODE,
     );
+  });
+
+  it('the renamed skull stream keeps the code the soul stream folded under', () => {
+    // ADR 0043: a reader never reinterprets bytes under changed meanings. The
+    // stream line changed its name and nothing about what it is, so it keeps
+    // code 1 and no tape recorded under the old name folds differently.
+    expect(WEAPON_LINE_CODES.skullStream).toBe(1);
+    expect(Object.keys(WEAPON_LINE_CODES)).not.toContain('soulStream');
   });
 
   it('no code map member may take the reserved absent code', () => {

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { SKULL_DAMAGE } from '../lines/soulStream';
+import { SKULL_DAMAGE } from '../lines/skullStream';
 import {
   PULL_BY_LEVEL,
   REHIT_BY_LEVEL,

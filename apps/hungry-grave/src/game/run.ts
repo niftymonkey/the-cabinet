@@ -8,8 +8,8 @@ import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
 import type { Patch } from './lines/territory';
 import { createTerritoryPool, TERRITORY_PERIOD } from './lines/territory';
-import type { Skull } from './lines/soulStream';
-import { createSkullPool, STREAM_INTERVAL } from './lines/soulStream';
+import type { Skull } from './lines/skullStream';
+import { createSkullPool, STREAM_INTERVAL } from './lines/skullStream';
 import type { Wisp } from './lines/wisps';
 import { createWispPool } from './lines/wisps';
 import type { Shot } from './mobFire';
@@ -137,7 +137,7 @@ const startingLines = (): LineState => {
 // The levels a run starts with: the birthright lines at one, the rest unowned.
 const birthrightLevels = (): Record<WeaponLine, number> => {
   const levels: Record<WeaponLine, number> = {
-    soulStream: 0,
+    skullStream: 0,
     territory: 0,
     wisps: 0,
     bell: 0,
@@ -152,7 +152,7 @@ const birthrightLevels = (): Record<WeaponLine, number> => {
  * per-line syntax buys nothing that needs.
  */
 const uniformLevels = (level: number): Record<WeaponLine, number> => {
-  return { soulStream: level, territory: level, wisps: level, bell: level };
+  return { skullStream: level, territory: level, wisps: level, bell: level };
 };
 
 /**

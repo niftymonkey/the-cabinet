@@ -29,7 +29,7 @@ describe('field per line', () => {
     // Story 10: field density as a reading rather than an impression. The
     // number counts things, and the total is the headline.
     const levels: Record<WeaponLine, number> = {
-      soulStream: 1,
+      skullStream: 1,
       territory: TERRITORY_LEVEL,
       wisps: 1,
       bell: 1,
@@ -48,7 +48,7 @@ describe('field per line', () => {
     observeFieldPerLine(accumulator, run, linesInRun(run.levels));
 
     const field = fieldPerLineOf(accumulator);
-    expect(field.perLine.soulStream).toEqual([LIVE_SKULLS, LIVE_SKULLS]);
+    expect(field.perLine.skullStream).toEqual([LIVE_SKULLS, LIVE_SKULLS]);
     expect(field.perLine.wisps).toEqual([LIVE_WISPS, LIVE_WISPS]);
     expect(field.perLine.territory).toEqual([LIVE_PATCHES, LIVE_PATCHES]);
     expect(field.perLine.bell).toEqual([0, 1]);
@@ -74,7 +74,7 @@ describe('field per line', () => {
     expect('moonlight' in field.perLine).toBe(false);
     expect(Object.keys(field.perLine).sort()).toEqual([
       'bell',
-      'soulStream',
+      'skullStream',
       'territory',
       'wisps',
     ]);

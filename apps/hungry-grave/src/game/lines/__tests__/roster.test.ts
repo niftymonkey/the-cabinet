@@ -5,11 +5,11 @@ import { describe, expect, it } from 'vitest';
 import { BIRTHRIGHT, WEAPON_LINES } from '../roster';
 
 describe('the first weapon pool', () => {
-  it('the birthright is the soul stream and Territory', () => {
+  it('the birthright is the skull stream and Territory', () => {
     // ADR 0003's floor ladder strips a dying player back to exactly this list,
     // so the starting loadout and the ladder's target stay one rule rather than
     // a second hidden loadout (#76).
-    expect([...BIRTHRIGHT]).toEqual(['soulStream', 'territory']);
+    expect([...BIRTHRIGHT]).toEqual(['skullStream', 'territory']);
   });
 
   it('the pool holds four lines and none of them is the headstones', () => {
@@ -19,7 +19,7 @@ describe('the first weapon pool', () => {
     expect(WEAPON_LINES).toHaveLength(4);
     expect([...WEAPON_LINES].sort()).toEqual([
       'bell',
-      'soulStream',
+      'skullStream',
       'territory',
       'wisps',
     ]);

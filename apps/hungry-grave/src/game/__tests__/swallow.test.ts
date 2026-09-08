@@ -24,7 +24,7 @@ function corpse(freshness: number): Swallowable {
   return { kind: 'corpse', freshness, payout: TRASH_CORPSE_PAYOUT };
 }
 
-function drop(line: 'wisps' | 'soulStream'): Swallowable {
+function drop(line: 'wisps' | 'skullStream'): Swallowable {
   // Treasure never decays, so a drop always arrives fully fresh (ADR 0004).
   return { kind: 'drop', freshness: 1, payout: TRASH_CORPSE_PAYOUT, line };
 }
@@ -153,7 +153,7 @@ describe('the swallow', () => {
     expect(run.levels.wisps).toBe(0);
     const events = swallow(run, drop('wisps'));
     expect(run.levels.wisps).toBe(1);
-    expect(run.levels.soulStream).toBe(1);
+    expect(run.levels.skullStream).toBe(1);
     expect(find(events, 'weaponLeveled')).toEqual({
       type: 'weaponLeveled',
       line: 'wisps',
@@ -182,7 +182,7 @@ describe('the swallow', () => {
 
   it('the chime fires on every swallow including the very first, whatever the loadout (glossary: swallow chime)', () => {
     const run = createRun(1);
-    for (const line of ['soulStream', 'territory', 'wisps', 'bell'] as const) {
+    for (const line of ['skullStream', 'territory', 'wisps', 'bell'] as const) {
       run.levels[line] = 0;
     }
     expect(kinds(swallow(run, corpse(1)))).toContain('chimed');

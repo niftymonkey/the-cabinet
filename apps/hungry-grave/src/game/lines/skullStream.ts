@@ -1,4 +1,4 @@
-// The soul stream: skulls pouring straight up out of the grave's mouth in
+// The skull stream: skulls pouring straight up out of the grave's mouth in
 // distinct parallel streams from mounts across its width, always on from
 // level 1, surging after every swallow (ADR 0005, geometry per #79).
 
@@ -158,7 +158,7 @@ const launchSkull = (
 
 // Every column of one volley, in column order so the same level always fires the same sequence.
 const fireVolley = (state: RunState): void => {
-  const columns = COLUMNS_BY_LEVEL[state.levels.soulStream];
+  const columns = COLUMNS_BY_LEVEL[state.levels.skullStream];
   for (let column = 0; column < columns; column++) {
     launchSkull(state, column, columns);
   }

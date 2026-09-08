@@ -26,7 +26,7 @@ const HEADER: TapeHeader = {
   seed: 20260823,
   startingSize: 24.5,
   recordedRoster: [...WEAPON_LINES],
-  startingLevels: { soulStream: 5, territory: 1, wisps: 0, bell: 3 },
+  startingLevels: { skullStream: 5, territory: 1, wisps: 0, bell: 3 },
   tickRate: 60,
   checkpointSpacing: 4,
   witnessVersion: 1,

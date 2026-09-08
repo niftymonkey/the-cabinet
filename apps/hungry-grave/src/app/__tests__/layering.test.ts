@@ -286,7 +286,7 @@ const WIDEST_RESERVED_LINE = `SEED ${SEED_LIMIT - 1} PINNED`;
  * so any differing four digits give the widest case.
  */
 const WIDEST_LEVELS_LINE = `LEVELS ${levelsReadout({
-  soulStream: MAX_LEVEL,
+  skullStream: MAX_LEVEL,
   territory: MAX_LEVEL,
   wisps: MAX_LEVEL,
   bell: 0,

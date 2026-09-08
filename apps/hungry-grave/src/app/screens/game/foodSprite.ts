@@ -192,7 +192,7 @@ const drawDropIcon = (
   extent: number,
 ): void => {
   const r = extent;
-  if (line === 'soulStream') {
+  if (line === 'skullStream') {
     into.circle(0, 0, r);
     return;
   }
@@ -267,7 +267,7 @@ const drawDropIcon = (
  * a wave.
  */
 const drawDrop = (into: Graphics, corpse: Corpse, tick: number): void => {
-  const line = corpse.line ?? 'soulStream';
+  const line = corpse.line ?? 'skullStream';
   const extent = DROP_DRAW_HALF_EXTENT * dropBreath(tick, corpse.id);
   into.clear();
   drawDropIcon(into, line, extent);

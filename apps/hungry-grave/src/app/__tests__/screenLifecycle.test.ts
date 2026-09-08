@@ -1104,7 +1104,7 @@ describe('the loadout pin (dispatch 6a)', () => {
     const unpinned = gameScreen();
     unpinned.prepare();
     expect(unpinned['recording'].recorder!.header.startingLevels).toEqual({
-      soulStream: 1,
+      skullStream: 1,
       territory: 1,
       wisps: 0,
       bell: 0,

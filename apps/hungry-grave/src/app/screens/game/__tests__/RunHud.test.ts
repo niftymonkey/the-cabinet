@@ -38,7 +38,7 @@ describe('the run readout', () => {
       seed: 424242,
       seedPinned: true,
       pinnedSize: 48,
-      pinnedLevels: { soulStream: 3, territory: 3, wisps: 3, bell: 3 },
+      pinnedLevels: { skullStream: 3, territory: 3, wisps: 3, bell: 3 },
     });
     hud.render({
       debtTicks: 5,

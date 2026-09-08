@@ -399,7 +399,7 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
       expect(count(events, 'weaponStripped')).toBe(0);
       for (const line of WEAPON_LINES) {
         expect(`${line} ${state.levels[line]}`).toBe(
-          `${line} ${['soulStream', 'territory'].includes(line) ? 1 : 0}`,
+          `${line} ${['skullStream', 'territory'].includes(line) ? 1 : 0}`,
         );
       }
     });
@@ -442,7 +442,7 @@ describe("the Wall's two-sided property (ADR 0042)", () => {
       // createRun starts every run at.
       const state = wallRun(seed, false);
       expect(state.levels).toEqual({
-        soulStream: 1,
+        skullStream: 1,
         territory: 1,
         wisps: 0,
         bell: 0,

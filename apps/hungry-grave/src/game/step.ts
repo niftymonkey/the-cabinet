@@ -10,7 +10,7 @@ import { creditKill } from './drops';
 import type { SimEvent } from './events';
 import { ageGrave, graveHitbox, hitGrave, moveGrave } from './grave';
 import { advanceBell } from './lines/bell';
-import { advanceStream } from './lines/soulStream';
+import { advanceStream } from './lines/skullStream';
 import { advanceTerritory } from './lines/territory';
 import { advanceWisps } from './lines/wisps';
 import { cullShots, shotHitbox } from './mobFire';

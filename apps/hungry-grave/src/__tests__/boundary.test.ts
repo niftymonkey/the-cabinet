@@ -312,7 +312,7 @@ describe('the rendering-import boundary', () => {
     const game = BOUNDARIES.find((boundary) => boundary.root === 'game')!;
     expect(game.mayReach).toEqual(['game']);
     expect(covers('game', 'game/mobs')).toBe(true);
-    expect(covers('game', 'game/lines/soulStream')).toBe(true);
+    expect(covers('game', 'game/lines/skullStream')).toBe(true);
     expect(covers('game', 'gamepad/thing')).toBe(false);
   });
 

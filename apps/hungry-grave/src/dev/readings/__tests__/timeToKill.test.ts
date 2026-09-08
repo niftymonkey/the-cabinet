@@ -39,25 +39,25 @@ describe('time to kill', () => {
     observeEngagements(
       accumulator,
       10,
-      damageMob(run, slow, 1, 'soulStream'),
+      damageMob(run, slow, 1, 'skullStream'),
       run,
     );
     observeEngagements(
       accumulator,
       12,
-      damageMob(run, quick, 1, 'soulStream'),
+      damageMob(run, quick, 1, 'skullStream'),
       run,
     );
     observeEngagements(
       accumulator,
       17,
-      damageMob(run, quick, quick.hp, 'soulStream'),
+      damageMob(run, quick, quick.hp, 'skullStream'),
       run,
     );
     observeEngagements(
       accumulator,
       25,
-      damageMob(run, slow, slow.hp, 'soulStream'),
+      damageMob(run, slow, slow.hp, 'skullStream'),
       run,
     );
 
@@ -123,7 +123,7 @@ describe('time to kill', () => {
     observeEngagements(
       accumulator,
       0,
-      damageMob(run, fleeing, 1, 'soulStream'),
+      damageMob(run, fleeing, 1, 'skullStream'),
       run,
     );
     fleeing.y = FIELD_HEIGHT * 2;
@@ -172,19 +172,19 @@ describe('time to kill', () => {
     observeEngagements(
       accumulator,
       0,
-      damageMob(run, target, 1, 'soulStream'),
+      damageMob(run, target, 1, 'skullStream'),
       run,
     );
     observeEngagements(
       accumulator,
       1,
-      damageMob(run, target, 1, 'soulStream'),
+      damageMob(run, target, 1, 'skullStream'),
       run,
     );
     observeEngagements(
       accumulator,
       2,
-      damageMob(run, target, 1, 'soulStream'),
+      damageMob(run, target, 1, 'skullStream'),
       run,
     );
     observeEngagements(
@@ -195,12 +195,12 @@ describe('time to kill', () => {
     );
 
     const fights = engagementsOf(accumulator);
-    expect(fights.hitsByLine.soulStream).toBe(3);
+    expect(fights.hitsByLine.skullStream).toBe(3);
     expect(fights.hitsByLine.territory).toBe(1);
     expect(fights.hitsByLine.wisps).toBe(0);
     expect(fights.hitsByLine.belch).toBe(0);
     expect(fights.fatalBlows.territory).toBe(1);
-    expect(fights.fatalBlows.soulStream).toBe(0);
+    expect(fights.fatalBlows.skullStream).toBe(0);
     expect(fights.hitsPerKill.revenant).toBe(4);
   });
 });

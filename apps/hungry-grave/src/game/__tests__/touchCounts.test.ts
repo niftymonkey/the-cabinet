@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BELL_DAMAGE_FAR } from '../lines/bell';
-import { SKULL_DAMAGE } from '../lines/soulStream';
+import { SKULL_DAMAGE } from '../lines/skullStream';
 import { TERRITORY_DAMAGE } from '../lines/territory';
 import { WISP_DAMAGE } from '../lines/wisps';
 import { MOB_TYPES } from '../mobs';
@@ -29,7 +29,7 @@ describe('the ruled touch counts', () => {
     expect(touches(MOB_TYPES.revenant.hp, TERRITORY_DAMAGE)).toBe(13);
   });
 
-  it('soul stream skulls take a shambler in 5, a ghoul in 3, a revenant in 8', () => {
+  it('skull stream skulls take a shambler in 5, a ghoul in 3, a revenant in 8', () => {
     // Five skulls is a shambler exactly (#76 pass A, SKULL_DAMAGE's own
     // comment), and the other two rows are whole skull counts against it.
     expect(touches(MOB_TYPES.shambler.hp, SKULL_DAMAGE)).toBe(5);

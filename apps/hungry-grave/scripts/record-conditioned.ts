@@ -2,7 +2,7 @@
  * The conditioned-recording entry: a run recorded headlessly from a chosen
  * seed and chosen starting levels, sealed onto a tape file, with the written
  * path as the whole of stdout. Run as
- * `pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out-file> <seed> <ticks> soulStream=N territory=N wisps=N bell=N`.
+ * `pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out-file> <seed> <ticks> skullStream=N territory=N wisps=N bell=N`.
  *
  * It exists because some evidence only plays at levels no reachable run
  * starts from (bell push exists only at levels 4 and 5), and the browser's

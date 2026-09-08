@@ -200,7 +200,7 @@ const scriptedKills = (run: RunState, tick: number): number => {
     reportUnplaceableVictim(tick);
     return 0;
   }
-  damageMob(run, victim, victim.hp, 'soulStream');
+  damageMob(run, victim, victim.hp, 'skullStream');
   return 1;
 };
 
@@ -295,7 +295,7 @@ const GOLDEN: Digest = {
     territory: 0,
   },
   levels: {
-    soulStream: 1,
+    skullStream: 1,
     territory: 1,
     wisps: 0,
     bell: 0,

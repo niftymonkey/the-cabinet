@@ -4,7 +4,7 @@ import type { SimEvent } from './events';
 import { growGrave } from './grave';
 import type { WeaponLine } from './lines/roster';
 import { MAX_LEVEL } from './lines/roster';
-import { surgeStream } from './lines/soulStream';
+import { surgeStream } from './lines/skullStream';
 import { launchWisps } from './lines/wisps';
 import type { RunState } from './run';
 import { FRESHNESS_PAYOUT_FLOOR, RESERVOIR_CAPACITY } from './tuning';

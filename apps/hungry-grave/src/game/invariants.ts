@@ -18,7 +18,7 @@ import { FAULT_SEVERITY } from './faults';
 import { graveHitbox } from './grave';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from './lines/roster';
 import { BELL_EXPAND_TICKS } from './lines/bell';
-import { SKULL_HALF_EXTENT } from './lines/soulStream';
+import { SKULL_HALF_EXTENT } from './lines/skullStream';
 import { SPAWN_MARGIN } from './mobs';
 import type { RunState } from './run';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from './tuning';

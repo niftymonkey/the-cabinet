@@ -3,7 +3,7 @@ import { Graphics } from 'pixi.js';
 import { SKULL_CAP, TERRITORY_CAP, WISP_CAP } from '../../../game/caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import { BELL_EXPAND_TICKS, ringRadius } from '../../../game/lines/bell';
-import { SKULL_HALF_EXTENT } from '../../../game/lines/soulStream';
+import { SKULL_HALF_EXTENT } from '../../../game/lines/skullStream';
 import type { Patch } from '../../../game/lines/territory';
 import {
   patchAt,

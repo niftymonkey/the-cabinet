@@ -22,7 +22,7 @@ import type { BellRing } from '../lines/bell';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
 import type { Stream } from '../rng';
 import { MAX_LEVEL } from '../lines/roster';
-import { SKULL_HALF_EXTENT } from '../lines/soulStream';
+import { SKULL_HALF_EXTENT } from '../lines/skullStream';
 import { RADIUS_BY_LEVEL } from '../lines/territory';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from '../tuning';
 import type { Fault, FaultIdentity } from '../faults';
@@ -405,7 +405,7 @@ describe("the storm's invariants (plan 6.26)", () => {
     // The floor ladder strips levels and payLevel raises them, and both write
     // to the same record.
     const stripped = createRun(1);
-    stripped.levels.soulStream = 0;
+    stripped.levels.skullStream = 0;
     expect(brokenOn(stripped)).toContain('levels in range');
 
     const overLevelled = createRun(1);
@@ -458,7 +458,7 @@ function fillRun(run: RunState): void {
   run.killsSinceDrop = 3;
   run.dropsPaid = 2;
   run.nextEntityId = 16;
-  run.levels.soulStream = 2;
+  run.levels.skullStream = 2;
   run.levels.territory = 1;
   run.levels.wisps = 3;
   run.levels.bell = 4;
@@ -827,9 +827,9 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
-    path: 'levels.soulStream',
+    path: 'levels.skullStream',
     poison: (run) => {
-      run.levels.soulStream = NaN;
+      run.levels.skullStream = NaN;
       return run;
     },
   },

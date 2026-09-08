@@ -845,7 +845,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     }
   });
 
-  it("gives Territory the tall silhouette and soulStream the round one, the mapping #38's imagery keeps", () => {
+  it("gives Territory the tall silhouette and skullStream the round one, the mapping #38's imagery keeps", () => {
     // A grasping hand is tall and a skull is round. The first pass shipped the
     // reverse, and #31's playtest must not learn a mapping #38's imagery then
     // inverts: any tester confusion would be unattributable.
@@ -862,7 +862,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
         `${line} true`,
       );
     }
-    expect(aspectOf('soulStream')).toBeCloseTo(1, 5);
+    expect(aspectOf('skullStream')).toBeCloseTo(1, 5);
   });
 
   it('bounds the drawn peak at 24 units and the catch box below by the drawn peak', () => {

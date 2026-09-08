@@ -55,7 +55,7 @@ describe('the record-conditioned tool', () => {
         out,
         String(SEED),
         String(TICKS),
-        'soulStream=2',
+        'skullStream=2',
         'territory=3',
         'wisps=1',
         'bell=4',
@@ -67,7 +67,7 @@ describe('the record-conditioned tool', () => {
       const decoded = decodeTape(new Uint8Array(readFileSync(out)));
       expect(decoded.tape.header.seed).toBe(SEED);
       expect(decoded.tape.header.startingLevels).toEqual({
-        soulStream: 2,
+        skullStream: 2,
         territory: 3,
         wisps: 1,
         bell: 4,
@@ -104,7 +104,7 @@ describe('the record-conditioned tool', () => {
     'refuses a seed that names no seed, out loud',
     () => {
       const out = pathWithNoFile('conditioned.tape');
-      const result = runRecord(out, 'yesterday', '30', 'soulStream=1');
+      const result = runRecord(out, 'yesterday', '30', 'skullStream=1');
 
       expect(result.status).toBe(1);
       expect(result.stdout).toBe('');
@@ -124,7 +124,7 @@ describe('the record-conditioned tool', () => {
         out,
         String(SEED),
         '30',
-        'soulStream=2',
+        'skullStream=2',
         'territory=3',
         'wisps=1',
         'bells=4',
@@ -150,7 +150,7 @@ describe('the record-conditioned tool', () => {
         out,
         String(SEED),
         '30',
-        'soulStream=2',
+        'skullStream=2',
         'territory=3',
         'wisps=1',
       );
@@ -173,7 +173,7 @@ describe('the record-conditioned tool', () => {
         out,
         String(SEED),
         '30',
-        'soulStream=2',
+        'skullStream=2',
         'territory=3',
         'wisps=1',
         'bell=4',

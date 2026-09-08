@@ -235,7 +235,7 @@ describe('compareRuns', () => {
       right: base.endLevels.bell + 4,
       delta: 4,
     });
-    expect(levels.names.soulStream.delta).toBe(0);
+    expect(levels.names.skullStream.delta).toBe(0);
   });
 
   it('leaves a key present on one side only absent on the missing side, never zero-filled and never given a delta', () => {

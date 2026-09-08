@@ -164,7 +164,7 @@ function emptyDamage(run: RunState): Record<string, number> {
 const RICH_SEED = 414243;
 const RICH_SIZE = 67;
 const RICH_LEVELS: Readonly<Record<WeaponLine, number>> = {
-  soulStream: 5,
+  skullStream: 5,
   territory: 4,
   wisps: 3,
   bell: 2,
@@ -264,7 +264,7 @@ describe('measure', () => {
 
     expect(Object.keys(damage).sort()).toEqual(Object.keys(rich.damage).sort());
     expect(damage).toEqual(rich.damage);
-    expect(rich.measured.damage.soulStream).toBeGreaterThan(0);
+    expect(rich.measured.damage.skullStream).toBeGreaterThan(0);
     expect(rich.measured.damage.territory).toBeGreaterThan(0);
     expect(rich.measured.damage.wisps).toBeGreaterThan(0);
     expect(rich.measured.damage.bell).toBeGreaterThan(0);
