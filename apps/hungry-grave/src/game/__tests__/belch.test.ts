@@ -1,17 +1,24 @@
 /**
- * The one button (ADR 0008): full only, and the bomb everywhere. Expected values
- * come from the ADR and from dispatch 5's plan section 6.14.
+ * The one button (ADR 0008): full only, gas everywhere, burst nearby. Expected
+ * values come from the ADR and from dispatch 5's plan section 6.14.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import { fireBelch } from '../belch';
+import { BELCH_BURST_RADIUS, fireBelch } from '../belch';
+import type { SimEvent } from '../events';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { Mob } from '../mobs';
 import { hasEntered, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
 import { RAMP_ROWS } from '../stage/stage';
 import { RESERVOIR_CAPACITY } from '../tuning';
+
+// Comfortably inside and comfortably outside the burst, so a retuned radius
+// moves neither case across the line.
+const NEAR = BELCH_BURST_RADIUS / 2;
+const FAR = BELCH_BURST_RADIUS * 2;
 
 function quietRun(seed = 16): RunState {
   const run = createRun(seed);
@@ -49,6 +56,22 @@ function fillField(state: RunState, count: number): Mob[] {
     mobs.push(mob);
   }
   return mobs;
+}
+
+/** One mob standing still at a chosen point, past its arriving beat. */
+function putMobAt(state: RunState, x: number, y: number): Mob {
+  const mob = spawnMob(state, 'shambler', { x, y, vx: 0, vy: 0, index: 0 })!;
+  mob.beat = 0;
+  return mob;
+}
+
+function find<T extends SimEvent['type']>(
+  events: SimEvent[],
+  type: T,
+): Extract<SimEvent, { type: T }> {
+  const found = events.find((event) => event.type === type);
+  expect(found).toBeDefined();
+  return found as Extract<SimEvent, { type: T }>;
 }
 
 function liveShots(state: RunState): number {
@@ -110,66 +133,147 @@ describe('the belch is full only (ADR 0008)', () => {
   });
 });
 
-describe('the belch wipes the mobs on screen (ADR 0008)', () => {
-  it('kills every mob that has entered the field, one mobKilled each', () => {
-    // The prototype's belch did this from the first build and the ADR lost it
-    // by omission. Without it a belch into the Wall cancels bullets the Wall
-    // never fired, and the curtain that damages by contact walks on through.
+describe('the gas smothers the whole field (ADR 0008)', () => {
+  it('takes every mob-fire shot on the field, however far from the grave', () => {
+    // ADR 0008: "The gas smothers every mob-fire shot on the whole field, boss
+    // patterns included, and kills nothing." The shots are laid from the top
+    // edge to the bottom, so a gas scoped like the burst would leave some.
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
-    const mobs = fillField(state, 6);
+    for (let index = 0; index < 8; index++) {
+      const shot = state.mobFire[index];
+      shot.alive = true;
+      shot.id = state.nextEntityId;
+      state.nextEntityId += 1;
+      shot.x = 20 + index * 60;
+      shot.y = (index * FIELD_HEIGHT) / 8;
+      shot.vx = 0;
+      shot.vy = 1;
+      shot.halfExtent = 5;
+    }
 
     const events = fireBelch(state);
 
-    expect(mobs.filter((mob) => mob.alive)).toHaveLength(0);
-    expect(liveMobs(state)).toBe(0);
+    expect(liveShots(state)).toBe(0);
+    expect(find(events, 'belched').cancelled).toBe(8);
+  });
+
+  it('kills nothing by itself, so a field of shots and no near mob pays no kill', () => {
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    armField(state, 12);
+    const far = putMobAt(state, state.grave.x, state.grave.y - FAR);
+
+    const events = fireBelch(state);
+
+    expect(far.alive).toBe(true);
+    expect(find(events, 'belched').killed).toBe(0);
+    expect(liveCorpses(state)).toBe(0);
+  });
+});
+
+describe('the burst kills nearby (ADR 0008)', () => {
+  it('kills the mobs within a local radius of the grave and nothing further out', () => {
+    // ADR 0008: "The burst kills the mobs within a local radius of the grave."
+    // What made the belch dominant was never its price but its scope, because
+    // one press resolved the entire encounter.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const near = putMobAt(state, state.grave.x, state.grave.y - NEAR);
+    const far = putMobAt(state, state.grave.x, state.grave.y - FAR);
+
+    const events = fireBelch(state);
+
+    expect(near.alive).toBe(false);
+    expect(far.alive).toBe(true);
+    expect(find(events, 'belched').killed).toBe(1);
     expect(events.filter((event) => event.type === 'mobKilled')).toHaveLength(
-      6,
+      1,
     );
   });
 
-  it('leaves a mob still above the top edge alive, because the bomb is scoped to what is on screen', () => {
+  it('reaches the same distance in every direction from the grave', () => {
+    // A radius and not a box: the burst is an eruption out of the grave, so a
+    // mob to the side at the same distance as one ahead reads the same way.
+    for (const [dx, dy] of [
+      [0, -NEAR],
+      [0, NEAR],
+      [NEAR, 0],
+      [-NEAR, 0],
+    ]) {
+      const state = quietRun();
+      state.reservoir = RESERVOIR_CAPACITY;
+      const mob = putMobAt(state, state.grave.x + dx, state.grave.y + dy);
+      fireBelch(state);
+      expect(`${dx},${dy}: ${mob.alive}`).toBe(`${dx},${dy}: false`);
+    }
+  });
+
+  it('clears the air and leaves the mobs outside the radius walking', () => {
+    // ADR 0008: "A press that clears the air and leaves the mobs walking hands
+    // the wave back to the storm." The crowd survives the press it used to be
+    // deleted by.
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
-    const onScreen = fillField(state, 1)[0];
-    const above = spawnMob(state, 'shambler', {
-      x: 200,
-      y: -40,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
-    expect(hasEntered(above)).toBe(false);
+    armField(state, 20);
+    const crowd = [
+      putMobAt(state, state.grave.x, state.grave.y - FAR),
+      putMobAt(state, 60, state.grave.y - FAR),
+      putMobAt(state, FIELD_WIDTH - 60, state.grave.y - FAR),
+    ];
 
     fireBelch(state);
 
-    expect(onScreen.alive).toBe(false);
+    expect(liveShots(state)).toBe(0);
+    expect(crowd.filter((mob) => mob.alive)).toHaveLength(crowd.length);
+  });
+
+  it('leaves a mob still above the top edge alive, whatever the radius says', () => {
+    // ADR 0008's scope limit stood through the split: reaching past the edge
+    // would silently delete authored content a player never saw arrive.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    // The grave is driven up under the top edge, because from its starting
+    // mark nothing above the edge is ever inside the burst and the entry gate
+    // would be asserted over a case the radius already refused.
+    state.grave.y = NEAR;
+    const above = putMobAt(state, state.grave.x, 0);
+    expect(hasEntered(above)).toBe(false);
+    expect(state.grave.y - above.y).toBeLessThan(BELCH_BURST_RADIUS);
+
+    fireBelch(state);
+
     expect(above.alive).toBe(true);
   });
 
   it('leaves a corpse in the food pool for every mob it kills', () => {
-    // The wipe routes through the normal kill path, so the reward is the same
-    // rain of corpses any other kill leaves and the drop economy keeps running.
+    // ADR 0008: belch kills are ordinary corpse-leaving kills, so the burst
+    // hands the swallow economy back what it took.
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
-    fillField(state, 4);
+    const near = [
+      putMobAt(state, state.grave.x, state.grave.y - NEAR),
+      putMobAt(state, state.grave.x - NEAR, state.grave.y),
+    ];
     expect(liveCorpses(state)).toBe(0);
 
     fireBelch(state);
 
-    expect(liveCorpses(state)).toBe(4);
+    expect(liveMobs(state)).toBe(0);
+    expect(liveCorpses(state)).toBe(near.length);
   });
 
   it('carries the cancelled shot count and the killed mob count on one belched event', () => {
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     armField(state, 17);
-    fillField(state, 3);
+    putMobAt(state, state.grave.x, state.grave.y - NEAR);
+    putMobAt(state, state.grave.x, state.grave.y - FAR);
 
     const events = fireBelch(state);
 
     expect(events.filter((event) => event.type === 'belched')).toEqual([
-      { type: 'belched', cancelled: 17, killed: 3 },
+      { type: 'belched', cancelled: 17, killed: 1 },
     ]);
   });
 });

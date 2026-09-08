@@ -460,18 +460,22 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
 
 describe('a belch kill is a kill (Mark, 2026-08-22)', () => {
   it('credits its wipe toward the next drop, so a belch into a dense wave spawns a drop on the same tick', () => {
-    // The reason the wipe routes through damageMob rather than clearing the
+    // The reason the burst routes through damageMob rather than clearing the
     // pool: resolveDeaths walks the tick's own accumulated kills, the belch's
     // included, so the eruption pays the drop economy instead of emptying the
     // field of it.
+    //
+    // The wave stands inside the burst rather than up the field, because ADR
+    // 0008's split scoped the kill to a radius of the grave and a wave laid
+    // anywhere else is one the belch no longer touches.
     const state = quietRun();
     const step = stepping(state);
     state.reservoir = RESERVOIR_CAPACITY;
     const wave = priceOfNextDrop(0);
     for (let index = 0; index < wave; index++) {
       spawnMob(state, 'shambler', {
-        x: 40 + index * 24,
-        y: 100,
+        x: state.grave.x - 48 + index * 24,
+        y: state.grave.y - 40,
         vx: 0,
         vy: 1,
         index,

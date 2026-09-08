@@ -378,9 +378,11 @@ describe("a mob's death (ADR 0037)", () => {
     ]);
   });
 
-  it("names the belch's wipe belch", () => {
+  it("names the belch's burst belch", () => {
     const state = quietRun();
-    putMob(state, 'shambler', 100, 100);
+    // Standing inside the burst, which is the only thing the belch kills since
+    // ADR 0008's split.
+    putMob(state, 'shambler', state.grave.x, state.grave.y - 40);
     state.reservoir = RESERVOIR_CAPACITY;
 
     const struck = types(fireBelch(state), 'mobDamaged');

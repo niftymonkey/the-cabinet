@@ -26,9 +26,26 @@ describe('belch cadence', () => {
   it('reports each belch fire with the mobs it killed and the shots it cancelled', () => {
     // Story 13: a wipe that landed on a curtain reads differently from one
     // spent on empty sky, so kills and cancels stay two counts.
+    // Both mobs stand inside the burst, which is what a belch kills since ADR
+    // 0008's split, and both are past their arriving beat so the kill lands.
     const run = createRun(SEED);
-    spawnMob(run, 'shambler', { x: 100, y: 200, vx: 0, vy: 1, index: 0 });
-    spawnMob(run, 'ghoul', { x: 200, y: 300, vx: 0, vy: 1, index: 1 });
+    const near = [
+      spawnMob(run, 'shambler', {
+        x: run.grave.x - 30,
+        y: run.grave.y - 40,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      })!,
+      spawnMob(run, 'ghoul', {
+        x: run.grave.x + 30,
+        y: run.grave.y - 40,
+        vx: 0,
+        vy: 1,
+        index: 1,
+      })!,
+    ];
+    for (const mob of near) mob.beat = 0;
     for (let slot = 0; slot < LIVE_SHOTS; slot++) {
       run.mobFire[slot].alive = true;
     }
