@@ -1,4 +1,4 @@
-# One repository holding the launcher and every game
+# One repository holding the cabinet and every game
 
 The Cabinet is a single pnpm monorepo with `apps/*` workspaces. Each game is a self-contained application owning its own code, tests, assets, dependencies and technology stack, and games may be built in different technologies from one another. Only tooling configuration is shared, at the root.
 

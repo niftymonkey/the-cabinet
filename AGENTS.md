@@ -4,7 +4,7 @@
 
 - `apps/housewarming` owns all Housewarming code, tests, and assets.
 - `apps/hungry-grave` owns all Hungry Grave code, tests, and assets.
-- There is no launcher application yet.
+- `apps/cabinet` owns the cabinet: the multicade every game is picked from. What it is lives in `apps/cabinet/PRODUCT.md`, its words in `apps/cabinet/CONTEXT.md`.
 
 ## Documents
 
@@ -53,7 +53,7 @@ Two reasons. A wrapped paragraph reflows entirely when one word changes, which m
 ## Isolation rules
 
 - Do not import one game from another.
-- Do not move game rules, rendering, input, or assets into the launcher.
+- Do not move game rules, rendering, input, or assets into the cabinet.
 - Do not add a shared package until at least two real callers need the same stable behavior.
 - Shared tooling configuration may live at the repository root.
 - A game must remain runnable and buildable through its own workspace scripts.

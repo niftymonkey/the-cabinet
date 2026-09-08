@@ -26,6 +26,8 @@ A game may carry a north star at `<app>/docs/VISION.md`. Where one exists, every
 
 Only the product vision gate runs a change through the north star's proposal questions; the other two lenses read the same document and judge through their own checklists.
 
+The cabinet is not a game and has no `VISION.md`. Its north star is `apps/cabinet/PRODUCT.md`, which the cabinet gates read in the same role. Never create a second what-is-it file for the cabinet.
+
 ## Depths
 
 **Quick**: judge from the design record alone. No lookups.
