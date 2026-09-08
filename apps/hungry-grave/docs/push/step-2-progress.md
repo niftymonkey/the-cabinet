@@ -61,20 +61,26 @@ Every other section 9 item is carried by a slice: 1 by slice 2's glossary commit
 
 | Slice | Commit | Message |
 | --- | --- | --- |
+| 1 | `6958cfdd28` | refactor(hungry-grave): the stage tables move into rows.ts unchanged (#97) |
 
 Slice 0 records the baseline tapes and makes no commit.
 
 ## 2. GOLDEN moves
 
-Nothing yet.
+Slice 1: none, which the slice required. `src/dev/digest.ts` is not in the commit and the digest test is green.
 
 ## 3. CodeRabbit
 
-Nothing yet.
+Slice 1: `coderabbit review --agent --uncommitted` on the staged work, all eighteen files reviewed, **zero findings**. Nothing applied and nothing declined.
 
 ## 4. Plan claims found false against the tree
 
-Nothing yet.
+Four, all from slice 1, and each one is a slice assignment rather than a citation. The plan's intent was followed and its letter was not.
+
+1. **Slice 1 says "the three tables move out of `stage.ts` under their old content and new names", and the tree carries two tables.** `RAMP_ROWS` and `BACK_HALF_ROWS` are all there is, and section 7 says `BACK_HALF_ROWS` is "replaced by `CROWD_ROWS` and `VIGIL_ROWS`", which is a split and therefore authoring. Slice 2 owns the authoring, so the Procession took the ramp's rows and the Crowd took the back half's, both byte-identical, and `VIGIL_ROWS` landed as an empty table with its reason on it. `PHASES` still names two spawning phases, so behaviour is unchanged.
+2. **Slice 1 says module test 71 lands here, and `directed` does not exist until slice 2.** Slice 2's own sentence names `StageRow.directed` and `Phase.directed` among the columns it lands. A test cannot be green against a column that is not there, so 71 is pinned in `rows.test.ts` as a named `test.todo`, which is the playbook's own mechanism for a planned test whose seam arrives later. **Slice 2 fills it**, beside module test 119, which is its sibling over the ceiling columns.
+3. **Test 67 names the pour among `peakArrivals`'s terms, and the pour's rows land at slice 5.** Slice 5 says so outright: the set piece's own rows and `POUR_SHARES` go into `rows.ts` there, "because this is the slice where `peakArrivals` first needs them". The query therefore landed with three of its four terms, and test 67 holds those three. **Slice 5 adds the pour term and widens the test with it.**
+4. **Fence 111 is an existing test, not new code.** Section 6 lists `src/__tests__/boundary.test.ts` under "existing, must stay green", so slice 1 confirmed it rather than writing it. `rows.ts` value-imports nothing from `src/game` (`MobType` and `TemplateName` are both `import type`), so the cycle guard's known-cycle list is still empty.
 
 ## 5. Gate corrections
 
@@ -96,3 +102,28 @@ The test-name baseline for verification step 5: `local/step2/tests-baseline.json
 ## 7. Verification steps run
 
 Slice 0: the step 5 and step 10 baselines recorded, see section 6.
+
+Slice 1, from the plan's section 3:
+
+- **Step 1, unit tests.** Green. 110 files, 1418 passed, 10 expected fail, 4 todo.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 4, `pnpm verify` at the repo root.** Green, run from inside the worktree.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step2/tests-baseline.txt`: **five names added, none removed, none renamed.** The five are `rows.test.ts`'s. Renaming a constant moves no test name, which is why the fifteen edited files show nothing here, and that is the point of the step: a suite that failed to load would have shown as removals. **`vitest list` does not report a `test.todo`**, so the sixth test in `rows.test.ts` is invisible to this instrument and the counts read 1428 against the baseline's 1423.
+- **Step 6, GOLDEN.** Did not move, which the slice required. See section 2.
+- **Steps 3, 7 to 13 and the rendered checks** belong to later slices and were not run. **Steps 16 to 22 are Mark's and stay open.**
+
+## 8. Slice 1, the rows module
+
+`peakArrivals` is the one thing in the commit that is not a move, so what it does is written down here rather than left to be re-derived.
+
+**It is a maximum over windows and never a sum of them.** For each window length it takes the densest window in each section table, and the largest of those against `BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE`, which is what a boss phase's own window holds. That is the shape the design record's derivation already uses: it prices the Waking window at 62 (the pour plus the Crowd's reduced share) and the Undertaker's at 26 (7 diggers plus 19 rungs) and takes the larger, and it does not add a rung term to the Waking. Adding the allowances to every window instead would put the initial cap at 251 rather than the 232 the record derives, so the record settles it.
+
+A window is half-open, `[t, t + seconds)`, and only a window that opens on a row can be the densest. That reproduces the record's own figure: `peakArrivals(10)` is 36 today, the Crowd's four rows from t=50, which is the "densest 36" the derivation reads off the same table. The Procession's densest ten seconds is 23 and the allowance floor is 26, so today the Crowd's table is what the maximum falls on.
+
+**The allowances are flat rows sized for the freshness window**, not scaled by the argument, which is what section 4's seam comment says ("inside a freshness window"). `BOSS_ADD_ALLOWANCE` is 7 and `RUNG_ALLOWANCE` is 19, both from the design record's derivation.
+
+**The tests were proved to bite rather than assumed to.** Three mutations were run against `rows.ts` and reverted: dropping the zero-window guard, dropping the allowance term from the maximum, and widening the window's upper bound to inclusive. Each turned exactly one of the three query tests red and nothing else. The two table tests carry their own proof inline, each asserting that its rule catches a hand-made bad row, because both otherwise assert an absence.
+
+**`StageRow` now lives in `rows.ts` and `stage.ts` does not re-export it.** A consumer imports the type from `rows.ts`; `stage.ts` imports it for `Phase` and its own export block does not name it. `stage.ts` keeps `PhaseName`, `Phase`, `StageState`, `PHASES`, `DRAIN_OUT_SECONDS`, `phaseLengthTicks`, `createStage` and `advanceStage`.
+
+**One warning for anyone running the standing checks.** `pnpm format` run from the shared checkout at `/home/mlo/dev/niftymonkey/the-cabinet` reformats this worktree's `scripts/roadmap/` files, because that root's `.prettierignore` names `scripts/roadmap/` relative to itself and cannot see the same entry in the nested worktree's own ignore file. It churned five ignored files here and they were reverted before the commit; nothing outside the worktree was touched, checked by mtime. Step 1's note already said to run the gate from inside the worktree, and this is the mechanism behind that instruction.
