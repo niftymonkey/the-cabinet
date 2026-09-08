@@ -31,7 +31,7 @@ const OFF_GRID: TickCommand = {
 
 /** A live mob at a place the grave is nowhere near. */
 function liveMob(state: RunState, x = 60, y = 100) {
-  return spawnMob(state, 'shambler', { x, y, vx: 0, vy: 1, index: 0 })!;
+  return spawnMob(state, 'shambler', { x, y, vx: 0, vy: 1, index: 0 }, false)!;
 }
 
 describe('executeTick', () => {

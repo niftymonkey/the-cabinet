@@ -26,7 +26,29 @@ const mobLook = (mob: Mob): string => {
   const step = lit
     ? Math.round((1 - mob.fireIn / Math.max(1, fire.tellTicks)) * TELL_STEPS)
     : -1;
-  return `${mob.type}|${mob.armed}|${step}`;
+  return `${mob.type}|${mob.armed}|${mob.carries}|${step}`;
+};
+
+/**
+ * The body colour a mob draws in: treasure's own for a carrier, the mob green
+ * for everything else.
+ *
+ * A tint and not a ring or an outline. The ring is the boss's shape and ADR
+ * 0036 retired it from the player's grammar, and the genre marks carriers by
+ * colour: Gradius, DoDonPachi and Battle Garegga all recolour the body rather
+ * than dressing it. It is treasure's colour rather than a new one because what
+ * the mob is carrying is a drop, and every silhouette channel is spoken for:
+ * the body outline tells the three types apart and the notch tells armed from
+ * unarmed, so the mark has to arrive on the one channel still free.
+ *
+ * The stand-in is a placeholder like the silhouettes around it and #38 owns
+ * the real one. What it has to satisfy is ADR 0014, and the palette's own
+ * declarations are what say it does: PALETTE.drop sits at luma 67.25, under
+ * the field ceiling and far under the band mob fire reserves, and at hue 41 it
+ * is outside the twenty degrees fire is given and 85 degrees off a mob body.
+ */
+const mobBodyColour = (mob: Mob): number => {
+  return mob.carries ? PALETTE.drop.hex : PALETTE.mob.hex;
 };
 
 // The body outline of one mob type. A shambler is squat, a revenant is a diamond, and a ghoul is a wedge that points where it is going.
@@ -111,7 +133,7 @@ const tellRadius = (type: MobType, progress: number): number => {
 const drawMob = (into: Graphics, mob: Mob): void => {
   into.clear();
   drawBody(into, mob.type);
-  into.fill({ color: PALETTE.mob.hex });
+  into.fill({ color: mobBodyColour(mob) });
   drawBody(into, mob.type);
   into.stroke({
     width: SPRITE_STROKE,
@@ -127,4 +149,4 @@ const drawMob = (into: Graphics, mob: Mob): void => {
   drawArmedMark(into, mob.type);
 };
 
-export { alarmRadius, drawMob, mobLook, tellRadius };
+export { alarmRadius, drawMob, mobBodyColour, mobLook, tellRadius };

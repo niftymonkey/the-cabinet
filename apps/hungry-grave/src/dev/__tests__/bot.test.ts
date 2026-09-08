@@ -16,6 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { carrierRow, carriersForFullBuild } from '../../game/carriers';
 import type { SimEvent } from '../../game/events';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import { spawnMob } from '../../game/mobs';
@@ -59,8 +60,7 @@ const SEEDS = [101, 202, 303, 404, 505];
 
 /**
  * The seeds whose fresh run seals shut inside the ramp on the current
- * birthright, and there are three: 202, 404 and 505, at 5465, 5387 and 5385
- * ticks.
+ * birthright, and there is one: 505, at 5466 ticks.
  *
  * Re-measured for #79's measured tuning pass, which moved TERRITORY_PERIOD
  * from 500 to 832. Territory is the only line a dodger arms for free, and at
@@ -75,16 +75,25 @@ const SEEDS = [101, 202, 303, 404, 505];
  * ground Territory claimed also pulled and slowed the crowd the dodger steers
  * through, so removing it reshapes each lane rather than only thinning it.
  *
+ * Re-measured for carriers (ADR 0002, ADR 0048): power is no longer priced in
+ * kills, so a run's build follows the schedule rather than the dodger's own
+ * kill rate, and the five fresh seeds now spawn 3 to 9 drops against the 2 to
+ * 4 the price table paid them. 202 and 404 left the set, surviving the ramp
+ * and running 12421 and 11393 ticks, and 505 entered it, sealing at 5466 where
+ * it used to run 9950. The direction is per seed rather than uniform for the
+ * reason it always is here: a dodger steers off the field it is standing in,
+ * so one drop swallowed at a different tick is a different run from there on.
+ *
  * What it measures is still this policy rather than the game: `dodgePolicy`
  * never dives, so it reads the ramp at about the weakest play the sim can
  * produce, the no-offense floor. The next played tapes judge the value
  * itself.
  */
-const SEALS_IN_THE_RAMP: number[] = [202, 404];
+const SEALS_IN_THE_RAMP: number[] = [505];
 
 /**
- * The seeds on which this policy never swallows anything at all, and there is
- * one: 202, sealed inside the ramp with nothing crossed.
+ * The seeds on which this policy never swallows anything at all, and there are
+ * none.
  *
  * Re-measured for the thinned birthright (ADR 0045): 404 left the set, feeding
  * three times before it seals, and the four other seeds feed between two and
@@ -92,22 +101,29 @@ const SEALS_IN_THE_RAMP: number[] = [202, 404];
  * skull stream's own kills, which fall where the column reached rather than
  * where the ground was claimed.
  *
+ * Re-measured for carriers (ADR 0002): 202 left the set, feeding eight times
+ * on a run that now crosses the whole stage, and the five seeds feed between
+ * one and eighteen times. The set is kept rather than deleted, so the day a
+ * seed stops feeding altogether this says so.
+ *
  * Those swallows are incidental, which is the thing to keep in front of a
  * reader. `dodgePolicy` scores its nine moves against mobs and mob fire alone
  * and looks at neither corpses nor drops, so it never once steers toward
  * food; the lane it dodges through simply has corpses in it.
  */
-const NEVER_FEEDS: number[] = [202];
+const NEVER_FEEDS: number[] = [];
 
 /**
- * The seeds whose fresh grave reaches victory on this policy, and under #79's
- * 832-tick territory period there are none.
+ * The seeds whose fresh grave reaches victory on this policy, and there are
+ * two: 202 and 303, both running the full 12421 ticks.
  *
- * The cause is the tuning pass itself rather than a break: territory at 832
- * clears roughly 40% less traffic, so the free kills that carried 303 and
- * 404 to victory at 500 are gone and every fresh seed now seals, three of
- * them inside the ramp. The policy measures the no-offense floor rather than
- * the game, and the next played tapes judge the value itself.
+ * Re-measured for carriers (ADR 0002, ADR 0048), which is what refilled the
+ * set after #79's tuning pass emptied it. A fresh run meets the schedule's
+ * carriers rather than a rising price fitted to a kill rate this policy never
+ * reaches, so the same dodging run now spawns 6 and 9 drops on these two seeds
+ * where the table paid it 2 to 4, and the build it stumbles into carries it
+ * to the over phase. Nothing about the policy changed: it still never dives,
+ * and it still swallows only what its lane happens to contain.
  *
  * It stays a tripwire in both directions, because the assertion is an
  * equality: the day the set moves either way, this file goes red and says
@@ -115,11 +131,11 @@ const NEVER_FEEDS: number[] = [202];
  * never a hand that dives, and it is the worst case for a ladder whose upper
  * rungs a real player buys.
  */
-const REACHES_VICTORY_FRESH: number[] = [];
+const REACHES_VICTORY_FRESH: number[] = [202, 303];
 
 /**
  * The seeds that reach victory from the size ceiling on the birthright build,
- * and today it is none of the five.
+ * and today there are three: 101, 404 and 505.
  *
  * Re-measured three times in one step. For the thinned birthright (ADR 0045)
  * the set emptied: 202 left it, sealing in the back half at 12008 ticks where
@@ -136,10 +152,16 @@ const REACHES_VICTORY_FRESH: number[] = [];
  * replaced pushed nothing below level 4. The four seeds that never toll did
  * not move.
  *
+ * Re-measured for carriers (ADR 0002, ADR 0048) and the set refilled: 101,
+ * 404 and 505 run the full 12421 ticks at 48, 51 and 48 kills, while 202 and
+ * 303 seal in the back half. The cause is the same one the fresh set carries,
+ * the schedule paying a dodger more than the price table did, and the same
+ * path effect decides which seeds it lands on.
+ *
  * Pinned as a constant rather than left a literal in the test, because the
  * fresh set and this one are different facts.
  */
-const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
+const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 404, 505];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
@@ -160,6 +182,12 @@ const STAGE_TICKS = RAMP_TICKS + phaseLengthTicks(PHASES[2]);
 /** Every mob the timeline authors, which is the ceiling on what any policy can meet. */
 const AUTHORED_MOBS = [...RAMP_ROWS, ...BACK_HALF_ROWS].reduce(
   (total, row) => total + row.count,
+  0,
+);
+
+/** Every carrier the timeline authors, which is the ceiling on what any policy can be paid. */
+const AUTHORED_CARRIERS = [...RAMP_ROWS, ...BACK_HALF_ROWS].reduce(
+  (total, row) => total + carrierRow(row.carries, row.count).carrying.length,
   0,
 );
 
@@ -254,7 +282,7 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
     });
   }
 
-  it('no fresh grave reaches victory on this policy, and the test names the set', () => {
+  it('reaches victory on the fresh seeds the set names, and on no others', () => {
     // Written as an equality against the pinned set rather than as "none win",
     // so it fires the day the set moves in either direction and says which seed
     // did it. It has fired both ways already, and under #79's 832-tick
@@ -325,28 +353,30 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
 const MEETS_THE_TIMELINE: number[] = [];
 
 /**
- * ADR 0013 asks a full run to land ten to twelve drops, and it does not.
+ * The band the schedule asks for, and the band the storm reaches.
  *
- * Re-measured for #79's 832-tick territory period: 2 to 4 drops across the
- * five fresh seeds, against a price table fitted to 268 authored mobs. What holds the band off
- * is the table's rising prices against runs that stop feeding drops back into
- * columns, and a dodging bot never dives for the drops it does spawn.
+ * The band itself moved with ADR 0002's supersession: power is metered by
+ * carriers, so what a full run is asked for is no longer ADR 0013's ten to
+ * twelve drops from a price table but the carriers a full build costs, which
+ * `carriersForFullBuild` derives from the roster. A dodger comes nowhere near
+ * it: it spawns 3 to 9 drops across the five fresh seeds, because it kills the
+ * carriers its lane happens to contain and never steers at one.
  *
  * Both halves are declared expected failures again so a genuinely new break
  * cannot hide among red tests, and both are tripwires in the other direction
  * too: the day the storm reaches either band, this file goes red and asks to
  * be rewritten as ordinary assertions. The timeline half fired that tripwire
  * one way in pass B and the other way in pass C, and MEETS_THE_TIMELINE
- * carries where it stands. The price table is not moved and the bot is not
- * improved, both of which dispatch 5's plan forbids by name.
+ * carries where it stands. The schedule is not moved and the bot is not
+ * improved.
  */
-describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
+describe('the band the schedule asks for, and the band the storm reaches', () => {
   for (const seed of SEEDS) {
-    it.fails(`lands ten to twelve drops on seed ${seed}`, () => {
+    it.fails(`kills the carriers a full build costs on seed ${seed}`, () => {
       const { events } = fullRun(seed);
-      const drops = count(events, 'dropSpawned');
-      expect(drops).toBeGreaterThanOrEqual(10);
-      expect(drops).toBeLessThanOrEqual(12);
+      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(
+        carriersForFullBuild(),
+      );
     });
   }
 
@@ -363,12 +393,19 @@ describe('the band ADR 0013 asks for, and the band the storm reaches', () => {
     it(`stays inside the range the storm actually reaches on seed ${seed}`, () => {
       // The ordinary half, so a regression away from today's figures is caught
       // while the band above stays the thing being aimed at. The floors are
-      // the measured minima across the five fresh runs under #79's 832-tick
-      // territory period: seed 202 is lowest at 11 kills, and the three seeds
-      // that seal inside the ramp share the drops floor of 2.
+      // the measured minima across the five fresh runs under the carrier
+      // schedule: seed 505 is lowest on both, at 12 kills and 3 drops, and it
+      // is the one seed that seals inside the ramp.
+      //
+      // The ceiling is the schedule itself and not a measurement: a run can
+      // only be paid by carriers that exist, so no policy can ever spawn more
+      // drops than the stage authors.
       const { events } = fullRun(seed);
-      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(11);
-      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(2);
+      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(12);
+      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(3);
+      expect(count(events, 'dropSpawned')).toBeLessThanOrEqual(
+        AUTHORED_CARRIERS,
+      );
     });
   }
 });
@@ -453,12 +490,16 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
       expect(state.ending).toBe('sealed');
       expect(count(events, 'sealed')).toBe(1);
       expect(count(events, 'graveHit')).toBeGreaterThan(10);
-      // The first rung is now real: overflow from a swallow pays score, and the
-      // ladder bleeds it before anything else. The second rung is not reached,
-      // because a policy that steers into the nearest threat collects nothing
-      // and no line ever rises above the birthright it cannot be stripped below.
+      // Both of the first two rungs are now real: overflow from a swallow pays
+      // score and the ladder bleeds it first, and the run then loses a line.
+      // The second rung arrived with carriers (ADR 0002): a carrier drops its
+      // power where it died, which is inside the crowd this policy steers
+      // into, so a policy that never dives for food still swallows one and has
+      // something above the birthright to be stripped of. How many strips a
+      // seed takes is path, so what is pinned is that the rung is reached and
+      // that the strip floor is the birthright, which the levels below hold.
       expect(count(events, 'scoreBled')).toBe(1);
-      expect(count(events, 'weaponStripped')).toBe(0);
+      expect(count(events, 'weaponStripped')).toBeGreaterThan(0);
       for (const line of WEAPON_LINES) {
         expect(`${line} ${state.levels[line]}`).toBe(
           `${line} ${BIRTHRIGHT.includes(line) ? 1 : 0}`,
@@ -489,7 +530,7 @@ function wallRun(seed: number, loaded: boolean): RunState {
     WALL_ROW.count,
     state.streams.spawns,
   )) {
-    spawnMob(state, WALL_ROW.type, order);
+    spawnMob(state, WALL_ROW.type, order, false);
   }
   return state;
 }

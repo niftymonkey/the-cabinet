@@ -46,7 +46,7 @@ function attached(): { layers: FieldLayers; renderer: FieldRenderer } {
 }
 
 function put(state: RunState, type: MobType, x: number, y: number) {
-  return spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  return spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
 }
 
 function sprites(layers: FieldLayers, name: 'corpses' | 'mobBodies') {
@@ -176,20 +176,30 @@ describe('FieldRenderer', () => {
     // drawing, and a revenant's tell has to precede its shot.
     const { layers, renderer } = attached();
     const state = createRun(1);
-    const plain = spawnMob(state, 'shambler', {
-      x: 60,
-      y: MOB_TYPES.shambler.halfHeight,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
-    const armed = spawnMob(state, 'shambler', {
-      x: 120,
-      y: MOB_TYPES.shambler.halfHeight,
-      vx: 0,
-      vy: 1,
-      index: 2,
-    })!;
+    const plain = spawnMob(
+      state,
+      'shambler',
+      {
+        x: 60,
+        y: MOB_TYPES.shambler.halfHeight,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      },
+      false,
+    )!;
+    const armed = spawnMob(
+      state,
+      'shambler',
+      {
+        x: 120,
+        y: MOB_TYPES.shambler.halfHeight,
+        vx: 0,
+        vy: 1,
+        index: 2,
+      },
+      false,
+    )!;
     expect(plain.armed).toBe(false);
     expect(armed.armed).toBe(true);
     renderer.sync(state);
@@ -203,13 +213,18 @@ describe('FieldRenderer', () => {
         .join(',');
     expect(drawn(plain)).not.toBe(drawn(armed));
 
-    const revenant = spawnMob(state, 'revenant', {
-      x: 200,
-      y: MOB_TYPES.revenant.halfHeight,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
+    const revenant = spawnMob(
+      state,
+      'revenant',
+      {
+        x: 200,
+        y: MOB_TYPES.revenant.halfHeight,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      },
+      false,
+    )!;
     revenant.fireIn = ARRIVE_TICKS + 1;
     renderer.sync(state);
     const unlit = drawn(revenant);
@@ -362,13 +377,18 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
       filledShapes(sprites(layers, 'mobBodies')[state.mobs.indexOf(mob)]);
 
     for (const type of MOB_TYPE_NAMES) {
-      const mob = spawnMob(state, type, {
-        x: 60,
-        y: MOB_TYPES[type].halfHeight,
-        vx: 0,
-        vy: 1,
-        index: 0,
-      })!;
+      const mob = spawnMob(
+        state,
+        type,
+        {
+          x: 60,
+          y: MOB_TYPES[type].halfHeight,
+          vx: 0,
+          vy: 1,
+          index: 0,
+        },
+        false,
+      )!;
       // Past its own tell, so an armed mob here wears the mark and not the iris.
       mob.fireIn = MOB_TYPES[type].fire.tellTicks + 1;
 

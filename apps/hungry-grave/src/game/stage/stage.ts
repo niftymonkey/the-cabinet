@@ -1,5 +1,6 @@
 // The authored timeline (ADR 0006): the phase machine, and the rows as data.
 
+import { carrierRow, carriesAt } from '../carriers';
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
 import type { MobType } from '../mobs';
@@ -20,6 +21,11 @@ interface StageRow {
    */
   readonly count: number;
   readonly type: MobType;
+  /**
+   * Whether one of this row's mobs carries the offer (ADR 0002). Which one is
+   * carriers.ts's rule and never the row's, so a row says only that it pays.
+   */
+  readonly carries: boolean;
 }
 
 /**
@@ -77,29 +83,37 @@ const DRAIN_OUT_SECONDS = 17;
  * spread across the width arrive together and exactly one of them is armed, so
  * it is the only place in the game where a player sees armed and unarmed side
  * by side in one glance and can calibrate the marker.
+ *
+ * The carrier column is a first schedule and step 2 authors the real one. It
+ * holds the 25 carriers carriersScheduled asks for, laid roughly one every
+ * seven seconds of authored time across both spawning phases, and the run's
+ * first row carries so a player is not asked to fight for long before the
+ * first offer. Four rows are held clear on purpose: the three teaching Drips
+ * at t=14, t=42 and t=62, where the glance is spent learning a marker or a new
+ * type (ADR 0016), and the back half's Wall, whose whole shape is the curtain.
  */
 const RAMP_ROWS: readonly StageRow[] = [
-  { t: 2, template: 'drip', count: 1, type: 'shambler' },
-  { t: 8, template: 'drip', count: 1, type: 'shambler' },
-  { t: 14, template: 'drip', count: 3, type: 'shambler' },
-  { t: 20, template: 'file', count: 5, type: 'shambler' },
-  { t: 30, template: 'drip', count: 2, type: 'shambler' },
-  { t: 36, template: 'drip', count: 3, type: 'shambler' },
-  { t: 42, template: 'drip', count: 1, type: 'revenant' },
-  { t: 46, template: 'v', count: 5, type: 'shambler' },
-  { t: 52, template: 'file', count: 6, type: 'shambler' },
-  { t: 56, template: 'pincer', count: 6, type: 'shambler' },
-  { t: 62, template: 'drip', count: 1, type: 'ghoul' },
-  { t: 66, template: 'v', count: 7, type: 'shambler' },
-  { t: 70, template: 'rain', count: 6, type: 'shambler' },
-  { t: 74, template: 'file', count: 4, type: 'revenant' },
-  { t: 78, template: 'pincer', count: 8, type: 'shambler' },
-  { t: 83, template: 'v', count: 7, type: 'ghoul' },
-  { t: 88, template: 'rain', count: 6, type: 'shambler' },
-  { t: 92, template: 'file', count: 6, type: 'shambler' },
-  { t: 96, template: 'pincer', count: 8, type: 'shambler' },
-  { t: 101, template: 'rain', count: 8, type: 'shambler' },
-  { t: 105, template: 'v', count: 7, type: 'shambler' },
+  { t: 2, template: 'drip', count: 1, type: 'shambler', carries: true },
+  { t: 8, template: 'drip', count: 1, type: 'shambler', carries: true },
+  { t: 14, template: 'drip', count: 3, type: 'shambler', carries: false },
+  { t: 20, template: 'file', count: 5, type: 'shambler', carries: true },
+  { t: 30, template: 'drip', count: 2, type: 'shambler', carries: true },
+  { t: 36, template: 'drip', count: 3, type: 'shambler', carries: true },
+  { t: 42, template: 'drip', count: 1, type: 'revenant', carries: false },
+  { t: 46, template: 'v', count: 5, type: 'shambler', carries: true },
+  { t: 52, template: 'file', count: 6, type: 'shambler', carries: true },
+  { t: 56, template: 'pincer', count: 6, type: 'shambler', carries: false },
+  { t: 62, template: 'drip', count: 1, type: 'ghoul', carries: false },
+  { t: 66, template: 'v', count: 7, type: 'shambler', carries: true },
+  { t: 70, template: 'rain', count: 6, type: 'shambler', carries: true },
+  { t: 74, template: 'file', count: 4, type: 'revenant', carries: true },
+  { t: 78, template: 'pincer', count: 8, type: 'shambler', carries: false },
+  { t: 83, template: 'v', count: 7, type: 'ghoul', carries: true },
+  { t: 88, template: 'rain', count: 6, type: 'shambler', carries: true },
+  { t: 92, template: 'file', count: 6, type: 'shambler', carries: true },
+  { t: 96, template: 'pincer', count: 8, type: 'shambler', carries: false },
+  { t: 101, template: 'rain', count: 8, type: 'shambler', carries: true },
+  { t: 105, template: 'v', count: 7, type: 'shambler', carries: true },
 ];
 
 /**
@@ -111,25 +125,25 @@ const RAMP_ROWS: readonly StageRow[] = [
  * seconds into the back half, which is where the concept doc puts it.
  */
 const BACK_HALF_ROWS: readonly StageRow[] = [
-  { t: 2, template: 'wall', count: 22, type: 'shambler' },
-  { t: 10, template: 'rain', count: 6, type: 'shambler' },
-  { t: 14, template: 'pincer', count: 8, type: 'shambler' },
-  { t: 19, template: 'v', count: 7, type: 'ghoul' },
-  { t: 23, template: 'rain', count: 8, type: 'shambler' },
-  { t: 26, template: 'file', count: 5, type: 'revenant' },
-  { t: 30, template: 'pincer', count: 8, type: 'shambler' },
-  { t: 32, template: 'rain', count: 8, type: 'shambler' },
-  { t: 37, template: 'v', count: 7, type: 'shambler' },
-  { t: 40, template: 'rain', count: 10, type: 'shambler' },
-  { t: 43, template: 'pincer', count: 8, type: 'ghoul' },
-  { t: 46, template: 'v', count: 7, type: 'shambler' },
-  { t: 50, template: 'rain', count: 10, type: 'shambler' },
-  { t: 53, template: 'file', count: 6, type: 'revenant' },
-  { t: 56, template: 'pincer', count: 8, type: 'shambler' },
-  { t: 58, template: 'rain', count: 12, type: 'shambler' },
-  { t: 62, template: 'v', count: 7, type: 'ghoul' },
-  { t: 65, template: 'pincer', count: 8, type: 'shambler' },
-  { t: 68, template: 'rain', count: 12, type: 'shambler' },
+  { t: 2, template: 'wall', count: 22, type: 'shambler', carries: false },
+  { t: 10, template: 'rain', count: 6, type: 'shambler', carries: true },
+  { t: 14, template: 'pincer', count: 8, type: 'shambler', carries: false },
+  { t: 19, template: 'v', count: 7, type: 'ghoul', carries: true },
+  { t: 23, template: 'rain', count: 8, type: 'shambler', carries: false },
+  { t: 26, template: 'file', count: 5, type: 'revenant', carries: true },
+  { t: 30, template: 'pincer', count: 8, type: 'shambler', carries: false },
+  { t: 32, template: 'rain', count: 8, type: 'shambler', carries: true },
+  { t: 37, template: 'v', count: 7, type: 'shambler', carries: false },
+  { t: 40, template: 'rain', count: 10, type: 'shambler', carries: true },
+  { t: 43, template: 'pincer', count: 8, type: 'ghoul', carries: false },
+  { t: 46, template: 'v', count: 7, type: 'shambler', carries: true },
+  { t: 50, template: 'rain', count: 10, type: 'shambler', carries: false },
+  { t: 53, template: 'file', count: 6, type: 'revenant', carries: true },
+  { t: 56, template: 'pincer', count: 8, type: 'shambler', carries: false },
+  { t: 58, template: 'rain', count: 12, type: 'shambler', carries: true },
+  { t: 62, template: 'v', count: 7, type: 'ghoul', carries: true },
+  { t: 65, template: 'pincer', count: 8, type: 'shambler', carries: false },
+  { t: 68, template: 'rain', count: 12, type: 'shambler', carries: true },
 ];
 
 interface Phase {
@@ -193,9 +207,11 @@ const spawnDueRows = (state: RunState, phase: Phase): void => {
   ) {
     const row = phase.rows[stage.firedRows];
     stage.firedRows += 1;
-    for (const order of place(row.template, row.count, state.streams.spawns)) {
-      spawnMob(state, row.type, order);
-    }
+    const carrying = carrierRow(row.carries, row.count);
+    const orders = place(row.template, row.count, state.streams.spawns);
+    orders.forEach((order, position) => {
+      spawnMob(state, row.type, order, carriesAt(carrying, position));
+    });
   }
 };
 

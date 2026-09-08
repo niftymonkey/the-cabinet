@@ -21,7 +21,9 @@ vi.mock('../../game/mobs', async (importOriginal) => {
       run: Parameters<typeof original.spawnMob>[0],
       type: Parameters<typeof original.spawnMob>[1],
       order: Parameters<typeof original.spawnMob>[2],
-    ) => (run.tick === 540 ? null : original.spawnMob(run, type, order)),
+      carries: Parameters<typeof original.spawnMob>[3],
+    ) =>
+      run.tick === 540 ? null : original.spawnMob(run, type, order, carries),
   };
 });
 

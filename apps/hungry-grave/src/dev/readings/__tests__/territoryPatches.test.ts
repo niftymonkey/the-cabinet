@@ -39,7 +39,12 @@ function territoryRun(): RunState {
 
 /** A live mob standing still where the scan can see it. */
 function putMob(state: RunState, x: number, y: number): Mob {
-  const mob = spawnMob(state, 'shambler', { x, y, vx: 0, vy: 0, index: 0 })!;
+  const mob = spawnMob(
+    state,
+    'shambler',
+    { x, y, vx: 0, vy: 0, index: 0 },
+    false,
+  )!;
   mob.beat = 0;
   return mob;
 }

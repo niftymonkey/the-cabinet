@@ -9,7 +9,7 @@
  * independent capture rather than against its own output.
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
@@ -169,7 +169,16 @@ const RICH_LEVELS: Readonly<Record<WeaponLine, number>> = {
   wisps: 3,
   bell: 2,
 };
-const RICH_TICKS = 6000;
+/**
+ * Long enough that the fixture reaches the belch arm rather than only the
+ * lines. Power is metered by carriers (ADR 0002), so the reservoir fills at
+ * whatever rate the schedule and the wander together pay for: at 6000 ticks
+ * this run pressed the belch twice and both presses caught an empty radius, so
+ * the belch column it is here to attribute was measured over nothing. At 9000
+ * it presses four times and lands nine hits, and the run still has not sealed,
+ * which the ending assertion below depends on.
+ */
+const RICH_TICKS = 9000;
 const RICH_SPACING = 60;
 /** The ticks the rich fixture's expensive frames start at; zero pins the empty starting field. */
 const RICH_EXPENSIVE_TICKS = [0, 1200, 4500];
@@ -252,6 +261,17 @@ function richFixture(): RichRecording {
   richMemo ??= recordRichRun();
   return richMemo;
 }
+
+/**
+ * The rich recording is setup rather than a test, and it is billed here so
+ * that the first test to read it is not the one that pays for a nine thousand
+ * tick sim. Its own budget is generous because the suite runs its files in
+ * parallel: measured alone the recording takes about two seconds, and beside a
+ * full run of the other files it has taken over five.
+ */
+beforeAll(() => {
+  richFixture();
+}, 60_000);
 
 describe('measure', () => {
   it("reports damage under the arms the run's own lines name, the belch beside them", () => {

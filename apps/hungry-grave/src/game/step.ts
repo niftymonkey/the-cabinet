@@ -6,7 +6,7 @@ import {
   corpseHitbox,
   cullCorpses,
 } from './corpses';
-import { creditKill } from './drops';
+import { dropForCarrier } from './drops';
 import type { SimEvent } from './events';
 import { ageGrave, graveHitbox, hitGrave, moveGrave } from './grave';
 import { advanceBell } from './lines/bell';
@@ -111,13 +111,14 @@ const advanceLines = (state: RunState): SimEvent[] => {
 };
 
 /**
- * The deaths phase: the storm meeting the mobs, and every kill the tick made
- * counted against the price of the next drop.
+ * The deaths phase: the storm meeting the mobs, and the drop every carrier the
+ * tick killed leaves where it died (ADR 0002).
  *
  * It walks the tick's whole accumulated list of kills rather than only the ones
  * the overlap pass returned, because the bell resolves two phases earlier and a
- * kill is a kill: a price that depended on which weapon landed the last point of
- * damage would move a drop boundary for a reason no player could read.
+ * carrier is a carrier whatever killed it: power that arrived only when the
+ * right weapon landed the last point of damage would meter itself differently
+ * for a reason no player could read.
  *
  * One second-order consequence, stated here so nobody reads it later as a bug: a
  * bell kill's corpse exists before resolveSwallows runs, so it is swallowable
@@ -130,8 +131,8 @@ const resolveDeaths = (
   const struck = resolveStorm(state);
   const paid: SimEvent[] = [];
   for (const event of [...earlier, ...struck]) {
-    if (event.type !== 'mobKilled') continue;
-    paid.push(...creditKill(state, event.x, event.y));
+    if (event.type !== 'mobKilled' || !event.carried) continue;
+    paid.push(...dropForCarrier(state, event.x, event.y));
   }
   return [...struck, ...paid];
 };
@@ -172,7 +173,7 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   events.push(...resolveOverlaps(state));
   events.push(...resolveDeaths(state, events));
   events.push(...advanceCorpses(state));
-  cullMobs(state);
+  events.push(...cullMobs(state));
   cullShots(state);
   events.push(...cullCorpses(state));
   ageGrave(state.grave);

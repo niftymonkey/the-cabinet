@@ -58,13 +58,18 @@ function nextVolley(state: RunState) {
  * touch are the same thing and the count reads as the touch count.
  */
 function inTheColumn(state: RunState): Mob {
-  const mob = spawnMob(state, 'shambler', {
-    x: state.grave.x,
-    y: state.grave.y - state.grave.size,
-    vx: 0,
-    vy: 0,
-    index: 0,
-  })!;
+  const mob = spawnMob(
+    state,
+    'shambler',
+    {
+      x: state.grave.x,
+      y: state.grave.y - state.grave.size,
+      vx: 0,
+      vy: 0,
+      index: 0,
+    },
+    false,
+  )!;
   mob.beat = 0;
   return mob;
 }

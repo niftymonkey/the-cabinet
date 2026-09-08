@@ -49,7 +49,7 @@ function quietRun(seed = 9): RunState {
 
 /** A dead mob of the given type at a place the grave is nowhere near. */
 function killAt(state: RunState, type: MobType, x: number, y: number): Mob {
-  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
   mob.alive = false;
   return mob;
 }
@@ -194,13 +194,18 @@ describe('what a kill hands the corpse pool (#59)', () => {
   it('leaves the same corpse a kill through damageMob has always left', () => {
     // The seam moved and the corpse a player dives for did not, field by field.
     const state = quietRun();
-    const mob = spawnMob(state, 'revenant', {
-      x: 120,
-      y: 40,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
+    const mob = spawnMob(
+      state,
+      'revenant',
+      {
+        x: 120,
+        y: 40,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      },
+      false,
+    )!;
 
     damageMob(state, mob, MOB_TYPES.revenant.hp, 'bell');
 

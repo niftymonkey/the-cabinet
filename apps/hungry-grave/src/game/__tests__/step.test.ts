@@ -7,7 +7,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { stepping } from '../../dev/stepping';
 import { spawnCorpse } from '../corpses';
-import { priceOfNextDrop } from '../drops';
 import type { SimEvent } from '../events';
 import { graveHitbox } from '../grave';
 import type { Mob } from '../mobs';
@@ -70,8 +69,6 @@ function snapshot(run: RunState) {
           ? null
           : { ...run.lines.ring, struck: [...run.lines.ring.struck] },
     },
-    killsSinceDrop: run.killsSinceDrop,
-    dropsPaid: run.dropsPaid,
     drawn: {
       spawns: run.streams.spawns.drawn,
       drops: run.streams.drops.drawn,
@@ -197,13 +194,18 @@ function quietRun(seed = 21): RunState {
 
 /** A mob standing exactly on the grave, so this tick's overlap pass finds it. */
 function mobOnGrave(state: RunState, offsetY = 0): Mob {
-  const mob = spawnMob(state, 'shambler', {
-    x: state.grave.x,
-    y: state.grave.y + offsetY,
-    vx: 0,
-    vy: 1,
-    index: 0,
-  })!;
+  const mob = spawnMob(
+    state,
+    'shambler',
+    {
+      x: state.grave.x,
+      y: state.grave.y + offsetY,
+      vx: 0,
+      vy: 1,
+      index: 0,
+    },
+    false,
+  )!;
   // Past its beat, so it is not still flying an entry when the pass runs.
   mob.beat = 0;
   return mob;
@@ -235,13 +237,18 @@ describe('the tick order (dispatch 4 section 4.9)', () => {
     // ADR 0004 already leans by giving freshness a payout floor.
     const state = quietRun();
     const step = stepping(state);
-    const dead = spawnMob(state, 'shambler', {
-      x: state.grave.x,
-      y: state.grave.y,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
+    const dead = spawnMob(
+      state,
+      'shambler',
+      {
+        x: state.grave.x,
+        y: state.grave.y,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      },
+      false,
+    )!;
     dead.alive = false;
     leaveCorpse(state, dead);
     const corpse = state.corpses.find((each) => each.alive)!;
@@ -413,13 +420,18 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
     const state = quietRun();
     const step = stepping(state);
     state.lines.streamIn = 1;
-    const above = spawnMob(state, 'shambler', {
-      x: state.grave.x,
-      y: state.grave.y - state.grave.size - 4,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
+    const above = spawnMob(
+      state,
+      'shambler',
+      {
+        x: state.grave.x,
+        y: state.grave.y - state.grave.size - 4,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      },
+      false,
+    )!;
     above.beat = 0;
     above.hp = 1;
 
@@ -429,18 +441,17 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
     expect(typesOf(events)).toContain('mobKilled');
   });
 
-  it("credits every kill the tick made, the bell's included", () => {
+  it("pays for every carrier the tick killed, the bell's included", () => {
     const state = quietRun();
     const step = stepping(state);
     state.levels.bell = MAX_LEVEL;
     state.lines.tollIn = 1;
-    const victim = spawnMob(state, 'shambler', {
-      x: state.grave.x,
-      y: state.grave.y - 20,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
+    const victim = spawnMob(
+      state,
+      'shambler',
+      { x: state.grave.x, y: state.grave.y - 20, vx: 0, vy: 1, index: 0 },
+      true,
+    )!;
     victim.beat = 0;
     // Standing a little ahead of the grave rather than on it, because a toll
     // throws cones (ADR 0036) and a mob that drifts below the grave sits in
@@ -451,23 +462,27 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
     // expansion reaches it, so a full-health shambler survives by a sliver.
     victim.hp = 1;
 
+    // The deaths pass walks the tick's whole accumulated list of kills, and
+    // the bell resolves two phases before it, so a carrier the toll killed
+    // pays exactly as one the overlap pass killed does.
     let killed = 0;
+    let paid = 0;
     for (let tick = 0; tick < BELL_EXPAND_TICKS + 2; tick++) {
-      killed += typesOf(step(STILL)).filter(
-        (type) => type === 'mobKilled',
-      ).length;
+      const types = typesOf(step(STILL));
+      killed += types.filter((type) => type === 'mobKilled').length;
+      paid += types.filter((type) => type === 'dropSpawned').length;
     }
-    expect(killed).toBeGreaterThan(0);
-    expect(state.killsSinceDrop).toBe(killed);
+    expect(killed).toBe(1);
+    expect(paid).toBe(1);
   });
 });
 
 describe('a belch kill is a kill (Mark, 2026-08-22)', () => {
-  it('credits its wipe toward the next drop, so a belch into a dense wave spawns a drop on the same tick', () => {
+  it('pays for a carrier its burst killed, on the same tick', () => {
     // The reason the burst routes through damageMob rather than clearing the
     // pool: resolveDeaths walks the tick's own accumulated kills, the belch's
-    // included, so the eruption pays the drop economy instead of emptying the
-    // field of it.
+    // included, so the eruption pays the offer instead of emptying the field
+    // of it.
     //
     // The wave stands inside the burst rather than up the field, because ADR
     // 0008's split scoped the kill to a radius of the grave and a wave laid
@@ -475,15 +490,24 @@ describe('a belch kill is a kill (Mark, 2026-08-22)', () => {
     const state = quietRun();
     const step = stepping(state);
     state.reservoir = RESERVOIR_CAPACITY;
-    const wave = priceOfNextDrop(0);
+    const wave = 5;
+    // The carrier stands in the middle of the wave, so the burst that kills it
+    // kills four ordinary mobs on the same tick and exactly one of the five
+    // pays.
+    const carrier = 2;
     for (let index = 0; index < wave; index++) {
-      spawnMob(state, 'shambler', {
-        x: state.grave.x - 48 + index * 24,
-        y: state.grave.y - 40,
-        vx: 0,
-        vy: 1,
-        index,
-      })!.beat = 0;
+      spawnMob(
+        state,
+        'shambler',
+        {
+          x: state.grave.x - 48 + index * 24,
+          y: state.grave.y - 40,
+          vx: 0,
+          vy: 1,
+          index,
+        },
+        index === carrier,
+      )!.beat = 0;
     }
 
     const events = step({ move: { x: 0, y: 0 }, belch: true });
@@ -491,8 +515,8 @@ describe('a belch kill is a kill (Mark, 2026-08-22)', () => {
     expect(typesOf(events).filter((type) => type === 'mobKilled')).toHaveLength(
       wave,
     );
-    expect(typesOf(events)).toContain('dropSpawned');
-    expect(state.dropsPaid).toBe(1);
-    expect(state.killsSinceDrop).toBe(0);
+    expect(
+      typesOf(events).filter((type) => type === 'dropSpawned'),
+    ).toHaveLength(1);
   });
 });

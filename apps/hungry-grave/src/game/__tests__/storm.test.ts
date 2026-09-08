@@ -47,7 +47,7 @@ function stormRun(seed = 4): RunState {
 
 /** A live mob of a stated type, past its arriving beat. */
 function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
-  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
   mob.beat = 0;
   return mob;
 }

@@ -45,13 +45,18 @@ function armField(state: RunState, count: number): void {
 function fillField(state: RunState, count: number): Mob[] {
   const mobs: Mob[] = [];
   for (let index = 0; index < count; index++) {
-    const mob = spawnMob(state, 'shambler', {
-      x: 40 + index * 24,
-      y: 100,
-      vx: 0,
-      vy: 1,
-      index,
-    })!;
+    const mob = spawnMob(
+      state,
+      'shambler',
+      {
+        x: 40 + index * 24,
+        y: 100,
+        vx: 0,
+        vy: 1,
+        index,
+      },
+      false,
+    )!;
     mob.beat = 0;
     mobs.push(mob);
   }
@@ -60,7 +65,12 @@ function fillField(state: RunState, count: number): Mob[] {
 
 /** One mob standing still at a chosen point, past its arriving beat. */
 function putMobAt(state: RunState, x: number, y: number): Mob {
-  const mob = spawnMob(state, 'shambler', { x, y, vx: 0, vy: 0, index: 0 })!;
+  const mob = spawnMob(
+    state,
+    'shambler',
+    { x, y, vx: 0, vy: 0, index: 0 },
+    false,
+  )!;
   mob.beat = 0;
   return mob;
 }

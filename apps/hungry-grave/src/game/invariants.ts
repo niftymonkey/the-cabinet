@@ -74,8 +74,6 @@ const checkRunNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'grave.y', state.grave.y);
   checkFinite(faults, 'grave.size', state.grave.size);
   checkFinite(faults, 'grave.invulnerable', state.grave.invulnerable);
-  checkFinite(faults, 'killsSinceDrop', state.killsSinceDrop);
-  checkFinite(faults, 'dropsPaid', state.dropsPaid);
   checkFinite(faults, 'nextEntityId', state.nextEntityId);
 };
 

@@ -88,8 +88,6 @@ function fillPatch(run: RunState): void {
 function fillRun(run: RunState): void {
   run.score = 250;
   run.reservoir = 0.375;
-  run.killsSinceDrop = 3;
-  run.dropsPaid = 2;
   run.nextEntityId = 17;
   run.levels.skullStream = 2;
   run.levels.territory = 1;
@@ -125,6 +123,7 @@ function fillMob(run: RunState): void {
   mob.beat = 12;
   mob.fireIn = 33;
   mob.armed = true;
+  mob.carries = true;
 }
 
 function fillShot(run: RunState): void {
@@ -248,6 +247,11 @@ const ENTITY_CASES: readonly FieldCase[] = [
     path: 'mobs[].armed',
     move: (run) => void (run.mobs[0].armed = false),
     restore: (run) => void (run.mobs[0].armed = true),
+  },
+  {
+    path: 'mobs[].carries',
+    move: (run) => void (run.mobs[0].carries = false),
+    restore: (run) => void (run.mobs[0].carries = true),
   },
   {
     path: 'mobFire[].x',
@@ -418,16 +422,6 @@ const RUN_CASES: readonly FieldCase[] = [
     restore: (run) => void (run.ending = null),
   },
   {
-    path: 'killsSinceDrop',
-    move: (run) => void (run.killsSinceDrop += 1),
-    restore: (run) => void (run.killsSinceDrop -= 1),
-  },
-  {
-    path: 'dropsPaid',
-    move: (run) => void (run.dropsPaid += 1),
-    restore: (run) => void (run.dropsPaid -= 1),
-  },
-  {
     path: 'nextEntityId',
     move: (run) => void (run.nextEntityId += 1),
     restore: (run) => void (run.nextEntityId -= 1),
@@ -546,6 +540,7 @@ const FOLDED: readonly string[] = [
   'mobs[].beat',
   'mobs[].fireIn',
   'mobs[].armed',
+  'mobs[].carries',
   'mobFire[].x',
   'mobFire[].y',
   'mobFire[].vx',
@@ -579,8 +574,6 @@ const FOLDED: readonly string[] = [
   'score',
   'reservoir',
   'ending',
-  'killsSinceDrop',
-  'dropsPaid',
   'nextEntityId',
   'levels.skullStream',
   'levels.territory',
@@ -679,7 +672,26 @@ function undecided(paths: readonly string[]): string[] {
     .sort();
 }
 
+/**
+ * The two run fields the kill-priced drop table folded, retired with it when
+ * ADR 0002 was superseded on its power half. They are written down here and
+ * nowhere in production, because a retired field taken back into the fold is a
+ * silent witness change: nothing else in this file would name it.
+ */
+const RETIRED_RUN_FIELDS: readonly string[] = ['killsSinceDrop', 'dropsPaid'];
+
 describe('the closed field list', () => {
+  it('never takes a retired run field back', () => {
+    const walked = fieldPaths(fixture(), '');
+    expect(walked.filter((path) => RETIRED_RUN_FIELDS.includes(path))).toEqual(
+      [],
+    );
+    const listed = [...FOLDED, ...EXCLUDED_PATHS];
+    expect(listed.filter((path) => RETIRED_RUN_FIELDS.includes(path))).toEqual(
+      [],
+    );
+  });
+
   it('every nested field is either folded or excluded with a reason beside it', () => {
     const walked = fieldPaths(fixture(), '');
     expect(undecided(walked)).toEqual([]);

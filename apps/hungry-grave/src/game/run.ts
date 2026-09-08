@@ -5,7 +5,7 @@ import { createGrave } from './grave';
 import type { BellToll } from './lines/bell';
 import { BELL_PERIOD } from './lines/bell';
 import type { WeaponLine } from './lines/roster';
-import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
+import { BIRTHRIGHT, BIRTHRIGHT_LEVEL, WEAPON_LINES } from './lines/roster';
 import type { Patch } from './lines/territory';
 import { createTerritoryPool, TERRITORY_PERIOD } from './lines/territory';
 import type { Skull } from './lines/skullStream';
@@ -96,10 +96,6 @@ interface RunState {
   readonly patches: Patch[];
   readonly stage: StageState;
   readonly lines: LineState;
-  // Kills since the last drop was paid for, against the price of the next one (ADR 0002).
-  killsSinceDrop: number;
-  // How many drops this run has bought, which is the index into the price table.
-  dropsPaid: number;
   /**
    * The next entity id, only ever increasing. It is not cosmetic: the cap
    * policy has to be totally ordered to be deterministic, and a test that says
@@ -160,7 +156,7 @@ const birthrightLevels = (
     bell: 0,
   };
   for (const line of BIRTHRIGHT) {
-    if (roster.includes(line)) levels[line] = 1;
+    if (roster.includes(line)) levels[line] = BIRTHRIGHT_LEVEL;
   }
   return levels;
 };
@@ -238,8 +234,6 @@ const createRun = (
     patches: createTerritoryPool(),
     stage: createStage(),
     lines: startingLines(),
-    killsSinceDrop: 0,
-    dropsPaid: 0,
     nextEntityId: 1,
   };
 };

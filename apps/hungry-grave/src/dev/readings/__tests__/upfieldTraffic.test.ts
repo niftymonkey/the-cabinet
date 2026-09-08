@@ -55,7 +55,7 @@ const putMob = (
   y: number,
   type: MobType = 'shambler',
 ): Mob => {
-  const mob = spawnMob(run, type, { x, y, vx: 0, vy: 0, index: 0 });
+  const mob = spawnMob(run, type, { x, y, vx: 0, vy: 0, index: 0 }, false);
   if (mob === null) throw new Error('the mob pool refused a spawn');
   return mob;
 };

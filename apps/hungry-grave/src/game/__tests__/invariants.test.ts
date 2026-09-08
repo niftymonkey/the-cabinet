@@ -113,7 +113,7 @@ describe('the sim invariants', () => {
 
 /** A live mob a test can then break, at a place the grave is nowhere near. */
 function liveMob(state: RunState, x = 60, y = 100): Mob {
-  return spawnMob(state, 'shambler', { x, y, vx: 0, vy: 1, index: 0 })!;
+  return spawnMob(state, 'shambler', { x, y, vx: 0, vy: 1, index: 0 }, false)!;
 }
 
 describe('every check for the tick runs (ADR 0024)', () => {
@@ -455,8 +455,6 @@ function filledRun(): RunState {
 function fillRun(run: RunState): void {
   run.score = 250;
   run.reservoir = 0.375;
-  run.killsSinceDrop = 3;
-  run.dropsPaid = 2;
   run.nextEntityId = 16;
   run.levels.skullStream = 2;
   run.levels.territory = 1;
@@ -599,20 +597,6 @@ const NAN_CASES: readonly NanCase[] = [
     path: 'reservoir',
     poison: (run) => {
       run.reservoir = NaN;
-      return run;
-    },
-  },
-  {
-    path: 'killsSinceDrop',
-    poison: (run) => {
-      run.killsSinceDrop = NaN;
-      return run;
-    },
-  },
-  {
-    path: 'dropsPaid',
-    poison: (run) => {
-      run.dropsPaid = NaN;
       return run;
     },
   },

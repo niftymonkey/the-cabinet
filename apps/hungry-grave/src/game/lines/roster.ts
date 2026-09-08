@@ -15,6 +15,9 @@ const BIRTHRIGHT: readonly WeaponLine[] = ['skullStream'];
 
 const MAX_LEVEL = 5;
 
+// The level a birthright line is born at (ADR 0045). Every other line starts unowned, at zero.
+const BIRTHRIGHT_LEVEL = 1;
+
 /**
  * Whether every name is a line this build implements, and together they are a
  * roster a run could be born into (ADR 0043, ADR 0046).
@@ -39,5 +42,11 @@ const implementsLines = (names: readonly string[]): boolean => {
   return BIRTHRIGHT.every((line) => named.has(line));
 };
 
-export { WEAPON_LINES, BIRTHRIGHT, MAX_LEVEL, implementsLines };
+export {
+  WEAPON_LINES,
+  BIRTHRIGHT,
+  MAX_LEVEL,
+  BIRTHRIGHT_LEVEL,
+  implementsLines,
+};
 export type { WeaponLine };

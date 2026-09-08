@@ -160,7 +160,7 @@ const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
 
 // A mob put exactly where the script wants one, outside the stage's own rows.
 const put = (run: RunState, x: number, y: number): Mob | null => {
-  return spawnMob(run, 'shambler', { x, y, vx: 0, vy: 1, index: 0 });
+  return spawnMob(run, 'shambler', { x, y, vx: 0, vy: 1, index: 0 }, false);
 };
 
 /**
@@ -181,12 +181,12 @@ const reportUnplaceableVictim = (tick: number): void => {
  */
 const scriptedKills = (run: RunState, tick: number): number => {
   if (tick === GHOUL_AT) {
-    spawnMob(run, 'ghoul', { x: 120, y: 20, vx: 0, vy: 1, index: 0 });
+    spawnMob(run, 'ghoul', { x: 120, y: 20, vx: 0, vy: 1, index: 0 }, false);
     return 0;
   }
   if (tick === FILE_AT) {
     for (const order of place('file', FILE_COUNT, run.streams.spawns)) {
-      spawnMob(run, 'shambler', { ...order, x: FILE_X });
+      spawnMob(run, 'shambler', { ...order, x: FILE_X }, false);
     }
     return 0;
   }
@@ -278,6 +278,14 @@ const runScenario = (): ScenarioResult => {
  * checksum moved from -1401997495. The scenario contains no lay at this
  * cadence, so drawn.territory was already 0 and no other field moved, the two
  * kills included.
+ *
+ * Re-pinned for carriers (ADR 0002 superseded on its power half): the witness
+ * stopped folding killsSinceDrop and dropsPaid with the price table they
+ * belonged to, and started folding each live mob's carrier flag, so the
+ * checksum moved from 1634744137. Only the checksum moved. The scenario's two
+ * kills are both scripted mobs that carry nothing, so no drop is paid and
+ * drawn.drops stays 0, and the two ramp rows inside the 600 ticks carry a
+ * carrier each without drawing from any stream.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -306,7 +314,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 1634744137,
+  checksum: -1694949037,
 };
 
 export { runScenario, GOLDEN };

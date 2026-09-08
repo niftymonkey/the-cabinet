@@ -51,13 +51,20 @@ function putMob(
   y: number,
   type: MobType = 'shambler',
 ): Mob {
-  const mob = spawnMob(run, type, { x, y, vx: 0, vy: 0, index: 0 })!;
+  const mob = spawnMob(run, type, { x, y, vx: 0, vy: 0, index: 0 }, false)!;
   mob.beat = 0;
   return mob;
 }
 
 function killedEvent(mob: Mob): SimEvent {
-  return { type: 'mobKilled', id: mob.id, mob: mob.type, x: mob.x, y: mob.y };
+  return {
+    type: 'mobKilled',
+    id: mob.id,
+    mob: mob.type,
+    x: mob.x,
+    y: mob.y,
+    carried: mob.carries,
+  };
 }
 
 function territoryPulse(id: number): SimEvent {

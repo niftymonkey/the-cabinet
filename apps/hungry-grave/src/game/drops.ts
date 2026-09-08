@@ -1,41 +1,11 @@
-// The rising price of a drop, and the dice that pick which line it levels
-// (ADR 0002, ADR 0034).
+// The drop a carrier's death leaves, and the dice that pick which line it
+// levels (ADR 0002, ADR 0034).
 
 import { spawnDrop } from './corpses';
 import type { SimEvent } from './events';
 import type { WeaponLine } from './lines/roster';
 import { WEAPON_LINES } from './lines/roster';
 import type { RunState } from './run';
-
-/**
- * What each drop of a run costs, in kills.
- *
- * An authored table rather than a curve evaluated at runtime, for two reasons
- * and the second is the load-bearing one: a table is reviewable at a glance and
- * tunable per entry by the tuning dispatch, and Math.pow is an
- * implementation-approximated operation that ADR 0015 keeps out of the sim
- * entirely.
- *
- * Fitted to the authored stage's own supply of 268 trash mobs: a geometric ratio
- * of 1.24 from a base of 5 puts the tenth drop at 160 cumulative kills, the
- * eleventh at 203 and the twelfth at 256. Against 268 authored mobs that is the
- * concept doc's ten-to-twelve band produced the honest way, out of skill rather
- * than out of a die: a player who kills six mobs in ten gets ten drops and a
- * player who clears nearly everything gets twelve.
- */
-const DROP_PRICES: readonly number[] = [
-  5, 6, 8, 10, 12, 15, 18, 23, 28, 35, 43, 53,
-];
-
-/**
- * What the next drop costs. Past the last entry the price holds rather than
- * growing, because nothing in a tracer run can reach it and a rule nobody can
- * see is not worth inventing.
- */
-const priceOfNextDrop = (dropsPaid: number): number => {
-  const index = Math.min(Math.max(dropsPaid, 0), DROP_PRICES.length - 1);
-  return DROP_PRICES[index];
-};
 
 /**
  * The one drop of a run whose roll seeds rather than rolls over all four: the
@@ -59,8 +29,7 @@ const unownedLines = (state: RunState): readonly WeaponLine[] => {
  * opens a line the birthright does not carry; everything after it can go deep.
  *
  * The ordinal is a parameter rather than something read off the state, because
- * creditKill increments dropsPaid before it rolls: a bare comparison against
- * dropsPaid in here would be correct for a reason invisible at this seam.
+ * which drop of the run this is belongs to the caller that is paying for it.
  */
 const rollDropLine = (state: RunState, ordinal: number): WeaponLine => {
   const seeded = ordinal === SEEDING_DROP ? unownedLines(state) : [];
@@ -69,22 +38,16 @@ const rollDropLine = (state: RunState, ordinal: number): WeaponLine => {
 };
 
 /**
- * One kill counted against the price of the next drop, and the drop it buys.
+ * The drop a carrier leaves where it died (ADR 0002).
  *
- * It is called for every kill the tick produced, whatever killed it. Drops are
- * priced in kills and a kill is a kill: a price that depended on which weapon
- * landed the last point of damage would move a drop boundary for a reason no
- * player could read, and two runs would become different builds inside a minute.
+ * The ordinal is read off the drops stream's own cursor rather than counted on
+ * the run: rollDropLine draws from that stream exactly once per drop and
+ * nothing else in the sim draws from it at all, so the cursor already is how
+ * many drops this run has rolled.
  */
-const creditKill = (state: RunState, x: number, y: number): SimEvent[] => {
-  state.killsSinceDrop += 1;
-  if (state.killsSinceDrop < priceOfNextDrop(state.dropsPaid)) return [];
-  state.killsSinceDrop = 0;
-  state.dropsPaid += 1;
-  // dropsPaid counts the drops already paid for, so past the increment above it
-  // is the ordinal of the drop being paid for now: one on the run's first.
-  const ordinal = state.dropsPaid;
+const dropForCarrier = (state: RunState, x: number, y: number): SimEvent[] => {
+  const ordinal = state.streams.drops.drawn + 1;
   return spawnDrop(state, x, y, rollDropLine(state, ordinal));
 };
 
-export { priceOfNextDrop, rollDropLine, creditKill, DROP_PRICES };
+export { rollDropLine, dropForCarrier };

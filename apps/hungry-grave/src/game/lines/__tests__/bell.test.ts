@@ -38,7 +38,7 @@ function quietRun(seed = 12): RunState {
 }
 
 function put(state: RunState, type: MobType, x: number, y: number): Mob {
-  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
   mob.beat = 0;
   return mob;
 }

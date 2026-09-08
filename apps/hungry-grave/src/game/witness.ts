@@ -118,7 +118,7 @@ const foldMobs = (checksum: number, run: RunState): number => {
     if (!mob.alive) continue;
     next = fold(fold(fold(fold(next, mob.x), mob.y), mob.vx), mob.vy);
     next = fold(fold(fold(next, mob.hp), mob.beat), mob.fireIn);
-    next = fold(next, boolCode(mob.armed));
+    next = fold(fold(next, boolCode(mob.armed)), boolCode(mob.carries));
   }
   return next;
 };
@@ -238,11 +238,10 @@ const foldEntities = (checksum: number, run: RunState): number => {
   return foldPatches(next, run);
 };
 
-// The economy and the run's own totals, ADR 0002's drop pricing included.
+// The economy and the run's own totals.
 const foldTotals = (checksum: number, run: RunState): number => {
   let next = fold(fold(checksum, run.score), run.reservoir);
   next = fold(next, endingCode(run.ending));
-  next = fold(fold(next, run.killsSinceDrop), run.dropsPaid);
   return fold(next, run.nextEntityId);
 };
 

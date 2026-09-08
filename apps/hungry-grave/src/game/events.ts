@@ -119,6 +119,25 @@ interface MobKilled {
   readonly mob: MobType;
   readonly x: number;
   readonly y: number;
+  /**
+   * Whether this mob carried the offer (ADR 0002). It travels as a value on
+   * the event because the slot the carrier stood in is free the moment it
+   * dies, so a reader that went back to the mob would be reading whoever took
+   * the slot next.
+   */
+  readonly carried: boolean;
+}
+
+/**
+ * A carrier left the field unkilled (ADR 0048). It is a separate event from
+ * corpseLost and not a reuse of it: nothing was ever on the field to lose, and
+ * an instrument reading supply has to tell a carrier nobody killed from an
+ * offer nobody dived for.
+ */
+interface CarrierLost {
+  readonly type: 'carrierLost';
+  readonly mob: MobType;
+  readonly x: number;
 }
 
 // A mob put a shot on the field. The mob-fire sound, and ADR 0014's airborne-projectile instrument.
@@ -273,6 +292,7 @@ type SimEvent =
   | Sealed
   | Victory
   | MobKilled
+  | CarrierLost
   | MobFired
   | CorpseExpired
   | CorpseEvicted

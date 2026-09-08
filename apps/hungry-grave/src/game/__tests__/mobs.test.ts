@@ -83,7 +83,7 @@ function stormRun(seed = 4): RunState {
 
 /** A live mob of a stated type, past its arriving beat. */
 function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
-  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
   mob.beat = 0;
   return mob;
 }
@@ -201,7 +201,7 @@ describe('the arriving beat (ADR 0041)', () => {
     const step = stepping(state);
     // A V's arm arrives on a diagonal, which is the case where the beat bites.
     const arm = place('v', 2, state.streams.spawns)[0];
-    spawnMob(state, 'shambler', order(200, 11, arm.vx, arm.vy));
+    spawnMob(state, 'shambler', order(200, 11, arm.vx, arm.vy), false);
     const mob = only(state);
     const arriving = { vx: mob.vx, vy: mob.vy };
     expect(arriving.vx).not.toBe(0);
@@ -219,7 +219,7 @@ describe('the arriving beat (ADR 0041)', () => {
     for (const type of ['shambler', 'revenant'] as const) {
       const state = quietRun();
       const step = stepping(state);
-      spawnMob(state, type, order(200, MOB_TYPES[type].halfHeight));
+      spawnMob(state, type, order(200, MOB_TYPES[type].halfHeight), false);
       const mob = only(state);
       expect(mob.vx).toBe(0);
       expect(mob.vy).toBeCloseTo(MOB_TYPES[type].speed, 12);
@@ -235,7 +235,7 @@ describe('the arriving beat (ADR 0041)', () => {
     const step = stepping(state);
     const deep = -120;
     const arm = place('v', 2, state.streams.spawns)[0];
-    spawnMob(state, 'shambler', order(200, deep, arm.vx, arm.vy));
+    spawnMob(state, 'shambler', order(200, deep, arm.vx, arm.vy), false);
     const mob = only(state);
     const arriving = { vx: mob.vx, vy: mob.vy };
 
@@ -253,7 +253,7 @@ describe('the arriving beat (ADR 0041)', () => {
     const state = quietRun();
     const step = stepping(state);
     const arm = place('pincer', 2, state.streams.spawns)[0];
-    spawnMob(state, 'ghoul', order(200, 9, arm.vx, arm.vy));
+    spawnMob(state, 'ghoul', order(200, 9, arm.vx, arm.vy), false);
     const mob = only(state);
     expect(mob.vx).not.toBe(0);
     // Straight below, so the turn has nothing to correct and only the stored
@@ -270,7 +270,7 @@ describe('the ghoul (ADR 0016)', () => {
   it('always descends at least 1.35 times the scroll, so it can never climb or hold station', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, 'ghoul', order(120, 60));
+    spawnMob(state, 'ghoul', order(120, 60), false);
     const mob = only(state);
     // Level with the ghoul and far to the side, which is the heading that would
     // let it hold station if the floor were not there.
@@ -314,7 +314,7 @@ describe('the ghoul (ADR 0016)', () => {
 function ghoulRun(commitAt: number, contact: number): SimEvent[] {
   const state = quietRun();
   const step = stepping(state);
-  spawnMob(state, 'ghoul', order(state.grave.x, 400));
+  spawnMob(state, 'ghoul', order(state.grave.x, 400), false);
   const events: SimEvent[] = [];
   for (let tick = 0; tick < contact + 400; tick++) {
     events.push(...step(tick < commitAt ? STILL : RIGHT));
@@ -325,7 +325,7 @@ function ghoulRun(commitAt: number, contact: number): SimEvent[] {
 describe("a mob's death (ADR 0037)", () => {
   it('kills at or below zero health, frees the slot, leaves a corpse and reports the kill', () => {
     const state = quietRun();
-    spawnMob(state, 'shambler', order(200, 100));
+    spawnMob(state, 'shambler', order(200, 100), false);
     const mob = only(state);
 
     expect(damageMob(state, mob, MOB_TYPES.shambler.hp - 1, 'bell')).toEqual([
@@ -342,7 +342,14 @@ describe("a mob's death (ADR 0037)", () => {
     expect(mob.alive).toBe(false);
     expect(events).toEqual([
       { type: 'mobDamaged', id: mob.id, amount: 1, source: 'bell' },
-      { type: 'mobKilled', id: mob.id, mob: 'shambler', x: 200, y: 100 },
+      {
+        type: 'mobKilled',
+        id: mob.id,
+        mob: 'shambler',
+        x: 200,
+        y: 100,
+        carried: false,
+      },
     ]);
     const corpses = state.corpses.filter((corpse) => corpse.alive);
     expect(corpses).toHaveLength(1);
@@ -394,7 +401,7 @@ describe("a mob's death (ADR 0037)", () => {
   it('never kills a mob on contact and never leaves a corpse for one, however long the grave sits under it', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, 'shambler', order(state.grave.x, 300));
+    spawnMob(state, 'shambler', order(state.grave.x, 300), false);
     const mob = only(state);
     const events = run(step, 600);
     expect(types(events, 'graveHit').length).toBeGreaterThan(0);
@@ -407,7 +414,7 @@ describe("a mob's death (ADR 0037)", () => {
   it('culls a mob past the bottom edge, and it costs the player nothing', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, 'shambler', order(60, 700));
+    spawnMob(state, 'shambler', order(60, 700), false);
     const mob = only(state);
     const events = run(step, 200);
     expect(mob.alive).toBe(false);
@@ -416,12 +423,43 @@ describe("a mob's death (ADR 0037)", () => {
   });
 });
 
+describe('a carrier is told apart from the mob it rides in (ADR 0002)', () => {
+  it("reports carried on a killed carrier's death and never on an ordinary mob's", () => {
+    // The kill event is what the offer opens from, so the flag travels as a
+    // value on the event rather than as a look-up back at the mob: the slot
+    // the carrier stood in is free the moment it dies.
+    const state = quietRun();
+    const carrier = spawnMob(state, 'shambler', order(200, 100), true)!;
+    const trash = spawnMob(state, 'shambler', order(260, 100), false)!;
+
+    const carrierDeath = damageMob(state, carrier, carrier.hp, 'bell');
+    const trashDeath = damageMob(state, trash, trash.hp, 'bell');
+
+    expect(carrierDeath).toContainEqual({
+      type: 'mobKilled',
+      id: carrier.id,
+      mob: 'shambler',
+      x: 200,
+      y: 100,
+      carried: true,
+    });
+    expect(trashDeath).toContainEqual({
+      type: 'mobKilled',
+      id: trash.id,
+      mob: 'shambler',
+      x: 260,
+      y: 100,
+      carried: false,
+    });
+  });
+});
+
 describe('damage attribution (#48)', () => {
   it("reports every hit as mobDamaged carrying the mob's id, the amount and the source", () => {
     // The instrument joins damage to its dealer by these three fields; a hit
     // that leaves no mobDamaged is damage nobody dealt.
     const state = quietRun();
-    spawnMob(state, 'shambler', order(200, 100));
+    spawnMob(state, 'shambler', order(200, 100), false);
     const mob = only(state);
 
     const events = damageMob(state, mob, 1, 'bell');
@@ -435,7 +473,7 @@ describe('damage attribution (#48)', () => {
     // The kill's dealer is not on mobKilled; the join to the fatal mobDamaged
     // by id is what names it, so the pair must share the id and the order.
     const state = quietRun();
-    spawnMob(state, 'ghoul', order(200, 100));
+    spawnMob(state, 'ghoul', order(200, 100), false);
     const mob = only(state);
     const id = mob.id;
 
@@ -452,6 +490,7 @@ describe('damage attribution (#48)', () => {
       mob: 'ghoul',
       x: 200,
       y: 100,
+      carried: false,
     });
   });
 });
@@ -612,7 +651,7 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
     // Order 4 of a six-mob pincer is the left arm's deepest rank.
     const trailing = place('pincer', 6, state.streams.spawns)[4];
     expect(trailing.x).toBeLessThan(MOB_TYPES.shambler.halfWidth);
-    spawnMob(state, 'shambler', trailing);
+    spawnMob(state, 'shambler', trailing, false);
     const mob = only(state);
 
     // Entry from 63 above the field plus the beat plus the walk-in all fit
@@ -656,7 +695,7 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
     // The right arm's arriving direction heads left, outward at the left edge.
     const arm = place('pincer', 2, state.streams.spawns)[1];
     expect(arm.vx).toBeLessThan(0);
-    spawnMob(state, 'shambler', order(2, 11, arm.vx, arm.vy));
+    spawnMob(state, 'shambler', order(2, 11, arm.vx, arm.vy), false);
     const mob = only(state);
     const arriving = mob.vx;
 

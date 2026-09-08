@@ -75,7 +75,7 @@ function stormRun(seed = 4): RunState {
 
 /** A live mob of a stated type, past its arriving beat. */
 function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
-  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
   mob.beat = 0;
   return mob;
 }
@@ -112,7 +112,7 @@ describe('the armed share (ADR 0016)', () => {
     for (const count of [1, 2, 3, 6]) {
       const state = quietRun();
       for (const at of place('drip', count, state.streams.spawns)) {
-        spawnMob(state, 'shambler', at);
+        spawnMob(state, 'shambler', at, false);
       }
       const armed = state.mobs.filter((mob) => mob.alive && mob.armed);
       expect(`drip of ${count}: ${armed.length}`).toBe(
@@ -124,13 +124,13 @@ describe('the armed share (ADR 0016)', () => {
   it('arms every revenant and no ghoul', () => {
     const state = quietRun();
     for (const at of place('drip', 4, state.streams.spawns)) {
-      spawnMob(state, 'revenant', at);
+      spawnMob(state, 'revenant', at, false);
     }
     expect(state.mobs.filter((mob) => mob.alive && mob.armed)).toHaveLength(4);
 
     const ghouls = quietRun();
     for (const at of place('drip', 9, ghouls.streams.spawns)) {
-      spawnMob(ghouls, 'ghoul', at);
+      spawnMob(ghouls, 'ghoul', at, false);
     }
     expect(ghouls.mobs.filter((mob) => mob.alive && mob.armed)).toHaveLength(0);
   });
@@ -139,7 +139,7 @@ describe('the armed share (ADR 0016)', () => {
     for (const template of ['v', 'pincer'] as const) {
       const state = quietRun();
       const orders = place(template, 6, state.streams.spawns);
-      for (const at of orders) spawnMob(state, 'shambler', at);
+      for (const at of orders) spawnMob(state, 'shambler', at, false);
       const live = state.mobs.filter((mob) => mob.alive);
       const armedLeft = live.filter(
         (mob, index) => mob.armed && index % 2 === 0,
@@ -156,7 +156,7 @@ describe('the armed share (ADR 0016)', () => {
   it('never lets an unarmed shambler fire', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, 'shambler', order(200, 11, 0, 1, 0));
+    spawnMob(state, 'shambler', order(200, 11, 0, 1, 0), false);
     expect(only(state).armed).toBe(false);
     expect(types(run(step, 600), 'mobFired')).toHaveLength(0);
   });
@@ -166,7 +166,12 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
   it("lights a revenant's tell as it enters and lands its first shot at the end of the beat", () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, 'revenant', order(200, MOB_TYPES.revenant.halfHeight));
+    spawnMob(
+      state,
+      'revenant',
+      order(200, MOB_TYPES.revenant.halfHeight),
+      false,
+    );
     const mob = only(state);
     expect(hasEntered(mob)).toBe(true);
     expect(mobTellLit(mob)).toBe(true);
@@ -181,7 +186,12 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
   it("puts the same tell lead in front of every shot over a revenant's whole pass", () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, 'revenant', order(200, MOB_TYPES.revenant.halfHeight));
+    spawnMob(
+      state,
+      'revenant',
+      order(200, MOB_TYPES.revenant.halfHeight),
+      false,
+    );
     const mob = only(state);
     const lead = MOB_TYPES.revenant.fire.tellTicks;
 
@@ -208,7 +218,7 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
   it('spreads a File of armed shamblers with a per-mob offset, so it does not fire as one volley', () => {
     const state = quietRun();
     for (const at of place('file', 9, state.streams.spawns)) {
-      spawnMob(state, 'shambler', at);
+      spawnMob(state, 'shambler', at, false);
     }
     const armed = state.mobs.filter((mob) => mob.alive && mob.armed);
     expect(armed.length).toBe(3);
@@ -218,7 +228,12 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
   it("aims at the grave's centre at the moment of firing and never changes direction after", () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, 'revenant', order(120, MOB_TYPES.revenant.halfHeight));
+    spawnMob(
+      state,
+      'revenant',
+      order(120, MOB_TYPES.revenant.halfHeight),
+      false,
+    );
     const mob = only(state);
     run(step, ARRIVE_TICKS);
 
@@ -239,7 +254,12 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
   it('does not carry the scroll', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, 'revenant', order(200, MOB_TYPES.revenant.halfHeight));
+    spawnMob(
+      state,
+      'revenant',
+      order(200, MOB_TYPES.revenant.halfHeight),
+      false,
+    );
     run(step, ARRIVE_TICKS);
     const shot = state.mobFire.find((each) => each.alive)!;
     const from = shot.y;

@@ -30,20 +30,30 @@ describe('belch cadence', () => {
     // 0008's split, and both are past their arriving beat so the kill lands.
     const run = createRun(SEED);
     const near = [
-      spawnMob(run, 'shambler', {
-        x: run.grave.x - 30,
-        y: run.grave.y - 40,
-        vx: 0,
-        vy: 1,
-        index: 0,
-      })!,
-      spawnMob(run, 'ghoul', {
-        x: run.grave.x + 30,
-        y: run.grave.y - 40,
-        vx: 0,
-        vy: 1,
-        index: 1,
-      })!,
+      spawnMob(
+        run,
+        'shambler',
+        {
+          x: run.grave.x - 30,
+          y: run.grave.y - 40,
+          vx: 0,
+          vy: 1,
+          index: 0,
+        },
+        false,
+      )!,
+      spawnMob(
+        run,
+        'ghoul',
+        {
+          x: run.grave.x + 30,
+          y: run.grave.y - 40,
+          vx: 0,
+          vy: 1,
+          index: 1,
+        },
+        false,
+      )!,
     ];
     for (const mob of near) mob.beat = 0;
     for (let slot = 0; slot < LIVE_SHOTS; slot++) {

@@ -190,6 +190,12 @@ interface Mob {
   // Ticks until this mob's next shot, counted on the same trigger as the beat.
   fireIn: number;
   armed: boolean;
+  /**
+   * Whether this mob carries the offer (ADR 0002). Authored on the stage row
+   * and written once at the spawn, never directed: the director adds mobs and
+   * never carriers, which is what keeps density from buying a build.
+   */
+  carries: boolean;
 }
 
 const blankMob = (): Mob => {
@@ -205,6 +211,7 @@ const blankMob = (): Mob => {
     beat: 0,
     fireIn: 0,
     armed: false,
+    carries: false,
   };
 };
 
@@ -238,6 +245,7 @@ const spawnMob = (
   state: RunState,
   type: MobType,
   order: SpawnOrder,
+  carries: boolean,
 ): Mob | null => {
   const mob = takeSlot(state.mobs, state.nextEntityId);
   if (mob === null) return null;
@@ -252,6 +260,7 @@ const spawnMob = (
   mob.hp = row.hp;
   mob.beat = ARRIVE_TICKS;
   mob.armed = isArmed(row.fire.armedShare, order.index);
+  mob.carries = carries;
   mob.fireIn = mob.armed ? ARRIVE_TICKS + firstShotOffset(state, row.fire) : 0;
   return mob;
 };
@@ -389,6 +398,7 @@ const damageMob = (
     mob: mob.type,
     x: mob.x,
     y: mob.y,
+    carried: mob.carries,
   });
   const row = MOB_TYPES[mob.type];
   events.push(...spawnCorpse(state, mob, row.corpsePayout, row.corpseTier));
@@ -404,8 +414,13 @@ const damageMob = (
  * rate is slow by design, so it can carry a long way off screen before it comes
  * round. Off screen and unkillable is the same to the player as gone, and
  * leaving it live would let a mob wander arbitrarily far outside the field.
+ *
+ * A carrier culled unkilled reports itself (ADR 0048). It is the whole of what
+ * a missed carrier costs: nothing reaches after the player to make it up, so
+ * the report exists for the instruments and never for the rules.
  */
-const cullMobs = (state: RunState): void => {
+const cullMobs = (state: RunState): SimEvent[] => {
+  const events: SimEvent[] = [];
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     const row = MOB_TYPES[mob.type];
@@ -413,8 +428,13 @@ const cullMobs = (state: RunState): void => {
       mob.y - row.halfHeight > FIELD_HEIGHT ||
       mob.x < -SPAWN_MARGIN ||
       mob.x > FIELD_WIDTH + SPAWN_MARGIN;
-    if (gone) mob.alive = false;
+    if (!gone) continue;
+    mob.alive = false;
+    if (mob.carries) {
+      events.push({ type: 'carrierLost', mob: mob.type, x: mob.x });
+    }
   }
+  return events;
 };
 
 export {

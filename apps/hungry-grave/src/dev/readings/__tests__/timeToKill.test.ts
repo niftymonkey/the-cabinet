@@ -22,7 +22,7 @@ const SEED = 20260826;
 
 /** One mob standing inside the field, where the belch and the lines can reach it. */
 const standing = (run: RunState, type: MobType, x: number): Mob => {
-  const mob = spawnMob(run, type, { x, y: 200, vx: 0, vy: 1, index: 0 });
+  const mob = spawnMob(run, type, { x, y: 200, vx: 0, vy: 1, index: 0 }, false);
   if (mob === null) throw new Error('the mob pool refused a spawn');
   return mob;
 };

@@ -16,7 +16,7 @@ import { CORPSE_TIERS } from '../../../palette';
 import { FLICKER_HALF_PERIOD, freshnessBrightness } from '../foodSprite';
 
 function put(state: RunState, type: MobType, x: number, y: number) {
-  return spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  return spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
 }
 
 /**
