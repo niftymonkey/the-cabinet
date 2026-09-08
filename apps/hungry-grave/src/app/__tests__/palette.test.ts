@@ -6,6 +6,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 
 import { resize } from '../../engine/resize/resize';
@@ -828,4 +829,57 @@ describe('the source scan over the modules that draw during a run (ADR 0014)', (
   it.todo(
     'covers src/app/ui, whose widgets draw over the field and are dressed at #38',
   );
+});
+
+/**
+ * The stand-in art the grayscale import writes (`scripts/grayscale-import.ts`).
+ * Only this folder: the create-pixi UI art under raw-assets/main{m} is not pixel
+ * art and carries its own colour on purpose, so a fence over the whole of
+ * raw-assets would be a fence over a rule nobody made.
+ */
+const STAND_IN_ART = resolve(APP, '..', '..', 'raw-assets', 'standIn{m}');
+
+/** Every PNG under a path, including the ones in its subfolders. */
+const pngsUnder = (path: string): string[] => {
+  if (!existsSync(path)) {
+    throw new Error(
+      `${relative(APP, path)} does not exist: nothing has been imported`,
+    );
+  }
+  if (!statSync(path).isDirectory()) return path.endsWith('.png') ? [path] : [];
+  return readdirSync(path).flatMap((name) => pngsUnder(join(path, name)));
+};
+
+/**
+ * A grayscale pixel is one whose three channels agree, which `hsv` reports as
+ * saturation zero. Reading it through the app's own colour module rather than
+ * comparing bytes here is what makes this fence measure the same quantity every
+ * other test in this file measures.
+ */
+const huedPixelsIn = (file: string): string[] => {
+  const image = PNG.sync.read(readFileSync(file));
+  const hued: number[] = [];
+  for (let at = 0; at < image.data.length; at += 4) {
+    const hex =
+      (image.data[at] << 16) | (image.data[at + 1] << 8) | image.data[at + 2];
+    if (hsv(hex).s > 0) hued.push(at / 4);
+  }
+  if (hued.length === 0) return [];
+  const first = hued[0];
+  const where = `(${first % image.width}, ${Math.floor(first / image.width)})`;
+  return [
+    `${relative(STAND_IN_ART, file)}: ${hued.length} pixels carry a hue, the first at ${where}`,
+  ];
+};
+
+describe('the grayscale import over the stand-in art (#38, ADR 0014)', () => {
+  it('leaves no pixel with a hue in any sprite or tile it staged', () => {
+    // The source scan above reads modules for hex literals and cannot see a
+    // texture, and a PixiJS tint multiplies and so cannot move a hue. The purple
+    // and brown bans would therefore be unguarded on exactly the art they were
+    // written for unless something reads the pixels, and this is that test.
+    const files = pngsUnder(STAND_IN_ART);
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.flatMap(huedPixelsIn)).toEqual([]);
+  });
 });
