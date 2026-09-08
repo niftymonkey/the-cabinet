@@ -17,3 +17,6 @@ local/
 
 # Generated roadmap page and its build stamp, rebuilt from scripts/roadmap/v1.yaml.
 scripts/roadmap/build/
+
+# Raw asset packs staged for the V1 build. Never committed; only game-ready output is.
+apps/hungry-grave/assets-staging/

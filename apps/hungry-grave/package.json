@@ -15,8 +15,10 @@
   },
   "dependencies": {
     "@esotericsoftware/spine-pixi-v8": "^4.2.74",
+    "@neondatabase/serverless": "^1.1.0",
     "@pixi/sound": "^6.0.1",
     "@pixi/ui": "^2.2.2",
+    "@vercel/blob": "^2.8.0",
     "motion": "^12.4.7",
     "pixi.js": "^8.8.1"
   },

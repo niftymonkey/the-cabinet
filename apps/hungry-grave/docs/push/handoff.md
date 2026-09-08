@@ -1,0 +1,110 @@
+# Continue: The Hungry Grave
+
+> **Last updated:** 2026-09-08 (session 8)
+> **Branch:** `hungry-grave-v1`, a clean branch off `main`, in worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1`. The earlier branch with the cloud scaffolding (personal skills, a rules copy, raw asset packs, dry-run records) is archived locally as `hungry-grave-v1-cloud`; on origin it still sits under the name `hungry-grave-v1` until Mark rules on the remote naming (see "Needed from Mark" below).
+> **Working tree:** clean after the commit named in "Where we are".
+
+## FIRST ACTION: enter the worktree
+
+Run EnterWorktree with `path: /home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1` before anything else. The push records are the tracked copies in `apps/hungry-grave/docs/push/` (this file, `decisions.md`, `path-draft.md`, `pre-authorizations.md`, `open-tickets.md`, `v1-rethink-prompt.md`). The rules that bind the push are Mark's global configuration plus the `one-push-build-mode` memory (lean main thread, subagents on Opus or cheaper, the stuck rule, Discord for stuck notes only); nothing is duplicated on the branch any more. Mark's personal tally stays gitignored at the main checkout's `local/what-the-first-build-taught.md`. The raw asset packs sit gitignored at `apps/hungry-grave/assets-staging/` on disk in this worktree (a copy also lives on the archive branch). The isolation guard refuses writes to the main checkout and refuses compound Bash that mentions git, even inside quoted text; use plain separate commands and scripts written to the scratchpad.
+
+## Where we are (session 8, 2026-09-08)
+
+The done line is confirmed by Mark (2026-09-08, `pre-authorizations.md`). The build run is local and has started. The ADR step is done: ADRs 0048 to 0058 filed, 0002, 0034, 0036 rewritten in place, 0047 edited, the concept doc, VISION, the glossary, the learnings doc and the visible-ladder record swept, all three gates run and their fixes applied, committed as 8c43e70480. The branch was then rebuilt clean off `main` (Mark's call, 2026-09-08: the cloud-only files doubled every session's context) and the real work carried over: the push records, the two newest research records, the store clients and lockfile, the smoke script, the ignore lines. CodeRabbit reviewed that carry-over and its six findings are applied.
+
+### The next steps, in order
+
+1. **Tickets**, per `path-draft.md` "Ticket dispositions" and "New tickets to draft", under pre-authorization item 5: rewrite #85, #39, #31, #49, #72 and #86; close #67, #37 and #26 (check #26's fog list item by item first); move #38 and #47 off the road; add the notes to #81 and #68; create the new step tickets (progression, stage floor, harness, ladder unless folded into #72, store). Bodies carry problem and need only; approach in a follow-up comment. Use `gh issue view N --json title,body` (plain mode drops bodies). The gates already posted their ADR-step markers on #86.
+2. **Path step 1, progression mechanics**, as a coding dispatch to an Opus subagent under `docs/agents/feature-playbook.md`: spec tests from the ADRs first, then code; CodeRabbit CLI before the commit (`coderabbit review --agent -t uncommitted`); gates as relevant; `usage.sh` between waves. The bell cones are built inside this step.
+3. Steps 2 to 7 per `path-draft.md`, one writer at a time, to the done line.
+
+### Needed from Mark
+
+- **Remote naming.** Origin's `hungry-grave-v1` still holds the cloud history. Force-pushing and deleting remote branches are not pre-authorized. Options: push the clean branch under a new name (the pointer file on `main` then names a stale branch, harmless since it also names the worktree path); or Mark deletes or renames the remote branch himself and the clean branch is pushed as `hungry-grave-v1`. Until then the clean branch is unpushed.
+- **A new session** once the switch is committed, so the doubled skills and rules drop out of context (Mark asked for this, 2026-09-08).
+
+### Deferred by the tech gate to the store step (step 6 spec)
+
+A failed upload (an offline phone) is a state, not an error: the tape must survive locally until the store acknowledges it, because the store retires the only other way off the phone.
+
+### Settled this session (all Mark's, 2026-09-07)
+
+- **Deploys from the cloud are allowed** (item 4 stands). He minted a Vercel token with `vercel tokens add`; it is on the cloud environment.
+- **Item 7 (roadmap) struck.** No roadmap edits, no artifact republish. Tickets are the status source; he asks and the session reads them.
+- **Assets staged on the branch** under `apps/hungry-grave/assets-staging/`: 20 music loops converted to mp3 on his machine (`music/manifest.md` has names, durations, sizes; the pack had no license file), and the two pixel packs (`crawling-depths`, `scarymobs`) copied raw. The whole folder is removed before merge. Raw wav never enters git. Music craft note for the push: mp3 loop gaps are a known browser issue; the encoder wrote LAME headers, and the loop path should decode through the Web Audio API and trim by the header, measured before trusting it.
+- **itch.io is a sourcing path** via its API, verified on a free pack (three curl calls, in `pre-authorizations.md` item 9). Butler cannot fetch web-uploaded packs; a 2022 forum question on exactly that got no answer. Kenney zips are found by scraping the asset page for `kenney.nl/media/pages/assets/.../*.zip`.
+- **Cloud environment `hungry-grave`** exists and is unused; the dry-run records (`dry-run.md`, `dry-run-results.md`) live on the archive branch `hungry-grave-v1-cloud`.
+- **The bell arcs get built, option A**, inside path step 1, not only filed. Mark's reason: tuning against a starting weapon that is known to be wrong would tune the wrong game. The design is below.
+- **Weapon lines stay extensible**, a standing constraint in `path-draft.md`: tuning numbers are data rows keyed by line, the harness reports by line, policies never name a line, a fifth line is a module plus rows. The tech gate checks it.
+- **Personal skills** load from Mark's `~/.claude`; the branch carries none. `usage.sh` reads the local login and works here.
+
+### Decisions 1 to 6 (all Mark's, recorded nowhere but here until the ADR step)
+
+1. **The V1 line is redefined.** V1 is the concept proven as a game Mark can keep building. It is done when a real person's read of the game means something, and the read has happened. The line: *one stage, a final boss, tunable, played by a harness that moves, dodges, feeds and chooses in several styles, read by a person, on desktop and phone.* "Dressed" leaves the V1 line; Halloween art is a hope for later, not a promise, and Halloween as a date is not a focal point. This changes the box in `game-concept.md` and `v1_in_one_line` in `v1.yaml`.
+2. **Both systems get designed inside V1** (density and progression), and **the ladder gets made visible inside V1**, because without them a person's read is dice.
+3. **The playing harness is in V1, at the right place, not first.** A mechanism for the computer to play the game, dodge, power up, make choices, and test several variations before handing him a final human read. It measures, never says whether the game is fun; it runs the variations and Mark plays the winner. It runs many plays, repeated, faster than real time; human play data lands in the same place, told apart; automated play is never the only source of truth.
+4. **Progression first, then harness, then density.** Reasons: the harness needs a choice to exist; a wildcard pause is a hole in the pressure signal the director must know about. (The "tune the director twice" reason weakened once decision 10 cut the director out of power; the path draft keeps the order.)
+5. **The choice-sphere wildcard stays parked**, per ADR 0034. The density design carries one line, "a pause may exist."
+6. **Compass corrections** landed in 1fc7a5d06d. ADR 0047's "the tuning pass (#39) runs first and #85 carries the measurement" gets fixed at the ADR step to the path's order.
+
+Decisions 7 to 26 are in `decisions.md`. Wording rule from Mark: the game is bullet heaven with doses of bullet hell from bosses, said in that order. Progression's "tunable" closed without a ruling: the knobs are data tables, the read is the harness by style plus a person's pick when shown.
+
+### Research records (committed; each ends with an Open items list, do not re-search those)
+
+`docs/research/`: `shmup-stage-design.md`, `reward-delivery-models.md` (df5985fe0a), `director-precedent.md` (e00074fba2), `stage-length-with-a-director.md` (f97c318ee1), `director-knobs-and-signal.md` (d17462deb1), `playing-harness-precedent.md` (a6218d31e3), `visible-ladder-precedent.md` (41b7a5854c), `set-piece-and-final-boss-chunk.md` (602fb1cf19). Facts the push still needs: Fatshark deleted the near-kill term for Darktide (read damage and floor events, never nearby kills); the signal's constants get set once and what is retuned is gating and population; a deterministic policy needs one run per seed; relative difficulty is invariant to the policy, so a weak bot ranks correctly; no shipped game subtracts score on a hit.
+
+### Open play questions the push must answer (no ruling yet; craft calls unless they touch a rule)
+
+- Where human play data lands: friends' tapes and harness tapes in one store, told apart (header carries author, inputDevice, and the policy field from decision 17). Decision 21 put the store in place; the consent toggle wording is a craft call.
+- Which body wins when the grave covers two of the three offer bodies (the two-touch tie-break for the tape).
+- How fast a stripped player recovers at the thinner birthright; whether the gas becomes the new lean; whether boss patterns ever complete uncancelled.
+- Which offer body the base policy walks to (nearest, or lowest-level line); the per-line preference is the roster's territory.
+- Whether a stripped rung is a catchable field object (decision 18's open question; decision 20 says it falls as a body the dive can catch).
+
+### ADR-step touch list (from the grill; done 2026-09-08 in 8c43e70480, kept so the ticket sweep can check it)
+
+`game-concept.md` line 44 (stage clock, drain-out), line 64 (Undertaker's two chunks), the birthright sentence (ADR 0045 names it); VISION.md's "a boss arrives alone" boundary wording, the authored-stage bet and the "not a survivors game with a director" line (#86 owns those); ADR 0047's off-limits list and its ordering line; ADR 0002 and drops.ts's price table (decision 10); ADR 0034's spin wording (decision 8); `caps.ts` (decision 19); the visible-ladder record's unsourced "designer asked to avoid the glance" line (decision 18); ADR 0036 for the bell arcs. Ticket facts: #26's map is stale; #68's ruling and #26's gist still say "soul stream"; #37 lists "the wave director" as out of scope; use `gh issue view --json`, plain mode drops bodies. #31 names a tester; never ask Mark for tester names or dates. Roadmap facts kept for a later rebuild only: n85 and n86 have no `blocked_by`; p26 is superseded by ADR 0047.
+
+## The bell arcs, designed, to be built in path step 1 and recorded at the ADR step
+
+Mark's answers from 2026-08-31, recorded nowhere else (verbatim original in the main checkout's gitignored `local/design/bell-arcs.md`):
+
+- The clock and cadence stay. ADR 0036's core (timed pulse, damage falloff with distance) stands untouched. Only the shape changes: the 360° ring becomes cones, one forward at level 1, maybe 1-2-3-4-5 per level, wrapping toward the sides as they multiply, so max level earns "around me at field scale" back and never occupies "ahead of me".
+- Early level-1 blindness accepted knowingly; reach grows to compensate, damage and push concentrated. The push must be felt; the measured case: `BELL_PUSH_BY_LEVEL` `[0,0,0,0,20,40]`, #79 runs total push 42/51/0 field units, bell kills 4/3/2 of ~267.
+- Amplified self-starving accepted eyes-open; it feeds the storm by shoving mobs back into stream fire.
+- Exact angles, reach, push per level are tuning data, never ruled numbers.
+- The supersession must name: what replaced the ring wording (2026-08-27 pool ruling, restated in `weapon-pool-review.md`), what stood (timer, falloff, not-close-defence), what the old ruling could not have known (no repel reading until #79). Conditioned tapes at bell 4-5 via the committed recorder for tuning.
+
+## Open items with no other home
+
+1. **#82 open**: tape commit labels miss a dirty marker (`vite.config.ts:21`); candidate `git describe --always --dirty`.
+2. **#37 stays open deliberately** (boss stories 12-14, fog story 22) until the path's step 2 absorbs them.
+3. **540x760 records disagree** (`layout.test.ts:67`, `field.ts:4`, `CONTEXT.md:85`), docs-only fix pending.
+4. **Stamp-order trigger** on PR #84's stamp thread: a second output in `v1.yaml` `outputs:` moves the stamp into the hook. Dormant while roadmap edits are struck.
+5. **Stream flank narrowness**, Mark: "the edge thing could be an issue". Watch item, arithmetic in `soulStream.ts` JSDoc.
+6. **`local/grill/` at the main checkout is stale** (moved onto the branch 2026-09-07); Mark can delete it.
+7. **Config repo**: the rewritten `stay-within-limits` skill files are uncommitted at `/home/mlo/dev/niftymonkey/claude/skills/stay-within-limits/` (`usage.sh` there was synced with the branch copy 2026-09-07); the worktree guard blocks git there from this session.
+8. **Cloud push playbook** at https://md.niftymonkey.dev/v/NCQUpIOq (memory `cloud-push-playbook`); the three dry runs and the local ruling are its inputs when Mark next wants it refined.
+
+## Standing rules and facts, still true
+
+- **One-push build mode (Mark, 2026-09-07):** one autonomous push on one branch in its own worktree; CodeRabbit CLI before every code commit; gates as relevant; ADRs are my call, reviewed on the branch before merge. Memory `one-push-build-mode.md` carries the stuck rule and the lean rule in full.
+- **Stuck rule:** two failed honest attempts, or a decision only Mark can make, or an unauthorized irreversible step: stop the thread, write a stuck note (doing, two attempts and why each failed, one-sentence question), send it over Discord (`DISCORD_WEBHOOK_URL`, a curl POST with `{"content": ...}`), move to independent work; if none, write the handoff and pause. Discord only for stuck notes and the done message.
+- **Usage limits:** `stay-within-limits` thresholds: session and weekly-all caution 75 stop 85, Fable caution 85 stop 95; main thread lean by default. At a Fable stop, write the handoff, commit it, chain a new session on Opus.
+- **Cloud facts** (official docs, 2026-09-07) are recorded in this file's copy on the archive branch `hungry-grave-v1-cloud`; the cloud is not used for this run.
+- **Vercel:** Mark is locked out of the dashboard (2FA prompt, support ticket open) but the CLI login works and `vercel tokens add` minted a token. Project `hungry-grave`, org `team_rDwpau77qippLMDxVoyeq5Ev`; the worktree's `.vercel/` link and `.env.local` are gitignored copies. Phone deploy: `cd apps/hungry-grave && vercel build --prod && vercel deploy --prebuilt --prod`. Deploy deliberately stale at `6eb5cd1741` on hungry-grave.vercel.app.
+- **Store (provisioned and smoke-tested 2026-09-07):** Neon Postgres `hungry-grave-runs` and private Blob store `hungry-grave-tapes` (store_hnGloGEqUSe3V8Nx, iad1), keys in `.env.local`. Shape: rows in Neon (runs with header columns; readings keyed by run and computing build), gzipped bytes in Blob by run id (a real tape went 737 KB to 68 KB), one upload function used by the game at run end and by the harness. Read-after-write must pass `useCache: false` to `get(url, { access: 'private' })`. The clients (`@neondatabase/serverless`, `@vercel/blob`) are added by dry-run step 3.
+- **Assets, agreed:** mapping skeleton shambler, ghost revenant, cat ghoul, golem carrier, big ghost Banshee, tall figure Undertaker, eldritch thing for the set piece; the brown werewolves, bears, gorillas and zombies are out. Pixel art draws nearest-neighbour. Licenses: itch.io free packs, personal and commercial use. Asset location in the app is deferred by Mark to implementation time.
+- **Mark's operating rule (2026-08-28):** batch mechanical already-ruled work; stop only for a new product/architecture decision, an invariant conflict, scope expansion, or invalidating evidence. Commit, push, deploy, and merge each need their own explicit yes outside the pre-authorized list.
+- **Edit-in-place ADR pattern:** same question, new answer: rewrite the ADR in place, supersession note inside, filename slug follows the new title, number stays. New number only for a new question. Supersession convention: dated inline bold prose plus a what-stood / what-it-replaced / what-it-could-not-have-known triple. No YAML frontmatter anywhere.
+- **Commands:** conditioned tapes `pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out> <seed> <ticks> soulStream=N territory=N wisps=N bell=N`; measure `pnpm vite-node --config vite.headless.config.ts scripts/measure.ts <tape>`; tests `pnpm vitest run`; repo gate `pnpm verify`; only `pnpm typecheck` judges diagnostics. Local play: `cd apps/hungry-grave && pnpm build && pnpm exec vite preview`. Mark saves tapes to `/mnt/c/Users/markd/Downloads/*.tape`.
+- ADR set 0001-0047 canonical; no ADR carries a combat magnitude; a /to-spec spec lands as a comment on the existing ticket.
+- Reading big files: `cat` over roughly 30KB gets saved to a file; use the Read tool on the saved path. In zsh, a bare `echo ====` fails and `--include=*.ts` needs quoting. The scratchpad is per session; anything a later session needs goes into `apps/hungry-grave/docs/push/` on the branch.
+
+## How we got here, one line
+
+Sessions 1 to 6 (2026-08-31 to 2026-09-07) ran the V1 grill to 26 decisions with eight research records; session 7 (2026-09-07) reviewed the pre-authorization list with Mark, staged the assets, created the cloud environment and ran three dry runs that ended in the local ruling; session 8 (2026-09-08) confirmed the done line, filed the ADR step, and rebuilt the branch clean off `main`.
+
+## Suggested skills
+
+`/domain-modeling` for the ADR step (challenge terms against `CONTEXT.md`, record decisions as ADRs). `/triage` for the tickets (drafts to Mark first; body carries problem and need only). `/to-spec` output lands as a ticket comment. `/tdd` and `docs/agents/feature-playbook.md` bind any coding; dispatches go to subagents with the dispatch contract, and a non-coding dispatch prompt opens with "Non-coding dispatch:". `/stay-within-limits` between waves.

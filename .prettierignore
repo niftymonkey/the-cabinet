@@ -32,3 +32,6 @@ apps/hungry-grave/.assetpack/
 apps/hungry-grave/public/assets/
 apps/hungry-grave/src/manifest.json
 
+
+# Raw asset packs, gitignored, not ours to format.
+apps/hungry-grave/assets-staging/
