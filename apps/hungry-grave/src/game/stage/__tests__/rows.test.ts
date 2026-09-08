@@ -1,17 +1,41 @@
 /**
- * The stage's rows as data (ADR 0006), and the peak-arrivals query the corpse
- * cap is derived from (ADR 0056). Every assertion reads the tables themselves,
- * because the point of the query is that it moves with the rows.
+ * The stage's rows as data (ADR 0006), the peak-arrivals query the corpse cap
+ * is derived from (ADR 0056), and the carrier schedule the sections author
+ * (ADR 0002, ADR 0048). Every assertion reads the tables themselves, because
+ * the point of the query is that it moves with the rows.
  *
  * The permission cells live here too. ADR 0056 asks for ADR 0047's off-limits
  * moments as cells in the phase's and the row's own data rather than as
  * conditions in code, so what proves it is a test that reads the tables and
  * calls nothing.
+ *
+ * One test in the file plays a run instead of reading a table, and the tables
+ * are still its subject. What the schedule promises is about a run: that a
+ * player who kills every carrier before the set piece holds a full build. That
+ * cannot be read off the rows, because how much a carrier pays is the offer's
+ * business, so the run is the fixture and the number of carriers each section
+ * authors is what is under test.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import { carrierRow } from '../../carriers';
+import rowsSource from '../rows.ts?raw';
+
+import {
+  carrierRow,
+  carriersForFullBuild,
+  carriersScheduled,
+} from '../../carriers';
+import { stepping } from '../../../dev/stepping';
+import { TICK_HZ } from '../../clock';
+import type { TickCommand } from '../../command';
+import type { Corpse } from '../../corpses';
+import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../lines/roster';
+import type { Mob } from '../../mobs';
+import { damageMob, hasEntered } from '../../mobs';
+import type { RunState } from '../../run';
+import { createRun } from '../../run';
+import { SIZE_START } from '../../tuning';
 import type { StageRow } from '../rows';
 import {
   BOSS_ADD_ALLOWANCE,
@@ -66,6 +90,166 @@ const sparseIn = (rows: readonly StageRow[]): readonly StageRow[] =>
 const boundaryAfter = (name: string): Phase =>
   PHASES[PHASES.findIndex((each) => each.name === name) + 1];
 
+/**
+ * How many carriers a table's rows put on the field, counted through
+ * carriers.ts's own placement rule rather than off the flags, so the count is
+ * the one the stage actually spawns.
+ */
+const carriersIn = (rows: readonly StageRow[]): number =>
+  rows.reduce(
+    (total, row) => total + carrierRow(row.carries, row.count).carrying.length,
+    0,
+  );
+
+/** Every Drip in a table that carries the offer, which is none of them. */
+const dripsCarryingIn = (rows: readonly StageRow[]): string[] =>
+  rows
+    .filter((row) => row.template === 'drip' && row.carries)
+    .map((row) => `drip at t=${row.t}`);
+
+/**
+ * Anything in a source that would name which placement of a row carries. A row
+ * says that it pays and never who pays it (ADR 0002), so an index in the tables
+ * or a reach into the module that holds the rule is the failure this catches.
+ */
+const placementNamesIn = (source: string): string[] =>
+  ['carrying', "from '../carriers'"].filter((named) => source.includes(named));
+
+const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
+
+/** The phase the Procession's and the Crowd's carriers all stand before. */
+const WAKING = PHASES.findIndex((phase) => phase.name === 'waking');
+
+/**
+ * A ceiling on the ticks the two sections before the set piece can take, at
+ * twice their own authored length. It is a budget that stops a broken run
+ * looping forever and never a prediction of where the boundary falls, which is
+ * the stage's own to decide.
+ */
+const TO_THE_WAKING_TICKS =
+  2 * TICK_HZ * (PROCESSION_ROWS.at(-1)!.t + CROWD_ROWS.at(-1)!.t);
+
+/**
+ * The seeds the full-build run is read on. More than one because the offer's
+ * options are drawn from a seeded stream, and a schedule that paid a full build
+ * on one draw and not on another would be paying by luck; three rather than a
+ * larger set because each seed is a whole run of two sections. Eight were run
+ * when the test was written and every one of them paid the same build.
+ */
+const REACHES_A_FULL_BUILD: readonly number[] = [101, 202, 303];
+
+/**
+ * A carrier put one point from death under a skull of its own, so the sim's own
+ * deaths phase kills it and the offer opens where it died. A kill the test made
+ * outside the tick would pay nothing, because a carrier's offer is opened by
+ * step.ts over the tick's own kills.
+ */
+const armForTheStorm = (state: RunState, mob: Mob): void => {
+  const skull = state.skulls.find((each) => !each.alive);
+  if (skull === undefined) return;
+  mob.hp = 1;
+  skull.alive = true;
+  skull.id = state.nextEntityId;
+  state.nextEntityId += 1;
+  skull.x = mob.x;
+  skull.y = mob.y;
+  skull.vx = 0;
+  skull.vy = 0;
+};
+
+/**
+ * The grave held immortal at its starting size. This test is about what the
+ * schedule pays, and a grave left to be ground down would seal shut long before
+ * the set piece and stop the stage's clock with it.
+ */
+const holdTheGrave = (state: RunState): void => {
+  if (state.ending === 'sealed') state.ending = null;
+  state.grave.size = SIZE_START;
+};
+
+/**
+ * Whether the sections still owe the hand something they authored: a carrier
+ * alive on the field, an offer standing, or an offer banked behind it.
+ */
+const stillOwed = (state: RunState): boolean =>
+  state.mobs.some((mob) => mob.alive && mob.carries) ||
+  state.offer !== null ||
+  state.bankedOffers > 0;
+
+/**
+ * The body of the live offer the grave is going for, or null when nothing is
+ * offered. The first standing body rather than a chosen one, because which
+ * option a hand takes is ADR 0034's question and not the schedule's.
+ */
+const bodyOffered = (state: RunState): Corpse | null => {
+  const offer = state.offer;
+  if (offer === null) return null;
+  return (
+    state.corpses.find(
+      (body) => body.alive && offer.bodyIds.includes(body.id),
+    ) ?? null
+  );
+};
+
+interface Reached {
+  /** Every carrier the run killed, counted off the sim's own kills. */
+  readonly carriersKilled: number;
+  /** Every offer the hand took, counted off the sim's own takes. */
+  readonly taken: number;
+  readonly state: RunState;
+}
+
+/**
+ * The run up to the set piece under a hand that kills every carrier and takes
+ * every offer their deaths pay.
+ *
+ * It runs on past the boundary while a carrier is still standing, because the
+ * Crowd's last row fires on the tick that section's rows run out: its bodies
+ * are met a moment inside the Waking, which is still long before anything of
+ * the set piece is on the field.
+ *
+ * Carriers die inside the tick, under a skull each; everything else is killed
+ * the way the sharp hand kills, so the field clears and the sections reach their
+ * own boundaries. The take is the game's own: the grave is put over a body of
+ * the live offer and the swallow does the rest, because a take that skipped the
+ * swallow would leave the body it took standing on the field.
+ */
+const playToTheWaking = (seed: number): Reached => {
+  const state = createRun(seed);
+  const step = stepping(state);
+  let carriersKilled = 0;
+  let taken = 0;
+
+  for (
+    let tick = 0;
+    tick < TO_THE_WAKING_TICKS &&
+    (state.stage.phaseIndex < WAKING || stillOwed(state));
+    tick++
+  ) {
+    for (const mob of state.mobs) {
+      if (mob.alive && mob.carries && hasEntered(mob)) {
+        armForTheStorm(state, mob);
+      }
+    }
+    const body = bodyOffered(state);
+    if (body !== null) {
+      state.grave.x = body.x;
+      state.grave.y = body.y;
+    }
+
+    for (const event of step(STILL)) {
+      if (event.type === 'mobKilled' && event.carried) carriersKilled += 1;
+      if (event.type === 'offerTaken') taken += 1;
+    }
+    holdTheGrave(state);
+    for (const mob of state.mobs) {
+      if (!mob.alive || mob.carries || !hasEntered(mob)) continue;
+      damageMob(state, mob, mob.hp, BIRTHRIGHT[0]);
+    }
+  }
+  return { carriersKilled, taken, state };
+};
+
 describe('the peak-arrivals query (ADR 0056)', () => {
   it('reports the most bodies the stage can put on the field inside a window', () => {
     // The densest ten seconds in the authored tables is the Crowd's four rows
@@ -114,7 +298,11 @@ describe('the peak-arrivals query (ADR 0056)', () => {
 
 describe('the section tables as data (ADR 0006)', () => {
   it("puts every row's carrier inside that row's own count", () => {
-    expect(EVERY_ROW.filter((row) => row.carries).length).toBeGreaterThan(0);
+    // Every section pays, so the rule is read against all three tables rather
+    // than against whichever one happens to carry.
+    for (const rows of SECTIONS) {
+      expect(rows.filter((row) => row.carries).length).toBeGreaterThan(0);
+    }
     expect(carrierFaultsIn(EVERY_ROW)).toEqual([]);
 
     // The rule can see a bad row, so the empty list above is a pass rather than
@@ -248,5 +436,114 @@ describe("the director's off-limits cells, as data (ADR 0047, ADR 0056)", () => 
       offLimits,
     );
     expect(cells.every((cell) => /(true|false)$/.test(cell))).toBe(true);
+  });
+});
+
+describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => {
+  it('stands more carriers on the stage than a full build costs, and keeps the surplus last', () => {
+    // ADR 0048: "it holds more carriers than a full build needs, so missing one
+    // costs a step rather than the run." The schedule the stage authors is what
+    // has to hold that, because slack that lives only in the derivation absorbs
+    // nothing.
+    expect(carriersIn(EVERY_ROW)).toBeGreaterThanOrEqual(carriersScheduled());
+
+    // Front-loaded: everything a full build costs stands before the set piece,
+    // and what the Vigil holds is the slack that makes a miss cost a step
+    // rather than the run.
+    const beforeTheWaking =
+      carriersIn(PROCESSION_ROWS) + carriersIn(CROWD_ROWS);
+    expect(beforeTheWaking).toBeGreaterThanOrEqual(carriersForFullBuild());
+    expect(carriersIn(VIGIL_ROWS)).toBeGreaterThanOrEqual(
+      carriersScheduled() - carriersForFullBuild(),
+    );
+
+    // The count is the tables' own and not a constant's: a stage whose rows all
+    // say they pay nothing falls short, so the assertions above are a pass
+    // rather than an empty set.
+    const paying = EVERY_ROW.map((row) => ({ ...row, carries: false }));
+    expect(carriersIn(paying)).toBeLessThan(carriersScheduled());
+  });
+
+  it("stands the Procession's carriers on File and V rows and never on a Drip", () => {
+    // The run's first tell and its first offer are two different bodies rather
+    // than one body doing both jobs, and the first kill of the run teaches the
+    // swallow. Both of those are Drips, so no Drip in the section pays.
+    expect(dripsCarryingIn(PROCESSION_ROWS)).toEqual([]);
+    const carrying = PROCESSION_ROWS.filter((row) => row.carries);
+    expect([...new Set(carrying.map((row) => row.template))].sort()).toEqual([
+      'file',
+      'v',
+    ]);
+
+    const opening = PROCESSION_ROWS[0];
+    expect(
+      `${opening.template} at t=${opening.t} carries ${opening.carries}`,
+    ).toBe(`drip at t=${opening.t} carries false`);
+    const tell = PROCESSION_ROWS.find((row) => row.type === 'revenant')!;
+    expect(`${tell.template} at t=${tell.t} carries ${tell.carries}`).toBe(
+      `drip at t=${tell.t} carries false`,
+    );
+
+    // The rule can see a Drip that pays, so the empty list above is a pass.
+    expect(
+      dripsCarryingIn([
+        {
+          t: 0,
+          template: 'drip',
+          count: 1,
+          type: 'revenant',
+          carries: true,
+          directed: true,
+        },
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it('says only that a row carries, and leaves which placement holds the offer to carriers.ts', () => {
+    // A row naming its own carrying index would be a second answer to a
+    // question carriers.ts already answers, and the two would drift. Every row
+    // of every table declares the same six fields and no more.
+    const shapes = [
+      ...new Set(EVERY_ROW.map((row) => Object.keys(row).sort().join(' '))),
+    ];
+    expect(shapes).toEqual(['carries count directed t template type']);
+    for (const row of EVERY_ROW) {
+      expect(`${row.template} at t=${row.t}: ${typeof row.carries}`).toBe(
+        `${row.template} at t=${row.t}: boolean`,
+      );
+    }
+
+    // And the module says the same in its own source: it names no placement and
+    // never reaches for the module that holds the rule.
+    expect(placementNamesIn(rowsSource)).toEqual([]);
+    expect(placementNamesIn('{ carries: true, carrying: [2] }')).not.toEqual(
+      [],
+    );
+
+    // The one answer, from the one module that gives it.
+    expect(carrierRow(true, 6).carrying).toEqual([3]);
+    expect(carrierRow(false, 6).carrying).toEqual([]);
+  });
+
+  it('pays a full build to a run that kills every carrier before the set piece', () => {
+    // Decision 10's condition, in Mark's words: a player who kills every
+    // carrier reaches the storm well before the boss. Read on a run rather than
+    // off the tables, because how much a carrier pays is the offer's business
+    // and a maxed line is never offered.
+    for (const seed of REACHES_A_FULL_BUILD) {
+      const run = playToTheWaking(seed);
+
+      expect(`seed ${seed} killed ${run.carriersKilled}`).toBe(
+        `seed ${seed} killed ${
+          carriersIn(PROCESSION_ROWS) + carriersIn(CROWD_ROWS)
+        }`,
+      );
+      expect(`seed ${seed} took ${run.taken}`).toBe(
+        `seed ${seed} took ${carriersForFullBuild()}`,
+      );
+      expect(
+        WEAPON_LINES.map((line) => `${line} ${run.state.levels[line]}`),
+      ).toEqual(WEAPON_LINES.map((line) => `${line} ${MAX_LEVEL}`));
+    }
   });
 });
