@@ -1,6 +1,6 @@
-# Step 1 progress: after slice 6
+# Step 1 progress: after slice 7
 
-Written for the agent taking slice 7. The plan is `docs/design/step-1-progression-dispatch.md`; everything below is what it does not say or what has moved since it was written.
+Written for the agent taking slice 8. The plan is `docs/design/step-1-progression-dispatch.md`; everything below is what it does not say or what has moved since it was written.
 
 ## 1. Slices committed
 
@@ -13,6 +13,7 @@ Written for the agent taking slice 7. The plan is `docs/design/step-1-progressio
 | 4 | `7476ce1c70` | feat(hungry-grave): freshness pays each line in its own currency (#96) |
 | 5 | `cc8b87f496` | feat(hungry-grave): the belch splits into a field-wide gas and a local burst (#96) |
 | 6 | `b93d68913d` | feat(hungry-grave): the bell throws cones that widen per level (#96) |
+| 7 | `d06246c681` | feat(hungry-grave): carriers meter power and a missed carrier is missed (#96) |
 
 Slice 0 recorded the baseline tapes and made no commit.
 
@@ -23,6 +24,7 @@ Slice 0 recorded the baseline tapes and made no commit.
 - Slice 3: two fields, `levels.territory` 1 to 0 and `checksum` -1401997495 to 1634744137. Every other field held, the two kills included. `drawn.territory` was already 0 because the 832-tick cadence contains no lay in a 600-tick scenario.
 - Slice 4: no move, and this one is worth knowing rather than assuming. The scenario's surge had already been spent by tick 600 (`lines.surgeVolleys` is 0 at the fold) and its one swallowed corpse was fresh, so the fold cannot see freshness-scaled volleys at all. The golden digest is blind to slice 4, and the bot test is what caught it instead.
 - Slice 5: no move. The scenario never belches.
+- Slice 7: one field, `checksum` 1634744137 to -1694949037. Every other field held, the two kills and `drawn.drops` 0 included. The move is the fold's own: it stopped folding `killsSinceDrop` and `dropsPaid` and started folding each live mob's `carries`. The scenario's two kills are scripted mobs that carry nothing, so no drop is paid, and the two ramp rows inside the 600 ticks carry a carrier each without drawing from any stream.
 - Slice 6: no move, and `src/dev/digest.ts` is not in the slice's diff at all. The scenario's `levels.bell` is 0, so it never tolls and the fold cannot see the cones. What caught the slice's behaviour instead was `step.test.ts` and the bot test, both below.
 
 ## 3. CodeRabbit
@@ -136,3 +138,45 @@ Commit `b93d68913d`, twelve files, the two gate corrections in the same commit a
 **Two things for the harness at step 4, neither in scope here.** Level one answers a ninety-degree wedge dead ahead while the ramp's waves close on the grave at about seventy degrees either side, so a level-one toll in a played run may rarely touch anything; and level five's 25.34 against #79's 42 and 51 is a shorter run rather than a weaker bell, since these runs seal at a fifth of the tick count. The rows are all initial and both readings are the harness's to move.
 
 **For slice 7.** Nothing in the bell blocks it. `mobs.ts` was not edited and `spawnMob`'s signature is untouched, and the only file slice 7 shares with slice 6 is `bot.test.ts`, where the drop band at `bot.test.ts:294-295` is still slice 7's to rewrite and `REACHES_VICTORY_FROM_THE_CEILING` is now `[]` rather than `[303]`.
+
+## 10. Slice 7, carriers without the offer
+
+Commit `d06246c681`, 41 files, gate correction 3 landed in the plan file in the same commit. `pnpm typecheck`, `pnpm vitest run` (108 files, 1365 passed, 10 expected fail, 3 todo), `pnpm lint` and the repo-root `pnpm format:check` all green. Section 2 above carries the GOLDEN move, which is the checksum alone.
+
+**The schedule holds 25 carriers, which is `carriersScheduled()` exactly.** `carriersForFullBuild()` is 19, derived as the plan says, and `CARRIER_SLACK` is 1.3 rounded up because a schedule holds whole carriers. Fifteen carrying rows in the ramp and ten in the back half, roughly one every seven seconds of authored time, with the run's first row carrying so the first offer is not a long wait. Four rows are held clear with the reason on the table: the three teaching Drips at t=14, t=42 and t=62, and the back half's Wall. The whole column is initial and step 2 owns the authored schedule.
+
+**The tint is `PALETTE.drop`, `src/app/palette.ts:160`, `0xd8a941` at luma 67.25 and hue 41.** Treasure's own colour, which is what the mob is carrying. It is under the field ceiling of 68 and far under the 88 mob fire reserves, it is outside fire's 20 to 39 hue exclusion, it is 85 hue degrees off a mob body and it is not the notch's `foodOutline`. `mobSprite.ts` grew `mobBodyColour(mob)` and `mobLook` grew the flag, so the sprite is still a dumb view and the driver still diffs on the look string. Three module tests hold it: the flag reaches the render data and the sprite fills from it, the mark adds no shape to any type's silhouette (a deliberate-absence guard against the ring), and the colour satisfies ADR 0014's declared bounds on every mob type.
+
+**Where slice 8 replaces exactly one call.** `resolveDeaths` in `step.ts` walks the tick's accumulated kills and calls `dropForCarrier(state, event.x, event.y)` on each `mobKilled` whose `carried` is true. That one call is the whole of the old-style drop: `dropForCarrier` lives in `drops.ts`, rolls the line through `rollDropLine` and spawns one body through `corpses.ts`'s `spawnDrop`. Replacing it with `openOffer` retires `drops.ts` entirely, which is what the plan's slice 8 already says.
+
+**The drop ordinal is now derived rather than stored.** `dropsPaid` is gone, so `dropForCarrier` reads `state.streams.drops.drawn + 1` as the ordinal, with the constraint on the function: `rollDropLine` draws from that stream exactly once per drop and nothing else in the sim draws from it at all. `invariants.ts:189` reads the same cursor for NaN and is the only other reader. Slice 8's offer will not need the ordinal at all, because ADR 0034's fixed first offer replaces the seeding drop it exists for.
+
+**Plan claims found false against the tree: one, and it is a self-contradiction rather than a claim about the code.** Section 8's carrier craft call keyed the carrier to `SpawnOrder.index` on the arming precedent while stating one carrier per carrying row in the same sentence. On the two mirrored templates that index is the rank within an arm, repeated once per arm on purpose (`templates.ts:137,157`), so a V or a Pincer would have carried two. The row rule keys off the position in the row's placement order instead, which is what section 4's own seam comment says ("indices into the stage row's placement order"), and section 8 now says so too with the reason.
+
+**Two seam deviations, both recorded rather than quiet.** `roster.ts` gained `BIRTHRIGHT_LEVEL`, because the plan's own derivation names it and `carriers.ts` may not import `run.ts` (`stage.ts` imports `carriers.ts` and `run.ts` imports `stage.ts`, so it would close a cycle); `run.ts` reads it too, so the level a birthright line is born at now has one declaration. And spec tests 1 and 2 landed in `carriers.test.ts` rather than in `offer.test.ts`, because in this slice they are the carrier rule and `offer.ts` does not exist yet; move them when slice 8 takes ownership of the sentence.
+
+**CodeRabbit, `-t uncommitted`, two findings.**
+
+- Minor, `src/dev/__tests__/digest.test.ts:24`, applied. The mock over `spawnMob` forwarded a hard `false` for the new fourth argument, so every mob in that test's scenario silently stopped carrying. Real, and the sort of thing only a reviewer reading the mock would catch.
+- Minor, `src/game/events.ts:137`, declined. Give `carrierLost` a `y` beside its `x`. The seam is dispatched as `{ mob, x }` in the plan's section 4, no reader needs a position at all today, and the cited-future rule is what settles it: whoever builds the missed-supply reading adds the field with its caller named. A lost carrier's position is also the awkward half of the argument, since a bottom cull's `y` is off-field by construction and a side cull's `x` is.
+
+**Verification step 6, the carrier half, two conditioned runs.** Seed 2093383922, 12000 ticks asked for, `territory=0 wisps=0 bell=0`, both tapes and their measurements in the scratchpad (`slice7-carriers.tape`, `slice7-carriers-s5.tape`).
+
+| Run | Ticks | Kills | Carrier kills | Drops | `carrierLost` | Faults |
+| --- | --- | --- | --- | --- | --- | --- |
+| `skullStream=1` | 1746 | 3 | 2 | 2 | 0 | 0 |
+| `skullStream=5` | 2554 | 4 | 3 | 3 | 1 | 0 |
+
+Every drop in both runs landed on a tick whose carrier deaths exactly accounted for it, `measure.ts` reports `verified` with empty `recordedFaults` and `readbackFaults` on both, and the per-line readings name `skullStream`. **`carrierLost` is zero at level one and it is the instrument rather than the mechanism**, the same shape slice 6 met: the wandering script seals at 1746 ticks having met two carriers and killed both, so there was no carrier left to miss. At `skullStream=5` the run lives 800 ticks longer, meets a fourth carrier and loses it. The dodging bot is the other witness and a louder one: across the five fresh seeds a full run now reports 7 to 19 `carrierLost` each.
+
+**The bot's pinned seed sets moved a long way, and the cause is the economy rather than a break.** A dodger is paid by the schedule now instead of by a price table fitted to a kill rate it never reaches, so the five fresh seeds spawn 3 to 9 drops against the 2 to 4 they used to. `SEALS_IN_THE_RAMP` went from `[202, 404]` to `[505]`, `NEVER_FEEDS` emptied, `REACHES_VICTORY_FRESH` went from `[]` to `[202, 303]`, and `REACHES_VICTORY_FROM_THE_CEILING` went from `[]` to `[101, 404, 505]`. `REACHES_VICTORY_MAXED` did not move. Which seeds land where is still path rather than strength, for the reason that constant's own comment has carried twice: a dodger steers off the field it is standing in.
+
+**The `it.fails` drop band is now the schedule's own count.** It asks for `carriersForFullBuild()` drops in a full run and no seed comes near, which is the same tripwire in the same direction; the ordinary half's floors were re-measured to 12 kills and 3 drops, and it gained a real ceiling, the stage's authored carrier count, because no policy can ever be paid by carriers that do not exist.
+
+**`hitTakingPolicy` now reaches ADR 0003's second rung.** `weaponStripped` used to be asserted at exactly zero, with the reason that a policy steering into the nearest threat collects nothing; a carrier drops its power inside the crowd that policy steers into, so it now swallows one and is stripped of it, once or twice depending on the seed. The assertion is the rung being reached plus the levels ending at the birthright, since the count is path.
+
+**`measure.test.ts`'s rich fixture had gone blind to the belch and now runs 9000 ticks.** At 6000 it pressed the belch twice under the new economy and both presses caught an empty radius, so `damage.belch > 0` was being asserted over nothing. At 9000 it presses four times, lands nine hits and still has not sealed, which the fixture's `ending` assertion depends on. The recording moved into a `beforeAll` with its own budget at the same time: it is setup rather than a test, and billed to the first test it was timing out beside the rest of the suite.
+
+**One record-versus-tree gap found, not this slice's to close.** ADR 0002 lists score among the jobs kills keep ("score is kills"), and nothing in the tree pays score for a kill: `swallow.ts:112` is the only writer and it pays from overflow alone. Spec test 2 asserts corpses rather than score because of it, with the reason in the test. Whoever owns scoring decides whether the ADR or the code is wrong.
+
+**For slice 8.** `RunState` has no `offer` or `bankedOffers` yet and the witness partition names neither, so both are yours to add along with their `FIELD_CASES` entries; `WITNESS_VERSION` stays at 5. `witness.test.ts` gained `RETIRED_RUN_FIELDS`, which fails if `killsSinceDrop` or `dropsPaid` ever comes back, on the precedent of `RETIRED_HEADSTONES_CODE` in the same file. `drops.test.ts` still holds the dice tests and is yours to delete with `drops.ts`. The stage rows carry a `carries` boolean and `carrierRow(rowCarries, count)` is what turns it into positions, so a row that should pay twice is a data change plus a rule change in `carriers.ts`, not a change at the spawn site.
