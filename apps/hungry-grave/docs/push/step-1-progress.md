@@ -1,6 +1,6 @@
-# Step 1 progress: after slice 5
+# Step 1 progress: after slice 6
 
-Written for the agent taking slice 6. The plan is `docs/design/step-1-progression-dispatch.md`; everything below is what it does not say or what has moved since it was written.
+Written for the agent taking slice 7. The plan is `docs/design/step-1-progression-dispatch.md`; everything below is what it does not say or what has moved since it was written.
 
 ## 1. Slices committed
 
@@ -12,6 +12,7 @@ Written for the agent taking slice 6. The plan is `docs/design/step-1-progressio
 | 3 | `3a88592513` | feat(hungry-grave): the birthright is the skull stream alone (#96) |
 | 4 | `7476ce1c70` | feat(hungry-grave): freshness pays each line in its own currency (#96) |
 | 5 | `cc8b87f496` | feat(hungry-grave): the belch splits into a field-wide gas and a local burst (#96) |
+| 6 | `b93d68913d` | feat(hungry-grave): the bell throws cones that widen per level (#96) |
 
 Slice 0 recorded the baseline tapes and made no commit.
 
@@ -22,6 +23,7 @@ Slice 0 recorded the baseline tapes and made no commit.
 - Slice 3: two fields, `levels.territory` 1 to 0 and `checksum` -1401997495 to 1634744137. Every other field held, the two kills included. `drawn.territory` was already 0 because the 832-tick cadence contains no lay in a 600-tick scenario.
 - Slice 4: no move, and this one is worth knowing rather than assuming. The scenario's surge had already been spent by tick 600 (`lines.surgeVolleys` is 0 at the fold) and its one swallowed corpse was fresh, so the fold cannot see freshness-scaled volleys at all. The golden digest is blind to slice 4, and the bot test is what caught it instead.
 - Slice 5: no move. The scenario never belches.
+- Slice 6: no move, and `src/dev/digest.ts` is not in the slice's diff at all. The scenario's `levels.bell` is 0, so it never tolls and the fold cannot see the cones. What caught the slice's behaviour instead was `step.test.ts` and the bot test, both below.
 
 ## 3. CodeRabbit
 
@@ -42,7 +44,7 @@ Applied, and it changed the plan's shape:
 
 ## 5. The four gate corrections
 
-Received mid-slice-4 from the dispatching session. **None has landed in the plan file or the code.** All four are for the agents taking slices 6, 7 and 8, and each is to be applied to the plan file in the same commit as the slice it changes.
+Received mid-slice-4 from the dispatching session. **Corrections 1 and 2 landed in the plan file and the code in slice 6 (`b93d68913d`); 3 and 4 are still open, for the agents taking slices 7 and 8.** Each is applied to the plan file in the same commit as the slice it changes.
 
 1. **Slice 6, cone headings.** Drop the `k * (2*pi/n)` formula: it puts level two's second cone dead astern. Headings become a data row per level so the harness can tune them. `ConeRow` becomes `{ headings: readonly number[]; halfAngle; reach; push }` (headings in radians from straight up, negative left; the cone count is `headings.length`, so `cones` goes and the row still has four fields). `coneHeading(level, index)` reads the row. Initial rows in degrees: level 1 `[0]`; level 2 `[-40, +40]`; level 3 `[-60, 0, +60]`; level 4 `[-108, -36, +36, +108]`; level 5 `[-144, -72, 0, +72, +144]`. Half-angles, reach and push stay as the plan's table. Fix the plan sentence about a rear gap at level five: the surround has small slits, and that is what the ADR asks for. Spec test: every level's headings are symmetric about straight up, and the union of cones is contiguous forward at levels one to four.
 2. **Slice 6, verification step 7.** The level-five push row of 40 cannot beat the #79 totals (42, 51, 0) by construction, since the falloff and reach barely move. Step 7's pass criterion becomes: `mobShoved` events and a non-zero repel total appear at `bell=1` and `bell=3`, which is impossible today, and the `bell=5` repel total is reported beside the #79 figures rather than judged. Level five stays at 40 as an initial row.
@@ -82,12 +84,55 @@ From the plan's section 3.
 - **Step 2, `pnpm typecheck`.** Ran after every slice, green.
 - **Step 3, `pnpm build`.** Not run yet. Slice 10 owns it.
 - **Step 4, `pnpm verify` at the repo root.** Not run as one command; `format:check`, `lint` and the app's `typecheck` and tests were run separately after every slice, all green. Run it from inside the worktree, never from the main checkout, which reports the worktree's own files as unformatted.
-- **Step 5, GOLDEN and the bot test per slice.** Ran. Section 2 above carries the moves. The bot test's drop band at `bot.test.ts:294-295` has not been rewritten; slice 7 owns it.
+- **Step 5, GOLDEN and the bot test per slice.** Ran. Section 2 above carries the moves. The bot test's drop band at `bot.test.ts:294-295` has not been rewritten; slice 7 owns it. `REACHES_VICTORY_FROM_THE_CEILING` emptied at slice 6 and section 9 carries the cause.
 - **Step 6, headless conditioned run for offer and carriers.** Not run. Slices 7 and 8 own it.
-- **Step 7, headless conditioned run for bell cones.** Not run. Slice 6 owns it, under the corrected criterion in section 5.
+- **Step 7, headless conditioned run for bell cones.** Ran at slice 6, under the corrected criterion. Half met, half unmeetable by this instrument; section 9 carries the three totals and the reason.
 - **Step 8, old-tape decode check.** Ran at slice 2 and passed. `measure.ts` on `baseline-a.tape` returns `{"outcome":"rosterNotImplemented","recordedRoster":["soulStream","territory","wisps","bell"]}`: the tape decodes, reports its recorded roster verbatim in its own vocabulary, and refuses replay precisely rather than throwing a format error or coercing. `FORMAT_VERSION` did not move.
 - **Step 9, rendered check.** Not run. Slice 8 owns it.
 - **Step 10, fence and invariant guards.** Not run. Slice 9 owns it.
 - **Steps 11, 12 and 13** are Mark's and stay open.
 
 `WITNESS_VERSION` moved from 4 to 5 in slice 2 and must not move again in this step.
+
+## 9. Slice 6, the bell arcs
+
+Commit `b93d68913d`, twelve files, the two gate corrections in the same commit as the code. `pnpm typecheck`, `pnpm vitest run` (107 files, 1358 passed, 10 expected fail, 3 todo), `pnpm lint` and the repo-root `pnpm format:check` all green.
+
+**GOLDEN did not move and `digest.ts` is not in the diff.** Section 2 says why.
+
+**What the seam looks like now.** `ConeRow` is `{ headings, halfAngle, reach, push }` with headings in radians and the cone count as `headings.length`; `BELL_CONE_ROWS` is indexed by level with a silent row at level 0; `coneHeading`, `insideCone`, `tollReach` and `advanceBell` are the exports, and `BELL_RADIUS_BY_LEVEL` and `BELL_PUSH_BY_LEVEL` are gone. A bearing is measured from straight up, negative to the left, through `math.ts`'s `atan2` because the sim's lint fence forbids `Math.atan2` (ADR 0015).
+
+**Two things the plan did not say, both of them rulings the next agent should know about:**
+
+- **A cone seam needs a tolerance.** Level two's two cones both end at straight up and two of level four's seams do the same, so on exact arithmetic the arc ahead is unbroken. In floating point the seam bearing lands one part in 1e16 outside both cones, and a mob directly ahead of the grave at level two fell through the middle of the answer. `CONE_SEAM_TOLERANCE` in `bell.ts` closes it, with the reason on the constant, and a spec test asserts a mob dead ahead is answered at every level. Anyone retuning the headings inherits this: cones that touch exactly are legal and the tolerance is what makes them so.
+- **A mob standing on the grave is inside every cone.** Distance zero has no bearing, and `atan2(0, -0)` is pi, so without the guard a mob on the mouth would read as dead astern and a level-five toll would decline it through the one slit it leaves. The sweep guards it and the existing spec test now runs at level one as well as level five.
+
+**The `lines.ring` field kept its name.** The type is `BellToll`, `ringRadius` became `tollReach`, and the internal functions are toll vocabulary, but `RunState.lines.ring`, the witness partition paths `lines.ring.*` and the wire-coded fault identity `one live ring` all still say ring. The fault identity cannot move without a wire code, and the plan's readers list named only the type and the function. Left as it stands rather than half-renamed; it is a vocabulary sweep for whoever owns one, not a slice-6 edit.
+
+**Plan claims found false against the tree: none.** Every line the plan's section 7 named for the bell was where it said it was.
+
+**CodeRabbit, `-t uncommitted`, two findings.**
+
+- Minor, `docs/design/step-1-progression-dispatch.md:555`, applied. The table's total-degrees column is the summed width of the cones, not the arc they cover, and level three is the one row where those differ: 228 summed against 196 covered, because its cones overlap. The reach derivation genuinely uses the summed width, since the area of `n` wedges is `n * halfAngle * R^2` however they point, so the column was renamed and the level-three overlap written down rather than the number changed.
+- Major, `docs/push/handoff.md:27`, declined. That file is the dispatching session's own uncommitted work, this dispatch never touched it, and the finding is about the handoff's step-2 prerequisites rather than about anything in the slice.
+
+**Two tests moved for reasons the cones made real, neither weakened.**
+
+- `step.test.ts`, "credits every kill the tick made, the bell's included", stood its victim exactly on the grave with `vy: 1`. It drifts below the grave before the toll reaches it, which at level five is the one slit the surround leaves open. The victim now stands twenty units ahead. The assertion is unchanged.
+- `bell.test.ts`, "keeps a pushed mob inside the field widened by SPAWN_MARGIN", stood four mobs at the field's own corners. Three of them are further from the grave than the top level's reach of 261, so the bound was being taken over mobs no toll ever touched. The mobs now stand at four bearings 150 units out and every one is asserted struck before the bound is read. The old test would have passed with the bell deleted.
+
+**`REACHES_VICTORY_FROM_THE_CEILING` is now empty, and the cause is measured rather than guessed.** Seed 303 sealed at 11160 ticks and 37 kills where it used to run the full stage and win. Of the five ceiling runs, 303 is the only one that ever owns the bell at all: it tolls 31 times, every one of them at level 1, and it now shoves 24 mobs for 36.8 field units where the table it replaced pushed nothing below level 4. The other four seeds never toll and did not move. This is the same path effect the constant's own comment already carried twice, and the comment now carries it three times.
+
+**Verification step 7, the three conditioned runs.** Recorded and measured at `skullStream=1 territory=0 wisps=0` with `bell=1`, `bell=3` and `bell=5`, seed 2093383922, 12000 ticks asked for. The repel totals, against #79's 42, 51 and 0 field units, reported and not judged:
+
+| Run | Ticks | Tolls | Repel shoves | Repel distance | Bell damage |
+| --- | --- | --- | --- | --- | --- |
+| `bell=1` | 1655 | 8 | 0 | 0 | 0 |
+| `bell=3` | 1851 | 9 | 2 | 3.95 | 18.6 |
+| `bell=5` | 2554 | 11 | 5 | 25.34 | 48.5 |
+
+`bell=3` meets the corrected criterion outright: two shoves and a non-zero total at a level that could not shove at all before. **`bell=1` reads zero, and it is the instrument rather than the mechanism.** The recorder's wandering script seals the run at about 1650 ticks on every seed tried (2093383922, 101, 202, 303, 404, 505: eight tolls each, zero strikes each), and a probe of the field at each toll's birth says why: for the first seven tolls nothing is alive within reach plus sixty, and the first mobs that do arrive stand at bearings of about seventy degrees either side, which level one's forty-five-degree cone declines and level three's answers. The level-one toll strikes nothing in that window, so it can shove nothing, and the old circle at radius 80 would have reached them no sooner. What does demonstrate the level-one push in a whole run is the bot's own ceiling run on seed 303 above: 31 tolls at level 1, 24 shoves, 36.8 field units, against zero before this slice. Both instruments are in the note because neither alone answers the question the correction asked.
+
+**Two things for the harness at step 4, neither in scope here.** Level one answers a ninety-degree wedge dead ahead while the ramp's waves close on the grave at about seventy degrees either side, so a level-one toll in a played run may rarely touch anything; and level five's 25.34 against #79's 42 and 51 is a shorter run rather than a weaker bell, since these runs seal at a fifth of the tick count. The rows are all initial and both readings are the harness's to move.
+
+**For slice 7.** Nothing in the bell blocks it. `mobs.ts` was not edited and `spawnMob`'s signature is untouched, and the only file slice 7 shares with slice 6 is `bot.test.ts`, where the drop band at `bot.test.ts:294-295` is still slice 7's to rewrite and `REACHES_VICTORY_FROM_THE_CEILING` is now `[]` rather than `[303]`.
