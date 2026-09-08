@@ -26,6 +26,17 @@ import {
 
 const SEED = 20260827;
 
+/**
+ * A run holding Territory at its first rung. The line left the birthright with
+ * ADR 0045, and this reading is about the ground a run lays, so the run has to
+ * own the line before it can lay any.
+ */
+function territoryRun(): RunState {
+  const run = createRun(SEED);
+  run.levels.territory = 1;
+  return run;
+}
+
 /** A live mob standing still where the scan can see it. */
 function putMob(state: RunState, x: number, y: number): Mob {
   const mob = spawnMob(state, 'shambler', { x, y, vx: 0, vy: 0, index: 0 })!;
@@ -62,7 +73,7 @@ describe('territoryPatches', () => {
     // The two ends stay apart: drifting off the bottom and being taken by the
     // cap are two different kinds of done, and folding them would make the
     // reading unable to answer why ground left the field.
-    const run = createRun(SEED);
+    const run = territoryRun();
     const events: SimEvent[] = [];
     const target = putMob(run, run.grave.x, 300);
 
@@ -97,7 +108,7 @@ describe('territoryPatches', () => {
     // The direct answer to #65's charge: ground that punished traffic and then
     // drifted on is not the same finding as ground that was never crossed at
     // all, and `emptied` is the read that judges the targeting.
-    const run = createRun(SEED);
+    const run = territoryRun();
     const events: SimEvent[] = [];
 
     const target = putMob(run, run.grave.x, 300);
@@ -122,7 +133,7 @@ describe('territoryPatches', () => {
     // Eviction is a real end, not bookkeeping: a patch the cap took before it
     // could touch anything is exactly the empty ground the reading exists to
     // surface, and counting only the scrolled ones would under-report it.
-    const run = createRun(SEED);
+    const run = territoryRun();
     const events: SimEvent[] = [];
 
     putMob(run, run.grave.x, 300);
@@ -141,7 +152,7 @@ describe('territoryPatches', () => {
     // `laid` reads the lay event and never the closings: cadence is a fact the
     // moment the ground opens, and a reading that waited for the close would
     // undercount every run that stopped with ground still standing.
-    const run = createRun(SEED);
+    const run = territoryRun();
     const events: SimEvent[] = [];
 
     putMob(run, run.grave.x, 300);

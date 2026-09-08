@@ -280,6 +280,48 @@ describe('the grave', () => {
       expect(run.levels[line]).toBe(BIRTHRIGHT.includes(line) ? 1 : 0);
     }
   });
+  it('strips back to exactly the loadout a fresh run started with (ADR 0045)', () => {
+    // ADR 0045: "ADR 0003's floor ladder strips back to that same list, so
+    // start state and floor state keep one shared rule." Read as the two states
+    // agreeing rather than as either one's contents, so the thinning of the
+    // birthright cannot pull them apart without failing here.
+    const fresh = createRun(1);
+    const startingLevels = { ...fresh.levels };
+
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+
+    let hits = 0;
+    while (run.ending === null && hits < 20) {
+      hitGrave(run, 'contact');
+      ageOut(run);
+      hits += 1;
+    }
+
+    expect(run.ending).toBe('sealed');
+    expect(run.levels).toEqual(startingLevels);
+  });
+
+  it('leaves a stripped player firing one line and nothing else (ADR 0045)', () => {
+    // The cost taken eyes-open: a stripped player at the size floor is firing
+    // one column of skulls, with no Territory patches and no wisps.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+
+    let hits = 0;
+    while (run.ending === null && hits < 20) {
+      hitGrave(run, 'contact');
+      ageOut(run);
+      hits += 1;
+    }
+
+    const owned = WEAPON_LINES.filter((line) => run.levels[line] > 0);
+    expect(owned).toEqual(['skullStream']);
+    expect(run.levels.skullStream).toBe(1);
+  });
+
   it('size never leaves floor-to-ceiling across any sequence of grows and hits (ADR 0003)', () => {
     const run = createRun(1);
     const amounts = [0.4, 12, 0, 60, 3, 0.1];

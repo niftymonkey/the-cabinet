@@ -272,6 +272,12 @@ const runScenario = (): ScenarioResult => {
  * Re-pinned on 2026-08-31 for ghoul 20 (#79 ruling): the ghoul's health went
  * from 24 to 20, the witness folds every live mob's hp, and the checksum
  * moved from 932198217. Every other field held, the two kills included.
+ *
+ * Re-pinned for the thinned birthright (ADR 0045): Territory left the
+ * birthright, so the scenario's levels.territory went from 1 to 0 and the
+ * checksum moved from -1401997495. The scenario contains no lay at this
+ * cadence, so drawn.territory was already 0 and no other field moved, the two
+ * kills included.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -296,11 +302,11 @@ const GOLDEN: Digest = {
   },
   levels: {
     skullStream: 1,
-    territory: 1,
+    territory: 0,
     wisps: 0,
     bell: 0,
   },
-  checksum: -1401997495,
+  checksum: 1634744137,
 };
 
 export { runScenario, GOLDEN };

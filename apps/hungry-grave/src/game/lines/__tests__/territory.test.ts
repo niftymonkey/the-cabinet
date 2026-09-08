@@ -34,6 +34,19 @@ import {
   TERRITORY_SPREAD,
 } from '../territory';
 
+/**
+ * A run holding Territory at its first rung.
+ *
+ * Territory left the birthright with ADR 0045, so a fresh run no longer owns
+ * it and this file is about the line's own rules rather than about what a run
+ * is born with. The level is stated here once rather than in forty tests.
+ */
+function territoryRun(seed = 76): RunState {
+  const run = createRun(seed);
+  run.levels.territory = 1;
+  return run;
+}
+
 /** A live mob of a stated type, past its arriving beat, going nowhere. */
 function putMob(
   state: RunState,
@@ -171,7 +184,7 @@ describe('the cadence', () => {
   it('the first lay lands when the charge first fills with a target standing ahead', () => {
     // The line acts on its own clock, the bell's ADR 0036 move: nothing the
     // player swallows or presses brings the lay forward.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     for (let tick = 0; tick < TERRITORY_PERIOD - 1; tick++) {
       advanceTerritory(run);
@@ -184,7 +197,7 @@ describe('the cadence', () => {
   it('consecutive lays sit one period apart when targets are always available', () => {
     // The rate is fixed and tunable rather than riding any collection rate,
     // which is the reason the trigger moved to a clock at all.
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, run.grave.x, 300);
     const lays: number[] = [];
     for (let tick = 1; tick <= 3 * TERRITORY_PERIOD; tick++) {
@@ -206,7 +219,7 @@ describe('the cadence', () => {
   it('a full charge with no eligible mob holds and lays on the first tick one appears', () => {
     // The charge never overfills and never resets on an empty field: the
     // ground is claimed the moment something stands where it can be claimed.
-    const run = createRun(76);
+    const run = territoryRun();
     for (let tick = 0; tick < TERRITORY_PERIOD + 50; tick++) {
       advanceTerritory(run);
     }
@@ -220,7 +233,7 @@ describe('the cadence', () => {
 
   it('level 0 never lays', () => {
     // The bell's silent-at-0 pattern: an unowned line does nothing at all.
-    const run = createRun(76);
+    const run = territoryRun();
     run.levels.territory = 0;
     putMob(run, run.grave.x, 300);
     for (let tick = 0; tick < 2 * TERRITORY_PERIOD; tick++) {
@@ -232,7 +245,7 @@ describe('the cadence', () => {
   it('territoryCharge runs 0 to 1 over the period, resets on the lay, and reads 0 at level 0', () => {
     // The renderer's one read of the clock, so the player can see the line
     // acting on its own time.
-    const run = createRun(76);
+    const run = territoryRun();
     expect(territoryCharge(run)).toBe(0);
     for (let tick = 0; tick < TERRITORY_PERIOD / 4; tick++) {
       advanceTerritory(run);
@@ -255,7 +268,7 @@ describe('the targeting', () => {
   it('the denser of two clusters wins', () => {
     // The line picks the thickest knot it can see, so the ground goes where
     // the control is worth the most.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, 150, 300);
     putMob(run, 160, 300);
     putMob(run, 155, 310);
@@ -274,7 +287,7 @@ describe('the targeting', () => {
   it('equal clusters tie to the earlier slot', () => {
     // Strict comparison against the incumbent, so first in slot order wins and
     // the same field always produces the same lay.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, 150, 300);
     putMob(run, 350, 300);
 
@@ -288,7 +301,7 @@ describe('the targeting', () => {
   it('a mob below the grave is never eligible, nor one exactly level with it', () => {
     // The window is ahead of the grave, strictly: ground laid at or behind the
     // player controls nothing the player needs controlled.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, run.grave.y + 40);
     putMob(run, run.grave.x - 60, run.grave.y);
 
@@ -302,7 +315,7 @@ describe('the targeting', () => {
     // scan would systematically pick intact fresh spawns above the screen and
     // the fire beat would be invisible at the one moment that teaches an
     // autonomous weapon. The edge itself is eligible.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, -1);
     layNow(run);
     expect(territoryCount(run)).toBe(0);
@@ -318,7 +331,7 @@ describe('the targeting', () => {
   it('a mob beyond the lateral reach neither anchors nor counts', () => {
     // The window is anchored to the grave's own x, so where the grave goes
     // chooses what the line can see: positioning aims Territory.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x + 181, 300);
     layNow(run);
     expect(territoryCount(run)).toBe(0);
@@ -342,7 +355,7 @@ describe('the targeting', () => {
     // scroll term cancels and the projection is by the mob's own velocity
     // alone: a lead of (1, 0.5) from (200, 300), and the lay then sits inside
     // the seeded spread of that point rather than on it.
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, 200, 300);
     mob.vx = 1;
     mob.vy = 0.5;
@@ -367,7 +380,7 @@ describe('the targeting', () => {
     // The lay's x is held to the field, so claimed ground is never laid where
     // it cannot be seen or stood on. The knot is 30 units outside it against a
     // spread bound of 17.6, so no draw can bring the lay back inside.
-    const run = createRun(76);
+    const run = territoryRun();
     run.grave.x = 100;
     putMob(run, -30, 300);
 
@@ -385,7 +398,7 @@ describe('the dwell', () => {
     // A control zone's identity is many small touches over time in one place,
     // held to a pace by the patch's own re-hit map. The window read here is the
     // patch's own, because that is the one the rule uses.
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, run.grave.x, 300);
     layNow(run);
     openTheHands(run);
@@ -401,7 +414,7 @@ describe('the dwell', () => {
   });
 
   it('a pulse lands again once the window passes', () => {
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, run.grave.x, 300);
     layNow(run);
     openTheHands(run);
@@ -420,7 +433,7 @@ describe('the dwell', () => {
     // pulses, and the kill is slow on purpose. The count is what is ruled and
     // the level moves only how long the ground takes to deliver it, so this
     // holds at every rung and is asserted against the patch's own window.
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, run.grave.x, 300);
     layNow(run);
     openTheHands(run);
@@ -442,7 +455,7 @@ describe('the dwell', () => {
   it('expired map entries are pruned', () => {
     // The map is bounded at mobs seen inside the last window, so ground that
     // holds a parade all run does not remember every body that ever crossed.
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, run.grave.x, 300);
     layNow(run);
     openTheHands(run);
@@ -464,7 +477,7 @@ describe('the control', () => {
     // placed against the post-drift centre. At level 1 the pull is 0.08 toward
     // the centre and the slow undoes 0.2 of (2, 4): twenty units left of
     // centre that is a net -0.32 in x and -0.8 in y.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     layNow(run);
     openTheHands(run);
@@ -484,7 +497,7 @@ describe('the control', () => {
   it('no control and no pulse while opening', () => {
     // The opening beat matters more, not less, when the sim picks the moment:
     // the player reads the tear before the ground holds anything.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     layNow(run);
     const patch = livePatches(run)[0]!;
@@ -503,7 +516,7 @@ describe('the control', () => {
   it('a mob at the exact centre gets slow but no pull', () => {
     // A zero-length vector has no direction to pull along, and inventing one
     // would jitter a settled mob. Slow still applies: held is held.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     layNow(run);
     openTheHands(run);
@@ -525,7 +538,7 @@ describe('the control', () => {
     // of the box the invariant harness checks.
     // Level 5, so the patch is wide enough to hold a mob near the bottom
     // bound while its own body still touches the field.
-    const run = createRun(76);
+    const run = territoryRun();
     run.levels.territory = 5;
     putMob(run, run.grave.x, 300);
     layNow(run);
@@ -546,7 +559,7 @@ describe('the closes', () => {
   it('a scrolled close carries its pulse count', () => {
     // "Scrolled off having touched nothing" is the read Territory exists to
     // answer, and it is invisible from the reason alone.
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, run.grave.x, 300);
     layNow(run);
     mob.alive = false;
@@ -563,7 +576,7 @@ describe('the closes', () => {
   });
 
   it('ground that touched nothing closes with zero', () => {
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, run.grave.x, 300);
     layNow(run);
     mob.alive = false;
@@ -579,7 +592,7 @@ describe('the closes', () => {
   it('eviction takes the oldest by id', () => {
     // The cap is housekeeping and never a refusal: the oldest ground has done
     // its work, and oldest by id is totally ordered where slot order is not.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     for (let lay = 0; lay < TERRITORY_CAP; lay++) {
       layNow(run);
@@ -599,7 +612,7 @@ describe('the closes', () => {
   it('radius is frozen at birth across a level-up', () => {
     // Frozen at birth, on bell.ts's own precedent: a live ring keeps the level
     // it was born with, and level-ups reach only patches laid afterwards.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     layNow(run);
     const early = livePatches(run)[0]!;
@@ -640,7 +653,7 @@ describe('the control ladders', () => {
     // ordinary mobs at level 1. A shambler keeps 0.253 of its own 0.317
     // against a pull of 0.08, so it goes on leaving at 0.173 a tick while the
     // ground chips it. Slow and chip is the whole of what the first rung buys.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     layNow(run);
     openTheHands(run);
@@ -671,7 +684,7 @@ describe('the control ladders', () => {
     // The top of the ladder is close to a death sentence for an ordinary mob:
     // 0.127 kept against a pull of 0.6, so the ground wins back ground every
     // tick and the shambler ends at the centre.
-    const run = createRun(76);
+    const run = territoryRun();
     run.levels.territory = 5;
     putMob(run, run.grave.x, 300);
     layNow(run);
@@ -701,7 +714,7 @@ describe('the control ladders', () => {
     // The one type that leaves at every rung, and it is deliberate: the ghoul
     // is the body threat, so ground that could pin it would answer the type
     // positioning is supposed to answer. 0.63 kept against a pull of 0.6.
-    const run = createRun(76);
+    const run = territoryRun();
     run.levels.territory = 5;
     putMob(run, run.grave.x, 300);
     layNow(run);
@@ -731,7 +744,7 @@ describe('the control ladders', () => {
     // Frozen at birth on bell.ts's precedent, and it is the control now and
     // not only the radius: a patch laid at level 1 goes on holding at level 1
     // for its whole life, however far the line climbs under it.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     layNow(run);
     const early = livePatches(run)[0]!;
@@ -781,7 +794,7 @@ describe('the wider cadence', () => {
     // more kills per lay than the baseline's ~2.4. The magnitude is pinned
     // here and nowhere else; every other cadence test reads the constant.
     expect(TERRITORY_PERIOD).toBe(832);
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     for (let tick = 0; tick < 831; tick++) advanceTerritory(run);
     expect(territoryCount(run)).toBe(0);
@@ -794,7 +807,7 @@ describe('the wider cadence', () => {
     // outstayed its welcome: three quarters of 90 is 67.5. The magnitude is
     // pinned here and nowhere else; every other test reads the constant.
     expect(TERRITORY_OPENING_TICKS).toBe(68);
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, 200, 300);
 
     layNow(run);
@@ -810,7 +823,7 @@ describe('the wider cadence', () => {
     // tuned apart without rewriting the promise.
     expect(TERRITORY_LEAD_TICKS).toBeGreaterThan(TERRITORY_OPENING_TICKS);
 
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, 200, 300);
     mob.vy = 1;
 
@@ -836,7 +849,7 @@ describe('the bounded seeded offset', () => {
     // spawning with the patch instead of being caught by it, so the lay is
     // displaced. Uniform over the disc puts the mean at two thirds of the
     // bound, which is why "near" is not "almost on".
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, 270, 300);
     const laid = repeatedLays(run, mob, 200);
 
@@ -851,7 +864,7 @@ describe('the bounded seeded offset', () => {
     // higher levels must not converge on exact placement, so the bound has to
     // grow with the ground rather than stay a fixed number of field units.
     for (let level = 1; level <= MAX_LEVEL; level++) {
-      const run = createRun(76);
+      const run = territoryRun();
       run.levels.territory = level;
       const mob = putMob(run, 270, 300);
       const laid = repeatedLays(run, mob, 200);
@@ -870,7 +883,7 @@ describe('the bounded seeded offset', () => {
   it("one lay draws exactly twice from Territory's own stream", () => {
     // An angle and a distance, and no third draw hiding in the lay: the count
     // is what a replay resumes from, so it is pinned rather than assumed.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     const before = run.streams.territory.drawn;
 
@@ -883,7 +896,7 @@ describe('the bounded seeded offset', () => {
     // The correlated-randomness trap ADR 0012 closes: a lay reaching into
     // another line's stream would shift every draw after it and change the run
     // for a reason no player could read.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     const before = {
       spawns: run.streams.spawns.drawn,
@@ -904,7 +917,7 @@ describe('the bounded seeded offset', () => {
     // A full charge rescans every tick, so a stream touched before the knot
     // was chosen would burn a draw on every empty tick and the offsets would
     // depend on how long the field stayed empty.
-    const run = createRun(76);
+    const run = territoryRun();
     for (let tick = 0; tick < TERRITORY_PERIOD + 50; tick++) {
       advanceTerritory(run);
     }
@@ -933,7 +946,7 @@ describe('the bounded seeded offset', () => {
     // offset able to break it would put claimed ground where the fire beat
     // cannot be seen. Half the draws point upward from a knot on the edge, so
     // the clamp is exercised rather than merely present.
-    const run = createRun(76);
+    const run = territoryRun();
     const mob = putMob(run, 270, 0);
     const laid = repeatedLays(run, mob, 200);
 
@@ -945,7 +958,7 @@ describe('the bounded seeded offset', () => {
     // ADR 0044's boundary reading against ADR 0035 rests on the scan being
     // anchored ahead of the grave, so an offset able to drop ground behind it
     // would reopen the homing question the record closed.
-    const run = createRun(76);
+    const run = territoryRun();
     run.levels.territory = 5;
     const mob = putMob(run, 270, run.grave.y - 1);
     const laid = repeatedLays(run, mob, 200);
@@ -979,7 +992,7 @@ describe('the dwell ladder', () => {
       ).toBe(`${level}: true`);
     }
 
-    const run = createRun(76);
+    const run = territoryRun();
     run.levels.territory = 0;
     putMob(run, run.grave.x, 300);
     for (let tick = 0; tick < 2 * TERRITORY_PERIOD; tick++) {
@@ -992,7 +1005,7 @@ describe('the dwell ladder', () => {
     // The third channel of control strength, held on the same terms as the
     // other two: a patch grinds at the pace its birth level bought, however
     // far the line climbs under it.
-    const run = createRun(76);
+    const run = territoryRun();
     putMob(run, run.grave.x, 300);
     layNow(run);
     const early = livePatches(run)[0]!;
@@ -1022,7 +1035,7 @@ describe('the dwell ladder', () => {
     // ordinary mob caught in it comes out the far side. Five pulses over a
     // 327-tick crossing is 25 of its 40, so the cost is real and the mob is
     // still a problem.
-    const run = createRun(76);
+    const run = territoryRun();
     const patch = openGround(run, 1);
     const mob = putMob(
       run,
@@ -1042,7 +1055,7 @@ describe('the dwell ladder', () => {
     // step rather than flipping from harmless to lethal.
     const deaths = new Map<number, number>();
     for (const level of [3, 5]) {
-      const run = createRun(76);
+      const run = territoryRun();
       const patch = openGround(run, level);
       const mob = putMob(
         run,
@@ -1069,7 +1082,7 @@ describe('the dwell ladder', () => {
 
     const counts = new Map<Mob['type'], number>();
     for (const type of ['shambler', 'ghoul', 'revenant'] as const) {
-      const run = createRun(76);
+      const run = territoryRun();
       const patch = openGround(run, MAX_LEVEL);
       const mob = putMob(run, patch.x, patch.y, type);
       counts.set(type, pulsesToKill(run, mob));
@@ -1090,7 +1103,7 @@ describe('the holding ground', () => {
     // standing in the hands is held even when its centre sits outside the
     // radius. A level-1 patch reaches 32 and a shambler's half-width is 11, so
     // a centre 42 out overlaps by body while a centre-distance rule says no.
-    const run = createRun(79);
+    const run = territoryRun(79);
     putMob(run, run.grave.x, 300);
     layNow(run);
     openTheHands(run);
@@ -1108,7 +1121,7 @@ describe('the holding ground', () => {
   it('ground still opening holds nothing', () => {
     // Open means the hands are up: a patch in its opening beat cannot control
     // or pulse, so it must not be anyone's holding ground either.
-    const run = createRun(79);
+    const run = territoryRun(79);
     putMob(run, run.grave.x, 300);
     layNow(run);
     const patch = livePatches(run)[0]!;
@@ -1125,7 +1138,7 @@ describe('the holding ground', () => {
     // Attribution is a decision rather than an accident (#79 spec): a mob over
     // two overlapping patches belongs to the first in slot order, so a reading
     // asking the seam gets one deterministic answer.
-    const run = createRun(79);
+    const run = territoryRun(79);
     putMob(run, run.grave.x, 300);
     layNow(run);
     layNow(run);
@@ -1142,7 +1155,7 @@ describe('the holding ground', () => {
     // The rung joins the radius and the strengths the level bought, on the
     // same frozen-at-birth terms: a patch laid at level 1 answers for level 1
     // ground however far the line climbs under it.
-    const run = createRun(79);
+    const run = territoryRun(79);
     putMob(run, run.grave.x, 300);
     layNow(run);
     const early = livePatches(run)[0]!;

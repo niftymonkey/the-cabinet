@@ -17,7 +17,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SimEvent } from '../../game/events';
-import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
+import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import { spawnMob } from '../../game/mobs';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
@@ -67,27 +67,37 @@ const SEEDS = [101, 202, 303, 404, 505];
  * 832 it clears roughly 40% less traffic, so the crowd the policy can only
  * dodge through thickens until the ramp seals it.
  *
+ * Re-measured for the thinned birthright (ADR 0045): Territory left the
+ * birthright entirely, so a dodger now arms nothing but the skull stream and
+ * the ground it used to claim is gone. 505 left the set, surviving the ramp
+ * and running 9950 ticks where it sealed at 5385, and 202 and 404 seal at
+ * 5442 and 5456. The direction is per seed rather than uniform because the
+ * ground Territory claimed also pulled and slowed the crowd the dodger steers
+ * through, so removing it reshapes each lane rather than only thinning it.
+ *
  * What it measures is still this policy rather than the game: `dodgePolicy`
  * never dives, so it reads the ramp at about the weakest play the sim can
  * produce, the no-offense floor. The next played tapes judge the value
  * itself.
  */
-const SEALS_IN_THE_RAMP: number[] = [202, 404, 505];
+const SEALS_IN_THE_RAMP: number[] = [202, 404];
 
 /**
- * The seeds on which this policy never swallows anything at all, and there
- * are two: 202 and 404, both sealed inside the ramp with nothing crossed.
- * Re-measured for ghoul 20 (#79 ruling), and the set held: 505 seals just as
- * early yet feeds twice; 101 outlives the ramp and feeds three times, 303
- * twice.
+ * The seeds on which this policy never swallows anything at all, and there is
+ * one: 202, sealed inside the ramp with nothing crossed.
+ *
+ * Re-measured for the thinned birthright (ADR 0045): 404 left the set, feeding
+ * three times before it seals, and the four other seeds feed between two and
+ * eight times. Territory's ground is gone, so what litters the lane now is the
+ * skull stream's own kills, which fall where the column reached rather than
+ * where the ground was claimed.
  *
  * Those swallows are incidental, which is the thing to keep in front of a
  * reader. `dodgePolicy` scores its nine moves against mobs and mob fire alone
  * and looks at neither corpses nor drops, so it never once steers toward
- * food; the line simply litters the lane it dodges through, and at 832 it
- * litters far less.
+ * food; the lane it dodges through simply has corpses in it.
  */
-const NEVER_FEEDS: number[] = [202, 404];
+const NEVER_FEEDS: number[] = [202];
 
 /**
  * The seeds whose fresh grave reaches victory on this policy, and under #79's
@@ -108,18 +118,33 @@ const NEVER_FEEDS: number[] = [202, 404];
 const REACHES_VICTORY_FRESH: number[] = [];
 
 /**
- * The seeds that reach victory from the size ceiling on this policy, which is
- * one of the five.
+ * The seeds that reach victory from the size ceiling on the birthright build,
+ * and under the thinned birthright (ADR 0045) there are none.
  *
- * Re-measured for ghoul 20 (#79 ruling), and the set held: the 832-tick
- * territory period's cut in cleared traffic keeps 101, 303 and 404 out, all
- * sealing in the back half at 10050, 11227 and 10319 ticks, and 202 runs the
- * full 12421 and wins at 112 kills.
+ * Re-measured: 202 left the set, sealing in the back half at 12008 ticks where
+ * it used to run the full 12421 and win. The cause is the birthright itself
+ * rather than a break, and it is the cost ADR 0045 takes eyes-open: starting
+ * size buys time and the birthright build buys kills, and one line at level
+ * one no longer kills its way to the final phase however long the grave
+ * survives. A build is what reaches victory now, which is what
+ * REACHES_VICTORY_MAXED reads.
  *
  * Pinned as a constant rather than left a literal in the test, because the
  * fresh set and this one are different facts.
  */
-const REACHES_VICTORY_FROM_THE_CEILING = [202];
+const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
+
+/**
+ * The seeds that reach victory from the size ceiling on a maxed build, and it
+ * is all five, at 209 to 232 kills against 268 authored mobs.
+ *
+ * It exists because the ending has to be reachable by something the harness
+ * can play, and under the thinned birthright neither loadout above reaches it
+ * any more. A test asserting an ending is reachable over runs that cannot
+ * produce it asserts nothing, so the victory half is read from the build that
+ * can.
+ */
+const REACHES_VICTORY_MAXED = [101, 202, 303, 404, 505];
 
 const RAMP_TICKS = phaseLengthTicks(PHASES[0]);
 const STAGE_TICKS = RAMP_TICKS + phaseLengthTicks(PHASES[2]);
@@ -166,6 +191,27 @@ function fullRun(seed: number, startingSize?: number) {
   const cached = runs.get(key);
   if (cached !== undefined) return cached;
   const played = playRun(seed, startingSize);
+  runs.set(key, played);
+  return played;
+}
+
+/**
+ * One whole run at the size ceiling on a maxed build, cached the same way.
+ *
+ * The build is set on the run rather than reached by play, for the reason
+ * wallRun sets both of its builds: this policy never dives, so it can never
+ * buy a rung, and the loadout it would reach by playing is the one it started
+ * with.
+ */
+function maxedRun(seed: number) {
+  const key = `${seed}|maxed`;
+  const cached = runs.get(key);
+  if (cached !== undefined) return cached;
+  const state = createRun(seed, SIZE_CEILING);
+  for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
+  const execution = createExecution(state);
+  const { events, ticks } = runPolicy(execution, dodgePolicy, STAGE_TICKS + 60);
+  const played = { state, events, ticks, faults: execution.faults };
   runs.set(key, played);
   return played;
 }
@@ -355,26 +401,33 @@ describe('dodgePolicy from the size ceiling', () => {
  * warmed, which is a real cost landing in the wrong place rather than a slow
  * test.
  */
-describe('both endings across the two loadouts', () => {
+describe('both endings across the three loadouts', () => {
   it('reaches both endings across the five seeds, so neither is unreachable', () => {
     // Victory is still dispatch 4's stub firing on the over phase, and sealed
     // shut is the real ladder. Both have to be reachable or the full-run test
     // is only ever exercising one half of the run's shape.
     //
-    // Where each ending comes from moved again with #79's 832-tick territory
-    // period and is recorded rather than quietly re-pinned. One ceiling seed
-    // reaches victory and the other nine runs seal, so the victory half of
-    // this property rests on a single run, the thinnest it has ever been,
-    // and the sealed half on the rest. REACHES_VICTORY_FRESH and
-    // REACHES_VICTORY_FROM_THE_CEILING carry both facts and the cause they
-    // share. Both loadouts are read here so the property is about the run's
-    // shape rather than about which starting size happens to reach it.
+    // Where each ending comes from moved with the thinned birthright (ADR
+    // 0045) and is recorded rather than quietly re-pinned. Both birthright
+    // loadouts now seal on every seed, so the maxed build is read here too:
+    // an assertion that an ending is reachable, over ten runs that cannot
+    // produce it, would pass over an empty set. REACHES_VICTORY_FRESH,
+    // REACHES_VICTORY_FROM_THE_CEILING and REACHES_VICTORY_MAXED carry the
+    // three facts and the cause they share.
     const endings = new Set([
       ...SEEDS.map((seed) => fullRun(seed).state.ending),
       ...SEEDS.map((seed) => fullRun(seed, SIZE_CEILING).state.ending),
+      ...SEEDS.map((seed) => maxedRun(seed).state.ending),
     ]);
     expect(endings.has('victory')).toBe(true);
     expect(endings.has('sealed')).toBe(true);
+  });
+
+  it('reaches victory from a maxed build on the seeds the set names', () => {
+    const winners = SEEDS.filter(
+      (seed) => maxedRun(seed).state.ending === 'victory',
+    );
+    expect(winners).toEqual(REACHES_VICTORY_MAXED);
   });
 });
 
@@ -399,7 +452,7 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
       expect(count(events, 'weaponStripped')).toBe(0);
       for (const line of WEAPON_LINES) {
         expect(`${line} ${state.levels[line]}`).toBe(
-          `${line} ${['skullStream', 'territory'].includes(line) ? 1 : 0}`,
+          `${line} ${BIRTHRIGHT.includes(line) ? 1 : 0}`,
         );
       }
     });
@@ -439,14 +492,12 @@ describe("the Wall's two-sided property (ADR 0042)", () => {
   for (const seed of SEEDS) {
     it(`is crossable unloaded at the floor build on seed ${seed}, and never for free`, () => {
       // The floor build is the birthright and nothing else, which is what
-      // createRun starts every run at.
+      // createRun starts every run at. Read off BIRTHRIGHT rather than written
+      // out, so a thinner birthright moves the fixture and not the property.
       const state = wallRun(seed, false);
-      expect(state.levels).toEqual({
-        skullStream: 1,
-        territory: 1,
-        wisps: 0,
-        bell: 0,
-      });
+      for (const line of WEAPON_LINES) {
+        expect(state.levels[line]).toBe(BIRTHRIGHT.includes(line) ? 1 : 0);
+      }
       const before = state.grave.size;
       const { events } = play(state, unloadedPolicy, WALL_TICKS);
 

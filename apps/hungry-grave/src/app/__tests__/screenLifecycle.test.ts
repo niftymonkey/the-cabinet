@@ -1105,7 +1105,7 @@ describe('the loadout pin (dispatch 6a)', () => {
     unpinned.prepare();
     expect(unpinned['recording'].recorder!.header.startingLevels).toEqual({
       skullStream: 1,
-      territory: 1,
+      territory: 0,
       wisps: 0,
       bell: 0,
     });

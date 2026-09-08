@@ -9,9 +9,9 @@ import { describe, expect, it } from 'vitest';
 import type { SimEvent } from '../../../game/events';
 import type { GraveHitSource } from '../../../game/grave';
 import { ageGrave, hitGrave } from '../../../game/grave';
-import type { WeaponLine } from '../../../game/lines/roster';
+import { BIRTHRIGHT, WEAPON_LINES } from '../../../game/lines/roster';
 import type { RunState } from '../../../game/run';
-import { createRun } from '../../../game/run';
+import { createRun, uniformLevels } from '../../../game/run';
 import { INVULNERABLE_TICKS, SIZE_FLOOR } from '../../../game/tuning';
 import {
   createDamageTaken,
@@ -74,12 +74,14 @@ describe('damage taken', () => {
     // instead, so the ladder's rungs are the reading and a summed size-unit
     // total would be two different things added together. The key set is
     // asserted because the absence is the point.
-    const levels: Record<WeaponLine, number> = {
-      skullStream: 2,
-      territory: 2,
-      wisps: 1,
-      bell: 1,
-    };
+    // Every line one rung above its own floor, so the ladder has exactly one
+    // strip in it and the three hits are bleed, strip, seal. Derived from the
+    // birthright rather than written out, so thinning the birthright moves the
+    // fixture instead of the reading.
+    const levels = uniformLevels(0);
+    for (const line of WEAPON_LINES) {
+      levels[line] = BIRTHRIGHT.includes(line) ? 2 : 1;
+    }
     const run = createRun(SEED, SIZE_FLOOR, levels);
     run.score = 10;
 

@@ -12,7 +12,7 @@ import {
   rollDropLine,
 } from '../drops';
 import { advanceBell, BELL_EXPAND_TICKS, BELL_PERIOD } from '../lines/bell';
-import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
+import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import type { WeaponLine } from '../lines/roster';
 import type { Mob, MobType } from '../mobs';
 import { damageMob, spawnMob } from '../mobs';
@@ -97,11 +97,11 @@ describe('the dice pick the line and never whether a drop appears (ADR 0002 and 
   it("seeds the run's first roll among the lines still at level zero", () => {
     // Mark's 2026-08-22 ruling, in its narrowed form: the seeding is worth one
     // drop, so a run always opens a line the birthright does not carry.
+    const unowned = WEAPON_LINES.filter((line) => !BIRTHRIGHT.includes(line));
     for (let seed = 1; seed <= 40; seed++) {
       const state = quietRun(seed);
-      expect(state.levels.wisps).toBe(0);
-      expect(state.levels.bell).toBe(0);
-      expect(['wisps', 'bell']).toContain(rollDropLine(state, 1));
+      for (const line of unowned) expect(state.levels[line]).toBe(0);
+      expect(unowned).toContain(rollDropLine(state, 1));
     }
   });
 
@@ -180,9 +180,10 @@ describe('the dice go deep after the first drop (Mark, 2026-08-22)', () => {
     // Driven through creditKill rather than through the seam, because the
     // ordinal is the thing being tested: dropsPaid is incremented before the
     // roll, so an off-by-one there would seed the second drop instead.
+    const unowned = WEAPON_LINES.filter((line) => !BIRTHRIGHT.includes(line));
     for (let seed = 1; seed <= 40; seed++) {
       const state = quietRun(seed);
-      expect(nextDropLine(state)).toBeOneOf(['wisps', 'bell']);
+      expect(nextDropLine(state)).toBeOneOf([...unowned]);
     }
   });
 

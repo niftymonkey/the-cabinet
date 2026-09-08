@@ -5,11 +5,22 @@ import { describe, expect, it } from 'vitest';
 import { BIRTHRIGHT, implementsLines, WEAPON_LINES } from '../roster';
 
 describe('the first weapon pool', () => {
-  it('the birthright is the skull stream and Territory', () => {
-    // ADR 0003's floor ladder strips a dying player back to exactly this list,
-    // so the starting loadout and the ladder's target stay one rule rather than
-    // a second hidden loadout (#76).
-    expect([...BIRTHRIGHT]).toEqual(['skullStream', 'territory']);
+  it('the birthright is the skull stream alone', () => {
+    // ADR 0045: "A run starts with exactly one line, the skull stream at level
+    // 1." ADR 0003's floor ladder strips a dying player back to exactly this
+    // list, so the starting loadout and the ladder's target stay one rule
+    // rather than a second hidden loadout (#76).
+    expect([...BIRTHRIGHT]).toEqual(['skullStream']);
+  });
+
+  it('forces no line but the skull stream into every run', () => {
+    // ADR 0045: "no line but the skull stream is forced into every run, which
+    // the growing pool (ADR 0046) requires." A second permanent seat would
+    // fight a per-run roster for the same place.
+    for (const line of WEAPON_LINES) {
+      if (line === 'skullStream') continue;
+      expect(BIRTHRIGHT).not.toContain(line);
+    }
   });
 
   it('the pool holds four lines and none of them is the headstones', () => {

@@ -10,8 +10,8 @@ const WEAPON_LINES: readonly WeaponLine[] = [
   'bell',
 ];
 
-// The lines a run starts with (glossary: birthright). The floor's ladder strips back to exactly these.
-const BIRTHRIGHT: readonly WeaponLine[] = ['skullStream', 'territory'];
+// The lines a run starts with (glossary: birthright). The floor's ladder strips back to exactly these (ADR 0045).
+const BIRTHRIGHT: readonly WeaponLine[] = ['skullStream'];
 
 const MAX_LEVEL = 5;
 
