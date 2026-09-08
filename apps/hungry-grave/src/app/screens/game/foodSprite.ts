@@ -253,6 +253,27 @@ const drawDropIcon = (
 };
 
 /**
+ * The body a maxed run's carrier opens: treasure carrying no option at all.
+ *
+ * It wears the food layer's own body shape rather than any line's silhouette,
+ * because there is no line to read, and it is filled in the feast's colour
+ * rather than the drop's, so a maxed player reads permanent food with no build
+ * instead of hunting for which line a drop-coloured body upgrades. It keeps the
+ * drop's size and breath, which is what still says treasure.
+ */
+const drawOptionlessBody = (into: Graphics, extent: number): void => {
+  into
+    .poly(polygon(6, extent))
+    .fill({ color: PALETTE.feast.hex })
+    .poly(polygon(6, extent))
+    .stroke({
+      width: SPRITE_STROKE,
+      color: PALETTE.foodOutline.hex,
+      alignment: 0.5,
+    });
+};
+
+/**
  * A drop on the field: its line's silhouette in treasure's colour, with the food
  * layer's own companion around it.
  *
@@ -267,9 +288,13 @@ const drawDropIcon = (
  * a wave.
  */
 const drawDrop = (into: Graphics, corpse: Corpse, tick: number): void => {
-  const line = corpse.line ?? 'skullStream';
   const extent = DROP_DRAW_HALF_EXTENT * dropBreath(tick, corpse.id);
   into.clear();
+  if (corpse.line === undefined) {
+    drawOptionlessBody(into, extent);
+    return;
+  }
+  const line = corpse.line;
   drawDropIcon(into, line, extent);
   into.fill({ color: PALETTE.drop.hex });
   drawDropIcon(into, line, extent);

@@ -20,6 +20,7 @@ import { carrierRow, carriersForFullBuild } from '../../game/carriers';
 import type { SimEvent } from '../../game/events';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import { spawnMob } from '../../game/mobs';
+import { OFFER_SIZE } from '../../game/offer';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
 import {
@@ -84,12 +85,20 @@ const SEEDS = [101, 202, 303, 404, 505];
  * reason it always is here: a dodger steers off the field it is standing in,
  * so one drop swallowed at a different tick is a different run from there on.
  *
+ * Re-measured for the offer of three (ADR 0034), and the set emptied: 505 left
+ * it, surviving the ramp and running the full stage to victory where it sealed
+ * at 5466. The cause is the offer's own shape rather than more power. A
+ * carrier used to leave one body where it died, which a dodger reached only
+ * when its lane already crossed that point; three bodies stand 90 units apart
+ * now, so the same lane crosses one of them far more often and a dodger that
+ * still never steers at food is paid several times more.
+ *
  * What it measures is still this policy rather than the game: `dodgePolicy`
  * never dives, so it reads the ramp at about the weakest play the sim can
  * produce, the no-offense floor. The next played tapes judge the value
  * itself.
  */
-const SEALS_IN_THE_RAMP: number[] = [505];
+const SEALS_IN_THE_RAMP: number[] = [];
 
 /**
  * The seeds on which this policy never swallows anything at all, and there are
@@ -115,7 +124,7 @@ const NEVER_FEEDS: number[] = [];
 
 /**
  * The seeds whose fresh grave reaches victory on this policy, and there are
- * two: 202 and 303, both running the full 12421 ticks.
+ * four: 202, 303, 404 and 505, all running the full 12421 ticks.
  *
  * Re-measured for carriers (ADR 0002, ADR 0048), which is what refilled the
  * set after #79's tuning pass emptied it. A fresh run meets the schedule's
@@ -125,13 +134,20 @@ const NEVER_FEEDS: number[] = [];
  * to the over phase. Nothing about the policy changed: it still never dives,
  * and it still swallows only what its lane happens to contain.
  *
+ * Re-measured for the offer of three (ADR 0034): 404 and 505 joined it and
+ * only 101 is left out, sealing at 11420 ticks in the back half. Three bodies
+ * standing 90 units apart is the whole cause: a dodging lane crosses one of
+ * them where it crossed the single body only by luck, so the same policy takes
+ * 4 to 8 offers a run where it used to swallow 3 to 9 single drops, and the
+ * builds it stumbles into carry four of the five seeds to the over phase.
+ *
  * It stays a tripwire in both directions, because the assertion is an
  * equality: the day the set moves either way, this file goes red and says
  * which seed did it. What it measures is still a policy that only dodges,
  * never a hand that dives, and it is the worst case for a ladder whose upper
  * rungs a real player buys.
  */
-const REACHES_VICTORY_FRESH: number[] = [202, 303];
+const REACHES_VICTORY_FRESH: number[] = [202, 303, 404, 505];
 
 /**
  * The seeds that reach victory from the size ceiling on the birthright build,
@@ -158,14 +174,21 @@ const REACHES_VICTORY_FRESH: number[] = [202, 303];
  * the schedule paying a dodger more than the price table did, and the same
  * path effect decides which seeds it lands on.
  *
+ * Re-measured for the offer of three (ADR 0034): 303 entered and 505 left, so
+ * the set is 101, 303 and 404 at 39, 86 and 54 kills. The set's size did not
+ * move and its membership did, which is the path effect this comment has now
+ * carried three times: a ceiling run takes only 2 to 3 offers whatever it
+ * does, so which seeds land where is decided by the lane rather than by the
+ * power the offer pays.
+ *
  * Pinned as a constant rather than left a literal in the test, because the
  * fresh set and this one are different facts.
  */
-const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 404, 505];
+const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 303, 404];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
- * is all five, at 191 to 215 kills against 268 authored mobs.
+ * is all five, at 208 to 237 kills against 268 authored mobs.
  *
  * It exists because the ending has to be reachable by something the harness
  * can play. The birthright loadouts reach it on at most one chaotic seed and
@@ -325,7 +348,7 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
       const kills = count(events, 'mobKilled');
       expect(kills).toBeGreaterThan(0);
       expect(kills).toBeLessThanOrEqual(AUTHORED_MOBS);
-      expect(count(events, 'dropSpawned')).toBeGreaterThan(0);
+      expect(count(events, 'offerOpened')).toBeGreaterThan(0);
       // Feeding is something every seed does again, and NEVER_FEEDS is left
       // empty rather than deleted so the day one stops, this says so. A corpse
       // still lands wherever Territory or the stream killed the mob rather than
@@ -348,7 +371,12 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
  * 11 to 35 kills against 268 authored mobs, down from pass D's 28 to 58,
  * because the only line a dodger arms for free now lays roughly 40% less
  * often. The tripwire has fired in both directions before, which is what it
- * is for, and the storm is further from the half than it has ever been.
+ * is for.
+ *
+ * Re-measured for the offer of three (ADR 0034): the five fresh runs land 66
+ * to 105 kills, three times what they landed under #79 and the closest the
+ * storm has come to the half, because four of the five now run the whole stage
+ * on a build the offer paid them. Still short of 134 on every seed.
  */
 const MEETS_THE_TIMELINE: number[] = [];
 
@@ -358,9 +386,15 @@ const MEETS_THE_TIMELINE: number[] = [];
  * The band itself moved with ADR 0002's supersession: power is metered by
  * carriers, so what a full run is asked for is no longer ADR 0013's ten to
  * twelve drops from a price table but the carriers a full build costs, which
- * `carriersForFullBuild` derives from the roster. A dodger comes nowhere near
- * it: it spawns 3 to 9 drops across the five fresh seeds, because it kills the
- * carriers its lane happens to contain and never steers at one.
+ * `carriersForFullBuild` derives from the roster.
+ *
+ * What is counted moved with the offer (ADR 0034), and the count is the point
+ * rather than a spelling: one carrier now opens one offer of three bodies, so
+ * `dropSpawned` counts bodies and `offerOpened` counts carriers paid. The band
+ * has always been about carriers, so it reads the offers. A dodger comes
+ * nowhere near it: it opens 7 to 12 offers across the five fresh seeds against
+ * a full build's 19, because it kills the carriers its lane happens to contain
+ * and never steers at one.
  *
  * Both halves are declared expected failures again so a genuinely new break
  * cannot hide among red tests, and both are tripwires in the other direction
@@ -374,7 +408,7 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
   for (const seed of SEEDS) {
     it.fails(`kills the carriers a full build costs on seed ${seed}`, () => {
       const { events } = fullRun(seed);
-      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(
+      expect(count(events, 'offerOpened')).toBeGreaterThanOrEqual(
         carriersForFullBuild(),
       );
     });
@@ -393,18 +427,23 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
     it(`stays inside the range the storm actually reaches on seed ${seed}`, () => {
       // The ordinary half, so a regression away from today's figures is caught
       // while the band above stays the thing being aimed at. The floors are
-      // the measured minima across the five fresh runs under the carrier
-      // schedule: seed 505 is lowest on both, at 12 kills and 3 drops, and it
-      // is the one seed that seals inside the ramp.
+      // the measured minima across the five fresh runs under the offer: seed
+      // 303 is lowest on kills at 66 and seed 101 lowest on offers at 7, and
+      // 101 is the one seed that does not reach the over phase.
       //
       // The ceiling is the schedule itself and not a measurement: a run can
-      // only be paid by carriers that exist, so no policy can ever spawn more
-      // drops than the stage authors.
+      // only be paid by carriers that exist, so no policy can ever open more
+      // offers than the stage authors carriers. The bodies are three per offer
+      // by construction (ADR 0034), which is asserted beside it because it is
+      // the relation the whole economy is read through.
       const { events } = fullRun(seed);
-      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(12);
-      expect(count(events, 'dropSpawned')).toBeGreaterThanOrEqual(3);
-      expect(count(events, 'dropSpawned')).toBeLessThanOrEqual(
+      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(66);
+      expect(count(events, 'offerOpened')).toBeGreaterThanOrEqual(7);
+      expect(count(events, 'offerOpened')).toBeLessThanOrEqual(
         AUTHORED_CARRIERS,
+      );
+      expect(count(events, 'dropSpawned')).toBe(
+        OFFER_SIZE * count(events, 'offerOpened'),
       );
     });
   }

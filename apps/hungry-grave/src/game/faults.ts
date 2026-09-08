@@ -7,10 +7,10 @@
  *
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
- * section and hardens the moment the first tape exists. Twelve identities
- * against fourteen checks: checkPools carries two, the caps and the ids, and
+ * section and hardens the moment the first tape exists. Fifteen identities
+ * against eighteen checks: checkPools carries two, the caps and the ids, and
  * checkStage carries two, one for each of the two things it watches, while the
- * five bounds checks share one identity between them. The grave's own bounds
+ * six bounds checks share one identity between them. The grave's own bounds
  * check is "in bounds" and sits beside a separate "entities in bounds", one
  * fatal and one recoverable, which is the pair a severity table most easily
  * confuses.
@@ -28,6 +28,9 @@ const FAULT_IDENTITIES = [
   'one live ring',
   'phase index only increases',
   'phase tick resets at a boundary',
+  'one live offer',
+  'offer bodies alive and matching',
+  'bank not negative',
 ] as const;
 
 // One member of the closed list above.
@@ -51,12 +54,20 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * structural assumption was violated outside the pool API, after which no other
  * check's answer is trustworthy.
  *
- * Recoverable, nine checks and six identities. A stray entity is culled or
- * draws off-screen and nothing reads it wrong, and the five checks that watch
+ * Recoverable, thirteen checks and nine identities. A stray entity is culled or
+ * draws off-screen and nothing reads it wrong, and the six checks that watch
  * for one all record under the same identity. A corpse pays the wrong amount
  * into a size the fatal check still guards. One line's charge is wrong and
  * payReservoir clamps it back. A bell ring over-expands within one line. And a
  * stage phase repeats or skips spawns while the simulation stays coherent.
+ *
+ * The three offer identities are recoverable for the same reason the ring is,
+ * and it is worth saying plainly because what they guard is expensive: a
+ * second offer's bodies on the field, a body carrying an option the offer does
+ * not name, or a bank below zero all mean the player is paid the wrong power,
+ * which spoils a run without making one number in it untrustworthy. Nothing
+ * downstream of them reads a poisoned value, so terminating the run would
+ * punish the player for a bookkeeping fault they cannot see.
  */
 const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'no NaN': 'fatal',
@@ -71,6 +82,9 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'one live ring': 'recoverable',
   'phase index only increases': 'recoverable',
   'phase tick resets at a boundary': 'recoverable',
+  'one live offer': 'recoverable',
+  'offer bodies alive and matching': 'recoverable',
+  'bank not negative': 'recoverable',
 };
 
 // One invariant found broken on one tick.

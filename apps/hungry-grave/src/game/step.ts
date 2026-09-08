@@ -1,12 +1,12 @@
 import { fireBelch } from './belch';
 import type { TickCommand } from './command';
+import type { Corpse } from './corpses';
 import {
   advanceCorpses,
   asSwallowable,
   corpseHitbox,
   cullCorpses,
 } from './corpses';
-import { dropForCarrier } from './drops';
 import type { SimEvent } from './events';
 import { ageGrave, graveHitbox, hitGrave, moveGrave } from './grave';
 import { advanceBell } from './lines/bell';
@@ -15,6 +15,7 @@ import { advanceTerritory } from './lines/territory';
 import { advanceWisps } from './lines/wisps';
 import { cullShots, shotHitbox } from './mobFire';
 import { advanceMobs, cullMobs, mobHitbox } from './mobs';
+import { chooseOfferBody, loseOffer, openOffer } from './offer';
 import { overlaps } from './overlap';
 import type { RunState } from './run';
 import { advanceStage } from './stage/stage';
@@ -67,14 +68,57 @@ const resolveMobContact = (state: RunState, events: SimEvent[]): void => {
   }
 };
 
-// Food meeting the grave. The grave passes under it and it falls in.
-const resolveSwallows = (state: RunState, events: SimEvent[]): void => {
+/**
+ * One piece of food the grave is under, remembered with the id it had.
+ *
+ * The id is not decoration. Taking an option body vanishes its siblings and
+ * opens the offer behind it in the bank, whose bodies claim the very slots
+ * those siblings just freed, so a slot that is alive again by the time the
+ * walk reaches it is a different body and was never covered at all.
+ */
+interface CoveredFood {
+  readonly body: Corpse;
+  readonly id: number;
+}
+
+/**
+ * Every piece of food the grave is under as this pass begins, read once so a
+ * swallow that grows and shoves the grave cannot change what the pass sees.
+ */
+const coveredFood = (state: RunState): CoveredFood[] => {
   const box = graveHitbox(state.grave);
-  for (const corpse of state.corpses) {
-    if (!corpse.alive) continue;
-    if (!overlaps(corpseHitbox(corpse), box)) continue;
-    corpse.alive = false;
-    events.push(...swallow(state, asSwallowable(corpse)));
+  return state.corpses
+    .filter((corpse) => corpse.alive && overlaps(corpseHitbox(corpse), box))
+    .map((body) => ({ body, id: body.id }));
+};
+
+const swallowFood = (
+  state: RunState,
+  corpse: Corpse,
+  events: SimEvent[],
+): void => {
+  corpse.alive = false;
+  events.push(...swallow(state, asSwallowable(corpse)));
+};
+
+/**
+ * Food meeting the grave. The grave passes under it and it falls in.
+ *
+ * The offer's own body goes first, and that order is the rule rather than a
+ * detail: a grave covering two option bodies takes exactly one, and the take
+ * is what vanishes the siblings, so the chosen body has to be swallowed before
+ * the walk reaches the ones it takes off the field (ADR 0034).
+ */
+const resolveSwallows = (state: RunState, events: SimEvent[]): void => {
+  const covered = coveredFood(state);
+  const taken = chooseOfferBody(
+    state,
+    covered.map((each) => each.body),
+  );
+  if (taken !== null) swallowFood(state, taken, events);
+  for (const { body, id } of covered) {
+    if (!body.alive || body.id !== id) continue;
+    swallowFood(state, body, events);
   }
 };
 
@@ -111,8 +155,8 @@ const advanceLines = (state: RunState): SimEvent[] => {
 };
 
 /**
- * The deaths phase: the storm meeting the mobs, and the drop every carrier the
- * tick killed leaves where it died (ADR 0002).
+ * The deaths phase: the storm meeting the mobs, and the offer every carrier
+ * the tick killed leaves where it died (ADR 0002, ADR 0034).
  *
  * It walks the tick's whole accumulated list of kills rather than only the ones
  * the overlap pass returned, because the bell resolves two phases earlier and a
@@ -132,7 +176,7 @@ const resolveDeaths = (
   const paid: SimEvent[] = [];
   for (const event of [...earlier, ...struck]) {
     if (event.type !== 'mobKilled' || !event.carried) continue;
-    paid.push(...dropForCarrier(state, event.x, event.y));
+    paid.push(...openOffer(state, event.x, event.y));
   }
   return [...struck, ...paid];
 };
@@ -145,8 +189,8 @@ const resolveDeaths = (
  * place are the right answer.
  *
  * The order is scroll, the move command, the belch, spawns, mob motion and fire,
- * the weapon lines, overlap detection, deaths, decay, culling, then the grave's
- * own tick and the counters.
+ * the weapon lines, overlap detection, deaths, decay, culling, the offer's own
+ * loss, then the grave's own tick and the counters.
  *
  * The belch runs before spawns and before every overlap. A bomb pressed on the
  * frame a shot would land has to save the player, or the button is a lie at the
@@ -176,6 +220,9 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   events.push(...cullMobs(state));
   cullShots(state);
   events.push(...cullCorpses(state));
+  // After the cull, because an offer is lost on the tick its last body leaves
+  // the field and the cull is what takes it (ADR 0034).
+  events.push(...loseOffer(state));
   ageGrave(state.grave);
   state.tick += 1;
   state.stage.phaseTick += 1;

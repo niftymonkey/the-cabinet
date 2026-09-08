@@ -22,6 +22,7 @@ import type { BellToll } from '../lines/bell';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
 import type { Stream } from '../rng';
 import { MAX_LEVEL } from '../lines/roster';
+import { openOffer } from '../offer';
 import { SKULL_HALF_EXTENT } from '../lines/skullStream';
 import { RADIUS_BY_LEVEL } from '../lines/territory';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from '../tuning';
@@ -428,6 +429,89 @@ describe("the storm's invariants (plan 6.26)", () => {
   });
 });
 
+describe('the offer and the bank (ADR 0034)', () => {
+  /** A run with one offer standing on the field, exactly as openOffer leaves it. */
+  function offering(): RunState {
+    const run = createRun(1);
+    openOffer(run, run.grave.x, 200);
+    expect(faultsOn(run)).toEqual([]);
+    return run;
+  }
+
+  it('records an option body standing for no live offer', () => {
+    // Two offers' worth of bodies on the field is the shape "exactly one offer
+    // is live at a time" forbids, and it is what a second openOffer that
+    // forgot the bank would leave behind.
+    const state = offering();
+    const standing = state.offer!;
+    state.offer = null;
+    openOffer(state, state.grave.x, 260);
+    expect(state.offer!.bodyIds).not.toEqual(standing.bodyIds);
+
+    expect(brokenOn(state)).toContain('one live offer');
+  });
+
+  it('lets a body carrying no option stand, because it belongs to no offer', () => {
+    // The maxed run's pay: one body with no line, opened while no offer is
+    // live. The check must not read it as a stray option body.
+    const state = createRun(1);
+    for (const line of state.roster) state.levels[line] = MAX_LEVEL;
+    openOffer(state, state.grave.x, 200);
+    expect(state.offer).toBeNull();
+    expect(
+      state.corpses.filter((corpse) => corpse.alive && corpse.kind === 'drop'),
+    ).toHaveLength(1);
+
+    expect(faultsOn(state)).toEqual([]);
+  });
+
+  it('records an offer whose bodies are not on the field', () => {
+    const state = offering();
+    for (const corpse of state.corpses) corpse.alive = false;
+
+    expect(brokenOn(state)).toContain('offer bodies alive and matching');
+  });
+
+  it('records a body carrying an option its offer does not name', () => {
+    const state = offering();
+    const offer = state.offer!;
+    const body = state.corpses.find(
+      (corpse) => corpse.alive && corpse.id === offer.bodyIds[0],
+    )!;
+    body.line = offer.options[1];
+
+    expect(brokenOn(state)).toContain('offer bodies alive and matching');
+  });
+
+  it('records one body named twice by the same offer', () => {
+    // Two options wearing one body: the take resolves the first of them, so
+    // the player is paid a line they never passed under.
+    const state = offering();
+    const offer = state.offer!;
+    state.offer = {
+      options: [...offer.options],
+      bodyIds: offer.bodyIds.map(() => offer.bodyIds[0]),
+    };
+
+    expect(brokenOn(state)).toContain('offer bodies alive and matching');
+  });
+
+  it('records a negative bank, and a fractional one', () => {
+    const state = createRun(1);
+    state.bankedOffers = -1;
+    expect(brokenOn(state)).toContain('bank not negative');
+
+    // Half a banked offer still reads as one to open, so the next take spends
+    // it and leaves the bank below zero a tick later. It is caught here
+    // instead, against the state the bad write actually made.
+    state.bankedOffers = 0.5;
+    expect(brokenOn(state)).toContain('bank not negative');
+
+    state.bankedOffers = 0;
+    expect(brokenOn(state)).not.toContain('bank not negative');
+  });
+});
+
 /** The fixture's live ring, rebuilt whole where a case must move its read-only level. */
 function liveRing(): BellToll {
   return { level: 2, ticks: 5, struck: new Set([11, 12]) };
@@ -449,7 +533,18 @@ function filledRun(): RunState {
   fillWisp(run);
   fillPatch(run);
   fillRun(run);
+  fillOffer(run);
   return run;
+}
+
+/**
+ * The offer the fixture's drop body belongs to. The body is an option body, so
+ * a live offer has to name it: an option body standing for no offer is exactly
+ * what the one-live-offer check exists to record.
+ */
+function fillOffer(run: RunState): void {
+  run.offer = { options: ['wisps'], bodyIds: [run.corpses[0].id] };
+  run.bankedOffers = 2;
 }
 
 function fillRun(run: RunState): void {
@@ -992,6 +1087,13 @@ const NAN_CASES: readonly NanCase[] = [
       return run;
     },
   },
+  {
+    path: 'bankedOffers',
+    poison: (run) => {
+      run.bankedOffers = NaN;
+      return run;
+    },
+  },
 ];
 
 /**
@@ -1012,6 +1114,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'patches[].level':
     'written once at the lay and never mutated, from a levels value the harness NaN-checks at its source every tick',
   ending: 'a run ending name or null, never a number',
+  'offer.bodyIds[]':
+    'spawn identity, as corpses[].id is: the offer holds the ids the food pool handed out and never computes one',
 };
 
 /**

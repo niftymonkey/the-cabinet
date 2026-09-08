@@ -51,6 +51,7 @@ function ring(): BellToll {
  */
 function fixture(): RunState {
   const run = createRun(FIXTURE_SEED);
+  fillOffer(run);
   fillGrave(run);
   fillMob(run);
   fillShot(run);
@@ -83,6 +84,23 @@ function fillPatch(run: RunState): void {
   patch.pulses = 3;
   patch.struck.clear();
   for (const [id, eligibleAt] of PATCH_STRUCK) patch.struck.set(id, eligibleAt);
+}
+
+/**
+ * The fixture offer's own state, so a per-field test can move one part of it.
+ * The bodies are ids and not slots, exactly as the offer holds them.
+ */
+const OFFER_OPTIONS: readonly WeaponLine[] = ['territory', 'wisps'];
+const OFFER_BODY_IDS: readonly number[] = [31, 32];
+
+/**
+ * An offer standing on the field with a bank behind it. It is hand-built for
+ * the same reason the ring is: a per-field test needs the nullable field
+ * present before it can move any part of it.
+ */
+function fillOffer(run: RunState): void {
+  run.offer = { options: [...OFFER_OPTIONS], bodyIds: [...OFFER_BODY_IDS] };
+  run.bankedOffers = 2;
 }
 
 function fillRun(run: RunState): void {
@@ -512,6 +530,28 @@ const RUN_CASES: readonly FieldCase[] = [
     move: (run) => void (run.lines.layIn -= 1),
     restore: (run) => void (run.lines.layIn += 1),
   },
+  {
+    path: 'offer.options[]',
+    // The options are read-only on the record, so the only way to move one is
+    // to hand the run a different offer, exactly as the ring's level is moved.
+    move: (run) =>
+      void (run.offer = {
+        options: ['wisps', 'bell'],
+        bodyIds: [...OFFER_BODY_IDS],
+      }),
+    restore: (run) => void fillOffer(run),
+  },
+  {
+    path: 'offer.bodyIds[]',
+    move: (run) =>
+      void (run.offer = { options: [...OFFER_OPTIONS], bodyIds: [33, 32] }),
+    restore: (run) => void fillOffer(run),
+  },
+  {
+    path: 'bankedOffers',
+    move: (run) => void (run.bankedOffers += 1),
+    restore: (run) => void (run.bankedOffers -= 1),
+  },
 ];
 
 const FIELD_CASES: readonly FieldCase[] = [...ENTITY_CASES, ...RUN_CASES];
@@ -594,6 +634,9 @@ const FOLDED: readonly string[] = [
   'lines.ring.ticks',
   'lines.ring.struck',
   'lines.layIn',
+  'offer.options[]',
+  'offer.bodyIds[]',
+  'bankedOffers',
 ];
 
 /**

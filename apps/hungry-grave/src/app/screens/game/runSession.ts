@@ -41,6 +41,8 @@ interface RunIdentity {
 interface RunReadout {
   readonly debtTicks: number;
   readonly tick: number;
+  // Carriers killed under a live offer, waiting their turn (ADR 0034).
+  readonly bankedOffers: number;
   // The authority's own de-duplicated record, never a second tally (ADR 0017).
   readonly faults: readonly FaultRecord[];
 }
@@ -200,6 +202,7 @@ const createRunSession = (): RunSession => {
       return {
         debtTicks: session.clock.debtTicks,
         tick: session.run?.tick ?? 0,
+        bankedOffers: session.run?.bankedOffers ?? 0,
         faults: session.execution?.faults ?? NO_FAULTS,
       };
     },

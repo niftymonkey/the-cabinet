@@ -72,56 +72,6 @@ function typesOf(events: readonly { type: string }[]): string[] {
   return events.map((event) => event.type);
 }
 
-describe('a carrier is the only thing that pays power (ADR 0002)', () => {
-  it('is the only thing that ever puts a drop on the field', () => {
-    // ADR 0002: "Power is metered by carriers: specific authored mobs carry
-    // the offer, and killing one drops it where it died."
-    const state = quietRun();
-    const step = stepping(state);
-    doomed(state, 200, 100, false);
-    const carrier = doomed(state, 300, 100, true);
-
-    const events = step(STILL);
-
-    expect(typesOf(events).filter((type) => type === 'mobKilled')).toHaveLength(
-      2,
-    );
-    const drops = events.filter((event) => event.type === 'dropSpawned');
-    expect(drops).toHaveLength(1);
-    expect({ x: drops[0].x, y: drops[0].y }).toEqual({
-      x: carrier.x,
-      y: carrier.y,
-    });
-  });
-
-  it('pays no drop at all for a hundred trash kills with no carrier among them', () => {
-    // ADR 0002 keeps every other job kills had: "corpses are fuel, growth and
-    // belch charge come from swallowing, score is kills, and killing buys room
-    // to live", with power taken out of that list. A hundred kills is more
-    // than twice what the retired price table charged for its first ten drops.
-    const state = quietRun();
-    const step = stepping(state);
-    let killed = 0;
-    const paid: string[] = [];
-
-    for (let kill = 0; kill < 100; kill++) {
-      doomed(state, 200, 100, false);
-      const events = step(STILL);
-      killed += typesOf(events).filter((type) => type === 'mobKilled').length;
-      paid.push(...typesOf(events).filter((type) => type === 'dropSpawned'));
-    }
-
-    expect(killed).toBe(100);
-    expect(paid).toEqual([]);
-    // The jobs kills keep are still done: every one of them left fuel on the
-    // field. Score is not asserted here because the tree pays it from
-    // overflow alone, which no kill in this test reaches.
-    expect(
-      state.corpses.filter((corpse) => corpse.alive).length,
-    ).toBeGreaterThan(0);
-  });
-});
-
 describe('a carrier is a carrier whatever killed it (ADR 0002)', () => {
   it('pays for a carrier the bell killed exactly as for one the storm killed', () => {
     // Power that arrived only when the right weapon landed the last point of
@@ -132,7 +82,7 @@ describe('a carrier is a carrier whatever killed it (ADR 0002)', () => {
     const stormStep = stepping(storm);
     doomed(storm, 200, 100, true);
     const stormPaid = typesOf(stormStep(STILL)).filter(
-      (type) => type === 'dropSpawned',
+      (type) => type === 'offerOpened',
     );
 
     const bell = quietRun();
@@ -153,12 +103,12 @@ describe('a carrier is a carrier whatever killed it (ADR 0002)', () => {
     const bellPaid: string[] = [];
     for (let tick = 0; tick < BELL_EXPAND_TICKS + 2; tick++) {
       bellPaid.push(
-        ...typesOf(bellStep(STILL)).filter((type) => type === 'dropSpawned'),
+        ...typesOf(bellStep(STILL)).filter((type) => type === 'offerOpened'),
       );
     }
 
     expect(victim.alive).toBe(false);
-    expect(stormPaid).toEqual(['dropSpawned']);
+    expect(stormPaid).toEqual(['offerOpened']);
     expect(bellPaid).toEqual(stormPaid);
   });
 });

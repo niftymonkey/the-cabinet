@@ -6,8 +6,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { stepping } from '../../dev/stepping';
+import { asSwallowable } from '../corpses';
 import type { SimEvent } from '../events';
 import { MAX_LEVEL } from '../lines/roster';
+import { openOffer } from '../offer';
 import { createRun } from '../run';
 import type { Swallowable } from '../swallow';
 import { swallow } from '../swallow';
@@ -20,17 +22,41 @@ import {
   TRASH_CORPSE_PAYOUT,
 } from '../tuning';
 
+/** An id no body of any offer holds, so a hand-built food takes no option. */
+const NO_BODY = 0;
+
 function corpse(freshness: number): Swallowable {
-  return { kind: 'corpse', freshness, payout: TRASH_CORPSE_PAYOUT };
+  return {
+    id: NO_BODY,
+    kind: 'corpse',
+    freshness,
+    payout: TRASH_CORPSE_PAYOUT,
+  };
 }
 
 function drop(line: 'wisps' | 'skullStream'): Swallowable {
   // Treasure never decays, so a drop always arrives fully fresh (ADR 0004).
-  return { kind: 'drop', freshness: 1, payout: TRASH_CORPSE_PAYOUT, line };
+  return {
+    id: NO_BODY,
+    kind: 'drop',
+    freshness: 1,
+    payout: TRASH_CORPSE_PAYOUT,
+    line,
+  };
+}
+
+/** The body a maxed run's carrier opens: treasure carrying no option at all. */
+function bodyWithNoOption(): Swallowable {
+  return {
+    id: NO_BODY,
+    kind: 'drop',
+    freshness: 1,
+    payout: TRASH_CORPSE_PAYOUT,
+  };
 }
 
 function feast(): Swallowable {
-  return { kind: 'feast', freshness: 1, payout: FEAST_PAYOUT };
+  return { id: NO_BODY, kind: 'feast', freshness: 1, payout: FEAST_PAYOUT };
 }
 
 function kinds(events: SimEvent[]): string[] {
@@ -148,24 +174,40 @@ describe('the swallow', () => {
     );
   });
 
-  it('a drop levels the line it carries, from the value it was given rather than rolling one here (ADR 0034)', () => {
+  it('a drop levels the option the offer laid on that body, and never a line rolled here (ADR 0034)', () => {
+    // The line the swallow pays is the offer's, read off the body that went
+    // in. A drop carrying a line that belongs to no live offer levels nothing,
+    // which is what makes the offer the only place a level is decided.
     const run = createRun(1);
-    expect(run.levels.wisps).toBe(0);
-    const events = swallow(run, drop('wisps'));
-    expect(run.levels.wisps).toBe(1);
-    expect(run.levels.skullStream).toBe(1);
+    openOffer(run, 260, 180);
+    const offer = run.offer!;
+    const line = offer.options[0];
+    const before = run.levels[line];
+    const body = run.corpses.find((each) => each.id === offer.bodyIds[0])!;
+
+    const events = swallow(run, asSwallowable(body));
+
+    expect(run.levels[line]).toBe(before + 1);
     expect(find(events, 'weaponLeveled')).toEqual({
       type: 'weaponLeveled',
-      line: 'wisps',
-      level: 1,
+      line,
+      level: before + 1,
     });
+    expect(kinds(swallow(run, drop('wisps')))).not.toContain('weaponLeveled');
   });
 
-  it('a drop for a line already at MAX_LEVEL converts to overflow instead (ADR 0002)', () => {
+  it('a body carrying no option pays growth, charge and overflow and levels nothing (ADR 0034)', () => {
+    // ADR 0034: "when nothing is offerable a paid drop converts to overflow,
+    // keeping ADR 0002's nothing-swallowed-is-worthless promise." The maxed
+    // line's own overflow branch went dormant with the same ruling, because a
+    // maxed line is never offered in the first place.
     const run = createRun(1);
-    run.levels.wisps = MAX_LEVEL;
-    const events = swallow(run, drop('wisps'));
-    expect(run.levels.wisps).toBe(MAX_LEVEL);
+    run.grave.size = SIZE_CEILING;
+    const levels = { ...run.levels };
+
+    const events = swallow(run, bodyWithNoOption());
+
+    expect(run.levels).toEqual(levels);
     expect(kinds(events)).not.toContain('weaponLeveled');
     expect(run.score).toBeGreaterThan(0);
     expect(kinds(events)).toContain('overflowed');

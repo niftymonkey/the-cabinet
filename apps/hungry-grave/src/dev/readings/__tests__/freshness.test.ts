@@ -27,15 +27,15 @@ describe('freshness paid', () => {
 
     observeFreshnessPaid(
       accumulator,
-      swallow(run, { kind: 'corpse', freshness: 0.5, payout: PAYOUT }),
+      swallow(run, { id: 1, kind: 'corpse', freshness: 0.5, payout: PAYOUT }),
     );
     observeFreshnessPaid(
       accumulator,
-      swallow(run, { kind: 'corpse', freshness: 0.1, payout: PAYOUT }),
+      swallow(run, { id: 1, kind: 'corpse', freshness: 0.1, payout: PAYOUT }),
     );
     observeFreshnessPaid(
       accumulator,
-      swallow(run, { kind: 'drop', freshness: 1, payout: PAYOUT }),
+      swallow(run, { id: 1, kind: 'drop', freshness: 1, payout: PAYOUT }),
     );
 
     const paid = freshnessPaidOf(accumulator);

@@ -29,6 +29,7 @@ interface HudLines {
   readonly tick: Label;
   readonly seed: Label;
   readonly size: Label;
+  readonly bank: Label;
   readonly levels: Label;
   readonly fault: Label;
 }
@@ -104,6 +105,19 @@ const levelsReadout = (
     : values.join('/');
 };
 
+/**
+ * The bank line: how many carriers are waiting their turn behind the live
+ * offer (ADR 0034), and nothing at all when none are.
+ *
+ * Empty at zero rather than showing a nought, because the bank exists so a
+ * burst of paying kills still reads as paid and a standing "BANK 0" would be
+ * one more number the player learns to stop reading. This is the stand-in
+ * form: the field-side readout belongs to the ladder strip.
+ */
+const bankReadout = (banked: number): string => {
+  return banked > 0 ? `BANK ${banked}` : '';
+};
+
 const createRunHud = (): RunHud => {
   const view = new Container();
   // Line zero belongs to the frame-rate meter, so the stack starts at one.
@@ -112,19 +126,22 @@ const createRunHud = (): RunHud => {
     tick: stackLine(2),
     seed: stackLine(3),
     size: stackLine(4),
-    // Lines five and six sit past the readout reserve and draw over the field,
+    // Lines five to seven sit past the readout reserve and draw over the field,
     // which is the meter's own allowance under ADR 0014. Growing the reserve
     // instead would move the field on every ordinary run: the levels line is
-    // empty on an ordinary run, and the fault line is empty on a healthy one,
+    // empty on an ordinary run, the bank line is empty until a burst of
+    // carriers outruns the offer, and the fault line is empty on a healthy one,
     // because ADR 0017 shows a recoverable fault live on an ordinary run.
-    levels: stackLine(5),
-    fault: stackLine(6),
+    bank: stackLine(5),
+    levels: stackLine(6),
+    fault: stackLine(7),
   };
   view.addChild(
     lines.debt,
     lines.tick,
     lines.seed,
     lines.size,
+    lines.bank,
     lines.levels,
     lines.fault,
   );
@@ -150,10 +167,17 @@ const createRunHud = (): RunHud => {
       // slow" from "we blew the frame budget" on a phone.
       lines.debt.text = `DEBT ${readout.debtTicks}`;
       lines.tick.text = `TICK ${readout.tick}`;
+      lines.bank.text = bankReadout(readout.bankedOffers);
       lines.fault.text = faultReadout(readout.faults);
     },
   };
 };
 
-export { createRunHud, FAULT_LINE_MAX_CHARS, faultReadout, levelsReadout };
+export {
+  createRunHud,
+  bankReadout,
+  FAULT_LINE_MAX_CHARS,
+  faultReadout,
+  levelsReadout,
+};
 export type { HudLines, RunHud };

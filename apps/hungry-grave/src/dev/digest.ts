@@ -286,6 +286,13 @@ const runScenario = (): ScenarioResult => {
  * kills are both scripted mobs that carry nothing, so no drop is paid and
  * drawn.drops stays 0, and the two ramp rows inside the 600 ticks carry a
  * carrier each without drawing from any stream.
+ *
+ * Re-pinned for the offer of three and the bank (ADR 0034): the witness now
+ * folds the live offer and the banked count, so the checksum moved from
+ * -1694949037. Only the checksum moved. The scenario kills no carrier, so its
+ * offer is null for all 600 ticks and its bank stays at zero: what the fold
+ * gained here is the absent-offer sentinel and a zero, and drawn.drops stays 0
+ * because an offer draws only when one opens.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -314,7 +321,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -1694949037,
+  checksum: -1111652845,
 };
 
 export { runScenario, GOLDEN };

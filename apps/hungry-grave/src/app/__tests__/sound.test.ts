@@ -39,7 +39,7 @@ const EVERY_EVENT: SimEvent[] = [
   { type: 'corpseLost', kind: 'corpse', x: 1, y: 2, freshness: 0.5 },
   { type: 'tolled', level: 3, radius: 165 },
   { type: 'belched', cancelled: 12, killed: 4 },
-  { type: 'dropSpawned', line: 'wisps', x: 1, y: 2 },
+  { type: 'dropSpawned', id: 9, line: 'wisps', x: 1, y: 2 },
   { type: 'phaseChanged', phase: 'backHalf', tick: 10 },
 ];
 

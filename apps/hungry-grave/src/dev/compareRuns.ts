@@ -447,6 +447,10 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     (report) => report.tuning.dropLedger.swallowed,
   ),
   scalarReading(
+    'tuning.dropLedger.passed',
+    (report) => report.tuning.dropLedger.passed,
+  ),
+  scalarReading(
     'tuning.dropLedger.lost',
     (report) => report.tuning.dropLedger.lost,
   ),

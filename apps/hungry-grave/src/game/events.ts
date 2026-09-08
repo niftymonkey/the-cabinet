@@ -249,12 +249,61 @@ interface Belched {
   readonly killed: number;
 }
 
-// A drop arrived on the field. The denominator for drops swallowed versus scrolled off.
+/**
+ * A drop arrived on the field. The denominator for drops swallowed versus
+ * scrolled off.
+ *
+ * The id is the join key the offer opens on: openOffer reads it back to learn
+ * which body carries which option, so the offer never holds a pooled entity
+ * reference. The line is absent on the body a maxed run's carrier opens, which
+ * carries no option at all (ADR 0034's nothing-offerable branch).
+ */
 interface DropSpawned {
   readonly type: 'dropSpawned';
-  readonly line: WeaponLine;
+  readonly id: number;
+  readonly line?: WeaponLine;
   readonly x: number;
   readonly y: number;
+}
+
+/**
+ * An offer opened on the field (ADR 0034). The options are the lines its
+ * bodies carry, in the order they were laid down, and `banked` is what still
+ * waits behind it so a burst of paying kills reads as paid.
+ */
+interface OfferOpened {
+  readonly type: 'offerOpened';
+  readonly options: readonly WeaponLine[];
+  readonly x: number;
+  readonly y: number;
+  readonly banked: number;
+}
+
+// A carrier died while an offer stood, so its offer waits its turn (ADR 0034).
+interface OfferBanked {
+  readonly type: 'offerBanked';
+  readonly banked: number;
+}
+
+/**
+ * The grave passed under one of the offer's bodies. `passed` names the options
+ * that vanished with it, which is what lets an instrument tell a choice from
+ * an offer nobody dived for.
+ */
+interface OfferTaken {
+  readonly type: 'offerTaken';
+  readonly line: WeaponLine;
+  readonly passed: readonly WeaponLine[];
+}
+
+/**
+ * Every body of an offer left the field untaken (ADR 0034). It is a separate
+ * event from carrierLost and not a reuse of it: an offer nobody dived for and
+ * a carrier nobody killed mean opposite things to an instrument.
+ */
+interface OfferLost {
+  readonly type: 'offerLost';
+  readonly options: readonly WeaponLine[];
 }
 
 // The stage crossed a phase boundary (ADR 0006). The music cue hangs here.
@@ -303,6 +352,10 @@ type SimEvent =
   | PatchClosed
   | Belched
   | DropSpawned
+  | OfferOpened
+  | OfferBanked
+  | OfferTaken
+  | OfferLost
   | PhaseChanged;
 
 export type { SimEvent };

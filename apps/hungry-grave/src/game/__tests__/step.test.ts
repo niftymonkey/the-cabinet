@@ -441,7 +441,7 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
     expect(typesOf(events)).toContain('mobKilled');
   });
 
-  it("pays for every carrier the tick killed, the bell's included", () => {
+  it("opens one offer for every carrier the tick killed, the bell's included", () => {
     const state = quietRun();
     const step = stepping(state);
     state.levels.bell = MAX_LEVEL;
@@ -470,7 +470,7 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
     for (let tick = 0; tick < BELL_EXPAND_TICKS + 2; tick++) {
       const types = typesOf(step(STILL));
       killed += types.filter((type) => type === 'mobKilled').length;
-      paid += types.filter((type) => type === 'dropSpawned').length;
+      paid += types.filter((type) => type === 'offerOpened').length;
     }
     expect(killed).toBe(1);
     expect(paid).toBe(1);
@@ -516,7 +516,7 @@ describe('a belch kill is a kill (Mark, 2026-08-22)', () => {
       wave,
     );
     expect(
-      typesOf(events).filter((type) => type === 'dropSpawned'),
+      typesOf(events).filter((type) => type === 'offerOpened'),
     ).toHaveLength(1);
   });
 });

@@ -24,6 +24,7 @@ import type { SimEvent } from '../events';
 import { FIELD_HEIGHT } from '../field';
 import type { Mob, MobType } from '../mobs';
 import { damageMob, MOB_TYPES, spawnMob } from '../mobs';
+import { openOffer } from '../offer';
 import type { RunState } from '../run';
 import { createRun } from '../run';
 import { RAMP_ROWS } from '../stage/stage';
@@ -256,12 +257,20 @@ describe('what a corpse shows and what it hides (tracer plan section 4)', () => 
     corpse.freshness = 0.5;
     const food = asSwallowable(corpse);
     expect(food).toEqual({
+      id: corpse.id,
       kind: 'corpse',
       freshness: 0.5,
       payout: MOB_TYPES.revenant.corpsePayout,
     });
+    // The id travels because the offer names the body that went in by id, and
+    // an id is a value like every other field here. What must not travel is the
+    // entity: the record is a copy, so the pool can recycle the slot under it
+    // without anything the swallow reads changing.
     expect('alive' in food).toBe(false);
-    expect('id' in food).toBe(false);
+    corpse.freshness = 0.1;
+    corpse.id = corpse.id + 100;
+    expect(food.freshness).toBe(0.5);
+    expect(food.id).not.toBe(corpse.id);
   });
 });
 
@@ -326,12 +335,20 @@ describe('a drop on the food pool (plan 6.9)', () => {
   it("emits dropSpawned with the line and the place, which is the drops instrument's denominator", () => {
     const state = quietRun();
     const events = spawnDrop(state, 210, 320, 'skullStream');
+    const body = state.corpses.find((corpse) => corpse.alive)!;
     expect(events).toContainEqual({
       type: 'dropSpawned',
+      id: body.id,
       line: 'skullStream',
       x: 210,
       y: 320,
     });
+    // The body a maxed run's carrier opens carries no option at all, and the
+    // spawn reports it that way rather than naming a line nobody chose.
+    const optionless = spawnDrop(state, 240, 320);
+    expect(
+      optionless.find((event) => event.type === 'dropSpawned')!.line,
+    ).toBeUndefined();
   });
 });
 
@@ -369,7 +386,9 @@ describe('what a lost corpse reports (plan 6.9)', () => {
   it("carries the food's kind, so a scrolled-away drop is not counted as a missed corpse", () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnDrop(state, 200, FIELD_HEIGHT - 2, 'wisps');
+    // Opened as a real offer rather than as a bare body, because an option
+    // body standing for no live offer is a fault the harness records.
+    openOffer(state, 200, FIELD_HEIGHT - 2);
     const events: SimEvent[] = [];
     const drop = state.corpses.find((corpse) => corpse.alive)!;
     while (drop.alive && state.tick < 200) {

@@ -489,6 +489,41 @@ describe('a drop on the field (plan 6.8)', () => {
     expect(freshnessBrightness(drop, 0)).toBe(1);
   });
 
+  it('draws the body a maxed run pays as treasure with no line silhouette', () => {
+    // Gate correction, 2026-09-08: drawDropIcon needs a WeaponLine, so a body
+    // carrying no option had no look at all. It gets the food layer's own body
+    // shape in the feast's colour, so a maxed player reads permanent food with
+    // no build rather than hunting for a line that is not there.
+    const drawnShape = (line?: WeaponLine): string => {
+      const { layers, renderer } = attached();
+      const state = createRun(3);
+      spawnDrop(state, 200, 300, line);
+      renderer.sync(state);
+      const sprite = (layers.layer('treasure').children as Graphics[]).find(
+        (each) => each.visible,
+      )!;
+      const box = sprite.getLocalBounds();
+      return `${box.width.toFixed(3)}x${box.height.toFixed(3)}`;
+    };
+
+    const shapes = WEAPON_LINES.map((line) => drawnShape(line));
+    expect(new Set([...shapes, drawnShape()]).size).toBe(shapes.length + 1);
+
+    const { layers, renderer } = attached();
+    const state = createRun(3);
+    spawnDrop(state, 200, 300);
+    renderer.sync(state);
+    const sprite = (layers.layer('treasure').children as Graphics[]).find(
+      (each) => each.visible,
+    )!;
+    const filled = sprite.context.instructions
+      .filter((instruction) => instruction.action === 'fill')
+      .map((instruction) => instruction.data.style);
+    expect(filled).toEqual([
+      expect.objectContaining({ color: PALETTE.feast.hex }),
+    ]);
+  });
+
   it('draws larger than a corpse, which is the size rule Mark reversed on 2026-08-22', () => {
     const { layers, renderer } = attached();
     const state = createRun(3);

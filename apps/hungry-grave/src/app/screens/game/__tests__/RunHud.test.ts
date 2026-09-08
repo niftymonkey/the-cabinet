@@ -15,7 +15,7 @@ vi.mock('../../../ui/Label', () => ({
   },
 }));
 
-import { createRunHud } from '../RunHud';
+import { bankReadout, createRunHud } from '../RunHud';
 
 /** What the stack shows, in the order it draws it. */
 const textsOf = (view: Container): string[] =>
@@ -43,6 +43,7 @@ describe('the run readout', () => {
     hud.render({
       debtTicks: 5,
       tick: 120,
+      bankedOffers: 2,
       faults: [faultRecord('freshness in range')],
     });
 
@@ -51,20 +52,37 @@ describe('the run readout', () => {
       'TICK 120',
       'SEED 424242 PINNED',
       'SIZE 48 PINNED',
+      'BANK 2',
       'LEVELS 3 PINNED',
       'FAULT freshness in range',
     ]);
 
     // A second render shows the second set of lines and nothing of the first.
-    hud.render({ debtTicks: 0, tick: 121, faults: [] });
+    hud.render({ debtTicks: 0, tick: 121, bankedOffers: 0, faults: [] });
     expect(textsOf(hud.view)).toEqual([
       'DEBT 0',
       'TICK 121',
       'SEED 424242 PINNED',
       'SIZE 48 PINNED',
+      '',
       'LEVELS 3 PINNED',
       '',
     ]);
+  });
+
+  it('shows the bank when carriers are waiting and nothing when none are', () => {
+    // ADR 0034: "the bank shows on the live offer so a burst of paying kills
+    // still reads as paid." A standing BANK 0 would be one more number the
+    // player learns to stop reading, so an empty bank shows nothing at all.
+    expect(bankReadout(0)).toBe('');
+    expect(bankReadout(1)).toBe('BANK 1');
+    expect(bankReadout(12)).toBe('BANK 12');
+
+    const hud = createRunHud();
+    hud.render({ debtTicks: 0, tick: 1, bankedOffers: 3, faults: [] });
+    expect(hud.lines.bank.text).toBe('BANK 3');
+    hud.render({ debtTicks: 0, tick: 2, bankedOffers: 0, faults: [] });
+    expect(hud.lines.bank.text).toBe('');
   });
 
   it('shows the seed the run rolled, and says PINNED only when the URL named one', () => {

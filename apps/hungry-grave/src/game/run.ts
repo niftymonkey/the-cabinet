@@ -16,6 +16,7 @@ import type { Shot } from './mobFire';
 import { createShotPool } from './mobFire';
 import type { Mob } from './mobs';
 import { createMobPool } from './mobs';
+import type { Offer } from './offer';
 import type { Stream, StreamName } from './rng';
 import { stream } from './rng';
 import type { StageState } from './stage/stage';
@@ -74,6 +75,13 @@ interface RunState {
   // Belch charge, filled by swallows and capped (ADR 0008).
   reservoir: number;
   readonly levels: Record<WeaponLine, number>;
+  /**
+   * The one offer standing on the field, or null between offers (ADR 0034).
+   * Exactly one is live at a time, so this is a field and never a pool.
+   */
+  offer: Offer | null;
+  // Carriers killed under a live offer, waiting their turn (ADR 0034).
+  bankedOffers: number;
   ending: RunEnding | null;
   /**
    * The live streams, held here rather than made on demand, each exposing its
@@ -218,6 +226,8 @@ const createRun = (
     score: 0,
     reservoir: 0,
     levels: { ...(startingLevels ?? birthrightLevels(roster)) },
+    offer: null,
+    bankedOffers: 0,
     ending: null,
     streams: {
       spawns: stream(seed, 'spawns'),

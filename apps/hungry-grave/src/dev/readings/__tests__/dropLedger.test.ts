@@ -1,14 +1,16 @@
 /**
- * Where every drop ended up (#74 story 14). Each drop is put on the field and
- * taken off it through the sim's own corpse module, so the three terminal
- * states are the ones the game actually produces.
+ * Where every option body ended up (#74 story 14, widened by ADR 0034's
+ * offer). Each body is put on the field and taken off it through the sim's own
+ * offer and corpse modules, so the four terminal states are the ones the game
+ * actually produces.
  */
 
 import { describe, expect, it } from 'vitest';
 
 import type { Corpse } from '../../../game/corpses';
-import { asSwallowable, cullCorpses, spawnDrop } from '../../../game/corpses';
+import { asSwallowable, cullCorpses } from '../../../game/corpses';
 import { FIELD_HEIGHT } from '../../../game/field';
+import { openOffer, OFFER_SIZE } from '../../../game/offer';
 import type { RunState } from '../../../game/run';
 import { createRun } from '../../../game/run';
 import { swallow } from '../../../game/swallow';
@@ -19,7 +21,9 @@ import {
 } from '../dropLedger';
 
 const SEED = 20260826;
-const SPAWNED = 3;
+// Two offers of three: one resolved by a take, one left standing but for a
+// body that scrolled off.
+const SPAWNED = 2 * OFFER_SIZE;
 
 /** The live drop standing at this x, which is how a test names one of three. */
 const dropAt = (run: RunState, x: number): Corpse => {
@@ -31,40 +35,38 @@ const dropAt = (run: RunState, x: number): Corpse => {
 };
 
 describe('drop ledger', () => {
-  it('accounts every drop spawned as exactly one of swallowed, lost off the field, or on the field at the stop', () => {
-    // Story 14, with the amendment that on-field-at-the-stop is the third
-    // terminal state rather than a fourth read. A drop never decays and the cap
-    // policy never evicts one, so the three counts add up to spawned and that
-    // sum is the ledger's own check on itself.
+  it('accounts every option body as exactly one of taken, passed, lost off the field, or on the field at the stop', () => {
+    // Story 14, widened by the offer: a body reaches a fourth end now, because
+    // the two siblings of a taken body vanish on the tick the take lands and
+    // are neither swallowed nor lost. A body never decays and the cap policy
+    // never evicts one, so the four counts add up to spawned and that sum is
+    // the ledger's own check on itself.
     const run = createRun(SEED);
     const accumulator = createDropLedger();
 
-    observeDropLedger(
-      accumulator,
-      [
-        ...spawnDrop(run, 100, 100, 'wisps'),
-        ...spawnDrop(run, 200, 200, 'bell'),
-        ...spawnDrop(run, 300, 300, 'wisps'),
-      ],
-      run,
-    );
+    observeDropLedger(accumulator, openOffer(run, 260, 200), run);
+    const takenId = run.offer!.bodyIds[0];
+    const taken = run.corpses.find(
+      (corpse) => corpse.alive && corpse.id === takenId,
+    )!;
+    taken.alive = false;
+    observeDropLedger(accumulator, swallow(run, asSwallowable(taken)), run);
+    expect(run.offer).toBeNull();
 
-    const eaten = dropAt(run, 100);
-    eaten.alive = false;
-    observeDropLedger(accumulator, swallow(run, asSwallowable(eaten)), run);
-
-    dropAt(run, 200).y = FIELD_HEIGHT * 2;
+    observeDropLedger(accumulator, openOffer(run, 260, FIELD_HEIGHT - 5), run);
+    dropAt(run, 260).y = FIELD_HEIGHT * 2;
     observeDropLedger(accumulator, cullCorpses(run), run);
 
     const ledger = dropLedgerOf(accumulator);
     expect(ledger).toEqual({
       spawned: SPAWNED,
       swallowed: 1,
+      passed: OFFER_SIZE - 1,
       lost: 1,
-      onFieldAtStop: 1,
+      onFieldAtStop: OFFER_SIZE - 1,
     });
-    expect(ledger.swallowed + ledger.lost + ledger.onFieldAtStop).toBe(
-      ledger.spawned,
-    );
+    expect(
+      ledger.swallowed + ledger.passed + ledger.lost + ledger.onFieldAtStop,
+    ).toBe(ledger.spawned);
   });
 });

@@ -79,6 +79,7 @@ describe('belch cadence', () => {
     observeBelchCadence(accumulator, 0, [], run);
     observeBelchCadence(accumulator, 1, [], run);
     const spilling = swallow(run, {
+      id: 1,
       kind: 'corpse',
       freshness: 1,
       payout: PAYOUT,

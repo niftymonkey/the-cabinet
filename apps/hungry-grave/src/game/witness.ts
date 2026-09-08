@@ -286,6 +286,26 @@ const foldLines = (checksum: number, lines: LineState): number => {
 };
 
 /**
+ * The offer standing on the field and the bank behind it (ADR 0034).
+ *
+ * An absent offer folds its own sentinel rather than being skipped, exactly as
+ * an absent ring does. The option count folds before the options, so an offer
+ * that shrank as lines maxed cannot fold the same as a longer one whose extra
+ * option happens to fold to the same word, and the body ids fold beside them
+ * because which body carries which option is the whole of the choice.
+ */
+const foldOffer = (checksum: number, run: RunState): number => {
+  const offer = run.offer;
+  if (offer === null) {
+    return fold(fold(checksum, ABSENT_CODE), run.bankedOffers);
+  }
+  let next = fold(fold(checksum, 1), offer.options.length);
+  for (const line of offer.options) next = fold(next, WEAPON_LINE_CODES[line]);
+  for (const id of offer.bodyIds) next = fold(next, id);
+  return fold(next, run.bankedOffers);
+};
+
+/**
  * The whole run, folded into one integer from a starting value (ADR 0019). One
  * function with a starting-value parameter, used two ways rather than being two
  * behaviours: chained across ticks for the golden digest's accumulator, and as
@@ -308,7 +328,7 @@ const foldWitness = (run: RunState, from: number): number => {
   checksum = foldLevels(checksum, run);
   checksum = foldStreams(checksum, run);
   checksum = foldStage(checksum, run.stage);
-  return foldLines(checksum, run.lines);
+  return foldOffer(foldLines(checksum, run.lines), run);
 };
 
 export {

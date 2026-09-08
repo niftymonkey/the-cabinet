@@ -3,21 +3,27 @@
 import type { SimEvent } from './events';
 import { growGrave } from './grave';
 import type { WeaponLine } from './lines/roster';
-import { MAX_LEVEL } from './lines/roster';
 import { surgeStream } from './lines/skullStream';
 import { launchWisps } from './lines/wisps';
+import { resolveOffer } from './offer';
 import type { RunState } from './run';
 import { freshnessScale, RESERVOIR_CAPACITY } from './tuning';
 
 type FoodKind = 'corpse' | 'drop' | 'feast';
 
 interface Swallowable {
+  /**
+   * The body's own entity id. It is here because a drop is one body of an
+   * offer and the offer holds its bodies by id, so the take has to name which
+   * body went in; it travels as a value, exactly as every other field does.
+   */
+  readonly id: number;
   readonly kind: FoodKind;
   // 0 to 1. Treasure is always 1: drops and feasts never decay (ADR 0004).
   readonly freshness: number;
   // What this food pays before freshness scales it, in size units.
   readonly payout: number;
-  // Which line a drop levels, decided by the dice at spawn (ADR 0034). Absent on corpses and feasts.
+  // Which option this body carries (ADR 0034). Absent on corpses, feasts, and the body a maxed run's carrier opens.
   readonly line?: WeaponLine;
 }
 
@@ -66,24 +72,6 @@ const payReservoir = (
 };
 
 /**
- * A drop levels the line it carries, chosen by the dice at spawn and never
- * rolled here (ADR 0034). A line already at MAX_LEVEL has no level to give, so
- * the drop pays what it is worth as overflow instead and nothing swallowed is
- * ever worthless.
- */
-const payLevel = (
-  state: RunState,
-  line: WeaponLine,
-  amount: number,
-  events: SimEvent[],
-): number => {
-  if (state.levels[line] >= MAX_LEVEL) return amount;
-  state.levels[line] += 1;
-  events.push({ type: 'weaponLeveled', line, level: state.levels[line] });
-  return 0;
-};
-
-/**
  * The grave passes under food and it falls in. The only way anything is ever
  * paid (ADR 0002).
  *
@@ -103,11 +91,13 @@ const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
     { type: 'chimed', kind: food.kind },
   ];
 
-  let overflow = payGrowth(state, paid, events);
+  const overflow = payGrowth(state, paid, events);
   payReservoir(state, paid, events);
-  if (food.line !== undefined) {
-    overflow += payLevel(state, food.line, paid, events);
-  }
+  // The offer's own rule, held in offer.ts: a drop is one body of an offer, so
+  // taking it levels the option that body carried and vanishes its siblings.
+  // A body belonging to no live offer answers with nothing, which is what
+  // leaves a maxed run's carrier paying growth, reservoir and overflow alone.
+  if (food.kind === 'drop') events.push(...resolveOffer(state, food.id));
   if (overflow > 0) {
     state.score += overflow;
     events.push({ type: 'overflowed', amount: overflow, score: state.score });

@@ -125,6 +125,7 @@ const corpseHitbox = (corpse: Corpse): Rect => {
  */
 const asSwallowable = (corpse: Corpse): Swallowable => {
   return {
+    id: corpse.id,
     kind: corpse.kind,
     freshness: corpse.freshness,
     payout: corpse.payout,
@@ -241,14 +242,20 @@ const spawnFeast = (
  * it inherits spawning, scrolling, culling and swallowing for free, which is the
  * whole reason not to build a pool of its own.
  *
- * Fully fresh and never decaying, so a maxed line's drop still pays growth,
- * reservoir and overflow: nothing swallowed is ever worthless (ADR 0002).
+ * Fully fresh and never decaying, so a body carrying no option at all still
+ * pays growth, reservoir and overflow: nothing swallowed is ever worthless
+ * (ADR 0002). A body with no line is what a maxed run's carrier opens, and the
+ * absent line is what says so all the way out to the sprite.
+ *
+ * The spawn is reported with the body's own id, because the offer that opened
+ * it holds its bodies by id and a refused spawn must be visible to it as a
+ * body that is simply not there.
  */
 const spawnDrop = (
   state: RunState,
   x: number,
   y: number,
-  line: WeaponLine,
+  line?: WeaponLine,
 ): SimEvent[] => {
   const events: SimEvent[] = [];
   const corpse = claimSlot(state, events);
@@ -264,7 +271,7 @@ const spawnDrop = (
   corpse.decays = false;
   corpse.line = line;
   corpse.halfExtent = DROP_HALF_EXTENT;
-  events.push({ type: 'dropSpawned', line, x, y });
+  events.push({ type: 'dropSpawned', id: corpse.id, line, x, y });
   return events;
 };
 

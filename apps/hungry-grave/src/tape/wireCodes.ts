@@ -106,6 +106,9 @@ const FAULT_IDENTITY_CODES: Readonly<Record<FaultIdentity, number>> = {
   'one live ring': 10,
   'phase index only increases': 11,
   'phase tick resets at a boundary': 12,
+  'one live offer': 13,
+  'offer bodies alive and matching': 14,
+  'bank not negative': 15,
 };
 
 const FAULT_SEVERITIES = ['fatal', 'recoverable'] as const;

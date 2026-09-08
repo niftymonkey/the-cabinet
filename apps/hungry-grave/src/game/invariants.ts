@@ -75,6 +75,7 @@ const checkRunNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'grave.size', state.grave.size);
   checkFinite(faults, 'grave.invulnerable', state.grave.invulnerable);
   checkFinite(faults, 'nextEntityId', state.nextEntityId);
+  checkFinite(faults, 'bankedOffers', state.bankedOffers);
 };
 
 const checkMobsNoNaN = (state: RunState, faults: Fault[]): void => {
@@ -451,6 +452,95 @@ const checkRing = (state: RunState, faults: Fault[]): void => {
   }
 };
 
+/**
+ * Exactly one offer is live at a time (ADR 0034), read off the field rather
+ * than off the record: the record holds one offer or none by construction, so
+ * what can go wrong is an option body standing that no live offer names.
+ *
+ * A body carrying no option at all is not one of these. That is what a maxed
+ * run's carrier opens, it belongs to no offer by design, and it is told apart
+ * by the absent line exactly as every other reader tells it apart.
+ */
+const checkOneLiveOffer = (state: RunState, faults: Fault[]): void => {
+  const ids = state.offer?.bodyIds ?? [];
+  for (const corpse of state.corpses) {
+    if (!corpse.alive || corpse.kind !== 'drop') continue;
+    if (corpse.line === undefined || ids.includes(corpse.id)) continue;
+    record(
+      faults,
+      'one live offer',
+      `drop ${corpse.id} carries ${corpse.line} for no live offer`,
+    );
+  }
+};
+
+/**
+ * The live offer's bodies are on the field and carry what it says they carry.
+ *
+ * At least one has to still stand, and no more than that: an offer whose every
+ * body has left the field is resolved as lost on the tick the last one goes,
+ * so a live offer with nothing standing is an offer that will never resolve
+ * and has jammed every offer behind it.
+ */
+const checkOfferBodies = (state: RunState, faults: Fault[]): void => {
+  const offer = state.offer;
+  if (offer === null) return;
+  if (offer.options.length !== offer.bodyIds.length) {
+    record(
+      faults,
+      'offer bodies alive and matching',
+      `an offer holds ${offer.options.length} options on ${offer.bodyIds.length} bodies`,
+    );
+    return;
+  }
+  // One id twice is two options wearing one body, so the take resolves the
+  // first of them and the player is paid a line they never passed under.
+  if (new Set(offer.bodyIds).size !== offer.bodyIds.length) {
+    record(
+      faults,
+      'offer bodies alive and matching',
+      `an offer names body ${offer.bodyIds.join(', ')} more than once`,
+    );
+    return;
+  }
+  let standing = 0;
+  for (const [index, id] of offer.bodyIds.entries()) {
+    const body = state.corpses.find((each) => each.alive && each.id === id);
+    if (body === undefined) continue;
+    standing += 1;
+    if (body.line === offer.options[index]) continue;
+    record(
+      faults,
+      'offer bodies alive and matching',
+      `offer body ${id} carries ${body.line} rather than ${offer.options[index]}`,
+    );
+  }
+  if (standing === 0) {
+    record(
+      faults,
+      'offer bodies alive and matching',
+      'a live offer has no body left on the field',
+    );
+  }
+};
+
+/**
+ * The bank counts carriers waiting their turn, so it is a whole count and
+ * never goes below zero. A NaN bank is the no-NaN check's, which folds this
+ * field in.
+ *
+ * A fraction is caught here rather than a tick later. Half a banked offer
+ * still reads as one to open, so the next take spends it and leaves the bank
+ * at minus a half, which this identity would then record against a state one
+ * tick removed from the write that broke it.
+ */
+const checkBank = (state: RunState, faults: Fault[]): void => {
+  const bank = state.bankedOffers;
+  if (!Number.isInteger(bank) || bank < 0) {
+    record(faults, 'bank not negative', `the bank holds ${bank}`);
+  }
+};
+
 // Freshness is a meter from 1 to 0 and never leaves that range (ADR 0004).
 const checkFreshness = (state: RunState, faults: Fault[]): void => {
   for (const corpse of state.corpses) {
@@ -588,6 +678,9 @@ const checkInvariants = (
   checkReservoir(state, faults);
   checkLevels(state, faults);
   checkRing(state, faults);
+  checkOneLiveOffer(state, faults);
+  checkOfferBodies(state, faults);
+  checkBank(state, faults);
   checkStage(state, watch, faults);
   return faults;
 };
