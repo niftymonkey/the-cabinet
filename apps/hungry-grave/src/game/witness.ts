@@ -2,7 +2,7 @@
 
 import type { Corpse } from './corpses';
 import type { Grave } from './grave';
-import type { BellRing } from './lines/bell';
+import type { BellToll } from './lines/bell';
 import type { WeaponLine } from './lines/roster';
 import { WEAPON_LINES } from './lines/roster';
 import type { CorpseTier } from './mobs';
@@ -273,7 +273,7 @@ const foldStage = (checksum: number, stage: StageState): number => {
  * An absent ring folds its own sentinel rather than being skipped. Skipping it
  * would make a run with no ring and a run whose ring folds to zero one witness.
  */
-const foldRing = (checksum: number, ring: BellRing | null): number => {
+const foldRing = (checksum: number, ring: BellToll | null): number => {
   if (ring === null) return fold(checksum, ABSENT_CODE);
   const next = fold(fold(checksum, 1), ring.level);
   return foldStruck(fold(next, ring.ticks), ring.struck);

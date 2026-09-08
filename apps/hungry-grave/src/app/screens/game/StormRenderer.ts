@@ -2,7 +2,12 @@ import { Graphics } from 'pixi.js';
 
 import { SKULL_CAP, TERRITORY_CAP, WISP_CAP } from '../../../game/caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
-import { BELL_EXPAND_TICKS, ringRadius } from '../../../game/lines/bell';
+import {
+  BELL_CONE_ROWS,
+  BELL_EXPAND_TICKS,
+  coneHeading,
+  tollReach,
+} from '../../../game/lines/bell';
 import { SKULL_HALF_EXTENT } from '../../../game/lines/skullStream';
 import type { Patch } from '../../../game/lines/territory';
 import {
@@ -16,7 +21,7 @@ import type { FieldLayers } from './layering';
 
 /**
  * The player's own fire on screen: skulls, Territory's claimed ground, wisps,
- * the bell's ring, the belch's eruption and the splash.
+ * the bell's cones, the belch's eruption and the splash.
  *
  * It is a second file beside FieldRenderer rather than four more methods on it.
  * The storm is a different owner with its own pools, and the two share no state.
@@ -98,11 +103,20 @@ const ARRIVAL_WOBBLE: readonly number[] = [
 const HAND_REACH = 0.34;
 const HAND_WIDTH = 0.16;
 
-// How thick the bell's ring is stroked, in field units.
-const RING_STROKE = 2.5;
+// How thick the edge of a bell cone is stroked, in field units.
+const CONE_STROKE = 2.5;
 
-// The alpha a bell ring starts at, fading to nothing as it reaches its full radius.
-const RING_ALPHA = 0.85;
+// The alpha a toll starts at, fading to nothing as its cones reach full.
+const CONE_ALPHA = 0.85;
+
+/**
+ * How solid a cone's body is against its own stroked edge. The edge carries the
+ * expanding motion the ring used to carry alone, which ADR 0005's generative
+ * rule needs to keep the bell tellable from the other three lines; the body is
+ * what says which way the toll is pointing, so it reads without swallowing the
+ * field a level-5 toll covers.
+ */
+const CONE_FILL_ALPHA = 0.35;
 
 /**
  * How long the eruption reads for, in ticks, and how far it reaches.
@@ -110,7 +124,7 @@ const RING_ALPHA = 0.85;
  * A third of a second, so it reads as a shock front rather than a bloom, and out
  * to the field's own diagonal rather than its width, so it leaves the far corner
  * behind. Anything shorter in reach reads as a large bell toll, and the bell is
- * a different line: the bell's ring takes 45 ticks to a quarter of the distance,
+ * a different line: the bell's cones take 45 ticks to a quarter of the distance,
  * which is what keeps the two tellable apart under ADR 0005's generative rule.
  *
  * Hitstop is refused rather than omitted. A sim pause changes the tick count and
@@ -265,23 +279,45 @@ const drawWisp = (into: Graphics): void => {
     });
 };
 
-// The bell's ring at a live radius: a stroked circle, so the falloff in damage is visible as a falloff on screen.
-const drawRing = (into: Graphics, radius: number): void => {
+/**
+ * One wedge per cone this level throws, laid down as a path for the caller to
+ * fill or stroke. Pixi measures an angle from the positive x axis and a heading
+ * is measured from straight up the field, which is the quarter turn between
+ * them.
+ */
+const coneWedges = (into: Graphics, level: number, reach: number): void => {
+  const row = BELL_CONE_ROWS[level];
+  for (let cone = 0; cone < row.headings.length; cone++) {
+    const facing = coneHeading(level, cone) - Math.PI / 2;
+    into
+      .moveTo(0, 0)
+      .arc(0, 0, reach, facing - row.halfAngle, facing + row.halfAngle)
+      .closePath();
+  }
+};
+
+/**
+ * The toll's cones at a live reach, so what the player sees the toll answer is
+ * what the sim swept (ADR 0036). The path is laid twice because pixi clears it
+ * at every fill and stroke, and only a fill and the stroke straight after it
+ * share one.
+ */
+const drawCones = (into: Graphics, level: number, reach: number): void => {
   into.clear();
-  if (radius <= 0) return;
-  into
-    .circle(0, 0, radius)
-    .stroke({
-      width: RING_STROKE + SPRITE_STROKE * 2,
-      color: PALETTE.foodOutline.hex,
-      alignment: 0.5,
-    })
-    .circle(0, 0, radius)
-    .stroke({
-      width: RING_STROKE,
-      color: PALETTE.bellRing.hex,
-      alignment: 0.5,
-    });
+  if (!(reach > 0)) return;
+  if (level < 0 || level >= BELL_CONE_ROWS.length) return;
+  coneWedges(into, level, reach);
+  into.stroke({
+    width: CONE_STROKE + SPRITE_STROKE * 2,
+    color: PALETTE.foodOutline.hex,
+    alignment: 0.5,
+  });
+  coneWedges(into, level, reach);
+  into.fill({ color: PALETTE.bellRing.hex, alpha: CONE_FILL_ALPHA }).stroke({
+    width: CONE_STROKE,
+    color: PALETTE.bellRing.hex,
+    alignment: 0.5,
+  });
 };
 
 // The belch's shock front, leaving the mouth and expanding past the field's far corner.
@@ -588,15 +624,15 @@ class StormRenderer {
   }
 
   private syncRing(run: RunState): void {
-    const ring = run.lines.ring;
-    this.ring.visible = ring !== null;
-    if (ring === null) return;
-    drawRing(this.ring, ringRadius(ring));
+    const toll = run.lines.ring;
+    this.ring.visible = toll !== null;
+    if (toll === null) return;
+    drawCones(this.ring, toll.level, tollReach(toll));
     this.ring.position.set(run.grave.x, run.grave.y);
     // Fading as it expands, so the falloff in damage is visible as a falloff on
     // screen rather than being a number only the sim knows.
-    const spent = Math.max(0, Math.min(1, ring.ticks / BELL_EXPAND_TICKS));
-    this.ring.alpha = RING_ALPHA * (1 - spent);
+    const spent = Math.max(0, Math.min(1, toll.ticks / BELL_EXPAND_TICKS));
+    this.ring.alpha = CONE_ALPHA * (1 - spent);
   }
 
   private syncBursts(run: RunState): void {

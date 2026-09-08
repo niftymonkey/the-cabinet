@@ -7,6 +7,7 @@ import type { Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import { SKULL_CAP, TERRITORY_CAP, WISP_CAP } from '../../../../game/caps';
+import { MAX_LEVEL } from '../../../../game/lines/roster';
 import { TERRITORY_OPENING_TICKS } from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
@@ -136,7 +137,7 @@ describe('sprites follow their slots (plan 6.19)', () => {
     expect(sprite.rotation).toBeCloseTo(Math.PI / 2, 6);
   });
 
-  it("shows the bell's ring only while one is live", () => {
+  it("shows the bell's cones only while a toll is live", () => {
     const { layers, renderer } = attached();
     const state = quietRun();
     renderer.sync(state);
@@ -145,6 +146,32 @@ describe('sprites follow their slots (plan 6.19)', () => {
     state.lines.ring = { level: 4, ticks: 12, struck: new Set() };
     renderer.sync(state);
     expect(children(layers, 'bellRing')[0].visible).toBe(true);
+  });
+
+  it('draws one wedge per cone the level throws, so a level-1 toll is one and a level-5 toll is five', () => {
+    // Read off the drawing instructions and never off the module's source
+    // text. One arc is one wedge, counted in the fill that lays the cone
+    // bodies down, so the outline passes are never double-counted.
+    const wedges = (sprite: Graphics) =>
+      sprite.context.instructions
+        .filter((instruction) => instruction.action === 'fill')
+        .flatMap((instruction) => {
+          const data = instruction.data as {
+            path?: { instructions?: { action: string }[] };
+          };
+          return data.path?.instructions ?? [];
+        })
+        .filter((shape) => shape.action === 'arc').length;
+
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    state.lines.ring = { level: 1, ticks: 12, struck: new Set() };
+    renderer.sync(state);
+    expect(wedges(children(layers, 'bellRing')[0])).toBe(1);
+
+    state.lines.ring = { level: MAX_LEVEL, ticks: 12, struck: new Set() };
+    renderer.sync(state);
+    expect(wedges(children(layers, 'bellRing')[0])).toBe(MAX_LEVEL);
   });
 });
 

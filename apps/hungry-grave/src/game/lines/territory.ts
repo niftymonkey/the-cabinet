@@ -213,7 +213,7 @@ interface Patch {
   /**
    * When each held mob may be pulsed again: next-eligible tick by entity id.
    *
-   * Keyed by id and never by slot, on bell.ts's `BellRing.struck` precedent,
+   * Keyed by id and never by slot, on bell.ts's `BellToll.struck` precedent,
    * so it carries none of the recycled-slot hazard a per-mob cooldown field
    * would: ids only ever increase, a recycled slot arrives with a new one, and
    * the map dies with the patch. Expired entries are pruned each resolve, so

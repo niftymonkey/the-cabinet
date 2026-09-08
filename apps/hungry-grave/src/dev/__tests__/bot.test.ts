@@ -119,25 +119,27 @@ const REACHES_VICTORY_FRESH: number[] = [];
 
 /**
  * The seeds that reach victory from the size ceiling on the birthright build,
- * and it is one of the five: 303.
+ * and today it is none of the five.
  *
- * Re-measured twice in one step. For the thinned birthright (ADR 0045) the set
- * emptied: 202 left it, sealing in the back half at 12008 ticks where it used
- * to run the full 12421 and win. For freshness-scaled bursts (ADR 0058) 303
- * entered it, running the full stage at 40 kills.
+ * Re-measured three times in one step. For the thinned birthright (ADR 0045)
+ * the set emptied: 202 left it, sealing in the back half at 12008 ticks where
+ * it used to run the full 12421 and win. For freshness-scaled bursts (ADR
+ * 0058) 303 entered it, running the full stage at 40 kills. For the bell's
+ * cones (ADR 0036) 303 left it again, sealing at 11160 ticks and 37 kills.
  *
- * Neither move is a strength claim, and the second one reads backwards if it
- * is taken as one: scaling the surge by freshness only ever pays fewer volleys
- * than the flat two it replaced. What moves a seed is the path. `dodgePolicy`
- * steers off the field it is standing in, so one fewer volley at tick 900
- * changes which mobs are alive at tick 901 and the two runs are different runs
- * from there on. Ten thousand ticks of that is why a per-seed outcome swings
- * either way on a change that only ever subtracts.
+ * None of the three moves is a strength claim. What moves a seed is the path:
+ * `dodgePolicy` steers off the field it is standing in, so one fewer volley at
+ * tick 900 changes which mobs are alive at tick 901 and the two runs are
+ * different runs from there on. The cones make that concrete rather than
+ * likely. Of the five ceiling runs, 303 is the only one that ever owns the
+ * bell at all: it tolls 31 times and now shoves 24 of them, where the table it
+ * replaced pushed nothing below level 4. The four seeds that never toll did
+ * not move.
  *
  * Pinned as a constant rather than left a literal in the test, because the
  * fresh set and this one are different facts.
  */
-const REACHES_VICTORY_FROM_THE_CEILING: number[] = [303];
+const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
@@ -377,9 +379,9 @@ describe('dodgePolicy from the size ceiling', () => {
       // Every one of these was a declared expected failure before weapons
       // existed. Dispatch 4's section 5 asserted victory from the ceiling and
       // its own section 8 proved it cannot, so what is asserted here is what
-      // the weapons actually do, re-measured for #79's 832-tick territory
-      // period: one of the five seeds reaches the over phase and wins, and
-      // four seal shut inside the back half.
+      // the weapons actually do, re-measured for the bell's cones (ADR 0036):
+      // all five seeds seal shut inside the back half and none reaches the
+      // over phase.
       // REACHES_VICTORY_FROM_THE_CEILING is where that set is pinned and where
       // its cause is written down.
       const { state, events } = fullRun(seed, SIZE_CEILING);

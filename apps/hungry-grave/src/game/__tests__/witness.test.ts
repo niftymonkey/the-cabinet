@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { stepping } from '../../dev/stepping';
-import type { BellRing } from '../lines/bell';
+import type { BellToll } from '../lines/bell';
 import type { WeaponLine } from '../lines/roster';
 import { WEAPON_LINES } from '../lines/roster';
 import type { RunState } from '../run';
@@ -37,7 +37,7 @@ const RING_LEVEL = 2;
 const RING_TICKS = 5;
 const RING_STRUCK: readonly number[] = [11, 12];
 
-function ring(): BellRing {
+function ring(): BellToll {
   return { level: RING_LEVEL, ticks: RING_TICKS, struck: new Set(RING_STRUCK) };
 }
 

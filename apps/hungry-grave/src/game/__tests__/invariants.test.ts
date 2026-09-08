@@ -18,7 +18,7 @@ import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import type { BellRing } from '../lines/bell';
+import type { BellToll } from '../lines/bell';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
 import type { Stream } from '../rng';
 import { MAX_LEVEL } from '../lines/roster';
@@ -429,7 +429,7 @@ describe("the storm's invariants (plan 6.26)", () => {
 });
 
 /** The fixture's live ring, rebuilt whole where a case must move its read-only level. */
-function liveRing(): BellRing {
+function liveRing(): BellToll {
   return { level: 2, ticks: 5, struck: new Set([11, 12]) };
 }
 

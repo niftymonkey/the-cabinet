@@ -2,7 +2,7 @@ import type { Corpse } from './corpses';
 import { createCorpsePool } from './corpses';
 import type { Grave } from './grave';
 import { createGrave } from './grave';
-import type { BellRing } from './lines/bell';
+import type { BellToll } from './lines/bell';
 import { BELL_PERIOD } from './lines/bell';
 import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
@@ -43,7 +43,7 @@ interface LineState {
   // Ticks to the next toll.
   tollIn: number;
   // The one live ring, or null between tolls.
-  ring: BellRing | null;
+  ring: BellToll | null;
   // Ticks to the next Territory lay. Held at zero while nothing is eligible.
   layIn: number;
 }

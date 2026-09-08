@@ -71,7 +71,7 @@ Two structural facts the gap table depends on, both verified rather than assumed
    `pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts /tmp/step1-a.tape 2093383922 12000 skullStream=1 territory=0 wisps=0 bell=0`
    then `pnpm vite-node --config vite.headless.config.ts scripts/measure.ts /tmp/step1-a.tape`.
    Passing means: the measurement names `skullStream` in its per-line readings; `dropSpawned` count equals three times the `offerOpened` count; every `offerOpened` is followed by exactly one `offerTaken` or `offerLost` before the next; `offerTaken` count plus `offerLost` count never exceeds carriers killed; and no invariant fault fired.
-7. **Headless conditioned run, bell cones at the levels that push.** Same recorder with `skullStream=1 territory=0 wisps=0 bell=5`, then measure. Passing means the repel reading (`src/dev/readings/repel.ts`) shows total pushback well above the 42, 51 and 0 field units #79 read, and `mobShoved` events appear at levels below four in a `bell=3` run where today they cannot exist at all.
+7. **Headless conditioned run, bell cones at the levels that push.** Same recorder at `bell=1`, `bell=3` and `bell=5`, then measure each. Passing means `mobShoved` events and a non-zero repel total (`src/dev/readings/repel.ts`) appear at `bell=1` and at `bell=3`, which is impossible today because push is zero below level four. The `bell=5` repel total is **reported beside the 42, 51 and 0 field units #79 read, not judged against them**: level five keeps its push of 40 and the falloff and reach barely move, so a level-five run cannot beat those figures by construction and a pass criterion that asked it to would be asking the slice to retune the top of the ladder blind. Step 4's harness is what judges the magnitudes.
 8. **Old-tape decode check.** Take one tape recorded before this step (record it at the branch tip before slice 1 lands, saved outside the repo), and after the rename run `scripts/measure.ts` on it. Passing means the tool reports the tape's recorded roster containing `soulStream` verbatim, reports the header fields it can, and refuses replay with the not-implemented roster message rather than throwing a format error or silently coercing. This is ADR 0043's precise-refusal contract and it is the check that proves the rename cost no format version.
 9. **Rendered check.** `pnpm build && pnpm exec vite preview` from `apps/hungry-grave/`, then a screenshot the agent actually reads, of: three offer bodies standing side by side on the field with three distinct silhouettes; the bank readout when a second carrier dies under a live offer; a level-one toll showing one forward cone; a level-five toll showing the surround. The level-five shot is taken through the pinned-replay path (a recorded tape rendered at a chosen tick) so it is deterministic. The agent states which reads it obtained and which it did not.
 10. **Fence and invariant guards** are ordinary tests and are listed in section 6, but they are named here because they are the step's own architectural verification: no policy module names a weapon line, and no new `RunState` field escapes the witness partition.
@@ -182,7 +182,8 @@ const WISP_FLOOR_SOULS: number;
 ```ts
 // What one level's toll throws. Angles in radians, reach and push in field units.
 interface ConeRow {
-  readonly cones: number;
+  // Where each cone points, zero being straight up and negative to the left. The cone count is the length.
+  readonly headings: readonly number[];
   readonly halfAngle: number;
   readonly reach: number;
   readonly push: number;
@@ -206,6 +207,8 @@ const advanceBell: (state: RunState) => SimEvent[];
 ```
 
 **`ConeRow` is a genuine design decision and needs review.** It is the per-line tuning row shape the standing constraint asks for, and it is the template a fifth line's rows copy. Four fields and no more: a fifth field would need a caller today (cited-future rule).
+
+**The headings are a data row and never a formula (gate correction, 2026-09-08).** An even `k * (2*pi/n)` spacing puts level two's second cone dead astern, which is the opposite of "wrapping toward the sides as they multiply". So the row carries the headings themselves, the harness tunes them at step 4 the way it tunes reach and push, and `coneHeading(level, index)` reads the row rather than computing anything.
 
 ### `src/game/belch.ts` (changed)
 
@@ -389,6 +392,7 @@ Every test is written as a `test.todo` placeholder against a stub before impleme
 37. *Damage still falls off with distance from the grave.* Pins ADR 0036: "Its damage also falls off with distance from the grave, so the far edge tickles rather than kills."
 38. *One toll damages a mob once however far the push carries it.* Pins the `bell.ts:14-27` struck-set ruling, which the cone sweep must not lose.
 39. *The push is on the field below the top levels.* Pins ADR 0036: "the push is the half that has to be felt, because a repel line the player cannot see repelling is not a repel line", against the recorded evidence that `BELL_PUSH_BY_LEVEL` was zero below the top levels. The test pins the relation (push at level two is greater than zero and rises with level), never a magnitude.
+39a. *Every level's cones are symmetric about straight up, and at levels one to four they meet as one contiguous forward arc.* Pins ADR 0036's "wrapping around toward the sides as they multiply" against the shape of the rows themselves, so a heading row edited by the harness cannot quietly become left-handed or grow a hole in the arc ahead. Numbered `39a` rather than renumbering, because the slices below cite these numbers. Level five is deliberately outside the contiguity half: its three slits are the surround arriving, and test 33 is what holds that end.
 
 **`src/game/lines/__tests__/wisps.test.ts`**
 
@@ -548,19 +552,23 @@ Every magnitude below is an **initial data row, tuned by the harness at step 4**
 
 **Two-touch tie-break: the body whose centre is nearest the grave's centre, ties broken by the lower entity id.** Deterministic, needs no new stream draw, and is the reading a player would give. The handoff lists this as an open play question, so the plan runs under this as a stated assumption; see section 9.
 
-**Bell cone rows.** Cone counts are Mark's own shape ("maybe 1-2-3-4-5 per level", handoff). Total angular coverage climbs 90, 160, 228, 288 and 330 degrees, so the surround is back at level five with a rear gap that keeps the shape reading as cones rather than as the old circle. Reach is derived area-preserving against the old ring radii at `bell.ts:51`, which is what "reach grows to compensate" means in numbers: preserving a circle's area `pi*r^2` in a wedge of total angle `t` gives `R = r * sqrt(2*pi/t)`.
+**Bell cone rows.** Cone counts are Mark's own shape ("maybe 1-2-3-4-5 per level", handoff). The arc a toll actually covers climbs 90, 160, 196, 288 and 330 degrees, so at level five the surround is back as five cones separated by five six-degree slits, one of them dead astern: it reads as cones rather than as the old circle, which is what ADR 0036's "earns back the whole surround at field scale" asks for. Reach is derived area-preserving against the old ring radii at `bell.ts:51`, which is what "reach grows to compensate" means in numbers: preserving a circle's area `pi*r^2` in a wedge of total angle `t` gives `R = r * sqrt(2*pi/t)`.
 
-| Level | Cones | Half-angle (deg) | Total (deg) | Reach | Push |
+The `t` in that derivation is the summed width of the cones, which is the column below, because the area of `n` wedges is `n * halfAngle * R^2` however they are pointed. It is the covered arc only where the cones do not overlap. Level three is the one row where they do: its three cones sum to 228 degrees of width and cover 196 degrees of arc, so its reach of 207 is derived against an area that counts the two overlaps twice and is that much generous. Initial rows, and the harness reads what they are worth at step 4.
+
+| Level | Headings (deg from straight up) | Half-angle (deg) | Cone width summed (deg) | Reach | Push |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 1 | 45 | 90 | 160 | 6 |
-| 2 | 2 | 40 | 160 | 183 | 10 |
-| 3 | 3 | 38 | 228 | 207 | 16 |
-| 4 | 4 | 36 | 288 | 231 | 26 |
-| 5 | 5 | 33 | 330 | 261 | 40 |
+| 1 | 0 | 45 | 90 | 160 | 6 |
+| 2 | -40, +40 | 40 | 160 | 183 | 10 |
+| 3 | -60, 0, +60 | 38 | 228 | 207 | 16 |
+| 4 | -108, -36, +36, +108 | 36 | 288 | 231 | 26 |
+| 5 | -144, -72, 0, +72, +144 | 33 | 330 | 261 | 40 |
+
+The headings are written in degrees and converted once at the row, because degrees are what a person tunes in. Every row is symmetric about straight up, so no player ever learns a left-handed bell. At levels one to four the cones meet or overlap, so the toll answers one contiguous arc ahead and the open side is the rear; the slits arrive only at level five, where the wrap has gone all the way round.
 
 Push begins at level one, where today it is zero through level three (`bell.ts:64`). The evidence for moving it is the handoff's own measured case: `BELL_PUSH_BY_LEVEL [0,0,0,0,20,40]` produced 42, 51 and 0 field units of total pushback and 4, 3 and 2 bell kills against roughly 267 mobs across the three #79 runs, which ADR 0036 records as "evidence of a line that was never felt". Level five holds 40 so the top of the ladder is not retuned blind; the levels below it get a push they have never had. All six numbers are initial.
 
-**Cone headings: cone `k` of `n` sits at `k * (2*pi/n)` from straight up, alternating sides.** One cone at level one points straight up, which is ADR 0036's "Level one throws one cone forward". Even spacing is what makes level five a surround rather than a forward fan, and alternating sides is what makes the wrap symmetric so a player never learns a left-handed bell.
+**Cone headings are the row's own data, not a spacing rule.** One cone at level one points straight up, which is ADR 0036's "Level one throws one cone forward". Level two's pair sits at forty degrees either side rather than at the even 180 a formula gives, because a cone dead astern at level two is the opposite of wrapping toward the sides. From there the pairs walk outward, reaching the rear only at level five. All five rows are initial and the harness tunes them at step 4.
 
 **Belch burst radius `BELCH_BURST_RADIUS = 160` field units.** Under a third of the field's 540 width and equal to the level-one cone's reach, so the burst is legibly local against a field-wide gas. The evidence that the old scope was the problem is in ADR 0008: the 2026-08-31 tapes read the belch at 35 and 46 percent of all kills with the reservoir full 62 to 79 percent of the run. A local burst is the scope cut; the number is initial and the harness reads the belch's kill share back at step 4.
 
@@ -601,7 +609,7 @@ Each slice is one commit: its tests, its minimal implementation, and its `GOLDEN
 
 **Slice 5. The belch split.** `BELCH_BURST_RADIUS` and the reduction of `wipeEnteredMobs` to a local burst. Spec tests 26 to 30 land here.
 
-**Slice 6. The bell arcs.** `ConeRow`, `BELL_CONE_ROWS`, `coneHeading`, `insideCone`, `tollReach`, the reshaped `BellToll`, the angular sweep, and the renderer at `StormRenderer.ts:594-598`. Spec tests 31 to 39 and module test 73 land here. Verification step 7 runs here.
+**Slice 6. The bell arcs.** `ConeRow`, `BELL_CONE_ROWS`, `coneHeading`, `insideCone`, `tollReach`, the reshaped `BellToll`, the angular sweep, and the renderer at `StormRenderer.ts:594-598`. Spec tests 31 to 39, 39a and module test 73 land here. Verification step 7 runs here.
 
 **Slice 7. Carriers, without the offer.** The `carries` flag on `Mob`, the `carried` field on `mobKilled`, `cullMobs` returning events, `carrierLost`, `carriers.ts` with its derivation and slack, the carrier column on `StageRow`, and a first schedule on the existing rows meeting `carriersScheduled()`. `creditKill` is replaced at `step.ts:134` by a carrier-death branch that still spawns a single old-style drop, so the slice is one change and not two. Spec tests 1, 2, 15, 16, 17, 18 and module tests 55 to 58, 68 land here. `drops.ts` loses `DROP_PRICES`, `priceOfNextDrop` and `creditKill`; `RunState` loses `killsSinceDrop` and `dropsPaid`; `invariants.ts:77-78` and the witness partition at `witness.test.ts:582-583` follow. The bot test's drop band at `bot.test.ts:294-295` is rewritten here. Verification step 6's carrier half runs here.
 

@@ -436,15 +436,19 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
     state.lines.tollIn = 1;
     const victim = spawnMob(state, 'shambler', {
       x: state.grave.x,
-      y: state.grave.y,
+      y: state.grave.y - 20,
       vx: 0,
       vy: 1,
       index: 0,
     })!;
     victim.beat = 0;
-    // One point of health, because BELL_DAMAGE_NEAR is one shambler exactly and
-    // a mob has already drifted a little by the time the ring's first expansion
-    // reaches it, so a full-health shambler survives a centred toll by a sliver.
+    // Standing a little ahead of the grave rather than on it, because a toll
+    // throws cones (ADR 0036) and a mob that drifts below the grave sits in
+    // the one slit a level-5 toll leaves open, dead astern.
+    //
+    // One point of health, because BELL_DAMAGE_NEAR is one shambler exactly
+    // and a mob has already drifted a little by the time the toll's first
+    // expansion reaches it, so a full-health shambler survives by a sliver.
     victim.hp = 1;
 
     let killed = 0;
