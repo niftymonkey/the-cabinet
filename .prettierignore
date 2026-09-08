@@ -27,8 +27,11 @@ local/
 scripts/roadmap/
 
 # Assetpack's cache and its output. Generated on every typecheck and build, and
-# git ignores all three (apps/hungry-grave/.gitignore).
+# git ignores all three (each app's own .gitignore).
 apps/hungry-grave/.assetpack/
 apps/hungry-grave/public/assets/
 apps/hungry-grave/src/manifest.json
+apps/cabinet/.assetpack/
+apps/cabinet/public/assets/
+apps/cabinet/src/manifest.json
 
