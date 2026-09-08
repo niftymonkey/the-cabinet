@@ -534,7 +534,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     const body = atTheWaking();
     body.state.grave.x = body.state.setPiece!.x;
     body.state.grave.y = body.state.setPiece!.y;
-    spawnMob(
+    const standing = spawnMob(
       body.state,
       MOB_TYPE_NAMES[0],
       {
@@ -545,7 +545,11 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
         index: 0,
       },
       false,
-    );
+    )!;
+    // Past its arriving beat, because a body placed inside the field holds that
+    // beat before it can touch. What this half is asking is whether a body in
+    // the mouth's place hits at all, not when it hits.
+    standing.beat = 0;
     expect(only(body.tick(STILL), 'graveHit').length).toBeGreaterThan(0);
   });
 

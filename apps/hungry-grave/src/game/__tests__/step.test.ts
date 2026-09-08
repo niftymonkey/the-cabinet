@@ -12,7 +12,7 @@ import type { SimEvent } from '../events';
 import { graveHitbox } from '../grave';
 import { fireDirectedShot } from '../mobFire';
 import type { Mob } from '../mobs';
-import { MOB_TYPES, spawnMob } from '../mobs';
+import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
 import type { RunState } from '../run';
 import { createRun } from '../run';
@@ -213,6 +213,40 @@ function mobOnGrave(state: RunState, offsetY = 0): Mob {
   return mob;
 }
 
+/**
+ * A body that appeared inside the field, standing on the grave, with its own
+ * arriving beat untouched. It is the placement the pour makes: below the top
+ * edge, so nothing crossed an edge for the player to read.
+ */
+function insideTheField(state: RunState): Mob {
+  return spawnMob(
+    state,
+    'shambler',
+    { x: state.grave.x, y: state.grave.y, vx: 0, vy: 1, index: 0 },
+    false,
+  )!;
+}
+
+/**
+ * A body straddling the top edge, which is where every template places one. Its
+ * top edge is outside the field, so it has not entered and its beat has not
+ * started.
+ */
+function acrossTheTopEdge(state: RunState): Mob {
+  return spawnMob(
+    state,
+    'shambler',
+    { x: state.grave.x, y: 0, vx: 0, vy: 1, index: 0 },
+    false,
+  )!;
+}
+
+/** Holds a body on the grave, so a fall cannot carry it out of the box mid-beat. */
+function holdOnGrave(state: RunState, mob: Mob): void {
+  mob.x = state.grave.x;
+  mob.y = state.grave.y;
+}
+
 /** A shot sitting on the grave, put there by hand rather than fired from off screen. */
 function shotOnGrave(state: RunState) {
   const shot = state.mobFire[0];
@@ -336,6 +370,46 @@ describe('what meets the grave (ADR 0003 and ADR 0014)', () => {
     mobOnGrave(state);
 
     const hits = step(STILL).filter((event) => event.type === 'graveHit');
+    expect(hits).toEqual([
+      expect.objectContaining({ type: 'graveHit', source: 'contact' }),
+    ]);
+  });
+
+  it('holds a body that appeared inside the field off the grave until its arriving beat has run', () => {
+    // A body placed below the top edge has no crossing to show the player, so
+    // it can materialise inside the grave's own box. The arriving beat is the
+    // telegraph a body that comes over the edge gets for free, and contact
+    // waits for it.
+    const state = quietRun();
+    const step = stepping(state);
+    const mob = insideTheField(state);
+    expect(mob.beat).toBe(ARRIVE_TICKS);
+
+    const during: SimEvent[] = [];
+    for (let tick = 0; tick < ARRIVE_TICKS - 1; tick++) {
+      holdOnGrave(state, mob);
+      during.push(...step(STILL));
+    }
+    expect(typesOf(during)).not.toContain('graveHit');
+    expect(mob.beat).toBe(1);
+
+    holdOnGrave(state, mob);
+    expect(typesOf(step(STILL))).toContain('graveHit');
+  });
+
+  it('lets a body that crossed the top edge touch the grave during its arriving beat, as it always has', () => {
+    // The fence under the glossary's "movement only": a body that arrives over
+    // the edge is unchanged and touches from the tick it overlaps, beat or no
+    // beat. What the beat now governs at contact is the body that appears
+    // inside the field, and nothing else.
+    const state = quietRun();
+    const step = stepping(state);
+    state.grave.y = state.grave.size;
+    const mob = acrossTheTopEdge(state);
+    expect(mob.beat).toBe(ARRIVE_TICKS);
+
+    const hits = step(STILL).filter((event) => event.type === 'graveHit');
+    expect(mob.beat).toBe(ARRIVE_TICKS);
     expect(hits).toEqual([
       expect.objectContaining({ type: 'graveHit', source: 'contact' }),
     ]);

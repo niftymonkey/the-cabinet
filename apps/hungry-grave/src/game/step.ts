@@ -15,7 +15,7 @@ import { advanceStream } from './lines/skullStream';
 import { advanceTerritory } from './lines/territory';
 import { advanceWisps } from './lines/wisps';
 import { cullShots, shotHitbox } from './mobFire';
-import { advanceMobs, cullMobs, mobHitbox } from './mobs';
+import { advanceMobs, canTouchGrave, cullMobs, mobHitbox } from './mobs';
 import {
   chooseOfferBody,
   loseOffer,
@@ -66,11 +66,17 @@ const resolveMobFire = (state: RunState, events: SimEvent[]): void => {
 /**
  * Mob bodies meeting the grave. The mob is not consumed, because live mobs are
  * never food and contact never kills a mob (ADR 0037).
+ *
+ * A body that appeared inside the field waits out its arriving beat before it
+ * can touch, which is mobs.ts's rule and not this pass's: the pour puts bodies
+ * in the middle of the field, and one that could touch on the tick it
+ * materialised would be a hit with nothing to see coming.
  */
 const resolveMobContact = (state: RunState, events: SimEvent[]): void => {
   const box = graveHitbox(state.grave);
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
+    if (!canTouchGrave(mob)) continue;
     if (!overlaps(mobHitbox(mob), box)) continue;
     events.push(...hitGrave(state, 'contact'));
   }

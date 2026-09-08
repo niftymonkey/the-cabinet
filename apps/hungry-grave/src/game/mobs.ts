@@ -196,6 +196,16 @@ interface Mob {
    * never carriers, which is what keeps density from buying a build.
    */
   carries: boolean;
+  /**
+   * Whether this mob appeared inside the field rather than crossing the top
+   * edge. Written once at the spawn from the placement it was given, never
+   * directed: only the spawn knows it, and a mob never crosses back out.
+   *
+   * Templates place every body above the edge, so the crossing is the warning.
+   * A body placed below the edge has no crossing to give, which is what its
+   * arriving beat stands in for at contact.
+   */
+  appearedInside: boolean;
 }
 
 const blankMob = (): Mob => {
@@ -212,6 +222,7 @@ const blankMob = (): Mob => {
     fireIn: 0,
     armed: false,
     carries: false,
+    appearedInside: false,
   };
 };
 
@@ -240,6 +251,21 @@ const mobTellLit = (mob: Mob): boolean => {
   return mob.fireIn <= MOB_TYPES[mob.type].fire.tellTicks;
 };
 
+/**
+ * Whether this mob's body can hurt the grave yet.
+ *
+ * A body that crossed the top edge announced itself by crossing, and it touches
+ * from the tick it overlaps, exactly as it always has. A body that appeared
+ * inside the field announced nothing, so it holds its arriving beat before it
+ * can touch: the beat is the window the placement is read in (ADR 0041), and a
+ * body poured into the middle of the field is otherwise a hit with nothing to
+ * see coming. The beat still governs no firing at all.
+ */
+const canTouchGrave = (mob: Mob): boolean => {
+  if (!mob.appearedInside) return true;
+  return mob.beat === 0;
+};
+
 // Puts one mob on the field in the placement the template asked for, or refuses at the cap.
 const spawnMob = (
   state: RunState,
@@ -259,6 +285,7 @@ const spawnMob = (
   mob.vy = order.vy * row.speed;
   mob.hp = row.hp;
   mob.beat = ARRIVE_TICKS;
+  mob.appearedInside = hasEntered(mob);
   mob.armed = isArmed(row.fire.armedShare, order.index);
   mob.carries = carries;
   mob.fireIn = mob.armed ? ARRIVE_TICKS + firstShotOffset(state, row.fire) : 0;
@@ -446,6 +473,7 @@ export {
   createMobPool,
   mobHitbox,
   hasEntered,
+  canTouchGrave,
   mobTellLit,
   spawnMob,
   advanceMobs,

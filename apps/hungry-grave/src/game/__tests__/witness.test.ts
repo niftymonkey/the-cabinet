@@ -764,6 +764,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     "spawn identity, summarised by nextEntityId, which is folded. A slot's own id follows from the spawn order the walk already witnesses.",
   'mobs[].type':
     'written once at spawn (mobs.ts:340) and never mutated. A divergence in type shows through the hp, motion and hitbox the walk folds.',
+  'mobs[].appearedInside':
+    "written once at spawn from the y the placement asked for (mobs.ts spawnMob) and never mutated, as mobs[].type is. What it decides, whether a body's contact waits for its arriving beat, shows through the beat and the position the walk already folds.",
   'mobFire[].alive': 'gates the walk, as mobs[].alive does.',
   'mobFire[].id': 'spawn identity, as mobs[].id is.',
   'mobFire[].emitter':

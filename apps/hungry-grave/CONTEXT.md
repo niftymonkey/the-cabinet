@@ -108,6 +108,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Arriving beat**: The beat a mob holds the template's own motion for after it crosses the top edge, before its own movement takes over, so the placement's lesson reads whatever type is flying it. It governs movement only and never firing. _Avoid_: entry delay, spawn animation.
 
+**Amended 2026-09-08, after the game design gate on adjustment iteration 2:** for a body that appears inside the field rather than crossing the top edge, the beat also governs the grave's contact: no contact hit lands from a body that has not finished arriving. What stood: the beat itself, the movement it governs, that it never governs firing, and the template's lesson it exists to let the player read. What changed: contact, and only for a body that appeared inside the field; a body that crosses the top edge touches from the tick it overlaps, exactly as before. What the entry could not have known: no spawner put a body inside the field when it was written. Two do now, the Waking's pour and the Undertaker's dug-up bodies, and a body that materialised inside the grave's own box was a hit with nothing to see coming.
+
 **Trash**: The ordinary mobs of the authored timeline, as opposed to bosses. _Avoid_: minions, creeps, fodder, popcorn.
 
 **Mob type**: A kind of mob, owning how it moves, whether and how it fires, its health, its corpse payout, and its size. v1 ships three and the pool is open by design: the shambler falls, the revenant fires an aimed shot with a tell before it, and the ghoul is the closer, turning toward the grave so its body is the threat. A mob type must be readable before it acts. _Avoid_: enemy class, variant, archetype.
