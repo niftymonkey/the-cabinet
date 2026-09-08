@@ -79,6 +79,7 @@ Every other section 9 item is carried by a slice: 1 by slice 2's glossary commit
 | Ground adjustment 1 | `21b5de181a` | feat(hungry-grave): the ground keeps what lands on it, lays as one floor, and is dressed thick (#97) |
 | 14 | `c2a2ac3e52` | feat(hungry-grave): both bosses are drawn and boss fire draws in its own kind (#97) |
 | Adjustment iteration 2 | `e636411950` | feat(hungry-grave): the Waking rides the ground at the field's own scroll (#97) |
+| Adjustment iteration 3 | `d58448a6e3` | feat(hungry-grave): a body that appears inside the field arrives before it can touch the grave (#97) |
 
 Slice 0 records the baseline tapes and makes no commit. Ground adjustment 1 is not in the plan's section 10: it is an iteration on slice 13b that Mark asked for on 2026-09-08 after playing the 13b deploy on his phone, and it runs as a slice of its own. Adjustment iteration 2 is not in it either: it is an iteration on slice 10 that Mark ruled on 2026-09-08 after adjustment 1 changed what the Waking's source sits in, and it runs as a slice of its own too.
 
@@ -1015,3 +1016,63 @@ Mark's ruling of 2026-09-08, taken after ground adjustment 1 put the ground at t
 - The pour's clamp back to clamping the body rather than the centre turned the no-stack test red and nothing else.
 
 **One thing left behind, named rather than touched.** `apps/hungry-grave/local/slice13b-record.ts` is still there, and it is what recorded this adjustment's three tapes rather than a fourth recorder being written beside it. The two measuring instruments this adjustment did write, `local/adj2-measure.ts` and `local/adj2-property.ts`, are deleted, and so are the tapes under `dist/`; `local/` and `dist/` are both gitignored, so none of them reached a commit.
+
+## 26. Adjustment iteration 3, a poured body arrives before it can touch
+
+The apply-now finding of the game design gate that reviewed adjustment iteration 2 (marker on #97, 2026-09-08). Since adjustment 2 the pour runs to the bottom edge, so its bodies materialise inside the box of a grave parked there, and a body that materialised inside the box could touch on the tick it existed.
+
+**The shape, and there is no new number in it.** `Mob` gains one boolean, `appearedInside`, written once in `spawnMob` from `hasEntered(mob)`, which is the same predicate that starts the beat, and never written again. `canTouchGrave(mob)` in `mobs.ts` is the rule, guard first: a body that did not appear inside touches as it always has, and one that did touches when its beat is zero. `resolveMobContact` in `step.ts` reads it and owns nothing of the rule. The window is `ARRIVE_TICKS`, the clock the beat already keeps, so nothing is tuned and nothing is reconciled.
+
+**The slice's own definition was wrong, and the record already said so.** The dispatched definition was "a grave parked at the bottom edge takes no contact hit from a poured body", and no implementation of the ruling can meet it. A body falls 42.75 units during its 45-tick beat, at its own half of the scroll plus the field's scroll; the grave's box at `SIZE_CEILING` is 135 units tall and at `SIZE_FLOOR` 36; so a body that materialises anywhere but the bottom 42.75 units of the box is still in the box when its beat runs out, and it touches then, with three quarters of a second of warning. Section 2 of `stage-floor.md` had ruled this from the start: a grave parked under the mouth "sits in the densest incoming traffic it will meet all run, taking contact shrink from bodies". Zero was never the promise. The session ruled the promise on the measurements below: **no contact hit lands from a body that has not finished arriving.**
+
+**The run-seam spec test is not written, and the reason is not its cost.** `graveHit` names its source as `contact` and never the body, so a run-seam test can only attribute a hit by rebuilding the overlap pass out of `graveHitbox`, `mobHitbox` and `overlaps` and then asking `canTouchGrave` whether the pass was right, which is the implementation-coupled tautology the playbook forbids in as many words. It is also racy, measured rather than feared: on seed 20260910 with the grave parked under the mouth, the first contact hit of the run landed at tick 706 and nothing at all overlapped the grave when the tick ended, because `resolveDeaths` runs after `resolveOverlaps` and the storm took the body that touched. So the ruling is carried by the two module tests, both of which step whole ticks through the one execution authority (ADR 0017) on a body placed where the pour places one. The run-seam numbers are recorded here instead.
+
+**Measured, before and after, with one instrument run in both trees.** The before tree is a detached worktree at `7b00c15551` with `node_modules` symlinked, which is verification step 5's own recipe used for a different question.
+
+| Reading | before | after |
+| --- | --- | --- |
+| Contact hits, grave parked at the bottom edge under the mouth, `SIZE_CEILING`, six `PROPERTY_SEEDS` seeds | 36 | 31 |
+| The same at `SIZE_FLOOR` | 30 | 29 |
+| The same at a fixed x of 270, `SIZE_CEILING` | 0 | 0 |
+| The same at a fixed x of 404, `SIZE_CEILING` | 26 | 17 |
+| The property, corpses to the committing hand against the waiting one | 63 to 25 | 63 to 25 |
+| Seed 101 under the maxed dodge bot, hits inside the Waking's span | one shambler shot, no contact | one shambler shot, no contact |
+| Seed 101, hits in the whole run | 2 shambler, 4 revenant, 8 undertaker | 2 shambler, 4 revenant, 8 undertaker |
+| Seed 101, phase boundaries and ending | 7284, 8526, 16927, 17827, 22703, 26691, victory | identical |
+
+**What that says.** The residual hits are the whole point: they are hits with three quarters of a second to read, which is what the gate asked for, and what is gone is the hit on the tick a body appeared. In play the change costs nothing at all: the seed 101 run under the maxed dodge bot is identical either side, boundary for boundary and hit for hit, because that hand never parks in the trail. The property is untouched at 63 to 25, the same figures section 25 measured, and `WAITING_EATS_MORE` stays empty.
+
+**The new field is excluded from the fold, and `WITNESS_VERSION` stays 6.** ADR 0019's rule is that the fold covers everything the rules mutate, and this field is written once at the spawn from the y the placement asked for and never mutated, exactly as `mobs[].type` and `patches[].level` are. It is in the excluded half of the partition with that reason beside it. Folding it would have moved the version, which the prompt hands forward as not moving.
+
+**GOLDEN did not move and could not.** Its scenario is 600 ticks from seed 20260820 inside the Procession, where the only bodies placed inside the field are the digest's own scripted ones: the shambler at the grave is killed on the tick it is placed, and the ghoul placed at y 20 reaches the grave hundreds of ticks after its beat has run. `src/dev/digest.ts` is not in the commit and `digest.test.ts` is green.
+
+**No rendered check is owed, and this says so rather than skipping it silently.** Nothing draws differently. The beat is already drawn as the placement it is, and the change moves no pixel: it only decides whether an overlap that is already on screen becomes a hit.
+
+**CodeRabbit: one applied, one declined.**
+
+- **Applied, major, `stage-floor.md`.** The "Budget and end condition" paragraph still said the source drifts "at half the scroll", which adjustment iteration 2 left stale when it amended three other places in the same file. It is amended in place, dated, and the margin behind its conclusion is written down: the fall from the opening depth to the close is 947 ticks against the pour's 900.
+- **Declined, major, `witness.test.ts`.** The reviewer asked for `mobs[].appearedInside` to move from the excluded half of the partition to the folded half. ADR 0019's criterion is what the rules mutate, not what matters: this field is written once at the spawn and never mutated, so it sits beside `mobs[].type`, and any divergence in it is a divergence in the spawn's own y, which the fold already carries. Folding it would move `WITNESS_VERSION`, which this slice is handed forward as not moving.
+
+**Plan claims found false against the tree.**
+
+- **The pour is not the one spawner that puts a body inside the field.** `digUpBody` in `bosses/undertaker.ts` places a dug-up body at `boss.y`, and its own JSDoc says why: "at his own depth so it arrives on the field rather than above it". The ruling is written as the general fact rather than as the pour's own, so it covers the Undertaker's adds deliberately, and a digger that materialises on the grave now waits out its beat too. Nothing in the seed 101 fight moved, so it cost that fight nothing.
+- **The prompt's "takes no contact hit" reading of the record was wrong**, and the paragraph it read past is in the same section: "Parking under the mouth" already rules that a grave under the source takes contact shrink from bodies as the price of standing in the densest traffic in the run.
+- **Every template places above the top edge**, which the prompt assumed and which is verified: every `y` in `templates.ts` is `-ENTRY_DEPTH` or deeper. So the two inside spawners are the pour and the diggers, and no authored row is affected.
+- **ADR 0037 is not changed and is not cited here.** It rules that contact never kills a mob and that live mobs are never food, and this slice touches neither: the body is not consumed either way, and what changed is only when a body can hurt the grave. It was tempting to cite it because `resolveMobContact`'s JSDoc already does.
+
+**Seams that moved.** `Mob` gains `appearedInside`; `mobs.ts` exports `canTouchGrave`. `resolveMobContact` keeps its signature. One existing test needed its planted body taken past its beat: the presence half of `never touches the grave, whatever is parked under it` spawns a body on the grave and expects a hit on the next tick, which is the same repair `mobOnGrave` in `step.test.ts` has always carried with the same comment.
+
+**The tests were proved to bite rather than assumed to.** Four mutations, each reverted.
+
+- The contact guard removed from `resolveMobContact` turned the holding test red, which is how it was written: it was red before the rule existed and green after.
+- `appearedInside` written as `true` for every spawn turned **only** the top-edge test red, which is the mutation that matters: that test is the fence under the glossary's "movement only" for a body that crosses the edge.
+- `canTouchGrave` returning `mob.beat < ARRIVE_TICKS`, so a body touches after one tick of its beat rather than after all of it, turned the holding test red.
+- The excluded entry dropped from the witness partition turned `every nested field is either folded or excluded with a reason beside it` red, naming the field.
+
+**Verification steps run.** 1, unit tests, `pnpm vitest run`, 1651 passed beside the one pre-existing timeout below. 2, `pnpm typecheck` green. 3, `pnpm build` green. 4, `pnpm verify` at the repo root, green on a quiet machine, all 120 files and 1651 tests. 5, the test-name diff against `local/step2/tests-baseline.txt`: 27 names gone, every one of them an earlier slice's and already accounted for in that slice's note, none from a file this slice touched, and the two names added are this slice's own. 6, the golden digest, unmoved. Step 11's rendered check is not owed and the paragraph above says why. Steps 16 to 22 are Mark's and stay open.
+
+**Three verify runs, and what separates them is the machine and nothing else.** The first, before this note was written, was green: 120 files, 1651 tests. The second failed seven tests and the third one, and every single failure in both was `Test timed out in 5000ms`, with not one assertion among them. What was happening beside them is in `ps`: a Blender render out of the `cabinet-app` worktree taking nine cores, which put the load average at 12 to 14 where the green run had it near 3. The seven were spread over four files that have nothing in common but their length. The one that survives on a settling machine is `pays a full build to a run that kills every carrier before the set piece` in `rows.test.ts`, at 6150 ms against the 5000 ms limit; run alone it passes twice in 2.3 seconds. That is exactly the pre-existing failure the prompt names as slice 16's, and this slice adds nothing to it. `docs/agents/lessons.md` carries the rule this is an instance of: contention is not flakiness, and a red gate arriving beside running work is contention until a run on its own says otherwise.
+
+**One thing the gate cannot see, so it is written here.** `apps/hungry-grave/docs/` is on the prettier ignore list, with the reason beside it: the design record is hand-shaped prose and prettier's table padding makes it worse to edit. Running `prettier --write` on a named path under it still rewrites the file, ignore list or not, and it repadded every row of section 1's table. The churn was reverted rather than committed. **Nothing under `docs/` is ever handed to prettier by name.**
+
+**Instruments deleted.** `local/adj3-probe.ts` and `local/adj3-play.ts` are gone, and so is the detached before-tree; `local/` is excluded from version control, so neither reached a commit. `local/slice13b-record.ts` is still there, untouched, as sections 24 and 25 record.
