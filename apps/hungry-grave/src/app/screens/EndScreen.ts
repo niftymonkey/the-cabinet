@@ -12,9 +12,8 @@ import { bindKeyPress } from './keyBinding';
 
 /**
  * What the end screen says happened. Sealed shut is ADR 0003's death and the
- * vocabulary is exact about it. The victory line is a stub's line only in the
- * sense that the Undertaker is not built yet; a stubbed victory is still a
- * victory the player sees, so it does not admit to being one.
+ * vocabulary is exact about it, and the stage survived is the Undertaker's own
+ * death: the stage is behind the grave and nothing is left of it to play.
  */
 const ENDING_TITLE: Record<RunEnding, string> = {
   sealed: 'SEALED SHUT',

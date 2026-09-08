@@ -713,9 +713,9 @@ describe('both endings across the three loadouts', () => {
   );
 
   it('reaches both endings across the five seeds, so neither is unreachable', () => {
-    // Victory is still dispatch 4's stub firing on the over phase, and sealed
-    // shut is the real ladder. Both have to be reachable or the full-run test
-    // is only ever exercising one half of the run's shape.
+    // Victory is the Undertaker's own death now and sealed shut is the real
+    // ladder. Both have to be reachable or the full-run test is only ever
+    // exercising one half of the run's shape.
     //
     // Where each ending comes from moved with the thinned birthright (ADR
     // 0045) and again with freshness-scaled bursts (ADR 0058), and is recorded
@@ -752,14 +752,16 @@ describe('both endings across the three loadouts', () => {
  * owns emptiness and its first two rows are the Drips that teach the swallow
  * and the tell, neither of which carries, so its first carrier stands at t=21
  * and this policy has sealed shut at tick 1132 by then, on every seed and with
- * nineteen hits taken.
+ * nineteen hits taken. Re-measured with both endings landed and still empty,
+ * because nothing in that slice touched the Procession.
  *
- * The rung is not gone from the game, only from this policy's reach: what takes
- * a level away is a hit landing on a run that bought one, and buying one is a
- * dive. ADR 0003's whole ladder in order belongs to the endings slice, on a run
- * that reaches a boss fight, and that is where it is re-established rather than
- * here. Kept as an equality rather than deleted, so the day a seed reaches the
- * rung again this file goes red and says which.
+ * The rung is not gone from the game, only from a birthright run's reach: what
+ * takes a level away is a hit landing on a run that bought one, and buying one
+ * is a dive. ADR 0003's whole ladder in order is re-established in
+ * src/__tests__/endings.test.ts, where this same policy walks every rung inside
+ * the Undertaker's fight on a run pinned above the birthright. Kept as an
+ * equality rather than deleted, so the day a seed reaches the rung here this
+ * file goes red and says which.
  */
 const STRIPS_A_RUNG: number[] = [];
 

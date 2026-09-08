@@ -93,7 +93,8 @@ interface Sealed {
   readonly tick: number;
 }
 
-// The mirror of sealed: the stage is behind the grave (ADR 0007's ending, stubbed here).
+// The mirror of sealed: the stage is behind the grave, on the tick the last
+// boss falls (ADR 0007's ending). It pays nothing.
 interface Victory {
   readonly type: 'victory';
   readonly tick: number;

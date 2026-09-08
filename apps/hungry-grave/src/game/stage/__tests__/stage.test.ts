@@ -648,13 +648,22 @@ describe('the phase machine (ADR 0006)', () => {
     expect(wall).not.toBe(first);
   });
 
-  it('ends the run in victory when the over phase is reached', () => {
+  it('ends the run on the tick the last boss falls, and crosses behind him on it', () => {
+    // The ending is his death rather than the crossing that follows it
+    // (ADR 0007), and the two are one tick because a run that has ended
+    // executes no further ticks: the stage would otherwise never reach the
+    // phase behind the fight it just won. What fires it is endings.test.ts's,
+    // and what is held here is that the timeline and the ending agree.
     expect(STILL_PLAY.state.ending).toBe('victory');
     const victory = STILL_PLAY.events.filter(
       (event) => event.type === 'victory',
     );
     expect(victory).toHaveLength(1);
     const over = STILL_PLAY.boundaries.find((each) => each.phase === 'over')!;
+    const killed = STILL_PLAY.events.filter(
+      (event) => event.type === 'bossKilled' && event.boss === 'undertaker',
+    );
+    expect(killed).toHaveLength(1);
     expect(victory[0].type === 'victory' && victory[0].tick).toBe(over.tick);
   });
 

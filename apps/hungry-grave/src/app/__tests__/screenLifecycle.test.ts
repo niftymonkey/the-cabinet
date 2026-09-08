@@ -49,6 +49,7 @@ vi.mock('../tapeExport', async (importOriginal) => ({
   saveTapeFile,
 }));
 
+import { CHUNK_HP, spawnBoss } from '../../game/bosses/chunks';
 import { TICK_MS } from '../../game/clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
@@ -828,17 +829,27 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
 
     const winning = gameScreen();
     winning.prepare();
-    // Stood in the last boss phase with nobody standing in it, which is a state
-    // only this rig can produce: the phase ends when its boss is gone, and no
-    // boss was ever put there, so it hands the run straight to the over phase.
-    // It is read off the table's own length rather than written down, because
-    // the stage gained two phases with the three named sections (ADR 0050) and
-    // will gain none silently.
-    winning['session'].run!.stage.phaseIndex = PHASES.length - 2;
-    winning['session'].run!.stage.phaseTick = 0;
+    // Stood in the last boss fight on its last point of health, and played
+    // until the birthright storm reaches him: victory is his death (ADR 0007)
+    // rather than the stage reaching its last phase, so a run put in that phase
+    // with nobody standing in it wins nothing. The phase is read off the table's
+    // own length rather than written down, because the stage gained two phases
+    // with the three named sections (ADR 0050) and will gain none silently.
+    const winner = winning['session'].run!;
+    const lastFight = PHASES.length - 2;
+    winner.stage.phaseIndex = lastFight;
+    winner.stage.phaseTick = 0;
+    const boss = spawnBoss(winner, PHASES[lastFight].boss!);
+    boss.chunk = CHUNK_HP[boss.kind].length - 1;
+    boss.hp = 1;
 
-    winning.update(frame(TICK_MS));
-    expect(winning['session'].run!.ending).toBe('victory');
+    // The first skull off a parked grave reaches him on tick 79, measured, and
+    // a frame buys ten ticks, so this is that with room and never a wait on a
+    // fight.
+    for (let played = 0; played < 20 && winner.ending === null; played++) {
+      winning.update(frame(TICK_MS * 10));
+    }
+    expect(winner.ending).toBe('victory');
     expect(winning['ending'].ended).toBe(true);
     expect(runHandoff.read()?.ending).toBe('victory');
   });

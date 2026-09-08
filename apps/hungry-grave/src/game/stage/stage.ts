@@ -302,13 +302,10 @@ const arriveBoss = (
 };
 
 /**
- * The next phase, announced, and the run's end where the table runs out.
+ * The next phase, announced, with whatever boss it carries put on the field.
  *
- * It reads the table's own end rather than a phase's name, so a phase inserted
- * with its columns filled in needs no edit here. Victory itself is stubbed: in
- * the finished game the Undertaker's death is the ending and his swallow is the
- * animation (ADR 0007), and the stub exists so that every deploy is a complete
- * run in both directions.
+ * It reads the table's own columns rather than a phase's name, so a phase
+ * inserted with its columns filled in needs no edit here.
  */
 const enterNextPhase = (state: RunState, events: SimEvent[]): void => {
   const stage = state.stage;
@@ -318,9 +315,68 @@ const enterNextPhase = (state: RunState, events: SimEvent[]): void => {
   const phase = PHASES[stage.phaseIndex];
   events.push({ type: 'phaseChanged', phase: phase.name, tick: state.tick });
   arriveBoss(state, phase, events);
-  if (stage.phaseIndex < PHASES.length - 1) return;
+};
+
+/**
+ * The boss whose death ends the stage (ADR 0050: "the Undertaker ends the third
+ * and the stage"). It is read off the table's own last fight rather than
+ * written down, so a stage that gains a section ends on that section's boss
+ * with no edit here.
+ */
+const FINAL_BOSS: BossKind | null = PHASES.reduce<BossKind | null>(
+  (last, phase) => phase.boss ?? last,
+  null,
+);
+
+/**
+ * Whether this tick's deaths hold the last fight the stage authors, won where
+ * the stage authored it.
+ *
+ * The phase's own boss column is what says the fight is the one the run is
+ * standing in, so a boss stood up outside its own phase by a rig ends nothing.
+ */
+const wonTheLastFight = (
+  state: RunState,
+  events: readonly SimEvent[],
+): boolean => {
+  const fight = PHASES[state.stage.phaseIndex].boss;
+  if (fight === null || fight !== FINAL_BOSS) return false;
+  return events.some(
+    (event) => event.type === 'bossKilled' && event.boss === fight,
+  );
+};
+
+/**
+ * ADR 0007's ending, on the tick the stage's last boss falls. game-concept.md:70
+ * puts it plainly: "his death is the ending".
+ *
+ * It reads the tick's own bossKilled rather than the run reaching the last
+ * phase. The stage crosses a phase at the top of a tick and a run that has
+ * ended executes no further ticks (#52), so an ending hung on the crossing
+ * would arrive a tick after the death or, once the run had ended on it, never.
+ * The last boundary is announced here beside the ending because they are one
+ * event: a tape that stopped on the fight would show six phases where the stage
+ * has seven.
+ *
+ * Victory pays nothing. The topple into the grave is the renderer's animation
+ * over a run that has already ended, so a player who never dives is not left
+ * with a run still running and nothing to play.
+ *
+ * An ending already reached stands, because the same tick's hits resolve before
+ * its deaths do: a grave sealed on the tick the last chunk empties lost the run
+ * before the fight was won.
+ */
+const winStage = (
+  state: RunState,
+  tickEvents: readonly SimEvent[],
+): SimEvent[] => {
+  if (state.ending !== null) return [];
+  if (!wonTheLastFight(state, tickEvents)) return [];
+  const events: SimEvent[] = [];
+  enterNextPhase(state, events);
   state.ending = 'victory';
   events.push({ type: 'victory', tick: state.tick });
+  return events;
 };
 
 /**
@@ -342,5 +398,12 @@ const advanceStage = (state: RunState): SimEvent[] => {
   return events;
 };
 
-export { createStage, phaseEnded, advanceStage, bankOpensNow, PHASES };
+export {
+  createStage,
+  phaseEnded,
+  advanceStage,
+  winStage,
+  bankOpensNow,
+  PHASES,
+};
 export type { PhaseName, PhaseEnd, PhaseMusic, Phase, StageState };

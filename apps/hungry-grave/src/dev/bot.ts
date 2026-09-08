@@ -308,12 +308,13 @@ const nearestThreat = (state: RunState): Threat | null => {
 /**
  * Steers deliberately into the nearest threat, and reaches sealed shut.
  *
- * It cannot walk the whole ADR 0003 ladder and must not be asked to. Score
- * arrives only as ceiling overflow from a swallow and a strippable level needs
- * a drop, so in a build with no drops the bot arrives at the floor with score
- * zero and nothing above the birthright: the next hit seals. The ladder's own
- * order is tested in grave.test.ts against hand-seeded state, and that is where
- * it stays.
+ * What of ADR 0003's ladder it walks is a fact about the run it is handed
+ * rather than about the policy. It never dives, so it buys nothing: score
+ * arrives only as ceiling overflow from a swallow and a strippable level only
+ * from a drop, and on a run born at the birthright it arrives at the floor with
+ * score zero and nothing above it, so the next hit seals. Handed a run standing
+ * above the birthright with score on it, the same steering walks every rung in
+ * order, which is what src/__tests__/endings.test.ts plays inside a boss fight.
  */
 const hitTakingPolicy: Policy = (state) => {
   return { move: towardNearest(state), belch: false };

@@ -25,7 +25,7 @@ import {
 import { overlaps } from './overlap';
 import type { RunState } from './run';
 import { clearRefusals } from './run';
-import { advanceStage, bankOpensNow } from './stage/stage';
+import { advanceStage, bankOpensNow, winStage } from './stage/stage';
 import { resolveStorm } from './storm';
 import { swallow } from './swallow';
 import { SCROLL_SPEED } from './tuning';
@@ -197,8 +197,8 @@ const resolveDeaths = (
  *
  * The order is scroll, the move command, the belch, spawns, mob motion and fire,
  * the boss's own tick, the weapon lines, the bank's own tick, overlap
- * detection, deaths, decay, culling, the offer's own loss, then the grave's own
- * tick and the counters.
+ * detection, deaths, the stage's own ending, decay, culling, the offer's own
+ * loss, then the grave's own tick and the counters.
  *
  * The boss ticks with the mobs and before the lines, because its pattern is
  * fire on the field and a shot fired this tick must not also fly this tick,
@@ -233,6 +233,9 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   events.push(...openBankedOffer(state, bankOpensNow(state)));
   events.push(...resolveOverlaps(state));
   events.push(...resolveDeaths(state, events));
+  // Straight after the deaths, because the deaths phase is the last of the
+  // tick that can empty a boss and the ending is that death's own (ADR 0007).
+  events.push(...winStage(state, events));
   events.push(...advanceCorpses(state));
   events.push(...cullMobs(state));
   cullShots(state);
