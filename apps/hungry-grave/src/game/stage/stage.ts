@@ -1,5 +1,6 @@
 // The authored timeline (ADR 0006): the phase machine over the rows.
 
+import { bossChunks, bossIsAuthored, spawnBoss } from '../bosses/chunks';
 import { carrierRow, carriesAt } from '../carriers';
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
@@ -212,14 +213,19 @@ const phaseSpent = (state: RunState, phase: Phase): boolean => {
  * tick's deaths and its cull: a phase ends on the tick after its last body
  * leaves rather than on the tick it left.
  *
+ * A boss phase ends when no boss is standing in it, which is the tick after the
+ * one its own died on, so how long the phase runs is how long the fight took
+ * and never a number in this table (ADR 0050, CONTEXT.md's Phase).
+ *
  * A phase whose column names something that does not exist yet ends on its own
- * rows running out. That is the whole of a boss phase today, which authors no
- * rows and so ends on the tick it begins, and it is the Crowd's stand-in until
- * the eye can open: the Crowd hands the phase after it a field with trash on
- * it, which is the half of ADR 0051 that already holds.
+ * rows running out. That is the Crowd's stand-in until the eye can open: the
+ * Crowd hands the phase after it a field with trash on it, which is the half of
+ * ADR 0051 that already holds. It is also what a boss phase whose boss has no
+ * grammar written falls back to, because nothing arrived for it to lose.
  */
 const phaseEnded = (state: RunState, phase: Phase): boolean => {
   if (phase.ends === 'rowsSpentAndFieldClear') return phaseSpent(state, phase);
+  if (phase.ends === 'bossKilled') return state.boss === null;
   return rowsSpent(state, phase);
 };
 
@@ -280,6 +286,30 @@ const spawnDueRows = (
 };
 
 /**
+ * The boss this phase carries, put on the field and announced (ADR 0007). It
+ * reads the phase's own column, so which boss stands where is stage data.
+ *
+ * A boss with no grammar written does not arrive at all, and the absence is
+ * what keeps the stage traversable while one is being written: nothing standing
+ * means the phase's own end condition is met on the tick it begins, which is
+ * the stand-in it already had. A body on the field that fires nothing and that
+ * no birthright storm can empty would stall every run in the phase instead.
+ */
+const arriveBoss = (
+  state: RunState,
+  phase: Phase,
+  events: SimEvent[],
+): void => {
+  if (phase.boss === null || !bossIsAuthored(phase.boss)) return;
+  spawnBoss(state, phase.boss);
+  events.push({
+    type: 'bossArrived',
+    boss: phase.boss,
+    chunks: bossChunks(phase.boss),
+  });
+};
+
+/**
  * The next phase, announced, and the run's end where the table runs out.
  *
  * It reads the table's own end rather than a phase's name, so a phase inserted
@@ -295,6 +325,7 @@ const enterNextPhase = (state: RunState, events: SimEvent[]): void => {
   stage.firedRows = 0;
   const phase = PHASES[stage.phaseIndex];
   events.push({ type: 'phaseChanged', phase: phase.name, tick: state.tick });
+  arriveBoss(state, phase, events);
   if (stage.phaseIndex < PHASES.length - 1) return;
   state.ending = 'victory';
   events.push({ type: 'victory', tick: state.tick });

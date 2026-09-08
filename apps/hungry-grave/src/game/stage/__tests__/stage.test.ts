@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import stageSource from '../stage.ts?raw';
 
+import { damageBoss } from '../../bosses/chunks';
 import { carrierRow } from '../../carriers';
 import { stepping } from '../../../dev/stepping';
 import { TICK_HZ } from '../../clock';
@@ -272,16 +273,32 @@ function lastRowAt(rows: readonly StageRow[]): number {
 }
 
 /**
+ * How long a boss phase may hold a run in this rig. A fight has no authored
+ * length at all: it is the boss's health against whatever the hand puts on it,
+ * so nothing in the tables can predict it and what is written here is a ceiling.
+ *
+ * The measurement it sits above is the still hand's own: a parked grave firing
+ * nothing but the birthright empties the Banshee in about 4900 ticks, which is
+ * the slowest hand this file plays. Half again above that, so a retune of her
+ * health moves the fight without silently running these runs off the end of
+ * their budget, which is a failure that reads as a broken timeline rather than
+ * as a spent budget.
+ */
+const BOSS_FIGHT_TICKS = 7500;
+
+/**
  * A budget for one whole run rather than a length. Every phase ends on its own
  * condition (ADR 0051), so how long a run takes is decided by the hand playing
  * it, and what can be written down is a ceiling: each phase's own rows plus a
- * whole descent for whatever they leave falling.
+ * whole descent for whatever they leave falling, and a fight's own allowance
+ * where the phase carries a boss.
  */
 const STAGE_TICKS = Math.ceil(
   PHASES.reduce(
     (total, each) =>
       total +
       (each.rows.length > 0 ? lastRowAt(each.rows) * TICK_HZ : 0) +
+      (each.boss === null ? 0 : BOSS_FIGHT_TICKS) +
       SLOWEST_DESCENT_TICKS,
     0,
   ),
@@ -289,6 +306,16 @@ const STAGE_TICKS = Math.ceil(
 
 const SHARP = playStage(77, sharpHand, STAGE_TICKS);
 const STILL_PLAY = playStage(77, stillHand, STAGE_TICKS);
+
+/**
+ * The budget for the one test that plays two whole stages nothing else has
+ * warmed. A stage is a fight longer than it was since the Banshee landed
+ * (ADR 0007), about five thousand ticks under the still hand, and two of these
+ * runs no longer fit inside vitest's own five seconds. It is stated on the one
+ * test rather than raised for the suite, because every other run in this file
+ * is either one of the two above or a fraction of a stage.
+ */
+const TWO_WHOLE_STAGES_MS = 20000;
 
 describe('the three sections and their boundary events (ADR 0050)', () => {
   it('runs three sections, with the Banshee, the set piece and the Undertaker as their boundary events', () => {
@@ -570,14 +597,20 @@ describe('the phase machine (ADR 0006)', () => {
     }
   });
 
-  it('begins and ends a stubbed boss phase on the same tick', () => {
+  it('holds a boss phase open for its fight, and ends a stubbed one on the tick it begins', () => {
     const at = (name: PhaseName): number =>
       STILL_PLAY.boundaries.find((each) => each.phase === name)!.tick;
-    // The Waking is not among them: it ends on rows spent and a field clear
-    // like the two sections, and the Crowd hands it a field with trash on it,
-    // so it is the one boundary phase that has something to wait for today.
-    expect(at('banshee')).toBe(at('crowd'));
+    // The Banshee is real, so her phase runs as long as she stands: the still
+    // hand's own birthright storm is what empties her, and how long that takes
+    // is the fight rather than a number in the table.
+    expect(at('crowd')).toBeGreaterThan(at('banshee'));
+    // The Undertaker is still a stub, and a phase with no boss and no rows has
+    // nothing to run, so it still begins and ends on one tick. The slice that
+    // writes his grammar is what closes this half.
     expect(at('undertaker')).toBe(at('over'));
+    // The Waking is neither: it ends on rows spent and a field clear like the
+    // two sections, and the Crowd hands it a field with trash on it, so it is
+    // the one boundary phase that has something to wait for today.
     expect(at('vigil')).toBeGreaterThan(at('waking'));
   });
 
@@ -733,7 +766,63 @@ describe('the sparse last row (ADR 0051)', () => {
   );
 });
 
+/**
+ * The Banshee's own phase, from her arrival to the boundary after it, with her
+ * fight held open for a stated number of ticks and then ended by killing her.
+ *
+ * The Procession's rows are marked spent on a field with nothing alive on it,
+ * which is exactly the condition its end names, so she arrives on the first
+ * step the way a run produces her. The grave is held immortal for the reason
+ * every timeline rig here holds it: a still grave under her rings would seal
+ * shut long before the boundary being measured.
+ */
+function bansheePhaseHeldFor(holdFor: number): number {
+  const state = createRun(31);
+  const step = stepping(state);
+  state.stage.firedRows = PROCESSION_ROWS.length;
+  let began = -1;
+  let ended = -1;
+  const budget = holdFor + 4 * TICK_HZ;
+  for (let tick = 0; ended < 0 && tick < budget; tick++) {
+    const held = began >= 0 && state.tick - began >= holdFor;
+    if (held) {
+      expect(`held with a boss ${state.boss !== null}`).toBe(
+        'held with a boss true',
+      );
+      damageBoss(state, state.boss!.hp, BIRTHRIGHT[0]);
+    }
+    for (const event of step(STILL)) {
+      if (event.type !== 'phaseChanged') continue;
+      if (event.phase === 'banshee') began = event.tick;
+      if (event.phase === 'crowd') ended = event.tick;
+    }
+    state.grave.size = SIZE_START;
+    state.ending = null;
+  }
+  expect(`held for ${holdFor} reached the Crowd ${ended >= 0}`).toBe(
+    `held for ${holdFor} reached the Crowd true`,
+  );
+  return ended - began;
+}
+
 describe('the per-phase end condition (ADR 0050, ADR 0051)', () => {
+  it('ends a boss phase on the boss dying and never on a clock', () => {
+    // CONTEXT.md's Phase and game-concept.md:52: a phase is "chained to the
+    // next by a boundary event rather than an absolute clock, because a
+    // shootable boss dies when killed" and fight length varies per player. The
+    // Banshee is the first boundary in the game that is a fight, so the same
+    // phase is two lengths under two hands and neither is written anywhere.
+    //
+    // The two runs differ only in how long the boss was left standing, so the
+    // difference between the two phase lengths is exactly that difference: the
+    // phase costs what the fight cost and nothing else.
+    const held = 200;
+    const longer = 600;
+    expect(bansheePhaseHeldFor(longer) - bansheePhaseHeldFor(held)).toBe(
+      longer - held,
+    );
+  });
+
   it('holds a rows-spent phase open while a body is still alive on the field', () => {
     const state = createRun(1);
     const procession = phase('procession');
@@ -753,31 +842,35 @@ describe('the per-phase end condition (ADR 0050, ADR 0051)', () => {
     expect(phaseEnded(state, procession)).toBe(false);
   });
 
-  it("bounds the tail after a section's last row by a body's own descent, on every seed", () => {
-    // What replaces the drain-out's stated length: the tail is however long the
-    // last bodies take to leave, which is bounded by the field and the mob
-    // table rather than by a number, and a hand that kills them ends it sooner.
-    for (const seed of [77, 4242, 909]) {
-      const played =
-        seed === 77 ? STILL_PLAY : playStage(seed, stillHand, STAGE_TICKS);
-      for (const name of BOSS_BOUND_SECTIONS) {
-        const [from, to] = spanOf(played, name);
-        const last = played.arrivals.filter(
-          (each) => each.tick >= from && each.tick < to,
-        );
-        const tail = to - last[last.length - 1].tick;
-        // Bounded above, and a real window rather than an empty one: under a
-        // hand that kills nothing the last body falls the whole way, so the
-        // comparison has something in it to be a bound on. The bound is
-        // rounded up because a tail is whole ticks and a descent is not: the
-        // last tick of a full descent is spent whether or not it is a whole
-        // one.
-        expect(
-          `${seed} ${name} ${tail > 0 && tail <= Math.ceil(SLOWEST_DESCENT_TICKS)}`,
-        ).toBe(`${seed} ${name} true`);
+  it(
+    "bounds the tail after a section's last row by a body's own descent, on every seed",
+    () => {
+      // What replaces the drain-out's stated length: the tail is however long the
+      // last bodies take to leave, which is bounded by the field and the mob
+      // table rather than by a number, and a hand that kills them ends it sooner.
+      for (const seed of [77, 4242, 909]) {
+        const played =
+          seed === 77 ? STILL_PLAY : playStage(seed, stillHand, STAGE_TICKS);
+        for (const name of BOSS_BOUND_SECTIONS) {
+          const [from, to] = spanOf(played, name);
+          const last = played.arrivals.filter(
+            (each) => each.tick >= from && each.tick < to,
+          );
+          const tail = to - last[last.length - 1].tick;
+          // Bounded above, and a real window rather than an empty one: under a
+          // hand that kills nothing the last body falls the whole way, so the
+          // comparison has something in it to be a bound on. The bound is
+          // rounded up because a tail is whole ticks and a descent is not: the
+          // last tick of a full descent is spent whether or not it is a whole
+          // one.
+          expect(
+            `${seed} ${name} ${tail > 0 && tail <= Math.ceil(SLOWEST_DESCENT_TICKS)}`,
+          ).toBe(`${seed} ${name} true`);
+        }
       }
-    }
-  });
+    },
+    TWO_WHOLE_STAGES_MS,
+  );
 });
 
 describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {

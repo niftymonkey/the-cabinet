@@ -30,6 +30,7 @@ import { openOffer } from '../offer';
 import type { RunState } from '../run';
 import { createRun } from '../run';
 import { PROCESSION_ROWS } from '../stage/rows';
+import { PHASES } from '../stage/stage';
 import { swallow } from '../swallow';
 import {
   FRESHNESS_PAYOUT_FLOOR,
@@ -375,7 +376,17 @@ describe('what takes food off the field (ADR 0056)', () => {
     // and an eviction would have somewhere to bite. That makes the corpse cap's
     // own fault expected here rather than a surprise, so the run is driven
     // through its own authority instead of the throwing rig.
+    //
+    // It is stood in the Crowd rather than at the Procession's own end, and the
+    // traffic is the point: the cap can only bind while something is still
+    // trying to put a corpse down. A run standing at the Procession's end used
+    // to roll straight into the Crowd's rows and get its traffic by accident;
+    // the Banshee's phase stands between the two now and holds a run that
+    // cannot kill her (ADR 0007), so the section this test has always been
+    // played on is named outright.
     const state = quietRun(4);
+    state.stage.phaseIndex = PHASES.findIndex((each) => each.name === 'crowd');
+    state.stage.firedRows = 0;
     const execution = createExecution(state);
     // Half up the grave's own column, so the scroll walks them into the mouth,
     // and half low and off to the side, where they reach the bottom edge with

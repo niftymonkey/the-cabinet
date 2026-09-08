@@ -8,6 +8,7 @@ import type { Rect } from '../overlap';
 import type { RunState } from '../run';
 import type { BossKind } from '../stage/rows';
 import { FEAST_PAYOUT } from '../tuning';
+import { advanceBanshee, bansheeDied } from './banshee';
 
 /**
  * The one boss on the field (ADR 0007). One record on RunState and never a
@@ -75,6 +76,43 @@ const BOSS_HALF_HEIGHT = 40;
 const BOSS_ARRIVAL_Y = 110;
 
 /**
+ * What a boss's own module owns: one tick of whichever chunk is live, and what
+ * its death sheds. The machine holds the health, the flash and the break; the
+ * grammar is the boss's, so a boss is added by writing a module and naming it
+ * below.
+ */
+interface BossGrammar {
+  readonly advance: (state: RunState, boss: Boss) => SimEvent[];
+  readonly died: (state: RunState, boss: Boss) => SimEvent[];
+}
+
+/**
+ * Every boss whose grammar is written. The Undertaker is absent because
+ * undertaker.ts is not written yet, and what that absence buys is stated
+ * where it is read: a phase whose boss is not here puts nothing on the field,
+ * which leaves that phase standing on the stand-in it has today rather than
+ * stalling every run in front of a body that fires nothing and that no
+ * birthright storm can empty.
+ */
+const BOSS_GRAMMARS: Partial<Record<BossKind, BossGrammar>> = {
+  banshee: { advance: advanceBanshee, died: bansheeDied },
+};
+
+// Whether this boss has a grammar to fight with, and so whether it arrives.
+const bossIsAuthored = (kind: BossKind): boolean => {
+  return BOSS_GRAMMARS[kind] !== undefined;
+};
+
+/**
+ * How many chunks this boss runs, which is the length of its own health row. It
+ * is a reader rather than a table anyone else indexes, so what the fight is
+ * worth and what its shape is announced as cannot come apart.
+ */
+const bossChunks = (kind: BossKind): number => {
+  return CHUNK_HP[kind].length;
+};
+
+/**
  * The boss this phase carries, put on the field at its standing point with its
  * first chunk live (ADR 0007).
  *
@@ -132,10 +170,18 @@ const breakChunk = (state: RunState, boss: Boss): SimEvent[] => {
   return events;
 };
 
-// The last chunk emptied: the boss leaves the field and its own module pays out.
+/**
+ * The last chunk emptied: the boss leaves the field and its own module pays
+ * out. The death is announced before the payout, so a reading of what a fight
+ * shed never has to look behind the event that ended it.
+ */
 const killBoss = (state: RunState, boss: Boss): SimEvent[] => {
   state.boss = null;
-  return [{ type: 'bossKilled', boss: boss.kind, x: boss.x, y: boss.y }];
+  const events: SimEvent[] = [
+    { type: 'bossKilled', boss: boss.kind, x: boss.x, y: boss.y },
+  ];
+  events.push(...(BOSS_GRAMMARS[boss.kind]?.died(state, boss) ?? []));
+  return events;
 };
 
 /**
@@ -177,8 +223,11 @@ const damageBoss = (
  *
  * The pattern itself is delegated to the boss's own module, which is where the
  * grammar lives: banshee.ts owns the tear-rings and undertaker.ts the curtains
- * and the spiral. Until those exist a boss stands, counts and takes the storm,
- * which is the machine's own half of the fight.
+ * and the spiral. Until one of those exists a boss stands, counts and takes the
+ * storm, which is the machine's own half of the fight.
+ *
+ * The pattern runs on the clock it can read, and the clock moves after it, so
+ * the tick a chunk begins on is that pattern's own tick zero.
  */
 const advanceBoss = (state: RunState): SimEvent[] => {
   const boss = state.boss;
@@ -187,8 +236,9 @@ const advanceBoss = (state: RunState): SimEvent[] => {
     boss.flash -= 1;
     return [];
   }
+  const events = BOSS_GRAMMARS[boss.kind]?.advance(state, boss) ?? [];
   boss.patternTick += 1;
-  return [];
+  return events;
 };
 
 export {
@@ -196,6 +246,8 @@ export {
   damageBoss,
   bossHitbox,
   advanceBoss,
+  bossChunks,
+  bossIsAuthored,
   CHUNK_FLASH_TICKS,
   CHUNK_HP,
   BOSS_HALF_WIDTH,

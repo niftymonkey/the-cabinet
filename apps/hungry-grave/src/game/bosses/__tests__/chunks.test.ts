@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { fireBelch } from '../../belch';
+import { BELCH_CHUNK_DAMAGE, fireBelch } from '../../belch';
 import type { SimEvent } from '../../events';
 import {
   advanceBell,
@@ -295,11 +295,11 @@ describe('the storm always matters (ADR 0007)', () => {
   });
 
   it("passes over the belch's kill rule, which is a rule and not a number", () => {
-    // The deliberate absence beside the two above. The burst kills what it
-    // reaches outright, and a kill rule applied to a body whose health is one
-    // chunk of several would break a chunk for one press, which is a skip
-    // rather than the breath the belch buys. The gas is what a belch is inside
-    // a fight, and the gas is field-wide.
+    // The burst kills what it reaches outright, and a kill rule applied to a
+    // body whose health is one chunk of several would break a chunk for one
+    // press, which is a skip rather than the breath the belch buys. So the same
+    // press that deletes the add beside it leaves the boss standing on the same
+    // chunk it was on.
     const { state, boss } = fighting();
     boss.x = state.grave.x;
     boss.y = state.grave.y;
@@ -308,10 +308,52 @@ describe('the storm always matters (ADR 0007)', () => {
 
     const belched = only(fireBelch(state), 'belched');
 
+    // One killed, and it is the add: the count on the event is bodies killed,
+    // so a boss that took damage is not among them.
     expect(belched[0].killed).toBe(1);
     expect(add.alive).toBe(false);
     expect(state.boss).toBe(boss);
-    expect(boss.hp).toBe(CHUNK_HP.undertaker[0]);
+    expect(boss.chunk).toBe(0);
+    expect(boss.hp).toBeGreaterThan(0);
+  });
+
+  it('takes its own chunk of boss damage from a boss inside the burst, and none from one outside it', () => {
+    // ADR 0008: the burst "deals its big chunk of boss damage only when the
+    // boss is inside that radius, and never pushes a boss". The amount is a row
+    // rather than the kill rule, because the kill rule would break a chunk for
+    // one press; the row is what makes a belch spent in a fight worth spending
+    // rather than only a breath.
+    const near = fighting();
+    near.boss.x = near.state.grave.x;
+    near.boss.y = near.state.grave.y;
+    const stoodAt = { x: near.boss.x, y: near.boss.y };
+    near.state.reservoir = RESERVOIR_CAPACITY;
+
+    const landed = only(fireBelch(near.state), 'mobDamaged').filter(
+      (event) => event.id === near.boss.id,
+    );
+    expect(landed).toHaveLength(1);
+    expect(landed[0].amount).toBe(BELCH_CHUNK_DAMAGE);
+    expect(landed[0].source).toBe('belch');
+    expect(near.boss.hp).toBe(CHUNK_HP.undertaker[0] - BELCH_CHUNK_DAMAGE);
+    // Never pushed, which is the other half of the same sentence and the reason
+    // authored patterns do not smear.
+    expect(near.boss.x).toBe(stoodAt.x);
+    expect(near.boss.y).toBe(stoodAt.y);
+
+    // And only when it is inside: a boss at its own arrival point, the whole
+    // field away from the grave, takes nothing at all from the same press.
+    const far = fighting();
+    far.state.reservoir = RESERVOIR_CAPACITY;
+    const missed = only(fireBelch(far.state), 'mobDamaged');
+    expect(missed).toEqual([]);
+    expect(far.boss.hp).toBe(CHUNK_HP.undertaker[0]);
+
+    // One press never breaks a fresh chunk, whatever the row is retuned to,
+    // which is what keeps a chunk's own emit out of the belch's reach.
+    expect(BELCH_CHUNK_DAMAGE).toBeLessThan(
+      Math.min(...Object.values(CHUNK_HP).map((row) => Math.min(...row))),
+    );
   });
 });
 

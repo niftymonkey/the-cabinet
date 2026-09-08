@@ -18,6 +18,22 @@ import { RESERVOIR_CAPACITY } from './tuning';
  */
 const BELCH_BURST_RADIUS = 160;
 
+/**
+ * What the burst takes off a target one hit cannot take whole, which today is a
+ * boss (ADR 0008: the burst "deals its big chunk of boss damage only when the
+ * boss is inside that radius, and never pushes a boss").
+ *
+ * One row for every boss rather than a row each, because what it prices is the
+ * press and not the fight. Initial, and first in line for the harness at step 4.
+ * It is derived from the two figures the design record already carries: a full
+ * build's storm lands about 50 points a second on a boss standing at the top of
+ * the field, so this is about eight seconds of storm bought with one earned
+ * press. It sits well under one chunk of the shortest boss's health, 1100, so a
+ * single belch never breaks a fresh chunk and the property that every chunk
+ * survives one full emit is not something a press can take away.
+ */
+const BELCH_CHUNK_DAMAGE = 400;
+
 // Takes every live shot off the field, and reports how many went.
 const cancelMobFire = (state: RunState): number => {
   let cancelled = 0;
@@ -44,24 +60,33 @@ const insideBurst = (state: RunState, x: number, y: number): boolean => {
  * belched body leaves a corpse exactly as any other kill does: the burst
  * restarts the swallow economy instead of emptying the field of it.
  *
- * Three things are outside its reach. A body further out than the radius, which
+ * Two things are outside its reach. A body further out than the radius, which
  * is the whole of the split: a press that clears the air and leaves the crowd
- * walking hands the wave back to the storm. A body still above the top edge,
- * which is ADR 0008's older scope limit standing through the split, because
- * reaching past the edge would silently delete authored content a player never
- * saw arrive. And a target one hit cannot take whole, because the burst is a
- * kill rule rather than a damage number and a kill rule applied to chunked
- * health would break a chunk outright, which is a skip rather than the breath
- * the belch buys. What the belch still does against one of those is what the
- * gas already does, and the gas is field-wide.
+ * walking hands the wave back to the storm. And a body still above the top
+ * edge, which is ADR 0008's older scope limit standing through the split,
+ * because reaching past the edge would silently delete authored content a
+ * player never saw arrive.
+ *
+ * A target one hit cannot take whole is inside the reach and is not killed: the
+ * kill rule does not apply to chunked health, because a chunk broken by one
+ * press is a skip rather than the breath the belch buys, so what lands on it is
+ * the row instead. That is ADR 0008's own sentence, its big chunk of boss
+ * damage only when the boss is inside the radius. Nothing here branches on what
+ * it is hitting; the seam answers whether the kill rule may be applied and the
+ * two amounts follow from that one answer.
+ *
+ * Nothing is pushed, ever, and the absence is the ADR's ("never pushes a
+ * boss"): this module does not move a target at all, so a press cannot smear an
+ * authored pattern.
  */
 const burstNearbyTargets = (state: RunState, events: SimEvent[]): number => {
   let killed = 0;
   for (const target of stormTargets(state)) {
-    if (!target.entered || !target.killableOutright) continue;
+    if (!target.entered) continue;
     if (!insideBurst(state, target.x, target.y)) continue;
-    events.push(...damageStormTarget(state, target, target.hp, 'belch'));
-    killed += 1;
+    const takes = target.killableOutright ? target.hp : BELCH_CHUNK_DAMAGE;
+    events.push(...damageStormTarget(state, target, takes, 'belch'));
+    if (target.killableOutright) killed += 1;
   }
   return killed;
 };
@@ -91,4 +116,4 @@ const fireBelch = (state: RunState): SimEvent[] => {
   return [{ type: 'belched', cancelled, killed }, ...kills];
 };
 
-export { fireBelch, BELCH_BURST_RADIUS };
+export { fireBelch, BELCH_BURST_RADIUS, BELCH_CHUNK_DAMAGE };

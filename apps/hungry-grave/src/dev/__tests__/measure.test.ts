@@ -16,7 +16,7 @@ import { createExecution, executeTick } from '../../game/execution';
 import { WEAPON_LINES } from '../../game/lines/roster';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { TickCommand } from '../../game/command';
-import type { RunState } from '../../game/run';
+import type { RunEnding, RunState } from '../../game/run';
 import { createRun } from '../../game/run';
 import { SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
@@ -175,8 +175,13 @@ const RICH_LEVELS: Readonly<Record<WeaponLine, number>> = {
  * whatever rate the schedule and the wander together pay for: at 6000 ticks
  * this run pressed the belch twice and both presses caught an empty radius, so
  * the belch column it is here to attribute was measured over nothing. At 9000
- * it presses four times and lands nine hits, and the run still has not sealed,
- * which the ending assertion below depends on.
+ * it presses four times and lands nine hits.
+ *
+ * It used to end with the run still live, and the Banshee (ADR 0007) is what
+ * changed that: 9000 ticks now reach her fight, and a wandering hand under her
+ * rings seals shut inside it. So the ending is read off the recorded run rather
+ * than pinned as absent, which is what the assertion was always about, that the
+ * replay recomputes the run the tape holds.
  */
 const RICH_TICKS = 9000;
 const RICH_SPACING = 60;
@@ -192,6 +197,7 @@ function richSteer(tick: number): TickCommand {
 
 interface RichRecording {
   readonly measured: Metrics;
+  readonly ending: RunEnding | null;
   readonly damage: Record<string, number>;
   readonly endLevels: Record<string, number>;
   readonly levelUps: LevelUp[];
@@ -245,6 +251,7 @@ function recordRichRun(): RichRecording {
   const measured = verified(measure(decodedOf(tapeOf(recorder))));
   return {
     measured,
+    ending: run.ending,
     damage,
     endLevels: { ...run.levels },
     levelUps,
@@ -314,7 +321,7 @@ describe('measure', () => {
     const rich = richFixture();
 
     expect(rich.measured.run.ticks).toBe(RICH_TICKS);
-    expect(rich.measured.run.ending).toBeNull();
+    expect(rich.measured.run.ending).toBe(rich.ending);
     expect(rich.measured.run.score).toBe(rich.score);
     expect(rich.measured.run.kills).toBe(rich.kills);
     expect(rich.measured.run.checkpointsVerified).toBe(

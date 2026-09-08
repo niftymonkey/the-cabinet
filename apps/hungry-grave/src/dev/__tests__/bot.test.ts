@@ -16,6 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { damageBoss } from '../../game/bosses/chunks';
 import { carrierRow, carriersForFullBuild } from '../../game/carriers';
 import { TICK_HZ } from '../../game/clock';
 import { FIELD_HEIGHT } from '../../game/field';
@@ -140,6 +141,21 @@ const SEALS_IN_THE_PROCESSION: number[] = [];
 const NEVER_FEEDS: number[] = [];
 
 /**
+ * The seeds whose fresh run is never paid a carrier at all, and there is one:
+ * 505.
+ *
+ * Measured for the Banshee (ADR 0007). A fresh run now ends inside her phase or
+ * just past it rather than crossing the whole stage, so a dodger is paid only
+ * by the carriers the Procession's own lane happened to cross: 0 to 4 offers
+ * against the 1 to 4 it took over the whole stage before her. 505 crosses none
+ * of them.
+ *
+ * Kept as an equality in both places that read it, so the day 505 is paid again
+ * this file goes red and says so.
+ */
+const NEVER_PAID: number[] = [505];
+
+/**
  * The seeds whose fresh grave reaches victory on this policy, and there are
  * four: 202, 303, 404 and 505, all running the full 12421 ticks.
  *
@@ -182,8 +198,19 @@ const NEVER_FEEDS: number[] = [];
  * which seed did it. What it measures is still a policy that only dodges,
  * never a hand that dives, and it is the worst case for a ladder whose upper
  * rungs a real player buys.
+ *
+ * Re-measured for the Banshee (ADR 0007), and the set emptied. She is the first
+ * boundary in the game that is a fight, and this policy only dodges: it has no
+ * build to kill her with and nothing about her rings is hard enough to kill it,
+ * so a fresh run neither wins nor dies. Three of the five seeds do empty her,
+ * on the birthright storm alone and in ten to fifteen thousand ticks, and then
+ * run out of budget inside the Crowd; the other two are still in her phase when
+ * the budget ends. **This is the loss of headless coverage the Banshee costs
+ * the birthright loadouts**, and what replaces it for the whole stage is the
+ * maxed set below, which the plan's own verification step 7 names as the only
+ * way a headless run crosses a boss at all.
  */
-const REACHES_VICTORY_FRESH: number[] = [202, 303, 404];
+const REACHES_VICTORY_FRESH: number[] = [];
 
 /**
  * The seeds that reach victory from the size ceiling on the birthright build,
@@ -233,10 +260,17 @@ const REACHES_VICTORY_FRESH: number[] = [202, 303, 404];
  * same standing warning applies: a moved seed here is a moved path and never a
  * strength claim.
  *
+ * Re-measured for the Banshee (ADR 0007), and the set emptied for the same
+ * cause the fresh set carries: a policy that only dodges has nothing to kill a
+ * boss with. It is starker from the ceiling than from a fresh grave, because a
+ * bigger grave takes more of her rings and none of the five seeds empties her
+ * at all; every one of them is still in her phase when the budget ends, which
+ * is what the test below now reads rather than an ending.
+ *
  * Pinned as a constant rather than left a literal in the test, because the
  * fresh set and this one are different facts.
  */
-const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 202, 404];
+const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
@@ -248,6 +282,15 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 202, 404];
  * test asserting an ending is reachable over runs that cannot produce it
  * asserts nothing. So the victory half is read from the build that reaches it
  * on every seed rather than from whichever seed the dice currently carry.
+ *
+ * Re-measured for the Banshee (ADR 0007) and it did not move, all five seeds,
+ * which is the whole reason it exists: a maxed build empties her and a
+ * birthright one does not. What did move is how long they take, 22000 to 48000
+ * ticks against 21000 before her, and the spread is her fight rather than the
+ * rows. That spread is the harness's own input at step 4: a maxed dodger spends
+ * one to seven minutes on a boss authored for forty-five seconds, because it
+ * never parks under her and its storm reaches her only when its dodging
+ * happens to.
  */
 const REACHES_VICTORY_MAXED = [101, 202, 303, 404, 505];
 
@@ -285,6 +328,22 @@ const PROCESSION_TICKS = Math.ceil(budgetOf(PHASES[0]));
 const STAGE_TICKS = Math.ceil(
   PHASES.reduce((total, each) => total + budgetOf(each), 0),
 );
+
+/**
+ * How long a maxed run may play, which is a different question from the one
+ * above and has a different answer now that a boundary is a fight.
+ *
+ * The authored ceiling covers the rows and what they leave falling, and a fight
+ * is neither: it is the boss's health against whatever the hand puts on it. A
+ * maxed dodger crosses the whole stage in 22000 to 48000 ticks against the
+ * 27000 the rows alone bound, and the spread is the fight. So the maxed run
+ * gets three times the authored ceiling, which is a budget above the worst of
+ * the five and never a prediction of any of them.
+ *
+ * The birthright runs keep the authored ceiling on purpose: they do not empty a
+ * boss at all, so a larger budget would buy them nothing but minutes.
+ */
+const MAXED_RUN_TICKS = STAGE_TICKS * 3;
 
 /** Every mob the timeline authors, which is the ceiling on what any policy can meet. */
 const AUTHORED_MOBS = [...PROCESSION_ROWS, ...CROWD_ROWS, ...VIGIL_ROWS].reduce(
@@ -367,9 +426,30 @@ function maxedRun(seed: number) {
   const state = createRun(seed, SIZE_CEILING);
   for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
   const execution = createExecution(state);
-  const { events, ticks } = runPolicy(execution, dodgePolicy, STAGE_TICKS + 60);
+  const { events, ticks } = runPolicy(execution, dodgePolicy, MAXED_RUN_TICKS);
   const played = { state, events, ticks, faults: execution.faults };
   runs.set(key, played);
+  return played;
+}
+
+/**
+ * One run under the policy written to reach sealed shut, cached the way the
+ * whole-stage runs are because two suites read it: the ladder's own, and the
+ * claim that both endings are reachable.
+ *
+ * From the ceiling rather than from a fresh grave: size stops reading as health
+ * above roughly forty, so a bot that started fresh would measure a three-hit
+ * opening and report on a regime the player spends twenty seconds in.
+ */
+const sealedRuns = new Map<number, { state: RunState; events: SimEvent[] }>();
+
+function sealedRun(seed: number): { state: RunState; events: SimEvent[] } {
+  const cached = sealedRuns.get(seed);
+  if (cached !== undefined) return cached;
+  const state = createRun(seed, SIZE_CEILING);
+  const { events } = play(state, hitTakingPolicy, PROCESSION_TICKS);
+  const played = { state, events: [...events] };
+  sealedRuns.set(seed, played);
   return played;
 }
 
@@ -444,7 +524,10 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
       const kills = count(events, 'mobKilled');
       expect(kills).toBeGreaterThan(0);
       expect(kills).toBeLessThanOrEqual(AUTHORED_MOBS);
-      expect(count(events, 'offerOpened')).toBeGreaterThan(0);
+      // Whether a dodging lane crosses a carrier at all is a fact about the
+      // seed rather than about the weapons, and NEVER_PAID is where it is
+      // measured and where its cause is written down.
+      expect(count(events, 'offerOpened') > 0).toBe(!NEVER_PAID.includes(seed));
       // Feeding is something every seed does again, and NEVER_FEEDS is left
       // empty rather than deleted so the day one stops, this says so. A corpse
       // still lands wherever Territory or the stream killed the mob rather than
@@ -529,14 +612,13 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
   for (const seed of SEEDS) {
     it(`stays inside the range the storm actually reaches on seed ${seed}`, () => {
       // The ordinary half, so a regression away from today's figures is caught
-      // while the band above stays the thing being aimed at. The floors are
-      // the measured minima across the five fresh runs on the three named
-      // sections: seed 101 is lowest on both, at 20 kills and 1 offer, and it
-      // is one of three seeds that seal before the Vigil. Both floors fell a
-      // long way with ADR 0050's stage, and the cause is the Procession's own
-      // property: a section that holds one template live pays a dodger, which
-      // is only ever paid by the carriers its own lane crosses, far less per
-      // minute than the old ramp did.
+      // while the band above stays the thing being aimed at. The kill floor is
+      // the measured minimum across the five fresh runs, and it fell from 20 to
+      // 11 with the Banshee (ADR 0007): a fresh run spends the rest of itself
+      // in a fight it cannot finish rather than crossing two more sections of
+      // rows, so what the storm meets is most of one section and not most of a
+      // stage. Whether a run is paid at all is a per-seed fact and is read off
+      // NEVER_PAID rather than as a floor.
       //
       // The ceiling is the schedule itself and not a measurement: a run can
       // only be paid by carriers that exist, so no policy can ever open more
@@ -544,8 +626,8 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
       // by construction (ADR 0034), which is asserted beside it because it is
       // the relation the whole economy is read through.
       const { events } = fullRun(seed);
-      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(20);
-      expect(count(events, 'offerOpened')).toBeGreaterThanOrEqual(1);
+      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(11);
+      expect(count(events, 'offerOpened') > 0).toBe(!NEVER_PAID.includes(seed));
       expect(count(events, 'offerOpened')).toBeLessThanOrEqual(
         AUTHORED_CARRIERS,
       );
@@ -558,15 +640,20 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
 
 describe('dodgePolicy from the size ceiling', () => {
   for (const seed of SEEDS) {
-    it(`ends the run one way or the other on seed ${seed}, and the test says which`, () => {
+    it(`is held in the Banshee's fight on seed ${seed}, ending neither way`, () => {
       // Every one of these was a declared expected failure before weapons
       // existed. Dispatch 4's section 5 asserted victory from the ceiling and
       // its own section 8 proved it cannot, so what is asserted here is what
-      // the weapons actually do. Re-measured for the three named sections
-      // (ADR 0049, ADR 0050): two seeds run the whole stage to the over phase
-      // and three seal, every one of them having reached the Crowd first.
-      // REACHES_VICTORY_FROM_THE_CEILING is where that set is pinned and where
-      // its cause is written down.
+      // the weapons actually do.
+      //
+      // Re-measured for the Banshee (ADR 0007), and what it says moved with
+      // her. A ceiling grave on the birthright reaches her phase on every seed
+      // and then stops: it has no build to empty her with, and her rings at
+      // this size take it nowhere near the floor, so the run neither wins nor
+      // seals. That is asserted as an equality on the phases crossed rather
+      // than as an ending, so the day a ceiling run gets past her this file
+      // goes red and says which seed did it.
+      // REACHES_VICTORY_FROM_THE_CEILING carries the set and its cause.
       const { state, events } = fullRun(seed, SIZE_CEILING);
       const reached = phaseOrder(events);
       if (REACHES_VICTORY_FROM_THE_CEILING.includes(seed)) {
@@ -574,9 +661,11 @@ describe('dodgePolicy from the size ceiling', () => {
         expect(state.ending).toBe('victory');
         return;
       }
-      expect(reached).toContain('crowd');
-      expect(reached).not.toContain('over');
-      expect(state.ending).toBe('sealed');
+      expect(reached).toEqual(['banshee']);
+      expect(state.ending).toBeNull();
+      // Still standing in front of her rather than parked on an empty field,
+      // which is what makes the two above a statement about the fight.
+      expect(state.boss?.kind).toBe('banshee');
     });
   }
 });
@@ -627,10 +716,16 @@ describe('both endings across the three loadouts', () => {
     // runs that cannot produce it, would pass over an empty set.
     // REACHES_VICTORY_FRESH, REACHES_VICTORY_FROM_THE_CEILING and
     // REACHES_VICTORY_MAXED carry the three facts and the cause they share.
+    //
+    // Moved again for the Banshee (ADR 0007), and the same rule made it move:
+    // no dodging birthright run ends at all now, either way, because it can
+    // neither empty her nor be emptied by her. So the sealed half is read off
+    // the policy written to reach it rather than off a dodger that used to be
+    // ground down before the Vigil, which is the honest source for it and the
+    // one the ladder's own suite below already plays.
     const endings = new Set([
-      ...SEEDS.map((seed) => fullRun(seed).state.ending),
-      ...SEEDS.map((seed) => fullRun(seed, SIZE_CEILING).state.ending),
       ...SEEDS.map((seed) => maxedRun(seed).state.ending),
+      ...SEEDS.map((seed) => sealedRun(seed).state.ending),
     ]);
     expect(endings.has('victory')).toBe(true);
     expect(endings.has('sealed')).toBe(true);
@@ -662,12 +757,9 @@ const STRIPS_A_RUNG: number[] = [];
 describe("hitTakingPolicy walks ADR 0003's ladder", () => {
   for (const seed of SEEDS) {
     it(`reaches sealed shut from a grown grave on seed ${seed}`, () => {
-      // From the ceiling rather than from a fresh grave: size stops reading as
-      // health above roughly forty, so a bot that started fresh would measure a
-      // three-hit opening and report on a regime the player spends twenty
-      // seconds in.
-      const state = createRun(seed, SIZE_CEILING);
-      const { events } = play(state, hitTakingPolicy, PROCESSION_TICKS);
+      // The run is the cached one sealedRun plays, which is where the choice of
+      // a ceiling grave is written down.
+      const { state, events } = sealedRun(seed);
 
       expect(state.ending).toBe('sealed');
       expect(count(events, 'sealed')).toBe(1);
@@ -782,6 +874,15 @@ describe('the sparse last row and its two boundaries (ADR 0051)', () => {
         const { events } = runPolicy(execution, dodgePolicy, 1);
         state.grave.size = 40;
         state.ending = null;
+        // Whatever boss arrives is emptied by the rig rather than by the hand,
+        // for the same reason the grave is held immortal: what is being
+        // measured is what the rows put on the field at a boundary, and this
+        // policy only dodges, so a real fight would hold the run at the first
+        // boundary and none of the five below would ever be reached. How long
+        // a fight takes is the boss modules' own tests' subject.
+        if (state.boss !== null) {
+          damageBoss(state, state.boss.hp, BIRTHRIGHT[0]);
+        }
         const alive = state.mobs.filter((mob) => mob.alive).length;
         for (const event of events) {
           if (event.type !== 'phaseChanged') continue;

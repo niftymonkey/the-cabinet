@@ -27,6 +27,7 @@ import {
   carriersScheduled,
 } from '../../carriers';
 import { stepping } from '../../../dev/stepping';
+import { damageBoss } from '../../bosses/chunks';
 import { TICK_HZ } from '../../clock';
 import type { TickCommand } from '../../command';
 import type { Corpse } from '../../corpses';
@@ -219,6 +220,12 @@ interface Reached {
  * own boundaries. The take is the game's own: the grave is put over a body of
  * the live offer and the swallow does the rest, because a take that skipped the
  * swallow would leave the body it took standing on the field.
+ *
+ * Whatever boss stands between the sections is emptied by the same hand, which
+ * is what keeps this a run to the Waking: the Banshee's phase ends when she
+ * dies (ADR 0007), and a hand that killed everything but her would be measuring
+ * the Procession's carriers alone. How long her fight takes is her own module's
+ * tests' subject and not this table's.
  */
 const playToTheWaking = (seed: number): Reached => {
   const state = createRun(seed);
@@ -252,6 +259,7 @@ const playToTheWaking = (seed: number): Reached => {
       if (!mob.alive || mob.carries || !hasEntered(mob)) continue;
       damageMob(state, mob, mob.hp, BIRTHRIGHT[0]);
     }
+    if (state.boss !== null) damageBoss(state, state.boss.hp, BIRTHRIGHT[0]);
   }
   return { carriersKilled, taken, state };
 };
