@@ -16,6 +16,7 @@ import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { RAMP_ROWS } from '../../stage/stage';
+import type { BellToll } from '../bell';
 import {
   advanceBell,
   BELL_CONE_ROWS,
@@ -250,14 +251,26 @@ describe('the cones expand on one clock (plan 6.6)', () => {
     expect(BELL_EXPAND_TICKS).toBeLessThan(BELL_PERIOD);
     const state = quietRun();
     state.levels.bell = MAX_LEVEL;
+    let held: BellToll | null = null;
+    let born = 0;
     for (let tick = 0; tick < BELL_PERIOD * 3; tick++) {
       advanceBell(state);
-      // The record holds one toll or none, so more than one is
-      // unrepresentable and the invariant is what says so.
-      expect(
-        state.lines.ring === null || typeof state.lines.ring === 'object',
-      ).toBe(true);
+      const ring = state.lines.ring;
+      const previous = held;
+      held = ring;
+      if (ring === null) continue;
+      // A live toll has never outlived its own expansion, and a toll that is
+      // not the one the last tick held was born onto an empty field. Together
+      // those are what "at most one" means: the clock cannot arm a second toll
+      // over a first one still standing.
+      expect(ring.ticks, `tick ${tick}`).toBeLessThan(BELL_EXPAND_TICKS);
+      if (ring === previous) continue;
+      expect(previous, `tick ${tick}`).toBeNull();
+      born += 1;
     }
+    // The window holds three periods, so a loop that armed nothing would pass
+    // the two checks above over an empty set.
+    expect(born).toBeGreaterThan(1);
   });
 
   it('clears the toll once its cones have reached full', () => {
