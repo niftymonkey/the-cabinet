@@ -2,6 +2,7 @@ import { Graphics } from 'pixi.js';
 
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../../../game/caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import type { FireKind } from '../../../game/mobFire';
 import { MOB_TYPES } from '../../../game/mobs';
 import type { RunState } from '../../../game/run';
 import { INVULNERABLE_TICKS } from '../../../game/tuning';
@@ -50,11 +51,12 @@ const fill = (sprites: Graphics[], capacity: number): void => {
   }
 };
 
-// One cancelled shot, on its way out.
+// One cancelled shot, on its way out, in the kind it was fired in.
 interface Scatter {
   readonly sprite: Graphics;
   born: number;
   extent: number;
+  kind: FireKind;
 }
 
 // What the renderer remembers about a shot slot between frames, so a cancel can be told from a cull.
@@ -63,6 +65,7 @@ interface ShotMemory {
   x: number;
   y: number;
   extent: number;
+  kind: FireKind;
 }
 
 class FieldRenderer {
@@ -82,7 +85,12 @@ class FieldRenderer {
 
   private readonly mobLooks: string[] = [];
   private readonly corpseTiers: string[] = [];
-  private readonly shotExtents: number[] = [];
+  /**
+   * What each shot slot was last drawn as. It carries the kind and not the
+   * extent alone: a boss shot and a trash shot can be the same size, so a slot
+   * recycled from one to the other kept the colour it was last drawn in.
+   */
+  private readonly shotLooks: string[] = [];
   private readonly shotMemory: ShotMemory[] = [];
   private built = false;
 
@@ -160,7 +168,12 @@ class FieldRenderer {
     for (let slot = 0; slot < SCATTER_SLOTS; slot++) {
       const sprite = new Graphics();
       sprite.visible = false;
-      this.scatters.push({ sprite, born: -SCATTER_TICKS, extent: 0 });
+      this.scatters.push({
+        sprite,
+        born: -SCATTER_TICKS,
+        extent: 0,
+        kind: 'trash',
+      });
     }
   }
 
@@ -210,17 +223,20 @@ class FieldRenderer {
           x: shot.x,
           y: shot.y,
           extent: shot.halfExtent,
+          kind: shot.kind,
         };
       } else {
         seen.alive = shot.alive;
         seen.x = shot.x;
         seen.y = shot.y;
         seen.extent = shot.halfExtent;
+        seen.kind = shot.kind;
       }
       sprite.visible = shot.alive;
       if (!shot.alive) continue;
-      if (shot.halfExtent !== this.shotExtents[slot]) {
-        this.shotExtents[slot] = shot.halfExtent;
+      const look = `${shot.kind}|${shot.halfExtent}`;
+      if (look !== this.shotLooks[slot]) {
+        this.shotLooks[slot] = look;
         drawShot(sprite, shot);
       }
       sprite.position.set(shot.x, shot.y);
@@ -271,6 +287,7 @@ class FieldRenderer {
     const scatter = this.oldestScatter();
     scatter.born = run.tick;
     scatter.extent = seen.extent;
+    scatter.kind = seen.kind;
     scatter.sprite.position.set(seen.x, seen.y);
     scatter.sprite.visible = true;
   }
@@ -291,7 +308,12 @@ class FieldRenderer {
         continue;
       }
       scatter.sprite.visible = true;
-      drawScatter(scatter.sprite, scatter.extent, age / SCATTER_TICKS);
+      drawScatter(
+        scatter.sprite,
+        scatter.extent,
+        age / SCATTER_TICKS,
+        scatter.kind,
+      );
     }
   }
 }

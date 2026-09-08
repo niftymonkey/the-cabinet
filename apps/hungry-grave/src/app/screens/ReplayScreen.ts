@@ -11,6 +11,7 @@ import { atFromUrl, tapeFromUrl } from '../seedFromUrl';
 import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { BackgroundRenderer } from './game/BackgroundRenderer';
+import { BossRenderer } from './game/BossRenderer';
 import { boundaryReadout, fieldClip } from './game/fieldFrame';
 import { FieldRenderer } from './game/FieldRenderer';
 import { GraveRenderer } from './game/GraveRenderer';
@@ -65,6 +66,7 @@ class ReplayScreen extends Container {
     standInArt: (alias) => this.props.standInArt(alias),
   });
   private readonly fieldRenderer = new FieldRenderer();
+  private readonly bossRenderer = new BossRenderer();
   private readonly stormRenderer = new StormRenderer();
   private readonly readout = createReplayReadout();
   private readonly session = createTapePlaybackSession();
@@ -107,6 +109,8 @@ class ReplayScreen extends Container {
     this.layers.layer('fieldBoundary').addChild(this.frame);
     this.background.attach(this.layers);
     this.fieldRenderer.attach(this.layers);
+    // After the mob pool, so a boss draws over the adds it summons.
+    this.bossRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
   }
@@ -167,6 +171,7 @@ class ReplayScreen extends Container {
     );
     this.background.sync(run);
     this.fieldRenderer.sync(run);
+    this.bossRenderer.sync(run);
     this.stormRenderer.sync(run);
   }
 

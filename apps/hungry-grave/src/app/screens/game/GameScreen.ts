@@ -18,6 +18,7 @@ import { Button } from '../../ui/Button';
 import { bindKeyPress } from '../keyBinding';
 import { BackgroundRenderer } from './BackgroundRenderer';
 import { BELCH_SIZE, BelchButton } from './BelchButton';
+import { BossRenderer } from './BossRenderer';
 import { FieldRenderer } from './FieldRenderer';
 import { boundaryReadout, fieldClip } from './fieldFrame';
 import { createFramePolicy } from './framePolicy';
@@ -125,6 +126,7 @@ class GameScreen extends Container {
     standInArt: (alias) => this.props.standInArt(alias),
   });
   private readonly fieldRenderer = new FieldRenderer();
+  private readonly bossRenderer = new BossRenderer();
   private readonly stormRenderer = new StormRenderer();
 
   private readonly hud = createRunHud();
@@ -237,6 +239,8 @@ class GameScreen extends Container {
     this.layers.layer('fieldBoundary').addChild(this.frame);
     this.background.attach(this.layers);
     this.fieldRenderer.attach(this.layers);
+    // After the mob pool, so a boss draws over the adds it summons.
+    this.bossRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
   }
@@ -410,6 +414,7 @@ class GameScreen extends Container {
     );
     this.background.sync(run);
     this.fieldRenderer.sync(run);
+    this.bossRenderer.sync(run);
     this.stormRenderer.sync(run);
     this.belchButton.sync(run.reservoir >= RESERVOIR_CAPACITY, run.tick);
   }

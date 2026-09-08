@@ -27,7 +27,7 @@ import {
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { INVULNERABLE_TICKS } from '../../../../game/tuning';
-import { PALETTE } from '../../../palette';
+import { MOB_FIRE, PALETTE } from '../../../palette';
 import { FieldRenderer } from '../FieldRenderer';
 import {
   DROP_DRAW_HALF_EXTENT,
@@ -65,6 +65,14 @@ function putShot(state: RunState, x: number, y: number) {
   shot.vy = 1;
   shot.halfExtent = 5;
   return shot;
+}
+
+/** The colours a sprite fills its shapes with, in the order it filled them. */
+function fillColours(sprite: Graphics): number[] {
+  return sprite.context.instructions
+    .filter((instruction) => instruction.action === 'fill')
+    .map((instruction) => instruction.data.style)
+    .map((style) => (typeof style === 'number' ? style : style.color));
 }
 
 /** attach() adds the scatters after the shot pool, so they are the tail of the layer. */
@@ -348,6 +356,42 @@ describe('FieldRenderer', () => {
     second.mobFire[0].alive = false;
     renderer.sync(second);
     expect(visibleScatters(layers)).toBe(1);
+  });
+
+  it('redraws a slot the tick its kind changes, at an extent that did not move (module 127)', () => {
+    // The redraw was gated on the half extent alone, and a boss shot and a
+    // trash shot can be the same size: a slot recycled from one to the other
+    // kept the colour the slot was last drawn in. The kind is part of the look
+    // now, which is the same shape mobLook already takes.
+    const { layers, renderer } = attached();
+    const state = createRun(4);
+    const shot = putShot(state, 200, 300);
+    renderer.sync(state);
+    const sprite = (layers.layer('mobFire').children as Graphics[])[0];
+    expect(fillColours(sprite)).toContain(MOB_FIRE.trash.body.hex);
+
+    shot.kind = 'spiral';
+    renderer.sync(state);
+    expect(fillColours(sprite)).toContain(MOB_FIRE.spiral.body.hex);
+    expect(fillColours(sprite)).not.toContain(MOB_FIRE.trash.body.hex);
+  });
+
+  it('scatters a cancelled shot in the kind it was fired in (module 127)', () => {
+    // The scatter is drawn a whole cancel later than the shot, so the kind has
+    // to travel with the slot's memory: what is scattering is gone from the
+    // pool by the time it is drawn.
+    const { layers, renderer } = attached();
+    const state = createRun(5);
+    const shot = putShot(state, 200, 300);
+    shot.kind = 'clod';
+    renderer.sync(state);
+    shot.alive = false;
+    renderer.sync(state);
+
+    const fire = layers.layer('mobFire').children as Graphics[];
+    const scattering = fire.slice(MOB_FIRE_CAP).filter((each) => each.visible);
+    expect(scattering).toHaveLength(1);
+    expect(fillColours(scattering[0])).toEqual([MOB_FIRE.clod.body.hex]);
   });
 
   it('detach then attach puts everything back, which FieldLayers.clear() between runs requires', () => {
