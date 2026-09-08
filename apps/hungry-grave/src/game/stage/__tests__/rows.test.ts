@@ -19,6 +19,7 @@ import {
   peakArrivals,
   PROCESSION_ROWS,
   RUNG_ALLOWANCE,
+  SPARSE_LAST_ROW,
   VIGIL_ROWS,
 } from '../rows';
 import type { Phase } from '../stage';
@@ -56,6 +57,10 @@ const outOfOrderIn = (rows: readonly StageRow[]): string[] =>
   rows
     .filter((row, index) => index > 0 && row.t < rows[index - 1].t)
     .map((row) => `${row.template} at t=${row.t}`);
+
+/** A section's sparse last row, which is the tail its own shape declares. */
+const sparseIn = (rows: readonly StageRow[]): readonly StageRow[] =>
+  rows.slice(rows.length - SPARSE_LAST_ROW.bodies);
 
 /** The phase whose boundary event ends this one, which is the phase after it. */
 const boundaryAfter = (name: string): Phase =>
@@ -212,20 +217,19 @@ describe("the director's off-limits cells, as data (ADR 0047, ADR 0056)", () => 
     }
   });
 
-  it("marks the Wall's own row the same way, and every other row of the stage is open", () => {
-    // ADR 0047 names the Wall outright: its crossable-unloaded property is
+  it("marks the Wall's own row and every sparse last row, and every other row of the stage is open", () => {
+    // ADR 0047 names both outright. The Wall's crossable-unloaded property is
     // two-sided and fails silently with every test still green, so a director
-    // filling the gaps around the curtain would break it invisibly. The sparse
-    // last row before each boss is the other authored row the ADR names, and it
-    // arrives with the per-phase end condition; when it does, it joins this
-    // list rather than needing a rule of its own.
+    // filling the gaps around the curtain would break it invisibly; the sparse
+    // last row before each boss is the held breath, authored as a thin row so
+    // that a director briefed to fill gaps cannot tell it from any other gap,
+    // which is exactly why it says so itself.
     const closed = EVERY_ROW.filter((row) => !row.directed);
-    expect(closed.map((row) => `${row.template} at t=${row.t}`)).toEqual([
-      'wall at t=2',
+    expect(closed).toEqual([
+      ...sparseIn(PROCESSION_ROWS),
+      CROWD_ROWS.find((row) => row.template === 'wall')!,
+      ...sparseIn(VIGIL_ROWS),
     ]);
-    expect(closed[0].count).toBe(
-      CROWD_ROWS.find((row) => row.template === 'wall')!.count,
-    );
   });
 
   it('reads every off-limits cell out of the row and phase tables alone', () => {
@@ -236,7 +240,13 @@ describe("the director's off-limits cells, as data (ADR 0047, ADR 0056)", () => 
       ...PHASES.map((phase) => `phase ${phase.name} ${phase.directed}`),
       ...EVERY_ROW.map((row) => `row ${row.template} ${row.directed}`),
     ];
-    expect(cells.filter((cell) => cell.endsWith('false')).length).toBe(5);
+
+    // The four phases the director may not spend in at all, the Wall's own row,
+    // and the sparse last row of each of the two sections a boss ends.
+    const offLimits = 4 + 1 + 2 * SPARSE_LAST_ROW.bodies;
+    expect(cells.filter((cell) => cell.endsWith('false')).length).toBe(
+      offLimits,
+    );
     expect(cells.every((cell) => /(true|false)$/.test(cell))).toBe(true);
   });
 });

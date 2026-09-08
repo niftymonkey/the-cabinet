@@ -17,16 +17,28 @@
 import { describe, expect, it } from 'vitest';
 
 import { carrierRow, carriersForFullBuild } from '../../game/carriers';
+import { TICK_HZ } from '../../game/clock';
+import { FIELD_HEIGHT } from '../../game/field';
 import type { SimEvent } from '../../game/events';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
-import { spawnMob } from '../../game/mobs';
+import {
+  GHOUL_DESCENT_FLOOR,
+  MOB_TYPES,
+  MOB_TYPE_NAMES,
+  spawnMob,
+  SPAWN_MARGIN,
+} from '../../game/mobs';
 import { OFFER_SIZE } from '../../game/offer';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
 import { CROWD_ROWS, PROCESSION_ROWS, VIGIL_ROWS } from '../../game/stage/rows';
-import { PHASES, phaseLengthTicks } from '../../game/stage/stage';
+import { PHASES } from '../../game/stage/stage';
 import { place } from '../../game/stage/templates';
-import { RESERVOIR_CAPACITY, SIZE_CEILING } from '../../game/tuning';
+import {
+  RESERVOIR_CAPACITY,
+  SCROLL_SPEED,
+  SIZE_CEILING,
+} from '../../game/tuning';
 import { createExecution } from '../../game/execution';
 import type { Policy, PolicyRun } from '../bot';
 import {
@@ -154,13 +166,24 @@ const NEVER_FEEDS: number[] = [];
  * that fall out seal at 9938, 20330 and 10673 ticks rather than dying early:
  * they run out of grave over a longer stage on a thinner build.
  *
+ * Re-measured for the sparse last row and the per-phase end condition
+ * (ADR 0051): 202 and 303 came back and 505 left, so the set is 202, 303 and
+ * 404, running 21166, 21641 and 20812 ticks at 58, 65 and 118 kills. 101 seals
+ * at 13355 in the Crowd and 505 at 15988 in the Waking. The cause is the path
+ * rather than the power, which is what it always is here: a boundary now falls
+ * on the tick the field clears rather than on a count, so it lands a few
+ * seconds either side of where it used to and a dodger steering off the field
+ * it stands in is somewhere else from there on. What did move for everyone is
+ * length, by the two sparse rows and by the Waking waiting for the trash the
+ * Crowd hands it.
+ *
  * It stays a tripwire in both directions, because the assertion is an
  * equality: the day the set moves either way, this file goes red and says
  * which seed did it. What it measures is still a policy that only dodges,
  * never a hand that dives, and it is the worst case for a ladder whose upper
  * rungs a real player buys.
  */
-const REACHES_VICTORY_FRESH: number[] = [404, 505];
+const REACHES_VICTORY_FRESH: number[] = [202, 303, 404];
 
 /**
  * The seeds that reach victory from the size ceiling on the birthright build,
@@ -202,10 +225,18 @@ const REACHES_VICTORY_FRESH: number[] = [404, 505];
  * them an offer before the Crowd, at 5 and 12 offers against 0 to 2 on the
  * three that seal.
  *
+ * Re-measured for the sparse last row and the per-phase end condition
+ * (ADR 0051): 404 entered it and nothing left, so the set is 101, 202 and 404,
+ * running 21575, 21526 and 21087 ticks. 303 and 505 seal in the Crowd at 13697
+ * and 14522. It is the same cause as the fresh set's above, a boundary that
+ * falls where the field empties rather than where a count ran out, and the
+ * same standing warning applies: a moved seed here is a moved path and never a
+ * strength claim.
+ *
  * Pinned as a constant rather than left a literal in the test, because the
  * fresh set and this one are different facts.
  */
-const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 202];
+const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 202, 404];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
@@ -220,9 +251,40 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 202];
  */
 const REACHES_VICTORY_MAXED = [101, 202, 303, 404, 505];
 
-const PROCESSION_TICKS = phaseLengthTicks(PHASES[0]);
-const STAGE_TICKS =
-  PROCESSION_TICKS + phaseLengthTicks(PHASES[2]) + phaseLengthTicks(PHASES[4]);
+/**
+ * The longest a body can take to leave the field, in ticks: the whole distance
+ * one can cross at the slowest total descent any type holds, which is the
+ * scroll plus its own speed. Every term is read from the mob table and the
+ * field, so the bound follows them.
+ */
+const SLOWEST_DESCENT_TICKS =
+  (FIELD_HEIGHT +
+    SPAWN_MARGIN +
+    Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
+  (SCROLL_SPEED +
+    Math.min(
+      MOB_TYPES.shambler.speed,
+      MOB_TYPES.revenant.speed,
+      GHOUL_DESCENT_FLOOR,
+    ));
+
+/** How long one phase can hold a run: its own rows, then whatever they left falling. */
+const budgetOf = (phase: (typeof PHASES)[number]): number =>
+  (phase.rows.length === 0 ? 0 : phase.rows[phase.rows.length - 1].t) *
+    TICK_HZ +
+  SLOWEST_DESCENT_TICKS;
+
+/**
+ * How long a run may take to cross the Procession, and then the whole stage.
+ *
+ * They are budgets rather than lengths. A phase ends on its own condition now
+ * (ADR 0051), so a hand that kills the stragglers meets the boss sooner and no
+ * two runs are the same length; what can be written down is the ceiling.
+ */
+const PROCESSION_TICKS = Math.ceil(budgetOf(PHASES[0]));
+const STAGE_TICKS = Math.ceil(
+  PHASES.reduce((total, each) => total + budgetOf(each), 0),
+);
 
 /** Every mob the timeline authors, which is the ceiling on what any policy can meet. */
 const AUTHORED_MOBS = [...PROCESSION_ROWS, ...CROWD_ROWS, ...VIGIL_ROWS].reduce(
@@ -641,7 +703,12 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
  */
 function wallRun(seed: number, loaded: boolean): RunState {
   const state = createRun(seed, loaded ? SIZE_CEILING : undefined);
-  state.stage.firedRows = PROCESSION_ROWS.length;
+  // The curtain is placed by hand, so the stage is stood in the last phase of
+  // the table, the one phase the machine never leaves. Marking a phase's rows
+  // fired silences that phase alone: a phase ends now on its rows being spent
+  // and its field clearing (ADR 0051), so the tick the curtain finishes falling
+  // would roll the run into the next section and its rows.
+  state.stage.phaseIndex = PHASES.length - 1;
   if (loaded) {
     for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
     state.reservoir = RESERVOIR_CAPACITY;
@@ -697,12 +764,12 @@ describe("the Wall's two-sided property (ADR 0042)", () => {
   }
 });
 
-describe("the drain-out's property (plan 6.29)", () => {
+describe('the sparse last row and its two boundaries (ADR 0051)', () => {
   for (const seed of SEEDS) {
-    it(`leaves the field empty at every phase boundary on seed ${seed}`, () => {
+    it(`meets each boss on an empty field and the set piece in traffic on seed ${seed}`, () => {
       // The grave is held immortal for the same reason the stage's own timeline
       // tests hold it: this is a property of the rows and the storm, and a
-      // grave ground down inside the back half would stop the clock before the
+      // grave ground down inside the Crowd would stop the clock before the
       // boundary being measured. The storm still fires the whole way.
       const state = createRun(seed);
       // One authority across the whole loop, because a fresh one per tick
@@ -722,7 +789,24 @@ describe("the drain-out's property (plan 6.29)", () => {
         }
       }
       expect(execution.faults).toEqual([]);
-      expect(atBoundary).toEqual(PHASE_ORDER.map((name) => `${name}=0`));
+
+      // ADR 0051: "the Banshee and the Undertaker arrive alone on an empty
+      // field," and "there is no drain-out before the set piece ... only the
+      // two boss boundaries need the field empty." So the two boss boundaries
+      // report nothing alive and the set piece's reports trash, which is the
+      // ruling's two halves on one run.
+      const aliveAt = (phase: string): number =>
+        Number(
+          atBoundary
+            .find((each) => each.startsWith(`${phase}=`))!
+            .split('=')[1],
+        );
+      expect(atBoundary.map((each) => each.split('=')[0])).toEqual(
+        PHASE_ORDER.slice(),
+      );
+      expect(`banshee=${aliveAt('banshee')}`).toBe('banshee=0');
+      expect(`undertaker=${aliveAt('undertaker')}`).toBe('undertaker=0');
+      expect(aliveAt('waking')).toBeGreaterThan(0);
     });
   }
 });

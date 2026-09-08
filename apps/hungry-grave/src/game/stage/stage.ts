@@ -31,41 +31,6 @@ type PhaseEnd = 'rowsSpentAndFieldClear' | 'setPieceOpened' | 'bossKilled';
  */
 type PhaseMusic = 'procession' | 'crowd' | 'waking';
 
-/**
- * The spawn silence that lets the field empty before a boss arrives (glossary:
- * drain-out). It is silence in the rows and not a special rule: no row falls
- * inside it. ADR 0051 supersedes it with a sparse last row, and the phase's own
- * end condition replaces this length; both land in the slice after this one.
- *
- * Twenty seconds was computed honestly for a build with no weapons in it: with
- * nothing able to kill a mob the only way the field empties is everything
- * falling, and for the slowest type that is a little over eighteen seconds. That
- * is a weaponless artifact. Under the storm trash dies in a second or two, so
- * the silence only has to cover stragglers plus a breath.
- *
- * The new number cannot be derived from falling either, because under the storm
- * the field is emptied partly by kills. It is measured instead, across the five
- * full-run seeds and both drain-outs with the grave held immortal, which is the
- * same rig the property test uses. The storm is what buys the three seconds off
- * the weaponless twenty, and it buys no more than that at the birthright build
- * a run spends most of its length in.
- *
- * Seventeen was the smallest whole second that cleared every seed when it was
- * set: the field emptied 14.6 to 16.3 seconds after a phase's last row against
- * a storm whose level-1 ground released an ordinary shambler alive.
- * Re-measured after #76 pass D's delivery slice, which lays claimed ground
- * up-field of a crowd instead of around it, the range is 14.98 to 15.47 and the
- * smallest whole second that clears is sixteen. Seventeen is held rather than
- * followed down: it clears every seed with a second to spare, the magnitude
- * follows the property and the property is not in danger.
- *
- * What is pinned by test is the property, that the field is empty when the boss
- * phase begins, asserted across all five seeds in
- * src/dev/__tests__/bot.test.ts. This magnitude follows that property and never
- * the other way round.
- */
-const DRAIN_OUT_SECONDS = 17;
-
 interface Phase {
   readonly name: PhaseName;
   readonly rows: readonly StageRow[];
@@ -107,8 +72,9 @@ interface Phase {
  * design intent.
  *
  * The two boss phases and the set piece are stubbed: a phase with no boss and
- * no rows has nothing to run, so it ends on the tick it begins. That is
- * deliberately the simplest possible stub, and the boss and set-piece slices
+ * no rows has nothing to run, so a boss phase ends on the tick it begins and
+ * the set piece's phase ends when the trash the Crowd handed it has left. That
+ * is deliberately the simplest possible stub, and the boss and set-piece slices
  * replace it without moving anything else about the timeline.
  *
  * Three loops cover the seven phases and the two changes fall on the two
@@ -153,8 +119,10 @@ const PHASES: readonly Phase[] = [
   },
   {
     // It authors no rows and sheds no boss, so what clears its field is the
-    // pour running out. Whether that wants a member of its own on PhaseEnd is
-    // the set piece's own slice to rule.
+    // pour running out. Until the pour exists it stands on the condition below
+    // and waits for the trash the Crowd handed it to leave. Whether the set
+    // piece's own end wants a member of its own on PhaseEnd is its slice to
+    // rule.
     name: 'waking',
     rows: [],
     ends: 'rowsSpentAndFieldClear',
@@ -216,11 +184,43 @@ const createStage = (): StageState => {
   return { phaseIndex: 0, phaseTick: 0, firedRows: 0 };
 };
 
-// A phase's length is its last row's time plus the drain-out. A phase with no rows ends on the tick it begins.
-const phaseLengthTicks = (phase: Phase): number => {
-  if (phase.rows.length === 0) return 0;
-  const last = phase.rows[phase.rows.length - 1].t;
-  return (last + DRAIN_OUT_SECONDS) * TICK_HZ;
+// Every row this phase authors has fired.
+const rowsSpent = (state: RunState, phase: Phase): boolean => {
+  return state.stage.firedRows >= phase.rows.length;
+};
+
+// Nothing the stage put on the field is alive on it.
+const fieldClear = (state: RunState): boolean => {
+  return !state.mobs.some((mob) => mob.alive);
+};
+
+/**
+ * The two boss boundaries' own condition (ADR 0051): every row fired and the
+ * last of its bodies gone, so the boss arrives alone on an empty field. It
+ * terminates by construction, because every mob type descends.
+ */
+const phaseSpent = (state: RunState, phase: Phase): boolean => {
+  return rowsSpent(state, phase) && fieldClear(state);
+};
+
+/**
+ * Whether this phase's own end condition is met on this tick (ADR 0050,
+ * ADR 0051). The condition is a column on the phase, so where a boundary falls
+ * is stage data rather than a branch on a phase's name.
+ *
+ * The field is read as the tick begins, because advanceStage runs before the
+ * tick's deaths and its cull: a phase ends on the tick after its last body
+ * leaves rather than on the tick it left.
+ *
+ * A phase whose column names something that does not exist yet ends on its own
+ * rows running out. That is the whole of a boss phase today, which authors no
+ * rows and so ends on the tick it begins, and it is the Crowd's stand-in until
+ * the eye can open: the Crowd hands the phase after it a field with trash on
+ * it, which is the half of ADR 0051 that already holds.
+ */
+const phaseEnded = (state: RunState, phase: Phase): boolean => {
+  if (phase.ends === 'rowsSpentAndFieldClear') return phaseSpent(state, phase);
+  return rowsSpent(state, phase);
 };
 
 // Whether a banked offer may open on this tick (ADR 0034's bank, ADR 0048).
@@ -278,24 +278,20 @@ const enterNextPhase = (state: RunState, events: SimEvent[]): void => {
  * This tick's spawns, and any phase boundary it crosses. More than one boundary
  * can fall on one tick, because a stubbed boss phase ends on the tick it
  * begins, so the loop runs until a phase is still live or the stage is over.
+ *
+ * The spawns come first, so a phase that fires its last row this tick is never
+ * read as spent before the bodies that row put on the field are on it.
  */
 const advanceStage = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   while (state.stage.phaseIndex < PHASES.length - 1) {
     const phase = PHASES[state.stage.phaseIndex];
     spawnDueRows(state, phase);
-    if (state.stage.phaseTick < phaseLengthTicks(phase)) return events;
+    if (!phaseEnded(state, phase)) return events;
     enterNextPhase(state, events);
   }
   return events;
 };
 
-export {
-  createStage,
-  phaseLengthTicks,
-  advanceStage,
-  bankOpensNow,
-  DRAIN_OUT_SECONDS,
-  PHASES,
-};
+export { createStage, phaseEnded, advanceStage, bankOpensNow, PHASES };
 export type { PhaseName, PhaseEnd, PhaseMusic, Phase, StageState };

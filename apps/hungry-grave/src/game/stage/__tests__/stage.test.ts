@@ -17,24 +17,63 @@ import { carrierRow } from '../../carriers';
 import { stepping } from '../../../dev/stepping';
 import { TICK_HZ } from '../../clock';
 import type { SimEvent } from '../../events';
-import { FIELD_WIDTH } from '../../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import { graveWidth } from '../../grave';
 import { BIRTHRIGHT } from '../../lines/roster';
 import type { MobType } from '../../mobs';
-import { damageMob, hasEntered, MOB_TYPES, SPAWN_MARGIN } from '../../mobs';
+import {
+  damageMob,
+  GHOUL_DESCENT_FLOOR,
+  hasEntered,
+  MOB_TYPES,
+  MOB_TYPE_NAMES,
+  spawnMob,
+  SPAWN_MARGIN,
+} from '../../mobs';
 import type { TickCommand } from '../../command';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
-import { SIZE_FLOOR, SIZE_START } from '../../tuning';
+import { SCROLL_SPEED, SIZE_FLOOR, SIZE_START } from '../../tuning';
 import type { StageRow } from '../rows';
-import { CROWD_ROWS, PROCESSION_ROWS, VIGIL_ROWS } from '../rows';
+import {
+  CROWD_ROWS,
+  PROCESSION_ROWS,
+  SPARSE_LAST_ROW,
+  sparseLastRow,
+  VIGIL_ROWS,
+} from '../rows';
 import type { Phase, PhaseName } from '../stage';
-import { DRAIN_OUT_SECONDS, PHASES, phaseLengthTicks } from '../stage';
+import { PHASES, phaseEnded } from '../stage';
 import { place } from '../templates';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
 const SECTION_NAMES: readonly PhaseName[] = ['procession', 'crowd', 'vigil'];
+
+/**
+ * The two sections a boss ends, which are the two that carry a sparse last row
+ * and end on a field with nothing left alive on it (ADR 0051). The Crowd is not
+ * among them and that is the ruling rather than an omission.
+ */
+const BOSS_BOUND_SECTIONS: readonly PhaseName[] = ['procession', 'vigil'];
+
+/**
+ * The longest a body can take to leave the field, in ticks: the whole distance
+ * one can cross, the field plus the deepest a template places above it plus the
+ * body's own half height, at the slowest total descent any type can hold, which
+ * is the scroll plus its own speed. Every term is read from the tables, so the
+ * bound follows the mob rows and the field rather than being written down.
+ */
+const SLOWEST_DESCENT_TICKS =
+  (FIELD_HEIGHT +
+    SPAWN_MARGIN +
+    Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
+  (SCROLL_SPEED +
+    Math.min(
+      MOB_TYPES.shambler.speed,
+      MOB_TYPES.revenant.speed,
+      GHOUL_DESCENT_FLOOR,
+    ));
 
 function phase(name: PhaseName): Phase {
   return PHASES.find((each) => each.name === name)!;
@@ -85,6 +124,12 @@ interface Played {
   readonly arrivals: { tick: number; count: number }[];
   /** How many of the stage's own groups have a body live on the field, per tick. */
   readonly liveTemplates: number[];
+  /**
+   * How many mobs were alive as each tick began, which is what the stage's own
+   * end condition reads: advanceStage runs before the tick's deaths and its
+   * cull, so a phase ends on the tick after its last body leaves.
+   */
+  readonly liveMobs: number[];
   /** Growth the tick's kills paid, in size units, per tick. */
   readonly foodPaid: number[];
   /** The stage's own index and clock after each tick. */
@@ -113,6 +158,7 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
   const boundaries: { phase: PhaseName; tick: number }[] = [];
   const arrivals: { tick: number; count: number }[] = [];
   const liveTemplates: number[] = [];
+  const liveMobs: number[] = [];
   const foodPaid: number[] = [];
   const stageClock: { index: number; tick: number }[] = [];
   const events: SimEvent[] = [];
@@ -121,6 +167,7 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
 
   for (let tick = 0; tick < ticks && state.ending !== 'victory'; tick++) {
     const before = state.mobs.filter((mob) => mob.alive).length;
+    liveMobs.push(before);
     // The tick the step is spending, so arrivals and phaseChanged are recorded
     // on the same clock: the event carries state.tick before step advances it.
     const at = state.tick;
@@ -163,6 +210,7 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
     boundaries,
     arrivals,
     liveTemplates,
+    liveMobs,
     foodPaid,
     stageClock,
     events,
@@ -189,17 +237,55 @@ function foodPerSecond(played: Played, name: PhaseName): number {
   return paid / ((to - from) / TICK_HZ);
 }
 
+/**
+ * Every window in a table where nothing is due for longer than a body takes to
+ * leave the field, which is a window the field can be empty through.
+ */
+function silentGapsIn(rows: readonly StageRow[]): string[] {
+  const bound = SLOWEST_DESCENT_TICKS / TICK_HZ;
+  return rows
+    .map((row, index) => ({
+      row,
+      gap: index === 0 ? row.t : row.t - rows[index - 1].t,
+    }))
+    .filter((each) => each.gap > bound)
+    .map(
+      (each) => `${each.row.template} at t=${each.row.t} after ${each.gap}s`,
+    );
+}
+
+/** How long one phase ran, in ticks, under whatever hand played it. */
+function lengthOf(played: Played, name: PhaseName): number {
+  const [from, to] = spanOf(played, name);
+  return to - from;
+}
+
 /** The live-template count through one phase. */
 function liveThrough(played: Played, name: PhaseName): number[] {
   const [from, to] = spanOf(played, name);
   return played.liveTemplates.slice(from, to);
 }
 
-const STAGE_TICKS =
-  phaseLengthTicks(phase('procession')) +
-  phaseLengthTicks(phase('crowd')) +
-  phaseLengthTicks(phase('vigil')) +
-  60;
+/** The phase-local second a table's last row fires. */
+function lastRowAt(rows: readonly StageRow[]): number {
+  return rows[rows.length - 1].t;
+}
+
+/**
+ * A budget for one whole run rather than a length. Every phase ends on its own
+ * condition (ADR 0051), so how long a run takes is decided by the hand playing
+ * it, and what can be written down is a ceiling: each phase's own rows plus a
+ * whole descent for whatever they leave falling.
+ */
+const STAGE_TICKS = Math.ceil(
+  PHASES.reduce(
+    (total, each) =>
+      total +
+      (each.rows.length > 0 ? lastRowAt(each.rows) * TICK_HZ : 0) +
+      SLOWEST_DESCENT_TICKS,
+    0,
+  ),
+);
 
 const SHARP = playStage(77, sharpHand, STAGE_TICKS);
 const STILL_PLAY = playStage(77, stillHand, STAGE_TICKS);
@@ -241,8 +327,12 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
     // ADR 0050: "The opening section is the short one, the middle section is
     // the longest, and the last is shorter again, Ikaruga's shape." The
     // magnitudes are initial rows; the shape is not.
+    //
+    // It is read off a run rather than off the tables, because a section ends
+    // on its own condition and not on a clock: what a hand that kills what
+    // arrives spends in each one is the honest length.
     const [procession, crowd, vigil] = SECTION_NAMES.map((name) =>
-      phaseLengthTicks(phase(name)),
+      lengthOf(SHARP, name),
     );
     expect(procession).toBeLessThan(crowd);
     expect(vigil).toBeLessThan(procession);
@@ -250,17 +340,20 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
 
   it('puts each boundary where the rows put it, so moving a row moves the boundary', () => {
     // ADR 0050: "where each boundary falls on the clock is stage data." The
-    // same phase with one row thirty seconds later ends thirty seconds later,
-    // and nothing else in the machine has an opinion about it.
-    const crowd = phase('crowd');
-    const last = crowd.rows[crowd.rows.length - 1];
-    const stretched: Phase = {
-      ...crowd,
-      rows: [...crowd.rows, { ...last, t: last.t + 30 }],
-    };
-    expect(phaseLengthTicks(stretched) - phaseLengthTicks(crowd)).toBe(
-      30 * TICK_HZ,
-    );
+    // same section with one more row has not run out where the authored one
+    // has, and nothing else in the machine has an opinion about it.
+    const state = createRun(1);
+    for (const name of SECTION_NAMES) {
+      const each = phase(name);
+      const last = each.rows[each.rows.length - 1];
+      const stretched: Phase = {
+        ...each,
+        rows: [...each.rows, { ...last, t: last.t + 30 }],
+      };
+      state.stage.firedRows = each.rows.length;
+      expect(`${name} ${phaseEnded(state, each)}`).toBe(`${name} true`);
+      expect(`${name} ${phaseEnded(state, stretched)}`).toBe(`${name} false`);
+    }
   });
 
   it('buys no power with length: a longer section carries the carriers it authored', () => {
@@ -274,10 +367,7 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
         0,
       );
     const stretched = PROCESSION_ROWS.map((row) => ({ ...row, t: row.t * 2 }));
-    const asPhase: Phase = { ...phase('procession'), rows: stretched };
-    expect(phaseLengthTicks(asPhase)).toBeGreaterThan(
-      phaseLengthTicks(phase('procession')),
-    );
+    expect(lastRowAt(stretched)).toBeGreaterThan(lastRowAt(PROCESSION_ROWS));
     expect(carriersIn(stretched)).toBe(carriersIn(PROCESSION_ROWS));
   });
 });
@@ -375,33 +465,6 @@ describe('one property per section (game-concept.md:48)', () => {
 });
 
 describe('the rows as data (ADR 0006)', () => {
-  it("gives a phase a length of its last row's time plus the drain-out", () => {
-    // The relation is what is pinned. The drain-out's own magnitude is stated
-    // once, here, because it is re-derived against the storm whenever the storm
-    // changes and a move should be a deliberate edit with a failing test
-    // attached. It was 16 until #76 pass C weakened level-1 ground, and the
-    // constant's own JSDoc carries the measurement behind 17.
-    expect(DRAIN_OUT_SECONDS).toBe(17);
-    for (const name of SECTION_NAMES) {
-      const rows = phase(name).rows;
-      expect(`${name} ${phaseLengthTicks(phase(name))}`).toBe(
-        `${name} ${(rows[rows.length - 1].t + DRAIN_OUT_SECONDS) * TICK_HZ}`,
-      );
-    }
-    expect(
-      SECTION_NAMES.map((name) => phaseLengthTicks(phase(name)) / TICK_HZ),
-    ).toEqual([120, 155, 75]);
-  });
-
-  it('leaves the drain-out silent: no row falls inside it', () => {
-    for (const name of SECTION_NAMES) {
-      const each = phase(name);
-      const end = phaseLengthTicks(each) / TICK_HZ;
-      const inside = each.rows.filter((row) => row.t > end - DRAIN_OUT_SECONDS);
-      expect(inside).toEqual([]);
-    }
-  });
-
   it("holds only Drips and one File in the Procession's first 45 seconds", () => {
     const opening = PROCESSION_ROWS.filter((row) => row.t < 45);
     expect(opening.length).toBeGreaterThan(3);
@@ -510,10 +573,12 @@ describe('the phase machine (ADR 0006)', () => {
   it('begins and ends a stubbed boss phase on the same tick', () => {
     const at = (name: PhaseName): number =>
       STILL_PLAY.boundaries.find((each) => each.phase === name)!.tick;
+    // The Waking is not among them: it ends on rows spent and a field clear
+    // like the two sections, and the Crowd hands it a field with trash on it,
+    // so it is the one boundary phase that has something to wait for today.
     expect(at('banshee')).toBe(at('crowd'));
-    expect(at('waking')).toBe(at('vigil'));
     expect(at('undertaker')).toBe(at('over'));
-    expect(at('banshee')).toBe(phaseLengthTicks(phase('procession')));
+    expect(at('vigil')).toBeGreaterThan(at('waking'));
   });
 
   it.todo('crosses no two boundaries on one tick, because no phase is empty');
@@ -566,9 +631,158 @@ describe('the phase machine (ADR 0006)', () => {
   });
 });
 
+describe('the sparse last row (ADR 0051)', () => {
+  it('keeps mobs arriving through the last row before a boss, thinly and further apart', () => {
+    // ADR 0051: "Mobs keep arriving, thinly and further apart." The row before
+    // a boss is the last thing the section does rather than a gap in front of
+    // one, and it lands a body at a time where the section lands groups.
+    for (const name of BOSS_BOUND_SECTIONS) {
+      const rows = phase(name).rows;
+      const tail = rows.slice(-SPARSE_LAST_ROW.bodies);
+      const body = rows.slice(0, rows.length - SPARSE_LAST_ROW.bodies);
+      expect(`${name} ${tail.map((row) => row.count).join()}`).toBe(
+        `${name} ${tail.map(() => 1).join()}`,
+      );
+      expect(Math.max(...tail.map((row) => row.count))).toBeLessThan(
+        Math.max(...body.map((row) => row.count)),
+      );
+      expect(tail[0].t).toBeGreaterThan(lastRowAt(body));
+
+      // And they arrive: under a hand that kills nothing, every arrival after
+      // the section's last group is one body on its own.
+      const [from, to] = spanOf(STILL_PLAY, name);
+      const inTail = STILL_PLAY.arrivals.filter(
+        (each) => each.tick >= from + tail[0].t * TICK_HZ && each.tick < to,
+      );
+      expect(`${name} ${inTail.map((each) => each.count).join()}`).toBe(
+        `${name} ${tail.map(() => 1).join()}`,
+      );
+    }
+  });
+
+  it('begins every boss phase on a field with no live mob', () => {
+    // ADR 0051: "the boss arrives as the last of them leaves the field," and
+    // "the Banshee and the Undertaker arrive alone on an empty field." Both
+    // hands, because the boundary is the field's own state and not the hand's.
+    for (const name of ['banshee', 'undertaker'] as const) {
+      for (const played of [STILL_PLAY, SHARP]) {
+        const at = played.boundaries.find((each) => each.phase === name)!;
+        expect(`${name} ${played.liveMobs[at.tick]}`).toBe(`${name} 0`);
+      }
+    }
+  });
+
+  it('thins nothing before the set piece and hands it a field with trash on it', () => {
+    // ADR 0051: "there is no drain-out before the set piece ... only the two
+    // boss boundaries need the field empty." The Crowd's own table ends on the
+    // groups it was authoring, and the phase after it opens into them.
+    const crowd = phase('crowd').rows;
+    const tail = crowd.slice(-SPARSE_LAST_ROW.bodies);
+    expect(tail.filter((row) => row.count === 1)).toEqual([]);
+
+    // Read on the Waking's first whole tick, because advanceStage runs before
+    // the tick's deaths: the boundary tick reports the field the Crowd's last
+    // row was fired into rather than the one it left behind.
+    for (const played of [STILL_PLAY, SHARP]) {
+      const at = played.boundaries.find((each) => each.phase === 'waking')!;
+      expect(played.liveMobs[at.tick + 1]).toBeGreaterThan(0);
+    }
+  });
+
+  it("takes the sparse row's count, type and spacing from stage data", () => {
+    // ADR 0051: "The row itself, how many, which type, how far apart, is stage
+    // data." Both sections close on the same authored shape, and a moved shape
+    // is a moved row.
+    for (const name of BOSS_BOUND_SECTIONS) {
+      const rows = phase(name).rows;
+      const tail = rows.slice(-SPARSE_LAST_ROW.bodies);
+      expect(tail).toEqual(sparseLastRow(tail[0].t, SPARSE_LAST_ROW));
+    }
+    expect(
+      sparseLastRow(10, {
+        bodies: 2,
+        spacingSeconds: 3,
+        type: 'revenant',
+      }).map((row) => `${row.t} ${row.type} ${row.count}`),
+    ).toEqual(['10 revenant 1', '13 revenant 1']);
+  });
+
+  it('leaves no spawn silence anywhere in the stage', () => {
+    // The deliberate-absence guard for ADR 0051's supersession: no window in
+    // any phase has nothing due and nothing alive for longer than a body takes
+    // to leave the field. The other half of it, the window after a section's
+    // last row, is bounded by the test below.
+    for (const name of SECTION_NAMES) {
+      expect(`${name} ${silentGapsIn(phase(name).rows).join()}`).toBe(
+        `${name} `,
+      );
+    }
+
+    // The rule can see a silence, so the empty lists above are a pass rather
+    // than an empty set.
+    const silent: readonly StageRow[] = [
+      PROCESSION_ROWS[0],
+      { ...PROCESSION_ROWS[0], t: PROCESSION_ROWS[0].t + 40 },
+    ];
+    expect(silentGapsIn(silent)).toHaveLength(1);
+  });
+
+  it.todo('ends the Crowd on the eye opening and never on an empty field');
+  it.todo(
+    "keeps the Crowd's rows firing through the pour at the section's own reduced share",
+  );
+});
+
+describe('the per-phase end condition (ADR 0050, ADR 0051)', () => {
+  it('holds a rows-spent phase open while a body is still alive on the field', () => {
+    const state = createRun(1);
+    const procession = phase('procession');
+    state.stage.firedRows = procession.rows.length;
+    expect(phaseEnded(state, procession)).toBe(true);
+
+    const [order] = place('drip', 1, state.streams.spawns);
+    spawnMob(state, 'shambler', order, false);
+    expect(phaseEnded(state, procession)).toBe(false);
+  });
+
+  it('holds a phase open while it has rows left, even on a field with nothing on it', () => {
+    const state = createRun(1);
+    const procession = phase('procession');
+    expect(state.mobs.filter((mob) => mob.alive)).toEqual([]);
+    state.stage.firedRows = procession.rows.length - 1;
+    expect(phaseEnded(state, procession)).toBe(false);
+  });
+
+  it("bounds the tail after a section's last row by a body's own descent, on every seed", () => {
+    // What replaces the drain-out's stated length: the tail is however long the
+    // last bodies take to leave, which is bounded by the field and the mob
+    // table rather than by a number, and a hand that kills them ends it sooner.
+    for (const seed of [77, 4242, 909]) {
+      const played =
+        seed === 77 ? STILL_PLAY : playStage(seed, stillHand, STAGE_TICKS);
+      for (const name of BOSS_BOUND_SECTIONS) {
+        const [from, to] = spanOf(played, name);
+        const last = played.arrivals.filter(
+          (each) => each.tick >= from && each.tick < to,
+        );
+        const tail = to - last[last.length - 1].tick;
+        // Bounded above, and a real window rather than an empty one: under a
+        // hand that kills nothing the last body falls the whole way, so the
+        // comparison has something in it to be a bound on. The bound is
+        // rounded up because a tail is whole ticks and a descent is not: the
+        // last tick of a full descent is spent whether or not it is a whole
+        // one.
+        expect(
+          `${seed} ${name} ${tail > 0 && tail <= Math.ceil(SLOWEST_DESCENT_TICKS)}`,
+        ).toBe(`${seed} ${name} true`);
+      }
+    }
+  });
+});
+
 describe('determinism (ADRs 0006 and 0012)', () => {
   it('gives an identical spawn sequence for an identical seed, over a whole phase', () => {
-    const ticks = phaseLengthTicks(phase('procession'));
+    const ticks = lastRowAt(PROCESSION_ROWS) * TICK_HZ;
     const first = playStage(4242, stillHand, ticks);
     const second = playStage(4242, stillHand, ticks);
     expect(first.arrivals).toEqual(second.arrivals);

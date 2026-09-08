@@ -38,7 +38,7 @@ import {
 } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { PROCESSION_ROWS } from '../stage/rows';
+import { PHASES } from '../stage/stage';
 import type { SpawnOrder } from '../stage/templates';
 import { place } from '../stage/templates';
 import { resolveStorm } from '../storm';
@@ -57,13 +57,17 @@ const STILL: TickCommand = drift(0, 0);
 const RIGHT: TickCommand = drift(1, 0);
 
 /**
- * A run whose stage will not spawn anything on top of the mob under test. The
- * rows are marked fired rather than emptied, because the row tables are exported
- * data and a test that mutated them would poison every later file.
+ * A run whose stage will not spawn anything on top of the mob under test.
+ *
+ * It stands in the last phase of the table, which is the one phase the machine
+ * never leaves. Marking a phase's rows fired silences that phase alone: a phase
+ * ends now on its rows being spent and its field clearing (ADR 0051), so the
+ * tick a test's field empties would roll the run into the next section and its
+ * rows.
  */
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.phaseIndex = PHASES.length - 1;
   // The stream and Territory's clock are held as well as the rows. These tests
   // are about how a mob moves, fires and dies, and both birthright lines act
   // unprompted: the stream pours up the middle of the field, and Territory

@@ -21,7 +21,7 @@ import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import { cullMobs, MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun, uniformLevels } from '../run';
-import { advanceStage } from '../stage/stage';
+import { advanceStage, PHASES } from '../stage/stage';
 import { SCROLL_SPEED } from '../tuning';
 import { CROWD_ROWS, PROCESSION_ROWS, VIGIL_ROWS } from '../stage/rows';
 
@@ -37,10 +37,16 @@ function authoredCarriers(): number {
  * A run whose stage will not spawn anything on top of the mob under test, and
  * whose one birthright line is held silent so every kill in these tests is a
  * kill the test made.
+ *
+ * The stage is silenced by standing the run in the last phase of the table,
+ * which is the one phase the machine never leaves. Marking a phase's rows fired
+ * silences that phase alone: a phase ends now on its rows being spent and its
+ * field clearing (ADR 0051), so the tick a test's field empties would roll the
+ * run into the next section and its rows.
  */
 function quietRun(seed = 7): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.phaseIndex = PHASES.length - 1;
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
 }

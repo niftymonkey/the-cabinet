@@ -36,6 +36,55 @@ interface StageRow {
 type BossKind = 'banshee' | 'undertaker';
 
 /**
+ * The sparse last row's own shape (ADR 0051): how many bodies it lands, which
+ * type they are, and how far apart they fall. It is a record rather than three
+ * loose numbers because the three only mean anything together, and a tuning
+ * pass moves the held breath by editing one row.
+ */
+interface SparseShape {
+  readonly bodies: number;
+  // In the row's own unit, seconds, so a table reads in one clock.
+  readonly spacingSeconds: number;
+  readonly type: MobType;
+}
+
+/**
+ * The initial shape, from the design record: four bodies, shamblers, one every
+ * ninety ticks, which is a second and a half in the row's own unit.
+ *
+ * The type is the part worth reading rather than tuning. The ghoul closes,
+ * which would turn a held breath into a chase, and every revenant is armed, so
+ * a thin row of revenants is less traffic and more fire, which is the opposite
+ * of the beat this row is.
+ */
+const SPARSE_LAST_ROW: SparseShape = {
+  bodies: 4,
+  spacingSeconds: 1.5,
+  type: 'shambler',
+};
+
+/**
+ * The sparse last row as rows (ADR 0051): one body at a time from `from`, the
+ * shape's spacing apart, replacing the spawn silence a boss used to arrive
+ * after. Each body is its own Drip, because a row lands its whole count at once
+ * and what this row is for is bodies arriving one after another.
+ *
+ * It carries no offer, because a carrier here would pay a player for the beat
+ * before a fight rather than for the section, and the director may not spend in
+ * it: it is the held breath, and a director briefed to fill gaps would fill
+ * this one (ADR 0047).
+ */
+const sparseLastRow = (from: number, shape: SparseShape): readonly StageRow[] =>
+  Array.from({ length: shape.bodies }, (_body, index): StageRow => ({
+    t: from + index * shape.spacingSeconds,
+    template: 'drip',
+    count: 1,
+    type: shape.type,
+    carries: false,
+    directed: false,
+  }));
+
+/**
  * The Procession, to the Banshee. It owns emptiness: a group arrives, the field
  * clears, and there is a beat of empty ground before the next falls. That gap is
  * where a corpse sits alone long enough for the player to decide to go and get
@@ -162,6 +211,9 @@ const PROCESSION_ROWS: readonly StageRow[] = [
     carries: true,
     directed: true,
   },
+  // The section's own nine-second cadence carries into the last row, so the
+  // held breath is slower rather than empty.
+  ...sparseLastRow(112, SPARSE_LAST_ROW),
 ];
 
 /**
@@ -586,6 +638,8 @@ const VIGIL_ROWS: readonly StageRow[] = [
     carries: false,
     directed: true,
   },
+  // The same beat on this section's own five-second cadence.
+  ...sparseLastRow(63, SPARSE_LAST_ROW),
 ];
 
 /**
@@ -651,8 +705,10 @@ export {
   PROCESSION_ROWS,
   CROWD_ROWS,
   VIGIL_ROWS,
+  SPARSE_LAST_ROW,
+  sparseLastRow,
   BOSS_ADD_ALLOWANCE,
   RUNG_ALLOWANCE,
   peakArrivals,
 };
-export type { StageRow, BossKind };
+export type { StageRow, BossKind, SparseShape };
