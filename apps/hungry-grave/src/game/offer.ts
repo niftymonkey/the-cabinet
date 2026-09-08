@@ -260,6 +260,30 @@ const openBanked = (state: RunState): SimEvent[] => {
 };
 
 /**
+ * The bank's own tick: no offer live, the bank above zero, and the phase
+ * permitting one, so the next offer comes out (ADR 0034, ADR 0048).
+ *
+ * Without this site the bank has no opening that is not a take or a loss, and
+ * an offer held shut through a phase that does not permit one would never
+ * reopen once that phase ends: there is no offer left to take or to lose. The
+ * permission is the phase's own column and arrives as a value, so the bank
+ * never learns which phase the run is in.
+ *
+ * ADR 0048's "missed is missed" still holds, because the bank only ever holds
+ * offers a carrier's death already paid.
+ *
+ * Today every offer clears through a take or a loss and each of those opens the
+ * next itself, so this finds nothing to do. It is the site the corpse cap needs:
+ * when a spawn can be refused, an offer whose bodies were all refused banks
+ * rather than disappearing, and this is what lets it back out.
+ */
+const openBankedOffer = (state: RunState, permitted: boolean): SimEvent[] => {
+  if (!permitted) return [];
+  if (state.offer !== null) return [];
+  return openBanked(state);
+};
+
+/**
  * The take: the body goes in, its siblings vanish, and the bank opens the next
  * offer (ADR 0034).
  *
@@ -306,6 +330,7 @@ const loseOffer = (state: RunState): SimEvent[] => {
 export {
   offerableLines,
   openOffer,
+  openBankedOffer,
   chooseOfferBody,
   resolveOffer,
   loseOffer,

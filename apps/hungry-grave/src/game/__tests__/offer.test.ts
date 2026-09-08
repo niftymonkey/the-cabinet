@@ -18,6 +18,7 @@ import {
   chooseOfferBody,
   loseOffer,
   offerableLines,
+  openBankedOffer,
   openOffer,
   OFFER_ENTRY_DEPTH,
   OFFER_SIZE,
@@ -26,6 +27,7 @@ import {
 import type { RunState } from '../run';
 import { createRun, uniformLevels } from '../run';
 import { PROCESSION_ROWS } from '../stage/rows';
+import { PHASES } from '../stage/stage';
 import { SIZE_CEILING } from '../tuning';
 
 const STILL = { move: { x: 0, y: 0 }, belch: false } as const;
@@ -501,6 +503,57 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
     expect(seen.filter((type) => type === 'offerOpened')).toHaveLength(1);
     expect(state.bankedOffers).toBe(0);
     expect(state.offer).not.toBeNull();
+  });
+
+  it('opens a banked offer on the first permitting tick, and holds it through a phase that permits none', () => {
+    // The bank's own opening site, which is neither a take nor a loss. Without
+    // it a bank held shut through a phase that does not permit an offer would
+    // never reopen once that phase ended: there would be no offer left to take
+    // or to lose, so the site and the phase's own column arrive together.
+    //
+    // ADR 0048's "missed is missed" still holds through it, because the bank
+    // only ever holds offers a carrier's death already paid.
+    const state = quietRun();
+    state.bankedOffers = 2;
+
+    const withheld = openBankedOffer(state, false);
+
+    expect(withheld).toEqual([]);
+    expect(state.offer).toBeNull();
+    expect(state.bankedOffers).toBe(2);
+
+    const opened = openBankedOffer(state, true);
+
+    expect(typesOf(opened)).toContain('offerOpened');
+    expect(state.offer!.bodyIds).toHaveLength(OFFER_SIZE);
+    expect(state.bankedOffers).toBe(1);
+
+    // One at a time: the second stays banked while the first still stands, and
+    // the permission alone does not open it.
+    expect(openBankedOffer(state, true)).toEqual([]);
+    expect(state.bankedOffers).toBe(1);
+  });
+
+  it('opens nothing from an empty bank, however permitting the phase is', () => {
+    const state = quietRun();
+
+    expect(openBankedOffer(state, true)).toEqual([]);
+    expect(state.offer).toBeNull();
+    expect(state.bankedOffers).toBe(0);
+  });
+
+  it('permits a banked offer to open in every phase but the one the run has ended in', () => {
+    // The column is true by default and false only where the record names a
+    // reason. The one reason the record names is the over phase: the run has
+    // ended there, so there is no run left to spend an offer in.
+    expect(
+      PHASES.filter((phase) => !phase.bankOpens).map((phase) => phase.name),
+    ).toEqual(['over']);
+    for (const phase of PHASES) {
+      expect(`${phase.name} ${typeof phase.bankOpens}`).toBe(
+        `${phase.name} boolean`,
+      );
+    }
   });
 });
 

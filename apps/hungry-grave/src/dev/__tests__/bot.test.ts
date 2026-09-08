@@ -23,7 +23,7 @@ import { spawnMob } from '../../game/mobs';
 import { OFFER_SIZE } from '../../game/offer';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
-import { CROWD_ROWS, PROCESSION_ROWS } from '../../game/stage/rows';
+import { CROWD_ROWS, PROCESSION_ROWS, VIGIL_ROWS } from '../../game/stage/rows';
 import { PHASES, phaseLengthTicks } from '../../game/stage/stage';
 import { place } from '../../game/stage/templates';
 import { RESERVOIR_CAPACITY, SIZE_CEILING } from '../../game/tuning';
@@ -56,8 +56,13 @@ function play(state: RunState, policy: Policy, maxTicks: number): PolicyRun {
 const SEEDS = [101, 202, 303, 404, 505];
 
 /**
- * The seeds whose fresh run seals shut inside the ramp on the current
- * birthright, and there is one: 505, at 5466 ticks.
+ * The seeds whose fresh run seals shut inside the opening section on the
+ * current birthright, and there are none.
+ *
+ * Every measurement before the last one was taken while that section was the
+ * ramp, and each says so in its own words: the ramp is the phase the three
+ * named sections renamed the Procession (ADR 0050), and it is 120 seconds of
+ * rows where the ramp was 122.
  *
  * Re-measured for #79's measured tuning pass, which moved TERRITORY_PERIOD
  * from 500 to 832. Territory is the only line a dodger arms for free, and at
@@ -89,12 +94,16 @@ const SEEDS = [101, 202, 303, 404, 505];
  * now, so the same lane crosses one of them far more often and a dodger that
  * still never steers at food is paid several times more.
  *
+ * Re-measured for the three named sections (ADR 0049, ADR 0050) and the set
+ * stayed empty: all five survive the Procession, which owns emptiness and puts
+ * 55 bodies on the field where the ramp put 101.
+ *
  * What it measures is still this policy rather than the game: `dodgePolicy`
- * never dives, so it reads the ramp at about the weakest play the sim can
+ * never dives, so it reads the section at about the weakest play the sim can
  * produce, the no-offense floor. The next played tapes judge the value
  * itself.
  */
-const SEALS_IN_THE_RAMP: number[] = [];
+const SEALS_IN_THE_PROCESSION: number[] = [];
 
 /**
  * The seeds on which this policy never swallows anything at all, and there are
@@ -137,13 +146,21 @@ const NEVER_FEEDS: number[] = [];
  * 4 to 8 offers a run where it used to swallow 3 to 9 single drops, and the
  * builds it stumbles into carry four of the five seeds to the over phase.
  *
+ * Re-measured for the three named sections (ADR 0049, ADR 0050): 202 and 303
+ * left it and the set is 404 and 505. The stage runs 21000 ticks of authored
+ * rows where it ran 12421, and the Procession owns emptiness, so a dodger that
+ * is paid only by the carriers its own lane crosses now takes 1 to 4 offers a
+ * run against the 4 to 8 the old ramp and back half handed it. The three seeds
+ * that fall out seal at 9938, 20330 and 10673 ticks rather than dying early:
+ * they run out of grave over a longer stage on a thinner build.
+ *
  * It stays a tripwire in both directions, because the assertion is an
  * equality: the day the set moves either way, this file goes red and says
  * which seed did it. What it measures is still a policy that only dodges,
  * never a hand that dives, and it is the worst case for a ladder whose upper
  * rungs a real player buys.
  */
-const REACHES_VICTORY_FRESH: number[] = [202, 303, 404, 505];
+const REACHES_VICTORY_FRESH: number[] = [404, 505];
 
 /**
  * The seeds that reach victory from the size ceiling on the birthright build,
@@ -177,10 +194,18 @@ const REACHES_VICTORY_FRESH: number[] = [202, 303, 404, 505];
  * does, so which seeds land where is decided by the lane rather than by the
  * power the offer pays.
  *
+ * Re-measured for the three named sections (ADR 0049, ADR 0050): 404 left and
+ * 202 entered, so the set is 101 and 202. The stage is now nine minutes rather
+ * than three and a half and the section it opens with owns emptiness, so a
+ * dodger meets far less traffic early and a ceiling run has three times as long
+ * to be ground down; the two seeds that still win are the two whose lanes pay
+ * them an offer before the Crowd, at 5 and 12 offers against 0 to 2 on the
+ * three that seal.
+ *
  * Pinned as a constant rather than left a literal in the test, because the
  * fresh set and this one are different facts.
  */
-const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 303, 404];
+const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 202];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
@@ -195,17 +220,22 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [101, 303, 404];
  */
 const REACHES_VICTORY_MAXED = [101, 202, 303, 404, 505];
 
-const RAMP_TICKS = phaseLengthTicks(PHASES[0]);
-const STAGE_TICKS = RAMP_TICKS + phaseLengthTicks(PHASES[2]);
+const PROCESSION_TICKS = phaseLengthTicks(PHASES[0]);
+const STAGE_TICKS =
+  PROCESSION_TICKS + phaseLengthTicks(PHASES[2]) + phaseLengthTicks(PHASES[4]);
 
 /** Every mob the timeline authors, which is the ceiling on what any policy can meet. */
-const AUTHORED_MOBS = [...PROCESSION_ROWS, ...CROWD_ROWS].reduce(
+const AUTHORED_MOBS = [...PROCESSION_ROWS, ...CROWD_ROWS, ...VIGIL_ROWS].reduce(
   (total, row) => total + row.count,
   0,
 );
 
 /** Every carrier the timeline authors, which is the ceiling on what any policy can be paid. */
-const AUTHORED_CARRIERS = [...PROCESSION_ROWS, ...CROWD_ROWS].reduce(
+const AUTHORED_CARRIERS = [
+  ...PROCESSION_ROWS,
+  ...CROWD_ROWS,
+  ...VIGIL_ROWS,
+].reduce(
   (total, row) => total + carrierRow(row.carries, row.count).carrying.length,
   0,
 );
@@ -216,6 +246,16 @@ const WALL_ROW = CROWD_ROWS.find((row) => row.template === 'wall')!;
 function count(events: SimEvent[], type: SimEvent['type']): number {
   return events.filter((event) => event.type === type).length;
 }
+
+/** The phases a run crosses, which is every phase after the one it starts in. */
+const PHASE_ORDER: readonly string[] = [
+  'banshee',
+  'crowd',
+  'waking',
+  'vigil',
+  'undertaker',
+  'over',
+];
 
 function phaseOrder(events: SimEvent[]): string[] {
   return events
@@ -273,16 +313,16 @@ function maxedRun(seed: number) {
 
 describe('dodgePolicy over the whole stage (ADR 0013)', () => {
   for (const seed of SEEDS) {
-    const survives = !SEALS_IN_THE_RAMP.includes(seed);
-    it(`${survives ? 'survives' : 'seals shut inside'} the ramp on seed ${seed}`, () => {
+    const survives = !SEALS_IN_THE_PROCESSION.includes(seed);
+    it(`${survives ? 'survives' : 'seals shut inside'} the Procession on seed ${seed}`, () => {
       // Three of these five were declared expected failures before weapons
       // existed, and dispatch 5 is what turns them into ordinary assertions:
       // the storm cuts how long an armed mob lives, and a weaponless build
-      // inflates mob fire by roughly a factor of five. SEALS_IN_THE_RAMP
+      // inflates mob fire by roughly a factor of five. SEALS_IN_THE_PROCESSION
       // carries the seeds that go the other way: its comment is where that is
       // measured.
       const state = createRun(seed);
-      play(state, dodgePolicy, RAMP_TICKS);
+      play(state, dodgePolicy, PROCESSION_TICKS);
       if (survives) expect(state.ending).toBeNull();
       else expect(state.ending).toBe('sealed');
     });
@@ -292,12 +332,10 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
     it(`crosses every phase in order on seed ${seed}`, () => {
       const { events } = fullRun(seed);
       const crossed = phaseOrder(events);
-      // A run that seals inside the ramp crosses nothing at all.
-      if (SEALS_IN_THE_RAMP.includes(seed)) expect(crossed).toEqual([]);
+      // A run that seals inside the Procession crosses nothing at all.
+      if (SEALS_IN_THE_PROCESSION.includes(seed)) expect(crossed).toEqual([]);
       else expect(crossed[0]).toBe('banshee');
-      expect(crossed).toEqual(
-        ['banshee', 'backHalf', 'undertaker', 'over'].slice(0, crossed.length),
-      );
+      expect(crossed).toEqual(PHASE_ORDER.slice(0, crossed.length));
     });
   }
 
@@ -316,10 +354,10 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
   for (const seed of SEEDS) {
     it(`runs to a length inside the stage's own band on seed ${seed}`, () => {
       const { ticks } = fullRun(seed);
-      if (SEALS_IN_THE_RAMP.includes(seed)) {
-        expect(ticks).toBeLessThan(RAMP_TICKS);
+      if (SEALS_IN_THE_PROCESSION.includes(seed)) {
+        expect(ticks).toBeLessThan(PROCESSION_TICKS);
       } else {
-        expect(ticks).toBeGreaterThan(RAMP_TICKS);
+        expect(ticks).toBeGreaterThan(PROCESSION_TICKS);
       }
       expect(ticks).toBeLessThanOrEqual(STAGE_TICKS + 60);
     });
@@ -330,10 +368,10 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
       // A check records a fault and returns rather than throwing (ADR 0024),
       // so what the run recorded is read rather than the absence of a throw.
       // The tick count is what says the run really ran, and a seed that seals
-      // inside the ramp still has to have run that far.
+      // inside the Procession still has to have run that far.
       expect(fullRun(seed).faults).toEqual([]);
       expect(fullRun(seed).ticks).toBeGreaterThan(
-        SEALS_IN_THE_RAMP.includes(seed) ? 0 : RAMP_TICKS,
+        SEALS_IN_THE_PROCESSION.includes(seed) ? 0 : PROCESSION_TICKS,
       );
     });
   }
@@ -372,7 +410,14 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
  * Re-measured for the offer of three (ADR 0034): the five fresh runs land 66
  * to 105 kills, three times what they landed under #79 and the closest the
  * storm has come to the half, because four of the five now run the whole stage
- * on a build the offer paid them. Still short of 134 on every seed.
+ * on a build the offer paid them.
+ *
+ * Re-measured for the three named sections (ADR 0049, ADR 0050): the five fresh
+ * runs land 20 to 112 kills against 357 authored mobs, so the half moved from
+ * 134 to 178 while what the storm reaches fell. The stage grew by half again
+ * and the section it opens with owns emptiness, so the same dodger meets fewer
+ * bodies per minute and three of the five seal before the Vigil. Still short of
+ * 178 on every seed.
  */
 const MEETS_THE_TIMELINE: number[] = [];
 
@@ -423,9 +468,13 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
     it(`stays inside the range the storm actually reaches on seed ${seed}`, () => {
       // The ordinary half, so a regression away from today's figures is caught
       // while the band above stays the thing being aimed at. The floors are
-      // the measured minima across the five fresh runs under the offer: seed
-      // 303 is lowest on kills at 66 and seed 101 lowest on offers at 7, and
-      // 101 is the one seed that does not reach the over phase.
+      // the measured minima across the five fresh runs on the three named
+      // sections: seed 101 is lowest on both, at 20 kills and 1 offer, and it
+      // is one of three seeds that seal before the Vigil. Both floors fell a
+      // long way with ADR 0050's stage, and the cause is the Procession's own
+      // property: a section that holds one template live pays a dodger, which
+      // is only ever paid by the carriers its own lane crosses, far less per
+      // minute than the old ramp did.
       //
       // The ceiling is the schedule itself and not a measurement: a run can
       // only be paid by carriers that exist, so no policy can ever open more
@@ -433,8 +482,8 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
       // by construction (ADR 0034), which is asserted beside it because it is
       // the relation the whole economy is read through.
       const { events } = fullRun(seed);
-      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(66);
-      expect(count(events, 'offerOpened')).toBeGreaterThanOrEqual(7);
+      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(20);
+      expect(count(events, 'offerOpened')).toBeGreaterThanOrEqual(1);
       expect(count(events, 'offerOpened')).toBeLessThanOrEqual(
         AUTHORED_CARRIERS,
       );
@@ -451,9 +500,9 @@ describe('dodgePolicy from the size ceiling', () => {
       // Every one of these was a declared expected failure before weapons
       // existed. Dispatch 4's section 5 asserted victory from the ceiling and
       // its own section 8 proved it cannot, so what is asserted here is what
-      // the weapons actually do, re-measured for the bell's cones (ADR 0036):
-      // all five seeds seal shut inside the back half and none reaches the
-      // over phase.
+      // the weapons actually do. Re-measured for the three named sections
+      // (ADR 0049, ADR 0050): two seeds run the whole stage to the over phase
+      // and three seal, every one of them having reached the Crowd first.
       // REACHES_VICTORY_FROM_THE_CEILING is where that set is pinned and where
       // its cause is written down.
       const { state, events } = fullRun(seed, SIZE_CEILING);
@@ -463,7 +512,7 @@ describe('dodgePolicy from the size ceiling', () => {
         expect(state.ending).toBe('victory');
         return;
       }
-      expect(reached).toContain('backHalf');
+      expect(reached).toContain('crowd');
       expect(reached).not.toContain('over');
       expect(state.ending).toBe('sealed');
     });
@@ -481,7 +530,28 @@ describe('dodgePolicy from the size ceiling', () => {
  * warmed, which is a real cost landing in the wrong place rather than a slow
  * test.
  */
+/**
+ * The budget for the one test that pays for five whole-stage runs nothing else
+ * has warmed. A whole stage is 21000 ticks of authored rows since the three
+ * named sections landed (ADR 0049), half again what it was, and five maxed runs
+ * of it no longer fit inside vitest's own five seconds. It is stated on the one
+ * test rather than raised for the suite, because every other run in this file
+ * is either cached or a fraction of a stage.
+ */
+const FIVE_MAXED_RUNS_MS = 30000;
+
 describe('both endings across the three loadouts', () => {
+  it(
+    'reaches victory from a maxed build on the seeds the set names',
+    () => {
+      const winners = SEEDS.filter(
+        (seed) => maxedRun(seed).state.ending === 'victory',
+      );
+      expect(winners).toEqual(REACHES_VICTORY_MAXED);
+    },
+    FIVE_MAXED_RUNS_MS,
+  );
+
   it('reaches both endings across the five seeds, so neither is unreachable', () => {
     // Victory is still dispatch 4's stub firing on the over phase, and sealed
     // shut is the real ladder. Both have to be reachable or the full-run test
@@ -503,14 +573,29 @@ describe('both endings across the three loadouts', () => {
     expect(endings.has('victory')).toBe(true);
     expect(endings.has('sealed')).toBe(true);
   });
-
-  it('reaches victory from a maxed build on the seeds the set names', () => {
-    const winners = SEEDS.filter(
-      (seed) => maxedRun(seed).state.ending === 'victory',
-    );
-    expect(winners).toEqual(REACHES_VICTORY_MAXED);
-  });
 });
+
+/**
+ * The seeds on which the hit-taking policy loses a weapon level before it
+ * seals, and there are none.
+ *
+ * Measured for the three named sections (ADR 0049, ADR 0050), where the set
+ * emptied. It used to hold every seed: the old ramp put a carrier in its first
+ * two rows, so a policy that steers into fire swallowed one inside eight
+ * seconds and had a rung above the birthright to be stripped of. The Procession
+ * owns emptiness and its first two rows are the Drips that teach the swallow
+ * and the tell, neither of which carries, so its first carrier stands at t=21
+ * and this policy has sealed shut at tick 1132 by then, on every seed and with
+ * nineteen hits taken.
+ *
+ * The rung is not gone from the game, only from this policy's reach: what takes
+ * a level away is a hit landing on a run that bought one, and buying one is a
+ * dive. ADR 0003's whole ladder in order belongs to the endings slice, on a run
+ * that reaches a boss fight, and that is where it is re-established rather than
+ * here. Kept as an equality rather than deleted, so the day a seed reaches the
+ * rung again this file goes red and says which.
+ */
+const STRIPS_A_RUNG: number[] = [];
 
 describe("hitTakingPolicy walks ADR 0003's ladder", () => {
   for (const seed of SEEDS) {
@@ -520,21 +605,22 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
       // three-hit opening and report on a regime the player spends twenty
       // seconds in.
       const state = createRun(seed, SIZE_CEILING);
-      const { events } = play(state, hitTakingPolicy, RAMP_TICKS);
+      const { events } = play(state, hitTakingPolicy, PROCESSION_TICKS);
 
       expect(state.ending).toBe('sealed');
       expect(count(events, 'sealed')).toBe(1);
       expect(count(events, 'graveHit')).toBeGreaterThan(10);
-      // Both of the first two rungs are now real: overflow from a swallow pays
-      // score and the ladder bleeds it first, and the run then loses a line.
-      // The second rung arrived with carriers (ADR 0002): a carrier drops its
-      // power where it died, which is inside the crowd this policy steers
-      // into, so a policy that never dives for food still swallows one and has
-      // something above the birthright to be stripped of. How many strips a
-      // seed takes is path, so what is pinned is that the rung is reached and
-      // that the strip floor is the birthright, which the levels below hold.
+      // The first rung is real and is asserted outright: overflow from a
+      // swallow pays score and the ladder bleeds it before anything else.
+      // Whether the second rung is reached is a fact about this policy on this
+      // stage rather than about the ladder, so it is pinned as a set, and
+      // STRIPS_A_RUNG is where it is measured and where its cause is written
+      // down. The floor a level falls to is the birthright either way, which
+      // the levels below hold.
       expect(count(events, 'scoreBled')).toBe(1);
-      expect(count(events, 'weaponStripped')).toBeGreaterThan(0);
+      expect(count(events, 'weaponStripped') > 0).toBe(
+        STRIPS_A_RUNG.includes(seed),
+      );
       for (const line of WEAPON_LINES) {
         expect(`${line} ${state.levels[line]}`).toBe(
           `${line} ${BIRTHRIGHT.includes(line) ? 1 : 0}`,
@@ -636,12 +722,7 @@ describe("the drain-out's property (plan 6.29)", () => {
         }
       }
       expect(execution.faults).toEqual([]);
-      expect(atBoundary).toEqual([
-        'banshee=0',
-        'backHalf=0',
-        'undertaker=0',
-        'over=0',
-      ]);
+      expect(atBoundary).toEqual(PHASE_ORDER.map((name) => `${name}=0`));
     });
   }
 });

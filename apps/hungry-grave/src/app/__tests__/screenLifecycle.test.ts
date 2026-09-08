@@ -54,6 +54,7 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
 import { SIZE_FLOOR } from '../../game/tuning';
 import { FAULT_IDENTITIES } from '../../game/faults';
+import { PHASES } from '../../game/stage/stage';
 import { PausePopup } from '../popups/PausePopup';
 import { runHandoff } from '../runHandoff';
 import { SettingsPopup } from '../popups/SettingsPopup';
@@ -828,8 +829,10 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     const winning = gameScreen();
     winning.prepare();
     // On the boundary of the last stubbed boss phase, which ends on the tick it
-    // begins and hands the run to the over phase.
-    winning['session'].run!.stage.phaseIndex = 3;
+    // begins and hands the run to the over phase. It is read off the table's
+    // own length rather than written down, because the stage gained two phases
+    // with the three named sections (ADR 0050) and will gain none silently.
+    winning['session'].run!.stage.phaseIndex = PHASES.length - 2;
     winning['session'].run!.stage.phaseTick = 0;
 
     winning.update(frame(TICK_MS));

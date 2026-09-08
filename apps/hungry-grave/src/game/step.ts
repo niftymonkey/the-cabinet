@@ -15,10 +15,15 @@ import { advanceTerritory } from './lines/territory';
 import { advanceWisps } from './lines/wisps';
 import { cullShots, shotHitbox } from './mobFire';
 import { advanceMobs, cullMobs, mobHitbox } from './mobs';
-import { chooseOfferBody, loseOffer, openOffer } from './offer';
+import {
+  chooseOfferBody,
+  loseOffer,
+  openBankedOffer,
+  openOffer,
+} from './offer';
 import { overlaps } from './overlap';
 import type { RunState } from './run';
-import { advanceStage } from './stage/stage';
+import { advanceStage, bankOpensNow } from './stage/stage';
 import { resolveStorm } from './storm';
 import { swallow } from './swallow';
 import { SCROLL_SPEED } from './tuning';
@@ -189,8 +194,8 @@ const resolveDeaths = (
  * place are the right answer.
  *
  * The order is scroll, the move command, the belch, spawns, mob motion and fire,
- * the weapon lines, overlap detection, deaths, decay, culling, the offer's own
- * loss, then the grave's own tick and the counters.
+ * the weapon lines, the bank's own tick, overlap detection, deaths, decay,
+ * culling, the offer's own loss, then the grave's own tick and the counters.
  *
  * The belch runs before spawns and before every overlap. A bomb pressed on the
  * frame a shot would land has to save the player, or the button is a lie at the
@@ -214,6 +219,7 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   events.push(...advanceStage(state));
   events.push(...advanceMobs(state));
   events.push(...advanceLines(state));
+  events.push(...openBankedOffer(state, bankOpensNow(state)));
   events.push(...resolveOverlaps(state));
   events.push(...resolveDeaths(state, events));
   events.push(...advanceCorpses(state));

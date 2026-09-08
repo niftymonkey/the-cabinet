@@ -293,6 +293,15 @@ const runScenario = (): ScenarioResult => {
  * offer is null for all 600 ticks and its bank stays at zero: what the fold
  * gained here is the absent-offer sentinel and a zero, and drawn.drops stays 0
  * because an offer draws only when one opens.
+ *
+ * Re-pinned for the three named sections (ADR 0049, ADR 0050): the scenario's
+ * 600 ticks fall inside what is now the Procession, and that section owns
+ * emptiness, so its second row moved from t=8 to t=11 and one authored body
+ * that used to be on the field at tick 600 has not arrived yet. mobs moved from
+ * 6 to 5 and the checksum from -1111652845. Nothing else moved: the grave's
+ * position, its size, the reservoir, the two scripted kills and every stream
+ * cursor all held, because the scenario's own script is unchanged and the one
+ * body it lost carries nothing and draws nothing.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -302,7 +311,7 @@ const GOLDEN: Digest = {
   size: 24.50625,
   score: 0,
   reservoir: 0.50625,
-  mobs: 6,
+  mobs: 5,
   shots: 2,
   corpses: 1,
   skulls: 2,
@@ -321,7 +330,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -1111652845,
+  checksum: -141809765,
 };
 
 export { runScenario, GOLDEN };

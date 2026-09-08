@@ -23,11 +23,11 @@ import type { RunState } from '../run';
 import { createRun, uniformLevels } from '../run';
 import { advanceStage } from '../stage/stage';
 import { SCROLL_SPEED } from '../tuning';
-import { CROWD_ROWS, PROCESSION_ROWS } from '../stage/rows';
+import { CROWD_ROWS, PROCESSION_ROWS, VIGIL_ROWS } from '../stage/rows';
 
 /** Every carrier the authored stage puts on the field across all its phases. */
 function authoredCarriers(): number {
-  return [...PROCESSION_ROWS, ...CROWD_ROWS].reduce(
+  return [...PROCESSION_ROWS, ...CROWD_ROWS, ...VIGIL_ROWS].reduce(
     (total, row) => total + carrierRow(row.carries, row.count).carrying.length,
     0,
   );

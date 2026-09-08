@@ -40,7 +40,7 @@ const EVERY_EVENT: SimEvent[] = [
   { type: 'tolled', level: 3, radius: 165 },
   { type: 'belched', cancelled: 12, killed: 4 },
   { type: 'dropSpawned', id: 9, line: 'wisps', x: 1, y: 2 },
-  { type: 'phaseChanged', phase: 'backHalf', tick: 10 },
+  { type: 'phaseChanged', phase: 'crowd', tick: 10 },
 ];
 
 describe('which events make a sound (plan 6.22)', () => {

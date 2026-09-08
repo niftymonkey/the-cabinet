@@ -2,6 +2,11 @@
  * The stage's rows as data (ADR 0006), and the peak-arrivals query the corpse
  * cap is derived from (ADR 0056). Every assertion reads the tables themselves,
  * because the point of the query is that it moves with the rows.
+ *
+ * The permission cells live here too. ADR 0056 asks for ADR 0047's off-limits
+ * moments as cells in the phase's and the row's own data rather than as
+ * conditions in code, so what proves it is a test that reads the tables and
+ * calls nothing.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -16,6 +21,8 @@ import {
   RUNG_ALLOWANCE,
   VIGIL_ROWS,
 } from '../rows';
+import type { Phase } from '../stage';
+import { PHASES } from '../stage';
 
 const SECTIONS: readonly (readonly StageRow[])[] = [
   PROCESSION_ROWS,
@@ -50,22 +57,26 @@ const outOfOrderIn = (rows: readonly StageRow[]): string[] =>
     .filter((row, index) => index > 0 && row.t < rows[index - 1].t)
     .map((row) => `${row.template} at t=${row.t}`);
 
+/** The phase whose boundary event ends this one, which is the phase after it. */
+const boundaryAfter = (name: string): Phase =>
+  PHASES[PHASES.findIndex((each) => each.name === name) + 1];
+
 describe('the peak-arrivals query (ADR 0056)', () => {
   it('reports the most bodies the stage can put on the field inside a window', () => {
-    // The densest ten seconds in today's tables is the Crowd's four rows from
-    // t=50, and that is the 36 the corpse cap's derivation reads off the same
-    // rows (docs/design/stage-floor.md, "The derivation"). The expected value
-    // is summed from the table rather than written down, so re-authoring the
-    // rows moves both sides together.
-    const densest = between(CROWD_ROWS, 50, 60);
+    // The densest ten seconds in the authored tables is the Crowd's four rows
+    // from t=130, the climb into the Waking. The expected value is summed from
+    // the table rather than written down, so re-authoring the rows moves both
+    // sides together.
+    const densest = between(CROWD_ROWS, 130, 140);
     expect(densest).toHaveLength(4);
     expect(peakArrivals(10)).toBe(totalOf(densest));
 
-    // It is the maximum over the whole stage, so it stands above the
-    // Procession's own densest ten seconds and above the boss phase's window.
-    expect(totalOf(between(PROCESSION_ROWS, 96, 106))).toBeLessThan(
+    // It is the maximum over the whole stage, so it stands above each other
+    // section's own densest ten seconds and above the boss phase's window.
+    expect(totalOf(between(PROCESSION_ROWS, 95, 105))).toBeLessThan(
       peakArrivals(10),
     );
+    expect(totalOf(between(VIGIL_ROWS, 49, 59))).toBeLessThan(peakArrivals(10));
     expect(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE).toBeLessThan(peakArrivals(10));
   });
 
@@ -86,6 +97,7 @@ describe('the peak-arrivals query (ADR 0056)', () => {
     // a row added to the densest table moves the answer.
     expect(peakArrivals(600)).toBe(totalOf(CROWD_ROWS));
     expect(totalOf(CROWD_ROWS)).toBeGreaterThan(totalOf(PROCESSION_ROWS));
+    expect(totalOf(CROWD_ROWS)).toBeGreaterThan(totalOf(VIGIL_ROWS));
 
     // And a wider window never reports fewer arrivals than a narrower one.
     const answers = Array.from({ length: 121 }, (_, seconds) =>
@@ -104,7 +116,14 @@ describe('the section tables as data (ADR 0006)', () => {
     // an empty set: a row that says it pays with no body to pay from.
     expect(
       carrierFaultsIn([
-        { t: 0, template: 'drip', count: 0, type: 'shambler', carries: true },
+        {
+          t: 0,
+          template: 'drip',
+          count: 0,
+          type: 'shambler',
+          carries: true,
+          directed: true,
+        },
       ]),
     ).toHaveLength(1);
   });
@@ -116,7 +135,108 @@ describe('the section tables as data (ADR 0006)', () => {
     expect(outOfOrderIn([...CROWD_ROWS].reverse())).not.toEqual([]);
   });
 
-  it.todo(
-    'declares directed on every row and every phase, with no optional field anywhere',
-  );
+  it('declares directed on every row and every phase, with no optional field anywhere', () => {
+    // A boolean and never an absent key, because a director reading an absent
+    // cell as permission is exactly the failure ADR 0056's permission matrix
+    // exists to stop.
+    for (const row of EVERY_ROW) {
+      expect(`${row.template} at t=${row.t}: ${typeof row.directed}`).toBe(
+        `${row.template} at t=${row.t}: boolean`,
+      );
+    }
+    for (const phase of PHASES) {
+      expect(`${phase.name}: ${typeof phase.directed}`).toBe(
+        `${phase.name}: boolean`,
+      );
+    }
+  });
+
+  it('declares both ceiling rows on every phase, set only where a section owns a ceiling', () => {
+    // The Procession's property is a ceiling on live templates and the Vigil's
+    // is a ceiling on live bodies. The Crowd carries neither, because its
+    // property is a floor and a director that adds and never removes cannot
+    // break a floor. Every other phase is off limits to the director outright,
+    // so it has no ceiling to declare either.
+    const ceilings = PHASES.map(
+      (phase) =>
+        `${phase.name} ${phase.liveTemplateCeiling} ${phase.liveBodyCeiling}`,
+    );
+    expect(ceilings).toEqual([
+      'procession 1 null',
+      'banshee null null',
+      'crowd null null',
+      'waking null null',
+      'vigil null 4',
+      'undertaker null null',
+      'over null null',
+    ]);
+
+    // Declared rather than optional, in both directions: a null is a phase
+    // saying it owns no ceiling, and an absent key would be a phase saying
+    // nothing at all.
+    for (const phase of PHASES) {
+      expect(`${phase.name} ${'liveTemplateCeiling' in phase}`).toBe(
+        `${phase.name} true`,
+      );
+      expect(`${phase.name} ${'liveBodyCeiling' in phase}`).toBe(
+        `${phase.name} true`,
+      );
+    }
+  });
+});
+
+describe("the director's off-limits cells, as data (ADR 0047, ADR 0056)", () => {
+  it('marks every boss phase and the set piece phase as cells the director may not spend in', () => {
+    // Read structurally rather than by name: a section's boundary event is the
+    // phase after it, so the Banshee, the Waking and the Undertaker are found
+    // through the three sections rather than restated here.
+    const boundaries = ['procession', 'crowd', 'vigil'].map(boundaryAfter);
+    expect(boundaries.map((phase) => phase.name)).toEqual([
+      'banshee',
+      'waking',
+      'undertaker',
+    ]);
+    for (const phase of boundaries) {
+      expect(`${phase.name} directed ${phase.directed}`).toBe(
+        `${phase.name} directed false`,
+      );
+    }
+
+    // And the sections themselves are where the director is meant to work, so
+    // the marking separates them rather than covering everything.
+    for (const name of ['procession', 'crowd', 'vigil']) {
+      const phase = PHASES.find((each) => each.name === name)!;
+      expect(`${name} directed ${phase.directed}`).toBe(
+        `${name} directed true`,
+      );
+    }
+  });
+
+  it("marks the Wall's own row the same way, and every other row of the stage is open", () => {
+    // ADR 0047 names the Wall outright: its crossable-unloaded property is
+    // two-sided and fails silently with every test still green, so a director
+    // filling the gaps around the curtain would break it invisibly. The sparse
+    // last row before each boss is the other authored row the ADR names, and it
+    // arrives with the per-phase end condition; when it does, it joins this
+    // list rather than needing a rule of its own.
+    const closed = EVERY_ROW.filter((row) => !row.directed);
+    expect(closed.map((row) => `${row.template} at t=${row.t}`)).toEqual([
+      'wall at t=2',
+    ]);
+    expect(closed[0].count).toBe(
+      CROWD_ROWS.find((row) => row.template === 'wall')!.count,
+    );
+  });
+
+  it('reads every off-limits cell out of the row and phase tables alone', () => {
+    // The whole of ADR 0056's ask: the four off-limits moments are cells in
+    // data rather than conditions in code. Nothing here calls into the stage
+    // machine, so a director at step 4 can answer the question the same way.
+    const cells = [
+      ...PHASES.map((phase) => `phase ${phase.name} ${phase.directed}`),
+      ...EVERY_ROW.map((row) => `row ${row.template} ${row.directed}`),
+    ];
+    expect(cells.filter((cell) => cell.endsWith('false')).length).toBe(5);
+    expect(cells.every((cell) => /(true|false)$/.test(cell))).toBe(true);
+  });
 });

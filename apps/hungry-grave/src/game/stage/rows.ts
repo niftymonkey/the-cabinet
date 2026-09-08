@@ -18,93 +18,575 @@ interface StageRow {
    * carriers.ts's rule and never the row's, so a row says only that it pays.
    */
   readonly carries: boolean;
+  /**
+   * Whether the director may spend in the span this row opens (ADR 0047,
+   * ADR 0056). A row already owns a span, from its own fire until the next row
+   * fires, and a director briefed to fill gaps cannot tell an authored thin row
+   * from any other gap unless the row itself says so. Its reader is the
+   * director at step 4 (#85).
+   */
+  readonly directed: boolean;
 }
 
 /**
- * The first 45 seconds are Drips and one File; Files, Vs and Pincers then
- * overlap two at a time with Rain joining thin. A new mob type always arrives
- * first as a lone Drip, so ADR 0016's readable-before-it-acts rule has
- * somewhere to be read.
+ * Which boss a phase carries. It lives here rather than in the boss modules
+ * because which boss arrives where is authored stage data, and the phase column
+ * that names one is written several slices before any boss module exists.
+ */
+type BossKind = 'banshee' | 'undertaker';
+
+/**
+ * The Procession, to the Banshee. It owns emptiness: a group arrives, the field
+ * clears, and there is a beat of empty ground before the next falls. That gap is
+ * where a corpse sits alone long enough for the player to decide to go and get
+ * it, and where a revenant's tell is legible because nothing else is on screen.
  *
- * Every count in this table and in CROWD_ROWS is first-pass tuning owned by
- * the tuning dispatch. What is not tuning, and must not be quietly changed, is
- * the shape: teaching Drips before a type appears in numbers, the 45-second
- * ramp, a drain-out long enough that the field is empty at the boundary, and
- * the Wall's count matching the shambler's width.
+ * The property is one live template, held as Phase.liveTemplateCeiling and read
+ * by the director rather than by an invariant: these rows stand about nine
+ * seconds apart against a body that takes roughly fifteen seconds to fall
+ * unkilled, so a player who kills slowly holds two templates with nothing wrong.
  *
- * The Drip of three at t=14 is the game's first mob fire. Three shamblers
- * spread across the width arrive together and exactly one of them is armed, so
- * it is the only place in the game where a player sees armed and unarmed side
- * by side in one glance and can calibrate the marker.
+ * Only Files and Vs stand beside the Drips. The Rain is the density filler a
+ * section turns up when its property asks for it and the Pincer is two files at
+ * once, and neither belongs in a section that holds one template live. No ghoul:
+ * the closer arrives in the next section, and a type arriving first as a lone
+ * Drip is the standing rule (ADR 0016's readable-before-it-acts).
  *
- * The carrier column is a first schedule and step 2 authors the real one. It
- * holds the 25 carriers carriersScheduled asks for, laid roughly one every
- * seven seconds of authored time across both spawning phases, and the run's
- * first row carries so a player is not asked to fight for long before the
- * first offer. Four rows are held clear on purpose: the three teaching Drips
- * at t=14, t=42 and t=62, where the glance is spent learning a marker or a new
- * type (ADR 0016), and the back half's Wall, whose whole shape is the curtain.
+ * Which rows may carry is a property of the table rather than of the schedule,
+ * so it is authored here and the placement is carriers.ts's. The four Drips are
+ * held clear on purpose. The lone revenant Drip teaches the tell, so the run's
+ * first tell and its first offer are two different moments rather than one body
+ * doing both jobs; the opening shambler Drip is held clear because the first
+ * kill of the run teaches the swallow; and the Drip of three is the game's first
+ * mob fire, where exactly one of three arrives armed and the glance is spent
+ * calibrating the marker.
+ *
+ * Every count and every time here is an initial row owned by the tuning pass.
+ * What is not tuning is the shape: one template live, Drips before a type
+ * appears in numbers, no ghoul, and a carrier on no Drip.
  */
 const PROCESSION_ROWS: readonly StageRow[] = [
-  { t: 2, template: 'drip', count: 1, type: 'shambler', carries: true },
-  { t: 8, template: 'drip', count: 1, type: 'shambler', carries: true },
-  { t: 14, template: 'drip', count: 3, type: 'shambler', carries: false },
-  { t: 20, template: 'file', count: 5, type: 'shambler', carries: true },
-  { t: 30, template: 'drip', count: 2, type: 'shambler', carries: true },
-  { t: 36, template: 'drip', count: 3, type: 'shambler', carries: true },
-  { t: 42, template: 'drip', count: 1, type: 'revenant', carries: false },
-  { t: 46, template: 'v', count: 5, type: 'shambler', carries: true },
-  { t: 52, template: 'file', count: 6, type: 'shambler', carries: true },
-  { t: 56, template: 'pincer', count: 6, type: 'shambler', carries: false },
-  { t: 62, template: 'drip', count: 1, type: 'ghoul', carries: false },
-  { t: 66, template: 'v', count: 7, type: 'shambler', carries: true },
-  { t: 70, template: 'rain', count: 6, type: 'shambler', carries: true },
-  { t: 74, template: 'file', count: 4, type: 'revenant', carries: true },
-  { t: 78, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 83, template: 'v', count: 7, type: 'ghoul', carries: true },
-  { t: 88, template: 'rain', count: 6, type: 'shambler', carries: true },
-  { t: 92, template: 'file', count: 6, type: 'shambler', carries: true },
-  { t: 96, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 101, template: 'rain', count: 8, type: 'shambler', carries: true },
-  { t: 105, template: 'v', count: 7, type: 'shambler', carries: true },
+  {
+    t: 2,
+    template: 'drip',
+    count: 1,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 11,
+    template: 'drip',
+    count: 3,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 21,
+    template: 'file',
+    count: 5,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 31,
+    template: 'drip',
+    count: 1,
+    type: 'revenant',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 40,
+    template: 'drip',
+    count: 2,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 50,
+    template: 'v',
+    count: 5,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 59,
+    template: 'file',
+    count: 6,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 68,
+    template: 'v',
+    count: 6,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 77,
+    template: 'file',
+    count: 6,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 86,
+    template: 'v',
+    count: 7,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 95,
+    template: 'file',
+    count: 6,
+    type: 'revenant',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 103,
+    template: 'v',
+    count: 7,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
 ];
 
 /**
- * The Wall first, then a climb through Rain, Pincers and Vs overlapping two and
- * three at a time to a sustained peak just under Wall density.
+ * The Crowd, to the Waking. It owns overlap: Rain under a Pincer, a V through
+ * Rain. Corpses stop being objects the player chooses between and become a floor
+ * the grave swims through, and the question stops being whether one corpse is
+ * reachable and becomes which of these still is.
  *
- * The Wall's clock anchors on the Banshee's death, and with the boss phase
- * stubbed to end on the tick it begins, its row at phase-local t=2 lands two
- * seconds into the back half, which is where the concept doc puts it.
+ * It opens on the Wall two seconds after the Banshee dies, which is the anchor
+ * the concept doc names, and the Wall's own row is the one cell in this table
+ * the director may not spend in: its crossable-unloaded property is two-sided
+ * and fails silently with every test still green (ADR 0047).
+ *
+ * The ghoul arrives here, first as a lone Drip.
+ *
+ * One deliberate trough sits mid-section, thin Drips and nothing else, so the
+ * Waking at the end lands against something rather than against a sustained
+ * peak. It is a run of rows and nothing more: the music does not change inside a
+ * section, so a held bar under the trough would be an audio state built for one
+ * row.
+ *
+ * The property is a floor of two live templates and it carries no ceiling row,
+ * because a director that adds and never removes cannot break a floor.
+ *
+ * Every count and every time is an initial row. What is not tuning is the shape:
+ * two templates always overlapping, the Wall first and undirected, the ghoul's
+ * lone Drip before any ghoul in numbers, and one trough before the end.
  */
 const CROWD_ROWS: readonly StageRow[] = [
-  { t: 2, template: 'wall', count: 22, type: 'shambler', carries: false },
-  { t: 10, template: 'rain', count: 6, type: 'shambler', carries: true },
-  { t: 14, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 19, template: 'v', count: 7, type: 'ghoul', carries: true },
-  { t: 23, template: 'rain', count: 8, type: 'shambler', carries: false },
-  { t: 26, template: 'file', count: 5, type: 'revenant', carries: true },
-  { t: 30, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 32, template: 'rain', count: 8, type: 'shambler', carries: true },
-  { t: 37, template: 'v', count: 7, type: 'shambler', carries: false },
-  { t: 40, template: 'rain', count: 10, type: 'shambler', carries: true },
-  { t: 43, template: 'pincer', count: 8, type: 'ghoul', carries: false },
-  { t: 46, template: 'v', count: 7, type: 'shambler', carries: true },
-  { t: 50, template: 'rain', count: 10, type: 'shambler', carries: false },
-  { t: 53, template: 'file', count: 6, type: 'revenant', carries: true },
-  { t: 56, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 58, template: 'rain', count: 12, type: 'shambler', carries: true },
-  { t: 62, template: 'v', count: 7, type: 'ghoul', carries: true },
-  { t: 65, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 68, template: 'rain', count: 12, type: 'shambler', carries: true },
+  {
+    t: 2,
+    template: 'wall',
+    count: 22,
+    type: 'shambler',
+    carries: false,
+    directed: false,
+  },
+  {
+    t: 8,
+    template: 'rain',
+    count: 6,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 12,
+    template: 'drip',
+    count: 1,
+    type: 'ghoul',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 15,
+    template: 'pincer',
+    count: 8,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 21,
+    template: 'v',
+    count: 7,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 25,
+    template: 'rain',
+    count: 8,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 29,
+    template: 'file',
+    count: 5,
+    type: 'revenant',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 33,
+    template: 'pincer',
+    count: 8,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 36,
+    template: 'rain',
+    count: 8,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 40,
+    template: 'v',
+    count: 7,
+    type: 'ghoul',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 44,
+    template: 'rain',
+    count: 10,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 48,
+    template: 'pincer',
+    count: 8,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 52,
+    template: 'v',
+    count: 7,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 58,
+    template: 'drip',
+    count: 2,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 64,
+    template: 'drip',
+    count: 2,
+    type: 'revenant',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 70,
+    template: 'drip',
+    count: 3,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 76,
+    template: 'drip',
+    count: 2,
+    type: 'ghoul',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 79,
+    template: 'drip',
+    count: 3,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 82,
+    template: 'rain',
+    count: 8,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 85,
+    template: 'pincer',
+    count: 8,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 90,
+    template: 'v',
+    count: 7,
+    type: 'ghoul',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 94,
+    template: 'rain',
+    count: 10,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 98,
+    template: 'file',
+    count: 6,
+    type: 'revenant',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 102,
+    template: 'pincer',
+    count: 8,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 106,
+    template: 'rain',
+    count: 10,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 110,
+    template: 'v',
+    count: 7,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 114,
+    template: 'pincer',
+    count: 8,
+    type: 'ghoul',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 118,
+    template: 'rain',
+    count: 12,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 122,
+    template: 'v',
+    count: 7,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 126,
+    template: 'pincer',
+    count: 8,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 130,
+    template: 'rain',
+    count: 12,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 133,
+    template: 'v',
+    count: 7,
+    type: 'ghoul',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 136,
+    template: 'pincer',
+    count: 8,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 138,
+    template: 'rain',
+    count: 12,
+    type: 'shambler',
+    carries: true,
+    directed: true,
+  },
 ];
 
 /**
- * The Vigil holds no rows. The stage runs two spawning phases today and the
- * third section's rows arrive with the seven-phase authoring, so the table is
- * empty and the query below counts it as the empty section it is.
+ * The Vigil, to the Undertaker. It owns scarcity: less growth paid per second
+ * than the Crowd, and tougher bodies. The roster inverts to revenants and ghouls
+ * with the shambler thinned, so the field is more fire and less food and the
+ * swallow cadence drops without a single new system being added.
+ *
+ * The quantity is growth paid per second and never corpses per second. A
+ * revenant corpse pays double a shambler's, so a roster that halves the bodies
+ * and doubles their payout is flat rather than scarce, and a corpses-per-second
+ * rule would pass while the section fed better than the one before it. What
+ * keeps the rate down is time to kill as much as arrivals: a revenant costs 64
+ * points of storm against a shambler's 40, so the same storm clears fewer bodies
+ * a second.
+ *
+ * The property is a ceiling of four live bodies against an authored steady state
+ * of about two, which is the headroom the director may spend into and no more.
+ * Like the Procession's it binds the director and never the authored rows.
+ *
+ * Shortest of the three on purpose, because the Undertaker has to carry the end.
+ *
+ * Every count and every time is an initial row. What is not tuning is the shape:
+ * a fall in growth paid per second against the Crowd, and a roster of revenants
+ * and ghouls with the shambler thinned.
  */
-const VIGIL_ROWS: readonly StageRow[] = [];
+const VIGIL_ROWS: readonly StageRow[] = [
+  {
+    t: 2,
+    template: 'file',
+    count: 4,
+    type: 'revenant',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 8,
+    template: 'drip',
+    count: 2,
+    type: 'ghoul',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 14,
+    template: 'v',
+    count: 5,
+    type: 'revenant',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 19,
+    template: 'drip',
+    count: 2,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 24,
+    template: 'file',
+    count: 4,
+    type: 'ghoul',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 29,
+    template: 'pincer',
+    count: 6,
+    type: 'revenant',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 34,
+    template: 'v',
+    count: 5,
+    type: 'ghoul',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 39,
+    template: 'drip',
+    count: 2,
+    type: 'revenant',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 44,
+    template: 'file',
+    count: 4,
+    type: 'revenant',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 49,
+    template: 'v',
+    count: 5,
+    type: 'ghoul',
+    carries: false,
+    directed: true,
+  },
+  {
+    t: 53,
+    template: 'pincer',
+    count: 6,
+    type: 'revenant',
+    carries: true,
+    directed: true,
+  },
+  {
+    t: 58,
+    template: 'v',
+    count: 5,
+    type: 'ghoul',
+    carries: false,
+    directed: true,
+  },
+];
 
 /**
  * Bodies a boss's own adds may put on the field inside a freshness window
@@ -173,4 +655,4 @@ export {
   RUNG_ALLOWANCE,
   peakArrivals,
 };
-export type { StageRow };
+export type { StageRow, BossKind };

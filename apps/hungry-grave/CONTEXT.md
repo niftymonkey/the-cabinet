@@ -120,6 +120,12 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Section**: One of the stage's three named trash phases, each owning one property no other section has and each ending on a boundary event. The boss and set-piece phases between them are phases and not sections. _Avoid_: act, chapter, zone, area.
 
+**The Procession**: The first section, ending on the Banshee. It owns emptiness: never more than one template live, so a group arrives, the field clears, and a corpse sits alone long enough to be worth going to get. Named for the funeral filing past in single file. _Avoid_: the ramp, the lane, the opening.
+
+**The Crowd**: The second and longest section, ending on the Waking. It owns overlap: never fewer than two templates live, so corpses stop being objects to choose between and become a floor the grave swims through. _Avoid_: the back half, the middle.
+
+**The Vigil**: The third and shortest section, ending on the Undertaker. It owns scarcity: less growth paid per second than the Crowd, on a roster of revenants and ghouls with the shambler thinned, so the field is more fire and less food. Named for the watch kept before the gravedigger arrives. _Avoid_: the descent, the finale, the last stretch.
+
 **Boundary event**: What ends a section: the Banshee, the set piece, the Undertaker. A boundary event is not always a boss. _Avoid_: transition, checkpoint, gate.
 
 **Sparse last row**: The slow, thin final row of a section before a boss, the boss arriving as its last body leaves. It replaces the old spawn silence, so the field still empties and the emptiness is a beat rather than a pause. _Avoid_: drain-out, lull, break, intermission.
@@ -127,6 +133,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 **Set piece**: An authored moment that names the property it must keep rather than the mob types allowed in it. The Wall is the first, and the swarm that ends the middle section is the second. The director adds nothing during one. _Avoid_: scripted event, cutscene, special wave.
 
 **The Wall**: The feast wave: an edge-to-edge curtain of trash launched by the miniboss's death. _Avoid_: swarm wave, horde.
+
+**The Waking**: The swarm set piece that ends the Crowd: a dormant eye placed by a Crowd row, riding the ground down until it opens around mid-field and pours trash from its one point while the source drags across. It fires nothing and never touches the grave, and its corpses are the payout. _Avoid_: the swarm, the eye event, the mouth.
 
 **Stage**: The content from first row to final boss, authored beats filled with directed density; a run is one playthrough of it. _Avoid_: level, map, world.
 
