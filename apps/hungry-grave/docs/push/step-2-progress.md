@@ -73,6 +73,7 @@ Every other section 9 item is carried by a slice: 1 by slice 2's glossary commit
 | 10 | `b0b4f4a4f5` | feat(hungry-grave): the Waking opens mid-field and pours until its budget is spent (#97) |
 | 11 | `55ed3230c7` | feat(hungry-grave): a section timeline reading reports what each section held (#97) |
 | 12a | `b640d4e424` | feat(hungry-grave): each phase names its loop and the app plays it (#97) |
+| 12b | `f23d8eb162` | test(hungry-grave): no loop is trimmed by a header parse, and the three wraps are measured (#97) |
 
 Slice 0 records the baseline tapes and makes no commit.
 
@@ -102,6 +103,8 @@ Slice 11: none, and none was possible. The commit holds one new reading, its reg
 
 Slice 12a: none, and the slice claimed none. The witness folds `RunState` and never the event list, so a payload gaining a field moves nothing the digest reads, and the only sim change beside it is where `enterNextPhase` builds the event it already pushed. `src/dev/digest.ts` is not in the commit and the digest test is green.
 
+Slice 12b: none, and none was possible. The commit holds one test file and no production code at all, so nothing the digest reads can have moved; `src/dev/digest.ts` is not in the commit and the digest test is green.
+
 ## 3. CodeRabbit
 
 Slice 1: `coderabbit review --agent --uncommitted` on the staged work, all eighteen files reviewed, **zero findings**. Nothing applied and nothing declined.
@@ -130,6 +133,8 @@ Slice 10: two runs, the first over fourteen staged files and the second over six
 Slice 11: one run of `coderabbit review --agent --uncommitted` over the six staged files, **zero findings**. Nothing applied and nothing declined.
 
 Slice 12a: one run of `coderabbit review --agent --uncommitted` over the fifteen staged files, one Major, **declined**. It asks that `musicChannel` and its `Assets.loadBundle` move out of `src/main.ts` into a module that owns music behaviour, leaving main.ts to composition alone. Declined for three reasons written together: the plan's own module table puts the music power in `src/main.ts` beside `playSound`; `src/app/sound.ts` cannot take it, because the boundary rule that governs that one file allows `game/events` and the `@pixi/sound` package and nothing else, and `Assets` is `pixi.js`; and a new module for an eight-line adapter fails the deletion test and would be the only power in the app not built in main.ts, where `backdropPowers`, `buttonSound` and `volumePowers` each already carry their own small mechanics. The standing rule is the one that settles it: a dependency used at one site is used directly there, and that site is the boundary (`.claude/rules/code-core.md`).
+
+Slice 12b: one run of `coderabbit review --agent --uncommitted` over the one staged file, **zero findings**. Nothing applied and nothing declined.
 
 ## 4. Plan claims found false against the tree
 
@@ -223,6 +228,11 @@ Seven from slice 12a, and the first two are work the plan asks for that was alre
 52. **Nothing announces the phase a run opens in, so the first section would have played silent.** `enterNextPhase` is the only site that pushes `phaseChanged` and a run begins already inside the first phase, which slice 11's reading works around from the other side. **`phaseUnderway(state)` in `stage.ts`** reports the phase the run stands in as the event a crossing would carry, `enterNextPhase` is built on it so an opening and a boundary are one fact rather than two, and `GameScreen.prepare` announces it once per run. Without it a run is silent through the Procession and her whole fight and the music starts at the Banshee's death.
 53. **The music bundle can be behind the first cue, and the plan does not say who waits.** Section 8 rules the loops into their own bundle, background-loaded and declared by no screen, and `sound.find` throws on an alias the library has not registered yet. So the channel `main.ts` builds awaits the bundle before it plays and reports anything past that, which is the design record's "the section cue is applied both on `phaseChanged` and again when the bundle resolves" in its simplest form: the cue is what waits, so nothing has to be reapplied.
 54. **Test 131 cannot live in `stage.test.ts`, and 58 and 108 cannot live under `app/screens/game`.** 131 spans the phase table and the app's alias table, and a test under `src/game` may reach `src/dev` and nothing else outside the sim; 58 and 108 reach `app/sound`, which the test-span fence refuses from `app/screens/game/__tests__`, whose whole allowance is `app/palette` and `app/layout`. **All three landed in `src/app/__tests__/sound.test.ts`**, the test folder of the lowest folder containing everything they span, which is the same finding slice 11 made about test 101.
+
+Two from slice 12b, and the first is what the measurement had to widen before it could answer the question at all.
+
+55. **Verification step 13 says "the three loops" and the app ships six files, of which the ogg is the one a browser here actually plays.** Every entry in the `music` bundle carries `src: ['music/<name>.ogg', 'music/<name>.mp3']`, the resolver takes the first it can decode, and the built app under `vite preview` in Chromium fetched `seek-n-slaughter.ogg`, `bells-of-death.ogg` and `a-hollow-call.ogg` and never an mp3. The mp3 is what a WebKit browser would fall back to, because it decodes no Ogg Vorbis, so **all six were measured and the step's three rows are six**. Reading the step as three would have measured the format the game does not play on the engine it was measured on.
+56. **The plan's `@pixi/sound` citation is right in content and off by a line.** Section 4 and verification step 13 both say `WebAudioInstance.mjs:172-175` maps `start` and `end` to the source node's `loopStart` and `loopEnd`; in 6.0.1 it is `:173-174`, and `BGM.play` passes a `PlayOptions` straight through to `Sound.play`, so the route the step names is real and open. It is recorded because the route is what the slice's own test allows and a header parse is what it forbids.
 
 ## 5. Gate corrections
 
@@ -376,6 +386,17 @@ Slice 12a, from the plan's section 3:
 - **Step 6, GOLDEN.** Did not move, and the slice claimed none. See section 2.
 - **Step 11, the rendered check, for the audible half of it.** **Ran, on the built app through `vite preview` and never the dev server**, and section 19 says what it could and could not see. The title screen and a live run at tick 258 were both read as screenshots, and the run started with **no new console entry of any kind**, which is the boundary instrument this change has: a bundle that failed to load or an alias the library could not find both reach a `console.warn` the channel writes. What it cannot show is sound, and the one instrument that would have (patching `AudioBufferSourceNode.prototype.start` from the page) could not be installed, because `playwright-cli eval` is refused by this session's isolation guard whatever the expression. **Whether the loops are audible, whether the change lands where it should and whether three loops is enough are Mark's ear and nothing else** (steps 16 and 22).
 - **Steps 7 to 10 and 12 to 14** belong to other slices and were not re-run here. **Step 13, the loop gap, is slice 12b's and runs on exactly the three files this slice staged.** **Steps 16 to 22 are Mark's and stay open**, and step 22, whether three loops is enough or the bosses want their own, is the one this slice is waiting on: nothing that can hear it is automated and the change costs three strings in the table.
+
+Slice 12b, from the plan's section 3:
+
+- **Step 1, unit tests.** Green. 117 files, 1606 passed, 10 expected fail, 3 todo.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 3, `pnpm build`.** Green, lint and typecheck included. Its two warnings are the two standing ones.
+- **Step 4, `pnpm verify` at the repo root.** Green, run from inside the worktree, exit 0.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step2/tests-baseline.txt`. The whole diff is 220 added and 27 removed. **Slice 12b's own share is 3 added, nothing removed and nothing renamed**, all three in `sound.test.ts` under `no loop is trimmed by a header parse (module 129)`. **Slice 12a's own share was 7 and its note says 6**: the diff against 12a's saved list turns up a fourth name, `screenLifecycle.test.ts`'s `cues the section a run opens in, and cues it again on the next run out of the pool`, which is one of 12a's own additions and which its note names in section 19. The test is in the tree and green; what was one short was the list the count came off, so the whole diff at 12a was 217 added rather than 216 and nothing was lost. The three todos left in the suite are `swallow.test.ts`'s one and `palette.test.ts`'s two, none of them this step's.
+- **Step 6, GOLDEN.** Did not move, and could not: the commit holds no production code. See section 2.
+- **Step 13, the music loop gap, measured before anything is built for it.** **Ran, and the expected result held: the browser trims and nothing was built.** The six rows and how they were taken are in section 20.
+- **Steps 7 to 12 and 14** belong to other slices and were not re-run here. **Steps 16 to 22 are Mark's and stay open**, and step 22, whether three loops is enough or the bosses want their own, is untouched by this slice: what was measured is the wrap and never the music.
 
 ## 8. Slice 1, the rows module
 
@@ -654,3 +675,32 @@ A window is half-open, `[t, t + seconds)`, and only a window that opens on a row
 **Three tests beyond the plan's list, each one guarding something no other test can see.** `ships every loop in its own bundle` reads the manifest, because a filename that drifts sounds exactly like a section that plays nothing and the closed union cannot see a string. `cues the section a run opens in` in `screenLifecycle.test.ts` is the wiring, and it is the only thing that fails if the screen stops asking. `says which loop plays on every crossing` in `stage.test.ts` holds the crossings and the opening as one fact. The plan's own three are 58, 108 and 131, all in `sound.test.ts`, and 108 is held in two halves: the cue is issued on every crossing including the ones that ask for the loop already playing, and the engine's own `BGM` turns those six cues into three started tracks, the opening and the two changes.
 
 **The tests were proved to bite rather than assumed to.** Five mutations, each reverted. Dropping the opening announcement from `GameScreen.prepare` turned the lifecycle test red and nothing else, which is the point of having it. Making every phase answer the first phase's loop turned five red across both files. A typo in one filename in the table turned the bundle test red. Making `playMusicFor` skip a cue whose alias had not changed, which is the app deciding what an audible change is, turned the every-crossing test red. Giving the Banshee's phase the Crowd's loop turned the two-changes test red. The engine's no-op is asserted against the real `BGM` with the sound library and the tween stood in for, so the sentence about three aliases and two changes is held end to end rather than at the table.
+
+## 20. Slice 12b, the loop gap measured
+
+**The measurement, and what it settles.** Verification step 13 exists to decide whether any gap handling gets written, and the answer is no. Every one of the six files the `music` bundle ships decodes, in Chromium, to exactly the length its own header states minus the encoder's delay and padding, to the sample. The browser trims on decode, the earlier premise that `decodeAudioData` hands back an untrimmed buffer is stale, and no loop gains a `start` or an `end`. **The commit holds one test file and no production code.**
+
+**The rows.** Taken in Chromium 1234 against `pnpm exec vite preview` on the built `dist`, so the bytes measured are the bytes the app serves. Every decode lands at 48 kHz because `decodeAudioData` resamples to its context's rate, which is what a device does too, so the header's sample counts are compared at 48 kHz throughout.
+
+| Loop | File | The header's own count, at 48 kHz | Decoded | Quiet at the wrap |
+| --- | --- | --- | --- | --- |
+| Procession | `bells-of-death.ogg` | granule 2605293 at 22050, so 5671386 | 5671386, 118.153875 s | 0 samples |
+| Procession | `bells-of-death.mp3` | 4525 frames, 5673796 raw, 5671385 trimmed | 5671385, 118.153854 s | 0 samples |
+| Crowd | `seek-n-slaughter.ogg` | granule 2279631 at 22050, so 4962462 | 4962462, 103.384625 s | 27 samples, 0.563 ms |
+| Crowd | `seek-n-slaughter.mp3` | 3959 frames, 4964101 raw, 4962462 trimmed | 4962462, 103.384625 s | 5 samples, 0.104 ms |
+| Waking | `a-hollow-call.ogg` | granule 3256616 at 22050, so 7089232 | 7089232, 147.692333 s | 0 samples |
+| Waking | `a-hollow-call.mp3` | 5655 frames, 7090678 raw, 7089231 trimmed | 7089231, 147.692313 s | 0 samples |
+
+**Every mp3 decodes short of its raw length by exactly its delay plus its padding.** All three were written by `Lavc61.19` with an `Info` tag, a delay of 576 and paddings of 1639, 930 and 753. `bells-of-death.mp3` is 2215 samples short of 5212800 at 44.1 kHz, which is 576 plus 1639 to the sample, and the other two match their own pair the same way. That is the trim, done by the decoder, and it is the whole of the answer.
+
+**The quiet at the two Crowd wraps is the loop's own first note and not a gap.** The rendered wrap was measured off a four second loop through the same node `@pixi/sound` uses, an `AudioBufferSourceNode` with `loop` set, rendered in an `OfflineAudioContext` and read sample by sample. The quiet run spanning the wrap is 27 samples in the ogg and 5 in the mp3, and in both the decoded buffer's own leading quiet is that same count with a trailing quiet of zero: the silence is the file's first samples being under the threshold, and there is nothing of the encoder's in it. Half a millisecond is two orders of magnitude under anything a person hears as a break.
+
+**The seam at the wrap is no louder than the music around it.** A gap is silence and a click is a step, so the step across the wrap was read against the largest step the same music makes in the fifty milliseconds either side of it. Five of the six wrap steps are smaller than their neighbourhood's largest. The sixth, `a-hollow-call.mp3` at 0.031 against 0.019, is a hair over, on the file a Chromium browser does not load, at an amplitude that is a thirtieth of full scale.
+
+**What was not obtained, said plainly.** Only Chromium was measured: no Firefox and no WebKit is installed here, so the plan's claim that Firefox has trimmed since 83 and WebKit does the same stands on its own citations and not on anything read in this slice. The recording is the offline render of the loop's own source node rather than captured device audio, which is the same node the engine plays through but not the same as a person listening. Whether the loops sound right is still Mark's ear, verification steps 16 and 22.
+
+**Test 129 is a sweep with a plant, and the plant was run against the real tree.** The guard walks every production `.ts` under `src`, skipping prototypes and test folders, and looks for the nine marks a header parse cannot be written without: `Xing`, `VBRI`, `LAME`, `OggS`, `ID3`, the layer III frame's 1152 samples, `encoderDelay`, `encoderPadding` and `granulePosition`. None of the nine appears anywhere in `src` today. Planting `const FRAME_SAMPLES = 1152` in `app/sound.ts` and `const XING_TAG = 'Xing'` in `game/step.ts` turned it red naming both files and both marks, and both were reverted; the second test proves the same detector against four planted lines and asserts the walk really reaches `app/sound.ts`, `main.ts` and `engine/audio/audio.ts`, because a sweep is its detector plus its file list.
+
+**The third test is the half that would have held whichever way the measurement went.** It records what `playMusicFor` hands the channel and holds that every value is one the `LOOPS` table declares, so a loop that ever needs points declares them beside its file and a number the app worked out for itself cannot get through. Making the cue pass `{ start, end }` turned it red on the argument count, and it was reverted. The route for the data-row answer is open and was checked rather than assumed: `BGM.play` takes a `PlayOptions` and passes it to `Sound.play`, and `@pixi/sound` 6.0.1 sets `loopEnd` and `loopStart` on the source node from it (`WebAudioInstance.mjs:173-174`).
+
+**The worktree's dependencies had to be reinstalled before anything could run, and the next slice should expect it.** Every symlink under `node_modules` and `apps/hungry-grave/node_modules` pointed into `/tmp/claude-1000/.../018b7216-.../scratchpad/deploy/node_modules`, a folder that no longer exists, so `vite`, `vitest` and `tsc` all resolved to nothing and `pnpm exec vite preview` died on a missing module rather than on anything in the tree. `CI=true pnpm install --frozen-lockfile` at the worktree root recreated them from the lockfile, which changed no tracked file and left `git status` clean. The `CI` variable is needed because pnpm refuses to recreate a modules directory with no TTY.
