@@ -828,10 +828,12 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
 
     const winning = gameScreen();
     winning.prepare();
-    // On the boundary of the last stubbed boss phase, which ends on the tick it
-    // begins and hands the run to the over phase. It is read off the table's
-    // own length rather than written down, because the stage gained two phases
-    // with the three named sections (ADR 0050) and will gain none silently.
+    // Stood in the last boss phase with nobody standing in it, which is a state
+    // only this rig can produce: the phase ends when its boss is gone, and no
+    // boss was ever put there, so it hands the run straight to the over phase.
+    // It is read off the table's own length rather than written down, because
+    // the stage gained two phases with the three named sections (ADR 0050) and
+    // will gain none silently.
     winning['session'].run!.stage.phaseIndex = PHASES.length - 2;
     winning['session'].run!.stage.phaseTick = 0;
 

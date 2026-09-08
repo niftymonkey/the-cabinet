@@ -27,7 +27,8 @@ import {
   carriersScheduled,
 } from '../../carriers';
 import { stepping } from '../../../dev/stepping';
-import { damageBoss } from '../../bosses/chunks';
+import { CHUNK_FLASH_TICKS, damageBoss } from '../../bosses/chunks';
+import { SPIRAL_ROWS } from '../../bosses/undertaker';
 import { TICK_HZ } from '../../clock';
 import type { TickCommand } from '../../command';
 import type { Corpse } from '../../corpses';
@@ -36,7 +37,7 @@ import type { Mob } from '../../mobs';
 import { damageMob, hasEntered } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
-import { SIZE_START } from '../../tuning';
+import { FRESHNESS_SECONDS, SIZE_START } from '../../tuning';
 import type { StageRow } from '../rows';
 import {
   BOSS_ADD_ALLOWANCE,
@@ -376,10 +377,33 @@ describe("the corpse cap's two boss-fight allowances (ADR 0007, ADR 0055)", () =
     expect(RUNG_ALLOWANCE).toBeGreaterThanOrEqual(carriersForFullBuild());
   });
 
-  // Its cadence is authored in the boss's own module, which lands at slice 8.
-  it.todo(
-    "holds every add a boss's authored cadence sheds inside a freshness window",
-  );
+  it("holds every add a boss's authored cadence sheds inside a freshness window", () => {
+    // The allowance was derived from his cadence, so the two are held against
+    // each other rather than written down twice. The Undertaker is the only
+    // boss that summons at all: the Banshee's grammar is rings and a feast, so
+    // her chunks shed no body the corpse pool has to hold.
+    //
+    // A window that opens on a digger holds one more than the cadence divides
+    // into it, which is the worst case the cap has to cover.
+    const window = FRESHNESS_SECONDS * TICK_HZ;
+    const shedIn = (every: number): number =>
+      Math.floor((window - 1) / every) + 1;
+    const cadences = SPIRAL_ROWS.filter((row) => row !== null).map(
+      (row) => row.diggerEvery,
+    );
+
+    expect(cadences.length).toBeGreaterThan(0);
+    for (const every of cadences) {
+      expect(`one every ${every}: ${shedIn(every) <= BOSS_ADD_ALLOWANCE}`).toBe(
+        `one every ${every}: true`,
+      );
+    }
+
+    // A chunk break only ever spaces two of them further apart, because the
+    // pattern's clock goes back to zero behind an invincible flash, so the
+    // tightest window in a fight is one chunk's own cadence.
+    expect(CHUNK_FLASH_TICKS).toBeGreaterThan(0);
+  });
 });
 
 describe('the section tables as data (ADR 0006)', () => {

@@ -1,6 +1,6 @@
 // The authored timeline (ADR 0006): the phase machine over the rows.
 
-import { bossChunks, bossIsAuthored, spawnBoss } from '../bosses/chunks';
+import { bossChunks, spawnBoss } from '../bosses/chunks';
 import { carrierRow, carriesAt } from '../carriers';
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
@@ -72,11 +72,10 @@ interface Phase {
  * varies per player. The printed clock marks in the concept doc are nominal
  * design intent.
  *
- * The two boss phases and the set piece are stubbed: a phase with no boss and
- * no rows has nothing to run, so a boss phase ends on the tick it begins and
- * the set piece's phase ends when the trash the Crowd handed it has left. That
- * is deliberately the simplest possible stub, and the boss and set-piece slices
- * replace it without moving anything else about the timeline.
+ * Both boss phases are real fights and end when their boss is gone. The set
+ * piece is still stubbed: its phase authors no rows, so it ends when the trash
+ * the Crowd handed it has left, and the slice that builds the source replaces
+ * that without moving anything else about the timeline.
  *
  * Three loops cover the seven phases and the two changes fall on the two
  * boundary events decision 22's amendment names, the Banshee's death and the
@@ -220,8 +219,7 @@ const phaseSpent = (state: RunState, phase: Phase): boolean => {
  * A phase whose column names something that does not exist yet ends on its own
  * rows running out. That is the Crowd's stand-in until the eye can open: the
  * Crowd hands the phase after it a field with trash on it, which is the half of
- * ADR 0051 that already holds. It is also what a boss phase whose boss has no
- * grammar written falls back to, because nothing arrived for it to lose.
+ * ADR 0051 that already holds.
  */
 const phaseEnded = (state: RunState, phase: Phase): boolean => {
   if (phase.ends === 'rowsSpentAndFieldClear') return phaseSpent(state, phase);
@@ -288,19 +286,13 @@ const spawnDueRows = (
 /**
  * The boss this phase carries, put on the field and announced (ADR 0007). It
  * reads the phase's own column, so which boss stands where is stage data.
- *
- * A boss with no grammar written does not arrive at all, and the absence is
- * what keeps the stage traversable while one is being written: nothing standing
- * means the phase's own end condition is met on the tick it begins, which is
- * the stand-in it already had. A body on the field that fires nothing and that
- * no birthright storm can empty would stall every run in the phase instead.
  */
 const arriveBoss = (
   state: RunState,
   phase: Phase,
   events: SimEvent[],
 ): void => {
-  if (phase.boss === null || !bossIsAuthored(phase.boss)) return;
+  if (phase.boss === null) return;
   spawnBoss(state, phase.boss);
   events.push({
     type: 'bossArrived',
@@ -332,9 +324,9 @@ const enterNextPhase = (state: RunState, events: SimEvent[]): void => {
 };
 
 /**
- * This tick's spawns, and any phase boundary it crosses. More than one boundary
- * can fall on one tick, because a stubbed boss phase ends on the tick it
- * begins, so the loop runs until a phase is still live or the stage is over.
+ * This tick's spawns, and any phase boundary it crosses. It loops until a phase
+ * is still live or the stage is over, because a phase whose end condition is
+ * already met on the tick it begins hands straight on to the next one.
  *
  * The spawns come first, so a phase that fires its last row this tick is never
  * read as spent before the bodies that row put on the field are on it.

@@ -277,14 +277,15 @@ function lastRowAt(rows: readonly StageRow[]): number {
  * length at all: it is the boss's health against whatever the hand puts on it,
  * so nothing in the tables can predict it and what is written here is a ceiling.
  *
- * The measurement it sits above is the still hand's own: a parked grave firing
- * nothing but the birthright empties the Banshee in about 4900 ticks, which is
- * the slowest hand this file plays. Half again above that, so a retune of her
- * health moves the fight without silently running these runs off the end of
- * their budget, which is a failure that reads as a broken timeline rather than
- * as a spent budget.
+ * The measurement it sits above is the still hand's own, which is the slowest
+ * hand this file plays: a parked grave firing nothing but the birthright empties
+ * the Banshee in about 4900 ticks and the Undertaker in about 13000, his three
+ * chunks against her two. Half again above the larger, so a retune of either
+ * boss's health moves the fight without silently running these runs off the end
+ * of their budget, which is a failure that reads as a broken timeline rather
+ * than as a spent budget.
  */
-const BOSS_FIGHT_TICKS = 7500;
+const BOSS_FIGHT_TICKS = 19500;
 
 /**
  * A budget for one whole run rather than a length. Every phase ends on its own
@@ -597,24 +598,33 @@ describe('the phase machine (ADR 0006)', () => {
     }
   });
 
-  it('holds a boss phase open for its fight, and ends a stubbed one on the tick it begins', () => {
+  it('holds each boss phase open for its own fight', () => {
     const at = (name: PhaseName): number =>
       STILL_PLAY.boundaries.find((each) => each.phase === name)!.tick;
-    // The Banshee is real, so her phase runs as long as she stands: the still
-    // hand's own birthright storm is what empties her, and how long that takes
-    // is the fight rather than a number in the table.
+    // Both bosses are real, so each phase runs as long as its boss stands: the
+    // still hand's own birthright storm is what empties them, and how long that
+    // takes is the fight rather than a number in the table.
     expect(at('crowd')).toBeGreaterThan(at('banshee'));
-    // The Undertaker is still a stub, and a phase with no boss and no rows has
-    // nothing to run, so it still begins and ends on one tick. The slice that
-    // writes his grammar is what closes this half.
-    expect(at('undertaker')).toBe(at('over'));
-    // The Waking is neither: it ends on rows spent and a field clear like the
-    // two sections, and the Crowd hands it a field with trash on it, so it is
-    // the one boundary phase that has something to wait for today.
+    expect(at('over')).toBeGreaterThan(at('undertaker'));
+    // The set piece's phase is neither: it ends on rows spent and a field clear
+    // like the two sections, and the Crowd hands it a field with trash on it,
+    // so it is the one boundary phase that waits for something other than a
+    // death.
     expect(at('vigil')).toBeGreaterThan(at('waking'));
   });
 
-  it.todo('crosses no two boundaries on one tick, because no phase is empty');
+  it('crosses no two boundaries on one tick, because no phase is empty', () => {
+    // Every phase now has something of its own to wait for: a section its rows
+    // and its field, a boss phase the boss standing in it, the set piece's the
+    // trash the Crowd handed it. So a boundary is a tick of its own, and
+    // advanceStage's loop never crosses two, which is exactly what a phase with
+    // nothing in it used to make it do.
+    for (const played of [STILL_PLAY, SHARP]) {
+      const ticks = played.boundaries.map((each) => each.tick);
+      expect(ticks).toHaveLength(PHASES.length - 1);
+      expect(new Set(ticks).size).toBe(ticks.length);
+    }
+  });
 
   it('lands the Wall two seconds into the Crowd, which is what the stub buys', () => {
     const crowd = STILL_PLAY.boundaries.find(

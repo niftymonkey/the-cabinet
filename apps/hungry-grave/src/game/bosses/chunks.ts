@@ -9,6 +9,7 @@ import type { RunState } from '../run';
 import type { BossKind } from '../stage/rows';
 import { FEAST_PAYOUT } from '../tuning';
 import { advanceBanshee, bansheeDied } from './banshee';
+import { advanceUndertaker, undertakerDied } from './undertaker';
 
 /**
  * The one boss on the field (ADR 0007). One record on RunState and never a
@@ -87,20 +88,13 @@ interface BossGrammar {
 }
 
 /**
- * Every boss whose grammar is written. The Undertaker is absent because
- * undertaker.ts is not written yet, and what that absence buys is stated
- * where it is read: a phase whose boss is not here puts nothing on the field,
- * which leaves that phase standing on the stand-in it has today rather than
- * stalling every run in front of a body that fires nothing and that no
- * birthright storm can empty.
+ * Every boss's grammar, one row per kind. It is total rather than partial, so a
+ * kind added to BossKind without a module to fight with is a compile error
+ * rather than a boss who never arrives and a phase nothing ever leaves.
  */
-const BOSS_GRAMMARS: Partial<Record<BossKind, BossGrammar>> = {
+const BOSS_GRAMMARS: Record<BossKind, BossGrammar> = {
   banshee: { advance: advanceBanshee, died: bansheeDied },
-};
-
-// Whether this boss has a grammar to fight with, and so whether it arrives.
-const bossIsAuthored = (kind: BossKind): boolean => {
-  return BOSS_GRAMMARS[kind] !== undefined;
+  undertaker: { advance: advanceUndertaker, died: undertakerDied },
 };
 
 /**
@@ -180,7 +174,7 @@ const killBoss = (state: RunState, boss: Boss): SimEvent[] => {
   const events: SimEvent[] = [
     { type: 'bossKilled', boss: boss.kind, x: boss.x, y: boss.y },
   ];
-  events.push(...(BOSS_GRAMMARS[boss.kind]?.died(state, boss) ?? []));
+  events.push(...BOSS_GRAMMARS[boss.kind].died(state, boss));
   return events;
 };
 
@@ -223,8 +217,8 @@ const damageBoss = (
  *
  * The pattern itself is delegated to the boss's own module, which is where the
  * grammar lives: banshee.ts owns the tear-rings and undertaker.ts the curtains
- * and the spiral. Until one of those exists a boss stands, counts and takes the
- * storm, which is the machine's own half of the fight.
+ * and the spiral. What is left here is the machine's own half of the fight, the
+ * health, the flash and the break.
  *
  * The pattern runs on the clock it can read, and the clock moves after it, so
  * the tick a chunk begins on is that pattern's own tick zero.
@@ -236,7 +230,7 @@ const advanceBoss = (state: RunState): SimEvent[] => {
     boss.flash -= 1;
     return [];
   }
-  const events = BOSS_GRAMMARS[boss.kind]?.advance(state, boss) ?? [];
+  const events = BOSS_GRAMMARS[boss.kind].advance(state, boss);
   boss.patternTick += 1;
   return events;
 };
@@ -247,7 +241,6 @@ export {
   bossHitbox,
   advanceBoss,
   bossChunks,
-  bossIsAuthored,
   CHUNK_FLASH_TICKS,
   CHUNK_HP,
   BOSS_HALF_WIDTH,

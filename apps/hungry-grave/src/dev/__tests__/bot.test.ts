@@ -291,6 +291,15 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
  * one to seven minutes on a boss authored for forty-five seconds, because it
  * never parks under her and its storm reaches her only when its dodging
  * happens to.
+ *
+ * Re-measured for the Undertaker (ADR 0052) and it did not move either: all
+ * five still reach victory, and victory now means his death rather than a phase
+ * a stub fell through. The runs run 26000 to 52000 ticks, and what his fight
+ * costs is 3600 to 4800 of them on every seed. That tightness beside her spread
+ * is the second thing step 4 reads here: he is fought where the Vigil has left
+ * the field nearly empty, so a dodger stands in front of him and its storm
+ * lands, and 3600 ticks is a minute against the minute and a half ADR 0052
+ * authored, on the strongest build in the game.
  */
 const REACHES_VICTORY_MAXED = [101, 202, 303, 404, 505];
 
