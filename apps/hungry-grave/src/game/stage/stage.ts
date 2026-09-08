@@ -1,32 +1,15 @@
-// The authored timeline (ADR 0006): the phase machine, and the rows as data.
+// The authored timeline (ADR 0006): the phase machine over the rows.
 
 import { carrierRow, carriesAt } from '../carriers';
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
-import type { MobType } from '../mobs';
 import { spawnMob } from '../mobs';
 import type { RunState } from '../run';
-import type { TemplateName } from './templates';
+import type { StageRow } from './rows';
+import { CROWD_ROWS, PROCESSION_ROWS } from './rows';
 import { place } from './templates';
 
 type PhaseName = 'ramp' | 'banshee' | 'backHalf' | 'undertaker' | 'over';
-
-interface StageRow {
-  // Phase-local seconds. Rows fire when the phase-local tick passes this time.
-  readonly t: number;
-  readonly template: TemplateName;
-  /**
-   * Count lives on the row and never on the template, so density tuning never
-   * edits a playtest-proven shape.
-   */
-  readonly count: number;
-  readonly type: MobType;
-  /**
-   * Whether one of this row's mobs carries the offer (ADR 0002). Which one is
-   * carriers.ts's rule and never the row's, so a row says only that it pays.
-   */
-  readonly carries: boolean;
-}
 
 /**
  * The spawn silence that lets the field empty before a boss arrives (glossary:
@@ -67,85 +50,6 @@ interface StageRow {
  */
 const DRAIN_OUT_SECONDS = 17;
 
-/**
- * The first 45 seconds are Drips and one File; Files, Vs and Pincers then
- * overlap two at a time with Rain joining thin. A new mob type always arrives
- * first as a lone Drip, so ADR 0016's readable-before-it-acts rule has
- * somewhere to be read.
- *
- * Every count in this table and in BACK_HALF_ROWS is first-pass tuning owned by
- * the tuning dispatch. What is not tuning, and must not be quietly changed, is
- * the shape: teaching Drips before a type appears in numbers, the 45-second
- * ramp, a drain-out long enough that the field is empty at the boundary, and
- * the Wall's count matching the shambler's width.
- *
- * The Drip of three at t=14 is the game's first mob fire. Three shamblers
- * spread across the width arrive together and exactly one of them is armed, so
- * it is the only place in the game where a player sees armed and unarmed side
- * by side in one glance and can calibrate the marker.
- *
- * The carrier column is a first schedule and step 2 authors the real one. It
- * holds the 25 carriers carriersScheduled asks for, laid roughly one every
- * seven seconds of authored time across both spawning phases, and the run's
- * first row carries so a player is not asked to fight for long before the
- * first offer. Four rows are held clear on purpose: the three teaching Drips
- * at t=14, t=42 and t=62, where the glance is spent learning a marker or a new
- * type (ADR 0016), and the back half's Wall, whose whole shape is the curtain.
- */
-const RAMP_ROWS: readonly StageRow[] = [
-  { t: 2, template: 'drip', count: 1, type: 'shambler', carries: true },
-  { t: 8, template: 'drip', count: 1, type: 'shambler', carries: true },
-  { t: 14, template: 'drip', count: 3, type: 'shambler', carries: false },
-  { t: 20, template: 'file', count: 5, type: 'shambler', carries: true },
-  { t: 30, template: 'drip', count: 2, type: 'shambler', carries: true },
-  { t: 36, template: 'drip', count: 3, type: 'shambler', carries: true },
-  { t: 42, template: 'drip', count: 1, type: 'revenant', carries: false },
-  { t: 46, template: 'v', count: 5, type: 'shambler', carries: true },
-  { t: 52, template: 'file', count: 6, type: 'shambler', carries: true },
-  { t: 56, template: 'pincer', count: 6, type: 'shambler', carries: false },
-  { t: 62, template: 'drip', count: 1, type: 'ghoul', carries: false },
-  { t: 66, template: 'v', count: 7, type: 'shambler', carries: true },
-  { t: 70, template: 'rain', count: 6, type: 'shambler', carries: true },
-  { t: 74, template: 'file', count: 4, type: 'revenant', carries: true },
-  { t: 78, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 83, template: 'v', count: 7, type: 'ghoul', carries: true },
-  { t: 88, template: 'rain', count: 6, type: 'shambler', carries: true },
-  { t: 92, template: 'file', count: 6, type: 'shambler', carries: true },
-  { t: 96, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 101, template: 'rain', count: 8, type: 'shambler', carries: true },
-  { t: 105, template: 'v', count: 7, type: 'shambler', carries: true },
-];
-
-/**
- * The Wall first, then a climb through Rain, Pincers and Vs overlapping two and
- * three at a time to a sustained peak just under Wall density.
- *
- * The Wall's clock anchors on the Banshee's death, and with the boss phase
- * stubbed to end on the tick it begins, its row at phase-local t=2 lands two
- * seconds into the back half, which is where the concept doc puts it.
- */
-const BACK_HALF_ROWS: readonly StageRow[] = [
-  { t: 2, template: 'wall', count: 22, type: 'shambler', carries: false },
-  { t: 10, template: 'rain', count: 6, type: 'shambler', carries: true },
-  { t: 14, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 19, template: 'v', count: 7, type: 'ghoul', carries: true },
-  { t: 23, template: 'rain', count: 8, type: 'shambler', carries: false },
-  { t: 26, template: 'file', count: 5, type: 'revenant', carries: true },
-  { t: 30, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 32, template: 'rain', count: 8, type: 'shambler', carries: true },
-  { t: 37, template: 'v', count: 7, type: 'shambler', carries: false },
-  { t: 40, template: 'rain', count: 10, type: 'shambler', carries: true },
-  { t: 43, template: 'pincer', count: 8, type: 'ghoul', carries: false },
-  { t: 46, template: 'v', count: 7, type: 'shambler', carries: true },
-  { t: 50, template: 'rain', count: 10, type: 'shambler', carries: false },
-  { t: 53, template: 'file', count: 6, type: 'revenant', carries: true },
-  { t: 56, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 58, template: 'rain', count: 12, type: 'shambler', carries: true },
-  { t: 62, template: 'v', count: 7, type: 'ghoul', carries: true },
-  { t: 65, template: 'pincer', count: 8, type: 'shambler', carries: false },
-  { t: 68, template: 'rain', count: 12, type: 'shambler', carries: true },
-];
-
 interface Phase {
   readonly name: PhaseName;
   readonly rows: readonly StageRow[];
@@ -163,9 +67,9 @@ interface Phase {
  * timeline.
  */
 const PHASES: readonly Phase[] = [
-  { name: 'ramp', rows: RAMP_ROWS },
+  { name: 'ramp', rows: PROCESSION_ROWS },
   { name: 'banshee', rows: [] },
-  { name: 'backHalf', rows: BACK_HALF_ROWS },
+  { name: 'backHalf', rows: CROWD_ROWS },
   { name: 'undertaker', rows: [] },
   { name: 'over', rows: [] },
 ];
@@ -253,8 +157,6 @@ export {
   phaseLengthTicks,
   advanceStage,
   DRAIN_OUT_SECONDS,
-  RAMP_ROWS,
-  BACK_HALF_ROWS,
   PHASES,
 };
-export type { PhaseName, StageRow, Phase, StageState };
+export type { PhaseName, Phase, StageState };

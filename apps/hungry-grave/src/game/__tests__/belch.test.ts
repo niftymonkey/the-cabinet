@@ -12,7 +12,7 @@ import type { Mob } from '../mobs';
 import { hasEntered, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { RAMP_ROWS } from '../stage/stage';
+import { PROCESSION_ROWS } from '../stage/rows';
 import { RESERVOIR_CAPACITY } from '../tuning';
 
 // Comfortably inside and comfortably outside the burst, so a retuned radius
@@ -22,7 +22,7 @@ const FAR = BELCH_BURST_RADIUS * 2;
 
 function quietRun(seed = 16): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
+  run.stage.firedRows = PROCESSION_ROWS.length;
   return run;
 }
 

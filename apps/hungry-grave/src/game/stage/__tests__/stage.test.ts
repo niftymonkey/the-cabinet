@@ -17,14 +17,10 @@ import type { TickCommand } from '../../command';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { SIZE_FLOOR, SIZE_START } from '../../tuning';
-import type { Phase, StageRow } from '../stage';
-import {
-  BACK_HALF_ROWS,
-  DRAIN_OUT_SECONDS,
-  PHASES,
-  phaseLengthTicks,
-  RAMP_ROWS,
-} from '../stage';
+import type { StageRow } from '../rows';
+import { CROWD_ROWS, PROCESSION_ROWS } from '../rows';
+import type { Phase } from '../stage';
+import { DRAIN_OUT_SECONDS, PHASES, phaseLengthTicks } from '../stage';
 import { place } from '../templates';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
@@ -91,12 +87,12 @@ describe('the rows as data (ADR 0006)', () => {
     // constant's own JSDoc carries the measurement behind 17.
     expect(DRAIN_OUT_SECONDS).toBe(17);
     expect(phaseLengthTicks(phase('ramp'))).toBe(
-      (RAMP_ROWS[RAMP_ROWS.length - 1].t + DRAIN_OUT_SECONDS) * TICK_HZ,
+      (PROCESSION_ROWS[PROCESSION_ROWS.length - 1].t + DRAIN_OUT_SECONDS) *
+        TICK_HZ,
     );
     expect(phaseLengthTicks(phase('ramp'))).toBe(122 * TICK_HZ);
     expect(phaseLengthTicks(phase('backHalf'))).toBe(
-      (BACK_HALF_ROWS[BACK_HALF_ROWS.length - 1].t + DRAIN_OUT_SECONDS) *
-        TICK_HZ,
+      (CROWD_ROWS[CROWD_ROWS.length - 1].t + DRAIN_OUT_SECONDS) * TICK_HZ,
     );
     expect(phaseLengthTicks(phase('backHalf'))).toBe(85 * TICK_HZ);
   });
@@ -110,7 +106,7 @@ describe('the rows as data (ADR 0006)', () => {
   });
 
   it("holds only Drips and one File in the ramp's first 45 seconds", () => {
-    const opening = RAMP_ROWS.filter((row) => row.t < 45);
+    const opening = PROCESSION_ROWS.filter((row) => row.t < 45);
     expect(opening.length).toBeGreaterThan(3);
     expect(opening.filter((row) => row.template === 'file')).toHaveLength(1);
     expect(
@@ -122,7 +118,7 @@ describe('the rows as data (ADR 0006)', () => {
 
   it('introduces every mob type as a lone Drip before it appears in numbers (ADR 0016)', () => {
     const seen = new Set<MobType>();
-    for (const row of [...RAMP_ROWS, ...BACK_HALF_ROWS]) {
+    for (const row of [...PROCESSION_ROWS, ...CROWD_ROWS]) {
       if (seen.has(row.type)) continue;
       seen.add(row.type);
       expect(`${row.type} ${row.template} ${row.count}`).toBe(
@@ -133,7 +129,7 @@ describe('the rows as data (ADR 0006)', () => {
   });
 
   it("fills the Wall's width at the shambler's size, so no gap in the curtain is wider than a floor-size grave", () => {
-    const wall = BACK_HALF_ROWS.find((row) => row.template === 'wall')!;
+    const wall = CROWD_ROWS.find((row) => row.template === 'wall')!;
     const placed = place('wall', wall.count, createRun(1).streams.spawns);
     const half = MOB_TYPES[wall.type].halfWidth;
     const edges = placed.map((at) => ({
@@ -151,7 +147,7 @@ describe('the rows as data (ADR 0006)', () => {
   });
 
   it('keeps SPAWN_MARGIN at least as deep as the deepest authored row', () => {
-    const rows: readonly StageRow[] = [...RAMP_ROWS, ...BACK_HALF_ROWS];
+    const rows: readonly StageRow[] = [...PROCESSION_ROWS, ...CROWD_ROWS];
     const state = createRun(2);
     let deepest = 0;
     for (const row of rows) {

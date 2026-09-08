@@ -23,12 +23,8 @@ import { spawnMob } from '../../game/mobs';
 import { OFFER_SIZE } from '../../game/offer';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
-import {
-  BACK_HALF_ROWS,
-  PHASES,
-  phaseLengthTicks,
-  RAMP_ROWS,
-} from '../../game/stage/stage';
+import { CROWD_ROWS, PROCESSION_ROWS } from '../../game/stage/rows';
+import { PHASES, phaseLengthTicks } from '../../game/stage/stage';
 import { place } from '../../game/stage/templates';
 import { RESERVOIR_CAPACITY, SIZE_CEILING } from '../../game/tuning';
 import { createExecution } from '../../game/execution';
@@ -203,19 +199,19 @@ const RAMP_TICKS = phaseLengthTicks(PHASES[0]);
 const STAGE_TICKS = RAMP_TICKS + phaseLengthTicks(PHASES[2]);
 
 /** Every mob the timeline authors, which is the ceiling on what any policy can meet. */
-const AUTHORED_MOBS = [...RAMP_ROWS, ...BACK_HALF_ROWS].reduce(
+const AUTHORED_MOBS = [...PROCESSION_ROWS, ...CROWD_ROWS].reduce(
   (total, row) => total + row.count,
   0,
 );
 
 /** Every carrier the timeline authors, which is the ceiling on what any policy can be paid. */
-const AUTHORED_CARRIERS = [...RAMP_ROWS, ...BACK_HALF_ROWS].reduce(
+const AUTHORED_CARRIERS = [...PROCESSION_ROWS, ...CROWD_ROWS].reduce(
   (total, row) => total + carrierRow(row.carries, row.count).carrying.length,
   0,
 );
 
 /** The Wall's own row, so its property is tested against the curtain the stage really contains. */
-const WALL_ROW = BACK_HALF_ROWS.find((row) => row.template === 'wall')!;
+const WALL_ROW = CROWD_ROWS.find((row) => row.template === 'wall')!;
 
 function count(events: SimEvent[], type: SimEvent['type']): number {
   return events.filter((event) => event.type === type).length;
@@ -559,7 +555,7 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
  */
 function wallRun(seed: number, loaded: boolean): RunState {
   const state = createRun(seed, loaded ? SIZE_CEILING : undefined);
-  state.stage.firedRows = RAMP_ROWS.length;
+  state.stage.firedRows = PROCESSION_ROWS.length;
   if (loaded) {
     for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
     state.reservoir = RESERVOIR_CAPACITY;

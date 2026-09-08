@@ -27,7 +27,7 @@ import { damageMob, MOB_TYPES, spawnMob } from '../mobs';
 import { openOffer } from '../offer';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { RAMP_ROWS } from '../stage/stage';
+import { PROCESSION_ROWS } from '../stage/rows';
 import { swallow } from '../swallow';
 import {
   FRESHNESS_PAYOUT_FLOOR,
@@ -44,7 +44,7 @@ const STILL: TickCommand = drift(0, 0);
 
 function quietRun(seed = 9): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
+  run.stage.firedRows = PROCESSION_ROWS.length;
   return run;
 }
 

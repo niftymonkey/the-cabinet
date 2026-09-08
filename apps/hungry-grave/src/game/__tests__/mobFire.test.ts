@@ -35,7 +35,7 @@ import {
 } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { RAMP_ROWS } from '../stage/stage';
+import { PROCESSION_ROWS } from '../stage/rows';
 import type { SpawnOrder } from '../stage/templates';
 import { place } from '../stage/templates';
 
@@ -54,7 +54,7 @@ const RIGHT: TickCommand = drift(1, 0);
  */
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
+  run.stage.firedRows = PROCESSION_ROWS.length;
   // The stream is held as well as the rows. These tests are about how a mob
   // moves, fires and dies, and a birthright stream pouring up the middle of the
   // field kills the mob under test before it reaches the behaviour being

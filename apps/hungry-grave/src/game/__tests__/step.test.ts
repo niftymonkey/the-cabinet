@@ -14,7 +14,7 @@ import { MOB_TYPES, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { RAMP_ROWS } from '../stage/stage';
+import { PROCESSION_ROWS } from '../stage/rows';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
 import { MAX_LEVEL } from '../lines/roster';
 import {
@@ -188,7 +188,7 @@ describe('the sim seam', () => {
 /** A run whose stage will not spawn on top of the one entity a test placed. */
 function quietRun(seed = 21): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
+  run.stage.firedRows = PROCESSION_ROWS.length;
   return run;
 }
 

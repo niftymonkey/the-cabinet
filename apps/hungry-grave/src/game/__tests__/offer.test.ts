@@ -25,7 +25,7 @@ import {
 } from '../offer';
 import type { RunState } from '../run';
 import { createRun, uniformLevels } from '../run';
-import { RAMP_ROWS } from '../stage/stage';
+import { PROCESSION_ROWS } from '../stage/rows';
 import { SIZE_CEILING } from '../tuning';
 
 const STILL = { move: { x: 0, y: 0 }, belch: false } as const;
@@ -37,7 +37,7 @@ const STILL = { move: { x: 0, y: 0 }, belch: false } as const;
  */
 function quietRun(seed = 7): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
+  run.stage.firedRows = PROCESSION_ROWS.length;
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
 }

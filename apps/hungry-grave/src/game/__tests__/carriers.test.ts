@@ -23,11 +23,11 @@ import type { RunState } from '../run';
 import { createRun, uniformLevels } from '../run';
 import { advanceStage } from '../stage/stage';
 import { SCROLL_SPEED } from '../tuning';
-import { BACK_HALF_ROWS, RAMP_ROWS } from '../stage/stage';
+import { CROWD_ROWS, PROCESSION_ROWS } from '../stage/rows';
 
 /** Every carrier the authored stage puts on the field across all its phases. */
 function authoredCarriers(): number {
-  return [...RAMP_ROWS, ...BACK_HALF_ROWS].reduce(
+  return [...PROCESSION_ROWS, ...CROWD_ROWS].reduce(
     (total, row) => total + carrierRow(row.carries, row.count).carrying.length,
     0,
   );
@@ -40,7 +40,7 @@ function authoredCarriers(): number {
  */
 function quietRun(seed = 7): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
+  run.stage.firedRows = PROCESSION_ROWS.length;
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
 }

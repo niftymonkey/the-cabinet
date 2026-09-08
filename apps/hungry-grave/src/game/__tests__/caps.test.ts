@@ -13,11 +13,11 @@ import type { Mob, MobType } from '../mobs';
 import { advanceMobs, ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { RAMP_ROWS } from '../stage/stage';
+import { PROCESSION_ROWS } from '../stage/rows';
 
 function quietRun(seed = 12): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
+  run.stage.firedRows = PROCESSION_ROWS.length;
   return run;
 }
 
