@@ -1,6 +1,6 @@
-# Step 1 progress: after slice 7
+# Step 1 progress: after slice 8
 
-Written for the agent taking slice 8. The plan is `docs/design/step-1-progression-dispatch.md`; everything below is what it does not say or what has moved since it was written.
+Written for the agents taking slices 9 and 10. The plan is `docs/design/step-1-progression-dispatch.md`; everything below is what it does not say or what has moved since it was written.
 
 ## 1. Slices committed
 
@@ -14,6 +14,7 @@ Written for the agent taking slice 8. The plan is `docs/design/step-1-progressio
 | 5 | `cc8b87f496` | feat(hungry-grave): the belch splits into a field-wide gas and a local burst (#96) |
 | 6 | `b93d68913d` | feat(hungry-grave): the bell throws cones that widen per level (#96) |
 | 7 | `d06246c681` | feat(hungry-grave): carriers meter power and a missed carrier is missed (#96) |
+| 8 | `3c9b932e96` | feat(hungry-grave): a drop is an offer of three and the grave swallows one (#96) |
 
 Slice 0 recorded the baseline tapes and made no commit.
 
@@ -25,6 +26,7 @@ Slice 0 recorded the baseline tapes and made no commit.
 - Slice 4: no move, and this one is worth knowing rather than assuming. The scenario's surge had already been spent by tick 600 (`lines.surgeVolleys` is 0 at the fold) and its one swallowed corpse was fresh, so the fold cannot see freshness-scaled volleys at all. The golden digest is blind to slice 4, and the bot test is what caught it instead.
 - Slice 5: no move. The scenario never belches.
 - Slice 7: one field, `checksum` 1634744137 to -1694949037. Every other field held, the two kills and `drawn.drops` 0 included. The move is the fold's own: it stopped folding `killsSinceDrop` and `dropsPaid` and started folding each live mob's `carries`. The scenario's two kills are scripted mobs that carry nothing, so no drop is paid, and the two ramp rows inside the 600 ticks carry a carrier each without drawing from any stream.
+- Slice 8: one field, `checksum` -1694949037 to -1111652845. Every other field held, the two kills and `drawn.drops` 0 included. The fold gained the live offer and the bank; the scenario kills no carrier, so what it actually folds for 600 ticks is the absent-offer sentinel and a zero.
 - Slice 6: no move, and `src/dev/digest.ts` is not in the slice's diff at all. The scenario's `levels.bell` is 0, so it never tolls and the fold cannot see the cones. What caught the slice's behaviour instead was `step.test.ts` and the bot test, both below.
 
 ## 3. CodeRabbit
@@ -46,7 +48,7 @@ Applied, and it changed the plan's shape:
 
 ## 5. The four gate corrections
 
-Received mid-slice-4 from the dispatching session. **Corrections 1 and 2 landed in the plan file and the code in slice 6 (`b93d68913d`); 3 and 4 are still open, for the agents taking slices 7 and 8.** Each is applied to the plan file in the same commit as the slice it changes.
+Received mid-slice-4 from the dispatching session. **All four have landed: 1 and 2 in slice 6 (`b93d68913d`), 3 in slice 7 (`d06246c681`), 4 in slice 8 (`3c9b932e96`).** Each was applied to the plan file in the same commit as the slice it changed.
 
 1. **Slice 6, cone headings.** Drop the `k * (2*pi/n)` formula: it puts level two's second cone dead astern. Headings become a data row per level so the harness can tune them. `ConeRow` becomes `{ headings: readonly number[]; halfAngle; reach; push }` (headings in radians from straight up, negative left; the cone count is `headings.length`, so `cones` goes and the row still has four fields). `coneHeading(level, index)` reads the row. Initial rows in degrees: level 1 `[0]`; level 2 `[-40, +40]`; level 3 `[-60, 0, +60]`; level 4 `[-108, -36, +36, +108]`; level 5 `[-144, -72, 0, +72, +144]`. Half-angles, reach and push stay as the plan's table. Fix the plan sentence about a rear gap at level five: the surround has small slits, and that is what the ADR asks for. Spec test: every level's headings are symmetric about straight up, and the union of cones is contiguous forward at levels one to four.
 2. **Slice 6, verification step 7.** The level-five push row of 40 cannot beat the #79 totals (42, 51, 0) by construction, since the falloff and reach barely move. Step 7's pass criterion becomes: `mobShoved` events and a non-zero repel total appear at `bell=1` and `bell=3`, which is impossible today, and the `bell=5` repel total is reported beside the #79 figures rather than judged. Level five stays at 40 as an initial row.
@@ -84,13 +86,13 @@ From the plan's section 3.
 
 - **Step 1, unit tests.** Ran after every slice, green. 107 files, 1350 passed, 10 expected fail, 3 todo.
 - **Step 2, `pnpm typecheck`.** Ran after every slice, green.
-- **Step 3, `pnpm build`.** Not run yet. Slice 10 owns it.
+- **Step 3, `pnpm build`.** Ran at slice 8, green, because the rendered check needs it. Slice 10 still owns it as a step.
 - **Step 4, `pnpm verify` at the repo root.** Not run as one command; `format:check`, `lint` and the app's `typecheck` and tests were run separately after every slice, all green. Run it from inside the worktree, never from the main checkout, which reports the worktree's own files as unformatted.
 - **Step 5, GOLDEN and the bot test per slice.** Ran. Section 2 above carries the moves. The bot test's drop band at `bot.test.ts:294-295` has not been rewritten; slice 7 owns it. `REACHES_VICTORY_FROM_THE_CEILING` emptied at slice 6 and section 9 carries the cause.
-- **Step 6, headless conditioned run for offer and carriers.** Not run. Slices 7 and 8 own it.
+- **Step 6, headless conditioned run for offer and carriers.** Ran in full. The carrier half at slice 7 and the offer half at slice 8; section 11 carries the offer half's numbers.
 - **Step 7, headless conditioned run for bell cones.** Ran at slice 6, under the corrected criterion. Half met, half unmeetable by this instrument; section 9 carries the three totals and the reason.
 - **Step 8, old-tape decode check.** Ran at slice 2 and passed. `measure.ts` on `baseline-a.tape` returns `{"outcome":"rosterNotImplemented","recordedRoster":["soulStream","territory","wisps","bell"]}`: the tape decodes, reports its recorded roster verbatim in its own vocabulary, and refuses replay precisely rather than throwing a format error or coercing. `FORMAT_VERSION` did not move.
-- **Step 9, rendered check.** Not run. Slice 8 owns it.
+- **Step 9, rendered check.** Ran at slice 8 for the offer's two reads. Section 11 says which reads were obtained and which were not, with the screenshot paths. The level-five toll shot is slice 10's.
 - **Step 10, fence and invariant guards.** Not run. Slice 9 owns it.
 - **Steps 11, 12 and 13** are Mark's and stay open.
 
@@ -180,3 +182,68 @@ Every drop in both runs landed on a tick whose carrier deaths exactly accounted 
 **One record-versus-tree gap found, not this slice's to close.** ADR 0002 lists score among the jobs kills keep ("score is kills"), and nothing in the tree pays score for a kill: `swallow.ts:112` is the only writer and it pays from overflow alone. Spec test 2 asserts corpses rather than score because of it, with the reason in the test. Whoever owns scoring decides whether the ADR or the code is wrong.
 
 **For slice 8.** `RunState` has no `offer` or `bankedOffers` yet and the witness partition names neither, so both are yours to add along with their `FIELD_CASES` entries; `WITNESS_VERSION` stays at 5. `witness.test.ts` gained `RETIRED_RUN_FIELDS`, which fails if `killsSinceDrop` or `dropsPaid` ever comes back, on the precedent of `RETIRED_HEADSTONES_CODE` in the same file. `drops.test.ts` still holds the dice tests and is yours to delete with `drops.ts`. The stage rows carry a `carries` boolean and `carrierRow(rowCarries, count)` is what turns it into positions, so a row that should pay twice is a data change plus a rule change in `carriers.ts`, not a change at the spawn site.
+
+## 11. Slice 8, the offer of three and the bank
+
+Commit `3c9b932e96`, 34 files, gate correction 4 in the plan file in the same commit as the code. `pnpm typecheck`, `pnpm vitest run` (108 files, 1394 passed, 10 expected fail, 3 todo), `pnpm lint`, `pnpm build` and the repo-root `pnpm format:check` all green. Section 2 above carries the GOLDEN move, which is the checksum alone.
+
+**What the seam looks like now.** `offer.ts` exports `offerableLines`, `openOffer`, `chooseOfferBody`, `resolveOffer`, `loseOffer`, `OFFER_SIZE`, `OFFER_SPACING`, `OFFER_ENTRY_DEPTH` and the `Offer` record exactly as the plan's section 4 wrote them. `drops.ts` and `drops.test.ts` are gone. `step.ts` calls `openOffer` where `dropForCarrier` stood, asks `chooseOfferBody` before the swallow pass, and calls `loseOffer` after `cullCorpses`, which is a new line in the tick order and the order comment says so.
+
+**Three seam deviations, all recorded rather than quiet.**
+
+- **`Swallowable` gained an `id`.** The plan says `swallow.ts` routes a drop's level through `resolveOffer(state, takenId)`, and nothing in the seam gave `swallow` a body to name. The id is a value like every other field on that record, `asSwallowable` copies it off the corpse, and `corpses.test.ts` now asserts the copy cannot be aliased back to the entity.
+- **`DropSpawned` gained an `id` and its `line` became optional.** The id is the join key `openOffer` reads back to learn which body carries which option, so the offer is built out of the bodies that actually stand rather than out of the ones it asked for; a refused spawn is then an option simply not on the field instead of an offer holding an id nothing answers to. The optional line is the maxed run's body, which carries no option at all.
+- **`DropLedger` gained a `passed` count.** The plan's test 75 says "taken, passed, or lost, and the three sum to the bodies spawned", but `dropLedger.ts:23` already had a fourth end, `onFieldAtStop`, and the sum has always been over four. It is four ends now and the test asserts the four-way sum. `compareRuns.ts` gained the declared comparison meaning for it, which `comparisonDeclared.test.ts` demands.
+
+**Three defects found by the tests rather than by reading, each worth knowing.**
+
+- **A vanished sibling's pooled slot is reused by the offer that opens behind it.** `resolveSwallows` walked the covered food, swallowed the chosen body first, and skipped anything no longer alive. Taking a body vanishes its siblings and opens the banked offer in the same call, and the new offer's bodies claim the slots those siblings just freed, so the walk reached a live slot that was never covered and swallowed a brand-new body. The fix is that `coveredFood` remembers each body's id and the walk skips a slot whose id has moved. This is the "a recycled slot is a different body" hazard the design already names, met for real.
+- **The fixed first offer came back empty on a part-built run.** Taking the birthright and filling from unowned lines gives nothing at all when the run holds its birthright maxed and every other line partway up, which is exactly what `measure.test.ts`'s rich fixture pins. Every carrier in that 9000-tick run paid a no-option body, the run levelled nothing and sealed. `fixedFirstOptions` now fills any room left from the rest of the offerable pool, a fresh run is unchanged because its unowned lines fill the offer first, and the plan's section 8 carries the rule.
+- **The invariants fixture stood an option body on the field with no offer naming it,** which is the state `one live offer` exists to record. The fixture gained a matching offer. It is the new check working rather than a defect in the check.
+
+**One pre-existing stale count, found and corrected.** `faults.ts`'s own header said "Twelve identities against fourteen checks ... the five bounds checks share one identity", and there were six bounds checks and fifteen checks before this slice touched anything. It now reads fifteen identities against eighteen checks with six bounds checks, and `faults.test.ts`'s title moved with it.
+
+**Plan claims found false against the tree: two.**
+
+- **Gate correction 4** (section 5 above) says `drawDropIcon` at `src/app/screens/game/foodSprite.ts:189` "requires a `WeaponLine`, so a body with no line has no look". True of `drawDropIcon`, false of the sprite: `foodSprite.ts:270` read `corpse.line ?? 'skullStream'`, so a body with no option drew as a skull-stream drop, which is a worse failure than no look at all. The no-line body now takes its own draw path before the icon is reached, and the fallback is gone rather than left standing beside it.
+- **The plan's test 75** (section 6, `dropLedger.test.ts`) names three terminal ends against `dropLedger.ts:23`'s four. Corrected in the test and in the module's own header, per the deviation above.
+
+**CodeRabbit, `-t uncommitted`, two findings, both minor, both applied, none declined.** One: `checkOfferBodies` counted and matched body ids without rejecting a duplicate, and one id twice is two options wearing one body, so the take resolves the first of them and pays a line the player never passed under. Two: `checkBank` rejected a negative bank and not a fractional one; half a banked offer still reads as one to open, so the next take spends it and the fault lands a tick after the write that caused it. Both have their own test in `invariants.test.ts`.
+
+**Verification step 6, the offer half.** The conditioned tape is `slice8-offer.tape` in the scratchpad with its measurement in `slice8-offer.json`, recorded at `skullStream=1 territory=0 wisps=0 bell=0`, seed 2093383922, 12000 ticks asked for. `measure.ts` reports `verified` with empty `recordedFaults` and `readbackFaults`, and its per-line readings name `skullStream`. The conditioned run is thin at 1746 ticks, so the five bot seeds are reported beside it and the sequence properties are checked over all six (`slice8-step6.txt` in the scratchpad).
+
+| Run | Ticks | Carrier kills | Offers opened | Bodies | Taken | Lost | Banked | Faults |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| conditioned 2093383922 | 1746 | 2 | 2 | 6 | 1 | 0 | 1 | 0 |
+| bot 101 | 11420 | 7 | 7 | 21 | 6 | 1 | 1 | 0 |
+| bot 202 | 12421 | 12 | 12 | 36 | 7 | 4 | 5 | 0 |
+| bot 303 | 12421 | 12 | 12 | 36 | 8 | 4 | 3 | 0 |
+| bot 404 | 12421 | 11 | 11 | 33 | 8 | 3 | 1 | 0 |
+| bot 505 | 12421 | 9 | 9 | 27 | 4 | 4 | 3 | 0 |
+
+Every criterion the plan names passes on all six: bodies are exactly three times the offers opened, every `offerOpened` is followed by exactly one `offerTaken` or `offerLost` before the next (zero alternation violations), taken plus lost never exceeds carriers killed, and no invariant fault fired. The `dropLedger` on the conditioned run reads spawned 6, swallowed 1, passed 2, lost 0, on-field-at-stop 3, which sums to spawned.
+
+**The two-touch tie-break fired zero times across all six runs, and that is the instrument rather than the mechanism.** The case needs a grave wide enough to cover two bodies 90 apart, which is a catch reach over 45 and therefore a size over about 62; the largest grave any of these six runs reached is 33.03 (bot 505), and the conditioned run peaked at 27.51. So none of them could produce the case at all. That is the shape the spacing was chosen for, "possible at the size ceiling and impossible at the start size", and it means **no instrument in this step has exercised the tie-break in a played run**. What holds it is `offer.test.ts`, where two tests drive it at `SIZE_CEILING`: one asserts the nearer body wins over the middle one and one asserts a dead heat goes to the lower entity id. Step 4's harness is where a real hand near the ceiling can read it.
+
+**One thing about the criterion itself, for step 4 and slice 10.** "Bodies equal three times the offers opened" is exact only while no line is maxed: the offer shrinks below three as lines max, and a maxed run opens no offer at all and pays one body carrying no option. All six runs above are below the ceiling on some line throughout, so the equality holds; a run that maxes will break it legitimately.
+
+**Verification step 9, the rendered check.** `pnpm build && pnpm exec vite preview` on port 4173, driven with `playwright-cli` at a 900 by 1200 window. Two reads obtained, one not.
+
+- **Three offer bodies side by side with three distinct silhouettes: obtained, twice.** `slice8-replay-tick1355.png` in the scratchpad, through the pinned-replay path (`#/replay?tape=/slice8-render.tape&at=1355`, the tape recorded at `skullStream=4 territory=2 wisps=2 bell=2`): three treasure-gold bodies at one y, 142 screen pixels apart, which is 90 field units at that scale, drawn as a tall hand, a pointed kite and a circle. `slice8-replay-tick250.png` is the same read earlier in the same tape with a different three.
+- **The bank readout: obtained.** `slice8-game-run.png`, a live run at `#/?seed=2093383922&levels=4&size=67`. The corner stack reads DEBT, TICK, SEED PINNED, SIZE PINNED, **BANK 1**, LEVELS 4 PINNED, with the bank line between the size and the levels exactly as it is built, and three offer bodies stand on the field in the same frame.
+- **The body a maxed run's carrier opens: not obtained.** `slice8-game-maxed.png` and `slice8-game-maxed2.png` are a `levels=5` run and neither frame caught one on screen; what is visible in them is corpses and, incidentally, the level-five toll's cones. The shape and the colour are held by the module test in `FieldRenderer.test.ts` instead, which asserts its drawn bounds differ from all four line silhouettes and its only fill is the feast's colour.
+
+The screenshots live in the scratchpad at `/tmp/claude-1000/-home-mlo-dev-niftymonkey-the-cabinet/b2de3077-a53c-41d4-95e3-76b1e66dfc48/scratchpad/step1/`. Every one of them is a look and not a comparison: the frame-rate readout and the live field are both in shot.
+
+**The bot's pinned seed sets moved again, and the cause is the offer's shape rather than more power.** A carrier used to leave one body where it died, which a dodger reached only when its lane already crossed that exact point; three bodies now stand 90 units apart, so the same lane crosses one of them far more often. `SEALS_IN_THE_RAMP` emptied (505 left, surviving the ramp and winning), `REACHES_VICTORY_FRESH` went from `[202, 303]` to `[202, 303, 404, 505]`, and `REACHES_VICTORY_FROM_THE_CEILING` went from `[101, 404, 505]` to `[101, 303, 404]`, the same size with different members. `REACHES_VICTORY_MAXED` did not move. The five fresh runs land 66 to 105 kills where they landed 11 to 35 under #79, which is the closest the storm has come to the authored half and still short of it.
+
+**The bot test's band now counts `offerOpened` rather than `dropSpawned`,** because one carrier opens one offer of three bodies and the band has always been about carriers. The `it.fails` half asks for `carriersForFullBuild()` offers and no seed comes near, the ordinary half's floors were re-measured to 66 kills and 7 offers, its ceiling is the stage's authored carrier count, and it gained the three-bodies-per-offer relation beside them.
+
+**For slices 9 and 10.**
+
+- `WITNESS_VERSION` is still 5 and must not move again in this step. The partition in `witness.test.ts` names `offer.options[]`, `offer.bodyIds[]` and `bankedOffers` as folded, each with a perturbation, and `offer.bodyIds[]` is excluded from the no-NaN partition in `invariants.test.ts` as spawn identity.
+- **The fence in slice 9 will read `offer.ts` and `carriers.ts` for weapon-line string literals, and neither holds one.** `offer.ts` reads `state.roster`, `MAX_LEVEL` and `BIRTHRIGHT` and names no line; `offer.test.ts` does name lines, and the fence is over production modules.
+- `FAULT_IDENTITIES` is fifteen now, codes 13, 14 and 15 in `wireCodes.ts`, all three recoverable. `FORMAT_VERSION` did not move.
+- The rendered check's tape is `slice8-render.tape` in the scratchpad and was served by copying it into `dist/` before `vite preview`; `dist/` is git-ignored, so nothing of that reached the commit. Slice 10's level-five toll shot can use the same path, and `slice8-game-maxed2.png` already shows the cones incidentally.
+- `RunHud`'s stack is seven lines now: FPS, DEBT, TICK, SEED, BANK, LEVELS, FAULT. The bank sits at index 5 and the levels and fault lines moved down one, so `layering.test.ts`'s reserve-height rule is untouched (it covers the first five) and the three lines past it are bank, levels and fault.
+- **One assertion is knowingly absent and it is slice 9's, not a defect to hunt.** `layering.test.ts`'s width rule for the lines past the reserve is titled and written for the levels and fault lines alone, and the bank line joined them without joining that assertion. It cannot fail today (`BANK 25` is seven characters against a budget of twenty-five) and it is a fence rather than a behaviour, so it belongs with slice 9's fence work rather than in the offer's own commit, which CodeRabbit had already reviewed at that point.
