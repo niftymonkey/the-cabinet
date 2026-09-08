@@ -62,6 +62,7 @@ Every other section 9 item is carried by a slice: 1 by slice 2's glossary commit
 | Slice | Commit | Message |
 | --- | --- | --- |
 | 1 | `6958cfdd28` | refactor(hungry-grave): the stage tables move into rows.ts unchanged (#97) |
+| 2 | `1e420aeb53` | feat(hungry-grave): the stage is three named sections with one property each (#97) |
 
 Slice 0 records the baseline tapes and makes no commit.
 
@@ -69,9 +70,13 @@ Slice 0 records the baseline tapes and makes no commit.
 
 Slice 1: none, which the slice required. `src/dev/digest.ts` is not in the commit and the digest test is green.
 
+Slice 2: two fields, `mobs` 6 to 5 and `checksum` -1111652845 to -141809765, and nothing else. The scenario's 600 ticks fall inside the Procession, which owns emptiness, so its second row moved from t=8 to t=11 and one authored body that used to be on the field at tick 600 has not arrived yet. Every other field held: the grave's position and size, the reservoir, the score, the two scripted kills, and all five stream cursors. The re-pin's reason is written above `GOLDEN` in `src/dev/digest.ts`.
+
 ## 3. CodeRabbit
 
 Slice 1: `coderabbit review --agent --uncommitted` on the staged work, all eighteen files reviewed, **zero findings**. Nothing applied and nothing declined.
+
+Slice 2: two runs over the thirteen staged files. The first found one Minor and it was real: `expect(STILL_PLAY.state.ending).not.toBe('sealed')` in `stage.test.ts` could never fail, because the rig clears a sealed ending every tick to keep the stage's clock running. **Applied**: the assertion is now that the still hand held more than the ceiling for over a second of ticks and that the run crossed to the `over` phase, which is what the rig's throw-on-fault actually proves. The second run, on the fixed tree, reported zero findings. Nothing declined.
 
 ## 4. Plan claims found false against the tree
 
@@ -81,6 +86,12 @@ Four, all from slice 1, and each one is a slice assignment rather than a citatio
 2. **Slice 1 says module test 71 lands here, and `directed` does not exist until slice 2.** Slice 2's own sentence names `StageRow.directed` and `Phase.directed` among the columns it lands. A test cannot be green against a column that is not there, so 71 is pinned in `rows.test.ts` as a named `test.todo`, which is the playbook's own mechanism for a planned test whose seam arrives later. **Slice 2 fills it**, beside module test 119, which is its sibling over the ceiling columns.
 3. **Test 67 names the pour among `peakArrivals`'s terms, and the pour's rows land at slice 5.** Slice 5 says so outright: the set piece's own rows and `POUR_SHARES` go into `rows.ts` there, "because this is the slice where `peakArrivals` first needs them". The query therefore landed with three of its four terms, and test 67 holds those three. **Slice 5 adds the pour term and widens the test with it.**
 4. **Fence 111 is an existing test, not new code.** Section 6 lists `src/__tests__/boundary.test.ts` under "existing, must stay green", so slice 1 confirmed it rather than writing it. `rows.ts` value-imports nothing from `src/game` (`MobType` and `TemplateName` are both `import type`), so the cycle guard's known-cycle list is still empty.
+
+Three more from slice 2, and each one is a seam the plan left short rather than a citation that moved.
+
+5. **Module test 66 cannot be green in this slice, and it is pinned as a `test.todo`.** It reads "two boundaries can no longer fall on one tick, because no phase is empty," and the three boundary phases are still empty: `phaseLengthTicks` gives a rowless phase a length of zero, so the Banshee begins and ends on the tick the Procession ends, and the same holds for the Waking and the Undertaker. Slice 3 does not close it either, because `phaseEnded` reading `Phase.ends` gives a boss phase `bossKilled` and there is no boss to kill until slice 7. **The todo is named `crosses no two boundaries on one tick, because no phase is empty` in `stage.test.ts`, and the slice that makes the last boundary phase real is the one that fills it.** Everything else the plan assigns to slice 2 landed.
+6. **Section 4's `PhaseEnd` union has no member for the set piece phase.** It is `'rowsSpentAndFieldClear' | 'setPieceOpened' | 'bossKilled'`, and section 4 names the end condition for three phases: the two boss boundaries, the Crowd, and the boss phases. The Waking is not among them. It authors no rows and sheds no boss, so what clears its field is the pour running out, and the union says nothing about that. The column is filled with `rowsSpentAndFieldClear` and the reason is written beside the row: nothing reads `ends` until slice 3 and nothing fills the Waking until slice 10, so **slice 10 rules whether the set piece's end wants a member of its own.** The `over` phase carries the same value for the same reason, that nothing reads it.
+7. **`Phase.bankOpens` had no reader, and reading it from `step.ts` would have broken section 5's own rule.** The step 1 gate block asks for "a per-tick check in `offer.ts` ... called from `step.ts`", and the check needs the current phase's column. Section 5 says nothing outside a module indexes another's rows, so `step.ts` cannot index `PHASES`, and `offer.ts` importing `stage.ts` would put a new edge in the core's import graph for one boolean. **A seam was added: `bankOpensNow(state)` in `stage.ts`**, which is the phase table's own reader, and `step.ts` hands its answer to `openBankedOffer(state, permitted)`. The bank never learns which phase the run is in. It is named in section 9 below.
 
 ## 5. Gate corrections
 
@@ -112,13 +123,23 @@ Slice 1, from the plan's section 3:
 - **Step 6, GOLDEN.** Did not move, which the slice required. See section 2.
 - **Steps 3, 7 to 13 and the rendered checks** belong to later slices and were not run. **Steps 16 to 22 are Mark's and stay open.**
 
+Slice 2, from the plan's section 3:
+
+- **Step 1, unit tests.** Green. 110 files, 1437 passed, 10 expected fail, 4 todo.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 3, `pnpm build`.** Green, lint and typecheck included. Its two warnings are both standing: `@pixi/sound` statically imported alongside its dynamic import (#50) and the pixi chunk over 500 kB.
+- **Step 4, `pnpm verify` at the repo root.** Green, run from inside the worktree.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step2/tests-baseline.txt`: **32 names added, 8 removed, and every one of the 8 is a rename whose new name is among the added.** The renames are the five `survives the ramp on seed N` in `bot.test.ts`, which become `survives the Procession on seed N`, and three in `stage.test.ts`: `chains the phases in order` becomes `chains the seven phases in order`, `lands the Wall two seconds into the back half` becomes `into the Crowd`, and `holds only Drips and one File in the ramp's first 45 seconds` becomes `in the Procession's first 45 seconds`. Five of the 32 additions are slice 1's `rows.test.ts` names, because the baseline predates slice 1. **Nothing was removed without a replacement.** `vitest list` still does not report a `test.todo`, so the two in `rows.test.ts` and `stage.test.ts` are invisible to it.
+- **Step 6, GOLDEN.** Moved, in the same commit as the behaviour. See section 2.
+- **Steps 7 to 13 and the rendered checks** belong to later slices and were not run. **Steps 16 to 22 are Mark's and stay open.**
+
 ## 8. Slice 1, the rows module
 
 `peakArrivals` is the one thing in the commit that is not a move, so what it does is written down here rather than left to be re-derived.
 
 **It is a maximum over windows and never a sum of them.** For each window length it takes the densest window in each section table, and the largest of those against `BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE`, which is what a boss phase's own window holds. That is the shape the design record's derivation already uses: it prices the Waking window at 62 (the pour plus the Crowd's reduced share) and the Undertaker's at 26 (7 diggers plus 19 rungs) and takes the larger, and it does not add a rung term to the Waking. Adding the allowances to every window instead would put the initial cap at 251 rather than the 232 the record derives, so the record settles it.
 
-A window is half-open, `[t, t + seconds)`, and only a window that opens on a row can be the densest. That reproduces the record's own figure: `peakArrivals(10)` is 36 today, the Crowd's four rows from t=50, which is the "densest 36" the derivation reads off the same table. The Procession's densest ten seconds is 23 and the allowance floor is 26, so today the Crowd's table is what the maximum falls on.
+A window is half-open, `[t, t + seconds)`, and only a window that opens on a row can be the densest. Against slice 1's tables that reproduced the record's own figure: `peakArrivals(10)` was 36, the Crowd's four rows from t=50, which is the "densest 36" the derivation reads off the same table. **Slice 2 re-authored all three tables and the figure moved with them**: it is 39 now, the Crowd's four rows from t=130, the climb into the Waking. The Procession's densest ten seconds is 13 and the Vigil's 16, both under the allowance floor of 26, so the Crowd's table is still what the maximum falls on.
 
 **The allowances are flat rows sized for the freshness window**, not scaled by the argument, which is what section 4's seam comment says ("inside a freshness window"). `BOSS_ADD_ALLOWANCE` is 7 and `RUNG_ALLOWANCE` is 19, both from the design record's derivation.
 
@@ -127,3 +148,36 @@ A window is half-open, `[t, t + seconds)`, and only a window that opens on a row
 **`StageRow` now lives in `rows.ts` and `stage.ts` does not re-export it.** A consumer imports the type from `rows.ts`; `stage.ts` imports it for `Phase` and its own export block does not name it. `stage.ts` keeps `PhaseName`, `Phase`, `StageState`, `PHASES`, `DRAIN_OUT_SECONDS`, `phaseLengthTicks`, `createStage` and `advanceStage`.
 
 **One warning for anyone running the standing checks.** `pnpm format` run from the shared checkout at `/home/mlo/dev/niftymonkey/the-cabinet` reformats this worktree's `scripts/roadmap/` files, because that root's `.prettierignore` names `scripts/roadmap/` relative to itself and cannot see the same entry in the nested worktree's own ignore file. It churned five ignored files here and they were reverted before the commit; nothing outside the worktree was touched, checked by mtime. Step 1's note already said to run the gate from inside the worktree, and this is the mechanism behind that instruction.
+
+## 9. Slice 2, the three sections
+
+**The seam that was added: `bankOpensNow(state)` in `stage.ts`.** Section 4's `Phase` gained `bankOpens` and the step 1 gate block asks for the per-tick opening site in `offer.ts`, called from `step.ts`. Neither document says who reads the column. `step.ts` indexing `PHASES` breaks section 5's rule that nothing outside a module indexes another's rows, and `offer.ts` importing `stage.ts` adds an import edge to the core for one boolean, so the phase table reads its own column and hands the answer over: `openBankedOffer(state, bankOpensNow(state))`, called beside `advanceLines` where the gate block puts it.
+
+**`bankOpens` is true on every phase but `over`.** The gate block says the default is true and a phase is set false only where the record names a reason. The record names none for a boss phase or the sparse row, so none is set false there. The `over` phase is the one exception and its reason is written beside the row: the run has ended, so there is no run left to spend an offer in.
+
+**The per-tick site finds nothing to do today, and that is stated in its own comment.** Every offer clears through a take or a loss, and each of those opens the bank itself. It becomes live at slice 5, where an offer whose three bodies are all refused at the corpse cap banks rather than disappearing.
+
+**The three properties are measured under two named hands, and each test states its own.** The plan leaves the killing policy to the test and both hands live in `stage.test.ts`.
+
+- The **sharp hand** kills every mob on the first tick the game lets it be read, its arriving beat spent and its body fully on the field (ADR 0016). It is what the Procession's ceiling and the Vigil-against-Crowd food rate are read under. Under it the maximum live templates is 1 in all three sections and growth paid per second is exactly the section's own authored rate, 0.26 for the Procession, 0.87 for the Crowd and 0.52 for the Vigil, in size units.
+- The **still hand** is the rig this file already used: a grave held immortal that never moves and fires only its birthright. It is what the Crowd's floor is read under, and what the Procession's deliberate absence is read under. Under it the Procession reaches two live templates and stays there for 2625 of its 7200 ticks with no fault raised anywhere, which is the deliberate absence spec test 4 asks for.
+
+**Why the ceiling needs the sharp hand and the floor needs the still one, measured rather than assumed.** Four seeds were run under each hand at three build levels. Under any still-grave hand, birthright or maxed, the Procession reaches two live templates: a parked grave never engages the edges, so a body it never touches lives its full roughly fifteen seconds against rows nine seconds apart. Under the sharp hand every section holds one, because a hand that deletes a group as it arrives makes the ceiling true by construction and tells the three sections apart not at all. So the ceiling is asserted under the sharp hand and given its teeth by a second assertion under the still one: the Procession's field is empty more than four times the share of ticks the Crowd's is. Those two are the pair the plan describes, the property under a hand that plays it and the absence under one that does not.
+
+**The Crowd's floor drove two authoring changes.** Measured across four seeds at build levels 1, 3 and 5, the floor broke in two places: at 16.0 to 17.7 seconds, where only the lone ghoul Drip stood between the Wall and the first Pincer, and at 84.0 to 86.7 seconds, climbing out of the trough. The Pincer moved from t=17 to t=15 and a Drip of three was added at t=79, and with those two the Crowd holds two or more live templates from the tick it first has them through to its last row firing, on every seed and at every build level. The holes before the first two rows have fired and after the last one are outside the window and are what the sparse row and the eye opening answer at slices 3 and 10.
+
+**The clock is 120, 155 and 75 seconds, which is 2:00, 2:35 and 1:15.** The design record's nominal clock exactly, and the boss phases still end on the tick they begin, so a run of authored rows is 350 seconds. `phaseLengthTicks` is still last row plus the drain-out, so the last rows are t=103, t=138 and t=58.
+
+**The carrier count is held at 25 and its distribution is the record's eight, eleven and six.** Slice 4 owns the placement and this slice owns which rows may carry, so `carriersScheduled()` is met without `carriers.test.ts:228`'s literal pin having to move. `authoredCarriers()` in that file gained `VIGIL_ROWS`, which it needed either way.
+
+**The Procession's first carrier now stands at t=21 rather than t=2, and that has a measured cost.** The design record holds the first two Drips clear on purpose, the first because the first kill of the run teaches the swallow and the second because the lone revenant teaches the tell. `hitTakingPolicy` seals shut at tick 1132 on every seed, before that first carrier, so it never swallows a rung and never loses one: `weaponStripped` fell from every seed to none. **The assertion was re-pinned rather than weakened**, as `STRIPS_A_RUNG` in `bot.test.ts` with the cause written on it and asserted as an equality, so the day a seed reaches the rung again the file goes red and says which. **ADR 0003's whole ladder in order is spec test 47's, at slice 9, on a run that reaches a boss fight, and that is where it has to be re-established.** If it cannot be reached there either, the honest answer is a pinned build on the hit-taking policy rather than a thinner opening.
+
+**The other bot pins that moved, all re-measured and all with their cause written in the file.** `REACHES_VICTORY_FRESH` went from four seeds to two (404 and 505); `REACHES_VICTORY_FROM_THE_CEILING` from 101, 303 and 404 to 101 and 202; the storm's measured floors from 66 kills and 7 offers to 20 and 1. One cause runs through all of them: the stage is 21000 ticks of authored rows where it was 12421, and a dodger is paid only by the carriers its own lane happens to cross, so a longer, emptier opening pays it less and gives it longer to be ground down. `REACHES_VICTORY_MAXED` did not move, all five seeds, and `SEALS_IN_THE_PROCESSION`, `NEVER_FEEDS` and `MEETS_THE_TIMELINE` are all still empty.
+
+**One test gained a stated timeout, and it is a budget rather than a flake fix.** `reaches victory from a maxed build on the seeds the set names` is the one test in `bot.test.ts` that pays for five whole-stage runs nothing else has warmed, and five runs of 21000 ticks at a maxed build no longer fit inside vitest's default five seconds. It is `FIVE_MAXED_RUNS_MS` on that one test, with the reason on the constant, rather than a suite-wide setting. It was also moved above the both-endings test in its own describe, which restores that block's own stated claim that every run it reads has already been paid for.
+
+**The row tables are now 8 lines per row and `rows.ts` is 658 lines.** Prettier breaks a `StageRow` literal at 80 characters and `directed` is the field that pushes it over. The cost is real: 57 rows spread over 456 lines is a timeline whose shape can no longer be read at a glance, which is the thing the tuning pass at step 4 will want most. It was taken rather than worked around, because `// prettier-ignore` has no precedent anywhere in this tree and a formatting escape hatch is not a coding agent's call. **If a later slice wants the tables scannable again, that directive is the answer and it costs three lines.**
+
+**Test 130 reads `stage.ts` through a Vite `?raw` import rather than `node:fs`.** A source-text fence needs the file's text, and `boundary.test.ts` allows a test under `src/game` to import exactly one bare package, vitest. `import stageSource from '../stage.ts?raw'` is a relative import the fence resolves inside `game`, so the guard stays green and the test stays in the file the plan puts it in.
+
+**One stale sentence was found and corrected in `bot.test.ts`.** `SEALS_IN_THE_PROCESSION`'s opening line read "and there is one: 505, at 5466 ticks" while the constant has been an empty array since the offer of three landed; its own later paragraph says 505 left the set. The opening line now says the set is empty. Its historical paragraphs still say "the ramp", because they record measurements taken on the stage that was the ramp, and a note at the top says the ramp is the phase now called the Procession.
