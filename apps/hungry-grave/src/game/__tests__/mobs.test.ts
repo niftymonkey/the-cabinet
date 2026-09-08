@@ -488,8 +488,8 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
 
       // One swallow's whole payload: the wisp volley it launches and the extra
       // stream volley its surge buys, resolved against the wave.
-      launchWisps(state, []);
-      surgeStream(state);
+      launchWisps(state, [], 1);
+      surgeStream(state, 1);
       for (
         let tick = 0;
         tick < SURGE_VOLLEYS * SURGE_INTERVAL + STREAM_INTERVAL;
@@ -532,7 +532,7 @@ describe("one swallow's surge clears two trash bodies (#76 pass A correction)", 
     // Armed to fire on the window's first tick, so the window holds the whole
     // burst and the two runs start from the same volley.
     state.lines.streamIn = 1;
-    if (swallowed) surgeStream(state);
+    if (swallowed) surgeStream(state, 1);
 
     let killed = 0;
     for (let tick = 0; tick < SURGE_VOLLEYS * SURGE_INTERVAL + 1; tick++) {

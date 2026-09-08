@@ -108,7 +108,21 @@ const FEAST_PAYOUT = 9 * TRASH_CORPSE_PAYOUT;
  */
 const RESERVOIR_CAPACITY = FEAST_PAYOUT;
 
+/**
+ * Freshness scales a payout down to a floor and never to zero (ADR 0004).
+ *
+ * It sits beside the floor rather than in swallow.ts, because three payers now
+ * read it: growth and reservoir charge through the one verb, and the two
+ * on-swallow lines each scaling the currency it pays in (ADR 0058). A line
+ * importing swallow.ts for it would close a cycle, since swallow.ts fires
+ * those lines.
+ */
+const freshnessScale = (freshness: number): number => {
+  return Math.max(freshness, FRESHNESS_PAYOUT_FLOOR);
+};
+
 export {
+  freshnessScale,
   BASE_SPEED,
   SCROLL_SPEED,
   FRESHNESS_SECONDS,

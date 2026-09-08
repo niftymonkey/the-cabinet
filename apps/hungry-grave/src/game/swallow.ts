@@ -7,7 +7,7 @@ import { MAX_LEVEL } from './lines/roster';
 import { surgeStream } from './lines/skullStream';
 import { launchWisps } from './lines/wisps';
 import type { RunState } from './run';
-import { FRESHNESS_PAYOUT_FLOOR, RESERVOIR_CAPACITY } from './tuning';
+import { freshnessScale, RESERVOIR_CAPACITY } from './tuning';
 
 type FoodKind = 'corpse' | 'drop' | 'feast';
 
@@ -20,11 +20,6 @@ interface Swallowable {
   // Which line a drop levels, decided by the dice at spawn (ADR 0034). Absent on corpses and feasts.
   readonly line?: WeaponLine;
 }
-
-// Freshness scales a payout down to a floor and never to zero (ADR 0004).
-const freshnessScale = (freshness: number): number => {
-  return Math.max(freshness, FRESHNESS_PAYOUT_FLOOR);
-};
 
 // Growth, with anything past the ceiling handed back as overflow (ADR 0003).
 const payGrowth = (
@@ -121,10 +116,12 @@ const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
   // The on-swallow lines, after the payouts. They fire here rather than from the
   // tick loop so the burst leaves on the tick the food went in: a tick of lag
   // would read as the burst arriving after the dive rather than out of it.
-  surgeStream(state);
-  launchWisps(state, events);
+  // Each is handed the raw freshness and scales the currency it pays in, which
+  // is the axis ADR 0058 names: volleys for the stream, souls for the wisps.
+  surgeStream(state, food.freshness);
+  launchWisps(state, events, food.freshness);
   return events;
 };
 
-export { swallow, freshnessScale };
+export { swallow };
 export type { FoodKind, Swallowable };

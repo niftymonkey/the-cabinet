@@ -240,3 +240,39 @@ describe('the swallow', () => {
     "dispatch 4: the spawner's side of the treasure guarantee, that a drop is spawned with freshness 1 (ADR 0004)",
   );
 });
+
+describe('no burst is ever paid without freshness applied (ADR 0058, #68)', () => {
+  it('pays both on-swallow lines less from a rotten corpse than from a fresh one', () => {
+    // ADR 0058: "A test that fails if a burst is ever paid without freshness
+    // applied is the point of naming the axis." It spans both lines because
+    // the axis is per line and a burst paid flat would pass either one alone.
+    const owned = (freshness: number) => {
+      const run = createRun(1);
+      run.levels.wisps = MAX_LEVEL;
+      run.levels.skullStream = MAX_LEVEL;
+      swallow(run, corpse(freshness));
+      return {
+        souls: run.wisps.filter((wisp) => wisp.alive).length,
+        volleys: run.lines.surgeVolleys,
+      };
+    };
+
+    const fresh = owned(1);
+    const rotten = owned(FRESHNESS_PAYOUT_FLOOR);
+
+    expect(rotten.souls).toBeLessThan(fresh.souls);
+    expect(rotten.volleys).toBeLessThan(fresh.volleys);
+  });
+
+  it('pays both lines something from the emptiest corpse the field can hold', () => {
+    // The floors, read through the one verb: a swallow that fires nothing
+    // reads as a bug, so the rotten end of the curve still pays.
+    const run = createRun(1);
+    run.levels.wisps = 1;
+    run.levels.skullStream = 1;
+    swallow(run, corpse(0));
+
+    expect(run.wisps.filter((wisp) => wisp.alive).length).toBeGreaterThan(0);
+    expect(run.lines.surgeVolleys).toBeGreaterThan(0);
+  });
+});

@@ -13,11 +13,13 @@ import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { RAMP_ROWS } from '../../stage/stage';
 import { resolveStorm } from '../../storm';
+import { FRESHNESS_PAYOUT_FLOOR } from '../../tuning';
 import { MAX_LEVEL } from '../roster';
 import {
   advanceWisps,
   launchWisps,
   WISP_DAMAGE,
+  WISP_FLOOR_SOULS,
   WISP_LIFETIME,
   WISP_SPEED,
   WISP_TURN_DEGREES_PER_SECOND,
@@ -49,9 +51,9 @@ function liveWisps(state: RunState) {
 }
 
 /** A volley launched from a run at a stated level, with the events it produced discarded. */
-function volley(state: RunState, level: number) {
+function volley(state: RunState, level: number, freshness = 1) {
   state.levels.wisps = level;
-  launchWisps(state, []);
+  launchWisps(state, [], freshness);
   return liveWisps(state);
 }
 
@@ -79,7 +81,7 @@ describe('the wisps are never on unless a swallow bought them (ADR 0005)', () =>
     const state = quietRun();
     expect(state.levels.wisps).toBe(0);
     put(state, 'shambler', 200, 300);
-    launchWisps(state, []);
+    launchWisps(state, [], 1);
     expect(liveWisps(state)).toHaveLength(0);
   });
 
@@ -100,6 +102,65 @@ describe('the wisps are never on unless a swallow bought them (ADR 0005)', () =>
     const mouth = { x: state.grave.x, y: state.grave.y - state.grave.size };
     const [wisp] = volley(state, 1);
     expect({ x: wisp.x, y: wisp.y }).toEqual(mouth);
+  });
+});
+
+describe('freshness pays the wisps in souls (ADR 0058)', () => {
+  it('tears fewer souls loose from a rotten corpse than from a fresh one', () => {
+    // ADR 0058: "The wisps pay in souls, so freshness scales the count." The
+    // relation is what is pinned, never the magnitude, so a retuned floor
+    // moves the numbers without moving this test.
+    const fresh = quietRun();
+    put(fresh, 'shambler', 200, 300);
+    const rotten = quietRun();
+    put(rotten, 'shambler', 200, 300);
+
+    expect(
+      volley(rotten, MAX_LEVEL, FRESHNESS_PAYOUT_FLOOR).length,
+    ).toBeLessThan(volley(fresh, MAX_LEVEL, 1).length);
+  });
+
+  it('scales the count down the freshness curve, never past its floor', () => {
+    // The same floor growth and reservoir charge use (ADR 0004), so a corpse
+    // at freshness zero pays what a corpse at the floor pays.
+    const atFloor = quietRun();
+    put(atFloor, 'shambler', 200, 300);
+    const atZero = quietRun();
+    put(atZero, 'shambler', 200, 300);
+
+    expect(volley(atZero, MAX_LEVEL, 0).length).toBe(
+      volley(atFloor, MAX_LEVEL, FRESHNESS_PAYOUT_FLOOR).length,
+    );
+  });
+
+  it('never tears loose fewer than one soul from an owned line', () => {
+    // ADR 0058: "floored at one soul, because a bare proportional count pays
+    // nothing at level one where the flight is a single wisp and a swallow
+    // that fires nothing reads as a bug."
+    expect(WISP_FLOOR_SOULS).toBe(1);
+    for (let level = 1; level <= MAX_LEVEL; level++) {
+      const state = quietRun();
+      put(state, 'shambler', 200, 300);
+      expect(`level ${level}: ${volley(state, level, 0).length}`).toBe(
+        `level ${level}: ${Math.max(
+          WISP_FLOOR_SOULS,
+          Math.floor(WISPS_BY_LEVEL[level] * FRESHNESS_PAYOUT_FLOOR),
+        )}`,
+      );
+    }
+  });
+
+  it('fires nothing from an unowned line whatever the freshness', () => {
+    // The floor must not resurrect a line the run does not own: level zero is
+    // silence because homing is always bought with a dive, and the birthright
+    // is the skull stream alone (ADR 0045), so a fresh run sits at level zero.
+    const state = quietRun();
+    put(state, 'shambler', 200, 300);
+    for (const freshness of [0, FRESHNESS_PAYOUT_FLOOR, 0.5, 1]) {
+      expect(
+        `freshness ${freshness}: ${volley(state, 0, freshness).length}`,
+      ).toBe(`freshness ${freshness}: 0`);
+    }
   });
 });
 

@@ -119,30 +119,36 @@ const REACHES_VICTORY_FRESH: number[] = [];
 
 /**
  * The seeds that reach victory from the size ceiling on the birthright build,
- * and under the thinned birthright (ADR 0045) there are none.
+ * and it is one of the five: 303.
  *
- * Re-measured: 202 left the set, sealing in the back half at 12008 ticks where
- * it used to run the full 12421 and win. The cause is the birthright itself
- * rather than a break, and it is the cost ADR 0045 takes eyes-open: starting
- * size buys time and the birthright build buys kills, and one line at level
- * one no longer kills its way to the final phase however long the grave
- * survives. A build is what reaches victory now, which is what
- * REACHES_VICTORY_MAXED reads.
+ * Re-measured twice in one step. For the thinned birthright (ADR 0045) the set
+ * emptied: 202 left it, sealing in the back half at 12008 ticks where it used
+ * to run the full 12421 and win. For freshness-scaled bursts (ADR 0058) 303
+ * entered it, running the full stage at 40 kills.
+ *
+ * Neither move is a strength claim, and the second one reads backwards if it
+ * is taken as one: scaling the surge by freshness only ever pays fewer volleys
+ * than the flat two it replaced. What moves a seed is the path. `dodgePolicy`
+ * steers off the field it is standing in, so one fewer volley at tick 900
+ * changes which mobs are alive at tick 901 and the two runs are different runs
+ * from there on. Ten thousand ticks of that is why a per-seed outcome swings
+ * either way on a change that only ever subtracts.
  *
  * Pinned as a constant rather than left a literal in the test, because the
  * fresh set and this one are different facts.
  */
-const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
+const REACHES_VICTORY_FROM_THE_CEILING: number[] = [303];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
- * is all five, at 209 to 232 kills against 268 authored mobs.
+ * is all five, at 191 to 215 kills against 268 authored mobs.
  *
  * It exists because the ending has to be reachable by something the harness
- * can play, and under the thinned birthright neither loadout above reaches it
- * any more. A test asserting an ending is reachable over runs that cannot
- * produce it asserts nothing, so the victory half is read from the build that
- * can.
+ * can play. The birthright loadouts reach it on at most one chaotic seed and
+ * reached it on none at all while the thinned birthright stood alone, and a
+ * test asserting an ending is reachable over runs that cannot produce it
+ * asserts nothing. So the victory half is read from the build that reaches it
+ * on every seed rather than from whichever seed the dice currently carry.
  */
 const REACHES_VICTORY_MAXED = [101, 202, 303, 404, 505];
 
@@ -408,12 +414,13 @@ describe('both endings across the three loadouts', () => {
     // is only ever exercising one half of the run's shape.
     //
     // Where each ending comes from moved with the thinned birthright (ADR
-    // 0045) and is recorded rather than quietly re-pinned. Both birthright
-    // loadouts now seal on every seed, so the maxed build is read here too:
-    // an assertion that an ending is reachable, over ten runs that cannot
-    // produce it, would pass over an empty set. REACHES_VICTORY_FRESH,
-    // REACHES_VICTORY_FROM_THE_CEILING and REACHES_VICTORY_MAXED carry the
-    // three facts and the cause they share.
+    // 0045) and again with freshness-scaled bursts (ADR 0058), and is recorded
+    // rather than quietly re-pinned. On the birthright loadouts victory rests
+    // on at most one seed and rested on none at all in between, so the maxed
+    // build is read here too: an assertion that an ending is reachable, over
+    // runs that cannot produce it, would pass over an empty set.
+    // REACHES_VICTORY_FRESH, REACHES_VICTORY_FROM_THE_CEILING and
+    // REACHES_VICTORY_MAXED carry the three facts and the cause they share.
     const endings = new Set([
       ...SEEDS.map((seed) => fullRun(seed).state.ending),
       ...SEEDS.map((seed) => fullRun(seed, SIZE_CEILING).state.ending),

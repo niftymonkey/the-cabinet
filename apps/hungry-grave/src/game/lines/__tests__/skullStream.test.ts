@@ -17,6 +17,7 @@ import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { RAMP_ROWS } from '../../stage/stage';
 import { resolveStorm } from '../../storm';
+import { FRESHNESS_PAYOUT_FLOOR } from '../../tuning';
 import { MAX_LEVEL } from '../roster';
 import {
   advanceStream,
@@ -24,6 +25,7 @@ import {
   SKULL_HALF_EXTENT,
   SKULL_SPEED,
   STREAM_INTERVAL,
+  SURGE_FLOOR_VOLLEYS,
   SURGE_INTERVAL,
   SURGE_VOLLEYS,
   surgeStream,
@@ -180,7 +182,7 @@ describe('the surge is a rate change and never a damage bonus (plan section 3)',
   it('a swallow sets the surge, and the next volley comes at SURGE_INTERVAL rather than STREAM_INTERVAL', () => {
     const state = quietRun();
     nextVolley(state);
-    surgeStream(state);
+    surgeStream(state, 1);
     expect(state.lines.surgeVolleys).toBe(SURGE_VOLLEYS);
 
     const before = state.tick;
@@ -198,7 +200,7 @@ describe('the surge is a rate change and never a damage bonus (plan section 3)',
 
   it('spends the surge after exactly SURGE_VOLLEYS volleys and then returns to the fixed interval', () => {
     const state = quietRun();
-    surgeStream(state);
+    surgeStream(state, 1);
     for (let volley = 0; volley < SURGE_VOLLEYS + 1; volley++) {
       nextVolley(state);
     }
@@ -214,7 +216,7 @@ describe('the surge is a rate change and never a damage bonus (plan section 3)',
     );
 
     const surged = quietRun();
-    surgeStream(surged);
+    surgeStream(surged, 1);
     const gaps = gapsBetween(volleyTicks(surged, 300));
     expect(gaps.filter((gap) => gap === SURGE_INTERVAL)).toHaveLength(
       SURGE_VOLLEYS,
@@ -230,7 +232,7 @@ describe('the surge is a rate change and never a damage bonus (plan section 3)',
     // overwrite one another rather than banking a queue of ten.
     const chained = quietRun();
     for (let swallow = 0; swallow < 10; swallow++) {
-      surgeStream(chained);
+      surgeStream(chained, 1);
       advanceStream(chained);
     }
     const gaps = gapsBetween(volleyTicks(chained, 300));
@@ -247,7 +249,7 @@ describe('the surge is a rate change and never a damage bonus (plan section 3)',
     // what this asserts is the shape of the entity rather than a magnitude.
     const state = quietRun();
     state.levels.skullStream = MAX_LEVEL;
-    surgeStream(state);
+    surgeStream(state, 1);
     const volley = nextVolley(state);
     expect(volley.length).toBe(COLUMNS_BY_LEVEL[MAX_LEVEL]);
     for (const skull of volley) {
@@ -259,6 +261,52 @@ describe('the surge is a rate change and never a damage bonus (plan section 3)',
         'x',
         'y',
       ]);
+    }
+  });
+});
+
+describe('freshness pays the stream in volleys (ADR 0058)', () => {
+  it('buys a shorter surge from a rotten corpse than from a fresh one', () => {
+    // ADR 0058: "freshness scales how many volleys the surge pays." The
+    // relation is pinned, never the magnitude.
+    const fresh = quietRun();
+    surgeStream(fresh, 1);
+    const rotten = quietRun();
+    surgeStream(rotten, FRESHNESS_PAYOUT_FLOOR);
+
+    expect(rotten.lines.surgeVolleys).toBeLessThan(fresh.lines.surgeVolleys);
+  });
+
+  it('never makes a level-five stream look like a level-two one', () => {
+    // ADR 0058: freshness scales the surge "rather than how wide it fires,
+    // because the column count is exactly what draws the line's five levels."
+    // The deliberate absence: the column count is untouched by freshness.
+    for (const freshness of [0, FRESHNESS_PAYOUT_FLOOR, 0.5, 1]) {
+      const state = quietRun();
+      state.levels.skullStream = MAX_LEVEL;
+      surgeStream(state, freshness);
+      expect(`freshness ${freshness}: ${nextVolley(state).length}`).toBe(
+        `freshness ${freshness}: ${COLUMNS_BY_LEVEL[MAX_LEVEL]}`,
+      );
+    }
+  });
+
+  it('never pays a surge shorter than one volley', () => {
+    // The wisps' one-soul argument transferred: an unfloored scale pays half a
+    // volley at the freshness floor, and a swallow that fires nothing reads as
+    // a bug.
+    expect(SURGE_FLOOR_VOLLEYS).toBe(1);
+    for (const freshness of [0, FRESHNESS_PAYOUT_FLOOR, 0.5, 1]) {
+      const state = quietRun();
+      surgeStream(state, freshness);
+      expect(`freshness ${freshness}: ${state.lines.surgeVolleys}`).toBe(
+        `freshness ${freshness}: ${Math.max(
+          SURGE_FLOOR_VOLLEYS,
+          Math.floor(
+            SURGE_VOLLEYS * Math.max(freshness, FRESHNESS_PAYOUT_FLOOR),
+          ),
+        )}`,
+      );
     }
   });
 });

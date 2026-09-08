@@ -7,6 +7,7 @@ import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { RunState } from '../run';
+import { freshnessScale } from '../tuning';
 
 interface Skull {
   alive: boolean;
@@ -65,6 +66,15 @@ const SKULL_SPEED = 420 / TICK_HZ;
  * holding the burst's old magnitude is what the number is for.
  */
 const SURGE_VOLLEYS = 2;
+
+/**
+ * The shortest surge freshness can buy, in volleys (ADR 0058).
+ *
+ * The wisps' one-soul argument transferred: SURGE_VOLLEYS is 2 against a
+ * freshness floor of 0.25, so an unfloored scale pays half a volley, and a
+ * swallow that fires nothing reads as a bug.
+ */
+const SURGE_FLOOR_VOLLEYS = 1;
 
 // The shortened interval a surged volley waits, in ticks: a third of the fixed
 // one, which is the ratio it has always carried.
@@ -209,12 +219,21 @@ const advanceStream = (state: RunState): SimEvent[] => {
 };
 
 /**
- * A swallow's surge. It sets the count rather than adding to it, which is Mark's
- * 2026-08-22 ruling said in code: one swallow buys one burst, and a swallow
- * chain overwrites an unspent volley instead of banking a queue.
+ * A swallow's surge, its length scaled by the corpse's freshness (ADR 0058).
+ *
+ * It sets the count rather than adding to it, which is Mark's 2026-08-22
+ * ruling said in code: one swallow buys one burst, and a swallow chain
+ * overwrites an unspent volley instead of banking a queue.
+ *
+ * Freshness scales how many volleys the surge pays and never how wide the
+ * stream fires, because the column count is what draws the line's five levels
+ * and a rotten corpse must never make a level-five stream look like a
+ * level-two one. A part volley is floored rather than rounded, so the scale
+ * only ever pays what it has fully bought.
  */
-const surgeStream = (state: RunState): void => {
-  state.lines.surgeVolleys = SURGE_VOLLEYS;
+const surgeStream = (state: RunState, freshness: number): void => {
+  const paid = Math.floor(SURGE_VOLLEYS * freshnessScale(freshness));
+  state.lines.surgeVolleys = Math.max(SURGE_FLOOR_VOLLEYS, paid);
 };
 
 export {
@@ -225,6 +244,7 @@ export {
   STREAM_INTERVAL,
   SKULL_SPEED,
   SURGE_VOLLEYS,
+  SURGE_FLOOR_VOLLEYS,
   SURGE_INTERVAL,
   SKULL_HALF_EXTENT,
   SKULL_DAMAGE,

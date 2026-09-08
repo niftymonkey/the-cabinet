@@ -8,6 +8,7 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { cos, normalize, rotateToward, sin } from '../math';
 import type { Mob } from '../mobs';
 import type { RunState } from '../run';
+import { freshnessScale } from '../tuning';
 
 interface Wisp {
   alive: boolean;
@@ -37,6 +38,15 @@ interface Wisp {
  * through a drop: homing is always bought with a dive.
  */
 const WISPS_BY_LEVEL: readonly number[] = [0, 1, 3, 5, 8, 11];
+
+/**
+ * The fewest souls a swallow ever tears loose from an owned line (ADR 0058).
+ *
+ * ADR 0058's own word: a bare proportional count pays nothing at level one
+ * where the flight is a single wisp, and a swallow that fires nothing reads as
+ * a bug.
+ */
+const WISP_FLOOR_SOULS = 1;
 
 /**
  * Field units per tick, against a 90-tick life: 450 units of travel, more than
@@ -150,9 +160,30 @@ const aim = (wisp: Wisp, target: Mob | null): void => {
 };
 
 /**
- * One swallow's volley, launched from the grave's mouth on the tick the food
- * went in. It is called from swallow.ts and never from the tick loop: a tick of
- * lag would read as the burst arriving after the dive rather than out of it.
+ * How many souls this swallow tears loose (ADR 0058).
+ *
+ * The wisps pay in souls, so freshness scales the count, floored at one soul
+ * because a bare proportional count pays nothing at level one where the flight
+ * is a single wisp. The floor applies only above level zero: level zero is
+ * silence because homing is always bought with a dive, and a floor that
+ * resurrected an unowned line would hand the run a line it never took. A part
+ * soul is floored rather than rounded, so the scale only ever pays what it has
+ * fully bought.
+ */
+const soulsForSwallow = (level: number, freshness: number): number => {
+  const owned = WISPS_BY_LEVEL[level];
+  if (owned === 0) return 0;
+  return Math.max(
+    WISP_FLOOR_SOULS,
+    Math.floor(owned * freshnessScale(freshness)),
+  );
+};
+
+/**
+ * One swallow's volley, its count scaled by the corpse's freshness (ADR 0058),
+ * launched from the grave's mouth on the tick the food went in. It is called
+ * from swallow.ts and never from the tick loop: a tick of lag would read as the
+ * burst arriving after the dive rather than out of it.
  *
  * Wisps are walked in slot order and each takes the nearest live mob with room
  * for it. Surplus wisps over-commit onto the last target assigned, which costs
@@ -161,10 +192,12 @@ const aim = (wisp: Wisp, target: Mob | null): void => {
  */
 const launchWisps = (
   state: RunState,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the swallow's own event list, so a volley that ever reports does it in tick order rather than out of band
+  // The swallow's own event list, so a volley that ever reports does it in
+  // tick order rather than out of band. Nothing is pushed onto it today.
   _events: SimEvent[],
+  freshness: number,
 ): void => {
-  const count = WISPS_BY_LEVEL[state.levels.wisps];
+  const count = soulsForSwallow(state.levels.wisps, freshness);
   const x = state.grave.x;
   const y = state.grave.y - state.grave.size;
   let last: Mob | null = null;
@@ -243,6 +276,7 @@ export {
   launchWisps,
   advanceWisps,
   WISPS_BY_LEVEL,
+  WISP_FLOOR_SOULS,
   WISP_SPEED,
   WISP_LIFETIME,
   WISP_TURN_DEGREES_PER_SECOND,
