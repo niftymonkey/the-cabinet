@@ -273,3 +273,88 @@ Commit `8a7ecc5c31`, two test files and no production change. `pnpm typecheck`, 
 **CodeRabbit, `-t uncommitted`, one minor finding, applied, none declined.** `constantsDeclaredIn` matched `const NAME` and not `export const NAME`, so a row exported where it is declared would have walked through the fence. Nothing in the tree is written that way, because the module form puts one export block at the end, but a fence whose regex depends on a convention holds only as long as the convention does. The regex takes an optional export modifier now and there is an assertion for that form. **Note for the next slice: `-t uncommitted` reviews staged and modified files and does not see an untracked one.** The first run reported only `layering.test.ts` and found nothing; the new fence file had to be `git add`ed by path before CodeRabbit read it at all. A new file reviewed by nobody would have looked exactly like a clean review.
 
 **Verification step 10 is discharged.** Steps 1 and 2 ran here as usual. Step 4's repo-root pieces were run separately again (`format:check`, `lint`, the app's `typecheck` and tests), all green. Steps 3, 5, 6, 7, 8 and 9 belong to earlier slices or to slice 10 and nothing here moved them. Steps 11, 12 and 13 are Mark's and stay open.
+
+## 13. Slice 10, the verification pass
+
+No production change and no test change. This slice ran the plan's section 3 over the finished step at commit `1761c50e9a` and wrote down what it read. Everything below lives in the scratchpad at `/tmp/claude-1000/-home-mlo-dev-niftymonkey-the-cabinet/f919cc25-2a72-4168-bc61-34ce0f21aabd/scratchpad/step1/`, named as `SCRATCH` from here on.
+
+**Steps 1 to 4, `pnpm verify` at the worktree root, as one command, green.** `SCRATCH/verify.txt`, exit 0. `format:check` reports "All matched files use Prettier code style!", `lint` is silent, `typecheck` passes both apps, and `test` reports hungry-grave at **109 test files, 1405 passed, 10 expected fail, 3 todo (1418)** and housewarming at 7 files and 83 passed. That is the same count section 12 recorded at slice 9, which is what a slice with no code in it should produce. `pnpm build` from `apps/hungry-grave/` ran separately for the rendered check and exited 0 (`SCRATCH/build.txt`), so step 3 is discharged at the tip and not only at slice 8.
+
+**Step 5 is per slice and belongs to the slices that changed behaviour.** Nothing here changed behaviour, so `GOLDEN` could not move; the digest test is inside the green run above, which is the standing check that it has not.
+
+**Step 6, the offer and carriers run, every criterion met, and no number moved since slice 8.** Recorded at seed 2093383922, 12000 ticks asked for, `skullStream=1 territory=0 wisps=0 bell=0`, as `SCRATCH/slice10-offer.tape` with its measurement in `SCRATCH/slice10-offer.json` and the event counts in the transcript of `SCRATCH/step6.ts`.
+
+| Reading | Slice 8 | Slice 10 |
+| --- | --- | --- |
+| Ticks | 1746 | 1746 |
+| Carrier kills | 2 | 2 |
+| Offers opened | 2 | 2 |
+| Bodies spawned | 6 | 6 |
+| Taken | 1 | 1 |
+| Lost | 0 | 0 |
+| Banked | 1 | 1 |
+| Faults | 0 | 0 |
+| Max grave size | 27.51 | 27.51 |
+| `dropLedger` | 6 / 1 / 2 / 0 / 3 | 6 / 1 / 2 / 0 / 3 |
+
+Criterion by criterion: the measurement names `skullStream` in `damage`, `endLevels` and `tuning.fieldPerLine.perLine`; `dropSpawned` is 6 against 3 times the 2 `offerOpened`; alternation violations are zero, so every `offerOpened` is followed by exactly one `offerTaken` or `offerLost` before the next, with the second offer still live when the run sealed; taken plus lost is 1 against 2 carriers killed; and `measure.ts` reports `verified` with empty `recordedFaults` and `readbackFaults`. The bank was held from tick 560 to tick 1016, which is the second carrier dying under the first offer and the banked offer opening when that offer resolved.
+
+**Step 7, the bell runs, the same half met and the same half unmet, and every total moved.** Recorded at the same seed and conditions with `bell=1`, `bell=3` and `bell=5`, as `SCRATCH/slice10-bell1.tape`, `SCRATCH/slice10-bell3.tape` and `SCRATCH/slice10-bell5.tape` with their measurements beside them.
+
+| Run | Ticks | Tolls | `mobShoved` | Repel distance | Bell damage |
+| --- | --- | --- | --- | --- | --- |
+| `bell=1`, slice 6 | 1655 | 8 | 0 | 0 | 0 |
+| `bell=1`, slice 10 | 1746 | 9 | 0 | 0 | 0 |
+| `bell=3`, slice 6 | 1851 | 9 | 2 | 3.95 | 18.6 |
+| `bell=3`, slice 10 | 2648 | 10 | 2 | 3.9486 | 18.638 |
+| `bell=5`, slice 6 | 2554 | 11 | 5 | 25.34 | 48.5 |
+| `bell=5`, slice 10 | 2750 | 14 | 12 | 42.01 | 113.59 |
+
+**The cause of every move is one thing, and it is measured rather than guessed: the offer now pays a rung in the middle of a conditioned run, and slices 7 and 8 are what put it there.** All four runs level a line at tick 1016 (`wisps` to 1 in the three bell runs, `bell` to 1 in the `bell=0` run) and the `bell=3` and `bell=5` runs level a second at tick 1963. Under the slice 6 tree power was priced in kills, and a run that kills three to five mobs bought nothing, so the strip ladder had only the conditioned starting rungs to eat and the run sealed sooner. A rung bought at 1016 is a rung the ladder must eat first, so every run lives longer and the bell throws more tolls: `bell=1` gains 91 ticks and a ninth toll, `bell=3` gains 797 ticks and a tenth, `bell=5` gains 196 ticks and three more.
+
+Tick 1016 is also where the field itself diverges from the slice 6 reading, and the per-toll breakdown says so plainly. `bell=3`'s two shoves are still the eighth toll's alone and still 3.9486 field units, the same shove slice 6 read; only the extra tenth toll is new and it shoved nothing. `bell=5` diverges properly: its first eleven tolls now carry ten shoves and 39.37 units against slice 6's five and 25.34 over the same eleven, because the wisps bought at 1016 change which mobs are alive when tolls seven to ten arrive. Neither is a stronger bell. `BELL_CONE_ROWS` did not move in this slice or in any slice after 6.
+
+**`bell=1` still reads zero shoves, which is the plan's step 7 criterion still not met by this instrument, exactly as slice 6 recorded.** Nine tolls, no strikes, no shoves. Section 9's probe is still the explanation and nothing in slices 7 to 9 touched it: the recorder's wandering script keeps the run in a window where the mobs that arrive stand at about seventy degrees either side, which level one's forty-five-degree cone declines and level three's answers. The other witness is unchanged too and it is in the green suite: the bot's ceiling run on seed 303 tolls at level 1 and shoves. This is carried forward as a finding, not closed.
+
+**The `bell=5` total is reported beside #79's 42, 51 and 0 field units and not judged against them,** which is the plan's own instruction. It reads 42.01 over 2750 ticks. Section 9's note that these runs seal at a fifth of the tick count still applies and step 4's harness is what judges the magnitude.
+
+**Step 8, the old-tape decode check, passed on both baseline tapes.** `measure.ts` on `baseline-a.tape` and on `baseline-b.tape` each returns exactly:
+
+```json
+{
+  "outcome": "rosterNotImplemented",
+  "recordedRoster": [
+    "soulStream",
+    "territory",
+    "wisps",
+    "bell"
+  ]
+}
+```
+
+Both exit 0 with empty stderr, so the tapes decode, report their recorded roster verbatim in their own pre-rename vocabulary, and refuse replay precisely rather than throwing a format error or coercing to today's roster. That is ADR 0043's contract and it is the proof the rename cost no format version. Saved as `SCRATCH/baseline-a.measure.json` and `SCRATCH/baseline-b.measure.json`. The tapes themselves were read and never moved or rewritten.
+
+**Step 9, the rendered check. All four required reads obtained.** `pnpm build` then `pnpm exec vite preview` on port 4173, driven with `playwright-cli` at a 900 by 1200 window, every screenshot read.
+
+- **Three offer bodies side by side with three distinct silhouettes: obtained.** `SCRATCH/run-2.png` at tick 391 and `SCRATCH/run-4.png` at tick 631, a live run at `#/?seed=2093383922&levels=4&size=67`. Three treasure-gold bodies at one y, 142 screen pixels apart, drawn as a filled circle, a trapezoid and a tall two-pronged shape.
+- **The bank readout when a second carrier dies under a live offer: obtained.** `SCRATCH/run-4.png`, the same frame. The corner stack reads FPS, DEBT 176, TICK 631, SEED 2093383922 PINNED, SIZE 67 PINNED, **BANK 1**, LEVELS 4 PINNED, with the three offer bodies on the field beside it. Tick 631 was aimed rather than caught: `SCRATCH/idlebank.ts` replays the same seed with no input through the execution authority and reports the bank held from tick 539 to 965 and again from 2189 to 2240.
+- **A level-one toll showing one forward cone: obtained.** `SCRATCH/U1-at1107.png` at tick 1092, twelve ticks into the toll at 1080, through the pinned-replay path on `slice10-bell1.tape`. One pale wedge opens upward from the grave, symmetric about straight ahead, with nothing to the sides and nothing behind. `SCRATCH/T1-at1105.png` at tick 1090 is the same read two ticks earlier.
+- **A level-five toll showing the surround: obtained.** `SCRATCH/T5-at1125.png` at tick 1095, fifteen ticks into the toll at 1080, through the pinned-replay path on `slice10-bell5.tape` at `#/replay?tape=/slice10-bell5.tape&at=1125`. Six wedges wrap the grave with narrow seams between them and one narrow slit dead astern. It reads as cones and not as a circle.
+
+**The pinned-replay path does not pin a tick, and the next agent who wants a toll shot should know why before spending an hour on it.** `?at=` is a fast-forward target: `tapePlaybackSession.ts`'s `begin` sets `session.target` and the replay then plays on in wall-clock time, so the tick on screen when a screenshot lands is `at` plus however long the tooling took. Worse, a bare screenshot burst samples about 120 ticks apart against the bell's 180-tick period, and 120 and 180 share a factor of 60, so the sampled phase can only ever take three values and one of them is exactly tick 45, the toll's last and fully transparent frame. Two bursts of ten found nothing for that reason and not by bad luck. What worked is `SCRATCH/sweep.sh`, which walks `at` in small steps and screenshots once per step, with `SCRATCH/conescan.py` counting `PALETTE.bellRing` pixels in a box around the grave so only the frames that actually hold a toll get read. A toll frame scores thousands against a baseline near 120. Reloading the page between steps does not help and costs more: it restarts the Pixi asset load and the screenshot catches the loading spinner.
+
+**Step 10, the fence, confirmed in the green run.** `src/__tests__/lineAgnosticPolicies.test.ts` appears in `vitest list --filesOnly`, so it is collected by the suite that went green above and not merely present on disk. Run on its own with a verbose reporter it is 11 passing tests: `offer.ts`, `carriers.ts` and `dev/bot.ts` each scanning clean, the two controls on the quoted-name scan, and the six on the constant walk including the narrow `_CAP` exception shown narrow in both directions. The witness partition guard and the boundary fence are inside the same green run.
+
+**Steps 11, 12 and 13 are Mark's and stay open.**
+
+- **Step 11, whether the toll visibly shoves and whether the cone reads as an answer.** The two toll screenshots above are what a frame looks like and they are not the judgement. `T5-at1125.png` is a level-five surround and `U1-at1107.png` is the level-one cone. The measured push behind them is in the step 7 table.
+- **Step 12, how fast a stripped player recovers.** This pass did produce strips, so the number is real rather than manufactured. **From the first `weaponStripped` at tick 1655 to the next `offerTaken` at tick 1963 is 308 ticks, 5.13 seconds at 60 Hz**, in both the `bell=3` and the `bell=5` runs. The second and third strips in those runs, at 1746 and 1851, reach the same take at 217 and 112 ticks. The `bell=0` and `bell=1` runs strip once at 1655 and seal without taking another offer, so their recovery is unmeasured rather than slow. These are one script's runs at one seed and they are not the harness.
+- **Step 13, whether the gas becomes the new lean.** Untouched by this pass. The conditioned runs press the belch too rarely to say anything.
+
+**Findings from this pass, all of them carried forward rather than fixed here.**
+
+1. **`bell=1` shoves nothing in a conditioned run**, so the plan's step 7 criterion is still half met. Cause established at slice 6 and unchanged; the bot's seed 303 ceiling run is the standing counter-witness and it is green.
+2. **Every conditioned run's totals moved since slice 6**, with the offer's mid-run rung at tick 1016 as the measured cause. Nothing to fix; it is the economy the step built.
+3. **`?at=` names a fast-forward target rather than a paused tick**, which makes a rendered check of anything short-lived a sweep instead of a shot. Written down above with the tools that worked.
+
+`WITNESS_VERSION` is still 5. `FORMAT_VERSION` is still 2. `GOLDEN` did not move and nothing outside this note was touched.
