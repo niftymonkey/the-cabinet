@@ -1,6 +1,6 @@
 # Continue: The Hungry Grave
 
-> **Last updated:** 2026-09-08 (session 10, step 1 closed, pushed as f1f376719a, #96 closed; step 2 starting)
+> **Last updated:** 2026-09-08 (session 10, step 1 closed, pushed as f1f376719a, #96 closed; step 2 not started, the next session begins at its planning read; no agent running)
 > **Branch:** `hungry-grave-v1`, a clean branch off `main`, in worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1`. The earlier branch with the cloud scaffolding is archived as `hungry-grave-v1-cloud`, locally and on origin. The clean branch is pushed to origin as `hungry-grave-v1` and tracks it; the step 1 commits below are local only until the next push.
 > **Working tree:** clean at the handoff commit; last code commit a02f5980dc (the tip review's fixes), `pnpm verify` green at the worktree root. Run `git log --oneline -30` and `git status --short` first anyway.
 
@@ -24,7 +24,7 @@ Run EnterWorktree with `path: /home/mlo/dev/niftymonkey/the-cabinet/.claude/work
 
 ### Needed from Mark
 
-- Nothing. Mark is asleep from 2026-09-08 late; the stuck rule and Discord cover anything that needs him.
+- Nothing. Start the next session from the pointer file with "let's keep going"; the stuck rule and Discord cover anything that needs him while he sleeps.
 
 ### Deferred by the tech gate to the store step (step 6 spec)
 
