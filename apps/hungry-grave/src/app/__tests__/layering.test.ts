@@ -6,6 +6,7 @@
 import { Container, Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
+import { carriersScheduled } from '../../game/carriers';
 import type { FaultRecord } from '../../game/execution';
 import type { FaultIdentity } from '../../game/faults';
 import { FAULT_IDENTITIES, FAULT_SEVERITY } from '../../game/faults';
@@ -33,6 +34,7 @@ vi.mock('../ui/Button', () => ({
 
 import { GameScreen } from '../screens/game/GameScreen';
 import {
+  bankReadout,
   FAULT_LINE_MAX_CHARS,
   faultReadout,
   levelsReadout,
@@ -267,9 +269,9 @@ describe('the game screen across a pooled reuse', () => {
 
 /**
  * How many stack lines the reserve's height covers: FPS, DEBT, TICK, SEED and
- * SIZE. The levels and fault lines below them deliberately sit past the
+ * SIZE. The bank, levels and fault lines below them deliberately sit past the
  * reserve and draw over the field, the meter's own allowance under ADR 0014,
- * so the height rule stops here and the two of them carry the width rule on
+ * so the height rule stops here and the three of them carry the width rule on
  * their own.
  */
 const RESERVED_LINES = 5;
@@ -291,6 +293,14 @@ const WIDEST_LEVELS_LINE = `LEVELS ${levelsReadout({
   wisps: MAX_LEVEL,
   bell: 0,
 })} PINNED`;
+
+/**
+ * The widest bank line the run can reach: every carrier the stage schedules
+ * killed with the offer never resolved, which is the most that can ever stand
+ * behind the live one. Derived rather than a figure written here, so a stage
+ * that schedules more carriers moves the case instead of outrunning it.
+ */
+const WIDEST_BANK_LINE = bankReadout(carriersScheduled());
 
 /** A record as the authority keeps them, for driving the readout over the closed list. */
 function faultRecord(identity: FaultIdentity): FaultRecord {
@@ -349,11 +359,14 @@ describe('the readouts stay inside the reserve the field is fitted around', () =
     );
   });
 
-  it("keeps the levels and fault lines, past the reserve's height, inside its width", () => {
-    // The two lines below the reserve draw over the field, so its height does
-    // not bind them. Its width still does: a wider line runs most of a
+  it("keeps the bank, levels and fault lines, past the reserve's height, inside its width", () => {
+    // The three lines below the reserve draw over the field, so its height
+    // does not bind them. Its width still does: a wider line runs most of a
     // 390-unit phone stage, and the fault line exists under ADR 0017's ruling
     // that it stays minimal, never a banner across the field.
+    expect(lineRight(WIDEST_BANK_LINE)).toBeLessThanOrEqual(
+      READOUT_RESERVE.width,
+    );
     expect(lineRight(WIDEST_LEVELS_LINE)).toBeLessThanOrEqual(
       READOUT_RESERVE.width,
     );
