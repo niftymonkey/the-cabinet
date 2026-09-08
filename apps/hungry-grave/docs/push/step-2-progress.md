@@ -65,6 +65,7 @@ Every other section 9 item is carried by a slice: 1 by slice 2's glossary commit
 | 2 | `1e420aeb53` | feat(hungry-grave): the stage is three named sections with one property each (#97) |
 | 3 | `4d0b156a72` | feat(hungry-grave): a phase ends on its own condition and the drain-out is a sparse row (#97) |
 | 4 | `2567dd0e95` | test(hungry-grave): the carrier schedule pays a full build before the set piece (#97) |
+| 5 | `b324994400` | feat(hungry-grave): the corpse cap refuses and faults instead of evicting food (#97) |
 
 Slice 0 records the baseline tapes and makes no commit.
 
@@ -78,6 +79,8 @@ Slice 3: none, and the slice claimed none. The scenario's 600 ticks are inside t
 
 Slice 4: none, and none was possible. The commit holds one test file and no production code at all, so nothing the digest reads can have moved; `src/dev/digest.ts` is not in the commit and the digest test is green.
 
+Slice 5: none, and none was expected. `CORPSE_CAP` rose from 200 to 233, which lengthens a pre-allocated pool and changes no behaviour the scenario can reach: the digest's 600 ticks hold one corpse. The refusal path is unreachable in the scenario for the same reason, and `src/dev/digest.ts` is not in the commit with the digest test green.
+
 ## 3. CodeRabbit
 
 Slice 1: `coderabbit review --agent --uncommitted` on the staged work, all eighteen files reviewed, **zero findings**. Nothing applied and nothing declined.
@@ -90,6 +93,8 @@ Slice 3: two runs over the seven staged files.
 - **Declined**, one Major on the second run, and it is a plan-shaped finding rather than a defect: it asks that `bossKilled` and `setPieceOpened` be evaluated through their own phase state rather than falling back to the phase's rows running out. That state does not exist yet. `RunState.boss` and `RunState.setPiece` are declared at slice 6, the bosses are slices 7 and 8, and the source is slice 10; implementing the finding today would stall every run in the Banshee phase and make the stage untraversable, which the plan's own slice 9 says outright ("no run reaches the Vigil before the source exists"). The stand-in is written in `phaseEnded`'s JSDoc and both halves of it are already pinned as named todos: module test 66 for a boss phase that is no longer empty, and spec test 115 for the Crowd ending on the eye opening.
 
 Slice 4: one run of `coderabbit review --agent --uncommitted` over the one staged file, **zero findings**. Nothing applied and nothing declined.
+
+Slice 5: one run of `coderabbit review --agent --uncommitted` over the twenty-three staged files, **zero findings**. Nothing applied and nothing declined.
 
 ## 4. Plan claims found false against the tree
 
@@ -116,6 +121,14 @@ Two from slice 4, and both are about where the work had already been done rather
 
 11. **Slice 4 reads as though it authors the schedule, and slice 2 authored all of it.** Section 10 says slice 4 is "the carrier schedule on the new rows. Eight, eleven and six, on File and V rows in the Procession and never on a Drip", while slice 2's own sentence says which rows may carry is a property of the table and is authored there. The tree agrees with slice 2: the three tables already stand at eight, eleven and six through `carrierRow`, every Procession carrier is on a File or a V, and no Drip anywhere carries. **So slice 4 changed no production code**; what it owed was the four tests, and they are what the commit holds. The plan's intent, that the schedule and its rules are held by tests before the corpse cap starts refusing spawns at slice 5, is met.
 12. **The Crowd's last row fires on the tick that section's rows run out, so its carrier is met just inside the Waking.** Spec test 54 says "before the set piece", and the Crowd's `ends` is still slice 3's stand-in, which falls back to the rows running out; the last row is `t=138` and it carries. The run rig therefore plays on past the boundary while a carrier stands, an offer is live or an offer is banked, which is a second and a bit, and everything of the set piece is still absent from the field. **Slice 10 is what settles this**: once the Crowd ends on the eye opening and its rows keep firing under the pour, the last carriers arrive under a source that is already open, and whether the sentence wants the boundary or the source's opening is that slice's to rule.
+
+Five from slice 5, and the first two are numbers the plan carried from before slice 2 re-authored the tables.
+
+13. **Section 7 says `CORPSE_CAP` becomes "initially 232", and it lands at 233.** The design record derives 232 from a Crowd whose densest ten seconds was 36, which is the table as it stood before slice 2. That table now authors 39 in its densest ten seconds, so the share it keeps firing at under the pour is 13 rather than 12 and the arrivals term is 63 rather than 62. **The cap is 160 + 63 + 10 = 233.** The number moving with the rows is the whole point of deriving it, and no test pins either figure: both sides of every assertion are computed from the same tables.
+14. **Section 4 names `SET_PIECE_POUR_TICKS`, and a module that value-imports nothing cannot know how long a tick is.** Section 5's own row for `rows.ts` says it value-imports nothing from `src/game`, and slice 3 already met this and took the same answer for the sparse row's spacing. The row lands as **`SET_PIECE_POUR_SECONDS`, 0.2**, which is the plan's twelve ticks in the table's own clock. `setPiece.ts` holds the clock and converts at slice 10, which is the direction section 5 already sets: behaviour there, data here.
+15. **Section 7 says `FAULT_IDENTITIES` gains three, and slice 5 alone gains three.** The corpse refusal, the carrier refusal and the offer refusal are the three the step 1 gate block asks for by name, and they take wire codes 16, 17 and 18. Slice 6's own invariants, module tests 95 and 96, need two more, so **the step appends five and the codes run to 20.** Append-only, so nothing is lost, but a later slice reading section 7's "three appended" as the step's total would be wrong.
+16. **`SET_PIECE_PLACED_AT` is in section 4's `rows.ts` block and is not in this slice.** Slice 5's own sentence lands "the pour's own rows and `POUR_SHARES`", and module test 128 names the budget, the interval, the health, the sweep bounds and the share. The placement second is none of those: it is the phase-local time of a Crowd row that slice 10 authors, and an exported constant with no caller and no test is dead weight. **Slice 10 lands it beside the row that reads it.**
+17. **Module test 121's other half cannot be green in this slice.** It reads "no boss's authored add cadence exceeds `BOSS_ADD_ALLOWANCE`, and no build holds more rungs than `RUNG_ALLOWANCE`". The rung half is green and derived, `RUNG_ALLOWANCE` against `carriersForFullBuild()`. The cadence half needs a boss module, which lands at slice 8, so it is pinned as the named todo `holds every add a boss's authored cadence sheds inside a freshness window` in `rows.test.ts`. **Slice 8 fills it.**
 
 ## 5. Gate corrections
 
@@ -175,6 +188,16 @@ Slice 4, from the plan's section 3:
 - **Step 4, `pnpm verify` at the repo root.** Green, run from inside the worktree, exit 0.
 - **Step 5, the test-name diff.** `vitest list --json` against `local/step2/tests-baseline.txt`, read net of slices 1 to 3, which the baseline predates. **Slice 4's own share is 4 names added, none removed and none renamed**, all four in `rows.test.ts` under `the carrier schedule across the sections (ADR 0002, ADR 0048)`. The whole diff against the baseline is 49 added and 15 removed, and every one of the 15 is slice 2's or slice 3's, already accounted for above.
 - **Step 6, GOLDEN.** Did not move, and could not: the commit holds no production code. See section 2.
+- **Steps 7 to 13 and the rendered checks** belong to later slices and were not run. **Steps 16 to 22 are Mark's and stay open.**
+
+Slice 5, from the plan's section 3:
+
+- **Step 1, unit tests.** Green. 110 files, 1461 passed, 10 expected fail, 7 todo.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 3, `pnpm build`.** Green, lint and typecheck included. Its two warnings are the two standing ones.
+- **Step 4, `pnpm verify` at the repo root.** Green, run from inside the worktree, exit 0.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step2/tests-baseline.txt`, read net of slices 1 to 4, which the baseline predates. **Slice 5's own share is 19 names added, 5 removed, and one of the 5 is a rename whose new name is among the added**: `holds fifteen identities against eighteen checks` becomes `holds eighteen identities against nineteen checks`. **The other four are the eviction path's own tests, and they retire with the ruling that superseded it**: `takes the oldest live corpse under, reports an eviction rather than an expiry, and gives the new corpse its slot` and `drops by id and not by slot index, which a recycled slot is what proves` in `caps.test.ts`, whose claim ADR 0056 reverses outright, and `evicts a corpse rather than a drop when the pool is full` and `refuses the spawn outright when every slot holds treasure` in `corpses.test.ts`, whose two cases are now one: `removes nothing already on the field whichever kind of food asks for the slot`. The whole diff against the baseline is 68 added and 20 removed, and the other 49 and 15 are slices 1 to 4's, already accounted for above. The new todo is invisible to `vitest list` as always, and shows only in the suite's own count, 7 against slice 4's 6.
+- **Step 6, GOLDEN.** Did not move, and the slice claimed none. See section 2.
 - **Steps 7 to 13 and the rendered checks** belong to later slices and were not run. **Steps 16 to 22 are Mark's and stay open.**
 
 ## 8. Slice 1, the rows module
@@ -253,3 +276,21 @@ A window is half-open, `[t, t + seconds)`, and only a window that opens on a row
 **Module 69's re-check.** It was green as written and it is stronger now: it asserted that some row somewhere carries, which was true when only two tables did, and it now asserts that each of the three sections carries, which is what the authored schedule says. Nothing else in it moved and the hand-made bad row it already carried is untouched.
 
 **One reference in the dispatch prompt does not lead anywhere.** It names ADR 0048 and ADR 0036 as the slice's rulings. ADR 0036 is the bell, and the only thread from it to a carrier is step 1's third gate correction, that the carrier's stand-in mark is a tint rather than a ring because the ring is the boss's shape. The rulings the tests actually pin are ADR 0002 (carriers meter power) and ADR 0048 (a missed carrier is missed), and those are the two the new describe names.
+
+## 12. Slice 5, the corpse cap
+
+**The seam that was added: `RunState.refusals`, a three-count ledger cleared at the top of every tick.** The plan asks the invariant harness to raise a fault on a refused corpse spawn (module test 97), and a fault can only come from `checkInvariants`, which reads the state at the end of the tick. **A refusal is invisible there.** The body that was refused is in no pool, and the slot that was full when it happened is often free again by the time the tick ends: corpses spawn in `resolveDeaths`, and `advanceCorpses` and `cullCorpses` both run after it. A check over a full pool would therefore miss the refusal it exists to catch, and it could not tell the corpse refusal from the carrier's or the offer's, which the step 1 gate block asks for as three identities. So `claimSlot`, `spawnRow` and `standOffer` each count their own refusal, `step` clears the ledger first thing, and `checkRefusals` reads it last thing. Nothing in the rules reads it.
+
+**It is excluded from the witness fold rather than folded, and `WITNESS_VERSION` did not move.** Slice 6 moves it once, which is the plan's ruling, and a fold widened here would be a second fold shape under one version. The exclusion is honest rather than convenient: every refusal is decided by the pools the fold already walks, so a divergence in the ledger is a divergence the witness already sees. The three paths are named in `witness.test.ts`'s `EXCLUDED` with that reason, and in `invariants.test.ts`'s own no-NaN `EXCLUDED` with a second one, that a counter cleared to zero and only ever incremented by one has no arithmetic that could produce a NaN.
+
+**The cap is 233 and every term of it is computed.** `MOB_CAP` 160, `peakArrivals(FRESHNESS_SECONDS)` 63, `TREASURE_ALLOWANCE` 10. The 63 is the Waking's window: 50 poured bodies in ten seconds plus the Crowd's 39-body densest ten seconds at its third share, rounded up to 13. The rounding is up on purpose and the reason is on the function: a fraction of a body is a whole body arriving, and a cap that rounds its own worst case down can bind on the beat the worst case named. The other three terms of the query stand where slice 1 left them, and the Undertaker's window, 7 adds plus 19 rungs, is 26 and sits well inside the 63, which is the thing the third and fourth terms exist to prove.
+
+**`CarrierLost` gained a reason and it is a closed union of two.** `leftField` is the ordinary one the cull already emitted, and `cap` is a carrying placement the mob pool refused, which `spawnDueRows` used to drop on the floor with `spawnMob`'s null. One event with a reason rather than two events, on the `PatchClosed` precedent the plan cites for `SetPieceClosing`. A refused body that carries nothing is deliberately silent: that is density the player never met and the director's problem, and there is a test that says so.
+
+**An offer whose bodies are all refused banks, and `openBanked` is what hands it back.** `standOffer` increments the bank and reports `offerBanked`; the per-tick site slice 2 landed opens it on the first tick with room. The bank is never left short by the path through `openBanked`, which decrements before it stands the offer and re-increments if the pool refuses it.
+
+**The tests were proved to bite rather than assumed to.** Four mutations, each reverted. Putting the eviction back into `claimSlot` turned six tests red across three files, including the behavioural one that watches every body leaving the field. Dropping the pour term from `peakArrivals` turned the query test red and nothing else, which is right: the cap's own test computes both sides from the same function on purpose, so what guards the term is the query's test and not the cap's. Inverting the carrier guard in `spawnRow` turned both stage tests red, and dropping the bank from `standOffer` turned the offer test red.
+
+**The one test that plays a run drives it through the authority rather than through `stepping`.** `stepping` throws on any fault, and the run under test starts with a full corpse pool on purpose, so the corpse cap's own fault is expected there. It builds an `Execution` instead, asserts every body that stopped being alive was matched by what its tick reported, and asserts at the end that the run really did lose food all three ways and that the only fault recorded was the cap's. Without the full pool the assertion would pass over an empty set, which is the trap `docs/agents/lessons.md` names.
+
+**`FieldRenderer` needed no edit.** It already sizes both food layers from `CORPSE_CAP`, so the pool followed the cap on its own; module test 109 reads the two sprite layers against the run's own corpse pool rather than against the constant, which is the stronger form and what the plan's warning about the two pools disagreeing is about.
