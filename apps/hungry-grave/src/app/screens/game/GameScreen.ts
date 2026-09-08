@@ -6,6 +6,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { SimEvent } from '../../../game/events';
 import { territoryCharge } from '../../../game/lines/territory';
 import type { RunState } from '../../../game/run';
+import { phaseUnderway } from '../../../game/stage/stage';
 import { RESERVOIR_CAPACITY } from '../../../game/tuning';
 import type { FrameReason } from '../../../tape/tape';
 import type { FieldPlacement } from '../../layout';
@@ -69,6 +70,8 @@ interface GameScreenProps extends ButtonChrome {
   showEnd(): Promise<void>;
   // Every sound this run's events make.
   playSound(event: SimEvent): void;
+  // The loop the section this run is in plays (ADR 0049).
+  playMusic(event: SimEvent): void;
   // The canvas a gesture the platform took away is announced on.
   canvas: HTMLCanvasElement | null;
   // What the renderer says about itself, for this run's tape header.
@@ -257,6 +260,9 @@ class GameScreen extends Container {
     );
     this.hud.showIdentity(started.identity);
     this.syncScreen(started.run);
+    // The section the run opens in. The stage announces crossings alone, so the
+    // first section has no event of its own and a run would open on silence.
+    this.announce(started.run, [phaseUnderway(started.run)]);
     this.hud.render(this.session.readout);
 
     this.releaseKeys = bindKeyPress('Escape', () => this.togglePause());
@@ -403,6 +409,7 @@ class GameScreen extends Container {
   private announce(run: RunState, events: readonly SimEvent[]): void {
     for (const event of events) {
       this.props.playSound(event);
+      this.props.playMusic(event);
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
     }

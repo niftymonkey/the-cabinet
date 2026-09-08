@@ -54,6 +54,7 @@ import { TICK_MS } from '../../game/clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
 import { SIZE_FLOOR } from '../../game/tuning';
+import type { SimEvent } from '../../game/events';
 import { FAULT_IDENTITIES } from '../../game/faults';
 import { PHASES } from '../../game/stage/stage';
 import { PausePopup } from '../popups/PausePopup';
@@ -86,6 +87,9 @@ const canvas = {
  */
 const armed: { endRun: (() => void) | null } = { endRun: null };
 
+/** Every cue the music channel was handed, in the order the run made them. */
+const musicCued: SimEvent[] = [];
+
 /**
  * A game screen holding faked powers, the way navigation hands them in. Every
  * hop goes to the navigation fake above, so the assertions below still count
@@ -104,6 +108,7 @@ function gameScreen(): GameScreen {
     menuShowing: () => navigation.currentPopup instanceof PausePopup,
     showEnd: () => Promise.resolve(navigation.showScreen(EndScreen)),
     playSound: () => {},
+    playMusic: (event) => void musicCued.push(event),
     playButtonSound: () => {},
     canvas,
     // The tape header records the renderer's backend and resolution once per
@@ -270,9 +275,34 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
   beforeEach(() => {
     keyHandlers.clear();
     canvasListeners.clear();
+    musicCued.length = 0;
     navigation.currentPopup = undefined;
     presentPopup.mockReset().mockResolvedValue(undefined);
     dismissPopup.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('cues the section a run opens in, and cues it again on the next run out of the pool', () => {
+    // The stage announces crossings alone, so nothing tells the music which
+    // section a run begins in and the whole first section would play silent.
+    // A pooled screen has to say it again, because the second run out of the
+    // pool begins in that section too and the channel is still holding the
+    // loop the first run ended on.
+    const screen = gameScreen();
+
+    screen.prepare();
+    expect(musicCued).toEqual([
+      {
+        type: 'phaseChanged',
+        phase: PHASES[0].name,
+        music: PHASES[0].music,
+        tick: 0,
+      },
+    ]);
+
+    screen.reset();
+    screen.prepare();
+    expect(musicCued).toHaveLength(2);
+    screen.reset();
   });
 
   it('reset() removes every listener prepare() added: the key listeners, the blur listener and the canvas pointercancel listener', () => {

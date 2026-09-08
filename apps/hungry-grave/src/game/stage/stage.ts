@@ -335,6 +335,26 @@ const arriveBoss = (
 };
 
 /**
+ * The phase the run stands in, said out loud, with the loop that phase names
+ * on it (ADR 0049).
+ *
+ * enterNextPhase is the only site that announces a phase, so the first phase of
+ * the table has no crossing of its own: a run begins already inside it. Anything
+ * outside the sim that follows the phase, the section's music above all, would
+ * open a run deaf to the section it opens in, so the app asks for this once when
+ * a run begins. It reports and changes nothing, so any tick may ask.
+ */
+const phaseUnderway = (state: RunState): SimEvent => {
+  const phase = PHASES[state.stage.phaseIndex];
+  return {
+    type: 'phaseChanged',
+    phase: phase.name,
+    music: phase.music,
+    tick: state.tick,
+  };
+};
+
+/**
  * The next phase, announced, with whatever boss it carries put on the field.
  *
  * It reads the table's own columns rather than a phase's name, so a phase
@@ -345,9 +365,8 @@ const enterNextPhase = (state: RunState, events: SimEvent[]): void => {
   stage.phaseIndex += 1;
   stage.phaseTick = 0;
   stage.firedRows = 0;
-  const phase = PHASES[stage.phaseIndex];
-  events.push({ type: 'phaseChanged', phase: phase.name, tick: state.tick });
-  arriveBoss(state, phase, events);
+  events.push(phaseUnderway(state));
+  arriveBoss(state, PHASES[stage.phaseIndex], events);
 };
 
 /**
@@ -435,6 +454,7 @@ const advanceStage = (state: RunState): SimEvent[] => {
 export {
   createStage,
   phaseEnded,
+  phaseUnderway,
   advanceStage,
   winStage,
   bankOpensNow,

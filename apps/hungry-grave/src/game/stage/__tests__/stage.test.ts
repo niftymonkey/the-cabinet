@@ -52,7 +52,7 @@ import {
 } from '../rows';
 import { placeSetPiece } from '../setPiece';
 import type { Phase, PhaseName } from '../stage';
-import { advanceStage, PHASES, phaseEnded } from '../stage';
+import { advanceStage, PHASES, phaseEnded, phaseUnderway } from '../stage';
 import { place } from '../templates';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
@@ -635,6 +635,26 @@ describe('the phase machine (ADR 0006)', () => {
       'undertaker',
       'over',
     ]);
+  });
+
+  it('says which loop plays on every crossing, and says it for the phase a run opens in too', () => {
+    // enterNextPhase is the only site that announces a phase, so the section a
+    // run begins in has no crossing of its own and anything following the phase
+    // from outside would open deaf to it (ADR 0049's stand-in music). The
+    // announcement is one function, so a run's first section is the same fact
+    // as every boundary after it rather than a second way of saying it.
+    const crossed = STILL_PLAY.events.flatMap((event) =>
+      event.type === 'phaseChanged' ? [event.music] : [],
+    );
+    expect(crossed).toEqual(PHASES.slice(1).map((phase) => phase.music));
+
+    const opening = createRun(20260908);
+    expect(phaseUnderway(opening)).toEqual({
+      type: 'phaseChanged',
+      phase: PHASES[0].name,
+      music: PHASES[0].music,
+      tick: opening.tick,
+    });
   });
 
   it('resets the phase clock at every boundary and never runs the phase index backwards', () => {

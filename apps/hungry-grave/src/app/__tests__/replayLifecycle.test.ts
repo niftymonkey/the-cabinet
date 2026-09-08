@@ -68,6 +68,7 @@ function gameScreen(): GameScreen {
     menuShowing: () => navigation.currentPopup instanceof PausePopup,
     showEnd: () => Promise.resolve(navigation.showScreen()),
     playSound: () => {},
+    playMusic: () => {},
     playButtonSound: () => {},
     canvas,
     // The tape header records the renderer's backend and resolution once per

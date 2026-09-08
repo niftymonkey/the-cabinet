@@ -6,7 +6,7 @@ import type { PatchClosing } from './lines/territory';
 import type { FireKind } from './mobFire';
 import type { DamageSource, MobType } from './mobs';
 import type { BossKind } from './stage/rows';
-import type { PhaseName } from './stage/stage';
+import type { PhaseMusic, PhaseName } from './stage/stage';
 import type { FoodKind } from './swallow';
 
 // Food went in.
@@ -386,6 +386,16 @@ interface OfferLost {
 interface PhaseChanged {
   readonly type: 'phaseChanged';
   readonly phase: PhaseName;
+  /**
+   * The loop the phase names, or null where it names none (ADR 0049).
+   *
+   * It rides the event rather than being looked up from the phase table,
+   * because src/app/sound.ts may reach the event list and nothing else
+   * (src/__tests__/boundary.test.ts). The sim says which loop a section plays
+   * and src/app resolves that name to a file, which is the split ADR 0049 asks
+   * for: the authored fact stays in the sim, the filename stays in the app.
+   */
+  readonly music: PhaseMusic | null;
   readonly tick: number;
 }
 
@@ -439,4 +449,8 @@ type SimEvent =
   | OfferLost
   | PhaseChanged;
 
-export type { CarrierLoss, SetPieceClosing, SimEvent };
+// PhaseMusic is the stage's own type and is re-exported here because a phase
+// change carries it: src/app/sound.ts may reach this module and no other
+// (src/__tests__/boundary.test.ts), so the vocabulary a subscriber reads has to
+// be reachable from the vocabulary it subscribes to.
+export type { CarrierLoss, PhaseMusic, SetPieceClosing, SimEvent };

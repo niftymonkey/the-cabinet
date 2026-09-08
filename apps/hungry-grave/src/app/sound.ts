@@ -1,4 +1,4 @@
-import type { SimEvent } from '../game/events';
+import type { PhaseMusic, SimEvent } from '../game/events';
 
 /**
  * The game's voice. It subscribes to the event list and nothing else.
@@ -100,6 +100,74 @@ const playFor = (output: SoundOutput, event: SimEvent): void => {
 };
 
 /**
+ * Where the music comes out: the one call the voice makes of the music channel.
+ *
+ * A second seam and not a widening of SoundOutput, because SFX.play and BGM.play
+ * are different objects on the engine (src/engine/audio/AudioPlugin.ts) and
+ * folding them would put a stop-and-fade contract on a one-shot. It carries no
+ * volume, because BGM fades every track it starts to the music volume the player
+ * set (src/engine/audio/audio.ts), so one passed here would be overwritten a
+ * line later.
+ */
+interface MusicOutput {
+  play(alias: string): void;
+}
+
+/**
+ * The stand-in loops' own bundle, which no screen declares.
+ *
+ * Not 'main': navigation awaits a screen's declared bundles before building it
+ * (src/engine/navigation/navigation.ts) and all seven screens declare main, so
+ * music in it would make every screen in the app wait on four megabytes. The
+ * engine background-loads every bundle instead, and whoever plays a loop waits
+ * on this one alone.
+ */
+const MUSIC_BUNDLE = 'music';
+
+/**
+ * The file each loop plays: three loops, one per section (ADR 0049, decision
+ * 22's amendment). A funeral toll under the Procession that is still playing
+ * when the Banshee arrives, a driving one under the section that owns overlap,
+ * and a hollow call from the eye opening through the burial.
+ *
+ * The phase names the loop and this table names the file, which is what makes
+ * six loops a data-row edit: a phase naming a loop with no file here does not
+ * compile, and the table having a loop no phase names is caught in test.
+ */
+const LOOPS: Record<PhaseMusic, string> = {
+  procession: 'music/bells-of-death.mp3',
+  crowd: 'music/seek-n-slaughter.mp3',
+  waking: 'music/a-hollow-call.mp3',
+};
+
+/**
+ * Which loop an event asks for, or null for the events that ask for none.
+ *
+ * A phase change asks on every crossing, the ones whose phase names the loop
+ * already playing included: the engine makes a play call on an unchanged alias
+ * a no-op (src/engine/audio/audio.ts), so seven phases naming three loops make
+ * two audible changes and nothing here counts them.
+ */
+const musicFor = (event: SimEvent): string | null => {
+  if (event.type !== 'phaseChanged') return null;
+  if (event.music === null) return null;
+  return LOOPS[event.music];
+};
+
+/**
+ * Plays whatever loop this event asks for.
+ *
+ * Whether the alias is there to play is the caller's, not this module's: the
+ * music bundle is background-loaded and no screen waits on it, so the channel
+ * src/main.ts builds is what holds the cue until the bundle is in.
+ */
+const playMusicFor = (output: MusicOutput, event: SimEvent): void => {
+  const alias = musicFor(event);
+  if (alias === null) return;
+  output.play(alias);
+};
+
+/**
  * Unlocks the audio context on the first real user gesture.
  *
  * Browser autoplay policy blocks audio before a gesture, and the boot already
@@ -117,4 +185,13 @@ const primeSound = (): void => {
     .catch(() => undefined);
 };
 
-export { clipFor, playFor, primeSound };
+export {
+  clipFor,
+  playFor,
+  primeSound,
+  musicFor,
+  playMusicFor,
+  LOOPS,
+  MUSIC_BUNDLE,
+};
+export type { MusicOutput };

@@ -36,6 +36,7 @@ describe('section timeline', () => {
       const crossing: SimEvent = {
         type: 'phaseChanged',
         phase: phase.name,
+        music: phase.music,
         tick: CROSSED_AT[at],
       };
       observeSectionTimeline(accumulator, [crossing]);

@@ -1,4 +1,4 @@
-import { BlurFilter } from 'pixi.js';
+import { Assets, BlurFilter } from 'pixi.js';
 
 import { createFpsMeter } from './app/FpsMeter';
 import { FpsSampler } from './app/FpsSampler';
@@ -18,7 +18,8 @@ import { GameScreen } from './app/screens/game/GameScreen';
 import { LoadScreen } from './app/screens/LoadScreen';
 import { PrototypesScreen } from './app/screens/PrototypesScreen';
 import { TitleScreen } from './app/screens/TitleScreen';
-import { playFor } from './app/sound';
+import type { MusicOutput } from './app/sound';
+import { MUSIC_BUNDLE, playFor, playMusicFor } from './app/sound';
 import { userSettings } from './app/userSettings';
 import { prototypeHash } from './prototypes';
 import { CreationEngine, registerEnginePlugins } from './engine/engine';
@@ -116,6 +117,29 @@ const buttonSound = (engine: CreationEngine) => ({
   },
 });
 
+/**
+ * Where a section's loop comes out, and what holds it until it can.
+ *
+ * The music bundle is background-loaded and no screen declares it, so the first
+ * section's cue can land before the file is there and the library throws on an
+ * alias it has not registered. Awaiting the bundle is what turns that into a
+ * late start instead of a lost cue, and the awaits resolve in the order the
+ * cues were made, so a run that crosses a boundary while the bundle is still
+ * coming still ends on the loop its own phase named.
+ */
+const musicChannel = (engine: CreationEngine): MusicOutput => ({
+  play: (alias) => {
+    void Assets.loadBundle(MUSIC_BUNDLE)
+      .then(() => engine.audio.bgm.play(alias))
+      .catch((error) =>
+        console.warn(
+          `the section music ${alias} would not play; the run carries on without it`,
+          error,
+        ),
+      );
+  },
+});
+
 /** A volume the player moved: heard now, and kept for the next sitting. */
 const volumePowers = (engine: CreationEngine) => ({
   setMasterVolume: (value: number): void => {
@@ -169,17 +193,22 @@ const showEnd = (engine: CreationEngine): Promise<void> =>
   });
 
 /** A run, and every power the screen it plays on cannot reach on its own. */
-const showGame = (engine: CreationEngine): Promise<void> =>
-  engine.navigation.showScreen(GameScreen, {
+const showGame = (engine: CreationEngine): Promise<void> => {
+  // One channel per showing rather than one per event: the screen asks on every
+  // event a run emits.
+  const music = musicChannel(engine);
+  return engine.navigation.showScreen(GameScreen, {
     openMenu: (endRun) => showPauseMenu(engine, endRun),
     closeMenu: () => engine.navigation.dismissPopup(),
     menuShowing: () => engine.navigation.currentPopup instanceof PausePopup,
     showEnd: () => showEnd(engine),
     playSound: (event) => playFor(engine.audio.sfx, event),
+    playMusic: (event) => playMusicFor(music, event),
     ...buttonSound(engine),
     canvas: engine.canvas,
     renderer: engine.renderer,
   });
+};
 
 /** The front door, and the two places it leads. */
 const showTitle = (engine: CreationEngine): Promise<void> =>

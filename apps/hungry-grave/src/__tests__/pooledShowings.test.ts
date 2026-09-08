@@ -113,6 +113,7 @@ function showing(tag: string, menusOpened: string[]): Showing {
       menuShowing: () => false,
       showEnd: () => Promise.resolve(),
       playSound: () => {},
+      playMusic: () => {},
       // Button is faked in this file, so no button ever asks for a sound.
       playButtonSound: () => {},
       canvas: null,
