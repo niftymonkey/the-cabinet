@@ -528,6 +528,13 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.upfieldTraffic.lateralReach',
     (report) => report.tuning.upfieldTraffic.lateralReach,
   ),
+  // A list and never a series: the spans are one entry per phase crossed, and
+  // two runs that crossed a different number of phases have no index to pair.
+  // The count is how far through the stage each side reached.
+  listReading(
+    'tuning.sectionTimeline.spans',
+    (report) => report.tuning.sectionTimeline.spans,
+  ),
   scalarReading('performance.frames', (report) => report.performance.frames),
   namedNumbersReading('performance.interval', (report) =>
     distributionNumbers(report.performance.interval),

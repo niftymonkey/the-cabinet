@@ -18,6 +18,7 @@ import type { WeaponLine } from '../../game/lines/roster';
 import type { TickCommand } from '../../game/command';
 import type { RunEnding, RunState } from '../../game/run';
 import { createRun } from '../../game/run';
+import { PHASES } from '../../game/stage/stage';
 import { SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
 import type { DecodedTape } from '../../tape/decode';
@@ -795,6 +796,32 @@ describe('measure', () => {
     expect(Object.keys(traffic.perLay)).toHaveLength(BAND_COUNT);
     expect(traffic.bandUnits).toBe(BAND_UNITS);
     expect(traffic.lateralReach).toBe(LATERAL_REACH);
+  });
+
+  it('reports one span per section crossed, the live one open where the tape stops', () => {
+    // The section timeline's other half (ADR 0026: a partial tape is a valid
+    // tape). The rich fixture stops inside a fight rather than at a boundary,
+    // so the section it stopped in is still live: it is reported open rather
+    // than closed at the last tick, while every section it left behind is
+    // closed on the tick the next one began. The names come from the stage's
+    // own table and the ticks from the run, because what a section costs is
+    // the tuning pass's to move.
+    const spans = richFixture().measured.tuning.sectionTimeline.spans;
+    const crossed = spans.slice(0, -1);
+    const live = spans[spans.length - 1];
+
+    expect(spans.map((span) => span.phase)).toEqual(
+      PHASES.slice(0, spans.length).map((phase) => phase.name),
+    );
+    expect(crossed.length).toBeGreaterThan(0);
+    expect(spans[0].from).toBe(0);
+    crossed.forEach((span, at) => {
+      expect(span.to).toBe(spans[at + 1].from);
+    });
+    expect(live.to).toBeNull();
+    // And the tape really did run on inside the live section, so the open span
+    // is a section the recording stood in rather than one it only reached.
+    expect(richFixture().measured.run.ticks).toBeGreaterThan(live.from);
   });
 
   it("keeps the tape's recorded faults and today's readback faults separate lists", () => {

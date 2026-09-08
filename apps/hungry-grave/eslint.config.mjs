@@ -52,7 +52,11 @@ const random = {
 };
 
 export default tseslint.config(
-  { ignores: ['dist'] },
+  // local/ holds throwaway instruments, and it is excluded from git, from
+  // prettier and from here: a folder that survives a context reset must not be
+  // able to break the standing checks on a tree that is otherwise green. The
+  // repo root's own config already names it.
+  { ignores: ['dist', 'local'] },
   {
     extends: [
       js.configs.recommended,
