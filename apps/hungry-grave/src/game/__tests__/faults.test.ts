@@ -18,11 +18,12 @@ describe('the fault list itself (ADR 0017)', () => {
     );
   });
 
-  it('holds fifteen identities against eighteen checks, six of them fatal', () => {
-    // Two checks carry two identities each: checkPools records the caps and
-    // the ids, and checkStage records the two phase invariants. Against that,
-    // the six bounds checks share one identity between them.
-    expect(FAULT_IDENTITIES).toHaveLength(15);
+  it('holds eighteen identities against nineteen checks, six of them fatal', () => {
+    // Three checks carry more than one identity: checkPools records the caps
+    // and the ids, checkStage records the two phase invariants, and
+    // checkRefusals records one per cap that can turn something away. Against
+    // that, the six bounds checks share one identity between them.
+    expect(FAULT_IDENTITIES).toHaveLength(18);
     const fatal = FAULT_IDENTITIES.filter(
       (identity) => FAULT_SEVERITY[identity] === 'fatal',
     );

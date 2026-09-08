@@ -8,9 +8,10 @@ import { describe, expect, it } from 'vitest';
 
 import { stepping } from '../../dev/stepping';
 
-import { DROP_HALF_EXTENT } from '../corpses';
+import { DROP_HALF_EXTENT, spawnDrop } from '../corpses';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { graveWidth } from '../grave';
+import { checkInvariants, createStageWatch } from '../invariants';
 import type { WeaponLine } from '../lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import { spawnMob } from '../mobs';
@@ -540,6 +541,39 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
     expect(openBankedOffer(state, true)).toEqual([]);
     expect(state.offer).toBeNull();
     expect(state.bankedOffers).toBe(0);
+  });
+
+  it('banks an offer whose every body the corpse cap refused, and opens it once there is room', () => {
+    // Supply must not vanish at a cap. An offer whose three bodies are all
+    // refused used to return no event, no fault and no bank increment, so a
+    // carrier's whole payment disappeared with nothing said. ADR 0048's
+    // "missed is missed" is about a carrier the player let past, never about
+    // one the game could not put on the field.
+    const state = quietRun();
+    while (state.corpses.some((corpse) => !corpse.alive)) {
+      // No line on the bodies: an option body standing for no live offer is
+      // itself a fault, and what is under test here is the cap.
+      spawnDrop(state, 10, 10);
+    }
+
+    const events = openOffer(state, 200, 100);
+
+    expect(typesOf(events)).toEqual(['offerBanked']);
+    expect(state.offer).toBeNull();
+    expect(state.bankedOffers).toBe(1);
+    const faults = checkInvariants(state, createStageWatch());
+    const refusal = faults.find(
+      (fault) => fault.identity === 'offer stands a body',
+    );
+    expect(refusal?.severity).toBe('recoverable');
+
+    // And the bank's own tick hands it back the moment the pool has room, so
+    // the payment is delayed rather than lost.
+    for (const corpse of state.corpses) corpse.alive = false;
+    const opened = openBankedOffer(state, true);
+    expect(typesOf(opened)).toContain('offerOpened');
+    expect(state.bankedOffers).toBe(0);
+    expect(state.offer!.bodyIds).toHaveLength(OFFER_SIZE);
   });
 
   it('permits a banked offer to open in every phase but the one the run has ended in', () => {

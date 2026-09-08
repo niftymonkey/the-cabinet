@@ -23,6 +23,7 @@ import {
 } from './offer';
 import { overlaps } from './overlap';
 import type { RunState } from './run';
+import { clearRefusals } from './run';
 import { advanceStage, bankOpensNow } from './stage/stage';
 import { resolveStorm } from './storm';
 import { swallow } from './swallow';
@@ -213,6 +214,9 @@ const resolveDeaths = (
  */
 const step = (state: RunState, command: TickCommand): SimEvent[] => {
   const events: SimEvent[] = [];
+  // First, so what a cap refuses is this tick's own count when the harness
+  // reads it at the end of the tick (ADR 0056).
+  clearRefusals(state);
   scrollField(state);
   moveGrave(state.grave, command.move);
   if (command.belch) events.push(...fireBelch(state));

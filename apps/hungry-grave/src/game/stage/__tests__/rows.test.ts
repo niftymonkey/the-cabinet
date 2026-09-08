@@ -41,8 +41,14 @@ import {
   BOSS_ADD_ALLOWANCE,
   CROWD_ROWS,
   peakArrivals,
+  POUR_SHARES,
   PROCESSION_ROWS,
   RUNG_ALLOWANCE,
+  SET_PIECE_BUDGET,
+  SET_PIECE_HP,
+  SET_PIECE_POUR_SECONDS,
+  SET_PIECE_SWEEP_MAX_X,
+  SET_PIECE_SWEEP_MIN_X,
   SPARSE_LAST_ROW,
   VIGIL_ROWS,
 } from '../rows';
@@ -252,16 +258,22 @@ const playToTheWaking = (seed: number): Reached => {
 
 describe('the peak-arrivals query (ADR 0056)', () => {
   it('reports the most bodies the stage can put on the field inside a window', () => {
-    // The densest ten seconds in the authored tables is the Crowd's four rows
-    // from t=130, the climb into the Waking. The expected value is summed from
-    // the table rather than written down, so re-authoring the rows moves both
-    // sides together.
+    // The densest ten seconds the tables author is the Crowd's four rows from
+    // t=130, the climb into the Waking, and the densest ten seconds in the
+    // stage is the pour on top of what that section keeps firing under it.
+    // Every expected value is summed from the rows rather than written down,
+    // so re-authoring them moves both sides together.
     const densest = between(CROWD_ROWS, 130, 140);
     expect(densest).toHaveLength(4);
-    expect(peakArrivals(10)).toBe(totalOf(densest));
+    const poured = 10 / SET_PIECE_POUR_SECONDS;
+    expect(poured).toBeLessThanOrEqual(SET_PIECE_BUDGET);
+    expect(peakArrivals(10)).toBe(
+      poured + Math.ceil(POUR_SHARES.crowd * totalOf(densest)),
+    );
 
-    // It is the maximum over the whole stage, so it stands above each other
-    // section's own densest ten seconds and above the boss phase's window.
+    // It is the maximum over the whole stage, so it stands above each section's
+    // own densest ten seconds and above the boss phase's window.
+    expect(totalOf(densest)).toBeLessThan(peakArrivals(10));
     expect(totalOf(between(PROCESSION_ROWS, 95, 105))).toBeLessThan(
       peakArrivals(10),
     );
@@ -271,20 +283,29 @@ describe('the peak-arrivals query (ADR 0056)', () => {
 
   it('counts what a boss sheds and what a hit strips, where no table is denser', () => {
     // No two authored rows fall inside one second, so a one-second window holds
-    // one row at most and the largest window in the stage is the boss phase's:
-    // a boss's own adds plus the rungs a hit can strip onto the field. Without
-    // those two terms the query would never look inside a boss fight at all.
+    // one row at most, and one second of pour is five bodies, so the largest
+    // window in the stage at that length is the boss phase's: a boss's own adds
+    // plus the rungs a hit can strip onto the field. Without those two terms
+    // the query would never look inside a boss fight at all.
     const busiestRow = Math.max(...EVERY_ROW.map((row) => row.count));
     expect(busiestRow).toBeLessThan(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
+    const pourInOneSecond =
+      1 / SET_PIECE_POUR_SECONDS + Math.ceil(POUR_SHARES.crowd * busiestRow);
+    expect(pourInOneSecond).toBeLessThan(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
     expect(peakArrivals(1)).toBe(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
   });
 
   it('is computed from the rows, and is zero for a window of no length', () => {
     expect(peakArrivals(0)).toBe(0);
 
-    // A window wider than a section holds every body that section authors, so
-    // a row added to the densest table moves the answer.
+    // A window wider than the whole stage holds every body the densest section
+    // authors, so a row added to that table moves the answer. It is the pour
+    // that falls behind at that length rather than the table: a pour is bounded
+    // by its own budget and a section's rows are not.
     expect(peakArrivals(600)).toBe(totalOf(CROWD_ROWS));
+    expect(peakArrivals(600)).toBeGreaterThan(
+      SET_PIECE_BUDGET + Math.ceil(POUR_SHARES.crowd * totalOf(CROWD_ROWS)),
+    );
     expect(totalOf(CROWD_ROWS)).toBeGreaterThan(totalOf(PROCESSION_ROWS));
     expect(totalOf(CROWD_ROWS)).toBeGreaterThan(totalOf(VIGIL_ROWS));
 
@@ -294,6 +315,63 @@ describe('the peak-arrivals query (ADR 0056)', () => {
     );
     expect(answers).toEqual([...answers].sort((first, next) => first - next));
   });
+});
+
+describe("the pour's own rows, and the share under it (ADR 0042, ADR 0050)", () => {
+  it("declares the pour's budget, interval, health and sweep bounds here, and reaches no module that spawns", () => {
+    // The pour is data here and behaviour in setPiece.ts, one direction only:
+    // peakArrivals needs the pour's rate, setPiece.ts spawns through mobs.ts,
+    // and mobs.ts reads caps.ts, so a rows.ts that reached setPiece.ts for the
+    // rate would close the cycle the corpse cap's derivation exists inside.
+    expect(SET_PIECE_BUDGET).toBeGreaterThan(0);
+    expect(SET_PIECE_POUR_SECONDS).toBeGreaterThan(0);
+    expect(SET_PIECE_HP).toBeGreaterThan(0);
+    expect(SET_PIECE_SWEEP_MIN_X).toBeLessThan(SET_PIECE_SWEEP_MAX_X);
+    const imports = rowsSource.match(/^import [^;]*;/gm) ?? [];
+    expect(imports.length).toBeGreaterThan(0);
+    expect(imports.filter((line) => !line.startsWith('import type'))).toEqual(
+      [],
+    );
+  });
+
+  it('keeps the section under the pour firing at a share of its own rate, and every other section whole', () => {
+    // The share is a data row and what is held is the relation: non-zero, so
+    // the set piece never arrives into silence, and below the section's own
+    // authored rate, so it thins under the pour (ADR 0051).
+    expect(POUR_SHARES.crowd).toBeGreaterThan(0);
+    expect(POUR_SHARES.crowd).toBeLessThan(1);
+    expect(POUR_SHARES.procession).toBe(1);
+    expect(POUR_SHARES.vigil).toBe(1);
+  });
+
+  it('pours faster than the densest ten seconds the sections author', () => {
+    // The loudest beat in the run cannot arrive thinner than the section it
+    // interrupts. The relation is what is held, never either magnitude.
+    const densestTable = Math.max(
+      ...SECTIONS.map((rows) =>
+        Math.max(
+          ...rows.map((row) => totalOf(between(rows, row.t, row.t + 10))),
+        ),
+      ),
+    );
+    expect(10 / SET_PIECE_POUR_SECONDS).toBeGreaterThan(densestTable);
+  });
+});
+
+describe("the corpse cap's two boss-fight allowances (ADR 0007, ADR 0055)", () => {
+  it('holds every rung a full build can strip onto the field', () => {
+    // A hit at the floor strips a rung and puts a body on the field (ADR 0055),
+    // and the corpse pool is what holds it. The allowance is bounded twice
+    // over, by the hit clock and by the build, and the build is the tighter of
+    // the two: a run cannot strip a rung it never bought, and what it can buy
+    // is exactly a full build's worth of carriers.
+    expect(RUNG_ALLOWANCE).toBeGreaterThanOrEqual(carriersForFullBuild());
+  });
+
+  // Its cadence is authored in the boss's own module, which lands at slice 8.
+  it.todo(
+    "holds every add a boss's authored cadence sheds inside a freshness window",
+  );
 });
 
 describe('the section tables as data (ADR 0006)', () => {

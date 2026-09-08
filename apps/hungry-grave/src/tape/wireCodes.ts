@@ -109,6 +109,9 @@ const FAULT_IDENTITY_CODES: Readonly<Record<FaultIdentity, number>> = {
   'one live offer': 13,
   'offer bodies alive and matching': 14,
   'bank not negative': 15,
+  'corpse cap never binds': 16,
+  'carrier spawn never refused': 17,
+  'offer stands a body': 18,
 };
 
 const FAULT_SEVERITIES = ['fatal', 'recoverable'] as const;

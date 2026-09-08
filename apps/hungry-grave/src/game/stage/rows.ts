@@ -36,6 +36,13 @@ interface StageRow {
 type BossKind = 'banshee' | 'undertaker';
 
 /**
+ * The three sections, as the tables' own key (ADR 0049, ADR 0050). It is the
+ * key the pour's shares are read by, so a section and the rate it keeps firing
+ * at under the pour cannot come apart.
+ */
+type SectionName = 'procession' | 'crowd' | 'vigil';
+
+/**
  * The sparse last row's own shape (ADR 0051): how many bodies it lands, which
  * type they are, and how far apart they fall. It is a record rather than three
  * loose numbers because the three only mean anything together, and a tuning
@@ -643,6 +650,66 @@ const VIGIL_ROWS: readonly StageRow[] = [
 ];
 
 /**
+ * The Waking's pour, as data (ADR 0042, ADR 0050). The source's behaviour is
+ * setPiece.ts's and every magnitude it runs on is here, one direction only:
+ * peakArrivals below needs the pour's rate, and setPiece.ts spawns through
+ * mobs.ts, which reads caps.ts, which reads this query. A rows.ts that asked
+ * setPiece.ts for the rate would close that circle.
+ *
+ * All initial rows, tuned by the harness at step 4, with the arithmetic in the
+ * design record's section 2.
+ */
+
+/**
+ * Bodies the source pours before it is spent. Seventy-five at the interval
+ * below is fifteen seconds of pour, which is shorter than the source's own
+ * descent, so the ordinary end is the budget rather than the bottom edge.
+ */
+const SET_PIECE_BUDGET = 75;
+
+/**
+ * How long the source waits between bodies, in the table's own clock. A fifth
+ * of a second is one body every twelve ticks, five a second, which is a little
+ * under half again the densest ten seconds the sections author: the loudest
+ * beat in the run must not arrive thinner than the section it interrupts.
+ *
+ * Seconds and not ticks because this module value-imports nothing, so it cannot
+ * know how long a tick is. setPiece.ts holds the clock and converts.
+ */
+const SET_PIECE_POUR_SECONDS = 0.2;
+
+/**
+ * The source's own health, which only the open source can lose (ADR 0050).
+ *
+ * Above a full build's storm across the whole pour, so a grave that commits to
+ * the trail never deletes the moment it is committing to: a fast kill ends the
+ * source's stay rather than its pour, which is Ikaruga's bunretsu read the same
+ * way round.
+ */
+const SET_PIECE_HP = 2400;
+
+/**
+ * The bounds the source sweeps between, in field units. The trail stays inside
+ * the field's middle three fifths, so it is a curve the dive can follow rather
+ * than a wall of corpses in the gutter a body walking in at an edge leaves.
+ */
+const SET_PIECE_SWEEP_MIN_X = 108;
+const SET_PIECE_SWEEP_MAX_X = 432;
+
+/**
+ * The share of its own authored rate a section keeps while the set piece pours,
+ * so it thins under the pour rather than going silent (ADR 0051). One row per
+ * section and no optional key: only the Crowd is ever under a pour, because the
+ * source is placed by one of its own rows, and the other two say 1 rather than
+ * saying nothing.
+ */
+const POUR_SHARES: Readonly<Record<SectionName, number>> = {
+  procession: 1,
+  crowd: 1 / 3,
+  vigil: 1,
+};
+
+/**
  * Bodies a boss's own adds may put on the field inside a freshness window
  * (ADR 0007). An initial row: diggers at one every ninety ticks through the
  * Undertaker's second and third chunks are about seven in ten seconds.
@@ -657,12 +724,19 @@ const BOSS_ADD_ALLOWANCE = 7;
  */
 const RUNG_ALLOWANCE = 19;
 
-// The three sections, in the order the stage crosses them.
-const SECTION_TABLES: readonly (readonly StageRow[])[] = [
-  PROCESSION_ROWS,
-  CROWD_ROWS,
-  VIGIL_ROWS,
-];
+// The three sections, under the key the pour's shares are read by.
+const SECTION_TABLES: Readonly<Record<SectionName, readonly StageRow[]>> = {
+  procession: PROCESSION_ROWS,
+  crowd: CROWD_ROWS,
+  vigil: VIGIL_ROWS,
+};
+
+/**
+ * The section the pour ever falls on: the source is placed by one of the
+ * Crowd's own rows and opens as the Crowd's boundary event, so the Crowd is the
+ * one table that ever fires under a pour.
+ */
+const POURED_SECTION: SectionName = 'crowd';
 
 // The bodies a table's rows put on the field in the window that opens at this second.
 const arrivalsFrom = (
@@ -686,19 +760,44 @@ const peakInTable = (rows: readonly StageRow[], seconds: number): number =>
   );
 
 /**
+ * The pour's own window: what the source lands in a window of this length,
+ * bounded by its budget, plus what the section under it keeps firing at its
+ * reduced share.
+ *
+ * The share is rounded up, because a fraction of a body is a whole body
+ * arriving and a cap that rounds its own worst case down can bind on the beat
+ * the worst case named.
+ */
+const pourWindow = (seconds: number): number => {
+  const poured = Math.min(
+    SET_PIECE_BUDGET,
+    Math.floor(seconds / SET_PIECE_POUR_SECONDS),
+  );
+  const under = peakInTable(SECTION_TABLES[POURED_SECTION], seconds);
+  return poured + Math.ceil(POUR_SHARES[POURED_SECTION] * under);
+};
+
+/**
  * The most bodies the stage can put on the field inside any window of this
  * length, anywhere in the stage (ADR 0056). Every term is a row in this module,
  * so the query reads data and calls nothing that spawns.
  *
  * It is a maximum over windows and never a sum of them. A boss phase authors no
- * rows, so its window is what a boss sheds plus what a hit strips, while a
- * section's window is what its own table authors. Taking the larger is the
- * worst case; adding them would price a window the stage cannot produce.
+ * rows, so its window is what a boss sheds plus what a hit strips; the Waking's
+ * is the pour plus the Crowd's reduced share; a section's is what its own table
+ * authors. Taking the largest is the worst case, and adding them would price a
+ * window the stage cannot produce.
  */
 const peakArrivals = (seconds: number): number => {
   if (seconds <= 0) return 0;
-  const sections = SECTION_TABLES.map((rows) => peakInTable(rows, seconds));
-  return Math.max(...sections, BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
+  const sections = Object.values(SECTION_TABLES).map((rows) =>
+    peakInTable(rows, seconds),
+  );
+  return Math.max(
+    ...sections,
+    pourWindow(seconds),
+    BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE,
+  );
 };
 
 export {
@@ -707,8 +806,14 @@ export {
   VIGIL_ROWS,
   SPARSE_LAST_ROW,
   sparseLastRow,
+  SET_PIECE_BUDGET,
+  SET_PIECE_POUR_SECONDS,
+  SET_PIECE_HP,
+  SET_PIECE_SWEEP_MIN_X,
+  SET_PIECE_SWEEP_MAX_X,
+  POUR_SHARES,
   BOSS_ADD_ALLOWANCE,
   RUNG_ALLOWANCE,
   peakArrivals,
 };
-export type { StageRow, BossKind, SparseShape };
+export type { StageRow, BossKind, SectionName, SparseShape };

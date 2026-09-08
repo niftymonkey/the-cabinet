@@ -233,11 +233,41 @@ const rowTicks = (row: StageRow): number => {
 };
 
 /**
+ * One row's bodies, placed. A body the mob cap refuses is density the player
+ * never meets and the director's problem rather than the schedule's, but a
+ * carrier it refuses is supply, and supply must not vanish at a cap (ADR 0048):
+ * it is announced as lost with the cap as its reason, so the carrier ledger's
+ * taken plus lost plus live still accounts for every carrier the stage
+ * scheduled. The refusal is counted for the harness beside it, because a mob
+ * cap that binds is a bug in the same way the corpse cap's is.
+ */
+const spawnRow = (state: RunState, row: StageRow, events: SimEvent[]): void => {
+  const carrying = carrierRow(row.carries, row.count);
+  const orders = place(row.template, row.count, state.streams.spawns);
+  orders.forEach((order, position) => {
+    const carries = carriesAt(carrying, position);
+    if (spawnMob(state, row.type, order, carries) !== null) return;
+    if (!carries) return;
+    state.refusals.carriers += 1;
+    events.push({
+      type: 'carrierLost',
+      mob: row.type,
+      x: order.x,
+      reason: 'cap',
+    });
+  });
+};
+
+/**
  * Every row whose phase-local time this tick has passed. Every spawn draws from
  * the spawns stream and every placement scatter draws from it too, so an
  * identical seed gives an identical spawn sequence (ADRs 0006 and 0012).
  */
-const spawnDueRows = (state: RunState, phase: Phase): void => {
+const spawnDueRows = (
+  state: RunState,
+  phase: Phase,
+  events: SimEvent[],
+): void => {
   const stage = state.stage;
   while (
     stage.firedRows < phase.rows.length &&
@@ -245,11 +275,7 @@ const spawnDueRows = (state: RunState, phase: Phase): void => {
   ) {
     const row = phase.rows[stage.firedRows];
     stage.firedRows += 1;
-    const carrying = carrierRow(row.carries, row.count);
-    const orders = place(row.template, row.count, state.streams.spawns);
-    orders.forEach((order, position) => {
-      spawnMob(state, row.type, order, carriesAt(carrying, position));
-    });
+    spawnRow(state, row, events);
   }
 };
 
@@ -286,7 +312,7 @@ const advanceStage = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   while (state.stage.phaseIndex < PHASES.length - 1) {
     const phase = PHASES[state.stage.phaseIndex];
-    spawnDueRows(state, phase);
+    spawnDueRows(state, phase, events);
     if (!phaseEnded(state, phase)) return events;
     enterNextPhase(state, events);
   }

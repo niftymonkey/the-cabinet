@@ -676,6 +676,12 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     "spawn identity, as mobs[].id is. Territory's cap orders eviction by it, and that ordering shows through which patches are still live in the walk.",
   'patches[].level':
     'written once at the lay (territory.ts layPatch) and never mutated, as mobs[].type is. A divergence in the birth rung shows through the radius, pull, slow and re-hit the walk folds, each captured from the same rung of a ladder with distinct values per rung.',
+  'refusals.food':
+    "what the corpse pool turned away on one tick, cleared at the top of every tick and read by the invariant harness at the end of it. It is the harness's input rather than the run's state, and every refusal it counts is decided by the pools the fold already walks.",
+  'refusals.carriers':
+    'what the mob pool turned away on one tick, as refusals.food is.',
+  'refusals.offers':
+    'offers that could stand no body on one tick, as refusals.food is. What it leads to, a bank that went up rather than an offer on the field, is folded.',
   'streams.spawns.next': 'a draw function, not state. Its cursor is folded.',
   'streams.spawns.nextInt': 'a draw function, not state.',
   'streams.drops.next': 'a draw function, not state. Its cursor is folded.',

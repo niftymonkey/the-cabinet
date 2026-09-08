@@ -50,6 +50,20 @@ interface LineState {
 }
 
 /**
+ * What the caps turned away on one tick (ADR 0056). Every count is of something
+ * that never reached the field, so none of them describes anything a player can
+ * see: they are the harness's input and nothing else reads them.
+ */
+interface Refusals {
+  // Food a full corpse pool could not take: a corpse, a feast or an offer body.
+  food: number;
+  // Carrying placements the mob cap turned away, which is supply the player never met (ADR 0048).
+  carriers: number;
+  // Offers that could stand no body at all and banked instead (ADR 0034).
+  offers: number;
+}
+
+/**
  * The run's identity and everything the rules mutate as it plays (tracer plan
  * section 3).
  *
@@ -104,6 +118,17 @@ interface RunState {
   readonly patches: Patch[];
   readonly stage: StageState;
   readonly lines: LineState;
+  /**
+   * What a cap refused on this tick, cleared at the top of every one and read
+   * by the invariant harness at the end of it (ADR 0056).
+   *
+   * A refusal is a fact about a tick rather than about the state it leaves
+   * behind: the body a kill could not put down is not in any pool, and the slot
+   * that was taken when it was refused can be free again by the time the tick
+   * ends. Nothing in the rules reads it; it exists so that a cap binding is
+   * loud rather than silent.
+   */
+  readonly refusals: Refusals;
   /**
    * The next entity id, only ever increasing. It is not cosmetic: the cap
    * policy has to be totally ordered to be deterministic, and a test that says
@@ -244,9 +269,27 @@ const createRun = (
     patches: createTerritoryPool(),
     stage: createStage(),
     lines: startingLines(),
+    refusals: { food: 0, carriers: 0, offers: 0 },
     nextEntityId: 1,
   };
 };
 
-export { uniformLevels, isBirthrightLevels, createRun, SEED_LIMIT };
-export type { RunEnding, LineState, RunState };
+/**
+ * The tick's refusal ledger, emptied. The tick that follows fills it and the
+ * harness reads it at the end of that tick, so a refusal is reported against
+ * the tick it happened on and never against the one after.
+ */
+const clearRefusals = (state: RunState): void => {
+  state.refusals.food = 0;
+  state.refusals.carriers = 0;
+  state.refusals.offers = 0;
+};
+
+export {
+  uniformLevels,
+  isBirthrightLevels,
+  createRun,
+  clearRefusals,
+  SEED_LIMIT,
+};
+export type { RunEnding, LineState, Refusals, RunState };

@@ -101,6 +101,20 @@ describe('FieldRenderer', () => {
     expect(layers.layer('storm').children).toHaveLength(0);
   });
 
+  it('keeps both food layers as long as the entity pool, after the cap moved (ADR 0056)', () => {
+    // The corpse cap is derived from the stage now and no longer a flat 200, so
+    // the pool it sizes moved. It sizes two sprite layers as well as the entity
+    // pool, because a drop rides the corpse pool and ADR 0014's stack puts
+    // treasure two layers above corpses. The three are read against each other
+    // rather than against the constant: a sprite pool that disagreed with the
+    // entity pool is a bug this renderer has already shipped once.
+    const { layers } = attached();
+    const run = createRun(1);
+    expect(run.corpses).toHaveLength(CORPSE_CAP);
+    expect(layers.layer('corpses').children).toHaveLength(run.corpses.length);
+    expect(layers.layer('treasure').children).toHaveLength(run.corpses.length);
+  });
+
   it('shows a sprite only while its slot is alive', () => {
     const { layers, renderer } = attached();
     const state = createRun(1);

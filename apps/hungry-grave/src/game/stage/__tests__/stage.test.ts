@@ -43,7 +43,7 @@ import {
   VIGIL_ROWS,
 } from '../rows';
 import type { Phase, PhaseName } from '../stage';
-import { PHASES, phaseEnded } from '../stage';
+import { advanceStage, PHASES, phaseEnded } from '../stage';
 import { place } from '../templates';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
@@ -777,6 +777,72 @@ describe('the per-phase end condition (ADR 0050, ADR 0051)', () => {
         ).toBe(`${seed} ${name} true`);
       }
     }
+  });
+});
+
+describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {
+  /** The first row of a section that pays, and the phase it belongs to. */
+  const firstCarryingRow = (rows: readonly StageRow[]): StageRow =>
+    rows.find((row) => row.carries)!;
+
+  it('announces a refused carrier as lost with the cap as its reason, so the ledger still accounts for it', () => {
+    // Supply must not vanish at a cap. spawnDueRows dropped spawnMob's null,
+    // so a carrier the mob cap refused was never announced at all and the
+    // carrier ledger's taken plus lost plus live silently stopped adding up to
+    // the schedule. A carrier nobody could put on the field is still a carrier
+    // the player never met.
+    const state = createRun(1);
+    const row = firstCarryingRow(PROCESSION_ROWS);
+    while (
+      spawnMob(
+        state,
+        'shambler',
+        { x: 60, y: 40, vx: 0, vy: 1, index: 0 },
+        false,
+      ) !== null
+    ) {
+      // The loop condition is the fill: every slot taken, so the row's own
+      // bodies have nowhere to go.
+    }
+    const before = state.mobs.filter((mob) => mob.alive).length;
+
+    state.stage.phaseTick = row.t * TICK_HZ;
+    const events = advanceStage(state);
+
+    const lost = events.filter((event) => event.type === 'carrierLost');
+    expect(lost).toHaveLength(
+      carrierRow(row.carries, row.count).carrying.length,
+    );
+    expect(lost[0].reason).toBe('cap');
+    expect(lost[0].mob).toBe(row.type);
+    // Nothing was taken off the field to make room for it.
+    expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(before);
+    expect(state.mobs.some((mob) => mob.alive && mob.carries)).toBe(false);
+  });
+
+  it('says nothing about a refused body that was carrying nothing', () => {
+    // A trash body the cap refused is density the player never met and the
+    // director's problem, not the carrier ledger's. Only supply is announced.
+    const state = createRun(1);
+    while (
+      spawnMob(
+        state,
+        'shambler',
+        { x: 60, y: 40, vx: 0, vy: 1, index: 0 },
+        false,
+      ) !== null
+    ) {
+      // The fill again.
+    }
+    // The section's own first row, which pays nothing on purpose: the first
+    // kill of the run teaches the swallow rather than the offer.
+    const row = PROCESSION_ROWS[0];
+    expect(row.carries).toBe(false);
+
+    state.stage.phaseTick = row.t * TICK_HZ;
+    const events = advanceStage(state);
+
+    expect(events.filter((event) => event.type === 'carrierLost')).toEqual([]);
   });
 });
 

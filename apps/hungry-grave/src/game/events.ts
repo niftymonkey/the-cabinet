@@ -129,15 +129,29 @@ interface MobKilled {
 }
 
 /**
- * A carrier left the field unkilled (ADR 0048). It is a separate event from
+ * How the run lost a carrier. One event with a closed reason rather than two
+ * events, on the PatchClosed precedent: both are the same thing, supply the
+ * player never converted, and an instrument reading the carrier ledger groups
+ * by the reason.
+ */
+type CarrierLoss = 'leftField' | 'cap';
+
+/**
+ * A carrier the player never met (ADR 0048). It is a separate event from
  * corpseLost and not a reuse of it: nothing was ever on the field to lose, and
  * an instrument reading supply has to tell a carrier nobody killed from an
  * offer nobody dived for.
+ *
+ * The two reasons are opposite in blame and identical in cost. leftField is the
+ * ordinary one, a carrier that descended past the grave unkilled, and the x is
+ * where it went. cap is a carrier the mob pool refused to spawn, which is a
+ * fault rather than play, and the x is where its row would have placed it.
  */
 interface CarrierLost {
   readonly type: 'carrierLost';
   readonly mob: MobType;
   readonly x: number;
+  readonly reason: CarrierLoss;
 }
 
 // A mob put a shot on the field. The mob-fire sound, and ADR 0014's airborne-projectile instrument.
@@ -153,20 +167,6 @@ interface CorpseExpired {
   readonly type: 'corpseExpired';
   readonly x: number;
   readonly y: number;
-}
-
-/**
- * The cap policy dropped the oldest corpse to make room. It is a separate event
- * from corpseExpired and not a reuse of it: the two look identical on screen
- * and mean opposite things to an instrument, one being greed that ran out of
- * time and the other being the game running out of slots, and folding them
- * would have the missed-food instrument counting evictions as player misses.
- */
-interface CorpseEvicted {
-  readonly type: 'corpseEvicted';
-  readonly x: number;
-  readonly y: number;
-  readonly freshness: number;
 }
 
 /**
@@ -344,7 +344,6 @@ type SimEvent =
   | CarrierLost
   | MobFired
   | CorpseExpired
-  | CorpseEvicted
   | CorpseLost
   | Tolled
   | MobShoved
@@ -358,4 +357,4 @@ type SimEvent =
   | OfferLost
   | PhaseChanged;
 
-export type { SimEvent };
+export type { CarrierLoss, SimEvent };

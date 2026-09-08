@@ -134,47 +134,24 @@ const asSwallowable = (corpse: Corpse): Swallowable => {
 };
 
 /**
- * The oldest live food the cap policy may take, which is never treasure.
+ * Room for one more piece of food, or null at the cap (ADR 0056).
  *
- * The policy's own reasoning is that the cheapest thing to lose should go, and a
- * drop that has been on the field a while is both the oldest thing in the pool
- * and the scarcest object in the game. Skipping anything that does not decay
- * covers drops and the boss feasts, and if every slot holds treasure the spawn
- * is refused instead.
+ * Nothing already on the field is ever removed to make room. The cap is sized
+ * from the stage's own rows so that it cannot bind in normal play, so a refusal
+ * means something has gone wrong rather than that the player killed too well,
+ * and the answer to that is the fault the harness raises off the count below
+ * rather than a graceful degradation that hides it. The eviction this replaces
+ * took the oldest corpse under, which is food removed from a player who had
+ * already read it and started diving.
  */
-const oldestEvictable = (pool: readonly Corpse[]): Corpse | null => {
-  let oldest: Corpse | null = null;
-  for (const corpse of pool) {
-    if (!corpse.alive || !corpse.decays) continue;
-    if (oldest === null || corpse.id < oldest.id) oldest = corpse;
-  }
-  return oldest;
-};
-
-/**
- * Room for one more corpse. At the cap the oldest live corpse by id is taken
- * under and the new corpse takes its slot: the freshest corpse is the one worth
- * diving for and the oldest is nearly worthless by ADR 0004's own curve, so
- * dropping the oldest costs the player the least. Refusing the spawn instead
- * would silently punish killing a lot at once, which is the best play.
- */
-const claimSlot = (state: RunState, events: SimEvent[]): Corpse | null => {
+const claimSlot = (state: RunState): Corpse | null => {
   const free = takeSlot(state.corpses, state.nextEntityId);
-  if (free !== null) {
-    state.nextEntityId += 1;
-    return free;
+  if (free === null) {
+    state.refusals.food += 1;
+    return null;
   }
-  const evicted = oldestEvictable(state.corpses);
-  if (evicted === null) return null;
-  events.push({
-    type: 'corpseEvicted',
-    x: evicted.x,
-    y: evicted.y,
-    freshness: evicted.freshness,
-  });
-  evicted.id = state.nextEntityId;
   state.nextEntityId += 1;
-  return evicted;
+  return free;
 };
 
 /**
@@ -193,7 +170,7 @@ const spawnCorpse = (
   tier: CorpseTier,
 ): SimEvent[] => {
   const events: SimEvent[] = [];
-  const corpse = claimSlot(state, events);
+  const corpse = claimSlot(state);
   if (corpse === null) return events;
 
   corpse.alive = true;
@@ -221,7 +198,7 @@ const spawnFeast = (
   payout: number,
 ): SimEvent[] => {
   const events: SimEvent[] = [];
-  const corpse = claimSlot(state, events);
+  const corpse = claimSlot(state);
   if (corpse === null) return events;
 
   corpse.alive = true;
@@ -258,7 +235,7 @@ const spawnDrop = (
   line?: WeaponLine,
 ): SimEvent[] => {
   const events: SimEvent[] = [];
-  const corpse = claimSlot(state, events);
+  const corpse = claimSlot(state);
   if (corpse === null) return events;
 
   corpse.alive = true;

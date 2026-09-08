@@ -7,10 +7,11 @@
  *
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
- * section and hardens the moment the first tape exists. Fifteen identities
- * against eighteen checks: checkPools carries two, the caps and the ids, and
- * checkStage carries two, one for each of the two things it watches, while the
- * six bounds checks share one identity between them. The grave's own bounds
+ * section and hardens the moment the first tape exists. Eighteen identities
+ * against nineteen checks: checkPools carries two, the caps and the ids,
+ * checkStage carries two, one for each of the two things it watches, and
+ * checkRefusals carries three, one per cap that can turn something away, while
+ * the six bounds checks share one identity between them. The grave's own bounds
  * check is "in bounds" and sits beside a separate "entities in bounds", one
  * fatal and one recoverable, which is the pair a severity table most easily
  * confuses.
@@ -31,6 +32,9 @@ const FAULT_IDENTITIES = [
   'one live offer',
   'offer bodies alive and matching',
   'bank not negative',
+  'corpse cap never binds',
+  'carrier spawn never refused',
+  'offer stands a body',
 ] as const;
 
 // One member of the closed list above.
@@ -54,7 +58,7 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * structural assumption was violated outside the pool API, after which no other
  * check's answer is trustworthy.
  *
- * Recoverable, thirteen checks and nine identities. A stray entity is culled or
+ * Recoverable, fourteen checks and twelve identities. A stray entity is culled or
  * draws off-screen and nothing reads it wrong, and the six checks that watch
  * for one all record under the same identity. A corpse pays the wrong amount
  * into a size the fatal check still guards. One line's charge is wrong and
@@ -68,6 +72,13 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * which spoils a run without making one number in it untrustworthy. Nothing
  * downstream of them reads a poisoned value, so terminating the run would
  * punish the player for a bookkeeping fault they cannot see.
+ *
+ * The three refusal identities are recoverable on the same reading, and the
+ * reading is the whole reason they exist (ADR 0056). A cap sized so that it
+ * cannot bind in normal play has, when it binds, cost the player a corpse, a
+ * carrier or an offer that the game itself could not deliver. The run is coherent
+ * and one body poorer, which is exactly a state to report loudly and carry on
+ * from, and terminating it would take a whole run away over food.
  */
 const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'no NaN': 'fatal',
@@ -85,6 +96,9 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'one live offer': 'recoverable',
   'offer bodies alive and matching': 'recoverable',
   'bank not negative': 'recoverable',
+  'corpse cap never binds': 'recoverable',
+  'carrier spawn never refused': 'recoverable',
+  'offer stands a body': 'recoverable',
 };
 
 // One invariant found broken on one tick.

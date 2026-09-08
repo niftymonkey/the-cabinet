@@ -5,8 +5,10 @@
 
 import { describe, expect, it } from 'vitest';
 
+import corpsesSource from '../corpses.ts?raw';
+
 import { stepping } from '../../dev/stepping';
-import { CORPSE_CAP } from '../caps';
+import { createExecution, executeTick } from '../execution';
 import { TICK_HZ } from '../clock';
 import {
   advanceCorpses,
@@ -352,33 +354,80 @@ describe('a drop on the food pool (plan 6.9)', () => {
   });
 });
 
-describe('the eviction policy never takes treasure (plan 6.9)', () => {
-  it('evicts a corpse rather than a drop when the pool is full', () => {
-    const state = quietRun();
-    // The drop goes in first, so it is the oldest thing in the pool and the
-    // policy's own by-id ordering would otherwise take it.
-    spawnDrop(state, 100, 100, 'bell');
-    const drop = state.corpses.find((corpse) => corpse.kind === 'drop')!;
-    const victim = killAt(state, 'shambler', 50, 50);
-    while (state.corpses.filter((corpse) => corpse.alive).length < CORPSE_CAP) {
-      leaveCorpse(state, victim);
-    }
-
-    leaveCorpse(state, victim);
-    expect(drop.alive).toBe(true);
-    expect(drop.kind).toBe('drop');
+describe('what takes food off the field (ADR 0056)', () => {
+  it('leaves the eviction path nowhere in the module, so no spawn can take a body under', () => {
+    // The cap is sized from the stage now (ADR 0056), so the oldest-first
+    // eviction it replaces is gone rather than unreachable: an unreachable
+    // branch is worse than an absent one, and reaching it would have hidden
+    // exactly the fault the refusal exists to raise.
+    expect(corpsesSource).not.toMatch(/oldestEvictable/);
+    expect(corpsesSource).not.toMatch(/corpseEvicted/);
   });
 
-  it('refuses the spawn outright when every slot holds treasure', () => {
-    const state = quietRun();
-    while (state.corpses.filter((corpse) => corpse.alive).length < CORPSE_CAP) {
-      spawnDrop(state, 100, 100, 'bell');
+  it('takes a live body off the field only through a swallow, an expiry or a cull', () => {
+    // The three are the whole list, and this reads it off the run rather than
+    // off the source: on every tick, every body that stopped being alive is
+    // counted against what that tick said about it. A body gone with nothing
+    // said is housekeeping taking food from the player, which is the thing
+    // ADR 0056 forbids and the eviction path used to do.
+    //
+    // The pool starts full, so the cap binds for the first stretch of the run
+    // and an eviction would have somewhere to bite. That makes the corpse cap's
+    // own fault expected here rather than a surprise, so the run is driven
+    // through its own authority instead of the throwing rig.
+    const state = quietRun(4);
+    const execution = createExecution(state);
+    // Half up the grave's own column, so the scroll walks them into the mouth,
+    // and half low and off to the side, where they reach the bottom edge with
+    // value left. Between them and the ones that run out of freshness on the
+    // way, the run takes all three ways out and the assertion below has
+    // something to be about.
+    for (let made = 0; state.corpses.some((corpse) => !corpse.alive); made++) {
+      const inColumn = made % 2 === 0;
+      const x = inColumn ? state.grave.x : 60;
+      const y = inColumn ? 10 + (made % 200) : 400 + (made % 200);
+      leaveCorpse(state, killAt(state, 'shambler', x, y));
     }
-    const victim = killAt(state, 'shambler', 50, 50);
-    leaveCorpse(state, victim);
-    expect(
-      state.corpses.filter((corpse) => corpse.kind === 'drop'),
-    ).toHaveLength(CORPSE_CAP);
+
+    const liveIds = (): Set<number> =>
+      new Set(
+        state.corpses
+          .filter((corpse) => corpse.alive)
+          .map((corpse) => corpse.id),
+      );
+    const unexplained: string[] = [];
+    const explained = { swallowed: 0, expired: 0, lost: 0 };
+    for (let tick = 0; tick < 900; tick++) {
+      const before = liveIds();
+      const events = executeTick(execution, STILL);
+      let said = 0;
+      for (const event of events) {
+        if (event.type === 'chimed') said += 1;
+        if (event.type === 'offerTaken') said += event.passed.length;
+        if (event.type === 'corpseExpired') said += 1;
+        if (event.type === 'corpseLost') said += 1;
+        if (event.type === 'chimed') explained.swallowed += 1;
+        if (event.type === 'corpseExpired') explained.expired += 1;
+        if (event.type === 'corpseLost') explained.lost += 1;
+      }
+      const after = liveIds();
+      const gone = [...before].filter((id) => !after.has(id)).length;
+      if (gone !== said) {
+        unexplained.push(`tick ${tick}: ${gone} gone against ${said} said`);
+      }
+    }
+
+    expect(unexplained).toEqual([]);
+    // The run really did move food off the field all three ways, so the
+    // assertion above passed over a set with something in it.
+    expect(explained.swallowed).toBeGreaterThan(0);
+    expect(explained.expired).toBeGreaterThan(0);
+    expect(explained.lost).toBeGreaterThan(0);
+    // And the cap really did bind, which is what an eviction would have had to
+    // answer. Nothing else broke while it did.
+    expect(execution.faults.map((fault) => fault.identity)).toEqual([
+      'corpse cap never binds',
+    ]);
   });
 });
 

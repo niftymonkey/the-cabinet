@@ -1,5 +1,8 @@
 // The entity cap policy (tracer plan section 3).
 
+import { peakArrivals } from './stage/rows';
+import { FRESHNESS_SECONDS } from './tuning';
+
 /**
  * At the cap something must be dropped, and which one is a gameplay rule rather
  * than a housekeeping detail. That is why the policy lives in src/game and not
@@ -28,7 +31,34 @@
  */
 const MOB_CAP = 160;
 const MOB_FIRE_CAP = 400;
-const CORPSE_CAP = 200;
+
+/**
+ * Treasure the field can hold at once, which never decays and so is not covered
+ * by the freshness window below. An initial row of ten: the three bodies of the
+ * one live offer (ADR 0034), the Banshee's death feast, her chunk break's, the
+ * Undertaker's two, and three spare.
+ */
+const TREASURE_ALLOWANCE = 10;
+
+/**
+ * Room for every corpse the stage can leave alive at once, derived from the two
+ * clocks the game already has rather than written down (ADR 0056).
+ *
+ * A proof and not an estimate. A decaying corpse lives at most
+ * FRESHNESS_SECONDS, so every one alive at any instant was made inside that
+ * window; every one came from a body that was either alive when the window
+ * opened, which MOB_CAP bounds, or arrived inside it, which the stage's own
+ * rows bound. Treasure does not decay and is bounded by design instead. So the
+ * cap cannot bind in normal play, and binding at all is a bug rather than a
+ * policy: the spawn is refused, nothing on the field is removed, and the
+ * invariant harness raises a recoverable fault.
+ *
+ * The director's budget is the addend this is missing, on purpose: it does not
+ * exist until step 4 (#85), and peakArrivals is written so it is one more term
+ * when it arrives.
+ */
+const CORPSE_CAP =
+  MOB_CAP + peakArrivals(FRESHNESS_SECONDS) + TREASURE_ALLOWANCE;
 
 /**
  * What every pooled entity carries. The id only ever increases and is not
@@ -108,6 +138,7 @@ export {
   MOB_CAP,
   MOB_FIRE_CAP,
   CORPSE_CAP,
+  TREASURE_ALLOWANCE,
   SKULL_CAP,
   WISP_CAP,
 };

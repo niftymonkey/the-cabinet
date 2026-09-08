@@ -1116,6 +1116,10 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   ending: 'a run ending name or null, never a number',
   'offer.bodyIds[]':
     'spawn identity, as corpses[].id is: the offer holds the ids the food pool handed out and never computes one',
+  'refusals.food':
+    "a tick's own refusal count, cleared to zero at the top of the tick and only ever incremented by one, so no arithmetic that could produce a NaN reaches it. What it feeds is a fault rather than a rule",
+  'refusals.carriers': "a tick's own refusal count, as refusals.food is",
+  'refusals.offers': "a tick's own refusal count, as refusals.food is",
 };
 
 /**
@@ -1138,6 +1142,42 @@ function numericLeafPaths(value: unknown, path: string): string[] {
     numericLeafPaths(nested, path === '' ? key : `${path}.${key}`),
   );
 }
+
+describe('what a cap refused this tick (ADR 0056)', () => {
+  /** Every corpse slot taken, which is the state the next kill is refused in. */
+  function fullOfCorpses(): RunState {
+    const state = createRun(1);
+    const dead = liveMob(state);
+    dead.alive = false;
+    while (state.corpses.some((corpse) => !corpse.alive)) {
+      leaveCorpse(state, dead);
+    }
+    return state;
+  }
+
+  it('records a recoverable fault when a corpse spawn is refused at the cap', () => {
+    // ADR 0056 sizes the cap so that it cannot bind in normal play and asks for
+    // a fault if it ever does, because a cap that binds is a bug rather than a
+    // policy and the answer to a bug is a fault rather than a graceful
+    // degradation. Recoverable: the run carries on, one body poorer.
+    const state = fullOfCorpses();
+    const spare = liveMob(state, 90);
+    spare.alive = false;
+    leaveCorpse(state, spare);
+
+    expect(brokenOn(state)).toEqual(['corpse cap never binds']);
+    expect(faultsOn(state)[0].severity).toBe('recoverable');
+    expect(faultsOn(state)[0].detail).toContain('corpse');
+  });
+
+  it('says nothing while the pool is merely full, because a full pool refuses nothing', () => {
+    // The fault is the refusal and not the fullness. A pool that fills on the
+    // tick its last slot is taken has cost the player nothing yet, and the
+    // check that fired on fullness alone would name a tick the game was still
+    // whole on.
+    expect(brokenOn(fullOfCorpses())).toEqual([]);
+  });
+});
 
 describe('the no-NaN coverage is closed (ticket #54)', () => {
   it('the hand-built fixture itself records no faults', () => {

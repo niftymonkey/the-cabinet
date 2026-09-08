@@ -175,7 +175,16 @@ const standOffer = (state: RunState, x: number, y: number): SimEvent[] => {
     bodyIds.push(id);
     laid.push(line);
   }
-  if (bodyIds.length === 0) return bodies;
+  // Every body refused: the carrier's payment is banked rather than lost, and
+  // the bank's own tick opens it on the first tick there is room (ADR 0034).
+  // ADR 0048's "missed is missed" is about a carrier the player let past, never
+  // about one the game could not put on the field, so a supply the corpse cap
+  // turned away must not simply disappear.
+  if (bodyIds.length === 0) {
+    state.refusals.offers += 1;
+    state.bankedOffers += 1;
+    return [...bodies, { type: 'offerBanked', banked: state.bankedOffers }];
+  }
 
   state.offer = { options: laid, bodyIds };
   // The point reported is where the offer stands rather than where the carrier

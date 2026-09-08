@@ -269,7 +269,7 @@ describe('the schedule', () => {
     )!;
 
     expect(cullMobs(state)).toEqual([
-      { type: 'carrierLost', mob: 'shambler', x: 200 },
+      { type: 'carrierLost', mob: 'shambler', x: 200, reason: 'leftField' },
     ]);
     expect(carrier.alive).toBe(false);
     // The slot is dead, so a second pass over the same field reports nothing:

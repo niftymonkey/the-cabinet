@@ -535,6 +535,45 @@ const checkBank = (state: RunState, faults: Fault[]): void => {
   }
 };
 
+/**
+ * Nothing a cap turned away this tick (ADR 0056).
+ *
+ * Every cap here is a safety net sized above the densest thing its pool can
+ * hold, so turning anything away means the content or the derivation has moved
+ * out from under it. Each is recorded under its own identity because what the
+ * player lost is different in each: a corpse is food, a carrier is power, and
+ * an offer is a whole carrier's payment.
+ *
+ * It reads the tick's own count rather than the pools, because a refusal is a
+ * fact about a tick and not about the state it leaves behind: the body that was
+ * refused is in no pool, and the slot that was full when it happened can be
+ * free again by the time this runs.
+ */
+const checkRefusals = (state: RunState, faults: Fault[]): void => {
+  const { food, carriers, offers } = state.refusals;
+  if (food > 0) {
+    record(
+      faults,
+      'corpse cap never binds',
+      `the corpse pool refused ${food} of this tick's food`,
+    );
+  }
+  if (carriers > 0) {
+    record(
+      faults,
+      'carrier spawn never refused',
+      `the mob pool refused ${carriers} of this tick's carriers`,
+    );
+  }
+  if (offers > 0) {
+    record(
+      faults,
+      'offer stands a body',
+      `${offers} offers this tick could stand no body and banked instead`,
+    );
+  }
+};
+
 // Freshness is a meter from 1 to 0 and never leaves that range (ADR 0004).
 const checkFreshness = (state: RunState, faults: Fault[]): void => {
   for (const corpse of state.corpses) {
@@ -668,6 +707,7 @@ const checkInvariants = (
   checkWispsInBounds(state, faults);
   checkPatchesInBounds(state, faults);
   checkPools(state, faults);
+  checkRefusals(state, faults);
   checkFreshness(state, faults);
   checkReservoir(state, faults);
   checkLevels(state, faults);

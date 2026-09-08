@@ -431,7 +431,12 @@ const cullMobs = (state: RunState): SimEvent[] => {
     if (!gone) continue;
     mob.alive = false;
     if (mob.carries) {
-      events.push({ type: 'carrierLost', mob: mob.type, x: mob.x });
+      events.push({
+        type: 'carrierLost',
+        mob: mob.type,
+        x: mob.x,
+        reason: 'leftField',
+      });
     }
   }
   return events;
