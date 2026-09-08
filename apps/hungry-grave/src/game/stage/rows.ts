@@ -705,6 +705,70 @@ const SET_PIECE_SWEEP_MIN_X = 108;
 const SET_PIECE_SWEEP_MAX_X = 432;
 
 /**
+ * The phase-local second the Crowd places the dormant source (ADR 0050).
+ *
+ * Two seconds before its own last row, so the eye rides down through the climb
+ * the section ends on and opens a beat after the last group falls. Any later
+ * and the Crowd would hold a stretch with nothing due while the eye drifted,
+ * which is the spawn silence ADR 0051 retired.
+ */
+const SET_PIECE_PLACED_AT = 120;
+
+/**
+ * How deep the source opens, as a share of the field's height (ADR 0050: "it
+ * opens around mid-field"). A share rather than a depth in field units, because
+ * this module cannot read the field and the fact being authored is where in the
+ * player's view it happens rather than how many units down that is.
+ */
+const SET_PIECE_OPEN_DEPTH = 0.5;
+
+/**
+ * How fast the source drifts, as a share of the scroll. Half, so it is on
+ * screen several times longer than a mob: it is a place the field is arriving
+ * at rather than a body falling through it.
+ *
+ * A share rather than a speed for the same reason the depth above is a share:
+ * what is authored is that the source is slower than everything else on the
+ * field, and setPiece.ts holds the scroll and multiplies.
+ */
+const SET_PIECE_DRIFT_SHARE = 0.5;
+
+/**
+ * The body the storm meets once the source has opened, in field units. Initial
+ * rows: wide enough that a dive lands on it without aiming and smaller than a
+ * boss, because it is a mouth on the ground rather than a fight standing up.
+ */
+const SET_PIECE_HALF_WIDTH = 45;
+const SET_PIECE_HALF_HEIGHT = 30;
+
+/**
+ * What the pour puts on the field. It is a row and not a name in setPiece.ts,
+ * because ADR 0042 rules that a set piece names the property it must keep and
+ * never the cast, so re-casting the pour is a data edit.
+ *
+ * The shambler and not the other two, and each for its own reason. The ghoul
+ * closes, which would turn a trail the grave swims up into a chase that comes
+ * to it, and the trail is the whole property. Every revenant is armed, so a
+ * pour of them is a wall of fire, and ADR 0050 forbids the set piece being a
+ * second dose of hell.
+ */
+const POUR_TYPE: MobType = 'shambler';
+
+/**
+ * How far off the source's centre a poured body lands, and how far a draw moves
+ * it (ADR 0042's narrow answer to #81, for this one caller).
+ *
+ * The mouth pours from alternating lips rather than from one point, so two
+ * bodies in a row are never stacked on each other: the lips stand far enough
+ * apart that the widest trash body fits between them, and the jitter is bounded
+ * under that gap so a draw can never close it. The jitter is what keeps the
+ * pour a spray rather than a metronome, and it is the one place chance enters
+ * the moment.
+ */
+const POUR_LIP_X = 22;
+const POUR_JITTER_X = 6;
+
+/**
  * The share of its own authored rate a section keeps while the set piece pours,
  * so it thins under the pour rather than going silent (ADR 0051). One row per
  * section and no optional key: only the Crowd is ever under a pour, because the
@@ -716,6 +780,60 @@ const POUR_SHARES: Readonly<Record<SectionName, number>> = {
   crowd: 1 / 3,
   vigil: 1,
 };
+
+/**
+ * How long a full pour lasts, in the table's own clock. It is the budget at the
+ * interval and never a length written down, so a retune of either moves the
+ * moment and everything sized against it together.
+ */
+const POUR_SECONDS = SET_PIECE_BUDGET * SET_PIECE_POUR_SECONDS;
+
+/**
+ * The rows a section keeps firing under a pour (ADR 0051: "there is no
+ * drain-out before the set piece ... only the two boss boundaries need the
+ * field empty").
+ *
+ * Its own last rows, carried on into the phase the pour runs in and thinned to
+ * the share it keeps: the same templates, the same types, in the same cadence,
+ * with fewer bodies in each. A section that stopped would hand the loudest beat
+ * in the run a silent field, which is the one thing ADR 0051 rules out here.
+ *
+ * A row never thins to nothing, because a row that lands no body is the silence
+ * the share exists to avoid; and none of them carries, because the twenty-five
+ * carriers are authored across the three sections and a pour pays in corpses
+ * rather than in power (ADR 0048). The director may not spend in any of them:
+ * the set piece is one of ADR 0047's four off-limits moments.
+ */
+const rowsUnderThePour = (
+  rows: readonly StageRow[],
+  share: number,
+  seconds: number,
+): readonly StageRow[] => {
+  const opensAt = rows[rows.length - 1].t - seconds;
+  return rows
+    .filter((row) => row.t > opensAt)
+    .map((row) => ({
+      t: row.t - opensAt,
+      template: row.template,
+      count: Math.max(1, Math.round(row.count * share)),
+      type: row.type,
+      carries: false,
+      directed: false,
+    }));
+};
+
+/**
+ * The Waking's own rows: the Crowd's last groups, still falling under the pour
+ * at the share that section keeps (ADR 0050, ADR 0051).
+ *
+ * The phase itself is the source's moment and ends when the source is gone, so
+ * these rows are what the pour lands into rather than what the phase runs on.
+ */
+const WAKING_ROWS: readonly StageRow[] = rowsUnderThePour(
+  CROWD_ROWS,
+  POUR_SHARES.crowd,
+  POUR_SECONDS,
+);
 
 /**
  * Bodies a boss's own adds may put on the field inside a freshness window
@@ -812,6 +930,7 @@ export {
   PROCESSION_ROWS,
   CROWD_ROWS,
   VIGIL_ROWS,
+  WAKING_ROWS,
   SPARSE_LAST_ROW,
   sparseLastRow,
   SET_PIECE_BUDGET,
@@ -819,6 +938,15 @@ export {
   SET_PIECE_HP,
   SET_PIECE_SWEEP_MIN_X,
   SET_PIECE_SWEEP_MAX_X,
+  SET_PIECE_PLACED_AT,
+  SET_PIECE_OPEN_DEPTH,
+  SET_PIECE_DRIFT_SHARE,
+  SET_PIECE_HALF_WIDTH,
+  SET_PIECE_HALF_HEIGHT,
+  POUR_TYPE,
+  POUR_LIP_X,
+  POUR_JITTER_X,
+  POUR_SECONDS,
   POUR_SHARES,
   BOSS_ADD_ALLOWANCE,
   RUNG_ALLOWANCE,

@@ -253,22 +253,47 @@ describe('territoryControl', () => {
     // same mob and another mob's pulses say nothing about this pace.
     const run = createRun(SEED);
     const acc = createTerritoryControl();
+    const first = putMob(run, 200, 300);
+    const second = putMob(run, 260, 300);
 
-    observeTerritoryControl(acc, 10, [territoryPulse(5)], run);
+    observeTerritoryControl(acc, 10, [territoryPulse(first.id)], run);
     observeTerritoryControl(
       acc,
       50,
-      [{ type: 'mobDamaged', id: 5, amount: 10, source: 'wisps' }],
+      [{ type: 'mobDamaged', id: first.id, amount: 10, source: 'wisps' }],
       run,
     );
-    observeTerritoryControl(acc, 70, [territoryPulse(9)], run);
-    observeTerritoryControl(acc, 90, [territoryPulse(5)], run);
-    observeTerritoryControl(acc, 170, [territoryPulse(5)], run);
-    observeTerritoryControl(acc, 182, [territoryPulse(9)], run);
+    observeTerritoryControl(acc, 70, [territoryPulse(second.id)], run);
+    observeTerritoryControl(acc, 90, [territoryPulse(first.id)], run);
+    observeTerritoryControl(acc, 170, [territoryPulse(first.id)], run);
+    observeTerritoryControl(acc, 182, [territoryPulse(second.id)], run);
 
     const reading = territoryControlOf(acc);
     expect(reading.pulseIntervals.slice().sort((a, b) => a - b)).toEqual([
       80, 80, 112,
     ]);
+  });
+
+  it('reads no pace off a hit on something that is not in the mob pool', () => {
+    // The storm reaches a boss and the set piece's source through the same seam
+    // it reaches a mob through, so a territory pulse can carry an id that is in
+    // no pool at all. Neither of them is crossing open ground, and a source that
+    // stands under one patch for a whole pour would otherwise report a pace no
+    // mob ever walked and never leave the map, because what clears an entry is
+    // a mobKilled and neither of them dies as a mob.
+    const run = createRun(SEED);
+    const acc = createTerritoryControl();
+    const mob = putMob(run, 200, 300);
+    const notAMob = run.nextEntityId + 100;
+
+    observeTerritoryControl(acc, 10, [territoryPulse(notAMob)], run);
+    observeTerritoryControl(acc, 90, [territoryPulse(notAMob)], run);
+    expect(territoryControlOf(acc).pulseIntervals).toEqual([]);
+
+    // The same two ticks on a body that is in the pool do report a pace, so the
+    // absence above is the guard and not an empty input.
+    observeTerritoryControl(acc, 100, [territoryPulse(mob.id)], run);
+    observeTerritoryControl(acc, 180, [territoryPulse(mob.id)], run);
+    expect(territoryControlOf(acc).pulseIntervals).toEqual([80]);
   });
 });

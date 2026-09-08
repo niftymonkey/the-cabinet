@@ -15,6 +15,8 @@ import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
+import { SET_PIECE_HP } from '../stage/rows';
+import { placeSetPiece, setPieceHitbox } from '../stage/setPiece';
 import {
   damageStormTarget,
   moveStormTarget,
@@ -57,12 +59,67 @@ describe('what the storm can hit', () => {
     ]);
   });
 
-  // The set piece's source is the third thing the list holds, after the boss,
-  // and it takes its place there in the slice that builds the source: it is
-  // immune while dormant, so what puts it in the list is its own open state.
-  it.todo(
-    'holds the set piece source once it has opened, and never while it is dormant',
-  );
+  it('holds the set piece source once it has opened, and never while it is dormant', () => {
+    // The source is the third thing in the list, after the boss, and what puts
+    // it there is its own open state: a dormant one has no hitbox at all
+    // (ADR 0050), so there is nothing on the field for a line to find. Its two
+    // flags are the boss's, for its own reasons: a push would smear an authored
+    // moment, and a kill rule may not take a body whose health is sized to
+    // outlive its own pour.
+    const state = createRun(SEED);
+    const mob = putMob(state, 100, 200);
+    const boss = spawnBoss(state, 'banshee');
+    const piece = placeSetPiece(state);
+
+    expect(stormTargets(state).map((target) => target.id)).toEqual([
+      mob.id,
+      boss.id,
+    ]);
+    expect(setPieceHitbox(piece)).toBeNull();
+
+    piece.open = true;
+    expect(stormTargets(state).map((target) => target.id)).toEqual([
+      mob.id,
+      boss.id,
+      piece.id,
+    ]);
+    const asSource = stormTargets(state)[2];
+    expect(asSource.pushable).toBe(false);
+    expect(asSource.killableOutright).toBe(false);
+    expect(asSource.entered).toBe(true);
+    expect(asSource.hp).toBe(piece.hp);
+
+    // And it leaves the list the tick it is gone, exactly as the boss does.
+    state.setPiece = null;
+    expect(stormTargets(state).map((target) => target.id)).toEqual([
+      mob.id,
+      boss.id,
+    ]);
+  });
+
+  it('carries damage to an open source and moves it for nobody', () => {
+    // The other half of the seam's contract for a target of a third kind: a
+    // line damages it without learning what it is, and a push does nothing at
+    // all rather than moving an authored moment out of its own place.
+    const state = createRun(SEED);
+    const piece = placeSetPiece(state);
+    piece.open = true;
+    const target = stormTargets(state)[0];
+    const stood = { x: piece.x, y: piece.y };
+
+    expect(damageStormTarget(state, target, 40, 'skullStream')).toHaveLength(1);
+    expect(piece.hp).toBe(SET_PIECE_HP - 40);
+
+    moveStormTarget(state, target, piece.x + 90, piece.y + 90);
+    expect(`${piece.x} ${piece.y}`).toBe(`${stood.x} ${stood.y}`);
+
+    // Emptied, it leaves the field and the list with it, which is the kill the
+    // seam carries rather than one it decides.
+    expect(
+      damageStormTarget(state, target, piece.hp, 'skullStream').length,
+    ).toBeGreaterThan(1);
+    expect(state.setPiece).toBeNull();
+  });
 
   it('drops each on the tick it stops being live', () => {
     // The list is answered for the moment it is asked. A dead mob and a boss

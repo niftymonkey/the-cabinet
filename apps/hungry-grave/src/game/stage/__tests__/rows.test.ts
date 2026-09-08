@@ -53,6 +53,7 @@ import {
   SET_PIECE_SWEEP_MIN_X,
   SPARSE_LAST_ROW,
   VIGIL_ROWS,
+  WAKING_ROWS,
 } from '../rows';
 import type { Phase } from '../stage';
 import { PHASES } from '../stage';
@@ -63,7 +64,12 @@ const SECTIONS: readonly (readonly StageRow[])[] = [
   VIGIL_ROWS,
 ];
 
-const EVERY_ROW: readonly StageRow[] = SECTIONS.flat();
+/**
+ * Every row the stage authors, the Waking's own beside the three sections'.
+ * The rules a row obeys, its carrier, its order and its permission cell, are
+ * the same rules whichever table it stands in.
+ */
+const EVERY_ROW: readonly StageRow[] = [...SECTIONS.flat(), ...WAKING_ROWS];
 
 const totalOf = (rows: readonly StageRow[]): number =>
   rows.reduce((total, row) => total + row.count, 0);
@@ -353,6 +359,48 @@ describe("the pour's own rows, and the share under it (ADR 0042, ADR 0050)", () 
     expect(POUR_SHARES.vigil).toBe(1);
   });
 
+  it('carries the section under the pour on at the share it keeps firing at', () => {
+    // ADR 0051's other half made data: the Crowd's own last groups, re-timed to
+    // the phase the pour runs in and thinned, so the set piece arrives into
+    // trash and stays in it. What is held is the relation to the section's own
+    // rate and never either magnitude.
+    const pourSeconds = SET_PIECE_BUDGET * SET_PIECE_POUR_SECONDS;
+    const from = CROWD_ROWS[CROWD_ROWS.length - 1].t - pourSeconds;
+    const carried = CROWD_ROWS.filter((row) => row.t > from);
+
+    expect(WAKING_ROWS).toHaveLength(carried.length);
+    expect(WAKING_ROWS.map((row) => row.template)).toEqual(
+      carried.map((row) => row.template),
+    );
+    expect(WAKING_ROWS.map((row) => row.t)).toEqual(
+      carried.map((row) => row.t - from),
+    );
+    expect(totalOf(WAKING_ROWS)).toBeGreaterThan(0);
+    expect(totalOf(WAKING_ROWS)).toBeLessThan(
+      totalOf(carried) * POUR_SHARES.crowd + carried.length,
+    );
+
+    // And the corpse cap's own derivation still covers it: the query prices the
+    // Waking's window as the pour plus the Crowd's densest window at its share,
+    // so the rows that actually fire there have to sit inside that.
+    for (let seconds = 1; seconds <= 20; seconds++) {
+      const densest = Math.max(
+        ...WAKING_ROWS.map((row) =>
+          totalOf(between(WAKING_ROWS, row.t, row.t + seconds)),
+        ),
+      );
+      const priced = Math.ceil(
+        POUR_SHARES.crowd *
+          Math.max(
+            ...CROWD_ROWS.map((row) =>
+              totalOf(between(CROWD_ROWS, row.t, row.t + seconds)),
+            ),
+          ),
+      );
+      expect(`${seconds}s ${densest <= priced}`).toBe(`${seconds}s true`);
+    }
+  });
+
   it('pours faster than the densest ten seconds the sections author', () => {
     // The loudest beat in the run cannot arrive thinner than the section it
     // interrupts. The relation is what is held, never either magnitude.
@@ -432,7 +480,9 @@ describe('the section tables as data (ADR 0006)', () => {
   });
 
   it('orders every section table by its phase-local time', () => {
-    for (const rows of SECTIONS) expect(outOfOrderIn(rows)).toEqual([]);
+    for (const rows of [...SECTIONS, WAKING_ROWS]) {
+      expect(outOfOrderIn(rows)).toEqual([]);
+    }
 
     // The same proof of teeth: reversed, the Crowd's own table is caught.
     expect(outOfOrderIn([...CROWD_ROWS].reverse())).not.toEqual([]);
@@ -527,6 +577,10 @@ describe("the director's off-limits cells, as data (ADR 0047, ADR 0056)", () => 
       ...sparseIn(PROCESSION_ROWS),
       CROWD_ROWS.find((row) => row.template === 'wall')!,
       ...sparseIn(VIGIL_ROWS),
+      // And every row the pour runs under, because the set piece is the third
+      // of ADR 0047's four moments and a director filling gaps in it would be
+      // spending inside the one it protects.
+      ...WAKING_ROWS,
     ]);
   });
 
@@ -540,8 +594,9 @@ describe("the director's off-limits cells, as data (ADR 0047, ADR 0056)", () => 
     ];
 
     // The four phases the director may not spend in at all, the Wall's own row,
-    // and the sparse last row of each of the two sections a boss ends.
-    const offLimits = 4 + 1 + 2 * SPARSE_LAST_ROW.bodies;
+    // the sparse last row of each of the two sections a boss ends, and every
+    // row that fires under the pour.
+    const offLimits = 4 + 1 + 2 * SPARSE_LAST_ROW.bodies + WAKING_ROWS.length;
     expect(cells.filter((cell) => cell.endsWith('false')).length).toBe(
       offLimits,
     );

@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { damageBoss } from '../../game/bosses/chunks';
+import { damageBoss, spawnBoss } from '../../game/bosses/chunks';
 import { carrierRow, carriersForFullBuild } from '../../game/carriers';
 import { TICK_HZ } from '../../game/clock';
 import { FIELD_HEIGHT } from '../../game/field';
@@ -31,7 +31,7 @@ import {
 } from '../../game/mobs';
 import { OFFER_SIZE } from '../../game/offer';
 import type { RunState } from '../../game/run';
-import { createRun } from '../../game/run';
+import { createRun, uniformLevels } from '../../game/run';
 import { CROWD_ROWS, PROCESSION_ROWS, VIGIL_ROWS } from '../../game/stage/rows';
 import { PHASES } from '../../game/stage/stage';
 import { place } from '../../game/stage/templates';
@@ -40,7 +40,7 @@ import {
   SCROLL_SPEED,
   SIZE_CEILING,
 } from '../../game/tuning';
-import { createExecution } from '../../game/execution';
+import { createExecution, executeTick } from '../../game/execution';
 import type { Policy, PolicyRun } from '../bot';
 import {
   belchingPolicy,
@@ -432,8 +432,7 @@ function maxedRun(seed: number) {
   const key = `${seed}|maxed`;
   const cached = runs.get(key);
   if (cached !== undefined) return cached;
-  const state = createRun(seed, SIZE_CEILING);
-  for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
+  const state = createRun(seed, SIZE_CEILING, uniformLevels(MAX_LEVEL));
   const execution = createExecution(state);
   const { events, ticks } = runPolicy(execution, dodgePolicy, MAXED_RUN_TICKS);
   const played = { state, events, ticks, faults: execution.faults };
@@ -708,6 +707,25 @@ describe('both endings across the three loadouts', () => {
         (seed) => maxedRun(seed).state.ending === 'victory',
       );
       expect(winners).toEqual(REACHES_VICTORY_MAXED);
+
+      // And it is his death that ends it rather than a phase index: the two
+      // fall on one tick, and the run recorded no fault reaching them
+      // (ADR 0007, and the plan's own whole-run pass criterion).
+      for (const seed of winners) {
+        const { events, faults } = maxedRun(seed);
+        const victory = events.filter((event) => event.type === 'victory');
+        const killed = events.filter(
+          (event) => event.type === 'bossKilled' && event.boss === 'undertaker',
+        );
+        expect(`${seed} ${victory.length} ${killed.length}`).toBe(
+          `${seed} 1 1`,
+        );
+        expect(`${seed} ${faults.length}`).toBe(`${seed} 0`);
+        const at = events.indexOf(killed[0]);
+        expect(`${seed} ${events.indexOf(victory[0]) > at}`).toBe(
+          `${seed} true`,
+        );
+      }
     },
     FIVE_MAXED_RUNS_MS,
   );
@@ -765,7 +783,88 @@ describe('both endings across the three loadouts', () => {
  */
 const STRIPS_A_RUNG: number[] = [];
 
+/**
+ * The build the whole ladder is walked under, and the score it brings.
+ *
+ * A rung is only strippable if the run bought one, and this policy cannot buy
+ * anything: it steers into fire rather than at food. Score arrives only as
+ * overflow from a swallow at the size ceiling, and a grave that dives is off
+ * the ceiling long before a fight pays it anything, so both are pinned on the
+ * run as arrival conditions. Level two rather than five because the storm has
+ * to leave the fight standing while the grave is ground down: a full build
+ * empties a chunk faster than the boss's pattern reaches the floor, and a fight
+ * that ends in victory cannot also seal. The same two pins and the same reasons
+ * carry src/__tests__/endings.test.ts's own walk of the ladder; what is read
+ * here is that the policy walks it across the seeds rather than on one.
+ */
+const LADDER_LEVEL = 2;
+const LADDER_SCORE = 1200;
+
+/** How long a pinned fight is given to grind a grave to the floor. */
+const LADDER_TICKS = 6000;
+
+/**
+ * One run of the policy inside the stage's last fight, pinned above the
+ * birthright with score on it.
+ *
+ * It stands in the fight rather than playing to it because no birthright run
+ * crosses the stage headlessly at all (ADR 0007), so a run that played there
+ * would measure what got it there and never the ladder.
+ */
+function ladderRun(seed: number): { state: RunState; rungs: string[] } {
+  const state = createRun(seed, SIZE_CEILING, uniformLevels(LADDER_LEVEL));
+  state.stage.phaseIndex = PHASES.findIndex(
+    (phase) => phase.boss === 'undertaker',
+  );
+  const execution = createExecution(state);
+  spawnBoss(state, 'undertaker');
+  state.score = LADDER_SCORE;
+  const rungs: string[] = [];
+  let caused: SimEvent[] = [];
+  for (let tick = 0; tick < LADDER_TICKS && state.ending === null; tick++) {
+    const events = executeTick(execution, hitTakingPolicy(state, caused));
+    caused = [...events];
+    for (const event of events) {
+      if (
+        event.type === 'scoreBled' ||
+        event.type === 'weaponStripped' ||
+        event.type === 'sealed'
+      ) {
+        rungs.push(event.type);
+      }
+    }
+  }
+  return { state, rungs };
+}
+
 describe("hitTakingPolicy walks ADR 0003's ladder", () => {
+  it('reaches sealed shut through the whole ladder on the seeds it is played on', () => {
+    // ADR 0003: "hits bleed score first, then weapon levels down to the
+    // birthright loadout, and only when nothing is left to bleed does the next
+    // hit seal the grave shut." Reachable inside a fight is the half the stage
+    // only gained when both bosses became real, and it is read across the seeds
+    // here rather than on the one endings.test.ts drives.
+    const walked = SEEDS.map((seed) => ({ seed, ...ladderRun(seed) }));
+
+    for (const { seed, state, rungs } of walked) {
+      expect(`${seed} ${state.ending}`).toBe(`${seed} sealed`);
+      expect(`${seed} ${rungs[0]}`).toBe(`${seed} scoreBled`);
+      expect(`${seed} ${rungs.at(-1)}`).toBe(`${seed} sealed`);
+      expect(rungs.indexOf('weaponStripped')).toBeGreaterThan(
+        rungs.indexOf('scoreBled'),
+      );
+      expect(rungs.indexOf('weaponStripped')).toBeLessThan(
+        rungs.indexOf('sealed'),
+      );
+      // The floor a level falls to is the birthright, whatever the build was.
+      for (const line of WEAPON_LINES) {
+        expect(`${seed} ${line} ${state.levels[line]}`).toBe(
+          `${seed} ${line} ${BIRTHRIGHT.includes(line) ? 1 : 0}`,
+        );
+      }
+    }
+  });
+
   for (const seed of SEEDS) {
     it(`reaches sealed shut from a grown grave on seed ${seed}`, () => {
       // The run is the cached one sealedRun plays, which is where the choice of

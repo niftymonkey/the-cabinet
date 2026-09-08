@@ -115,6 +115,21 @@ const groundStillStands = (state: RunState, patchId: number): boolean => {
   return false;
 };
 
+/**
+ * Whether this id belongs to a body standing in the mob pool.
+ *
+ * The storm reaches a boss and the set piece's source through the same seam it
+ * reaches a mob through, so a territory pulse can carry an id that is in no
+ * pool at all. This reading is about how often the ground re-hits a body
+ * crossing it, and neither of those is crossing anything: a source that stands
+ * under one patch for its whole pour would report a pace no mob ever walked,
+ * and its entry would never be cleared, because what clears one is a mobKilled
+ * and neither of them dies as a mob.
+ */
+const standsInThePool = (state: RunState, id: number): boolean => {
+  return state.mobs.some((mob) => mob.alive && mob.id === id);
+};
+
 const observeTerritoryControl = (
   acc: TerritoryControlAcc,
   tick: number,
@@ -122,7 +137,11 @@ const observeTerritoryControl = (
   state: RunState,
 ): void => {
   for (const event of events) {
-    if (event.type === 'mobDamaged' && event.source === 'territory') {
+    if (
+      event.type === 'mobDamaged' &&
+      event.source === 'territory' &&
+      standsInThePool(state, event.id)
+    ) {
       const last = acc.lastPulseAt.get(event.id);
       if (last !== undefined) acc.pulseIntervals.push(tick - last);
       acc.lastPulseAt.set(event.id, tick);

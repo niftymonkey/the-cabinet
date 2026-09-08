@@ -173,25 +173,31 @@ const clearanceAt = (
   return Math.max(dx, dy);
 };
 
-const distanceToHome = (at: { x: number; y: number }): number => {
-  const dx = at.x - HOME.x;
-  const dy = at.y - HOME.y;
+const distanceTo = (
+  at: { x: number; y: number },
+  point: { x: number; y: number },
+): number => {
+  const dx = at.x - point.x;
+  const dy = at.y - point.y;
   return Math.sqrt(dx * dx + dy * dy);
 };
 
 /**
  * How good a move looks: the tightest clearance it leaves over the look-ahead,
- * capped, with the drift home breaking ties. Capping the clearance is what
- * keeps this a plausible human rather than an optimizer: past a body's width of
- * room it stops caring how much more it could have had.
+ * capped, with the drift toward where the hand wants to be breaking ties.
+ * Capping the clearance is what keeps this a plausible human rather than an
+ * optimizer: past a body's width of room it stops caring how much more it could
+ * have had, and that is the room in which wanting to be somewhere decides.
  */
 const scoreMove = (
   state: RunState,
   move: MoveCommand,
   threats: readonly Threat[],
   speed: number,
+  wants: { x: number; y: number },
+  enough: number,
 ): number => {
-  let tightest = ENOUGH_CLEARANCE;
+  let tightest = enough;
   for (const ticks of LOOKAHEAD_SAMPLES) {
     const at = graveAfter(state, move, ticks, speed);
     for (const threat of threats) {
@@ -199,7 +205,7 @@ const scoreMove = (
     }
   }
   const settled = graveAfter(state, move, LOOKAHEAD_TICKS, speed);
-  return tightest * 1000 - distanceToHome(settled);
+  return tightest * 1000 - distanceTo(settled, wants);
 };
 
 /**
@@ -218,11 +224,28 @@ const dodgePolicy: Policy = (state) => {
 
 // The roomiest of the nine moves a thumb can make, which is the whole of the dodge.
 const bestDodge = (state: RunState): MoveCommand => {
+  return bestMoveToward(state, HOME, ENOUGH_CLEARANCE);
+};
+
+/**
+ * The same dodge, wanting to be somewhere: the roomiest of the nine moves, with
+ * the distance to a chosen point breaking ties where the room is equal.
+ *
+ * Every policy in this file that goes anywhere is this function under a
+ * different point, so a hand that dives and a hand that waits differ in what
+ * they want and never in how well they dodge, which is what makes a comparison
+ * between them a comparison of the wanting.
+ */
+const bestMoveToward = (
+  state: RunState,
+  point: { x: number; y: number },
+  enough: number,
+): MoveCommand => {
   const threats = threatsNear(state);
   let best = MOVES[0];
   let bestScore = -Infinity;
   for (const move of MOVES) {
-    const score = scoreMove(state, move, threats, BASE_SPEED);
+    const score = scoreMove(state, move, threats, BASE_SPEED, point, enough);
     if (score <= bestScore) continue;
     bestScore = score;
     best = move;
@@ -324,11 +347,86 @@ const hitTakingPolicy: Policy = (state) => {
 const towardNearest = (state: RunState): MoveCommand => {
   const target = nearestThreat(state);
   if (target === null) return { x: 0, y: 0 };
-  const dx = target.x - state.grave.x;
-  const dy = target.y - state.grave.y;
+  return toward(state, target);
+};
+
+// The unit move that closes on a point, or nothing when the grave is on it.
+const toward = (
+  state: RunState,
+  point: { x: number; y: number },
+): MoveCommand => {
+  const dx = point.x - state.grave.x;
+  const dy = point.y - state.grave.y;
   const length = Math.sqrt(dx * dx + dy * dy);
   if (length === 0) return { x: 0, y: 0 };
   return { x: dx / length, y: dy / length };
+};
+
+// The nearest piece of food to the grave, or null when there is none on the field.
+const nearestFood = (state: RunState): { x: number; y: number } | null => {
+  let nearest: { x: number; y: number } | null = null;
+  let best = Infinity;
+  for (const corpse of state.corpses) {
+    if (!corpse.alive) continue;
+    const dx = corpse.x - state.grave.x;
+    const dy = corpse.y - state.grave.y;
+    const distance = dx * dx + dy * dy;
+    if (distance >= best) continue;
+    best = distance;
+    nearest = corpse;
+  }
+  return nearest;
+};
+
+/**
+ * How much room a hand committing to the trail settles for: half a trash body's
+ * width, against the whole body's width the drifting hand keeps.
+ *
+ * It is what makes committing a commitment rather than a preference. Above the
+ * cap two moves tie on room and where the hand wants to be decides, so a hand
+ * that only takes the roomiest move never reaches anything inside a swarm:
+ * every move in a pour leaves less than a body's width and the wanting never
+ * gets to decide at all. Squeezing past a body to reach a corpse is what a
+ * person does, and danger and opportunity standing in the same place is the
+ * project's own bet (VISION.md:21).
+ */
+const COMMITTING_CLEARANCE = 12;
+
+/**
+ * Commits to the trail: it dodges exactly as dodgePolicy does and swims up to
+ * whatever food is nearest instead of drifting home. It carries the first half
+ * of the Waking's property (ADR 0042), that a grave which goes and gets the
+ * trail is paid far more than one that waits for it.
+ *
+ * Written as a plausible human and not as an optimizer, the same rule
+ * dodgePolicy is written under: it reads the nearest body rather than solving
+ * for the richest reachable order, and it still takes the roomiest move it can
+ * find rather than driving through bodies to reach a corpse.
+ */
+const divingPolicy: Policy = (state) => {
+  return {
+    move: bestMoveToward(
+      state,
+      nearestFood(state) ?? HOME,
+      COMMITTING_CLEARANCE,
+    ),
+    belch: false,
+  };
+};
+
+/**
+ * Holds low and lets the scroll deliver: it tracks food across the field
+ * without ever climbing to meet it, which is the same hand as the diving one
+ * with the height taken out of what it wants.
+ *
+ * The other half of the same property, and the half that has to be a plausible
+ * human rather than a straw man: a property proved against a grave that stood
+ * perfectly still would be proving something no person does.
+ */
+const waitingPolicy: Policy = (state) => {
+  const food = nearestFood(state);
+  const at = { x: food?.x ?? HOME.x, y: HOME.y };
+  return { move: bestMoveToward(state, at, ENOUGH_CLEARANCE), belch: false };
 };
 
 export {
@@ -337,5 +435,7 @@ export {
   unloadedPolicy,
   belchingPolicy,
   hitTakingPolicy,
+  divingPolicy,
+  waitingPolicy,
 };
 export type { Policy, PolicyRun };

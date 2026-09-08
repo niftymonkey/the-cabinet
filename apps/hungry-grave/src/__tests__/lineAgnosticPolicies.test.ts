@@ -83,6 +83,21 @@ const POLICY_MODULES: readonly string[] = [
 ];
 
 /**
+ * Every module that stands a fight or a set piece on the field. None of them
+ * may name a weapon line: a boss takes damage from a DamageSource and never
+ * asks which line landed it, and a set piece names the property it keeps and
+ * never the build that meets it, so a fifth line needs no edit in either
+ * (the standing extensibility constraint, path-draft.md:21).
+ *
+ * It is the fence read from the authored moment's side; the one above it reads
+ * the same constraint from the line's side.
+ */
+const AUTHORED_MOMENT_MODULES: readonly string[] = [
+  ...productionModulesUnder(join(SRC, 'game', 'bosses')),
+  'game/stage/setPiece.ts',
+];
+
+/**
  * Whether a source quotes a name, in any of the three quote characters a
  * string literal can carry.
  *
@@ -353,6 +368,32 @@ describe('a policy names no weapon line', () => {
     expect(quotesName('const owned = levels[line];', 'skullStream')).toBe(
       false,
     );
+  });
+});
+
+describe('no boss and no set piece names a weapon line', () => {
+  for (const module of AUTHORED_MOMENT_MODULES) {
+    it(`src/${module} names no weapon line`, () => {
+      // The list comes from the roster and the folder rather than from names
+      // written here, so a fifth line and a second set piece both join this
+      // fence the moment they arrive.
+      const source = sourceOf(module);
+      expect(WEAPON_LINES.filter((line) => quotesName(source, line))).toEqual(
+        [],
+      );
+    });
+  }
+
+  it('holds every boss module in the sweep, so one cannot arrive outside it', () => {
+    // The boss half is read off the folder and the set piece is named, which is
+    // the pair the constraint covers: a boss added as a file is fenced without
+    // an edit here, and the one set piece module is spelled out because it is
+    // the only file of its kind.
+    expect(AUTHORED_MOMENT_MODULES.length).toBeGreaterThan(3);
+    expect(AUTHORED_MOMENT_MODULES).toContain('game/stage/setPiece.ts');
+    for (const module of AUTHORED_MOMENT_MODULES) {
+      expect(`${module} ${sourceOf(module).length > 0}`).toBe(`${module} true`);
+    }
   });
 });
 

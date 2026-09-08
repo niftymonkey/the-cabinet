@@ -556,6 +556,7 @@ function fillBoss(run: RunState): void {
 /** The fixture's set piece, open and part-way through its pour. */
 function fillSetPiece(run: RunState): void {
   run.setPiece = {
+    id: 18,
     x: 300,
     y: 240,
     open: true,
@@ -1226,6 +1227,7 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'refusals.carriers': "a tick's own refusal count, as refusals.food is",
   'refusals.offers': "a tick's own refusal count, as refusals.food is",
   'boss.id': 'spawn identity, never mutated after spawn',
+  'setPiece.id': 'spawn identity, never mutated after spawn',
 };
 
 /**

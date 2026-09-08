@@ -7,7 +7,14 @@ import type { SimEvent } from '../events';
 import { spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import type { BossKind, StageRow } from './rows';
-import { CROWD_ROWS, PROCESSION_ROWS, VIGIL_ROWS } from './rows';
+import {
+  CROWD_ROWS,
+  PROCESSION_ROWS,
+  SET_PIECE_PLACED_AT,
+  VIGIL_ROWS,
+  WAKING_ROWS,
+} from './rows';
+import { placeSetPiece } from './setPiece';
 import { place } from './templates';
 
 type PhaseName =
@@ -23,8 +30,14 @@ type PhaseName =
  * What ends a phase (ADR 0050, ADR 0051). A section ends on its own boundary
  * event rather than on an absolute clock, because a shootable boss dies when
  * killed and fight length varies per player.
+ *
+ * Only the two boss boundaries wait for an empty field, which is ADR 0051's own
+ * ruling: the Crowd hands the set piece a field with trash on it and the set
+ * piece hands the Vigil the trail it poured, so each of those two ends on the
+ * source's own event instead.
  */
-type PhaseEnd = 'rowsSpentAndFieldClear' | 'setPieceOpened' | 'bossKilled';
+type PhaseEnd =
+  'rowsSpentAndFieldClear' | 'setPieceOpened' | 'setPieceClosed' | 'bossKilled';
 
 /**
  * Which loop plays under a phase, named for the phase the loop starts in and
@@ -72,10 +85,8 @@ interface Phase {
  * varies per player. The printed clock marks in the concept doc are nominal
  * design intent.
  *
- * Both boss phases are real fights and end when their boss is gone. The set
- * piece is still stubbed: its phase authors no rows, so it ends when the trash
- * the Crowd handed it has left, and the slice that builds the source replaces
- * that without moving anything else about the timeline.
+ * Both boss phases end when their boss is gone and the Waking when its source
+ * is, so the three boundary phases are each as long as what happens in them.
  *
  * Three loops cover the seven phases and the two changes fall on the two
  * boundary events decision 22's amendment names, the Banshee's death and the
@@ -118,14 +129,15 @@ const PHASES: readonly Phase[] = [
     bankOpens: true,
   },
   {
-    // It authors no rows and sheds no boss, so what clears its field is the
-    // pour running out. Until the pour exists it stands on the condition below
-    // and waits for the trash the Crowd handed it to leave. Whether the set
-    // piece's own end wants a member of its own on PhaseEnd is its slice to
-    // rule.
+    // The source's own moment: it begins the tick the eye opens and ends the
+    // tick the source is gone, whichever of its three ends took it. It waits
+    // for no field to clear, because only the two boss boundaries do
+    // (ADR 0051), so the trail it poured is still falling when the Vigil's
+    // cooldown row lands under it. Its rows are the Crowd's own last groups
+    // carried on at the share that section keeps firing under a pour.
     name: 'waking',
-    rows: [],
-    ends: 'rowsSpentAndFieldClear',
+    rows: WAKING_ROWS,
+    ends: 'setPieceClosed',
     boss: null,
     directed: false,
     music: 'waking',
@@ -216,15 +228,21 @@ const phaseSpent = (state: RunState, phase: Phase): boolean => {
  * one its own died on, so how long the phase runs is how long the fight took
  * and never a number in this table (ADR 0050, CONTEXT.md's Phase).
  *
- * A phase whose column names something that does not exist yet ends on its own
- * rows running out. That is the Crowd's stand-in until the eye can open: the
- * Crowd hands the phase after it a field with trash on it, which is the half of
- * ADR 0051 that already holds.
+ * The Crowd ends on the eye opening and the Waking on the source leaving, so
+ * neither waits for a field to clear: the Crowd hands the set piece a field with
+ * trash on it and the set piece hands the Vigil the trail it poured, which is
+ * ADR 0051's "only the two boss boundaries need the field empty".
+ *
+ * Both terminate by construction. The source is placed inside the field and
+ * drifts downward at a fixed rate, so it always reaches its opening depth; once
+ * open it spends a finite budget on a fixed interval, and the bottom edge is
+ * behind that either way.
  */
 const phaseEnded = (state: RunState, phase: Phase): boolean => {
   if (phase.ends === 'rowsSpentAndFieldClear') return phaseSpent(state, phase);
   if (phase.ends === 'bossKilled') return state.boss === null;
-  return rowsSpent(state, phase);
+  if (phase.ends === 'setPieceClosed') return state.setPiece === null;
+  return state.setPiece !== null && state.setPiece.open;
 };
 
 // Whether a banked offer may open on this tick (ADR 0034's bank, ADR 0048).
@@ -281,6 +299,21 @@ const spawnDueRows = (
     stage.firedRows += 1;
     spawnRow(state, row, events);
   }
+};
+
+/**
+ * The dormant source, placed by the section that ends on it (ADR 0050).
+ *
+ * The phase's own end column is what says the section places it: the section
+ * that ends on the eye opening is the section the eye is placed from, so which
+ * one that is stays stage data and no name is tested here. It is placed once,
+ * because a source on the field is what ends the phase and the phase after it
+ * ends on the same one leaving.
+ */
+const placeDueSetPiece = (state: RunState, phase: Phase): void => {
+  if (phase.ends !== 'setPieceOpened' || state.setPiece !== null) return;
+  if (state.stage.phaseTick < SET_PIECE_PLACED_AT * TICK_HZ) return;
+  placeSetPiece(state);
 };
 
 /**
@@ -392,6 +425,7 @@ const advanceStage = (state: RunState): SimEvent[] => {
   while (state.stage.phaseIndex < PHASES.length - 1) {
     const phase = PHASES[state.stage.phaseIndex];
     spawnDueRows(state, phase, events);
+    placeDueSetPiece(state, phase);
     if (!phaseEnded(state, phase)) return events;
     enterNextPhase(state, events);
   }

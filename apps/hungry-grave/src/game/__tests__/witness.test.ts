@@ -82,6 +82,7 @@ function fillBoss(run: RunState): void {
 /** The fixture's set piece, open and part-way through its pour. */
 function fillSetPiece(run: RunState): void {
   run.setPiece = {
+    id: 18,
     x: 300,
     y: 240,
     open: true,
@@ -773,6 +774,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'written once at spawn from the pattern that fired it and never mutated. It answers what a shot looks like rather than where it goes, so the renderer reads it and the rules never do.',
   'boss.id':
     'spawn identity, summarised by nextEntityId, which is folded. It is the join key a mobDamaged carries and never something the rules move.',
+  'setPiece.id':
+    "spawn identity, as boss.id is: the storm's target seam matches on it and the rules never move it.",
   'corpses[].alive': 'gates the walk, as mobs[].alive does.',
   'corpses[].id': 'spawn identity, as mobs[].id is.',
   'corpses[].decays':

@@ -13,14 +13,21 @@ import { describe, expect, it } from 'vitest';
 
 import stageSource from '../stage.ts?raw';
 
-import { damageBoss } from '../../bosses/chunks';
+import { BOSS_KINDS } from '../rows';
+import { CHUNK_HP, damageBoss } from '../../bosses/chunks';
 import { carrierRow } from '../../carriers';
 import { stepping } from '../../../dev/stepping';
 import { TICK_HZ } from '../../clock';
 import type { SimEvent } from '../../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import { graveWidth } from '../../grave';
+import { BELL_DAMAGE_NEAR, BELL_PERIOD } from '../../lines/bell';
 import { BIRTHRIGHT } from '../../lines/roster';
+import {
+  COLUMNS_BY_LEVEL,
+  SKULL_DAMAGE,
+  STREAM_INTERVAL,
+} from '../../lines/skullStream';
 import type { MobType } from '../../mobs';
 import {
   damageMob,
@@ -43,6 +50,7 @@ import {
   sparseLastRow,
   VIGIL_ROWS,
 } from '../rows';
+import { placeSetPiece } from '../setPiece';
 import type { Phase, PhaseName } from '../stage';
 import { advanceStage, PHASES, phaseEnded } from '../stage';
 import { place } from '../templates';
@@ -272,6 +280,34 @@ function lastRowAt(rows: readonly StageRow[]): number {
   return rows[rows.length - 1].t;
 }
 
+/** How many bodies a table lands per second of its own span. */
+function ratePerSecond(rows: readonly StageRow[]): number {
+  const bodies = rows.reduce((total, row) => total + row.count, 0);
+  return bodies / lastRowAt(rows);
+}
+
+/**
+ * A full build's storm on one body, per second, from the two lines that hold a
+ * share against a target that is not going anywhere. Derived from their own
+ * exported rows rather than pinned, for the reason undertaker.test.ts derives
+ * the same figure: a number read off three modules while they were being
+ * rewritten would keep passing after the weapons had moved.
+ */
+const FULL_BUILD_DAMAGE_PER_SECOND =
+  (COLUMNS_BY_LEVEL[COLUMNS_BY_LEVEL.length - 1] * SKULL_DAMAGE) /
+    (STREAM_INTERVAL / TICK_HZ) +
+  BELL_DAMAGE_NEAR / (BELL_PERIOD / TICK_HZ);
+
+/**
+ * The share of that storm a boss standing at the top of the field takes, which
+ * is what the design record's section 4 sizes CHUNK_HP under. It is the one
+ * figure in this file that is written down rather than read off a row, and it
+ * has to be: how much of a player's storm is pointed at a boss is a fact about
+ * the player and about nothing in the tree. A parked hand is not one, which the
+ * test that reads it says beside its own assertion.
+ */
+const BOSS_STORM_SHARE = 1 / 3;
+
 /**
  * How long a boss phase may hold a run in this rig. A fight has no authored
  * length at all: it is the boss's health against whatever the hand puts on it,
@@ -370,8 +406,13 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
     // ADR 0050: "where each boundary falls on the clock is stage data." The
     // same section with one more row has not run out where the authored one
     // has, and nothing else in the machine has an opinion about it.
+    //
+    // The two sections a boss ends are the two this reads, because they are the
+    // two whose end is their own rows running out. The Crowd's boundary is the
+    // eye opening and its own row is the one that places the source, which the
+    // test below it holds.
     const state = createRun(1);
-    for (const name of SECTION_NAMES) {
+    for (const name of BOSS_BOUND_SECTIONS) {
       const each = phase(name);
       const last = each.rows[each.rows.length - 1];
       const stretched: Phase = {
@@ -382,6 +423,24 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
       expect(`${name} ${phaseEnded(state, each)}`).toBe(`${name} true`);
       expect(`${name} ${phaseEnded(state, stretched)}`).toBe(`${name} false`);
     }
+  });
+
+  it('ends the Crowd on the eye and never on its rows, however many are left', () => {
+    // The middle boundary is the one that is not a boss and not a row running
+    // out (ADR 0050). Its column is what decides, so a Crowd with every row
+    // fired and an empty field is still live while the source is dormant, and a
+    // Crowd with rows left ends the tick the source opens.
+    const state = createRun(1);
+    const crowd = phase('crowd');
+    state.stage.firedRows = crowd.rows.length;
+    expect(phaseEnded(state, crowd)).toBe(false);
+
+    placeSetPiece(state);
+    expect(phaseEnded(state, crowd)).toBe(false);
+
+    state.stage.firedRows = 0;
+    state.setPiece!.open = true;
+    expect(phaseEnded(state, crowd)).toBe(true);
   });
 
   it('buys no power with length: a longer section carries the carriers it authored', () => {
@@ -779,10 +838,104 @@ describe('the sparse last row (ADR 0051)', () => {
     expect(silentGapsIn(silent)).toHaveLength(1);
   });
 
-  it.todo('ends the Crowd on the eye opening and never on an empty field');
-  it.todo(
-    "keeps the Crowd's rows firing through the pour at the section's own reduced share",
-  );
+  it('ends the Crowd on the eye opening and never on an empty field', () => {
+    // ADR 0051: "there is no drain-out before the set piece." ADR 0050: "a
+    // swarm set piece ends the second." The Crowd turns on the source opening,
+    // with its own rows still firing and the field still full, which is the
+    // half of ADR 0051 that only became assertable once the eye could open.
+    for (const played of [STILL_PLAY, SHARP]) {
+      const at = played.boundaries.find((each) => each.phase === 'waking')!;
+      const opened = played.events.filter(
+        (event) => event.type === 'setPieceOpened',
+      );
+      expect(opened).toHaveLength(1);
+      // The eye opens on the tick before the boundary, because the set piece
+      // ticks after advanceStage: the phase turns on the first tick that can
+      // read it open.
+      expect(at.tick).toBeGreaterThan(0);
+      expect(played.liveMobs[at.tick]).toBeGreaterThan(0);
+      // And the section's own last row had already fired, so what is left is
+      // the eye rather than a row nobody spent.
+      expect(played.stageClock[at.tick - 1].tick).toBeGreaterThan(
+        lastRowAt(phase('crowd').rows) * TICK_HZ,
+      );
+    }
+  });
+
+  it("keeps the Crowd's rows firing through the pour at the section's own reduced share", () => {
+    // The other half of the same ruling: a Crowd that stopped would hand the
+    // loudest beat in the run a silent field. The share is a data row and what
+    // is held is the relation, non-zero and under the section's own rate, never
+    // either magnitude.
+    const under = phase('waking').rows;
+    const crowd = phase('crowd').rows;
+    expect(under.length).toBeGreaterThan(0);
+    expect(ratePerSecond(under)).toBeGreaterThan(0);
+    expect(ratePerSecond(under)).toBeLessThan(ratePerSecond(crowd));
+    // None of them carries and the director may spend in none of them: the
+    // carriers are authored across the three sections and the set piece is one
+    // of ADR 0047's off-limits moments.
+    expect(under.filter((row) => row.carries || row.directed)).toEqual([]);
+
+    // And they really fire. The pour lands one body at a time out of its own
+    // mouth, so a group arriving inside the Waking is one of these rows and
+    // never the source: what is read is the group and not a count, because a
+    // tick's arrivals are the difference the field made and a body culled on
+    // the same tick would hide one.
+    for (const played of [STILL_PLAY, SHARP]) {
+      const [from, to] = spanOf(played, 'waking');
+      const groups = played.arrivals.filter(
+        (each) => each.tick >= from && each.tick < to && each.count > 1,
+      );
+      const poured = played.events.filter(
+        (event) => event.type === 'setPiecePoured',
+      );
+      expect(poured.length).toBeGreaterThan(0);
+      expect(groups.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('lands a whole run inside the eight-to-ten minute band', () => {
+    // ADR 0049: "the one stage grows from five minutes unbroken to eight to ten
+    // minutes cut into named sections" and "the nominal clock inside the band
+    // is stage data".
+    //
+    // The clock is stage data in two halves and both are computed here. The
+    // sections are as long as their own rows take under a hand that plays them,
+    // read off the run this file already plays. A fight has no authored length
+    // at all: it is the boss's health against whatever the hand puts on it, so
+    // its nominal length is its own health rows against a full build's storm at
+    // the share the design record sizes them under, and that share is the one
+    // figure written down rather than derived, because nothing in the tree can
+    // say how often a player's storm is pointed at a boss.
+    //
+    // What the two parked hands measure instead is the band's own edges: a
+    // parked full build empties both bosses in a fraction of their nominal and
+    // a parked birthright takes several times it, and neither is a player.
+    const sections = SECTION_NAMES.map((name) => lengthOf(SHARP, name));
+    const waking = lengthOf(SHARP, 'waking');
+    const fights = BOSS_KINDS.map(
+      (kind) =>
+        CHUNK_HP[kind].reduce((total, chunk) => total + chunk, 0) /
+        (FULL_BUILD_DAMAGE_PER_SECOND * BOSS_STORM_SHARE),
+    );
+    const seconds =
+      [...sections, waking].reduce((total, each) => total + each, 0) / TICK_HZ +
+      fights.reduce((total, each) => total + each, 0);
+
+    // The run really crosses all seven phases, so the band is over a stage that
+    // exists rather than over a sum of tables.
+    expect(SHARP.boundaries.map((each) => each.phase)).toEqual([
+      'banshee',
+      'crowd',
+      'waking',
+      'vigil',
+      'undertaker',
+      'over',
+    ]);
+    expect(seconds).toBeGreaterThanOrEqual(8 * 60);
+    expect(seconds).toBeLessThanOrEqual(10 * 60);
+  });
 });
 
 /**

@@ -28,6 +28,10 @@ import type { DamageSource, Mob } from './mobs';
 import { damageMob, hasEntered, mobHitbox, SPAWN_MARGIN } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
+import type { SetPiece } from './stage/setPiece';
+import { damageSetPiece, setPieceHitbox } from './stage/setPiece';
+import { SET_PIECE_DRIFT_SHARE } from './stage/rows';
+import { SCROLL_SPEED } from './tuning';
 
 /**
  * One thing the storm can hit this tick, whatever kind of thing it is standing
@@ -77,6 +81,7 @@ interface TargetSlot {
   killableOutright: boolean;
   mob: Mob | null;
   boss: Boss | null;
+  setPiece: SetPiece | null;
 }
 
 const blankSlot = (): TargetSlot => {
@@ -93,19 +98,20 @@ const blankSlot = (): TargetSlot => {
     killableOutright: false,
     mob: null,
     boss: null,
+    setPiece: null,
   };
 };
 
 /**
  * The slots this module owns, one per thing that can stand on the field at
- * once: the whole mob pool, and the boss.
+ * once: the whole mob pool, the boss, and the set piece's own source.
  *
  * They are pre-allocated and refilled in place so that a tick allocates nothing
  * however many lines ask, which is the point. Five callers a tick over a
  * hundred-and-sixty-slot pool is exactly where a fresh array per call would
  * show up.
  */
-const SLOTS: TargetSlot[] = Array.from({ length: MOB_CAP + 1 }, blankSlot);
+const SLOTS: TargetSlot[] = Array.from({ length: MOB_CAP + 2 }, blankSlot);
 
 /**
  * The list handed out, held at the number of slots filled. It is the same array
@@ -135,6 +141,7 @@ const fillFromMob = (slot: TargetSlot, mob: Mob): void => {
   slot.killableOutright = true;
   slot.mob = mob;
   slot.boss = null;
+  slot.setPiece = null;
 };
 
 /**
@@ -159,11 +166,45 @@ const fillFromBoss = (slot: TargetSlot, boss: Boss): void => {
   slot.killableOutright = false;
   slot.mob = null;
   slot.boss = boss;
+  slot.setPiece = null;
+};
+
+/**
+ * The set piece's source reads as a target the moment it has opened and never
+ * before: while it is dormant it has no hitbox at all, so there is nothing on
+ * the field for a line to find (ADR 0050, Gradius's ordinary Moai).
+ *
+ * A push does not move it, because it is a place the field arrives at rather
+ * than a body standing on it, and a kill rule may not take it whole: its health
+ * is sized to outlive its own pour, and a belch that deleted the moment in one
+ * press is exactly what that row exists to prevent.
+ *
+ * Its velocity is its own drift, which is the field's scroll at the share the
+ * stage authors, so a line aiming ahead of a travelling body reads it right.
+ */
+const fillFromSetPiece = (
+  slot: TargetSlot,
+  piece: SetPiece,
+  box: Rect,
+): void => {
+  slot.id = piece.id;
+  slot.x = piece.x;
+  slot.y = piece.y;
+  slot.vx = 0;
+  slot.vy = SCROLL_SPEED * SET_PIECE_DRIFT_SHARE;
+  fillBox(slot, box);
+  slot.hp = piece.hp;
+  slot.entered = true;
+  slot.pushable = false;
+  slot.killableOutright = false;
+  slot.mob = null;
+  slot.boss = null;
+  slot.setPiece = piece;
 };
 
 /**
  * Every live target this tick, in a fixed order: the mob pool in slot order,
- * then the boss.
+ * then the boss, then the set piece's source.
  *
  * The order is as load-bearing as the membership. Lines resolve ties by taking
  * the first target in the list, so a fixed order is what makes the same seed
@@ -178,6 +219,11 @@ const stormTargets = (state: RunState): readonly StormTarget[] => {
   }
   if (state.boss !== null) {
     fillFromBoss(SLOTS[filled], state.boss);
+    filled += 1;
+  }
+  const box = state.setPiece === null ? null : setPieceHitbox(state.setPiece);
+  if (state.setPiece !== null && box !== null) {
+    fillFromSetPiece(SLOTS[filled], state.setPiece, box);
     filled += 1;
   }
   LIVE.length = filled;
@@ -226,6 +272,7 @@ const damageStormTarget = (
   if (slot === null) return [];
   if (slot.mob !== null) return damageMob(state, slot.mob, amount, source);
   if (slot.boss !== null) return damageBoss(state, amount, source);
+  if (slot.setPiece !== null) return damageSetPiece(state, amount, source);
   return [];
 };
 
