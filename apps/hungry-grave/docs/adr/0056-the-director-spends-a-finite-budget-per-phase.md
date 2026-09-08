@@ -1,0 +1,17 @@
+# The director spends a finite budget per phase
+
+The director is bounded by a purse rather than by a ceiling. Each phase gives it a finite budget, it spends from that budget on mobs drawn as cards over the run's roster (ADR 0046), it spends only while the pressure signal reads low, and after every add it goes quiet for an interval before it may spend again. When the purse is empty the phase runs at its authored floor for whatever is left of it.
+
+Risk of Rain 2's director works this way, spending credits it accrues on cards with costs and weights, and it is the shipped case closest to this game's shape. The alternative, a live-count gate of the kind Left 4 Dead's common limit and Vermintide's threat gating implement, refills the moment the player clears, which is a treadmill unless a quiet interval is stacked on top of it, and the quiet interval is the part that does the work: Darktide ships exactly that as a named wait for the ramp to clear, and the record's own summary is that the fix for a director that will not let up is a gate rather than a smaller number ([../research/director-knobs-and-signal.md](../research/director-knobs-and-signal.md)).
+
+The record's own recommendation for the off-limits moments rides along as a consequence rather than as a second ruling: a per-phase permission row saying whether the director may spend at all, so ADR 0047's four off-limits moments read as cells in the phase's data rather than as conditions in code, which is Darktide's shipped permission matrix ([../research/director-knobs-and-signal.md](../research/director-knobs-and-signal.md)).
+
+The signal the budget is spent against reads harm and floor events, and never a kill near the player. Vermintide 2 adds intensity for every enemy death near a player, weighted by inverse distance and indifferent to who killed it, so a player mowing a horde at contact range raises their own measured intensity as fast as they clear it. Darktide, the same studio's rewrite, deleted the kill term outright: its inputs are five harm events and two damage keys, with no enemy-death input at all. Here a kill up close is not pressure but food, the whole loop of the game, so a near-kill term would read a player doing exactly what the design asks and answer it by holding back.
+
+Two things this closes. A finite purse makes the storm's payoff visible, because a clear rate that outruns a finite fill empties the phase and the player sees the phase won. And the engine's caps go back to being bug detectors rather than tuning knobs: a phase's worst case is its floor plus its budget, which is a number in data, so the mob cap is re-derived above that, and the corpse cap is sized from scroll physics so that it cannot bind in normal play, never evicts food, and raises a fault if it ever binds. That is the code's own rule about caps applied (`caps.ts`), not a new one.
+
+The cost is taken eyes-open: a budget burned early leaves the rest of its phase at the floor.
+
+Left open as design work: whether the budget is counted in credits or in mobs, the bounds of the quiet interval, the cost and weight of each card, and whether the budget travels in the tape header or is pinned to the build. That last one is ADR 0043's question, since a new header field is a change of wire layout and ADR 0043 is where header-or-build is decided; ADR 0027 rules only the form a header value takes once it is there, a resolved value and never an absence, and ADR 0019's witness stays the fidelity gate either way.
+
+Ruled by Mark 2026-09-07 in the V1 grill.

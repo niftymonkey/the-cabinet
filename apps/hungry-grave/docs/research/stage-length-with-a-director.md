@@ -349,7 +349,7 @@ Player reports:
 
 Project records cited rather than repeated:
 - [director-precedent.md](director-precedent.md), [shmup-stage-design.md](shmup-stage-design.md), [progression-tuning-precedent.md](progression-tuning-precedent.md), [reward-delivery-models.md](reward-delivery-models.md), [survivor-numbers.md](survivor-numbers.md)
-- `docs/adr/0047-directed-density-inside-authored-beats.md`, `docs/adr/0034-a-drop-is-an-offer-of-three.md`, `docs/design/game-concept.md`, `docs/design/tracer-plan.md`
+- `docs/adr/0047-directed-density-inside-authored-beats.md`, `docs/adr/0034-a-drop-is-an-offer-of-three-and-the-grave-swallows-one.md`, `docs/design/game-concept.md`, `docs/design/tracer-plan.md`
 
 ---
 

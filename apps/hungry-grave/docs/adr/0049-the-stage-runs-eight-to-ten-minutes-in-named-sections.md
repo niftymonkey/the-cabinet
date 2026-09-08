@@ -1,0 +1,13 @@
+# The stage runs eight to ten minutes in named sections
+
+The one stage grows from five minutes unbroken to eight to ten minutes cut into named sections, each with its own character and each ending on an authored event. The nominal clock inside the band is stage data; what this record rules is the length and the division.
+
+The reason is the director, and the unit that matters is directed minutes rather than stage minutes. Boss phases and the beats before them are off limits to it (ADR 0047), and that overhead does not shrink when the stage grows, so five minutes leaves under three minutes the director may touch, which is one cycle at Left 4 Dead's shipped 90 to 180 second mob period. Eight holds two to four. A valley with a peak on both sides is the first thing a player can read as pacing rather than as noise, and one cycle cannot make one ([../research/stage-length-with-a-director.md](../research/stage-length-with-a-director.md)).
+
+Long stages are on record as both liked and disliked, and the record separates cleanly. Radiant Silvergun's ten-minute first stage is the one the shmup community defends, and the defence names the mechanism: it is five short sub-stages, each ending in a boss. The complaints against long stages sort by cause, and four of the six name content (a stretch that is not play, repeated waves and scenery, nothing for a skilled player to score on), one names the cost of a retry, and one names length alone and is contradicted in its own thread. Einhänder's stages run five and a half to ten minutes each and Ikaruga's chapters run three to six, both console-derived and both well liked.
+
+The cost is taken eyes-open, in Mark's words with new content authored as necessary. A second punctuation partway through is not optional, because an unbroken five-minute scroll before the first one is Tatsujin-Oh's dead stretch, and every boundary spends directed minutes as well as buying them. Each section has to read as its own place, and the tools for that are the ones the game already has: which mob types are in the mix, which placement templates are in the mix, the pace, and the boundary event itself, plus stand-in music and backgrounds that enter V1 as the thing that makes a section tellable rather than as dressing.
+
+Length buys no power on its own. Every shipped shmup on record puts its power ceiling in the first stage or two, and how many carriers a stage holds is its own data row (Hungry Grave ADR 0002), so a longer stage is a longer stage and not a richer one unless the carrier rows say so.
+
+Ruled by Mark 2026-09-07 in the V1 grill, superseding the five-minute stage the game concept carried.

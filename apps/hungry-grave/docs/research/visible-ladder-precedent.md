@@ -276,7 +276,7 @@ Each is tied to named shipped games, and each is described as a moment of play r
 
 **The moment.** A narrow column of pips runs down the inside of the field frame, one short row per line, filling as levels land. A drop is swallowed and a pip lights with the same beat as the swallow. A hit takes a level and a pip goes dark, with the row briefly holding the empty slot so the player sees which line paid.
 
-**What it costs.** It is the glance the designer asked to avoid, and the shipped evidence says a corner readout is consulted between threats and not during them. The mitigation is Cave Story's: put it in contact with the readout the player already watches, which in this game is the grave itself and not a screen edge. ADR 0039 has already made the field boundary a readout with its own contrast requirement, so a second readout on the same frame has to be told apart from the first.
+**What it costs.** INFERRED: it is a glance, and the shipped evidence points to a corner readout being consulted between threats rather than during them. No designer in this pass asks for a strip to be avoided; the one designer-authored statement found (item 12) is about a player not looking at their own ship, and the cost above is my reading rather than anyone's ruling. The mitigation is Cave Story's: put it in contact with the readout the player already watches, which in this game is the grave itself and not a screen edge. ADR 0039 has already made the field boundary a readout with its own contrast requirement, so a second readout on the same frame has to be told apart from the first.
 
 ---
 
