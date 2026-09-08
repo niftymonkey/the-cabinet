@@ -74,3 +74,30 @@ Plan section 10, **Slice 14**: both bosses drawn (`BossRenderer.ts`, plan sectio
 ## Commit messages
 
 Code: `feat(hungry-grave): both bosses are drawn and boss fire draws in its own kind (#97)` or better in the same form. Note: `docs(hungry-grave): step 2 progress note after slice 14 (#97)`.
+
+## Slice 14, as dispatched next (session 12, supersedes the session 11 draft above)
+
+The launch preamble used in session 12, verbatim in the Agent call: name the worktree path and branch, say the main checkout is never touched, point at this prompt (copied to the scratchpad or read from this file), state the one-plain-command-per-call rule for anything mentioning git, no stash, no `git add -A`, no em dash, `pnpm` never `npm`, single-line `-m` commit messages ending in `(#97)`, `CI=true` if pnpm refuses a non-TTY, and the under-300-word report. Model: Opus, subagent type general-purpose.
+
+Step 2 slice 14 of The Hungry Grave (ticket #97): the boss renderers and boss fire's own read.
+
+Read `apps/hungry-grave/docs/push/step-2-coder-contract.md` (inside the worktree) first and follow it in full, including its reading order. Read `docs/agents/feature-playbook.md` and follow it. The dispatch contract items the playbook asks for (definition, verification steps with actors, seams, module boundaries, the test list) are plan sections 1 to 8 of `apps/hungry-grave/docs/design/step-2-stage-floor-dispatch.md`; section 10 is the slice list.
+
+## Your slice
+
+Plan section 10, **Slice 14**: both bosses drawn (`BossRenderer.ts`, plan section 4), the chunk flash, both `dressField` sites wired, and boss fire's own read: `mobFireSprite.ts` stops naming `MOB_FIRE.trash` and reads the shot's own fire kind (slice 6 put it on `Shot` and `MobFired`), so the tear, the clod and the spiral draw in the three sprites `palette.ts` has carried since before any boss existed. Tests: module 107, 127. The boundary is section 5; the tests are section 6 by number; the constants and every reader are section 7 (`MOB_FIRE.trash` readers, `MobFired.emitter` readers); the craft calls are section 8.
+
+**The bosses are vector silhouettes, not pixel art.** Plan section 8 ("The two bosses are vector silhouettes, not pixel art") and the design record `apps/hungry-grave/docs/design/stage-floor.md` (its dressing section, "The two bosses are not pixel art") both rule it: each boss is drawn in its existing palette pair (`banshee`/`bansheeDark`, `undertaker`/`undertakerDark`) by the same body-plus-near-black-companion construction the three mob types use, and pixel art stays on the ground layer. Slice 13a's note records that it imported grayscale creature cut-outs a boss could have used; they are not used here. If you find the two records disagree with each other on this, stop and report; do not choose.
+
+A display component is a dumb view: data in, pixels out (`.claude/rules/code-core.md`). **Player-visible change: a rendered check of the built app** (`pnpm build` then `pnpm exec vite preview`, driven with `playwright-cli`), one screenshot per boss mid-fight and one per boss fire kind, read by you and described in the note, saved under the scratchpad, never the repo. Reaching a boss in the browser takes minutes of play; a pinned loadout through `createRun`'s third parameter, or the seed and speed controls the dev build carries, are the ways earlier slices got there, and the progress note's slice 7 to 9 sections say how. Verification step 11's boss half runs here. Name step 17 (whether the way through reads as following the arm) and step 19 as Mark's.
+
+## State of the branch
+
+- Commits landed for step 2: planning read ed2ad14108; slice 1 6958cfdd28; slice 2 1e420aeb53; slice 3 4d0b156a72; slice 4 2567dd0e95; slice 5 b324994400; slice 6 5eaa6d2759; slice 7 c06f2e0c46; slice 8 31c48ee1e8; slice 9 e024ebb7c8; slice 10 b0b4f4a4f5; slice 11 55ed3230c7; slice 12a b640d4e424; slice 12b f23d8eb162; slice 13a 3a7a85d5b1; a docs-only commit f65dd15309 (#101, the path); slice 13b 7570270a80 (note 5d05c49509). Read the progress note's section 1 for every hash and sections 2, 4, 5 and 7 for what slices 1 to 13b moved and handed forward.
+- Baselines for verification step 5 are at `local/step2/tests-baseline.txt` (worktree root, gitignored). Diff your test names against it before you commit and report removed or renamed names, net of what earlier slices' notes already account for.
+- Never run any command from the main checkout at `/home/mlo/dev/niftymonkey/the-cabinet`; slice 1's note records why. Any scratch file or screenshot goes in the session scratchpad directory named in your system prompt, with `slice-14` in the filename; a TypeScript file under `local/` breaks `pnpm build` (slice 10's note section 17).
+- Check `git status --short` is clean before your first edit.
+
+## Commit messages
+
+Code: `feat(hungry-grave): both bosses are drawn and boss fire draws in its own kind (#97)` or better in the same form. Note: `docs(hungry-grave): step 2 progress note after slice 14 (#97)`.
