@@ -3,7 +3,7 @@
  * else, and holds no game rules of its own.
  */
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -308,6 +308,123 @@ describe('the section music (spec 58, module 108, 131)', () => {
       LOOPS.crowd,
       LOOPS.waking,
     ]);
+  });
+});
+
+/**
+ * Every production module under src, by absolute path.
+ *
+ * Prototypes are outside every fence in this repo (ADR 0010) and test files are
+ * outside this one, because this file names the encoder tags below so a reader
+ * can see what is being forbidden.
+ */
+const productionModulesUnder = (dir: string): string[] =>
+  readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) {
+      if (name === 'prototypes' || name === '__tests__') return [];
+      return productionModulesUnder(path);
+    }
+    return name.endsWith('.ts') ? [path] : [];
+  });
+
+/**
+ * What an encoder-header parse cannot be written without: the container tag
+ * names, the gapless fields an encoder writes, and the sample count of one
+ * MPEG layer III frame, which is the only way a frame count becomes a length.
+ * None of the nine has another use in this game.
+ */
+const ENCODER_HEADER_MARKS: readonly (readonly [string, RegExp])[] = [
+  ['the Xing tag', /\bXing\b/],
+  ['the VBRI tag', /\bVBRI\b/],
+  ['the LAME extension', /\bLAME\b/],
+  ['the Ogg page magic', /\bOggS\b/],
+  ['an ID3 tag', /\bID3\b/],
+  ["a layer III frame's 1152 samples", /\b1152\b/],
+  ['an encoder delay', /encoderDelay/],
+  ['an encoder padding', /encoderPadding/],
+  ['an Ogg granule position', /granulePosition/],
+];
+
+/** Which marks of a header parse a source carries, by name. */
+const headerParseMarksIn = (source: string): string[] =>
+  ENCODER_HEADER_MARKS.filter(([, mark]) => mark.test(source)).map(
+    ([name]) => name,
+  );
+
+describe('no loop is trimmed by a header parse (module 129)', () => {
+  it('parses no audio encoder header anywhere in the app', () => {
+    // The deliberate-absence guard for the trim that is not built. An earlier
+    // draft of this step's plan would have decoded a loop, read the encoder's
+    // delay and padding out of its header and sliced the buffer by them, on the
+    // premise that decodeAudioData hands back an untrimmed buffer. Verification
+    // step 13 measured that premise and it is stale: in Chromium, off the files
+    // the built app serves, each of the six decodes to exactly the length its
+    // own header states minus the delay and the padding, and the longest quiet
+    // run at a wrap is 27 samples of one loop's own first note. A parse here
+    // would be a decoder shipped inside a game to work around a browser bug
+    // that no longer exists.
+    const modules = productionModulesUnder(SRC);
+    expect(modules.length).toBeGreaterThan(0);
+
+    const found = modules.flatMap((path) =>
+      headerParseMarksIn(readFileSync(path, 'utf8')).map(
+        (mark) => `${path.slice(SRC.length + 1)} reads ${mark}`,
+      ),
+    );
+    expect(found).toEqual([]);
+  });
+
+  it('catches a parse planted in a module, so the absence is a rule', () => {
+    // The sweep is the detector plus the file list, so both halves are proved:
+    // every line a parse would need is caught, and the walk really does reach
+    // the three modules a parse would be written in.
+    const planted = [
+      "const tag = bytes.toString('latin1', at, at + 4) === 'Xing';",
+      "if (header.slice(0, 4) === 'OggS') return granuleOf(header);",
+      'const samples = frames * 1152;',
+      'const start = buffer.encoderDelay / buffer.sampleRate;',
+    ];
+    for (const line of planted) {
+      expect(`${line}: ${headerParseMarksIn(line).length}`).not.toBe(
+        `${line}: 0`,
+      );
+    }
+
+    const walked = productionModulesUnder(SRC).map((path) =>
+      path.slice(SRC.length + 1),
+    );
+    for (const path of ['app/sound.ts', 'main.ts', 'engine/audio/audio.ts']) {
+      expect(`${path}: ${walked.includes(path)}`).toBe(`${path}: true`);
+    }
+  });
+
+  it('hands the channel the file its row names and nothing worked out at play time', () => {
+    // The other half of the sentence, and the half that would still hold had
+    // the measurement gone the other way: a loop that needs gapless points
+    // declares them as a start and an end in seconds beside its file in LOOPS,
+    // which BGM.play passes straight through to the source node's loopStart and
+    // loopEnd (@pixi/sound WebAudioInstance.mjs:173-174). No loop has any, so
+    // the cue is one argument today. What this forbids either way is a value
+    // the app worked out for itself, which is what a parse would produce.
+    const calls: unknown[][] = [];
+    const recorder: MusicOutput = {
+      play: (alias: string, ...rest: unknown[]) =>
+        void calls.push([alias, ...rest]),
+    };
+
+    for (const crossing of everyCrossing()) playMusicFor(recorder, crossing);
+
+    const rows = new Set<unknown>(Object.values(LOOPS));
+    expect(calls.length).toBeGreaterThan(0);
+    for (const args of calls) {
+      expect(`${String(args[0])}: ${args.length}`).toBe(
+        `${String(args[0])}: 1`,
+      );
+      expect(`${String(args[0])}: ${rows.has(args[0])}`).toBe(
+        `${String(args[0])}: true`,
+      );
+    }
   });
 });
 
