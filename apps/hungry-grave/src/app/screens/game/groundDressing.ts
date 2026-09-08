@@ -41,12 +41,18 @@ const sheetCell = (
 ): StandInArt => ({ alias, cell: { x, y: 0, width, height } });
 
 /**
- * The ground itself, one tile set for all three sections because the rock is
- * the same rock (design record section 7). It wears `nightSpeckle`, which was
- * declared with no consumer in `src/app` at all and is a ready-made ground
- * colour; the ground tile is its consumer.
+ * The floor itself, one for all three sections because the rock is the same
+ * rock (design record section 7). It wears `nightSpeckle`, which was declared
+ * with no consumer in `src/app` at all and is a ready-made ground colour; the
+ * floor is its consumer.
+ *
+ * It is the floor the import bakes and never the pack's own tile sheet: that
+ * sheet is twenty bordered blocks lit at twenty angles, and tiled whole it read
+ * as a lattice of loose blocks rather than as a floor (Mark, 2026-09-08). The
+ * bake and its layout live in `scripts/grayscale-import.ts`; the renderer draws
+ * one texture and knows nothing of the layout.
  */
-const GROUND_TILE = singleFrame('standIn/ground/tiles.png');
+const GROUND_FLOOR = singleFrame('standIn/ground/floor.png');
 const GROUND_TINT: PaletteEntry = PALETTE.nightSpeckle;
 
 /** The Waking's own source, dormant and awake, both single frames. */
@@ -85,6 +91,9 @@ const DRESSING_SETS = {
       singleFrame('standIn/ground/statue-a2.png'),
       singleFrame('standIn/ground/statue-b1.png'),
       singleFrame('standIn/ground/statue-b2.png'),
+      singleFrame('standIn/ground/statue-c1.png'),
+      singleFrame('standIn/ground/statue-c2.png'),
+      singleFrame('standIn/ground/book-altar.png'),
       // The left column of a two-piece sheet whose top right cell is a solid
       // black block, which drew as a hole in the rock until it was cut out.
       sheetCell('standIn/ground/cliff.png', 0, 48, 112),
@@ -99,6 +108,11 @@ const DRESSING_SETS = {
       singleFrame('standIn/ground/short-vein-column-2.png'),
       singleFrame('standIn/ground/tall-vein-column-1.png'),
       singleFrame('standIn/ground/tall-vein-column-2.png'),
+      // The fullest frame of each vein's own pulse, off sheets of 32 by 16
+      // frames that differ from one another only by where in that pulse they
+      // stand.
+      sheetCell('standIn/ground/vein-a.png', 8 * 32, 32, 16),
+      sheetCell('standIn/ground/vein-b.png', 9 * 32, 32, 16),
       // The open eye of a 36-cell sheet whose first eleven cells are empty.
       sheetCell(
         'standIn/ground/little-eyes.png',
@@ -115,6 +129,8 @@ const DRESSING_SETS = {
       sheetCell('standIn/ground/floating-rock-a2.png', 0, 32, 32),
       sheetCell('standIn/ground/floating-rock-b1.png', 0, 16, 32),
       sheetCell('standIn/ground/floating-rock-b2.png', 0, 16, 32),
+      singleFrame('standIn/ground/amalgam-arc-1.png'),
+      singleFrame('standIn/ground/amalgam-arc-2.png'),
       sheetCell('standIn/ground/eye.png', 0, 32, 32),
       sheetCell('standIn/ground/tentacle.png', 0, 48, 64),
     ],
@@ -179,7 +195,7 @@ const acrossAt = (index: number): number => streamDraw(index, ACROSS_SALT);
 
 export {
   STAND_IN_BUNDLE,
-  GROUND_TILE,
+  GROUND_FLOOR,
   GROUND_TINT,
   SOURCE_DORMANT,
   SOURCE_AWAKE,

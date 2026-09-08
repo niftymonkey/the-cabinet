@@ -9,21 +9,26 @@ import { Texture, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
+import { advanceTerritory } from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { SET_PIECE_HALF_WIDTH } from '../../../../game/stage/rows';
 import type { SetPiece } from '../../../../game/stage/setPiece';
 import { PHASES } from '../../../../game/stage/stage';
-import { SCROLL_SPEED } from '../../../../game/tuning';
 import { PALETTE } from '../../../palette';
 import type { BackgroundProps } from '../BackgroundRenderer';
 import {
   BackgroundRenderer,
   DRESSING_INTERVAL_TICKS,
+  DRESSING_ON_SCREEN,
   DRIFT_WINDOW_TICKS,
-  GROUND_SPEED,
 } from '../BackgroundRenderer';
-import { artAt, DRESSING_SETS, EYE_CELL_PIXELS } from '../groundDressing';
+import {
+  artAt,
+  DRESSING_SETS,
+  EYE_CELL_PIXELS,
+  GROUND_FLOOR,
+} from '../groundDressing';
 import { FieldLayers, LAYER_ORDER } from '../layering';
 
 /**
@@ -122,14 +127,68 @@ describe('the stand-in ground (module 105)', () => {
     expect(layers.layer('ground').children.length).toBeGreaterThan(0);
   });
 
-  it('runs the ground at half the field, so the rock reads as depth under the bodies', () => {
-    // The half is held against the sim's own scroll row rather than against the
-    // renderer's, or the assertion moves with the thing it is checking.
-    expect(GROUND_SPEED).toBeCloseTo(SCROLL_SPEED / 2, 10);
+  it('moves the ground at the rate a landed patch drifts, so a patch stays on its rock', () => {
+    // Territory is lobbed onto the ground and becomes hands pulling at mobs, so
+    // it belongs to the ground: a patch and the rock under it are one thing and
+    // move as one (Mark's ruling after the slice 13b deploy, 2026-09-08). The
+    // rate is read by drifting a real patch through the sim rather than off the
+    // renderer's own row, or the assertion moves with what it is checking.
+    const run = createRun(19);
+    const patch = run.patches[0];
+    patch.alive = true;
+    patch.y = 100;
+    patch.radius = 40;
+    const stood = patch.y;
+    const ticks = 120;
+    for (let each = 0; each < ticks; each++) advanceTerritory(run);
+    const patchFell = patch.y - stood;
+    expect(patchFell).toBeGreaterThan(0);
+
     const { layers, renderer } = attached();
-    const tiles = layers.layer('ground').children[0] as TilingSprite;
+    const floor = layers.layer('ground').children[0] as TilingSprite;
+    renderer.sync(runInPhase('procession', 0, 0));
+    const from = floor.tilePosition.y;
+    renderer.sync(runInPhase('procession', ticks, ticks));
+    expect(floor.tilePosition.y - from).toBeCloseTo(patchFell, 6);
+  });
+
+  it('lays the floor from the one baked at import and never from the pack tile sheet', () => {
+    // The pack ships twenty 16-pixel blocks, each bordered by its own groove and
+    // lit at its own angle, so tiled whole they read as a lattice of loose
+    // blocks rather than as a floor. What the ground draws is the floor the
+    // import bakes from an authored layout of those cells.
+    const stub = artStub();
+    const { renderer } = attached(stub);
     renderer.sync(runInPhase('procession', 600, 600));
-    expect(tiles.tilePosition.y).toBeCloseTo(600 * GROUND_SPEED, 6);
+    expect(stub.asked).toContain(GROUND_FLOOR.alias);
+    expect(stub.asked.filter((alias) => alias.includes('tiles'))).toEqual([]);
+  });
+
+  it('dresses the ground thickly, at an interval derived from the density row', () => {
+    // The density is authored as placements in flight and the interval falls out
+    // of it and the crossing, never the other way round: the crossing halved
+    // when the ground took the field's own scroll, and an interval held fixed
+    // would have halved the dressing with it.
+    expect(DRESSING_INTERVAL_TICKS * DRESSING_ON_SCREEN).toBeGreaterThan(
+      DRIFT_WINDOW_TICKS - DRESSING_INTERVAL_TICKS,
+    );
+    expect(DRESSING_INTERVAL_TICKS * DRESSING_ON_SCREEN).toBeLessThan(
+      DRIFT_WINDOW_TICKS + DRESSING_INTERVAL_TICKS,
+    );
+
+    // And the count itself, which is Mark's own ruling of 2026-09-08 and not a
+    // derivation: about twenty-five to thirty pieces standing on the field at
+    // once, against the ten slice 13b showed him. It runs under the row because
+    // the crossing is the tallest piece's and a short one leaves earlier.
+    const { layers, renderer } = attached();
+    for (const tick of [12000, 26000, 40000]) {
+      renderer.sync(runInPhase('crowd', tick, tick));
+      const showing = dressing(layers).filter(
+        (sprite) => sprite.visible,
+      ).length;
+      expect(showing).toBeGreaterThanOrEqual(25);
+      expect(showing).toBeLessThanOrEqual(DRESSING_ON_SCREEN);
+    }
   });
 
   it('places the same dressing at a tick however the renderer reached it', () => {

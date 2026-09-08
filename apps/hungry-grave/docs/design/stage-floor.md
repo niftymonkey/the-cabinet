@@ -312,10 +312,14 @@ The stand-in background fills `ground`, which is already masked to the field rec
 Two parts, both from `assets-staging/crawling-depths/`:
 
 - **The ground itself**, tiled from `Terrain/Tiles.png`, scrolling at half the field's scroll so it reads as parallax depth under the mobs. One tile set for all three sections, because the rock is the same rock.
+
+  **Amended 2026-09-08, Mark's ruling after the 13b deploy:** the ground scrolls at the field's own scroll and not at half of it, because Territory is lobbed onto the ground and belongs to it, and a patch drifts in the sim at `SCROLL_SPEED`; at half, the rock slid out from under every landed patch and the field stopped reading as one place. The parallax row is gone rather than set to one. **Amended in the same breath:** the ground is not tiled from `Terrain/Tiles.png` at all. That sheet is twenty bordered blocks lit at twenty angles, and tiled whole it read as a lattice of loose blocks placed at random and spun. The floor is baked at import from an authored layout of five of those cells, laid as large slabs whose grooves survive only where two slabs meet, so the floor reads as one paved piece of ground. The bake lives in `scripts/grayscale-import.ts`; the runtime still draws one tiling texture and knows nothing of the layout.
 - **Dressing**, sprites placed on a seeded stream and drifting at the ground's speed, from `Structures & Details/` and `Terrain/`. The set turns over per section and that is what makes a section tellable:
   - The Procession: `Statue A1/A2`, `Statue B1/B2`, `Cliff`, `Cracks`. Bare rock with a statue every few seconds.
   - The Crowd: `Urn 1/2`, `Short Vein Column 1/2`, `Tall Vein Column 1/2`, `Little Eyes 1 Sheet`. The same rock, veined and wet.
   - The Vigil: `Floating Rock A1/A2`, `Floating Rock B1/B2`, `Eye 1 Sheet`, `Tentacle 1 Sheet`. The rock stops reading as rock.
+
+  **Amended 2026-09-08, Mark's ruling after the 13b deploy:** the dressing was too sparse, so the density is authored as pieces standing on the field at once and the placement interval is derived from it and the crossing, never the other way round. The three sets grow with the row, in their own families and colours: the Procession takes `Statue C1/C2` and `Book Altar`, the Crowd takes the `Vein A` and `Vein B` sheets, and the Vigil takes `Amalgam Arc 1/2`. `Cracks` is still not in the Procession's set, for the reason slice 13b recorded.
 
 **The drift between sections.** Decision 22's amendment takes Einhänder's answer: the background drifts continuously rather than cutting. Mechanically that is a cross-over window at each boundary, during which the outgoing section's dressing stops being placed and the incoming section's starts, so the two families are on screen together for as long as it takes the last of the old to scroll off. No fade, no cut, no card. Initial row: the window opens at the boundary event and closes when the last outgoing dressing sprite leaves the bottom edge.
 

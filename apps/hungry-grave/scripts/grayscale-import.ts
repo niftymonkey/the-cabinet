@@ -41,10 +41,11 @@ interface StagedCell extends Staged {
 }
 
 /**
- * The ground, its per-section dressing and the Waking's own source, from the
+ * The ground's per-section dressing and the Waking's own source, from the
  * crawling-depths pack. The three dressing sets are the design record's, section
  * 7: statues and cliff for the Procession, urns and veins for the Crowd,
- * floating rocks and eyes and tentacles for the Vigil.
+ * floating rocks and eyes and tentacles for the Vigil. The floor they stand on
+ * is baked rather than copied, below.
  *
  * The folders carry AssetPack tags. `{m}` makes one bundle nothing declares, so
  * the stand-ins are background-loaded and no screen waits on them, and `{fix}`
@@ -52,7 +53,6 @@ interface StagedCell extends Staged {
  * renderer may pick over the real one.
  */
 const GROUND: readonly Staged[] = [
-  { from: 'crawling-depths/Terrain/Tiles.png', to: 'ground{fix}/tiles.png' },
   { from: 'crawling-depths/Terrain/Cliff.png', to: 'ground{fix}/cliff.png' },
   { from: 'crawling-depths/Terrain/Cracks.png', to: 'ground{fix}/cracks.png' },
   {
@@ -70,6 +70,18 @@ const GROUND: readonly Staged[] = [
   {
     from: 'crawling-depths/Structures & Details/Statue B2.png',
     to: 'ground{fix}/statue-b2.png',
+  },
+  {
+    from: 'crawling-depths/Structures & Details/Statue C1.png',
+    to: 'ground{fix}/statue-c1.png',
+  },
+  {
+    from: 'crawling-depths/Structures & Details/Statue C2.png',
+    to: 'ground{fix}/statue-c2.png',
+  },
+  {
+    from: 'crawling-depths/Structures & Details/Book Altar.png',
+    to: 'ground{fix}/book-altar.png',
   },
   {
     from: 'crawling-depths/Structures & Details/Urn 1.png',
@@ -94,6 +106,17 @@ const GROUND: readonly Staged[] = [
   {
     from: 'crawling-depths/Structures & Details/Tall Vein Column 2.png',
     to: 'ground{fix}/tall-vein-column-2.png',
+  },
+  // The A2 and B2 sheets are the same two veins one animation frame along, so
+  // a still cut from either is the still cut from these, and only these are
+  // staged.
+  {
+    from: 'crawling-depths/Structures & Details/Vein A1 Sheet.png',
+    to: 'ground{fix}/vein-a.png',
+  },
+  {
+    from: 'crawling-depths/Structures & Details/Vein B1 Sheet.png',
+    to: 'ground{fix}/vein-b.png',
   },
   {
     from: 'crawling-depths/Structures & Details/Little Eyes 1 Sheet.png',
@@ -122,6 +145,14 @@ const GROUND: readonly Staged[] = [
   {
     from: 'crawling-depths/Creatures/Tentacle 1 Sheet.png',
     to: 'ground{fix}/tentacle.png',
+  },
+  {
+    from: 'crawling-depths/Structures & Details/Amalgam Arc 1.png',
+    to: 'ground{fix}/amalgam-arc-1.png',
+  },
+  {
+    from: 'crawling-depths/Structures & Details/Amalgam Arc 2.png',
+    to: 'ground{fix}/amalgam-arc-2.png',
   },
   {
     from: 'crawling-depths/Creatures/Eldritch Entity Dormant.png',
@@ -272,6 +303,246 @@ const cutOut = (from: string, sheet: PNG, cell: Cell): PNG => {
   return cut;
 };
 
+/**
+ * The floor the ground is laid from, baked here rather than tiled from the
+ * pack's sheet.
+ *
+ * `Terrain/Tiles.png` is twenty stone blocks of sixteen pixels, each bordered
+ * by its own one-pixel groove and lit at its own angle. Tiled whole, every
+ * block's border draws and the sheet repeats every five of them, so the ground
+ * reads as a lattice of loose blocks placed at random and spun, which is what
+ * the slice 13b deploy showed (Mark, 2026-09-08). What is baked instead is a
+ * floor laid slab by slab from the cells below: a groove survives only where
+ * two slabs meet, so a slab is one continuous piece of rock and the floor is a
+ * paving of large slabs rather than a grid of small ones.
+ *
+ * The pack ships no edge or corner cells, so the layout is authored rather than
+ * assembled: the only other terrain in `Tileset.png` is these same twenty
+ * blocks and a borderless fill two luma points off black.
+ */
+const TILE_SHEET = 'crawling-depths/Terrain/Tiles.png';
+const FLOOR_FILE = 'ground{fix}/floor.png';
+
+/** The floor, in the pack's own sixteen-pixel cells. */
+const FLOOR_CELL = 16;
+const FLOOR_COLUMNS = 16;
+const FLOOR_ROWS = 16;
+
+/** One cell of the tile sheet, by its column and row in that sheet. */
+interface SheetCell {
+  readonly column: number;
+  readonly row: number;
+}
+
+/**
+ * The cells the floor is laid from: the five whose streaks and cracks run down
+ * and to the right, so a slab is lit from one direction. The other fifteen
+ * disagree with these and with each other, and mixing all twenty is what read
+ * as blocks spun at random.
+ */
+const FLOOR_CELLS: readonly SheetCell[] = [
+  { column: 0, row: 0 },
+  { column: 0, row: 1 },
+  { column: 0, row: 2 },
+  { column: 0, row: 3 },
+  { column: 2, row: 1 },
+];
+
+/** One slab of the floor, in cells. The slabs tile the floor exactly. */
+interface Slab {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * The paving. Slabs run three to six cells a side, which at the ground's own
+ * scale is ninety to a hundred and eighty field units, so a slab is a stone a
+ * player could stand on rather than one of a hundred chips.
+ */
+const FLOOR_SLABS: readonly Slab[] = [
+  { x: 0, y: 0, width: 6, height: 4 },
+  { x: 6, y: 0, width: 5, height: 6 },
+  { x: 11, y: 0, width: 5, height: 3 },
+  { x: 0, y: 4, width: 3, height: 5 },
+  { x: 3, y: 4, width: 3, height: 6 },
+  { x: 11, y: 3, width: 5, height: 5 },
+  { x: 6, y: 6, width: 5, height: 4 },
+  { x: 0, y: 9, width: 3, height: 4 },
+  { x: 11, y: 8, width: 5, height: 4 },
+  { x: 3, y: 10, width: 4, height: 6 },
+  { x: 7, y: 10, width: 4, height: 3 },
+  { x: 0, y: 13, width: 3, height: 3 },
+  { x: 7, y: 13, width: 4, height: 3 },
+  { x: 11, y: 12, width: 5, height: 4 },
+];
+
+/** Which sides of a cell keep the groove the pack drew around it. */
+interface Grooves {
+  readonly top: boolean;
+  readonly bottom: boolean;
+  readonly left: boolean;
+  readonly right: boolean;
+}
+
+/**
+ * Which of a cell's grooves survive: only the sides where its slab meets
+ * another one. The floor's own outer edge dissolves, so the floor joins itself
+ * where it tiles and the join is not a line drawn across the field.
+ */
+const groovesFor = (slab: Slab, across: number, down: number): Grooves => ({
+  top: down === 0 && slab.y > 0,
+  bottom: down === slab.height - 1 && slab.y + slab.height < FLOOR_ROWS,
+  left: across === 0 && slab.x > 0,
+  right: across === slab.width - 1 && slab.x + slab.width < FLOOR_COLUMNS,
+});
+
+/**
+ * The grey the most of an image's drawn pixels carry, which on this sheet is
+ * the rock. A transparent pixel carries a colour channel nothing ever draws, so
+ * it is skipped for the same reason the stretch's percentile skips it.
+ */
+const baseGreyOf = (image: PNG): number => {
+  const counts = new Map<number, number>();
+  for (let at = 0; at < image.data.length; at += 4) {
+    if (image.data[at + 3] === 0) continue;
+    const grey = image.data[at];
+    counts.set(grey, (counts.get(grey) ?? 0) + 1);
+  }
+  let base = 0;
+  let most = 0;
+  for (const [grey, count] of counts) {
+    if (count <= most) continue;
+    most = count;
+    base = grey;
+  }
+  return base;
+};
+
+/** Which edges of the cell a pixel lies on. An interior pixel lies on none. */
+const sidesAt = (x: number, y: number): (keyof Grooves)[] => {
+  const sides: (keyof Grooves)[] = [];
+  if (y === 0) sides.push('top');
+  if (y === FLOOR_CELL - 1) sides.push('bottom');
+  if (x === 0) sides.push('left');
+  if (x === FLOOR_CELL - 1) sides.push('right');
+  return sides;
+};
+
+/**
+ * One dissolved groove pixel: the rock, unless the nearest pixel inside the
+ * cell is darker than the rock, which is a crack that really does run to the
+ * edge and reads as one crack across the join rather than as a border.
+ *
+ * It writes a grey, so the sheet is desaturated before this runs.
+ */
+const paintRock = (cell: PNG, x: number, y: number, base: number): void => {
+  const inside = (each: number): number =>
+    Math.min(Math.max(each, 1), FLOOR_CELL - 2);
+  const under = cell.data[(inside(y) * cell.width + inside(x)) * 4];
+  const grey = under < base ? under : base;
+  const at = (y * cell.width + x) * 4;
+  cell.data[at] = grey;
+  cell.data[at + 1] = grey;
+  cell.data[at + 2] = grey;
+  cell.data[at + 3] = 255;
+};
+
+/**
+ * The cell with the grooves its slab does not keep filled in with rock. A
+ * corner pixel survives whenever either side it lies on is kept, so a groove
+ * that runs down one edge runs the whole way down it.
+ */
+const dissolveGrooves = (cell: PNG, base: number, keep: Grooves): void => {
+  for (let y = 0; y < FLOOR_CELL; y++) {
+    for (let x = 0; x < FLOOR_CELL; x++) {
+      const sides = sidesAt(x, y);
+      if (sides.length === 0) continue;
+      if (sides.some((side) => keep[side])) continue;
+      paintRock(cell, x, y, base);
+    }
+  }
+};
+
+/**
+ * Which laid cell stands at a place on the floor, a function of the place and
+ * nothing else, so the bake is the same bake every time it is run.
+ */
+const cellAtPlace = (column: number, row: number): SheetCell => {
+  const mixed =
+    Math.imul((column * 374761393) ^ (row * 668265263), 1274126177) >>> 0;
+  const draw = (mixed ^ (mixed >>> 15)) >>> 0;
+  return FLOOR_CELLS[draw % FLOOR_CELLS.length];
+};
+
+/** Every place a slab covers, laid from the sheet with its grooves dissolved. */
+const laySlab = (
+  slab: Slab,
+  sheet: PNG,
+  base: number,
+  floor: PNG,
+): string[] => {
+  if (
+    slab.x + slab.width > FLOOR_COLUMNS ||
+    slab.y + slab.height > FLOOR_ROWS
+  ) {
+    throw new Error(
+      `the slab ${slab.width}x${slab.height} at ${slab.x},${slab.y} runs off a floor of ${FLOOR_COLUMNS}x${FLOOR_ROWS} cells`,
+    );
+  }
+  const laid: string[] = [];
+  for (let down = 0; down < slab.height; down++) {
+    for (let across = 0; across < slab.width; across++) {
+      const column = slab.x + across;
+      const row = slab.y + down;
+      laid.push(`${column},${row}`);
+      const from = cellAtPlace(column, row);
+      const cell = cutOut(TILE_SHEET, sheet, {
+        x: from.column * FLOOR_CELL,
+        y: from.row * FLOOR_CELL,
+        width: FLOOR_CELL,
+        height: FLOOR_CELL,
+      });
+      dissolveGrooves(cell, base, groovesFor(slab, across, down));
+      const to = { x: column * FLOOR_CELL, y: row * FLOOR_CELL };
+      PNG.bitblt(cell, floor, 0, 0, FLOOR_CELL, FLOOR_CELL, to.x, to.y);
+    }
+  }
+  return laid;
+};
+
+/**
+ * The slabs refused unless they tile the floor exactly. A gap or an overlap is
+ * a wrong row in `FLOOR_SLABS` rather than anything the bake can recover from,
+ * so it throws with the place named.
+ */
+const refuseUnlessTheSlabsTileTheFloor = (laid: readonly string[]): void => {
+  const places = new Set(laid);
+  if (places.size !== laid.length) {
+    throw new Error('two slabs cover one floor cell');
+  }
+  if (places.size !== FLOOR_COLUMNS * FLOOR_ROWS) {
+    throw new Error(
+      `the slabs cover ${places.size} of the floor's ${FLOOR_COLUMNS * FLOOR_ROWS} cells`,
+    );
+  }
+};
+
+/** The whole floor, desaturated before it is laid so a dissolved groove is a grey. */
+const bakeFloor = (): PNG => {
+  const sheet = stagedSheet(TILE_SHEET);
+  desaturate(sheet);
+  const base = baseGreyOf(sheet);
+  const floor = new PNG({
+    width: FLOOR_COLUMNS * FLOOR_CELL,
+    height: FLOOR_ROWS * FLOOR_CELL,
+  });
+  const laid = FLOOR_SLABS.flatMap((slab) => laySlab(slab, sheet, base, floor));
+  refuseUnlessTheSlabsTileTheFloor(laid);
+  return floor;
+};
+
 /** The desaturated image written under raw-assets, and the bytes it took. */
 const writeImported = (to: string, image: PNG): number => {
   const path = join(IMPORTED, to);
@@ -285,6 +556,8 @@ const writeImported = (to: string, image: PNG): number => {
 
 const importWhole = (staged: Staged): number =>
   writeImported(staged.to, stagedSheet(staged.from));
+
+const importFloor = (): number => writeImported(FLOOR_FILE, bakeFloor());
 
 const importCell = (staged: StagedCell): number =>
   writeImported(
@@ -307,7 +580,11 @@ const refuseWithoutTheStagedPacks = (): boolean => {
 
 const main = (): void => {
   if (refuseWithoutTheStagedPacks()) return;
-  const written = [...GROUND.map(importWhole), ...SPRITES.map(importCell)];
+  const written = [
+    importFloor(),
+    ...GROUND.map(importWhole),
+    ...SPRITES.map(importCell),
+  ];
   const bytes = written.reduce((total, size) => total + size, 0);
   console.log(
     `${written.length} grayscale files, ${bytes} bytes, under ${relative(APP, IMPORTED)}`,

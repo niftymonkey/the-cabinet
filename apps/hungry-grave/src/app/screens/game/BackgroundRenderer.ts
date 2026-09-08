@@ -1,10 +1,9 @@
-// The ground under the field: the tile it is laid from, the per-section
+// The ground under the field: the floor it is laid from, the per-section
 // dressing that drifts across a boundary, and the Waking's own source. It draws
 // into `ground` and adds no layer name (ADR 0014, ADR 0049).
 
 import { Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 
-import { TICK_HZ } from '../../../game/clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import type { RunState } from '../../../game/run';
 import type { SetPiece } from '../../../game/stage/setPiece';
@@ -18,7 +17,7 @@ import {
   DRESSING_BY_PHASE,
   DRESSING_SETS,
   EYE_CELL_PIXELS,
-  GROUND_TILE,
+  GROUND_FLOOR,
   GROUND_TINT,
   SOURCE_AWAKE,
   SOURCE_DORMANT,
@@ -26,16 +25,16 @@ import {
 import type { FieldLayers } from './layering';
 
 /**
- * How fast the ground runs against the field, as a share of the scroll. Half,
- * so the rock reads as parallax depth under the bodies rather than as another
- * thing falling at them. Initial row, marked stand-in.
+ * How fast the ground runs against the field: the field's own scroll, so what
+ * lands on the ground stays where it landed.
+ *
+ * Territory is lobbed onto the ground and becomes hands pulling at mobs, so a
+ * patch belongs to the ground; it drifts in the sim at `SCROLL_SPEED`
+ * (`lines/territory.ts`), the step mobs and corpses take. A ground running at
+ * any other rate slides out from under every patch, which is what the slice 13b
+ * deploy showed (Mark, 2026-09-08).
  */
-const GROUND_PARALLAX = 0.5;
-const GROUND_SPEED = SCROLL_SPEED * GROUND_PARALLAX;
-
-/** How often the stream places one piece of dressing. Initial row, marked stand-in. */
-const DRESSING_INTERVAL_SECONDS = 5;
-const DRESSING_INTERVAL_TICKS = DRESSING_INTERVAL_SECONDS * TICK_HZ;
+const GROUND_SPEED = SCROLL_SPEED;
 
 /**
  * How many times the dressing eyes' footprint the Waking's source draws at.
@@ -70,6 +69,24 @@ const TALLEST_DRESSING_PIXELS = 112;
  */
 const DRIFT_WINDOW_TICKS = Math.ceil(
   (FIELD_HEIGHT + TALLEST_DRESSING_PIXELS * DRESSING_SCALE) / GROUND_SPEED,
+);
+
+/**
+ * How many placements are in flight at once, which is the density the ground is
+ * authored at. Initial row, marked stand-in: Mark asked for a field carrying
+ * about two and a half to three times what slice 13b showed (2026-09-08).
+ *
+ * The density is the row and the interval falls out of it and the crossing,
+ * never the other way round: the crossing halved when the ground took the
+ * field's own scroll, and an interval held fixed would have halved the dressing
+ * with it without anything saying so.
+ *
+ * What is drawn runs a few under this. The crossing is the tallest piece's, and
+ * a short piece leaves the bottom edge that much earlier.
+ */
+const DRESSING_ON_SCREEN = 30;
+const DRESSING_INTERVAL_TICKS = Math.round(
+  DRIFT_WINDOW_TICKS / DRESSING_ON_SCREEN,
 );
 
 /** One sprite per placement that can be on screen at once, plus the one arriving. */
@@ -112,7 +129,7 @@ class BackgroundRenderer {
   constructor(props: BackgroundProps) {
     this.props = props;
     this.ground.tint = GROUND_TINT.hex;
-    // The tile draws at the same pixel size as everything else on this layer,
+    // The floor draws at the same pixel size as everything else on this layer,
     // or the ground is pixel art at two scales in one picture.
     this.ground.tileScale.set(DRESSING_SCALE);
     this.sourceRim.tint = PALETTE.standInWakingDark.hex;
@@ -158,9 +175,9 @@ class BackgroundRenderer {
   }
 
   private syncGround(tick: number): void {
-    const tile = this.textureFor(GROUND_TILE);
-    if (tile !== null && this.ground.texture !== tile) {
-      this.ground.texture = tile;
+    const floor = this.textureFor(GROUND_FLOOR);
+    if (floor !== null && this.ground.texture !== floor) {
+      this.ground.texture = floor;
     }
     this.ground.tilePosition.y = tick * GROUND_SPEED;
   }
@@ -269,6 +286,7 @@ class BackgroundRenderer {
 export {
   BackgroundRenderer,
   DRESSING_INTERVAL_TICKS,
+  DRESSING_ON_SCREEN,
   DRIFT_WINDOW_TICKS,
   GROUND_SPEED,
 };
