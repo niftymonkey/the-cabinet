@@ -246,8 +246,10 @@ const drawArrival = (into: Graphics, size: number): void => {
   if (size <= 0) return;
   const outline: number[] = [];
   for (let vertex = 0; vertex < ARRIVAL_WOBBLE.length; vertex++) {
+    const wobble = ARRIVAL_WOBBLE[vertex];
+    if (wobble === undefined) throw new Error(`no wobble at vertex ${vertex}`);
     const angle = (vertex / ARRIVAL_WOBBLE.length) * Math.PI * 2;
-    const reach = size * ARRIVAL_WOBBLE[vertex];
+    const reach = size * wobble;
     outline.push(Math.cos(angle) * reach, Math.sin(angle) * reach);
   }
   into
@@ -288,6 +290,7 @@ const drawWisp = (into: Graphics): void => {
  */
 const coneWedges = (into: Graphics, level: number, reach: number): void => {
   const row = BELL_CONE_ROWS[level];
+  if (row === undefined) throw new Error(`no bell cone row for level ${level}`);
   for (let cone = 0; cone < row.headings.length; cone++) {
     const facing = coneHeading(level, cone) - Math.PI / 2;
     into
@@ -371,6 +374,21 @@ const fill = (sprites: Graphics[], capacity: number): void => {
     sprite.visible = false;
     sprites.push(sprite);
   }
+};
+
+/**
+ * A pooled value at this slot, or a bug: every parallel array a sync method
+ * walks is sized to the same entity pool's capacity, so a slot inside the
+ * loop bound that is missing here is a bug in that sizing rather than a case
+ * to handle.
+ */
+const requireSlot = <T>(
+  value: T | undefined,
+  slot: number,
+  what: string,
+): T => {
+  if (value === undefined) throw new Error(`no ${what} at slot ${slot}`);
+  return value;
 };
 
 // One momentary effect at a place, on its own clock.
@@ -512,8 +530,8 @@ class StormRenderer {
 
   private syncSkulls(run: RunState): void {
     for (let slot = 0; slot < run.skulls.length; slot++) {
-      const skull = run.skulls[slot];
-      const sprite = this.skullSprites[slot];
+      const skull = requireSlot(run.skulls[slot], slot, 'skull');
+      const sprite = requireSlot(this.skullSprites[slot], slot, 'skull sprite');
       sprite.visible = skull.alive;
       if (!skull.alive) continue;
       if (!this.skullDrawn[slot]) {
@@ -526,7 +544,7 @@ class StormRenderer {
 
   private syncPatches(run: RunState): void {
     for (let slot = 0; slot < this.patchSprites.length; slot++) {
-      const sprite = this.patchSprites[slot];
+      const sprite = requireSlot(this.patchSprites[slot], slot, 'patch sprite');
       const patch = patchAt(run, slot);
       sprite.visible = patch !== null;
       if (patch === null) continue;
@@ -576,7 +594,11 @@ class StormRenderer {
    */
   private syncArrivals(run: RunState): void {
     for (let slot = 0; slot < this.arrivalSprites.length; slot++) {
-      const sprite = this.arrivalSprites[slot];
+      const sprite = requireSlot(
+        this.arrivalSprites[slot],
+        slot,
+        'arrival sprite',
+      );
       const patch = patchAt(run, slot);
       sprite.visible = patch !== null && patch.opening > 0;
       if (patch === null || patch.opening <= 0) continue;
@@ -610,8 +632,8 @@ class StormRenderer {
 
   private syncWisps(run: RunState): void {
     for (let slot = 0; slot < run.wisps.length; slot++) {
-      const wisp = run.wisps[slot];
-      const sprite = this.wispSprites[slot];
+      const wisp = requireSlot(run.wisps[slot], slot, 'wisp');
+      const sprite = requireSlot(this.wispSprites[slot], slot, 'wisp sprite');
       sprite.visible = wisp.alive;
       if (!wisp.alive) continue;
       if (!this.wispDrawn[slot]) {

@@ -97,6 +97,9 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
     const state = createRun(3);
     const wave = flickering(state, 3);
     const [a, , c] = wave;
+    if (a === undefined || c === undefined) {
+      throw new Error('a wave of 3 corpses is missing a slot');
+    }
     expect(c.id - a.id).toBe(2);
 
     const differed = [];

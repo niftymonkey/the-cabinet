@@ -190,7 +190,10 @@ class BackgroundRenderer {
   private syncDressing(run: RunState): void {
     const newest = Math.floor(run.tick / DRESSING_INTERVAL_TICKS);
     for (let slot = 0; slot < this.dressing.length; slot++) {
-      this.placeDressing(this.dressing[slot], run, newest - slot);
+      const sprite = this.dressing[slot];
+      if (sprite === undefined)
+        throw new Error(`no dressing sprite at slot ${slot}`);
+      this.placeDressing(sprite, run, newest - slot);
     }
   }
 
@@ -226,10 +229,12 @@ class BackgroundRenderer {
   private dressingFor(run: RunState, index: number): DressingSetName {
     const at = run.stage.phaseIndex;
     const placed = index * DRESSING_INTERVAL_TICKS;
-    if (at === 0 || run.tick - placed <= run.stage.phaseTick) {
-      return DRESSING_BY_PHASE[PHASES[at].name];
-    }
-    return DRESSING_BY_PHASE[PHASES[at - 1].name];
+    const phase =
+      PHASES[
+        at === 0 || run.tick - placed <= run.stage.phaseTick ? at : at - 1
+      ];
+    if (phase === undefined) throw new Error(`no phase at index ${at}`);
+    return DRESSING_BY_PHASE[phase.name];
   }
 
   private syncSource(setPiece: SetPiece | null): void {

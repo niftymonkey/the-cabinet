@@ -91,13 +91,22 @@ function drawnEyeWidth(): number {
   if (index === undefined) throw new Error('the Crowd places no eye dressing');
   const { layers, renderer } = attached();
   renderer.sync(runInPhase('crowd', index * DRESSING_INTERVAL_TICKS, 1e6));
-  return dressing(layers)[0].width;
+  const eye = dressing(layers)[0];
+  if (eye === undefined) throw new Error('the ground layer holds no dressing');
+  return eye.width;
 }
 
 function dressing(layers: FieldLayers): Sprite[] {
   const children = layers.layer('ground').children as Container[];
   // The tiled ground is first and the source's two sprites are last.
   return children.slice(1, children.length - 2) as Sprite[];
+}
+
+/** The child this many slots from the end of a children list, or a bug if there is none. */
+function fromEnd<T>(children: readonly T[], offset: number): T {
+  const found = children[children.length - offset];
+  if (found === undefined) throw new Error(`no child ${offset} from the end`);
+  return found;
 }
 
 function tintsShowing(layers: FieldLayers): Set<number> {
@@ -135,6 +144,7 @@ describe('the stand-in ground (module 105)', () => {
     // renderer's own row, or the assertion moves with what it is checking.
     const run = createRun(19);
     const patch = run.patches[0];
+    if (patch === undefined) throw new Error('no patch pool slot 0');
     patch.alive = true;
     patch.y = 100;
     patch.radius = 40;
@@ -330,7 +340,7 @@ describe("the Waking's own source", () => {
     run.setPiece = sourceOnField({ x: 200, y: 380, open: false });
     renderer.sync(run);
     const children = layers.layer('ground').children as Sprite[];
-    const source = children[children.length - 1];
+    const source = fromEnd(children, 1);
     // Against a dressing eye the renderer actually drew, never against the row
     // the source's own size is derived from.
     expect(source.visible).toBe(true);
@@ -378,8 +388,8 @@ describe("the Waking's own source", () => {
     run.setPiece = sourceOnField({ x: 270, y: 400, open: true });
     renderer.sync(run);
     const children = layers.layer('ground').children as Sprite[];
-    const rim = children[children.length - 2];
-    const source = children[children.length - 1];
+    const rim = fromEnd(children, 2);
+    const source = fromEnd(children, 1);
     expect(rim.tint).toBe(PALETTE.standInWakingDark.hex);
     expect(rim.width).toBeGreaterThan(source.width);
     expect(rim.height).toBeGreaterThan(source.height);

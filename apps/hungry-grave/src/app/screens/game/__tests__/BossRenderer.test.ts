@@ -46,7 +46,10 @@ function runWith(kind: BossKind): { run: RunState; boss: Boss } {
 /** The boss's own sprite, which attach() puts last in the layer. */
 function bossSprite(layers: FieldLayers): Graphics {
   const bodies = layers.layer('mobBodies').children as Graphics[];
-  return bodies[bodies.length - 1];
+  const last = bodies[bodies.length - 1];
+  if (last === undefined)
+    throw new Error('the mobBodies layer holds no sprite');
+  return last;
 }
 
 /** The colours a sprite fills its shapes with, in the order it filled them. */
@@ -57,13 +60,23 @@ function fillColours(sprite: Graphics): number[] {
     .map((style) => (typeof style === 'number' ? style : style.color));
 }
 
+/** The colour the sprite's body fill drew, which every synced boss sprite has. */
+function firstFillColour(sprite: Graphics): number {
+  const colour = fillColours(sprite)[0];
+  if (colour === undefined) throw new Error('the sprite filled nothing');
+  return colour;
+}
+
 /**
  * The silhouette a sprite filled its body from, as the flat point list in field
  * units that Graphics recorded. Read off the drawing and never off the module's
  * own tables, so what is asserted is what is on screen.
  */
 function bodyOutline(sprite: Graphics): number[] {
-  const filled = sprite.context.instructions[0].data as {
+  const first = sprite.context.instructions[0];
+  if (first === undefined)
+    throw new Error('the sprite recorded no instructions');
+  const filled = first.data as {
     path?: { instructions?: { action: string; data: unknown[] }[] };
   };
   const poly = (filled.path?.instructions ?? []).find(
@@ -211,7 +224,7 @@ describe('the chunk flash (module 107, ADR 0007)', () => {
     for (let left = CHUNK_FLASH_TICKS; left > 0; left--) {
       boss.flash = left;
       renderer.sync(run);
-      seen.add(fillColours(bossSprite(layers))[0].toString());
+      seen.add(firstFillColour(bossSprite(layers)).toString());
     }
     expect([...seen].sort()).toEqual(
       [...PAIR.undertaker].map(String).sort() as string[],
@@ -241,7 +254,7 @@ describe('the chunk flash (module 107, ADR 0007)', () => {
     for (let left = CHUNK_FLASH_TICKS; left > 0; left--) {
       boss.flash = left;
       renderer.sync(run);
-      read.push(fillColours(bossSprite(layers))[0]);
+      read.push(firstFillColour(bossSprite(layers)));
     }
 
     // Every stretch the body holds one colour for, with the two at the ends
@@ -273,7 +286,7 @@ describe('the chunk flash (module 107, ADR 0007)', () => {
     for (let tick = 0; tick < 4 * CHUNK_FLASH_TICKS; tick++) {
       run.tick = tick;
       renderer.sync(run);
-      seen.add(fillColours(bossSprite(layers))[0]);
+      seen.add(firstFillColour(bossSprite(layers)));
     }
     expect([...seen]).toEqual([PAIR.banshee[0]]);
   });

@@ -38,8 +38,41 @@ function children(
   return layers.layer(name).children as Graphics[];
 }
 
-function putSkull(state: RunState, slot: number, x: number, y: number) {
+/** The sprite at this slot in a layer, or a bug: every layer here is pool-sized. */
+function spriteAt(
+  layers: FieldLayers,
+  name: 'storm' | 'bellRing' | 'belchEruption',
+  slot: number,
+): Graphics {
+  const sprite = children(layers, name)[slot];
+  if (sprite === undefined)
+    throw new Error(`no ${name} sprite at slot ${slot}`);
+  return sprite;
+}
+
+/** This slot in the skull pool, which every test in this file spawns into first. */
+function skullSlot(state: RunState, slot: number) {
   const skull = state.skulls[slot];
+  if (skull === undefined) throw new Error(`no skull pool slot ${slot}`);
+  return skull;
+}
+
+/** This slot in the wisp pool, which every test in this file spawns into first. */
+function wispSlot(state: RunState, slot: number) {
+  const wisp = state.wisps[slot];
+  if (wisp === undefined) throw new Error(`no wisp pool slot ${slot}`);
+  return wisp;
+}
+
+/** This slot in the territory patch pool, which every test in this file spawns into first. */
+function patchSlot(state: RunState, slot: number) {
+  const patch = state.patches[slot];
+  if (patch === undefined) throw new Error(`no patch pool slot ${slot}`);
+  return patch;
+}
+
+function putSkull(state: RunState, slot: number, x: number, y: number) {
+  const skull = skullSlot(state, slot);
   skull.alive = true;
   skull.id = 100 + slot;
   skull.x = x;
@@ -50,7 +83,7 @@ function putSkull(state: RunState, slot: number, x: number, y: number) {
 }
 
 function putWisp(state: RunState, slot: number, x: number, y: number) {
-  const wisp = state.wisps[slot];
+  const wisp = wispSlot(state, slot);
   wisp.alive = true;
   wisp.id = 200 + slot;
   wisp.x = x;
@@ -115,15 +148,14 @@ describe('sprites follow their slots (plan 6.19)', () => {
     putSkull(state, 3, 120, 340);
     renderer.sync(state);
 
-    const sprites = children(layers, 'storm');
-    expect(sprites[3].visible).toBe(true);
-    expect(sprites[3].position.x).toBe(120);
-    expect(sprites[3].position.y).toBe(340);
-    expect(sprites[2].visible).toBe(false);
+    expect(spriteAt(layers, 'storm', 3).visible).toBe(true);
+    expect(spriteAt(layers, 'storm', 3).position.x).toBe(120);
+    expect(spriteAt(layers, 'storm', 3).position.y).toBe(340);
+    expect(spriteAt(layers, 'storm', 2).visible).toBe(false);
 
-    state.skulls[3].alive = false;
+    skullSlot(state, 3).alive = false;
     renderer.sync(state);
-    expect(sprites[3].visible).toBe(false);
+    expect(spriteAt(layers, 'storm', 3).visible).toBe(false);
   });
 
   it('orients a wisp to its heading, which is what makes the curve readable', () => {
@@ -131,7 +163,7 @@ describe('sprites follow their slots (plan 6.19)', () => {
     const state = quietRun();
     const wisp = putWisp(state, 0, 200, 200);
     renderer.sync(state);
-    const sprite = children(layers, 'storm')[SKULL_CAP + TERRITORY_CAP];
+    const sprite = spriteAt(layers, 'storm', SKULL_CAP + TERRITORY_CAP);
     expect(sprite.rotation).toBeCloseTo(0, 6);
 
     wisp.vx = 0;
@@ -144,11 +176,11 @@ describe('sprites follow their slots (plan 6.19)', () => {
     const { layers, renderer } = attached();
     const state = quietRun();
     renderer.sync(state);
-    expect(children(layers, 'bellRing')[0].visible).toBe(false);
+    expect(spriteAt(layers, 'bellRing', 0).visible).toBe(false);
 
     state.lines.ring = { level: 4, ticks: 12, struck: new Set() };
     renderer.sync(state);
-    expect(children(layers, 'bellRing')[0].visible).toBe(true);
+    expect(spriteAt(layers, 'bellRing', 0).visible).toBe(true);
   });
 
   it('draws one wedge per cone the level throws, so a level-1 toll is one and a level-5 toll is five', () => {
@@ -170,11 +202,11 @@ describe('sprites follow their slots (plan 6.19)', () => {
     const state = quietRun();
     state.lines.ring = { level: 1, ticks: 12, struck: new Set() };
     renderer.sync(state);
-    expect(wedges(children(layers, 'bellRing')[0])).toBe(1);
+    expect(wedges(spriteAt(layers, 'bellRing', 0))).toBe(1);
 
     state.lines.ring = { level: MAX_LEVEL, ticks: 12, struck: new Set() };
     renderer.sync(state);
-    expect(wedges(children(layers, 'bellRing')[0])).toBe(MAX_LEVEL);
+    expect(wedges(spriteAt(layers, 'bellRing', 0))).toBe(MAX_LEVEL);
   });
 });
 
@@ -192,7 +224,7 @@ describe("a second run out of the pool (this app's own lesson)", () => {
     renderer.erupt(first);
     renderer.splashed(first);
     renderer.sync(first);
-    expect(children(layers, 'belchEruption')[0].visible).toBe(true);
+    expect(spriteAt(layers, 'belchEruption', 0).visible).toBe(true);
 
     layers.clear();
     renderer.attach(layers);
@@ -200,7 +232,7 @@ describe("a second run out of the pool (this app's own lesson)", () => {
     // Nothing is drawn before the first sync of the new run, which is the frame
     // a leaked sprite would be visible on.
     expect(children(layers, 'storm').every((each) => !each.visible)).toBe(true);
-    expect(children(layers, 'bellRing')[0].visible).toBe(false);
+    expect(spriteAt(layers, 'bellRing', 0).visible).toBe(false);
     for (const burst of children(layers, 'belchEruption')) {
       expect(burst.visible).toBe(false);
     }
@@ -223,7 +255,7 @@ describe('the momentary effects (plan 6.19)', () => {
     const state = quietRun();
     renderer.erupt(state);
     renderer.sync(state);
-    const eruption = children(layers, 'belchEruption')[0];
+    const eruption = spriteAt(layers, 'belchEruption', 0);
     expect(eruption.visible).toBe(true);
 
     state.tick += 100;
@@ -234,7 +266,7 @@ describe('the momentary effects (plan 6.19)', () => {
   it('shows the splash, so charge wasted at a full reservoir is visible rather than a silent clamp', () => {
     const { layers, renderer } = attached();
     const state = quietRun();
-    const splash = children(layers, 'belchEruption')[1];
+    const splash = spriteAt(layers, 'belchEruption', 1);
     renderer.sync(state);
     expect(splash.visible).toBe(false);
 
@@ -269,7 +301,7 @@ describe("Territory's claimed ground", () => {
     radius: number,
     opening = 0,
   ) {
-    const patch = state.patches[slot];
+    const patch = patchSlot(state, slot);
     patch.alive = true;
     patch.id = 300 + slot;
     patch.x = 200;
@@ -296,6 +328,9 @@ describe("Territory's claimed ground", () => {
     renderer.sync(state);
 
     const [full, stale] = patchSprites(layers);
+    if (full === undefined || stale === undefined) {
+      throw new Error('patchSprites gave fewer than 2 sprites');
+    }
     expect(full.visible).toBe(true);
     expect(stale.visible).toBe(true);
     expect(full.getLocalBounds().width).toBeGreaterThan(
@@ -323,6 +358,9 @@ describe("Territory's claimed ground", () => {
         })
         .filter((shape) => shape.action === 'circle').length;
     const [levelOne, levelFive] = patchSprites(layers);
+    if (levelOne === undefined || levelFive === undefined) {
+      throw new Error('patchSprites gave fewer than 2 sprites');
+    }
     // The rim is one circle; every other circle is a hand.
     expect(circlesOf(levelOne)).toBe(1 + 6);
     expect(circlesOf(levelFive)).toBe(1 + 14);
@@ -336,6 +374,7 @@ describe("Territory's claimed ground", () => {
     const patch = putPatch(state, 0, 48);
     renderer.sync(state);
     const sprite = patchSprites(layers)[0];
+    if (sprite === undefined) throw new Error('no patch sprite at slot 0');
     const clear = vi.spyOn(sprite, 'clear');
 
     patch.pulses += 5;
@@ -357,6 +396,7 @@ describe("Territory's claimed ground", () => {
     const patch = putPatch(state, 0, 48, TERRITORY_OPENING_TICKS);
     renderer.sync(state);
     const sprite = patchSprites(layers)[0];
+    if (sprite === undefined) throw new Error('no patch sprite at slot 0');
     const opening = `${sprite.tint} ${sprite.alpha}`;
 
     patch.opening = 0;
@@ -396,7 +436,7 @@ describe('the arrival mark', () => {
   const PATCH_Y = 300;
 
   function opening(state: RunState, ticks: number) {
-    const patch = state.patches[0];
+    const patch = patchSlot(state, 0);
     patch.alive = true;
     patch.id = 400;
     patch.x = PATCH_X;
@@ -410,8 +450,8 @@ describe('the arrival mark', () => {
     return patch;
   }
 
-  function mark(layers: FieldLayers) {
-    return children(layers, 'storm')[SKULL_CAP + TERRITORY_CAP + WISP_CAP];
+  function mark(layers: FieldLayers): Graphics {
+    return spriteAt(layers, 'storm', SKULL_CAP + TERRITORY_CAP + WISP_CAP);
   }
 
   /** Where the mark sets out from: the grave's mouth, the point erupt uses. */

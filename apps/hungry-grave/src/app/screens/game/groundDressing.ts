@@ -187,8 +187,12 @@ const ART_SALT = 6240913;
 const ACROSS_SALT = 1871479;
 
 /** Which piece of a set's art the stream places at this index. */
-const artAt = (set: DressingSet, index: number): StandInArt =>
-  set.art[Math.floor(streamDraw(index, ART_SALT) * set.art.length)];
+const artAt = (set: DressingSet, index: number): StandInArt => {
+  const piece =
+    set.art[Math.floor(streamDraw(index, ART_SALT) * set.art.length)];
+  if (piece === undefined) throw new Error('a dressing set carries no art');
+  return piece;
+};
 
 /** Where across the field the stream places this index, as a share of the width. */
 const acrossAt = (index: number): number => streamDraw(index, ACROSS_SALT);

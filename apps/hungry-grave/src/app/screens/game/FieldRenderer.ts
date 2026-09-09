@@ -51,6 +51,21 @@ const fill = (sprites: Graphics[], capacity: number): void => {
   }
 };
 
+/**
+ * A pooled value at this slot, or a bug: every parallel array this renderer
+ * walks (sprites, sim entities) is sized to the same entity pool's capacity,
+ * so a slot inside the loop bound that is missing here is a bug in that
+ * sizing rather than a case to handle.
+ */
+const requireSlot = <T>(
+  value: T | undefined,
+  slot: number,
+  what: string,
+): T => {
+  if (value === undefined) throw new Error(`no ${what} at slot ${slot}`);
+  return value;
+};
+
 // One cancelled shot, on its way out, in the kind it was fired in.
 interface Scatter {
   readonly sprite: Graphics;
@@ -189,8 +204,8 @@ class FieldRenderer {
 
   private syncMobs(run: RunState): void {
     for (let slot = 0; slot < run.mobs.length; slot++) {
-      const mob = run.mobs[slot];
-      const sprite = this.mobSprites[slot];
+      const mob = requireSlot(run.mobs[slot], slot, 'mob');
+      const sprite = requireSlot(this.mobSprites[slot], slot, 'mob sprite');
       sprite.visible = mob.alive;
       if (!mob.alive) continue;
       const look = mobLook(mob);
@@ -210,8 +225,8 @@ class FieldRenderer {
 
   private syncShots(run: RunState): void {
     for (let slot = 0; slot < run.mobFire.length; slot++) {
-      const shot = run.mobFire[slot];
-      const sprite = this.shotSprites[slot];
+      const shot = requireSlot(run.mobFire[slot], slot, 'shot');
+      const sprite = requireSlot(this.shotSprites[slot], slot, 'shot sprite');
       const seen = this.shotMemory[slot];
       if (seen?.alive && !shot.alive) this.cancelAt(run, seen);
       // Mutated in place rather than replaced. A fresh literal per slot is
@@ -245,13 +260,21 @@ class FieldRenderer {
 
   private syncCorpses(run: RunState): void {
     for (let slot = 0; slot < run.corpses.length; slot++) {
-      const corpse = run.corpses[slot];
+      const corpse = requireSlot(run.corpses[slot], slot, 'corpse');
       const treasure = corpse.kind === 'drop';
-      const sprite = treasure
-        ? this.treasureSprites[slot]
-        : this.corpseSprites[slot];
-      this.corpseSprites[slot].visible = corpse.alive && !treasure;
-      this.treasureSprites[slot].visible = corpse.alive && treasure;
+      const corpseSprite = requireSlot(
+        this.corpseSprites[slot],
+        slot,
+        'corpse sprite',
+      );
+      const treasureSprite = requireSlot(
+        this.treasureSprites[slot],
+        slot,
+        'treasure sprite',
+      );
+      const sprite = treasure ? treasureSprite : corpseSprite;
+      corpseSprite.visible = corpse.alive && !treasure;
+      treasureSprite.visible = corpse.alive && treasure;
       if (!corpse.alive) continue;
 
       if (treasure) {
@@ -293,7 +316,9 @@ class FieldRenderer {
   }
 
   private oldestScatter(): Scatter {
-    let oldest = this.scatters[0];
+    const first = this.scatters[0];
+    if (first === undefined) throw new Error('no scatters in the pool');
+    let oldest = first;
     for (const scatter of this.scatters) {
       if (scatter.born < oldest.born) oldest = scatter;
     }

@@ -86,8 +86,9 @@ const shortIdentity = (identity: FaultIdentity): string => {
  */
 const faultReadout = (faults: readonly FaultRecord[]): string => {
   if (faults.length === 0) return '';
-  if (faults.length === 1) {
-    return `${FAULT_PREFIX}${shortIdentity(faults[0].identity)}`;
+  const only = faults[0];
+  if (only !== undefined && faults.length === 1) {
+    return `${FAULT_PREFIX}${shortIdentity(only.identity)}`;
   }
   return `FAULTS ${faults.length}`;
 };

@@ -53,9 +53,28 @@ function sprites(layers: FieldLayers, name: 'corpses' | 'mobBodies') {
   return layers.layer(name).children as Graphics[];
 }
 
+/** The sprite at this slot in a pool layer, or a bug: the sprite pool is sized to the entity pool. */
+function spriteAt(
+  layers: FieldLayers,
+  name: 'corpses' | 'mobBodies',
+  slot: number,
+): Graphics {
+  const sprite = sprites(layers, name)[slot];
+  if (sprite === undefined)
+    throw new Error(`no ${name} sprite at slot ${slot}`);
+  return sprite;
+}
+
+/** The mob-fire pool's slot 0, which every test in this file fires from. */
+function shotSlotZero(state: RunState) {
+  const shot = state.mobFire[0];
+  if (shot === undefined) throw new Error('no mob-fire pool slot 0');
+  return shot;
+}
+
 /** Puts one live shot in the first slot of the mob-fire pool. */
 function putShot(state: RunState, x: number, y: number) {
-  const shot = state.mobFire[0];
+  const shot = shotSlotZero(state);
   shot.alive = true;
   shot.id = 1;
   shot.emitter = 'shambler';
@@ -134,12 +153,12 @@ describe('FieldRenderer', () => {
     const mob = put(state, 'shambler', 100, 100);
     renderer.sync(state);
     const slot = state.mobs.indexOf(mob);
-    expect(sprites(layers, 'mobBodies')[slot].visible).toBe(true);
-    expect(sprites(layers, 'mobBodies')[slot].position.x).toBe(100);
+    expect(spriteAt(layers, 'mobBodies', slot).visible).toBe(true);
+    expect(spriteAt(layers, 'mobBodies', slot).position.x).toBe(100);
 
     mob.alive = false;
     renderer.sync(state);
-    expect(sprites(layers, 'mobBodies')[slot].visible).toBe(false);
+    expect(spriteAt(layers, 'mobBodies', slot).visible).toBe(false);
   });
 
   it('pools its sprites the way the entities are pooled: a spawn after a death reuses one', () => {
@@ -150,7 +169,7 @@ describe('FieldRenderer', () => {
     const first = put(state, 'shambler', 100, 100);
     renderer.sync(state);
     const slot = state.mobs.indexOf(first);
-    const sprite = sprites(layers, 'mobBodies')[slot];
+    const sprite = spriteAt(layers, 'mobBodies', slot);
 
     first.alive = false;
     const second = put(state, 'revenant', 300, 200);
@@ -158,7 +177,7 @@ describe('FieldRenderer', () => {
     renderer.sync(state);
 
     expect(sprites(layers, 'mobBodies')).toHaveLength(MOB_CAP);
-    expect(sprites(layers, 'mobBodies')[slot]).toBe(sprite);
+    expect(spriteAt(layers, 'mobBodies', slot)).toBe(sprite);
     expect(sprite.position.x).toBe(300);
   });
 
@@ -175,7 +194,7 @@ describe('FieldRenderer', () => {
     const slot = state.corpses.indexOf(corpse);
 
     renderer.sync(state);
-    const sprite = sprites(layers, 'corpses')[slot];
+    const sprite = spriteAt(layers, 'corpses', slot);
     expect(sprite.alpha).toBe(1);
     const fresh = sprite.tint;
 
@@ -228,10 +247,8 @@ describe('FieldRenderer', () => {
 
     // What was drawn, as the list of drawing actions pixi recorded.
     const drawn = (mob: typeof plain) =>
-      sprites(layers, 'mobBodies')
-        [state.mobs.indexOf(mob)].context.instructions.map(
-          (each) => each.action,
-        )
+      spriteAt(layers, 'mobBodies', state.mobs.indexOf(mob))
+        .context.instructions.map((each) => each.action)
         .join(',');
     expect(drawn(plain)).not.toBe(drawn(armed));
 
@@ -294,7 +311,7 @@ describe('FieldRenderer', () => {
 
     // The grave consumed it. A cancel is a scatter and never a fall-in, so it
     // does not read as the one verb of collection.
-    state.mobFire[0].alive = false;
+    shotSlotZero(state).alive = false;
     renderer.sync(state);
     expect(visibleScatters(layers)).toBe(1);
   });
@@ -304,7 +321,7 @@ describe('FieldRenderer', () => {
     const state = createRun(1);
     putShot(state, 200, FIELD_HEIGHT + 40);
     renderer.sync(state);
-    state.mobFire[0].alive = false;
+    shotSlotZero(state).alive = false;
     renderer.sync(state);
     expect(visibleScatters(layers)).toBe(0);
   });
@@ -341,7 +358,7 @@ describe('FieldRenderer', () => {
     first.tick = 900;
     putShot(first, 200, 300);
     renderer.sync(first);
-    first.mobFire[0].alive = false;
+    shotSlotZero(first).alive = false;
     renderer.sync(first);
     expect(visibleScatters(layers)).toBe(1);
 
@@ -353,7 +370,7 @@ describe('FieldRenderer', () => {
     renderer.sync(second);
     putShot(second, 100, 100);
     renderer.sync(second);
-    second.mobFire[0].alive = false;
+    shotSlotZero(second).alive = false;
     renderer.sync(second);
     expect(visibleScatters(layers)).toBe(1);
   });
@@ -368,6 +385,7 @@ describe('FieldRenderer', () => {
     const shot = putShot(state, 200, 300);
     renderer.sync(state);
     const sprite = (layers.layer('mobFire').children as Graphics[])[0];
+    if (sprite === undefined) throw new Error('no mob-fire sprite at slot 0');
     expect(fillColours(sprite)).toContain(MOB_FIRE.trash.body.hex);
 
     shot.kind = 'spiral';
@@ -391,7 +409,9 @@ describe('FieldRenderer', () => {
     const fire = layers.layer('mobFire').children as Graphics[];
     const scattering = fire.slice(MOB_FIRE_CAP).filter((each) => each.visible);
     expect(scattering).toHaveLength(1);
-    expect(fillColours(scattering[0])).toEqual([MOB_FIRE.clod.body.hex]);
+    const scatterSprite = scattering[0];
+    if (scatterSprite === undefined) throw new Error('no scattering sprite');
+    expect(fillColours(scatterSprite)).toEqual([MOB_FIRE.clod.body.hex]);
   });
 
   it('detach then attach puts everything back, which FieldLayers.clear() between runs requires', () => {
@@ -432,7 +452,7 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
     const { layers, renderer } = attached();
     const state = createRun(1);
     const shapesOf = (mob: Mob) =>
-      filledShapes(sprites(layers, 'mobBodies')[state.mobs.indexOf(mob)]);
+      filledShapes(spriteAt(layers, 'mobBodies', state.mobs.indexOf(mob)));
 
     for (const type of MOB_TYPE_NAMES) {
       const mob = spawnMob(
@@ -481,6 +501,7 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
     const shot = putShot(state, 200, 300);
     renderer.sync(state);
     const sprite = (layers.layer('mobFire').children as Graphics[])[0];
+    if (sprite === undefined) throw new Error('no mob-fire sprite at slot 0');
     const drawn = sprite.getLocalBounds();
     expect(Math.max(drawn.width, drawn.height) / 2).toBeGreaterThan(
       shot.halfExtent,
@@ -629,10 +650,17 @@ describe("a drop's legibility (the fix inside #36)", () => {
 
   /** The area of a closed polygon given as flat x,y pairs, by the shoelace formula. */
   function shoelace(points: readonly number[]): number {
+    const coordAt = (index: number): number => {
+      const value = points[index];
+      if (value === undefined)
+        throw new Error(`no coordinate at index ${index}`);
+      return value;
+    };
     let twice = 0;
     for (let at = 0; at < points.length; at += 2) {
       const next = (at + 2) % points.length;
-      twice += points[at] * points[next + 1] - points[next] * points[at + 1];
+      twice +=
+        coordAt(at) * coordAt(next + 1) - coordAt(next) * coordAt(at + 1);
     }
     return Math.abs(twice) / 2;
   }
@@ -662,6 +690,11 @@ describe("a drop's legibility (the fix inside #36)", () => {
         }
         if (piece.action === 'circle') {
           const [x, y, radius]: number[] = piece.data;
+          if (x === undefined || y === undefined || radius === undefined) {
+            throw new Error(
+              'a circle instruction carries fewer than 3 numbers',
+            );
+          }
           inks.push({
             action: instruction.action,
             color,
@@ -799,6 +832,8 @@ describe("a drop's legibility (the fix inside #36)", () => {
     const corpse = corpseInk();
     for (const line of WEAPON_LINES) {
       const [ink] = dropOverTicks(line, [peakTick(line)], brightInkArea);
+      if (ink === undefined)
+        throw new Error('dropOverTicks of one tick gave no reading');
       expect(`${line} ${ink > corpse}`).toBe(`${line} true`);
     }
   });
@@ -808,6 +843,8 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // fill's own points are measured, so the stroke never pads the answer.
     for (const line of WEAPON_LINES) {
       const [size] = dropOverTicks(line, [peakTick(line)], drawnLongAxis);
+      if (size === undefined)
+        throw new Error('dropOverTicks of one tick gave no reading');
       expect(size).toBeCloseTo(DROP_DRAW_HALF_EXTENT * 2, 2);
     }
   });
@@ -820,11 +857,18 @@ describe("a drop's legibility (the fix inside #36)", () => {
     const ratios = WEAPON_LINES.map((line) => aspect(drawnDrop(line))).sort(
       (a, b) => a - b,
     );
+    const ratioAt = (index: number): number => {
+      const value = ratios[index];
+      if (value === undefined) throw new Error(`no ratio at index ${index}`);
+      return value;
+    };
     for (let at = 1; at < ratios.length; at++) {
-      expect(`${at} ${ratios[at] / ratios[at - 1] >= 1.1}`).toBe(`${at} true`);
+      expect(`${at} ${ratioAt(at) / ratioAt(at - 1) >= 1.1}`).toBe(
+        `${at} true`,
+      );
     }
     // And the set really spans tall through wide rather than crowding one end.
-    expect(ratios[ratios.length - 1] / ratios[0]).toBeGreaterThan(4);
+    expect(ratioAt(ratios.length - 1) / ratioAt(0)).toBeGreaterThan(4);
   });
 
   /** One drop's drawn width and its brightness, at a given tick. */
@@ -864,6 +908,9 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // rather than from a random draw. The same drop carries the same id, so
     // feeding the same tick twice must give the same drawn size twice.
     const [first, moved, again] = overTicks([0, 41, 0]);
+    if (first === undefined || moved === undefined || again === undefined) {
+      throw new Error('overTicks of 3 ticks gave fewer than 3 readings');
+    }
     expect(first.width).not.toBe(moved.width);
     expect(again.width).toBe(first.width);
   });
@@ -889,6 +936,8 @@ describe("a drop's legibility (the fix inside #36)", () => {
   it("keeps every line's net bright ink above the coverage floor, whatever the shape is", () => {
     for (const line of WEAPON_LINES) {
       const [cover] = dropOverTicks(line, [0], coverage);
+      if (cover === undefined)
+        throw new Error('dropOverTicks of one tick gave no reading');
       expect(`${line} ${cover >= COVERAGE_FLOOR - 1e-6}`).toBe(`${line} true`);
     }
   });
@@ -930,9 +979,13 @@ describe("a drop's legibility (the fix inside #36)", () => {
         (each) => each.visible,
       );
       expect(visible).toHaveLength(2);
+      const [one, other] = visible;
+      if (one === undefined || other === undefined) {
+        throw new Error('two visible drops did not destructure to two');
+      }
       widest = Math.max(
         widest,
-        Math.abs(drawnLongAxis(visible[0]) - drawnLongAxis(visible[1])),
+        Math.abs(drawnLongAxis(one) - drawnLongAxis(other)),
       );
     }
     expect(widest).toBeGreaterThanOrEqual(travel / 3);
@@ -950,7 +1003,11 @@ describe("a drop's legibility (the fix inside #36)", () => {
           .map((instruction) => instruction.data.style.width),
       })),
     );
-    for (const [{ scale, widths }] of phases) {
+    for (const [reading] of phases) {
+      if (reading === undefined) {
+        throw new Error('dropOverTicks of one tick gave no reading');
+      }
+      const { scale, widths } = reading;
       expect(widths.length).toBeGreaterThan(0);
       for (const width of widths) {
         expect(width * scale).toBeCloseTo(SPRITE_STROKE, 9);
@@ -967,8 +1024,12 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // set still splits on tall, round, pointed and wide with nothing moved and
     // nothing crowded, which the separation test above holds from the other
     // side.
-    const aspectOf = (line: WeaponLine) =>
-      dropOverTicks(line, [0], inkAspect)[0];
+    const aspectOf = (line: WeaponLine): number => {
+      const reading = dropOverTicks(line, [0], inkAspect)[0];
+      if (reading === undefined)
+        throw new Error('dropOverTicks of one tick gave no reading');
+      return reading;
+    };
     for (const line of WEAPON_LINES) {
       if (line === 'territory') continue;
       expect(`${line} ${aspectOf(line) > aspectOf('territory')}`).toBe(
