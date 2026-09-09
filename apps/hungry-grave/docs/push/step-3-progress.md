@@ -13,6 +13,7 @@ One section per slice at the end, and the cross-slice facts first. Written by ea
 | 4a, the runner | `eb41654b11` | `feat(hungry-grave): one command plays a batch of seeds and writes a tape per seed (#98)` |
 | 4b, the report, and the end of A | `876aa63f72` | `feat(hungry-grave): a batch reports every reading as a spread across its seeds, by weapon line (#98)` |
 | 5, the two knobs | `6abdb4255c` | `feat(hungry-grave): the hand's attention lapses and it holds a stale command when it does (#98)` |
+| 6, the comparison, and the done line | `60f6e652d1` | `feat(hungry-grave): two batches compare by direction, and the corners either agree or split (#98)` |
 
 ## 2. GOLDEN moves
 
@@ -29,6 +30,8 @@ Slice 4a: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READING
 Slice 4b: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing, and `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded: the report is a reduction of measurements taken off tapes that already existed, the shell writes one more file beside the tapes it already wrote, and `seriesSummary.ts` gains a figure no reading in the tree asked for before. `READINGS_VERSION` in particular is untouched on its own rule (`readingsVersion.ts:13-16`): the batch report is a reader of the readings and adds none.
 
 Slice 5: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing, and `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded: the hand's stream is made in `src/dev` off the run's seed and never inside `RunState`, so the run still holds exactly its own five streams and the fold still walks exactly those, which the new guard in `witness.test.ts` asserts rather than assumes. `stream`'s widened parameter changes who may ask for a stream and not what a stream is, so `StreamName` and `RunState.streams` are untouched.
+
+Slice 6: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing, and `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded, and nothing it changed is even read during a run: the comparison is a reduction of two reports that were themselves reduced from tapes, and the one existing file it edits is a guard's own module list. The strongest form of it is section 14's own reading: the sharp corner replayed at this slice's tip is flat against its own batch from four commits back on all 180 rows, so the code under the runs did not move either.
 
 ## 3. CodeRabbit
 
@@ -51,6 +54,8 @@ Slice 4b: `coderabbit review --agent --uncommitted` from the repo root over the 
 Slice 5: `coderabbit review --agent --uncommitted` from the repo root over the staged work, nine files reviewed, **one finding, minor, applied**, then a clean re-review over the same nine files.
 
 - **Applied, minor.** The hold-expiry test walked a 40-tick window and asserted only that a decision tick answered what its attentive twin answered, which a hand that never held anything would also pass: on a still enough field a held command and a freshly decided one are the same answer, so every held tick was invisible to it. The window is 400 ticks and the test now also asserts that at least one held tick said something the attentive twin did not, which is the half that makes the hold observable at all. It is the same toothlessness slice 1 found by mutation in module test 75, arriving from a reviewer instead.
+
+Slice 6: `coderabbit review --agent --uncommitted` from the repo root over the staged work, three files reviewed, **no findings**. Nothing applied and nothing declined.
 
 ## 4. Plan claims found false against the tree
 
@@ -91,6 +96,8 @@ Slice 5: `coderabbit review --agent --uncommitted` from the repo root over the s
 **18. The record's section 4 asks the belch reading for how much charge was carried into a boss's span, and nothing on a report carries it.** `belchCadence` carries every fire with its tick, `ticksAtFull` and `wasted` (`belchCadence.ts:27-31`), and no reading records the reservoir per tick, so the charge standing at a span's first tick is not readable off a tape today. The plan's own sentence asks only for "a count of fires per span", which is what the report carries: `tuning.belchCadence.fires` reduces to the run's whole count and each boss span's own. **Nothing was built for the missing half and no row moved**; it is a finding for #39, and the trigger is the day a reading records the reservoir.
 
 **19. Plan section 6's module tests 50 and 52 are written against the mechanism the record's 2026-09-09 amendment replaced.** Test 50 reads "A hold bound of zero re-decides every tick and touches the stream not at all", where under the amendment a rate of zero and not a bound of zero is what draws nothing: a row with a positive rate and a bound of zero still rolls for attention and still draws. Test 52 names "a hold bound, a sample list, a belch threshold and a clearance", where the dexterity error is two numbers and a row has five fields beside its name. **The plan's intent was followed and its letter was not**: test 50 landed as `draws nothing at all at the sharp corner`, the row that carries both zeroes, and test 52 is slice 1's own test renamed to `gives every configuration every knob and no optional field` with the six keys asserted. Both are section 13 below.
+
+**20. Plan section 3's verification step 11 asks this step's two batches for the agreed and split rows, and the seam plan section 4 prints cannot make them from one build.** `readAcrossCorners` takes two `BatchComparison`s, and ADR 0053's grammar is that each of them is one build against another under one corner: agreement is between the sharp corner's ordering and the sloppy corner's ordering of the same pair of builds. This step has one build, so there is no pair for either corner to order and no agreed or split row can exist yet. **The intent was followed and the letter was not**: what ran is `compareBatches` between the two corners themselves, which is section 14's direction table, and the corner reading is held by spec test 44 alone until #39 plays a second build. The one real build-to-build comparison this step can make is the sharp corner against its own earlier batch, and section 14 reports it.
 
 ## 5. Seams that moved
 
@@ -138,6 +145,13 @@ Slice 5:
 - **`ConfigurationName` is the nine-name union** and `CONFIGURATIONS` holds nine rows, which is slice 1's own hand-forward landing. `SLOPPY_HAND` is exported at `shaky-short`, which slice 1 left out because the row did not exist.
 - **`stream`'s name parameter is a string**, not `StreamName`. `StreamName` stays the closed union naming the streams a run holds, `RunState.streams` keeps its exact record type, and `STREAM_ORDER` keeps its five names, all three held by the new guard in `witness.test.ts`.
 - **`rng.test.ts`'s `NAMES` is derived**, `Object.keys(createRun(0).streams)` plus `HAND_STREAM`, and `draws` takes a name string. That closes #113 and it also widened the overlap search from four names to six, so it now covers thirty ordered pairs rather than twelve.
+
+Slice 6:
+
+- **`compareBatches.ts` is the plan's seam exactly**: `compareBatches`, `readAcrossCorners` and `BAND_SEPARATION` exported, with `Agreement`, `BatchComparison`, `ComparedSpread`, `CornerFinding` and `Direction` as types, and nothing else. `BAND_SEPARATION` is the row at zero the plan ships.
+- **A compared row's name carries the family it came from**, which the plan prints no names for. A report keys its spreads three ways and only one of them is the reading's own name, so a flat spread keeps that name, a per-line spread reads `byLine.<line>.<figure>` and a phase's span reads `phaseSpans.<phase>`. One row names one reading and one thing it was split by, and no two families can collide on one name.
+- **A comparison covers the spreads and not the counts.** `ComparedSpread` carries a `Spread` on each side, and a count is a name against a tally with no quartile to clear, so endings, stops and the reach are read off the two reports side by side and never ordered. That is plan section 4's own row type followed rather than a decision this slice took, and section 14's tables are where the counts are read.
+- **Guard 81's `MODULES` gains `dev/compareBatches.ts`**, which is slice 4b's hand-forward and slice 5's, both owed and now paid. The guard's header loses the line saying the module did not exist yet.
 
 ## 6. The baseline tapes
 
@@ -224,6 +238,19 @@ Slice 5, from the plan's section 3:
 - **Step 9, the determinism run under `shaky-short`.** **Passed.** `scripts/batch.ts shaky-short 20260909 6` run twice into two scratch folders: the same six tick counts (3716, 5474, 3457, 3649, 4394, 4759), the same six byte counts, 6 of 6 verified both times, and the two `report.json` files equal field for field once the identity block, which carries the wall clock, is set aside. The in-process half is spec test 13, which plays one seed twice under the sloppy corner and compares the tick count, the witness fold, the run's five stream cursors and the ending. It runs under the sloppy corner on purpose: the sharp corner draws nothing, so the same test under the sharp hand would pass on a harness whose stream was wired wrong, which is spec test 14's own promise held separately.
 - **Step 13, the fences**, in the part this slice owns: `src/__tests__/boundary.test.ts` green with no edit, both rows of it, and `src/__tests__/lineAgnosticPolicies.test.ts` green. `harnessPolicy.ts` still reaches only `dev`, `game` and `tape`; `rng.test.ts` and `witness.test.ts` reach `src/dev` for `HAND_STREAM`, which the `game` row already allows in tests (`boundary.test.ts:55`) and which the span fence allows because the reached root differs from the subject's.
 - **Steps 7, 8, 10, 11, 12 and 14** belong to other slices and were not run. **Steps 15 to 18 are Mark's and stay open**, and step 17, whether the two ends of the ladder are far enough apart, now has a first six-seed reading in section 13 that says the risk may be the opposite of the one the record expected.
+
+Slice 6, from the plan's section 3:
+
+- **Step 1, unit tests.** Green. 132 files, 1767 passed, 10 expected fail, 2 todo. No timeout on any run of the suite this slice made, over two whole-suite runs.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 3, `pnpm build`.** Green, lint and typecheck included, with the two standing warnings (`@pixi/sound` statically imported alongside its dynamic import, and the pixi chunk over 500 kB). It went red once on prettier alone across the two new files, and prettier fixed them.
+- **Step 4, `pnpm verify` at the repo root.** Green, exit 0, run from inside the worktree, twice.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step3/tests-baseline.txt`: **108 names added and one removed**, of which 102 added and the one removal are slices 1 to 5's, so **six are this slice's: six added, none removed, none renamed**. All six are in `compareBatches.test.ts`. 1670 to 1777.
+- **Step 6, the golden digest.** Did not move. See section 2.
+- **Step 11, both corners and the done line.** **Ran.** 48 seeds under each corner from 20260909, both at this slice's own commit. Section 14 carries the two reach rates, the two tables and the direction rows. The agreed and split rows do not exist yet and section 4's item 20 says why.
+- **Step 12, the band separation, measured.** **Ran.** The row was not changed; section 14 reports what the two corners' bands looked like and proposes a figure.
+- **Step 13, the fences**, in the part this slice owns: `src/__tests__/harnessStatesNoTarget.test.ts` green over both modules by its own three titles (`orders no reading against a number of its own`, `carries no verdict, because nothing it declares is a yes or a no`, `prints no mean, so every figure it prints keeps its own tail`), `src/__tests__/boundary.test.ts` green with no edit (`compareBatches.ts` reaches only `dev` and imports no package), `src/dev/__tests__/comparisonDeclared.test.ts` green with no edit, and `src/dev/__tests__/batchReadingDeclared.test.ts` green with no edit, because this slice adds no reading.
+- **Steps 7 to 10 and 14** belong to other slices and were not run. **Steps 15 to 18 are Mark's and stay open**, and **step 17 is now answerable**: the two reach rates are in section 14 and in a comment on #98.
 
 ## 8. Slice 1, the hand
 
@@ -447,3 +474,75 @@ The commit is `6abdb4255c`. Sixteen test names added across four files, none rem
 - **The sloppy corner's runs are short**, three to five thousand ticks against the sharp corner's twenty-plus thousand, so a 48-seed `shaky-short` batch costs a fraction of the sharp one's two and a half minutes. Slice 6's step 11 is cheaper than the sharp half was.
 - **Nothing this slice adds is a reading**, so `BATCH_READINGS` is untouched and `batchReadingDeclared.test.ts` needs no entry. `ConfigurationName` widening reached `BatchOrigin` and `BatchIdentity` with no edit in `batchReport.ts`, exactly as slice 4b said it would.
 - **#116, the lapse depth's missing tail, is filed and unbuilt.** The record's section 3 says why it is out of this slice and names its trigger: the day the two corners' bands will not separate, or the day a shaky hand's failures still read as uniform mediocrity in a tape. The six-seed look above says the first half of that trigger is not close.
+
+## 14. Slice 6, the comparison, and the done line
+
+The commit is `60f6e652d1`. Six test names added in one file, none removed and none renamed. **The code half of this step ends here: the harness plays nine hands, reports a batch under any of them, and orders two reports against each other.**
+
+**What landed.** `compareBatches.ts` is new and nothing else was written: `BAND_SEPARATION` at zero, `Direction` with its fourth member `incomparable`, `ComparedSpread`, `BatchComparison`, `Agreement`, `CornerFinding`, `compareBatches` and `readAcrossCorners`. The one existing file it edits is `src/__tests__/harnessStatesNoTarget.test.ts`, whose `MODULES` list gains the new module, which is the hand-forward slice 4b and slice 5 both left owed.
+
+### Verification step 11: the two corners, played fresh at this tip
+
+Both batches are 48 seeds from 20260909 under `scripts/batch.ts`, run alone, both recorded against `60f6e652d1`, which is this slice's own code commit. The sharp half already on disk was recorded against `5f7f365e99`, four commits back, and the point of playing it again is that a comparison whose two halves name two commits is a comparison through two instruments. **Sharp: 2 minutes 3 seconds, 48 of 48 verified. Sloppy: 15 seconds, 48 of 48 verified.** Tapes and reports at `apps/hungry-grave/local/batches/steady-far-1788942858647/` and `apps/hungry-grave/local/batches/shaky-short-1788942984283/`.
+
+**The two reach rates, side by side. They are reported here and they are not judged: whether the two ends of the ladder are far enough apart is Mark's step 17, and no row was moved because of them.**
+
+| Corner | Reached the Undertaker's phase | Stopped short | Endings | Stops |
+| --- | --- | --- | --- | --- |
+| `steady-far`, the sharp hand | **29 of 48** | 19 | 41 sealed, 7 victory | 48 finished, 48 clean |
+| `shaky-short`, the sloppy hand | **0 of 48** | 48 | 48 sealed | 48 finished, 48 clean |
+
+**Where the sloppy runs ended.** One run of the 48 left the Procession at all, and that same run was the only one to leave the Banshee's span; it ended inside the Crowd. **The other 47 ended inside the Procession**, the stage's first phase. The sharp hand closed the Procession on all 48 and reached the Undertaker on 29.
+
+| Reading | sharp: min, lower, median, upper, max | sloppy: min, lower, median, upper, max | direction |
+| --- | --- | --- | --- |
+| run.ticks | 14103, 21223, 27221, 28849, 39632 | 1784, 3674, 4143, 4627, 12153 | down |
+| run.kills | 19, 40, 52, 75, 135 | 2, 3, 3, 4, 14 | down |
+| levelUps (rungs bought) | 0, 0, 1, 3, 7 | 0, 0, 0, 0, 2 | flat |
+| damageTaken.totalHits | 9, 11, 13, 15, 20 | 5, 5, 5, 5, 13 | down |
+| gravePath.sizePerTick (peak) | 34.98, 38.21, 39.56, 40.62, 43.25 | 27.80, 27.82, 27.83, 27.83, 28.73 | down |
+| gravePath.floorVisits | 0, 1, 2, 3, 6 | 1, 1, 1, 1, 5 | flat |
+| gravePath.floorRecoveries | 0, 0, 1, 2, 5 | 0, 0, 0, 0, 4 | flat |
+| wakingSwallows.span | 0, 1, 3, 4, 8 (40 runs) | absent | incomparable |
+| belchCadence.fires.run | 2, 2, 3, 4, 8 | 0, 0, 0, 0, 2 | down |
+| belchCadence.fires.banshee | 1, 1, 1, 1, 2 (48 runs) | 1, 1, 1, 1, 1 (1 run) | flat |
+| belchCadence.fires.undertaker | 0, 0, 0, 1, 3 (29 runs) | absent | incomparable |
+| mobsAlivePerTick (peak) | 34, 71, 74, 76, 79 | 7, 11, 12, 12, 22 | down |
+| mobFireAlivePerTick (peak) | 66, 70, 70, 71, 71 | 2, 3, 5, 6, 70 | down |
+| dropLedger.spawned | 0, 0, 3, 12, 24 | 0, 0, 0, 0, 6 | flat |
+| dropLedger.swallowed | 0, 0, 1, 3, 7 | 0, 0, 0, 0, 2 | flat |
+
+**Take-by-slot, the two corners.** The sharp hand took 86 offers over 48 runs (24 at slot 0, 30 at slot 1, 32 at slot 2) with 8 death-point offers and 1 banked offer untaken. **The sloppy hand took four in 48 runs**, two at slot 0, one at slot 1, one at slot 2, all at death points, and never banked one while another stood.
+
+**The whole comparison is 180 rows: 36 down, 7 up, 127 flat, 10 incomparable.** The ten incomparable rows are all readings the sharp corner has and the sloppy one does not, and nine of them say the same thing in different words: the Crowd, the Waking, the Vigil and the Undertaker have no span under a hand that never crossed the Procession, the Waking's swallows and the Undertaker's belches have no run to come from, and the ghoul's four kill-timing figures have no ghoul kill. **The seven up rows are the sloppy hand's numbers standing higher**: the shambler and the revenant take longer to kill (`ticksToKillMin` bands 20 to 37 against 63, and 80 to 111 against 116 to 316), the corpses it eats are fresher (`freshnessPaid.minPaid.corpse` 0.25 against 0.77), and territory dwell runs longer at both ends. They are readings for #39 and nothing was changed for them.
+
+### Verification step 12: what the bands looked like, and a proposal
+
+**The row was not changed.** `BAND_SEPARATION` ships at zero, which means bands that merely fail to overlap, and what follows is the measurement the plan says the first two batches are for.
+
+Of the 180 rows, 170 have a band on both sides. **43 of those ordered and 127 read flat.** Among the flat rows, **57 have bands that touch exactly** (a gap of zero, which the strict comparison reads as flat) and **51 are one point against one point**, two constants that happen to be equal. Among the ordered rows, the separation as a fraction of the wider band runs from **0.003 to 21.3**, and one row ordered on two zero-width bands, where a fraction of the wider band is zero and no separation row can ever moderate it.
+
+The ordered rows, smallest separation first: 0.003 `belchCadence.ticksAtFull`, 0.025 `engagements.ticksToKillMin.revenant`, 0.073 `territoryControl.dwellByEnd.escape.dwellMax`, 0.156 `freshnessPaid.maxPaid.corpse`, 0.167 `engagements.engaged.revenant`, 0.167 `fieldPerLine.total`, 0.222 `engagements.escaped.revenant`, then 0.269 and up.
+
+**The proposal: 0.25, a quarter of the wider band.** It is where the measured gap sits: seven rows order today on a separation under a quarter of a band, and the eighth is at 0.269, so a quarter is the largest figure that costs nothing but those seven and the smallest that catches all of them. The 36 rows that carry the difference between the two corners are untouched by it, because they clear by half a band and more, and the readings a person would call the ladder clear by whole multiples of a band. Two things a reader of that figure should have. **A fraction of the band cannot moderate a row whose two bands are single points**, so a reading whose 48 runs all answered the same number orders at any row value; moderating those needs a floor in the reading's own units, which is a different decision and not this one. And **the 57 touching rows stay flat at any positive figure**, so the proposal costs nothing on the side it was written for.
+
+### The instruments agree, which is what makes the pair one measurement
+
+The one build-to-build comparison this step can make is the sharp corner against its own earlier batch: `steady-far` at `5f7f365e99` (slice 4b's, 48 seeds from 20260909) against `steady-far` at `60f6e652d1` (this slice's, the same seeds). **All 180 rows read flat, none up, none down, none incomparable, and the reach is 29 of 48 on both.** Slice 5 proved `steady-far` unmoved on six seeds by replaying them; this is the same claim over the whole batch and every reading in it, and it is what says the two halves of the corner comparison above were read through one instrument.
+
+### Findings, recorded and not acted on
+
+- **#116, the lapse depth's missing tail, does not fire on its first half.** The record's section 3 names two triggers: the two corners' bands too tight to separate, or a shaky hand whose failures still read as uniform mediocrity in a tape. **The first is not close**: 43 of 170 comparable rows ordered, the largest separation is 21 times the wider band, and the two reach rates are 29 and 0. **The second is unread by this slice**, because it needs somebody watching a tape rather than a report, and nothing here was built for it.
+- **The sloppy corner may be too sloppy to read against, and that is Mark's to judge and #39's to act on.** A corner that ends 47 of 48 runs inside the first phase produces ten incomparable rows out of 180, and every reading that lives past the Procession is a reading the pair cannot order. Slice 5's six-seed look said the risk might be the opposite of the record's worry, and 48 seeds each say the same thing louder. **No rate was moved, no rung was added and no row was retuned.**
+- **The corner agreement has no data to eat until a second build exists.** Section 4's item 20 is the whole of it: `readAcrossCorners` orders one comparison against another, and one build makes no comparison for either corner to have an opinion about. Spec test 44 is what holds the grammar until #39 plays a second build.
+
+**Thirteen mutations, ten caught.** One per behaviour, each run against a pristine copy this slice's own script took, never against version control (slice 5's lesson): touching bands read as moved, up and down swapped, the separation row unread, the wider band taken as the narrower, the band read as the whole range, the ordering taken off the whole range, the ordering taken off the medians, a reading only one side carries read as flat, the per-line spreads left out, the phase spans left out, only the left side's readings compared, agreement inverted, and a corner that never ordered a reading read as flat. **The three survivors are one fact stated three ways**: every one of them is inside the clearance term, and at `BAND_SEPARATION` zero that term multiplies out to zero whatever the band widths are. Nothing behind the row is observable while the row is zero, which is exactly what verification step 12 exists to answer, and the test that reads the row places both its cases off the row itself so it keeps meaning when #39 moves it. Two of the caught mutations were caught only after the fixture gained a closed phase span and the test gained a case where the whole ranges overlap while the quartile bands clear; both were survivors on the first pass.
+
+**The comparison instrument was a throwaway and is gone.** It read the two `report.json` files, ran `compareBatches` over them and printed the tables above. It lived at `local/step3/compare-corners.ts`, not in the session scratchpad as the contract asks, for a reason worth writing down: `vite-node` under `vite.headless.config.ts` refuses a file outside the app's own root, so a scratchpad script cannot import from `src/`. `local/` is outside version control, eslint, prettier and `tsconfig.json`'s include, and the file was not a `*.test.ts`, so it reached no standing check; it was deleted after the numbers above were taken.
+
+**Hand-forwards for slice 7 and the step's end.**
+
+- **Every hand-forward this slice was handed is paid.** `compareBatches.ts` is in guard 81's `MODULES`, `BATCH_READINGS` needed no row because this slice adds no reading, and `batchReadingDeclared.test.ts` is untouched and green.
+- **Verification step 14 is still slice 7's**, and this slice adds a figure to it: **the sloppy corner costs 15 seconds for 48 seeds against the sharp corner's 2 minutes 3 seconds**, so a nine-configuration sweep is nowhere near nine times the sharp batch. The split between playing and measuring is still unstated and still owed.
+- **The two batches are on disk** at `local/batches/steady-far-1788942858647/` and `local/batches/shaky-short-1788942984283/`, 48 tapes and a `report.json` apiece, both against `60f6e652d1`. Slice 4b's older sharp batch at `local/batches/steady-far-1788937370786/` is still there and is what the flat 180 rows above were read against.
+- **The separation row is unmoved at zero and the proposal above is #39's to take or leave.** Nothing in the tree depends on the figure changing.
