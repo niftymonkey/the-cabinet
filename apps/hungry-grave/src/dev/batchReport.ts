@@ -87,6 +87,18 @@ interface BatchReport {
   readonly readingsVersion: number;
   readonly verified: number;
   readonly unverified: readonly UnverifiedRun[];
+  /**
+   * The seeds whose runs reached no ending, so a rate is never read over them
+   * unnoticed (#118).
+   *
+   * A run the harness stopped at its own tick ceiling proved its tape and
+   * finished nothing, so every rate below counts it as the outcome it did not
+   * reach: a batch of forty-eight with one of these is forty-seven answers and
+   * an unknown. Its figures stay in the spreads, because they are figures a
+   * tape supports; what the reader is owed is the seed, which is the same thing
+   * ADR 0019 gives for a tape that could not prove itself.
+   */
+  readonly unfinished: readonly number[];
   // Every reading the table declares as a spread, by its declared name.
   readonly spreads: Readonly<Record<string, Spread>>;
   // Every reading the table declares as per line, by line and then by name.
@@ -734,7 +746,10 @@ const phaseSpansOf = (
  *
  * A run whose tape did not verify is named rather than dropped (ADR 0019): a
  * batch that silently shrank would be a batch whose size is no longer its seed
- * count, and the identity is what says how wide it was.
+ * count, and the identity is what says how wide it was. A run that verified and
+ * reached no ending is named the same way and for the same reason, one step
+ * further in: it is in the batch and in every spread, and only its outcome is
+ * missing, so a rate read over it is a rate with an unknown inside it (#118).
  */
 const batchReportOf = (
   origin: BatchOrigin,
@@ -742,14 +757,16 @@ const batchReportOf = (
 ): BatchReport => {
   const acc = collected();
   const unverified: UnverifiedRun[] = [];
+  const unfinished: number[] = [];
   let verified = 0;
   for (const { seed, measurement } of runs) {
-    if (measurement.outcome === 'verified') {
-      verified += 1;
-      collectRun(acc, seed, measurement);
-    } else {
+    if (measurement.outcome !== 'verified') {
       unverified.push({ seed, outcome: measurement.outcome });
+      continue;
     }
+    verified += 1;
+    if (measurement.run.ending === null) unfinished.push(seed);
+    collectRun(acc, seed, measurement);
   }
   return {
     identity: {
@@ -763,6 +780,7 @@ const batchReportOf = (
     readingsVersion: READINGS_VERSION,
     verified,
     unverified,
+    unfinished,
     spreads: spreadsOf(acc.spreads),
     byLine: byLineOf(acc.byLine),
     counts: acc.counts,

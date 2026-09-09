@@ -189,6 +189,11 @@ describe('the batch command', () => {
       expect(report.verified).toBe(2);
       expect(report.unverified).toEqual([]);
       expect(report.spreads['run.ticks'].count).toBe(2);
+      // #118. A run stopped at the tick ceiling reached no outcome, so the
+      // person watching a batch is told how many of its rates rest on one, in
+      // the same line that already says how many tapes could be read.
+      expect(report.unfinished).toEqual([]);
+      expect(result.stderr).toContain('0 with no ending');
     },
     PLAYED_BATCH_BUDGET_MS,
   );

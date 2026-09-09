@@ -235,9 +235,17 @@ const reportInto = (
     { configuration, firstSeed: seeds[0], seeds: seeds.length, recordedAt },
     runs,
   );
+  // The count of runs that reached no ending rides on the line that already
+  // says how wide the batch is, because that is the line a person reads before
+  // taking any rate off the folder (#118).
   console.error(
-    `${report.verified} of ${seeds.length} verified, ${report.unverified.length} not`,
+    `${report.verified} of ${seeds.length} verified, ${report.unverified.length} not, ${report.unfinished.length} with no ending`,
   );
+  if (report.unfinished.length > 0) {
+    console.error(
+      `no ending: ${report.unfinished.join(', ')}; every rate below is over ${report.verified - report.unfinished.length} finished runs of ${seeds.length}`,
+    );
+  }
   return writeOrRefuse(
     join(folder, 'report.json'),
     JSON.stringify(report, null, 2),

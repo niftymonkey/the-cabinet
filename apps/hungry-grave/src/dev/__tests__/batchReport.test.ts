@@ -208,6 +208,50 @@ describe('the batch report', () => {
     expect(report.identity.seeds).toBe(3);
   });
 
+  it('names the runs that stopped with no ending beside the ones that did not verify', () => {
+    // #118. A run the harness stopped at its own tick ceiling reached no
+    // outcome, and every rate a reader takes off the batch counts it as the
+    // outcome it did not reach: three seeds with one of these are two answers
+    // and an unknown, never three answers. Naming it is the rule ADR 0019
+    // already states for a tape that could not prove itself, applied to a run
+    // that proved itself and finished nothing.
+    const stoppedAt = (seed: number, ending: 'sealed' | null): MeasuredRun => ({
+      seed,
+      measurement: { ...BASE, run: { ...BASE.run, ending } },
+    });
+
+    const report = batchReportOf(origin(3), [
+      stoppedAt(900, 'sealed'),
+      stoppedAt(901, null),
+      stoppedAt(902, 'sealed'),
+    ]);
+
+    expect(report.unfinished).toEqual([901]);
+    // Its tape verified and its figures stay in every spread: what it lacks is
+    // an outcome, not a proof, so the report keeps the reading and tells the
+    // reader which seed to discount rather than quietly shrinking the batch.
+    expect(report.verified).toBe(3);
+    expect(report.spreads['run.ticks'].count).toBe(3);
+    expect(report.counts['run.ending']).toEqual({ sealed: 2, none: 1 });
+  });
+
+  it('names no unfinished run when every run reached an ending', () => {
+    // The list has teeth only if it is empty when it should be: a field that
+    // named every run would be as invisible to a reader as no field at all.
+    const report = batchReportOf(origin(2), [
+      {
+        seed: 900,
+        measurement: { ...BASE, run: { ...BASE.run, ending: 'sealed' } },
+      },
+      {
+        seed: 901,
+        measurement: { ...BASE, run: { ...BASE.run, ending: 'victory' } },
+      },
+    ]);
+
+    expect(report.unfinished).toEqual([]);
+  });
+
   it('states no number as a target', () => {
     // Spec test 41. ADR 0053: "this build against that build, this
     // configuration against that one, never this number against a target."
