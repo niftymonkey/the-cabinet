@@ -33,6 +33,12 @@ import { SIZE_CEILING } from '../tuning';
 
 const STILL = { move: { x: 0, y: 0 }, belch: false } as const;
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 /**
  * A run whose stage will not spawn anything on top of the mob under test, and
  * whose one birthright line is held silent, so every kill in these tests is a
@@ -94,7 +100,8 @@ describe('a carrier is the only thing that pays power (ADR 0002)', () => {
     );
     const opened = events.filter((event) => event.type === 'offerOpened');
     expect(opened).toHaveLength(1);
-    expect({ x: opened[0].x, y: opened[0].y }).toEqual({
+    const firstOpened = requireDefined(opened[0], 'no offerOpened event');
+    expect({ x: firstOpened.x, y: firstOpened.y }).toEqual({
       x: carrier.x,
       y: carrier.y,
     });
@@ -145,7 +152,9 @@ describe('a drop is an offer of three (ADR 0034)', () => {
     expect(new Set(spawned.map((event) => event.y)).size).toBe(1);
     const xs = spawned.map((event) => event.x).sort((a, b) => a - b);
     for (let index = 1; index < xs.length; index++) {
-      expect(xs[index] - xs[index - 1]).toBeGreaterThan(2 * DROP_HALF_EXTENT);
+      const at = requireDefined(xs[index], `no x at ${index}`);
+      const before = requireDefined(xs[index - 1], `no x at ${index - 1}`);
+      expect(at - before).toBeGreaterThan(2 * DROP_HALF_EXTENT);
     }
   });
 
@@ -172,8 +181,12 @@ describe('a drop is an offer of three (ADR 0034)', () => {
       expect(x - DROP_HALF_EXTENT).toBeGreaterThanOrEqual(0);
       expect(x + DROP_HALF_EXTENT).toBeLessThanOrEqual(FIELD_WIDTH);
     }
-    expect(xs[1] - xs[0]).toBe(OFFER_SPACING);
-    expect(xs[2] - xs[1]).toBe(OFFER_SPACING);
+    const [x0, x1, x2] = xs;
+    if (x0 === undefined || x1 === undefined || x2 === undefined) {
+      throw new Error('offer did not lay three bodies');
+    }
+    expect(x1 - x0).toBe(OFFER_SPACING);
+    expect(x2 - x1).toBe(OFFER_SPACING);
   });
 
   it('lays the options in draw order, so one seed lays the same three in the same places', () => {
@@ -214,7 +227,8 @@ describe('a drop is an offer of three (ADR 0034)', () => {
     // that insisted on unowned lines there came back empty and handed the
     // carrier a body carrying nothing while three lines still had rungs left.
     const state = quietRun();
-    state.levels[BIRTHRIGHT[0]] = MAX_LEVEL;
+    const firstBirthright = requireDefined(BIRTHRIGHT[0], 'no birthright line');
+    state.levels[firstBirthright] = MAX_LEVEL;
     for (const line of WEAPON_LINES) {
       if (!BIRTHRIGHT.includes(line)) state.levels[line] = 2;
     }
@@ -256,7 +270,11 @@ describe('what an offer may hold (ADR 0034)', () => {
       const state = quietRun(seed);
       // One line pushed off the floor and one line left at zero, so an offer
       // can only be drawn from a pool holding both kinds.
-      state.levels[WEAPON_LINES[1]] = 2;
+      const secondLine = requireDefined(
+        WEAPON_LINES[1],
+        'no second weapon line',
+      );
+      state.levels[secondLine] = 2;
       state.streams.drops.next();
       openOffer(state, 260, 180);
       for (const line of state.offer!.options) {
@@ -271,7 +289,8 @@ describe('what an offer may hold (ADR 0034)', () => {
     // ADR 0034: "a maxed line is never offered."
     for (let seed = 1; seed <= 60; seed++) {
       const state = quietRun(seed);
-      state.levels[WEAPON_LINES[0]] = MAX_LEVEL;
+      const firstLine = requireDefined(WEAPON_LINES[0], 'no first weapon line');
+      state.levels[firstLine] = MAX_LEVEL;
       state.streams.drops.next();
       openOffer(state, 260, 180);
       expect(state.offer!.options).not.toContain(WEAPON_LINES[0]);
@@ -320,14 +339,18 @@ describe('the take (ADR 0034)', () => {
     const step = stepping(state);
     openOffer(state, state.grave.x, state.grave.y);
     const options = [...state.offer!.options];
-    const before = state.levels[options[1]];
+    const middle = requireDefined(
+      options[1],
+      'offer did not lay a middle option',
+    );
+    const before = state.levels[middle];
 
     const events = step(STILL);
 
     const taken = events.find((event) => event.type === 'offerTaken')!;
-    expect(taken.line).toBe(options[1]);
+    expect(taken.line).toBe(middle);
     expect([...taken.passed]).toEqual([options[0], options[2]]);
-    expect(state.levels[options[1]]).toBe(before + 1);
+    expect(state.levels[middle]).toBe(before + 1);
     expect(state.corpses.filter((corpse) => corpse.alive)).toEqual([]);
   });
 
@@ -363,12 +386,14 @@ describe('the take (ADR 0034)', () => {
     state.grave.size = SIZE_CEILING;
     openOffer(state, state.grave.x - OFFER_SPACING / 2, state.grave.y);
     const bodies = offerBodies(state);
-    const pair = [bodies[1], bodies[2]];
-    expect(pair[0].id).toBeLessThan(pair[1].id);
-    expect(state.grave.x - pair[0].x).toBe(pair[1].x - state.grave.x);
+    const first = requireDefined(bodies[1], 'offer laid no second body');
+    const second = requireDefined(bodies[2], 'offer laid no third body');
+    const pair = [first, second];
+    expect(first.id).toBeLessThan(second.id);
+    expect(state.grave.x - first.x).toBe(second.x - state.grave.x);
 
-    expect(chooseOfferBody(state, pair)).toBe(pair[0]);
-    expect(chooseOfferBody(state, [pair[1], pair[0]])).toBe(pair[0]);
+    expect(chooseOfferBody(state, pair)).toBe(first);
+    expect(chooseOfferBody(state, [second, first])).toBe(first);
   });
 
   it('leaves no offer live when the bank is empty', () => {
@@ -664,7 +689,9 @@ describe('nothing offerable (ADR 0034)', () => {
     const spawned = opening.filter((event) => event.type === 'dropSpawned');
     expect(typesOf(opening)).not.toContain('offerOpened');
     expect(spawned).toHaveLength(1);
-    expect(spawned[0].line).toBeUndefined();
+    expect(
+      requireDefined(spawned[0], 'no dropSpawned event').line,
+    ).toBeUndefined();
     expect(state.offer).toBeNull();
 
     const paid = step(STILL);

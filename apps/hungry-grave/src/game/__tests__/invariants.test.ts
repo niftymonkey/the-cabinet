@@ -31,6 +31,17 @@ import { checkInvariants, createStageWatch } from '../invariants';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** The fixture's own pool slot 0, which every fillX above already puts a live entity into. */
+function slot0<T>(pool: readonly T[]): T {
+  return requireDefined(pool[0], 'no pool slot 0');
+}
+
 /** The faults one look at a state records, through a watch that has seen nothing. */
 function faultsOn(state: RunState): readonly Fault[] {
   return checkInvariants(state, createStageWatch());
@@ -128,7 +139,9 @@ describe('every check for the tick runs (ADR 0024)', () => {
     // Recoverable, and checked fourth: a mob well past the spawn margin.
     liveMob(state, 60, -SPAWN_MARGIN - 1);
     // Fatal, and checked ninth: a pool longer than its cap.
-    state.skulls.push({ ...state.skulls[0] });
+    state.skulls.push({
+      ...requireDefined(state.skulls[0], 'no skull pool slot 0'),
+    });
     // Fatal, and checked ninth as well: two live slots sharing an id.
     const first = liveMob(state, 120);
     liveMob(state, 180).id = first.id;
@@ -174,7 +187,9 @@ describe('every check for the tick runs (ADR 0024)', () => {
 
     const nan = faultsOn(state).filter((fault) => fault.identity === 'no NaN');
     expect(nan).toHaveLength(1);
-    expect(nan[0].detail).toBe(`mob ${first.id}.vx is NaN`);
+    expect(requireDefined(nan[0], 'no NaN fault').detail).toBe(
+      `mob ${first.id}.vx is NaN`,
+    );
   });
 
   /** The five pools the bounds checks walk, in the order they are walked. */
@@ -185,16 +200,35 @@ describe('every check for the tick runs (ADR 0024)', () => {
     const outside = -SPAWN_MARGIN - SKULL_HALF_EXTENT - 1;
     if (pool === 'mob') liveMob(state, 60, outside);
     if (pool === 'corpse') {
-      Object.assign(state.corpses[0], { alive: true, x: 60, y: outside });
+      Object.assign(requireDefined(state.corpses[0], 'no corpse pool slot 0'), {
+        alive: true,
+        x: 60,
+        y: outside,
+      });
     }
     if (pool === 'shot') {
-      Object.assign(state.mobFire[0], { alive: true, x: 60, y: outside });
+      Object.assign(
+        requireDefined(state.mobFire[0], 'no mobFire pool slot 0'),
+        {
+          alive: true,
+          x: 60,
+          y: outside,
+        },
+      );
     }
     if (pool === 'skull') {
-      Object.assign(state.skulls[0], { alive: true, x: 60, y: outside });
+      Object.assign(requireDefined(state.skulls[0], 'no skull pool slot 0'), {
+        alive: true,
+        x: 60,
+        y: outside,
+      });
     }
     if (pool === 'wisp') {
-      Object.assign(state.wisps[0], { alive: true, x: 60, y: outside });
+      Object.assign(requireDefined(state.wisps[0], 'no wisp pool slot 0'), {
+        alive: true,
+        x: 60,
+        y: outside,
+      });
     }
   }
 
@@ -210,8 +244,12 @@ describe('every check for the tick runs (ADR 0024)', () => {
       expect(faults.map((fault) => fault.identity)).toEqual([
         'entities in bounds',
       ]);
-      expect(faults[0].detail).toMatch(
-        new RegExp(`^${BOUNDS_POOLS[first]} \\d+ is at `),
+      const expectedPool = requireDefined(
+        BOUNDS_POOLS[first],
+        'no bounds pool',
+      );
+      expect(requireDefined(faults[0], 'no fault recorded').detail).toMatch(
+        new RegExp(`^${expectedPool} \\d+ is at `),
       );
     }
   });
@@ -228,8 +266,9 @@ describe('the entity invariants (ADR 0013)', () => {
     expect(brokenOn(health)).toContain('no NaN');
 
     const shot = createRun(1);
-    shot.mobFire[0].alive = true;
-    shot.mobFire[0].y = NaN;
+    const shotSlot = requireDefined(shot.mobFire[0], 'no mobFire pool slot 0');
+    shotSlot.alive = true;
+    shotSlot.y = NaN;
     expect(brokenOn(shot)).toContain('no NaN');
 
     const corpse = createRun(1);
@@ -242,7 +281,9 @@ describe('the entity invariants (ADR 0013)', () => {
 
   it('records a pool that exceeds its cap or holds two live slots with the same id', () => {
     const oversized = createRun(1);
-    oversized.mobs.push({ ...oversized.mobs[0] });
+    oversized.mobs.push({
+      ...requireDefined(oversized.mobs[0], 'no mob pool slot 0'),
+    });
     expect(brokenOn(oversized)).toContain('entity caps');
 
     const twinned = createRun(1);
@@ -279,10 +320,11 @@ describe('the entity invariants (ADR 0013)', () => {
     expect(brokenOn(wide)).toContain('entities in bounds');
 
     const shot = createRun(1);
-    shot.mobFire[0].alive = true;
-    shot.mobFire[0].halfExtent = 5;
-    shot.mobFire[0].x = 100;
-    shot.mobFire[0].y = -20;
+    const shotSlot = requireDefined(shot.mobFire[0], 'no mobFire pool slot 0');
+    shotSlot.alive = true;
+    shotSlot.halfExtent = 5;
+    shotSlot.x = 100;
+    shotSlot.y = -20;
     expect(brokenOn(shot)).toContain('entities in bounds');
   });
 
@@ -330,18 +372,21 @@ describe('the entity invariants (ADR 0013)', () => {
 describe("the storm's invariants (plan 6.26)", () => {
   it('records a NaN in any live skull or wisp, or anywhere in the lines record', () => {
     const skull = createRun(1);
-    skull.skulls[0].alive = true;
-    skull.skulls[0].vy = NaN;
+    const skullSlot = requireDefined(skull.skulls[0], 'no skull pool slot 0');
+    skullSlot.alive = true;
+    skullSlot.vy = NaN;
     expect(brokenOn(skull)).toContain('no NaN');
 
     const wisp = createRun(1);
-    wisp.wisps[0].alive = true;
-    wisp.wisps[0].life = NaN;
+    const wispSlot = requireDefined(wisp.wisps[0], 'no wisp pool slot 0');
+    wispSlot.alive = true;
+    wispSlot.life = NaN;
     expect(brokenOn(wisp)).toContain('no NaN');
 
     const patch = createRun(1);
-    patch.patches[0].alive = true;
-    patch.patches[0].radius = NaN;
+    const patchSlot = requireDefined(patch.patches[0], 'no patch pool slot 0');
+    patchSlot.alive = true;
+    patchSlot.radius = NaN;
     expect(brokenOn(patch)).toContain('no NaN');
   });
 
@@ -351,38 +396,53 @@ describe("the storm's invariants (plan 6.26)", () => {
     // cullMobs legitimately allows that mob out to SPAWN_MARGIN, so a wisp
     // checked against its own extent would fire on the game playing correctly.
     const skull = createRun(1);
-    skull.skulls[0].alive = true;
-    skull.skulls[0].x = 100;
-    skull.skulls[0].y = -SKULL_HALF_EXTENT - 1;
+    const skullSlot = requireDefined(skull.skulls[0], 'no skull pool slot 0');
+    skullSlot.alive = true;
+    skullSlot.x = 100;
+    skullSlot.y = -SKULL_HALF_EXTENT - 1;
     expect(brokenOn(skull)).toContain('entities in bounds');
 
     const legal = createRun(1);
-    legal.wisps[0].alive = true;
-    legal.wisps[0].x = 100;
-    legal.wisps[0].y = -SPAWN_MARGIN;
+    const legalSlot = requireDefined(legal.wisps[0], 'no wisp pool slot 0');
+    legalSlot.alive = true;
+    legalSlot.x = 100;
+    legalSlot.y = -SPAWN_MARGIN;
     expect(faultsOn(legal)).toEqual([]);
 
     const gone = createRun(1);
-    gone.wisps[0].alive = true;
-    gone.wisps[0].x = 100;
-    gone.wisps[0].y = -SPAWN_MARGIN - 1;
+    const goneSlot = requireDefined(gone.wisps[0], 'no wisp pool slot 0');
+    goneSlot.alive = true;
+    goneSlot.x = 100;
+    goneSlot.y = -SPAWN_MARGIN - 1;
     expect(brokenOn(gone)).toContain('entities in bounds');
   });
 
   it('records a skull or wisp pool that exceeds its cap or twins an id', () => {
     const skulls = createRun(1);
-    skulls.skulls.push({ ...skulls.skulls[0] });
+    skulls.skulls.push({
+      ...requireDefined(skulls.skulls[0], 'no skull pool slot 0'),
+    });
     expect(brokenOn(skulls)).toContain('entity caps');
 
     const wisps = createRun(1);
-    wisps.wisps.push({ ...wisps.wisps[0] });
+    wisps.wisps.push({
+      ...requireDefined(wisps.wisps[0], 'no wisp pool slot 0'),
+    });
     expect(brokenOn(wisps)).toContain('entity caps');
 
     const twinned = createRun(1);
-    twinned.skulls[0].alive = true;
-    twinned.skulls[0].id = 7;
-    twinned.skulls[1].alive = true;
-    twinned.skulls[1].id = 7;
+    const twinnedSkull0 = requireDefined(
+      twinned.skulls[0],
+      'no skull pool slot 0',
+    );
+    twinnedSkull0.alive = true;
+    twinnedSkull0.id = 7;
+    const twinnedSkull1 = requireDefined(
+      twinned.skulls[1],
+      'no skull pool slot 1',
+    );
+    twinnedSkull1.alive = true;
+    twinnedSkull1.id = 7;
     expect(brokenOn(twinned)).toContain('entity ids');
   });
 
@@ -488,9 +548,13 @@ describe('the offer and the bank (ADR 0034)', () => {
     // the player is paid a line they never passed under.
     const state = offering();
     const offer = state.offer!;
+    const firstBodyId = requireDefined(
+      offer.bodyIds[0],
+      'offer laid no bodies',
+    );
     state.offer = {
       options: [...offer.options],
-      bodyIds: offer.bodyIds.map(() => offer.bodyIds[0]),
+      bodyIds: offer.bodyIds.map(() => firstBodyId),
     };
 
     expect(brokenOn(state)).toContain('offer bodies alive and matching');
@@ -573,7 +637,10 @@ function fillSetPiece(run: RunState): void {
  * what the one-live-offer check exists to record.
  */
 function fillOffer(run: RunState): void {
-  run.offer = { options: ['wisps'], bodyIds: [run.corpses[0].id] };
+  run.offer = {
+    options: ['wisps'],
+    bodyIds: [requireDefined(slot0(run.corpses), 'no corpse pool slot 0').id],
+  };
   run.bankedOffers = 2;
 }
 
@@ -602,7 +669,7 @@ function fillGrave(run: RunState): void {
 }
 
 function fillMob(run: RunState): void {
-  const mob = run.mobs[0];
+  const mob = requireDefined(slot0(run.mobs), 'no mob pool slot 0');
   mob.alive = true;
   mob.id = 11;
   mob.type = 'ghoul';
@@ -617,7 +684,7 @@ function fillMob(run: RunState): void {
 }
 
 function fillShot(run: RunState): void {
-  const shot = run.mobFire[0];
+  const shot = requireDefined(slot0(run.mobFire), 'no mobFire pool slot 0');
   shot.alive = true;
   shot.id = 12;
   shot.emitter = 'revenant';
@@ -629,7 +696,7 @@ function fillShot(run: RunState): void {
 }
 
 function fillCorpse(run: RunState): void {
-  const corpse = run.corpses[0];
+  const corpse = requireDefined(slot0(run.corpses), 'no corpse pool slot 0');
   corpse.alive = true;
   corpse.id = 13;
   corpse.x = 310.5;
@@ -644,7 +711,7 @@ function fillCorpse(run: RunState): void {
 }
 
 function fillSkull(run: RunState): void {
-  const skull = run.skulls[0];
+  const skull = requireDefined(slot0(run.skulls), 'no skull pool slot 0');
   skull.alive = true;
   skull.id = 14;
   skull.x = 400.25;
@@ -654,7 +721,7 @@ function fillSkull(run: RunState): void {
 }
 
 function fillWisp(run: RunState): void {
-  const wisp = run.wisps[0];
+  const wisp = requireDefined(slot0(run.wisps), 'no wisp pool slot 0');
   wisp.alive = true;
   wisp.id = 15;
   wisp.x = 55.75;
@@ -666,7 +733,7 @@ function fillWisp(run: RunState): void {
 }
 
 function fillPatch(run: RunState): void {
-  const patch = run.patches[0];
+  const patch = requireDefined(slot0(run.patches), 'no patch pool slot 0');
   patch.alive = true;
   patch.id = 16;
   patch.x = 210.5;
@@ -763,175 +830,175 @@ const NAN_CASES: readonly NanCase[] = [
   {
     path: 'mobs[].x',
     poison: (run) => {
-      run.mobs[0].x = NaN;
+      slot0(run.mobs).x = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].y',
     poison: (run) => {
-      run.mobs[0].y = NaN;
+      slot0(run.mobs).y = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].vx',
     poison: (run) => {
-      run.mobs[0].vx = NaN;
+      slot0(run.mobs).vx = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].vy',
     poison: (run) => {
-      run.mobs[0].vy = NaN;
+      slot0(run.mobs).vy = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].hp',
     poison: (run) => {
-      run.mobs[0].hp = NaN;
+      slot0(run.mobs).hp = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].beat',
     poison: (run) => {
-      run.mobs[0].beat = NaN;
+      slot0(run.mobs).beat = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].fireIn',
     poison: (run) => {
-      run.mobs[0].fireIn = NaN;
+      slot0(run.mobs).fireIn = NaN;
       return run;
     },
   },
   {
     path: 'mobFire[].x',
     poison: (run) => {
-      run.mobFire[0].x = NaN;
+      slot0(run.mobFire).x = NaN;
       return run;
     },
   },
   {
     path: 'mobFire[].y',
     poison: (run) => {
-      run.mobFire[0].y = NaN;
+      slot0(run.mobFire).y = NaN;
       return run;
     },
   },
   {
     path: 'mobFire[].vx',
     poison: (run) => {
-      run.mobFire[0].vx = NaN;
+      slot0(run.mobFire).vx = NaN;
       return run;
     },
   },
   {
     path: 'mobFire[].vy',
     poison: (run) => {
-      run.mobFire[0].vy = NaN;
+      slot0(run.mobFire).vy = NaN;
       return run;
     },
   },
   {
     path: 'corpses[].x',
     poison: (run) => {
-      run.corpses[0].x = NaN;
+      slot0(run.corpses).x = NaN;
       return run;
     },
   },
   {
     path: 'corpses[].y',
     poison: (run) => {
-      run.corpses[0].y = NaN;
+      slot0(run.corpses).y = NaN;
       return run;
     },
   },
   {
     path: 'corpses[].freshness',
     poison: (run) => {
-      run.corpses[0].freshness = NaN;
+      slot0(run.corpses).freshness = NaN;
       return run;
     },
   },
   {
     path: 'corpses[].payout',
     poison: (run) => {
-      run.corpses[0].payout = NaN;
+      slot0(run.corpses).payout = NaN;
       return run;
     },
   },
   {
     path: 'skulls[].x',
     poison: (run) => {
-      run.skulls[0].x = NaN;
+      slot0(run.skulls).x = NaN;
       return run;
     },
   },
   {
     path: 'skulls[].y',
     poison: (run) => {
-      run.skulls[0].y = NaN;
+      slot0(run.skulls).y = NaN;
       return run;
     },
   },
   {
     path: 'skulls[].vx',
     poison: (run) => {
-      run.skulls[0].vx = NaN;
+      slot0(run.skulls).vx = NaN;
       return run;
     },
   },
   {
     path: 'skulls[].vy',
     poison: (run) => {
-      run.skulls[0].vy = NaN;
+      slot0(run.skulls).vy = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].x',
     poison: (run) => {
-      run.wisps[0].x = NaN;
+      slot0(run.wisps).x = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].y',
     poison: (run) => {
-      run.wisps[0].y = NaN;
+      slot0(run.wisps).y = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].vx',
     poison: (run) => {
-      run.wisps[0].vx = NaN;
+      slot0(run.wisps).vx = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].vy',
     poison: (run) => {
-      run.wisps[0].vy = NaN;
+      slot0(run.wisps).vy = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].life',
     poison: (run) => {
-      run.wisps[0].life = NaN;
+      slot0(run.wisps).life = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].targetId',
     poison: (run) => {
-      run.wisps[0].targetId = NaN;
+      slot0(run.wisps).targetId = NaN;
       return run;
     },
   },
@@ -1036,56 +1103,56 @@ const NAN_CASES: readonly NanCase[] = [
   {
     path: 'patches[].x',
     poison: (run) => {
-      run.patches[0].x = NaN;
+      slot0(run.patches).x = NaN;
       return run;
     },
   },
   {
     path: 'patches[].y',
     poison: (run) => {
-      run.patches[0].y = NaN;
+      slot0(run.patches).y = NaN;
       return run;
     },
   },
   {
     path: 'patches[].radius',
     poison: (run) => {
-      run.patches[0].radius = NaN;
+      slot0(run.patches).radius = NaN;
       return run;
     },
   },
   {
     path: 'patches[].pull',
     poison: (run) => {
-      run.patches[0].pull = NaN;
+      slot0(run.patches).pull = NaN;
       return run;
     },
   },
   {
     path: 'patches[].slow',
     poison: (run) => {
-      run.patches[0].slow = NaN;
+      slot0(run.patches).slow = NaN;
       return run;
     },
   },
   {
     path: 'patches[].rehit',
     poison: (run) => {
-      run.patches[0].rehit = NaN;
+      slot0(run.patches).rehit = NaN;
       return run;
     },
   },
   {
     path: 'patches[].opening',
     poison: (run) => {
-      run.patches[0].opening = NaN;
+      slot0(run.patches).opening = NaN;
       return run;
     },
   },
   {
     path: 'patches[].pulses',
     poison: (run) => {
-      run.patches[0].pulses = NaN;
+      slot0(run.patches).pulses = NaN;
       return run;
     },
   },
@@ -1268,8 +1335,9 @@ describe('the boss and the set piece (ADR 0007, ADR 0042)', () => {
     expect(faults.map((fault) => fault.identity)).toEqual([
       'boss chunk only increases',
     ]);
-    expect(faults[0].severity).toBe('recoverable');
-    expect(faults[0].detail).toContain('undertaker');
+    const first = requireDefined(faults[0], 'no fault recorded');
+    expect(first.severity).toBe('recoverable');
+    expect(first.detail).toContain('undertaker');
   });
 
   it('says nothing when a second boss arrives at its own first chunk', () => {
@@ -1297,7 +1365,9 @@ describe('the boss and the set piece (ADR 0007, ADR 0042)', () => {
 
     state.setPiece!.budget = -1;
     expect(brokenOn(state)).toEqual(['set piece budget not negative']);
-    expect(faultsOn(state)[0].severity).toBe('recoverable');
+    expect(
+      requireDefined(faultsOn(state)[0], 'no fault recorded').severity,
+    ).toBe('recoverable');
 
     state.setPiece!.budget = 0.5;
     expect(brokenOn(state)).toEqual(['set piece budget not negative']);
@@ -1317,7 +1387,9 @@ describe('the boss and the set piece (ADR 0007, ADR 0042)', () => {
 
     state.setPiece!.hp = 0;
     expect(brokenOn(state)).toEqual(['set piece body gone when spent']);
-    expect(faultsOn(state)[0].severity).toBe('recoverable');
+    expect(
+      requireDefined(faultsOn(state)[0], 'no fault recorded').severity,
+    ).toBe('recoverable');
 
     state.setPiece!.bodyGone = true;
     expect(brokenOn(state)).toEqual([]);
@@ -1361,8 +1433,9 @@ describe('what a cap refused this tick (ADR 0056)', () => {
     leaveCorpse(state, spare);
 
     expect(brokenOn(state)).toEqual(['corpse cap never binds']);
-    expect(faultsOn(state)[0].severity).toBe('recoverable');
-    expect(faultsOn(state)[0].detail).toContain('corpse');
+    const corpseFault = requireDefined(faultsOn(state)[0], 'no fault recorded');
+    expect(corpseFault.severity).toBe('recoverable');
+    expect(corpseFault.detail).toContain('corpse');
   });
 
   it('says nothing while the pool is merely full, because a full pool refuses nothing', () => {
@@ -1388,7 +1461,7 @@ describe('the no-NaN coverage is closed (ticket #54)', () => {
         (fault) => fault.identity === 'no NaN',
       );
       expect(nan).toHaveLength(1);
-      expect(nan[0].severity).toBe('fatal');
+      expect(requireDefined(nan[0], 'no NaN fault').severity).toBe('fatal');
     });
   }
 
@@ -1419,7 +1492,7 @@ describe('the no-NaN coverage is closed (ticket #54)', () => {
     // A null is a legitimately untargeted wisp; the witness folds the absence
     // through the 0 sentinel, and only a non-finite number faults.
     const run = filledRun();
-    run.wisps[0].targetId = null;
+    slot0(run.wisps).targetId = null;
     expect(brokenOn(run)).not.toContain('no NaN');
   });
 });
@@ -1430,7 +1503,7 @@ describe('Territory under the harness (#76)', () => {
     // fact for patches as for every other pool, and ADR 0024 makes an identity
     // permanent from the first tape, so one is never minted for free.
     const run = createRun(1);
-    run.patches.push(run.patches[0]);
+    run.patches.push(slot0(run.patches));
     const faults = faultsOn(run);
 
     expect(faults.map((fault) => fault.identity)).toContain('entity caps');
@@ -1444,9 +1517,9 @@ describe('Territory under the harness (#76)', () => {
     // what is impossible, never how far up-field Territory may be tuned, so the
     // literal here is plainly extreme rather than one particular ceiling.
     const run = createRun(1);
-    run.patches[0].alive = true;
-    run.patches[0].x = 270;
-    run.patches[0].y = -2000;
+    slot0(run.patches).alive = true;
+    slot0(run.patches).x = 270;
+    slot0(run.patches).y = -2000;
 
     expect(brokenOn(run)).not.toContain('entities in bounds');
   });
@@ -1456,15 +1529,15 @@ describe('Territory under the harness (#76)', () => {
     // horizontal bound is independent of any Territory tuning: it is the same
     // box every entity is held to, on that axis alone.
     const right = createRun(1);
-    right.patches[0].alive = true;
-    right.patches[0].x = FIELD_WIDTH + SPAWN_MARGIN + 1;
-    right.patches[0].y = 200;
+    slot0(right.patches).alive = true;
+    slot0(right.patches).x = FIELD_WIDTH + SPAWN_MARGIN + 1;
+    slot0(right.patches).y = 200;
     expect(brokenOn(right)).toContain('entities in bounds');
 
     const left = createRun(1);
-    left.patches[0].alive = true;
-    left.patches[0].x = -SPAWN_MARGIN - 1;
-    left.patches[0].y = 200;
+    slot0(left.patches).alive = true;
+    slot0(left.patches).x = -SPAWN_MARGIN - 1;
+    slot0(left.patches).y = 200;
     expect(brokenOn(left)).toContain('entities in bounds');
   });
 
@@ -1472,15 +1545,15 @@ describe('Territory under the harness (#76)', () => {
     // The edge of the box itself, pinned so the horizontal check cannot
     // silently tighten onto ground a legal placement can reach.
     const right = createRun(1);
-    right.patches[0].alive = true;
-    right.patches[0].x = FIELD_WIDTH + SPAWN_MARGIN;
-    right.patches[0].y = 200;
+    slot0(right.patches).alive = true;
+    slot0(right.patches).x = FIELD_WIDTH + SPAWN_MARGIN;
+    slot0(right.patches).y = 200;
     expect(brokenOn(right)).not.toContain('entities in bounds');
 
     const left = createRun(1);
-    left.patches[0].alive = true;
-    left.patches[0].x = -SPAWN_MARGIN;
-    left.patches[0].y = 200;
+    slot0(left.patches).alive = true;
+    slot0(left.patches).x = -SPAWN_MARGIN;
+    slot0(left.patches).y = 200;
     expect(brokenOn(left)).not.toContain('entities in bounds');
   });
 
@@ -1489,10 +1562,11 @@ describe('Territory under the harness (#76)', () => {
     // the bottom edge, so a live one below there is corrupt state. The bound is
     // that close rule restated, never a tuning number.
     const run = createRun(1);
-    run.patches[0].alive = true;
-    run.patches[0].x = 270;
-    run.patches[0].radius = RADIUS_BY_LEVEL[1];
-    run.patches[0].y = FIELD_HEIGHT + RADIUS_BY_LEVEL[1] + 1;
+    const radius = requireDefined(RADIUS_BY_LEVEL[1], 'no radius at level 1');
+    slot0(run.patches).alive = true;
+    slot0(run.patches).x = 270;
+    slot0(run.patches).radius = radius;
+    slot0(run.patches).y = FIELD_HEIGHT + radius + 1;
 
     expect(brokenOn(run)).toContain('entities in bounds');
   });
@@ -1501,10 +1575,11 @@ describe('Territory under the harness (#76)', () => {
     // The off-by-one on the other side of the close rule: a patch whose top rim
     // still touches the bottom edge is one the sim has not closed yet.
     const run = createRun(1);
-    run.patches[0].alive = true;
-    run.patches[0].x = 270;
-    run.patches[0].radius = RADIUS_BY_LEVEL[1];
-    run.patches[0].y = FIELD_HEIGHT + RADIUS_BY_LEVEL[1];
+    const radius = requireDefined(RADIUS_BY_LEVEL[1], 'no radius at level 1');
+    slot0(run.patches).alive = true;
+    slot0(run.patches).x = 270;
+    slot0(run.patches).radius = radius;
+    slot0(run.patches).y = FIELD_HEIGHT + radius;
 
     expect(brokenOn(run)).not.toContain('entities in bounds');
   });

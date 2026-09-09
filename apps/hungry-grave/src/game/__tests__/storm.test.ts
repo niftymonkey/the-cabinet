@@ -52,6 +52,13 @@ function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
   return mob;
 }
 
+/** The value a level-by-level table holds at this level, which every table here holds at 1. */
+function atLevel(table: readonly number[], level: number): number {
+  const value = table[level];
+  if (value === undefined) throw new Error(`no value at level ${level}`);
+  return value;
+}
+
 /** A patch with its hands already up, parked where a test can aim it. */
 function putPatch(state: RunState, x: number, y: number) {
   const patch = state.patches.find((each) => !each.alive)!;
@@ -61,9 +68,9 @@ function putPatch(state: RunState, x: number, y: number) {
   patch.x = x;
   patch.y = y;
   patch.radius = 30;
-  patch.pull = PULL_BY_LEVEL[1];
-  patch.slow = SLOW_BY_LEVEL[1];
-  patch.rehit = REHIT_BY_LEVEL[1];
+  patch.pull = atLevel(PULL_BY_LEVEL, 1);
+  patch.slow = atLevel(SLOW_BY_LEVEL, 1);
+  patch.rehit = atLevel(REHIT_BY_LEVEL, 1);
   patch.opening = 0;
   patch.pulses = 0;
   patch.struck.clear();

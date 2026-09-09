@@ -120,6 +120,18 @@ const SLOTS: TargetSlot[] = Array.from({ length: MOB_CAP + 2 }, blankSlot);
  */
 const LIVE: TargetSlot[] = [];
 
+/**
+ * The pool slot at this index. SLOTS is sized MOB_CAP + 2 and stormTargets
+ * never fills past one mob-cap's worth plus the boss plus the set piece, so an
+ * index outside the pool here is a bug in that capacity rather than a case to
+ * handle.
+ */
+const slotAt = (index: number): TargetSlot => {
+  const slot = SLOTS[index];
+  if (slot === undefined) throw new Error(`no pool slot at ${index}`);
+  return slot;
+};
+
 const fillBox = (slot: TargetSlot, box: Rect): void => {
   slot.box.x = box.x;
   slot.box.y = box.y;
@@ -214,20 +226,20 @@ const stormTargets = (state: RunState): readonly StormTarget[] => {
   let filled = 0;
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
-    fillFromMob(SLOTS[filled], mob);
+    fillFromMob(slotAt(filled), mob);
     filled += 1;
   }
   if (state.boss !== null) {
-    fillFromBoss(SLOTS[filled], state.boss);
+    fillFromBoss(slotAt(filled), state.boss);
     filled += 1;
   }
   const box = state.setPiece === null ? null : setPieceHitbox(state.setPiece);
   if (state.setPiece !== null && box !== null) {
-    fillFromSetPiece(SLOTS[filled], state.setPiece, box);
+    fillFromSetPiece(slotAt(filled), state.setPiece, box);
     filled += 1;
   }
   LIVE.length = filled;
-  for (let at = 0; at < filled; at++) LIVE[at] = SLOTS[at];
+  for (let at = 0; at < filled; at++) LIVE[at] = slotAt(at);
   return LIVE;
 };
 

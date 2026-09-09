@@ -61,7 +61,9 @@ function killAt(state: RunState, type: MobType, x: number, y: number): Mob {
 function corpseOf(state: RunState) {
   const live = state.corpses.filter((corpse) => corpse.alive);
   expect(live).toHaveLength(1);
-  return live[0];
+  const corpse = live[0];
+  if (corpse === undefined) throw new Error('no live corpse');
+  return corpse;
 }
 
 /**

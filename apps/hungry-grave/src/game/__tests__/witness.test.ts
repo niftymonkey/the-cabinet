@@ -34,6 +34,18 @@ import {
 
 const FIXTURE_SEED = 20260823;
 
+/** The fixture's own pool slot at this index, which the fixture's own pool size always covers. */
+function poolSlotAt<T>(pool: readonly T[], index: number): T {
+  const item = pool[index];
+  if (item === undefined) throw new Error(`no pool slot at ${index}`);
+  return item;
+}
+
+/** The fixture's own pool slot 0, which every fillX above already put a live entity into. */
+function slot0<T>(pool: readonly T[]): T {
+  return poolSlotAt(pool, 0);
+}
+
 /** The fixture ring's own state, so a per-field test can move one part of it. */
 const RING_LEVEL = 2;
 const RING_TICKS = 5;
@@ -102,7 +114,7 @@ const PATCH_STRUCK: readonly (readonly [number, number])[] = [
 ];
 
 function fillPatch(run: RunState): void {
-  const patch = run.patches[0];
+  const patch = slot0(run.patches);
   patch.alive = true;
   patch.id = 16;
   patch.level = 3;
@@ -161,7 +173,7 @@ function fillGrave(run: RunState): void {
 }
 
 function fillMob(run: RunState): void {
-  const mob = run.mobs[0];
+  const mob = slot0(run.mobs);
   mob.alive = true;
   mob.id = 11;
   mob.type = 'ghoul';
@@ -177,7 +189,7 @@ function fillMob(run: RunState): void {
 }
 
 function fillShot(run: RunState): void {
-  const shot = run.mobFire[0];
+  const shot = slot0(run.mobFire);
   shot.alive = true;
   shot.id = 12;
   shot.emitter = 'revenant';
@@ -189,7 +201,7 @@ function fillShot(run: RunState): void {
 }
 
 function fillCorpse(run: RunState): void {
-  const corpse = run.corpses[0];
+  const corpse = slot0(run.corpses);
   corpse.alive = true;
   corpse.id = 13;
   corpse.x = 310.5;
@@ -204,7 +216,7 @@ function fillCorpse(run: RunState): void {
 }
 
 function fillSkull(run: RunState): void {
-  const skull = run.skulls[0];
+  const skull = slot0(run.skulls);
   skull.alive = true;
   skull.id = 14;
   skull.x = 400.25;
@@ -214,7 +226,7 @@ function fillSkull(run: RunState): void {
 }
 
 function fillWisp(run: RunState): void {
-  const wisp = run.wisps[0];
+  const wisp = slot0(run.wisps);
   wisp.alive = true;
   wisp.id = 15;
   wisp.x = 55.75;
@@ -260,198 +272,198 @@ const ENTITY_CASES: readonly FieldCase[] = [
   },
   {
     path: 'mobs[].x',
-    move: (run) => void (run.mobs[0].x += 1e-6),
-    restore: (run) => void (run.mobs[0].x -= 1e-6),
+    move: (run) => void (slot0(run.mobs).x += 1e-6),
+    restore: (run) => void (slot0(run.mobs).x -= 1e-6),
   },
   {
     path: 'mobs[].y',
-    move: (run) => void (run.mobs[0].y += 1e-6),
-    restore: (run) => void (run.mobs[0].y -= 1e-6),
+    move: (run) => void (slot0(run.mobs).y += 1e-6),
+    restore: (run) => void (slot0(run.mobs).y -= 1e-6),
   },
   {
     path: 'mobs[].vx',
-    move: (run) => void (run.mobs[0].vx += 1e-6),
-    restore: (run) => void (run.mobs[0].vx -= 1e-6),
+    move: (run) => void (slot0(run.mobs).vx += 1e-6),
+    restore: (run) => void (slot0(run.mobs).vx -= 1e-6),
   },
   {
     path: 'mobs[].vy',
-    move: (run) => void (run.mobs[0].vy += 1e-6),
-    restore: (run) => void (run.mobs[0].vy -= 1e-6),
+    move: (run) => void (slot0(run.mobs).vy += 1e-6),
+    restore: (run) => void (slot0(run.mobs).vy -= 1e-6),
   },
   {
     path: 'mobs[].hp',
-    move: (run) => void (run.mobs[0].hp -= 1),
-    restore: (run) => void (run.mobs[0].hp += 1),
+    move: (run) => void (slot0(run.mobs).hp -= 1),
+    restore: (run) => void (slot0(run.mobs).hp += 1),
   },
   {
     path: 'mobs[].beat',
-    move: (run) => void (run.mobs[0].beat -= 1),
-    restore: (run) => void (run.mobs[0].beat += 1),
+    move: (run) => void (slot0(run.mobs).beat -= 1),
+    restore: (run) => void (slot0(run.mobs).beat += 1),
   },
   {
     path: 'mobs[].fireIn',
-    move: (run) => void (run.mobs[0].fireIn -= 1),
-    restore: (run) => void (run.mobs[0].fireIn += 1),
+    move: (run) => void (slot0(run.mobs).fireIn -= 1),
+    restore: (run) => void (slot0(run.mobs).fireIn += 1),
   },
   {
     path: 'mobs[].armed',
-    move: (run) => void (run.mobs[0].armed = false),
-    restore: (run) => void (run.mobs[0].armed = true),
+    move: (run) => void (slot0(run.mobs).armed = false),
+    restore: (run) => void (slot0(run.mobs).armed = true),
   },
   {
     path: 'mobs[].carries',
-    move: (run) => void (run.mobs[0].carries = false),
-    restore: (run) => void (run.mobs[0].carries = true),
+    move: (run) => void (slot0(run.mobs).carries = false),
+    restore: (run) => void (slot0(run.mobs).carries = true),
   },
   {
     path: 'mobFire[].x',
-    move: (run) => void (run.mobFire[0].x += 1e-6),
-    restore: (run) => void (run.mobFire[0].x -= 1e-6),
+    move: (run) => void (slot0(run.mobFire).x += 1e-6),
+    restore: (run) => void (slot0(run.mobFire).x -= 1e-6),
   },
   {
     path: 'mobFire[].y',
-    move: (run) => void (run.mobFire[0].y += 1e-6),
-    restore: (run) => void (run.mobFire[0].y -= 1e-6),
+    move: (run) => void (slot0(run.mobFire).y += 1e-6),
+    restore: (run) => void (slot0(run.mobFire).y -= 1e-6),
   },
   {
     path: 'mobFire[].vx',
-    move: (run) => void (run.mobFire[0].vx += 1e-6),
-    restore: (run) => void (run.mobFire[0].vx -= 1e-6),
+    move: (run) => void (slot0(run.mobFire).vx += 1e-6),
+    restore: (run) => void (slot0(run.mobFire).vx -= 1e-6),
   },
   {
     path: 'mobFire[].vy',
-    move: (run) => void (run.mobFire[0].vy += 1e-6),
-    restore: (run) => void (run.mobFire[0].vy -= 1e-6),
+    move: (run) => void (slot0(run.mobFire).vy += 1e-6),
+    restore: (run) => void (slot0(run.mobFire).vy -= 1e-6),
   },
   {
     path: 'corpses[].x',
-    move: (run) => void (run.corpses[0].x += 1e-6),
-    restore: (run) => void (run.corpses[0].x -= 1e-6),
+    move: (run) => void (slot0(run.corpses).x += 1e-6),
+    restore: (run) => void (slot0(run.corpses).x -= 1e-6),
   },
   {
     path: 'corpses[].y',
-    move: (run) => void (run.corpses[0].y += 1e-6),
-    restore: (run) => void (run.corpses[0].y -= 1e-6),
+    move: (run) => void (slot0(run.corpses).y += 1e-6),
+    restore: (run) => void (slot0(run.corpses).y -= 1e-6),
   },
   {
     path: 'corpses[].freshness',
-    move: (run) => void (run.corpses[0].freshness -= 1e-6),
-    restore: (run) => void (run.corpses[0].freshness += 1e-6),
+    move: (run) => void (slot0(run.corpses).freshness -= 1e-6),
+    restore: (run) => void (slot0(run.corpses).freshness += 1e-6),
   },
   {
     path: 'corpses[].payout',
-    move: (run) => void (run.corpses[0].payout += 1e-6),
-    restore: (run) => void (run.corpses[0].payout -= 1e-6),
+    move: (run) => void (slot0(run.corpses).payout += 1e-6),
+    restore: (run) => void (slot0(run.corpses).payout -= 1e-6),
   },
   {
     path: 'corpses[].tier',
-    move: (run) => void (run.corpses[0].tier = 'trash'),
-    restore: (run) => void (run.corpses[0].tier = 'rich'),
+    move: (run) => void (slot0(run.corpses).tier = 'trash'),
+    restore: (run) => void (slot0(run.corpses).tier = 'rich'),
   },
   {
     path: 'corpses[].kind',
-    move: (run) => void (run.corpses[0].kind = 'feast'),
-    restore: (run) => void (run.corpses[0].kind = 'drop'),
+    move: (run) => void (slot0(run.corpses).kind = 'feast'),
+    restore: (run) => void (slot0(run.corpses).kind = 'drop'),
   },
   {
     path: 'corpses[].line',
-    move: (run) => void (run.corpses[0].line = 'bell'),
-    restore: (run) => void (run.corpses[0].line = 'wisps'),
+    move: (run) => void (slot0(run.corpses).line = 'bell'),
+    restore: (run) => void (slot0(run.corpses).line = 'wisps'),
   },
   {
     path: 'skulls[].x',
-    move: (run) => void (run.skulls[0].x += 1e-6),
-    restore: (run) => void (run.skulls[0].x -= 1e-6),
+    move: (run) => void (slot0(run.skulls).x += 1e-6),
+    restore: (run) => void (slot0(run.skulls).x -= 1e-6),
   },
   {
     path: 'skulls[].y',
-    move: (run) => void (run.skulls[0].y += 1e-6),
-    restore: (run) => void (run.skulls[0].y -= 1e-6),
+    move: (run) => void (slot0(run.skulls).y += 1e-6),
+    restore: (run) => void (slot0(run.skulls).y -= 1e-6),
   },
   {
     path: 'skulls[].vx',
-    move: (run) => void (run.skulls[0].vx += 1e-6),
-    restore: (run) => void (run.skulls[0].vx -= 1e-6),
+    move: (run) => void (slot0(run.skulls).vx += 1e-6),
+    restore: (run) => void (slot0(run.skulls).vx -= 1e-6),
   },
   {
     path: 'skulls[].vy',
-    move: (run) => void (run.skulls[0].vy += 1e-6),
-    restore: (run) => void (run.skulls[0].vy -= 1e-6),
+    move: (run) => void (slot0(run.skulls).vy += 1e-6),
+    restore: (run) => void (slot0(run.skulls).vy -= 1e-6),
   },
   {
     path: 'wisps[].x',
-    move: (run) => void (run.wisps[0].x += 1e-6),
-    restore: (run) => void (run.wisps[0].x -= 1e-6),
+    move: (run) => void (slot0(run.wisps).x += 1e-6),
+    restore: (run) => void (slot0(run.wisps).x -= 1e-6),
   },
   {
     path: 'wisps[].y',
-    move: (run) => void (run.wisps[0].y += 1e-6),
-    restore: (run) => void (run.wisps[0].y -= 1e-6),
+    move: (run) => void (slot0(run.wisps).y += 1e-6),
+    restore: (run) => void (slot0(run.wisps).y -= 1e-6),
   },
   {
     path: 'wisps[].vx',
-    move: (run) => void (run.wisps[0].vx += 1e-6),
-    restore: (run) => void (run.wisps[0].vx -= 1e-6),
+    move: (run) => void (slot0(run.wisps).vx += 1e-6),
+    restore: (run) => void (slot0(run.wisps).vx -= 1e-6),
   },
   {
     path: 'wisps[].vy',
-    move: (run) => void (run.wisps[0].vy += 1e-6),
-    restore: (run) => void (run.wisps[0].vy -= 1e-6),
+    move: (run) => void (slot0(run.wisps).vy += 1e-6),
+    restore: (run) => void (slot0(run.wisps).vy -= 1e-6),
   },
   {
     path: 'wisps[].life',
-    move: (run) => void (run.wisps[0].life -= 1),
-    restore: (run) => void (run.wisps[0].life += 1),
+    move: (run) => void (slot0(run.wisps).life -= 1),
+    restore: (run) => void (slot0(run.wisps).life += 1),
   },
   {
     path: 'wisps[].targetId',
-    move: (run) => void (run.wisps[0].targetId = null),
-    restore: (run) => void (run.wisps[0].targetId = 11),
+    move: (run) => void (slot0(run.wisps).targetId = null),
+    restore: (run) => void (slot0(run.wisps).targetId = 11),
   },
   {
     path: 'patches[].x',
-    move: (run) => void (run.patches[0].x += 1e-6),
-    restore: (run) => void (run.patches[0].x -= 1e-6),
+    move: (run) => void (slot0(run.patches).x += 1e-6),
+    restore: (run) => void (slot0(run.patches).x -= 1e-6),
   },
   {
     path: 'patches[].y',
-    move: (run) => void (run.patches[0].y += 1e-6),
-    restore: (run) => void (run.patches[0].y -= 1e-6),
+    move: (run) => void (slot0(run.patches).y += 1e-6),
+    restore: (run) => void (slot0(run.patches).y -= 1e-6),
   },
   {
     path: 'patches[].radius',
-    move: (run) => void (run.patches[0].radius += 1e-6),
-    restore: (run) => void (run.patches[0].radius -= 1e-6),
+    move: (run) => void (slot0(run.patches).radius += 1e-6),
+    restore: (run) => void (slot0(run.patches).radius -= 1e-6),
   },
   {
     path: 'patches[].pull',
-    move: (run) => void (run.patches[0].pull += 1e-6),
-    restore: (run) => void (run.patches[0].pull -= 1e-6),
+    move: (run) => void (slot0(run.patches).pull += 1e-6),
+    restore: (run) => void (slot0(run.patches).pull -= 1e-6),
   },
   {
     path: 'patches[].slow',
-    move: (run) => void (run.patches[0].slow += 1e-6),
-    restore: (run) => void (run.patches[0].slow -= 1e-6),
+    move: (run) => void (slot0(run.patches).slow += 1e-6),
+    restore: (run) => void (slot0(run.patches).slow -= 1e-6),
   },
   {
     path: 'patches[].rehit',
-    move: (run) => void (run.patches[0].rehit += 1),
-    restore: (run) => void (run.patches[0].rehit -= 1),
+    move: (run) => void (slot0(run.patches).rehit += 1),
+    restore: (run) => void (slot0(run.patches).rehit -= 1),
   },
   {
     path: 'patches[].opening',
-    move: (run) => void (run.patches[0].opening -= 1),
-    restore: (run) => void (run.patches[0].opening += 1),
+    move: (run) => void (slot0(run.patches).opening -= 1),
+    restore: (run) => void (slot0(run.patches).opening += 1),
   },
   {
     path: 'patches[].pulses',
-    move: (run) => void (run.patches[0].pulses -= 1),
-    restore: (run) => void (run.patches[0].pulses += 1),
+    move: (run) => void (slot0(run.patches).pulses -= 1),
+    restore: (run) => void (slot0(run.patches).pulses += 1),
   },
   {
     path: 'patches[].struck',
-    move: (run) => void run.patches[0].struck.set(23, 460),
-    restore: (run) => void run.patches[0].struck.delete(23),
+    move: (run) => void slot0(run.patches).struck.set(23, 460),
+    restore: (run) => void slot0(run.patches).struck.delete(23),
   },
 ];
 
@@ -933,9 +945,9 @@ describe('the four non-numeric encodings', () => {
     expect(createRun(FIXTURE_SEED).nextEntityId).toBe(1);
 
     const absent = fixture();
-    absent.wisps[0].targetId = null;
+    slot0(absent.wisps).targetId = null;
     const zero = fixture();
-    zero.wisps[0].targetId = NO_TARGET_ID;
+    slot0(zero.wisps).targetId = NO_TARGET_ID;
     expect(foldWitness(absent, 0)).toBe(foldWitness(zero, 0));
   });
 
@@ -992,11 +1004,11 @@ describe('the four non-numeric encodings', () => {
 
   it('an absent corpse line folds through the reserved absent code', () => {
     const absent = fixture();
-    absent.corpses[0].line = undefined;
+    slot0(absent.corpses).line = undefined;
     const witness = foldWitness(absent, 0);
     for (const line of WEAPON_LINE_NAMES) {
       const present = fixture();
-      present.corpses[0].line = line;
+      slot0(present.corpses).line = line;
       expect(foldWitness(present, 0)).not.toBe(witness);
     }
   });
@@ -1058,7 +1070,7 @@ describe('Territory in the fold (#76)', () => {
     const untouched = fixture();
     expect(foldWitness(ground, 0)).toBe(foldWitness(untouched, 0));
 
-    ground.patches[0].pulses -= 1;
+    poolSlotAt(ground.patches, 0).pulses -= 1;
     expect(foldWitness(ground, 0)).not.toBe(foldWitness(untouched, 0));
   });
 
@@ -1067,7 +1079,7 @@ describe('Territory in the fold (#76)', () => {
     // that re-hit early has to be caught.
     const early = fixture();
     const late = fixture();
-    late.patches[0].struck.set(21, 431);
+    poolSlotAt(late.patches, 0).struck.set(21, 431);
     expect(foldWitness(early, 0)).not.toBe(foldWitness(late, 0));
   });
 
@@ -1078,8 +1090,8 @@ describe('Territory in the fold (#76)', () => {
     // sorting would fold a different order than the map actually holds.
     const chronological = fixture();
     const reAdded = fixture();
-    reAdded.patches[0].struck.delete(21);
-    reAdded.patches[0].struck.set(21, 430);
+    poolSlotAt(reAdded.patches, 0).struck.delete(21);
+    poolSlotAt(reAdded.patches, 0).struck.set(21, 430);
     expect(foldWitness(reAdded, 0)).not.toBe(foldWitness(chronological, 0));
   });
 
@@ -1089,10 +1101,10 @@ describe('Territory in the fold (#76)', () => {
     // moving one cannot move the witness.
     const run = fixture();
     const before = foldWitness(run, 0);
-    run.patches[1].x = 999;
+    poolSlotAt(run.patches, 1).x = 999;
     expect(foldWitness(run, 0)).toBe(before);
 
-    run.patches[1].alive = true;
+    poolSlotAt(run.patches, 1).alive = true;
     expect(foldWitness(run, 0)).not.toBe(before);
   });
 });

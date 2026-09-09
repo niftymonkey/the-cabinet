@@ -90,7 +90,9 @@ function order(x: number, y: number, vx = 0, vy = 1, index = 0): SpawnOrder {
 function only(run: RunState): Mob {
   const live = run.mobs.filter((mob) => mob.alive);
   expect(live).toHaveLength(1);
-  return live[0];
+  const mob = live[0];
+  if (mob === undefined) throw new Error('no live mob');
+  return mob;
 }
 
 function run(
@@ -211,7 +213,12 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
     // The first tell lights before the first step, so the leads line up from
     // the second shot on.
     for (let shot = 1; shot < fired.length; shot++) {
-      expect(`lead before shot ${shot}: ${fired[shot] - lit[shot - 1]}`).toBe(
+      const firedAt = fired[shot];
+      const litBefore = lit[shot - 1];
+      if (firedAt === undefined || litBefore === undefined) {
+        throw new Error(`shot ${shot} has no paired fired/lit tick`);
+      }
+      expect(`lead before shot ${shot}: ${firedAt - litBefore}`).toBe(
         `lead before shot ${shot}: ${lead}`,
       );
     }
@@ -295,7 +302,15 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
       ),
     ];
     const firing = declared
-      .map((match) => match[1])
+      .map((match) => {
+        const name = match[1];
+        if (name === undefined) {
+          throw new Error(
+            'constant-declaration regex matched with no captured name',
+          );
+        }
+        return name;
+      })
       .filter((name) => /TELL|SHOT|INTERVAL|EXTENT|JITTER|ARMED/.test(name));
     expect(firing).toEqual([]);
   });
@@ -344,7 +359,9 @@ describe('a shot with an authored direction (ADR 0007)', () => {
   function onlyShot(state: RunState): Shot {
     const live = state.mobFire.filter((shot) => shot.alive);
     expect(live).toHaveLength(1);
-    return live[0];
+    const shot = live[0];
+    if (shot === undefined) throw new Error('no live shot');
+    return shot;
   }
 
   it('travels the direction it was given, and is never re-aimed at the grave', () => {

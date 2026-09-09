@@ -329,7 +329,9 @@ describe('the grave', () => {
       if (i % 3 === 0) {
         hitGrave(run, 'contact');
       } else {
-        growGrave(run.grave, amounts[i % amounts.length]);
+        const amount = amounts[i % amounts.length];
+        if (amount === undefined) throw new Error(`no amount at tick ${i}`);
+        growGrave(run.grave, amount);
       }
       ageGrave(run.grave);
       expect(run.grave.size).toBeGreaterThanOrEqual(SIZE_FLOOR);

@@ -31,6 +31,12 @@ import {
 
 const SEED = 20260908;
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 /** A live mob past its arriving beat, standing where it is put. */
 function putMob(state: RunState, x: number, y: number): Mob {
   const mob = spawnMob(
@@ -88,7 +94,10 @@ describe('what the storm can hit', () => {
       boss.id,
       piece.id,
     ]);
-    const asSource = stormTargets(state)[2];
+    const asSource = requireDefined(
+      stormTargets(state)[2],
+      'no third storm target',
+    );
     expect(asSource.pushable).toBe(false);
     expect(asSource.killableOutright).toBe(false);
     expect(asSource.entered).toBe(true);
@@ -139,7 +148,8 @@ describe('what the storm can hit', () => {
     const fell = piece.y - stood;
 
     expect(fell).toBeGreaterThan(0);
-    expect(stormTargets(state)[0].vy).toBeCloseTo(fell, 10);
+    const first = requireDefined(stormTargets(state)[0], 'no storm target');
+    expect(first.vy).toBeCloseTo(fell, 10);
   });
 
   it('carries damage to an open source and moves it for nobody', () => {
@@ -149,7 +159,7 @@ describe('what the storm can hit', () => {
     const state = createRun(SEED);
     const piece = placeSetPiece(state);
     piece.open = true;
-    const target = stormTargets(state)[0];
+    const target = requireDefined(stormTargets(state)[0], 'no storm target');
     const stood = { x: piece.x, y: piece.y };
 
     expect(damageStormTarget(state, target, 40, 'skullStream')).toHaveLength(1);
@@ -205,7 +215,9 @@ describe('what the storm can hit', () => {
     const mob = putMob(state, 100, 200);
     const boss = spawnBoss(state, 'banshee');
 
-    const [asMob, asBoss] = stormTargets(state);
+    const targets = stormTargets(state);
+    const asMob = requireDefined(targets[0], 'no first storm target');
+    const asBoss = requireDefined(targets[1], 'no second storm target');
     expect(asMob.id).toBe(mob.id);
     expect(asMob.pushable).toBe(true);
     expect(asMob.killableOutright).toBe(true);
@@ -223,7 +235,9 @@ describe('what the storm can hit', () => {
     const state = createRun(SEED);
     putMob(state, 100, -MOB_TYPES.shambler.halfHeight - 1);
 
-    expect(stormTargets(state)[0].entered).toBe(false);
+    expect(
+      requireDefined(stormTargets(state)[0], 'no storm target').entered,
+    ).toBe(false);
   });
 });
 
@@ -235,7 +249,9 @@ describe('what a line may do to a target', () => {
     const state = createRun(SEED);
     const mob = putMob(state, 100, 200);
     const boss = spawnBoss(state, 'banshee');
-    const [asMob, asBoss] = stormTargets(state);
+    const targets = stormTargets(state);
+    const asMob = requireDefined(targets[0], 'no first storm target');
+    const asBoss = requireDefined(targets[1], 'no second storm target');
 
     const onMob = damageStormTarget(state, asMob, 5, 'skullStream');
     expect(onMob[0]).toEqual({
@@ -262,7 +278,7 @@ describe('what a line may do to a target', () => {
     // be a line branching on the seam's own bookkeeping.
     const state = createRun(SEED);
     const mob = putMob(state, 100, 200);
-    const [target] = stormTargets(state);
+    const target = requireDefined(stormTargets(state)[0], 'no storm target');
     mob.alive = false;
     stormTargets(state);
 
@@ -276,7 +292,9 @@ describe('what a line may do to a target', () => {
     const state = createRun(SEED);
     const mob = putMob(state, 100, 200);
     const boss = spawnBoss(state, 'banshee');
-    const [asMob, asBoss] = stormTargets(state);
+    const targets = stormTargets(state);
+    const asMob = requireDefined(targets[0], 'no first storm target');
+    const asBoss = requireDefined(targets[1], 'no second storm target');
     const bossStood = { x: boss.x, y: boss.y };
 
     moveStormTarget(state, asMob, 130, 240);
@@ -298,7 +316,7 @@ describe('what a line may do to a target', () => {
     // the next patch whether it is over that one.
     const state = createRun(SEED);
     putMob(state, 100, 200);
-    const [target] = stormTargets(state);
+    const target = requireDefined(stormTargets(state)[0], 'no storm target');
     const stood = target.box.x;
 
     moveStormTarget(state, target, 130, 200);
@@ -313,7 +331,7 @@ describe('what a line may do to a target', () => {
     // fire on a legal move.
     const state = createRun(SEED);
     const mob = putMob(state, 100, 200);
-    const [target] = stormTargets(state);
+    const target = requireDefined(stormTargets(state)[0], 'no storm target');
 
     moveStormTarget(state, target, 100000, 100000);
 

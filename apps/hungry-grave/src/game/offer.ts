@@ -313,6 +313,9 @@ const resolveOffer = (state: RunState, takenId: number): SimEvent[] => {
   if (index < 0) return [];
 
   const line = offer.options[index];
+  if (line === undefined) {
+    throw new Error(`offer options and bodyIds fell out of step at ${index}`);
+  }
   const passed = offer.options.filter((_, at) => at !== index);
   state.offer = null;
   vanishSiblings(state, offer, takenId);

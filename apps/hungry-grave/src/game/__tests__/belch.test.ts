@@ -30,6 +30,7 @@ function quietRun(seed = 16): RunState {
 function armField(state: RunState, count: number): void {
   for (let index = 0; index < count; index++) {
     const shot = state.mobFire[index];
+    if (shot === undefined) throw new Error(`no mobFire pool slot at ${index}`);
     shot.alive = true;
     shot.id = state.nextEntityId;
     state.nextEntityId += 1;
@@ -152,6 +153,8 @@ describe('the gas smothers the whole field (ADR 0008)', () => {
     state.reservoir = RESERVOIR_CAPACITY;
     for (let index = 0; index < 8; index++) {
       const shot = state.mobFire[index];
+      if (shot === undefined)
+        throw new Error(`no mobFire pool slot at ${index}`);
       shot.alive = true;
       shot.id = state.nextEntityId;
       state.nextEntityId += 1;
@@ -205,12 +208,13 @@ describe('the burst kills nearby (ADR 0008)', () => {
   it('reaches the same distance in every direction from the grave', () => {
     // A radius and not a box: the burst is an eruption out of the grave, so a
     // mob to the side at the same distance as one ahead reads the same way.
-    for (const [dx, dy] of [
+    const offsets: readonly [number, number][] = [
       [0, -NEAR],
       [0, NEAR],
       [NEAR, 0],
       [-NEAR, 0],
-    ]) {
+    ];
+    for (const [dx, dy] of offsets) {
       const state = quietRun();
       state.reservoir = RESERVOIR_CAPACITY;
       const mob = putMobAt(state, state.grave.x + dx, state.grave.y + dy);

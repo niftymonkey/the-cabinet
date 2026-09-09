@@ -140,7 +140,9 @@ describe('the corpse cap (ADR 0056)', () => {
     expect(faults.map((fault) => fault.identity)).toEqual([
       'corpse cap never binds',
     ]);
-    expect(faults[0].severity).toBe('recoverable');
+    const fault = faults[0];
+    if (fault === undefined) throw new Error('no fault recorded');
+    expect(fault.severity).toBe('recoverable');
   });
 
   it("is the mob cap plus the stage's peak arrivals in a freshness window plus the treasure allowance", () => {

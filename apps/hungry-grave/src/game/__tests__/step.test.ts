@@ -34,6 +34,12 @@ function drift(x: number, y: number): TickCommand {
 
 const STILL: TickCommand = drift(0, 0);
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 /**
  * Everything that defines a run, by value. The streams are closures, so two
  * runs never compare deeply equal however identical their state is.
@@ -176,7 +182,10 @@ describe('the sim seam', () => {
     const stepA = stepping(a);
     const stepB = stepping(b);
     for (let i = 0; i < 200; i++) {
-      const command = script[i % script.length];
+      const command = requireDefined(
+        script[i % script.length],
+        `no scripted command at tick ${i}`,
+      );
       stepA(command);
       stepB(command);
     }
@@ -249,7 +258,7 @@ function holdOnGrave(state: RunState, mob: Mob): void {
 
 /** A shot sitting on the grave, put there by hand rather than fired from off screen. */
 function shotOnGrave(state: RunState) {
-  const shot = state.mobFire[0];
+  const shot = requireDefined(state.mobFire[0], 'no mobFire pool slot 0');
   shot.alive = true;
   shot.id = state.nextEntityId;
   state.nextEntityId += 1;
@@ -438,7 +447,10 @@ describe('determinism across the whole field (ADR 0012)', () => {
     const eventsA: SimEvent[] = [];
     const eventsB: SimEvent[] = [];
     for (let tick = 0; tick < 1500; tick++) {
-      const command = script[tick % script.length];
+      const command = requireDefined(
+        script[tick % script.length],
+        `no scripted command at tick ${tick}`,
+      );
       eventsA.push(...stepA(command));
       eventsB.push(...stepB(command));
     }
@@ -545,7 +557,8 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
     step(STILL);
     const live = state.skulls.filter((skull) => skull.alive);
     expect(live).toHaveLength(1);
-    expect({ x: live[0].x, y: live[0].y }).toEqual(mouth);
+    const skull = requireDefined(live[0], 'no live skull');
+    expect({ x: skull.x, y: skull.y }).toEqual(mouth);
   });
 
   it("runs the lines after mob motion, so this tick's storm meets this tick's mobs", () => {

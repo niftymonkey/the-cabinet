@@ -182,6 +182,7 @@ describe('the swallow', () => {
     openOffer(run, 260, 180);
     const offer = run.offer!;
     const line = offer.options[0];
+    if (line === undefined) throw new Error('offer opened with no options');
     const before = run.levels[line];
     const body = run.corpses.find((each) => each.id === offer.bodyIds[0])!;
 

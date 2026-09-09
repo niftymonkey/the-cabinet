@@ -137,11 +137,20 @@ function order(x: number, y: number, vx = 0, vy = 1, index = 0): SpawnOrder {
   return { x, y, vx, vy, index };
 }
 
+/** The order at this position in a template's own placement, which every caller here asks for at an index the template's count covers. */
+function orderAt(orders: readonly SpawnOrder[], index: number): SpawnOrder {
+  const found = orders[index];
+  if (found === undefined) throw new Error(`no order at ${index}`);
+  return found;
+}
+
 /** The one mob a test put on the field. */
 function only(run: RunState): Mob {
   const live = run.mobs.filter((mob) => mob.alive);
   expect(live).toHaveLength(1);
-  return live[0];
+  const mob = live[0];
+  if (mob === undefined) throw new Error('no live mob');
+  return mob;
 }
 
 function run(
@@ -204,7 +213,7 @@ describe('the arriving beat (ADR 0041)', () => {
     const state = quietRun();
     const step = stepping(state);
     // A V's arm arrives on a diagonal, which is the case where the beat bites.
-    const arm = place('v', 2, state.streams.spawns)[0];
+    const arm = orderAt(place('v', 2, state.streams.spawns), 0);
     spawnMob(state, 'shambler', order(200, 11, arm.vx, arm.vy), false);
     const mob = only(state);
     const arriving = { vx: mob.vx, vy: mob.vy };
@@ -238,7 +247,7 @@ describe('the arriving beat (ADR 0041)', () => {
     const state = quietRun();
     const step = stepping(state);
     const deep = -120;
-    const arm = place('v', 2, state.streams.spawns)[0];
+    const arm = orderAt(place('v', 2, state.streams.spawns), 0);
     spawnMob(state, 'shambler', order(200, deep, arm.vx, arm.vy), false);
     const mob = only(state);
     const arriving = { vx: mob.vx, vy: mob.vy };
@@ -256,7 +265,7 @@ describe('the arriving beat (ADR 0041)', () => {
   it("leaves a ghoul flying the template's arriving direction at the tick its beat ends, not straight down", () => {
     const state = quietRun();
     const step = stepping(state);
-    const arm = place('pincer', 2, state.streams.spawns)[0];
+    const arm = orderAt(place('pincer', 2, state.streams.spawns), 0);
     spawnMob(state, 'ghoul', order(200, 9, arm.vx, arm.vy), false);
     const mob = only(state);
     expect(mob.vx).not.toBe(0);
@@ -357,7 +366,9 @@ describe("a mob's death (ADR 0037)", () => {
     ]);
     const corpses = state.corpses.filter((corpse) => corpse.alive);
     expect(corpses).toHaveLength(1);
-    expect(corpses[0].payout).toBe(MOB_TYPES.shambler.corpsePayout);
+    const corpse = corpses[0];
+    if (corpse === undefined) throw new Error('no corpse');
+    expect(corpse.payout).toBe(MOB_TYPES.shambler.corpsePayout);
   });
 
   it('spells each storm source as its line: skullStream, then territory, then wisps', () => {
@@ -653,7 +664,7 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
     const state = quietRun();
     const step = stepping(state);
     // Order 4 of a six-mob pincer is the left arm's deepest rank.
-    const trailing = place('pincer', 6, state.streams.spawns)[4];
+    const trailing = orderAt(place('pincer', 6, state.streams.spawns), 4);
     expect(trailing.x).toBeLessThan(MOB_TYPES.shambler.halfWidth);
     spawnMob(state, 'shambler', trailing, false);
     const mob = only(state);
@@ -697,7 +708,7 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
     const state = quietRun();
     const step = stepping(state);
     // The right arm's arriving direction heads left, outward at the left edge.
-    const arm = place('pincer', 2, state.streams.spawns)[1];
+    const arm = orderAt(place('pincer', 2, state.streams.spawns), 1);
     expect(arm.vx).toBeLessThan(0);
     spawnMob(state, 'shambler', order(2, 11, arm.vx, arm.vy), false);
     const mob = only(state);
@@ -733,7 +744,12 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
     const atEdge = trace(2);
     const midField = trace(202);
     for (let tick = 0; tick < atEdge.length; tick++) {
-      expect(atEdge[tick]).toBeCloseTo(midField[tick], 9);
+      const edgeOffset = atEdge[tick];
+      const midOffset = midField[tick];
+      if (edgeOffset === undefined || midOffset === undefined) {
+        throw new Error(`no traced offset at tick ${tick}`);
+      }
+      expect(edgeOffset).toBeCloseTo(midOffset, 9);
     }
   });
 });
