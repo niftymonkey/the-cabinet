@@ -466,6 +466,18 @@ function sealedRun(seed: number): { state: RunState; events: SimEvent[] } {
   return played;
 }
 
+/**
+ * The budget for the five tests that each pay for one whole-stage run nothing
+ * else has warmed, one per seed. A fresh run of the stage takes about a second
+ * with this file alone and 5.2 to 5.8 seconds beside the rest of the suite,
+ * which is over vitest's own five seconds, so which of the five falls over
+ * changes from run to run and every failure is a timeout rather than an
+ * assertion. Stated per test in this file's own idiom rather than raised for
+ * the suite, because contention is not flakiness and every other test in this
+ * suite reads the run these five cached.
+ */
+const ONE_WHOLE_STAGE_MS = 30000;
+
 describe('dodgePolicy over the whole stage (ADR 0013)', () => {
   for (const seed of SEEDS) {
     const survives = !SEALS_IN_THE_PROCESSION.includes(seed);
@@ -484,14 +496,18 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
   }
 
   for (const seed of SEEDS) {
-    it(`crosses every phase in order on seed ${seed}`, () => {
-      const { events } = fullRun(seed);
-      const crossed = phaseOrder(events);
-      // A run that seals inside the Procession crosses nothing at all.
-      if (SEALS_IN_THE_PROCESSION.includes(seed)) expect(crossed).toEqual([]);
-      else expect(crossed[0]).toBe('banshee');
-      expect(crossed).toEqual(PHASE_ORDER.slice(0, crossed.length));
-    });
+    it(
+      `crosses every phase in order on seed ${seed}`,
+      () => {
+        const { events } = fullRun(seed);
+        const crossed = phaseOrder(events);
+        // A run that seals inside the Procession crosses nothing at all.
+        if (SEALS_IN_THE_PROCESSION.includes(seed)) expect(crossed).toEqual([]);
+        else expect(crossed[0]).toBe('banshee');
+        expect(crossed).toEqual(PHASE_ORDER.slice(0, crossed.length));
+      },
+      ONE_WHOLE_STAGE_MS,
+    );
   }
 
   it('reaches victory on the fresh seeds the set names, and on no others', () => {
@@ -699,8 +715,8 @@ describe('dodgePolicy from the size ceiling', () => {
  * has warmed. A whole stage is 21000 ticks of authored rows since the three
  * named sections landed (ADR 0049), half again what it was, and five maxed runs
  * of it no longer fit inside vitest's own five seconds. It is stated on the one
- * test rather than raised for the suite, because every other run in this file
- * is either cached or a fraction of a stage.
+ * test rather than raised for the suite, because a budget belongs on the test
+ * that pays the cost and says what that test is paying for.
  */
 const FIVE_MAXED_RUNS_MS = 30000;
 
