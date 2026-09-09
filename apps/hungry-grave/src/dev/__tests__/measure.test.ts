@@ -13,11 +13,11 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
-import { WEAPON_LINES } from '../../game/lines/roster';
+import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { TickCommand } from '../../game/command';
 import type { RunEnding, RunState } from '../../game/run';
-import { createRun } from '../../game/run';
+import { createRun, uniformLevels } from '../../game/run';
 import { PHASES } from '../../game/stage/stage';
 import { SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
@@ -83,9 +83,13 @@ function steer(tick: number): TickCommand {
 /** One small recorded run, through the one execution authority the game plays through. */
 function recordARun(
   overrides: Partial<TapeHeader> = {},
-  options: { seal?: boolean; size?: number } = {},
+  options: {
+    seal?: boolean;
+    size?: number;
+    levels?: Record<WeaponLine, number>;
+  } = {},
 ): Tape {
-  const run = createRun(SEED, options.size);
+  const run = createRun(SEED, options.size, options.levels);
   const execution = createExecution(run);
   const recorder = recordInto(execution, header(run, overrides));
   for (let tick = 0; tick < SMALL_TICKS; tick++) {
@@ -668,6 +672,7 @@ describe('measure', () => {
     expect(measured.provenance).toEqual({
       inputDevice: 'bot',
       policy: PERSON_POLICY,
+      rig: 'birthright',
       conditioned: false,
       exclusions: ['bot'],
     });
@@ -684,6 +689,8 @@ describe('measure', () => {
     expect(measured.provenance).toEqual({
       inputDevice: 'keyboard',
       policy: PERSON_POLICY,
+      // A size no rig holds, so the run names none rather than the nearest.
+      rig: null,
       conditioned: true,
       exclusions: ['conditioned'],
     });
@@ -697,9 +704,31 @@ describe('measure', () => {
     expect(measured.provenance).toEqual({
       inputDevice: 'keyboard',
       policy: PERSON_POLICY,
+      rig: 'birthright',
       conditioned: false,
       exclusions: [],
     });
+  });
+
+  it('names the rig a run started from, beside the policy that steered it', () => {
+    // #107: a figure names the starting condition that produced it, so two
+    // rigs are never banded as one measurement. The rig and the policy are two
+    // facts about one run and neither answers the other.
+    const maxed = verified(
+      measure(
+        decodedOf(
+          recordARun(
+            { startingLevels: uniformLevels(MAX_LEVEL) },
+            { levels: uniformLevels(MAX_LEVEL) },
+          ),
+        ),
+      ),
+    );
+
+    expect(maxed.provenance.rig).toBe('maxed');
+    // The maxed rig is not the birthright, so the run is a conditioned one
+    // and stays out of the default aggregate on that rule alone.
+    expect(maxed.provenance.conditioned).toBe(true);
   });
 
   it('carries the policy that steered on a verified run, beside the input device', () => {

@@ -19,7 +19,11 @@ import { describe, expect, it } from 'vitest';
 const SRC = resolve(import.meta.dirname, '..');
 
 // Every module that turns a run's readings into a figure somebody reads.
-const MODULES = ['dev/batchReport.ts', 'dev/compareBatches.ts'];
+const MODULES = [
+  'dev/batchReport.ts',
+  'dev/compareBatches.ts',
+  'dev/rankTest.ts',
+];
 
 /**
  * The source with its comments taken out, because a comment may say "under 40"

@@ -3,6 +3,8 @@
 import type { SimEvent } from '../../game/events';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { RunState } from '../../game/run';
+import type { Arrivals, ArrivalsAcc } from './arrivals';
+import { arrivalsOf, createArrivals, observeArrivals } from './arrivals';
 import type { BelchCadence, BelchCadenceAcc } from './belchCadence';
 import {
   belchCadenceOf,
@@ -88,6 +90,7 @@ import {
 
 // Everything a run says about how it played, beside what it produced.
 interface TuningReadings {
+  readonly arrivals: Arrivals;
   readonly damageTaken: DamageTaken;
   readonly engagements: Engagements;
   readonly gravePath: GravePath;
@@ -106,6 +109,7 @@ interface TuningReadings {
 }
 
 interface ReadingsAcc {
+  readonly arrivals: ArrivalsAcc;
   readonly damageTaken: DamageTakenAcc;
   readonly engagements: EngagementsAcc;
   readonly gravePath: GravePathAcc;
@@ -134,6 +138,7 @@ const createReadings = (
   startingSize: number,
   lines: readonly WeaponLine[],
 ): ReadingsAcc => ({
+  arrivals: createArrivals(),
   damageTaken: createDamageTaken(),
   engagements: createEngagements(lines),
   gravePath: createGravePath(startingSize),
@@ -166,6 +171,7 @@ const observeReadings = (
   state: RunState,
   lines: readonly WeaponLine[],
 ): void => {
+  observeArrivals(acc.arrivals, events, state);
   observeDamageTaken(acc.damageTaken, events);
   observeEngagements(acc.engagements, tick, events, state);
   observeGravePath(acc.gravePath, state);
@@ -184,6 +190,7 @@ const observeReadings = (
 };
 
 const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
+  arrivals: arrivalsOf(acc.arrivals),
   damageTaken: damageTakenOf(acc.damageTaken),
   engagements: engagementsOf(acc.engagements),
   gravePath: gravePathOf(acc.gravePath),

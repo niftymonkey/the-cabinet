@@ -2,7 +2,8 @@
 
 import { WEAPON_LINES } from '../game/lines/roster';
 import type { WeaponLine } from '../game/lines/roster';
-import { MOB_TYPES, MOB_TYPE_NAMES } from '../game/mobs';
+import { MOB_TYPES } from '../game/mobs';
+import type { MobType } from '../game/mobs';
 import { PHASES } from '../game/stage/stage';
 import type { PhaseName } from '../game/stage/stage';
 import type { ConfigurationName } from './configurations';
@@ -11,7 +12,8 @@ import type { NumberRecord } from './numbersByName';
 import { ledgerByLineNumbers } from './readings/dropLedger';
 import type { SectionSpan } from './readings/sectionTimeline';
 import { READINGS_VERSION } from './readingsVersion';
-import { fiveNumbersOf, greatestOf } from './seriesSummary';
+import type { RigName } from './rigs';
+import { fiveNumbersOf, greatestOf, leastOf } from './seriesSummary';
 import type { FiveNumbers } from './seriesSummary';
 
 /**
@@ -31,10 +33,17 @@ const BATCH_SEEDS = 48;
  * It is a fact about the build and not a reading, so it rides on the batch's
  * identity and the ratio is the reader's to take: the report puts the two
  * numbers side by side and states nothing about the distance between them.
+ *
+ * Written out under a total Record rather than folded off the name list, on
+ * witness.ts's own reasoning for its code maps: a mob type added to the union
+ * fails the typecheck here until somebody gives it a width, where a fold would
+ * have keyed the record by bare strings and silently answered nothing.
  */
-const MOB_WIDTHS: Readonly<Record<string, number>> = Object.fromEntries(
-  MOB_TYPE_NAMES.map((type) => [type, MOB_TYPES[type].halfWidth * 2]),
-);
+const MOB_WIDTHS: Readonly<Record<MobType, number>> = {
+  shambler: MOB_TYPES.shambler.halfWidth * 2,
+  revenant: MOB_TYPES.revenant.halfWidth * 2,
+  ghoul: MOB_TYPES.ghoul.halfWidth * 2,
+};
 
 // The bosses a belch can be spent in front of, which is where #37's story 12 is.
 const BOSS_PHASES: readonly PhaseName[] = ['banshee', 'undertaker'];
@@ -64,7 +73,19 @@ interface BatchIdentity {
   readonly seeds: number;
   readonly recordedAt: number;
   readonly commitHashes: readonly string[];
-  readonly mobWidths: Readonly<Record<string, number>>;
+  /**
+   * Every starting condition the batch's runs began from, read off the runs
+   * the way the commits are (#107). A batch played from one rig names one, and
+   * null is a run whose condition no rig holds.
+   */
+  readonly rigs: readonly (RigName | null)[];
+  readonly mobWidths: Readonly<Record<MobType, number>>;
+}
+
+// One run's answer to one reading, kept with its seed so a tail can be named.
+interface Sample {
+  readonly seed: number;
+  readonly value: number;
 }
 
 // One reading's spread across a batch, with the tail named rather than banded.
@@ -74,6 +95,16 @@ interface Spread {
   // The seeds behind the two extremes, so a tail is a run somebody can re-record.
   readonly minSeed: number;
   readonly maxSeed: number;
+  /**
+   * Every run's own value, in the order the batch walked them.
+   *
+   * The five numbers are a summary, and a summary is what the quartile band a
+   * direction is taken from can see. The tail is the thing ADR 0053 asks a
+   * batch to keep, and the tail is exactly what a band leaves out, so the raw
+   * values ride here: a rank test over two batches reads all of them, and a
+   * report is a file of tens of kilobytes beside megabytes of tapes.
+   */
+  readonly samples: readonly Sample[];
 }
 
 // A run whose tape did not verify, kept in the report rather than dropped (ADR 0019).
@@ -111,27 +142,7 @@ interface BatchReport {
   readonly phaseSpans: Readonly<Partial<Record<PhaseName, Spread>>>;
 }
 
-/**
- * How one reading on a verified report becomes a figure on a batch. Naming the
- * not-reduced kind is what gives the declaration guard teeth: a reading nobody
- * thought about is a hole, and a reading deliberately carried whole says so.
- */
-type BatchReduction =
-  // A number per run, printed as five numbers with the extreme seeds beside it.
-  | 'spread'
-  // A number per run under each weapon line, printed as one spread per line.
-  | 'perLine'
-  // Numbers under names per run; a name that is a line's is filed under it.
-  | 'byName'
-  // Names per run, counted rather than spread, because a name has no quartile.
-  | 'count'
-  // A series per run, reduced to that run's peak and then spread.
-  | 'peak'
-  // The section timeline, which a batch reads twice: the spans and the reach.
-  | 'phaseSpans'
-  // Carried whole rather than reduced, with the reason it is.
-  | 'notReduced';
-
+// A number per run, printed as five numbers with the extreme seeds beside it.
 interface SpreadDeclaration {
   readonly reading: string;
   readonly reduction: 'spread';
@@ -139,29 +150,41 @@ interface SpreadDeclaration {
   readonly numberOf: (report: Metrics) => number | undefined;
 }
 
+/**
+ * Numbers under names per run: one spread per weapon line where the reading is
+ * per line, and a name that is not a line's filed flat under the reading.
+ */
 interface NumbersDeclaration {
   readonly reading: string;
   readonly reduction: 'perLine' | 'byName';
   readonly numbersOf: (report: Metrics) => NumberRecord;
 }
 
+// Names per run, counted rather than spread, because a name has no quartile.
 interface CountDeclaration {
   readonly reading: string;
   readonly reduction: 'count';
   readonly namesOf: (report: Metrics) => readonly string[];
 }
 
+// A series per run, reduced to that run's peak and then spread.
 interface PeakDeclaration {
   readonly reading: string;
   readonly reduction: 'peak';
   readonly seriesOf: (report: Metrics) => readonly number[];
 }
 
+// The section timeline, which a batch reads twice: the spans and the reach.
 interface PhaseSpansDeclaration {
   readonly reading: string;
   readonly reduction: 'phaseSpans';
 }
 
+/**
+ * Carried whole rather than reduced, with the reason it is. Naming this kind
+ * is what gives the declaration guard teeth: a reading nobody thought about is
+ * a hole, and a reading deliberately carried whole says so.
+ */
 interface NotReducedDeclaration {
   readonly reading: string;
   readonly reduction: 'notReduced';
@@ -212,12 +235,26 @@ const notReduced = (reading: string, why: string): NotReducedDeclaration => ({
   why,
 });
 
-// How many of this run's belches landed inside the span, by the span's own ends.
-const firesInside = (report: Metrics, span: SectionSpan): number =>
-  report.tuning.belchCadence.fires.filter(
-    (fire) =>
-      fire.tick >= span.from && (span.to === null || fire.tick < span.to),
+/**
+ * How many of these ticks fall inside the span, by the span's own ends. A span
+ * still live at the tape's end is open at the top, so a tick after its start
+ * is inside it.
+ *
+ * It is the one piece of phase-crossing arithmetic the batch owns, and both
+ * readings that cross a phase are counted with it rather than each with its
+ * own copy.
+ */
+const ticksInside = (ticks: readonly number[], span: SectionSpan): number =>
+  ticks.filter(
+    (tick) => tick >= span.from && (span.to === null || tick < span.to),
   ).length;
+
+// How many of this run's belches landed inside the span.
+const firesInside = (report: Metrics, span: SectionSpan): number =>
+  ticksInside(
+    report.tuning.belchCadence.fires.map((fire) => fire.tick),
+    span,
+  );
 
 /**
  * The belch's own weight, as the whole run's fires and the fires inside each
@@ -236,6 +273,35 @@ const belchesByBoss = (report: Metrics): NumberRecord => {
   for (const span of report.tuning.sectionTimeline.spans) {
     if (!BOSS_PHASES.includes(span.phase)) continue;
     names[span.phase] = firesInside(report, span);
+  }
+  return names;
+};
+
+/**
+ * The power the run bought, over the run (#39's power-curve ruling).
+ *
+ * The count alone was what the batch used to read, which threw away the tick
+ * and the line every level-up carries and left nothing in the report showing
+ * power growing across a run. The rungs are counted against the run's own
+ * phase spans, on the belch's own precedent, because a phase is where the
+ * schedule authors its answer to that growth.
+ *
+ * A line that bought nothing reads zero rather than absent, on seedDamage's
+ * terms: the run held the line and it never levelled, which is a reading. The
+ * first tick is absent on a run that bought nothing at all, because there is
+ * no rung for it to be the tick of.
+ */
+const levelsBought = (report: Metrics): NumberRecord => {
+  const ticks = report.levelUps.map((rung) => rung.tick);
+  const names: Record<string, number | undefined> = {
+    rungs: ticks.length,
+    firstTick: leastOf(ticks),
+  };
+  for (const line of WEAPON_LINES) {
+    names[line] = report.levelUps.filter((rung) => rung.line === line).length;
+  }
+  for (const span of report.tuning.sectionTimeline.spans) {
+    names[`byPhase.${span.phase}`] = ticksInside(ticks, span);
   }
   return names;
 };
@@ -302,12 +368,26 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   // the belch's goes under its own name.
   byNameReading('damage', (report) => report.damage),
   perLineReading('endLevels', (report) => report.endLevels),
-  // The rungs the run bought. The rows have no index to pair across two runs,
-  // which is why the comparison table calls it a list; what a batch reads off a
-  // list is how long it is.
-  spreadReading('levelUps', (report) => report.levelUps.length),
+  // The rungs the run bought, when and on which line. The rows have no index
+  // to pair across two runs, which is why the comparison table calls it a
+  // list; what a batch reads off one is how many, how soon and where.
+  byNameReading('levelUps', levelsBought),
   peakReading('mobsAlivePerTick', (report) => report.mobsAlivePerTick),
   peakReading('mobFireAlivePerTick', (report) => report.mobFireAlivePerTick),
+  // What arrived, which is what the mow ruling tunes: the rate and the count
+  // per spawn, read per phase because that is where a schedule authors them.
+  spreadReading(
+    'tuning.arrivals.total',
+    (report) => report.tuning.arrivals.total,
+  ),
+  byNameReading(
+    'tuning.arrivals.byPhase',
+    (report) => report.tuning.arrivals.byPhase,
+  ),
+  byNameReading(
+    'tuning.arrivals.byType',
+    (report) => report.tuning.arrivals.byType,
+  ),
   spreadReading(
     'tuning.damageTaken.totalHits',
     (report) => report.tuning.damageTaken.totalHits,
@@ -550,15 +630,9 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   spreadReading('readbackFaults', (report) => report.readbackFaults.length),
   notReduced(
     'provenance',
-    "the hand is the batch's own configuration and every harness run carries the same exclusions",
+    "the hand is the batch's own configuration, the rig rides on the batch's own identity, and every harness run carries the same exclusions",
   ),
 ];
-
-// One run's answer to one reading, kept with its seed so a tail can be named.
-interface Sample {
-  readonly seed: number;
-  readonly value: number;
-}
 
 type Samples = Record<string, Sample[]>;
 
@@ -569,6 +643,7 @@ interface Collected {
   readonly counts: Record<string, Record<string, number>>;
   readonly phases: Partial<Record<PhaseName, Sample[]>>;
   readonly commitHashes: Set<string>;
+  readonly rigs: Set<RigName | null>;
 }
 
 const collected = (): Collected => ({
@@ -577,6 +652,7 @@ const collected = (): Collected => ({
   counts: {},
   phases: {},
   commitHashes: new Set(),
+  rigs: new Set(),
 });
 
 const addSample = (samples: Samples, name: string, sample: Sample): void => {
@@ -656,6 +732,7 @@ const fileTimeline = (acc: Collected, seed: number, report: Metrics): void => {
 // One verified run, offered to every declared reading in turn.
 const collectRun = (acc: Collected, seed: number, report: Metrics): void => {
   acc.commitHashes.add(report.identity.commitHash);
+  acc.rigs.add(report.provenance.rig);
   for (const declared of BATCH_READINGS) {
     if (declared.reduction === 'notReduced') continue;
     if (declared.reduction === 'phaseSpans') {
@@ -701,6 +778,7 @@ const spreadOf = (samples: readonly Sample[]): Spread | undefined => {
     summary,
     minSeed: seedOf(samples, summary.min),
     maxSeed: seedOf(samples, summary.max),
+    samples: [...samples],
   };
 };
 
@@ -775,6 +853,7 @@ const batchReportOf = (
       seeds: origin.seeds,
       recordedAt: origin.recordedAt,
       commitHashes: [...acc.commitHashes],
+      rigs: [...acc.rigs],
       mobWidths: MOB_WIDTHS,
     },
     readingsVersion: READINGS_VERSION,
@@ -788,13 +867,13 @@ const batchReportOf = (
   };
 };
 
-export { batchReportOf, BATCH_READINGS, BATCH_SEEDS, MOB_WIDTHS };
+export { batchReportOf, BATCH_READINGS, BATCH_SEEDS };
 export type {
   BatchIdentity,
   BatchOrigin,
-  BatchReduction,
   BatchReport,
   DeclaredBatchReading,
+  Sample,
   Spread,
   UnverifiedRun,
 };

@@ -26,6 +26,7 @@ import {
 } from '../compareBatches';
 import type { Direction } from '../compareBatches';
 import { measure } from '../measure';
+import type { ConfigurationName } from '../configurations';
 import type { Measurement, Metrics } from '../measure';
 import type { SectionSpan } from '../readings/sectionTimeline';
 
@@ -143,6 +144,36 @@ const rowsOn = (report: BatchReport): number =>
   ) +
   Object.keys(report.phaseSpans).length;
 
+/** The same four runs under a named hand, which is what a corner is. */
+const batchAs = (
+  configuration: ConfigurationName,
+  ticks: number,
+  kills: number,
+  score: number,
+): BatchReport =>
+  batchReportOf(
+    { ...ORIGIN, configuration },
+    [0, 1, 2, 3].map((offset) =>
+      runOf(900 + offset, {
+        ticks: ticks + offset,
+        kills: kills + offset,
+        score: score + offset,
+      }),
+    ),
+  );
+
+const batchUnder = (configuration: ConfigurationName, ticks: number) =>
+  batchAs(configuration, ticks, 0, 0);
+
+/** The same batch as though its tapes had been recorded against another build. */
+const againstCommit = (
+  report: BatchReport,
+  commitHash: string,
+): BatchReport => ({
+  ...report,
+  identity: { ...report.identity, commitHashes: [commitHash] },
+});
+
 const directionOn = (
   comparison: {
     readings: readonly { reading: string; direction: Direction }[];
@@ -233,7 +264,10 @@ describe('two batches compared', () => {
         tuning: {
           ...BASE.tuning,
           wakingSwallows: {
-            span: swallows === null ? null : { from: 10, to: 90, swallows },
+            span:
+              swallows === null
+                ? null
+                : { setPiece: 7, from: 10, to: 90, swallows },
           },
         },
       },
@@ -260,6 +294,84 @@ describe('two batches compared', () => {
     expect(row?.right).toEqual(opened.spreads[reading]);
   });
 
+  it('withholds every ordering when the two reports were read under two sets of definitions', () => {
+    // The tech gate's finding: the comparison was handed two reports each
+    // carrying a readings version and consulted neither, where compareRuns.ts
+    // withholds every delta on a mismatch and says so on its output. Both
+    // sides are real measurements taken under different definitions, so every
+    // spread is shown and only the arithmetic between them is withheld.
+    const left = batchFrom(10, 20, 10);
+    const right = batchFrom(20, 20, 10);
+
+    const comparison = compareBatches(left, {
+      ...right,
+      readingsVersion: right.readingsVersion + 1,
+    });
+
+    expect(comparison.mismatches).toEqual(['readingsVersion']);
+    expect(comparison.readingsVersions).toEqual({
+      left: left.readingsVersion,
+      right: right.readingsVersion + 1,
+    });
+    for (const row of comparison.readings) {
+      expect(row.direction, row.reading).toBe('withheld');
+      expect(row.rank, row.reading).toBe(undefined);
+    }
+    // The values are all still there: what was withheld is the arithmetic.
+    const ticks = comparison.readings.find(
+      (row) => row.reading === 'run.ticks',
+    );
+    expect(ticks?.left?.summary.min).toBe(10);
+    expect(ticks?.right?.summary.min).toBe(20);
+  });
+
+  it('withholds every ordering when the two batches were played by two hands', () => {
+    // A hand changed between two batches compares two builds through two
+    // instruments, which is the one thing the batch's grammar exists to
+    // prevent (the record's section 8). Nothing said so in code until now.
+    const comparison = compareBatches(
+      batchUnder('steady-far', 10),
+      batchUnder('shaky-short', 20),
+    );
+
+    expect(comparison.mismatches).toEqual(['configuration']);
+    expect(directionOn(comparison, 'run.ticks')).toBe('withheld');
+  });
+
+  it('withholds every ordering when the two batches were played from two rigs', () => {
+    // The rig is the other half of the instrument: a batch played from the
+    // birthright and one played maxed are two starting conditions, and #107 is
+    // the whole ticket about never banding two of those.
+    const left = batchFrom(10, 20, 10);
+    const right = batchFrom(20, 20, 10);
+
+    const comparison = compareBatches(left, {
+      ...right,
+      identity: { ...right.identity, rigs: ['maxed'] },
+    });
+
+    expect(comparison.mismatches).toEqual(['rig']);
+    expect(directionOn(comparison, 'run.ticks')).toBe('withheld');
+  });
+
+  it('carries a rank test over the raw samples beside every ordering', () => {
+    // The band a direction is taken from is five numbers, and the tail the
+    // report exists to keep is not in it. The rank test reads every value both
+    // batches recorded; what it does not do is decide the direction, which is
+    // still the two bands and the separation row.
+    const comparison = compareBatches(
+      batchOfTicks([10, 11, 12, 13]),
+      batchOfTicks([20, 21, 22, 23]),
+    );
+
+    const ticks = comparison.readings.find(
+      (row) => row.reading === 'run.ticks',
+    );
+    // Every one of the sixteen pairs is won by the right side.
+    expect(ticks?.rank).toEqual({ left: 4, right: 4, u: 16, rankBiserial: 1 });
+    expect(ticks?.direction).toBe('up');
+  });
+
   it('reads flat on every row when the two batches are the same', () => {
     // Module test 68. The identity case: two batches of the same figures order
     // nothing, so every row is flat and none of them is incomparable.
@@ -284,11 +396,18 @@ describe('the two corners read together', () => {
     // sloppy configurations agree on the ordering." A row where they differ
     // carries both directions rather than one of them, because which corner
     // saw what is the whole of what a split says.
-    const sharp = compareBatches(batchFrom(10, 20, 10), batchFrom(20, 20, 10));
-    const sloppy = compareBatches(batchFrom(10, 20, 10), batchFrom(20, 10, 10));
+    const sharp = compareBatches(
+      batchAs('steady-far', 10, 20, 10),
+      batchAs('steady-far', 20, 20, 10),
+    );
+    const sloppy = compareBatches(
+      batchAs('shaky-short', 10, 20, 10),
+      batchAs('shaky-short', 20, 10, 10),
+    );
 
-    const findings = readAcrossCorners(sharp, sloppy);
+    const { findings, mismatches } = readAcrossCorners(sharp, sloppy);
 
+    expect(mismatches).toEqual([]);
     const ticks = findings.find((one) => one.reading === 'run.ticks');
     expect(ticks).toEqual({
       reading: 'run.ticks',
@@ -311,18 +430,79 @@ describe('the two corners read together', () => {
     );
   });
 
+  it('withholds the agreement when the two corners were not played over the same two builds', () => {
+    // ADR 0053's "believed only where the two corners agree" rests on the two
+    // corners having read the same pair of builds. Handed one corner's before
+    // and after against another pair, the agreement says nothing, so it is
+    // withheld rather than printed as agreement.
+    const sharp = compareBatches(
+      batchAs('steady-far', 10, 20, 10),
+      batchAs('steady-far', 20, 20, 10),
+    );
+    const sloppy = compareBatches(
+      againstCommit(batchAs('shaky-short', 10, 20, 10), 'cc2286ef44'),
+      batchAs('shaky-short', 20, 20, 10),
+    );
+
+    const { mismatches, findings } = readAcrossCorners(sharp, sloppy);
+
+    expect(mismatches).toEqual(['leftBuild']);
+    for (const finding of findings) {
+      expect(finding.agreement, finding.reading).toBe('withheld');
+    }
+  });
+
+  it('withholds the agreement when both corners are the same hand', () => {
+    // Two corners are two hands. Handed one comparison twice, every row would
+    // agree with itself and the rule that a finding is believed where the
+    // corners agree would be satisfied by nothing at all.
+    const sharp = compareBatches(
+      batchAs('steady-far', 10, 20, 10),
+      batchAs('steady-far', 20, 20, 10),
+    );
+
+    const { mismatches, findings } = readAcrossCorners(sharp, sharp);
+
+    expect(mismatches).toEqual(['hand']);
+    expect(findings.every((one) => one.agreement === 'withheld')).toBe(true);
+  });
+
+  it('withholds the agreement when either corner withheld its own arithmetic', () => {
+    // A withheld comparison carries no direction to agree about, and two of
+    // them would otherwise read as agreement on every row.
+    const sharp = compareBatches(
+      batchAs('steady-far', 10, 20, 10),
+      batchAs('steady-far', 20, 20, 10),
+    );
+    const sloppyLeft = batchAs('shaky-short', 10, 20, 10);
+    const sloppy = compareBatches(sloppyLeft, {
+      ...batchAs('shaky-short', 20, 20, 10),
+      readingsVersion: sloppyLeft.readingsVersion + 1,
+    });
+
+    const { mismatches } = readAcrossCorners(sharp, sloppy);
+
+    expect(mismatches).toEqual(['comparison']);
+  });
+
   it('reads a reading only one corner ordered as incomparable at the other', () => {
     // A corner that never carried the reading said nothing about it, and
     // calling that flat would put a direction in a corner's mouth. It is the
     // same fourth direction module test 67 pins one batch against another.
-    const sharp = compareBatches(batchFrom(10, 20, 10), batchFrom(20, 20, 10));
-    const sloppy = compareBatches(batchFrom(10, 20, 10), batchFrom(20, 20, 10));
+    const sharp = compareBatches(
+      batchAs('steady-far', 10, 20, 10),
+      batchAs('steady-far', 20, 20, 10),
+    );
+    const sloppy = compareBatches(
+      batchAs('shaky-short', 10, 20, 10),
+      batchAs('shaky-short', 20, 20, 10),
+    );
     const trimmed = {
       ...sloppy,
       readings: sloppy.readings.filter((row) => row.reading !== 'run.ticks'),
     };
 
-    const findings = readAcrossCorners(sharp, trimmed);
+    const { findings } = readAcrossCorners(sharp, trimmed);
 
     expect(findings.find((one) => one.reading === 'run.ticks')).toEqual({
       reading: 'run.ticks',

@@ -24,7 +24,17 @@
  * are gone with the bite budget, and upfieldTraffic changed meaning: it
  * samples the field at the lay rather than at the swallow, so a version-1
  * band and a version-2 band answer different questions.
+ *
+ * Version 3: the readings step 4 tunes on (#39). Arrivals are new beside
+ * unchanged readings and would not move this on their own, and neither would
+ * the raw samples a spread now keeps. What moves it is the rungs a run bought:
+ * a batch used to print them as one row named `levelUps` and now prints the
+ * count, the first tick, the line and the phase under `levelUps.rungs` and its
+ * siblings. Every figure still means what it meant and no row can be
+ * subtracted from its predecessor by name, which is the case this version
+ * exists to make loud rather than leaving it to read as a reading one side
+ * happened not to carry.
  */
-const READINGS_VERSION = 2;
+const READINGS_VERSION = 3;
 
 export { READINGS_VERSION };

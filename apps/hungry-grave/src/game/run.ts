@@ -298,6 +298,7 @@ const clearRefusals = (state: RunState): void => {
 };
 
 export {
+  birthrightLevels,
   uniformLevels,
   isBirthrightLevels,
   createRun,

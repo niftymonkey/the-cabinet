@@ -321,6 +321,20 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     (report) => report.mobFireAlivePerTick,
     populationSummary,
   ),
+  // What arrived, which is the schedule's own side of the field: a rate and a
+  // count per spawn, where the population series is the survivor side.
+  scalarReading(
+    'tuning.arrivals.total',
+    (report) => report.tuning.arrivals.total,
+  ),
+  namedNumbersReading(
+    'tuning.arrivals.byPhase',
+    (report) => report.tuning.arrivals.byPhase,
+  ),
+  namedNumbersReading(
+    'tuning.arrivals.byType',
+    (report) => report.tuning.arrivals.byType,
+  ),
   scalarReading(
     'tuning.damageTaken.totalHits',
     (report) => report.tuning.damageTaken.totalHits,

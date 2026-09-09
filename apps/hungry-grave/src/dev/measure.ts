@@ -25,6 +25,8 @@ import { createReadings, readingsOf } from './readings/readings';
 import type { TuningReadings } from './readings/readings';
 import { linesInRun } from './readings/runLines';
 import { READINGS_VERSION } from './readingsVersion';
+import { rigOf } from './rigs';
+import type { RigName } from './rigs';
 import {
   createTallies,
   damageOf,
@@ -79,6 +81,13 @@ interface Provenance {
   readonly inputDevice: TapeInputDevice;
   // Which policy steered the run, carried off the header so a report says which hand it was.
   readonly policy: string;
+  /**
+   * Which starting condition the run began from, or null when no rig holds it
+   * (#107). A figure carries its rig beside its policy so two rigs are never
+   * banded as one measurement, and an unnamed condition says so rather than
+   * being filed under the nearest row.
+   */
+  readonly rig: RigName | null;
   /**
    * Whether the resolved starting size or levels differ from today's
    * birthright. A birthright retune mislabels old tapes toward exclusion,
@@ -203,6 +212,7 @@ const provenanceOf = (
 ): Provenance => ({
   inputDevice: tape.header.inputDevice,
   policy: tape.header.policy,
+  rig: rigOf(tape.header.startingSize, levels),
   conditioned: isConditioned(tape.header, levels),
   exclusions: exclusionsOf(tape, levels, recordedFaults),
 });

@@ -134,6 +134,27 @@ describe('the batch report', () => {
     }
   });
 
+  it("keeps every run's own value beside the five numbers", () => {
+    // The five numbers are a summary and the tail is the thing the report
+    // exists to keep, so a spread that threw the other forty-three values away
+    // could carry no rank test and no reading of its own tail. The values are
+    // kept with their seeds, in the order the runs were walked.
+    const report = batchReportOf(origin(4), [
+      runOfTicks(900, 30),
+      runOfTicks(901, 10),
+      runOfTicks(902, 90),
+      runOfTicks(903, 20),
+    ]);
+
+    expect(report.spreads['run.ticks'].samples).toEqual([
+      { seed: 900, value: 30 },
+      { seed: 901, value: 10 },
+      { seed: 902, value: 90 },
+      { seed: 903, value: 20 },
+    ]);
+    expect(report.spreads['run.ticks'].count).toBe(4);
+  });
+
   it('names the seeds that produced the smallest and the largest reading', () => {
     // Spec test 38. At forty-eight seeds the top five per cent is two runs, so
     // a band drawn over two runs would dress two numbers as a distribution. A
@@ -337,7 +358,10 @@ describe('the batch report', () => {
         tuning: {
           ...BASE.tuning,
           wakingSwallows: {
-            span: swallows === null ? null : { from: 10, to: 90, swallows },
+            span:
+              swallows === null
+                ? null
+                : { setPiece: 7, from: 10, to: 90, swallows },
           },
         },
       },
@@ -451,6 +475,52 @@ describe('the batch report', () => {
     expect(report.phaseSpans.crowd).toBe(undefined);
   });
 
+  it('reports the rungs a run bought, when it bought them and on which line', () => {
+    // #39, the power-curve ruling: nothing in the report showed power growing
+    // over a run, because the rung count dropped the tick and the line every
+    // level-up already carries. The phase is where the schedule authors its
+    // answer to that growth, so the rungs are read against the run's own spans
+    // the way the belch already is.
+    const levelled = (seed: number, lateTick: number): MeasuredRun => ({
+      seed,
+      measurement: {
+        ...BASE,
+        levelUps: [
+          { line: 'skullStream', level: 2, tick: 50 },
+          { line: 'skullStream', level: 3, tick: 150 },
+          { line: 'bell', level: 1, tick: lateTick },
+        ],
+        tuning: {
+          ...BASE.tuning,
+          sectionTimeline: {
+            spans: [
+              { phase: 'procession', from: 0, to: 100 },
+              { phase: 'banshee', from: 100, to: 200 },
+              { phase: 'crowd', from: 200, to: null },
+            ],
+          },
+        },
+      },
+    });
+
+    const report = batchReportOf(origin(2), [
+      levelled(900, 300),
+      levelled(901, 400),
+    ]);
+
+    expect(report.spreads['levelUps.rungs'].summary.median).toBe(3);
+    // The tick, as how long the run played before its first rung.
+    expect(report.spreads['levelUps.firstTick'].summary.min).toBe(50);
+    // Where the growth fell across the run, phase by phase.
+    expect(report.spreads['levelUps.byPhase.procession'].summary.max).toBe(1);
+    expect(report.spreads['levelUps.byPhase.banshee'].summary.max).toBe(1);
+    expect(report.spreads['levelUps.byPhase.crowd'].summary.max).toBe(1);
+    // And the line, which files under the line the way every per-line figure does.
+    expect(report.byLine.skullStream?.levelUps.summary.median).toBe(2);
+    expect(report.byLine.bell?.levelUps.summary.median).toBe(1);
+    expect(report.byLine.wisps?.levelUps.summary.median).toBe(0);
+  });
+
   it('counts the endings, the stops and the reach rather than spreading them', () => {
     // Module test 62. A name has no quartile, so the endings and the reach are
     // counted. The reach is whether the run entered the Undertaker's phase,
@@ -515,6 +585,31 @@ describe('the batch report', () => {
       'aa038cb310',
       'bb1194de22',
     ]);
+  });
+
+  it('names every rig its runs were played from, off the tapes themselves', () => {
+    // #107: a figure names the starting condition that produced it, and the
+    // identity is read off the runs for the same reason the commits are. A
+    // batch that spans two rigs says so instead of claiming one.
+    const from = (seed: number, rig: 'birthright' | 'maxed'): MeasuredRun => ({
+      seed,
+      measurement: {
+        ...BASE,
+        provenance: { ...BASE.provenance, rig },
+      },
+    });
+
+    const one = batchReportOf(origin(2), [
+      from(900, 'birthright'),
+      from(901, 'birthright'),
+    ]);
+    const two = batchReportOf(origin(2), [
+      from(900, 'birthright'),
+      from(901, 'maxed'),
+    ]);
+
+    expect(one.identity.rigs).toEqual(['birthright']);
+    expect([...two.identity.rigs].sort()).toEqual(['birthright', 'maxed']);
   });
 
   it("prints the grave's size spread beside the widths the build fields", () => {

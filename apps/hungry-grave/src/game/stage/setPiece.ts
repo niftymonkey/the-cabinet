@@ -211,7 +211,13 @@ const openIfDeepEnough = (piece: SetPiece): SimEvent[] => {
   if (piece.y < OPENS_BELOW) return [];
   piece.open = true;
   return [
-    { type: 'setPieceOpened', x: piece.x, y: piece.y, budget: piece.budget },
+    {
+      type: 'setPieceOpened',
+      id: piece.id,
+      x: piece.x,
+      y: piece.y,
+      budget: piece.budget,
+    },
   ];
 };
 

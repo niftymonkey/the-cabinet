@@ -97,6 +97,30 @@ describe('the Waking swallows', () => {
     expect(span.from).toBeLessThan(span.to!);
   });
 
+  it('names the source whose span it measured', () => {
+    // The tech gate's finding: the span opened on the first setPieceOpened and
+    // nothing on it said which source that was, so the day a second set piece
+    // lands this reading silently measures whichever opened first. It now says
+    // whose span it is, and a later opening is not folded into it.
+    const state = atTheSource();
+    const acc = createWakingSwallows();
+    const observe = watching(acc);
+    const first = state.setPiece!.id;
+
+    for (let tick = 0; tick < SOURCE_TICKS; tick++) {
+      if (state.setPiece?.open === true) break;
+      observe(advanceSetPiece(state));
+    }
+    expect(state.setPiece?.open).toBe(true);
+
+    // A second source, opening while the first one's span stands.
+    observe([
+      { type: 'setPieceOpened', id: first + 1, x: 10, y: 20, budget: 4 },
+    ]);
+
+    expect(wakingSwallowsOf(acc).span?.setPiece).toBe(first);
+  });
+
   it('reports no span at all for a run that never opened the Waking', () => {
     // The same terms as every other reading whose absence means the recording
     // cannot support it: a count of zero would say the grave ate nothing while

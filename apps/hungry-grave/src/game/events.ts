@@ -211,6 +211,13 @@ interface BossKilled {
  */
 interface SetPieceOpened {
   readonly type: 'setPieceOpened';
+  /**
+   * Which source opened, from the same counter every entity draws from. A
+   * reading that watched for the first opening alone would silently measure
+   * whichever set piece opened first the day a second one lands, and the id is
+   * what lets it name the one it measured instead.
+   */
+  readonly id: number;
   readonly x: number;
   readonly y: number;
   readonly budget: number;

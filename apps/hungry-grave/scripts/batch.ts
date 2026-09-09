@@ -29,6 +29,8 @@ import type { ConfigurationName } from '../src/dev/configurations';
 import { playHarnessRun } from '../src/dev/harnessRun';
 import { measure } from '../src/dev/measure';
 import type { Measurement } from '../src/dev/measure';
+import { isRigName, RIGS, RIG_NAMES } from '../src/dev/rigs';
+import type { RigName } from '../src/dev/rigs';
 import { SEED_LIMIT } from '../src/game/run';
 import { decodeTape } from '../src/tape/decode';
 
@@ -40,10 +42,19 @@ import { decodeTape } from '../src/tape/decode';
  */
 const DEFAULT_OUT_ROOT = 'local/batches';
 
-const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root]
+/**
+ * The rig a batch is played from when the command line names none: the
+ * birthright, which is what every batch this step played was played from, so
+ * an unchanged command still means what it meant (#107).
+ */
+const DEFAULT_RIG: RigName = 'birthright';
+
+const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root] [rig=<rig>]
   configurations: ${CONFIGURATION_NAMES.join(', ')}
+  rigs: ${RIG_NAMES.join(', ')}
   count defaults to ${BATCH_SEEDS}
-  out-root defaults to ${DEFAULT_OUT_ROOT}`;
+  out-root defaults to ${DEFAULT_OUT_ROOT}
+  rig defaults to ${DEFAULT_RIG}`;
 
 /**
  * A flawed argument is an external failure and the person holding the command
@@ -61,6 +72,22 @@ const wholeNumber = (raw: string): number | null => {
   if (raw.trim() === '') return null;
   const value = Number(raw);
   return Number.isInteger(value) ? value : null;
+};
+
+/**
+ * The rig the arguments name, or null once the name has been refused out loud.
+ *
+ * It is a keyed argument rather than a fifth position, in the shape
+ * record-conditioned.ts already uses for its own optional conditions: a rig
+ * behind three optional positions would be reached by naming two arguments
+ * nobody wanted to name.
+ */
+const parseRig = (raw: string | undefined): RigName | null => {
+  if (raw === undefined) return DEFAULT_RIG;
+  if (!isRigName(raw)) {
+    return refuse(`${raw} names no rig (the rigs are ${RIG_NAMES.join(', ')})`);
+  }
+  return raw;
 };
 
 /** The named configuration, or null once the argument has been refused out loud. */
@@ -133,8 +160,9 @@ const commitHashHere = (): string => {
 const folderFor = (
   outRoot: string,
   configuration: ConfigurationName,
+  rig: RigName,
   recordedAt: number,
-): string => join(outRoot, `${configuration}-${recordedAt}`);
+): string => join(outRoot, `${configuration}-${rig}-${recordedAt}`);
 
 /**
  * True once the bytes are on disk, or false once the path has been refused
@@ -177,6 +205,7 @@ interface MeasuredRun {
 const playInto = (
   folder: string,
   configuration: ConfigurationName,
+  rig: RigName,
   seeds: readonly number[],
   commitHash: string,
   recordedAt: number,
@@ -185,6 +214,7 @@ const playInto = (
   for (const seed of seeds) {
     const run = playHarnessRun(
       CONFIGURATIONS[configuration],
+      RIGS[rig],
       seed,
       commitHash,
       recordedAt,
@@ -252,9 +282,14 @@ const reportInto = (
   );
 };
 
+// The arguments split into the keyed rig and everything positional behind it.
+const RIG_ARGUMENT = /^rig=(.*)$/;
+
 const main = (): void => {
+  const given = process.argv.slice(2);
+  const keyed = given.find((argument) => RIG_ARGUMENT.test(argument));
   const [configurationRaw, seedRaw, countRaw, outRoot = DEFAULT_OUT_ROOT] =
-    process.argv.slice(2);
+    given.filter((argument) => argument !== keyed);
   if (configurationRaw === undefined || seedRaw === undefined) {
     console.error(USAGE);
     process.exitCode = 1;
@@ -262,6 +297,11 @@ const main = (): void => {
   }
   const configuration = parseConfiguration(configurationRaw);
   if (configuration === null) {
+    process.exitCode = 1;
+    return;
+  }
+  const rig = parseRig(keyed?.replace(RIG_ARGUMENT, '$1'));
+  if (rig === null) {
     process.exitCode = 1;
     return;
   }
@@ -278,7 +318,7 @@ const main = (): void => {
     return;
   }
   const recordedAt = Date.now();
-  const folder = folderFor(outRoot, configuration, recordedAt);
+  const folder = folderFor(outRoot, configuration, rig, recordedAt);
   if (!makeFolderOrRefuse(folder)) {
     process.exitCode = 1;
     return;
@@ -286,6 +326,7 @@ const main = (): void => {
   const runs = playInto(
     folder,
     configuration,
+    rig,
     seeds,
     commitHashHere(),
     recordedAt,

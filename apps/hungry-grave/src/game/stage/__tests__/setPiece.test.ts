@@ -271,6 +271,9 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
       expect(last.y).toBeLessThan(opensAt);
       expect(only(events, 'setPieceOpened')).toHaveLength(1);
       expect(only(events, 'setPieceOpened')[0].budget).toBe(SET_PIECE_BUDGET);
+      // Which source opened, so a reading over a run holding two of them names
+      // the one it measured rather than whichever opened first.
+      expect(only(events, 'setPieceOpened')[0].id).toBe(piece.id);
       return;
     }
     throw new Error('the source never opened');

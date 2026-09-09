@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { BATCH_SEEDS } from '../../src/dev/batchReport';
 import type { BatchReport } from '../../src/dev/batchReport';
 import { SHARP_HAND } from '../../src/dev/configurations';
+import { MAX_LEVEL, WEAPON_LINES } from '../../src/game/lines/roster';
 import { SEED_LIMIT } from '../../src/game/run';
 import { decodeTape } from '../../src/tape/decode';
 
@@ -141,6 +142,65 @@ describe('the batch command', () => {
       expect(result.stderr).toContain('no batch was played');
     },
     SUBPROCESS_BUDGET_MS,
+  );
+
+  it(
+    'refuses a rig nobody named, out loud, and plays nothing',
+    () => {
+      // #107: a rig is a name the table holds or it is refused here, so no
+      // figure the harness produces can carry a starting condition nobody
+      // declared.
+      const root = emptyRoot();
+      const result = runBatch(
+        SHARP_HAND,
+        String(FIRST_SEED),
+        '1',
+        root,
+        'rig=ceiling',
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toContain('ceiling');
+      expect(result.stderr).toContain('no batch was played');
+      expect(result.stderr).not.toMatch(/^\s+at /m);
+      expect(readdirSync(root)).toEqual([]);
+    },
+    SUBPROCESS_BUDGET_MS,
+  );
+
+  it(
+    'plays the rig the command names, and says so in the folder and the report',
+    () => {
+      // #107 and #39: the pinned-build rig is one argument, and what it moves
+      // is where the run starts rather than how it is played. The report names
+      // it because the tapes do.
+      const root = emptyRoot();
+      const result = runBatch(
+        SHARP_HAND,
+        String(FIRST_SEED),
+        '1',
+        root,
+        'rig=maxed',
+      );
+
+      expect(result.status).toBe(0);
+      const folder = result.stdout.trimEnd();
+      expect(folder).toContain('maxed');
+
+      const { header } = decodeTape(
+        new Uint8Array(readFileSync(join(folder, `${FIRST_SEED}.tape`))),
+      ).tape;
+      for (const line of WEAPON_LINES) {
+        expect(header.startingLevels[line]).toBe(MAX_LEVEL);
+      }
+
+      const report: BatchReport = JSON.parse(
+        readFileSync(join(folder, 'report.json'), 'utf8'),
+      );
+      expect(report.identity.rigs).toEqual(['maxed']);
+    },
+    PLAYED_BATCH_BUDGET_MS,
   );
 
   it(

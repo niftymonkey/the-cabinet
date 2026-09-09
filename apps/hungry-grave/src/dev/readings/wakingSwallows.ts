@@ -15,6 +15,13 @@ import type { SimEvent } from '../../game/events';
  * clock off phaseChanged, so the two are not subtracted from each other.
  */
 interface WakingSpan {
+  /**
+   * Which source this span belongs to, off the opening event. There is one set
+   * piece today and the reading measures the first that opens, so without the
+   * id on the span nothing would say which one that was the day a second set
+   * piece lands.
+   */
+  readonly setPiece: number;
   readonly from: number;
   readonly to: number | null;
   readonly swallows: number;
@@ -34,6 +41,7 @@ interface WakingSwallows {
 }
 
 interface OpenSpan {
+  readonly setPiece: number;
   readonly from: number;
   to: number | null;
   swallows: number;
@@ -49,7 +57,8 @@ const createWakingSwallows = (): WakingSwallowsAcc => ({ span: null });
  * One tick of the pour. The source is placed once and closes once (`stage.ts`
  * places it only while none stands), so a second opening would be a second
  * Waking and this reading counts the first: the span it holds is the one the
- * phase table's own boundary events bound.
+ * phase table's own boundary events bound, and it names which source that was
+ * rather than leaving a later reader to assume there was only ever one.
  */
 const observeWakingSwallows = (
   acc: WakingSwallowsAcc,
@@ -58,7 +67,7 @@ const observeWakingSwallows = (
 ): void => {
   for (const event of events) {
     if (event.type === 'setPieceOpened' && acc.span === null) {
-      acc.span = { from: tick, to: null, swallows: 0 };
+      acc.span = { setPiece: event.id, from: tick, to: null, swallows: 0 };
       continue;
     }
     if (acc.span === null || acc.span.to !== null) continue;
@@ -71,7 +80,12 @@ const wakingSwallowsOf = (acc: WakingSwallowsAcc): WakingSwallows => ({
   span:
     acc.span === null
       ? null
-      : { from: acc.span.from, to: acc.span.to, swallows: acc.span.swallows },
+      : {
+          setPiece: acc.span.setPiece,
+          from: acc.span.from,
+          to: acc.span.to,
+          swallows: acc.span.swallows,
+        },
 });
 
 export { createWakingSwallows, observeWakingSwallows, wakingSwallowsOf };

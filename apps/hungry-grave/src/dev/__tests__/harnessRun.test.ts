@@ -14,6 +14,7 @@ import { FIELD_HEIGHT } from '../../game/field';
 import {
   BIRTHRIGHT,
   BIRTHRIGHT_LEVEL,
+  MAX_LEVEL,
   WEAPON_LINES,
 } from '../../game/lines/roster';
 import {
@@ -30,6 +31,7 @@ import { RECORDER_CHECKPOINT_SPACING } from '../../tape/recorder';
 import { CONFIGURATIONS, SHARP_HAND } from '../configurations';
 import { playHarnessRun, runTickBudget, RUN_TICK_SLACK } from '../harnessRun';
 import { measure } from '../measure';
+import { RIGS } from '../rigs';
 
 /** The one row this slice ships, which is the sharp corner. */
 const SHARP = CONFIGURATIONS[SHARP_HAND];
@@ -57,7 +59,13 @@ const ONE_PLAYED_AND_REPLAYED_RUN_MS = 60_000;
 let played: ReturnType<typeof playHarnessRun> | null = null;
 
 const sealingRun = () => {
-  played ??= playHarnessRun(SHARP, SEALING_SEED, COMMIT_HASH, RECORDED_AT);
+  played ??= playHarnessRun(
+    SHARP,
+    RIGS.birthright,
+    SEALING_SEED,
+    COMMIT_HASH,
+    RECORDED_AT,
+  );
   return played;
 };
 
@@ -194,11 +202,40 @@ describe('the harness run', () => {
       // Played twice, the same seed under the same hand writes the same bytes.
       const again = playHarnessRun(
         SHARP,
+        RIGS.birthright,
         SEALING_SEED,
         COMMIT_HASH,
         RECORDED_AT,
       );
       expect(again.bytes).toEqual(run.bytes);
+    },
+    ONE_PLAYED_AND_REPLAYED_RUN_MS,
+  );
+
+  it(
+    'starts from the build its rig names, and plays a different run for it',
+    () => {
+      // The pinned-build rig (#107, #39): every reading step 4 tunes on came
+      // from a run that started at the birthright, where the power-curve
+      // ruling is about the maxed end. The rig is what moves a batch there,
+      // and the hand's policy is untouched by which end it starts from.
+      const maxed = playHarnessRun(
+        SHARP,
+        RIGS.maxed,
+        SEALING_SEED,
+        COMMIT_HASH,
+        RECORDED_AT,
+      );
+      const { header } = decodeTape(maxed.bytes).tape;
+
+      expect(maxed.rig).toBe('maxed');
+      expect(header.startingSize).toBe(RIGS.maxed.startingSize);
+      for (const line of WEAPON_LINES) {
+        expect(header.startingLevels[line]).toBe(MAX_LEVEL);
+      }
+      // It reached the sim rather than only the header: the same seed under
+      // the same hand from two rigs is two runs.
+      expect(maxed.bytes).not.toEqual(sealingRun().bytes);
     },
     ONE_PLAYED_AND_REPLAYED_RUN_MS,
   );

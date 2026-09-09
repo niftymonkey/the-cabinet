@@ -1,4 +1,5 @@
-// One harness run, played under one configuration and sealed to bytes (ADR 0017, ADR 0053).
+// One harness run, played under one configuration from one rig and sealed to
+// bytes (ADR 0017, ADR 0053).
 
 import { TICK_HZ } from '../game/clock';
 import { createExecution } from '../game/execution';
@@ -25,6 +26,7 @@ import type { TapeHeader } from '../tape/tape';
 import { runPolicy } from './bot';
 import type { Configuration, ConfigurationName } from './configurations';
 import { harnessPolicy } from './harnessPolicy';
+import type { Rig, RigName } from './rigs';
 
 /**
  * How much longer than the authored rows a run may play, because a phase
@@ -79,14 +81,15 @@ const runTickBudget = (): number =>
 interface HarnessRun {
   readonly seed: number;
   readonly configuration: ConfigurationName;
+  readonly rig: RigName;
   readonly bytes: Uint8Array;
   readonly ticks: number;
   readonly ending: RunEnding | null;
 }
 
 /**
- * The harness rig's header: the birthright start, the hand that steered, and
- * the two facts only the shell can answer.
+ * The header: the rig's own start, the hand that steered, and the two facts
+ * only the shell can answer.
  *
  * It is the second copy of a headless header literal in the tree beside
  * record-conditioned.ts's, which the rule of three allows; a third copy is the
@@ -125,20 +128,23 @@ const harnessHeader = (
 };
 
 /**
- * Plays one seed under one configuration through the one execution authority
- * and seals it (ADR 0017), returning the bytes a tape file holds and never
- * writing them: the filesystem is the shell's.
+ * Plays one seed under one configuration from one rig through the one
+ * execution authority and seals it (ADR 0017), returning the bytes a tape file
+ * holds and never writing them: the filesystem is the shell's.
  *
- * The rig is the harness rig, the only one that starts at the birthright,
- * which is what #98 asks the hand to play out of.
+ * The rig is an argument and never a default, so every figure the harness
+ * produces names the starting condition behind it (#107). It moves what a run
+ * begins holding and nothing about how it is played: the hand's policy is the
+ * configuration's, whichever rig it starts from.
  */
 const playHarnessRun = (
   configuration: Configuration,
+  rig: Rig,
   seed: number,
   commitHash: string,
   recordedAt: number,
 ): HarnessRun => {
-  const run = createRun(seed);
+  const run = createRun(seed, rig.startingSize, rig.startingLevels);
   const execution = createExecution(run);
   const recorder = recordInto(
     execution,
@@ -155,6 +161,7 @@ const playHarnessRun = (
   return {
     seed,
     configuration: configuration.name,
+    rig: rig.name,
     bytes: encodeTape(tapeOf(recorder)),
     ticks,
     ending: run.ending,
