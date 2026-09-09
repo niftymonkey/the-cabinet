@@ -80,6 +80,7 @@ Every other section 9 item is carried by a slice: 1 by slice 2's glossary commit
 | 14 | `c2a2ac3e52` | feat(hungry-grave): both bosses are drawn and boss fire draws in its own kind (#97) |
 | Adjustment iteration 2 | `e636411950` | feat(hungry-grave): the Waking rides the ground at the field's own scroll (#97) |
 | Adjustment iteration 3 | `d58448a6e3` | feat(hungry-grave): a body that appears inside the field arrives before it can touch the grave (#97) |
+| 15 and 16 | `715575a37d` | test(hungry-grave): the curtain's coverage is filled and each full-build seed carries its own budget (#97) |
 
 Slice 0 records the baseline tapes and makes no commit. Ground adjustment 1 is not in the plan's section 10: it is an iteration on slice 13b that Mark asked for on 2026-09-08 after playing the 13b deploy on his phone, and it runs as a slice of its own. Adjustment iteration 2 is not in it either: it is an iteration on slice 10 that Mark ruled on 2026-09-08 after adjustment 1 changed what the Waking's source sits in, and it runs as a slice of its own too.
 
@@ -119,9 +120,13 @@ Ground adjustment 1: none, and none was possible. Nothing under `src/game` is in
 
 Slice 14: none, and none was possible. Nothing under `src/game` is in the commit at all: what it holds is two renderer modules, the shot sprite, the field renderer's own sync, the two screens that attach the boss, and three test files. A renderer reads the run and never writes to it, so nothing the digest folds can have moved; `src/dev/digest.ts` is not in the commit and the digest test is green.
 
+Slices 15 and 16: none, and the pass required none. The commit holds two test files and no production code at all, so nothing the digest reads can have moved; `src/dev/digest.ts` is not in the commit and both digest suites are green, `src/game/__tests__/digest.test.ts`'s seven and `src/dev/__tests__/digest.test.ts`'s one.
+
 Adjustment iteration 2: **none, and its prompt is wrong to expect otherwise.** The commit moves three rows and two behaviour sites, all of them the Waking's, and `GOLDEN`'s scenario is 600 ticks from `SEED` 20260820 (`digest.ts:18-19`), which is inside the Procession with the source two sections and a fight past it. Nothing the digest folds can have moved; `src/dev/digest.ts` is not in the commit and the digest test is green. What did move, and what section 25 names field by field, is the seed 101 tape: the source's placement tick, its own positions, the poured bodies' positions and the reading of the Waking. Nothing before tick 15726 moved, and that is a `foldWitness` checksum measured in both trees rather than a claim.
 
 ## 3. CodeRabbit
+
+Slices 15 and 16: one run of `coderabbit review --agent --uncommitted` over the two staged files, **zero findings**. Nothing applied and nothing declined.
 
 Slice 1: `coderabbit review --agent --uncommitted` on the staged work, all eighteen files reviewed, **zero findings**. Nothing applied and nothing declined.
 
@@ -310,6 +315,13 @@ Five from adjustment iteration 2, and all five are the dispatching session's own
 75. **The prompt says ADR 0050 names the slower parallax and it does not, which it half suspected.** Nor does it name the mid-field opening: both phrases are decision 25's (`decisions.md:103`), and ADR 0050 is two kilobytes that mention neither. No ADR moved. Two code comments cited ADR 0050 for "it opens around mid-field", in `rows.ts` and `setPiece.ts`, and both are rewritten in this commit, because the sentence they quoted is the one Mark's ruling supersedes and it was never in the ADR they credited.
 76. **The prompt's parenthetical that thirty units of margin is "under one pour interval" is the wrong way round**: thirty units is forty-seven ticks of fall against a twelve-tick interval, so it is nearly four. The rule the same sentence states, at least one pour interval of margin, is what the new test holds. Separately, the prompt's "the run's clock before and after the Waking is unchanged" is true before it and false after it, and section 25 measures how much and says why.
 
+Five from slices 15 and 16, and the first is the assignment the prompt already suspected.
+
+77. **The plan's slice 15 assigns an extension to fence 110 that had already landed**, which item 41 above records from the other side. `AUTHORED_MOMENT_MODULES` in `lineAgnosticPolicies.test.ts` sweeps `src/game/bosses/*.ts` off the folder and names `src/game/stage/setPiece.ts`, and the five tests under `no boss and no set piece names a weapon line` are green, the sweep guard among them. Slice 15 wrote no code, which is why it was dispatched with 16.
+78. **`boundary.test.ts:247` is not a stale todo, it is a dormant guard, and it names no folder today.** The prompt reads it as "a todo for a folder that does not exist yet"; it is an `it.todo` inside the `BOUNDARIES` loop, reached only when a declared root's folder is absent (`if (!existsSync(root))`). All six declared roots exist, `game`, `input`, `dev`, `tape`, the `app/sound.ts` single-file entry and `app/ui`, so the branch never runs and `boundary.test.ts` reports no todo at all. Both todos the suite counts are `palette.test.ts`'s. Nothing was left; there was nothing there to leave.
+79. **The prompt's `local/step2/tests-baseline.txt` is at the worktree root and `apps/hungry-grave/local/step2` is a different folder with the same name.** The app-level one holds slice 11's and 13b's tapes and measure output. Both baselines were located before the diff was read, and the diff is against the worktree-root file the note's section 6 names.
+80. **`fireCore` does not clear APCA Lc 45 against the Banshee's own body, and no test asks it to.** `BACKGROUNDS` in `palette.test.ts` lists the four grounds and the three stand-in ground entries, and it was written before anything drew a boss; a boss body sits in `mobBodies`, which is under `mobFire` in `LAYER_ORDER`, so every tear she throws crosses it. Measured at the tip: `fireCore` against `banshee` is **Lc 39.59** against the file's own `CORE_MIN_LC` of 45, and against `bansheeDark` 69.92, `undertaker` 72.35, `undertakerDark` 93.96. The curtain's own pair is the half that passes and is what the filled todo holds; the Banshee's is a finding and is not fixed here, because moving a palette entry is ADR 0014's decision and not a verification pass's. **Trigger: the art pass at #38, or the first time Mark loses a tear on her body.**
+81. **Verification step 9's eight-to-ten-minute band still holds on no hand, and the maxed one now misses it from below.** Item 47 measured 7.18 minutes and 10.70 at slice 11; the tip's seed 101 tape under the same hand is **26691 ticks, 7.41 minutes**, and step 7's own rig (`runPolicy`, which feeds the policy the tick's own events) runs seeds 404 and 505 to **47455 and 51600 ticks, 13.2 and 14.3 minutes**. The stage data did not move: the Procession, the Crowd and the Waking are identical to adjustment 2's measurement. What varies is the Vigil and the Undertaker fight, which are play. **It is the tuning pass's question (#31, #36) and nothing here retuned a row.**
 
 ## 5. Gate corrections
 
@@ -536,6 +548,25 @@ Adjustment iteration 2, from the plan's section 3:
 - **Step 6, GOLDEN.** Did not move, and could not. See section 2, and note that this adjustment's own prompt says it does.
 - **Step 11, the rendered check.** **Ran, on the built app through `pnpm exec vite preview` and never the dev server, through the pinned-replay path.** Three shots off three tapes recorded under the maxed dodge bot at seed 101, two of the dormant approach and one mid-pour, with the dormant pair matched over every offset in both axes rather than eyeballed. What they showed, and the one criterion in the prompt that no build keeping the authored sweep could meet, is in section 25.
 - **Steps 7 to 10 and 12 to 14** belong to other slices and were not re-run here. **Steps 16 to 22 are Mark's and stay open**, and this adjustment sharpens one of them: **step 19, whether the Waking reads as heaven rather than as a wall**, is now about a moment that lasts twenty seconds rather than thirty-five, and whether that is still a moment is a hand question. It also adds one of Mark's own: whether the eye reads as sitting in the ground on his phone, which is what the ruling was for.
+
+Slices 15 and 16, the step's closing pass. Every agent-actor step of the plan's section 3, all fifteen, run at the branch tip so the step's record is one measurement of one tree. Section 27 carries the tables and the reads; what is below is each step and its result.
+
+- **Step 1, unit tests.** Green. 120 files, 1654 passed, 10 expected fail, 2 todo. Run alone on a machine at load average 2.6.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 3, `pnpm build`.** Green, lint and typecheck included. Its two warnings are the two standing ones, `@pixi/sound` statically imported beside its dynamic import (#50) and the pixi chunk over 500 kB.
+- **Step 4, `pnpm verify` at the repo root. Green twice, exit 0, and the timeout the prompt hands forward is fixed at the cause rather than waited out.** The pre-existing red was `rows.test.ts`'s `pays a full build to a run that kills every carrier before the set piece`, one test playing three whole two-section runs: 1619 ms alone at the tip and 5051 to 6150 ms under `verify`, where the two workspaces' suites run at once. **What it is now is one test per seed**, the shape `bot.test.ts`'s whole-run claims already take, at 612, 473 and 445 ms each. The promise is unchanged: the same three seeds, the same three assertions, and a per-seed name so a failure says which seed. A stated timeout was the other option the prompt allows and `bot.test.ts` has the precedent for it (`FIVE_MAXED_RUNS_MS`, 30000, on five cached maxed runs); it was not taken because these three runs are independent and splitting them needs no number to justify, where a timeout would have invented one.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step2/tests-baseline.txt`. The whole diff is **268 added and 27 removed**, and **all 27 removals belong to slices 2, 3, 5, 7, 8 and 9 and are already accounted for above**. This pass's own share is **4 added and 1 gone**. The four: three per-seed `pays a full build to a run that kills every carrier before the set piece on seed N` in `rows.test.ts`, and `covers the Undertaker's curtain, which draws in the clod emitter and reddens nothing` in `palette.test.ts`. **The one gone is the un-split name**, which slice 4 added and which never reached the baseline, so it shows as one of slice 4's additions no longer present rather than as a removal. The suite's todo count falls 3 to 2 with the filled todo; `vitest list` still reports no `test.todo`.
+- **Step 6, GOLDEN.** Did not move, and could not: the commit holds no production code. See section 2.
+- **Step 7, the headless run to victory, under the dodge bot at maxed levels.** **Ran, and passed on all five seeds.** Victory fires behind the Undertaker's own `bossKilled` on the same tick on every one, with no fault recorded. Ticks: seed 101 **27984**, 202 **26250**, 303 **26422**, 404 **47455**, 505 **51600**.
+- **Step 8, the headless run to sealed shut.** **Ran, and passed on all five seeds**, in the order `scoreBled`, `weaponStripped`, `sealed`. The rig stands in the Undertaker's fight above the birthright with score on it, which slice 9's finding 35 measured the reason for; every line ends back at the birthright. Ticks, identical on all five seeds because the pinned fight is what varies and the seed is not: `scoreBled` at 1233, `weaponStripped` at 1258 and again at 1298, `sealed` at 1328.
+- **Step 9, the section timeline, read off a tape recorded at the tip.** **Ran.** Four of its five criteria pass and the clock does not, from below this time. The table is in section 27. `record-conditioned.ts` was run first and slice 11's finding 46 still holds at the tip: its fixed wander sealed inside the Procession on seed 101 with every line at level 5, and the reading reported the one open span that says so.
+- **Step 10, the old-tape decode check.** **Ran, and passed.** `measure.ts` on both slice 0 baseline tapes returns `{"outcome":"witnessVersionMismatch","tapeWitnessVersion":5,"readerWitnessVersion":6}`. `WITNESS_VERSION` is 6 and did not move.
+- **Step 11, the rendered check, per section and per boss.** **Ran, on the built app through `pnpm exec vite preview` and never the dev server, through the pinned-replay path.** All eight shots taken and read, each off its own tape recorded at the tip to end on the tick the shot wanted. Section 27 has each read and its pixel counts, and which reads were not obtained.
+- **Step 12, the grayscale check at target density.** **Ran**, on the Crowd's densest moment and the Waking's pour, both frames rewritten in Rec.709 luma alone. The separation is measured rather than eyeballed and is in section 27.
+- **Step 13, the music loop gap.** **Not re-run, and nothing asks for it.** The audio path has not changed since slice 12b measured it: `git diff f23d8eb162 HEAD` names no file under `src/app/sound.ts`, `src/engine/audio/`, or `raw-assets/music`, and the one change to `src/main.ts` is the stand-in art power slice 13b added beside `musicChannel`, which the channel does not read. Section 20's six rows stand.
+- **Step 14, every layer name unchanged.** Green. `src/app/__tests__/layering.test.ts` passes with `ADR_0014_STACK` and `LAYER_ORDER`'s length untouched, and `layering.ts` is not in the commit.
+- **Step 15, fences and invariants.** Green, and this is slice 15. Each fence is named by its own test title in section 27.
+- **Steps 16 to 22 are Mark's and stay open.** Section 27 says which of them the deployed build lets him answer now.
 
 ## 8. Slice 1, the rows module
 
@@ -1076,3 +1107,92 @@ The apply-now finding of the game design gate that reviewed adjustment iteration
 **One thing the gate cannot see, so it is written here.** `apps/hungry-grave/docs/` is on the prettier ignore list, with the reason beside it: the design record is hand-shaped prose and prettier's table padding makes it worse to edit. Running `prettier --write` on a named path under it still rewrites the file, ignore list or not, and it repadded every row of section 1's table. The churn was reverted rather than committed. **Nothing under `docs/` is ever handed to prettier by name.**
 
 **Instruments deleted.** `local/adj3-probe.ts` and `local/adj3-play.ts` are gone, and so is the detached before-tree; `local/` is excluded from version control, so neither reached a commit. `local/slice13b-record.ts` is still there, untouched, as sections 24 and 25 record.
+
+## 27. Slices 15 and 16, the fences and the verification pass
+
+The step's closing pass. It writes no production feature: it confirms the fences, fills one stale todo, fixes at the cause the one timeout the branch tip carried, and runs every agent-actor step of the plan's section 3 at the tip so the step's record is one measurement of one tree.
+
+### Slice 15, the seven fences, each named by its own test
+
+All four files green together: 109 passed, 2 todo. No fence was edited.
+
+| Fence | File | The test, by title |
+| --- | --- | --- |
+| 110 | `src/__tests__/lineAgnosticPolicies.test.ts` | `no boss and no set piece names a weapon line` over `banshee.ts`, `chunks.ts`, `undertaker.ts` and `setPiece.ts`, plus `holds every boss module in the sweep, so one cannot arrive outside it` |
+| 111 | `src/__tests__/boundary.test.ts` | `the core has no import cycle > carries no value-import cycle beyond the ones written down` |
+| 112 | `src/__tests__/boundary.test.ts` | `the rendering-import boundary > src/game imports only from src/game` |
+| 113 | `src/app/__tests__/layering.test.ts` | `LAYER_ORDER (ADR 0014) > reversed is the ADR's stack as the ADR states it, top to bottom`, with `FieldLayers > holds one container per name, in LAYER_ORDER order` holding the count |
+| 114 | `src/app/__tests__/palette.test.ts` | `the source scan over the modules that draw during a run (ADR 0014) > reaches no MENU colour, writes no colour literal, and sets no blendMode` |
+| 122 | `src/app/__tests__/palette.test.ts` | `the grayscale import over the stand-in art (#38, ADR 0014) > leaves no pixel with a hue in any sprite or tile it staged`, beside `leaves every sprite and tile reaching the top of the value range, so a tint is a colour` |
+| 124 | `src/__tests__/lineAgnosticPolicies.test.ts` | `no weapon line walks the mob pool` over `storm.ts`, `belch.ts`, `bell.ts`, `territory.ts` and `wisps.ts`, plus `holds every line in the pool, so a fifth cannot arrive outside the fence` |
+
+Fence 110 needed no extension: item 77 in section 4 records that the plan's slice 15 assigned work slice 6 had already done.
+
+### The stale todo filled, and what it now holds
+
+`palette.test.ts`'s `covers the Undertaker's curtain, which arrives at dispatch 6 and must redden nothing` was dated when `clod` was a palette entry with no drawer. The Undertaker has thrown curtains since slice 8 and they draw in their own kind since slice 14, so the entry has a drawer and the coverage is due. It is filled as **`covers the Undertaker's curtain, which draws in the clod emitter and reddens nothing`**, and it holds two things: that `clod` is one of the emitters the band's assertions sweep and satisfies each of them, and that the curtain's core clears assertion 8's own Lc 45 against **the body it is thrown from**, which is a background `BACKGROUNDS` does not carry because that list was written before anything drew a boss. `undertaker` reads Lc 72.35 and `undertakerDark` 93.96, so the curtain passes. The Banshee's own body does not, at Lc 39.59, and that is item 80 in section 4 with its trigger rather than a palette entry moved here.
+
+`boundary.test.ts:247` is item 78: a dormant guard rather than a stale todo, naming no folder today. `palette.test.ts`'s `covers src/app/ui, whose widgets draw over the field and are dressed at #38` stays a todo; #38 owns it.
+
+### The timeout, fixed at the cause
+
+`pays a full build to a run that kills every carrier before the set piece` played **three whole two-section runs inside one test**: 1619 ms alone and 5051 to 6150 ms under `pnpm verify`, where the two workspaces' suites run at once and it crossed vitest's 5000 ms default. It is one test per seed now, 612, 473 and 445 ms, which is the `on seed N` shape `bot.test.ts` already gives every whole-run claim. Nothing was weakened: the same three seeds, the same three assertions, one budget each, and a failure that names its seed. `pnpm verify` is green twice at the tip, exit 0.
+
+### The section timeline, off a tape recorded at the tip
+
+Seed 101, 40000 ticks under the maxed dodge bot through `local/slice13b-record.ts`, measured with `scripts/measure.ts`.
+
+| Phase | From | To | Ticks | Seconds | Alive at its first tick |
+| --- | --- | --- | --- | --- | --- |
+| procession | 0 | 7284 | 7284 | 121.4 | 0 |
+| banshee | 7284 | 8526 | 1242 | 20.7 | **0** |
+| crowd | 8526 | 16927 | 8401 | 140.0 | 0 |
+| waking | 16927 | 17827 | 900 | 15.0 | 21 |
+| vigil | 17827 | 22703 | 4876 | 81.3 | 7 |
+| undertaker | 22703 | 26691 | 3988 | 66.5 | **0** |
+| over | 26691 | victory | | | |
+
+Seven phases in order; the Procession (121.4 s) shorter than the Crowd (140.0 s); the Vigil (81.3 s) shorter than the Procession; both boss phases beginning on a tick with zero live mobs, and the Waking beginning in traffic, which is ADR 0051's own asymmetry visible in one column. **The clock is the criterion that fails**: 26691 ticks is 7.41 minutes against the eight-to-ten band. Item 81 carries it with the other hands' figures and its trigger; nothing was retuned.
+
+Every boundary is identical to adjustment iteration 2's and adjustment 3's measurement of the same seed, which is what says those two cost this hand nothing: 7284, 8526, 16927, 17827, 22703, 26691.
+
+### What the rendered check showed, each read
+
+Eight shots, each off its own tape recorded at the tip to end on the tick it wanted, rendered through `#/replay?tape=...&at=` on the built app under `pnpm exec vite preview` at 1440 by 900. Every read below was **counted rather than eyeballed**: a `pngjs` script counted, over the whole frame, the pixels matching each declared hex.
+
+- **The Procession, tick 4260, one template live over its own dressing.** A file of green bodies down the middle over grey statues, urns and a cliff, with corpses behind them. **1847 pixels of `mob`, 33 of `fireTrash`, and not one of any boss, boss-fire or ground-tint colour.** The section a player already knows.
+- **The Crowd, tick 16500, two templates overlapping over its dressing.** Four groups on screen at once, two of them overlapping top right, over the Crowd's own green vein and eye dressing. **9956 pixels of `mob`, 5.4 times the Procession's, and 212 of `fireTrash`.** Density is the difference and the count is what says so.
+- **The Vigil, tick 20983, with the tint departure.** **7016 pixels of `standInVigilTint`** in amalgam arcs, tentacles, floating rocks and eyes, against **837 of `mob`**, a fifth of the Crowd's. Fewer, tougher bodies over the run's one colour addition, and it is unmistakably a third place.
+- **The Banshee mid-chunk-one, tick 7560.** A pale mint shroud with a ragged hem, two dark eye hollows and the dark oval of the wail, high in an empty field, with her tear-ring expanding around her and one clean gap in it at the lower left. **5974 pixels of `banshee`, 914 of `bansheeDark`, 611 of `fireTear` and zero of `fireTrash`.**
+- **The Wall arriving, tick 8700.** A rank of twenty-two bodies across the whole top edge, **9727 pixels of `mob`**, with her last tears still in flight beneath it, **841 of `fireTear` and zero `fireTrash`**. The reservoir is full and that is measured in the sim rather than read off the shot: it first fills at tick 3791 and the maxed dodge bot never belches. **The replay screen draws no readout**, so the reservoir line the plan's shot asks for is on no frame this path can take. Stated rather than skipped.
+- **The dormant source riding down through the Crowd, tick 16800.** The source is a large tentacled face high in the field over the Crowd's own smaller eye and vein dressing, **390 pixels of `standInWaking` and 28 of `standInWakingDark`** against 4366 of `mob`. It is plainly larger than the dressing pieces and wears the same family on purpose, which is exactly the read step 21 is Mark's.
+- **The Waking open and pouring, tick 17400.** The open source about three fifths down with bodies streaming out behind it in one clean diagonal to the lower left and corpses trailing under them. **11130 pixels of `mob`, the most of any frame in this pass**, with 326 of `standInWaking`. It reads as a curve a dive can follow.
+- **The Undertaker in chunk three, tick 25980.** The locked overlap: two clod curtains across the field, each with a way through, the arm throwing at the same time, over the Vigil's teal. **719 pixels of `fireClod` and 502 of `fireSpiral` in one frame, with zero `fireTrash` and zero `fireTear`**, plus 6122 of `undertaker`, 613 of `undertakerDark` and 4911 of `standInVigilTint`. Two fire kinds on screen at once is the only place in the game that happens, and the count is what says so.
+
+### The grayscale check at target density
+
+Both frames rewritten in Rec.709 luma alone, which is the quantity `src/app/color.ts`'s `luma` measures, so anything separated by hue alone collapses into the ground.
+
+**Threats still read apart from the ground, and the margin is measured.** Over ground-only rectangles in both frames the floor and its dressing span grey **21 to 61 of 255**, p50 21.6. The threats drawn over it: `fireTrash` 111.5, `fireClod` 118.0, `fireTear` 136.2, `fireSpiral` 152.4, `mob` 169.9, `fireCore` 239.6. **The darkest threat sits 50 grey points above the ground's brightest pixel**, at the Crowd's densest moment (28 alive, tick 16500) and at the Waking's pour (41 alive, tick 17400) alike. Section 23 flagged that the baked floor draws about a third brighter than the tiled sheet did and said this is where it would be judged: it has not closed the gap, and the answer is that the stretch cost the separation nothing.
+
+The one entry that sits closer to the ground than the rest is the Waking's source at grey 107.1, which is the moment's centrepiece rather than a threat and carries its own dark companion. It reads as a distinct silhouette in the grayscale frame.
+
+### Driving the app through a CLI browser is not a substitute for playing it
+
+Every read above is a still frame. Four reads were not obtained and none of them can be from a frame: whether the three sections read as three places while they move past, whether chunk three's gap reads as following the arm, whether the pour reads as a reward rather than a wall, and whether the floor's brightness costs anything a player notices in motion.
+
+### Verification steps 16 to 22 are Mark's and stay open
+
+The deployed build lets him answer **16** (whether the three sections are tellable), **17** (whether chunk three's twist is legible), **19** (whether the Waking reads as heaven), **20** (whether the length is bearable), **21** (whether the dormant source reads apart from the Crowd's eye dressing) and **22** (whether three loops is enough), because all six are in a run he can play end to end. **18**, whether one belch plus play beats the Undertaker, needs a hand that levels and belches, which no headless policy does; the agent owes him belch count per fight and time to kill by loadout, and nothing here has measured either.
+
+### The tests were proved to bite rather than assumed to
+
+Three mutations, each reverted.
+
+- `MOB_FIRE.clod`'s core pointed at `fireClod` instead of `fireCore` turned the filled curtain test red, along with four of the band's own.
+- `PALETTE.undertaker` moved to a near-white hex turned the curtain test red on the pair it adds and **named `undertaker` in the failure**, which is the half no other test in the file holds.
+- One Procession row's `carries` flipped to false turned **all three** per-seed full-build tests red, which is the split doing what the un-split test did and naming which seed besides.
+
+### Instruments deleted, and what is left behind
+
+`local/slice16-endings.ts`, `local/slice16-marks.ts`, `local/slice16-chunk3.ts`, `local/slice16-count.mjs`, `local/slice16-grayscale.mjs`, `local/slice16-separation.mjs`, `local/slice16/` and the eight tapes under `dist/` are gone; `local/` and `dist/` are both excluded from version control, so none of them reached a commit. Screenshots are in the session scratchpad and never in the repo. **`local/slice13b-record.ts` is still there** and is what recorded this pass's tapes, as sections 24, 25 and 26 record. **`local/step2/slice11-timeline.ts` is still there too**, left by slice 11 and named here for the first time; neither is mine to remove.
