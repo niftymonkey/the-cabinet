@@ -9,6 +9,7 @@ One section per slice at the end, and the cross-slice facts first. Written by ea
 | 0, the baselines | none | No commit by design. Section 6 says what it produced and where. |
 | 1, the hand | `66dfcea268` | `feat(hungry-grave): the harness hand feeds, takes offers and belches (#98)` |
 | 2, the two event fields and the readings | `c784a356e5` | `feat(hungry-grave): the offer's site and slot are events and the batch readings exist (#98)` |
+| 3, the header field and the one bump | `4093d4be81` | `feat(hungry-grave): every tape names the policy that steered it, and the format moves to 3 (#98)` |
 
 ## 2. GOLDEN moves
 
@@ -18,6 +19,8 @@ Slice 1: `GOLDEN` (`digest.ts:314`) did not move, `WITNESS_VERSION` did not move
 
 Slice 2: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6) or `READINGS_VERSION` (2). `src/dev/digest.ts`, `src/game/witness.ts` and `src/dev/readingsVersion.ts` are all outside the diff, which `git diff --stat` over the three answers with nothing, and `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded: the two new event payload fields are not on the wire (`wireCodes.ts` carries no event codes) and not in the witness, and every reading it adds sits beside unchanged ones, which is `readingsVersion.ts:13-16`'s own rule for not bumping.
 
+Slice 3: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6) or `READINGS_VERSION` (2). `src/dev/digest.ts`, `src/game/witness.ts` and `src/dev/readingsVersion.ts` are all outside the diff, which `git diff --stat` over the three answers with nothing, and `src/game/__tests__/digest.test.ts` is green. `FORMAT_VERSION` is the one version this step spends and it moved from 2 to 3 here, once, and never again in this step. Nothing this slice changed is folded: the header is not folded at all, the fold reads live run state (`witness.ts:363`), and the policy is a header field the simulation never sees.
+
 ## 3. CodeRabbit
 
 Slice 1: `coderabbit review --agent --uncommitted` from the repo root over the staged work, twelve files reviewed, **one finding, minor, applied**.
@@ -25,6 +28,12 @@ Slice 1: `coderabbit review --agent --uncommitted` from the repo root over the s
 - **Applied.** The glossary's new Configuration entry said "Nine of them exist", where one row ships until slice 5. It now reads "Nine are named", which is true today and stays true when the other eight land. CodeRabbit's own suggestion added the slice number to the entry; that half was declined, because a glossary entry carries the word and not the delivery state, and an entry naming a slice would need editing again the day that slice lands.
 
 Slice 2: `coderabbit review --agent --uncommitted` from the repo root over the staged work, sixteen files reviewed, **no findings**. Nothing applied and nothing declined.
+
+Slice 3: `coderabbit review --agent --uncommitted` from the repo root over the staged work, twenty-five files reviewed, **two findings on the first pass, one applied and one declined, then two more on the re-review, both declined**. Every finding landed on the ADR 0056 amendment and none on any code file.
+
+- **Applied, major.** The amendment said a build that retuned the budget "has retuned the rows around it and the witness refuses the tape either way", which overstates what the witness can see. The fold reads live run state and an open set piece's budget is inside it (`witness.ts:347`), and it reads nothing about an authored row a run never reached, so a retune outside the run's path leaves the fold identical and the tape verifies. The sentence now splits the two cases and carries the argument on the half that survives: neither case is helped by the header naming one stage row while a hundred sibling rows stay compiled. **The record's own section 5 still carries the strong sentence** and is section 4's item 10 below.
+- **Declined, minor, twice.** The amendment's opening clause was asked to say whether Mark approved or overruled. He has not read it yet, which is the whole point of the one-push rule, and the record must not claim a review that has not happened. The wording is ADR 0053's slice 1 amendment verbatim in form, so the two amendments Mark reviews together read the same.
+- **Declined, minor.** Tests were asked for over `SET_PIECE_BUDGET`, asserting a reached set piece's budget diverges and an unreached one does not. `SET_PIECE_BUDGET` is the Waking's compiled pour budget (`setPiece.ts:112`) and not the director's per-phase budget ADR 0056 rules, which has no column on `Phase` and does not exist in the tree; the two were conflated. A test cannot cover a row nobody has authored, and the trigger is already named in the amendment: the day the budget becomes something a run resolves.
 
 ## 4. Plan claims found false against the tree
 
@@ -42,6 +51,12 @@ Slice 2: `coderabbit review --agent --uncommitted` from the repo root over the s
 
 **7. Plan section 4's `replayTallies.ts and measure.ts` block also gives `AggregateExclusion` a `policy`, `exclusionsOf` a push for it and `Provenance` the policy, none of which are in this slice.** Section 10 assigns all three to slice 3, with the header field they read, and section 10 is what the slice list is. They are untouched here.
 
+**8. Plan section 7 says "fourteen files build a `TapeHeader`" and its own list in the same paragraph names seventeen sites.** Two production files (`scripts/record-conditioned.ts`, `src/app/tapeHeader.ts`) and fifteen test files. The count is the stale half and the list is right: seventeen is what the tree holds and seventeen gained the field, the typecheck naming all of them. Nothing was skipped and nothing extra was found.
+
+**9. Plan section 7 says `src/app/__tests__/RunsScreen.test.ts` holds "three literals, `:105`, `:131`, `:198`".** It holds one `TapeHeader` literal, the `headerFor` helper at `:94-107`. The other two lines are `StoredRunSummary` rows built by `summaryRow`, which carry an `inputDevice` of their own and no header at all; the paragraph read a grep for `inputDevice:` as a grep for header literals. **The store's summary row is deliberately untouched**, which is plan section 5's own unowned row: `RunSummaryValues` gains no policy column here, and #100 owns it.
+
+**10. The record's section 5 claims the witness refuses a tape "either way" when a build retunes the director's budget.** The witness folds live run state, an open set piece's budget included (`witness.ts:347`, `:363`), and nothing about an authored row a run never reached, so a retune outside the run's path leaves the fold byte-identical and the tape verifies. The ruling is unharmed and the argument that survives is the other half, that a header naming one stage row while a hundred stay compiled promises a rebuild it cannot deliver. **ADR 0056's amendment carries the narrowed form; `playing-harness.md`'s section 5 still carries the strong one** and is the dispatching session's to fix, since a coder does not edit the record it was dispatched against.
+
 ## 5. Seams that moved
 
 Slice 1:
@@ -57,6 +72,12 @@ Slice 2:
 - **`dropLedger.ts` exports `ledgerByLineNumbers` beside its three graph functions**, and `DropLedgerByLine` as a type. The flattener turns the per-line block into names keyed by line so `namedNumbersReading` can compare it, and it is declared beside the counts it flattens on `perLineSummary`'s own precedent (`fieldPerLine.ts:102-113`): comparing the ledger by line is one decision in one place rather than a shape the comparer recognised.
 - **`wakingSwallows.ts` and `gravePath`'s widening had no seam block in plan section 4**, only the record's section 4 as amended and the test list. What landed: `wakingSwallows.ts` exports `createWakingSwallows`, `observeWakingSwallows`, `wakingSwallowsOf` and the types `WakingSpan`, `WakingSwallows`, `WakingSwallowsAcc`, with the reading as `{ span: WakingSpan | null }`; `GravePath` gains `floorVisits` and `floorRecoveries`. **Slice 4b's `BATCH_READINGS` needs those paths**, which are `tuning.wakingSwallows.span`, `tuning.gravePath.floorVisits` and `tuning.gravePath.floorRecoveries`.
 - **`Metrics` gains `mobFireAlivePerTick`** beside `mobsAlivePerTick`, and `ReplayTallies` with it, exactly as the plan says.
+
+Slice 3:
+
+- **`TapeHeader` gains `readonly policy: string`**, declared between `inputDevice` and `keyboardSpeed`, which is where `writeHeaderRecord` writes it and `readHeader` reads it. The plan's seam exactly.
+- **`AggregateExclusion` gains `'policy'`**, pushed by `exclusionsOf` immediately after the device's own exclusion, and `Provenance` gains `readonly policy: string`. No new declaration was needed in `READING_COMPARISONS`: `provenance` is one `descriptiveReading` claiming its whole subtree (`compareRuns.ts:598`), so guard 79 stayed green without an edit.
+- **No seam moved beyond the plan's letter**, and nothing new is exported. `PERSON_POLICY` and `SCRIPT_POLICY` were already exported by slice 1 and this slice only imports them.
 
 ## 6. The baseline tapes
 
@@ -93,6 +114,18 @@ Slice 2, from the plan's section 3:
 - **Step 6, the golden digest.** Did not move. See section 2.
 - **Step 13, the fences**, in the part this slice owns: `src/dev/__tests__/comparisonDeclared.test.ts` green ("every reading on a verified report carries a declared comparison meaning", which is guard 79), and `src/__tests__/boundary.test.ts` green, both rows of it. The span fence went red first and section 9 says why.
 - **Steps 7 to 12 and 14** belong to later slices and were not run. **Steps 15 to 18 are Mark's and stay open.**
+
+Slice 3, from the plan's section 3:
+
+- **Step 1, unit tests.** Green. 125 files, 1712 passed, 10 expected fail, 2 todo. No timeout on any run of the suite this slice made.
+- **Step 2, `pnpm typecheck`.** Green. It is what found every remaining header literal: thirteen files after `codec.test.ts` and `measure.test.ts` were edited by hand, each named by TS2741 with the missing property.
+- **Step 3, `pnpm build`.** Green, lint and typecheck included, with the two standing warnings (`@pixi/sound` and the pixi chunk over 500 kB). It went red once on prettier alone, in `measure.ts` and `measure.test.ts`, and prettier fixed both.
+- **Step 4, `pnpm verify` at the repo root.** Green, exit 0, twice: once before the CodeRabbit round and once at the amended tip.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step3/tests-baseline.txt`: **53 names added and one removed**, of which 45 are slices 1 and 2's, so **eight are this slice's: seven added and one renamed**. Added: four in `codec.test.ts` under `the policy the header names`, one in `tapeHeader.test.ts`, two in `measure.test.ts`. Renamed: `codec.test.ts`'s `a format version 1 tape is refused with a format-version error, not decoded` became `a format version 2 tape is refused with a format-version error, not decoded`, which is plan section 7's own instruction that the test "becomes the version 2 refusal at version 3, and the literal moves with it". It keeps the version 1 assertion beside the new one, so nothing it proved was dropped. 1670 to 1722.
+- **Step 6, the golden digest.** Did not move. See section 2.
+- **Step 7, the old-tape decode check.** **Passed.** Both of slice 0's format version 2 tapes are refused by `scripts/measure.ts`, each with the precise reason and neither with a stack or a coerced reading: `local/step3/baseline-a.tape is not a tape (this tape is format version 2 and this reader is version 3); no measurement was taken`, and the same line for `baseline-b.tape`. Exit code 1. That is `decode.ts:189-192`'s message reaching the person at the command line through `measure.ts`'s own refusal wrapper, which is what ADR 0043's accepted cost looks like when it is paid properly rather than swallowed.
+- **Step 13, the fences**, in the part this slice owns: `src/dev/__tests__/comparisonDeclared.test.ts` green with no edit, and `src/__tests__/boundary.test.ts` green. Nothing crossed a boundary: `src/dev/measure.ts` reads the two reserved names from `src/tape/tape.ts`, which is why slice 1 homed them there.
+- **Steps 8 to 12 and 14** belong to later slices and were not run. **Steps 15 to 18 are Mark's and stay open**, and step 15 is now half answerable: both ADR amendments it names exist on the branch, ADR 0053's from slice 1 and ADR 0056's from this slice.
 
 ## 8. Slice 1, the hand
 
@@ -152,3 +185,24 @@ The commit is `c784a356e5`. Fourteen test names added across six files, none rem
 - **Slice 4b's `BATCH_READINGS` covers seven new report paths**: `tuning.offerChoices.choices`, `tuning.offerChoices.bankedWhileStanding`, `tuning.dropLedger.byLine`, `tuning.wakingSwallows.span`, `tuning.gravePath.floorVisits`, `tuning.gravePath.floorRecoveries` and `mobFireAlivePerTick`. Guard 80 will name any it misses.
 - **An offer standing when the tape stops looks like a lost one in `offerChoices`**: both carry a null slot, and only the `passed` list separates them, which is the offer's own options on a loss and empty on one still standing. It is the plan's seam as written and it has no extra field for the difference; if the report needs to tell them apart, that is a field with a caller and slice 4b is where the caller appears.
 - **The hand walks at a banked offer's body while it is still above the top edge**, carried forward from slice 1. `offerChoices` can now show it: a take on a `bank` row is a take on an offer that entered from above, and the slot on it says where the grave was standing.
+
+## 10. Slice 3, the header field and the one bump
+
+The commit is `4093d4be81`. Seven test names added across three files and one renamed, none removed.
+
+**What landed.** `TapeHeader` gains `policy`, a name string beside `inputDevice`; `writeHeaderRecord` writes it with `writeString` after the input device byte and `readHeader` reads it in the same place, so the positional grammar is unchanged everywhere else. `FORMAT_VERSION` moves from 2 to 3, and its own comment gains the reason in the shape the version 2 note already uses, the one bump and the budget's absence from it included. `tapeHeaderFor` writes `PERSON_POLICY` and `record-conditioned.ts`'s `headerFor` writes `SCRIPT_POLICY`, both imported from `src/tape/tape.ts` where slice 1 declared them, so neither name is spelled twice. `AggregateExclusion` gains `policy`, `exclusionsOf` pushes it for any policy but the person's, and `Provenance` carries the policy. Seventeen sites build a `TapeHeader` and all seventeen gained the field. ADR 0056 is amended in place with the budget pinned to the build, dated, in the what-stood, what-changed, what-it-could-not-have-known form, with the trigger that reopens it and the note that it is the session's commitment under Mark's review; its "left open as design work" line loses that item and says where the answer went.
+
+**The bump was spent once and the amendment is what says why.** ADR 0053 asks for one bump taken together with ADR 0056's open question and before ADR 0057's store fills. Both halves are on the branch now: the policy field is the one field, and the budget takes none because ADR 0027 governs values a run resolves and the budget is authored stage content. **The cost outside the tree is the one the record already named**: any format version 2 tape Mark is holding in `Downloads` stops decoding on this branch, with the message verification step 7 quotes. Inside the tree it costs nothing, because `local/` and `dist/` are regenerated and there is no committed fixture tape (#109).
+
+**The renamed test is plan section 7's instruction and not a judgement call.** `codec.test.ts` pinned the literal 2 inside the version 1 refusal test, and section 7 says that test becomes the version 2 refusal at version 3 with the literal moving with it. It now asserts `FORMAT_VERSION` is 3, that a version 2 tape throws with `format version 2`, and, still, that a version 1 tape throws with `format version 1`, so the older guard was widened rather than replaced. The three comments section 7 names as prose about a version two steps back each gained one clause and none was deleted: `segments.test.ts`'s two-encoders equality, `codec.test.ts`'s frozen unchecked byte, and `verificationReadback.test.ts`'s ticks after the ending. **They were missed on the first pass of this slice and added before the commit**, which is why the commit was amended after a second clean CodeRabbit run over the three files.
+
+**Where the two reserved names are proved rather than asserted.** Spec test 31 is the first test `src/app/tapeHeader.ts` has ever had and it holds `tapeHeaderFor` to `PERSON_POLICY` from the game's side. `SCRIPT_POLICY` is held from outside the process, as an added assertion inside `record-conditioned.test.ts`'s existing end-to-end case, which spawns the real command line and reads the policy back out of the bytes it wrote; that is a stronger seam than a unit test could reach, because `headerFor` is unexported inside a script. The codec's own test 29 is the constants guard the two hang off: neither reserved name is empty, they differ, and each round-trips.
+
+**Spec test 32's presence check.** The exclusion test asserts a keyboard run under `steady-far` is excluded with exactly `['policy']`, and the pre-existing test beside it asserts a keyboard run under `person` is excluded by nothing at all. The pair is what stops the assertion passing over an input that could never have produced the other answer.
+
+**Hand-forwards for slice 4a and later.**
+
+- **A harness header must write the configuration's name into `policy`**, and `harnessRun.ts` is the writer. Anything but `PERSON_POLICY` puts the run outside default aggregates by `exclusionsOf`, which is the point: a batch tape is never counted as a person's. `inputDevice` on a harness header is `'bot'`, so a harness run carries two exclusions, `bot` and `policy`, and that is correct rather than double counting.
+- **`RESERVED_POLICIES` is now load-bearing rather than declarative.** Slice 1's test 17 asserts no configuration is named `person` or `script`; from this slice on, a configuration that broke it would write a name into a real header and a real report would read that run as a person's.
+- **The store's summary row still carries no policy**, which is plan section 5's unowned row with #100 as its trigger. Every batch tape's bytes carry the policy in the header, so step 6's ingest reads it there and needs no column added here.
+- **Slice 4a's verification readback runs against a format 3 tape**, so nothing recorded before this commit can be its input. Any tape a later slice wants as a fixture is recorded at or after `4093d4be81`.
