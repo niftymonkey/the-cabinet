@@ -130,7 +130,7 @@ The head draws nothing. It is a constant per configuration, so the hand is the o
 
 **Amended 2026-09-09, after the game design gate:** shortening the list moves the wanting's settled point too, and the record said only that it loses the developing wave. `scoreMove` judges where a move arrives at the last sample in the list (`bot.ts:207`, through `LOOKAHEAD_TICKS` at `bot.ts:80`), so a short head settles at 12 ticks ahead where a far head settles at 30: it commits to food and to an offer's body on a nearer read as well as dodging on one. What stood: the parameter, the three lists, and that a list shortens from the far end so the near samples survive. What changed: nothing in the rows, only what this record claims the knob costs. What the paragraph could not have known: it read the sample list as the threat horizon alone, where the same list is also the wanting's.
 
-### The nine names
+### The configuration names
 
 A configuration is the hand word and the head word, said in that order: `steady-far`, `steady-middling`, `steady-short`, `loose-far`, `loose-middling`, `loose-short`, `shaky-far`, `shaky-middling`, `shaky-short`.
 
@@ -239,7 +239,7 @@ Five, named and no further: the base policy and its configuration rows in `src/d
 
 The name comes from the glossary, which already defines Policy as "the rules one harness run steers by, named in the tape header beside the input device so a bot run is never mistaken for a person's" (`CONTEXT.md`, The build). The value is the configuration's name, `steady-far` and its eight siblings, because under one policy with two knobs the thing that steered a run is the configuration.
 
-A name string and never a code byte, because the set is open and a positional or ordinal encoding over an open set is the exact mistake ADR 0043 was written against (ADR 0053 says so outright). The nine names of section 3 are the set today, and the roster ADR 0053 defers would add names to it without touching the format.
+A name string and never a code byte, because the set is open and a positional or ordinal encoding over an open set is the exact mistake ADR 0043 was written against (ADR 0053 says so outright). The eighteen names of section 3 are the set today, and the roster ADR 0053 defers would add names to it without touching the format. The set grew from nine to eighteen on 2026-09-09 without any format change, which is this rule working as intended.
 
 **A person's run records `person`.** ADR 0027 forbids an absence, so the empty string is not available; `unknown` is not available either, because `inputDevice` already spends that word on a real unknown (`tape.ts:19-25`). `person` is resolved and true. It follows the pattern the reserved fields already use, a named constant at the one site that writes it (`tapeHeader.ts:18` and `:21`, and `tapeHeaderFor` at `:70-91`).
 
@@ -332,6 +332,8 @@ Every number in this record is an initial data row, tuned at step 4 by the tunin
 | The look-ahead, short | 5, 12 | the configuration rows |
 | Batch size, in seeds | 48 | the batch runner's default, overridable per run |
 | The band separation a direction needs | to be measured on the first batch | the report's own rows |
+
+**Amended 2026-09-09, later the same day: the table above names three hands and the tree holds six, and batch size has been measured.** The rate and depth rows cover `steady`, `loose` and `shaky` only. Three more were added between `loose` and `shaky` to find where the ladder actually breaks: `unsteady` 140 in 1000 at 0 to 20 ticks, `wavering` 175 at 0 to 25, `faltering` 210 at 0 to 30. Section 3's amendment carries the sweep that forced them and what it found, which is that the hand axis alone moves reach by nothing across its whole range. **Batch size is no longer 48 flat**: the section on batch size carries the measurement, and the floor is 192 seeds for any reading whose rate is under about a third, with 48 still right for reach. The rule below is untouched by both: a changed hand row is still a new configuration with a new name, and all six hands exist side by side rather than any of them having been re-fitted.
 
 **Added 2026-09-09, after the game design gate: these rows are not tuned with the game's.** Every row above is the hand's own, and step 4 moves the game's rows while reading the hand. A hand row moved between two batches would compare two builds through two instruments, which is the one thing the batch's whole grammar exists to prevent. So a changed hand row is a new configuration with a new name, never a retune of an existing one, and any comparison holds the hand fixed. What #39 tunes is the game; what this record hands it is a fixed set of hands to read the game with.
 
