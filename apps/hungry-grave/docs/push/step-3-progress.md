@@ -15,6 +15,7 @@ One section per slice at the end, and the cross-slice facts first. Written by ea
 | 5, the two knobs | `6abdb4255c` | `feat(hungry-grave): the hand's attention lapses and it holds a stale command when it does (#98)` |
 | 6, the comparison, and the done line | `60f6e652d1` | `feat(hungry-grave): two batches compare by direction, and the corners either agree or split (#98)` |
 | 7, the fences and the full verification pass | `29a97f2c88` | `test(hungry-grave): the whole-stage dodge tests carry a stated budget (#98)` |
+| Bug fix, the middle rung's reading crash | `032b72d794` | `fix(hungry-grave): a belch kill names its type off the kill event (#98)` |
 
 ## 2. GOLDEN moves
 
@@ -61,6 +62,8 @@ Slice 5: `coderabbit review --agent --uncommitted` from the repo root over the s
 Slice 6: `coderabbit review --agent --uncommitted` from the repo root over the staged work, three files reviewed, **no findings**. Nothing applied and nothing declined.
 
 Slice 7: `coderabbit review --agent --uncommitted` from the repo root over the staged work, one file reviewed, **no findings**. Nothing applied and nothing declined.
+
+Bug fix, the middle rung's reading crash: `coderabbit review --agent --uncommitted` from the repo root over the staged work, two files reviewed, **no findings**. Nothing applied and nothing declined.
 
 ## 4. Plan claims found false against the tree
 
@@ -277,6 +280,15 @@ Slice 7, from the plan's section 3. **This is the full pass: every agent-actor s
 - **Step 13, the fences. All five green, none loosened, none edited.** By test title: `src/__tests__/lineAgnosticPolicies.test.ts` (31 titles across five suites, including `src/dev/harnessPolicy.ts names no weapon line`, `src/dev/configurations.ts names no weapon line` and `names no configuration after a weapon line`, which are fences 76 and 77); `src/__tests__/boundary.test.ts` (24 titles, including `src/dev imports only from src/dev and src/game and src/tape`, which is fence 78, and `every test file imports only from inside its parent folder's subtree`); `src/dev/__tests__/comparisonDeclared.test.ts` (`every reading on a verified report carries a declared comparison meaning`, guard 79); `src/dev/__tests__/batchReadingDeclared.test.ts` (`every reading on a verified report carries a declared batch reduction` and `declares each reading once, so its reduction is one decision`, guard 80); and `src/__tests__/harnessStatesNoTarget.test.ts` (`orders no reading against a number of its own`, `carries no verdict, because nothing it declares is a yes or a no`, `prints no mean, so every figure it prints keeps its own tail`, guard 81). 66 tests over the five files, 658 ms. Section 4's item 21 says why there are five rather than the plan's four.
 - **Step 14, the batch cost, split.** **Measured.** Section 15 carries the two corners' splits and what they say about nine configurations.
 - **Steps 10, 11 and 12** were run by slices 4b and 6 against the tapes on disk and were not replayed here; section 12 and section 14 carry their tables, and step 8 above is the readback of one of slice 6's own tapes at this tip. **Steps 15 to 18 are Mark's and stay open**, and section 15 says which of them the tables now let him answer.
+
+Bug fix, the middle rung's reading crash. Not a slice, so the plan's numbered steps do not all apply; these are the ones that do.
+
+- **Step 1, unit tests.** Green. 132 files, 1769 passed, 10 expected fail, 2 todo, 44.5 s.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 4, `pnpm verify` at the repo root.** Green, exit 0, run from inside the worktree.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step3/tests-baseline.txt`: **1670 to 1779, 110 added and one removed.** Net of slice 7's 108 added and the same one removal, **this fix adds two names, removes none and renames none**, both in `src/dev/readings/__tests__/timeToKill.test.ts`.
+- **Step 6, the golden digest.** Did not move, and could not: no file under `src/game` was touched.
+- **The failing command, run to completion.** `scripts/batch.ts loose-far 20260909 48` finished at `48 of 48 verified, 0 not`, into `local/batches/loose-far-1788962791962`.
 
 ## 8. Slice 1, the hand
 
@@ -617,3 +629,32 @@ The record's section 3 was amended twice on 2026-09-09 after the game design gat
 **Two tickets stand open behind these numbers and neither is this step's to close.** **#117** is the sloppy corner's reach, above. **#116** is the lapse depth's missing tail, filed and unbuilt; slice 6 checked its first trigger and found it nowhere near firing, and its second trigger needs somebody watching a tape rather than a report, which nothing in this step was built for. **#113 closed at slice 5**, when `rng.test.ts`'s stream names became a derived list.
 
 **No fence failed, so no finding of that kind exists.** All five are green at `29a97f2c88` with no edit to any of them, which is what section 7's step 13 records by title. **Nothing was retuned, no row moved, and the separation row is still zero.**
+
+## 16. The middle rung's reading crash
+
+**The symptom.** `scripts/batch.ts loose-far 20260909 48` played and verified seeds 20260909, 20260910 and 20260911, then died inside `measure` on seed 20260912 with `mob 2801 died with no damage behind it`, thrown by `closeEngagement` (`timeToKill.ts:189` at `ad4657276e`). It is the first batch that has ever played a middle rung of the ladder; the two corners played so far never met it.
+
+**The defect is in the reading, not in the game.** The reading assumed the mob pool could still name every id the tick damaged, by the time the observer reads the pool at the end of that tick. The pool cannot, and the game is right to make it so.
+
+**The evidence, from a replay of `20260912.tape` instrumented at the crashing tick.** At tick 21213 the hand belched: one `belched` event with 30 kills, and 30 `mobDamaged` and `mobKilled` pairs behind it, the first pair being mob 2801. Slot 2 of the mob pool held mob 2801, a live shambler, at the end of tick 21212. At the end of tick 21213 slot 2 holds mob 3065, a shambler with `beat` 45 and `appearedInside` true, which is a set piece's pour. Mobs 2805 and 2807 died in the same belch and are both still in the pool as dead slots, because `takeSlot` (`caps.ts:97`) claims the first dead slot and only one spawn ran: exactly one id per belch tick can go missing this way, and 2801's was it.
+
+**The false comment.** The doc above `mobTypeOf` in `timeToKill.ts` claimed the pool slot "still carries its own id and type when the observer reads it, whether the mob is alive or was culled this tick, because a tick runs its spawns before any damage". The last clause is false. `step.ts` fires the belch at line 237, before `advanceStage` at 238, `advanceBoss` at 240 and `advanceSetPiece` at 241, and `step.ts`'s own tick-order comment says so in as many words: "The belch runs before spawns and before every overlap." Every other damage source resolves in `advanceLines` (242) or `resolveDeaths` (245), after all three spawn sites, so the belch is the only source this can reach. No plan claim was found false; this was a code comment.
+
+**The fix.** `typesThisTick` builds one id-to-type map per tick from the pool plus this tick's own `mobKilled` events, which carry the type the kill took (`events.ts`, `mobs.ts:423`), and `openEngagement` reads that map instead of scanning the pool. Kills are laid over the pool rather than under it, and the two can never disagree: an id only ever increases, so a reclaimed slot can never answer to the id it used to hold.
+
+**The guard stays a guard, and now has its own test.** `closeEngagement` still throws for a `mobKilled` with no fight open, which is the case that is still a real bug: `damageMob` (`mobs.ts:409`) is the only emitter of `mobKilled` in the tree and it pushes `mobDamaged` immediately before it, so a kill with nothing behind it means the game produced one without the other. Two tests landed, both red-first at the seam: one plays the real sequence through `damageMob` and `spawnMob` and asserts the belch kill is read, the other asserts the guard still refuses a death with no damage behind it.
+
+**Nothing is repaired or degraded, so nothing is logged.** The reading names the type from a value the sim published for exactly this purpose rather than guessing at one. There is no abnormal case being swallowed: the only silent answer left is the boss's, which was always silent and is read from `bossArrived`, `chunkBroke` and `bossKilled` instead.
+
+**The earlier corners' 48-seed numbers are unaffected, proved two ways.**
+
+- By argument. `damageMob` is the only path that frees a mob slot, and it reports `mobDamaged` immediately before `mobKilled` in the same array. So every damage event the old code dropped was followed one event later by a kill that threw. A batch that ran to completion therefore had no drops at all. The only other id the pool cannot name is a boss's, and a boss never appears in a `mobKilled`, so the fix answers nothing there exactly as before.
+- By measurement. Both 48-seed corner batches were rebuilt from the tapes on disk under the fix, through `measure` and `batchReportOf`, and each rebuilt report is equal to the `report.json` beside the tapes, key for key: `local/batches/steady-far-1788942858647` and `local/batches/shaky-short-1788942984283`. Both were recorded at `60f6e652d1`, and the guard was already in the tree there, having landed at `5eaa6d2759`.
+
+**No version moved and none needed to.** `GOLDEN`, `WITNESS_VERSION` 6 and `FORMAT_VERSION` 3 could not move, because no file under `src/game` or `src/tape` was touched. `READINGS_VERSION` stays 2 on its own rule: a case that used to crash now produces a number, and every number it does not touch is identical, so an old report and a new one are still directly comparable.
+
+### Findings, recorded and not acted on
+
+- **Seed 20260913 under `loose-far` played 83577 ticks and reached no ending**, against a batch where every other seed sealed or won and the middle of the pack is near 27000. That is `harnessRun.ts`'s own `runTickBudget()` ceiling stopping a run the hand never finished, so the harness behaved correctly and the hand did not clear the stage. It is a fact about the middle rung rather than about this fix, and it belongs with #117 and #39.
+- **`territoryControl.ts`'s `standsInThePool` (`:130`) requires `mob.alive`**, so the last territory pulse of a mob's life is never an interval endpoint. It cannot crash and it cannot meet the slot recycling above, because territory resolves in `advanceLines` after every spawn site. Recorded, untouched, and out of this fix's scope.
+
