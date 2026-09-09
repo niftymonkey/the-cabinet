@@ -153,3 +153,39 @@ The 48-seed batch and its report are readings, never bars: the note carries the 
 ## Commit messages
 
 Code: `feat(hungry-grave): a batch reports every reading as a spread across its seeds, by weapon line (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 4b (#98)`, appended as section 12 titled "Slice 4b, the report, and the end of A", with its row added to section 1's table and the 48-seed table in it.
+
+## Slice 5, as dispatched in session 18 (after slice 4b landed, and B begins)
+
+The launch preamble is the slice 1 one above. Model: Opus, subagent type general-purpose.
+
+Step 3 slice 5 of The Hungry Grave (ticket #98): the two knobs.
+
+Read `apps/hungry-grave/docs/push/step-3-coder-contract.md` (inside the worktree) first and follow it in full, including its reading order. Read `docs/agents/feature-playbook.md` and follow it. The dispatch contract items the playbook asks for (definition, verification steps with actors, seams, module boundaries, the test list) are plan sections 1 to 8 of `apps/hungry-grave/docs/design/step-3-playing-harness-dispatch.md`; section 10 is the slice list and yours is slice 5.
+
+## Your slice
+
+Plan section 10, slice 5, in full: the other eight configuration rows; the hold and the `hand` stream in `harnessPolicy.ts`, whose signature widens here to `harnessPolicy(configuration, seed)` and which the note records as a seam that moved; `stream`'s name parameter widened; `rng.test.ts`'s `NAMES` derived from `Object.keys(createRun(0).streams)` plus `HAND_STREAM`, which closes #113 with a list nobody keeps by hand. Spec tests 10 to 16, 18 and 33 to 35, module tests 49 to 51 and 53, and guard 82 land here. `CONTEXT.md` gains Dexterity error and Strategy error, from the record's section 9. **Verification step 9, the determinism run under `shaky-short`, runs here and its result goes in the note.** **B begins here.** Read plan sections 4 (`configurations.ts` and `harnessPolicy.ts` in full, including the paragraphs dated 2026-09-09), 6 and 7 for this slice before the first edit, and the design record's section 3 for what the two knobs are.
+
+**The knob rows, as the three gates' fixer wrote them into the records.** `holdBound` is a bound and never a two-ended range, because the low end is always zero: steady 0, loose 15, shaky 36, at `TICK_HZ` 60 (`clock.ts:4`), which is 0, 250 and 600 milliseconds. The old sloppy corner of 12 ticks was a sharp hand wearing another name, because at 12 ticks a shot covers 22 units where the grave covers 54; the game design gate is why the rows moved, and the amended paragraphs in both records are the wording to build to. **The nine rows are written out and never computed from two axes.** The belch threshold and the clearance repeat nine times on purpose, so step 4's tuning pass moves one row without moving eight others.
+
+**A bound of zero draws nothing at all and decides every tick.** That is load-bearing and not an optimisation: the determinism run is under the sloppy corner precisely because the sharp corner never touches the stream, and a draw that always answers zero would make that sentence false. **`steady-far`'s behaviour must not change**: it is the sharp half slice 6 compares against, and the 48-seed batch already played under it sits at `apps/hungry-grave/local/batches/steady-far-1788937370786/`, recorded against `5f7f365e99`.
+
+**The hand's stream is made in `src/dev` off the run's seed and never inside `RunState`.** That is what keeps `WITNESS_VERSION` at 6, and it is the reason the seed is a parameter rather than a field on the run.
+
+Hand-forwards from slice 4b's note (`docs/push/step-3-progress.md` section 12) that bind you: `ConfigurationName` is read by `BatchOrigin` and `BatchIdentity`, so widening the union widens them with no edit in `batchReport.ts`; `BATCH_READINGS` covers every reading a verified report carries today and this slice adds no reading, so nothing is owed there; `compareBatches.ts` joins guard 81's `MODULES` list at slice 6 and not here. From slice 1's note (section 8): the hand walks at a banked offer's body above the top edge, which is a reading for later and not an edit here.
+
+Tests first, red, then the code. Slice 2's coder wrote the implementation before its tests and paid it back with nine mutations; do not repeat it. `GOLDEN`, `WITNESS_VERSION` (6), `READINGS_VERSION` (2) and `FORMAT_VERSION` (3) must not move; if any does, stop, the slice is wrong.
+
+`.claude/rules/code-core.md` rules the shape: guards at the top, one concept per file, the public interface at the module's end, nothing abnormal silent.
+
+## State of the branch
+
+- The tip is `e866cb35cf` plus this prompt's docs commit: slice 1 `66dfcea268` (note `d7a0ba9eb5`), slice 2 `c784a356e5` (note `18bd764c33`), slice 3 `4093d4be81` (note `f254c2551b`), slice 4a `eb41654b11` (note `ffa8560e87`), slice 4b `876aa63f72` (note `6f8807b21d`). Read the progress note's sections 1 to 7 and sections 8 to 12 in full before any edit.
+- The test-name baseline is at `local/step3/tests-baseline.txt` (under `apps/hungry-grave/local/`, outside version control); diff your test names against it before you commit and report removed or renamed names net of slices 1 to 4b (86 added, one removed, all accounted for in section 7).
+- `pnpm verify` was green at `876aa63f72` (1745 passed, typecheck and build green with the two standing warnings). Five whole-stage `dodgePolicy` tests in `bot.test.ts` time out intermittently under parallel load, never on an assertion, pre-existing since before step 3; the fix is slice 7's, not yours. Run the suite alone once more before calling anything red (`docs/agents/lessons.md`).
+- Never run any command from the main checkout at `/home/mlo/dev/niftymonkey/the-cabinet`. Any scratch file goes in the session scratchpad directory named in your system prompt. `local/` is reached by none of the standing checks except vitest, so no `*.test.ts` ever goes there; nothing under `local/` ever enters a commit. Editor diagnostics name scratch files and stale states; `pnpm typecheck` is the judge. Nothing under `docs/` is ever handed to prettier by name. Do not touch `docs/push/handoff.md`.
+- Check `git status --short` is clean before your first edit.
+
+## Commit messages
+
+Code: `feat(hungry-grave): the hand holds a stale command and reads a shorter way ahead (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 5 (#98)`, appended as section 13 titled "Slice 5, the two knobs", with its row added to section 1's table, the widened `harnessPolicy` signature recorded in section 5 as a seam that moved, and verification step 9's result in section 7.
