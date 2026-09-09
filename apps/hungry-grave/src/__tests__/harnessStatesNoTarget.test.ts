@@ -10,9 +10,6 @@
  * It sits here rather than under src/dev because it reads the module's own
  * source, and a test under src/dev may import no package but vitest
  * (`boundary.test.ts`'s dev row and its TEST_PACKAGES list), node:fs included.
- *
- * compareBatches.ts is slice 6's and does not exist yet; when it lands it joins
- * MODULES below, which is the other half the plan's guard 81 names.
  */
 
 import { readFileSync } from 'node:fs';
@@ -22,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 const SRC = resolve(import.meta.dirname, '..');
 
 // Every module that turns a run's readings into a figure somebody reads.
-const MODULES = ['dev/batchReport.ts'];
+const MODULES = ['dev/batchReport.ts', 'dev/compareBatches.ts'];
 
 /**
  * The source with its comments taken out, because a comment may say "under 40"
