@@ -288,6 +288,21 @@ const showDigest = async (engine: CreationEngine): Promise<void> => {
 };
 
 /**
+ * Round 0's frame budget, measured in this browser (#39). Imported dynamically
+ * for the same reason the digest is: the instrument reaches src/dev, and a
+ * static import would put the synthetic field in the boot chunk of every
+ * player's first load.
+ */
+const showFrameBudget = async (engine: CreationEngine): Promise<void> => {
+  const { FrameBudgetScreen } = await import('./app/screens/FrameBudgetScreen');
+  await engine.navigation.showScreen(FrameBudgetScreen, {
+    onBack: goHome,
+    drawField: (field) => engine.renderer.render({ container: field }),
+    ...buttonSound(engine),
+  });
+};
+
+/**
  * A route kind no branch above answers, which the Route union makes impossible:
  * add a kind without a showing and this call stops compiling. Reaching it at
  * run time is a bug rather than a bad URL, because resolveRoute answers every
@@ -316,6 +331,7 @@ const resolveShowing = async (
   if (route.kind === 'digest') return () => showDigest(engine);
   if (route.kind === 'replay') return () => showReplay(engine);
   if (route.kind === 'runs') return () => showRuns(engine);
+  if (route.kind === 'frame-budget') return () => showFrameBudget(engine);
   if (route.kind === 'game') return () => showTitle(engine);
   return noShowingForRoute(route);
 };

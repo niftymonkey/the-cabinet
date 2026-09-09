@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { PROTOTYPES, prototypeHash } from '../../prototypes';
 import {
   DIGEST_HASH,
+  FRAME_BUDGET_HASH,
   PROTOTYPES_HASH,
   REPLAY_HASH,
   resolveRoute,
@@ -75,6 +76,20 @@ describe('resolveRoute', () => {
 
   it('#/runs-old does not, the same lookalike rule again', () => {
     for (const hash of [`${RUNS_HASH}-old`, `${RUNS_HASH}x`]) {
+      expect(resolveRoute(hash).kind).toBe('game');
+    }
+  });
+
+  it('#/frame-budget resolves to the frame budget route, which is how a phone reports what it draws', () => {
+    expect(resolveRoute(FRAME_BUDGET_HASH).kind).toBe('frame-budget');
+    expect(resolveRoute(`${FRAME_BUDGET_HASH}/`).kind).toBe('frame-budget');
+    expect(resolveRoute(`${FRAME_BUDGET_HASH}?seed=7`).kind).toBe(
+      'frame-budget',
+    );
+  });
+
+  it('#/frame-budget-old does not, the same lookalike rule again', () => {
+    for (const hash of [`${FRAME_BUDGET_HASH}-old`, `${FRAME_BUDGET_HASH}x`]) {
       expect(resolveRoute(hash).kind).toBe('game');
     }
   });

@@ -4,5 +4,11 @@
     "resolveJsonModule": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "scripts", "vite.config.ts", "vite.headless.config.ts"]
+  "include": [
+    "src",
+    "scripts",
+    "vite.config.ts",
+    "vite.headless.config.ts",
+    "vite.frame-budget.config.ts"
+  ]
 }
