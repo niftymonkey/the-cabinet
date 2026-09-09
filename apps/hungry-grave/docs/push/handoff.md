@@ -9,7 +9,7 @@
 
 Run EnterWorktree with `path: /home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1` before anything else. Push records are the tracked copies in `apps/hungry-grave/docs/push/`. The isolation guard refuses writes to the main checkout and refuses compound Bash that mentions git even in quoted text; use plain separate commands. The stop hook error about `local/publish-instruction.mjs` is harmless (history item 0).
 
-**Never read a research record or a design record in the main thread.** Session 20 spent 200,000 tokens reading the five records, the old handoff and the economy files before it could think, which is what this brief exists to prevent. Anything over 20 KB goes to an Opus subagent with a question, and the subagent returns lines, not files.
+**Route by the size of the job, not the size of the file (Mark, 2026-09-09).** A small job runs in the main thread, reading included. A big job gets its inputs gathered by cheap subagents first, and the worker (Fable when the call is hard) is spawned with those inputs in its prompt, so it starts from a brief and not from files. `handoff-history.md` is a deferred triage, not reading: collapse it against the progress notes and ticket comments when a session has room, never read it whole.
 
 ## STEP 4 BRIEF: the mow, the ladder, the director
 
