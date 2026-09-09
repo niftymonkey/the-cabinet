@@ -797,3 +797,75 @@ Why the run never ends. The phase's `ends` is `bossKilled` and nothing else. The
 - **Slice 0's own prompt prints the baseline path at the worktree root and the file is under `apps/hungry-grave/local/`.** The coder contract now carries the right one; `docs/push/step-3-slice-prompts.md` line 15 still carries the wrong one, and a coder does not rewrite the prompts it was dispatched under.
 - **The branch tip moved under this pass.** It was `a1acd2c114` when the work started and `62a6ad4342` when the first commit landed, from another session writing `handoff.md`, which this pass never touched. Nothing collided, and it is recorded because the worktree was described as this pass's alone.
 - **Nothing under `local/` entered a commit.** The reproduction batch, the two measurements and the deleted probe are all under `local/` or the session scratchpad.
+
+## 19. The readings step 4 needs
+
+Step 3's two closing gates found the same thing from opposite directions: the instrument cannot see what step 4 tunes. Six apply-now findings and three nits, landed as one slice on #39 rather than on #98, because what they change is what the harness can read and not what step 3 built.
+
+| Commit | Message |
+| --- | --- |
+| `6eb7d03ffa` | `feat(hungry-grave): the harness plays a pinned build, counts arrivals, reads power over a run and consults its own identity (#39)` |
+
+### `READINGS_VERSION` moved from 2 to 3, and it is the only one of the four that moved
+
+`GOLDEN`, `WITNESS_VERSION` (6) and `FORMAT_VERSION` (3) all stayed. `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts` and `src/tape/wireCodes.ts` answers with nothing across the code commit, and `src/game/__tests__/digest.test.ts` is green inside the suite. Nothing this slice changed is folded: the rig is a starting condition the header already carried in resolved form, the new event field is not on the wire and not in the witness, and every other file it touches is a reading or a report, which the fold never sees.
+
+**The bump is the rungs, and nothing else in the slice needed it.** Arrivals are a brand-new reading beside unchanged ones, which `readingsVersion.ts` says is not a bump, and the raw samples a spread now keeps are an addition to a report's shape rather than a change to any reading's meaning. What moves it is that a batch used to print the rungs a run bought as one row named `levelUps` and now prints the count, the first tick, the line and the phase under `levelUps.rungs` and its siblings. Every figure still means what it meant, and no row can be subtracted from its predecessor by name. Left at 2, a step-3 report against a step-4 one would have printed `levelUps` and `levelUps.rungs` as two rows each carried by one side, which reads exactly like a reading one corner never reached; at 3 the comparison withholds the arithmetic and says why, which is what the version is for.
+
+**One consequence worth stating plainly.** Every batch report on disk under `local/batches/` says readings version 2 and is now not comparable with anything played after this commit. That is correct rather than unfortunate: those reports also carry no rigs and no samples, so the comparison could not have read them anyway, and the shell refuses them by name rather than dying inside the comparison.
+
+### The pinned-build rig (#107 closed)
+
+`src/dev/rigs.ts` is new: two rows, `birthright` and `maxed`, each carrying the starting size and the starting levels together, because #107 was raised over two rigs that differed only in starting size being reported under one label. `playHarnessRun` takes a rig as an argument with no default, so every figure the harness produces names the condition behind it. `rigOf` names the rig a measured tape started from and answers null for a condition no row holds, which is what keeps an unnamed condition from being filed under the nearest one. The name rides in three places: `provenance.rig` on every measurement, `identity.rigs` on a batch report read off the runs the way the commit hashes are, and the batch folder's own name.
+
+**The hand's policy is untouched.** A rig changes what a run begins holding and nothing about how it is played, and `configurations.ts` is not in the diff.
+
+**What it buys, measured.** Seed 202 under `steady-far`: from the birthright the run seals at 19111 ticks, and from the maxed rig the same seed under the same hand reaches victory at 26411. Every reading step 4 was going to tune on came from the first of those.
+
+The command line takes it as `rig=<name>`, keyed rather than positional, in the shape `record-conditioned.ts` already uses: a rig behind three optional positions would need two arguments nobody wanted to name. It defaults to `birthright`, so an unchanged command still means what it meant.
+
+### Arrivals, power over the run, and the raw samples
+
+**Arrivals** (`src/dev/readings/arrivals.ts`) counts every body that came onto the field, once each, by phase and by type. It is the reading `mobsAlivePerTick` is not: that one counts survivors at a tick, and a hand that kills fast and a schedule that sends nothing read the same there. It watches the mob pool for ids above its own high-water mark and reads `mobKilled` beside it, because the tick order spawns before it resolves deaths and culls, so a body can arrive and be gone before the observer looks. A body cannot arrive and leave the field in one tick, which is why those two halves are the whole of it.
+
+**Power over the run** is the rungs read against the run's own phase spans, using the belch's phase-crossing arithmetic, now extracted as `ticksInside` and shared by both. The batch prints `levelUps.rungs`, `levelUps.firstTick`, one figure per weapon line under `byLine`, and `levelUps.byPhase.<phase>`. A total level held at each phase boundary was considered and dropped: a strip takes levels back and the level-up list does not carry that, so the total would have been wrong on exactly the runs the Undertaker strips.
+
+**Every spread now keeps its samples.** `spreadOf` kept five of a reading's forty-eight values, so the tail the report exists for could never enter a comparison and no rank test could run on a report. The raw per-seed values ride on the spread, and `src/dev/rankTest.ts` is the Mann-Whitney statistic over them, reported as the count of pairs the right side won and as the rank-biserial fraction beside it. **What did not change is how a direction is decided**: that is still the two quartile bands and the `BAND_SEPARATION` row, which is what the step's own done line was read with. Moving it is a judgement and belongs to #39's tuning pass, not to a slice fixing the instrument. No significance figure is computed, deliberately: a p-value here would be a threshold wearing a number's clothes, and ADR 0053 leaves the judgement to the reader.
+
+### The comparison consults its identity, and it has a shell
+
+`compareBatches` was handed two reports each carrying a readings version and consulted neither. It now withholds every ordering, keeps every value, and names what the two batches do not share: the readings version, the configuration, or the rig. The last two are the record's section 8 and #107 as code rather than as discipline, which is what ADR 0053's "believed only when the two corners agree" had behind it before this: nothing.
+
+`readAcrossCorners` now answers the findings beside the mismatches that stop them meaning anything: the two corners not read over the same left build or the same right build, the two corners being the same hand, and either corner having withheld its own arithmetic. **The same-hand check found a live hole in the old shape**: handed one comparison twice, every row agreed with itself, and the rule that a finding is believed where the corners agree was satisfied by nothing at all.
+
+`scripts/compare-batches.ts` is the shell the comparison half never had. Two report paths are one corner and four are the two corners, and the whole of stdout is the comparison. It parses at the edge and refuses a report this build cannot compare, naming the file.
+
+### The set piece's identity, and the three nits
+
+`setPieceOpened` carries the source's id, and the Waking's span names which source it measured. There is one set piece today and the reading takes the first that opens, so without the id nothing would have said which one that was the day a second lands.
+
+The nits: `MOB_WIDTHS` and `BatchReduction` were exported and read nowhere, so `MOB_WIDTHS` is module-private and `BatchReduction` is gone with its per-kind comments moved onto the declaration interfaces they describe. The mob widths are now a total `Record<MobType, number>` written out, on `witness.ts`'s own reasoning for its code maps: a mob type added to the union fails the typecheck here until somebody gives it a width, where the fold it replaced keyed the record by bare strings.
+
+### CodeRabbit
+
+`coderabbit review --agent --uncommitted` from the repo root over all twenty-nine staged files, three passes.
+
+- **Applied, major and minor, one defect between them.** A batch report written before this slice carries no `identity.rigs` and no samples under its spreads, and both are fields the comparison reads without asking, so the new command died inside `compareBatches` on a real file from `local/batches/`. Red first: a test writing that shape and asserting the command refuses it out loud with no stack. The shell's own type guard now checks them and refuses the file by name, which is repair by origin: a document from another build is rejected, never guessed at.
+- **Applied in part, minor.** The re-review asked the guard to validate every field the comparison consumes. Two of them are the same defect class, `identity.commitHashes` and each spread's `summary`, both of which throw inside the comparison when absent, and both are now checked with the same test widened to cover them. **Declined: walking every quartile and every sample's value.** A bad number there produces a NaN and never a crash, and re-proving the figures inside a file this build's own batch command wrote is checking the writer's types from the reader's side, at the cost of walking tens of thousands of numbers per report.
+- The third pass over the same twenty-nine files found nothing.
+
+### Verification steps run
+
+- **Unit tests.** Green. 138 files, 1824 passed, 10 expected fail, 2 todo. **35 tests added and none removed**, this slice's own share of the test-name diff.
+- **The test-name diff** against `local/step3/tests-baseline.txt`: 1670 names then, 1833 now, 164 added and one removed. The single removal and 129 of the additions are step 3's own, accounted for in sections 7 and 18; the other 35 are this slice's.
+- **`pnpm typecheck`** and **`pnpm lint`**, both green in `apps/hungry-grave/`. Lint needed one `eslint --fix` pass for prettier findings across four new files.
+- **`pnpm verify`** at the repo root, exit 0, before the commit.
+- **The rank test was mutation-checked.** Its module was written before its test, which is the wrong way round and is recorded as such; the four expected values were derived by hand rather than read off the implementation, and flipping the tie comparison in `wonBy` takes two of the four cases red.
+- **The two rigs played**, seed 202 under `steady-far`, through a throwaway instrument under `local/` deleted afterwards: the figures are above.
+
+### Findings, recorded and not acted on
+
+- **The dispatch's own claim that `READINGS_VERSION` was 3 is false against the tree.** It was 2, at `readingsVersion.ts:38`, and section 18 of this note says so too. The instruction it carried, that a bump is expected and correct if a new reading needs one, is what was followed.
+- **`playing-harness.md` section 6 names five rigs and the tree now holds six.** Its table also says the harness rig is the only one that starts at the birthright, which is still true of the birthright rig and not of the maxed one beside it. The dispatching session was editing that file and this slice was told not to touch it, so `CONTEXT.md`'s own Rig entry carries the correction and the record does not yet.
+- **The import fence reads string literals, so a test title can break it.** `boundary.test.ts` scans for `from '...'` without parsing, and a `describe` title ending in the word "from" immediately before its closing quote was read as an import of `, () => {`. The title was reworded; the scanner is unchanged and the next test title ending that way will do it again.
+- **A maxed run reaches victory where a birthright run seals, on the same seed under the same hand.** Reported and not judged: it is one seed, and what it says is that the readings step 4 tunes on today all come from one end of the power curve.
