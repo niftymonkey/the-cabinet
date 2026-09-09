@@ -275,7 +275,7 @@ What it does cost is outside the tree. Mark saves tapes to `/mnt/c/Users/markd/D
 
 ## 6. The rigs, and what each one's figures mean
 
-#107 found two rigs under one label. There are five, and the label covers two of them.
+#107 found two rigs under one label. There were five when this section was written and there are now six; the label covered two of them and is retired.
 
 | Name | Starting size | Starting levels | Policy | Tape | Where |
 | --- | --- | --- | --- | --- | --- |
@@ -288,6 +288,10 @@ What it does cost is outside the tree. Mark saves tapes to `/mnt/c/Users/markd/D
 "The maxed dodge bot at seed 101" is the label #107 found, and it covers the first two, which differ by starting size. The label is retired: every reported figure names its rig.
 
 **The harness rig starts at the birthright and is the only one that does.** That is the point of it: #98's first acceptance line is that its runs reach levelled builds rather than sitting there, so a rig that started maxed could not show the thing the ticket asks for. Hand-forward (g) says no dodging birthright run crosses the stage today, which is the reading the harness rig exists to move.
+
+**Amended 2026-09-09, after the readings slice: there are six rigs, and the harness is no longer birthright-only.** A sixth was added, the **pinned-build rig**: the harness's own policy under a named configuration, started from chosen levels rather than from the birthright, threaded through `createRun`'s existing `startingLevels`. It is named in the tape and in the batch identity exactly as a configuration is, so a figure still says which rig produced it. **The paragraph above saying the harness rig is the only birthright start is now wrong in its "only" and right in everything else**: the birthright rig still exists and is still the one #98's acceptance line is about.
+
+Why it was added, and it is not a softening of the hand: **the hand's policy is untouched**. Every reading step 4 was about to tune on came from a near-birthright build, while Mark's own human runs end with all four lines at 5. His power-curve ruling of 2026-09-09 is about the maxed end, and no birthright reading can see it. Measured on the day it landed: seed 202 under `steady-far` seals at 19111 ticks from the birthright and reaches **victory** at 26411 from the pinned rig. That gap is the part of the game the instrument could not previously see, and it is not a claim about the hand being better.
 
 **Two of the five write no tape, and their figures live only in prose.** The `policy` field plus the header's resolved size and levels make a rig recoverable from the bytes for the three that record, so a figure from a tape names its own rig without anybody writing it down. The ceiling rig and the ladder rig have no such guard, and a figure from either is only ever as well labelled as the sentence carrying it. That is a limitation of those two rigs and not something this step fixes.
 
@@ -357,7 +361,7 @@ Challenged against `CONTEXT.md`, which already carries **Playing harness** and *
 
 **Batch**: One run per seed over a seed range under one configuration, reported as distributions. Its size is seeds and never repeats, because the policy is deterministic. *Avoid*: sample, trial, simulation run, sweep.
 
-**Rig**: One starting condition a run is played from, named so a figure always says which one produced it. Five exist. Figures from two rigs are never banded. *Avoid*: setup, harness, scenario, fixture.
+**Rig**: One starting condition a run is played from, named so a figure always says which one produced it. Six exist. Figures from two rigs are never banded. *Avoid*: setup, harness, scenario, fixture.
 
 ---
 
