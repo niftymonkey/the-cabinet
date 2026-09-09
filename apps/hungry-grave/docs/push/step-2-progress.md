@@ -81,8 +81,9 @@ Every other section 9 item is carried by a slice: 1 by slice 2's glossary commit
 | Adjustment iteration 2 | `e636411950` | feat(hungry-grave): the Waking rides the ground at the field's own scroll (#97) |
 | Adjustment iteration 3 | `d58448a6e3` | feat(hungry-grave): a body that appears inside the field arrives before it can touch the grave (#97) |
 | 15 and 16 | `715575a37d` | test(hungry-grave): the curtain's coverage is filled and each full-build seed carries its own budget (#97) |
+| Adjustment iteration 4 | `311cc7b8a8` | feat(hungry-grave): killing the Waking's source removes its body and the pour finishes anyway (#104) |
 
-Slice 0 records the baseline tapes and makes no commit. Ground adjustment 1 is not in the plan's section 10: it is an iteration on slice 13b that Mark asked for on 2026-09-08 after playing the 13b deploy on his phone, and it runs as a slice of its own. Adjustment iteration 2 is not in it either: it is an iteration on slice 10 that Mark ruled on 2026-09-08 after adjustment 1 changed what the Waking's source sits in, and it runs as a slice of its own too.
+Slice 0 records the baseline tapes and makes no commit. Ground adjustment 1 is not in the plan's section 10: it is an iteration on slice 13b that Mark asked for on 2026-09-08 after playing the 13b deploy on his phone, and it runs as a slice of its own. Adjustment iteration 2 is not in it either: it is an iteration on slice 10 that Mark ruled on 2026-09-08 after adjustment 1 changed what the Waking's source sits in, and it runs as a slice of its own too. Adjustment iteration 4 is not in it either: it is Mark's ruling on #104, filed by the product vision gate at the step's close (section 29), and it is the only slice of the step whose commits end in a ticket other than #97.
 
 ## 2. GOLDEN moves
 
@@ -1264,3 +1265,73 @@ Session 16, 2026-09-08. The two implementation gates that closed step 1 ran on t
 **The sweep's own items.** A comment on **#38** carries item 80 (`fireCore` at Lc 39.59 against the Banshee, `BACKGROUNDS` with no boss body) and slice 14's Undertaker-against-Vigil note. The `firedRows` idiom is **#112** (item 82). Every finding from sections 4, 27 and 28 with a trigger now names an open ticket.
 
 **State at the close.** Tip dbc0a1b64b. `pnpm verify` exit 0 at the tip (section 28: 120 files, 1655 passed, 10 expected fail, 2 todo). GOLDEN unmoved since slice 14's move; `WITNESS_VERSION` 6. Deployed at hungry-grave.vercel.app: b38cfcb687, which is the same production code as the tip, since the two CodeRabbit fix commits touched only tests and records. Verification steps 16 to 22 are Mark's and open.
+
+## 30. Adjustment iteration 4, the pour finishes anyway
+
+Mark's ruling on **#104**, 2026-09-08, answering the DECIDE-NOW finding the product vision gate filed at the step's close (section 29): killing the Waking's open source removes the source's body and nothing else. The remaining budget keeps pouring from the pour point, on the same clock, until it is spent, so the hand that commits up the trail never ends its own food early. The two other shapes, keeping the forfeit and dumping the remainder as one burst, are declined.
+
+**The shape, and there is no new number in it.** `SetPiece` gains one boolean, `bodyGone`, written once in `damageSetPiece` where the health reaches zero and never directed from outside, so no reader re-derives the rule by comparing `hp` to zero. A guard at the top of `damageSetPiece` returns nothing for a body that is gone, the same immunity shape the dormant guard already has. `setPieceHitbox` returns null for it, which is the whole of what empties the storm's target slot: `stormTargets` fills the slot only from a non-null box (`stormTargets.ts:224-227`, read to confirm it), so that module's behaviour changed without its code changing. The kill tick emits a new `setPieceKilled` carrying `left: piece.budget` beside the `mobDamaged` that emptied it, and `SetPieceClosing` narrows to `'spent' | 'scrolled'`. `advanceSetPiece` is untouched. `BackgroundRenderer`'s `syncSource` hides the sprite and its rim off the boolean and reads no health.
+
+**One invariant, because the ruling creates a rule.** `checkSetPieceBody` records `set piece body gone when spent` when the boolean and the health disagree in either direction. Two facts about one thing, and the boolean is the one every reader takes, so a health that reached zero without it is a body the storm goes on hitting and a sprite that never leaves. It costs a wire code (`wireCodes.ts`, 21) and moves the fault list's own counts: twenty-one identities against twenty-two checks, six still fatal.
+
+**The new field is excluded from the fold, and `WITNESS_VERSION` stays 6.** It is fully determined by `hp` reaching zero, which is folded, so a divergence in it is a divergence in the health the walk already carries. It sits in the excluded half of the partition with that reason beside it, exactly as `mobs[].appearedInside` does. Folding it would have moved the version, which the prompt hands forward as not moving.
+
+**GOLDEN did not move and could not.** Its scenario is 600 ticks from seed 20260820 inside the Procession, and the source is placed two sections and a fight past it. `src/dev/digest.ts` is in no commit here and the digest test is green.
+
+**Measured on the seed 101 tape under the maxed dodge bot, and the run is identical either side.** One instrument, run in this tree before the first edit and again at the tip.
+
+| Reading | before | after |
+| --- | --- | --- |
+| Phase boundaries | 7284, 8526, 16927, 17827, 22703, 26691 | identical |
+| Ending | victory at 26691 | identical |
+| Bodies poured | 75 | 75 |
+| The Waking's close | `spent` at 17827, `left` 0 | identical |
+| Lowest health the source reached | 2066 of 2400 | 2066 |
+| Whole-run witness (`foldWitness` at the ending) | 556547939 | 556547939 |
+
+**That hand never kills the source, and no reachable hand does.** The lowest the maxed dodge bot takes it to is 2066 of 2400, and the row is above a full build's storm across the whole pour by construction (design record section 2). Parked deliberately under the mouth at the size ceiling and steered straight at it, a full build takes about 855 points off it in 700 ticks, roughly 73 a second against the record's 150 estimate, because the hand is not on the mouth every tick and the trail is between it and the source. **So the behaviour this ruling changes cannot be reached in play at the current health row.** That is a tuning matter for step 4, where the harness measures the real storm; nothing was retuned here, and the row's reason is now the source's stay rather than the pour's completion.
+
+**The conditioned run that does kill it, before and after.** A full build parked under the mouth with its size pinned at the ceiling so survival is not what is being measured, and the killing blow dealt at the module's seam five seconds into the pour, since no hand delivers 2400.
+
+| Reading | before | after |
+| --- | --- | --- |
+| The kill | tick 21054, 50 bodies left | tick 21054, 50 left |
+| The close | `killed` at 21054 | `spent` at 21654, `left` 0 |
+| Bodies poured in all | 25 | 75, of which 50 after the kill |
+| The Waking phase ends | tick 21055 | tick 21655 |
+| Corpses on the field at that end | 18 | 13 |
+
+Fewer corpses standing at the end after the change is the phase ending six hundred ticks later: the same trail, read at a later moment, with more of it already eaten or gone under.
+
+**The property holds and both numbers are unchanged: 63 corpses to the committing hand against 25 to the waiting one**, the same figures sections 25 and 26 measured, `WAITING_EATS_MORE` still empty and `COMMITTING_PAYS_OVER` untouched. The reason is measured rather than assumed: **not one of the twelve runs kills the source**, so the ruling could not have moved these numbers.
+
+**The rendered read, and what it cost to get one.** The replay screen re-simulates from the tape's recorded commands, so a kill dealt outside the execution authority cannot appear on a tape at all, and no played hand kills the source at 2400. The read was taken by lowering `SET_PIECE_HP` to 200 in the working tree, recording a seed 101 tape under the maxed dodge bot ending at tick 17400, building, and rendering `#/replay?tape=...&at=17400` under `pnpm exec vite preview` at 1440 by 900, which is section 27's own rig. **At 200 the bot kills the source at tick 17238 with 50 bodies left, and the frame 162 ticks later shows the pour still running with no source on the ground:** a clean diagonal of trash streaming down and to the left with corpses trailing under it, out of a point in the upper middle of the field where nothing is drawn, over the Crowd's dressing. The row was restored to 2400 immediately, the tape deleted, and the tip verified at 2400 before the commit. The screenshot is in the session scratchpad as `adj4-killed-source-pouring.png` and never in the repo.
+
+**Records amended in place, dated 2026-09-08, none deleted.** `stage-floor.md` in four places: the identity paragraph's shootable sentence, the source-health section's own paragraph (which carried this as a commitment for Mark to overrule, and now names his ruling), the health row's derivation, whose reason is now the stay, and the budget section's three close reasons, now two. `game-concept.md:50`. `CONTEXT.md`'s Waking entry. The plan `step-2-stage-floor-dispatch.md` in three places: section 1's paragraph is left as the plan that was dispatched with one dated line pointing at the ruling, test 18 carries its new promise, and section 9 item 3 records that the commitment reached Mark and that he ruled a third way, neither the assumption nor its alternative. **ADR 0042 and ADR 0050 carry no kill rule at all** (neither file contains the word), so neither is changed. `docs/push/decisions.md` is frozen and was not touched.
+
+**Tests: five added, three rewritten, and the rewrite is a promise change rather than a weakening.** Added: `ends on its budget after a kill, and leaves only then` and `loses its body and everything the storm can reach on the kill tick` in `setPiece.test.ts`, `drops the source the tick its body is gone, while it is still pouring` in `stormTargets.test.ts`, `records a recoverable fault when a spent source still has its body` in `invariants.test.ts`, and `draws nothing once the body is gone, while the source is still pouring` in `BackgroundRenderer.test.ts`. Rewritten: plan test 18, `ends the moment early when it is killed, and never pours the rest later`, becomes `keeps pouring on its own schedule once its body is gone` and carries the ruling as its comment; `reports a killed source and a scrolled one under their own reasons` splits, the kill half moving to the new event and the name becoming `reports a scrolled source under its own reason`; and the tail of `carries damage to an open source and moves it for nobody` in `stormTargets.test.ts` asserted that the emptied source left the run, which the ruling reverses, so it now asserts that the record stays and the list drops it. **The contract's never-weaken rule does not apply to these three**, and this says so rather than passing over it: the promises themselves changed by Mark's ruling, and each rewritten test carries the ruling and #104 in its comment. `outlives its own pour under a full build` keeps its name and gains the row's new reason in its comment.
+
+**The tests were proved to bite rather than assumed to.** Five mutations, each reverted.
+
+- `bodyGone` never written turned three red, in `setPiece.test.ts` and both of `stormTargets.test.ts`'s source tests.
+- The `bodyGone` term dropped from `setPieceHitbox`'s guard turned the same three red, which is what says the empty box is the whole of the storm's answer.
+- The `bodyGone` term dropped from `damageSetPiece`'s guard turned **only** the kill-tick test red, which is the mutation that matters: that guard is the immunity and nothing else holds it.
+- `checkSetPieceBody` dropped from the harness turned the new invariant test red, naming the identity.
+- The excluded entry dropped from the witness partition turned `every nested field is either folded or excluded with a reason beside it` red.
+
+The renderer test was red before the renderer changed, which is its own proof: it failed with `[true, true]` against `[false, false]`.
+
+**CodeRabbit: two applied, none declined.** Three runs of `coderabbit review --agent --uncommitted` on the staged work, the third clean.
+
+- **Applied, minor, `setPiece.test.ts`.** The kill-tick test's last-but-one assertion was `expect(only(source.tick(), 'setPiecePoured').length).toBeGreaterThanOrEqual(0)`, which is true of every possible run. It now ticks one pour interval and asserts one body came out and the budget went down by one, with the box still null behind it, which is the sentence the assertion was trying to make.
+- **Applied, minor, `stage-floor.md`.** The health section's heading read "The source's body stays as long as its pour, under the sharp hand", which states as a guarantee the thing the ruling has just made conditional. It now says that how long the body can be shot at is a data row and that the pour runs independently of it, with the sharp hand's case beside it.
+
+**Plan claims found false against the tree.** One, and it is the prompt's own: it says the sweep in the dispatching session found no reader of the `'killed'` close reason outside `setPiece.ts` and its tests. That is true of production code, and there was one more test reader, the tail of `carries damage to an open source and moves it for nobody` in `stormTargets.test.ts`, which asserts the emptied source leaves the run rather than naming the reason. The typecheck could not find it because it asserts on `state.setPiece` and not on a reason string. It is rewritten, as the tests paragraph above records.
+
+**Seams that moved.** `SetPiece` gains `bodyGone`. `SetPieceClosing` loses `'killed'`. `SimEvent` gains `SetPieceKilled`. `FAULT_IDENTITIES` gains `set piece body gone when spent` with wire code 21. `setPieceHitbox`, `damageSetPiece`, `advanceSetPiece` and `closeSetPiece` keep their signatures.
+
+**Verification steps run.** 1, unit tests, `pnpm vitest run`, 120 files, 1660 passed, 10 expected fail, 2 todo. 2, `pnpm typecheck` green. 3, `pnpm build` green. 4, `pnpm verify` at the worktree root, exit 0, twice, both on a quiet machine. 5, the test-name diff against `local/step2/tests-baseline.txt`: 27 names gone from the slice 0 baseline, the same 27 section 26 accounted for, every one an earlier slice's; the only one from a file this slice touched is `faults.test.ts`'s identity-count name, which an earlier slice had already renamed and which this slice renames again. 6, the golden digest, unmoved. Step 11's rendered check is above. **Steps 16 to 22 are Mark's and stay open**, and this slice adds nothing he can see in play: the behaviour it rules is unreachable at the current health row.
+
+**Instruments deleted.** `local/adj4-probe.ts`, `local/adj4-parked.ts` and `local/adj4-property.ts` are gone, and so is the tape under `dist/`; `local/` and `dist/` are both excluded from source control, so none of them reached a commit. `local/slice13b-record.ts` and `local/step2/slice11-timeline.ts` are still there, untouched, as sections 25 to 27 record.
+
+**One thing found beside the work, named rather than acted on.** The working tree carried three files that are not this slice's: `docs/push/handoff.md` modified and `docs/design/playing-harness.md` and `docs/push/step-3-planning-prompts.md` untracked, all of them the dispatching session's step 3 work in flight. None of them is in either commit here; every file was added by path.
