@@ -10,6 +10,23 @@ Run EnterWorktree with `path: /home/mlo/dev/niftymonkey/the-cabinet/.claude/work
 
 ## Where we are (sessions 18 and 19, 2026-09-09)
 
+**WHERE FABLE IS WORTH SPENDING ON STEP 4, and where it is waste (Mark, 2026-09-09).** He is switching back to Fable for step 4 because it is one of the most important pieces, and his Fable window is limited, so the split matters. **The expensive thinking is small and the surrounding work is ordinary.**
+
+**Spend Fable on these, and they are the whole of it:**
+- **The balance itself.** Picking the starting numbers for trash HP, arrival rate and mob mix, and the progression mechanism that keeps a maxed ending rare, from the research and the measured runs. This is the judgment Mark explicitly said he cannot make himself and asked for reasoning plus data rather than brute force.
+- **The interaction between the three changes.** Schedule, progression and director are coupled through food: more bodies is more corpses is more power. Working out what balances against what is the actual problem.
+- **Reading each iteration's batch and deciding the next move.** This is a handful of short, high-value turns, not a long session: look at the numbers, decide what to change, dispatch. Mark asked for a couple of iterations, not a week of sweeps.
+- **Resolving the authored-growth versus director-pressure split** if the proposal in this handoff does not survive contact with the design gate.
+
+**Do NOT spend Fable on any of these. They are ordinary work for Opus or cheaper:**
+- Writing the step 4 design record and the dispatch plan once the decisions are made.
+- Writing the slice prompts.
+- Every coding slice, and every gate (they run as their own agents on their own models).
+- Running batches, tabulating results, filing tickets, commits, deploys, updating the follow-along list.
+- Drafting the ADRs once the decision behind them is Mark's or the session's, and the supersession prose.
+
+**The practical shape:** open the Fable session at the point where the numbers get chosen, keep it lean, hand every write-up and every dispatch to an Opus subagent, and come back to Fable only to read a result and pick the next move.
+
 **MARK'S RULING ON THE POWER CURVE, 2026-09-09, and it is the third half of step 4.** Reaching the end with all lines maxed **should be rare, and only the best players should get there**. He agreed the curve is too fast. **But the ceiling stays high and visible**, in his words: a player playing well should get really powerful upgrades through the game and see what is possible with the right play. So this is about **rarity and skill expression, not a lower cap**, and any change that makes strong builds unreachable fails the ruling.
 
 - **Two mechanisms he floated, neither ruled, both his own words:** offers going away faster rather than persisting, and changing how often offers are given, keyed to the stage's length or difficulty. He was explicit that he does not know which is right and that something has to change.
