@@ -8,6 +8,7 @@ The plan is `apps/hungry-grave/docs/design/step-4-mow-ladder-director-dispatch.m
 | --- | --- | --- |
 | 0, the baselines | none | No commit by design. Section 6 says what it produced and where. |
 | A0, the build identity | `26a064a064` | `feat(hungry-grave): the tape carries a build identity that a dirty tree changes (#82)` |
+| 1, round 0, the frame budget | `c23be6156c` | `feat(hungry-grave): the frame budget has a reproducible instrument (#39)` |
 
 ## 2. GOLDEN moves
 
@@ -15,11 +16,19 @@ None so far. The plan permits five, in slices A, B, C, E and F, and a move anywh
 
 Slice A0: `GOLDEN` (`digest.ts:313`) did not move, and neither did `WITNESS_VERSION` (6), `FORMAT_VERSION` (3) or `READINGS_VERSION` (3). `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/tape/wireCodes.ts` and `src/dev/readingsVersion.ts` answered with nothing, so none of the four is inside the diff at all. Nothing this slice changed is folded: `buildIdentity` was already a header field (`tape.ts:114`), empty on every tape recorded so far, so what changed is the content of a slot the format already has. The playback result gained two fields the witness never sees, and the reader compares two opaque strings outside the fold.
 
+Slice 1: none of the four moved. `git diff --stat` from `0b5574fd63` to `c23be6156c` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/tape/wireCodes.ts` and `src/dev/readingsVersion.ts` answered with nothing, so none of them is in the diff at all. `WITNESS_VERSION` is 6, `FORMAT_VERSION` 3, `READINGS_VERSION` 3. Nothing this slice touches is folded: the instrument stands a field, times it and prints, and it changes no rule the witness watches.
+
 ## 3. CodeRabbit
 
 Slice A0: `coderabbit review --agent --uncommitted` from the repo root over the staged work, twenty-one files reviewed, **one finding, major, applied**, then a clean re-review over the same twenty-one files with **no findings**.
 
 - **Applied, major.** The identity called a tree clean when the only uncommitted work was untracked. `git describe --dirty` and `git diff HEAD` both answer for tracked files alone, so a slice that writes a new module and records a tape before staging it, which is exactly what this slice itself did, would stamp two builds under two different rules with one identity. That is the confusion #82 exists to end, so the fix went in rather than to a ticket. `--dirty` came off the describe, `git status --porcelain --untracked-files=all` became the one authority on whether anything is uncommitted, and the digest now folds three things: `git diff HEAD`, the untracked paths, and the contents behind them. The digest deliberately does not read the porcelain output, because staging a file changes what `--porcelain` prints without changing the build it describes, and an identity that moved on staging would put a build note on readings that deserve none. One test came with it, `counts a file nobody has added yet as uncommitted work`, which is the eleventh name in section 7's diff.
+
+Slice 1: `coderabbit review --agent --uncommitted` from the repo root over the staged work, twelve files reviewed. **Two findings, both major, one applied.** Then a re-review over the same twelve files with **one minor finding, declined**.
+
+- **Applied, major.** The field builder only filled shortages and never trimmed a surplus, so it held the field from one direction. A driven run does not only lose entities: the stage spawns bodies of its own and a kill drops food, so in a build whose pools are larger than the field being measured, the field drifts upward from the first tick. That is exactly the browser half, where the caps are the shipped ones and the smallest field is four mobs in a pool of a hundred and sixty. It is now held from both directions, last slot first so the trim is the same on every run, and a test starts both pools above the size and asserts the sizes come back. The browser's own numbers moved on the fix: 30 / 60 render CPU read 1.14 ms before it and 0.83 ms after.
+- **Declined, major.** That the render span should start after `FieldRenderer.sync` rather than before it. The record's render CPU column is the whole render half of a frame, and its own sentence names the split inside that half rather than excluding one side of it: "at 200 mobs and 500 corpses, sync costs 0.47 ms against 2.25 ms for the Pixi pass" (`mow-ladder-director.md` section 4). A column that excluded sync would not be the column the record reads in. There is no unmeasured gap either way: the same reading ends the sim span and begins the render one.
+- **Declined, minor.** A guard rejecting negative, fractional or non-finite field sizes. The only producer of a `FieldSize` is `ROUND_ZERO_FIELDS`, a literal in `src/dev/frameBudget.ts`, so the value's origin is our own code, which `code-core.md` says is never repaired because a bad one is a bug. A guard against a value no caller can produce is also generality for an absent caller, which the cited-future rule forbids.
 
 ## 4. Plan claims found false against the tree
 
@@ -27,11 +36,23 @@ Slice A0: `coderabbit review --agent --uncommitted` from the repo root over the 
 
 **2. The A0 file table's identity recipe is superseded by the CodeRabbit finding.** Plan line 480 says the identity is "the Vercel sha, else `git describe --always --dirty --abbrev=40`, else unknown". The Vercel arm and the unknown arm stand. The git arm is now `git describe --always --abbrev=40` with a separate `git status --porcelain --untracked-files=all` deciding dirtiness, for the reason in section 3. The module boundary the plan set is untouched: the string is still produced only in the build shell and still parsed at the tape edge exactly once, and the core still compares two opaque strings.
 
+**3. The shipped caps refuse half of round 0's own table, and one of the two the plan puts in its headline.** `MOB_CAP` is 160 and `CORPSE_CAP` is 233 (measured; it is derived, not written down). A pool is built at its cap, so a build carrying the shipped caps cannot stand 100 / 250, 200 / 500 or 400 / 1000 at all. The plan's step 1 line and the record's section 4 both name "a synthetic field of 100 mobs and 250 corpses" as the thing round 0 measures, and no shipped build can stand it. This is why the record's method needs its Vite alias, and it is a fact about the caps rather than a gap in the instrument: item 7 of the record derives the caps from the content, and until that lands, what the phone can be asked to draw is capped at 160 / 233. The step 4 peak the record names, 80 / 200, does fit, so the row that decides item 3 and item 7 is measurable on the phone today.
+
+**4. The record's method sentence does not say the field is held, and a field that is not held is not what gets measured.** "A synthetic field drove the real step" reads as standing the field once. Measured: with the field stood once and six hundred warm-up ticks driven before the stopwatch, 400 / 1000 read 0.11 ms mean, cheaper than a held 30 / 60, because the scroll had carried the bodies off the bottom edge and freshness had emptied every corpse ten seconds in. The instrument stands the field before every tick, and the per-row caps are the other half of holding it: a pool sized to the field is what stops the run's own spawns and kills from standing more than the measurement asked for. That reading also makes sense of the record's own "pools sized per row", which would otherwise only be a way to reach the large rows.
+
+**5. `scripts/buildIdentity.ts` drops untracked file contents whenever it runs from `apps/hungry-grave/`, which is where every headless script runs.** Not this slice's module and not fixed here. `git ls-files --others --exclude-standard | git hash-object --stdin-paths` prints `fatal: could not open 'scripts/frame-budget.ts' for reading` from the app directory and succeeds from the repo root: `ls-files` prints paths relative to the current directory and `hash-object --stdin-paths` resolves them against the repo root. The pipeline's exit status is the last command's, which succeeds, so the failure is stderr noise and the digest is taken over the tracked diff and the untracked *paths* only. Two dirty trees differing only in an untracked file's contents therefore carry one identity from any headless run, which is the confusion #82 exists to end. `git ls-files --others --exclude-standard --full-name` was tried from the app directory and gives the repo-root run's own three hashes; it also widens the listing from the app folder to the whole repo, which is a choice rather than a typo fix, so the call is left to whoever owns #82.
+
 ## 5. Seams that moved
 
 None against the plan. The four seams it named are the ones built: the header's build identity field encoded and decoded, `PlaybackResult`'s two new identity fields, `Measurement`'s `buildMismatch` on both the verified and the diverged arm, and the harness read-back's attribution line.
 
 `GitAnswers` inside `scripts/buildIdentity.ts` went from two members to three under the CodeRabbit finding. It is a private seam of the build shell with one production caller and one test caller, not a seam the plan named.
+
+Slice 1: none against the plan. The four seams the dispatch named are the ones built: the synthetic field builder, the stats reduction, the row formatter, and the orchestration over a list of sizes.
+
+Two seams the dispatch did not name were needed and are new. `scripts/frameBudgetCaps.ts` exports `sizePoolsFor`, which is the bench's own caps ceiling, and `src/app/routes.ts` gains `FRAME_BUDGET_HASH` and a `frame-budget` route kind, which is the browser entry the dispatch asked for in whatever shape the codebase already had: the `#/digest` route is that shape, a hash route whose screen is imported dynamically so `src/dev` never lands in the boot chunk. The built bundle confirms it: `FrameBudgetScreen` is its own 5.66 kB chunk.
+
+`harnessStatesNoTarget.test.ts` was read and neither new module joins its list. Its `MODULES` are the batch report's own three, and its rules are ADR 0053's for the harness report: no ordering against a literal, no boolean, and no mean. The frame budget prints a mean on purpose, because that is the column the record's table carries, so adding it would be asserting the wrong rule about the wrong instrument.
 
 ## 6. The baselines
 
@@ -113,6 +134,32 @@ hungry-grave-1445730872-b1c3a584d1.tape is not a tape (this tape is format versi
 
 The refusal arrives before playback, so no build note rides with it. That is right: a tape the reader cannot decode has no reading to annotate.
 
+**Slice 1, round 0, the frame budget. Four steps, all with the agent as actor, all run. One step of this slice has the human as its actor and it is open: the phone half.**
+
+**Step 1, the standing checks.** `pnpm typecheck` and `pnpm vitest run` green in `apps/hungry-grave/`, then `pnpm verify` green from the worktree root, exit 0: 141 test files, 1846 passed, 10 expected fail, 2 todo. `pnpm build` green as well, and the browser entry lands in its own 5.66 kB lazy chunk rather than in the boot chunk.
+
+**Step 2, the test-name diff.** Against the section 6 baseline: `1834 names in the baseline, 1856 now: 22 added, 0 removed`. Eleven of the twenty-two are A0's. The eleven this slice added:
+
+```
++ src/app/__tests__/routes.test.ts :: resolveRoute > #/frame-budget resolves to the frame budget route, which is how a phone reports what it draws
++ src/app/__tests__/routes.test.ts :: resolveRoute > #/frame-budget-old does not, the same lookalike rule again
++ src/dev/__tests__/frameBudget.test.ts :: the frame budget > answers one row per size, in the order the sizes were given
++ src/dev/__tests__/frameBudget.test.ts :: the frame budget > answers the mean and the 95th percentile of the frames it was given
++ src/dev/__tests__/frameBudget.test.ts :: the frame budget > prints the field and both spans in the columns the record reads in
++ src/dev/__tests__/frameBudget.test.ts :: the frame budget > says a span nobody timed was not measured rather than printing a zero
++ src/dev/__tests__/syntheticField.test.ts :: a synthetic field > puts the field back to its size after the run has taken some away
++ src/dev/__tests__/syntheticField.test.ts :: a synthetic field > refuses out loud when the pools are smaller than the field asked for
++ src/dev/__tests__/syntheticField.test.ts :: a synthetic field > stands a field the run can be stepped from, breaking no invariant
++ src/dev/__tests__/syntheticField.test.ts :: a synthetic field > stands exactly the bodies and the food the size names
++ src/dev/__tests__/syntheticField.test.ts :: a synthetic field > takes the field back down to its size after the run has stood more
+```
+
+**Step 3, the headless run beside the record's table, with the drift in words.** Section 9. The record's table is not edited.
+
+**Step 4, the browser run.** `pnpm build` then `pnpm exec vite preview`, opened at `#/frame-budget` and driven once with `playwright-cli`, never a `file:` URL. Its table is in section 9. It prints to the panel for a phone, which has no console, and to the console for an agent, which must not read a figure off a screenshot (ADR 0018).
+
+**Open, actor Mark: the phone half of round 0.** The record's section 4 carries an explicit empty slot for it. The instrument is at `#/frame-budget` on any deployed build, it needs no flags and no typing, and it prints its own table on the panel. It will print three of the six fields, for the reason in section 4 item 3.
+
 ## 8. Slice A0: the tape carries a build identity that a dirty tree changes (#82)
 
 Commit `26a064a064`, twenty-one files, ten planned tests plus one from the review.
@@ -129,3 +176,56 @@ Commit `26a064a064`, twenty-one files, ten planned tests plus one from the revie
 **The module boundary held.** The identity is produced in the build shell (`scripts/buildIdentity.ts`, from `VERCEL_GIT_COMMIT_SHA` when CI names one, else git, else `unknown`), compiled into both bundles as `BUILD_IDENTITY` by `vite.config.ts` and `vite.headless.config.ts`, and read exactly once at the tape edge (`src/tape/buildIdentity.ts`). The core replay compares two opaque strings and knows nothing about git. No new dependency.
 
 **`tsconfig.json`'s `include` gained `vite.headless.config.ts`**, because that config now imports a module and stopped being a file nothing typechecks.
+
+## 9. Slice 1: round 0, the frame budget (#39)
+
+Commit `c23be6156c`, twelve files, ten planned tests plus one from the review.
+
+**What exists now.** `apps/hungry-grave/scripts/frame-budget.ts` stands a synthetic field at each of the six sizes the record's section 4 table names, drives the real step through `executeTick` with its invariants checked, and prints the record's own table. `src/dev/syntheticField.ts` builds and holds the field; `src/dev/frameBudget.ts` reduces the spans through `framePerformance.performanceOf` and formats the table; both are pure, both are tested, and the script holds no logic beyond sequencing. `vite.frame-budget.config.ts` aliases `src/game/caps` to `scripts/frameBudgetCaps.ts`, which is the record's own method and the only way to stand the three fields above the shipped caps.
+
+**The two commands.**
+
+```
+pnpm vite-node --config vite.frame-budget.config.ts scripts/frame-budget.ts
+```
+
+prints all six rows with the sim columns filled. The plainer `--config vite.headless.config.ts` spelling the dispatch named runs the same script and refuses the three fields above the shipped caps, so the alias config is the one to use.
+
+The render columns need a renderer, so they come from the browser, at `#/frame-budget` on any build. `pnpm build` then `pnpm exec vite preview`, or the deployed URL on a phone, which is the half that is Mark's.
+
+**The headless table, seed 505, 180 timed ticks per field after 600 warm-up ticks.**
+
+```
+| field (mobs / corpses) | sim tick mean | sim tick p95 | render CPU mean | render CPU p95 |
+| --- | --- | --- | --- | --- |
+| 4 / 10 | 0.05 ms | 0.12 ms | not measured | not measured |
+| 30 / 60 | 0.07 ms | 0.13 ms | not measured | not measured |
+| 80 / 200 | 0.27 ms | 0.57 ms | not measured | not measured |
+| 100 / 250 | 0.38 ms | 0.72 ms | not measured | not measured |
+| 200 / 500 | 0.60 ms | 1.38 ms | not measured | not measured |
+| 400 / 1000 | 0.93 ms | 1.81 ms | not measured | not measured |
+```
+
+`100 / 250` reported `corpse cap never binds` on two of its ticks, which is a field standing at exactly its own pool's capacity being told so. Every other field broke no invariant.
+
+**The browser table, the same six fields, `vite preview` of the normal build, headless Chrome, driven with `playwright-cli`.** Three rows, because the shipped caps refuse the other three.
+
+```
+| field (mobs / corpses) | sim tick mean | sim tick p95 | render CPU mean | render CPU p95 |
+| --- | --- | --- | --- | --- |
+| 4 / 10 | 0.25 ms | 0.50 ms | 0.52 ms | 1.10 ms |
+| 30 / 60 | 0.22 ms | 0.50 ms | 0.83 ms | 1.90 ms |
+| 80 / 200 | 0.31 ms | 0.60 ms | 1.81 ms | 3.70 ms |
+```
+
+**The drift against the record, in words. The record's table is not edited and no number here is asserted against it.**
+
+Every cell of both columns is the same order of magnitude as the record's, and every one reads higher than the record's rather than lower. The sim column: 30 / 60 and 200 / 500 land within a few percent, 80 / 200 and 400 / 1000 are a little over twice, 100 / 250 is a little over twice, and 4 / 10 is the widest of them, near twice on the mean. The render column: 4 / 10 and 30 / 60 are within a fifth on the mean, 80 / 200 is a little over half again; on the p95 the same three run a fifth, a half and a bit over twice above the record's. So one cell of twelve, the browser's 80 / 200 render p95 at 3.70 ms against 1.6 ms, drifts by more than about a factor of two, and it is the noisiest reading of the set.
+
+**Two things bound how far that drift can be read, and both are the instrument's rather than the game's.** First, this tool's own run-to-run spread is about a factor of two on this machine: three consecutive headless runs of the same seed read 0.05, 0.08 and 0.07 ms at 4 / 10 and 0.93, 0.85 and 0.60 ms at 400 / 1000. A single run cannot separate a real change from that. Second, the browser's sim column should not be read against the record's sim column at all: headless Chrome ran the page at nine to nineteen frames a second under a software renderer, with GPU stalls reported on the console, and Chrome coarsens `performance.now()` without cross-origin isolation, which is the same grid problem `docs/research/invariant-check-cost.md` records for WebKit. The browser reads 0.25 ms of sim at 4 / 10 where the headless run of the same field reads 0.05 ms. The browser run exists for the render column.
+
+**What the numbers say about step 4, which is what round 0 was for.** The step 4 peak the record names, 80 / 200, costs about 0.3 ms of simulation and about 1.8 ms of render CPU on this desktop under a software renderer, against a 16.7 ms frame. The record's own conclusion holds: the field step 4 authors sits an order of magnitude under the frame, and the cost lives in the renderer.
+
+**Where the method is followed and where it could not be.** The record's method is followed: the real step, `checkInvariants`, `FieldRenderer`, and pools sized per row through a Vite alias over `src/game/caps`. Two departures, both recorded above as findings rather than choices: the field is held at its size on every tick, because a field stood once is a field emptying; and the browser half runs at whatever caps its own build carries, so a shipped build measures three of the six. A build under `vite.frame-budget.config.ts` would render all six, and it is not built here: it needs the browser plugins and a second output directory, which is a second config rather than a flag, and the three fields it would add are headroom probes rather than anything step 4 is sized against.
+
+**One thing the dispatch asked for that reads differently in the tree.** The dispatch says the instrument "reads the result through the existing `src/dev/framePerformance.ts`", and the record says that module "was not the instrument for this". Both are right about different halves. `performanceOf` is a pure reduction over frame rows and it is what reduces the bench's spans, so the project keeps one nearest-rank convention and one empty-series answer. Everything else in the module is about a tape's frames and none of it applies, and `framePerformance.ts` is unchanged, exactly as the plan's module table says.
