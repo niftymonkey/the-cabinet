@@ -10,6 +10,7 @@ The plan is `apps/hungry-grave/docs/design/step-4-mow-ladder-director-dispatch.m
 | A0, the build identity | `26a064a064` | `feat(hungry-grave): the tape carries a build identity that a dirty tree changes (#82)` |
 | 1, round 0, the frame budget | `c23be6156c` | `feat(hungry-grave): the frame budget has a reproducible instrument (#39)` |
 | 1, the refusal | `3594fe154a` | `feat(hungry-grave): the frame budget refuses pools that cannot stand its table (#39)` |
+| A0 follow-up, the cwd fix | `136a349aeb` | `fix(hungry-grave): the build identity reads untracked files from any cwd (#82)` |
 
 ## 2. GOLDEN moves
 
@@ -232,3 +233,36 @@ Every cell of both columns is the same order of magnitude as the record's, and e
 **Where the method is followed and where it could not be.** The record's method is followed: the real step, `checkInvariants`, `FieldRenderer`, and pools sized per row through a Vite alias over `src/game/caps`. Two departures, both recorded above as findings rather than choices: the field is held at its size on every tick, because a field stood once is a field emptying; and the browser half runs at whatever caps its own build carries, so a shipped build measures three of the six. A build under `vite.frame-budget.config.ts` would render all six, and it is not built here: it needs the browser plugins and a second output directory, which is a second config rather than a flag, and the three fields it would add are headroom probes rather than anything step 4 is sized against.
 
 **One thing the dispatch asked for that reads differently in the tree.** The dispatch says the instrument "reads the result through the existing `src/dev/framePerformance.ts`", and the record says that module "was not the instrument for this". Both are right about different halves. `performanceOf` is a pure reduction over frame rows and it is what reduces the bench's spans, so the project keeps one nearest-rank convention and one empty-series answer. Everything else in the module is about a tape's frames and none of it applies, and `framePerformance.ts` is unchanged, exactly as the plan's module table says.
+
+## 10. A0 follow-up: the build identity reads untracked files from any cwd (#82)
+
+Commit `136a349aeb`, two files, three tests added and none removed. This closes section 4 item 5, which found the defect and left the call to whoever owns #82.
+
+**What it is now.** Every git command the identity asks runs at `git rev-parse --show-toplevel` rather than at the process's own directory. Two of the commands answered for the current directory alone: `git ls-files --others` lists only the folder it runs in and prints its paths relative to that folder, while `git hash-object --stdin-paths` reads the paths it is handed against the repository root. Anywhere but the top level the two disagree, and the mismatch is stderr inside a pipe whose exit status belongs to the last command, so the untracked contents fell out of the digest in silence. Item 5's `--full-name` was not the fix taken: measured on a throwaway repo, it prints repo-root paths but still lists only the folder it runs in, so an untracked file above `apps/hungry-grave` would stay invisible. Running at the top level answers both halves at once, and it also makes the untracked listing the same set the `git status --porcelain --untracked-files=all` beside it already read from any directory. The top level is looked up inside each answer rather than once at construction, so a directory git cannot answer for still becomes the unknown build rather than throwing where nothing is watching.
+
+**The three tests, all red first.** The two that could see the defect failed with the empty blob's digest, `e69de29bb2`, which is what folding nothing hashes to.
+
+```
++ scripts/__tests__/buildIdentity.test.ts :: the build identity > comes back to the clean identity when an untracked file is deleted
++ scripts/__tests__/buildIdentity.test.ts :: the build identity > reads one identity from the repository root and from a directory inside it
++ scripts/__tests__/buildIdentity.test.ts :: the build identity > tells two trees apart by an untracked file's contents, read from a directory inside the repository
+```
+
+**The live check, cwd `apps/hungry-grave`, on `a365a9bf8e` with this slice's own two edits uncommitted.** An untracked `src/scratchRule.ts` was written, rewritten and deleted, and the identity was read after each. A, B, C, A:
+
+```
+A (no scratch file):            a365a9bf8ee33a871c64830d2efa179f5b823515-dirty-88e68af026
+B (scratch file, one skull):    a365a9bf8ee33a871c64830d2efa179f5b823515-dirty-62d3ef26d5
+C (scratch file, three skulls): a365a9bf8ee33a871c64830d2efa179f5b823515-dirty-e15e840e54
+A again (scratch file gone):    a365a9bf8ee33a871c64830d2efa179f5b823515-dirty-88e68af026
+```
+
+The same tree read from the worktree root gives `a365a9bf8ee33a871c64830d2efa179f5b823515-dirty-88e68af026`, the identical string, which is the other half of the definition. `git status --short` afterwards shows the scratch file gone and only the two edited files, both of which are this commit.
+
+**CodeRabbit.** `coderabbit review --agent --uncommitted` from the worktree root over the staged work, two files reviewed, **no findings**.
+
+**Verification steps run, all four with the agent as actor.** `pnpm typecheck` and `pnpm vitest run` green in `apps/hungry-grave/`: 141 test files, 1849 passed, 10 expected fail, 2 todo. `pnpm verify` green from the worktree root, exit 0. The test-name diff against the section 6 baseline: `1834 names in the baseline, 1859 now: 25 added, 0 removed`, of which twenty-two are the earlier slices' and three are this one's. The live check above is the fourth.
+
+**`GOLDEN` did not move**, and neither did `WITNESS_VERSION` (6), `FORMAT_VERSION` (3) or `READINGS_VERSION` (3). None of `src/dev/digest.ts`, `src/game/witness.ts`, `src/tape/wireCodes.ts` or `src/dev/readingsVersion.ts` is in this commit at all, which is two files. Nothing here is folded: `src/tape/buildIdentity.ts` is untouched and the core still compares two opaque strings.
+
+**One thing worth knowing about older tapes.** Any tape recorded by a headless script before this commit carries a digest taken over the tracked diff and the untracked paths alone. Two such tapes that differ only in an untracked file's contents still carry one identity, and nothing can separate them after the fact. Tapes recorded from here on separate.
