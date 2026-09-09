@@ -85,10 +85,13 @@ const SLOWEST_DESCENT_TICKS =
       GHOUL_DESCENT_FLOOR,
     ));
 
-const budgetOf = (phase: (typeof PHASES)[number]): number =>
-  (phase.rows.length === 0 ? 0 : phase.rows[phase.rows.length - 1].t) *
-    TICK_HZ +
-  SLOWEST_DESCENT_TICKS;
+const budgetOf = (phase: (typeof PHASES)[number]): number => {
+  if (phase.rows.length === 0) return SLOWEST_DESCENT_TICKS;
+  const lastRow = phase.rows[phase.rows.length - 1];
+  if (lastRow === undefined)
+    throw new Error('phase.rows is non-empty but its last row is absent');
+  return lastRow.t * TICK_HZ + SLOWEST_DESCENT_TICKS;
+};
 
 const STAGE_TICKS = Math.ceil(
   PHASES.reduce((total, each) => total + budgetOf(each), 0),
@@ -118,7 +121,9 @@ describe('the harness run', () => {
       const original =
         await importOriginal<typeof import('../../game/stage/stage')>();
       const [first, ...rest] = original.PHASES;
+      if (first === undefined) throw new Error('PHASES is empty');
       const last = first.rows[first.rows.length - 1];
+      if (last === undefined) throw new Error('the first phase has no rows');
       return {
         ...original,
         PHASES: [

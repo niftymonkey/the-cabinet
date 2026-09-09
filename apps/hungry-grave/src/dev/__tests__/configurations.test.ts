@@ -21,6 +21,13 @@ import {
 const HANDS = ['steady', 'loose', 'unsteady', 'wavering', 'faltering', 'shaky'];
 const HEADS = ['far', 'middling', 'short'];
 
+/** An entry at this index, present because the caller's own construction guarantees it. */
+function entryAt<T>(items: readonly T[], index: number): T {
+  const entry = items[index];
+  if (entry === undefined) throw new Error(`no entry at index ${index}`);
+  return entry;
+}
+
 describe('the configurations the harness plays under (ADR 0053)', () => {
   it('names every configuration as a hand word and a head word', () => {
     // ADR 0053 asks for "a small set of named configurations from a sharp hand
@@ -52,10 +59,10 @@ describe('the configurations the harness plays under (ADR 0053)', () => {
       (hand) => CONFIGURATIONS[`${hand}-far` as ConfigurationName],
     );
 
-    expect(rungs[0].lapsePerMille).toBe(0);
-    expect(rungs[0].lapseBound).toBe(0);
+    expect(entryAt(rungs, 0).lapsePerMille).toBe(0);
+    expect(entryAt(rungs, 0).lapseBound).toBe(0);
     for (const [index, rung] of rungs.slice(1).entries()) {
-      const sharper = rungs[index];
+      const sharper = entryAt(rungs, index);
       expect(rung.lapsePerMille, rung.name).toBeGreaterThan(
         sharper.lapsePerMille,
       );
@@ -65,7 +72,9 @@ describe('the configurations the harness plays under (ADR 0053)', () => {
     // The two numbers belong to the hand and not to the head, so all three
     // heads of one hand carry the same pair and the knobs stay separable.
     for (const name of CONFIGURATION_NAMES) {
-      const rung = rungs[HANDS.indexOf(name.split('-')[0])];
+      const hand = name.split('-')[0];
+      if (hand === undefined) throw new Error(`${name} split into no hand`);
+      const rung = entryAt(rungs, HANDS.indexOf(hand));
       expect(CONFIGURATIONS[name].lapsePerMille, name).toBe(rung.lapsePerMille);
       expect(CONFIGURATIONS[name].lapseBound, name).toBe(rung.lapseBound);
     }
@@ -142,15 +151,16 @@ describe('the configurations the harness plays under (ADR 0053)', () => {
     ).map((row) => row.lookaheadSamples);
 
     for (const [index, shorter] of heads.slice(1).entries()) {
-      const longer = heads[index];
+      const longer = entryAt(heads, index);
       expect(shorter.length, `${HEADS[index + 1]}`).toBeLessThan(longer.length);
       expect(longer.slice(0, shorter.length)).toEqual([...shorter]);
     }
     // The same list whichever hand names it, so the two knobs stay separable.
     for (const name of CONFIGURATION_NAMES) {
       const head = name.split('-')[1];
+      if (head === undefined) throw new Error(`${name} split into no head`);
       expect(CONFIGURATIONS[name].lookaheadSamples, name).toEqual([
-        ...heads[HEADS.indexOf(head)],
+        ...entryAt(heads, HEADS.indexOf(head)),
       ]);
     }
   });

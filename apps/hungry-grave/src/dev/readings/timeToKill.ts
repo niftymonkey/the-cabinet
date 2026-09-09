@@ -9,6 +9,17 @@ import { addTo } from '../numbersByName';
 import { greatestOf, leastOf, meanOf } from '../seriesSummary';
 
 /**
+ * One entry of a per-type accumulator seeded for every MOB_TYPE_NAMES entry
+ * (noneByType, noTicksByType) before any tick runs, so a lookup by a type this
+ * module itself produced is a bug rather than a case if it is ever absent.
+ */
+function entryOf<T>(record: Record<string, T>, key: string): T {
+  const entry = record[key];
+  if (entry === undefined) throw new Error(`no entry for ${key}`);
+  return entry;
+}
+
+/**
  * The engagements a run fought, per mob type and per weapon line.
  *
  * Every mob that ever took damage lands in exactly one of killed, escaped and
@@ -158,7 +169,7 @@ const openEngagement = (
 ): Engagement | null => {
   const type = types.get(id);
   if (type === undefined) return null;
-  acc.engaged[type] += 1;
+  acc.engaged[type] = entryOf(acc.engaged, type) + 1;
   const engagement: Engagement = {
     type,
     firstDamageTick: tick,
@@ -200,12 +211,14 @@ const closeEngagement = (
     throw new Error(`mob ${id} died with no damage behind it`);
   }
   acc.open.delete(id);
-  acc.killed[engagement.type] += 1;
+  acc.killed[engagement.type] = entryOf(acc.killed, engagement.type) + 1;
   addTo(acc.fatalBlows, engagement.lastSource, 1);
   if (engagement.lastSource === 'belch') return;
-  acc.timedKills[engagement.type] += 1;
-  acc.ticks[engagement.type].push(tick - engagement.firstDamageTick);
-  acc.hits[engagement.type] += engagement.hits;
+  acc.timedKills[engagement.type] =
+    entryOf(acc.timedKills, engagement.type) + 1;
+  entryOf(acc.ticks, engagement.type).push(tick - engagement.firstDamageTick);
+  acc.hits[engagement.type] =
+    entryOf(acc.hits, engagement.type) + engagement.hits;
   for (const [line, hits] of Object.entries(engagement.hitsByLine)) {
     addTo(acc.hitsByLine, line, hits);
   }
@@ -242,7 +255,7 @@ const unfinished = (
   const aliveAtStop = noneByType();
   for (const [id, engagement] of acc.open) {
     const bucket = acc.liveIds.has(id) ? aliveAtStop : escaped;
-    bucket[engagement.type] += 1;
+    bucket[engagement.type] = entryOf(bucket, engagement.type) + 1;
   }
   return { escaped, aliveAtStop };
 };
@@ -263,12 +276,12 @@ interface KillTimes {
 const killTimesOf = (acc: EngagementsAcc): KillTimes => {
   const times: KillTimes = { mean: {}, min: {}, max: {}, hitsPerKill: {} };
   for (const type of MOB_TYPE_NAMES) {
-    const ticks = acc.ticks[type];
+    const ticks = entryOf(acc.ticks, type);
     if (ticks.length === 0) continue;
     times.mean[type] = meanOf(ticks);
     times.min[type] = leastOf(ticks);
     times.max[type] = greatestOf(ticks);
-    times.hitsPerKill[type] = acc.hits[type] / ticks.length;
+    times.hitsPerKill[type] = entryOf(acc.hits, type) / ticks.length;
   }
   return times;
 };

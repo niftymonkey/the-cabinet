@@ -33,13 +33,16 @@ function placePatch(
   y: number,
 ): Patch {
   const patch = run.patches[slot];
+  if (patch === undefined) throw new Error(`no patch pool slot ${slot}`);
+  const radius = RADIUS_BY_LEVEL[level];
+  if (radius === undefined) throw new Error(`no radius for level ${level}`);
   patch.alive = true;
   patch.id = run.nextEntityId;
   run.nextEntityId += 1;
   patch.level = level;
   patch.x = x;
   patch.y = y;
-  patch.radius = RADIUS_BY_LEVEL[level];
+  patch.radius = radius;
   patch.opening = 0;
   return patch;
 }

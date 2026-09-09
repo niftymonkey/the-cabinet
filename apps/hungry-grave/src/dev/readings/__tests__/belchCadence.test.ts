@@ -57,7 +57,9 @@ describe('belch cadence', () => {
     ];
     for (const mob of near) mob.beat = 0;
     for (let slot = 0; slot < LIVE_SHOTS; slot++) {
-      run.mobFire[slot].alive = true;
+      const shot = run.mobFire[slot];
+      if (shot === undefined) throw new Error(`no mobFire pool slot ${slot}`);
+      shot.alive = true;
     }
     run.reservoir = RESERVOIR_CAPACITY;
     const accumulator = createBelchCadence();

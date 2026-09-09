@@ -85,8 +85,11 @@ const bodiesSeen = (
  * separable from out here. That is one tick at each of six boundaries, against
  * a schedule authored in seconds.
  */
-const phaseNow = (state: RunState): string =>
-  PHASES[state.stage.phaseIndex].name;
+const phaseNow = (state: RunState): string => {
+  const phase = PHASES[state.stage.phaseIndex];
+  if (phase === undefined) throw new Error('phaseIndex out of range');
+  return phase.name;
+};
 
 const observeArrivals = (
   acc: ArrivalsAcc,

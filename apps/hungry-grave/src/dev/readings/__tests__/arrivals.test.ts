@@ -18,6 +18,13 @@ import { createRun } from '../../../game/run';
 import { PHASES } from '../../../game/stage/stage';
 import { arrivalsOf, createArrivals, observeArrivals } from '../arrivals';
 
+/** The name of PHASES' entry at this index, which is always in range here. */
+function phaseNameAt(index: number): string {
+  const phase = PHASES[index];
+  if (phase === undefined) throw new Error(`no phase at index ${index}`);
+  return phase.name;
+}
+
 const SEED = 20260826;
 
 /** One body put on the field through the sim's own spawn, at the top edge. */
@@ -117,8 +124,8 @@ describe('arrivals', () => {
     observeArrivals(acc, [], run);
 
     const arrivals = arrivalsOf(acc);
-    expect(arrivals.byPhase[PHASES[0].name]).toBe(1);
-    expect(arrivals.byPhase[PHASES[1].name]).toBe(2);
-    expect(arrivals.byPhase[PHASES[2].name]).toBe(undefined);
+    expect(arrivals.byPhase[phaseNameAt(0)]).toBe(1);
+    expect(arrivals.byPhase[phaseNameAt(1)]).toBe(2);
+    expect(arrivals.byPhase[phaseNameAt(2)]).toBe(undefined);
   });
 });

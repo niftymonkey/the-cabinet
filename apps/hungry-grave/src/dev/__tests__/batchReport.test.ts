@@ -25,6 +25,12 @@ import type { Measurement, Metrics } from '../measure';
 
 const TICKS = 60;
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 const ORIGIN: BatchOrigin = {
   configuration: 'steady-far',
   firstSeed: 900,
@@ -100,7 +106,9 @@ describe('the batch report', () => {
     expect(report.identity.firstSeed).toBe(900);
     expect(report.identity.seeds).toBe(3);
     expect(report.verified).toBe(3);
-    expect(report.spreads['run.ticks'].count).toBe(3);
+    expect(
+      requireDefined(report.spreads['run.ticks'], 'no run.ticks spread').count,
+    ).toBe(3);
     // The size of a batch is its seed count, and BATCH_SEEDS is the row the
     // command line reads when nobody names one.
     expect(BATCH_SEEDS).toBe(48);
@@ -116,7 +124,10 @@ describe('the batch report', () => {
 
     const report = batchReportOf(origin(5), runs);
 
-    expect(report.spreads['run.ticks'].summary).toEqual({
+    expect(
+      requireDefined(report.spreads['run.ticks'], 'no run.ticks spread')
+        .summary,
+    ).toEqual({
       min: 1,
       lowerQuartile: 2,
       median: 4,
@@ -146,13 +157,18 @@ describe('the batch report', () => {
       runOfTicks(903, 20),
     ]);
 
-    expect(report.spreads['run.ticks'].samples).toEqual([
+    expect(
+      requireDefined(report.spreads['run.ticks'], 'no run.ticks spread')
+        .samples,
+    ).toEqual([
       { seed: 900, value: 30 },
       { seed: 901, value: 10 },
       { seed: 902, value: 90 },
       { seed: 903, value: 20 },
     ]);
-    expect(report.spreads['run.ticks'].count).toBe(4);
+    expect(
+      requireDefined(report.spreads['run.ticks'], 'no run.ticks spread').count,
+    ).toBe(4);
   });
 
   it('names the seeds that produced the smallest and the largest reading', () => {
@@ -168,8 +184,14 @@ describe('the batch report', () => {
 
     const report = batchReportOf(origin(4), runs);
 
-    expect(report.spreads['run.ticks'].minSeed).toBe(901);
-    expect(report.spreads['run.ticks'].maxSeed).toBe(902);
+    expect(
+      requireDefined(report.spreads['run.ticks'], 'no run.ticks spread')
+        .minSeed,
+    ).toBe(901);
+    expect(
+      requireDefined(report.spreads['run.ticks'], 'no run.ticks spread')
+        .maxSeed,
+    ).toBe(902);
   });
 
   it('keys by weapon line in the batch every reading keyed by weapon line in a run', () => {
@@ -187,7 +209,10 @@ describe('the batch report', () => {
 
     const report = batchReportOf(origin(3), runs);
 
-    expect(report.byLine.bell?.endLevels.summary).toEqual({
+    expect(
+      requireDefined(report.byLine.bell?.endLevels, 'no bell endLevels')
+        .summary,
+    ).toEqual({
       min: 1,
       lowerQuartile: 1,
       median: 3,
@@ -195,11 +220,16 @@ describe('the batch report', () => {
       max: 5,
     });
     for (const line of WEAPON_LINES) {
-      expect(report.byLine[line]?.endLevels.count).toBe(3);
+      expect(
+        requireDefined(report.byLine[line]?.endLevels, `no ${line} endLevels`)
+          .count,
+      ).toBe(3);
     }
     // A run's tick count has no line, so it is a flat spread and appears under
     // no line at all.
-    expect(report.spreads['run.ticks'].count).toBe(3);
+    expect(
+      requireDefined(report.spreads['run.ticks'], 'no run.ticks spread').count,
+    ).toBe(3);
     expect(report.byLine.bell?.['run.ticks']).toBe(undefined);
   });
 
@@ -223,7 +253,9 @@ describe('the batch report', () => {
 
     expect(report.verified).toBe(2);
     expect(report.unverified).toEqual([{ seed: 901, outcome: 'diverged' }]);
-    expect(report.spreads['run.ticks'].count).toBe(2);
+    expect(
+      requireDefined(report.spreads['run.ticks'], 'no run.ticks spread').count,
+    ).toBe(2);
     // The batch is still three seeds wide: the identity says what was played
     // and the tally says what could be read.
     expect(report.identity.seeds).toBe(3);
@@ -252,7 +284,9 @@ describe('the batch report', () => {
     // an outcome, not a proof, so the report keeps the reading and tells the
     // reader which seed to discount rather than quietly shrinking the batch.
     expect(report.verified).toBe(3);
-    expect(report.spreads['run.ticks'].count).toBe(3);
+    expect(
+      requireDefined(report.spreads['run.ticks'], 'no run.ticks spread').count,
+    ).toBe(3);
     expect(report.counts['run.ending']).toEqual({ sealed: 2, none: 1 });
   });
 
@@ -303,14 +337,18 @@ describe('the batch report', () => {
       [10, 20, 30, 40].map((ticks, at) => runOfTicks(900 + at, ticks)),
     );
 
-    expect(odd.spreads['run.ticks'].summary).toEqual({
+    expect(
+      requireDefined(odd.spreads['run.ticks'], 'no run.ticks spread').summary,
+    ).toEqual({
       min: 10,
       lowerQuartile: 20,
       median: 30,
       upperQuartile: 40,
       max: 50,
     });
-    expect(even.spreads['run.ticks'].summary).toEqual({
+    expect(
+      requireDefined(even.spreads['run.ticks'], 'no run.ticks spread').summary,
+    ).toEqual({
       min: 10,
       lowerQuartile: 10,
       median: 20,
@@ -380,8 +418,12 @@ describe('the batch report', () => {
     expect(never.spreads['tuning.wakingSwallows.span']).toBe(undefined);
     // And a run that did open it is a spread of one rather than a spread of two
     // with a zero in it, so the count says how many runs the figure came from.
-    expect(once.spreads['tuning.wakingSwallows.span'].count).toBe(1);
-    expect(once.spreads['tuning.wakingSwallows.span'].summary.min).toBe(6);
+    const onceSpread = requireDefined(
+      once.spreads['tuning.wakingSwallows.span'],
+      'no tuning.wakingSwallows.span spread',
+    );
+    expect(onceSpread.count).toBe(1);
+    expect(onceSpread.summary.min).toBe(6);
   });
 
   it('counts which slot went in, under the site the offer stood at', () => {
@@ -430,9 +472,13 @@ describe('the batch report', () => {
     });
     // An offer that never went in is its own row rather than a slot nobody took.
     const untaken = batchReportOf(origin(1), [offering(900, null)]);
-    expect(untaken.counts['tuning.offerChoices.choices']['death.untaken']).toBe(
-      1,
+    const untakenChoices = requireDefined(
+      untaken.counts['tuning.offerChoices.choices'],
+      'no tuning.offerChoices.choices counts',
     );
+    expect(
+      requireDefined(untakenChoices['death.untaken'], 'no death.untaken count'),
+    ).toBe(1);
   });
 
   it('reports each phase as a spread of the spans it held', () => {
@@ -508,17 +554,53 @@ describe('the batch report', () => {
       levelled(901, 400),
     ]);
 
-    expect(report.spreads['levelUps.rungs'].summary.median).toBe(3);
+    expect(
+      requireDefined(
+        report.spreads['levelUps.rungs'],
+        'no levelUps.rungs spread',
+      ).summary.median,
+    ).toBe(3);
     // The tick, as how long the run played before its first rung.
-    expect(report.spreads['levelUps.firstTick'].summary.min).toBe(50);
+    expect(
+      requireDefined(
+        report.spreads['levelUps.firstTick'],
+        'no levelUps.firstTick spread',
+      ).summary.min,
+    ).toBe(50);
     // Where the growth fell across the run, phase by phase.
-    expect(report.spreads['levelUps.byPhase.procession'].summary.max).toBe(1);
-    expect(report.spreads['levelUps.byPhase.banshee'].summary.max).toBe(1);
-    expect(report.spreads['levelUps.byPhase.crowd'].summary.max).toBe(1);
+    expect(
+      requireDefined(
+        report.spreads['levelUps.byPhase.procession'],
+        'no levelUps.byPhase.procession spread',
+      ).summary.max,
+    ).toBe(1);
+    expect(
+      requireDefined(
+        report.spreads['levelUps.byPhase.banshee'],
+        'no levelUps.byPhase.banshee spread',
+      ).summary.max,
+    ).toBe(1);
+    expect(
+      requireDefined(
+        report.spreads['levelUps.byPhase.crowd'],
+        'no levelUps.byPhase.crowd spread',
+      ).summary.max,
+    ).toBe(1);
     // And the line, which files under the line the way every per-line figure does.
-    expect(report.byLine.skullStream?.levelUps.summary.median).toBe(2);
-    expect(report.byLine.bell?.levelUps.summary.median).toBe(1);
-    expect(report.byLine.wisps?.levelUps.summary.median).toBe(0);
+    expect(
+      requireDefined(
+        report.byLine.skullStream?.levelUps,
+        'no skullStream levelUps',
+      ).summary.median,
+    ).toBe(2);
+    expect(
+      requireDefined(report.byLine.bell?.levelUps, 'no bell levelUps').summary
+        .median,
+    ).toBe(1);
+    expect(
+      requireDefined(report.byLine.wisps?.levelUps, 'no wisps levelUps').summary
+        .median,
+    ).toBe(0);
   });
 
   it('counts the endings, the stops and the reach rather than spreading them', () => {
@@ -629,7 +711,12 @@ describe('the batch report', () => {
 
     const report = batchReportOf(origin(2), [sized(900, 30), sized(901, 44)]);
 
-    expect(report.spreads['tuning.gravePath.sizePerTick'].summary.max).toBe(44);
+    expect(
+      requireDefined(
+        report.spreads['tuning.gravePath.sizePerTick'],
+        'no tuning.gravePath.sizePerTick spread',
+      ).summary.max,
+    ).toBe(44);
     for (const type of MOB_TYPE_NAMES) {
       expect(report.identity.mobWidths[type]).toBe(
         MOB_TYPES[type].halfWidth * 2,

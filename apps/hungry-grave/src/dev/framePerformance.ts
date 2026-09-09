@@ -61,9 +61,18 @@ interface PerformanceReport {
   readonly expensiveFrames: readonly ExpensiveFrame[];
 }
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 // Nearest-rank percentile over an ascending series.
 const percentile = (sorted: readonly number[], rank: number): number =>
-  sorted[Math.max(0, Math.ceil(rank * sorted.length) - 1)];
+  requireDefined(
+    sorted[Math.max(0, Math.ceil(rank * sorted.length) - 1)],
+    'percentile called on an empty series',
+  );
 
 const distributionOf = (values: readonly number[]): Distribution => {
   if (values.length === 0) {
@@ -73,8 +82,8 @@ const distributionOf = (values: readonly number[]): Distribution => {
   const sum = sorted.reduce((total, value) => total + value, 0);
   return {
     count: sorted.length,
-    min: sorted[0],
-    max: sorted[sorted.length - 1],
+    min: requireDefined(sorted[0], 'empty series'),
+    max: requireDefined(sorted[sorted.length - 1], 'empty series'),
     mean: sum / sorted.length,
     p50: percentile(sorted, 0.5),
     p95: percentile(sorted, 0.95),

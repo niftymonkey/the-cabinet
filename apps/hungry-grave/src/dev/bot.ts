@@ -209,7 +209,10 @@ const scoreMove = (
       tightest = Math.min(tightest, clearanceAt(state, at, threat, ticks));
     }
   }
-  const settled = graveAfter(state, move, samples[samples.length - 1], speed);
+  const farthest = samples[samples.length - 1];
+  if (farthest === undefined)
+    throw new Error('scoreMove called with no samples');
+  const settled = graveAfter(state, move, farthest, speed);
   return tightest * 1000 - distanceTo(settled, wants);
 };
 
@@ -252,7 +255,9 @@ const bestMoveToward = (
   samples: readonly number[],
 ): MoveCommand => {
   const threats = threatsNear(state);
-  let best = MOVES[0];
+  const firstMove = MOVES[0];
+  if (firstMove === undefined) throw new Error('MOVES is empty');
+  let best = firstMove;
   let bestScore = -Infinity;
   for (const move of MOVES) {
     const score = scoreMove(

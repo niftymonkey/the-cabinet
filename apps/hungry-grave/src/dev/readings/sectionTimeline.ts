@@ -47,9 +47,11 @@ interface SectionTimelineAcc {
  * in `stage.ts`) and where a measured tape begins with it: a tape is a
  * recording of a run from its own first tick.
  */
-const createSectionTimeline = (): SectionTimelineAcc => ({
-  spans: [{ phase: PHASES[0].name, from: 0, to: null }],
-});
+const createSectionTimeline = (): SectionTimelineAcc => {
+  const first = PHASES[0];
+  if (first === undefined) throw new Error('PHASES is empty');
+  return { spans: [{ phase: first.name, from: 0, to: null }] };
+};
 
 /**
  * Every bound is the boundary event's own tick rather than the observer's,
@@ -64,7 +66,9 @@ const observeSectionTimeline = (
 ): void => {
   for (const event of events) {
     if (event.type !== 'phaseChanged') continue;
-    acc.spans[acc.spans.length - 1].to = event.tick;
+    const open = acc.spans[acc.spans.length - 1];
+    if (open === undefined) throw new Error('spans is empty');
+    open.to = event.tick;
     acc.spans.push({ phase: event.phase, from: event.tick, to: null });
   }
 };

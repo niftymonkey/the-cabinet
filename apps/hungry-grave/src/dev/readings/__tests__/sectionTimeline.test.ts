@@ -33,11 +33,13 @@ describe('section timeline', () => {
     const accumulator = createSectionTimeline();
 
     PHASES.slice(1).forEach((phase, at) => {
+      const tick = CROSSED_AT[at];
+      if (tick === undefined) throw new Error(`no crossing tick at ${at}`);
       const crossing: SimEvent = {
         type: 'phaseChanged',
         phase: phase.name,
         music: phase.music,
-        tick: CROSSED_AT[at],
+        tick,
       };
       observeSectionTimeline(accumulator, [crossing]);
     });

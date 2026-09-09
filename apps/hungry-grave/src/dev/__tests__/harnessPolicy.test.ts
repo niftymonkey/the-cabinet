@@ -39,6 +39,22 @@ import {
 } from '../configurations';
 import { HAND_STREAM, harnessPolicy } from '../harnessPolicy';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** A body at this index, present because spreadAround built exactly as many bodies as offsets given it. */
+function corpseAt(bodies: readonly Corpse[], index: number): Corpse {
+  return requireDefined(bodies[index], `no body at index ${index}`);
+}
+
+/** An entry at this index, present because the caller's own construction guarantees it. */
+function entryAt<T>(items: readonly T[], index: number): T {
+  return requireDefined(items[index], `no entry at index ${index}`);
+}
+
 /** The sharp corner: the best this hand plays, and the baseline both knobs cost against. */
 const SHARP = CONFIGURATIONS[SHARP_HAND];
 
@@ -113,8 +129,12 @@ const spreadAround = (
   const bodies = offerBodies(state);
   expect(bodies).toHaveLength(offsets.length);
   for (const [index, body] of bodies.entries()) {
-    body.x = state.grave.x + offsets[index].x;
-    body.y = state.grave.y + offsets[index].y;
+    const offset = requireDefined(
+      offsets[index],
+      `no offset at index ${index}`,
+    );
+    body.x = state.grave.x + offset.x;
+    body.y = state.grave.y + offset.y;
   }
   spawnDrop(state, state.grave.x + 12, state.grave.y + 12);
   return bodies;
@@ -157,10 +177,13 @@ const SLOWEST_DESCENT_TICKS =
       GHOUL_DESCENT_FLOOR,
     ));
 
-const budgetOf = (phase: (typeof PHASES)[number]): number =>
-  (phase.rows.length === 0 ? 0 : phase.rows[phase.rows.length - 1].t) *
-    TICK_HZ +
-  SLOWEST_DESCENT_TICKS;
+const budgetOf = (phase: (typeof PHASES)[number]): number => {
+  if (phase.rows.length === 0) return SLOWEST_DESCENT_TICKS;
+  const lastRow = phase.rows[phase.rows.length - 1];
+  if (lastRow === undefined)
+    throw new Error('phase.rows is non-empty but its last row is absent');
+  return lastRow.t * TICK_HZ + SLOWEST_DESCENT_TICKS;
+};
 
 const STAGE_TICKS = Math.ceil(
   PHASES.reduce((total, each) => total + budgetOf(each), 0),
@@ -218,10 +241,10 @@ describe('the hand walks to the body the sim would hand it (ADR 0053)', () => {
     const chosen = chooseOfferBody(state, bodies)!;
     const move = command(state).move;
 
-    expect(chosen).toBe(bodies[0]);
-    expect(move).toEqual(pointOf(state, bodies[0]));
-    expect(move).not.toEqual(pointOf(state, bodies[1]));
-    expect(move).not.toEqual(pointOf(state, bodies[2]));
+    expect(chosen).toBe(corpseAt(bodies, 0));
+    expect(move).toEqual(pointOf(state, corpseAt(bodies, 0)));
+    expect(move).not.toEqual(pointOf(state, corpseAt(bodies, 1)));
+    expect(move).not.toEqual(pointOf(state, corpseAt(bodies, 2)));
   });
 
   it('breaks a tie between two bodies on the lower entity id', () => {
@@ -236,7 +259,8 @@ describe('the hand walks to the body the sim would hand it (ADR 0053)', () => {
       { x: 150, y: 0 },
       { x: 0, y: -400 },
     ]);
-    const [lower, higher] = bodies;
+    const lower = corpseAt(bodies, 0);
+    const higher = corpseAt(bodies, 1);
 
     expect(pointOf(state, lower)).not.toEqual(pointOf(state, higher));
     expect(chooseOfferBody(state, [higher, lower])).toBe(lower);
@@ -253,8 +277,8 @@ describe('the hand walks to the body the sim would hand it (ADR 0053)', () => {
       { x: 150, y: 0 },
       { x: 0, y: -300 },
     ]);
-    const gone = bodies[0];
-    const next = bodies[1];
+    const gone = corpseAt(bodies, 0);
+    const next = corpseAt(bodies, 1);
     expect(chooseOfferBody(state, bodies)).toBe(gone);
 
     gone.alive = false;
@@ -313,7 +337,9 @@ describe('the hand feeds and drifts when no offer stands (ADR 0053)', () => {
     state.grave.y = 400;
     spawnDrop(state, 200, 200);
     spawnDrop(state, 340, 400);
-    const [far, near] = state.corpses.filter((body) => body.alive);
+    const alive = state.corpses.filter((body) => body.alive);
+    const far = corpseAt(alive, 0);
+    const near = corpseAt(alive, 1);
 
     expect(state.offer).toBeNull();
     expect(command(state).move).toEqual(pointOf(state, near));
@@ -595,9 +621,11 @@ const watchOneRun = (
   runPolicy(
     execution,
     (each, caused) => {
-      watchers.forEach((watcher, index) =>
-        seen[index].push(watcher(each, caused)),
-      );
+      watchers.forEach((watcher, index) => {
+        const log = seen[index];
+        if (log === undefined) throw new Error(`no seen log at index ${index}`);
+        log.push(watcher(each, caused));
+      });
       return driver(each, caused);
     },
     ticks,
@@ -629,15 +657,26 @@ describe('the dexterity error is a lapse of attention (ADR 0053)', () => {
     // its own previous answer on a held one, at exactly the ticks the stream
     // says.
     const row = CONFIGURATIONS['shaky-far'];
-    const [lapsing, fresh] = watchOneRun(303, KNOB_TICKS, [
+    const [watchedLapsing, watchedFresh] = watchOneRun(303, KNOB_TICKS, [
       harnessPolicy(row, HAND_SEED),
       harnessPolicy(attentive(row), HAND_SEED),
     ]);
+    const lapsing = requireDefined(watchedLapsing, 'no lapsing watcher log');
+    const fresh = requireDefined(watchedFresh, 'no fresh watcher log');
     const { decided } = lapseSchedule(row, HAND_SEED, KNOB_TICKS);
 
     const wrong = decided.flatMap((decidedHere, tick) => {
-      const owed = decidedHere ? fresh[tick] : lapsing[tick - 1];
-      return JSON.stringify(lapsing[tick]) === JSON.stringify(owed)
+      const owed = decidedHere
+        ? requireDefined(fresh[tick], `no fresh command at tick ${tick}`)
+        : requireDefined(
+            lapsing[tick - 1],
+            `no lapsing command at tick ${tick - 1}`,
+          );
+      const held = requireDefined(
+        lapsing[tick],
+        `no lapsing command at tick ${tick}`,
+      );
+      return JSON.stringify(held) === JSON.stringify(owed)
         ? []
         : [`tick ${tick}, ${decidedHere ? 'a decision' : 'a hold'}`];
     });
@@ -655,13 +694,17 @@ describe('the dexterity error is a lapse of attention (ADR 0053)', () => {
     // and no reading in the report would name it.
     const row = alwaysLapsing(4);
     const ticks = 400;
-    const [lapsing, fresh] = watchOneRun(404, ticks, [
+    const [watchedLapsing, watchedFresh] = watchOneRun(404, ticks, [
       harnessPolicy(row, HAND_SEED),
       harnessPolicy(attentive(row), HAND_SEED),
     ]);
+    const lapsing = requireDefined(watchedLapsing, 'no lapsing watcher log');
+    const fresh = requireDefined(watchedFresh, 'no fresh watcher log');
     const { decided } = lapseSchedule(row, HAND_SEED, ticks);
+    const at = (log: readonly TickCommand[], tick: number): TickCommand =>
+      requireDefined(log[tick], `no command at tick ${tick}`);
     const differs = (tick: number) =>
-      JSON.stringify(lapsing[tick]) !== JSON.stringify(fresh[tick]);
+      JSON.stringify(at(lapsing, tick)) !== JSON.stringify(at(fresh, tick));
 
     // A bound of four draws 0 to 4, so which ticks carry a decision is the
     // stream's answer and never arithmetic. The hand agrees with it, and the
@@ -669,7 +712,7 @@ describe('the dexterity error is a lapse of attention (ADR 0053)', () => {
     expect(decided.filter(Boolean).length).toBeLessThan(decided.length);
     decided.forEach((decidedHere, tick) => {
       if (!decidedHere) return;
-      expect(lapsing[tick], `tick ${tick}`).toEqual(fresh[tick]);
+      expect(at(lapsing, tick), `tick ${tick}`).toEqual(at(fresh, tick));
     });
     // And the holds are visible rather than assumed: on a still enough field a
     // held command and a freshly decided one are the same answer, so the walk
@@ -733,8 +776,11 @@ describe('the dexterity error is a lapse of attention (ADR 0053)', () => {
         name,
       ).toEqual([...row.lookaheadSamples]);
 
-      const lapsing = seen[index];
-      const fresh = seen[index + CONFIGURATION_NAMES.length];
+      const lapsing = requireDefined(seen[index], `no seen log at ${index}`);
+      const fresh = requireDefined(
+        seen[index + CONFIGURATION_NAMES.length],
+        `no seen log at ${index + CONFIGURATION_NAMES.length}`,
+      );
       const wrong = lapsing.flatMap((answer, tick) => {
         const staleOrFresh = [fresh[tick], lapsing[tick - 1]].map((each) =>
           JSON.stringify(each),
@@ -819,7 +865,7 @@ describe('the hand draws from its own stream and only when it lapses (ADR 0012)'
     for (let tick = 0; tick < 300; tick++) hand(state, []);
 
     expect(hands).toHaveLength(1);
-    expect(hands[0].drawn).toBe(0);
+    expect(entryAt(hands, 0).drawn).toBe(0);
   });
 
   it('takes one draw for the rate and a second only on the decisions that lapsed', async () => {
@@ -842,7 +888,7 @@ describe('the hand draws from its own stream and only when it lapses (ADR 0012)'
     // Enough decisions that the rate's own boundary value comes up at all,
     // which is the whole reason this test is longer than the others.
     expect(decided.filter(Boolean).length).toBeGreaterThan(3000);
-    expect(hands[0].drawn).toBe(drawn);
+    expect(entryAt(hands, 0).drawn).toBe(drawn);
     // At least, rather than exactly: nextInt redraws past the last whole
     // multiple of its bound and every redraw counts as a draw (rng.ts).
     expect(drawn).toBeGreaterThanOrEqual(
@@ -873,8 +919,8 @@ describe('the hand draws from its own stream and only when it lapses (ADR 0012)'
     ]);
     // Two configurations at one seed took the same draws; a third seed did
     // not, which is what says the seed reaches the stream at all.
-    expect(hands[0].drawn).toBe(hands[1].drawn);
-    expect(hands[2].drawn).not.toBe(hands[0].drawn);
+    expect(entryAt(hands, 0).drawn).toBe(entryAt(hands, 1).drawn);
+    expect(entryAt(hands, 2).drawn).not.toBe(entryAt(hands, 0).drawn);
   });
 });
 

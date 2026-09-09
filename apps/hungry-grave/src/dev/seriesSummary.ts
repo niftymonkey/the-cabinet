@@ -1,28 +1,39 @@
 // What a series of numbers reduces to: the figures a reading picks its own
 // summary from.
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 /**
  * Each figure is absent for an empty series rather than zero. A run with no
  * samples has nothing to average, and answering zero would be the instrument
  * inventing a reading it never took.
  */
 const firstOf = (series: readonly number[]): number | undefined =>
-  series.length === 0 ? undefined : series[0];
+  series.length === 0 ? undefined : requireDefined(series[0], 'empty series');
 
 const lastOf = (series: readonly number[]): number | undefined =>
-  series.length === 0 ? undefined : series[series.length - 1];
+  series.length === 0
+    ? undefined
+    : requireDefined(series[series.length - 1], 'empty series');
 
 const leastOf = (series: readonly number[]): number | undefined =>
   series.length === 0
     ? undefined
-    : series.reduce((least, one) => (one < least ? one : least), series[0]);
+    : series.reduce(
+        (least, one) => (one < least ? one : least),
+        requireDefined(series[0], 'empty series'),
+      );
 
 const greatestOf = (series: readonly number[]): number | undefined =>
   series.length === 0
     ? undefined
     : series.reduce(
         (greatest, one) => (one > greatest ? one : greatest),
-        series[0],
+        requireDefined(series[0], 'empty series'),
       );
 
 const meanOf = (series: readonly number[]): number | undefined =>
@@ -47,7 +58,10 @@ interface FiveNumbers {
  * states for its own percentiles, so the tree has one convention and not two.
  */
 const nearestRank = (sorted: readonly number[], rank: number): number =>
-  sorted[Math.max(0, Math.ceil(rank * sorted.length) - 1)];
+  requireDefined(
+    sorted[Math.max(0, Math.ceil(rank * sorted.length) - 1)],
+    'nearestRank called on an empty series',
+  );
 
 /**
  * Absent for an empty series, on the same terms as the figures above: a batch
@@ -57,11 +71,11 @@ const fiveNumbersOf = (series: readonly number[]): FiveNumbers | undefined => {
   if (series.length === 0) return undefined;
   const sorted = [...series].sort((a, b) => a - b);
   return {
-    min: sorted[0],
+    min: requireDefined(sorted[0], 'empty series'),
     lowerQuartile: nearestRank(sorted, 0.25),
     median: nearestRank(sorted, 0.5),
     upperQuartile: nearestRank(sorted, 0.75),
-    max: sorted[sorted.length - 1],
+    max: requireDefined(sorted[sorted.length - 1], 'empty series'),
   };
 };
 

@@ -683,6 +683,7 @@ const fileFigure = (
   sample: Sample,
 ): void => {
   const [head, ...rest] = name.split('.');
+  if (head === undefined) throw new Error('split on an empty string');
   const line = lineNamed(head);
   if (line === undefined) {
     addSample(acc.spreads, `${reading}.${name}`, sample);
@@ -708,6 +709,7 @@ const fileNumbers = (
   for (const [name, value] of Object.entries(declared.numbersOf(report))) {
     if (value === undefined) continue;
     const head = name.split('.')[0];
+    if (head === undefined) throw new Error('split on an empty string');
     if (declared.reduction === 'perLine' && lineNamed(head) === undefined) {
       throw new Error(`${declared.reading} is per line and ${name} is no line`);
     }

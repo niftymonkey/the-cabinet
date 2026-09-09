@@ -326,10 +326,13 @@ const SLOWEST_DESCENT_TICKS =
     ));
 
 /** How long one phase can hold a run: its own rows, then whatever they left falling. */
-const budgetOf = (phase: (typeof PHASES)[number]): number =>
-  (phase.rows.length === 0 ? 0 : phase.rows[phase.rows.length - 1].t) *
-    TICK_HZ +
-  SLOWEST_DESCENT_TICKS;
+const budgetOf = (phase: (typeof PHASES)[number]): number => {
+  if (phase.rows.length === 0) return SLOWEST_DESCENT_TICKS;
+  const lastRow = phase.rows[phase.rows.length - 1];
+  if (lastRow === undefined)
+    throw new Error('phase.rows is non-empty but its last row is absent');
+  return lastRow.t * TICK_HZ + SLOWEST_DESCENT_TICKS;
+};
 
 /**
  * How long a run may take to cross the Procession, and then the whole stage.
@@ -338,7 +341,9 @@ const budgetOf = (phase: (typeof PHASES)[number]): number =>
  * (ADR 0051), so a hand that kills the stragglers meets the boss sooner and no
  * two runs are the same length; what can be written down is the ceiling.
  */
-const PROCESSION_TICKS = Math.ceil(budgetOf(PHASES[0]));
+const FIRST_PHASE = PHASES[0];
+if (FIRST_PHASE === undefined) throw new Error('PHASES is empty');
+const PROCESSION_TICKS = Math.ceil(budgetOf(FIRST_PHASE));
 const STAGE_TICKS = Math.ceil(
   PHASES.reduce((total, each) => total + budgetOf(each), 0),
 );
@@ -742,8 +747,13 @@ describe('both endings across the three loadouts', () => {
           `${seed} 1 1`,
         );
         expect(`${seed} ${faults.length}`).toBe(`${seed} 0`);
-        const at = events.indexOf(killed[0]);
-        expect(`${seed} ${events.indexOf(victory[0]) > at}`).toBe(
+        const firstKilled = killed[0];
+        const firstVictory = victory[0];
+        if (firstKilled === undefined || firstVictory === undefined) {
+          throw new Error(`${seed} did not carry the expected events`);
+        }
+        const at = events.indexOf(firstKilled);
+        expect(`${seed} ${events.indexOf(firstVictory) > at}`).toBe(
           `${seed} true`,
         );
       }
@@ -1012,7 +1022,9 @@ describe('the sparse last row and its two boundaries (ADR 0051)', () => {
         // boundary and none of the five below would ever be reached. How long
         // a fight takes is the boss modules' own tests' subject.
         if (state.boss !== null) {
-          damageBoss(state, state.boss.hp, BIRTHRIGHT[0]);
+          const source = BIRTHRIGHT[0];
+          if (source === undefined) throw new Error('BIRTHRIGHT is empty');
+          damageBoss(state, state.boss.hp, source);
         }
         const alive = state.mobs.filter((mob) => mob.alive).length;
         for (const event of events) {

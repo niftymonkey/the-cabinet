@@ -24,6 +24,13 @@ const LIVE_PATCHES = 4;
 const LIVE_SKULLS = 3;
 const LIVE_WISPS = 2;
 
+/** A pool slot at this index, present because the caller's own loop bound is under the pool's length. */
+function poolSlot<T>(pool: readonly T[], index: number): T {
+  const slot = pool[index];
+  if (slot === undefined) throw new Error(`no pool slot ${index}`);
+  return slot;
+}
+
 describe('field per line', () => {
   it('counts what each line has on the field each tick, with the total beside it', () => {
     // Story 10: field density as a reading rather than an impression. The
@@ -36,10 +43,11 @@ describe('field per line', () => {
     };
     const run = createRun(SEED, undefined, levels);
     for (let slot = 0; slot < LIVE_SKULLS; slot++)
-      run.skulls[slot].alive = true;
-    for (let slot = 0; slot < LIVE_WISPS; slot++) run.wisps[slot].alive = true;
+      poolSlot(run.skulls, slot).alive = true;
+    for (let slot = 0; slot < LIVE_WISPS; slot++)
+      poolSlot(run.wisps, slot).alive = true;
     for (let slot = 0; slot < LIVE_PATCHES; slot++)
-      run.patches[slot].alive = true;
+      poolSlot(run.patches, slot).alive = true;
     const accumulator = createFieldPerLine();
 
     observeFieldPerLine(accumulator, run, linesInRun(run.levels));
@@ -96,12 +104,12 @@ describe('Territory on the field (#76)', () => {
     // the live patch count, on a field the test built without either function.
     const run = createRun(SEED);
     for (let slot = 0; slot < LIVE_PATCHES; slot++)
-      run.patches[slot].alive = true;
+      poolSlot(run.patches, slot).alive = true;
 
     const onField = ON_FIELD_BY_LINE.territory!;
     expect(onField(run)).toBe(LIVE_PATCHES);
 
-    run.patches[0].alive = false;
+    poolSlot(run.patches, 0).alive = false;
     expect(onField(run)).toBe(LIVE_PATCHES - 1);
   });
 });

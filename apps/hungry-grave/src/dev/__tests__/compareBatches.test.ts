@@ -287,7 +287,9 @@ describe('two batches compared', () => {
     // The reading is genuinely on one side and not the other, or the row below
     // would be reading an absence on both.
     expect(never.spreads[reading]).toBe(undefined);
-    expect(opened.spreads[reading].count).toBe(2);
+    const openedSpread = opened.spreads[reading];
+    if (openedSpread === undefined) throw new Error(`no spread for ${reading}`);
+    expect(openedSpread.count).toBe(2);
     expect(directionOn(comparison, reading)).toBe('incomparable');
     const row = comparison.readings.find((one) => one.reading === reading);
     expect(row?.left).toBe(undefined);

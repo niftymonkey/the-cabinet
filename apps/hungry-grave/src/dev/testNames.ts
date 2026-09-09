@@ -48,7 +48,9 @@ const arrayFrom = (
 const listingArrayIn = (text: string): unknown[] | null => {
   const lines = text.split('\n');
   for (let first = 0; first < lines.length; first++) {
-    if (!lines[first].trimStart().startsWith('[')) continue;
+    const line = lines[first];
+    if (line === undefined) throw new Error(`no line at index ${first}`);
+    if (!line.trimStart().startsWith('[')) continue;
     const array = arrayFrom(lines, first);
     if (array !== null) return array;
   }

@@ -237,7 +237,9 @@ describe('compareRuns', () => {
       right: base.endLevels.bell + 4,
       delta: 4,
     });
-    expect(levels.names.skullStream.delta).toBe(0);
+    const skullStream = levels.names.skullStream;
+    if (skullStream === undefined) throw new Error('no skullStream entry');
+    expect(skullStream.delta).toBe(0);
   });
 
   it('leaves a key present on one side only absent on the missing side, never zero-filled and never given a delta', () => {
@@ -285,8 +287,10 @@ describe('compareRuns', () => {
       'max',
       'mean',
     ]);
-    expect(size.summary.first.left).toBe(base.tuning.gravePath.sizePerTick[0]);
-    expect(size.summary.first.delta).toBe(0);
+    const first = size.summary.first;
+    if (first === undefined) throw new Error('no first entry in summary');
+    expect(first.left).toBe(base.tuning.gravePath.sizePerTick[0]);
+    expect(first.delta).toBe(0);
   });
 
   it('summarises an empty series as absent on that side, and gives it no delta', () => {
@@ -309,10 +313,14 @@ describe('compareRuns', () => {
 
     expect(base.tuning.gravePath.sizePerTick.length).toBeGreaterThan(0);
     for (const figure of Object.keys(size.summary)) {
-      expect(size.summary[figure].left).toBe(ABSENT);
-      expect(size.summary[figure].delta).toBe(ABSENT);
+      const entry = size.summary[figure];
+      if (entry === undefined) throw new Error(`no ${figure} entry in summary`);
+      expect(entry.left).toBe(ABSENT);
+      expect(entry.delta).toBe(ABSENT);
     }
-    expect(size.summary.first.right).toBe(base.tuning.gravePath.sizePerTick[0]);
+    const first = size.summary.first;
+    if (first === undefined) throw new Error('no first entry in summary');
+    expect(first.right).toBe(base.tuning.gravePath.sizePerTick[0]);
   });
 
   it("shows a record list as each side's count with both lists carried, pairing no entries", () => {

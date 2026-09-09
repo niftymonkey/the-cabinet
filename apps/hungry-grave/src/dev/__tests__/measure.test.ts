@@ -46,6 +46,13 @@ const SEED = 20260823;
 const SPACING = 20;
 const SMALL_TICKS = 90;
 
+/** An entry at this index, present because the check just above it just confirmed the array's length. */
+function entryAt<T>(items: readonly T[], index: number): T {
+  const entry = items[index];
+  if (entry === undefined) throw new Error(`no entry at index ${index}`);
+  return entry;
+}
+
 function header(
   run: RunState,
   overrides: Partial<TapeHeader> = {},
@@ -249,7 +256,12 @@ function recordRichRun(): RichRecording {
     }
     const events = executeTick(execution, richSteer(tick));
     for (const event of events) {
-      if (event.type === 'mobDamaged') damage[event.source] += event.amount;
+      if (event.type === 'mobDamaged') {
+        const before = damage[event.source];
+        if (before === undefined)
+          throw new Error(`no damage entry for ${event.source}`);
+        damage[event.source] = before + event.amount;
+      }
       if (event.type === 'mobKilled') kills += 1;
       if (event.type === 'patchLaid') lays += 1;
       if (event.type === 'weaponLeveled') {
@@ -458,13 +470,10 @@ describe('measure', () => {
     expect(
       measured.performance.expensiveFrames.map((frame) => frame.tick),
     ).toEqual([30, 60, null]);
-    expect(measured.performance.expensiveFrames[0].density).toEqual(
-      densities.get(30),
-    );
-    expect(measured.performance.expensiveFrames[1].density).toEqual(
-      densities.get(60),
-    );
-    expect(measured.performance.expensiveFrames[2].density).toBeNull();
+    const frames = measured.performance.expensiveFrames;
+    expect(entryAt(frames, 0).density).toEqual(densities.get(30));
+    expect(entryAt(frames, 1).density).toEqual(densities.get(60));
+    expect(entryAt(frames, 2).density).toBeNull();
     expect(reads.size).toBeGreaterThan(0);
     for (const [index, count] of reads) {
       expect(count, `command ${index} read ${count} times`).toBe(1);
@@ -919,15 +928,15 @@ describe('measure', () => {
     // the tuning pass's to move.
     const spans = richFixture().measured.tuning.sectionTimeline.spans;
     const crossed = spans.slice(0, -1);
-    const live = spans[spans.length - 1];
+    const live = entryAt(spans, spans.length - 1);
 
     expect(spans.map((span) => span.phase)).toEqual(
       PHASES.slice(0, spans.length).map((phase) => phase.name),
     );
     expect(crossed.length).toBeGreaterThan(0);
-    expect(spans[0].from).toBe(0);
+    expect(entryAt(spans, 0).from).toBe(0);
     crossed.forEach((span, at) => {
-      expect(span.to).toBe(spans[at + 1].from);
+      expect(span.to).toBe(entryAt(spans, at + 1).from);
     });
     expect(live.to).toBeNull();
     // And the tape really did run on inside the live section, so the open span

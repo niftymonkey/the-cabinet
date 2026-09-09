@@ -114,7 +114,9 @@ const countTheField = (
     if (!inTheColumn(state.grave.x, mob.x)) continue;
     const band = bandOf(state.grave.y - mob.y);
     if (band === null) continue;
-    acc.perBand[band] += lays;
+    const current = acc.perBand[band];
+    if (current === undefined) throw new Error(`no band at index ${band}`);
+    acc.perBand[band] = current + lays;
   }
 };
 

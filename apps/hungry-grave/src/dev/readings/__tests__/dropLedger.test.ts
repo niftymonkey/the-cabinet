@@ -23,6 +23,14 @@ import {
 } from '../dropLedger';
 
 const SEED = 20260826;
+
+/** The line at this index in a spread of an offer's options, which OFFER_SIZE guarantees present. */
+function optionAt(options: readonly WeaponLine[], index: number): WeaponLine {
+  const option = options[index];
+  if (option === undefined)
+    throw new Error(`no offer option at index ${index}`);
+  return option;
+}
 // Two offers of three: one resolved by a take, one left standing but for a
 // body that scrolled off.
 const SPAWNED = 2 * OFFER_SIZE;
@@ -117,10 +125,10 @@ describe('drop ledger', () => {
         `${line} accounted for`,
       ).toBe(spawned);
     }
-    expect(ledger.byLine[first[0]]?.swallowed).toBe(1);
-    expect(ledger.byLine[first[1]]?.passed).toBeGreaterThanOrEqual(1);
-    expect(ledger.byLine[second[0]]?.lost).toBe(1);
-    expect(ledger.byLine[second[1]]?.onFieldAtStop).toBe(1);
+    expect(ledger.byLine[optionAt(first, 0)]?.swallowed).toBe(1);
+    expect(ledger.byLine[optionAt(first, 1)]?.passed).toBeGreaterThanOrEqual(1);
+    expect(ledger.byLine[optionAt(second, 0)]?.lost).toBe(1);
+    expect(ledger.byLine[optionAt(second, 1)]?.onFieldAtStop).toBe(1);
     // Every body here carried an option, so the lines account for all of them.
     const spawnedByLine = Object.values(ledger.byLine).reduce(
       (total, counts) => total + counts.spawned,

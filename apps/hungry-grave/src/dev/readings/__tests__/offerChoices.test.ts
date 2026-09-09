@@ -23,6 +23,13 @@ import {
 } from '../offerChoices';
 
 const SEED = 20260826;
+
+/** An entry at this index, present because the check just above it just confirmed the array's length. */
+function entryAt<T>(items: readonly T[], index: number): T {
+  const entry = items[index];
+  if (entry === undefined) throw new Error(`no entry at index ${index}`);
+  return entry;
+}
 const STILL = { move: { x: 0, y: 0 }, belch: false } as const;
 
 /**
@@ -97,10 +104,10 @@ describe('offer choices', () => {
     // walked down onto the grave and its siblings are pushed out of reach.
     const banked = offerBodies(state);
     expect(banked).toHaveLength(3);
-    banked[0].x = state.grave.x;
-    banked[0].y = state.grave.y;
-    banked[1].x = 20;
-    banked[2].x = 500;
+    entryAt(banked, 0).x = state.grave.x;
+    entryAt(banked, 0).y = state.grave.y;
+    entryAt(banked, 1).x = 20;
+    entryAt(banked, 2).x = 500;
     observe(step(STILL));
 
     const choices = offerChoicesOf(acc).choices;
@@ -153,9 +160,9 @@ describe('offer choices', () => {
 
     const choices = offerChoicesOf(acc).choices;
     expect(choices).toHaveLength(1);
-    expect(choices[0].slot).toBeNull();
-    expect(choices[0].line).toBeNull();
-    expect([...choices[0].passed]).toEqual(options);
+    expect(entryAt(choices, 0).slot).toBeNull();
+    expect(entryAt(choices, 0).line).toBeNull();
+    expect([...entryAt(choices, 0).passed]).toEqual(options);
     expect(choices.filter((choice) => choice.slot !== null)).toEqual([]);
   });
 
@@ -189,7 +196,7 @@ describe('offer choices', () => {
 
     const choices = offerChoicesOf(acc).choices;
     expect(choices).toHaveLength(2);
-    expect(choices[0].tick).toBeLessThan(choices[1].tick);
+    expect(entryAt(choices, 0).tick).toBeLessThan(entryAt(choices, 1).tick);
     expect(choices.map((choice) => choice.site)).toEqual(['death', 'death']);
     expect(choices.map((choice) => choice.line)).not.toContain(null);
   });
