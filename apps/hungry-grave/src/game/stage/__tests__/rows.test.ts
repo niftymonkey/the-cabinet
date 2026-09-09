@@ -690,12 +690,19 @@ describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => 
     expect(carrierRow(false, 6).carrying).toEqual([]);
   });
 
-  it('pays a full build to a run that kills every carrier before the set piece', () => {
-    // Decision 10's condition, in Mark's words: a player who kills every
-    // carrier reaches the storm well before the boss. Read on a run rather than
-    // off the tables, because how much a carrier pays is the offer's business
-    // and a maxed line is never offered.
-    for (const seed of REACHES_A_FULL_BUILD) {
+  // One test per seed, which is the shape every other whole-run claim in this
+  // repo already takes (bot.test.ts's `on seed N` block). Each seed is a run of
+  // two whole sections, so the three together take about a second and a half
+  // alone and crossed vitest's 5000 ms default under the load of a full
+  // `pnpm verify`, where the two workspaces' suites run at once. Split, each
+  // seed carries its own budget and the promise is unchanged: all three still
+  // run and all three still assert the same three things.
+  for (const seed of REACHES_A_FULL_BUILD) {
+    it(`pays a full build to a run that kills every carrier before the set piece on seed ${seed}`, () => {
+      // Decision 10's condition, in Mark's words: a player who kills every
+      // carrier reaches the storm well before the boss. Read on a run rather
+      // than off the tables, because how much a carrier pays is the offer's
+      // business and a maxed line is never offered.
       const run = playToTheWaking(seed);
 
       expect(`seed ${seed} killed ${run.carriersKilled}`).toBe(
@@ -709,6 +716,6 @@ describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => 
       expect(
         WEAPON_LINES.map((line) => `${line} ${run.state.levels[line]}`),
       ).toEqual(WEAPON_LINES.map((line) => `${line} ${MAX_LEVEL}`));
-    }
-  });
+    });
+  }
 });

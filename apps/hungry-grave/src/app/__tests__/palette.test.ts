@@ -453,13 +453,34 @@ describe('the reserved band (ADR 0014)', () => {
     }
   });
 
-  // The emitter list above is pinned to today's four by literal, so a new
-  // emitter is a deliberate edit. The gap it leaves is dated rather than
-  // silent: the Undertaker's curtain arrives at dispatch 6, and until it does,
-  // coverage is complete only for the emitters that exist.
-  it.todo(
-    "covers the Undertaker's curtain, which arrives at dispatch 6 and must redden nothing",
-  );
+  it("covers the Undertaker's curtain, which draws in the clod emitter and reddens nothing", () => {
+    // The gap the list above dated. `clod` was declared for a curtain nothing
+    // threw, so its place in the literal proved nothing about the game; the
+    // Undertaker has thrown curtains since the boss slice and they draw in
+    // their own kind since the renderer slice, so the entry has a drawer now
+    // and the band's own relations are asked of it by name.
+    const curtain = MOB_FIRE.clod;
+    expect(EMITTERS).toContain('clod');
+    expect(curtain.core.luma).toBeGreaterThanOrEqual(MOB_FIRE_BAND_MIN);
+    expect(curtain.body.luma).toBeLessThanOrEqual(FIELD_LUMA_CEILING);
+    expect(curtain.outline.luma).toBeLessThanOrEqual(FIELD_LUMA_CEILING);
+    expect(curtain.core.luma - curtain.outline.luma).toBeGreaterThanOrEqual(
+      INTERNAL_SPAN_MIN,
+    );
+
+    // A curtain leaves the body of the boss throwing it and falls across him,
+    // and a boss body is a background BACKGROUNDS does not carry: that list was
+    // written before anything drew a boss. Assertion 8's own threshold, on the
+    // one pair the curtain adds.
+    const thrower: [string, PaletteEntry][] = [
+      ['undertaker', PALETTE.undertaker],
+      ['undertakerDark', PALETTE.undertakerDark],
+    ];
+    for (const [name, background] of thrower) {
+      const lc = apcaLc(curtain.core.hex, background.hex);
+      expect(`${name} ${Math.abs(lc) >= CORE_MIN_LC}`).toBe(`${name} true`);
+    }
+  });
 });
 
 describe("the field's boundary (ADR 0014)", () => {
