@@ -116,7 +116,8 @@ const groundStillStands = (state: RunState, patchId: number): boolean => {
 };
 
 /**
- * Whether this id belongs to a body standing in the mob pool.
+ * Whether this id belongs to a body the mob pool holds, alive or killed this
+ * tick.
  *
  * The storm reaches a boss and the set piece's source through the same seam it
  * reaches a mob through, so a territory pulse can carry an id that is in no
@@ -125,9 +126,16 @@ const groundStillStands = (state: RunState, patchId: number): boolean => {
  * under one patch for its whole pour would report a pace no mob ever walked,
  * and its entry would never be cleared, because what clears one is a mobKilled
  * and neither of them dies as a mob.
+ *
+ * Liveness is not the question and asking it dropped the killing pulse of every
+ * mob the ground finished, because the events of a tick are read against the
+ * state that tick left. An unspawned slot carries id 0 (`mobs.ts` blankMob) and
+ * the first id a run hands out is 1, so a blank slot matches nothing, and a
+ * recycled slot arrives with a new id, so a dead slot's id stays that mob's
+ * until the slot is spent.
  */
-const standsInThePool = (state: RunState, id: number): boolean => {
-  return state.mobs.some((mob) => mob.alive && mob.id === id);
+const belongsToAMob = (state: RunState, id: number): boolean => {
+  return state.mobs.some((mob) => mob.id === id);
 };
 
 const observeTerritoryControl = (
@@ -140,7 +148,7 @@ const observeTerritoryControl = (
     if (
       event.type === 'mobDamaged' &&
       event.source === 'territory' &&
-      standsInThePool(state, event.id)
+      belongsToAMob(state, event.id)
     ) {
       const last = acc.lastPulseAt.get(event.id);
       if (last !== undefined) acc.pulseIntervals.push(tick - last);

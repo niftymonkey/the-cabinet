@@ -296,4 +296,26 @@ describe('territoryControl', () => {
     observeTerritoryControl(acc, 180, [territoryPulse(mob.id)], run);
     expect(territoryControlOf(acc).pulseIntervals).toEqual([80]);
   });
+
+  it('the pulse that kills a mob still closes an interval', () => {
+    // The ground deals the killing blow and the mob is already dead in the pool
+    // by the time the tick's events are read, so a guard that asks whether the
+    // body is alive drops the last pulse of every mob the ground kills. The
+    // pace is the ticks between hits on one body, and the hit that finished it
+    // is one of them: the reading is a grind's pace, not a survivor's.
+    const run = createRun(SEED);
+    const acc = createTerritoryControl();
+    const mob = putMob(run, 200, 300);
+
+    observeTerritoryControl(acc, 100, [territoryPulse(mob.id)], run);
+    mob.alive = false;
+    observeTerritoryControl(
+      acc,
+      180,
+      [territoryPulse(mob.id), killedEvent(mob)],
+      run,
+    );
+
+    expect(territoryControlOf(acc).pulseIntervals).toEqual([80]);
+  });
 });
