@@ -116,26 +116,37 @@ const createEngagements = (lines: readonly WeaponLine[]): EngagementsAcc => {
 };
 
 /**
- * The type of the mob this id belongs to, or null where the id is not a mob's.
+ * Every mob type this tick can name, by id.
  *
  * THIS READING COVERS THE MOB POOL AND NOTHING ELSE. A boss takes storm damage
  * and reports it as mobDamaged like anything else, and a boss is not in the
- * pool, so its damage has no type here and no engagement is opened for it. A
+ * pool, so its damage names no type here and no engagement is opened for it. A
  * fight against a boss is read from its own vocabulary instead, bossArrived,
  * chunkBroke and bossKilled.
  *
- * That is why this returns rather than throwing on a missing slot, and the
- * guard it used to carry has not been given up: an engagement that never
- * closes is caught on the kill side by closeEngagement, whose event is a mob's
- * by construction. The pool slot still carries its own id and type when the
- * observer reads it, whether the mob is alive or was culled this tick, because
- * a tick runs its spawns before any damage.
+ * That is why a missing id answers nothing rather than throwing, and the guard
+ * it used to carry has not been given up: an engagement that never closes is
+ * caught on the kill side by closeEngagement, whose event is a mob's by
+ * construction.
+ *
+ * The pool alone is not enough to name a tick's own kills. The belch fires
+ * before the tick's spawns (step.ts), so a body it takes frees the slot that
+ * the tick's next spawn claims, and by the time the observer reads the pool
+ * that slot carries a newer mob's id. The kill event carries the type it took,
+ * which is what keeps such a fight readable. Kills are laid over the pool
+ * rather than under it, and the two never disagree: an id only ever increases,
+ * so a reclaimed slot can never answer to the id it used to hold.
  */
-const mobTypeOf = (state: RunState, id: number): MobType | null => {
-  for (const mob of state.mobs) {
-    if (mob.id === id) return mob.type;
+const typesThisTick = (
+  state: RunState,
+  events: readonly SimEvent[],
+): Map<number, MobType> => {
+  const types = new Map<number, MobType>();
+  for (const mob of state.mobs) types.set(mob.id, mob.type);
+  for (const event of events) {
+    if (event.type === 'mobKilled') types.set(event.id, event.mob);
   }
-  return null;
+  return types;
 };
 
 const openEngagement = (
@@ -143,10 +154,10 @@ const openEngagement = (
   tick: number,
   id: number,
   source: DamageSource,
-  state: RunState,
+  types: ReadonlyMap<number, MobType>,
 ): Engagement | null => {
-  const type = mobTypeOf(state, id);
-  if (type === null) return null;
+  const type = types.get(id);
+  if (type === undefined) return null;
   acc.engaged[type] += 1;
   const engagement: Engagement = {
     type,
@@ -164,10 +175,10 @@ const takeHit = (
   tick: number,
   id: number,
   source: DamageSource,
-  state: RunState,
+  types: ReadonlyMap<number, MobType>,
 ): void => {
   const engagement =
-    acc.open.get(id) ?? openEngagement(acc, tick, id, source, state);
+    acc.open.get(id) ?? openEngagement(acc, tick, id, source, types);
   if (engagement === null) return;
   engagement.hits += 1;
   addTo(engagement.hitsByLine, source, 1);
@@ -206,9 +217,10 @@ const observeEngagements = (
   events: readonly SimEvent[],
   state: RunState,
 ): void => {
+  const types = typesThisTick(state, events);
   for (const event of events) {
     if (event.type === 'mobDamaged') {
-      takeHit(acc, tick, event.id, event.source, state);
+      takeHit(acc, tick, event.id, event.source, types);
     }
     if (event.type === 'mobKilled') closeEngagement(acc, tick, event.id);
   }

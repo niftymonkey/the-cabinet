@@ -203,4 +203,58 @@ describe('time to kill', () => {
     expect(fights.fatalBlows.skullStream).toBe(0);
     expect(fights.hitsPerKill.revenant).toBe(4);
   });
+
+  it('reads a belch kill whose pool slot a later spawn in the same tick reclaimed', () => {
+    // step.ts fires the belch before the tick's spawns, so a body the belch
+    // took can be gone from the pool by the time the observer reads it: the
+    // first dead slot is the one takeSlot claims, and it arrives stamped with a
+    // newer mob's id. The kill event carries the type, so the fight is still
+    // readable without the slot.
+    const run = createRun(SEED);
+    const accumulator = createEngagements(linesInRun(run.levels));
+    const wiped = standing(run, 'shambler', 100);
+    // Read as a value before the slot is reclaimed: the pool mutates in place,
+    // so the reclaimed slot is the very object wiped points at.
+    const wipedId = wiped.id;
+    const events = damageMob(run, wiped, wiped.hp, 'belch');
+    const reclaimed = standing(run, 'ghoul', 200);
+    expect(reclaimed.id).not.toBe(wipedId);
+    expect(run.mobs.some((mob) => mob.id === wipedId)).toBe(false);
+
+    observeEngagements(accumulator, 7, events, run);
+
+    const fights = engagementsOf(accumulator);
+    expect(fights.engaged.shambler).toBe(1);
+    expect(fights.killed.shambler).toBe(1);
+    expect(fights.fatalBlows.belch).toBe(1);
+    expect(fights.timedKills.shambler).toBe(0);
+    expect(fights.escaped.shambler).toBe(0);
+  });
+
+  it('refuses a death with no damage behind it', () => {
+    // The guard is this reading's own bug detector and stays a guard. Every
+    // death in the sim comes out of damageMob, which reports the damage before
+    // the kill, so a kill with no fight open is a defect in the game rather
+    // than a fight the reading may quietly drop.
+    const run = createRun(SEED);
+    const accumulator = createEngagements(linesInRun(run.levels));
+
+    expect(() =>
+      observeEngagements(
+        accumulator,
+        3,
+        [
+          {
+            type: 'mobKilled',
+            id: 4242,
+            mob: 'shambler',
+            x: 0,
+            y: 0,
+            carried: false,
+          },
+        ],
+        run,
+      ),
+    ).toThrow('mob 4242 died with no damage behind it');
+  });
 });
