@@ -125,3 +125,31 @@ Tests first, red, then the code. `GOLDEN`, `WITNESS_VERSION`, `READINGS_VERSION`
 ## Commit messages
 
 Code: `feat(hungry-grave): one command plays a batch of seeds and writes a tape per seed (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 4a (#98)`, appended as section 11 titled "Slice 4a, the runner", with its row added to section 1's table and the two hand measurements in it.
+
+## Slice 4b, as dispatched in session 17 (after slice 4a landed)
+
+The launch preamble is the slice 1 one above. Model: Opus, subagent type general-purpose.
+
+Step 3 slice 4b of The Hungry Grave (ticket #98): the report, and the end of A.
+
+Read `apps/hungry-grave/docs/push/step-3-coder-contract.md` (inside the worktree) first and follow it in full, including its reading order. Read `docs/agents/feature-playbook.md` and follow it. The dispatch contract items the playbook asks for (definition, verification steps with actors, seams, module boundaries, the test list) are plan sections 1 to 8 of `apps/hungry-grave/docs/design/step-3-playing-harness-dispatch.md`; section 10 is the slice list and yours is slice 4b.
+
+## Your slice
+
+Plan section 10, slice 4b, in full: `fiveNumbersOf` in `seriesSummary.ts`; `batchReport.ts` with `BatchReduction`, `BATCH_READINGS` and `batchReportOf`, and the build's mob widths on the batch's identity; `scripts/batch.ts` gains `report.json`; guards 80 and 81. Spec tests 36 to 41, module tests 59 to 64 and 86, land here. `CONTEXT.md` gains Batch. **Verification step 10, the first 48-seed batch under the sharp corner, runs here and its table goes in the note.** **A ends here**: after this slice the harness plays, records and reports under one hand. Read the plan's sections 4, 5, 6 and 7 for this slice before the first edit, and the design record's section 4 in full for what the report is (distributions and never means, five-number summaries with the extreme seeds named, every reading by weapon line, no number a verdict; guard 81 is the mechanical form of that last rule).
+
+Hand-forwards from slice 4a's note (`docs/push/step-3-progress.md` section 11) that bind you: `<count>` becomes optional here, defaulting to `BATCH_SEEDS` from `batchReport.ts`, in the commit that creates that row; the measuring pass is yours and the runner does none, so you add the decode and `report.json` beside the tapes; the folder's stamp is the number every header records; `playHarnessRun` is byte-deterministic in its four arguments, which is what lets the report be a function of the tapes; six format-3 tapes from `dbb61bf506` sit at `apps/hungry-grave/local/batches/steady-far-1788934491101/` and measure clean, usable as a fixture for a test that reads a batch rather than plays one. From slice 2's note (section 9): `BATCH_READINGS` must cover the seven new report paths it lists (`tuning.offerChoices.choices`, `tuning.offerChoices.bankedWhileStanding`, `tuning.dropLedger.byLine`, `tuning.wakingSwallows.span`, `tuning.gravePath.floorVisits`, `tuning.gravePath.floorRecoveries`, `mobFireAlivePerTick`) and guard 80 names any it misses; an offer still standing when the tape stops looks like a lost one in `offerChoices` unless a field with a caller separates them, and if the report needs the difference this is where the caller appears. Slice 5 still owns `HAND_STREAM`, the seed on `harnessPolicy`, the other eight rows and the widened `ConfigurationName`.
+
+The 48-seed batch and its report are readings, never bars: the note carries the table and the report's own agreement grammar, and no row moves because of what it says. Tests first, red, then the code. `GOLDEN`, `WITNESS_VERSION`, `READINGS_VERSION` and `FORMAT_VERSION` must not move; if any does, stop, the slice is wrong.
+
+## State of the branch
+
+- The tip is `ffa8560e87` plus this prompt's docs commit: slice 1 `66dfcea268` (note `d7a0ba9eb5`), slice 2 `c784a356e5` (note `18bd764c33`), slice 3 `4093d4be81` (note `f254c2551b`), slice 4a `eb41654b11` (note `ffa8560e87`). Read the progress note's sections 1 to 7 and sections 8 to 11 in full before any edit.
+- The test-name baseline is at `local/step3/tests-baseline.txt` (under `apps/hungry-grave/local/`, outside version control); diff your test names against it before you commit and report removed or renamed names net of slices 1 to 4a (64 added, one renamed, all accounted for).
+- `pnpm verify` was green at `eb41654b11` (1723 passed, typecheck and build green with the two standing warnings). Five whole-stage `dodgePolicy` tests in `bot.test.ts` time out intermittently under parallel load, never on an assertion, pre-existing; the fix is slice 7's; run the suite alone once more before calling anything red (`docs/agents/lessons.md`). The 48-seed batch takes about a minute and a half at 1.6 s a run plus the measuring pass; run it alone, not beside the suite.
+- Never run any command from the main checkout at `/home/mlo/dev/niftymonkey/the-cabinet`. Any scratch file goes in the session scratchpad directory named in your system prompt. `local/` is reached by none of the standing checks except vitest, so no `*.test.ts` ever goes there; nothing under `local/` ever enters a commit. Editor diagnostics name scratch files and stale states; `pnpm typecheck` is the judge. Nothing under `docs/` is ever handed to prettier by name. Do not touch `docs/push/handoff.md`.
+- Check `git status --short` is clean before your first edit.
+
+## Commit messages
+
+Code: `feat(hungry-grave): a batch reports every reading as a spread across its seeds, by weapon line (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 4b (#98)`, appended as section 12 titled "Slice 4b, the report, and the end of A", with its row added to section 1's table and the 48-seed table in it.
