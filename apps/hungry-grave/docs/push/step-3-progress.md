@@ -728,3 +728,72 @@ Every batch is `scripts/batch.ts <name> 20260909 48`, run alone, and every one v
 - **Three of the six batches carry one run each that reached no ending**, one under `loose-far` (seed 20260913, already recorded in section 16), one under `unsteady-far` and one under `wavering-far`. Each played 83577 ticks and was stopped by `harnessRun.ts`'s own `runTickBudget()` ceiling, which is the harness behaving correctly over a hand that never finished the stage. They are counted as stopped short in the table's reach and as `quit` in the stop counts. It is a fact about the middle of the ladder and it belongs with #117 and #39. **Their three tapes read as suspiciously alike and are not**: the `unsteady` and `wavering` ones are the same size to the byte and the `loose` one is three bytes shorter, which chased down to the tick ceiling giving every such run the same record count and to `loose-far` being three characters shorter than `unsteady-far` in the header. The bodies differ in 71104 and 103244 bytes, so they are three different runs.
 - **Victories are much noisier than reach across the ladder**: 7, 7, 17, 5, 17, 10, 14, 0 over the eight rows. Reach counts a phase entered and victory counts a stage finished, so the second is the tail of the first, and 48 seeds is a thin sample of a tail. Reported so that nobody reads `wavering-far`'s 5 against `faltering-far`'s 17 as a rung ordering.
 - **Nothing under `local/` entered a commit.** The six batch folders and the seven older ones are all under `local/batches/`, which is outside version control, eslint, prettier and `tsconfig.json`'s include.
+
+## 18. Three fixes before the step close
+
+Three defects this step's own work found, landed as one pass because each blocks the next thing rather than something later: the step 5 baseline (#120), the ground-control reading that step 4 tunes on (#119), and the runs that reach the tick ceiling and end with nothing (#118). Three code commits, one per issue, and this note in a fourth.
+
+| Fix | Commit | Message |
+| --- | --- | --- |
+| #119, the killing pulse | `72b5f9a8e6` | `fix(hungry-grave): the ground's killing pulse closes a pace interval (#119)` |
+| #118, the ceiling run in the report | `c1ca375c14` | `fix(hungry-grave): a batch names the runs that reached no ending (#118)` |
+| #120, the test-name comparison | `591142640f` | `fix(hungry-grave): the test-name comparison is a command over either capture (#120)` |
+
+`GOLDEN`, `WITNESS_VERSION` (6), `READINGS_VERSION` (2) and `FORMAT_VERSION` (3) all stayed where they were. `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answers with nothing across all three commits, and `src/game/__tests__/digest.test.ts` is green. Nothing any of the three changed is folded: two of them are readings and a report, which the fold never sees, and the third is a command line with no simulation in it. `READINGS_VERSION` is the one of the four this pass had to think about, and the reasoning is under #119 below.
+
+### #120: the baseline was on disk the whole time, and the comparison is now a command
+
+**Section 17's finding is false against the tree.** `apps/hungry-grave/local/step3/tests-baseline.txt` is there and appears never to have gone: 236804 bytes, 1670 sorted `file :: name` lines, stamped 2026-09-08 22:11 with the rest of slice 0's artifacts, and equal entry for entry to the projection of `tests-baseline.json` beside it, checked by parsing both rather than by comparing sizes. Nothing was regenerated, because nothing was missing. Why the earlier look missed it is not recoverable from here; the likeliest cause on the evidence is the path, because slice 0's own prompt prints it as `local/step3/tests-baseline.txt` at the **worktree root**, where no such folder exists, and only the later prompts say `apps/hungry-grave/local/`.
+
+**The fragility under the finding is real, and that is what this fixes.** The comparison was a hand diff against one projected file; the projection was a file only the machine that made it ever had; and the raw capture beside it had had its log lines stripped by hand to make it parse. Three ways to lose a check without anybody noticing it was gone.
+
+**What landed.** `src/dev/testNames.ts` turns a capture into sorted `file :: name` names and says what moved between two of them, and `scripts/test-names.ts` is the shell over it, which is the same split `measure.ts` already uses. It reads either shape, vitest's own `--json` array or a listing it printed itself, so whichever file survives answers the comparison and the other is made again from it. It reads a capture with the asset pipeline's log lines above the array, and one printed compact as readily as one printed wide, so no capture is edited by hand again. A test that changed file reads as a loss and a gain rather than a match, which is what makes a rename visible at all. **It exits non-zero the moment a name is gone**, which is the half a hand diff never had. The coder contract's verification step 5 and its command list now name the command and the baseline's real path.
+
+**Run against the real baseline at this tip it reproduces the step's own accounting exactly**: 1670 names then, 1798 now, 129 added and one removed, and the one removal is slice 3's documented rename of the format-version refusal, which section 7 already accounts for. That is the check the step close needs, and it works.
+
+### #119: the ground's killing pulse closes an interval again
+
+`territoryControl.ts`'s pool guard asked whether the body was alive, and a tick's events are read against the state that tick left, so the pulse that finished a mob was never an interval endpoint. Section 16 recorded it; this fixes it. The guard is now `belongsToAMob`, which asks only whether the mob pool holds the id. That is safe on both sides: an unspawned slot carries id 0 (`mobs.ts` `blankMob`) and the first id a run hands out is 1, so a blank slot matches nothing, and a recycled slot arrives with a new id, so a dead slot keeps that mob's id until the slot is spent. The boss and the set piece's source are still excluded, which is the guard's whole reason and is what its own test holds.
+
+**Red first.** `the pulse that kills a mob still closes an interval` fails on the old guard with `[]` against `[80]`.
+
+**What moved, measured rather than argued.** `local/batches/loose-far-1788962791962/20260913.tape` measured at the tip before the fix and after it: `tuning.territoryControl.pulseIntervals` goes from 98 intervals to 105, its mean from 62.551 to 62.514, its min and max unchanged at 62 and 80. **Nothing else in the whole measurement moved.** `crossings`, `dwellByEnd` and `unfinishedAtStop` are identical, and so is every other reading on the report, compared by parsing both and equating the rest. **No figure recorded in this note moves.** The only `territoryControl` figure it carries is section 14's band separation for `territoryControl.dwellByEnd.escape.dwellMax` at 0.073, and `dwellByEnd` is one of the three that did not move.
+
+**`READINGS_VERSION` stayed at 2, and that was a call rather than an oversight.** `readingsVersion.ts` bumps when a reading changes meaning, and its worked example is a reading whose question changed. The pace's question did not change: the docblock already said "ticks between successive territory-sourced damage events on one mob id" and the code did not do it. The cost of reading it that way is real and is recorded rather than buried: **a batch report taken before this commit carries a pulse count low by one interval per mob the ground killed, and it says readings version 2 exactly as one taken after it does**, so subtracting one from the other on that reading crosses a repair the version does not mark. Seven such intervals on the one tape measured. It is Mark's to overrule.
+
+### #118: the ceiling run is a real stall, and the report now says when a rate is short
+
+**Reproduced exactly.** `scripts/batch.ts loose-far 20260913 1` at this tip plays 83577 ticks, records no ending, and verifies, which is the run section 17 found.
+
+**The diagnosis, and it is a stop-and-report.** The run enters the Undertaker's phase at tick 25660 and never leaves it. Played past the ceiling with the budget lifted, by a throwaway instrument under `local/` that was deleted afterwards, it still never leaves: **the boss's health sits at exactly 1212.0 on chunk 1 of 3 from tick 40000 through tick 600000**, and the run neither ends nor dies in any of those 560000 ticks.
+
+Why nothing lands, in field units. The Undertaker stands still at x 270 with a half width of 60, so his body spans 210 to 330. The grave is frozen at x 205.441 from tick 40000 on, and its only weapon is `skullStream` at level 1, which is one column fired straight up from the grave's own x. A skull's half extent is 4, so the column spans 201.441 to 209.441. **It passes his left edge by 0.559 of a unit, every volley, for as long as anyone cares to watch.**
+
+Why the grave has one weapon. It had three lines up by tick 20000: `skullStream` at 1, `territory` at 2 and `bell` at 1. The Undertaker's own hits stripped them, which the tape reports as `damageTaken.weaponStrips` 2 and `linesStripped` 4, and his phase authors no rows at all (`stage.ts`, `rows: []`), so nothing spawns, nothing drops, no offer opens and no level can be bought back.
+
+Why the run never ends. The phase's `ends` is `bossKilled` and nothing else. There is no timeout and no second exit, so a run that cannot empty the boss and cannot be killed by him plays until something outside the game stops it.
+
+**The bot's share and the game's share, kept apart.** The 0.559-unit miss is the policy: `dodgePolicy` only dodges, it never aims, and with nothing on the field to dodge it stops moving altogether. A person would step right and hit him. What belongs to the game is the shape the policy fell into: **the Undertaker's phase has no exit but his death and no way to recover the damage needed to kill him**, so any state with zero damage output is permanent. That is a deadlock the game can reach rather than a bot artifact, and it is why the ceiling was not raised: **this run does not finish at any ceiling.** Nothing about the game was changed and `runTickBudget()` did not move, per the dispatch.
+
+**What did change is the report.** `BatchReport` gains `unfinished`, the seeds whose runs reached no ending, beside `unverified` and on ADR 0019's own reasoning: a run that proved its tape and finished nothing sits in every spread with no outcome, so a rate over it has an unknown inside it. `scripts/batch.ts` prints the count on the line that already says how wide the batch is, and names the seeds and the finished count on a second line when there are any, because that first line is what a person reads before taking any rate off a folder.
+
+**Two claims about these runs are false against the tree, and both make the batch look worse than it is.** A ceiling run is not dropped from anything: it verifies, so it is collected like any other. `loose-far-1788962791962/report.json` counts 48 verified, `run.ending` as 40 sealed, 7 victory and 1 none, `run.stop` as 47 finished and 1 quit, and spreads `run.ticks` over all 48 with seed 20260913 as its max at 83577. And **section 17's own line that these runs "are counted as stopped short in the table's reach" is wrong**: seed 20260913 entered the Undertaker's phase, so `fileTimeline` counts it as reached. The single-seed reproduction says so on its own report, `reach` as one reached and none stopped short. So the reach figures in section 17's ladder table include these runs as reached. Nothing was ever dropped; what was missing was any sign beside a rate that one of the 48 had no outcome, and that is what `unfinished` is.
+
+### Verification steps run
+
+- **Unit tests.** Green. 134 files, 1788 passed, 10 expected fail, 2 todo, run whole and again per file after the prettier pass.
+- **`pnpm typecheck`.** Green.
+- **`pnpm lint`.** Green after `eslint --fix` took seven prettier findings across four of the new files.
+- **The test-name diff**, run through the new command against `local/step3/tests-baseline.txt`: **1670 to 1798, 129 added and one removed**, of which this pass added **18** and removed none. Nine in `src/dev/__tests__/testNames.test.ts`, six in `scripts/__tests__/test-names.test.ts`, two in `batchReport.test.ts` and one in `territoryControl.test.ts`. The single removal and the other 111 additions are slices 1 to 7's and the two later commits', all accounted for in section 7 and in sections 16 and 17.
+- **CodeRabbit.** `coderabbit review --agent --uncommitted` from the repo root over all eleven staged files at once, before any of the three commits, so the review covers exactly what the three of them contain. **No findings.** Nothing applied and nothing declined.
+- **The reading comparison** for #119: one real tape measured at the tip before and after the fix, with every reading but `pulseIntervals` equal.
+- **The reproduction** for #118: the seed replayed at the tip into `local/batches/loose-far-1788967417549`, and then played past the ceiling by a deleted throwaway.
+- **`pnpm verify`** at the repo root, after the three commits.
+
+### Findings, recorded and not acted on
+
+- **The Undertaker's phase can deadlock, and it wants a ticket.** The evidence is above. It is a game defect rather than a harness one, and the dispatch's instruction was to report it and not to fix the game.
+- **A pre-fix batch report and a post-fix one are not comparable on `tuning.territoryControl.pulseIntervals` and both say readings version 2.** The reasoning for leaving the version alone is above, and so is the cost.
+- **Slice 0's own prompt prints the baseline path at the worktree root and the file is under `apps/hungry-grave/local/`.** The coder contract now carries the right one; `docs/push/step-3-slice-prompts.md` line 15 still carries the wrong one, and a coder does not rewrite the prompts it was dispatched under.
+- **The branch tip moved under this pass.** It was `a1acd2c114` when the work started and `62a6ad4342` when the first commit landed, from another session writing `handoff.md`, which this pass never touched. Nothing collided, and it is recorded because the worktree was described as this pass's alone.
+- **Nothing under `local/` entered a commit.** The reproduction batch, the two measurements and the deleted probe are all under `local/` or the session scratchpad.
