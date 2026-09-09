@@ -245,3 +245,42 @@ Tests first, red, then the code. `GOLDEN`, `WITNESS_VERSION` (6), `READINGS_VERS
 ## Commit messages
 
 Code: `feat(hungry-grave): two batches compare by direction, and the corners either agree or split (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 6 (#98)`, appended as section 14 titled "Slice 6, the comparison, and the done line", with its row added to section 1's table, verification steps 11 and 12 in section 7, and the two corners' tables in the section itself.
+
+## Slice 7, as dispatched in session 18 (after slice 6 landed)
+
+The launch preamble is the slice 1 one above. Model: Opus, subagent type general-purpose.
+
+Step 3 slice 7 of The Hungry Grave (ticket #98): the fences and the full verification pass. This is the last slice of the step.
+
+Read `apps/hungry-grave/docs/push/step-3-coder-contract.md` (inside the worktree) first and follow it in full, including its reading order. Read `docs/agents/feature-playbook.md` and follow it. The dispatch contract items the playbook asks for are plan sections 1 to 8 of `apps/hungry-grave/docs/design/step-3-playing-harness-dispatch.md`; section 10 is the slice list and yours is slice 7.
+
+## Your slice
+
+Plan section 10, slice 7, in full. **No production feature lands here.** You run every agent-actor verification step from the plan's section 3 at the branch tip and put each one's result in the note: the suite, `pnpm typecheck`, `pnpm build`, `pnpm verify` at the repo root, the test-name diff net of what slices 1 to 6 account for, `GOLDEN` unmoved, the old-tape refusal (step 7, against slice 0's two format-2 tapes at `local/step3/`), the verification readback on a batch tape (step 8), the determinism re-run (step 9), the four fence files green **named by test title**, and the batch cost (step 14).
+
+**Step 14 is the one that still owes something new.** Earlier slices measured wall clock for a whole batch but never split it. Report the split between playing and measuring separately, because step 4's tuning pass sizes nine configurations off that number. Slice 4b measured 2 min 24.8 s for 48 seeds played and measured; slice 6 measured 2 min 3 s sharp and 15 s sloppy. Give the split.
+
+**If a fence fails, the fix is a production change and it is a finding, not a fence edit.** Say so in the note and stop rather than loosening a fence.
+
+**One production-adjacent change you do own, and it is the session's call with no ticket.** Five whole-stage `dodgePolicy` tests in `bot.test.ts` time out intermittently under parallel load, never on an assertion, and they predate step 3 (slice 2's note section 9 proves it against `c10b1c5e06`). Give them a stated per-test budget in that file's own existing idiom, the way slice 1 already did for two tests in it. A budget, not a retry wrapper and not a skip.
+
+**Report, do not judge, and retune nothing.** The step's numbers are readings. Name Mark's steps 15 to 18 as still open and say which of them the batch tables now let him answer. Step 17, whether the two ends of the ladder are far enough apart, is answerable from slice 6's two rates and is his alone.
+
+**Context you need for the note's closing section.** The sloppy corner reached the Undertaker's phase on 0 of 48 seeds against the sharp corner's 29 of 48, which is filed as **#117** and is Mark's to rule because it touches the done line. **#116** is the lapse depth's missing tail, filed and unbuilt. **#113** closed at slice 5. The design record's section 3 carries two amendments dated 2026-09-09 that arrived after the plan was written: the hold became a lapse of attention, and the record's claim to model human reaction was narrowed after the game design gate. Read both before writing anything about what the hand is.
+
+Tests first where you add any. `GOLDEN`, `WITNESS_VERSION` (6), `READINGS_VERSION` (2) and `FORMAT_VERSION` (3) must not move.
+
+`.claude/rules/code-core.md` rules the shape.
+
+## State of the branch
+
+- Code so far: slice 1 `66dfcea268`, slice 2 `c784a356e5`, slice 3 `4093d4be81`, slice 4a `eb41654b11`, slice 4b `876aa63f72`, slice 5 `6abdb4255c`, slice 6 `60f6e652d1` (note `211197eb3d`). Read the progress note's sections 1 to 7 and 8 to 14 in full before any edit.
+- The test-name baseline is at `local/step3/tests-baseline.txt`. Slice 6 reported 1670 to 1777 against it, none removed or renamed.
+- `pnpm verify` was green at `60f6e652d1`, exit 0, twice. Run the suite alone; do not run anything else heavy beside it.
+- A process slip from slice 5, recorded so nobody repeats it: its mutation script restored files with `git checkout` and reverted three of them mid-slice. Mutate against copies, never the working tree.
+- Never run any command from the main checkout at `/home/mlo/dev/niftymonkey/the-cabinet`. Any scratch file goes in the session scratchpad directory named in your system prompt; slice 6's scratch `.ts` files produced stale editor diagnostics after they were deleted, which is expected and is why `pnpm typecheck` is the judge. `local/` is reached by none of the standing checks except vitest, so no `*.test.ts` ever goes there; nothing under `local/` ever enters a commit. Nothing under `docs/` is ever handed to prettier by name. Do not touch `docs/push/handoff.md`.
+- Check `git status --short` is clean before your first edit.
+
+## Commit messages
+
+Code: `test(hungry-grave): the whole-stage dodge tests carry a stated budget (#98)` or better in the same form, if you change any file at all; if the fences and the pass need no edit, make the note commit alone and say so. Note: `docs(hungry-grave): step 3 progress note after slice 7 (#98)`, appended as section 15 titled "Slice 7, the fences and the full verification pass", with its row in section 1's table and every verification step's result in section 7.
