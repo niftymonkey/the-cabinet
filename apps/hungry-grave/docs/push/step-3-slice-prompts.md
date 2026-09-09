@@ -69,3 +69,31 @@ Every reading you add is a number a batch will reduce and a person will compare;
 ## Commit messages
 
 Code: `feat(hungry-grave): the offer's site and slot are events and the batch readings exist (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 2 (#98)`, appended as section 9 titled "Slice 2, the two event fields and the readings", with its row added to section 1's table.
+
+## Slice 3, as dispatched in session 17 (after slice 2 landed)
+
+The launch preamble is the slice 1 one above. Model: Opus, subagent type general-purpose.
+
+Step 3 slice 3 of The Hungry Grave (ticket #98): the header field, and the one bump.
+
+Read `apps/hungry-grave/docs/push/step-3-coder-contract.md` (inside the worktree) first and follow it in full, including its reading order. Read `docs/agents/feature-playbook.md` and follow it. The dispatch contract items the playbook asks for (definition, verification steps with actors, seams, module boundaries, the test list) are plan sections 1 to 8 of `apps/hungry-grave/docs/design/step-3-playing-harness-dispatch.md`; section 10 is the slice list and yours is slice 3.
+
+## Your slice
+
+Plan section 10, slice 3, in full: `TapeHeader.policy`, the write and the read in the positional header, `FORMAT_VERSION` 3, `PERSON_POLICY` and `SCRIPT_POLICY` (declared in `src/tape/tape.ts` by slice 1) imported and written here by `tapeHeader.ts` and `record-conditioned.ts`, the policy on `Provenance` and in `exclusionsOf`, and every one of the fourteen header literals in section 7. Spec tests 27 to 32, module tests 66 and 69, land here. **Verification step 7, the old-tape decode check, runs here on slice 0's two tapes and its result goes in the note.** **ADR 0056 is amended in place here**, because this is the slice that spends the version and the amendment is what says why it spends it once; the amendment is dated 2026-09-09 in the what-stood, what-changed, what-it-could-not-have-known form, and it records that the director's budget is build-pinned as the session's commitment under Mark's review (the design record's section 12). Read the plan's sections 4, 5, 6 and 7 for this slice before the first edit, and ADR 0043 and ADR 0053 for the rules the bump obeys: one field, a name string, never a code byte, old tapes refused with the reason stated.
+
+Hand-forwards from slice 2's note (`docs/push/step-3-progress.md` section 9) that bind you: `AggregateExclusion` gaining `policy`, `exclusionsOf` pushing it and `Provenance` carrying it are yours, because they read the header field; `OfferSite` is exported from `src/game/events.ts` and is imported from there. Slice 1's note (section 8): the reserved names are declared and unread until you write them; `tapeHeaderFor` writes `PERSON_POLICY`, `record-conditioned.ts`'s `headerFor` writes `SCRIPT_POLICY`, both importing from `src/tape/tape.ts`, and nothing in `src/dev` reaches `src/app`.
+
+Tests first, red, then the code: slice 2's coder wrote the implementation before its tests and paid it back with mutations; do not repeat that, the playbook's order is the order. `GOLDEN`, `WITNESS_VERSION` and `READINGS_VERSION` must not move; if any does, stop, the slice is wrong. `FORMAT_VERSION` moves exactly once, to 3, here and never again in this step.
+
+## State of the branch
+
+- The tip is `18bd764c33`: slice 1's code at `66dfcea268` (note `d7a0ba9eb5`), slice 2's code at `c784a356e5` (note `18bd764c33`). Read the progress note's sections 1 to 7 and sections 8 and 9 in full before any edit.
+- The test-name baseline is at `local/step3/tests-baseline.txt` (under `apps/hungry-grave/local/`, outside version control); diff your test names against it before you commit and report removed or renamed names net of slices 1 and 2 (45 additions so far). Slice 0's two format-2 tapes are where slice 1's note section 6 says; they are the input to verification step 7.
+- `pnpm verify` was green at `c784a356e5` (1705 passed, typecheck and build green). Five whole-stage `dodgePolicy` tests in `bot.test.ts` time out intermittently under the suite's parallel load, never on an assertion, pre-existing since before step 3 (slice 2's note); a timeout with no assertion is contention, not a failure, and the fix is slice 7's, not yours; run the suite alone once more before calling anything red (`docs/agents/lessons.md`).
+- Never run any command from the main checkout at `/home/mlo/dev/niftymonkey/the-cabinet`. Any scratch file goes in the session scratchpad directory named in your system prompt. `local/` is reached by none of the standing checks except vitest, so no `*.test.ts` ever goes there; nothing under `local/` ever enters a commit. Editor diagnostics name scratch files and stale states; `pnpm typecheck` is the judge. Nothing under `docs/` is ever handed to prettier by name. Do not touch `docs/push/handoff.md`.
+- Check `git status --short` is clean before your first edit.
+
+## Commit messages
+
+Code: `feat(hungry-grave): every tape names the policy that steered it, and the format moves to 3 (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 3 (#98)`, appended as section 10 titled "Slice 3, the header field and the one bump", with its row added to section 1's table and verification step 7's result in section 7.
