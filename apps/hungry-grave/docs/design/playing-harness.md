@@ -40,7 +40,9 @@ The cost of not belching is already filed. #98's third comment, from the step 2 
 
 The `Policy` type's own prose already made the choice available: it returns a `TickCommand` rather than a move because "a policy that cannot express a belch cannot carry ADR 0042's Wall property" (`bot.ts:13-24`).
 
-**The craft call: the base policy belches on `belchingPolicy`'s rule, reservoir full and at least `BELCH_WORTH_IT` live shots, with the threshold moved into the configuration rows as data.** What it costs, eyes open: the belch is a spend judgement and neither knob in section 3 touches it, so the sloppy hand belches exactly as well as the sharp one. That is acceptable and it is stated rather than hidden. The belch instrument still separates across configurations, because the sloppy hand arrives at a fight with a worse build and a fuller history of hits, so what varies is the play around the belch and not the belch rule. If a later reading needs the belch itself to degrade, the move is a third knob and not a widening of these two.
+**The craft call: the base policy belches on `belchingPolicy`'s rule, reservoir full and at least `BELCH_WORTH_IT` live shots, with the threshold moved into the configuration rows as data.** What it costs, eyes open: the belch is a spend judgement and neither knob in section 3 touches its rule, so the sloppy hand belches on exactly the sharp hand's condition. That is acceptable and it is stated rather than hidden. The belch instrument still separates across configurations, because the sloppy hand arrives at a fight with a worse build and a fuller history of hits, so what varies is the play around the belch and not the belch rule. If a later reading needs the belch itself to degrade, the move is a third knob and not a widening of these two.
+
+**Amended 2026-09-09, after the game design gate:** the hold does reach the belch, by delaying it. A held command is repeated whole, so a belch the rule turns on inside a hold fires up to that configuration's own bound late, which at `shaky` is up to 36 ticks. What stood: the rule, the threshold as a data row, and that neither knob makes the spend judgement itself worse. What changed: only the claim that the knobs do not touch the belch at all, which was true of the rule and false of its timing. What the paragraph could not have known: it was written against a shaky bound of 12 ticks, where a delay of a fifth of a second sits inside the reservoir's own charge noise.
 
 This widens ADR 0053's own list of what the policy does. Section 10 carries it as a commitment and section 12 puts it to Mark.
 
@@ -77,10 +79,12 @@ Three values, as tick ranges at `TICK_HZ` 60 (`clock.ts:4`):
 | Name | Hold, in ticks | In milliseconds |
 | --- | --- | --- |
 | steady | 0 | 0 |
-| loose | 0 to 6 | 0 to 100 |
-| shaky | 0 to 12 | 0 to 200 |
+| loose | 0 to 15 | 0 to 250 |
+| shaky | 0 to 36 | 0 to 600 |
 
-The anchor is Counter-Strike's shipped ladder, whose `ReactionTime` runs 0.05 at Elite to 0.60 at Easy (research record, section 5), so 0 to 200 milliseconds sits inside the sharp half of a ladder eight rungs deep. Talakat's own axis is a Gaussian standard deviation of 10, 6 and 2 repeated frames.
+The anchor is Counter-Strike's shipped ladder, whose `ReactionTime` runs 0.05 at Elite to 0.60 at Easy (research record, section 5), so the two bounds sit at the middle rung and at the far end of a ladder eight rungs deep. Talakat's own axis is a Gaussian standard deviation of 10, 6 and 2 repeated frames.
+
+**Amended 2026-09-09, after the game design gate:** the bounds were 6 and 12 ticks and they are now 15 and 36. The arithmetic the gate did against this field is the reason. A mob shot travels 1.83 units a tick (`mobs.ts:86`, 110 units a second at `TICK_HZ` 60) and the grave travels 4.5 (`tuning.ts:18`, `BASE_SPEED` crosses the field's 540 units in two seconds), against a grave 27 units wide at the start size (`tuning.ts:58`). Inside a 12-tick hold a shot covers 22 units while the grave covers 54, so a stale command moved the grave further than the threat travelled and the sloppy corner could not eat a shot it had already seen: the old shaky was a sharp hand under another name and the done line would have started flat. At 15 ticks a shot first covers the grave's own width, 27.5 units, which is where loose sits; 36 ticks is 600 milliseconds, which is Counter-Strike's own Easy rung. What stood: the parameter, the uniform draw, the three-value shape, and that both knobs cost the hand something. What changed: only the two bounds. What the paragraph could not have known: it read its milliseconds against a reaction-time ladder and never against this field's own speeds, where a hold is an error only once the field can carry a threat through the grave inside it.
 
 **The draw is uniform over the range and not Gaussian, and that is a departure from decision 17.** Decision 17 and the research both say Gaussian. A Gaussian from this project's stream needs Box-Muller, whose `Math.log` and `Math.cos` are exactly the transcendentals ADR 0015 makes the project round by hand, where `Stream.nextInt` is integer-only rejection sampling that is already in the tree (`rng.ts:97-113`). What is lost is the Gaussian's tail, the occasional long freeze. If that tail turns out to matter, the next move is a triangular draw, two uniform draws summed, which buys a central tendency with a bounded tail and still no transcendental. ADR 0053 itself says only "a drawn number of ticks", so this departs from decision 17's wording and not from the ruling.
 
@@ -95,6 +99,8 @@ The parameter is the look-ahead sample list `scoreMove` walks (`bot.ts:79-80`, `
 | short | 5, 12 | a fifth of a second |
 
 The head draws nothing. It is a constant per configuration, so the hand is the only thing in the harness that touches a stream.
+
+**Amended 2026-09-09, after the game design gate:** shortening the list moves the wanting's settled point too, and the record said only that it loses the developing wave. `scoreMove` judges where a move arrives at the last sample in the list (`bot.ts:207`, through `LOOKAHEAD_TICKS` at `bot.ts:80`), so a short head settles at 12 ticks ahead where a far head settles at 30: it commits to food and to an offer's body on a nearer read as well as dodging on one. What stood: the parameter, the three lists, and that a list shortens from the far end so the near samples survive. What changed: nothing in the rows, only what this record claims the knob costs. What the paragraph could not have known: it read the sample list as the threat horizon alone, where the same list is also the wanting's.
 
 ### The nine names
 
@@ -142,7 +148,19 @@ Step 6's store does not exist, so batches write local tapes, under `local/batche
 
 Per run, everything `measure(tape)` already produces (`measure.ts:99-126`): the run summary (ticks, ending, stop, integrity, score, kills, checkpoints verified), damage per source, end levels, level-ups, the mob count per tick, the thirteen tuning readings (`readings.ts:78-92`), the frame performance report, the recorded and readback faults, and provenance.
 
-Per batch, on top of those: the ending and the reach (did the run reach the Undertaker's phase, and how did it end); the section timeline, which is the instrument ADR 0049's clock is measured with (`sectionTimeline.ts:22-29`); the drop ledger split by line, which is take, pass, loss and still-standing per weapon line; take-by-slot split between banked offers and death-point offers (#98's second comment); the count of offers banked while one stood, which is decision 9's corner; the stripped-rung take rate by line once #99 lands (ADR 0055); the Waking's property as the committing and waiting corpse counts; and #39's four instruments, which are one belch plus play beating the boss (read off `belchCadence` crossed with the boss spans), grave-to-mob scale, the airborne-projectile figure, and spiral versus comeback split at the size floor.
+Per batch, on top of those: the ending and the reach (did the run reach the Undertaker's phase, and how did it end); the section timeline, which is the instrument ADR 0049's clock is measured with (`sectionTimeline.ts:22-29`); the drop ledger split by line, which is take, pass, loss and still-standing per weapon line; take-by-slot split between banked offers and death-point offers (#98's second comment); the count of offers banked while one stood, which is decision 9's corner; the stripped-rung take rate by line once #99 lands (ADR 0055); the Waking's property; and #39's four instruments, which are the belch's own weight inside a boss span, grave-to-mob scale, the airborne-projectile figure, and the spiral-versus-comeback split at the size floor. **Each of those five is defined below as a one-hand reading**, because a reading no single hand can produce is a promise and not an instrument.
+
+**Amended 2026-09-09, after the game design and tech gates: what those five actually read.**
+
+**The belch inside a boss span** is a fire count and never one belch. `belchCadence` carries every fire with its tick (`belchCadence.ts:27-31`) and the boss spans come off the section timeline, so the reading is how many belches landed inside each boss's span and how much charge was carried into it. #37's story 12 is one belch plus play beating the Undertaker, and the count is what says whether the hand ever had one belch's worth to spend there; a reading of exactly one belch would be a reading of the story's wording rather than of the fight.
+
+**The Waking's property** was listed as the committing and waiting corpse counts, which is two hands compared, and this report runs one hand at a time. As a one-hand reading it is the swallows inside the Waking's span: the `swallowed` events between `setPieceOpened` and `setPieceClosed`, one number per run, printed as a spread. It says what committing up the trail paid this build, and a build-to-build direction on it is what ADR 0042's property is worth to a batch. The two-hand comparison stays where it already lives, as `divingPolicy` against `waitingPolicy` in the suite.
+
+**Grave-to-mob scale** reads the size series against the widths the build fields. `gravePath.sizePerTick` (`gravePath.ts`) is already recorded per run and `MOB_TYPES` carries each type's half width (`mobs.ts:74`, `:91`, `:110`), so the reading is the run's size spread printed beside those widths, and the scale is a ratio a reader takes rather than a number the report invents.
+
+**The spiral-versus-comeback split** reads floor visits and what followed. A visit is the size series crossing down to `SIZE_FLOOR` (`tuning.ts:66`), and what followed is whether the run climbed back above it or ended there, which the report already carries as the ending. It is printed hand-bound and read only for its direction across builds: the hand dives at any size and never flees, so the absolute split is a fact about the hand, and the feel call underneath it is Mark's play and not this instrument (the design gate's deferral to #39).
+
+**The airborne-projectile figure** is the storm and never mob fire. `fieldPerLine` already counts each line's own live things per tick and reports each line's peak (`fieldPerLine.ts:24-31`, and each line's own max at `:108`), which is the storm's pools by line, and what is missing on a headless tape is mob fire beside it. So the figure is each line's per-run peak with mob fire's peak beside it, and the batch reduces both to spreads. ADR 0014's density check is what reads it, and mob fire alone would have read the one pool the figure excludes.
 
 **Every number is broken out by weapon line.** Three of the thirteen readings are per line today and the drop ledger is not: `dropLedger` counts drops spawned, swallowed, passed, lost and standing as five plain totals (`dropLedger.ts:21-29`), where the `offerTaken` event already carries the line taken and the lines passed (`offer.ts:314-318`). Splitting that ledger by line is the one reading this step has to widen, and it is named here rather than left for the coder to discover.
 
@@ -190,9 +208,11 @@ ADR 0053 asks that the bump be taken once, together with ADR 0056's open questio
 
 **The budget is pinned to the build and takes no header field, so the single bump carries one field and is taken in this step.**
 
-The rule that decides it is ADR 0027's own scope. ADR 0027 governs starting values, "the value the run actually started from", and its worked cases are the size a `?size=` pin resolved to and the levels a `?levels=` pin resolved to; it closes with "it governs any starting value the header gains". The director's budget is not a value a run resolves. It is authored stage content, a column on the phase beside the permission row and the two ceilings (`stage.ts:47-78`), and no URL pins it and no seed draws it.
+The rule that decides it is ADR 0027's own scope. ADR 0027 governs starting values, "the value the run actually started from", and its worked cases are the size a `?size=` pin resolved to and the levels a `?levels=` pin resolved to; it closes with "it governs any starting value the header gains". The director's budget is not a value a run resolves. It is authored stage content, and no URL pins it and no seed draws it.
 
 Recording it would also be a false promise. A tape's replay already depends on every authored row in the stage, none of which is in the header, so a build that retunes the budget has retuned the rows around it and the witness refuses the tape either way (ADR 0019 is the fidelity gate, and ADR 0043 says the recorded identity "answers interpretation and the witness answers fidelity"). A header that named the budget while a hundred sibling rows stayed compiled would say a run could be rebuilt from it when it could not.
+
+**Amended 2026-09-09, after the product vision gate:** the budget has no column on the phase today. `Phase` carries `directed`, `liveTemplateCeiling`, `liveBodyCeiling`, `music`, `boss`, `bankOpens` and its rows, and no budget (`stage.ts:48-78`), so the sentence that named one was describing step 4's shape rather than the tree's. What stood: the ruling and its whole argument, which rests on ADR 0056's own wording that the budget is authored and on ADR 0027 governing values a run resolves. What changed: the claim that the column already exists, which becomes a claim about the shape step 4 will author. What the paragraph could not have known: nothing, and that is the point; the column was assumed rather than read. The cost of being wrong is named rather than hidden: if step 4 authors a budget a run resolves, ADR 0027 pulls it into the header and a second bump is taken, and that bump still lands before ADR 0057's store starts filling, which is the moment ADR 0043 says a bump is cheapest.
 
 ADR 0043's own sort confirms it: the format version describes wire layout, recorded content identity carries the vocabulary a content-dependent value is written in, and no recorded value's meaning depends on knowing the budget's number.
 
@@ -242,6 +262,8 @@ Six things, each with the actor who does it.
 
 **One honest note on that line.** "Most seeds" is a threshold, and ADR 0053 forbids the harness from stating thresholds. The two are not in conflict, and the distinction is worth writing down rather than papering over: ADR 0053 governs findings the harness reports *about the game*, and the done line is a bar on *the harness itself*, the evidence that the two ends of the ladder are far enough apart to be worth reading. It is the one number in this step stated as a bar, it is Mark's own, and nothing the harness says about the game may be stated that way.
 
+**Added 2026-09-09, after the game design gate: what both corners low means.** Hand-forward (g) says no dodging birthright run crosses the stage today, so the likely first result is that the sharp hand reaches the Undertaker rarely and the sloppy one hardly ever. That is a reading about the game and it is step 4's first tuning input: it says the stage as authored is beyond a hand that plays it straight, which is exactly what #39 exists to move. **It is never grounds to sharpen the hand.** A hand tuned until it clears the stage measures the tuning of the hand, and every ordering the batch then prints is an ordering between two builds read by an instrument that moved between them. The knobs widen only if the two corners land on top of each other, which is a different failure and the one step 17 names.
+
 ---
 
 ## 8. Magnitudes
@@ -253,13 +275,15 @@ Every number in this record is an initial data row, tuned at step 4 by the tunin
 | The base policy's clearance | 12 | the configuration rows in `src/dev` |
 | The belch threshold, live shots | 8 | the configuration rows |
 | The hold range, steady | 0 ticks | the configuration rows |
-| The hold range, loose | 0 to 6 ticks | the configuration rows |
-| The hold range, shaky | 0 to 12 ticks | the configuration rows |
+| The hold range, loose | 0 to 15 ticks | the configuration rows |
+| The hold range, shaky | 0 to 36 ticks | the configuration rows |
 | The look-ahead, far | 5, 12, 20, 30 | the configuration rows |
 | The look-ahead, middling | 5, 12, 20 | the configuration rows |
 | The look-ahead, short | 5, 12 | the configuration rows |
 | Batch size, in seeds | 48 | the batch runner's default, overridable per run |
 | The band separation a direction needs | to be measured on the first batch | the report's own rows |
+
+**Added 2026-09-09, after the game design gate: these rows are not tuned with the game's.** Every row above is the hand's own, and step 4 moves the game's rows while reading the hand. A hand row moved between two batches would compare two builds through two instruments, which is the one thing the batch's whole grammar exists to prevent. So a changed hand row is a new configuration with a new name, never a retune of an existing one, and any comparison holds the hand fixed. What #39 tunes is the game; what this record hands it is a fixed set of hands to read the game with.
 
 What is not a magnitude, and must not be quietly changed: that both knobs cost the hand something rather than granting it something; that the hand is the only thing in the harness that draws, and it draws from its own stream seeded off the run's seed; that batch size is seeds and never repeats; that a finding is believed only where the two corners agree on the ordering; and that no number the report prints is a target.
 
@@ -267,7 +291,9 @@ What is not a magnitude, and must not be quietly changed: that both knobs cost t
 
 ## 9. The words this record adds
 
-Challenged against `CONTEXT.md`, which already carries **Playing harness** and **Policy** and does not need either rewritten. Six candidates, none written into the glossary here, because a coder holds the branch and the entries land with the slices.
+Challenged against `CONTEXT.md`, which already carries **Playing harness** and **Policy**. Six candidates, none written into the glossary here, because a coder holds the branch and the entries land with the slices.
+
+**Amended 2026-09-09, after the product vision gate:** the **Playing harness** entry does need rewriting, and so does the V1 line in the concept box. Both say the harness "moves, dodges, feeds and takes offers" (`CONTEXT.md:201`, `game-concept.md:11`), which is ADR 0053's four verbs, and section 1's commitment makes it five. What stood: **Policy**, which already names the header field and needs nothing, and the six candidates below. What changed: the entry is no longer finished, and the dispatch plan's slice 1 carries both edits beside its amendment to ADR 0053, so all three restatements reach Mark in one review. What the paragraph could not have known: it challenged the new words against the glossary and never re-read the entries the record's own commitment had aged.
 
 **Configuration**: One hand the harness plays with: the base policy under one value of each knob, named by a word pair a person can say. Nine of them exist, from `steady-far` to `shaky-short`, and the name is what a tape's header records. *Avoid*: difficulty, skill level, persona, profile.
 
@@ -329,6 +355,6 @@ Both items below were taken under their recommended default by the dispatching s
 
 **1. The base policy belches.** Recommended default: yes, on `belchingPolicy`'s existing rule with the threshold as a data row. It is what lets #37's story 12 and #39's boss-fight belch instrument be answered at all, and #98's third comment is the filed cost of the alternative. If he says no, the harness is a hand that never belches, `belchCadence` reports an empty fire list on every run of every batch, story 12 stays open past step 4, and #39's tuning pass loses one of its four instruments. It widens ADR 0053's verb list, which is why it is here rather than only in section 1.
 
-**2. The director's budget is pinned to the build and never travels in the tape header.** Recommended default: yes, and take the format bump now with one field. It closes ADR 0056's open question and satisfies ADR 0053's "take the bump once". If he says the budget should be in the header, this step's bump carries two fields instead of one and section 5's argument is the thing to overturn: that the budget is authored stage content rather than a value a run resolves, and that naming one stage row in the header while a hundred stay compiled promises a rebuild the header cannot deliver.
+**2. The director's budget is pinned to the build and never travels in the tape header.** Recommended default: yes, and take the format bump now with one field. It closes ADR 0056's open question and satisfies ADR 0053's "take the bump once". If he says the budget should be in the header, this step's bump carries two fields instead of one and section 5's argument is the thing to overturn: that the budget is authored stage content rather than a value a run resolves, and that naming one stage row in the header while a hundred stay compiled promises a rebuild the header cannot deliver. **Stated plainly after the product vision gate:** the budget is not built yet, so this commitment rests on ADR 0056's wording and on the shape step 4 will author, not on a column anybody has read. If step 4 makes the budget something a run resolves, the ruling reverses and a second bump is taken, and that bump still lands before the store starts filling.
 
 **3. Everything else in this record is a craft call and is his to overrule on the branch**, in particular the nearest-body rule in section 2, the nine configuration names in section 3, and the batch size of 48.
