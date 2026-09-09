@@ -107,9 +107,12 @@ interface TapeHeader {
   // Human-readable metadata, never a fidelity gate: a README typo must not invalidate every tape.
   readonly commitHash: string;
   /**
-   * Reserved for a resolvable build identity. The machinery that would resolve
-   * one is deliberately not built, and the field is here because header shape
-   * is one-way once tapes exist.
+   * The build that recorded the run, which the commit hash above cannot say:
+   * it carries a dirty tree's own marker, so two builds of one commit with
+   * different uncommitted rules are two identities (#82).
+   *
+   * Empty on every tape recorded before the field was filled, which is an
+   * absence and not a build.
    */
   readonly buildIdentity: string;
   /**

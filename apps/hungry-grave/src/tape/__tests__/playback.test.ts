@@ -15,6 +15,7 @@ import type { TickCommand } from '../../game/command';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
 import { WITNESS_VERSION } from '../../game/witness';
+import { RUNNING_BUILD } from '../buildIdentity';
 import { createPlayback, playTape } from '../playback';
 import { recordInto, sealTrailer, tapeOf } from '../recorder';
 import type { Tape, TapeHeader } from '../tape';
@@ -268,5 +269,33 @@ describe('a roster this build does not implement (#76, ADR 0043)', () => {
     // The field is null on every result that is not this refusal, so nothing
     // downstream can read a roster name out of a tape this build did run.
     expect(playTape(recordARun()).unimplementedRoster).toBeNull();
+  });
+});
+
+describe('the build identity on a playback', () => {
+  it('carries the tape build identity beside the reader own', () => {
+    // #82. The playback reports both and judges neither: a difference is not a
+    // refusal, because the witness version is the rules identity (ADR 0019)
+    // and replay is a shipped feature (ADR 0020). Every arm carries them, the
+    // refusal included, so a reader is never left without the pair.
+    const recorded = 'aa038cb310cafe-dirty';
+    const sound = recordARun();
+    const elsewhere: Tape = {
+      ...sound,
+      header: { ...sound.header, buildIdentity: recorded },
+    };
+
+    const verified = playTape(elsewhere);
+    const refused = playTape({
+      ...elsewhere,
+      header: { ...elsewhere.header, witnessVersion: WITNESS_VERSION + 1 },
+    });
+
+    expect(verified.outcome).toBe('verified');
+    expect(verified.tapeBuildIdentity).toBe(recorded);
+    expect(verified.readerBuildIdentity).toBe(RUNNING_BUILD);
+    expect(refused.outcome).toBe('witnessVersionMismatch');
+    expect(refused.tapeBuildIdentity).toBe(recorded);
+    expect(refused.readerBuildIdentity).toBe(RUNNING_BUILD);
   });
 });

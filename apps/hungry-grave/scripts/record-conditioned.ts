@@ -22,6 +22,7 @@ import { MAX_LEVEL, WEAPON_LINES } from '../src/game/lines/roster';
 import type { RunState } from '../src/game/run';
 import { createRun, SEED_LIMIT, uniformLevels } from '../src/game/run';
 import { WITNESS_VERSION } from '../src/game/witness';
+import { RUNNING_BUILD } from '../src/tape/buildIdentity';
 import { encodeTape } from '../src/tape/encode';
 import {
   RECORDER_CHECKPOINT_SPACING,
@@ -147,7 +148,7 @@ const headerFor = (run: RunState): TapeHeader => {
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,
     commitHash: commitHashHere(),
-    buildIdentity: '',
+    buildIdentity: RUNNING_BUILD,
     author: 'unknown',
     inputDevice: 'script',
     policy: SCRIPT_POLICY,

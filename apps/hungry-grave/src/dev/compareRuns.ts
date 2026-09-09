@@ -291,6 +291,7 @@ const distributionNumbers = (distribution: Distribution): NumberRecord => ({
 const READING_COMPARISONS: readonly DeclaredReading[] = [
   descriptiveReading('outcome', (report) => report.outcome),
   descriptiveReading('identity', (report) => report.identity),
+  descriptiveReading('buildMismatch', (report) => report.buildMismatch),
   descriptiveReading('readingsVersion', (report) => report.readingsVersion),
   scalarReading('run.ticks', (report) => report.run.ticks),
   descriptiveReading('run.ending', (report) => report.run.ending),

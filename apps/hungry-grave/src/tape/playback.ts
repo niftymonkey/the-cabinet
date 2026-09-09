@@ -6,6 +6,7 @@ import type { Execution, FaultRecord, TickListener } from '../game/execution';
 import { createRun } from '../game/run';
 import type { RunState } from '../game/run';
 import { foldWitness, WITNESS_VERSION } from '../game/witness';
+import { RUNNING_BUILD } from './buildIdentity';
 import type {
   FaultObservation,
   Tape,
@@ -39,6 +40,16 @@ interface PlaybackResult {
   readonly outcome: PlaybackOutcome;
   readonly tapeWitnessVersion: number;
   readonly readerWitnessVersion: number;
+  /**
+   * The build that recorded the tape and the build reading it, carried on
+   * every arm beside the witness versions above (#82).
+   *
+   * They are reported and never judged here. A difference is not a refusal and
+   * not a verdict: the witness version is the rules identity (ADR 0019), and
+   * what a reader does with a build difference is the reader's own reading.
+   */
+  readonly tapeBuildIdentity: string;
+  readonly readerBuildIdentity: string;
   // Checkpoints this playback recomputed and agreed with.
   readonly checkpointsVerified: number;
   /**
@@ -119,6 +130,8 @@ const refusal = (
   outcome,
   tapeWitnessVersion: tape.header.witnessVersion,
   readerWitnessVersion: WITNESS_VERSION,
+  tapeBuildIdentity: tape.header.buildIdentity,
+  readerBuildIdentity: RUNNING_BUILD,
   checkpointsVerified: 0,
   checkpointsUnreachable: tape.checkpoints.length,
   firstDivergentCheckpoint: null,
@@ -264,6 +277,8 @@ const verdictSoFar = (reproduction: Reproduction): PlaybackResult => ({
     reproduction.firstDivergentCheckpoint === null ? 'verified' : 'diverged',
   tapeWitnessVersion: reproduction.tape.header.witnessVersion,
   readerWitnessVersion: WITNESS_VERSION,
+  tapeBuildIdentity: reproduction.tape.header.buildIdentity,
+  readerBuildIdentity: RUNNING_BUILD,
   checkpointsVerified: reproduction.checkpointsVerified,
   checkpointsUnreachable:
     reproduction.expected.size -

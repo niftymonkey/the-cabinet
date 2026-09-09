@@ -4,6 +4,7 @@
 import { TICK_HZ } from '../game/clock';
 import type { RunState } from '../game/run';
 import { WITNESS_VERSION } from '../game/witness';
+import { RUNNING_BUILD } from '../tape/buildIdentity';
 import type { TapeHeader, TapeInputDevice } from '../tape/tape';
 import { PERSON_POLICY } from '../tape/tape';
 import { RECORDER_CHECKPOINT_SPACING } from '../tape/recorder';
@@ -17,9 +18,6 @@ import { userSettings } from './userSettings';
  * adding it later would invalidate every tape recorded before.
  */
 const UNNAMED_AUTHOR = 'unknown';
-
-// Reserved for a resolvable build identity, whose machinery is deliberately not built.
-const UNRESOLVED_BUILD = '';
 
 /** What the renderer says about itself, which is all the header records of it. */
 interface RendererIdentity {
@@ -67,6 +65,10 @@ interface RunConditions {
  * not the build's compiled pool (ADR 0046), so a replay fields what the run
  * fielded and a later reader reads a level by the name it was written under
  * rather than by a position it has to guess the meaning of.
+ *
+ * The build identity is the one field the browser does not read off the page:
+ * the build shell stamped it, because only a build can see whether the tree it
+ * was made from was dirty (#82).
  */
 const tapeHeaderFor = (
   run: RunState,
@@ -81,7 +83,7 @@ const tapeHeaderFor = (
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,
     commitHash: COMMIT_HASH,
-    buildIdentity: UNRESOLVED_BUILD,
+    buildIdentity: RUNNING_BUILD,
     author: UNNAMED_AUTHOR,
     inputDevice: conditions.inputDevice,
     policy: PERSON_POLICY,

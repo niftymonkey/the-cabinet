@@ -242,6 +242,7 @@ describe('the batch report', () => {
       firstDivergentCheckpoint: 2,
       checkpointsVerified: 1,
       ticksReproduced: 40,
+      buildMismatch: null,
     };
     const runs = [
       runOfTicks(900, 10),
@@ -252,7 +253,9 @@ describe('the batch report', () => {
     const report = batchReportOf(origin(3), runs);
 
     expect(report.verified).toBe(2);
-    expect(report.unverified).toEqual([{ seed: 901, outcome: 'diverged' }]);
+    expect(report.unverified).toEqual([
+      { seed: 901, outcome: 'diverged', buildMismatch: null },
+    ]);
     expect(
       requireDefined(report.spreads['run.ticks'], 'no run.ticks spread').count,
     ).toBe(2);

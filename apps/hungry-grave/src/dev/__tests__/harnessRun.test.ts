@@ -26,6 +26,7 @@ import {
 import { PHASES } from '../../game/stage/stage';
 import { SCROLL_SPEED, SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
+import { RUNNING_BUILD } from '../../tape/buildIdentity';
 import { decodeTape } from '../../tape/decode';
 import { RECORDER_CHECKPOINT_SPACING } from '../../tape/recorder';
 import { CONFIGURATIONS, SHARP_HAND } from '../configurations';
@@ -202,7 +203,10 @@ describe('the harness run', () => {
       expect(header.tickRate).toBe(TICK_HZ);
       expect(header.checkpointSpacing).toBe(RECORDER_CHECKPOINT_SPACING);
       expect(header.witnessVersion).toBe(WITNESS_VERSION);
-      expect(header.buildIdentity).toBe('');
+      // The build identity is not an argument and could not be: only a
+      // build can see whether the tree it was made from was dirty, so the
+      // build shell stamped it into this bundle (#82).
+      expect(header.buildIdentity).toBe(RUNNING_BUILD);
       expect(header.author).toBe('unknown');
       // Played twice, the same seed under the same hand writes the same bytes.
       const again = playHarnessRun(

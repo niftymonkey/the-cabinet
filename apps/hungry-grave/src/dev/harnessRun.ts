@@ -15,6 +15,7 @@ import { createRun } from '../game/run';
 import { PHASES } from '../game/stage/stage';
 import { SCROLL_SPEED } from '../game/tuning';
 import { WITNESS_VERSION } from '../game/witness';
+import { RUNNING_BUILD } from '../tape/buildIdentity';
 import { encodeTape } from '../tape/encode';
 import {
   RECORDER_CHECKPOINT_SPACING,
@@ -97,6 +98,8 @@ interface HarnessRun {
  *
  * The commit hash and the recorded-at stamp are arguments because asking git
  * and asking the clock are the shell's jobs, and src/dev may import no package.
+ * The build identity is neither: the build shell stamped it into this bundle
+ * before the first line ran, so it is read rather than asked for (#82).
  * A Date.now() here would also make one seed's bytes differ on every call,
  * which is a determinism the harness rests on rather than a convenience.
  */
@@ -115,7 +118,7 @@ const harnessHeader = (
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,
     commitHash,
-    buildIdentity: '',
+    buildIdentity: RUNNING_BUILD,
     author: 'unknown',
     inputDevice: 'bot',
     policy: configuration.name,

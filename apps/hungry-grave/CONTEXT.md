@@ -186,6 +186,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Checkpoint**: A tick at which a run stamps its witness onto a tape, at an authored spacing. Checkpoints are what let a replay name the first point it disagreed at rather than only report that it diverged somewhere. Never a segment of the stage. _Avoid_: snapshot, save point, marker, phase.
 
+**Build identity**: The build a tape was recorded on, stamped into its header by the build shell. It is not the commit hash beside it: a commit cannot see a working tree, so a run played while a rule was uncommitted would carry the label of a build that never held it. The identity carries the tree's own dirty mark, so two builds of one commit under two different uncommitted rules are two identities. A replay reports the tape's identity and the reading build's and refuses on neither: a difference is a note on a verified reading and an attribution on a divergence, never a reason not to play a player's tape. _Avoid_: build number, version, commit hash.
+
 **Trailer**: The summary a tape carries at its end: how the run ended, how it stopped, and its integrity. It is written last on purpose, so a tape off a tab somebody simply closed has no trailer and reads as a stop of unknown. _Avoid_: footer, summary block, header field.
 
 **Observation**: Something a tape records because replaying it could never recompute it: frame timings, runtime errors and warnings, whether audio dropped, and the pauses and tab-switches a run took. Fault records are observations. Timings were merely the first inhabitants of the section, which is general on purpose. _Avoid_: metric, telemetry, log line, event.

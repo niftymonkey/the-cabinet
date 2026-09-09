@@ -6,6 +6,7 @@ import { MOB_TYPES } from '../game/mobs';
 import type { MobType } from '../game/mobs';
 import { PHASES } from '../game/stage/stage';
 import type { PhaseName } from '../game/stage/stage';
+import type { BuildMismatch } from '../tape/buildIdentity';
 import type { ConfigurationName } from './configurations';
 import type { Measurement, Metrics } from './measure';
 import type { NumberRecord } from './numbersByName';
@@ -111,6 +112,13 @@ interface Spread {
 interface UnverifiedRun {
   readonly seed: number;
   readonly outcome: string;
+  /**
+   * The builds behind a divergence when they differ, and null otherwise (#82).
+   * A batch plays and reads on one build, so a value here says a tape from
+   * elsewhere was measured and the outcome is about the two builds rather than
+   * about the recording.
+   */
+  readonly buildMismatch: BuildMismatch | null;
 }
 
 interface BatchReport {
@@ -347,6 +355,10 @@ const takesBySite = (report: Metrics): readonly string[] =>
 const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   notReduced('outcome', 'the verified tally and the unverified list carry it'),
   notReduced('identity', "the batch's own identity names every commit"),
+  notReduced(
+    'buildMismatch',
+    'a batch plays and reads on one build, so the mismatch rides with the run that had one',
+  ),
   notReduced('readingsVersion', 'the batch report carries one of its own'),
   spreadReading('run.ticks', (report) => report.run.ticks),
   countReading('run.ending', (report) => [report.run.ending ?? 'none']),
@@ -841,7 +853,12 @@ const batchReportOf = (
   let verified = 0;
   for (const { seed, measurement } of runs) {
     if (measurement.outcome !== 'verified') {
-      unverified.push({ seed, outcome: measurement.outcome });
+      unverified.push({
+        seed,
+        outcome: measurement.outcome,
+        buildMismatch:
+          measurement.outcome === 'diverged' ? measurement.buildMismatch : null,
+      });
       continue;
     }
     verified += 1;

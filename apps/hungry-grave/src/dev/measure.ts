@@ -6,6 +6,8 @@ import type { DamageSource } from '../game/mobs';
 import type { RunEnding } from '../game/run';
 import { isBirthrightLevels } from '../game/run';
 import { SIZE_START } from '../game/tuning';
+import { buildMismatchOf } from '../tape/buildIdentity';
+import type { BuildMismatch } from '../tape/buildIdentity';
 import type { DecodedTape } from '../tape/decode';
 import { playTape } from '../tape/playback';
 import { resolveStartingLevels } from '../tape/startingLevels';
@@ -103,8 +105,10 @@ interface Provenance {
  *
  * It is here so a comparison of two runs can show both sides and let the reader
  * judge. Neither field is a fidelity gate: the witness is the only thing that
- * decides whether a tape reproduced its run, and the build identity is reserved
- * and unresolved by deliberate decision (ADR 0018).
+ * decides whether a tape reproduced its run (ADR 0018). The build identity is
+ * the finer of the two, because it carries a dirty tree's own marker where the
+ * commit hash cannot (#82); it is empty on a tape recorded before the field
+ * was filled.
  */
 interface RunIdentity {
   readonly commitHash: string;
@@ -115,6 +119,17 @@ interface RunIdentity {
 interface Metrics {
   readonly outcome: 'verified';
   readonly identity: RunIdentity;
+  /**
+   * The tape's build and this one, named when they differ and null when they
+   * are one build (#82).
+   *
+   * A difference here is a note and never a refusal: the replay reproduced
+   * every checkpoint the tape claims, so these numbers are the recorded run's,
+   * and what the reader is owed is which build computed them. Replay is a
+   * shipped feature (ADR 0020) and a rules-identical build keeps replaying a
+   * player's tape.
+   */
+  readonly buildMismatch: BuildMismatch | null;
   /**
    * Which definitions the derived readings were computed under. It is a
    * sibling of identity rather than a field inside it: identity is tape header
@@ -148,6 +163,17 @@ interface Divergence {
   readonly firstDivergentCheckpoint: number;
   readonly checkpointsVerified: number;
   readonly ticksReproduced: number;
+  /**
+   * What the divergence is attributed to when the tape and this build are not
+   * the same build, and null when they are (#82).
+   *
+   * Two builds that disagree about a rule disagree about the fold, so a
+   * divergence across a build difference says almost nothing about the tape.
+   * A bare divergence read as a defect in the recording is what
+   * `docs/push/divergence-b1c3a584d1.md` cost two agents a day, and the label
+   * they could not check is the field this names.
+   */
+  readonly buildMismatch: BuildMismatch | null;
 }
 
 // The tape was recorded against a different fold, so not a single tick was run (ADR 0019).
@@ -280,12 +306,17 @@ const measure = (decoded: DecodedTape): Measurement => {
       readerWitnessVersion: result.readerWitnessVersion,
     };
   }
+  const buildMismatch = buildMismatchOf(
+    result.tapeBuildIdentity,
+    result.readerBuildIdentity,
+  );
   if (result.firstDivergentCheckpoint !== null) {
     return {
       outcome: 'diverged',
       firstDivergentCheckpoint: result.firstDivergentCheckpoint,
       checkpointsVerified: result.checkpointsVerified,
       ticksReproduced: result.ticksReproduced,
+      buildMismatch,
     };
   }
   return {
@@ -294,6 +325,7 @@ const measure = (decoded: DecodedTape): Measurement => {
       commitHash: decoded.tape.header.commitHash,
       buildIdentity: decoded.tape.header.buildIdentity,
     },
+    buildMismatch,
     readingsVersion: READINGS_VERSION,
     run: runSummaryOf(decoded, result, tallies),
     damage: damageOf(tallies),

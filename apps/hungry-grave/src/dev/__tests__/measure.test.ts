@@ -21,6 +21,7 @@ import { createRun, uniformLevels } from '../../game/run';
 import { PHASES } from '../../game/stage/stage';
 import { SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
+import { RUNNING_BUILD } from '../../tape/buildIdentity';
 import type { DecodedTape } from '../../tape/decode';
 import { decodeTape } from '../../tape/decode';
 import { encodeTape } from '../../tape/encode';
@@ -66,7 +67,7 @@ function header(
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
     commitHash: 'aa038cb310',
-    buildIdentity: '',
+    buildIdentity: RUNNING_BUILD,
     author: 'unknown',
     inputDevice: 'script',
     policy: PERSON_POLICY,
@@ -592,6 +593,7 @@ describe('measure', () => {
 
     expect(measured).toEqual({
       outcome: 'diverged',
+      buildMismatch: null,
       firstDivergentCheckpoint: 40,
       checkpointsVerified: 2,
       ticksReproduced: 40,
@@ -978,5 +980,80 @@ describe('measure', () => {
     ]);
     expect(measured.readbackFaults).toEqual([]);
     expect(measured.provenance.exclusions).toEqual(['script', 'faulted']);
+  });
+});
+
+describe('the build behind a reading', () => {
+  /** A tape whose witness disagrees with what a replay recomputes. */
+  const withABentWitness = (tape: Tape): Tape => ({
+    ...tape,
+    checkpoints: tape.checkpoints.map((checkpoint) =>
+      checkpoint.index === 40
+        ? { index: 40, witness: checkpoint.witness + 1 }
+        : checkpoint,
+    ),
+  });
+
+  /** The measurement of a tape recorded on a build that is not this one. */
+  const ELSEWHERE = 'b1c3a584d1608aeef235a0d9b0156c084fc19cfc-dirty';
+
+  it('attributes a divergence to the build mismatch, naming both identities', () => {
+    // #82, and the day docs/push/divergence-b1c3a584d1.md cost: a tape whose
+    // recording build cannot be named reports a bare divergence, and a bare
+    // divergence reads as a defect in the recording. Two builds that disagree
+    // about a rule disagree about the fold, so the mismatch is the reading.
+    const measured = measure(
+      decodedOf(withABentWitness(recordARun({ buildIdentity: ELSEWHERE }))),
+    );
+
+    expect(measured.outcome).toBe('diverged');
+    if (measured.outcome !== 'diverged') throw new Error('not a divergence');
+    expect(measured.buildMismatch).toEqual({
+      recorded: ELSEWHERE,
+      running: RUNNING_BUILD,
+    });
+  });
+
+  it('reports a plain divergence when the tape and the reader are one build', () => {
+    // The mismatch explains nothing here, and saying it anyway would attribute
+    // a real defect to a difference that does not exist.
+    const measured = measure(
+      decodedOf(withABentWitness(recordARun({ buildIdentity: RUNNING_BUILD }))),
+    );
+
+    expect(measured.outcome).toBe('diverged');
+    if (measured.outcome !== 'diverged') throw new Error('not a divergence');
+    expect(measured.buildMismatch).toBeNull();
+  });
+
+  it('reports a verified reading with a build note when the builds differ', () => {
+    // Never a refusal. The witness version is the rules identity (ADR 0019),
+    // so a build that folds the same way reproduced the run, and replay is a
+    // shipped feature a player's tape must keep working under (ADR 0020).
+    // What the reader is owed is which build computed these numbers.
+    const measured = verified(
+      measure(decodedOf(recordARun({ buildIdentity: ELSEWHERE }))),
+    );
+
+    expect(measured.identity.buildIdentity).toBe(ELSEWHERE);
+    expect(measured.buildMismatch).toEqual({
+      recorded: ELSEWHERE,
+      running: RUNNING_BUILD,
+    });
+  });
+
+  it('verifies a tape that carries no build identity at all', () => {
+    // Every tape recorded before the field was filled, the format 3 pair in
+    // Mark's folder included. An absence is not a build, so it is named as a
+    // difference and the reading is still whole.
+    const measured = verified(
+      measure(decodedOf(recordARun({ buildIdentity: '' }))),
+    );
+
+    expect(measured.run.checkpointsVerified).toBeGreaterThan(0);
+    expect(measured.buildMismatch).toEqual({
+      recorded: '',
+      running: RUNNING_BUILD,
+    });
   });
 });

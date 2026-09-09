@@ -32,6 +32,7 @@ import type { Measurement } from '../src/dev/measure';
 import { isRigName, RIGS, RIG_NAMES } from '../src/dev/rigs';
 import type { RigName } from '../src/dev/rigs';
 import { SEED_LIMIT } from '../src/game/run';
+import { UNSTAMPED_BUILD } from '../src/tape/buildIdentity';
 import { decodeTape } from '../src/tape/decode';
 
 /**
@@ -191,6 +192,25 @@ interface MeasuredRun {
 }
 
 /**
+ * What an outcome is attributed to when the tape and this build are not the
+ * same build, and nothing when they are (#82).
+ *
+ * A batch plays and reads on one build, so this is silent in the ordinary case
+ * and loud in the one where a bare divergence would otherwise read as a defect
+ * in the recording.
+ */
+const attribution = (measurement: Measurement): string => {
+  if (measurement.outcome !== 'diverged') return '';
+  const mismatch = measurement.buildMismatch;
+  if (mismatch === null) return '';
+  const recorded =
+    mismatch.recorded === UNSTAMPED_BUILD
+      ? 'no build identity'
+      : mismatch.recorded;
+  return ` (recorded on ${recorded}, read on ${mismatch.running})`;
+};
+
+/**
  * Plays every seed in turn, leaves a tape for each and measures the bytes it
  * wrote, answering null the moment one cannot be written.
  *
@@ -223,7 +243,7 @@ const playInto = (
     const measurement = measure(decodeTape(run.bytes));
     runs.push({ seed, measurement });
     console.error(
-      `${seed}: ${run.ticks} ticks, ${run.ending ?? 'no ending'}, ${run.bytes.length} bytes, ${measurement.outcome}`,
+      `${seed}: ${run.ticks} ticks, ${run.ending ?? 'no ending'}, ${run.bytes.length} bytes, ${measurement.outcome}${attribution(measurement)}`,
     );
   }
   return runs;
