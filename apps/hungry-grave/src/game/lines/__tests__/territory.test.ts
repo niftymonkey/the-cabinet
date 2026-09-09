@@ -34,6 +34,17 @@ import {
   TERRITORY_SPREAD,
 } from '../territory';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** One row of a by-level table, at a level this file only ever asks about in range. */
+function atLevel(table: readonly number[], level: number): number {
+  return requireDefined(table[level], `no table row at level ${level}`);
+}
+
 /**
  * A run holding Territory at its first rung.
  *
@@ -490,7 +501,10 @@ describe('the control', () => {
     mob.vy = 4;
 
     advanceTerritory(run);
-    expect(mob.x).toBeCloseTo(centreX - 20 - 0.4 + PULL_BY_LEVEL[1], 9);
+    expect(mob.x).toBeCloseTo(
+      centreX - 20 - 0.4 + atLevel(PULL_BY_LEVEL, 1),
+      9,
+    );
     expect(mob.y).toBeCloseTo(centreY - 0.8, 9);
   });
 
@@ -529,7 +543,7 @@ describe('the control', () => {
     const centreY = patch.y + SCROLL_SPEED;
 
     advanceTerritory(run);
-    expect(mob.x).toBeCloseTo(centreX - SLOW_BY_LEVEL[1] * 2, 9);
+    expect(mob.x).toBeCloseTo(centreX - atLevel(SLOW_BY_LEVEL, 1) * 2, 9);
     expect(mob.y).toBeCloseTo(centreY, 9);
   });
 
@@ -641,9 +655,9 @@ describe('the control ladders', () => {
       expect(ladder).toHaveLength(MAX_LEVEL + 1);
       expect(ladder[0]).toBe(0);
       for (let level = 2; level <= MAX_LEVEL; level++) {
-        expect(`${level}: ${ladder[level] > ladder[level - 1]}`).toBe(
-          `${level}: true`,
-        );
+        expect(
+          `${level}: ${atLevel(ladder, level) > atLevel(ladder, level - 1)}`,
+        ).toBe(`${level}: true`);
       }
     }
   });
@@ -670,10 +684,16 @@ describe('the control ladders', () => {
     }
 
     for (let step = 1; step < gaps.length; step++) {
-      expect(`${step}: ${gaps[step] > gaps[step - 1]}`).toBe(`${step}: true`);
+      expect(
+        `${step}: ${requireDefined(gaps[step], 'gap out of range') > requireDefined(gaps[step - 1], 'gap out of range')}`,
+      ).toBe(`${step}: true`);
     }
-    expect(gaps[1] - gaps[0]).toBeCloseTo(
-      MOB_TYPES.shambler.speed * (1 - SLOW_BY_LEVEL[1]) - PULL_BY_LEVEL[1],
+    expect(
+      requireDefined(gaps[1], 'gap out of range') -
+        requireDefined(gaps[0], 'gap out of range'),
+    ).toBeCloseTo(
+      MOB_TYPES.shambler.speed * (1 - atLevel(SLOW_BY_LEVEL, 1)) -
+        atLevel(PULL_BY_LEVEL, 1),
       9,
     );
     resolveTerritory(run);
@@ -702,10 +722,16 @@ describe('the control ladders', () => {
     }
 
     for (let step = 1; step < gaps.length; step++) {
-      expect(`${step}: ${gaps[step] < gaps[step - 1]}`).toBe(`${step}: true`);
+      expect(
+        `${step}: ${requireDefined(gaps[step], 'gap out of range') < requireDefined(gaps[step - 1], 'gap out of range')}`,
+      ).toBe(`${step}: true`);
     }
-    expect(gaps[1] - gaps[0]).toBeCloseTo(
-      MOB_TYPES.shambler.speed * (1 - SLOW_BY_LEVEL[5]) - PULL_BY_LEVEL[5],
+    expect(
+      requireDefined(gaps[1], 'gap out of range') -
+        requireDefined(gaps[0], 'gap out of range'),
+    ).toBeCloseTo(
+      MOB_TYPES.shambler.speed * (1 - atLevel(SLOW_BY_LEVEL, 5)) -
+        atLevel(PULL_BY_LEVEL, 5),
       9,
     );
   });
@@ -732,10 +758,16 @@ describe('the control ladders', () => {
     }
 
     for (let step = 1; step < gaps.length; step++) {
-      expect(`${step}: ${gaps[step] > gaps[step - 1]}`).toBe(`${step}: true`);
+      expect(
+        `${step}: ${requireDefined(gaps[step], 'gap out of range') > requireDefined(gaps[step - 1], 'gap out of range')}`,
+      ).toBe(`${step}: true`);
     }
-    expect(gaps[1] - gaps[0]).toBeCloseTo(
-      MOB_TYPES.ghoul.speed * (1 - SLOW_BY_LEVEL[5]) - PULL_BY_LEVEL[5],
+    expect(
+      requireDefined(gaps[1], 'gap out of range') -
+        requireDefined(gaps[0], 'gap out of range'),
+    ).toBeCloseTo(
+      MOB_TYPES.ghoul.speed * (1 - atLevel(SLOW_BY_LEVEL, 5)) -
+        atLevel(PULL_BY_LEVEL, 5),
       9,
     );
   });
@@ -765,7 +797,7 @@ describe('the control ladders', () => {
     const mob = putMob(run, early.x, early.y + SCROLL_SPEED);
     mob.vx = 1;
     advanceTerritory(run);
-    expect(mob.x).toBeCloseTo(early.x - SLOW_BY_LEVEL[1], 9);
+    expect(mob.x).toBeCloseTo(early.x - atLevel(SLOW_BY_LEVEL, 1), 9);
   });
 
   it('the radius ladder starts at 32 and each rung buys 1.8 times the area', () => {
@@ -774,7 +806,8 @@ describe('the control ladders', () => {
     // the ratio near 1.8 rather than on it.
     expect(RADIUS_BY_LEVEL[1]).toBe(32);
     for (let level = 2; level <= MAX_LEVEL; level++) {
-      const step = RADIUS_BY_LEVEL[level] / RADIUS_BY_LEVEL[level - 1];
+      const step =
+        atLevel(RADIUS_BY_LEVEL, level) / atLevel(RADIUS_BY_LEVEL, level - 1);
       const area = step * step;
       expect(`${level}: ${Math.abs(area - 1.8) < 0.05}`).toBe(`${level}: true`);
     }
@@ -856,7 +889,10 @@ describe('the bounded seeded offset', () => {
     const distances = laid.map((patch) => offsetFrom(patch, 270, 300));
     expect(distances.filter((each) => each === 0)).toEqual([]);
     const mean = distances.reduce((sum, each) => sum + each, 0) / laid.length;
-    expect(mean).toBeCloseTo((2 / 3) * spreadBound(RADIUS_BY_LEVEL[1]), 0);
+    expect(mean).toBeCloseTo(
+      (2 / 3) * spreadBound(atLevel(RADIUS_BY_LEVEL, 1)),
+      0,
+    );
   });
 
   it("the offset is bounded by 0.55 of the patch's radius", () => {
@@ -868,7 +904,7 @@ describe('the bounded seeded offset', () => {
       run.levels.territory = level;
       const mob = putMob(run, 270, 300);
       const laid = repeatedLays(run, mob, 200);
-      const bound = spreadBound(RADIUS_BY_LEVEL[level]);
+      const bound = spreadBound(atLevel(RADIUS_BY_LEVEL, level));
 
       const furthest = Math.max(
         ...laid.map((patch) => offsetFrom(patch, 270, 300)),
@@ -988,7 +1024,7 @@ describe('the dwell ladder', () => {
     expect(REHIT_BY_LEVEL[0]).toBe(0);
     for (let level = 2; level <= MAX_LEVEL; level++) {
       expect(
-        `${level}: ${REHIT_BY_LEVEL[level] < REHIT_BY_LEVEL[level - 1]}`,
+        `${level}: ${atLevel(REHIT_BY_LEVEL, level) < atLevel(REHIT_BY_LEVEL, level - 1)}`,
       ).toBe(`${level}: true`);
     }
 
@@ -1023,7 +1059,7 @@ describe('the dwell ladder', () => {
     late.alive = false;
     const mob = putMob(run, early.x, early.y + SCROLL_SPEED);
     resolveTerritory(run);
-    for (let tick = 1; tick < REHIT_BY_LEVEL[1]; tick++) {
+    for (let tick = 1; tick < atLevel(REHIT_BY_LEVEL, 1); tick++) {
       run.tick += 1;
       resolveTerritory(run);
     }

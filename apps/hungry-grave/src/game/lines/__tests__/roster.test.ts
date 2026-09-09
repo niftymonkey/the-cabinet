@@ -72,7 +72,9 @@ describe("a run's roster is drawn from the pool (ADR 0046)", () => {
   });
 
   it('does not implement a roster naming one line twice', () => {
-    expect(implementsLines([...WEAPON_LINES, WEAPON_LINES[0]])).toBe(false);
+    const firstLine = WEAPON_LINES[0];
+    if (firstLine === undefined) throw new Error('WEAPON_LINES is empty');
+    expect(implementsLines([...WEAPON_LINES, firstLine])).toBe(false);
   });
 
   it('does not implement a roster short of a birthright line', () => {

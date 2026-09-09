@@ -84,13 +84,27 @@ const SLOWEST_DESCENT_TICKS =
       GHOUL_DESCENT_FLOOR,
     ));
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** The one item this file only ever asks about right after asserting a length of one. */
+function firstOf<T>(items: readonly T[]): T {
+  return requireDefined(items[0], 'no first item');
+}
+
 function phase(name: PhaseName): Phase {
   return PHASES.find((each) => each.name === name)!;
 }
 
 /** The phase whose boundary event ends this section, which is the phase after it. */
 function boundaryAfter(name: PhaseName): Phase {
-  return PHASES[PHASES.findIndex((each) => each.name === name) + 1];
+  return requireDefined(
+    PHASES[PHASES.findIndex((each) => each.name === name) + 1],
+    `no phase after ${name}`,
+  );
 }
 
 /**
@@ -98,6 +112,9 @@ function boundaryAfter(name: PhaseName): Phase {
  * whatever that reports.
  */
 type Hand = (state: RunState) => readonly SimEvent[];
+
+// Any birthright line kills, and the birthright is never empty.
+const A_BIRTHRIGHT_LINE = requireDefined(BIRTHRIGHT[0], 'BIRTHRIGHT is empty');
 
 /**
  * The still hand: a grave that never moves and never dies, firing nothing but
@@ -121,7 +138,7 @@ const sharpHand: Hand = (state) => {
   const events: SimEvent[] = [];
   for (const mob of state.mobs) {
     if (!mob.alive || !hasEntered(mob) || mob.beat > 0) continue;
-    events.push(...damageMob(state, mob, mob.hp, BIRTHRIGHT[0]));
+    events.push(...damageMob(state, mob, mob.hp, A_BIRTHRIGHT_LINE));
   }
   return events;
 };
@@ -230,7 +247,7 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
 /** Where each phase ran, in absolute ticks, read off the run's own boundaries. */
 function spanOf(played: Played, name: PhaseName): [number, number] {
   let from = 0;
-  let current: PhaseName = PHASES[0].name;
+  let current: PhaseName = requireDefined(PHASES[0], 'PHASES is empty').name;
   for (const boundary of played.boundaries) {
     if (current === name) return [from, boundary.tick];
     from = boundary.tick;
@@ -255,7 +272,10 @@ function silentGapsIn(rows: readonly StageRow[]): string[] {
   return rows
     .map((row, index) => ({
       row,
-      gap: index === 0 ? row.t : row.t - rows[index - 1].t,
+      gap:
+        index === 0
+          ? row.t
+          : row.t - requireDefined(rows[index - 1], 'row out of range').t,
     }))
     .filter((each) => each.gap > bound)
     .map(
@@ -277,7 +297,7 @@ function liveThrough(played: Played, name: PhaseName): number[] {
 
 /** The phase-local second a table's last row fires. */
 function lastRowAt(rows: readonly StageRow[]): number {
-  return rows[rows.length - 1].t;
+  return requireDefined(rows[rows.length - 1], 'rows is empty').t;
 }
 
 /** How many bodies a table lands per second of its own span. */
@@ -294,7 +314,11 @@ function ratePerSecond(rows: readonly StageRow[]): number {
  * rewritten would keep passing after the weapons had moved.
  */
 const FULL_BUILD_DAMAGE_PER_SECOND =
-  (COLUMNS_BY_LEVEL[COLUMNS_BY_LEVEL.length - 1] * SKULL_DAMAGE) /
+  (requireDefined(
+    COLUMNS_BY_LEVEL[COLUMNS_BY_LEVEL.length - 1],
+    'COLUMNS_BY_LEVEL is empty',
+  ) *
+    SKULL_DAMAGE) /
     (STREAM_INTERVAL / TICK_HZ) +
   BELL_DAMAGE_NEAR / (BELL_PERIOD / TICK_HZ);
 
@@ -395,9 +419,10 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
     // It is read off a run rather than off the tables, because a section ends
     // on its own condition and not on a clock: what a hand that kills what
     // arrives spends in each one is the honest length.
-    const [procession, crowd, vigil] = SECTION_NAMES.map((name) =>
-      lengthOf(SHARP, name),
-    );
+    const lengths = SECTION_NAMES.map((name) => lengthOf(SHARP, name));
+    const procession = requireDefined(lengths[0], 'no procession length');
+    const crowd = requireDefined(lengths[1], 'no crowd length');
+    const vigil = requireDefined(lengths[2], 'no vigil length');
     expect(procession).toBeLessThan(crowd);
     expect(vigil).toBeLessThan(procession);
   });
@@ -414,7 +439,10 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
     const state = createRun(1);
     for (const name of BOSS_BOUND_SECTIONS) {
       const each = phase(name);
-      const last = each.rows[each.rows.length - 1];
+      const last = requireDefined(
+        each.rows[each.rows.length - 1],
+        `${name} has no rows`,
+      );
       const stretched: Phase = {
         ...each,
         rows: [...each.rows, { ...last, t: last.t + 30 }],
@@ -509,7 +537,9 @@ describe('one property per section (game-concept.md:48)', () => {
     // after it the rows have run out, and what the sparse last row does to that
     // tail is ADR 0051's, not this property's.
     const crowd = liveThrough(STILL_PLAY, 'crowd');
-    const lastRow = CROWD_ROWS[CROWD_ROWS.length - 1].t * TICK_HZ;
+    const lastRow =
+      requireDefined(CROWD_ROWS[CROWD_ROWS.length - 1], 'CROWD_ROWS is empty')
+        .t * TICK_HZ;
     const opened = crowd.findIndex((count) => count >= 2);
     expect(opened).toBeGreaterThanOrEqual(0);
     expect(opened).toBeLessThan(lastRow);
@@ -594,9 +624,13 @@ describe('the rows as data (ADR 0006)', () => {
       right: at.x + half,
     }));
 
-    const gaps = [edges[0].left, FIELD_WIDTH - edges[edges.length - 1].right];
+    const firstEdge = requireDefined(edges[0], 'no first edge');
+    const lastEdge = requireDefined(edges[edges.length - 1], 'no last edge');
+    const gaps = [firstEdge.left, FIELD_WIDTH - lastEdge.right];
     for (let index = 1; index < edges.length; index++) {
-      gaps.push(edges[index].left - edges[index - 1].right);
+      const edge = requireDefined(edges[index], 'edge out of range');
+      const priorEdge = requireDefined(edges[index - 1], 'edge out of range');
+      gaps.push(edge.left - priorEdge.right);
     }
     for (const gap of gaps) {
       expect(`gap ${gap < graveWidth(SIZE_FLOOR)}`).toBe('gap true');
@@ -624,7 +658,7 @@ describe('the rows as data (ADR 0006)', () => {
 describe('the phase machine (ADR 0006)', () => {
   it('chains the seven phases in order and reports each boundary', () => {
     expect([
-      PHASES[0].name,
+      requireDefined(PHASES[0], 'PHASES is empty').name,
       ...STILL_PLAY.boundaries.map((each) => each.phase),
     ]).toEqual([
       'procession',
@@ -649,10 +683,11 @@ describe('the phase machine (ADR 0006)', () => {
     expect(crossed).toEqual(PHASES.slice(1).map((phase) => phase.music));
 
     const opening = createRun(20260908);
+    const firstPhase = requireDefined(PHASES[0], 'PHASES is empty');
     expect(phaseUnderway(opening)).toEqual({
       type: 'phaseChanged',
-      phase: PHASES[0].name,
-      music: PHASES[0].music,
+      phase: firstPhase.name,
+      music: firstPhase.music,
       tick: opening.tick,
     });
   });
@@ -660,19 +695,17 @@ describe('the phase machine (ADR 0006)', () => {
   it('resets the phase clock at every boundary and never runs the phase index backwards', () => {
     const clock = STILL_PLAY.stageClock;
     for (let at = 1; at < clock.length; at++) {
-      const moved = clock[at].index > clock[at - 1].index;
-      expect(`${at} back ${clock[at].index < clock[at - 1].index}`).toBe(
-        `${at} back false`,
-      );
+      const now = requireDefined(clock[at], 'clock tick out of range');
+      const before = requireDefined(clock[at - 1], 'clock tick out of range');
+      const moved = now.index > before.index;
+      expect(`${at} back ${now.index < before.index}`).toBe(`${at} back false`);
       // A boundary sets the phase clock to zero and the tick's own counter then
       // moves it to one, so the first tick of a phase reads one.
-      expect(`${at} ${moved ? clock[at].tick : 'inside'}`).toBe(
+      expect(`${at} ${moved ? now.tick : 'inside'}`).toBe(
         `${at} ${moved ? 1 : 'inside'}`,
       );
       if (!moved) {
-        expect(`${at} ${clock[at].tick}`).toBe(
-          `${at} ${clock[at - 1].tick + 1}`,
-        );
+        expect(`${at} ${now.tick}`).toBe(`${at} ${before.tick + 1}`);
       }
     }
   });
@@ -720,7 +753,10 @@ describe('the phase machine (ADR 0006)', () => {
     const crowd = STILL_PLAY.boundaries.find(
       (each) => each.phase === 'crowd',
     )!.tick;
-    const first = STILL_PLAY.arrivals[0].tick;
+    const first = requireDefined(
+      STILL_PLAY.arrivals[0],
+      'no first arrival',
+    ).tick;
     const wall = STILL_PLAY.arrivals.find((each) => each.count === 22)!.tick;
     expect(first).toBe(2 * TICK_HZ);
     expect(wall).toBe(crowd + 2 * TICK_HZ);
@@ -743,7 +779,8 @@ describe('the phase machine (ADR 0006)', () => {
       (event) => event.type === 'bossKilled' && event.boss === 'undertaker',
     );
     expect(killed).toHaveLength(1);
-    expect(victory[0].type === 'victory' && victory[0].tick).toBe(over.tick);
+    const theVictory = firstOf(victory);
+    expect(theVictory.type === 'victory' && theVictory.tick).toBe(over.tick);
   });
 
   it('reads the phase table rather than switching on a phase name to end the run', () => {
@@ -777,13 +814,15 @@ describe('the sparse last row (ADR 0051)', () => {
       expect(Math.max(...tail.map((row) => row.count))).toBeLessThan(
         Math.max(...body.map((row) => row.count)),
       );
-      expect(tail[0].t).toBeGreaterThan(lastRowAt(body));
+      const firstTailRow = requireDefined(tail[0], `${name} tail is empty`);
+      expect(firstTailRow.t).toBeGreaterThan(lastRowAt(body));
 
       // And they arrive: under a hand that kills nothing, every arrival after
       // the section's last group is one body on its own.
       const [from, to] = spanOf(STILL_PLAY, name);
       const inTail = STILL_PLAY.arrivals.filter(
-        (each) => each.tick >= from + tail[0].t * TICK_HZ && each.tick < to,
+        (each) =>
+          each.tick >= from + firstTailRow.t * TICK_HZ && each.tick < to,
       );
       expect(`${name} ${inTail.map((each) => each.count).join()}`).toBe(
         `${name} ${tail.map(() => 1).join()}`,
@@ -827,7 +866,8 @@ describe('the sparse last row (ADR 0051)', () => {
     for (const name of BOSS_BOUND_SECTIONS) {
       const rows = phase(name).rows;
       const tail = rows.slice(-SPARSE_LAST_ROW.bodies);
-      expect(tail).toEqual(sparseLastRow(tail[0].t, SPARSE_LAST_ROW));
+      const firstTailRow = requireDefined(tail[0], `${name} tail is empty`);
+      expect(tail).toEqual(sparseLastRow(firstTailRow.t, SPARSE_LAST_ROW));
     }
     expect(
       sparseLastRow(10, {
@@ -851,9 +891,13 @@ describe('the sparse last row (ADR 0051)', () => {
 
     // The rule can see a silence, so the empty lists above are a pass rather
     // than an empty set.
-    const silent: readonly StageRow[] = [
+    const firstProcessionRow = requireDefined(
       PROCESSION_ROWS[0],
-      { ...PROCESSION_ROWS[0], t: PROCESSION_ROWS[0].t + 40 },
+      'PROCESSION_ROWS is empty',
+    );
+    const silent: readonly StageRow[] = [
+      firstProcessionRow,
+      { ...firstProcessionRow, t: firstProcessionRow.t + 40 },
     ];
     expect(silentGapsIn(silent)).toHaveLength(1);
   });
@@ -876,9 +920,12 @@ describe('the sparse last row (ADR 0051)', () => {
       expect(played.liveMobs[at.tick]).toBeGreaterThan(0);
       // And the section's own last row had already fired, so what is left is
       // the eye rather than a row nobody spent.
-      expect(played.stageClock[at.tick - 1].tick).toBeGreaterThan(
-        lastRowAt(phase('crowd').rows) * TICK_HZ,
-      );
+      expect(
+        requireDefined(
+          played.stageClock[at.tick - 1],
+          'stageClock tick out of range',
+        ).tick,
+      ).toBeGreaterThan(lastRowAt(phase('crowd').rows) * TICK_HZ);
     }
   });
 
@@ -981,7 +1028,7 @@ function bansheePhaseHeldFor(holdFor: number): number {
       expect(`held with a boss ${state.boss !== null}`).toBe(
         'held with a boss true',
       );
-      damageBoss(state, state.boss!.hp, BIRTHRIGHT[0]);
+      damageBoss(state, state.boss!.hp, A_BIRTHRIGHT_LINE);
     }
     for (const event of step(STILL)) {
       if (event.type !== 'phaseChanged') continue;
@@ -1021,7 +1068,10 @@ describe('the per-phase end condition (ADR 0050, ADR 0051)', () => {
     state.stage.firedRows = procession.rows.length;
     expect(phaseEnded(state, procession)).toBe(true);
 
-    const [order] = place('drip', 1, state.streams.spawns);
+    const order = requireDefined(
+      place('drip', 1, state.streams.spawns)[0],
+      'no spawn order',
+    );
     spawnMob(state, 'shambler', order, false);
     expect(phaseEnded(state, procession)).toBe(false);
   });
@@ -1048,7 +1098,8 @@ describe('the per-phase end condition (ADR 0050, ADR 0051)', () => {
           const last = played.arrivals.filter(
             (each) => each.tick >= from && each.tick < to,
           );
-          const tail = to - last[last.length - 1].tick;
+          const tail =
+            to - requireDefined(last[last.length - 1], 'no last arrival').tick;
           // Bounded above, and a real window rather than an empty one: under a
           // hand that kills nothing the last body falls the whole way, so the
           // comparison has something in it to be a bound on. The bound is
@@ -1098,8 +1149,8 @@ describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {
     expect(lost).toHaveLength(
       carrierRow(row.carries, row.count).carrying.length,
     );
-    expect(lost[0].reason).toBe('cap');
-    expect(lost[0].mob).toBe(row.type);
+    expect(firstOf(lost).reason).toBe('cap');
+    expect(firstOf(lost).mob).toBe(row.type);
     // Nothing was taken off the field to make room for it.
     expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(before);
     expect(state.mobs.some((mob) => mob.alive && mob.carries)).toBe(false);
@@ -1121,7 +1172,7 @@ describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {
     }
     // The section's own first row, which pays nothing on purpose: the first
     // kill of the run teaches the swallow rather than the offer.
-    const row = PROCESSION_ROWS[0];
+    const row = requireDefined(PROCESSION_ROWS[0], 'PROCESSION_ROWS is empty');
     expect(row.carries).toBe(false);
 
     state.stage.phaseTick = row.t * TICK_HZ;

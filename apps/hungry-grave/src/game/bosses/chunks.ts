@@ -115,11 +115,15 @@ const bossChunks = (kind: BossKind): number => {
  * spawnMob leaves carrierLost to the row that placed it.
  */
 const spawnBoss = (state: RunState, kind: BossKind): Boss => {
+  const firstChunkHp = CHUNK_HP[kind][0];
+  if (firstChunkHp === undefined) {
+    throw new Error(`${kind} has no first chunk in CHUNK_HP`);
+  }
   const boss: Boss = {
     id: state.nextEntityId,
     kind,
     chunk: 0,
-    hp: CHUNK_HP[kind][0],
+    hp: firstChunkHp,
     x: FIELD_WIDTH / 2,
     y: BOSS_ARRIVAL_Y,
     flash: 0,
@@ -154,7 +158,11 @@ const hasChunkLeft = (boss: Boss): boolean => {
  */
 const breakChunk = (state: RunState, boss: Boss): SimEvent[] => {
   boss.chunk += 1;
-  boss.hp = CHUNK_HP[boss.kind][boss.chunk];
+  const chunkHp = CHUNK_HP[boss.kind][boss.chunk];
+  if (chunkHp === undefined) {
+    throw new Error(`${boss.kind} has no chunk ${boss.chunk} in CHUNK_HP`);
+  }
+  boss.hp = chunkHp;
   boss.flash = CHUNK_FLASH_TICKS;
   boss.patternTick = 0;
   const events: SimEvent[] = [

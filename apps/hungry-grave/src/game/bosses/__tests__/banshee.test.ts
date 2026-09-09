@@ -31,6 +31,17 @@ import { RING_ROWS, TEAR_FIRE } from '../banshee';
 import type { Boss } from '../chunks';
 import { advanceBoss, CHUNK_FLASH_TICKS, damageBoss } from '../chunks';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** The one item this file only ever asks about right after asserting a length of one. */
+function firstOf<T>(items: readonly T[]): T {
+  return requireDefined(items[0], 'no first item');
+}
+
 const SEED = 20260908;
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
@@ -86,7 +97,8 @@ function only<T extends SimEvent['type']>(
 
 /** The next tick of this fight that throws a ring, and what it threw. */
 function nextRing(fight: Fight): Extract<SimEvent, { type: 'mobFired' }>[] {
-  for (let tick = 1; tick <= RING_ROWS[0].period * 4; tick++) {
+  const firstRow = requireDefined(RING_ROWS[0], 'RING_ROWS is empty');
+  for (let tick = 1; tick <= firstRow.period * 4; tick++) {
     const fired = only(fight.tick(), 'mobFired');
     if (fired.length > 0) return fired;
   }
@@ -105,10 +117,11 @@ function bearingOf(shot: { vx: number; vy: number }): number {
  */
 function gapsAround(bearings: readonly number[]): number[] {
   const sorted = [...bearings].sort((a, b) => a - b);
+  const last = requireDefined(sorted[sorted.length - 1], 'bearings is empty');
   return sorted.map((bearing, index) =>
     index === 0
-      ? bearing + 1 - sorted[sorted.length - 1]
-      : bearing - sorted[index - 1],
+      ? bearing + 1 - last
+      : bearing - requireDefined(sorted[index - 1], 'bearing out of range'),
   );
 }
 
@@ -117,8 +130,13 @@ function gapBearing(bearings: readonly number[]): number {
   const sorted = [...bearings].sort((a, b) => a - b);
   const gaps = gapsAround(sorted);
   const widest = gaps.indexOf(Math.max(...gaps));
-  const opens = widest === 0 ? sorted[sorted.length - 1] : sorted[widest - 1];
-  return (opens + gaps[widest] / 2) % 1;
+  const last = requireDefined(sorted[sorted.length - 1], 'bearings is empty');
+  const opens =
+    widest === 0
+      ? last
+      : requireDefined(sorted[widest - 1], 'bearing out of range');
+  const widestGap = requireDefined(gaps[widest], 'gap out of range');
+  return (opens + widestGap / 2) % 1;
 }
 
 /** Every live tear on the field. */
@@ -157,7 +175,12 @@ function feastFromHerDeath(fight: Fight): Corpse {
     (corpse) => !alreadyShed.has(corpse.id),
   );
   expect(shed).toHaveLength(1);
-  return shed[0];
+  return firstOf(shed);
+}
+
+/** A ring row this file only ever asks about at an index already known in range. */
+function ringRowAt(index: number) {
+  return requireDefined(RING_ROWS[index], `no ring row at ${index}`);
 }
 
 describe("the Banshee's tear-rings (game-concept.md:68, ADR 0007)", () => {
@@ -167,7 +190,7 @@ describe("the Banshee's tear-rings (game-concept.md:68, ADR 0007)", () => {
     // gap is the whole of the pattern's answer: a ring with no way through is
     // a wall, and one with two ways through is not read as a shape at all.
     const fight = atTheBanshee();
-    const row = RING_ROWS[0];
+    const row = ringRowAt(0);
     const fired = nextRing(fight);
 
     expect(fired).toHaveLength(row.spokes - row.gapSpokes);
@@ -180,7 +203,7 @@ describe("the Banshee's tear-rings (game-concept.md:68, ADR 0007)", () => {
     const gaps = gapsAround(tears(fight.state).map(bearingOf));
     const wide = gaps.filter((gap) => gap > spacing * 1.5);
     expect(wide).toHaveLength(1);
-    expect(wide[0]).toBeCloseTo(spacing * (row.gapSpokes + 1), 6);
+    expect(firstOf(wide)).toBeCloseTo(spacing * (row.gapSpokes + 1), 6);
 
     // Slow is a relation and never a magnitude: a tear travels slower than the
     // trash shot the player has been reading since the first minute.
@@ -197,10 +220,10 @@ describe("the Banshee's tear-rings (game-concept.md:68, ADR 0007)", () => {
       Math.max(...of) - Math.min(...of);
     expect(spread(radii())).toBeLessThan(1e-9);
 
-    const held = radii()[0];
+    const held = firstOf(radii());
     for (let tick = 0; tick < 20; tick++) fight.tick();
     expect(spread(radii())).toBeLessThan(1e-9);
-    expect(radii()[0]).toBeGreaterThan(held);
+    expect(firstOf(radii())).toBeGreaterThan(held);
   });
 
   it('adds a second offset ring source in chunk two, so the gaps stop lining up', () => {
@@ -209,12 +232,12 @@ describe("the Banshee's tear-rings (game-concept.md:68, ADR 0007)", () => {
     // two sources whose openings pointed the same way would still leave one,
     // so the offset is the whole of the escalation.
     const fight = atTheBanshee();
-    expect(RING_ROWS[0].sources).toHaveLength(1);
+    expect(ringRowAt(0).sources).toHaveLength(1);
 
     breakChunk(fight);
     expect(fight.state.boss?.chunk).toBe(1);
 
-    const row = RING_ROWS[1];
+    const row = ringRowAt(1);
     expect(row.sources.length).toBeGreaterThan(1);
     const fired = nextRing(fight);
 
@@ -233,7 +256,10 @@ describe("the Banshee's tear-rings (game-concept.md:68, ADR 0007)", () => {
           .map(bearingOf),
       ),
     );
-    const apart = Math.abs(openings[0] - openings[1]);
+    const apart = Math.abs(
+      requireDefined(openings[0], 'no opening at 0') -
+        requireDefined(openings[1], 'no opening at 1'),
+    );
     expect(Math.min(apart, 1 - apart)).toBeGreaterThan(0.25);
   });
 
@@ -301,7 +327,7 @@ describe('the belch against her rings (ADR 0008)', () => {
     fight.state.reservoir = RESERVOIR_CAPACITY;
     const belched = only(fireBelch(fight.state), 'belched');
 
-    expect(belched[0].cancelled).toBe(fired.length);
+    expect(firstOf(belched).cancelled).toBe(fired.length);
     expect(tears(fight.state)).toEqual([]);
     // She stands at her arrival point, the whole field from the grave, so the
     // burst never reached her and the gas took nothing off her but her fire.
@@ -379,7 +405,12 @@ describe('the Wall her death launches (game-concept.md:56, ADR 0042)', () => {
     expect(only(events, 'phaseChanged').map((event) => event.phase)).toEqual([
       'crowd',
     ]);
-    expect(PHASES[fight.state.stage.phaseIndex].name).toBe('crowd');
+    expect(
+      requireDefined(
+        PHASES[fight.state.stage.phaseIndex],
+        'phaseIndex out of range',
+      ).name,
+    ).toBe('crowd');
     expect(fight.state.mobs.filter((mob) => mob.alive)).toHaveLength(
       WALL_ROW.count,
     );

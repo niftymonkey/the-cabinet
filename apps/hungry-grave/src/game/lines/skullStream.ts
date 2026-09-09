@@ -169,6 +169,9 @@ const launchSkull = (
 // Every column of one volley, in column order so the same level always fires the same sequence.
 const fireVolley = (state: RunState): void => {
   const columns = COLUMNS_BY_LEVEL[state.levels.skullStream];
+  if (columns === undefined) {
+    throw new Error(`no column count at level ${state.levels.skullStream}`);
+  }
   for (let column = 0; column < columns; column++) {
     launchSkull(state, column, columns);
   }

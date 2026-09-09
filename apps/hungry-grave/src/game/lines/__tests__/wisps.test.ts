@@ -26,6 +26,20 @@ import {
   WISPS_BY_LEVEL,
 } from '../wisps';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** How many souls a level pays out, for a level this file only ever asks about in range. */
+function soulsAt(level: number): number {
+  return requireDefined(
+    WISPS_BY_LEVEL[level],
+    `no souls count at level ${level}`,
+  );
+}
+
 function quietRun(seed = 8): RunState {
   const run = createRun(seed);
   run.stage.firedRows = PROCESSION_ROWS.length;
@@ -100,7 +114,7 @@ describe('the wisps are never on unless a swallow bought them (ADR 0005)', () =>
     const state = quietRun();
     put(state, 'shambler', 200, 300);
     const mouth = { x: state.grave.x, y: state.grave.y - state.grave.size };
-    const [wisp] = volley(state, 1);
+    const wisp = requireDefined(volley(state, 1)[0], 'no wisp in the volley');
     expect({ x: wisp.x, y: wisp.y }).toEqual(mouth);
   });
 });
@@ -144,7 +158,7 @@ describe('freshness pays the wisps in souls (ADR 0058)', () => {
       expect(`level ${level}: ${volley(state, level, 0).length}`).toBe(
         `level ${level}: ${Math.max(
           WISP_FLOOR_SOULS,
-          Math.floor(WISPS_BY_LEVEL[level] * FRESHNESS_PAYOUT_FLOOR),
+          Math.floor(soulsAt(level) * FRESHNESS_PAYOUT_FLOOR),
         )}`,
       );
     }
@@ -210,7 +224,7 @@ describe('the no-overkill targeting rule (plan section 3)', () => {
       put(state, 'revenant', 220, 460),
     ];
     const wisps = volley(state, MAX_LEVEL);
-    expect(wisps).toHaveLength(WISPS_BY_LEVEL[MAX_LEVEL]);
+    expect(wisps).toHaveLength(soulsAt(MAX_LEVEL));
 
     const capacity = mobs.reduce((total, mob) => total + wispsToKill(mob), 0);
     expect(wisps.length).toBeLessThanOrEqual(capacity);
@@ -232,7 +246,7 @@ describe('the no-overkill targeting rule (plan section 3)', () => {
       enough,
     );
     expect(wisps.filter((wisp) => wisp.targetId === far.id)).toHaveLength(
-      WISPS_BY_LEVEL[3] - enough,
+      soulsAt(3) - enough,
     );
   });
 
@@ -244,14 +258,14 @@ describe('the no-overkill targeting rule (plan section 3)', () => {
     const state = quietRun();
     const only = put(state, 'shambler', 270, 500);
     const wisps = volley(state, MAX_LEVEL);
-    expect(wisps).toHaveLength(WISPS_BY_LEVEL[MAX_LEVEL]);
+    expect(wisps).toHaveLength(soulsAt(MAX_LEVEL));
     for (const wisp of wisps) expect(wisp.targetId).toBe(only.id);
   });
 
   it('launches the full volley with nothing to hunt, and each one expires honestly', () => {
     const state = quietRun();
     const wisps = volley(state, MAX_LEVEL);
-    expect(wisps).toHaveLength(WISPS_BY_LEVEL[MAX_LEVEL]);
+    expect(wisps).toHaveLength(soulsAt(MAX_LEVEL));
     for (const wisp of wisps) expect(wisp.targetId).toBeNull();
   });
 });
@@ -259,7 +273,7 @@ describe('the no-overkill targeting rule (plan section 3)', () => {
 describe("a wisp's flight (plan 6.5)", () => {
   it('expires at WISP_LIFETIME with nothing to hunt', () => {
     const state = quietRun();
-    const [wisp] = volley(state, 1);
+    const wisp = requireDefined(volley(state, 1)[0], 'no wisp in the volley');
     for (let tick = 0; tick < WISP_LIFETIME - 1; tick++) advanceWisps(state);
     expect(wisp.alive).toBe(true);
     advanceWisps(state);
@@ -272,7 +286,7 @@ describe("a wisp's flight (plan 6.5)", () => {
     // the turn's cosine and sine over a 90-tick life and let the speed drift.
     const state = quietRun();
     put(state, 'shambler', 60, 200);
-    const [wisp] = volley(state, 1);
+    const wisp = requireDefined(volley(state, 1)[0], 'no wisp in the volley');
     for (let tick = 0; tick < WISP_LIFETIME - 1; tick++) {
       advanceWisps(state);
       if (!wisp.alive) break;
@@ -285,7 +299,7 @@ describe("a wisp's flight (plan 6.5)", () => {
     const state = quietRun();
     // Directly behind the grave, so the turn is as hard as the field allows.
     put(state, 'shambler', state.grave.x, state.grave.y + 40);
-    const [wisp] = volley(state, 1);
+    const wisp = requireDefined(volley(state, 1)[0], 'no wisp in the volley');
     const perTick = (WISP_TURN_DEGREES_PER_SECOND / 60) * (Math.PI / 180);
     // A turn no larger than one step is a cosine no smaller than the step's.
     const floor = cos(perTick) - 1e-4;
@@ -300,7 +314,7 @@ describe("a wisp's flight (plan 6.5)", () => {
   it('turns toward its target rather than away from it', () => {
     const state = quietRun();
     const target = put(state, 'shambler', 100, 400);
-    const [wisp] = volley(state, 1);
+    const wisp = requireDefined(volley(state, 1)[0], 'no wisp in the volley');
     let last = Infinity;
     for (let tick = 0; tick < 30; tick++) {
       advanceWisps(state);
@@ -318,7 +332,7 @@ describe('re-targeting (plan 6.5)', () => {
   it('re-targets when its target dies', () => {
     const state = quietRun();
     const first = put(state, 'shambler', 270, 500);
-    const [wisp] = volley(state, 1);
+    const wisp = requireDefined(volley(state, 1)[0], 'no wisp in the volley');
     expect(wisp.targetId).toBe(first.id);
 
     const second = put(state, 'shambler', 200, 400);

@@ -31,6 +31,12 @@ import {
   surgeStream,
 } from '../skullStream';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
   run.stage.firedRows = PROCESSION_ROWS.length;
@@ -92,7 +98,11 @@ function volleyTicks(state: RunState, ticks: number): number[] {
 
 /** The gaps between consecutive volleys, which is what a surge actually shortens. */
 function gapsBetween(fired: readonly number[]): number[] {
-  return fired.slice(1).map((tick, index) => tick - fired[index]);
+  return fired
+    .slice(1)
+    .map(
+      (tick, index) => tick - requireDefined(fired[index], 'gap out of range'),
+    );
 }
 
 /** Stops the stream firing again, so a test holding a pooled slot cannot have it recycled underneath. */
@@ -132,7 +142,7 @@ describe('the level curve is columns and nothing else (plan 6.3)', () => {
 describe('the columns (plan 6.3)', () => {
   it('puts a single column straight up, so a level-1 stream is not a diagonal', () => {
     const state = quietRun();
-    const [only] = nextVolley(state);
+    const only = requireDefined(nextVolley(state)[0], 'no skull in the volley');
     expect(only.vx).toBeCloseTo(0, 6);
     expect(only.vy).toBeCloseTo(-SKULL_SPEED, 6);
   });
@@ -163,14 +173,18 @@ describe('the columns (plan 6.3)', () => {
 describe('the stream never homes (ADR 0005)', () => {
   it("keeps a skull's velocity identical on its first tick and its last", () => {
     const state = quietRun();
-    const [skull] = nextVolley(state);
+    const skull = requireDefined(
+      nextVolley(state)[0],
+      'no skull in the volley',
+    );
     holdFire(state);
     const launched = { vx: skull.vx, vy: skull.vy };
     // A mob parked to one side is exactly what a homing line would bend toward.
-    state.mobs[0].alive = true;
-    state.mobs[0].id = 9999;
-    state.mobs[0].x = 40;
-    state.mobs[0].y = 100;
+    const bystander = requireDefined(state.mobs[0], 'no pooled mob slot 0');
+    bystander.alive = true;
+    bystander.id = 9999;
+    bystander.x = 40;
+    bystander.y = 100;
     while (skull.alive) advanceStream(state);
     expect({ vx: skull.vx, vy: skull.vy }).toEqual(launched);
   });
@@ -178,7 +192,10 @@ describe('the stream never homes (ADR 0005)', () => {
   it("launches from the grave's mouth and does not move on the tick it launches", () => {
     const state = quietRun();
     const mouth = { x: state.grave.x, y: state.grave.y - state.grave.size };
-    const [skull] = nextVolley(state);
+    const skull = requireDefined(
+      nextVolley(state)[0],
+      'no skull in the volley',
+    );
     expect({ x: skull.x, y: skull.y }).toEqual(mouth);
   });
 });
@@ -386,7 +403,12 @@ describe('mounted streams (#79)', () => {
       const state = quietRun();
       state.levels.skullStream = level;
       const volley = nextVolley(state);
-      expect(volley).toHaveLength(COLUMNS_BY_LEVEL[level]);
+      expect(volley).toHaveLength(
+        requireDefined(
+          COLUMNS_BY_LEVEL[level],
+          `no column count at level ${level}`,
+        ),
+      );
       for (const skull of volley) {
         expect(skull.vx).toBe(0);
         expect(skull.vy).toBe(-SKULL_SPEED);
@@ -403,9 +425,11 @@ describe('mounted streams (#79)', () => {
     expect(mounts).toHaveLength(5);
     // Five distinct streams, not five skulls sharing one origin.
     expect(new Set(mounts).size).toBe(5);
-    expect(mounts[2]).toBe(centre);
-    expect(mounts[0] + mounts[4]).toBeCloseTo(2 * centre, 6);
-    expect(mounts[1] + mounts[3]).toBeCloseTo(2 * centre, 6);
+    const mount = (index: number) =>
+      requireDefined(mounts[index], `no mount at ${index}`);
+    expect(mount(2)).toBe(centre);
+    expect(mount(0) + mount(4)).toBeCloseTo(2 * centre, 6);
+    expect(mount(1) + mount(3)).toBeCloseTo(2 * centre, 6);
 
     const even = quietRun();
     even.levels.skullStream = 4;
@@ -416,8 +440,10 @@ describe('mounted streams (#79)', () => {
     expect(new Set(pair).size).toBe(4);
     // An even count straddles the centre with no mount on it.
     expect(pair).not.toContain(centre);
-    expect(pair[0] + pair[3]).toBeCloseTo(2 * centre, 6);
-    expect(pair[1] + pair[2]).toBeCloseTo(2 * centre, 6);
+    const pairMount = (index: number) =>
+      requireDefined(pair[index], `no mount at ${index}`);
+    expect(pairMount(0) + pairMount(3)).toBeCloseTo(2 * centre, 6);
+    expect(pairMount(1) + pairMount(2)).toBeCloseTo(2 * centre, 6);
   });
   it("mount offsets ride the grave's size, and the outermost of five mounts stays within the grave's size of its centre", () => {
     /** The widest offsets a five-column volley launches at this grave size. */
@@ -450,7 +476,12 @@ describe('mounted streams (#79)', () => {
       state.levels.skullStream = MAX_LEVEL;
       state.grave.x = edgeX;
       const volley = nextVolley(state);
-      expect(volley).toHaveLength(COLUMNS_BY_LEVEL[MAX_LEVEL]);
+      expect(volley).toHaveLength(
+        requireDefined(
+          COLUMNS_BY_LEVEL[MAX_LEVEL],
+          'no column count at MAX_LEVEL',
+        ),
+      );
       holdFire(state);
       advanceStream(state);
       for (const skull of volley) {
@@ -464,7 +495,10 @@ describe('mounted streams (#79)', () => {
 describe('a skull leaving the field (plan 6.7)', () => {
   it("is culled by the motion that took it out, because a cull is motion's own consequence", () => {
     const state = quietRun();
-    const [skull] = nextVolley(state);
+    const skull = requireDefined(
+      nextVolley(state)[0],
+      'no skull in the volley',
+    );
     // The stream is held so a later volley cannot recycle this slot underneath
     // the assertion, which is the pooled-entity hazard this codebase documents.
     holdFire(state);

@@ -16,7 +16,7 @@ import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { PROCESSION_ROWS } from '../../stage/rows';
-import type { BellToll } from '../bell';
+import type { BellToll, ConeRow } from '../bell';
 import {
   advanceBell,
   BELL_CONE_ROWS,
@@ -31,6 +31,17 @@ import {
 import { MAX_LEVEL } from '../roster';
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
+
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** The row a level throws, for a level this file only ever asks about in range. */
+function rowAt(level: number): ConeRow {
+  return requireDefined(BELL_CONE_ROWS[level], `no cone row at level ${level}`);
+}
 
 function quietRun(seed = 12): RunState {
   const run = createRun(seed);
@@ -81,7 +92,7 @@ function damageTo(mob: Mob): number {
 
 /** The widest heading of a level's fan, in degrees, which is how far it has wrapped. */
 function wrapDegrees(level: number): number {
-  const headings = BELL_CONE_ROWS[level].headings;
+  const headings = rowAt(level).headings;
   return Math.max(...headings.map(Math.abs)) / RADIANS_PER_DEGREE;
 }
 
@@ -116,7 +127,7 @@ describe("the toll's own clock (ADR 0005)", () => {
 describe('a toll throws cones (ADR 0036)', () => {
   it('throws one cone forward at level 1', () => {
     // "Level one throws one cone forward."
-    expect(BELL_CONE_ROWS[1].headings).toHaveLength(1);
+    expect(rowAt(1).headings).toHaveLength(1);
     expect(coneHeading(1, 0)).toBe(0);
 
     const state = quietRun();
@@ -145,7 +156,7 @@ describe('a toll throws cones (ADR 0036)', () => {
     // they multiply." The count is the level and the fan reaches wider every
     // step; the angles themselves are the harness's to tune.
     for (let level = 1; level <= MAX_LEVEL; level++) {
-      expect(BELL_CONE_ROWS[level].headings).toHaveLength(level);
+      expect(rowAt(level).headings).toHaveLength(level);
     }
     for (let level = 2; level <= MAX_LEVEL; level++) {
       expect(wrapDegrees(level)).toBeGreaterThan(wrapDegrees(level - 1));
@@ -159,19 +170,22 @@ describe('a toll throws cones (ADR 0036)', () => {
     // seam where two cones exactly touch is never the thing under test: an
     // equality at a boundary is a float question, not a coverage one.
     for (let level = 1; level <= MAX_LEVEL; level++) {
-      const headings = [...BELL_CONE_ROWS[level].headings].sort(
+      const headings = [...rowAt(level).headings].sort(
         (left, right) => left - right,
       );
       for (let index = 0; index < headings.length; index++) {
-        const mirrored = headings[headings.length - 1 - index];
-        expect(headings[index]).toBeCloseTo(-mirrored, 9);
+        const mirrored = requireDefined(
+          headings[headings.length - 1 - index],
+          'mirrored heading out of range',
+        );
+        const heading = requireDefined(headings[index], 'heading out of range');
+        expect(heading).toBeCloseTo(-mirrored, 9);
       }
     }
 
     for (const level of [1, 2, 3, 4]) {
       const edge =
-        wrapDegrees(level) +
-        BELL_CONE_ROWS[level].halfAngle / RADIANS_PER_DEGREE;
+        wrapDegrees(level) + rowAt(level).halfAngle / RADIANS_PER_DEGREE;
       for (let degrees = -edge + 0.5; degrees < edge; degrees += 1) {
         expect(
           insideCone(level, degrees * RADIANS_PER_DEGREE),
@@ -195,9 +209,10 @@ describe('a toll throws cones (ADR 0036)', () => {
 
     const answered = around.filter((mob) => damageTo(mob) > 0);
     expect(answered).toHaveLength(around.length - 1);
-    expect(damageTo(around[around.length - 1])).toBe(0);
+    const last = requireDefined(around[around.length - 1], 'no last mob');
+    expect(damageTo(last)).toBe(0);
 
-    const reach = BELL_CONE_ROWS[MAX_LEVEL].reach;
+    const reach = rowAt(MAX_LEVEL).reach;
     expect(reach).toBeGreaterThan(FIELD_WIDTH / 2 - 30);
     expect(reach).toBeLessThan(FIELD_WIDTH / 2);
   });
@@ -206,9 +221,7 @@ describe('a toll throws cones (ADR 0036)', () => {
     // "Reach grows with level to widen the answer while the cone count is
     // still low."
     for (let level = 2; level <= MAX_LEVEL; level++) {
-      expect(BELL_CONE_ROWS[level].reach).toBeGreaterThan(
-        BELL_CONE_ROWS[level - 1].reach,
-      );
+      expect(rowAt(level).reach).toBeGreaterThan(rowAt(level - 1).reach);
     }
   });
 
@@ -243,7 +256,7 @@ describe('the cones expand on one clock (plan 6.6)', () => {
       expect(tollReach({ level, ticks: 0, struck: new Set() })).toBe(0);
       expect(
         tollReach({ level, ticks: BELL_EXPAND_TICKS, struck: new Set() }),
-      ).toBeCloseTo(BELL_CONE_ROWS[level].reach, 6);
+      ).toBeCloseTo(rowAt(level).reach, 6);
     }
   });
 
@@ -289,7 +302,7 @@ describe('the cones expand on one clock (plan 6.6)', () => {
     expect(toll).toEqual({
       type: 'tolled',
       level: 3,
-      radius: BELL_CONE_ROWS[3].reach,
+      radius: rowAt(3).reach,
     });
   });
 });
@@ -297,7 +310,7 @@ describe('the cones expand on one clock (plan 6.6)', () => {
 describe('the damage falls off with distance (ADR 0005)', () => {
   it("deals BELL_DAMAGE_NEAR at the grave and BELL_DAMAGE_FAR at the cone's far edge", () => {
     const level = MAX_LEVEL;
-    const full = BELL_CONE_ROWS[level].reach;
+    const full = rowAt(level).reach;
 
     const near = quietRun();
     near.levels.bell = level;
@@ -319,7 +332,7 @@ describe('the damage falls off with distance (ADR 0005)', () => {
     // What the falloff is worth out here is therefore stated as a fraction of a
     // trash body: the raw number is a scale and the fraction is the ruling.
     const level = MAX_LEVEL;
-    const at = BELL_CONE_ROWS[level].reach * 0.8;
+    const at = rowAt(level).reach * 0.8;
     const state = quietRun();
     state.levels.bell = level;
     const mob = put(state, 'revenant', state.grave.x, state.grave.y - at);
@@ -352,7 +365,7 @@ describe('what the toll costs a trash body at the far edge (#76 pass A)', () => 
     // far one.
     const state = quietRun();
     state.levels.bell = MAX_LEVEL;
-    const full = BELL_CONE_ROWS[MAX_LEVEL].reach;
+    const full = rowAt(MAX_LEVEL).reach;
     const mob = put(state, 'shambler', state.grave.x, state.grave.y - full);
 
     let chips = 0;
@@ -398,11 +411,9 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     // below level 4. What is pinned is the relation, never the magnitudes,
     // which are the harness's at step 4.
     for (let level = 1; level <= MAX_LEVEL; level++) {
-      expect(BELL_CONE_ROWS[level].push).toBeGreaterThan(0);
+      expect(rowAt(level).push).toBeGreaterThan(0);
       if (level > 1) {
-        expect(BELL_CONE_ROWS[level].push).toBeGreaterThan(
-          BELL_CONE_ROWS[level - 1].push,
-        );
+        expect(rowAt(level).push).toBeGreaterThan(rowAt(level - 1).push);
       }
     }
 
@@ -437,8 +448,8 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
 
     state.levels.bell = MAX_LEVEL;
     tollFor(state, BELL_EXPAND_TICKS);
-    const near = 1 - distance / BELL_CONE_ROWS[4].reach;
-    expect(from - mob.y).toBeCloseTo(BELL_CONE_ROWS[4].push * near, 4);
+    const near = 1 - distance / rowAt(4).reach;
+    expect(from - mob.y).toBeCloseTo(rowAt(4).push * near, 4);
   });
 
   it('a toll at a level past the authored rows leaves a swept mob where it stood', () => {

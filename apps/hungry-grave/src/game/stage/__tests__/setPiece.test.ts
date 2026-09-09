@@ -63,6 +63,20 @@ import {
 } from '../setPiece';
 import { PHASES } from '../stage';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** The one item this file only ever asks about right after asserting a length of one. */
+function firstOf<T>(items: readonly T[]): T {
+  return requireDefined(items[0], 'no first item');
+}
+
+// Any birthright line damages the set piece, and the birthright is never empty.
+const A_BIRTHRIGHT_LINE = requireDefined(BIRTHRIGHT[0], 'BIRTHRIGHT is empty');
+
 const SEED = 20260910;
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
@@ -85,7 +99,11 @@ const SOURCE_TICKS = 4000;
  * this is a floor rather than a prediction.
  */
 const FULL_BUILD_DAMAGE_PER_SECOND =
-  (COLUMNS_BY_LEVEL[COLUMNS_BY_LEVEL.length - 1] * SKULL_DAMAGE) /
+  (requireDefined(
+    COLUMNS_BY_LEVEL[COLUMNS_BY_LEVEL.length - 1],
+    'COLUMNS_BY_LEVEL is empty',
+  ) *
+    SKULL_DAMAGE) /
     (STREAM_INTERVAL / TICK_HZ) +
   BELL_DAMAGE_NEAR / (BELL_PERIOD / TICK_HZ);
 
@@ -250,7 +268,9 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     // And it moved while it poured, so "one point" is the source's own place
     // rather than a fixed spot on the field.
     expect(source.state.setPiece).toBeNull();
-    expect(poured[poured.length - 1].y).toBeGreaterThan(at.y);
+    expect(
+      requireDefined(poured[poured.length - 1], 'no poured event').y,
+    ).toBeGreaterThan(at.y);
   });
 
   it('opens at its authored depth and not one tick before', () => {
@@ -270,10 +290,12 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
       expect(piece.y).toBeGreaterThanOrEqual(opensAt);
       expect(last.y).toBeLessThan(opensAt);
       expect(only(events, 'setPieceOpened')).toHaveLength(1);
-      expect(only(events, 'setPieceOpened')[0].budget).toBe(SET_PIECE_BUDGET);
+      expect(firstOf(only(events, 'setPieceOpened')).budget).toBe(
+        SET_PIECE_BUDGET,
+      );
       // Which source opened, so a reading over a run holding two of them names
       // the one it measured rather than whichever opened first.
-      expect(only(events, 'setPieceOpened')[0].id).toBe(piece.id);
+      expect(firstOf(only(events, 'setPieceOpened')).id).toBe(piece.id);
       return;
     }
     throw new Error('the source never opened');
@@ -286,8 +308,8 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     const closed = only(events, 'setPieceClosed');
 
     expect(closed).toHaveLength(1);
-    expect(closed[0].reason).toBe('spent');
-    expect(closed[0].left).toBe(0);
+    expect(firstOf(closed).reason).toBe('spent');
+    expect(firstOf(closed).left).toBe(0);
     expect(only(events, 'setPiecePoured')).toHaveLength(SET_PIECE_BUDGET);
     expect(source.state.setPiece).toBeNull();
   });
@@ -302,8 +324,8 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     const off = tickUntilItCloses(scrolled);
 
     expect(only(off, 'setPieceClosed')).toHaveLength(1);
-    expect(only(off, 'setPieceClosed')[0].reason).toBe('scrolled');
-    expect(only(off, 'setPieceClosed')[0].left).toBeGreaterThan(0);
+    expect(firstOf(only(off, 'setPieceClosed')).reason).toBe('scrolled');
+    expect(firstOf(only(off, 'setPieceClosed')).left).toBeGreaterThan(0);
   });
 
   it('keeps pouring on its own schedule once its body is gone', () => {
@@ -316,7 +338,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     tickUntilItOpens(source);
     for (let tick = 0; tick < 5 * TICK_HZ; tick++) source.tick();
     const left = source.state.setPiece!.budget;
-    damageSetPiece(source.state, SET_PIECE_HP, BIRTHRIGHT[0]);
+    damageSetPiece(source.state, SET_PIECE_HP, A_BIRTHRIGHT_LINE);
     const at: number[] = [];
     const poured: { x: number; y: number }[] = [];
     for (let tick = 0; tick < SOURCE_TICKS; tick++) {
@@ -331,7 +353,11 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     expect(poured).toHaveLength(left);
     // On the same clock: every gap between two bodies is the authored interval
     // and no gap is anything else.
-    const gaps = at.slice(1).map((tick, index) => tick - at[index]);
+    const gaps = at
+      .slice(1)
+      .map(
+        (tick, index) => tick - requireDefined(at[index], 'tick out of range'),
+      );
     expect([...new Set(gaps)]).toEqual([SET_PIECE_POUR_SECONDS * TICK_HZ]);
     // And from the pour point, which is still drifting and sweeping: the trail
     // after the kill lies inside the same authored bounds as the trail before.
@@ -349,7 +375,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     const source = atTheSource();
     tickUntilItOpens(source);
     for (let tick = 0; tick < 5 * TICK_HZ; tick++) source.tick();
-    damageSetPiece(source.state, SET_PIECE_HP, BIRTHRIGHT[0]);
+    damageSetPiece(source.state, SET_PIECE_HP, A_BIRTHRIGHT_LINE);
 
     expect(source.state.setPiece).not.toBeNull();
 
@@ -357,8 +383,8 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     const closed = only(events, 'setPieceClosed');
 
     expect(closed).toHaveLength(1);
-    expect(closed[0].reason).toBe('spent');
-    expect(closed[0].left).toBe(0);
+    expect(firstOf(closed).reason).toBe('spent');
+    expect(firstOf(closed).left).toBe(0);
     expect(source.state.setPiece).toBeNull();
   });
 
@@ -371,15 +397,19 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     for (let tick = 0; tick < 5 * TICK_HZ; tick++) source.tick();
     const piece = source.state.setPiece!;
     const left = piece.budget;
-    const killing = damageSetPiece(source.state, SET_PIECE_HP, BIRTHRIGHT[0]);
+    const killing = damageSetPiece(
+      source.state,
+      SET_PIECE_HP,
+      A_BIRTHRIGHT_LINE,
+    );
 
     expect(only(killing, 'mobDamaged')).toHaveLength(1);
     expect(only(killing, 'setPieceKilled')).toHaveLength(1);
-    expect(only(killing, 'setPieceKilled')[0].left).toBe(left);
+    expect(firstOf(only(killing, 'setPieceKilled')).left).toBe(left);
     expect(setPieceHitbox(piece)).toBeNull();
 
     const spent = piece.hp;
-    expect(damageSetPiece(source.state, 100, BIRTHRIGHT[0])).toEqual([]);
+    expect(damageSetPiece(source.state, 100, A_BIRTHRIGHT_LINE)).toEqual([]);
     expect(piece.hp).toBe(spent);
 
     // And it stays gone while the pour goes on: the next body comes out of the
@@ -408,7 +438,9 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
       ...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfWidth * 2),
     );
     for (let at = 1; at < poured.length; at++) {
-      expect(Math.abs(poured[at].x - poured[at - 1].x)).toBeGreaterThan(widest);
+      const here = requireDefined(poured[at], 'no poured event');
+      const prior = requireDefined(poured[at - 1], 'no poured event');
+      expect(Math.abs(here.x - prior.x)).toBeGreaterThan(widest);
     }
   });
 
@@ -461,7 +493,10 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     // off this module's own row, which is how the renderer's patch test reads
     // the same fact from the other side.
     const source = atTheSource();
-    const patch = source.state.patches[0];
+    const patch = requireDefined(
+      source.state.patches[0],
+      'no patch pool slot 0',
+    );
     patch.alive = true;
     patch.y = 100;
     patch.radius = 40;
@@ -489,11 +524,14 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     const events = tickUntilItCloses(source);
     const closed = only(events, 'setPieceClosed');
     const poured = only(events, 'setPiecePoured');
-    const spentAt = poured[poured.length - 1].y;
+    const spentAt = requireDefined(
+      poured[poured.length - 1],
+      'no poured event',
+    ).y;
     const leavesAt = FIELD_HEIGHT + SET_PIECE_HALF_HEIGHT;
 
     expect(closed).toHaveLength(1);
-    expect(closed[0].reason).toBe('spent');
+    expect(firstOf(closed).reason).toBe('spent');
     expect(poured).toHaveLength(SET_PIECE_BUDGET);
     expect(leavesAt - spentAt).toBeGreaterThan(
       SCROLL_SPEED * SET_PIECE_POUR_SECONDS * TICK_HZ,
@@ -576,7 +614,10 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     // tick, so the only thing standing over the grave is the source itself:
     // what the poured bodies do to a parked grave is ordinary mob contact and
     // is not what this absence is about.
-    state.stage.firedRows = PHASES[WAKING].rows.length;
+    state.stage.firedRows = requireDefined(
+      PHASES[WAKING],
+      'WAKING out of range',
+    ).rows.length;
     const events: SimEvent[] = [];
     for (let tick = 0; tick < SOURCE_TICKS; tick++) {
       if (state.setPiece === null) break;
@@ -598,7 +639,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     body.state.grave.y = body.state.setPiece!.y;
     const standing = spawnMob(
       body.state,
-      MOB_TYPE_NAMES[0],
+      requireDefined(MOB_TYPE_NAMES[0], 'MOB_TYPE_NAMES is empty'),
       {
         x: body.state.grave.x,
         y: body.state.grave.y,
@@ -752,13 +793,13 @@ describe('the set piece names a property and never a cast (ADR 0042)', () => {
     const source = atTheSource();
     expect(setPieceHitbox(source.state.setPiece!)).toBeNull();
     const hp = source.state.setPiece!.hp;
-    expect(damageSetPiece(source.state, hp, BIRTHRIGHT[0])).toEqual([]);
+    expect(damageSetPiece(source.state, hp, A_BIRTHRIGHT_LINE)).toEqual([]);
     expect(source.state.setPiece!.hp).toBe(hp);
 
     tickUntilItOpens(source);
     expect(setPieceHitbox(source.state.setPiece!)).not.toBeNull();
     expect(
-      damageSetPiece(source.state, 1, BIRTHRIGHT[0]).length,
+      damageSetPiece(source.state, 1, A_BIRTHRIGHT_LINE).length,
     ).toBeGreaterThan(0);
     expect(source.state.setPiece!.hp).toBe(SET_PIECE_HP - 1);
   });

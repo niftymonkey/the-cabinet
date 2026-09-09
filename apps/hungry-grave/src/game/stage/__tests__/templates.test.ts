@@ -28,6 +28,17 @@ function orders(template: TemplateName, count: number, seed = 5): SpawnOrder[] {
   return place(template, count, stream(seed, 'spawns'));
 }
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** An element this file only ever asks about at an index already known in range. */
+function at<T>(items: readonly T[], index: number): T {
+  return requireDefined(items[index], `no element at ${index}`);
+}
+
 /** The two arms of a mirrored template, as they come off the placement. */
 function arms(placed: SpawnOrder[]): [SpawnOrder[], SpawnOrder[]] {
   return [
@@ -100,7 +111,12 @@ describe('every template', () => {
     }
     const specifiers = [
       ...templatesSource.matchAll(/^import[^;]*?["']([^"']+)["']/gm),
-    ].map((match) => match[1]);
+    ].map((match) =>
+      requireDefined(
+        match[1],
+        'import regex matched with no captured specifier',
+      ),
+    );
     expect(specifiers.length).toBeGreaterThan(0);
     expect(specifiers.filter((each) => each.endsWith('/mobs'))).toEqual([]);
   });
@@ -110,44 +126,46 @@ describe("each template's own shape", () => {
   it("the Drip spreads across the field's width at even spacing", () => {
     const placed = orders('drip', 3);
     expect(placed.map((at) => at.x)).toEqual([90, 270, 450]);
-    expect(orders('drip', 1)[0].x).toBe(FIELD_WIDTH / 2);
+    expect(at(orders('drip', 1), 0).x).toBe(FIELD_WIDTH / 2);
     for (const at of placed) expect([at.vx, at.vy]).toEqual([0, 1]);
   });
 
   it('the File is one lane, each mob one body length behind the last', () => {
     const placed = orders('file', 5);
-    expect(new Set(placed.map((at) => at.x)).size).toBe(1);
-    const gaps = placed.slice(1).map((at, index) => at.y - placed[index].y);
+    expect(new Set(placed.map((order) => order.x)).size).toBe(1);
+    const gaps = placed
+      .slice(1)
+      .map((order, index) => order.y - at(placed, index).y);
     expect(new Set(gaps.map((gap) => gap.toFixed(9))).size).toBe(1);
-    expect(gaps[0]).toBeLessThan(0);
+    expect(at(gaps, 0)).toBeLessThan(0);
   });
 
   it('the V is a chevron: arms opening outward, each rank further behind the apex', () => {
     const placed = orders('v', 7);
     const [left, right] = arms(placed);
-    expect(left.every((at) => at.vx < 0)).toBe(true);
-    expect(right.every((at) => at.vx > 0)).toBe(true);
+    expect(left.every((order) => order.vx < 0)).toBe(true);
+    expect(right.every((order) => order.vx > 0)).toBe(true);
     for (const arm of [left, right]) {
       for (let rank = 1; rank < arm.length; rank++) {
-        expect(Math.abs(arm[rank].x - FIELD_WIDTH / 2)).toBeGreaterThan(
-          Math.abs(arm[rank - 1].x - FIELD_WIDTH / 2),
+        expect(Math.abs(at(arm, rank).x - FIELD_WIDTH / 2)).toBeGreaterThan(
+          Math.abs(at(arm, rank - 1).x - FIELD_WIDTH / 2),
         );
-        expect(arm[rank].y).toBeLessThan(arm[rank - 1].y);
+        expect(at(arm, rank).y).toBeLessThan(at(arm, rank - 1).y);
       }
     }
     // The apex pair straddles the centre, so neither side leads.
-    expect(left[0].x + right[0].x).toBeCloseTo(FIELD_WIDTH, 9);
+    expect(at(left, 0).x + at(right, 0).x).toBeCloseTo(FIELD_WIDTH, 9);
   });
 
   it('the Pincer comes in from two opposite top corners', () => {
     const placed = orders('pincer', 8);
     const [left, right] = arms(placed);
-    expect(left[0].x).toBeLessThan(FIELD_WIDTH / 4);
-    expect(right[0].x).toBeGreaterThan((FIELD_WIDTH * 3) / 4);
-    expect(left.every((at) => at.vx > 0 && at.vy > 0)).toBe(true);
-    expect(right.every((at) => at.vx < 0 && at.vy > 0)).toBe(true);
+    expect(at(left, 0).x).toBeLessThan(FIELD_WIDTH / 4);
+    expect(at(right, 0).x).toBeGreaterThan((FIELD_WIDTH * 3) / 4);
+    expect(left.every((order) => order.vx > 0 && order.vy > 0)).toBe(true);
+    expect(right.every((order) => order.vx < 0 && order.vy > 0)).toBe(true);
     // Mirrored, so the pair forces the player across the middle.
-    expect(left[0].vx).toBeCloseTo(-right[0].vx, 12);
+    expect(at(left, 0).vx).toBeCloseTo(-at(right, 0).vx, 12);
   });
 
   it('the Rain scatters across the full width and arrives loose rather than as a line', () => {
@@ -175,11 +193,13 @@ describe("each template's own shape", () => {
 
   it('the Wall is an even curtain across the full width, entering together', () => {
     const placed = orders('wall', 22);
-    expect(new Set(placed.map((at) => at.y)).size).toBe(1);
-    const gaps = placed.slice(1).map((at, index) => at.x - placed[index].x);
+    expect(new Set(placed.map((order) => order.y)).size).toBe(1);
+    const gaps = placed
+      .slice(1)
+      .map((order, index) => order.x - at(placed, index).x);
     expect(new Set(gaps.map((gap) => gap.toFixed(9))).size).toBe(1);
-    expect(placed[0].x).toBeCloseTo(gaps[0] / 2, 9);
-    expect(placed[21].x).toBeCloseTo(FIELD_WIDTH - gaps[0] / 2, 9);
+    expect(at(placed, 0).x).toBeCloseTo(at(gaps, 0) / 2, 9);
+    expect(at(placed, 21).x).toBeCloseTo(FIELD_WIDTH - at(gaps, 0) / 2, 9);
   });
 
   it('indexes the mirrored templates per arm, so the armed share falls in the same place on both sides', () => {

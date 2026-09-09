@@ -809,7 +809,9 @@ const rowsUnderThePour = (
   share: number,
   seconds: number,
 ): readonly StageRow[] => {
-  const opensAt = rows[rows.length - 1].t - seconds;
+  const lastRow = rows[rows.length - 1];
+  if (lastRow === undefined) throw new Error('rowsUnderThePour given no rows');
+  const opensAt = lastRow.t - seconds;
   return rows
     .filter((row) => row.t > opensAt)
     .map((row) => ({

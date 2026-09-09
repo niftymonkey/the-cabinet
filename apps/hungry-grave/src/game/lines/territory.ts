@@ -62,6 +62,16 @@ const TERRITORY_REACH = 180;
 const RADIUS_BY_LEVEL: readonly number[] = [0, 32, 43, 58, 77, 104];
 
 /**
+ * One row of a by-level table, at a level already clamped to MAX_LEVEL. A
+ * missing row there is a bug in that clamp rather than a case to handle.
+ */
+const atLevel = <T>(table: readonly T[], level: number): T => {
+  const row = table[level];
+  if (row === undefined) throw new Error(`no table row at level ${level}`);
+  return row;
+};
+
+/**
  * How long the ground takes to open, in ticks: a little over a second.
  * PROVISIONAL.
  *
@@ -426,10 +436,10 @@ const layPatch = (
   patch.level = level;
   patch.x = clamp(point.x + spread.x, 0, FIELD_WIDTH);
   patch.y = clamp(point.y + spread.y, 0, state.grave.y);
-  patch.radius = RADIUS_BY_LEVEL[level];
-  patch.pull = PULL_BY_LEVEL[level];
-  patch.slow = SLOW_BY_LEVEL[level];
-  patch.rehit = REHIT_BY_LEVEL[level];
+  patch.radius = atLevel(RADIUS_BY_LEVEL, level);
+  patch.pull = atLevel(PULL_BY_LEVEL, level);
+  patch.slow = atLevel(SLOW_BY_LEVEL, level);
+  patch.rehit = atLevel(REHIT_BY_LEVEL, level);
   patch.opening = TERRITORY_OPENING_TICKS;
   patch.pulses = 0;
   patch.struck.clear();
@@ -474,7 +484,10 @@ const runTheClock = (state: RunState, events: SimEvent[]): void => {
   if (lines.layIn > 0) lines.layIn -= 1;
   if (lines.layIn > 0) return;
   const points = eligiblePoints(state);
-  const radius = RADIUS_BY_LEVEL[Math.min(state.levels.territory, MAX_LEVEL)];
+  const radius = atLevel(
+    RADIUS_BY_LEVEL,
+    Math.min(state.levels.territory, MAX_LEVEL),
+  );
   const knot = densestKnot(points, radius);
   if (knot === null) return;
   const spread = spreadOffset(state, radius);

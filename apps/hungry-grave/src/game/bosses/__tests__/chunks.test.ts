@@ -37,6 +37,17 @@ import {
   spawnBoss,
 } from '../chunks';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** The one item this file only ever asks about right after asserting a length of one. */
+function firstOf<T>(items: readonly T[]): T {
+  return requireDefined(items[0], 'no first item');
+}
+
 const SEED = 20260908;
 
 /** A run with nothing else on the field, which is what a boss phase hands over. */
@@ -78,7 +89,7 @@ function fightToDeath(state: RunState, boss: Boss): SimEvent[] {
 
 /** A skull sitting exactly on a point, so the storm's pass meets what is there. */
 function skullAt(state: RunState, x: number, y: number): void {
-  const skull = state.skulls[0];
+  const skull = requireDefined(state.skulls[0], 'no skull pool slot 0');
   skull.alive = true;
   skull.id = 900;
   skull.x = x;
@@ -186,9 +197,9 @@ describe('the flash between chunks (ADR 0007)', () => {
 
     const blocked = only(damageBoss(state, 500, 'bell'), 'mobDamaged');
     expect(blocked).toHaveLength(1);
-    expect(blocked[0].id).toBe(boss.id);
-    expect(blocked[0].amount).toBe(0);
-    expect(blocked[0].source).toBe('bell');
+    expect(firstOf(blocked).id).toBe(boss.id);
+    expect(firstOf(blocked).amount).toBe(0);
+    expect(firstOf(blocked).source).toBe('bell');
   });
 
   it('cannot be killed while the flash burns, however much lands on it', () => {
@@ -197,10 +208,16 @@ describe('the flash between chunks (ADR 0007)', () => {
     // given, and the flash is invincibility rather than a damage reduction.
     const { state, boss } = fighting('banshee');
     damageBoss(state, boss.hp, 'skullStream');
-    damageBoss(state, CHUNK_HP.banshee[1] * 10, 'skullStream');
+    damageBoss(
+      state,
+      requireDefined(CHUNK_HP.banshee[1], 'no chunk 1 for banshee') * 10,
+      'skullStream',
+    );
 
     expect(state.boss).toBe(boss);
-    expect(boss.hp).toBe(CHUNK_HP.banshee[1]);
+    expect(boss.hp).toBe(
+      requireDefined(CHUNK_HP.banshee[1], 'no chunk 1 for banshee'),
+    );
   });
 
   it('holds the pattern clock still through the flash, so a chunk begins at its own start', () => {
@@ -234,8 +251,10 @@ describe('the storm always matters (ADR 0007)', () => {
         (event) => event.id === boss.id,
       );
       expect(landed, `chunk ${chunk}`).toHaveLength(1);
-      expect(landed[0].amount).toBe(SKULL_DAMAGE);
-      expect(state.skulls[0].alive).toBe(false);
+      expect(firstOf(landed).amount).toBe(SKULL_DAMAGE);
+      expect(
+        requireDefined(state.skulls[0], 'no skull pool slot 0').alive,
+      ).toBe(false);
 
       if (chunk === CHUNK_HP.undertaker.length - 1) break;
       damageBoss(state, boss.hp, 'skullStream');
@@ -262,9 +281,9 @@ describe('the storm always matters (ADR 0007)', () => {
     expect(onMob).toHaveLength(1);
     // The same point, so the same number: full damage means the toll's own
     // falloff and never a share of it.
-    expect(onBoss[0].amount).toBe(onMob[0].amount);
-    expect(onBoss[0].amount).toBeGreaterThan(BELL_DAMAGE_FAR);
-    expect(onBoss[0].amount).toBeLessThanOrEqual(BELL_DAMAGE_NEAR);
+    expect(firstOf(onBoss).amount).toBe(firstOf(onMob).amount);
+    expect(firstOf(onBoss).amount).toBeGreaterThan(BELL_DAMAGE_FAR);
+    expect(firstOf(onBoss).amount).toBeLessThanOrEqual(BELL_DAMAGE_NEAR);
   });
 
   it('takes no bell pushback, while its adds are pushed by the same ring', () => {
@@ -310,7 +329,7 @@ describe('the storm always matters (ADR 0007)', () => {
 
     // One killed, and it is the add: the count on the event is bodies killed,
     // so a boss that took damage is not among them.
-    expect(belched[0].killed).toBe(1);
+    expect(firstOf(belched).killed).toBe(1);
     expect(add.alive).toBe(false);
     expect(state.boss).toBe(boss);
     expect(boss.chunk).toBe(0);
@@ -333,9 +352,12 @@ describe('the storm always matters (ADR 0007)', () => {
       (event) => event.id === near.boss.id,
     );
     expect(landed).toHaveLength(1);
-    expect(landed[0].amount).toBe(BELCH_CHUNK_DAMAGE);
-    expect(landed[0].source).toBe('belch');
-    expect(near.boss.hp).toBe(CHUNK_HP.undertaker[0] - BELCH_CHUNK_DAMAGE);
+    expect(firstOf(landed).amount).toBe(BELCH_CHUNK_DAMAGE);
+    expect(firstOf(landed).source).toBe('belch');
+    expect(near.boss.hp).toBe(
+      requireDefined(CHUNK_HP.undertaker[0], 'no chunk 0 for undertaker') -
+        BELCH_CHUNK_DAMAGE,
+    );
     // Never pushed, which is the other half of the same sentence and the reason
     // authored patterns do not smear.
     expect(near.boss.x).toBe(stoodAt.x);
@@ -347,7 +369,9 @@ describe('the storm always matters (ADR 0007)', () => {
     far.state.reservoir = RESERVOIR_CAPACITY;
     const missed = only(fireBelch(far.state), 'mobDamaged');
     expect(missed).toEqual([]);
-    expect(far.boss.hp).toBe(CHUNK_HP.undertaker[0]);
+    expect(far.boss.hp).toBe(
+      requireDefined(CHUNK_HP.undertaker[0], 'no chunk 0 for undertaker'),
+    );
 
     // One press never breaks a fresh chunk, whatever the row is retuned to,
     // which is what keeps a chunk's own emit out of the belch's reach.
@@ -399,11 +423,11 @@ describe('what a boss sheds (ADR 0007, ADR 0004)', () => {
 
     const shed = state.corpses.filter((corpse) => corpse.alive);
     expect(shed).toHaveLength(1);
-    expect(shed[0].kind).toBe('feast');
-    expect(shed[0].decays).toBe(false);
-    expect(shed[0].freshness).toBe(1);
-    expect(shed[0].x).toBe(boss.x);
-    expect(shed[0].y).toBe(boss.y);
+    expect(firstOf(shed).kind).toBe('feast');
+    expect(firstOf(shed).decays).toBe(false);
+    expect(firstOf(shed).freshness).toBe(1);
+    expect(firstOf(shed).x).toBe(boss.x);
+    expect(firstOf(shed).y).toBe(boss.y);
   });
 
   it('leaves the field on its last chunk, reporting where it fell', () => {
@@ -414,9 +438,9 @@ describe('what a boss sheds (ADR 0007, ADR 0004)', () => {
     const killed = only(fightToDeath(state, boss), 'bossKilled');
 
     expect(killed).toHaveLength(1);
-    expect(killed[0].boss).toBe('banshee');
-    expect(killed[0].x).toBe(boss.x);
-    expect(killed[0].y).toBe(boss.y);
+    expect(firstOf(killed).boss).toBe('banshee');
+    expect(firstOf(killed).x).toBe(boss.x);
+    expect(firstOf(killed).y).toBe(boss.y);
     expect(state.boss).toBeNull();
   });
 });

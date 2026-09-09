@@ -50,6 +50,17 @@ import {
   SPIRAL_ROWS,
 } from '../undertaker';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** The one item this file only ever asks about right after asserting a length of one. */
+function firstOf<T>(items: readonly T[]): T {
+  return requireDefined(items[0], 'no first item');
+}
+
 const SEED = 20260908;
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
@@ -95,14 +106,18 @@ function atTheUndertaker(seed = SEED): Fight {
   state.stage.phaseTick = 0;
   state.stage.firedRows = 0;
   const step = stepping(state);
-  const boss = spawnBoss(state, PHASES[HIS_PHASE].boss!);
+  const hisPhase = requireDefined(PHASES[HIS_PHASE], 'HIS_PHASE out of range');
+  const boss = spawnBoss(state, hisPhase.boss!);
   const tick = (): readonly SimEvent[] => {
     const held = state.grave.size;
     const events = step(STILL);
     state.grave.size = held;
     state.ending = null;
     if (state.boss !== null) {
-      state.boss.hp = CHUNK_HP[state.boss.kind][state.boss.chunk];
+      state.boss.hp = requireDefined(
+        CHUNK_HP[state.boss.kind][state.boss.chunk],
+        'no chunk hp at that index',
+      );
     }
     return events;
   };
@@ -171,10 +186,10 @@ function curtainsIn(beats: readonly Beat[]): Curtain[] {
  */
 function wayThrough(curtain: Curtain): { width: number; at: number } {
   const walls = [0, ...curtain.xs, FIELD_WIDTH];
-  const steps = walls.slice(1).map((x, index) => ({
-    width: x - walls[index],
-    from: walls[index],
-  }));
+  const steps = walls.slice(1).map((x, index) => {
+    const from = requireDefined(walls[index], 'wall out of range');
+    return { width: x - from, from };
+  });
   const widest = steps.reduce((most, step) =>
     step.width > most.width ? step : most,
   );
@@ -229,7 +244,12 @@ function nextCurtainAt(fight: Fight, size: number, within: number): Curtain {
   fight.state.grave.size = size;
   for (let tick = 0; tick < within; tick++) {
     const curtains = curtainsIn([oneBeat(fight)]);
-    if (curtains.length > 0) return curtains[0];
+    if (curtains.length > 0) {
+      return requireDefined(
+        curtains[0],
+        'curtains reported nonempty but empty',
+      );
+    }
   }
   throw new Error(`no curtain fell inside ${within} ticks`);
 }
@@ -250,7 +270,11 @@ function nextCurtainAt(fight: Fight, size: number, within: number): Curtain {
  * prediction, and the harness measures the real number at step 4.
  */
 const FULL_BUILD_DAMAGE_PER_SECOND =
-  (COLUMNS_BY_LEVEL[COLUMNS_BY_LEVEL.length - 1] * SKULL_DAMAGE) /
+  (requireDefined(
+    COLUMNS_BY_LEVEL[COLUMNS_BY_LEVEL.length - 1],
+    'COLUMNS_BY_LEVEL is empty',
+  ) *
+    SKULL_DAMAGE) /
     (STREAM_INTERVAL / TICK_HZ) +
   BELL_DAMAGE_NEAR / (BELL_PERIOD / TICK_HZ);
 
@@ -346,6 +370,7 @@ describe("the curtain's way through always fits the grave (ADR 0003)", () => {
     const fight = atTheUndertaker();
     const curtain = curtainsIn(play(fight, CURTAIN_ROWS[0]!.period + 1))[0];
     expect(curtain).toBeDefined();
+    if (curtain === undefined) throw new Error('no curtain fell');
     expect(wayThrough(curtain).width).toBeGreaterThanOrEqual(
       curtainGap(SIZE_START),
     );
@@ -406,7 +431,9 @@ describe("the curtain's way through always fits the grave (ADR 0003)", () => {
     expect(centres.length).toBeGreaterThan(4);
     expect(new Set(centres).size).toBeGreaterThan(1);
     for (const [index, centre] of centres.slice(1).entries()) {
-      const walked = Math.abs(centre - centres[index]);
+      const walked = Math.abs(
+        centre - requireDefined(centres[index], 'centre out of range'),
+      );
       expect(`curtain ${index + 1}: ${walked <= step}`).toBe(
         `curtain ${index + 1}: true`,
       );
@@ -455,9 +482,9 @@ describe('the exhumation and its diggers (game-concept.md:70, ADR 0007)', () => 
     play(fight, row.diggerEvery + 1);
     const dug = diggers(fight.state);
     expect(dug).toHaveLength(1);
-    expect(dug[0].type).toBe(DIGGER_TYPE);
-    expect(dug[0].hp).toBe(MOB_TYPES[DIGGER_TYPE].hp);
-    expect(dug[0].carries).toBe(false);
+    expect(firstOf(dug).type).toBe(DIGGER_TYPE);
+    expect(firstOf(dug).hp).toBe(MOB_TYPES[DIGGER_TYPE].hp);
+    expect(firstOf(dug).carries).toBe(false);
 
     // Killed the ordinary way, it pays its own row's payout and lands as food
     // the same as anything the timeline authored. It is told apart from the
@@ -465,7 +492,12 @@ describe('the exhumation and its diggers (game-concept.md:70, ADR 0007)', () => 
     const standing = new Set(
       fight.state.corpses.filter((each) => each.alive).map((each) => each.id),
     );
-    const events = damageMob(fight.state, dug[0], dug[0].hp, 'skullStream');
+    const events = damageMob(
+      fight.state,
+      firstOf(dug),
+      firstOf(dug).hp,
+      'skullStream',
+    );
     expect(only(events, 'mobKilled').map((event) => event.mob)).toEqual([
       DIGGER_TYPE,
     ]);
@@ -473,8 +505,8 @@ describe('the exhumation and its diggers (game-concept.md:70, ADR 0007)', () => 
       (each) => each.alive && !standing.has(each.id),
     );
     expect(shed).toHaveLength(1);
-    expect(shed[0].payout).toBe(MOB_TYPES[DIGGER_TYPE].corpsePayout);
-    expect(shed[0].decays).toBe(true);
+    expect(firstOf(shed).payout).toBe(MOB_TYPES[DIGGER_TYPE].corpsePayout);
+    expect(firstOf(shed).decays).toBe(true);
 
     // And they keep coming, on the cadence the row authors.
     play(fight, row.diggerEvery * 3);
@@ -500,15 +532,18 @@ describe('the locked overlap (decision 26)', () => {
     // first's, never denser, and the table and the field agree on it.
     expect(CURTAIN_ROWS[2]!.clods).toBeLessThan(CURTAIN_ROWS[0]!.clods);
 
-    const burial = curtainsIn(
-      play(atTheUndertaker(), CURTAIN_ROWS[0]!.period + 1),
-    )[0];
+    const burial = requireDefined(
+      curtainsIn(play(atTheUndertaker(), CURTAIN_ROWS[0]!.period + 1))[0],
+      'no curtain fell',
+    );
     const beats = play(
       atChunk(atTheUndertaker(), 2),
       CURTAIN_ROWS[2]!.period + 1,
     );
 
-    expect(curtainsIn(beats)[0].xs.length).toBeLessThan(burial.xs.length);
+    expect(
+      requireDefined(curtainsIn(beats)[0], 'no curtain fell').xs.length,
+    ).toBeLessThan(burial.xs.length);
     // Both at once is the chunk: the arm turns through the same window the
     // curtain falls in.
     expect(
@@ -522,7 +557,7 @@ describe('the locked overlap (decision 26)', () => {
     // what is held is that the two agree on the field rather than in the code.
     const fight = atChunk(atTheUndertaker(), 2);
     const beats = play(fight, CURTAIN_ROWS[2]!.period + 1);
-    const curtain = curtainsIn(beats)[0];
+    const curtain = requireDefined(curtainsIn(beats)[0], 'no curtain fell');
     const way = wayThrough(curtain);
     const tolerance = latticeTolerance(
       fight.state.grave.size,
@@ -610,9 +645,11 @@ describe('what a chunk of his health buys (ADR 0052)', () => {
     // across one emit of that chunk's own longest cycle.
     for (let chunk = 0; chunk < CHUNK_HP.undertaker.length; chunk++) {
       const floor = (FULL_BUILD_DAMAGE_PER_SECOND * emitTicks(chunk)) / TICK_HZ;
-      expect(`chunk ${chunk}: ${CHUNK_HP.undertaker[chunk] > floor}`).toBe(
-        `chunk ${chunk}: true`,
+      const chunkHp = requireDefined(
+        CHUNK_HP.undertaker[chunk],
+        `no chunk ${chunk} for undertaker`,
       );
+      expect(`chunk ${chunk}: ${chunkHp > floor}`).toBe(`chunk ${chunk}: true`);
       expect(emitTicks(chunk)).toBeGreaterThan(0);
     }
 

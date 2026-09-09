@@ -169,6 +169,7 @@ const aim = (wisp: Wisp, target: StormTarget | null): void => {
  */
 const soulsForSwallow = (level: number, freshness: number): number => {
   const owned = WISPS_BY_LEVEL[level];
+  if (owned === undefined) throw new Error(`no souls count at level ${level}`);
   if (owned === 0) return 0;
   return Math.max(
     WISP_FLOOR_SOULS,

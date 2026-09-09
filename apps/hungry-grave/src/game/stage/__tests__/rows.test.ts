@@ -58,6 +58,12 @@ import {
 import type { Phase } from '../stage';
 import { PHASES } from '../stage';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 const SECTIONS: readonly (readonly StageRow[])[] = [
   PROCESSION_ROWS,
   CROWD_ROWS,
@@ -93,7 +99,11 @@ const carrierFaultsIn = (rows: readonly StageRow[]): string[] =>
 /** Every row that fires before the row in front of it. */
 const outOfOrderIn = (rows: readonly StageRow[]): string[] =>
   rows
-    .filter((row, index) => index > 0 && row.t < rows[index - 1].t)
+    .filter(
+      (row, index) =>
+        index > 0 &&
+        row.t < requireDefined(rows[index - 1], 'row out of range').t,
+    )
     .map((row) => `${row.template} at t=${row.t}`);
 
 /** A section's sparse last row, which is the tail its own shape declares. */
@@ -102,7 +112,10 @@ const sparseIn = (rows: readonly StageRow[]): readonly StageRow[] =>
 
 /** The phase whose boundary event ends this one, which is the phase after it. */
 const boundaryAfter = (name: string): Phase =>
-  PHASES[PHASES.findIndex((each) => each.name === name) + 1];
+  requireDefined(
+    PHASES[PHASES.findIndex((each) => each.name === name) + 1],
+    `no phase after ${name}`,
+  );
 
 /**
  * How many carriers a table's rows put on the field, counted through
@@ -234,6 +247,9 @@ interface Reached {
  * the Procession's carriers alone. How long her fight takes is her own module's
  * tests' subject and not this table's.
  */
+// Any birthright line kills, and the birthright is never empty.
+const A_BIRTHRIGHT_LINE = requireDefined(BIRTHRIGHT[0], 'BIRTHRIGHT is empty');
+
 const playToTheWaking = (seed: number): Reached => {
   const state = createRun(seed);
   const step = stepping(state);
@@ -264,9 +280,11 @@ const playToTheWaking = (seed: number): Reached => {
     holdTheGrave(state);
     for (const mob of state.mobs) {
       if (!mob.alive || mob.carries || !hasEntered(mob)) continue;
-      damageMob(state, mob, mob.hp, BIRTHRIGHT[0]);
+      damageMob(state, mob, mob.hp, A_BIRTHRIGHT_LINE);
     }
-    if (state.boss !== null) damageBoss(state, state.boss.hp, BIRTHRIGHT[0]);
+    if (state.boss !== null) {
+      damageBoss(state, state.boss.hp, A_BIRTHRIGHT_LINE);
+    }
   }
   return { carriersKilled, taken, state };
 };
@@ -365,7 +383,11 @@ describe("the pour's own rows, and the share under it (ADR 0042, ADR 0050)", () 
     // trash and stays in it. What is held is the relation to the section's own
     // rate and never either magnitude.
     const pourSeconds = SET_PIECE_BUDGET * SET_PIECE_POUR_SECONDS;
-    const from = CROWD_ROWS[CROWD_ROWS.length - 1].t - pourSeconds;
+    const lastCrowdRow = requireDefined(
+      CROWD_ROWS[CROWD_ROWS.length - 1],
+      'CROWD_ROWS is empty',
+    );
+    const from = lastCrowdRow.t - pourSeconds;
     const carried = CROWD_ROWS.filter((row) => row.t > from);
 
     expect(WAKING_ROWS).toHaveLength(carried.length);
@@ -640,7 +662,10 @@ describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => 
       'v',
     ]);
 
-    const opening = PROCESSION_ROWS[0];
+    const opening = requireDefined(
+      PROCESSION_ROWS[0],
+      'PROCESSION_ROWS is empty',
+    );
     expect(
       `${opening.template} at t=${opening.t} carries ${opening.carries}`,
     ).toBe(`drip at t=${opening.t} carries false`);
