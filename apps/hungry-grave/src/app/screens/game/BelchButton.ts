@@ -71,8 +71,11 @@ class BelchButton extends Container {
 
   private drawn: boolean = false;
 
-  constructor(private readonly onFire: () => void) {
+  private readonly onFire: () => void;
+
+  constructor(onFire: () => void) {
     super();
+    this.onFire = onFire;
     this.addChild(this.ring);
     this.eventMode = 'static';
     // On press and never on release. The belch runs before overlap resolution

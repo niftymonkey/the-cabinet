@@ -30,6 +30,12 @@ import type { BossKind } from '../game/stage/rows';
 import { PHASES } from '../game/stage/stage';
 import { SIZE_CEILING, SIZE_FLOOR } from '../game/tuning';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 const SEED = 20260909;
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
@@ -101,7 +107,10 @@ function atTheFight(boss: BossKind, size?: number, level?: number): Fight {
 function onItsLastChunk(state: RunState): void {
   const boss = state.boss!;
   boss.chunk = CHUNK_HP[boss.kind].length - 1;
-  boss.hp = CHUNK_HP[boss.kind][boss.chunk];
+  boss.hp = requireDefined(
+    CHUNK_HP[boss.kind][boss.chunk],
+    `no chunk ${boss.chunk} for ${boss.kind}`,
+  );
 }
 
 /** Puts the fight on its last chunk with one point left, so the storm ends it. */
@@ -207,8 +216,11 @@ describe("the stage's ending (ADR 0007)", () => {
     expect(only(events, 'phaseChanged').map((event) => event.phase)).toEqual([
       'over',
     ]);
-    expect(only(events, 'victory')[0].tick).toBe(
-      only(events, 'phaseChanged')[0].tick,
+    expect(
+      requireDefined(only(events, 'victory')[0], 'no victory event').tick,
+    ).toBe(
+      requireDefined(only(events, 'phaseChanged')[0], 'no phaseChanged event')
+        .tick,
     );
   });
 
@@ -222,7 +234,12 @@ describe("the stage's ending (ADR 0007)", () => {
     fight.state.boss = null;
     fight.tick(STILL);
 
-    expect(PHASES[fight.state.stage.phaseIndex].name).toBe('over');
+    expect(
+      requireDefined(
+        PHASES[fight.state.stage.phaseIndex],
+        'phaseIndex out of range',
+      ).name,
+    ).toBe('over');
     expect(fight.state.ending).toBeNull();
   });
 
@@ -309,7 +326,9 @@ describe("the grave's ending (ADR 0003)", () => {
     // Score first, and the whole of it: the score tier is one rung and never
     // partly bleeds.
     expect(order[0]).toBe('scoreBled');
-    expect(only(rungs, 'scoreBled')[0].amount).toBe(SCORE_BROUGHT_TO_THE_FIGHT);
+    expect(
+      requireDefined(only(rungs, 'scoreBled')[0], 'no scoreBled rung').amount,
+    ).toBe(SCORE_BROUGHT_TO_THE_FIGHT);
     expect(fight.state.score).toBe(0);
     // Then the levels, then the seal, and the seal is the last thing that
     // happens because there is nothing left to bleed.
@@ -325,7 +344,12 @@ describe("the grave's ending (ADR 0003)", () => {
     // the grave sealed, which is what makes this the ladder in a boss fight and
     // not the ladder in a section.
     expect(fight.state.boss).not.toBeNull();
-    expect(PHASES[fight.state.stage.phaseIndex].boss).toBe('undertaker');
+    expect(
+      requireDefined(
+        PHASES[fight.state.stage.phaseIndex],
+        'phaseIndex out of range',
+      ).boss,
+    ).toBe('undertaker');
     // The floor a level falls to is the birthright, whatever the build.
     for (const line of WEAPON_LINES) {
       expect(`${line} ${fight.state.levels[line]}`).toBe(

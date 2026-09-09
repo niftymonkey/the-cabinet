@@ -144,7 +144,13 @@ const constantsDeclaredIn = (source: string): string[] =>
     ...source.matchAll(
       /(?:^|\n)[ \t]*(?:export[ \t]+)?(?:const|let|var)[ \t]+([A-Z][A-Z0-9_]*)\b/g,
     ),
-  ].map((match) => match[1]);
+  ].map((match) => {
+    const name = match[1];
+    if (name === undefined) {
+      throw new Error('constant-declaration regex matched with no captured name');
+    }
+    return name;
+  });
 
 const carriesPrefixOf = (name: string, line: WeaponLine): boolean =>
   prefixesOf(line).some(

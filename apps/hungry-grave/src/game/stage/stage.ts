@@ -196,6 +196,18 @@ const createStage = (): StageState => {
   return { phaseIndex: 0, phaseTick: 0, firedRows: 0 };
 };
 
+/**
+ * The phase at this index. phaseIndex only ever increases and advanceStage's
+ * own loop keeps it under PHASES.length - 1 before enterNextPhase advances it,
+ * so an index outside the table here is a bug in that invariant rather than a
+ * case to handle.
+ */
+const phaseAt = (index: number): Phase => {
+  const phase = PHASES[index];
+  if (phase === undefined) throw new Error(`no phase at index ${index}`);
+  return phase;
+};
+
 // Every row this phase authors has fired.
 const rowsSpent = (state: RunState, phase: Phase): boolean => {
   return state.stage.firedRows >= phase.rows.length;
@@ -247,7 +259,7 @@ const phaseEnded = (state: RunState, phase: Phase): boolean => {
 
 // Whether a banked offer may open on this tick (ADR 0034's bank, ADR 0048).
 const bankOpensNow = (state: RunState): boolean => {
-  return PHASES[state.stage.phaseIndex].bankOpens;
+  return phaseAt(state.stage.phaseIndex).bankOpens;
 };
 
 const rowTicks = (row: StageRow): number => {
@@ -291,11 +303,12 @@ const spawnDueRows = (
   events: SimEvent[],
 ): void => {
   const stage = state.stage;
-  while (
-    stage.firedRows < phase.rows.length &&
-    rowTicks(phase.rows[stage.firedRows]) <= stage.phaseTick
-  ) {
+  while (stage.firedRows < phase.rows.length) {
     const row = phase.rows[stage.firedRows];
+    if (row === undefined) {
+      throw new Error(`no row at fired index ${stage.firedRows}`);
+    }
+    if (rowTicks(row) > stage.phaseTick) return;
     stage.firedRows += 1;
     spawnRow(state, row, events);
   }
@@ -345,7 +358,7 @@ const arriveBoss = (
  * a run begins. It reports and changes nothing, so any tick may ask.
  */
 const phaseUnderway = (state: RunState): SimEvent => {
-  const phase = PHASES[state.stage.phaseIndex];
+  const phase = phaseAt(state.stage.phaseIndex);
   return {
     type: 'phaseChanged',
     phase: phase.name,
@@ -366,7 +379,7 @@ const enterNextPhase = (state: RunState, events: SimEvent[]): void => {
   stage.phaseTick = 0;
   stage.firedRows = 0;
   events.push(phaseUnderway(state));
-  arriveBoss(state, PHASES[stage.phaseIndex], events);
+  arriveBoss(state, phaseAt(stage.phaseIndex), events);
 };
 
 /**
@@ -391,7 +404,7 @@ const wonTheLastFight = (
   state: RunState,
   events: readonly SimEvent[],
 ): boolean => {
-  const fight = PHASES[state.stage.phaseIndex].boss;
+  const fight = phaseAt(state.stage.phaseIndex).boss;
   if (fight === null || fight !== FINAL_BOSS) return false;
   return events.some(
     (event) => event.type === 'bossKilled' && event.boss === fight,
@@ -442,7 +455,7 @@ const winStage = (
 const advanceStage = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   while (state.stage.phaseIndex < PHASES.length - 1) {
-    const phase = PHASES[state.stage.phaseIndex];
+    const phase = phaseAt(state.stage.phaseIndex);
     spawnDueRows(state, phase, events);
     placeDueSetPiece(state, phase);
     if (!phaseEnded(state, phase)) return events;

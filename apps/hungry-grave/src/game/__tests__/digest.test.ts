@@ -121,6 +121,7 @@ describe('the golden digest', () => {
     expect(foldWitness(state, 0)).toBe(before);
 
     const wisp = state.wisps[0];
+    if (wisp === undefined) throw new Error('no wisp pool slot 0');
     wisp.alive = true;
     wisp.x = 100;
     wisp.y = 100;

@@ -24,6 +24,12 @@ import { describe, expect, it } from 'vitest';
 
 const SRC = resolve(import.meta.dirname, '..');
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 interface Boundary {
   // The folder under src whose files are governed.
   root: string;
@@ -153,7 +159,9 @@ function importsOf(source: string): string[] {
   const matches = source.matchAll(
     /(?<![.\w$])(?:from|import)\s*\(?\s*["']([^"']+)["']/g,
   );
-  return [...matches].map((match) => match[1]);
+  return [...matches].map((match) =>
+    requireDefined(match[1], 'import regex matched with no captured specifier'),
+  );
 }
 
 /** A module's own path under src, slash-normalized and without its extension. */
@@ -384,7 +392,8 @@ const subjectFolderOf = (file: string): string => {
 };
 
 /** The top-level folder under src a path sits in. */
-const rootOf = (path: string): string => path.split('/')[0];
+const rootOf = (path: string): string =>
+  requireDefined(path.split('/')[0], 'empty path has no top-level folder');
 
 /**
  * Whether a reached path sits inside the subject's own subtree. Every path
@@ -566,12 +575,14 @@ const namesBoundFrom = (source: string, specifier: string): string[] => {
     'g',
   );
   return [...source.matchAll(statement)].flatMap((match) =>
-    match[1].split(',').map((name) =>
-      name
-        .trim()
-        .split(/\s+as\s+/)[0]
-        .trim(),
-    ),
+    requireDefined(match[1], 'import-braces regex matched with no captured names')
+      .split(',')
+      .map((name) =>
+        requireDefined(
+          name.trim().split(/\s+as\s+/)[0],
+          'split on an empty string',
+        ).trim(),
+      ),
   );
 };
 

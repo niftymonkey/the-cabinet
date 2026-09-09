@@ -236,10 +236,9 @@ const runScenario = (): ScenarioResult => {
     // run's digest says nothing about determinism.
     if (execution.stop !== null) break;
     kills += scriptedKills(run, tick);
-    executeTick(execution, {
-      move: SCRIPT[tick % SCRIPT.length],
-      belch: false,
-    });
+    const move = SCRIPT[tick % SCRIPT.length];
+    if (move === undefined) throw new Error(`no scripted move at tick ${tick}`);
+    executeTick(execution, { move, belch: false });
     const box = graveHitbox(run.grave);
     minX = Math.min(minX, box.x);
     minY = Math.min(minY, box.y);
