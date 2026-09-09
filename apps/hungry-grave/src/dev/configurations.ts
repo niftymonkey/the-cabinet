@@ -42,6 +42,15 @@ type ConfigurationName =
   | 'loose-far'
   | 'loose-middling'
   | 'loose-short'
+  | 'unsteady-far'
+  | 'unsteady-middling'
+  | 'unsteady-short'
+  | 'wavering-far'
+  | 'wavering-middling'
+  | 'wavering-short'
+  | 'faltering-far'
+  | 'faltering-middling'
+  | 'faltering-short'
   | 'shaky-far'
   | 'shaky-middling'
   | 'shaky-short';
@@ -62,6 +71,15 @@ type ConfigurationName =
  * the degraded end of the measured human range and shaky deliberately past any
  * measured human, so the two corners are readable apart before anything has
  * been measured.
+ *
+ * The three hands between loose and shaky were added after the ends had been
+ * played. At 48 seeds each, `steady-far` reached the Undertaker's phase on 29
+ * and `loose-far` on 32, which is one reading within the other's noise, and
+ * every shaky rung reached it on none: the ladder was a cliff somewhere inside
+ * a gap no batch had ever played. `unsteady`, `wavering` and `faltering` step
+ * the rate across that gap and keep the bound at roughly 0.14 of the rate,
+ * which is the ratio loose and shaky already sit at. They are rows to measure
+ * rather than rows anybody derived, and where the cliff edge belongs is #117.
  *
  * The far list is the same four numbers as bot.ts's LOOKAHEAD_SAMPLES and it
  * is written again rather than imported: the six policies' fixed horizon and
@@ -122,6 +140,78 @@ const CONFIGURATIONS: Readonly<Record<ConfigurationName, Configuration>> = {
     belchWorthIt: 8,
     enoughClearance: 12,
   },
+  'unsteady-far': {
+    name: 'unsteady-far',
+    lapsePerMille: 140,
+    lapseBound: 20,
+    lookaheadSamples: [5, 12, 20, 30],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'unsteady-middling': {
+    name: 'unsteady-middling',
+    lapsePerMille: 140,
+    lapseBound: 20,
+    lookaheadSamples: [5, 12, 20],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'unsteady-short': {
+    name: 'unsteady-short',
+    lapsePerMille: 140,
+    lapseBound: 20,
+    lookaheadSamples: [5, 12],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'wavering-far': {
+    name: 'wavering-far',
+    lapsePerMille: 175,
+    lapseBound: 25,
+    lookaheadSamples: [5, 12, 20, 30],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'wavering-middling': {
+    name: 'wavering-middling',
+    lapsePerMille: 175,
+    lapseBound: 25,
+    lookaheadSamples: [5, 12, 20],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'wavering-short': {
+    name: 'wavering-short',
+    lapsePerMille: 175,
+    lapseBound: 25,
+    lookaheadSamples: [5, 12],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'faltering-far': {
+    name: 'faltering-far',
+    lapsePerMille: 210,
+    lapseBound: 30,
+    lookaheadSamples: [5, 12, 20, 30],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'faltering-middling': {
+    name: 'faltering-middling',
+    lapsePerMille: 210,
+    lapseBound: 30,
+    lookaheadSamples: [5, 12, 20],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'faltering-short': {
+    name: 'faltering-short',
+    lapsePerMille: 210,
+    lapseBound: 30,
+    lookaheadSamples: [5, 12],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
   'shaky-far': {
     name: 'shaky-far',
     lapsePerMille: 250,
@@ -155,6 +245,15 @@ const CONFIGURATION_NAMES: readonly ConfigurationName[] = [
   'loose-far',
   'loose-middling',
   'loose-short',
+  'unsteady-far',
+  'unsteady-middling',
+  'unsteady-short',
+  'wavering-far',
+  'wavering-middling',
+  'wavering-short',
+  'faltering-far',
+  'faltering-middling',
+  'faltering-short',
   'shaky-far',
   'shaky-middling',
   'shaky-short',

@@ -16,7 +16,9 @@ import {
 } from '../configurations';
 
 // The hand words and the head words, said in that order, which is what a name is.
-const HANDS = ['steady', 'loose', 'shaky'];
+// The hands are written in ladder order, sharpest first, because the climbing
+// test below reads the list as the ladder rather than as a set.
+const HANDS = ['steady', 'loose', 'unsteady', 'wavering', 'faltering', 'shaky'];
 const HEADS = ['far', 'middling', 'short'];
 
 describe('the configurations the harness plays under (ADR 0053)', () => {
@@ -31,12 +33,42 @@ describe('the configurations the harness plays under (ADR 0053)', () => {
       expect(HEADS, name).toContain(head);
       expect(rest, name).toEqual([]);
     }
-    // Nine and not eight or ten: three hands crossed with three heads, every
-    // pair present, so a comparison can hold one knob still and move the other.
+    // Eighteen and not seventeen or nineteen: six hands crossed with three
+    // heads, every pair present, so a comparison can hold one knob still and
+    // move the other.
     expect([...CONFIGURATION_NAMES].sort()).toEqual(
       HANDS.flatMap((hand) => HEADS.map((head) => `${hand}-${head}`)).sort(),
     );
     expect(CONFIGURATION_NAMES).toContain(SHARP_HAND);
+  });
+
+  it('climbs from the sharp hand to the sloppy one one rung at a time', () => {
+    // The record's section 3: a rung is not a separate character, it is the
+    // same hand failing more often and worse, so the two dexterity numbers
+    // both rise from one hand to the next and neither ever falls back. The
+    // three hands between loose and shaky exist because the ladder had a gap
+    // no batch had ever played, and a gap cannot be read.
+    const rungs = HANDS.map(
+      (hand) => CONFIGURATIONS[`${hand}-far` as ConfigurationName],
+    );
+
+    expect(rungs[0].lapsePerMille).toBe(0);
+    expect(rungs[0].lapseBound).toBe(0);
+    for (const [index, rung] of rungs.slice(1).entries()) {
+      const sharper = rungs[index];
+      expect(rung.lapsePerMille, rung.name).toBeGreaterThan(
+        sharper.lapsePerMille,
+      );
+      expect(rung.lapseBound, rung.name).toBeGreaterThan(sharper.lapseBound);
+    }
+
+    // The two numbers belong to the hand and not to the head, so all three
+    // heads of one hand carry the same pair and the knobs stay separable.
+    for (const name of CONFIGURATION_NAMES) {
+      const rung = rungs[HANDS.indexOf(name.split('-')[0])];
+      expect(CONFIGURATIONS[name].lapsePerMille, name).toBe(rung.lapsePerMille);
+      expect(CONFIGURATIONS[name].lapseBound, name).toBe(rung.lapseBound);
+    }
   });
 
   it('names the sharp corner steady-far and the sloppy corner shaky-short', () => {
