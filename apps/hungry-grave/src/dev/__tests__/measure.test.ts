@@ -183,6 +183,11 @@ const RICH_LEVELS: Readonly<Record<WeaponLine, number>> = {
  * rings seals shut inside it. So the ending is read off the recorded run rather
  * than pinned as absent, which is what the assertion was always about, that the
  * replay recomputes the run the tape holds.
+ *
+ * That makes this a ceiling and not the recording's length: the loop stops on
+ * the tick the run ends, because executeTick does not read the ending and every
+ * loop above it must (`execution.ts`, #52). What the fixture records is
+ * `RichRecording.ticks`, and every assertion over the tape's length reads that.
  */
 const RICH_TICKS = 9000;
 const RICH_SPACING = 60;
@@ -197,6 +202,8 @@ function richSteer(tick: number): TickCommand {
 }
 
 interface RichRecording {
+  /** Ticks actually recorded: the ceiling, or fewer when the run ended first. */
+  readonly ticks: number;
   readonly measured: Metrics;
   readonly ending: RunEnding | null;
   readonly damage: Record<string, number>;
@@ -222,7 +229,11 @@ function recordRichRun(): RichRecording {
   const densities = new Map<number, FieldDensity>();
   let kills = 0;
   let lays = 0;
-  for (let tick = 0; tick < RICH_TICKS; tick++) {
+  let ticks = 0;
+  // The sealing tick is recorded and the one after it is not: a tape that
+  // dropped its own last tick would hide the evidence of the tick that ended
+  // the run, and one that ran on past it would report a run no player had.
+  for (let tick = 0; tick < RICH_TICKS && run.ending === null; tick++) {
     // The field as the frame starting at this tick would begin on: the state
     // after `tick` ticks have run, captured before this one executes.
     if (RICH_EXPENSIVE_TICKS.includes(tick)) {
@@ -247,10 +258,12 @@ function recordRichRun(): RichRecording {
       updateMs: 1.1,
       debtTicks: 0,
     });
+    ticks = tick + 1;
   }
   sealTrailer(recorder, execution, 0);
   const measured = verified(measure(decodedOf(tapeOf(recorder))));
   return {
+    ticks,
     measured,
     ending: run.ending,
     damage,
@@ -313,7 +326,7 @@ describe('measure', () => {
     const rich = richFixture();
 
     expect(Math.max(...rich.mobsAlive)).toBeGreaterThan(0);
-    expect(rich.measured.mobsAlivePerTick).toHaveLength(RICH_TICKS + 1);
+    expect(rich.measured.mobsAlivePerTick).toHaveLength(rich.ticks + 1);
     expect(rich.measured.mobsAlivePerTick[0]).toBe(0);
     expect(rich.measured.mobsAlivePerTick).toEqual(rich.mobsAlive);
   });
@@ -321,14 +334,27 @@ describe('measure', () => {
   it('recomputes the run summary from the replay: ticks, ending, score and kills', () => {
     const rich = richFixture();
 
-    expect(rich.measured.run.ticks).toBe(RICH_TICKS);
+    expect(rich.measured.run.ticks).toBe(rich.ticks);
     expect(rich.measured.run.ending).toBe(rich.ending);
     expect(rich.measured.run.score).toBe(rich.score);
     expect(rich.measured.run.kills).toBe(rich.kills);
     expect(rich.measured.run.checkpointsVerified).toBe(
-      RICH_TICKS / RICH_SPACING + 1,
+      Math.floor(rich.ticks / RICH_SPACING) + 1,
     );
     expect(rich.measured.run.checkpointsUnreachable).toBe(0);
+  });
+
+  it('stops the recording on the tick the run ends, so no frame is past the ending', () => {
+    // execution.ts's own contract: executeTick deliberately does not read the
+    // run's ending and every loop above it must, because a run that seals or
+    // wins mid-frame would otherwise keep simulating past its own end and move
+    // the score and tick count the tape reports (#52). This fixture is such a
+    // loop, and the Banshee (ADR 0007) is what put an ending inside its
+    // ceiling: the hand seals under her rings well before RICH_TICKS.
+    const rich = richFixture();
+
+    expect(rich.ending).not.toBeNull();
+    expect(rich.measured.run.ticks).toBeLessThan(RICH_TICKS);
   });
 
   it('joins each expensive frame to the field density its frame began on', () => {
@@ -718,7 +744,7 @@ describe('measure', () => {
     // one. The readings ride the same arm as the rest of the report.
     const rich = richFixture();
     expect(rich.measured.tuning.gravePath.sizePerTick).toHaveLength(
-      RICH_TICKS + 1,
+      rich.ticks + 1,
     );
 
     const sound = recordARun();

@@ -34,7 +34,7 @@ These are the claims I would build on. Sources sit at the claim or in the sectio
 
 10. **Valve's own one-line version is the shortest shipped precedent: "Participation in the survey is optional, and anonymous."** DOCUMENTED, <https://store.steampowered.com/hwsurvey/En>. Valve's requirement on developers is a policy rather than a prompt: the Steam Web API terms require a posted "privacy policy regarding the use of nonpublic end user data" and telling the user what you store. DOCUMENTED, <https://steamcommunity.com/dev/apiterms>.
 
-11. **Five of the six shipped reclaimable power pickups restore a generic level; the sixth restores an object that never stopped existing.** Battle Garegga, DoDonPachi, Raiden II and Cave Story all hand back a standard item from the standard pool, and Battle Garegga alone matches the count to what was taken. Salamander and Gradius V are the exception: the Option itself survives and is picked up again as the same Option. Cave Story's are explicitly redirectable, raising the level of the *equipped* weapon. Case by case in section 3.
+11. **Four of the six shipped reclaimable power pickups restore a generic level; the other two restore an object that never stopped existing.** Battle Garegga, DoDonPachi, Raiden II and Cave Story all hand back a standard item from the standard pool, and Battle Garegga alone matches the count to what was taken. Salamander and Gradius V are the two exceptions: the Option itself survives and is picked up again as the same Option. Cave Story's are explicitly redirectable, raising the level of the *equipped* weapon. Case by case in section 3.
 
 ---
 
@@ -166,7 +166,7 @@ One thing the wording must carry that no precedent faced: the author name field.
 
 **Cave Story: generic, and redirectable, which is the strongest version of the generic case.** Experience is per weapon and does not carry between weapons, but the crystals do not know that: they "raise the experience level of Quote's equipped weapon". Lost experience is not ejected onto the floor at all, so there is nothing to reclaim; the game instead places breakable experience capsules in the two areas that reduce a weapon to level 1, the Last Cave and the Blood Stained Sanctuary. DOCUMENTED, <https://cavestory.fandom.com/wiki/Game_objects> and <https://cavestory.fandom.com/wiki/Experience>.
 
-**The tally.** Five of six restore a generic level, and the sixth restores the specific thing only because that thing is a physical object which outlived the ship. Every one of the five generic cases is a *life* loss with a respawn, where the build was gone and could not have been handed back item by item even in principle. INFERRED.
+**The tally.** Four of six restore a generic level, and the two that restore the specific thing, Salamander and Gradius V, do so only because that thing is a physical object which outlived the ship. Three of the four generic cases are a *life* loss with a respawn, where the build was gone and could not have been handed back item by item even in principle; Cave Story is the fourth and is not a loss ejected onto the floor at all, which is why its crystals are redirectable. INFERRED.
 
 ### Two options for the fallen rung
 

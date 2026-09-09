@@ -275,7 +275,7 @@ The reason it is front-loaded twice over. A player who kills every carrier in th
 
 A carrier the player never kills pays nothing and nothing reaches after the player to make it up (ADR 0048). The Vigil's six are the schedule absorbing that, not a catch-up mechanism.
 
-Which mob in a row carries stays step 1's rule: the row's middle placement index, one carrier per carrying row, keyed to `SpawnOrder.index` the way the armed share already is (`templates.ts:23-28`, `mobFire.ts:114`).
+Which mob in a row carries stays step 1's rule: the row's middle placement index, one carrier per carrying row, keyed to the row's own placement order and not to `SpawnOrder.index` (`stage.ts:267-271`, `carriers.ts:57-70`). The armed share is keyed to `SpawnOrder.index` (`templates.ts:23-28`, `mobFire.ts:114`) and the carrier deliberately is not: a mirrored template repeats that index once per arm, so keying the carrier to it would put one on each arm and break the one-per-row contract.
 
 ---
 

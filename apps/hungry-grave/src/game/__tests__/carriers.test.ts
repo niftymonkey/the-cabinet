@@ -165,6 +165,7 @@ describe('a missed carrier is missed (ADR 0048)', () => {
     )!;
     expect(drop.decays).toBe(false);
     const start = { x: drop.x, y: drop.y };
+    const graveStartX = state.grave.x;
 
     // The expected fall is accumulated one scroll at a time rather than
     // multiplied out, so a float sum that differs in its last bit from a
@@ -177,8 +178,10 @@ describe('a missed carrier is missed (ADR 0048)', () => {
       expect(`tick ${tick} y ${drop.y}`).toBe(`tick ${tick} y ${expected}`);
     }
     // And the grave really did move, so the drop held its lane against a grave
-    // that was travelling rather than against a still field.
-    expect(state.grave.x).not.toBe(120);
+    // that was travelling rather than against a still field. Read against
+    // where the grave itself started: the mob was placed at 120 and comparing
+    // the grave to that number asserts nothing about the grave.
+    expect(state.grave.x).not.toBe(graveStartX);
   });
   it('reads nothing about the player power to decide where a carrier goes', () => {
     // ADR 0048's second rejection: a catch-up carrier "needs something that

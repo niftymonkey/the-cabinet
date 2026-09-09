@@ -38,6 +38,6 @@ Green tests plus wrong observed behaviour means the test plan has a hole: pin th
 ## Commands
 
 - Tests: `pnpm vitest run` (in `apps/hungry-grave/`). Typecheck: `pnpm typecheck`. Repo gate: `pnpm verify` (repo root).
-- Conditioned tape: `pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out> <seed> <ticks> soulStream=N territory=N wisps=N bell=N`
+- Conditioned tape: `pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out> <seed> <ticks> skullStream=N territory=N wisps=N bell=N`
 - Measure a tape: `pnpm vite-node --config vite.headless.config.ts scripts/measure.ts <tape>`
 - Reading a file over roughly 30 KB: use the Read tool in ranges, never `cat`.
