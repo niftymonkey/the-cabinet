@@ -147,7 +147,9 @@ const constantsDeclaredIn = (source: string): string[] =>
   ].map((match) => {
     const name = match[1];
     if (name === undefined) {
-      throw new Error('constant-declaration regex matched with no captured name');
+      throw new Error(
+        'constant-declaration regex matched with no captured name',
+      );
     }
     return name;
   });

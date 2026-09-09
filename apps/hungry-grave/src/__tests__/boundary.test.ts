@@ -575,7 +575,10 @@ const namesBoundFrom = (source: string, specifier: string): string[] => {
     'g',
   );
   return [...source.matchAll(statement)].flatMap((match) =>
-    requireDefined(match[1], 'import-braces regex matched with no captured names')
+    requireDefined(
+      match[1],
+      'import-braces regex matched with no captured names',
+    )
       .split(',')
       .map((name) =>
         requireDefined(
