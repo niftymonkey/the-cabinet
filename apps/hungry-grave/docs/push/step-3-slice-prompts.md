@@ -97,3 +97,31 @@ Tests first, red, then the code: slice 2's coder wrote the implementation before
 ## Commit messages
 
 Code: `feat(hungry-grave): every tape names the policy that steered it, and the format moves to 3 (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 3 (#98)`, appended as section 10 titled "Slice 3, the header field and the one bump", with its row added to section 1's table and verification step 7's result in section 7.
+
+## Slice 4a, as dispatched in session 17 (after slice 3 landed)
+
+The launch preamble is the slice 1 one above. Model: Opus, subagent type general-purpose.
+
+Step 3 slice 4a of The Hungry Grave (ticket #98): the runner.
+
+Read `apps/hungry-grave/docs/push/step-3-coder-contract.md` (inside the worktree) first and follow it in full, including its reading order. Read `docs/agents/feature-playbook.md` and follow it. The dispatch contract items the playbook asks for (definition, verification steps with actors, seams, module boundaries, the test list) are plan sections 1 to 8 of `apps/hungry-grave/docs/design/step-3-playing-harness-dispatch.md`; section 10 is the slice list and yours is slice 4a.
+
+## Your slice
+
+Plan section 10, slice 4a, in full: `harnessRun.ts` with the derived tick budget and the harness rig's header, taking the commit hash and the recorded-at stamp as arguments; `scripts/batch.ts` taking the output root as its fourth argument and writing one tape per seed under `steady-far`, with no report at all. Spec test 45, module tests 55 to 58, 70 and 71 land here. **You record a small batch, measure two of its tapes with `scripts/measure.ts` by hand, and put both readings in the note**: this is the first proof that a harness tape replays and attests as a person's does. Read the plan's sections 4, 5, 6 and 7 for this slice before the first edit, and the design record's section 4 (the batch) and section 6 (the rigs, so the harness rig's header names its rig) for what the runner is for. Batch tapes go under `apps/hungry-grave/local/batches/` and never enter a commit; the runner's shell in `scripts/` owns the filesystem and `src/dev` never touches `node:fs`.
+
+Hand-forwards from slice 3's note (`docs/push/step-3-progress.md` section 10) that bind you: `harnessRun.ts` writes the configuration's name into the header's `policy`, and `inputDevice` on a harness header is `'bot'`, so a harness run carries two exclusions, `bot` and `policy`, which is correct rather than double counting; `RESERVED_POLICIES` is load-bearing, a configuration named `person` or `script` would write a real header a report reads as a person's; the readback runs against a format 3 tape, so nothing recorded before `4093d4be81` can be its input; the store's summary row carries no policy (unowned, trigger #100), and you add no column. From slice 1's note: slice 5 owns `HAND_STREAM`, the seed on `harnessPolicy`, the eight other rows and the widened `ConfigurationName`; the runner takes a configuration name and today there is one.
+
+Tests first, red, then the code. `GOLDEN`, `WITNESS_VERSION`, `READINGS_VERSION` and `FORMAT_VERSION` (3) must not move; if any does, stop, the slice is wrong.
+
+## State of the branch
+
+- The tip is `f254c2551b`: slice 1 `66dfcea268` (note `d7a0ba9eb5`), slice 2 `c784a356e5` (note `18bd764c33`), slice 3 `4093d4be81` (note `f254c2551b`), then this prompt's docs commit. Read the progress note's sections 1 to 7 and sections 8 to 10 in full before any edit.
+- The test-name baseline is at `local/step3/tests-baseline.txt` (under `apps/hungry-grave/local/`, outside version control); diff your test names against it before you commit and report removed or renamed names net of slices 1 to 3 (53 added, one renamed, all accounted for in their notes).
+- `pnpm verify` was green at `4093d4be81` (1712 passed, typecheck and build green with the two standing warnings). Five whole-stage `dodgePolicy` tests in `bot.test.ts` time out intermittently under parallel load, never on an assertion, pre-existing; the fix is slice 7's, not yours; run the suite alone once more before calling anything red (`docs/agents/lessons.md`).
+- Never run any command from the main checkout at `/home/mlo/dev/niftymonkey/the-cabinet`. Any scratch file goes in the session scratchpad directory named in your system prompt. `local/` is reached by none of the standing checks except vitest, so no `*.test.ts` ever goes there; nothing under `local/` ever enters a commit. Editor diagnostics name scratch files and stale states; `pnpm typecheck` is the judge. Nothing under `docs/` is ever handed to prettier by name. Do not touch `docs/push/handoff.md`.
+- Check `git status --short` is clean before your first edit.
+
+## Commit messages
+
+Code: `feat(hungry-grave): one command plays a batch of seeds and writes a tape per seed (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 4a (#98)`, appended as section 11 titled "Slice 4a, the runner", with its row added to section 1's table and the two hand measurements in it.
