@@ -1,6 +1,9 @@
 // The hand the harness plays with, under one configuration (ADR 0053).
 
+import type { TickCommand } from '../game/command';
 import type { Corpse } from '../game/corpses';
+import type { Stream } from '../game/rng';
+import { stream } from '../game/rng';
 import type { RunState } from '../game/run';
 import { RESERVOIR_CAPACITY } from '../game/tuning';
 import { bestMoveToward, HOME, nearestFood } from './bot';
@@ -76,28 +79,76 @@ const belchWanted = (
   return liveShots(state) >= configuration.belchWorthIt;
 };
 
+// The name the harness's own stream is made under, off the run's seed (ADR 0053).
+const HAND_STREAM = 'hand';
+
+// The denominator the lapse rate is a numerator of, so a row reads as failures in a thousand.
+const DECISIONS_PER_RATE = 1000;
+
+/** What the hand does this tick with its attention on the game. */
+const decided = (
+  state: RunState,
+  configuration: Configuration,
+): TickCommand => ({
+  move: bestMoveToward(
+    state,
+    pointWanted(state),
+    configuration.enoughClearance,
+    configuration.lookaheadSamples,
+  ),
+  belch: belchWanted(state, configuration),
+});
+
+/**
+ * How many ticks the command just decided is held stale: none unless attention
+ * failed, and a depth drawn uniformly from 0 to the row's bound when it did.
+ *
+ * The order is the rate first and the depth second, and a rate of zero rolls
+ * nothing at all, so the sharp corner touches the stream not at all. Two things
+ * rest on that: the determinism test runs under the sloppy corner precisely
+ * because the sharp corner's stream is untouched, and every figure already
+ * measured under the sharp corner stays comparable with everything measured
+ * after the knobs landed.
+ */
+const lapseDepth = (hand: Stream, configuration: Configuration): number => {
+  if (configuration.lapsePerMille === 0) return 0;
+  const attentionHeld =
+    hand.nextInt(DECISIONS_PER_RATE) >= configuration.lapsePerMille;
+  if (attentionHeld) return 0;
+  return hand.nextInt(configuration.lapseBound + 1);
+};
+
 /**
  * The hand the harness plays with, under one configuration.
  *
- * It is a factory rather than a bare Policy because slice 5's hold gives it
- * two things the six policies in bot.ts do not have: the command it is
- * repeating, and the stream the repeat length is drawn from. Here it holds
- * neither, so it is still a pure function of run state, and the sharp corner
- * it ships under draws nothing at all.
+ * It is a factory rather than a bare Policy because it holds two things the six
+ * policies in bot.ts do not: the command it is repeating, and the stream the
+ * repeat length is drawn from.
  *
- * The seed arrives with the hold at slice 5, not before: a seed parameter
- * nothing reads is a typecheck failure under noUnusedParameters.
+ * The stream is made here and never inside RunState, so the witness never
+ * learns the bot exists and WITNESS_VERSION stays 6 (ADR 0019). The seed is the
+ * run's own, handed in rather than read off the state, which is what makes one
+ * seed under one configuration one run (ADR 0053).
+ *
+ * The dexterity error is a lapse of attention and not a standing slowness. On
+ * nearly every decision attention holds and the hand acts on the tick, exactly
+ * as the sharp corner does; when it fails, the hand keeps the command it
+ * already had and the field moves under it.
  */
-const harnessPolicy = (configuration: Configuration): Policy => {
-  return (state) => ({
-    move: bestMoveToward(
-      state,
-      pointWanted(state),
-      configuration.enoughClearance,
-      configuration.lookaheadSamples,
-    ),
-    belch: belchWanted(state, configuration),
-  });
+const harnessPolicy = (configuration: Configuration, seed: number): Policy => {
+  const hand = stream(seed, HAND_STREAM);
+  let holding = 0;
+  let held: TickCommand | null = null;
+  return (state) => {
+    if (held !== null && holding > 0) {
+      holding -= 1;
+      return held;
+    }
+    const command = decided(state, configuration);
+    holding = lapseDepth(hand, configuration);
+    held = command;
+    return command;
+  };
 };
 
-export { harnessPolicy };
+export { harnessPolicy, HAND_STREAM };

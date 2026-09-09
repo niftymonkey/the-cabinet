@@ -1,15 +1,12 @@
 /**
  * The hand the harness plays with (ADR 0053, the playing-harness record's
- * sections 1 and 2).
- *
- * The knobs' own promises, tests 10 to 15 and 49 to 51, land at slice 5 with
- * the hold and the stream. The hand here has neither, so it is still a pure
- * function of run state and the sharp corner it ships under draws nothing.
+ * sections 1, 2 and 3).
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
+import type { TickCommand } from '../../game/command';
 import type { Corpse } from '../../game/corpses';
 import { spawnDrop } from '../../game/corpses';
 import { FIELD_HEIGHT } from '../../game/field';
@@ -23,18 +20,39 @@ import {
   SPAWN_MARGIN,
 } from '../../game/mobs';
 import { chooseOfferBody, openOffer } from '../../game/offer';
+import type { Stream } from '../../game/rng';
+import { stream } from '../../game/rng';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
 import { PROCESSION_ROWS } from '../../game/stage/rows';
 import { PHASES } from '../../game/stage/stage';
 import { RESERVOIR_CAPACITY, SCROLL_SPEED } from '../../game/tuning';
+import { foldWitness } from '../../game/witness';
 import { bestMoveToward, HOME, runPolicy } from '../bot';
+import type { Policy } from '../bot';
 import type { Configuration } from '../configurations';
-import { CONFIGURATIONS, SHARP_HAND } from '../configurations';
-import { harnessPolicy } from '../harnessPolicy';
+import {
+  CONFIGURATIONS,
+  CONFIGURATION_NAMES,
+  SHARP_HAND,
+  SLOPPY_HAND,
+} from '../configurations';
+import { HAND_STREAM, harnessPolicy } from '../harnessPolicy';
 
-/** The one row this slice ships, which is the sharp corner. */
+/** The sharp corner: the best this hand plays, and the baseline both knobs cost against. */
 const SHARP = CONFIGURATIONS[SHARP_HAND];
+
+/** The sloppy corner: the other end of the ladder a finding has to agree across. */
+const SLOPPY = CONFIGURATIONS[SLOPPY_HAND];
+
+/**
+ * The seed the hand's own stream is made from in these tests.
+ *
+ * It is a fixed number rather than the run's, because the hand takes its seed
+ * as an argument and a test that passed the run's own would not notice a hand
+ * that had reached into RunState for it.
+ */
+const HAND_SEED = 3131;
 
 /** Five seeds, fixed so a failure is reproducible and never a flake. */
 const SEEDS = [101, 202, 303, 404, 505];
@@ -52,7 +70,7 @@ const quietRun = (seed = 7): RunState => {
 
 /** What the hand does at this state, asked once. */
 const command = (state: RunState, configuration: Configuration = SHARP) =>
-  harnessPolicy(configuration)(state, []);
+  harnessPolicy(configuration, HAND_SEED)(state, []);
 
 /** The move the hand would take if it wanted this point, under one row. */
 const towardPoint = (
@@ -167,7 +185,11 @@ const harnessRun = (seed: number): { state: RunState; events: SimEvent[] } => {
   if (cached !== undefined) return cached;
   const state = createRun(seed);
   const execution = createExecution(state);
-  const { events } = runPolicy(execution, harnessPolicy(SHARP), STAGE_TICKS);
+  const { events } = runPolicy(
+    execution,
+    harnessPolicy(SHARP, HAND_SEED),
+    STAGE_TICKS,
+  );
   const played = { state, events, faults: execution.faults };
   expect(played.faults).toEqual([]);
   runs.set(seed, played);
@@ -360,9 +382,10 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
     // which is what makes this a promise and not a restatement.
     const state = createRun(101);
     const execution = createExecution(state);
-    const playing = harnessPolicy(SHARP);
-    const watching = harnessPolicy(SHARP);
-    expect(SHARP.holdBound).toBe(0);
+    const playing = harnessPolicy(SHARP, HAND_SEED);
+    const watching = harnessPolicy(SHARP, HAND_SEED);
+    expect(SHARP.lapsePerMille).toBe(0);
+    expect(SHARP.lapseBound).toBe(0);
 
     let sampled = 0;
     runPolicy(
@@ -495,4 +518,451 @@ describe('a run under the hand reaches a levelled build (#98, ADR 0034)', () => 
     },
     ONE_WHOLE_STAGE_MS,
   );
+});
+
+/**
+ * The lapse schedule one row and one seed produce, read off the same stream
+ * the hand makes rather than off the hand itself: the rate first, then the
+ * depth, and a rate of zero rolling nothing at all.
+ *
+ * It is a second statement of the mechanism and it is only worth what the
+ * first test below buys it: that test plays a real run and holds the hand's
+ * own commands against this schedule tick by tick, so the tests that read the
+ * depths afterwards are reading depths the hand was proved to take.
+ */
+const lapseSchedule = (
+  row: Configuration,
+  seed: number,
+  ticks: number,
+): {
+  readonly decided: boolean[];
+  readonly depths: number[];
+  readonly drawn: number;
+} => {
+  const source = stream(seed, HAND_STREAM);
+  const decided: boolean[] = [];
+  const depths: number[] = [];
+  let holding = 0;
+  for (let tick = 0; tick < ticks; tick++) {
+    if (holding > 0) {
+      holding -= 1;
+      decided.push(false);
+      continue;
+    }
+    decided.push(true);
+    if (row.lapsePerMille === 0) {
+      depths.push(0);
+      continue;
+    }
+    const attentionFailed = source.nextInt(1000) < row.lapsePerMille;
+    const depth = attentionFailed ? source.nextInt(row.lapseBound + 1) : 0;
+    depths.push(depth);
+    holding = depth;
+  }
+  return { decided, depths, drawn: source.drawn };
+};
+
+/** A row that always lapses, so a test can watch a hold rather than wait for one. */
+const alwaysLapsing = (depth: number): Configuration => ({
+  ...SLOPPY,
+  lapsePerMille: 1000,
+  lapseBound: depth,
+});
+
+/** The same row with its attention never failing, which is the hand's own baseline. */
+const attentive = (row: Configuration): Configuration => ({
+  ...row,
+  lapsePerMille: 0,
+  lapseBound: 0,
+});
+
+/**
+ * One tick sequence, with several hands asked at every tick and one of them
+ * driving.
+ *
+ * Every watcher sees the same field at the same tick, so a difference between
+ * two of them is the knob and never the run.
+ */
+const watchOneRun = (
+  seed: number,
+  ticks: number,
+  watchers: readonly Policy[],
+): TickCommand[][] => {
+  const state = createRun(seed);
+  const execution = createExecution(state);
+  const seen: TickCommand[][] = watchers.map(() => []);
+  const driver = harnessPolicy(SHARP, HAND_SEED);
+  runPolicy(
+    execution,
+    (each, caused) => {
+      watchers.forEach((watcher, index) =>
+        seen[index].push(watcher(each, caused)),
+      );
+      return driver(each, caused);
+    },
+    ticks,
+  );
+  expect(execution.faults).toEqual([]);
+  return seen;
+};
+
+/** Long enough that a rate of 100 in 1000 lapses many times over. */
+const KNOB_TICKS = 2000;
+
+/** Enough decisions that a rate reads as a rate rather than as a handful of draws. */
+const RATE_DECISIONS = 20000;
+
+/** What the fold is chained from, which is any number as long as both runs use it. */
+const WITNESS_SEED = 0;
+
+/**
+ * Long enough that a rate of 250 in 1000 rolls its own boundary value several
+ * times, which is the only place a rate off by one shows up at all.
+ */
+const BOUNDARY_TICKS = 30000;
+
+describe('the dexterity error is a lapse of attention (ADR 0053)', () => {
+  it('repeats a held command for the drawn number of ticks and then decides again', () => {
+    // The record's section 3 as amended 2026-09-09: every decision rolls
+    // attention first, and only a failed roll draws a hold. So the hand's
+    // command over a run is its attentive twin's answer on a decision tick and
+    // its own previous answer on a held one, at exactly the ticks the stream
+    // says.
+    const row = CONFIGURATIONS['shaky-far'];
+    const [lapsing, fresh] = watchOneRun(303, KNOB_TICKS, [
+      harnessPolicy(row, HAND_SEED),
+      harnessPolicy(attentive(row), HAND_SEED),
+    ]);
+    const { decided } = lapseSchedule(row, HAND_SEED, KNOB_TICKS);
+
+    const wrong = decided.flatMap((decidedHere, tick) => {
+      const owed = decidedHere ? fresh[tick] : lapsing[tick - 1];
+      return JSON.stringify(lapsing[tick]) === JSON.stringify(owed)
+        ? []
+        : [`tick ${tick}, ${decidedHere ? 'a decision' : 'a hold'}`];
+    });
+
+    expect(wrong).toEqual([]);
+    // The schedule has to contain holds, or the walk above passed over a hand
+    // that never held anything.
+    expect(decided.filter((each) => !each).length).toBeGreaterThan(100);
+  });
+
+  it('decides again on the tick a hold expires and not on the one after it', () => {
+    // The off-by-one that would otherwise ship silently: a hold of four ticks
+    // means four ticks of the old command and a decision on the fifth. A hand
+    // that decided on the sixth would be a tick slower than every row says,
+    // and no reading in the report would name it.
+    const row = alwaysLapsing(4);
+    const ticks = 400;
+    const [lapsing, fresh] = watchOneRun(404, ticks, [
+      harnessPolicy(row, HAND_SEED),
+      harnessPolicy(attentive(row), HAND_SEED),
+    ]);
+    const { decided } = lapseSchedule(row, HAND_SEED, ticks);
+    const differs = (tick: number) =>
+      JSON.stringify(lapsing[tick]) !== JSON.stringify(fresh[tick]);
+
+    // A bound of four draws 0 to 4, so which ticks carry a decision is the
+    // stream's answer and never arithmetic. The hand agrees with it, and the
+    // hand held on some of these ticks rather than deciding on all of them.
+    expect(decided.filter(Boolean).length).toBeLessThan(decided.length);
+    decided.forEach((decidedHere, tick) => {
+      if (!decidedHere) return;
+      expect(lapsing[tick], `tick ${tick}`).toEqual(fresh[tick]);
+    });
+    // And the holds are visible rather than assumed: on a still enough field a
+    // held command and a freshly decided one are the same answer, so the walk
+    // above would agree with a hand that never held anything. At least one
+    // held tick has to say something the attentive twin did not.
+    expect(
+      decided.some((decidedHere, tick) => !decidedHere && differs(tick)),
+    ).toBe(true);
+  });
+
+  it('nests the rungs, so one shaky run holds steady, loose and shaky decisions', () => {
+    // The record's section 3: a rung is not a separate character, it is the
+    // same hand failing more often and worse. A loose hand is a steady hand on
+    // nine decisions in ten; a shaky hand is a steady hand on three in four,
+    // and when it does lapse the depth runs the whole way from nothing to the
+    // full bound, so one shaky run produces steady decisions, loose-sized
+    // lapses and shaky-sized lapses.
+    const loose = CONFIGURATIONS['loose-far'];
+    const shaky = CONFIGURATIONS['shaky-far'];
+    const shakyDepths = lapseSchedule(shaky, HAND_SEED, RATE_DECISIONS).depths;
+    const looseDepths = lapseSchedule(loose, HAND_SEED, RATE_DECISIONS).depths;
+
+    const attentiveShare = (depths: readonly number[]) =>
+      depths.filter((depth) => depth === 0).length / depths.length;
+    expect(attentiveShare(looseDepths)).toBeGreaterThan(
+      attentiveShare(shakyDepths),
+    );
+    expect(attentiveShare(shakyDepths)).toBeGreaterThan(0.5);
+
+    // One shaky run reaches the whole ladder: nothing at all, a loose-sized
+    // lapse, and one past the loose bound.
+    const lapses = shakyDepths.filter((depth) => depth > 0);
+    expect(Math.max(...lapses)).toBeLessThanOrEqual(shaky.lapseBound);
+    expect(Math.max(...lapses)).toBeGreaterThan(loose.lapseBound);
+    expect(lapses.some((depth) => depth <= loose.lapseBound)).toBe(true);
+    expect(Math.max(...looseDepths)).toBeLessThanOrEqual(loose.lapseBound);
+  });
+
+  it('never lets a knob buy the hand something the sharp corner does not have', () => {
+    // The record's section 3, which is Talakat's construction: both knobs cost
+    // the hand something rather than granting it something, and that is why
+    // the sharp corner is the baseline. Mechanically: no row reads further
+    // ahead than the sharp corner and no row decides more often, so every
+    // configuration's command is either its own attentive answer or a stale
+    // one it already gave.
+    const hands = CONFIGURATION_NAMES.map((name) =>
+      harnessPolicy(CONFIGURATIONS[name], HAND_SEED),
+    );
+    const twins = CONFIGURATION_NAMES.map((name) =>
+      harnessPolicy(attentive(CONFIGURATIONS[name]), HAND_SEED),
+    );
+    const seen = watchOneRun(505, 600, [...hands, ...twins]);
+
+    CONFIGURATION_NAMES.forEach((name, index) => {
+      const row = CONFIGURATIONS[name];
+      expect(row.lapsePerMille, name).toBeGreaterThanOrEqual(
+        SHARP.lapsePerMille,
+      );
+      expect(
+        SHARP.lookaheadSamples.slice(0, row.lookaheadSamples.length),
+        name,
+      ).toEqual([...row.lookaheadSamples]);
+
+      const lapsing = seen[index];
+      const fresh = seen[index + CONFIGURATION_NAMES.length];
+      const wrong = lapsing.flatMap((answer, tick) => {
+        const staleOrFresh = [fresh[tick], lapsing[tick - 1]].map((each) =>
+          JSON.stringify(each),
+        );
+        return staleOrFresh.includes(JSON.stringify(answer))
+          ? []
+          : [`${name} at tick ${tick}`];
+      });
+      expect(wrong).toEqual([]);
+    });
+  });
+
+  it("leaves the run's own five streams where it found them", () => {
+    // ADR 0019 and hand-forward (f): the hand's dice are outside RunState, so
+    // the witness never learns the bot exists and WITNESS_VERSION stays 6. The
+    // hand reads the field and draws from its own stream, and nothing it does
+    // moves a cursor the fold walks.
+    const state = quietRun(202);
+    const cursors = () =>
+      Object.fromEntries(
+        Object.entries(state.streams).map(([name, each]) => [name, each.drawn]),
+      );
+    const before = cursors();
+    const hand = harnessPolicy(alwaysLapsing(SLOPPY.lapseBound), HAND_SEED);
+
+    for (let tick = 0; tick < 200; tick++) hand(state, []);
+
+    expect(cursors()).toEqual(before);
+  });
+});
+
+describe('the hand draws from its own stream and only when it lapses (ADR 0012)', () => {
+  afterEach(() => {
+    vi.doUnmock('../../game/rng');
+    vi.resetModules();
+  });
+
+  /**
+   * The hand's own streams, captured as they are made.
+   *
+   * The stream a hand holds is private to it, and how many draws it took is
+   * the whole promise here, so the module is re-imported over a counting
+   * rng rather than inferred from behaviour: a draw taken and thrown away
+   * changes no command and would leave the record's sentence false with every
+   * behavioural test still green.
+   */
+  const handsUnderACountedStream = async (): Promise<{
+    make: typeof harnessPolicy;
+    asked: { seed: number; name: string }[];
+    hands: Stream[];
+  }> => {
+    const asked: { seed: number; name: string }[] = [];
+    const hands: Stream[] = [];
+    vi.resetModules();
+    vi.doMock('../../game/rng', async (importOriginal) => {
+      const original = await importOriginal<typeof import('../../game/rng')>();
+      return {
+        ...original,
+        stream: (seed: number, name: string): Stream => {
+          const made = original.stream(seed, name);
+          if (name !== HAND_STREAM) return made;
+          asked.push({ seed, name });
+          hands.push(made);
+          return made;
+        },
+      };
+    });
+    const counted = await import('../harnessPolicy');
+    return { make: counted.harnessPolicy, asked, hands };
+  };
+
+  it('draws nothing at all at the sharp corner', async () => {
+    // The record's section 3: steady draws nothing, which is load-bearing
+    // twice over. The determinism run below is under the sloppy corner
+    // precisely because the sharp corner's stream is untouched, and the sharp
+    // batch already played stays comparable with everything measured after the
+    // knobs land. The order is the rate first and the depth second, so a
+    // nextInt taken before the rate was checked would make both false.
+    const { make, hands } = await handsUnderACountedStream();
+    const state = quietRun(101);
+    const hand = make(SHARP, HAND_SEED);
+    for (let tick = 0; tick < 300; tick++) hand(state, []);
+
+    expect(hands).toHaveLength(1);
+    expect(hands[0].drawn).toBe(0);
+  });
+
+  it('takes one draw for the rate and a second only on the decisions that lapsed', async () => {
+    // A rate of 250 in 1000 is exactly 250 draws in 1000 and not 251, and the
+    // difference between the two is one comparison. It shows up in nothing a
+    // command can say, because the draws that separate them are the handful
+    // landing on the row's own number, so the count of draws is what says it:
+    // one for the attention roll, and a second only where that roll failed.
+    const { make, hands } = await handsUnderACountedStream();
+    const row = CONFIGURATIONS['shaky-far'];
+    const state = restingAtHome();
+    const hand = make(row, HAND_SEED);
+    for (let tick = 0; tick < BOUNDARY_TICKS; tick++) hand(state, []);
+
+    const { decided, depths, drawn } = lapseSchedule(
+      row,
+      HAND_SEED,
+      BOUNDARY_TICKS,
+    );
+    // Enough decisions that the rate's own boundary value comes up at all,
+    // which is the whole reason this test is longer than the others.
+    expect(decided.filter(Boolean).length).toBeGreaterThan(3000);
+    expect(hands[0].drawn).toBe(drawn);
+    // At least, rather than exactly: nextInt redraws past the last whole
+    // multiple of its bound and every redraw counts as a draw (rng.ts).
+    expect(drawn).toBeGreaterThanOrEqual(
+      decided.filter(Boolean).length +
+        depths.filter((depth) => depth > 0).length,
+    );
+  });
+
+  it('makes its stream from the seed it was handed and the hand name', async () => {
+    // The hand's stream is made in src/dev off the run's seed and never inside
+    // RunState, so one seed holds the same sequence whichever configuration
+    // draws from it and two seeds hold different ones.
+    const { make, asked, hands } = await handsUnderACountedStream();
+    const state = quietRun(101);
+    const near = make(CONFIGURATIONS['shaky-far'], 77);
+    const far = make(CONFIGURATIONS['shaky-short'], 77);
+    const other = make(CONFIGURATIONS['shaky-short'], 78);
+    for (let tick = 0; tick < 60; tick++) {
+      near(state, []);
+      far(state, []);
+      other(state, []);
+    }
+
+    expect(asked).toEqual([
+      { seed: 77, name: HAND_STREAM },
+      { seed: 77, name: HAND_STREAM },
+      { seed: 78, name: HAND_STREAM },
+    ]);
+    // Two configurations at one seed took the same draws; a third seed did
+    // not, which is what says the seed reaches the stream at all.
+    expect(hands[0].drawn).toBe(hands[1].drawn);
+    expect(hands[2].drawn).not.toBe(hands[0].drawn);
+  });
+});
+
+describe('one seed under one configuration is one run (ADR 0053)', () => {
+  it('plays the sloppy corner twice from one seed to the same run', () => {
+    // ADR 0053's determinism condition holds "only if the hand's stale-command
+    // draws and the head's shortened look-ahead come from their own named
+    // stream seeded off the run's seed". It runs under the sloppy corner on
+    // purpose: the sharp corner draws nothing, so this test under the sharp
+    // hand would pass on a harness whose stream was wired wrong.
+    const playOnce = () => {
+      const state = createRun(909);
+      const execution = createExecution(state);
+      const { ticks } = runPolicy(
+        execution,
+        harnessPolicy(SLOPPY, state.seed),
+        1500,
+      );
+      return {
+        ticks,
+        witness: foldWitness(state, WITNESS_SEED),
+        cursors: Object.fromEntries(
+          Object.entries(state.streams).map(([name, each]) => [
+            name,
+            each.drawn,
+          ]),
+        ),
+        ending: state.ending,
+      };
+    };
+
+    expect(playOnce()).toEqual(playOnce());
+  });
+});
+
+/** How fast the test's own shot falls, in units a tick. */
+const TEST_SHOT_SPEED = 5;
+
+/**
+ * An empty field with the grave already on the starting mark, so a head with
+ * nothing to see answers "stay" and a head that sees something does not.
+ */
+const restingAtHome = (): RunState => {
+  const state = quietRun(11);
+  state.grave.x = HOME.x;
+  state.grave.y = HOME.y;
+  return state;
+};
+
+/** The same field with one shot on course to arrive over the grave this far ahead. */
+const shotArrivingIn = (ticksAhead: number): RunState => {
+  const state = restingAtHome();
+  standShot(state, state.grave.x, state.grave.y - TEST_SHOT_SPEED * ticksAhead);
+  const shot = state.mobFire.find((each) => each.alive)!;
+  shot.vy = TEST_SHOT_SPEED;
+  return state;
+};
+
+describe('the strategy error shortens the head from the far end (ADR 0053)', () => {
+  it('keeps the near samples and loses the far ones', () => {
+    // bot.ts's own argument for the near samples is that a threat passing
+    // through the grave and gone again by the far sample is exactly the one a
+    // policy sampling only the horizon cannot see at all, so a head shortens
+    // from the far end rather than thinning throughout.
+    //
+    // Each head is read against its own answer on an empty field. A shorter
+    // list also settles the wanting nearer, so comparing two heads to each
+    // other reads both halves of the knob at once and says nothing about
+    // either.
+    const far = CONFIGURATIONS['steady-far'];
+    const short = CONFIGURATIONS['steady-short'];
+    const still = { x: 0, y: 0 };
+
+    // Nothing on the field: both heads sit on the starting mark, which is what
+    // makes a move below a reading of the threat and not of the wanting.
+    expect(command(restingAtHome(), far).move).toEqual(still);
+    expect(command(restingAtHome(), short).move).toEqual(still);
+
+    // A shot arriving inside the near samples both heads keep: both move.
+    expect(command(shotArrivingIn(8), far).move).not.toEqual(still);
+    expect(command(shotArrivingIn(8), short).move).not.toEqual(still);
+
+    // A shot arriving past the short head's last sample: only the far head has
+    // looked that far, so the short one is still sitting on the mark.
+    expect(command(shotArrivingIn(26), far).move).not.toEqual(still);
+    expect(command(shotArrivingIn(26), short).move).toEqual(still);
+    expect(
+      short.lookaheadSamples[short.lookaheadSamples.length - 1],
+    ).toBeLessThan(26);
+  });
 });

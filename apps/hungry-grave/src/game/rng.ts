@@ -67,8 +67,15 @@ const sfc32 = (a: number, b: number, c: number, d: number): (() => number) => {
  * The trap this closes is the correlated-randomness one: two systems drawing
  * from one sequence make one system's draws predict the other's, and a run then
  * has a shape nobody designed.
+ *
+ * The name is a string and not StreamName, because the playing harness makes
+ * its own stream off the run's seed and holds it outside RunState (ADR 0053).
+ * What widened is who may ask for a stream and not what a stream is:
+ * StreamName stays the closed union naming the streams a run holds, and
+ * RunState.streams keeps its exact record type, so the witness folds the same
+ * five cursors it did before.
  */
-const stream = (seed: number, name: StreamName): Stream => {
+const stream = (seed: number, name: string): Stream => {
   const offset = xmur3(name)();
   // The name folds into the seed by addition and never by XOR. With addition
   // the pairwise offsets between streams are the same for every seed, so one

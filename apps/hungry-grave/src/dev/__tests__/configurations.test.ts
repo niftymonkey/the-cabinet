@@ -1,20 +1,18 @@
 /**
  * The rows the harness plays under (ADR 0053, the playing-harness record's
  * section 3).
- *
- * Slice 1 ships one row and not nine, so test 16's nine names and test 18's
- * sloppy corner land at slice 5 with the other eight rows and the hold that
- * makes six of them differ from their head-only siblings.
  */
 
 import { describe, expect, it } from 'vitest';
 
+import type { ConfigurationName } from '../configurations';
 import {
   CONFIGURATIONS,
   CONFIGURATION_NAMES,
   isConfigurationName,
   RESERVED_POLICIES,
   SHARP_HAND,
+  SLOPPY_HAND,
 } from '../configurations';
 
 // The hand words and the head words, said in that order, which is what a name is.
@@ -33,7 +31,34 @@ describe('the configurations the harness plays under (ADR 0053)', () => {
       expect(HEADS, name).toContain(head);
       expect(rest, name).toEqual([]);
     }
+    // Nine and not eight or ten: three hands crossed with three heads, every
+    // pair present, so a comparison can hold one knob still and move the other.
+    expect([...CONFIGURATION_NAMES].sort()).toEqual(
+      HANDS.flatMap((hand) => HEADS.map((head) => `${hand}-${head}`)).sort(),
+    );
     expect(CONFIGURATION_NAMES).toContain(SHARP_HAND);
+  });
+
+  it('names the sharp corner steady-far and the sloppy corner shaky-short', () => {
+    // The two corners a finding has to agree across (ADR 0053) and the two the
+    // done line names. They are the extremes of both knobs at once: the sharp
+    // hand never lapses and reads the whole horizon, the sloppy one lapses
+    // most often, deepest, and reads the least.
+    expect(SHARP_HAND).toBe('steady-far');
+    expect(SLOPPY_HAND).toBe('shaky-short');
+
+    const sharp = CONFIGURATIONS[SHARP_HAND];
+    const sloppy = CONFIGURATIONS[SLOPPY_HAND];
+    expect(sharp.lapsePerMille).toBe(0);
+    expect(sharp.lapseBound).toBe(0);
+    for (const name of CONFIGURATION_NAMES) {
+      const row = CONFIGURATIONS[name];
+      expect(row.lapsePerMille, name).toBeLessThanOrEqual(sloppy.lapsePerMille);
+      expect(row.lapseBound, name).toBeLessThanOrEqual(sloppy.lapseBound);
+      expect(row.lookaheadSamples.length, name).toBeGreaterThanOrEqual(
+        sloppy.lookaheadSamples.length,
+      );
+    }
   });
 
   it('names no configuration after a policy the game itself writes', () => {
@@ -47,25 +72,54 @@ describe('the configurations the harness plays under (ADR 0053)', () => {
     expect([...RESERVED_POLICIES].sort()).toEqual(['person', 'script']);
   });
 
-  it('gives every configuration all four knobs and no optional field', () => {
+  it('gives every configuration every knob and no optional field', () => {
     // A row with a field missing is a different row, and the tuning pass reads
-    // these as a table. holdBound is on the row before anything reads it for
-    // that reason: the sharp corner's own value is zero either way.
+    // these as a table. The dexterity error is two numbers and not one,
+    // because a lapse is how often attention fails and how deep the lapse runs
+    // when it does (the record's section 3, amended 2026-09-09).
     for (const name of CONFIGURATION_NAMES) {
       const row = CONFIGURATIONS[name];
       expect(Object.keys(row).sort(), name).toEqual([
         'belchWorthIt',
         'enoughClearance',
-        'holdBound',
+        'lapseBound',
+        'lapsePerMille',
         'lookaheadSamples',
         'name',
       ]);
       expect(row.name, name).toBe(name);
-      expect(Number.isFinite(row.holdBound), name).toBe(true);
-      expect(row.holdBound, name).toBeGreaterThanOrEqual(0);
+      expect(Number.isInteger(row.lapsePerMille), name).toBe(true);
+      expect(row.lapsePerMille, name).toBeGreaterThanOrEqual(0);
+      expect(row.lapsePerMille, name).toBeLessThanOrEqual(1000);
+      expect(Number.isInteger(row.lapseBound), name).toBe(true);
+      expect(row.lapseBound, name).toBeGreaterThanOrEqual(0);
       expect(row.belchWorthIt, name).toBeGreaterThan(0);
       expect(row.enoughClearance, name).toBeGreaterThan(0);
       expect(row.lookaheadSamples.length, name).toBeGreaterThan(0);
+    }
+  });
+
+  it('shortens each head from the far end and never thins it throughout', () => {
+    // The record's section 3: a shorter head keeps the near samples and loses
+    // the developing wave, because bot.ts's own argument for the near samples
+    // is that a threat passing through the grave and gone by the far sample is
+    // the one a horizon-only policy cannot see at all. A head thinned in the
+    // middle would lose that instead, and would be a different knob.
+    const heads = HEADS.map(
+      (head) => CONFIGURATIONS[`steady-${head}` as ConfigurationName],
+    ).map((row) => row.lookaheadSamples);
+
+    for (const [index, shorter] of heads.slice(1).entries()) {
+      const longer = heads[index];
+      expect(shorter.length, `${HEADS[index + 1]}`).toBeLessThan(longer.length);
+      expect(longer.slice(0, shorter.length)).toEqual([...shorter]);
+    }
+    // The same list whichever hand names it, so the two knobs stay separable.
+    for (const name of CONFIGURATION_NAMES) {
+      const head = name.split('-')[1];
+      expect(CONFIGURATIONS[name].lookaheadSamples, name).toEqual([
+        ...heads[HEADS.indexOf(head)],
+      ]);
     }
   });
 

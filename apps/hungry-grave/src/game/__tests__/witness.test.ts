@@ -13,6 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { HAND_STREAM } from '../../dev/harnessPolicy';
 import { stepping } from '../../dev/stepping';
 import type { BellToll } from '../lines/bell';
 import type { WeaponLine } from '../lines/roster';
@@ -28,6 +29,7 @@ import {
   NO_TARGET_ID,
   RUN_ENDING_CODES,
   WEAPON_LINE_CODES,
+  WITNESS_VERSION,
 } from '../witness';
 
 const FIXTURE_SEED = 20260823;
@@ -1092,5 +1094,28 @@ describe('Territory in the fold (#76)', () => {
 
     run.patches[1].alive = true;
     expect(foldWitness(run, 0)).not.toBe(before);
+  });
+});
+
+describe("the harness's own stream stays outside the run (ADR 0019)", () => {
+  it("holds exactly the run's own streams and folds exactly those", () => {
+    // The harness's hand draws from a stream named `hand`, made in src/dev off
+    // the run's seed and held by the harness. A sixth stream inside the run
+    // would put the bot's dice in the shipped simulation, and the fold walks
+    // every stream the run holds, so it would land on the witness.
+    const held = Object.keys(createRun(0).streams).sort();
+
+    expect(held).toEqual(['drops', 'mobFire', 'shed', 'spawns', 'territory']);
+    expect(held).not.toContain(HAND_STREAM);
+    expect(FOLDED.filter((path) => path.startsWith('streams.')).sort()).toEqual(
+      held.map((name) => `streams.${name}.drawn`).sort(),
+    );
+  });
+
+  it('leaves the witness version at six, which the harness must not move', () => {
+    // Hand-forward (f) pins it: the version moved to 6 for Territory and must
+    // not move again, so the whole harness is built outside RunState. This is
+    // what says it did not, on a branch that added a stream to the project.
+    expect(WITNESS_VERSION).toBe(6);
   });
 });

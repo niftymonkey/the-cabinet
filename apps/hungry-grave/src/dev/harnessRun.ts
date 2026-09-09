@@ -144,9 +144,11 @@ const playHarnessRun = (
     execution,
     harnessHeader(run, configuration, commitHash, recordedAt),
   );
+  // The hand's own stream is made off the run's seed, so one seed under one
+  // configuration is one run and the hand's dice stay outside RunState.
   const { ticks } = runPolicy(
     execution,
-    harnessPolicy(configuration),
+    harnessPolicy(configuration, run.seed),
     runTickBudget(),
   );
   sealTrailer(recorder, execution, 0);

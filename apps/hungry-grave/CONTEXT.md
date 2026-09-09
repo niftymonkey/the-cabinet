@@ -204,6 +204,10 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Configuration**: One hand the harness plays with: the base policy under one value of each knob, named by a word pair a person can say. Nine are named, from `steady-far` to `shaky-short`, and the name is what a tape's header records. _Avoid_: difficulty, skill level, persona, profile.
 
+**Dexterity error**: The knob that makes the hand's attention lapse. On nearly every decision attention holds and the hand acts on the tick; when it fails, the hand keeps the command it already had for a drawn number of ticks and the field moves under it. A hand carries two numbers for it, how often attention fails and how deep a lapse runs when it does, and the rungs nest, so one sloppy run holds attentive decisions and shallow and deep lapses alike. It is an error and not a skill: it takes something away from the hand rather than giving it something. _Avoid_: reaction time, lag, input delay, twitch.
+
+**Strategy error**: The knob that shortens how far ahead the policy looks, from the far end so the near samples survive. An error on the same terms as the dexterity one. _Avoid_: intelligence, planning depth, foresight, IQ.
+
 **Sharp hand, sloppy hand**: The two corner configurations, `steady-far` and `shaky-short`. A finding is believed only where both show the same ordering, so these two are what an agreement is between. _Avoid_: good bot, bad bot, expert, novice.
 
 **Rig**: One starting condition a run is played from, named so a figure always says which one produced it. Five exist: the ceiling rig, the start-size rig, the ladder rig, the conditioned rig and the harness rig, which is the only one that starts at the birthright. Figures from two rigs are never banded. _Avoid_: setup, harness, scenario, fixture.

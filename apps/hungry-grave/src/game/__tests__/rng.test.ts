@@ -6,12 +6,25 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { stream, type StreamName } from '../rng';
+import { HAND_STREAM } from '../../dev/harnessPolicy';
+import { stream } from '../rng';
 import { createRun } from '../run';
 
-const NAMES: readonly StreamName[] = ['spawns', 'drops', 'mobFire', 'shed'];
+/**
+ * Every stream a run holds, plus the harness hand's, which is made outside
+ * RunState and off the same run seed.
+ *
+ * The list is derived and never hand-kept (#113). It was four names for as
+ * long as the run held five, and the fifth arrived without the search that
+ * exists to catch a collision ever being told about it. StreamName is a type
+ * and nothing at runtime can be closed over one, so the run itself is asked.
+ */
+const NAMES: readonly string[] = [
+  ...Object.keys(createRun(0).streams),
+  HAND_STREAM,
+];
 
-function draws(seed: number, name: StreamName, count: number): number[] {
+function draws(seed: number, name: string, count: number): number[] {
   const source = stream(seed, name);
   return Array.from({ length: count }, () => source.next());
 }
@@ -67,6 +80,36 @@ describe('named seeded streams', () => {
     }
     expect(offenders).toEqual([]);
   });
+  it("the overlap search covers every stream a run holds and the hand's beside them (#113)", () => {
+    // The search below is only worth the names it is handed, and a list kept
+    // by hand goes stale in silence: the territory stream landed while this
+    // file still named four. The run answers for its own, and the hand's is
+    // the one name outside it, because the harness makes its stream in src/dev
+    // rather than inside RunState (ADR 0019).
+    expect([...NAMES].sort()).toEqual([
+      'drops',
+      HAND_STREAM,
+      'mobFire',
+      'shed',
+      'spawns',
+      'territory',
+    ]);
+    expect(NAMES).toHaveLength(new Set(NAMES).size);
+  });
+
+  it("gives the same sequence twice for a name outside the run's own streams (ADR 0012)", () => {
+    // stream's parameter is a name string rather than the closed union, so the
+    // harness can make its own without putting the bot's dice in the shipped
+    // simulation. The widening changes who may ask for a stream and nothing
+    // about what a stream is: the hand's is a stream on exactly the run's own
+    // terms.
+    expect(draws(4242, HAND_STREAM, 64)).toEqual(draws(4242, HAND_STREAM, 64));
+    expect(draws(4242, HAND_STREAM, 64)).not.toEqual(
+      draws(4243, HAND_STREAM, 64),
+    );
+    expect(draws(4242, HAND_STREAM, 64)).not.toEqual(draws(4242, 'spawns', 64));
+  });
+
   it('nextInt stays in [0, bound) and covers every value over enough draws', () => {
     for (const bound of [1, 2, 4, 6, 7, 37]) {
       const source = stream(31, 'drops');

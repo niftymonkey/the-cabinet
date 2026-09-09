@@ -16,15 +16,16 @@ import { PERSON_POLICY, SCRIPT_POLICY } from '../tape/tape';
 interface Configuration {
   readonly name: ConfigurationName;
   /**
-   * The dexterity error, as the largest number of ticks a decided command may
-   * be held stale. The hold is drawn uniformly from 0 to this bound inclusive,
-   * and a bound of zero draws nothing at all.
-   *
-   * Nothing reads it until slice 5, which is where the hold and its stream
-   * land. It is on the row here because a row with a field missing is a
-   * different row, and the sharp corner's own value is zero either way.
+   * The dexterity error, as how often attention fails, in failures per
+   * thousand decisions. A rate of zero rolls nothing and never lapses.
    */
-  readonly holdBound: number;
+  readonly lapsePerMille: number;
+  /**
+   * The dexterity error's depth: the largest number of ticks a decided command
+   * may be held stale once attention has failed. Drawn uniformly from 0 to
+   * this bound inclusive, and only on a decision that lapsed.
+   */
+  readonly lapseBound: number;
   // The strategy error, as the look-ahead samples in ticks ahead, shortened from the far end.
   readonly lookaheadSamples: readonly number[];
   // Live shots on the field that make a belch worth spending.
@@ -33,17 +34,34 @@ interface Configuration {
   readonly enoughClearance: number;
 }
 
-/**
- * A hand word and a head word, said in that order, and never a number.
- *
- * One name and not nine: the other eight rows land at slice 5 with the hold
- * that makes six of them differ from their head-only siblings. A row whose
- * knob nothing reads would be a second name for a hand already here.
- */
-type ConfigurationName = 'steady-far';
+/** A hand word and a head word, said in that order, and never a number. */
+type ConfigurationName =
+  | 'steady-far'
+  | 'steady-middling'
+  | 'steady-short'
+  | 'loose-far'
+  | 'loose-middling'
+  | 'loose-short'
+  | 'shaky-far'
+  | 'shaky-middling'
+  | 'shaky-short';
 
 /**
  * The rows, keyed by name.
+ *
+ * The dexterity error is a lapse of attention and not a standing slowness: the
+ * hand acts on the tick on nearly every decision, and only a failed attention
+ * roll holds the last command stale. So the rungs nest, a loose hand being a
+ * steady hand on nine decisions in ten, and one shaky run holds steady
+ * decisions, loose-sized lapses and shaky-sized lapses at once.
+ *
+ * The depths are anchored on Counter-Strike's shipped ReactionTime ladder and
+ * on this field's own speeds: at 15 ticks a mob shot first covers the grave's
+ * own width, and 36 ticks is 600 milliseconds, which is that ladder's Easy
+ * rung. The two rates are undefended starting rows, loose sitting just past
+ * the degraded end of the measured human range and shaky deliberately past any
+ * measured human, so the two corners are readable apart before anything has
+ * been measured.
  *
  * The far list is the same four numbers as bot.ts's LOOKAHEAD_SAMPLES and it
  * is written again rather than imported: the six policies' fixed horizon and
@@ -58,21 +76,99 @@ type ConfigurationName = 'steady-far';
 const CONFIGURATIONS: Readonly<Record<ConfigurationName, Configuration>> = {
   'steady-far': {
     name: 'steady-far',
-    holdBound: 0,
+    lapsePerMille: 0,
+    lapseBound: 0,
     lookaheadSamples: [5, 12, 20, 30],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'steady-middling': {
+    name: 'steady-middling',
+    lapsePerMille: 0,
+    lapseBound: 0,
+    lookaheadSamples: [5, 12, 20],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'steady-short': {
+    name: 'steady-short',
+    lapsePerMille: 0,
+    lapseBound: 0,
+    lookaheadSamples: [5, 12],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'loose-far': {
+    name: 'loose-far',
+    lapsePerMille: 100,
+    lapseBound: 15,
+    lookaheadSamples: [5, 12, 20, 30],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'loose-middling': {
+    name: 'loose-middling',
+    lapsePerMille: 100,
+    lapseBound: 15,
+    lookaheadSamples: [5, 12, 20],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'loose-short': {
+    name: 'loose-short',
+    lapsePerMille: 100,
+    lapseBound: 15,
+    lookaheadSamples: [5, 12],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'shaky-far': {
+    name: 'shaky-far',
+    lapsePerMille: 250,
+    lapseBound: 36,
+    lookaheadSamples: [5, 12, 20, 30],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'shaky-middling': {
+    name: 'shaky-middling',
+    lapsePerMille: 250,
+    lapseBound: 36,
+    lookaheadSamples: [5, 12, 20],
+    belchWorthIt: 8,
+    enoughClearance: 12,
+  },
+  'shaky-short': {
+    name: 'shaky-short',
+    lapsePerMille: 250,
+    lapseBound: 36,
+    lookaheadSamples: [5, 12],
     belchWorthIt: 8,
     enoughClearance: 12,
   },
 };
 
-const CONFIGURATION_NAMES: readonly ConfigurationName[] = ['steady-far'];
+const CONFIGURATION_NAMES: readonly ConfigurationName[] = [
+  'steady-far',
+  'steady-middling',
+  'steady-short',
+  'loose-far',
+  'loose-middling',
+  'loose-short',
+  'shaky-far',
+  'shaky-middling',
+  'shaky-short',
+];
 
 /**
  * The sharp corner: the base policy with both knobs at no error, which is the
  * best this hand plays. A finding has to agree across it and the sloppy
- * corner, which arrives with the other eight rows.
+ * corner, and those two are what the done line names.
  */
 const SHARP_HAND: ConfigurationName = 'steady-far';
+
+/** The sloppy corner: attention failing most often, deepest, over the shortest head. */
+const SLOPPY_HAND: ConfigurationName = 'shaky-short';
 
 /**
  * The names no configuration may take, because the header writes them for a
@@ -92,6 +188,7 @@ export {
   CONFIGURATIONS,
   CONFIGURATION_NAMES,
   SHARP_HAND,
+  SLOPPY_HAND,
   RESERVED_POLICIES,
   isConfigurationName,
 };
