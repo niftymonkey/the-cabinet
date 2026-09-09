@@ -114,6 +114,7 @@ const FAULT_IDENTITY_CODES: Readonly<Record<FaultIdentity, number>> = {
   'offer stands a body': 18,
   'boss chunk only increases': 19,
   'set piece budget not negative': 20,
+  'set piece body gone when spent': 21,
 };
 
 const FAULT_SEVERITIES = ['fatal', 'recoverable'] as const;

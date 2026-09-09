@@ -18,6 +18,7 @@ import { createRun } from '../run';
 import { SET_PIECE_HP } from '../stage/rows';
 import {
   advanceSetPiece,
+  damageSetPiece,
   placeSetPiece,
   setPieceHitbox,
 } from '../stage/setPiece';
@@ -101,6 +102,28 @@ describe('what the storm can hit', () => {
     ]);
   });
 
+  it('drops the source the tick its body is gone, while it is still pouring', () => {
+    // Mark's ruling on #104: killing the source removes its body and nothing
+    // else, so the record stays on the run while the rest of the budget pours.
+    // What the storm can reach is the body, so the slot empties on the kill
+    // tick even though the source itself is still there.
+    const state = createRun(SEED);
+    const mob = putMob(state, 100, 200);
+    const piece = placeSetPiece(state);
+    piece.open = true;
+
+    expect(stormTargets(state).map((target) => target.id)).toEqual([
+      mob.id,
+      piece.id,
+    ]);
+
+    damageSetPiece(state, SET_PIECE_HP, 'skullStream');
+
+    expect(state.setPiece).toBe(piece);
+    expect(stormTargets(state).map((target) => target.id)).toEqual([mob.id]);
+    expect(stormTarget(state, piece.id)).toBeNull();
+  });
+
   it('reads the source travelling at the fall the source actually takes', () => {
     // A line aiming ahead of a travelling body reads its velocity off the seam,
     // so what the seam answers and what the source does have to be one number.
@@ -135,12 +158,14 @@ describe('what the storm can hit', () => {
     moveStormTarget(state, target, piece.x + 90, piece.y + 90);
     expect(`${piece.x} ${piece.y}`).toBe(`${stood.x} ${stood.y}`);
 
-    // Emptied, it leaves the field and the list with it, which is the kill the
-    // seam carries rather than one it decides.
+    // Emptied, its body goes and the list drops it with it, which is the kill
+    // the seam carries rather than one it decides. The source itself stays on
+    // the run with its budget, because the pour finishes anyway (#104).
     expect(
       damageStormTarget(state, target, piece.hp, 'skullStream').length,
     ).toBeGreaterThan(1);
-    expect(state.setPiece).toBeNull();
+    expect(state.setPiece).toBe(piece);
+    expect(stormTargets(state)).toEqual([]);
   });
 
   it('drops each on the tick it stops being live', () => {

@@ -711,6 +711,27 @@ const checkSetPieceBudget = (state: RunState, faults: Fault[]): void => {
 };
 
 /**
+ * The source's body is gone exactly when its health is spent (#104).
+ *
+ * Two facts about one thing, and the boolean is the one every reader reads:
+ * the storm's target seam, the damage guard and the renderer all take it and
+ * derive nothing from the health beside it. A health that reached zero without
+ * it is a body the storm goes on hitting and a sprite that never leaves.
+ */
+const checkSetPieceBody = (state: RunState, faults: Fault[]): void => {
+  const piece = state.setPiece;
+  if (piece === null) return;
+  if (piece.bodyGone === piece.hp <= 0) return;
+  record(
+    faults,
+    'set piece body gone when spent',
+    `the set piece has ${piece.hp} health left and its body is ${
+      piece.bodyGone ? 'gone' : 'standing'
+    }`,
+  );
+};
+
+/**
  * The phase index only ever increases, and the phase-local tick resets at a
  * boundary. The tick is read after the step has already advanced it, so a reset
  * shows as a tick of one rather than of zero.
@@ -811,6 +832,7 @@ const checkInvariants = (
   checkOfferBodies(state, faults);
   checkBank(state, faults);
   checkSetPieceBudget(state, faults);
+  checkSetPieceBody(state, faults);
   checkStage(state, watch, faults);
   checkBossChunk(state, watch, faults);
   return faults;

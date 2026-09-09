@@ -225,12 +225,23 @@ interface SetPiecePoured {
 }
 
 /**
- * How a set piece ended. One event with a closed reason rather than three
- * events, on the PatchClosed precedent: the three are ends of one thing rather
- * than opposite meanings, every set piece reaches exactly one of them, and a
- * reading groups by the reason.
+ * The storm emptied the source's health and took its body, with what the pour
+ * still has to spend beside it (#104). It is its own event rather than a close
+ * reason because it ends nothing: the remaining budget keeps pouring from the
+ * pour point and the source closes later, under one of the two reasons below.
  */
-type SetPieceClosing = 'spent' | 'killed' | 'scrolled';
+interface SetPieceKilled {
+  readonly type: 'setPieceKilled';
+  readonly left: number;
+}
+
+/**
+ * How a set piece ended. One event with a closed reason rather than two events,
+ * on the PatchClosed precedent: the two are ends of one thing rather than
+ * opposite meanings, every set piece reaches exactly one of them, and a reading
+ * groups by the reason.
+ */
+type SetPieceClosing = 'spent' | 'scrolled';
 
 interface SetPieceClosed {
   readonly type: 'setPieceClosed';
@@ -434,6 +445,7 @@ type SimEvent =
   | BossKilled
   | SetPieceOpened
   | SetPiecePoured
+  | SetPieceKilled
   | SetPieceClosed
   | CorpseExpired
   | CorpseLost

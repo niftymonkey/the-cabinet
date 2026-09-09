@@ -289,21 +289,10 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     expect(source.state.setPiece).toBeNull();
   });
 
-  it('reports a killed source and a scrolled one under their own reasons', () => {
-    // Three ends to one thing, so a reading groups by the reason rather than
-    // by which of three events it met.
-    const killed = atTheSource();
-    tickUntilItOpens(killed);
-    const half = Math.floor(SET_PIECE_BUDGET / 2);
-    while (killed.state.setPiece!.budget > half) killed.tick();
-    const left = killed.state.setPiece!.budget;
-    const ended = damageSetPiece(killed.state, SET_PIECE_HP, BIRTHRIGHT[0]);
-
-    expect(only(ended, 'setPieceClosed')).toHaveLength(1);
-    expect(only(ended, 'setPieceClosed')[0].reason).toBe('killed');
-    expect(only(ended, 'setPieceClosed')[0].left).toBe(left);
-    expect(killed.state.setPiece).toBeNull();
-
+  it('reports a scrolled source under its own reason', () => {
+    // Two ends to one thing, so a reading groups by the reason rather than by
+    // which of two events it met. The kill is not one of them: it is its own
+    // event and it ends no pour (#104).
     const scrolled = atTheSource();
     tickUntilItOpens(scrolled);
     scrolled.state.setPiece!.y = FIELD_HEIGHT + SET_PIECE_HALF_HEIGHT;
@@ -314,23 +303,92 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     expect(only(off, 'setPieceClosed')[0].left).toBeGreaterThan(0);
   });
 
-  it('ends the moment early when it is killed, and never pours the rest later', () => {
-    // game-concept.md:50 through the design record's refinement: killing it
-    // ends the source's stay rather than its pour, and the unspent budget is
-    // gone rather than owed.
+  it('keeps pouring on its own schedule once its body is gone', () => {
+    // Mark's ruling on #104, 2026-09-08: killing the source removes its body
+    // and nothing else, so the remaining budget keeps pouring from the pour
+    // point on the same clock. It supersedes the promise this test carried,
+    // that the kill ends the moment early and the rest is never poured, which
+    // rewarded the hand that held back over the hand that committed.
     const source = atTheSource();
     tickUntilItOpens(source);
     for (let tick = 0; tick < 5 * TICK_HZ; tick++) source.tick();
-    const early = only(tickAndCollect(source, 1), 'setPiecePoured').length;
     const left = source.state.setPiece!.budget;
     damageSetPiece(source.state, SET_PIECE_HP, BIRTHRIGHT[0]);
-    const after = tickAndCollect(source, 2 * TICK_HZ);
+    const at: number[] = [];
+    const poured: { x: number; y: number }[] = [];
+    for (let tick = 0; tick < SOURCE_TICKS; tick++) {
+      for (const body of only(source.tick(), 'setPiecePoured')) {
+        at.push(tick);
+        poured.push(body);
+      }
+      if (source.state.setPiece === null) break;
+    }
 
     expect(left).toBeGreaterThan(0);
-    expect(early).toBeGreaterThanOrEqual(0);
-    expect(only(after, 'setPiecePoured')).toEqual([]);
-    expect(only(after, 'setPieceClosed')).toEqual([]);
+    expect(poured).toHaveLength(left);
+    // On the same clock: every gap between two bodies is the authored interval
+    // and no gap is anything else.
+    const gaps = at.slice(1).map((tick, index) => tick - at[index]);
+    expect([...new Set(gaps)]).toEqual([SET_PIECE_POUR_SECONDS * TICK_HZ]);
+    // And from the pour point, which is still drifting and sweeping: the trail
+    // after the kill lies inside the same authored bounds as the trail before.
+    expect(Math.min(...poured.map((body) => body.x))).toBeGreaterThanOrEqual(
+      SET_PIECE_SWEEP_MIN_X,
+    );
+    expect(Math.max(...poured.map((body) => body.x))).toBeLessThanOrEqual(
+      SET_PIECE_SWEEP_MAX_X,
+    );
+  });
+
+  it('ends on its budget after a kill, and leaves only then', () => {
+    // The kill takes a close reason away rather than adding one: what is left
+    // is spent and scrolled, and a killed source reaches the ordinary one.
+    const source = atTheSource();
+    tickUntilItOpens(source);
+    for (let tick = 0; tick < 5 * TICK_HZ; tick++) source.tick();
+    damageSetPiece(source.state, SET_PIECE_HP, BIRTHRIGHT[0]);
+
+    expect(source.state.setPiece).not.toBeNull();
+
+    const events = tickUntilItCloses(source);
+    const closed = only(events, 'setPieceClosed');
+
+    expect(closed).toHaveLength(1);
+    expect(closed[0].reason).toBe('spent');
+    expect(closed[0].left).toBe(0);
     expect(source.state.setPiece).toBeNull();
+  });
+
+  it('loses its body and everything the storm can reach on the kill tick', () => {
+    // The kill is the body and nothing else. What goes with it is the hitbox,
+    // which is what empties the storm's target slot, and any further damage:
+    // a body that is gone is not there to be hit again.
+    const source = atTheSource();
+    tickUntilItOpens(source);
+    for (let tick = 0; tick < 5 * TICK_HZ; tick++) source.tick();
+    const piece = source.state.setPiece!;
+    const left = piece.budget;
+    const killing = damageSetPiece(source.state, SET_PIECE_HP, BIRTHRIGHT[0]);
+
+    expect(only(killing, 'mobDamaged')).toHaveLength(1);
+    expect(only(killing, 'setPieceKilled')).toHaveLength(1);
+    expect(only(killing, 'setPieceKilled')[0].left).toBe(left);
+    expect(setPieceHitbox(piece)).toBeNull();
+
+    const spent = piece.hp;
+    expect(damageSetPiece(source.state, 100, BIRTHRIGHT[0])).toEqual([]);
+    expect(piece.hp).toBe(spent);
+
+    // And it stays gone while the pour goes on: the next body comes out of the
+    // mouth and the box is still empty behind it.
+    const next: SimEvent[] = [];
+    for (let tick = 0; tick < SET_PIECE_POUR_SECONDS * TICK_HZ; tick++) {
+      next.push(...source.tick());
+    }
+
+    expect(only(next, 'setPiecePoured')).toHaveLength(1);
+    expect(source.state.setPiece!.budget).toBe(left - 1);
+    expect(setPieceHitbox(source.state.setPiece!)).toBeNull();
   });
 
   it('never lands two bodies on the same point', () => {
@@ -465,10 +523,11 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
   });
 
   it('outlives its own pour under a full build', () => {
-    // ADR 0007's storm must always matter, against ADR 0042's requirement that
-    // the property be two-sided: the dive has to pay more than waiting and it
-    // cannot pay by cancelling the pour. Both sides are derived, the storm from
-    // the lines' own rows and the pour's length from its budget and interval.
+    // The health row's own reason since Mark's ruling on #104: it is the
+    // source's stay, how long the body stays a target and a thing to read,
+    // rather than what keeps the pour finishing, which the ruling now does
+    // whatever the storm did. Both sides are derived, the storm from the lines'
+    // own rows and the pour's length from its budget and interval.
     expect(SET_PIECE_HP).toBeGreaterThan(
       FULL_BUILD_DAMAGE_PER_SECOND * POUR_SECONDS,
     );
@@ -701,10 +760,3 @@ describe('the set piece names a property and never a cast (ADR 0042)', () => {
     expect(source.state.setPiece!.hp).toBe(SET_PIECE_HP - 1);
   });
 });
-
-/** Ticks the source a stated number of times and answers with what it reported. */
-function tickAndCollect(source: Source, ticks: number): SimEvent[] {
-  const events: SimEvent[] = [];
-  for (let tick = 0; tick < ticks; tick++) events.push(...source.tick());
-  return events;
-}

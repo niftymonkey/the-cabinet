@@ -563,6 +563,7 @@ function fillSetPiece(run: RunState): void {
     budget: 41,
     pourIn: 7,
     hp: 1900,
+    bodyGone: false,
   };
 }
 
@@ -1303,6 +1304,28 @@ describe('the boss and the set piece (ADR 0007, ADR 0042)', () => {
 
     state.setPiece!.budget = 0;
     expect(brokenOn(state)).toEqual([]);
+  });
+
+  it('records a recoverable fault when a spent source still has its body', () => {
+    // Mark's ruling on #104 leaves the source on the run after the storm has
+    // emptied it, so two facts about one thing have to agree: the body is gone
+    // exactly when the health is spent. The boolean is what every reader reads,
+    // so a health that reached zero without it is a body the storm can go on
+    // hitting and a sprite that never leaves.
+    const state = filledRun();
+    expect(brokenOn(state)).toEqual([]);
+
+    state.setPiece!.hp = 0;
+    expect(brokenOn(state)).toEqual(['set piece body gone when spent']);
+    expect(faultsOn(state)[0].severity).toBe('recoverable');
+
+    state.setPiece!.bodyGone = true;
+    expect(brokenOn(state)).toEqual([]);
+
+    // And the other way round: a body reported gone while the health stands is
+    // the same disagreement read from the other side.
+    state.setPiece!.hp = 1900;
+    expect(brokenOn(state)).toEqual(['set piece body gone when spent']);
   });
 
   it('says nothing about a boss or a source that is not on the field', () => {

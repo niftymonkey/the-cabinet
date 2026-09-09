@@ -89,6 +89,7 @@ function fillSetPiece(run: RunState): void {
     budget: 41,
     pourIn: 7,
     hp: 1900,
+    bodyGone: false,
   };
 }
 
@@ -778,6 +779,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'spawn identity, summarised by nextEntityId, which is folded. It is the join key a mobDamaged carries and never something the rules move.',
   'setPiece.id':
     "spawn identity, as boss.id is: the storm's target seam matches on it and the rules never move it.",
+  'setPiece.bodyGone':
+    'fully determined by hp reaching zero, which is folded, so a divergence in it is a divergence in the health the walk already carries. It is written once when the storm empties the source and never again, as mobs[].appearedInside is.',
   'corpses[].alive': 'gates the walk, as mobs[].alive does.',
   'corpses[].id': 'spawn identity, as mobs[].id is.',
   'corpses[].decays':

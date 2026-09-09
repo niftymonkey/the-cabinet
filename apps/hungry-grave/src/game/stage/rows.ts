@@ -689,10 +689,10 @@ const SET_PIECE_POUR_SECONDS = 0.2;
 /**
  * The source's own health, which only the open source can lose (ADR 0050).
  *
- * Above a full build's storm across the whole pour, so a grave that commits to
- * the trail never deletes the moment it is committing to: a fast kill ends the
- * source's stay rather than its pour, which is Ikaruga's bunretsu read the same
- * way round.
+ * What it buys is the source's stay: how long the body stands as a target the
+ * storm can work on and a thing on the ground to read. The pour finishes on its
+ * budget whatever the storm did (Mark's ruling on #104), so the row no longer
+ * carries that, and it stays an initial row for the step 4 harness to measure.
  */
 const SET_PIECE_HP = 2400;
 

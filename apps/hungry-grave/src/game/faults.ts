@@ -7,8 +7,8 @@
  *
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
- * section and hardens the moment the first tape exists. Twenty identities
- * against twenty-one checks: checkPools carries two, the caps and the ids,
+ * section and hardens the moment the first tape exists. Twenty-one identities
+ * against twenty-two checks: checkPools carries two, the caps and the ids,
  * checkStage carries two, one for each of the two things it watches, and
  * checkRefusals carries three, one per cap that can turn something away, while
  * the six bounds checks share one identity between them. The grave's own bounds
@@ -37,6 +37,7 @@ const FAULT_IDENTITIES = [
   'offer stands a body',
   'boss chunk only increases',
   'set piece budget not negative',
+  'set piece body gone when spent',
 ] as const;
 
 // One member of the closed list above.
@@ -60,7 +61,7 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * structural assumption was violated outside the pool API, after which no other
  * check's answer is trustworthy.
  *
- * Recoverable, fourteen checks and twelve identities. A stray entity is culled or
+ * Recoverable, fifteen checks and thirteen identities. A stray entity is culled or
  * draws off-screen and nothing reads it wrong, and the six checks that watch
  * for one all record under the same identity. A corpse pays the wrong amount
  * into a size the fatal check still guards. One line's charge is wrong and
@@ -82,11 +83,13 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * and one body poorer, which is exactly a state to report loudly and carry on
  * from, and terminating it would take a whole run away over food.
  *
- * The boss's chunk and the set piece's budget are recoverable on the stage's
- * own reading (ADR 0007, ADR 0042). A chunk that went backwards replays a
- * pattern the player has already beaten and a budget below zero pours nothing;
- * both spoil a fight without poisoning a number anything downstream reads, and
- * killing the run at the climax is a worse answer than reporting it.
+ * The boss's chunk and the set piece's two are recoverable on the stage's own
+ * reading (ADR 0007, ADR 0042). A chunk that went backwards replays a pattern
+ * the player has already beaten, a budget below zero pours nothing, and a body
+ * that disagrees with its own health is a source the storm goes on hitting or a
+ * sprite that never leaves; all three spoil a fight without poisoning a number
+ * anything downstream reads, and killing the run at the climax is a worse
+ * answer than reporting it.
  */
 const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'no NaN': 'fatal',
@@ -109,6 +112,7 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'offer stands a body': 'recoverable',
   'boss chunk only increases': 'recoverable',
   'set piece budget not negative': 'recoverable',
+  'set piece body gone when spent': 'recoverable',
 };
 
 // One invariant found broken on one tick.

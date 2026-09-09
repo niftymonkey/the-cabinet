@@ -76,7 +76,7 @@ function runInPhase(phase: string, tick: number, phaseTick: number): RunState {
 
 /** A source standing on the field, at a chosen place and state. */
 function sourceOnField(at: { x: number; y: number; open: boolean }): SetPiece {
-  return { id: 7, budget: 40, pourIn: 3, hp: 900, ...at };
+  return { id: 7, budget: 40, pourIn: 3, hp: 900, bodyGone: false, ...at };
 }
 
 /**
@@ -345,6 +345,31 @@ describe("the Waking's own source", () => {
     expect(source.position.y).toBe(380);
     expect(source.tint).toBe(PALETTE.standInWaking.hex);
     expect(source.tint).not.toBe(PALETTE.standInVigilTint.hex);
+  });
+
+  it('draws nothing once the body is gone, while the source is still pouring', () => {
+    // Mark's ruling on #104: the kill takes the body and the pour finishes
+    // anyway, so the record is still on the run with a budget on it while
+    // there is nothing left on the ground to draw. The view reads the fact off
+    // the record and derives nothing from the health beside it.
+    const { layers, renderer } = attached();
+    const run = runInPhase('waking', 20000, 200);
+    run.setPiece = { ...sourceOnField({ x: 270, y: 400, open: true }) };
+    renderer.sync(run);
+    const children = layers.layer('ground').children as Sprite[];
+
+    expect(children.slice(-2).map((sprite) => sprite.visible)).toEqual([
+      true,
+      true,
+    ]);
+
+    run.setPiece = { ...run.setPiece, bodyGone: true, hp: 0 };
+    renderer.sync(run);
+
+    expect(children.slice(-2).map((sprite) => sprite.visible)).toEqual([
+      false,
+      false,
+    ]);
   });
 
   it('stands its dark companion out past its body, so it reads on the dressing as well as the tile', () => {

@@ -233,8 +233,11 @@ class BackgroundRenderer {
   }
 
   private syncSource(setPiece: SetPiece | null): void {
+    // A killed source keeps pouring with nothing left on the ground to draw
+    // (#104), and the record says so itself: the view never reads the health.
+    const standing = setPiece !== null && !setPiece.bodyGone;
     const art = setPiece?.open === true ? SOURCE_AWAKE : SOURCE_DORMANT;
-    const texture = setPiece === null ? null : this.textureFor(art);
+    const texture = standing ? this.textureFor(art) : null;
     this.source.visible = texture !== null;
     this.sourceRim.visible = texture !== null;
     if (texture === null || setPiece === null) return;

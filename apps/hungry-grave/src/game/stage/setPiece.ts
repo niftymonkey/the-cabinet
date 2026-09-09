@@ -48,11 +48,17 @@ interface SetPiece {
   // Ticks to the next body.
   pourIn: number;
   /**
-   * Its own health, sized so the pour completes under a full build (ADR 0007's
-   * storm must always matter): the moment a fast kill ends is the source's
-   * stay, never its pour.
+   * Its own health. The row is the source's stay: how long the body stays a
+   * target the storm can work on and a thing on the ground to read. It is not
+   * what makes the pour finish, which it does whatever the storm did (#104).
    */
   hp: number;
+  /**
+   * Whether the storm has taken its body. Written once here, where the health
+   * reaches zero, and never directed from outside: a reader that compared hp
+   * to zero would be re-deriving a rule this module owns.
+   */
+  bodyGone: boolean;
 }
 
 /**
@@ -106,15 +112,20 @@ const placeSetPiece = (state: RunState): SetPiece => {
     budget: SET_PIECE_BUDGET,
     pourIn: POUR_INTERVAL_TICKS,
     hp: SET_PIECE_HP,
+    bodyGone: false,
   };
   state.nextEntityId += 1;
   state.setPiece = piece;
   return piece;
 };
 
-// The source's hitbox against the storm, or null while it is dormant.
+/**
+ * The source's hitbox against the storm, or null while it is dormant and once
+ * its body is gone. It is what fills the storm's target slot, so an empty box
+ * is the whole of what a killed source stops offering the storm.
+ */
 const setPieceHitbox = (piece: SetPiece): Rect | null => {
-  if (!piece.open) return null;
+  if (!piece.open || piece.bodyGone) return null;
   return {
     x: piece.x - SET_PIECE_HALF_WIDTH,
     y: piece.y - SET_PIECE_HALF_HEIGHT,
@@ -124,10 +135,10 @@ const setPieceHitbox = (piece: SetPiece): Rect | null => {
 };
 
 /**
- * The source leaves, and what it had left to pour goes with it. The unspent
- * budget is never poured later: what a killed moment costs the player is the
- * rest of the trail, which is the whole of why the health row sits above a full
- * build's storm across the pour.
+ * The source leaves, and what it had left to pour goes with it. It has two
+ * reasons and the kill is not one of them (#104): the budget spent, which is
+ * the ordinary one by construction, and the source off the bottom edge, which
+ * is the bound that says it can never outlive the field.
  */
 const closeSetPiece = (
   state: RunState,
@@ -208,10 +219,10 @@ const openIfDeepEnough = (piece: SetPiece): SimEvent[] => {
  * One tick of the source: the drift and the sweep, then whichever half of its
  * stay it is in.
  *
- * The three ends are the budget spent, which is the ordinary one by
- * construction, the mouth killed, which damageSetPiece answers on the tick the
- * storm empties it, and the source off the bottom edge, which is the bound that
- * says it can never outlive the field.
+ * The two ends are the budget spent, which is the ordinary one by construction,
+ * and the source off the bottom edge, which is the bound that says it can never
+ * outlive the field. A body the storm took is neither: the pour goes on from
+ * the pour point on the same clock until it reaches one of them (#104).
  */
 const advanceSetPiece = (state: RunState): SimEvent[] => {
   const piece = state.setPiece;
@@ -231,12 +242,13 @@ const advanceSetPiece = (state: RunState): SimEvent[] => {
 /**
  * Damage from the storm onto an open source (ADR 0050). A dormant one takes
  * none at all and reports none, which is the immunity rather than a hit of
- * zero: there is nothing on the field to have been hit.
+ * zero: there is nothing on the field to have been hit, and a body the storm
+ * has already taken is immune the same way and for the same reason.
  *
- * At zero the source leaves and its pour stops where it stands. That is the
- * refinement the design record carries: killing it ends the source's stay
- * rather than its pour, and the health row above a full build's storm across
- * the whole pour is what makes the two the same thing in practice.
+ * At zero the body goes and nothing else does (Mark's ruling on #104). The
+ * remaining budget keeps pouring from the pour point on the same clock, so the
+ * hand that commits up the trail and fights the source down never ends its own
+ * food early.
  */
 const damageSetPiece = (
   state: RunState,
@@ -244,12 +256,14 @@ const damageSetPiece = (
   source: DamageSource,
 ): SimEvent[] => {
   const piece = state.setPiece;
-  if (piece === null || !piece.open) return [];
+  if (piece === null || !piece.open || piece.bodyGone) return [];
   piece.hp -= amount;
   const events: SimEvent[] = [
     { type: 'mobDamaged', id: piece.id, amount, source },
   ];
-  if (piece.hp <= 0) events.push(...closeSetPiece(state, piece, 'killed'));
+  if (piece.hp > 0) return events;
+  piece.bodyGone = true;
+  events.push({ type: 'setPieceKilled', left: piece.budget });
   return events;
 };
 

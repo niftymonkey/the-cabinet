@@ -140,6 +140,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Amended 2026-09-08, Mark's ruling after ground adjustment 1:** the eye rides the ground at the field's own scroll and opens a quarter of the way down, not around mid-field. What stood: everything else in the entry, the placing row, the pour from one point, the drag across, the silence, the parking rule, and the corpses as the payout. What changed: the opening depth, and with it the time the eye is on screen, about one crossing rather than several times a mob's. What the entry could not have known: the ground was at half the field's scroll when it was written.
 
+**Amended 2026-09-08, Mark's ruling on #104:** killing the source removes its body and the pour finishes anyway, from the same pour point on the same clock, until the budget is spent. What stood: everything else in the entry. What changed: what a kill costs, the body and the rest of the source's stay rather than the rest of the trail. What the entry could not have known: it was written while the kill closed the set piece, which paid the hand that held back over the hand that committed.
+
 **Stage**: The content from first row to final boss, authored beats filled with directed density; a run is one playthrough of it. _Avoid_: level, map, world.
 
 **Run**: One playthrough of a stage, from its seed roll to sealed shut or victory. _Avoid_: game, session, attempt, playthrough.
