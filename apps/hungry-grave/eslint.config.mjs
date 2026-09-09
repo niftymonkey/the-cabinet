@@ -67,6 +67,14 @@ export default tseslint.config(
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
+      // tsconfig.json now extends the workspace's shared tsconfig.base.json
+      // at the repo root, which gives typescript-eslint's automatic project
+      // discovery two reachable tsconfig roots (this app and the repo root)
+      // with nothing to pick between them. Pinning it here is this app's own
+      // root, matching the repo root config's own explicit tsconfigRootDir.
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
     rules: {},
   },
