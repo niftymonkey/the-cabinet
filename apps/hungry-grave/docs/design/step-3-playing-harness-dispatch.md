@@ -134,11 +134,16 @@ Signatures are the contract the coding agent implements. Every public name carri
 interface Configuration {
   readonly name: ConfigurationName;
   /**
-   * The dexterity error, as the largest number of ticks a decided command may
-   * be held stale. The hold is drawn uniformly from 0 to this bound inclusive,
-   * and a bound of zero draws nothing at all.
+   * The dexterity error, as how often attention fails, in failures per
+   * thousand decisions. A rate of zero rolls nothing and never lapses.
    */
-  readonly holdBound: number;
+  readonly lapsePerMille: number;
+  /**
+   * The dexterity error's depth: the largest number of ticks a decided command
+   * may be held stale once attention has failed. Drawn uniformly from 0 to
+   * this bound inclusive, and only on a decision that lapsed.
+   */
+  readonly lapseBound: number;
   // The strategy error, as the look-ahead samples in ticks ahead, shortened from the far end.
   readonly lookaheadSamples: readonly number[];
   // Live shots on the field that make a belch worth spending.
@@ -183,7 +188,9 @@ export type { Configuration, ConfigurationName };
 
 **The nine rows are written out and never computed from two axes, and that is the record's call restated.** It costs the belch threshold and the clearance being repeated nine times. What it buys is that the tuning pass moves one configuration's row without moving eight others, which is exactly what a comparison between two configurations needs, and that a reader sees what a configuration is without composing two tables. Section 8 carries it as a craft call with the record's section 3 cited.
 
-**`holdBound` is a bound and not a range, because the low end is always zero.** A hold is drawn from 0 to the bound inclusive, so steady is 0, loose is 15 and shaky is 36, at `TICK_HZ` 60 (`clock.ts:4`), which is 0, 250 and 600 milliseconds (the record's section 3, amended 2026-09-09 after the game design gate: at 12 ticks a shot covers 22 units where the grave covers 54, so the old sloppy corner was a sharp hand under another name). Writing a two-ended range would put a second number in every row that is zero in all nine.
+**A hold is a lapse and not a standing slowness** (the record's section 3, amended 2026-09-09 twice: once after the game design gate for the depths, and once after Mark asked whether the knobs were too siloed, which is the amendment that added the rate). Every decision rolls `lapsePerMille` first. Attention holds on most decisions and the hand acts on the tick exactly as the sharp corner does; when it fails, the hold is drawn from 0 to `lapseBound` inclusive. The rows are steady 0 and 0, loose 100 and 15, shaky 250 and 36, at `TICK_HZ` 60 (`clock.ts:4`), so a lapse runs 0 to 250 and 0 to 600 milliseconds. **`lapseBound` is a bound and not a two-ended range**, because the low end is always zero: a lapse that draws zero is a decision the hand happened to get right anyway, which is what makes the rungs nested rather than siloed.
+
+**A rate of zero rolls nothing and a depth of zero draws nothing**, so `steady-far` touches the stream not at all, its behaviour is byte-identical to what slice 1 landed, and the 48-seed sharp batch recorded against `5f7f365e99` stays comparable with everything measured after this slice. If `steady-far`'s figures move, the slice is wrong.
 
 ### `src/dev/harnessPolicy.ts` (new)
 
@@ -208,7 +215,7 @@ export { harnessPolicy, HAND_STREAM };
 
 **The seed arrives with the hold, in slice 5, and not before** (added 2026-09-09 after the tech architecture gate). Slice 1 lands `harnessPolicy(configuration)` with no hold and no stream, because a `seed` parameter nothing reads is a typecheck failure under `noUnusedParameters` (`tsconfig.json`). Slice 5 widens the signature to the shape above and records it as a seam that moved, which is one honest change in the slice that gives the parameter something to do.
 
-**What the returned policy does each tick, in order.** If a hold is still running, decrement it and return the command it is holding. Otherwise decide: the point wanted is the live offer's nearest body if an offer stands, else the nearest food, else `HOME`; the move is `bestMoveToward` at the configuration's clearance over the configuration's samples; the belch is on when the reservoir is at capacity and at least the configuration's own count of shots is live. Then draw the next hold and remember the command. **A bound of zero draws nothing and decides every tick**, which is load-bearing: the record's determinism test runs under the sloppy corner precisely because the sharp corner's stream is never touched, and a `nextInt(1)` that always answers zero would make that sentence false.
+**What the returned policy does each tick, in order.** If a hold is still running, decrement it and return the command it is holding. Otherwise decide: the point wanted is the live offer's nearest body if an offer stands, else the nearest food, else `HOME`; the move is `bestMoveToward` at the configuration's clearance over the configuration's samples; the belch is on when the reservoir is at capacity and at least the configuration's own count of shots is live. Then roll attention and, only if it failed, draw the next hold; either way remember the command. **A rate of zero rolls nothing at all and decides every tick**, which is load-bearing: the record's determinism test runs under the sloppy corner precisely because the sharp corner's stream is never touched, and a `nextInt(1000)` taken before the rate is checked would make that sentence false. The order is the rate first, then the depth, so a hand that never lapses makes no draw of either kind.
 
 **Which body, spelled out**: among the live offer's bodies, the one whose centre is nearest the grave's, ties broken by the lower entity id. It is `chooseOfferBody`'s rule (`offer.ts:231-248`) written again rather than called, because `chooseOfferBody` takes the bodies the grave already covers and the hand needs the ones it could reach. The two must not drift, and test 1 is what holds them together.
 
@@ -890,7 +897,7 @@ Readers: `tapeHeader.ts:6,81`, `record-conditioned.ts:24,147`, `recorder.ts` (th
 Readers: `measure.ts:27,275`, `compareRuns.ts` (declared as a descriptive reading at `:293`). Its own rule at `readingsVersion.ts:13-16` is that adding a reading beside unchanged ones does not bump it, and every figure the drop ledger already printed means exactly what it meant. Stated here rather than left implicit, because a bump would make every step 2 reading incomparable with every step 3 one for no reason.
 
 **The hold bounds, `steady` 0, `loose` 15 and `shaky` 36 ticks: new rows, initial** (set 2026-09-09 after the game design gate, which found 6 and 12 too sharp to make a sloppy corner).
-Readers: the nine rows in `configurations.ts` and nothing else; the hold is drawn against the row inside `harnessPolicy.ts` and no other module reads a bound. Nothing in `bot.ts` reads them, because the six policies have no memory to hold a command in. The arithmetic behind them is the record's section 3: a mob shot covers 1.83 units a tick (`mobs.ts:86`) against the grave's 4.5 (`tuning.ts:18`) and a 27-unit width (`tuning.ts:58`).
+Readers: the nine rows in `configurations.ts` and nothing else; the attention roll and the hold are both taken against the row inside `harnessPolicy.ts` and no other module reads a rate or a bound. Nothing in `bot.ts` reads them, because the six policies have no memory to hold a command in. The arithmetic behind them is the record's section 3: a mob shot covers 1.83 units a tick (`mobs.ts:86`) against the grave's 4.5 (`tuning.ts:18`) and a 27-unit width (`tuning.ts:58`).
 
 **`BATCH_SEEDS`: new, 48, initial.**
 The floor is 40, because both published correlations that found the tail most predictive read it at the top five per cent, and below 40 seeds the top five per cent is a single run, which is an outlier rather than a tail. Its only reader is `scripts/batch.ts`'s default, and the command takes a count so the row is overridable per run.
@@ -915,7 +922,7 @@ The full argument for each is in `playing-harness.md`; what is here is the call,
 
 **Take-by-slot is a reading and never a rule.** Record section 2, #98's second comment: under a nearest-body hand the slot taken is a fact about where the grave was, which is exactly informative; under a lowest-level hand it would have been noise.
 
-**The dexterity error is a uniform draw and not a Gaussian, a stated departure from decision 17.** Record section 3: Box-Muller needs `Math.log` and `Math.cos`, which are the transcendentals ADR 0015 makes the project round by hand, where `Stream.nextInt` is integer-only rejection sampling already in the tree (`rng.ts:97-113`). ADR 0053 itself says only "a drawn number of ticks", so this departs from decision 17's wording and not from the ruling. If the lost tail matters, the next move is a triangular draw and not a transcendental.
+**The dexterity error is an attention roll with a uniform depth, and not a Gaussian.** Record section 3, amended 2026-09-09: a uniform draw taken on every decision made the sloppy hand evenly mediocre rather than occasionally wrong, which is the one shape both the human-performance literature and shipped game-AI practice name as the thing that does not read as a person. What decision 17 reached for with a Gaussian was a body with a tail, and the attention roll gives the tail in two integer draws. Box-Muller is still refused: `Math.log` and `Math.cos` are the transcendentals ADR 0015 makes the project round by hand, where `Stream.nextInt` is integer-only rejection sampling already in the tree (`rng.ts:97-113`). ADR 0053 says only "a drawn number of ticks", so nothing here departs from the ruling. A geometric stretch on the lapse depth is the next move if the corners do not separate, and a sum of uniforms is not, because it is a symmetric bell and reproduces the failure this amendment removes.
 
 **The strategy error shortens from the far end.** Record section 3, and `bot.ts:73-78`'s own argument: the near samples exist because a threat that passes through the grave and is gone by the far sample is the one a horizon-only policy cannot see at all.
 
