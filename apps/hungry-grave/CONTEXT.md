@@ -118,11 +118,13 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Row**: One entry of the authored timeline: a phase-local time, a template, a count, and a mob type. Count lives on the row, so density tuning never edits a template, and the mob type lives there too, because a template never names who is in it. _Avoid_: spawn event, wave entry, script line.
 
+**Standing row**: A row that stands for its section rather than firing once: a mob type, a template, and a rate of bodies a second that ramps between two figures across the section's authored span, repeating down to a minimum interval. It is the growth a run feels over its length, keyed to the clock and never to anything the player did, and the director adds over it rather than owning it. A section may declare none. _Avoid_: floor stream, faucet, spawn rate, wave table.
+
 **Phase**: One segment of the stage, chained to the next by a boundary event rather than an absolute clock, because a shootable boss dies when killed. _Avoid_: act, chapter.
 
 **Section**: One of the stage's three named trash phases, each owning one property no other section has and each ending on a boundary event. The boss and set-piece phases between them are phases and not sections. _Avoid_: act, chapter, zone, area.
 
-**The Procession**: The first section, ending on the Banshee. It owns emptiness: never more than one template live, so a group arrives, the field clears, and a corpse sits alone long enough to be worth going to get. Named for the funeral filing past in single file. _Avoid_: the ramp, the lane, the opening.
+**The Procession**: The first section, ending on the Banshee. It owns emptiness: never more than one shaped group live above its standing row, so the field thins between beats and the corpses left behind are worth crossing it for. Named for the funeral filing past in single file. _Avoid_: the ramp, the lane, the opening.
 
 **The Crowd**: The second and longest section, ending on the Waking. It owns overlap: never fewer than two templates live, so corpses stop being objects to choose between and become a floor the grave swims through. _Avoid_: the back half, the middle.
 
@@ -153,6 +155,10 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 **Directed density**: The mobs the game adds between the authored rows, raised and lowered by the pressure the run is putting on the player. It never removes an authored row, so it rises and falls only over what it added itself, and it is silent during boss phases, the sparse last rows and the set pieces. _Avoid_: faucet, spawn rate, dynamic difficulty.
 
 **Director**: What produces directed density: it spends a finite budget per phase on mobs drawn from the run's roster, only while pressure reads low, and goes quiet for an interval after each add. It never places a carrier, so it can never hand out power. _Avoid_: AI director, spawner, difficulty manager.
+
+**Purse**: The finite budget one phase gives the director, counted in bodies and spent on cards. When it is empty the phase runs at its authored floor for the rest of its length, so the storm is seen to win. A phase the director may not touch at all has no purse, which is a different thing from a purse of zero, where it may look and finds nothing to spend. _Avoid_: budget, credits, pool, allowance.
+
+**Card**: One thing the director may buy with its purse: a template, a mob type and a count, costing the sum of its bodies. Every directed add is a card, so what the director puts on the field is always a shape the player can read rather than a loose body. _Avoid_: spawn, wave, group, packet, add (which is the boss's summon).
 
 **Pressure**: What the director reads: the harm the run is doing to the player, damage taken and floor events, and never a kill near the grave, because a kill up close is food here. _Avoid_: intensity, threat, difficulty, tension.
 

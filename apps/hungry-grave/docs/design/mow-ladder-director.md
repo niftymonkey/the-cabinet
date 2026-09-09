@@ -517,5 +517,3 @@ Every numbered item, iteration step, cost and open item from `docs/push/handoff.
 | Not in the brief: the dev-only autopilot | Declined, and the decline recorded by the product vision gate | Section 6's last paragraph. `bot.ts:38-41` names this step as its trigger; watching a hand play is not a reading and the batch is, so the comment is updated to cite the decline |
 | Open: the human-tape replay divergence | Carried, with a step added by the tech architecture gate | Section 12 item 5, and step 0 of the plan's order records the tape's seed and first divergent checkpoint before any edit, because after the first slice the tip cannot reproduce that run |
 | Open: format 2 tapes are refused, which is informative | Carried | Section 8, under the tapes cost |
-</content>
-</invoke>
