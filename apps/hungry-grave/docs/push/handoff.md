@@ -1,15 +1,17 @@
 # Continue: The Hungry Grave
 
-> **Last updated:** 2026-09-09, end of session 20. Step 3 is closed, deployed and pushed. Nothing is in flight. This file is the step 4 brief plus the standing rules; every session before it is in `handoff-history.md`, kept for citation and not for reading.
+> **Last updated:** 2026-09-09, end of session 20. Step 3 is closed, deployed and pushed. Nothing is in flight. This file is the step 4 brief plus the standing rules; sessions 1 to 19 are in git history (see below), for citation only.
 > **Branch:** `hungry-grave-v1`, worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1`. Tip at the time of writing `b0d41583be`, deployed to hungry-grave.vercel.app.
 > **Working tree:** clean apart from this handoff move. `pnpm verify` green at `68c3960d5c`, 1824 tests, four fences, `GOLDEN`, `WITNESS_VERSION` 6, `READINGS_VERSION` 3, `FORMAT_VERSION` 3 pinned. Run `git log --oneline -20` and `git status --short` first anyway.
 > **Session shape (Mark, 2026-09-09):** the orchestrator runs on Fable and makes every hard call itself or in a Fable subagent; everything else is an Opus or cheaper subagent. Usage at the write: session 2, weekly all 71, weekly Fable 83 against caution 85 and stop 95. Check `bash /home/mlo/dev/niftymonkey/claude/skills/stay-within-limits/usage.sh` between waves.
 
 ## FIRST ACTION: enter the worktree
 
-Run EnterWorktree with `path: /home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1` before anything else. Push records are the tracked copies in `apps/hungry-grave/docs/push/`. The isolation guard refuses writes to the main checkout and refuses compound Bash that mentions git even in quoted text; use plain separate commands. The stop hook error about `local/publish-instruction.mjs` is harmless (history item 0).
+Run EnterWorktree with `path: /home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1` before anything else. Push records are the tracked copies in `apps/hungry-grave/docs/push/`. The isolation guard refuses writes to the main checkout and refuses compound Bash that mentions git even in quoted text; use plain separate commands. The stop hook error about `local/publish-instruction.mjs` is harmless (open item 0 below).
 
-**Route by the size of the job, not the size of the file (Mark, 2026-09-09).** A small job runs in the main thread, reading included. A big job gets its inputs gathered by cheap subagents first, and the worker (Fable when the call is hard) is spawned with those inputs in its prompt, so it starts from a brief and not from files. `handoff-history.md` is a deferred triage, not reading: collapse it against the progress notes and ticket comments when a session has room, never read it whole.
+**Fable never reads (Mark, 2026-09-09).** Whether Fable is the main thread or a subagent, cheaper agents do the searching, reading and investigating and hand Fable the result. A small Fable job runs in the main thread; a big one runs as a Fable subagent spawned with those results in its prompt.
+
+**This file is the continue document and it is ephemeral.** It is tracked on the branch only because the worktree cannot see the main checkout's gitignored `continue-hungry-grave.md`, which is now a pointer here. Delete it when the push merges. Sessions 1 to 19 are in git history: `git show b0d41583be:apps/hungry-grave/docs/push/handoff.md`, for citation only.
 
 ## STEP 4 BRIEF: the mow, the ladder, the director
 
