@@ -445,7 +445,7 @@ What is not a magnitude, and must not be quietly changed: the Wall's count of 22
 
 **1. "A revenant-heavy roster whose kills pay less food" is backwards per kill.**
 
-`game-concept.md:48` and `decisions.md:97` both state the Vigil's scarcity as a revenant-heavy roster "whose kills pay less food". `docs/research/section-feel-consent-and-rung-restore.md` carries the same phrase as "fewer corpses per kill".
+`decisions.md:97` states the Vigil's scarcity as a revenant-heavy roster "whose kills pay less food", and `docs/research/section-feel-consent-and-rung-restore.md` carries the same phrase as "fewer corpses per kill". `game-concept.md:48` carried it too and was corrected in the whole-branch CodeRabbit pass (`step-2-progress.md` section 28); the decision log is frozen and #86 owns the rest of the sweep.
 
 Against the code: `mobs.ts:94` gives the revenant `corpsePayout: 2 * TRASH_CORPSE_PAYOUT` against the shambler's `TRASH_CORPSE_PAYOUT` at `mobs.ts:77`. A revenant kill pays double, not less.
 

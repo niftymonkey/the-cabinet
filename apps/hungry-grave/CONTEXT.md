@@ -76,7 +76,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Toll**: One firing of the bell, on its own clock and never bought by a swallow. _Avoid_: pulse, tick, cast.
 
-**Cone**: One expanding cone a toll throws, damaging what its leading edge crosses and pushing at the higher levels. Its angles, reach and push are tuning rows. The Banshee's tear-rings are mob fire and are never a cone. _Avoid_: arc, ring, shockwave, wave, AOE.
+**Cone**: One expanding cone a toll throws, damaging what its leading edge crosses and pushing at every level, harder as the level rises (`bell.ts:101-107`). Its angles, reach and push are tuning rows. The Banshee's tear-rings are mob fire and are never a cone. _Avoid_: arc, ring, shockwave, wave, AOE.
 
 **Patch**: One piece of claimed ground, torn open by one lay. It belongs to the world rather than the screen, so it drifts down with the field while the grave keeps moving, and it is finished at birth: the radius its level bought never changes afterwards. The torn-open look is expression, not identity (ADR 0044). _Avoid_: zone, tile, puddle, hazard.
 

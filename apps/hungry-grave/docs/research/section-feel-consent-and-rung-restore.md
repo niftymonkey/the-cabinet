@@ -178,7 +178,7 @@ One thing the wording must carry that no precedent faced: the author name field.
 
 **Option B: the fallen rung is a generic level, applied by the game's usual rule.** Same hit, same falling body, but a plain rung: you dive under it, the drop rule runs, and the level goes wherever the dice or the offer put it.
 
-*What it buys:* it is the industry standard by five cases to one, it reuses the drop path that already exists, and it needs no new art or new identity on the falling body. It also gives the player in the spiral a chance to redirect into a line that is worth more than the one they lost, which is a comeback on top of a comeback.
+*What it buys:* it is the industry standard by four cases to two, it reuses the drop path that already exists, and it needs no new art or new identity on the falling body. It also gives the player in the spiral a chance to redirect into a line that is worth more than the one they lost, which is a comeback on top of a comeback.
 
 *What it costs:* the redirect is exactly the problem. Cave Story's crystals are the shipped proof that generic experience gets poured into the weapon the player prefers rather than the one that bled, so here a hit becomes a chance to re-roll a bad build. And ADR 0034 makes a drop an offer of three, so a generic rung is a build decision presented in the second after a hit at the size floor, which is the worst moment in the run to open a menu.
 
