@@ -205,3 +205,43 @@ Tests first, red, then the code. Slice 2's coder wrote the implementation before
 ## Commit messages
 
 Code: `feat(hungry-grave): the hand's attention lapses and it holds a stale command when it does (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 5 (#98)`, appended as section 13 titled "Slice 5, the two knobs", with its row added to section 1's table, the widened `harnessPolicy` signature and the retired `holdBound` recorded in section 5 as seams that moved, and verification step 9's result in section 7.
+
+## Slice 6, as dispatched in session 18 (after slice 5 landed)
+
+The launch preamble is the slice 1 one above. Model: Opus, subagent type general-purpose.
+
+Step 3 slice 6 of The Hungry Grave (ticket #98): the comparison, and the done line.
+
+Read `apps/hungry-grave/docs/push/step-3-coder-contract.md` (inside the worktree) first and follow it in full, including its reading order. Read `docs/agents/feature-playbook.md` and follow it. The dispatch contract items the playbook asks for (definition, verification steps with actors, seams, module boundaries, the test list) are plan sections 1 to 8 of `apps/hungry-grave/docs/design/step-3-playing-harness-dispatch.md`; section 10 is the slice list and yours is slice 6.
+
+## Your slice
+
+Plan section 10, slice 6, in full: `compareBatches.ts` with the directions, the band separation row and the corner agreement. Spec tests 42 to 44 and module tests 67 and 68 land here. **Verification steps 11 and 12 run here.** Read the plan's section 4 entry for `compareBatches.ts` in full before the first edit, and the design record's section 4 subsection "How a comparison is stated".
+
+**Play both corners fresh at your own tip, 48 seeds each.** The sharp batch that exists on disk was recorded against `5f7f365e99`, which is four commits back and before the hand's knobs existed. Slice 5 proved `steady-far`'s behaviour is unchanged by replaying six seeds to identical figures, so the old batch is not wrong, but a comparison whose two halves carry two commit hashes is a comparison through two instruments and that is the exact thing the batch identity exists to catch. Play `steady-far` and `shaky-short` both, from the same seed base as the sharp half used (20260909), at the tip your code commit will have. The sharp half costs about two and a half minutes; slice 5's note says the sloppy half is much cheaper because its runs are short. Run them alone, not beside the suite.
+
+**Report the two reach rates and do not judge them.** How many of 48 entered the Undertaker's phase under each corner, side by side, in the note and in a comment on #98. **Whether they are far enough apart is Mark's step 17 and it is not yours**, and neither is any conclusion about whether a row should move. If the numbers look wrong to you, that is a finding for the note and for #39, never an edit.
+
+**The separation row is a number that must exist before it can be measured.** The plan's verification step 12 says it ships as data at zero, meaning bands that merely fail to overlap, and the first two batches are what say what it should be. Report what the two corners' bands actually looked like and **propose** a figure; do not change the row without saying plainly in the note that you did and why.
+
+**A finding you are handed, and what to do with it.** Slice 5 looked at six seeds and saw the sloppy corner running three to five thousand ticks against the sharp corner's twenty-plus thousand, a seventh of the run. The record was written fearing the two corners would sit on top of each other; the first look says the opposite may be true, and that a middling rung may carry the interesting part of the ladder. Your 48-seed pair is the real measurement of that. Put it in the note and on #98 as a reading. **Do not retune, do not move a rate, and do not add a rung.** If the corners are far apart, that is Mark's step 17 answering itself and it is his to read.
+
+Hand-forwards that bind you: **`compareBatches.ts` joins guard 81's `MODULES` list here**, which slice 4b and slice 5 both left owed. Nothing this slice adds is a reading, so `BATCH_READINGS` and `batchReadingDeclared.test.ts` are untouched unless you add one, in which case it needs its row. **#116, the lapse depth's missing tail, is filed and unbuilt**: the record's section 3 names its trigger, and your comparison is the evidence that either fires it or does not. Say which in the note, and never build it.
+
+Tests first, red, then the code. `GOLDEN`, `WITNESS_VERSION` (6), `READINGS_VERSION` (2) and `FORMAT_VERSION` (3) must not move; if any does, stop, the slice is wrong.
+
+`.claude/rules/code-core.md` rules the shape: guards at the top, one concept per file, the public interface at the module's end, nothing abnormal silent.
+
+## State of the branch
+
+- Code so far: slice 1 `66dfcea268`, slice 2 `c784a356e5`, slice 3 `4093d4be81`, slice 4a `eb41654b11`, slice 4b `876aa63f72`, slice 5 `6abdb4255c` (note `8db7b7fee0`). Read the progress note's sections 1 to 7 and sections 8 to 13 in full before any edit, and section 13's hand-forwards in particular.
+- The design record's section 3 was amended on 2026-09-09 after Mark asked whether the knobs were too siloed: the hold is a lapse of attention rolled per decision, not a number drawn every decision. Read that amendment, because the comparison you are writing is a comparison between hands built that way.
+- The test-name baseline is at `local/step3/tests-baseline.txt` (under `apps/hungry-grave/local/`, outside version control); diff your test names against it and report yours net of what slices 1 to 5 account for (the counts are in the note's section 7).
+- `pnpm verify` was green at `6abdb4255c` (1761 passed, typecheck and build green with the two standing warnings). Five whole-stage `dodgePolicy` tests in `bot.test.ts` time out intermittently under parallel load, never on an assertion, pre-existing; the fix is slice 7's, not yours. Run the suite alone once more before calling anything red (`docs/agents/lessons.md`).
+- A process slip from slice 5, recorded so you do not repeat it: its mutation script restored files with `git checkout` and reverted three of them mid-slice. Mutate against copies, never against the working tree.
+- Never run any command from the main checkout at `/home/mlo/dev/niftymonkey/the-cabinet`. Any scratch file goes in the session scratchpad directory named in your system prompt. `local/` is reached by none of the standing checks except vitest, so no `*.test.ts` ever goes there; nothing under `local/` ever enters a commit. Editor diagnostics name scratch files and stale states; `pnpm typecheck` is the judge. Nothing under `docs/` is ever handed to prettier by name. Do not touch `docs/push/handoff.md`.
+- Check `git status --short` is clean before your first edit.
+
+## Commit messages
+
+Code: `feat(hungry-grave): two batches compare by direction, and the corners either agree or split (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 6 (#98)`, appended as section 14 titled "Slice 6, the comparison, and the done line", with its row added to section 1's table, verification steps 11 and 12 in section 7, and the two corners' tables in the section itself.
