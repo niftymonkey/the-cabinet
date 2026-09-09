@@ -9,6 +9,7 @@ The plan is `apps/hungry-grave/docs/design/step-4-mow-ladder-director-dispatch.m
 | 0, the baselines | none | No commit by design. Section 6 says what it produced and where. |
 | A0, the build identity | `26a064a064` | `feat(hungry-grave): the tape carries a build identity that a dirty tree changes (#82)` |
 | 1, round 0, the frame budget | `c23be6156c` | `feat(hungry-grave): the frame budget has a reproducible instrument (#39)` |
+| 1, the refusal | `3594fe154a` | `feat(hungry-grave): the frame budget refuses pools that cannot stand its table (#39)` |
 
 ## 2. GOLDEN moves
 
@@ -23,6 +24,8 @@ Slice 1: none of the four moved. `git diff --stat` from `0b5574fd63` to `c23be61
 Slice A0: `coderabbit review --agent --uncommitted` from the repo root over the staged work, twenty-one files reviewed, **one finding, major, applied**, then a clean re-review over the same twenty-one files with **no findings**.
 
 - **Applied, major.** The identity called a tree clean when the only uncommitted work was untracked. `git describe --dirty` and `git diff HEAD` both answer for tracked files alone, so a slice that writes a new module and records a tape before staging it, which is exactly what this slice itself did, would stamp two builds under two different rules with one identity. That is the confusion #82 exists to end, so the fix went in rather than to a ticket. `--dirty` came off the describe, `git status --porcelain --untracked-files=all` became the one authority on whether anything is uncommitted, and the digest now folds three things: `git diff HEAD`, the untracked paths, and the contents behind them. The digest deliberately does not read the porcelain output, because staging a file changes what `--porcelain` prints without changing the build it describes, and an identity that moved on staging would put a build note on readings that deserve none. One test came with it, `counts a file nobody has added yet as uncommitted work`, which is the eleventh name in section 7's diff.
+
+Slice 1's second commit, `3594fe154a`: one file reviewed, **no findings**.
 
 Slice 1: `coderabbit review --agent --uncommitted` from the repo root over the staged work, twelve files reviewed. **Two findings, both major, one applied.** Then a re-review over the same twelve files with **one minor finding, declined**.
 
@@ -136,7 +139,7 @@ The refusal arrives before playback, so no build note rides with it. That is rig
 
 **Slice 1, round 0, the frame budget. Four steps, all with the agent as actor, all run. One step of this slice has the human as its actor and it is open: the phone half.**
 
-**Step 1, the standing checks.** `pnpm typecheck` and `pnpm vitest run` green in `apps/hungry-grave/`, then `pnpm verify` green from the worktree root, exit 0: 141 test files, 1846 passed, 10 expected fail, 2 todo. `pnpm build` green as well, and the browser entry lands in its own 5.66 kB lazy chunk rather than in the boot chunk.
+**Step 1, the standing checks.** `pnpm typecheck` and `pnpm vitest run` green in `apps/hungry-grave/`, then `pnpm verify` green from the worktree root, exit 0, at both of the slice's commits: 141 test files, 1846 passed, 10 expected fail, 2 todo. `pnpm build` green as well, and the browser entry lands in its own 5.66 kB lazy chunk rather than in the boot chunk.
 
 **Step 2, the test-name diff.** Against the section 6 baseline: `1834 names in the baseline, 1856 now: 22 added, 0 removed`. Eleven of the twenty-two are A0's. The eleven this slice added:
 
@@ -189,7 +192,7 @@ Commit `c23be6156c`, twelve files, ten planned tests plus one from the review.
 pnpm vite-node --config vite.frame-budget.config.ts scripts/frame-budget.ts
 ```
 
-prints all six rows with the sim columns filled. The plainer `--config vite.headless.config.ts` spelling the dispatch named runs the same script and refuses the three fields above the shipped caps, so the alias config is the one to use.
+prints all six rows with the sim columns filled. The plainer `--config vite.headless.config.ts` spelling the dispatch named runs the same script under the shipped caps, which cannot stand three of the six fields. It stack-traced out of the middle of the fourth one and lost the three good rows above it, so a second commit, `3594fe154a`, made it a refusal instead: it names the fields the pools cannot stand and the config that can, takes no measurement, and exits 1. A table missing a field is not the record's table, so a partial run is refused rather than printed.
 
 The render columns need a renderer, so they come from the browser, at `#/frame-budget` on any build. `pnpm build` then `pnpm exec vite preview`, or the deployed URL on a phone, which is the half that is Mark's.
 
