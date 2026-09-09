@@ -119,6 +119,17 @@ interface TapeHeader {
    */
   readonly author: string;
   readonly inputDevice: TapeInputDevice;
+  /**
+   * Which policy steered the run, so a hand's tape is never mistaken for a
+   * person's (ADR 0053).
+   *
+   * A name string and never a code byte: the set of policy names is open, and a
+   * positional or ordinal encoding over an open set is the exact mistake
+   * ADR 0043 was written against. A person's run records PERSON_POLICY and a
+   * fixed arithmetic wander records SCRIPT_POLICY, both resolved values because
+   * ADR 0027 forbids an absence.
+   */
+  readonly policy: string;
   // ADR 0011's keyboard speed multiplier, which changes what a command means.
   readonly keyboardSpeed: number;
   // "webgl" or "webgpu", a constant for a run rather than a per-frame series.

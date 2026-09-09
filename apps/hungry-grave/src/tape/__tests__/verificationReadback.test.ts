@@ -26,6 +26,7 @@ import { decodeTape } from '../decode';
 import { encodeTape } from '../encode';
 import { recordFrame, recordInto, sealTrailer, tapeOf } from '../recorder';
 import type { Tape, TapeHeader } from '../tape';
+import { SCRIPT_POLICY } from '../tape';
 import { readBackForVerification } from '../verificationReadback';
 
 const SEED = 20260823;
@@ -45,6 +46,7 @@ function header(run: RunState): TapeHeader {
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,
@@ -284,7 +286,9 @@ describe('verification readback', () => {
     // the ending, and a readback obliged to reproduce a tape in full must keep
     // feeding every command it holds. This builds such a tape exactly as an
     // old build did: the authority looped straight past the seal, recorder
-    // listening.
+    // listening. Version 1 is two bumps back and no such tape decodes here any
+    // more, and the obligation is the format's rather than that tape's: a
+    // reader reproduces what a tape holds and never what it expects to hold.
     const run = createRun(SEED);
     const execution = createExecution(run);
     const recorder = recordInto(execution, header(run));

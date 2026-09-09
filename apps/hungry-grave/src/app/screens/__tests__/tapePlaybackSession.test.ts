@@ -21,6 +21,7 @@ import {
   tapeOf,
 } from '../../../tape/recorder';
 import type { Tape, TapeHeader } from '../../../tape/tape';
+import { SCRIPT_POLICY } from '../../../tape/tape';
 import { createTapePlaybackSession } from '../tapePlaybackSession';
 
 /** The recorded debt the trailer carries, asserted against the debt readout. */
@@ -40,6 +41,7 @@ function headerFor(run: RunState): TapeHeader {
     buildIdentity: '',
     author: 'test',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'test',
     rendererResolution: 1,

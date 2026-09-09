@@ -20,7 +20,7 @@ import {
   witnessSegment,
 } from '../../tape/segments';
 import type { TapeHeader, TapeTrailer } from '../../tape/tape';
-import { stopOf } from '../../tape/tape';
+import { PERSON_POLICY, stopOf } from '../../tape/tape';
 import {
   STORE_KEPT_RECENT_TAPES,
   STORE_KEPT_SPARED_TAPES,
@@ -40,6 +40,7 @@ const HEADER: TapeHeader = {
   buildIdentity: '',
   author: 'unknown',
   inputDevice: 'keyboard',
+  policy: PERSON_POLICY,
   keyboardSpeed: 1,
   rendererBackend: 'webgl',
   rendererResolution: 2,

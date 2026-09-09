@@ -18,7 +18,7 @@ import { decodeTape } from '../decode';
 import { encodeTape } from '../encode';
 import { COMMAND_BYTES } from '../segments';
 import type { Observation, Tape, TapeCheckpoint, TapeHeader } from '../tape';
-import { stopOf } from '../tape';
+import { PERSON_POLICY, SCRIPT_POLICY, stopOf } from '../tape';
 import { FORMAT_VERSION, TAPE_MAGIC } from '../wireCodes';
 
 /** Every field of the header's closed list, each a different value so none can stand in for another. */
@@ -34,6 +34,7 @@ const HEADER: TapeHeader = {
   buildIdentity: '',
   author: 'unknown',
   inputDevice: 'touch',
+  policy: 'shaky-short',
   keyboardSpeed: 1.25,
   rendererBackend: 'webgpu',
   rendererResolution: 2,
@@ -148,7 +149,9 @@ describe("a tape's bytes", () => {
     // Sealed FORMAT_VERSION 1 tapes outside this tree were recorded with the
     // checks switched off, and their trailer's integrity byte is 3. Nothing
     // writes unchecked any more, so this byte and its meaning are pinned here
-    // rather than by any writer.
+    // rather than by any writer. Those tapes are two versions back and no
+    // reader here will decode them again, and the byte stays pinned anyway,
+    // because the code maps are append-only for as long as the format lives.
     const bytes = encodeTape({
       ...FULL,
       trailer: {
@@ -494,15 +497,19 @@ describe('the self-describing header (#76, ADR 0043)', () => {
     return bytes;
   }
 
-  it('a format version 1 tape is refused with a format-version error, not decoded', () => {
-    // The accepted cost of making the roster self-describing, recorded here so
-    // it is never mistaken for an oversight: version 1 wrote one level byte per
+  it('a format version 2 tape is refused with a format-version error, not decoded', () => {
+    // The accepted cost of two self-describing steps, recorded here so neither
+    // is ever mistaken for an oversight. Version 1 wrote one level byte per
     // line positionally, so byte for byte a version-2 reader would return a
-    // headstones level presented as a Territory level. Byte count is not the
-    // test, and this is what "a reader refuses a version it does not know
-    // rather than guessing at a layout" costs, paid once.
-    expect(FORMAT_VERSION).toBe(2);
-    expect(() => decodeTape(atVersion(1))).toThrow(TapeFormatError);
+    // headstones level presented as a Territory level. Version 2 wrote no
+    // policy, so a version-3 reader walking a version-2 header would read the
+    // keyboard speed's first bytes as the policy's length and every field after
+    // it would be somebody else's. Byte count is not the test, and this is what
+    // "a reader refuses a version it does not know rather than guessing at a
+    // layout" costs, paid once per bump (ADR 0018, ADR 0043).
+    expect(FORMAT_VERSION).toBe(3);
+    expect(() => decodeTape(atVersion(2))).toThrow(TapeFormatError);
+    expect(() => decodeTape(atVersion(2))).toThrow(/format version 2/);
     expect(() => decodeTape(atVersion(1))).toThrow(/format version 1/);
   });
 
@@ -553,5 +560,77 @@ describe('the self-describing header (#76, ADR 0043)', () => {
     expect(tape.header.recordedRoster).toEqual(smaller);
     expect(tape.header.startingLevels).toEqual(levels);
     expect('bell' in tape.header.startingLevels).toBe(false);
+  });
+});
+
+/**
+ * The header names which policy steered the run, so a hand's tape is never
+ * mistaken for a person's (ADR 0053).
+ */
+describe('the policy the header names (ADR 0053, ADR 0043)', () => {
+  /** Where a needle's bytes start in a haystack, or -1. */
+  function indexOfBytes(haystack: Uint8Array, needle: Uint8Array): number {
+    for (let at = 0; at + needle.length <= haystack.length; at++) {
+      if (needle.every((byte, step) => haystack[at + step] === byte)) return at;
+    }
+    return -1;
+  }
+
+  it('names the policy that steered the run, beside the input device', () => {
+    // ADR 0053: a bot run is never mistaken for a person's. The policy is its
+    // own field and not a reading of the device, so neither stands in for the
+    // other and moving one moves the bytes without moving the other.
+    const steered = encodeTape({
+      ...FULL,
+      header: { ...HEADER, policy: 'steady-far' },
+    });
+    const { tape } = decodeTape(steered);
+
+    expect(tape.header.policy).toBe('steady-far');
+    expect(tape.header.inputDevice).toBe(HEADER.inputDevice);
+    expect(steered).not.toEqual(encodeTape(FULL));
+  });
+
+  it('carries the policy as a name string and never as a code byte', () => {
+    // ADR 0043: the set of policy names is open, and a positional or ordinal
+    // encoding over an open set is the exact mistake that ADR was written
+    // against. A name no build in this tree compiles goes in and comes back out
+    // as itself, and its own letters are in the bytes.
+    const unknownToThisBuild = 'a-hand-nobody-compiled';
+    const bytes = encodeTape({
+      ...FULL,
+      header: { ...HEADER, policy: unknownToThisBuild },
+    });
+
+    expect(decodeTape(bytes).tape.header.policy).toBe(unknownToThisBuild);
+    expect(
+      indexOfBytes(bytes, new TextEncoder().encode(unknownToThisBuild)),
+    ).toBeGreaterThan(-1);
+  });
+
+  it('reserves a resolved policy name for each run the game itself records, and never an absence', () => {
+    // ADR 0027: a header value is the value the run actually started from, so
+    // the empty string is not available to a person's run or to a scripted
+    // wander. `unknown` is not available either, because the input device
+    // already spends that word on a real unknown.
+    expect(PERSON_POLICY).not.toBe('');
+    expect(SCRIPT_POLICY).not.toBe('');
+    expect(PERSON_POLICY).not.toBe(SCRIPT_POLICY);
+    for (const reserved of [PERSON_POLICY, SCRIPT_POLICY]) {
+      const bytes = encodeTape({
+        ...FULL,
+        header: { ...HEADER, policy: reserved },
+      });
+      expect(decodeTape(bytes).tape.header.policy).toBe(reserved);
+    }
+  });
+
+  it('round-trips every field of a header whose policy name carries multibyte characters', () => {
+    // The length prefix counts bytes and not characters, so a name outside
+    // ASCII is what says whether the writer counted the right thing.
+    const named: TapeHeader = { ...HEADER, policy: 'stadig-fjarran ☠' };
+
+    const { tape } = decodeTape(encodeTape({ ...FULL, header: named }));
+    expect(tape.header).toEqual(named);
   });
 });

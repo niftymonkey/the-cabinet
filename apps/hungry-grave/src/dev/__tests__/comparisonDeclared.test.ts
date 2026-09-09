@@ -17,6 +17,7 @@ import { createExecution, executeTick } from '../../game/execution';
 import { createRun } from '../../game/run';
 import { WITNESS_VERSION } from '../../game/witness';
 import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
+import { SCRIPT_POLICY } from '../../tape/tape';
 import { READING_COMPARISONS } from '../compareRuns';
 import type { Metrics } from '../measure';
 import { measure } from '../measure';
@@ -40,6 +41,7 @@ const shortReport = (): Metrics => {
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,

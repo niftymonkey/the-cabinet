@@ -118,6 +118,7 @@ const readHeader = (payload: ByteReader): TapeHeader => {
     readU8(payload),
     'an input device',
   );
+  const policy = readString(payload);
   const keyboardSpeed = readF32(payload);
   const rendererBackend = readString(payload);
   const rendererResolution = readF32(payload);
@@ -138,6 +139,7 @@ const readHeader = (payload: ByteReader): TapeHeader => {
     buildIdentity,
     author,
     inputDevice,
+    policy,
     keyboardSpeed,
     rendererBackend,
     rendererResolution,

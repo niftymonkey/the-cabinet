@@ -24,8 +24,16 @@ const TAPE_MAGIC = 'HGTP';
  * headstones level presented as a Territory level. Byte count is not the test.
  * The header now names the roster it was written against, so the next roster
  * change costs no version at all.
+ *
+ * It moved to 3 with #98. The header gained the policy that steered the run
+ * (ADR 0053), and the header is positional, so a version-2 reader walking a
+ * version-3 header would read the policy's length prefix as the keyboard speed
+ * and every field after it would be somebody else's. The bump is taken once and
+ * carries one field: the director's budget is authored stage content rather
+ * than a value a run resolves, so ADR 0027 does not reach it and it takes no
+ * header field (ADR 0056).
  */
-const FORMAT_VERSION = 2;
+const FORMAT_VERSION = 3;
 
 /**
  * EVERY ENCODING HERE IS PERMANENT FROM THE FIRST TAPE. The code maps are

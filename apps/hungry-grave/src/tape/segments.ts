@@ -94,6 +94,7 @@ const writeHeaderRecord = (payload: ByteWriter, header: TapeHeader): void => {
   writeString(payload, header.buildIdentity);
   writeString(payload, header.author);
   writeU8(payload, INPUT_DEVICE_CODES[header.inputDevice]);
+  writeString(payload, header.policy);
   writeF32(payload, header.keyboardSpeed);
   writeString(payload, header.rendererBackend);
   writeF32(payload, header.rendererResolution);

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { WEAPON_LINES } from '../../game/lines/roster';
 import { resolveStartingLevels } from '../startingLevels';
 import type { TapeHeader } from '../tape';
+import { SCRIPT_POLICY } from '../tape';
 
 const BASE: TapeHeader = {
   seed: 20260827,
@@ -18,6 +19,7 @@ const BASE: TapeHeader = {
   buildIdentity: '',
   author: 'unknown',
   inputDevice: 'script',
+  policy: SCRIPT_POLICY,
   keyboardSpeed: 1,
   rendererBackend: 'webgl',
   rendererResolution: 2,

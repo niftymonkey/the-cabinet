@@ -18,7 +18,7 @@ import type {
   TapeIntegrity,
   TapeStop,
 } from '../tape/tape';
-import { frameObservations, stopOf } from '../tape/tape';
+import { frameObservations, PERSON_POLICY, stopOf } from '../tape/tape';
 import { performanceOf, ticksToSample } from './framePerformance';
 import type { PerformanceReport } from './framePerformance';
 import { createReadings, readingsOf } from './readings/readings';
@@ -66,13 +66,19 @@ interface RunSummary {
  * policy rather than a player, a conditioned run did not start from the
  * birthright, and a faulted or unchecked run is poor evidence by ADR 0019's
  * own rule that aggregates exclude faulted runs by default.
+ *
+ * The policy is a second guard beside the device and it does real work: nothing
+ * in production writes `bot`, so the device alone cannot tell a scripted wander
+ * from a hand playing the whole game (ADR 0053).
  */
 type AggregateExclusion =
-  'bot' | 'script' | 'conditioned' | 'faulted' | 'unchecked';
+  'bot' | 'script' | 'policy' | 'conditioned' | 'faulted' | 'unchecked';
 
 // Who and what produced the run, and whether it belongs in default aggregates.
 interface Provenance {
   readonly inputDevice: TapeInputDevice;
+  // Which policy steered the run, carried off the header so a report says which hand it was.
+  readonly policy: string;
   /**
    * Whether the resolved starting size or levels differ from today's
    * birthright. A birthright retune mislabels old tapes toward exclusion,
@@ -180,6 +186,7 @@ const exclusionsOf = (
   const exclusions: AggregateExclusion[] = [];
   const device = tape.header.inputDevice;
   if (device === 'bot' || device === 'script') exclusions.push(device);
+  if (tape.header.policy !== PERSON_POLICY) exclusions.push('policy');
   if (isConditioned(tape.header, levels)) exclusions.push('conditioned');
   const integrity = tape.trailer?.integrity ?? null;
   if (integrity === 'faulted' || recordedFaults.length > 0) {
@@ -195,6 +202,7 @@ const provenanceOf = (
   recordedFaults: readonly FaultObservation[],
 ): Provenance => ({
   inputDevice: tape.header.inputDevice,
+  policy: tape.header.policy,
   conditioned: isConditioned(tape.header, levels),
   exclusions: exclusionsOf(tape, levels, recordedFaults),
 });

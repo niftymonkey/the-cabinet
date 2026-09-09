@@ -31,6 +31,7 @@ import {
   tapeOf,
 } from '../../tape/recorder';
 import type { FrameObservation, Tape, TapeHeader } from '../../tape/tape';
+import { PERSON_POLICY } from '../../tape/tape';
 import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
 import {
@@ -61,6 +62,7 @@ function header(
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: PERSON_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,
@@ -665,6 +667,7 @@ describe('measure', () => {
 
     expect(measured.provenance).toEqual({
       inputDevice: 'bot',
+      policy: PERSON_POLICY,
       conditioned: false,
       exclusions: ['bot'],
     });
@@ -680,6 +683,7 @@ describe('measure', () => {
 
     expect(measured.provenance).toEqual({
       inputDevice: 'keyboard',
+      policy: PERSON_POLICY,
       conditioned: true,
       exclusions: ['conditioned'],
     });
@@ -692,9 +696,40 @@ describe('measure', () => {
 
     expect(measured.provenance).toEqual({
       inputDevice: 'keyboard',
+      policy: PERSON_POLICY,
       conditioned: false,
       exclusions: [],
     });
+  });
+
+  it('carries the policy that steered on a verified run, beside the input device', () => {
+    // The policy and the device are two different facts about one run: a hand
+    // plays through the same command channel a person does (ADR 0029), so a
+    // report says which hand steered without anyone reading the header.
+    const measured = verified(
+      measure(
+        decodedOf(recordARun({ inputDevice: 'bot', policy: 'steady-far' })),
+      ),
+    );
+
+    expect(measured.provenance.policy).toBe('steady-far');
+    expect(measured.provenance.inputDevice).toBe('bot');
+  });
+
+  it('keeps a run steered by anything but the person out of the default aggregate', () => {
+    // ADR 0019: aggregates exclude poor evidence by default. The device alone
+    // cannot do it, because nothing in production writes `bot`: a scripted
+    // wander and a full hand run are both `script` or worse. The policy is what
+    // separates them, and the keyboard run above is the same call answering no.
+    const measured = verified(
+      measure(
+        decodedOf(
+          recordARun({ inputDevice: 'keyboard', policy: 'steady-far' }),
+        ),
+      ),
+    );
+
+    expect(measured.provenance.exclusions).toEqual(['policy']);
   });
 
   it("names the weapon lines from the tape's own recorded roster and not from a compiled list", () => {

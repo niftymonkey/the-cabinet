@@ -60,6 +60,7 @@ import { WITNESS_VERSION } from '../../game/witness';
 import { encodeTape } from '../../tape/encode';
 import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
 import type { TapeHeader } from '../../tape/tape';
+import { SCRIPT_POLICY } from '../../tape/tape';
 import { RECORDER_CHECKPOINT_SPACING } from '../../tape/recorder';
 import { REPLAY_HASH } from '../routes';
 import { tapeFileName } from '../tapeExport';
@@ -103,6 +104,7 @@ function headerFor(run: RunState): TapeHeader {
     buildIdentity: '',
     author: 'test',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'test',
     rendererResolution: 1,

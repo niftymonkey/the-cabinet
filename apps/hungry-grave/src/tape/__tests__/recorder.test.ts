@@ -27,7 +27,12 @@ import {
   tapeOf,
 } from '../recorder';
 import type { TapeHeader } from '../tape';
-import { faultObservations, frameObservations, stopOf } from '../tape';
+import {
+  faultObservations,
+  frameObservations,
+  SCRIPT_POLICY,
+  stopOf,
+} from '../tape';
 
 const SEED = 20260823;
 
@@ -45,6 +50,7 @@ function header(run: RunState, spacing = 5): TapeHeader {
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,

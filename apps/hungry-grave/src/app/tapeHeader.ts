@@ -5,6 +5,7 @@ import { TICK_HZ } from '../game/clock';
 import type { RunState } from '../game/run';
 import { WITNESS_VERSION } from '../game/witness';
 import type { TapeHeader, TapeInputDevice } from '../tape/tape';
+import { PERSON_POLICY } from '../tape/tape';
 import { RECORDER_CHECKPOINT_SPACING } from '../tape/recorder';
 import { userSettings } from './userSettings';
 
@@ -83,6 +84,7 @@ const tapeHeaderFor = (
     buildIdentity: UNRESOLVED_BUILD,
     author: UNNAMED_AUTHOR,
     inputDevice: conditions.inputDevice,
+    policy: PERSON_POLICY,
     keyboardSpeed: conditions.keyboardSpeed,
     rendererBackend: conditions.rendererBackend,
     rendererResolution: conditions.rendererResolution,

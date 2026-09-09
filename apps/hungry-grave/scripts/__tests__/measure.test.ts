@@ -22,6 +22,7 @@ import { decodeTape } from '../../src/tape/decode';
 import { encodeTape } from '../../src/tape/encode';
 import { recordInto, sealTrailer, tapeOf } from '../../src/tape/recorder';
 import type { TapeHeader } from '../../src/tape/tape';
+import { SCRIPT_POLICY } from '../../src/tape/tape';
 
 const APP = resolve(import.meta.dirname, '..', '..');
 const VITE_NODE = join(APP, 'node_modules', '.bin', 'vite-node');
@@ -42,6 +43,7 @@ function header(run: RunState): TapeHeader {
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,

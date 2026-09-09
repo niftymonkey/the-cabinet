@@ -16,6 +16,7 @@ import { createRun } from '../../game/run';
 import { WITNESS_VERSION } from '../../game/witness';
 import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
 import type { Tape, TapeHeader } from '../../tape/tape';
+import { SCRIPT_POLICY } from '../../tape/tape';
 import type {
   ComparedReading,
   ComparedRuns,
@@ -56,6 +57,7 @@ function header(
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,

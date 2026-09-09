@@ -33,6 +33,7 @@ const HEADER: TapeHeader = {
   buildIdentity: '',
   author: 'unknown',
   inputDevice: 'keyboard',
+  policy: 'steady-far',
   keyboardSpeed: 1.5,
   rendererBackend: 'webgl',
   rendererResolution: 2,
@@ -131,7 +132,9 @@ describe('the segment encoders', () => {
     // Two sealed FORMAT_VERSION 1 tapes exist outside the tree, so the layout
     // is frozen: the whole-tape encoder is pinned by codec.test.ts, and this
     // equality is what makes the segments the same format rather than a second
-    // one.
+    // one. Those tapes are two versions back now and no reader in the tree will
+    // decode them again, and the reason the equality exists is unchanged: two
+    // encoders of one format drift the moment nothing holds them together.
     expect(concatenated(segmentsOfFull())).toEqual(encodeTape(FULL));
   });
 

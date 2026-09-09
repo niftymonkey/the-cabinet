@@ -30,6 +30,7 @@ import {
   tapeOf,
 } from '../src/tape/recorder';
 import type { TapeHeader } from '../src/tape/tape';
+import { SCRIPT_POLICY } from '../src/tape/tape';
 
 const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out-file> <seed> <ticks> ${WEAPON_LINES.map(
   (line) => `${line}=N`,
@@ -149,6 +150,7 @@ const headerFor = (run: RunState): TapeHeader => {
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'headless',
     rendererResolution: 0,

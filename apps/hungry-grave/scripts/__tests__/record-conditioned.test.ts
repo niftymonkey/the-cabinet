@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import { measure } from '../../src/dev/measure';
 import { decodeTape } from '../../src/tape/decode';
+import { SCRIPT_POLICY } from '../../src/tape/tape';
 
 const APP = resolve(import.meta.dirname, '..', '..');
 const VITE_NODE = join(APP, 'node_modules', '.bin', 'vite-node');
@@ -73,6 +74,9 @@ describe('the record-conditioned tool', () => {
         bell: 4,
       });
       expect(decoded.tape.header.inputDevice).toBe('script');
+      // A fixed arithmetic wander is neither a person nor a policy, and ADR
+      // 0027 forbids the absence that would otherwise say so.
+      expect(decoded.tape.header.policy).toBe(SCRIPT_POLICY);
       expect(decoded.tape.trailer).not.toBeNull();
 
       const measured = measure(decoded);

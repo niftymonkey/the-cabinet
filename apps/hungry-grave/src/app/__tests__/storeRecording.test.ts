@@ -18,6 +18,7 @@ import {
 import { decodeTape } from '../../tape/decode';
 import type { TapeRecorder } from '../../tape/recorder';
 import type { FrameObservation, TapeHeader } from '../../tape/tape';
+import { PERSON_POLICY } from '../../tape/tape';
 import { TAPE_MAGIC } from '../../tape/wireCodes';
 import { recordRunToStore } from '../storeRecording';
 import type { TapePart, TapeStore } from '../tapeStore';
@@ -36,6 +37,7 @@ const HEADER: TapeHeader = {
   buildIdentity: '',
   author: 'unknown',
   inputDevice: 'touch',
+  policy: PERSON_POLICY,
   keyboardSpeed: 1,
   rendererBackend: 'webgl',
   rendererResolution: 2,

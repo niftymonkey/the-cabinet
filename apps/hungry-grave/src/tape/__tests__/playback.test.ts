@@ -18,6 +18,7 @@ import { WITNESS_VERSION } from '../../game/witness';
 import { createPlayback, playTape } from '../playback';
 import { recordInto, sealTrailer, tapeOf } from '../recorder';
 import type { Tape, TapeHeader } from '../tape';
+import { SCRIPT_POLICY } from '../tape';
 import { readBackForVerification } from '../verificationReadback';
 
 const SEED = 20260823;
@@ -37,6 +38,7 @@ function header(run: RunState): TapeHeader {
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,
