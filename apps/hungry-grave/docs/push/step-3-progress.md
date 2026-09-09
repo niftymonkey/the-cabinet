@@ -12,6 +12,7 @@ One section per slice at the end, and the cross-slice facts first. Written by ea
 | 3, the header field and the one bump | `4093d4be81` | `feat(hungry-grave): every tape names the policy that steered it, and the format moves to 3 (#98)` |
 | 4a, the runner | `eb41654b11` | `feat(hungry-grave): one command plays a batch of seeds and writes a tape per seed (#98)` |
 | 4b, the report, and the end of A | `876aa63f72` | `feat(hungry-grave): a batch reports every reading as a spread across its seeds, by weapon line (#98)` |
+| 5, the two knobs | `6abdb4255c` | `feat(hungry-grave): the hand's attention lapses and it holds a stale command when it does (#98)` |
 
 ## 2. GOLDEN moves
 
@@ -26,6 +27,8 @@ Slice 3: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6) or `READIN
 Slice 4a: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). The slice adds four files and edits none, so `git status --short` before the commit named exactly those four and `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing. `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded, because nothing this slice changed existed before it: the runner plays through the one execution authority and the shell writes bytes, and neither touches the fold, the witness or the wire.
 
 Slice 4b: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing, and `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded: the report is a reduction of measurements taken off tapes that already existed, the shell writes one more file beside the tapes it already wrote, and `seriesSummary.ts` gains a figure no reading in the tree asked for before. `READINGS_VERSION` in particular is untouched on its own rule (`readingsVersion.ts:13-16`): the batch report is a reader of the readings and adds none.
+
+Slice 5: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing, and `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded: the hand's stream is made in `src/dev` off the run's seed and never inside `RunState`, so the run still holds exactly its own five streams and the fold still walks exactly those, which the new guard in `witness.test.ts` asserts rather than assumes. `stream`'s widened parameter changes who may ask for a stream and not what a stream is, so `StreamName` and `RunState.streams` are untouched.
 
 ## 3. CodeRabbit
 
@@ -44,6 +47,10 @@ Slice 3: `coderabbit review --agent --uncommitted` from the repo root over the s
 Slice 4a: `coderabbit review --agent --uncommitted` from the repo root over the staged work, four files reviewed, **no findings**. Nothing applied and nothing declined.
 
 Slice 4b: `coderabbit review --agent --uncommitted` from the repo root over the staged work, nine files reviewed, **no findings**. Nothing applied and nothing declined.
+
+Slice 5: `coderabbit review --agent --uncommitted` from the repo root over the staged work, nine files reviewed, **one finding, minor, applied**, then a clean re-review over the same nine files.
+
+- **Applied, minor.** The hold-expiry test walked a 40-tick window and asserted only that a decision tick answered what its attentive twin answered, which a hand that never held anything would also pass: on a still enough field a held command and a freshly decided one are the same answer, so every held tick was invisible to it. The window is 400 ticks and the test now also asserts that at least one held tick said something the attentive twin did not, which is the half that makes the hold observable at all. It is the same toothlessness slice 1 found by mutation in module test 75, arriving from a reviewer instead.
 
 ## 4. Plan claims found false against the tree
 
@@ -83,6 +90,8 @@ Slice 4b: `coderabbit review --agent --uncommitted` from the repo root over the 
 
 **18. The record's section 4 asks the belch reading for how much charge was carried into a boss's span, and nothing on a report carries it.** `belchCadence` carries every fire with its tick, `ticksAtFull` and `wasted` (`belchCadence.ts:27-31`), and no reading records the reservoir per tick, so the charge standing at a span's first tick is not readable off a tape today. The plan's own sentence asks only for "a count of fires per span", which is what the report carries: `tuning.belchCadence.fires` reduces to the run's whole count and each boss span's own. **Nothing was built for the missing half and no row moved**; it is a finding for #39, and the trigger is the day a reading records the reservoir.
 
+**19. Plan section 6's module tests 50 and 52 are written against the mechanism the record's 2026-09-09 amendment replaced.** Test 50 reads "A hold bound of zero re-decides every tick and touches the stream not at all", where under the amendment a rate of zero and not a bound of zero is what draws nothing: a row with a positive rate and a bound of zero still rolls for attention and still draws. Test 52 names "a hold bound, a sample list, a belch threshold and a clearance", where the dexterity error is two numbers and a row has five fields beside its name. **The plan's intent was followed and its letter was not**: test 50 landed as `draws nothing at all at the sharp corner`, the row that carries both zeroes, and test 52 is slice 1's own test renamed to `gives every configuration every knob and no optional field` with the six keys asserted. Both are section 13 below.
+
 ## 5. Seams that moved
 
 Slice 1:
@@ -121,6 +130,14 @@ Slice 4b:
 - **Guard 81 is at `src/__tests__/harnessStatesNoTarget.test.ts`**, not under `src/dev/__tests__/`, for the reason in section 4 item 17.
 - **`scripts/batch.ts` takes `<count>` as an optional third argument** defaulting to `BATCH_SEEDS`, which is slice 4a's own hand-forward landing in the commit that creates the row. The order is unchanged: `<configuration> <first-seed> [count] [out-root]`.
 - **Test 71 was renamed to the plan's own wording**, `writes one tape per seed and one report beside them, and prints the folder as the whole of what it says`, because the report is what this slice added to it. Section 7 carries it in the test-name diff.
+
+Slice 5:
+
+- **`harnessPolicy(configuration, seed)`**, widened from `harnessPolicy(configuration)`, which is plan section 4's own amendment landing rather than a departure from it. `HAND_STREAM` is exported beside it and the hand's stream is made from the seed handed in, never from `RunState`.
+- **`Configuration` retires `holdBound` and carries `lapsePerMille` and `lapseBound`.** Slice 1 landed `holdBound` with nothing reading it, and the record's amendment of 2026-09-09 replaced the single bound with a rate and a depth. Nothing outside `configurations.ts` and `harnessPolicy.ts` ever read the retired field.
+- **`ConfigurationName` is the nine-name union** and `CONFIGURATIONS` holds nine rows, which is slice 1's own hand-forward landing. `SLOPPY_HAND` is exported at `shaky-short`, which slice 1 left out because the row did not exist.
+- **`stream`'s name parameter is a string**, not `StreamName`. `StreamName` stays the closed union naming the streams a run holds, `RunState.streams` keeps its exact record type, and `STREAM_ORDER` keeps its five names, all three held by the new guard in `witness.test.ts`.
+- **`rng.test.ts`'s `NAMES` is derived**, `Object.keys(createRun(0).streams)` plus `HAND_STREAM`, and `draws` takes a name string. That closes #113 and it also widened the overlap search from four names to six, so it now covers thirty ordered pairs rather than twelve.
 
 ## 6. The baseline tapes
 
@@ -195,6 +212,18 @@ Slice 4b, from the plan's section 3:
 - **Step 13, the fences**, in the part this slice owns: `src/dev/__tests__/comparisonDeclared.test.ts` green with no edit, `src/__tests__/boundary.test.ts` green with no edit (both rows), `src/__tests__/lineAgnosticPolicies.test.ts` green, and the two guards this slice adds green by their own titles, `every reading on a verified report carries a declared batch reduction` and `the harness reports and never judges`.
 - **Step 14, the batch cost.** A partial figure, because the split between playing and measuring is slice 7's: **2 minutes 24.8 seconds of wall clock** for 48 seeds played and measured, from `time` over the one command, vite's cold boot included. Slice 4a measured a played run at about 1.6 seconds, so the measuring pass is roughly the same again as the playing.
 - **Steps 7, 9, 11 and 12** belong to other slices and were not run. **Steps 15 to 18 are Mark's and stay open**, and step 18, whether the report reads, is now answerable: section 12's table is the printed thing it asks about.
+
+Slice 5, from the plan's section 3:
+
+- **Step 1, unit tests.** Green. 131 files, 1761 passed, 10 expected fail, 2 todo. No timeout on any run of the suite this slice made, over three whole-suite runs.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 3, `pnpm build`.** Green, lint and typecheck included, with the two standing warnings (`@pixi/sound` statically imported alongside its dynamic import, and the pixi chunk over 500 kB). It went red once on prettier alone across three test files, and prettier fixed them.
+- **Step 4, `pnpm verify` at the repo root.** Green, exit 0, run from inside the worktree.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step3/tests-baseline.txt`: **102 names added and one removed**, of which 86 added and the one removal are slices 1 to 4b's, so **sixteen are this slice's: sixteen added, none removed, and one of slice 1's renamed**. Ten in `harnessPolicy.test.ts` (five under the dexterity error, three under the hand's own stream, one strategy error, one determinism), two in `configurations.test.ts`, two in `rng.test.ts` and two in `witness.test.ts`. The rename is slice 1's `gives every configuration all four knobs and no optional field` becoming `gives every configuration every knob and no optional field`, for the reason in section 4 item 19; it is invisible against the slice 0 baseline, because the file it lives in did not exist then. 1670 to 1771.
+- **Step 6, the golden digest.** Did not move. See section 2.
+- **Step 9, the determinism run under `shaky-short`.** **Passed.** `scripts/batch.ts shaky-short 20260909 6` run twice into two scratch folders: the same six tick counts (3716, 5474, 3457, 3649, 4394, 4759), the same six byte counts, 6 of 6 verified both times, and the two `report.json` files equal field for field once the identity block, which carries the wall clock, is set aside. The in-process half is spec test 13, which plays one seed twice under the sloppy corner and compares the tick count, the witness fold, the run's five stream cursors and the ending. It runs under the sloppy corner on purpose: the sharp corner draws nothing, so the same test under the sharp hand would pass on a harness whose stream was wired wrong, which is spec test 14's own promise held separately.
+- **Step 13, the fences**, in the part this slice owns: `src/__tests__/boundary.test.ts` green with no edit, both rows of it, and `src/__tests__/lineAgnosticPolicies.test.ts` green. `harnessPolicy.ts` still reaches only `dev`, `game` and `tape`; `rng.test.ts` and `witness.test.ts` reach `src/dev` for `HAND_STREAM`, which the `game` row already allows in tests (`boundary.test.ts:55`) and which the span fence allows because the reached root differs from the subject's.
+- **Steps 7, 8, 10, 11, 12 and 14** belong to other slices and were not run. **Steps 15 to 18 are Mark's and stay open**, and step 17, whether the two ends of the ladder are far enough apart, now has a first six-seed reading in section 13 that says the risk may be the opposite of the one the record expected.
 
 ## 8. Slice 1, the hand
 
@@ -387,3 +416,34 @@ The commit is `876aa63f72`. Twenty-two test names added across four files and on
 - **The batch tapes and the report are on disk** at `apps/hungry-grave/local/batches/steady-far-1788937370786/`, forty-eight of them plus `report.json`, recorded against `5f7f365e99`. Slice 6's comparison needs a second batch under `shaky-short` to put beside it, and this one is the sharp half already played.
 - **`BATCH_READINGS` covers every reading a verified report carries today**, and a reading slice 5 or later adds needs a row here or `batchReadingDeclared.test.ts` goes red. Slice 5 adds no reading, so nothing is owed.
 - **Slice 5 still owns `HAND_STREAM`, the seed on `harnessPolicy`, the eight other rows and the widened `ConfigurationName`.** `ConfigurationName` is read by `BatchOrigin` and `BatchIdentity`, so widening the union widens them with no edit here.
+
+## 13. Slice 5, the two knobs
+
+The commit is `6abdb4255c`. Sixteen test names added across four files, none removed, and one of slice 1's renamed. **B begins here: the harness has nine hands rather than one.**
+
+**What landed.** `Configuration` retires `holdBound` and carries `lapsePerMille` and `lapseBound` in its place; `ConfigurationName` widens to the nine names and the other eight rows land beside `steady-far`; `SLOPPY_HAND` is exported at `shaky-short`. `harnessPolicy` widens to `harnessPolicy(configuration, seed)`, makes its own stream under `HAND_STREAM` off the seed it was handed, and holds a stale command for a drawn number of ticks whenever the attention roll fails. `stream`'s name parameter widens from `StreamName` to a string, which is the one sim-side change and is what lets `src/dev` make a stream without putting the bot's dice in `RunState`. `rng.test.ts`'s `NAMES` is derived from `Object.keys(createRun(0).streams)` plus `HAND_STREAM`, which closes #113 with a list nobody keeps by hand. `CONTEXT.md` gains Dexterity error and Strategy error.
+
+**The hold is a lapse and not a standing slowness**, which is the record's section 3 as amended on 2026-09-09. Every decision rolls the rate first; only a failed roll draws a depth; a rate of zero rolls nothing at all. The order is in `lapseDepth` and it is what makes `steady-far` touch the stream not once in a whole run.
+
+**`steady-far` did not move, proved against the branch's own recorded batch.** The six seeds from 20260909 were replayed under this slice's code and every figure is identical to slice 4a's table: 24697 sealed, 32652 victory, 28710, 28530, 21979, 27198 ticks, and the same byte count for each. Beyond that, the whole `report.json` of the two batches is equal field for field once the identity block (which carries the wall clock) is set aside. The 48-seed sharp batch at `apps/hungry-grave/local/batches/steady-far-1788937370786/` therefore stays comparable with everything measured after this slice.
+
+**The sloppy corner bites, and hard.** The same six seeds under `shaky-short` run 3457 to 5474 ticks against the sharp corner's 21979 to 32652, with every run sealing where the sharp hand sealed on five and won on one. Median 3716 ticks against 27198, which is roughly a seventh of the run. **It is a reading and nothing was moved because of it**, and the two corners' real comparison is slice 6's with 48 seeds each. Recorded here because a gap this wide is the opposite of the risk the record worried about: the concern was two corners too close to separate, and the first six-seed look says the sloppy hand may be so far below the sharp one that a middling rung carries the interesting part of the ladder. That is #39's and Mark's step 17, not this slice's.
+
+**Sixteen mutations, one per behaviour, fifteen red on the first pass and all sixteen after.** The rate of zero still rolling the stream, a hold one tick too long, a hold that never expires, the depth's top value unreachable, the rate compared off by one, the hand drawing under a run stream's name, the seed ignored, the head knob unread, the lapse never taken at all, the sloppy corner's depth cut to loose's, shaky lapsing at loose's rate, a head thinned rather than shortened, the sloppy corner named wrong, a name that is not a hand word and a head word, and every stream name folded to one. **The one that survived was the rate off by one**, `>=` against `>`, which changes 250 in 1000 into 251 and shows up in no command the hand gives: the draws that separate them are the handful landing on the row's own number. It is now pinned by a test that counts the hand's draws over 30000 ticks against the same schedule, one draw for the attention roll and a second only where the roll failed, which goes red on that mutation.
+
+**The counted-stream tests re-import the module over a passthrough `rng`**, because a draw taken and thrown away changes no command: "the sharp corner draws nothing" is a promise about the stream and not about behaviour, and every behavioural test in the file would stay green with the sentence false. It is `harnessRun.test.ts`'s own `vi.doMock` idiom.
+
+**An instrument of this slice's destroyed part of it, and the fix is worth writing down.** The mutation script restored each file with `git checkout -- <paths>` between mutations, which restores from the branch tip and not from the mutation: it reverted `configurations.ts`, `harnessPolicy.ts` and `rng.ts` to their slice 1 state, and the mutation results after the first were readings of code that was not there. It also ran version control from inside a script, which the coder contract forbids. The implementation was rewritten and the pass re-run against pristine copies taken into the scratchpad. **A mutation harness restores from a copy it took itself, never from version control**, because the thing it is mutating is by definition not committed yet.
+
+**Findings recorded and not acted on.**
+
+- **Plan section 6's module test 50 is written against the superseded mechanism.** It reads "A hold bound of zero re-decides every tick and touches the stream not at all", where the record's amendment makes a rate of zero and not a bound of zero the thing that draws nothing: a row with a positive rate and a bound of zero would still roll for attention. The plan's intent was followed and its letter was not, and what landed is "draws nothing at all at the sharp corner", where the sharp corner is the row that carries both zeroes.
+- **Plan section 6's module test 52 names four knobs and a row has five fields.** The dexterity error is two numbers under the amendment, so slice 1's test `gives every configuration all four knobs and no optional field` is renamed to `gives every configuration every knob and no optional field` and asserts the six keys. It is the only test name this slice renames and it is slice 1's own.
+- **`rng.test.ts`'s `NAMES` had been four names for as long as the run held five.** The territory stream landed and the overlap search was never told, which is #113 and is why the list is derived here. The search now covers all thirty ordered pairs of six names at 100008 draws each and finds no overlap inside a run's whole draw budget, exactly as the record measured.
+
+**Hand-forwards for slice 6 and later.**
+
+- **`compareBatches.ts` joins guard 81's `MODULES` list when it lands**, which is slice 4b's hand-forward and still owed.
+- **The sloppy corner's runs are short**, three to five thousand ticks against the sharp corner's twenty-plus thousand, so a 48-seed `shaky-short` batch costs a fraction of the sharp one's two and a half minutes. Slice 6's step 11 is cheaper than the sharp half was.
+- **Nothing this slice adds is a reading**, so `BATCH_READINGS` is untouched and `batchReadingDeclared.test.ts` needs no entry. `ConfigurationName` widening reached `BatchOrigin` and `BatchIdentity` with no edit in `batchReport.ts`, exactly as slice 4b said it would.
+- **#116, the lapse depth's missing tail, is filed and unbuilt.** The record's section 3 says why it is out of this slice and names its trigger: the day the two corners' bands will not separate, or the day a shaky hand's failures still read as uniform mediocrity in a tape. The six-seed look above says the first half of that trigger is not close.
