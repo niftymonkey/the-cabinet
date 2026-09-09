@@ -28,6 +28,9 @@ import type { FrameSpans } from '../src/dev/frameBudget';
 import type { FieldSize } from '../src/dev/syntheticField';
 import { sizePoolsFor } from './frameBudgetCaps';
 
+const USAGE =
+  'usage: pnpm vite-node --config vite.frame-budget.config.ts scripts/frame-budget.ts';
+
 /**
  * The seed every row plays from, pinned so two runs of this tool measure the
  * same field rather than two different ones (ADR 0012).
@@ -63,6 +66,8 @@ const faultLine = (size: FieldSize, faults: readonly string[]): string =>
 interface FieldDriver {
   readonly drive: (size: FieldSize) => FrameSpans;
   readonly faults: string[];
+  // The fields this process's pools cannot hold, which is a fact about the config it was run under.
+  readonly refuses: (fields: readonly FieldSize[]) => FieldSize[];
 }
 
 /**
@@ -79,6 +84,21 @@ const frameDriver = async (): Promise<FieldDriver> => {
   const { standSyntheticField } = await import('../src/dev/syntheticField');
 
   const faults: string[] = [];
+
+  /**
+   * What a run's pools actually hold. Read off a run rather than off the caps,
+   * because a config that does not alias them leaves the shim's own numbers
+   * unread, and the pool is the thing a field has to fit in.
+   */
+  const refuses = (fields: readonly FieldSize[]): FieldSize[] => {
+    sizePoolsFor(largestField(ROUND_ZERO_FIELDS));
+    const run = createRun(SEED);
+    return fields.filter(
+      (field) =>
+        field.mobs > run.mobs.length || field.corpses > run.corpses.length,
+    );
+  };
+
   const drive = (size: FieldSize): FrameSpans => {
     sizePoolsFor(size);
     const run = createRun(SEED);
@@ -103,12 +123,36 @@ const frameDriver = async (): Promise<FieldDriver> => {
     );
     return { sim, render: [] };
   };
-  return { drive, faults };
+  return { drive, faults, refuses };
+};
+
+/**
+ * The fields refused, said out loud with the config that would hold them.
+ *
+ * Running this under a config that does not alias the caps is an external
+ * failure and the person holding the command line is the nearest owner who can
+ * act, so they get the reason and the cost rather than a stack out of the
+ * middle of the fourth field.
+ */
+const refuse = (fields: readonly FieldSize[]): void => {
+  const named = fields
+    .map((field) => `${field.mobs} / ${field.corpses}`)
+    .join(', ');
+  console.error(
+    `these pools cannot stand ${named}; no measurement was taken, because a table missing a field is not the record's table`,
+  );
+  console.error(USAGE);
 };
 
 const main = async (): Promise<void> => {
   sizePoolsFor(largestField(ROUND_ZERO_FIELDS));
   const driver = await frameDriver();
+  const refused = driver.refuses(ROUND_ZERO_FIELDS);
+  if (refused.length > 0) {
+    refuse(refused);
+    process.exitCode = 1;
+    return;
+  }
   const rows = frameBudgetOver(ROUND_ZERO_FIELDS, driver.drive);
   console.log(frameBudgetTable(rows));
   console.log('');
