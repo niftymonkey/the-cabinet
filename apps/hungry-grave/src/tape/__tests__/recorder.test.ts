@@ -120,6 +120,7 @@ describe('the tape recorder', () => {
     executeTick(execution, offered);
 
     const recorded = recorder.commands[0];
+    if (recorded === undefined) throw new Error('no command recorded');
     expect(recorded.move.x).not.toBe(offered.move.x);
     expect(recorded.move.x).toBe(Math.fround(offered.move.x));
     expect(recorded.move.y).toBe(Math.fround(offered.move.y));
@@ -199,7 +200,9 @@ describe('the tape recorder', () => {
     execution.faults.push({ ...fault, firstTick: 0, count: 1 });
 
     executeTick(execution, steer(0));
-    execution.faults[0].count = 2;
+    const pushedFault = execution.faults[0];
+    if (pushedFault === undefined) throw new Error('no fault pushed');
+    pushedFault.count = 2;
     executeTick(execution, steer(1));
 
     expect(faultObservations(tapeOf(recorder))).toEqual([

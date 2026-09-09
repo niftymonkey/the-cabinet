@@ -37,10 +37,17 @@ const writeBodyAndWitness = (writer: ByteWriter, tape: Tape): void => {
   let written = 0;
   for (let index = 0; index < tape.checkpoints.length; index++) {
     const checkpoint = tape.checkpoints[index];
+    if (checkpoint === undefined) {
+      throw new Error(`no checkpoint at index ${index}`);
+    }
     writeBytes(writer, witnessSegment([checkpoint]));
+    const next = tape.checkpoints[index + 1];
+    if (index + 1 < tape.checkpoints.length && next === undefined) {
+      throw new Error(`no checkpoint at index ${index + 1}`);
+    }
     const until =
-      index + 1 < tape.checkpoints.length
-        ? Math.min(tape.checkpoints[index + 1].index, tape.commands.length)
+      next !== undefined
+        ? Math.min(next.index, tape.commands.length)
         : tape.commands.length;
     if (until <= written) continue;
     writeBytes(

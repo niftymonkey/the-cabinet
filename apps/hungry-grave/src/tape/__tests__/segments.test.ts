@@ -149,14 +149,23 @@ describe('the segment encoders', () => {
   it('fold witness and observations rows split across several segments back in order', () => {
     // decode.ts folds multiple witness and observations chunks in order, which
     // is exactly what lets a store append a run one boundary at a time.
+    const [firstObservation, secondObservation, thirdObservation] =
+      OBSERVATIONS;
+    if (
+      firstObservation === undefined ||
+      secondObservation === undefined ||
+      thirdObservation === undefined
+    ) {
+      throw new Error('OBSERVATIONS has fewer than three entries');
+    }
     const split = concatenated([
       headerSegment(FULL.header),
       witnessSegment([checkpoint(0)]),
       bodySegment(0, commands(0, 4)),
       witnessSegment([checkpoint(4), checkpoint(8)]),
       bodySegment(4, commands(4, 10)),
-      observationsSegment([OBSERVATIONS[0]]),
-      observationsSegment([OBSERVATIONS[1], OBSERVATIONS[2]]),
+      observationsSegment([firstObservation]),
+      observationsSegment([secondObservation, thirdObservation]),
       trailerSegment(TRAILER),
     ]);
 

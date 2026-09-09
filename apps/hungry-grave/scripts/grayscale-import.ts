@@ -17,6 +17,16 @@ import { PNG } from 'pngjs';
 
 import { luma } from '../src/app/color';
 
+/**
+ * One value read off a fixed-size buffer or table, or a bug if the offset ran
+ * past it. Every call site below indexes with an offset already bounded by the
+ * loop or table it was drawn from, so the guard never actually fires.
+ */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 const APP = resolve(import.meta.dirname, '..');
 const STAGED = join(APP, 'assets-staging');
 const IMPORTED = join(APP, 'raw-assets', 'standIn{m}');
@@ -216,7 +226,11 @@ const grayOf = (red: number, green: number, blue: number): number =>
 /** Every pixel's three colour channels set to its own value. Alpha is untouched. */
 const desaturate = (image: PNG): void => {
   for (let at = 0; at < image.data.length; at += 4) {
-    const gray = grayOf(image.data[at], image.data[at + 1], image.data[at + 2]);
+    const gray = grayOf(
+      requireDefined(image.data[at], `no byte at offset ${at}`),
+      requireDefined(image.data[at + 1], `no byte at offset ${at + 1}`),
+      requireDefined(image.data[at + 2], `no byte at offset ${at + 2}`),
+    );
     image.data[at] = gray;
     image.data[at + 1] = gray;
     image.data[at + 2] = gray;
@@ -244,11 +258,12 @@ const greyAtPercentile = (image: PNG, share: number): number => {
   const greys: number[] = [];
   for (let at = 0; at < image.data.length; at += 4) {
     if (image.data[at + 3] === 0) continue;
-    greys.push(image.data[at]);
+    greys.push(requireDefined(image.data[at], `no byte at offset ${at}`));
   }
   if (greys.length === 0) return 0;
   greys.sort((first, second) => first - second);
-  return greys[Math.min(greys.length - 1, Math.floor(greys.length * share))];
+  const index = Math.min(greys.length - 1, Math.floor(greys.length * share));
+  return requireDefined(greys[index], `no grey at index ${index}`);
 };
 
 /**
@@ -273,7 +288,11 @@ const stretchToFullRange = (image: PNG): void => {
   for (let at = 0; at < image.data.length; at += 4) {
     const lifted = Math.min(
       FULL_RANGE,
-      Math.round((image.data[at] * FULL_RANGE) / top),
+      Math.round(
+        (requireDefined(image.data[at], `no byte at offset ${at}`) *
+          FULL_RANGE) /
+          top,
+      ),
     );
     image.data[at] = lifted;
     image.data[at + 1] = lifted;
@@ -407,7 +426,7 @@ const baseGreyOf = (image: PNG): number => {
   const counts = new Map<number, number>();
   for (let at = 0; at < image.data.length; at += 4) {
     if (image.data[at + 3] === 0) continue;
-    const grey = image.data[at];
+    const grey = requireDefined(image.data[at], `no byte at offset ${at}`);
     counts.set(grey, (counts.get(grey) ?? 0) + 1);
   }
   let base = 0;
@@ -440,7 +459,11 @@ const sidesAt = (x: number, y: number): (keyof Grooves)[] => {
 const paintRock = (cell: PNG, x: number, y: number, base: number): void => {
   const inside = (each: number): number =>
     Math.min(Math.max(each, 1), FLOOR_CELL - 2);
-  const under = cell.data[(inside(y) * cell.width + inside(x)) * 4];
+  const underOffset = (inside(y) * cell.width + inside(x)) * 4;
+  const under = requireDefined(
+    cell.data[underOffset],
+    `no byte at offset ${underOffset}`,
+  );
   const grey = under < base ? under : base;
   const at = (y * cell.width + x) * 4;
   cell.data[at] = grey;
@@ -473,7 +496,8 @@ const cellAtPlace = (column: number, row: number): SheetCell => {
   const mixed =
     Math.imul((column * 374761393) ^ (row * 668265263), 1274126177) >>> 0;
   const draw = (mixed ^ (mixed >>> 15)) >>> 0;
-  return FLOOR_CELLS[draw % FLOOR_CELLS.length];
+  const index = draw % FLOOR_CELLS.length;
+  return requireDefined(FLOOR_CELLS[index], `no floor cell at index ${index}`);
 };
 
 /** Every place a slab covers, laid from the sheet with its grooves dissolved. */

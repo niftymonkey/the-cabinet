@@ -24,6 +24,13 @@ function navigationOnFakeEngine(): Navigation {
   return navigation;
 }
 
+/** The one screen a pool has built so far, or a bug if it built none. */
+function onlyBuilt<T>(built: readonly T[]): T {
+  const first = built[0];
+  if (first === undefined) throw new Error('nothing was built yet');
+  return first;
+}
+
 /**
  * A screen class of its own, so each test gets its own pool: BigPool keys on
  * the constructor and lives for the whole process.
@@ -68,8 +75,8 @@ describe("navigation's screen pooling", () => {
     await nav.showScreen(first.PooledScreen);
     await nav.showScreen(second.PooledScreen);
 
-    expect(first.built[0].parent).toBeNull();
-    expect(first.built[0].armed).toBe(false);
+    expect(onlyBuilt(first.built).parent).toBeNull();
+    expect(onlyBuilt(first.built).armed).toBe(false);
   });
 
   it('a reused screen is prepared again for its next showing', async () => {
@@ -81,7 +88,7 @@ describe("navigation's screen pooling", () => {
     await nav.showScreen(second.PooledScreen);
     await nav.showScreen(first.PooledScreen);
 
-    expect(first.built[0].armed).toBe(true);
+    expect(onlyBuilt(first.built).armed).toBe(true);
   });
 
   it('a screen shown again from the pool gets its children back, with or without a show()', async () => {
@@ -99,7 +106,7 @@ describe("navigation's screen pooling", () => {
     // every showing after the first while the screen itself still takes
     // pointer events. That reached Mark's phone as a pause button that stopped
     // working partway through a session.
-    expect(first.built[0].interactiveChildren).toBe(true);
+    expect(onlyBuilt(first.built).interactiveChildren).toBe(true);
   });
 
   it('a popup is pooled too, so returning one is never a one-way trip', async () => {

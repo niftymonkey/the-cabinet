@@ -134,9 +134,19 @@ interface ComparedBatches {
 const comparedFrom = (reports: readonly BatchReport[]): ComparedBatches => {
   const corners: BatchComparison[] = [];
   for (let pair = 0; pair < reports.length; pair += 2) {
-    corners.push(compareBatches(reports[pair], reports[pair + 1]));
+    const left = reports[pair];
+    const right = reports[pair + 1];
+    // The command line refuses any count but two or four paths, so reports
+    // always pairs off evenly and neither side of a pair is ever missing.
+    if (left === undefined || right === undefined) {
+      throw new Error(`no pair of reports at index ${pair}`);
+    }
+    corners.push(compareBatches(left, right));
   }
   const [sharp, sloppy] = corners;
+  // The command line refuses zero paths, so the loop above ran at least once
+  // and corners always holds at least one comparison.
+  if (sharp === undefined) throw new Error('no corner compared');
   return {
     corners,
     read: sloppy === undefined ? null : readAcrossCorners(sharp, sloppy),

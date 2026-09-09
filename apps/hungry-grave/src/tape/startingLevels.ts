@@ -85,7 +85,15 @@ const resolveStartingLevels = (header: TapeHeader): StartingLevels => {
   // it did not field that line.
   const roster = rosterOf(header.recordedRoster);
   const levels = uniformLevels(0);
-  for (const line of roster) levels[line] = header.startingLevels[line];
+  for (const line of roster) {
+    const level = header.startingLevels[line];
+    if (level === undefined) {
+      throw new Error(
+        `the recorded roster names ${line} with no starting level`,
+      );
+    }
+    levels[line] = level;
+  }
   return { outcome: 'implemented', roster, levels };
 };
 

@@ -16,7 +16,9 @@ class Rolling {
   push(t: number, v: number): void {
     this.samples.push({ t, v });
     const cutoff = t - WINDOW_MS;
-    while (this.samples.length > 0 && this.samples[0].t < cutoff) {
+    for (;;) {
+      const oldest = this.samples[0];
+      if (oldest === undefined || oldest.t >= cutoff) return;
       this.samples.shift();
     }
   }

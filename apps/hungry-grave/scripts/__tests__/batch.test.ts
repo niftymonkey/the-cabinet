@@ -248,7 +248,9 @@ describe('the batch command', () => {
       expect(report.identity.seeds).toBe(2);
       expect(report.verified).toBe(2);
       expect(report.unverified).toEqual([]);
-      expect(report.spreads['run.ticks'].count).toBe(2);
+      const ticksSpread = report.spreads['run.ticks'];
+      if (ticksSpread === undefined) throw new Error('no run.ticks spread');
+      expect(ticksSpread.count).toBe(2);
       // #118. A run stopped at the tick ceiling reached no outcome, so the
       // person watching a batch is told how many of its rates rest on one, in
       // the same line that already says how many tapes could be read.

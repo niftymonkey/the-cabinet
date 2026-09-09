@@ -114,7 +114,9 @@ describe('resolveStartingLevels', () => {
   it('refuses a roster that names the same line twice', () => {
     // A duplicate name means one of the two level bytes is unreachable by name,
     // which is the positional ambiguity this whole seam exists to remove.
-    const doubled = [...WEAPON_LINES, WEAPON_LINES[0]];
+    const firstLine = WEAPON_LINES[0];
+    if (firstLine === undefined) throw new Error('WEAPON_LINES is empty');
+    const doubled = [...WEAPON_LINES, firstLine];
     const resolved = resolveStartingLevels(
       headerWith({ recordedRoster: doubled }),
     );

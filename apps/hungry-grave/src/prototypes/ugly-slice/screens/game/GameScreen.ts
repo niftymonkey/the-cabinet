@@ -284,7 +284,9 @@ export class GameScreen extends Container {
   private cycleDragRatio(): void {
     const ratios = T.TOUCH_DRAG_RATIOS;
     const index = ratios.indexOf(this.touch.ratio);
-    this.touch.ratio = ratios[(index + 1) % ratios.length];
+    const next = ratios[(index + 1) % ratios.length];
+    if (next === undefined) throw new Error('TOUCH_DRAG_RATIOS is empty');
+    this.touch.ratio = next;
     this.hud.setDragRatio(this.touch.ratio);
   }
 

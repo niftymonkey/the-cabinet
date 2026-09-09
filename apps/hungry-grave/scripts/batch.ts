@@ -261,8 +261,10 @@ const reportInto = (
   recordedAt: number,
   runs: readonly MeasuredRun[],
 ): boolean => {
+  const firstSeed = seeds[0];
+  if (firstSeed === undefined) throw new Error('a batch has no seeds');
   const report = batchReportOf(
-    { configuration, firstSeed: seeds[0], seeds: seeds.length, recordedAt },
+    { configuration, firstSeed, seeds: seeds.length, recordedAt },
     runs,
   );
   // The count of runs that reached no ending rides on the line that already
