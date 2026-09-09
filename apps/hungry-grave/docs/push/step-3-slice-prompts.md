@@ -41,3 +41,31 @@ Spec tests 1 to 9 and 17, module tests 46 to 48, 52, 54 and 75, and fences 76 to
 ## Commit messages
 
 Code: `feat(hungry-grave): the harness hand feeds, takes offers and belches (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 1 (#98)`. Your note commit creates `apps/hungry-grave/docs/push/step-3-progress.md` with the layout the coder contract names: 1 slices committed, 2 GOLDEN moves, 3 CodeRabbit, 4 plan claims found false against the tree, 5 seams that moved, 6 the baseline tapes, 7 verification steps run, then one section per slice.
+
+## Slice 2, as dispatched in session 17 (after slice 1 landed)
+
+The launch preamble is the slice 1 one above. Model: Opus, subagent type general-purpose.
+
+Step 3 slice 2 of The Hungry Grave (ticket #98): the two event fields and the readings.
+
+Read `apps/hungry-grave/docs/push/step-3-coder-contract.md` (inside the worktree) first and follow it in full, including its reading order. Read `docs/agents/feature-playbook.md` and follow it. The dispatch contract items the playbook asks for (definition, verification steps with actors, seams, module boundaries, the test list) are plan sections 1 to 8 of `apps/hungry-grave/docs/design/step-3-playing-harness-dispatch.md`; section 10 is the slice list and yours is slice 2.
+
+## Your slice
+
+Plan section 10, slice 2, in full: `OfferOpened.site` and `OfferTaken.slot` in `events.ts`, written at `standOffer`'s two callers and at `resolveOffer`; `offerChoices.ts` and `wakingSwallows.ts` registered in the readings graph; `dropLedger` widened by line; `gravePath` gains floor visits and recoveries; `mobFireAlivePerTick` in `replayTallies.ts` and on `Metrics`; the `READING_COMPARISONS` entries that keep `comparisonDeclared.test.ts` green. Spec tests 19 to 26 and 83, module tests 65, 72 to 74, 84 and 85, and guard 79 land here. **`GOLDEN` must not move and `READINGS_VERSION` must not move**; if either does, stop, the slice is wrong. Read the plan's sections 4 (the seams these readings cut at), 5 (each module's boundary and `mayImport` fence), 6 (the tests by number) and 7 (every reader of anything you change) before the first edit, and the design record's section 4 for what each reading is for.
+
+Hand-forwards from slice 1's note (`docs/push/step-3-progress.md` section 8) that bind you: the hand walks at a banked offer's body while it is still above the top edge, because `openBanked` opens at `-OFFER_ENTRY_DEPTH` and the wanting rule reads the body's position with no bounds clause; that is correct under the rule as ruled and is a reading, not an edit, so `offerChoices` must be able to show a take-by-slot on a banked offer against a death-point offer (the reading #98's second comment asked for). The reserved policy names are declared and unread until slice 3; touch nothing in the header. `HAND_STREAM`, the seed on `harnessPolicy`, the other eight rows and the widened `ConfigurationName` are slice 5's; touch none of them.
+
+Every reading you add is a number a batch will reduce and a person will compare; none is a verdict. A reading's name is the plain thing it counts.
+
+## State of the branch
+
+- The tip is `d7a0ba9eb5`: slice 1's code at `66dfcea268` (the hand, `steady-far`, ADR 0053 amended, the glossary entries), its note at `d7a0ba9eb5`. Read the progress note's sections 1 to 7 and section 8 in full before any edit.
+- The test-name baseline is at `local/step3/tests-baseline.txt` (worktree root's `apps/hungry-grave/local/`, outside version control); diff your test names against it before you commit and report removed or renamed names net of slice 1's 31 additions.
+- `pnpm verify` was green at `66dfcea268` (1691 passed, typecheck and build green with the two standing warnings). Two tests in `bot.test.ts` carry a 30 s budget in that file's existing idiom. A timeout with no assertion is contention, not a failure: run the suite alone once more before calling it red (`docs/agents/lessons.md`).
+- Never run any command from the main checkout at `/home/mlo/dev/niftymonkey/the-cabinet`. Any scratch file goes in the session scratchpad directory named in your system prompt. `local/` is reached by none of the standing checks except vitest, so no `*.test.ts` ever goes there; nothing under `local/` ever enters a commit. Editor diagnostics name scratch files and stale states; `pnpm typecheck` is the judge. Nothing under `docs/` is ever handed to prettier by name.
+- Check `git status --short` is clean before your first edit.
+
+## Commit messages
+
+Code: `feat(hungry-grave): the offer's site and slot are events and the batch readings exist (#98)` or better in the same form. Note: `docs(hungry-grave): step 3 progress note after slice 2 (#98)`, appended as section 9 titled "Slice 2, the two event fields and the readings", with its row added to section 1's table.
