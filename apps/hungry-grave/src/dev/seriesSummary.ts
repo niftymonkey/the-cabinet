@@ -30,4 +30,40 @@ const meanOf = (series: readonly number[]): number | undefined =>
     ? undefined
     : series.reduce((sum, one) => sum + one, 0) / series.length;
 
-export { firstOf, lastOf, leastOf, greatestOf, meanOf };
+/**
+ * The five numbers a batch reading prints as, and never a mean (ADR 0053): the
+ * interesting runs are in a tail, and a mean is the one figure that hides one.
+ */
+interface FiveNumbers {
+  readonly min: number;
+  readonly lowerQuartile: number;
+  readonly median: number;
+  readonly upperQuartile: number;
+  readonly max: number;
+}
+
+/**
+ * Nearest-rank on the sorted series, the method framePerformance.ts:15 already
+ * states for its own percentiles, so the tree has one convention and not two.
+ */
+const nearestRank = (sorted: readonly number[], rank: number): number =>
+  sorted[Math.max(0, Math.ceil(rank * sorted.length) - 1)];
+
+/**
+ * Absent for an empty series, on the same terms as the figures above: a batch
+ * with no run has nothing to summarise.
+ */
+const fiveNumbersOf = (series: readonly number[]): FiveNumbers | undefined => {
+  if (series.length === 0) return undefined;
+  const sorted = [...series].sort((a, b) => a - b);
+  return {
+    min: sorted[0],
+    lowerQuartile: nearestRank(sorted, 0.25),
+    median: nearestRank(sorted, 0.5),
+    upperQuartile: nearestRank(sorted, 0.75),
+    max: sorted[sorted.length - 1],
+  };
+};
+
+export { firstOf, lastOf, leastOf, greatestOf, meanOf, fiveNumbersOf };
+export type { FiveNumbers };

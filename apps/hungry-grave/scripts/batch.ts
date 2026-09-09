@@ -1,20 +1,25 @@
 /**
- * The batch entry: a seed range played headlessly under one configuration,
- * one tape per seed on disk, with the folder path as the whole of stdout. Run
- * as
- * `pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> <count> [out-root]`.
+ * The batch entry: a seed range played headlessly under one configuration, one
+ * tape per seed on disk with the batch's own report beside them, and the folder
+ * path as the whole of stdout. Run as
+ * `pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root]`.
  *
- * The playing lives in src/dev/harnessRun.ts, which carries mayImport: [] and
- * may not touch node:fs. So this shell parses the arguments, asks git and the
- * clock, writes the bytes, and says why when an argument or a path will not do.
+ * The playing lives in src/dev/harnessRun.ts and the reducing in
+ * src/dev/batchReport.ts, both of which carry mayImport: [] and may not touch
+ * node:fs. So this shell parses the arguments, asks git and the clock, writes
+ * the bytes, and says why when an argument or a path will not do.
  *
- * The report over the batch is slice 4b's and there is none here yet.
+ * It measures the bytes it wrote rather than the run it just held, which costs
+ * a second replay per run and buys a report that is a function of the tapes:
+ * nothing in the store is authoritative except the bytes (ADR 0057), so a
+ * report built from live state would report something no tape can reproduce.
  */
 
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { batchReportOf, BATCH_SEEDS } from '../src/dev/batchReport';
 import {
   CONFIGURATION_NAMES,
   CONFIGURATIONS,
@@ -22,7 +27,10 @@ import {
 } from '../src/dev/configurations';
 import type { ConfigurationName } from '../src/dev/configurations';
 import { playHarnessRun } from '../src/dev/harnessRun';
+import { measure } from '../src/dev/measure';
+import type { Measurement } from '../src/dev/measure';
 import { SEED_LIMIT } from '../src/game/run';
+import { decodeTape } from '../src/tape/decode';
 
 /**
  * Where a batch's tapes land when the command line names nowhere. `local/` is
@@ -32,8 +40,9 @@ import { SEED_LIMIT } from '../src/game/run';
  */
 const DEFAULT_OUT_ROOT = 'local/batches';
 
-const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> <count> [out-root]
+const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root]
   configurations: ${CONFIGURATION_NAMES.join(', ')}
+  count defaults to ${BATCH_SEEDS}
   out-root defaults to ${DEFAULT_OUT_ROOT}`;
 
 /**
@@ -134,7 +143,7 @@ const folderFor = (
  * throws without a syscall behind it is a bug in this shell's own call and
  * flies.
  */
-const writeOrRefuse = (path: string, bytes: Uint8Array): boolean => {
+const writeOrRefuse = (path: string, bytes: Uint8Array | string): boolean => {
   try {
     writeFileSync(path, bytes);
     return true;
@@ -147,9 +156,19 @@ const writeOrRefuse = (path: string, bytes: Uint8Array): boolean => {
   }
 };
 
+// One seed's tape, played and written, read back through the measuring pass.
+interface MeasuredRun {
+  readonly seed: number;
+  readonly measurement: Measurement;
+}
+
 /**
- * Plays every seed in turn and leaves a tape for each, answering false the
- * moment one cannot be written.
+ * Plays every seed in turn, leaves a tape for each and measures the bytes it
+ * wrote, answering null the moment one cannot be written.
+ *
+ * The decode is over the same bytes the file holds, so anything it throws is a
+ * bug in this build's own encoder and flies rather than being reported as a
+ * batch that could not be read.
  *
  * Progress goes to stderr because stdout is the folder path and nothing else:
  * a batch is minutes of play and a person watching it should see where it has
@@ -161,7 +180,8 @@ const playInto = (
   seeds: readonly number[],
   commitHash: string,
   recordedAt: number,
-): boolean => {
+): MeasuredRun[] | null => {
+  const runs: MeasuredRun[] = [];
   for (const seed of seeds) {
     const run = playHarnessRun(
       CONFIGURATIONS[configuration],
@@ -169,12 +189,14 @@ const playInto = (
       commitHash,
       recordedAt,
     );
-    if (!writeOrRefuse(join(folder, `${seed}.tape`), run.bytes)) return false;
+    if (!writeOrRefuse(join(folder, `${seed}.tape`), run.bytes)) return null;
+    const measurement = measure(decodeTape(run.bytes));
+    runs.push({ seed, measurement });
     console.error(
-      `${seed}: ${run.ticks} ticks, ${run.ending ?? 'no ending'}, ${run.bytes.length} bytes`,
+      `${seed}: ${run.ticks} ticks, ${run.ending ?? 'no ending'}, ${run.bytes.length} bytes, ${measurement.outcome}`,
     );
   }
-  return true;
+  return runs;
 };
 
 /**
@@ -195,14 +217,37 @@ const makeFolderOrRefuse = (folder: string): boolean => {
   }
 };
 
+/**
+ * The batch's own report, beside the tapes it reduces (ADR 0053, ADR 0057).
+ *
+ * It is written from the measurements of the bytes on disk, so the folder holds
+ * the runs and the reading of them together and a later ingest needs neither
+ * the command that made it nor the folder's name.
+ */
+const reportInto = (
+  folder: string,
+  configuration: ConfigurationName,
+  seeds: readonly number[],
+  recordedAt: number,
+  runs: readonly MeasuredRun[],
+): boolean => {
+  const report = batchReportOf(
+    { configuration, firstSeed: seeds[0], seeds: seeds.length, recordedAt },
+    runs,
+  );
+  console.error(
+    `${report.verified} of ${seeds.length} verified, ${report.unverified.length} not`,
+  );
+  return writeOrRefuse(
+    join(folder, 'report.json'),
+    JSON.stringify(report, null, 2),
+  );
+};
+
 const main = (): void => {
   const [configurationRaw, seedRaw, countRaw, outRoot = DEFAULT_OUT_ROOT] =
     process.argv.slice(2);
-  if (
-    configurationRaw === undefined ||
-    seedRaw === undefined ||
-    countRaw === undefined
-  ) {
+  if (configurationRaw === undefined || seedRaw === undefined) {
     console.error(USAGE);
     process.exitCode = 1;
     return;
@@ -212,7 +257,9 @@ const main = (): void => {
     process.exitCode = 1;
     return;
   }
-  const count = parseCount(countRaw);
+  // The batch's own size when nobody names one, which is the row a person
+  // running a batch never has to remember (ADR 0053).
+  const count = countRaw === undefined ? BATCH_SEEDS : parseCount(countRaw);
   if (count === null) {
     process.exitCode = 1;
     return;
@@ -228,7 +275,18 @@ const main = (): void => {
     process.exitCode = 1;
     return;
   }
-  if (!playInto(folder, configuration, seeds, commitHashHere(), recordedAt)) {
+  const runs = playInto(
+    folder,
+    configuration,
+    seeds,
+    commitHashHere(),
+    recordedAt,
+  );
+  if (runs === null) {
+    process.exitCode = 1;
+    return;
+  }
+  if (!reportInto(folder, configuration, seeds, recordedAt, runs)) {
     process.exitCode = 1;
     return;
   }

@@ -3,8 +3,8 @@
  * person runs it, so the written folder, stdout, stderr and the exit code are
  * the seam.
  *
- * The report the batch prints is slice 4b's; what this slice's command does is
- * play a seed range and leave one tape per seed on disk.
+ * What the command does is play a seed range, leave one tape per seed on disk,
+ * and write the batch's own report beside them off those same bytes.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -13,6 +13,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { BATCH_SEEDS } from '../../src/dev/batchReport';
+import type { BatchReport } from '../../src/dev/batchReport';
 import { SHARP_HAND } from '../../src/dev/configurations';
 import { SEED_LIMIT } from '../../src/game/run';
 import { decodeTape } from '../../src/tape/decode';
@@ -122,7 +124,27 @@ describe('the batch command', () => {
   );
 
   it(
-    'writes one tape per seed and prints the folder as the whole of what it says',
+    'walks a batch of its own size when nobody names a count',
+    () => {
+      // Test 70. The count is optional as of the slice that created the row it
+      // defaults to, and this reads that default off the far end of the walk:
+      // a batch of BATCH_SEEDS from the last seed runs off the end of the range
+      // and is refused naming the seed it would have reached, so the default is
+      // proved without playing forty-eight runs to see it. It names no output
+      // root on purpose: the range is refused before any folder is made, so a
+      // command that writes nothing needs nowhere to write it.
+      const result = runBatch(SHARP_HAND, String(SEED_LIMIT - 1));
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toContain(String(SEED_LIMIT - 1 + BATCH_SEEDS - 1));
+      expect(result.stderr).toContain('no batch was played');
+    },
+    SUBPROCESS_BUDGET_MS,
+  );
+
+  it(
+    'writes one tape per seed and one report beside them, and prints the folder as the whole of what it says',
     () => {
       // Test 71. The folder's name is a convenience and the bytes are
       // authoritative (ADR 0057): every tape carries its own seed, commit hash,
@@ -138,16 +160,35 @@ describe('the batch command', () => {
       expect(folder).toContain(SHARP_HAND);
 
       const written = readdirSync(folder).sort();
-      expect(written).toEqual([`${FIRST_SEED}.tape`, `${FIRST_SEED + 1}.tape`]);
+      expect(written).toEqual([
+        `${FIRST_SEED}.tape`,
+        `${FIRST_SEED + 1}.tape`,
+        'report.json',
+      ]);
 
-      for (const [offset, name] of written.entries()) {
+      for (const offset of [0, 1]) {
         const { header } = decodeTape(
-          new Uint8Array(readFileSync(join(folder, name))),
+          new Uint8Array(
+            readFileSync(join(folder, `${FIRST_SEED + offset}.tape`)),
+          ),
         ).tape;
         expect(header.seed).toBe(FIRST_SEED + offset);
         expect(header.policy).toBe(SHARP_HAND);
         expect(header.inputDevice).toBe('bot');
       }
+
+      // The report is a function of the tapes the batch just wrote: it is the
+      // measuring pass over those same bytes, so both runs verified or the
+      // report says which one did not.
+      const report: BatchReport = JSON.parse(
+        readFileSync(join(folder, 'report.json'), 'utf8'),
+      );
+      expect(report.identity.configuration).toBe(SHARP_HAND);
+      expect(report.identity.firstSeed).toBe(FIRST_SEED);
+      expect(report.identity.seeds).toBe(2);
+      expect(report.verified).toBe(2);
+      expect(report.unverified).toEqual([]);
+      expect(report.spreads['run.ticks'].count).toBe(2);
     },
     PLAYED_BATCH_BUDGET_MS,
   );

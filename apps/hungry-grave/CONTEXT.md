@@ -208,6 +208,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Rig**: One starting condition a run is played from, named so a figure always says which one produced it. Five exist: the ceiling rig, the start-size rig, the ladder rig, the conditioned rig and the harness rig, which is the only one that starts at the birthright. Figures from two rigs are never banded. _Avoid_: setup, harness, scenario, fixture.
 
+**Batch**: One run per seed over a consecutive range of seeds under one configuration, played headlessly from one command, leaving a tape per seed and one report over all of them. Its size is seeds and never repeats, because a deterministic policy has nothing to learn from playing a seed twice. Its report is a distribution and never a mean: every reading prints as five numbers with the seeds behind the two extremes named, and no figure in it is a verdict. _Avoid_: sample, suite, sweep, trial, experiment.
+
 **Store**: Where every run lands, a person's and the harness's alike: the sealed tape bytes byte-exact, the header parsed into columns beside them, and readings derived by replay cached and stamped with the build that computed them. Only the bytes are authoritative. _Avoid_: database, backend, telemetry, analytics.
 
 **Prototype**: A self-contained teaching build in its own folder under its own route, listed by the base app and removable by deleting the folder and its registry entry. It exists to teach and is never extended into the game. _Avoid_: spike, demo, POC, MVP.
