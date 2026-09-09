@@ -10,6 +10,7 @@ One section per slice at the end, and the cross-slice facts first. Written by ea
 | 1, the hand | `66dfcea268` | `feat(hungry-grave): the harness hand feeds, takes offers and belches (#98)` |
 | 2, the two event fields and the readings | `c784a356e5` | `feat(hungry-grave): the offer's site and slot are events and the batch readings exist (#98)` |
 | 3, the header field and the one bump | `4093d4be81` | `feat(hungry-grave): every tape names the policy that steered it, and the format moves to 3 (#98)` |
+| 4a, the runner | `eb41654b11` | `feat(hungry-grave): one command plays a batch of seeds and writes a tape per seed (#98)` |
 
 ## 2. GOLDEN moves
 
@@ -20,6 +21,8 @@ Slice 1: `GOLDEN` (`digest.ts:314`) did not move, `WITNESS_VERSION` did not move
 Slice 2: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6) or `READINGS_VERSION` (2). `src/dev/digest.ts`, `src/game/witness.ts` and `src/dev/readingsVersion.ts` are all outside the diff, which `git diff --stat` over the three answers with nothing, and `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded: the two new event payload fields are not on the wire (`wireCodes.ts` carries no event codes) and not in the witness, and every reading it adds sits beside unchanged ones, which is `readingsVersion.ts:13-16`'s own rule for not bumping.
 
 Slice 3: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6) or `READINGS_VERSION` (2). `src/dev/digest.ts`, `src/game/witness.ts` and `src/dev/readingsVersion.ts` are all outside the diff, which `git diff --stat` over the three answers with nothing, and `src/game/__tests__/digest.test.ts` is green. `FORMAT_VERSION` is the one version this step spends and it moved from 2 to 3 here, once, and never again in this step. Nothing this slice changed is folded: the header is not folded at all, the fold reads live run state (`witness.ts:363`), and the policy is a header field the simulation never sees.
+
+Slice 4a: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). The slice adds four files and edits none, so `git status --short` before the commit named exactly those four and `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing. `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded, because nothing this slice changed existed before it: the runner plays through the one execution authority and the shell writes bytes, and neither touches the fold, the witness or the wire.
 
 ## 3. CodeRabbit
 
@@ -34,6 +37,8 @@ Slice 3: `coderabbit review --agent --uncommitted` from the repo root over the s
 - **Applied, major.** The amendment said a build that retuned the budget "has retuned the rows around it and the witness refuses the tape either way", which overstates what the witness can see. The fold reads live run state and an open set piece's budget is inside it (`witness.ts:347`), and it reads nothing about an authored row a run never reached, so a retune outside the run's path leaves the fold identical and the tape verifies. The sentence now splits the two cases and carries the argument on the half that survives: neither case is helped by the header naming one stage row while a hundred sibling rows stay compiled. **The record's own section 5 still carries the strong sentence** and is section 4's item 10 below.
 - **Declined, minor, twice.** The amendment's opening clause was asked to say whether Mark approved or overruled. He has not read it yet, which is the whole point of the one-push rule, and the record must not claim a review that has not happened. The wording is ADR 0053's slice 1 amendment verbatim in form, so the two amendments Mark reviews together read the same.
 - **Declined, minor.** Tests were asked for over `SET_PIECE_BUDGET`, asserting a reached set piece's budget diverges and an unreached one does not. `SET_PIECE_BUDGET` is the Waking's compiled pour budget (`setPiece.ts:112`) and not the director's per-phase budget ADR 0056 rules, which has no column on `Phase` and does not exist in the tree; the two were conflated. A test cannot cover a row nobody has authored, and the trigger is already named in the amendment: the day the budget becomes something a run resolves.
+
+Slice 4a: `coderabbit review --agent --uncommitted` from the repo root over the staged work, four files reviewed, **no findings**. Nothing applied and nothing declined.
 
 ## 4. Plan claims found false against the tree
 
@@ -57,6 +62,8 @@ Slice 3: `coderabbit review --agent --uncommitted` from the repo root over the s
 
 **10. The record's section 5 claims the witness refuses a tape "either way" when a build retunes the director's budget.** The witness folds live run state, an open set piece's budget included (`witness.ts:347`, `:363`), and nothing about an authored row a run never reached, so a retune outside the run's path leaves the fold byte-identical and the tape verifies. The ruling is unharmed and the argument that survives is the other half, that a header naming one stage row while a hundred stay compiled promises a rebuild it cannot deliver. **ADR 0056's amendment carries the narrowed form; `playing-harness.md`'s section 5 still carries the strong one** and is the dispatching session's to fix, since a coder does not edit the record it was dispatched against.
 
+**11. Plan section 4 gives `scripts/batch.ts` an optional `[count]` while the row its default reads lands one slice later.** Section 7 says `BATCH_SEEDS` is 48 and that "its only reader is `scripts/batch.ts`'s default"; section 4 homes `BATCH_SEEDS` on `batchReport.ts`, section 5's "where the rows live" repeats that the batch size lives there, and section 10 gives `batchReport.ts` to slice 4b. So in this slice the default has no row to read. **The plan's intent was followed and its letter was not: `<count>` is required here**, refused out loud with the usage when it is absent, and **slice 4b makes it optional with `BATCH_SEEDS` as the default** in the commit that creates the row. The two rejected alternatives are named rather than left implicit: a bare 48 in the shell is the arithmetic-as-rules the standing rule forbids, and a `BATCH_SEEDS` living in `scripts/batch.ts` for one slice would give one magnitude two homes inside one branch. An argument that gains a default when its default exists is the honest form, and it also means this slice's command never plays 48 runs because somebody left a word off.
+
 ## 5. Seams that moved
 
 Slice 1:
@@ -78,6 +85,12 @@ Slice 3:
 - **`TapeHeader` gains `readonly policy: string`**, declared between `inputDevice` and `keyboardSpeed`, which is where `writeHeaderRecord` writes it and `readHeader` reads it. The plan's seam exactly.
 - **`AggregateExclusion` gains `'policy'`**, pushed by `exclusionsOf` immediately after the device's own exclusion, and `Provenance` gains `readonly policy: string`. No new declaration was needed in `READING_COMPARISONS`: `provenance` is one `descriptiveReading` claiming its whole subtree (`compareRuns.ts:598`), so guard 79 stayed green without an edit.
 - **No seam moved beyond the plan's letter**, and nothing new is exported. `PERSON_POLICY` and `SCRIPT_POLICY` were already exported by slice 1 and this slice only imports them.
+
+Slice 4a:
+
+- **`scripts/batch.ts` takes `<count>` as a required third argument**, not the plan's optional one, for the reason in section 4 item 11. The order and the fourth argument are the plan's: `<configuration> <first-seed> <count> [out-root]`, with `out-root` defaulting to `local/batches`.
+- **`harnessRun.ts` is the plan's seam exactly**: `playHarnessRun`, `runTickBudget` and `RUN_TICK_SLACK` exported, `HarnessRun` as a type, nothing else. The header literal it builds is the plan's, with `inputDevice: 'bot'` and `policy: configuration.name`.
+- **Nothing else moved.** No existing file was edited by this slice at all: it is four new files.
 
 ## 6. The baseline tapes
 
@@ -126,6 +139,18 @@ Slice 3, from the plan's section 3:
 - **Step 7, the old-tape decode check.** **Passed.** Both of slice 0's format version 2 tapes are refused by `scripts/measure.ts`, each with the precise reason and neither with a stack or a coerced reading: `local/step3/baseline-a.tape is not a tape (this tape is format version 2 and this reader is version 3); no measurement was taken`, and the same line for `baseline-b.tape`. Exit code 1. That is `decode.ts:189-192`'s message reaching the person at the command line through `measure.ts`'s own refusal wrapper, which is what ADR 0043's accepted cost looks like when it is paid properly rather than swallowed.
 - **Step 13, the fences**, in the part this slice owns: `src/dev/__tests__/comparisonDeclared.test.ts` green with no edit, and `src/__tests__/boundary.test.ts` green. Nothing crossed a boundary: `src/dev/measure.ts` reads the two reserved names from `src/tape/tape.ts`, which is why slice 1 homed them there.
 - **Steps 8 to 12 and 14** belong to later slices and were not run. **Steps 15 to 18 are Mark's and stay open**, and step 15 is now half answerable: both ADR amendments it names exist on the branch, ADR 0053's from slice 1 and ADR 0056's from this slice.
+
+Slice 4a, from the plan's section 3:
+
+- **Step 1, unit tests.** Green. 127 files, 1723 passed, 10 expected fail, 2 todo. No timeout on any run of the suite this slice made.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 3, `pnpm build`.** Green, lint and typecheck included, with the two standing warnings (`@pixi/sound` statically imported alongside its dynamic import, and the pixi chunk over 500 kB).
+- **Step 4, `pnpm verify` at the repo root.** Green, exit 0, run from inside the worktree.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step3/tests-baseline.txt`: **64 names added and one removed**, of which 53 added and the one rename are slices 1 to 3's, so **eleven are this slice's: eleven added, none removed, none renamed**. Six in `harnessRun.test.ts` and five in `batch.test.ts`. 1670 to 1733.
+- **Step 6, the golden digest.** Did not move. See section 2.
+- **Step 8, the verification readback on a harness tape.** **Passed**, twice over. Spec test 45 decodes the bytes `playHarnessRun` returns and `measure` answers `verified`, and the two hand measurements below do the same thing from the command line against tapes on disk. A harness tape replays and attests exactly as a person's does, which is #98's acceptance line.
+- **Step 13, the fences**, in the part this slice owns: `src/__tests__/boundary.test.ts` green with no edit, both rows of it, and `src/__tests__/lineAgnosticPolicies.test.ts` green. `harnessRun.ts` reaches only `dev`, `game` and `tape` and imports no package, so the filesystem stayed in the shell by construction rather than by care; `scripts/` is outside the fence, which is why `node:fs` lives there.
+- **Steps 7, 9 to 12 and 14** belong to other slices and were not run, though the batch below is the first real figure for step 14 and section 11 carries it. **Steps 15 to 18 are Mark's and stay open.**
 
 ## 8. Slice 1, the hand
 
@@ -206,3 +231,48 @@ The commit is `4093d4be81`. Seven test names added across three files and one re
 - **`RESERVED_POLICIES` is now load-bearing rather than declarative.** Slice 1's test 17 asserts no configuration is named `person` or `script`; from this slice on, a configuration that broke it would write a name into a real header and a real report would read that run as a person's.
 - **The store's summary row still carries no policy**, which is plan section 5's unowned row with #100 as its trigger. Every batch tape's bytes carry the policy in the header, so step 6's ingest reads it there and needs no column added here.
 - **Slice 4a's verification readback runs against a format 3 tape**, so nothing recorded before this commit can be its input. Any tape a later slice wants as a fixture is recorded at or after `4093d4be81`.
+
+## 11. Slice 4a, the runner
+
+The commit is `eb41654b11`. Eleven test names added across two new files, none removed and none renamed. No existing file was edited: the slice is four new files.
+
+**What landed.** `src/dev/harnessRun.ts` plays one seed under one configuration through the one execution authority and seals it to bytes, with `runTickBudget` derived from `PHASES` rather than written down and `RUN_TICK_SLACK` at 3 as an initial data row. It writes the harness rig's header: the run's own seed, the birthright start `createRun` resolves, `TICK_HZ`, `RECORDER_CHECKPOINT_SPACING`, `WITNESS_VERSION`, the commit hash and the recorded-at stamp it was handed, an empty build identity, `unknown` as the author, `inputDevice: 'bot'` and the configuration's name as the policy. `scripts/batch.ts` is the shell: it parses the configuration, the first seed and the count, asks git for the hash and the clock for the stamp once each, makes `<out-root>/<configuration>-<stamp>/`, plays each seed in turn and writes `<seed>.tape`, and prints the folder path as the whole of stdout. There is no report; that is slice 4b's.
+
+**The batch, recorded by hand.** Six seeds from 20260909 under `steady-far`, at the tip before this slice's own commit, into `apps/hungry-grave/local/batches/steady-far-1788934491101/`, which is outside version control. **Ten and a half seconds of wall clock for all six**, vite's cold boot included, from `time pnpm vite-node --config vite.headless.config.ts scripts/batch.ts steady-far 20260909 6`.
+
+| Seed | Ticks | Ending | Bytes |
+| --- | --- | --- | --- |
+| 20260909 | 24697 | sealed | 231517 |
+| 20260910 | 32652 | victory | 306038 |
+| 20260911 | 28710 | sealed | 269108 |
+| 20260912 | 28530 | sealed | 267422 |
+| 20260913 | 21979 | sealed | 206065 |
+| 20260914 | 27198 | sealed | 254950 |
+
+**The two hand measurements, which are the proof the tape replays and attests.** `pnpm vite-node --config vite.headless.config.ts scripts/measure.ts` against two of those six, read off the bytes on disk and not off any run held in memory.
+
+- **20260909**: `outcome: verified`, 24697 ticks, ending `sealed`, stop `finished`, integrity `clean`, **412 checkpoints verified and none unreachable**, 52 kills, no recorded or readback faults. Provenance `{ inputDevice: 'bot', policy: 'steady-far', conditioned: false, exclusions: ['bot', 'policy'] }`, which is slice 3's hand-forward holding: two exclusions on a harness run is correct rather than double counting, and `conditioned` is false because the harness rig starts at the birthright. It crossed the Procession, the Banshee, the Crowd, the Waking and into the Vigil, opened no offer at all and ended at the birthright, belched three times, swallowed four inside the Waking's span, and visited the size floor once without climbing back off it.
+- **20260910**: `outcome: verified`, 32652 ticks, ending **`victory`**, stop `finished`, integrity `clean`, **545 checkpoints verified and none unreachable**, 105 kills, no faults. Same provenance shape with the same two exclusions. It crossed all seven phases, spent 23283 to 32651 inside the Undertaker's, took four offers (all at a death point, none out of the bank), bought four rungs and ended with wisps at 2, belched seven times, swallowed eight inside the Waking's span, and visited the floor once and climbed back off it.
+
+**The first harness run to kill the Undertaker, and it is a reading rather than a bar.** Slice 1 measured the hand entering the Undertaker's phase on three of five pinned seeds and finishing none of them inside the one-stage budget it had. Under this slice's budget, three stage lengths, seed 20260910 fights him for 9368 ticks and wins. That is the plan's own reason for the slack row doing exactly what it says: the rows bound a crossing and a fight is neither. **No row was moved and nothing was sharpened.** One victory in six seeds is a figure for #39 and for Mark's step 17, not a verdict from here, and six seeds is not a batch.
+
+**The batch cost, measured.** Six runs of 22000 to 33000 ticks each in 10.45 seconds of wall clock including the boot, so a played run is on the order of 1.6 seconds and a 48-seed batch is a little over a minute of play. The plan's section 8 puts nine configurations at 48 seeds "nearer three quarters of an hour than a quarter" from `bot.test.ts`'s own budget; measured here, 432 runs is nearer twelve minutes of playing, before the measuring pass slice 4b adds. **It is a first figure and not verification step 14**, which is slice 7's and wants a whole 48-seed batch split between playing and measuring. The direction is worth having early: the plan's estimate is pessimistic by roughly three, which is the same factor its own correction of the record moved in the other direction.
+
+**Test 55 was split in two because its first half is toothless on its own.** "The tick budget is derived from the stage's own rows rather than written down" as an equality against a derivation the test file repeats passes just as well over a written-down 83577, because both sides are today's rows. Proved rather than argued: mutating `runTickBudget` to that literal left all six green. The second test re-authors the first phase, adding ten seconds to its last row through `vi.doMock` over `src/game/stage/stage` and re-importing the module, and asserts the budget grows by exactly ten seconds times `TICK_HZ` times the slack. That mutation now goes red, and it is the half that carries the promise.
+
+**Eleven mutations, ten of them red before the split and all eleven after.** One per behaviour, each run against the file that guards it: the written-down budget, the slack row at one, the falling bodies dropped out of a phase's budget, the device written as `script`, the policy written as `person`, the clock asked inside the runner instead of handed to it, the trailer never sealed, the rig started above the birthright, every tape written under one name, a second line on stdout, and the walk's far end unchecked. The script lived in the session scratchpad and is gone.
+
+**The last seed of the walk is checked as well as the first**, which the plan's test 70 does not name and which the tree needs: a count that walked off the top of `SEED_LIMIT` would pin runs to seeds no run can be started from, and the first-seed guard cannot see it. It refuses out loud with both ends named, and the seed test exercises both.
+
+**Progress goes to stderr and stdout carries only the folder.** A batch is minutes of play and a person watching one should see where it has got to, so each seed's ticks, ending and byte count print to stderr as it lands. Test 71 is what holds stdout to the folder path and nothing else.
+
+**The header literal is now the second copy in the tree and the third is the trigger to extract one**, beside `scripts/record-conditioned.ts`'s. The rule of three allows the second; the comment on `harnessHeader` says so where the next writer will read it. **The stage-budget derivation is at three copies already** and they are not the same three: `bot.test.ts` and `harnessPolicy.test.ts` each carry `SLOWEST_DESCENT_TICKS` and `budgetOf` for their own budgets, and `harnessRun.ts` now carries the production one. Extracting it would make test 55's expectation the module's own answer restated, which is the toothlessness the split above exists to kill, so the three stand. **It is a finding for #59 and not this slice's**, and the trigger is a fourth copy or a change to how a phase's length is authored.
+
+**Hand-forwards for slice 4b and later.**
+
+- **`<count>` becomes optional in slice 4b**, defaulting to `BATCH_SEEDS` from `batchReport.ts`, in the commit that creates the row. Until then it is required and refused by name when absent. Section 4 item 11 carries the whole reason.
+- **The measuring pass is slice 4b's and this shell does none.** The plan's section 4 has the runner measure the bytes it wrote rather than the run it held, which costs a second replay per run; nothing here decodes anything, so 4b adds both the decode and the `report.json` beside the tapes.
+- **The folder's stamp is the same number every header in it records.** `Date.now()` is asked once in `main` and passed both to `folderFor` and to every `playHarnessRun`, so the folder name and the bytes can never disagree about when the batch was played. A report keyed by folder and a report keyed by header are the same report.
+- **`playHarnessRun` is deterministic in its four arguments**, which test 58 pins by playing the same seed twice and comparing bytes. That is what lets 4b's report be a function of the tapes.
+- **Slice 5 still owns `HAND_STREAM`, the seed on `harnessPolicy`, the eight other rows and the widened `ConfigurationName`.** The runner takes a configuration and today there is one; nothing here reads a knob.
+- **The batch tapes from this slice are on disk** at `apps/hungry-grave/local/batches/steady-far-1788934491101/`, six of them, recorded against `dbb61bf506`. They are format 3 and they measure clean, so anything that wants a harness tape to read can use them rather than playing its own.
