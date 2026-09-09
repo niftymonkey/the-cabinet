@@ -176,6 +176,13 @@ function buttonsNamed(screen: RunsScreen, name: string): { press(): void }[] {
   return found;
 }
 
+/** The one button by this name, asserting the caller's own premise that it exists. */
+function theButtonNamed(screen: RunsScreen, name: string): { press(): void } {
+  const button = buttonsNamed(screen, name)[0];
+  if (button === undefined) throw new Error(`no button named ${name}`);
+  return button;
+}
+
 async function listed(screen: RunsScreen, count: number): Promise<void> {
   await vi.waitFor(() =>
     expect(buttonsNamed(screen, 'REPLAY')).toHaveLength(count),
@@ -252,7 +259,7 @@ describe('the runs screen', () => {
     screen.prepare();
     await listed(screen, 1);
 
-    buttonsNamed(screen, 'REPLAY')[0].press();
+    theButtonNamed(screen, 'REPLAY').press();
     await vi.waitFor(() =>
       expect(fakeLocation.hash).toBe('#/replay?tape=blob%3Afake'),
     );
@@ -270,7 +277,7 @@ describe('the runs screen', () => {
     screen.prepare();
     await listed(screen, 1);
 
-    buttonsNamed(screen, 'SAVE')[0].press();
+    theButtonNamed(screen, 'SAVE').press();
     await vi.waitFor(() => expect(saveTapeFile).toHaveBeenCalled());
     expect(saveTapeFile).toHaveBeenCalledWith(
       bytes,
@@ -286,7 +293,7 @@ describe('the runs screen', () => {
     screen.prepare();
     await listed(screen, 1);
 
-    buttonsNamed(screen, 'DELETE')[0].press();
+    theButtonNamed(screen, 'DELETE').press();
     await vi.waitFor(() => expect(store.delete).toHaveBeenCalledWith('run-1'));
     await vi.waitFor(() => expect(store.list).toHaveBeenCalledTimes(2));
     screen.reset();

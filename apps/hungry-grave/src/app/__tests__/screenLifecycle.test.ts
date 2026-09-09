@@ -291,11 +291,13 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     const screen = gameScreen();
 
     screen.prepare();
+    const firstPhase = PHASES[0];
+    if (firstPhase === undefined) throw new Error('no first phase');
     expect(musicCued).toEqual([
       {
         type: 'phaseChanged',
-        phase: PHASES[0].name,
-        music: PHASES[0].music,
+        phase: firstPhase.name,
+        music: firstPhase.music,
         tick: 0,
       },
     ]);
@@ -779,6 +781,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     // hand rather than waited for, so the test does not depend on which armed
     // mob the storm happened to leave standing.
     const shot = first.mobFire[0];
+    if (shot === undefined) throw new Error('no mobFire pool slot 0');
     shot.alive = true;
     shot.id = 1;
     shot.emitter = 'shambler';
@@ -788,6 +791,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     // A live wisp and a live bell ring too, which are the storm's own per-run
     // state and the fields StormRenderer would leak through.
     const wisp = first.wisps[0];
+    if (wisp === undefined) throw new Error('no wisp pool slot 0');
     wisp.alive = true;
     wisp.id = 2;
     wisp.x = 200;
@@ -846,6 +850,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     // At the floor with nothing left to bleed, so the next contact seals.
     run.grave.size = SIZE_FLOOR;
     const mob = run.mobs[0];
+    if (mob === undefined) throw new Error('no mob pool slot 0');
     mob.alive = true;
     mob.type = 'shambler';
     mob.hp = MOB_TYPES.shambler.hp;
@@ -870,7 +875,9 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     const lastFight = PHASES.length - 2;
     winner.stage.phaseIndex = lastFight;
     winner.stage.phaseTick = 0;
-    const boss = spawnBoss(winner, PHASES[lastFight].boss!);
+    const lastFightPhase = PHASES[lastFight];
+    if (lastFightPhase === undefined) throw new Error('no phase at lastFight');
+    const boss = spawnBoss(winner, lastFightPhase.boss!);
     boss.chunk = CHUNK_HP[boss.kind].length - 1;
     boss.hp = 1;
 
@@ -1031,6 +1038,7 @@ describe('the minimal export (dispatch 6a)', () => {
     // At the floor with nothing left to bleed, so the next contact seals.
     run.grave.size = SIZE_FLOOR;
     const mob = run.mobs[0];
+    if (mob === undefined) throw new Error('no mob pool slot 0');
     mob.alive = true;
     mob.type = 'shambler';
     mob.hp = MOB_TYPES.shambler.hp;
@@ -1437,6 +1445,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
     // At the floor with nothing left to bleed, so the next contact seals.
     run.grave.size = SIZE_FLOOR;
     const mob = run.mobs[0];
+    if (mob === undefined) throw new Error('no mob pool slot 0');
     mob.alive = true;
     mob.type = 'shambler';
     mob.hp = MOB_TYPES.shambler.hp;
@@ -1625,6 +1634,7 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
   /** A corpse no rule produces, far from the grave, so freshness in range fires while the run plays on. */
   function rotCorpse(screen: GameScreen): void {
     const corpse = screen['session'].run!.corpses[0];
+    if (corpse === undefined) throw new Error('no corpse pool slot 0');
     corpse.alive = true;
     corpse.id = 1;
     corpse.x = 50;
@@ -1661,7 +1671,9 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
     screen.update(frame(TICK_MS));
     expect(screen['hud'].lines.fault.text).toBe('FAULT freshness in range');
 
-    screen['session'].run!.corpses[0].alive = false;
+    const rottenCorpse = screen['session'].run!.corpses[0];
+    if (rottenCorpse === undefined) throw new Error('no corpse pool slot 0');
+    rottenCorpse.alive = false;
     screen.update(frame(TICK_MS * 3));
 
     expect(screen['hud'].lines.fault.text).toBe('FAULT freshness in range');

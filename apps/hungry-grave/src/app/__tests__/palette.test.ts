@@ -616,7 +616,8 @@ describe('sprite separation (research 7.4)', () => {
  * checking no pair at all.
  */
 function layerDepth(name: string): number {
-  const depth = LAYER_ORDER.indexOf(SPRITE_LAYER[name]);
+  const layer = SPRITE_LAYER[name];
+  const depth = layer === undefined ? -1 : LAYER_ORDER.indexOf(layer);
   if (depth === -1) {
     throw new Error(`${name} is in no layer SPRITE_LAYER names`);
   }
@@ -710,6 +711,13 @@ describe('the sprite outline table (ADR 0014)', () => {
 describe('the corpse tiers (tracer plan section 4)', () => {
   const tiers = Object.entries(CORPSE_TIERS);
 
+  /** The tier at this index, for a loop bounded by tiers.length. */
+  const tierAt = (index: number): (typeof tiers)[number] => {
+    const tier = tiers[index];
+    if (tier === undefined) throw new Error(`no tier at index ${index}`);
+    return tier;
+  };
+
   it('declares the same luma for every tier, so the tier stays out of the freshness channel', () => {
     // Assertion 6. Brightness is freshness and nothing else.
     expect(tiers.length).toBeGreaterThan(1);
@@ -721,9 +729,9 @@ describe('the corpse tiers (tracer plan section 4)', () => {
     // tripwire, not a legibility floor.
     for (let i = 0; i < tiers.length; i++) {
       for (let j = i + 1; j < tiers.length; j++) {
-        const gap = hueGap(hsv(tiers[i][1].hex).h, hsv(tiers[j][1].hex).h);
-        expect(`${tiers[i][0]}/${tiers[j][0]} ${gap >= TIER_HUE_MIN}`).toBe(
-          `${tiers[i][0]}/${tiers[j][0]} true`,
+        const gap = hueGap(hsv(tierAt(i)[1].hex).h, hsv(tierAt(j)[1].hex).h);
+        expect(`${tierAt(i)[0]}/${tierAt(j)[0]} ${gap >= TIER_HUE_MIN}`).toBe(
+          `${tierAt(i)[0]}/${tierAt(j)[0]} true`,
         );
       }
     }
@@ -737,8 +745,8 @@ describe('the corpse tiers (tracer plan section 4)', () => {
       for (let i = 0; i < tiers.length; i++) {
         for (let j = i + 1; j < tiers.length; j++) {
           const drift = Math.abs(
-            observerLuma(tiers[i][1].hex, observer) -
-              observerLuma(tiers[j][1].hex, observer),
+            observerLuma(tierAt(i)[1].hex, observer) -
+              observerLuma(tierAt(j)[1].hex, observer),
           );
           expect(`${observer} ${drift <= TIER_OBSERVER_MAX}`).toBe(
             `${observer} true`,
@@ -794,8 +802,13 @@ function spriteCollisions(): [string, string][] {
   const found: [string, string][] = [];
   for (let i = 0; i < sprites.length; i++) {
     for (let j = i + 1; j < sprites.length; j++) {
-      const [nameA, a] = sprites[i];
-      const [nameB, b] = sprites[j];
+      const entryA = sprites[i];
+      const entryB = sprites[j];
+      if (entryA === undefined || entryB === undefined) {
+        throw new Error('sprite index out of range');
+      }
+      const [nameA, a] = entryA;
+      const [nameB, b] = entryB;
       const shapeA = hsv(a.hex);
       const shapeB = hsv(b.hex);
       if (
@@ -898,9 +911,13 @@ const GROUND_MODULES = [
 /** Every PALETTE entry a module names, read out of its source. */
 const paletteNamesIn = (file: string): string[] => {
   const source = readFileSync(file, 'utf8');
-  return [...source.matchAll(/\bPALETTE\.([A-Za-z0-9_]+)/g)].map(
-    (match) => match[1],
-  );
+  return [...source.matchAll(/\bPALETTE\.([A-Za-z0-9_]+)/g)].map((match) => {
+    const name = match[1];
+    if (name === undefined) {
+      throw new Error('PALETTE-reference regex matched with no captured name');
+    }
+    return name;
+  });
 };
 
 describe('the stand-in ground (ADR 0049, decision 22, #38)', () => {
@@ -992,12 +1009,18 @@ const huedPixelsIn = (file: string): string[] => {
   const image = PNG.sync.read(readFileSync(file));
   const hued: number[] = [];
   for (let at = 0; at < image.data.length; at += 4) {
-    const hex =
-      (image.data[at] << 16) | (image.data[at + 1] << 8) | image.data[at + 2];
+    const r = image.data[at];
+    const g = image.data[at + 1];
+    const b = image.data[at + 2];
+    if (r === undefined || g === undefined || b === undefined) {
+      throw new Error(`pixel byte ${at} is past the end of a 4-byte row`);
+    }
+    const hex = (r << 16) | (g << 8) | b;
     if (hsv(hex).s > 0) hued.push(at / 4);
   }
   if (hued.length === 0) return [];
   const first = hued[0];
+  if (first === undefined) throw new Error('no first hued pixel');
   const where = `(${first % image.width}, ${Math.floor(first / image.width)})`;
   return [
     `${relative(STAND_IN_ART, file)}: ${hued.length} pixels carry a hue, the first at ${where}`,
@@ -1021,13 +1044,18 @@ const bodyGreyIn = (file: string): number => {
   const greys: number[] = [];
   for (let at = 0; at < image.data.length; at += 4) {
     if (image.data[at + 3] === 0) continue;
-    greys.push(image.data[at]);
+    const grey = image.data[at];
+    if (grey === undefined) throw new Error(`pixel byte ${at} is out of range`);
+    greys.push(grey);
   }
   if (greys.length === 0) return 0;
   greys.sort((first, second) => first - second);
-  return greys[
-    Math.min(greys.length - 1, Math.floor(greys.length * STRETCH_PERCENTILE))
-  ];
+  const grey =
+    greys[
+      Math.min(greys.length - 1, Math.floor(greys.length * STRETCH_PERCENTILE))
+    ];
+  if (grey === undefined) throw new Error('no grey at the stretch percentile');
+  return grey;
 };
 
 describe('the grayscale import over the stand-in art (#38, ADR 0014)', () => {

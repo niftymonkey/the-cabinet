@@ -39,8 +39,11 @@ const tapeFileName = (seed: number, commitHash: string): string => {
  * producing a second version of its record.
  */
 const saveTapeFile = (bytes: Uint8Array, fileName: string): void => {
+  // Re-wrapped rather than re-encoded: a Uint8Array view's buffer type is not
+  // always the concrete ArrayBuffer Blob's constructor wants, and rewrapping
+  // copies the same bytes into one without touching what they say.
   const url = URL.createObjectURL(
-    new Blob([bytes], { type: 'application/octet-stream' }),
+    new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' }),
   );
   const anchor = document.createElement('a');
   anchor.href = url;

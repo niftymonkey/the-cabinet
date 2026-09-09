@@ -119,8 +119,15 @@ const linearToSRgb = (value: number): number => {
 // Apparent lightness for one observer, 0 to 100: linear luminance under that observer's weights, re-encoded to sRGB.
 const observerLuma = (hex: number, observer: Observer): number => {
   const weights = OBSERVER_WEIGHTS[observer];
-  const [r, g, b] = channels(hex).map(sRgbToLinear);
-  return linearToSRgb(weights[0] * r + weights[1] * g + weights[2] * b) * 100;
+  const [r, g, b] = channels(hex);
+  const rLinear = sRgbToLinear(r);
+  const gLinear = sRgbToLinear(g);
+  const bLinear = sRgbToLinear(b);
+  return (
+    linearToSRgb(
+      weights[0] * rLinear + weights[1] * gLinear + weights[2] * bLinear,
+    ) * 100
+  );
 };
 
 // The hue angle in degrees for a colour that has one, given its sorted channels.

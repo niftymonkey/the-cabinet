@@ -15,6 +15,13 @@ import {
   tapeFromUrl,
 } from '../seedFromUrl';
 
+/** The arguments of a mock's Nth call, once a call count assertion has proven it exists. */
+function callArgsOf(mock: { calls: unknown[][] }, index: number): unknown[] {
+  const call = mock.calls[index];
+  if (call === undefined) throw new Error(`no call at index ${index}`);
+  return call;
+}
+
 describe('seedFromUrl', () => {
   beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => {}));
   afterEach(() => vi.restoreAllMocks());
@@ -46,7 +53,9 @@ describe('seedFromUrl', () => {
       expect(seedFromUrl(`?seed=${raw}`, '')).toBeNull();
     }
     expect(console.warn).toHaveBeenCalledTimes(5);
-    expect(vi.mocked(console.warn).mock.calls[0].join(' ')).toContain('abc');
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      'abc',
+    );
   });
 
   it('SEED_LIMIT - 1 is accepted and SEED_LIMIT is not, so every pinned seed is one the roll could have produced', () => {
@@ -122,7 +131,9 @@ describe('levelsFromUrl', () => {
       expect(levelsFromUrl(`?levels=${raw}`, '')).toBeNull();
     }
     expect(console.warn).toHaveBeenCalledTimes(4);
-    expect(vi.mocked(console.warn).mock.calls[0].join(' ')).toContain('max');
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      'max',
+    );
   });
 });
 
@@ -170,6 +181,8 @@ describe('atFromUrl', () => {
       expect(atFromUrl(`?at=${raw}`, '')).toBeNull();
     }
     expect(console.warn).toHaveBeenCalledTimes(5);
-    expect(vi.mocked(console.warn).mock.calls[0].join(' ')).toContain('abc');
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      'abc',
+    );
   });
 });

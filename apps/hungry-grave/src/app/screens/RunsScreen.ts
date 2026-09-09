@@ -163,7 +163,8 @@ class RunsScreen extends Container {
     }
     this.props.onOpenReplay(
       URL.createObjectURL(
-        new Blob([bytes], { type: 'application/octet-stream' }),
+        // Re-wrapped rather than re-encoded: see tapeExport.ts's saveTapeFile.
+        new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' }),
       ),
     );
   }

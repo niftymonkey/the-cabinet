@@ -185,10 +185,11 @@ describe("the game screen's field container", () => {
     // The placement is applied as one container transform and never by
     // multiplying coordinates at call sites, which is what makes ADR 0003's
     // "no number in the sim is ever a device pixel" true by construction.
-    for (const [width, height] of [
+    const viewports: readonly (readonly [number, number])[] = [
       [1440, 900],
       [390, 844],
-    ]) {
+    ];
+    for (const [width, height] of viewports) {
       const screen = gameScreen();
       screen.resize(width, height);
 

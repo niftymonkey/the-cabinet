@@ -106,7 +106,9 @@ describe('saving a tape file', () => {
     saveTapeFile(bytes, 'a.tape');
 
     expect(createObjectURL).toHaveBeenCalledTimes(1);
-    const blob = createObjectURL.mock.calls[0][0];
+    const call = createObjectURL.mock.calls[0];
+    if (call === undefined) throw new Error('createObjectURL was never called');
+    const blob = call[0];
     expect(new Uint8Array(await blob.arrayBuffer())).toEqual(bytes);
   });
 

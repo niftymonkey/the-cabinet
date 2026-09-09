@@ -86,6 +86,7 @@ describe('the run summary', () => {
     const run = createRun(9);
     const execution = createExecution(run);
     const corpse = run.corpses[0];
+    if (corpse === undefined) throw new Error('no corpse pool slot 0');
     corpse.alive = true;
     corpse.id = 1;
     corpse.x = 50;

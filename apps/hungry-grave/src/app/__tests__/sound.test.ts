@@ -184,7 +184,12 @@ const aliasesTheVoicePlays = (): string[] => {
 /** The aliases a bundle registers: @pixi/sound takes the first of each list. */
 const aliasesInBundle = (name: string): string[] => {
   const bundle = manifest.bundles.find((entry) => entry.name === name);
-  return bundle ? bundle.assets.map((asset) => asset.alias[0]) : [];
+  if (!bundle) return [];
+  return bundle.assets.map((asset) => {
+    const alias = asset.alias[0];
+    if (alias === undefined) throw new Error(`${asset.src} has no alias`);
+    return alias;
+  });
 };
 
 describe('the clips a run asks for', () => {
@@ -269,12 +274,20 @@ describe('the section music (spec 58, module 108, 131)', () => {
     // the boundary event, so a table that moved a loop would land here.
     const changes = changedAt(loopPerPhase());
     expect(changes).toHaveLength(2);
+    const [firstChange, secondChange] = changes;
+    if (firstChange === undefined || secondChange === undefined) {
+      throw new Error('changedAt did not report both changes');
+    }
 
-    const banshee = PHASES[changes[0] - 1];
+    const banshee = PHASES[firstChange - 1];
+    if (banshee === undefined)
+      throw new Error('no phase before the first change');
     expect(banshee.ends).toBe('bossKilled');
     expect(banshee.boss).toBe('banshee');
 
-    const crowd = PHASES[changes[1] - 1];
+    const crowd = PHASES[secondChange - 1];
+    if (crowd === undefined)
+      throw new Error('no phase before the second change');
     expect(crowd.ends).toBe('setPieceOpened');
   });
 
@@ -444,7 +457,13 @@ describe('it holds no game rule (plan 6.22)', () => {
     // so a reader of the module sees what it is allowed to reach.
     const source = readFileSync(join(SRC, 'app', 'sound.ts'), 'utf8');
     const specifiers = [...source.matchAll(/from\s+'([^']+)'/g)].map(
-      (match) => match[1],
+      (match) => {
+        const specifier = match[1];
+        if (specifier === undefined) {
+          throw new Error('import regex matched with no captured specifier');
+        }
+        return specifier;
+      },
     );
     expect(specifiers.length).toBeGreaterThan(0);
     for (const specifier of specifiers) {

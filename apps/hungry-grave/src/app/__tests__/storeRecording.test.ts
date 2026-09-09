@@ -117,7 +117,9 @@ function kindsOf(appends: readonly AppendCall[]): string[] {
   ]);
   return appends.map(({ part }) => {
     if (part.kind !== 'chunk') return part.kind;
-    return names.get(part.bytes[0]) ?? `chunk ${part.bytes[0]}`;
+    const kindByte = part.bytes[0];
+    if (kindByte === undefined) throw new Error('chunk part has no kind byte');
+    return names.get(kindByte) ?? `chunk ${kindByte}`;
   });
 }
 
@@ -147,8 +149,10 @@ describe('the store recording', () => {
     await settle();
 
     expect(appends).toHaveLength(1);
-    expect(appends[0].runId).toBe('run-1');
-    const part = appends[0].part;
+    const first = appends[0];
+    if (first === undefined) throw new Error('no append recorded');
+    expect(first.runId).toBe('run-1');
+    const part = first.part;
     expect(part.kind).toBe('header');
     expect(String.fromCharCode(...part.bytes.subarray(0, 4))).toBe(TAPE_MAGIC);
     if (part.kind !== 'header') return;
@@ -276,7 +280,9 @@ describe('the store recording', () => {
       'observations',
       'trailer',
     ]);
-    const last = appends[appends.length - 1].part;
+    const lastAppend = appends[appends.length - 1];
+    if (lastAppend === undefined) throw new Error('no append recorded');
+    const last = lastAppend.part;
     expect(last.kind).toBe('trailer');
     if (last.kind !== 'trailer') return;
     expect(last.summary.stop).toBe('finished');
