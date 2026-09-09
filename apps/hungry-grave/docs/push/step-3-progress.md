@@ -11,6 +11,7 @@ One section per slice at the end, and the cross-slice facts first. Written by ea
 | 2, the two event fields and the readings | `c784a356e5` | `feat(hungry-grave): the offer's site and slot are events and the batch readings exist (#98)` |
 | 3, the header field and the one bump | `4093d4be81` | `feat(hungry-grave): every tape names the policy that steered it, and the format moves to 3 (#98)` |
 | 4a, the runner | `eb41654b11` | `feat(hungry-grave): one command plays a batch of seeds and writes a tape per seed (#98)` |
+| 4b, the report, and the end of A | `876aa63f72` | `feat(hungry-grave): a batch reports every reading as a spread across its seeds, by weapon line (#98)` |
 
 ## 2. GOLDEN moves
 
@@ -23,6 +24,8 @@ Slice 2: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6) or `READIN
 Slice 3: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6) or `READINGS_VERSION` (2). `src/dev/digest.ts`, `src/game/witness.ts` and `src/dev/readingsVersion.ts` are all outside the diff, which `git diff --stat` over the three answers with nothing, and `src/game/__tests__/digest.test.ts` is green. `FORMAT_VERSION` is the one version this step spends and it moved from 2 to 3 here, once, and never again in this step. Nothing this slice changed is folded: the header is not folded at all, the fold reads live run state (`witness.ts:363`), and the policy is a header field the simulation never sees.
 
 Slice 4a: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). The slice adds four files and edits none, so `git status --short` before the commit named exactly those four and `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing. `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded, because nothing this slice changed existed before it: the runner plays through the one execution authority and the shell writes bytes, and neither touches the fold, the witness or the wire.
+
+Slice 4b: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing, and `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded: the report is a reduction of measurements taken off tapes that already existed, the shell writes one more file beside the tapes it already wrote, and `seriesSummary.ts` gains a figure no reading in the tree asked for before. `READINGS_VERSION` in particular is untouched on its own rule (`readingsVersion.ts:13-16`): the batch report is a reader of the readings and adds none.
 
 ## 3. CodeRabbit
 
@@ -39,6 +42,8 @@ Slice 3: `coderabbit review --agent --uncommitted` from the repo root over the s
 - **Declined, minor.** Tests were asked for over `SET_PIECE_BUDGET`, asserting a reached set piece's budget diverges and an unreached one does not. `SET_PIECE_BUDGET` is the Waking's compiled pour budget (`setPiece.ts:112`) and not the director's per-phase budget ADR 0056 rules, which has no column on `Phase` and does not exist in the tree; the two were conflated. A test cannot cover a row nobody has authored, and the trigger is already named in the amendment: the day the budget becomes something a run resolves.
 
 Slice 4a: `coderabbit review --agent --uncommitted` from the repo root over the staged work, four files reviewed, **no findings**. Nothing applied and nothing declined.
+
+Slice 4b: `coderabbit review --agent --uncommitted` from the repo root over the staged work, nine files reviewed, **no findings**. Nothing applied and nothing declined.
 
 ## 4. Plan claims found false against the tree
 
@@ -63,6 +68,20 @@ Slice 4a: `coderabbit review --agent --uncommitted` from the repo root over the 
 **10. The record's section 5 claims the witness refuses a tape "either way" when a build retunes the director's budget.** The witness folds live run state, an open set piece's budget included (`witness.ts:347`, `:363`), and nothing about an authored row a run never reached, so a retune outside the run's path leaves the fold byte-identical and the tape verifies. The ruling is unharmed and the argument that survives is the other half, that a header naming one stage row while a hundred stay compiled promises a rebuild it cannot deliver. **ADR 0056's amendment carries the narrowed form; `playing-harness.md`'s section 5 still carries the strong one** and is the dispatching session's to fix, since a coder does not edit the record it was dispatched against.
 
 **11. Plan section 4 gives `scripts/batch.ts` an optional `[count]` while the row its default reads lands one slice later.** Section 7 says `BATCH_SEEDS` is 48 and that "its only reader is `scripts/batch.ts`'s default"; section 4 homes `BATCH_SEEDS` on `batchReport.ts`, section 5's "where the rows live" repeats that the batch size lives there, and section 10 gives `batchReport.ts` to slice 4b. So in this slice the default has no row to read. **The plan's intent was followed and its letter was not: `<count>` is required here**, refused out loud with the usage when it is absent, and **slice 4b makes it optional with `BATCH_SEEDS` as the default** in the commit that creates the row. The two rejected alternatives are named rather than left implicit: a bare 48 in the shell is the arithmetic-as-rules the standing rule forbids, and a `BATCH_SEEDS` living in `scripts/batch.ts` for one slice would give one magnitude two homes inside one branch. An argument that gains a default when its default exists is the honest form, and it also means this slice's command never plays 48 runs because somebody left a word off.
+
+**12. Plan section 4's five reduction kinds do not cover the shapes a verified report actually carries.** `spread`, `perLine`, `count`, `peak` and `notReduced` were checked against a real report rather than against the plan's prose: a verified measurement was taken off one of slice 4a's format 3 tapes and every one of the eighty-eight paths `READING_COMPARISONS` declares was printed with its shape. Three shapes have no kind. Numbers under names that are not weapon lines are most of the table (mob types on `tuning.engagements.*`, food kinds on `tuning.freshnessPaid.*`, hit sources on `tuning.damageTaken.hits`, the belch's own arm beside the four lines on `damage`), and `perLine` is "a number per run per weapon line". The section timeline is read twice, as each phase's span and as the reach, and neither is a spread of one number. And `performance` is structurally empty on a headless tape, which is a deliberate not-reduced rather than a hole. **The plan's intent was followed and its letter was not**: the union has seven members, `byName` and `phaseSpans` beside the plan's five, each with the shape it reads and the reason on it. `perLine` stayed beside `byName` rather than being folded into it, because a reading declared per line fails loudly when a name that is not a line's turns up, which is the guard #98's acceptance line actually needs.
+
+**13. Plan section 4's `peak` is "a number per run reduced to the batch's peak", and every peak-shaped reading on a report is a series.** `mobsAlivePerTick`, `mobFireAlivePerTick`, `tuning.gravePath.sizePerTick`, `tuning.fieldPerLine.total` and `tuning.groundHeld.fraction` are all `readonly number[]`. Two halves of the plan disagree and the record carries the derivation: its section 4 as amended says the batch reduces the airborne figure's two halves "to spreads". So `peak` is a series per run, reduced to that run's own peak and then spread, which loses nothing: the batch's own peak is the spread's `max` and the seed that produced it is named beside it, where a single batch-wide number would have been a reading with no tail (ADR 0053).
+
+**14. Plan section 4 has `batchReportOf` take a whole `BatchIdentity`, which makes module test 63 toothless.** Test 63 is "a batch whose tapes name two commits names both in its identity", and a report that copies the hashes out of an argument passes it whichever hashes the caller happened to pass. The hashes are on the runs (`Metrics.identity.commitHash`), so they are read there. **The plan's intent was followed and its letter was not**: `BatchOrigin` is what the command knows before a tape is read, the four things a batch is named by, and `BatchIdentity` is that plus the commit hashes and the mob widths the report derives. Section 5 below carries it.
+
+**15. Plan section 4's `DeclaredBatchReading` is `{ reading, reduction }`, which cannot answer a reading it declares.** The same paragraph says the table is "the same shape as `READING_COMPARISONS` (`compareRuns.ts:290`)", and every entry there carries the accessor that reads its own value off a report; the alternative it names as rejected is "reflecting over the report's shape and inferring". A table of paths and kinds alone would have to infer, which is the thing `comparisonDeclared.test.ts:107-110` was written against. **The plan's intent was followed and its letter was not**: each kind's declaration carries its own reader, so `tuning.dropLedger.byLine` flattens through the reading's own `ledgerByLineNumbers` and the belch's spans are crossed by a named function rather than by the report builder guessing.
+
+**16. Plan section 4 prints `byLine` and `phaseSpans` as full records over every line and every phase.** A line the run never offered has no entry rather than an entry of zeroes, which is `dropLedger.ts`'s own stated rule, and a phase no run in the batch reached has no span to summarise. Both are `Partial` records, and module test 60's second half is what holds it: a reading no run could support is left out rather than folded in as a zero.
+
+**17. Plan section 6 homes guard 81 in `src/dev/__tests__/`, where the fence forbids what the guard has to do.** The guard's own words are "no reading is compared against a literal anywhere in `batchReport.ts`", which is a read of the module's source, and a test file under `src/dev` may import no package but vitest (`boundary.test.ts`'s dev row at `:69-74`, `TEST_PACKAGES` at `:134`), `node:fs` included. It lives at `src/__tests__/harnessStatesNoTarget.test.ts` beside the other cross-cutting guards that read source, which is where `boundary.test.ts` and `lineAgnosticPolicies.test.ts` already are, and it names `compareBatches.ts` as the module that joins its list at slice 6.
+
+**18. The record's section 4 asks the belch reading for how much charge was carried into a boss's span, and nothing on a report carries it.** `belchCadence` carries every fire with its tick, `ticksAtFull` and `wasted` (`belchCadence.ts:27-31`), and no reading records the reservoir per tick, so the charge standing at a span's first tick is not readable off a tape today. The plan's own sentence asks only for "a count of fires per span", which is what the report carries: `tuning.belchCadence.fires` reduces to the run's whole count and each boss span's own. **Nothing was built for the missing half and no row moved**; it is a finding for #39, and the trigger is the day a reading records the reservoir.
 
 ## 5. Seams that moved
 
@@ -91,6 +110,17 @@ Slice 4a:
 - **`scripts/batch.ts` takes `<count>` as a required third argument**, not the plan's optional one, for the reason in section 4 item 11. The order and the fourth argument are the plan's: `<configuration> <first-seed> <count> [out-root]`, with `out-root` defaulting to `local/batches`.
 - **`harnessRun.ts` is the plan's seam exactly**: `playHarnessRun`, `runTickBudget` and `RUN_TICK_SLACK` exported, `HarnessRun` as a type, nothing else. The header literal it builds is the plan's, with `inputDevice: 'bot'` and `policy: configuration.name`.
 - **Nothing else moved.** No existing file was edited by this slice at all: it is four new files.
+
+Slice 4b:
+
+- **`seriesSummary.ts` is the plan's seam exactly**: `fiveNumbersOf` and `FiveNumbers` added to the export block, `meanOf` untouched beside them, and a private `nearestRank` carrying the method (`framePerformance.ts:15`'s own convention).
+- **`batchReport.ts` exports `MOB_WIDTHS` beyond the plan's list**, because the widths are a fact about the build rather than a reading and the report puts them on the identity for a reader to take a ratio from.
+- **`BatchOrigin` is new beside `BatchIdentity`**, for the reason in section 4 item 14. `batchReportOf(origin, runs)` is the signature.
+- **`BatchReduction` has seven members and `DeclaredBatchReading` is a discriminated union** carrying one reader per kind, for the reasons in section 4 items 12 and 15. The public names the plan prints, `batchReportOf`, `BATCH_READINGS`, `BATCH_SEEDS`, `BatchIdentity`, `BatchReduction`, `BatchReport`, `DeclaredBatchReading`, `Spread` and `UnverifiedRun`, are all there.
+- **`BatchReport.byLine` and `.phaseSpans` are `Partial` records**, for the reason in section 4 item 16.
+- **Guard 81 is at `src/__tests__/harnessStatesNoTarget.test.ts`**, not under `src/dev/__tests__/`, for the reason in section 4 item 17.
+- **`scripts/batch.ts` takes `<count>` as an optional third argument** defaulting to `BATCH_SEEDS`, which is slice 4a's own hand-forward landing in the commit that creates the row. The order is unchanged: `<configuration> <first-seed> [count] [out-root]`.
+- **Test 71 was renamed to the plan's own wording**, `writes one tape per seed and one report beside them, and prints the folder as the whole of what it says`, because the report is what this slice added to it. Section 7 carries it in the test-name diff.
 
 ## 6. The baseline tapes
 
@@ -151,6 +181,20 @@ Slice 4a, from the plan's section 3:
 - **Step 8, the verification readback on a harness tape.** **Passed**, twice over. Spec test 45 decodes the bytes `playHarnessRun` returns and `measure` answers `verified`, and the two hand measurements below do the same thing from the command line against tapes on disk. A harness tape replays and attests exactly as a person's does, which is #98's acceptance line.
 - **Step 13, the fences**, in the part this slice owns: `src/__tests__/boundary.test.ts` green with no edit, both rows of it, and `src/__tests__/lineAgnosticPolicies.test.ts` green. `harnessRun.ts` reaches only `dev`, `game` and `tape` and imports no package, so the filesystem stayed in the shell by construction rather than by care; `scripts/` is outside the fence, which is why `node:fs` lives there.
 - **Steps 7, 9 to 12 and 14** belong to other slices and were not run, though the batch below is the first real figure for step 14 and section 11 carries it. **Steps 15 to 18 are Mark's and stay open.**
+
+Slice 4b, from the plan's section 3:
+
+- **Step 1, unit tests.** Green. 131 files, 1745 passed, 10 expected fail, 2 todo. One run of the whole suite failed three `bot.test.ts` whole-stage `dodgePolicy` tests, every one a timeout at vitest's five seconds and not one an assertion; the file alone is green (65 passed, 10 expected fail, 45 s). That is the pre-existing contention slice 2's section 9 proved against `c10b1c5e06`, and slice 7 owns the fix.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 3, `pnpm build`.** Green, lint and typecheck included, with the two standing warnings (`@pixi/sound` statically imported alongside its dynamic import, and the pixi chunk over 500 kB). It went red once on prettier alone across five files, and prettier fixed them.
+- **Step 4, `pnpm verify` at the repo root.** Green, exit 0, run from inside the worktree.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step3/tests-baseline.txt`: **86 names added and one removed**, of which 64 added and the one removal are slices 1 to 4a's, so **23 are this slice's: 22 added and one of slice 4a's renamed**. Fourteen in `batchReport.test.ts`, three in `harnessStatesNoTarget.test.ts`, two in `batchReadingDeclared.test.ts`, two in `seriesSummary.test.ts`, one in `batch.test.ts`, plus test 71's rename. 1670 to 1755.
+- **Step 6, the golden digest.** Did not move. See section 2.
+- **Step 8, the verification readback on a harness tape.** **Passed on all forty-eight.** The batch's measuring pass decodes each tape's own bytes and `measure` answered `verified` for every seed, which the report records as `48 of 48 verified, 0 not`. Slice 4a proved it on one tape by hand; this is the whole batch.
+- **Step 10, the first 48-seed batch under the sharp corner.** **Ran.** Section 12 carries the table and the readings.
+- **Step 13, the fences**, in the part this slice owns: `src/dev/__tests__/comparisonDeclared.test.ts` green with no edit, `src/__tests__/boundary.test.ts` green with no edit (both rows), `src/__tests__/lineAgnosticPolicies.test.ts` green, and the two guards this slice adds green by their own titles, `every reading on a verified report carries a declared batch reduction` and `the harness reports and never judges`.
+- **Step 14, the batch cost.** A partial figure, because the split between playing and measuring is slice 7's: **2 minutes 24.8 seconds of wall clock** for 48 seeds played and measured, from `time` over the one command, vite's cold boot included. Slice 4a measured a played run at about 1.6 seconds, so the measuring pass is roughly the same again as the playing.
+- **Steps 7, 9, 11 and 12** belong to other slices and were not run. **Steps 15 to 18 are Mark's and stay open**, and step 18, whether the report reads, is now answerable: section 12's table is the printed thing it asks about.
 
 ## 8. Slice 1, the hand
 
@@ -276,3 +320,70 @@ The commit is `eb41654b11`. Eleven test names added across two new files, none r
 - **`playHarnessRun` is deterministic in its four arguments**, which test 58 pins by playing the same seed twice and comparing bytes. That is what lets 4b's report be a function of the tapes.
 - **Slice 5 still owns `HAND_STREAM`, the seed on `harnessPolicy`, the eight other rows and the widened `ConfigurationName`.** The runner takes a configuration and today there is one; nothing here reads a knob.
 - **The batch tapes from this slice are on disk** at `apps/hungry-grave/local/batches/steady-far-1788934491101/`, six of them, recorded against `dbb61bf506`. They are format 3 and they measure clean, so anything that wants a harness tape to read can use them rather than playing its own.
+
+## 12. Slice 4b, the report, and the end of A
+
+The commit is `876aa63f72`. Twenty-two test names added across four files and one of slice 4a's renamed, none removed. **A ends here: the harness plays, records and reports under one hand.**
+
+**What landed.** `seriesSummary.ts` gains `fiveNumbersOf` and `FiveNumbers`, nearest-rank on the sorted series and absent for an empty one, beside the figures it already had. `batchReport.ts` is new: `BATCH_SEEDS` at 48, `MOB_WIDTHS` off `MOB_TYPES`, the batch's identity and origin, `Spread`, `UnverifiedRun`, `BatchReport`, the seven-kind `BatchReduction`, the `BATCH_READINGS` table over every reading a verified report carries, and `batchReportOf`. `scripts/batch.ts` decodes and measures the bytes it wrote, writes `report.json` beside the tapes, and takes `<count>` as an optional argument defaulting to `BATCH_SEEDS`. Two cross-cutting guards land, one over the declaration table and one over the thing this step exists not to do. `CONTEXT.md` gains Batch.
+
+**Verification step 10, the first 48-seed batch under the sharp corner.** `pnpm vite-node --config vite.headless.config.ts scripts/batch.ts steady-far 20260909 48`, run alone, against `5f7f365e99`. Seeds 20260909 to 20260956, into `apps/hungry-grave/local/batches/steady-far-1788937370786/`, which is outside version control. **2 minutes 24.8 seconds of wall clock, 48 of 48 verified, none unverified, every tape clean and none truncated.**
+
+| Reading | runs | min | lower | median | upper | max | min seed / max seed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| run.ticks | 48 | 14103 | 21223 | 27221 | 28849 | 39632 | 20260930 / 20260925 |
+| run.kills | 48 | 19 | 40 | 52 | 75 | 135 | 20260935 / 20260928 |
+| levelUps (rungs bought) | 48 | 0 | 0 | 1 | 3 | 7 | 20260909 / 20260917 |
+| damageTaken.totalHits | 48 | 9 | 11 | 13 | 15 | 20 | 20260924 / 20260921 |
+| gravePath.sizePerTick (peak) | 48 | 34.98 | 38.21 | 39.56 | 40.62 | 43.25 | 20260944 / 20260919 |
+| gravePath.floorVisits | 48 | 0 | 1 | 2 | 3 | 6 | 20260917 / 20260923 |
+| gravePath.floorRecoveries | 48 | 0 | 0 | 1 | 2 | 5 | 20260909 / 20260923 |
+| wakingSwallows.span | 40 | 0 | 1 | 3 | 4 | 8 | 20260923 / 20260910 |
+| belchCadence.fires.run | 48 | 2 | 2 | 3 | 4 | 8 | 20260924 / 20260919 |
+| belchCadence.fires.banshee | 48 | 1 | 1 | 1 | 1 | 2 | 20260909 / 20260928 |
+| belchCadence.fires.undertaker | 29 | 0 | 0 | 0 | 1 | 3 | 20260911 / 20260910 |
+| mobsAlivePerTick (peak) | 48 | 34 | 71 | 74 | 76 | 79 | 20260933 / 20260916 |
+| mobFireAlivePerTick (peak) | 48 | 66 | 70 | 70 | 71 | 71 | 20260910 / 20260911 |
+| dropLedger.spawned | 48 | 0 | 0 | 3 | 12 | 24 | 20260909 / 20260928 |
+| dropLedger.swallowed | 48 | 0 | 0 | 1 | 3 | 7 | 20260909 / 20260917 |
+
+**The endings, the stops and the reach, counted.** Endings: 41 sealed, 7 victory. Stops: 48 finished. Integrity: 48 clean. **The reach: 29 of 48 entered the Undertaker's phase and 19 stopped short.** Seven of those 29 killed him. **This is a reading and never a bar**, and whether the two ends of the ladder are far enough apart is Mark's step 17, which needs the sloppy corner slice 5 builds.
+
+**Each phase's span, which is ADR 0049's clock as a distribution.**
+
+| Phase | runs | min | lower | median | upper | max | min seed / max seed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| procession | 48 | 7107 | 7118 | 7207 | 7830 | 7852 | 20260910 / 20260942 |
+| banshee | 48 | 1576 | 4084 | 4224 | 5033 | 5569 | 20260937 / 20260954 |
+| crowd | 40 | 8401 | 8401 | 8401 | 8401 | 8401 | 20260909 / 20260909 |
+| waking | 31 | 900 | 900 | 900 | 900 | 900 | 20260909 / 20260909 |
+| vigil | 29 | 4302 | 4547 | 4890 | 4890 | 4906 | 20260941 / 20260942 |
+| undertaker | 7 | 3312 | 3697 | 7378 | 9368 | 12744 | 20260917 / 20260925 |
+
+**The Crowd and the Waking hold the same number of ticks on every run that crossed them, and the fight phases do not.** 8401 and 900, flat across 40 and 31 runs. That is what ADR 0051's split predicts, and it is worth having as a measurement rather than as an argument: a phase that ends when its rows run out is as long as its rows, and a phase that ends when a boss dies is as long as the hand made it. The Undertaker's span runs from 3312 to 12744 ticks over the seven runs that finished him. **It is a reading for #39 and nothing was retuned.**
+
+**Take-by-slot, split by site (#98's second comment).** Over the 48 runs: 24 takes at slot 0, 30 at slot 1, 32 at slot 2, every one at a death point; 8 death-point offers and 1 banked offer went untaken. **The bank barely appears**: one banked offer in 48 runs, and `offerChoices.bankedWhileStanding` is 0 on 47 of the 48 with a single 1 at seed 20260936. Decision 9's corner is real and almost never reached under this hand. A finding for #39 and for the sloppy corner to read against.
+
+**The drop ledger by weapon line**, the reading this step widened, over the runs that stood a body of that line: skullStream 34 runs, territory 30, wisps 28, bell 26. Spawned runs 1 to 7 per line and swallowed 0 to 4, with the per-line medians at 1 to 2 spawned and 0 to 1 swallowed. Every line's four terminal counts add up to that line's spawned, which module test 74 holds run by run.
+
+**Two things the table says that nobody asked for, both findings and neither acted on.** `damageTaken.hits.banshee` is 0 on all 48 runs where `hits.undertaker` reaches 11, so the Banshee never lands a hit on this hand and the Undertaker does; that is a boss whose pattern the hand walks through. And `run.score`, `scoreBleeds` and `scoreBled` are 0 on every run, so the ladder's first rung never fires under a hand that has no score to bleed. Both are #39's.
+
+**Three readings in the report are build constants rather than readings**: `gravePath.bottomEdgeMargin` (76), `upfieldTraffic.bandUnits` (38) and `upfieldTraffic.lateralReach` (54), each flat across all 48 because each is a compiled row the reading prints so it says what it measured with. They cost a spread row apiece and they are honest where they are; if #39 wants them off the readings and onto the identity beside the mob widths, that is a decision about the per-run report and not about the batch.
+
+**Grave-to-mob scale, printed and never stated.** The grave's peak size spreads 34.98 to 43.25 with a median of 39.56, beside the widths this build fields: shambler 22, revenant 26, ghoul 18. The ratio is the reader's to take, which is what the record asks for.
+
+**The whole report is 134 spreads, 40 per-line spreads over four lines, six phase spans and seven counts**, in `report.json` beside the tapes. The table above is the part a person reads; the file is what step 4 reads.
+
+**Test 41 and guard 81 are two halves of one promise and both are here.** Test 41 walks a real report and finds only numbers and strings in it, with the walk proved by a planted boolean. Guard 81 reads the module's own source and finds no ordering against a number, no `meanOf` and no boolean at all, each with a planted example proving the scan fires. Between them the report cannot carry a verdict either as a value or as a line of code.
+
+**Sixteen mutations, fourteen red on the first pass and all sixteen after.** One per behaviour, each run against the file that guards it: the wrong nearest rank, a five-number summary that sorts its caller's series in place, the extreme seeds swapped, every figure filed flat instead of under its line, an unverified run dropped, a live phase measured to zero, every run counted as having reached, one commit named instead of two, half widths instead of widths, a reading removed from the table, an ordering against a literal, a `meanOf` import, no report written, a default count of 2 instead of the row, the offer's slot dropped from the take, and the offer's site dropped from it. **Two survived and both were real holes.** Module test 60 as first written only proved that a batch with nothing in it collects nothing, which is true by construction, so it gained the case a batch with runs in it can reach: a reading no run could support is left out rather than folded in as a zero, which the Waking's span on a batch that never opened the Waking is. And take-by-slot had no test at all, because the plan's numbered list folds it into the readings that landed at slice 2 where the counting of them is this slice's; it now has its own. The script lived in the session scratchpad and is gone.
+
+**The untaken offer row is one row for two facts, deliberately.** Slice 2's hand-forward says an offer standing when the tape stops looks like a lost one in `offerChoices`, and the report does not tell them apart: both count under `<site>.untaken`. The report needs the takes, so no field was added for a difference nothing reads, which is the cited-future rule. If #39 wants the split, the field and its caller appear together.
+
+**Hand-forwards for slice 5 and later.**
+
+- **`compareBatches.ts` joins guard 81's `MODULES` list when it lands.** The guard is written for two modules and holds one today, and the line saying so is in its own header.
+- **The nine configurations cost about twenty-two minutes, measured rather than estimated.** 48 seeds played and measured is 2 minutes 25 seconds, so 432 runs is a little over twenty. The plan's section 8 put it "nearer three quarters of an hour than a quarter" from `bot.test.ts`'s budget; the measured figure sits between the two, because the plan's estimate was for playing alone and the measuring pass roughly doubles it. **Verification step 14 is still slice 7's** and wants the split stated separately.
+- **The batch tapes and the report are on disk** at `apps/hungry-grave/local/batches/steady-far-1788937370786/`, forty-eight of them plus `report.json`, recorded against `5f7f365e99`. Slice 6's comparison needs a second batch under `shaky-short` to put beside it, and this one is the sharp half already played.
+- **`BATCH_READINGS` covers every reading a verified report carries today**, and a reading slice 5 or later adds needs a row here or `batchReadingDeclared.test.ts` goes red. Slice 5 adds no reading, so nothing is owed.
+- **Slice 5 still owns `HAND_STREAM`, the seed on `harnessPolicy`, the eight other rows and the widened `ConfigurationName`.** `ConfigurationName` is read by `BatchOrigin` and `BatchIdentity`, so widening the union widens them with no edit here.
