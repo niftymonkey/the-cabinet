@@ -4,6 +4,7 @@ import type { Distribution } from './framePerformance';
 import type { Divergence, Measurement, Metrics, Refusal } from './measure';
 import type { NumberRecord } from './numbersByName';
 import { fieldSummary, perLineSummary } from './readings/fieldPerLine';
+import { ledgerByLineNumbers } from './readings/dropLedger';
 import { sizeSummary } from './readings/gravePath';
 import { groundSummary } from './readings/groundHeld';
 import { endNumbers, pacingSummary } from './readings/territoryControl';
@@ -315,6 +316,11 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     (report) => report.mobsAlivePerTick,
     populationSummary,
   ),
+  seriesReading(
+    'mobFireAlivePerTick',
+    (report) => report.mobFireAlivePerTick,
+    populationSummary,
+  ),
   scalarReading(
     'tuning.damageTaken.totalHits',
     (report) => report.tuning.damageTaken.totalHits,
@@ -400,6 +406,14 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.gravePath.bottomEdgeMargin',
     (report) => report.tuning.gravePath.bottomEdgeMargin,
   ),
+  scalarReading(
+    'tuning.gravePath.floorVisits',
+    (report) => report.tuning.gravePath.floorVisits,
+  ),
+  scalarReading(
+    'tuning.gravePath.floorRecoveries',
+    (report) => report.tuning.gravePath.floorRecoveries,
+  ),
   seriesReading(
     'tuning.fieldPerLine.perLine',
     (report) => report.tuning.fieldPerLine.perLine,
@@ -457,6 +471,25 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
   scalarReading(
     'tuning.dropLedger.onFieldAtStop',
     (report) => report.tuning.dropLedger.onFieldAtStop,
+  ),
+  namedNumbersReading('tuning.dropLedger.byLine', (report) =>
+    ledgerByLineNumbers(report.tuning.dropLedger.byLine),
+  ),
+  // A list and never a series: the rows are one entry per offer the run stood,
+  // and two runs that stood a different number of offers have no index to pair.
+  listReading(
+    'tuning.offerChoices.choices',
+    (report) => report.tuning.offerChoices.choices,
+  ),
+  scalarReading(
+    'tuning.offerChoices.bankedWhileStanding',
+    (report) => report.tuning.offerChoices.bankedWhileStanding,
+  ),
+  // Descriptive because the span is absent on a run that never opened the
+  // Waking, and a null against a count is not a difference to subtract.
+  descriptiveReading(
+    'tuning.wakingSwallows.span',
+    (report) => report.tuning.wakingSwallows.span,
   ),
   scalarReading(
     'tuning.territoryPatches.laid',

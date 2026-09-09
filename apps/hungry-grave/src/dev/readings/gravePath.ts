@@ -2,6 +2,7 @@
 
 import { FIELD_HEIGHT } from '../../game/field';
 import type { RunState } from '../../game/run';
+import { SIZE_FLOOR } from '../../game/tuning';
 import type { NumberRecord } from '../numbersByName';
 import { firstOf, greatestOf, lastOf, leastOf, meanOf } from '../seriesSummary';
 
@@ -42,20 +43,52 @@ interface GravePath {
   readonly ticksNearBottomEdge: number;
   // The margin the count above was taken with, so the reading says what it measured.
   readonly bottomEdgeMargin: number;
+  /**
+   * How many times the size series crossed down to SIZE_FLOOR, and how many of
+   * those the run climbed back above it from.
+   *
+   * The two are the spiral-versus-comeback split: a visit on its own says only
+   * that the run reached the floor, and what followed it is the reading. A run
+   * that visited and never recovered ended at the floor, which the run's own
+   * ending says beside this.
+   *
+   * A visit is a crossing and never a state, so a run that begins at the floor
+   * has visited nothing until it climbs out and falls back.
+   */
+  readonly floorVisits: number;
+  readonly floorRecoveries: number;
 }
 
 interface GravePathAcc {
   readonly sizePerTick: number[];
   ticksNearBottomEdge: number;
+  atFloor: boolean;
+  floorVisits: number;
+  floorRecoveries: number;
 }
+
+const atSizeFloor = (size: number): boolean => size <= SIZE_FLOOR;
 
 const createGravePath = (startingSize: number): GravePathAcc => ({
   sizePerTick: [startingSize],
   ticksNearBottomEdge: 0,
+  atFloor: atSizeFloor(startingSize),
+  floorVisits: 0,
+  floorRecoveries: 0,
 });
+
+// The crossing this sample made, if it made one: down to the floor, or back above it.
+const observeFloor = (acc: GravePathAcc, size: number): void => {
+  const nowAtFloor = atSizeFloor(size);
+  if (nowAtFloor === acc.atFloor) return;
+  if (nowAtFloor) acc.floorVisits += 1;
+  else acc.floorRecoveries += 1;
+  acc.atFloor = nowAtFloor;
+};
 
 const observeGravePath = (acc: GravePathAcc, state: RunState): void => {
   acc.sizePerTick.push(state.grave.size);
+  observeFloor(acc, state.grave.size);
   if (gapUnderGrave(state) <= BOTTOM_EDGE_MARGIN) {
     acc.ticksNearBottomEdge += 1;
   }
@@ -65,6 +98,8 @@ const gravePathOf = (acc: GravePathAcc): GravePath => ({
   sizePerTick: [...acc.sizePerTick],
   ticksNearBottomEdge: acc.ticksNearBottomEdge,
   bottomEdgeMargin: BOTTOM_EDGE_MARGIN,
+  floorVisits: acc.floorVisits,
+  floorRecoveries: acc.floorRecoveries,
 });
 
 /**

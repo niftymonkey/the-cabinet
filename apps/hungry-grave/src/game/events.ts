@@ -354,6 +354,14 @@ interface DropSpawned {
 }
 
 /**
+ * Where an offer stood: at the carrier's own death point, or out of the bank
+ * (ADR 0034). A banked offer opens at the grave's own x above the top edge,
+ * which is a different thing to walk to, and the site is recorded where it is
+ * known rather than guessed from the point later.
+ */
+type OfferSite = 'death' | 'bank';
+
+/**
  * An offer opened on the field (ADR 0034). The options are the lines its
  * bodies carry, in the order they were laid down, and `banked` is what still
  * waits behind it so a burst of paying kills reads as paid.
@@ -364,6 +372,7 @@ interface OfferOpened {
   readonly x: number;
   readonly y: number;
   readonly banked: number;
+  readonly site: OfferSite;
 }
 
 // A carrier died while an offer stood, so its offer waits its turn (ADR 0034).
@@ -381,6 +390,12 @@ interface OfferTaken {
   readonly type: 'offerTaken';
   readonly line: WeaponLine;
   readonly passed: readonly WeaponLine[];
+  /**
+   * The taken body's place among the offer's bodies, left to right from zero.
+   * The sim knows it where the take happens, so it says so rather than leaving
+   * a reader to index the line back into the options it remembered.
+   */
+  readonly slot: number;
 }
 
 /**
@@ -465,4 +480,4 @@ type SimEvent =
 // change carries it: src/app/sound.ts may reach this module and no other
 // (src/__tests__/boundary.test.ts), so the vocabulary a subscriber reads has to
 // be reachable from the vocabulary it subscribes to.
-export type { CarrierLoss, PhaseMusic, SetPieceClosing, SimEvent };
+export type { CarrierLoss, OfferSite, PhaseMusic, SetPieceClosing, SimEvent };

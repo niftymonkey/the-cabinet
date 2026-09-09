@@ -3,7 +3,7 @@
 
 import { DROP_HALF_EXTENT, spawnDrop } from './corpses';
 import type { Corpse } from './corpses';
-import type { SimEvent } from './events';
+import type { OfferSite, SimEvent } from './events';
 import { FIELD_WIDTH } from './field';
 import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL } from './lines/roster';
@@ -158,7 +158,12 @@ const bodyIdIn = (events: readonly SimEvent[]): number | null => {
  * asked for, so a refused body is an option that is simply not on the field
  * instead of an offer holding an id nothing answers to.
  */
-const standOffer = (state: RunState, x: number, y: number): SimEvent[] => {
+const standOffer = (
+  state: RunState,
+  x: number,
+  y: number,
+  site: OfferSite,
+): SimEvent[] => {
   const options = drawOptions(state);
   if (options.length === 0) return spawnDrop(state, x, y);
 
@@ -196,6 +201,7 @@ const standOffer = (state: RunState, x: number, y: number): SimEvent[] => {
     x: centre,
     y,
     banked: state.bankedOffers,
+    site,
   };
   return [opened, ...bodies];
 };
@@ -209,7 +215,7 @@ const openOffer = (state: RunState, x: number, y: number): SimEvent[] => {
     state.bankedOffers += 1;
     return [{ type: 'offerBanked', banked: state.bankedOffers }];
   }
-  return standOffer(state, x, y);
+  return standOffer(state, x, y, 'death');
 };
 
 // How far a body's centre sits from the grave's, squared, which orders the
@@ -265,7 +271,7 @@ const vanishSiblings = (state: RunState, offer: Offer, taken: number): void => {
 const openBanked = (state: RunState): SimEvent[] => {
   if (state.bankedOffers <= 0) return [];
   state.bankedOffers -= 1;
-  return standOffer(state, state.grave.x, -OFFER_ENTRY_DEPTH);
+  return standOffer(state, state.grave.x, -OFFER_ENTRY_DEPTH, 'bank');
 };
 
 /**
@@ -313,7 +319,7 @@ const resolveOffer = (state: RunState, takenId: number): SimEvent[] => {
   state.levels[line] += 1;
   return [
     { type: 'weaponLeveled', line, level: state.levels[line] },
-    { type: 'offerTaken', line, passed },
+    { type: 'offerTaken', line, passed, slot: index },
     ...openBanked(state),
   ];
 };

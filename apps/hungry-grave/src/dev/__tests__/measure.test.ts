@@ -210,6 +210,7 @@ interface RichRecording {
   readonly endLevels: Record<string, number>;
   readonly levelUps: LevelUp[];
   readonly mobsAlive: number[];
+  readonly mobFireAlive: number[];
   readonly kills: number;
   readonly lays: number;
   readonly score: number;
@@ -226,6 +227,7 @@ function recordRichRun(): RichRecording {
   const damage = emptyDamage(run);
   const levelUps: LevelUp[] = [];
   const mobsAlive: number[] = [0];
+  const mobFireAlive: number[] = [0];
   const densities = new Map<number, FieldDensity>();
   let kills = 0;
   let lays = 0;
@@ -249,6 +251,7 @@ function recordRichRun(): RichRecording {
       }
     }
     mobsAlive.push(liveCount(run.mobs));
+    mobFireAlive.push(liveCount(run.mobFire));
     recordFrame(recorder, {
       reason: 'live',
       tickIndex: tick,
@@ -270,6 +273,7 @@ function recordRichRun(): RichRecording {
     endLevels: { ...run.levels },
     levelUps,
     mobsAlive,
+    mobFireAlive,
     kills,
     lays,
     score: run.score,
@@ -329,6 +333,23 @@ describe('measure', () => {
     expect(rich.measured.mobsAlivePerTick).toHaveLength(rich.ticks + 1);
     expect(rich.measured.mobsAlivePerTick[0]).toBe(0);
     expect(rich.measured.mobsAlivePerTick).toEqual(rich.mobsAlive);
+  });
+
+  it('reports mob fire alive per tick beside the mob population, on the same indexing', () => {
+    // The half of #39's airborne figure a headless tape has no reading of. The
+    // storm is the player's own projectiles and mob fire is never the storm, so
+    // this counts state.mobFire and re-counts nothing fieldPerLine already
+    // holds: densityOf's shots field is the same pool and is sampled only where
+    // a frame row exists, which a headless tape has none of.
+    const rich = richFixture();
+
+    expect(Math.max(...rich.mobFireAlive)).toBeGreaterThan(0);
+    expect(rich.measured.mobFireAlivePerTick).toHaveLength(rich.ticks + 1);
+    expect(rich.measured.mobFireAlivePerTick[0]).toBe(0);
+    expect(rich.measured.mobFireAlivePerTick).toEqual(rich.mobFireAlive);
+    expect(rich.measured.mobFireAlivePerTick).not.toEqual(
+      rich.measured.mobsAlivePerTick,
+    );
   });
 
   it('recomputes the run summary from the replay: ticks, ending, score and kills', () => {

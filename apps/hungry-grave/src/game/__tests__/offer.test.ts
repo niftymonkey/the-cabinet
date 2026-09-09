@@ -383,6 +383,22 @@ describe('the take (ADR 0034)', () => {
     expect(state.bankedOffers).toBe(0);
   });
 
+  it("says which of the offer's bodies went in", () => {
+    // #98's second comment: which body the grave took is a fact the sim knows
+    // where the take happens, so it says so on the take rather than leaving a
+    // reader to index the line back into options it had to remember. The offer
+    // is laid on the grave's own centre, so the middle body is slot 1.
+    const state = quietRun();
+    const step = stepping(state);
+    openOffer(state, state.grave.x, state.grave.y);
+    const options = [...state.offer!.options];
+
+    const taken = step(STILL).find((event) => event.type === 'offerTaken')!;
+
+    expect(taken.slot).toBe(1);
+    expect(options[taken.slot]).toBe(taken.line);
+  });
+
   it('adds no command channel, because the take is a movement input', () => {
     // ADR 0034: "the take as a movement input already on the tape so replay
     // still runs from the seed plus inputs alone." A whole take happens under
@@ -428,6 +444,48 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
     expect(typesOf(events)).toEqual(['offerBanked']);
     expect(state.bankedOffers).toBe(1);
     expect(offerBodies(state).map((body) => body.id)).toEqual(bodies);
+  });
+
+  it('says whether an offer stood where a carrier died or came out of the bank', () => {
+    // #98's second comment: openBanked opens at the grave's own x above the
+    // top edge, so a still grave is handed the middle body every time, and the
+    // site has to exist as a reading before anyone argues about that. It is
+    // recorded where it is known: guessing it from the opening's y against
+    // OFFER_ENTRY_DEPTH would be sound only because no carrier dies above the
+    // field's top edge, which is a property of the stage.
+    const state = quietRun();
+    const step = stepping(state);
+
+    const death = openOffer(state, 260, 180).find(
+      (event) => event.type === 'offerOpened',
+    )!;
+    openOffer(state, 100, 100);
+    expect(state.bankedOffers).toBe(1);
+
+    // The take clears the standing offer, and the bank opens the next one.
+    state.grave.x = death.x;
+    state.grave.y = death.y;
+    const opened = step(STILL).find((event) => event.type === 'offerOpened')!;
+
+    expect(death.site).toBe('death');
+    expect(opened.site).toBe('bank');
+    expect(opened.y).toBe(-OFFER_ENTRY_DEPTH);
+  });
+
+  it('banks an offer a carrier paid while one already stands, rather than opening it', () => {
+    // ADR 0034: "exactly one offer is live at a time", and decision 9's corner
+    // is what happens to the second carrier's payment. The harness is what
+    // will walk this path, so it is pinned here as its own promise.
+    const state = quietRun();
+    openOffer(state, 260, 180);
+    const standing = state.offer!.bodyIds;
+
+    const second = openOffer(state, 100, 100);
+
+    expect(typesOf(second)).toEqual(['offerBanked']);
+    expect(second).toEqual([{ type: 'offerBanked', banked: 1 }]);
+    expect(state.offer!.bodyIds).toEqual(standing);
+    expect(state.bankedOffers).toBe(1);
   });
 
   it('reports the bank on the live offer', () => {

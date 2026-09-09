@@ -41,6 +41,12 @@ import {
   groundHeldOf,
   observeGroundHeld,
 } from './groundHeld';
+import type { OfferChoices, OfferChoicesAcc } from './offerChoices';
+import {
+  createOfferChoices,
+  observeOfferChoices,
+  offerChoicesOf,
+} from './offerChoices';
 import type { Repel, RepelAcc } from './repel';
 import { createRepel, observeRepel, repelOf } from './repel';
 import type { SectionTimeline, SectionTimelineAcc } from './sectionTimeline';
@@ -73,6 +79,12 @@ import {
   observeUpfieldTraffic,
   upfieldTrafficOf,
 } from './upfieldTraffic';
+import type { WakingSwallows, WakingSwallowsAcc } from './wakingSwallows';
+import {
+  createWakingSwallows,
+  observeWakingSwallows,
+  wakingSwallowsOf,
+} from './wakingSwallows';
 
 // Everything a run says about how it played, beside what it produced.
 interface TuningReadings {
@@ -83,6 +95,8 @@ interface TuningReadings {
   readonly freshnessPaid: FreshnessPaid;
   readonly belchCadence: BelchCadence;
   readonly dropLedger: DropLedger;
+  readonly offerChoices: OfferChoices;
+  readonly wakingSwallows: WakingSwallows;
   readonly territoryPatches: TerritoryPatches;
   readonly territoryControl: TerritoryControl;
   readonly groundHeld: GroundHeld;
@@ -99,6 +113,8 @@ interface ReadingsAcc {
   readonly freshnessPaid: FreshnessPaidAcc;
   readonly belchCadence: BelchCadenceAcc;
   readonly dropLedger: DropLedgerAcc;
+  readonly offerChoices: OfferChoicesAcc;
+  readonly wakingSwallows: WakingSwallowsAcc;
   readonly territoryPatches: TerritoryPatchesAcc;
   readonly territoryControl: TerritoryControlAcc;
   readonly groundHeld: GroundHeldAcc;
@@ -125,6 +141,8 @@ const createReadings = (
   freshnessPaid: createFreshnessPaid(),
   belchCadence: createBelchCadence(),
   dropLedger: createDropLedger(),
+  offerChoices: createOfferChoices(),
+  wakingSwallows: createWakingSwallows(),
   territoryPatches: createTerritoryPatches(),
   territoryControl: createTerritoryControl(),
   groundHeld: createGroundHeld(),
@@ -155,6 +173,8 @@ const observeReadings = (
   observeFreshnessPaid(acc.freshnessPaid, events);
   observeBelchCadence(acc.belchCadence, tick, events, state);
   observeDropLedger(acc.dropLedger, events, state);
+  observeOfferChoices(acc.offerChoices, tick, events);
+  observeWakingSwallows(acc.wakingSwallows, tick, events);
   observeTerritoryPatches(acc.territoryPatches, events);
   observeTerritoryControl(acc.territoryControl, tick, events, state);
   observeGroundHeld(acc.groundHeld, state);
@@ -171,6 +191,8 @@ const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   freshnessPaid: freshnessPaidOf(acc.freshnessPaid),
   belchCadence: belchCadenceOf(acc.belchCadence),
   dropLedger: dropLedgerOf(acc.dropLedger),
+  offerChoices: offerChoicesOf(acc.offerChoices),
+  wakingSwallows: wakingSwallowsOf(acc.wakingSwallows),
   territoryPatches: territoryPatchesOf(acc.territoryPatches),
   territoryControl: territoryControlOf(acc.territoryControl),
   groundHeld: groundHeldOf(acc.groundHeld),

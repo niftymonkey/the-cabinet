@@ -32,6 +32,15 @@ interface ReplayTallies {
   readonly damage: Record<string, number>;
   readonly levelUps: LevelUp[];
   readonly mobsAlivePerTick: number[];
+  /**
+   * Index N is the live mob-fire count after N ticks, indexed as the mob series
+   * is. It is the half of #39's airborne figure a headless tape has no reading
+   * of: the storm is the player's own projectiles and is already counted per
+   * line every tick by fieldPerLine, where mob fire is sampled only inside
+   * densityOf, which runs at expensive-frame ticks alone and never on a tape
+   * with no frame rows.
+   */
+  readonly mobFireAlivePerTick: number[];
   // The field at each sampled tick, for the expensive-frame join.
   readonly densities: Map<number, FieldDensity>;
   // The tuning readings, collected off the same pass (#74).
@@ -108,6 +117,7 @@ const createTallies = (
     // Index 0 is the empty starting field, matching ADR 0019's checkpoint
     // indexing: index N is the state after N ticks have run.
     mobsAlivePerTick: [0],
+    mobFireAlivePerTick: [0],
     densities: new Map(),
     readings,
     kills: 0,
@@ -151,6 +161,7 @@ const observeInto = (
     }
     observeReadings(tallies.readings, tick, events, state, lines);
     tallies.mobsAlivePerTick.push(liveCount(state.mobs));
+    tallies.mobFireAlivePerTick.push(liveCount(state.mobFire));
     tallies.score = state.score;
     tallies.ending = state.ending;
     // The listener's tick count equals a frame row's tickIndex exactly when

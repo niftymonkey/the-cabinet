@@ -115,6 +115,8 @@ interface Metrics {
   readonly levelUps: readonly LevelUp[];
   // Index N is the live mob count after N ticks, so index 0 is the empty starting field.
   readonly mobsAlivePerTick: readonly number[];
+  // The same indexing over mob fire, which is the half of the airborne figure a headless tape lacks.
+  readonly mobFireAlivePerTick: readonly number[];
   // What the run cost, how its fights went, and what its storm held (#74).
   readonly tuning: TuningReadings;
   readonly performance: PerformanceReport;
@@ -280,6 +282,7 @@ const measure = (decoded: DecodedTape): Measurement => {
     endLevels: endLevelsOf(tallies),
     levelUps: tallies.levelUps,
     mobsAlivePerTick: tallies.mobsAlivePerTick,
+    mobFireAlivePerTick: tallies.mobFireAlivePerTick,
     tuning: readingsOf(readings),
     performance: performanceOf(frames, tallies.densities),
     recordedFaults: result.recordedFaults,

@@ -7,13 +7,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { FIELD_HEIGHT } from '../../../game/field';
-import { ageGrave, hitGrave, moveGrave } from '../../../game/grave';
+import { ageGrave, growGrave, hitGrave, moveGrave } from '../../../game/grave';
 import type { RunState } from '../../../game/run';
 import { createRun } from '../../../game/run';
 import {
   BASE_SPEED,
   HIT_SHRINK,
   INVULNERABLE_TICKS,
+  SIZE_FLOOR,
   SIZE_START,
 } from '../../../game/tuning';
 import {
@@ -101,6 +102,41 @@ describe('grave path', () => {
     const path = gravePathOf(accumulator);
     expect(path.ticksNearBottomEdge).toBe(2);
     expect(path.bottomEdgeMargin).toBe(BOTTOM_EDGE_MARGIN);
+  });
+
+  it('counts a crossing down to the size floor as a visit, and a climb back above it beside it', () => {
+    // The spiral-versus-comeback split (the record's section 4 as amended): a
+    // visit on its own says only that the run reached the floor, and what
+    // followed it is the reading. It is a crossing and never a state, so ticks
+    // spent sitting at the floor are one visit and not many.
+    const run = createRun(SEED);
+    const accumulator = createGravePath(run.grave.size);
+
+    observeGravePath(accumulator, run);
+    expect(run.grave.size).toBeGreaterThan(SIZE_FLOOR);
+
+    // Down to the floor, through the sim's own hit, and held there.
+    while (run.grave.size > SIZE_FLOOR) {
+      land(run);
+      observeGravePath(accumulator, run);
+    }
+    expect(run.grave.size).toBe(SIZE_FLOOR);
+    for (let tick = 0; tick < 3; tick++) observeGravePath(accumulator, run);
+    expect(gravePathOf(accumulator).floorVisits).toBe(1);
+    expect(gravePathOf(accumulator).floorRecoveries).toBe(0);
+
+    // And back out of it, which is the half a spiral never has.
+    growGrave(run.grave, HIT_SHRINK);
+    observeGravePath(accumulator, run);
+    expect(run.grave.size).toBeGreaterThan(SIZE_FLOOR);
+
+    // A second fall is a second visit, so the two counts are of crossings.
+    land(run);
+    observeGravePath(accumulator, run);
+
+    const path = gravePathOf(accumulator);
+    expect(path.floorVisits).toBe(2);
+    expect(path.floorRecoveries).toBe(1);
   });
 
   it('counts the same band of travel however large the grave has grown', () => {
