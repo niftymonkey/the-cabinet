@@ -5,7 +5,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -35,6 +35,16 @@ const aRepoWithOneCommit = (): string => {
   run('git add rule.txt');
   run('git commit -q -m "one rule"');
   return repo;
+};
+
+/**
+ * A directory inside the repository, standing for the app folder every
+ * headless script and vite config in this project runs from.
+ */
+const aDirectoryInside = (repo: string): string => {
+  const inside = join(repo, 'app', 'src');
+  mkdirSync(inside, { recursive: true });
+  return inside;
 };
 
 const identityIn = (repo: string): string =>
@@ -143,5 +153,49 @@ describe('the build identity', () => {
     expect(withTheFile).not.toBe(clean);
     expect(withTheFile.startsWith(`${clean}-dirty`)).toBe(true);
     expect(withItRewritten).not.toBe(withTheFile);
+  });
+
+  it('reads one identity from the repository root and from a directory inside it', () => {
+    // Every headless script and every vite config in this app runs with its
+    // cwd at apps/hungry-grave rather than at the repository root, so an
+    // identity that read the tree differently from there would give one build
+    // two names.
+    const repo = aRepoWithOneCommit();
+    const inside = aDirectoryInside(repo);
+    writeFileSync(join(repo, 'newRule.txt'), 'one skull\n');
+
+    expect(identityIn(inside)).toBe(identityIn(repo));
+  });
+
+  it("tells two trees apart by an untracked file's contents, read from a directory inside the repository", () => {
+    // The subdirectory is where a slice's own scripts run, so this is the
+    // reading that matters for #82: an untracked module holding a rule has to
+    // separate the two builds recorded under it from there too.
+    const repo = aRepoWithOneCommit();
+    const inside = aDirectoryInside(repo);
+
+    writeFileSync(join(inside, 'newRule.txt'), 'one skull\n');
+    const oneRule = identityIn(inside);
+    writeFileSync(join(inside, 'newRule.txt'), 'three skulls\n');
+    const anotherRule = identityIn(inside);
+
+    expect(oneRule).not.toBe(anotherRule);
+  });
+
+  it('comes back to the clean identity when an untracked file is deleted', () => {
+    // A tree that has lost the uncommitted rule again is the commit itself,
+    // and an identity that stayed dirty would put a build note on readings
+    // that deserve none.
+    const repo = aRepoWithOneCommit();
+    const inside = aDirectoryInside(repo);
+    const rule = join(inside, 'newRule.txt');
+
+    const clean = identityIn(inside);
+    writeFileSync(rule, 'one skull\n');
+    const dirty = identityIn(inside);
+    rmSync(rule);
+
+    expect(dirty).not.toBe(clean);
+    expect(identityIn(inside)).toBe(clean);
   });
 });

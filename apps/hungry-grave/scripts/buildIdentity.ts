@@ -57,6 +57,21 @@ const UNTRACKED_CONTENTS = `${UNTRACKED_PATHS} | git hash-object --stdin-paths`;
  */
 const UNCOMMITTED_DIGEST_COMMAND = `{ ${TRACKED_DIFF}; ${UNTRACKED_PATHS}; ${UNTRACKED_CONTENTS}; } | git hash-object --stdin`;
 
+/**
+ * Where the repository holding a directory begins.
+ *
+ * Every command above runs there rather than wherever the process was started,
+ * because two of them answer for the current directory alone: `git ls-files
+ * --others` lists only the folder it runs in and prints its paths relative to
+ * that folder, while `git hash-object --stdin-paths` reads the paths it is
+ * handed against the repository root. Anywhere but the top level the two
+ * disagree, the mismatch is stderr inside a pipe whose exit status is the last
+ * command's, and every untracked file's contents fall out of the digest in
+ * silence. Every headless script and every vite config in this app runs with
+ * its cwd at `apps/hungry-grave` (#82).
+ */
+const TOP_LEVEL_COMMAND = 'git rev-parse --show-toplevel';
+
 // What a described tree is suffixed with when it holds uncommitted work.
 const DIRTY_MARKER = '-dirty';
 
@@ -107,12 +122,25 @@ const buildIdentityOf = (
 const askIn = (directory: string, command: string): string =>
   execSync(command, { cwd: directory, encoding: 'utf8' }).trim();
 
-/** What git says about one directory's tree. */
-const gitAnswersIn = (directory: string): GitAnswers => ({
-  describe: () => askIn(directory, DESCRIBE_COMMAND),
-  uncommittedState: () => askIn(directory, UNCOMMITTED_STATE_COMMAND),
-  uncommittedDigest: () => askIn(directory, UNCOMMITTED_DIGEST_COMMAND),
-});
+/**
+ * What git says about the tree a directory sits in.
+ *
+ * The top level is looked up inside each answer rather than once here, so a
+ * directory git cannot answer for at all fails where the identity is being
+ * taken and becomes the unknown build, instead of throwing at construction
+ * where nothing is watching.
+ */
+const gitAnswersIn = (directory: string): GitAnswers => {
+  const askAtTheTopLevel = (command: string): string => {
+    const topLevel = askIn(directory, TOP_LEVEL_COMMAND);
+    return askIn(topLevel, command);
+  };
+  return {
+    describe: () => askAtTheTopLevel(DESCRIBE_COMMAND),
+    uncommittedState: () => askAtTheTopLevel(UNCOMMITTED_STATE_COMMAND),
+    uncommittedDigest: () => askAtTheTopLevel(UNCOMMITTED_DIGEST_COMMAND),
+  };
+};
 
 /** The identity of the tree this build is being made from. */
 const buildIdentityHere = (): string =>
