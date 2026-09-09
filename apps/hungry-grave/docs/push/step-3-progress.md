@@ -16,6 +16,7 @@ One section per slice at the end, and the cross-slice facts first. Written by ea
 | 6, the comparison, and the done line | `60f6e652d1` | `feat(hungry-grave): two batches compare by direction, and the corners either agree or split (#98)` |
 | 7, the fences and the full verification pass | `29a97f2c88` | `test(hungry-grave): the whole-stage dodge tests carry a stated budget (#98)` |
 | Bug fix, the middle rung's reading crash | `032b72d794` | `fix(hungry-grave): a belch kill names its type off the kill event (#98)` |
+| Rungs, the cliff between loose and shaky | `3a6e7eb428` | `feat(hungry-grave): three hands between loose and shaky, so the ladder has no unplayed gap (#98)` |
 
 ## 2. GOLDEN moves
 
@@ -36,6 +37,8 @@ Slice 5: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS
 Slice 6: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing, and `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded, and nothing it changed is even read during a run: the comparison is a reduction of two reports that were themselves reduced from tapes, and the one existing file it edits is a guard's own module list. The strongest form of it is section 14's own reading: the sharp corner replayed at this slice's tip is flat against its own batch from four commits back on all 180 rows, so the code under the runs did not move either.
 
 Slice 7: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). The slice edits one test file and nothing else, so `git diff --stat` over `src/dev/digest.ts`, `src/game/witness.ts`, `src/dev/readingsVersion.ts` and `src/tape/wireCodes.ts` answered with nothing, and `src/game/__tests__/digest.test.ts` is green on its own and inside the suite. Nothing this slice changed is folded, because nothing this slice changed runs a simulation differently: a stated per-test budget changes how long vitest waits and not what the test plays.
+
+Rungs: `GOLDEN` did not move, and neither did `WITNESS_VERSION` (6), `READINGS_VERSION` (2) or `FORMAT_VERSION` (3). The slice touches three files and not one of them is under `src/game` or `src/tape`, so none of the four could move, and `src/game/__tests__/digest.test.ts` is green. Nothing this slice changed is folded, because nothing it changed is code at all: it is nine new rows in a data table and a widened name union, and no function's body moved. The strong form of it is section 17's byte comparison: `steady-far` replayed over all 48 seeds at this commit differs from the batch on disk only in the header's commit hash and recorded-at stamp, and is identical from byte 165 to the end on every tape.
 
 ## 3. CodeRabbit
 
@@ -64,6 +67,8 @@ Slice 6: `coderabbit review --agent --uncommitted` from the repo root over the s
 Slice 7: `coderabbit review --agent --uncommitted` from the repo root over the staged work, one file reviewed, **no findings**. Nothing applied and nothing declined.
 
 Bug fix, the middle rung's reading crash: `coderabbit review --agent --uncommitted` from the repo root over the staged work, two files reviewed, **no findings**. Nothing applied and nothing declined.
+
+Rungs, the cliff between loose and shaky: `coderabbit review --agent --uncommitted` from the repo root over the staged work, three files reviewed, **no findings**. Nothing applied and nothing declined.
 
 ## 4. Plan claims found false against the tree
 
@@ -108,6 +113,8 @@ Bug fix, the middle rung's reading crash: `coderabbit review --agent --uncommitt
 **20. Plan section 3's verification step 11 asks this step's two batches for the agreed and split rows, and the seam plan section 4 prints cannot make them from one build.** `readAcrossCorners` takes two `BatchComparison`s, and ADR 0053's grammar is that each of them is one build against another under one corner: agreement is between the sharp corner's ordering and the sloppy corner's ordering of the same pair of builds. This step has one build, so there is no pair for either corner to order and no agreed or split row can exist yet. **The intent was followed and the letter was not**: what ran is `compareBatches` between the two corners themselves, which is section 14's direction table, and the corner reading is held by spec test 44 alone until #39 plays a second build. The one real build-to-build comparison this step can make is the sharp corner against its own earlier batch, and section 14 reports it.
 
 **21. Plan section 3's verification step 13 calls for four fence files and the branch now carries five.** Step 13 names `src/__tests__/lineAgnosticPolicies.test.ts`, `src/__tests__/boundary.test.ts`, `src/dev/__tests__/comparisonDeclared.test.ts` and "the new declaration guard", which is `src/dev/__tests__/batchReadingDeclared.test.ts`. Guard 81 became a fifth file of its own, `src/__tests__/harnessStatesNoTarget.test.ts`, because plan section 6 homed it where the span fence forbids what it has to do (section 4's item 17), and step 13 was never restated to count it. **The plan's intent was followed and its letter was not: all five were run and all five are named by test title in section 7 below**, because a fence the step created and did not list is exactly the fence a full pass would otherwise miss.
+
+**22. The record's section 3 and its two glossary copies say the ladder has three hands and nine names, and the tree now holds six and eighteen.** `playing-harness.md`'s section 3 table (`:81-83`) names `steady`, `loose` and `shaky` and nothing between them; its section 4 (`:135`) writes the nine names out; its section 8 (`:305-310`) gives the two knobs six rows; and its own glossary copy (`:329`) says "Nine of them exist". All four were true when they were written and none of them is now. **`CONTEXT.md` was edited and the record was not**, because a coder does not edit the record it was dispatched against (section 4's item 10 set that precedent) and because the three new names are this session's craft call, which Mark may rename before merge. The naming lives in one place, `CONTEXT.md`'s Configuration entry, which now carries all six hands with their two numbers apiece. **The record is the dispatching session's to fold**, and the fold is four sites, not one.
 
 ## 5. Seams that moved
 
@@ -166,6 +173,12 @@ Slice 6:
 Slice 7:
 
 - **Nothing moved.** The slice adds no export, changes no signature and lands no production file. `ONE_WHOLE_STAGE_MS` is a module-private constant in `bot.test.ts`, on the same footing as the file's own `FIVE_MAXED_RUNS_MS` and `SIX_POLICY_WALKS_MS`.
+
+Rungs, the cliff between loose and shaky:
+
+- **`ConfigurationName` is the eighteen-name union**, widened from nine the way slice 5 widened it from one: three hand words added between `loose` and `shaky`, each with its three heads, and the three lists that spell the names (the union, `CONFIGURATIONS` and `CONFIGURATION_NAMES`) gaining the same nine entries in the same order.
+- **`BatchOrigin` and `BatchIdentity` widened with it and needed no edit.** Both already declare `configuration: ConfigurationName` (`batchReport.ts:47`, `:62`), so the union is the only place the set of names is written and every reader of it follows.
+- **Nothing else moved.** No function signature changed, no export was added or removed, and no existing row's five fields were touched.
 
 ## 6. The baseline tapes
 
@@ -289,6 +302,18 @@ Bug fix, the middle rung's reading crash. Not a slice, so the plan's numbered st
 - **Step 5, the test-name diff.** `vitest list --json` against `local/step3/tests-baseline.txt`: **1670 to 1779, 110 added and one removed.** Net of slice 7's 108 added and the same one removal, **this fix adds two names, removes none and renames none**, both in `src/dev/readings/__tests__/timeToKill.test.ts`.
 - **Step 6, the golden digest.** Did not move, and could not: no file under `src/game` was touched.
 - **The failing command, run to completion.** `scripts/batch.ts loose-far 20260909 48` finished at `48 of 48 verified, 0 not`, into `local/batches/loose-far-1788962791962`.
+
+Rungs, the cliff between loose and shaky. Not a slice of the plan, so the plan's numbered steps do not all apply; these are the ones that do.
+
+- **Step 1, unit tests.** Green. 132 files, 1770 passed, 10 expected fail, 2 todo, 40.5 s. The two new red tests were run red first, one on the eighteen-name equality and one on the ladder climbing, and both went green on the rows alone.
+- **Step 2, `pnpm typecheck`.** Green.
+- **Step 3, `pnpm build`.** Green. Its warnings are the two standing ones, `@pixi/sound` statically imported alongside its dynamic import (#50) and the pixi chunk over 500 kB.
+- **Step 4, `pnpm verify` at the repo root.** Green, exit 0, run from inside the worktree. It went red once on prettier alone over the test file, and prettier fixed it.
+- **Step 5, the test-name diff.** `vitest list --json` against `local/step3/tests-baseline.json`: **1670 to 1780, 111 added and one removed.** Net of the bug fix's 110 added and the same one removal, **this slice adds one name, removes none and renames none**: `climbs from the sharp hand to the sloppy one one rung at a time`, in `src/dev/__tests__/configurations.test.ts`. Section 17 records why the comparison ran against the `.json` and not the `.txt` section 6 names.
+- **Step 6, the golden digest.** Did not move, and could not: no file under `src/game` or `src/tape` was touched. See section 2.
+- **Step 8, the verification readback.** **Passed on 288 fresh tapes.** Six 48-seed batches were played at this commit and every one answered `48 of 48 verified, 0 not`.
+- **An existing row is unmoved, proved by bytes.** Section 17 carries it: `steady-far` replayed over the same 48 seeds at this commit against the batch slice 6 left on disk, same size on all 48 tapes, identical from byte 165 to the end on all 48, and every differing byte inside offsets 74 to 164, which are the header's commit hash and recorded-at stamp. Reach and endings are equal too, 29 reached, 41 sealed, 7 victory on both.
+- **Steps 15 to 18 are Mark's and stay open.** Section 17's table is new evidence for step 17 and it is reported rather than judged.
 
 ## 8. Slice 1, the hand
 
@@ -658,3 +683,48 @@ The record's section 3 was amended twice on 2026-09-09 after the game design gat
 - **Seed 20260913 under `loose-far` played 83577 ticks and reached no ending**, against a batch where every other seed sealed or won and the middle of the pack is near 27000. That is `harnessRun.ts`'s own `runTickBudget()` ceiling stopping a run the hand never finished, so the harness behaved correctly and the hand did not clear the stage. It is a fact about the middle rung rather than about this fix, and it belongs with #117 and #39.
 - **`territoryControl.ts`'s `standsInThePool` (`:130`) requires `mob.alive`**, so the last territory pulse of a mob's life is never an interval endpoint. It cannot crash and it cannot meet the slot recycling above, because territory resolves in `advanceLines` after every spawn site. Recorded, untouched, and out of this fix's scope.
 
+## 17. The cliff between loose and shaky
+
+The commit is `3a6e7eb428`. **Three hands were added to the ladder between `loose` and `shaky`, and six 48-seed batches were played to read the gap they fill.** The code half is nine rows and a widened union; the rest of this section is measurement.
+
+**What landed.** `configurations.ts` gains `unsteady` (140 in 1000, 0 to 20 ticks), `wavering` (175, 0 to 25) and `faltering` (210, 0 to 30), each with its `far`, `middling` and `short` head, so `CONFIGURATION_NAMES` is eighteen names and `ConfigurationName` is an eighteen-member union. Every other field on every new row is copied from the loose and shaky rows unchanged: the same four look-ahead lists, `belchWorthIt` 8, `enoughClearance` 12. **The bound sits at roughly 0.14 of the rate on all three**, which is the ratio `loose` (100, 15) and `shaky` (250, 36) already sat at. **No existing row was touched**, which is why every batch already on disk stays comparable, and the byte comparison below is the proof rather than the argument.
+
+**The names are this session's craft call and Mark may rename them.** They live in one place, `CONTEXT.md`'s Configuration entry, which now carries all six hands with their two dexterity numbers apiece instead of the bare count it had. Section 4's item 22 records the four sites in `playing-harness.md` that still say three hands and nine names, and says why a coder left them alone.
+
+### The whole ladder, 48 seeds from 20260909 on every row
+
+Every batch is `scripts/batch.ts <name> 20260909 48`, run alone, and every one verified 48 of 48. The reach is how many of the 48 runs entered the Undertaker's phase.
+
+| Configuration | Rate, bound | Head | Reached | Victories | Endings | Commit | Folder |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `steady-far` | 0, 0 | far | **29 of 48** | 7 | 41 sealed, 7 victory | `60f6e652d1` | `steady-far-1788942858647` |
+| `loose-far` | 100, 15 | far | **32 of 48** | 7 | 40 sealed, 7 victory, 1 no ending | `ad4657276e` | `loose-far-1788962791962` |
+| `unsteady-far` | 140, 20 | far | **32 of 48** | 17 | 30 sealed, 17 victory, 1 no ending | `3a6e7eb428` | `unsteady-far-1788964037430` |
+| `wavering-far` | 175, 25 | far | **31 of 48** | 5 | 42 sealed, 5 victory, 1 no ending | `3a6e7eb428` | `wavering-far-1788964167748` |
+| `faltering-far` | 210, 30 | far | **36 of 48** | 17 | 31 sealed, 17 victory | `3a6e7eb428` | `faltering-far-1788964284145` |
+| `shaky-far` | 250, 36 | far | **28 of 48** | 10 | 38 sealed, 10 victory | `3a6e7eb428` | `shaky-far-1788964436425` |
+| `steady-short` | 0, 0 | short | **38 of 48** | 14 | 34 sealed, 14 victory | `3a6e7eb428` | `steady-short-1788964564172` |
+| `shaky-short` | 250, 36 | short | **0 of 48** | 0 | 48 sealed | `60f6e652d1` | `shaky-short-1788942984283` |
+
+**The three rows the dispatch asked for are `unsteady-far`, `wavering-far` and `faltering-far`.** The last three rows in the table are two extra batches and one replay, and each says below why it was played.
+
+### What the numbers say, reported and not judged
+
+**There is no cliff anywhere on the dexterity axis.** Across its whole range at the far head, from a hand that never lapses to one that lapses a quarter of the time up to 36 ticks deep, the reach reads 29, 32, 32, 31, 36, 28. The three new rungs sit inside the band the two rungs either side of them already sat in, and the sloppiest hand at the far head reaches one fewer than the sharpest one. **The gap the dispatch was written to measure has been played and it is flat.**
+
+**`shaky-far` was the second batch, played because the ladder above it compared five far heads against one short head.** With five `-far` rows and `shaky-short` as the sixth, a reader would have read the drop to 0 as the end of the hand axis when the head had moved at the same time. `shaky-far` puts the same hand at the same head as its five neighbours and reaches 28.
+
+**`steady-short` was the third, and it is what makes the finding a finding rather than a guess.** If the short head were the whole story, the sharpest hand over the shortest head would collapse too. It does not: `steady-short` reaches 38 of 48, the highest reach in the table. **So neither knob alone takes the reach below 28, and the two at their extremes together take it to 0.** `shaky-short` is not the bottom of a slope down either axis; it is the one corner where both errors are maximal at once. **Whether the corner a finding must agree across should stay there is Mark's on #117, and nothing was retuned, no rate moved and no rung was added for it.**
+
+**One honest limit on that reading.** Two points on the head axis and six on the hand axis do not map an interaction surface; they establish that the surface is not flat and that neither margin explains the corner. `shaky-middling`, `loose-short` and the other ten unplayed rows are what would map it, and mapping it was not this slice's job.
+
+### The instrument did not move, proved by bytes
+
+`steady-far` was replayed over the same 48 seeds at this commit, into `local/batches/steady-far-1788964729184`, and compared against the batch slice 6 left at `local/batches/steady-far-1788942858647`. **All 48 tapes have the same size, all 48 are identical from byte 165 to the end, and every differing byte on every tape falls inside offsets 74 to 164**, which is the header's commit hash and its recorded-at stamp. The reports agree too: 29 reached, 19 stopped short, 41 sealed, 7 victory on both. So the nine new rows changed nothing about how an old row plays, and the four batches in the table above that were recorded before this commit band with the four recorded at it.
+
+### Findings, recorded and not acted on
+
+- **`local/step3/tests-baseline.txt` is not on disk.** Section 6 names it beside `tests-baseline.json` and only the `.json` is there. The diff in section 7 was taken from the `.json`, which is the raw `vitest list --json` array and carries the same 1670 names, so nothing was lost and the comparison is the same comparison. It is recorded because the next agent will read section 6 and go looking for a file that is gone.
+- **Three of the six batches carry one run each that reached no ending**, one under `loose-far` (seed 20260913, already recorded in section 16), one under `unsteady-far` and one under `wavering-far`. Each played 83577 ticks and was stopped by `harnessRun.ts`'s own `runTickBudget()` ceiling, which is the harness behaving correctly over a hand that never finished the stage. They are counted as stopped short in the table's reach and as `quit` in the stop counts. It is a fact about the middle of the ladder and it belongs with #117 and #39. **Their three tapes read as suspiciously alike and are not**: the `unsteady` and `wavering` ones are the same size to the byte and the `loose` one is three bytes shorter, which chased down to the tick ceiling giving every such run the same record count and to `loose-far` being three characters shorter than `unsteady-far` in the header. The bodies differ in 71104 and 103244 bytes, so they are three different runs.
+- **Victories are much noisier than reach across the ladder**: 7, 7, 17, 5, 17, 10, 14, 0 over the eight rows. Reach counts a phase entered and victory counts a stage finished, so the second is the tail of the first, and 48 seeds is a thin sample of a tail. Reported so that nobody reads `wavering-far`'s 5 against `faltering-far`'s 17 as a rung ordering.
+- **Nothing under `local/` entered a commit.** The six batch folders and the seven older ones are all under `local/batches/`, which is outside version control, eslint, prettier and `tsconfig.json`'s include.
