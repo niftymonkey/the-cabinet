@@ -198,9 +198,15 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Damage source**: What dealt a hit, carried on the event either way. On damage the player deals it is the weapon line or the belch; on damage the player takes it is mob fire, naming the type that fired, or a body landing on the grave. A hit with no source is a hit nothing can be learned from. _Avoid_: attacker, cause, origin.
 
-**Playing harness**: The instrument that plays the game for us: one policy that moves, dodges, feeds and takes offers, run across many seeds, and then the same policy under a sharp hand and a sloppy one. It compares builds and configurations and it never says whether the game is fun. _Avoid_: AI, autopilot, playtester, agent.
+**Playing harness**: The instrument that plays the game for us: one policy that moves, dodges, feeds, takes offers and belches, run across many seeds, and then the same policy under a sharp hand and a sloppy one. It compares builds and configurations and it never says whether the game is fun. The belch is the fifth verb as of ADR 0053's amendment of 2026-09-09; this entry said four before it. _Avoid_: AI, autopilot, playtester, agent.
 
 **Policy**: The rules one harness run steers by, named in the tape header beside the input device so a bot run is never mistaken for a person's. _Avoid_: behaviour, brain, difficulty setting.
+
+**Configuration**: One hand the harness plays with: the base policy under one value of each knob, named by a word pair a person can say. Nine are named, from `steady-far` to `shaky-short`, and the name is what a tape's header records. _Avoid_: difficulty, skill level, persona, profile.
+
+**Sharp hand, sloppy hand**: The two corner configurations, `steady-far` and `shaky-short`. A finding is believed only where both show the same ordering, so these two are what an agreement is between. _Avoid_: good bot, bad bot, expert, novice.
+
+**Rig**: One starting condition a run is played from, named so a figure always says which one produced it. Five exist: the ceiling rig, the start-size rig, the ladder rig, the conditioned rig and the harness rig, which is the only one that starts at the birthright. Figures from two rigs are never banded. _Avoid_: setup, harness, scenario, fixture.
 
 **Store**: Where every run lands, a person's and the harness's alike: the sealed tape bytes byte-exact, the header parsed into columns beside them, and readings derived by replay cached and stamped with the build that computed them. Only the bytes are authoritative. _Avoid_: database, backend, telemetry, analytics.
 

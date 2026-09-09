@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { damageBoss, spawnBoss } from '../../game/bosses/chunks';
 import { carrierRow, carriersForFullBuild } from '../../game/carriers';
 import { TICK_HZ } from '../../game/clock';
-import { FIELD_HEIGHT } from '../../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import type { SimEvent } from '../../game/events';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import {
@@ -44,10 +44,15 @@ import { createExecution, executeTick } from '../../game/execution';
 import type { Policy, PolicyRun } from '../bot';
 import {
   belchingPolicy,
+  bestMoveToward,
+  divingPolicy,
   dodgePolicy,
   hitTakingPolicy,
+  LOOKAHEAD_SAMPLES,
+  nearestFood,
   runPolicy,
   unloadedPolicy,
+  waitingPolicy,
 } from '../bot';
 
 /**
@@ -1020,4 +1025,168 @@ describe('the sparse last row and its two boundaries (ADR 0051)', () => {
       expect(aliveAt('waking')).toBeGreaterThan(0);
     });
   }
+});
+
+/**
+ * The budget for one walk that re-derives all six policies at every tick.
+ * Seven steerings a tick over sixteen hundred ticks is more arithmetic than
+ * vitest's five seconds holds beside a suite running in parallel, and it is
+ * stated on these tests rather than raised for the suite.
+ */
+const SIX_POLICY_WALKS_MS = 30000;
+
+describe('the six policies steer on this module’s own look-ahead', () => {
+  /**
+   * The rows the six policies steer under, written here as the module writes
+   * them. They are duplicated on purpose: this suite's whole subject is that
+   * none of the six moved when the look-ahead became a parameter, so a row
+   * changed in bot.ts and not here is exactly what should go red.
+   */
+  const DRIFTING_MARK = { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT * 0.8 };
+  const DRIFTING_CLEARANCE = 60;
+  const COMMITTING_CLEARANCE = 12;
+
+  /**
+   * The opening, which is played rather than walked.
+   *
+   * The Procession owns emptiness (ADR 0050): nothing comes inside the
+   * look-ahead's reach until a shade before tick 1000 and the first corpses
+   * follow it, so every assertion below holds vacuously over the opening and
+   * re-deriving six policies through it would be paying for nothing. Every one
+   * of these assertions passed at tick 900 on a policy reading a horizon it
+   * was never given, which is what says the opening is not the place to read.
+   */
+  const OPENING_TICKS = 1000;
+
+  /**
+   * How far each walk goes past the opening, checking every tick. A single
+   * state out of this run is a coin toss over which kind of tick it landed on,
+   * so it is a stretch and the walk counts what it actually saw.
+   */
+  const WALK_TICKS = 500;
+
+  /** What a walk saw, so an assertion over an empty field cannot pass for a pass. */
+  interface Walked {
+    readonly ticks: number;
+    readonly withThreats: number;
+    readonly withFood: number;
+  }
+
+  /**
+   * Every one of the six re-derived from bestMoveToward at every tick of a
+   * walk, under the module's own horizon and each policy's own row.
+   *
+   * The record's section 1 reason for a seventh policy rather than an edit of
+   * dodgePolicy: every figure any of the six has produced keeps meaning what it
+   * meant. This is the mechanical half, that each still reads the module's own
+   * horizon; the rest of this file is the figures themselves.
+   */
+  function walkTheSix(seed: number): Walked {
+    const state = createRun(seed);
+    const execution = createExecution(state);
+    runPolicy(execution, dodgePolicy, OPENING_TICKS);
+    let withThreats = 0;
+    let withFood = 0;
+    let ticks = 0;
+    while (
+      ticks < WALK_TICKS &&
+      state.ending === null &&
+      execution.stop === null
+    ) {
+      const food = nearestFood(state);
+      if (food !== null) withFood += 1;
+      const threatened =
+        state.mobs.some((mob) => mob.alive) ||
+        state.mobFire.some((shot) => shot.alive);
+      if (threatened) withThreats += 1;
+
+      const drifting = bestMoveToward(
+        state,
+        DRIFTING_MARK,
+        DRIFTING_CLEARANCE,
+        LOOKAHEAD_SAMPLES,
+      );
+      expect(dodgePolicy(state, []).move).toEqual(drifting);
+      expect(unloadedPolicy(state, []).move).toEqual(drifting);
+      expect(belchingPolicy(state, []).move).toEqual(drifting);
+      expect(divingPolicy(state, []).move).toEqual(
+        bestMoveToward(
+          state,
+          food ?? DRIFTING_MARK,
+          COMMITTING_CLEARANCE,
+          LOOKAHEAD_SAMPLES,
+        ),
+      );
+      expect(waitingPolicy(state, []).move).toEqual(
+        bestMoveToward(
+          state,
+          { x: food?.x ?? DRIFTING_MARK.x, y: DRIFTING_MARK.y },
+          DRIFTING_CLEARANCE,
+          LOOKAHEAD_SAMPLES,
+        ),
+      );
+      // The one policy that never goes through the steering at all: it closes
+      // on the nearest threat, so the look-ahead cannot reach it, and its move
+      // is a unit vector rather than one of the nine. On an empty field it has
+      // nothing to close on and stands still, which is the opening.
+      const closing = hitTakingPolicy(state, []).move;
+      expect(Math.hypot(closing.x, closing.y)).toBeCloseTo(
+        threatened ? 1 : 0,
+        10,
+      );
+
+      executeTick(execution, dodgePolicy(state, []));
+      ticks += 1;
+    }
+    expect(execution.faults).toEqual([]);
+    return { ticks, withThreats, withFood };
+  }
+
+  for (const seed of SEEDS) {
+    it(
+      `steers all six on the full sample list on seed ${seed}`,
+      () => {
+        const walked = walkTheSix(seed);
+        // Both halves of the field the assertions read, so a walk that met an
+        // empty screen reports it rather than passing.
+        expect(`${walked.ticks} ticks`).toBe(`${WALK_TICKS} ticks`);
+        expect(walked.withThreats).toBeGreaterThan(0);
+        expect(walked.withFood).toBeGreaterThan(0);
+      },
+      SIX_POLICY_WALKS_MS,
+    );
+  }
+
+  it(
+    'reads the whole list, so a shorter one steers somewhere else',
+    () => {
+      // Without this the walks above would hold on a bestMoveToward that
+      // ignored its samples entirely, and the parameter would be decoration
+      // (docs/agents/lessons.md, "when a test asserts absence, check the input
+      // can produce presence").
+      const shortened = LOOKAHEAD_SAMPLES.slice(0, 2);
+      const state = createRun(SEEDS[0]);
+      const execution = createExecution(state);
+      runPolicy(execution, dodgePolicy, OPENING_TICKS);
+      let differing = 0;
+      for (let tick = 0; tick < WALK_TICKS; tick++) {
+        const far = bestMoveToward(
+          state,
+          DRIFTING_MARK,
+          DRIFTING_CLEARANCE,
+          LOOKAHEAD_SAMPLES,
+        );
+        const near = bestMoveToward(
+          state,
+          DRIFTING_MARK,
+          DRIFTING_CLEARANCE,
+          shortened,
+        );
+        if (far.x !== near.x || far.y !== near.y) differing += 1;
+        executeTick(execution, dodgePolicy(state, []));
+      }
+      expect(differing).toBeGreaterThan(0);
+    },
+    SIX_POLICY_WALKS_MS,
+  );
 });

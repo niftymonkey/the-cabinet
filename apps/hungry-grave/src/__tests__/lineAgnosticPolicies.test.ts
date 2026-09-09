@@ -27,6 +27,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { CONFIGURATION_NAMES } from '../dev/configurations';
 import type { WeaponLine } from '../game/lines/roster';
 import { WEAPON_LINES } from '../game/lines/roster';
 
@@ -72,14 +73,20 @@ const productionModulesUnder = (dir: string): string[] =>
   });
 
 /**
- * The three modules that decide what a run may be offered and what the bot
+ * The five modules that decide what a run may be offered and what a hand
  * reaches for. Each is a policy over the lines rather than a line, so naming
  * one is the failure this fence exists for.
+ *
+ * The harness's two join it because the hand walks to a body by distance and
+ * entity id and a configuration is a hand rather than a weapon, so a fifth
+ * line needs no edit in either.
  */
 const POLICY_MODULES: readonly string[] = [
   'game/offer.ts',
   'game/carriers.ts',
   'dev/bot.ts',
+  'dev/harnessPolicy.ts',
+  'dev/configurations.ts',
 ];
 
 /**
@@ -351,6 +358,19 @@ describe('a policy names no weapon line', () => {
       );
     });
   }
+
+  it('names no configuration after a weapon line', () => {
+    // A configuration name is written into a tape header, so a name that was
+    // also a line's could be read back as a line by anything reading the
+    // bytes. The two sets are kept disjoint here rather than by anyone
+    // remembering it when the other eight rows land.
+    // Both sets are read as plain names rather than as their unions, because a
+    // union comparison is a typecheck the day the two sets happen not to
+    // overlap and no check at all the day one of them grows.
+    const lines: readonly string[] = WEAPON_LINES;
+    const named = CONFIGURATION_NAMES.filter((name) => lines.includes(name));
+    expect(named).toEqual([]);
+  });
 
   it('catches a named line, so the scan is a fence and not a decoration', () => {
     expect(quotesName("const offered = 'bell';", 'bell')).toBe(true);

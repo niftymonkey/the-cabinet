@@ -77,7 +77,6 @@ const MOVES: readonly MoveCommand[] = [
  * the one a policy sampling only the horizon cannot see at all.
  */
 const LOOKAHEAD_SAMPLES = [5, 12, 20, 30];
-const LOOKAHEAD_TICKS = LOOKAHEAD_SAMPLES[LOOKAHEAD_SAMPLES.length - 1];
 
 // Only threats this close are considered, so the policy stays a local read rather than a search.
 const THREAT_RADIUS = 240;
@@ -188,6 +187,11 @@ const distanceTo = (
  * Capping the clearance is what keeps this a plausible human rather than an
  * optimizer: past a body's width of room it stops caring how much more it could
  * have had, and that is the room in which wanting to be somewhere decides.
+ *
+ * The samples arrive as a parameter and are never read from the module, so a
+ * head that looks less far ahead is a shorter list rather than a second dodge
+ * (ADR 0053's strategy error). The list is also the wanting's: a move is judged
+ * where it arrives at the last sample, so a shorter list settles nearer.
  */
 const scoreMove = (
   state: RunState,
@@ -196,15 +200,16 @@ const scoreMove = (
   speed: number,
   wants: { x: number; y: number },
   enough: number,
+  samples: readonly number[],
 ): number => {
   let tightest = enough;
-  for (const ticks of LOOKAHEAD_SAMPLES) {
+  for (const ticks of samples) {
     const at = graveAfter(state, move, ticks, speed);
     for (const threat of threats) {
       tightest = Math.min(tightest, clearanceAt(state, at, threat, ticks));
     }
   }
-  const settled = graveAfter(state, move, LOOKAHEAD_TICKS, speed);
+  const settled = graveAfter(state, move, samples[samples.length - 1], speed);
   return tightest * 1000 - distanceTo(settled, wants);
 };
 
@@ -224,7 +229,7 @@ const dodgePolicy: Policy = (state) => {
 
 // The roomiest of the nine moves a thumb can make, which is the whole of the dodge.
 const bestDodge = (state: RunState): MoveCommand => {
-  return bestMoveToward(state, HOME, ENOUGH_CLEARANCE);
+  return bestMoveToward(state, HOME, ENOUGH_CLEARANCE, LOOKAHEAD_SAMPLES);
 };
 
 /**
@@ -235,17 +240,30 @@ const bestDodge = (state: RunState): MoveCommand => {
  * different point, so a hand that dives and a hand that waits differ in what
  * they want and never in how well they dodge, which is what makes a comparison
  * between them a comparison of the wanting.
+ *
+ * The look-ahead samples are the caller's, with no default, so the file says at
+ * every call site which horizon that policy steers on. A default would hide it
+ * at exactly the moment a policy reading a different one exists.
  */
 const bestMoveToward = (
   state: RunState,
   point: { x: number; y: number },
   enough: number,
+  samples: readonly number[],
 ): MoveCommand => {
   const threats = threatsNear(state);
   let best = MOVES[0];
   let bestScore = -Infinity;
   for (const move of MOVES) {
-    const score = scoreMove(state, move, threats, BASE_SPEED, point, enough);
+    const score = scoreMove(
+      state,
+      move,
+      threats,
+      BASE_SPEED,
+      point,
+      enough,
+      samples,
+    );
     if (score <= bestScore) continue;
     bestScore = score;
     best = move;
@@ -409,6 +427,7 @@ const divingPolicy: Policy = (state) => {
       state,
       nearestFood(state) ?? HOME,
       COMMITTING_CLEARANCE,
+      LOOKAHEAD_SAMPLES,
     ),
     belch: false,
   };
@@ -426,7 +445,10 @@ const divingPolicy: Policy = (state) => {
 const waitingPolicy: Policy = (state) => {
   const food = nearestFood(state);
   const at = { x: food?.x ?? HOME.x, y: HOME.y };
-  return { move: bestMoveToward(state, at, ENOUGH_CLEARANCE), belch: false };
+  return {
+    move: bestMoveToward(state, at, ENOUGH_CLEARANCE, LOOKAHEAD_SAMPLES),
+    belch: false,
+  };
 };
 
 export {
@@ -437,5 +459,9 @@ export {
   hitTakingPolicy,
   divingPolicy,
   waitingPolicy,
+  bestMoveToward,
+  nearestFood,
+  HOME,
+  LOOKAHEAD_SAMPLES,
 };
 export type { Policy, PolicyRun };

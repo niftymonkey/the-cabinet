@@ -27,6 +27,22 @@ const TAPE_INPUT_DEVICES = [
 type TapeInputDevice = (typeof TAPE_INPUT_DEVICES)[number];
 
 /**
+ * The policy names the game itself writes, reserved so no configuration the
+ * harness plays under may take either (ADR 0027, ADR 0053).
+ *
+ * They live here rather than beside their writers because the format is what
+ * reserves them, and because src/dev builds its own reserved list out of the
+ * pair and may not reach src/app (src/__tests__/boundary.test.ts). Neither is
+ * spelled a second time anywhere.
+ */
+
+// What a person's run records, resolved and true: ADR 0027 forbids an absence.
+const PERSON_POLICY = 'person';
+
+// What a fixed arithmetic wander records: not a policy, and not a person.
+const SCRIPT_POLICY = 'script';
+
+/**
  * Whether the run a tape holds was sound (CONTEXT.md).
  *
  * Unchecked is a run that was recorded on an instrumentation build with the
@@ -283,6 +299,8 @@ export {
   TAPE_INPUT_DEVICES,
   TAPE_INTEGRITIES,
   FRAME_REASONS,
+  PERSON_POLICY,
+  SCRIPT_POLICY,
 };
 export type {
   TapeInputDevice,
