@@ -172,6 +172,19 @@ One command, headless, over a seed range under one configuration: a first seed, 
 
 **Batch size: 48 seeds, initial.** It is seeds and never repeats, because a deterministic policy needs one run per seed (ADR 0053; Silva et al., "A single run of A* already achieves our goals"). It is specified in runs and never in minutes, because cost is not symmetric across styles: Talakat's careful configuration got about 180 generations in twenty-four hours where its sloppy one got about 1,700 (research record, "What this implies"). The floor is 40, because both published correlations that found the tail most predictive read it at the top 5% (Rovio's top 15% and Tactile's "~5% of the best runs"), and below 40 seeds the top 5% is a single run, which is an outlier rather than a tail. 48 is that floor with margin. The cost the tree implies: `bot.test.ts` budgets 30 seconds for five runs of three stage lengths (`bot.test.ts:700`), so a stage-length run is on the order of two seconds and nine configurations at 48 seeds is 432 runs, roughly a quarter of an hour. That is a budget-derived estimate, not a measurement, and the first batch replaces it.
 
+**Amended 2026-09-09: 48 is too few, and the floor rises to 192.** This section said the figure was budget-derived and that the first batch would replace it. It has now been measured, and the measurement was forced by section 3's sweep, where victories across five hand rows read 7, 7, 17, 5, 17 out of 48 with no monotonic relation to the knob. The two extremes of that spread were replayed at 192 seeds from the same first seed:
+
+| Row | 48 seeds | 192 seeds |
+| --- | --- | --- |
+| `wavering-far` | reach 31 (65%), victories 5 (10%) | reach 125 (65%), victories 34 (18%) |
+| `faltering-far` | reach 36 (75%), victories 17 (35%) | reach 121 (63%), victories 38 (20%) |
+
+**Reach was stable at 48 and the victory rate was not.** The two rows that read 10% and 35% at 48 seeds read 18% and 20% at 192, which is agreement. So the apparent difference was sampling, and the session's own mid-flight claim that a 5-to-17 gap was too large to be noise was wrong twice over: the gap is about three standard errors rather than four, and it was the widest of ten pairwise comparisons across five rows, which is exactly where a three-sigma gap is expected to turn up by chance.
+
+The cause is the rate itself. Reach sits near 0.65 where the binomial standard error at 48 is about 7 points, but victories sit near 0.19, and a rare outcome needs more runs before its rate settles: at 48 seeds a victory rate carries a standard error near 6 points on a 19-point figure, a third of the quantity being measured. **The floor is therefore 192 seeds for any reading whose rate is below about a third, and 48 remains adequate for reach.** Measured cost at the split in `step-3-progress.md` section 15: about 8 minutes a configuration at 192, so a nine-configuration sweep is a little over an hour rather than a quarter of it.
+
+This is why the batch report carries every reading as a spread and not a point (slice 4b), and it is a reading for #39 and #117 rather than a tuning change: no row moved here.
+
 ### Where the tapes go
 
 Step 6's store does not exist, so batches write local tapes, under `local/batches/<batch>/<seed>.tape` with the batch's own report beside them as `local/batches/<batch>/report.json`. `local/` is gitignored by the repo root's own list (`the-cabinet/.gitignore:16`), so nothing here ever reaches a commit.
