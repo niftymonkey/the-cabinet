@@ -88,6 +88,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Pulse**: One dwell hit from a patch: a mob standing on claimed ground takes a small fixed bite of damage every re-hit delay for as long as it stays. The pulse count is the patch's own record of the work it did. _Avoid_: tick damage, DoT, grab, bite budget.
 
+**Ladder**: The power staircase a run climbs, every weapon line's rungs together, from the birthright to a full build. It reads twice, in the storm and on the strip (ADR 0054), and it runs both ways: rungs are gained from drops and stripped at the size floor. _Avoid_: progression, XP, levels, tech tree.
+
 **Rung**: One step of one weapon line's level, the unit the ladder shows, gains and loses. A rung is carried by that line's own projectiles, and a rung stripped at the size floor falls onto the field as a body the dive can catch. _Avoid_: rank, tier, pip (which is the mark, not the step).
 
 **Strip**: The slim readout inside the field frame carrying the score and a row of level pips per line: the ladder's second channel, and the one that makes a rung lost legible inside a dense storm. It announces by count, shape or subtraction, never by brightness. _Avoid_: HUD, bar, panel, overlay.
@@ -112,13 +114,15 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Trash**: The ordinary mobs of the authored timeline, as opposed to bosses. _Avoid_: minions, creeps, fodder, popcorn.
 
+**The mow**: What the storm does to a field of weak bodies, and the feel the whole density pass exists to produce. Density is bought by making bodies weaker, never tougher (ADR 0059). _Avoid_: grinding, farming, clearing, trash cleanup.
+
 **Mob type**: A kind of mob, owning how it moves, whether and how it fires, its health, its corpse payout, and its size. v1 ships three and the pool is open by design: the shambler falls, the revenant fires an aimed shot with a tell before it, and the ghoul is the closer, turning toward the grave so its body is the threat. A mob type must be readable before it acts. _Avoid_: enemy class, variant, archetype.
 
 **Template**: A named placement from the library: where a group of mobs arrives and how it is arranged, never which mob type is in it. Each teaches a lesson, and the library is open. The starting six are Drips, the File, the V, the Pincer, the Rain, the Wall. _Avoid_: formation, pattern, spawn type.
 
-**Row**: One entry of the authored timeline: a phase-local time, a template, a count, and a mob type. Count lives on the row, so density tuning never edits a template, and the mob type lives there too, because a template never names who is in it. _Avoid_: spawn event, wave entry, script line.
+**Row**: One entry of the authored timeline: a phase-local time, a template, a count, and a mob type. Count lives on the row, so density tuning never edits a template, and the mob type lives there too, because a template never names who is in it. A row may also stand for a span rather than firing once, which is a standing row. _Avoid_: spawn event, wave entry, script line.
 
-**Standing row**: A row that stands for its section rather than firing once: a mob type, a template, and a rate of bodies a second that ramps between two figures across the section's authored span, repeating down to a minimum interval. It is the growth a run feels over its length, keyed to the clock and never to anything the player did, and the director adds over it rather than owning it. A section may declare none. _Avoid_: floor stream, faucet, spawn rate, wave table.
+**Standing row**: A row with its repeat fields set: it holds a fixed rate from its own time until the next row of any kind, repeating down to a minimum interval. A section's growth is a run of them at stepped figures, and a section may declare none. It is the growth a run feels over its length, keyed to the clock and never to anything the player did, and the director adds over it rather than owning it (ADR 0060). _Avoid_: floor stream, faucet, spawn rate, wave table.
 
 **Phase**: One segment of the stage, chained to the next by a boundary event rather than an absolute clock, because a shootable boss dies when killed. _Avoid_: act, chapter.
 
@@ -162,6 +166,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Pressure**: What the director reads: the harm the run is doing to the player, damage taken and floor events, and never a kill near the grave, because a kill up close is food here. _Avoid_: intensity, threat, difficulty, tension.
 
+**Signal lock**: A figure a run resolves the pressure signal to and holds it at, for a tuning experiment. It is recorded in the tape header, because it is a value the run started from and never an absence (ADR 0027). _Avoid_: override, debug mode, freeze.
+
 **Tape**: What one run is recorded onto: a header, three separable sections, and a trailer. The body holds the seed, the resolved starting size and the exact commands the grave was steered by, tick by tick; the second section holds the run's witness at checkpoints along the way; and the third holds the run's observations. A tape holds no field state, so anything a replay can rebuild is computed by replaying it, which is why a tape recorded today can answer a question nobody has thought of yet. _Avoid_: recording, demo, log, save file, ghost.
 
 **Replay**: Playing a tape back so the original run happens again exactly. A replay is watched, never played: same dice, the original hands. Shared, it is how somebody sees a run over the player's shoulder. _Avoid_: playback, rerun, ghost, pinned run.
@@ -174,7 +180,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Chunk**: One segment of a boss's health bar, owning one authored pattern, ended by a short invincible flash. _Avoid_: phase (belongs to the stage), health bar segment, stage (of a fight).
 
-**Add**: An ordinary mob summoned by a boss mid-fight. Adds are trash: normal pushback, normal corpses, and they keep the swallow economy alive at the climax. _Avoid_: summon, minion, spawn.
+**Add**: An ordinary mob summoned by a boss mid-fight. Adds are trash: normal pushback, normal corpses, and they keep the swallow economy alive at the climax. It is never the director's word: what the director puts down is a card. _Avoid_: summon, minion, spawn.
 
 ### The build
 
