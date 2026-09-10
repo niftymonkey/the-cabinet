@@ -188,12 +188,14 @@ describe('verification readback', () => {
   it("refuses a run whose dice are not the tape's", () => {
     // How long that takes is a property of the stage rather than of the
     // witness, and it is deliberately not pinned to a number here: the seed
-    // drives only column placement, drop kind and fire jitter, so two seeds
-    // played from the same script were measured identical for their first 840
-    // ticks and parted on a revenant's first-shot jitter. A tuning change moves
-    // that tick, and this test is about the refusal rather than about the
-    // stage's opening.
-    const tape = recordARun(1000);
+    // drives only column placement and drop kind now, so two seeds played from
+    // the same script were measured identical for their first 1260 ticks and
+    // parted on a placement. It used to be 840, parting on a revenant's
+    // first-shot jitter; under the mow no mob type names a jitter at all
+    // (ADR 0059), so that door is shut and the run is given room to reach the
+    // next one. A tuning change moves that tick, and this test is about the
+    // refusal rather than about the stage's opening.
+    const tape = recordARun(2000);
 
     const result = readBackForVerification({
       ...tape,
@@ -202,7 +204,7 @@ describe('verification readback', () => {
 
     expect(result.outcome).toBe('diverged');
     expect(result.firstDivergentCheckpoint).not.toBeNull();
-    expect(result.ticksReproduced).toBeLessThan(1000);
+    expect(result.ticksReproduced).toBeLessThan(2000);
   });
 
   it('says a tape was recorded against a different fold, and never that it diverged', () => {
@@ -292,7 +294,7 @@ describe('verification readback', () => {
     const run = createRun(SEED);
     const execution = createExecution(run);
     const recorder = recordInto(execution, header(run));
-    for (let tick = 0; tick < 6000 && run.ending === null; tick++) {
+    for (let tick = 0; tick < 12000 && run.ending === null; tick++) {
       executeTick(execution, steer(tick));
     }
     expect(run.ending).toBe('sealed');

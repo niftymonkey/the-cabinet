@@ -34,13 +34,17 @@ const LEFTOVER_AT = 540;
 /**
  * The tick a File is placed, and how many mobs are in it.
  *
- * The scenario used to make zero draws on every stream, because the only rows
- * inside its window are two Drips of one, a Drip draws nothing, and index 0 is
- * never armed. A scripted File draws from the spawns stream for its placement
- * scatter and arms its third mob, which then draws from the mobFire stream for
- * its first-shot jitter, so `drawn` measures something. Scripting it rather than
- * running the scenario longer is what keeps the golden off the ramp's own
- * tuning, which ADR 0015 requires of this scenario by name.
+ * The scenario used to make zero draws on every stream, because the only row
+ * inside its window is a Drip of one and a Drip draws nothing. A scripted File
+ * draws from the spawns stream for its placement scatter, so `drawn` measures
+ * something. Scripting it rather than running the scenario longer is what keeps
+ * the golden off the ramp's own tuning, which ADR 0015 requires of this
+ * scenario by name.
+ *
+ * The mobFire stream is not among what this reaches. It used to be, through the
+ * File's armed shambler and its first-shot jitter; under the mow the mow body
+ * is silent (ADR 0059) and no mob type names a jitter at all, so the only
+ * drawer left is a boss the scenario never meets.
  */
 const FILE_AT = 90;
 const FILE_COUNT = 4;
@@ -309,6 +313,19 @@ const runScenario = (): ScenarioResult => {
  * sentinels and nothing else, which is exactly what ADR 0019's rule that an
  * absent field folds its own code rather than being skipped costs. It is the
  * one WITNESS_VERSION move of this step, 5 to 6.
+ *
+ * Re-pinned on 2026-09-09 for the mow (ADR 0059): the shambler's health went
+ * from 40 to 8 and its fire row became NEVER_FIRES, and the witness folds
+ * every live mob's health and every live shot, so the checksum moved from
+ * -36124581. Two other fields moved with it and both are the silence rather
+ * than the health: shots went from 2 to 0 and drawn.mobFire from 1 to 0,
+ * because the scripted File's armed shambler was the only thing in the
+ * scenario that fired, and the first-shot jitter it drew on was the only draw
+ * the mobFire stream took here. Everything else held, the two scripted kills
+ * included: the grave's position and size, the reservoir, mobs at 5, corpses,
+ * skulls, and every other stream cursor. The Procession's teaching Drip moved
+ * to a lone revenant in the same commit and does not reach this window at all,
+ * because it stands at t=11 and the scenario is 600 ticks.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -319,7 +336,7 @@ const GOLDEN: Digest = {
   score: 0,
   reservoir: 0.50625,
   mobs: 5,
-  shots: 2,
+  shots: 0,
   corpses: 1,
   skulls: 2,
   wisps: 0,
@@ -327,7 +344,7 @@ const GOLDEN: Digest = {
   drawn: {
     spawns: 1,
     drops: 0,
-    mobFire: 1,
+    mobFire: 0,
     shed: 0,
     territory: 0,
   },
@@ -337,7 +354,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -36124581,
+  checksum: -279620599,
 };
 
 export { runScenario, GOLDEN };

@@ -178,11 +178,11 @@ describe('freshness pays the wisps in souls (ADR 0058)', () => {
   });
 });
 
-describe('what a volley costs a trash body (#76 pass A)', () => {
-  it('takes exactly four wisps to kill a shambler', () => {
-    // Mark's 2026-08-27 ruling for #76 pass A: four wisps to a trash body where
-    // it used to be three, so a level-5 volley of eleven still clears about the
-    // same number of bodies it cleared at eight.
+describe('what a volley costs a trash body (ADR 0059)', () => {
+  it('takes exactly one wisp to kill a shambler', () => {
+    // ADR 0059 supersedes the #76 pass A count of four: the mow body is the
+    // cheapest thing on the field, so one soul takes it and a level-5 volley
+    // of eleven clears eleven of them.
     //
     // Counted by feeding the mob one wisp at a time from the mouth it stands
     // on, so what is asserted is how often the line has to land rather than the
@@ -204,7 +204,7 @@ describe('what a volley costs a trash body (#76 pass A)', () => {
     }
 
     expect(mob.alive).toBe(false);
-    expect(touches).toBe(4);
+    expect(touches).toBe(1);
   });
 });
 
@@ -218,10 +218,16 @@ describe('the no-overkill targeting rule (plan section 3)', () => {
     // absorb is how many touches it takes to kill it, and never its raw health.
     // Those were the same sentence only while a wisp did exactly one damage.
     const state = quietRun();
+    // Two revenants rather than one, because under the mow (ADR 0059) a
+    // shambler and a ghoul absorb three wisps between them and a field of
+    // three bodies can no longer hold a level-5 volley at all. The rule under
+    // test needs somewhere for every soul to go, or it would pass on a volley
+    // that had run out of field rather than on one that spread.
     const mobs = [
       put(state, 'shambler', 260, 500),
       put(state, 'ghoul', 300, 480),
       put(state, 'revenant', 220, 460),
+      put(state, 'revenant', 340, 520),
     ];
     const wisps = volley(state, MAX_LEVEL);
     expect(wisps).toHaveLength(soulsAt(MAX_LEVEL));

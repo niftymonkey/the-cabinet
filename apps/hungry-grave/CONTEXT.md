@@ -102,7 +102,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Mob fire**: Every hostile shot on the field, trash shots and boss patterns alike. Mob fire is never confusable with the storm; the render rule that guarantees it is Hungry Grave ADR 0014. _Avoid_: enemy fire, enemy bullets, hellfire.
 
-**Armed**: Carrying fire. Only a fixed share of a wave is armed, and an armed mob looks armed, because picking targets is a skill only if the player can see which mob to pick. _Avoid_: shooter, ranged.
+**Armed**: Carrying fire. An armed mob looks armed, because picking targets is a skill only if the player can see which mob to pick. Under a mow that visible minority is a mob type rather than a share of a row: the revenant is armed and the mow body is not, so the player picks the revenant out of the mow rather than one body out of a file (ADR 0059). _Avoid_: shooter, ranged.
 
 **Tell**: The visible change an armed mob makes before every shot, not only its first, always at the same lead. Without it a mob's only tell is the damage. _Avoid_: warning, wind-up, charge.
 

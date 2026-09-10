@@ -22,6 +22,7 @@ import { advanceBell } from '../lines/bell';
 import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import {
   advanceStream,
+  SKULL_DAMAGE,
   STREAM_INTERVAL,
   SURGE_INTERVAL,
   SURGE_VOLLEYS,
@@ -33,6 +34,7 @@ import {
   ARRIVE_TICKS,
   damageMob,
   hasEntered,
+  MOB_TYPE_NAMES,
   MOB_TYPES,
   spawnMob,
 } from '../mobs';
@@ -174,7 +176,7 @@ describe('the mob type table (ADR 0016)', () => {
     expect(MOB_TYPES.shambler.speed).toBeCloseTo(0.5 * SCROLL_SPEED, 12);
     expect(MOB_TYPES.revenant.speed).toBeCloseTo(0.35 * SCROLL_SPEED, 12);
 
-    expect(MOB_TYPES.shambler.hp).toBe(40);
+    expect(MOB_TYPES.shambler.hp).toBe(8);
     expect(MOB_TYPES.revenant.hp).toBe(64);
     expect(MOB_TYPES.ghoul.hp).toBe(20);
 
@@ -205,6 +207,74 @@ describe('the mob type table (ADR 0016)', () => {
     // slower than the scroll it rides can never intercept anything.
     expect(MOB_TYPES.ghoul.speed).toBeGreaterThan(SCROLL_SPEED);
     expect(MOB_TYPES.ghoul.motion).toBe('chases');
+  });
+});
+
+describe('the mow (ADR 0059)', () => {
+  /** How many skulls a body of this type takes, landed one at a time. */
+  const skullsToKill = (type: Mob['type']): number => {
+    const state = quietRun();
+    const mob = putMob(state, type, 200, 200);
+    let skulls = 0;
+    while (mob.alive && skulls < 20) {
+      damageMob(state, mob, SKULL_DAMAGE, 'skullStream');
+      skulls += 1;
+    }
+    return skulls;
+  };
+
+  it('kills a shambler with one skull', () => {
+    // ADR 0059: density is bought with weak bodies, never tough ones, so the
+    // mow body dies to the first thing the storm lands on it. Counted through
+    // damageMob rather than divided, because what is promised is the kill.
+    expect(skullsToKill('shambler')).toBe(1);
+  });
+
+  it('kills a ghoul with three skulls and a revenant with eight', () => {
+    // The two rows the mow does not move. ADR 0059 is a change to trash and
+    // never to the roster: the ghoul stays the body threat that dies fast but
+    // not free, and the revenant stays few and tough at eight times the mow
+    // body.
+    expect(skullsToKill('ghoul')).toBe(3);
+    expect(skullsToKill('revenant')).toBe(8);
+  });
+
+  it('never arms a shambler, wherever it stands in its group', () => {
+    // ADR 0059's cost, taken eyes-open: the mow body carries no fire at all.
+    // Walked across a whole group's worth of placements because the armed
+    // share used to be a position rule, so index two is where a survivor of
+    // the old rule would show.
+    const state = quietRun();
+    for (let index = 0; index < 9; index++) {
+      const spawned = spawnMob(
+        state,
+        'shambler',
+        order(40 + index * 30, 60, 0, 1, index),
+        false,
+      );
+      if (spawned === null) throw new Error('the pool refused a shambler');
+      expect(spawned.armed).toBe(false);
+    }
+    const step = stepping(state);
+    expect(types(run(step, 600), 'mobFired')).toHaveLength(0);
+  });
+
+  it('arms the revenant, which is the one trash type that fires', () => {
+    // The other half of ADR 0059, held as its own promise so the roster split
+    // survives a later type being added: fire lives on the revenant, and the
+    // player picks it out of the mow.
+    const armed = MOB_TYPE_NAMES.filter(
+      (type) => MOB_TYPES[type].fire.armedShare !== 'none',
+    );
+    expect(armed).toEqual(['revenant']);
+
+    const state = quietRun();
+    const mob = putMob(state, 'revenant', 200, 120);
+    expect(mob.armed).toBe(true);
+    const step = stepping(state);
+    expect(
+      types(run(step, MOB_TYPES.revenant.fire.interval + 1), 'mobFired').length,
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -568,7 +638,7 @@ describe("one swallow's whole burst payload never clears a wave (plan section 3)
   }
 });
 
-describe("one swallow's surge clears two trash bodies (#76 pass A correction)", () => {
+describe("one swallow's surge clears ten trash bodies (ADR 0059)", () => {
   /**
    * How many bodies the burst window clears, with and without the swallow that
    * surges it. The magnitude only shows as a difference: what a surge buys is
@@ -578,11 +648,12 @@ describe("one swallow's surge clears two trash bodies (#76 pass A correction)", 
   const bodiesClearedInBurst = (swallowed: boolean): number => {
     const state = quietRun();
     state.levels.skullStream = MAX_LEVEL;
-    // Stacked on the mouth, where every column of the fan launches, so one
-    // volley's five skulls all land on the first of them and a volley is one
-    // trash body exactly. Five is more than the burst can reach.
+    // Stacked on the mouth, where every column of the fan launches. Under the
+    // mow a skull is a whole trash body (ADR 0059), so a volley's five skulls
+    // are five bodies rather than one, and twenty is more than the burst can
+    // reach.
     const mouth = { x: state.grave.x, y: state.grave.y - state.grave.size };
-    for (let index = 0; index < 5; index++) {
+    for (let index = 0; index < 20; index++) {
       putMob(state, 'shambler', mouth.x, mouth.y);
     }
     // Armed to fire on the window's first tick, so the window holds the whole
@@ -600,14 +671,14 @@ describe("one swallow's surge clears two trash bodies (#76 pass A correction)", 
     return killed;
   };
 
-  it('kills two bodies the same window without a swallow never reaches', () => {
-    // Mark's 2026-08-27 ruling for the pass A correction: the surge is restored
-    // to the burst's old functional magnitude under the new touch counts,
-    // provisionally, and two is the nearest an integer count of volleys gets to
-    // the 1.67 bodies one extra volley used to clear. Pinned here because the
-    // number is provisional: moving it should be a deliberate act, not a
-    // side effect of another tuning pass.
-    expect(bodiesClearedInBurst(true) - bodiesClearedInBurst(false)).toBe(2);
+  it('kills ten bodies the same window without a swallow never reaches', () => {
+    // What the surge buys has never been a body count: it is the volleys the
+    // window would not otherwise have held, which is Mark's 2026-08-27 ruling
+    // and is unmoved. Two extra volleys used to be two bodies against the pass
+    // A touch counts; under the mow a volley is five bodies (ADR 0059), so the
+    // same two volleys are ten. The count is pinned rather than the relation,
+    // because moving it should be a deliberate act and this is one.
+    expect(bodiesClearedInBurst(true) - bodiesClearedInBurst(false)).toBe(10);
   });
 });
 

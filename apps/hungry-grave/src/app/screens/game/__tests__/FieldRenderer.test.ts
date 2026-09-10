@@ -212,29 +212,35 @@ describe('FieldRenderer', () => {
   });
 
   it('tells an armed mob from an unarmed one, and a lit tell from an unlit one', () => {
-    // ADR 0016 puts this ahead of everything else about the mob pool: a
-    // shambler that will never shoot and one that will must not be the same
-    // drawing, and a revenant's tell has to precede its shot.
+    // ADR 0016 puts this ahead of everything else about the mob pool: a body
+    // that will never shoot and one that will must not be the same drawing,
+    // and a revenant's tell has to precede its shot.
+    //
+    // Both bodies are revenants with the flag set by hand, because under the
+    // mow no one type produces both reads: the mow body is always silent and
+    // the revenant is always armed (ADR 0059). What the renderer promises is
+    // to draw the flag it is handed, so the flag is what a test fakes.
     const { layers, renderer } = attached();
     const state = createRun(1);
     const plain = spawnMob(
       state,
-      'shambler',
+      'revenant',
       {
         x: 60,
-        y: MOB_TYPES.shambler.halfHeight,
+        y: MOB_TYPES.revenant.halfHeight,
         vx: 0,
         vy: 1,
         index: 0,
       },
       false,
     )!;
+    plain.armed = false;
     const armed = spawnMob(
       state,
-      'shambler',
+      'revenant',
       {
         x: 120,
-        y: MOB_TYPES.shambler.halfHeight,
+        y: MOB_TYPES.revenant.halfHeight,
         vx: 0,
         vy: 1,
         index: 2,

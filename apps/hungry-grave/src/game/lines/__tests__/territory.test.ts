@@ -425,8 +425,11 @@ describe('the dwell', () => {
   });
 
   it('a pulse lands again once the window passes', () => {
+    // Held on a revenant, because a second pulse has to land on a body that is
+    // still alive to take it: under the mow a shambler is two pulses (ADR
+    // 0059), so the window would be measured against a corpse.
     const run = territoryRun();
-    const mob = putMob(run, run.grave.x, 300);
+    const mob = putMob(run, run.grave.x, 300, 'revenant');
     layNow(run);
     openTheHands(run);
     const patch = livePatches(run)[0]!;
@@ -436,14 +439,16 @@ describe('the dwell', () => {
       run.tick += 1;
       resolveTerritory(run);
     }
-    expect(mob.hp).toBe(MOB_TYPES.shambler.hp - 2 * TERRITORY_DAMAGE);
+    expect(mob.alive).toBe(true);
+    expect(mob.hp).toBe(MOB_TYPES.revenant.hp - 2 * TERRITORY_DAMAGE);
   });
 
-  it('a shambler held on ground start to death takes exactly 8 pulses', () => {
-    // The ruled contract is shambler-denominated: 40 health at 5 a pulse is 8
-    // pulses, and the kill is slow on purpose. The count is what is ruled and
-    // the level moves only how long the ground takes to deliver it, so this
-    // holds at every rung and is asserted against the patch's own window.
+  it('a shambler held on ground start to death takes exactly 2 pulses', () => {
+    // The ruled contract is shambler-denominated: under the mow eight health
+    // at 5 a pulse is 2 pulses (ADR 0059), where the old health row bought 8.
+    // The count is what is ruled and the level moves only how long the ground
+    // takes to deliver it, so this holds at every rung and is asserted against
+    // the patch's own window.
     const run = territoryRun();
     const mob = putMob(run, run.grave.x, 300);
     layNow(run);
@@ -460,7 +465,7 @@ describe('the dwell', () => {
       run.tick += 1;
     }
     expect(killed).toBe(true);
-    expect(pulses).toBe(8);
+    expect(pulses).toBe(2);
   });
 
   it('expired map entries are pruned', () => {
@@ -1066,11 +1071,34 @@ describe('the dwell ladder', () => {
     expect(mob.hp).toBe(MOB_TYPES.shambler.hp - TERRITORY_DAMAGE);
   });
 
-  it('a shambler walks out of level-one ground alive', () => {
-    // The rung Mark's ruling asks for: early ground slows and chips, and an
-    // ordinary mob caught in it comes out the far side. Five pulses over a
-    // 327-tick crossing is 25 of its 40, so the cost is real and the mob is
-    // still a problem.
+  it('walks a revenant out of level-one ground alive, chipped', () => {
+    // The rung Mark's ruling asks for: early ground slows and chips, and a
+    // body caught in it comes out the far side. The describe above states the
+    // ladder's own terms, that the touch counts do not move with it and only
+    // the delivery time does, so a body that survives the crossing is what the
+    // rung has to show. It used to be shown on a shambler; under the mow eight
+    // health is two pulses (ADR 0059), so the mow body dies in even the
+    // slowest ground and the revenant is now the body this rung reads on.
+    const run = territoryRun();
+    const patch = openGround(run, 1);
+    const mob = putMob(
+      run,
+      patch.x,
+      patch.y - patch.radius - MOB_TYPES.revenant.halfHeight,
+      'revenant',
+    );
+    mob.vy = MOB_TYPES.revenant.speed;
+
+    const crossing = crossTheGround(run, patch, mob);
+    expect(crossing.died).toBe(false);
+    expect(crossing.hp).toBe(MOB_TYPES.revenant.hp - 8 * TERRITORY_DAMAGE);
+  });
+
+  it('kills the mow body in level-one ground, which is the slowest ground there is', () => {
+    // The consequence of the mow on the ladder's bottom rung, pinned so it is
+    // a stated cost rather than a surprise: two pulses is inside a crossing at
+    // every rung, so early ground is no longer a speed bump for the mow body
+    // (ADR 0059).
     const run = territoryRun();
     const patch = openGround(run, 1);
     const mob = putMob(
@@ -1080,9 +1108,7 @@ describe('the dwell ladder', () => {
     );
     mob.vy = MOB_TYPES.shambler.speed;
 
-    const crossing = crossTheGround(run, patch, mob);
-    expect(crossing.died).toBe(false);
-    expect(crossing.hp).toBe(MOB_TYPES.shambler.hp - 5 * TERRITORY_DAMAGE);
+    expect(crossTheGround(run, patch, mob).died).toBe(true);
   });
 
   it('a shambler dies in level-five ground, and sooner than in level-three ground', () => {
@@ -1111,9 +1137,9 @@ describe('the dwell ladder', () => {
 
   it('the top rung is the old flat window, so the ruled touch counts are unmoved', () => {
     // The ladder moves the pace and nothing else. TERRITORY_DAMAGE stays 5
-    // against the ruled health scale (#76 pass A, ghoul 20 by #79), so the
+    // against the ruled health scale (ADR 0059, ghoul 20 by #79), so the
     // counts the record rules are the counts the ground still takes: a
-    // shambler 8, a ghoul 4, a revenant 13.
+    // shambler 2, a ghoul 4, a revenant 13.
     expect(REHIT_BY_LEVEL[MAX_LEVEL]).toBe(30);
 
     const counts = new Map<Mob['type'], number>();
@@ -1123,7 +1149,7 @@ describe('the dwell ladder', () => {
       const mob = putMob(run, patch.x, patch.y, type);
       counts.set(type, pulsesToKill(run, mob));
     }
-    expect(counts.get('shambler')).toBe(8);
+    expect(counts.get('shambler')).toBe(2);
     expect(counts.get('ghoul')).toBe(4);
     expect(counts.get('revenant')).toBe(13);
   });

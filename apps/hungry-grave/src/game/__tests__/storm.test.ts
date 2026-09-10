@@ -113,10 +113,16 @@ describe('the storm meeting a mob (plan 6.7)', () => {
   it('resolves skulls, then Territory, then wisps, so the same seed kills in the same order', () => {
     // The order is stated rather than incidental: the pass is read in one
     // order, and a different order is a different set of kills on the same seed.
+    //
+    // The skull's and the wisp's bodies are revenants because each has to
+    // survive its own touch for its damage to be readable at all: under the
+    // mow a skull and a wisp each take a shambler outright (ADR 0059). The
+    // ground's body stays the mow body, which takes two pulses and so comes
+    // through the pass alive.
     const state = stormRun();
-    const skulled = putMob(state, 'shambler', 100, 100);
+    const skulled = putMob(state, 'revenant', 100, 100);
     const grabbed = patchVictim(state, 200, 400);
-    const wisped = putMob(state, 'shambler', 300, 100);
+    const wisped = putMob(state, 'revenant', 300, 100);
     putSkull(state, skulled.x, skulled.y);
     putWisp(state, wisped.x, wisped.y);
 
@@ -124,9 +130,9 @@ describe('the storm meeting a mob (plan 6.7)', () => {
       .filter((event) => event.type === 'mobKilled')
       .map((event) => (event.type === 'mobKilled' ? event.x : -1));
     expect(killed).toEqual([]);
-    expect(skulled.hp).toBe(MOB_TYPES.shambler.hp - SKULL_DAMAGE);
+    expect(skulled.hp).toBe(MOB_TYPES.revenant.hp - SKULL_DAMAGE);
     expect(grabbed.hp).toBe(MOB_TYPES.shambler.hp - TERRITORY_DAMAGE);
-    expect(wisped.hp).toBe(MOB_TYPES.shambler.hp - WISP_DAMAGE);
+    expect(wisped.hp).toBe(MOB_TYPES.revenant.hp - WISP_DAMAGE);
   });
 
   it('consumes a skull and a wisp on the mob they hit, and never a patch', () => {

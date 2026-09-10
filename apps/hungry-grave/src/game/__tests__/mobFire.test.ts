@@ -24,13 +24,19 @@ import { TICK_HZ } from '../clock';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT } from '../field';
-import type { Shot } from '../mobFire';
-import { fireDirectedShot, fireShot } from '../mobFire';
+import type { FireRow, Shot } from '../mobFire';
+import {
+  fireDirectedShot,
+  fireShot,
+  firstShotOffset,
+  isArmed,
+} from '../mobFire';
 import type { Mob } from '../mobs';
 import {
   advanceMobs,
   ARRIVE_TICKS,
   hasEntered,
+  MOB_TYPE_NAMES,
   MOB_TYPES,
   mobTellLit,
   spawnMob,
@@ -113,12 +119,15 @@ function types(events: SimEvent[], type: SimEvent['type']): SimEvent[] {
 
 describe('the armed share (ADR 0016)', () => {
   it('arms a mob when its group index modulo three is two, so no Drip of one or two is ever armed', () => {
+    // Read off the rule and the template's own indices rather than off a mob
+    // type: under the mow no type carries the every-third share, because the
+    // mow body is silent and the revenant is all-armed (ADR 0059). The rule is
+    // still what a row naming that share would arm by.
     for (const count of [1, 2, 3, 6]) {
       const state = quietRun();
-      for (const at of place('drip', count, state.streams.spawns)) {
-        spawnMob(state, 'shambler', at, false);
-      }
-      const armed = state.mobs.filter((mob) => mob.alive && mob.armed);
+      const armed = place('drip', count, state.streams.spawns).filter((at) =>
+        isArmed('everyThird', at.index),
+      );
       expect(`drip of ${count}: ${armed.length}`).toBe(
         `drip of ${count}: ${Math.floor(count / 3)}`,
       );
@@ -140,16 +149,18 @@ describe('the armed share (ADR 0016)', () => {
   });
 
   it('indexes the share per arm on the V and the Pincer, so a mirrored template arms symmetrically', () => {
+    // The same reading as above: the placement's own per-arm indices against
+    // the share rule, because no type carries the every-third share under the
+    // mow (ADR 0059). What is pinned is that the template counts each arm from
+    // zero, so the two sides arm alike.
     for (const template of ['v', 'pincer'] as const) {
       const state = quietRun();
       const orders = place(template, 6, state.streams.spawns);
-      for (const at of orders) spawnMob(state, 'shambler', at, false);
-      const live = state.mobs.filter((mob) => mob.alive);
-      const armedLeft = live.filter(
-        (mob, index) => mob.armed && index % 2 === 0,
+      const armedLeft = orders.filter(
+        (at, index) => isArmed('everyThird', at.index) && index % 2 === 0,
       );
-      const armedRight = live.filter(
-        (mob, index) => mob.armed && index % 2 === 1,
+      const armedRight = orders.filter(
+        (at, index) => isArmed('everyThird', at.index) && index % 2 === 1,
       );
       expect(`${template} ${armedLeft.length} ${armedRight.length}`).toBe(
         `${template} 1 1`,
@@ -224,14 +235,32 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
     }
   });
 
-  it('spreads a File of armed shamblers with a per-mob offset, so it does not fire as one volley', () => {
+  it('spreads a group of armed mobs with a per-mob offset, so it does not fire as one volley', () => {
+    // Read off the offset rule against a row that names a jitter, because no
+    // row names one today: the mow body was the only type that did and it is
+    // silent now (ADR 0059), while the revenant has always fired on its own
+    // clock at a jitter of zero. The rule still binds any row that names one.
     const state = quietRun();
-    for (const at of place('file', 9, state.streams.spawns)) {
-      spawnMob(state, 'shambler', at, false);
+    const jittered: FireRow = {
+      ...MOB_TYPES.revenant.fire,
+      firstShotJitter: 45,
+    };
+    const offsets = new Set(
+      Array.from({ length: 9 }, () => firstShotOffset(state, jittered)),
+    );
+    expect(offsets.size).toBeGreaterThan(1);
+  });
+
+  it('names no jitter on any mob type, so nothing but a boss draws the mobFire stream', () => {
+    // The deliberate absence the promise above leaves behind, pinned so it is
+    // a stated cost of the mow rather than a silent one: the every-third
+    // share and the first-shot jitter both went quiet with the mow body, and a
+    // type that starts naming a jitter again is a change somebody made.
+    for (const type of MOB_TYPE_NAMES) {
+      expect(`${type}: ${MOB_TYPES[type].fire.firstShotJitter}`).toBe(
+        `${type}: 0`,
+      );
     }
-    const armed = state.mobs.filter((mob) => mob.alive && mob.armed);
-    expect(armed.length).toBe(3);
-    expect(new Set(armed.map((mob) => mob.fireIn)).size).toBeGreaterThan(1);
   });
 
   it("aims at the grave's centre at the moment of firing and never changes direction after", () => {
@@ -279,7 +308,7 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
   it("keeps every firing number on the type's row, the tell lead included", () => {
     // A source scan, because the failure this guards against is a shared module
     // constant, and no assertion over the table's values can see one.
-    for (const type of ['shambler', 'revenant'] as const) {
+    for (const type of MOB_TYPE_NAMES) {
       const fire = MOB_TYPES[type].fire;
       for (const [field, value] of Object.entries(fire)) {
         if (field === 'armedShare') continue;
@@ -287,14 +316,16 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
           `${type}.${field} number`,
         );
       }
+      if (fire.armedShare === 'none') continue;
       expect(fire.tellTicks).toBeGreaterThan(0);
       expect(fire.interval).toBeGreaterThan(0);
       expect(fire.shotSpeed).toBeGreaterThan(0);
       expect(fire.shotHalfExtent).toBeGreaterThan(0);
     }
-    expect(MOB_TYPES.shambler.fire.interval).not.toBe(
-      MOB_TYPES.revenant.fire.interval,
-    );
+    // The two silent types share the one declared silent row rather than each
+    // spelling out its own zeros, which is what keeps silence a single fact
+    // about the table (ADR 0059).
+    expect(MOB_TYPES.shambler.fire).toBe(MOB_TYPES.ghoul.fire);
 
     const declared = [
       ...`${mobsSource}\n${mobFireSource}`.matchAll(

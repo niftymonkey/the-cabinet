@@ -915,10 +915,12 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
     // over a run nobody arranged.
     let spawned = false;
     let ticks = 0;
-    // A parked run seals at tick 1118, on every seed measured. The bound is
-    // three times that, so content that stops ending a parked run fails here
-    // rather than hanging the suite.
-    while (run.ending === null && ticks < 3600) {
+    // A parked run seals at tick 6135 on this seed. It used to be 1118: under
+    // the mow the mow body is silent and dies to one skull (ADR 0059), so far
+    // less of what the ramp sends ever reaches the grave. The bound is three
+    // times the measured tick, so content that stops ending a parked run fails
+    // here rather than hanging the suite.
+    while (run.ending === null && ticks < 18500) {
       screen.update(frame(TICK_MS * 10));
       ticks += 10;
       spawned ||= run.mobs.some((mob) => mob.alive);
@@ -926,7 +928,7 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
 
     expect(spawned).toBe(true);
     expect(run.ending).toBe('sealed');
-    expect(run.tick).toBeGreaterThan(1000);
+    expect(run.tick).toBeGreaterThan(6000);
     expect(screen['ending'].ended).toBe(true);
     expect(showScreen).toHaveBeenCalledTimes(1);
     expect(runHandoff.read()?.ending).toBe('sealed');

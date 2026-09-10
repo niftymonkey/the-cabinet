@@ -472,26 +472,29 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * Measured, not assumed. At the birthright the skull stream is the whole of
  * the storm, so which mobs a run kills follows the lane it steers, and whether
  * a carrier is among them is a fact about the seed rather than about the hand:
- * `dodgePolicy` is paid on four of these five and never paid on 505
- * (NEVER_PAID in bot.test.ts), and this hand is paid on the other three. The
- * two sets differ because the two hands steer different lanes, not because
- * either reaches for carriers, which neither does.
+ * `dodgePolicy` is paid on all five and this hand is paid on all five too.
+ * Under the mow (ADR 0059) a skull is a whole trash body, so the lane a run
+ * steers clears far more of what it passes and a carrier among them is no
+ * longer the rarity it was: the list held 101 and 404 against the old health
+ * row and holds nobody now. It is kept rather than deleted so the day the
+ * stage stops paying a seed, this says which one.
  *
  * It is #39's first tuning input and never a reason to sharpen the hand: a
  * hand tuned until the stage pays it would measure the tuning of the hand.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT = [101, 404];
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [];
 
 /**
- * The seeds that finish above the birthright, which is fewer than the seeds
- * that level a line at all.
+ * The seeds that finish above the birthright, which under the mow is every one
+ * of them.
  *
- * 202 buys one rung and a hit strips it (ADR 0003's ladder), so it ends where
- * it started with the rung it bought recorded on the way. Written as an
- * equality rather than as "some seed does", so it fires the day the set moves
- * in either direction and says which seed did it.
+ * It used to be 303 and 505 alone, with 202 buying one rung and a hit
+ * stripping it (ADR 0003's ladder). The mow pays every lane enough carriers to
+ * outrun the strips (ADR 0059). Written as an equality rather than as "some
+ * seed does", so it fires the day the set moves in either direction and says
+ * which seed did it.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT = [303, 505];
+const ENDS_ABOVE_THE_BIRTHRIGHT = [101, 202, 303, 404, 505];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

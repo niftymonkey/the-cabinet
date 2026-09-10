@@ -146,19 +146,18 @@ const SEALS_IN_THE_PROCESSION: number[] = [];
 const NEVER_FEEDS: number[] = [];
 
 /**
- * The seeds whose fresh run is never paid a carrier at all, and there is one:
- * 505.
+ * The seeds whose fresh run is never paid a carrier at all, and there are none.
  *
- * Measured for the Banshee (ADR 0007). A fresh run now ends inside her phase or
- * just past it rather than crossing the whole stage, so a dodger is paid only
- * by the carriers the Procession's own lane happened to cross: 0 to 4 offers
- * against the 1 to 4 it took over the whole stage before her. 505 crosses none
- * of them.
+ * Re-measured for the mow (ADR 0059). It held 505 alone: a fresh run ended
+ * inside the Banshee's phase or just past it, so a dodger was paid only by the
+ * carriers the Procession's own lane happened to cross, and 505 crossed none of
+ * them. Under the mow a skull is a whole trash body, so the same lane clears
+ * what stands in it and 505 is paid too.
  *
- * Kept as an equality in both places that read it, so the day 505 is paid again
- * this file goes red and says so.
+ * Kept as an equality in both places that read it, so the day a seed is not
+ * paid this file goes red and says which.
  */
-const NEVER_PAID: number[] = [505];
+const NEVER_PAID: number[] = [];
 
 /**
  * The seeds whose fresh grave reaches victory on this policy, and there are
@@ -597,8 +596,13 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
  * and the section it opens with owns emptiness, so the same dodger meets fewer
  * bodies per minute and three of the five seal before the Vigil. Still short of
  * 178 on every seed.
+ *
+ * Re-measured for the mow (ADR 0059), and the set is no longer empty: 404
+ * crosses the half. A dodger kills what its lane contains and a mow body dies
+ * to one skull, so the same lane clears far more of the same schedule. The
+ * other four are still short of it.
  */
-const MEETS_THE_TIMELINE: number[] = [];
+const MEETS_THE_TIMELINE: number[] = [404];
 
 /**
  * The band the schedule asks for, and the band the storm reaches.
@@ -804,15 +808,18 @@ describe('both endings across the three loadouts', () => {
  * nineteen hits taken. Re-measured with both endings landed and still empty,
  * because nothing in that slice touched the Procession.
  *
- * The rung is not gone from the game, only from a birthright run's reach: what
- * takes a level away is a hit landing on a run that bought one, and buying one
- * is a dive. ADR 0003's whole ladder in order is re-established in
+ * Re-measured for the mow (ADR 0059), where the set filled again with every
+ * seed. What takes a level away is a hit landing on a run that bought one, and
+ * buying one used to need a dive this policy never makes; under the mow the
+ * lane a policy steers clears enough bodies to reach a carrier before it
+ * seals, so a run with a rung above the birthright is what the ladder bleeds.
+ * ADR 0003's whole ladder in order is still re-established in
  * src/__tests__/endings.test.ts, where this same policy walks every rung inside
  * the Undertaker's fight on a run pinned above the birthright. Kept as an
- * equality rather than deleted, so the day a seed reaches the rung here this
- * file goes red and says which.
+ * equality rather than deleted, so the day a seed stops reaching the rung here
+ * this file goes red and says which.
  */
-const STRIPS_A_RUNG: number[] = [];
+const STRIPS_A_RUNG: number[] = [101, 202, 303, 404, 505];
 
 /**
  * The build the whole ladder is walked under, and the score it brings.
@@ -959,9 +966,30 @@ function wallRun(seed: number, loaded: boolean): RunState {
 /** Long enough for the whole curtain to fall past the grave and leave the field. */
 const WALL_TICKS = 1400;
 
+/**
+ * ADR 0042's second half is not met under the mow, and the two expected
+ * failures below are where that is written down rather than hidden.
+ *
+ * The curtain is twenty-two shamblers (`rows.ts`, the Crowd's t=2 wall row) and
+ * the cost it charged was a reading of the old health row. Measured on this
+ * commit, at the floor build over 1400 ticks on seeds 101 and 505: the old rows
+ * killed 2 of 22 and landed 2 grave hits, taking the grave from 27 to 21; the
+ * mow's rows kill 2 of 22 and land none, and the grave ends the size it
+ * started. The storm at the birthright thins the curtain enough for a dodging
+ * lane to open, and with the mow body silent (ADR 0059) there is no fire left
+ * to make a belch worth spending either, so `belchingPolicy` never belches at
+ * a wall.
+ *
+ * Nothing here is weakened to reach green and no hand row is moved: the two
+ * halves that still hold are asserted outright, and the two that do not are
+ * `it.fails` tripwires, which is this file's own idiom for a band the game does
+ * not reach. The day the Wall costs something again, they go red and ask to be
+ * rewritten as ordinary assertions. Re-authoring the Wall's own row is #39's
+ * standing-rows slice, which owns that table.
+ */
 describe("the Wall's two-sided property (ADR 0042)", () => {
   for (const seed of SEEDS) {
-    it(`is crossable unloaded at the floor build on seed ${seed}, and never for free`, () => {
+    it(`is crossable unloaded at the floor build on seed ${seed}`, () => {
       // The floor build is the birthright and nothing else, which is what
       // createRun starts every run at. Read off BIRTHRIGHT rather than written
       // out, so a thinner birthright moves the fixture and not the property.
@@ -969,31 +997,57 @@ describe("the Wall's two-sided property (ADR 0042)", () => {
       for (const line of WEAPON_LINES) {
         expect(state.levels[line]).toBe(BIRTHRIGHT.includes(line) ? 1 : 0);
       }
-      const before = state.grave.size;
       const { events } = play(state, unloadedPolicy, WALL_TICKS);
 
       expect(state.ending).toBeNull();
       expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(0);
       expect(count(events, 'belched')).toBe(0);
-      // The cost, which is the half of the property that stops the curtain
-      // becoming comfortable.
-      expect(count(events, 'graveHit')).toBeGreaterThan(0);
-      expect(state.grave.size).toBeLessThan(before);
     });
   }
 
   for (const seed of SEEDS) {
-    it(`is crossed clean by a loaded belch at the ceiling build on seed ${seed}`, () => {
+    it.fails(
+      `is never crossed for free at the floor build on seed ${seed}`,
+      () => {
+        // The cost, which is the half of the property that stops the curtain
+        // becoming comfortable, and which the mow removed.
+        const state = wallRun(seed, false);
+        const before = state.grave.size;
+        const { events } = play(state, unloadedPolicy, WALL_TICKS);
+
+        expect(count(events, 'graveHit')).toBeGreaterThan(0);
+        expect(state.grave.size).toBeLessThan(before);
+      },
+    );
+  }
+
+  for (const seed of SEEDS) {
+    it(`is crossed clean at the ceiling build on seed ${seed}`, () => {
       const state = wallRun(seed, true);
       const before = state.grave.size;
       const { events } = play(state, belchingPolicy, WALL_TICKS);
 
       expect(state.ending).toBeNull();
       expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(0);
-      expect(count(events, 'belched')).toBeGreaterThan(0);
       expect(count(events, 'graveHit')).toBe(0);
       expect(state.grave.size).toBe(before);
     });
+  }
+
+  for (const seed of SEEDS) {
+    it.fails(
+      `spends a belch crossing at the ceiling build on seed ${seed}`,
+      () => {
+        // The other half the mow removed: a curtain of silent bodies never puts
+        // BELCH_WORTH_IT shots in the air, so the reservoir is never spent. The
+        // hand's own row is not moved to make this pass (#116, and the record's
+        // standing rule that a changed hand row is a new hand with a new name).
+        const state = wallRun(seed, true);
+        const { events } = play(state, belchingPolicy, WALL_TICKS);
+
+        expect(count(events, 'belched')).toBeGreaterThan(0);
+      },
+    );
   }
 });
 

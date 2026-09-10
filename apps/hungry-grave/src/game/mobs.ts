@@ -59,11 +59,12 @@ interface MobRow {
  * rather than a first pass is the shambler's half-width.
  *
  * Health is on its own scale, and it is the one thing here read against the
- * storm rather than against the field. #76 pass A rules the touch counts a
- * trash body costs each weapon line: five skulls, four wisps, eight tolls at
- * the bell's far edge, and one toll at the grave. 40 is the smallest health
- * those four counts all divide, so each line's touch count is exact rather than
- * rounded, and the other two rows are whole skull counts against it.
+ * storm rather than against the field. ADR 0059 rules that a trash minute is a
+ * mow and that density is bought with weak bodies, so the touch counts a mow
+ * body costs each weapon line are one skull, one wisp, one toll at the grave,
+ * two tolls at the bell's far edge and two Territory pulses. 8 is the smallest
+ * health that makes the skull exact rather than rounded, so no damage row has
+ * to become a float, and the other two rows are whole skull counts against it.
  */
 const MOB_TYPES = {
   shambler: {
@@ -73,19 +74,16 @@ const MOB_TYPES = {
     // grave can slip through at any size.
     halfWidth: 11,
     halfHeight: 11,
-    hp: 40,
+    hp: 8,
     corpsePayout: TRASH_CORPSE_PAYOUT,
     corpseTier: 'trash',
     speed: 0.5 * SCROLL_SPEED,
     motion: 'falls',
-    fire: {
-      armedShare: 'everyThird',
-      interval: 180,
-      firstShotJitter: 45,
-      tellTicks: 45,
-      shotSpeed: 110 / TICK_HZ,
-      shotHalfExtent: 5,
-    },
+    // The mow body carries no fire at all (ADR 0059). Ten times the shamblers
+    // at an armed share is a bullet hell the storm cannot answer, so fire lives
+    // on the revenant and the bosses, and the revenant is the armed minority
+    // the player picks out of the mow.
+    fire: NEVER_FIRES,
   },
   revenant: {
     halfWidth: 13,

@@ -128,20 +128,27 @@ describe('the golden digest', () => {
     expect(foldWitness(state, 0)).not.toBe(before);
   });
 
-  it('makes the spawns and mobFire streams both draw, which they never used to', () => {
+  it('makes the spawns stream draw, which it never used to', () => {
     // At 600 ticks the scenario made zero draws on every stream, because the
-    // only rows inside its window are two Drips of one, a Drip draws nothing,
-    // and index 0 is never armed. The scripted File is what fixes that: its
-    // placement draws from spawns and its armed mob draws from mobFire.
+    // only row inside its window is a Drip of one and a Drip draws nothing.
+    // The scripted File is what fixes that: its placement draws from spawns.
     const { digest } = runScenario();
     expect(digest.drawn.spawns).toBeGreaterThan(0);
-    expect(digest.drawn.mobFire).toBeGreaterThan(0);
     // The scripted kills are two, below the first drop's price of five, so the
     // drops stream is untouched. And shed is deliberately excluded: nothing
     // consumes it until the boss dispatch authors the Banshee's shed, so an
     // "every stream has drawn" assertion could not pass in this build.
     expect(digest.drawn.drops).toBe(0);
     expect(digest.drawn.shed).toBe(0);
+  });
+
+  it('draws nothing at all on the mobFire stream, because no mob type names a jitter', () => {
+    // The half the promise above lost to the mow. The File's armed shambler
+    // was the scenario's only firing body and its first-shot jitter was the
+    // only draw the stream took here; with the mow body silent (ADR 0059) the
+    // only drawer left in the game is a boss the scenario never meets. Pinned
+    // so a jitter reappearing on a mob row is a change somebody made.
+    expect(runScenario().digest.drawn.mobFire).toBe(0);
   });
 
   it("puts a ghoul's turn, a kill, a corpse and a swallow on the digest's path", () => {

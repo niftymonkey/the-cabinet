@@ -34,7 +34,7 @@ import type { TickCommand } from '../../command';
 import type { Corpse } from '../../corpses';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../lines/roster';
 import type { Mob } from '../../mobs';
-import { damageMob, hasEntered } from '../../mobs';
+import { damageMob, hasEntered, MOB_TYPES } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { FRESHNESS_SECONDS, SIZE_START } from '../../tuning';
@@ -473,6 +473,45 @@ describe("the corpse cap's two boss-fight allowances (ADR 0007, ADR 0055)", () =
     // pattern's clock goes back to zero behind an invincible flash, so the
     // tightest window in a fight is one chunk's own cadence.
     expect(CHUNK_FLASH_TICKS).toBeGreaterThan(0);
+  });
+});
+
+describe("the Procession's first mob fire (ADR 0016, ADR 0059)", () => {
+  it('teaches the tell with a lone revenant Drip and never with the mow body', () => {
+    // ADR 0059 silences the mow body, so the Drip of three with one armed can
+    // no longer be the game's first mob fire. ADR 0016's readable-before-it-
+    // acts asks that a type arrive first as a lone Drip, so the lesson moves
+    // onto a revenant standing by itself. Read off the table rather than off
+    // the run, because it is the authoring that is ruled.
+    const firing = PROCESSION_ROWS.filter(
+      (row) => MOB_TYPES[row.type].fire.armedShare !== 'none',
+    );
+    const first = firing[0];
+    if (first === undefined) throw new Error('the Procession authors no fire');
+
+    expect({
+      type: first.type,
+      template: first.template,
+      count: first.count,
+      carries: first.carries,
+    }).toEqual({
+      type: 'revenant',
+      template: 'drip',
+      count: 1,
+      carries: false,
+    });
+  });
+
+  it('puts that Drip ahead of every other body that can fire', () => {
+    // The half the first promise cannot state on its own: a lone Drip that
+    // arrives after a File of the same type teaches nothing. The tables are
+    // time-ordered, so the first firing row is the earliest one.
+    const firing = PROCESSION_ROWS.filter(
+      (row) => MOB_TYPES[row.type].fire.armedShare !== 'none',
+    );
+    const [first, ...rest] = firing;
+    if (first === undefined) throw new Error('the Procession authors no fire');
+    for (const row of rest) expect(row.t).toBeGreaterThan(first.t);
   });
 });
 

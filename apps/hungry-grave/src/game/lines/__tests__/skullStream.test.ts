@@ -333,12 +333,12 @@ describe('freshness pays the stream in volleys (ADR 0058)', () => {
   });
 });
 
-describe('what the stream costs a trash body (#76 pass A)', () => {
-  it('kills a shambler standing in its column with exactly five volleys', () => {
-    // Mark's 2026-08-27 ruling for #76 pass A: trash takes five skulls where it
-    // used to take three, so the same kill is reached through more touches.
-    // Counted rather than divided, because the ruling is about how often the
-    // player's fire lands on a body and not about the arithmetic behind it.
+describe('what the stream costs a trash body (ADR 0059)', () => {
+  it('kills a shambler standing in its column with exactly one volley', () => {
+    // ADR 0059 supersedes the #76 pass A count of five: density is bought with
+    // weak bodies, so the mow body goes down to the first skull that reaches
+    // it. Counted rather than divided, because the ruling is about how often
+    // the player's fire lands on a body and not about the arithmetic behind it.
     const state = quietRun();
     state.levels.skullStream = 1;
     const mob = inTheColumn(state);
@@ -350,14 +350,15 @@ describe('what the stream costs a trash body (#76 pass A)', () => {
     }
 
     expect(mob.alive).toBe(false);
-    expect(touches).toBe(5);
+    expect(touches).toBe(1);
   });
 
-  it('still spends about a second and a half killing that shambler', () => {
-    // The kill time is what STREAM_INTERVAL exists to hold, and it is the
-    // "trash dies in a second or two" the drain-out is derived against. Five
-    // volleys at the shortened interval is the same span three volleys at the
-    // old one was, which is the whole point of moving both numbers together.
+  it('spends about a third of a second killing that shambler', () => {
+    // The kill time is what STREAM_INTERVAL exists to hold. Under the mow it
+    // is one volley's own wait rather than five, which is what a body arriving
+    // in a mow is worth. The "trash dies in a second or two" the drain-out was
+    // derived against is a reading of the old health row and is superseded
+    // here with it (ADR 0059).
     const state = quietRun();
     state.levels.skullStream = 1;
     const mob = inTheColumn(state);
@@ -370,7 +371,7 @@ describe('what the stream costs a trash body (#76 pass A)', () => {
     }
 
     expect(mob.alive).toBe(false);
-    expect(spent / TICK_HZ).toBeCloseTo(1.5, 1);
+    expect(spent / TICK_HZ).toBeCloseTo(0.3, 1);
   });
 });
 

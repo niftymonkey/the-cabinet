@@ -326,18 +326,20 @@ describe('the damage falls off with distance (ADR 0005)', () => {
     expect(damageTo(atEdge)).toBeLessThan(BELL_DAMAGE_FAR * 1.2);
   });
 
-  it('takes about three tenths of a shambler at eighty percent of the reach', () => {
-    // BELL_DAMAGE_NEAR is one shambler exactly, so a maxed bell kills trash
-    // outright only where the player is standing, and the far edge tickles.
-    // What the falloff is worth out here is therefore stated as a fraction of a
-    // trash body: the raw number is a scale and the fraction is the ruling.
+  it('takes about three tenths of the near edge at eighty percent of the reach', () => {
+    // The falloff itself is the ruling and the raw number is a scale, so what
+    // is worth out here is stated as a fraction of the near edge. It used to be
+    // stated as a fraction of a shambler, which was the same sentence only
+    // while the near edge was one shambler exactly; under the mow the near edge
+    // takes a mow body five times over (ADR 0059), so the denominator moves to
+    // the thing the falloff is actually a falloff from. The curve is untouched.
     const level = MAX_LEVEL;
     const at = rowAt(level).reach * 0.8;
     const state = quietRun();
     state.levels.bell = level;
     const mob = put(state, 'revenant', state.grave.x, state.grave.y - at);
     oneToll(state);
-    expect(damageTo(mob) / MOB_TYPES.shambler.hp).toBeCloseTo(0.3, 1);
+    expect(damageTo(mob) / BELL_DAMAGE_NEAR).toBeCloseTo(0.3, 1);
   });
 
   it('damages a mob once as the leading edge crosses it, never twice and never on the tick after', () => {
@@ -357,12 +359,12 @@ describe('the damage falls off with distance (ADR 0005)', () => {
   });
 });
 
-describe('what the toll costs a trash body at the far edge (#76 pass A)', () => {
-  it("takes exactly eight tolls to kill a shambler standing at the cone's full reach", () => {
-    // Mark's 2026-08-27 ruling for #76 pass A: the far edge chips eight times
-    // where it used to chip six, while the toll still kills a shambler outright
-    // at the grave. The two ends of the falloff are what moved, and this is the
-    // far one.
+describe('what the toll costs a trash body at the far edge (ADR 0059)', () => {
+  it("takes exactly two tolls to kill a shambler standing at the cone's full reach", () => {
+    // ADR 0059 supersedes the #76 pass A count of eight. What survives is
+    // Mark's 2026-08-19 ruling that the far edge tickles rather than kills
+    // (ADR 0036), held as the ratio between the edges: out here it still takes
+    // more than one toll where the grave's own rim takes one.
     const state = quietRun();
     state.levels.bell = MAX_LEVEL;
     const full = rowAt(MAX_LEVEL).reach;
@@ -376,7 +378,7 @@ describe('what the toll costs a trash body at the far edge (#76 pass A)', () => 
     }
 
     expect(mob.alive).toBe(false);
-    expect(chips).toBe(8);
+    expect(chips).toBe(2);
   });
 });
 

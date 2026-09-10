@@ -118,12 +118,13 @@ const sparseLastRow = (from: number, shape: SparseShape): readonly StageRow[] =>
  *
  * Which rows may carry is a property of the table rather than of the schedule,
  * so it is authored here and the placement is carriers.ts's. The four Drips are
- * held clear on purpose. The lone revenant Drip teaches the tell, so the run's
- * first tell and its first offer are two different moments rather than one body
- * doing both jobs; the opening shambler Drip is held clear because the first
- * kill of the run teaches the swallow; and the Drip of three is the game's first
- * mob fire, where exactly one of three arrives armed and the glance is spent
- * calibrating the marker.
+ * held clear on purpose. The opening shambler Drip is held clear because the
+ * first kill of the run teaches the swallow; the lone revenant Drip after it is
+ * the game's first mob fire, which the mow body can no longer teach because it
+ * carries no fire (ADR 0059), so the lesson lands on one revenant standing by
+ * itself with nothing else on screen (ADR 0016's readable-before-it-acts); and
+ * the run's first tell and its first offer stay two different moments rather
+ * than one body doing both jobs.
  *
  * Every count and every time here is an initial row owned by the tuning pass.
  * What is not tuning is the shape: one template live, Drips before a type
@@ -141,8 +142,8 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   {
     t: 11,
     template: 'drip',
-    count: 3,
-    type: 'shambler',
+    count: 1,
+    type: 'revenant',
     carries: false,
     directed: true,
   },
