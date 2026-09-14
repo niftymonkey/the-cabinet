@@ -288,7 +288,7 @@ const expandToll = (state: RunState): SimEvent[] => {
 
 /**
  * The toll's clock. It runs whatever the level is and re-arms either way, so an
- * owned bell's first toll lands within one period of the drop rather than
+ * owned bell's first toll lands within one period of the power-up rather than
  * waiting on a clock that only started then.
  */
 const tollClock = (state: RunState): SimEvent[] => {

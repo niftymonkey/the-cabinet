@@ -43,7 +43,7 @@ import {
   SIZE_CEILING,
 } from '../../tuning';
 import {
-  CROWD_ROWS,
+  CROWD_WAVES,
   POUR_JITTER_X,
   POUR_LIP_X,
   POUR_SECONDS,
@@ -54,14 +54,14 @@ import {
   SET_PIECE_POUR_SECONDS,
   SET_PIECE_SWEEP_MAX_X,
   SET_PIECE_SWEEP_MIN_X,
-} from '../rows';
+} from '../waves';
 import {
   advanceSetPiece,
   damageSetPiece,
   placeSetPiece,
   setPieceHitbox,
 } from '../setPiece';
-import { PHASES } from '../stage';
+import { SECTIONS } from '../stage';
 
 /** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
 function requireDefined<T>(value: T | undefined, message: string): T {
@@ -81,8 +81,8 @@ const SEED = 20260910;
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
-/** The phase the stage authors the pour in. */
-const WAKING = PHASES.findIndex((phase) => phase.name === 'waking');
+/** The section the stage authors the pour in. */
+const WAKING = SECTIONS.findIndex((section) => section.name === 'waking');
 
 /** How long the source is given to do whatever a test is waiting for. */
 const SOURCE_TICKS = 4000;
@@ -116,13 +116,13 @@ interface Source {
 /**
  * A run holding the source and nothing else, ticked at the module's own seam.
  *
- * The stage is stood in the phase the pour runs in so the source is where the
+ * The stage is stood in the section the pour runs in so the source is where the
  * stage puts it, and nothing else ticks: what arrives on the field here is the
  * pour's, which is what lets a count of arrivals be a count of the pour.
  */
 function atTheSource(): Source {
   const state = createRun(SEED);
-  state.stage.phaseIndex = WAKING;
+  state.stage.sectionIndex = WAKING;
   placeSetPiece(state);
   return { state, tick: () => advanceSetPiece(state) };
 }
@@ -163,11 +163,11 @@ interface Waking {
 
 /**
  * A whole run standing at the moment the source opens, ticked through the
- * execution authority (ADR 0017) so the pour lands into the rows the phase
+ * execution authority (ADR 0017) so the pour lands into the waves the section
  * authors and the grave meets all of it.
  *
  * The source is stood at its own opening depth rather than drifted down to it,
- * which is the same instrument endings.test.ts stands a fight on its last chunk
+ * which is the same instrument endings.test.ts stands a fight on its last phase
  * with: what is under test is the moment, not the twenty seconds of arrival in
  * front of it.
  *
@@ -182,7 +182,7 @@ interface Waking {
  */
 function atTheWaking(seed: number = SEED): Waking {
   const state = createRun(seed, SIZE_CEILING, uniformLevels(MAX_LEVEL));
-  state.stage.phaseIndex = WAKING;
+  state.stage.sectionIndex = WAKING;
   const piece = placeSetPiece(state);
   piece.y = FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
   const step = stepping(state);
@@ -234,15 +234,15 @@ function playTheWaking(
   };
 }
 
-/** The bodies a table's rows land inside the window opening at this second. */
+/** The bodies a table's waves land inside the window opening at this second. */
 function arrivalsFrom(
-  rows: readonly { t: number; count: number }[],
+  waves: readonly { t: number; count: number }[],
   from: number,
   seconds: number,
 ): number {
-  return rows
-    .filter((row) => row.t >= from && row.t < from + seconds)
-    .reduce((total, row) => total + row.count, 0);
+  return waves
+    .filter((wave) => wave.t >= from && wave.t < from + seconds)
+    .reduce((total, wave) => total + wave.count, 0);
 }
 
 describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
@@ -426,7 +426,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
 
   it('never lands two bodies on the same point', () => {
     // The narrow no-stack rule this one caller carries (#81 stays unowned): the
-    // mouth pours from alternating lips, so two bodies in a row stand clear of
+    // mouth pours from alternating lips, so two bodies in a wave stand clear of
     // each other rather than on top of each other.
     const source = atTheSource();
     tickUntilItOpens(source);
@@ -453,7 +453,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     const before = source.state.streams.spawns.drawn;
     const fired = source.state.streams.mobFire.drawn;
     const others = {
-      drops: source.state.streams.drops.drawn,
+      powerUps: source.state.streams.powerUps.drawn,
       shed: source.state.streams.shed.drawn,
       territory: source.state.streams.territory.drawn,
     };
@@ -461,7 +461,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
 
     expect(source.state.streams.spawns.drawn).toBeGreaterThan(before);
     expect({
-      drops: source.state.streams.drops.drawn,
+      powerUps: source.state.streams.powerUps.drawn,
       shed: source.state.streams.shed.drawn,
       territory: source.state.streams.territory.drawn,
     }).toEqual(others);
@@ -490,7 +490,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     // the field's own scroll: the source is a place on that ground rather than
     // a body falling through it, so the rock and the mouth in it move as one.
     // The rate is read by drifting a real patch beside the source rather than
-    // off this module's own row, which is how the renderer's patch test reads
+    // off this module's own wave, which is how the renderer's patch test reads
     // the same fact from the other side.
     const source = atTheSource();
     const patch = requireDefined(
@@ -518,7 +518,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
   it('spends its whole budget before the bottom edge, with a body of margin', () => {
     // The pour is the moment, so the ordinary end is the budget running out and
     // never the edge arriving: at the field's own scroll the opening depth is
-    // the row that buys that, and what it has to buy is the whole pour plus at
+    // the wave that buys that, and what it has to buy is the whole pour plus at
     // least one more body's worth of fall.
     const source = atTheSource();
     const events = tickUntilItCloses(source);
@@ -568,7 +568,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     // source's stay, how long the body stays a target and a thing to read,
     // rather than what keeps the pour finishing, which the ruling now does
     // whatever the storm did. Both sides are derived, the storm from the lines'
-    // own rows and the pour's length from its budget and interval.
+    // own waves and the pour's length from its budget and interval.
     expect(SET_PIECE_HP).toBeGreaterThan(
       FULL_BUILD_DAMAGE_PER_SECOND * POUR_SECONDS,
     );
@@ -577,7 +577,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
 
   it('pours denser than the densest ten seconds the sections author', () => {
     // The loudest beat in the run cannot arrive thinner than the section it
-    // interrupts, and it is measured off the pour rather than off the row it
+    // interrupts, and it is measured off the pour rather than off the wave it
     // was authored from.
     const source = atTheSource();
     tickUntilItOpens(source);
@@ -597,7 +597,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
       ),
     );
     const densestCrowd = Math.max(
-      ...CROWD_ROWS.map((row) => arrivalsFrom(CROWD_ROWS, row.t, 10)),
+      ...CROWD_WAVES.map((wave) => arrivalsFrom(CROWD_WAVES, wave.t, 10)),
     );
 
     expect(at).toHaveLength(SET_PIECE_BUDGET);
@@ -610,14 +610,14 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     // run takes that traffic and nothing from the mouth above it.
     const waking = atTheWaking();
     const state = waking.state;
-    // The section's own rows are marked fired and the pour is held off every
+    // The section's own waves are marked fired and the pour is held off every
     // tick, so the only thing standing over the grave is the source itself:
     // what the poured bodies do to a parked grave is ordinary mob contact and
     // is not what this absence is about.
-    state.stage.firedRows = requireDefined(
-      PHASES[WAKING],
+    state.stage.firedWaves = requireDefined(
+      SECTIONS[WAKING],
       'WAKING out of range',
-    ).rows.length;
+    ).waves.length;
     const events: SimEvent[] = [];
     for (let tick = 0; tick < SOURCE_TICKS; tick++) {
       if (state.setPiece === null) break;
@@ -768,8 +768,8 @@ describe("the Waking's own property (ADR 0042)", () => {
 describe('the set piece names a property and never a cast (ADR 0042)', () => {
   it('names no mob type anywhere in its own tests', () => {
     // The fence form of ADR 0042: "A set piece names the property it must keep,
-    // never the mob types allowed in it." What the pour is made of is a row in
-    // rows.ts, so re-casting it is a data edit and nothing here goes red.
+    // never the mob types allowed in it." What the pour is made of is a wave in
+    // waves.ts, so re-casting it is a data edit and nothing here goes red.
     const named = MOB_TYPE_NAMES.filter((type) =>
       [`'${type}'`, `"${type}"`, `\`${type}\``].some((literal) =>
         setPieceTestSource.includes(literal),

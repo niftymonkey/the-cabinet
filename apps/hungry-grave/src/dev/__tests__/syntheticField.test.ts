@@ -48,7 +48,7 @@ describe('a synthetic field', () => {
 
   it('takes the field back down to its size after the run has stood more', () => {
     // A field grows as well as decays: the stage spawns bodies of its own and a
-    // kill drops food, so a build whose pools are larger than the field being
+    // kill power-ups food, so a build whose pools are larger than the field being
     // measured drifts upward the moment it is driven.
     const run = createRun(4242);
     standSyntheticField(run, { mobs: 37, corpses: 91 });

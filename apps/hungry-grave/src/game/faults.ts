@@ -27,15 +27,15 @@ const FAULT_IDENTITIES = [
   'reservoir in range',
   'levels in range',
   'one live ring',
-  'phase index only increases',
-  'phase tick resets at a boundary',
+  'section index only increases',
+  'section tick resets at a boundary',
   'one live offer',
   'offer bodies alive and matching',
   'bank not negative',
   'corpse cap never binds',
   'carrier spawn never refused',
   'offer stands a body',
-  'boss chunk only increases',
+  'boss phase only increases',
   'set piece budget not negative',
   'set piece body gone when spent',
 ] as const;
@@ -66,7 +66,7 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * for one all record under the same identity. A corpse pays the wrong amount
  * into a size the fatal check still guards. One line's charge is wrong and
  * payReservoir clamps it back. A bell ring over-expands within one line. And a
- * stage phase repeats or skips spawns while the simulation stays coherent.
+ * stage section repeats or skips spawns while the simulation stays coherent.
  *
  * The three offer identities are recoverable for the same reason the ring is,
  * and it is worth saying plainly because what they guard is expensive: a
@@ -83,8 +83,8 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * and one body poorer, which is exactly a state to report loudly and carry on
  * from, and terminating it would take a whole run away over food.
  *
- * The boss's chunk and the set piece's two are recoverable on the stage's own
- * reading (ADR 0007, ADR 0042). A chunk that went backwards replays a pattern
+ * The boss's phase and the set piece's two are recoverable on the stage's own
+ * reading (ADR 0007, ADR 0042). A phase that went backwards replays a pattern
  * the player has already beaten, a budget below zero pours nothing, and a body
  * that disagrees with its own health is a source the storm goes on hitting or a
  * sprite that never leaves; all three spoil a fight without poisoning a number
@@ -102,15 +102,15 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'reservoir in range': 'recoverable',
   'levels in range': 'fatal',
   'one live ring': 'recoverable',
-  'phase index only increases': 'recoverable',
-  'phase tick resets at a boundary': 'recoverable',
+  'section index only increases': 'recoverable',
+  'section tick resets at a boundary': 'recoverable',
   'one live offer': 'recoverable',
   'offer bodies alive and matching': 'recoverable',
   'bank not negative': 'recoverable',
   'corpse cap never binds': 'recoverable',
   'carrier spawn never refused': 'recoverable',
   'offer stands a body': 'recoverable',
-  'boss chunk only increases': 'recoverable',
+  'boss phase only increases': 'recoverable',
   'set piece budget not negative': 'recoverable',
   'set piece body gone when spent': 'recoverable',
 };

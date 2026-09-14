@@ -1,4 +1,4 @@
-import type { Boss } from './bosses/chunks';
+import type { Boss } from './bosses/phases';
 import type { Corpse } from './corpses';
 import { createCorpsePool } from './corpses';
 import type { Grave } from './grave';
@@ -19,7 +19,7 @@ import type { Mob } from './mobs';
 import { createMobPool } from './mobs';
 import type { Offer } from './offer';
 import type { Stream, StreamName } from './rng';
-import { stream } from './rng';
+import { stream, STREAM_SALTS } from './rng';
 import type { SetPiece } from './stage/setPiece';
 import type { StageState } from './stage/stage';
 import { createStage } from './stage/stage';
@@ -265,11 +265,11 @@ const createRun = (
     bankedOffers: 0,
     ending: null,
     streams: {
-      spawns: stream(seed, 'spawns'),
-      drops: stream(seed, 'drops'),
-      mobFire: stream(seed, 'mobFire'),
-      shed: stream(seed, 'shed'),
-      territory: stream(seed, 'territory'),
+      spawns: stream(seed, STREAM_SALTS.spawns),
+      powerUps: stream(seed, STREAM_SALTS.powerUps),
+      mobFire: stream(seed, STREAM_SALTS.mobFire),
+      shed: stream(seed, STREAM_SALTS.shed),
+      territory: stream(seed, STREAM_SALTS.territory),
     },
     mobs: createMobPool(),
     mobFire: createShotPool(),

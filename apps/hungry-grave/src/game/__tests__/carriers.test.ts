@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { stepping } from '../../dev/stepping';
 
 import {
-  carrierRow,
+  waveCarriers,
   carriersForFullBuild,
   carriersScheduled,
   carriesAt,
@@ -21,14 +21,15 @@ import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import { cullMobs, MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun, uniformLevels } from '../run';
-import { advanceStage, PHASES } from '../stage/stage';
+import { advanceStage, SECTIONS } from '../stage/stage';
 import { SCROLL_SPEED } from '../tuning';
-import { CROWD_ROWS, PROCESSION_ROWS, VIGIL_ROWS } from '../stage/rows';
+import { CROWD_WAVES, PROCESSION_WAVES, VIGIL_WAVES } from '../stage/waves';
 
-/** Every carrier the authored stage puts on the field across all its phases. */
+/** Every carrier the authored stage puts on the field across all its sections. */
 function authoredCarriers(): number {
-  return [...PROCESSION_ROWS, ...CROWD_ROWS, ...VIGIL_ROWS].reduce(
-    (total, row) => total + carrierRow(row.carries, row.count).carrying.length,
+  return [...PROCESSION_WAVES, ...CROWD_WAVES, ...VIGIL_WAVES].reduce(
+    (total, wave) =>
+      total + waveCarriers(wave.carries, wave.count).carrying.length,
     0,
   );
 }
@@ -38,15 +39,15 @@ function authoredCarriers(): number {
  * whose one birthright line is held silent so every kill in these tests is a
  * kill the test made.
  *
- * The stage is silenced by standing the run in the last phase of the table,
- * which is the one phase the machine never leaves. Marking a phase's rows fired
- * silences that phase alone: a phase ends now on its rows being spent and its
+ * The stage is silenced by standing the run in the last section of the table,
+ * which is the one section the machine never leaves. Marking a section's waves fired
+ * silences that section alone: a section ends now on its waves being spent and its
  * field clearing (ADR 0051), so the tick a test's field empties would roll the
- * run into the next section and its rows.
+ * run into the next section and its waves.
  */
 function quietRun(seed = 7): RunState {
   const run = createRun(seed);
-  run.stage.phaseIndex = PHASES.length - 1;
+  run.stage.sectionIndex = SECTIONS.length - 1;
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
 }
@@ -82,7 +83,7 @@ describe('a carrier is a carrier whatever killed it (ADR 0002)', () => {
   it('pays for a carrier the bell killed exactly as for one the storm killed', () => {
     // Power that arrived only when the right weapon landed the last point of
     // damage would meter itself differently for a reason no player could read.
-    // The bell is the case that matters, because it resolves two phases before
+    // The bell is the case that matters, because it resolves two sections before
     // the deaths pass and its kills reach that pass on the tick's own list.
     const storm = quietRun();
     const stormStep = stepping(storm);
@@ -139,8 +140,8 @@ describe('a missed carrier is missed (ADR 0048)', () => {
     expect(carrier.alive).toBe(false);
     expect(seen.filter((type) => type === 'carrierLost')).toHaveLength(1);
     // Nothing paid for it: not on the tick it left, and not on any tick after.
-    expect(seen.filter((type) => type === 'dropSpawned')).toEqual([]);
-    expect(state.corpses.filter((corpse) => corpse.kind === 'drop')).toEqual(
+    expect(seen.filter((type) => type === 'powerUpSpawned')).toEqual([]);
+    expect(state.corpses.filter((corpse) => corpse.kind === 'powerUp')).toEqual(
       [],
     );
   });
@@ -151,20 +152,20 @@ describe('a missed carrier is missed (ADR 0048)', () => {
     // slack that lives only in the derivation absorbs nothing.
     expect(authoredCarriers()).toBeGreaterThan(carriersForFullBuild());
   });
-  it('never drifts a drop toward the grave and never holds it still waiting to be taken', () => {
+  it('never drifts a power-up toward the grave and never holds it still waiting to be taken', () => {
     // ADR 0048 rejects both: "An offer that drifts toward the grave, or holds
-    // still until it is taken, is Raiden's lingering icon." The drop's only
+    // still until it is taken, is Raiden's lingering icon." The power-up's only
     // motion is the field's own scroll, which is the coupling every food body
     // already has.
     const state = quietRun();
     const step = stepping(state);
     doomed(state, 120, 100, true);
     step(STILL);
-    const drop = state.corpses.find(
-      (corpse) => corpse.alive && corpse.kind === 'drop',
+    const powerUp = state.corpses.find(
+      (corpse) => corpse.alive && corpse.kind === 'powerUp',
     )!;
-    expect(drop.decays).toBe(false);
-    const start = { x: drop.x, y: drop.y };
+    expect(powerUp.decays).toBe(false);
+    const start = { x: powerUp.x, y: powerUp.y };
     const graveStartX = state.grave.x;
 
     // The expected fall is accumulated one scroll at a time rather than
@@ -174,10 +175,10 @@ describe('a missed carrier is missed (ADR 0048)', () => {
     for (let tick = 1; tick <= 30; tick++) {
       step({ move: { x: 1, y: -1 }, belch: false });
       expected += SCROLL_SPEED;
-      expect(`tick ${tick} x ${drop.x}`).toBe(`tick ${tick} x ${start.x}`);
-      expect(`tick ${tick} y ${drop.y}`).toBe(`tick ${tick} y ${expected}`);
+      expect(`tick ${tick} x ${powerUp.x}`).toBe(`tick ${tick} x ${start.x}`);
+      expect(`tick ${tick} y ${powerUp.y}`).toBe(`tick ${tick} y ${expected}`);
     }
-    // And the grave really did move, so the drop held its lane against a grave
+    // And the grave really did move, so the power-up held its lane against a grave
     // that was travelling rather than against a still field. Read against
     // where the grave itself started: the mob was placed at 120 and comparing
     // the grave to that number asserts nothing about the grave.
@@ -199,7 +200,7 @@ describe('a missed carrier is missed (ADR 0048)', () => {
         for (const mob of state.mobs) {
           if (mob.alive && mob.carries) met.push(`${tick} ${mob.id} ${mob.x}`);
         }
-        state.stage.phaseTick += 1;
+        state.stage.sectionTick += 1;
       }
       return met;
     };
@@ -211,7 +212,7 @@ describe('a missed carrier is missed (ADR 0048)', () => {
 });
 
 describe('the schedule', () => {
-  it('counts the drops a full build costs from the birthright, and moves when the roster grows', () => {
+  it('counts the power-ups a full build costs from the birthright, and moves when the roster grows', () => {
     // The cost is read off a fresh run's own starting levels rather than off
     // the carrier module's constants, so the two halves of the derivation
     // cannot agree with each other while both being wrong. A fifth line moves
@@ -240,18 +241,18 @@ describe('the schedule', () => {
     expect(authoredCarriers()).toBeGreaterThanOrEqual(carriersScheduled());
   });
 
-  it('carries one mob per carrying row, at the middle of its placement order', () => {
+  it('carries one mob per carrying wave, at the middle of its placement order', () => {
     // The middle rather than the leader, so a Pincer's symmetry is not broken
     // by the carrier riding at the head of one arm, and the position is the
-    // row's placement order rather than the SpawnOrder index, which a
-    // mirrored template repeats once per arm.
-    expect(carrierRow(true, 5).carrying).toEqual([2]);
-    expect(carrierRow(true, 1).carrying).toEqual([0]);
-    expect(carrierRow(false, 5).carrying).toEqual([]);
-    expect(carriesAt(carrierRow(true, 5), 2)).toBe(true);
-    expect(carriesAt(carrierRow(true, 5), 0)).toBe(false);
+    // wave's placement order rather than the SpawnOrder index, which a
+    // mirrored formation repeats once per arm.
+    expect(waveCarriers(true, 5).carrying).toEqual([2]);
+    expect(waveCarriers(true, 1).carrying).toEqual([0]);
+    expect(waveCarriers(false, 5).carrying).toEqual([]);
+    expect(carriesAt(waveCarriers(true, 5), 2)).toBe(true);
+    expect(carriesAt(waveCarriers(true, 5), 0)).toBe(false);
     for (const count of [1, 2, 3, 6, 8, 22]) {
-      expect(`${count} ${carrierRow(true, count).carrying.length}`).toBe(
+      expect(`${count} ${waveCarriers(true, count).carrying.length}`).toBe(
         `${count} 1`,
       );
     }

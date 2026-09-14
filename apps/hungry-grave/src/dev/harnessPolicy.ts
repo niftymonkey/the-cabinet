@@ -46,7 +46,7 @@ const squaredGap = (state: RunState, body: Corpse): number => {
  * Where the hand wants to be this tick, in three clauses: the live offer's
  * nearest body, else the nearest food, else the starting mark.
  *
- * The offer outranks an ordinary corpse because a drop never decays and a
+ * The offer outranks an ordinary corpse because a power-up never decays and a
  * corpse does, so a hand that preferred the nearer body would take offers by
  * accident and sit at the birthright.
  *

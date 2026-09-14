@@ -54,7 +54,7 @@ const typeOf = (index: number): MobType => {
  * Everything the pool holds above the count, put down, last slot first.
  *
  * A run does not only lose entities while it is being driven: the stage spawns
- * bodies of its own and a kill drops food, so a build whose pools are larger
+ * bodies of its own and a kill power-ups food, so a build whose pools are larger
  * than the field being measured drifts upward the moment it is driven. A field
  * is held at its size from both directions or it is not held at all.
  *
@@ -138,7 +138,7 @@ const standCorpses = (run: RunState, count: number): void => {
  * Held rather than only stood, and held from both directions. A field decays:
  * the scroll carries bodies off the bottom edge and freshness empties a corpse
  * in ten seconds. A field also grows: the stage spawns bodies of its own and a
- * kill drops food. Either way a field stood once and then driven for a few
+ * kill power-ups food. Either way a field stood once and then driven for a few
  * seconds is a measurement of something other than the field. A caller stands
  * the same size on every tick and measures the size it named.
  *

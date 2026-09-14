@@ -941,7 +941,7 @@ describe('the bounded seeded offset', () => {
     putMob(run, run.grave.x, 300);
     const before = {
       spawns: run.streams.spawns.drawn,
-      drops: run.streams.drops.drawn,
+      powerUps: run.streams.powerUps.drawn,
       mobFire: run.streams.mobFire.drawn,
       shed: run.streams.shed.drawn,
     };
@@ -949,7 +949,7 @@ describe('the bounded seeded offset', () => {
     layNow(run);
     expect(territoryCount(run)).toBe(1);
     expect(run.streams.spawns.drawn).toBe(before.spawns);
-    expect(run.streams.drops.drawn).toBe(before.drops);
+    expect(run.streams.powerUps.drawn).toBe(before.powerUps);
     expect(run.streams.mobFire.drawn).toBe(before.mobFire);
     expect(run.streams.shed.drawn).toBe(before.shed);
   });

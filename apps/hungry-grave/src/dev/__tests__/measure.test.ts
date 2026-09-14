@@ -18,7 +18,7 @@ import type { WeaponLine } from '../../game/lines/roster';
 import type { TickCommand } from '../../game/command';
 import type { RunEnding, RunState } from '../../game/run';
 import { createRun, uniformLevels } from '../../game/run';
-import { PHASES } from '../../game/stage/stage';
+import { SECTIONS } from '../../game/stage/stage';
 import { SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
 import { RUNNING_BUILD } from '../../tape/buildIdentity';
@@ -900,7 +900,7 @@ describe('measure', () => {
     );
 
     expect(measured.provenance.exclusions).toEqual(['bot']);
-    expect(measured.tuning.dropLedger.spawned).toBeGreaterThanOrEqual(0);
+    expect(measured.tuning.powerUpLedger.spawned).toBeGreaterThanOrEqual(0);
     expect(measured.tuning.gravePath.sizePerTick[0]).toBe(SIZE_START);
   });
 
@@ -932,8 +932,8 @@ describe('measure', () => {
     const crossed = spans.slice(0, -1);
     const live = entryAt(spans, spans.length - 1);
 
-    expect(spans.map((span) => span.phase)).toEqual(
-      PHASES.slice(0, spans.length).map((phase) => phase.name),
+    expect(spans.map((span) => span.section)).toEqual(
+      SECTIONS.slice(0, spans.length).map((section) => section.name),
     );
     expect(crossed.length).toBeGreaterThan(0);
     expect(entryAt(spans, 0).from).toBe(0);

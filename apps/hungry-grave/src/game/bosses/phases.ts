@@ -1,4 +1,4 @@
-// A boss's chunked health and the flash between chunks (ADR 0007, ADR 0052).
+// A boss's phased health and the flash between phases (ADR 0007, ADR 0052).
 
 import { spawnFeast } from '../corpses';
 import type { SimEvent } from '../events';
@@ -6,7 +6,7 @@ import { FIELD_WIDTH } from '../field';
 import type { DamageSource } from '../mobs';
 import type { Rect } from '../overlap';
 import type { RunState } from '../run';
-import type { BossKind } from '../stage/rows';
+import type { BossKind } from '../stage/waves';
 import { FEAST_PAYOUT } from '../tuning';
 import { advanceBanshee, bansheeDied } from './banshee';
 import { advanceUndertaker, undertakerDied } from './undertaker';
@@ -24,52 +24,52 @@ interface Boss {
    */
   readonly id: number;
   readonly kind: BossKind;
-  // Which chunk is live. It only ever increases, and an invariant holds it.
-  chunk: number;
+  // Which phase is live. It only ever increases, and an invariant holds it.
+  phaseIndex: number;
   hp: number;
   x: number;
   y: number;
   // Ticks of the invincible flash left; while positive, player shots do nothing.
   flash: number;
-  // The pattern's own clock, reset at each chunk break.
+  // The pattern's own clock, reset at each phase break.
   patternTick: number;
 }
 
 /**
- * How long the invincible flash between chunks runs (ADR 0007). Initial row,
+ * How long the invincible flash between phases runs (ADR 0007). Initial wave,
  * tuned by the harness at step 4: long enough to read as a beat and short
  * enough that it is not a pure-dodge stretch of its own.
  */
-const CHUNK_FLASH_TICKS = 30;
+const PHASE_FLASH_TICKS = 30;
 
 /**
- * Health per chunk, per boss (ADR 0052: "Health per chunk is tuning data").
+ * Health per phase, per boss (ADR 0052: "Health per phase is tuning data").
  *
- * The length of a row is the boss's chunk count, so the fight's length is chunk
- * count times health per chunk rather than one bar. Every number is initial and
+ * The length of a wave is the boss's phase count, so the fight's length is phase
+ * count times health per phase rather than one bar. Every number is initial and
  * first in line for the harness at step 4; the derivation is in the design
  * record's section 4 and it is a property rather than a pick. The floor is a
  * full build's storm damage across one full emit, five seconds at the longest,
- * so no chunk ever dies before the pattern it was written for has run once. The
- * rows sit well above that floor because the floor is not the fight's length:
+ * so no phase ever dies before the pattern it was written for has run once. The
+ * waves sit well above that floor because the floor is not the fight's length:
  * at an initial one-third effective share against a boss standing at the top of
- * the field, the Undertaker's three chunks buy ADR 0052's hundred seconds and
+ * the field, the Undertaker's three phases buy ADR 0052's hundred seconds and
  * the Banshee's two buy her nominal forty-five.
  */
-const CHUNK_HP: Readonly<Record<BossKind, readonly number[]>> = {
+const PHASE_HP: Readonly<Record<BossKind, readonly number[]>> = {
   banshee: [1100, 1100],
   undertaker: [1700, 1700, 1700],
 };
 
 /**
  * The body every boss stands in, and where it stands when it arrives. Initial
- * rows: a silhouette wide enough that the storm meets it without aiming and a
+ * waves: a silhouette wide enough that the storm meets it without aiming and a
  * standing point high in the field, so the whole field is between it and the
  * grave.
  *
- * One size for both bosses rather than a row each, because nothing this slice
+ * One size for both bosses rather than a wave each, because nothing this slice
  * builds tells them apart by shape: the two silhouettes are the renderer's
- * (BossRenderer) and each boss's own module may take a row of its own the day
+ * (BossRenderer) and each boss's own module may take a wave of its own the day
  * its pattern needs one.
  */
 const BOSS_HALF_WIDTH = 60;
@@ -77,7 +77,7 @@ const BOSS_HALF_HEIGHT = 40;
 const BOSS_ARRIVAL_Y = 110;
 
 /**
- * What a boss's own module owns: one tick of whichever chunk is live, and what
+ * What a boss's own module owns: one tick of whichever phase is live, and what
  * its death sheds. The machine holds the health, the flash and the break; the
  * grammar is the boss's, so a boss is added by writing a module and naming it
  * below.
@@ -88,9 +88,9 @@ interface BossGrammar {
 }
 
 /**
- * Every boss's grammar, one row per kind. It is total rather than partial, so a
+ * Every boss's grammar, one wave per kind. It is total rather than partial, so a
  * kind added to BossKind without a module to fight with is a compile error
- * rather than a boss who never arrives and a phase nothing ever leaves.
+ * rather than a boss who never arrives and a section nothing ever leaves.
  */
 const BOSS_GRAMMARS: Record<BossKind, BossGrammar> = {
   banshee: { advance: advanceBanshee, died: bansheeDied },
@@ -98,32 +98,32 @@ const BOSS_GRAMMARS: Record<BossKind, BossGrammar> = {
 };
 
 /**
- * How many chunks this boss runs, which is the length of its own health row. It
+ * How many phases this boss runs, which is the length of its own health wave. It
  * is a reader rather than a table anyone else indexes, so what the fight is
  * worth and what its shape is announced as cannot come apart.
  */
-const bossChunks = (kind: BossKind): number => {
-  return CHUNK_HP[kind].length;
+const bossPhases = (kind: BossKind): number => {
+  return PHASE_HP[kind].length;
 };
 
 /**
- * The boss this phase carries, put on the field at its standing point with its
- * first chunk live (ADR 0007).
+ * The boss this section carries, put on the field at its standing point with its
+ * first phase live (ADR 0007).
  *
- * It returns the record and announces nothing. The arrival is the phase's own
+ * It returns the record and announces nothing. The arrival is the section's own
  * report, in the slice that gives each boss its patterns, for the same reason
- * spawnMob leaves carrierLost to the row that placed it.
+ * spawnMob leaves carrierLost to the wave that placed it.
  */
 const spawnBoss = (state: RunState, kind: BossKind): Boss => {
-  const firstChunkHp = CHUNK_HP[kind][0];
-  if (firstChunkHp === undefined) {
-    throw new Error(`${kind} has no first chunk in CHUNK_HP`);
+  const firstPhaseHp = PHASE_HP[kind][0];
+  if (firstPhaseHp === undefined) {
+    throw new Error(`${kind} has no first phase in PHASE_HP`);
   }
   const boss: Boss = {
     id: state.nextEntityId,
     kind,
-    chunk: 0,
-    hp: firstChunkHp,
+    phaseIndex: 0,
+    hp: firstPhaseHp,
     x: FIELD_WIDTH / 2,
     y: BOSS_ARRIVAL_Y,
     flash: 0,
@@ -143,37 +143,37 @@ const bossHitbox = (boss: Boss): Rect => {
   };
 };
 
-// Whether this boss has another chunk behind the one that just emptied.
-const hasChunkLeft = (boss: Boss): boolean => {
-  return boss.chunk + 1 < CHUNK_HP[boss.kind].length;
+// Whether this boss has another phase behind the one that just emptied.
+const hasPhaseLeft = (boss: Boss): boolean => {
+  return boss.phaseIndex + 1 < PHASE_HP[boss.kind].length;
 };
 
 /**
- * The chunk break: the next chunk's health, the invincible flash, the pattern's
+ * The phase break: the next phase's health, the invincible flash, the pattern's
  * clock back to zero, and the feast the break sheds.
  *
  * The feast is what keeps ADR 0007's shed-food promise inside the fight rather
  * than at the end of it, and it never decays (ADR 0004), so a player who cannot
  * dive through the pattern yet still has it waiting.
  */
-const breakChunk = (state: RunState, boss: Boss): SimEvent[] => {
-  boss.chunk += 1;
-  const chunkHp = CHUNK_HP[boss.kind][boss.chunk];
-  if (chunkHp === undefined) {
-    throw new Error(`${boss.kind} has no chunk ${boss.chunk} in CHUNK_HP`);
+const breakPhase = (state: RunState, boss: Boss): SimEvent[] => {
+  boss.phaseIndex += 1;
+  const phaseHp = PHASE_HP[boss.kind][boss.phaseIndex];
+  if (phaseHp === undefined) {
+    throw new Error(`${boss.kind} has no phase ${boss.phaseIndex} in PHASE_HP`);
   }
-  boss.hp = chunkHp;
-  boss.flash = CHUNK_FLASH_TICKS;
+  boss.hp = phaseHp;
+  boss.flash = PHASE_FLASH_TICKS;
   boss.patternTick = 0;
   const events: SimEvent[] = [
-    { type: 'chunkBroke', boss: boss.kind, chunk: boss.chunk },
+    { type: 'phaseBroke', boss: boss.kind, phaseIndex: boss.phaseIndex },
   ];
   events.push(...spawnFeast(state, boss.x, boss.y, FEAST_PAYOUT));
   return events;
 };
 
 /**
- * The last chunk emptied: the boss leaves the field and its own module pays
+ * The last phase emptied: the boss leaves the field and its own module pays
  * out. The death is announced before the payout, so a reading of what a fight
  * shed never has to look behind the event that ended it.
  */
@@ -187,7 +187,7 @@ const killBoss = (state: RunState, boss: Boss): SimEvent[] => {
 };
 
 /**
- * Damage from the storm onto whichever chunk is live (ADR 0007).
+ * Damage from the storm onto whichever phase is live (ADR 0007).
  *
  * A hit during the flash reports itself with nothing applied rather than
  * reporting nothing at all: the storm is still working and an instrument
@@ -211,15 +211,15 @@ const damageBoss = (
   ];
   if (boss.hp > 0) return events;
   events.push(
-    ...(hasChunkLeft(boss) ? breakChunk(state, boss) : killBoss(state, boss)),
+    ...(hasPhaseLeft(boss) ? breakPhase(state, boss) : killBoss(state, boss)),
   );
   return events;
 };
 
 /**
- * One tick of whichever chunk is live.
+ * One tick of whichever phase is live.
  *
- * The flash runs first and holds the pattern's clock still, so a chunk's
+ * The flash runs first and holds the pattern's clock still, so a phase's
  * pattern begins on the tick the player can hurt it again rather than part-way
  * through its own first cycle.
  *
@@ -229,7 +229,7 @@ const damageBoss = (
  * health, the flash and the break.
  *
  * The pattern runs on the clock it can read, and the clock moves after it, so
- * the tick a chunk begins on is that pattern's own tick zero.
+ * the tick a phase begins on is that pattern's own tick zero.
  */
 const advanceBoss = (state: RunState): SimEvent[] => {
   const boss = state.boss;
@@ -248,9 +248,9 @@ export {
   damageBoss,
   bossHitbox,
   advanceBoss,
-  bossChunks,
-  CHUNK_FLASH_TICKS,
-  CHUNK_HP,
+  bossPhases,
+  PHASE_FLASH_TICKS,
+  PHASE_HP,
   BOSS_HALF_WIDTH,
   BOSS_HALF_HEIGHT,
   BOSS_ARRIVAL_Y,

@@ -26,7 +26,7 @@ const GRAVE_CORNER_RATIO = 0.2;
  * WCAG 2.2 SC 2.4.13's focus indicator area loosely as the nearest published
  * figure for a thin outline a person must see, and nothing more. And not
  * thicker than 4, so that at SIZE_FLOOR the mouth's interior stays wider than a
- * drop. 3 is the only integer in that bracket with margin at both ends, and it
+ * power-up. 3 is the only integer in that bracket with margin at both ends, and it
  * leaves a floor grave a mouth 12 units wide.
  */
 const GRAVE_RIM_STROKE = 3;
@@ -36,7 +36,7 @@ const GRAVE_RIM_STROKE = 3;
  * in field units.
  *
  * ADR 0014 requires the rim to read above the food layer even under a pile, and
- * graveRim measures APCA Lc 0.00 against corpse, feast, drop and mob, all four.
+ * graveRim measures APCA Lc 0.00 against corpse, feast, power-up and mob, all four.
  * Re-valuing either side is arithmetically impossible, so the rim becomes two
  * colours, which is ADR 0014's own construction for exactly this problem. The
  * pair spans 62.12 luma and the dark band clears the Lc 45 fine-detail bracket
@@ -44,7 +44,7 @@ const GRAVE_RIM_STROKE = 3;
  *
  * It costs the mouth one unit on each side, so a floor-size grave reads ten
  * units wide inside its rim rather than twelve. Nothing is drawn outside the
- * hitbox and the hitbox is untouched. What binds a drop is the grave's own
+ * hitbox and the hitbox is untouched. What binds a power-up is the grave's own
  * width and never the mouth's interior: ADR 0003 rules that size never gates a
  * swallow, so the mouth is not a gate.
  */

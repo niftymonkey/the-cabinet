@@ -34,11 +34,11 @@ function corpse(freshness: number): Swallowable {
   };
 }
 
-function drop(line: 'wisps' | 'skullStream'): Swallowable {
-  // Treasure never decays, so a drop always arrives fully fresh (ADR 0004).
+function powerUp(line: 'wisps' | 'skullStream'): Swallowable {
+  // Treasure never decays, so a power-up always arrives fully fresh (ADR 0004).
   return {
     id: NO_BODY,
-    kind: 'drop',
+    kind: 'powerUp',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
     line,
@@ -49,7 +49,7 @@ function drop(line: 'wisps' | 'skullStream'): Swallowable {
 function bodyWithNoOption(): Swallowable {
   return {
     id: NO_BODY,
-    kind: 'drop',
+    kind: 'powerUp',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
   };
@@ -174,9 +174,9 @@ describe('the swallow', () => {
     );
   });
 
-  it('a drop levels the option the offer laid on that body, and never a line rolled here (ADR 0034)', () => {
+  it('a power-up levels the option the offer laid on that body, and never a line rolled here (ADR 0034)', () => {
     // The line the swallow pays is the offer's, read off the body that went
-    // in. A drop carrying a line that belongs to no live offer levels nothing,
+    // in. A power-up carrying a line that belongs to no live offer levels nothing,
     // which is what makes the offer the only place a level is decided.
     const run = createRun(1);
     openOffer(run, 260, 180);
@@ -194,11 +194,13 @@ describe('the swallow', () => {
       line,
       level: before + 1,
     });
-    expect(kinds(swallow(run, drop('wisps')))).not.toContain('weaponLeveled');
+    expect(kinds(swallow(run, powerUp('wisps')))).not.toContain(
+      'weaponLeveled',
+    );
   });
 
   it('a body carrying no option pays growth, charge and overflow and levels nothing (ADR 0034)', () => {
-    // ADR 0034: "when nothing is offerable a paid drop converts to overflow,
+    // ADR 0034: "when nothing is offerable a paid power-up converts to overflow,
     // keeping ADR 0002's nothing-swallowed-is-worthless promise." The maxed
     // line's own overflow branch went dormant with the same ruling, because a
     // maxed line is never offered in the first place.
@@ -214,10 +216,10 @@ describe('the swallow', () => {
     expect(kinds(events)).toContain('overflowed');
   });
 
-  it("a drop's freshness is 1 and it is never scaled: treasure never decays (ADR 0004)", () => {
+  it("a power-up's freshness is 1 and it is never scaled: treasure never decays (ADR 0004)", () => {
     const run = createRun(1);
     const start = run.grave.size;
-    const treasure = drop('wisps');
+    const treasure = powerUp('wisps');
     expect(treasure.freshness).toBe(1);
     swallow(run, treasure);
     expect(run.grave.size - start).toBeCloseTo(treasure.payout, 10);
@@ -280,7 +282,7 @@ describe('the swallow', () => {
   });
 
   it.todo(
-    "dispatch 4: the spawner's side of the treasure guarantee, that a drop is spawned with freshness 1 (ADR 0004)",
+    "dispatch 4: the spawner's side of the treasure guarantee, that a power-up is spawned with freshness 1 (ADR 0004)",
   );
 });
 

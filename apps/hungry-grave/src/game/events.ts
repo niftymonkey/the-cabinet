@@ -5,8 +5,8 @@ import type { WeaponLine } from './lines/roster';
 import type { PatchClosing } from './lines/territory';
 import type { FireKind } from './mobFire';
 import type { DamageSource, MobType } from './mobs';
-import type { BossKind } from './stage/rows';
-import type { PhaseMusic, PhaseName } from './stage/stage';
+import type { BossKind } from './stage/waves';
+import type { SectionMusic, SectionName } from './stage/stage';
 import type { FoodKind } from './swallow';
 
 // Food went in.
@@ -30,7 +30,7 @@ interface Grew {
   readonly size: number;
 }
 
-// Growth the ceiling could not take, or a maxed line's drop, converted to score (ADR 0003).
+// Growth the ceiling could not take, or a maxed line's power-up, converted to score (ADR 0003).
 interface Overflowed {
   readonly type: 'overflowed';
   readonly amount: number;
@@ -57,7 +57,7 @@ interface ReservoirFull {
   readonly reservoir: number;
 }
 
-// A drop levelled its line (ADR 0002).
+// A power-up levelled its line (ADR 0002).
 interface WeaponLeveled {
   readonly type: 'weaponLeveled';
   readonly line: WeaponLine;
@@ -148,7 +148,7 @@ type CarrierLoss = 'leftField' | 'cap';
  * The two reasons are opposite in blame and identical in cost. leftField is the
  * ordinary one, a carrier that descended past the grave unkilled, and the x is
  * where it went. cap is a carrier the mob pool refused to spawn, which is a
- * fault rather than play, and the x is where its row would have placed it.
+ * fault rather than play, and the x is where its wave would have placed it.
  */
 interface CarrierLost {
   readonly type: 'carrierLost';
@@ -174,28 +174,28 @@ interface MobFired {
 }
 
 /**
- * A boss arrived on a phase boundary, with the number of chunks it will run
- * (ADR 0007). It is the phase's own report of what it carries, so the section
+ * A boss arrived on a section boundary, with the number of phases it will run
+ * (ADR 0007). It is the section's own report of what it carries, so the section
  * timeline and the harness's boss report read the fight's shape without asking
  * the boss module anything.
  */
 interface BossArrived {
   readonly type: 'bossArrived';
   readonly boss: BossKind;
-  readonly chunks: number;
+  readonly phases: number;
 }
 
-// One chunk of a boss emptied and the next is live (ADR 0007, ADR 0052).
-interface ChunkBroke {
-  readonly type: 'chunkBroke';
+// One phase of a boss emptied and the next is live (ADR 0007, ADR 0052).
+interface PhaseBroke {
+  readonly type: 'phaseBroke';
   readonly boss: BossKind;
-  readonly chunk: number;
+  readonly phaseIndex: number;
 }
 
 /**
- * A boss's last chunk emptied. It carries where the body fell, because what a
+ * A boss's last phase emptied. It carries where the body fell, because what a
  * death sheds is placed there, and it is what the Undertaker's ending fires on
- * rather than a phase index (ADR 0007).
+ * rather than a section index (ADR 0007).
  */
 interface BossKilled {
   readonly type: 'bossKilled';
@@ -265,8 +265,8 @@ interface CorpseExpired {
 
 /**
  * A corpse left the bottom edge with value left, which is a different read from
- * expired. It carries the kind because the missed-drops instrument has to
- * separate a corpse that scrolled away from a drop that did, and without it that
+ * expired. It carries the kind because the missed-power-ups instrument has to
+ * separate a corpse that scrolled away from a power-up that did, and without it that
  * instrument cannot be built from the event stream at all.
  */
 interface CorpseLost {
@@ -344,7 +344,7 @@ interface Belched {
 }
 
 /**
- * A drop arrived on the field. The denominator for drops swallowed versus
+ * A power-up arrived on the field. The denominator for power-ups swallowed versus
  * scrolled off.
  *
  * The id is the join key the offer opens on: openOffer reads it back to learn
@@ -352,8 +352,8 @@ interface Belched {
  * reference. The line is absent on the body a maxed run's carrier opens, which
  * carries no option at all (ADR 0034's nothing-offerable branch).
  */
-interface DropSpawned {
-  readonly type: 'dropSpawned';
+interface PowerUpSpawned {
+  readonly type: 'powerUpSpawned';
   readonly id: number;
   readonly line?: WeaponLine;
   readonly x: number;
@@ -415,20 +415,20 @@ interface OfferLost {
   readonly options: readonly WeaponLine[];
 }
 
-// The stage crossed a phase boundary (ADR 0006). The music cue hangs here.
-interface PhaseChanged {
-  readonly type: 'phaseChanged';
-  readonly phase: PhaseName;
+// The stage crossed a section boundary (ADR 0006). The music cue hangs here.
+interface SectionChanged {
+  readonly type: 'sectionChanged';
+  readonly section: SectionName;
   /**
-   * The loop the phase names, or null where it names none (ADR 0049).
+   * The loop the section names, or null where it names none (ADR 0049).
    *
-   * It rides the event rather than being looked up from the phase table,
+   * It rides the event rather than being looked up from the section table,
    * because src/app/sound.ts may reach the event list and nothing else
    * (src/__tests__/boundary.test.ts). The sim says which loop a section plays
    * and src/app resolves that name to a file, which is the split ADR 0049 asks
    * for: the authored fact stays in the sim, the filename stays in the app.
    */
-  readonly music: PhaseMusic | null;
+  readonly music: SectionMusic | null;
   readonly tick: number;
 }
 
@@ -463,7 +463,7 @@ type SimEvent =
   | CarrierLost
   | MobFired
   | BossArrived
-  | ChunkBroke
+  | PhaseBroke
   | BossKilled
   | SetPieceOpened
   | SetPiecePoured
@@ -476,15 +476,15 @@ type SimEvent =
   | PatchLaid
   | PatchClosed
   | Belched
-  | DropSpawned
+  | PowerUpSpawned
   | OfferOpened
   | OfferBanked
   | OfferTaken
   | OfferLost
-  | PhaseChanged;
+  | SectionChanged;
 
-// PhaseMusic is the stage's own type and is re-exported here because a phase
+// SectionMusic is the stage's own type and is re-exported here because a section
 // change carries it: src/app/sound.ts may reach this module and no other
 // (src/__tests__/boundary.test.ts), so the vocabulary a subscriber reads has to
 // be reachable from the vocabulary it subscribes to.
-export type { CarrierLoss, OfferSite, PhaseMusic, SetPieceClosing, SimEvent };
+export type { CarrierLoss, OfferSite, SectionMusic, SetPieceClosing, SimEvent };

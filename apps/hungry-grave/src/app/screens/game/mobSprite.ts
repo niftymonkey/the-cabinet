@@ -37,18 +37,18 @@ const mobLook = (mob: Mob): string => {
  * 0036 retired it from the player's grammar, and the genre marks carriers by
  * colour: Gradius, DoDonPachi and Battle Garegga all recolour the body rather
  * than dressing it. It is treasure's colour rather than a new one because what
- * the mob is carrying is a drop, and every silhouette channel is spoken for:
+ * the mob is carrying is a power-up, and every silhouette channel is spoken for:
  * the body outline tells the three types apart and the notch tells armed from
  * unarmed, so the mark has to arrive on the one channel still free.
  *
  * The stand-in is a placeholder like the silhouettes around it and #38 owns
  * the real one. What it has to satisfy is ADR 0014, and the palette's own
- * declarations are what say it does: PALETTE.drop sits at luma 67.25, under
+ * declarations are what say it does: PALETTE.powerUp sits at luma 67.25, under
  * the field ceiling and far under the band mob fire reserves, and at hue 41 it
  * is outside the twenty degrees fire is given and 85 degrees off a mob body.
  */
 const mobBodyColour = (mob: Mob): number => {
-  return mob.carries ? PALETTE.drop.hex : PALETTE.mob.hex;
+  return mob.carries ? PALETTE.powerUp.hex : PALETTE.mob.hex;
 };
 
 // The body outline of one mob type. A shambler is squat, a revenant is a diamond, and a ghoul is a wedge that points where it is going.

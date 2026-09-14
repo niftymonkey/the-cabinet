@@ -130,15 +130,15 @@ describe('the golden digest', () => {
 
   it('makes the spawns stream draw, which it never used to', () => {
     // At 600 ticks the scenario made zero draws on every stream, because the
-    // only row inside its window is a Drip of one and a Drip draws nothing.
+    // only wave inside its window is a Drip of one and a Drip draws nothing.
     // The scripted File is what fixes that: its placement draws from spawns.
     const { digest } = runScenario();
     expect(digest.drawn.spawns).toBeGreaterThan(0);
-    // The scripted kills are two, below the first drop's price of five, so the
-    // drops stream is untouched. And shed is deliberately excluded: nothing
+    // The scripted kills are two, below the first power-up's price of five, so the
+    // power-ups stream is untouched. And shed is deliberately excluded: nothing
     // consumes it until the boss dispatch authors the Banshee's shed, so an
     // "every stream has drawn" assertion could not pass in this build.
-    expect(digest.drawn.drops).toBe(0);
+    expect(digest.drawn.powerUps).toBe(0);
     expect(digest.drawn.shed).toBe(0);
   });
 

@@ -1,7 +1,7 @@
 // Named seeded streams from one run seed, independent by construction (tracer
 // plan section 3).
 
-type StreamName = 'spawns' | 'drops' | 'mobFire' | 'shed' | 'territory';
+type StreamName = 'spawns' | 'powerUps' | 'mobFire' | 'shed' | 'territory';
 
 interface Stream {
   // The next draw, 0 inclusive to 1 exclusive.
@@ -124,5 +124,24 @@ const stream = (seed: number, name: string): Stream => {
   };
 };
 
-export { stream };
+/**
+ * The salt each of a run's streams is seeded with, which is not its name.
+ *
+ * `stream` folds the string it is handed into the run seed, so the string is a
+ * durable identity in the same sense a wire code is: move it and the same seed
+ * draws a different sequence, and every tape recorded before the move stops
+ * reproducing its own run. The power-up stream's salt is therefore still
+ * `drops`, the word the stream was named when the first tape was recorded;
+ * ADR 0061 renamed the stream and held the salt, on the same rule that holds a
+ * fault identity's number while its wording relabels.
+ */
+const STREAM_SALTS: Readonly<Record<StreamName, string>> = {
+  spawns: 'spawns',
+  powerUps: 'drops',
+  mobFire: 'mobFire',
+  shed: 'shed',
+  territory: 'territory',
+};
+
+export { stream, STREAM_SALTS };
 export type { StreamName, Stream };

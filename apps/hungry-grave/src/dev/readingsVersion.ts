@@ -29,12 +29,35 @@
  * unchanged readings and would not move this on their own, and neither would
  * the raw samples a spread now keeps. What moves it is the rungs a run bought:
  * a batch used to print them as one row named `levelUps` and now prints the
- * count, the first tick, the line and the phase under `levelUps.rungs` and its
+ * count, the first tick, the line and the section under `levelUps.rungs` and its
  * siblings. Every figure still means what it meant and no row can be
  * subtracted from its predecessor by name, which is the case this version
  * exists to make loud rather than leaving it to read as a reading one side
  * happened not to carry.
+ *
+ * Version 4: the glossary realignment (ADR 0061, #39). Eight reading and report
+ * keys change name, so a version-4 report cannot be matched to a version-3 one
+ * by name, which is exactly the case version 3 exists to make loud. The eight
+ * are the six under `tuning.dropLedger`, now `tuning.powerUpLedger`, plus
+ * `tuning.arrivals.byPhase`, now `.bySection`, plus the `phaseSpans` reduction,
+ * now `sectionSpans`; the `phase` field inside every `SectionSpan`, now
+ * `section`, rides with them. Every figure still means what it meant and not
+ * one of them moved: this is a vocabulary change and nothing else.
+ *
+ * The other three versions hold, and each for its own reason. `FORMAT_VERSION`
+ * stays 3 because the tape header is read positionally, field by field, and the
+ * only strings on the wire are the recorded roster's weapon-line names, the
+ * commit hash, the build identity, the author, the policy and the renderer
+ * backend, none of which carries one of the six words: no byte moves and no
+ * reader's walk changes. `WITNESS_VERSION` stays 6 because the fold takes
+ * numbers and every union crosses it through a code map read by name, so
+ * renaming a key while holding its number changes nothing the fold sees, and
+ * the version's own comment says it moves only when the order or the field list
+ * moves. `GOLDEN` does not re-pin because one key inside it renames with its
+ * type, `drawn.drops` to `drawn.powerUps`, holding its value: that is a field
+ * rename on the `Digest` interface and not a re-pin, so ADR 0019's regeneration
+ * ritual does not apply.
  */
-const READINGS_VERSION = 3;
+const READINGS_VERSION = 4;
 
 export { READINGS_VERSION };

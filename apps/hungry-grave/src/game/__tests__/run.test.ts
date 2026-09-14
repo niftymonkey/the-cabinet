@@ -41,9 +41,13 @@ describe('createRun', () => {
     expect(run.nextEntityId).toBeGreaterThan(0);
   });
 
-  it('starts the stage at its first phase', () => {
+  it('starts the stage at its first section', () => {
     const run = createRun(1);
-    expect(run.stage).toEqual({ phaseIndex: 0, phaseTick: 0, firedRows: 0 });
+    expect(run.stage).toEqual({
+      sectionIndex: 0,
+      sectionTick: 0,
+      firedWaves: 0,
+    });
   });
 
   it('starts at the birthright when no levels are asked for', () => {

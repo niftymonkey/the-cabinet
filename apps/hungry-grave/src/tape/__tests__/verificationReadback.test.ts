@@ -188,7 +188,7 @@ describe('verification readback', () => {
   it("refuses a run whose dice are not the tape's", () => {
     // How long that takes is a property of the stage rather than of the
     // witness, and it is deliberately not pinned to a number here: the seed
-    // drives only column placement and drop kind now, so two seeds played from
+    // drives only column placement and power-up kind now, so two seeds played from
     // the same script were measured identical for their first 1260 ticks and
     // parted on a placement. It used to be 840, parting on a revenant's
     // first-shot jitter; under the mow no mob type names a jitter at all

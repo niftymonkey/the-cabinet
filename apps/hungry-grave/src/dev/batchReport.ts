@@ -4,13 +4,13 @@ import { WEAPON_LINES } from '../game/lines/roster';
 import type { WeaponLine } from '../game/lines/roster';
 import { MOB_TYPES } from '../game/mobs';
 import type { MobType } from '../game/mobs';
-import { PHASES } from '../game/stage/stage';
-import type { PhaseName } from '../game/stage/stage';
+import { SECTIONS } from '../game/stage/stage';
+import type { SectionName } from '../game/stage/stage';
 import type { BuildMismatch } from '../tape/buildIdentity';
 import type { ConfigurationName } from './configurations';
 import type { Measurement, Metrics } from './measure';
 import type { NumberRecord } from './numbersByName';
-import { ledgerByLineNumbers } from './readings/dropLedger';
+import { ledgerByLineNumbers } from './readings/powerUpLedger';
 import type { SectionSpan } from './readings/sectionTimeline';
 import { READINGS_VERSION } from './readingsVersion';
 import type { RigName } from './rigs';
@@ -47,10 +47,10 @@ const MOB_WIDTHS: Readonly<Record<MobType, number>> = {
 };
 
 // The bosses a belch can be spent in front of, which is where #37's story 12 is.
-const BOSS_PHASES: readonly PhaseName[] = ['banshee', 'undertaker'];
+const BOSS_SECTIONS: readonly SectionName[] = ['banshee', 'undertaker'];
 
-// The phase a run has to enter for the batch to count it as having reached.
-const DEEPEST_PHASE: PhaseName = 'undertaker';
+// The section a run has to enter for the batch to count it as having reached.
+const DEEPEST_SECTION: SectionName = 'undertaker';
 
 // The three things a batch is named by, plus the stamp the command took once.
 interface BatchOrigin {
@@ -146,8 +146,8 @@ interface BatchReport {
   >;
   // Readings that are a name rather than a number, counted: endings, stops, the reach.
   readonly counts: Readonly<Record<string, Readonly<Record<string, number>>>>;
-  // Each phase's span across the batch, which is ADR 0049's clock as a distribution.
-  readonly phaseSpans: Readonly<Partial<Record<PhaseName, Spread>>>;
+  // Each section's span across the batch, which is ADR 0049's clock as a distribution.
+  readonly sectionSpans: Readonly<Partial<Record<SectionName, Spread>>>;
 }
 
 // A number per run, printed as five numbers with the extreme seeds beside it.
@@ -183,9 +183,9 @@ interface PeakDeclaration {
 }
 
 // The section timeline, which a batch reads twice: the spans and the reach.
-interface PhaseSpansDeclaration {
+interface SectionSpansDeclaration {
   readonly reading: string;
-  readonly reduction: 'phaseSpans';
+  readonly reduction: 'sectionSpans';
 }
 
 /**
@@ -209,7 +209,7 @@ type DeclaredBatchReading =
   | NumbersDeclaration
   | CountDeclaration
   | PeakDeclaration
-  | PhaseSpansDeclaration
+  | SectionSpansDeclaration
   | NotReducedDeclaration;
 
 const spreadReading = (
@@ -248,8 +248,8 @@ const notReduced = (reading: string, why: string): NotReducedDeclaration => ({
  * still live at the tape's end is open at the top, so a tick after its start
  * is inside it.
  *
- * It is the one piece of phase-crossing arithmetic the batch owns, and both
- * readings that cross a phase are counted with it rather than each with its
+ * It is the one piece of section-crossing arithmetic the batch owns, and both
+ * readings that cross a section are counted with it rather than each with its
  * own copy.
  */
 const ticksInside = (ticks: readonly number[], span: SectionSpan): number =>
@@ -279,8 +279,8 @@ const belchesByBoss = (report: Metrics): NumberRecord => {
     run: report.tuning.belchCadence.fires.length,
   };
   for (const span of report.tuning.sectionTimeline.spans) {
-    if (!BOSS_PHASES.includes(span.phase)) continue;
-    names[span.phase] = firesInside(report, span);
+    if (!BOSS_SECTIONS.includes(span.section)) continue;
+    names[span.section] = firesInside(report, span);
   }
   return names;
 };
@@ -291,7 +291,7 @@ const belchesByBoss = (report: Metrics): NumberRecord => {
  * The count alone was what the batch used to read, which threw away the tick
  * and the line every level-up carries and left nothing in the report showing
  * power growing across a run. The rungs are counted against the run's own
- * phase spans, on the belch's own precedent, because a phase is where the
+ * section spans, on the belch's own precedent, because a section is where the
  * schedule authors its answer to that growth.
  *
  * A line that bought nothing reads zero rather than absent, on seedDamage's
@@ -309,7 +309,7 @@ const levelsBought = (report: Metrics): NumberRecord => {
     names[line] = report.levelUps.filter((rung) => rung.line === line).length;
   }
   for (const span of report.tuning.sectionTimeline.spans) {
-    names[`byPhase.${span.phase}`] = ticksInside(ticks, span);
+    names[`bySection.${span.section}`] = ticksInside(ticks, span);
   }
   return names;
 };
@@ -387,14 +387,14 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   peakReading('mobsAlivePerTick', (report) => report.mobsAlivePerTick),
   peakReading('mobFireAlivePerTick', (report) => report.mobFireAlivePerTick),
   // What arrived, which is what the mow ruling tunes: the rate and the count
-  // per spawn, read per phase because that is where a schedule authors them.
+  // per spawn, read per section because that is where a schedule authors them.
   spreadReading(
     'tuning.arrivals.total',
     (report) => report.tuning.arrivals.total,
   ),
   byNameReading(
-    'tuning.arrivals.byPhase',
-    (report) => report.tuning.arrivals.byPhase,
+    'tuning.arrivals.bySection',
+    (report) => report.tuning.arrivals.bySection,
   ),
   byNameReading(
     'tuning.arrivals.byType',
@@ -526,28 +526,28 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
     (report) => report.tuning.belchCadence.wasted,
   ),
   spreadReading(
-    'tuning.dropLedger.spawned',
-    (report) => report.tuning.dropLedger.spawned,
+    'tuning.powerUpLedger.spawned',
+    (report) => report.tuning.powerUpLedger.spawned,
   ),
   spreadReading(
-    'tuning.dropLedger.swallowed',
-    (report) => report.tuning.dropLedger.swallowed,
+    'tuning.powerUpLedger.swallowed',
+    (report) => report.tuning.powerUpLedger.swallowed,
   ),
   spreadReading(
-    'tuning.dropLedger.passed',
-    (report) => report.tuning.dropLedger.passed,
+    'tuning.powerUpLedger.passed',
+    (report) => report.tuning.powerUpLedger.passed,
   ),
   spreadReading(
-    'tuning.dropLedger.lost',
-    (report) => report.tuning.dropLedger.lost,
+    'tuning.powerUpLedger.lost',
+    (report) => report.tuning.powerUpLedger.lost,
   ),
   spreadReading(
-    'tuning.dropLedger.onFieldAtStop',
-    (report) => report.tuning.dropLedger.onFieldAtStop,
+    'tuning.powerUpLedger.onFieldAtStop',
+    (report) => report.tuning.powerUpLedger.onFieldAtStop,
   ),
   // The one reading this step widened by line, which is #98's acceptance line.
-  perLineReading('tuning.dropLedger.byLine', (report) =>
-    ledgerByLineNumbers(report.tuning.dropLedger.byLine),
+  perLineReading('tuning.powerUpLedger.byLine', (report) =>
+    ledgerByLineNumbers(report.tuning.powerUpLedger.byLine),
   ),
   countReading('tuning.offerChoices.choices', takesBySite),
   spreadReading(
@@ -633,7 +633,7 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
     'tuning.upfieldTraffic.lateralReach',
     (report) => report.tuning.upfieldTraffic.lateralReach,
   ),
-  { reading: 'tuning.sectionTimeline.spans', reduction: 'phaseSpans' },
+  { reading: 'tuning.sectionTimeline.spans', reduction: 'sectionSpans' },
   notReduced(
     'performance',
     'a harness tape carries no frame rows at all, so there is nothing on it to reduce; a batch over a person tape is where these get a reduction (#100)',
@@ -653,7 +653,7 @@ interface Collected {
   readonly spreads: Samples;
   readonly byLine: Partial<Record<WeaponLine, Samples>>;
   readonly counts: Record<string, Record<string, number>>;
-  readonly phases: Partial<Record<PhaseName, Sample[]>>;
+  readonly sections: Partial<Record<SectionName, Sample[]>>;
   readonly commitHashes: Set<string>;
   readonly rigs: Set<RigName | null>;
 }
@@ -662,7 +662,7 @@ const collected = (): Collected => ({
   spreads: {},
   byLine: {},
   counts: {},
-  phases: {},
+  sections: {},
   commitHashes: new Set(),
   rigs: new Set(),
 });
@@ -729,15 +729,15 @@ const fileNumbers = (
   }
 };
 
-// Each closed span's length, and whether the run reached the deepest phase.
+// Each closed span's length, and whether the run reached the deepest section.
 const fileTimeline = (acc: Collected, seed: number, report: Metrics): void => {
   let reached = 'stopped short';
   for (const span of report.tuning.sectionTimeline.spans) {
-    if (span.phase === DEEPEST_PHASE) reached = 'reached';
-    // A phase still live when the tape stopped held no span anybody can read.
+    if (span.section === DEEPEST_SECTION) reached = 'reached';
+    // A section still live when the tape stopped held no span anybody can read.
     if (span.to === null) continue;
-    const held = acc.phases[span.phase] ?? [];
-    acc.phases[span.phase] = held;
+    const held = acc.sections[span.section] ?? [];
+    acc.sections[span.section] = held;
     held.push({ seed, value: span.to - span.from });
   }
   addCount(acc, 'reach', reached);
@@ -749,7 +749,7 @@ const collectRun = (acc: Collected, seed: number, report: Metrics): void => {
   acc.rigs.add(report.provenance.rig);
   for (const declared of BATCH_READINGS) {
     if (declared.reduction === 'notReduced') continue;
-    if (declared.reduction === 'phaseSpans') {
+    if (declared.reduction === 'sectionSpans') {
       fileTimeline(acc, seed, report);
     } else if (declared.reduction === 'count') {
       for (const name of declared.namesOf(report)) {
@@ -817,17 +817,17 @@ const byLineOf = (
   return byLine;
 };
 
-const phaseSpansOf = (
-  phases: Partial<Record<PhaseName, Sample[]>>,
-): Partial<Record<PhaseName, Spread>> => {
-  const spans: Partial<Record<PhaseName, Spread>> = {};
+const sectionSpansOf = (
+  sections: Partial<Record<SectionName, Sample[]>>,
+): Partial<Record<SectionName, Spread>> => {
+  const spans: Partial<Record<SectionName, Spread>> = {};
   // Walked in the stage's own order, so the report reads down the stage rather
   // than in whichever order the batch's first run happened to cross it.
-  for (const phase of PHASES) {
-    const samples = phases[phase.name];
+  for (const section of SECTIONS) {
+    const samples = sections[section.name];
     if (samples === undefined) continue;
     const spread = spreadOf(samples);
-    if (spread !== undefined) spans[phase.name] = spread;
+    if (spread !== undefined) spans[section.name] = spread;
   }
   return spans;
 };
@@ -882,7 +882,7 @@ const batchReportOf = (
     spreads: spreadsOf(acc.spreads),
     byLine: byLineOf(acc.byLine),
     counts: acc.counts,
-    phaseSpans: phaseSpansOf(acc.phases),
+    sectionSpans: sectionSpansOf(acc.sections),
   };
 };
 

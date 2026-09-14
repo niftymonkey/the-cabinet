@@ -1,4 +1,4 @@
-import type { PhaseMusic, SimEvent } from '../game/events';
+import type { SectionMusic, SimEvent } from '../game/events';
 
 /**
  * The game's voice. It subscribes to the event list and nothing else.
@@ -12,7 +12,7 @@ import type { PhaseMusic, SimEvent } from '../game/events';
  *
  * Five clips, and the coverage is the point rather than the count. An earlier
  * shape shipped two, and both landed on the two commonest events in the game
- * while the scarcest objects stayed silent: a drop sounded exactly like a corpse
+ * while the scarcest objects stayed silent: a power-up sounded exactly like a corpse
  * and the belch, which the whole feast set piece is built around, made no noise.
  * Touhou's Mountain of Faith bank is the shape copied here, an item and a
  * power-up alongside a damage sound and a death.
@@ -48,12 +48,12 @@ const LEVELS: Record<keyof typeof CLIPS, number> = {
 /**
  * Which clip an event asks for, or null for the events that make no sound.
  *
- * The drop's own chime is chosen from the kind the chimed event already carries,
+ * The power-up's own chime is chosen from the kind the chimed event already carries,
  * so telling treasure from a corpse needs no game rule here and no new event.
  */
 const clipFor = (event: SimEvent): keyof typeof CLIPS | null => {
   if (event.type === 'chimed') {
-    return event.kind === 'drop' ? 'treasure' : 'swallow';
+    return event.kind === 'powerUp' ? 'treasure' : 'swallow';
   }
   if (event.type === 'tolled') return 'toll';
   if (event.type === 'graveHit') return 'hit';
@@ -130,11 +130,11 @@ const MUSIC_BUNDLE = 'music';
  * when the Banshee arrives, a driving one under the section that owns overlap,
  * and a hollow call from the eye opening through the burial.
  *
- * The phase names the loop and this table names the file, which is what makes
- * six loops a data-row edit: a phase naming a loop with no file here does not
- * compile, and the table having a loop no phase names is caught in test.
+ * The section names the loop and this table names the file, which is what makes
+ * six loops a data-row edit: a section naming a loop with no file here does not
+ * compile, and the table having a loop no section names is caught in test.
  */
-const LOOPS: Record<PhaseMusic, string> = {
+const LOOPS: Record<SectionMusic, string> = {
   procession: 'music/bells-of-death.mp3',
   crowd: 'music/seek-n-slaughter.mp3',
   waking: 'music/a-hollow-call.mp3',
@@ -143,13 +143,13 @@ const LOOPS: Record<PhaseMusic, string> = {
 /**
  * Which loop an event asks for, or null for the events that ask for none.
  *
- * A phase change asks on every crossing, the ones whose phase names the loop
+ * A section change asks on every crossing, the ones whose section names the loop
  * already playing included: the engine makes a play call on an unchanged alias
- * a no-op (src/engine/audio/audio.ts), so seven phases naming three loops make
+ * a no-op (src/engine/audio/audio.ts), so seven sections naming three loops make
  * two audible changes and nothing here counts them.
  */
 const musicFor = (event: SimEvent): string | null => {
-  if (event.type !== 'phaseChanged') return null;
+  if (event.type !== 'sectionChanged') return null;
   if (event.music === null) return null;
   return LOOPS[event.music];
 };

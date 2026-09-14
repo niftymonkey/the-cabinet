@@ -18,18 +18,18 @@ import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { PROCESSION_ROWS } from '../stage/rows';
+import { PROCESSION_WAVES } from '../stage/waves';
 import { resolveStorm } from '../storm';
 
 /**
  * A run whose stage will not spawn anything on top of the mob under test. The
- * rows are marked fired rather than emptied, because the row tables are exported
+ * waves are marked fired rather than emptied, because the wave tables are exported
  * data and a test that mutated them would poison every later file.
  */
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
-  // The stream is held as well as the rows. These tests are about how a mob
+  run.stage.firedWaves = PROCESSION_WAVES.length;
+  // The stream is held as well as the waves. These tests are about how a mob
   // moves, fires and dies, and a birthright stream pouring up the middle of the
   // field kills the mob under test before it reaches the behaviour being
   // measured. Territory needs no holding either: a run lays no patch until it

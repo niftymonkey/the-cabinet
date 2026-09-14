@@ -20,7 +20,7 @@ const BELCH_BURST_RADIUS = 160;
 
 /**
  * What the burst takes off a target one hit cannot take whole, which today is a
- * boss (ADR 0008: the burst "deals its big chunk of boss damage only when the
+ * boss (ADR 0008: the burst "deals its big phase of boss damage only when the
  * boss is inside that radius, and never pushes a boss").
  *
  * One row for every boss rather than a row each, because what it prices is the
@@ -28,11 +28,11 @@ const BELCH_BURST_RADIUS = 160;
  * It is derived from the two figures the design record already carries: a full
  * build's storm lands about 50 points a second on a boss standing at the top of
  * the field, so this is about eight seconds of storm bought with one earned
- * press. It sits well under one chunk of the shortest boss's health, 1100, so a
- * single belch never breaks a fresh chunk and the property that every chunk
+ * press. It sits well under one phase of the shortest boss's health, 1100, so a
+ * single belch never breaks a fresh phase and the property that every phase
  * survives one full emit is not something a press can take away.
  */
-const BELCH_CHUNK_DAMAGE = 400;
+const BELCH_PHASE_DAMAGE = 400;
 
 // Takes every live shot off the field, and reports how many went.
 const cancelMobFire = (state: RunState): number => {
@@ -68,9 +68,9 @@ const insideBurst = (state: RunState, x: number, y: number): boolean => {
  * player never saw arrive.
  *
  * A target one hit cannot take whole is inside the reach and is not killed: the
- * kill rule does not apply to chunked health, because a chunk broken by one
+ * kill rule does not apply to phased health, because a phase broken by one
  * press is a skip rather than the breath the belch buys, so what lands on it is
- * the row instead. That is ADR 0008's own sentence, its big chunk of boss
+ * the row instead. That is ADR 0008's own sentence, its big phase of boss
  * damage only when the boss is inside the radius. Nothing here branches on what
  * it is hitting; the seam answers whether the kill rule may be applied and the
  * two amounts follow from that one answer.
@@ -84,7 +84,7 @@ const burstNearbyTargets = (state: RunState, events: SimEvent[]): number => {
   for (const target of stormTargets(state)) {
     if (!target.entered) continue;
     if (!insideBurst(state, target.x, target.y)) continue;
-    const takes = target.killableOutright ? target.hp : BELCH_CHUNK_DAMAGE;
+    const takes = target.killableOutright ? target.hp : BELCH_PHASE_DAMAGE;
     events.push(...damageStormTarget(state, target, takes, 'belch'));
     if (target.killableOutright) killed += 1;
   }
@@ -104,7 +104,7 @@ const burstNearbyTargets = (state: RunState, events: SimEvent[]): number => {
  *
  * Nothing here branches on what it is hitting, and that is the constraint: the
  * burst asks the seam what its kill rule may be applied to and the seam
- * answers, so a body whose health is chunked is skipped without this module
+ * answers, so a body whose health is phased is skipped without this module
  * ever learning that such a body exists.
  */
 const fireBelch = (state: RunState): SimEvent[] => {
@@ -116,4 +116,4 @@ const fireBelch = (state: RunState): SimEvent[] => {
   return [{ type: 'belched', cancelled, killed }, ...kills];
 };
 
-export { fireBelch, BELCH_BURST_RADIUS, BELCH_CHUNK_DAMAGE };
+export { fireBelch, BELCH_BURST_RADIUS, BELCH_PHASE_DAMAGE };

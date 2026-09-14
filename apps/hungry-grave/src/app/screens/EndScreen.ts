@@ -36,7 +36,7 @@ const FAULTED_TITLE = 'THE GAME BROKE';
 
 /**
  * The fault line's size, half a step under the menu's 18. The widest identity
- * line, FAULT phase tick resets at a boundary, is 37 characters: at 18 its
+ * line, FAULT section tick resets at a boundary, is 37 characters: at 18 its
  * width bound overruns a 390-unit phone stage and at 16 it fits whole with
  * margin. screenLifecycle.test.ts holds every identity in the closed list
  * against the stage at a seven-digit tick.

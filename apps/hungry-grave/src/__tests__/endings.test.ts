@@ -7,7 +7,7 @@
  * produce it: the stage and the boss machine under src/game, and the playing
  * policy under src/dev that walks a grave into enough fire to reach the floor.
  *
- * Every test here drives a pinned phase rather than a played run. Both bosses
+ * Every test here drives a pinned section rather than a played run. Both bosses
  * stand behind sections nothing at the birthright crosses headlessly, so a run
  * would measure the policy that got there rather than the ending it reached.
  * The endings' own full runs are the set piece's slice, which is the boundary
@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 
 import { hitTakingPolicy } from '../dev/bot';
 import { stepping } from '../dev/stepping';
-import { CHUNK_HP, spawnBoss } from '../game/bosses/chunks';
+import { PHASE_HP, spawnBoss } from '../game/bosses/phases';
 import type { TickCommand } from '../game/command';
 import type { SimEvent } from '../game/events';
 import type { WeaponLine } from '../game/lines/roster';
@@ -26,8 +26,8 @@ import { BIRTHRIGHT, WEAPON_LINES } from '../game/lines/roster';
 import { MOB_TYPES } from '../game/mobs';
 import type { RunState } from '../game/run';
 import { createRun, uniformLevels } from '../game/run';
-import type { BossKind } from '../game/stage/rows';
-import { PHASES } from '../game/stage/stage';
+import type { BossKind } from '../game/stage/waves';
+import { SECTIONS } from '../game/stage/stage';
 import { SIZE_CEILING, SIZE_FLOOR } from '../game/tuning';
 
 /** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
@@ -52,7 +52,7 @@ const FIGHT_TICKS = 6000;
  * reach by playing is the one it started with. Pinning it through createRun's
  * third parameter is the same instrument the whole-stage victory runs use for
  * the same reason. Two rather than five because the storm has to leave the
- * fight standing while the grave is ground down: a full build empties a chunk
+ * fight standing while the grave is ground down: a full build empties a phase
  * faster than the boss's own pattern reaches the floor.
  */
 const LADDER_LEVEL = 2;
@@ -72,9 +72,9 @@ const LADDER_LEVEL = 2;
  */
 const SCORE_BROUGHT_TO_THE_FIGHT = 1200;
 
-/** The phase the stage authors this boss's fight in. */
-function phaseOf(boss: BossKind): number {
-  return PHASES.findIndex((phase) => phase.boss === boss);
+/** The section the stage authors this boss's fight in. */
+function sectionOf(boss: BossKind): number {
+  return SECTIONS.findIndex((section) => section.boss === boss);
 }
 
 interface Fight {
@@ -84,11 +84,11 @@ interface Fight {
 }
 
 /**
- * A run standing in a boss's own phase with him on the field.
+ * A run standing in a boss's own section with him on the field.
  *
  * He is put there rather than fought to: the stage's own tests hold that a
- * phase spawns the boss its column names, and what is under test here is what
- * his death does to the run. His phase authors no rows, so everything that
+ * section spawns the boss its column names, and what is under test here is what
+ * his death does to the run. His section authors no waves, so everything that
  * arrives on the field is his.
  */
 function atTheFight(boss: BossKind, size?: number, level?: number): Fight {
@@ -97,25 +97,25 @@ function atTheFight(boss: BossKind, size?: number, level?: number): Fight {
     size,
     level === undefined ? undefined : uniformLevels(level),
   );
-  state.stage.phaseIndex = phaseOf(boss);
+  state.stage.sectionIndex = sectionOf(boss);
   const step = stepping(state);
   spawnBoss(state, boss);
   return { state, tick: (command) => step(command) };
 }
 
-/** Puts the fight on its last chunk, which is the one that runs every pattern. */
-function onItsLastChunk(state: RunState): void {
+/** Puts the fight on its last phase, which is the one that runs every pattern. */
+function onItsLastPhase(state: RunState): void {
   const boss = state.boss!;
-  boss.chunk = CHUNK_HP[boss.kind].length - 1;
+  boss.phaseIndex = PHASE_HP[boss.kind].length - 1;
   boss.hp = requireDefined(
-    CHUNK_HP[boss.kind][boss.chunk],
-    `no chunk ${boss.chunk} for ${boss.kind}`,
+    PHASE_HP[boss.kind][boss.phaseIndex],
+    `no phase ${boss.phaseIndex} for ${boss.kind}`,
   );
 }
 
-/** Puts the fight on its last chunk with one point left, so the storm ends it. */
+/** Puts the fight on its last phase with one point left, so the storm ends it. */
 function onItsLastLegs(state: RunState): void {
-  onItsLastChunk(state);
+  onItsLastPhase(state);
   state.boss!.hp = 1;
 }
 
@@ -198,7 +198,7 @@ function only<T extends SimEvent['type']>(
 }
 
 describe("the stage's ending (ADR 0007)", () => {
-  it("fires victory on the Undertaker's death and never on reaching a phase", () => {
+  it("fires victory on the Undertaker's death and never on reaching a section", () => {
     // game-concept.md:70: "his death is the ending." ADR 0050: "the Undertaker
     // ends the third and the stage."
     const fight = atTheFight('undertaker');
@@ -212,22 +212,24 @@ describe("the stage's ending (ADR 0007)", () => {
     expect(fight.state.ending).toBe('victory');
     // The death and the ending are one tick, not a death with a crossing behind
     // it: a run that has ended executes no further ticks, so an ending hung on
-    // the stage reaching its last phase would arrive after the run was over.
-    expect(only(events, 'phaseChanged').map((event) => event.phase)).toEqual([
-      'over',
-    ]);
+    // the stage reaching its last section would arrive after the run was over.
+    expect(
+      only(events, 'sectionChanged').map((event) => event.section),
+    ).toEqual(['over']);
     expect(
       requireDefined(only(events, 'victory')[0], 'no victory event').tick,
     ).toBe(
-      requireDefined(only(events, 'phaseChanged')[0], 'no phaseChanged event')
-        .tick,
+      requireDefined(
+        only(events, 'sectionChanged')[0],
+        'no sectionChanged event',
+      ).tick,
     );
   });
 
-  it('ends nothing when the stage reaches its last phase without that death', () => {
-    // The retired stub's own case: victory used to fire on entering the phase
+  it('ends nothing when the stage reaches its last section without that death', () => {
+    // The retired stub's own case: victory used to fire on entering the section
     // after the last fight, whatever emptied it. A boss taken off the field
-    // without dying leaves the phase's end condition met and the run unfinished,
+    // without dying leaves the section's end condition met and the run unfinished,
     // which is unreachable in play and is exactly what says the ending is the
     // death rather than the crossing.
     const fight = atTheFight('undertaker');
@@ -236,8 +238,8 @@ describe("the stage's ending (ADR 0007)", () => {
 
     expect(
       requireDefined(
-        PHASES[fight.state.stage.phaseIndex],
-        'phaseIndex out of range',
+        SECTIONS[fight.state.stage.sectionIndex],
+        'sectionIndex out of range',
       ).name,
     ).toBe('over');
     expect(fight.state.ending).toBeNull();
@@ -246,7 +248,7 @@ describe("the stage's ending (ADR 0007)", () => {
   it('leaves a run sealed on the tick that also wins the fight', () => {
     // Both endings can fall on one tick, and the grave's is first: hits resolve
     // before the tick's deaths do, so a grave the fight sealed lost the run
-    // before the last chunk emptied. The fall's own tick is measured first and
+    // before the last phase emptied. The fall's own tick is measured first and
     // the hit is then stood on it, because the two have to land together for
     // the rule to be about anything.
     const falls = tickOfTheFall();
@@ -298,9 +300,9 @@ describe("the grave's ending (ADR 0003)", () => {
     // hit seal the grave shut." Reachable inside a fight is the new half: the
     // ladder itself has been real since the grave was.
     const fight = atTheFight('undertaker', SIZE_CEILING, LADDER_LEVEL);
-    // His last chunk, because it is the one that runs both patterns at once:
+    // His last phase, because it is the one that runs both patterns at once:
     // the fight the ladder is walked in is the fight at its loudest.
-    onItsLastChunk(fight.state);
+    onItsLastPhase(fight.state);
     fight.state.score = SCORE_BROUGHT_TO_THE_FIGHT;
     const rungs: SimEvent[] = [];
     let caused: SimEvent[] = [];
@@ -346,8 +348,8 @@ describe("the grave's ending (ADR 0003)", () => {
     expect(fight.state.boss).not.toBeNull();
     expect(
       requireDefined(
-        PHASES[fight.state.stage.phaseIndex],
-        'phaseIndex out of range',
+        SECTIONS[fight.state.stage.sectionIndex],
+        'sectionIndex out of range',
       ).boss,
     ).toBe('undertaker');
     // The floor a level falls to is the birthright, whatever the build.

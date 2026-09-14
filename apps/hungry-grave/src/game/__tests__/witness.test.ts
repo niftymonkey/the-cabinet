@@ -84,7 +84,7 @@ function fillBoss(run: RunState): void {
   run.boss = {
     id: 17,
     kind: 'undertaker',
-    chunk: 1,
+    phaseIndex: 1,
     hp: 820,
     x: 270,
     y: 110,
@@ -155,9 +155,9 @@ function fillRun(run: RunState): void {
   run.levels.territory = 1;
   run.levels.wisps = 3;
   run.levels.bell = 4;
-  run.stage.phaseIndex = 1;
-  run.stage.phaseTick = 40;
-  run.stage.firedRows = 2;
+  run.stage.sectionIndex = 1;
+  run.stage.sectionTick = 40;
+  run.stage.firedWaves = 2;
   run.lines.streamIn = 17;
   run.lines.surgeVolleys = 2;
   run.lines.tollIn = 90;
@@ -209,7 +209,7 @@ function fillCorpse(run: RunState): void {
   corpse.freshness = 0.625;
   corpse.payout = 1.5;
   corpse.tier = 'rich';
-  corpse.kind = 'drop';
+  corpse.kind = 'powerUp';
   corpse.decays = false;
   corpse.line = 'wisps';
   corpse.halfExtent = 9;
@@ -363,7 +363,7 @@ const ENTITY_CASES: readonly FieldCase[] = [
   {
     path: 'corpses[].kind',
     move: (run) => void (slot0(run.corpses).kind = 'feast'),
-    restore: (run) => void (slot0(run.corpses).kind = 'drop'),
+    restore: (run) => void (slot0(run.corpses).kind = 'powerUp'),
   },
   {
     path: 'corpses[].line',
@@ -512,7 +512,10 @@ const RUN_CASES: readonly FieldCase[] = [
     path: 'streams.spawns.drawn',
     move: (run) => void run.streams.spawns.next(),
   },
-  { path: 'streams.drops.drawn', move: (run) => void run.streams.drops.next() },
+  {
+    path: 'streams.powerUps.drawn',
+    move: (run) => void run.streams.powerUps.next(),
+  },
   {
     path: 'streams.mobFire.drawn',
     move: (run) => void run.streams.mobFire.next(),
@@ -523,19 +526,19 @@ const RUN_CASES: readonly FieldCase[] = [
     move: (run) => void run.streams.territory.next(),
   },
   {
-    path: 'stage.phaseIndex',
-    move: (run) => void (run.stage.phaseIndex += 1),
-    restore: (run) => void (run.stage.phaseIndex -= 1),
+    path: 'stage.sectionIndex',
+    move: (run) => void (run.stage.sectionIndex += 1),
+    restore: (run) => void (run.stage.sectionIndex -= 1),
   },
   {
-    path: 'stage.phaseTick',
-    move: (run) => void (run.stage.phaseTick += 1),
-    restore: (run) => void (run.stage.phaseTick -= 1),
+    path: 'stage.sectionTick',
+    move: (run) => void (run.stage.sectionTick += 1),
+    restore: (run) => void (run.stage.sectionTick -= 1),
   },
   {
-    path: 'stage.firedRows',
-    move: (run) => void (run.stage.firedRows += 1),
-    restore: (run) => void (run.stage.firedRows -= 1),
+    path: 'stage.firedWaves',
+    move: (run) => void (run.stage.firedWaves += 1),
+    restore: (run) => void (run.stage.firedWaves -= 1),
   },
   {
     path: 'lines.streamIn',
@@ -604,9 +607,9 @@ const RUN_CASES: readonly FieldCase[] = [
     restore: (run) => void fillBoss(run),
   },
   {
-    path: 'boss.chunk',
-    move: (run) => void (run.boss!.chunk += 1),
-    restore: (run) => void (run.boss!.chunk -= 1),
+    path: 'boss.phaseIndex',
+    move: (run) => void (run.boss!.phaseIndex += 1),
+    restore: (run) => void (run.boss!.phaseIndex -= 1),
   },
   {
     path: 'boss.hp',
@@ -731,13 +734,13 @@ const FOLDED: readonly string[] = [
   'levels.wisps',
   'levels.bell',
   'streams.spawns.drawn',
-  'streams.drops.drawn',
+  'streams.powerUps.drawn',
   'streams.mobFire.drawn',
   'streams.shed.drawn',
   'streams.territory.drawn',
-  'stage.phaseIndex',
-  'stage.phaseTick',
-  'stage.firedRows',
+  'stage.sectionIndex',
+  'stage.sectionTick',
+  'stage.firedWaves',
   'lines.streamIn',
   'lines.surgeVolleys',
   'lines.tollIn',
@@ -749,7 +752,7 @@ const FOLDED: readonly string[] = [
   'offer.bodyIds[]',
   'bankedOffers',
   'boss.kind',
-  'boss.chunk',
+  'boss.phaseIndex',
   'boss.hp',
   'boss.x',
   'boss.y',
@@ -800,7 +803,7 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'corpses[].decays':
     'written once at spawn from the kind, which is folded: treasure never decays and a corpse always does.',
   'corpses[].halfExtent':
-    'written once at spawn from the kind, which is folded: a drop is larger than a corpse.',
+    'written once at spawn from the kind, which is folded: a power-up is larger than a corpse.',
   'skulls[].alive': 'gates the walk, as mobs[].alive does.',
   'skulls[].id': 'spawn identity, as mobs[].id is.',
   'wisps[].alive': 'gates the walk, as mobs[].alive does.',
@@ -818,8 +821,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'offers that could stand no body on one tick, as refusals.food is. What it leads to, a bank that went up rather than an offer on the field, is folded.',
   'streams.spawns.next': 'a draw function, not state. Its cursor is folded.',
   'streams.spawns.nextInt': 'a draw function, not state.',
-  'streams.drops.next': 'a draw function, not state. Its cursor is folded.',
-  'streams.drops.nextInt': 'a draw function, not state.',
+  'streams.powerUps.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.powerUps.nextInt': 'a draw function, not state.',
   'streams.mobFire.next': 'a draw function, not state. Its cursor is folded.',
   'streams.mobFire.nextInt': 'a draw function, not state.',
   'streams.shed.next': 'a draw function, not state. Its cursor is folded.',
@@ -856,12 +859,23 @@ function undecided(paths: readonly string[]): string[] {
 }
 
 /**
- * The two run fields the kill-priced drop table folded, retired with it when
- * ADR 0002 was superseded on its power half. They are written down here and
- * nowhere in production, because a retired field taken back into the fold is a
- * silent witness change: nothing else in this file would name it.
+ * The two run fields the kill-priced power-up table folded, retired with it
+ * when ADR 0002 was superseded on its power half. They are written down here
+ * and nowhere in production, because a retired field taken back into the fold
+ * is a silent witness change: nothing else in this file would name it.
+ *
+ * Both spellings are banned. The two original names are the ones the retired
+ * fields actually wore, and they are not renamed with the vocabulary (ADR
+ * 0061), because renaming a ban lets the banned field back in under its old
+ * name. The power-up spellings sit beside them so a field rebuilt in the new
+ * vocabulary is caught too.
  */
-const RETIRED_RUN_FIELDS: readonly string[] = ['killsSinceDrop', 'dropsPaid'];
+const RETIRED_RUN_FIELDS: readonly string[] = [
+  'killsSinceDrop',
+  'dropsPaid',
+  'killsSincePowerUp',
+  'powerUpsPaid',
+];
 
 describe('the closed field list', () => {
   it('never takes a retired run field back', () => {
@@ -887,7 +901,10 @@ describe('the closed field list', () => {
   it('a field in neither list fails the assertion', () => {
     // The proof that the guard is a guard: a nested field nobody has decided
     // about is named, rather than passing over an empty set.
-    const invented = fieldPaths({ stage: { phaseIndex: 0, drainOut: 0 } }, '');
+    const invented = fieldPaths(
+      { stage: { sectionIndex: 0, drainOut: 0 } },
+      '',
+    );
     expect(undecided(invented)).toEqual(['stage.drainOut']);
   });
 
@@ -963,7 +980,7 @@ describe('the four non-numeric encodings', () => {
   });
 
   it('the food kind code map is pinned by name and never by ordinal', () => {
-    expect(FOOD_KIND_CODES).toEqual({ corpse: 1, drop: 2, feast: 3 });
+    expect(FOOD_KIND_CODES).toEqual({ corpse: 1, powerUp: 2, feast: 3 });
   });
 
   it('the weapon line code map is pinned by name and never by ordinal', () => {
@@ -1117,7 +1134,13 @@ describe("the harness's own stream stays outside the run (ADR 0019)", () => {
     // every stream the run holds, so it would land on the witness.
     const held = Object.keys(createRun(0).streams).sort();
 
-    expect(held).toEqual(['drops', 'mobFire', 'shed', 'spawns', 'territory']);
+    expect(held).toEqual([
+      'mobFire',
+      'powerUps',
+      'shed',
+      'spawns',
+      'territory',
+    ]);
     expect(held).not.toContain(HAND_STREAM);
     expect(FOLDED.filter((path) => path.startsWith('streams.')).sort()).toEqual(
       held.map((name) => `streams.${name}.drawn`).sort(),

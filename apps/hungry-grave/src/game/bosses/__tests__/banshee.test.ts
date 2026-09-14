@@ -1,9 +1,9 @@
 /**
- * The Banshee's own grammar (ADR 0007, game-concept.md:68): two chunks of
+ * The Banshee's own grammar (ADR 0007, game-concept.md:68): two phases of
  * expanding tear-rings each with one clean gap, the feast her death sheds, and
  * the Wall her death launches.
  *
- * The machine she stands on is chunks.ts's and is tested there. What is here is
+ * The machine she stands on is phases.ts's and is tested there. What is here is
  * hers: the emitter, the feast, and what her death starts.
  */
 
@@ -22,14 +22,14 @@ import { atan2, normalize } from '../../math';
 import { MOB_TYPES } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
-import { CROWD_ROWS, PROCESSION_ROWS } from '../../stage/rows';
-import { PHASES } from '../../stage/stage';
+import { CROWD_WAVES, PROCESSION_WAVES } from '../../stage/waves';
+import { SECTIONS } from '../../stage/stage';
 import { swallow } from '../../swallow';
 import { RESERVOIR_CAPACITY, SCROLL_SPEED, SIZE_START } from '../../tuning';
 import { stepping } from '../../../dev/stepping';
 import { RING_ROWS, TEAR_FIRE } from '../banshee';
-import type { Boss } from '../chunks';
-import { advanceBoss, CHUNK_FLASH_TICKS, damageBoss } from '../chunks';
+import type { Boss } from '../phases';
+import { advanceBoss, PHASE_FLASH_TICKS, damageBoss } from '../phases';
 
 /** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
 function requireDefined<T>(value: T | undefined, message: string): T {
@@ -46,8 +46,8 @@ const SEED = 20260908;
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
-/** The Wall's own row, so what its arrival looks like is read from the table. */
-const WALL_ROW = CROWD_ROWS.find((row) => row.template === 'wall')!;
+/** The Wall's own wave, so what its arrival looks like is read from the table. */
+const WALL_WAVE = CROWD_WAVES.find((wave) => wave.formation === 'wall')!;
 
 /** A fight in progress: the run, the boss, and one tick of it at a time. */
 interface Fight {
@@ -62,18 +62,18 @@ interface Fight {
  * immortal.
  *
  * She is reached through the stage's own boundary rather than put on the field
- * by hand: the Procession's rows are marked spent on a field with nothing alive
+ * by hand: the Procession's waves are marked spent on a field with nothing alive
  * on it, which is exactly the condition its end names, so the first step is her
  * arrival as a run produces it.
  *
  * The grave is held because these are tests about her pattern and her death,
  * and a still grave under her rings would seal shut long before her second
- * chunk and stop the fight being measured.
+ * phase and stop the fight being measured.
  */
 function atTheBanshee(seed = SEED): Fight {
   const state = createRun(seed);
   const step = stepping(state);
-  state.stage.firedRows = PROCESSION_ROWS.length;
+  state.stage.firedWaves = PROCESSION_WAVES.length;
   const tick = (): readonly SimEvent[] => {
     const events = step(STILL);
     state.grave.size = SIZE_START;
@@ -149,26 +149,26 @@ function food(state: RunState): Corpse[] {
   return state.corpses.filter((corpse) => corpse.alive);
 }
 
-/** One chunk emptied, and the flash after it run down the way a tick does it. */
-function breakChunk(fight: Fight): void {
+/** One phase emptied, and the flash after it run down the way a tick does it. */
+function breakPhase(fight: Fight): void {
   const boss = fight.state.boss;
   if (boss === null) throw new Error('no boss is standing');
   damageBoss(fight.state, boss.hp, 'skullStream');
-  for (let tick = 0; tick < CHUNK_FLASH_TICKS; tick++) advanceBoss(fight.state);
+  for (let tick = 0; tick < PHASE_FLASH_TICKS; tick++) advanceBoss(fight.state);
 }
 
-/** Her whole fight, a chunk at a time, ending in her death. */
+/** Her whole fight, a phase at a time, ending in her death. */
 function killHer(fight: Fight): void {
-  while (fight.state.boss !== null) breakChunk(fight);
+  while (fight.state.boss !== null) breakPhase(fight);
 }
 
 /**
- * The feast her death shed, told apart from the one her chunk break shed by the
+ * The feast her death shed, told apart from the one her phase break shed by the
  * id it was born with. Both stand at the same point, because she does not move,
  * so nothing about a position could separate them.
  */
 function feastFromHerDeath(fight: Fight): Corpse {
-  breakChunk(fight);
+  breakPhase(fight);
   const alreadyShed = new Set(food(fight.state).map((corpse) => corpse.id));
   killHer(fight);
   const shed = food(fight.state).filter(
@@ -184,9 +184,9 @@ function ringRowAt(index: number) {
 }
 
 describe("the Banshee's tear-rings (game-concept.md:68, ADR 0007)", () => {
-  it('throws slow expanding tear-rings in chunk one, each with one clean gap', () => {
-    // game-concept.md:68, under ADR 0007's one authored pattern per chunk:
-    // "chunk one is slow expanding tear-rings each with one clean gap". The
+  it('throws slow expanding tear-rings in phase one, each with one clean gap', () => {
+    // game-concept.md:68, under ADR 0007's one authored pattern per phase:
+    // "phase one is slow expanding tear-rings each with one clean gap". The
     // gap is the whole of the pattern's answer: a ring with no way through is
     // a wall, and one with two ways through is not read as a shape at all.
     const fight = atTheBanshee();
@@ -226,16 +226,16 @@ describe("the Banshee's tear-rings (game-concept.md:68, ADR 0007)", () => {
     expect(firstOf(radii())).toBeGreaterThan(held);
   });
 
-  it('adds a second offset ring source in chunk two, so the gaps stop lining up', () => {
-    // The same sentence's second half: "chunk two is a second offset ring
+  it('adds a second offset ring source in phase two, so the gaps stop lining up', () => {
+    // The same sentence's second half: "phase two is a second offset ring
     // source so the gaps stop lining up". One source leaves one way through;
     // two sources whose openings pointed the same way would still leave one,
     // so the offset is the whole of the escalation.
     const fight = atTheBanshee();
     expect(ringRowAt(0).sources).toHaveLength(1);
 
-    breakChunk(fight);
-    expect(fight.state.boss?.chunk).toBe(1);
+    breakPhase(fight);
+    expect(fight.state.boss?.phaseIndex).toBe(1);
 
     const row = ringRowAt(1);
     expect(row.sources.length).toBeGreaterThan(1);
@@ -292,7 +292,7 @@ describe("the Banshee's tear-rings (game-concept.md:68, ADR 0007)", () => {
     const drawnBefore = fight.state.streams.mobFire.drawn;
     const others = (): Record<string, number> => ({
       spawns: fight.state.streams.spawns.drawn,
-      drops: fight.state.streams.drops.drawn,
+      powerUps: fight.state.streams.powerUps.drawn,
       shed: fight.state.streams.shed.drawn,
       territory: fight.state.streams.territory.drawn,
     });
@@ -341,7 +341,7 @@ describe('the belch against her rings (ADR 0008)', () => {
 describe("what the Banshee's death sheds (ADR 0004, ADR 0007)", () => {
   it('drops a feast that never decays', () => {
     // game-concept.md:68: "her death drops a feast corpse that never decays".
-    // It is the death's own feast and not the break's, which chunks.ts sheds,
+    // It is the death's own feast and not the break's, which phases.ts sheds,
     // so it is told apart from it by id rather than counted.
     const fight = atTheBanshee();
     const where = { x: fight.boss.x, y: fight.boss.y };
@@ -398,21 +398,21 @@ describe('the Wall her death launches (game-concept.md:56, ADR 0042)', () => {
     killHer(fight);
 
     const events: SimEvent[] = [];
-    for (let tick = 0; tick <= 1 + WALL_ROW.t * TICK_HZ; tick++) {
+    for (let tick = 0; tick <= 1 + WALL_WAVE.t * TICK_HZ; tick++) {
       events.push(...fight.tick());
     }
 
-    expect(only(events, 'phaseChanged').map((event) => event.phase)).toEqual([
-      'crowd',
-    ]);
+    expect(
+      only(events, 'sectionChanged').map((event) => event.section),
+    ).toEqual(['crowd']);
     expect(
       requireDefined(
-        PHASES[fight.state.stage.phaseIndex],
-        'phaseIndex out of range',
+        SECTIONS[fight.state.stage.sectionIndex],
+        'sectionIndex out of range',
       ).name,
     ).toBe('crowd');
     expect(fight.state.mobs.filter((mob) => mob.alive)).toHaveLength(
-      WALL_ROW.count,
+      WALL_WAVE.count,
     );
 
     // Never dived on: both feasts she shed are still standing on the field, so

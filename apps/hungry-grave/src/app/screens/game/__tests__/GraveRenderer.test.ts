@@ -67,8 +67,8 @@ describe('GraveRenderer', () => {
     // from BOUNDARY_STROKE's bracket lands on 8 and turns a floor grave into a
     // solid pill exactly when the player most needs to read it.
     //
-    // The mouth does not bind the drop: ADR 0003 rules that size never gates a
-    // swallow, and the drop's own bounds live in FieldRenderer.test.ts
+    // The mouth does not bind the power-up: ADR 0003 rules that size never gates a
+    // swallow, and the power-up's own bounds live in FieldRenderer.test.ts
     // (docs/design/drop-legibility-fix.md carries the supersession).
     const interior = graveWidth(SIZE_FLOOR) - 2 * GRAVE_RIM_STROKE;
     expect(interior).toBeGreaterThan(0);

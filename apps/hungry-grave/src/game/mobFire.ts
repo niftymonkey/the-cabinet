@@ -8,7 +8,7 @@ import { normalize } from './math';
 import type { Mob, MobType } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
-import type { BossKind } from './stage/rows';
+import type { BossKind } from './stage/waves';
 
 // How much of a wave carries fire at all.
 type ArmedShare = 'none' | 'everyThird' | 'all';

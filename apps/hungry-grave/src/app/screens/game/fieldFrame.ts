@@ -25,7 +25,7 @@ const boundaryReadout = (): Graphics => {
 /**
  * The field's clip, exactly the field rect and nothing else.
  *
- * The sim legitimately holds mobs outside the field: a template may place a
+ * The sim legitimately holds mobs outside the field: a formation may place a
  * file up to MAX_ENTRY_DEPTH above the top edge, and a mob is only culled once
  * it is a margin past an edge. Nothing else clipped them, so that off-field
  * approach drew into the letterbox. It shows on a phone and not on a desktop

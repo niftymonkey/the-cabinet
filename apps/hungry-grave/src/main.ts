@@ -126,7 +126,7 @@ const buttonSound = (engine: CreationEngine) => ({
  * alias it has not registered. Awaiting the bundle is what turns that into a
  * late start instead of a lost cue, and the awaits resolve in the order the
  * cues were made, so a run that crosses a boundary while the bundle is still
- * coming still ends on the loop its own phase named.
+ * coming still ends on the loop its own section named.
  */
 const musicChannel = (engine: CreationEngine): MusicOutput => ({
   play: (alias) => {
@@ -276,7 +276,7 @@ const showReplay = async (engine: CreationEngine): Promise<void> => {
 
 /**
  * The golden digest, run in this browser. It is imported dynamically, the way
- * the prototypes already are, or src/dev/digest.ts lands in the boot chunk of
+ * the prototypes already are, or src/dev/digest.ts lands in the boot phase of
  * every player's first load.
  */
 const showDigest = async (engine: CreationEngine): Promise<void> => {
@@ -290,7 +290,7 @@ const showDigest = async (engine: CreationEngine): Promise<void> => {
 /**
  * Round 0's frame budget, measured in this browser (#39). Imported dynamically
  * for the same reason the digest is: the instrument reaches src/dev, and a
- * static import would put the synthetic field in the boot chunk of every
+ * static import would put the synthetic field in the boot phase of every
  * player's first load.
  */
 const showFrameBudget = async (engine: CreationEngine): Promise<void> => {

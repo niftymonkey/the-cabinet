@@ -340,13 +340,13 @@ const drawEruption = (into: Graphics, progress: number): void => {
 const drawSplash = (into: Graphics, progress: number): void => {
   into.clear();
   const reach = SPLASH_REACH * progress;
-  const drop = SPLASH_REACH * 0.22 * (1 - progress);
+  const powerUp = SPLASH_REACH * 0.22 * (1 - progress);
   for (let spoke = 0; spoke < SPLASH_SPOKES; spoke++) {
     const angle = Math.PI + (spoke / (SPLASH_SPOKES - 1)) * Math.PI;
     into.circle(
       Math.cos(angle) * reach,
       Math.sin(angle) * reach,
-      Math.max(0.5, drop),
+      Math.max(0.5, powerUp),
     );
   }
   into.fill({ color: PALETTE.splash.hex });

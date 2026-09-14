@@ -7,12 +7,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { asSwallowable, spawnDrop } from '../../../game/corpses';
+import { asSwallowable, spawnPowerUp } from '../../../game/corpses';
 import type { SimEvent } from '../../../game/events';
 import type { RunState } from '../../../game/run';
 import { createRun } from '../../../game/run';
 import { advanceSetPiece, placeSetPiece } from '../../../game/stage/setPiece';
-import { PHASES } from '../../../game/stage/stage';
+import { SECTIONS } from '../../../game/stage/stage';
 import { swallow } from '../../../game/swallow';
 import type { WakingSwallowsAcc } from '../wakingSwallows';
 import {
@@ -22,8 +22,8 @@ import {
 } from '../wakingSwallows';
 
 const SEED = 20260910;
-// The phase the stage authors the pour in, so the source stands where the stage puts it.
-const WAKING = PHASES.findIndex((phase) => phase.name === 'waking');
+// The section the stage authors the pour in, so the source stands where the stage puts it.
+const WAKING = SECTIONS.findIndex((section) => section.name === 'waking');
 // How long the source is given to do whatever a test is waiting for.
 const SOURCE_TICKS = 4000;
 
@@ -38,8 +38,8 @@ const watching = (acc: WakingSwallowsAcc) => {
 
 /** One body swallowed through the sim's own swallow, and what it reported. */
 const aSwallow = (state: RunState): SimEvent[] => {
-  const spawned = spawnDrop(state, 100, 100);
-  const born = spawned.find((event) => event.type === 'dropSpawned')!;
+  const spawned = spawnPowerUp(state, 100, 100);
+  const born = spawned.find((event) => event.type === 'powerUpSpawned')!;
   const body = state.corpses.find(
     (corpse) => corpse.alive && corpse.id === born.id,
   )!;
@@ -50,7 +50,7 @@ const aSwallow = (state: RunState): SimEvent[] => {
 /** A run holding the source and nothing else, ticked at the set piece's own seam. */
 const atTheSource = (): RunState => {
   const state = createRun(SEED);
-  state.stage.phaseIndex = WAKING;
+  state.stage.sectionIndex = WAKING;
   placeSetPiece(state);
   return state;
 };

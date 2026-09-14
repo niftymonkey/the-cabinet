@@ -17,12 +17,12 @@ import {
   damageTakenOf,
   observeDamageTaken,
 } from './damageTaken';
-import type { DropLedger, DropLedgerAcc } from './dropLedger';
+import type { PowerUpLedger, PowerUpLedgerAcc } from './powerUpLedger';
 import {
-  createDropLedger,
-  dropLedgerOf,
-  observeDropLedger,
-} from './dropLedger';
+  createPowerUpLedger,
+  powerUpLedgerOf,
+  observePowerUpLedger,
+} from './powerUpLedger';
 import type { FieldPerLine, FieldPerLineAcc } from './fieldPerLine';
 import {
   createFieldPerLine,
@@ -97,7 +97,7 @@ interface TuningReadings {
   readonly fieldPerLine: FieldPerLine;
   readonly freshnessPaid: FreshnessPaid;
   readonly belchCadence: BelchCadence;
-  readonly dropLedger: DropLedger;
+  readonly powerUpLedger: PowerUpLedger;
   readonly offerChoices: OfferChoices;
   readonly wakingSwallows: WakingSwallows;
   readonly territoryPatches: TerritoryPatches;
@@ -116,7 +116,7 @@ interface ReadingsAcc {
   readonly fieldPerLine: FieldPerLineAcc;
   readonly freshnessPaid: FreshnessPaidAcc;
   readonly belchCadence: BelchCadenceAcc;
-  readonly dropLedger: DropLedgerAcc;
+  readonly powerUpLedger: PowerUpLedgerAcc;
   readonly offerChoices: OfferChoicesAcc;
   readonly wakingSwallows: WakingSwallowsAcc;
   readonly territoryPatches: TerritoryPatchesAcc;
@@ -145,7 +145,7 @@ const createReadings = (
   fieldPerLine: createFieldPerLine(),
   freshnessPaid: createFreshnessPaid(),
   belchCadence: createBelchCadence(),
-  dropLedger: createDropLedger(),
+  powerUpLedger: createPowerUpLedger(),
   offerChoices: createOfferChoices(),
   wakingSwallows: createWakingSwallows(),
   territoryPatches: createTerritoryPatches(),
@@ -178,7 +178,7 @@ const observeReadings = (
   observeFieldPerLine(acc.fieldPerLine, state, lines);
   observeFreshnessPaid(acc.freshnessPaid, events);
   observeBelchCadence(acc.belchCadence, tick, events, state);
-  observeDropLedger(acc.dropLedger, events, state);
+  observePowerUpLedger(acc.powerUpLedger, events, state);
   observeOfferChoices(acc.offerChoices, tick, events);
   observeWakingSwallows(acc.wakingSwallows, tick, events);
   observeTerritoryPatches(acc.territoryPatches, events);
@@ -197,7 +197,7 @@ const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   fieldPerLine: fieldPerLineOf(acc.fieldPerLine),
   freshnessPaid: freshnessPaidOf(acc.freshnessPaid),
   belchCadence: belchCadenceOf(acc.belchCadence),
-  dropLedger: dropLedgerOf(acc.dropLedger),
+  powerUpLedger: powerUpLedgerOf(acc.powerUpLedger),
   offerChoices: offerChoicesOf(acc.offerChoices),
   wakingSwallows: wakingSwallowsOf(acc.wakingSwallows),
   territoryPatches: territoryPatchesOf(acc.territoryPatches),

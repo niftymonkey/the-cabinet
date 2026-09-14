@@ -17,10 +17,10 @@ import type { RunState } from '../../../game/run';
 import { createRun } from '../../../game/run';
 import { swallow } from '../../../game/swallow';
 import {
-  createDropLedger,
-  dropLedgerOf,
-  observeDropLedger,
-} from '../dropLedger';
+  createPowerUpLedger,
+  powerUpLedgerOf,
+  observePowerUpLedger,
+} from '../powerUpLedger';
 
 const SEED = 20260826;
 
@@ -35,16 +35,16 @@ function optionAt(options: readonly WeaponLine[], index: number): WeaponLine {
 // body that scrolled off.
 const SPAWNED = 2 * OFFER_SIZE;
 
-/** The live drop standing at this x, which is how a test names one of three. */
-const dropAt = (run: RunState, x: number): Corpse => {
+/** The live power-up standing at this x, which is how a test names one of three. */
+const powerUpAt = (run: RunState, x: number): Corpse => {
   const found = run.corpses.find(
-    (corpse) => corpse.alive && corpse.kind === 'drop' && corpse.x === x,
+    (corpse) => corpse.alive && corpse.kind === 'powerUp' && corpse.x === x,
   );
-  if (found === undefined) throw new Error(`no live drop at x ${x}`);
+  if (found === undefined) throw new Error(`no live power-up at x ${x}`);
   return found;
 };
 
-describe('drop ledger', () => {
+describe('power-up ledger', () => {
   it('accounts every option body as exactly one of taken, passed, lost off the field, or on the field at the stop', () => {
     // Story 14, widened by the offer: a body reaches a fourth end now, because
     // the two siblings of a taken body vanish on the tick the take lands and
@@ -52,22 +52,26 @@ describe('drop ledger', () => {
     // never evicts one, so the four counts add up to spawned and that sum is
     // the ledger's own check on itself.
     const run = createRun(SEED);
-    const accumulator = createDropLedger();
+    const accumulator = createPowerUpLedger();
 
-    observeDropLedger(accumulator, openOffer(run, 260, 200), run);
+    observePowerUpLedger(accumulator, openOffer(run, 260, 200), run);
     const takenId = run.offer!.bodyIds[0];
     const taken = run.corpses.find(
       (corpse) => corpse.alive && corpse.id === takenId,
     )!;
     taken.alive = false;
-    observeDropLedger(accumulator, swallow(run, asSwallowable(taken)), run);
+    observePowerUpLedger(accumulator, swallow(run, asSwallowable(taken)), run);
     expect(run.offer).toBeNull();
 
-    observeDropLedger(accumulator, openOffer(run, 260, FIELD_HEIGHT - 5), run);
-    dropAt(run, 260).y = FIELD_HEIGHT * 2;
-    observeDropLedger(accumulator, cullCorpses(run), run);
+    observePowerUpLedger(
+      accumulator,
+      openOffer(run, 260, FIELD_HEIGHT - 5),
+      run,
+    );
+    powerUpAt(run, 260).y = FIELD_HEIGHT * 2;
+    observePowerUpLedger(accumulator, cullCorpses(run), run);
 
-    const { byLine, ...totals } = dropLedgerOf(accumulator);
+    const { byLine, ...totals } = powerUpLedgerOf(accumulator);
     expect(totals).toEqual({
       spawned: SPAWNED,
       swallowed: 1,
@@ -89,25 +93,29 @@ describe('drop ledger', () => {
     // scrolled off while its siblings still stood is read off the field it
     // left rather than off the event.
     const run = createRun(SEED);
-    const accumulator = createDropLedger();
+    const accumulator = createPowerUpLedger();
 
-    observeDropLedger(accumulator, openOffer(run, 260, 200), run);
+    observePowerUpLedger(accumulator, openOffer(run, 260, 200), run);
     const first = [...run.offer!.options];
     const takenId = run.offer!.bodyIds[0];
     const taken = run.corpses.find(
       (corpse) => corpse.alive && corpse.id === takenId,
     )!;
     taken.alive = false;
-    observeDropLedger(accumulator, swallow(run, asSwallowable(taken)), run);
+    observePowerUpLedger(accumulator, swallow(run, asSwallowable(taken)), run);
 
-    observeDropLedger(accumulator, openOffer(run, 260, FIELD_HEIGHT - 5), run);
+    observePowerUpLedger(
+      accumulator,
+      openOffer(run, 260, FIELD_HEIGHT - 5),
+      run,
+    );
     const second = [...run.offer!.options];
     const scrolledId = run.offer!.bodyIds[0];
     run.corpses.find((corpse) => corpse.id === scrolledId)!.y =
       FIELD_HEIGHT * 2;
-    observeDropLedger(accumulator, cullCorpses(run), run);
+    observePowerUpLedger(accumulator, cullCorpses(run), run);
 
-    const ledger = dropLedgerOf(accumulator);
+    const ledger = powerUpLedgerOf(accumulator);
     const spawnedOf = (line: WeaponLine): number =>
       [...first, ...second].filter((each) => each === line).length;
 
@@ -143,11 +151,11 @@ describe('drop ledger', () => {
     // defect somebody later reads as one.
     const run = createRun(SEED);
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
-    const accumulator = createDropLedger();
+    const accumulator = createPowerUpLedger();
 
     const opened = openOffer(run, 260, 200);
-    observeDropLedger(accumulator, opened, run);
-    const born = opened.find((event) => event.type === 'dropSpawned')!;
+    observePowerUpLedger(accumulator, opened, run);
+    const born = opened.find((event) => event.type === 'powerUpSpawned')!;
     expect(born.line).toBeUndefined();
     expect(run.offer).toBeNull();
 
@@ -155,9 +163,9 @@ describe('drop ledger', () => {
       (corpse) => corpse.alive && corpse.id === born.id,
     )!;
     body.alive = false;
-    observeDropLedger(accumulator, swallow(run, asSwallowable(body)), run);
+    observePowerUpLedger(accumulator, swallow(run, asSwallowable(body)), run);
 
-    const ledger = dropLedgerOf(accumulator);
+    const ledger = powerUpLedgerOf(accumulator);
     expect(ledger.spawned).toBe(1);
     expect(ledger.swallowed).toBe(1);
     expect(ledger.byLine).toEqual({});

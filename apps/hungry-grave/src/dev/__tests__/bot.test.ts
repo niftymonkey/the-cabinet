@@ -16,8 +16,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { damageBoss, spawnBoss } from '../../game/bosses/chunks';
-import { carrierRow, carriersForFullBuild } from '../../game/carriers';
+import { damageBoss, spawnBoss } from '../../game/bosses/phases';
+import { waveCarriers, carriersForFullBuild } from '../../game/carriers';
 import { TICK_HZ } from '../../game/clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import type { SimEvent } from '../../game/events';
@@ -32,9 +32,13 @@ import {
 import { OFFER_SIZE } from '../../game/offer';
 import type { RunState } from '../../game/run';
 import { createRun, uniformLevels } from '../../game/run';
-import { CROWD_ROWS, PROCESSION_ROWS, VIGIL_ROWS } from '../../game/stage/rows';
-import { PHASES } from '../../game/stage/stage';
-import { place } from '../../game/stage/templates';
+import {
+  CROWD_WAVES,
+  PROCESSION_WAVES,
+  VIGIL_WAVES,
+} from '../../game/stage/waves';
+import { SECTIONS } from '../../game/stage/stage';
+import { place } from '../../game/stage/formations';
 import {
   RESERVOIR_CAPACITY,
   SCROLL_SPEED,
@@ -78,9 +82,9 @@ const SEEDS = [101, 202, 303, 404, 505];
  * current birthright, and there are none.
  *
  * Every measurement before the last one was taken while that section was the
- * ramp, and each says so in its own words: the ramp is the phase the three
+ * ramp, and each says so in its own words: the ramp is the section the three
  * named sections renamed the Procession (ADR 0050), and it is 120 seconds of
- * rows where the ramp was 122.
+ * waves where the ramp was 122.
  *
  * Re-measured for #79's measured tuning pass, which moved TERRITORY_PERIOD
  * from 500 to 832. Territory is the only line a dodger arms for free, and at
@@ -97,12 +101,12 @@ const SEEDS = [101, 202, 303, 404, 505];
  *
  * Re-measured for carriers (ADR 0002, ADR 0048): power is no longer priced in
  * kills, so a run's build follows the schedule rather than the dodger's own
- * kill rate, and the five fresh seeds now spawn 3 to 9 drops against the 2 to
+ * kill rate, and the five fresh seeds now spawn 3 to 9 power-ups against the 2 to
  * 4 the price table paid them. 202 and 404 left the set, surviving the ramp
  * and running 12421 and 11393 ticks, and 505 entered it, sealing at 5466 where
  * it used to run 9950. The direction is per seed rather than uniform for the
  * reason it always is here: a dodger steers off the field it is standing in,
- * so one drop swallowed at a different tick is a different run from there on.
+ * so one power-up swallowed at a different tick is a different run from there on.
  *
  * Re-measured for the offer of three (ADR 0034), and the set emptied: 505 left
  * it, surviving the ramp and running the full stage to victory where it sealed
@@ -140,7 +144,7 @@ const SEALS_IN_THE_PROCESSION: number[] = [];
  *
  * Those swallows are incidental, which is the thing to keep in front of a
  * reader. `dodgePolicy` scores its nine moves against mobs and mob fire alone
- * and looks at neither corpses nor drops, so it never once steers toward
+ * and looks at neither corpses nor power-ups, so it never once steers toward
  * food; the lane it dodges through simply has corpses in it.
  */
 const NEVER_FEEDS: number[] = [];
@@ -149,7 +153,7 @@ const NEVER_FEEDS: number[] = [];
  * The seeds whose fresh run is never paid a carrier at all, and there are none.
  *
  * Re-measured for the mow (ADR 0059). It held 505 alone: a fresh run ended
- * inside the Banshee's phase or just past it, so a dodger was paid only by the
+ * inside the Banshee's section or just past it, so a dodger was paid only by the
  * carriers the Procession's own lane happened to cross, and 505 crossed none of
  * them. Under the mow a skull is a whole trash body, so the same lane clears
  * what stands in it and 505 is paid too.
@@ -166,27 +170,27 @@ const NEVER_PAID: number[] = [];
  * Re-measured for carriers (ADR 0002, ADR 0048), which is what refilled the
  * set after #79's tuning pass emptied it. A fresh run meets the schedule's
  * carriers rather than a rising price fitted to a kill rate this policy never
- * reaches, so the same dodging run now spawns 6 and 9 drops on these two seeds
+ * reaches, so the same dodging run now spawns 6 and 9 power-ups on these two seeds
  * where the table paid it 2 to 4, and the build it stumbles into carries it
- * to the over phase. Nothing about the policy changed: it still never dives,
+ * to the over section. Nothing about the policy changed: it still never dives,
  * and it still swallows only what its lane happens to contain.
  *
  * Re-measured for the offer of three (ADR 0034): 404 and 505 joined it and
  * only 101 is left out, sealing at 11420 ticks in the back half. Three bodies
  * standing 90 units apart is the whole cause: a dodging lane crosses one of
  * them where it crossed the single body only by luck, so the same policy takes
- * 4 to 8 offers a run where it used to swallow 3 to 9 single drops, and the
- * builds it stumbles into carry four of the five seeds to the over phase.
+ * 4 to 8 offers a run where it used to swallow 3 to 9 single power-ups, and the
+ * builds it stumbles into carry four of the five seeds to the over section.
  *
  * Re-measured for the three named sections (ADR 0049, ADR 0050): 202 and 303
  * left it and the set is 404 and 505. The stage runs 21000 ticks of authored
- * rows where it ran 12421, and the Procession owns emptiness, so a dodger that
+ * waves where it ran 12421, and the Procession owns emptiness, so a dodger that
  * is paid only by the carriers its own lane crosses now takes 1 to 4 offers a
  * run against the 4 to 8 the old ramp and back half handed it. The three seeds
  * that fall out seal at 9938, 20330 and 10673 ticks rather than dying early:
  * they run out of grave over a longer stage on a thinner build.
  *
- * Re-measured for the sparse last row and the per-phase end condition
+ * Re-measured for the sparse last wave and the per-section end condition
  * (ADR 0051): 202 and 303 came back and 505 left, so the set is 202, 303 and
  * 404, running 21166, 21641 and 20812 ticks at 58, 65 and 118 kills. 101 seals
  * at 13355 in the Crowd and 505 at 15988 in the Waking. The cause is the path
@@ -194,7 +198,7 @@ const NEVER_PAID: number[] = [];
  * on the tick the field clears rather than on a count, so it lands a few
  * seconds either side of where it used to and a dodger steering off the field
  * it stands in is somewhere else from there on. What did move for everyone is
- * length, by the two sparse rows and by the Waking waiting for the trash the
+ * length, by the two sparse waves and by the Waking waiting for the trash the
  * Crowd hands it.
  *
  * It stays a tripwire in both directions, because the assertion is an
@@ -208,7 +212,7 @@ const NEVER_PAID: number[] = [];
  * build to kill her with and nothing about her rings is hard enough to kill it,
  * so a fresh run neither wins nor dies. Three of the five seeds do empty her,
  * on the birthright storm alone and in ten to fifteen thousand ticks, and then
- * run out of budget inside the Crowd; the other two are still in her phase when
+ * run out of budget inside the Crowd; the other two are still in her section when
  * the budget ends. **This is the loss of headless coverage the Banshee costs
  * the birthright loadouts**, and what replaces it for the whole stage is the
  * maxed set below, which the plan's own verification step 7 names as the only
@@ -256,7 +260,7 @@ const REACHES_VICTORY_FRESH: number[] = [];
  * them an offer before the Crowd, at 5 and 12 offers against 0 to 2 on the
  * three that seal.
  *
- * Re-measured for the sparse last row and the per-phase end condition
+ * Re-measured for the sparse last wave and the per-section end condition
  * (ADR 0051): 404 entered it and nothing left, so the set is 101, 202 and 404,
  * running 21575, 21526 and 21087 ticks. 303 and 505 seal in the Crowd at 13697
  * and 14522. It is the same cause as the fresh set's above, a boundary that
@@ -268,7 +272,7 @@ const REACHES_VICTORY_FRESH: number[] = [];
  * cause the fresh set carries: a policy that only dodges has nothing to kill a
  * boss with. It is starker from the ceiling than from a fresh grave, because a
  * bigger grave takes more of her rings and none of the five seeds empties her
- * at all; every one of them is still in her phase when the budget ends, which
+ * at all; every one of them is still in her section when the budget ends, which
  * is what the test below now reads rather than an ending.
  *
  * Pinned as a constant rather than left a literal in the test, because the
@@ -291,13 +295,13 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
  * which is the whole reason it exists: a maxed build empties her and a
  * birthright one does not. What did move is how long they take, 22000 to 48000
  * ticks against 21000 before her, and the spread is her fight rather than the
- * rows. That spread is the harness's own input at step 4: a maxed dodger spends
+ * waves. That spread is the harness's own input at step 4: a maxed dodger spends
  * one to seven minutes on a boss authored for forty-five seconds, because it
  * never parks under her and its storm reaches her only when its dodging
  * happens to.
  *
  * Re-measured for the Undertaker (ADR 0052) and it did not move either: all
- * five still reach victory, and victory now means his death rather than a phase
+ * five still reach victory, and victory now means his death rather than a section
  * a stub fell through. The runs run 26000 to 52000 ticks, and what his fight
  * costs is 3600 to 4800 of them on every seed. That tightness beside her spread
  * is the second thing step 4 reads here: he is fought where the Vigil has left
@@ -324,37 +328,37 @@ const SLOWEST_DESCENT_TICKS =
       GHOUL_DESCENT_FLOOR,
     ));
 
-/** How long one phase can hold a run: its own rows, then whatever they left falling. */
-const budgetOf = (phase: (typeof PHASES)[number]): number => {
-  if (phase.rows.length === 0) return SLOWEST_DESCENT_TICKS;
-  const lastRow = phase.rows[phase.rows.length - 1];
-  if (lastRow === undefined)
-    throw new Error('phase.rows is non-empty but its last row is absent');
-  return lastRow.t * TICK_HZ + SLOWEST_DESCENT_TICKS;
+/** How long one section can hold a run: its own waves, then whatever they left falling. */
+const budgetOf = (section: (typeof SECTIONS)[number]): number => {
+  if (section.waves.length === 0) return SLOWEST_DESCENT_TICKS;
+  const lastWave = section.waves[section.waves.length - 1];
+  if (lastWave === undefined)
+    throw new Error('section.waves is non-empty but its last wave is absent');
+  return lastWave.t * TICK_HZ + SLOWEST_DESCENT_TICKS;
 };
 
 /**
  * How long a run may take to cross the Procession, and then the whole stage.
  *
- * They are budgets rather than lengths. A phase ends on its own condition now
+ * They are budgets rather than lengths. A section ends on its own condition now
  * (ADR 0051), so a hand that kills the stragglers meets the boss sooner and no
  * two runs are the same length; what can be written down is the ceiling.
  */
-const FIRST_PHASE = PHASES[0];
-if (FIRST_PHASE === undefined) throw new Error('PHASES is empty');
-const PROCESSION_TICKS = Math.ceil(budgetOf(FIRST_PHASE));
+const FIRST_SECTION = SECTIONS[0];
+if (FIRST_SECTION === undefined) throw new Error('SECTIONS is empty');
+const PROCESSION_TICKS = Math.ceil(budgetOf(FIRST_SECTION));
 const STAGE_TICKS = Math.ceil(
-  PHASES.reduce((total, each) => total + budgetOf(each), 0),
+  SECTIONS.reduce((total, each) => total + budgetOf(each), 0),
 );
 
 /**
  * How long a maxed run may play, which is a different question from the one
  * above and has a different answer now that a boundary is a fight.
  *
- * The authored ceiling covers the rows and what they leave falling, and a fight
+ * The authored ceiling covers the waves and what they leave falling, and a fight
  * is neither: it is the boss's health against whatever the hand puts on it. A
  * maxed dodger crosses the whole stage in 22000 to 48000 ticks against the
- * 27000 the rows alone bound, and the spread is the fight. So the maxed run
+ * 27000 the waves alone bound, and the spread is the fight. So the maxed run
  * gets three times the authored ceiling, which is a budget above the worst of
  * the five and never a prediction of any of them.
  *
@@ -364,30 +368,32 @@ const STAGE_TICKS = Math.ceil(
 const MAXED_RUN_TICKS = STAGE_TICKS * 3;
 
 /** Every mob the timeline authors, which is the ceiling on what any policy can meet. */
-const AUTHORED_MOBS = [...PROCESSION_ROWS, ...CROWD_ROWS, ...VIGIL_ROWS].reduce(
-  (total, row) => total + row.count,
-  0,
-);
+const AUTHORED_MOBS = [
+  ...PROCESSION_WAVES,
+  ...CROWD_WAVES,
+  ...VIGIL_WAVES,
+].reduce((total, wave) => total + wave.count, 0);
 
 /** Every carrier the timeline authors, which is the ceiling on what any policy can be paid. */
 const AUTHORED_CARRIERS = [
-  ...PROCESSION_ROWS,
-  ...CROWD_ROWS,
-  ...VIGIL_ROWS,
+  ...PROCESSION_WAVES,
+  ...CROWD_WAVES,
+  ...VIGIL_WAVES,
 ].reduce(
-  (total, row) => total + carrierRow(row.carries, row.count).carrying.length,
+  (total, wave) =>
+    total + waveCarriers(wave.carries, wave.count).carrying.length,
   0,
 );
 
-/** The Wall's own row, so its property is tested against the curtain the stage really contains. */
-const WALL_ROW = CROWD_ROWS.find((row) => row.template === 'wall')!;
+/** The Wall's own wave, so its property is tested against the curtain the stage really contains. */
+const WALL_WAVE = CROWD_WAVES.find((wave) => wave.formation === 'wall')!;
 
 function count(events: SimEvent[], type: SimEvent['type']): number {
   return events.filter((event) => event.type === type).length;
 }
 
-/** The phases a run crosses, which is every phase after the one it starts in. */
-const PHASE_ORDER: readonly string[] = [
+/** The sections a run crosses, which is every section after the one it starts in. */
+const SECTION_ORDER: readonly string[] = [
   'banshee',
   'crowd',
   'waking',
@@ -396,10 +402,10 @@ const PHASE_ORDER: readonly string[] = [
   'over',
 ];
 
-function phaseOrder(events: SimEvent[]): string[] {
+function sectionOrder(events: SimEvent[]): string[] {
   return events
-    .filter((event) => event.type === 'phaseChanged')
-    .map((event) => (event.type === 'phaseChanged' ? event.phase : ''));
+    .filter((event) => event.type === 'sectionChanged')
+    .map((event) => (event.type === 'sectionChanged' ? event.section : ''));
 }
 
 /**
@@ -501,14 +507,14 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
 
   for (const seed of SEEDS) {
     it(
-      `crosses every phase in order on seed ${seed}`,
+      `crosses every section in order on seed ${seed}`,
       () => {
         const { events } = fullRun(seed);
-        const crossed = phaseOrder(events);
+        const crossed = sectionOrder(events);
         // A run that seals inside the Procession crosses nothing at all.
         if (SEALS_IN_THE_PROCESSION.includes(seed)) expect(crossed).toEqual([]);
         else expect(crossed[0]).toBe('banshee');
-        expect(crossed).toEqual(PHASE_ORDER.slice(0, crossed.length));
+        expect(crossed).toEqual(SECTION_ORDER.slice(0, crossed.length));
       },
       ONE_WHOLE_STAGE_MS,
     );
@@ -552,7 +558,7 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
   }
 
   for (const seed of SEEDS) {
-    it(`makes kills and drops on seed ${seed}, all from real weapons`, () => {
+    it(`makes kills and power-ups on seed ${seed}, all from real weapons`, () => {
       const { events } = fullRun(seed);
       const kills = count(events, 'mobKilled');
       expect(kills).toBeGreaterThan(0);
@@ -609,12 +615,12 @@ const MEETS_THE_TIMELINE: number[] = [404];
  *
  * The band itself moved with ADR 0002's supersession: power is metered by
  * carriers, so what a full run is asked for is no longer ADR 0013's ten to
- * twelve drops from a price table but the carriers a full build costs, which
+ * twelve power-ups from a price table but the carriers a full build costs, which
  * `carriersForFullBuild` derives from the roster.
  *
  * What is counted moved with the offer (ADR 0034), and the count is the point
  * rather than a spelling: one carrier now opens one offer of three bodies, so
- * `dropSpawned` counts bodies and `offerOpened` counts carriers paid. The band
+ * `powerUpSpawned` counts bodies and `offerOpened` counts carriers paid. The band
  * has always been about carriers, so it reads the offers. A dodger comes
  * nowhere near it: it opens 7 to 12 offers across the five fresh seeds against
  * a full build's 19, because it kills the carriers its lane happens to contain
@@ -654,7 +660,7 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
       // the measured minimum across the five fresh runs, and it fell from 20 to
       // 11 with the Banshee (ADR 0007): a fresh run spends the rest of itself
       // in a fight it cannot finish rather than crossing two more sections of
-      // rows, so what the storm meets is most of one section and not most of a
+      // waves, so what the storm meets is most of one section and not most of a
       // stage. Whether a run is paid at all is a per-seed fact and is read off
       // NEVER_PAID rather than as a floor.
       //
@@ -669,7 +675,7 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
       expect(count(events, 'offerOpened')).toBeLessThanOrEqual(
         AUTHORED_CARRIERS,
       );
-      expect(count(events, 'dropSpawned')).toBe(
+      expect(count(events, 'powerUpSpawned')).toBe(
         OFFER_SIZE * count(events, 'offerOpened'),
       );
     });
@@ -685,15 +691,15 @@ describe('dodgePolicy from the size ceiling', () => {
       // the weapons actually do.
       //
       // Re-measured for the Banshee (ADR 0007), and what it says moved with
-      // her. A ceiling grave on the birthright reaches her phase on every seed
+      // her. A ceiling grave on the birthright reaches her section on every seed
       // and then stops: it has no build to empty her with, and her rings at
       // this size take it nowhere near the floor, so the run neither wins nor
-      // seals. That is asserted as an equality on the phases crossed rather
+      // seals. That is asserted as an equality on the sections crossed rather
       // than as an ending, so the day a ceiling run gets past her this file
       // goes red and says which seed did it.
       // REACHES_VICTORY_FROM_THE_CEILING carries the set and its cause.
       const { state, events } = fullRun(seed, SIZE_CEILING);
-      const reached = phaseOrder(events);
+      const reached = sectionOrder(events);
       if (REACHES_VICTORY_FROM_THE_CEILING.includes(seed)) {
         expect(reached).toContain('over');
         expect(state.ending).toBe('victory');
@@ -721,7 +727,7 @@ describe('dodgePolicy from the size ceiling', () => {
  */
 /**
  * The budget for the one test that pays for five whole-stage runs nothing else
- * has warmed. A whole stage is 21000 ticks of authored rows since the three
+ * has warmed. A whole stage is 21000 ticks of authored waves since the three
  * named sections landed (ADR 0049), half again what it was, and five maxed runs
  * of it no longer fit inside vitest's own five seconds. It is stated on the one
  * test rather than raised for the suite, because a budget belongs on the test
@@ -738,7 +744,7 @@ describe('both endings across the three loadouts', () => {
       );
       expect(winners).toEqual(REACHES_VICTORY_MAXED);
 
-      // And it is his death that ends it rather than a phase index: the two
+      // And it is his death that ends it rather than a section index: the two
       // fall on one tick, and the run recorded no fault reaching them
       // (ADR 0007, and the plan's own whole-run pass criterion).
       for (const seed of winners) {
@@ -800,9 +806,9 @@ describe('both endings across the three loadouts', () => {
  *
  * Measured for the three named sections (ADR 0049, ADR 0050), where the set
  * emptied. It used to hold every seed: the old ramp put a carrier in its first
- * two rows, so a policy that steers into fire swallowed one inside eight
+ * two waves, so a policy that steers into fire swallowed one inside eight
  * seconds and had a rung above the birthright to be stripped of. The Procession
- * owns emptiness and its first two rows are the Drips that teach the swallow
+ * owns emptiness and its first two waves are the Drips that teach the swallow
  * and the tell, neither of which carries, so its first carrier stands at t=21
  * and this policy has sealed shut at tick 1132 by then, on every seed and with
  * nineteen hits taken. Re-measured with both endings landed and still empty,
@@ -830,7 +836,7 @@ const STRIPS_A_RUNG: number[] = [101, 202, 303, 404, 505];
  * the ceiling long before a fight pays it anything, so both are pinned on the
  * run as arrival conditions. Level two rather than five because the storm has
  * to leave the fight standing while the grave is ground down: a full build
- * empties a chunk faster than the boss's pattern reaches the floor, and a fight
+ * empties a phase faster than the boss's pattern reaches the floor, and a fight
  * that ends in victory cannot also seal. The same two pins and the same reasons
  * carry src/__tests__/endings.test.ts's own walk of the ladder; what is read
  * here is that the policy walks it across the seeds rather than on one.
@@ -851,8 +857,8 @@ const LADDER_TICKS = 6000;
  */
 function ladderRun(seed: number): { state: RunState; rungs: string[] } {
   const state = createRun(seed, SIZE_CEILING, uniformLevels(LADDER_LEVEL));
-  state.stage.phaseIndex = PHASES.findIndex(
-    (phase) => phase.boss === 'undertaker',
+  state.stage.sectionIndex = SECTIONS.findIndex(
+    (section) => section.boss === 'undertaker',
   );
   const execution = createExecution(state);
   spawnBoss(state, 'undertaker');
@@ -933,7 +939,7 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
 });
 
 /**
- * The Wall, built from its own row on a quiet stage.
+ * The Wall, built from its own wave on a quiet stage.
  *
  * ADR 0042 makes the set piece a property rather than a cast, and the property
  * is two-sided over build strength: crossable unloaded has to hold at the
@@ -943,22 +949,22 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
  */
 function wallRun(seed: number, loaded: boolean): RunState {
   const state = createRun(seed, loaded ? SIZE_CEILING : undefined);
-  // The curtain is placed by hand, so the stage is stood in the last phase of
-  // the table, the one phase the machine never leaves. Marking a phase's rows
-  // fired silences that phase alone: a phase ends now on its rows being spent
+  // The curtain is placed by hand, so the stage is stood in the last section of
+  // the table, the one section the machine never leaves. Marking a section's waves
+  // fired silences that section alone: a section ends now on its waves being spent
   // and its field clearing (ADR 0051), so the tick the curtain finishes falling
-  // would roll the run into the next section and its rows.
-  state.stage.phaseIndex = PHASES.length - 1;
+  // would roll the run into the next section and its waves.
+  state.stage.sectionIndex = SECTIONS.length - 1;
   if (loaded) {
     for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
     state.reservoir = RESERVOIR_CAPACITY;
   }
   for (const order of place(
-    WALL_ROW.template,
-    WALL_ROW.count,
+    WALL_WAVE.formation,
+    WALL_WAVE.count,
     state.streams.spawns,
   )) {
-    spawnMob(state, WALL_ROW.type, order, false);
+    spawnMob(state, WALL_WAVE.type, order, false);
   }
   return state;
 }
@@ -970,11 +976,11 @@ const WALL_TICKS = 1400;
  * ADR 0042's second half is not met under the mow, and the two expected
  * failures below are where that is written down rather than hidden.
  *
- * The curtain is twenty-two shamblers (`rows.ts`, the Crowd's t=2 wall row) and
+ * The curtain is twenty-two shamblers (`waves.ts`, the Crowd's t=2 wall wave) and
  * the cost it charged was a reading of the old health row. Measured on this
- * commit, at the floor build over 1400 ticks on seeds 101 and 505: the old rows
+ * commit, at the floor build over 1400 ticks on seeds 101 and 505: the old waves
  * killed 2 of 22 and landed 2 grave hits, taking the grave from 27 to 21; the
- * mow's rows kill 2 of 22 and land none, and the grave ends the size it
+ * mow's waves kill 2 of 22 and land none, and the grave ends the size it
  * started. The storm at the birthright thins the curtain enough for a dodging
  * lane to open, and with the mow body silent (ADR 0059) there is no fire left
  * to make a belch worth spending either, so `belchingPolicy` never belches at
@@ -984,8 +990,8 @@ const WALL_TICKS = 1400;
  * halves that still hold are asserted outright, and the two that do not are
  * `it.fails` tripwires, which is this file's own idiom for a band the game does
  * not reach. The day the Wall costs something again, they go red and ask to be
- * rewritten as ordinary assertions. Re-authoring the Wall's own row is #39's
- * standing-rows slice, which owns that table.
+ * rewritten as ordinary assertions. Re-authoring the Wall's own wave is #39's
+ * standing-waves slice, which owns that table.
  */
 describe("the Wall's two-sided property (ADR 0042)", () => {
   for (const seed of SEEDS) {
@@ -1051,11 +1057,11 @@ describe("the Wall's two-sided property (ADR 0042)", () => {
   }
 });
 
-describe('the sparse last row and its two boundaries (ADR 0051)', () => {
+describe('the sparse last wave and its two boundaries (ADR 0051)', () => {
   for (const seed of SEEDS) {
     it(`meets each boss on an empty field and the set piece in traffic on seed ${seed}`, () => {
       // The grave is held immortal for the same reason the stage's own timeline
-      // tests hold it: this is a property of the rows and the storm, and a
+      // tests hold it: this is a property of the waves and the storm, and a
       // grave ground down inside the Crowd would stop the clock before the
       // boundary being measured. The storm still fires the whole way.
       const state = createRun(seed);
@@ -1071,7 +1077,7 @@ describe('the sparse last row and its two boundaries (ADR 0051)', () => {
         state.ending = null;
         // Whatever boss arrives is emptied by the rig rather than by the hand,
         // for the same reason the grave is held immortal: what is being
-        // measured is what the rows put on the field at a boundary, and this
+        // measured is what the waves put on the field at a boundary, and this
         // policy only dodges, so a real fight would hold the run at the first
         // boundary and none of the five below would ever be reached. How long
         // a fight takes is the boss modules' own tests' subject.
@@ -1082,8 +1088,8 @@ describe('the sparse last row and its two boundaries (ADR 0051)', () => {
         }
         const alive = state.mobs.filter((mob) => mob.alive).length;
         for (const event of events) {
-          if (event.type !== 'phaseChanged') continue;
-          atBoundary.push(`${event.phase}=${alive}`);
+          if (event.type !== 'sectionChanged') continue;
+          atBoundary.push(`${event.section}=${alive}`);
         }
       }
       expect(execution.faults).toEqual([]);
@@ -1093,14 +1099,14 @@ describe('the sparse last row and its two boundaries (ADR 0051)', () => {
       // two boss boundaries need the field empty." So the two boss boundaries
       // report nothing alive and the set piece's reports trash, which is the
       // ruling's two halves on one run.
-      const aliveAt = (phase: string): number =>
+      const aliveAt = (section: string): number =>
         Number(
           atBoundary
-            .find((each) => each.startsWith(`${phase}=`))!
+            .find((each) => each.startsWith(`${section}=`))!
             .split('=')[1],
         );
       expect(atBoundary.map((each) => each.split('=')[0])).toEqual(
-        PHASE_ORDER.slice(),
+        SECTION_ORDER.slice(),
       );
       expect(`banshee=${aliveAt('banshee')}`).toBe('banshee=0');
       expect(`undertaker=${aliveAt('undertaker')}`).toBe('undertaker=0');

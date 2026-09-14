@@ -15,7 +15,7 @@ import type { Mob } from '../../mobs';
 import { spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
-import { PROCESSION_ROWS } from '../../stage/rows';
+import { PROCESSION_WAVES } from '../../stage/waves';
 import { resolveStorm } from '../../storm';
 import { FRESHNESS_PAYOUT_FLOOR } from '../../tuning';
 import { MAX_LEVEL } from '../roster';
@@ -39,7 +39,7 @@ function requireDefined<T>(value: T | undefined, message: string): T {
 
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   return run;
 }
 

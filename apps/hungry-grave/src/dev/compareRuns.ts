@@ -4,7 +4,7 @@ import type { Distribution } from './framePerformance';
 import type { Divergence, Measurement, Metrics, Refusal } from './measure';
 import type { NumberRecord } from './numbersByName';
 import { fieldSummary, perLineSummary } from './readings/fieldPerLine';
-import { ledgerByLineNumbers } from './readings/dropLedger';
+import { ledgerByLineNumbers } from './readings/powerUpLedger';
 import { sizeSummary } from './readings/gravePath';
 import { groundSummary } from './readings/groundHeld';
 import { endNumbers, pacingSummary } from './readings/territoryControl';
@@ -329,8 +329,8 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     (report) => report.tuning.arrivals.total,
   ),
   namedNumbersReading(
-    'tuning.arrivals.byPhase',
-    (report) => report.tuning.arrivals.byPhase,
+    'tuning.arrivals.bySection',
+    (report) => report.tuning.arrivals.bySection,
   ),
   namedNumbersReading(
     'tuning.arrivals.byType',
@@ -468,27 +468,27 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     (report) => report.tuning.belchCadence.wasted,
   ),
   scalarReading(
-    'tuning.dropLedger.spawned',
-    (report) => report.tuning.dropLedger.spawned,
+    'tuning.powerUpLedger.spawned',
+    (report) => report.tuning.powerUpLedger.spawned,
   ),
   scalarReading(
-    'tuning.dropLedger.swallowed',
-    (report) => report.tuning.dropLedger.swallowed,
+    'tuning.powerUpLedger.swallowed',
+    (report) => report.tuning.powerUpLedger.swallowed,
   ),
   scalarReading(
-    'tuning.dropLedger.passed',
-    (report) => report.tuning.dropLedger.passed,
+    'tuning.powerUpLedger.passed',
+    (report) => report.tuning.powerUpLedger.passed,
   ),
   scalarReading(
-    'tuning.dropLedger.lost',
-    (report) => report.tuning.dropLedger.lost,
+    'tuning.powerUpLedger.lost',
+    (report) => report.tuning.powerUpLedger.lost,
   ),
   scalarReading(
-    'tuning.dropLedger.onFieldAtStop',
-    (report) => report.tuning.dropLedger.onFieldAtStop,
+    'tuning.powerUpLedger.onFieldAtStop',
+    (report) => report.tuning.powerUpLedger.onFieldAtStop,
   ),
-  namedNumbersReading('tuning.dropLedger.byLine', (report) =>
-    ledgerByLineNumbers(report.tuning.dropLedger.byLine),
+  namedNumbersReading('tuning.powerUpLedger.byLine', (report) =>
+    ledgerByLineNumbers(report.tuning.powerUpLedger.byLine),
   ),
   // A list and never a series: the rows are one entry per offer the run stood,
   // and two runs that stood a different number of offers have no index to pair.
@@ -576,8 +576,8 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.upfieldTraffic.lateralReach',
     (report) => report.tuning.upfieldTraffic.lateralReach,
   ),
-  // A list and never a series: the spans are one entry per phase crossed, and
-  // two runs that crossed a different number of phases have no index to pair.
+  // A list and never a series: the spans are one entry per section crossed, and
+  // two runs that crossed a different number of sections have no index to pair.
   // The count is how far through the stage each side reached.
   listReading(
     'tuning.sectionTimeline.spans',

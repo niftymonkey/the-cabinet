@@ -163,7 +163,7 @@ const checkPatchesNoNaN = (state: RunState, faults: Fault[]): void => {
  */
 const checkBossNoNaN = (state: RunState, faults: Fault[]): void => {
   const boss = state.boss;
-  checkFinite(faults, 'boss.chunk', boss?.chunk ?? 0);
+  checkFinite(faults, 'boss.phaseIndex', boss?.phaseIndex ?? 0);
   checkFinite(faults, 'boss.hp', boss?.hp ?? 0);
   checkFinite(faults, 'boss.x', boss?.x ?? 0);
   checkFinite(faults, 'boss.y', boss?.y ?? 0);
@@ -182,14 +182,14 @@ const checkSetPieceNoNaN = (state: RunState, faults: Fault[]): void => {
 
 // The stage cursor's three counters.
 const checkStageNoNaN = (state: RunState, faults: Fault[]): void => {
-  checkFinite(faults, 'stage.phaseIndex', state.stage.phaseIndex);
-  checkFinite(faults, 'stage.phaseTick', state.stage.phaseTick);
-  checkFinite(faults, 'stage.firedRows', state.stage.firedRows);
+  checkFinite(faults, 'stage.sectionIndex', state.stage.sectionIndex);
+  checkFinite(faults, 'stage.sectionTick', state.stage.sectionTick);
+  checkFinite(faults, 'stage.firedWaves', state.stage.firedWaves);
 };
 
 /**
  * The four weapon levels. The name is joined only on the failing branch, per
- * the discipline above; routing through checkFinite would build the template
+ * the discipline above; routing through checkFinite would build the formation
  * string on every pass.
  */
 const checkLevelsNoNaN = (state: RunState, faults: Fault[]): void => {
@@ -204,7 +204,7 @@ const checkLevelsNoNaN = (state: RunState, faults: Fault[]): void => {
 // The four stream cursors, each a getter over a closure counter (rng.ts).
 const checkStreamsNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'streams.spawns.drawn', state.streams.spawns.drawn);
-  checkFinite(faults, 'streams.drops.drawn', state.streams.drops.drawn);
+  checkFinite(faults, 'streams.powerUps.drawn', state.streams.powerUps.drawn);
   checkFinite(faults, 'streams.mobFire.drawn', state.streams.mobFire.drawn);
   checkFinite(faults, 'streams.shed.drawn', state.streams.shed.drawn);
   checkFinite(faults, 'streams.territory.drawn', state.streams.territory.drawn);
@@ -485,12 +485,12 @@ const checkRing = (state: RunState, faults: Fault[]): void => {
 const checkOneLiveOffer = (state: RunState, faults: Fault[]): void => {
   const ids = state.offer?.bodyIds ?? [];
   for (const corpse of state.corpses) {
-    if (!corpse.alive || corpse.kind !== 'drop') continue;
+    if (!corpse.alive || corpse.kind !== 'powerUp') continue;
     if (corpse.line === undefined || ids.includes(corpse.id)) continue;
     record(
       faults,
       'one live offer',
-      `drop ${corpse.id} carries ${corpse.line} for no live offer`,
+      `power-up ${corpse.id} carries ${corpse.line} for no live offer`,
     );
   }
 };
@@ -616,9 +616,9 @@ const checkFreshness = (state: RunState, faults: Fault[]): void => {
 };
 
 // One reading of the stage cursor, as the last passing check saw it.
-interface StagePhase {
-  readonly phaseIndex: number;
-  readonly phaseTick: number;
+interface StageSection {
+  readonly sectionIndex: number;
+  readonly sectionTick: number;
 }
 
 /**
@@ -631,27 +631,27 @@ interface StagePhase {
  * every caller got correct stage history without knowing the mechanism existed.
  * Execution is held by a pooled screen, so the lifetime is now somebody's job.
  * RunState is the wrong home for the other reason: ADR 0019 widens the witness
- * fold, so what lives there is what a replay is checked against, and a phase
+ * fold, so what lives there is what a replay is checked against, and a section
  * watch is neither the run's identity nor something the rules mutate.
  */
 interface StageWatch {
   // Null before the first check, which has nothing to compare against.
-  seen: StagePhase | null;
+  seen: StageSection | null;
   /**
-   * The boss the last check saw, by id and chunk, or null when no boss stood.
+   * The boss the last check saw, by id and phase, or null when no boss stood.
    *
-   * The id is in here and not only the chunk, because two bosses run in one
-   * run: the second arrives at chunk zero long after the first died at its
-   * last, and a memory of the chunk alone would read that arrival as the index
+   * The id is in here and not only the phase, because two bosses run in one
+   * run: the second arrives at phase zero long after the first died at its
+   * last, and a memory of the phase alone would read that arrival as the index
    * going backwards.
    */
-  seenBoss: BossChunk | null;
+  seenBoss: BossPhase | null;
 }
 
 // One reading of the boss on the field, as the last passing check saw it.
-interface BossChunk {
+interface BossPhase {
   readonly id: number;
-  readonly chunk: number;
+  readonly phaseIndex: number;
 }
 
 const createStageWatch = (): StageWatch => {
@@ -659,14 +659,14 @@ const createStageWatch = (): StageWatch => {
 };
 
 /**
- * A boss's chunk only ever increases (ADR 0007, ADR 0052): the fight gets
- * there across chunks, and a chunk that came back is a pattern the player has
+ * A boss's phase only ever increases (ADR 0007, ADR 0052): the fight gets
+ * there across phases, and a phase that came back is a pattern the player has
  * already beaten being played at them again.
  *
  * It is recorded only against the same boss. An empty field clears the memory,
- * which is what makes the next boss's chunk zero an arrival rather than a fall.
+ * which is what makes the next boss's phase zero an arrival rather than a fall.
  */
-const checkBossChunk = (
+const checkBossPhase = (
   state: RunState,
   watch: StageWatch,
   faults: Fault[],
@@ -677,15 +677,19 @@ const checkBossChunk = (
     return;
   }
   const seen = watch.seenBoss;
-  if (seen !== null && seen.id === boss.id && boss.chunk < seen.chunk) {
+  if (
+    seen !== null &&
+    seen.id === boss.id &&
+    boss.phaseIndex < seen.phaseIndex
+  ) {
     record(
       faults,
-      'boss chunk only increases',
-      `the ${boss.kind} went from chunk ${seen.chunk} to ${boss.chunk}`,
+      'boss phase only increases',
+      `the ${boss.kind} went from phase ${seen.phaseIndex} to ${boss.phaseIndex}`,
     );
     return;
   }
-  watch.seenBoss = { id: boss.id, chunk: boss.chunk };
+  watch.seenBoss = { id: boss.id, phaseIndex: boss.phaseIndex };
 };
 
 /**
@@ -732,7 +736,7 @@ const checkSetPieceBody = (state: RunState, faults: Fault[]): void => {
 };
 
 /**
- * The phase index only ever increases, and the phase-local tick resets at a
+ * The section index only ever increases, and the section-local tick resets at a
  * boundary. The tick is read after the step has already advanced it, so a reset
  * shows as a tick of one rather than of zero.
  */
@@ -742,31 +746,31 @@ const checkStage = (
   faults: Fault[],
 ): void => {
   const { seen } = watch;
-  const now: StagePhase = {
-    phaseIndex: state.stage.phaseIndex,
-    phaseTick: state.stage.phaseTick,
+  const now: StageSection = {
+    sectionIndex: state.stage.sectionIndex,
+    sectionTick: state.stage.sectionTick,
   };
   let passed = true;
   if (seen !== null) {
-    if (now.phaseIndex < seen.phaseIndex) {
+    if (now.sectionIndex < seen.sectionIndex) {
       record(
         faults,
-        'phase index only increases',
-        `phase went from ${seen.phaseIndex} to ${now.phaseIndex}`,
+        'section index only increases',
+        `section went from ${seen.sectionIndex} to ${now.sectionIndex}`,
       );
       passed = false;
     }
-    if (now.phaseIndex > seen.phaseIndex && now.phaseTick > 1) {
+    if (now.sectionIndex > seen.sectionIndex && now.sectionTick > 1) {
       record(
         faults,
-        'phase tick resets at a boundary',
-        `phase tick is ${now.phaseTick} on the tick the phase changed`,
+        'section tick resets at a boundary',
+        `section tick is ${now.sectionTick} on the tick the section changed`,
       );
       passed = false;
     }
   }
   // Recorded only once both checks pass. Recording first means a recorded
-  // failure leaves the rejected phase in the watch, so the next check on the
+  // failure leaves the rejected section in the watch, so the next check on the
   // same run compares against it and reports the broken state as healthy.
   if (passed) watch.seen = now;
 };
@@ -801,8 +805,8 @@ const checkStage = (
  * to be here.
  *
  * The watch is a required parameter and never an optional one. Made optional,
- * the direct call sites would silently stop checking phase monotonicity and
- * phase-tick reset, and the tests that exist precisely to exercise the watch
+ * the direct call sites would silently stop checking section monotonicity and
+ * section-tick reset, and the tests that exist precisely to exercise the watch
  * would go green while checking nothing.
  */
 const checkInvariants = (
@@ -834,7 +838,7 @@ const checkInvariants = (
   checkSetPieceBudget(state, faults);
   checkSetPieceBody(state, faults);
   checkStage(state, watch, faults);
-  checkBossChunk(state, watch, faults);
+  checkBossPhase(state, watch, faults);
   return faults;
 };
 

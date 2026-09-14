@@ -16,9 +16,9 @@ import {
   CORPSE_HALF_EXTENT,
   corpseHitbox,
   cullCorpses,
-  DROP_HALF_EXTENT,
+  POWER_UP_HALF_EXTENT,
   spawnCorpse,
-  spawnDrop,
+  spawnPowerUp,
   spawnFeast,
 } from '../corpses';
 import type { TickCommand } from '../command';
@@ -29,8 +29,8 @@ import { damageMob, MOB_TYPES, spawnMob } from '../mobs';
 import { openOffer } from '../offer';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { PROCESSION_ROWS } from '../stage/rows';
-import { PHASES } from '../stage/stage';
+import { PROCESSION_WAVES } from '../stage/waves';
+import { SECTIONS } from '../stage/stage';
 import { swallow } from '../swallow';
 import {
   FRESHNESS_PAYOUT_FLOOR,
@@ -47,7 +47,7 @@ const STILL: TickCommand = drift(0, 0);
 
 function quietRun(seed = 9): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   return run;
 }
 
@@ -279,70 +279,70 @@ describe('what a corpse shows and what it hides (tracer plan section 4)', () => 
   });
 });
 
-describe('a drop on the food pool (plan 6.9)', () => {
+describe('a power-up on the food pool (plan 6.9)', () => {
   it('is fully fresh, never decays, carries its line, and uses its own extent', () => {
     const state = quietRun();
-    spawnDrop(state, 200, 300, 'bell');
-    const drop = state.corpses.find((corpse) => corpse.alive)!;
-    expect(drop.kind).toBe('drop');
-    expect(drop.freshness).toBe(1);
-    expect(drop.decays).toBe(false);
-    expect(drop.line).toBe('bell');
-    expect(drop.halfExtent).toBe(DROP_HALF_EXTENT);
+    spawnPowerUp(state, 200, 300, 'bell');
+    const powerUp = state.corpses.find((corpse) => corpse.alive)!;
+    expect(powerUp.kind).toBe('powerUp');
+    expect(powerUp.freshness).toBe(1);
+    expect(powerUp.decays).toBe(false);
+    expect(powerUp.line).toBe('bell');
+    expect(powerUp.halfExtent).toBe(POWER_UP_HALF_EXTENT);
   });
 
   it("never decays, and the bottom edge measures it by its own extent rather than a corpse's", () => {
     const state = quietRun();
-    spawnDrop(state, 200, 300, 'wisps');
-    const drop = state.corpses.find((corpse) => corpse.alive)!;
+    spawnPowerUp(state, 200, 300, 'wisps');
+    const powerUp = state.corpses.find((corpse) => corpse.alive)!;
 
     for (let tick = 0; tick < 2 * FRESHNESS_SECONDS * TICK_HZ; tick++) {
       advanceCorpses(state);
     }
-    expect(drop.freshness).toBe(1);
-    expect(drop.alive).toBe(true);
+    expect(powerUp.freshness).toBe(1);
+    expect(powerUp.alive).toBe(true);
 
-    // A drop is one unit larger than a corpse, so at the depth a corpse has
-    // already gone the drop's own top edge is still on the field. The two
+    // A power-up is one unit larger than a corpse, so at the depth a corpse has
+    // already gone the power-up's own top edge is still on the field. The two
     // standing at the same y is the whole test: no single extent can send them
     // different ways, so the cull is reading each record's own.
     leaveCorpse(state, killAt(state, 'shambler', 240, 300));
     const corpse = state.corpses.find((each) => each.kind === 'corpse')!;
-    drop.y = FIELD_HEIGHT + DROP_HALF_EXTENT;
-    corpse.y = FIELD_HEIGHT + DROP_HALF_EXTENT;
+    powerUp.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT;
+    corpse.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT;
 
     const first = cullCorpses(state);
-    expect(drop.alive).toBe(true);
+    expect(powerUp.alive).toBe(true);
     expect(corpse.alive).toBe(false);
     expect(first).toHaveLength(1);
     expect(first[0]).toEqual({
       type: 'corpseLost',
       kind: 'corpse',
       x: 240,
-      y: FIELD_HEIGHT + DROP_HALF_EXTENT,
+      y: FIELD_HEIGHT + POWER_UP_HALF_EXTENT,
       freshness: 1,
     });
 
-    drop.y = FIELD_HEIGHT + DROP_HALF_EXTENT + 0.5;
+    powerUp.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT + 0.5;
     const second = cullCorpses(state);
-    expect(drop.alive).toBe(false);
+    expect(powerUp.alive).toBe(false);
     expect(second).toEqual([
       {
         type: 'corpseLost',
-        kind: 'drop',
+        kind: 'powerUp',
         x: 200,
-        y: FIELD_HEIGHT + DROP_HALF_EXTENT + 0.5,
+        y: FIELD_HEIGHT + POWER_UP_HALF_EXTENT + 0.5,
         freshness: 1,
       },
     ]);
   });
 
-  it("emits dropSpawned with the line and the place, which is the drops instrument's denominator", () => {
+  it("emits powerUpSpawned with the line and the place, which is the power-ups instrument's denominator", () => {
     const state = quietRun();
-    const events = spawnDrop(state, 210, 320, 'skullStream');
+    const events = spawnPowerUp(state, 210, 320, 'skullStream');
     const body = state.corpses.find((corpse) => corpse.alive)!;
     expect(events).toContainEqual({
-      type: 'dropSpawned',
+      type: 'powerUpSpawned',
       id: body.id,
       line: 'skullStream',
       x: 210,
@@ -350,9 +350,9 @@ describe('a drop on the food pool (plan 6.9)', () => {
     });
     // The body a maxed run's carrier opens carries no option at all, and the
     // spawn reports it that way rather than naming a line nobody chose.
-    const optionless = spawnDrop(state, 240, 320);
+    const optionless = spawnPowerUp(state, 240, 320);
     expect(
-      optionless.find((event) => event.type === 'dropSpawned')!.line,
+      optionless.find((event) => event.type === 'powerUpSpawned')!.line,
     ).toBeUndefined();
   });
 });
@@ -382,13 +382,15 @@ describe('what takes food off the field (ADR 0056)', () => {
     // It is stood in the Crowd rather than at the Procession's own end, and the
     // traffic is the point: the cap can only bind while something is still
     // trying to put a corpse down. A run standing at the Procession's end used
-    // to roll straight into the Crowd's rows and get its traffic by accident;
-    // the Banshee's phase stands between the two now and holds a run that
+    // to roll straight into the Crowd's waves and get its traffic by accident;
+    // the Banshee's section stands between the two now and holds a run that
     // cannot kill her (ADR 0007), so the section this test has always been
     // played on is named outright.
     const state = quietRun(4);
-    state.stage.phaseIndex = PHASES.findIndex((each) => each.name === 'crowd');
-    state.stage.firedRows = 0;
+    state.stage.sectionIndex = SECTIONS.findIndex(
+      (each) => each.name === 'crowd',
+    );
+    state.stage.firedWaves = 0;
     const execution = createExecution(state);
     // Half up the grave's own column, so the scroll walks them into the mouth,
     // and half low and off to the side, where they reach the bottom edge with
@@ -445,19 +447,19 @@ describe('what takes food off the field (ADR 0056)', () => {
 });
 
 describe('what a lost corpse reports (plan 6.9)', () => {
-  it("carries the food's kind, so a scrolled-away drop is not counted as a missed corpse", () => {
+  it("carries the food's kind, so a scrolled-away power-up is not counted as a missed corpse", () => {
     const state = quietRun();
     const step = stepping(state);
     // Opened as a real offer rather than as a bare body, because an option
     // body standing for no live offer is a fault the harness records.
     openOffer(state, 200, FIELD_HEIGHT - 2);
     const events: SimEvent[] = [];
-    const drop = state.corpses.find((corpse) => corpse.alive)!;
-    while (drop.alive && state.tick < 200) {
+    const powerUp = state.corpses.find((corpse) => corpse.alive)!;
+    while (powerUp.alive && state.tick < 200) {
       events.push(...step(STILL));
     }
     const lost = events.find((event) => event.type === 'corpseLost');
     expect(lost).toBeDefined();
-    expect(lost?.type === 'corpseLost' && lost.kind).toBe('drop');
+    expect(lost?.type === 'corpseLost' && lost.kind).toBe('powerUp');
   });
 });

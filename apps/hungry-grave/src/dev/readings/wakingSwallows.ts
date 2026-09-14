@@ -11,8 +11,8 @@ import type { SimEvent } from '../../game/events';
  *
  * The bounds are the observer's own tick count rather than a tick the events
  * carry, because setPieceOpened and setPieceClosed carry none. That puts them
- * one tick ahead of the section timeline's phase bounds, which read the sim's
- * clock off phaseChanged, so the two are not subtracted from each other.
+ * one tick ahead of the section timeline's section bounds, which read the sim's
+ * clock off sectionChanged, so the two are not subtracted from each other.
  */
 interface WakingSpan {
   /**
@@ -57,7 +57,7 @@ const createWakingSwallows = (): WakingSwallowsAcc => ({ span: null });
  * One tick of the pour. The source is placed once and closes once (`stage.ts`
  * places it only while none stands), so a second opening would be a second
  * Waking and this reading counts the first: the span it holds is the one the
- * phase table's own boundary events bound, and it names which source that was
+ * section table's own boundary events bound, and it names which source that was
  * rather than leaving a later reader to assume there was only ever one.
  */
 const observeWakingSwallows = (

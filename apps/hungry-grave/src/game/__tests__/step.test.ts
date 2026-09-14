@@ -6,7 +6,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { stepping } from '../../dev/stepping';
-import { spawnBoss } from '../bosses/chunks';
+import { spawnBoss } from '../bosses/phases';
 import { spawnCorpse } from '../corpses';
 import type { SimEvent } from '../events';
 import { graveHitbox } from '../grave';
@@ -16,7 +16,7 @@ import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { PROCESSION_ROWS } from '../stage/rows';
+import { PROCESSION_WAVES } from '../stage/waves';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
 import { MAX_LEVEL } from '../lines/roster';
 import {
@@ -79,7 +79,7 @@ function snapshot(run: RunState) {
     },
     drawn: {
       spawns: run.streams.spawns.drawn,
-      drops: run.streams.drops.drawn,
+      powerUps: run.streams.powerUps.drawn,
       mobFire: run.streams.mobFire.drawn,
       shed: run.streams.shed.drawn,
     },
@@ -199,7 +199,7 @@ describe('the sim seam', () => {
 /** A run whose stage will not spawn on top of the one entity a test placed. */
 function quietRun(seed = 21): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   return run;
 }
 
@@ -237,7 +237,7 @@ function insideTheField(state: RunState): Mob {
 }
 
 /**
- * A body straddling the top edge, which is where every template places one. Its
+ * A body straddling the top edge, which is where every formation places one. Its
  * top edge is outside the field, so it has not entered and its beat has not
  * started.
  */
@@ -580,7 +580,7 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
     above.beat = 0;
     above.hp = 1;
 
-    // The skull launches at the mouth this tick and the deaths phase runs after
+    // The skull launches at the mouth this tick and the deaths section runs after
     // it, so a mob standing on the mouth dies on the launch tick.
     const events = step(STILL);
     expect(typesOf(events)).toContain('mobKilled');
@@ -608,7 +608,7 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
     victim.hp = 1;
 
     // The deaths pass walks the tick's whole accumulated list of kills, and
-    // the bell resolves two phases before it, so a carrier the toll killed
+    // the bell resolves two sections before it, so a carrier the toll killed
     // pays exactly as one the overlap pass killed does.
     let killed = 0;
     let paid = 0;

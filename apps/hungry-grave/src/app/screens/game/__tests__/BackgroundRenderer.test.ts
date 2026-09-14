@@ -12,9 +12,9 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
 import { advanceTerritory } from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
-import { SET_PIECE_HALF_WIDTH } from '../../../../game/stage/rows';
+import { SET_PIECE_HALF_WIDTH } from '../../../../game/stage/waves';
 import type { SetPiece } from '../../../../game/stage/setPiece';
-import { PHASES } from '../../../../game/stage/stage';
+import { SECTIONS } from '../../../../game/stage/stage';
 import { PALETTE } from '../../../palette';
 import type { BackgroundProps } from '../BackgroundRenderer';
 import {
@@ -65,12 +65,16 @@ function attached(props: BackgroundProps = artStub()): {
   return { layers, renderer };
 }
 
-/** A run standing in one phase of the table, at a chosen tick inside it. */
-function runInPhase(phase: string, tick: number, phaseTick: number): RunState {
+/** A run standing in one section of the table, at a chosen tick inside it. */
+function runInSection(
+  section: string,
+  tick: number,
+  sectionTick: number,
+): RunState {
   const run = createRun(19);
   run.tick = tick;
-  run.stage.phaseIndex = PHASES.findIndex((each) => each.name === phase);
-  run.stage.phaseTick = phaseTick;
+  run.stage.sectionIndex = SECTIONS.findIndex((each) => each.name === section);
+  run.stage.sectionTick = sectionTick;
   return run;
 }
 
@@ -90,7 +94,7 @@ function drawnEyeWidth(): number {
   );
   if (index === undefined) throw new Error('the Crowd places no eye dressing');
   const { layers, renderer } = attached();
-  renderer.sync(runInPhase('crowd', index * DRESSING_INTERVAL_TICKS, 1e6));
+  renderer.sync(runInSection('crowd', index * DRESSING_INTERVAL_TICKS, 1e6));
   const eye = dressing(layers)[0];
   if (eye === undefined) throw new Error('the ground layer holds no dressing');
   return eye.width;
@@ -156,9 +160,9 @@ describe('the stand-in ground (module 105)', () => {
 
     const { layers, renderer } = attached();
     const floor = layers.layer('ground').children[0] as TilingSprite;
-    renderer.sync(runInPhase('procession', 0, 0));
+    renderer.sync(runInSection('procession', 0, 0));
     const from = floor.tilePosition.y;
-    renderer.sync(runInPhase('procession', ticks, ticks));
+    renderer.sync(runInSection('procession', ticks, ticks));
     expect(floor.tilePosition.y - from).toBeCloseTo(patchFell, 6);
   });
 
@@ -169,7 +173,7 @@ describe('the stand-in ground (module 105)', () => {
     // import bakes from an authored layout of those cells.
     const stub = artStub();
     const { renderer } = attached(stub);
-    renderer.sync(runInPhase('procession', 600, 600));
+    renderer.sync(runInSection('procession', 600, 600));
     expect(stub.asked).toContain(GROUND_FLOOR.alias);
     expect(stub.asked.filter((alias) => alias.includes('tiles'))).toEqual([]);
   });
@@ -192,7 +196,7 @@ describe('the stand-in ground (module 105)', () => {
     // the crossing is the tallest piece's and a short one leaves earlier.
     const { layers, renderer } = attached();
     for (const tick of [12000, 26000, 40000]) {
-      renderer.sync(runInPhase('crowd', tick, tick));
+      renderer.sync(runInSection('crowd', tick, tick));
       const showing = dressing(layers).filter(
         (sprite) => sprite.visible,
       ).length;
@@ -206,10 +210,10 @@ describe('the stand-in ground (module 105)', () => {
     // depended on which frames had been drawn on the way there would put its
     // statues somewhere else in the recording than it did in the run.
     const straight = attached();
-    straight.renderer.sync(runInPhase('procession', 4000, 4000));
+    straight.renderer.sync(runInSection('procession', 4000, 4000));
     const walked = attached();
     for (const tick of [10, 900, 2500, 3999, 4000]) {
-      walked.renderer.sync(runInPhase('procession', tick, tick));
+      walked.renderer.sync(runInSection('procession', tick, tick));
     }
     // What is drawn, and never what a hidden slot happens to still be wearing:
     // a slot off the bottom edge keeps the last placement it carried, which no
@@ -229,7 +233,7 @@ describe('the stand-in ground (module 105)', () => {
     // The stream reaches back before the run's first tick, so the Procession
     // does not open on bare rock for the whole of a drift window.
     const { layers, renderer } = attached();
-    renderer.sync(runInPhase('procession', 0, 0));
+    renderer.sync(runInSection('procession', 0, 0));
     const showing = dressing(layers).filter((sprite) => sprite.visible);
     expect(showing.length).toBeGreaterThan(1);
     expect(tintsShowing(layers)).toEqual(
@@ -239,7 +243,7 @@ describe('the stand-in ground (module 105)', () => {
 
   it('keeps every placement inside the field it drifts down', () => {
     const { layers, renderer } = attached();
-    renderer.sync(runInPhase('crowd', 5000, 5000));
+    renderer.sync(runInSection('crowd', 5000, 5000));
     for (const sprite of dressing(layers)) {
       if (!sprite.visible) continue;
       expect(sprite.x - sprite.width / 2).toBeGreaterThanOrEqual(-0.001);
@@ -256,10 +260,10 @@ describe('the stand-in ground (module 105)', () => {
     const { layers, renderer } = attached({
       standInArt: (alias) => (answering ? stub.standInArt(alias) : null),
     });
-    renderer.sync(runInPhase('procession', 1200, 1200));
+    renderer.sync(runInSection('procession', 1200, 1200));
     expect(dressing(layers).filter((sprite) => sprite.visible)).toEqual([]);
     answering = true;
-    renderer.sync(runInPhase('procession', 1200, 1200));
+    renderer.sync(runInSection('procession', 1200, 1200));
     expect(
       dressing(layers).filter((sprite) => sprite.visible).length,
     ).toBeGreaterThan(0);
@@ -268,7 +272,7 @@ describe('the stand-in ground (module 105)', () => {
   it('draws its pixel art nearest-neighbour, per texture and never as a default', () => {
     const stub = artStub();
     const { renderer } = attached(stub);
-    renderer.sync(runInPhase('vigil', 3000, 3000));
+    renderer.sync(runInSection('vigil', 3000, 3000));
     const modes = stub.asked.map(
       (alias) => stub.standInArt(alias)?.source.scaleMode,
     );
@@ -286,28 +290,28 @@ describe('the drift between two sections (module 106)', () => {
     // The tick the Banshee died: everything on screen was placed by the
     // Procession and nothing has been placed by the Crowd yet.
     const died = 9001;
-    renderer.sync(runInPhase('crowd', died, 0));
+    renderer.sync(runInSection('crowd', died, 0));
     expect(tintsShowing(layers)).toEqual(new Set([outgoing]));
 
     // Mid-window: both families are on screen at once, which is the drift.
     const middle = Math.floor(DRIFT_WINDOW_TICKS / 2);
-    renderer.sync(runInPhase('crowd', died + middle, middle));
+    renderer.sync(runInSection('crowd', died + middle, middle));
     expect(tintsShowing(layers)).toEqual(new Set([outgoing, incoming]));
 
     // Past it: the last of the old has left the bottom edge.
     const past = DRIFT_WINDOW_TICKS + DRESSING_INTERVAL_TICKS;
-    renderer.sync(runInPhase('crowd', died + past, past));
+    renderer.sync(runInSection('crowd', died + past, past));
     expect(tintsShowing(layers)).toEqual(new Set([incoming]));
   });
 
   it('leaves the Banshee and the Waking in the section they end, so two changes fall in a run', () => {
     // Decision 22's amendment: no card, no cut, and the tint departure in the
     // last section. A boundary event wears the section it ends, so the ground
-    // turns over once per section rather than once per phase.
+    // turns over once per section rather than once per section.
     const { layers, renderer } = attached();
     const window = DRIFT_WINDOW_TICKS + DRESSING_INTERVAL_TICKS;
-    const wears = (phase: string) => {
-      renderer.sync(runInPhase(phase, 30000, window));
+    const wears = (section: string) => {
+      renderer.sync(runInSection(section, 30000, window));
       return tintsShowing(layers);
     };
     expect(wears('banshee')).toEqual(
@@ -323,7 +327,7 @@ describe('the drift between two sections (module 106)', () => {
 describe("the Waking's own source", () => {
   it('draws nothing while no source stands on the field', () => {
     const { layers, renderer } = attached();
-    renderer.sync(runInPhase('crowd', 100, 100));
+    renderer.sync(runInSection('crowd', 100, 100));
     const children = layers.layer('ground').children as Sprite[];
     expect(children.slice(-2).map((sprite) => sprite.visible)).toEqual([
       false,
@@ -336,7 +340,7 @@ describe("the Waking's own source", () => {
     // boundary event, so size is the whole of the stand-in answer to which eye
     // is going to wake (design record section 7).
     const { layers, renderer } = attached();
-    const run = runInPhase('waking', 20000, 200);
+    const run = runInSection('waking', 20000, 200);
     run.setPiece = sourceOnField({ x: 200, y: 380, open: false });
     renderer.sync(run);
     const children = layers.layer('ground').children as Sprite[];
@@ -363,7 +367,7 @@ describe("the Waking's own source", () => {
     // there is nothing left on the ground to draw. The view reads the fact off
     // the record and derives nothing from the health beside it.
     const { layers, renderer } = attached();
-    const run = runInPhase('waking', 20000, 200);
+    const run = runInSection('waking', 20000, 200);
     run.setPiece = { ...sourceOnField({ x: 270, y: 400, open: true }) };
     renderer.sync(run);
     const children = layers.layer('ground').children as Sprite[];
@@ -384,7 +388,7 @@ describe("the Waking's own source", () => {
 
   it('stands its dark companion out past its body, so it reads on the dressing as well as the tile', () => {
     const { layers, renderer } = attached();
-    const run = runInPhase('waking', 20000, 200);
+    const run = runInSection('waking', 20000, 200);
     run.setPiece = sourceOnField({ x: 270, y: 400, open: true });
     renderer.sync(run);
     const children = layers.layer('ground').children as Sprite[];

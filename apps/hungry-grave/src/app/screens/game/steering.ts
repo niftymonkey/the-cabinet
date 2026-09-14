@@ -45,7 +45,7 @@ const STEER_SLOP_STAGE_UNITS = 3;
 interface SteeringPowers {
   // Whether the button already owns this pointer, so a thumb that rolls off it does not drag the grave.
   claimsPointer(pointerId: number): boolean;
-  // Drops that claim, for a gesture the platform took away.
+  // Power-ups that claim, for a gesture the platform took away.
   releaseClaim(): void;
   // The canvas a gesture the platform took away is announced on.
   canvas(): HTMLCanvasElement | null;

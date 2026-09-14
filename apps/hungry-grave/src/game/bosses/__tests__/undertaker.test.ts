@@ -1,9 +1,9 @@
 /**
  * The Undertaker's own grammar (ADR 0007, ADR 0052, game-concept.md:70): three
- * chunks of falling clod curtains, a slow shovel arm and the bodies it digs up,
+ * phases of falling clod curtains, a slow shovel arm and the bodies it digs up,
  * and the two locked together in the last one.
  *
- * The machine he stands on is chunks.ts's and is tested there. What is here is
+ * The machine he stands on is phases.ts's and is tested there. What is here is
  * his: the curtains, the gap rule, the arm, the diggers, and the overlap.
  */
 
@@ -27,17 +27,17 @@ import type { Mob } from '../../mobs';
 import { damageMob, MOB_TYPES } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
-import { PHASES } from '../../stage/stage';
+import { SECTIONS } from '../../stage/stage';
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../../tuning';
 import { stepping } from '../../../dev/stepping';
-import type { Boss } from '../chunks';
+import type { Boss } from '../phases';
 import {
-  bossChunks,
-  CHUNK_FLASH_TICKS,
-  CHUNK_HP,
+  bossPhases,
+  PHASE_FLASH_TICKS,
+  PHASE_HP,
   damageBoss,
   spawnBoss,
-} from '../chunks';
+} from '../phases';
 import {
   ARM_REACH,
   CURTAIN_ROWS,
@@ -65,8 +65,10 @@ const SEED = 20260908;
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
-/** The phase that carries him, so the fight is stood up where the stage puts it. */
-const HIS_PHASE = PHASES.findIndex((phase) => phase.boss === 'undertaker');
+/** The section that carries him, so the fight is stood up where the stage puts it. */
+const HIS_SECTION = SECTIONS.findIndex(
+  (section) => section.boss === 'undertaker',
+);
 
 /** A fight in progress: the run, the boss, and one tick of it at a time. */
 interface Fight {
@@ -85,29 +87,32 @@ interface Beat {
 }
 
 /**
- * A run standing in his own phase with him on the field.
+ * A run standing in his own section with him on the field.
  *
  * He is put there rather than reached through the stage: two sections and a
- * fight stand in front of the Vigil, and that his phase spawns him is
- * stage.ts's own test. His phase authors no rows, so everything that arrives on
+ * fight stand in front of the Vigil, and that his section spawns him is
+ * stage.ts's own test. His section authors no waves, so everything that arrives on
  * the field below is his.
  *
- * The grave is held immortal and the live chunk is held full, both for the same
+ * The grave is held immortal and the live phase is held full, both for the same
  * reason: these are tests about his patterns, and left alone a parked grave
- * under a curtain seals shut long before a chunk is over while the birthright
- * storm empties the chunk from under the pattern. What the storm takes off a
- * chunk is chunks.ts's and is tested there. The birthright cannot be switched
+ * under a curtain seals shut long before a phase is over while the birthright
+ * storm empties the phase from under the pattern. What the storm takes off a
+ * phase is phases.ts's and is tested there. The birthright cannot be switched
  * off instead: a run standing at level zero on its own birthright line is a
  * fatal invariant, which this rig found the honest way.
  */
 function atTheUndertaker(seed = SEED): Fight {
   const state = createRun(seed);
-  state.stage.phaseIndex = HIS_PHASE;
-  state.stage.phaseTick = 0;
-  state.stage.firedRows = 0;
+  state.stage.sectionIndex = HIS_SECTION;
+  state.stage.sectionTick = 0;
+  state.stage.firedWaves = 0;
   const step = stepping(state);
-  const hisPhase = requireDefined(PHASES[HIS_PHASE], 'HIS_PHASE out of range');
-  const boss = spawnBoss(state, hisPhase.boss!);
+  const hisSection = requireDefined(
+    SECTIONS[HIS_SECTION],
+    'HIS_SECTION out of range',
+  );
+  const boss = spawnBoss(state, hisSection.boss!);
   const tick = (): readonly SimEvent[] => {
     const held = state.grave.size;
     const events = step(STILL);
@@ -115,8 +120,8 @@ function atTheUndertaker(seed = SEED): Fight {
     state.ending = null;
     if (state.boss !== null) {
       state.boss.hp = requireDefined(
-        CHUNK_HP[state.boss.kind][state.boss.chunk],
-        'no chunk hp at that index',
+        PHASE_HP[state.boss.kind][state.boss.phaseIndex],
+        'no phase hp at that index',
       );
     }
     return events;
@@ -217,21 +222,21 @@ function armSweptIn(beats: readonly Beat[], at: number, boss: Boss): number {
   return boss.x + (shot.vx / SPIRAL_FIRE.shotSpeed) * ARM_REACH;
 }
 
-/** One chunk emptied, with the flash after it run down the way a tick does it. */
-function breakChunk(fight: Fight): void {
+/** One phase emptied, with the flash after it run down the way a tick does it. */
+function breakPhase(fight: Fight): void {
   const boss = fight.state.boss;
   if (boss === null) throw new Error('no boss is standing');
   damageBoss(fight.state, boss.hp, 'skullStream');
-  for (let tick = 0; tick < CHUNK_FLASH_TICKS; tick++) fight.tick();
+  for (let tick = 0; tick < PHASE_FLASH_TICKS; tick++) fight.tick();
 }
 
-/** The fight stood at the chunk asked for, with that chunk's clock at zero. */
-function atChunk(fight: Fight, chunk: number): Fight {
-  while ((fight.state.boss?.chunk ?? chunk) < chunk) breakChunk(fight);
+/** The fight stood at the phase asked for, with that phase's clock at zero. */
+function atPhase(fight: Fight, phase: number): Fight {
+  while ((fight.state.boss?.phaseIndex ?? phase) < phase) breakPhase(fight);
   return fight;
 }
 
-/** Every mob alive on the field, which in his phase is every body he dug up. */
+/** Every mob alive on the field, which in his section is every body he dug up. */
 function diggers(state: RunState): Mob[] {
   return state.mobs.filter((mob) => mob.alive);
 }
@@ -278,54 +283,54 @@ const FULL_BUILD_DAMAGE_PER_SECOND =
     (STREAM_INTERVAL / TICK_HZ) +
   BELL_DAMAGE_NEAR / (BELL_PERIOD / TICK_HZ);
 
-/** One full emit of a chunk: the longest cycle any pattern live in it runs. */
-function emitTicks(chunk: number): number {
+/** One full emit of a phase: the longest cycle any pattern live in it runs. */
+function emitTicks(phase: number): number {
   return Math.max(
-    CURTAIN_ROWS[chunk]?.period ?? 0,
-    SPIRAL_ROWS[chunk]?.period ?? 0,
+    CURTAIN_ROWS[phase]?.period ?? 0,
+    SPIRAL_ROWS[phase]?.period ?? 0,
   );
 }
 
-describe('the Undertaker fights in three chunks (ADR 0052)', () => {
-  it('runs three chunks, and his death pays nothing of its own', () => {
-    // ADR 0052: "it gets there across three chunks rather than across a bigger
-    // health bar". The chunk count is the length of his own health row and both
-    // pattern tables are the same length, so a fourth chunk is a row in three
+describe('the Undertaker fights in three phases (ADR 0052)', () => {
+  it('runs three phases, and his death pays nothing of its own', () => {
+    // ADR 0052: "it gets there across three phases rather than across a bigger
+    // health bar". The phase count is the length of his own health row and both
+    // pattern tables are the same length, so a fourth phase is a row in three
     // places rather than a number in one and a pattern nowhere.
-    expect(bossChunks('undertaker')).toBe(3);
-    expect(CHUNK_HP.undertaker).toHaveLength(3);
+    expect(bossPhases('undertaker')).toBe(3);
+    expect(PHASE_HP.undertaker).toHaveLength(3);
     expect(CURTAIN_ROWS).toHaveLength(3);
     expect(SPIRAL_ROWS).toHaveLength(3);
 
     const fight = atTheUndertaker();
     const events: SimEvent[] = [];
-    for (let chunk = 0; chunk < CHUNK_HP.undertaker.length; chunk++) {
+    for (let phase = 0; phase < PHASE_HP.undertaker.length; phase++) {
       const boss = fight.state.boss!;
       events.push(...damageBoss(fight.state, boss.hp, 'skullStream'));
-      for (let tick = 0; tick < CHUNK_FLASH_TICKS; tick++) fight.tick();
+      for (let tick = 0; tick < PHASE_FLASH_TICKS; tick++) fight.tick();
     }
 
-    expect(only(events, 'chunkBroke').map((event) => event.chunk)).toEqual([
-      1, 2,
-    ]);
+    expect(only(events, 'phaseBroke').map((event) => event.phaseIndex)).toEqual(
+      [1, 2],
+    );
     expect(only(events, 'bossKilled').map((event) => event.boss)).toEqual([
       'undertaker',
     ]);
     expect(fight.state.boss).toBeNull();
 
     // game-concept.md:70: "no payout, the grave swallows the gravedigger." So
-    // what stands on the field is the two chunk breaks' feasts and nothing the
+    // what stands on the field is the two phase breaks' feasts and nothing the
     // death itself added; the ending is the stage's and lands with victory.
     expect(fight.state.corpses.filter((corpse) => corpse.alive)).toHaveLength(
       2,
     );
   });
 
-  it('makes the last chunk his two shapes at once rather than a new one', () => {
+  it('makes the last phase his two shapes at once rather than a new one', () => {
     // ADR 0052: "a new authored pattern inside the Undertaker's own grammar of
     // falling curtains and slow spirals, so the grammar stays exclusive to
     // him." The novelty is the locking, and the tables say so: the burial has
-    // the curtain, the exhumation the arm, and the last chunk both.
+    // the curtain, the exhumation the arm, and the last phase both.
     expect(CURTAIN_ROWS.map((row) => row !== null)).toEqual([
       true,
       false,
@@ -333,11 +338,11 @@ describe('the Undertaker fights in three chunks (ADR 0052)', () => {
     ]);
     expect(SPIRAL_ROWS.map((row) => row !== null)).toEqual([false, true, true]);
 
-    // Read off the field rather than off the tables: what each chunk actually
+    // Read off the field rather than off the tables: what each phase actually
     // puts up is one shape, then the other, then both.
-    const shapesOf = (chunk: number): string[] => {
-      const fight = atChunk(atTheUndertaker(), chunk);
-      const beats = play(fight, emitTicks(chunk) + 1);
+    const shapesOf = (phase: number): string[] => {
+      const fight = atPhase(atTheUndertaker(), phase);
+      const beats = play(fight, emitTicks(phase) + 1);
       const kinds = new Set(
         beats.flatMap((beat) =>
           only(beat.events, 'mobFired').map((event) => event.kind),
@@ -376,22 +381,22 @@ describe("the curtain's way through always fits the grave (ADR 0003)", () => {
     );
   });
 
-  it('never throws a wall: every curtain of every chunk has a way through', () => {
+  it('never throws a wall: every curtain of every phase has a way through', () => {
     // game-concept.md:70's "never a wall", against the danmaku definition the
-    // research quotes: a formation the player cannot move through. Both chunks
+    // research quotes: a formation the player cannot move through. Both phases
     // that throw one are measured, at both ends of the size range and at the
     // size a run starts on.
     for (const size of [SIZE_FLOOR, SIZE_START, SIZE_CEILING]) {
-      for (const chunk of [0, 2]) {
-        const fight = atChunk(atTheUndertaker(), chunk);
+      for (const phase of [0, 2]) {
+        const fight = atPhase(atTheUndertaker(), phase);
         fight.state.grave.size = size;
-        const row = CURTAIN_ROWS[chunk]!;
+        const row = CURTAIN_ROWS[phase]!;
         const curtains = curtainsIn(play(fight, row.period * 6 + 1));
 
         expect(curtains.length).toBeGreaterThan(3);
         for (const curtain of curtains) {
           const way = wayThrough(curtain);
-          const named = `chunk ${chunk} at ${size}, curtain ${curtain.at}`;
+          const named = `phase ${phase} at ${size}, curtain ${curtain.at}`;
           expect(`${named}: ${way.width >= curtainGap(size)}`).toBe(
             `${named}: true`,
           );
@@ -470,12 +475,12 @@ describe("the curtain's way through always fits the grave (ADR 0003)", () => {
 });
 
 describe('the exhumation and its diggers (game-concept.md:70, ADR 0007)', () => {
-  it('digs up trash in the second chunk, and it leaves an ordinary corpse', () => {
+  it('digs up trash in the second phase, and it leaves an ordinary corpse', () => {
     // game-concept.md:70: "summoned digger zombies, which are base trash
     // respawned by the boss (no new mob budget)", and CONTEXT.md's adds rule:
     // normal pushback, normal corpses. So a digger is a member of the ordinary
     // mob pool carrying the ordinary row, and no type is minted for the fight.
-    const fight = atChunk(atTheUndertaker(), 1);
+    const fight = atPhase(atTheUndertaker(), 1);
     const row = SPIRAL_ROWS[1]!;
     expect(diggers(fight.state)).toEqual([]);
 
@@ -488,7 +493,7 @@ describe('the exhumation and its diggers (game-concept.md:70, ADR 0007)', () => 
 
     // Killed the ordinary way, it pays its own row's payout and lands as food
     // the same as anything the timeline authored. It is told apart from the
-    // chunk break's feast by id, because a break has already shed one.
+    // phase break's feast by id, because a break has already shed one.
     const standing = new Set(
       fight.state.corpses.filter((each) => each.alive).map((each) => each.id),
     );
@@ -513,11 +518,11 @@ describe('the exhumation and its diggers (game-concept.md:70, ADR 0007)', () => 
     expect(diggers(fight.state).length).toBeGreaterThanOrEqual(3);
   });
 
-  it('keeps digging through the last chunk', () => {
+  it('keeps digging through the last phase', () => {
     // The design record's "last, not middle, and the reason is food": a final
-    // chunk that dropped the diggers would end the game on its only foodless
-    // stretch, and ADR 0007's shed-food promise runs to the last chunk.
-    const fight = atChunk(atTheUndertaker(), 2);
+    // phase that dropped the diggers would end the game on its only foodless
+    // stretch, and ADR 0007's shed-food promise runs to the last phase.
+    const fight = atPhase(atTheUndertaker(), 2);
     const row = SPIRAL_ROWS[2]!;
     play(fight, row.diggerEvery * 3 + 1);
     expect(diggers(fight.state).length).toBeGreaterThanOrEqual(3);
@@ -528,7 +533,7 @@ describe('the locked overlap (decision 26)', () => {
   it('runs both patterns at once on a thinner curtain than the burial threw', () => {
     // The design record's Yuyuko trade: the shipped precedent buys simultaneity
     // by cutting density, and cutting it here also protects the never-a-wall
-    // rule and the gap rule. So the last chunk's curtain is thinner than the
+    // rule and the gap rule. So the last phase's curtain is thinner than the
     // first's, never denser, and the table and the field agree on it.
     expect(CURTAIN_ROWS[2]!.clods).toBeLessThan(CURTAIN_ROWS[0]!.clods);
 
@@ -537,25 +542,25 @@ describe('the locked overlap (decision 26)', () => {
       'no curtain fell',
     );
     const beats = play(
-      atChunk(atTheUndertaker(), 2),
+      atPhase(atTheUndertaker(), 2),
       CURTAIN_ROWS[2]!.period + 1,
     );
 
     expect(
       requireDefined(curtainsIn(beats)[0], 'no curtain fell').xs.length,
     ).toBeLessThan(burial.xs.length);
-    // Both at once is the chunk: the arm turns through the same window the
+    // Both at once is the phase: the arm turns through the same window the
     // curtain falls in.
     expect(
       beats.flatMap((beat) => firedOf(beat.events, 'spiral')).length,
     ).toBeGreaterThan(0);
   });
 
-  it("opens the last chunk's curtain where the arm has just swept", () => {
+  it("opens the last phase's curtain where the arm has just swept", () => {
     // decision 26: "the safe place is the place the arm has already been." The
     // opening is read off the clods and the arm off the shot it left behind, so
     // what is held is that the two agree on the field rather than in the code.
-    const fight = atChunk(atTheUndertaker(), 2);
+    const fight = atPhase(atTheUndertaker(), 2);
     const beats = play(fight, CURTAIN_ROWS[2]!.period + 1);
     const curtain = requireDefined(curtainsIn(beats)[0], 'no curtain fell');
     const way = wayThrough(curtain);
@@ -576,12 +581,12 @@ describe('the locked overlap (decision 26)', () => {
     ).toBeGreaterThan(tolerance);
   });
 
-  it('holds the two emitters in phase for the whole chunk', () => {
+  it('holds the two emitters in section for the whole phase', () => {
     // Both read the one pattern clock, so the opening cannot drift off the arm
-    // part-way through a chunk: a lag that accumulated would leave the last
+    // part-way through a phase: a lag that accumulated would leave the last
     // curtains opening nowhere in particular, which is exactly how a legible
     // twist becomes a random gap in a busier screen.
-    const fight = atChunk(atTheUndertaker(), 2);
+    const fight = atPhase(atTheUndertaker(), 2);
     const row = CURTAIN_ROWS[2]!;
     const beats = play(fight, row.period * 8 + 1);
     const curtains = curtainsIn(beats);
@@ -608,7 +613,7 @@ describe('what his grammar excludes (game-concept.md:72)', () => {
     const fight = atTheUndertaker();
     const beats = [
       ...play(fight, CURTAIN_ROWS[0]!.period * 2 + 1),
-      ...play(atChunk(fight, 2), CURTAIN_ROWS[2]!.period * 2 + 1),
+      ...play(atPhase(fight, 2), CURTAIN_ROWS[2]!.period * 2 + 1),
     ];
     expect(beats.some((beat) => only(beat.events, 'mobFired').length > 0)).toBe(
       true,
@@ -636,24 +641,24 @@ describe('what his grammar excludes (game-concept.md:72)', () => {
   });
 });
 
-describe('what a chunk of his health buys (ADR 0052)', () => {
-  it('gives every chunk enough health to survive one full emit, and buys his length in chunks', () => {
-    // game-concept.md:104 lists "whether a pattern chunk ever ends before
+describe('what a phase of his health buys (ADR 0052)', () => {
+  it('gives every phase enough health to survive one full emit, and buys his length in phases', () => {
+    // game-concept.md:104 lists "whether a pattern phase ever ends before
     // finishing one full emit" as an instrument, and the property under it is
-    // that the best player in the game still sees the pattern each chunk was
-    // written for. So no chunk's health falls below what a full build lands
-    // across one emit of that chunk's own longest cycle.
-    for (let chunk = 0; chunk < CHUNK_HP.undertaker.length; chunk++) {
-      const floor = (FULL_BUILD_DAMAGE_PER_SECOND * emitTicks(chunk)) / TICK_HZ;
-      const chunkHp = requireDefined(
-        CHUNK_HP.undertaker[chunk],
-        `no chunk ${chunk} for undertaker`,
+    // that the best player in the game still sees the pattern each phase was
+    // written for. So no phase's health falls below what a full build lands
+    // across one emit of that phase's own longest cycle.
+    for (let phase = 0; phase < PHASE_HP.undertaker.length; phase++) {
+      const floor = (FULL_BUILD_DAMAGE_PER_SECOND * emitTicks(phase)) / TICK_HZ;
+      const phaseHp = requireDefined(
+        PHASE_HP.undertaker[phase],
+        `no phase ${phase} for undertaker`,
       );
-      expect(`chunk ${chunk}: ${chunkHp > floor}`).toBe(`chunk ${chunk}: true`);
-      expect(emitTicks(chunk)).toBeGreaterThan(0);
+      expect(`phase ${phase}: ${phaseHp > floor}`).toBe(`phase ${phase}: true`);
+      expect(emitTicks(phase)).toBeGreaterThan(0);
     }
 
-    // ADR 0052's own shape: the length is bought across chunks rather than
+    // ADR 0052's own shape: the length is bought across phases rather than
     // across a bigger bar. What has to be taken off him is the sum of his rows
     // and never the largest of them, and each row is a bar with a break behind
     // it.
@@ -663,11 +668,11 @@ describe('what a chunk of his health buys (ADR 0052)', () => {
       const boss = fight.state.boss;
       taken += boss.hp;
       damageBoss(fight.state, boss.hp, 'skullStream');
-      for (let tick = 0; tick < CHUNK_FLASH_TICKS; tick++) fight.tick();
+      for (let tick = 0; tick < PHASE_FLASH_TICKS; tick++) fight.tick();
     }
     expect(taken).toBe(
-      CHUNK_HP.undertaker.reduce((total, chunk) => total + chunk, 0),
+      PHASE_HP.undertaker.reduce((total, phase) => total + phase, 0),
     );
-    expect(taken).toBeGreaterThan(Math.max(...CHUNK_HP.undertaker));
+    expect(taken).toBeGreaterThan(Math.max(...PHASE_HP.undertaker));
   });
 });

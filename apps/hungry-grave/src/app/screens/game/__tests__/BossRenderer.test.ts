@@ -6,17 +6,17 @@
 import type { Graphics } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import type { Boss } from '../../../../game/bosses/chunks';
+import type { Boss } from '../../../../game/bosses/phases';
 import {
   BOSS_HALF_HEIGHT,
   BOSS_HALF_WIDTH,
-  CHUNK_FLASH_TICKS,
+  PHASE_FLASH_TICKS,
   spawnBoss,
-} from '../../../../game/bosses/chunks';
+} from '../../../../game/bosses/phases';
 import { TICK_HZ } from '../../../../game/clock';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
-import type { BossKind } from '../../../../game/stage/rows';
+import type { BossKind } from '../../../../game/stage/waves';
 import { PALETTE } from '../../../palette';
 import { BossRenderer } from '../BossRenderer';
 import { BOSS_STROKE, bossFlashInverted } from '../bossSprite';
@@ -210,18 +210,18 @@ describe('the two boss silhouettes (module 107)', () => {
   });
 });
 
-describe('the chunk flash (module 107, ADR 0007)', () => {
+describe('the phase flash (module 107, ADR 0007)', () => {
   it('shows on the body itself, inverting the pair rather than dimming it', () => {
-    // A chunk ends in a short invincible flash (CONTEXT.md), and a player has
+    // A phase ends in a short invincible flash (CONTEXT.md), and a player has
     // to see that shots are doing nothing. The read is the pair swapping over:
     // the body takes the dark half and the detail and the rim take the bright
     // one, so the boss never darkens into the night it stands against.
     const { layers, renderer } = attached();
     const { run, boss } = runWith('undertaker');
-    boss.flash = CHUNK_FLASH_TICKS;
+    boss.flash = PHASE_FLASH_TICKS;
 
     const seen = new Set<string>();
-    for (let left = CHUNK_FLASH_TICKS; left > 0; left--) {
+    for (let left = PHASE_FLASH_TICKS; left > 0; left--) {
       boss.flash = left;
       renderer.sync(run);
       seen.add(firstFillColour(bossSprite(layers)).toString());
@@ -232,7 +232,7 @@ describe('the chunk flash (module 107, ADR 0007)', () => {
 
     // And the rim goes bright on the inverted read, so a dark body still has
     // an edge against the ground it stands on.
-    boss.flash = CHUNK_FLASH_TICKS;
+    boss.flash = PHASE_FLASH_TICKS;
     while (!bossFlashInverted(boss)) boss.flash -= 1;
     renderer.sync(run);
     expect(fillColours(bossSprite(layers))[0]).toBe(PAIR.undertaker[1]);
@@ -251,7 +251,7 @@ describe('the chunk flash (module 107, ADR 0007)', () => {
     const { layers, renderer } = attached();
     const { run, boss } = runWith('banshee');
     const read: number[] = [];
-    for (let left = CHUNK_FLASH_TICKS; left > 0; left--) {
+    for (let left = PHASE_FLASH_TICKS; left > 0; left--) {
       boss.flash = left;
       renderer.sync(run);
       read.push(firstFillColour(bossSprite(layers)));
@@ -283,7 +283,7 @@ describe('the chunk flash (module 107, ADR 0007)', () => {
     const { run, boss } = runWith('banshee');
     boss.flash = 0;
     const seen = new Set<number>();
-    for (let tick = 0; tick < 4 * CHUNK_FLASH_TICKS; tick++) {
+    for (let tick = 0; tick < 4 * PHASE_FLASH_TICKS; tick++) {
       run.tick = tick;
       renderer.sync(run);
       seen.add(firstFillColour(bossSprite(layers)));

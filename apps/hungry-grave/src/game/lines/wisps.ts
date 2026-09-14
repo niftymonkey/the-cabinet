@@ -36,7 +36,7 @@ interface Wisp {
  * couple of bodies it always did.
  *
  * Level 0 is zero, so the line is silent at the start of a run and arrives only
- * through a drop: homing is always bought with a dive.
+ * through a power-up: homing is always bought with a dive.
  */
 const WISPS_BY_LEVEL: readonly number[] = [0, 1, 3, 5, 8, 11];
 

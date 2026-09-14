@@ -12,7 +12,7 @@ import type { ReadingsAcc } from './readings/readings';
 import { observeReadings } from './readings/readings';
 import { greatestOf, lastOf, meanOf } from './seriesSummary';
 
-// One line reaching one level, at the tick the drop landed (#45).
+// One line reaching one level, at the tick the power-up landed (#45).
 interface LevelUp {
   readonly line: WeaponLine;
   readonly level: number;
@@ -147,7 +147,7 @@ const observeInto = (
     // runs, and is the same record every tick after: the sim never swaps it.
     tallies.levels = state.levels;
     for (const event of events) {
-      // The damage total is every point a line landed, a boss's chunks
+      // The damage total is every point a line landed, a boss's phases
       // included, because that is what the line did. The kill count is the mob
       // pool's alone: a boss's death is a bossKilled and never a mobKilled, so
       // a fight is read from its own vocabulary rather than folded in here.

@@ -46,7 +46,7 @@ describe('the carrier tint (ADR 0002)', () => {
     drawMob(drawn, carrier);
     const plain = new Graphics();
     drawMob(plain, trash);
-    expect(fillColours(drawn)[0]).toBe(PALETTE.drop.hex);
+    expect(fillColours(drawn)[0]).toBe(PALETTE.powerUp.hex);
     expect(fillColours(plain)[0]).toBe(PALETTE.mob.hex);
   });
 
@@ -70,11 +70,11 @@ describe('the carrier tint (ADR 0002)', () => {
     // parts from both the mob body it replaces and the mark an armed mob
     // wears.
     const declared = Object.values(PALETTE).map((entry) => entry.hex);
-    expect(declared).toContain(PALETTE.drop.hex);
-    expect(PALETTE.drop.luma).toBeLessThanOrEqual(FIELD_LUMA_CEILING);
-    expect(PALETTE.drop.luma).toBeLessThan(MOB_FIRE_BAND_MIN);
-    expect(PALETTE.drop.hex).not.toBe(PALETTE.mob.hex);
-    expect(PALETTE.drop.hex).not.toBe(PALETTE.foodOutline.hex);
+    expect(declared).toContain(PALETTE.powerUp.hex);
+    expect(PALETTE.powerUp.luma).toBeLessThanOrEqual(FIELD_LUMA_CEILING);
+    expect(PALETTE.powerUp.luma).toBeLessThan(MOB_FIRE_BAND_MIN);
+    expect(PALETTE.powerUp.hex).not.toBe(PALETTE.mob.hex);
+    expect(PALETTE.powerUp.hex).not.toBe(PALETTE.foodOutline.hex);
     // And every mob type wears it, because a carrier can be any of them.
     for (const type of MOB_TYPE_NAMES) {
       const state = createRun(2);
@@ -87,7 +87,7 @@ describe('the carrier tint (ADR 0002)', () => {
       const sprite = new Graphics();
       drawMob(sprite, mob);
       expect(`${type} ${fillColours(sprite)[0]}`).toBe(
-        `${type} ${PALETTE.drop.hex}`,
+        `${type} ${PALETTE.powerUp.hex}`,
       );
     }
   });

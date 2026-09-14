@@ -96,7 +96,7 @@ describe("the tape's code maps", () => {
     // written down, which is what lets the list be reordered without moving a
     // single tape's meaning.
     expect(FAULT_IDENTITY_CODES['no NaN']).toBe(1);
-    expect(FAULT_IDENTITY_CODES['phase tick resets at a boundary']).toBe(12);
+    expect(FAULT_IDENTITY_CODES['section tick resets at a boundary']).toBe(12);
     expect(Object.keys(FAULT_IDENTITY_CODES).length).toBe(
       FAULT_IDENTITIES.length,
     );

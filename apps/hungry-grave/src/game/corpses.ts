@@ -21,15 +21,15 @@ import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from './tuning';
  * reads as a per-tier hue instead.
  *
  * Seven units puts it clearly under the smallest mob body and clearly over a
- * drop, so the three silhouettes stay ordered by size.
+ * power-up, so the three silhouettes stay ordered by size.
  */
 const CORPSE_HALF_EXTENT = 7;
 
 /**
- * A drop's half-extent: a 28-unit catch box, deliberately more generous than
+ * A power-up's half-extent: a 28-unit catch box, deliberately more generous than
  * the 24-unit drawn peak, about 1.17 times the ink. Mark's rule, ruled
  * 2026-08-25, and the rule outranks the number: the pickup area stays slightly
- * more generous than the drop's maximum visible footprint, because collecting
+ * more generous than the power-up's maximum visible footprint, because collecting
  * treasure is never a precision test.
  *
  * More generous rather than equal, for three reasons. The breath moves the
@@ -38,7 +38,7 @@ const CORPSE_HALF_EXTENT = 7;
  * damage, so the grab is hardest at the size floor, exactly where ADR 0003's
  * ladder is stripping weapon levels and the recovery path must stay open. And
  * ADR 0003 already rules that size never gates a swallow. It stays nowhere
- * near the genre's most generous: a drop is one of ten to twelve in a run and
+ * near the genre's most generous: a power-up is one of ten to twelve in a run and
  * ADR 0002 makes it the thing the player routes toward, so a box large enough
  * to remove the routing choice would delete the mechanic. Twenty-eight is
  * tuning, not doctrine; if #31's playtest reads pickups as magnetic enough to
@@ -50,7 +50,7 @@ const CORPSE_HALF_EXTENT = 7;
  * superseded, written out in docs/design/drop-legibility-fix.md, and
  * FieldRenderer.test.ts holds the two bounds that replace it.
  */
-const DROP_HALF_EXTENT = 14;
+const POWER_UP_HALF_EXTENT = 14;
 
 // How much freshness one tick drains. Derived from the seconds, which are themselves derived from the scroll.
 const FRESHNESS_PER_TICK = 1 / (FRESHNESS_SECONDS * TICK_HZ);
@@ -76,13 +76,13 @@ interface Corpse {
   kind: FoodKind;
   // Feasts never decay (ADR 0004), and the flag lives on the record so the boss dispatch authors a shed rather than a mechanism.
   decays: boolean;
-  // Which line a drop levels, decided by the dice at spawn (ADR 0034). Absent on corpses and feasts.
+  // Which line a power-up levels, decided by the dice at spawn (ADR 0034). Absent on corpses and feasts.
   line?: WeaponLine;
   /**
    * How large this food is swallowed at. It lives on the record rather than
-   * being the module constant, because a drop is larger than a corpse and every
+   * being the module constant, because a power-up is larger than a corpse and every
    * reader of the extent has to see the difference: a hitbox that read the
-   * constant would hold a drop on the field for a unit of extra travel past
+   * constant would hold a power-up on the field for a unit of extra travel past
    * where a corpse goes.
    */
   halfExtent: number;
@@ -137,7 +137,7 @@ const asSwallowable = (corpse: Corpse): Swallowable => {
  * Room for one more piece of food, or null at the cap (ADR 0056).
  *
  * Nothing already on the field is ever removed to make room. The cap is sized
- * from the stage's own rows so that it cannot bind in normal play, so a refusal
+ * from the stage's own waves so that it cannot bind in normal play, so a refusal
  * means something has gone wrong rather than that the player killed too well,
  * and the answer to that is the fault the harness raises off the count below
  * rather than a graceful degradation that hides it. The eviction this replaces
@@ -187,7 +187,7 @@ const spawnCorpse = (
 };
 
 /**
- * A boss-shed reward corpse that never decays (ADR 0004). A chunk break sheds
+ * A boss-shed reward corpse that never decays (ADR 0004). A phase break sheds
  * one, which is what keeps ADR 0007's shed-food promise inside the fight rather
  * than at the end of it: a player who cannot dive through the pattern yet still
  * has it waiting.
@@ -216,7 +216,7 @@ const spawnFeast = (
 };
 
 /**
- * A drop, on the food pool rather than in a second one. It reuses claimSlot, so
+ * A power-up, on the food pool rather than in a second one. It reuses claimSlot, so
  * it inherits spawning, scrolling, culling and swallowing for free, which is the
  * whole reason not to build a pool of its own.
  *
@@ -229,7 +229,7 @@ const spawnFeast = (
  * it holds its bodies by id and a refused spawn must be visible to it as a
  * body that is simply not there.
  */
-const spawnDrop = (
+const spawnPowerUp = (
   state: RunState,
   x: number,
   y: number,
@@ -245,11 +245,11 @@ const spawnDrop = (
   corpse.freshness = 1;
   corpse.payout = TRASH_CORPSE_PAYOUT;
   corpse.tier = 'trash';
-  corpse.kind = 'drop';
+  corpse.kind = 'powerUp';
   corpse.decays = false;
   corpse.line = line;
-  corpse.halfExtent = DROP_HALF_EXTENT;
-  events.push({ type: 'dropSpawned', id: corpse.id, line, x, y });
+  corpse.halfExtent = POWER_UP_HALF_EXTENT;
+  events.push({ type: 'powerUpSpawned', id: corpse.id, line, x, y });
   return events;
 };
 
@@ -294,11 +294,11 @@ export {
   asSwallowable,
   spawnCorpse,
   spawnFeast,
-  spawnDrop,
+  spawnPowerUp,
   advanceCorpses,
   cullCorpses,
   CORPSE_HALF_EXTENT,
-  DROP_HALF_EXTENT,
+  POWER_UP_HALF_EXTENT,
   FRESHNESS_PER_TICK,
 };
 export type { Corpse };

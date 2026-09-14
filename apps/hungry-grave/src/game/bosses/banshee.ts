@@ -9,13 +9,13 @@ import type { FireRow } from '../mobFire';
 import { fireDirectedShot } from '../mobFire';
 import type { RunState } from '../run';
 import { FEAST_PAYOUT } from '../tuning';
-import type { Boss } from './chunks';
+import type { Boss } from './phases';
 
 /**
  * One point a ring leaves from, offset from where she stands, and the bearing
  * its opening starts at in turns clockwise from straight down.
  *
- * The offsets are what chunk two escalates with: two sources whose openings
+ * The offsets are what phase two escalates with: two sources whose openings
  * point the same way would still leave the player one way through, so the
  * bearing is per source rather than per ring.
  */
@@ -26,7 +26,7 @@ interface RingSource {
 }
 
 /**
- * One chunk's ring pattern (game-concept.md:68). Every number is an initial row
+ * One phase's ring pattern (game-concept.md:68). Every number is an initial row
  * owned by the tuning pass at step 4; what is not tuning is the shape, one
  * clean gap per source and a gap that walks around the ring rather than
  * standing still.
@@ -51,8 +51,8 @@ interface RingRow {
 }
 
 /**
- * Her two chunks, in order: one ring source, then two offset ones so the gaps
- * stop lining up. The second chunk's openings sit half a turn apart, which is
+ * Her two phases, in order: one ring source, then two offset ones so the gaps
+ * stop lining up. The second phase's openings sit half a turn apart, which is
  * the widest they can be, and its drift runs the other way so the escalation
  * reads as a change rather than as more of the same.
  */
@@ -129,15 +129,15 @@ const throwRing = (
 };
 
 /**
- * One tick of whichever chunk is live: a ring from every source of that chunk,
- * on the chunk's own clock.
+ * One tick of whichever phase is live: a ring from every source of that phase,
+ * on the phase's own clock.
  *
  * All of a tick's sources share one drawn nudge, so the offset between two
  * sources is exactly the authored one and never a pair of independent rolls
  * that could quietly close the gap between them.
  */
 const advanceBanshee = (state: RunState, boss: Boss): SimEvent[] => {
-  const row = RING_ROWS[boss.chunk];
+  const row = RING_ROWS[boss.phaseIndex];
   if (row === undefined || !ringDue(row, boss.patternTick)) return [];
   const ring = boss.patternTick / row.period;
   const nudge = (state.streams.mobFire.next() - 0.5) * row.jitter;
@@ -151,8 +151,8 @@ const advanceBanshee = (state: RunState, boss: Boss): SimEvent[] => {
  * Her death: a feast where she fell, worth nine fresh trash corpses and never
  * decaying (ADR 0004, game-concept.md:68).
  *
- * The Wall her death launches is not fired from here. Her phase ends because
- * she is gone and the Crowd's own first row is the curtain, so the anchor
+ * The Wall her death launches is not fired from here. Her section ends because
+ * she is gone and the Crowd's own first wave is the curtain, so the anchor
  * game-concept.md:56 names is the boundary itself: the stage never waits on the
  * swallow, and a player who never dives meets the Wall unloaded.
  */

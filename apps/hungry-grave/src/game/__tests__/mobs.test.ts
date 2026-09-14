@@ -40,9 +40,9 @@ import {
 } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { PHASES } from '../stage/stage';
-import type { SpawnOrder } from '../stage/templates';
-import { place } from '../stage/templates';
+import { SECTIONS } from '../stage/stage';
+import type { SpawnOrder } from '../stage/formations';
+import { place } from '../stage/formations';
 import { resolveStorm } from '../storm';
 import {
   RESERVOIR_CAPACITY,
@@ -61,16 +61,16 @@ const RIGHT: TickCommand = drift(1, 0);
 /**
  * A run whose stage will not spawn anything on top of the mob under test.
  *
- * It stands in the last phase of the table, which is the one phase the machine
- * never leaves. Marking a phase's rows fired silences that phase alone: a phase
- * ends now on its rows being spent and its field clearing (ADR 0051), so the
+ * It stands in the last section of the table, which is the one section the machine
+ * never leaves. Marking a section's waves fired silences that section alone: a section
+ * ends now on its waves being spent and its field clearing (ADR 0051), so the
  * tick a test's field empties would roll the run into the next section and its
- * rows.
+ * waves.
  */
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
-  run.stage.phaseIndex = PHASES.length - 1;
-  // The stream and Territory's clock are held as well as the rows. These tests
+  run.stage.sectionIndex = SECTIONS.length - 1;
+  // The stream and Territory's clock are held as well as the waves. These tests
   // are about how a mob moves, fires and dies, and both birthright lines act
   // unprompted: the stream pours up the middle of the field, and Territory
   // claims ground on the mob under test and grinds it down before it reaches
@@ -139,7 +139,7 @@ function order(x: number, y: number, vx = 0, vy = 1, index = 0): SpawnOrder {
   return { x, y, vx, vy, index };
 }
 
-/** The order at this position in a template's own placement, which every caller here asks for at an index the template's count covers. */
+/** The order at this position in a formation's own placement, which every caller here asks for at an index the formation's count covers. */
 function orderAt(orders: readonly SpawnOrder[], index: number): SpawnOrder {
   const found = orders[index];
   if (found === undefined) throw new Error(`no order at ${index}`);
@@ -279,7 +279,7 @@ describe('the mow (ADR 0059)', () => {
 });
 
 describe('the arriving beat (ADR 0041)', () => {
-  it("holds the template's arriving velocity for ARRIVE_TICKS and then moves under the type's own rule", () => {
+  it("holds the formation's arriving velocity for ARRIVE_TICKS and then moves under the type's own rule", () => {
     const state = quietRun();
     const step = stepping(state);
     // A V's arm arrives on a diagonal, which is the case where the beat bites.
@@ -298,7 +298,7 @@ describe('the arriving beat (ADR 0041)', () => {
     expect(mob.vy).toBeCloseTo(MOB_TYPES.shambler.speed, 12);
   });
 
-  it("gives a mob the template's direction times its own type speed, so a straight-down entry changes speed by nothing when the beat ends", () => {
+  it("gives a mob the formation's direction times its own type speed, so a straight-down entry changes speed by nothing when the beat ends", () => {
     for (const type of ['shambler', 'revenant'] as const) {
       const state = quietRun();
       const step = stepping(state);
@@ -332,7 +332,7 @@ describe('the arriving beat (ADR 0041)', () => {
     expect(mob.vx).toBe(0);
   });
 
-  it("leaves a ghoul flying the template's arriving direction at the tick its beat ends, not straight down", () => {
+  it("leaves a ghoul flying the formation's arriving direction at the tick its beat ends, not straight down", () => {
     const state = quietRun();
     const step = stepping(state);
     const arm = orderAt(place('pincer', 2, state.streams.spawns), 0);
@@ -772,8 +772,8 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
     );
     expect(mob.x).toBeGreaterThanOrEqual(MOB_TYPES.shambler.halfWidth);
   });
-  it("holds the template's arriving motion over an edge-split body until the beat ends", () => {
-    // Templates enter from outside on purpose, so the walk-in must not touch
+  it("holds the formation's arriving motion over an edge-split body until the beat ends", () => {
+    // Formations enter from outside on purpose, so the walk-in must not touch
     // the arriving beat. The hard case is arriving motion pointing outward at
     // an already split body: a walk-in that fired early would flip it.
     const state = quietRun();

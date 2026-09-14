@@ -6,7 +6,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { SimEvent } from '../../../game/events';
 import { territoryCharge } from '../../../game/lines/territory';
 import type { RunState } from '../../../game/run';
-import { phaseUnderway } from '../../../game/stage/stage';
+import { sectionUnderway } from '../../../game/stage/stage';
 import { RESERVOIR_CAPACITY } from '../../../game/tuning';
 import type { FrameReason } from '../../../tape/tape';
 import type { FieldPlacement } from '../../layout';
@@ -278,7 +278,7 @@ class GameScreen extends Container {
     this.syncScreen(started.run);
     // The section the run opens in. The stage announces crossings alone, so the
     // first section has no event of its own and a run would open on silence.
-    this.announce(started.run, [phaseUnderway(started.run)]);
+    this.announce(started.run, [sectionUnderway(started.run)]);
     this.hud.render(this.session.readout);
 
     this.releaseKeys = bindKeyPress('Escape', () => this.togglePause());

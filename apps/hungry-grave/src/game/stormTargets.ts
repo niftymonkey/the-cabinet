@@ -19,8 +19,8 @@
  * target across two calls carries its id and asks again.
  */
 
-import type { Boss } from './bosses/chunks';
-import { bossHitbox, damageBoss } from './bosses/chunks';
+import type { Boss } from './bosses/phases';
+import { bossHitbox, damageBoss } from './bosses/phases';
 import { MOB_CAP } from './caps';
 import type { SimEvent } from './events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
@@ -50,10 +50,10 @@ interface StormTarget {
   // Whether a push moves it. False where an authored pattern would smear (ADR 0007).
   readonly pushable: boolean;
   /**
-   * Whether one hit can take the whole of it. False where health is chunked or
+   * Whether one hit can take the whole of it. False where health is phased or
    * is sized to outlive its own moment, which is what a kill rule has to read:
    * the belch's burst is a kill rule rather than a damage number, so a belch
-   * reaching a chunked body would break a chunk outright, which is a skip
+   * reaching a phased body would break a phase outright, which is a skip
    * rather than the breath the belch buys.
    */
   readonly killableOutright: boolean;
@@ -158,7 +158,7 @@ const fillFromMob = (slot: TargetSlot, mob: Mob): void => {
 /**
  * A boss reads as a target already on the field, that a push does not move
  * (ADR 0007, so authored patterns never smear) and that a kill rule may not
- * take whole, because its health is one chunk of several.
+ * take whole, because its health is one phase of several.
  *
  * It carries no velocity of its own: a boss stands where its pattern puts it,
  * and what reads a target's velocity is a line aiming ahead of a body that is
@@ -267,7 +267,7 @@ const stormTarget = (state: RunState, id: number): StormTarget | null => {
 };
 
 /**
- * Damage onto whatever carries this target. The kill, the corpse and the chunk
+ * Damage onto whatever carries this target. The kill, the corpse and the phase
  * break are the owning module's business and come back as events.
  *
  * A target that has already gone takes nothing and reports nothing. That is an

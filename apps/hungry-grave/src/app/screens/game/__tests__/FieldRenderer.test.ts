@@ -11,9 +11,9 @@ import { TICK_HZ } from '../../../../game/clock';
 import { FIELD_HEIGHT } from '../../../../game/field';
 import {
   CORPSE_HALF_EXTENT,
-  DROP_HALF_EXTENT,
+  POWER_UP_HALF_EXTENT,
   spawnCorpse,
-  spawnDrop,
+  spawnPowerUp,
 } from '../../../../game/corpses';
 import type { WeaponLine } from '../../../../game/lines/roster';
 import { WEAPON_LINES } from '../../../../game/lines/roster';
@@ -30,7 +30,7 @@ import { INVULNERABLE_TICKS } from '../../../../game/tuning';
 import { MOB_FIRE, PALETTE } from '../../../palette';
 import { FieldRenderer } from '../FieldRenderer';
 import {
-  DROP_DRAW_HALF_EXTENT,
+  POWER_UP_DRAW_HALF_EXTENT,
   freshnessBrightness,
   SPRITE_STROKE,
 } from '../foodSprite';
@@ -121,7 +121,7 @@ describe('FieldRenderer', () => {
       MOB_FIRE_CAP,
     );
     expect(layers.layer('hitDim').children).toHaveLength(1);
-    // A sprite per corpse slot in the treasure layer too: drops ride the corpse
+    // A sprite per corpse slot in the treasure layer too: power-ups ride the corpse
     // pool and ADR 0014's stack puts treasure two layers above corpses, so one
     // slot needs a sprite in each and which one shows is decided by its kind.
     expect(layers.layer('treasure').children).toHaveLength(CORPSE_CAP);
@@ -131,7 +131,7 @@ describe('FieldRenderer', () => {
   it('keeps both food layers as long as the entity pool, after the cap moved (ADR 0056)', () => {
     // The corpse cap is derived from the stage now and no longer a flat 200, so
     // the pool it sizes moved. It sizes two sprite layers as well as the entity
-    // pool, because a drop rides the corpse pool and ADR 0014's stack puts
+    // pool, because a power-up rides the corpse pool and ADR 0014's stack puts
     // treasure two layers above corpses. The three are read against each other
     // rather than against the constant: a sprite pool that disagreed with the
     // entity pool is a bug this renderer has already shipped once.
@@ -515,18 +515,18 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
   });
 });
 
-describe('a drop on the field (plan 6.8)', () => {
-  function dropAt(state: RunState, line: WeaponLine) {
-    spawnDrop(state, 200, 300, line);
+describe('a power-up on the field (plan 6.8)', () => {
+  function powerUpAt(state: RunState, line: WeaponLine) {
+    spawnPowerUp(state, 200, 300, line);
     return state.corpses.find((corpse) => corpse.alive)!;
   }
 
   it('draws in the treasure layer and never in the corpses layer', () => {
     // ADR 0014's stack puts treasure above mob bodies and corpses below them,
-    // so a drop under a pile still reads as the thing worth diving for.
+    // so a power-up under a pile still reads as the thing worth diving for.
     const { layers, renderer } = attached();
     const state = createRun(3);
-    dropAt(state, 'bell');
+    powerUpAt(state, 'bell');
     renderer.sync(state);
 
     const treasure = layers.layer('treasure').children as Graphics[];
@@ -537,14 +537,14 @@ describe('a drop on the field (plan 6.8)', () => {
 
   it('draws a different silhouette for each of the four lines', () => {
     // The at-a-glance line read: four icons that must be told apart mid-dodge
-    // with no HUD glance. Size separates a drop from a shot, 24 drawn units
-    // against 16, and the drop breathes on size where a shot never does;
+    // with no HUD glance. Size separates a power-up from a shot, 24 drawn units
+    // against 16, and the power-up breathes on size where a shot never does;
     // brightness separates neither, staying steady on both.
     const shapes = new Set<string>();
     for (const line of WEAPON_LINES) {
       const { layers, renderer } = attached();
       const state = createRun(3);
-      dropAt(state, line);
+      powerUpAt(state, line);
       renderer.sync(state);
       const sprite = (layers.layer('treasure').children as Graphics[]).find(
         (each) => each.visible,
@@ -556,11 +556,11 @@ describe('a drop on the field (plan 6.8)', () => {
   });
 
   it('stays steady-bright where a corpse fades, whatever the tick', () => {
-    // Steady-bright always means treasure (ADR 0004), so a drop never takes the
+    // Steady-bright always means treasure (ADR 0004), so a power-up never takes the
     // freshness tint and never flickers.
     const { layers, renderer } = attached();
     const state = createRun(3);
-    const drop = dropAt(state, 'wisps');
+    const powerUp = powerUpAt(state, 'wisps');
     const tints = new Set<number>();
     for (const tick of [0, 7, 13, 40, 121]) {
       state.tick = tick;
@@ -571,18 +571,18 @@ describe('a drop on the field (plan 6.8)', () => {
       tints.add(sprite.tint);
     }
     expect(tints.size).toBe(1);
-    expect(freshnessBrightness(drop, 0)).toBe(1);
+    expect(freshnessBrightness(powerUp, 0)).toBe(1);
   });
 
   it('draws the body a maxed run pays as treasure with no line silhouette', () => {
-    // Gate correction, 2026-09-08: drawDropIcon needs a WeaponLine, so a body
+    // Gate correction, 2026-09-08: drawPowerUpIcon needs a WeaponLine, so a body
     // carrying no option had no look at all. It gets the food layer's own body
     // shape in the feast's colour, so a maxed player reads permanent food with
     // no build rather than hunting for a line that is not there.
     const drawnShape = (line?: WeaponLine): string => {
       const { layers, renderer } = attached();
       const state = createRun(3);
-      spawnDrop(state, 200, 300, line);
+      spawnPowerUp(state, 200, 300, line);
       renderer.sync(state);
       const sprite = (layers.layer('treasure').children as Graphics[]).find(
         (each) => each.visible,
@@ -596,7 +596,7 @@ describe('a drop on the field (plan 6.8)', () => {
 
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 200, 300);
+    spawnPowerUp(state, 200, 300);
     renderer.sync(state);
     const sprite = (layers.layer('treasure').children as Graphics[]).find(
       (each) => each.visible,
@@ -612,22 +612,22 @@ describe('a drop on the field (plan 6.8)', () => {
   it('draws larger than a corpse, which is the size rule Mark reversed on 2026-08-22', () => {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    const drop = dropAt(state, 'territory');
+    const powerUp = powerUpAt(state, 'territory');
     renderer.sync(state);
     const sprite = (layers.layer('treasure').children as Graphics[]).find(
       (each) => each.visible,
     )!;
-    expect(drop.halfExtent).toBeGreaterThan(CORPSE_HALF_EXTENT);
+    expect(powerUp.halfExtent).toBeGreaterThan(CORPSE_HALF_EXTENT);
     expect(sprite.getLocalBounds().width).toBeGreaterThan(0);
   });
 });
 
-describe("a drop's legibility (the fix inside #36)", () => {
-  /** What one drop of this line actually draws, as bounds. */
-  function drawnDrop(line: WeaponLine): Bounds {
+describe("a power-up's legibility (the fix inside #36)", () => {
+  /** What one power-up of this line actually draws, as bounds. */
+  function drawnPowerUp(line: WeaponLine): Bounds {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 200, 300, line);
+    spawnPowerUp(state, 200, 300, line);
     renderer.sync(state);
     const sprite = (layers.layer('treasure').children as Graphics[]).find(
       (each) => each.visible,
@@ -716,18 +716,20 @@ describe("a drop's legibility (the fix inside #36)", () => {
     return inks;
   }
 
-  /** A drop's bright ink: the fills in treasure's own colour, on screen, after the sprite's scale. */
+  /** A power-up's bright ink: the fills in treasure's own colour, on screen, after the sprite's scale. */
   function brightInkArea(sprite: Graphics): number {
     const scale = sprite.scale.x;
     return recordedInk(sprite)
-      .filter((ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex)
+      .filter(
+        (ink) => ink.action === 'fill' && ink.color === PALETTE.powerUp.hex,
+      )
       .reduce((sum, ink) => sum + ink.area * scale * scale, 0);
   }
 
-  /** The box a drop's bright ink spans, on screen, as its longest side. */
+  /** The box a power-up's bright ink spans, on screen, as its longest side. */
   function drawnLongAxis(sprite: Graphics): number {
     const bright = recordedInk(sprite).filter(
-      (ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex,
+      (ink) => ink.action === 'fill' && ink.color === PALETTE.powerUp.hex,
     );
     const width =
       Math.max(...bright.map((ink) => ink.maxX)) -
@@ -738,10 +740,10 @@ describe("a drop's legibility (the fix inside #36)", () => {
     return Math.max(width, height) * sprite.scale.x;
   }
 
-  /** The box a drop's bright ink spans, as width over height. Scale cancels. */
+  /** The box a power-up's bright ink spans, as width over height. Scale cancels. */
   function inkAspect(sprite: Graphics): number {
     const bright = recordedInk(sprite).filter(
-      (ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex,
+      (ink) => ink.action === 'fill' && ink.color === PALETTE.powerUp.hex,
     );
     const width =
       Math.max(...bright.map((ink) => ink.maxX)) -
@@ -761,10 +763,10 @@ describe("a drop's legibility (the fix inside #36)", () => {
   function coverage(sprite: Graphics): number {
     const inks = recordedInk(sprite);
     const bright = inks.filter(
-      (ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex,
+      (ink) => ink.action === 'fill' && ink.color === PALETTE.powerUp.hex,
     );
     const dark = inks.filter(
-      (ink) => ink.action === 'cut' || ink.color !== PALETTE.drop.hex,
+      (ink) => ink.action === 'cut' || ink.color !== PALETTE.powerUp.hex,
     );
     const width =
       Math.max(...bright.map((ink) => ink.maxX)) -
@@ -777,15 +779,15 @@ describe("a drop's legibility (the fix inside #36)", () => {
     return (brightArea - darkArea) / (width * height);
   }
 
-  /** One spawned drop, then whatever each listed tick draws, read off the treasure sprite. */
-  function dropOverTicks<T>(
+  /** One spawned power-up, then whatever each listed tick draws, read off the treasure sprite. */
+  function powerUpOverTicks<T>(
     line: WeaponLine,
     ticks: readonly number[],
     read: (sprite: Graphics) => T,
   ): T[] {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 200, 300, line);
+    spawnPowerUp(state, 200, 300, line);
     return ticks.map((tick) => {
       state.tick = tick;
       renderer.sync(state);
@@ -807,11 +809,11 @@ describe("a drop's legibility (the fix inside #36)", () => {
 
   /** The tick, within one period, at which this line's drawn size peaks. */
   function peakTick(line: WeaponLine): number {
-    const sizes = dropOverTicks(line, breathTicks(), drawnLongAxis);
+    const sizes = powerUpOverTicks(line, breathTicks(), drawnLongAxis);
     return sizes.indexOf(Math.max(...sizes));
   }
 
-  /** A corpse's own ink, the area the drop has to out-draw, by the same shoelace measure. */
+  /** A corpse's own ink, the area the power-up has to out-draw, by the same shoelace measure. */
   function corpseInk(): number {
     const { layers, renderer } = attached();
     const state = createRun(3);
@@ -827,7 +829,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
 
   it("draws more ink than a corpse at the breath's peak, measured by the shoelace formula", () => {
     // The hole the whole ticket fell through. palette.test.ts compared
-    // DROP_HALF_EXTENT to CORPSE_HALF_EXTENT and passed while the player saw
+    // POWER_UP_HALF_EXTENT to CORPSE_HALF_EXTENT and passed while the player saw
     // the smaller sprite, and the bounds measure that replaced it was blind
     // the same way one level down: a concave shape fills its bounding box
     // while being mostly empty. Filled area against filled area is the
@@ -837,9 +839,9 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // floor below.
     const corpse = corpseInk();
     for (const line of WEAPON_LINES) {
-      const [ink] = dropOverTicks(line, [peakTick(line)], brightInkArea);
+      const [ink] = powerUpOverTicks(line, [peakTick(line)], brightInkArea);
       if (ink === undefined)
-        throw new Error('dropOverTicks of one tick gave no reading');
+        throw new Error('powerUpOverTicks of one tick gave no reading');
       expect(`${line} ${ink > corpse}`).toBe(`${line} true`);
     }
   });
@@ -848,10 +850,10 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // So no icon quietly shrinks back to a fraction of its extent again. The
     // fill's own points are measured, so the stroke never pads the answer.
     for (const line of WEAPON_LINES) {
-      const [size] = dropOverTicks(line, [peakTick(line)], drawnLongAxis);
+      const [size] = powerUpOverTicks(line, [peakTick(line)], drawnLongAxis);
       if (size === undefined)
-        throw new Error('dropOverTicks of one tick gave no reading');
-      expect(size).toBeCloseTo(DROP_DRAW_HALF_EXTENT * 2, 2);
+        throw new Error('powerUpOverTicks of one tick gave no reading');
+      expect(size).toBeCloseTo(POWER_UP_DRAW_HALF_EXTENT * 2, 2);
     }
   });
 
@@ -860,7 +862,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // ratio and nothing finer, so four outlines that differ only in detail are
     // one shape to the player who is dodging. #38 may replace the imagery and
     // must not spend this separation back.
-    const ratios = WEAPON_LINES.map((line) => aspect(drawnDrop(line))).sort(
+    const ratios = WEAPON_LINES.map((line) => aspect(drawnPowerUp(line))).sort(
       (a, b) => a - b,
     );
     const ratioAt = (index: number): number => {
@@ -877,11 +879,11 @@ describe("a drop's legibility (the fix inside #36)", () => {
     expect(ratioAt(ratios.length - 1) / ratioAt(0)).toBeGreaterThan(4);
   });
 
-  /** One drop's drawn width and its brightness, at a given tick. */
+  /** One power-up's drawn width and its brightness, at a given tick. */
   function overTicks(ticks: readonly number[]) {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 200, 300, 'wisps');
+    spawnPowerUp(state, 200, 300, 'wisps');
     return ticks.map((tick) => {
       state.tick = tick;
       renderer.sync(state);
@@ -896,7 +898,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     });
   }
 
-  it("holds a drop's brightness still whatever the tick, so the breath never reaches the value channel", () => {
+  it("holds a power-up's brightness still whatever the tick, so the breath never reaches the value channel", () => {
     // Mark played a brightness pulse against the size one and ruled it out:
     // steady-bright means treasure (ADR 0004) and the corpse's last-chance
     // flicker owns the value channel. The pair of assertions is the point. The
@@ -908,10 +910,10 @@ describe("a drop's legibility (the fix inside #36)", () => {
     expect(new Set(drawn.map((each) => each.width)).size).toBeGreaterThan(1);
   });
 
-  it("breathes on the tick and the drop's own id alone, so one tick draws one size every time", () => {
+  it("breathes on the tick and the power-up's own id alone, so one tick draws one size every time", () => {
     // A wall clock here would make a replay disagree with the run it replays,
     // which is why the corpse flicker takes its phase from the corpse's own id
-    // rather than from a random draw. The same drop carries the same id, so
+    // rather than from a random draw. The same power-up carries the same id, so
     // feeding the same tick twice must give the same drawn size twice.
     const [first, moved, again] = overTicks([0, 41, 0]);
     if (first === undefined || moved === undefined || again === undefined) {
@@ -922,9 +924,9 @@ describe("a drop's legibility (the fix inside #36)", () => {
   });
 
   /**
-   * The floor on how much of its own box a drop's net bright ink covers.
+   * The floor on how much of its own box a power-up's net bright ink covers.
    *
-   * It replaces the ban on the identifier dropCore, which guarded a name and
+   * It replaces the ban on the identifier powerUpCore, which guarded a name and
    * not the defect: the defect is dark ink hollowing the silhouette at a small
    * draw size, and a floor stated as a number survives #38's art because it
    * says nothing about what the shape is. A headstone may engrave lettering, a
@@ -941,9 +943,9 @@ describe("a drop's legibility (the fix inside #36)", () => {
 
   it("keeps every line's net bright ink above the coverage floor, whatever the shape is", () => {
     for (const line of WEAPON_LINES) {
-      const [cover] = dropOverTicks(line, [0], coverage);
+      const [cover] = powerUpOverTicks(line, [0], coverage);
       if (cover === undefined)
-        throw new Error('dropOverTicks of one tick gave no reading');
+        throw new Error('powerUpOverTicks of one tick gave no reading');
       expect(`${line} ${cover >= COVERAGE_FLOOR - 1e-6}`).toBe(`${line} true`);
     }
   });
@@ -953,7 +955,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // breath move inward from there." 24, the 0.18 depth and the 2.75 second
     // period are the values Mark played in the prototype, measured rather
     // than derived, so they stand here as their own numbers.
-    const sizes = dropOverTicks('territory', breathTicks(), drawnLongAxis);
+    const sizes = powerUpOverTicks('territory', breathTicks(), drawnLongAxis);
     const peak = Math.max(...sizes);
     const trough = Math.min(...sizes);
     expect(peak).toBeLessThanOrEqual(24);
@@ -961,21 +963,21 @@ describe("a drop's legibility (the fix inside #36)", () => {
     expect(trough).toBeCloseTo(24 * (1 - 0.18), 2);
   });
 
-  it('holds two neighbouring drops visibly apart in the breath, not merely unequal', () => {
-    // On the tick alone every drop pulses together, and a drop can be born at
+  it('holds two neighbouring power-ups visibly apart in the breath, not merely unequal', () => {
+    // On the tick alone every power-up pulses together, and a power-up can be born at
     // its smallest, the moment it most needs to be seen. The offset is the
-    // drop's own id, the same device the corpse flicker already uses, because
+    // power-up's own id, the same device the corpse flicker already uses, because
     // the renderer must stay a pure function of the sim's own state.
     //
-    // Ids arrive in sequence, so the two drops here are the adjacent pair the
+    // Ids arrive in sequence, so the two power-ups here are the adjacent pair the
     // stride has to separate. A test that asked only for inequality passed on a
     // hundredth of a unit, which is lockstep to the eye, so the floor is a
     // third of the breath's own travel: separation nobody has to measure to
     // see.
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 100, 100, 'wisps');
-    spawnDrop(state, 300, 300, 'wisps');
+    spawnPowerUp(state, 100, 100, 'wisps');
+    spawnPowerUp(state, 300, 300, 'wisps');
     const travel = 24 * 0.18;
     let widest = 0;
     for (const tick of breathTicks()) {
@@ -987,7 +989,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
       expect(visible).toHaveLength(2);
       const [one, other] = visible;
       if (one === undefined || other === undefined) {
-        throw new Error('two visible drops did not destructure to two');
+        throw new Error('two visible power-ups did not destructure to two');
       }
       widest = Math.max(
         widest,
@@ -1002,7 +1004,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // every other food sprite draws its companion at SPRITE_STROKE. A breath
     // that scaled the sprite scaled the stroke with it.
     const phases = [0, 41, 82, 124].map((tick) =>
-      dropOverTicks('bell', [tick], (sprite) => ({
+      powerUpOverTicks('bell', [tick], (sprite) => ({
         scale: sprite.scale.x,
         widths: sprite.context.instructions
           .filter((instruction) => instruction.action === 'stroke')
@@ -1011,7 +1013,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     );
     for (const [reading] of phases) {
       if (reading === undefined) {
-        throw new Error('dropOverTicks of one tick gave no reading');
+        throw new Error('powerUpOverTicks of one tick gave no reading');
       }
       const { scale, widths } = reading;
       expect(widths.length).toBeGreaterThan(0);
@@ -1026,14 +1028,14 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // reverse, and #31's playtest must not learn a mapping #38's imagery then
     // inverts: any tester confusion would be unattributable.
     //
-    // Territory took the tall axis the headstones vacated (#76), so the drop
+    // Territory took the tall axis the headstones vacated (#76), so the power-up
     // set still splits on tall, round, pointed and wide with nothing moved and
     // nothing crowded, which the separation test above holds from the other
     // side.
     const aspectOf = (line: WeaponLine): number => {
-      const reading = dropOverTicks(line, [0], inkAspect)[0];
+      const reading = powerUpOverTicks(line, [0], inkAspect)[0];
       if (reading === undefined)
-        throw new Error('dropOverTicks of one tick gave no reading');
+        throw new Error('powerUpOverTicks of one tick gave no reading');
       return reading;
     };
     for (const line of WEAPON_LINES) {
@@ -1052,7 +1054,9 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // ceiling test above holds the rendered side of the first bound; the
     // second keeps the pickup area at least the largest visible footprint, so
     // "I touched it and got it" is true at every breath phase.
-    expect(DROP_DRAW_HALF_EXTENT * 2).toBeLessThanOrEqual(24);
-    expect(DROP_HALF_EXTENT).toBeGreaterThanOrEqual(DROP_DRAW_HALF_EXTENT);
+    expect(POWER_UP_DRAW_HALF_EXTENT * 2).toBeLessThanOrEqual(24);
+    expect(POWER_UP_HALF_EXTENT).toBeGreaterThanOrEqual(
+      POWER_UP_DRAW_HALF_EXTENT,
+    );
   });
 });

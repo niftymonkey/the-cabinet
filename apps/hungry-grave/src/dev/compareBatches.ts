@@ -149,9 +149,9 @@ const spreadsOn = (report: BatchReport): Map<string, Spread> => {
       rows.set(`byLine.${line}.${figure}`, spread);
     }
   }
-  for (const [phase, spread] of Object.entries(report.phaseSpans)) {
+  for (const [section, spread] of Object.entries(report.sectionSpans)) {
     if (spread === undefined) continue;
-    rows.set(`phaseSpans.${phase}`, spread);
+    rows.set(`sectionSpans.${section}`, spread);
   }
   return rows;
 };

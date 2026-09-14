@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TICK_HZ } from '../../game/clock';
 import type { TickCommand } from '../../game/command';
 import type { Corpse } from '../../game/corpses';
-import { spawnDrop } from '../../game/corpses';
+import { spawnPowerUp } from '../../game/corpses';
 import { FIELD_HEIGHT } from '../../game/field';
 import type { SimEvent } from '../../game/events';
 import { createExecution } from '../../game/execution';
@@ -24,8 +24,8 @@ import type { Stream } from '../../game/rng';
 import { stream } from '../../game/rng';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
-import { PROCESSION_ROWS } from '../../game/stage/rows';
-import { PHASES } from '../../game/stage/stage';
+import { PROCESSION_WAVES } from '../../game/stage/waves';
+import { SECTIONS } from '../../game/stage/stage';
 import { RESERVOIR_CAPACITY, SCROLL_SPEED } from '../../game/tuning';
 import { foldWitness } from '../../game/witness';
 import { bestMoveToward, HOME, runPolicy } from '../bot';
@@ -79,7 +79,7 @@ const SEEDS = [101, 202, 303, 404, 505];
  */
 const quietRun = (seed = 7): RunState => {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
 };
@@ -136,7 +136,7 @@ const spreadAround = (
     body.x = state.grave.x + offset.x;
     body.y = state.grave.y + offset.y;
   }
-  spawnDrop(state, state.grave.x + 12, state.grave.y + 12);
+  spawnPowerUp(state, state.grave.x + 12, state.grave.y + 12);
   return bodies;
 };
 
@@ -158,10 +158,10 @@ const standShot = (state: RunState, x: number, y: number): void => {
 };
 
 /**
- * How long a run may take to cross the whole stage, derived from the phases
+ * How long a run may take to cross the whole stage, derived from the sections
  * the way bot.test.ts derives its own budgets.
  *
- * It is a budget and never a length: a phase ends on its own condition, so no
+ * It is a budget and never a length: a section ends on its own condition, so no
  * two runs are the same length and what can be written down is the ceiling.
  * The harness's own derivation is harnessRun.ts's, at slice 4a; this is the
  * one the spec test needs before that module exists.
@@ -177,16 +177,16 @@ const SLOWEST_DESCENT_TICKS =
       GHOUL_DESCENT_FLOOR,
     ));
 
-const budgetOf = (phase: (typeof PHASES)[number]): number => {
-  if (phase.rows.length === 0) return SLOWEST_DESCENT_TICKS;
-  const lastRow = phase.rows[phase.rows.length - 1];
-  if (lastRow === undefined)
-    throw new Error('phase.rows is non-empty but its last row is absent');
-  return lastRow.t * TICK_HZ + SLOWEST_DESCENT_TICKS;
+const budgetOf = (section: (typeof SECTIONS)[number]): number => {
+  if (section.waves.length === 0) return SLOWEST_DESCENT_TICKS;
+  const lastWave = section.waves[section.waves.length - 1];
+  if (lastWave === undefined)
+    throw new Error('section.waves is non-empty but its last wave is absent');
+  return lastWave.t * TICK_HZ + SLOWEST_DESCENT_TICKS;
 };
 
 const STAGE_TICKS = Math.ceil(
-  PHASES.reduce((total, each) => total + budgetOf(each), 0),
+  SECTIONS.reduce((total, each) => total + budgetOf(each), 0),
 );
 
 /**
@@ -289,7 +289,7 @@ describe('the hand walks to the body the sim would hand it (ADR 0053)', () => {
   });
 
   it('prefers a standing offer body to a nearer ordinary corpse', () => {
-    // The record's section 2: a drop never decays and a corpse does, so a hand
+    // The record's section 2: a power-up never decays and a corpse does, so a hand
     // that preferred the nearer body would take offers by accident, and #98's
     // first acceptance line asks for runs that reach levelled builds.
     const state = quietRun();
@@ -297,7 +297,7 @@ describe('the hand walks to the body the sim would hand it (ADR 0053)', () => {
     state.grave.y = 300;
     openOffer(state, 270, 120);
     const chosen = chooseOfferBody(state, offerBodies(state))!;
-    spawnDrop(state, state.grave.x + 10, state.grave.y + 10);
+    spawnPowerUp(state, state.grave.x + 10, state.grave.y + 10);
 
     const move = command(state).move;
 
@@ -335,8 +335,8 @@ describe('the hand feeds and drifts when no offer stands (ADR 0053)', () => {
     const state = quietRun();
     state.grave.x = 270;
     state.grave.y = 400;
-    spawnDrop(state, 200, 200);
-    spawnDrop(state, 340, 400);
+    spawnPowerUp(state, 200, 200);
+    spawnPowerUp(state, 340, 400);
     const alive = state.corpses.filter((body) => body.alive);
     const far = corpseAt(alive, 0);
     const near = corpseAt(alive, 1);
@@ -435,7 +435,7 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
     const state = quietRun();
     state.grave.x = 270;
     state.grave.y = 400;
-    spawnDrop(state, 270, 120);
+    spawnPowerUp(state, 270, 120);
     for (let shot = 0; shot < 6; shot++) {
       standShot(state, 250 + shot * 8, 340);
     }
@@ -451,7 +451,7 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
     const state = quietRun();
     state.grave.x = 270;
     state.grave.y = 400;
-    spawnDrop(state, 270, 120);
+    spawnPowerUp(state, 270, 120);
 
     // The empty field first, so the assertion below is a fence and not a
     // reading of a hand that was never going to go straight up anyway.

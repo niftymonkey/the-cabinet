@@ -7,14 +7,14 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Corpse } from '../../../game/corpses';
-import { spawnDrop } from '../../../game/corpses';
+import { spawnPowerUp } from '../../../game/corpses';
 import type { SimEvent } from '../../../game/events';
 import { createExecution, executeTick } from '../../../game/execution';
 import { FIELD_HEIGHT } from '../../../game/field';
 import { openOffer } from '../../../game/offer';
 import type { RunState } from '../../../game/run';
 import { createRun } from '../../../game/run';
-import { PROCESSION_ROWS } from '../../../game/stage/rows';
+import { PROCESSION_WAVES } from '../../../game/stage/waves';
 import type { OfferChoicesAcc } from '../offerChoices';
 import {
   createOfferChoices,
@@ -38,7 +38,7 @@ const STILL = { move: { x: 0, y: 0 }, belch: false } as const;
  */
 const quietRun = (): RunState => {
   const run = createRun(SEED);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
 };
@@ -134,7 +134,7 @@ describe('offer choices', () => {
     const full = quietRun();
     const refused = createOfferChoices();
     while (full.corpses.some((corpse) => !corpse.alive)) {
-      spawnDrop(full, 10, 10);
+      spawnPowerUp(full, 10, 10);
     }
 
     observeOfferChoices(refused, 0, openOffer(full, 200, 100));

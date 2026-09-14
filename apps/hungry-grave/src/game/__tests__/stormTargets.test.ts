@@ -10,12 +10,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { spawnBoss } from '../bosses/chunks';
+import { spawnBoss } from '../bosses/phases';
 import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { SET_PIECE_HP } from '../stage/rows';
+import { SET_PIECE_HP } from '../stage/waves';
 import {
   advanceSetPiece,
   damageSetPiece,
@@ -178,9 +178,9 @@ describe('what the storm can hit', () => {
     expect(stormTargets(state)).toEqual([]);
   });
 
-  it('drops each on the tick it stops being live', () => {
+  it('power-ups each on the tick it stops being live', () => {
     // The list is answered for the moment it is asked. A dead mob and a boss
-    // whose last chunk emptied are both gone from it, and a line asking again
+    // whose last phase emptied are both gone from it, and a line asking again
     // in the same tick sees what is really there.
     const state = createRun(SEED);
     const mob = putMob(state, 100, 200);
@@ -244,7 +244,7 @@ describe('what the storm can hit', () => {
 describe('what a line may do to a target', () => {
   it('carries damage to whatever the target stands for, mob or boss', () => {
     // The damage is asked of the target rather than decided by the line, which
-    // is the whole of the seam: the kill, the corpse and the chunk break are
+    // is the whole of the seam: the kill, the corpse and the phase break are
     // the owning module's business and come back as events.
     const state = createRun(SEED);
     const mob = putMob(state, 100, 200);

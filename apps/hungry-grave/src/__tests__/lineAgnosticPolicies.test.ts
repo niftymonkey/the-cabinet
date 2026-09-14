@@ -9,7 +9,7 @@
  * edit spread across the sim.
  *
  * The third holds the offer's own claim. `isFirstOffer` reads the run's first
- * offer off the drops stream's cursor (offer.ts:84-97), which is sound only
+ * offer off the power-ups stream's cursor (offer.ts:84-97), which is sound only
  * while the offer is the one thing that moves that cursor. That sentence was a
  * comment and nothing else, so it is a walk now.
  *
@@ -202,20 +202,20 @@ const simModulesUnder = (dir: string): string[] =>
   productionModulesUnder(dir).filter((module) => module.startsWith('game/'));
 
 /**
- * The one module that may move the drops cursor. game/offer.ts draws the
+ * The one module that may move the power-ups cursor. game/offer.ts draws the
  * options an offer holds, and isFirstOffer reads a cursor still at zero as a
  * run that has never opened one (offer.ts:84-97).
  */
-const DROPS_DRAWER = 'game/offer.ts';
+const POWER_UPS_DRAWER = 'game/offer.ts';
 
 /**
- * Every reach into the drops stream a source makes, as written: the member
- * taken, in the dot spelling or the bracket one, a bare `streams.drops` where
- * the stream itself is taken, and a destructure that binds `drops` off a run's
+ * Every reach into the power-ups stream a source makes, as written: the member
+ * taken, in the dot spelling or the bracket one, a bare `streams.powerUps` where
+ * the stream itself is taken, and a destructure that binds `powerUps` off a run's
  * streams.
  *
  * The destructure is in here because it is the one alias this walk could
- * otherwise not see at all. `const { drops } = state.streams` hands a module
+ * otherwise not see at all. `const { power-ups } = state.streams` hands a module
  * the stream under a name no text match can follow, so the binding itself is
  * the failure rather than whatever it goes on to do.
  *
@@ -225,33 +225,35 @@ const DROPS_DRAWER = 'game/offer.ts';
  * guard covers that fold on its own. Aliasing the whole streams record is the
  * other.
  */
-const DROPS_MEMBER =
-  /streams\s*(?:\.\s*drops|\[\s*['"`]drops['"`]\s*\])(?:\s*\.\s*([A-Za-z_$][\w$]*))?/g;
-const DROPS_BINDING = /\{[^{}]*\bdrops\b[^{}]*\}\s*=[^;\n]*\bstreams\b/g;
+const POWER_UPS_MEMBER =
+  /streams\s*(?:\.\s*powerUps|\[\s*['"`]powerUps['"`]\s*\])(?:\s*\.\s*([A-Za-z_$][\w$]*))?/g;
+const POWER_UPS_BINDING = /\{[^{}]*\bpowerUps\b[^{}]*\}\s*=[^;\n]*\bstreams\b/g;
 
-const dropsReachesIn = (source: string): string[] => [
-  ...[...source.matchAll(DROPS_MEMBER)].map((match) =>
-    match[1] === undefined ? 'streams.drops' : `streams.drops.${match[1]}`,
+const powerUpsReachesIn = (source: string): string[] => [
+  ...[...source.matchAll(POWER_UPS_MEMBER)].map((match) =>
+    match[1] === undefined
+      ? 'streams.powerUps'
+      : `streams.powerUps.${match[1]}`,
   ),
-  ...[...source.matchAll(DROPS_BINDING)].map(
-    () => 'streams.drops through a destructured binding',
+  ...[...source.matchAll(POWER_UPS_BINDING)].map(
+    () => 'streams.powerUps through a destructured binding',
   ),
 ];
 
 /**
- * Where a module other than the offer could move the drops cursor.
+ * Where a module other than the offer could move the power-ups cursor.
  *
  * `.drawn` is excused everywhere, and it is the only member that is. It is a
  * getter over a counter, so a module reading it cannot advance the cursor
  * isFirstOffer reads: invariants.ts checks it is finite (invariants.ts:188) and
  * src/dev's digest folds it into a reading, and neither is a draw. Everything
- * else fails, the bare `streams.drops` of an alias included, because a stream
+ * else fails, the bare `streams.powerUps` of an alias included, because a stream
  * held in a local is a draw this walk can no longer see.
  */
-const strayDropsReachesIn = (module: string, source: string): string[] => {
-  if (module === DROPS_DRAWER) return [];
-  return dropsReachesIn(source)
-    .filter((reach) => reach !== 'streams.drops.drawn')
+const strayPowerUpsReachesIn = (module: string, source: string): string[] => {
+  if (module === POWER_UPS_DRAWER) return [];
+  return powerUpsReachesIn(source)
+    .filter((reach) => reach !== 'streams.powerUps.drawn')
     .map((reach) => `${module} reaches ${reach}`);
 };
 
@@ -501,13 +503,13 @@ describe("a line's constants are declared in that line's own module", () => {
   });
 });
 
-describe('only the offer draws from the drops stream', () => {
+describe('only the offer draws from the power-ups stream', () => {
   it('no module in the sim outside the offer reaches that stream to draw', () => {
     const modules = simModulesUnder(SRC);
-    expect(modules).toContain(DROPS_DRAWER);
+    expect(modules).toContain(POWER_UPS_DRAWER);
     expect(
       modules.flatMap((module) =>
-        strayDropsReachesIn(module, sourceOf(module)),
+        strayPowerUpsReachesIn(module, sourceOf(module)),
       ),
     ).toEqual([]);
   });
@@ -516,60 +518,69 @@ describe('only the offer draws from the drops stream', () => {
     // isFirstOffer's whole reading is that a cursor at zero means no offer has
     // opened yet. A drawer that stopped drawing would leave the cursor at zero
     // for a whole run, and the walk above would stay green straight through it.
-    expect(dropsReachesIn(sourceOf(DROPS_DRAWER))).toContain(
-      'streams.drops.nextInt',
+    expect(powerUpsReachesIn(sourceOf(POWER_UPS_DRAWER))).toContain(
+      'streams.powerUps.nextInt',
     );
   });
 
   it('catches a draw planted outside the offer, and an alias that would hide one', () => {
     expect(
-      strayDropsReachesIn('game/storm.ts', 'state.streams.drops.next();\n'),
-    ).toEqual(['game/storm.ts reaches streams.drops.next']);
-    expect(
-      strayDropsReachesIn(
+      strayPowerUpsReachesIn(
         'game/storm.ts',
-        'const roll = state.streams.drops;\n',
+        'state.streams.powerUps.next();\n',
       ),
-    ).toEqual(['game/storm.ts reaches streams.drops']);
+    ).toEqual(['game/storm.ts reaches streams.powerUps.next']);
     expect(
-      strayDropsReachesIn(DROPS_DRAWER, 'state.streams.drops.next();\n'),
+      strayPowerUpsReachesIn(
+        'game/storm.ts',
+        'const roll = state.streams.powerUps;\n',
+      ),
+    ).toEqual(['game/storm.ts reaches streams.powerUps']);
+    expect(
+      strayPowerUpsReachesIn(
+        POWER_UPS_DRAWER,
+        'state.streams.powerUps.next();\n',
+      ),
     ).toEqual([]);
   });
 
   it('catches the bracket spelling and a destructured binding, not the dot form alone', () => {
     // Both are the same draw written another way, and a fence that only knew
-    // `streams.drops.next` would read green through either.
+    // `streams.powerUps.next` would read green through either.
     expect(
-      strayDropsReachesIn('game/storm.ts', "state.streams['drops'].next();\n"),
-    ).toEqual(['game/storm.ts reaches streams.drops.next']);
-    expect(
-      strayDropsReachesIn(
+      strayPowerUpsReachesIn(
         'game/storm.ts',
-        'const { drops } = state.streams;\n',
+        "state.streams['powerUps'].next();\n",
+      ),
+    ).toEqual(['game/storm.ts reaches streams.powerUps.next']);
+    expect(
+      strayPowerUpsReachesIn(
+        'game/storm.ts',
+        'const { powerUps } = state.streams;\n',
       ),
     ).toEqual([
-      'game/storm.ts reaches streams.drops through a destructured binding',
+      'game/storm.ts reaches streams.powerUps through a destructured binding',
     ]);
   });
 
   it('reads the run state builder as a literal and not as a binding', () => {
-    // run.ts writes the streams record as `{ ..., drops: stream(seed, 'drops'),
-    // ... }`, which names drops inside braces without binding it off anything.
+    // run.ts writes the streams record as `{ ..., power-ups: stream(seed, 'power-ups'),
+    // ... }`, which names powerUps inside braces without binding it off anything.
     // A binding matcher that could not tell those apart would fail the module
     // that creates the stream in the first place.
     expect(
-      strayDropsReachesIn(
+      strayPowerUpsReachesIn(
         'game/run.ts',
-        "streams: {\n  spawns: stream(seed, 'spawns'),\n  drops: stream(seed, 'drops'),\n},\n",
+        "streams: {\n  spawns: stream(seed, 'spawns'),\n  powerUps: stream(seed, 'powerUps'),\n},\n",
       ),
     ).toEqual([]);
   });
 
   it('leaves a cursor read alone, because reading a counter cannot move it', () => {
     expect(
-      strayDropsReachesIn(
+      strayPowerUpsReachesIn(
         'game/invariants.ts',
-        "checkFinite(faults, 'streams.drops.drawn', state.streams.drops.drawn);\n",
+        "checkFinite(faults, 'streams.powerUps.drawn', state.streams.powerUps.drawn);\n",
       ),
     ).toEqual([]);
   });

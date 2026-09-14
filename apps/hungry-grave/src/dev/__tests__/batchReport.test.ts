@@ -380,7 +380,7 @@ describe('the batch report', () => {
     expect(report.spreads).toEqual({});
     expect(report.byLine).toEqual({});
     expect(report.counts).toEqual({});
-    expect(report.phaseSpans).toEqual({});
+    expect(report.sectionSpans).toEqual({});
   });
 
   it('leaves out a reading no run could support rather than folding in a zero', () => {
@@ -484,9 +484,9 @@ describe('the batch report', () => {
     ).toBe(1);
   });
 
-  it('reports each phase as a spread of the spans it held', () => {
+  it('reports each section as a spread of the spans it held', () => {
     // Module test 61. ADR 0049's clock read as a distribution rather than as
-    // one run's length: a phase ends on its own condition, so how long it held
+    // one run's length: a section ends on its own condition, so how long it held
     // is a reading over the batch and never an authored number.
     const spanned = (seed: number, banshee: number): MeasuredRun => ({
       seed,
@@ -496,9 +496,9 @@ describe('the batch report', () => {
           ...BASE.tuning,
           sectionTimeline: {
             spans: [
-              { phase: 'procession', from: 0, to: 100 },
-              { phase: 'banshee', from: 100, to: 100 + banshee },
-              { phase: 'crowd', from: 100 + banshee, to: null },
+              { section: 'procession', from: 0, to: 100 },
+              { section: 'banshee', from: 100, to: 100 + banshee },
+              { section: 'crowd', from: 100 + banshee, to: null },
             ],
           },
         },
@@ -511,23 +511,23 @@ describe('the batch report', () => {
       spanned(902, 1000),
     ]);
 
-    expect(report.phaseSpans.procession?.summary.median).toBe(100);
-    expect(report.phaseSpans.banshee?.summary).toEqual({
+    expect(report.sectionSpans.procession?.summary.median).toBe(100);
+    expect(report.sectionSpans.banshee?.summary).toEqual({
       min: 200,
       lowerQuartile: 200,
       median: 600,
       upperQuartile: 1000,
       max: 1000,
     });
-    // A phase still live when the tape stopped held no span anybody can read,
+    // A section still live when the tape stopped held no span anybody can read,
     // so it is absent rather than measured against the tape's own end.
-    expect(report.phaseSpans.crowd).toBe(undefined);
+    expect(report.sectionSpans.crowd).toBe(undefined);
   });
 
   it('reports the rungs a run bought, when it bought them and on which line', () => {
     // #39, the power-curve ruling: nothing in the report showed power growing
     // over a run, because the rung count dropped the tick and the line every
-    // level-up already carries. The phase is where the schedule authors its
+    // level-up already carries. The section is where the schedule authors its
     // answer to that growth, so the rungs are read against the run's own spans
     // the way the belch already is.
     const levelled = (seed: number, lateTick: number): MeasuredRun => ({
@@ -543,9 +543,9 @@ describe('the batch report', () => {
           ...BASE.tuning,
           sectionTimeline: {
             spans: [
-              { phase: 'procession', from: 0, to: 100 },
-              { phase: 'banshee', from: 100, to: 200 },
-              { phase: 'crowd', from: 200, to: null },
+              { section: 'procession', from: 0, to: 100 },
+              { section: 'banshee', from: 100, to: 200 },
+              { section: 'crowd', from: 200, to: null },
             ],
           },
         },
@@ -570,23 +570,23 @@ describe('the batch report', () => {
         'no levelUps.firstTick spread',
       ).summary.min,
     ).toBe(50);
-    // Where the growth fell across the run, phase by phase.
+    // Where the growth fell across the run, section by section.
     expect(
       requireDefined(
-        report.spreads['levelUps.byPhase.procession'],
-        'no levelUps.byPhase.procession spread',
+        report.spreads['levelUps.bySection.procession'],
+        'no levelUps.bySection.procession spread',
       ).summary.max,
     ).toBe(1);
     expect(
       requireDefined(
-        report.spreads['levelUps.byPhase.banshee'],
-        'no levelUps.byPhase.banshee spread',
+        report.spreads['levelUps.bySection.banshee'],
+        'no levelUps.bySection.banshee spread',
       ).summary.max,
     ).toBe(1);
     expect(
       requireDefined(
-        report.spreads['levelUps.byPhase.crowd'],
-        'no levelUps.byPhase.crowd spread',
+        report.spreads['levelUps.bySection.crowd'],
+        'no levelUps.bySection.crowd spread',
       ).summary.max,
     ).toBe(1);
     // And the line, which files under the line the way every per-line figure does.
@@ -608,7 +608,7 @@ describe('the batch report', () => {
 
   it('counts the endings, the stops and the reach rather than spreading them', () => {
     // Module test 62. A name has no quartile, so the endings and the reach are
-    // counted. The reach is whether the run entered the Undertaker's phase,
+    // counted. The reach is whether the run entered the Undertaker's section,
     // which is the figure #98's done line is read off.
     const ended = (
       seed: number,
@@ -624,10 +624,10 @@ describe('the batch report', () => {
           sectionTimeline: {
             spans: deep
               ? [
-                  { phase: 'procession', from: 0, to: 100 },
-                  { phase: 'undertaker', from: 100, to: 900 },
+                  { section: 'procession', from: 0, to: 100 },
+                  { section: 'undertaker', from: 100, to: 900 },
                 ]
-              : [{ phase: 'procession', from: 0, to: 100 }],
+              : [{ section: 'procession', from: 0, to: 100 }],
           },
         },
       },

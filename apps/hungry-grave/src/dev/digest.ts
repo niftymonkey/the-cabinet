@@ -10,7 +10,7 @@ import { damageMob, spawnMob } from '../game/mobs';
 import type { MoveCommand } from '../game/command';
 import type { RunState } from '../game/run';
 import { createRun } from '../game/run';
-import { place } from '../game/stage/templates';
+import { place } from '../game/stage/formations';
 import type { FaultRecord } from '../game/execution';
 import { createExecution, executeTick } from '../game/execution';
 import { foldWitness } from '../game/witness';
@@ -34,7 +34,7 @@ const LEFTOVER_AT = 540;
 /**
  * The tick a File is placed, and how many mobs are in it.
  *
- * The scenario used to make zero draws on every stream, because the only row
+ * The scenario used to make zero draws on every stream, because the only wave
  * inside its window is a Drip of one and a Drip draws nothing. A scripted File
  * draws from the spawns stream for its placement scatter, so `drawn` measures
  * something. Scripting it rather than running the scenario longer is what keeps
@@ -152,7 +152,7 @@ const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
     kills,
     drawn: {
       spawns: run.streams.spawns.drawn,
-      drops: run.streams.drops.drawn,
+      powerUps: run.streams.powerUps.drawn,
       mobFire: run.streams.mobFire.drawn,
       shed: run.streams.shed.drawn,
       territory: run.streams.territory.drawn,
@@ -162,7 +162,7 @@ const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
   };
 };
 
-// A mob put exactly where the script wants one, outside the stage's own rows.
+// A mob put exactly where the script wants one, outside the stage's own waves.
 const put = (run: RunState, x: number, y: number): Mob | null => {
   return spawnMob(run, 'shambler', { x, y, vx: 0, vy: 1, index: 0 }, false);
 };
@@ -286,20 +286,20 @@ const runScenario = (): ScenarioResult => {
  * stopped folding killsSinceDrop and dropsPaid with the price table they
  * belonged to, and started folding each live mob's carrier flag, so the
  * checksum moved from 1634744137. Only the checksum moved. The scenario's two
- * kills are both scripted mobs that carry nothing, so no drop is paid and
- * drawn.drops stays 0, and the two ramp rows inside the 600 ticks carry a
+ * kills are both scripted mobs that carry nothing, so no power-up is paid and
+ * drawn.powerUps stays 0, and the two ramp waves inside the 600 ticks carry a
  * carrier each without drawing from any stream.
  *
  * Re-pinned for the offer of three and the bank (ADR 0034): the witness now
  * folds the live offer and the banked count, so the checksum moved from
  * -1694949037. Only the checksum moved. The scenario kills no carrier, so its
  * offer is null for all 600 ticks and its bank stays at zero: what the fold
- * gained here is the absent-offer sentinel and a zero, and drawn.drops stays 0
+ * gained here is the absent-offer sentinel and a zero, and drawn.powerUps stays 0
  * because an offer draws only when one opens.
  *
  * Re-pinned for the three named sections (ADR 0049, ADR 0050): the scenario's
  * 600 ticks fall inside what is now the Procession, and that section owns
- * emptiness, so its second row moved from t=8 to t=11 and one authored body
+ * emptiness, so its second wave moved from t=8 to t=11 and one authored body
  * that used to be on the field at tick 600 has not arrived yet. mobs moved from
  * 6 to 5 and the checksum from -1111652845. Nothing else moved: the grave's
  * position, its size, the reservoir, the two scripted kills and every stream
@@ -343,7 +343,7 @@ const GOLDEN: Digest = {
   kills: 2,
   drawn: {
     spawns: 1,
-    drops: 0,
+    powerUps: 0,
     mobFire: 0,
     shed: 0,
     territory: 0,

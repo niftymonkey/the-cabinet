@@ -1,4 +1,4 @@
-// Where every drop ended up.
+// Where every power-up ended up.
 
 import type { SimEvent } from '../../game/events';
 import type { WeaponLine } from '../../game/lines/roster';
@@ -20,7 +20,7 @@ import type { NumberRecord } from '../numbersByName';
  * The claim is that no body leaves the ledger unobserved mid-run, and nothing
  * stronger than that.
  */
-interface DropLedger {
+interface PowerUpLedger {
   readonly spawned: number;
   readonly swallowed: number;
   // Vanished because a sibling of the same offer went in (ADR 0034).
@@ -41,11 +41,11 @@ interface DropLedger {
    * different readings, and the run's own roster is what says which lines
    * could have appeared.
    */
-  readonly byLine: Readonly<Partial<Record<WeaponLine, DropLedgerByLine>>>;
+  readonly byLine: Readonly<Partial<Record<WeaponLine, PowerUpLedgerByLine>>>;
 }
 
 // The five ends for one weapon line (ADR 0034, path-draft.md:21).
-interface DropLedgerByLine {
+interface PowerUpLedgerByLine {
   readonly spawned: number;
   readonly swallowed: number;
   readonly passed: number;
@@ -61,7 +61,7 @@ interface LineCounts {
   onFieldAtStop: number;
 }
 
-interface DropLedgerAcc {
+interface PowerUpLedgerAcc {
   spawned: number;
   swallowed: number;
   passed: number;
@@ -74,7 +74,7 @@ interface DropLedgerAcc {
   readonly byLine: Map<WeaponLine, LineCounts>;
 }
 
-const createDropLedger = (): DropLedgerAcc => ({
+const createPowerUpLedger = (): PowerUpLedgerAcc => ({
   spawned: 0,
   swallowed: 0,
   passed: 0,
@@ -85,7 +85,7 @@ const createDropLedger = (): DropLedgerAcc => ({
   byLine: new Map(),
 });
 
-const countsFor = (acc: DropLedgerAcc, line: WeaponLine): LineCounts => {
+const countsFor = (acc: PowerUpLedgerAcc, line: WeaponLine): LineCounts => {
   const existing = acc.byLine.get(line);
   if (existing !== undefined) return existing;
   const fresh: LineCounts = {
@@ -99,9 +99,10 @@ const countsFor = (acc: DropLedgerAcc, line: WeaponLine): LineCounts => {
   return fresh;
 };
 
-const liveDrops = (state: RunState): number =>
+const livePowerUps = (state: RunState): number =>
   state.corpses.reduce(
-    (count, corpse) => count + (corpse.alive && corpse.kind === 'drop' ? 1 : 0),
+    (count, corpse) =>
+      count + (corpse.alive && corpse.kind === 'powerUp' ? 1 : 0),
     0,
   );
 
@@ -109,7 +110,11 @@ const liveDrops = (state: RunState): number =>
 const bodiesStanding = (state: RunState): Set<number> => {
   const standing = new Set<number>();
   for (const corpse of state.corpses) {
-    if (corpse.alive && corpse.kind === 'drop' && corpse.line !== undefined) {
+    if (
+      corpse.alive &&
+      corpse.kind === 'powerUp' &&
+      corpse.line !== undefined
+    ) {
       standing.add(corpse.id);
     }
   }
@@ -117,17 +122,17 @@ const bodiesStanding = (state: RunState): Set<number> => {
 };
 
 const observeEvents = (
-  acc: DropLedgerAcc,
+  acc: PowerUpLedgerAcc,
   events: readonly SimEvent[],
 ): void => {
   for (const event of events) {
-    if (event.type === 'dropSpawned') {
+    if (event.type === 'powerUpSpawned') {
       acc.spawned += 1;
       if (event.line === undefined) continue;
       acc.lineOfBody.set(event.id, event.line);
       countsFor(acc, event.line).spawned += 1;
     }
-    if (event.type === 'swallowed' && event.kind === 'drop') {
+    if (event.type === 'swallowed' && event.kind === 'powerUp') {
       acc.swallowed += 1;
     }
     // The take names the options it passed over, which is the only report the
@@ -138,7 +143,7 @@ const observeEvents = (
       countsFor(acc, event.line).swallowed += 1;
       for (const line of event.passed) countsFor(acc, line).passed += 1;
     }
-    if (event.type === 'corpseLost' && event.kind === 'drop') acc.lost += 1;
+    if (event.type === 'corpseLost' && event.kind === 'powerUp') acc.lost += 1;
   }
 };
 
@@ -164,11 +169,11 @@ const linesTakenIn = (events: readonly SimEvent[]): WeaponLine[] => {
  * It is read off the field rather than off corpseLost, which names no line: a
  * body scrolls off on its own tick whether or not its siblings are still
  * standing, so an offer half gone at the stop still accounts for the half that
- * went. A drop never decays and is never evicted, so a body that is neither
+ * went. A power-up never decays and is never evicted, so a body that is neither
  * standing nor taken left over the bottom edge.
  */
 const observeDepartures = (
-  acc: DropLedgerAcc,
+  acc: PowerUpLedgerAcc,
   events: readonly SimEvent[],
   standing: ReadonlySet<number>,
 ): void => {
@@ -187,7 +192,7 @@ const observeDepartures = (
 };
 
 const observeStanding = (
-  acc: DropLedgerAcc,
+  acc: PowerUpLedgerAcc,
   standing: ReadonlySet<number>,
 ): void => {
   for (const counts of acc.byLine.values()) counts.onFieldAtStop = 0;
@@ -198,8 +203,8 @@ const observeStanding = (
   }
 };
 
-const observeDropLedger = (
-  acc: DropLedgerAcc,
+const observePowerUpLedger = (
+  acc: PowerUpLedgerAcc,
   events: readonly SimEvent[],
   state: RunState,
 ): void => {
@@ -207,16 +212,16 @@ const observeDropLedger = (
   const standing = bodiesStanding(state);
   observeDepartures(acc, events, standing);
   // The last tick's field is the one the run stopped on.
-  acc.onFieldAtStop = liveDrops(state);
+  acc.onFieldAtStop = livePowerUps(state);
   observeStanding(acc, standing);
   acc.bodiesOnField.clear();
   for (const id of standing) acc.bodiesOnField.add(id);
 };
 
 const byLineOf = (
-  acc: DropLedgerAcc,
-): Partial<Record<WeaponLine, DropLedgerByLine>> => {
-  const lines: Partial<Record<WeaponLine, DropLedgerByLine>> = {};
+  acc: PowerUpLedgerAcc,
+): Partial<Record<WeaponLine, PowerUpLedgerByLine>> => {
+  const lines: Partial<Record<WeaponLine, PowerUpLedgerByLine>> = {};
   for (const [line, counts] of acc.byLine) {
     lines[line] = {
       spawned: counts.spawned,
@@ -229,7 +234,7 @@ const byLineOf = (
   return lines;
 };
 
-const dropLedgerOf = (acc: DropLedgerAcc): DropLedger => ({
+const powerUpLedgerOf = (acc: PowerUpLedgerAcc): PowerUpLedger => ({
   spawned: acc.spawned,
   swallowed: acc.swallowed,
   passed: acc.passed,
@@ -247,7 +252,7 @@ const dropLedgerOf = (acc: DropLedgerAcc): DropLedger => ({
  * the comparer recognised.
  */
 const ledgerByLineNumbers = (
-  byLine: Readonly<Partial<Record<WeaponLine, DropLedgerByLine>>>,
+  byLine: Readonly<Partial<Record<WeaponLine, PowerUpLedgerByLine>>>,
 ): NumberRecord => {
   const names: Record<string, number | undefined> = {};
   for (const [line, counts] of Object.entries(byLine)) {
@@ -260,9 +265,9 @@ const ledgerByLineNumbers = (
 };
 
 export {
-  createDropLedger,
-  observeDropLedger,
-  dropLedgerOf,
+  createPowerUpLedger,
+  observePowerUpLedger,
+  powerUpLedgerOf,
   ledgerByLineNumbers,
 };
-export type { DropLedger, DropLedgerAcc, DropLedgerByLine };
+export type { PowerUpLedger, PowerUpLedgerAcc, PowerUpLedgerByLine };

@@ -133,7 +133,7 @@ const createEngagements = (lines: readonly WeaponLine[]): EngagementsAcc => {
  * and reports it as mobDamaged like anything else, and a boss is not in the
  * pool, so its damage names no type here and no engagement is opened for it. A
  * fight against a boss is read from its own vocabulary instead, bossArrived,
- * chunkBroke and bossKilled.
+ * phaseBroke and bossKilled.
  *
  * That is why a missing id answers nothing rather than throwing, and the guard
  * it used to carry has not been given up: an engagement that never closes is

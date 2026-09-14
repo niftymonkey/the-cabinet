@@ -1,6 +1,6 @@
 /**
  * The authored timeline (ADR 0006) and the three named sections (ADR 0049,
- * ADR 0050). The row tables are data, so most of this file reads them directly;
+ * ADR 0050). The wave tables are data, so most of this file reads them directly;
  * the tests that need the clock, or a hand, run the whole stage through the one
  * execution authority (ADR 0017).
  *
@@ -13,9 +13,9 @@ import { describe, expect, it } from 'vitest';
 
 import stageSource from '../stage.ts?raw';
 
-import { BOSS_KINDS } from '../rows';
-import { CHUNK_HP, damageBoss } from '../../bosses/chunks';
-import { carrierRow } from '../../carriers';
+import { BOSS_KINDS } from '../waves';
+import { PHASE_HP, damageBoss } from '../../bosses/phases';
+import { waveCarriers } from '../../carriers';
 import { stepping } from '../../../dev/stepping';
 import { TICK_HZ } from '../../clock';
 import type { SimEvent } from '../../events';
@@ -42,33 +42,38 @@ import type { TickCommand } from '../../command';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { SCROLL_SPEED, SIZE_FLOOR, SIZE_START } from '../../tuning';
-import type { StageRow } from '../rows';
+import type { StageWave } from '../waves';
 import {
-  CROWD_ROWS,
-  PROCESSION_ROWS,
-  SPARSE_LAST_ROW,
-  sparseLastRow,
-  VIGIL_ROWS,
-} from '../rows';
+  CROWD_WAVES,
+  PROCESSION_WAVES,
+  SPARSE_LAST_WAVE,
+  sparseLastWave,
+  VIGIL_WAVES,
+} from '../waves';
 import { placeSetPiece } from '../setPiece';
-import type { Phase, PhaseName } from '../stage';
-import { advanceStage, PHASES, phaseEnded, phaseUnderway } from '../stage';
-import { place } from '../templates';
+import type { Section, SectionName } from '../stage';
+import {
+  advanceStage,
+  SECTIONS,
+  sectionEnded,
+  sectionUnderway,
+} from '../stage';
+import { place } from '../formations';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
-const SECTION_NAMES: readonly PhaseName[] = ['procession', 'crowd', 'vigil'];
+const SECTION_NAMES: readonly SectionName[] = ['procession', 'crowd', 'vigil'];
 
 /**
- * The two sections a boss ends, which are the two that carry a sparse last row
+ * The two sections a boss ends, which are the two that carry a sparse last wave
  * and end on a field with nothing left alive on it (ADR 0051). The Crowd is not
  * among them and that is the ruling rather than an omission.
  */
-const BOSS_BOUND_SECTIONS: readonly PhaseName[] = ['procession', 'vigil'];
+const BOSS_BOUND_SECTIONS: readonly SectionName[] = ['procession', 'vigil'];
 
 /**
  * The longest a body can take to leave the field, in ticks: the whole distance
- * one can cross, the field plus the deepest a template places above it plus the
+ * one can cross, the field plus the deepest a formation places above it plus the
  * body's own half height, at the slowest total descent any type can hold, which
  * is the scroll plus its own speed. Every term is read from the tables, so the
  * bound follows the mob rows and the field rather than being written down.
@@ -95,15 +100,15 @@ function firstOf<T>(items: readonly T[]): T {
   return requireDefined(items[0], 'no first item');
 }
 
-function phase(name: PhaseName): Phase {
-  return PHASES.find((each) => each.name === name)!;
+function section(name: SectionName): Section {
+  return SECTIONS.find((each) => each.name === name)!;
 }
 
-/** The phase whose boundary event ends this section, which is the phase after it. */
-function boundaryAfter(name: PhaseName): Phase {
+/** The section whose boundary event ends this section, which is the section after it. */
+function boundaryAfter(name: SectionName): Section {
   return requireDefined(
-    PHASES[PHASES.findIndex((each) => each.name === name) + 1],
-    `no phase after ${name}`,
+    SECTIONS[SECTIONS.findIndex((each) => each.name === name) + 1],
+    `no section after ${name}`,
   );
 }
 
@@ -144,16 +149,16 @@ const sharpHand: Hand = (state) => {
 };
 
 interface Played {
-  /** Every phaseChanged, in order, as name and absolute tick. */
-  readonly boundaries: { phase: PhaseName; tick: number }[];
+  /** Every sectionChanged, in order, as name and absolute tick. */
+  readonly boundaries: { section: SectionName; tick: number }[];
   /** The absolute tick each group of mobs arrived on, with how many arrived. */
   readonly arrivals: { tick: number; count: number }[];
   /** How many of the stage's own groups have a body live on the field, per tick. */
-  readonly liveTemplates: number[];
+  readonly liveFormations: number[];
   /**
    * How many mobs were alive as each tick began, which is what the stage's own
    * end condition reads: advanceStage runs before the tick's deaths and its
-   * cull, so a phase ends on the tick after its last body leaves.
+   * cull, so a section ends on the tick after its last body leaves.
    */
   readonly liveMobs: number[];
   /** Growth the tick's kills paid, in size units, per tick. */
@@ -172,18 +177,18 @@ interface Played {
  * would seal shut inside the Procession and stop the stage's clock long before
  * the Vigil.
  *
- * A template is counted live while any body of the group one row put on the
+ * A formation is counted live while any body of the group one wave put on the
  * field is alive and fully inside it. The group is the tick's own arrivals: no
- * two rows of a section share a phase-local second, so one tick's spawns are
- * one row's, and a body is held to its group by entity id because a pool slot
+ * two waves of a section share a section-local second, so one tick's spawns are
+ * one wave's, and a body is held to its group by entity id because a pool slot
  * is recycled and an id never is.
  */
 function playStage(seed: number, hand: Hand, ticks: number): Played {
   const state = createRun(seed);
   const step = stepping(state);
-  const boundaries: { phase: PhaseName; tick: number }[] = [];
+  const boundaries: { section: SectionName; tick: number }[] = [];
   const arrivals: { tick: number; count: number }[] = [];
-  const liveTemplates: number[] = [];
+  const liveFormations: number[] = [];
   const liveMobs: number[] = [];
   const foodPaid: number[] = [];
   const stageClock: { index: number; tick: number }[] = [];
@@ -194,7 +199,7 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
   for (let tick = 0; tick < ticks && state.ending !== 'victory'; tick++) {
     const before = state.mobs.filter((mob) => mob.alive).length;
     liveMobs.push(before);
-    // The tick the step is spending, so arrivals and phaseChanged are recorded
+    // The tick the step is spending, so arrivals and sectionChanged are recorded
     // on the same clock: the event carries state.tick before step advances it.
     const at = state.tick;
     const stepped = step(STILL);
@@ -205,8 +210,8 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
     const alive = state.mobs.filter((mob) => mob.alive).length;
     if (alive > before) arrivals.push({ tick: at, count: alive - before });
     for (const event of stepped) {
-      if (event.type !== 'phaseChanged') continue;
-      boundaries.push({ phase: event.phase, tick: event.tick });
+      if (event.type !== 'sectionChanged') continue;
+      boundaries.push({ section: event.section, tick: event.tick });
     }
 
     const fresh = state.mobs.filter((mob) => mob.alive && !groupOf.has(mob.id));
@@ -218,7 +223,7 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
       const group = groupOf.get(mob.id);
       if (group !== undefined) live.add(group);
     }
-    liveTemplates.push(live.size);
+    liveFormations.push(live.size);
 
     const handed = hand(state);
     let paid = 0;
@@ -228,14 +233,14 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
     }
     foodPaid.push(paid);
     stageClock.push({
-      index: state.stage.phaseIndex,
-      tick: state.stage.phaseTick,
+      index: state.stage.sectionIndex,
+      tick: state.stage.sectionTick,
     });
   }
   return {
     boundaries,
     arrivals,
-    liveTemplates,
+    liveFormations,
     liveMobs,
     foodPaid,
     stageClock,
@@ -244,20 +249,23 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
   };
 }
 
-/** Where each phase ran, in absolute ticks, read off the run's own boundaries. */
-function spanOf(played: Played, name: PhaseName): [number, number] {
+/** Where each section ran, in absolute ticks, read off the run's own boundaries. */
+function spanOf(played: Played, name: SectionName): [number, number] {
   let from = 0;
-  let current: PhaseName = requireDefined(PHASES[0], 'PHASES is empty').name;
+  let current: SectionName = requireDefined(
+    SECTIONS[0],
+    'SECTIONS is empty',
+  ).name;
   for (const boundary of played.boundaries) {
     if (current === name) return [from, boundary.tick];
     from = boundary.tick;
-    current = boundary.phase;
+    current = boundary.section;
   }
-  return [from, played.liveTemplates.length];
+  return [from, played.liveFormations.length];
 }
 
-/** Growth paid per second inside one phase, under whatever hand played it. */
-function foodPerSecond(played: Played, name: PhaseName): number {
+/** Growth paid per second inside one section, under whatever hand played it. */
+function foodPerSecond(played: Played, name: SectionName): number {
   const [from, to] = spanOf(played, name);
   const paid = played.foodPaid.slice(from, to).reduce((sum, at) => sum + at, 0);
   return paid / ((to - from) / TICK_HZ);
@@ -267,43 +275,43 @@ function foodPerSecond(played: Played, name: PhaseName): number {
  * Every window in a table where nothing is due for longer than a body takes to
  * leave the field, which is a window the field can be empty through.
  */
-function silentGapsIn(rows: readonly StageRow[]): string[] {
+function silentGapsIn(waves: readonly StageWave[]): string[] {
   const bound = SLOWEST_DESCENT_TICKS / TICK_HZ;
-  return rows
-    .map((row, index) => ({
-      row,
+  return waves
+    .map((wave, index) => ({
+      wave,
       gap:
         index === 0
-          ? row.t
-          : row.t - requireDefined(rows[index - 1], 'row out of range').t,
+          ? wave.t
+          : wave.t - requireDefined(waves[index - 1], 'wave out of range').t,
     }))
     .filter((each) => each.gap > bound)
     .map(
-      (each) => `${each.row.template} at t=${each.row.t} after ${each.gap}s`,
+      (each) => `${each.wave.formation} at t=${each.wave.t} after ${each.gap}s`,
     );
 }
 
-/** How long one phase ran, in ticks, under whatever hand played it. */
-function lengthOf(played: Played, name: PhaseName): number {
+/** How long one section ran, in ticks, under whatever hand played it. */
+function lengthOf(played: Played, name: SectionName): number {
   const [from, to] = spanOf(played, name);
   return to - from;
 }
 
-/** The live-template count through one phase. */
-function liveThrough(played: Played, name: PhaseName): number[] {
+/** The live-formation count through one section. */
+function liveThrough(played: Played, name: SectionName): number[] {
   const [from, to] = spanOf(played, name);
-  return played.liveTemplates.slice(from, to);
+  return played.liveFormations.slice(from, to);
 }
 
-/** The phase-local second a table's last row fires. */
-function lastRowAt(rows: readonly StageRow[]): number {
-  return requireDefined(rows[rows.length - 1], 'rows is empty').t;
+/** The section-local second a table's last wave fires. */
+function lastWaveAt(waves: readonly StageWave[]): number {
+  return requireDefined(waves[waves.length - 1], 'waves is empty').t;
 }
 
 /** How many bodies a table lands per second of its own span. */
-function ratePerSecond(rows: readonly StageRow[]): number {
-  const bodies = rows.reduce((total, row) => total + row.count, 0);
-  return bodies / lastRowAt(rows);
+function ratePerSecond(waves: readonly StageWave[]): number {
+  const bodies = waves.reduce((total, wave) => total + wave.count, 0);
+  return bodies / lastWaveAt(waves);
 }
 
 /**
@@ -324,8 +332,8 @@ const FULL_BUILD_DAMAGE_PER_SECOND =
 
 /**
  * The share of that storm a boss standing at the top of the field takes, which
- * is what the design record's section 4 sizes CHUNK_HP under. It is the one
- * figure in this file that is written down rather than read off a row, and it
+ * is what the design record's section 4 sizes PHASE_HP under. It is the one
+ * figure in this file that is written down rather than read off a wave, and it
  * has to be: how much of a player's storm is pointed at a boss is a fact about
  * the player and about nothing in the tree. A parked hand is not one, which the
  * test that reads it says beside its own assertion.
@@ -333,14 +341,14 @@ const FULL_BUILD_DAMAGE_PER_SECOND =
 const BOSS_STORM_SHARE = 1 / 3;
 
 /**
- * How long a boss phase may hold a run in this rig. A fight has no authored
+ * How long a boss section may hold a run in this rig. A fight has no authored
  * length at all: it is the boss's health against whatever the hand puts on it,
  * so nothing in the tables can predict it and what is written here is a ceiling.
  *
  * The measurement it sits above is the still hand's own, which is the slowest
  * hand this file plays: a parked grave firing nothing but the birthright empties
  * the Banshee in about 4900 ticks and the Undertaker in about 13000, his three
- * chunks against her two. Half again above the larger, so a retune of either
+ * phases against her two. Half again above the larger, so a retune of either
  * boss's health moves the fight without silently running these runs off the end
  * of their budget, which is a failure that reads as a broken timeline rather
  * than as a spent budget.
@@ -348,17 +356,17 @@ const BOSS_STORM_SHARE = 1 / 3;
 const BOSS_FIGHT_TICKS = 19500;
 
 /**
- * A budget for one whole run rather than a length. Every phase ends on its own
+ * A budget for one whole run rather than a length. Every section ends on its own
  * condition (ADR 0051), so how long a run takes is decided by the hand playing
- * it, and what can be written down is a ceiling: each phase's own rows plus a
+ * it, and what can be written down is a ceiling: each section's own waves plus a
  * whole descent for whatever they leave falling, and a fight's own allowance
- * where the phase carries a boss.
+ * where the section carries a boss.
  */
 const STAGE_TICKS = Math.ceil(
-  PHASES.reduce(
+  SECTIONS.reduce(
     (total, each) =>
       total +
-      (each.rows.length > 0 ? lastRowAt(each.rows) * TICK_HZ : 0) +
+      (each.waves.length > 0 ? lastWaveAt(each.waves) * TICK_HZ : 0) +
       (each.boss === null ? 0 : BOSS_FIGHT_TICKS) +
       SLOWEST_DESCENT_TICKS,
     0,
@@ -382,7 +390,7 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
   it('runs three sections, with the Banshee, the set piece and the Undertaker as their boundary events', () => {
     // ADR 0050: "The Banshee ends the first, a swarm set piece ends the second,
     // and the Undertaker ends the third and the stage."
-    expect(PHASES.map((each) => each.name)).toEqual([
+    expect(SECTIONS.map((each) => each.name)).toEqual([
       'procession',
       'banshee',
       'crowd',
@@ -402,13 +410,13 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
     ]);
 
     // The middle boundary is deliberately not a boss, which is the ruling's own
-    // second half, so the phase that ends the Crowd carries none.
+    // second half, so the section that ends the Crowd carries none.
     expect(SECTION_NAMES.map((name) => boundaryAfter(name).boss)).toEqual([
       'banshee',
       null,
       'undertaker',
     ]);
-    expect(phase('crowd').ends).toBe('setPieceOpened');
+    expect(section('crowd').ends).toBe('setPieceOpened');
   });
 
   it('makes the opening section the shortest, the middle the longest and the last shorter again', () => {
@@ -427,72 +435,75 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
     expect(vigil).toBeLessThan(procession);
   });
 
-  it('puts each boundary where the rows put it, so moving a row moves the boundary', () => {
+  it('puts each boundary where the waves put it, so moving a wave moves the boundary', () => {
     // ADR 0050: "where each boundary falls on the clock is stage data." The
-    // same section with one more row has not run out where the authored one
+    // same section with one more wave has not run out where the authored one
     // has, and nothing else in the machine has an opinion about it.
     //
     // The two sections a boss ends are the two this reads, because they are the
-    // two whose end is their own rows running out. The Crowd's boundary is the
-    // eye opening and its own row is the one that places the source, which the
+    // two whose end is their own waves running out. The Crowd's boundary is the
+    // eye opening and its own wave is the one that places the source, which the
     // test below it holds.
     const state = createRun(1);
     for (const name of BOSS_BOUND_SECTIONS) {
-      const each = phase(name);
+      const each = section(name);
       const last = requireDefined(
-        each.rows[each.rows.length - 1],
-        `${name} has no rows`,
+        each.waves[each.waves.length - 1],
+        `${name} has no waves`,
       );
-      const stretched: Phase = {
+      const stretched: Section = {
         ...each,
-        rows: [...each.rows, { ...last, t: last.t + 30 }],
+        waves: [...each.waves, { ...last, t: last.t + 30 }],
       };
-      state.stage.firedRows = each.rows.length;
-      expect(`${name} ${phaseEnded(state, each)}`).toBe(`${name} true`);
-      expect(`${name} ${phaseEnded(state, stretched)}`).toBe(`${name} false`);
+      state.stage.firedWaves = each.waves.length;
+      expect(`${name} ${sectionEnded(state, each)}`).toBe(`${name} true`);
+      expect(`${name} ${sectionEnded(state, stretched)}`).toBe(`${name} false`);
     }
   });
 
-  it('ends the Crowd on the eye and never on its rows, however many are left', () => {
-    // The middle boundary is the one that is not a boss and not a row running
-    // out (ADR 0050). Its column is what decides, so a Crowd with every row
+  it('ends the Crowd on the eye and never on its waves, however many are left', () => {
+    // The middle boundary is the one that is not a boss and not a wave running
+    // out (ADR 0050). Its column is what decides, so a Crowd with every wave
     // fired and an empty field is still live while the source is dormant, and a
-    // Crowd with rows left ends the tick the source opens.
+    // Crowd with waves left ends the tick the source opens.
     const state = createRun(1);
-    const crowd = phase('crowd');
-    state.stage.firedRows = crowd.rows.length;
-    expect(phaseEnded(state, crowd)).toBe(false);
+    const crowd = section('crowd');
+    state.stage.firedWaves = crowd.waves.length;
+    expect(sectionEnded(state, crowd)).toBe(false);
 
     placeSetPiece(state);
-    expect(phaseEnded(state, crowd)).toBe(false);
+    expect(sectionEnded(state, crowd)).toBe(false);
 
-    state.stage.firedRows = 0;
+    state.stage.firedWaves = 0;
     state.setPiece!.open = true;
-    expect(phaseEnded(state, crowd)).toBe(true);
+    expect(sectionEnded(state, crowd)).toBe(true);
   });
 
   it('buys no power with length: a longer section carries the carriers it authored', () => {
     // ADR 0049: "so a longer stage is a longer stage and not a richer one
-    // unless the carrier rows say so." The same rows spread over twice the time
+    // unless the carrier waves say so." The same waves spread over twice the time
     // pay exactly what they paid before.
-    const carriersIn = (rows: readonly StageRow[]): number =>
-      rows.reduce(
-        (total, row) =>
-          total + carrierRow(row.carries, row.count).carrying.length,
+    const carriersIn = (waves: readonly StageWave[]): number =>
+      waves.reduce(
+        (total, wave) =>
+          total + waveCarriers(wave.carries, wave.count).carrying.length,
         0,
       );
-    const stretched = PROCESSION_ROWS.map((row) => ({ ...row, t: row.t * 2 }));
-    expect(lastRowAt(stretched)).toBeGreaterThan(lastRowAt(PROCESSION_ROWS));
-    expect(carriersIn(stretched)).toBe(carriersIn(PROCESSION_ROWS));
+    const stretched = PROCESSION_WAVES.map((wave) => ({
+      ...wave,
+      t: wave.t * 2,
+    }));
+    expect(lastWaveAt(stretched)).toBeGreaterThan(lastWaveAt(PROCESSION_WAVES));
+    expect(carriersIn(stretched)).toBe(carriersIn(PROCESSION_WAVES));
   });
 });
 
 describe('one property per section (game-concept.md:48)', () => {
-  it('holds the Procession to its declared live-template ceiling under a hand that kills what arrives', () => {
-    // "the first owns emptiness, never more than one template live." The
-    // ceiling is read off the phase rather than restated here, because it is
-    // the row the director at step 4 may not spend past (ADR 0047).
-    const ceiling = phase('procession').liveTemplateCeiling!;
+  it('holds the Procession to its declared live-formation ceiling under a hand that kills what arrives', () => {
+    // "the first owns emptiness, never more than one formation live." The
+    // ceiling is read off the section rather than restated here, because it is
+    // the wave the director at step 4 may not spend past (ADR 0047).
+    const ceiling = section('procession').liveFormationCeiling!;
     expect(ceiling).toBe(1);
     expect(Math.max(...liveThrough(SHARP, 'procession'))).toBeLessThanOrEqual(
       ceiling,
@@ -501,49 +512,51 @@ describe('one property per section (game-concept.md:48)', () => {
     // And the emptiness it buys is real rather than a consequence of the hand:
     // under the same still grave the Procession's field is empty many times
     // more often than the Crowd's.
-    const emptyShare = (name: PhaseName): number => {
+    const emptyShare = (name: SectionName): number => {
       const window = liveThrough(STILL_PLAY, name);
       return window.filter((count) => count === 0).length / window.length;
     };
     expect(emptyShare('procession')).toBeGreaterThan(4 * emptyShare('crowd'));
   });
 
-  it('raises no fault when a slower hand leaves two templates on the Procession at once', () => {
-    // The deliberate absence beside the ceiling. The authored rows are the
+  it('raises no fault when a slower hand leaves two formations on the Procession at once', () => {
+    // The deliberate absence beside the ceiling. The authored waves are the
     // floor ADR 0047 keeps, and ADR 0023 runs every invariant in every build a
     // player is handed, so a ceiling written as a law would fire at a player
     // who kills slowly and land in their own tape as a defect in the game.
     //
     // The rig throws on the first tick that records a fault, so a run that
-    // reaches two live templates and then crosses the whole stage is the proof:
+    // reaches two live formations and then crosses the whole stage is the proof:
     // the still hand exceeds the ceiling for most of the section and nothing
     // anywhere calls it wrong.
     const procession = liveThrough(STILL_PLAY, 'procession');
-    const ceiling = phase('procession').liveTemplateCeiling!;
+    const ceiling = section('procession').liveFormationCeiling!;
     expect(Math.max(...procession)).toBeGreaterThan(ceiling);
     expect(
       procession.filter((count) => count > ceiling).length,
     ).toBeGreaterThan(TICK_HZ);
-    expect(STILL_PLAY.boundaries.map((each) => each.phase)).toContain('over');
+    expect(STILL_PLAY.boundaries.map((each) => each.section)).toContain('over');
   });
 
-  it('never lets the Crowd fall below two live templates once it has them', () => {
-    // "the middle owns overlap, never fewer than two templates live." It is a
+  it('never lets the Crowd fall below two live formations once it has them', () => {
+    // "the middle owns overlap, never fewer than two formations live." It is a
     // floor over live mobs and it carries no ceiling row, because a director
     // that adds and never removes cannot break a floor.
     //
     // The window is the section's own body: from the tick it first holds two
-    // through to its last row firing. Before that the section is filling and
-    // after it the rows have run out, and what the sparse last row does to that
+    // through to its last wave firing. Before that the section is filling and
+    // after it the waves have run out, and what the sparse last wave does to that
     // tail is ADR 0051's, not this property's.
     const crowd = liveThrough(STILL_PLAY, 'crowd');
-    const lastRow =
-      requireDefined(CROWD_ROWS[CROWD_ROWS.length - 1], 'CROWD_ROWS is empty')
-        .t * TICK_HZ;
+    const lastWave =
+      requireDefined(
+        CROWD_WAVES[CROWD_WAVES.length - 1],
+        'CROWD_WAVES is empty',
+      ).t * TICK_HZ;
     const opened = crowd.findIndex((count) => count >= 2);
     expect(opened).toBeGreaterThanOrEqual(0);
-    expect(opened).toBeLessThan(lastRow);
-    expect(crowd.slice(opened, lastRow).filter((count) => count < 2)).toEqual(
+    expect(opened).toBeLessThan(lastWave);
+    expect(crowd.slice(opened, lastWave).filter((count) => count < 2)).toEqual(
       [],
     );
 
@@ -562,7 +575,7 @@ describe('one property per section (game-concept.md:48)', () => {
     // "the last owns scarcity." The quantity is growth paid per second and
     // never corpses per second: a revenant corpse pays double a shambler's, so
     // a corpses-per-second rule would pass while the section fed better than
-    // the one before it (mobs.ts's own payout rows).
+    // the one before it (mobs.ts's own payout waves).
     //
     // It runs under the sharp hand, which takes what it kills, so what is
     // compared is the two sections' own authored rates rather than how well
@@ -581,42 +594,44 @@ describe('one property per section (game-concept.md:48)', () => {
   });
 });
 
-describe('the rows as data (ADR 0006)', () => {
+describe('the waves as data (ADR 0006)', () => {
   it("holds only Drips and one File in the Procession's first 45 seconds", () => {
-    const opening = PROCESSION_ROWS.filter((row) => row.t < 45);
+    const opening = PROCESSION_WAVES.filter((wave) => wave.t < 45);
     expect(opening.length).toBeGreaterThan(3);
-    expect(opening.filter((row) => row.template === 'file')).toHaveLength(1);
+    expect(opening.filter((wave) => wave.formation === 'file')).toHaveLength(1);
     expect(
       opening.filter(
-        (row) => row.template !== 'file' && row.template !== 'drip',
+        (wave) => wave.formation !== 'file' && wave.formation !== 'drip',
       ),
     ).toEqual([]);
   });
 
   it('introduces every mob type as a lone Drip before it appears in numbers (ADR 0016)', () => {
     const seen = new Set<MobType>();
-    for (const row of [...PROCESSION_ROWS, ...CROWD_ROWS, ...VIGIL_ROWS]) {
-      if (seen.has(row.type)) continue;
-      seen.add(row.type);
-      expect(`${row.type} ${row.template} ${row.count}`).toBe(
-        `${row.type} drip 1`,
+    for (const wave of [...PROCESSION_WAVES, ...CROWD_WAVES, ...VIGIL_WAVES]) {
+      if (seen.has(wave.type)) continue;
+      seen.add(wave.type);
+      expect(`${wave.type} ${wave.formation} ${wave.count}`).toBe(
+        `${wave.type} drip 1`,
       );
     }
     expect(seen.size).toBe(3);
   });
 
-  it('keeps the Procession clear of the closer and of the density templates', () => {
+  it('keeps the Procession clear of the closer and of the density formations', () => {
     // The section owns emptiness, so the Rain, which is the filler a section
     // turns up when its property asks for it, and the Pincer, which is two
     // files at once, both belong to the section after it. The ghoul closes,
     // which is the same argument one type down.
-    const templates = new Set(PROCESSION_ROWS.map((row) => row.template));
-    expect([...templates].sort()).toEqual(['drip', 'file', 'v']);
-    expect(PROCESSION_ROWS.filter((row) => row.type === 'ghoul')).toEqual([]);
+    const formations = new Set(PROCESSION_WAVES.map((wave) => wave.formation));
+    expect([...formations].sort()).toEqual(['drip', 'file', 'v']);
+    expect(PROCESSION_WAVES.filter((wave) => wave.type === 'ghoul')).toEqual(
+      [],
+    );
   });
 
   it("fills the Wall's width at the shambler's size, so no gap in the curtain is wider than a floor-size grave", () => {
-    const wall = CROWD_ROWS.find((row) => row.template === 'wall')!;
+    const wall = CROWD_WAVES.find((wave) => wave.formation === 'wall')!;
     const placed = place('wall', wall.count, createRun(1).streams.spawns);
     const half = MOB_TYPES[wall.type].halfWidth;
     const edges = placed.map((at) => ({
@@ -637,16 +652,20 @@ describe('the rows as data (ADR 0006)', () => {
     }
   });
 
-  it('keeps SPAWN_MARGIN at least as deep as the deepest authored row', () => {
-    const rows: readonly StageRow[] = [
-      ...PROCESSION_ROWS,
-      ...CROWD_ROWS,
-      ...VIGIL_ROWS,
+  it('keeps SPAWN_MARGIN at least as deep as the deepest authored wave', () => {
+    const waves: readonly StageWave[] = [
+      ...PROCESSION_WAVES,
+      ...CROWD_WAVES,
+      ...VIGIL_WAVES,
     ];
     const state = createRun(2);
     let deepest = 0;
-    for (const row of rows) {
-      for (const at of place(row.template, row.count, state.streams.spawns)) {
+    for (const wave of waves) {
+      for (const at of place(
+        wave.formation,
+        wave.count,
+        state.streams.spawns,
+      )) {
         deepest = Math.max(deepest, -at.y);
       }
     }
@@ -655,11 +674,11 @@ describe('the rows as data (ADR 0006)', () => {
   });
 });
 
-describe('the phase machine (ADR 0006)', () => {
-  it('chains the seven phases in order and reports each boundary', () => {
+describe('the section machine (ADR 0006)', () => {
+  it('chains the seven sections in order and reports each boundary', () => {
     expect([
-      requireDefined(PHASES[0], 'PHASES is empty').name,
-      ...STILL_PLAY.boundaries.map((each) => each.phase),
+      requireDefined(SECTIONS[0], 'SECTIONS is empty').name,
+      ...STILL_PLAY.boundaries.map((each) => each.section),
     ]).toEqual([
       'procession',
       'banshee',
@@ -671,36 +690,36 @@ describe('the phase machine (ADR 0006)', () => {
     ]);
   });
 
-  it('says which loop plays on every crossing, and says it for the phase a run opens in too', () => {
-    // enterNextPhase is the only site that announces a phase, so the section a
-    // run begins in has no crossing of its own and anything following the phase
+  it('says which loop plays on every crossing, and says it for the section a run opens in too', () => {
+    // enterNextSection is the only site that announces a section, so the section a
+    // run begins in has no crossing of its own and anything following the section
     // from outside would open deaf to it (ADR 0049's stand-in music). The
     // announcement is one function, so a run's first section is the same fact
     // as every boundary after it rather than a second way of saying it.
     const crossed = STILL_PLAY.events.flatMap((event) =>
-      event.type === 'phaseChanged' ? [event.music] : [],
+      event.type === 'sectionChanged' ? [event.music] : [],
     );
-    expect(crossed).toEqual(PHASES.slice(1).map((phase) => phase.music));
+    expect(crossed).toEqual(SECTIONS.slice(1).map((section) => section.music));
 
     const opening = createRun(20260908);
-    const firstPhase = requireDefined(PHASES[0], 'PHASES is empty');
-    expect(phaseUnderway(opening)).toEqual({
-      type: 'phaseChanged',
-      phase: firstPhase.name,
-      music: firstPhase.music,
+    const firstSection = requireDefined(SECTIONS[0], 'SECTIONS is empty');
+    expect(sectionUnderway(opening)).toEqual({
+      type: 'sectionChanged',
+      section: firstSection.name,
+      music: firstSection.music,
       tick: opening.tick,
     });
   });
 
-  it('resets the phase clock at every boundary and never runs the phase index backwards', () => {
+  it('resets the section clock at every boundary and never runs the section index backwards', () => {
     const clock = STILL_PLAY.stageClock;
     for (let at = 1; at < clock.length; at++) {
       const now = requireDefined(clock[at], 'clock tick out of range');
       const before = requireDefined(clock[at - 1], 'clock tick out of range');
       const moved = now.index > before.index;
       expect(`${at} back ${now.index < before.index}`).toBe(`${at} back false`);
-      // A boundary sets the phase clock to zero and the tick's own counter then
-      // moves it to one, so the first tick of a phase reads one.
+      // A boundary sets the section clock to zero and the tick's own counter then
+      // moves it to one, so the first tick of a section reads one.
       expect(`${at} ${moved ? now.tick : 'inside'}`).toBe(
         `${at} ${moved ? 1 : 'inside'}`,
       );
@@ -710,48 +729,48 @@ describe('the phase machine (ADR 0006)', () => {
     }
   });
 
-  it('holds each boss phase open for its own fight', () => {
-    const at = (name: PhaseName): number =>
-      STILL_PLAY.boundaries.find((each) => each.phase === name)!.tick;
-    // Both bosses are real, so each phase runs as long as its boss stands: the
+  it('holds each boss section open for its own fight', () => {
+    const at = (name: SectionName): number =>
+      STILL_PLAY.boundaries.find((each) => each.section === name)!.tick;
+    // Both bosses are real, so each section runs as long as its boss stands: the
     // still hand's own birthright storm is what empties them, and how long that
     // takes is the fight rather than a number in the table.
     expect(at('crowd')).toBeGreaterThan(at('banshee'));
     expect(at('over')).toBeGreaterThan(at('undertaker'));
-    // The set piece's phase is neither: it ends on rows spent and a field clear
+    // The set piece's section is neither: it ends on waves spent and a field clear
     // like the two sections, and the Crowd hands it a field with trash on it,
-    // so it is the one boundary phase that waits for something other than a
+    // so it is the one boundary section that waits for something other than a
     // death.
     expect(at('vigil')).toBeGreaterThan(at('waking'));
   });
 
-  it('crosses no two boundaries on one tick, because no phase is empty', () => {
-    // Every phase now has something of its own to wait for: a section its rows
-    // and its field, a boss phase the boss standing in it, the set piece's the
+  it('crosses no two boundaries on one tick, because no section is empty', () => {
+    // Every section now has something of its own to wait for: a section its waves
+    // and its field, a boss section the boss standing in it, the set piece's the
     // trash the Crowd handed it. So a boundary is a tick of its own, and
-    // advanceStage's loop never crosses two, which is exactly what a phase with
+    // advanceStage's loop never crosses two, which is exactly what a section with
     // nothing in it used to make it do.
     for (const played of [STILL_PLAY, SHARP]) {
       const ticks = played.boundaries.map((each) => each.tick);
-      expect(ticks).toHaveLength(PHASES.length - 1);
+      expect(ticks).toHaveLength(SECTIONS.length - 1);
       expect(new Set(ticks).size).toBe(ticks.length);
     }
   });
 
   it('lands the Wall two seconds into the Crowd, which is what the stub buys', () => {
     const crowd = STILL_PLAY.boundaries.find(
-      (each) => each.phase === 'crowd',
+      (each) => each.section === 'crowd',
     )!.tick;
     const wall = STILL_PLAY.arrivals.find((each) => each.count === 22)!;
     expect(wall).toBeDefined();
     expect(wall.tick - crowd).toBe(2 * TICK_HZ);
   });
 
-  it('fires the same phase-local time at two different absolute ticks', () => {
-    // Both tables carry a row at t=2. Phase-local means the second one waits
+  it('fires the same section-local time at two different absolute ticks', () => {
+    // Both tables carry a wave at t=2. Section-local means the second one waits
     // for the boundary rather than for the run's own clock.
     const crowd = STILL_PLAY.boundaries.find(
-      (each) => each.phase === 'crowd',
+      (each) => each.section === 'crowd',
     )!.tick;
     const first = requireDefined(
       STILL_PLAY.arrivals[0],
@@ -767,14 +786,14 @@ describe('the phase machine (ADR 0006)', () => {
     // The ending is his death rather than the crossing that follows it
     // (ADR 0007), and the two are one tick because a run that has ended
     // executes no further ticks: the stage would otherwise never reach the
-    // phase behind the fight it just won. What fires it is endings.test.ts's,
+    // section behind the fight it just won. What fires it is endings.test.ts's,
     // and what is held here is that the timeline and the ending agree.
     expect(STILL_PLAY.state.ending).toBe('victory');
     const victory = STILL_PLAY.events.filter(
       (event) => event.type === 'victory',
     );
     expect(victory).toHaveLength(1);
-    const over = STILL_PLAY.boundaries.find((each) => each.phase === 'over')!;
+    const over = STILL_PLAY.boundaries.find((each) => each.section === 'over')!;
     const killed = STILL_PLAY.events.filter(
       (event) => event.type === 'bossKilled' && event.boss === 'undertaker',
     );
@@ -783,15 +802,15 @@ describe('the phase machine (ADR 0006)', () => {
     expect(theVictory.type === 'victory' && theVictory.tick).toBe(over.tick);
   });
 
-  it('reads the phase table rather than switching on a phase name to end the run', () => {
-    // A column and not a switch: a phase inserted with its columns filled in
-    // needs no edit in enterNextPhase, which is what keeps the seven phases a
+  it('reads the section table rather than switching on a section name to end the run', () => {
+    // A column and not a switch: a section inserted with its columns filled in
+    // needs no edit in enterNextSection, which is what keeps the seven sections a
     // data-row edit. Read off the source text, because a name tested inside a
     // private function is gone by the time the module is a value.
-    const from = stageSource.indexOf('const enterNextPhase');
+    const from = stageSource.indexOf('const enterNextSection');
     const body = stageSource.slice(from, stageSource.indexOf('\n};', from));
     expect(from).toBeGreaterThan(0);
-    for (const each of PHASES) {
+    for (const each of SECTIONS) {
       expect(`${each.name} named ${body.includes(`'${each.name}'`)}`).toBe(
         `${each.name} named false`,
       );
@@ -799,30 +818,30 @@ describe('the phase machine (ADR 0006)', () => {
   });
 });
 
-describe('the sparse last row (ADR 0051)', () => {
-  it('keeps mobs arriving through the last row before a boss, thinly and further apart', () => {
-    // ADR 0051: "Mobs keep arriving, thinly and further apart." The row before
+describe('the sparse last wave (ADR 0051)', () => {
+  it('keeps mobs arriving through the last wave before a boss, thinly and further apart', () => {
+    // ADR 0051: "Mobs keep arriving, thinly and further apart." The wave before
     // a boss is the last thing the section does rather than a gap in front of
     // one, and it lands a body at a time where the section lands groups.
     for (const name of BOSS_BOUND_SECTIONS) {
-      const rows = phase(name).rows;
-      const tail = rows.slice(-SPARSE_LAST_ROW.bodies);
-      const body = rows.slice(0, rows.length - SPARSE_LAST_ROW.bodies);
-      expect(`${name} ${tail.map((row) => row.count).join()}`).toBe(
+      const waves = section(name).waves;
+      const tail = waves.slice(-SPARSE_LAST_WAVE.bodies);
+      const body = waves.slice(0, waves.length - SPARSE_LAST_WAVE.bodies);
+      expect(`${name} ${tail.map((wave) => wave.count).join()}`).toBe(
         `${name} ${tail.map(() => 1).join()}`,
       );
-      expect(Math.max(...tail.map((row) => row.count))).toBeLessThan(
-        Math.max(...body.map((row) => row.count)),
+      expect(Math.max(...tail.map((wave) => wave.count))).toBeLessThan(
+        Math.max(...body.map((wave) => wave.count)),
       );
-      const firstTailRow = requireDefined(tail[0], `${name} tail is empty`);
-      expect(firstTailRow.t).toBeGreaterThan(lastRowAt(body));
+      const firstTailWave = requireDefined(tail[0], `${name} tail is empty`);
+      expect(firstTailWave.t).toBeGreaterThan(lastWaveAt(body));
 
       // And they arrive: under a hand that kills nothing, every arrival after
       // the section's last group is one body on its own.
       const [from, to] = spanOf(STILL_PLAY, name);
       const inTail = STILL_PLAY.arrivals.filter(
         (each) =>
-          each.tick >= from + firstTailRow.t * TICK_HZ && each.tick < to,
+          each.tick >= from + firstTailWave.t * TICK_HZ && each.tick < to,
       );
       expect(`${name} ${inTail.map((each) => each.count).join()}`).toBe(
         `${name} ${tail.map(() => 1).join()}`,
@@ -830,13 +849,13 @@ describe('the sparse last row (ADR 0051)', () => {
     }
   });
 
-  it('begins every boss phase on a field with no live mob', () => {
+  it('begins every boss section on a field with no live mob', () => {
     // ADR 0051: "the boss arrives as the last of them leaves the field," and
     // "the Banshee and the Undertaker arrive alone on an empty field." Both
     // hands, because the boundary is the field's own state and not the hand's.
     for (const name of ['banshee', 'undertaker'] as const) {
       for (const played of [STILL_PLAY, SHARP]) {
-        const at = played.boundaries.find((each) => each.phase === name)!;
+        const at = played.boundaries.find((each) => each.section === name)!;
         expect(`${name} ${played.liveMobs[at.tick]}`).toBe(`${name} 0`);
       }
     }
@@ -845,59 +864,59 @@ describe('the sparse last row (ADR 0051)', () => {
   it('thins nothing before the set piece and hands it a field with trash on it', () => {
     // ADR 0051: "there is no drain-out before the set piece ... only the two
     // boss boundaries need the field empty." The Crowd's own table ends on the
-    // groups it was authoring, and the phase after it opens into them.
-    const crowd = phase('crowd').rows;
-    const tail = crowd.slice(-SPARSE_LAST_ROW.bodies);
-    expect(tail.filter((row) => row.count === 1)).toEqual([]);
+    // groups it was authoring, and the section after it opens into them.
+    const crowd = section('crowd').waves;
+    const tail = crowd.slice(-SPARSE_LAST_WAVE.bodies);
+    expect(tail.filter((wave) => wave.count === 1)).toEqual([]);
 
     // Read on the Waking's first whole tick, because advanceStage runs before
     // the tick's deaths: the boundary tick reports the field the Crowd's last
-    // row was fired into rather than the one it left behind.
+    // wave was fired into rather than the one it left behind.
     for (const played of [STILL_PLAY, SHARP]) {
-      const at = played.boundaries.find((each) => each.phase === 'waking')!;
+      const at = played.boundaries.find((each) => each.section === 'waking')!;
       expect(played.liveMobs[at.tick + 1]).toBeGreaterThan(0);
     }
   });
 
-  it("takes the sparse row's count, type and spacing from stage data", () => {
-    // ADR 0051: "The row itself, how many, which type, how far apart, is stage
+  it("takes the sparse wave's count, type and spacing from stage data", () => {
+    // ADR 0051: "The wave itself, how many, which type, how far apart, is stage
     // data." Both sections close on the same authored shape, and a moved shape
-    // is a moved row.
+    // is a moved wave.
     for (const name of BOSS_BOUND_SECTIONS) {
-      const rows = phase(name).rows;
-      const tail = rows.slice(-SPARSE_LAST_ROW.bodies);
-      const firstTailRow = requireDefined(tail[0], `${name} tail is empty`);
-      expect(tail).toEqual(sparseLastRow(firstTailRow.t, SPARSE_LAST_ROW));
+      const waves = section(name).waves;
+      const tail = waves.slice(-SPARSE_LAST_WAVE.bodies);
+      const firstTailWave = requireDefined(tail[0], `${name} tail is empty`);
+      expect(tail).toEqual(sparseLastWave(firstTailWave.t, SPARSE_LAST_WAVE));
     }
     expect(
-      sparseLastRow(10, {
+      sparseLastWave(10, {
         bodies: 2,
         spacingSeconds: 3,
         type: 'revenant',
-      }).map((row) => `${row.t} ${row.type} ${row.count}`),
+      }).map((wave) => `${wave.t} ${wave.type} ${wave.count}`),
     ).toEqual(['10 revenant 1', '13 revenant 1']);
   });
 
   it('leaves no spawn silence anywhere in the stage', () => {
     // The deliberate-absence guard for ADR 0051's supersession: no window in
-    // any phase has nothing due and nothing alive for longer than a body takes
+    // any section has nothing due and nothing alive for longer than a body takes
     // to leave the field. The other half of it, the window after a section's
-    // last row, is bounded by the test below.
+    // last wave, is bounded by the test below.
     for (const name of SECTION_NAMES) {
-      expect(`${name} ${silentGapsIn(phase(name).rows).join()}`).toBe(
+      expect(`${name} ${silentGapsIn(section(name).waves).join()}`).toBe(
         `${name} `,
       );
     }
 
     // The rule can see a silence, so the empty lists above are a pass rather
     // than an empty set.
-    const firstProcessionRow = requireDefined(
-      PROCESSION_ROWS[0],
-      'PROCESSION_ROWS is empty',
+    const firstProcessionWave = requireDefined(
+      PROCESSION_WAVES[0],
+      'PROCESSION_WAVES is empty',
     );
-    const silent: readonly StageRow[] = [
-      firstProcessionRow,
-      { ...firstProcessionRow, t: firstProcessionRow.t + 40 },
+    const silent: readonly StageWave[] = [
+      firstProcessionWave,
+      { ...firstProcessionWave, t: firstProcessionWave.t + 40 },
     ];
     expect(silentGapsIn(silent)).toHaveLength(1);
   });
@@ -905,47 +924,47 @@ describe('the sparse last row (ADR 0051)', () => {
   it('ends the Crowd on the eye opening and never on an empty field', () => {
     // ADR 0051: "there is no drain-out before the set piece." ADR 0050: "a
     // swarm set piece ends the second." The Crowd turns on the source opening,
-    // with its own rows still firing and the field still full, which is the
+    // with its own waves still firing and the field still full, which is the
     // half of ADR 0051 that only became assertable once the eye could open.
     for (const played of [STILL_PLAY, SHARP]) {
-      const at = played.boundaries.find((each) => each.phase === 'waking')!;
+      const at = played.boundaries.find((each) => each.section === 'waking')!;
       const opened = played.events.filter(
         (event) => event.type === 'setPieceOpened',
       );
       expect(opened).toHaveLength(1);
       // The eye opens on the tick before the boundary, because the set piece
-      // ticks after advanceStage: the phase turns on the first tick that can
+      // ticks after advanceStage: the section turns on the first tick that can
       // read it open.
       expect(at.tick).toBeGreaterThan(0);
       expect(played.liveMobs[at.tick]).toBeGreaterThan(0);
-      // And the section's own last row had already fired, so what is left is
-      // the eye rather than a row nobody spent.
+      // And the section's own last wave had already fired, so what is left is
+      // the eye rather than a wave nobody spent.
       expect(
         requireDefined(
           played.stageClock[at.tick - 1],
           'stageClock tick out of range',
         ).tick,
-      ).toBeGreaterThan(lastRowAt(phase('crowd').rows) * TICK_HZ);
+      ).toBeGreaterThan(lastWaveAt(section('crowd').waves) * TICK_HZ);
     }
   });
 
-  it("keeps the Crowd's rows firing through the pour at the section's own reduced share", () => {
+  it("keeps the Crowd's waves firing through the pour at the section's own reduced share", () => {
     // The other half of the same ruling: a Crowd that stopped would hand the
     // loudest beat in the run a silent field. The share is a data row and what
     // is held is the relation, non-zero and under the section's own rate, never
     // either magnitude.
-    const under = phase('waking').rows;
-    const crowd = phase('crowd').rows;
+    const under = section('waking').waves;
+    const crowd = section('crowd').waves;
     expect(under.length).toBeGreaterThan(0);
     expect(ratePerSecond(under)).toBeGreaterThan(0);
     expect(ratePerSecond(under)).toBeLessThan(ratePerSecond(crowd));
     // None of them carries and the director may spend in none of them: the
     // carriers are authored across the three sections and the set piece is one
     // of ADR 0047's off-limits moments.
-    expect(under.filter((row) => row.carries || row.directed)).toEqual([]);
+    expect(under.filter((wave) => wave.carries || wave.directed)).toEqual([]);
 
     // And they really fire. The pour lands one body at a time out of its own
-    // mouth, so a group arriving inside the Waking is one of these rows and
+    // mouth, so a group arriving inside the Waking is one of these waves and
     // never the source: what is read is the group and not a count, because a
     // tick's arrivals are the difference the field made and a body culled on
     // the same tick would hide one.
@@ -968,7 +987,7 @@ describe('the sparse last row (ADR 0051)', () => {
     // is stage data".
     //
     // The clock is stage data in two halves and both are computed here. The
-    // sections are as long as their own rows take under a hand that plays them,
+    // sections are as long as their own waves take under a hand that plays them,
     // read off the run this file already plays. A fight has no authored length
     // at all: it is the boss's health against whatever the hand puts on it, so
     // its nominal length is its own health rows against a full build's storm at
@@ -983,16 +1002,16 @@ describe('the sparse last row (ADR 0051)', () => {
     const waking = lengthOf(SHARP, 'waking');
     const fights = BOSS_KINDS.map(
       (kind) =>
-        CHUNK_HP[kind].reduce((total, chunk) => total + chunk, 0) /
+        PHASE_HP[kind].reduce((total, phase) => total + phase, 0) /
         (FULL_BUILD_DAMAGE_PER_SECOND * BOSS_STORM_SHARE),
     );
     const seconds =
       [...sections, waking].reduce((total, each) => total + each, 0) / TICK_HZ +
       fights.reduce((total, each) => total + each, 0);
 
-    // The run really crosses all seven phases, so the band is over a stage that
+    // The run really crosses all seven sections, so the band is over a stage that
     // exists rather than over a sum of tables.
-    expect(SHARP.boundaries.map((each) => each.phase)).toEqual([
+    expect(SHARP.boundaries.map((each) => each.section)).toEqual([
       'banshee',
       'crowd',
       'waking',
@@ -1006,19 +1025,19 @@ describe('the sparse last row (ADR 0051)', () => {
 });
 
 /**
- * The Banshee's own phase, from her arrival to the boundary after it, with her
+ * The Banshee's own section, from her arrival to the boundary after it, with her
  * fight held open for a stated number of ticks and then ended by killing her.
  *
- * The Procession's rows are marked spent on a field with nothing alive on it,
+ * The Procession's waves are marked spent on a field with nothing alive on it,
  * which is exactly the condition its end names, so she arrives on the first
  * step the way a run produces her. The grave is held immortal for the reason
  * every timeline rig here holds it: a still grave under her rings would seal
  * shut long before the boundary being measured.
  */
-function bansheePhaseHeldFor(holdFor: number): number {
+function bansheeSectionHeldFor(holdFor: number): number {
   const state = createRun(31);
   const step = stepping(state);
-  state.stage.firedRows = PROCESSION_ROWS.length;
+  state.stage.firedWaves = PROCESSION_WAVES.length;
   let began = -1;
   let ended = -1;
   const budget = holdFor + 4 * TICK_HZ;
@@ -1031,9 +1050,9 @@ function bansheePhaseHeldFor(holdFor: number): number {
       damageBoss(state, state.boss!.hp, A_BIRTHRIGHT_LINE);
     }
     for (const event of step(STILL)) {
-      if (event.type !== 'phaseChanged') continue;
-      if (event.phase === 'banshee') began = event.tick;
-      if (event.phase === 'crowd') ended = event.tick;
+      if (event.type !== 'sectionChanged') continue;
+      if (event.section === 'banshee') began = event.tick;
+      if (event.section === 'crowd') ended = event.tick;
     }
     state.grave.size = SIZE_START;
     state.ending = null;
@@ -1044,48 +1063,48 @@ function bansheePhaseHeldFor(holdFor: number): number {
   return ended - began;
 }
 
-describe('the per-phase end condition (ADR 0050, ADR 0051)', () => {
-  it('ends a boss phase on the boss dying and never on a clock', () => {
-    // CONTEXT.md's Phase and game-concept.md:52: a phase is "chained to the
+describe('the per-section end condition (ADR 0050, ADR 0051)', () => {
+  it('ends a boss section on the boss dying and never on a clock', () => {
+    // CONTEXT.md's Section and game-concept.md:52: a section is "chained to the
     // next by a boundary event rather than an absolute clock, because a
     // shootable boss dies when killed" and fight length varies per player. The
     // Banshee is the first boundary in the game that is a fight, so the same
-    // phase is two lengths under two hands and neither is written anywhere.
+    // section is two lengths under two hands and neither is written anywhere.
     //
     // The two runs differ only in how long the boss was left standing, so the
-    // difference between the two phase lengths is exactly that difference: the
-    // phase costs what the fight cost and nothing else.
+    // difference between the two section lengths is exactly that difference: the
+    // section costs what the fight cost and nothing else.
     const held = 200;
     const longer = 600;
-    expect(bansheePhaseHeldFor(longer) - bansheePhaseHeldFor(held)).toBe(
+    expect(bansheeSectionHeldFor(longer) - bansheeSectionHeldFor(held)).toBe(
       longer - held,
     );
   });
 
-  it('holds a rows-spent phase open while a body is still alive on the field', () => {
+  it('holds a waves-spent section open while a body is still alive on the field', () => {
     const state = createRun(1);
-    const procession = phase('procession');
-    state.stage.firedRows = procession.rows.length;
-    expect(phaseEnded(state, procession)).toBe(true);
+    const procession = section('procession');
+    state.stage.firedWaves = procession.waves.length;
+    expect(sectionEnded(state, procession)).toBe(true);
 
     const order = requireDefined(
       place('drip', 1, state.streams.spawns)[0],
       'no spawn order',
     );
     spawnMob(state, 'shambler', order, false);
-    expect(phaseEnded(state, procession)).toBe(false);
+    expect(sectionEnded(state, procession)).toBe(false);
   });
 
-  it('holds a phase open while it has rows left, even on a field with nothing on it', () => {
+  it('holds a section open while it has waves left, even on a field with nothing on it', () => {
     const state = createRun(1);
-    const procession = phase('procession');
+    const procession = section('procession');
     expect(state.mobs.filter((mob) => mob.alive)).toEqual([]);
-    state.stage.firedRows = procession.rows.length - 1;
-    expect(phaseEnded(state, procession)).toBe(false);
+    state.stage.firedWaves = procession.waves.length - 1;
+    expect(sectionEnded(state, procession)).toBe(false);
   });
 
   it(
-    "bounds the tail after a section's last row by a body's own descent, on every seed",
+    "bounds the tail after a section's last wave by a body's own descent, on every seed",
     () => {
       // What replaces the drain-out's stated length: the tail is however long the
       // last bodies take to leave, which is bounded by the field and the mob
@@ -1117,18 +1136,18 @@ describe('the per-phase end condition (ADR 0050, ADR 0051)', () => {
 });
 
 describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {
-  /** The first row of a section that pays, and the phase it belongs to. */
-  const firstCarryingRow = (rows: readonly StageRow[]): StageRow =>
-    rows.find((row) => row.carries)!;
+  /** The first wave of a section that pays, and the section it belongs to. */
+  const firstCarryingWave = (waves: readonly StageWave[]): StageWave =>
+    waves.find((wave) => wave.carries)!;
 
   it('announces a refused carrier as lost with the cap as its reason, so the ledger still accounts for it', () => {
-    // Supply must not vanish at a cap. spawnDueRows dropped spawnMob's null,
+    // Supply must not vanish at a cap. spawnDueWaves dropped spawnMob's null,
     // so a carrier the mob cap refused was never announced at all and the
     // carrier ledger's taken plus lost plus live silently stopped adding up to
     // the schedule. A carrier nobody could put on the field is still a carrier
     // the player never met.
     const state = createRun(1);
-    const row = firstCarryingRow(PROCESSION_ROWS);
+    const wave = firstCarryingWave(PROCESSION_WAVES);
     while (
       spawnMob(
         state,
@@ -1137,20 +1156,20 @@ describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {
         false,
       ) !== null
     ) {
-      // The loop condition is the fill: every slot taken, so the row's own
+      // The loop condition is the fill: every slot taken, so the wave's own
       // bodies have nowhere to go.
     }
     const before = state.mobs.filter((mob) => mob.alive).length;
 
-    state.stage.phaseTick = row.t * TICK_HZ;
+    state.stage.sectionTick = wave.t * TICK_HZ;
     const events = advanceStage(state);
 
     const lost = events.filter((event) => event.type === 'carrierLost');
     expect(lost).toHaveLength(
-      carrierRow(row.carries, row.count).carrying.length,
+      waveCarriers(wave.carries, wave.count).carrying.length,
     );
     expect(firstOf(lost).reason).toBe('cap');
-    expect(firstOf(lost).mob).toBe(row.type);
+    expect(firstOf(lost).mob).toBe(wave.type);
     // Nothing was taken off the field to make room for it.
     expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(before);
     expect(state.mobs.some((mob) => mob.alive && mob.carries)).toBe(false);
@@ -1170,12 +1189,15 @@ describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {
     ) {
       // The fill again.
     }
-    // The section's own first row, which pays nothing on purpose: the first
+    // The section's own first wave, which pays nothing on purpose: the first
     // kill of the run teaches the swallow rather than the offer.
-    const row = requireDefined(PROCESSION_ROWS[0], 'PROCESSION_ROWS is empty');
-    expect(row.carries).toBe(false);
+    const wave = requireDefined(
+      PROCESSION_WAVES[0],
+      'PROCESSION_WAVES is empty',
+    );
+    expect(wave.carries).toBe(false);
 
-    state.stage.phaseTick = row.t * TICK_HZ;
+    state.stage.sectionTick = wave.t * TICK_HZ;
     const events = advanceStage(state);
 
     expect(events.filter((event) => event.type === 'carrierLost')).toEqual([]);
@@ -1183,8 +1205,8 @@ describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {
 });
 
 describe('determinism (ADRs 0006 and 0012)', () => {
-  it('gives an identical spawn sequence for an identical seed, over a whole phase', () => {
-    const ticks = lastRowAt(PROCESSION_ROWS) * TICK_HZ;
+  it('gives an identical spawn sequence for an identical seed, over a whole section', () => {
+    const ticks = lastWaveAt(PROCESSION_WAVES) * TICK_HZ;
     const first = playStage(4242, stillHand, ticks);
     const second = playStage(4242, stillHand, ticks);
     expect(first.arrivals).toEqual(second.arrivals);

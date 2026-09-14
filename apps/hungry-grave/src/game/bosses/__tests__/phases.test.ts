@@ -1,6 +1,6 @@
 /**
- * The boss machine (ADR 0007, ADR 0052): chunked health, the invincible flash
- * between chunks, the food a break sheds, and what the storm may and may not do
+ * The boss machine (ADR 0007, ADR 0052): phased health, the invincible flash
+ * between phases, the food a break sheds, and what the storm may and may not do
  * to a body whose health is bought in pieces.
  *
  * The patterns themselves are not here. banshee.ts owns the tear-rings and
@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { BELCH_CHUNK_DAMAGE, fireBelch } from '../../belch';
+import { BELCH_PHASE_DAMAGE, fireBelch } from '../../belch';
 import type { SimEvent } from '../../events';
 import {
   advanceBell,
@@ -22,20 +22,20 @@ import type { Mob } from '../../mobs';
 import { cullMobs, MOB_TYPES, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
-import { PHASES } from '../../stage/stage';
+import { SECTIONS } from '../../stage/stage';
 import { resolveStorm } from '../../storm';
 import { FIELD_HEIGHT } from '../../field';
 import { RESERVOIR_CAPACITY } from '../../tuning';
-import type { Boss } from '../chunks';
+import type { Boss } from '../phases';
 import {
   advanceBoss,
   BOSS_ARRIVAL_Y,
   bossHitbox,
-  CHUNK_FLASH_TICKS,
-  CHUNK_HP,
+  PHASE_FLASH_TICKS,
+  PHASE_HP,
   damageBoss,
   spawnBoss,
-} from '../chunks';
+} from '../phases';
 
 /** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
 function requireDefined<T>(value: T | undefined, message: string): T {
@@ -50,7 +50,7 @@ function firstOf<T>(items: readonly T[]): T {
 
 const SEED = 20260908;
 
-/** A run with nothing else on the field, which is what a boss phase hands over. */
+/** A run with nothing else on the field, which is what a boss section hands over. */
 function emptyRun(seed = SEED): RunState {
   return createRun(seed);
 }
@@ -75,14 +75,14 @@ function only<T extends SimEvent['type']>(
 }
 
 /**
- * The whole fight, damaged to death a chunk at a time, with the flash counted
- * down between chunks the way a tick does it.
+ * The whole fight, damaged to death a phase at a time, with the flash counted
+ * down between phases the way a tick does it.
  */
 function fightToDeath(state: RunState, boss: Boss): SimEvent[] {
   const events: SimEvent[] = [];
-  for (let chunk = 0; chunk < CHUNK_HP[boss.kind].length; chunk++) {
+  for (let phase = 0; phase < PHASE_HP[boss.kind].length; phase++) {
     events.push(...damageBoss(state, boss.hp, 'skullStream'));
-    for (let tick = 0; tick < CHUNK_FLASH_TICKS; tick++) advanceBoss(state);
+    for (let tick = 0; tick < PHASE_FLASH_TICKS; tick++) advanceBoss(state);
   }
   return events;
 }
@@ -126,34 +126,34 @@ function putMob(state: RunState, x: number, y: number): Mob {
   return mob;
 }
 
-describe('a boss arrives with chunked health (ADR 0007)', () => {
-  it('arrives alone on a phase boundary, with one authored pattern per chunk', () => {
-    // ADR 0007's first sentence: "Bosses arrive alone on a phase boundary with
-    // chunked health, one authored pattern per chunk". The chunk count is the
-    // length of the boss's own health row, so what the fight runs and what it
+describe('a boss arrives with phased health (ADR 0007)', () => {
+  it('arrives alone on a section boundary, with one authored pattern per phase', () => {
+    // ADR 0007's first sentence: "Bosses arrive alone on a section boundary with
+    // phased health, one authored pattern per phase". The phase count is the
+    // length of the boss's own health wave, so what the fight runs and what it
     // is worth cannot come apart, and ADR 0052's "it gets there across three
-    // chunks rather than across a bigger health bar" is the row's shape rather
+    // phases rather than across a bigger health bar" is the wave's shape rather
     // than a number written somewhere else.
-    const bossPhases = PHASES.filter((each) => each.boss !== null);
-    expect(bossPhases.map((each) => each.boss)).toEqual([
+    const bossSections = SECTIONS.filter((each) => each.boss !== null);
+    expect(bossSections.map((each) => each.boss)).toEqual([
       'banshee',
       'undertaker',
     ]);
 
-    for (const phase of bossPhases) {
-      const kind = phase.boss!;
+    for (const section of bossSections) {
+      const kind = section.boss!;
       const { state, boss } = fighting(kind);
       expect(state.mobs.filter((mob) => mob.alive)).toEqual([]);
       expect(boss.kind).toBe(kind);
-      expect(boss.chunk).toBe(0);
-      expect(boss.hp).toBe(CHUNK_HP[kind][0]);
-      expect(CHUNK_HP[kind].length).toBeGreaterThanOrEqual(2);
+      expect(boss.phaseIndex).toBe(0);
+      expect(boss.hp).toBe(PHASE_HP[kind][0]);
+      expect(PHASE_HP[kind].length).toBeGreaterThanOrEqual(2);
       expect(state.boss).toBe(boss);
     }
   });
 
   it('stands at the top of the field, with the whole field between it and the grave', () => {
-    // A boss the grave already overlaps on arrival would take its first chunk
+    // A boss the grave already overlaps on arrival would take its first phase
     // before the player had read the pattern, and ADR 0007's own reason for a
     // boss is that the storm must always matter rather than that it must
     // always reach.
@@ -167,22 +167,22 @@ describe('a boss arrives with chunked health (ADR 0007)', () => {
   });
 });
 
-describe('the flash between chunks (ADR 0007)', () => {
-  it('separates the chunks, and player shots do nothing while it burns', () => {
-    // ADR 0007: "a short invincible flash at chunk breaks". The flash is what
-    // makes a chunk a beat rather than a health bar with a line drawn on it,
+describe('the flash between phases (ADR 0007)', () => {
+  it('separates the phases, and player shots do nothing while it burns', () => {
+    // ADR 0007: "a short invincible flash at phase breaks". The flash is what
+    // makes a phase a beat rather than a health bar with a line drawn on it,
     // and a shot that landed through it would delete the beat.
     const { state, boss } = fighting();
     damageBoss(state, boss.hp, 'skullStream');
 
-    expect(boss.chunk).toBe(1);
-    expect(boss.flash).toBe(CHUNK_FLASH_TICKS);
+    expect(boss.phaseIndex).toBe(1);
+    expect(boss.flash).toBe(PHASE_FLASH_TICKS);
 
     const standing = boss.hp;
     damageBoss(state, 500, 'skullStream');
     expect(boss.hp).toBe(standing);
 
-    for (let tick = 0; tick < CHUNK_FLASH_TICKS; tick++) advanceBoss(state);
+    for (let tick = 0; tick < PHASE_FLASH_TICKS; tick++) advanceBoss(state);
     expect(boss.flash).toBe(0);
     damageBoss(state, 500, 'skullStream');
     expect(boss.hp).toBe(standing - 500);
@@ -203,31 +203,31 @@ describe('the flash between chunks (ADR 0007)', () => {
   });
 
   it('cannot be killed while the flash burns, however much lands on it', () => {
-    // The last chunk is the one this matters on: a killing blow that landed
+    // The last phase is the one this matters on: a killing blow that landed
     // through the flash would end the fight on a beat the player was never
     // given, and the flash is invincibility rather than a damage reduction.
     const { state, boss } = fighting('banshee');
     damageBoss(state, boss.hp, 'skullStream');
     damageBoss(
       state,
-      requireDefined(CHUNK_HP.banshee[1], 'no chunk 1 for banshee') * 10,
+      requireDefined(PHASE_HP.banshee[1], 'no phase 1 for banshee') * 10,
       'skullStream',
     );
 
     expect(state.boss).toBe(boss);
     expect(boss.hp).toBe(
-      requireDefined(CHUNK_HP.banshee[1], 'no chunk 1 for banshee'),
+      requireDefined(PHASE_HP.banshee[1], 'no phase 1 for banshee'),
     );
   });
 
-  it('holds the pattern clock still through the flash, so a chunk begins at its own start', () => {
-    // A chunk whose pattern ran while the player could not touch it would open
+  it('holds the pattern clock still through the flash, so a phase begins at its own start', () => {
+    // A phase whose pattern ran while the player could not touch it would open
     // part-way through its own first cycle, which is the beat arriving late.
     const { state, boss } = fighting();
     damageBoss(state, boss.hp, 'skullStream');
     expect(boss.patternTick).toBe(0);
 
-    for (let tick = 0; tick < CHUNK_FLASH_TICKS; tick++) advanceBoss(state);
+    for (let tick = 0; tick < PHASE_FLASH_TICKS; tick++) advanceBoss(state);
     expect(boss.patternTick).toBe(0);
 
     advanceBoss(state);
@@ -236,29 +236,29 @@ describe('the flash between chunks (ADR 0007)', () => {
 });
 
 describe('the storm always matters (ADR 0007)', () => {
-  it('damages the boss in every chunk, so no chunk is pure dodging', () => {
-    // ADR 0007: "there are no pure-dodge survival phases anywhere in v1,
+  it('damages the boss in every phase, so no phase is pure dodging', () => {
+    // ADR 0007: "there are no pure-dodge survival sections anywhere in v1,
     // because the player's storm must always matter". It is asserted through
     // the storm's own pass rather than by calling the boss's damage directly,
     // because the thing that could fail is a weapon line walking past a body
     // that is not in the mob pool.
     const { state, boss } = fighting();
 
-    for (let chunk = 0; chunk < CHUNK_HP.undertaker.length; chunk++) {
-      expect(boss.chunk).toBe(chunk);
+    for (let phase = 0; phase < PHASE_HP.undertaker.length; phase++) {
+      expect(boss.phaseIndex).toBe(phase);
       skullAt(state, boss.x, boss.y);
       const landed = only(resolveStorm(state), 'mobDamaged').filter(
         (event) => event.id === boss.id,
       );
-      expect(landed, `chunk ${chunk}`).toHaveLength(1);
+      expect(landed, `phase ${phase}`).toHaveLength(1);
       expect(firstOf(landed).amount).toBe(SKULL_DAMAGE);
       expect(
         requireDefined(state.skulls[0], 'no skull pool slot 0').alive,
       ).toBe(false);
 
-      if (chunk === CHUNK_HP.undertaker.length - 1) break;
+      if (phase === PHASE_HP.undertaker.length - 1) break;
       damageBoss(state, boss.hp, 'skullStream');
-      for (let tick = 0; tick < CHUNK_FLASH_TICKS; tick++) advanceBoss(state);
+      for (let tick = 0; tick < PHASE_FLASH_TICKS; tick++) advanceBoss(state);
     }
   });
 
@@ -315,10 +315,10 @@ describe('the storm always matters (ADR 0007)', () => {
 
   it("passes over the belch's kill rule, which is a rule and not a number", () => {
     // The burst kills what it reaches outright, and a kill rule applied to a
-    // body whose health is one chunk of several would break a chunk for one
+    // body whose health is one phase of several would break a phase for one
     // press, which is a skip rather than the breath the belch buys. So the same
     // press that deletes the add beside it leaves the boss standing on the same
-    // chunk it was on.
+    // phase it was on.
     const { state, boss } = fighting();
     boss.x = state.grave.x;
     boss.y = state.grave.y;
@@ -332,15 +332,15 @@ describe('the storm always matters (ADR 0007)', () => {
     expect(firstOf(belched).killed).toBe(1);
     expect(add.alive).toBe(false);
     expect(state.boss).toBe(boss);
-    expect(boss.chunk).toBe(0);
+    expect(boss.phaseIndex).toBe(0);
     expect(boss.hp).toBeGreaterThan(0);
   });
 
-  it('takes its own chunk of boss damage from a boss inside the burst, and none from one outside it', () => {
-    // ADR 0008: the burst "deals its big chunk of boss damage only when the
-    // boss is inside that radius, and never pushes a boss". The amount is a row
-    // rather than the kill rule, because the kill rule would break a chunk for
-    // one press; the row is what makes a belch spent in a fight worth spending
+  it('takes its own phase of boss damage from a boss inside the burst, and none from one outside it', () => {
+    // ADR 0008: the burst "deals its big phase of boss damage only when the
+    // boss is inside that radius, and never pushes a boss". The amount is a wave
+    // rather than the kill rule, because the kill rule would break a phase for
+    // one press; the wave is what makes a belch spent in a fight worth spending
     // rather than only a breath.
     const near = fighting();
     near.boss.x = near.state.grave.x;
@@ -352,11 +352,11 @@ describe('the storm always matters (ADR 0007)', () => {
       (event) => event.id === near.boss.id,
     );
     expect(landed).toHaveLength(1);
-    expect(firstOf(landed).amount).toBe(BELCH_CHUNK_DAMAGE);
+    expect(firstOf(landed).amount).toBe(BELCH_PHASE_DAMAGE);
     expect(firstOf(landed).source).toBe('belch');
     expect(near.boss.hp).toBe(
-      requireDefined(CHUNK_HP.undertaker[0], 'no chunk 0 for undertaker') -
-        BELCH_CHUNK_DAMAGE,
+      requireDefined(PHASE_HP.undertaker[0], 'no phase 0 for undertaker') -
+        BELCH_PHASE_DAMAGE,
     );
     // Never pushed, which is the other half of the same sentence and the reason
     // authored patterns do not smear.
@@ -370,26 +370,26 @@ describe('the storm always matters (ADR 0007)', () => {
     const missed = only(fireBelch(far.state), 'mobDamaged');
     expect(missed).toEqual([]);
     expect(far.boss.hp).toBe(
-      requireDefined(CHUNK_HP.undertaker[0], 'no chunk 0 for undertaker'),
+      requireDefined(PHASE_HP.undertaker[0], 'no phase 0 for undertaker'),
     );
 
-    // One press never breaks a fresh chunk, whatever the row is retuned to,
-    // which is what keeps a chunk's own emit out of the belch's reach.
-    expect(BELCH_CHUNK_DAMAGE).toBeLessThan(
-      Math.min(...Object.values(CHUNK_HP).map((row) => Math.min(...row))),
+    // One press never breaks a fresh phase, whatever the wave is retuned to,
+    // which is what keeps a phase's own emit out of the belch's reach.
+    expect(BELCH_PHASE_DAMAGE).toBeLessThan(
+      Math.min(...Object.values(PHASE_HP).map((wave) => Math.min(...wave))),
     );
   });
 });
 
 describe('what a boss sheds (ADR 0007, ADR 0004)', () => {
-  it('breaks each chunk exactly once, and reports which chunk is live', () => {
+  it('breaks each phase exactly once, and reports which phase is live', () => {
     // A break reported twice would pay the feast twice and move the fight's
-    // own clock, and a break reported for a chunk that never emptied would put
+    // own clock, and a break reported for a phase that never emptied would put
     // a pattern on the field with no health behind it.
     const { state, boss } = fighting();
-    const broke = only(fightToDeath(state, boss), 'chunkBroke');
+    const broke = only(fightToDeath(state, boss), 'phaseBroke');
 
-    expect(broke.map((event) => event.chunk)).toEqual([1, 2]);
+    expect(broke.map((event) => event.phaseIndex)).toEqual([1, 2]);
     expect(broke.every((event) => event.boss === 'undertaker')).toBe(true);
   });
 
@@ -402,10 +402,10 @@ describe('what a boss sheds (ADR 0007, ADR 0004)', () => {
     expect(before).toBe(0);
 
     const fed: number[] = [];
-    for (let chunk = 0; chunk < CHUNK_HP.undertaker.length; chunk++) {
+    for (let phase = 0; phase < PHASE_HP.undertaker.length; phase++) {
       damageBoss(state, boss.hp, 'skullStream');
       fed.push(state.corpses.filter((corpse) => corpse.alive).length);
-      for (let tick = 0; tick < CHUNK_FLASH_TICKS; tick++) advanceBoss(state);
+      for (let tick = 0; tick < PHASE_FLASH_TICKS; tick++) advanceBoss(state);
     }
 
     // One more piece of food on the field after each of the two breaks, and
@@ -413,9 +413,9 @@ describe('what a boss sheds (ADR 0007, ADR 0004)', () => {
     expect(fed).toEqual([1, 2, 2]);
   });
 
-  it('sheds a feast that never decays, exactly like an upgrade drop', () => {
-    // game-concept.md under ADR 0004: "the feast chunk dropped at each chunk
-    // break never decays, exactly like an upgrade drop". A break's reward that
+  it('sheds a feast that never decays, exactly like an upgrade power-up', () => {
+    // game-concept.md under ADR 0004: "the feast phase dropped at each phase
+    // break never decays, exactly like an upgrade power-up". A break's reward that
     // rotted would punish a player for not being able to dive through the
     // pattern that was still running.
     const { state, boss } = fighting();
@@ -430,8 +430,8 @@ describe('what a boss sheds (ADR 0007, ADR 0004)', () => {
     expect(firstOf(shed).y).toBe(boss.y);
   });
 
-  it('leaves the field on its last chunk, reporting where it fell', () => {
-    // The death is what victory fires on rather than a phase index, and where
+  it('leaves the field on its last phase, reporting where it fell', () => {
+    // The death is what victory fires on rather than a section index, and where
     // the body fell is what a death's own reward is placed at, so the event
     // carries the point and never a reference to a record that is already gone.
     const { state, boss } = fighting('banshee');

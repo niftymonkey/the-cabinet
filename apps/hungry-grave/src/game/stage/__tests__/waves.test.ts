@@ -1,33 +1,33 @@
 /**
- * The stage's rows as data (ADR 0006), the peak-arrivals query the corpse cap
+ * The stage's waves as data (ADR 0006), the peak-arrivals query the corpse cap
  * is derived from (ADR 0056), and the carrier schedule the sections author
  * (ADR 0002, ADR 0048). Every assertion reads the tables themselves, because
- * the point of the query is that it moves with the rows.
+ * the point of the query is that it moves with the waves.
  *
  * The permission cells live here too. ADR 0056 asks for ADR 0047's off-limits
- * moments as cells in the phase's and the row's own data rather than as
+ * moments as cells in the section's and the wave's own data rather than as
  * conditions in code, so what proves it is a test that reads the tables and
  * calls nothing.
  *
  * One test in the file plays a run instead of reading a table, and the tables
  * are still its subject. What the schedule promises is about a run: that a
  * player who kills every carrier before the set piece holds a full build. That
- * cannot be read off the rows, because how much a carrier pays is the offer's
+ * cannot be read off the waves, because how much a carrier pays is the offer's
  * business, so the run is the fixture and the number of carriers each section
  * authors is what is under test.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import rowsSource from '../rows.ts?raw';
+import wavesSource from '../waves.ts?raw';
 
 import {
-  carrierRow,
+  waveCarriers,
   carriersForFullBuild,
   carriersScheduled,
 } from '../../carriers';
 import { stepping } from '../../../dev/stepping';
-import { CHUNK_FLASH_TICKS, damageBoss } from '../../bosses/chunks';
+import { PHASE_FLASH_TICKS, damageBoss } from '../../bosses/phases';
 import { SPIRAL_ROWS } from '../../bosses/undertaker';
 import { TICK_HZ } from '../../clock';
 import type { TickCommand } from '../../command';
@@ -38,25 +38,25 @@ import { damageMob, hasEntered, MOB_TYPES } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { FRESHNESS_SECONDS, SIZE_START } from '../../tuning';
-import type { StageRow } from '../rows';
+import type { StageWave } from '../waves';
 import {
   BOSS_ADD_ALLOWANCE,
-  CROWD_ROWS,
+  CROWD_WAVES,
   peakArrivals,
   POUR_SHARES,
-  PROCESSION_ROWS,
+  PROCESSION_WAVES,
   RUNG_ALLOWANCE,
   SET_PIECE_BUDGET,
   SET_PIECE_HP,
   SET_PIECE_POUR_SECONDS,
   SET_PIECE_SWEEP_MAX_X,
   SET_PIECE_SWEEP_MIN_X,
-  SPARSE_LAST_ROW,
-  VIGIL_ROWS,
-  WAKING_ROWS,
-} from '../rows';
-import type { Phase } from '../stage';
-import { PHASES } from '../stage';
+  SPARSE_LAST_WAVE,
+  VIGIL_WAVES,
+  WAKING_WAVES,
+} from '../waves';
+import type { Section } from '../stage';
+import { SECTIONS } from '../stage';
 
 /** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
 function requireDefined<T>(value: T | undefined, message: string): T {
@@ -64,78 +64,84 @@ function requireDefined<T>(value: T | undefined, message: string): T {
   return value;
 }
 
-const SECTIONS: readonly (readonly StageRow[])[] = [
-  PROCESSION_ROWS,
-  CROWD_ROWS,
-  VIGIL_ROWS,
+const TRASH_SECTION_TABLES: readonly (readonly StageWave[])[] = [
+  PROCESSION_WAVES,
+  CROWD_WAVES,
+  VIGIL_WAVES,
 ];
 
 /**
- * Every row the stage authors, the Waking's own beside the three sections'.
- * The rules a row obeys, its carrier, its order and its permission cell, are
+ * Every wave the stage authors, the Waking's own beside the three sections'.
+ * The rules a wave obeys, its carrier, its order and its permission cell, are
  * the same rules whichever table it stands in.
  */
-const EVERY_ROW: readonly StageRow[] = [...SECTIONS.flat(), ...WAKING_ROWS];
+const EVERY_WAVE: readonly StageWave[] = [
+  ...TRASH_SECTION_TABLES.flat(),
+  ...WAKING_WAVES,
+];
 
-const totalOf = (rows: readonly StageRow[]): number =>
-  rows.reduce((total, row) => total + row.count, 0);
+const totalOf = (waves: readonly StageWave[]): number =>
+  waves.reduce((total, wave) => total + wave.count, 0);
 
 const between = (
-  rows: readonly StageRow[],
+  waves: readonly StageWave[],
   from: number,
   to: number,
-): readonly StageRow[] => rows.filter((row) => row.t >= from && row.t < to);
+): readonly StageWave[] =>
+  waves.filter((wave) => wave.t >= from && wave.t < to);
 
-/** Every place a row promises a carrier its own count cannot hold. */
-const carrierFaultsIn = (rows: readonly StageRow[]): string[] =>
-  rows.flatMap((row) => {
-    const where = `${row.template} at t=${row.t}`;
-    if (row.carries && row.count < 1) return [`${where} carries with no body`];
-    return carrierRow(row.carries, row.count)
-      .carrying.filter((index) => index < 0 || index >= row.count)
-      .map((index) => `${where} carries at ${index} of ${row.count}`);
+/** Every place a wave promises a carrier its own count cannot hold. */
+const carrierFaultsIn = (waves: readonly StageWave[]): string[] =>
+  waves.flatMap((wave) => {
+    const where = `${wave.formation} at t=${wave.t}`;
+    if (wave.carries && wave.count < 1)
+      return [`${where} carries with no body`];
+    return waveCarriers(wave.carries, wave.count)
+      .carrying.filter((index) => index < 0 || index >= wave.count)
+      .map((index) => `${where} carries at ${index} of ${wave.count}`);
   });
 
-/** Every row that fires before the row in front of it. */
-const outOfOrderIn = (rows: readonly StageRow[]): string[] =>
-  rows
+/** Every wave that fires before the wave in front of it. */
+const outOfOrderIn = (waves: readonly StageWave[]): string[] =>
+  waves
     .filter(
-      (row, index) =>
+      (wave, index) =>
         index > 0 &&
-        row.t < requireDefined(rows[index - 1], 'row out of range').t,
+        wave.t < requireDefined(waves[index - 1], 'wave out of range').t,
     )
-    .map((row) => `${row.template} at t=${row.t}`);
+    .map((wave) => `${wave.formation} at t=${wave.t}`);
 
-/** A section's sparse last row, which is the tail its own shape declares. */
-const sparseIn = (rows: readonly StageRow[]): readonly StageRow[] =>
-  rows.slice(rows.length - SPARSE_LAST_ROW.bodies);
+/** A section's sparse last wave, which is the tail its own shape declares. */
+const sparseIn = (waves: readonly StageWave[]): readonly StageWave[] =>
+  waves.slice(waves.length - SPARSE_LAST_WAVE.bodies);
 
-/** The phase whose boundary event ends this one, which is the phase after it. */
-const boundaryAfter = (name: string): Phase =>
+/** The section whose boundary event ends this one, which is the section after it. */
+const boundaryAfter = (name: string): Section =>
   requireDefined(
-    PHASES[PHASES.findIndex((each) => each.name === name) + 1],
-    `no phase after ${name}`,
+    SECTIONS[SECTIONS.findIndex((each) => each.name === name) + 1],
+    `no section after ${name}`,
   );
 
 /**
- * How many carriers a table's rows put on the field, counted through
+ * How many carriers a table's waves put on the field, counted through
  * carriers.ts's own placement rule rather than off the flags, so the count is
  * the one the stage actually spawns.
  */
-const carriersIn = (rows: readonly StageRow[]): number =>
-  rows.reduce(
-    (total, row) => total + carrierRow(row.carries, row.count).carrying.length,
+const carriersIn = (waves: readonly StageWave[]): number =>
+  waves.reduce(
+    (total, wave) =>
+      total + waveCarriers(wave.carries, wave.count).carrying.length,
     0,
   );
 
 /** Every Drip in a table that carries the offer, which is none of them. */
-const dripsCarryingIn = (rows: readonly StageRow[]): string[] =>
-  rows
-    .filter((row) => row.template === 'drip' && row.carries)
-    .map((row) => `drip at t=${row.t}`);
+const dripsCarryingIn = (waves: readonly StageWave[]): string[] =>
+  waves
+    .filter((wave) => wave.formation === 'drip' && wave.carries)
+    .map((wave) => `drip at t=${wave.t}`);
 
 /**
- * Anything in a source that would name which placement of a row carries. A row
+ * Anything in a source that would name which placement of a wave carries. A wave
  * says that it pays and never who pays it (ADR 0002), so an index in the tables
  * or a reach into the module that holds the rule is the failure this catches.
  */
@@ -144,8 +150,8 @@ const placementNamesIn = (source: string): string[] =>
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
-/** The phase the Procession's and the Crowd's carriers all stand before. */
-const WAKING = PHASES.findIndex((phase) => phase.name === 'waking');
+/** The section the Procession's and the Crowd's carriers all stand before. */
+const WAKING = SECTIONS.findIndex((section) => section.name === 'waking');
 
 /**
  * A ceiling on the ticks the two sections before the set piece can take, at
@@ -154,7 +160,7 @@ const WAKING = PHASES.findIndex((phase) => phase.name === 'waking');
  * the stage's own to decide.
  */
 const TO_THE_WAKING_TICKS =
-  2 * TICK_HZ * (PROCESSION_ROWS.at(-1)!.t + CROWD_ROWS.at(-1)!.t);
+  2 * TICK_HZ * (PROCESSION_WAVES.at(-1)!.t + CROWD_WAVES.at(-1)!.t);
 
 /**
  * The seeds the full-build run is read on. More than one because the offer's
@@ -167,7 +173,7 @@ const REACHES_A_FULL_BUILD: readonly number[] = [101, 202, 303];
 
 /**
  * A carrier put one point from death under a skull of its own, so the sim's own
- * deaths phase kills it and the offer opens where it died. A kill the test made
+ * deaths section kills it and the offer opens where it died. A kill the test made
  * outside the tick would pay nothing, because a carrier's offer is opened by
  * step.ts over the tick's own kills.
  */
@@ -231,7 +237,7 @@ interface Reached {
  * every offer their deaths pay.
  *
  * It runs on past the boundary while a carrier is still standing, because the
- * Crowd's last row fires on the tick that section's rows run out: its bodies
+ * Crowd's last wave fires on the tick that section's waves run out: its bodies
  * are met a moment inside the Waking, which is still long before anything of
  * the set piece is on the field.
  *
@@ -242,7 +248,7 @@ interface Reached {
  * swallow would leave the body it took standing on the field.
  *
  * Whatever boss stands between the sections is emptied by the same hand, which
- * is what keeps this a run to the Waking: the Banshee's phase ends when she
+ * is what keeps this a run to the Waking: the Banshee's section ends when she
  * dies (ADR 0007), and a hand that killed everything but her would be measuring
  * the Procession's carriers alone. How long her fight takes is her own module's
  * tests' subject and not this table's.
@@ -259,7 +265,7 @@ const playToTheWaking = (seed: number): Reached => {
   for (
     let tick = 0;
     tick < TO_THE_WAKING_TICKS &&
-    (state.stage.phaseIndex < WAKING || stillOwed(state));
+    (state.stage.sectionIndex < WAKING || stillOwed(state));
     tick++
   ) {
     for (const mob of state.mobs) {
@@ -291,12 +297,12 @@ const playToTheWaking = (seed: number): Reached => {
 
 describe('the peak-arrivals query (ADR 0056)', () => {
   it('reports the most bodies the stage can put on the field inside a window', () => {
-    // The densest ten seconds the tables author is the Crowd's four rows from
+    // The densest ten seconds the tables author is the Crowd's four waves from
     // t=130, the climb into the Waking, and the densest ten seconds in the
     // stage is the pour on top of what that section keeps firing under it.
-    // Every expected value is summed from the rows rather than written down,
+    // Every expected value is summed from the waves rather than written down,
     // so re-authoring them moves both sides together.
-    const densest = between(CROWD_ROWS, 130, 140);
+    const densest = between(CROWD_WAVES, 130, 140);
     expect(densest).toHaveLength(4);
     const poured = 10 / SET_PIECE_POUR_SECONDS;
     expect(poured).toBeLessThanOrEqual(SET_PIECE_BUDGET);
@@ -305,42 +311,44 @@ describe('the peak-arrivals query (ADR 0056)', () => {
     );
 
     // It is the maximum over the whole stage, so it stands above each section's
-    // own densest ten seconds and above the boss phase's window.
+    // own densest ten seconds and above the boss section's window.
     expect(totalOf(densest)).toBeLessThan(peakArrivals(10));
-    expect(totalOf(between(PROCESSION_ROWS, 95, 105))).toBeLessThan(
+    expect(totalOf(between(PROCESSION_WAVES, 95, 105))).toBeLessThan(
       peakArrivals(10),
     );
-    expect(totalOf(between(VIGIL_ROWS, 49, 59))).toBeLessThan(peakArrivals(10));
+    expect(totalOf(between(VIGIL_WAVES, 49, 59))).toBeLessThan(
+      peakArrivals(10),
+    );
     expect(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE).toBeLessThan(peakArrivals(10));
   });
 
   it('counts what a boss sheds and what a hit strips, where no table is denser', () => {
-    // No two authored rows fall inside one second, so a one-second window holds
-    // one row at most, and one second of pour is five bodies, so the largest
-    // window in the stage at that length is the boss phase's: a boss's own adds
+    // No two authored waves fall inside one second, so a one-second window holds
+    // one wave at most, and one second of pour is five bodies, so the largest
+    // window in the stage at that length is the boss section's: a boss's own adds
     // plus the rungs a hit can strip onto the field. Without those two terms
     // the query would never look inside a boss fight at all.
-    const busiestRow = Math.max(...EVERY_ROW.map((row) => row.count));
-    expect(busiestRow).toBeLessThan(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
+    const busiestWave = Math.max(...EVERY_WAVE.map((wave) => wave.count));
+    expect(busiestWave).toBeLessThan(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
     const pourInOneSecond =
-      1 / SET_PIECE_POUR_SECONDS + Math.ceil(POUR_SHARES.crowd * busiestRow);
+      1 / SET_PIECE_POUR_SECONDS + Math.ceil(POUR_SHARES.crowd * busiestWave);
     expect(pourInOneSecond).toBeLessThan(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
     expect(peakArrivals(1)).toBe(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
   });
 
-  it('is computed from the rows, and is zero for a window of no length', () => {
+  it('is computed from the waves, and is zero for a window of no length', () => {
     expect(peakArrivals(0)).toBe(0);
 
     // A window wider than the whole stage holds every body the densest section
-    // authors, so a row added to that table moves the answer. It is the pour
+    // authors, so a wave added to that table moves the answer. It is the pour
     // that falls behind at that length rather than the table: a pour is bounded
-    // by its own budget and a section's rows are not.
-    expect(peakArrivals(600)).toBe(totalOf(CROWD_ROWS));
+    // by its own budget and a section's waves are not.
+    expect(peakArrivals(600)).toBe(totalOf(CROWD_WAVES));
     expect(peakArrivals(600)).toBeGreaterThan(
-      SET_PIECE_BUDGET + Math.ceil(POUR_SHARES.crowd * totalOf(CROWD_ROWS)),
+      SET_PIECE_BUDGET + Math.ceil(POUR_SHARES.crowd * totalOf(CROWD_WAVES)),
     );
-    expect(totalOf(CROWD_ROWS)).toBeGreaterThan(totalOf(PROCESSION_ROWS));
-    expect(totalOf(CROWD_ROWS)).toBeGreaterThan(totalOf(VIGIL_ROWS));
+    expect(totalOf(CROWD_WAVES)).toBeGreaterThan(totalOf(PROCESSION_WAVES));
+    expect(totalOf(CROWD_WAVES)).toBeGreaterThan(totalOf(VIGIL_WAVES));
 
     // And a wider window never reports fewer arrivals than a narrower one.
     const answers = Array.from({ length: 121 }, (_, seconds) =>
@@ -350,17 +358,17 @@ describe('the peak-arrivals query (ADR 0056)', () => {
   });
 });
 
-describe("the pour's own rows, and the share under it (ADR 0042, ADR 0050)", () => {
+describe("the pour's own waves, and the share under it (ADR 0042, ADR 0050)", () => {
   it("declares the pour's budget, interval, health and sweep bounds here, and reaches no module that spawns", () => {
     // The pour is data here and behaviour in setPiece.ts, one direction only:
     // peakArrivals needs the pour's rate, setPiece.ts spawns through mobs.ts,
-    // and mobs.ts reads caps.ts, so a rows.ts that reached setPiece.ts for the
+    // and mobs.ts reads caps.ts, so a waves.ts that reached setPiece.ts for the
     // rate would close the cycle the corpse cap's derivation exists inside.
     expect(SET_PIECE_BUDGET).toBeGreaterThan(0);
     expect(SET_PIECE_POUR_SECONDS).toBeGreaterThan(0);
     expect(SET_PIECE_HP).toBeGreaterThan(0);
     expect(SET_PIECE_SWEEP_MIN_X).toBeLessThan(SET_PIECE_SWEEP_MAX_X);
-    const imports = rowsSource.match(/^import [^;]*;/gm) ?? [];
+    const imports = wavesSource.match(/^import [^;]*;/gm) ?? [];
     expect(imports.length).toBeGreaterThan(0);
     expect(imports.filter((line) => !line.startsWith('import type'))).toEqual(
       [],
@@ -379,43 +387,43 @@ describe("the pour's own rows, and the share under it (ADR 0042, ADR 0050)", () 
 
   it('carries the section under the pour on at the share it keeps firing at', () => {
     // ADR 0051's other half made data: the Crowd's own last groups, re-timed to
-    // the phase the pour runs in and thinned, so the set piece arrives into
+    // the section the pour runs in and thinned, so the set piece arrives into
     // trash and stays in it. What is held is the relation to the section's own
     // rate and never either magnitude.
     const pourSeconds = SET_PIECE_BUDGET * SET_PIECE_POUR_SECONDS;
-    const lastCrowdRow = requireDefined(
-      CROWD_ROWS[CROWD_ROWS.length - 1],
-      'CROWD_ROWS is empty',
+    const lastCrowdWave = requireDefined(
+      CROWD_WAVES[CROWD_WAVES.length - 1],
+      'CROWD_WAVES is empty',
     );
-    const from = lastCrowdRow.t - pourSeconds;
-    const carried = CROWD_ROWS.filter((row) => row.t > from);
+    const from = lastCrowdWave.t - pourSeconds;
+    const carried = CROWD_WAVES.filter((wave) => wave.t > from);
 
-    expect(WAKING_ROWS).toHaveLength(carried.length);
-    expect(WAKING_ROWS.map((row) => row.template)).toEqual(
-      carried.map((row) => row.template),
+    expect(WAKING_WAVES).toHaveLength(carried.length);
+    expect(WAKING_WAVES.map((wave) => wave.formation)).toEqual(
+      carried.map((wave) => wave.formation),
     );
-    expect(WAKING_ROWS.map((row) => row.t)).toEqual(
-      carried.map((row) => row.t - from),
+    expect(WAKING_WAVES.map((wave) => wave.t)).toEqual(
+      carried.map((wave) => wave.t - from),
     );
-    expect(totalOf(WAKING_ROWS)).toBeGreaterThan(0);
-    expect(totalOf(WAKING_ROWS)).toBeLessThan(
+    expect(totalOf(WAKING_WAVES)).toBeGreaterThan(0);
+    expect(totalOf(WAKING_WAVES)).toBeLessThan(
       totalOf(carried) * POUR_SHARES.crowd + carried.length,
     );
 
     // And the corpse cap's own derivation still covers it: the query prices the
     // Waking's window as the pour plus the Crowd's densest window at its share,
-    // so the rows that actually fire there have to sit inside that.
+    // so the waves that actually fire there have to sit inside that.
     for (let seconds = 1; seconds <= 20; seconds++) {
       const densest = Math.max(
-        ...WAKING_ROWS.map((row) =>
-          totalOf(between(WAKING_ROWS, row.t, row.t + seconds)),
+        ...WAKING_WAVES.map((wave) =>
+          totalOf(between(WAKING_WAVES, wave.t, wave.t + seconds)),
         ),
       );
       const priced = Math.ceil(
         POUR_SHARES.crowd *
           Math.max(
-            ...CROWD_ROWS.map((row) =>
-              totalOf(between(CROWD_ROWS, row.t, row.t + seconds)),
+            ...CROWD_WAVES.map((wave) =>
+              totalOf(between(CROWD_WAVES, wave.t, wave.t + seconds)),
             ),
           ),
       );
@@ -427,9 +435,9 @@ describe("the pour's own rows, and the share under it (ADR 0042, ADR 0050)", () 
     // The loudest beat in the run cannot arrive thinner than the section it
     // interrupts. The relation is what is held, never either magnitude.
     const densestTable = Math.max(
-      ...SECTIONS.map((rows) =>
+      ...TRASH_SECTION_TABLES.map((waves) =>
         Math.max(
-          ...rows.map((row) => totalOf(between(rows, row.t, row.t + 10))),
+          ...waves.map((wave) => totalOf(between(waves, wave.t, wave.t + 10))),
         ),
       ),
     );
@@ -451,7 +459,7 @@ describe("the corpse cap's two boss-fight allowances (ADR 0007, ADR 0055)", () =
     // The allowance was derived from his cadence, so the two are held against
     // each other rather than written down twice. The Undertaker is the only
     // boss that summons at all: the Banshee's grammar is rings and a feast, so
-    // her chunks shed no body the corpse pool has to hold.
+    // her phases shed no body the corpse pool has to hold.
     //
     // A window that opens on a digger holds one more than the cadence divides
     // into it, which is the worst case the cap has to cover.
@@ -459,7 +467,7 @@ describe("the corpse cap's two boss-fight allowances (ADR 0007, ADR 0055)", () =
     const shedIn = (every: number): number =>
       Math.floor((window - 1) / every) + 1;
     const cadences = SPIRAL_ROWS.filter((row) => row !== null).map(
-      (row) => row.diggerEvery,
+      (wave) => wave.diggerEvery,
     );
 
     expect(cadences.length).toBeGreaterThan(0);
@@ -469,10 +477,10 @@ describe("the corpse cap's two boss-fight allowances (ADR 0007, ADR 0055)", () =
       );
     }
 
-    // A chunk break only ever spaces two of them further apart, because the
+    // A phase break only ever spaces two of them further apart, because the
     // pattern's clock goes back to zero behind an invincible flash, so the
-    // tightest window in a fight is one chunk's own cadence.
-    expect(CHUNK_FLASH_TICKS).toBeGreaterThan(0);
+    // tightest window in a fight is one phase's own cadence.
+    expect(PHASE_FLASH_TICKS).toBeGreaterThan(0);
   });
 });
 
@@ -483,20 +491,20 @@ describe("the Procession's first mob fire (ADR 0016, ADR 0059)", () => {
     // acts asks that a type arrive first as a lone Drip, so the lesson moves
     // onto a revenant standing by itself. Read off the table rather than off
     // the run, because it is the authoring that is ruled.
-    const firing = PROCESSION_ROWS.filter(
-      (row) => MOB_TYPES[row.type].fire.armedShare !== 'none',
+    const firing = PROCESSION_WAVES.filter(
+      (wave) => MOB_TYPES[wave.type].fire.armedShare !== 'none',
     );
     const first = firing[0];
     if (first === undefined) throw new Error('the Procession authors no fire');
 
     expect({
       type: first.type,
-      template: first.template,
+      formation: first.formation,
       count: first.count,
       carries: first.carries,
     }).toEqual({
       type: 'revenant',
-      template: 'drip',
+      formation: 'drip',
       count: 1,
       carries: false,
     });
@@ -505,32 +513,32 @@ describe("the Procession's first mob fire (ADR 0016, ADR 0059)", () => {
   it('puts that Drip ahead of every other body that can fire', () => {
     // The half the first promise cannot state on its own: a lone Drip that
     // arrives after a File of the same type teaches nothing. The tables are
-    // time-ordered, so the first firing row is the earliest one.
-    const firing = PROCESSION_ROWS.filter(
-      (row) => MOB_TYPES[row.type].fire.armedShare !== 'none',
+    // time-ordered, so the first firing wave is the earliest one.
+    const firing = PROCESSION_WAVES.filter(
+      (wave) => MOB_TYPES[wave.type].fire.armedShare !== 'none',
     );
     const [first, ...rest] = firing;
     if (first === undefined) throw new Error('the Procession authors no fire');
-    for (const row of rest) expect(row.t).toBeGreaterThan(first.t);
+    for (const wave of rest) expect(wave.t).toBeGreaterThan(first.t);
   });
 });
 
 describe('the section tables as data (ADR 0006)', () => {
-  it("puts every row's carrier inside that row's own count", () => {
+  it("puts every wave's carrier inside that wave's own count", () => {
     // Every section pays, so the rule is read against all three tables rather
     // than against whichever one happens to carry.
-    for (const rows of SECTIONS) {
-      expect(rows.filter((row) => row.carries).length).toBeGreaterThan(0);
+    for (const waves of TRASH_SECTION_TABLES) {
+      expect(waves.filter((wave) => wave.carries).length).toBeGreaterThan(0);
     }
-    expect(carrierFaultsIn(EVERY_ROW)).toEqual([]);
+    expect(carrierFaultsIn(EVERY_WAVE)).toEqual([]);
 
-    // The rule can see a bad row, so the empty list above is a pass rather than
-    // an empty set: a row that says it pays with no body to pay from.
+    // The rule can see a bad wave, so the empty list above is a pass rather than
+    // an empty set: a wave that says it pays with no body to pay from.
     expect(
       carrierFaultsIn([
         {
           t: 0,
-          template: 'drip',
+          formation: 'drip',
           count: 0,
           type: 'shambler',
           carries: true,
@@ -540,40 +548,40 @@ describe('the section tables as data (ADR 0006)', () => {
     ).toHaveLength(1);
   });
 
-  it('orders every section table by its phase-local time', () => {
-    for (const rows of [...SECTIONS, WAKING_ROWS]) {
-      expect(outOfOrderIn(rows)).toEqual([]);
+  it('orders every section table by its section-local time', () => {
+    for (const waves of [...TRASH_SECTION_TABLES, WAKING_WAVES]) {
+      expect(outOfOrderIn(waves)).toEqual([]);
     }
 
     // The same proof of teeth: reversed, the Crowd's own table is caught.
-    expect(outOfOrderIn([...CROWD_ROWS].reverse())).not.toEqual([]);
+    expect(outOfOrderIn([...CROWD_WAVES].reverse())).not.toEqual([]);
   });
 
-  it('declares directed on every row and every phase, with no optional field anywhere', () => {
+  it('declares directed on every wave and every section, with no optional field anywhere', () => {
     // A boolean and never an absent key, because a director reading an absent
     // cell as permission is exactly the failure ADR 0056's permission matrix
     // exists to stop.
-    for (const row of EVERY_ROW) {
-      expect(`${row.template} at t=${row.t}: ${typeof row.directed}`).toBe(
-        `${row.template} at t=${row.t}: boolean`,
+    for (const wave of EVERY_WAVE) {
+      expect(`${wave.formation} at t=${wave.t}: ${typeof wave.directed}`).toBe(
+        `${wave.formation} at t=${wave.t}: boolean`,
       );
     }
-    for (const phase of PHASES) {
-      expect(`${phase.name}: ${typeof phase.directed}`).toBe(
-        `${phase.name}: boolean`,
+    for (const section of SECTIONS) {
+      expect(`${section.name}: ${typeof section.directed}`).toBe(
+        `${section.name}: boolean`,
       );
     }
   });
 
-  it('declares both ceiling rows on every phase, set only where a section owns a ceiling', () => {
-    // The Procession's property is a ceiling on live templates and the Vigil's
+  it('declares both ceiling rows on every section, set only where a section owns a ceiling', () => {
+    // The Procession's property is a ceiling on live formations and the Vigil's
     // is a ceiling on live bodies. The Crowd carries neither, because its
     // property is a floor and a director that adds and never removes cannot
-    // break a floor. Every other phase is off limits to the director outright,
+    // break a floor. Every other section is off limits to the director outright,
     // so it has no ceiling to declare either.
-    const ceilings = PHASES.map(
-      (phase) =>
-        `${phase.name} ${phase.liveTemplateCeiling} ${phase.liveBodyCeiling}`,
+    const ceilings = SECTIONS.map(
+      (section) =>
+        `${section.name} ${section.liveFormationCeiling} ${section.liveBodyCeiling}`,
     );
     expect(ceilings).toEqual([
       'procession 1 null',
@@ -585,79 +593,81 @@ describe('the section tables as data (ADR 0006)', () => {
       'over null null',
     ]);
 
-    // Declared rather than optional, in both directions: a null is a phase
-    // saying it owns no ceiling, and an absent key would be a phase saying
+    // Declared rather than optional, in both directions: a null is a section
+    // saying it owns no ceiling, and an absent key would be a section saying
     // nothing at all.
-    for (const phase of PHASES) {
-      expect(`${phase.name} ${'liveTemplateCeiling' in phase}`).toBe(
-        `${phase.name} true`,
+    for (const section of SECTIONS) {
+      expect(`${section.name} ${'liveFormationCeiling' in section}`).toBe(
+        `${section.name} true`,
       );
-      expect(`${phase.name} ${'liveBodyCeiling' in phase}`).toBe(
-        `${phase.name} true`,
+      expect(`${section.name} ${'liveBodyCeiling' in section}`).toBe(
+        `${section.name} true`,
       );
     }
   });
 });
 
 describe("the director's off-limits cells, as data (ADR 0047, ADR 0056)", () => {
-  it('marks every boss phase and the set piece phase as cells the director may not spend in', () => {
+  it('marks every boss section and the set piece section as cells the director may not spend in', () => {
     // Read structurally rather than by name: a section's boundary event is the
-    // phase after it, so the Banshee, the Waking and the Undertaker are found
+    // section after it, so the Banshee, the Waking and the Undertaker are found
     // through the three sections rather than restated here.
     const boundaries = ['procession', 'crowd', 'vigil'].map(boundaryAfter);
-    expect(boundaries.map((phase) => phase.name)).toEqual([
+    expect(boundaries.map((section) => section.name)).toEqual([
       'banshee',
       'waking',
       'undertaker',
     ]);
-    for (const phase of boundaries) {
-      expect(`${phase.name} directed ${phase.directed}`).toBe(
-        `${phase.name} directed false`,
+    for (const section of boundaries) {
+      expect(`${section.name} directed ${section.directed}`).toBe(
+        `${section.name} directed false`,
       );
     }
 
     // And the sections themselves are where the director is meant to work, so
     // the marking separates them rather than covering everything.
     for (const name of ['procession', 'crowd', 'vigil']) {
-      const phase = PHASES.find((each) => each.name === name)!;
-      expect(`${name} directed ${phase.directed}`).toBe(
+      const section = SECTIONS.find((each) => each.name === name)!;
+      expect(`${name} directed ${section.directed}`).toBe(
         `${name} directed true`,
       );
     }
   });
 
-  it("marks the Wall's own row and every sparse last row, and every other row of the stage is open", () => {
+  it("marks the Wall's own wave and every sparse last wave, and every other wave of the stage is open", () => {
     // ADR 0047 names both outright. The Wall's crossable-unloaded property is
     // two-sided and fails silently with every test still green, so a director
     // filling the gaps around the curtain would break it invisibly; the sparse
-    // last row before each boss is the held breath, authored as a thin row so
+    // last wave before each boss is the held breath, authored as a thin wave so
     // that a director briefed to fill gaps cannot tell it from any other gap,
     // which is exactly why it says so itself.
-    const closed = EVERY_ROW.filter((row) => !row.directed);
+    const closed = EVERY_WAVE.filter((wave) => !wave.directed);
     expect(closed).toEqual([
-      ...sparseIn(PROCESSION_ROWS),
-      CROWD_ROWS.find((row) => row.template === 'wall')!,
-      ...sparseIn(VIGIL_ROWS),
-      // And every row the pour runs under, because the set piece is the third
+      ...sparseIn(PROCESSION_WAVES),
+      CROWD_WAVES.find((wave) => wave.formation === 'wall')!,
+      ...sparseIn(VIGIL_WAVES),
+      // And every wave the pour runs under, because the set piece is the third
       // of ADR 0047's four moments and a director filling gaps in it would be
       // spending inside the one it protects.
-      ...WAKING_ROWS,
+      ...WAKING_WAVES,
     ]);
   });
 
-  it('reads every off-limits cell out of the row and phase tables alone', () => {
+  it('reads every off-limits cell out of the wave and section tables alone', () => {
     // The whole of ADR 0056's ask: the four off-limits moments are cells in
     // data rather than conditions in code. Nothing here calls into the stage
     // machine, so a director at step 4 can answer the question the same way.
     const cells = [
-      ...PHASES.map((phase) => `phase ${phase.name} ${phase.directed}`),
-      ...EVERY_ROW.map((row) => `row ${row.template} ${row.directed}`),
+      ...SECTIONS.map(
+        (section) => `section ${section.name} ${section.directed}`,
+      ),
+      ...EVERY_WAVE.map((wave) => `wave ${wave.formation} ${wave.directed}`),
     ];
 
-    // The four phases the director may not spend in at all, the Wall's own row,
-    // the sparse last row of each of the two sections a boss ends, and every
-    // row that fires under the pour.
-    const offLimits = 4 + 1 + 2 * SPARSE_LAST_ROW.bodies + WAKING_ROWS.length;
+    // The four sections the director may not spend in at all, the Wall's own wave,
+    // the sparse last wave of each of the two sections a boss ends, and every
+    // wave that fires under the pour.
+    const offLimits = 4 + 1 + 2 * SPARSE_LAST_WAVE.bodies + WAKING_WAVES.length;
     expect(cells.filter((cell) => cell.endsWith('false')).length).toBe(
       offLimits,
     );
@@ -671,45 +681,44 @@ describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => 
     // costs a step rather than the run." The schedule the stage authors is what
     // has to hold that, because slack that lives only in the derivation absorbs
     // nothing.
-    expect(carriersIn(EVERY_ROW)).toBeGreaterThanOrEqual(carriersScheduled());
+    expect(carriersIn(EVERY_WAVE)).toBeGreaterThanOrEqual(carriersScheduled());
 
     // Front-loaded: everything a full build costs stands before the set piece,
     // and what the Vigil holds is the slack that makes a miss cost a step
     // rather than the run.
     const beforeTheWaking =
-      carriersIn(PROCESSION_ROWS) + carriersIn(CROWD_ROWS);
+      carriersIn(PROCESSION_WAVES) + carriersIn(CROWD_WAVES);
     expect(beforeTheWaking).toBeGreaterThanOrEqual(carriersForFullBuild());
-    expect(carriersIn(VIGIL_ROWS)).toBeGreaterThanOrEqual(
+    expect(carriersIn(VIGIL_WAVES)).toBeGreaterThanOrEqual(
       carriersScheduled() - carriersForFullBuild(),
     );
 
-    // The count is the tables' own and not a constant's: a stage whose rows all
+    // The count is the tables' own and not a constant's: a stage whose waves all
     // say they pay nothing falls short, so the assertions above are a pass
     // rather than an empty set.
-    const paying = EVERY_ROW.map((row) => ({ ...row, carries: false }));
+    const paying = EVERY_WAVE.map((wave) => ({ ...wave, carries: false }));
     expect(carriersIn(paying)).toBeLessThan(carriersScheduled());
   });
 
-  it("stands the Procession's carriers on File and V rows and never on a Drip", () => {
+  it("stands the Procession's carriers on File and V waves and never on a Drip", () => {
     // The run's first tell and its first offer are two different bodies rather
     // than one body doing both jobs, and the first kill of the run teaches the
     // swallow. Both of those are Drips, so no Drip in the section pays.
-    expect(dripsCarryingIn(PROCESSION_ROWS)).toEqual([]);
-    const carrying = PROCESSION_ROWS.filter((row) => row.carries);
-    expect([...new Set(carrying.map((row) => row.template))].sort()).toEqual([
-      'file',
-      'v',
-    ]);
+    expect(dripsCarryingIn(PROCESSION_WAVES)).toEqual([]);
+    const carrying = PROCESSION_WAVES.filter((wave) => wave.carries);
+    expect([...new Set(carrying.map((wave) => wave.formation))].sort()).toEqual(
+      ['file', 'v'],
+    );
 
     const opening = requireDefined(
-      PROCESSION_ROWS[0],
-      'PROCESSION_ROWS is empty',
+      PROCESSION_WAVES[0],
+      'PROCESSION_WAVES is empty',
     );
     expect(
-      `${opening.template} at t=${opening.t} carries ${opening.carries}`,
+      `${opening.formation} at t=${opening.t} carries ${opening.carries}`,
     ).toBe(`drip at t=${opening.t} carries false`);
-    const tell = PROCESSION_ROWS.find((row) => row.type === 'revenant')!;
-    expect(`${tell.template} at t=${tell.t} carries ${tell.carries}`).toBe(
+    const tell = PROCESSION_WAVES.find((wave) => wave.type === 'revenant')!;
+    expect(`${tell.formation} at t=${tell.t} carries ${tell.carries}`).toBe(
       `drip at t=${tell.t} carries false`,
     );
 
@@ -718,7 +727,7 @@ describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => 
       dripsCarryingIn([
         {
           t: 0,
-          template: 'drip',
+          formation: 'drip',
           count: 1,
           type: 'revenant',
           carries: true,
@@ -728,30 +737,30 @@ describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => 
     ).toHaveLength(1);
   });
 
-  it('says only that a row carries, and leaves which placement holds the offer to carriers.ts', () => {
-    // A row naming its own carrying index would be a second answer to a
-    // question carriers.ts already answers, and the two would drift. Every row
+  it('says only that a wave carries, and leaves which placement holds the offer to carriers.ts', () => {
+    // A wave naming its own carrying index would be a second answer to a
+    // question carriers.ts already answers, and the two would drift. Every wave
     // of every table declares the same six fields and no more.
     const shapes = [
-      ...new Set(EVERY_ROW.map((row) => Object.keys(row).sort().join(' '))),
+      ...new Set(EVERY_WAVE.map((wave) => Object.keys(wave).sort().join(' '))),
     ];
-    expect(shapes).toEqual(['carries count directed t template type']);
-    for (const row of EVERY_ROW) {
-      expect(`${row.template} at t=${row.t}: ${typeof row.carries}`).toBe(
-        `${row.template} at t=${row.t}: boolean`,
+    expect(shapes).toEqual(['carries count directed formation t type']);
+    for (const wave of EVERY_WAVE) {
+      expect(`${wave.formation} at t=${wave.t}: ${typeof wave.carries}`).toBe(
+        `${wave.formation} at t=${wave.t}: boolean`,
       );
     }
 
     // And the module says the same in its own source: it names no placement and
     // never reaches for the module that holds the rule.
-    expect(placementNamesIn(rowsSource)).toEqual([]);
+    expect(placementNamesIn(wavesSource)).toEqual([]);
     expect(placementNamesIn('{ carries: true, carrying: [2] }')).not.toEqual(
       [],
     );
 
     // The one answer, from the one module that gives it.
-    expect(carrierRow(true, 6).carrying).toEqual([3]);
-    expect(carrierRow(false, 6).carrying).toEqual([]);
+    expect(waveCarriers(true, 6).carrying).toEqual([3]);
+    expect(waveCarriers(false, 6).carrying).toEqual([]);
   });
 
   // One test per seed, which is the shape every other whole-run claim in this
@@ -771,7 +780,7 @@ describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => 
 
       expect(`seed ${seed} killed ${run.carriersKilled}`).toBe(
         `seed ${seed} killed ${
-          carriersIn(PROCESSION_ROWS) + carriersIn(CROWD_ROWS)
+          carriersIn(PROCESSION_WAVES) + carriersIn(CROWD_WAVES)
         }`,
       );
       expect(`seed ${seed} took ${run.taken}`).toBe(

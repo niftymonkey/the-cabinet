@@ -113,7 +113,7 @@ const levelsReadout = (
  * Empty at zero rather than showing a nought, because the bank exists so a
  * burst of paying kills still reads as paid and a standing "BANK 0" would be
  * one more number the player learns to stop reading. This is the stand-in
- * form: the field-side readout belongs to the ladder strip.
+ * form: the field-side readout belongs to the ladder HUD.
  */
 const bankReadout = (banked: number): string => {
   return banked > 0 ? `BANK ${banked}` : '';

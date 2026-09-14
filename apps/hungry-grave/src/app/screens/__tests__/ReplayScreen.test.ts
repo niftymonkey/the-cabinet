@@ -90,7 +90,7 @@ const RECORDED_DEBT = 5;
 
 /**
  * A scripted run recorded onto a sealed tape: deterministic steering with
- * turns in it, long enough for the stage's first rows to live and move.
+ * turns in it, long enough for the stage's first waves to live and move.
  */
 function scriptedTape(
   ticks: number,

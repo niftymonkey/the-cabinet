@@ -1,44 +1,44 @@
-// The stage's authored rows as data (ADR 0006), and the query over what they can put on the field.
+// The stage's authored waves as data (ADR 0006), and the query over what they can put on the field.
 
 import type { MobType } from '../mobs';
-import type { TemplateName } from './templates';
+import type { FormationName } from './formations';
 
-interface StageRow {
-  // Phase-local seconds. Rows fire when the phase-local tick passes this time.
+interface StageWave {
+  // Section-local seconds. Waves fire when the section-local tick passes this time.
   readonly t: number;
-  readonly template: TemplateName;
+  readonly formation: FormationName;
   /**
-   * Count lives on the row and never on the template, so density tuning never
+   * Count lives on the wave and never on the formation, so density tuning never
    * edits a playtest-proven shape.
    */
   readonly count: number;
   readonly type: MobType;
   /**
-   * Whether one of this row's mobs carries the offer (ADR 0002). Which one is
-   * carriers.ts's rule and never the row's, so a row says only that it pays.
+   * Whether one of this wave's mobs carries the offer (ADR 0002). Which one is
+   * carriers.ts's rule and never the wave's, so a wave says only that it pays.
    */
   readonly carries: boolean;
   /**
-   * Whether the director may spend in the span this row opens (ADR 0047,
-   * ADR 0056). A row already owns a span, from its own fire until the next row
-   * fires, and a director briefed to fill gaps cannot tell an authored thin row
-   * from any other gap unless the row itself says so. Its reader is the
+   * Whether the director may spend in the span this wave opens (ADR 0047,
+   * ADR 0056). A wave already owns a span, from its own fire until the next wave
+   * fires, and a director briefed to fill gaps cannot tell an authored thin wave
+   * from any other gap unless the wave itself says so. Its reader is the
    * director at step 4 (#85).
    */
   readonly directed: boolean;
 }
 
 /**
- * Which boss a phase carries. It lives here rather than in the boss modules
- * because which boss arrives where is authored stage data, and the phase column
+ * Which boss a section carries. It lives here rather than in the boss modules
+ * because which boss arrives where is authored stage data, and the section column
  * that names one is written several slices before any boss module exists.
  */
 type BossKind = 'banshee' | 'undertaker';
 
 /**
- * The two kinds as a list, so a reader that has to name a row per boss walks
+ * The two kinds as a list, so a reader that has to name a wave per boss walks
  * them rather than spelling them out. The type is declared above rather than
- * derived from this, so a phase column reads as a union and never as an index
+ * derived from this, so a section column reads as a union and never as an index
  * into a table.
  */
 const BOSS_KINDS: readonly BossKind[] = ['banshee', 'undertaker'];
@@ -48,51 +48,54 @@ const BOSS_KINDS: readonly BossKind[] = ['banshee', 'undertaker'];
  * key the pour's shares are read by, so a section and the rate it keeps firing
  * at under the pour cannot come apart.
  */
-type SectionName = 'procession' | 'crowd' | 'vigil';
+type TrashSectionName = 'procession' | 'crowd' | 'vigil';
 
 /**
- * The sparse last row's own shape (ADR 0051): how many bodies it lands, which
+ * The sparse last wave's own shape (ADR 0051): how many bodies it lands, which
  * type they are, and how far apart they fall. It is a record rather than three
  * loose numbers because the three only mean anything together, and a tuning
- * pass moves the held breath by editing one row.
+ * pass moves the held breath by editing one wave.
  */
 interface SparseShape {
   readonly bodies: number;
-  // In the row's own unit, seconds, so a table reads in one clock.
+  // In the wave's own unit, seconds, so a table reads in one clock.
   readonly spacingSeconds: number;
   readonly type: MobType;
 }
 
 /**
  * The initial shape, from the design record: four bodies, shamblers, one every
- * ninety ticks, which is a second and a half in the row's own unit.
+ * ninety ticks, which is a second and a half in the wave's own unit.
  *
  * The type is the part worth reading rather than tuning. The ghoul closes,
  * which would turn a held breath into a chase, and every revenant is armed, so
- * a thin row of revenants is less traffic and more fire, which is the opposite
- * of the beat this row is.
+ * a thin wave of revenants is less traffic and more fire, which is the opposite
+ * of the beat this wave is.
  */
-const SPARSE_LAST_ROW: SparseShape = {
+const SPARSE_LAST_WAVE: SparseShape = {
   bodies: 4,
   spacingSeconds: 1.5,
   type: 'shambler',
 };
 
 /**
- * The sparse last row as rows (ADR 0051): one body at a time from `from`, the
+ * The sparse last wave as waves (ADR 0051): one body at a time from `from`, the
  * shape's spacing apart, replacing the spawn silence a boss used to arrive
- * after. Each body is its own Drip, because a row lands its whole count at once
- * and what this row is for is bodies arriving one after another.
+ * after. Each body is its own Drip, because a wave lands its whole count at once
+ * and what this wave is for is bodies arriving one after another.
  *
  * It carries no offer, because a carrier here would pay a player for the beat
  * before a fight rather than for the section, and the director may not spend in
  * it: it is the held breath, and a director briefed to fill gaps would fill
  * this one (ADR 0047).
  */
-const sparseLastRow = (from: number, shape: SparseShape): readonly StageRow[] =>
-  Array.from({ length: shape.bodies }, (_body, index): StageRow => ({
+const sparseLastWave = (
+  from: number,
+  shape: SparseShape,
+): readonly StageWave[] =>
+  Array.from({ length: shape.bodies }, (_body, index): StageWave => ({
     t: from + index * shape.spacingSeconds,
-    template: 'drip',
+    formation: 'drip',
     count: 1,
     type: shape.type,
     carries: false,
@@ -105,18 +108,18 @@ const sparseLastRow = (from: number, shape: SparseShape): readonly StageRow[] =>
  * where a corpse sits alone long enough for the player to decide to go and get
  * it, and where a revenant's tell is legible because nothing else is on screen.
  *
- * The property is one live template, held as Phase.liveTemplateCeiling and read
- * by the director rather than by an invariant: these rows stand about nine
+ * The property is one live formation, held as Section.liveFormationCeiling and read
+ * by the director rather than by an invariant: these waves stand about nine
  * seconds apart against a body that takes roughly fifteen seconds to fall
- * unkilled, so a player who kills slowly holds two templates with nothing wrong.
+ * unkilled, so a player who kills slowly holds two formations with nothing wrong.
  *
  * Only Files and Vs stand beside the Drips. The Rain is the density filler a
  * section turns up when its property asks for it and the Pincer is two files at
- * once, and neither belongs in a section that holds one template live. No ghoul:
+ * once, and neither belongs in a section that holds one formation live. No ghoul:
  * the closer arrives in the next section, and a type arriving first as a lone
  * Drip is the standing rule (ADR 0016's readable-before-it-acts).
  *
- * Which rows may carry is a property of the table rather than of the schedule,
+ * Which waves may carry is a property of the table rather than of the schedule,
  * so it is authored here and the placement is carriers.ts's. The four Drips are
  * held clear on purpose. The opening shambler Drip is held clear because the
  * first kill of the run teaches the swallow; the lone revenant Drip after it is
@@ -127,13 +130,13 @@ const sparseLastRow = (from: number, shape: SparseShape): readonly StageRow[] =>
  * than one body doing both jobs.
  *
  * Every count and every time here is an initial row owned by the tuning pass.
- * What is not tuning is the shape: one template live, Drips before a type
+ * What is not tuning is the shape: one formation live, Drips before a type
  * appears in numbers, no ghoul, and a carrier on no Drip.
  */
-const PROCESSION_ROWS: readonly StageRow[] = [
+const PROCESSION_WAVES: readonly StageWave[] = [
   {
     t: 2,
-    template: 'drip',
+    formation: 'drip',
     count: 1,
     type: 'shambler',
     carries: false,
@@ -141,7 +144,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 11,
-    template: 'drip',
+    formation: 'drip',
     count: 1,
     type: 'revenant',
     carries: false,
@@ -149,7 +152,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 21,
-    template: 'file',
+    formation: 'file',
     count: 5,
     type: 'shambler',
     carries: true,
@@ -157,7 +160,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 31,
-    template: 'drip',
+    formation: 'drip',
     count: 1,
     type: 'revenant',
     carries: false,
@@ -165,7 +168,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 40,
-    template: 'drip',
+    formation: 'drip',
     count: 2,
     type: 'shambler',
     carries: false,
@@ -173,7 +176,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 50,
-    template: 'v',
+    formation: 'v',
     count: 5,
     type: 'shambler',
     carries: true,
@@ -181,7 +184,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 59,
-    template: 'file',
+    formation: 'file',
     count: 6,
     type: 'shambler',
     carries: true,
@@ -189,7 +192,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 68,
-    template: 'v',
+    formation: 'v',
     count: 6,
     type: 'shambler',
     carries: true,
@@ -197,7 +200,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 77,
-    template: 'file',
+    formation: 'file',
     count: 6,
     type: 'shambler',
     carries: true,
@@ -205,7 +208,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 86,
-    template: 'v',
+    formation: 'v',
     count: 7,
     type: 'shambler',
     carries: true,
@@ -213,7 +216,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 95,
-    template: 'file',
+    formation: 'file',
     count: 6,
     type: 'revenant',
     carries: true,
@@ -221,15 +224,15 @@ const PROCESSION_ROWS: readonly StageRow[] = [
   },
   {
     t: 103,
-    template: 'v',
+    formation: 'v',
     count: 7,
     type: 'shambler',
     carries: true,
     directed: true,
   },
-  // The section's own nine-second cadence carries into the last row, so the
+  // The section's own nine-second cadence carries into the last wave, so the
   // held breath is slower rather than empty.
-  ...sparseLastRow(112, SPARSE_LAST_ROW),
+  ...sparseLastWave(112, SPARSE_LAST_WAVE),
 ];
 
 /**
@@ -239,7 +242,7 @@ const PROCESSION_ROWS: readonly StageRow[] = [
  * reachable and becomes which of these still is.
  *
  * It opens on the Wall two seconds after the Banshee dies, which is the anchor
- * the concept doc names, and the Wall's own row is the one cell in this table
+ * the concept doc names, and the Wall's own wave is the one cell in this table
  * the director may not spend in: its crossable-unloaded property is two-sided
  * and fails silently with every test still green (ADR 0047).
  *
@@ -247,21 +250,21 @@ const PROCESSION_ROWS: readonly StageRow[] = [
  *
  * One deliberate trough sits mid-section, thin Drips and nothing else, so the
  * Waking at the end lands against something rather than against a sustained
- * peak. It is a run of rows and nothing more: the music does not change inside a
+ * peak. It is a run of waves and nothing more: the music does not change inside a
  * section, so a held bar under the trough would be an audio state built for one
- * row.
+ * wave.
  *
- * The property is a floor of two live templates and it carries no ceiling row,
+ * The property is a floor of two live formations and it carries no ceiling row,
  * because a director that adds and never removes cannot break a floor.
  *
  * Every count and every time is an initial row. What is not tuning is the shape:
- * two templates always overlapping, the Wall first and undirected, the ghoul's
+ * two formations always overlapping, the Wall first and undirected, the ghoul's
  * lone Drip before any ghoul in numbers, and one trough before the end.
  */
-const CROWD_ROWS: readonly StageRow[] = [
+const CROWD_WAVES: readonly StageWave[] = [
   {
     t: 2,
-    template: 'wall',
+    formation: 'wall',
     count: 22,
     type: 'shambler',
     carries: false,
@@ -269,7 +272,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 8,
-    template: 'rain',
+    formation: 'rain',
     count: 6,
     type: 'shambler',
     carries: true,
@@ -277,7 +280,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 12,
-    template: 'drip',
+    formation: 'drip',
     count: 1,
     type: 'ghoul',
     carries: false,
@@ -285,7 +288,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 15,
-    template: 'pincer',
+    formation: 'pincer',
     count: 8,
     type: 'shambler',
     carries: false,
@@ -293,7 +296,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 21,
-    template: 'v',
+    formation: 'v',
     count: 7,
     type: 'shambler',
     carries: true,
@@ -301,7 +304,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 25,
-    template: 'rain',
+    formation: 'rain',
     count: 8,
     type: 'shambler',
     carries: false,
@@ -309,7 +312,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 29,
-    template: 'file',
+    formation: 'file',
     count: 5,
     type: 'revenant',
     carries: true,
@@ -317,7 +320,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 33,
-    template: 'pincer',
+    formation: 'pincer',
     count: 8,
     type: 'shambler',
     carries: false,
@@ -325,7 +328,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 36,
-    template: 'rain',
+    formation: 'rain',
     count: 8,
     type: 'shambler',
     carries: true,
@@ -333,7 +336,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 40,
-    template: 'v',
+    formation: 'v',
     count: 7,
     type: 'ghoul',
     carries: false,
@@ -341,7 +344,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 44,
-    template: 'rain',
+    formation: 'rain',
     count: 10,
     type: 'shambler',
     carries: true,
@@ -349,7 +352,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 48,
-    template: 'pincer',
+    formation: 'pincer',
     count: 8,
     type: 'shambler',
     carries: false,
@@ -357,7 +360,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 52,
-    template: 'v',
+    formation: 'v',
     count: 7,
     type: 'shambler',
     carries: true,
@@ -365,7 +368,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 58,
-    template: 'drip',
+    formation: 'drip',
     count: 2,
     type: 'shambler',
     carries: false,
@@ -373,7 +376,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 64,
-    template: 'drip',
+    formation: 'drip',
     count: 2,
     type: 'revenant',
     carries: false,
@@ -381,7 +384,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 70,
-    template: 'drip',
+    formation: 'drip',
     count: 3,
     type: 'shambler',
     carries: false,
@@ -389,7 +392,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 76,
-    template: 'drip',
+    formation: 'drip',
     count: 2,
     type: 'ghoul',
     carries: false,
@@ -397,7 +400,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 79,
-    template: 'drip',
+    formation: 'drip',
     count: 3,
     type: 'shambler',
     carries: false,
@@ -405,7 +408,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 82,
-    template: 'rain',
+    formation: 'rain',
     count: 8,
     type: 'shambler',
     carries: true,
@@ -413,7 +416,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 85,
-    template: 'pincer',
+    formation: 'pincer',
     count: 8,
     type: 'shambler',
     carries: false,
@@ -421,7 +424,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 90,
-    template: 'v',
+    formation: 'v',
     count: 7,
     type: 'ghoul',
     carries: true,
@@ -429,7 +432,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 94,
-    template: 'rain',
+    formation: 'rain',
     count: 10,
     type: 'shambler',
     carries: false,
@@ -437,7 +440,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 98,
-    template: 'file',
+    formation: 'file',
     count: 6,
     type: 'revenant',
     carries: true,
@@ -445,7 +448,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 102,
-    template: 'pincer',
+    formation: 'pincer',
     count: 8,
     type: 'shambler',
     carries: false,
@@ -453,7 +456,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 106,
-    template: 'rain',
+    formation: 'rain',
     count: 10,
     type: 'shambler',
     carries: false,
@@ -461,7 +464,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 110,
-    template: 'v',
+    formation: 'v',
     count: 7,
     type: 'shambler',
     carries: false,
@@ -469,7 +472,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 114,
-    template: 'pincer',
+    formation: 'pincer',
     count: 8,
     type: 'ghoul',
     carries: false,
@@ -477,7 +480,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 118,
-    template: 'rain',
+    formation: 'rain',
     count: 12,
     type: 'shambler',
     carries: true,
@@ -485,7 +488,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 122,
-    template: 'v',
+    formation: 'v',
     count: 7,
     type: 'shambler',
     carries: false,
@@ -493,7 +496,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 126,
-    template: 'pincer',
+    formation: 'pincer',
     count: 8,
     type: 'shambler',
     carries: false,
@@ -501,7 +504,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 130,
-    template: 'rain',
+    formation: 'rain',
     count: 12,
     type: 'shambler',
     carries: false,
@@ -509,7 +512,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 133,
-    template: 'v',
+    formation: 'v',
     count: 7,
     type: 'ghoul',
     carries: false,
@@ -517,7 +520,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 136,
-    template: 'pincer',
+    formation: 'pincer',
     count: 8,
     type: 'shambler',
     carries: false,
@@ -525,7 +528,7 @@ const CROWD_ROWS: readonly StageRow[] = [
   },
   {
     t: 138,
-    template: 'rain',
+    formation: 'rain',
     count: 12,
     type: 'shambler',
     carries: true,
@@ -549,7 +552,7 @@ const CROWD_ROWS: readonly StageRow[] = [
  *
  * The property is a ceiling of four live bodies against an authored steady state
  * of about two, which is the headroom the director may spend into and no more.
- * Like the Procession's it binds the director and never the authored rows.
+ * Like the Procession's it binds the director and never the authored waves.
  *
  * Shortest of the three on purpose, because the Undertaker has to carry the end.
  *
@@ -557,10 +560,10 @@ const CROWD_ROWS: readonly StageRow[] = [
  * a fall in growth paid per second against the Crowd, and a roster of revenants
  * and ghouls with the shambler thinned.
  */
-const VIGIL_ROWS: readonly StageRow[] = [
+const VIGIL_WAVES: readonly StageWave[] = [
   {
     t: 2,
-    template: 'file',
+    formation: 'file',
     count: 4,
     type: 'revenant',
     carries: true,
@@ -568,7 +571,7 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 8,
-    template: 'drip',
+    formation: 'drip',
     count: 2,
     type: 'ghoul',
     carries: false,
@@ -576,7 +579,7 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 14,
-    template: 'v',
+    formation: 'v',
     count: 5,
     type: 'revenant',
     carries: true,
@@ -584,7 +587,7 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 19,
-    template: 'drip',
+    formation: 'drip',
     count: 2,
     type: 'shambler',
     carries: false,
@@ -592,7 +595,7 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 24,
-    template: 'file',
+    formation: 'file',
     count: 4,
     type: 'ghoul',
     carries: true,
@@ -600,7 +603,7 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 29,
-    template: 'pincer',
+    formation: 'pincer',
     count: 6,
     type: 'revenant',
     carries: false,
@@ -608,7 +611,7 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 34,
-    template: 'v',
+    formation: 'v',
     count: 5,
     type: 'ghoul',
     carries: true,
@@ -616,7 +619,7 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 39,
-    template: 'drip',
+    formation: 'drip',
     count: 2,
     type: 'revenant',
     carries: false,
@@ -624,7 +627,7 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 44,
-    template: 'file',
+    formation: 'file',
     count: 4,
     type: 'revenant',
     carries: true,
@@ -632,7 +635,7 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 49,
-    template: 'v',
+    formation: 'v',
     count: 5,
     type: 'ghoul',
     carries: false,
@@ -640,7 +643,7 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 53,
-    template: 'pincer',
+    formation: 'pincer',
     count: 6,
     type: 'revenant',
     carries: true,
@@ -648,21 +651,21 @@ const VIGIL_ROWS: readonly StageRow[] = [
   },
   {
     t: 58,
-    template: 'v',
+    formation: 'v',
     count: 5,
     type: 'ghoul',
     carries: false,
     directed: true,
   },
   // The same beat on this section's own five-second cadence.
-  ...sparseLastRow(63, SPARSE_LAST_ROW),
+  ...sparseLastWave(63, SPARSE_LAST_WAVE),
 ];
 
 /**
  * The Waking's pour, as data (ADR 0042, ADR 0050). The source's behaviour is
  * setPiece.ts's and every magnitude it runs on is here, one direction only:
  * peakArrivals below needs the pour's rate, and setPiece.ts spawns through
- * mobs.ts, which reads caps.ts, which reads this query. A rows.ts that asked
+ * mobs.ts, which reads caps.ts, which reads this query. A waves.ts that asked
  * setPiece.ts for the rate would close that circle.
  *
  * All initial rows, tuned by the harness at step 4, with the arithmetic in the
@@ -692,7 +695,7 @@ const SET_PIECE_POUR_SECONDS = 0.2;
  *
  * What it buys is the source's stay: how long the body stands as a target the
  * storm can work on and a thing on the ground to read. The pour finishes on its
- * budget whatever the storm did (Mark's ruling on #104), so the row no longer
+ * budget whatever the storm did (Mark's ruling on #104), so the wave no longer
  * carries that, and it stays an initial row for the step 4 harness to measure.
  */
 const SET_PIECE_HP = 2400;
@@ -706,11 +709,11 @@ const SET_PIECE_SWEEP_MIN_X = 108;
 const SET_PIECE_SWEEP_MAX_X = 432;
 
 /**
- * The phase-local second the Crowd places the dormant source (ADR 0050).
+ * The section-local second the Crowd places the dormant source (ADR 0050).
  *
  * Five seconds before the eye opens, so it opens a beat after the section's own
  * last group falls at second 138 and the Crowd's climax fires before the eye
- * ends the section. Placed any earlier the eye rides down through rows it is
+ * ends the section. Placed any earlier the eye rides down through waves it is
  * about to cut off; any later and the Crowd holds a stretch with nothing due,
  * which is the spawn silence ADR 0051 retired.
  *
@@ -736,14 +739,14 @@ const SET_PIECE_OPEN_DEPTH = 0.25;
 
 /**
  * The body the storm meets once the source has opened, in field units. Initial
- * rows: wide enough that a dive lands on it without aiming and smaller than a
+ * waves: wide enough that a dive lands on it without aiming and smaller than a
  * boss, because it is a mouth on the ground rather than a fight standing up.
  */
 const SET_PIECE_HALF_WIDTH = 45;
 const SET_PIECE_HALF_HEIGHT = 30;
 
 /**
- * What the pour puts on the field. It is a row and not a name in setPiece.ts,
+ * What the pour puts on the field. It is a wave and not a name in setPiece.ts,
  * because ADR 0042 rules that a set piece names the property it must keep and
  * never the cast, so re-casting the pour is a data edit.
  *
@@ -760,7 +763,7 @@ const POUR_TYPE: MobType = 'shambler';
  * it (ADR 0042's narrow answer to #81, for this one caller).
  *
  * The mouth pours from alternating lips rather than from one point, so two
- * bodies in a row are never stacked on each other: the lips stand far enough
+ * bodies in a wave are never stacked on each other: the lips stand far enough
  * apart that the widest trash body fits between them, and the jitter is bounded
  * under that gap so a draw can never close it. The jitter is what keeps the
  * pour a spray rather than a metronome, and it is the one place chance enters
@@ -771,12 +774,12 @@ const POUR_JITTER_X = 6;
 
 /**
  * The share of its own authored rate a section keeps while the set piece pours,
- * so it thins under the pour rather than going silent (ADR 0051). One row per
+ * so it thins under the pour rather than going silent (ADR 0051). One wave per
  * section and no optional key: only the Crowd is ever under a pour, because the
- * source is placed by one of its own rows, and the other two say 1 rather than
+ * source is placed by one of its own waves, and the other two say 1 rather than
  * saying nothing.
  */
-const POUR_SHARES: Readonly<Record<SectionName, number>> = {
+const POUR_SHARES: Readonly<Record<TrashSectionName, number>> = {
   procession: 1,
   crowd: 1 / 3,
   vigil: 1,
@@ -790,50 +793,51 @@ const POUR_SHARES: Readonly<Record<SectionName, number>> = {
 const POUR_SECONDS = SET_PIECE_BUDGET * SET_PIECE_POUR_SECONDS;
 
 /**
- * The rows a section keeps firing under a pour (ADR 0051: "there is no
+ * The waves a section keeps firing under a pour (ADR 0051: "there is no
  * drain-out before the set piece ... only the two boss boundaries need the
  * field empty").
  *
- * Its own last rows, carried on into the phase the pour runs in and thinned to
- * the share it keeps: the same templates, the same types, in the same cadence,
+ * Its own last waves, carried on into the section the pour runs in and thinned to
+ * the share it keeps: the same formations, the same types, in the same cadence,
  * with fewer bodies in each. A section that stopped would hand the loudest beat
  * in the run a silent field, which is the one thing ADR 0051 rules out here.
  *
- * A row never thins to nothing, because a row that lands no body is the silence
+ * A wave never thins to nothing, because a wave that lands no body is the silence
  * the share exists to avoid; and none of them carries, because the twenty-five
  * carriers are authored across the three sections and a pour pays in corpses
  * rather than in power (ADR 0048). The director may not spend in any of them:
  * the set piece is one of ADR 0047's four off-limits moments.
  */
-const rowsUnderThePour = (
-  rows: readonly StageRow[],
+const wavesUnderThePour = (
+  waves: readonly StageWave[],
   share: number,
   seconds: number,
-): readonly StageRow[] => {
-  const lastRow = rows[rows.length - 1];
-  if (lastRow === undefined) throw new Error('rowsUnderThePour given no rows');
-  const opensAt = lastRow.t - seconds;
-  return rows
-    .filter((row) => row.t > opensAt)
-    .map((row) => ({
-      t: row.t - opensAt,
-      template: row.template,
-      count: Math.max(1, Math.round(row.count * share)),
-      type: row.type,
+): readonly StageWave[] => {
+  const lastWave = waves[waves.length - 1];
+  if (lastWave === undefined)
+    throw new Error('wavesUnderThePour given no waves');
+  const opensAt = lastWave.t - seconds;
+  return waves
+    .filter((wave) => wave.t > opensAt)
+    .map((wave) => ({
+      t: wave.t - opensAt,
+      formation: wave.formation,
+      count: Math.max(1, Math.round(wave.count * share)),
+      type: wave.type,
       carries: false,
       directed: false,
     }));
 };
 
 /**
- * The Waking's own rows: the Crowd's last groups, still falling under the pour
+ * The Waking's own waves: the Crowd's last groups, still falling under the pour
  * at the share that section keeps (ADR 0050, ADR 0051).
  *
- * The phase itself is the source's moment and ends when the source is gone, so
- * these rows are what the pour lands into rather than what the phase runs on.
+ * The section itself is the source's moment and ends when the source is gone, so
+ * these waves are what the pour lands into rather than what the section runs on.
  */
-const WAKING_ROWS: readonly StageRow[] = rowsUnderThePour(
-  CROWD_ROWS,
+const WAKING_WAVES: readonly StageWave[] = wavesUnderThePour(
+  CROWD_WAVES,
   POUR_SHARES.crowd,
   POUR_SECONDS,
 );
@@ -841,7 +845,7 @@ const WAKING_ROWS: readonly StageRow[] = rowsUnderThePour(
 /**
  * Bodies a boss's own adds may put on the field inside a freshness window
  * (ADR 0007). An initial row: diggers at one every ninety ticks through the
- * Undertaker's second and third chunks are about seven in ten seconds.
+ * Undertaker's second and third phases are about seven in ten seconds.
  */
 const BOSS_ADD_ALLOWANCE = 7;
 
@@ -854,37 +858,38 @@ const BOSS_ADD_ALLOWANCE = 7;
 const RUNG_ALLOWANCE = 19;
 
 // The three sections, under the key the pour's shares are read by.
-const SECTION_TABLES: Readonly<Record<SectionName, readonly StageRow[]>> = {
-  procession: PROCESSION_ROWS,
-  crowd: CROWD_ROWS,
-  vigil: VIGIL_ROWS,
-};
+const SECTION_TABLES: Readonly<Record<TrashSectionName, readonly StageWave[]>> =
+  {
+    procession: PROCESSION_WAVES,
+    crowd: CROWD_WAVES,
+    vigil: VIGIL_WAVES,
+  };
 
 /**
  * The section the pour ever falls on: the source is placed by one of the
- * Crowd's own rows and opens as the Crowd's boundary event, so the Crowd is the
+ * Crowd's own waves and opens as the Crowd's boundary event, so the Crowd is the
  * one table that ever fires under a pour.
  */
-const POURED_SECTION: SectionName = 'crowd';
+const POURED_SECTION: TrashSectionName = 'crowd';
 
-// The bodies a table's rows put on the field in the window that opens at this second.
+// The bodies a table's waves put on the field in the window that opens at this second.
 const arrivalsFrom = (
-  rows: readonly StageRow[],
+  waves: readonly StageWave[],
   from: number,
   seconds: number,
 ): number =>
-  rows
-    .filter((row) => row.t >= from && row.t < from + seconds)
-    .reduce((total, row) => total + row.count, 0);
+  waves
+    .filter((wave) => wave.t >= from && wave.t < from + seconds)
+    .reduce((total, wave) => total + wave.count, 0);
 
 /**
- * A table's densest window. Only a window that opens on a row can be the
- * densest: sliding one earlier admits nothing and can only drop the row it
+ * A table's densest window. Only a window that opens on a wave can be the
+ * densest: sliding one earlier admits nothing and can only drop the wave it
  * opened on.
  */
-const peakInTable = (rows: readonly StageRow[], seconds: number): number =>
-  rows.reduce(
-    (most, row) => Math.max(most, arrivalsFrom(rows, row.t, seconds)),
+const peakInTable = (waves: readonly StageWave[], seconds: number): number =>
+  waves.reduce(
+    (most, wave) => Math.max(most, arrivalsFrom(waves, wave.t, seconds)),
     0,
   );
 
@@ -908,19 +913,19 @@ const pourWindow = (seconds: number): number => {
 
 /**
  * The most bodies the stage can put on the field inside any window of this
- * length, anywhere in the stage (ADR 0056). Every term is a row in this module,
+ * length, anywhere in the stage (ADR 0056). Every term is a wave in this module,
  * so the query reads data and calls nothing that spawns.
  *
- * It is a maximum over windows and never a sum of them. A boss phase authors no
- * rows, so its window is what a boss sheds plus what a hit strips; the Waking's
+ * It is a maximum over windows and never a sum of them. A boss section authors no
+ * waves, so its window is what a boss sheds plus what a hit strips; the Waking's
  * is the pour plus the Crowd's reduced share; a section's is what its own table
  * authors. Taking the largest is the worst case, and adding them would price a
  * window the stage cannot produce.
  */
 const peakArrivals = (seconds: number): number => {
   if (seconds <= 0) return 0;
-  const sections = Object.values(SECTION_TABLES).map((rows) =>
-    peakInTable(rows, seconds),
+  const sections = Object.values(SECTION_TABLES).map((waves) =>
+    peakInTable(waves, seconds),
   );
   return Math.max(
     ...sections,
@@ -930,12 +935,12 @@ const peakArrivals = (seconds: number): number => {
 };
 
 export {
-  PROCESSION_ROWS,
-  CROWD_ROWS,
-  VIGIL_ROWS,
-  WAKING_ROWS,
-  SPARSE_LAST_ROW,
-  sparseLastRow,
+  PROCESSION_WAVES,
+  CROWD_WAVES,
+  VIGIL_WAVES,
+  WAKING_WAVES,
+  SPARSE_LAST_WAVE,
+  sparseLastWave,
   SET_PIECE_BUDGET,
   SET_PIECE_POUR_SECONDS,
   SET_PIECE_HP,
@@ -955,4 +960,4 @@ export {
   BOSS_KINDS,
   peakArrivals,
 };
-export type { StageRow, BossKind, SectionName, SparseShape };
+export type { StageWave, BossKind, TrashSectionName, SparseShape };

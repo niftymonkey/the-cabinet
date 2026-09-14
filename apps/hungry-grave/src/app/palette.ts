@@ -157,7 +157,7 @@ const PALETTE = {
    */
   corpseRevenant: { hex: 0x93a85b, luma: 61.95 },
   feast: { hex: 0xb0ac9e, luma: 67.39 },
-  drop: { hex: 0xd8a941, luma: 67.25 },
+  powerUp: { hex: 0xd8a941, luma: 67.25 },
   /**
    * The dark companion every sprite in the food, mob and treasure layers draws
    * with. Without it the grave's rim meets a pile of food at APCA Lc 0.00 from
@@ -166,7 +166,7 @@ const PALETTE = {
    * 67.41, 72 of the 78 pairs measure exactly Lc 0.00.
    *
    * Measured: Lc 50.19 against corpse, 57.36 against feast, 59.64 against
-   * drop and 61.19 against mob. Against night it is 3.4 luma brighter, so it
+   * power-up and 61.19 against mob. Against night it is 3.4 luma brighter, so it
    * costs nothing on bare field.
    */
   foodOutline: { hex: 0x141a26, luma: 10.04 },
@@ -210,7 +210,7 @@ const PALETTE = {
    * The Waking's source, and its own dark companion.
    *
    * It takes the Crowd's family at hue 164.68 rather than the Vigil's, because
-   * it is placed by a Crowd row and opens as the Crowd's boundary event, and
+   * it is placed by a Crowd wave and opens as the Crowd's boundary event, and
    * giving it the hue 190 entry would spend the fourth colour a section early.
    * What that costs is a source in the same family as the Crowd's own eye
    * dressing, and the stand-in answer is size (design record section 7).
@@ -279,7 +279,7 @@ const SPRITE_OUTLINE = {
   corpse: 'foodOutline',
   corpseRevenant: 'foodOutline',
   feast: 'foodOutline',
-  drop: 'foodOutline',
+  powerUp: 'foodOutline',
   mob: 'foodOutline',
   banshee: 'foodOutline',
   undertaker: 'foodOutline',

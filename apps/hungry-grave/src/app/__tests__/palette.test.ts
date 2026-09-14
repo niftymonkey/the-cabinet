@@ -151,9 +151,9 @@ const OVER_THE_MOUTH =
 
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
-    pair: ['graveGlow', 'drop'],
+    pair: ['graveGlow', 'powerUp'],
     because:
-      "the glow is the grave wearing treasure's own colour, always at the grave's position and pulsing where a drop is steady",
+      "the glow is the grave wearing treasure's own colour, always at the grave's position and pulsing where a power-up is steady",
   },
   {
     pair: ['feast', 'belchEruption'],
@@ -172,8 +172,8 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['graveRim', 'undertaker'], because: `27.86: ${MID_BAND_BODY}` },
   { pair: ['feast', 'bansheeDark'], because: `29.28: ${MID_BAND_BODY}` },
   { pair: ['feast', 'undertaker'], because: `31.71: ${MID_BAND_BODY}` },
-  { pair: ['drop', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
-  { pair: ['drop', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
+  { pair: ['powerUp', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
+  { pair: ['powerUp', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
   { pair: ['graveGlow', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
   { pair: ['graveGlow', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
   { pair: ['undertaker', 'graveHole'], because: `24.72: ${MID_BAND_BODY}` },
@@ -187,7 +187,7 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['corpse', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['corpseRevenant', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['feast', 'splash'], because: OVER_THE_SPLASH },
-  { pair: ['drop', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['powerUp', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['mob', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['banshee', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['undertaker', 'splash'], because: OVER_THE_SPLASH },
@@ -201,7 +201,7 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['corpse', 'skull'], because: OVER_THE_SKULL },
   { pair: ['corpseRevenant', 'skull'], because: OVER_THE_SKULL },
   { pair: ['feast', 'skull'], because: OVER_THE_SKULL },
-  { pair: ['drop', 'skull'], because: OVER_THE_SKULL },
+  { pair: ['powerUp', 'skull'], because: OVER_THE_SKULL },
   { pair: ['mob', 'skull'], because: OVER_THE_SKULL },
   { pair: ['banshee', 'skull'], because: OVER_THE_SKULL },
   { pair: ['undertaker', 'skull'], because: OVER_THE_SKULL },
@@ -235,7 +235,7 @@ const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
   corpseRevenant: 'corpses',
   foodOutline: 'corpses',
   feast: 'treasure',
-  drop: 'treasure',
+  powerUp: 'treasure',
   belchEruption: 'belchEruption',
   splash: 'belchEruption',
 };
@@ -538,7 +538,7 @@ describe("the field's boundary (ADR 0014)", () => {
 describe('the standing colour bans', () => {
   it('declares no brown', () => {
     // Dark, saturated orange is the definition of brown. This is the ban that
-    // retired the old dropCore hex (#30), by measurement rather than by eye;
+    // retired the old powerUpCore hex (#30), by measurement rather than by eye;
     // color.test.ts keeps that hex's measurement.
     const declared = paletteEntries();
     expect(declared.length).toBeGreaterThan(0);
@@ -758,7 +758,7 @@ describe('the corpse tiers (tracer plan section 4)', () => {
 
   it('clears the treasure class on hue or on saturation', () => {
     // Assertion 9, written as an either-or deliberately: corpseRevenant against
-    // drop measures 0.241 on saturation, just under, and passes on hue at
+    // power-up measures 0.241 on saturation, just under, and passes on hue at
     // 35.04. Confusing a corpse with treasure is a misread payout either way.
     //
     // The trash tier against feast is excepted and it is the pre-existing pair
@@ -771,7 +771,7 @@ describe('the corpse tiers (tracer plan section 4)', () => {
     const excepted = new Set(['trash vs feast']);
     for (const [tier, entry] of tiers) {
       const shape = hsv(entry.hex);
-      for (const name of ['drop', 'feast'] as const) {
+      for (const name of ['powerUp', 'feast'] as const) {
         if (excepted.has(`${tier} vs ${name}`)) continue;
         const treasure = hsv(PALETTE[name].hex);
         const clears =

@@ -9,17 +9,17 @@ import { resolveOffer } from './offer';
 import type { RunState } from './run';
 import { freshnessScale, RESERVOIR_CAPACITY } from './tuning';
 
-type FoodKind = 'corpse' | 'drop' | 'feast';
+type FoodKind = 'corpse' | 'powerUp' | 'feast';
 
 interface Swallowable {
   /**
-   * The body's own entity id. It is here because a drop is one body of an
+   * The body's own entity id. It is here because a power-up is one body of an
    * offer and the offer holds its bodies by id, so the take has to name which
    * body went in; it travels as a value, exactly as every other field does.
    */
   readonly id: number;
   readonly kind: FoodKind;
-  // 0 to 1. Treasure is always 1: drops and feasts never decay (ADR 0004).
+  // 0 to 1. Treasure is always 1: power-ups and feasts never decay (ADR 0004).
   readonly freshness: number;
   // What this food pays before freshness scales it, in size units.
   readonly payout: number;
@@ -93,11 +93,11 @@ const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
 
   const overflow = payGrowth(state, paid, events);
   payReservoir(state, paid, events);
-  // The offer's own rule, held in offer.ts: a drop is one body of an offer, so
+  // The offer's own rule, held in offer.ts: a power-up is one body of an offer, so
   // taking it levels the option that body carried and vanishes its siblings.
   // A body belonging to no live offer answers with nothing, which is what
   // leaves a maxed run's carrier paying growth, reservoir and overflow alone.
-  if (food.kind === 'drop') events.push(...resolveOffer(state, food.id));
+  if (food.kind === 'powerUp') events.push(...resolveOffer(state, food.id));
   if (overflow > 0) {
     state.score += overflow;
     events.push({ type: 'overflowed', amount: overflow, score: state.score });

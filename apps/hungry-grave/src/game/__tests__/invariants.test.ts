@@ -328,44 +328,44 @@ describe('the entity invariants (ADR 0013)', () => {
     expect(brokenOn(shot)).toContain('entities in bounds');
   });
 
-  it('records the phase index going backwards or the phase tick not resetting at a boundary', () => {
+  it('records the section index going backwards or the section tick not resetting at a boundary', () => {
     const watch = createStageWatch();
     const backwards = createRun(1);
-    backwards.stage.phaseIndex = 2;
+    backwards.stage.sectionIndex = 2;
     expect(checkInvariants(backwards, watch)).toEqual([]);
-    backwards.stage.phaseIndex = 1;
+    backwards.stage.sectionIndex = 1;
     expect(
       checkInvariants(backwards, watch).map((fault) => fault.identity),
-    ).toContain('phase index only increases');
+    ).toContain('section index only increases');
 
     const unresetWatch = createStageWatch();
     const unreset = createRun(1);
-    unreset.stage.phaseTick = 900;
+    unreset.stage.sectionTick = 900;
     expect(checkInvariants(unreset, unresetWatch)).toEqual([]);
-    unreset.stage.phaseIndex = 1;
-    unreset.stage.phaseTick = 901;
+    unreset.stage.sectionIndex = 1;
+    unreset.stage.sectionTick = 901;
     expect(
       checkInvariants(unreset, unresetWatch).map((fault) => fault.identity),
-    ).toContain('phase tick resets at a boundary');
+    ).toContain('section tick resets at a boundary');
   });
 
-  it('keeps reporting a broken phase, because a rejected value never enters the watch', () => {
+  it('keeps reporting a broken section, because a rejected value never enters the watch', () => {
     // The watch is passed in on every call, which is what makes this file able
     // to exercise it at all: made optional, these two calls would go green
     // while checking nothing.
     const watch = createStageWatch();
     const run = createRun(1);
-    run.stage.phaseIndex = 2;
+    run.stage.sectionIndex = 2;
     checkInvariants(run, watch);
-    run.stage.phaseIndex = 1;
+    run.stage.sectionIndex = 1;
     expect(
       checkInvariants(run, watch).map((fault) => fault.identity),
-    ).toContain('phase index only increases');
-    // The watch still holds phase 2. Recording before the check would leave it
-    // holding the rejected phase 1, and this second look would pass.
+    ).toContain('section index only increases');
+    // The watch still holds section 2. Recording before the check would leave it
+    // holding the rejected section 1, and this second look would pass.
     expect(
       checkInvariants(run, watch).map((fault) => fault.identity),
-    ).toContain('phase index only increases');
+    ).toContain('section index only increases');
   });
 });
 
@@ -519,7 +519,9 @@ describe('the offer and the bank (ADR 0034)', () => {
     openOffer(state, state.grave.x, 200);
     expect(state.offer).toBeNull();
     expect(
-      state.corpses.filter((corpse) => corpse.alive && corpse.kind === 'drop'),
+      state.corpses.filter(
+        (corpse) => corpse.alive && corpse.kind === 'powerUp',
+      ),
     ).toHaveLength(1);
 
     expect(faultsOn(state)).toEqual([]);
@@ -608,7 +610,7 @@ function fillBoss(run: RunState): void {
   run.boss = {
     id: 17,
     kind: 'undertaker',
-    chunk: 1,
+    phaseIndex: 1,
     hp: 820,
     x: 270,
     y: 110,
@@ -632,7 +634,7 @@ function fillSetPiece(run: RunState): void {
 }
 
 /**
- * The offer the fixture's drop body belongs to. The body is an option body, so
+ * The offer the fixture's power-up body belongs to. The body is an option body, so
  * a live offer has to name it: an option body standing for no offer is exactly
  * what the one-live-offer check exists to record.
  */
@@ -652,9 +654,9 @@ function fillRun(run: RunState): void {
   run.levels.territory = 1;
   run.levels.wisps = 3;
   run.levels.bell = 4;
-  run.stage.phaseIndex = 1;
-  run.stage.phaseTick = 40;
-  run.stage.firedRows = 2;
+  run.stage.sectionIndex = 1;
+  run.stage.sectionTick = 40;
+  run.stage.firedWaves = 2;
   run.lines.streamIn = 17;
   run.lines.surgeVolleys = 2;
   run.lines.tollIn = 90;
@@ -704,7 +706,7 @@ function fillCorpse(run: RunState): void {
   corpse.freshness = 0.625;
   corpse.payout = 1.5;
   corpse.tier = 'rich';
-  corpse.kind = 'drop';
+  corpse.kind = 'powerUp';
   corpse.decays = false;
   corpse.line = 'wisps';
   corpse.halfExtent = 9;
@@ -1031,23 +1033,23 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
-    path: 'stage.phaseIndex',
+    path: 'stage.sectionIndex',
     poison: (run) => {
-      run.stage.phaseIndex = NaN;
+      run.stage.sectionIndex = NaN;
       return run;
     },
   },
   {
-    path: 'stage.phaseTick',
+    path: 'stage.sectionTick',
     poison: (run) => {
-      run.stage.phaseTick = NaN;
+      run.stage.sectionTick = NaN;
       return run;
     },
   },
   {
-    path: 'stage.firedRows',
+    path: 'stage.firedWaves',
     poison: (run) => {
-      run.stage.firedRows = NaN;
+      run.stage.firedWaves = NaN;
       return run;
     },
   },
@@ -1059,10 +1061,10 @@ const NAN_CASES: readonly NanCase[] = [
     }),
   },
   {
-    path: 'streams.drops.drawn',
+    path: 'streams.powerUps.drawn',
     poison: (run) => ({
       ...run,
-      streams: { ...run.streams, drops: poisonedStream() },
+      streams: { ...run.streams, powerUps: poisonedStream() },
     }),
   },
   {
@@ -1192,9 +1194,9 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
-    path: 'boss.chunk',
+    path: 'boss.phaseIndex',
     poison: (run) => {
-      if (run.boss !== null) run.boss.chunk = NaN;
+      if (run.boss !== null) run.boss.phaseIndex = NaN;
       return run;
     },
   },
@@ -1320,8 +1322,8 @@ function numericLeafPaths(value: unknown, path: string): string[] {
 }
 
 describe('the boss and the set piece (ADR 0007, ADR 0042)', () => {
-  it("records a recoverable fault when a boss's chunk index falls", () => {
-    // ADR 0052 buys the fight's length across chunks, so a chunk that came
+  it("records a recoverable fault when a boss's phase index falls", () => {
+    // ADR 0052 buys the fight's length across phases, so a phase that came
     // back is a pattern the player has already beaten being played at them
     // again. Recoverable: the fight is spoiled and no number downstream of it
     // is poisoned, and killing the run at the climax is the worse answer.
@@ -1329,20 +1331,20 @@ describe('the boss and the set piece (ADR 0007, ADR 0042)', () => {
     const watch = createStageWatch();
     expect(checkInvariants(state, watch)).toEqual([]);
 
-    state.boss!.chunk -= 1;
+    state.boss!.phaseIndex -= 1;
     const faults = checkInvariants(state, watch);
 
     expect(faults.map((fault) => fault.identity)).toEqual([
-      'boss chunk only increases',
+      'boss phase only increases',
     ]);
     const first = requireDefined(faults[0], 'no fault recorded');
     expect(first.severity).toBe('recoverable');
     expect(first.detail).toContain('undertaker');
   });
 
-  it('says nothing when a second boss arrives at its own first chunk', () => {
-    // Two bosses run in one run. The second arrives at chunk zero long after
-    // the first died at its last, and a memory of the chunk alone would read
+  it('says nothing when a second boss arrives at its own first phase', () => {
+    // Two bosses run in one run. The second arrives at phase zero long after
+    // the first died at its last, and a memory of the phase alone would read
     // that arrival as the index going backwards.
     const state = filledRun();
     const watch = createStageWatch();
@@ -1351,7 +1353,12 @@ describe('the boss and the set piece (ADR 0007, ADR 0042)', () => {
     state.boss = null;
     expect(checkInvariants(state, watch)).toEqual([]);
 
-    state.boss = { ...filledRun().boss!, id: 99, kind: 'banshee', chunk: 0 };
+    state.boss = {
+      ...filledRun().boss!,
+      id: 99,
+      kind: 'banshee',
+      phaseIndex: 0,
+    };
     expect(checkInvariants(state, watch)).toEqual([]);
   });
 

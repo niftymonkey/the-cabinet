@@ -89,12 +89,12 @@ interface Figures {
 }
 
 /**
- * One closed phase, so every case carries all three families a report keys its
- * spreads by: a sixty-tick run closes no phase, and a comparison whose fixture
+ * One closed section, so every case carries all three families a report keys its
+ * spreads by: a sixty-tick run closes no section, and a comparison whose fixture
  * had no span would say nothing about the rows a real batch reads down.
  */
 const SPANS: readonly SectionSpan[] = [
-  { phase: 'procession', from: 0, to: 40 },
+  { section: 'procession', from: 0, to: 40 },
 ];
 
 const runOf = (seed: number, figures: Figures): MeasuredRun => ({
@@ -142,7 +142,7 @@ const rowsOn = (report: BatchReport): number =>
     (rows, figures) => rows + Object.keys(figures).length,
     0,
   ) +
-  Object.keys(report.phaseSpans).length;
+  Object.keys(report.sectionSpans).length;
 
 /** The same four runs under a named hand, which is what a corner is. */
 const batchAs = (
@@ -197,7 +197,7 @@ describe('two batches compared', () => {
     // A band moved by less than its own width has not cleared the other one.
     expect(directionOn(comparison, 'run.score')).toBe('flat');
     // One row per reading and no reading twice, over every family the report
-    // carries: the flat spreads, the per-line spreads and the phase spans.
+    // carries: the flat spreads, the per-line spreads and the section spans.
     const named = comparison.readings.map((row) => row.reading);
     expect(new Set(named).size).toBe(named.length);
     expect(named).toEqual(expect.arrayContaining(Object.keys(left.spreads)));
@@ -206,8 +206,8 @@ describe('two batches compared', () => {
         expect(named).toContain(`byLine.${line}.${figure}`);
       }
     }
-    for (const phase of Object.keys(left.phaseSpans)) {
-      expect(named).toContain(`phaseSpans.${phase}`);
+    for (const section of Object.keys(left.sectionSpans)) {
+      expect(named).toContain(`sectionSpans.${section}`);
     }
     // And the two identities ride along, so a comparison says which two
     // instruments its halves were read through (ADR 0057).
@@ -232,7 +232,7 @@ describe('two batches compared', () => {
     );
     expect(directionOn(compareBatches(left, clear), 'run.ticks')).toBe('up');
     // Downward as well, because a separation that only held one way would let
-    // every drop read as a drop and every rise need proof.
+    // every power-up read as a power-up and every rise need proof.
     expect(directionOn(compareBatches(touching, left), 'run.ticks')).toBe(
       'flat',
     );
@@ -383,7 +383,7 @@ describe('two batches compared', () => {
     const comparison = compareBatches(left, right);
 
     // The rows exist to be flat, rather than an empty list passing by default:
-    // every spread on the report is a row, per line and per phase included.
+    // every spread on the report is a row, per line and per section included.
     expect(rowsOn(left)).toBeGreaterThan(0);
     expect(comparison.readings.length).toBe(rowsOn(left));
     expect(directionOn(comparison, 'run.ticks')).toBe('flat');

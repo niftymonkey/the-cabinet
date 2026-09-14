@@ -1,7 +1,7 @@
 // The placement library (ADR 0016).
 
 /**
- * A template says where a group arrives and how it is arranged, and never which
+ * A formation says where a group arrives and how it is arranged, and never which
  * kind of mob is in it. Nothing in this file may reach the mob table, and if it
  * needs to, the design has gone wrong.
  */
@@ -9,21 +9,21 @@ import { FIELD_WIDTH } from '../field';
 import { normalize } from '../math';
 import type { Stream } from '../rng';
 
-type TemplateName = 'drip' | 'file' | 'v' | 'pincer' | 'rain' | 'wall';
+type FormationName = 'drip' | 'file' | 'v' | 'pincer' | 'rain' | 'wall';
 
 interface SpawnOrder {
   readonly x: number;
   readonly y: number;
   /**
    * The arriving direction, a unit vector. Speed is the mob type's, which is
-   * ADR 0016's own split of placement and entry from motion. A template
+   * ADR 0016's own split of placement and entry from motion. A formation
    * declaring an absolute velocity would make every straight-down entry jump in
    * speed the tick its beat ends, with nothing on screen to explain it.
    */
   readonly vx: number;
   readonly vy: number;
   /**
-   * The mob's position in its group, and on a mirrored template its position
+   * The mob's position in its group, and on a mirrored formation its position
    * in its own arm. The armed share reads it, and a Pincer's whole lesson is a
    * symmetry that asymmetric arming would read as noise.
    */
@@ -33,27 +33,27 @@ interface SpawnOrder {
 /**
  * The library's unit of spacing, in field units: one body length, taken as the
  * largest body the mob pool holds. It is the library's own number rather than a
- * mob type's, because a template may not know who is in it.
+ * mob type's, because a formation may not know who is in it.
  */
 const BODY = 26;
 
 /**
- * How far above the top edge the leading mob of a group spawns. Every template
+ * How far above the top edge the leading mob of a group spawns. Every formation
  * enters from the top edge and spawns above it, so nothing pops into existence
  * on screen.
  */
 const ENTRY_DEPTH = BODY;
 
 /**
- * The deepest any template may place a mob above the top edge. The arriving
+ * The deepest any formation may place a mob above the top edge. The arriving
  * beat is counted from the top-edge crossing, so an unbounded depth would let a
- * template park a mob off screen for an arbitrary time before its beat even
+ * formation park a mob off screen for an arbitrary time before its beat even
  * starts, and a deep group's trailing mobs would arrive long after its leaders.
  *
- * It is derived from the deepest authored row rather than picked: a file of six
+ * It is derived from the deepest authored wave rather than picked: a file of six
  * 26-unit bodies nose to tail is 156 units of depth. A group deeper than the
  * budget closes up rather than reaching past it, so the bound holds for counts
- * no row has asked for yet. mobs.ts declares SPAWN_MARGIN as exactly this
+ * no wave has asked for yet. mobs.ts declares SPAWN_MARGIN as exactly this
  * number, because it is a property of the placement library and everything
  * downstream reads it from one place.
  */
@@ -71,7 +71,7 @@ const V_SPREAD_Y = BODY;
 // How deep below its shallowest a mob in a Rain may spawn, so the scatter arrives loose rather than as a line.
 const RAIN_SPREAD = 3 * BODY;
 
-// Straight down. Four of the six templates enter this way.
+// Straight down. Four of the six formations enter this way.
 const DOWN = { x: 0, y: 1 } as const;
 
 // A V's arms open as they descend, which is what makes the player pick a side.
@@ -89,12 +89,12 @@ const rankStep = (ranks: number, wanted: number): number => {
   return Math.min(wanted, (MAX_ENTRY_DEPTH - ENTRY_DEPTH) / (ranks - 1));
 };
 
-// Left arm or right arm, on the two mirrored templates.
+// Left arm or right arm, on the two mirrored formations.
 const armSign = (index: number): number => {
   return index % 2 === 0 ? -1 : 1;
 };
 
-// A mirrored template's position within its own arm.
+// A mirrored formation's position within its own arm.
 const armRank = (index: number): number => {
   return Math.floor(index / 2);
 };
@@ -161,7 +161,7 @@ const pincer = (count: number): SpawnOrder[] => {
 
 /**
  * A loose full-width scatter, the density filler. The looseness is in where and
- * when each mob arrives, never in how fast: a template supplies a direction and
+ * when each mob arrives, never in how fast: a formation supplies a direction and
  * the type supplies the speed, so a varied entry speed here would be the same
  * defect as an absolute velocity.
  */
@@ -187,20 +187,20 @@ const wall = (count: number): SpawnOrder[] => {
   }));
 };
 
-// Where a group of `count` arrives and how it is arranged. Count comes from the row and never from the template (ADR 0006).
+// Where a group of `count` arrives and how it is arranged. Count comes from the wave and never from the formation (ADR 0006).
 const place = (
-  template: TemplateName,
+  formation: FormationName,
   count: number,
   stream: Stream,
 ): SpawnOrder[] => {
   if (count <= 0) return [];
-  if (template === 'drip') return drip(count);
-  if (template === 'file') return file(count, stream);
-  if (template === 'v') return chevron(count);
-  if (template === 'pincer') return pincer(count);
-  if (template === 'rain') return rain(count, stream);
+  if (formation === 'drip') return drip(count);
+  if (formation === 'file') return file(count, stream);
+  if (formation === 'v') return chevron(count);
+  if (formation === 'pincer') return pincer(count);
+  if (formation === 'rain') return rain(count, stream);
   return wall(count);
 };
 
 export { place, MAX_ENTRY_DEPTH };
-export type { TemplateName, SpawnOrder };
+export type { FormationName, SpawnOrder };

@@ -357,7 +357,7 @@ const nearestThreat = (state: RunState): Threat | null => {
  * What of ADR 0003's ladder it walks is a fact about the run it is handed
  * rather than about the policy. It never dives, so it buys nothing: score
  * arrives only as ceiling overflow from a swallow and a strippable level only
- * from a drop, and on a run born at the birthright it arrives at the floor with
+ * from a power-up, and on a run born at the birthright it arrives at the floor with
  * score zero and nothing above it, so the next hit seals. Handed a run standing
  * above the birthright with score on it, the same steering walks every rung in
  * order, which is what src/__tests__/endings.test.ts plays inside a boss fight.

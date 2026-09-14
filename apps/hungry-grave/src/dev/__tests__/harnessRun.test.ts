@@ -23,7 +23,7 @@ import {
   MOB_TYPE_NAMES,
   SPAWN_MARGIN,
 } from '../../game/mobs';
-import { PHASES } from '../../game/stage/stage';
+import { SECTIONS } from '../../game/stage/stage';
 import { SCROLL_SPEED, SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
 import { RUNNING_BUILD } from '../../tape/buildIdentity';
@@ -34,7 +34,7 @@ import { playHarnessRun, runTickBudget, RUN_TICK_SLACK } from '../harnessRun';
 import { measure } from '../measure';
 import { RIGS } from '../rigs';
 
-/** The one row this slice ships, which is the sharp corner. */
+/** The one wave this slice ships, which is the sharp corner. */
 const SHARP = CONFIGURATIONS[SHARP_HAND];
 
 /**
@@ -71,9 +71,9 @@ const sealingRun = () => {
 };
 
 /**
- * How long a run may take to cross the whole stage, derived from the phases
+ * How long a run may take to cross the whole stage, derived from the sections
  * the way bot.test.ts derives its own budgets, so this file's expectation
- * follows the authored rows instead of restating the module's answer.
+ * follows the authored waves instead of restating the module's answer.
  */
 const SLOWEST_DESCENT_TICKS =
   (FIELD_HEIGHT +
@@ -86,52 +86,52 @@ const SLOWEST_DESCENT_TICKS =
       GHOUL_DESCENT_FLOOR,
     ));
 
-const budgetOf = (phase: (typeof PHASES)[number]): number => {
-  if (phase.rows.length === 0) return SLOWEST_DESCENT_TICKS;
-  const lastRow = phase.rows[phase.rows.length - 1];
-  if (lastRow === undefined)
-    throw new Error('phase.rows is non-empty but its last row is absent');
-  return lastRow.t * TICK_HZ + SLOWEST_DESCENT_TICKS;
+const budgetOf = (section: (typeof SECTIONS)[number]): number => {
+  if (section.waves.length === 0) return SLOWEST_DESCENT_TICKS;
+  const lastWave = section.waves[section.waves.length - 1];
+  if (lastWave === undefined)
+    throw new Error('section.waves is non-empty but its last wave is absent');
+  return lastWave.t * TICK_HZ + SLOWEST_DESCENT_TICKS;
 };
 
 const STAGE_TICKS = Math.ceil(
-  PHASES.reduce((total, each) => total + budgetOf(each), 0),
+  SECTIONS.reduce((total, each) => total + budgetOf(each), 0),
 );
 
-/** Ten seconds added to the last row of the first phase, which re-authors it. */
+/** Ten seconds added to the last wave of the first section, which re-authors it. */
 const LENGTHENED_SECONDS = 10;
 
 describe('the harness run', () => {
-  it('plays every phase the stage authors before its budget is spent', () => {
-    // Test 55, first half. The budget is the stage's own rows plus what they
+  it('plays every section the stage authors before its budget is spent', () => {
+    // Test 55, first half. The budget is the stage's own waves plus what they
     // leave falling, scaled by the slack a fight costs. A compiled tick count
     // would be the arithmetic-as-rules the standing rule forbids.
     expect(runTickBudget()).toBe(STAGE_TICKS * RUN_TICK_SLACK);
     // A budget above the worst case and never a prediction of any run: the
-    // rows alone bound one crossing and a fight is neither.
+    // waves alone bound one crossing and a fight is neither.
     expect(runTickBudget()).toBeGreaterThan(STAGE_TICKS);
   });
 
-  it('grows by exactly what a re-authored phase adds', async () => {
+  it('grows by exactly what a re-authored section adds', async () => {
     // Test 55, second half, and the half that has teeth: an equality against
     // a derivation this file repeats passes just as well over a written-down
-    // number, because both sides are today's rows. Lengthening a phase and
+    // number, because both sides are today's waves. Lengthening a section and
     // re-importing the module is what a written-down number cannot survive.
     vi.resetModules();
     vi.doMock('../../game/stage/stage', async (importOriginal) => {
       const original =
         await importOriginal<typeof import('../../game/stage/stage')>();
-      const [first, ...rest] = original.PHASES;
-      if (first === undefined) throw new Error('PHASES is empty');
-      const last = first.rows[first.rows.length - 1];
-      if (last === undefined) throw new Error('the first phase has no rows');
+      const [first, ...rest] = original.SECTIONS;
+      if (first === undefined) throw new Error('SECTIONS is empty');
+      const last = first.waves[first.waves.length - 1];
+      if (last === undefined) throw new Error('the first section has no waves');
       return {
         ...original,
-        PHASES: [
+        SECTIONS: [
           {
             ...first,
-            rows: [
-              ...first.rows.slice(0, -1),
+            waves: [
+              ...first.waves.slice(0, -1),
               { ...last, t: last.t + LENGTHENED_SECONDS },
             ],
           },

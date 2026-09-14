@@ -43,9 +43,9 @@ import {
 } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { PROCESSION_ROWS } from '../stage/rows';
-import type { SpawnOrder } from '../stage/templates';
-import { place } from '../stage/templates';
+import { PROCESSION_WAVES } from '../stage/waves';
+import type { SpawnOrder } from '../stage/formations';
+import { place } from '../stage/formations';
 
 /** A tick that only steers, which is every tick these tests are about. */
 function drift(x: number, y: number): TickCommand {
@@ -62,7 +62,7 @@ const RIGHT: TickCommand = drift(1, 0);
  */
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   // The stream is held as well as the rows. These tests are about how a mob
   // moves, fires and dies, and a birthright stream pouring up the middle of the
   // field kills the mob under test before it reaches the behaviour being
@@ -119,7 +119,7 @@ function types(events: SimEvent[], type: SimEvent['type']): SimEvent[] {
 
 describe('the armed share (ADR 0016)', () => {
   it('arms a mob when its group index modulo three is two, so no Drip of one or two is ever armed', () => {
-    // Read off the rule and the template's own indices rather than off a mob
+    // Read off the rule and the formation's own indices rather than off a mob
     // type: under the mow no type carries the every-third share, because the
     // mow body is silent and the revenant is all-armed (ADR 0059). The rule is
     // still what a row naming that share would arm by.
@@ -148,22 +148,22 @@ describe('the armed share (ADR 0016)', () => {
     expect(ghouls.mobs.filter((mob) => mob.alive && mob.armed)).toHaveLength(0);
   });
 
-  it('indexes the share per arm on the V and the Pincer, so a mirrored template arms symmetrically', () => {
+  it('indexes the share per arm on the V and the Pincer, so a mirrored formation arms symmetrically', () => {
     // The same reading as above: the placement's own per-arm indices against
     // the share rule, because no type carries the every-third share under the
-    // mow (ADR 0059). What is pinned is that the template counts each arm from
+    // mow (ADR 0059). What is pinned is that the formation counts each arm from
     // zero, so the two sides arm alike.
-    for (const template of ['v', 'pincer'] as const) {
+    for (const formation of ['v', 'pincer'] as const) {
       const state = quietRun();
-      const orders = place(template, 6, state.streams.spawns);
+      const orders = place(formation, 6, state.streams.spawns);
       const armedLeft = orders.filter(
         (at, index) => isArmed('everyThird', at.index) && index % 2 === 0,
       );
       const armedRight = orders.filter(
         (at, index) => isArmed('everyThird', at.index) && index % 2 === 1,
       );
-      expect(`${template} ${armedLeft.length} ${armedRight.length}`).toBe(
-        `${template} 1 1`,
+      expect(`${formation} ${armedLeft.length} ${armedRight.length}`).toBe(
+        `${formation} 1 1`,
       );
     }
   });

@@ -25,7 +25,7 @@ describe('the first weapon pool', () => {
 
   it('the pool holds four lines and none of them is the headstones', () => {
     // Territory replaced the headstones rather than joining them: the pool
-    // stays at four, which is what keeps the tape header, the drop
+    // stays at four, which is what keeps the tape header, the power-up
     // silhouettes' coarse axis and the four-motions contract where they are.
     expect(WEAPON_LINES).toHaveLength(4);
     expect([...WEAPON_LINES].sort()).toEqual([

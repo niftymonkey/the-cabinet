@@ -12,7 +12,7 @@ import {
 } from '../game/mobs';
 import type { RunEnding, RunState } from '../game/run';
 import { createRun } from '../game/run';
-import { PHASES } from '../game/stage/stage';
+import { SECTIONS } from '../game/stage/stage';
 import { SCROLL_SPEED } from '../game/tuning';
 import { WITNESS_VERSION } from '../game/witness';
 import { RUNNING_BUILD } from '../tape/buildIdentity';
@@ -30,14 +30,14 @@ import { harnessPolicy } from './harnessPolicy';
 import type { Rig, RigName } from './rigs';
 
 /**
- * How much longer than the authored rows a run may play, because a phase
+ * How much longer than the authored waves a run may play, because a section
  * boundary is a fight and a fight is not authored: it is the boss's health
  * against whatever the hand puts on it.
  *
  * An initial data row that step 4's tuning pass (#39) moves. It is a budget
  * above the worst case and never a prediction of any run, on the reasoning
  * bot.test.ts already writes out beside its own maxed budget: a maxed dodger
- * crosses the whole stage in 22000 to 48000 ticks where the rows alone bound
+ * crosses the whole stage in 22000 to 48000 ticks where the waves alone bound
  * 27000, and the spread is the fight.
  */
 const RUN_TICK_SLACK = 3;
@@ -58,24 +58,24 @@ const SLOWEST_DESCENT_TICKS =
       GHOUL_DESCENT_FLOOR,
     ));
 
-/** How long one phase can hold a run: its own rows, then whatever they left falling. */
-const phaseBudget = (phase: (typeof PHASES)[number]): number => {
-  const lastRow = phase.rows[phase.rows.length - 1];
+/** How long one section can hold a run: its own waves, then whatever they left falling. */
+const sectionBudget = (section: (typeof SECTIONS)[number]): number => {
+  const lastWave = section.waves[section.waves.length - 1];
   return (
-    (lastRow === undefined ? 0 : lastRow.t) * TICK_HZ + SLOWEST_DESCENT_TICKS
+    (lastWave === undefined ? 0 : lastWave.t) * TICK_HZ + SLOWEST_DESCENT_TICKS
   );
 };
 
 /**
- * How long one harness run may play, derived from the stage's own rows rather
- * than written down, so re-authoring a phase moves it.
+ * How long one harness run may play, derived from the stage's own waves rather
+ * than written down, so re-authoring a section moves it.
  *
- * It is a budget and never a length. A phase ends on its own condition
+ * It is a budget and never a length. A section ends on its own condition
  * (ADR 0051), so a hand that clears the stragglers meets the boss sooner and
  * no two runs are the same length; what can be written down is the ceiling.
  */
 const runTickBudget = (): number =>
-  Math.ceil(PHASES.reduce((total, each) => total + phaseBudget(each), 0)) *
+  Math.ceil(SECTIONS.reduce((total, each) => total + sectionBudget(each), 0)) *
   RUN_TICK_SLACK;
 
 // One harness run, played and sealed, as the bytes a tape file holds.

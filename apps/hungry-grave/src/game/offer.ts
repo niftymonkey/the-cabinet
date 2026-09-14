@@ -1,7 +1,7 @@
 // The offer of three a carrier's death opens, the take that resolves it, and
 // the bank that holds the next one (ADR 0034).
 
-import { DROP_HALF_EXTENT, spawnDrop } from './corpses';
+import { POWER_UP_HALF_EXTENT, spawnPowerUp } from './corpses';
 import type { Corpse } from './corpses';
 import type { OfferSite, SimEvent } from './events';
 import { FIELD_WIDTH } from './field';
@@ -30,7 +30,7 @@ const OFFER_SIZE = 3;
  * How far apart the bodies stand, in field units. An initial data row.
  *
  * Derived from the grave's own reach: the grave's half-width is its size at
- * GRAVE_ASPECT 2 and a drop's half-extent is DROP_HALF_EXTENT, so at the size
+ * GRAVE_ASPECT 2 and a power-up's half-extent is POWER_UP_HALF_EXTENT, so at the size
  * ceiling the catch reach from the grave's centre is 47.75. At 90 apart, two
  * adjacent bodies are both reachable only from inside 45 of their midpoint,
  * which is inside that reach by 2.75 units and outside the reach of a
@@ -76,13 +76,13 @@ const drawFrom = (
   const from = [...pool];
   const drawn: WeaponLine[] = [];
   while (drawn.length < count && from.length > 0) {
-    drawn.push(...from.splice(state.streams.drops.nextInt(from.length), 1));
+    drawn.push(...from.splice(state.streams.powerUps.nextInt(from.length), 1));
   }
   return drawn;
 };
 
 /**
- * Whether this is the run's first offer, read off the drops stream's own
+ * Whether this is the run's first offer, read off the power-ups stream's own
  * cursor rather than counted on the run.
  *
  * Nothing else in the sim draws from that stream, and the fixed shape below
@@ -93,7 +93,7 @@ const drawFrom = (
  * draw both return the whole pool, so the two answers are the same.
  */
 const isFirstOffer = (state: RunState): boolean => {
-  return state.streams.drops.drawn === 0;
+  return state.streams.powerUps.drawn === 0;
 };
 
 /**
@@ -138,14 +138,14 @@ const drawOptions = (state: RunState): WeaponLine[] => {
  * make the spacing the two-touch tie-break is derived from stop being true.
  */
 const groupCentre = (x: number, count: number): number => {
-  const margin = ((count - 1) / 2) * OFFER_SPACING + DROP_HALF_EXTENT;
+  const margin = ((count - 1) / 2) * OFFER_SPACING + POWER_UP_HALF_EXTENT;
   return Math.min(Math.max(x, margin), FIELD_WIDTH - margin);
 };
 
 // The id the spawn reported, or null when the food pool refused the body.
 const bodyIdIn = (events: readonly SimEvent[]): number | null => {
   for (const event of events) {
-    if (event.type === 'dropSpawned') return event.id;
+    if (event.type === 'powerUpSpawned') return event.id;
   }
   return null;
 };
@@ -165,7 +165,7 @@ const standOffer = (
   site: OfferSite,
 ): SimEvent[] => {
   const options = drawOptions(state);
-  if (options.length === 0) return spawnDrop(state, x, y);
+  if (options.length === 0) return spawnPowerUp(state, x, y);
 
   const centre = groupCentre(x, options.length);
   const bodies: SimEvent[] = [];
@@ -173,7 +173,7 @@ const standOffer = (
   const laid: WeaponLine[] = [];
   for (const [index, line] of options.entries()) {
     const at = centre + (index - (options.length - 1) / 2) * OFFER_SPACING;
-    const spawned = spawnDrop(state, at, y, line);
+    const spawned = spawnPowerUp(state, at, y, line);
     bodies.push(...spawned);
     const id = bodyIdIn(spawned);
     if (id === null) continue;
@@ -275,14 +275,14 @@ const openBanked = (state: RunState): SimEvent[] => {
 };
 
 /**
- * The bank's own tick: no offer live, the bank above zero, and the phase
+ * The bank's own tick: no offer live, the bank above zero, and the section
  * permitting one, so the next offer comes out (ADR 0034, ADR 0048).
  *
  * Without this site the bank has no opening that is not a take or a loss, and
- * an offer held shut through a phase that does not permit one would never
- * reopen once that phase ends: there is no offer left to take or to lose. The
- * permission is the phase's own column and arrives as a value, so the bank
- * never learns which phase the run is in.
+ * an offer held shut through a section that does not permit one would never
+ * reopen once that section ends: there is no offer left to take or to lose. The
+ * permission is the section's own column and arrives as a value, so the bank
+ * never learns which section the run is in.
  *
  * ADR 0048's "missed is missed" still holds, because the bank only ever holds
  * offers a carrier's death already paid.

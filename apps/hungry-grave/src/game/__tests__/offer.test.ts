@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { stepping } from '../../dev/stepping';
 
-import { DROP_HALF_EXTENT, spawnDrop } from '../corpses';
+import { POWER_UP_HALF_EXTENT, spawnPowerUp } from '../corpses';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { graveWidth } from '../grave';
 import { checkInvariants, createStageWatch } from '../invariants';
@@ -27,8 +27,8 @@ import {
 } from '../offer';
 import type { RunState } from '../run';
 import { createRun, uniformLevels } from '../run';
-import { PROCESSION_ROWS } from '../stage/rows';
-import { PHASES } from '../stage/stage';
+import { PROCESSION_WAVES } from '../stage/waves';
+import { SECTIONS } from '../stage/stage';
 import { SIZE_CEILING } from '../tuning';
 
 const STILL = { move: { x: 0, y: 0 }, belch: false } as const;
@@ -46,7 +46,7 @@ function requireDefined<T>(value: T | undefined, message: string): T {
  */
 function quietRun(seed = 7): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   run.lines.streamIn = Number.MAX_SAFE_INTEGER;
   return run;
 }
@@ -107,11 +107,11 @@ describe('a carrier is the only thing that pays power (ADR 0002)', () => {
     });
   });
 
-  it('pays no drop at all for a hundred trash kills with no carrier among them', () => {
+  it('pays no power-up at all for a hundred trash kills with no carrier among them', () => {
     // ADR 0002 keeps every other job kills had: "corpses are fuel, growth and
     // belch charge come from swallowing, score is kills, and killing buys room
     // to live", with power taken out of that list. A hundred kills is more
-    // than twice what the retired price table charged for its first ten drops.
+    // than twice what the retired price table charged for its first ten power-ups.
     const state = quietRun();
     const step = stepping(state);
     let killed = 0;
@@ -123,7 +123,7 @@ describe('a carrier is the only thing that pays power (ADR 0002)', () => {
       killed += typesOf(events).filter((type) => type === 'mobKilled').length;
       paid.push(
         ...typesOf(events).filter(
-          (type) => type === 'dropSpawned' || type === 'offerOpened',
+          (type) => type === 'powerUpSpawned' || type === 'offerOpened',
         ),
       );
     }
@@ -139,7 +139,7 @@ describe('a carrier is the only thing that pays power (ADR 0002)', () => {
   });
 });
 
-describe('a drop is an offer of three (ADR 0034)', () => {
+describe('a power-up is an offer of three (ADR 0034)', () => {
   it('spawns three option bodies side by side and apart from each other', () => {
     // ADR 0034: "three option bodies falling side by side and apart from each
     // other." Side by side is one y for all three, apart is a gap wider than
@@ -147,14 +147,14 @@ describe('a drop is an offer of three (ADR 0034)', () => {
     const state = quietRun();
     const events = openOffer(state, 260, 180);
 
-    const spawned = events.filter((event) => event.type === 'dropSpawned');
+    const spawned = events.filter((event) => event.type === 'powerUpSpawned');
     expect(spawned).toHaveLength(OFFER_SIZE);
     expect(new Set(spawned.map((event) => event.y)).size).toBe(1);
     const xs = spawned.map((event) => event.x).sort((a, b) => a - b);
     for (let index = 1; index < xs.length; index++) {
       const at = requireDefined(xs[index], `no x at ${index}`);
       const before = requireDefined(xs[index - 1], `no x at ${index - 1}`);
-      expect(at - before).toBeGreaterThan(2 * DROP_HALF_EXTENT);
+      expect(at - before).toBeGreaterThan(2 * POWER_UP_HALF_EXTENT);
     }
   });
 
@@ -178,8 +178,8 @@ describe('a drop is an offer of three (ADR 0034)', () => {
 
     const xs = offerBodies(state).map((body) => body.x);
     for (const x of xs) {
-      expect(x - DROP_HALF_EXTENT).toBeGreaterThanOrEqual(0);
-      expect(x + DROP_HALF_EXTENT).toBeLessThanOrEqual(FIELD_WIDTH);
+      expect(x - POWER_UP_HALF_EXTENT).toBeGreaterThanOrEqual(0);
+      expect(x + POWER_UP_HALF_EXTENT).toBeLessThanOrEqual(FIELD_WIDTH);
     }
     const [x0, x1, x2] = xs;
     if (x0 === undefined || x1 === undefined || x2 === undefined) {
@@ -275,7 +275,7 @@ describe('what an offer may hold (ADR 0034)', () => {
         'no second weapon line',
       );
       state.levels[secondLine] = 2;
-      state.streams.drops.next();
+      state.streams.powerUps.next();
       openOffer(state, 260, 180);
       for (const line of state.offer!.options) {
         (state.levels[line] > 0 ? owned : unowned).push(line);
@@ -291,7 +291,7 @@ describe('what an offer may hold (ADR 0034)', () => {
       const state = quietRun(seed);
       const firstLine = requireDefined(WEAPON_LINES[0], 'no first weapon line');
       state.levels[firstLine] = MAX_LEVEL;
-      state.streams.drops.next();
+      state.streams.powerUps.next();
       openOffer(state, 260, 180);
       expect(state.offer!.options).not.toContain(WEAPON_LINES[0]);
     }
@@ -323,7 +323,7 @@ describe('what an offer may hold (ADR 0034)', () => {
     expect(offerableLines(state)).toEqual(roster);
     for (let seed = 1; seed <= 20; seed++) {
       const run = createRun(seed, undefined, undefined, roster);
-      run.streams.drops.next();
+      run.streams.powerUps.next();
       openOffer(run, 260, 180);
       for (const line of run.offer!.options) expect(roster).toContain(line);
     }
@@ -365,7 +365,7 @@ describe('the take (ADR 0034)', () => {
     const step = stepping(state);
     openOffer(state, state.grave.x - 47, state.grave.y);
     const options = [...state.offer!.options];
-    const reach = graveWidth(SIZE_CEILING) / 2 + DROP_HALF_EXTENT;
+    const reach = graveWidth(SIZE_CEILING) / 2 + POWER_UP_HALF_EXTENT;
     expect(reach).toBeGreaterThan(47);
 
     const events = step(STILL);
@@ -449,8 +449,9 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
       doomed(state, 200 + kill * 40, 100, true);
       step(STILL);
       standing.push(
-        state.corpses.filter((corpse) => corpse.alive && corpse.kind === 'drop')
-          .length,
+        state.corpses.filter(
+          (corpse) => corpse.alive && corpse.kind === 'powerUp',
+        ).length,
       );
     }
     expect(standing).toEqual([OFFER_SIZE, OFFER_SIZE, OFFER_SIZE]);
@@ -458,7 +459,7 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
   });
 
   it('banks a carrier killed while an offer stands', () => {
-    // ADR 0034: "A second drop paid while an offer stands banks toward the
+    // ADR 0034: "A second power-up paid while an offer stands banks toward the
     // next one."
     const state = quietRun();
     openOffer(state, 260, 180);
@@ -589,11 +590,11 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
     expect(state.offer).not.toBeNull();
   });
 
-  it('opens a banked offer on the first permitting tick, and holds it through a phase that permits none', () => {
+  it('opens a banked offer on the first permitting tick, and holds it through a section that permits none', () => {
     // The bank's own opening site, which is neither a take nor a loss. Without
-    // it a bank held shut through a phase that does not permit an offer would
-    // never reopen once that phase ended: there would be no offer left to take
-    // or to lose, so the site and the phase's own column arrive together.
+    // it a bank held shut through a section that does not permit an offer would
+    // never reopen once that section ended: there would be no offer left to take
+    // or to lose, so the site and the section's own column arrive together.
     //
     // ADR 0048's "missed is missed" still holds through it, because the bank
     // only ever holds offers a carrier's death already paid.
@@ -618,7 +619,7 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
     expect(state.bankedOffers).toBe(1);
   });
 
-  it('opens nothing from an empty bank, however permitting the phase is', () => {
+  it('opens nothing from an empty bank, however permitting the section is', () => {
     const state = quietRun();
 
     expect(openBankedOffer(state, true)).toEqual([]);
@@ -636,7 +637,7 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
     while (state.corpses.some((corpse) => !corpse.alive)) {
       // No line on the bodies: an option body standing for no live offer is
       // itself a fault, and what is under test here is the cap.
-      spawnDrop(state, 10, 10);
+      spawnPowerUp(state, 10, 10);
     }
 
     const events = openOffer(state, 200, 100);
@@ -659,16 +660,18 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
     expect(state.offer!.bodyIds).toHaveLength(OFFER_SIZE);
   });
 
-  it('permits a banked offer to open in every phase but the one the run has ended in', () => {
+  it('permits a banked offer to open in every section but the one the run has ended in', () => {
     // The column is true by default and false only where the record names a
-    // reason. The one reason the record names is the over phase: the run has
+    // reason. The one reason the record names is the over section: the run has
     // ended there, so there is no run left to spend an offer in.
     expect(
-      PHASES.filter((phase) => !phase.bankOpens).map((phase) => phase.name),
+      SECTIONS.filter((section) => !section.bankOpens).map(
+        (section) => section.name,
+      ),
     ).toEqual(['over']);
-    for (const phase of PHASES) {
-      expect(`${phase.name} ${typeof phase.bankOpens}`).toBe(
-        `${phase.name} boolean`,
+    for (const section of SECTIONS) {
+      expect(`${section.name} ${typeof section.bankOpens}`).toBe(
+        `${section.name} boolean`,
       );
     }
   });
@@ -676,7 +679,7 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
 
 describe('nothing offerable (ADR 0034)', () => {
   it('converts a maxed run carrier pay to a body that is never worthless', () => {
-    // ADR 0034: "when nothing is offerable a paid drop converts to overflow,
+    // ADR 0034: "when nothing is offerable a paid power-up converts to overflow,
     // keeping ADR 0002's nothing-swallowed-is-worthless promise." One body
     // carrying no option at all, which the grave still swallows for what it
     // is worth.
@@ -686,17 +689,17 @@ describe('nothing offerable (ADR 0034)', () => {
     doomed(state, state.grave.x, state.grave.y, true);
 
     const opening = step(STILL);
-    const spawned = opening.filter((event) => event.type === 'dropSpawned');
+    const spawned = opening.filter((event) => event.type === 'powerUpSpawned');
     expect(typesOf(opening)).not.toContain('offerOpened');
     expect(spawned).toHaveLength(1);
     expect(
-      requireDefined(spawned[0], 'no dropSpawned event').line,
+      requireDefined(spawned[0], 'no powerUpSpawned event').line,
     ).toBeUndefined();
     expect(state.offer).toBeNull();
 
     const paid = step(STILL);
     const swallowed = paid.filter(
-      (event) => event.type === 'swallowed' && event.kind === 'drop',
+      (event) => event.type === 'swallowed' && event.kind === 'powerUp',
     );
     expect(swallowed).toHaveLength(1);
     expect(typesOf(paid)).not.toContain('weaponLeveled');

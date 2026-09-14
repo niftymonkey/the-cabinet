@@ -34,7 +34,7 @@ These are the claims I would build on.
 
 8. **Five of the glossary's 341 Avoid bans resolve a real collision, and two of the five are in the Chunk entry.** `CONTEXT.md` holds 101 terms, each with an Avoid list, 341 bans over 314 distinct words. Exactly five bans carry a parenthetical explaining why the banned word is taken: "territory (which is the line, not the ground)", "pip (which is the mark, not the step)", "add (which is the boss's summon)", and, in one entry, "phase (belongs to the stage)" and "stage (of a fight)". DOCUMENTED (this repository). The one entry that needed two collision parentheticals is the one entry where the project word was standing on the genre's.
 
-9. **Gradius's shape is this game's shape, and this repository already cites it.** ADR 0034 says in its own text: "Gradius's stored capsules and Brotato's bag are the shipped shape of a reward that waits its turn." A carrier squadron dies, leaves a capsule where it died, the player flies over it, and a permanent step of a weapon system is bought. That is the Carrier, the Power-up and the Swallow, already written down. DOCUMENTED (`docs/adr/0034-a-drop-is-an-offer-of-three-and-the-grave-swallows-one.md`).
+9. **Gradius's shape is this game's shape, and this repository already cites it.** ADR 0034 says in its own text: "Gradius's stored capsules and Brotato's bag are the shipped shape of a reward that waits its turn." A carrier squadron dies, leaves a capsule where it died, the player flies over it, and a permanent step of a weapon system is bought. That is the Carrier, the Power-up and the Swallow, already written down. DOCUMENTED (`docs/adr/0034-a-power-up-is-an-offer-of-three-and-the-grave-swallows-one.md`).
 
 10. **Nothing in the six reaches the wire.** `src/tape/records.ts` reads the header positionally (`readU32`, `readF64`, `readU16`, and so on in fixed order); the only strings written are the recorded roster's weapon-line names, the commit hash, the build identity, the author, the policy and the renderer backend. Every enum crosses as a number through a code map read by name, including `FAULT_IDENTITY_CODES`, whose comment says it is "deliberately not the index of FAULT_IDENTITIES". DOCUMENTED (this repository), section 6.
 
@@ -605,7 +605,7 @@ This repository, measured rather than cited:
 - `src/tape/wireCodes.ts`, `src/tape/records.ts`, `src/tape/chunks.ts`, `src/tape/decode.ts`
 - `src/dev/readingsVersion.ts`, `src/dev/digest.ts`, `src/dev/batchReport.ts`, `src/dev/compareRuns.ts`, `src/dev/readings/readings.ts`, `src/dev/readings/sectionTimeline.ts`, `src/dev/readings/dropLedger.ts`, `src/dev/readings/arrivals.ts`
 - `src/app/screens/game/RunHud.ts`, `src/app/routes.ts`, `src/prototypes/ugly-slice/game/stage.ts`
-- `docs/adr/0034-a-drop-is-an-offer-of-three-and-the-grave-swallows-one.md`, `docs/adr/0054-the-ladder-reads-twice-in-the-storm-and-on-a-strip.md`, `docs/adr/0009-creation-web-template-base.md`
+- `docs/adr/0034-a-power-up-is-an-offer-of-three-and-the-grave-swallows-one.md`, `docs/adr/0054-the-ladder-reads-twice-in-the-storm-and-on-the-hud.md`, `docs/adr/0009-creation-web-template-base.md`
 
 ---
 

@@ -15,14 +15,14 @@ import { MOB_TYPE_NAMES, spawnMob } from '../../../game/mobs';
 import type { Mob, MobType } from '../../../game/mobs';
 import type { RunState } from '../../../game/run';
 import { createRun } from '../../../game/run';
-import { PHASES } from '../../../game/stage/stage';
+import { SECTIONS } from '../../../game/stage/stage';
 import { arrivalsOf, createArrivals, observeArrivals } from '../arrivals';
 
-/** The name of PHASES' entry at this index, which is always in range here. */
-function phaseNameAt(index: number): string {
-  const phase = PHASES[index];
-  if (phase === undefined) throw new Error(`no phase at index ${index}`);
-  return phase.name;
+/** The name of SECTIONS' entry at this index, which is always in range here. */
+function sectionNameAt(index: number): string {
+  const section = SECTIONS[index];
+  if (section === undefined) throw new Error(`no section at index ${index}`);
+  return section.name;
 }
 
 const SEED = 20260826;
@@ -108,24 +108,24 @@ describe('arrivals', () => {
     }
   });
 
-  it('files each arrival under the phase the run was in when it came', () => {
-    // The arrival rate a schedule authors is a per-phase row, so a rate read
-    // over a whole run is a rate over several schedules at once. A phase the
+  it('files each arrival under the section the run was in when it came', () => {
+    // The arrival rate a schedule authors is a per-section wave, so a rate read
+    // over a whole run is a rate over several schedules at once. A section the
     // run never reached carries no count rather than a zero, on the section
-    // timeline's own terms: there was no phase for a body to arrive in.
+    // timeline's own terms: there was no section for a body to arrive in.
     const run = createRun(SEED);
     const acc = createArrivals();
 
     arrive(run, 'shambler');
     observeArrivals(acc, [], run);
-    run.stage.phaseIndex = 1;
+    run.stage.sectionIndex = 1;
     arrive(run, 'ghoul');
     arrive(run, 'revenant');
     observeArrivals(acc, [], run);
 
     const arrivals = arrivalsOf(acc);
-    expect(arrivals.byPhase[phaseNameAt(0)]).toBe(1);
-    expect(arrivals.byPhase[phaseNameAt(1)]).toBe(2);
-    expect(arrivals.byPhase[phaseNameAt(2)]).toBe(undefined);
+    expect(arrivals.bySection[sectionNameAt(0)]).toBe(1);
+    expect(arrivals.bySection[sectionNameAt(1)]).toBe(2);
+    expect(arrivals.bySection[sectionNameAt(2)]).toBe(undefined);
   });
 });

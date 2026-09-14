@@ -3,11 +3,11 @@
 import type { SimEvent } from '../../game/events';
 import { MOB_TYPE_NAMES } from '../../game/mobs';
 import type { RunState } from '../../game/run';
-import { PHASES } from '../../game/stage/stage';
+import { SECTIONS } from '../../game/stage/stage';
 import { addTo } from '../numbersByName';
 
 /**
- * What arrived over a run: the whole count, the count under each phase, and
+ * What arrived over a run: the whole count, the count under each section, and
  * the count of each type.
  *
  * It is the arrival side of the field, where `mobsAlivePerTick` is the
@@ -16,18 +16,18 @@ import { addTo } from '../numbersByName';
  * count of what was still alive at a tick answers neither: a hand that kills
  * fast and one that never arrives read the same there.
  *
- * A phase the run never entered carries no count rather than a zero, because
+ * A section the run never entered carries no count rather than a zero, because
  * nothing arrived nowhere. Every type is named, zero included, because a type
  * the schedule never sent is a fact about the schedule.
  */
 interface Arrivals {
   readonly total: number;
-  readonly byPhase: Readonly<Record<string, number>>;
+  readonly bySection: Readonly<Record<string, number>>;
   readonly byType: Readonly<Record<string, number>>;
 }
 
 interface ArrivalsAcc {
-  readonly byPhase: Record<string, number>;
+  readonly bySection: Record<string, number>;
   readonly byType: Record<string, number>;
   /**
    * The largest mob id counted so far. Entity ids only ever increase
@@ -42,7 +42,7 @@ interface ArrivalsAcc {
 const createArrivals = (): ArrivalsAcc => {
   const byType: Record<string, number> = {};
   for (const type of MOB_TYPE_NAMES) byType[type] = 0;
-  return { byPhase: {}, byType, highestId: 0, total: 0 };
+  return { bySection: {}, byType, highestId: 0, total: 0 };
 };
 
 // One body that came onto the field, as the two things this reading files it under.
@@ -77,18 +77,18 @@ const bodiesSeen = (
 };
 
 /**
- * The phase the run is in as this tick ends, which is what the arrivals in it
+ * The section the run is in as this tick ends, which is what the arrivals in it
  * are filed under.
  *
- * A body that arrived in the same tick its phase gave way is filed under the
- * phase that took over, because the tick's own crossing and its spawns are not
+ * A body that arrived in the same tick its section gave way is filed under the
+ * section that took over, because the tick's own crossing and its spawns are not
  * separable from out here. That is one tick at each of six boundaries, against
  * a schedule authored in seconds.
  */
-const phaseNow = (state: RunState): string => {
-  const phase = PHASES[state.stage.phaseIndex];
-  if (phase === undefined) throw new Error('phaseIndex out of range');
-  return phase.name;
+const sectionNow = (state: RunState): string => {
+  const section = SECTIONS[state.stage.sectionIndex];
+  if (section === undefined) throw new Error('sectionIndex out of range');
+  return section.name;
 };
 
 const observeArrivals = (
@@ -96,13 +96,13 @@ const observeArrivals = (
   events: readonly SimEvent[],
   state: RunState,
 ): void => {
-  const phase = phaseNow(state);
+  const section = sectionNow(state);
   let highest = acc.highestId;
   for (const body of bodiesSeen(events, state)) {
     highest = Math.max(highest, body.id);
     if (body.id <= acc.highestId) continue;
     acc.total += 1;
-    addTo(acc.byPhase, phase, 1);
+    addTo(acc.bySection, section, 1);
     addTo(acc.byType, body.type, 1);
   }
   acc.highestId = highest;
@@ -110,7 +110,7 @@ const observeArrivals = (
 
 const arrivalsOf = (acc: ArrivalsAcc): Arrivals => ({
   total: acc.total,
-  byPhase: { ...acc.byPhase },
+  bySection: { ...acc.bySection },
   byType: { ...acc.byType },
 });
 

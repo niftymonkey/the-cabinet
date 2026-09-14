@@ -3,7 +3,7 @@
 import type { SimEvent } from '../../game/events';
 import type { GraveHitSource } from '../../game/grave';
 import { MOB_TYPE_NAMES } from '../../game/mobs';
-import { BOSS_KINDS } from '../../game/stage/rows';
+import { BOSS_KINDS } from '../../game/stage/waves';
 import { addTo } from '../numbersByName';
 
 /**

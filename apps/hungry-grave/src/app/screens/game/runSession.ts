@@ -92,7 +92,7 @@ interface Session {
    * Its lifetime is the run's, so it is made in begin() beside the run and
    * cleared in end() beside it. The screen driving this is pooled, and a pooled
    * screen leaks anything nobody explicitly clears; carried across runs, its
-   * stage watch would compare run two's first phase against run one's last and
+   * stage watch would compare run two's first section against run one's last and
    * its fault history would belong to a run that is over.
    */
   execution: Execution | null;

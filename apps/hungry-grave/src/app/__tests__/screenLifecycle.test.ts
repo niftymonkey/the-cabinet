@@ -49,14 +49,14 @@ vi.mock('../tapeExport', async (importOriginal) => ({
   saveTapeFile,
 }));
 
-import { CHUNK_HP, spawnBoss } from '../../game/bosses/chunks';
+import { PHASE_HP, spawnBoss } from '../../game/bosses/phases';
 import { TICK_MS } from '../../game/clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
 import { SIZE_FLOOR } from '../../game/tuning';
 import type { SimEvent } from '../../game/events';
 import { FAULT_IDENTITIES } from '../../game/faults';
-import { PHASES } from '../../game/stage/stage';
+import { SECTIONS } from '../../game/stage/stage';
 import { PausePopup } from '../popups/PausePopup';
 import { runHandoff } from '../runHandoff';
 import { SettingsPopup } from '../popups/SettingsPopup';
@@ -291,13 +291,13 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     const screen = gameScreen();
 
     screen.prepare();
-    const firstPhase = PHASES[0];
-    if (firstPhase === undefined) throw new Error('no first phase');
+    const firstSection = SECTIONS[0];
+    if (firstSection === undefined) throw new Error('no first section');
     expect(musicCued).toEqual([
       {
-        type: 'phaseChanged',
-        phase: firstPhase.name,
-        music: firstPhase.music,
+        type: 'sectionChanged',
+        section: firstSection.name,
+        music: firstSection.music,
         tick: 0,
       },
     ]);
@@ -357,7 +357,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     // live in a WeakMap keyed by the run, which gave that away for free; held
     // by a pooled screen it is somebody's job, and a pooled screen leaking what
     // nobody clears is the class of defect this app has shipped five times. A
-    // watch carried over would compare run two's first phase with run one's
+    // watch carried over would compare run two's first section with run one's
     // last, and a stale fault history would belong to a run that is over.
     const screen = gameScreen();
     screen.prepare();
@@ -765,11 +765,11 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
   it('starts with an empty field, no live entities from the first run, and a live pause button', () => {
     const screen = gameScreen();
     screen.prepare();
-    // A first run with something on the field: the ramp's first row is at two
+    // A first run with something on the field: the ramp's first wave is at two
     // seconds, so this is the earliest the field is not empty.
     const first = screen['session'].run!;
     // Far enough in that the storm cannot have cleared the field. Two hundred
-    // ticks used to be enough, when the ramp's first two rows were Drips of one
+    // ticks used to be enough, when the ramp's first two waves were Drips of one
     // and nothing could kill them; the birthright stream now does, so the run
     // is played to the File at twenty seconds instead.
     play(screen, 1400);
@@ -867,18 +867,19 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     winning.prepare();
     // Stood in the last boss fight on its last point of health, and played
     // until the birthright storm reaches him: victory is his death (ADR 0007)
-    // rather than the stage reaching its last phase, so a run put in that phase
-    // with nobody standing in it wins nothing. The phase is read off the table's
-    // own length rather than written down, because the stage gained two phases
+    // rather than the stage reaching its last section, so a run put in that section
+    // with nobody standing in it wins nothing. The section is read off the table's
+    // own length rather than written down, because the stage gained two sections
     // with the three named sections (ADR 0050) and will gain none silently.
     const winner = winning['session'].run!;
-    const lastFight = PHASES.length - 2;
-    winner.stage.phaseIndex = lastFight;
-    winner.stage.phaseTick = 0;
-    const lastFightPhase = PHASES[lastFight];
-    if (lastFightPhase === undefined) throw new Error('no phase at lastFight');
-    const boss = spawnBoss(winner, lastFightPhase.boss!);
-    boss.chunk = CHUNK_HP[boss.kind].length - 1;
+    const lastFight = SECTIONS.length - 2;
+    winner.stage.sectionIndex = lastFight;
+    winner.stage.sectionTick = 0;
+    const lastFightSection = SECTIONS[lastFight];
+    if (lastFightSection === undefined)
+      throw new Error('no section at lastFight');
+    const boss = spawnBoss(winner, lastFightSection.boss!);
+    boss.phaseIndex = PHASE_HP[boss.kind].length - 1;
     boss.hp = 1;
 
     // The first skull off a parked grave reaches him on tick 79, measured, and

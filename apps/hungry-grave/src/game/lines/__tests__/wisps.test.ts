@@ -11,7 +11,7 @@ import type { Mob, MobType } from '../../mobs';
 import { MOB_TYPES, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
-import { PROCESSION_ROWS } from '../../stage/rows';
+import { PROCESSION_WAVES } from '../../stage/waves';
 import { resolveStorm } from '../../storm';
 import { FRESHNESS_PAYOUT_FLOOR } from '../../tuning';
 import { MAX_LEVEL } from '../roster';
@@ -42,7 +42,7 @@ function soulsAt(level: number): number {
 
 function quietRun(seed = 8): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   return run;
 }
 

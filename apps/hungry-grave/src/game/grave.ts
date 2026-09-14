@@ -9,7 +9,7 @@ import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
-import type { BossKind } from './stage/rows';
+import type { BossKind } from './stage/waves';
 import {
   BASE_SPEED,
   GRAVE_ASPECT,

@@ -15,7 +15,7 @@ import type { Mob, MobType } from '../../mobs';
 import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
-import { PROCESSION_ROWS } from '../../stage/rows';
+import { PROCESSION_WAVES } from '../../stage/waves';
 import type { BellToll, ConeRow } from '../bell';
 import {
   advanceBell,
@@ -45,7 +45,7 @@ function rowAt(level: number): ConeRow {
 
 function quietRun(seed = 12): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   return run;
 }
 
@@ -107,7 +107,7 @@ describe("the toll's own clock (ADR 0005)", () => {
     expect(fired).toHaveLength(3);
   });
 
-  it('does not toll at level 0, because the line arrives only through a drop', () => {
+  it('does not toll at level 0, because the line arrives only through a power-up', () => {
     const state = quietRun();
     expect(state.levels.bell).toBe(0);
     expect(tolls(tollFor(state, BELL_PERIOD * 3))).toHaveLength(0);
@@ -436,7 +436,7 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
   });
 
   it('shoves with the level the toll froze, not a level gained while it was live', () => {
-    // A toll is live for a quarter of every period, so a bell drop lands
+    // A toll is live for a quarter of every period, so a bell power-up lands
     // during one often. The reach and the sweep both read the toll's own
     // level, and a push read off the live level shoves a mob further than the
     // toll that reached it can account for.

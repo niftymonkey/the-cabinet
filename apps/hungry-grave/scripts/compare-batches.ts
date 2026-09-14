@@ -77,7 +77,7 @@ const isBatchReport = (value: unknown): value is BatchReport =>
   holdsSpreads(value.spreads) &&
   isPlainObject(value.byLine) &&
   Object.values(value.byLine).every(holdsSpreads) &&
-  holdsSpreads(value.phaseSpans);
+  holdsSpreads(value.sectionSpans);
 
 /**
  * The report at this path, or null once the path has been refused out loud. A

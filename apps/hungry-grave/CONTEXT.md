@@ -10,7 +10,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Grave**: The protagonist: a moving open grave, a hole in the ground shaped like a grave, taller than wide. It swallows and passes under; it never drives. _Avoid_: player character, hole, ship, hero.
 
-**Swallow**: The one verb of collection: the grave passes under a corpse or drop and it falls in. Every payout in the game arrives through a swallow. _Avoid_: eat, collect, pick up, consume, drive over.
+**Swallow**: The one verb of collection: the grave passes under a corpse or power-up and it falls in. Every payout in the game arrives through a swallow. _Avoid_: eat, collect, pick up, consume, drive over.
 
 **Size**: The grave's one scalar, its half-height; width follows at a fixed aspect. Size is health: swallowing grows it, hits shrink it. _Avoid_: health, HP, radius, scale.
 
@@ -30,21 +30,21 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Freshness**: A corpse's one meter, running from kill to gone in seconds derived from scroll speed. It scales every payout down to a floor, and at empty the dirt takes the corpse under. _Avoid_: decay, timer, expiry, TTL.
 
-**Drop**: A permanent upgrade a carrier leaves where it died. It spawns as an offer, and the grave gets the option it passes under. Drops never decay. _Avoid_: powerup, upgrade item, pickup, loot.
+**Power-up**: A permanent upgrade a carrier leaves where it died. It spawns as an offer, and the grave gets the option it passes under. Power-ups never decay. _Avoid_: drop, item, upgrade item, pickup, loot.
 
-**Carrier**: A mob authored to carry a drop. Killing one is the only way power arrives, the director never places one, and the schedule holds more of them than a full build needs, so a missed carrier costs a step and not the run. _Avoid_: item enemy, power-up carrier, drop mob.
+**Carrier**: A mob authored to carry a power-up. Killing one is the only way power arrives, the director never places one, and the schedule holds more of them than a full build needs, so a missed carrier costs a step and not the run. _Avoid_: item enemy, power-up mob, drop mob.
 
-**Offer**: What a drop spawns: three option bodies falling side by side and apart, and the grave gets exactly the one it passes under while the others vanish. Options draw from unowned lines and level-ups of owned, un-maxed lines; a maxed line is never offered. One offer is live at a time, and a drop paid while one stands banks toward the next. _Avoid_: menu, loot table, choice wheel, spinner.
+**Offer**: What a power-up spawns: three option bodies falling side by side and apart, and the grave gets exactly the one it passes under while the others vanish. Options draw from unowned lines and level-ups of owned, un-maxed lines; a maxed line is never offered. One offer is live at a time, and a power-up paid while one stands banks toward the next. _Avoid_: menu, loot table, choice wheel, spinner.
 
-**Feast**: A boss-shed reward corpse that never decays, dropped at chunk breaks and at a miniboss death; the death feast is big enough to jump the grave's size. _Avoid_: bonus, health pack, jackpot.
+**Feast**: A boss-shed reward corpse that never decays, dropped at phase breaks and at a miniboss death; the death feast is big enough to jump the grave's size. _Avoid_: bonus, health pack, jackpot.
 
-**Treasure**: The never-decaying class of food: drops and feasts. Steady-bright beside fading corpses, so steady-bright always means treasure. _Avoid_: rare drop, special item.
+**Treasure**: The never-decaying class of food: power-ups and feasts. Steady-bright beside fading corpses, so steady-bright always means treasure. _Avoid_: rare drop, special item.
 
-**Overflow**: The payout when a swallow cannot pay its normal way: growth past the size ceiling converts to score. ADR 0002's other branch, a maxed weapon line's drop, is dormant under ADR 0034, which never offers a maxed line; a carrier's body with no option left to give is swallowed like any other food and pays growth, reservoir charge and overflow. Nothing swallowed is ever worthless. _Avoid_: waste, surplus, refund.
+**Overflow**: The payout when a swallow cannot pay its normal way: growth past the size ceiling converts to score. ADR 0002's other branch, a maxed weapon line's power-up, is dormant under ADR 0034, which never offers a maxed line; a carrier's body with no option left to give is swallowed like any other food and pays growth, reservoir charge and overflow. Nothing swallowed is ever worthless. _Avoid_: waste, surplus, refund.
 
 ### The arsenal
 
-**Weapon line**: One of the upgradable weapon systems, leveled one to five by drops. A weapon line owns its own properties: how it fires, whether the run starts with it, and how its levels grow. v1 ships four, the skull stream, Territory, the wisps and the bell, and the pool is open by design. Each level must look different on screen. Short form "line" is fine once the term is established in a passage. _Avoid_: gun, upgrade track, skill.
+**Weapon line**: One of the upgradable weapon systems, leveled one to five by power-ups. A weapon line owns its own properties: how it fires, whether the run starts with it, and how its levels grow. v1 ships four, the skull stream, Territory, the wisps and the bell, and the pool is open by design. Each level must look different on screen. Short form "line" is fine once the term is established in a passage. _Avoid_: gun, upgrade track, skill.
 
 **Firing trigger**: How a weapon line fires: always-on, on each swallow, or on its own timer. A property each line owns, never a category of lines. _Avoid_: floor line, burst line, passive weapon, active weapon, proc.
 
@@ -64,7 +64,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Gas**: The belch's field-wide half: it smothers every mob-fire shot on the field, boss patterns included, and kills nothing. _Avoid_: smoke, cloud, bullet clear.
 
-**Burst**: The belch's local half: the eruption that kills the mobs within a radius of the grave, lands the boss chunk when the boss is inside it, and never pushes a boss. _Avoid_: explosion, nova, wipe.
+**Burst**: The belch's local half: the eruption that kills the mobs within a radius of the grave, lands the boss phase when the boss is inside it, and never pushes a boss. _Avoid_: explosion, nova, wipe.
 
 **Reservoir**: The capped belch charge, filled by swallows. Charge past full visibly splashes and wastes, so belching is the greedy play. _Avoid_: meter, gauge, mana, energy.
 
@@ -76,7 +76,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Toll**: One firing of the bell, on its own clock and never bought by a swallow. _Avoid_: pulse, tick, cast.
 
-**Cone**: One expanding cone a toll throws, damaging what its leading edge crosses and pushing at every level, harder as the level rises (`bell.ts:101-107`). Its angles, reach and push are tuning rows. The Banshee's tear-rings are mob fire and are never a cone. _Avoid_: arc, ring, shockwave, wave, AOE.
+**Cone**: One expanding cone a toll throws, damaging what its leading edge crosses and pushing at every level, harder as the level rises (`bell.ts:101-107`). Its angles, reach and push are tuning table rows. The Banshee's tear-rings are mob fire and are never a cone. _Avoid_: arc, ring, shockwave, wave, AOE.
 
 **Patch**: One piece of claimed ground, torn open by one lay. It belongs to the world rather than the screen, so it drifts down with the field while the grave keeps moving, and it is finished at birth: the radius its level bought never changes afterwards. The torn-open look is expression, not identity (ADR 0044). _Avoid_: zone, tile, puddle, hazard.
 
@@ -84,33 +84,33 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Claimed ground**: What Territory leaves on the field. Repeated lays march a trail of patches down the field, each torn open where mobs stood thickest, so the ground the grave has taken is readable as a shape rather than a count. The torn-open look is expression, not identity (ADR 0044). _Avoid_: zone of control, damage floor, territory (which is the line, not the ground).
 
-**Opening beat**: The phase a patch spends before its hands come up: it exists, is visible and drifts with the world, and it cannot damage. It runs in world time and off-field too, because visibility is never an activation condition, and it is what keeps Territory from collapsing into a placed detonation. _Avoid_: arming time, wind-up, cast time, cooldown.
+**Opening beat**: The beat a patch spends before its hands come up: it exists, is visible and drifts with the world, and it cannot damage. It runs in world time and off-field too, because visibility is never an activation condition, and it is what keeps Territory from collapsing into a placed detonation. _Avoid_: arming time, wind-up, cast time, cooldown.
 
 **Pulse**: One dwell hit from a patch: a mob standing on claimed ground takes a small fixed bite of damage every re-hit delay for as long as it stays. The pulse count is the patch's own record of the work it did. _Avoid_: tick damage, DoT, grab, bite budget.
 
-**Ladder**: The power staircase a run climbs, every weapon line's rungs together, from the birthright to a full build. It reads twice, in the storm and on the strip (ADR 0054), and it runs both ways: rungs are gained from drops and stripped at the size floor. _Avoid_: progression, XP, levels, tech tree.
+**Ladder**: The power staircase a run climbs, every weapon line's rungs together, from the birthright to a full build. It reads twice, in the storm and on the HUD (ADR 0054), and it runs both ways: rungs are gained from power-ups and stripped at the size floor. _Avoid_: progression, XP, levels, tech tree.
 
 **Rung**: One step of one weapon line's level, the unit the ladder shows, gains and loses. A rung is carried by that line's own projectiles, and a rung stripped at the size floor falls onto the field as a body the dive can catch. _Avoid_: rank, tier, pip (which is the mark, not the step).
 
-**Strip**: The slim readout inside the field frame carrying the score and a row of level pips per line: the ladder's second channel, and the one that makes a rung lost legible inside a dense storm. It announces by count, shape or subtraction, never by brightness. _Avoid_: HUD, bar, panel, overlay.
+**HUD**: The slim readout inside the field frame carrying the score and each line's rungs as pips: the ladder's second channel, and the one that makes a rung lost legible inside a dense storm. It announces by count, shape or subtraction, never by brightness. _Avoid_: strip, bar, panel, overlay.
 
 ### The field and the stage
 
 **Field**: The fixed logical playfield the sim runs in. Everything in the sim is field units, never device pixels; the renderer scales the whole field to any screen. The field's dimensions and aspect are tuning numbers, not vocabulary. _Avoid_: screen, viewport, canvas, arena.
 
-**Scroll**: The constant downward drift of everything on the field. The scroll is the corpse deadline and the drop deadline both. _Avoid_: conveyor, drift, gravity.
+**Scroll**: The constant downward drift of everything on the field. The scroll is the corpse deadline and the power-up deadline both. _Avoid_: conveyor, drift, gravity.
 
 **Mob**: Any hostile on the field. Live mobs are never food: contact shrinks the grave; only kills leave corpses. _Avoid_: enemy, monster, creature, unit.
 
 **Mob fire**: Every hostile shot on the field, trash shots and boss patterns alike. Mob fire is never confusable with the storm; the render rule that guarantees it is Hungry Grave ADR 0014. _Avoid_: enemy fire, enemy bullets, hellfire.
 
-**Armed**: Carrying fire. An armed mob looks armed, because picking targets is a skill only if the player can see which mob to pick. Under a mow that visible minority is a mob type rather than a share of a row: the revenant is armed and the mow body is not, so the player picks the revenant out of the mow rather than one body out of a file (ADR 0059). _Avoid_: shooter, ranged.
+**Armed**: Carrying fire. An armed mob looks armed, because picking targets is a skill only if the player can see which mob to pick. Under a mow that visible minority is a mob type rather than a share of a wave: the revenant is armed and the mow body is not, so the player picks the revenant out of the mow rather than one body out of a file (ADR 0059). _Avoid_: shooter, ranged.
 
 **Tell**: The visible change an armed mob makes before every shot, not only its first, always at the same lead. Without it a mob's only tell is the damage. _Avoid_: warning, wind-up, charge.
 
-**Arriving beat**: The beat a mob holds the template's own motion for after it crosses the top edge, before its own movement takes over, so the placement's lesson reads whatever type is flying it. It governs movement only and never firing. _Avoid_: entry delay, spawn animation.
+**Arriving beat**: The beat a mob holds the formation's own motion for after it crosses the top edge, before its own movement takes over, so the placement's lesson reads whatever type is flying it. It governs movement only and never firing. _Avoid_: entry delay, spawn animation.
 
-**Amended 2026-09-08, after the game design gate on adjustment iteration 2:** for a body that appears inside the field rather than crossing the top edge, the beat also governs the grave's contact: no contact hit lands from a body that has not finished arriving. What stood: the beat itself, the movement it governs, that it never governs firing, and the template's lesson it exists to let the player read. What changed: contact, and only for a body that appeared inside the field; a body that crosses the top edge touches from the tick it overlaps, exactly as before. What the entry could not have known: no spawner put a body inside the field when it was written. Two do now, the Waking's pour and the Undertaker's dug-up bodies, and a body that materialised inside the grave's own box was a hit with nothing to see coming.
+**Amended 2026-09-08, after the game design gate on adjustment iteration 2:** for a body that appears inside the field rather than crossing the top edge, the beat also governs the grave's contact: no contact hit lands from a body that has not finished arriving. What stood: the beat itself, the movement it governs, that it never governs firing, and the formation's lesson it exists to let the player read. What changed: contact, and only for a body that appeared inside the field; a body that crosses the top edge touches from the tick it overlaps, exactly as before. What the entry could not have known: no spawner put a body inside the field when it was written. Two do now, the Waking's pour and the Undertaker's dug-up bodies, and a body that materialised inside the grave's own box was a hit with nothing to see coming.
 
 **Trash**: The ordinary mobs of the authored timeline, as opposed to bosses. _Avoid_: minions, creeps, fodder, popcorn.
 
@@ -118,37 +118,35 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Mob type**: A kind of mob, owning how it moves, whether and how it fires, its health, its corpse payout, and its size. v1 ships three and the pool is open by design: the shambler falls, the revenant fires an aimed shot with a tell before it, and the ghoul is the closer, turning toward the grave so its body is the threat. A mob type must be readable before it acts. _Avoid_: enemy class, variant, archetype.
 
-**Template**: A named placement from the library: where a group of mobs arrives and how it is arranged, never which mob type is in it. Each teaches a lesson, and the library is open. The starting six are Drips, the File, the V, the Pincer, the Rain, the Wall. _Avoid_: formation, pattern, spawn type.
+**Formation**: A named placement from the library: where a group of mobs arrives and how it is arranged, never which mob type is in it. Each teaches a lesson, and the library is open. The starting six are Drips, the File, the V, the Pincer, the Rain, the Wall. _Avoid_: template, pattern, spawn type, wave (which is the entry, not the shape).
 
-**Row**: One entry of the authored timeline: a phase-local time, a template, a count, and a mob type. Count lives on the row, so density tuning never edits a template, and the mob type lives there too, because a template never names who is in it. A row may also stand for a span rather than firing once, which is a standing row. _Avoid_: spawn event, wave entry, script line.
+**Wave**: One entry of the authored timeline: a section-local time, a formation, a count, and a mob type. Count lives on the wave, so density tuning never edits a formation, and the mob type lives there too, because a formation never names who is in it. A wave may also stand for a span rather than firing once, which is a standing wave. _Avoid_: row, spawn event, script line, formation (which is the shape, not the entry).
 
-**Standing row**: A row with its repeat fields set: it holds a fixed rate from its own time until the next row of any kind, repeating down to a minimum interval. A section's growth is a run of them at stepped figures, and a section may declare none. It is the growth a run feels over its length, keyed to the clock and never to anything the player did, and the director adds over it rather than owning it (ADR 0060). _Avoid_: floor stream, faucet, spawn rate, wave table.
+**Standing wave**: A wave with its repeat fields set: it holds a fixed rate from its own time until the next wave of any kind, repeating down to a minimum interval. What stands is the wave and never the bodies, which fall like any others. A section's growth is a run of them at stepped figures, and a section may declare none. It is the growth a run feels over its length, keyed to the clock and never to anything the player did, and the director adds over it rather than owning it (ADR 0060). _Avoid_: standing row, floor stream, faucet, spawn rate, wave table, repeating wave.
 
-**Phase**: One segment of the stage, chained to the next by a boundary event rather than an absolute clock, because a shootable boss dies when killed. _Avoid_: act, chapter.
+**Section**: One segment of the stage, chained to the next by a boundary event rather than an absolute clock, because a shootable boss dies when killed. Three of the seven are the named trash sections, the Procession, the Crowd and the Vigil, and each owns one property no other section has. The boss fights, the set piece and the ending are sections too, each one as long as what happens in it takes. _Avoid_: phase (which is the boss's), act, chapter, zone, area.
 
-**Section**: One of the stage's three named trash phases, each owning one property no other section has and each ending on a boundary event. The boss and set-piece phases between them are phases and not sections. _Avoid_: act, chapter, zone, area.
+**The Procession**: The first section, ending on the Banshee. It owns emptiness: never more than one shaped group live above its standing wave, so the field thins between beats and the corpses left behind are worth crossing it for. Named for the funeral filing past in single file. _Avoid_: the ramp, the lane, the opening.
 
-**The Procession**: The first section, ending on the Banshee. It owns emptiness: never more than one shaped group live above its standing row, so the field thins between beats and the corpses left behind are worth crossing it for. Named for the funeral filing past in single file. _Avoid_: the ramp, the lane, the opening.
-
-**The Crowd**: The second and longest section, ending on the Waking. It owns overlap: never fewer than two templates live, so corpses stop being objects to choose between and become a floor the grave swims through. _Avoid_: the back half, the middle.
+**The Crowd**: The second and longest section, ending on the Waking. It owns overlap: never fewer than two formations live, so corpses stop being objects to choose between and become a floor the grave swims through. _Avoid_: the back half, the middle.
 
 **The Vigil**: The third and shortest section, ending on the Undertaker. It owns scarcity: less growth paid per second than the Crowd, on a roster of revenants and ghouls with the shambler thinned, so the field is more fire and less food. Named for the watch kept before the gravedigger arrives. _Avoid_: the descent, the finale, the last stretch.
 
 **Boundary event**: What ends a section: the Banshee, the set piece, the Undertaker. A boundary event is not always a boss. _Avoid_: transition, checkpoint, gate.
 
-**Sparse last row**: The slow, thin final row of a section before a boss, the boss arriving as its last body leaves. It replaces the old spawn silence, so the field still empties and the emptiness is a beat rather than a pause. _Avoid_: drain-out, lull, break, intermission.
+**Sparse last wave**: The slow, thin final wave of a section before a boss, the boss arriving as its last body leaves. It replaces the old spawn silence, so the field still empties and the emptiness is a beat rather than a pause. _Avoid_: drain-out, lull, break, intermission.
 
 **Set piece**: An authored moment that names the property it must keep rather than the mob types allowed in it. The Wall is the first, and the swarm that ends the middle section is the second. The director adds nothing during one. _Avoid_: scripted event, cutscene, special wave.
 
 **The Wall**: The feast wave: an edge-to-edge curtain of trash launched by the miniboss's death. _Avoid_: swarm wave, horde.
 
-**The Waking**: The swarm set piece that ends the Crowd: a dormant eye placed by a Crowd row, riding the ground down until it opens around mid-field and pours trash from its one point while the source drags across. It fires nothing and never touches the grave, and its corpses are the payout. _Avoid_: the swarm, the eye event, the mouth.
+**The Waking**: The swarm set piece that ends the Crowd: a dormant eye placed by a Crowd wave, riding the ground down until it opens around mid-field and pours trash from its one point while the source drags across. It fires nothing and never touches the grave, and its corpses are the payout. _Avoid_: the swarm, the eye event, the mouth.
 
-**Amended 2026-09-08, Mark's ruling after ground adjustment 1:** the eye rides the ground at the field's own scroll and opens a quarter of the way down, not around mid-field. What stood: everything else in the entry, the placing row, the pour from one point, the drag across, the silence, the parking rule, and the corpses as the payout. What changed: the opening depth, and with it the time the eye is on screen, about one crossing rather than several times a mob's. What the entry could not have known: the ground was at half the field's scroll when it was written.
+**Amended 2026-09-08, Mark's ruling after ground adjustment 1:** the eye rides the ground at the field's own scroll and opens a quarter of the way down, not around mid-field. What stood: everything else in the entry, the placing wave, the pour from one point, the drag across, the silence, the parking rule, and the corpses as the payout. What changed: the opening depth, and with it the time the eye is on screen, about one crossing rather than several times a mob's. What the entry could not have known: the ground was at half the field's scroll when it was written.
 
 **Amended 2026-09-08, Mark's ruling on #104:** killing the source removes its body and the pour finishes anyway, from the same pour point on the same clock, until the budget is spent. What stood: everything else in the entry. What changed: what a kill costs, the body and the rest of the source's stay rather than the rest of the trail. What the entry could not have known: it was written while the kill closed the set piece, which paid the hand that held back over the hand that committed.
 
-**Stage**: The content from first row to final boss, authored beats filled with directed density; a run is one playthrough of it. _Avoid_: level, map, world.
+**Stage**: The content from first wave to final boss, authored beats filled with directed density; a run is one playthrough of it. _Avoid_: level, map, world.
 
 **Run**: One playthrough of a stage, from its seed roll to sealed shut or victory. _Avoid_: game, session, attempt, playthrough.
 
@@ -156,13 +154,13 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Pinned run**: A run whose seed came from the URL, so it rolls the same dice every time. It pins the dice, not the stage, because directed density answers the hands that play it. _Avoid_: fixed run.
 
-**Directed density**: The mobs the game adds between the authored rows, raised and lowered by the pressure the run is putting on the player. It never removes an authored row, so it rises and falls only over what it added itself, and it is silent during boss phases, the sparse last rows and the set pieces. _Avoid_: faucet, spawn rate, dynamic difficulty.
+**Directed density**: The mobs the game adds between the authored waves, raised and lowered by the pressure the run is putting on the player. It never removes an authored wave, so it rises and falls only over what it added itself, and it is silent during boss sections, the sparse last waves and the set pieces. _Avoid_: faucet, spawn rate, dynamic difficulty.
 
-**Director**: What produces directed density: it spends a finite budget per phase on mobs drawn from the run's roster, only while pressure reads low, and goes quiet for an interval after each add. It never places a carrier, so it can never hand out power. _Avoid_: AI director, spawner, difficulty manager.
+**Director**: What produces directed density: it spends a finite budget per section on mobs drawn from the run's roster, only while pressure reads low, and goes quiet for an interval after each add. It never places a carrier, so it can never hand out power. _Avoid_: AI director, spawner, difficulty manager.
 
-**Purse**: The finite budget one phase gives the director, counted in bodies and spent on cards. When it is empty the phase runs at its authored floor for the rest of its length, so the storm is seen to win. A phase the director may not touch at all has no purse, which is a different thing from a purse of zero, where it may look and finds nothing to spend. _Avoid_: budget, credits, pool, allowance.
+**Purse**: The finite budget one section gives the director, counted in bodies and spent on cards. When it is empty the section runs at its authored floor for the rest of its length, so the storm is seen to win. A section the director may not touch at all has no purse, which is a different thing from a purse of zero, where it may look and finds nothing to spend. _Avoid_: budget, credits, pool, allowance.
 
-**Card**: One thing the director may buy with its purse: a template, a mob type and a count, costing the sum of its bodies. Every directed add is a card, so what the director puts on the field is always a shape the player can read rather than a loose body. _Avoid_: spawn, wave, group, packet, add (which is the boss's summon).
+**Card**: One thing the director may buy with its purse: a formation, a mob type and a count, costing the sum of its bodies. Every directed add is a card, so what the director puts on the field is always a shape the player can read rather than a loose body. _Avoid_: spawn, wave (which is the authored entry), group, packet, add (which is the boss's summon).
 
 **Pressure**: What the director reads: the harm the run is doing to the player, damage taken and floor events, and never a kill near the grave, because a kill up close is food here. _Avoid_: intensity, threat, difficulty, tension.
 
@@ -174,11 +172,11 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 ### Bosses
 
-**Boss**: A hostile that arrives alone on a phase boundary with authored bullet-hell patterns and chunked health. Bosses are always shootable and shed food throughout the fight. _Avoid_: elite, guardian.
+**Boss**: A hostile that arrives alone on a section boundary with authored bullet-hell patterns and phased health. Bosses are always shootable and shed food throughout the fight. _Avoid_: elite, guardian.
 
 **Miniboss**: The mid-stage boss, fought before the feast. _Avoid_: midboss, sub-boss.
 
-**Chunk**: One segment of a boss's health bar, owning one authored pattern, ended by a short invincible flash. _Avoid_: phase (belongs to the stage), health bar segment, stage (of a fight).
+**Phase**: One segment of a boss's health bar, owning one authored pattern, ended by a short invincible flash. _Avoid_: chunk, health bar segment, stage (of a fight), section (which is the stage's).
 
 **Add**: An ordinary mob summoned by a boss mid-fight. Adds are trash: normal pushback, normal corpses, and they keep the swallow economy alive at the climax. It is never the director's word: what the director puts down is a card. _Avoid_: summon, minion, spawn.
 
@@ -190,7 +188,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Verification readback**: Decoding a tape and reproducing its run far enough to prove the tape is sound: that it decodes, that its witness recomputes, and that the same tape gives the same run twice. It proves an artifact and it is never the replay feature, so no replay obligation is met by it existing. _Avoid_: replay, small replay, partial replay, playback.
 
-**Checkpoint**: A tick at which a run stamps its witness onto a tape, at an authored spacing. Checkpoints are what let a replay name the first point it disagreed at rather than only report that it diverged somewhere. Never a segment of the stage. _Avoid_: snapshot, save point, marker, phase.
+**Checkpoint**: A tick at which a run stamps its witness onto a tape, at an authored spacing. Checkpoints are what let a replay name the first point it disagreed at rather than only report that it diverged somewhere. Never a section of the stage. _Avoid_: snapshot, save point, marker, section.
 
 **Build identity**: The build a tape was recorded on, stamped into its header by the build shell. It is not the commit hash beside it: a commit cannot see a working tree, so a run played while a rule was uncommitted would carry the label of a build that never held it. The identity carries the tree's own dirty mark, so two builds of one commit under two different uncommitted rules are two identities. A replay reports the tape's identity and the reading build's and refuses on neither: a difference is a note on a verified reading and an attribution on a divergence, never a reason not to play a player's tape. _Avoid_: build number, version, commit hash.
 

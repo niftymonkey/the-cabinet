@@ -1,6 +1,6 @@
 // The entity cap policy (tracer plan section 3).
 
-import { peakArrivals } from './stage/rows';
+import { peakArrivals } from './stage/waves';
 import { FRESHNESS_SECONDS } from './tuning';
 
 /**
@@ -35,7 +35,7 @@ const MOB_FIRE_CAP = 400;
 /**
  * Treasure the field can hold at once, which never decays and so is not covered
  * by the freshness window below. An initial row of ten: the three bodies of the
- * one live offer (ADR 0034), the Banshee's death feast, her chunk break's, the
+ * one live offer (ADR 0034), the Banshee's death feast, her phase break's, the
  * Undertaker's two, and three spare.
  */
 const TREASURE_ALLOWANCE = 10;
@@ -48,7 +48,7 @@ const TREASURE_ALLOWANCE = 10;
  * FRESHNESS_SECONDS, so every one alive at any instant was made inside that
  * window; every one came from a body that was either alive when the window
  * opened, which MOB_CAP bounds, or arrived inside it, which the stage's own
- * rows bound. Treasure does not decay and is bounded by design instead. So the
+ * waves bound. Treasure does not decay and is bounded by design instead. So the
  * cap cannot bind in normal play, and binding at all is a bug rather than a
  * policy: the spawn is refused, nothing on the field is removed, and the
  * invariant harness raises a recoverable fault.

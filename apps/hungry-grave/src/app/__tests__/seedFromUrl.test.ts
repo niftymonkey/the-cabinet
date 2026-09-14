@@ -108,7 +108,7 @@ describe('levelsFromUrl', () => {
   it('?levels= pins a starting level for all four lines, in either URL form', () => {
     // The measurement's stated condition is a dense moment with the lines
     // levelled, and no reachable run produces one: the ladder to level five on
-    // all four costs eighteen drops and the stage pays for at most twelve.
+    // all four costs eighteen power-ups and the stage pays for at most twelve.
     expect(levelsFromUrl('?levels=5', '')).toBe(5);
     expect(levelsFromUrl('', '#/?levels=3')).toBe(3);
     expect(levelsFromUrl('', '')).toBeNull();

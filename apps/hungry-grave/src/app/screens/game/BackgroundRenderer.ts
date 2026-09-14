@@ -7,14 +7,14 @@ import { Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import type { RunState } from '../../../game/run';
 import type { SetPiece } from '../../../game/stage/setPiece';
-import { PHASES } from '../../../game/stage/stage';
+import { SECTIONS } from '../../../game/stage/stage';
 import { SCROLL_SPEED } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
 import type { DressingSetName, StandInArt } from './groundDressing';
 import {
   acrossAt,
   artAt,
-  DRESSING_BY_PHASE,
+  DRESSING_BY_SECTION,
   DRESSING_SETS,
   EYE_CELL_PIXELS,
   GROUND_FLOOR,
@@ -220,21 +220,21 @@ class BackgroundRenderer {
 
   /**
    * Which set a placement wears: the one being placed now if it was placed
-   * inside this phase, and the phase before it otherwise, which is the drift.
+   * inside this section, and the section before it otherwise, which is the drift.
    *
-   * A run opens already inside its first phase, so the ground the run starts
+   * A run opens already inside its first section, so the ground the run starts
    * on is dressed by placements older than the run and every one of them wears
    * the first section's own set.
    */
   private dressingFor(run: RunState, index: number): DressingSetName {
-    const at = run.stage.phaseIndex;
+    const at = run.stage.sectionIndex;
     const placed = index * DRESSING_INTERVAL_TICKS;
-    const phase =
-      PHASES[
-        at === 0 || run.tick - placed <= run.stage.phaseTick ? at : at - 1
+    const section =
+      SECTIONS[
+        at === 0 || run.tick - placed <= run.stage.sectionTick ? at : at - 1
       ];
-    if (phase === undefined) throw new Error(`no phase at index ${at}`);
-    return DRESSING_BY_PHASE[phase.name];
+    if (section === undefined) throw new Error(`no section at index ${at}`);
+    return DRESSING_BY_SECTION[section.name];
   }
 
   private syncSource(setPiece: SetPiece | null): void {

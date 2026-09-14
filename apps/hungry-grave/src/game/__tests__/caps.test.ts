@@ -9,19 +9,19 @@
 import { describe, expect, it } from 'vitest';
 
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP, TREASURE_ALLOWANCE } from '../caps';
-import { spawnCorpse, spawnDrop, spawnFeast } from '../corpses';
+import { spawnCorpse, spawnPowerUp, spawnFeast } from '../corpses';
 import type { SimEvent } from '../events';
 import { createStageWatch, checkInvariants } from '../invariants';
 import type { Mob, MobType } from '../mobs';
 import { advanceMobs, ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { peakArrivals, PROCESSION_ROWS } from '../stage/rows';
+import { peakArrivals, PROCESSION_WAVES } from '../stage/waves';
 import { FRESHNESS_SECONDS } from '../tuning';
 
 function quietRun(seed = 12): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   return run;
 }
 
@@ -72,7 +72,7 @@ describe('the mob fire cap', () => {
   it('refuses a further shot, so nothing the player has read and started dodging ever vanishes', () => {
     const state = quietRun();
     // Every slot claimed by hand, because reaching four hundred shots through
-    // firing mobs would take a whole phase.
+    // firing mobs would take a whole section.
     for (const shot of state.mobFire) {
       shot.alive = true;
       shot.id = state.nextEntityId;
@@ -156,7 +156,7 @@ describe('the corpse cap (ADR 0056)', () => {
       MOB_CAP + peakArrivals(FRESHNESS_SECONDS) + TREASURE_ALLOWANCE,
     );
     // Computed rather than written down, which is what makes it move with the
-    // rows: the query is a real query and not a constant wearing one.
+    // waves: the query is a real query and not a constant wearing one.
     expect(peakArrivals(FRESHNESS_SECONDS)).toBeGreaterThan(0);
   });
 
@@ -193,13 +193,13 @@ describe('the corpse cap (ADR 0056)', () => {
     const state = quietRun();
     fillCorpses(state);
     const corpses = foodOn(state);
-    expect(spawnDrop(state, 100, 100, 'bell')).toEqual([]);
+    expect(spawnPowerUp(state, 100, 100, 'bell')).toEqual([]);
     expect(spawnFeast(state, 100, 100, 4)).toEqual([]);
     expect(foodOn(state)).toEqual(corpses);
 
     const treasureRun = quietRun(13);
     while (treasureRun.corpses.some((corpse) => !corpse.alive)) {
-      spawnDrop(treasureRun, 100, 100, 'bell');
+      spawnPowerUp(treasureRun, 100, 100, 'bell');
     }
     const treasure = foodOn(treasureRun);
     expect(treasure).toHaveLength(CORPSE_CAP);

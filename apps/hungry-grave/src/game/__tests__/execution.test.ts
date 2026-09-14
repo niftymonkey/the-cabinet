@@ -342,14 +342,14 @@ describe('the dev broken handler (ADR 0017 ruling H)', () => {
 });
 
 describe("an Execution's lifetime is the run's", () => {
-  it("a second run gets a fresh stage watch, so run two's first phase is not compared with run one's last", () => {
+  it("a second run gets a fresh stage watch, so run two's first section is not compared with run one's last", () => {
     const first = createExecution(createRun(1));
-    first.run.stage.phaseIndex = 2;
+    first.run.stage.sectionIndex = 2;
     executeTick(first, STILL);
     expect(first.faults).toEqual([]);
 
-    // A watch carried over from the run above would read this run's phase 0 as
-    // a phase index going backwards.
+    // A watch carried over from the run above would read this run's section 0 as
+    // a section index going backwards.
     const second = createExecution(createRun(1));
     executeTick(second, STILL);
     expect(second.faults).toEqual([]);

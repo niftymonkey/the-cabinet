@@ -44,7 +44,7 @@ vi.mock('motion', () => ({ animate: () => Promise.resolve() }));
 import { BGM } from '../../engine/audio/audio';
 import type { SimEvent } from '../../game/events';
 import { createRun } from '../../game/run';
-import { PHASES, phaseUnderway } from '../../game/stage/stage';
+import { SECTIONS, sectionUnderway } from '../../game/stage/stage';
 import manifest from '../../manifest.json';
 import type { MusicOutput } from '../sound';
 import {
@@ -62,7 +62,7 @@ const SRC = resolve(import.meta.dirname, '..', '..');
 const EVERY_EVENT: SimEvent[] = [
   { type: 'swallowed', kind: 'corpse', freshness: 1, payout: 1 },
   { type: 'chimed', kind: 'corpse' },
-  { type: 'chimed', kind: 'drop' },
+  { type: 'chimed', kind: 'powerUp' },
   { type: 'chimed', kind: 'feast' },
   { type: 'grew', amount: 1, size: 20 },
   { type: 'overflowed', amount: 1, score: 1 },
@@ -83,8 +83,8 @@ const EVERY_EVENT: SimEvent[] = [
   { type: 'corpseLost', kind: 'corpse', x: 1, y: 2, freshness: 0.5 },
   { type: 'tolled', level: 3, radius: 165 },
   { type: 'belched', cancelled: 12, killed: 4 },
-  { type: 'dropSpawned', id: 9, line: 'wisps', x: 1, y: 2 },
-  { type: 'phaseChanged', phase: 'crowd', music: 'crowd', tick: 10 },
+  { type: 'powerUpSpawned', id: 9, line: 'wisps', x: 1, y: 2 },
+  { type: 'sectionChanged', section: 'crowd', music: 'crowd', tick: 10 },
 ];
 
 describe('which events make a sound (plan 6.22)', () => {
@@ -99,7 +99,7 @@ describe('which events make a sound (plan 6.22)', () => {
 
   it('covers five clips, because coverage is the point rather than the count', () => {
     // An earlier shape shipped two and both landed on the two commonest events
-    // in the game while the scarcest objects stayed silent: a drop sounded
+    // in the game while the scarcest objects stayed silent: a power-up sounded
     // exactly like a corpse and the belch made no noise at all.
     const clips = new Set(
       EVERY_EVENT.map(clipFor).filter((clip) => clip !== null),
@@ -112,18 +112,18 @@ describe('which events make a sound (plan 6.22)', () => {
 
 describe('the swallow chime and the treasure chime (plan 6.22)', () => {
   it('chimes for a corpse and for a feast, from the very first swallow whatever the loadout', () => {
-    // The headline criterion that stops an unlucky drop sequence leaving the
+    // The headline criterion that stops an unlucky power-up sequence leaving the
     // early minutes silent.
     expect(clipFor({ type: 'chimed', kind: 'corpse' })).toBe('swallow');
     expect(clipFor({ type: 'chimed', kind: 'feast' })).toBe('swallow');
   });
 
-  it('plays a different clip for a drop, chosen from the kind the event already carries', () => {
+  it('plays a different clip for a power-up, chosen from the kind the event already carries', () => {
     // The scarcest object in the game must not sound like the commonest, and
     // this needs no event change and no game rule here: Chimed already carries
     // the food's kind.
-    expect(clipFor({ type: 'chimed', kind: 'drop' })).toBe('treasure');
-    expect(clipFor({ type: 'chimed', kind: 'drop' })).not.toBe(
+    expect(clipFor({ type: 'chimed', kind: 'powerUp' })).toBe('treasure');
+    expect(clipFor({ type: 'chimed', kind: 'powerUp' })).not.toBe(
       clipFor({ type: 'chimed', kind: 'corpse' }),
     );
   });
@@ -213,20 +213,20 @@ describe('the clips a run asks for', () => {
 /**
  * Every crossing a run makes, in order, each built by the stage's own
  * announcement rather than restated here, so what these tests read is what the
- * sim says and not a second copy of the phase table.
+ * sim says and not a second copy of the section table.
  */
 const everyCrossing = (): SimEvent[] => {
   const run = createRun(20260908);
-  return PHASES.map((_, index) => {
-    run.stage.phaseIndex = index;
-    return phaseUnderway(run);
+  return SECTIONS.map((_, index) => {
+    run.stage.sectionIndex = index;
+    return sectionUnderway(run);
   });
 };
 
-/** The loop each phase asks for, in phase order, and null where none is asked. */
-const loopPerPhase = (): (string | null)[] => everyCrossing().map(musicFor);
+/** The loop each section asks for, in section order, and null where none is asked. */
+const loopPerSection = (): (string | null)[] => everyCrossing().map(musicFor);
 
-/** Where a phase's loop differs from the one before it: an audible change. */
+/** Where a section's loop differs from the one before it: an audible change. */
 const changedAt = (loops: readonly (string | null)[]): number[] =>
   loops.flatMap((loop, at) =>
     at > 0 && loop !== null && loop !== loops[at - 1] ? [at] : [],
@@ -235,12 +235,12 @@ const changedAt = (loops: readonly (string | null)[]): number[] =>
 describe('the section music (spec 58, module 108, 131)', () => {
   beforeEach(() => tracks.clear());
 
-  it('gives every loop a phase names a file, and names every file it has from a phase', () => {
+  it('gives every loop a section names a file, and names every file it has from a section', () => {
     // Both directions, which is what makes six loops the same edit as three: a
-    // phase naming a loop with no file does not compile, and a file no phase
+    // section naming a loop with no file does not compile, and a file no section
     // asks for is dead weight nobody would hear was missing.
     const named = new Set(
-      PHASES.map((phase) => phase.music).filter((loop) => loop !== null),
+      SECTIONS.map((section) => section.music).filter((loop) => loop !== null),
     );
     expect(named.size).toBeGreaterThan(0);
     expect(new Set(Object.keys(LOOPS))).toEqual(named);
@@ -257,42 +257,42 @@ describe('the section music (spec 58, module 108, 131)', () => {
     }
   });
 
-  it('names one loop per phase, three across the seven, and none for the ending', () => {
+  it('names one loop per section, three across the seven, and none for the ending', () => {
     // ADR 0049: the stand-in music enters V1 as the thing that makes a section
-    // tellable. The over phase plays nothing, because the fade out is the
+    // tellable. The over section plays nothing, because the fade out is the
     // ending.
-    const loops = loopPerPhase();
-    expect(loops).toHaveLength(PHASES.length);
+    const loops = loopPerSection();
+    expect(loops).toHaveLength(SECTIONS.length);
     expect(new Set(loops.filter((loop) => loop !== null)).size).toBe(3);
     expect(loops.at(-1)).toBeNull();
   });
 
   it('changes its loop twice in a run, on the Banshee falling and on the eye opening', () => {
     // Decision 22's amendment names two music changes and where they fall. The
-    // test reads where they fall out of the phase before each change rather
-    // than out of a phase name: what ends the phase the loop changed after is
+    // test reads where they fall out of the section before each change rather
+    // than out of a section name: what ends the section the loop changed after is
     // the boundary event, so a table that moved a loop would land here.
-    const changes = changedAt(loopPerPhase());
+    const changes = changedAt(loopPerSection());
     expect(changes).toHaveLength(2);
     const [firstChange, secondChange] = changes;
     if (firstChange === undefined || secondChange === undefined) {
       throw new Error('changedAt did not report both changes');
     }
 
-    const banshee = PHASES[firstChange - 1];
+    const banshee = SECTIONS[firstChange - 1];
     if (banshee === undefined)
-      throw new Error('no phase before the first change');
+      throw new Error('no section before the first change');
     expect(banshee.ends).toBe('bossKilled');
     expect(banshee.boss).toBe('banshee');
 
-    const crowd = PHASES[secondChange - 1];
+    const crowd = SECTIONS[secondChange - 1];
     if (crowd === undefined)
-      throw new Error('no phase before the second change');
+      throw new Error('no section before the second change');
     expect(crowd.ends).toBe('setPieceOpened');
   });
 
-  it('issues the cue on every phase change, including the ones that ask for the loop already playing', () => {
-    // The app never decides what counts as a change: it says what the phase
+  it('issues the cue on every section change, including the ones that ask for the loop already playing', () => {
+    // The app never decides what counts as a change: it says what the section
     // asks for on every crossing and the engine answers. A cue skipped here is
     // a section that opens on the loop before it after any retune of the table.
     const asked: string[] = [];
@@ -300,7 +300,7 @@ describe('the section music (spec 58, module 108, 131)', () => {
 
     for (const crossing of everyCrossing()) playMusicFor(recorder, crossing);
 
-    const sounding = PHASES.filter((phase) => phase.music !== null);
+    const sounding = SECTIONS.filter((section) => section.music !== null);
     expect(asked).toHaveLength(sounding.length);
     expect(asked[0]).toBe(asked[1]);
   });

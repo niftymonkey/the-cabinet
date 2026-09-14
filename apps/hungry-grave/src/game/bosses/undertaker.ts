@@ -1,7 +1,7 @@
 // The Undertaker's own grammar (ADR 0007, ADR 0052, game-concept.md:70): the
 // burial's falling clod curtains with one way through that always fits the
 // grave, the exhumation's slow shovel arm and the bodies it digs up, and the
-// two locked together in the last chunk.
+// two locked together in the last phase.
 
 import type { SimEvent } from '../events';
 import { FIELD_WIDTH } from '../field';
@@ -13,10 +13,10 @@ import type { MobType } from '../mobs';
 import { spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { TICK_HZ } from '../clock';
-import type { Boss } from './chunks';
+import type { Boss } from './phases';
 
 /**
- * One chunk's curtain (game-concept.md:70). Every number is an initial row
+ * One phase's curtain (game-concept.md:70). Every number is an initial row
  * owned by the tuning pass at step 4; what is not tuning is the shape, one
  * curtain at a time with exactly one way through it.
  */
@@ -25,15 +25,15 @@ interface CurtainRow {
   readonly period: number;
   /**
    * Clods in one curtain, beside the way through rather than counting it. The
-   * count is what the last chunk thins to pay for the overlap, so the opening
+   * count is what the last phase thins to pay for the overlap, so the opening
    * is never what a busier screen is bought with.
    */
   readonly clods: number;
 }
 
 /**
- * One chunk's shovel arm. The same three initial rows describe both chunks that
- * turn one, because the escalation the last chunk buys is the curtain locked to
+ * One phase's shovel arm. The same three initial rows describe both phases that
+ * turn one, because the escalation the last phase buys is the curtain locked to
  * the arm rather than a faster arm.
  */
 interface SpiralRow {
@@ -46,13 +46,13 @@ interface SpiralRow {
 }
 
 /**
- * His three chunks in order, one table per shape, each as long as his health
+ * His three phases in order, one table per shape, each as long as his health
  * row: the burial throws curtains, the exhumation turns the arm, and the last
- * chunk does both (ADR 0052, decision 26). A chunk that does not run a shape
+ * phase does both (ADR 0052, decision 26). A phase that does not run a shape
  * says so with a null rather than by being missing from the table, so a fourth
- * chunk is a row in three places and never a row in one.
+ * phase is a row in three places and never a row in one.
  *
- * The last chunk's curtain carries two thirds of the first's clods, which is
+ * The last phase's curtain carries two thirds of the first's clods, which is
  * the design record's Yuyuko trade: the shipped precedent buys simultaneity by
  * cutting density, and cutting it here also protects the never-a-wall rule.
  */
@@ -157,7 +157,7 @@ const clamp = (value: number, low: number, high: number): number => {
 
 /**
  * Whether this tick is one the pattern acts on. The clock is read before it
- * moves, so a chunk's first tick is its pattern's zero and a chunk opens on the
+ * moves, so a phase's first tick is its pattern's zero and a phase opens on the
  * beat rather than part-way through its own first cycle.
  */
 const dueEvery = (every: number, patternTick: number): boolean => {
@@ -190,7 +190,7 @@ const armSweptX = (boss: Boss, row: SpiralRow, patternTick: number): number => {
  * Where a curtain opens. With no arm turning it walks the field on its own;
  * with one it opens where the arm has just swept, which is the whole of the
  * locked overlap (decision 26). Both read the one pattern clock, so the two
- * emitters cannot drift apart part-way through a chunk.
+ * emitters cannot drift apart part-way through a phase.
  *
  * It is held far enough from either edge that the whole opening is on the
  * field, because half an opening against a wall is not the width the gap rule
@@ -248,7 +248,7 @@ const throwCurtain = (
  * the field rather than above it.
  *
  * A body the mob cap refuses is density the player never meets, which is the
- * same answer the authored rows give a refused non-carrier: an add carries no
+ * same answer the authored waves give a refused non-carrier: an add carries no
  * offer, so nothing is lost that supply has to account for (ADR 0048).
  */
 const digUpBody = (state: RunState, boss: Boss, row: SpiralRow): void => {
@@ -292,16 +292,16 @@ const turnArm = (state: RunState, boss: Boss, row: SpiralRow): SimEvent[] => {
 };
 
 /**
- * One tick of whichever chunk is live: the arm first, then the curtain that
- * follows it, on the chunk's own clock.
+ * One tick of whichever phase is live: the arm first, then the curtain that
+ * follows it, on the phase's own clock.
  *
  * The arm goes first because the curtain reads where it has been, so a reader
- * meets the two in the order the pattern means them, and a chunk running both
+ * meets the two in the order the pattern means them, and a phase running both
  * is the two calls beside each other rather than a third pattern.
  */
 const advanceUndertaker = (state: RunState, boss: Boss): SimEvent[] => {
-  const curtain = CURTAIN_ROWS[boss.chunk] ?? null;
-  const spiral = SPIRAL_ROWS[boss.chunk] ?? null;
+  const curtain = CURTAIN_ROWS[boss.phaseIndex] ?? null;
+  const spiral = SPIRAL_ROWS[boss.phaseIndex] ?? null;
   const events: SimEvent[] = [];
   if (spiral !== null) events.push(...turnArm(state, boss, spiral));
   if (curtain !== null && dueEvery(curtain.period, boss.patternTick)) {
@@ -314,7 +314,7 @@ const advanceUndertaker = (state: RunState, boss: Boss): SimEvent[] => {
  * His death sheds nothing of its own. game-concept.md:70: "his death is the
  * ending: he topples into the grave and the swallow is the victory animation,
  * no payout, the grave swallows the gravedigger." What the fight paid was paid
- * at the chunk breaks and by the bodies he dug up, and the ending itself is the
+ * at the phase breaks and by the bodies he dug up, and the ending itself is the
  * stage's rather than his module's.
  */
 const undertakerDied = (): SimEvent[] => {

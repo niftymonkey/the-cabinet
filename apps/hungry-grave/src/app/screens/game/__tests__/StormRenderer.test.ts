@@ -14,7 +14,7 @@ import {
 } from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
-import { PROCESSION_ROWS } from '../../../../game/stage/rows';
+import { PROCESSION_WAVES } from '../../../../game/stage/waves';
 import { FieldLayers } from '../layering';
 import { StormRenderer } from '../StormRenderer';
 
@@ -27,7 +27,7 @@ function attached(): { layers: FieldLayers; renderer: StormRenderer } {
 
 function quietRun(seed = 18): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = PROCESSION_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   return run;
 }
 

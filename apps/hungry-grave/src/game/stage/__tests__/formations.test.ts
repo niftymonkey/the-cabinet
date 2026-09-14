@@ -1,5 +1,5 @@
 /**
- * The placement library (ADR 0016). A template says where a group arrives and
+ * The placement library (ADR 0016). A formation says where a group arrives and
  * how it is arranged, and never which kind of mob is in it.
  */
 
@@ -7,15 +7,15 @@ import { describe, expect, it } from 'vitest';
 
 // The module's own text, as a Vite raw import rather than through node:fs, so
 // the source scan below stays inside the boundary src/boundary.test.ts holds.
-import templatesSource from '../templates.ts?raw';
+import formationsSource from '../formations.ts?raw';
 
 import { FIELD_WIDTH } from '../../field';
 import { MOB_TYPE_NAMES, MOB_TYPES, SPAWN_MARGIN } from '../../mobs';
 import { stream } from '../../rng';
-import type { SpawnOrder, TemplateName } from '../templates';
-import { place } from '../templates';
+import type { SpawnOrder, FormationName } from '../formations';
+import { place } from '../formations';
 
-const TEMPLATES: TemplateName[] = [
+const FORMATIONS: FormationName[] = [
   'drip',
   'file',
   'v',
@@ -24,8 +24,12 @@ const TEMPLATES: TemplateName[] = [
   'wall',
 ];
 
-function orders(template: TemplateName, count: number, seed = 5): SpawnOrder[] {
-  return place(template, count, stream(seed, 'spawns'));
+function orders(
+  formation: FormationName,
+  count: number,
+  seed = 5,
+): SpawnOrder[] {
+  return place(formation, count, stream(seed, 'spawns'));
 }
 
 /** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
@@ -39,7 +43,7 @@ function at<T>(items: readonly T[], index: number): T {
   return requireDefined(items[index], `no element at ${index}`);
 }
 
-/** The two arms of a mirrored template, as they come off the placement. */
+/** The two arms of a mirrored formation, as they come off the placement. */
 function arms(placed: SpawnOrder[]): [SpawnOrder[], SpawnOrder[]] {
   return [
     placed.filter((_at, index) => index % 2 === 0),
@@ -47,16 +51,16 @@ function arms(placed: SpawnOrder[]): [SpawnOrder[], SpawnOrder[]] {
   ];
 }
 
-describe('every template', () => {
+describe('every formation', () => {
   it('spawns wholly above the top edge, so nothing pops into existence on screen', () => {
     const biggest = Math.max(
       ...MOB_TYPE_NAMES.map((name) => MOB_TYPES[name].halfHeight),
     );
-    for (const template of TEMPLATES) {
+    for (const formation of FORMATIONS) {
       for (const count of [1, 4, 8, 22]) {
-        for (const at of orders(template, count)) {
-          expect(`${template} ${count} y ${at.y + biggest <= 0}`).toBe(
-            `${template} ${count} y true`,
+        for (const at of orders(formation, count)) {
+          expect(`${formation} ${count} y ${at.y + biggest <= 0}`).toBe(
+            `${formation} ${count} y true`,
           );
         }
       }
@@ -64,11 +68,11 @@ describe('every template', () => {
   });
 
   it('stays inside SPAWN_MARGIN of the edge, because the beat is counted from the crossing', () => {
-    for (const template of TEMPLATES) {
+    for (const formation of FORMATIONS) {
       for (const count of [1, 4, 8, 22]) {
-        for (const at of orders(template, count)) {
-          expect(`${template} ${count} depth ${-at.y <= SPAWN_MARGIN}`).toBe(
-            `${template} ${count} depth true`,
+        for (const at of orders(formation, count)) {
+          expect(`${formation} ${count} depth ${-at.y <= SPAWN_MARGIN}`).toBe(
+            `${formation} ${count} depth true`,
           );
         }
       }
@@ -76,21 +80,21 @@ describe('every template', () => {
   });
 
   it('supplies a unit direction, so the mob type alone decides the entry speed', () => {
-    for (const template of TEMPLATES) {
-      for (const at of orders(template, 8)) {
+    for (const formation of FORMATIONS) {
+      for (const at of orders(formation, 8)) {
         const length = Math.sqrt(at.vx * at.vx + at.vy * at.vy);
-        expect(`${template} ${length.toFixed(9)}`).toBe(
-          `${template} 1.000000000`,
+        expect(`${formation} ${length.toFixed(9)}`).toBe(
+          `${formation} 1.000000000`,
         );
       }
     }
   });
 
-  it('takes its count from the caller and never from the template (ADR 0006)', () => {
-    for (const template of TEMPLATES) {
+  it('takes its count from the caller and never from the formation (ADR 0006)', () => {
+    for (const formation of FORMATIONS) {
       for (const count of [1, 3, 7, 12, 22]) {
-        expect(`${template} ${orders(template, count).length}`).toBe(
-          `${template} ${count}`,
+        expect(`${formation} ${orders(formation, count).length}`).toBe(
+          `${formation} ${count}`,
         );
       }
     }
@@ -98,19 +102,21 @@ describe('every template', () => {
   });
 
   it('gives the same placement twice from the same stream state', () => {
-    for (const template of TEMPLATES) {
-      expect(orders(template, 9, 31)).toEqual(orders(template, 9, 31));
+    for (const formation of FORMATIONS) {
+      expect(orders(formation, 9, 31)).toEqual(orders(formation, 9, 31));
     }
   });
 
   it('names no mob type anywhere in the file (ADR 0016)', () => {
     // A comment saying so is not a test. The failure this guards against is a
-    // template branching on who is in it, and only the source can see it.
+    // formation branching on who is in it, and only the source can see it.
     for (const name of MOB_TYPE_NAMES) {
-      expect(`${name} ${templatesSource.includes(name)}`).toBe(`${name} false`);
+      expect(`${name} ${formationsSource.includes(name)}`).toBe(
+        `${name} false`,
+      );
     }
     const specifiers = [
-      ...templatesSource.matchAll(/^import[^;]*?["']([^"']+)["']/gm),
+      ...formationsSource.matchAll(/^import[^;]*?["']([^"']+)["']/gm),
     ].map((match) =>
       requireDefined(
         match[1],
@@ -122,7 +128,7 @@ describe('every template', () => {
   });
 });
 
-describe("each template's own shape", () => {
+describe("each formation's own shape", () => {
   it("the Drip spreads across the field's width at even spacing", () => {
     const placed = orders('drip', 3);
     expect(placed.map((at) => at.x)).toEqual([90, 270, 450]);
@@ -172,7 +178,7 @@ describe("each template's own shape", () => {
     // A scatter is not a spread, so one draw is never asserted to land
     // anywhere. What is asserted is that the whole width is reachable and that
     // the depth varies, which is where the looseness lives: the entry speed
-    // cannot carry it, because the template supplies a direction only.
+    // cannot carry it, because the formation supplies a direction only.
     const pooled = [7, 8, 9, 10, 11].flatMap((seed) =>
       orders('rain', 12, seed),
     );
@@ -202,9 +208,9 @@ describe("each template's own shape", () => {
     expect(at(placed, 21).x).toBeCloseTo(FIELD_WIDTH - at(gaps, 0) / 2, 9);
   });
 
-  it('indexes the mirrored templates per arm, so the armed share falls in the same place on both sides', () => {
-    for (const template of ['v', 'pincer'] as const) {
-      const [left, right] = arms(orders(template, 8));
+  it('indexes the mirrored formations per arm, so the armed share falls in the same place on both sides', () => {
+    for (const formation of ['v', 'pincer'] as const) {
+      const [left, right] = arms(orders(formation, 8));
       expect(left.map((at) => at.index)).toEqual([0, 1, 2, 3]);
       expect(right.map((at) => at.index)).toEqual([0, 1, 2, 3]);
     }

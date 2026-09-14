@@ -73,7 +73,7 @@ type ConfigurationName =
  * been measured.
  *
  * The three hands between loose and shaky were added after the ends had been
- * played. At 48 seeds each, `steady-far` reached the Undertaker's phase on 29
+ * played. At 48 seeds each, `steady-far` reached the Undertaker's section on 29
  * and `loose-far` on 32, which is one reading within the other's noise, and
  * every shaky rung reached it on none: the ladder was a cliff somewhere inside
  * a gap no batch had ever played. `unsteady`, `wavering` and `faltering` step

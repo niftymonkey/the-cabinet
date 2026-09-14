@@ -19,8 +19,8 @@ import {
 } from './mobFire';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
-import type { SpawnOrder } from './stage/templates';
-import { MAX_ENTRY_DEPTH } from './stage/templates';
+import type { SpawnOrder } from './stage/formations';
+import { MAX_ENTRY_DEPTH } from './stage/formations';
 import { BASE_SPEED, SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from './tuning';
 
 type MobType = 'shambler' | 'revenant' | 'ghoul';
@@ -122,7 +122,7 @@ const MOB_TYPES = {
 const MOB_TYPE_NAMES: readonly MobType[] = ['shambler', 'revenant', 'ghoul'];
 
 /**
- * How long a mob holds the template's arriving motion once it is on screen
+ * How long a mob holds the formation's arriving motion once it is on screen
  * (ADR 0016). Three quarters of a second, and the derivation is a reading-time
  * one rather than a taste one: recognizing a spatial arrangement takes near 400
  * to 450 milliseconds, so half a second would be one recognition time with
@@ -133,10 +133,10 @@ const MOB_TYPE_NAMES: readonly MobType[] = ['shambler', 'revenant', 'ghoul'];
 const ARRIVE_TICKS = 45;
 
 /**
- * The deepest a template may spawn above the top edge. It is the placement
+ * The deepest a formation may spawn above the top edge. It is the placement
  * library's own bound, declared there and re-exported here because everything
  * downstream reads it from the mob table: one declaration, nothing to keep in
- * sync. It is derived from the deepest authored row rather than picked, and a
+ * sync. It is derived from the deepest authored wave rather than picked, and a
  * file of six 26-unit bodies nose to tail is 156 units of depth.
  */
 const SPAWN_MARGIN = MAX_ENTRY_DEPTH;
@@ -180,7 +180,7 @@ interface Mob {
   hp: number;
   /**
    * Ticks of the arriving beat left. It counts down only once the mob's top
-   * edge is inside the field, never from its spawn: templates spawn above the
+   * edge is inside the field, never from its spawn: formations spawn above the
    * edge so nothing pops into existence, and a beat counted from spawn would
    * have expired before anyone saw the placement it exists to show.
    */
@@ -189,7 +189,7 @@ interface Mob {
   fireIn: number;
   armed: boolean;
   /**
-   * Whether this mob carries the offer (ADR 0002). Authored on the stage row
+   * Whether this mob carries the offer (ADR 0002). Authored on the stage wave
    * and written once at the spawn, never directed: the director adds mobs and
    * never carriers, which is what keeps density from buying a build.
    */
@@ -199,7 +199,7 @@ interface Mob {
    * edge. Written once at the spawn from the placement it was given, never
    * directed: only the spawn knows it, and a mob never crosses back out.
    *
-   * Templates place every body above the edge, so the crossing is the warning.
+   * Formations place every body above the edge, so the crossing is the warning.
    * A body placed below the edge has no crossing to give, which is what its
    * arriving beat stands in for at contact.
    */
@@ -264,7 +264,7 @@ const canTouchGrave = (mob: Mob): boolean => {
   return mob.beat === 0;
 };
 
-// Puts one mob on the field in the placement the template asked for, or refuses at the cap.
+// Puts one mob on the field in the placement the formation asked for, or refuses at the cap.
 const spawnMob = (
   state: RunState,
   type: MobType,
@@ -314,7 +314,7 @@ const chase = (mob: Mob, grave: Grave): void => {
 /**
  * A falling type's own rule: straight down at its own speed, whatever direction
  * it arrived on. A body split by a side edge first walks inward at that same
- * speed, still descending, until it is fully on-field: templates place pincer
+ * speed, still descending, until it is fully on-field: formations place pincer
  * trailing ranks outside the field on purpose, and a bell toll can park a mob
  * there, so without the walk-in a settled faller can descend nearly invisible
  * at the edge (#76).
@@ -434,7 +434,7 @@ const damageMob = (
  * A mob past the bottom edge is culled and costs the player nothing.
  *
  * A mob a spawn margin outside a side goes with it. A falling type can never
- * reach that, and a template never places one there, so the only thing this
+ * reach that, and a formation never places one there, so the only thing this
  * catches is a ghoul whose beat ended pointing away from the grave: its turn
  * rate is slow by design, so it can carry a long way off screen before it comes
  * round. Off screen and unkillable is the same to the player as gone, and

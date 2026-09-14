@@ -1,5 +1,5 @@
 import { fireBelch } from './belch';
-import { advanceBoss } from './bosses/chunks';
+import { advanceBoss } from './bosses/phases';
 import type { TickCommand } from './command';
 import type { Corpse } from './corpses';
 import {
@@ -169,11 +169,11 @@ const advanceLines = (state: RunState): SimEvent[] => {
 };
 
 /**
- * The deaths phase: the storm meeting the mobs, and the offer every carrier
+ * The deaths section: the storm meeting the mobs, and the offer every carrier
  * the tick killed leaves where it died (ADR 0002, ADR 0034).
  *
  * It walks the tick's whole accumulated list of kills rather than only the ones
- * the overlap pass returned, because the bell resolves two phases earlier and a
+ * the overlap pass returned, because the bell resolves two sections earlier and a
  * carrier is a carrier whatever killed it: power that arrived only when the
  * right weapon landed the last point of damage would meter itself differently
  * for a reason no player could read.
@@ -243,7 +243,7 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   events.push(...openBankedOffer(state, bankOpensNow(state)));
   events.push(...resolveOverlaps(state));
   events.push(...resolveDeaths(state, events));
-  // Straight after the deaths, because the deaths phase is the last of the
+  // Straight after the deaths, because the deaths section is the last of the
   // tick that can empty a boss and the ending is that death's own (ADR 0007).
   events.push(...winStage(state, events));
   events.push(...advanceCorpses(state));
@@ -255,7 +255,7 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   events.push(...loseOffer(state));
   ageGrave(state.grave);
   state.tick += 1;
-  state.stage.phaseTick += 1;
+  state.stage.sectionTick += 1;
   return events;
 };
 

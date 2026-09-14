@@ -1,6 +1,6 @@
 // The witness (ADR 0019): the number a run folds its own state down to.
 
-import type { Boss } from './bosses/chunks';
+import type { Boss } from './bosses/phases';
 import type { Corpse } from './corpses';
 import type { Grave } from './grave';
 import type { BellToll } from './lines/bell';
@@ -9,7 +9,7 @@ import { WEAPON_LINES } from './lines/roster';
 import type { CorpseTier } from './mobs';
 import type { StreamName } from './rng';
 import type { LineState, RunEnding, RunState } from './run';
-import type { BossKind } from './stage/rows';
+import type { BossKind } from './stage/waves';
 import type { SetPiece } from './stage/setPiece';
 import type { StageState } from './stage/stage';
 import type { FoodKind } from './swallow';
@@ -22,7 +22,7 @@ import type { FoodKind } from './swallow';
  */
 const STREAM_ORDER: readonly StreamName[] = [
   'spawns',
-  'drops',
+  'powerUps',
   'mobFire',
   'shed',
   'territory',
@@ -86,7 +86,7 @@ const CORPSE_TIER_CODES: Readonly<Record<CorpseTier, number>> = {
 
 const FOOD_KIND_CODES: Readonly<Record<FoodKind, number>> = {
   corpse: 1,
-  drop: 2,
+  powerUp: 2,
   feast: 3,
 };
 
@@ -274,8 +274,8 @@ const foldStreams = (checksum: number, run: RunState): number => {
 };
 
 const foldStage = (checksum: number, stage: StageState): number => {
-  const next = fold(fold(checksum, stage.phaseIndex), stage.phaseTick);
-  return fold(next, stage.firedRows);
+  const next = fold(fold(checksum, stage.sectionIndex), stage.sectionTick);
+  return fold(next, stage.firedWaves);
 };
 
 /**
@@ -323,14 +323,14 @@ const foldOffer = (checksum: number, run: RunState): number => {
  * being left to the state to imply, because the two bosses are one record's
  * worth of numbers apart and which one the fight is against is the whole of it.
  *
- * The chunk and the flash fold beside the health because they are what the
- * health means: the same hp under a different chunk is a different fight, and a
+ * The phase and the flash fold beside the health because they are what the
+ * health means: the same hp under a different phase is a different fight, and a
  * live flash is a tick on which the storm does nothing.
  */
 const foldBoss = (checksum: number, boss: Boss | null): number => {
   if (boss === null) return fold(checksum, ABSENT_CODE);
   let next = fold(fold(checksum, 1), BOSS_KIND_CODES[boss.kind]);
-  next = fold(fold(fold(next, boss.chunk), boss.hp), boss.flash);
+  next = fold(fold(fold(next, boss.phaseIndex), boss.hp), boss.flash);
   return fold(fold(fold(next, boss.x), boss.y), boss.patternTick);
 };
 

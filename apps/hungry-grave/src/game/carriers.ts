@@ -1,4 +1,4 @@
-// What a carrier is worth to the schedule, and which of a row's mobs carries
+// What a carrier is worth to the schedule, and which of a wave's mobs carries
 // (ADR 0002, ADR 0048).
 
 import {
@@ -9,14 +9,14 @@ import {
 } from './lines/roster';
 
 /**
- * A carrier schedule row: which of a stage row's mobs carry the offer.
+ * A carrier schedule wave: which of a stage wave's mobs carry the offer.
  *
- * A list rather than one index, because step 2 authors the schedule and a row
- * that carries more than once is a shape it may want; today every carrying row
+ * A list rather than one index, because step 2 authors the schedule and a wave
+ * that carries more than once is a shape it may want; today every carrying wave
  * holds exactly one.
  */
-interface CarrierRow {
-  // Indices into the stage row's placement order that carry. Deterministic and authored.
+interface WaveCarriers {
+  // Indices into the stage wave's placement order that carry. Deterministic and authored.
   readonly carrying: readonly number[];
 }
 
@@ -55,29 +55,29 @@ const carriersScheduled = (): number => {
 };
 
 /**
- * Which of a row's mobs carry: the middle of its placement order, one per
- * carrying row.
+ * Which of a wave's mobs carry: the middle of its placement order, one per
+ * carrying wave.
  *
  * The middle rather than the leader, so a Pincer's symmetry is not broken by
- * the carrier riding at the head of one arm. The position is the row's
+ * the carrier riding at the head of one arm. The position is the wave's
  * placement order and not the SpawnOrder's own index, which a mirrored
- * template repeats once per arm and would put a carrier on each of them.
+ * formation repeats once per arm and would put a carrier on each of them.
  */
-const carrierRow = (rowCarries: boolean, count: number): CarrierRow => {
-  if (!rowCarries || count <= 0) return { carrying: [] };
+const waveCarriers = (waveCarries: boolean, count: number): WaveCarriers => {
+  if (!waveCarries || count <= 0) return { carrying: [] };
   return { carrying: [Math.floor(count / 2)] };
 };
 
-// Whether the mob at this position in a row's placement order carries.
-const carriesAt = (row: CarrierRow, position: number): boolean => {
-  return row.carrying.includes(position);
+// Whether the mob at this position in a wave's placement order carries.
+const carriesAt = (wave: WaveCarriers, position: number): boolean => {
+  return wave.carrying.includes(position);
 };
 
 export {
   carriersForFullBuild,
   carriersScheduled,
-  carrierRow,
+  waveCarriers,
   carriesAt,
   CARRIER_SLACK,
 };
-export type { CarrierRow };
+export type { WaveCarriers };

@@ -2,7 +2,7 @@
 // sections' dressing sets, and the seeded stream that places them (ADR 0049,
 // decision 22's amendment, design record stage-floor.md section 7).
 
-import type { PhaseName } from '../../../game/stage/stage';
+import type { SectionName } from '../../../game/stage/stage';
 import type { PaletteEntry } from '../../palette';
 import { PALETTE } from '../../palette';
 
@@ -140,19 +140,19 @@ const DRESSING_SETS = {
 type DressingSetName = keyof typeof DRESSING_SETS;
 
 /**
- * Which set each phase places, so the ground turns over once per section
+ * Which set each section places, so the ground turns over once per section
  * (ADR 0049). A section's boundary event wears the section it ends: the
  * Banshee keeps the Procession's statues and the Waking keeps the Crowd's
  * veins, because the Vigil's teal is the run's one colour addition and the
  * addition has to be the event, which it cannot be if it is already on screen
  * under the Crowd's own boundary (design record section 7).
  *
- * It is also what keeps the drift a function of the tick alone. Every phase
+ * It is also what keeps the drift a function of the tick alone. Every section
  * that inherits its predecessor's set is at least one whole drift window past
  * the change before it, so a sprite still falling can never belong to a set
- * two phases back, and the renderer never has to remember one.
+ * two sections back, and the renderer never has to remember one.
  */
-const DRESSING_BY_PHASE: Record<PhaseName, DressingSetName> = {
+const DRESSING_BY_SECTION: Record<SectionName, DressingSetName> = {
   procession: 'procession',
   banshee: 'procession',
   crowd: 'crowd',
@@ -205,7 +205,7 @@ export {
   SOURCE_AWAKE,
   EYE_CELL_PIXELS,
   DRESSING_SETS,
-  DRESSING_BY_PHASE,
+  DRESSING_BY_SECTION,
   artAt,
   acrossAt,
 };

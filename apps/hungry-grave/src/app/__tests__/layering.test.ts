@@ -380,7 +380,7 @@ describe('the readouts stay inside the reserve the field is fitted around', () =
 
   it('caps the fault line for every identity in the closed list, each form still unambiguous', () => {
     // The identities are closed and append-only (ADR 0017), so the longest is
-    // known: FAULT phase tick resets at a boundary runs 37 characters uncut,
+    // known: FAULT section tick resets at a boundary runs 37 characters uncut,
     // nearly the full width of a 390-unit phone stage. A cut form must stay
     // tellable from every other member, or the readout names the wrong fault.
     const lines = FAULT_IDENTITIES.map((identity) =>

@@ -1,6 +1,6 @@
 /**
  * A boss's body on screen: its own vector silhouette, and the invincible flash
- * that ends a chunk.
+ * that ends a phase.
  *
  * The two bosses are not pixel art. They are drawn as vector silhouettes in the
  * palette entries that already existed for them, by the construction the three
@@ -16,9 +16,9 @@
 
 import type { Graphics } from 'pixi.js';
 
-import type { Boss } from '../../../game/bosses/chunks';
-import { BOSS_HALF_HEIGHT, BOSS_HALF_WIDTH } from '../../../game/bosses/chunks';
-import type { BossKind } from '../../../game/stage/rows';
+import type { Boss } from '../../../game/bosses/phases';
+import { BOSS_HALF_HEIGHT, BOSS_HALF_WIDTH } from '../../../game/bosses/phases';
+import type { BossKind } from '../../../game/stage/waves';
 import type { PaletteEntry } from '../../palette';
 import { PALETTE } from '../../palette';
 

@@ -22,7 +22,7 @@ import {
   SET_PIECE_POUR_SECONDS,
   SET_PIECE_SWEEP_MAX_X,
   SET_PIECE_SWEEP_MIN_X,
-} from './rows';
+} from './waves';
 
 /**
  * The one set piece on the field. One record on RunState and never a pool, for
@@ -48,7 +48,7 @@ interface SetPiece {
   // Ticks to the next body.
   pourIn: number;
   /**
-   * Its own health. The row is the source's stay: how long the body stays a
+   * Its own health. The wave is the source's stay: how long the body stays a
    * target the storm can work on and a thing on the ground to read. It is not
    * what makes the pour finish, which it does whatever the storm did (#104).
    */
@@ -62,9 +62,9 @@ interface SetPiece {
 }
 
 /**
- * The module's clock and geometry, every term of it read from a row rather than
- * declared here. The rows are in rows.ts because the corpse cap's query needs
- * the pour's rate and a rows.ts that reached this module would close the cycle
+ * The module's clock and geometry, every term of it read from a wave rather than
+ * declared here. The waves are in waves.ts because the corpse cap's query needs
+ * the pour's rate and a waves.ts that reached this module would close the cycle
  * that derivation lives inside: behaviour here, data there.
  */
 // The scroll itself: the source is a place on the ground, and the ground moves
@@ -161,13 +161,13 @@ const POUR_REACH = POUR_LIP_X + POUR_JITTER_X;
 /**
  * One body out of the mouth, at whichever lip is next.
  *
- * The lips alternate so two bodies in a row never stand on each other, and the
+ * The lips alternate so two bodies in a wave never stand on each other, and the
  * draw inside a lip is what keeps the pour a spray rather than a metronome. It
  * is the one place chance enters the moment and it comes from the spawns
  * stream, because a pour is a spawn (ADR 0006).
  *
  * A body the mob cap refuses is density the player never meets, which is the
- * answer the authored rows already give a refused non-carrier: a poured body
+ * answer the authored waves already give a refused non-carrier: a poured body
  * carries no offer, so nothing supply has to account for is lost (ADR 0048).
  */
 const pourBody = (state: RunState, piece: SetPiece): SimEvent[] => {
@@ -204,7 +204,7 @@ const pourIfDue = (state: RunState, piece: SetPiece): SimEvent[] => {
  * own authored depth.
  *
  * It always reaches that depth, because the depth is inside the field and the
- * drift is downward and never zero, so the phase that ends on the eye opening
+ * drift is downward and never zero, so the section that ends on the eye opening
  * terminates by construction.
  */
 const openIfDeepEnough = (piece: SetPiece): SimEvent[] => {
