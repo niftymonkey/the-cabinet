@@ -1,0 +1,93 @@
+# Research: a watched shove runs about half a second and covers roughly a third of the field's width, and today's 40-unit ceiling reaches a living body as half a unit
+
+Gathered 2026-09-15 for round two of step 4, answering the owner's question of the same date: how long, over what curve and over what distance must a pushback run before a player watches it happen and says the bodies got shoved back, and how far back is far enough that the toll or the belch visibly bought ground.
+
+Labels: **DOCUMENTED** = a developer statement, shipped or decompiled source, or a measurement of this repository. **COMMUNITY-MEASURED** = a wiki transcription or datamined table. **INFERRED** = a reading across sources, marked wherever it appears.
+
+It builds on [`push-feel-precedent.md`](push-feel-precedent.md) and corrects it. Nothing there is re-fetched.
+
+## 0. Where the last record went wrong
+
+That record's section 1 asked how long a knockback lasts in shipped survivors games, found Vampire Survivors' 120 milliseconds, and it became `SHOVE_TICKS` 7. **It answered the wrong question.** Vampire Survivors' knockback is a felt nudge inside a permanent scrum: the camera is tight, the bodies already touch the player, and the shove exists so the press stops being solid for an instant. It is never the event the player looks at, and **a duration taken from a nudge cannot produce a watched one.** The second error sits beside it: the record measured duration and never distance, so 40 field units went forward untested against the field it has to read on.
+
+## 1. The field's own rulers, and the finding that outranks every source here
+
+Read from the tree on 2026-09-15. All **DOCUMENTED (this repository)**.
+
+The field is 540 by 760 units (`src/game/field.ts:10-11`) at 60 ticks a second (`src/game/clock.ts:4`). The scroll runs 38 units a second (`tuning.ts`); a shambler walks half that, 19 a second, and is 22 wide; a revenant walks 13.3 and is 26 wide; a ghoul closes at 94.5 (`mobs.ts`). The grave is 27 units wide at its starting size (`tuning.ts`, `grave.ts`), and on a 390-wide phone the field draws at about 0.72 CSS pixels per unit, which `tuning.ts` states itself.
+
+Three rulers sit on screen beside any shove. **A level-five cone's leading edge crosses 261 units in 45 ticks** (`BELL_CONE_ROWS`, `BELL_EXPAND_TICKS`, `bell.ts`), **5.8 units a tick, 348 a second**, which is the speed of the thing doing the pushing. **The belch's burst reaches 160 units** (`belch.ts:19`) and its eruption front crosses the field's 932-unit diagonal in 20 ticks (`StormRenderer.ts`), 46.6 a tick. **A push is clamped to the field plus a 160-unit margin** (`mobs.ts:394-397`), so a total past a few hundred units is refused near the top edge and reported short.
+
+**Today's 40 units at bell five, converted.** 5.3% of the field's depth, 1.8 shambler widths, 1.5 grave widths, 15% of the bell's own level-five reach, 25% of the belch's radius, 29 CSS pixels on a phone, and **2.1 seconds of a shambler's advance bought back**. Delivered in one tick, that was 2400 units a second, seven times the speed of the cone edge that threw it.
+
+**The finding that outranks every source below.** 40 is a ceiling at the grave and almost nowhere else. `proximity` is `1 - distance / reach`, and **damage and push share it deliberately** (`bell.ts`, its own JSDoc), while damage also interpolates from a near figure to a far one an eighth of it. Solving the two tables against each body's health gives the largest push a body that survives the toll can take:
+
+| rung | push ceiling | shambler (8 hp) | ghoul (20 hp) | revenant (64 hp) |
+| --- | --- | --- | --- | --- |
+| 1 | 6 | 0.51 | 2.57 | 6.0 |
+| 2 | 10 | 0.20 | 2.65 | 10.0 |
+| 3 | 16 | none survive | 2.79 | 13.97 |
+| 4 | 26 | none survive | 3.04 | 17.90 |
+| 5 | 40 | none survive | 3.08 | 22.42 |
+
+**A shambler never survives a toll at rung three or higher, anywhere inside the cone, and at rungs one and two the most a surviving one can be shoved is half a field unit**, a fiftieth of its own body width. The ghoul tops out near 3 at every rung, and only the revenant is ever shoved a distance a person could see, its ceiling running 6 to 22.4. This is the arithmetic under slice H's measured collapse from 230 shoves to 2 (`../push/round-two-progress.md` section 8), and **no duration and no curve fixes it.**
+
+## 2. How long a watched push actually runs in shipped games
+
+Every game found with real data lands between 0.2 and 1.0 seconds, and the cluster is at half a second.
+
+**Enter the Gungeon's Blank is the closest analogue in any shipped game and its code is readable.** Decompile at <https://github.com/fedes1to/EtG-source> (`SilencerInstance.cs`, `Exploder.cs`, `KnockbackDoer.cs`), signature confirmed at <https://modthegungeon.github.io/semi/gungeondocs/classSilencerInstance.html>. `DEFAULT_KNOCKBACK_TIME = 0.5f`, velocity decaying as `v0 * (1 - (t/T)^2)`, a quadratic ease-out, enemy speed hard-capped at `MAX_ENEMY_KNOCKBACK_MAGNITUDE = 30f` tiles a second. **The bullet clear is a front the player watches travel**: the radius grows by `expandSpeed * deltaTime` each frame and only the bullets it has reached die, out to 25 tiles at 50 a second, then **holds at full radius a further half second** (`overrideTimeAtMaxRadius = 0.5f`). STATED; the one-second total lifetime INFERRED.
+
+**Super Smash Bros puts displacement and stun on separate clocks, and the flight outlasts the stun.** Launch speed is knockback times 0.03, and "the initial value of launch speed then decays by 0.051 every frame". <https://www.ssbwiki.com/Knockback> STATED. A fixed subtraction means speed falls linearly and position is a quadratic ease-out with a definite end: **the same curve R2 already chose.** Hitstun is knockback times 0.4 frames <https://www.ssbwiki.com/Hitstun> STATED, travel knockback times 0.588, INFERRED from the two constants, so **flight outlasts stun by about half**: at knockback 100, 59 frames or 0.98 seconds. A windbox is that same pipeline with the stun set to zero, "hitboxes that deal knockback, but cause no hitstun", and "pushing is simply knockback without flinching", which "can KO characters" <https://www.ssbwiki.com/Windbox> STATED.
+
+**Hollow Knight is the short end and buys its punch with a freeze rather than a curve.** Damage recoil holds a constant velocity of 15 for `RECOIL_DURATION = 0.2` seconds, gravity off and the vector reassigned every fixed step so it genuinely does not decay, then cuts dead, behind a 0.25-second freeze (`DAMAGE_FREEZE_WAIT`). <https://github.com/ayushpaharia/hollow-knight-code> and <https://raw.githubusercontent.com/Jeffjewett27/AriadneAgent/master/physics/hero_controller_constants.txt> STATED. INFERRED: 3.0 world units at 1.8 times the Knight's own run speed, **0.36 seconds of running bought back**. **Nuclear Throne is the middle**: 30 frames a second, one instant velocity add of 2 to 14 pixels a frame decaying under GameMaker `friction = 0.4`, another linear subtraction <https://github.com/toarch7/nt-recreated-public> STATED, so INFERRED a regular bullet shoves for **0.58 seconds over about 65 pixels** and a heavy slug for 1.17 over 252.
+
+**Overwatch gives only its lockout.** Blizzard's 2024-02-13 notes raise Lucio's "movement lockout duration" from 0.3 to 0.45 seconds <https://overwatch.blizzard.com/en-us/news/patch-notes/live/2024/02/> STATED, and **no number is published for the slide itself.** The third curve family, exponential damping, is Dead Cells' lead designer's open-source template at 0.93 friction a frame, 90% of travel in 0.73 seconds and never formally stopping <https://github.com/deepnight/gamefeel> STATED.
+
+**And the nudge end, so both ends are pinned.** Risk of Rain 2's melee `forceMagnitude` is 16 on nearly every attack in the decompile, divided by the victim's mass: 0.16 metres a second on a 100-mass body, visually nothing. Vampire Survivors' multipliers run 0.1 to 2 on most weapons, 6 on Heaven Sword and 20 on the outlier Crimson Shroud <https://vampire.survivors.wiki/w/Weapons/Overview_Stats> COMMUNITY-MEASURED, against a 120-millisecond window in which the body's own speed is reversed. INFERRED, and it is the transferable form: **a Vampire Survivors shove buys back `(1 + multiplier) x 0.12` seconds of the body's own advance, a quarter second for a typical weapon and 2.5 for the biggest in the game.**
+
+## 3. How far, measured against the arena each game is played on
+
+- **The Blank throws a body one third of the playfield's width.** Its screen is 30 tiles across (480 internal pixels at 16 a tile; the 480 STATED, the tile size INFERRED and corroborated by the code's 7-tile damage radius matching the wiki's), and a capped enemy travels `v0 * 2T / 3`, INFERRED by integration, which is **10 tiles**.
+- **The Blank's damage reaches under half as far as its push**: damage 10 in a 7-tile radius, knockback force 140 in a **15-tile** radius with a linear falloff to zero, STATED. The wiki's contrary "7 tile pushback" is contradicted by the code.
+- **Smash at knockback 100 covers 9 metres on a 16-metre stage, 56% of it.** 1 unit is 0.1 metres <https://www.ssbwiki.com/Distance_unit>, Battlefield and Final Destination are 16 metres <https://www.ssbwiki.com/Battlefield_(SSBU)>, both STATED; the 9 metres is INFERRED from the launch constants. At knockback 50 it is 2.3 metres, 14% of the stage.
+- **Lucio's boop moves a body about 10 metres**, measured at 8.5 to 10.5 <https://us.forums.blizzard.com/en/overwatch/t/is-there-any-data-on-boop-distance/616436> and corroborated at 10 to 12 <https://disynergy.wordpress.com/2018/01/29/chainboops-and-knockback-stacking/>. COMMUNITY-MEASURED; no Blizzard figure exists.
+- **Minecraft's Wind Charge is the only published damageless push with a stated radius**, 2.4 blocks, and Wind Burst throws roughly 8, 16 and 24 blocks by level. <https://minecraft.wiki/w/Wind_Charge>, <https://minecraft.wiki/w/Wind_Burst> STATED. Terraria adds the one published soft cap, 16 approached in stages, so shipped practice is diminishing returns rather than a push scaling straight with a rung <https://terraria.wiki.gg/wiki/Knockback> STATED.
+
+## 4. What perception and the animation principles add
+
+**100 milliseconds is a floor, not a target.** NN/g: "100 ms is at the lower end of perceivable motion, where it almost feels like an instantaneous jump", the usable band is 100 to 400, a substantial change wants 200 to 300, and "at 500ms, animations start to feel like a real drag" <https://www.nngroup.com/articles/animation-duration/> STATED. That last figure is about a transition a user waits through before acting, which this is not, and the Blank runs at exactly 500.
+
+**Material 3 makes duration a function of distance, which is the rule this record leans on hardest:** "duration should increase as the area/traversal of an animation increases", with tokens at short 50 to 200, medium 250 to 400, long 450 to 600 and extra-long 700 to 1000 milliseconds <https://github.com/material-components/material-components-android/blob/master/docs/theming/Motion.md> STATED. **Duration and distance are one question, not two.**
+
+**Slow out is frame spacing, and R2's curve is already right.** "Rather than having a uniform velocity for an object, it is more appealing... to have the velocity vary at the extremes" <https://education.siggraph.org/static/HyperGraph/animation/character_animation/principles/slow_in_and_out.htm> STATED. A linear decay of velocity is constant deceleration, which is a slow out, and it is what Smash and Nuclear Throne both ship. **The curve in R2 survives; only its length does not.** The same site's timing page warns the other way: "if too little, then the viewer may not notice or understand the action", and a heavier object "takes a greater force and a longer time to accelerate and decelerate".
+
+**Direction is never the constraint**: minimum exposure to judge motion direction is 5.6 to 65 milliseconds under lab conditions, Borghuis et al. (2019) <https://pmc.ncbi.nlm.nih.gov/articles/PMC6802765/> STATED.
+
+**Two authorities the brief named do not answer this, said plainly.** Swink's *Game Feel* thresholds, 10 images a second, 240 milliseconds and 100 (<https://gamestudies.org/1301/articles/karhulahti_kinesthetic_theory_of_the_videogame>), are all about input and response latency, never about how long an outgoing event must run. Sakurai's hit-stop and knockback videos are qualitative throughout, their only figures a 4-frame blend into the damage pose and sub-one-frame attacker creep <https://www.youtube.com/watch?v=tycbMSjDDLg> STATED.
+
+**The honest counterexample.** A peer-reviewed ranking of 44 action games for impact feel puts *One Finger Death Punch* first, and it switches pose with no interpolation at all, letting the effect carry the direction <https://arxiv.org/pdf/2208.06155> STATED. **A jump cut is a shipped answer when something else carries the read**, and this game has no such something else.
+
+## 5. Three options for this game
+
+Every figure below is a first-pass data row for the tuning step, not a compiled constant. Linear decay over N ticks from a first step s covers `s * (N + 1) / 2` (`shove.ts`), which converts the two halves of each option into each other.
+
+**Option 1, the duration fix alone: 30 ticks, 40 units, curve unchanged.** Half a second on a first step of 2.58 units a tick, 0.45 times the cone edge that threw it, so the front visibly outruns the body it is supposedly throwing. 40 units stays 1.8 shambler widths, 5.3% of the field's depth, 2.1 seconds of shambler advance, 29 CSS pixels, and **the belch's three shoves total 120, less than its own 160 burst radius**, so a body at the grave ends still inside the burst. The eruption becomes 90 ticks. It meets the half-second ruling and fails the ground-bought test twice over.
+
+**Option 2, the Blank at this field's scale: 30 ticks a shove, toll 90 units, belch three of 60 for 180.** The toll's 90 is derived rather than picked: a linear decay over 30 ticks whose first step equals the cone's own leading edge, 5.8 units a tick, covers 90, so **the body leaves with the front instead of being outrun by it**. That is 4.1 shambler widths, 3.3 grave widths, 11.8% of the field's depth, 34% of the bell's own reach, **4.7 seconds of shambler advance**, 65 CSS pixels. The belch's 180 total is the Blank's own one third of the playfield's width transferred to 540: 23.7% of depth, 8.2 body widths, **9.5 seconds of advance**, and it puts a body at the grave 20 units clear of the burst radius. **The eruption becomes three fronts, 30 ticks each and 30 apart, 90 ticks in all**, and each front slows to about a third of today's speed, which is where Gungeon's front sits relative to its own playfield (1.67 playfield widths a second against our present 5.2).
+
+**Option 3, the throw: 45 ticks a shove, toll 150 units, belch three of 100 for 300.** 45 ticks matches `BELL_EXPAND_TICKS`, so the shove and the toll end together, on a first step of 6.5 units a tick. 150 units is 6.8 body widths, 19.7% of depth, 57% of the bell's reach, 7.9 seconds of advance; the belch's 300 clears the burst radius by 140 and runs 2.25 seconds end to end. **Three named costs**: 0.75 seconds is past Material's 400-millisecond caution and NN/g's 500-millisecond drag, a body stands its walk down for 2.25 seconds of a 3-second bell period, and near the top edge the 160-unit bound starts refusing the push so the reading reports short.
+
+**How a body survives to be watched, the same answer under all three.** Section 1 says the falloff is the binding constraint, and two levers have precedent. **First, split the falloffs**, exactly as the Blank does with damage in 7 tiles and knockback in 15: the push keeps a flat or slow falloff across the cone while damage keeps its near-to-far interpolation. **Second, and this one is not optional, put the damage and the travel on separate clocks**, because even with a flat push a shambler still dies everywhere inside a rung-three cone and so still never travels. Smash is the precedent both ways: a windbox is knockback with the stun set to zero, and a damaging hit has its flight outlast its stun by half. Here that means the toll's damage need not land on the tick the cone reaches the body. A body that flies and then dies, and a corpse that inherits the impulse and finishes the travel, are both shipped shapes, and the second is what the pre-slice-H build did by accident and what the change took away. Its cost is priced: a corpse carried up-field spends a second of its ten-second freshness per 38 units (`FRESHNESS_SECONDS`, `SCROLL_SPEED`), so option 2's 90 costs 2.4 seconds and the corpse still drifts back down.
+
+**The pick is option 2**, from the game's own statement of what these two things are for: the bell's job is "repel, pushing mobs off the space the grave wants" and the belch is "the one button" (`CONTEXT.md`). It is the only option where both read against a ruler already on screen, the toll's shove keeping pace with the cone that threw it and the belch clearing its own radius, which is ticket #124's done line of a player naming unprompted what the belch did for them. Option 1 leaves the belch unable to clear its own burst, and option 3 buys the read at a price the field's bound and the bell's own period both start refusing.
+
+## 6. What no source answers
+
+**No source gives a minimum duration for judging a motion's magnitude.** Direction is settled below 65 milliseconds; magnitude is simply not in the literature, and it is the half of the question that matters here.
+
+**No shmup bomb anywhere pushes rather than kills.** The Shmups Wiki's taxonomy of bomb mechanics lists damage bombs, stock storage, meter replenishment, invincibility-only bombs and auto-bomb systems, and **names no bomb that shoves enemies or bullets outward at all** <https://shmups.wiki/library/Category:Bomb_mechanic>. No expansion-speed or frame data exists for a Touhou or DoDonPachi bullet cancel either. **The genre has no precedent for this, so both models above are borrowed from outside it.**
+
+**No survivors-like publishes a push distance.** Halls of Torment, Brotato, 20 Minutes Till Dawn and Deep Rock Galactic: Survivor all express knockback as a force divided by a mass with no published scale. **Gungeon's per-enemy weights sit on Unity prefabs rather than in the decompile**, so the 10 tiles above is the speed-capped case and the real distance for a given enemy is unknown.
+
+**What a shove should look like is documented by nobody**, which is the previous record's gap unchanged: no trail, no squash, no smear and no afterimage is described by any source for any of these games.
