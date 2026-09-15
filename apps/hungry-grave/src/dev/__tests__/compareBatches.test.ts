@@ -29,6 +29,7 @@ import { measure } from '../measure';
 import type { ConfigurationName } from '../configurations';
 import type { Measurement, Metrics } from '../measure';
 import type { SectionSpan } from '../readings/sectionTimeline';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 const TICKS = 60;
 
@@ -61,6 +62,7 @@ const verifiedReport = (seed: number): Metrics => {
     rendererResolution: 0,
     devicePixelRatio: 0,
     recordedAt: 1_788_000_000_000,
+    signalLock: SIGNAL_RAN_LIVE,
   });
   for (let tick = 0; tick < TICKS; tick++) {
     executeTick(execution, { move: { x: 0.2, y: -0.1 }, belch: false });

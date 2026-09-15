@@ -21,6 +21,7 @@ import type { WeaponLine } from '../lines/roster';
 import { WEAPON_LINES } from '../lines/roster';
 import type { RunState } from '../run';
 import { createRun } from '../run';
+import { SIGNAL_RAN_LIVE } from '../signalLock';
 import {
   ABSENT_CODE,
   boolCode,
@@ -168,7 +169,7 @@ function fillRun(run: RunState): void {
   run.lines.layIn = 240;
   run.lines.volleyIn = 18;
   run.director = {
-    signal: { value: 0.4, heldUntilTick: 360 },
+    signal: { value: 0.4, heldUntilTick: 360, lock: SIGNAL_RAN_LIVE },
     purseLeft: 74,
     quietUntilTick: 420,
   };
@@ -895,6 +896,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'what the mob pool turned away on one tick, as refusals.food is.',
   'refusals.offers':
     'offers that could stand no body on one tick, as refusals.food is. What it leads to, a bank that went up rather than an offer on the field, is folded.',
+  'director.signal.lock':
+    "the run's identity, as seed and roster[] are: createRun resolves it before the first tick from the URL or from the tape header and the rules never write it (ADR 0027). What it decides, the signal the gate reads, shows through director.signal.value, which the walk already folds. Slice E ruled it excluded rather than folded and wrote the reasoning into PressureSignal's own JSDoc, which is why the lock owed no second witness version move.",
   'streams.spawns.next': 'a draw function, not state. Its cursor is folded.',
   'streams.spawns.nextInt': 'a draw function, not state.',
   'streams.powerUps.next': 'a draw function, not state. Its cursor is folded.',

@@ -26,6 +26,13 @@ interface BelchFire {
  */
 interface BelchCadence {
   readonly fires: readonly BelchFire[];
+  /**
+   * The ticks between one fire and the next, which is the cadence the fire list
+   * already carried the ticks for. Index N is the gap from fire N to fire N
+   * plus one, so a run with one fire or none has no interval at all rather than
+   * a zero: a single belch has nothing to be an interval from.
+   */
+  readonly intervals: readonly number[];
   readonly ticksAtFull: number;
   readonly wasted: number;
 }
@@ -61,8 +68,21 @@ const observeBelchCadence = (
   if (state.reservoir >= RESERVOIR_CAPACITY) acc.ticksAtFull += 1;
 };
 
+// The gaps between consecutive fires, taken off the ticks the fires carry.
+const intervalsOf = (fires: readonly BelchFire[]): number[] => {
+  const intervals: number[] = [];
+  for (let index = 1; index < fires.length; index++) {
+    const before = fires[index - 1];
+    const now = fires[index];
+    if (before === undefined || now === undefined) continue;
+    intervals.push(now.tick - before.tick);
+  }
+  return intervals;
+};
+
 const belchCadenceOf = (acc: BelchCadenceAcc): BelchCadence => ({
   fires: [...acc.fires],
+  intervals: intervalsOf(acc.fires),
   ticksAtFull: acc.ticksAtFull,
   wasted: acc.wasted,
 });

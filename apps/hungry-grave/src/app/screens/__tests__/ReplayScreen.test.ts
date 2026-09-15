@@ -38,6 +38,7 @@ import { RECORDER_CHECKPOINT_SPACING } from '../../../tape/recorder';
 import { LAYER_ORDER } from '../game/layering';
 import { REPLAY_LEAD_IN_TICKS } from '../game/transients';
 import { ReplayScreen } from '../ReplayScreen';
+import { SIGNAL_RAN_LIVE } from '../../../game/signalLock';
 
 /** The URL the replay screen reads its tape and tick off. */
 const fakeLocation = { search: '', hash: '' };
@@ -82,6 +83,7 @@ function headerFor(run: RunState): TapeHeader {
     rendererResolution: 1,
     devicePixelRatio: 1,
     recordedAt: 0,
+    signalLock: SIGNAL_RAN_LIVE,
   };
 }
 

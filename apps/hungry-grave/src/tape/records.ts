@@ -27,6 +27,8 @@ import type {
   TapeTrailer,
 } from './tape';
 import { FRAME_REASONS, TAPE_INPUT_DEVICES, TAPE_INTEGRITIES } from './tape';
+import { holdableSignal } from '../game/director';
+import { SIGNAL_RAN_LIVE } from '../game/signalLock';
 import { TapeFormatError } from './tapeFormatError';
 import {
   ABSENT_CODE,
@@ -124,8 +126,19 @@ const readHeader = (payload: ByteReader): TapeHeader => {
   const rendererResolution = readF32(payload);
   const devicePixelRatio = readF32(payload);
   const recordedAt = readF64(payload);
+  const signalLock = readF64(payload);
   if (checkpointSpacing < 1) {
     throw new TapeFormatError('a checkpoint spacing below one stamps nothing');
+  }
+  // A tape is a document, so a lock it cannot support is rejected here rather
+  // than repaired (the repair-by-origin rule): a figure outside the signal's own
+  // scale would hold the gate where the signal can never stand, and a NaN would
+  // freeze the run at one and fault on every tick after. Checked once, where the
+  // bytes enter, so everything downstream reads a value it can trust.
+  if (signalLock !== SIGNAL_RAN_LIVE && !holdableSignal(signalLock)) {
+    throw new TapeFormatError(
+      `this tape holds its signal at ${signalLock}, which the signal's own scale cannot stand at`,
+    );
   }
   return {
     seed,
@@ -145,6 +158,7 @@ const readHeader = (payload: ByteReader): TapeHeader => {
     rendererResolution,
     devicePixelRatio,
     recordedAt,
+    signalLock,
   };
 };
 

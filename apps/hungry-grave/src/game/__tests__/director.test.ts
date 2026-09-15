@@ -8,7 +8,7 @@
  * implementation rather than by the ruling.
  */
 
-import { describe, expect, it, test } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import directorSource from '../director.ts?raw';
 
@@ -25,6 +25,7 @@ import {
   SIGNAL_HOLD_TICKS,
   SIGNAL_LOW_THRESHOLD,
   STARTING_DIRECTOR,
+  startingSignal,
 } from '../director';
 import type { PressureSignal } from '../director';
 import type { TickCommand } from '../command';
@@ -35,6 +36,7 @@ import { spawnMob } from '../mobs';
 import type { StreamName } from '../rng';
 import type { RunState } from '../run';
 import { createRun } from '../run';
+import { isLocked, SIGNAL_RAN_LIVE } from '../signalLock';
 import { stepping } from '../../dev/stepping';
 import { place } from '../stage/formations';
 import type { Section, SectionName } from '../stage/stage';
@@ -52,6 +54,10 @@ import {
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
 const REST: PressureSignal = STARTING_DIRECTOR.signal;
+
+// A figure inside the signal's own scale, so a held run stands somewhere the
+// signal could really have stood rather than at an end of it.
+const HALF_SCALE = SIGNAL_FULL / 2;
 
 const GRAVE_HIT: SimEvent = {
   type: 'graveHit',
@@ -108,7 +114,7 @@ const cursors = (state: RunState): Record<StreamName, number> => {
 const runWithAnOpenGate = (seed: number, purse: number): RunState => {
   const state = createRun(seed);
   state.director = {
-    signal: { value: 0, heldUntilTick: 0 },
+    signal: { value: 0, heldUntilTick: 0, lock: SIGNAL_RAN_LIVE },
     purseLeft: purse,
     quietUntilTick: 0,
   };
@@ -166,14 +172,11 @@ describe("the director's own state at the top of a run (ADR 0047, ADR 0056)", ()
     expect(STARTING_DIRECTOR.quietUntilTick).toBe(0);
   });
 
-  it('declares exactly the fields this slice can fill honestly', () => {
-    // The plan's section 4 writes a third field on the signal, `lock`, and
-    // signalLock.ts is slice G's module, so a lock declared here would be a
-    // placeholder type where the fold is supposed to read a real one. Slice G
-    // adds it, and it owes no second witness version move: a lock is resolved
-    // before the first tick and never moves, which is the run's identity in
-    // exactly the sense seed and roster[] are, and both are excluded from the
-    // fold with that reason beside them.
+  it('declares exactly the three fields the signal carries', () => {
+    // The lock is the signal's third field and it owed no second witness
+    // version move: a lock is resolved before the first tick and never moves,
+    // which is the run's identity in exactly the sense seed and roster[] are,
+    // and all three are excluded from the fold with that reason beside them.
     expect(Object.keys(STARTING_DIRECTOR).sort()).toEqual([
       'purseLeft',
       'quietUntilTick',
@@ -181,8 +184,10 @@ describe("the director's own state at the top of a run (ADR 0047, ADR 0056)", ()
     ]);
     expect(Object.keys(STARTING_DIRECTOR.signal).sort()).toEqual([
       'heldUntilTick',
+      'lock',
       'value',
     ]);
+    expect(STARTING_DIRECTOR.signal.lock).toBe(SIGNAL_RAN_LIVE);
   });
 });
 
@@ -282,14 +287,35 @@ describe('the pressure signal (ADR 0056)', () => {
     }
   });
 
-  /**
-   * The lock is slice G's: signalLock.ts is its module and PressureSignal
-   * carries two fields until it lands. What stands here is the half that
-   * exists, which is that the signal is a pure function of its inputs and the
-   * guard slice G adds has a place to go at the top of advancePressure. Slice G
-   * completes it.
-   */
-  test.todo('a locked signal never moves, whatever the tick events');
+  it('a locked signal never moves, whatever the tick events', () => {
+    // Spec test 35. The lock's whole purpose: the gate and the population are
+    // tuned against a held signal, so nothing a tick does may move it. The
+    // three raising events and the whole hold-and-decay window are all walked,
+    // because a guard that only covered the raise would let the decay drain a
+    // held signal over thirty seconds instead.
+    const held = startingSignal(HALF_SCALE);
+    expect(isLocked(held.lock)).toBe(true);
+    expect(held.value).toBe(HALF_SCALE);
+
+    for (const event of [GRAVE_HIT, SCORE_BLED, WEAPON_STRIPPED]) {
+      expect(advancePressure(held, [event], 0).value).toBe(HALF_SCALE);
+    }
+
+    let signal = held;
+    for (let tick = 0; tick <= SIGNAL_HOLD_TICKS + SIGNAL_DECAY_TICKS; tick++) {
+      signal = advancePressure(
+        signal,
+        tick % 97 === 0 ? [GRAVE_HIT] : [],
+        tick,
+      );
+    }
+    expect(signal.value).toBe(HALF_SCALE);
+    expect(signal.heldUntilTick).toBe(held.heldUntilTick);
+
+    // And the live half still moves, so the assertion above is a guard rather
+    // than a signal that was never going to move anyway.
+    expect(advancePressure(REST, [GRAVE_HIT], 0).value).toBe(GRAVE_HIT_WEIGHT);
+  });
 
   it('holds for five seconds at what it reached, then falls at a fixed rate', () => {
     const raised = advancePressure(REST, [GRAVE_HIT], 100);
@@ -368,7 +394,11 @@ describe('the gate, refusal by refusal (ADR 0047, ADR 0056)', () => {
     const state = aProcessionRun(77, 400);
     state.director = {
       ...state.director,
-      signal: { value: SIGNAL_FULL, heldUntilTick: 9999 },
+      signal: {
+        value: SIGNAL_FULL,
+        heldUntilTick: 9999,
+        lock: SIGNAL_RAN_LIVE,
+      },
     };
     expect(directorSpend(state, PROCESSION, state.streams.director)).toBeNull();
   });
@@ -421,7 +451,11 @@ describe('the spend (ADR 0047, ADR 0056)', () => {
     const state = aProcessionRun(77, 400);
     state.director = {
       ...state.director,
-      signal: { value: SIGNAL_LOW_THRESHOLD, heldUntilTick: 9999 },
+      signal: {
+        value: SIGNAL_LOW_THRESHOLD,
+        heldUntilTick: 9999,
+        lock: SIGNAL_RAN_LIVE,
+      },
     };
     expect(directorSpend(state, PROCESSION, state.streams.director)).toBeNull();
 
@@ -429,7 +463,11 @@ describe('the spend (ADR 0047, ADR 0056)', () => {
     // and not a rounding of it.
     state.director = {
       ...state.director,
-      signal: { value: SIGNAL_LOW_THRESHOLD - 1e-9, heldUntilTick: 9999 },
+      signal: {
+        value: SIGNAL_LOW_THRESHOLD - 1e-9,
+        heldUntilTick: 9999,
+        lock: SIGNAL_RAN_LIVE,
+      },
     };
     expect(
       directorSpend(state, PROCESSION, state.streams.director),

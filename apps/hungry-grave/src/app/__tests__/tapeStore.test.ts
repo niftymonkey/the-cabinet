@@ -27,6 +27,7 @@ import {
 } from '../tapeRetention';
 import { openTapeStore } from '../tapeStore';
 import type { RunSummaryValues, TapeStore } from '../tapeStore';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 const HEADER: TapeHeader = {
   seed: 77,
@@ -46,6 +47,7 @@ const HEADER: TapeHeader = {
   rendererResolution: 2,
   devicePixelRatio: 2,
   recordedAt: 1_766_200_000_000,
+  signalLock: SIGNAL_RAN_LIVE,
 };
 
 const TRAILER: TapeTrailer = {

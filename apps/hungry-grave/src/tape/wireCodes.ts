@@ -32,8 +32,22 @@ const TAPE_MAGIC = 'HGTP';
  * carries one field: the director's budget is authored stage content rather
  * than a value a run resolves, so ADR 0027 does not reach it and it takes no
  * header field (ADR 0056).
+ *
+ * It moved to 4 with #39, on 2026-09-15. The header gained the signal lock, the
+ * figure a run resolves its pressure signal to for a tuning experiment, which
+ * is a value the run started from and so belongs in the header rather than in
+ * the build (ADR 0043) and is recorded resolved rather than absent (ADR 0027).
+ * The field is appended after recordedAt, and the header is positional, so a
+ * version-3 reader walking a version-4 header would stop one f64 short and a
+ * version-4 reader walking a version-3 header would read the chunk's own
+ * trailing bytes as a lock. The bump is taken once and carries one field. It is
+ * not ADR 0056's trigger firing: that trigger names the director's budget and
+ * only the budget, and the purse is authored stage data still pinned to the
+ * build. Every format 3 tape is refused outright at the decode from here, which
+ * is a cost this step had already paid twice over through the waves and the
+ * witness.
  */
-const FORMAT_VERSION = 3;
+const FORMAT_VERSION = 4;
 
 /**
  * EVERY ENCODING HERE IS PERMANENT FROM THE FIRST TAPE. The code maps are

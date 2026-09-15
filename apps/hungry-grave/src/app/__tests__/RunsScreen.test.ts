@@ -66,6 +66,7 @@ import { REPLAY_HASH } from '../routes';
 import { tapeFileName } from '../tapeExport';
 import type { StoredRunSummary, TapeStore } from '../tapeStore';
 import { RunsScreen } from '../screens/RunsScreen';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 const fakeLocation = { search: '', hash: '' };
 
@@ -110,6 +111,7 @@ function headerFor(run: RunState): TapeHeader {
     rendererResolution: 1,
     devicePixelRatio: 1,
     recordedAt: 0,
+    signalLock: SIGNAL_RAN_LIVE,
   };
 }
 

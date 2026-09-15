@@ -3,6 +3,7 @@
 import type { SimEvent } from '../../game/events';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { RunState } from '../../game/run';
+import type { SignalLock } from '../../game/signalLock';
 import type { Arrivals, ArrivalsAcc } from './arrivals';
 import { arrivalsOf, createArrivals, observeArrivals } from './arrivals';
 import type { BelchCadence, BelchCadenceAcc } from './belchCadence';
@@ -17,6 +18,8 @@ import {
   damageTakenOf,
   observeDamageTaken,
 } from './damageTaken';
+import type { Pressure, PressureAcc } from './pressure';
+import { createPressure, observePressure, pressureOf } from './pressure';
 import type { PowerUpLedger, PowerUpLedgerAcc } from './powerUpLedger';
 import {
   createPowerUpLedger,
@@ -97,6 +100,7 @@ interface TuningReadings {
   readonly fieldPerLine: FieldPerLine;
   readonly freshnessPaid: FreshnessPaid;
   readonly belchCadence: BelchCadence;
+  readonly pressure: Pressure;
   readonly powerUpLedger: PowerUpLedger;
   readonly offerChoices: OfferChoices;
   readonly wakingSwallows: WakingSwallows;
@@ -116,6 +120,7 @@ interface ReadingsAcc {
   readonly fieldPerLine: FieldPerLineAcc;
   readonly freshnessPaid: FreshnessPaidAcc;
   readonly belchCadence: BelchCadenceAcc;
+  readonly pressure: PressureAcc;
   readonly powerUpLedger: PowerUpLedgerAcc;
   readonly offerChoices: OfferChoicesAcc;
   readonly wakingSwallows: WakingSwallowsAcc;
@@ -133,10 +138,15 @@ interface ReadingsAcc {
  * run reports the size it really began at, and the line set comes from that
  * same header, so a reading keyed by line stands before the first tick rather
  * than waiting to discover its names from one.
+ *
+ * The signal lock arrives the same way and for the same reason: it is a value
+ * the run resolved before its first tick, so the pressure reading takes it from
+ * the header rather than from the director it measures.
  */
 const createReadings = (
   startingSize: number,
   lines: readonly WeaponLine[],
+  signalLock: SignalLock,
 ): ReadingsAcc => ({
   arrivals: createArrivals(),
   damageTaken: createDamageTaken(),
@@ -145,6 +155,7 @@ const createReadings = (
   fieldPerLine: createFieldPerLine(),
   freshnessPaid: createFreshnessPaid(),
   belchCadence: createBelchCadence(),
+  pressure: createPressure(signalLock),
   powerUpLedger: createPowerUpLedger(),
   offerChoices: createOfferChoices(),
   wakingSwallows: createWakingSwallows(),
@@ -178,6 +189,7 @@ const observeReadings = (
   observeFieldPerLine(acc.fieldPerLine, state, lines);
   observeFreshnessPaid(acc.freshnessPaid, events);
   observeBelchCadence(acc.belchCadence, tick, events, state);
+  observePressure(acc.pressure, tick, events);
   observePowerUpLedger(acc.powerUpLedger, events, state);
   observeOfferChoices(acc.offerChoices, tick, events);
   observeWakingSwallows(acc.wakingSwallows, tick, events);
@@ -197,6 +209,7 @@ const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   fieldPerLine: fieldPerLineOf(acc.fieldPerLine),
   freshnessPaid: freshnessPaidOf(acc.freshnessPaid),
   belchCadence: belchCadenceOf(acc.belchCadence),
+  pressure: pressureOf(acc.pressure),
   powerUpLedger: powerUpLedgerOf(acc.powerUpLedger),
   offerChoices: offerChoicesOf(acc.offerChoices),
   wakingSwallows: wakingSwallowsOf(acc.wakingSwallows),

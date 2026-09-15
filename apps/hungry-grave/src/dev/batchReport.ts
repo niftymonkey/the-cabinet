@@ -8,9 +8,11 @@ import { SECTIONS } from '../game/stage/stage';
 import type { SectionName } from '../game/stage/stage';
 import type { BuildMismatch } from '../tape/buildIdentity';
 import type { ConfigurationName } from './configurations';
+import { runTickBudget } from './harnessRun';
 import type { Measurement, Metrics } from './measure';
 import type { NumberRecord } from './numbersByName';
 import { ledgerByLineNumbers } from './readings/powerUpLedger';
+import { addsBySection } from './readings/pressure';
 import type { SectionSpan } from './readings/sectionTimeline';
 import { READINGS_VERSION } from './readingsVersion';
 import type { RigName } from './rigs';
@@ -121,6 +123,19 @@ interface UnverifiedRun {
   readonly buildMismatch: BuildMismatch | null;
 }
 
+/**
+ * One run that ran out of tick budget with nothing finished, and where it was
+ * when it did.
+ *
+ * The section is the last span the run opened, which is the one it was standing
+ * in: a span still live when the tape stopped is the run's own last section.
+ * Null on a run whose timeline opened no span at all.
+ */
+interface CeilingStop {
+  readonly seed: number;
+  readonly section: SectionName | null;
+}
+
 interface BatchReport {
   readonly identity: BatchIdentity;
   readonly readingsVersion: number;
@@ -138,6 +153,19 @@ interface BatchReport {
    * ADR 0019 gives for a tape that could not prove itself.
    */
   readonly unfinished: readonly number[];
+  /**
+   * The runs that spent the harness's whole tick budget and still reached no
+   * ending, with the section each was standing in when the budget ran out
+   * (#118).
+   *
+   * It is a strict subset of unfinished above and never a second count of the
+   * same thing: unfinished is every verified run that reached no ending, and
+   * this is the ones that also ran out of budget. A run that quit or faulted is
+   * neither, because it stopped before the budget did. The section comes off
+   * the run's own timeline, so the reading says where the run got stuck rather
+   * than only that it did.
+   */
+  readonly ceilingStops: readonly CeilingStop[];
   // Every reading the table declares as a spread, by its declared name.
   readonly spreads: Readonly<Record<string, Spread>>;
   // Every reading the table declares as per line, by line and then by name.
@@ -182,6 +210,24 @@ interface PeakDeclaration {
   readonly seriesOf: (report: Metrics) => readonly number[];
 }
 
+/**
+ * A series per run, reduced to that run's own five numbers, filed as the peak
+ * under the reading's own name and the rest as named siblings under it.
+ *
+ * It exists because a peak says the worst tick and the mow is about the
+ * ordinary one (the design record's section 7). The flat row keeps its exact
+ * name and its exact value, so a step 3 batch and a step 4 batch are still
+ * comparable by that name and READINGS_VERSION does not move; the max sibling
+ * restates it rather than being left out, so the four other figures read as a
+ * whole five-number summary and not as four numbers plus one a reader has to
+ * know where to find.
+ */
+interface DistributionDeclaration {
+  readonly reading: string;
+  readonly reduction: 'distribution';
+  readonly seriesOf: (report: Metrics) => readonly number[];
+}
+
 // The section timeline, which a batch reads twice: the spans and the reach.
 interface SectionSpansDeclaration {
   readonly reading: string;
@@ -209,6 +255,7 @@ type DeclaredBatchReading =
   | NumbersDeclaration
   | CountDeclaration
   | PeakDeclaration
+  | DistributionDeclaration
   | SectionSpansDeclaration
   | NotReducedDeclaration;
 
@@ -236,6 +283,15 @@ const peakReading = (
   reading: string,
   seriesOf: (report: Metrics) => readonly number[],
 ): PeakDeclaration => ({ reading, reduction: 'peak', seriesOf });
+
+const distributionReading = (
+  reading: string,
+  seriesOf: (report: Metrics) => readonly number[],
+): DistributionDeclaration => ({
+  reading,
+  reduction: 'distribution',
+  seriesOf,
+});
 
 const notReduced = (reading: string, why: string): NotReducedDeclaration => ({
   reading,
@@ -330,6 +386,25 @@ const stormPeaks = (report: Metrics): NumberRecord => {
 };
 
 /**
+ * A per-type, per-minute record flattened to one name per figure, so the whole
+ * subtree rides on one declaration rather than one per type.
+ *
+ * A minute a type had no timed kill in is absent from its own record already,
+ * so nothing here invents a zero for it.
+ */
+const perTypeMinutes = (
+  byType: Readonly<Partial<Record<MobType, Readonly<Record<string, number>>>>>,
+): NumberRecord => {
+  const names: Record<string, number> = {};
+  for (const [type, minutes] of Object.entries(byType)) {
+    for (const [minute, value] of Object.entries(minutes ?? {})) {
+      names[`${type}.${minute}`] = value;
+    }
+  }
+  return names;
+};
+
+/**
  * Which slot went in, under the site the offer stood at (#98's second comment).
  *
  * An offer the tape stopped on and one that scrolled away share the untaken
@@ -384,13 +459,19 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   // to pair across two runs, which is why the comparison table calls it a
   // list; what a batch reads off one is how many, how soon and where.
   byNameReading('levelUps', levelsBought),
-  peakReading('mobsAlivePerTick', (report) => report.mobsAlivePerTick),
+  distributionReading('mobsAlivePerTick', (report) => report.mobsAlivePerTick),
   peakReading('mobFireAlivePerTick', (report) => report.mobFireAlivePerTick),
   // What arrived, which is what the mow ruling tunes: the rate and the count
   // per spawn, read per section because that is where a schedule authors them.
   spreadReading(
     'tuning.arrivals.total',
     (report) => report.tuning.arrivals.total,
+  ),
+  // The rate rather than the count, which is the quantity a standing wave
+  // authors. Absent on a run with no ticks, which has no rate to have.
+  spreadReading(
+    'tuning.arrivals.perSecond',
+    (report) => report.tuning.arrivals.perSecond ?? undefined,
   ),
   byNameReading(
     'tuning.arrivals.bySection',
@@ -464,6 +545,15 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
     'tuning.engagements.hitsPerKill',
     (report) => report.tuning.engagements.hitsPerKill,
   ),
+  // The per-minute axis, flattened to type-and-minute names so one declaration
+  // covers the whole subtree. A minute a type had no timed kill in carries no
+  // name at all, which keeps an absent minute absent rather than zero.
+  byNameReading('tuning.engagements.hitsPerKillByMinute', (report) =>
+    perTypeMinutes(report.tuning.engagements.hitsPerKillByMinute),
+  ),
+  byNameReading('tuning.engagements.timedKillsByMinute', (report) =>
+    perTypeMinutes(report.tuning.engagements.timedKillsByMinute),
+  ),
   byNameReading(
     'tuning.engagements.hitsByLine',
     (report) => report.tuning.engagements.hitsByLine,
@@ -495,6 +585,12 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
     'tuning.gravePath.floorRecoveries',
     (report) => report.tuning.gravePath.floorRecoveries,
   ),
+  // Absent on a run that never reached the ceiling, on the same terms the
+  // reading itself keeps: there is no tick to name.
+  spreadReading(
+    'tuning.gravePath.ticksToCeiling',
+    (report) => report.tuning.gravePath.ticksToCeiling ?? undefined,
+  ),
   perLineReading('tuning.fieldPerLine.perLine', stormPeaks),
   peakReading(
     'tuning.fieldPerLine.total',
@@ -517,6 +613,12 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
     (report) => report.tuning.freshnessPaid.maxPaid,
   ),
   byNameReading('tuning.belchCadence.fires', belchesByBoss),
+  // The cadence itself, as a distribution over one run's own gaps: a run with
+  // one belch or none contributes nothing, which is a run with no cadence.
+  distributionReading(
+    'tuning.belchCadence.intervals',
+    (report) => report.tuning.belchCadence.intervals,
+  ),
   spreadReading(
     'tuning.belchCadence.ticksAtFull',
     (report) => report.tuning.belchCadence.ticksAtFull,
@@ -524,6 +626,26 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   spreadReading(
     'tuning.belchCadence.wasted',
     (report) => report.tuning.belchCadence.wasted,
+  ),
+  // The director's own instrument, read back off the tape (#85).
+  distributionReading(
+    'tuning.pressure.signalPerTick',
+    (report) => report.tuning.pressure.signalPerTick,
+  ),
+  byNameReading('tuning.pressure.adds', (report) =>
+    addsBySection(report.tuning.pressure),
+  ),
+  byNameReading(
+    'tuning.pressure.purseLeftBySection',
+    (report) => report.tuning.pressure.purseLeftBySection,
+  ),
+  spreadReading(
+    'tuning.pressure.ticksSignalLow',
+    (report) => report.tuning.pressure.ticksSignalLow,
+  ),
+  spreadReading(
+    'tuning.pressure.disagreements',
+    (report) => report.tuning.pressure.disagreements,
   ),
   spreadReading(
     'tuning.powerUpLedger.spawned',
@@ -729,6 +851,31 @@ const fileNumbers = (
   }
 };
 
+/**
+ * A run's own series, filed as the peak under the reading's own name and the
+ * five numbers as named siblings under it.
+ *
+ * The peak goes in first and alone, so the flat row is exactly what a peak
+ * declaration filed before this kind existed. A series with nothing in it files
+ * nothing, on spreadOf's own terms.
+ */
+const fileDistribution = (
+  acc: Collected,
+  declared: DistributionDeclaration,
+  seed: number,
+  report: Metrics,
+): void => {
+  const series = declared.seriesOf(report);
+  const peak = greatestOf(series);
+  if (peak === undefined) return;
+  addSample(acc.spreads, declared.reading, { seed, value: peak });
+  const summary = fiveNumbersOf(series);
+  if (summary === undefined) return;
+  for (const [name, value] of Object.entries(summary)) {
+    addSample(acc.spreads, `${declared.reading}.${name}`, { seed, value });
+  }
+};
+
 // Each closed span's length, and whether the run reached the deepest section.
 const fileTimeline = (acc: Collected, seed: number, report: Metrics): void => {
   let reached = 'stopped short';
@@ -760,6 +907,8 @@ const collectRun = (acc: Collected, seed: number, report: Metrics): void => {
       if (peak !== undefined) {
         addSample(acc.spreads, declared.reading, { seed, value: peak });
       }
+    } else if (declared.reduction === 'distribution') {
+      fileDistribution(acc, declared, seed, report);
     } else if (declared.reduction === 'spread') {
       const value = declared.numberOf(report);
       if (value !== undefined) {
@@ -832,6 +981,31 @@ const sectionSpansOf = (
   return spans;
 };
 
+// The last section the run opened, which is the one it was standing in.
+const sectionStoppedIn = (report: Metrics): SectionName | null => {
+  const spans = report.tuning.sectionTimeline.spans;
+  return spans[spans.length - 1]?.section ?? null;
+};
+
+/**
+ * This run's ceiling stop, or nothing when it did not reach the harness's own
+ * ceiling on how long a run may play.
+ *
+ * The budget is asked for rather than written down, so re-authoring a section
+ * moves what a ceiling stop is with it, and nothing here is ordered against a
+ * number of its own.
+ *
+ * Exactly the budget and never above it: runPolicy stops a harness run on the
+ * tick that reaches it, so an exhausted run's count is the budget itself. A
+ * tape longer than that was not played by the harness at all, and reading a
+ * person's long unfinished run as a ceiling stop would file a closed tab under
+ * a budget that never applied to it.
+ */
+const ceilingStopOf = (seed: number, report: Metrics): CeilingStop | null => {
+  if (report.run.ticks !== runTickBudget()) return null;
+  return { seed, section: sectionStoppedIn(report) };
+};
+
 /**
  * What a batch of measured tapes says, as a distribution per reading and never
  * a verdict (ADR 0053).
@@ -850,6 +1024,7 @@ const batchReportOf = (
   const acc = collected();
   const unverified: UnverifiedRun[] = [];
   const unfinished: number[] = [];
+  const ceilingStops: CeilingStop[] = [];
   let verified = 0;
   for (const { seed, measurement } of runs) {
     if (measurement.outcome !== 'verified') {
@@ -862,7 +1037,11 @@ const batchReportOf = (
       continue;
     }
     verified += 1;
-    if (measurement.run.ending === null) unfinished.push(seed);
+    if (measurement.run.ending === null) {
+      unfinished.push(seed);
+      const stopped = ceilingStopOf(seed, measurement);
+      if (stopped !== null) ceilingStops.push(stopped);
+    }
     collectRun(acc, seed, measurement);
   }
   return {
@@ -879,6 +1058,7 @@ const batchReportOf = (
     verified,
     unverified,
     unfinished,
+    ceilingStops,
     spreads: spreadsOf(acc.spreads),
     byLine: byLineOf(acc.byLine),
     counts: acc.counts,
@@ -891,6 +1071,7 @@ export type {
   BatchIdentity,
   BatchOrigin,
   BatchReport,
+  CeilingStop,
   DeclaredBatchReading,
   Sample,
   Spread,

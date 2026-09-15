@@ -127,6 +127,9 @@ const harnessHeader = (
     rendererResolution: 0,
     devicePixelRatio: 0,
     recordedAt,
+    // Read off the run, as the size and the levels are: a harness run holds no
+    // signal, so what this records is the resolved value that means it ran live.
+    signalLock: run.director.signal.lock,
   };
 };
 

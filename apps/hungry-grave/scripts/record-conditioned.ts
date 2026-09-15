@@ -157,6 +157,9 @@ const headerFor = (run: RunState): TapeHeader => {
     rendererResolution: 0,
     devicePixelRatio: 0,
     recordedAt: Date.now(),
+    // Read off the run, as the size and the levels are: a conditioned run holds
+    // no signal, so this records the value that means it ran live.
+    signalLock: run.director.signal.lock,
   };
 };
 

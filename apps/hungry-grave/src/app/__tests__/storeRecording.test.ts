@@ -22,6 +22,7 @@ import { PERSON_POLICY } from '../../tape/tape';
 import { TAPE_MAGIC } from '../../tape/wireCodes';
 import { recordRunToStore } from '../storeRecording';
 import type { TapePart, TapeStore } from '../tapeStore';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 const SPACING = 4;
 
@@ -43,6 +44,7 @@ const HEADER: TapeHeader = {
   rendererResolution: 2,
   devicePixelRatio: 2,
   recordedAt: 1_766_300_000_000,
+  signalLock: SIGNAL_RAN_LIVE,
 };
 
 interface AppendCall {

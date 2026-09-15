@@ -69,6 +69,11 @@ interface RunConditions {
  * The build identity is the one field the browser does not read off the page:
  * the build shell stamped it, because only a build can see whether the tree it
  * was made from was dirty (#82).
+ *
+ * The signal lock goes in off the run for the same reason the size and the
+ * levels do: the run resolved it before its first tick, so reading it here
+ * keeps one source of truth and keeps RunConditions about the browser rather
+ * than about what the URL asked for.
  */
 const tapeHeaderFor = (
   run: RunState,
@@ -92,6 +97,7 @@ const tapeHeaderFor = (
     rendererResolution: conditions.rendererResolution,
     devicePixelRatio: conditions.devicePixelRatio,
     recordedAt: conditions.recordedAt,
+    signalLock: run.director.signal.lock,
   };
 };
 

@@ -142,6 +142,21 @@ interface TapeHeader {
   readonly devicePixelRatio: number;
   // Wall clock, in epoch milliseconds, so a folder of tapes has an order.
   readonly recordedAt: number;
+  /**
+   * The figure the run held its pressure signal at, as a number rather than a
+   * nullable "held or not" (ADR 0027).
+   *
+   * It is the value the run actually started from, on the same terms as the
+   * starting size above: a run nothing pinned records SIGNAL_RAN_LIVE, and
+   * recording the absence would let a later change of that default silently
+   * change what every old tape replays as. Playback rebuilds the run from it,
+   * which is what makes a held run replay held.
+   *
+   * Last in the record, because the header is positional and appending is the
+   * one place a field can go without moving every reader's walk past it. The
+   * walk still changes, which is why FORMAT_VERSION moved to 4.
+   */
+  readonly signalLock: number;
 }
 
 /**

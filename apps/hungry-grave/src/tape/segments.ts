@@ -100,6 +100,12 @@ const writeHeaderRecord = (payload: ByteWriter, header: TapeHeader): void => {
   writeF32(payload, header.rendererResolution);
   writeF32(payload, header.devicePixelRatio);
   writeF64(payload, header.recordedAt);
+  // Appended last, so every field a version 3 reader knew is still where it
+  // was; what changes is that its walk now stops one f64 early, which is what
+  // FORMAT_VERSION 4 exists to refuse. An f64 for the same reason the starting
+  // size is one: the signal's scale is fractional and the sentinel that means
+  // it ran live is a figure that scale cannot produce.
+  writeF64(payload, header.signalLock);
 };
 
 /**

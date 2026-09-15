@@ -2,7 +2,7 @@ import type { Boss } from './bosses/phases';
 import type { Corpse } from './corpses';
 import { createCorpsePool } from './corpses';
 import type { DirectorState } from './director';
-import { STARTING_DIRECTOR } from './director';
+import { STARTING_DIRECTOR, startingSignal } from './director';
 import type { Grave } from './grave';
 import { createGrave } from './grave';
 import type { BellToll } from './lines/bell';
@@ -22,6 +22,8 @@ import { createMobPool } from './mobs';
 import type { Offer } from './offer';
 import type { Stream, StreamName } from './rng';
 import { stream, STREAM_SALTS } from './rng';
+import type { SignalLock } from './signalLock';
+import { SIGNAL_RAN_LIVE } from './signalLock';
 import type { SetPiece } from './stage/setPiece';
 import type { StageState } from './stage/stage';
 import { createStage, openingDirector } from './stage/stage';
@@ -267,12 +269,18 @@ const isBirthrightLevels = (
  * copied for the same reason the levels are: the caller's list is the caller's.
  * It is in the signature because a replay fields the roster its tape recorded
  * (ADR 0046), not the one this build happens to compile.
+ *
+ * The signal lock is in the signature on exactly the terms the size and the
+ * levels are: ?signal= pins it, the default is the resolved value that means
+ * the signal ran live, and a tape's header rebuilds a held run from the figure
+ * it carries (ADR 0027), which is what makes a locked run replay locked.
  */
 const createRun = (
   seed: number = rollSeed(),
   startingSize: number = SIZE_START,
   startingLevels?: Readonly<Record<WeaponLine, number>>,
   roster: readonly WeaponLine[] = WEAPON_LINES,
+  signalLock: SignalLock = SIGNAL_RAN_LIVE,
 ): RunState => {
   return {
     seed,
@@ -308,7 +316,10 @@ const createRun = (
     // The opening section's grant, made here because a run begins already
     // inside that section and no crossing grants it (stage.ts's
     // openingDirector).
-    director: openingDirector(STARTING_DIRECTOR),
+    director: openingDirector({
+      ...STARTING_DIRECTOR,
+      signal: startingSignal(signalLock),
+    }),
     refusals: { food: 0, carriers: 0, offers: 0 },
     nextEntityId: 1,
   };

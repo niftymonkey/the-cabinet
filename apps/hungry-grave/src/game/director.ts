@@ -8,6 +8,8 @@ import type { SimEvent } from './events';
 import type { MobOrigin } from './mobs';
 import type { Stream } from './rng';
 import type { RunState } from './run';
+import type { SignalLock } from './signalLock';
+import { isLocked, SIGNAL_RAN_LIVE } from './signalLock';
 import type { SpawnOrder } from './stage/formations';
 import { place } from './stage/formations';
 import type { Section } from './stage/stage';
@@ -23,18 +25,21 @@ import { HIT_SHRINK, SIZE_FLOOR, SIZE_START } from './tuning';
  * and a near-kill term would answer a player doing exactly what the design asks
  * by holding back (ADR 0056).
  *
- * The plan's seam writes a third field here, the signal lock, and signalLock.ts
- * is slice G's module: a lock declared now would either import a module that
- * does not exist or stand as a placeholder type where the fold is meant to read
- * a real one. Slice G declares it, and it owes no second witness version move,
- * because a lock is a figure the run resolves before its first tick and never
- * moves, which is the run's identity in exactly the sense seed and roster[] are,
- * and both of those are excluded from the fold with that reason beside them.
+ * The lock is the third field and it owes no witness version move, because a
+ * lock is a figure the run resolves before its first tick and never moves,
+ * which is the run's identity in exactly the sense seed and roster[] are, and
+ * both of those are excluded from the fold with that reason beside them.
  */
 interface PressureSignal {
   readonly value: number;
   // The tick the held interval ends on, after which the value decays.
   readonly heldUntilTick: number;
+  /**
+   * The figure this run holds the signal at, or SIGNAL_RAN_LIVE. It is
+   * resolved by createRun before the first tick and never written again, which
+   * is why advancePressure asks only whether it is a lock and never moves it.
+   */
+  readonly lock: SignalLock;
 }
 
 /**
@@ -58,10 +63,34 @@ interface DirectorState {
  * value rather than this value naming a figure of its own.
  */
 const STARTING_DIRECTOR: DirectorState = {
-  signal: { value: 0, heldUntilTick: 0 },
+  signal: { value: 0, heldUntilTick: 0, lock: SIGNAL_RAN_LIVE },
   purseLeft: 0,
   quietUntilTick: 0,
 };
+
+/**
+ * Whether a figure is one the signal's own scale could stand at, which is what
+ * a lock has to be to hold the gate anywhere real.
+ *
+ * It lives here because the scale is the director's: advancePressure clamps
+ * every value it writes between zero and SIGNAL_FULL, and signalLock.ts imports
+ * nothing so that the sim, the header and playback can all own the lock's type
+ * without any of them importing a consumer.
+ */
+const holdableSignal = (value: number): boolean =>
+  Number.isFinite(value) && value >= 0 && value <= SIGNAL_FULL;
+
+/**
+ * The signal a run starts from, under the lock it resolved. A locked run stands
+ * at its own figure from the first tick, because the experiment is the gate and
+ * the population read against a held signal rather than a signal that has to
+ * climb to one.
+ */
+const startingSignal = (lock: SignalLock): PressureSignal => ({
+  value: isLocked(lock) ? lock : 0,
+  heldUntilTick: 0,
+  lock,
+});
 
 /**
  * The signal's own scale, and **no source states it**. The record's section 5
@@ -208,25 +237,33 @@ const raisedBy = (events: readonly SimEvent[]): number => {
  * what a hold is for.
  *
  * It is pure: the signal in, the tick's events and the tick number, a new signal
- * out. Slice G's lock drops in as a guard at the top of this function and
- * nothing here has to be unpicked for it.
+ * out.
+ *
+ * A locked signal is returned unmoved whatever the tick's events, which is the
+ * lock's whole purpose: the gate and the population are tuned against a held
+ * signal. The spend gate downstream still reads the signal's own value and
+ * never the lock, so a held run reads exactly as a live run that happened to
+ * stand at that figure.
  */
 const advancePressure = (
   signal: PressureSignal,
   events: readonly SimEvent[],
   tick: number,
 ): PressureSignal => {
+  if (isLocked(signal.lock)) return signal;
   const raise = raisedBy(events);
   if (raise > 0) {
     return {
       value: Math.min(SIGNAL_FULL, signal.value + raise),
       heldUntilTick: tick + SIGNAL_HOLD_TICKS,
+      lock: signal.lock,
     };
   }
   if (tick <= signal.heldUntilTick) return signal;
   return {
     value: Math.max(0, signal.value - SIGNAL_DECAY_PER_TICK),
     heldUntilTick: signal.heldUntilTick,
+    lock: signal.lock,
   };
 };
 
@@ -335,6 +372,8 @@ const directorSpend = (
 
 export {
   STARTING_DIRECTOR,
+  holdableSignal,
+  startingSignal,
   advancePressure,
   advanceDirectorSignal,
   directorSpend,

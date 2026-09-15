@@ -33,6 +33,7 @@ import {
   SCRIPT_POLICY,
   stopOf,
 } from '../tape';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 const SEED = 20260823;
 
@@ -56,6 +57,7 @@ function header(run: RunState, spacing = 5): TapeHeader {
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_700_000_000_000,
+    signalLock: SIGNAL_RAN_LIVE,
   };
 }
 

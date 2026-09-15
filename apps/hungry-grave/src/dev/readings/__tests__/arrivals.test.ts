@@ -14,6 +14,7 @@ import type { SimEvent } from '../../../game/events';
 import { MOB_TYPE_NAMES, spawnMob } from '../../../game/mobs';
 import type { Mob, MobType } from '../../../game/mobs';
 import type { RunState } from '../../../game/run';
+import { TICK_HZ } from '../../../game/clock';
 import { createRun } from '../../../game/run';
 import { SECTIONS } from '../../../game/stage/stage';
 import { arrivalsOf, createArrivals, observeArrivals } from '../arrivals';
@@ -128,5 +129,27 @@ describe('arrivals', () => {
     expect(arrivals.bySection[sectionNameAt(0)]).toBe(1);
     expect(arrivals.bySection[sectionNameAt(1)]).toBe(2);
     expect(arrivals.bySection[sectionNameAt(2)]).toBe(undefined);
+  });
+
+  it('reports the rate as well as the count, and nothing at all over no ticks', () => {
+    // Module test. The rate is the quantity a standing wave authors and the
+    // count is what the run's own length happened to produce, so two runs of
+    // different lengths can only be read against each other by the rate.
+    //
+    // A run with no ticks has no rate rather than a rate of zero: there is no
+    // time to divide by, which is seriesSummary's own rule for an empty series.
+    const empty = createArrivals();
+    expect(arrivalsOf(empty).perSecond).toBeNull();
+
+    const run = createRun(SEED);
+    const acc = createArrivals();
+    arrive(run, 'shambler');
+    arrive(run, 'shambler');
+    run.tick = 2 * TICK_HZ;
+    observeArrivals(acc, [], run);
+
+    const arrivals = arrivalsOf(acc);
+    expect(arrivals.total).toBe(2);
+    expect(arrivals.perSecond).toBe(1);
   });
 });

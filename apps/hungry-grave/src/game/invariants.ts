@@ -181,7 +181,7 @@ const checkSetPieceNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'setPiece.hp', piece?.hp ?? 0);
 };
 
-// The director's own numbers, its signal's two included.
+// The director's own numbers, its signal's three included.
 const checkDirectorNoNaN = (state: RunState, faults: Fault[]): void => {
   const director = state.director;
   checkFinite(faults, 'director.signal.value', director.signal.value);
@@ -190,6 +190,10 @@ const checkDirectorNoNaN = (state: RunState, faults: Fault[]): void => {
     'director.signal.heldUntilTick',
     director.signal.heldUntilTick,
   );
+  // The lock is a resolved figure or the sentinel that means the signal ran
+  // live, so it is always a number and a non-finite one is a bug in whatever
+  // resolved it. The existing check reaches it; no identity is added.
+  checkFinite(faults, 'director.signal.lock', director.signal.lock);
   checkFinite(faults, 'director.purseLeft', director.purseLeft);
   checkFinite(faults, 'director.quietUntilTick', director.quietUntilTick);
 };

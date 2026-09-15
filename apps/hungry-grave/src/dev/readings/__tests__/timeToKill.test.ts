@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { TICK_HZ } from '../../../game/clock';
 import { FIELD_HEIGHT } from '../../../game/field';
 import type { Mob, MobType } from '../../../game/mobs';
 import { cullMobs, damageMob, spawnMob } from '../../../game/mobs';
@@ -262,5 +263,58 @@ describe('time to kill', () => {
         run,
       ),
     ).toThrow('mob 4242 died with no damage behind it');
+  });
+
+  it('splits the hits a kill cost by the minute the kill landed in, per type', () => {
+    // Module test for the new axis, including a kill on a minute boundary: the
+    // minute is the kill's own tick divided down, so the first tick of minute
+    // one belongs to minute one and not to minute zero.
+    //
+    // A minute a type had no timed kill in carries no name at all, which is the
+    // module's standing rule: there was no fight, not a fight that cost nothing.
+    const run = createRun(SEED);
+    const accumulator = createEngagements(linesInRun(run.levels));
+    const early = standing(run, 'shambler', 100);
+    const onTheBoundary = standing(run, 'shambler', 200);
+    const justAfter = standing(run, 'shambler', 300);
+
+    observeEngagements(
+      accumulator,
+      10,
+      damageMob(run, early, early.hp, 'skullStream'),
+      run,
+    );
+    // The tick a reading is handed is the count of ticks that have run, so
+    // 60 * TICK_HZ is the last tick of the first minute and not the first tick
+    // of the second: a kill there belongs to minute zero.
+    const boundary = 60 * TICK_HZ;
+    observeEngagements(
+      accumulator,
+      boundary - 1,
+      damageMob(run, onTheBoundary, 1, 'skullStream'),
+      run,
+    );
+    observeEngagements(
+      accumulator,
+      boundary,
+      damageMob(run, onTheBoundary, onTheBoundary.hp, 'skullStream'),
+      run,
+    );
+    observeEngagements(
+      accumulator,
+      boundary + 1,
+      damageMob(run, justAfter, justAfter.hp, 'skullStream'),
+      run,
+    );
+
+    const fights = engagementsOf(accumulator);
+
+    expect(fights.timedKillsByMinute.shambler).toEqual({ '0': 2, '1': 1 });
+    expect(fights.hitsPerKillByMinute.shambler?.['0']).toBe(1.5);
+    expect(fights.hitsPerKillByMinute.shambler?.['1']).toBe(1);
+    // The whole-run figures are untouched by the new axis.
+    expect(fights.timedKills.shambler).toBe(3);
+    // And a type that never died names no minute rather than a zero one.
+    expect(fights.hitsPerKillByMinute.ghoul).toEqual({});
   });
 });

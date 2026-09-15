@@ -184,9 +184,9 @@ const refusalFor = (
 };
 
 /**
- * The run a tape describes, rebuilt from the header alone: seed, resolved size
- * and resolved starting levels, so a pinned run's tape plays exactly as an
- * unpinned one's does.
+ * The run a tape describes, rebuilt from the header alone: seed, resolved size,
+ * resolved starting levels and the resolved signal lock, so a pinned run's tape
+ * plays exactly as an unpinned one's does and a held run replays held.
  *
  * A roster this build cannot implement never reaches here. The run is built at
  * the birthright in that case and no tick is ever fed into it, because a
@@ -198,6 +198,7 @@ const runFromHeader = (levels: StartingLevels, header: TapeHeader): RunState =>
     header.startingSize,
     levels.outcome === 'implemented' ? levels.levels : undefined,
     levels.outcome === 'implemented' ? levels.roster : undefined,
+    header.signalLock,
   );
 
 /**

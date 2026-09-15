@@ -2,7 +2,7 @@
 
 import { FIELD_HEIGHT } from '../../game/field';
 import type { RunState } from '../../game/run';
-import { SIZE_FLOOR } from '../../game/tuning';
+import { SIZE_CEILING, SIZE_FLOOR } from '../../game/tuning';
 import type { NumberRecord } from '../numbersByName';
 import { firstOf, greatestOf, lastOf, leastOf, meanOf } from '../seriesSummary';
 
@@ -57,6 +57,15 @@ interface GravePath {
    */
   readonly floorVisits: number;
   readonly floorRecoveries: number;
+  /**
+   * The first tick the size reached SIZE_CEILING, which is how long the run
+   * took to grow all the way.
+   *
+   * Null on a run that never reached it, on the same terms the module's other
+   * absent figures keep: a run that never got there has no tick to name, and a
+   * zero would read as a run that started there.
+   */
+  readonly ticksToCeiling: number | null;
 }
 
 interface GravePathAcc {
@@ -65,9 +74,15 @@ interface GravePathAcc {
   atFloor: boolean;
   floorVisits: number;
   floorRecoveries: number;
+  ticksToCeiling: number | null;
+  // Samples taken, which is the tick each one belongs to: index N is after N
+  // ticks, so the count before a push is that sample's own tick.
+  ticks: number;
 }
 
 const atSizeFloor = (size: number): boolean => size <= SIZE_FLOOR;
+
+const atSizeCeiling = (size: number): boolean => size >= SIZE_CEILING;
 
 const createGravePath = (startingSize: number): GravePathAcc => ({
   sizePerTick: [startingSize],
@@ -75,6 +90,8 @@ const createGravePath = (startingSize: number): GravePathAcc => ({
   atFloor: atSizeFloor(startingSize),
   floorVisits: 0,
   floorRecoveries: 0,
+  ticksToCeiling: atSizeCeiling(startingSize) ? 0 : null,
+  ticks: 0,
 });
 
 // The crossing this sample made, if it made one: down to the floor, or back above it.
@@ -86,9 +103,17 @@ const observeFloor = (acc: GravePathAcc, size: number): void => {
   acc.atFloor = nowAtFloor;
 };
 
+// The first tick the size stood at the ceiling, and never a later one.
+const observeCeiling = (acc: GravePathAcc, size: number): void => {
+  if (acc.ticksToCeiling !== null) return;
+  if (atSizeCeiling(size)) acc.ticksToCeiling = acc.ticks;
+};
+
 const observeGravePath = (acc: GravePathAcc, state: RunState): void => {
+  acc.ticks += 1;
   acc.sizePerTick.push(state.grave.size);
   observeFloor(acc, state.grave.size);
+  observeCeiling(acc, state.grave.size);
   if (gapUnderGrave(state) <= BOTTOM_EDGE_MARGIN) {
     acc.ticksNearBottomEdge += 1;
   }
@@ -100,6 +125,7 @@ const gravePathOf = (acc: GravePathAcc): GravePath => ({
   bottomEdgeMargin: BOTTOM_EDGE_MARGIN,
   floorVisits: acc.floorVisits,
   floorRecoveries: acc.floorRecoveries,
+  ticksToCeiling: acc.ticksToCeiling,
 });
 
 /**

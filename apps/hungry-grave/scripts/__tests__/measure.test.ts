@@ -23,6 +23,7 @@ import { encodeTape } from '../../src/tape/encode';
 import { recordInto, sealTrailer, tapeOf } from '../../src/tape/recorder';
 import type { TapeHeader } from '../../src/tape/tape';
 import { SCRIPT_POLICY } from '../../src/tape/tape';
+import { SIGNAL_RAN_LIVE } from '../../src/game/signalLock';
 
 const APP = resolve(import.meta.dirname, '..', '..');
 const VITE_NODE = join(APP, 'node_modules', '.bin', 'vite-node');
@@ -49,6 +50,7 @@ function header(run: RunState): TapeHeader {
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
+    signalLock: SIGNAL_RAN_LIVE,
   };
 }
 

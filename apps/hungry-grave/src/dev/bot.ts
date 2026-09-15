@@ -37,8 +37,10 @@ interface PolicyRun {
  *
  * The bot lives in src/dev because it is the test rig and not the game, and it
  * is not wired into the rendered app: ADR 0013 makes the same bot the dev-only
- * autopilot there, and the tracer plan puts that at the tuning dispatch behind
- * the input-model fence.
+ * autopilot there, and the tuning dispatch that was named as the trigger has
+ * now run and declined it (#39, the mow-ladder-director record's section 6).
+ * Watching a hand play is not a reading and the batch is, and this bot only
+ * dodges, so an autopilot on screen would show a policy rather than the game.
  */
 const runPolicy = (
   execution: Execution,

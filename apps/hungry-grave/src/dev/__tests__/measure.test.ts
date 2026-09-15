@@ -45,6 +45,7 @@ import {
 } from '../readings/upfieldTraffic';
 import { READINGS_VERSION } from '../readingsVersion';
 import type { FieldDensity, LevelUp } from '../replayTallies';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 const SEED = 20260823;
 const SPACING = 20;
@@ -79,6 +80,7 @@ function header(
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
+    signalLock: SIGNAL_RAN_LIVE,
     ...overrides,
   };
 }

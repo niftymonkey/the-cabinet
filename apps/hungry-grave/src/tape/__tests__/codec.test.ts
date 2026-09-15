@@ -20,6 +20,8 @@ import { COMMAND_BYTES } from '../segments';
 import type { Observation, Tape, TapeCheckpoint, TapeHeader } from '../tape';
 import { PERSON_POLICY, SCRIPT_POLICY, stopOf } from '../tape';
 import { FORMAT_VERSION, TAPE_MAGIC } from '../wireCodes';
+import { SIGNAL_FULL } from '../../game/director';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 /** Every field of the header's closed list, each a different value so none can stand in for another. */
 const HEADER: TapeHeader = {
@@ -40,6 +42,7 @@ const HEADER: TapeHeader = {
   rendererResolution: 2,
   devicePixelRatio: 3,
   recordedAt: 1_766_000_000_123,
+  signalLock: SIGNAL_RAN_LIVE,
 };
 
 function commands(count: number) {
@@ -498,7 +501,7 @@ describe('the self-describing header (#76, ADR 0043)', () => {
   }
 
   it('a format version 2 tape is refused with a format-version error, not decoded', () => {
-    // The accepted cost of two self-describing steps, recorded here so neither
+    // The accepted cost of three self-describing steps, recorded here so none
     // is ever mistaken for an oversight. Version 1 wrote one level byte per
     // line positionally, so byte for byte a version-2 reader would return a
     // headstones level presented as a Territory level. Version 2 wrote no
@@ -507,10 +510,66 @@ describe('the self-describing header (#76, ADR 0043)', () => {
     // it would be somebody else's. Byte count is not the test, and this is what
     // "a reader refuses a version it does not know rather than guessing at a
     // layout" costs, paid once per bump (ADR 0018, ADR 0043).
-    expect(FORMAT_VERSION).toBe(3);
+    expect(FORMAT_VERSION).toBe(4);
     expect(() => decodeTape(atVersion(2))).toThrow(TapeFormatError);
     expect(() => decodeTape(atVersion(2))).toThrow(/format version 2/);
     expect(() => decodeTape(atVersion(1))).toThrow(/format version 1/);
+  });
+
+  it('a format 3 tape is refused by its version rather than at a checkpoint', () => {
+    // Spec test 52. Version 3 wrote no signal lock, so a version-4 reader
+    // walking a version-3 header would run off the end of the header chunk and
+    // read whatever followed as the figure the run held its signal at. What the
+    // reader owes instead is the refusal, naming both numbers, before a single
+    // chunk is walked: a tape that diverged at a checkpoint would have looked
+    // like a broken recording rather than an old format.
+    //
+    // This is what FORMAT_VERSION 3 to 4 costs and it is stated here rather
+    // than discovered: every tape recorded before that commit is refused, this
+    // branch's own earlier tapes included.
+    const refused = atVersion(3);
+
+    expect(() => decodeTape(refused)).toThrow(TapeFormatError);
+    expect(() => decodeTape(refused)).toThrow(/format version 3/);
+    expect(() => decodeTape(refused)).toThrow(/version 4/);
+  });
+
+  it('refuses a lock the signal own scale could never stand at', () => {
+    // A tape is a document, so a value it cannot support is rejected and never
+    // repaired. A figure outside the scale would hold the gate where the signal
+    // can never stand, and a non-finite one would freeze the run there and
+    // fault on every tick after it, which is a whole run spent on a reading
+    // nobody could use.
+    for (const lock of [SIGNAL_FULL + 0.5, -2, NaN, Infinity]) {
+      const bytes = encodeTape({
+        ...FULL,
+        header: { ...HEADER, signalLock: lock },
+      });
+      expect(() => decodeTape(bytes)).toThrow(TapeFormatError);
+      expect(() => decodeTape(bytes)).toThrow(/holds its signal at/);
+    }
+
+    // And the two it does accept, so the refusal is a bound rather than a net.
+    for (const lock of [SIGNAL_RAN_LIVE, 0, SIGNAL_FULL]) {
+      const bytes = encodeTape({
+        ...FULL,
+        header: { ...HEADER, signalLock: lock },
+      });
+      expect(decodeTape(bytes).tape.header.signalLock).toBe(lock);
+    }
+  });
+
+  it('a header round-trips the signal lock it was written against', () => {
+    // Both halves of the lock, because the resolved value that means the signal
+    // ran live has to survive the wire exactly as a held figure does: it is the
+    // value the run started from and never an absence (ADR 0027).
+    const live = decodeTape(encodeTape(FULL)).tape;
+    expect(live.header.signalLock).toBe(SIGNAL_RAN_LIVE);
+
+    const held = decodeTape(
+      encodeTape({ ...FULL, header: { ...HEADER, signalLock: 0.375 } }),
+    ).tape;
+    expect(held.header.signalLock).toBe(0.375);
   });
 
   it('a header round-trips the roster it was written against', () => {

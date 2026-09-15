@@ -291,7 +291,11 @@ const measure = (decoded: DecodedTape): Measurement => {
   // The lines this run names, known before a tick has run, so every record the
   // report promises whole is whole even when the tape carries no command.
   const lines = linesInRun(startingLevels);
-  const readings = createReadings(startingSize, lines);
+  const readings = createReadings(
+    startingSize,
+    lines,
+    decoded.tape.header.signalLock,
+  );
   const tallies = createTallies(readings, lines, startingLevels);
   // A frame starting at tick 0 began on the empty field, which no listener
   // call ever sees: the observer fires only after a tick has run.

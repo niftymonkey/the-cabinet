@@ -33,6 +33,7 @@ import { ABSENT, compareRuns, INCOMPARABLE } from '../compareRuns';
 import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
 import { READINGS_VERSION } from '../readingsVersion';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 const SEED = 20260826;
 const SPACING = 20;
@@ -63,6 +64,7 @@ function header(
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
+    signalLock: SIGNAL_RAN_LIVE,
     ...overrides,
   };
 }

@@ -95,4 +95,22 @@ describe('belch cadence', () => {
     expect(cadence.wasted).toBe(PAYOUT);
     expect(cadence.fires).toEqual([]);
   });
+
+  it('reports the interval between fires, and none at all under two of them', () => {
+    // Module test. The fire list already carried the ticks and the gap between
+    // them is the cadence. One fire has nothing to be an interval from and no
+    // fire has less than that, so both report an empty list rather than a zero.
+    const noFires = createBelchCadence();
+    expect(belchCadenceOf(noFires).intervals).toEqual([]);
+
+    const one = createBelchCadence();
+    one.fires.push({ tick: 40, killed: 1, cancelled: 0 });
+    expect(belchCadenceOf(one).intervals).toEqual([]);
+
+    const several = createBelchCadence();
+    several.fires.push({ tick: 40, killed: 1, cancelled: 0 });
+    several.fires.push({ tick: 220, killed: 3, cancelled: 2 });
+    several.fires.push({ tick: 300, killed: 0, cancelled: 0 });
+    expect(belchCadenceOf(several).intervals).toEqual([180, 80]);
+  });
 });

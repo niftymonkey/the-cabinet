@@ -23,6 +23,7 @@ import {
 import type { Tape, TapeHeader } from '../../../tape/tape';
 import { SCRIPT_POLICY } from '../../../tape/tape';
 import { createTapePlaybackSession } from '../tapePlaybackSession';
+import { SIGNAL_RAN_LIVE } from '../../../game/signalLock';
 
 /** The recorded debt the trailer carries, asserted against the debt readout. */
 const RECORDED_DEBT = 5;
@@ -47,6 +48,7 @@ function headerFor(run: RunState): TapeHeader {
     rendererResolution: 1,
     devicePixelRatio: 1,
     recordedAt: 0,
+    signalLock: SIGNAL_RAN_LIVE,
   };
 }
 

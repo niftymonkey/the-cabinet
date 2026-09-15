@@ -21,6 +21,7 @@ import { recordInto, sealTrailer, tapeOf } from '../recorder';
 import type { Tape, TapeHeader } from '../tape';
 import { SCRIPT_POLICY } from '../tape';
 import { readBackForVerification } from '../verificationReadback';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 const SEED = 20260823;
 const SPACING = 20;
@@ -45,6 +46,7 @@ function header(run: RunState): TapeHeader {
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
+    signalLock: SIGNAL_RAN_LIVE,
   };
 }
 

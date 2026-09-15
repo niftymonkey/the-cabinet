@@ -7,10 +7,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_LEVEL } from '../../game/lines/roster';
 import { createRun, SEED_LIMIT } from '../../game/run';
 import { SIZE_CEILING, SIZE_FLOOR } from '../../game/tuning';
+import { SIGNAL_FULL } from '../../game/director';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { tapeHeaderFor } from '../tapeHeader';
+import type { RunConditions } from '../tapeHeader';
 import {
   atFromUrl,
   levelsFromUrl,
   seedFromUrl,
+  signalLockFromUrl,
   sizeFromUrl,
   tapeFromUrl,
 } from '../seedFromUrl';
@@ -134,6 +139,63 @@ describe('levelsFromUrl', () => {
     expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
       'max',
     );
+  });
+});
+
+// What a browser would have reported, so the header is a pure function here.
+const CONDITIONS: RunConditions = {
+  inputDevice: 'keyboard',
+  keyboardSpeed: 1,
+  rendererBackend: 'webgl',
+  rendererResolution: 2,
+  devicePixelRatio: 2,
+  recordedAt: 1_766_000_000_000,
+};
+
+describe('signalLockFromUrl (CONTEXT.md Signal lock)', () => {
+  beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => {}));
+  afterEach(() => vi.restoreAllMocks());
+
+  it('a run with no lock in its URL resolves the value that means the signal ran live', () => {
+    // Spec test 49, ADR 0027: the header records what the run started from and
+    // never an absence, so the parser answers null and the run resolves it.
+    expect(signalLockFromUrl('', '')).toBeNull();
+
+    const run = createRun(1234);
+    expect(run.director.signal.lock).toBe(SIGNAL_RAN_LIVE);
+    expect(tapeHeaderFor(run, CONDITIONS).signalLock).toBe(SIGNAL_RAN_LIVE);
+  });
+
+  it('a lock the URL states resolves to that figure, and the header records it', () => {
+    // Spec test 50, the other half. Both URL forms, on the seed's own terms.
+    expect(signalLockFromUrl('?signal=0.25', '')).toBe(0.25);
+    expect(signalLockFromUrl('', '#/?signal=0.25')).toBe(0.25);
+    expect(signalLockFromUrl('?signal=0.1', '#/?signal=0.25')).toBe(0.25);
+
+    const run = createRun(1234, undefined, undefined, undefined, 0.25);
+    expect(run.director.signal.lock).toBe(0.25);
+    expect(run.director.signal.value).toBe(0.25);
+    expect(tapeHeaderFor(run, CONDITIONS).signalLock).toBe(0.25);
+  });
+
+  it('a lock the module cannot use is warned about once and ignored, and the run plays', () => {
+    // Spec test 51, seedFromUrl.ts's own standing rule for a fat-fingered
+    // value. The bounds are the signal's own scale: a figure outside it would
+    // hold the gate where the signal can never stand.
+    expect(signalLockFromUrl('?signal=0', '')).toBe(0);
+    expect(signalLockFromUrl(`?signal=${SIGNAL_FULL}`, '')).toBe(SIGNAL_FULL);
+
+    for (const raw of ['full', '', '-0.5', String(SIGNAL_FULL + 1), 'NaN']) {
+      expect(signalLockFromUrl(`?signal=${raw}`, '')).toBeNull();
+    }
+    expect(console.warn).toHaveBeenCalledTimes(5);
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      'full',
+    );
+
+    // And the run still plays: a refused pin is a run with a live signal.
+    const run = createRun(1234, undefined, undefined, undefined, undefined);
+    expect(run.director.signal.lock).toBe(SIGNAL_RAN_LIVE);
   });
 });
 

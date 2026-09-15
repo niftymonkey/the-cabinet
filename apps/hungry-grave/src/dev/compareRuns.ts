@@ -1,5 +1,6 @@
 // Two measured runs, side by side, with no hand arithmetic.
 
+import type { MobType } from '../game/mobs';
 import type { Distribution } from './framePerformance';
 import type { Divergence, Measurement, Metrics, Refusal } from './measure';
 import type { NumberRecord } from './numbersByName';
@@ -7,6 +8,7 @@ import { fieldSummary, perLineSummary } from './readings/fieldPerLine';
 import { ledgerByLineNumbers } from './readings/powerUpLedger';
 import { sizeSummary } from './readings/gravePath';
 import { groundSummary } from './readings/groundHeld';
+import { signalSummary } from './readings/pressure';
 import { endNumbers, pacingSummary } from './readings/territoryControl';
 import { populationSummary } from './replayTallies';
 
@@ -270,6 +272,23 @@ const descriptiveReading = (
   }),
 });
 
+/**
+ * A per-type, per-minute record as one name per figure, so the whole subtree
+ * compares under one declaration and a minute one run had and the other did not
+ * shows as ABSENT on the side that lacks it.
+ */
+const perTypeMinuteNumbers = (
+  byType: Readonly<Partial<Record<MobType, Readonly<Record<string, number>>>>>,
+): NumberRecord => {
+  const names: Record<string, number> = {};
+  for (const [type, minutes] of Object.entries(byType)) {
+    for (const [minute, value] of Object.entries(minutes ?? {})) {
+      names[`${type}.${minute}`] = value;
+    }
+  }
+  return names;
+};
+
 // A timing distribution as names to numbers, since an interface carries no index signature.
 const distributionNumbers = (distribution: Distribution): NumberRecord => ({
   count: distribution.count,
@@ -328,6 +347,13 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.arrivals.total',
     (report) => report.tuning.arrivals.total,
   ),
+  // The rate beside the count, which is what a standing wave authors. Named
+  // numbers rather than a scalar, because the figure is absent on a run with no
+  // ticks and ABSENT is how a missing number is spelled: a null against a rate
+  // is not a difference to subtract.
+  namedNumbersReading('tuning.arrivals.perSecond', (report) => ({
+    perSecond: report.tuning.arrivals.perSecond ?? undefined,
+  })),
   namedNumbersReading(
     'tuning.arrivals.bySection',
     (report) => report.tuning.arrivals.bySection,
@@ -400,6 +426,15 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.engagements.hitsPerKill',
     (report) => report.tuning.engagements.hitsPerKill,
   ),
+  // The per-minute axis. Each side is walked over the union of both sides'
+  // type-and-minute names, so a minute one run had and the other did not shows
+  // its value on one side and ABSENT on the other rather than a delta.
+  namedNumbersReading('tuning.engagements.hitsPerKillByMinute', (report) =>
+    perTypeMinuteNumbers(report.tuning.engagements.hitsPerKillByMinute),
+  ),
+  namedNumbersReading('tuning.engagements.timedKillsByMinute', (report) =>
+    perTypeMinuteNumbers(report.tuning.engagements.timedKillsByMinute),
+  ),
   namedNumbersReading(
     'tuning.engagements.hitsByLine',
     (report) => report.tuning.engagements.hitsByLine,
@@ -429,6 +464,12 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.gravePath.floorRecoveries',
     (report) => report.tuning.gravePath.floorRecoveries,
   ),
+  // Absent on a run that never reached the ceiling, which is a run with no such
+  // tick rather than a run whose tick was zero, so the absence is spelled
+  // rather than subtracted.
+  namedNumbersReading('tuning.gravePath.ticksToCeiling', (report) => ({
+    ticksToCeiling: report.tuning.gravePath.ticksToCeiling ?? undefined,
+  })),
   seriesReading(
     'tuning.fieldPerLine.perLine',
     (report) => report.tuning.fieldPerLine.perLine,
@@ -459,6 +500,14 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.belchCadence.fires',
     (report) => report.tuning.belchCadence.fires,
   ),
+  // The gaps between fires, summarised as a series on the fire list's own
+  // terms: no entry of one is paired with an entry of the other, because two
+  // runs' third belch is not the same belch.
+  seriesReading(
+    'tuning.belchCadence.intervals',
+    (report) => report.tuning.belchCadence.intervals,
+    populationSummary,
+  ),
   scalarReading(
     'tuning.belchCadence.ticksAtFull',
     (report) => report.tuning.belchCadence.ticksAtFull,
@@ -466,6 +515,28 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
   scalarReading(
     'tuning.belchCadence.wasted',
     (report) => report.tuning.belchCadence.wasted,
+  ),
+  // The director's own run (#85). The signal is a per-tick series, the adds are
+  // a list because no add of one run pairs with an add of another, and the
+  // purse left is named numbers because a section one run never entered is
+  // absent there rather than at zero.
+  seriesReading(
+    'tuning.pressure.signalPerTick',
+    (report) => report.tuning.pressure.signalPerTick,
+    signalSummary,
+  ),
+  listReading('tuning.pressure.adds', (report) => report.tuning.pressure.adds),
+  namedNumbersReading(
+    'tuning.pressure.purseLeftBySection',
+    (report) => report.tuning.pressure.purseLeftBySection,
+  ),
+  scalarReading(
+    'tuning.pressure.ticksSignalLow',
+    (report) => report.tuning.pressure.ticksSignalLow,
+  ),
+  scalarReading(
+    'tuning.pressure.disagreements',
+    (report) => report.tuning.pressure.disagreements,
   ),
   scalarReading(
     'tuning.powerUpLedger.spawned',

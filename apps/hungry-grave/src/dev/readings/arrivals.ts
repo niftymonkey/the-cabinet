@@ -1,5 +1,6 @@
 // Every body that came onto the field, counted where and as what it arrived.
 
+import { TICK_HZ } from '../../game/clock';
 import type { SimEvent } from '../../game/events';
 import { MOB_TYPE_NAMES } from '../../game/mobs';
 import type { RunState } from '../../game/run';
@@ -22,6 +23,15 @@ import { addTo } from '../numbersByName';
  */
 interface Arrivals {
   readonly total: number;
+  /**
+   * Bodies a second over the whole run, which is the quantity a standing wave
+   * authors: the count above is what the run's own length happened to produce,
+   * so two runs of different lengths cannot be read against each other by it.
+   *
+   * Null on a run with no ticks at all, on seriesSummary's own terms: a rate
+   * over no time is not zero, it is nothing to divide.
+   */
+  readonly perSecond: number | null;
   readonly bySection: Readonly<Record<string, number>>;
   readonly byType: Readonly<Record<string, number>>;
 }
@@ -37,12 +47,15 @@ interface ArrivalsAcc {
    */
   highestId: number;
   total: number;
+  // Ticks the run has played, read off the run rather than counted here, so a
+  // reading that misses a tick cannot quietly shorten the run it divides by.
+  ticks: number;
 }
 
 const createArrivals = (): ArrivalsAcc => {
   const byType: Record<string, number> = {};
   for (const type of MOB_TYPE_NAMES) byType[type] = 0;
-  return { bySection: {}, byType, highestId: 0, total: 0 };
+  return { bySection: {}, byType, highestId: 0, total: 0, ticks: 0 };
 };
 
 // One body that came onto the field, as the two things this reading files it under.
@@ -97,6 +110,7 @@ const observeArrivals = (
   state: RunState,
 ): void => {
   const section = sectionNow(state);
+  acc.ticks = state.tick;
   let highest = acc.highestId;
   for (const body of bodiesSeen(events, state)) {
     highest = Math.max(highest, body.id);
@@ -110,6 +124,7 @@ const observeArrivals = (
 
 const arrivalsOf = (acc: ArrivalsAcc): Arrivals => ({
   total: acc.total,
+  perSecond: acc.ticks === 0 ? null : acc.total / (acc.ticks / TICK_HZ),
   bySection: { ...acc.bySection },
   byType: { ...acc.byType },
 });

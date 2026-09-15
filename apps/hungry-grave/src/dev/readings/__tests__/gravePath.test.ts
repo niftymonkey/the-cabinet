@@ -14,6 +14,7 @@ import {
   BASE_SPEED,
   HIT_SHRINK,
   INVULNERABLE_TICKS,
+  SIZE_CEILING,
   SIZE_FLOOR,
   SIZE_START,
 } from '../../../game/tuning';
@@ -166,5 +167,31 @@ describe('grave path', () => {
 
       expect(gravePathOf(accumulator).ticksNearBottomEdge).toBe(2);
     }
+  });
+
+  it('names the first tick the size reached the ceiling, and nothing on a run that never did', () => {
+    // Module test. Absent and not zero on a run that never got there, on the
+    // same terms the module's other absent figures keep: a zero would read as a
+    // run that started at the ceiling, which is a different run.
+    const never = createRun(SEED);
+    const short = createGravePath(never.grave.size);
+    for (let tick = 0; tick < 5; tick++) observeGravePath(short, never);
+    expect(gravePathOf(short).ticksToCeiling).toBeNull();
+
+    const grown = createRun(SEED);
+    const climbing = createGravePath(grown.grave.size);
+    observeGravePath(climbing, grown);
+    observeGravePath(climbing, grown);
+    grown.grave.size = SIZE_CEILING;
+    observeGravePath(climbing, grown);
+    observeGravePath(climbing, grown);
+
+    // Index N is the size after N ticks, so the third sample is tick three, and
+    // the later tick at the ceiling never overwrites the first.
+    expect(gravePathOf(climbing).ticksToCeiling).toBe(3);
+
+    // And a run that began at the ceiling names its own first tick, zero.
+    const born = createGravePath(SIZE_CEILING);
+    expect(gravePathOf(born).ticksToCeiling).toBe(0);
   });
 });

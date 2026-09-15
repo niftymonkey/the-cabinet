@@ -18,7 +18,12 @@ import {
   isBirthrightLevels,
   uniformLevels,
 } from '../../../game/run';
-import { levelsFromUrl, seedFromUrl, sizeFromUrl } from '../../seedFromUrl';
+import {
+  levelsFromUrl,
+  seedFromUrl,
+  signalLockFromUrl,
+  sizeFromUrl,
+} from '../../seedFromUrl';
 
 /**
  * What the run was born with, read once when it starts (ADR 0012, ADR 0020).
@@ -119,10 +124,16 @@ const begin = (session: Session): StartedRun => {
   // The loadout pin (ADR 0020): a testing control, never player-facing, and
   // it belongs behind the instrumentation build's gate.
   const levels = levelsFromUrl(search, hash);
+  // The signal pin, which holds the pressure signal at a figure for a tuning
+  // experiment. Null resolves inside createRun, so the header records the value
+  // the run started from rather than the absence (ADR 0027).
+  const signalLock = signalLockFromUrl(search, hash);
   const run = createRun(
     seed ?? undefined,
     size ?? undefined,
     levels === null ? undefined : uniformLevels(levels),
+    undefined,
+    signalLock ?? undefined,
   );
   const execution = startExecution(run);
   session.run = run;

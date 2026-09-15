@@ -21,6 +21,7 @@ import { SCRIPT_POLICY } from '../../tape/tape';
 import { BATCH_READINGS } from '../batchReport';
 import type { Metrics } from '../measure';
 import { measure } from '../measure';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 const SEED = 20260826;
 const TICKS = 60;
@@ -47,6 +48,7 @@ const shortReport = (): Metrics => {
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
+    signalLock: SIGNAL_RAN_LIVE,
   });
   for (let tick = 0; tick < TICKS; tick++) {
     executeTick(execution, { move: { x: 0.2, y: -0.1 }, belch: false });

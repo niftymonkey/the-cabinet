@@ -20,8 +20,10 @@ import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
 import { SCRIPT_POLICY } from '../../tape/tape';
 import { batchReportOf, BATCH_SEEDS } from '../batchReport';
 import type { BatchOrigin } from '../batchReport';
+import { runTickBudget } from '../harnessRun';
 import { measure } from '../measure';
 import type { Measurement, Metrics } from '../measure';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 const TICKS = 60;
 
@@ -60,6 +62,7 @@ const verifiedReport = (seed: number): Metrics => {
     rendererResolution: 0,
     devicePixelRatio: 0,
     recordedAt: 1_788_000_000_000,
+    signalLock: SIGNAL_RAN_LIVE,
   });
   for (let tick = 0; tick < TICKS; tick++) {
     executeTick(execution, { move: { x: 0.2, y: -0.1 }, belch: false });
@@ -293,6 +296,116 @@ describe('the batch report', () => {
     expect(report.counts['run.ending']).toEqual({ sealed: 2, none: 1 });
   });
 
+  it('reports mobs alive as a distribution over ticks beside its peak', () => {
+    // Spec test 55. The record's section 7: a peak says the worst tick and the
+    // mow is about the ordinary one. The flat row keeps its exact name and its
+    // exact value, the run's peak, which is the half that keeps
+    // READINGS_VERSION at 4: a step 3 batch and a step 4 batch still subtract
+    // by name.
+    const population = (seed: number, series: number[]): MeasuredRun => ({
+      seed,
+      measurement: { ...BASE, mobsAlivePerTick: series },
+    });
+    const runs = [
+      population(900, [0, 1, 2, 3, 40]),
+      population(901, [0, 2, 4, 6, 80]),
+    ];
+
+    const report = batchReportOf(origin(2), runs);
+
+    const peak = requireDefined(report.spreads.mobsAlivePerTick, 'no peak row');
+    expect(peak.summary.min).toBe(40);
+    expect(peak.summary.max).toBe(80);
+
+    // And the rest of each run's own five numbers, filed as named siblings so
+    // no second entry claims the flat row's path.
+    const median = requireDefined(
+      report.spreads['mobsAlivePerTick.median'],
+      'no median sibling',
+    );
+    expect(median.samples.map((sample) => sample.value)).toEqual([2, 4]);
+    expect(
+      requireDefined(report.spreads['mobsAlivePerTick.min'], 'no min sibling')
+        .summary.max,
+    ).toBe(0);
+  });
+
+  it('reports hits to kill by the minute the kill landed in, per trash type', () => {
+    // Spec test 55a. The record's section 7 and section 12 item 6: a figure
+    // over a whole run cannot see the per-rung weapon climb eating into what a
+    // body costs, and with no per-minute health step authored this is the
+    // reading that says whether the mow ends part way through a run.
+    const engaged = (seed: number, perMinute: Record<string, number>) => ({
+      seed,
+      measurement: {
+        ...BASE,
+        tuning: {
+          ...BASE.tuning,
+          engagements: {
+            ...BASE.tuning.engagements,
+            hitsPerKillByMinute: { shambler: perMinute },
+            timedKillsByMinute: { shambler: { '0': 4 } },
+          },
+        },
+      },
+    });
+
+    const report = batchReportOf(origin(2), [
+      engaged(900, { '0': 6, '3': 2 }),
+      engaged(901, { '0': 8, '3': 4 }),
+    ]);
+
+    expect(
+      requireDefined(
+        report.spreads['tuning.engagements.hitsPerKillByMinute.shambler.0'],
+        'no first minute',
+      ).summary.min,
+    ).toBe(6);
+    expect(
+      requireDefined(
+        report.spreads['tuning.engagements.hitsPerKillByMinute.shambler.3'],
+        'no fourth minute',
+      ).summary.max,
+    ).toBe(4);
+    // A minute no run had a timed kill in is absent rather than zero.
+    expect(
+      report.spreads['tuning.engagements.hitsPerKillByMinute.shambler.1'],
+    ).toBe(undefined);
+  });
+
+  it('says how many of its runs stopped at the tick ceiling', () => {
+    // Spec test 56, #118's first acceptance criterion: a batch of forty-eight
+    // that is quietly a batch of forty-seven cannot see a run that never ends.
+    // A ceiling stop is the subset of unfinished that also spent the harness's
+    // whole budget, and it names the section the run was standing in, which is
+    // what says where the run got stuck rather than only that it did.
+    const budget = runTickBudget();
+    const stopped = (
+      seed: number,
+      ending: 'sealed' | null,
+      ticks: number,
+    ): MeasuredRun => ({
+      seed,
+      measurement: { ...BASE, run: { ...BASE.run, ending, ticks } },
+    });
+
+    const report = batchReportOf(origin(3), [
+      stopped(900, 'sealed', budget),
+      stopped(901, null, budget),
+      stopped(902, null, 1000),
+    ]);
+
+    expect(report.ceilingStops.map((stop) => stop.seed)).toEqual([901]);
+    // A strict subset of unfinished and never a second count of it: the run
+    // that quit early reached no ending either, and it spent no budget.
+    expect(report.unfinished).toEqual([901, 902]);
+    expect(report.ceilingStops[0]?.section).toBe(
+      BASE.tuning.sectionTimeline.spans[
+        BASE.tuning.sectionTimeline.spans.length - 1
+      ]?.section ?? null,
+    );
+  });
+
   it('names no unfinished run when every run reached an ending', () => {
     // The list has teeth only if it is empty when it should be: a field that
     // named every run would be as invisible to a reader as no field at all.
@@ -308,6 +421,7 @@ describe('the batch report', () => {
     ]);
 
     expect(report.unfinished).toEqual([]);
+    expect(report.ceilingStops).toEqual([]);
   });
 
   it('states no number as a target', () => {

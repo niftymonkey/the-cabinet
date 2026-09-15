@@ -1227,6 +1227,16 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
+    path: 'director.signal.lock',
+    poison: (run) => {
+      run.director = {
+        ...run.director,
+        signal: { ...run.director.signal, lock: NaN },
+      };
+      return run;
+    },
+  },
+  {
     path: 'director.purseLeft',
     poison: (run) => {
       run.director = { ...run.director, purseLeft: NaN };
