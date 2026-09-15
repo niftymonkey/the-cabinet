@@ -677,6 +677,29 @@ describe('the section tables as data (ADR 0006)', () => {
       );
     }
   });
+
+  it('fails loudly on a section stating a formation ceiling above one', () => {
+    // The ruling this test carries: one is the only formation ceiling the
+    // director can honour, so the column states that figure and tsc fails this
+    // file the moment it states anything else. The count saturates because
+    // Mob.from says what put a body on the field and never which group it
+    // arrived in, so a 2 authored here would compile, pass every test in this
+    // file, and gate at one anyway. The guard is the column's type rather than
+    // a reading of the cells, because the type is what the person editing a
+    // cell has in front of them.
+    const procession = SECTIONS.find((each) => each.name === 'procession')!;
+    const overstated: Section = {
+      ...procession,
+      // @ts-expect-error -- two is not a ceiling this column may state.
+      liveFormationCeiling: 2,
+    };
+
+    // And nothing at runtime clamps it, which is why the refusal has to be at
+    // the cell: the figure reads back exactly as it was authored.
+    expect(`${overstated.name} ${overstated.liveFormationCeiling}`).toBe(
+      'procession 2',
+    );
+  });
 });
 
 describe("the director's off-limits cells, as data (ADR 0047, ADR 0056)", () => {

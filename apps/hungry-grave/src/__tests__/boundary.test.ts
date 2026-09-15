@@ -786,3 +786,73 @@ describe('the cap derivation reads tables and never the stage', () => {
     ).toEqual([OUT_OF_ITS_REACH]);
   });
 });
+
+/**
+ * The module the lock's type lives in, and the whole of what it may depend on,
+ * which is nothing.
+ *
+ * The emptiness is a property other modules rely on rather than a tidiness: the
+ * sim, the tape header and playback all own the same type, and none of them
+ * imports a consumer to get it. It is asserted here because the comment saying
+ * so was true and the tree drifted past it anyway, with src/tape/records.ts
+ * reaching src/game/director for one predicate.
+ */
+const OWNS_THE_LOCK = 'game/signalLock';
+
+describe('the lock is owned by a module with nothing behind it', () => {
+  it("the lock's module imports nothing", () => {
+    const file = join(SRC, `${OWNS_THE_LOCK}.ts`);
+    expect(importsOf(readFileSync(file, 'utf8'))).toEqual([]);
+  });
+
+  it('counts a package as readily as a path, because either one is a dependency', () => {
+    // The teeth, handed source strings with no files behind them, the way the
+    // fences above are. A type-only import counts too: this module is asserted
+    // to depend on nothing at all, not to depend on nothing at runtime.
+    expect(importsOf("import { TICK_HZ } from './clock';")).toEqual([
+      './clock',
+    ]);
+    expect(importsOf("import type { RunState } from './run';")).toEqual([
+      './run',
+    ]);
+    expect(importsOf("import { z } from 'zod';")).toEqual(['zod']);
+  });
+});
+
+/**
+ * The codec that parses a tape header, and the one module it may never reach.
+ *
+ * src/tape's own row above reaches src/game whole, because playback reproduces
+ * a run through the one execution authority (ADR 0017), so a folder rule cannot
+ * say this. What the direction costs is specific: the director value-imports
+ * run.ts, the stage tables and tuning.ts, so one predicate borrowed from it
+ * puts the whole sim behind the edge where bytes are turned into a trusted
+ * value.
+ */
+const PARSES_THE_HEADER = 'tape/records';
+const OUT_OF_THE_CODEC_S_REACH = 'game/director';
+
+describe('the tape codec parses a header without the director', () => {
+  it('the tape codec imports nothing from the director', () => {
+    const file = join(SRC, `${PARSES_THE_HEADER}.ts`);
+    expect(
+      everythingReachedIn(file, readFileSync(file, 'utf8')).filter((path) =>
+        covers(OUT_OF_THE_CODEC_S_REACH, path),
+      ),
+    ).toEqual([]);
+  });
+
+  it('fails a type-only reach, which a bundler would let through', () => {
+    // The same ruling the cap derivation's fence carries: a type-only import
+    // satisfies a bundler and fails here, because what it signals is that
+    // somebody went looking for the director from inside the codec and found a
+    // way.
+    const file = join(SRC, `${PARSES_THE_HEADER}.ts`);
+    const source = "import type { Spend } from '../game/director';";
+    expect(
+      everythingReachedIn(file, source).filter((path) =>
+        covers(OUT_OF_THE_CODEC_S_REACH, path),
+      ),
+    ).toEqual([OUT_OF_THE_CODEC_S_REACH]);
+  });
+});

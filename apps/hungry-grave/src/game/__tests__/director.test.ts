@@ -21,7 +21,6 @@ import {
   QUIET_MIN_TICKS,
   SIGNAL_DECAY_PER_TICK,
   SIGNAL_DECAY_TICKS,
-  SIGNAL_FULL,
   SIGNAL_HOLD_TICKS,
   SIGNAL_LOW_THRESHOLD,
   STARTING_DIRECTOR,
@@ -36,7 +35,7 @@ import { spawnMob } from '../mobs';
 import type { StreamName } from '../rng';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { isLocked, SIGNAL_RAN_LIVE } from '../signalLock';
+import { isLocked, SIGNAL_FULL, SIGNAL_RAN_LIVE } from '../signalLock';
 import { stepping } from '../../dev/stepping';
 import { place } from '../stage/formations';
 import type { Section, SectionName } from '../stage/stage';

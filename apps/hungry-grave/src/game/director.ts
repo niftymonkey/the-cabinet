@@ -9,7 +9,7 @@ import type { MobOrigin } from './mobs';
 import type { Stream } from './rng';
 import type { RunState } from './run';
 import type { SignalLock } from './signalLock';
-import { isLocked, SIGNAL_RAN_LIVE } from './signalLock';
+import { isLocked, SIGNAL_FULL, SIGNAL_RAN_LIVE } from './signalLock';
 import type { SpawnOrder } from './stage/formations';
 import { place } from './stage/formations';
 import type { Section } from './stage/stage';
@@ -69,18 +69,6 @@ const STARTING_DIRECTOR: DirectorState = {
 };
 
 /**
- * Whether a figure is one the signal's own scale could stand at, which is what
- * a lock has to be to hold the gate anywhere real.
- *
- * It lives here because the scale is the director's: advancePressure clamps
- * every value it writes between zero and SIGNAL_FULL, and signalLock.ts imports
- * nothing so that the sim, the header and playback can all own the lock's type
- * without any of them importing a consumer.
- */
-const holdableSignal = (value: number): boolean =>
-  Number.isFinite(value) && value >= 0 && value <= SIGNAL_FULL;
-
-/**
  * The signal a run starts from, under the lock it resolved. A locked run stands
  * at its own figure from the first tick, because the experiment is the gate and
  * the population read against a held signal rather than a signal that has to
@@ -91,19 +79,6 @@ const startingSignal = (lock: SignalLock): PressureSignal => ({
   heldUntilTick: 0,
   lock,
 });
-
-/**
- * The signal's own scale, and **no source states it**. The record's section 5
- * item 6 gives the hold and the decay, ADR 0056 gives the three inputs, and the
- * weight of each input and the figure that counts as low are a gap in the plan
- * rather than a licence: they are authored here, derived rather than tuned, on
- * the same terms as slice C's surge cap and slice D's card table.
- *
- * The scale is normalized. One means the run is under as much pressure as the
- * signal tracks, which is what makes the decay below read as thirty seconds
- * from full to nothing rather than as a rate nobody can state.
- */
-const SIGNAL_FULL = 1;
 
 /**
  * What one hit on the grave is worth, and the derivation is ADR 0003's own
@@ -328,12 +303,19 @@ const spanWave = (state: RunState, section: Section): StageWave | null => {
 /**
  * What the director spends this tick, or nothing (ADR 0056).
  *
- * The gate, in the order a reader would check it: the section's permission
- * cell, then a purse with something in it the cheapest card fits inside, then
- * the signal, then the quiet interval, then the section's own ceiling, then the
- * permission cell of the wave whose span the card would land in. Every one of
- * them reads off data and none of them names a section, a boss or a set piece,
- * which is ADR 0047's own requirement.
+ * The gate: the section's permission cell, then the signal, then the quiet
+ * interval, then a purse with something in it the cheapest card fits inside,
+ * then the section's own ceiling, then the permission cell of the wave whose
+ * span the card would land in. Every one of them reads off data and none of
+ * them names a section, a boss or a set piece, which is ADR 0047's own
+ * requirement.
+ *
+ * The two scalar refusals stand ahead of the affordable list rather than in the
+ * order a reader would tell them, because the quiet interval alone runs four to
+ * eight seconds and a list built to be discarded on the next line is a list
+ * built on well over ninety per cent of a directed section's ticks. No refusal
+ * can change another's answer: each reads a different field and none of them
+ * writes.
  *
  * A tick it refuses draws nothing at all. The draws sit past the last refusal
  * on purpose: a stream advanced on a gate it never passed rebuilds #108's
@@ -346,12 +328,12 @@ const directorSpend = (
 ): Spend | null => {
   if (!section.directed) return null;
   if (section.purse === null) return null;
+  if (state.director.signal.value >= SIGNAL_LOW_THRESHOLD) return null;
+  if (state.tick < state.director.quietUntilTick) return null;
   const affordable = CARDS.filter(
     (card) => cardCost(card) <= state.director.purseLeft,
   );
   if (affordable.length === 0) return null;
-  if (state.director.signal.value >= SIGNAL_LOW_THRESHOLD) return null;
-  if (state.tick < state.director.quietUntilTick) return null;
   if (ceilingMet(state, section)) return null;
   const span = spanWave(state, section);
   if (span === null || !span.directed) return null;
@@ -372,14 +354,12 @@ const directorSpend = (
 
 export {
   STARTING_DIRECTOR,
-  holdableSignal,
   startingSignal,
   advancePressure,
   advanceDirectorSignal,
   directorSpend,
   GRAVE_HIT_WEIGHT,
   FLOOR_EVENT_WEIGHT,
-  SIGNAL_FULL,
   SIGNAL_LOW_THRESHOLD,
   SIGNAL_HOLD_TICKS,
   SIGNAL_DECAY_TICKS,

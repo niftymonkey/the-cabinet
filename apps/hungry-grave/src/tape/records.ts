@@ -27,8 +27,7 @@ import type {
   TapeTrailer,
 } from './tape';
 import { FRAME_REASONS, TAPE_INPUT_DEVICES, TAPE_INTEGRITIES } from './tape';
-import { holdableSignal } from '../game/director';
-import { SIGNAL_RAN_LIVE } from '../game/signalLock';
+import { holdableSignal, SIGNAL_RAN_LIVE } from '../game/signalLock';
 import { TapeFormatError } from './tapeFormatError';
 import {
   ABSENT_CODE,

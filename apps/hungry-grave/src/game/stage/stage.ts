@@ -78,8 +78,16 @@ interface Section {
    * wrong, and ADR 0023 puts every invariant in the player's own build: written
    * as a law these two waves would fire at that player and land in their tape as
    * a defect in the game.
+   *
+   * One is the only figure it can state, which is why the column's type is the
+   * literal and not a number. The director counts live formations off
+   * Mob.from, which says what put a body on the field and never which group it
+   * arrived in, so shaped bodies alive mean at least one live formation and the
+   * count cannot tell one from two. A two here would compile, pass, and quietly
+   * gate at one; a table that wants two needs the bodies to carry their group
+   * first, and nothing in the tree does.
    */
-  readonly liveFormationCeiling: number | null;
+  readonly liveFormationCeiling: 1 | null;
   readonly liveBodyCeiling: number | null;
   /**
    * Whether a banked offer may open in this section (ADR 0034, ADR 0048). True

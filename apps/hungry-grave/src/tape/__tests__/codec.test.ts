@@ -20,8 +20,7 @@ import { COMMAND_BYTES } from '../segments';
 import type { Observation, Tape, TapeCheckpoint, TapeHeader } from '../tape';
 import { PERSON_POLICY, SCRIPT_POLICY, stopOf } from '../tape';
 import { FORMAT_VERSION, TAPE_MAGIC } from '../wireCodes';
-import { SIGNAL_FULL } from '../../game/director';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { SIGNAL_FULL, SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 /** Every field of the header's closed list, each a different value so none can stand in for another. */
 const HEADER: TapeHeader = {

@@ -1,7 +1,7 @@
 // What the URL asks of a run. Pure functions over two strings, so they are
 // testable without a browser.
 
-import { SIGNAL_FULL } from '../game/director';
+import { SIGNAL_FULL } from '../game/signalLock';
 import { MAX_LEVEL } from '../game/lines/roster';
 import { SEED_LIMIT } from '../game/run';
 

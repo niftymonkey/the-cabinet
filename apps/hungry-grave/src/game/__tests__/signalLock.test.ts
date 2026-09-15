@@ -8,12 +8,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   advancePressure,
-  SIGNAL_FULL,
   startingSignal,
   STARTING_DIRECTOR,
 } from '../director';
 import type { SimEvent } from '../events';
-import { isLocked, SIGNAL_RAN_LIVE } from '../signalLock';
+import { isLocked, SIGNAL_FULL, SIGNAL_RAN_LIVE } from '../signalLock';
 
 const GRAVE_HIT: SimEvent = {
   type: 'graveHit',

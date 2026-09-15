@@ -7,8 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_LEVEL } from '../../game/lines/roster';
 import { createRun, SEED_LIMIT } from '../../game/run';
 import { SIZE_CEILING, SIZE_FLOOR } from '../../game/tuning';
-import { SIGNAL_FULL } from '../../game/director';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { SIGNAL_FULL, SIGNAL_RAN_LIVE } from '../../game/signalLock';
 import { tapeHeaderFor } from '../tapeHeader';
 import type { RunConditions } from '../tapeHeader';
 import {
