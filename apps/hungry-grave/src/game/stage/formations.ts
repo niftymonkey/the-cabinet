@@ -202,5 +202,5 @@ const place = (
   return wall(count);
 };
 
-export { place, MAX_ENTRY_DEPTH };
+export { place, BODY, MAX_ENTRY_DEPTH };
 export type { FormationName, SpawnOrder };

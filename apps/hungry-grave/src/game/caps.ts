@@ -1,7 +1,10 @@
 // The entity cap policy (tracer plan section 3).
 
+import { TICK_HZ } from './clock';
+import { FIELD_HEIGHT } from './field';
+import { BODY, MAX_ENTRY_DEPTH } from './stage/formations';
 import { peakArrivals } from './stage/waves';
-import { FRESHNESS_SECONDS } from './tuning';
+import { FRESHNESS_SECONDS, SCROLL_SPEED } from './tuning';
 
 /**
  * At the cap something must be dropped, and which one is a gameplay rule rather
@@ -18,18 +21,63 @@ import { FRESHNESS_SECONDS } from './tuning';
  */
 
 /**
- * The caps are a safety net and not a tuning knob. The densest authored moment
- * puts 51 mobs alive at once, at tick 11341, measured across three seeds in
- * docs/research/invariant-check-cost.md section 3a. They are far enough above
- * the content that hitting one means something has gone wrong, and near enough
- * that a runaway spawn cannot allocate without bound. The tuning dispatch owns
- * them if the storm changes the arithmetic.
+ * The caps are a safety net and not a tuning knob, and they are identical on
+ * every device and never lowered for a phone's frame budget: a device-varying
+ * cap makes the same seed a different game and spends exactly what ADR 0015
+ * paid for.
  *
- * They are identical on every device and are never lowered for a phone's frame
- * budget: a device-varying cap makes the same seed a different game and spends
- * exactly what ADR 0015 paid for.
+ * The mob cap was a constant of 160, read off a 51-mob peak measured across
+ * three seeds in docs/research/invariant-check-cost.md section 3a. The stage's
+ * authored floor now grows over the run (ADR 0060) and a standing wave at
+ * twelve bodies a second holds more than that in transit at any instant, so the
+ * figure stopped describing the content it was taken from. It is a derivation
+ * below, on ADR 0056's own terms: the content prices the cap and never the cap
+ * the content.
  */
-const MOB_CAP = 160;
+
+/**
+ * The longest a body can stand on the field, in seconds: the deepest a
+ * formation may place it above the top edge, plus the field, plus its own
+ * length before the cull lets go of it below the bottom edge, at the slowest
+ * descent the sim allows.
+ *
+ * The scroll alone and never a mob type's own speed, for two reasons that agree.
+ * Every body descends at the scroll plus its own motion, a faller's speed is
+ * positive and a ghoul's chase is floored above zero, so the scroll is a floor
+ * on every type's descent and this is therefore an upper bound on every type's
+ * stay. And the mob table cannot be read from here at all: mobs.ts imports this
+ * module, so reaching back for MOB_TYPES would close a cycle. The bound is
+ * loose by design, which is the direction a safety net rounds.
+ */
+const TRANSIT_SECONDS =
+  (MAX_ENTRY_DEPTH + FIELD_HEIGHT + BODY) / (SCROLL_SPEED * TICK_HZ);
+
+/**
+ * The most bodies the stage can hold alive at once, derived from the stage's
+ * own waves rather than written down (ADR 0056).
+ *
+ * A proof and not an estimate, in the shape the corpse cap below already uses.
+ * Nothing removes a body but a kill, a cull at the bottom edge, or the end of a
+ * run, so every body alive at an instant arrived inside one transit window; and
+ * what the stage can land in a window is exactly what peakArrivals answers,
+ * over the same section walk, counting a standing wave's rate and the shaped
+ * beats that fall inside it together. A field nobody clears is the worst case,
+ * and that is the case this prices.
+ *
+ * The headroom a safety net needs is inside the derivation rather than bolted
+ * onto it: the transit bound above prices every body at the slowest descent the
+ * sim allows, and peakArrivals maximises over window placements rather than
+ * reading one.
+ */
+const peakLive = (): number => peakArrivals(TRANSIT_SECONDS);
+
+const MOB_CAP = peakLive();
+
+/**
+ * Mob fire is still a constant, and it is not this slice's to derive: it is
+ * bounded by how many armed bodies live and how often each fires, which is the
+ * mob table's arithmetic and unreachable from here.
+ */
 const MOB_FIRE_CAP = 400;
 
 /**
@@ -135,6 +183,7 @@ export {
   createPool,
   takeSlot,
   liveCount,
+  peakLive,
   MOB_CAP,
   MOB_FIRE_CAP,
   CORPSE_CAP,

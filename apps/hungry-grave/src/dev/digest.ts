@@ -38,8 +38,11 @@ const LEFTOVER_AT = 540;
  * inside its window is a Drip of one and a Drip draws nothing. A scripted File
  * draws from the spawns stream for its placement scatter, so `drawn` measures
  * something. Scripting it rather than running the scenario longer is what keeps
- * the golden off the ramp's own tuning, which ADR 0015 requires of this
- * scenario by name.
+ * the golden off the stage's own authored growth, which ADR 0015 requires of
+ * this scenario by name: the sections author a floor that steps up over a run
+ * (ADR 0060), and a scenario reaching into it would re-pin on every tuning
+ * pass. The Procession's first standing wave stands behind its teaching waves
+ * and outside these six hundred ticks, which is what keeps that true.
  *
  * The mobFire stream is not among what this reaches. It used to be, through the
  * File's armed shambler and its first-shot jitter; under the mow the mow body

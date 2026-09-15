@@ -479,22 +479,36 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * row and holds nobody now. It is kept rather than deleted so the day the
  * stage stops paying a seed, this says which one.
  *
+ * Re-measured for the stage's authored floor (ADR 0060) and three seeds went
+ * in. The floor is what moved: a lane now has a mow standing in it, so a
+ * birthright storm spends itself on what is nearest rather than reaching the
+ * carrier a beat is holding, and the hand seals sooner for the same reason.
+ * Measured, 202 and 303 cross a carrier and the other three do not.
+ *
  * It is #39's first tuning input and never a reason to sharpen the hand: a
  * hand tuned until the stage pays it would measure the tuning of the hand.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [];
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [101, 404, 505];
 
 /**
- * The seeds that finish above the birthright, which under the mow is every one
- * of them.
+ * The seeds that finish above the birthright, which under the stage's authored
+ * floor is none of them.
  *
  * It used to be 303 and 505 alone, with 202 buying one rung and a hit
- * stripping it (ADR 0003's ladder). The mow pays every lane enough carriers to
- * outrun the strips (ADR 0059). Written as an equality rather than as "some
- * seed does", so it fires the day the set moves in either direction and says
- * which seed did it.
+ * stripping it (ADR 0003's ladder); the mow then paid every lane enough
+ * carriers to outrun the strips (ADR 0059). The floor (ADR 0060) takes that
+ * back: measured, two of the five are paid at all and both of those buy rungs
+ * and are then ground back to the birthright before the run seals, which is the
+ * ladder running the other way rather than the offers failing.
+ *
+ * This is a reading of this hand against the stage as authored, which is what
+ * #39's tuning pass exists to move, and it is exactly the kind of figure the
+ * batch on a real build answers rather than a bot run does.
+ *
+ * Written as an equality rather than as "some seed does", so it fires the day
+ * the set moves in either direction and says which seed did it.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT = [101, 202, 303, 404, 505];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

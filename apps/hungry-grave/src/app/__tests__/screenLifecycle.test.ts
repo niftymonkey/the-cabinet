@@ -765,13 +765,13 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
   it('starts with an empty field, no live entities from the first run, and a live pause button', () => {
     const screen = gameScreen();
     screen.prepare();
-    // A first run with something on the field: the ramp's first wave is at two
+    // A first run with something on the field: the stage's first wave is at two
     // seconds, so this is the earliest the field is not empty.
     const first = screen['session'].run!;
     // Far enough in that the storm cannot have cleared the field. Two hundred
-    // ticks used to be enough, when the ramp's first two waves were Drips of one
-    // and nothing could kill them; the birthright stream now does, so the run
-    // is played to the File at twenty seconds instead.
+    // ticks used to be enough, when the section's first two waves were Drips of
+    // one and nothing could kill them; the birthright stream now does, so the
+    // run is played to the File at twenty seconds instead.
     play(screen, 1400);
     expect(first.mobs.some((mob) => mob.alive)).toBe(true);
     expect(first.skulls.some((skull) => skull.alive)).toBe(true);
@@ -916,12 +916,13 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
     // over a run nobody arranged.
     let spawned = false;
     let ticks = 0;
-    // A parked run seals at tick 6135 on this seed. It used to be 1118: under
-    // the mow the mow body is silent and dies to one skull (ADR 0059), so far
-    // less of what the ramp sends ever reaches the grave. The bound is three
-    // times the measured tick, so content that stops ending a parked run fails
-    // here rather than hanging the suite.
-    while (run.ending === null && ticks < 18500) {
+    // A parked run seals at tick 2417 on this seed. It was 1118 before the mow
+    // and 6135 after it: silencing the mow body took the fire off the grave
+    // (ADR 0059) and the stage's authored floor then put far more bodies on it
+    // (ADR 0060), so what reaches a parked grave is back up again. The bound is
+    // three times the measured tick, so content that stops ending a parked run
+    // fails here rather than hanging the suite.
+    while (run.ending === null && ticks < 7500) {
       screen.update(frame(TICK_MS * 10));
       ticks += 10;
       spawned ||= run.mobs.some((mob) => mob.alive);
@@ -929,7 +930,7 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
 
     expect(spawned).toBe(true);
     expect(run.ending).toBe('sealed');
-    expect(run.tick).toBeGreaterThan(6000);
+    expect(run.tick).toBeGreaterThan(2000);
     expect(screen['ending'].ended).toBe(true);
     expect(showScreen).toHaveBeenCalledTimes(1);
     expect(runHandoff.read()?.ending).toBe('sealed');

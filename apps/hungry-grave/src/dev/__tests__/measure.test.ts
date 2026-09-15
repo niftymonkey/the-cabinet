@@ -193,17 +193,24 @@ const RICH_LEVELS: Readonly<Record<WeaponLine, number>> = {
  * it presses four times and lands nine hits.
  *
  * It used to end with the run still live, and the Banshee (ADR 0007) is what
- * changed that: 9000 ticks now reach her fight, and a wandering hand under her
- * rings seals shut inside it. So the ending is read off the recorded run rather
- * than pinned as absent, which is what the assertion was always about, that the
- * replay recomputes the run the tape holds.
+ * changed that: 9000 ticks reached her fight, and a wandering hand under her
+ * rings sealed shut inside it. So the ending is read off the recorded run
+ * rather than pinned as absent, which is what the assertion was always about,
+ * that the replay recomputes the run the tape holds.
+ *
+ * The mow moved the ending back out past 9000 and the ceiling follows it. The
+ * stage's authored floor now feeds a wandering grave far more than it did
+ * (ADR 0060), so this hand grows instead of being ground down and reaches the
+ * Banshee later: measured, it seals between tick 9200 and tick 9400. The
+ * ceiling is 9600, far enough above that to hold the ending and near enough
+ * that the fixture is still one recording rather than three.
  *
  * That makes this a ceiling and not the recording's length: the loop stops on
  * the tick the run ends, because executeTick does not read the ending and every
  * loop above it must (`execution.ts`, #52). What the fixture records is
  * `RichRecording.ticks`, and every assertion over the tape's length reads that.
  */
-const RICH_TICKS = 9000;
+const RICH_TICKS = 9600;
 const RICH_SPACING = 60;
 /** The ticks the rich fixture's expensive frames start at; zero pins the empty starting field. */
 const RICH_EXPENSIVE_TICKS = [0, 1200, 4500];

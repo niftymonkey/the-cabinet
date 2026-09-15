@@ -54,6 +54,7 @@ import { placeSetPiece } from '../setPiece';
 import type { Section, SectionName } from '../stage';
 import {
   advanceStage,
+  createStage,
   SECTIONS,
   sectionEnded,
   sectionUnderway,
@@ -148,6 +149,18 @@ const sharpHand: Hand = (state) => {
   return events;
 };
 
+/** The section at this index, which the rig reads to tell a beat from the ground. */
+const sectionAtIndex = (index: number): Section =>
+  requireDefined(SECTIONS[index], `no section at index ${index}`);
+
+/** The section-local ticks a table's one-shot waves are due at. */
+const shapedTicksIn = (waves: readonly StageWave[]): ReadonlySet<number> =>
+  new Set(
+    waves
+      .filter((wave) => wave.repeat === null)
+      .map((wave) => Math.round(wave.t * TICK_HZ)),
+  );
+
 interface Played {
   /** Every sectionChanged, in order, as name and absolute tick. */
   readonly boundaries: { section: SectionName; tick: number }[];
@@ -155,6 +168,13 @@ interface Played {
   readonly arrivals: { tick: number; count: number }[];
   /** How many of the stage's own groups have a body live on the field, per tick. */
   readonly liveFormations: number[];
+  /**
+   * The same count over the shaped groups alone, which is what a section's
+   * formation property is about: a standing wave is the ground a section stands
+   * at and the shaped beats are what stand above it (ADR 0060, CONTEXT.md's
+   * Procession).
+   */
+  readonly shapedFormations: number[];
   /**
    * How many mobs were alive as each tick began, which is what the stage's own
    * end condition reads: advanceStage runs before the tick's deaths and its
@@ -182,6 +202,13 @@ interface Played {
  * two waves of a section share a section-local second, so one tick's spawns are
  * one wave's, and a body is held to its group by entity id because a pool slot
  * is recycled and an id never is.
+ *
+ * A group is shaped when the section-local tick it arrived on is one a wave
+ * with no repeat was due at, read off the section's own table. A standing wave
+ * lands on every other tick of its rate, so this is what tells the beats from
+ * the ground they stand on without the rig knowing anything the table does not
+ * say. The section clock advances at the end of a tick (step.ts), so the value
+ * read before the step is the one the stage spawned against.
  */
 function playStage(seed: number, hand: Hand, ticks: number): Played {
   const state = createRun(seed);
@@ -189,11 +216,13 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
   const boundaries: { section: SectionName; tick: number }[] = [];
   const arrivals: { tick: number; count: number }[] = [];
   const liveFormations: number[] = [];
+  const shapedFormations: number[] = [];
   const liveMobs: number[] = [];
   const foodPaid: number[] = [];
   const stageClock: { index: number; tick: number }[] = [];
   const events: SimEvent[] = [];
   const groupOf = new Map<number, number>();
+  const shapedGroups = new Set<number>();
   let groups = 0;
 
   for (let tick = 0; tick < ticks && state.ending !== 'victory'; tick++) {
@@ -202,21 +231,29 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
     // The tick the step is spending, so arrivals and sectionChanged are recorded
     // on the same clock: the event carries state.tick before step advances it.
     const at = state.tick;
+    const shapedDue = shapedTicksIn(
+      sectionAtIndex(state.stage.sectionIndex).waves,
+    ).has(state.stage.sectionTick);
     const stepped = step(STILL);
     events.push(...stepped);
     if (state.ending === 'sealed') state.ending = null;
     state.grave.size = SIZE_START;
 
-    const alive = state.mobs.filter((mob) => mob.alive).length;
-    if (alive > before) arrivals.push({ tick: at, count: alive - before });
     for (const event of stepped) {
       if (event.type !== 'sectionChanged') continue;
       boundaries.push({ section: event.section, tick: event.tick });
     }
 
     const fresh = state.mobs.filter((mob) => mob.alive && !groupOf.has(mob.id));
+    // Bodies that were not on the field before, and never the change in how
+    // many are: under the mow a tick lands arrivals and takes kills at once, so
+    // a net count reads a wave that arrived beside a death as nothing arriving.
+    if (fresh.length > 0) arrivals.push({ tick: at, count: fresh.length });
     for (const mob of fresh) groupOf.set(mob.id, groups);
-    if (fresh.length > 0) groups += 1;
+    if (fresh.length > 0) {
+      if (shapedDue) shapedGroups.add(groups);
+      groups += 1;
+    }
     const live = new Set<number>();
     for (const mob of state.mobs) {
       if (!mob.alive || !hasEntered(mob)) continue;
@@ -224,6 +261,9 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
       if (group !== undefined) live.add(group);
     }
     liveFormations.push(live.size);
+    shapedFormations.push(
+      [...live].filter((group) => shapedGroups.has(group)).length,
+    );
 
     const handed = hand(state);
     let paid = 0;
@@ -241,6 +281,7 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
     boundaries,
     arrivals,
     liveFormations,
+    shapedFormations,
     liveMobs,
     foodPaid,
     stageClock,
@@ -301,6 +342,16 @@ function lengthOf(played: Played, name: SectionName): number {
 function liveThrough(played: Played, name: SectionName): number[] {
   const [from, to] = spanOf(played, name);
   return played.liveFormations.slice(from, to);
+}
+
+/**
+ * The same count over the shaped beats alone, which is what a section's
+ * formation property is stated about: the mow a standing wave lands is the
+ * ground those beats stand on rather than another beat beside them.
+ */
+function shapedThrough(played: Played, name: SectionName): number[] {
+  const [from, to] = spanOf(played, name);
+  return played.shapedFormations.slice(from, to);
 }
 
 /** The section-local second a table's last wave fires. */
@@ -500,12 +551,15 @@ describe('the three sections and their boundary events (ADR 0050)', () => {
 
 describe('one property per section (game-concept.md:48)', () => {
   it('holds the Procession to its declared live-formation ceiling under a hand that kills what arrives', () => {
-    // "the first owns emptiness, never more than one formation live." The
+    // "the first owns emptiness, never more than one shaped group live above
+    // its standing wave" (CONTEXT.md's Procession, restated for the mow). The
     // ceiling is read off the section rather than restated here, because it is
-    // the wave the director at step 4 may not spend past (ADR 0047).
+    // the wave the director at step 4 may not spend past (ADR 0047), and it is
+    // counted over the shaped beats: the mow underneath them is the ground the
+    // section stands at and never a second beat (ADR 0060).
     const ceiling = section('procession').liveFormationCeiling!;
     expect(ceiling).toBe(1);
-    expect(Math.max(...liveThrough(SHARP, 'procession'))).toBeLessThanOrEqual(
+    expect(Math.max(...shapedThrough(SHARP, 'procession'))).toBeLessThanOrEqual(
       ceiling,
     );
 
@@ -529,7 +583,7 @@ describe('one property per section (game-concept.md:48)', () => {
     // reaches two live formations and then crosses the whole stage is the proof:
     // the still hand exceeds the ceiling for most of the section and nothing
     // anywhere calls it wrong.
-    const procession = liveThrough(STILL_PLAY, 'procession');
+    const procession = shapedThrough(STILL_PLAY, 'procession');
     const ceiling = section('procession').liveFormationCeiling!;
     expect(Math.max(...procession)).toBeGreaterThan(ceiling);
     expect(
@@ -547,7 +601,7 @@ describe('one property per section (game-concept.md:48)', () => {
     // through to its last wave firing. Before that the section is filling and
     // after it the waves have run out, and what the sparse last wave does to that
     // tail is ADR 0051's, not this property's.
-    const crowd = liveThrough(STILL_PLAY, 'crowd');
+    const crowd = shapedThrough(STILL_PLAY, 'crowd');
     const lastWave =
       requireDefined(
         CROWD_WAVES[CROWD_WAVES.length - 1],
@@ -563,7 +617,7 @@ describe('one property per section (game-concept.md:48)', () => {
     // The same hand on the section next door does not hold it, which is what
     // says the floor is the Crowd's own authoring rather than a property of
     // the rig: the Procession drops below two again and again.
-    const procession = liveThrough(STILL_PLAY, 'procession');
+    const procession = shapedThrough(STILL_PLAY, 'procession');
     const first = procession.findIndex((count) => count >= 2);
     expect(first).toBeGreaterThanOrEqual(0);
     expect(
@@ -586,17 +640,25 @@ describe('one property per section (game-concept.md:48)', () => {
     );
     expect(foodPerSecond(SHARP, 'crowd')).toBeGreaterThan(0);
 
-    // The comparison is against the Crowd rather than the Procession, which
-    // owns emptiness rather than a feeding rate and pays least of the three.
-    expect(foodPerSecond(SHARP, 'procession')).toBeLessThan(
-      foodPerSecond(SHARP, 'vigil'),
+    // And under the mow it pays least of all three, which is the sharper
+    // reading of the same property. The Procession used to pay least, because
+    // it authored the fewest bodies of anyone; now it stands at a rate of its
+    // own (ADR 0060) while the Vigil authors none at all, so scarcity is the
+    // Vigil's outright rather than a comparison with the section beside it.
+    expect(foodPerSecond(SHARP, 'vigil')).toBeLessThan(
+      foodPerSecond(SHARP, 'procession'),
     );
   });
 });
 
 describe('the waves as data (ADR 0006)', () => {
   it("holds only Drips and one File in the Procession's first 45 seconds", () => {
-    const opening = PROCESSION_WAVES.filter((wave) => wave.t < 45);
+    // Above the mow, which is the standing wave the section opens at: the
+    // beats are what the player reads one at a time, and the rate under them
+    // is ground rather than a beat (ADR 0060).
+    const opening = PROCESSION_WAVES.filter(
+      (wave) => wave.t < 45 && wave.repeat === null,
+    );
     expect(opening.length).toBeGreaterThan(3);
     expect(opening.filter((wave) => wave.formation === 'file')).toHaveLength(1);
     expect(
@@ -619,12 +681,25 @@ describe('the waves as data (ADR 0006)', () => {
   });
 
   it('keeps the Procession clear of the closer and of the density formations', () => {
-    // The section owns emptiness, so the Rain, which is the filler a section
-    // turns up when its property asks for it, and the Pincer, which is two
-    // files at once, both belong to the section after it. The ghoul closes,
-    // which is the same argument one type down.
-    const formations = new Set(PROCESSION_WAVES.map((wave) => wave.formation));
-    expect([...formations].sort()).toEqual(['drip', 'file', 'v']);
+    // The section owns emptiness above its mow, so the Pincer, which is two
+    // files at once, belongs to the section after it. The ghoul closes, which
+    // is the same argument one type down.
+    //
+    // The Rain is the exception the mow made, and only as the rate: it is the
+    // density filler a section turns up when its property asks for it, and a
+    // standing wave is exactly that ask, where a Drip repeating would be a
+    // column down one lane rather than ground filling in (ADR 0060). Every
+    // shaped beat above it is still a Drip, a File or a V.
+    const shaped = PROCESSION_WAVES.filter((wave) => wave.repeat === null);
+    expect([...new Set(shaped.map((wave) => wave.formation))].sort()).toEqual([
+      'drip',
+      'file',
+      'v',
+    ]);
+    const standing = PROCESSION_WAVES.filter((wave) => wave.repeat !== null);
+    expect([...new Set(standing.map((wave) => wave.formation))]).toEqual([
+      'rain',
+    ]);
     expect(PROCESSION_WAVES.filter((wave) => wave.type === 'ghoul')).toEqual(
       [],
     );
@@ -1222,4 +1297,69 @@ describe('determinism (ADRs 0006 and 0012)', () => {
     );
     expect(first.state.streams.spawns.drawn).toBeGreaterThan(0);
   });
+});
+
+describe('the stage standing a rate (ADR 0060)', () => {
+  it('lands a standing wave at its own rate and leaves the one-shot waves their own times', () => {
+    // ADR 0047's "the waves stay the floor": a standing wave is a second floor
+    // and never a replacement, so the shaped beats still land their whole
+    // counts at the section-local seconds they are authored at, and the rate
+    // arrives underneath them.
+    const standing = requireDefined(
+      PROCESSION_WAVES.find((wave) => wave.repeat !== null),
+      'the Procession authors no rate',
+    );
+    const repeat = standing.repeat;
+    if (repeat === null) throw new Error('the standing wave carries no repeat');
+    const [from] = spanOf(STILL_PLAY, 'procession');
+
+    // Over ten seconds of the opening rate, the bodies that arrive are the rate
+    // times the window, read off the table rather than written down.
+    const window = 10;
+    const opens = from + (standing.t + 1) * TICK_HZ;
+    const landed = STILL_PLAY.arrivals
+      .filter(
+        (each) => each.tick >= opens && each.tick < opens + window * TICK_HZ,
+      )
+      .reduce((total, each) => total + each.count, 0);
+    expect(landed).toBeGreaterThanOrEqual(
+      window * (standing.count / repeat.intervalSeconds) - 1,
+    );
+
+    // And every shaped beat of the section still fires its own count on its own
+    // second, which is what a floor under them must not disturb.
+    for (const wave of PROCESSION_WAVES) {
+      if (wave.repeat !== null || wave.count === 0) continue;
+      const at = from + Math.round(wave.t * TICK_HZ);
+      const arrived = STILL_PLAY.arrivals.find((each) => each.tick === at);
+      expect(`${wave.formation} at t=${wave.t}: ${arrived !== undefined}`).toBe(
+        `${wave.formation} at t=${wave.t}: true`,
+      );
+      expect(
+        `${wave.formation} at t=${wave.t}: ${requireDefined(arrived, 'no arrival').count >= wave.count}`,
+      ).toBe(`${wave.formation} at t=${wave.t}: true`);
+    }
+  });
+
+  it('keeps no cursor for a standing wave, so a replay rebuilds the rate from the section clock', () => {
+    // The tech architecture gate's finding made mechanical. The stage's whole
+    // state is the two cursors the one-shot waves already needed, so a standing
+    // wave costs the tape nothing and a replay rebuilds the rate by rebuilding
+    // the cursor (ADR 0019).
+    expect(Object.keys(createStage()).sort()).toEqual([
+      'firedWaves',
+      'sectionIndex',
+      'sectionTick',
+    ]);
+
+    // Two runs on one seed land the same bodies on the same ticks, which is
+    // what a rate rebuilt from the clock has to give.
+    const first = playStage(31, stillHand, 4000);
+    const second = playStage(31, stillHand, 4000);
+    expect(second.arrivals).toEqual(first.arrivals);
+    expect(second.state.streams.spawns.drawn).toBe(
+      first.state.streams.spawns.drawn,
+    );
+    expect(first.state.streams.spawns.drawn).toBeGreaterThan(0);
+  }, 30000);
 });

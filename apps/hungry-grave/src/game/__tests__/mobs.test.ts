@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Stepper } from '../../dev/stepping';
 import { stepping } from '../../dev/stepping';
+import { TICK_HZ } from '../clock';
 import { fireBelch } from '../belch';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
@@ -822,5 +823,50 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
       }
       expect(edgeOffset).toBeCloseTo(midOffset, 9);
     }
+  });
+});
+
+describe('the absence of any stat step on the clock (ADR 0059)', () => {
+  it('gives a body exactly its MOB_TYPES row, at a late tick as well as an early one', () => {
+    /**
+     * The deliberate absence of any per-minute step on a body's stats, made
+     * mechanical: growth is arrivals and the roster, never the same enemies
+     * wearing more health.
+     *
+     * ADR 0059 is Mark's ruling and it rules the direction. The second gate
+     * round struck the step that was proposed on the evidence that its figures
+     * (0.05 of base health and 0.005 of fall speed per minute) are Mad Forest's
+     * Inverse mode, which is that stage's hard mode, where normal Mad Forest
+     * carries no time modifiers at all. What would reopen it is a reading and
+     * never an argument: timeToKill.ts in slice G reports hits to kill per
+     * trash type per minute, and with no step authored a body costs fewer hits
+     * every minute the ladder climbs.
+     *
+     * Read at two ticks two stage minutes apart, because a step on the clock is
+     * exactly what a single reading cannot see.
+     */
+    const state = createRun(7);
+    const order: SpawnOrder = { x: 100, y: 100, vx: 0, vy: 1, index: 0 };
+
+    const stamped = (type: Mob['type']): string => {
+      const mob = spawnMob(state, type, order, false);
+      if (mob === null) throw new Error(`the pool refused a ${type}`);
+      const row = MOB_TYPES[type];
+      mob.alive = false;
+      return `${type} ${mob.hp} ${row.halfWidth} ${row.halfHeight}`;
+    };
+
+    const early = MOB_TYPE_NAMES.map((type) => stamped(type));
+    state.tick = 120 * TICK_HZ;
+    state.stage.sectionTick = 120 * TICK_HZ;
+    const late = MOB_TYPE_NAMES.map((type) => stamped(type));
+
+    expect(late).toEqual(early);
+    expect(early).toEqual(
+      MOB_TYPE_NAMES.map((type) => {
+        const row = MOB_TYPES[type];
+        return `${type} ${row.hp} ${row.halfWidth} ${row.halfHeight}`;
+      }),
+    );
   });
 });

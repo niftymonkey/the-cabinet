@@ -32,9 +32,11 @@ import {
 import { OFFER_SIZE } from '../../game/offer';
 import type { RunState } from '../../game/run';
 import { createRun, uniformLevels } from '../../game/run';
+import type { StageWave } from '../../game/stage/waves';
 import {
   CROWD_WAVES,
   PROCESSION_WAVES,
+  repeatingArrivals,
   VIGIL_WAVES,
 } from '../../game/stage/waves';
 import { SECTIONS } from '../../game/stage/stage';
@@ -150,18 +152,25 @@ const SEALS_IN_THE_PROCESSION: number[] = [];
 const NEVER_FEEDS: number[] = [];
 
 /**
- * The seeds whose fresh run is never paid a carrier at all, and there are none.
+ * The seeds whose fresh run is never paid a carrier at all.
  *
- * Re-measured for the mow (ADR 0059). It held 505 alone: a fresh run ended
- * inside the Banshee's section or just past it, so a dodger was paid only by the
- * carriers the Procession's own lane happened to cross, and 505 crossed none of
- * them. Under the mow a skull is a whole trash body, so the same lane clears
- * what stands in it and 505 is paid too.
+ * Re-measured for the stage's authored floor (ADR 0060), and two seeds went
+ * back in. The set was empty under the mow alone, because a skull is a whole
+ * trash body and the same dodging lane cleared what stood in it. The floor now
+ * grows over the run, so the Procession's field no longer empties under a hand
+ * that never aims: the section's own end waits on a clear field (ADR 0051), a
+ * dodger reaches the Banshee far later, and the run's budget runs out inside her
+ * fight. Measured on 202 and 303 the whole run crosses two sections and opens no
+ * offer; played past the budget both are paid, so what the set names is the
+ * budget's reach and not a seed that cannot be paid.
+ *
+ * This is a reading of `dodgePolicy` rather than of the game. The bot only
+ * dodges, so it never levels a line and never clears a mow.
  *
  * Kept as an equality in both places that read it, so the day a seed is not
  * paid this file goes red and says which.
  */
-const NEVER_PAID: number[] = [];
+const NEVER_PAID: number[] = [202, 303];
 
 /**
  * The seeds whose fresh grave reaches victory on this policy, and there are
@@ -281,6 +290,23 @@ const REACHES_VICTORY_FRESH: number[] = [];
 const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
 
 /**
+ * The seeds whose ceiling run gets past the Banshee without winning, which is
+ * one of the five.
+ *
+ * It was none of them before the stage's authored floor (ADR 0060): a ceiling
+ * grave on the birthright reached her section and stopped there, with no build
+ * to empty her. What changed is how long the run spends before her. The
+ * Procession's field no longer clears quickly under a hand that never aims, so
+ * the section runs on and the birthright stream is firing the whole time; on
+ * 505 that is enough to take her down, and the run then seals in the Crowd.
+ *
+ * It is still a statement about the fight rather than about a build: none of
+ * the five wins from the ceiling, and the set names which one her fight no
+ * longer holds so the day another seed passes her this file says which.
+ */
+const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [505];
+
+/**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
  * is all five, at 208 to 237 kills against 268 authored mobs.
  *
@@ -346,6 +372,13 @@ const budgetOf = (section: (typeof SECTIONS)[number]): number => {
  */
 const FIRST_SECTION = SECTIONS[0];
 if (FIRST_SECTION === undefined) throw new Error('SECTIONS is empty');
+
+/** One section of the table by name, so a budget is read against the right one. */
+const sectionNamed = (name: string): (typeof SECTIONS)[number] => {
+  const section = SECTIONS.find((each) => each.name === name);
+  if (section === undefined) throw new Error(`no section named ${name}`);
+  return section;
+};
 const PROCESSION_TICKS = Math.ceil(budgetOf(FIRST_SECTION));
 const STAGE_TICKS = Math.ceil(
   SECTIONS.reduce((total, each) => total + budgetOf(each), 0),
@@ -367,12 +400,38 @@ const STAGE_TICKS = Math.ceil(
  */
 const MAXED_RUN_TICKS = STAGE_TICKS * 3;
 
+/**
+ * Every mob a section's table authors inside that section's own budget: its
+ * shaped beats, plus everything a standing wave lands while it is the rate the
+ * section is holding (ADR 0060).
+ *
+ * The rate is the term that had to be added. A standing wave carries a count of
+ * one and lands it again on every repeat, so summing the counts alone counted
+ * the mow as three bodies a section and put the ceiling below what every run
+ * actually meets.
+ *
+ * A budget rather than a length, for the same reason budgetOf is: a section
+ * ends on its own condition and the last rate a section holds runs until the
+ * section does, so what can be written down is how long that can take.
+ */
+const authoredIn = (
+  waves: readonly StageWave[],
+  section: (typeof SECTIONS)[number],
+): number => {
+  const seconds = budgetOf(section) / TICK_HZ;
+  return waves.reduce((total, wave, index) => {
+    if (wave.repeat === null) return total + wave.count;
+    const next = waves.slice(index + 1).find((each) => each.repeat !== null);
+    const until = Math.min(seconds, next?.t ?? seconds);
+    return total + repeatingArrivals(wave, until) * wave.count;
+  }, 0);
+};
+
 /** Every mob the timeline authors, which is the ceiling on what any policy can meet. */
-const AUTHORED_MOBS = [
-  ...PROCESSION_WAVES,
-  ...CROWD_WAVES,
-  ...VIGIL_WAVES,
-].reduce((total, wave) => total + wave.count, 0);
+const AUTHORED_MOBS =
+  authoredIn(PROCESSION_WAVES, sectionNamed('procession')) +
+  authoredIn(CROWD_WAVES, sectionNamed('crowd')) +
+  authoredIn(VIGIL_WAVES, sectionNamed('vigil'));
 
 /** Every carrier the timeline authors, which is the ceiling on what any policy can be paid. */
 const AUTHORED_CARRIERS = [
@@ -607,8 +666,17 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
  * crosses the half. A dodger kills what its lane contains and a mow body dies
  * to one skull, so the same lane clears far more of the same schedule. The
  * other four are still short of it.
+ *
+ * Re-measured for the stage's authored floor (ADR 0060), and the set is empty
+ * again. The floor is what moved rather than the storm: the three sections now
+ * author 2393 bodies where they authored 663, so the half went from 332 to 1196
+ * while the five fresh runs land 33 to 296 kills. That is the mow's whole
+ * point and it says nothing good or bad about the storm, because this policy
+ * never aims and never levels a line. What it does say is that the band the
+ * schedule asks for is now far outside what a hand with no offense reaches,
+ * which is the reading step 4's own batch exists to take on a real build.
  */
-const MEETS_THE_TIMELINE: number[] = [404];
+const MEETS_THE_TIMELINE: number[] = [];
 
 /**
  * The band the schedule asks for, and the band the storm reaches.
@@ -657,12 +725,14 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
     it(`stays inside the range the storm actually reaches on seed ${seed}`, () => {
       // The ordinary half, so a regression away from today's figures is caught
       // while the band above stays the thing being aimed at. The kill floor is
-      // the measured minimum across the five fresh runs, and it fell from 20 to
-      // 11 with the Banshee (ADR 0007): a fresh run spends the rest of itself
-      // in a fight it cannot finish rather than crossing two more sections of
-      // waves, so what the storm meets is most of one section and not most of a
-      // stage. Whether a run is paid at all is a per-seed fact and is read off
-      // NEVER_PAID rather than as a floor.
+      // the measured minimum across the five fresh runs. It fell from 20 to 11
+      // with the Banshee (ADR 0007), because a fresh run spends the rest of
+      // itself in a fight it cannot finish rather than crossing two more
+      // sections of waves; the stage's authored floor then raised it to 33
+      // (ADR 0060), because the same lane now has far more standing in it. The
+      // floor is 30, under the measured minimum with a little room, because it
+      // is a regression guard and never a target. Whether a run is paid at all
+      // is a per-seed fact and is read off NEVER_PAID rather than as a floor.
       //
       // The ceiling is the schedule itself and not a measurement: a run can
       // only be paid by carriers that exist, so no policy can ever open more
@@ -670,7 +740,7 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
       // by construction (ADR 0034), which is asserted beside it because it is
       // the relation the whole economy is read through.
       const { events } = fullRun(seed);
-      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(11);
+      expect(count(events, 'mobKilled')).toBeGreaterThanOrEqual(30);
       expect(count(events, 'offerOpened') > 0).toBe(!NEVER_PAID.includes(seed));
       expect(count(events, 'offerOpened')).toBeLessThanOrEqual(
         AUTHORED_CARRIERS,
@@ -705,6 +775,14 @@ describe('dodgePolicy from the size ceiling', () => {
         expect(state.ending).toBe('victory');
         return;
       }
+      if (PASSES_THE_BANSHEE_FROM_THE_CEILING.includes(seed)) {
+        // Past her and no further: the run still never wins from the ceiling,
+        // which is the claim, and the set above carries the cause.
+        expect(reached).toContain('crowd');
+        expect(reached).not.toContain('over');
+        expect(state.ending).not.toBe('victory');
+        return;
+      }
       expect(reached).toEqual(['banshee']);
       expect(state.ending).toBeNull();
       // Still standing in front of her rather than parked on an empty field,
@@ -732,8 +810,13 @@ describe('dodgePolicy from the size ceiling', () => {
  * of it no longer fit inside vitest's own five seconds. It is stated on the one
  * test rather than raised for the suite, because a budget belongs on the test
  * that pays the cost and says what that test is paying for.
+ *
+ * It went from thirty seconds to a hundred and twenty with the stage's authored
+ * floor (ADR 0060): each of these runs now kills about 2100 bodies where it
+ * killed about 220, so the sim work inside one run is roughly ten times what it
+ * was. It is a budget and never a reading of how long a run should take.
  */
-const FIVE_MAXED_RUNS_MS = 30000;
+const FIVE_MAXED_RUNS_MS = 120000;
 
 describe('both endings across the three loadouts', () => {
   it(
@@ -824,8 +907,16 @@ describe('both endings across the three loadouts', () => {
  * the Undertaker's fight on a run pinned above the birthright. Kept as an
  * equality rather than deleted, so the day a seed stops reaching the rung here
  * this file goes red and says which.
+ *
+ * Re-measured for the stage's authored floor (ADR 0060) and the set emptied
+ * again, for the reason it was empty before the mow: this policy takes every
+ * hit it is offered, and the floor offers far more of them. It now seals at
+ * tick 1207 to 1322 on nineteen or twenty hits, well before the Procession's
+ * first carrier stands at t=21, so no run reaches a rung there is anything to
+ * strip. The score still bleeds first on every seed, which is the half of
+ * ADR 0003's ladder these runs do reach.
  */
-const STRIPS_A_RUNG: number[] = [101, 202, 303, 404, 505];
+const STRIPS_A_RUNG: number[] = [];
 
 /**
  * The build the whole ladder is walked under, and the score it brings.

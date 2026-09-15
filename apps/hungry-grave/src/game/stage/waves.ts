@@ -3,6 +3,28 @@
 import type { MobType } from '../mobs';
 import type { FormationName } from './formations';
 
+/**
+ * The repeat a wave fires on, or null on a wave that fires once (CONTEXT.md
+ * Standing wave). Brotato's `repeating_interval`, `reduce_repeating_interval`
+ * and `min_repeating_interval` on the resource that already carries the
+ * one-shot groups: no shipped format found makes the continuous case a second
+ * kind of entry (ADR 0060, docs/research/naming-the-authored-growth-rate.md).
+ */
+interface Repeat {
+  // Seconds between two firings of this wave's own group.
+  readonly intervalSeconds: number;
+  /**
+   * What each firing takes off that interval, and zero on a wave that holds one
+   * rate, which is every standing wave the stage authors today. The field is
+   * here for ADR 0060's own shape rather than for an absent caller: growth is
+   * stepped at wave boundaries, and a wave that shrinks its own interval is the
+   * half of Brotato's shape the ADR keeps.
+   */
+  readonly reduceSeconds: number;
+  // The floor the interval shrinks to: a rate is a rate until it would put two groups on one tick.
+  readonly minimumSeconds: number;
+}
+
 interface StageWave {
   // Section-local seconds. Waves fire when the section-local tick passes this time.
   readonly t: number;
@@ -26,7 +48,109 @@ interface StageWave {
    * director at step 4 (#85).
    */
   readonly directed: boolean;
+  /**
+   * Set on a standing wave and null on a wave that fires once. A wave with it
+   * set holds its rate from its own `t` until the next standing wave the section
+   * authors, so a section's growth is a run of these and nothing anywhere reads
+   * a section's length (ADR 0049, ADR 0060). A section whose end waits on a
+   * clear field closes its list with one authored at a rate of zero, at its
+   * sparse last wave's time, or the field never reads clear and its boss never
+   * arrives (ADR 0051).
+   */
+  readonly repeat: Repeat | null;
 }
+
+/**
+ * The repeat a standing wave holds to land this many bodies a second, beside a
+ * count of one, so the rate a section authors is the figure in its own table
+ * and never arithmetic a reader has to do (the record's section 9).
+ *
+ * A rate of zero is a wave that stands and never fires again, which is what a
+ * section closes on (ADR 0051).
+ *
+ * The floor is the interval itself, because a rate that never shrinks is
+ * already sitting on its floor, and a floor written lower would be a figure
+ * nothing in the run can reach.
+ */
+const bodiesASecond = (rate: number): Repeat => ({
+  intervalSeconds: 1 / rate,
+  reduceSeconds: 0,
+  minimumSeconds: 1 / rate,
+});
+
+/**
+ * The interval a repeat holds before its nth firing, shrunk by its own step and
+ * never below its floor.
+ */
+const intervalBefore = (repeat: Repeat, firing: number): number =>
+  Math.max(
+    repeat.minimumSeconds,
+    repeat.intervalSeconds - firing * repeat.reduceSeconds,
+  );
+
+/**
+ * How many times a repeat has fired this many seconds after the wave's own
+ * time. It walks the shrinking intervals and then divides through the one the
+ * interval settles at, so a wave holding a single rate costs one division
+ * however long its section runs.
+ */
+const repeatsBy = (repeat: Repeat, elapsed: number): number => {
+  let fired = 0;
+  let at = 0;
+  while (intervalBefore(repeat, fired) > intervalBefore(repeat, fired + 1)) {
+    at += intervalBefore(repeat, fired);
+    if (at > elapsed) return fired;
+    fired += 1;
+  }
+  return fired + Math.floor((elapsed - at) / intervalBefore(repeat, fired));
+};
+
+/**
+ * How many times a wave has fired by this section-local second: once at its own
+ * time, and again on every repeat since. A wave with no repeat answers 1 from
+ * its own time onward and every wave answers 0 before it, which is what one
+ * construct and one list means: the caller never asks which kind it holds.
+ *
+ * A count from the section's own start rather than a count on one tick, and
+ * that is the whole of what makes it stateless: it is a pure function of the
+ * time inside the section, so the stage keeps no cursor for a standing wave and
+ * the witness folds no field for it. `firedWaves` exists because one-shot waves
+ * are consumed; a repeat is not consumed, and a folded cursor beside it would
+ * be a second source of truth for a number the time already determines.
+ *
+ * The stage differences two of these one tick apart, which is what the wave
+ * fires on that tick. A per-tick answer read off a single time could not be
+ * exact, because an interval is authored in seconds and a rate of three and a
+ * half bodies a second lands nowhere near a tick boundary: every firing between
+ * two boundaries would be dropped rather than delayed. A count differenced is
+ * monotone, so a firing the clock rounds past arrives on the next tick instead
+ * of vanishing.
+ *
+ * It takes section-local seconds and never ticks, because `t` and every field
+ * on `Repeat` are authored in seconds and this module value-imports nothing: it
+ * cannot reach TICK_HZ without taking an import that would cost it the property
+ * the caps derivation depends on. stage.ts converts, through the `waveTicks` it
+ * already has.
+ */
+const repeatingArrivals = (wave: StageWave, sectionSeconds: number): number => {
+  if (sectionSeconds < wave.t) return 0;
+  if (wave.repeat === null) return 1;
+  return 1 + repeatsBy(wave.repeat, sectionSeconds - wave.t);
+};
+
+/**
+ * The section-local second a standing wave's rate gives way to the next one's.
+ *
+ * A standing wave is replaced by the next wave that stands and by nothing else,
+ * which is what the stage's own cursor reads: the active standing wave is the
+ * last one the tick has passed. A section's shaped beats therefore fall through
+ * the rate rather than ending it, which is what "the waves stay the floor"
+ * asks of a floor that grows (ADR 0047, ADR 0060).
+ */
+const standingUntil = (waves: readonly StageWave[], index: number): number => {
+  const next = waves.slice(index + 1).find((wave) => wave.repeat !== null);
+  return next === undefined ? Number.POSITIVE_INFINITY : next.t;
+};
 
 /**
  * Which boss a section carries. It lives here rather than in the boss modules
@@ -100,6 +224,7 @@ const sparseLastWave = (
     type: shape.type,
     carries: false,
     directed: false,
+    repeat: null,
   }));
 
 /**
@@ -108,30 +233,40 @@ const sparseLastWave = (
  * where a corpse sits alone long enough for the player to decide to go and get
  * it, and where a revenant's tell is legible because nothing else is on screen.
  *
- * The property is one live formation, held as Section.liveFormationCeiling and read
- * by the director rather than by an invariant: these waves stand about nine
- * seconds apart against a body that takes roughly fifteen seconds to fall
- * unkilled, so a player who kills slowly holds two formations with nothing wrong.
+ * The property is one live shaped formation above the standing wave, held as
+ * Section.liveFormationCeiling and read by the director rather than by an
+ * invariant: these beats stand about nine seconds apart against a body that
+ * takes roughly fifteen seconds to fall unkilled, so a player who kills slowly
+ * holds two formations with nothing wrong.
  *
- * Only Files and Vs stand beside the Drips. The Rain is the density filler a
- * section turns up when its property asks for it and the Pincer is two files at
- * once, and neither belongs in a section that holds one formation live. No ghoul:
- * the closer arrives in the next section, and a type arriving first as a lone
- * Drip is the standing rule (ADR 0016's readable-before-it-acts).
+ * Three standing waves carry the mow under those beats, at two, three and a
+ * half and five bodies a second, and a fourth closes the section at zero
+ * (ADR 0060). They are Rains, because the Rain is the density filler a section
+ * turns up when its property asks for it and a rate is exactly that ask: a Drip
+ * repeating would be a column down one lane rather than ground filling in. The
+ * shaped beats above the mow are still only Files and Vs beside the Drips, and
+ * the Pincer is two files at once, which no section holding one shaped
+ * formation live wants. No ghoul: the closer arrives in the next section, and a
+ * type arriving first as a lone Drip is the standing rule (ADR 0016's
+ * readable-before-it-acts).
  *
  * Which waves may carry is a property of the table rather than of the schedule,
- * so it is authored here and the placement is carriers.ts's. The four Drips are
- * held clear on purpose. The opening shambler Drip is held clear because the
- * first kill of the run teaches the swallow; the lone revenant Drip after it is
- * the game's first mob fire, which the mow body can no longer teach because it
+ * so it is authored here and the placement is carriers.ts's. The Drips are held
+ * clear on purpose. The opening shambler Drip is held clear because the first
+ * kill of the run teaches the swallow; the lone revenant Drip after it is the
+ * game's first mob fire, which the mow body can no longer teach because it
  * carries no fire (ADR 0059), so the lesson lands on one revenant standing by
  * itself with nothing else on screen (ADR 0016's readable-before-it-acts); and
  * the run's first tell and its first offer stay two different moments rather
- * than one body doing both jobs.
+ * than one body doing both jobs. No standing wave carries either: the
+ * twenty-five carriers are authored placements and the ladder's whole supply
+ * (ADR 0048), and a rate that carried would hand out rungs at a figure nobody
+ * wrote down.
  *
- * Every count and every time here is an initial row owned by the tuning pass.
- * What is not tuning is the shape: one formation live, Drips before a type
- * appears in numbers, no ghoul, and a carrier on no Drip.
+ * Every count, every time and every rate here is an initial row owned by the
+ * tuning pass. What is not tuning is the shape: one shaped formation live above
+ * the mow, Drips before a type appears in numbers, no ghoul, a carrier on no
+ * Drip and on no rate, and a rate of zero before the held breath.
  */
 const PROCESSION_WAVES: readonly StageWave[] = [
   {
@@ -141,6 +276,7 @@ const PROCESSION_WAVES: readonly StageWave[] = [
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 11,
@@ -149,86 +285,150 @@ const PROCESSION_WAVES: readonly StageWave[] = [
     type: 'revenant',
     carries: false,
     directed: true,
+    repeat: null,
+  },
+  // The mow opens here, a second behind the lone revenant, because the first
+  // swallow and the game's first mob fire each have to arrive alone
+  // (ADR 0016) and because ADR 0015's golden scenario runs ten seconds from a
+  // pinned seed and must keep roughly the field it has.
+  {
+    t: 12,
+    formation: 'rain',
+    count: 1,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+    repeat: bodiesASecond(2),
   },
   {
     t: 21,
     formation: 'file',
-    count: 5,
+    count: 10,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 31,
     formation: 'drip',
-    count: 1,
+    count: 2,
     type: 'revenant',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 40,
     formation: 'drip',
-    count: 2,
+    count: 4,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
+  },
+  // The ground thickens, a third of the way through the section's own length.
+  {
+    t: 45,
+    formation: 'rain',
+    count: 1,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+    repeat: bodiesASecond(3.5),
   },
   {
     t: 50,
     formation: 'v',
-    count: 5,
+    count: 8,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 59,
     formation: 'file',
-    count: 6,
+    count: 12,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 68,
     formation: 'v',
-    count: 6,
+    count: 8,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 77,
     formation: 'file',
-    count: 6,
+    count: 12,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
+  },
+  // And again, for the last third before the held breath.
+  {
+    t: 78,
+    formation: 'rain',
+    count: 1,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+    repeat: bodiesASecond(5),
   },
   {
     t: 86,
     formation: 'v',
-    count: 7,
+    count: 10,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 95,
     formation: 'file',
-    count: 6,
+    count: 12,
     type: 'revenant',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 103,
     formation: 'v',
-    count: 7,
+    count: 10,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
+  },
+  /**
+   * The rate the section closes on (ADR 0051): a standing wave at zero, half a
+   * second ahead of the sparse last wave so the mow's own last body is already
+   * falling when the held breath opens. It is the pick the stage reads, so it
+   * is what ends the rate above it, and without it the mow keeps arriving under
+   * the held breath, the field never reads clear and the Banshee never comes.
+   *
+   * It lands no body, because the beat the section closes on is the sparse last
+   * wave and not a group arriving beside it, and the director may not spend in
+   * the span it opens for the same reason that wave's own cells say so.
+   */
+  {
+    t: 111.5,
+    formation: 'rain',
+    count: 0,
+    type: 'shambler',
+    carries: false,
+    directed: false,
+    repeat: bodiesASecond(0),
   },
   // The section's own nine-second cadence carries into the last wave, so the
   // held breath is slower rather than empty.
@@ -248,18 +448,32 @@ const PROCESSION_WAVES: readonly StageWave[] = [
  *
  * The ghoul arrives here, first as a lone Drip.
  *
- * One deliberate trough sits mid-section, thin Drips and nothing else, so the
- * Waking at the end lands against something rather than against a sustained
- * peak. It is a run of waves and nothing more: the music does not change inside a
+ * Three standing waves carry the mow, at eight, three and twelve bodies a
+ * second (ADR 0060). The three is the deliberate trough, thin ground under thin
+ * Drips, so the Waking at the end lands against something rather than against a
+ * sustained peak, and it is a wave somebody wrote rather than a dip in a curve.
+ * It is a run of waves and nothing more: the music does not change inside a
  * section, so a held bar under the trough would be an audio state built for one
  * wave.
+ *
+ * The section closes on no rate of zero, because it ends on the eye opening
+ * rather than on a field that reads clear (ADR 0051), and the rate it is
+ * standing at is carried into the Waking under the pour instead.
  *
  * The property is a floor of two live formations and it carries no ceiling row,
  * because a director that adds and never removes cannot break a floor.
  *
- * Every count and every time is an initial row. What is not tuning is the shape:
- * two formations always overlapping, the Wall first and undirected, the ghoul's
- * lone Drip before any ghoul in numbers, and one trough before the end.
+ * Every count, every time and every rate is an initial row. What is not tuning
+ * is the shape: two formations always overlapping, the Wall first and
+ * undirected, the ghoul's lone Drip before any ghoul in numbers, and one trough
+ * before the end.
+ *
+ * The Wall keeps its twenty-two while every other shaped count roughly doubles,
+ * because twenty-two is not a density row: it is the field's width over a
+ * body's, and `wall()` spaces its bodies at the width divided by the count, so
+ * doubling it would stack a curtain on itself rather than thicken it. ADR
+ * 0042's own cost is a separate and open question (`docs/push/step-4-progress.md`
+ * section 4 item 7).
  */
 const CROWD_WAVES: readonly StageWave[] = [
   {
@@ -269,15 +483,32 @@ const CROWD_WAVES: readonly StageWave[] = [
     type: 'shambler',
     carries: false,
     directed: false,
+    repeat: null,
+  },
+  // The mow opens four seconds behind the curtain, which is the beat the Wall
+  // is crossed in: a rate running under it would fill the lane the storm opens
+  // before the player has read the curtain at all.
+  {
+    t: 6,
+    formation: 'rain',
+    count: 1,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+    repeat: bodiesASecond(8),
   },
   {
     t: 8,
     formation: 'rain',
-    count: 6,
+    count: 12,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
+  // The ghoul's own teaching Drip, and the one shaped count in the section the
+  // doubling does not reach: a type arrives first as a lone body with nothing
+  // else of its kind on screen, which is ADR 0016's readable-before-it-acts.
   {
     t: 12,
     formation: 'drip',
@@ -285,254 +516,315 @@ const CROWD_WAVES: readonly StageWave[] = [
     type: 'ghoul',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 15,
     formation: 'pincer',
-    count: 8,
+    count: 16,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 21,
     formation: 'v',
-    count: 7,
+    count: 10,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 25,
     formation: 'rain',
-    count: 8,
+    count: 16,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 29,
     formation: 'file',
-    count: 5,
+    count: 10,
     type: 'revenant',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 33,
     formation: 'pincer',
-    count: 8,
+    count: 16,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 36,
     formation: 'rain',
-    count: 8,
+    count: 16,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 40,
     formation: 'v',
-    count: 7,
+    count: 10,
     type: 'ghoul',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 44,
     formation: 'rain',
-    count: 10,
+    count: 20,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 48,
     formation: 'pincer',
-    count: 8,
+    count: 16,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 52,
     formation: 'v',
-    count: 7,
+    count: 10,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
+  },
+  /**
+   * The trough, and it is a standing wave somebody wrote rather than a dip in a
+   * curve: a reader sees three consecutive rates instead of one rate with an
+   * exception carved into it, which is what Mad Forest does at its own minutes
+   * five and eight (the record's section 5 item 3).
+   *
+   * It steps a second ahead of the thin Drips it runs under, so the ground
+   * thins first and the beats follow it down.
+   */
+  {
+    t: 57,
+    formation: 'rain',
+    count: 1,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+    repeat: bodiesASecond(3),
   },
   {
     t: 58,
     formation: 'drip',
-    count: 2,
+    count: 4,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 64,
     formation: 'drip',
-    count: 2,
+    count: 4,
     type: 'revenant',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 70,
     formation: 'drip',
-    count: 3,
+    count: 6,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 76,
     formation: 'drip',
-    count: 2,
+    count: 4,
     type: 'ghoul',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 79,
     formation: 'drip',
-    count: 3,
+    count: 6,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
+  },
+  // Out of the trough and into the section's own climax, which the Waking then
+  // lands on top of.
+  {
+    t: 81,
+    formation: 'rain',
+    count: 1,
+    type: 'shambler',
+    carries: false,
+    directed: true,
+    repeat: bodiesASecond(12),
   },
   {
     t: 82,
     formation: 'rain',
-    count: 8,
+    count: 16,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 85,
     formation: 'pincer',
-    count: 8,
+    count: 16,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 90,
     formation: 'v',
-    count: 7,
+    count: 10,
     type: 'ghoul',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 94,
     formation: 'rain',
-    count: 10,
+    count: 20,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 98,
     formation: 'file',
-    count: 6,
+    count: 12,
     type: 'revenant',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 102,
     formation: 'pincer',
-    count: 8,
+    count: 16,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 106,
     formation: 'rain',
-    count: 10,
+    count: 20,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 110,
     formation: 'v',
-    count: 7,
+    count: 10,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 114,
     formation: 'pincer',
-    count: 8,
+    count: 16,
     type: 'ghoul',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 118,
     formation: 'rain',
-    count: 12,
+    count: 24,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 122,
     formation: 'v',
-    count: 7,
+    count: 10,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 126,
     formation: 'pincer',
-    count: 8,
+    count: 16,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 130,
     formation: 'rain',
-    count: 12,
+    count: 24,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 133,
     formation: 'v',
-    count: 7,
+    count: 10,
     type: 'ghoul',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 136,
     formation: 'pincer',
-    count: 8,
+    count: 16,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 138,
     formation: 'rain',
-    count: 12,
+    count: 24,
     type: 'shambler',
     carries: true,
     directed: true,
+    repeat: null,
   },
 ];
 
@@ -556,106 +848,124 @@ const CROWD_WAVES: readonly StageWave[] = [
  *
  * Shortest of the three on purpose, because the Undertaker has to carry the end.
  *
+ * It authors no standing wave at all, and that absence is the section's own
+ * property rather than an omission (ADR 0060): a rate here would pass a
+ * corpses-per-second reading while feeding the player better than the Crowd
+ * did, because a revenant corpse pays double. A test fails if a repeat appears
+ * in this table.
+ *
  * Every count and every time is an initial row. What is not tuning is the shape:
- * a fall in growth paid per second against the Crowd, and a roster of revenants
- * and ghouls with the shambler thinned.
+ * a fall in growth paid per second against the Crowd, a roster of revenants
+ * and ghouls with the shambler thinned, and no standing wave.
  */
 const VIGIL_WAVES: readonly StageWave[] = [
   {
     t: 2,
     formation: 'file',
-    count: 4,
+    count: 8,
     type: 'revenant',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 8,
     formation: 'drip',
-    count: 2,
+    count: 4,
     type: 'ghoul',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 14,
     formation: 'v',
-    count: 5,
+    count: 10,
     type: 'revenant',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 19,
     formation: 'drip',
-    count: 2,
+    count: 4,
     type: 'shambler',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 24,
     formation: 'file',
-    count: 4,
+    count: 8,
     type: 'ghoul',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 29,
     formation: 'pincer',
-    count: 6,
+    count: 12,
     type: 'revenant',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 34,
     formation: 'v',
-    count: 5,
+    count: 10,
     type: 'ghoul',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 39,
     formation: 'drip',
-    count: 2,
+    count: 4,
     type: 'revenant',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 44,
     formation: 'file',
-    count: 4,
+    count: 8,
     type: 'revenant',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 49,
     formation: 'v',
-    count: 5,
+    count: 10,
     type: 'ghoul',
     carries: false,
     directed: true,
+    repeat: null,
   },
   {
     t: 53,
     formation: 'pincer',
-    count: 6,
+    count: 12,
     type: 'revenant',
     carries: true,
     directed: true,
+    repeat: null,
   },
   {
     t: 58,
     formation: 'v',
-    count: 5,
+    count: 10,
     type: 'ghoul',
     carries: false,
     directed: true,
+    repeat: null,
   },
   // The same beat on this section's own five-second cadence.
   ...sparseLastWave(63, SPARSE_LAST_WAVE),
@@ -674,21 +984,32 @@ const VIGIL_WAVES: readonly StageWave[] = [
 
 /**
  * Bodies the source pours before it is spent. Seventy-five at the interval
- * below is fifteen seconds of pour, which is shorter than the source's own
- * descent, so the ordinary end is the budget rather than the bottom edge.
+ * below is seven and a half seconds of pour, which is shorter than the source's
+ * own descent, so the ordinary end is the budget rather than the bottom edge.
+ *
+ * The figure itself did not move under the mow and the length it buys did: the
+ * pour lands the same bodies in half the time, which is what keeps it the
+ * loudest beat in the run rather than a longer one.
  */
 const SET_PIECE_BUDGET = 75;
 
 /**
- * How long the source waits between bodies, in the table's own clock. A fifth
- * of a second is one body every twelve ticks, five a second, which is a little
- * under half again the densest ten seconds the sections author: the loudest
- * beat in the run must not arrive thinner than the section it interrupts.
+ * How long the source waits between bodies, in the table's own clock. A tenth
+ * of a second is one body every six ticks, ten a second, which is a little over
+ * a third again the densest ten seconds the sections author: the loudest beat
+ * in the run must not arrive thinner than the section it interrupts.
+ *
+ * It is that relation and never a figure, so it moves whenever the tables it
+ * reads move. It was a fifth of a second against a densest ten seconds of 36,
+ * and the mow's doubled shaped counts put that at 74 (ADR 0059, ADR 0060),
+ * which the old interval no longer cleared. The section's own rate is thinned
+ * to its share underneath the pour, so what the pour must out-pace is the
+ * section's beats and not the rate it is standing on.
  *
  * Seconds and not ticks because this module value-imports nothing, so it cannot
  * know how long a tick is. setPiece.ts holds the clock and converts.
  */
-const SET_PIECE_POUR_SECONDS = 0.2;
+const SET_PIECE_POUR_SECONDS = 0.1;
 
 /**
  * The source's own health, which only the open source can lose (ADR 0050).
@@ -729,8 +1050,8 @@ const SET_PIECE_PLACED_AT = 135;
  * the fact being authored is where in the player's view it happens rather than
  * how many units down that is.
  *
- * A quarter down, so the pour's own fifteen seconds at the field's scroll fit
- * between the opening and the bottom edge with a body's fall to spare: the
+ * A quarter down, so the pour's own seven and a half seconds at the field's
+ * scroll fit between the opening and the bottom edge with room over: the
  * source's ordinary end is its budget running out and never the edge arriving.
  * Mark's ruling of 2026-09-08 supersedes decision 25's "opens around mid-field",
  * which was written while the source drifted at half the scroll.
@@ -807,7 +1128,38 @@ const POUR_SECONDS = SET_PIECE_BUDGET * SET_PIECE_POUR_SECONDS;
  * carriers are authored across the three sections and a pour pays in corpses
  * rather than in power (ADR 0048). The director may not spend in any of them:
  * the set piece is one of ADR 0047's four off-limits moments.
+ *
+ * The rate comes in with them. The standing wave the section is holding when
+ * the pour opens is carried in at the pour's own first second, because a floor
+ * that stopped at the boundary would hand the loudest beat in the run a field
+ * that had just gone quiet. A rate thins by interval and never by count: its
+ * count is one group's bodies and its rate is the seconds between them, so
+ * thinning a count already at one would silence it while the interval said
+ * otherwise.
  */
+const thinnedByTheShare = (
+  repeat: Repeat | null,
+  share: number,
+): Repeat | null =>
+  repeat === null
+    ? null
+    : {
+        intervalSeconds: repeat.intervalSeconds / share,
+        reduceSeconds: repeat.reduceSeconds / share,
+        minimumSeconds: repeat.minimumSeconds / share,
+      };
+
+/** The standing wave a section is holding at this section-local second, if any. */
+const standingAt = (
+  waves: readonly StageWave[],
+  seconds: number,
+): StageWave | null =>
+  waves.reduce<StageWave | null>(
+    (standing, wave) =>
+      wave.repeat !== null && wave.t <= seconds ? wave : standing,
+    null,
+  );
+
 const wavesUnderThePour = (
   waves: readonly StageWave[],
   share: number,
@@ -817,7 +1169,7 @@ const wavesUnderThePour = (
   if (lastWave === undefined)
     throw new Error('wavesUnderThePour given no waves');
   const opensAt = lastWave.t - seconds;
-  return waves
+  const carried = waves
     .filter((wave) => wave.t > opensAt)
     .map((wave) => ({
       t: wave.t - opensAt,
@@ -826,7 +1178,22 @@ const wavesUnderThePour = (
       type: wave.type,
       carries: false,
       directed: false,
+      repeat: thinnedByTheShare(wave.repeat, share),
     }));
+  const standing = standingAt(waves, opensAt);
+  if (standing === null) return carried;
+  return [
+    {
+      t: 0,
+      formation: standing.formation,
+      count: standing.count,
+      type: standing.type,
+      carries: false,
+      directed: false,
+      repeat: thinnedByTheShare(standing.repeat, share),
+    },
+    ...carried,
+  ];
 };
 
 /**
@@ -872,20 +1239,55 @@ const SECTION_TABLES: Readonly<Record<TrashSectionName, readonly StageWave[]>> =
  */
 const POURED_SECTION: TrashSectionName = 'crowd';
 
+/**
+ * What a standing wave lands inside a window beyond the first group the walk
+ * below already counts: every repeat that falls in the window while this wave
+ * is still the section's standing one (ADR 0056).
+ *
+ * The moment a table authors a rate this term is what keeps the corpse cap a
+ * proof rather than an estimate, because a table that authors a rate would
+ * otherwise price identically to one that does not.
+ *
+ * One firing more than the overlap holds, because a window slid off a wave's
+ * own time can carry one firing more than the same length measured from it, and
+ * a cap that priced the lower of the two would bind on the beat it named.
+ */
+const repeatsInWindow = (
+  waves: readonly StageWave[],
+  index: number,
+  from: number,
+  seconds: number,
+): number => {
+  const wave = waves[index];
+  if (wave === undefined || wave.repeat === null) return 0;
+  const opens = Math.max(from, wave.t);
+  const closes = Math.min(from + seconds, standingUntil(waves, index));
+  if (closes <= opens) return 0;
+  const over =
+    repeatingArrivals(wave, closes) - repeatingArrivals(wave, opens) + 1;
+  return over * wave.count;
+};
+
 // The bodies a table's waves put on the field in the window that opens at this second.
 const arrivalsFrom = (
   waves: readonly StageWave[],
   from: number,
   seconds: number,
 ): number =>
-  waves
-    .filter((wave) => wave.t >= from && wave.t < from + seconds)
-    .reduce((total, wave) => total + wave.count, 0);
+  waves.reduce(
+    (total, wave, index) =>
+      total +
+      (wave.t >= from && wave.t < from + seconds ? wave.count : 0) +
+      repeatsInWindow(waves, index, from, seconds),
+    0,
+  );
 
 /**
  * A table's densest window. Only a window that opens on a wave can be the
  * densest: sliding one earlier admits nothing and can only drop the wave it
- * opened on.
+ * opened on. A standing wave's rate is flat inside its own span, so sliding
+ * cannot admit more of it either, and the firing the term above adds is what
+ * covers the one a slide could move across the edge.
  */
 const peakInTable = (waves: readonly StageWave[], seconds: number): number =>
   waves.reduce(
@@ -959,5 +1361,6 @@ export {
   RUNG_ALLOWANCE,
   BOSS_KINDS,
   peakArrivals,
+  repeatingArrivals,
 };
-export type { StageWave, BossKind, TrashSectionName, SparseShape };
+export type { StageWave, Repeat, BossKind, TrashSectionName, SparseShape };

@@ -45,6 +45,7 @@ import {
   peakArrivals,
   POUR_SHARES,
   PROCESSION_WAVES,
+  repeatingArrivals,
   RUNG_ALLOWANCE,
   SET_PIECE_BUDGET,
   SET_PIECE_HP,
@@ -56,7 +57,15 @@ import {
   WAKING_WAVES,
 } from '../waves';
 import type { Section } from '../stage';
-import { SECTIONS } from '../stage';
+import { createStage, SECTIONS } from '../stage';
+
+/**
+ * How long ADR 0015's golden scenario runs, in the waves' own clock. The
+ * scenario is six hundred ticks from a pinned seed and is required to stay
+ * tuning-stable, so what the stage authors inside that window is what a re-pin
+ * costs (`src/dev/digest.ts`).
+ */
+const GOLDEN_SECONDS = 600 / TICK_HZ;
 
 /** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
 function requireDefined<T>(value: T | undefined, message: string): T {
@@ -134,6 +143,28 @@ const carriersIn = (waves: readonly StageWave[]): number =>
     0,
   );
 
+/** Every standing wave in a table, which is every wave carrying a repeat. */
+const standingIn = (waves: readonly StageWave[]): readonly StageWave[] =>
+  waves.filter((wave) => wave.repeat !== null);
+
+/** The bodies a second the fastest standing wave among these holds. */
+const fastestRate = (waves: readonly StageWave[]): number =>
+  standingIn(waves).reduce((fastest, wave) => {
+    const repeat = wave.repeat;
+    if (repeat === null) return fastest;
+    return Math.max(fastest, wave.count / repeat.intervalSeconds);
+  }, 0);
+
+/**
+ * The standing wave a section closes on: the one authored at a rate of zero, so
+ * the mow stops and the field can read clear for the boss (ADR 0051).
+ */
+const closingRateIn = (waves: readonly StageWave[]): StageWave =>
+  requireDefined(
+    standingIn(waves).find((wave) => fastestRate([wave]) === 0),
+    'this section closes on no rate of zero',
+  );
+
 /** Every Drip in a table that carries the offer, which is none of them. */
 const dripsCarryingIn = (waves: readonly StageWave[]): string[] =>
   waves
@@ -170,6 +201,9 @@ const TO_THE_WAKING_TICKS =
  * when the test was written and every one of them paid the same build.
  */
 const REACHES_A_FULL_BUILD: readonly number[] = [101, 202, 303];
+
+/** The budget one whole-run seed gets, which is ten times its measured cost. */
+const WHOLE_RUN_MS = 30000;
 
 /**
  * A carrier put one point from death under a skull of its own, so the sim's own
@@ -297,56 +331,55 @@ const playToTheWaking = (seed: number): Reached => {
 
 describe('the peak-arrivals query (ADR 0056)', () => {
   it('reports the most bodies the stage can put on the field inside a window', () => {
-    // The densest ten seconds the tables author is the Crowd's four waves from
-    // t=130, the climb into the Waking, and the densest ten seconds in the
-    // stage is the pour on top of what that section keeps firing under it.
-    // Every expected value is summed from the waves rather than written down,
-    // so re-authoring them moves both sides together.
-    const densest = between(CROWD_WAVES, 130, 140);
-    expect(densest).toHaveLength(4);
-    const poured = 10 / SET_PIECE_POUR_SECONDS;
-    expect(poured).toBeLessThanOrEqual(SET_PIECE_BUDGET);
-    expect(peakArrivals(10)).toBe(
-      poured + Math.ceil(POUR_SHARES.crowd * totalOf(densest)),
-    );
+    // It is the maximum over the whole stage, so it stands above every term it
+    // is built from: each section's own shaped beats, the rate a section stands
+    // at, and the window inside a boss fight. Every figure is read off the
+    // waves rather than written down, so re-authoring them moves both sides.
+    // Ten seconds of pour is more than the source's whole budget under the
+    // mow's own interval, so what the window holds is the budget.
+    const poured = Math.min(SET_PIECE_BUDGET, 10 / SET_PIECE_POUR_SECONDS);
+    expect(peakArrivals(10)).toBeGreaterThanOrEqual(poured);
 
-    // It is the maximum over the whole stage, so it stands above each section's
-    // own densest ten seconds and above the boss section's window.
-    expect(totalOf(densest)).toBeLessThan(peakArrivals(10));
-    expect(totalOf(between(PROCESSION_WAVES, 95, 105))).toBeLessThan(
-      peakArrivals(10),
-    );
-    expect(totalOf(between(VIGIL_WAVES, 49, 59))).toBeLessThan(
-      peakArrivals(10),
-    );
+    for (const waves of TRASH_SECTION_TABLES) {
+      const shaped = Math.max(
+        ...waves.map((wave) => totalOf(between(waves, wave.t, wave.t + 10))),
+      );
+      expect(shaped).toBeLessThan(peakArrivals(10));
+    }
     expect(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE).toBeLessThan(peakArrivals(10));
+
+    // And the rate, which is the term the mow added. The fastest standing wave
+    // the stage authors lands its own bodies a second for the whole of its
+    // span, so ten seconds anywhere inside that span holds ten times it.
+    expect(10 * fastestRate(EVERY_WAVE)).toBeLessThanOrEqual(peakArrivals(10));
   });
 
   it('counts what a boss sheds and what a hit strips, where no table is denser', () => {
-    // No two authored waves fall inside one second, so a one-second window holds
-    // one wave at most, and one second of pour is five bodies, so the largest
-    // window in the stage at that length is the boss section's: a boss's own adds
-    // plus the rungs a hit can strip onto the field. Without those two terms
-    // the query would never look inside a boss fight at all.
-    const busiestWave = Math.max(...EVERY_WAVE.map((wave) => wave.count));
-    expect(busiestWave).toBeLessThan(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
-    const pourInOneSecond =
-      1 / SET_PIECE_POUR_SECONDS + Math.ceil(POUR_SHARES.crowd * busiestWave);
-    expect(pourInOneSecond).toBeLessThan(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
-    expect(peakArrivals(1)).toBe(BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE);
+    // A boss section authors no wave at all, so without these two terms the
+    // query would never look inside a boss fight. They are held against the
+    // window the query answers rather than asserted to be the largest of it:
+    // under the mow a section's own second is denser than a boss's, which is
+    // what a mow is.
+    expect(peakArrivals(1)).toBeGreaterThanOrEqual(
+      BOSS_ADD_ALLOWANCE + RUNG_ALLOWANCE,
+    );
+
+    // The teeth: a stage with no waves at all still prices a boss's second, so
+    // the two terms are a floor under the query and not a summand that the
+    // tables happen to exceed.
+    expect(peakArrivals(0)).toBe(0);
+    expect(BOSS_ADD_ALLOWANCE).toBeGreaterThan(0);
+    expect(RUNG_ALLOWANCE).toBeGreaterThan(0);
   });
 
   it('is computed from the waves, and is zero for a window of no length', () => {
     expect(peakArrivals(0)).toBe(0);
 
     // A window wider than the whole stage holds every body the densest section
-    // authors, so a wave added to that table moves the answer. It is the pour
-    // that falls behind at that length rather than the table: a pour is bounded
-    // by its own budget and a section's waves are not.
-    expect(peakArrivals(600)).toBe(totalOf(CROWD_WAVES));
-    expect(peakArrivals(600)).toBeGreaterThan(
-      SET_PIECE_BUDGET + Math.ceil(POUR_SHARES.crowd * totalOf(CROWD_WAVES)),
-    );
+    // authors, and under the mow most of them come from the rate rather than
+    // from the beats: the Crowd's shaped counts alone fall well short of what
+    // the query prices, and the difference is the standing waves.
+    expect(peakArrivals(600)).toBeGreaterThan(totalOf(CROWD_WAVES));
     expect(totalOf(CROWD_WAVES)).toBeGreaterThan(totalOf(PROCESSION_WAVES));
     expect(totalOf(CROWD_WAVES)).toBeGreaterThan(totalOf(VIGIL_WAVES));
 
@@ -398,17 +431,37 @@ describe("the pour's own waves, and the share under it (ADR 0042, ADR 0050)", ()
     const from = lastCrowdWave.t - pourSeconds;
     const carried = CROWD_WAVES.filter((wave) => wave.t > from);
 
-    expect(WAKING_WAVES).toHaveLength(carried.length);
-    expect(WAKING_WAVES.map((wave) => wave.formation)).toEqual(
+    // The rate the section is standing at when the pour opens comes in ahead of
+    // them, at the pour's own first second, so the set piece never arrives onto
+    // a floor that has just gone quiet.
+    const standing = requireDefined(
+      standingIn(CROWD_WAVES.filter((wave) => wave.t <= from)).at(-1),
+      'the Crowd stands at no rate when the pour opens',
+    );
+    const [carriedRate, ...beats] = WAKING_WAVES;
+    const rate = requireDefined(carriedRate, 'WAKING_WAVES is empty');
+    expect(rate.t).toBe(0);
+    expect(rate.repeat).not.toBeNull();
+
+    expect(beats).toHaveLength(carried.length);
+    expect(beats.map((wave) => wave.formation)).toEqual(
       carried.map((wave) => wave.formation),
     );
-    expect(WAKING_WAVES.map((wave) => wave.t)).toEqual(
+    expect(beats.map((wave) => wave.t)).toEqual(
       carried.map((wave) => wave.t - from),
     );
-    expect(totalOf(WAKING_WAVES)).toBeGreaterThan(0);
-    expect(totalOf(WAKING_WAVES)).toBeLessThan(
+    expect(totalOf(beats)).toBeGreaterThan(0);
+    expect(totalOf(beats)).toBeLessThan(
       totalOf(carried) * POUR_SHARES.crowd + carried.length,
     );
+
+    // A rate thins by interval and never by count: its count is one group's
+    // bodies, so halving a count already at one would silence it. What is held
+    // is the relation, below the section's own rate and above nothing at all,
+    // on the same terms the counts above are held to.
+    expect(rate.count).toBe(standing.count);
+    expect(fastestRate([rate])).toBeLessThan(fastestRate([standing]));
+    expect(fastestRate([rate])).toBeGreaterThan(0);
 
     // And the corpse cap's own derivation still covers it: the query prices the
     // Waking's window as the pour plus the Crowd's densest window at its share,
@@ -543,6 +596,7 @@ describe('the section tables as data (ADR 0006)', () => {
           type: 'shambler',
           carries: true,
           directed: true,
+          repeat: null,
         },
       ]),
     ).toHaveLength(1);
@@ -643,6 +697,9 @@ describe("the director's off-limits cells, as data (ADR 0047, ADR 0056)", () => 
     // which is exactly why it says so itself.
     const closed = EVERY_WAVE.filter((wave) => !wave.directed);
     expect(closed).toEqual([
+      // The rate the Procession closes on opens the held breath, so it is shut
+      // for the same reason the sparse waves under it are.
+      closingRateIn(PROCESSION_WAVES),
       ...sparseIn(PROCESSION_WAVES),
       CROWD_WAVES.find((wave) => wave.formation === 'wall')!,
       ...sparseIn(VIGIL_WAVES),
@@ -665,9 +722,10 @@ describe("the director's off-limits cells, as data (ADR 0047, ADR 0056)", () => 
     ];
 
     // The four sections the director may not spend in at all, the Wall's own wave,
-    // the sparse last wave of each of the two sections a boss ends, and every
-    // wave that fires under the pour.
-    const offLimits = 4 + 1 + 2 * SPARSE_LAST_WAVE.bodies + WAKING_WAVES.length;
+    // the rate the Procession closes on, the sparse last wave of each of the two
+    // sections a boss ends, and every wave that fires under the pour.
+    const offLimits =
+      4 + 1 + 1 + 2 * SPARSE_LAST_WAVE.bodies + WAKING_WAVES.length;
     expect(cells.filter((cell) => cell.endsWith('false')).length).toBe(
       offLimits,
     );
@@ -732,6 +790,7 @@ describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => 
           type: 'revenant',
           carries: true,
           directed: true,
+          repeat: null,
         },
       ]),
     ).toHaveLength(1);
@@ -740,11 +799,14 @@ describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => 
   it('says only that a wave carries, and leaves which placement holds the offer to carriers.ts', () => {
     // A wave naming its own carrying index would be a second answer to a
     // question carriers.ts already answers, and the two would drift. Every wave
-    // of every table declares the same six fields and no more.
+    // of every table declares the same seven fields and no more: the seventh is
+    // the repeat a standing wave holds, declared as null on a wave that fires
+    // once, because one construct and one list means a reader never meets two
+    // shapes (ADR 0060).
     const shapes = [
       ...new Set(EVERY_WAVE.map((wave) => Object.keys(wave).sort().join(' '))),
     ];
-    expect(shapes).toEqual(['carries count directed formation t type']);
+    expect(shapes).toEqual(['carries count directed formation repeat t type']);
     for (const wave of EVERY_WAVE) {
       expect(`${wave.formation} at t=${wave.t}: ${typeof wave.carries}`).toBe(
         `${wave.formation} at t=${wave.t}: boolean`,
@@ -770,25 +832,263 @@ describe('the carrier schedule across the sections (ADR 0002, ADR 0048)', () => 
   // `pnpm verify`, where the two workspaces' suites run at once. Split, each
   // seed carries its own budget and the promise is unchanged: all three still
   // run and all three still assert the same three things.
+  //
+  // The budget is thirty seconds where it used to be the default. Under the mow
+  // each of these runs spawns and steps roughly two thousand bodies where it
+  // used to step a few hundred (ADR 0059, ADR 0060), and each measures about
+  // two and a half seconds alone. It is a budget that stops a broken run
+  // hanging the suite and never a reading of how long a run should take.
   for (const seed of REACHES_A_FULL_BUILD) {
-    it(`pays a full build to a run that kills every carrier before the set piece on seed ${seed}`, () => {
-      // Decision 10's condition, in Mark's words: a player who kills every
-      // carrier reaches the storm well before the boss. Read on a run rather
-      // than off the tables, because how much a carrier pays is the offer's
-      // business and a maxed line is never offered.
-      const run = playToTheWaking(seed);
+    it(
+      `pays a full build to a run that kills every carrier before the set piece on seed ${seed}`,
+      () => {
+        // Decision 10's condition, in Mark's words: a player who kills every
+        // carrier reaches the storm well before the boss. Read on a run rather
+        // than off the tables, because how much a carrier pays is the offer's
+        // business and a maxed line is never offered.
+        const run = playToTheWaking(seed);
 
-      expect(`seed ${seed} killed ${run.carriersKilled}`).toBe(
-        `seed ${seed} killed ${
-          carriersIn(PROCESSION_WAVES) + carriersIn(CROWD_WAVES)
-        }`,
-      );
-      expect(`seed ${seed} took ${run.taken}`).toBe(
-        `seed ${seed} took ${carriersForFullBuild()}`,
-      );
-      expect(
-        WEAPON_LINES.map((line) => `${line} ${run.state.levels[line]}`),
-      ).toEqual(WEAPON_LINES.map((line) => `${line} ${MAX_LEVEL}`));
-    });
+        expect(`seed ${seed} killed ${run.carriersKilled}`).toBe(
+          `seed ${seed} killed ${
+            carriersIn(PROCESSION_WAVES) + carriersIn(CROWD_WAVES)
+          }`,
+        );
+        expect(`seed ${seed} took ${run.taken}`).toBe(
+          `seed ${seed} took ${carriersForFullBuild()}`,
+        );
+        expect(
+          WEAPON_LINES.map((line) => `${line} ${run.state.levels[line]}`),
+        ).toEqual(WEAPON_LINES.map((line) => `${line} ${MAX_LEVEL}`));
+      },
+      WHOLE_RUN_MS,
+    );
   }
+});
+
+describe('the standing waves the sections author (ADR 0060)', () => {
+  it('steps the rate at each standing wave and ends it at the next standing wave', () => {
+    // ADR 0060 as re-ruled: growth is authored as stepped standing waves rather
+    // than as a ramp, each holds from its own section-local time, and nothing
+    // anywhere reads a section's length. A section's shaped beats fall through
+    // the rate rather than ending it, which is what keeps the waves a floor
+    // (ADR 0047).
+    const steps = standingIn(PROCESSION_WAVES).map((wave) =>
+      fastestRate([wave]),
+    );
+    expect(steps).toEqual([2, 3.5, 5, 0]);
+    expect(standingIn(CROWD_WAVES).map((wave) => fastestRate([wave]))).toEqual([
+      8, 3, 12,
+    ]);
+
+    // Each holds until the next standing wave and no further: the rate a
+    // section is standing at one second before its next step is still the
+    // earlier one, with shaped beats in between that do not end it.
+    const [first, second] = standingIn(PROCESSION_WAVES);
+    if (first === undefined || second === undefined)
+      throw new Error('the Procession authors fewer than two rates');
+    expect(between(PROCESSION_WAVES, first.t, second.t).length).toBeGreaterThan(
+      1,
+    );
+    const justBefore = second.t - 1;
+    expect(repeatingArrivals(first, justBefore)).toBe(
+      1 + Math.floor((justBefore - first.t) * fastestRate([first])),
+    );
+  });
+
+  it('closes a section that waits on a clear field at a rate of zero', () => {
+    // The tech architecture gate's half of spec test 8, and ADR 0051: a rate
+    // still arriving under the sparse last wave is a field that never clears,
+    // so the boss never comes. Read structurally: every section whose end waits
+    // on a clear field is found through its own end column.
+    const waiting = SECTIONS.filter(
+      (section) =>
+        section.ends === 'wavesSpentAndFieldClear' && section.waves.length > 0,
+    );
+    expect(waiting.map((section) => section.name)).toEqual([
+      'procession',
+      'vigil',
+    ]);
+
+    for (const section of waiting) {
+      const sparseFrom = requireDefined(
+        sparseIn(section.waves)[0],
+        'no sparse last wave',
+      ).t;
+      const standing = standingIn(section.waves).filter(
+        (wave) => wave.t <= sparseFrom,
+      );
+      const last = standing.at(-1);
+      const rate = last === undefined ? 0 : fastestRate([last]);
+      expect(
+        `${section.name} stands at ${rate} under its sparse last wave`,
+      ).toBe(`${section.name} stands at 0 under its sparse last wave`);
+    }
+
+    // The teeth: the rate the Procession runs before it is not zero, so the
+    // assertion above is a pass rather than a table that never stood at all.
+    expect(fastestRate(PROCESSION_WAVES)).toBeGreaterThan(0);
+  });
+
+  it('fires a wave with no repeat exactly once, at its own time', () => {
+    // One construct and one list: every wave in the tree is the same shape with
+    // the repeat unset, and the query answers for it without being told which
+    // kind it holds. A count that never rises above one is what "once" is.
+    const once = requireDefined(
+      PROCESSION_WAVES.find((wave) => wave.repeat === null),
+      'the Procession authors no one-shot wave',
+    );
+    expect(repeatingArrivals(once, once.t - 0.001)).toBe(0);
+    expect(repeatingArrivals(once, once.t)).toBe(1);
+    expect(repeatingArrivals(once, once.t + 1000)).toBe(1);
+  });
+
+  it('shrinks a repeat interval by its own step and never below its floor', () => {
+    // Brotato's repeating_interval, reduce_repeating_interval and
+    // min_repeating_interval, which is the half of the shape precedent agreed
+    // with. No wave the stage authors shrinks today, so the property is read on
+    // a wave built for it, and the figures are the test's own.
+    const shrinking: StageWave = {
+      t: 0,
+      formation: 'rain',
+      count: 1,
+      type: 'shambler',
+      carries: false,
+      directed: true,
+      repeat: { intervalSeconds: 1, reduceSeconds: 0.25, minimumSeconds: 0.5 },
+    };
+    // Firings land at 1, 1.75, 2.25, 2.75, 3.25: one second, then three
+    // quarters, then the floor for ever after.
+    expect(repeatingArrivals(shrinking, 0)).toBe(1);
+    expect(repeatingArrivals(shrinking, 1)).toBe(2);
+    expect(repeatingArrivals(shrinking, 1.74)).toBe(2);
+    expect(repeatingArrivals(shrinking, 1.75)).toBe(3);
+    expect(repeatingArrivals(shrinking, 2.25)).toBe(4);
+    expect(repeatingArrivals(shrinking, 3.25)).toBe(6);
+
+    // The floor holds: ten more seconds at half a second each and never faster.
+    expect(repeatingArrivals(shrinking, 13.25)).toBe(26);
+  });
+
+  it("authors the Crowd's trough as a standing wave and never as a dip in a curve", () => {
+    // The record's section 5 item 3: a reader sees three consecutive rates
+    // rather than one rate with an exception carved into it, which is what Mad
+    // Forest does at its own minutes five and eight.
+    const rates = standingIn(CROWD_WAVES).map((wave) => fastestRate([wave]));
+    const [before, trough, after] = rates;
+    expect(rates).toHaveLength(3);
+    expect(trough).toBeLessThan(requireDefined(before, 'no rate before'));
+    expect(trough).toBeLessThan(requireDefined(after, 'no rate after'));
+
+    // And nothing anywhere computes a dip: every rate the stage holds is a
+    // figure written in a table, so the module names no curve to read one off.
+    expect(wavesSource).not.toMatch(/Math\.(sin|cos|pow|exp)/);
+  });
+
+  it('lands nothing in the Procession until its teaching waves have fired', () => {
+    // The game design gate's finding: the first swallow and the game's first
+    // mob fire each have to arrive alone (ADR 0016), so the mow starts behind
+    // them. And ADR 0015's golden scenario runs ten seconds from a pinned seed,
+    // so no standing arrival may land inside its window either.
+    const teaching = PROCESSION_WAVES.filter(
+      (wave) => wave.formation === 'drip',
+    ).slice(0, 2);
+    const first = requireDefined(
+      standingIn(PROCESSION_WAVES)[0],
+      'the Procession authors no rate',
+    );
+    for (const wave of teaching) expect(wave.t).toBeLessThan(first.t);
+    expect(first.t).toBeGreaterThan(GOLDEN_SECONDS);
+
+    // Nothing the section authors lands in the golden window but that first
+    // Drip, which is what keeps a re-pin here the smallest one possible.
+    expect(between(PROCESSION_WAVES, 0, GOLDEN_SECONDS)).toHaveLength(1);
+  });
+
+  it('answers the same count for the same time, so the stage keeps no cursor', () => {
+    // The tech architecture gate's finding, held as a test because a folded
+    // cursor beside a standing wave would be a second source of truth for a
+    // number the time already determines.
+    const standing = requireDefined(
+      standingIn(CROWD_WAVES)[0],
+      'the Crowd authors no rate',
+    );
+    for (const seconds of [0, standing.t, standing.t + 3.5, 1e3]) {
+      expect(repeatingArrivals(standing, seconds)).toBe(
+        repeatingArrivals(standing, seconds),
+      );
+    }
+
+    // Asked out of order it answers the same as asked in order, which a query
+    // carrying a cursor could not do.
+    const forwards = [10, 20, 30].map((at) => repeatingArrivals(standing, at));
+    const backwards = [30, 20, 10]
+      .map((at) => repeatingArrivals(standing, at))
+      .reverse();
+    expect(backwards).toEqual(forwards);
+
+    // And the stage holds no field for it: its whole state is the two cursors
+    // the one-shot waves already needed.
+    expect(Object.keys(createStage()).sort()).toEqual([
+      'firedWaves',
+      'sectionIndex',
+      'sectionTick',
+    ]);
+  });
+
+  it('declares no repeat anywhere in the Vigil, and no standing wave carries', () => {
+    // Two deliberate-absence guards. The Vigil owns scarcity and a rate there
+    // would pass a corpses-per-second reading while feeding better, because a
+    // revenant corpse pays double. And a rate that carried would hand out rungs
+    // at a figure nobody wrote down, against twenty-five authored carriers that
+    // are the ladder's whole supply (ADR 0048).
+    expect(standingIn(VIGIL_WAVES)).toEqual([]);
+    expect(standingIn(EVERY_WAVE).filter((wave) => wave.carries)).toEqual([]);
+
+    // Both rules can see a breach, so the empty lists are a pass rather than an
+    // empty set.
+    const carrying: StageWave = {
+      t: 0,
+      formation: 'rain',
+      count: 4,
+      type: 'shambler',
+      carries: true,
+      directed: true,
+      repeat: { intervalSeconds: 1, reduceSeconds: 0, minimumSeconds: 1 },
+    };
+    expect(standingIn([carrying]).filter((wave) => wave.carries)).toHaveLength(
+      1,
+    );
+    expect(carriersIn(EVERY_WAVE)).toBe(
+      carriersIn(EVERY_WAVE.filter((wave) => wave.repeat === null)),
+    );
+  });
+
+  it('prices a table carrying a standing wave above the same table without it', () => {
+    // The corpse cap is a proof and not an estimate, so the moment a table
+    // authors a rate the query has to price it: a table standing at twelve
+    // bodies a second must not price the same as the same beats with no rate
+    // under them. The window is found rather than named, so re-authoring the
+    // table moves the test with it.
+    const opensAt = CROWD_WAVES.reduce(
+      (best, wave) =>
+        totalOf(between(CROWD_WAVES, wave.t, wave.t + 10)) >
+        totalOf(between(CROWD_WAVES, best, best + 10))
+          ? wave.t
+          : best,
+      0,
+    );
+    const beats = totalOf(between(CROWD_WAVES, opensAt, opensAt + 10));
+    const standing = standingIn(CROWD_WAVES).filter(
+      (wave) => wave.t <= opensAt,
+    );
+    const rate = fastestRate(standing.slice(-1));
+
+    expect(rate).toBeGreaterThan(0);
+    expect(peakArrivals(10)).toBeGreaterThanOrEqual(beats + 10 * rate);
+
+    // The teeth: the beats alone are well short of that, so the assertion is
+    // the rate term being counted and not the window being wide.
+    expect(beats).toBeLessThan(beats + 10 * rate);
+    expect(peakArrivals(10)).toBeGreaterThan(beats);
+  });
 });

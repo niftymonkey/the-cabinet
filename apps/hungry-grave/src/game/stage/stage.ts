@@ -10,6 +10,7 @@ import type { BossKind, StageWave } from './waves';
 import {
   CROWD_WAVES,
   PROCESSION_WAVES,
+  repeatingArrivals,
   SET_PIECE_PLACED_AT,
   VIGIL_WAVES,
   WAKING_WAVES,
@@ -323,6 +324,62 @@ const spawnDueWaves = (
 };
 
 /**
+ * The standing wave the section is holding: the last wave carrying a repeat
+ * among the ones the cursor has already fired (ADR 0060).
+ *
+ * It is the whole of what the stage needs to stand a rate, and it is why no
+ * column, no constant and no new stage state comes with the standing waves. The
+ * wave that stands is by definition the most recent one the tick has passed, a
+ * later wave that also stands replaces it, and the cursor the one-shot waves
+ * already keep is what says which that is. A replay therefore rebuilds the rate
+ * by rebuilding the cursor, and the witness folds nothing new.
+ */
+const standingWave = (state: RunState, section: Section): StageWave | null => {
+  const fired = section.waves.slice(0, state.stage.firedWaves);
+  return fired.reduce<StageWave | null>(
+    (standing, wave) => (wave.repeat === null ? standing : wave),
+    null,
+  );
+};
+
+/**
+ * How many of the standing wave's groups this tick is owed.
+ *
+ * The wave's own first group is fired by the cursor, on the tick spawnDueWaves
+ * consumes it, exactly as a one-shot wave's is, so nothing is owed at or before
+ * that time and nothing double-fires. After it, the answer is what the wave has
+ * landed by this tick less what it had landed by the one before, which is the
+ * stateless form of a timer: repeatingArrivals counts from the section's start,
+ * so the difference is this tick's own.
+ *
+ * This is the one place the seconds a wave is authored in meet the ticks the
+ * run is played in, because waves.ts value-imports nothing and cannot reach
+ * TICK_HZ for itself.
+ */
+const standingArrivals = (wave: StageWave, sectionTick: number): number => {
+  const seconds = sectionTick / TICK_HZ;
+  if (seconds <= wave.t) return 0;
+  const before = Math.max(wave.t, (sectionTick - 1) / TICK_HZ);
+  return repeatingArrivals(wave, seconds) - repeatingArrivals(wave, before);
+};
+
+/**
+ * The floor the section is standing at, landed (ADR 0060). The groups go down
+ * through the same spawnWave a one-shot wave uses, because a standing wave is a
+ * wave: what repeats is the firing and never the kind of body it lands.
+ */
+const spawnStandingRate = (
+  state: RunState,
+  section: Section,
+  events: SimEvent[],
+): void => {
+  const wave = standingWave(state, section);
+  if (wave === null) return;
+  const due = standingArrivals(wave, state.stage.sectionTick);
+  for (let landed = 0; landed < due; landed++) spawnWave(state, wave, events);
+};
+
+/**
  * The dormant source, placed by the section that ends on it (ADR 0050).
  *
  * The section's own end column is what says the section places it: the section
@@ -465,6 +522,7 @@ const advanceStage = (state: RunState): SimEvent[] => {
   while (state.stage.sectionIndex < SECTIONS.length - 1) {
     const section = sectionAt(state.stage.sectionIndex);
     spawnDueWaves(state, section, events);
+    spawnStandingRate(state, section, events);
     placeDueSetPiece(state, section);
     if (!sectionEnded(state, section)) return events;
     enterNextSection(state, events);
