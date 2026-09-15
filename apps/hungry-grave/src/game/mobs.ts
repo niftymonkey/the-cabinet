@@ -41,6 +41,13 @@ type CorpseTier = 'trash' | 'rich';
  * Whatever can hit a mob, spelled as the roster's own line names so an
  * instrument grouping damage by line never meets a second spelling (#48).
  * Contact is absent because contact never damages a mob (ADR 0005).
+ *
+ * `belch` has had no producer since the press became a push and stopped taking
+ * health off anything (ADR 0008 as amended, Mark's ruling 3 of 2026-09-15). It
+ * stays a member so that the damage reading keeps the arm it has always had and
+ * prints it at zero, rather than losing a key and making every batch before the
+ * amendment unmatchable to every batch after it by name. A test guards the
+ * absence itself (mobs.test.ts, "is never named by a belch").
  */
 type DamageSource = WeaponLine | 'belch';
 

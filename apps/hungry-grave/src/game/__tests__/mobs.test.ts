@@ -498,17 +498,18 @@ describe("a mob's death (ADR 0037)", () => {
     ]);
   });
 
-  it("names the belch's burst belch", () => {
+  it('is never named by a belch, because a belch damages nothing', () => {
+    // ADR 0008 as amended and Mark's ruling 3 of 2026-09-15: the belch stopped
+    // killing and became a push. The belch is still a DamageSource the type
+    // declares, so this is the guard on a deliberate absence: it fails the day
+    // a press starts taking health off a body again.
     const state = quietRun();
-    // Standing inside the burst, which is the only thing the belch kills since
-    // ADR 0008's split.
     putMob(state, 'shambler', state.grave.x, state.grave.y - 40);
     state.reservoir = RESERVOIR_CAPACITY;
 
-    const struck = types(fireBelch(state), 'mobDamaged');
-    expect(struck).toEqual([
-      expect.objectContaining({ type: 'mobDamaged', source: 'belch' }),
-    ]);
+    const events = fireBelch(state);
+    expect(types(events, 'mobDamaged')).toEqual([]);
+    expect(types(events, 'mobKilled')).toEqual([]);
   });
 
   it('never kills a mob on contact and never leaves a corpse for one, however long the grave sits under it', () => {

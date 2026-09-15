@@ -385,11 +385,16 @@ beforeAll(() => {
 }, 60_000);
 
 describe('measure', () => {
-  it("reports damage under the arms the run's own lines name, the belch beside them", () => {
+  it("reports damage under the arms the run's own lines name, the belch's at nothing beside them", () => {
     // #45's damage-contribution read: attribution is per source, and the belch
     // is an arm beside the lines rather than folded into any of them. The arms
     // come from the replayed run's own levels record (#74 story 11), so the
     // expected key set is enumerated the same way rather than written out.
+    //
+    // The belch's arm reads zero and still reads, which is the amendment
+    // showing through the instrument: the press takes health off nothing now
+    // (ADR 0008 as amended) and the arm is kept so a batch does not lose a key
+    // it has always printed.
     const rich = richFixture();
     const damage: Record<string, number> = rich.measured.damage;
 
@@ -399,7 +404,8 @@ describe('measure', () => {
     expect(rich.measured.damage.territory).toBeGreaterThan(0);
     expect(rich.measured.damage.wisps).toBeGreaterThan(0);
     expect(rich.measured.damage.bell).toBeGreaterThan(0);
-    expect(rich.measured.damage.belch).toBeGreaterThan(0);
+    expect(Object.keys(damage)).toContain('belch');
+    expect(rich.measured.damage.belch).toBe(0);
   });
 
   it('reports the tick each line reached each level from the replayed weaponLeveled events', () => {

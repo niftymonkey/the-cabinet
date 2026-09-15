@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { BELCH_PHASE_DAMAGE, fireBelch } from '../../belch';
+import { fireBelch } from '../../belch';
 import type { SimEvent } from '../../events';
 import { advanceBell, bellDamageFar, bellDamageNear } from '../../lines/bell';
 import { skullDamage } from '../../lines/skullStream';
@@ -342,71 +342,42 @@ describe('the storm always matters (ADR 0007)', () => {
     expect(boss.y).toBe(standing.y);
   });
 
-  it("passes over the belch's kill rule, which is a rule and not a number", () => {
-    // The burst kills what it reaches outright, and a kill rule applied to a
-    // body whose health is one phase of several would break a phase for one
-    // press, which is a skip rather than the breath the belch buys. So the same
-    // press that deletes the add beside it leaves the boss standing on the same
-    // phase it was on.
-    const { state, boss } = fighting();
-    boss.x = state.grave.x;
-    boss.y = state.grave.y;
-    const add = putMob(state, state.grave.x, state.grave.y);
-    state.reservoir = RESERVOIR_CAPACITY;
-
-    const belched = only(fireBelch(state), 'belched');
-
-    // One killed, and it is the add: the count on the event is bodies killed,
-    // so a boss that took damage is not among them.
-    expect(firstOf(belched).killed).toBe(1);
-    expect(add.alive).toBe(false);
-    expect(state.boss).toBe(boss);
-    expect(boss.phaseIndex).toBe(0);
-    expect(boss.hp).toBeGreaterThan(0);
-  });
-
-  it('takes its own phase of boss damage from a boss inside the burst, and none from one outside it', () => {
-    // ADR 0008: the burst "deals its big phase of boss damage only when the
-    // boss is inside that radius, and never pushes a boss". The amount is a wave
-    // rather than the kill rule, because the kill rule would break a phase for
-    // one press; the wave is what makes a belch spent in a fight worth spending
-    // rather than only a breath.
+  it('takes no health off a boss and never moves it, at any distance', () => {
+    // ADR 0008 as amended and Mark's ruling 3 of 2026-09-15: the belch takes
+    // health off nothing at all, boss included, so the phase of boss damage it
+    // used to land is gone with the kill it sat beside. Never pushed is the
+    // other half of the same sentence and the reason authored patterns do not
+    // smear (ADR 0007), and it is answered at the seam rather than by a branch
+    // in the belch.
     const near = fighting();
     near.boss.x = near.state.grave.x;
     near.boss.y = near.state.grave.y;
     const stoodAt = { x: near.boss.x, y: near.boss.y };
+    const whole = requireDefined(
+      PHASE_HP.undertaker[0],
+      'no phase 0 for undertaker',
+    );
+    const add = putMob(near.state, near.state.grave.x + 1, near.state.grave.y);
     near.state.reservoir = RESERVOIR_CAPACITY;
 
-    const landed = only(fireBelch(near.state), 'mobDamaged').filter(
-      (event) => event.id === near.boss.id,
-    );
-    expect(landed).toHaveLength(1);
-    expect(firstOf(landed).amount).toBe(BELCH_PHASE_DAMAGE);
-    expect(firstOf(landed).source).toBe('belch');
-    expect(near.boss.hp).toBe(
-      requireDefined(PHASE_HP.undertaker[0], 'no phase 0 for undertaker') -
-        BELCH_PHASE_DAMAGE,
-    );
-    // Never pushed, which is the other half of the same sentence and the reason
-    // authored patterns do not smear.
+    const events = fireBelch(near.state);
+
+    expect(only(events, 'mobDamaged')).toEqual([]);
+    expect(only(events, 'mobKilled')).toEqual([]);
+    expect(near.boss.hp).toBe(whole);
+    expect(near.boss.phaseIndex).toBe(0);
     expect(near.boss.x).toBe(stoodAt.x);
     expect(near.boss.y).toBe(stoodAt.y);
+    // The add beside it is what the press does reach, so the boss standing
+    // untouched is the seam refusing and not the press missing.
+    expect(add.alive).toBe(true);
+    expect(firstOf(only(events, 'belched')).shoved).toBe(1);
 
-    // And only when it is inside: a boss at its own arrival point, the whole
-    // field away from the grave, takes nothing at all from the same press.
+    // And a boss the whole field away from the grave is untouched the same way.
     const far = fighting();
     far.state.reservoir = RESERVOIR_CAPACITY;
-    const missed = only(fireBelch(far.state), 'mobDamaged');
-    expect(missed).toEqual([]);
-    expect(far.boss.hp).toBe(
-      requireDefined(PHASE_HP.undertaker[0], 'no phase 0 for undertaker'),
-    );
-
-    // One press never breaks a fresh phase, whatever the wave is retuned to,
-    // which is what keeps a phase's own emit out of the belch's reach.
-    expect(BELCH_PHASE_DAMAGE).toBeLessThan(
-      Math.min(...Object.values(PHASE_HP).map((wave) => Math.min(...wave))),
-    );
+    expect(only(fireBelch(far.state), 'mobDamaged')).toEqual([]);
+    expect(far.boss.hp).toBe(whole);
   });
 });
 

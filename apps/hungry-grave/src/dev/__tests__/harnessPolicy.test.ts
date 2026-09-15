@@ -514,6 +514,24 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
 const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202];
 
 /**
+ * The seeds where an offer stands and the hand never reaches it, which is a
+ * third outcome beside never paid and paid and taken.
+ *
+ * Measured on 2026-09-15, when the belch stopped killing and became a push
+ * (ADR 0008 as amended). The press used to delete every body inside a radius of
+ * the grave, carriers included, and it now throws them instead, so this hand's
+ * runs lose carriers off the bottom edge that a press would have paid them for:
+ * seed 303 ends with thirteen carriers lost and one offer that stood above the
+ * top edge, scrolled down and went unswallowed.
+ *
+ * It is the stage and the walk rather than the policy: the hand steers at the
+ * offer body nearest the grave exactly as it did, and an offer that opens far
+ * from the grave can scroll off before the walk reaches it. Both halves are
+ * asserted, so the day 303 takes its offer again this fires and says so.
+ */
+const STOOD_BUT_NEVER_REACHED: readonly number[] = [303];
+
+/**
  * The seeds that finish above the birthright, which under the stage's authored
  * floor is none of them.
  *
@@ -564,7 +582,7 @@ describe('a run under the hand reaches a levelled build (#98, ADR 0034)', () => 
   for (const seed of SEEDS) {
     const paid = !NEVER_PAID_AT_THE_BIRTHRIGHT.includes(seed);
     it(
-      `${paid ? 'takes the offers it is paid' : 'is never paid a carrier'} on seed ${seed}`,
+      `${paid ? (STOOD_BUT_NEVER_REACHED.includes(seed) ? 'never reaches the one offer that stands' : 'takes the offers it is paid') : 'is never paid a carrier'} on seed ${seed}`,
       () => {
         // #98's first acceptance line: the hand's runs reach levelled builds
         // rather than sitting at the birthright. It is a property of the
@@ -586,6 +604,10 @@ describe('a run under the hand reaches a levelled build (#98, ADR 0034)', () => 
 
         expect(opened > 0).toBe(paid);
         if (!paid) return;
+        if (STOOD_BUT_NEVER_REACHED.includes(seed)) {
+          expect(taken).toBe(0);
+          return;
+        }
         expect(taken).toBeGreaterThan(0);
         expect(levelled).toBeGreaterThanOrEqual(taken);
       },

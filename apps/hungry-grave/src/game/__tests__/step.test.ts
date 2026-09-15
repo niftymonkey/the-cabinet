@@ -628,23 +628,22 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
   });
 });
 
-describe('a belch kill is a kill (Mark, 2026-08-22)', () => {
-  it('pays for a carrier its burst killed, on the same tick', () => {
-    // The reason the burst routes through damageMob rather than clearing the
-    // pool: resolveDeaths walks the tick's own accumulated kills, the belch's
-    // included, so the eruption pays the offer instead of emptying the field
-    // of it.
+describe('a belch pays nothing, because it kills nothing (Mark, 2026-09-15)', () => {
+  it('opens no offer and leaves the whole wave standing', () => {
+    // Mark's ruling 3 of 2026-09-15 and ADR 0008 as amended replaced the burst
+    // with a push, so the press that used to pay a carrier's offer by killing
+    // it now throws it instead. This is the guard on that absence: it fails the
+    // day a press kills anything again, whether or not the offer follows.
     //
-    // The wave stands inside the burst rather than up the field, because ADR
-    // 0008's split scoped the kill to a radius of the grave and a wave laid
-    // anywhere else is one the belch no longer touches.
+    // The wave stands inside the reach rather than up the field, because ADR
+    // 0008's split scoped the press to a radius of the grave and a wave laid
+    // anywhere else is one the belch does not touch at all.
     const state = quietRun();
     const step = stepping(state);
     state.reservoir = RESERVOIR_CAPACITY;
     const wave = 5;
-    // The carrier stands in the middle of the wave, so the burst that kills it
-    // kills four ordinary mobs on the same tick and exactly one of the five
-    // pays.
+    // The carrier stands in the middle of the wave, where the old burst would
+    // have killed it along with the four beside it.
     const carrier = 2;
     for (let index = 0; index < wave; index++) {
       spawnMob(
@@ -664,11 +663,11 @@ describe('a belch kill is a kill (Mark, 2026-08-22)', () => {
 
     const events = step({ move: { x: 0, y: 0 }, belch: true });
 
-    expect(typesOf(events).filter((type) => type === 'mobKilled')).toHaveLength(
-      wave,
+    expect(typesOf(events)).toContain('belched');
+    expect(typesOf(events).filter((type) => type === 'mobKilled')).toEqual([]);
+    expect(typesOf(events).filter((type) => type === 'offerOpened')).toEqual(
+      [],
     );
-    expect(
-      typesOf(events).filter((type) => type === 'offerOpened'),
-    ).toHaveLength(1);
+    expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(wave);
   });
 });

@@ -1,5 +1,6 @@
 import { Graphics } from 'pixi.js';
 
+import { BELCH_SHOVE_SPACING, BELCH_SHOVES } from '../../../game/belch';
 import { SKULL_CAP, WISP_CAP } from '../../../game/caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import {
@@ -9,6 +10,7 @@ import {
   tollReach,
 } from '../../../game/lines/bell';
 import { SKULL_HALF_EXTENT } from '../../../game/lines/skullStream';
+import { SHOVE_TICKS } from '../../../game/shove';
 import type { Patch } from '../../../game/lines/territory';
 import {
   patchAt,
@@ -120,13 +122,18 @@ const CONE_ALPHA = 0.85;
 const CONE_FILL_ALPHA = 0.35;
 
 /**
- * How long the eruption reads for, in ticks, and how far it reaches.
+ * How long the whole eruption reads for, in ticks: one front per shove the
+ * belch throws, each front lasting exactly as long as its own shove, so the
+ * picture and the push begin and end together (design record R3 as superseded
+ * 2026-09-15).
  *
- * A third of a second, so it reads as a shock front rather than a bloom, and out
- * to the field's own diagonal rather than its width, so it leaves the far corner
- * behind. Anything shorter in reach reads as a large bell toll, and the bell is
- * a different line: the bell's cones take 45 ticks to a quarter of the distance,
- * which is what keeps the two tellable apart under ADR 0005's generative rule.
+ * It is derived from the belch's own count and spacing rows and the shove
+ * module's own length rather than written out a second time, because a figure
+ * typed twice is a figure a later retune has to hunt for. At today's rows it
+ * comes to ninety ticks, a second and a half. The belch's spacing equals one
+ * shove's length, so the three fronts are strictly sequential and never
+ * concurrent: each starts on the tick the one before it ends, which is what
+ * makes them countable.
  *
  * Hitstop is refused rather than omitted. A sim pause changes the tick count and
  * ADR 0015 makes the tick count the run, so a real hitstop is a determinism
@@ -135,7 +142,34 @@ const CONE_FILL_ALPHA = 0.35;
  * already draws for a cancelled shot, up to a full mob-fire pool of them at
  * once in the top layer of the stack, with this as the ground shock underneath.
  */
-const ERUPTION_TICKS = 20;
+const ERUPTION_TICKS = (BELCH_SHOVES - 1) * BELCH_SHOVE_SPACING + SHOVE_TICKS;
+
+/**
+ * How far one front reaches, in field units: the field's own diagonal rather
+ * than its width, so it leaves the far corner behind.
+ *
+ * It does not move with the duration, and that is an authored call rather than
+ * a figure any ruling hands over. R3 rules the count and the duration and says
+ * nothing about reach or speed. What the front pictures is the gas, which this
+ * slice does not touch and which still smothers every mob-fire shot on the
+ * whole field, so a front that stopped short of the far corner would stop short
+ * of half of what the press does. The shove is the other half and is legibly
+ * local: a body starts inside the belch's own 160-unit reach and ends at most
+ * 340 units out, well inside this, so nothing is ever moved by something the
+ * player cannot see (design record R10) and every front passes over every body
+ * it threw.
+ *
+ * A front running well past the push it draws is shipped practice rather than
+ * this game's invention: Enter the Gungeon's Blank sweeps its clear front to 25
+ * tiles over a knockback that ends at 10 (docs/research/watched-pushback-
+ * duration.md section 3). What the longer front costs is speed, and the cost is
+ * the point: the same reach over one shove's thirty ticks instead of twenty
+ * runs at two thirds of what it ran at, which moves it toward the Gungeon front
+ * that is the only shipped ruler this can be measured against rather than away
+ * from it. Anything shorter in reach reads as a large bell toll, and the bell is
+ * a different line: the bell's cones take 45 ticks to a quarter of the distance,
+ * which is what keeps the two tellable apart under ADR 0005's generative rule.
+ */
 const ERUPTION_REACH = Math.sqrt(
   FIELD_WIDTH * FIELD_WIDTH + FIELD_HEIGHT * FIELD_HEIGHT,
 );
@@ -324,21 +358,59 @@ const drawCones = (into: Graphics, level: number, reach: number): void => {
   });
 };
 
-// The belch's shock front, leaving the mouth and expanding past the field's far corner.
-const drawEruption = (into: Graphics, progress: number): void => {
+// One front of the eruption as it stands this tick: how far it has reached from
+// the mouth, and how thick its edge is drawn.
+interface EruptionFront {
+  readonly radius: number;
+  readonly width: number;
+}
+
+/**
+ * The fronts alive on this tick of the eruption, one per shove the belch
+ * throws, each starting on the tick its own shove does and running exactly as
+ * long as that shove runs.
+ *
+ * It is the whole of the agreement between the picture and the push, and it is
+ * a value rather than a draw so the agreement can be asserted rather than only
+ * looked at. Every figure it reads is the belch's own row or the shove module's
+ * own length, so a retune of either moves the fronts with it.
+ *
+ * A front thins as it goes, which is what makes each sweep read as one thing
+ * passing rather than as a circle growing.
+ */
+const eruptionFrontsAt = (age: number): EruptionFront[] => {
+  const fronts: EruptionFront[] = [];
+  for (let shove = 0; shove < BELCH_SHOVES; shove++) {
+    const own = age - shove * BELCH_SHOVE_SPACING;
+    if (own < 0 || own >= SHOVE_TICKS) continue;
+    const progress = own / SHOVE_TICKS;
+    fronts.push({
+      radius: ERUPTION_REACH * progress,
+      width: ERUPTION_STROKE * (1 - progress) + SPRITE_STROKE,
+    });
+  }
+  return fronts;
+};
+
+// The belch's shock fronts, leaving the mouth and expanding past the field's far corner.
+const drawEruption = (into: Graphics, age: number): void => {
   into.clear();
-  const radius = ERUPTION_REACH * progress;
-  if (radius <= 0) return;
-  into.circle(0, 0, radius).stroke({
-    width: ERUPTION_STROKE * (1 - progress) + SPRITE_STROKE,
-    color: PALETTE.belchEruption.hex,
-    alignment: 0.5,
-  });
+  for (const front of eruptionFrontsAt(age)) {
+    // A front on the tick it is born has reached nowhere yet and is nothing to
+    // draw, which is the same gate the single front kept at progress zero.
+    if (front.radius <= 0) continue;
+    into.circle(0, 0, front.radius).stroke({
+      width: front.width,
+      color: PALETTE.belchEruption.hex,
+      alignment: 0.5,
+    });
+  }
 };
 
 // Charge going over the side: a short spray at the mouth, so wasting is visible rather than a silent clamp.
-const drawSplash = (into: Graphics, progress: number): void => {
+const drawSplash = (into: Graphics, age: number): void => {
   into.clear();
+  const progress = age / SPLASH_TICKS;
   const reach = SPLASH_REACH * progress;
   const powerUp = SPLASH_REACH * 0.22 * (1 - progress);
   for (let spoke = 0; spoke < SPLASH_SPOKES; spoke++) {
@@ -663,11 +735,16 @@ class StormRenderer {
     this.syncBurst(run, this.splash, SPLASH_TICKS, drawSplash);
   }
 
+  /**
+   * One transient at its own age in ticks. The age goes to the draw rather than
+   * a share of the life, because the eruption's fronts each run on their own
+   * clock inside the whole and a single share cannot say which of them is out.
+   */
   private syncBurst(
     run: RunState,
     burst: Burst,
     life: number,
-    draw: (into: Graphics, progress: number) => void,
+    draw: (into: Graphics, age: number) => void,
   ): void {
     const age = run.tick - burst.born;
     if (age < 0 || age >= life) {
@@ -676,8 +753,13 @@ class StormRenderer {
     }
     burst.sprite.visible = true;
     burst.sprite.position.set(burst.x, burst.y);
-    draw(burst.sprite, age / life);
+    draw(burst.sprite, age);
   }
 }
 
-export { StormRenderer, STORM_RENDERER_TRANSIENT_TICKS };
+export {
+  StormRenderer,
+  STORM_RENDERER_TRANSIENT_TICKS,
+  eruptionFrontsAt,
+  ERUPTION_TICKS,
+};

@@ -23,7 +23,7 @@ const LIVE_SHOTS = 3;
 const PAYOUT = 1;
 
 describe('belch cadence', () => {
-  it('reports each belch fire with the mobs it killed and the shots it cancelled', () => {
+  it('reports each belch fire with the bodies it threw and the shots it cancelled', () => {
     // Story 13: a wipe that landed on a curtain reads differently from one
     // spent on empty sky, so kills and cancels stay two counts.
     // Both mobs stand inside the burst, which is what a belch kills since ADR
@@ -69,7 +69,7 @@ describe('belch cadence', () => {
     observeBelchCadence(accumulator, FIRE_TICK, fireBelch(run), run);
 
     expect(belchCadenceOf(accumulator).fires).toEqual([
-      { tick: FIRE_TICK, killed: 2, cancelled: LIVE_SHOTS },
+      { tick: FIRE_TICK, shoved: 2, cancelled: LIVE_SHOTS },
     ]);
   });
 
@@ -104,13 +104,13 @@ describe('belch cadence', () => {
     expect(belchCadenceOf(noFires).intervals).toEqual([]);
 
     const one = createBelchCadence();
-    one.fires.push({ tick: 40, killed: 1, cancelled: 0 });
+    one.fires.push({ tick: 40, shoved: 1, cancelled: 0 });
     expect(belchCadenceOf(one).intervals).toEqual([]);
 
     const several = createBelchCadence();
-    several.fires.push({ tick: 40, killed: 1, cancelled: 0 });
-    several.fires.push({ tick: 220, killed: 3, cancelled: 2 });
-    several.fires.push({ tick: 300, killed: 0, cancelled: 0 });
+    several.fires.push({ tick: 40, shoved: 1, cancelled: 0 });
+    several.fires.push({ tick: 220, shoved: 3, cancelled: 2 });
+    several.fires.push({ tick: 300, shoved: 0, cancelled: 0 });
     expect(belchCadenceOf(several).intervals).toEqual([180, 80]);
   });
 });

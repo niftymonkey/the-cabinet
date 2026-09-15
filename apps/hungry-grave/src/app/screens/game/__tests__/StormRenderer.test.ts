@@ -15,8 +15,14 @@ import {
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { PROCESSION_WAVES } from '../../../../game/stage/waves';
+import { BELCH_SHOVE_SPACING, BELCH_SHOVES } from '../../../../game/belch';
+import { SHOVE_TICKS } from '../../../../game/shove';
 import { FieldLayers } from '../layering';
-import { StormRenderer } from '../StormRenderer';
+import {
+  ERUPTION_TICKS,
+  eruptionFrontsAt,
+  StormRenderer,
+} from '../StormRenderer';
 
 function attached(): { layers: FieldLayers; renderer: StormRenderer } {
   const layers = new FieldLayers();
@@ -250,6 +256,36 @@ describe("a second run out of the pool (this app's own lesson)", () => {
 });
 
 describe('the momentary effects (plan 6.19)', () => {
+  it('draws as many fronts as the belch throws waves, each lasting as long as its wave', () => {
+    // Design record R3 as superseded 2026-09-15: one front per push, each
+    // lasting as long as its own push, so the picture and the push end
+    // together. The fronts are read as a value rather than off a sprite,
+    // because what is promised is the agreement between the two and not the
+    // geometry that happens to carry it.
+    const born: number[] = [];
+    let last = 0;
+    for (let age = 0; age < ERUPTION_TICKS; age++) {
+      const live = eruptionFrontsAt(age).length;
+      // At this spacing the fronts are strictly sequential, so exactly one is
+      // ever out: a second would mean two pushes running at once.
+      expect(`tick ${age}: ${live}`).toBe(`tick ${age}: 1`);
+      const reach = eruptionFrontsAt(age)[0]?.radius ?? 0;
+      if (reach < last) born.push(age);
+      last = reach;
+    }
+    // The first front is born at nothing, and each one after it restarts there.
+    expect(born).toEqual(
+      Array.from({ length: BELCH_SHOVES - 1 }, (_, index) => {
+        return (index + 1) * BELCH_SHOVE_SPACING;
+      }),
+    );
+    expect(ERUPTION_TICKS).toBe(
+      (BELCH_SHOVES - 1) * BELCH_SHOVE_SPACING + SHOVE_TICKS,
+    );
+    // And nothing is drawn once the last push has finished travelling.
+    expect(eruptionFrontsAt(ERUPTION_TICKS)).toEqual([]);
+  });
+
   it('shows the eruption for its own life and then never again', () => {
     const { layers, renderer } = attached();
     const state = quietRun();

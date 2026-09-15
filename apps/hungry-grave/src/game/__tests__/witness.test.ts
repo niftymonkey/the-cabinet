@@ -933,7 +933,7 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'patches[].level':
     'written once at the lay (territory.ts layPatch) and never mutated, as mobs[].type is. A divergence in the birth rung shows through the radius, pull, slow and re-hit the walk folds, each captured from the same rung of a ladder with distinct values per rung.',
   'mobs[].impulse.source':
-    "which push threw the shove a body is carrying, written once when the shove starts (shove.ts startShove) and never mutated, as mobFire[].kind is. No rule reads it: its one consumer is the mobShoved event a reading counts off a tape, so it answers who pushed rather than where the body goes. A divergence in it shows through the impulse's seven folded fields, because the bell starts one shove with no spacing and the belch three ten ticks apart (design record R3).",
+    "which push threw the shove a body is carrying, written once when the shove starts (shove.ts startShove) and never mutated, as mobFire[].kind is. No rule reads it: its one consumer is the mobShoved event a reading counts off a tape, so it answers who pushed rather than where the body goes. A divergence in it shows through the impulse's seven folded fields, because the bell starts one shove with no spacing and the belch three, spaced by its own row (design record R3 as superseded).",
   'refusals.food':
     "what the corpse pool turned away on one tick, cleared at the top of every tick and read by the invariant harness at the end of it. It is the harness's input rather than the run's state, and every refusal it counts is decided by the pools the fold already walks.",
   'refusals.carriers':

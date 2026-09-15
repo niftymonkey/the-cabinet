@@ -4,10 +4,20 @@ import type { SimEvent } from '../../game/events';
 import type { RunState } from '../../game/run';
 import { RESERVOIR_CAPACITY } from '../../game/tuning';
 
-// One belch, and what the field gave it.
+/**
+ * One belch, and what the field gave it: the shots it took out of the air and
+ * the bodies it threw off the ground around the grave.
+ *
+ * It counted kills until the belch stopped killing (ADR 0008 as amended, design
+ * record R3 as superseded), and it counts the bodies the same press now throws
+ * instead. A count that could only ever read zero would be a lie this reading
+ * could still be asked to answer, and what the reading is for is telling a
+ * press spent on a curtain from one spent on empty sky, which needs a body
+ * count beside the shot count either way.
+ */
 interface BelchFire {
   readonly tick: number;
-  readonly killed: number;
+  readonly shoved: number;
   readonly cancelled: number;
 }
 
@@ -59,7 +69,7 @@ const observeBelchCadence = (
     if (event.type === 'belched') {
       acc.fires.push({
         tick,
-        killed: event.killed,
+        shoved: event.shoved,
         cancelled: event.cancelled,
       });
     }

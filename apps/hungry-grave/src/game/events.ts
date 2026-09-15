@@ -350,15 +350,21 @@ interface MobShoved {
 
 /**
  * The belch fired (ADR 0008). The counts are what the belch-on-wave instrument
- * reads to tell a wipe that landed on a curtain from one spent on empty sky.
- * Cancelled is mob fire taken off the field and killed is mobs taken off it,
- * and the two are separate because a curtain of unarmed trash cancels nothing
- * while being exactly the target the loaded belch exists for.
+ * reads to tell a press that landed on a curtain from one spent on empty sky.
+ * Cancelled is mob fire taken off the field and shoved is bodies thrown off the
+ * ground around the grave, and the two are separate because a curtain of
+ * unarmed trash cancels nothing while being exactly the target the loaded belch
+ * exists for.
+ *
+ * Shoved is a body count and never a distance. It is taken the tick the press
+ * lands, which is the only tick that can say how much the field gave this one
+ * belch: what each body then really travels arrives up to ninety ticks later as
+ * its own mobShoved, with no belch left to attribute it to.
  */
 interface Belched {
   readonly type: 'belched';
   readonly cancelled: number;
-  readonly killed: number;
+  readonly shoved: number;
 }
 
 /**

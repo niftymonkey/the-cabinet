@@ -1,38 +1,56 @@
 // The one button (ADR 0008): the full reservoir vomited in two scopes at once,
-// the gas over the whole field and the burst around the grave.
+// the gas over the whole field and the shove around the grave.
 
 import type { SimEvent } from './events';
+import { normalize } from './math';
 import type { RunState } from './run';
-import { damageStormTarget, stormTargets } from './stormTargets';
+import { shoveStormTarget, stormTargets } from './stormTargets';
 import { RESERVOIR_CAPACITY } from './tuning';
 
 /**
- * How far the burst reaches from the grave, in field units. Initial, tuned by
+ * How far the shove reaches from the grave, in field units. Initial, tuned by
  * the harness at step 4.
  *
- * Under a third of the field's 540 width, so the burst is legibly local against
+ * Under a third of the field's 540 width, so the press is legibly local against
  * a field-wide gas. What made the belch dominant was never its price but its
  * scope: the 2026-08-31 tapes read it at 35 and 46 percent of all kills with
  * the reservoir full 62 to 79 percent of the run (ADR 0008), and cutting the
  * scope is the answer to that rather than cutting the charge.
+ *
+ * The reach is what it always was and only what happens inside it changed: it
+ * used to bound a kill and it now bounds a push (ADR 0008 as amended, design
+ * record R3 as superseded 2026-09-15). The three shoves below total more than
+ * it, so a body standing beside the grave ends outside it.
  */
 const BELCH_BURST_RADIUS = 160;
 
 /**
- * What the burst takes off a target one hit cannot take whole, which today is a
- * boss (ADR 0008: the burst "deals its big phase of boss damage only when the
- * boss is inside that radius, and never pushes a boss").
+ * The shove one press throws: how many, how far each carries a body, and how
+ * many ticks from one beginning to the next.
  *
- * One row for every boss rather than a row each, because what it prices is the
- * press and not the fight. Initial, and first in line for the harness at step 4.
- * It is derived from the two figures the design record already carries: a full
- * build's storm lands about 50 points a second on a boss standing at the top of
- * the field, so this is about eight seconds of storm bought with one earned
- * press. It sits well under one phase of the shortest boss's health, 1100, so a
- * single belch never breaks a fresh phase and the property that every phase
- * survives one full emit is not something a press can take away.
+ * Three discrete shoves rather than one long one, because Mark's words are "two
+ * or three shoves" and a push the player can count makes that literal; the
+ * Flower Wall's five is the shipped precedent for a set piece arriving in
+ * countable pushes (docs/research/push-feel-precedent.md section 2). Each is a
+ * full watched push of its own, which is what the spacing buys: at one shove's
+ * own length the three run back to back and never overlap, so each reads on its
+ * own rather than re-arming a shove still in flight.
+ *
+ * The 60 apiece is docs/research/watched-pushback-duration.md section 5, option
+ * 2, which Mark picked on 2026-09-15: 180 in all is the Blank's own third of
+ * its playfield transferred to this field's 540 width, 8.2 shambler widths and
+ * 9.5 seconds of a shambler's advance bought back, and it clears the reach
+ * above by 20, which is ticket #124's done line of a player naming unprompted
+ * what the belch did for them.
+ *
+ * All three are data and the tuning step owns them (design record R3 as
+ * superseded, Mark's ruling 2 of 2026-09-15). They are also ruling R4's own
+ * lever: if the Wall's curtain takes a dent rather than a lane, the count and
+ * the spacing are what moves, never a rule keyed on the set piece.
  */
-const BELCH_PHASE_DAMAGE = 400;
+const BELCH_SHOVES = 3;
+const BELCH_SHOVE_THROW = 60;
+const BELCH_SHOVE_SPACING = 30;
 
 // Takes every live shot off the field, and reports how many went.
 const cancelMobFire = (state: RunState): number => {
@@ -45,7 +63,7 @@ const cancelMobFire = (state: RunState): number => {
   return cancelled;
 };
 
-// Whether a body stands inside the burst, measured centre to centre from the
+// Whether a body stands inside the reach, measured centre to centre from the
 // grave. Squared, so the reach needs no square root to order.
 const insideBurst = (state: RunState, x: number, y: number): boolean => {
   const dx = x - state.grave.x;
@@ -54,47 +72,60 @@ const insideBurst = (state: RunState, x: number, y: number): boolean => {
 };
 
 /**
- * Kills what stands inside the burst, and reports how many went.
+ * Throws what stands inside the reach away from the grave, and reports how many
+ * bodies it threw.
  *
- * The kills route through the seam's damage rather than clearing a pool, so a
- * belched body leaves a corpse exactly as any other kill does: the burst
- * restarts the swallow economy instead of emptying the field of it.
+ * Each body is struck once and that one strike carries all three shoves: the
+ * body set is captured the tick the belch fires and each body gets one impulse
+ * whose own row brings the later shoves in, so a body already carried out of
+ * reach still takes the shoves this press already owed it. That is the bell's
+ * `toll.struck` shape (bell.ts) reached by construction rather than by a reach
+ * test run three times.
  *
  * Two things are outside its reach. A body further out than the radius, which
  * is the whole of the split: a press that clears the air and leaves the crowd
  * walking hands the wave back to the storm. And a body still above the top
  * edge, which is ADR 0008's older scope limit standing through the split,
- * because reaching past the edge would silently delete authored content a
- * player never saw arrive.
+ * because reaching past the edge would silently move authored content a player
+ * never saw arrive.
  *
- * A target one hit cannot take whole is inside the reach and is not killed: the
- * kill rule does not apply to phased health, because a phase broken by one
- * press is a skip rather than the breath the belch buys, so what lands on it is
- * the row instead. That is ADR 0008's own sentence, its big phase of boss
- * damage only when the boss is inside the radius. Nothing here branches on what
- * it is hitting; the seam answers whether the kill rule may be applied and the
- * two amounts follow from that one answer.
- *
- * Nothing is pushed, ever, and the absence is the ADR's ("never pushes a
- * boss"): this module does not move a target at all, so a press cannot smear an
- * authored pattern.
+ * Nothing here branches on what it is hitting. The seam answers whether a body
+ * may be pushed at all, so a boss's authored pattern and a set piece's source
+ * are refused there and never by a branch here (ADR 0007), and the decay of
+ * each shove is the shove module's.
  */
-const burstNearbyTargets = (state: RunState, events: SimEvent[]): number => {
-  let killed = 0;
+const shoveNearbyTargets = (state: RunState): number => {
+  let shoved = 0;
   for (const target of stormTargets(state)) {
     if (!target.entered) continue;
     if (!insideBurst(state, target.x, target.y)) continue;
-    const takes = target.killableOutright ? target.hp : BELCH_PHASE_DAMAGE;
-    events.push(...damageStormTarget(state, target, takes, 'belch'));
-    if (target.killableOutright) killed += 1;
+    const away = normalize(target.x - state.grave.x, target.y - state.grave.y);
+    // A body standing exactly on the grave has no direction to be thrown along,
+    // which is the one refusal the bell already keeps (bell.ts, pushTarget).
+    if (away.length === 0) continue;
+    shoveStormTarget(
+      state,
+      target,
+      'belch',
+      away.x,
+      away.y,
+      BELCH_SHOVE_THROW,
+      BELCH_SHOVES,
+      BELCH_SHOVE_SPACING,
+    );
+    if (target.pushable) shoved += 1;
   }
-  return killed;
+  return shoved;
 };
 
 /**
  * The two scopes at once: the gas takes every mob-fire shot on the whole field
- * and kills nothing, the burst kills what stands within a radius of the grave,
- * and the reservoir empties.
+ * and kills nothing, the shove throws what stands within a radius of the grave
+ * clear of it, and the reservoir empties.
+ *
+ * It takes health off nothing at all, boss included (Mark's ruling 3 of
+ * 2026-09-15, ADR 0008 as amended), so no corpse of its own is left behind
+ * because nothing died.
  *
  * It fires only at a full reservoir and does nothing otherwise, which is why
  * there is no partial bomb anywhere in the signature. That full-only rule is
@@ -102,18 +133,22 @@ const burstNearbyTargets = (state: RunState, events: SimEvent[]): number => {
  * so repeat calls inside one frame are no-ops by the resource rather than by a
  * flag somebody has to remember to clear.
  *
- * Nothing here branches on what it is hitting, and that is the constraint: the
- * burst asks the seam what its kill rule may be applied to and the seam
- * answers, so a body whose health is phased is skipped without this module
- * ever learning that such a body exists.
+ * The shoves report themselves later and elsewhere, one event per body when its
+ * impulse is spent (mobs.ts, reportShoveTravel), because a shove that takes
+ * ticks has no realized displacement on the tick it lands.
  */
 const fireBelch = (state: RunState): SimEvent[] => {
   if (state.reservoir < RESERVOIR_CAPACITY) return [];
   const cancelled = cancelMobFire(state);
-  const kills: SimEvent[] = [];
-  const killed = burstNearbyTargets(state, kills);
+  const shoved = shoveNearbyTargets(state);
   state.reservoir = 0;
-  return [{ type: 'belched', cancelled, killed }, ...kills];
+  return [{ type: 'belched', cancelled, shoved }];
 };
 
-export { fireBelch, BELCH_BURST_RADIUS, BELCH_PHASE_DAMAGE };
+export {
+  fireBelch,
+  BELCH_BURST_RADIUS,
+  BELCH_SHOVES,
+  BELCH_SHOVE_THROW,
+  BELCH_SHOVE_SPACING,
+};

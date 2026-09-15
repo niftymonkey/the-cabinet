@@ -25,10 +25,11 @@ type ShoveSource = 'bell' | 'belch';
  * in flight would be a replay of a different run (ADR 0019).
  *
  * `shovesLeft`, `nextIn` and `spacing` carry the wave structure. The bell
- * passes one shove and no spacing; slice J's belch passes three, spaced by its
- * own row so each reads on its own (design record R3 as superseded), which is
- * why they are declared here rather than the day that caller is written: a
- * field arriving later would change what every tape recorded in between folded.
+ * passes one shove and no spacing; the belch passes three, spaced by its own
+ * row so each reads on its own (design record R3 as superseded, belch.ts). A
+ * spacing narrower than SHOVE_TICKS would re-arm a shove still in flight and
+ * replace it rather than follow it, so a caller that wants its pushes counted
+ * names a spacing at least that wide.
  */
 interface Impulse {
   /**

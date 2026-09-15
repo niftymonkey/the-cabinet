@@ -64,7 +64,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Gas**: The belch's field-wide half: it smothers every mob-fire shot on the field, boss patterns included, and kills nothing. _Avoid_: smoke, cloud, bullet clear.
 
-**Burst**: The belch's local half: the eruption that kills the mobs within a radius of the grave, lands the boss phase when the boss is inside it, and never pushes a boss. _Avoid_: explosion, nova, wipe.
+**Burst**: The belch's local half: the eruption that throws the bodies within a radius of the grave away from it, in three shoves a player can count, and takes health off nothing at all. A boss and a set piece's source stand where they are. _Avoid_: explosion, nova, wipe.
 
 **Reservoir**: The capped belch charge, filled by swallows. Charge past full visibly splashes and wastes, so belching is the greedy play. _Avoid_: meter, gauge, mana, energy.
 

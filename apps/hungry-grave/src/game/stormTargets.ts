@@ -331,8 +331,8 @@ const moveStormTarget = (
  * and the decay is the shove's, so the two never learn each other's arithmetic.
  *
  * `shoves` and `ticksBetween` are the wave structure the impulse carries: the
- * bell passes one shove, and slice J's belch passes three ten ticks apart
- * (design record R3).
+ * bell passes one shove, and the belch passes three, spaced by its own row
+ * (design record R3 as superseded, belch.ts).
  */
 const shoveStormTarget = (
   // The run is in the signature for the same reason moveStormTarget carries it:

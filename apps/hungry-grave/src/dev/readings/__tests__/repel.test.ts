@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { createExecution, executeTick } from '../../../game/execution';
 import type { SimEvent } from '../../../game/events';
 import { createRun, uniformLevels } from '../../../game/run';
+import { RESERVOIR_CAPACITY } from '../../../game/tuning';
 import { createRepel, observeRepel, repelOf } from '../repel';
 
 function toll(level: number): SimEvent {
@@ -20,11 +21,7 @@ function shove(id: number, displacement: number): SimEvent {
   return { type: 'mobShoved', id, displacement, source: 'bell' };
 }
 
-/**
- * A shove the belch threw. Nothing in this build emits one, which is the point:
- * slice J is the caller the channel is declared for, and until it lands the
- * only belch shove that exists is planted here.
- */
+/** A shove the belch threw, planted, for the windowing tests that state a sequence exactly. */
 function belchShove(id: number, displacement: number): SimEvent {
   return { type: 'mobShoved', id, displacement, source: 'belch' };
 }
@@ -140,27 +137,41 @@ describe('repel', () => {
     expect(reading.belchDistance).toBe(12.5);
   });
 
-  it('reads the belch arm as empty on every tape this build can produce', () => {
-    // The cited-future half. Slice J is the caller the arm is declared for
-    // (design record section 4) and nothing in this build passes the belch to
-    // shoveStormTarget, so a real run at the bell's top rung fills the toll arm
-    // and leaves the belch arm at nothing. It is played rather than reasoned
-    // about, and it is this test that slice J turns red.
-    const run = createRun(20260915, undefined, uniformLevels(5));
+  it('fills both arms on a real run where a belch is spent beside the tolls', () => {
+    // The arm was declared empty and waiting in slice I and this is the same
+    // test with the caller arrived: a played run at the bell's top rung fills
+    // the toll arm, and presses spread through it fill the belch's arm beside
+    // it. It is played rather than reasoned about, which is what makes it say
+    // that the sim really emits what the reading really counts.
+    // The middle rung rather than the top, and it is measured rather than
+    // guessed: at rungs four and five the storm kills a body standing inside
+    // the belch's own reach before the press it just took can carry it
+    // anywhere, so the belch's arm reads nothing on a run where the belch
+    // really fired. That is a reading about the hand and not a defect, and it
+    // is recorded in the round two progress note, section 11.
+    const run = createRun(20260915, undefined, uniformLevels(3));
     const execution = createExecution(run);
     const acc = createRepel();
-    for (let tick = 0; tick < 2000; tick++) {
+    for (let tick = 0; tick < 3000; tick++) {
+      // The reservoir is filled by hand at each press, because what is under
+      // test is the reading and not how long a run takes to earn a belch.
+      const pressing = tick > 0 && tick % 200 === 0;
+      if (pressing) run.reservoir = RESERVOIR_CAPACITY;
       const events = executeTick(execution, {
         move: { x: 0, y: -0.2 },
-        belch: false,
+        belch: pressing,
       });
       observeRepel(acc, events);
     }
     const reading = repelOf(acc);
 
     expect(reading.totalShoves).toBeGreaterThan(0);
-    expect(reading.belchShoves).toBe(0);
-    expect(reading.belchDistance).toBe(0);
+    expect(reading.belchShoves).toBeGreaterThan(0);
+    expect(reading.belchDistance).toBeGreaterThan(0);
+    // And the two stay apart: a belch shove never lands in a toll's window.
+    expect(reading.totalShoves).toBe(
+      reading.tolls.reduce((sum, window) => sum + window.shoves, 0),
+    );
   });
 
   it('reads the toll arm exactly as it read before the split', () => {

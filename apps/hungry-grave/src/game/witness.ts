@@ -94,7 +94,8 @@ const STREAM_ORDER: readonly StreamName[] = [
  *   alone.
  * - `mobs[].impulse.shovesLeft`, `mobs[].impulse.nextIn` and
  *   `mobs[].impulse.spacing`, the wave structure. The bell passes one shove and
- *   no spacing; the belch passes three ten ticks apart (design record R3), and
+ *   no spacing; the belch passes three, spaced by its own row (design record R3
+ *   as superseded), and
  *   they are declared here rather than the day that caller is written, because
  *   a field arriving later would change what every tape recorded in between
  *   folded, which is exactly what `mobs[].from` was declared early to avoid.

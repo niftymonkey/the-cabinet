@@ -335,7 +335,7 @@ describe('compareRuns', () => {
         ...base.tuning,
         belchCadence: {
           ...base.tuning.belchCadence,
-          fires: [{ tick: 12, killed: 3, cancelled: 4 }],
+          fires: [{ tick: 12, shoved: 3, cancelled: 4 }],
         },
       },
     };
@@ -347,7 +347,7 @@ describe('compareRuns', () => {
 
     expect(fires.count).toEqual({ left: 0, right: 1, delta: 1 });
     expect(fires.leftEntries).toEqual([]);
-    expect(fires.rightEntries).toEqual([{ tick: 12, killed: 3, cancelled: 4 }]);
+    expect(fires.rightEntries).toEqual([{ tick: 12, shoved: 3, cancelled: 4 }]);
     expect(Object.keys(fires).sort()).toEqual([
       'count',
       'leftEntries',
