@@ -6,11 +6,11 @@ One block per slice, in the order the design record's section 4 dispatches them.
 
 **Three standing overrides of that contract, and they apply to every block below.**
 
-1. **The ticket in the commit message is this slice's own, not `#39`.** The contract's "(#39), which is the ticket every step 4 docs and code commit cites" is step 4's. Round two's slices cite `#126` (H and I), `#124` (J and the ADR commit), `#127` (K) and `#123` (L).
-2. **The progress note is `apps/hungry-grave/docs/push/round-two-progress.md`, not step 4's.** The section numbers are fixed: **the ADR commit is 6, R-fix is 7, H is 8, I is 9, J is 10, K is 11, L is 12.** Step 4's note is read and never appended to.
+1. **The ticket in the commit message is this slice's own, not `#39`.** The contract's "(#39), which is the ticket every step 4 docs and code commit cites" is step 4's. Round two's slices cite `#126` (H, I and H2), `#124` (J and the ADR commit), `#127` (K) and `#123` (L).
+2. **The progress note is `apps/hungry-grave/docs/push/round-two-progress.md`, not step 4's.** The section numbers are fixed: **the ADR commit is 6, R-fix is 7, H is 8, I is 9, H2 is 10, J is 11, K is 12, L is 13.** Step 4's note is read and never appended to.
 3. **Scratch under `local/` goes in `local/round2/`, and every file in it carries your slice's letter**, because the scratchpad is shared between agents and a generic baseline filename gets clobbered by another agent's.
 
-**The design record is `apps/hungry-grave/docs/design/round-two-wall-belch.md`.** Its section 2 is nine rulings, each final, and **no slice reopens one**. Its section 5 is what must not move. Its section 6 is the verification list and the test sentences. Its section 7 is the two findings already filed for Mark, which no slice acts on.
+**The design record is `apps/hungry-grave/docs/design/round-two-wall-belch.md`.** Its section 2 is ten rulings, each final, and **no slice reopens one**. Its section 5 is what must not move. Its section 6 is the verification list and the test sentences. Its section 7 is the two findings already filed for Mark, which no slice acts on.
 
 **Line numbers in these prompts were read at tip `97fc911527`, and every slice moves some of them. Find the name, never the line.**
 
@@ -484,6 +484,190 @@ The standing rules are in `step-4-coder-contract.md`. **Three things are already
 
 ---
 
+## Slice H2: the push is retuned to be watched, and the bell's kill reaches less far than its shove (#126)
+
+Model: Opus, subagent type general-purpose. One coder, one code commit, one docs commit. Messages end in `(#126)`.
+
+Round two slice H2 of The Hungry Grave (ticket #126): the shove stops being over before the eye catches it, and the bell's damage stops reaching as far as its push, so what a player watches travel is a living body.
+
+**The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice H2.
+
+**Slices H and I both land before you.** **Verify each of these by name before your first edit and any one missing is a stop and report:** `src/game/shove.ts` with `SHOVE_TICKS`, the impulse and `startShove`; `bell.ts`'s `pushTarget` starting a shove rather than writing a destination; `WITNESS_VERSION` 8; `mobShoved` carrying slice I's `source`; and `READINGS_VERSION` 5. Read round two progress note sections 8 and 9 for what those two slices actually did, and section 5 for the two claims slice H's own prompt got wrong against the tree; slice I's found-false claims are a subsection of section 9 rather than of section 5.
+
+**Five rulings shape this slice and none of them is yours to revisit.**
+
+**First: a push wave runs about half a second, fast at the start and slow to settle.** The record's ruling R2 as superseded on 2026-09-15, on Mark's read of the slice H build: *"7 ticks is basically still nearly the same as a frame to the human eye."* **The figure is 30 ticks a wave and it is `docs/research/watched-pushback-duration.md` section 5, option 2, which Mark picked.** What stood from the first ruling is the whole of the curve: a linear decay of velocity, which is the animation principles' slow out and which Smash and Nuclear Throne both ship (research section 4), and a per-tick step under a body's own width so successive drawn positions overlap. **It is one data row with its precedent in its own JSDoc, never a compiled magnitude and never an ADR's.**
+
+**Second: the toll's throw keeps pace with the cone that threw it, and that is a derivation rather than a pick.** R2 again: the total throw is the distance a body covers when its first step matches the leading edge of the cone that struck it. The cone's edge moves at its own row's `reach` over `BELL_EXPAND_TICKS`, and a linear decay over `SHOVE_TICKS` from a first step `s` covers `s * (SHOVE_TICKS + 1) / 2` (`shove.ts`, `firstStepOf`). **At level five that lands on option 2's own 90 field units**, which is the check that the derivation is the one the research did: 261 over 45 is 5.8 units a tick, and 5.8 spent down to nothing over 30 ticks covers 90. **Every row of the push column is re-derived the same way from its own `reach`**, because R2 makes the relation the ruling and the column the data; you report all five figures in the note.
+
+**Third: the bell's damage reaches less far than its push, and the drawn cone is the push.** The record's ruling R10, new with Mark's pick. `proximity` is one falloff shared by damage and push today, and solved against a body's health it leaves a shambler dead everywhere inside a rung-three cone and shoved half a field unit at most where it survives (research section 1), so **no duration and no curve lets a shambler be seen travelling until the two reaches are two rows**. Enter the Gungeon's Blank is the shape that fixes it, damage in a 7-tile radius inside a wider knockback (research section 3, which is the primary source for the Blank and which (e) below reads in full, because the ratio has two readings), and it is what option 2 carries with it. **`reach` keeps its name and its meaning, the push and the drawn cone both**, and the damage reach is the new row beside it.
+
+**Fourth: the fringe is measured here rather than assumed.** R10 states the gap it leaves plainly: inside the damage reach a body still dies where it stands, so what the player sees is a kill line with a pushed fringe, and the Blank's every-body-flies read needs the second lever too. **That second lever, damage and travel on separate clocks, is held and is not yours**: a corpse finishing a flight is a corpse carrying an impulse, which is new folded state and a second `WITNESS_VERSION` move this round does not have. **So you print the share of struck shamblers that travel alive at rungs one, three and five**, and a rung where none ever does is a finding for the note and the orchestrator's, never a row you move to fix it.
+
+**Fifth: `GOLDEN` cannot move here, and a move is a stop and report rather than a re-pin.** The record's ruling R9 as held on 2026-09-15: `digest.ts`'s canonical scenario runs `levels.bell` at 0 for the whole of its six hundred ticks and scripts `belch: false` on every tick, so no toll fires and nothing this slice changes can reach it. **Round two's budget stays exactly two, one spent in slice H and the second still slice J's.** If the digest moves, the reason matters far more than the number: stop and report it rather than re-pinning.
+
+### Read first, in this order, before any edit
+
+1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it. The six dispatch contract items are the sections below.
+2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md` at the repo root, plus `docs/agents/code-examples.md` for any rule that leaves the path unclear, and `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
+3. `apps/hungry-grave/docs/design/round-two-wall-belch.md`. **Rulings R2 and R10 in full are this slice's contract**, R9 is why `GOLDEN` is a stop, section 4 is where you sit in the order, section 5 is what must not move, and section 6 is the verification list and the test sentences, two of which are new promises this slice makes. The third new promise in the planned list below, that a toll takes nothing at all off a body outside its damage reach and marks it struck all the same, is this prompt's own and is in no record.
+4. `apps/hungry-grave/docs/research/watched-pushback-duration.md`, **the whole record, and section 5's option 2 is where every figure in this slice comes from**. Section 0 is the post-mortem on the record it replaces and it is worth your time: a craft question framed as "how long is X in shipped games" instead of "how long must X be for the player to see it" produced `SHOVE_TICKS` 7. Section 1 is the finding that outranks every duration. Section 4 is the perception floor, and the honest counterexample in it is why no visual accompaniment is added here either.
+5. `apps/hungry-grave/docs/research/push-feel-precedent.md` section 1, **only so you know what you are replacing**: it is the record `SHOVE_TICKS`'s JSDoc cites today and the citation moves off it in this slice.
+6. `apps/hungry-grave/docs/adr/0036-the-bell-is-a-timed-pulse-of-cones.md`, which already makes every bell figure a tuning row and already says the push is the half that has to be felt, so **no ADR moves in this slice**; **Mark's 2026-08-19 ruling that the far edge tickles rather than kills is recorded in that same ADR 0036, in its own first paragraph**, which also says the curve behind it is tuning data; `0005-weapon-lines-are-a-pool.md`, which ADR 0036 was extracted from on 2026-08-26 and which is **not** where that ruling lives, though `bell.ts`'s `BELL_DAMAGE_FAR_BY_LEVEL` JSDoc credits it there and (f) below corrects that; `0059-a-trash-minute-is-a-mow-and-density-is-bought-with-weak-bodies.md`, whose one-touch mow body is why the far edge deletes trash at the top rung today; `0007-bosses-always-shootable.md` and `0015-determinism-across-devices.md`.
+7. `apps/hungry-grave/docs/push/round-two-progress.md` **sections 8 and 9 in full**, which are slice H's and slice I's own accounts, and **section 5**, which is where slice H's own prompt was found false against the tree, slice I's found-false claims being a subsection of section 9. Section 8's "the push at the top rungs" is the measured finding R10 answers, and section 8's checkpoint arithmetic is in the measurements below.
+8. `apps/hungry-grave/docs/push/handoff.md`, the standing rules and **Mark's rulings of 2026-09-15, ruling 8 above all**, which is the read this slice exists to answer.
+9. `apps/hungry-grave/CONTEXT.md`, the entries Bell, Cone, Toll and Mob. **Read the Avoid lists before naming anything.** The Cone entry moves in this slice and the Bell entry does not.
+10. The tree itself, before you write anything: `src/game/shove.ts` whole; `src/game/lines/bell.ts` whole, `BELL_CONE_ROWS`, `proximity`, `pushTarget`, `sweepToll`, `tollReach`, `bellDamageNear` and `bellDamageFar` above all; `src/game/lines/__tests__/bell.test.ts` whole, which is 817 lines and where most of your reds are; `src/game/__tests__/shove.test.ts` whole; `src/game/mobs.ts`'s `travelShove`, `reportShoveTravel` and `moveMob`; `src/dev/readings/repel.ts`, all of it, for the window a shove is held in; `src/dev/digest.ts`'s `GOLDEN` and its scenario; and `src/app/screens/game/FieldRenderer.ts` around its `sprite.position.set(mob.x, mob.y)`.
+
+### The definition, in observable terms
+
+After this slice: a body a toll strikes travels for about half a second rather than a tenth of one, settling to nothing, and it is drawn at a different place on every tick of it with no step wider than its own body. **The body that leaves at the speed of the cone edge that struck it is the body standing at the grave**, where `proximity` is one and the push row is spent whole; a body further out leaves slower by that same falloff, which is what the column's figure means and what a test pinning the relation has to stand on. A body in the outer part of a drawn cone is shoved and lives; a body in the nearer part is damaged as it always was. The drawn cone still marks how far the push reaches, so nothing is shoved by something the player cannot see.
+
+`WITNESS_VERSION` reads 8, `READINGS_VERSION` reads 5, `FORMAT_VERSION` reads 4 and `GOLDEN` is exactly where slice H pinned it. The batch can still say what the bell's shoves did, in the toll arm slice I split out, and it now says it about bodies that are alive to be watched.
+
+What a player meets: a toll reads as a force going out rather than as a blink, and the mow body is what he sees pushed. That is Mark's ruling 4 and ruling 8 of 2026-09-15 together, and his read of the deployed build is ticket #126's own done line.
+
+### The work, in this order
+
+**(a) Verify the five inputs**, per the stop above. Then `git log --oneline -25` and `git status --short`, and **capture this branch's own test-name baseline before your first edit**, into `local/round2/` under a name carrying the letters H2.
+
+**(b) The tests first, red, from the planned list below.** **Write the two new promises first**, that a struck body keeps pace with the cone's leading edge and that a body at the drawn cone's far reach is shoved and survives, because they are the two sentences this slice exists to make true and everything else is a figure moving under them.
+
+**(c) The decay row, in `shove.ts`.** `SHOVE_TICKS` moves to option 2's 30. **Its JSDoc is rewritten rather than edited**: the citation moves from `docs/research/push-feel-precedent.md` to `docs/research/watched-pushback-duration.md` section 5, option 2, and it carries what the new figure is derived from, that 30 ticks is half a second at this tick rate and sits inside the usable band the perception work names rather than at its floor (research section 4). **The readability criterion stays and is restated in the row's own arithmetic**: the first step of the level-five throw is well under a shambler's 22 units, so successive drawn positions still overlap, and that is the same criterion the old figure met by a different route. **Nothing else in `shove.ts` changes**: `firstStepOf`, the fall's shape, the wave fields and the accounting are all slice H's and all still right.
+
+**(d) The push column, re-derived.** Every row of `BELL_CONE_ROWS`'s `push` column is the throw its own `reach` earns under the second ruling, and **the arithmetic goes in the column's own JSDoc beside the figures** with the record's R2 and the research's section 5 cited by path. **Level five is the check**: the derivation has to land on option 2's 90, and a row that does not is a reason to re-read the arithmetic rather than to pick a number. **The column is whole units**, so what the level-five derivation actually reads is 89.9 and the row is 90: the rounding is the check rather than an exact hit, and every other rung rounds the same way off its own `reach`. **`reach`, `headings` and `halfAngle` do not move.**
+
+**(e) The damage reach, the new row beside `reach`.** `ConeRow` gains a second reach, the one damage falls off over, and **`proximity` is computed twice**: once against `reach` for the push and once against the damage reach for the damage. **Name it for what it is and read the Avoid lists first.** **`proximity` clamps at zero rather than going negative**, so the second call returns zero for every body outside the damage reach and the damage it feeds still reads the far row, 5 to 13, rather than nothing: **the nothing in (f) is a guard before `damageStormTarget` and never a consequence of the falloff**. **`proximity`'s own JSDoc, which says today that damage and push "share it deliberately", is rewritten to state the constraint the code cannot show**: there are two reaches, R10 is the ruling, and a falloff shared between them leaves no living body to watch (research section 1). It says nothing about what the code used to do, because planned tests 2 and 3 are what guard the absence.
+
+**The Blank is the precedent for the ratio, and two figures for it are in front of you.** Research section 3 is the primary source and carries both after its 2026-09-15 correction: the 15-tile knockback the record first read against a 7-tile damage radius, a ratio of 0.47, and the shipped `Blank.prefab` in the `fedes1to/EtG-source` decompile, which reads `knockbackRadius: 10` and `pushRadius: 10` against the same damage radius of 7, a ratio of 0.7, with 15 appearing in no prefab at all. **The ratio is a row either way**: pick one, say in the note which and why, and **the fringe measurement in (l) is what judges it**, because at 0.47 the living fringe is roughly twice as wide and twice as fast as at 0.7. The rows are data and you print all five in the note.
+
+**(f) What a toll does to a body outside its damage reach, and you author it.** R10 says the damage falls to nothing at a reach inside the push's. **The rows the damage is read off do not move**: `BELL_DAMAGE_NEAR_BY_LEVEL` and `BELL_DAMAGE_FAR_BY_LEVEL` keep their figures and their eighth-ratio, which is Mark's 2026-08-19 ruling held in ADR 0036, so what changes is where the far edge stands and not what it carries. **Outside the damage reach a toll takes nothing at all**, and a zero-damage event is not the way to say so: a count a reading can sum must never carry a hit that took nothing. **`toll.struck` still marks the body**, because the one-strike rule is about the toll reaching it and a shoved body crossing the edge again still earns no second strike. Pin all three with tests.
+
+**The damage reach's own edge is inside it, and the test list needs that.** `sweepToll` already treats the expanding ring that way, `distance > now` and not `>=`, so the new guard reads `distance > damageReach` and a body standing exactly at the far edge of the damage reach is damaged, taking the far row, which is what planned test 7 stands on.
+
+**One citation beside what you are already editing.** `BELL_DAMAGE_FAR_BY_LEVEL`'s JSDoc says Mark's 2026-08-19 far-edge ruling is "recorded in ADR 0005 and held as a ratio in ADR 0036". It is recorded in ADR 0036 itself, in that ADR's own first paragraph; ADR 0005 is the record ADR 0036 was extracted from on 2026-08-26 and it rules nothing about the far edge. **Correct the citation and move no figure**, and say in the note that you did.
+
+**(g) `bell.test.ts` re-handed, and this is most of the diff.** Three kinds of change and each is named in the note.
+
+- ***carries a body at level five the forty field units the row has always said*** is a measured baseline whose input moved. **Retitle it, re-pin it to the row's new figure, and put the triple in its own comment**: what stood (the row is what the shove spends, exactly, and the push column is still the tuning surface), what it replaced (the forty units held from before round two), and what it could not have known (that forty units reaches a living body as half a unit, research section 1). Slice D's spec test 26 is the worked precedent for this shape.
+- ***takes exactly two tolls to kill a shambler at the cone's full reach, at the rung a run is born on*** now names a reach where nothing is damaged at all. **Its promise moves to the damage reach's own far edge**, where the far-edge row still says what it always said, and the drawn cone's full reach gets the new promise instead: shoved and alive.
+- **The two `it.fails` tripwires are expected to go green, which means they stop being tripwires.** *still needs more than one toll at the far edge at the top rung* and *leaves survivors from that same curtain at the bell's top rung* both exist because at rung 5 the far edge carries 13 against a mow body's 8, and R10 removes that cause by putting the outer part of the cone outside the damage reach entirely. **Write each as an ordinary assertion with the ruling in its comment**, and **if either still fails, that is a finding for the note** and the reason goes with it, not a row you move to make it pass.
+- The helpers `oneTollAndTravel` and the two loops over `BELL_PERIOD + BELL_EXPAND_TICKS + SHOVE_TICKS` widen with the constant and need no edit; check them rather than assume.
+
+**(h) `shove.test.ts`.** Its R2 and R3 blocks pass their own figures rather than reading the bell's, so most of the file survives untouched. **What does not survive is a sentence in a comment**: the block's own reasoning cites the old record and the old first step. Re-read every comment in that file against the new figure and correct the ones that are now false, and say in the note which. One more comment sits outside that file: `src/dev/__tests__/harnessPolicy.test.ts` carries a measurement narrative saying a toll carries bodies "over seven ticks", and the retune makes that sentence false too. Correct it to name `SHOVE_TICKS` rather than a figure, moving no assertion, and say so in the note.
+
+**(i) The repel reading's window, which is prose rather than a figure.** `observeRepel` throws outright on a `mobShoved` arriving with no toll window open, and the one report a shove makes now arrives up to thirty ticks after the toll's edge reached the body where it arrived seven before. **There is no tick bound in `repel.ts` to widen**: `countTollShove` lands every bell shove in the last toll window opened and throws only when no toll has ever fired. **The only seven in that file is one sentence in the `Repel` interface's own JSDoc**, "up to seven ticks of travel after it", and correcting that sentence is the whole of the edit. **What you owe beside it is the check**: `BELL_EXPAND_TICKS` 45 plus `SHOVE_TICKS` 30 is 75 against a `BELL_PERIOD` of 180, so every shove still reports before the next toll opens and attribution still holds. **Expect no red in that suite**, and a throw in your own batch would mean that arithmetic is wrong rather than that the reading is. **`READINGS_VERSION` does not move**: the arm means exactly what it meant, over a shove that takes longer.
+
+**(j) `CONTEXT.md`'s Cone entry.** It reads today as a cone "damaging what its leading edge crosses and pushing at every level", and it moves to a cone that **pushes what its leading edge crosses and damages the nearer part of what it crosses**, which is R10's own wording. Keep the entry's shape, its tuning-row sentence and its Avoid list, and re-read its code citation rather than trusting the one that is there. **The Bell entry does not move** and neither does any other entry; if you think one should, that is a finding for the note.
+
+**(k) `GOLDEN`, per the fifth ruling.** Run `digest.test.ts` and state the checksum. **If it holds, say why it should have.** If it moves, stop and report.
+
+**(l) The measurements this slice owes.**
+
+- **The fringe, per rung, and it is R10's own ask.** The share of struck shamblers that travel alive at rungs one, three and five, printed per rung, off a run rather than off the source. Slice H's scratch instrument under `local/round2/` is the precedent for how to get a number the tape cannot print; whatever you build, say what it measured and over how many tolls.
+- **A conditioned tape at every line's rung 5, seed 77, 6000 ticks**, measured to `outcome: 'verified'`, **which is the same rig slice H and slice I both measured on** and reads 33 tolls, 2 shoves and 20.09 field units at slice I's tip. Print the same three figures at yours. The point of the slice is that the two later ones move.
+- **A hand-recorded tape at your tip** against the built app through `vite preview`, driven with `playwright-cli`, measured verified, with `state.refusals` printed, all three counters.
+- **Replay determinism at your tip.** One seed played twice under `shaky-short`, same tick count, same witness at every checkpoint, identical stream cursors. **The shoves-in-flight half is worth measuring again rather than inheriting**: slice H proved by arithmetic that a 60-tick checkpoint grid against a 180-tick bell period puts the in-flight ticks in a fixed residue band, measured at 27 to 51 mod 60 and never reaching 0, **and a thirty-tick shove is wider than that band was**. Measure the residues at your own figure and say which answer you got. If a checkpoint now catches a shove in flight, that is the blind spot closing and it is worth a paragraph.
+- **A rendered check, and this slice plainly owes one, because the whole of it is a thing a person looks at.** A toll watched landing on a body in the built app. **Play a run, end it, and play another**, because a check that only ever plays run one is structurally blind. Read the screenshots rather than collecting them. **Slice H could not photograph a seven-tick shove and wrote down why**: the headless browser draws this build at 3 to 5 frames a second and the app answers by running twenty to thirty sim ticks per drawn frame. **A thirty-tick shove is four times longer and may well be catchable now**; try it, and if it is not, say so as plainly as slice H did rather than dressing up a screenshot that shows nothing.
+- **A batch at your tip**, a handful of seeds under `steady-far` and the same under `loose-far`, with the repel reading printed, toll arm and belch arm both. Slice I's own twelve seeds are 900 to 905 under each hand and its table is in note section 9, so **use the same seeds and your figures are subtractable against it**.
+
+**(m) CodeRabbit CLI, one iteration, before the code commit.** The standing rules are in `step-4-coder-contract.md`. Something in the shape of `feat(hungry-grave): a toll's push runs long enough to watch and reaches further than its damage (#126)`.
+
+**(n) The progress note**, section **10**, titled "Slice H2: the push is retuned to be watched, and the bell's kill reaches less far than its shove (#126)". Beyond what the contract asks of every note, say: the new decay figure and the JSDoc you wrote for it; **all five push rows with their derivation**; **all five damage reaches with the ratio you used and what you set it against**; what a toll does outside its damage reach and how you pinned it; every `bell.test.ts` test you retitled, re-pinned or converted, with the triple for each baseline that moved; the two tripwires' fate; the repel window; the Cone entry as you rewrote it; `GOLDEN` held with the reason; **the fringe per rung**; the conditioned tape's three figures beside slice I's; the determinism result with the residue answer; and the rendered check and what you actually saw.
+
+**(o) Stop and report.** Under 300 words: the commit hashes, the decay figure, the level-five push and damage reaches, `GOLDEN` held, `WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4 all held, the fringe per rung, the test counts before and after, the test-name diff's two figures, the CodeRabbit outcome, and anything you could not do. **The deploy is the orchestrator's and it comes straight after your report**, so say in one sentence what Mark should be looking for when he plays it. **Do not start slice J.**
+
+### What must not move, and a move is a stop
+
+The standing rules are in `step-4-coder-contract.md`; read it first. These are the ones this slice adds.
+
+- **`WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4.** None moves and a move in any is a stop. **You declare no folded field**: the impulse already carries everything a longer shove needs, which is exactly why slice H declared it.
+- **`GOLDEN`.** Not permitted, not budgeted, and a move is a stop and report, per the fifth ruling.
+- **The fences**, per the contract, all six by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` still empty.
+- **`moveStormTarget`, `moveMobInsideBounds` and `pushable`.** Still the only way a body is moved and the only answer to whether it may be. A raw write is a stop, not a shortcut.
+- **`toll.struck` and the one-strike rule.** A longer push gives the leading edge more chances to catch a body it already struck, which is the exact hazard the set exists for. Its JSDoc's arithmetic names the old figures; you may correct the figures and you may not relax the rule.
+- **`BELL_DAMAGE_NEAR_BY_LEVEL` and `BELL_DAMAGE_FAR_BY_LEVEL`.** Every figure and the eighth-ratio between them. Mark ruled the far edge tickles on 2026-08-19 and ADR 0036 holds it; this slice moves where the far edge stands, not what it carries.
+- **`beat`, `canTouchGrave` and ADR 0041.** Untouched, as in slice H.
+- **`BELL_PERIOD` and `BELL_EXPAND_TICKS`.** The bell's clock is not this slice's, and a shove that outlived its own period would be, which is worth checking and is not in danger at these figures.
+- **`STREAM_SALTS`, `STREAM_ORDER`, every fault identity wire number, and every cap.** A cap that binds in your batch is a finding and never a number to raise.
+- **The harness's own rows.** `enoughClearance`, `belchWorthIt` and every lapse rate belong to the hand, and a hand row moved between two batches compares two builds through two instruments.
+- **The belch, the meter and the Wall.** Slices J, K and L, and none of their files is in your commit.
+- **No ADR gains a combat magnitude and you file no ADR and amend none.** R10 says so in its own words: ADR 0036 already makes every bell figure a tuning row.
+
+### Seams under test
+
+`src/game/shove.ts`: the decay row at its new figure and the fall it shapes, the module otherwise unchanged. `src/game/lines/bell.ts`: `ConeRow`'s two reaches, the push column re-derived, `proximity` computed twice, `pushTarget` spending the push row against the push reach, and `sweepToll` resolving damage against the damage reach and marking `struck` either way. `src/game/mobs.ts`: the travel and the one report, unchanged and asserted so. `src/dev/readings/repel.ts`: the `Repel` interface's JSDoc sentence naming seven ticks of travel, corrected; the window itself is not a figure and attribution is checked by arithmetic rather than changed. `apps/hungry-grave/CONTEXT.md`: the Cone entry.
+
+### Module boundaries
+
+**Nothing is created, deleted, merged or split, and no import direction changes.** `shove.ts` has no import line at all today and gains none, `bell.ts` still keeps its own falloff arithmetic and its own rows, and `stormTargets.ts` is still the one seam a body moves or starts flying through. **The two reaches both live on the bell's row** and neither is passed into `shove.ts`, because the falloff is the bell's and the decay is the shove's, which is the split slice H established and this slice deepens rather than rearranges.
+
+### The planned test list
+
+Each written red first, and each named as the sentence it promises. The record's section 6 is the source, and the first two sentences are new with this slice.
+
+1. *A body struck by a toll leaves at the speed the cone's leading edge advances, its first step is its largest, and each step after is smaller, so its whole travel is `s * (SHOVE_TICKS + 1) / 2` from that first step `s`.* **That is R2's own wording and it is what the record's section 6 now says**: the edge advances `reach / BELL_EXPAND_TICKS` on every one of its 45 ticks, the shove's first step matches that one step rather than the whole expansion, and the shove starts a tick after the strike (`pushTarget`'s JSDoc), so a test asserting the body keeps pace with the edge for the length of its push cannot pass. **Pin it where the falloff is one or near it**: a body standing beside the grave (`pushTarget` refuses a distance of exactly zero), at a rung whose near damage leaves it alive, a revenant's 64 health against rung one's 40 or rung two's 56, or at the impulse seam in `shove.test.ts`. **Say which**, so the promise is not written against a corpse or against a body the row refuses.
+2. *A body in the outer part of a toll's drawn cone, outside the damage reach and strictly inside the drawn edge, is shoved and survives, because the cone draws at the push reach and the bell's damage reaches less far.* **Strictly inside**: `proximity` is zero at the drawn edge itself, so a body standing exactly there is shoved by the row times zero, which is not shoved at all.
+3. *A toll takes nothing at all off a body outside its damage reach, and marks it struck all the same.*
+4. *A shoved body is visible at intermediate positions*, still true at the new duration: a body stands somewhere different on each tick of its travel and no tick moves it further than its own width.
+5. *A shove decays to nothing and the body resumes its own rule on the tick after it ends*, over the new duration.
+6. *A shove at bell level five carries a body the field units its row now says.* The re-pinned baseline, with its triple.
+7. *It takes more than one toll to kill a shambler at the far edge of the damage reach, at the rung a run is born on.* The re-handed promise.
+8. *The bell's toll strikes each body once, and a shove carrying a body back across the leading edge earns no second strike*, over a push that now gives the edge four times as long to catch it again.
+9. *A shove never carries a body outside the field plus the spawn margin, however large the impulse*, which a longer throw leans on harder than the old one did.
+10. *Two runs on one seed with the same inputs rebuild identically*, with the shoves-in-flight half measured rather than assumed.
+11. **The six fences**, green, each named by title.
+12. **The golden digest** at `digest.test.ts`, held, with the checksum stated.
+
+**What this slice is expected to turn red, so the diff is read against something.** `bell.test.ts` throughout, above all its push block and both `it.fails` tripwires; `shove.test.ts` wherever a comment names the old figure; anything asserting the old forty units by name; **not** `repel.ts`'s suite, which (i) shows has no figure in it to move; and any measured per-seed baseline that moves through the bell, which slice H found is exactly two of them and both re-measurable with the reason beside them. **A realistic count is 6 to 15 files.** Slice H touched eighteen for the mechanic itself and this is the same mechanic retuned with one new column, so a diff much larger than that is a reason to ask what you reached into, and a diff of two or three is a reason to look for the tests that should have moved and did not.
+
+### Verification steps, with actors
+
+The standing rules are in `step-4-coder-contract.md`; read it first. These are the checks this slice adds.
+
+1. **Agent.** The decay figure and all five push rows stated, each derived rather than picked, with level five landing on the research's own 90.
+2. **Agent.** All five damage reaches stated, each inside its own push reach, with the ratio and its precedent named.
+3. **Agent.** `GOLDEN` held, with the checksum printed and the reason it should have held stated.
+4. **Agent.** `WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4, each read out of the tree and stated.
+5. **Agent.** The fringe per rung at rungs one, three and five.
+6. **Agent.** A conditioned tape at every line's rung 5, seed 77, 6000 ticks, verified, with the toll arm's three figures beside slice I's.
+7. **Agent.** A hand tape at this tip, verified, with all three refusal counters printed.
+8. **Agent.** Replay determinism at this tip, with the residue answer stated either way.
+9. **Agent.** A rendered check of a toll landing, across two runs in one session, with the screenshots read and the photograph either obtained or its absence explained.
+10. **Agent.** A batch at this tip under both configurations, on slice I's own seeds, with the repel channel printed.
+11. **Human (Mark), and none of these blocks you.** Whether a toll now reads as a force going out rather than as a blink, and whether he can see what the push bought him. That is ticket #126's own done line and **the deploy that puts it in front of him is the orchestrator's, straight after your report**. **The push runs in one-push mode: you continue past every human step.**
+
+### State of the branch
+
+- **The tip should be the supersession's docs commit**, `58efd4a159`, or a docs commit above it. Below it `72b307d353` and `157946940c` are slice I's note and code, `2056264082`, `ed369353e2` and `2e90597cad` are slice H's, and `eddb32c4cb` is slice R-fix.
+- At slice I's tip, `pnpm verify` was green twice at exit 0: 146 test files, 2050 passed, 23 expected fail, 2 todo, and the test-name list stood at 2073 names.
+- **`WITNESS_VERSION` 8, `READINGS_VERSION` 5, `FORMAT_VERSION` 4, `GOLDEN` checksum `-145039082`.**
+- **Every tape recorded before `2e90597cad` is refused at the decode**, on its witness version, so there is no pre-round-two tape to compare against and none is asked for here.
+- The caps as slice D left them: `MOB_CAP` 481, `MOB_FIRE_CAP` 434, `CORPSE_CAP` 704, `WISP_CAP` 64 and `SKULL_CAP` 120. None bound in slice H's or slice I's batches and one that binds in yours is a finding.
+- **A recurring anomaly worth not rediscovering:** a sibling worktree's `pnpm install` can repoint this worktree's `node_modules` links and leave them dangling, so a missing-module error is a reason to check the link targets first.
+
+### The stuck rule
+
+The standing rules are in `step-4-coder-contract.md`; read it first.
+
+**Three things in this slice are already known to be a stop, so you do not have to discover them:** a `GOLDEN` move of any kind; a move in `WITNESS_VERSION`, `READINGS_VERSION` or `FORMAT_VERSION`; and a new fault identity. **And two things are ruled rather than open:** the figures are option 2's and the pick is Mark's, so a measurement arguing for option 1 or option 3 is a finding for the note and built past; and the separate-clocks lever is held for a later round, so a corpse never carries an impulse in this slice however plainly the fringe asks for it.
+
+**Green tests plus wrong observed behaviour means the test plan has a hole**: pin the wrongness as a new red test first, never patch first. A claim in this prompt or in the record that is false against the tree is recorded in the note and the source's intent is followed rather than its stale letter.
+
+### What is not your job
+
+The standing rules are in `step-4-coder-contract.md`; read it first. These are the ones this slice adds.
+
+- **The belch, in every part.** Its waves, its kill, its event, its eruption and its radius are slice J's, and `belch.ts` is opened only to read. **The wave figures the belch will pass are slice J's too**: you change what one wave is, not how many the belch throws.
+- **The reading's shape.** Slice I's, and you touch `repel.ts` only for the one JSDoc sentence the new duration makes false, per (i), which you record.
+- **The meter and its corner**, slice K's. **The Wall and the new mob type**, slice L's.
+- **The corpse that inherits an impulse.** The held lever, named in R10, and it needs a witness move nobody has.
+- **Territory's rungs**, #125, and #122 the offer bubble. Neither is round two's at all.
+- **The record's section 7 findings**, which no slice acts on.
+- **Deploying, pushing, merging, opening a PR, opening or closing a ticket.** Each needs its own explicit yes.
+
+---
+
 ## Slice J: the belch becomes a pushback (#124)
 
 Model: Opus, subagent type general-purpose. One coder, one code commit, one docs commit. Messages end in `(#124)`.
@@ -492,131 +676,144 @@ Round two slice J of The Hungry Grave (ticket #124): the belch stops killing and
 
 **The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice J.
 
-**Slices H and I land before you.** **Verify each of these by name and any one missing is a stop and report:** `shove.ts` with an impulse carrying the wave structure; `WITNESS_VERSION` 8; `mobShoved` carrying slice I's source discriminator; the shove reading's belch arm, empty and waiting; `READINGS_VERSION` 5; and **`docs/adr/0008-the-belch-full-only-gas-everywhere-shove-nearby.md` in the tree**, because the ADR that still says the burst kills is the thing that must be gone before a belch test is written. Read round two progress note sections 8 and 9 for what those slices actually did.
+**Slices H, I and H2 land before you.** **Verify each of these by name and any one missing is a stop and report:** `shove.ts` with an impulse carrying the wave structure and `SHOVE_TICKS` at slice H2's retuned figure; `WITNESS_VERSION` 8; `mobShoved` carrying slice I's source discriminator; the shove reading's belch arm, empty and waiting; `READINGS_VERSION` 5; `bell.ts` carrying two reaches, the push one drawn and the damage one inside it; and **`docs/adr/0008-the-belch-full-only-gas-everywhere-shove-nearby.md` in the tree**, because the ADR that still says the burst kills is the thing that must be gone before a belch test is written. Read round two progress note sections 8, 9 and 10 for what those slices actually did.
 
 **Four rulings shape this slice and none of them is yours to revisit.**
 
 **First: the belch takes health off nothing at all, boss included.** Mark's ruling 3 of 2026-09-15 and ADR 0008 as amended. `burstNearbyTargets`' kill goes, `BELCH_PHASE_DAMAGE` goes with it, and the belch's chunk of boss damage goes with both. **The gas is untouched**: it still smothers every mob-fire shot on the whole field, boss patterns included, and still kills nothing.
 
-**Second: three discrete waves, ten ticks apart, inside the eruption's existing twenty.** The record's ruling R3. **The wave count and the spacing are data** in the belch's own row, cited to the record, and they are the lever ruling R4 names if the Wall's lane does not open. Three shoves about ten ticks apart sit inside a visual that already exists (`StormRenderer.ts`'s `ERUPTION_TICKS` 20) and the Flower Wall's five waves are the shipped precedent for countable waves (`docs/research/push-feel-precedent.md` section 2).
+**Second: three discrete waves, each a full watched push, and the three together carry a body clear of the belch's own reach.** The record's ruling R3 **as superseded on 2026-09-15**, on Mark's read of the slice H build, and the figures are `docs/research/watched-pushback-duration.md` section 5, option 2, which he picked: **each wave throws 60 field units, three of them total 180, and a wave begins every 30 ticks so the three span 90**. **The wave count, the spacing and the per-wave throw are data** in the belch's own row, cited to the record and the research, and they are the lever ruling R4 names if the Wall's lane does not open. **What the supersession replaced is the prompt written at `40adc7edd5`, which is void**: waves ten ticks apart fitted inside the eruption's existing twenty-tick visual sized the push to the picture rather than the picture to the push, and a per-wave throw inherited from the bell's left three waves totalling 120 against the belch's own 160 burst radius, so a body at the grave ended still inside it. **The 180 clears it by 20**, which is the whole point: the Flower Wall's five waves are the precedent for countable waves (`docs/research/push-feel-precedent.md` section 2) and the Blank's throw of a third of its playfield is the precedent for the total (`docs/research/watched-pushback-duration.md` section 3).
 
-**Third: one belch strikes each body once, and that one strike carries three waves.** That is the bell's `toll.struck` pattern applied, per ruling R3: the body set is captured when the belch fires, each body gets one impulse, and the impulse's own wave row is what re-boosts it at ten and twenty ticks. **A body shoved out of reach still gets its later waves**, because the strike was already made, and that is deterministic by construction rather than by a reach test run three times.
+**Third: one belch strikes each body once, and that one strike carries three waves.** That is the bell's `toll.struck` pattern applied, per ruling R3: the body set is captured when the belch fires, each body gets one impulse, and the impulse's own wave row is what re-shoves it as each later wave comes due. **A body shoved out of reach still gets its later waves**, because the strike was already made, and that is deterministic by construction rather than by a reach test run three times. **The impulse is slice H's and it already does this**: `startShove` takes the count and the spacing and `advanceShove` brings each later shove in, tested at the module's own seam by three tests that pass their own figures.
 
-**Fourth: `GOLDEN` is permitted one re-pin here and it is round two's second and last.** Whether it actually moves is a question rather than a given: the canonical scenario's reservoir sits far below full and a scenario that never belches feels nothing this slice does. **If it does not move, say so and say why, and the permit goes unused.** If it moves, its cause goes in the dated paragraph. **A move anywhere in slices K or L is a stop.**
+**Fourth: `GOLDEN` is permitted one re-pin here and it is round two's second and last.** Whether it actually moves is a question rather than a given, and the answer is probably not: `digest.ts`'s canonical scenario scripts `belch: false` on every tick, so nothing this slice changes is ever reached by it, which is the same reason slice H2 was permitted none. **If it does not move, say so and say why, and the permit goes unused.** If it moves, the reason comes before the re-pin: say what moved and why it was reachable at all, then re-pin once with its dated paragraph. **A move anywhere in slices K or L is a stop.**
 
 ### Read first, in this order, before any edit
 
 1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it.
 2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
-3. `apps/hungry-grave/docs/design/round-two-wall-belch.md`: **rulings R3 and R8 are yours**, R4 is why the wave row is a lever and not a magnitude you may tune, section 3 is the module shape, section 5 is what must not move, section 6's belch sentences are your tests.
-4. `apps/hungry-grave/docs/research/push-feel-precedent.md` **sections 2 and 3 in full**. Section 3 is the honest state of the evidence that a no-damage push reads as a boom: Smash's windbox deals knockback with no hitstun and F.L.U.D.D.'s payoff is positional rather than numeric, Lucio's boop is read for its displacement rather than its damage, and **the record says plainly that no GDC talk or dev blog was found arguing the case explicitly, so the rest is inference and is marked as such wherever it is cited**. Do not cite it as more than it is.
-5. `apps/hungry-grave/docs/adr/0008-the-belch-full-only-gas-everywhere-shove-nearby.md` as amended, **which is the contract for what the belch now is**; `0038-the-belch-binds-to-a-dedicated-button.md`; `0014-readability-layering.md`, because the eruption may not occlude mob fire and ADR 0008 grants no invulnerability; `0007-bosses-always-shootable.md`, because an authored pattern is never smeared; `0034-a-power-up-is-an-offer-of-three-and-the-grave-swallows-one.md`, whose regeneration rule ADR 0008 names.
-6. `apps/hungry-grave/docs/push/round-two-progress.md` sections 8 and 9, and `step-4-progress.md` section 2 for the `GOLDEN` history.
-7. `apps/hungry-grave/CONTEXT.md`, the entries Belch, Reservoir, Gas, Repel and Storm. **Read the Avoid lists before naming anything.**
-8. The tree: `src/game/belch.ts` whole, all 119 lines; `src/game/shove.ts` as slice H wrote it; `src/game/stormTargets.ts`'s `pushable` and `moveStormTarget`; `src/game/events.ts`'s `belched` and `mobShoved`; `src/dev/readings/repel.ts` and `belchCadence.ts`; `src/app/screens/game/StormRenderer.ts`'s eruption, its `ERUPTION_TICKS`, `ERUPTION_REACH` and `erupt`; `src/app/palette.ts`'s `belchEruption` entry and the band ceiling; `src/dev/bot.ts`'s `belchWorthIt`, to read and never to touch.
+3. `apps/hungry-grave/docs/design/round-two-wall-belch.md`: **rulings R3 as superseded and R8 are yours**, R2 as superseded is what one wave now is, R4 is why the wave row is a lever and not a magnitude you may tune, section 3 is the module shape, section 5 is what must not move, section 6's belch sentences are your tests.
+4. `apps/hungry-grave/docs/research/watched-pushback-duration.md` **section 5 in full, option 2 above all**, which is where your three figures and the eruption's come from, plus section 3 for the Blank's throw against its own arena and section 4 for the perception band a wave has to sit inside.
+5. `apps/hungry-grave/docs/research/push-feel-precedent.md` **sections 2 and 3 in full**. Section 2 is the Flower Wall's countable waves. Section 3 is the honest state of the evidence that a no-damage push reads as a boom: Smash's windbox deals knockback with no hitstun and F.L.U.D.D.'s payoff is positional rather than numeric, Lucio's boop is read for its displacement rather than its damage, and **the record says plainly that no GDC talk or dev blog was found arguing the case explicitly, so the rest is inference and is marked as such wherever it is cited**. Do not cite it as more than it is.
+6. `apps/hungry-grave/docs/adr/0008-the-belch-full-only-gas-everywhere-shove-nearby.md` as amended, **which is the contract for what the belch now is**; `0038-the-belch-binds-to-a-dedicated-button.md`; `0014-readability-layering.md`, because the eruption may not occlude mob fire and ADR 0008 grants no invulnerability; `0007-bosses-always-shootable.md`, because an authored pattern is never smeared; `0034-a-power-up-is-an-offer-of-three-and-the-grave-swallows-one.md`, whose regeneration rule ADR 0008 names.
+7. `apps/hungry-grave/docs/push/round-two-progress.md` sections 8, 9 and 10, **plus section 5**, which is where slice H's own prompt was found false against the tree and where the ordering fact below is written down. `step-4-progress.md` section 2 for the `GOLDEN` history.
+8. `apps/hungry-grave/CONTEXT.md`, the entries Belch, Reservoir, Gas, Repel and Storm. **Read the Avoid lists before naming anything.** Nothing in this slice is called a wave in code: Wave is the authored timeline's own entry and the Cone entry bans the word outright, which is why slice H's fields say shove and yours do too.
+9. The tree: `src/game/belch.ts` whole, all 119 lines; `src/game/shove.ts` as slices H and H2 left it; `src/game/stormTargets.ts`'s `shoveStormTarget`, `moveStormTarget` and `pushable`; `src/game/mobs.ts`'s `travelShove`, `reportShoveTravel` and `advanceMobs`; `src/game/events.ts`'s `belched` and `mobShoved`; `src/dev/readings/repel.ts` and `belchCadence.ts`; `src/app/screens/game/StormRenderer.ts`'s `ERUPTION_TICKS`, `ERUPTION_REACH`, `drawEruption`, `syncBursts`, `syncBurst`, `erupt` and `STORM_RENDERER_TRANSIENT_TICKS`; `src/app/palette.ts`'s `belchEruption` entry and the band ceiling; `src/dev/bot.ts`'s `belchWorthIt`, to read and never to touch.
 
 ### The definition, in observable terms
 
-After this slice: a belch takes no health off anything, boss included, and no corpse of its own is left behind because nothing died. It throws every body inside its reach away from the grave in three waves the player can count, ten ticks apart, and a body caught by the belch travels over ticks and is drawn at every position between. The gas still smothers every mob-fire shot on the field. A boss and a set piece's source are still never moved.
+After this slice: a belch takes no health off anything, boss included, and no corpse of its own is left behind because nothing died. It throws every body inside its reach away from the grave in three waves the player can count, each one a full watched push the length of a toll's, and a body standing beside the grave ends outside the belch's own reach. A body caught by the belch travels over ticks and is drawn at every position between. The gas still smothers every mob-fire shot on the field. A boss and a set piece's source are still never moved.
 
-The batch can say what a belch's shoves did, in the arm slice I declared and left empty. `WITNESS_VERSION` still reads 8, `READINGS_VERSION` still reads 5, `FORMAT_VERSION` still reads 4, and `pnpm verify` is green.
+The eruption draws one front per wave, each lasting as long as its wave, so the picture and the push end together. The batch can say what a belch's shoves did, in the arm slice I declared and left empty. `WITNESS_VERSION` still reads 8, `READINGS_VERSION` still reads 5, `FORMAT_VERSION` still reads 4, and `pnpm verify` is green.
 
 What a player meets: the belch stops deleting a handful of bodies and starts clearing the ground. That is Mark's ruling 3 and ticket #124's done line is that after spending one they can say what it did for them, unprompted.
 
 ### The work, in this order
 
-**(a) Verify the six inputs**, per the stop above, then `git log --oneline -25`, `git status --short`, and your own test-name baseline into `local/round2/` under a name carrying the letter J.
+**(a) Verify the seven inputs**, per the stop above, then `git log --oneline -25`, `git status --short`, and your own test-name baseline into `local/round2/` under a name carrying the letter J.
 
 **(b) The tests first, red.** **Write the no-damage test first**: a belch takes no health off anything, boss included. It is the ruling stated as a test rather than discovered, and it is the one a later change is most likely to quietly undo.
 
 **(c) The kill comes out of `belch.ts`.** `burstNearbyTargets` stops calling `damageStormTarget`, `BELCH_PHASE_DAMAGE` goes, the `killed` count on the `belched` event has nothing left to count. **Decide what happens to that field explicitly rather than leaving a zero**: a count that is structurally always zero is a lie a reading can still read. **Author the honest shape, say in the note what you set it against**, and remember that `belchCadence.ts` and the sound layer read the `belched` event.
 
-**(d) The shove goes in, through `shove.ts` and never a second copy.** Ruling R8: one module, two callers. The belch captures its body set once, starts one impulse per body with three waves at ten ticks, and passes its own reach. **`BELCH_BURST_RADIUS` is re-read as a shove reach rather than replaced**, and its JSDoc says so, because the reach is what it always was and only what happens inside it changed. **`moveStormTarget` and `pushable` still answer whether a body may move**, so the boss and the set piece's source are excluded structurally rather than by a branch in `belch.ts`.
+**(d) The shove goes in, through `shove.ts` and never a second copy.** Ruling R8: one module, two callers. **`belch.ts` has no push and no wave code at all today, so this is built rather than adapted**: the belch captures its body set once and starts one impulse per body through `shoveStormTarget(state, target, 'belch', away.x, away.y, <throw>, <shoves>, <spacing>)`, which is the seam slice H already built and the argument order it already has. **`BELCH_BURST_RADIUS` is re-read as a shove reach rather than replaced**, and its JSDoc says so, because the reach is what it always was and only what happens inside it changed. **`moveStormTarget` and `pushable` still answer whether a body may move**, so the boss and the set piece's source are excluded structurally rather than by a branch in `belch.ts`. **`belch.ts` may import `stormTargets.ts` and `mobs.ts` may not**, because `stormTargets.ts` imports `mobs.ts` and the core's cycle guard holds `KNOWN_CORE_CYCLES` empty; that is slice H's own finding and it is why the shove starts at the seam and travels inside `advanceMobs`. **Inside `advanceMobs` the shove's advance runs after the walk and not before it**, for an off-by-one slice H found and wrote down (note section 5): running the travel first lets the last tick of a shove both fly a body and walk it. You inherit that order and you do not reorder it. **A body at a distance of exactly zero from the grave has no away direction and is refused**, which is the rule the bell already keeps (`pushTarget` returns on `distance === 0`, and again on an away vector of zero length). **The belch follows the bell rather than writing a second answer**, so the sentence a test pins is one rule and not two.
 
-**(e) The wave row, and it is data.** Count and spacing in the belch's own row with the record's ruling R3 cited in the JSDoc, beside the note that they are ruling R4's lever for the Wall. **No ADR gains a combat magnitude**, ADR 0008 included.
+**(e) The wave row, and it is data.** The count, the spacing and the per-wave throw in the belch's own row with the record's ruling R3 and the research's section 5 option 2 cited in the JSDoc, beside the note that they are ruling R4's lever for the Wall. **No ADR gains a combat magnitude**, ADR 0008 included.
 
-**(f) The event slice I declared, now emitted.** Every shove the belch starts emits `mobShoved` with the belch's source. **The reading's belch arm should go from provably empty to populated, and you show both**: slice I's own test that the arm is empty at slice I's tip is expected to change meaning here, so **say in the note what you did with it** rather than deleting it quietly.
+**(f) Three JSDocs across the tree still say "three ten ticks apart" and they are now false.** `shove.ts`'s `Impulse`, `stormTargets.ts`'s `shoveStormTarget` and `witness.ts`'s version 8 paragraph all name the old figure as the belch's, and `witness.test.ts`'s `EXCLUDED` entry for `impulse.source` repeats the sentence. **Correct each to say that the spacing is the row's** rather than writing the new figure into four places a later retune would have to find. **Changing a comment in `witness.ts` is not a version move** and `WITNESS_VERSION` stays 8; check the prose the test asserts if you touch the entry, because that string is compared.
 
-**(g) The eruption's front, on the layer that already exists.** `StormRenderer`'s eruption rides the `belchEruption` layer, which ADR 0014 already places below `mobFire`, and nothing you add may occlude mob fire. **The eruption reads for twenty ticks and the waves land at nought, ten and twenty**, so the front the player sees and the shoves they feel should agree; author that agreement and say what you set it against. **Every colour you draw sits under the band ceiling while the field is live**, and `palette.test.ts` is what says so.
+**(g) The event slice I declared, now emitted.** Every shove the belch starts emits `mobShoved` with the belch's source. **One impulse makes one report, at its end, carrying everything it carried** (`reportShoveTravel` in `mobs.ts`), so a three-wave belch on one body reports one event summing all three waves, which is what the reading's belch arm already expects and what slice H ruled when it chose one report per impulse. **The reading's belch arm should go from provably empty to populated, and you show both**: slice I's test that the arm is empty at slice I's tip is expected to change meaning here, so **retitle it rather than deleting it quietly**, because what it pins after you is that the arm fills.
 
-**(h) `GOLDEN`, per the fourth ruling.** Run `digest.test.ts`. If it holds, say why it should have. If it moves, re-pin once with a dated paragraph naming every field that moved.
+**(h) The eruption's fronts, on the layer that already exists.** `ERUPTION_TICKS` is 20 today and `drawEruption` draws one circle whose radius scales with the progress `syncBurst` feeds it as `age / life`. **R3 as superseded makes it one front per wave, each lasting as long as its wave**, so the constant becomes the three-wave span the row names and the draw puts three staggered fronts on one sprite, each starting when its own wave does. `STORM_RENDERER_TRANSIENT_TICKS` registers the same constant and moves with it, which is what keeps a replay primed mid-run reaching far enough back (#58). **The eruption rides the `belchEruption` layer, which ADR 0014 already places below `mobFire`, and nothing you add may occlude mob fire.** **Every colour you draw sits under the band ceiling while the field is live**, and `palette.test.ts` is what says so. **The front and the shove have to agree**, which is the whole reason the constant moves: author that agreement and say in the note what you set it against.
 
-**(i) The measurements this slice owes.**
+**`ERUPTION_TICKS` is derived, not written a second time.** The span is `(count - 1) * spacing + SHOVE_TICKS`, which is the belch's own count and spacing rows plus `shove.ts`'s `SHOVE_TICKS`, and it reads 90 at these figures. Derive it from those exports rather than typing a second 90 a later retune would have to hunt for, which is the same thing (f) asks of the JSDocs. The front count and each front's start tick read the same row. **With the spacing equal to `SHOVE_TICKS` the three fronts are sequential and never concurrent**, each one starting as the one before it ends.
+
+**The front's own reach is your authored call, and the research's figure for its speed is dropped.** Research section 5 first read each front as slowing to "about a third of today's speed", and its own 2026-09-15 correction drops that, because it does not follow from the figures beside it: `ERUPTION_REACH` is the field's diagonal, 932 units, crossed in 20 ticks today at 46.6 a tick, and the same reach over 30 ticks is 31 a tick, which is two thirds of today rather than a third. A third would need a 60-tick front or a front stopping near half the diagonal, and R3 rules the count and the duration and says nothing about speed or reach. **So do not chase the third**, and author the reach instead. The precedent for a picture that runs well past the push is the shipped Blank, whose clear front reaches 25 tiles over a knockback of 10 (research section 3), and the eruption's own JSDoc already calls it the ground shock under a field-wide scatter of cancelled shots. The competing principle is R10's, that a body moved by something the player cannot see fails the done line. **Say in the note which reach you chose and why, and print the resulting speed** in units a tick and in field widths a second.
+
+**(i) `GOLDEN`, per the fourth ruling.** Run `digest.test.ts`. If it holds, say why it should have. If it moves, say what reached the scenario before you re-pin, then re-pin once with a dated paragraph naming every field that moved.
+
+**(j) The measurements this slice owes.**
 
 - **A hand-recorded tape with a belch spent in it**, at your tip, against the built app through `vite preview`, driven with `playwright-cli`, measured to `outcome: 'verified'`, with all three `state.refusals` counters printed. **A belch needs a full reservoir, so say how you got one** rather than leaving the reader to wonder whether the tape has one at all.
-- **A rendered check, and this slice plainly owes one.** Read the screenshots: three waves, countable, the ground clearing, nothing dying. **Play a run, end it, and play another.**
-- **A conditioned tape**, measured, so the belch's change is visible against slices H and I's own rigs.
-- **A batch at your tip** under `steady-far` and `loose-far`, with the shove reading's belch arm printed and `belchCadence` beside it. **`belchWorthIt` now prices a belch that kills nothing**, which is a reading about the hand and **never a row you touch**; print what it did and leave it alone.
-- **Replay determinism at your tip**, with a belch's shoves in flight at a checkpoint.
+- **A rendered check, and this slice plainly owes one.** Read the screenshots: three waves, countable, the ground clearing, nothing dying, three fronts. **Play a run, end it, and play another.** **Slice H could not photograph a seven-tick shove and slice H2 tried again at thirty**; read what each of them found in note sections 8 and 10 before you spend the time, and say plainly what you could and could not see.
+- **A conditioned tape**, measured, so the belch's change is visible against slices H, I and H2's own rigs.
+- **A batch at your tip** under `steady-far` and `loose-far`, with the shove reading's belch arm printed and `belchCadence` beside it. **Use slice I's own seeds, 900 to 905 under each hand**, so your figures are subtractable against the tables in note sections 9 and 10. **`belchWorthIt` now prices a belch that kills nothing**, which is a reading about the hand and **never a row you touch**; print what it did and leave it alone.
+- **Replay determinism at your tip**, with a belch's shoves in flight at a checkpoint. **The bell's shoves could not be caught at a checkpoint by arithmetic** and the whole derivation is in note section 8, but **a belch is player-timed rather than periodic**, so it may well be catchable and slice H2 re-measured the residues at the longer duration. Read both before you decide how to prove it, and **do not burn the slice proving the impossible again**: folding the witness on every flying tick across two plays of one seed is the stronger proof and it is already the worked precedent.
+- **A body's total travel under one belch, counted off a tape rather than off the source**, and stated against the burst radius, because "clears its own reach" is the sentence the figures were picked for.
 
-**(j) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the belch clears the ground in three waves and takes health off nothing (#124)`.
+**(k) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the belch clears the ground in three waves and takes health off nothing (#124)`.
 
-**(k) The progress note**, section **10**. Beyond the contract's list, say: what became of the `killed` count and what you set it against; the wave row's figures; `BELCH_BURST_RADIUS` re-read rather than replaced; the eruption's agreement with the waves and what you set it against; what you did with slice I's empty-arm test; `GOLDEN` moved or held with the reason; the hand tape with the belch in it and how you got the reservoir full; and the batch's belch arm.
+**(l) The progress note**, section **11**. Beyond the contract's list, say: what became of the `killed` count and what you set it against; the wave row's three figures; `BELCH_BURST_RADIUS` re-read rather than replaced; the four JSDocs corrected off the old spacing; the eruption's agreement with the waves and what you set it against; what you did with slice I's empty-arm test; `GOLDEN` moved or held with the reason; the hand tape with the belch in it and how you got the reservoir full; a body's measured travel against the burst radius; and the batch's belch arm.
 
-**(l) Stop and report.** Under 300 words. **Do not start slice K.**
+**(m) Stop and report.** Under 300 words. **Do not start slice K.**
 
 ### What must not move, and a move is a stop
 
-- **The fences**, all six by title. **`lineAgnosticPolicies.test.ts` now binds the belch to `shove.ts` and `stormTargets.ts` both.**
-- **`WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4.** None moves and a move in any is a stop. **You declare no folded field**: the impulse's wave fields already exist and are already folded, which is exactly why slice H declared them.
+- **The fences**, all six by title. **`lineAgnosticPolicies.test.ts` binds `game/belch.ts` to the `stormTargets` seam and to nothing else**: its `STORM_MODULES` list carries the belch and its `TARGET_SEAM` is `stormTargets`, so what that fence asserts is the seam, and the belch never imports `shove.ts` at all. The core's cycle guard keeps `KNOWN_CORE_CYCLES` empty.
+- **`WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4.** None moves and a move in any is a stop. **You declare no folded field**: the impulse's wave fields already exist and are already folded, which is exactly why slice H declared them, and correcting a sentence in the version paragraph is not a move. **`impulse.source` is excluded from the fold rather than folded**, on `mobFire[].kind`'s precedent, and it owes no witness move however many bodies the belch now writes it on; CodeRabbit asked slice I for that move and it was declined, with the reasoning beside the ruling in note section 9. **A reviewer asking you for it again is declined the same way.**
+- **The shove's own arithmetic.** `SHOVE_TICKS`, the fall, `firstStepOf` and the accounting are slices H and H2's, and a belch that wanted a different wave length would be asking for a second decay row nobody has ruled.
+- **The bell's two reaches and `toll.struck`.** Slices H and H2's, untouched.
 - **The gas.** Its field-wide scope, its boss-pattern reach and its killing nothing are all ADR 0008's and none of them is touched.
 - **`pushable` and `moveStormTarget`.** A raw position write from `belch.ts` is a stop.
-- **`toll.struck` and the bell's own arithmetic.** Slice H's, untouched.
 - **The harness's own rows**, `belchWorthIt` above all. A hand row moved between two batches compares two builds through two instruments.
 - **Every cap, every fault identity, `STREAM_SALTS` and `STREAM_ORDER`.**
 - **You file no ADR and amend none.** ADR 0008 already landed and **applying a rule is not amending it**.
 
 ### Seams under test
 
-`src/game/belch.ts`: `fireBelch` with no damage at all, the body set captured once, the shove started through `shove.ts`, `BELCH_BURST_RADIUS` as a reach, and the wave row. `src/game/events.ts`: `belched`'s payload after the kill count's fate is decided, and `mobShoved` carrying the belch's source. `src/game/shove.ts`: the multi-wave path, now with a real caller. `src/dev/readings/repel.ts`: the belch arm populated. `src/app/screens/game/StormRenderer.ts`: the eruption's front agreeing with the waves.
+`src/game/belch.ts`: `fireBelch` with no damage at all, the body set captured once, the shove started through `shoveStormTarget`, `BELCH_BURST_RADIUS` as a reach, and the wave row. `src/game/events.ts`: `belched`'s payload after the kill count's fate is decided, and `mobShoved` carrying the belch's source. `src/game/shove.ts`: the multi-shove path, now with a real caller. `src/dev/readings/repel.ts`: the belch arm populated. `src/app/screens/game/StormRenderer.ts`: one front per wave, over the span the row names.
 
 ### Module boundaries
 
-**Nothing is created, deleted, merged or split.** `belch.ts` gains an import of `shove.ts` and loses its damage call, which is ruling R8's second caller arriving. **`shove.ts` still imports nothing but the math helpers and the mob type**, and `boundary.test.ts` proves it. `StormRenderer` stays behind the renderers and no new library enters.
+**Nothing is created, deleted, merged or split, and no import direction changes.** **`belch.ts` already imports `stormTargets.ts`**, as `damageStormTarget, stormTargets`, so what moves is `damageStormTarget` off that line and `shoveStormTarget` onto it; the belch gains no import of `shove.ts` at all, which is ruling R8's second caller arriving through the seam rather than as a second copy of the shove. **`shove.ts` has no import line at all and gains none**, and `boundary.test.ts` does not name it: that fence polices `src/game` as one folder (`game: ['game']`) and the core's cycle guard, so the module's emptiness is yours to keep by reading it rather than a fence's to prove. `StormRenderer` stays behind the renderers, reads the run and never writes it, and no new library enters.
 
 ### The planned test list
 
 1. *A belch takes no health off anything, boss included.* **Write it first.**
 2. *A belch shoves in the number of waves the row declares, and a player counting them counts that many.*
-3. *A belch strikes each body once, and its later waves re-boost the same impulse rather than starting a second.*
-4. *A body shoved out of a belch's reach still takes the waves that belch already owed it.*
-5. *A boss and a set piece's source are never moved by a belch.*
-6. *A belch's gas still smothers every mob-fire shot on the field and still kills nothing.* The half that did not change, asserted so it cannot drift out.
-7. *A shove is attributed to the belch rather than to a toll*, now over a real belch rather than a planted event.
-8. *Two runs on one seed rebuild identically with a belch's shoves in flight at a checkpoint.*
-9. **The palette scan**, green over anything the eruption draws.
-10. **The six fences**, green, each by title.
-11. **The golden digest**, moved once with its paragraph or held with its reason.
+3. *A belch's waves together carry a body standing beside the grave clear of the belch's own reach.* **Beside it, not on it**: a body at a distance of exactly zero has no away direction and is refused, the same way `pushTarget` refuses it.
+4. *A belch strikes each body once, and its later waves re-shove the same impulse rather than starting a second.*
+5. *A body shoved out of a belch's reach still takes the waves that belch already owed it.*
+6. *One belch on one body reports one shove, carrying everything all three waves carried.*
+7. *A boss and a set piece's source are never moved by a belch.*
+8. *A belch's gas still smothers every mob-fire shot on the field and still kills nothing.* The half that did not change, asserted so it cannot drift out.
+9. *A shove is attributed to the belch rather than to a toll*, now over a real belch rather than a planted event.
+10. *The eruption draws as many fronts as there are waves, each lasting as long as its wave.*
+11. *Two runs on one seed rebuild identically with a belch's shoves in flight at a checkpoint.*
+12. **The palette scan**, green over anything the eruption draws.
+13. **The six fences**, green, each by title.
+14. **The golden digest**, held with its reason or moved once with its paragraph.
 
-**What this slice is expected to turn red.** `belch.test.ts`, everything reading the `belched` event, `repel.test.ts`, `belchCadence.test.ts`, the sound layer's suite, `StormRenderer`'s suite, `measure.test.ts`'s rich fixture whose belch arm slice E already had to re-hand, and `bot.test.ts` wherever `belchWorthIt` changes what a run does. **A realistic count is 15 to 35 files.**
+**What this slice is expected to turn red.** `belch.test.ts`, everything reading the `belched` event, `repel.test.ts`, `belchCadence.test.ts`, the sound layer's suite, `StormRenderer`'s suite, `witness.test.ts`'s `EXCLUDED` prose if you correct it there, `measure.test.ts`'s rich fixture whose belch arm slice E already had to re-hand, and `bot.test.ts` wherever `belchWorthIt` changes what a run does. **A realistic count is 15 to 35 files.**
 
 ### Verification steps, with actors
 
 1. **Agent.** A belch proved to take no health off anything, boss included.
 2. **Agent.** Three waves, counted off a tape rather than off the source.
-3. **Agent.** `WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4 all held.
-4. **Agent.** `GOLDEN` moved once with its paragraph, or held with its reason stated.
-5. **Agent.** A hand tape with a belch in it, verified, with the three refusal counters.
-6. **Agent.** A rendered check across two runs with the screenshots read.
-7. **Agent.** A batch at this tip with the belch arm printed.
-8. **Agent.** Replay determinism with belch shoves in flight.
-9. **Human (Mark), and none of these blocks you.** Whether he can say what the belch did for him, unprompted, which is ticket #124's own done line.
+3. **Agent.** A body's travel under one belch, measured and stated against the burst radius.
+4. **Agent.** `WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4 all held.
+5. **Agent.** `GOLDEN` held with its reason, or moved once with its paragraph and what reached the scenario.
+6. **Agent.** A hand tape with a belch in it, verified, with the three refusal counters.
+7. **Agent.** A rendered check across two runs with the screenshots read.
+8. **Agent.** A batch at this tip on slice I's seeds, with the belch arm printed.
+9. **Agent.** Replay determinism with belch shoves in flight, or the stronger proof with its reason.
+10. **Human (Mark), and none of these blocks you.** Whether he can say what the belch did for him, unprompted, which is ticket #124's own done line. **The deploy that puts it in front of him is the orchestrator's, straight after your report.**
 
 ### State of the branch
 
-- The tip should be slice I's docs commit. **`WITNESS_VERSION` 8, `FORMAT_VERSION` 4, `READINGS_VERSION` 5, `GOLDEN` as slice H re-pinned it.**
-- **Round two's `GOLDEN` budget is two, slice H spent one, and this is the other.** Slices K and L are permitted none.
-- Read round two progress note sections 8 and 9 for the test counts and the test-name list.
+- The tip should be slice H2's docs commit. **`WITNESS_VERSION` 8, `FORMAT_VERSION` 4, `READINGS_VERSION` 5, `GOLDEN` as slice H re-pinned it and slice H2 held it.**
+- **Round two's `GOLDEN` budget is two, slice H spent one, slice H2 was permitted none, and this is the other.** Slices K and L are permitted none.
+- Read round two progress note sections 8, 9 and 10 for the test counts and the test-name list.
 
 ### The stuck rule
 
-**Three things are already known to be a stop:** any of the six inputs missing, the ADR above all; a `WITNESS_VERSION`, `READINGS_VERSION` or `FORMAT_VERSION` move; and a second `GOLDEN` re-pin. **And one thing is ruled rather than open:** the belch does no damage of any kind, and a measurement showing the belch is now weak is a finding for the note, never a reason to give it a point of damage back.
+**Three things are already known to be a stop:** any of the seven inputs missing, the ADR above all; a `WITNESS_VERSION`, `READINGS_VERSION` or `FORMAT_VERSION` move; and a second `GOLDEN` re-pin. **And two things are ruled rather than open:** the belch does no damage of any kind, and a measurement showing the belch is now weak is a finding for the note, never a reason to give it a point of damage back; and the three figures are option 2's and the pick is Mark's, so a measurement arguing for a different total is a finding too.
 
 ### What is not your job
 
 - **The Wall**, in every part, including whether the belch opens it. Slice L's, and `waves.ts` and the mob table are opened only to read.
 - **The meter and its corner**, slice K's.
-- **Slices H and I's work.** The shove module's arithmetic, the impulse, the reading's shape and the version note.
+- **Slices H, I and H2's work.** The shove module's arithmetic, the impulse, the bell's two reaches, the reading's shape and the version note.
 - **The harness's rows and the orchestrator's batch.**
 - **The record's section 7 findings.**
 
@@ -685,7 +882,7 @@ What a player meets: without looking away from the field they can tell roughly h
 
 **(i) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the belch's ring fills with its reservoir and moves under the other thumb (#127)`.
 
-**(j) The progress note**, section **11**. Beyond the contract's list, say: the fill's shape; the colour you chose with its precedent, its luma and what you set it against; the alpha step removed and the pulse kept, cited to ADR 0054; the corner moved and the two rects re-derived; the grayscale read and what it showed; the target floor at every viewport; and the four constants and `GOLDEN` all named as untouched.
+**(j) The progress note**, section **12**. Beyond the contract's list, say: the fill's shape; the colour you chose with its precedent, its luma and what you set it against; the alpha step removed and the pulse kept, cited to ADR 0054; the corner moved and the two rects re-derived; the grayscale read and what it showed; the target floor at every viewport; and the four constants and `GOLDEN` all named as untouched.
 
 **(k) Stop and report.** Under 250 words. **Do not start slice L.**
 
@@ -761,7 +958,7 @@ Round two slice L of The Hungry Grave (ticket #123): the curtain gets a body the
 
 **The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice L.
 
-**All four slices before you land first.** **Verify each of these by name and any one missing is a stop and report:** `shove.ts` with its impulse and its wave structure; `belch.ts` shoving in three waves and doing no damage; `mobShoved` carrying its source and the reading's belch arm populated; and **`docs/adr/0042-a-set-piece-names-the-property-it-must-keep.md` carrying its 2026-09-15 triple**, because the property you are about to assert is the one that ADR now words. Read round two progress note sections 8 through 11.
+**All five slices before you land first.** **Verify each of these by name and any one missing is a stop and report:** `shove.ts` with its impulse and its wave structure; `belch.ts` shoving in three waves and doing no damage; `mobShoved` carrying its source and the reading's belch arm populated; and **`docs/adr/0042-a-set-piece-names-the-property-it-must-keep.md` carrying its 2026-09-15 triple**, because the property you are about to assert is the one that ADR now words. Read round two progress note sections 8 through 12.
 
 **Five rulings shape this slice and none of them is yours to revisit.**
 
@@ -830,7 +1027,7 @@ What a player meets: the curtain comes down, they try to get through, they find 
 
 **(j) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the curtain stands against the storm and a belch is what opens it (#123)`.
 
-**(k) The progress note**, section **12**. Beyond the contract's list, say: the dent-or-hole measurement with its geometry, before and after; the new type's name, what you set it against and its Avoid check; its health's derivation; its payout and tier and what you set them against; the Wall's count re-derived and the shambler comment moved; the caps confirmed with their figures; the two bot policies and what they showed; and **`GOLDEN` and all three version constants named as held**.
+**(k) The progress note**, section **13**. Beyond the contract's list, say: the dent-or-hole measurement with its geometry, before and after; the new type's name, what you set it against and its Avoid check; its health's derivation; its payout and tier and what you set them against; the Wall's count re-derived and the shambler comment moved; the caps confirmed with their figures; the two bot policies and what they showed; and **`GOLDEN` and all three version constants named as held**.
 
 **(l) Stop and report.** Under 300 words, and **if the lane does not open, that is the whole report**: every setting tried, what each gave, and the cut named as Mark's to take. **Do not start anything after this slice; the gates, the review, the batch and the deploy are the orchestrator's.**
 

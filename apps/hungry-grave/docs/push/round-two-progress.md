@@ -13,6 +13,7 @@ The record is `apps/hungry-grave/docs/design/round-two-wall-belch.md` and the pr
 | H, the witness fold | `2e90597cad` | feat(hungry-grave): a body carries the shove that landed on it and the witness folds it (#126) |
 | H, the shove | `ed369353e2` | feat(hungry-grave): a toll starts a shove the body travels under, and the bell is its only caller (#126) |
 | I, the shove is measurable | `157946940c` | feat(hungry-grave): a shove says which push threw it and the batch reads the two apart (#126) |
+| H2, the push retuned and the bell's two reaches | | |
 | J, the belch becomes a pushback | | |
 | K, the meter fills and changes corner | | |
 | L, the Wall is a wall | | |
@@ -307,8 +308,10 @@ Every figure is slice H's own. The one that reads differently, `loose-far` 904 a
 
 **For the orchestrator, one reading and no action.** The per-add placement above is the first time the batch could answer where a directed add landed, and across 121 adds the answer is that none is anywhere near an off-limits moment. That closes, for these twelve seeds, the half of ADR 0047 the 48-seed batch could not check. It is twelve runs and not forty-eight, so what it is evidence for is that the instrument works and that nothing obvious is wrong; the step 15 batch is where it answers at size.
 
-## 10. Slice J: the belch becomes a pushback (#124)
+## 10. Slice H2: the push is retuned to be watched, and the bell's kill reaches less far than its shove (#126)
 
-## 11. Slice K: the meter fills and changes corner (#127)
+## 11. Slice J: the belch becomes a pushback (#124)
 
-## 12. Slice L: the Wall is a wall (#123)
+## 12. Slice K: the meter fills and changes corner (#127)
+
+## 13. Slice L: the Wall is a wall (#123)
