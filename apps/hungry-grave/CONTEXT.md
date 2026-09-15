@@ -64,7 +64,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Gas**: The belch's field-wide half: it smothers every mob-fire shot on the field, boss patterns included, and kills nothing. _Avoid_: smoke, cloud, bullet clear.
 
-**Burst**: The belch's local half: the eruption that throws the bodies within a radius of the grave away from it, in three shoves a player can count, and takes health off nothing at all. A boss and a set piece's source stand where they are. _Avoid_: explosion, nova, wipe.
+**Burst**: The belch's local half: the eruption that throws the bodies within a radius of the grave away from it, in three shoves a player can count, and takes health off nothing at all. A boss stands where it is; a set piece's source takes a fraction of the push a mob takes (ADR 0008 as re-ruled 2026-09-15). _Avoid_: explosion, nova, wipe.
 
 **Reservoir**: The capped belch charge, filled by swallows. Charge past full visibly splashes and wastes, so belching is the greedy play. _Avoid_: meter, gauge, mana, energy.
 
@@ -140,7 +140,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **The Wall**: The feast wave: an edge-to-edge curtain of trash launched by the miniboss's death. _Avoid_: swarm wave, horde.
 
-**The Waking**: The swarm set piece that ends the Crowd: a dormant eye placed by a Crowd wave, riding the ground down until it opens around mid-field and pours trash from its one point while the source drags across. It fires nothing and never touches the grave, and its corpses are the payout. _Avoid_: the swarm, the eye event, the mouth.
+**The Waking**: The swarm set piece that ends the Crowd: a dormant eye placed by a Crowd wave, riding the ground down until it opens around mid-field and pours trash from its one point while the source drags across. It fires nothing and never touches the grave, and its corpses are the payout. A toll pushes its source a fraction of the push a mob takes, so a high enough bell holds the grave under the pour (ADR 0008 as re-ruled 2026-09-15). _Avoid_: the swarm, the eye event, the mouth.
 
 **Amended 2026-09-08, Mark's ruling after ground adjustment 1:** the eye rides the ground at the field's own scroll and opens a quarter of the way down, not around mid-field. What stood: everything else in the entry, the placing wave, the pour from one point, the drag across, the silence, the parking rule, and the corpses as the payout. What changed: the opening depth, and with it the time the eye is on screen, about one crossing rather than several times a mob's. What the entry could not have known: the ground was at half the field's scroll when it was written.
 
@@ -172,7 +172,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 ### Bosses
 
-**Boss**: A hostile that arrives alone on a section boundary with authored bullet-hell patterns and phased health. Bosses are always shootable and shed food throughout the fight. _Avoid_: elite, guardian.
+**Boss**: A hostile that arrives alone on a section boundary with authored bullet-hell patterns and phased health. Bosses are always shootable and shed food throughout the fight. A landed toll shows on the boss's body every time, though it never moves the boss (ADR 0007 as amended 2026-09-15). _Avoid_: elite, guardian.
 
 **Miniboss**: The mid-stage boss, fought before the feast. _Avoid_: midboss, sub-boss.
 
