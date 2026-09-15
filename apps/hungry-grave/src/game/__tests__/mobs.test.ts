@@ -976,8 +976,8 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
 
   it('reports one mobShoved for the whole impulse, carrying what the body really travelled', () => {
     // One event per impulse and never one per tick: a per-tick event would
-    // multiply the repel reading's count by seven and change what the channel
-    // means without a READINGS_VERSION move.
+    // multiply the repel reading's count by SHOVE_TICKS and change what the
+    // channel means without a READINGS_VERSION move.
     const state = quietRun();
     const mob = putMob(state, 'shambler', 200, 400);
     const stood = mob.y;
@@ -1012,11 +1012,18 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
 
     const events = damageMob(state, mob, MOB_TYPES.shambler.hp, 'bell');
     const shoves = types(events, 'mobShoved');
+    // The two ticks it flew, off the fall's own shape rather than off a figure:
+    // the first step of a forty-unit shove and then that step less one
+    // SHOVE_TICKS-th of itself.
+    const first = (40 * 2) / (SHOVE_TICKS + 1);
     expect(shoves).toHaveLength(1);
     expect(shoves[0]).toEqual({
       type: 'mobShoved',
       id: mob.id,
-      displacement: expect.closeTo(10 + 10 * (6 / 7), 9),
+      displacement: expect.closeTo(
+        first + (first * (SHOVE_TICKS - 1)) / SHOVE_TICKS,
+        9,
+      ),
       source: 'bell',
     });
   });

@@ -14,8 +14,8 @@ import { MAX_LEVEL } from './roster';
 
 /**
  * What one level's toll throws: where its cones point, how wide each one opens,
- * how far they reach and how hard they shove. Angles in radians, reach and push
- * in field units.
+ * how far they reach, how far inside that their damage reaches, and how hard
+ * they shove. Angles in radians, both reaches and the push in field units.
  *
  * The cone count is the length of `headings` rather than a field of its own, so
  * a row cannot declare a count its headings disagree with.
@@ -24,6 +24,7 @@ interface ConeRow {
   readonly headings: readonly number[];
   readonly halfAngle: number;
   readonly reach: number;
+  readonly damageReach: number;
   readonly push: number;
 }
 
@@ -66,12 +67,14 @@ const coneRow = (
   headings: readonly number[],
   halfAngle: number,
   reach: number,
+  damageReach: number,
   push: number,
 ): ConeRow => {
   return {
     headings: headings.map((degrees) => degrees * RADIANS_PER_DEGREE),
     halfAngle: halfAngle * RADIANS_PER_DEGREE,
     reach,
+    damageReach,
     push,
   };
 };
@@ -93,6 +96,27 @@ const coneRow = (
  * numbers: holding a circle's area in a wedge of total angle t gives
  * R = r * sqrt(2 * pi / t).
  *
+ * `reach` is the push's reach and the reach the cone is drawn at, both, so
+ * nothing is ever shoved by something the player cannot see. `damageReach` is
+ * where the damage falls to nothing and it is strictly inside `reach` at every
+ * rung, which is ruling R10 of ../../../docs/design/round-two-wall-belch.md: on
+ * one shared falloff the bodies near enough to be pushed hard are the bodies
+ * the damage kills, so a shambler died everywhere inside a rung-three cone and
+ * a survivor took half a field unit
+ * (../../../docs/research/watched-pushback-duration.md section 1). The ratio is
+ * Enter the Gungeon's Blank as its shipped prefab reads it, damage in a 7-tile
+ * radius inside a knockback of 10, so seven tenths of the push's reach rounded
+ * to whole units here (research section 3).
+ *
+ * Push is the throw a body earns when its first step matches the leading edge
+ * of the cone that struck it, which is ruling R2 as superseded on 2026-09-15
+ * and option 2 of the research record's section 5. That edge crosses `reach` in
+ * BELL_EXPAND_TICKS ticks and a linear fall over SHOVE_TICKS ticks from a first
+ * step s covers s * (SHOVE_TICKS + 1) / 2 (shove.ts, firstStepOf), so every row
+ * is its own reach over 45, times 15.5, in whole units: 160 gives 55.1, 183
+ * gives 63.0, 207 gives 71.3, 231 gives 79.6 and 261 gives 89.9, which is the
+ * research's own 90 at the top rung.
+ *
  * Push begins at level one, where the circle had it only at four and five. The
  * evidence is #79's own reading: 42, 51 and 0 field units of total pushback
  * across three runs, which ADR 0036 records as "a line that was never felt".
@@ -100,12 +124,12 @@ const coneRow = (
  * Level 0 throws no cones at all, so the line is silent at the start of a run.
  */
 const BELL_CONE_ROWS: readonly ConeRow[] = [
-  coneRow([], 0, 0, 0),
-  coneRow([0], 45, 160, 6),
-  coneRow([-40, 40], 40, 183, 10),
-  coneRow([-60, 0, 60], 38, 207, 16),
-  coneRow([-108, -36, 36, 108], 36, 231, 26),
-  coneRow([-144, -72, 0, 72, 144], 33, 261, 40),
+  coneRow([], 0, 0, 0, 0),
+  coneRow([0], 45, 160, 112, 55),
+  coneRow([-40, 40], 40, 183, 128, 63),
+  coneRow([-60, 0, 60], 38, 207, 145, 71),
+  coneRow([-108, -36, 36, 108], 36, 231, 162, 80),
+  coneRow([-144, -72, 0, 72, 144], 33, 261, 183, 90),
 ];
 
 /**
@@ -125,11 +149,11 @@ const BELL_CONE_ROWS: readonly ConeRow[] = [
 const BELL_DAMAGE_NEAR_BY_LEVEL: readonly number[] = [0, 40, 56, 72, 88, 104];
 
 /**
- * Damage at the far edge of a cone, at each rung. The far edge tickles, which
- * is Mark's 2026-08-19 ruling recorded in ADR 0005 and held as a ratio in
- * ADR 0036: an eighth of the near edge at every rung, which is what sized the
- * near edge's own step. At rung 1 that is two tolls out here to take a mow
- * body, against one at the grave.
+ * Damage at the far edge of a cone's damage reach, at each rung. The far edge
+ * tickles, which is Mark's 2026-08-19 ruling recorded in ADR 0036's own first
+ * paragraph and held there as a ratio: an eighth of the near edge at every
+ * rung, which is what sized the near edge's own step. At rung 1 that is two
+ * tolls out here to take a mow body, against one at the grave.
  */
 const BELL_DAMAGE_FAR_BY_LEVEL: readonly number[] = [0, 5, 7, 9, 11, 13];
 
@@ -157,7 +181,7 @@ const bellDamageNear = (level: number): number => {
   return damage;
 };
 
-// What a toll at this rung takes at the far edge of its cones, an eighth of the near edge.
+// What a toll at this rung takes at the far edge of its damage reach, an eighth of the near edge.
 const bellDamageFar = (level: number): number => {
   const damage = BELL_DAMAGE_FAR_BY_LEVEL[Math.min(level, MAX_LEVEL)];
   if (damage === undefined) {
@@ -220,11 +244,17 @@ const insideCone = (level: number, bearing: number): boolean => {
 
 /**
  * How much of the toll's power reaches this far out: one at the grave, nothing
- * at the cone's far edge.
+ * at the reach it is asked about.
  *
- * Damage and push share it deliberately, so the toll's power is concentrated
- * where the player is standing on both channels at once rather than falling off
- * two different ways.
+ * It is called once against a row's `reach` for the push and once against its
+ * `damageReach` for the damage, because the two reaches are two rows (design
+ * record R10). A falloff shared between them leaves no living body to watch:
+ * the bodies near enough to be pushed hard are the bodies the damage kills
+ * (../../../docs/research/watched-pushback-duration.md section 1).
+ *
+ * It clamps at zero rather than going negative, so a body past the reach it is
+ * asked about reads as nothing reaching it and never as power pulling the other
+ * way.
  */
 const proximity = (distance: number, full: number): number => {
   if (full <= 0) return 0;
@@ -240,9 +270,11 @@ const proximity = (distance: number, full: number): number => {
  *
  * The force comes from the toll's own level, the level the reach and the sweep
  * are already working from, so a level-up mid-toll cannot shove harder than the
- * toll that is shoving reaches. What the row's push column says is unchanged:
- * the shove spends it over several ticks instead of in one write, which is
- * Mark's ruling 4 of 2026-09-15.
+ * toll that is shoving reaches. The falloff is read against the row's `reach`,
+ * which is the reach the cone is drawn at, so the push carries exactly as far
+ * as the picture does and nothing is shoved by something the player cannot see
+ * (design record R10). The row is spent over several ticks rather than in one
+ * write, which is Mark's ruling 4 of 2026-09-15.
  *
  * The shove is what reports itself, once, when the body it is carrying has
  * finished travelling (mobs.ts, reportShoveTravel), because a shove that takes
@@ -260,11 +292,10 @@ const pushTarget = (
   toll: BellToll,
   target: StormTarget,
   distance: number,
-  near: number,
 ): void => {
   const row = rowFor(toll.level);
   if (row === undefined) return;
-  const push = row.push * near;
+  const push = row.push * proximity(distance, row.reach);
   if (!Number.isFinite(push) || push <= 0 || distance === 0) return;
   const away = normalize(target.x - state.grave.x, target.y - state.grave.y);
   if (away.length === 0) return;
@@ -272,6 +303,30 @@ const pushTarget = (
   // toll's push is one push, and the wave structure belongs to the belch
   // (design record R3, slice J).
   shoveStormTarget(state, target, 'bell', away.x, away.y, push, 1, 0);
+};
+
+/**
+ * What a toll at this rung takes off a body this far out, or null where the
+ * body stands outside the damage reach and the toll takes nothing at all.
+ *
+ * Null rather than zero, because a zero-damage event would put a hit that took
+ * nothing into a count a reading sums. The edge of the damage reach is inside
+ * it, the same way the expanding ring's own edge is: a body standing exactly
+ * there is damaged and takes the far row.
+ *
+ * The rung is the toll's own, captured when it was armed, so a power-up taken
+ * while a ring is still expanding never raises what that ring carries.
+ */
+const tollDamageAt = (
+  row: ConeRow,
+  level: number,
+  distance: number,
+): number | null => {
+  if (distance > row.damageReach) return null;
+  const far = bellDamageFar(level);
+  return (
+    far + (bellDamageNear(level) - far) * proximity(distance, row.damageReach)
+  );
 };
 
 /**
@@ -309,13 +364,13 @@ const sweepToll = (
     const held =
       distance === 0 || insideCone(toll.level, bearingFromGrave(dx, dy));
     if (!held) continue;
+    // The strike is marked whatever the damage comes to, because the one-strike
+    // rule is about the toll reaching the body: a shoved body carried back
+    // across the leading edge earns no second strike either way.
     toll.struck.add(target.id);
-    const near = proximity(distance, row.reach);
-    // The rung is the toll's own, captured when it was armed, so a power-up
-    // taken while a ring is still expanding never raises what that ring carries.
-    const far = bellDamageFar(toll.level);
-    const damage = far + (bellDamageNear(toll.level) - far) * near;
-    pushTarget(state, toll, target, distance, near);
+    pushTarget(state, toll, target, distance);
+    const damage = tollDamageAt(row, toll.level, distance);
+    if (damage === null) continue;
     events.push(...damageStormTarget(state, target, damage, 'bell'));
   }
   return events;

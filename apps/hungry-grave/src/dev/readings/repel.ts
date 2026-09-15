@@ -14,7 +14,8 @@ interface TollShoves {
  *
  * The toll arm is unchanged. A tolled event opens a toll window and every bell
  * shove lands in the window open at the time; the shoves arrive across the
- * ring's expansion and up to seven ticks of travel after it. A toll that shoved
+ * ring's expansion and up to SHOVE_TICKS ticks of travel after it (shove.ts),
+ * which is still well inside the bell's own period. A toll that shoved
  * nothing still counts, because push only exists at bell levels 4 and 5 and
  * zero is the honest reading for every toll below them. The totals are the
  * bell's whole repel, declared beside the per-toll view they reduce.

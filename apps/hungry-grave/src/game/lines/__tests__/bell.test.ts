@@ -137,13 +137,42 @@ const OUTLIVES_ANY_TOLL = 1e6;
  * no velocity of its own to drift on. Every push figure below is then the
  * shove's whole travel rather than the shove plus a walk.
  */
-function putStill(state: RunState, degrees: number, distance: number): Mob {
-  const mob = putAtBearing(state, degrees, distance);
+function standStill(mob: Mob): Mob {
   mob.beat = Number.MAX_SAFE_INTEGER;
   mob.vx = 0;
   mob.vy = 0;
+  return mob;
+}
+
+/**
+ * A standing body with more health than any toll takes, for the push tests that
+ * measure the travel and never the damage. The tests that measure what a rung
+ * leaves alive stand a body still and keep its own health instead.
+ */
+function putStill(state: RunState, degrees: number, distance: number): Mob {
+  const mob = standStill(putAtBearing(state, degrees, distance));
   mob.hp = OUTLIVES_ANY_TOLL;
   return mob;
+}
+
+/**
+ * What each tick of a window carried this body, in field units, leaving out the
+ * ticks it stood still. The bodies advance before the bell, which is the order
+ * the tick itself keeps.
+ */
+function travelPerTick(state: RunState, mob: Mob, ticks: number): number[] {
+  const steps: number[] = [];
+  for (let tick = 0; tick < ticks; tick++) {
+    const fromX = mob.x;
+    const fromY = mob.y;
+    advanceMobs(state);
+    advanceBell(state);
+    const movedX = mob.x - fromX;
+    const movedY = mob.y - fromY;
+    const step = Math.sqrt(movedX * movedX + movedY * movedY);
+    if (step > 0) steps.push(step);
+  }
+  return steps;
 }
 
 function tolls(events: SimEvent[]) {
@@ -373,9 +402,20 @@ describe('the cones expand on one clock (plan 6.6)', () => {
 });
 
 describe('the damage falls off with distance (ADR 0005)', () => {
-  it("deals the rung's near damage at the grave and its far damage at the cone's far edge", () => {
+  it("deals the rung's near damage at the grave and its far damage at the far edge of its damage reach", () => {
+    // A measured baseline whose input moved, re-pinned with the triple.
+    //
+    // What stood: the falloff itself, one at the grave and nothing at the edge
+    // it falls off over, and the far row's own figure at that edge.
+    //
+    // What it replaced: the cone's full reach as the edge the damage falls off
+    // over, which was the shared falloff and was never ruled, only inherited.
+    //
+    // What it could not have known: that sharing the falloff with the push left
+    // no living body to watch at any duration or curve (R10, and the research
+    // record's section 1).
     const level = MAX_LEVEL;
-    const full = rowAt(level).reach;
+    const full = rowAt(level).damageReach;
 
     const near = quietRun();
     near.levels.bell = level;
@@ -391,15 +431,17 @@ describe('the damage falls off with distance (ADR 0005)', () => {
     expect(damageTo(atEdge)).toBeLessThan(bellDamageFar(level) * 1.2);
   });
 
-  it('takes about three tenths of the near edge at eighty percent of the reach', () => {
+  it('takes about three tenths of the near edge at eighty percent of the damage reach', () => {
     // The falloff itself is the ruling and the raw number is a scale, so what
     // is worth out here is stated as a fraction of the near edge. It used to be
     // stated as a fraction of a shambler, which was the same sentence only
     // while the near edge was one shambler exactly; under the mow the near edge
     // takes a mow body five times over (ADR 0059), so the denominator moves to
-    // the thing the falloff is actually a falloff from. The curve is untouched.
+    // the thing the falloff is actually a falloff from. The curve is untouched
+    // and so is the figure: what moved under R10 is which reach the damage
+    // falls off over, and eight tenths of it still carries three tenths.
     const level = MAX_LEVEL;
-    const at = rowAt(level).reach * 0.8;
+    const at = rowAt(level).damageReach * 0.8;
     const state = quietRun();
     state.levels.bell = level;
     const mob = put(state, 'revenant', state.grave.x, state.grave.y - at);
@@ -425,12 +467,18 @@ describe('the damage falls off with distance (ADR 0005)', () => {
 });
 
 describe('what the toll costs a trash body at the far edge (ADR 0059)', () => {
-  /** The tolls a shambler standing at a rung's full reach absorbs before it dies. */
-  function tollsToKillAtFullReach(level: number): number {
+  /**
+   * The tolls a shambler standing this far from the grave absorbs before it
+   * dies, or Infinity where the toll never takes anything off it at all.
+   *
+   * It stopped requiring a death under R10: outside the damage reach a toll
+   * takes nothing, so a body out there outlives every toll and the honest count
+   * is that there is no count.
+   */
+  function tollsToKillAt(level: number, distance: number): number {
     const state = quietRun();
     state.levels.bell = level;
-    const full = rowAt(level).reach;
-    const mob = put(state, 'shambler', state.grave.x, state.grave.y - full);
+    const mob = put(state, 'shambler', state.grave.x, state.grave.y - distance);
 
     let chips = 0;
     for (let tick = 0; tick < BELL_PERIOD * 20 && mob.alive; tick++) {
@@ -438,36 +486,40 @@ describe('what the toll costs a trash body at the far edge (ADR 0059)', () => {
         (event) => event.type === 'mobDamaged',
       ).length;
     }
-    expect(mob.alive).toBe(false);
-    return chips;
+    return mob.alive ? Infinity : chips;
   }
 
-  it("takes exactly two tolls to kill a shambler at the cone's full reach, at the rung a run is born on", () => {
+  it('takes exactly two tolls to kill a shambler at the far edge of its damage reach, at the rung a run is born on', () => {
     // ADR 0059 supersedes the #76 pass A count of eight. What survives is
-    // Mark's 2026-08-19 ruling that the far edge tickles rather than kills
-    // (ADR 0036), held as the ratio between the edges: out here it still takes
-    // more than one toll where the grave's own rim takes one.
+    // Mark's 2026-08-19 ruling that the far edge tickles rather than kills,
+    // recorded in ADR 0036's own first paragraph and held as the ratio between
+    // the edges: out here it still takes more than one toll where the grave's
+    // own rim takes one.
     //
-    // The rung is named because the bell's damage now climbs with its rungs
+    // The edge the promise is made at moved under R10 and the promise did not.
+    // The far row is what a body at the far edge of the damage reach takes, and
+    // that edge is inside it: the ring's own test is `distance > now` and the
+    // damage guard is `distance > damageReach`, so a body standing exactly
+    // there is damaged for the row.
+    //
+    // The rung is named because the bell's damage climbs with its rungs
     // (docs/research/weapon-growth-per-level-precedent.md section 4), so the
     // count is where the curve starts rather than a figure the line holds.
-    expect(tollsToKillAtFullReach(BIRTHRIGHT_LEVEL)).toBe(2);
+    expect(
+      tollsToKillAt(BIRTHRIGHT_LEVEL, rowAt(BIRTHRIGHT_LEVEL).damageReach),
+    ).toBe(2);
   });
 
-  it.fails(
-    'still needs more than one toll at the far edge at the top rung',
-    () => {
-      // The half of the tickle the damage lane costs, kept visible as a tripwire
-      // in this tree's own idiom rather than deleted. At rung 5 the far edge
-      // carries 13 against a mow body's 8, so a maxed bell takes trash outright
-      // anywhere inside its cones and not only at the grave. Two rulings meet
-      // here and neither is this slice's to move: ADR 0059 puts the mow body at
-      // one touch of anything, and the ruled lane doubles the bell and a half
-      // past it. Filed for Mark's read; the day the far edge tickles a mow body
-      // again this goes red and asks to be written as an ordinary assertion.
-      expect(tollsToKillAtFullReach(MAX_LEVEL)).toBeGreaterThan(1);
-    },
-  );
+  it('still needs more than one toll at the far edge at the top rung', () => {
+    // It was a tripwire under `it.fails` because at rung 5 the far edge carried
+    // 13 against a mow body's 8, so a maxed bell took trash outright anywhere
+    // inside its cones. R10 removes the cause rather than the figure: the far
+    // edge of the drawn cone is now outside the damage reach entirely, so the
+    // toll takes nothing at all out here and the count is Infinity rather than
+    // one. ADR 0059's one-touch mow body and the ruled damage lane are both
+    // unmoved; what moved is where the damage stops.
+    expect(tollsToKillAt(MAX_LEVEL, rowAt(MAX_LEVEL).reach)).toBeGreaterThan(1);
+  });
 });
 
 describe('one toll alone cannot clear a wave (plan 6.6)', () => {
@@ -497,21 +549,123 @@ describe('one toll alone cannot clear a wave (plan 6.6)', () => {
     expect(survivorsOfOneToll(BIRTHRIGHT_LEVEL)).toBeGreaterThan(0);
   });
 
-  it.fails(
-    "leaves survivors from that same curtain at the bell's top rung",
-    () => {
-      // What the ruled damage lane costs at the top of the ladder, kept visible
-      // rather than deleted: at rung 5 the far edge carries 13 against a mow
-      // body's 8, so a maxed bell's five cones take the whole curtain in one
-      // toll. The curtain here is the Wall's own width, so this is the same
-      // finding the handoff already carries about ADR 0042, arriving from the
-      // weapon side. Filed for Mark's read and built past.
-      expect(survivorsOfOneToll(MAX_LEVEL)).toBeGreaterThan(0);
-    },
-  );
+  it("leaves survivors from that same curtain at the bell's top rung", () => {
+    // It was a tripwire under `it.fails` because at rung 5 the far edge carried
+    // 13 against a mow body's 8, so a maxed bell's five cones took the whole
+    // curtain in one toll. R10 removes the cause: the bodies in the outer part
+    // of each cone stand outside the damage reach, so they are shoved and live.
+    // The curtain here is the Wall's own width, which is why the finding was
+    // worth keeping visible while it stood (ADR 0042).
+    expect(survivorsOfOneToll(MAX_LEVEL)).toBeGreaterThan(0);
+  });
 });
 
 describe('the push is on the field from level 1 (ADR 0036)', () => {
+  it("leaves at the speed the cone's leading edge advances, so its whole travel is the fall from that first step", () => {
+    // Ruling R2 as superseded on 2026-09-15: a toll's total throw is the
+    // distance a body covers when its first step matches the leading edge of
+    // the cone that struck it. The edge crosses its row's reach in
+    // BELL_EXPAND_TICKS ticks, and a linear fall over SHOVE_TICKS ticks from a
+    // first step s covers s * (SHOVE_TICKS + 1) / 2 (shove.ts, firstStepOf),
+    // which is where every row of the push column comes from
+    // (docs/research/watched-pushback-duration.md section 5, option 2). The
+    // column is whole units, so the derivation is checked as the row's own
+    // rounding rather than as an exact hit.
+    for (let level = 1; level <= MAX_LEVEL; level++) {
+      const edgeStep = rowAt(level).reach / BELL_EXPAND_TICKS;
+      expect(rowAt(level).push, `level ${level}`).toBe(
+        Math.round((edgeStep * (SHOVE_TICKS + 1)) / 2),
+      );
+    }
+
+    // Played at the rung whose near damage of 56 leaves a revenant's 64 alive
+    // to be watched, half a unit off the grave, where the falloff is all but
+    // one and the row is spent whole. A promise written against a corpse or
+    // against a body the row refuses would pin nothing.
+    const level = 2;
+    const state = quietRun();
+    state.levels.bell = level;
+    const mob = standStill(putAtBearing(state, 0, 0.5));
+    const steps = travelPerTick(
+      state,
+      mob,
+      BELL_PERIOD + BELL_EXPAND_TICKS + SHOVE_TICKS,
+    );
+
+    expect(mob.alive).toBe(true);
+    expect(steps).toHaveLength(SHOVE_TICKS);
+    const first = requireDefined(steps[0], 'no first step');
+    expect(first).toBeCloseTo(rowAt(level).reach / BELL_EXPAND_TICKS, 1);
+    expect(steps.reduce((sum, step) => sum + step, 0)).toBeCloseTo(
+      (first * (SHOVE_TICKS + 1)) / 2,
+      6,
+    );
+  });
+
+  it('shoves a body in the outer part of its drawn cone and leaves it alive, because the damage reaches less far than the push', () => {
+    // Ruling R10: a toll's damage falls to nothing at a reach inside its push's
+    // reach, so the outer part of the cone the player is shown is push alone
+    // and a living body is what he watches travel. It is pinned on the mow body
+    // because that is the body the finding was about: a shambler never survived
+    // a toll at rung three or higher anywhere inside a cone
+    // (docs/research/watched-pushback-duration.md section 1). Strictly inside
+    // the drawn edge, where the push's own falloff is zero exactly.
+    const level = MAX_LEVEL;
+    const state = quietRun();
+    state.levels.bell = level;
+    const row = rowAt(level);
+    const distance = (row.damageReach + row.reach) / 2;
+    const mob = standStill(
+      put(state, 'shambler', state.grave.x, state.grave.y - distance),
+    );
+    const from = mob.y;
+    const events = oneTollAndTravel(state);
+
+    expect(mob.alive).toBe(true);
+    expect(damageTo(mob)).toBe(0);
+    expect(from - mob.y).toBeCloseTo(row.push * (1 - distance / row.reach), 6);
+    expect(events.filter((event) => event.type === 'mobShoved')).toHaveLength(
+      1,
+    );
+  });
+
+  it('takes nothing at all off a body outside its damage reach, and marks it struck all the same', () => {
+    // A zero-damage event is not the way to say a toll took nothing: a count a
+    // reading can sum must never carry a hit that took nothing, so the guard
+    // sits before the damage rather than being a zero the falloff produced.
+    // The strike itself still lands, because the one-strike rule is about the
+    // toll reaching the body and a shoved body crossing the leading edge again
+    // earns no second strike.
+    const level = MAX_LEVEL;
+    const state = quietRun();
+    state.levels.bell = level;
+    const row = rowAt(level);
+    const mob = standStill(
+      put(
+        state,
+        'revenant',
+        state.grave.x,
+        state.grave.y - (row.damageReach + row.reach) / 2,
+      ),
+    );
+
+    const events: SimEvent[] = [];
+    let struck = false;
+    for (let tick = 0; tick < BELL_PERIOD + BELL_EXPAND_TICKS; tick++) {
+      advanceMobs(state);
+      events.push(...advanceBell(state));
+      if (state.lines.ring?.struck.has(mob.id) === true) struck = true;
+    }
+
+    expect(struck).toBe(true);
+    expect(mob.hp).toBe(MOB_TYPES.revenant.hp);
+    expect(
+      events.filter(
+        (event) => event.type === 'mobDamaged' && event.id === mob.id,
+      ),
+    ).toEqual([]);
+  });
+
   it('shoves at every level, harder at each one', () => {
     // "the push is the half that has to be felt, because a repel line the
     // player cannot see repelling is not a repel line." #79 read 42, 51 and 0
@@ -541,10 +695,19 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     }
   });
 
-  it('carries a body at level five the forty field units the row has always said', () => {
-    // The whole point of ruling R2: today's distance is held exactly and it is
-    // spent over seven ticks instead of in one write. BELL_CONE_ROWS's push
-    // column is untouched, so a tuning pass reads the same table it always did.
+  it('carries a body at level five the ninety field units its row now derives', () => {
+    // A measured baseline whose input moved, re-pinned with the triple.
+    //
+    // What stood: the row is exactly what the shove spends, and the push column
+    // is still the tuning surface a pass reads and edits.
+    //
+    // What it replaced: the forty field units held from before round two, which
+    // were this record's own arithmetic rather than anything Mark asked for.
+    //
+    // What it could not have known: that forty units reaches a living body as
+    // half a field unit, a fiftieth of a shambler's own width
+    // (docs/research/watched-pushback-duration.md section 1), so the figure it
+    // was holding could never be watched whatever its duration.
     const state = quietRun();
     state.levels.bell = MAX_LEVEL;
     // Half a unit off the grave, where the falloff is all but one, so what
@@ -556,7 +719,7 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
 
     const expected =
       rowAt(MAX_LEVEL).push * (1 - distance / rowAt(MAX_LEVEL).reach);
-    expect(rowAt(MAX_LEVEL).push).toBe(40);
+    expect(rowAt(MAX_LEVEL).push).toBe(90);
     expect(from - mob.y).toBeCloseTo(expected, 6);
     expect(events.filter((event) => event.type === 'mobShoved')).toEqual([
       {
@@ -648,9 +811,10 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
 
   it('a shove emits mobShoved carrying the distance the bound let the mob cover, not the nominal push', () => {
     // Grave hard against the right edge, mob 150 out along the level-5 cone
-    // that answers the side: near is 1 - 150/261 = 0.425, so the nominal push
-    // is about 17, but the bound at FIELD_WIDTH + SPAWN_MARGIN leaves only 10
-    // of it. The event reports the 10 the mob really moved, which is the only
+    // that answers the side: the push's falloff is 1 - 150/261 = 0.425, so the
+    // nominal push is about 38, but the bound at FIELD_WIDTH + SPAWN_MARGIN
+    // leaves only 10 of it. The event reports the 10 the mob really moved,
+    // which is the only
     // figure a repel reading can honestly sum, and it reports it once the
     // travel is over rather than on the tick the shove landed.
     const state = quietRun();

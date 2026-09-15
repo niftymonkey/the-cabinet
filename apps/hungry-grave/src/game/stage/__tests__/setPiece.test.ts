@@ -763,11 +763,21 @@ const PROPERTY_SEEDS: readonly number[] = [
  * Re-measured for the shove that travels (#126): 101 went out and 11 came in,
  * still four of twelve, and the totals still carry the property. This is the
  * noise the paragraph above describes rather than a change to the Waking: a run
- * that buys a bell rung has its tolls carry bodies over seven ticks now, so the
- * trail a hand catches moves by a body here and there, and which side of the
- * comparison a single seed lands on moves with it.
+ * that buys a bell rung has its tolls carry bodies over several ticks now, so
+ * the trail a hand catches moves by a body here and there, and which side of
+ * the comparison a single seed lands on moves with it.
+ *
+ * Re-measured again for the push retuned to be watched (#126), and this one is
+ * a change to the Waking rather than noise: the set is empty and the committing
+ * hand now takes 413 corpses against the waiting hand's 61, where the two read
+ * 1.51 times apart before. A toll at the rung a run is born on throws a body 55
+ * field units where it threw 6 (design record R2 as superseded), so the bodies
+ * the bell strikes leave corpses far enough up-field that a grave waiting at
+ * the bottom edge no longer has the scroll deliver them inside their freshness.
+ * The property below holds and holds harder; that the waiting hand's scraps got
+ * this much thinner is a reading for the tuning step and not a row moved here.
  */
-const WAITING_EATS_MORE: number[] = [SEED, 303, 404, 11];
+const WAITING_EATS_MORE: number[] = [];
 
 /**
  * How much more the committing hand takes across the seeds. A quarter again is

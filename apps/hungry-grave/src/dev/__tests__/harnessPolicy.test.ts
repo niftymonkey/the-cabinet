@@ -544,7 +544,7 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202];
  * Re-measured again for the shove that travels (#126), and 505 went out, so no
  * seed ends above the birthright under this hand. The mechanism is the bell and
  * only the bell: a run that buys a bell rung now has its tolls carry bodies
- * over seven ticks instead of moving them in one write, and a body the toll
+ * over SHOVE_TICKS ticks instead of moving them in one write, and a body the toll
  * kills where it stands is no longer teleported first, so where corpses land
  * and which bodies the lane meets both move from the first toll onward. The set
  * above is unmoved, which says the difference is in what a paid run does with

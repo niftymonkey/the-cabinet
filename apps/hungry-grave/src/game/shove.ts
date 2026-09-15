@@ -25,10 +25,10 @@ type ShoveSource = 'bell' | 'belch';
  * in flight would be a replay of a different run (ADR 0019).
  *
  * `shovesLeft`, `nextIn` and `spacing` carry the wave structure. The bell
- * passes one shove and no spacing; slice J's belch passes three ten ticks apart
- * (design record R3), which is why they are declared here rather than the day
- * that caller is written: a field arriving later would change what every tape
- * recorded in between folded.
+ * passes one shove and no spacing; slice J's belch passes three, spaced by its
+ * own row so each reads on its own (design record R3 as superseded), which is
+ * why they are declared here rather than the day that caller is written: a
+ * field arriving later would change what every tape recorded in between folded.
  */
 interface Impulse {
   /**
@@ -61,28 +61,34 @@ interface ShoveStep {
 }
 
 /**
- * How long one shove travels, and the shape of the fall that spends it: seven
+ * How long one shove travels, and the shape of the fall that spends it: thirty
  * ticks, the step falling linearly to nothing.
  *
- * Vampire Survivors runs a shove for 120 milliseconds, which is 7.2 ticks at
- * this game's tick rate, and the one fully numbered implementation found decays
- * linearly rather than exponentially, with the body's own motion gated off
- * throughout (docs/research/push-feel-precedent.md section 1). No source
- * anywhere describes knockback as a single-frame position set, and no source
- * documents a trail, a squash, a flash or an afterimage during one, so the
- * travel is the whole of what a player sees.
+ * Thirty ticks is half a second at this game's sixty ticks a second, and it is
+ * option 2 of docs/research/watched-pushback-duration.md section 5. It sits
+ * inside the usable band the perception work names rather than at its floor:
+ * 100 milliseconds is where motion is only just perceivable, a substantial
+ * change wants 200 to 300, duration grows with the distance travelled, and
+ * Enter the Gungeon's Blank runs its own knockback at exactly 500 (research
+ * section 4). The fall stays linear, which is the animation principles' slow
+ * out and what Smash and Nuclear Throne both ship, and no source anywhere
+ * describes knockback as a single-frame position set or documents a trail, a
+ * squash, a flash or an afterimage during one, so the travel is the whole of
+ * what a player sees.
  *
  * The readability criterion is arithmetic rather than taste: successive drawn
  * positions have to overlap, so a per-tick step stays under a body's own width,
  * 22 field units for a shambler. A linear fall from a first step to nothing
- * over seven ticks covers four times that first step, so the bell's level-five
- * 40 units arrive as a first step of 10 and every step after it is smaller.
- * Precedent's duration and today's magnitude agree without either being bent.
+ * over thirty ticks covers 15.5 times that first step, so the bell's top rung
+ * of 90 units arrives as a first step of 5.8 and every step after it is
+ * smaller. That 5.8 is the top rung's own cone edge crossing 261 units in the
+ * bell's 45 expansion ticks, which is what makes the body leave with the front
+ * rather than being outrun by it (design record R2 as superseded 2026-09-15).
  *
  * It is data and the tuning step owns it, along with the wave figures each
  * caller passes (Mark's ruling 2 of 2026-09-15).
  */
-const SHOVE_TICKS = 7;
+const SHOVE_TICKS = 30;
 
 /** A body carrying nothing: the resting value of every field above. */
 const blankImpulse = (): Impulse => {
