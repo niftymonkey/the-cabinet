@@ -1,9 +1,17 @@
 // The entity cap policy (tracer plan section 3).
 
 import { TICK_HZ } from './clock';
-import { FIELD_HEIGHT } from './field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import { BODY, MAX_ENTRY_DEPTH } from './stage/formations';
-import { peakArrivals } from './stage/waves';
+import type { FirePhase, ShotPattern } from './stage/waves';
+import {
+  BOSS_FIRE,
+  largestCard,
+  peakArrivals,
+  peakArrivalsOf,
+  QUIET_INTERVAL_MINIMUM_SECONDS,
+  REVENANT_FIRE,
+} from './stage/waves';
 import { FRESHNESS_SECONDS, SCROLL_SPEED } from './tuning';
 
 /**
@@ -64,21 +72,105 @@ const TRANSIT_SECONDS =
  * beats that fall inside it together. A field nobody clears is the worst case,
  * and that is the case this prices.
  *
+ * The director's own term is the largest single card and never a section's
+ * purse (ADR 0056, the record's section 5 item 6). A purse is spent over a
+ * section with a quiet interval between every add, so a purse-sized addend
+ * would size the pool for a moment the quiet interval forbids; the largest card
+ * is the most the director can put down at once, which is what a pool has to
+ * hold.
+ *
  * The headroom a safety net needs is inside the derivation rather than bolted
  * onto it: the transit bound above prices every body at the slowest descent the
  * sim allows, and peakArrivals maximises over window placements rather than
  * reading one.
  */
-const peakLive = (): number => peakArrivals(TRANSIT_SECONDS);
+const peakLive = (): number =>
+  peakArrivals(TRANSIT_SECONDS) + largestCard(null);
 
 const MOB_CAP = peakLive();
 
 /**
- * Mob fire is still a constant, and it is not this slice's to derive: it is
- * bounded by how many armed bodies live and how often each fires, which is the
- * mob table's arithmetic and unreachable from here.
+ * The longest straight line a shot can travel and still be on the field, so it
+ * is an upper bound on any shot's flight whatever bearing it left on. Aimed
+ * fire and every authored pattern alike leave a point inside the rectangle, and
+ * a line from inside a rectangle exits within its diagonal.
+ *
+ * Math.sqrt over a product and never Math.hypot or an exponent: the caps are
+ * identical on every device (ADR 0015), sqrt and multiplication are exactly
+ * rounded by the language's own spec, and hypot's precision and the exponent
+ * operator's are both left to the engine.
  */
-const MOB_FIRE_CAP = 400;
+const FIELD_SPAN = Math.sqrt(
+  FIELD_WIDTH * FIELD_WIDTH + FIELD_HEIGHT * FIELD_HEIGHT,
+);
+
+/**
+ * The shots one pattern holds in the air at once: every emit whose shots have
+ * not yet left the field, which is the flight a shot survives divided through
+ * the interval between emits, plus the one just fired.
+ */
+const shotsInTheAir = (pattern: ShotPattern): number =>
+  pattern.shots *
+  (Math.floor(FIELD_SPAN / pattern.unitsASecond / pattern.everySeconds) + 1);
+
+/**
+ * The trash half of the mob-fire pool: every revenant the stage can hold alive
+ * at once, each holding its own shots in the air.
+ *
+ * The revenant is the only trash type that fires, because the mow body carries
+ * no fire and the ghoul closes instead (ADR 0059), so the peak is a per-type
+ * one over the same transit window MOB_CAP uses. The director can add revenants
+ * too, and its term here is the largest revenant card for the same reason it is
+ * the largest card above.
+ */
+const REVENANT_FIRE_PEAK =
+  (peakArrivalsOf('revenant', TRANSIT_SECONDS) + largestCard('revenant')) *
+  shotsInTheAir(REVENANT_FIRE);
+
+// What one boss phase holds in the air at once, its emitters together.
+const shotsInThePhase = (phase: FirePhase): number =>
+  phase.reduce((shots, pattern) => shots + shotsInTheAir(pattern), 0);
+
+/**
+ * The boss half: the most one boss can hold in the air at once, which is a
+ * phase and the one after it rather than a phase alone.
+ *
+ * A phase break clears nothing. The flash between two phases is thirty ticks
+ * and a tear crosses the field in about twelve seconds, so the phase that just
+ * ended is still flying while the next one opens, and a cap priced on one phase
+ * would bind on exactly the beat it named.
+ *
+ * Consecutive within one boss and never across two, because the Banshee dies a
+ * whole section before the Undertaker arrives. A maximum and never a sum for
+ * the same reason: one boss fights at a time.
+ */
+const WORST_BOSS_PATTERN = Math.max(
+  ...Object.values(BOSS_FIRE).flatMap((phases) =>
+    phases.map(
+      (phase, index) =>
+        shotsInThePhase(phase) + shotsInThePhase(phases[index + 1] ?? []),
+    ),
+  ),
+);
+
+/**
+ * Room for every shot the field can hold at once, derived from the stage's own
+ * waves and the bosses' own patterns rather than written down (ADR 0056). It
+ * was a constant of 400.
+ *
+ * The two terms are added because boss fire and trash fire share one pool: the
+ * Banshee's tears and the Undertaker's clods and spiral shots go through
+ * fireDirectedShot into the shots the revenants use, so a derivation that read
+ * the revenant peak alone would size a pool for a field that never happens. The
+ * trash a boss section inherits from the section before it is still falling
+ * while the fight opens, which is the case this prices.
+ *
+ * Tight and not padded, and the fault is what protects it: FieldRenderer
+ * allocates a sprite per slot and every pool is walked whole whether or not a
+ * slot is alive, so padding is paid on every tick of every run. A bound cap
+ * refuses the shot, removes nothing, and raises a recoverable fault.
+ */
+const MOB_FIRE_CAP = REVENANT_FIRE_PEAK + WORST_BOSS_PATTERN;
 
 /**
  * Treasure the field can hold at once, which never decays and so is not covered
@@ -101,12 +193,22 @@ const TREASURE_ALLOWANCE = 10;
  * policy: the spawn is refused, nothing on the field is removed, and the
  * invariant harness raises a recoverable fault.
  *
- * The director's budget is the addend this is missing, on purpose: it does not
- * exist until step 4 (#85), and peakArrivals is written so it is one more term
- * when it arrives.
+ * The director's own adds are the fourth term, and they are the cards its quiet
+ * interval leaves room for inside the window rather than a section's whole
+ * purse: it goes quiet for a drawn interval after every add, so the most it can
+ * put down inside a freshness window is one card at the window's opening and
+ * one more at every minimum interval after it (ADR 0056, the record's section 5
+ * item 7).
  */
+const DIRECTED_INSIDE_FRESHNESS =
+  largestCard(null) *
+  (Math.floor(FRESHNESS_SECONDS / QUIET_INTERVAL_MINIMUM_SECONDS) + 1);
+
 const CORPSE_CAP =
-  MOB_CAP + peakArrivals(FRESHNESS_SECONDS) + TREASURE_ALLOWANCE;
+  MOB_CAP +
+  peakArrivals(FRESHNESS_SECONDS) +
+  TREASURE_ALLOWANCE +
+  DIRECTED_INSIDE_FRESHNESS;
 
 /**
  * What every pooled entity carries. The id only ever increases and is not
@@ -184,7 +286,10 @@ export {
   takeSlot,
   liveCount,
   peakLive,
+  TRANSIT_SECONDS,
   MOB_CAP,
+  REVENANT_FIRE_PEAK,
+  WORST_BOSS_PATTERN,
   MOB_FIRE_CAP,
   CORPSE_CAP,
   TREASURE_ALLOWANCE,

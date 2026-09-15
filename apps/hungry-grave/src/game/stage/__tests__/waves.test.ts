@@ -27,25 +27,42 @@ import {
   carriersScheduled,
 } from '../../carriers';
 import { stepping } from '../../../dev/stepping';
+import { RING_ROWS, TEAR_FIRE } from '../../bosses/banshee';
 import { PHASE_FLASH_TICKS, damageBoss } from '../../bosses/phases';
-import { SPIRAL_ROWS } from '../../bosses/undertaker';
+import {
+  CLOD_FIRE,
+  CURTAIN_ROWS,
+  SPIRAL_FIRE,
+  SPIRAL_ROWS,
+} from '../../bosses/undertaker';
 import { TICK_HZ } from '../../clock';
 import type { TickCommand } from '../../command';
 import type { Corpse } from '../../corpses';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../lines/roster';
+import type { FireRow } from '../../mobFire';
 import type { Mob } from '../../mobs';
 import { damageMob, hasEntered, MOB_TYPES } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { FRESHNESS_SECONDS, SIZE_START } from '../../tuning';
-import type { StageWave } from '../waves';
+import type { ShotPattern, StageWave } from '../waves';
 import {
+  BODY_COST,
   BOSS_ADD_ALLOWANCE,
+  BOSS_FIRE,
+  CARDS,
+  cardCost,
+  CROWD_PURSE,
   CROWD_WAVES,
+  largestCard,
   peakArrivals,
+  peakArrivalsOf,
   POUR_SHARES,
+  POUR_TYPE,
+  PROCESSION_PURSE,
   PROCESSION_WAVES,
   repeatingArrivals,
+  REVENANT_FIRE,
   RUNG_ALLOWANCE,
   SET_PIECE_BUDGET,
   SET_PIECE_HP,
@@ -53,6 +70,7 @@ import {
   SET_PIECE_SWEEP_MAX_X,
   SET_PIECE_SWEEP_MIN_X,
   SPARSE_LAST_WAVE,
+  VIGIL_PURSE,
   VIGIL_WAVES,
   WAKING_WAVES,
 } from '../waves';
@@ -1090,5 +1108,197 @@ describe('the standing waves the sections author (ADR 0060)', () => {
     // the rate term being counted and not the window being wide.
     expect(beats).toBeLessThan(beats + 10 * rate);
     expect(peakArrivals(10)).toBeGreaterThan(beats);
+  });
+});
+
+/**
+ * The bodies a section's standing waves land over the section's own length,
+ * which is what the record measures a purse against: each rate runs from its own
+ * time until the next standing wave, and the last one until the section's last
+ * wave.
+ */
+const standingBodiesIn = (waves: readonly StageWave[]): number => {
+  const endsAt = requireDefined(waves.at(-1), 'a table with no waves').t;
+  const standing = standingIn(waves);
+  return standing.reduce((total, wave, index) => {
+    const until = standing[index + 1]?.t ?? endsAt;
+    return total + (until - wave.t) * fastestRate([wave]);
+  }, 0);
+};
+
+/** The shots one emit of a phase's whole fire puts in the air at once. */
+const oneEmitOf = (phase: readonly ShotPattern[]): number =>
+  phase.reduce((shots, pattern) => shots + pattern.shots, 0);
+
+/**
+ * Whether a mirrored pattern still says what the fire row it mirrors says. The
+ * speed and the interval are compared in the row's own per-tick units, because
+ * a figure authored per second and divided back is exact where the same figure
+ * multiplied up is an ulp away.
+ */
+const mirrors = (
+  pattern: ShotPattern | undefined,
+  shots: number,
+  fire: FireRow,
+): void => {
+  const mirror = requireDefined(pattern, 'a phase is missing a pattern');
+  expect(mirror.shots).toBe(shots);
+  expect(mirror.everySeconds).toBe(fire.interval / TICK_HZ);
+  expect(mirror.unitsASecond / TICK_HZ).toBe(fire.shotSpeed);
+};
+
+describe("the director's table, beside the waves it adds over (ADR 0056)", () => {
+  it('costs a card at the sum of its bodies at the per-body cost', () => {
+    // The game design gate's ruling: an add is a card and never a loose body,
+    // so a purse buys a shape the player can read and pays what that shape's
+    // bodies come to. The record's section 5 item 6 works two of them, a File
+    // of four shamblers at 4 and a Drip of two revenants at 8, and both stand
+    // in the table below as the cited rows.
+    for (const card of CARDS) {
+      expect(cardCost(card)).toBe(BODY_COST[card.type] * card.count);
+    }
+    expect(cardCost({ formation: 'file', type: 'shambler', count: 4 })).toBe(4);
+    expect(cardCost({ formation: 'drip', type: 'revenant', count: 2 })).toBe(8);
+
+    // The order is the roster's own health and threat, 8, 20 and 64, which is
+    // what the costs are set against rather than a scale somebody picked.
+    expect(BODY_COST.shambler).toBeLessThan(BODY_COST.ghoul);
+    expect(BODY_COST.ghoul).toBeLessThan(BODY_COST.revenant);
+    expect(BODY_COST.shambler).toBeGreaterThan(0);
+  });
+
+  it("is zero in the Vigil's purse and above zero in the other two", () => {
+    // The Vigil owns scarcity, so the director may look at it and find nothing
+    // to spend. Zero is a figure and never the absence a null would be, which
+    // is what lets a reading see the section run empty from its first tick
+    // (ADR 0056, the record's section 5 item 6).
+    expect(VIGIL_PURSE).toBe(0);
+    expect(VIGIL_PURSE).not.toBeNull();
+    expect(PROCESSION_PURSE).toBeGreaterThan(0);
+    expect(CROWD_PURSE).toBeGreaterThan(0);
+
+    // About a third of that section's standing-wave total in bodies, read off
+    // the tables so a re-authored rate moves the assertion with it.
+    expect(
+      Math.abs(PROCESSION_PURSE - standingBodiesIn(PROCESSION_WAVES) / 3),
+    ).toBeLessThan(1);
+    expect(
+      Math.abs(CROWD_PURSE - standingBodiesIn(CROWD_WAVES) / 3),
+    ).toBeLessThan(1);
+    // The Vigil's zero agrees from the other side: it authors no rate at all.
+    expect(standingBodiesIn(VIGIL_WAVES)).toBe(0);
+  });
+
+  it("costs a card of one body at that body's own cost", () => {
+    expect(cardCost({ formation: 'drip', type: 'ghoul', count: 1 })).toBe(
+      BODY_COST.ghoul,
+    );
+    expect(cardCost({ formation: 'drip', type: 'shambler', count: 1 })).toBe(
+      BODY_COST.shambler,
+    );
+  });
+
+  it('costs the largest card in the table at the sum of its own bodies', () => {
+    const widest = requireDefined(
+      [...CARDS].sort((one, other) => other.count - one.count)[0],
+      'the card table is empty',
+    );
+    expect(largestCard(null)).toBe(widest.count);
+    expect(cardCost(widest)).toBe(BODY_COST[widest.type] * widest.count);
+    // The largest card is an addend on the mob cap, so it is kept small on
+    // purpose: a padded cap is paid on every tick of every run (the record's
+    // section 5 item 7).
+    expect(largestCard(null)).toBeLessThan(PROCESSION_PURSE);
+    expect(largestCard('revenant')).toBeLessThanOrEqual(largestCard(null));
+  });
+
+  it('mirrors every fire row it duplicates, so neither can drift alone', () => {
+    // caps.ts cannot reach mobs.ts or a boss module: mobs.ts value-imports
+    // caps.ts, so reading a fire row from there would close a cycle. The rows
+    // the mob-fire derivation needs are mirrored here instead, and this is the
+    // test that fails the day the mirror and its source disagree.
+    mirrors(REVENANT_FIRE, 1, MOB_TYPES.revenant.fire);
+
+    // Every boss phase, in the order its own boss module declares them, so a
+    // fourth phase anywhere fails this rather than passing unpriced. The order
+    // is what the cap reads: a break clears nothing, so the derivation prices
+    // each phase beside the one that follows it.
+    expect(BOSS_FIRE.banshee).toHaveLength(RING_ROWS.length);
+    expect(BOSS_FIRE.undertaker).toHaveLength(CURTAIN_ROWS.length);
+    RING_ROWS.forEach((ring, index) => {
+      const phase = requireDefined(BOSS_FIRE.banshee[index], 'no ring phase');
+      expect(phase).toHaveLength(1);
+      mirrors(phase[0], ring.sources.length * (ring.spokes - ring.gapSpokes), {
+        ...TEAR_FIRE,
+        interval: ring.period,
+      });
+    });
+    CURTAIN_ROWS.forEach((curtain, index) => {
+      const phase = requireDefined(
+        BOSS_FIRE.undertaker[index],
+        'no undertaker phase',
+      );
+      const spiral = SPIRAL_ROWS[index] ?? null;
+      expect(phase).toHaveLength(
+        (curtain === null ? 0 : 1) + (spiral === null ? 0 : 1),
+      );
+      // The curtain first and the arm last, which is the order the phases are
+      // written in and the order the boss module runs them in.
+      if (curtain !== null) {
+        mirrors(phase[0], curtain.clods, {
+          ...CLOD_FIRE,
+          interval: curtain.period,
+        });
+      }
+      if (spiral !== null) {
+        mirrors(phase.at(-1), 1, {
+          ...SPIRAL_FIRE,
+          interval: spiral.shotEvery,
+        });
+      }
+    });
+
+    // The worst phase is the one the cap is sized against, and it is a real
+    // maximum rather than the first row: the Banshee's second phase fires two
+    // sources where her first fires one.
+    const everyPhase = Object.values(BOSS_FIRE).flat();
+    const first = requireDefined(everyPhase[0], 'no phases');
+    expect(Math.max(...everyPhase.map(oneEmitOf))).toBeGreaterThan(
+      oneEmitOf(first),
+    );
+  });
+
+  it("answers one type's own peak off the waves that land that type", () => {
+    // The mob-fire cap needs the revenant peak and never the whole stage's,
+    // because the shambler and the ghoul carry no fire at all (ADR 0059), and
+    // the pour's own bodies and a boss's dug-up ones are shamblers, so a walk
+    // that added peakArrivals' other terms would price a revenant window with
+    // shambler bodies in it.
+    const window = 10;
+    expect(peakArrivalsOf('revenant', window)).toBeGreaterThan(0);
+    expect(peakArrivalsOf('revenant', window)).toBeLessThan(
+      peakArrivals(window),
+    );
+    expect(POUR_TYPE).toBe('shambler');
+
+    // Read off the tables rather than named. No section authors a revenant
+    // rate, which the next assertion holds, so the beats alone are the peak.
+    expect(
+      EVERY_WAVE.filter(
+        (wave) => wave.repeat !== null && wave.type === 'revenant',
+      ),
+    ).toEqual([]);
+    const densest = Math.max(
+      ...[...TRASH_SECTION_TABLES, WAKING_WAVES].flatMap((waves) =>
+        waves.map((wave) =>
+          totalOf(
+            between(waves, wave.t, wave.t + window).filter(
+              (each) => each.type === 'revenant',
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(peakArrivalsOf('revenant', window)).toBe(densest);
   });
 });

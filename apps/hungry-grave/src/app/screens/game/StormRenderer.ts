@@ -132,8 +132,8 @@ const CONE_FILL_ALPHA = 0.35;
  * ADR 0015 makes the tick count the run, so a real hitstop is a determinism
  * change, and a render-only hold desynchronizes the screen from a sim that keeps
  * stepping. What carries the punch instead is the scatter storm FieldRenderer
- * already draws for a cancelled shot, up to four hundred of them at once in the
- * top layer of the stack, with this as the ground shock underneath.
+ * already draws for a cancelled shot, up to a full mob-fire pool of them at
+ * once in the top layer of the stack, with this as the ground shock underneath.
  */
 const ERUPTION_TICKS = 20;
 const ERUPTION_REACH = Math.sqrt(

@@ -2,9 +2,11 @@
  * The caps module the frame-budget config puts in src/game/caps's place, so a
  * synthetic field can stand at a size the shipped caps refuse.
  *
- * The shipped caps are 160 mobs and 233 corpses, and round 0's table names
- * fields well above both, so an instrument that could only stand what the
- * shipped build holds could not measure the headroom it exists to measure. The
+ * The shipped caps are derived from the stage's own waves, and round 0's table
+ * names fields the derivation does not price, so an instrument that could only
+ * stand what the shipped build holds could not measure the headroom it exists
+ * to measure. Both figures moved when the derivation landed, which is the whole
+ * reason this module reads them rather than naming them. The
  * caps stay identical on every device in the game itself; this is a bench, and
  * nothing here is in a player's build: only the frame-budget config aliases it
  * in, and only the frame-budget script imports it by name.

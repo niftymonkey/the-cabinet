@@ -1,4 +1,5 @@
-// The stage's authored waves as data (ADR 0006), and the query over what they can put on the field.
+// The stage's authored waves as data (ADR 0006), the director's own table
+// beside them, and the query over what the two can put on the field.
 
 import type { MobType } from '../mobs';
 import type { FormationName } from './formations';
@@ -436,6 +437,18 @@ const PROCESSION_WAVES: readonly StageWave[] = [
 ];
 
 /**
+ * The bodies the Procession gives the director (ADR 0056), about a third of
+ * what its own standing waves land over the section.
+ *
+ * Its three rates land 349 bodies: two a second from t=12 to t=45, three and a
+ * half to t=78, five to t=111.5, and nothing after the rate of zero. A third of
+ * that is 116, which is the record's own rule (its section 5 item 6) and what
+ * "when the purse is empty the section runs at its authored floor for whatever
+ * is left of it" is measured against.
+ */
+const PROCESSION_PURSE = 116;
+
+/**
  * The Crowd, to the Waking. It owns overlap: Rain under a Pincer, a V through
  * Rain. Corpses stop being objects the player chooses between and become a floor
  * the grave swims through, and the question stops being whether one corpse is
@@ -829,6 +842,17 @@ const CROWD_WAVES: readonly StageWave[] = [
 ];
 
 /**
+ * The bodies the Crowd gives the director, on the same third (ADR 0056).
+ *
+ * Its three rates land 1164 bodies: eight a second from t=6 to t=57, three
+ * through the trough to t=81, and twelve to its last wave at t=138. A third of
+ * that is 388. It is the largest of the three because the Crowd is the section
+ * that owns overlap, so the floor the director adds over is the highest the
+ * stage authors anywhere.
+ */
+const CROWD_PURSE = 388;
+
+/**
  * The Vigil, to the Undertaker. It owns scarcity: less growth paid per second
  * than the Crowd, and tougher bodies. The roster inverts to revenants and ghouls
  * with the shambler thinned, so the field is more fire and less food and the
@@ -970,6 +994,184 @@ const VIGIL_WAVES: readonly StageWave[] = [
   // The same beat on this section's own five-second cadence.
   ...sparseLastWave(63, SPARSE_LAST_WAVE),
 ];
+
+/**
+ * The bodies the Vigil gives the director, and it is zero (ADR 0056).
+ *
+ * Zero on two counts that agree. The section authors no standing wave at all,
+ * so a third of its standing total is a third of nothing; and it owns scarcity,
+ * so a purse spent here would buy exactly the growth the property forbids.
+ *
+ * It is zero and never null. Null would be a section the director may not touch
+ * at all, and this is a section it may look at and find nothing in, which a
+ * reading can see from the first tick (CONTEXT.md Purse).
+ */
+const VIGIL_PURSE = 0;
+
+/**
+ * One thing the director may buy with a purse (CONTEXT.md Card): a formation, a
+ * mob type and a count, which is the same triple a StageWave carries, because
+ * an add is a card and never a loose body.
+ *
+ * It lives in this module rather than in the director's, and so does everything
+ * below it, because caps.ts derives from these figures and may not import the
+ * director: this is the one stage module that value-imports nothing, so it is
+ * the one a derivation can read from without closing a cycle.
+ */
+interface DirectorCard {
+  readonly formation: FormationName;
+  readonly type: MobType;
+  readonly count: number;
+}
+
+/**
+ * What one body of each type costs a purse, against the roster's own health and
+ * threat at 8, 20 and 64 (the record's section 5 item 6). Initial rows owned by
+ * the tuning pass; what is not tuning is the order, which is the roster's.
+ */
+const BODY_COST: Readonly<Record<MobType, number>> = {
+  shambler: 1,
+  ghoul: 3,
+  revenant: 4,
+};
+
+/**
+ * What a card costs: the sum over its bodies. A purse spends on cards and never
+ * on single bodies, so what arrives is always a shape the player can read.
+ */
+const cardCost = (card: DirectorCard): number =>
+  BODY_COST[card.type] * card.count;
+
+/**
+ * The cards themselves. **The rows are authored here and no source states
+ * them**: the record and the plan give the cost rule, the shape and two worked
+ * examples, a File of four shamblers at 4 and a Drip of two revenants at 8
+ * (the record's section 5 item 6), and both stand below as the cited rows. The
+ * rest are set from the formations and types the section tables already use.
+ *
+ * Every count is small on purpose. The largest card is an addend on the mob cap
+ * and a padded cap is paid on every tick of every run, so the table buys its
+ * range with types rather than with counts: a Drip of two revenants costs twice
+ * a Rain of six shamblers and puts a third of the bodies down.
+ *
+ * No Wall and no Pincer. The Wall is the one authored wave the director may not
+ * add over (ADR 0047), and a Pincer is two Files at once, which is two shapes
+ * arriving where a card is meant to be one.
+ */
+const CARDS: readonly DirectorCard[] = [
+  { formation: 'drip', type: 'ghoul', count: 1 },
+  // The record's own worked card, at a cost of eight.
+  { formation: 'drip', type: 'revenant', count: 2 },
+  // The record's own worked card, at a cost of four.
+  { formation: 'file', type: 'shambler', count: 4 },
+  { formation: 'file', type: 'ghoul', count: 3 },
+  { formation: 'v', type: 'shambler', count: 5 },
+  { formation: 'rain', type: 'shambler', count: 6 },
+];
+
+/**
+ * The most bodies one card can put on the field at once: over the whole table,
+ * or over one type's cards alone when a type is named.
+ *
+ * It is the mob cap's director term and never a purse. A purse is spent over a
+ * section with a quiet interval between every add, so a purse-sized addend
+ * would size the pool for a moment the quiet interval forbids; the largest card
+ * is the most the director can put down at once, which is what a pool has to
+ * hold (the record's section 5 item 6, the plan's first rule).
+ */
+const largestCard = (type: MobType | null): number =>
+  CARDS.filter((card) => type === null || card.type === type).reduce(
+    (most, card) => Math.max(most, card.count),
+    0,
+  );
+
+/**
+ * The shortest the director may ever go between two adds, in seconds. The
+ * record's section 9 gives the interval as four to eight seconds and ADR 0056
+ * leaves its bounds open as design work, so the minimum is authored here ahead
+ * of the module that draws it.
+ *
+ * Nothing draws it yet: slice F is the commit where the director takes its own
+ * quiet interval from this floor. What reads it today is the corpse cap, which
+ * needs the most the director can add inside a freshness window, and that is
+ * the cards this minimum leaves room for.
+ */
+const QUIET_INTERVAL_MINIMUM_SECONDS = 4;
+
+/**
+ * One emitter's fire, in the three figures a pool derivation needs and nothing
+ * else: what one emit puts in the air, how often it emits and how fast a shot
+ * travels.
+ *
+ * Every row below mirrors one that lives somewhere caps.ts cannot reach.
+ * mobs.ts value-imports caps.ts and so does every boss module through it, so
+ * reading the revenant's fire row or a boss's pattern from the derivation would
+ * close a cycle. The mirror is guarded: waves.test.ts fails the day one of
+ * these and the row it mirrors disagree.
+ */
+interface ShotPattern {
+  readonly shots: number;
+  readonly everySeconds: number;
+  readonly unitsASecond: number;
+}
+
+/**
+ * The revenant's fire, mirroring MOB_TYPES.revenant.fire in mobs.ts: one aimed
+ * shot every 150 ticks at 110 field units a second. It is the only trash type
+ * that fires at all, because the mow body carries no fire and the ghoul closes
+ * instead (ADR 0059).
+ */
+const REVENANT_FIRE: ShotPattern = {
+  shots: 1,
+  everySeconds: 2.5,
+  unitsASecond: 110,
+};
+
+/**
+ * What one boss phase has firing at once. It is a list because the Undertaker's
+ * last phase runs a curtain and an arm together, and what a pool has to hold at
+ * that moment is both.
+ */
+type FirePhase = readonly ShotPattern[];
+
+/**
+ * One boss's phases, in the order its own module declares them. The order is
+ * load-bearing rather than presentational: a phase break clears nothing from
+ * the air, so what a pool meets at a break is the phase that just ended still
+ * flying while the next one opens, and only a reader that knows which phase
+ * follows which can price that.
+ */
+type BossFire = readonly FirePhase[];
+
+/**
+ * Every boss's fire, mirroring RING_ROWS and TEAR_FIRE in bosses/banshee.ts and
+ * CURTAIN_ROWS, SPIRAL_ROWS, CLOD_FIRE and SPIRAL_FIRE in
+ * bosses/undertaker.ts. A ring's shots are its spokes less the opening, once
+ * per source; a curtain's are its clods; the arm fires one shot at a time.
+ *
+ * Kept per boss rather than as one flat list, because two phases share the pool
+ * only where one follows the other, and the Banshee dies a section before the
+ * Undertaker arrives.
+ */
+const BOSS_FIRE: Readonly<Record<BossKind, BossFire>> = {
+  banshee: [
+    // Her first phase: one source, thirteen spokes of a sixteen-spoke ring.
+    [{ shots: 13, everySeconds: 2, unitsASecond: 80 }],
+    // Her second: two offset sources, so the openings stop lining up.
+    [{ shots: 26, everySeconds: 2, unitsASecond: 80 }],
+  ],
+  undertaker: [
+    // The burial: a twelve-clod curtain every four seconds.
+    [{ shots: 12, everySeconds: 4, unitsASecond: 95 }],
+    // The exhumation: the arm alone, a shot every quarter second.
+    [{ shots: 1, everySeconds: 0.25, unitsASecond: 85 }],
+    // The two locked together, with the curtain thinned to pay for it.
+    [
+      { shots: 8, everySeconds: 4, unitsASecond: 95 },
+      { shots: 1, everySeconds: 0.25, unitsASecond: 85 },
+    ],
+  ],
+};
 
 /**
  * The Waking's pour, as data (ADR 0042, ADR 0050). The source's behaviour is
@@ -1257,6 +1459,7 @@ const repeatsInWindow = (
   index: number,
   from: number,
   seconds: number,
+  type: MobType | null,
 ): number => {
   const wave = waves[index];
   if (wave === undefined || wave.repeat === null) return 0;
@@ -1265,20 +1468,30 @@ const repeatsInWindow = (
   if (closes <= opens) return 0;
   const over =
     repeatingArrivals(wave, closes) - repeatingArrivals(wave, opens) + 1;
-  return over * wave.count;
+  return over * bodiesOf(wave, type);
 };
+
+/**
+ * The bodies of a wave a walk counts: all of them, or none when a type is named
+ * and the wave lands another. The walk that finds the standing wave a rate ends
+ * at still reads every wave, so narrowing to a type never lets one section's
+ * rate run on past the next.
+ */
+const bodiesOf = (wave: StageWave, type: MobType | null): number =>
+  type === null || wave.type === type ? wave.count : 0;
 
 // The bodies a table's waves put on the field in the window that opens at this second.
 const arrivalsFrom = (
   waves: readonly StageWave[],
   from: number,
   seconds: number,
+  type: MobType | null,
 ): number =>
   waves.reduce(
     (total, wave, index) =>
       total +
-      (wave.t >= from && wave.t < from + seconds ? wave.count : 0) +
-      repeatsInWindow(waves, index, from, seconds),
+      (wave.t >= from && wave.t < from + seconds ? bodiesOf(wave, type) : 0) +
+      repeatsInWindow(waves, index, from, seconds, type),
     0,
   );
 
@@ -1289,9 +1502,13 @@ const arrivalsFrom = (
  * cannot admit more of it either, and the firing the term above adds is what
  * covers the one a slide could move across the edge.
  */
-const peakInTable = (waves: readonly StageWave[], seconds: number): number =>
+const peakInTable = (
+  waves: readonly StageWave[],
+  seconds: number,
+  type: MobType | null,
+): number =>
   waves.reduce(
-    (most, wave) => Math.max(most, arrivalsFrom(waves, wave.t, seconds)),
+    (most, wave) => Math.max(most, arrivalsFrom(waves, wave.t, seconds, type)),
     0,
   );
 
@@ -1309,7 +1526,7 @@ const pourWindow = (seconds: number): number => {
     SET_PIECE_BUDGET,
     Math.floor(seconds / SET_PIECE_POUR_SECONDS),
   );
-  const under = peakInTable(SECTION_TABLES[POURED_SECTION], seconds);
+  const under = peakInTable(SECTION_TABLES[POURED_SECTION], seconds, null);
   return poured + Math.ceil(POUR_SHARES[POURED_SECTION] * under);
 };
 
@@ -1327,7 +1544,7 @@ const pourWindow = (seconds: number): number => {
 const peakArrivals = (seconds: number): number => {
   if (seconds <= 0) return 0;
   const sections = Object.values(SECTION_TABLES).map((waves) =>
-    peakInTable(waves, seconds),
+    peakInTable(waves, seconds, null),
   );
   return Math.max(
     ...sections,
@@ -1336,7 +1553,47 @@ const peakArrivals = (seconds: number): number => {
   );
 };
 
+// Every table the stage authors, the Waking's beside the three sections'.
+const EVERY_TABLE: readonly (readonly StageWave[])[] = [
+  ...Object.values(SECTION_TABLES),
+  WAKING_WAVES,
+];
+
+/**
+ * The most bodies of one type the stage's authored waves can land inside any
+ * window of this length, anywhere in the stage.
+ *
+ * It is not peakArrivals narrowed to a type. peakArrivals also prices the
+ * pour's own source, a boss's adds and the rungs a hit strips; the pour pours
+ * POUR_TYPE and the Undertaker digs up his own DIGGER_TYPE, both shamblers, and
+ * a rung is no body at all, so a per-type walk that carried those terms would
+ * price a revenant window with shambler bodies in it. What it does walk is every
+ * table, the Waking's included, because the Waking's own waves are the Crowd's
+ * carried on and a type arrives in them like any other.
+ *
+ * The mob-fire cap is its reader: the only trash type that fires is the
+ * revenant, so how many shots the mow can hold in the air starts with how many
+ * revenants the stage can hold alive (ADR 0059).
+ */
+const peakArrivalsOf = (type: MobType, seconds: number): number => {
+  if (seconds <= 0) return 0;
+  return Math.max(
+    ...EVERY_TABLE.map((waves) => peakInTable(waves, seconds, type)),
+  );
+};
+
 export {
+  BODY_COST,
+  CARDS,
+  cardCost,
+  largestCard,
+  peakArrivalsOf,
+  PROCESSION_PURSE,
+  CROWD_PURSE,
+  VIGIL_PURSE,
+  QUIET_INTERVAL_MINIMUM_SECONDS,
+  REVENANT_FIRE,
+  BOSS_FIRE,
   PROCESSION_WAVES,
   CROWD_WAVES,
   VIGIL_WAVES,
@@ -1363,4 +1620,14 @@ export {
   peakArrivals,
   repeatingArrivals,
 };
-export type { StageWave, Repeat, BossKind, TrashSectionName, SparseShape };
+export type {
+  StageWave,
+  Repeat,
+  BossKind,
+  TrashSectionName,
+  SparseShape,
+  DirectorCard,
+  ShotPattern,
+  FirePhase,
+  BossFire,
+};

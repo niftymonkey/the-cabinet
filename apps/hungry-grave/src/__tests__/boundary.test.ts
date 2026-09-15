@@ -743,3 +743,46 @@ describe('the core has no import cycle', () => {
     expect(valueImportsOf(source)).toEqual(['./corpses']);
   });
 });
+
+/**
+ * The module the caps derive from data in, and the one module it may never
+ * reach.
+ *
+ * The rule is a rule about direction: game/stage/stage.ts value-imports
+ * game/mobs.ts and game/mobs.ts value-imports game/caps.ts, so an edge from the
+ * caps to the stage closes a cycle. The cycle guard above would catch a value
+ * import and never a type-only one, and a type-only import is exactly how the
+ * edge gets dodged, so this fence reads every import of either kind.
+ */
+const DERIVES_FROM_DATA = 'game/caps';
+const OUT_OF_ITS_REACH = 'game/stage/stage';
+
+/** Every module a file reaches, type-only imports counted. */
+const everythingReachedIn = (file: string, source: string): string[] =>
+  importsOf(source)
+    .filter((specifier) => specifier.startsWith('.'))
+    .map((specifier) => pathReachedBy(file, specifier));
+
+describe('the cap derivation reads tables and never the stage', () => {
+  it('reaches nothing in game/stage/stage from game/caps', () => {
+    const file = join(SRC, `${DERIVES_FROM_DATA}.ts`);
+    expect(
+      everythingReachedIn(file, readFileSync(file, 'utf8')).filter((path) =>
+        covers(OUT_OF_ITS_REACH, path),
+      ),
+    ).toEqual([]);
+  });
+
+  it('fails a type-only reach, which a bundler would let through', () => {
+    // The ruling this test carries: a type-only import satisfies a bundler and
+    // fails here on purpose, because what it would signal is that somebody went
+    // looking for the stage from inside the derivation and found a way.
+    const file = join(SRC, `${DERIVES_FROM_DATA}.ts`);
+    const source = "import type { Section } from './stage/stage';";
+    expect(
+      everythingReachedIn(file, source).filter((path) =>
+        covers(OUT_OF_ITS_REACH, path),
+      ),
+    ).toEqual([OUT_OF_ITS_REACH]);
+  });
+});

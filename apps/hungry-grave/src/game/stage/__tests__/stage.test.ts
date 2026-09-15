@@ -446,6 +446,16 @@ const STILL_PLAY = playStage(77, stillHand, STAGE_TICKS);
  */
 const TWO_WHOLE_STAGES_MS = 60000;
 
+/**
+ * The budget for the one test that makes assertions per tick rather than per
+ * run. It walks a whole stage's clock and asserts three things on every tick of
+ * it, tens of thousands of assertions, which costs about a second and a half on
+ * its own and reddened at vitest's five the first time a full `pnpm verify` ran
+ * beside another agent's work. It plays nothing itself: the two runs are the
+ * module's own fixtures and the cost here is the walk.
+ */
+const ONE_ASSERTION_PER_TICK_MS = 30000;
+
 describe('the three sections and their boundary events (ADR 0050)', () => {
   it('runs three sections, with the Banshee, the set piece and the Undertaker as their boundary events', () => {
     // ADR 0050: "The Banshee ends the first, a swarm set piece ends the second,
@@ -795,23 +805,29 @@ describe('the section machine (ADR 0006)', () => {
     });
   });
 
-  it('resets the section clock at every boundary and never runs the section index backwards', () => {
-    const clock = STILL_PLAY.stageClock;
-    for (let at = 1; at < clock.length; at++) {
-      const now = requireDefined(clock[at], 'clock tick out of range');
-      const before = requireDefined(clock[at - 1], 'clock tick out of range');
-      const moved = now.index > before.index;
-      expect(`${at} back ${now.index < before.index}`).toBe(`${at} back false`);
-      // A boundary sets the section clock to zero and the tick's own counter then
-      // moves it to one, so the first tick of a section reads one.
-      expect(`${at} ${moved ? now.tick : 'inside'}`).toBe(
-        `${at} ${moved ? 1 : 'inside'}`,
-      );
-      if (!moved) {
-        expect(`${at} ${now.tick}`).toBe(`${at} ${before.tick + 1}`);
+  it(
+    'resets the section clock at every boundary and never runs the section index backwards',
+    () => {
+      const clock = STILL_PLAY.stageClock;
+      for (let at = 1; at < clock.length; at++) {
+        const now = requireDefined(clock[at], 'clock tick out of range');
+        const before = requireDefined(clock[at - 1], 'clock tick out of range');
+        const moved = now.index > before.index;
+        expect(`${at} back ${now.index < before.index}`).toBe(
+          `${at} back false`,
+        );
+        // A boundary sets the section clock to zero and the tick's own counter then
+        // moves it to one, so the first tick of a section reads one.
+        expect(`${at} ${moved ? now.tick : 'inside'}`).toBe(
+          `${at} ${moved ? 1 : 'inside'}`,
+        );
+        if (!moved) {
+          expect(`${at} ${now.tick}`).toBe(`${at} ${before.tick + 1}`);
+        }
       }
-    }
-  });
+    },
+    ONE_ASSERTION_PER_TICK_MS,
+  );
 
   it('holds each boss section open for its own fight', () => {
     const at = (name: SectionName): number =>
