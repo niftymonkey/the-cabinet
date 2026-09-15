@@ -569,6 +569,19 @@ const ONE_WHOLE_STAGE_MS = 30000;
  */
 const ONE_SECTION_MS = 20000;
 
+/**
+ * The budget for the five ceiling runs, one per seed.
+ *
+ * A ceiling run crossed vitest's five-second default when the economy was
+ * restated in corpses of expected mowing: a ceiling grave is ground back by
+ * the same hits and regrows about five times more slowly, so it spends the
+ * fight as a smaller target, takes fewer rings for it, and the run plays on
+ * far longer. Measured with this file alone each of the five takes 3.5 to 4.3
+ * seconds, and beside the rest of the suite two of them time out. A budget and
+ * never a reading of how long a ceiling run should take.
+ */
+const ONE_CEILING_RUN_MS = 30000;
+
 describe('dodgePolicy over the whole stage (ADR 0013)', () => {
   for (const seed of SEEDS) {
     const survives = !SEALS_IN_THE_PROCESSION.includes(seed);
@@ -780,41 +793,45 @@ describe('the band the schedule asks for, and the band the storm reaches', () =>
 
 describe('dodgePolicy from the size ceiling', () => {
   for (const seed of SEEDS) {
-    it(`is held in the Banshee's fight on seed ${seed}, ending neither way`, () => {
-      // Every one of these was a declared expected failure before weapons
-      // existed. Dispatch 4's section 5 asserted victory from the ceiling and
-      // its own section 8 proved it cannot, so what is asserted here is what
-      // the weapons actually do.
-      //
-      // Re-measured for the Banshee (ADR 0007), and what it says moved with
-      // her. A ceiling grave on the birthright reaches her section on every seed
-      // and then stops: it has no build to empty her with, and her rings at
-      // this size take it nowhere near the floor, so the run neither wins nor
-      // seals. That is asserted as an equality on the sections crossed rather
-      // than as an ending, so the day a ceiling run gets past her this file
-      // goes red and says which seed did it.
-      // REACHES_VICTORY_FROM_THE_CEILING carries the set and its cause.
-      const { state, events } = fullRun(seed, SIZE_CEILING);
-      const reached = sectionOrder(events);
-      if (REACHES_VICTORY_FROM_THE_CEILING.includes(seed)) {
-        expect(reached).toContain('over');
-        expect(state.ending).toBe('victory');
-        return;
-      }
-      if (PASSES_THE_BANSHEE_FROM_THE_CEILING.includes(seed)) {
-        // Past her and no further: the run still never wins from the ceiling,
-        // which is the claim, and the set above carries the cause.
-        expect(reached).toContain('crowd');
-        expect(reached).not.toContain('over');
-        expect(state.ending).not.toBe('victory');
-        return;
-      }
-      expect(reached).toEqual(['banshee']);
-      expect(state.ending).toBeNull();
-      // Still standing in front of her rather than parked on an empty field,
-      // which is what makes the two above a statement about the fight.
-      expect(state.boss?.kind).toBe('banshee');
-    });
+    it(
+      `is held in the Banshee's fight on seed ${seed}, ending neither way`,
+      () => {
+        // Every one of these was a declared expected failure before weapons
+        // existed. Dispatch 4's section 5 asserted victory from the ceiling and
+        // its own section 8 proved it cannot, so what is asserted here is what
+        // the weapons actually do.
+        //
+        // Re-measured for the Banshee (ADR 0007), and what it says moved with
+        // her. A ceiling grave on the birthright reaches her section on every seed
+        // and then stops: it has no build to empty her with, and her rings at
+        // this size take it nowhere near the floor, so the run neither wins nor
+        // seals. That is asserted as an equality on the sections crossed rather
+        // than as an ending, so the day a ceiling run gets past her this file
+        // goes red and says which seed did it.
+        // REACHES_VICTORY_FROM_THE_CEILING carries the set and its cause.
+        const { state, events } = fullRun(seed, SIZE_CEILING);
+        const reached = sectionOrder(events);
+        if (REACHES_VICTORY_FROM_THE_CEILING.includes(seed)) {
+          expect(reached).toContain('over');
+          expect(state.ending).toBe('victory');
+          return;
+        }
+        if (PASSES_THE_BANSHEE_FROM_THE_CEILING.includes(seed)) {
+          // Past her and no further: the run still never wins from the ceiling,
+          // which is the claim, and the set above carries the cause.
+          expect(reached).toContain('crowd');
+          expect(reached).not.toContain('over');
+          expect(state.ending).not.toBe('victory');
+          return;
+        }
+        expect(reached).toEqual(['banshee']);
+        expect(state.ending).toBeNull();
+        // Still standing in front of her rather than parked on an empty field,
+        // which is what makes the two above a statement about the fight.
+        expect(state.boss?.kind).toBe('banshee');
+      },
+      ONE_CEILING_RUN_MS,
+    );
   }
 });
 
