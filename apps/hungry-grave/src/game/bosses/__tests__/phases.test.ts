@@ -116,6 +116,7 @@ function putMob(state: RunState, x: number, y: number): Mob {
     'shambler',
     { x, y, vx: 0, vy: 0, index: 0 },
     false,
+    'wave',
   );
   if (mob === null) throw new Error('the mob pool refused the fixture');
   mob.beat = 0;

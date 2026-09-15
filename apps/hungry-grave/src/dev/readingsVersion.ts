@@ -49,11 +49,11 @@
  * only strings on the wire are the recorded roster's weapon-line names, the
  * commit hash, the build identity, the author, the policy and the renderer
  * backend, none of which carries one of the six words: no byte moves and no
- * reader's walk changes. `WITNESS_VERSION` stays 6 because the fold takes
- * numbers and every union crosses it through a code map read by name, so
- * renaming a key while holding its number changes nothing the fold sees, and
- * the version's own comment says it moves only when the order or the field list
- * moves. `GOLDEN` does not re-pin because one key inside it renames with its
+ * reader's walk changes. `WITNESS_VERSION` was not moved by the rename either,
+ * because the fold takes numbers and every union crosses it through a code map
+ * read by name, so renaming a key while holding its number changes nothing the
+ * fold sees, and the version's own comment says it moves only when the order or
+ * the field list moves. `GOLDEN` does not re-pin because one key inside it renames with its
  * type, `drawn.drops` to `drawn.powerUps`, holding its value: that is a field
  * rename on the `Digest` interface and not a re-pin, so ADR 0019's regeneration
  * ritual does not apply.

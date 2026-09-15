@@ -57,6 +57,7 @@ function fillField(state: RunState, count: number): Mob[] {
         index,
       },
       false,
+      'wave',
     )!;
     mob.beat = 0;
     mobs.push(mob);
@@ -71,6 +72,7 @@ function putMobAt(state: RunState, x: number, y: number): Mob {
     'shambler',
     { x, y, vx: 0, vy: 0, index: 0 },
     false,
+    'wave',
   )!;
   mob.beat = 0;
   return mob;

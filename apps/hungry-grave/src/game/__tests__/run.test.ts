@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../caps';
+import { STARTING_DIRECTOR } from '../director';
 import type { WeaponLine } from '../lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import { createRun, uniformLevels } from '../run';
@@ -48,6 +49,22 @@ describe('createRun', () => {
       sectionTick: 0,
       firedWaves: 0,
     });
+  });
+
+  it('starts the director at the value its own module declares', () => {
+    // The state lives on RunState so the witness folds it (ADR 0047), and the
+    // module owns what it starts as. Nothing spends it in this commit.
+    expect(createRun(1).director).toBe(STARTING_DIRECTOR);
+  });
+
+  it("starts the wisps' volley clock at zero, unlike the always-on clocks", () => {
+    // The other three are timers running from the first tick; the wisps fire on
+    // a swallow, so a run's first swallow has to fire (ADR 0058 as amended).
+    const run = createRun(1);
+    expect(run.lines.volleyIn).toBe(0);
+    expect(run.lines.streamIn).toBeGreaterThan(0);
+    expect(run.lines.tollIn).toBeGreaterThan(0);
+    expect(run.lines.layIn).toBeGreaterThan(0);
   });
 
   it('starts at the birthright when no levels are asked for', () => {

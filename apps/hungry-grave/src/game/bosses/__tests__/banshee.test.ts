@@ -282,24 +282,33 @@ describe("the Banshee's tear-rings (game-concept.md:68, ADR 0007)", () => {
     expect(bansheeSource.toLowerCase()).not.toContain('toll');
   });
 
-  it('draws its ring from the fire stream and from no other', () => {
+  it("draws its ring from the boss's own fire stream and from no other", () => {
     // ADR 0006's stream rule: what chance the sim spends is drawn from a named
     // seeded stream, so one seed throws one sequence. The bearing a ring opens
     // at carries a small drawn jitter, so a ring is not the same bearing at the
-    // same tick in every run ever played, and the draw is the fire stream's
-    // because a ring is fire.
+    // same tick in every run ever played.
+    //
+    // The stream is the boss's own and not the trash's mobFire one (#108). It
+    // used to be mobFire, on the reading that a ring is fire; sharing meant
+    // retuning a ring's jitter moved every trash mob's first shot on a fixed
+    // seed, which is the defect the split exists to end. What that cost is
+    // every tape recorded before it, refused by the witness version that moved
+    // in the same commit (ADR 0019).
     const fight = atTheBanshee();
-    const drawnBefore = fight.state.streams.mobFire.drawn;
+    const drawnBefore = fight.state.streams.bossFire.drawn;
     const others = (): Record<string, number> => ({
       spawns: fight.state.streams.spawns.drawn,
       powerUps: fight.state.streams.powerUps.drawn,
+      mobFire: fight.state.streams.mobFire.drawn,
       shed: fight.state.streams.shed.drawn,
       territory: fight.state.streams.territory.drawn,
+      director: fight.state.streams.director.drawn,
+      pour: fight.state.streams.pour.drawn,
     });
     const otherBefore = others();
     nextRing(fight);
 
-    expect(fight.state.streams.mobFire.drawn).toBeGreaterThan(drawnBefore);
+    expect(fight.state.streams.bossFire.drawn).toBeGreaterThan(drawnBefore);
     expect(others()).toEqual(otherBefore);
 
     // One seed, one sequence: the same run played again throws the same ring.

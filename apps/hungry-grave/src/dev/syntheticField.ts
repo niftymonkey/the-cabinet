@@ -93,6 +93,7 @@ const standMobs = (run: RunState, count: number): void => {
       typeOf(index),
       { x: place.x, y: place.y, vx: 0, vy: 1, index },
       false,
+      'wave',
     );
     if (mob === null) {
       throw new Error(

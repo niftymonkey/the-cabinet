@@ -59,6 +59,7 @@ function doomed(state: RunState, x: number, y: number, carries: boolean) {
     'shambler',
     { x, y, vx: 0, vy: 0, index: 0 },
     carries,
+    'wave',
   )!;
   mob.beat = 0;
   mob.hp = 1;
@@ -104,6 +105,7 @@ describe('a carrier is a carrier whatever killed it (ADR 0002)', () => {
       'shambler',
       { x: bell.grave.x, y: bell.grave.y - 60, vx: 0, vy: 0, index: 0 },
       true,
+      'wave',
     )!;
     victim.beat = 0;
     victim.hp = 1;
@@ -131,6 +133,7 @@ describe('a missed carrier is missed (ADR 0048)', () => {
       'shambler',
       { x: 200, y: FIELD_HEIGHT - 20, vx: 0, vy: 1, index: 0 },
       true,
+      'wave',
     )!;
     carrier.beat = 0;
 
@@ -270,6 +273,7 @@ describe('the schedule', () => {
         index: 0,
       },
       true,
+      'wave',
     )!;
 
     expect(cullMobs(state)).toEqual([

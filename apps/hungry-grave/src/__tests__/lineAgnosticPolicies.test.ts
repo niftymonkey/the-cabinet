@@ -225,20 +225,27 @@ const POWER_UPS_DRAWER = 'game/offer.ts';
  * guard covers that fold on its own. Aliasing the whole streams record is the
  * other.
  */
-const POWER_UPS_MEMBER =
-  /streams\s*(?:\.\s*powerUps|\[\s*['"`]powerUps['"`]\s*\])(?:\s*\.\s*([A-Za-z_$][\w$]*))?/g;
-const POWER_UPS_BINDING = /\{[^{}]*\bpowerUps\b[^{}]*\}\s*=[^;\n]*\bstreams\b/g;
+const memberPattern = (name: string): RegExp =>
+  new RegExp(
+    `streams\\s*(?:\\.\\s*${name}|\\[\\s*['"\`]${name}['"\`]\\s*\\])(?:\\s*\\.\\s*([A-Za-z_$][\\w$]*))?`,
+    'g',
+  );
 
-const powerUpsReachesIn = (source: string): string[] => [
-  ...[...source.matchAll(POWER_UPS_MEMBER)].map((match) =>
-    match[1] === undefined
-      ? 'streams.powerUps'
-      : `streams.powerUps.${match[1]}`,
+const bindingPattern = (name: string): RegExp =>
+  new RegExp(`\\{[^{}]*\\b${name}\\b[^{}]*\\}\\s*=[^;\\n]*\\bstreams\\b`, 'g');
+
+/** Every reach into one named stream a source makes, in any of the three spellings. */
+const streamReachesIn = (name: string, source: string): string[] => [
+  ...[...source.matchAll(memberPattern(name))].map((match) =>
+    match[1] === undefined ? `streams.${name}` : `streams.${name}.${match[1]}`,
   ),
-  ...[...source.matchAll(POWER_UPS_BINDING)].map(
-    () => 'streams.powerUps through a destructured binding',
+  ...[...source.matchAll(bindingPattern(name))].map(
+    () => `streams.${name} through a destructured binding`,
   ),
 ];
+
+const powerUpsReachesIn = (source: string): string[] =>
+  streamReachesIn('powerUps', source);
 
 /**
  * Where a module other than the offer could move the power-ups cursor.
@@ -250,12 +257,20 @@ const powerUpsReachesIn = (source: string): string[] => [
  * else fails, the bare `streams.powerUps` of an alias included, because a stream
  * held in a local is a draw this walk can no longer see.
  */
-const strayPowerUpsReachesIn = (module: string, source: string): string[] => {
-  if (module === POWER_UPS_DRAWER) return [];
-  return powerUpsReachesIn(source)
-    .filter((reach) => reach !== 'streams.powerUps.drawn')
+const strayReachesIn = (
+  name: string,
+  drawer: string,
+  module: string,
+  source: string,
+): string[] => {
+  if (module === drawer) return [];
+  return streamReachesIn(name, source)
+    .filter((reach) => reach !== `streams.${name}.drawn`)
     .map((reach) => `${module} reaches ${reach}`);
 };
+
+const strayPowerUpsReachesIn = (module: string, source: string): string[] =>
+  strayReachesIn('powerUps', POWER_UPS_DRAWER, module, source);
 
 /**
  * The five modules that carry a weapon line's own pass over what it can hit:
@@ -581,6 +596,78 @@ describe('only the offer draws from the power-ups stream', () => {
       strayPowerUpsReachesIn(
         'game/invariants.ts',
         "checkFinite(faults, 'streams.powerUps.drawn', state.streams.powerUps.drawn);\n",
+      ),
+    ).toEqual([]);
+  });
+});
+
+/**
+ * The streams #108 split out, each with the one module that may draw it.
+ *
+ * It is the power-ups rule applied rather than a new one: a stream whose whole
+ * point is that retuning one system moves no other system's draws is worth
+ * nothing the day a second module draws from it. The machinery was already
+ * here and took a stream name as a parameter to serve both.
+ *
+ * The director's stream is not in this table, because nothing draws it yet: the
+ * spend is slice F's and so is spec test 48, which is where that stream's own
+ * version of this belongs. A row here with no drawer would assert an empty set.
+ */
+const SINGLE_DRAWER_STREAMS: readonly { stream: string; drawer: string }[] = [
+  { stream: 'bossFire', drawer: 'game/bosses/banshee.ts' },
+  { stream: 'pour', drawer: 'game/stage/setPiece.ts' },
+];
+
+describe('one module draws each stream #108 split out', () => {
+  for (const { stream, drawer } of SINGLE_DRAWER_STREAMS) {
+    it(`only src/${drawer} draws from the ${stream} stream`, () => {
+      const modules = simModulesUnder(SRC);
+      expect(modules).toContain(drawer);
+      expect(
+        modules.flatMap((module) =>
+          strayReachesIn(stream, drawer, module, sourceOf(module)),
+        ),
+      ).toEqual([]);
+    });
+
+    it(`src/${drawer} still draws, so the fence guards a claim and not an empty set`, () => {
+      // A drawer that stopped drawing would leave the walk above green through
+      // a stream nothing uses, which is the split having quietly failed rather
+      // than held.
+      expect(streamReachesIn(stream, sourceOf(drawer))).toContain(
+        `streams.${stream}.next`,
+      );
+    });
+  }
+
+  it('catches a draw planted outside the drawer, and an alias that would hide one', () => {
+    expect(
+      strayReachesIn(
+        'pour',
+        'game/stage/setPiece.ts',
+        'game/stage/stage.ts',
+        'state.streams.pour.next();\n',
+      ),
+    ).toEqual(['game/stage/stage.ts reaches streams.pour.next']);
+    expect(
+      strayReachesIn(
+        'bossFire',
+        'game/bosses/banshee.ts',
+        'game/bosses/undertaker.ts',
+        'const { bossFire } = state.streams;\n',
+      ),
+    ).toEqual([
+      'game/bosses/undertaker.ts reaches streams.bossFire through a destructured binding',
+    ]);
+  });
+
+  it('leaves a cursor read alone, because reading a counter cannot move it', () => {
+    expect(
+      strayReachesIn(
+        'pour',
+        'game/stage/setPiece.ts',
+        'game/invariants.ts',
+        "checkFinite(faults, 'streams.pour.drawn', state.streams.pour.drawn);\n",
       ),
     ).toEqual([]);
   });

@@ -81,6 +81,7 @@ function inTheColumn(state: RunState): Mob {
       index: 0,
     },
     false,
+    'wave',
   )!;
   mob.beat = 0;
   return mob;

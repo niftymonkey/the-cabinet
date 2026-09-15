@@ -1,7 +1,15 @@
 // Named seeded streams from one run seed, independent by construction (tracer
 // plan section 3).
 
-type StreamName = 'spawns' | 'powerUps' | 'mobFire' | 'shed' | 'territory';
+type StreamName =
+  | 'spawns'
+  | 'powerUps'
+  | 'mobFire'
+  | 'shed'
+  | 'territory'
+  | 'director'
+  | 'bossFire'
+  | 'pour';
 
 interface Stream {
   // The next draw, 0 inclusive to 1 exclusive.
@@ -134,6 +142,10 @@ const stream = (seed: number, name: string): Stream => {
  * `drops`, the word the stream was named when the first tape was recorded;
  * ADR 0061 renamed the stream and held the salt, on the same rule that holds a
  * fault identity's number while its wording relabels.
+ *
+ * A new stream has no tapes behind it, so its salt is its own name at birth.
+ * The map is append-only for the same reason the fold's order is: an entry that
+ * moved would re-seed a stream a tape was recorded under.
  */
 const STREAM_SALTS: Readonly<Record<StreamName, string>> = {
   spawns: 'spawns',
@@ -141,6 +153,9 @@ const STREAM_SALTS: Readonly<Record<StreamName, string>> = {
   mobFire: 'mobFire',
   shed: 'shed',
   territory: 'territory',
+  director: 'director',
+  bossFire: 'bossFire',
+  pour: 'pour',
 };
 
 export { stream, STREAM_SALTS };

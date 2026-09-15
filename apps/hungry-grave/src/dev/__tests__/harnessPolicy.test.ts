@@ -491,10 +491,19 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * small grave is a small target: the runs last longer and cross more carriers.
  * Measured at this tip, 505 is the only seed the stage never pays.
  *
+ * Re-measured for #108's two draw sites, and 202 and 404 went back in. Neither
+ * is a rule change: the Banshee's ring jitter and the Waking's pour each took
+ * their own seeded stream, so at a fixed seed her rings open on different
+ * bearings and, because the pour no longer spends the spawns cursor, every
+ * placement scatter after the Waking is drawn from a different point in that
+ * sequence. Which waves a lane passes through therefore moves, and with it
+ * whether a carrier is among them. Measured at this tip, three of the five are
+ * never paid.
+ *
  * It is #39's first tuning input and never a reason to sharpen the hand: a
  * hand tuned until the stage pays it would measure the tuning of the hand.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [505];
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202, 404, 505];
 
 /**
  * The seeds that finish above the birthright, which under the stage's authored
@@ -821,11 +830,12 @@ describe('the dexterity error is a lapse of attention (ADR 0053)', () => {
     });
   });
 
-  it("leaves the run's own five streams where it found them", () => {
+  it("leaves the run's own streams where it found them", () => {
     // ADR 0019 and hand-forward (f): the hand's dice are outside RunState, so
-    // the witness never learns the bot exists and WITNESS_VERSION stays 6. The
-    // hand reads the field and draws from its own stream, and nothing it does
-    // moves a cursor the fold walks.
+    // the witness never learns the bot exists and no move of WITNESS_VERSION is
+    // ever the hand's. The hand reads the field and draws from its own stream,
+    // and nothing it does moves a cursor the fold walks. The run holds eight
+    // streams since the fold widened, and this reads whatever it holds.
     const state = quietRun(202);
     const cursors = () =>
       Object.fromEntries(

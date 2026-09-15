@@ -1,6 +1,8 @@
 import type { Boss } from './bosses/phases';
 import type { Corpse } from './corpses';
 import { createCorpsePool } from './corpses';
+import type { DirectorState } from './director';
+import { STARTING_DIRECTOR } from './director';
 import type { Grave } from './grave';
 import { createGrave } from './grave';
 import type { BellToll } from './lines/bell';
@@ -50,6 +52,13 @@ interface LineState {
   ring: BellToll | null;
   // Ticks to the next Territory lay. Held at zero while nothing is eligible.
   layIn: number;
+  /**
+   * Ticks until the wisps may fire again (ADR 0058 as amended). It starts at
+   * zero and not at the interval, because the other three clocks are always-on
+   * timers and the wisps fire on a swallow: a run's first swallow fires at
+   * once, and it is the volley itself that arms the floor.
+   */
+  volleyIn: number;
 }
 
 /**
@@ -130,6 +139,16 @@ interface RunState {
   setPiece: SetPiece | null;
   readonly lines: LineState;
   /**
+   * What the director holds across the run (ADR 0047). It lives here so the
+   * witness folds it and a replay rebuilds it, which is what makes a directed
+   * add reproducible from a tape alone.
+   *
+   * The slot is written and never the record: every field of DirectorState is
+   * readonly and the whole record is replaced, exactly as the boss's and the
+   * offer's are.
+   */
+  director: DirectorState;
+  /**
    * What a cap refused on this tick, cleared at the top of every one and read
    * by the invariant harness at the end of it (ADR 0056).
    *
@@ -179,6 +198,7 @@ const startingLines = (): LineState => {
     tollIn: BELL_PERIOD,
     ring: null,
     layIn: TERRITORY_PERIOD,
+    volleyIn: 0,
   };
 };
 
@@ -271,6 +291,9 @@ const createRun = (
       mobFire: stream(seed, STREAM_SALTS.mobFire),
       shed: stream(seed, STREAM_SALTS.shed),
       territory: stream(seed, STREAM_SALTS.territory),
+      director: stream(seed, STREAM_SALTS.director),
+      bossFire: stream(seed, STREAM_SALTS.bossFire),
+      pour: stream(seed, STREAM_SALTS.pour),
     },
     mobs: createMobPool(),
     mobFire: createShotPool(),
@@ -282,6 +305,7 @@ const createRun = (
     boss: null,
     setPiece: null,
     lines: startingLines(),
+    director: STARTING_DIRECTOR,
     refusals: { food: 0, carriers: 0, offers: 0 },
     nextEntityId: 1,
   };

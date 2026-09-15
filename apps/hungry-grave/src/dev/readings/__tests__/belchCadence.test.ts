@@ -41,6 +41,7 @@ describe('belch cadence', () => {
           index: 0,
         },
         false,
+        'wave',
       )!,
       spawnMob(
         run,
@@ -53,6 +54,7 @@ describe('belch cadence', () => {
           index: 1,
         },
         false,
+        'wave',
       )!,
     ];
     for (const mob of near) mob.beat = 0;

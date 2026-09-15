@@ -135,12 +135,16 @@ const throwRing = (
  * All of a tick's sources share one drawn nudge, so the offset between two
  * sources is exactly the authored one and never a pair of independent rolls
  * that could quietly close the gap between them.
+ *
+ * The nudge comes from the boss's own named stream and never from the trash's
+ * mobFire one (#108), so retuning a ring's jitter moves no trash mob's first
+ * shot on a fixed seed.
  */
 const advanceBanshee = (state: RunState, boss: Boss): SimEvent[] => {
   const row = RING_ROWS[boss.phaseIndex];
   if (row === undefined || !ringDue(row, boss.patternTick)) return [];
   const ring = boss.patternTick / row.period;
-  const nudge = (state.streams.mobFire.next() - 0.5) * row.jitter;
+  const nudge = (state.streams.bossFire.next() - 0.5) * row.jitter;
   const rotation = row.drift * ring + nudge;
   return row.sources.flatMap((source) =>
     throwRing(state, boss, row, source, rotation),

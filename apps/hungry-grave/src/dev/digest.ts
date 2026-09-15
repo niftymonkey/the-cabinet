@@ -138,6 +138,23 @@ const liveCount = (pool: readonly { alive: boolean }[]): number => {
   return pool.reduce((count, slot) => count + (slot.alive ? 1 : 0), 0);
 };
 
+/**
+ * Every cursor the run holds, derived rather than hand-kept.
+ *
+ * It was a literal naming five streams, and three more arrived with the
+ * director's own and #108's two without this map being told. A list kept by
+ * hand goes stale in silence, which is how #113 was closed in rng.test.ts and
+ * which is the same defect wearing this file's coat: the digest would have gone
+ * on reporting five cursors of a run that draws from eight.
+ */
+const drawnOf = (run: RunState): Record<string, number> => {
+  const drawn: Record<string, number> = {};
+  for (const [name, stream] of Object.entries(run.streams)) {
+    drawn[name] = stream.drawn;
+  }
+  return drawn;
+};
+
 const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
   return {
     tick: run.tick,
@@ -153,13 +170,7 @@ const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
     skulls: liveCount(run.skulls),
     wisps: liveCount(run.wisps),
     kills,
-    drawn: {
-      spawns: run.streams.spawns.drawn,
-      powerUps: run.streams.powerUps.drawn,
-      mobFire: run.streams.mobFire.drawn,
-      shed: run.streams.shed.drawn,
-      territory: run.streams.territory.drawn,
-    },
+    drawn: drawnOf(run),
     levels: { ...run.levels },
     checksum: checksum,
   };
@@ -167,7 +178,13 @@ const digestOf = (run: RunState, checksum: number, kills: number): Digest => {
 
 // A mob put exactly where the script wants one, outside the stage's own waves.
 const put = (run: RunState, x: number, y: number): Mob | null => {
-  return spawnMob(run, 'shambler', { x, y, vx: 0, vy: 1, index: 0 }, false);
+  return spawnMob(
+    run,
+    'shambler',
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  );
 };
 
 /**
@@ -188,12 +205,18 @@ const reportUnplaceableVictim = (tick: number): void => {
  */
 const scriptedKills = (run: RunState, tick: number): number => {
   if (tick === GHOUL_AT) {
-    spawnMob(run, 'ghoul', { x: 120, y: 20, vx: 0, vy: 1, index: 0 }, false);
+    spawnMob(
+      run,
+      'ghoul',
+      { x: 120, y: 20, vx: 0, vy: 1, index: 0 },
+      false,
+      'wave',
+    );
     return 0;
   }
   if (tick === FILE_AT) {
     for (const order of place('file', FILE_COUNT, run.streams.spawns)) {
-      spawnMob(run, 'shambler', { ...order, x: FILE_X }, false);
+      spawnMob(run, 'shambler', { ...order, x: FILE_X }, false, 'wave');
     }
     return 0;
   }
@@ -342,6 +365,21 @@ const runScenario = (): ScenarioResult => {
  * every stream cursor. The weapon damage lane landed in the same commit and
  * does not reach this window: the scenario's kills are scripted rather than
  * struck, and its two live skulls hit nothing inside 600 ticks.
+ *
+ * Re-pinned on 2026-09-14 for the fold widened once, WITNESS_VERSION 6 to 7.
+ * The checksum moved from 844453737 because the fold gained nine fields in that
+ * one commit: three stream cursors (the director's own and #108's two), the
+ * director's four numbers, a body's provenance mark and the wisps' volley
+ * clock. `drawn` gained the three new cursors, all at zero, and it is derived
+ * from the run's own streams now rather than hand-listed, which is why they
+ * appeared at all. Everything else held: tick 600, the seed, the grave's
+ * position and size, the score, the reservoir, mobs at 5, shots at 0, corpses
+ * at 1, skulls at 2, wisps at 0, the two scripted kills and the levels record.
+ * `drawn.spawns` held at 1, which is the thing to watch here: the Waking's pour
+ * took its own stream in the same commit, and a spawns cursor that moved would
+ * have meant the pour reached a window it cannot reach. The Banshee's ring took
+ * its own stream too and the scenario never meets her, so `drawn.mobFire`
+ * stayed at the zero the mow left it at.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -363,6 +401,9 @@ const GOLDEN: Digest = {
     mobFire: 0,
     shed: 0,
     territory: 0,
+    director: 0,
+    bossFire: 0,
+    pour: 0,
   },
   levels: {
     skullStream: 1,
@@ -370,7 +411,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 844453737,
+  checksum: 1122531117,
 };
 
 export { runScenario, GOLDEN };

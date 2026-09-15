@@ -83,7 +83,13 @@ function stormRun(seed = 4): RunState {
 
 /** A live mob of a stated type, past its arriving beat. */
 function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
-  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
+  const mob = spawnMob(
+    state,
+    type,
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
   mob.beat = 0;
   return mob;
 }
@@ -137,13 +143,13 @@ describe('the armed share (ADR 0016)', () => {
   it('arms every revenant and no ghoul', () => {
     const state = quietRun();
     for (const at of place('drip', 4, state.streams.spawns)) {
-      spawnMob(state, 'revenant', at, false);
+      spawnMob(state, 'revenant', at, false, 'wave');
     }
     expect(state.mobs.filter((mob) => mob.alive && mob.armed)).toHaveLength(4);
 
     const ghouls = quietRun();
     for (const at of place('drip', 9, ghouls.streams.spawns)) {
-      spawnMob(ghouls, 'ghoul', at, false);
+      spawnMob(ghouls, 'ghoul', at, false, 'wave');
     }
     expect(ghouls.mobs.filter((mob) => mob.alive && mob.armed)).toHaveLength(0);
   });
@@ -171,7 +177,7 @@ describe('the armed share (ADR 0016)', () => {
   it('never lets an unarmed shambler fire', () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnMob(state, 'shambler', order(200, 11, 0, 1, 0), false);
+    spawnMob(state, 'shambler', order(200, 11, 0, 1, 0), false, 'wave');
     expect(only(state).armed).toBe(false);
     expect(types(run(step, 600), 'mobFired')).toHaveLength(0);
   });
@@ -186,6 +192,7 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
       'revenant',
       order(200, MOB_TYPES.revenant.halfHeight),
       false,
+      'wave',
     );
     const mob = only(state);
     expect(hasEntered(mob)).toBe(true);
@@ -206,6 +213,7 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
       'revenant',
       order(200, MOB_TYPES.revenant.halfHeight),
       false,
+      'wave',
     );
     const mob = only(state);
     const lead = MOB_TYPES.revenant.fire.tellTicks;
@@ -271,6 +279,7 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
       'revenant',
       order(120, MOB_TYPES.revenant.halfHeight),
       false,
+      'wave',
     );
     const mob = only(state);
     run(step, ARRIVE_TICKS);
@@ -297,6 +306,7 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
       'revenant',
       order(200, MOB_TYPES.revenant.halfHeight),
       false,
+      'wave',
     );
     run(step, ARRIVE_TICKS);
     const shot = state.mobFire.find((each) => each.alive)!;

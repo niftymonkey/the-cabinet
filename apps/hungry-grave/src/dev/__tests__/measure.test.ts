@@ -11,7 +11,9 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { BELCH_BURST_RADIUS } from '../../game/belch';
 import { TICK_HZ } from '../../game/clock';
+import type { SimEvent } from '../../game/events';
 import { createExecution, executeTick } from '../../game/execution';
 import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import type { WeaponLine } from '../../game/lines/roster';
@@ -35,6 +37,7 @@ import type { FrameObservation, Tape, TapeHeader } from '../../tape/tape';
 import { PERSON_POLICY } from '../../tape/tape';
 import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
+import { divingPolicy } from '../bot';
 import {
   BAND_COUNT,
   BAND_UNITS,
@@ -186,45 +189,85 @@ const RICH_LEVELS: Readonly<Record<WeaponLine, number>> = {
 };
 /**
  * Long enough that the fixture reaches the belch arm rather than only the
- * lines. Power is metered by carriers (ADR 0002), so the reservoir fills at
- * whatever rate the schedule and the wander together pay for, and the economy
- * now states that rate in corpses of expected mowing: a full reservoir is 300
- * fresh trash corpses rather than 9, so this run first belches at tick 8422
- * where it used to belch four times before 9000. Measured at this tip it
- * belches twice over its whole life and lands one hit, which is the belch
+ * lines, and that the run it records ends inside its own window.
+ *
+ * Power is metered by carriers (ADR 0002), so the reservoir fills at whatever
+ * rate the schedule and the hand together pay for, and the economy states that
+ * rate in corpses of expected mowing: a full reservoir is 300 fresh trash
+ * corpses rather than 9. Under the wisps' volley floor the fixture's hand dives
+ * until it has spent one belch (richSteer says why), and measured at this tip
+ * that belch lands at tick 11004 and a second follows it, which is the belch
  * column this file exists to attribute.
  *
- * It used to end with the run still live, and the Banshee (ADR 0007) is what
- * changed that: 9000 ticks reached her fight, and a wandering hand under her
- * rings sealed shut inside it. So the ending is read off the recorded run
- * rather than pinned as absent, which is what the assertion was always about,
- * that the replay recomputes the run the tape holds.
+ * The ending is read off the recorded run rather than pinned as absent, which
+ * is what the assertion was always about, that the replay recomputes the run
+ * the tape holds. It used to end with the run still live, and the Banshee
+ * (ADR 0007) is what changed that: a wandering hand under her rings seals shut.
  *
- * The mow moved the ending back out past 9000 and the economy moved it out
- * again. The stage's authored floor feeds a wandering grave far more than it
- * did (ADR 0060), so this hand grows instead of being ground down; and a run
- * now climbs to its ceiling over 400 corpses rather than 80, so the grave this
- * hand carries is smaller for longer and a smaller grave is a smaller target.
- * Measured at this tip it seals at tick 21565 where it used to seal between
- * 9200 and 9400. The ceiling is 21600, far enough above that to hold the
- * ending and near enough that the fixture is still one recording rather than
- * three.
+ * The ceiling has followed the run's own length ever since. The mow and the
+ * economy moved the sealing out to 21565, and the volley floor moves it to
+ * 23177: the hand dives for the first eleven thousand ticks, which feeds it,
+ * and the wander it is handed back to is ground shut from there. The ceiling is
+ * 25200, far enough above that to hold the ending and near enough that the
+ * fixture is still one recording rather than three.
  *
  * That makes this a ceiling and not the recording's length: the loop stops on
  * the tick the run ends, because executeTick does not read the ending and every
  * loop above it must (`execution.ts`, #52). What the fixture records is
  * `RichRecording.ticks`, and every assertion over the tape's length reads that.
  */
-const RICH_TICKS = 21600;
+const RICH_TICKS = 25200;
 const RICH_SPACING = 60;
 /** The ticks the rich fixture's expensive frames start at; zero pins the empty starting field. */
 const RICH_EXPENSIVE_TICKS = [0, 1200, 4500];
 
-function richSteer(tick: number): TickCommand {
-  return {
-    move: { x: Math.sin(tick / 45), y: Math.sin(tick / 200) * 0.4 },
-    belch: true,
-  };
+/**
+ * Whether a belch fired on this tick would land on anything.
+ *
+ * The fixture gets one belch in a whole run, so it is spent where it can be
+ * attributed rather than on every tick: a belch into an empty field empties the
+ * reservoir and produces no mobDamaged at all, which would leave the arm this
+ * file exists to attribute with nothing to attribute.
+ */
+function belchWouldLand(run: RunState): boolean {
+  return run.mobs.some((mob) => {
+    if (!mob.alive) return false;
+    const dx = mob.x - run.grave.x;
+    const dy = mob.y - run.grave.y;
+    return dx * dx + dy * dy <= BELCH_BURST_RADIUS * BELCH_BURST_RADIUS;
+  });
+}
+
+/**
+ * The fixture's hand: it dives until it has spent a belch, then wanders as it
+ * always did, and it belches only where the belch lands.
+ *
+ * It was the wander alone, belching on every tick, and the wisps' volley floor
+ * (ADR 0058 as amended) is what retired that. A wander never aims, so it lived
+ * on what the homing line mowed for it; floored to one volley every thirty
+ * ticks the same hand kills a fifth as much and is ground shut at tick 9824
+ * where it used to run to 21565, and it never swallows the three hundred fresh
+ * trash corpses a full reservoir costs. Measured over ten seeds under the
+ * wander, not one reached a full reservoir at all, so no seed could have
+ * carried the belch arm and no ceiling could have waited for it.
+ *
+ * Diving is what fills the reservoir and the burst test above is what makes the
+ * one belch it buys land. Handing the run back to the wander afterwards is what
+ * keeps the other half of the fixture: a wandering grave is ground shut, and
+ * this file asserts that the recording stops on the tick the run ends. The hand
+ * is still a command stream the tape records and the replay re-executes, which
+ * is the only property the fixture needs of it.
+ */
+function richSteer(
+  run: RunState,
+  caused: readonly SimEvent[],
+  spent: boolean,
+  tick: number,
+): TickCommand {
+  const move = spent
+    ? { x: Math.sin(tick / 45), y: Math.sin(tick / 200) * 0.4 }
+    : divingPolicy(run, [...caused]).move;
+  return { move, belch: belchWouldLand(run) };
 }
 
 interface RichRecording {
@@ -258,6 +301,11 @@ function recordRichRun(): RichRecording {
   let kills = 0;
   let lays = 0;
   let ticks = 0;
+  // The tick before's events, which the diving policy reads to steer by.
+  let caused: readonly SimEvent[] = [];
+  // Whether the belch arm has been paid, which is what hands the run back to
+  // the wander.
+  let belched = false;
   // The sealing tick is recorded and the one after it is not: a tape that
   // dropped its own last tick would hide the evidence of the tick that ended
   // the run, and one that ran on past it would report a run no player had.
@@ -267,7 +315,12 @@ function recordRichRun(): RichRecording {
     if (RICH_EXPENSIVE_TICKS.includes(tick)) {
       densities.set(tick, densityOf(run));
     }
-    const events = executeTick(execution, richSteer(tick));
+    const events = executeTick(
+      execution,
+      richSteer(run, caused, belched, tick),
+    );
+    caused = events;
+    if (events.some((event) => event.type === 'belched')) belched = true;
     for (const event of events) {
       if (event.type === 'mobDamaged') {
         const before = damage[event.source];

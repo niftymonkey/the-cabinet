@@ -55,14 +55,14 @@ function at(x: number, y: number) {
 }
 
 function deadMob(state: RunState, type: MobType, x: number, y: number): Mob {
-  const mob = spawnMob(state, type, at(x, y), false)!;
+  const mob = spawnMob(state, type, at(x, y), false, 'wave')!;
   mob.alive = false;
   return mob;
 }
 
 /** Fills the mob pool to the cap, so the next spawn has nowhere to go. */
 function fillMobs(state: RunState): void {
-  while (spawnMob(state, 'shambler', at(60, 40), false) !== null) {
+  while (spawnMob(state, 'shambler', at(60, 40), false, 'wave') !== null) {
     // The loop condition is the fill.
   }
 }
@@ -85,7 +85,7 @@ describe('the mob cap', () => {
     expect(live).toHaveLength(MOB_CAP);
     const ids = live.map((mob) => mob.id);
 
-    expect(spawnMob(state, 'revenant', at(120, 40), false)).toBeNull();
+    expect(spawnMob(state, 'revenant', at(120, 40), false, 'wave')).toBeNull();
     expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(MOB_CAP);
     expect(state.mobs.filter((mob) => mob.alive).map((mob) => mob.id)).toEqual(
       ids,
@@ -108,7 +108,13 @@ describe('the mob fire cap', () => {
     }
     const ids = state.mobFire.map((shot) => shot.id);
 
-    spawnMob(state, 'revenant', at(200, MOB_TYPES.revenant.halfHeight), false);
+    spawnMob(
+      state,
+      'revenant',
+      at(200, MOB_TYPES.revenant.halfHeight),
+      false,
+      'wave',
+    );
     const events: SimEvent[] = [];
     for (let tick = 0; tick < ARRIVE_TICKS + 1; tick++) {
       events.push(...advanceMobs(state));
@@ -371,7 +377,7 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     const state = quietRun();
     fillMobs(state);
     const mobs = state.mobs.filter((mob) => mob.alive).map((mob) => mob.id);
-    expect(spawnMob(state, 'ghoul', at(80, 40), false)).toBeNull();
+    expect(spawnMob(state, 'ghoul', at(80, 40), false, 'wave')).toBeNull();
     expect(state.mobs.filter((mob) => mob.alive).map((mob) => mob.id)).toEqual(
       mobs,
     );

@@ -107,11 +107,8 @@ const wispDamage = (level: number): number => {
  * 110 souls a second into that cap, and a bound cap is a fault rather than a
  * throttle (ADR 0056).
  *
- * The clock this floors is slice E's, and nothing reads this row until it
- * lands: every field of LineState is folded, so a volley clock is a folded
- * field and a folded field moves WITNESS_VERSION, which moves exactly once in
- * this step, in the commit that declares every new folded field. The floor's
- * own spec tests stand as tripwires in __tests__/wisps.ts until then.
+ * The clock it floors is lines.volleyIn, decremented in advanceWisps and set
+ * to this figure by the volley that fires.
  */
 const WISP_VOLLEY_INTERVAL_TICKS = 30;
 
@@ -235,6 +232,11 @@ const soulsForSwallow = (level: number, freshness: number): number => {
  * room for it. Surplus wisps over-commit onto the last target assigned, which
  * costs the bound nothing because a dead body does not die twice, and which
  * looks like the converging flight the concept doc promises.
+ *
+ * A swallow inside the volley interval fires nothing and banks nothing
+ * (ADR 0058 as amended). Nothing is banked because a banked volley would pay a
+ * stale corpse's freshness on a fresh corpse's tick, and the count is what
+ * freshness scales.
  */
 const launchWisps = (
   state: RunState,
@@ -243,7 +245,13 @@ const launchWisps = (
   _events: SimEvent[],
   freshness: number,
 ): void => {
+  if (state.lines.volleyIn > 0) return;
   const count = soulsForSwallow(state.levels.wisps, freshness);
+  // An unowned line fires nothing, so it arms no floor: the first swallow after
+  // a run buys the wisps must fire, and a run that swallowed at level zero
+  // would otherwise have started the interval without a volley in it.
+  if (count === 0) return;
+  state.lines.volleyIn = WISP_VOLLEY_INTERVAL_TICKS;
   const x = state.grave.x;
   const y = state.grave.y - state.grave.size;
   // The over-commit target is carried by id and asked for again rather than
@@ -307,8 +315,18 @@ const flyWisp = (state: RunState, wisp: Wisp): void => {
   wisp.y += wisp.vy;
 };
 
-// Every live wisp's turn, flight and expiry, one tick on.
+/**
+ * Every live wisp's turn, flight and expiry, one tick on, and the volley
+ * clock's own tick.
+ *
+ * The clock runs here and nowhere else, so it keeps ticking while the pool is
+ * empty: a volley fired, expired and left the field is still inside its own
+ * interval, and a clock that only ran while something was flying would let the
+ * next swallow fire early exactly when the field is thickest.
+ */
 const advanceWisps = (state: RunState): SimEvent[] => {
+  const lines = state.lines;
+  if (lines.volleyIn > 0) lines.volleyIn -= 1;
   for (const wisp of state.wisps) {
     if (!wisp.alive) continue;
     wisp.life -= 1;

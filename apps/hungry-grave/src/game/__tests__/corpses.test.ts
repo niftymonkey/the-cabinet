@@ -53,7 +53,13 @@ function quietRun(seed = 9): RunState {
 
 /** A dead mob of the given type at a place the grave is nowhere near. */
 function killAt(state: RunState, type: MobType, x: number, y: number): Mob {
-  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
+  const mob = spawnMob(
+    state,
+    type,
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
   mob.alive = false;
   return mob;
 }
@@ -211,6 +217,7 @@ describe('what a kill hands the corpse pool (#59)', () => {
         index: 0,
       },
       false,
+      'wave',
     )!;
 
     damageMob(state, mob, MOB_TYPES.revenant.hp, 'bell');

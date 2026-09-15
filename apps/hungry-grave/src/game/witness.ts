@@ -2,11 +2,12 @@
 
 import type { Boss } from './bosses/phases';
 import type { Corpse } from './corpses';
+import type { DirectorState } from './director';
 import type { Grave } from './grave';
 import type { BellToll } from './lines/bell';
 import type { WeaponLine } from './lines/roster';
 import { WEAPON_LINES } from './lines/roster';
-import type { CorpseTier } from './mobs';
+import type { CorpseTier, MobOrigin } from './mobs';
 import type { StreamName } from './rng';
 import type { LineState, RunEnding, RunState } from './run';
 import type { BossKind } from './stage/waves';
@@ -26,6 +27,9 @@ const STREAM_ORDER: readonly StreamName[] = [
   'mobFire',
   'shed',
   'territory',
+  'director',
+  'bossFire',
+  'pour',
 ];
 
 /**
@@ -37,8 +41,38 @@ const STREAM_ORDER: readonly StreamName[] = [
  * that did not happen. It is stamped into a tape's header
  * and read back there, so it moves only when the order or the field list below
  * moves.
+ *
+ * **6 to 7, and these are the nine fields the move declares.** Every one is
+ * added by the same commit that stamps the version, because a version stamped
+ * before the fold stops moving names several folds
+ * (apps/hungry-grave/docs/lessons.md, The sim).
+ *
+ * - `streams.director.drawn`, `streams.bossFire.drawn` and `streams.pour.drawn`.
+ *   The director's dice come from its own named stream (ADR 0047), and #108's
+ *   two draw sites take their own names, so retuning the Banshee's ring jitter
+ *   or the Waking's pour moves no other system's draws on a fixed seed. Every
+ *   cursor a run holds is folded, so three new streams are three new fields.
+ * - `director.signal.value`, `director.signal.heldUntilTick`,
+ *   `director.purseLeft` and `director.quietUntilTick`. A replay that could not
+ *   rebuild the director would be a replay of a different run (ADR 0019).
+ * - `mobs[].from`, where a live body came from. It folds rather than being
+ *   excluded on `carries`'s precedent and not `type`'s: a divergence in type
+ *   shows through the health and motion the walk already folds, and provenance
+ *   shows through nothing at all, because an authored body and a directed one
+ *   are identical in every other folded field.
+ * - `lines.volleyIn`, the wisps' volley clock. Every field of LineState is
+ *   folded, and the clock decides whether a swallow fires at all.
+ *
+ * **What the move costs, stated rather than discovered.** Every tape recorded
+ * before this commit is refused by its version, which is ADR 0019's refusal
+ * rule doing its job. That is also what makes two draw sites legitimate to move
+ * here and nowhere else: taking the Banshee's nudge off the mobFire stream and
+ * the pour's jitter off the spawns stream changes both of those cursors for
+ * every run that reaches either moment, and the version move in this same
+ * commit refuses every tape that could have noticed before a checkpoint is ever
+ * compared.
  */
-const WITNESS_VERSION = 6;
+const WITNESS_VERSION = 7;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -110,6 +144,20 @@ const BOSS_KIND_CODES: Readonly<Record<BossKind, number>> = {
   undertaker: 2,
 };
 
+/**
+ * What put a live body on the field, on the same append-only terms. `directed`
+ * has no producer until the director spends, and it takes its code here rather
+ * than the day it does, because a code arriving later would change what every
+ * tape recorded in between folded.
+ */
+const MOB_ORIGIN_CODES: Readonly<Record<MobOrigin, number>> = {
+  wave: 1,
+  standingWave: 2,
+  setPiece: 3,
+  boss: 4,
+  directed: 5,
+};
+
 // A boolean's encoding, spelled out so it is visible at the call site.
 const boolCode = (value: boolean): number => {
   return value ? 1 : 0;
@@ -129,6 +177,7 @@ const foldMobs = (checksum: number, run: RunState): number => {
     next = fold(fold(fold(fold(next, mob.x), mob.y), mob.vx), mob.vy);
     next = fold(fold(fold(next, mob.hp), mob.beat), mob.fireIn);
     next = fold(fold(next, boolCode(mob.armed)), boolCode(mob.carries));
+    next = fold(next, MOB_ORIGIN_CODES[mob.from]);
   }
   return next;
 };
@@ -292,7 +341,23 @@ const foldLines = (checksum: number, lines: LineState): number => {
   const next = fold(fold(checksum, lines.streamIn), lines.surgeVolleys);
   // layIn appends after the ring rather than sitting beside the other clocks,
   // because a widening appends and never reshuffles what is already in place.
-  return fold(foldRing(fold(next, lines.tollIn), lines.ring), lines.layIn);
+  // volleyIn appends after layIn on the same rule.
+  const withLay = fold(
+    foldRing(fold(next, lines.tollIn), lines.ring),
+    lines.layIn,
+  );
+  return fold(withLay, lines.volleyIn);
+};
+
+/**
+ * The director's own state (ADR 0047). Its three fields fold in the order they
+ * are declared in, the signal's two numbers first, because the order is part of
+ * the value exactly as it is everywhere else in here.
+ */
+const foldDirector = (checksum: number, director: DirectorState): number => {
+  const signal = director.signal;
+  const next = fold(fold(checksum, signal.value), signal.heldUntilTick);
+  return fold(fold(next, director.purseLeft), director.quietUntilTick);
 };
 
 /**
@@ -371,7 +436,8 @@ const foldWitness = (run: RunState, from: number): number => {
   checksum = foldStreams(checksum, run);
   checksum = foldStage(checksum, run.stage);
   checksum = foldOffer(foldLines(checksum, run.lines), run);
-  return foldSetPiece(foldBoss(checksum, run.boss), run.setPiece);
+  checksum = foldSetPiece(foldBoss(checksum, run.boss), run.setPiece);
+  return foldDirector(checksum, run.director);
 };
 
 export {
@@ -384,5 +450,6 @@ export {
   BOSS_KIND_CODES,
   CORPSE_TIER_CODES,
   FOOD_KIND_CODES,
+  MOB_ORIGIN_CODES,
   WEAPON_LINE_CODES,
 };

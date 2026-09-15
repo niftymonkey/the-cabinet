@@ -491,6 +491,9 @@ describe('the exhumation and its diggers (game-concept.md:70, ADR 0007)', () => 
     expect(firstOf(dug).type).toBe(DIGGER_TYPE);
     expect(firstOf(dug).hp).toBe(MOB_TYPES[DIGGER_TYPE].hp);
     expect(firstOf(dug).carries).toBe(false);
+    // And it says the boss put it there rather than a wave, which is how a
+    // reading over a whole run keeps his adds out of the stage's own count.
+    expect(firstOf(dug).from).toBe('boss');
 
     // Killed the ordinary way, it pays its own row's payout and lands as food
     // the same as anything the timeline authored. It is told apart from the

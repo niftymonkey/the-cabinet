@@ -216,6 +216,7 @@ function mobOnGrave(state: RunState, offsetY = 0): Mob {
       index: 0,
     },
     false,
+    'wave',
   )!;
   // Past its beat, so it is not still flying an entry when the pass runs.
   mob.beat = 0;
@@ -233,6 +234,7 @@ function insideTheField(state: RunState): Mob {
     'shambler',
     { x: state.grave.x, y: state.grave.y, vx: 0, vy: 1, index: 0 },
     false,
+    'wave',
   )!;
 }
 
@@ -247,6 +249,7 @@ function acrossTheTopEdge(state: RunState): Mob {
     'shambler',
     { x: state.grave.x, y: 0, vx: 0, vy: 1, index: 0 },
     false,
+    'wave',
   )!;
 }
 
@@ -293,6 +296,7 @@ describe('the tick order (dispatch 4 section 4.9)', () => {
         index: 0,
       },
       false,
+      'wave',
     )!;
     dead.alive = false;
     leaveCorpse(state, dead);
@@ -576,6 +580,7 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
         index: 0,
       },
       false,
+      'wave',
     )!;
     above.beat = 0;
     above.hp = 1;
@@ -596,6 +601,7 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
       'shambler',
       { x: state.grave.x, y: state.grave.y - 20, vx: 0, vy: 1, index: 0 },
       true,
+      'wave',
     )!;
     victim.beat = 0;
     // Standing a little ahead of the grave rather than on it, because a toll
@@ -652,6 +658,7 @@ describe('a belch kill is a kill (Mark, 2026-08-22)', () => {
           index,
         },
         index === carrier,
+        'wave',
       )!.beat = 0;
     }
 

@@ -88,9 +88,12 @@ describe('named seeded streams', () => {
     // hand's is the one salt outside it, because the harness makes its stream
     // in src/dev rather than inside RunState (ADR 0019).
     expect([...NAMES].sort()).toEqual([
+      'bossFire',
+      'director',
       'drops',
       HAND_STREAM,
       'mobFire',
+      'pour',
       'shed',
       'spawns',
       'territory',

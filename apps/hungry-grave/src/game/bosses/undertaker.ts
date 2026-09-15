@@ -263,6 +263,7 @@ const digUpBody = (state: RunState, boss: Boss, row: SpiralRow): void => {
       index: 0,
     },
     false,
+    'boss',
   );
 };
 

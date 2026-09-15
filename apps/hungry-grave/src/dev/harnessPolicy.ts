@@ -126,7 +126,8 @@ const lapseDepth = (hand: Stream, configuration: Configuration): number => {
  * repeat length is drawn from.
  *
  * The stream is made here and never inside RunState, so the witness never
- * learns the bot exists and WITNESS_VERSION stays 6 (ADR 0019). The seed is the
+ * learns the bot exists and no move of WITNESS_VERSION is ever the hand's
+ * (ADR 0019). The seed is the
  * run's own, handed in rather than read off the state, which is what makes one
  * seed under one configuration one run (ADR 0053).
  *

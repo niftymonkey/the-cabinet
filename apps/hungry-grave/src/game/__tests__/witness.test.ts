@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import { HAND_STREAM } from '../../dev/harnessPolicy';
 import { stepping } from '../../dev/stepping';
+import type { DirectorState, PressureSignal } from '../director';
 import type { BellToll } from '../lines/bell';
 import type { WeaponLine } from '../lines/roster';
 import { WEAPON_LINES } from '../lines/roster';
@@ -23,9 +24,11 @@ import { createRun } from '../run';
 import {
   ABSENT_CODE,
   boolCode,
+  BOSS_KIND_CODES,
   CORPSE_TIER_CODES,
   FOOD_KIND_CODES,
   foldWitness,
+  MOB_ORIGIN_CODES,
   NO_TARGET_ID,
   RUN_ENDING_CODES,
   WEAPON_LINE_CODES,
@@ -163,6 +166,23 @@ function fillRun(run: RunState): void {
   run.lines.tollIn = 90;
   run.lines.ring = ring();
   run.lines.layIn = 240;
+  run.lines.volleyIn = 18;
+  run.director = {
+    signal: { value: 0.4, heldUntilTick: 360 },
+    purseLeft: 74,
+    quietUntilTick: 420,
+  };
+}
+
+/**
+ * The fixture's director with one part of its signal moved. The record is
+ * replaced rather than mutated, which is what its readonly fields state.
+ */
+function movedSignal(
+  run: RunState,
+  part: Partial<PressureSignal>,
+): DirectorState {
+  return { ...run.director, signal: { ...run.director.signal, ...part } };
 }
 
 function fillGrave(run: RunState): void {
@@ -186,6 +206,9 @@ function fillMob(run: RunState): void {
   mob.fireIn = 33;
   mob.armed = true;
   mob.carries = true;
+  // Not the blank slot's own value, so a field left unwritten at the spawn
+  // could not pass the perturbation below by accident.
+  mob.from = 'standingWave';
 }
 
 function fillShot(run: RunState): void {
@@ -314,6 +337,11 @@ const ENTITY_CASES: readonly FieldCase[] = [
     path: 'mobs[].carries',
     move: (run) => void (slot0(run.mobs).carries = false),
     restore: (run) => void (slot0(run.mobs).carries = true),
+  },
+  {
+    path: 'mobs[].from',
+    move: (run) => void (slot0(run.mobs).from = 'directed'),
+    restore: (run) => void (slot0(run.mobs).from = 'standingWave'),
   },
   {
     path: 'mobFire[].x',
@@ -526,6 +554,15 @@ const RUN_CASES: readonly FieldCase[] = [
     move: (run) => void run.streams.territory.next(),
   },
   {
+    path: 'streams.director.drawn',
+    move: (run) => void run.streams.director.next(),
+  },
+  {
+    path: 'streams.bossFire.drawn',
+    move: (run) => void run.streams.bossFire.next(),
+  },
+  { path: 'streams.pour.drawn', move: (run) => void run.streams.pour.next() },
+  {
     path: 'stage.sectionIndex',
     move: (run) => void (run.stage.sectionIndex += 1),
     restore: (run) => void (run.stage.sectionIndex -= 1),
@@ -576,6 +613,11 @@ const RUN_CASES: readonly FieldCase[] = [
     path: 'lines.layIn',
     move: (run) => void (run.lines.layIn -= 1),
     restore: (run) => void (run.lines.layIn += 1),
+  },
+  {
+    path: 'lines.volleyIn',
+    move: (run) => void (run.lines.volleyIn -= 1),
+    restore: (run) => void (run.lines.volleyIn += 1),
   },
   {
     path: 'offer.options[]',
@@ -666,6 +708,31 @@ const RUN_CASES: readonly FieldCase[] = [
     move: (run) => void (run.setPiece!.hp -= 1),
     restore: (run) => void (run.setPiece!.hp += 1),
   },
+  {
+    // Every field of DirectorState is readonly and the record is replaced
+    // wholesale, so each of these moves the whole record and puts the fixture's
+    // own back (director.ts).
+    path: 'director.signal.value',
+    move: (run) => void (run.director = movedSignal(run, { value: 0.5 })),
+    restore: (run) => void fillRun(run),
+  },
+  {
+    path: 'director.signal.heldUntilTick',
+    move: (run) =>
+      void (run.director = movedSignal(run, { heldUntilTick: 361 })),
+    restore: (run) => void fillRun(run),
+  },
+  {
+    path: 'director.purseLeft',
+    move: (run) => void (run.director = { ...run.director, purseLeft: 73 }),
+    restore: (run) => void fillRun(run),
+  },
+  {
+    path: 'director.quietUntilTick',
+    move: (run) =>
+      void (run.director = { ...run.director, quietUntilTick: 421 }),
+    restore: (run) => void fillRun(run),
+  },
 ];
 
 const FIELD_CASES: readonly FieldCase[] = [...ENTITY_CASES, ...RUN_CASES];
@@ -695,6 +762,7 @@ const FOLDED: readonly string[] = [
   'mobs[].fireIn',
   'mobs[].armed',
   'mobs[].carries',
+  'mobs[].from',
   'mobFire[].x',
   'mobFire[].y',
   'mobFire[].vx',
@@ -738,6 +806,9 @@ const FOLDED: readonly string[] = [
   'streams.mobFire.drawn',
   'streams.shed.drawn',
   'streams.territory.drawn',
+  'streams.director.drawn',
+  'streams.bossFire.drawn',
+  'streams.pour.drawn',
   'stage.sectionIndex',
   'stage.sectionTick',
   'stage.firedWaves',
@@ -748,6 +819,7 @@ const FOLDED: readonly string[] = [
   'lines.ring.ticks',
   'lines.ring.struck',
   'lines.layIn',
+  'lines.volleyIn',
   'offer.options[]',
   'offer.bodyIds[]',
   'bankedOffers',
@@ -764,6 +836,10 @@ const FOLDED: readonly string[] = [
   'setPiece.budget',
   'setPiece.pourIn',
   'setPiece.hp',
+  'director.signal.value',
+  'director.signal.heldUntilTick',
+  'director.purseLeft',
+  'director.quietUntilTick',
 ];
 
 /**
@@ -829,6 +905,12 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'streams.shed.nextInt': 'a draw function, not state.',
   'streams.territory.next': 'a draw function, not state. Its cursor is folded.',
   'streams.territory.nextInt': 'a draw function, not state.',
+  'streams.director.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.director.nextInt': 'a draw function, not state.',
+  'streams.bossFire.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.bossFire.nextInt': 'a draw function, not state.',
+  'streams.pour.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.pour.nextInt': 'a draw function, not state.',
 };
 
 /**
@@ -950,7 +1032,7 @@ describe('the fold order over the weapon lines', () => {
  */
 const RETIRED_HEADSTONES_CODE = 2;
 
-describe('the four non-numeric encodings', () => {
+describe('the five non-numeric encodings', () => {
   it('a boolean folds through an explicit 0 or 1', () => {
     expect(boolCode(false)).toBe(0);
     expect(boolCode(true)).toBe(1);
@@ -1009,12 +1091,27 @@ describe('the four non-numeric encodings', () => {
     expect(Object.keys(WEAPON_LINE_CODES)).not.toContain('soulStream');
   });
 
+  it('the mob origin code map is pinned by name and never by ordinal', () => {
+    // `directed` takes its code here rather than the day the director first
+    // spends, because a code arriving later would change what every tape
+    // recorded in between folded.
+    expect(MOB_ORIGIN_CODES).toEqual({
+      wave: 1,
+      standingWave: 2,
+      setPiece: 3,
+      boss: 4,
+      directed: 5,
+    });
+  });
+
   it('no code map member may take the reserved absent code', () => {
     const codes = [
       ...Object.values(RUN_ENDING_CODES),
       ...Object.values(CORPSE_TIER_CODES),
       ...Object.values(FOOD_KIND_CODES),
       ...Object.values(WEAPON_LINE_CODES),
+      ...Object.values(BOSS_KIND_CODES),
+      ...Object.values(MOB_ORIGIN_CODES),
     ];
     expect(codes.filter((code) => code === ABSENT_CODE)).toEqual([]);
   });
@@ -1126,6 +1223,33 @@ describe('Territory in the fold (#76)', () => {
   });
 });
 
+describe('the director in the fold (ADR 0019, ADR 0047)', () => {
+  it("folds the director's own state, so a replay rebuilds the director it played", () => {
+    // ADR 0019: a replay that could not rebuild the director would be a replay
+    // of a different run. Nothing spends yet, so what this pins is that the
+    // state is inside the fold from the commit that declares it rather than
+    // from the commit that first moves it.
+    const held = fixture();
+    const spent = fixture();
+    expect(foldWitness(held, 0)).toBe(foldWitness(spent, 0));
+
+    spent.director = {
+      ...spent.director,
+      purseLeft: held.director.purseLeft - 6,
+    };
+    expect(foldWitness(spent, 0)).not.toBe(foldWitness(held, 0));
+  });
+
+  it("folds the director's dice beside every other stream's", () => {
+    // ADR 0047: the director's own dice come from its own named seeded stream,
+    // and a cursor outside the fold is a run a tape cannot rebuild.
+    const drawn = fixture();
+    const untouched = fixture();
+    drawn.streams.director.next();
+    expect(foldWitness(drawn, 0)).not.toBe(foldWitness(untouched, 0));
+  });
+});
+
 describe("the harness's own stream stays outside the run (ADR 0019)", () => {
   it("holds exactly the run's own streams and folds exactly those", () => {
     // The harness's hand draws from a stream named `hand`, made in src/dev off
@@ -1135,7 +1259,10 @@ describe("the harness's own stream stays outside the run (ADR 0019)", () => {
     const held = Object.keys(createRun(0).streams).sort();
 
     expect(held).toEqual([
+      'bossFire',
+      'director',
       'mobFire',
+      'pour',
       'powerUps',
       'shed',
       'spawns',
@@ -1147,10 +1274,13 @@ describe("the harness's own stream stays outside the run (ADR 0019)", () => {
     );
   });
 
-  it('leaves the witness version at six, which the harness must not move', () => {
-    // Hand-forward (f) pins it: the version moved to 6 for Territory and must
-    // not move again, so the whole harness is built outside RunState. This is
-    // what says it did not, on a branch that added a stream to the project.
-    expect(WITNESS_VERSION).toBe(6);
+  it('leaves the witness version where the sim put it, which the harness must not move', () => {
+    // Hand-forward (f) pins it: the whole harness is built outside RunState, so
+    // no version move is ever the hand's. This is what says it was not, on a
+    // branch that added a stream to the project. The sim moved it to 7 for the
+    // director's own stream and the rest of the fold this step widened, and the
+    // three names above are the run's rather than the hand's.
+    expect(WITNESS_VERSION).toBe(7);
+    expect(Object.keys(createRun(0).streams)).not.toContain(HAND_STREAM);
   });
 });

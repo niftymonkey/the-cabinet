@@ -34,6 +34,7 @@ const arrive = (run: RunState, type: MobType): Mob => {
     type,
     { x: 100, y: 0, vx: 0, vy: 1, index: 0 },
     false,
+    'wave',
   );
   if (mob === null) throw new Error(`the mob pool refused a ${type}`);
   return mob;

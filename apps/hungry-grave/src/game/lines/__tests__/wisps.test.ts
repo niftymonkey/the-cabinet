@@ -49,7 +49,13 @@ function quietRun(seed = 8): RunState {
 }
 
 function put(state: RunState, type: MobType, x: number, y: number): Mob {
-  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
+  const mob = spawnMob(
+    state,
+    type,
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
   mob.beat = 0;
   return mob;
 }
@@ -375,14 +381,7 @@ describe('re-targeting (plan 6.5)', () => {
 });
 
 describe('the volley interval floors the cadence (ADR 0058 as amended)', () => {
-  // The interval's magnitude lands here and the clock that floors it lands in
-  // slice E, with the fold commit that declares every new folded field: every
-  // field of LineState is folded (witness.ts's foldLines), so a volley clock
-  // is a folded field and a folded field moves WITNESS_VERSION, which moves
-  // exactly once in this step. These two are it.fails tripwires until then,
-  // which is this tree's own idiom for a promise the build does not yet keep.
-  // The trigger that flips them to ordinary assertions is slice E's clock.
-  it.fails('two swallows inside the volley interval fire one volley', () => {
+  it('two swallows inside the volley interval fire one volley', () => {
     // ADR 0058 as amended: the fewest ticks between two volleys, whatever the
     // swallow rate. Under the mow a swallow is continuous, and without the
     // floor the homing line does the mowing and the player does not.
@@ -395,7 +394,7 @@ describe('the volley interval floors the cadence (ADR 0058 as amended)', () => {
     expect(liveWisps(state)).toHaveLength(soulsAt(1));
   });
 
-  it.fails('a volley skipped by the interval is not banked for later', () => {
+  it('a volley skipped by the interval is not banked for later', () => {
     // The deliberate-absence half: a banked volley would pay a stale corpse's
     // freshness on a fresh corpse's tick, so a swallow inside the interval
     // pays nothing at all rather than paying late.
@@ -411,6 +410,74 @@ describe('the volley interval floors the cadence (ADR 0058 as amended)', () => {
     }
 
     expect(launched.size).toBe(soulsAt(1));
+  });
+
+  it("fires on a run's very first swallow, because the clock starts at zero", () => {
+    // The other three line clocks start at their own period because they are
+    // always-on timers. The wisps fire on a swallow, so a run whose clock
+    // started at the interval would eat its first swallow in silence.
+    const state = quietRun();
+    expect(state.lines.volleyIn).toBe(0);
+    put(state, 'shambler', 200, 300);
+    expect(volley(state, 1)).toHaveLength(soulsAt(1));
+    expect(state.lines.volleyIn).toBe(WISP_VOLLEY_INTERVAL_TICKS);
+  });
+
+  it('fires again on the interval tick and not on the one before it', () => {
+    const early = quietRun();
+    put(early, 'shambler', 200, 300);
+    volley(early, 1);
+    for (let tick = 0; tick < WISP_VOLLEY_INTERVAL_TICKS - 1; tick++) {
+      advanceWisps(early);
+    }
+    launchWisps(early, [], 1);
+    expect(early.lines.volleyIn).toBe(1);
+
+    const due = quietRun();
+    put(due, 'shambler', 200, 300);
+    volley(due, 1);
+    for (let tick = 0; tick < WISP_VOLLEY_INTERVAL_TICKS; tick++) {
+      advanceWisps(due);
+    }
+    launchWisps(due, [], 1);
+    expect(due.lines.volleyIn).toBe(WISP_VOLLEY_INTERVAL_TICKS);
+  });
+
+  it('answers a burst of swallows on one tick with one volley', () => {
+    // A held grave sweeping a mown field swallows a pile of corpses on a single
+    // tick, which is the condition that stood the wisp pool at its cap
+    // (docs/push/step-4-progress.md sections 15 and 16).
+    const state = quietRun();
+    put(state, 'shambler', 200, 300);
+    state.levels.wisps = MAX_LEVEL;
+    for (let swallowed = 0; swallowed < 8; swallowed++) {
+      launchWisps(state, [], 1);
+    }
+    expect(liveWisps(state)).toHaveLength(soulsAt(MAX_LEVEL));
+  });
+
+  it('keeps counting down while the pool is empty', () => {
+    // The clock runs in advanceWisps and never in the pool walk, so a volley
+    // that expired leaves the interval running: a clock that only ran while
+    // something was flying would let the next swallow fire early exactly when
+    // the field is thickest.
+    const state = quietRun();
+    put(state, 'shambler', 200, 300);
+    volley(state, 1);
+    for (const wisp of state.wisps) wisp.alive = false;
+    advanceWisps(state);
+    expect(liveWisps(state)).toHaveLength(0);
+    expect(state.lines.volleyIn).toBe(WISP_VOLLEY_INTERVAL_TICKS - 1);
+  });
+
+  it('arms no floor at a level the run does not own', () => {
+    // A swallow at level zero fires nothing, so it starts no interval: the
+    // first swallow after the run buys the line has to pay.
+    const state = quietRun();
+    put(state, 'shambler', 200, 300);
+    launchWisps(state, [], 1);
+    expect(state.lines.volleyIn).toBe(0);
+    expect(volley(state, 1)).toHaveLength(soulsAt(1));
   });
 });
 

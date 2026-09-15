@@ -287,9 +287,13 @@ const spawnWave = (
 ): void => {
   const carrying = waveCarriers(wave.carries, wave.count);
   const orders = place(wave.formation, wave.count, state.streams.spawns);
+  // Where the body came from is read off the wave rather than passed in,
+  // because a standing wave is a wave carrying repeat fields (ADR 0060) and
+  // both of this function's callers fire through the same placement.
+  const from = wave.repeat === null ? 'wave' : 'standingWave';
   orders.forEach((order, position) => {
     const carries = carriesAt(carrying, position);
-    if (spawnMob(state, wave.type, order, carries) !== null) return;
+    if (spawnMob(state, wave.type, order, carries, from) !== null) return;
     if (!carries) return;
     state.refusals.carriers += 1;
     events.push({

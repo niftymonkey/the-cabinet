@@ -54,7 +54,13 @@ function putMob(
   y: number,
   type: MobType = 'shambler',
 ): Mob {
-  const mob = spawnMob(run, type, { x, y, vx: 0, vy: 0, index: 0 }, false)!;
+  const mob = spawnMob(
+    run,
+    type,
+    { x, y, vx: 0, vy: 0, index: 0 },
+    false,
+    'wave',
+  )!;
   mob.beat = 0;
   return mob;
 }

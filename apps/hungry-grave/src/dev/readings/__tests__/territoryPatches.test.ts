@@ -44,6 +44,7 @@ function putMob(state: RunState, x: number, y: number): Mob {
     'shambler',
     { x, y, vx: 0, vy: 0, index: 0 },
     false,
+    'wave',
   )!;
   mob.beat = 0;
   return mob;

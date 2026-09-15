@@ -125,7 +125,13 @@ describe('the sim invariants', () => {
 
 /** A live mob a test can then break, at a place the grave is nowhere near. */
 function liveMob(state: RunState, x = 60, y = 100): Mob {
-  return spawnMob(state, 'shambler', { x, y, vx: 0, vy: 1, index: 0 }, false)!;
+  return spawnMob(
+    state,
+    'shambler',
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
 }
 
 describe('every check for the tick runs (ADR 0024)', () => {
@@ -1089,6 +1095,27 @@ const NAN_CASES: readonly NanCase[] = [
     }),
   },
   {
+    path: 'streams.director.drawn',
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, director: poisonedStream() },
+    }),
+  },
+  {
+    path: 'streams.bossFire.drawn',
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, bossFire: poisonedStream() },
+    }),
+  },
+  {
+    path: 'streams.pour.drawn',
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, pour: poisonedStream() },
+    }),
+  },
+  {
     path: 'lines.streamIn',
     poison: (run) => {
       run.lines.streamIn = NaN;
@@ -1169,6 +1196,47 @@ const NAN_CASES: readonly NanCase[] = [
     path: 'lines.layIn',
     poison: (run) => {
       run.lines.layIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'lines.volleyIn',
+    poison: (run) => {
+      run.lines.volleyIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'director.signal.value',
+    poison: (run) => {
+      run.director = {
+        ...run.director,
+        signal: { ...run.director.signal, value: NaN },
+      };
+      return run;
+    },
+  },
+  {
+    path: 'director.signal.heldUntilTick',
+    poison: (run) => {
+      run.director = {
+        ...run.director,
+        signal: { ...run.director.signal, heldUntilTick: NaN },
+      };
+      return run;
+    },
+  },
+  {
+    path: 'director.purseLeft',
+    poison: (run) => {
+      run.director = { ...run.director, purseLeft: NaN };
+      return run;
+    },
+  },
+  {
+    path: 'director.quietUntilTick',
+    poison: (run) => {
+      run.director = { ...run.director, quietUntilTick: NaN };
       return run;
     },
   },

@@ -38,6 +38,22 @@ type DamageSource = WeaponLine | 'belch';
 // How a type moves once its arriving beat has passed.
 type MobMotion = 'falls' | 'chases';
 
+/**
+ * What put a body on the field, in the words the stage's own glossary uses.
+ *
+ * It is not a wave index. An index is section-local and goes stale the moment a
+ * body outlives the section it arrived in, and two of the four spawners are not
+ * waves at all. What a reading needs of it is the distinction a wave index
+ * could not carry anyway: a standing wave's body is the section's authored
+ * floor, and a shaped wave's is a beat on top of it (ADR 0060).
+ *
+ * `directed` has no producer until the director spends, which is the plan's
+ * step 12, slice F. It is declared here because this is the commit that widens
+ * the fold, and a member arriving later would be a folded value the fold's own
+ * version never declared.
+ */
+type MobOrigin = 'wave' | 'standingWave' | 'setPiece' | 'boss' | 'directed';
+
 interface MobRow {
   readonly halfWidth: number;
   readonly halfHeight: number;
@@ -204,6 +220,12 @@ interface Mob {
    * arriving beat stands in for at contact.
    */
   appearedInside: boolean;
+  /**
+   * What put this body on the field. Written once at the spawn and never
+   * mutated afterwards, exactly as carries is, because where a body came from
+   * cannot change once it is standing there.
+   */
+  from: MobOrigin;
 }
 
 const blankMob = (): Mob => {
@@ -221,6 +243,7 @@ const blankMob = (): Mob => {
     armed: false,
     carries: false,
     appearedInside: false,
+    from: 'wave',
   };
 };
 
@@ -270,6 +293,7 @@ const spawnMob = (
   type: MobType,
   order: SpawnOrder,
   carries: boolean,
+  from: MobOrigin,
 ): Mob | null => {
   const mob = takeSlot(state.mobs, state.nextEntityId);
   if (mob === null) return null;
@@ -286,6 +310,7 @@ const spawnMob = (
   mob.appearedInside = hasEntered(mob);
   mob.armed = isArmed(row.fire.armedShare, order.index);
   mob.carries = carries;
+  mob.from = from;
   mob.fireIn = mob.armed ? ARRIVE_TICKS + firstShotOffset(state, row.fire) : 0;
   return mob;
 };
@@ -483,4 +508,12 @@ export {
   SPAWN_MARGIN,
   GHOUL_DESCENT_FLOOR,
 };
-export type { MobType, CorpseTier, DamageSource, MobMotion, MobRow, Mob };
+export type {
+  MobType,
+  CorpseTier,
+  DamageSource,
+  MobMotion,
+  MobOrigin,
+  MobRow,
+  Mob,
+};

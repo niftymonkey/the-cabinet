@@ -163,8 +163,10 @@ const POUR_REACH = POUR_LIP_X + POUR_JITTER_X;
  *
  * The lips alternate so two bodies in a wave never stand on each other, and the
  * draw inside a lip is what keeps the pour a spray rather than a metronome. It
- * is the one place chance enters the moment and it comes from the spawns
- * stream, because a pour is a spawn (ADR 0006).
+ * is the one place chance enters the moment and it comes from the pour's own
+ * named stream (#108): the jitter used to draw from the spawns stream on the
+ * grounds that a pour is a spawn, and sharing a stream means retuning this
+ * spray moves every authored placement downstream of it on a fixed seed.
  *
  * A body the mob cap refuses is density the player never meets, which is the
  * answer the authored waves already give a refused non-carrier: a poured body
@@ -174,7 +176,7 @@ const pourBody = (state: RunState, piece: SetPiece): SimEvent[] => {
   const poured = SET_PIECE_BUDGET - piece.budget;
   const side = poured % 2 === 0 ? 1 : -1;
   const off =
-    POUR_LIP_X + (state.streams.spawns.next() - 0.5) * 2 * POUR_JITTER_X;
+    POUR_LIP_X + (state.streams.pour.next() - 0.5) * 2 * POUR_JITTER_X;
   const centre = clamp(
     piece.x,
     SET_PIECE_SWEEP_MIN_X + POUR_REACH,
@@ -186,6 +188,7 @@ const pourBody = (state: RunState, piece: SetPiece): SimEvent[] => {
     POUR_TYPE,
     { x, y: piece.y, vx: FALLING.x, vy: FALLING.y, index: poured },
     false,
+    'setPiece',
   );
   return [{ type: 'setPiecePoured', x, y: piece.y, left: piece.budget }];
 };

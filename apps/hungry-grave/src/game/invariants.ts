@@ -139,6 +139,7 @@ const checkLinesNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'lines.ring.ticks', lines.ring?.ticks ?? 0);
   checkFinite(faults, 'lines.ring.level', lines.ring?.level ?? 0);
   checkFinite(faults, 'lines.layIn', lines.layIn);
+  checkFinite(faults, 'lines.volleyIn', lines.volleyIn);
 };
 
 const checkPatchesNoNaN = (state: RunState, faults: Fault[]): void => {
@@ -180,6 +181,19 @@ const checkSetPieceNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'setPiece.hp', piece?.hp ?? 0);
 };
 
+// The director's own numbers, its signal's two included.
+const checkDirectorNoNaN = (state: RunState, faults: Fault[]): void => {
+  const director = state.director;
+  checkFinite(faults, 'director.signal.value', director.signal.value);
+  checkFinite(
+    faults,
+    'director.signal.heldUntilTick',
+    director.signal.heldUntilTick,
+  );
+  checkFinite(faults, 'director.purseLeft', director.purseLeft);
+  checkFinite(faults, 'director.quietUntilTick', director.quietUntilTick);
+};
+
 // The stage cursor's three counters.
 const checkStageNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'stage.sectionIndex', state.stage.sectionIndex);
@@ -201,13 +215,16 @@ const checkLevelsNoNaN = (state: RunState, faults: Fault[]): void => {
   }
 };
 
-// The four stream cursors, each a getter over a closure counter (rng.ts).
+// Every stream cursor a run holds, each a getter over a closure counter (rng.ts).
 const checkStreamsNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'streams.spawns.drawn', state.streams.spawns.drawn);
   checkFinite(faults, 'streams.powerUps.drawn', state.streams.powerUps.drawn);
   checkFinite(faults, 'streams.mobFire.drawn', state.streams.mobFire.drawn);
   checkFinite(faults, 'streams.shed.drawn', state.streams.shed.drawn);
   checkFinite(faults, 'streams.territory.drawn', state.streams.territory.drawn);
+  checkFinite(faults, 'streams.director.drawn', state.streams.director.drawn);
+  checkFinite(faults, 'streams.bossFire.drawn', state.streams.bossFire.drawn);
+  checkFinite(faults, 'streams.pour.drawn', state.streams.pour.drawn);
 };
 
 /**
@@ -227,6 +244,7 @@ const checkNoNaN = (state: RunState, faults: Fault[]): void => {
   checkLinesNoNaN(state, faults);
   checkBossNoNaN(state, faults);
   checkSetPieceNoNaN(state, faults);
+  checkDirectorNoNaN(state, faults);
   checkStageNoNaN(state, faults);
   checkLevelsNoNaN(state, faults);
   checkStreamsNoNaN(state, faults);

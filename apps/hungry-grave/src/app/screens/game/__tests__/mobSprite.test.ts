@@ -30,6 +30,7 @@ function put(carries: boolean) {
     'shambler',
     { x: 60, y: 40, vx: 0, vy: 1, index: 0 },
     carries,
+    'wave',
   )!;
 }
 
@@ -83,6 +84,7 @@ describe('the carrier tint (ADR 0002)', () => {
         type,
         { x: 60, y: 40, vx: 0, vy: 1, index: 0 },
         true,
+        'wave',
       )!;
       const sprite = new Graphics();
       drawMob(sprite, mob);

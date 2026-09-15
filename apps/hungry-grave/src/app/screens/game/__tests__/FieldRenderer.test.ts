@@ -46,7 +46,13 @@ function attached(): { layers: FieldLayers; renderer: FieldRenderer } {
 }
 
 function put(state: RunState, type: MobType, x: number, y: number) {
-  return spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 }, false)!;
+  return spawnMob(
+    state,
+    type,
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
 }
 
 function sprites(layers: FieldLayers, name: 'corpses' | 'mobBodies') {
@@ -233,6 +239,7 @@ describe('FieldRenderer', () => {
         index: 0,
       },
       false,
+      'wave',
     )!;
     plain.armed = false;
     const armed = spawnMob(
@@ -246,6 +253,7 @@ describe('FieldRenderer', () => {
         index: 2,
       },
       false,
+      'wave',
     )!;
     expect(plain.armed).toBe(false);
     expect(armed.armed).toBe(true);
@@ -269,6 +277,7 @@ describe('FieldRenderer', () => {
         index: 0,
       },
       false,
+      'wave',
     )!;
     revenant.fireIn = ARRIVE_TICKS + 1;
     renderer.sync(state);
@@ -472,6 +481,7 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
           index: 0,
         },
         false,
+        'wave',
       )!;
       // Past its own tell, so an armed mob here wears the mark and not the iris.
       mob.fireIn = MOB_TYPES[type].fire.tellTicks + 1;

@@ -180,6 +180,31 @@ describe('the playback', () => {
     expect(result.readerWitnessVersion).toBe(WITNESS_VERSION);
   });
 
+  it('refuses a tape recorded at witness version six, which this step moved off', () => {
+    // The cost of the move, stated as a test rather than discovered on a tape.
+    // Version 6 is the fold every tape before this commit was recorded under,
+    // and the widening it lost is three stream cursors, the director's own
+    // state, a body's provenance and the wisps' volley clock. A tape carrying
+    // it is refused by its version rather than diverging at a checkpoint, which
+    // is ADR 0019's refusal rule doing its job.
+    const superseded = 6;
+    expect(WITNESS_VERSION).toBeGreaterThan(superseded);
+
+    const tape = recordARun();
+    const playback = createPlayback({
+      ...tape,
+      header: { ...tape.header, witnessVersion: superseded },
+    });
+
+    expect(playback.advanceTick()).toBe(false);
+    const result = playback.result();
+    expect(result.outcome).toBe('witnessVersionMismatch');
+    expect(result.firstDivergentCheckpoint).toBeNull();
+    expect(result.ticksReproduced).toBe(0);
+    expect(result.tapeWitnessVersion).toBe(superseded);
+    expect(result.readerWitnessVersion).toBe(WITNESS_VERSION);
+  });
+
   it('reaches the same verdict stepwise as when driven in one call', () => {
     // The replay screen paces reproduction across frames (#58), and pacing
     // must change nothing: both forms are one loop, so the verdicts match to

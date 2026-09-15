@@ -170,13 +170,19 @@ const NEVER_FEEDS: number[] = [];
  * smaller mouth passes under fewer of the power-ups a carrier drops. Measured
  * at this tip, none of the four crosses a carrier inside the budget.
  *
+ * 303 left it when the Banshee's ring jitter took its own seeded stream (#108):
+ * her rings open on different bearings at the same seed, the run gets past her
+ * where it used to stop in front of her, and the lane it then dodges through
+ * the Crowd crosses a carrier. The set is measured and never authored, so a
+ * seed leaving it is the same kind of fact as a seed joining it.
+ *
  * This is a reading of `dodgePolicy` rather than of the game. The bot only
  * dodges, so it never levels a line and never clears a mow.
  *
  * Kept as an equality in both places that read it, so the day a seed is not
  * paid this file goes red and says which.
  */
-const NEVER_PAID: number[] = [202, 303, 404, 505];
+const NEVER_PAID: number[] = [202, 404, 505];
 
 /**
  * The seeds whose fresh grave reaches victory on this policy, and there are
@@ -312,11 +318,19 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
  * smaller target, takes fewer rings for it, and lives long enough for the
  * birthright stream to finish her.
  *
+ * 303 joined it when the Banshee's ring jitter took its own seeded stream
+ * (#108). Her nudge used to be drawn from the trash's mobFire stream and is
+ * drawn from the boss's own now, so it is a different sequence at the same
+ * seed: her rings open on different bearings, and on 303 a ceiling grave
+ * survives the fight the old bearings ended. Nothing about the fight's own
+ * rules moved, and the tape that could have disagreed is refused by the witness
+ * version that moved in the same commit.
+ *
  * It is still a statement about the fight rather than about a build: none of
  * the five wins from the ceiling, and the set names which ones her fight no
  * longer holds so the day another seed passes her this file says which.
  */
-const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [202, 505];
+const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [202, 303, 505];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
@@ -1098,7 +1112,7 @@ function wallRun(seed: number, loaded: boolean): RunState {
     WALL_WAVE.count,
     state.streams.spawns,
   )) {
-    spawnMob(state, WALL_WAVE.type, order, false);
+    spawnMob(state, WALL_WAVE.type, order, false, 'wave');
   }
   return state;
 }

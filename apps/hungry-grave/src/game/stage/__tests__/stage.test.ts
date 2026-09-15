@@ -1201,7 +1201,7 @@ describe('the per-section end condition (ADR 0050, ADR 0051)', () => {
       place('drip', 1, state.streams.spawns)[0],
       'no spawn order',
     );
-    spawnMob(state, 'shambler', order, false);
+    spawnMob(state, 'shambler', order, false, 'wave');
     expect(sectionEnded(state, procession)).toBe(false);
   });
 
@@ -1264,6 +1264,7 @@ describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {
         'shambler',
         { x: 60, y: 40, vx: 0, vy: 1, index: 0 },
         false,
+        'wave',
       ) !== null
     ) {
       // The loop condition is the fill: every slot taken, so the wave's own
@@ -1295,6 +1296,7 @@ describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {
         'shambler',
         { x: 60, y: 40, vx: 0, vy: 1, index: 0 },
         false,
+        'wave',
       ) !== null
     ) {
       // The fill again.
@@ -1375,6 +1377,45 @@ describe('the stage standing a rate (ADR 0060)', () => {
       ).toBe(`${wave.formation} at t=${wave.t}: true`);
     }
   });
+
+  it('a body says which kind of wave put it on the field', () => {
+    // The mark is read off the wave itself, and this is the rig's independent
+    // answer to the same question. It is one-sided on purpose: a section-local
+    // tick no one-shot wave is due at can only be the floor standing, so every
+    // body arriving there is a standing wave's, while a shaped beat's own tick
+    // can carry both at once, because the rate lands underneath the beats
+    // rather than instead of them. Spec test 43 (slice F's) is what needs the
+    // two told apart, and a wave index could not have done it, because a body
+    // outlives the section it arrived in.
+    const state = createRun(77);
+    const step = stepping(state);
+    const known = new Set<number>();
+    const marks: string[] = [];
+    let shapedTicks = 0;
+    while (state.stage.sectionIndex === 0 && state.tick < 8000) {
+      const shapedDue = shapedTicksIn(
+        sectionAtIndex(state.stage.sectionIndex).waves,
+      ).has(state.stage.sectionTick);
+      step(STILL);
+      if (state.ending === 'sealed') state.ending = null;
+      state.grave.size = SIZE_START;
+      for (const mob of state.mobs) {
+        if (!mob.alive || known.has(mob.id)) continue;
+        known.add(mob.id);
+        marks.push(mob.from);
+        if (shapedDue) {
+          shapedTicks += 1;
+          continue;
+        }
+        expect(`id ${mob.id}: ${mob.from}`).toBe(`id ${mob.id}: standingWave`);
+      }
+    }
+    // And both kinds really arrived, so the walk above is not green over one of
+    // them alone.
+    expect(marks).toContain('wave');
+    expect(marks).toContain('standingWave');
+    expect(shapedTicks).toBeGreaterThan(0);
+  }, 30000);
 
   it('keeps no cursor for a standing wave, so a replay rebuilds the rate from the section clock', () => {
     // The tech architecture gate's finding made mechanical. The stage's whole
