@@ -12,7 +12,7 @@ The record is `apps/hungry-grave/docs/design/round-two-wall-belch.md` and the pr
 | R-fix, three tech gate findings | `eddb32c4cb` | refactor(hungry-grave): the ceiling refuses a figure it cannot honour and the codec stops reaching for the director (#126) |
 | H, the witness fold | `2e90597cad` | feat(hungry-grave): a body carries the shove that landed on it and the witness folds it (#126) |
 | H, the shove | `ed369353e2` | feat(hungry-grave): a toll starts a shove the body travels under, and the bell is its only caller (#126) |
-| I, the shove is measurable | | |
+| I, the shove is measurable | `157946940c` | feat(hungry-grave): a shove says which push threw it and the batch reads the two apart (#126) |
 | J, the belch becomes a pushback | | |
 | K, the meter fills and changes corner | | |
 | L, the Wall is a wall | | |
@@ -26,8 +26,8 @@ Where each constant stood when round two opened, where it is permitted to go, an
 | Constant | At slice G's tip | Permitted move | Owner | Landed |
 | --- | --- | --- | --- | --- |
 | `WITNESS_VERSION` (`src/game/witness.ts`) | 7 | 7 to 8, exactly once | Slice H, in its own commit | **8**, in `2e90597cad` and nowhere else |
-| `READINGS_VERSION` (`src/dev/readingsVersion.ts`) | 4 | 4 to 5, exactly once | Slice I | 4 after slice H, stated and unmoved |
-| `FORMAT_VERSION` (`src/tape/wireCodes.ts`) | 4 | none | nobody | 4 after slice H, stated and unmoved |
+| `READINGS_VERSION` (`src/dev/readingsVersion.ts`) | 4 | 4 to 5, exactly once | Slice I | **5**, in `157946940c` and nowhere else |
+| `FORMAT_VERSION` (`src/tape/wireCodes.ts`) | 4 | none | nobody | 4 after slice I, stated and unmoved |
 | `GOLDEN` (`src/dev/digest.ts`), checksum `-489751710` | pinned | two re-pins | Slice H and slice J | re-pinned once in `2e90597cad`, checksum `-145039082` |
 
 **Round two's `GOLDEN` budget is two and it is its own.** Step 4's five slots were spent in slices A, C, E and F with one forfeit, and its spare is not this round's to take. **Slices R-fix, I, K and L are permitted none.**
@@ -49,6 +49,8 @@ One entry per code commit: files reviewed, findings by severity, applied and dec
 **Slice H's fold commit, `2e90597cad`.** All eleven files reviewed, **two findings, both minor and both the same defect**, and it was real: a body killed or culled while a shove was still carrying it stopped carrying it without ever reporting what it had already been pushed, so the repel reading quietly lost that distance. The one-tick push could not have had this bug, because it reported before anything could kill the body. **Applied**: `reportShoveTravel` is now called on `damageMob`'s kill path and in `cullMobs` as well as when the impulse is spent, with two new tests pinning both halves, *reports what a body was already carried when it is killed in flight* and *reports nothing for a body killed on the tick the shove landed on it*. Nothing was declined.
 
 **Slice H's bell commit, `ed369353e2`.** All eight files reviewed, **two findings, one minor and one major**. The minor one was real and applied: the clamped-shove test in `bell.test.ts` left its revenant on its own 64 health, which survives a level-five toll at that distance today but only by arithmetic nobody restated in the test, so it now carries `OUTLIVES_ANY_TOLL` like every other push fixture in the file. **The major one is declined, because its premise is what an uncommitted review can see**: it says `advanceMobs` does not advance shoves and asks for the advance to be added, and `advanceMobs` has advanced them since `2e90597cad`, which is not in an `--uncommitted` diff. **Its second half was real and is now written down**: a shove the bell starts inside `advanceLines` first carries the body on the tick after, because the lines run after the mobs in a tick (`step.ts`). That is the rule a shot already keeps, being left at its emitter for one tick, and it now sits in `pushTarget`'s own JSDoc. The test helper was flipped to the tick's own order in the same pass, so `tollAndTravelFor` advances the mobs before the bell rather than modelling an order the sim does not have.
+
+**Slice I, `157946940c`.** All twenty-one staged files reviewed, **one finding, major, declined**. It asks for `mobs[].impulse.source` to be folded rather than excluded and for `WITNESS_VERSION` to bump with it, which the slice's own fourth ruling and the design record's section 5 both forbid: the witness moves exactly once in round two and that move was slice H's. The reasoning behind the exclusion, and slice G's worked precedent for declining a reviewer's version move, are in section 9.
 
 ## 5. Record and prompt claims found false against the tree
 
@@ -197,6 +199,113 @@ Eighteen files against 20 to 45, and it was looked for rather than accepted. The
 **Seen and left, for nobody in particular.** The checkpoint grid and the toll period being commensurate, above, means a tape's own checkpoints can never observe a bell shove mid-flight. Nothing is wrong today, because a divergence inside a shove shows at the next checkpoint through the position it produced, but it is a blind spot in the tape's own verification and it would be cheap to close by making the two incommensurate. It is written here rather than filed, because moving either number is a tuning decision and the tuning step is next.
 
 ## 9. Slice I: the shove is measurable, and three readings the batch could not answer (#126)
+
+One code commit, `157946940c`, twenty-one files, 698 insertions and 64 deletions, against the prompt's expected 10 to 25 files.
+
+**What the instrument reads now.** A batch says what each push did and which push did it. `mobShoved` carries the push that threw it, the repel reading's toll arm counts the bell's shoves exactly as it did and a new belch arm counts the belch's beside it, and a belch shove arriving with no toll window open is no longer a bug. `READINGS_VERSION` reads 5. Beside that the report gained three readings the 48-seed batch asked for and could not get: the three cap refusal counters per run, the tick every directed add landed on, and a measure test that no longer reddens because two reads of the working tree disagreed.
+
+**What a player meets: nothing.** No rule the simulation runs changed. The one field the sim gained is read by nothing but an event a reading counts off a tape, `FieldRenderer` and every screen were untouched, and the golden digest is unmoved.
+
+### The discriminator, and what it was set against
+
+**`MobShoved` gains `source`, one of `'bell'` and `'belch'`, and the field rides on the impulse because nothing else can carry it.** The one report a shove makes is taken when the impulse is spent, up to seven ticks after the push that threw it has finished and, with slice J's three waves, up to twenty-seven. Nothing at the report can name the pusher unless the body carried the name, so `Impulse` gains `source`, `startShove` takes it, `shoveStormTarget` passes it through and `bell.ts` fills it with `'bell'`. `ShoveSource` is declared in `shove.ts`, which is the module that owns the concept, and it is narrower than `DamageSource` on purpose: a weapon line that never shoves can never be a shove's source.
+
+**What it was set against, and the tree really does show a cheaper shape, which is why it is written down rather than left implicit.** At the moment the event fires, `spacing` reads 10 for a belch and 0 for a bell, because `clearImpulse` runs only when the travel is taken, so the source could have been inferred from the wave structure with no new field at all. **It was rejected and the reason is the one the reading's own guards state**: `comparisonDeclared.test.ts` exists because a reading may not inherit a meaning from the shape its value happens to have, and this would be exactly that, one design-record table row away from being wrong. **A separate event type was the other candidate and it fails on the same fact as the field**: a belch cannot emit its own event at fire time, because the realized travel is not known for ticks afterwards, so a second type would still need the source on the impulse to know which type to emit.
+
+**The field is excluded from the fold, not folded, and `WITNESS_VERSION` holds at 8.** It is `mobFire[].kind`'s precedent exactly: written once when the shove starts, never mutated, and no rule reads it, so it answers who pushed rather than where the body goes. A divergence in it also shows through the impulse's seven folded fields, because the bell starts one shove with no spacing and the belch three ten ticks apart (design record R3). The entry is in `witness.test.ts`'s `EXCLUDED` with that reasoning, and slice G's lock is the worked precedent for a new state field that owes no version move. It also joins `invariants.test.ts`'s own `EXCLUDED` on `ending`'s terms, because it is one of two words and never a number.
+
+**A body a second push catches mid-flight reports its whole travel under the second push**, and that follows from slice H's ruling of one report per impulse rather than one per push. Splitting the travel would mean splitting the report. It is in `startShove`'s JSDoc beside the accounting rule it rides on.
+
+### The reading, split by source, and the toll arm proved unchanged
+
+**The toll arm keeps its exact name, its exact shape and its exact reduction.** `tolls`, `totalShoves` and `totalDistance` are untouched and now count bell shoves only. The throw is kept for a bell shove arriving with no toll window open, which is still impossible, and its comment says that is the case it is for.
+
+**The belch arm is flat and never per belch**, two figures, `belchShoves` and `belchDistance`. What a batch asks of it is how much pushback the belch bought, and when each belch fired is already `tuning.belchCadence`'s answer; a window per belch would be structure built for a reader nobody has written down, which is the cited-future rule refusing it. Both fields name slice J in their comment.
+
+**The toll arm is proved unchanged twice, once in a test and once on real tapes.** The test is *reads the toll arm exactly as it read before the split*, asserting the figures this file's own windowing tests asserted at slice H's tip. The tapes are in "the measurements" below and they agree with slice H's table to the digit.
+
+**The belch arm is proved both ways.** *holds a belch's shoves without throwing* plants two belch shoves with no toll ever fired and reads 2 shoves and 7 units where slice H's build would have thrown; *attributes a shove to the belch rather than to the toll a window is open for* plants a belch shove inside a live toll's window and the toll arm still reads only its own. And *reads the belch arm as empty on every tape this build can produce* plays a real 2000-tick run at every line's top rung, fills the toll arm and leaves the belch arm at nothing. It is played rather than reasoned about, and it is the test slice J turns red.
+
+### The version 5 note, and the incomparability stated plainly
+
+**`READINGS_VERSION` moves 4 to 5 in `157946940c` and nowhere else**, with a dated paragraph in the shape the version 3 and version 4 paragraphs use. It says what changed meaning: `tuning.repel` used to mean every shove on the run, because the bell was the only thing that could throw one, and it now means the bell's shoves alone. It says the cost in the record's own words, that **every step 4 batch is incomparable with every post-belch batch by name**, because subtracting one build's `totalShoves` from the other's would be arithmetic across a definition that changed underneath it the moment a second pusher existed. That is exactly the case version 3 exists to make loud, and it is taken eyes open on ruling R9. **And it says which of this commit's readings are not what moved it**: the three refusal counters and the belch arm itself go in beside unchanged keys, and the batch report's `directedAdds` field is not a reading at all. The repel split is the whole of the move.
+
+**`WITNESS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN` `-145039082` all hold**, each read out of the tree at the committed tip rather than assumed. No folded field was declared, nothing new was recorded in a header, nothing under `src/dev` is folded, and the golden scenario's six hundred ticks run exactly as they ran at slice H's tip. **Round two's second `GOLDEN` re-pin is still slice J's.**
+
+### The three refusal counters, and which door they came through
+
+**They came through the readings graph as a reading over the run's own state, not over events**, a new `src/dev/readings/refusals.ts` joining the graph in all four places `readings.ts` declares it, reporting `tuning.refusals.food`, `.carriers` and `.offers`. Three `spreadReading` entries in `BATCH_READINGS` and three `scalarReading` entries in `READING_COMPARISONS`, so both declaration guards hold them.
+
+**What it was set against is a field on `Metrics` outside the graph, beside `run.kills`.** The graph won on two facts. `groundHeld` and `fieldPerLine` already take `RunState` and nothing else, so a reading over state is the graph's ordinary shape rather than an exception carved for this one. And the graph's own listener fires at the end of a tick, after the invariant harness has read the ledger and before the next tick clears it (`execution.ts`, `step.ts`), so the reading reads the same three numbers `checkRefusals` reads, at the same moment, with no second copy of when a refusal counts. That read point is pinned by its own test, *counts a refusal against the tick it happened on and never the one after*.
+
+**The counters owe no witness move and slice E already ruled why**: they sit in `witness.test.ts`'s `EXCLUDED` as the harness's input rather than the run's state, and reading them into a report does not fold them.
+
+**A non-zero counter is a fault and a finding and never a cap to raise**, which is written into the module's own JSDoc and into the table entry. The batch test asserts the row over a batch where all three read zero and over one where all three are non-zero, with the seed behind the fault named, so the row is proved able to say something as well as able to say nothing.
+
+### The per-add tick
+
+**`directedAdds` is a field on `BatchReport` and not a `BATCH_READINGS` entry**, on `unfinished` and `ceilingStops`'s exact precedent: the declaration guards walk a per-run `Metrics` report and the seed a figure came from does not live there. Each entry is a seed and the whole `DirectedCardSeen` beside it, carried rather than reduced, because a tick has no quartile across seeds: two runs cross a section at different clock times and the median of a set of add ticks answers nothing. **`tuning.pressure.adds` keeps its name, its shape and its by-section reduction**, which the batch test asserts alongside.
+
+It exists because a section is not a moment: three of ADR 0047's four off-limits moments are tick ranges inside a section the director may otherwise spend in, so only the tick can place an add inside one. **It reports and rules nothing.** No range is named in `batchReport.ts`, no gate was added, and whether an add inside one of those ranges is a defect is ADR 0047's question and the orchestrator's. The test lays a range over the report from outside, which is what a reader does.
+
+### The measure comparison, what it still covers and what it no longer compares
+
+**It still asserts, byte for byte, that the shell prints exactly what the module returns**, formatting, indentation and trailing newline included, plus the exit status. **What it no longer compares is one field, `buildMismatch.running`**, the identity of the build that did the reading. Each side's own value is lifted out into one fixed marker and the rest of the text is compared whole; each side is separately asserted to name a build rather than an empty string, so the field is lifted out and never dropped. **`buildIdentity` itself was not touched**: a tree with untracked work is uncommitted work, that is #82's ruling and it is correct, and what must not depend on the tree standing still is this comparison.
+
+**It was proved rather than assumed, in both directions, under a process writing an untracked file into the worktree every fifty milliseconds.** The old comparison reddens under that churn with a real assertion diff naming two different `-dirty-` digests, `...-dirty-aa1e725eec` against `...-dirty-44fb0629b9`, which is the reader's own suspicion pointed at the codec. The new one is green under the same churn, four of four. Churning `local/` proves nothing, because git ignores it and the digest never moves; the writes have to be somewhere git can see, which is what a docs agent on this branch actually does.
+
+### The measurements
+
+**A batch at this tip, and the toll arm agrees with slice H's to the digit.** Seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig, **12 of 12 verified, none unfinished, no ceiling stop, `readingsVersion` 5 on both**.
+
+| | tolls | shoves | distance |
+| --- | --- | --- | --- |
+| `steady-far` 900 to 905 | 0, 0, 171, 0, 29, 0 | 0, 0, 78, 0, 19, 0 | 0, 0, 160.2, 0, 11.7, 0 |
+| `loose-far` 900 to 905 | 26, 0, 0, 0, 77, 150 | 14, 0, 0, 0, 51, 65 | 9.6, 0, 0, 0, 45.9, 38.3 |
+
+Every figure is slice H's own. The one that reads differently, `loose-far` 904 at 45.9 against slice H's 46.0, is 45.94972802145916 rounded the other way at one decimal place and not a difference at all.
+
+**The belch arm empty on every one of the twelve**, `belchShoves` 0 and `belchDistance` 0 per run, which is the cited future proved on real tapes beside the test that plays one.
+
+**The toll arm at the top rung, which is where slice H's filed finding lives.** A conditioned tape at every line's rung 5, seed 77, 6000 ticks: `outcome: 'verified'`, 101 checkpoints verified, none unreachable, **33 tolls, 2 shoves and 20.09 field units**. Slice H reports 2 shoves and 20.1 units across the same 33 tolls at its own tip, so the two builds agree exactly and **agreeing is the pass**. The finding itself, that a body the toll kills on the tick it lands is never carried, is Mark's read in section 8 and nothing here touches it.
+
+**The three refusal counters, off a batch report for the first time.** `tuning.refusals.food`, `.carriers` and `.offers` all read **zero on every one of the twelve runs** in both configurations, and zero on the conditioned rung-5 tape too. **No counter is non-zero anywhere, so there is no fault and no finding**, and verification step 10 is answered off a report rather than off a hand tape.
+
+**The per-add ticks, off the same batch, laid against the wave schedule.** 121 directed adds across the twelve runs, 29 in the Procession and 92 in the Crowd. **Not one add landed in a Banshee, a Waking, a Vigil or an Undertaker span at all.** Against the sparse last wave, which opens at section-local second 112 in the Procession and 63 in the Vigil (`waves.ts`'s `sparseLastWave` call sites), **no Procession add came within 46 seconds of the window opening**, the latest of the 29 landing at local tick 3928 of a 7830-tick section. The Crowd has no sparse wave of its own, so the other 92 have no window to be measured against. **This is a reading and not a verdict**: what it says is where the adds landed, and whether any placement is a defect is ADR 0047's question.
+
+**Replay determinism at this tip.** Seeds 909 and 910 under `shaky-short`, played twice through `scripts/batch.ts`. Same tick counts both times, 4552 and 2364; tapes of identical length, 42886 and 22402 bytes, **differing in exactly three bytes in both**, at the header's `recordedAt` stamp; and the two `report.json` files identical apart from `identity.recordedAt`.
+
+**An anomaly that was chased rather than waved off: the tapes are 17 bytes longer than slice H's and the stamp sits 17 bytes further in.** Slice H records 42869 bytes for seed 909 at offsets 202 to 204; this tip records 42886 at 220 to 222. The cause is not the format, which has not moved, and not the fold. The header carries the build identity as a string, slice H recorded against a clean tree and so stamped a bare 40-character sha, and these were recorded before the commit landed and stamped `<sha>-dirty-<ten>`, which is 57 characters. 57 minus 40 is the 17 bytes, in the length and in the offset both. **That is `buildIdentity` working exactly as #82 ruled** and nothing about this slice.
+
+**No cap bound in any of the fourteen runs measured and no cap moved.** `caps.ts` was opened only to read.
+
+**No rendered check was owed and the claim was checked rather than assumed.** Nothing a player sees changes and the reason is structural rather than hopeful: the sim gained one field that no rule and no renderer reads, every reading module is under `src/dev` and `boundary.test.ts` proves `src/app` cannot reach it, `FieldRenderer` and every screen are untouched by the commit, and the golden digest is unmoved. `pnpm build` is green. **No browser run was made, which is stated plainly rather than implied**, so nothing is claimed about what the screen looked like.
+
+### CodeRabbit, one iteration
+
+**Twenty-one staged files reviewed under `coderabbit review --agent --uncommitted`: one finding, major, declined.**
+
+- **Declined, major.** It asks for `mobs[].impulse.source` to move from `EXCLUDED` to `FOLDED` and for `WITNESS_VERSION` to be bumped with it. **It is the fourth ruling of this slice's prompt and the design record's section 5, neither of which is this slice's to revisit**: the witness moves exactly once in round two, in slice H, and a second move anywhere is a stop. The reasoning stands on its own beside the ruling: the field is provenance written once at the start of a shove and read by no rule, which is `mobFire[].kind`'s precedent for an exclusion, and a divergence in it shows through the seven impulse fields the walk already folds, because the two pushes start structurally different impulses. Slice G's declined finding is the worked precedent for this shape of decline, a reviewer asking for a version move a slice's own ruling forbids.
+
+### Verification
+
+`pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/` before the commit. **`pnpm verify` green twice on the committed tree at exit 0**: 146 test files, 2050 passed, 23 expected fail, 2 todo, where slice H left it at 145 files, 2039 passed, 23 and 2.
+
+**The six fences green, each by title**: *src/game imports only from src/game*, *src/dev imports only from src/dev and src/game and src/tape*, *a policy names no weapon line*, *the step fence (ADR 0017)*, *the harness reports and never judges* in all three of its parts, *orders no reading against a number of its own*, *carries no verdict, because nothing it declares is a yes or a no* and *prints no mean, so every figure it prints keeps its own tail*, and *every reading declares what comparing it means*, plus slice D's sixth, *the cap derivation reads tables and never the stage*. Beside them *every reading declares how a batch reduces it* in both its parts, the core's cycle guard *carries no value-import cycle beyond the ones written down* with `KNOWN_CORE_CYCLES` still empty, and *a golden digest over a short scripted scenario matches the committed constant (ADR 0015)*.
+
+**`harnessStatesNoTarget.test.ts`'s module list was not extended**, on slice G's own finding (`step-4-progress.md` section 19): it is three report modules and not the reading modules, and what holds a new reading is the two declaration guards. Nothing new in `batchReport.ts` orders a reading against a literal, answers a boolean or takes a mean.
+
+**The test-name diff, against this branch's own tip captured before the first edit with the tree clean: 2062 names to 2073, 13 added and 2 removed.** The 2062 is exactly where slice H left it. **Both removals are retitles of tests that still exist and still assert what they asserted**: *prints what the module measures* became *prints what the module measures, without either side depending on the tree being still between the two reads*, and *a shove before any toll is a bug in the sim and fails loudly rather than being absorbed* became *a bell shove arriving with no toll open is still a bug and still fails loudly*, because the sentence is now about half a case rather than the whole of one. The 13 added are the repel suite's five, the refusals module's three, the batch report's two, the shove seam's two and the measure tool's retitled one.
+
+### Record and prompt claims found false against the tree
+
+**`CONTEXT.md` has no Repel, Reading or Refusal entry.** The prompt's read-first item 8 names four entries to read before naming anything, Repel, Reading, Batch and Refusal, and only Batch exists. Repel appears inside the Bell entry as the bell's job and nowhere else. The intent was followed against what is there: the Batch entry's Avoid list was read, and so were Bell, Belch, Burst, Cone and Toll, whose Avoid lists between them ban shockwave, nova, ring, wave, AOE, wipe and screen clear. **Nothing named in this slice uses any of them.** Whether the shove, the impulse and the refusal earn entries is a question for whoever owns `CONTEXT.md`, exactly as slice H left it, and the file gained nothing and lost nothing.
+
+### Left for later slices, each named
+
+**Slice J owns the belch and everything it needs is declared and proved.** `ShoveSource` carries `'belch'` today with no caller; `shoveStormTarget` takes the source as its third argument; `tuning.repel.belchShoves` and `belchDistance` are declared in both tables and print on every batch. **Two tests are slice J's to turn**: *reads the belch arm as empty on every tape this build can produce* goes red the moment a belch shoves, and it should be retitled rather than deleted, because what it pins after slice J is that the arm fills. The second `GOLDEN` re-pin is slice J's and it is the last of round two's two.
+
+**For the orchestrator, one reading and no action.** The per-add placement above is the first time the batch could answer where a directed add landed, and across 121 adds the answer is that none is anywhere near an off-limits moment. That closes, for these twelve seeds, the half of ADR 0047 the 48-seed batch could not check. It is twelve runs and not forty-eight, so what it is evidence for is that the instrument works and that nothing obvious is wrong; the step 15 batch is where it answers at size.
 
 ## 10. Slice J: the belch becomes a pushback (#124)
 
