@@ -450,7 +450,7 @@ Commit `2ec6ee5efc`, 143 files, 2774 insertions and 2563 deletions. A vocabulary
 
 **"Row" is the word with two jobs, and the ordinary one is far more common than the record suggests.** The record lists the ordinary table rows that stay, and that list is right as far as it goes, but it is a list of identifiers and the codebase's prose is full of ordinary rows the list never names: initial rows, data rows, tuning rows, health rows, frame rows, fault rows, configuration rows, the rows of a colour matrix, the rows of a tile sheet. Every "row" the rename produced was diffed line by line against the tip before this branch and classified, and 149 lines across 56 files went back. What is a wave now is the authored stage entry and nothing else.
 
-**A finding left alone, as the dispatch asked.** `docs/design/dispatch-5-weapons.md:13` links `0008-the-belch-full-only-the-bomb-everywhere.md`, which does not exist; the real file is `0008-the-belch-full-only-gas-everywhere-burst-nearby.md`. Pre-existing, none of the six words, not fixed here.
+**A finding left alone, as the dispatch asked.** `docs/design/dispatch-5-weapons.md:13` links `0008-the-belch-full-only-the-bomb-everywhere.md`, which does not exist; the real file is `0008-the-belch-full-only-gas-everywhere-shove-nearby.md`. Pre-existing, none of the six words, not fixed here.
 
 **Prose beyond the eight renamed ADR titles is deliberately left.** Files under `docs/design` and `docs/adr` that carry one of the six somewhere in their prose are untouched unless their own title moved or they link a renamed ADR by filename. A follow-up docs pass owns them, and the leftovers are not a miss.
 

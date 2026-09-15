@@ -53,7 +53,7 @@ ADR bodies cite each other by number and every code citation is of the form `(AD
 - `docs/design/dispatch-4-field.md:13` (0016, 0006)
 - `docs/design/dispatch-5-weapons.md:13` (0016)
 
-`dispatch-5-weapons.md:13` also carries a link to `0008-the-belch-full-only-the-bomb-everywhere.md`, which does not exist and has not for some time; the real file is `0008-the-belch-full-only-gas-everywhere-burst-nearby.md`. That is a pre-existing broken link and none of the six words. **Do not fix it and do not chase it**: record it in the progress note as a finding and leave it.
+`dispatch-5-weapons.md:13` also carries a link to `0008-the-belch-full-only-the-bomb-everywhere.md`, which does not exist and has not for some time; the real file is `0008-the-belch-full-only-gas-everywhere-shove-nearby.md`. That is a pre-existing broken link and none of the six words. **Do not fix it and do not chase it**: record it in the progress note as a finding and leave it.
 
 The nine ADRs checked and deliberately not renamed are in the record's section 9: 0009, 0032, 0046, 0055, 0049, 0050, 0060, and Section stands so its titles stand. Take that list as given.
 
