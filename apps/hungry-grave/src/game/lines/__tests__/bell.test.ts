@@ -563,6 +563,7 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
         type: 'mobShoved',
         id: mob.id,
         displacement: expect.closeTo(expected, 6),
+        source: 'bell',
       },
     ]);
   });
@@ -663,7 +664,14 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     const events = oneTollAndTravel(state);
     const shoves = events.filter((event) => event.type === 'mobShoved');
     expect(shoves).toEqual([
-      { type: 'mobShoved', id: mob.id, displacement: expect.closeTo(10, 9) },
+      {
+        type: 'mobShoved',
+        id: mob.id,
+        displacement: expect.closeTo(10, 9),
+        // The bell is the only push this build has, and the reading reads it
+        // apart from the belch's by this field rather than by a toll window.
+        source: 'bell',
+      },
     ]);
     expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
   });

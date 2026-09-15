@@ -28,6 +28,7 @@ import { damageMob, hasEntered, mobHitbox, moveMobInsideBounds } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
 import { startShove } from './shove';
+import type { ShoveSource } from './shove';
 import type { SetPiece } from './stage/setPiece';
 import { damageSetPiece, setPieceHitbox } from './stage/setPiece';
 import { SCROLL_SPEED } from './tuning';
@@ -338,6 +339,7 @@ const shoveStormTarget = (
   // a body starting to fly is the run's own state changing.
   _state: RunState,
   target: StormTarget,
+  source: ShoveSource,
   awayX: number,
   awayY: number,
   distance: number,
@@ -346,7 +348,15 @@ const shoveStormTarget = (
 ): void => {
   const slot = slotFor(target);
   if (slot === null || !slot.pushable || slot.mob === null) return;
-  startShove(slot.mob.impulse, awayX, awayY, distance, shoves, ticksBetween);
+  startShove(
+    slot.mob.impulse,
+    source,
+    awayX,
+    awayY,
+    distance,
+    shoves,
+    ticksBetween,
+  );
 };
 
 export {

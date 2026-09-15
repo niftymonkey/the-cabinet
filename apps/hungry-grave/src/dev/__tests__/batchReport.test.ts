@@ -811,6 +811,120 @@ describe('the batch report', () => {
     expect([...two.identity.rigs].sort()).toEqual(['birthright', 'maxed']);
   });
 
+  it('says what each of the three refusal counters read, per run', () => {
+    // Verification step 10 asks for the counters at zero on every run, and no
+    // batch report could print that row at all: the counters live on the run's
+    // own state and Metrics never carried them. A non-zero figure is a fault
+    // and never a cap to raise, so the row has to be able to say something as
+    // well as able to say zero, and both halves are asserted here.
+    const refusing = (
+      seed: number,
+      food: number,
+      carriers: number,
+      offers: number,
+    ): MeasuredRun => ({
+      seed,
+      measurement: {
+        ...BASE,
+        tuning: { ...BASE.tuning, refusals: { food, carriers, offers } },
+      },
+    });
+
+    const quiet = batchReportOf(origin(2), [
+      refusing(900, 0, 0, 0),
+      refusing(901, 0, 0, 0),
+    ]);
+    for (const counter of ['food', 'carriers', 'offers']) {
+      expect(
+        requireDefined(
+          quiet.spreads[`tuning.refusals.${counter}`],
+          `no tuning.refusals.${counter} spread`,
+        ).summary.max,
+      ).toBe(0);
+    }
+
+    const bound = batchReportOf(origin(2), [
+      refusing(900, 0, 0, 0),
+      refusing(901, 3, 1, 2),
+    ]);
+    const food = requireDefined(
+      bound.spreads['tuning.refusals.food'],
+      'no tuning.refusals.food spread',
+    );
+    expect(food.summary.max).toBe(3);
+    // The seed behind the fault, which is the run somebody re-records.
+    expect(food.maxSeed).toBe(901);
+    expect(
+      requireDefined(
+        bound.spreads['tuning.refusals.carriers'],
+        'no carriers spread',
+      ).summary.max,
+    ).toBe(1);
+    expect(
+      requireDefined(
+        bound.spreads['tuning.refusals.offers'],
+        'no offers spread',
+      ).summary.max,
+    ).toBe(2);
+  });
+
+  it('places every directed add by the tick it landed on, so an add inside a tick range is visible from the report alone', () => {
+    // ADR 0047's first off-limits moment is a whole section and the other three
+    // are tick ranges inside one, so a per-section count cannot place an add
+    // inside the sparse wave, the Wall or the swarm set piece. This carries the
+    // tick the reading already holds, and it reports and never rules: whether
+    // an add inside a range is a defect is ADR 0047's question.
+    const adding = (seed: number, ticks: readonly number[]): MeasuredRun => ({
+      seed,
+      measurement: {
+        ...BASE,
+        tuning: {
+          ...BASE.tuning,
+          pressure: {
+            ...BASE.tuning.pressure,
+            adds: ticks.map((tick) => ({
+              tick,
+              formation: 'theV',
+              type: 'shambler',
+              count: 5,
+              section: 'procession',
+              x: 242,
+              signal: 0,
+              purseLeft: 111,
+            })),
+          },
+        },
+      },
+    });
+
+    const report = batchReportOf(origin(2), [
+      adding(900, [138, 1037]),
+      adding(901, [4400]),
+    ]);
+
+    expect(
+      report.directedAdds.map((placed) => [placed.seed, placed.add.tick]),
+    ).toEqual([
+      [900, 138],
+      [900, 1037],
+      [901, 4400],
+    ]);
+    // A range nobody has to name in this module: the reader lays a tick against
+    // whichever span they care about and the report answers.
+    const inside = report.directedAdds.filter(
+      (placed) => placed.add.tick >= 1000 && placed.add.tick < 5000,
+    );
+    expect(inside.map((placed) => placed.seed)).toEqual([900, 901]);
+    // And the by-section reduction beside it is untouched, which is what keeps
+    // a version-4 batch and a version-5 one subtractable on that key.
+    expect(
+      requireDefined(
+        report.spreads['tuning.pressure.adds.run'],
+        'no tuning.pressure.adds.run spread',
+      ).summary.max,
+    ).toBe(2);
+  });
+
   it("prints the grave's size spread beside the widths the build fields", () => {
     // Module test 86. Grave-to-mob scale is a ratio the reader takes and never
     // a number the report states, so the report puts the two side by side and

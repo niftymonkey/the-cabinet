@@ -2,6 +2,19 @@
 // several ticks rather than spent in one position write (design record R1).
 
 /**
+ * Which of the pool's two pushes threw a shove.
+ *
+ * It rides on the impulse because the one report a shove makes is taken when
+ * the impulse is spent, ticks after the push that started it has finished, so
+ * nothing at the report can name the pusher unless the body carried the name.
+ *
+ * It is spelled as the glossary's own two words, on DamageSource's terms
+ * (mobs.ts), and narrower than that union because only these two push at all:
+ * a weapon line that never shoves can never be a shove's source.
+ */
+type ShoveSource = 'bell' | 'belch';
+
+/**
  * The impulse one body carries: the shove moving it right now, and the shoves
  * the same impulse still owes it.
  *
@@ -18,6 +31,14 @@
  * recorded in between folded.
  */
 interface Impulse {
+  /**
+   * Which push threw this impulse, or null on a body carrying nothing.
+   *
+   * It is written once when the shove starts and never mutated, and no rule
+   * reads it: the report the instrument reads is its one consumer, which is why
+   * the witness excludes it rather than folding it (witness.test.ts's EXCLUDED).
+   */
+  source: ShoveSource | null;
   // The travel the first tick of the current shove owes, x and y in field units.
   stepX: number;
   stepY: number;
@@ -66,6 +87,7 @@ const SHOVE_TICKS = 7;
 /** A body carrying nothing: the resting value of every field above. */
 const blankImpulse = (): Impulse => {
   return {
+    source: null,
     stepX: 0,
     stepY: 0,
     ticksLeft: 0,
@@ -82,6 +104,7 @@ const blankImpulse = (): Impulse => {
  * rather than trusted.
  */
 const clearImpulse = (impulse: Impulse): void => {
+  impulse.source = null;
   impulse.stepX = 0;
   impulse.stepY = 0;
   impulse.ticksLeft = 0;
@@ -108,9 +131,15 @@ const firstStepOf = (distance: number): number => {
  * landing on a body still flying replaces the shove and keeps the accounting,
  * so the one report at the end carries everything the body was shoved rather
  * than only the last of it.
+ *
+ * The source is replaced with it, so a body a belch catches mid-toll reports
+ * its whole travel under the belch. That follows from there being one report
+ * per impulse rather than one per push, and splitting the travel would mean
+ * splitting the report, which is the shape slice H ruled against.
  */
 const startShove = (
   impulse: Impulse,
+  source: ShoveSource,
   awayX: number,
   awayY: number,
   distance: number,
@@ -118,6 +147,7 @@ const startShove = (
   ticksBetween: number,
 ): void => {
   const first = firstStepOf(distance);
+  impulse.source = source;
   impulse.stepX = awayX * first;
   impulse.stepY = awayY * first;
   impulse.ticksLeft = SHOVE_TICKS;
@@ -201,4 +231,4 @@ export {
   takeShoveTravel,
   SHOVE_TICKS,
 };
-export type { Impulse, ShoveStep };
+export type { Impulse, ShoveSource, ShoveStep };

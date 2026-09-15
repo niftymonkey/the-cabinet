@@ -406,9 +406,16 @@ const moveMobInsideBounds = (mob: Mob, x: number, y: number): void => {
  * that bought no distance would otherwise report a push that never happened.
  */
 const reportShoveTravel = (mob: Mob): SimEvent[] => {
+  const source = mob.impulse.source;
   const displacement = takeShoveTravel(mob.impulse);
   if (displacement === 0) return [];
-  return [{ type: 'mobShoved', id: mob.id, displacement }];
+  if (source === null) {
+    // Travel only accumulates under a shove and a shove only starts with a
+    // source, so a body that went somewhere under nothing is a bug in this
+    // module rather than a reading to repair.
+    throw new Error(`mob ${mob.id} travelled ${displacement} under no shove`);
+  }
+  return [{ type: 'mobShoved', id: mob.id, displacement, source }];
 };
 
 /**

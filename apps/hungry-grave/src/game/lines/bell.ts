@@ -271,7 +271,7 @@ const pushTarget = (
   // One shove, and no spacing because there is no second one to space from: a
   // toll's push is one push, and the wave structure belongs to the belch
   // (design record R3, slice J).
-  shoveStormTarget(state, target, away.x, away.y, push, 1, 0);
+  shoveStormTarget(state, target, 'bell', away.x, away.y, push, 1, 0);
 };
 
 /**

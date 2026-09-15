@@ -52,6 +52,8 @@ import {
   observeOfferChoices,
   offerChoicesOf,
 } from './offerChoices';
+import type { Refusals, RefusalsAcc } from './refusals';
+import { createRefusals, observeRefusals, refusalsOf } from './refusals';
 import type { Repel, RepelAcc } from './repel';
 import { createRepel, observeRepel, repelOf } from './repel';
 import type { SectionTimeline, SectionTimelineAcc } from './sectionTimeline';
@@ -108,6 +110,7 @@ interface TuningReadings {
   readonly territoryControl: TerritoryControl;
   readonly groundHeld: GroundHeld;
   readonly repel: Repel;
+  readonly refusals: Refusals;
   readonly upfieldTraffic: UpfieldTraffic;
   readonly sectionTimeline: SectionTimeline;
 }
@@ -128,6 +131,7 @@ interface ReadingsAcc {
   readonly territoryControl: TerritoryControlAcc;
   readonly groundHeld: GroundHeldAcc;
   readonly repel: RepelAcc;
+  readonly refusals: RefusalsAcc;
   readonly upfieldTraffic: UpfieldTrafficAcc;
   readonly sectionTimeline: SectionTimelineAcc;
 }
@@ -163,6 +167,7 @@ const createReadings = (
   territoryControl: createTerritoryControl(),
   groundHeld: createGroundHeld(),
   repel: createRepel(),
+  refusals: createRefusals(),
   upfieldTraffic: createUpfieldTraffic(),
   sectionTimeline: createSectionTimeline(),
 });
@@ -197,6 +202,7 @@ const observeReadings = (
   observeTerritoryControl(acc.territoryControl, tick, events, state);
   observeGroundHeld(acc.groundHeld, state);
   observeRepel(acc.repel, events);
+  observeRefusals(acc.refusals, state);
   observeUpfieldTraffic(acc.upfieldTraffic, events, state);
   observeSectionTimeline(acc.sectionTimeline, events);
 };
@@ -217,6 +223,7 @@ const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   territoryControl: territoryControlOf(acc.territoryControl),
   groundHeld: groundHeldOf(acc.groundHeld),
   repel: repelOf(acc.repel),
+  refusals: refusalsOf(acc.refusals),
   upfieldTraffic: upfieldTrafficOf(acc.upfieldTraffic),
   sectionTimeline: sectionTimelineOf(acc.sectionTimeline),
 });

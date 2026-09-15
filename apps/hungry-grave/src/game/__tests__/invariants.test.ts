@@ -1417,6 +1417,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'patches[].level':
     'written once at the lay and never mutated, from a levels value the harness NaN-checks at its source every tick',
   ending: 'a run ending name or null, never a number',
+  'mobs[].impulse.source':
+    'which push threw the shove a body is carrying, or null on a body carrying nothing: one of two words and never a number, as ending is. It is written once when the shove starts and no arithmetic touches it',
   'offer.bodyIds[]':
     'spawn identity, as corpses[].id is: the offer holds the ids the food pool handed out and never computes one',
   'refusals.food':

@@ -906,7 +906,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     // being carried away from the grave does not also fall while it flies.
     const state = quietRun();
     const mob = putMob(state, 'shambler', 200, 300);
-    startShove(mob.impulse, 0, -1, 40, 1, 0);
+    startShove(mob.impulse, 'bell', 0, -1, 40, 1, 0);
 
     for (let tick = 0; tick < SHOVE_TICKS; tick++) {
       const stood = mob.y;
@@ -927,7 +927,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     const state = quietRun();
     const mob = putMob(state, 'shambler', 200, 300);
     mob.beat = ARRIVE_TICKS;
-    startShove(mob.impulse, 0, -1, 40, 1, 0);
+    startShove(mob.impulse, 'bell', 0, -1, 40, 1, 0);
 
     for (let tick = 0; tick < SHOVE_TICKS; tick++) advanceMobs(state);
     expect(mob.beat).toBe(ARRIVE_TICKS);
@@ -943,7 +943,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     // of 2026-09-15 and it is arithmetic rather than a feeling.
     const state = quietRun();
     const mob = putMob(state, 'shambler', 200, 400);
-    startShove(mob.impulse, 0, -1, 40, 1, 0);
+    startShove(mob.impulse, 'bell', 0, -1, 40, 1, 0);
     const width = MOB_TYPES.shambler.halfWidth * 2;
 
     const seen: number[] = [mob.y];
@@ -963,7 +963,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     // thousand units of impulse is the honest form of "however large".
     const state = quietRun();
     const mob = putMob(state, 'shambler', FIELD_WIDTH - 10, 300);
-    startShove(mob.impulse, 1, 0, 100000, 1, 0);
+    startShove(mob.impulse, 'bell', 1, 0, 100000, 1, 0);
 
     for (let tick = 0; tick < SHOVE_TICKS; tick++) {
       advanceMobs(state);
@@ -981,7 +981,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     const state = quietRun();
     const mob = putMob(state, 'shambler', 200, 400);
     const stood = mob.y;
-    startShove(mob.impulse, 0, -1, 40, 1, 0);
+    startShove(mob.impulse, 'bell', 0, -1, 40, 1, 0);
 
     const events: SimEvent[] = [];
     for (let tick = 0; tick < SHOVE_TICKS; tick++) {
@@ -989,7 +989,12 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     }
 
     expect(types(events, 'mobShoved')).toEqual([
-      { type: 'mobShoved', id: mob.id, displacement: expect.closeTo(40, 9) },
+      {
+        type: 'mobShoved',
+        id: mob.id,
+        displacement: expect.closeTo(40, 9),
+        source: 'bell',
+      },
     ]);
     expect(stood - mob.y).toBeCloseTo(40, 9);
   });
@@ -1001,7 +1006,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     // repel reading anyway or the channel quietly under-reports itself.
     const state = quietRun();
     const mob = putMob(state, 'shambler', 200, 400);
-    startShove(mob.impulse, 0, -1, 40, 1, 0);
+    startShove(mob.impulse, 'bell', 0, -1, 40, 1, 0);
     advanceMobs(state);
     advanceMobs(state);
 
@@ -1012,6 +1017,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
       type: 'mobShoved',
       id: mob.id,
       displacement: expect.closeTo(10 + 10 * (6 / 7), 9),
+      source: 'bell',
     });
   });
 
@@ -1020,7 +1026,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     // where it stands is not a body the toll pushed.
     const state = quietRun();
     const mob = putMob(state, 'shambler', 200, 400);
-    startShove(mob.impulse, 0, -1, 40, 1, 0);
+    startShove(mob.impulse, 'bell', 0, -1, 40, 1, 0);
 
     const events = damageMob(state, mob, MOB_TYPES.shambler.hp, 'bell');
     expect(types(events, 'mobShoved')).toEqual([]);
@@ -1031,7 +1037,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     // the rule the one-tick push already kept.
     const state = quietRun();
     const mob = putMob(state, 'shambler', FIELD_WIDTH + SPAWN_MARGIN, 300);
-    startShove(mob.impulse, 1, 0, 40, 1, 0);
+    startShove(mob.impulse, 'bell', 1, 0, 40, 1, 0);
 
     const events: SimEvent[] = [];
     for (let tick = 0; tick < SHOVE_TICKS; tick++) {

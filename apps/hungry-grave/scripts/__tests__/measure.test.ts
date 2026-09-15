@@ -107,16 +107,76 @@ function runMeasure(...args: string[]) {
  */
 const SUBPROCESS_BUDGET_MS = 20_000;
 
+/** Where a reader's own build identity stands in a comparison of two readings. */
+const READER_BUILD_STANDS_HERE = '"<the reader\'s own build>"';
+
+/**
+ * The build identity a printed measurement says did the reading.
+ *
+ * It is the one figure in the report that is a fact about a working tree rather
+ * than about the tape: `buildIdentity.ts` stamps it into each bundle from a
+ * live `git status --untracked-files=all` and the contents behind it, so the
+ * subprocess and this process take it seconds apart and any write anywhere in
+ * the worktree between the two changes it. `buildIdentity`'s own behaviour is
+ * right and is #82's (a tree with untracked work is uncommitted work); what
+ * must not depend on the tree standing still is this comparison.
+ */
+function readerBuildIn(printed: string): string {
+  const reading: unknown = JSON.parse(printed);
+  if (
+    typeof reading !== 'object' ||
+    reading === null ||
+    !('buildMismatch' in reading)
+  ) {
+    throw new Error('a measurement with no buildMismatch at all');
+  }
+  const mismatch = reading.buildMismatch;
+  if (
+    typeof mismatch !== 'object' ||
+    mismatch === null ||
+    !('running' in mismatch) ||
+    typeof mismatch.running !== 'string'
+  ) {
+    throw new Error('a buildMismatch naming no reader build');
+  }
+  return mismatch.running;
+}
+
+/**
+ * The same text with that one figure standing in one fixed place, so two
+ * readings taken seconds apart compare on every byte the tape decides and on
+ * nothing the tree does.
+ *
+ * Every other byte is still compared, formatting and trailing newline
+ * included: this lifts one field out and narrows nothing else.
+ */
+function withReaderBuildLifted(printed: string, build: string): string {
+  return printed.split(JSON.stringify(build)).join(READER_BUILD_STANDS_HERE);
+}
+
 describe('the measure tool', () => {
   it(
-    'prints what the module measures',
+    'prints what the module measures, without either side depending on the tree being still between the two reads',
     () => {
+      // The promise is that the shell prints exactly what the module returns,
+      // and it is still asserted byte for byte. What it no longer asserts is
+      // that the worktree was unwritten between the subprocess's boot and this
+      // one, which was never part of the promise: on a branch a docs agent and
+      // a headless batch share, an ordinary concurrent write reddened this with
+      // a real assertion diff and pointed a reader at the codec.
       const bytes = sealedTapeBytes();
       const result = runMeasure(fileHolding('run.tape', bytes));
+      const printed =
+        JSON.stringify(measure(decodeTape(bytes)), null, 2) + '\n';
 
       expect(result.status).toBe(0);
-      expect(result.stdout).toBe(
-        JSON.stringify(measure(decodeTape(bytes)), null, 2) + '\n',
+      const there = readerBuildIn(result.stdout);
+      const here = readerBuildIn(printed);
+      // Each side names a build, so the field is lifted out and never dropped.
+      expect(there).not.toBe('');
+      expect(here).not.toBe('');
+      expect(withReaderBuildLifted(result.stdout, there)).toBe(
+        withReaderBuildLifted(printed, here),
       );
     },
     SUBPROCESS_BUDGET_MS,

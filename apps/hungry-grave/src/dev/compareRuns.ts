@@ -632,6 +632,26 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     (report) => report.tuning.repel.totalDistance,
   ),
   scalarReading(
+    'tuning.repel.belchShoves',
+    (report) => report.tuning.repel.belchShoves,
+  ),
+  scalarReading(
+    'tuning.repel.belchDistance',
+    (report) => report.tuning.repel.belchDistance,
+  ),
+  scalarReading(
+    'tuning.refusals.food',
+    (report) => report.tuning.refusals.food,
+  ),
+  scalarReading(
+    'tuning.refusals.carriers',
+    (report) => report.tuning.refusals.carriers,
+  ),
+  scalarReading(
+    'tuning.refusals.offers',
+    (report) => report.tuning.refusals.offers,
+  ),
+  scalarReading(
     'tuning.upfieldTraffic.lays',
     (report) => report.tuning.upfieldTraffic.lays,
   ),

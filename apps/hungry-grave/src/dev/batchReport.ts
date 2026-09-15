@@ -13,6 +13,7 @@ import type { Measurement, Metrics } from './measure';
 import type { NumberRecord } from './numbersByName';
 import { ledgerByLineNumbers } from './readings/powerUpLedger';
 import { addsBySection } from './readings/pressure';
+import type { DirectedCardSeen } from './readings/pressure';
 import type { SectionSpan } from './readings/sectionTimeline';
 import { READINGS_VERSION } from './readingsVersion';
 import type { RigName } from './rigs';
@@ -136,6 +137,29 @@ interface CeilingStop {
   readonly section: SectionName | null;
 }
 
+/**
+ * One directed add a run made, with the seed it was made under (ADR 0047,
+ * #126).
+ *
+ * It is a field on the batch report and not a BATCH_READINGS entry, on
+ * `unfinished` and `ceilingStops`'s own precedent: the declaration guards walk
+ * a per-run `Metrics` report and the seed a figure came from does not live
+ * there. `tuning.pressure.adds` keeps its name, its shape and its by-section
+ * reduction, and this carries the whole card beside the seed rather than a
+ * subtree chosen here.
+ *
+ * It exists because a section is not a moment. Three of ADR 0047's four
+ * off-limits moments are tick ranges inside a section the director may
+ * otherwise spend in, so only the tick a card landed on can place an add inside
+ * one. **What this reports is where the adds landed and nothing else**: whether
+ * an add inside one of those ranges is a defect is ADR 0047's question, and
+ * this module answers no questions.
+ */
+interface DirectedAddPlaced {
+  readonly seed: number;
+  readonly add: DirectedCardSeen;
+}
+
 interface BatchReport {
   readonly identity: BatchIdentity;
   readonly readingsVersion: number;
@@ -166,6 +190,17 @@ interface BatchReport {
    * than only that it did.
    */
   readonly ceilingStops: readonly CeilingStop[];
+  /**
+   * Every card the director bought across the batch, in the order the batch
+   * walked the runs, each with the seed behind it and the tick it landed on.
+   *
+   * Carried whole rather than reduced, because a tick has no quartile across
+   * seeds: two runs cross a section at different clock times, so the median of
+   * a set of add ticks answers nothing. What a reader does with it is lay each
+   * tick against that run's own section spans, which the report already
+   * carries.
+   */
+  readonly directedAdds: readonly DirectedAddPlaced[];
   // Every reading the table declares as a spread, by its declared name.
   readonly spreads: Readonly<Record<string, Spread>>;
   // Every reading the table declares as per line, by line and then by name.
@@ -739,6 +774,31 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
     'tuning.repel.totalDistance',
     (report) => report.tuning.repel.totalDistance,
   ),
+  // The belch's own arm, empty on every tape this build can produce and filled
+  // by slice J (design record section 4).
+  spreadReading(
+    'tuning.repel.belchShoves',
+    (report) => report.tuning.repel.belchShoves,
+  ),
+  spreadReading(
+    'tuning.repel.belchDistance',
+    (report) => report.tuning.repel.belchDistance,
+  ),
+  // What the caps turned away, per run. A non-zero figure in any of the three
+  // is a fault rather than a cap to raise, and the spread is how a batch says
+  // which run had one.
+  spreadReading(
+    'tuning.refusals.food',
+    (report) => report.tuning.refusals.food,
+  ),
+  spreadReading(
+    'tuning.refusals.carriers',
+    (report) => report.tuning.refusals.carriers,
+  ),
+  spreadReading(
+    'tuning.refusals.offers',
+    (report) => report.tuning.refusals.offers,
+  ),
   spreadReading(
     'tuning.upfieldTraffic.lays',
     (report) => report.tuning.upfieldTraffic.lays,
@@ -1025,6 +1085,7 @@ const batchReportOf = (
   const unverified: UnverifiedRun[] = [];
   const unfinished: number[] = [];
   const ceilingStops: CeilingStop[] = [];
+  const directedAdds: DirectedAddPlaced[] = [];
   let verified = 0;
   for (const { seed, measurement } of runs) {
     if (measurement.outcome !== 'verified') {
@@ -1041,6 +1102,9 @@ const batchReportOf = (
       unfinished.push(seed);
       const stopped = ceilingStopOf(seed, measurement);
       if (stopped !== null) ceilingStops.push(stopped);
+    }
+    for (const add of measurement.tuning.pressure.adds) {
+      directedAdds.push({ seed, add });
     }
     collectRun(acc, seed, measurement);
   }
@@ -1059,6 +1123,7 @@ const batchReportOf = (
     unverified,
     unfinished,
     ceilingStops,
+    directedAdds,
     spreads: spreadsOf(acc.spreads),
     byLine: byLineOf(acc.byLine),
     counts: acc.counts,
@@ -1073,6 +1138,7 @@ export type {
   BatchReport,
   CeilingStop,
   DeclaredBatchReading,
+  DirectedAddPlaced,
   Sample,
   Spread,
   UnverifiedRun,

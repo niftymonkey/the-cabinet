@@ -347,7 +347,7 @@ describe('what a line may do to a target', () => {
     const sourceStood = { x: piece.x, y: piece.y };
 
     for (const target of [asMob, asBoss, asSource]) {
-      shoveStormTarget(state, target, 0, -1, 40, 1, 0);
+      shoveStormTarget(state, target, 'bell', 0, -1, 40, 1, 0);
     }
 
     expect(shoveInFlight(mob.impulse)).toBe(true);
@@ -368,7 +368,7 @@ describe('what a line may do to a target', () => {
 
     mob.alive = false;
     stormTargets(state);
-    shoveStormTarget(state, target, 0, -1, 40, 1, 0);
+    shoveStormTarget(state, target, 'bell', 0, -1, 40, 1, 0);
 
     expect(shoveInFlight(mob.impulse)).toBe(false);
   });

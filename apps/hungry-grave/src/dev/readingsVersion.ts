@@ -44,6 +44,32 @@
  * `section`, rides with them. Every figure still means what it meant and not
  * one of them moved: this is a vocabulary change and nothing else.
  *
+ * Version 5: the two pushes read apart (design record R9, #126). `tuning.repel`
+ * used to mean every shove on the run, because the bell was the only thing that
+ * could throw one, and it now means the bell's shoves alone: `tolls`,
+ * `totalShoves` and `totalDistance` keep their exact names, shapes and
+ * reductions and count bell shoves only, and `belchShoves` and `belchDistance`
+ * are a new arm beside them. **So every step 4 batch is incomparable with every
+ * post-belch batch by name**: subtracting one build's `totalShoves` from the
+ * other's would be arithmetic across a definition that changed underneath it
+ * the moment a second pusher existed, which is exactly the case version 3 was
+ * written to make loud. That is accepted eyes open on ruling R9, which chose a
+ * belch that emits its own source over a repel reading widened to swallow both,
+ * so the two pushes stay separable in every batch the tuning step reads.
+ *
+ * It also carries what the change made possible rather than what forced it.
+ * `observeRepel` threw outright on a shove arriving with no toll window open,
+ * which is exactly what the belch's first shove produces; the throw is kept for
+ * a bell shove, where the case is still impossible, and the belch's arm holds
+ * its own.
+ *
+ * **Four readings land in the same commit and none of them is what moves this.**
+ * `tuning.refusals.food`, `.carriers` and `.offers` go in beside unchanged keys,
+ * as does `tuning.repel`'s belch arm itself: every reading that existed before
+ * still means what it meant, apart from the repel split above. The batch report
+ * also gained a `directedAdds` field, which is not a reading at all. The split
+ * is what moves the version.
+ *
  * The other three versions hold, and each for its own reason. `FORMAT_VERSION`
  * stays 3 because the tape header is read positionally, field by field, and the
  * only strings on the wire are the recorded roster's weapon-line names, the
@@ -58,6 +84,6 @@
  * rename on the `Digest` interface and not a re-pin, so ADR 0019's regeneration
  * ritual does not apply.
  */
-const READINGS_VERSION = 4;
+const READINGS_VERSION = 5;
 
 export { READINGS_VERSION };

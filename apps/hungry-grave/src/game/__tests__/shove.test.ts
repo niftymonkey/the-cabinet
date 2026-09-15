@@ -41,13 +41,41 @@ function travelLengths(steps: (ShoveStep | null)[]): number[] {
   return steps.filter((step) => step !== null).map(lengthOf);
 }
 
+describe('the push behind a shove', () => {
+  it('carries the push that threw it, so the one report can name the pusher', () => {
+    // A shove reports once, when the impulse is spent, ticks after the push
+    // that started it has finished. Nothing at the report could name the pusher
+    // unless the body carried the name, which is why it rides here (design
+    // record R9). Slice J is what fills it with the belch's value.
+    const impulse = blankImpulse();
+    expect(impulse.source).toBe(null);
+
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
+    expect(impulse.source).toBe('bell');
+
+    startShove(impulse, 'belch', UP_X, UP_Y, 40, 3, 10);
+    expect(impulse.source).toBe('belch');
+  });
+
+  it('leaves a body carrying no push once its travel has been taken', () => {
+    // A pooled slot arrives where a shoved body may have died, so the source
+    // goes back to nothing with the rest of the impulse rather than being left
+    // for the next body to report under.
+    const impulse = blankImpulse();
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
+    takeShoveTravel(impulse);
+
+    expect(impulse.source).toBe(null);
+  });
+});
+
 describe('one shove, spent over its own ticks (R2)', () => {
   it('carries a body the whole distance it was given, and no further', () => {
     // Today's level-five push is 40 field units and it is held exactly: the
     // shove spends it over seven ticks instead of one, which is the whole of
     // what ruling R2 buys. BELL_CONE_ROWS's push column is untouched.
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 1, 0);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
     const travelled = travelLengths(stepsOf(impulse, SHOVE_TICKS));
     expect(travelled).toHaveLength(SHOVE_TICKS);
     expect(travelled.reduce((sum, step) => sum + step, 0)).toBeCloseTo(40, 9);
@@ -58,7 +86,7 @@ describe('one shove, spent over its own ticks (R2)', () => {
     // exponentially, and no source anywhere describes knockback as a
     // single-frame position set (research record section 1).
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 1, 0);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
     const travelled = travelLengths(stepsOf(impulse, SHOVE_TICKS));
     for (let tick = 1; tick < travelled.length; tick++) {
       expect(travelled[tick]!).toBeLessThan(travelled[tick - 1]!);
@@ -73,7 +101,7 @@ describe('one shove, spent over its own ticks (R2)', () => {
     // units and the first step of today's 40 is 10, so every step overlaps the
     // one before it by more than half a body.
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 1, 0);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
     const widest = MOB_TYPES.shambler.halfWidth * 2;
     for (const step of travelLengths(stepsOf(impulse, SHOVE_TICKS))) {
       expect(step).toBeLessThan(widest);
@@ -82,7 +110,7 @@ describe('one shove, spent over its own ticks (R2)', () => {
 
   it('is spent on the tick after its last, so the body is free to walk again', () => {
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 1, 0);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
     for (let tick = 0; tick < SHOVE_TICKS; tick++) {
       expect(shoveInFlight(impulse), `tick ${tick}`).toBe(true);
       advanceShove(impulse);
@@ -94,7 +122,7 @@ describe('one shove, spent over its own ticks (R2)', () => {
 
   it('carries a body away along the direction it was given and along no other', () => {
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 1, 0);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
     for (const step of stepsOf(impulse, SHOVE_TICKS)) {
       expect(step!.x).toBe(0);
       expect(step!.y).toBeLessThan(0);
@@ -108,7 +136,7 @@ describe('what the impulse reports when it is done', () => {
     // because a bound that refused part of the move has to show in the only
     // figure a repel reading can honestly sum (events.ts, MobShoved).
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 1, 0);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
     for (const step of stepsOf(impulse, SHOVE_TICKS)) {
       // Half of every step refused, which is what a field edge does.
       impulse.travelled += lengthOf(step!) / 2;
@@ -118,7 +146,7 @@ describe('what the impulse reports when it is done', () => {
 
   it('leaves the body carrying nothing once its travel has been taken', () => {
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 1, 0);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
     stepsOf(impulse, SHOVE_TICKS);
     impulse.travelled = 40;
     takeShoveTravel(impulse);
@@ -134,7 +162,7 @@ describe('an impulse carrying more than one shove (R3)', () => {
     // the caller that passes more than one; the bell passes exactly one.
     const impulse = blankImpulse();
     const spacing = 10;
-    startShove(impulse, UP_X, UP_Y, 40, 3, spacing);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 3, spacing);
     const steps = stepsOf(impulse, spacing * 3);
     const travelTicks = steps
       .map((step, tick) => (step === null ? null : tick))
@@ -147,14 +175,14 @@ describe('an impulse carrying more than one shove (R3)', () => {
 
   it('carries the whole of each shove, so three shoves of forty move a body a hundred and twenty', () => {
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 3, 10);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 3, 10);
     const travelled = travelLengths(stepsOf(impulse, 40));
     expect(travelled.reduce((sum, step) => sum + step, 0)).toBeCloseTo(120, 9);
   });
 
   it('is spent only once its last shove has run', () => {
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 3, 10);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 3, 10);
     stepsOf(impulse, 26);
     expect(impulseSpent(impulse)).toBe(false);
     advanceShove(impulse);
@@ -169,10 +197,10 @@ describe('a shove landing on a body that is already flying', () => {
     // a shove lasts. The module answers it anyway, because a rule nobody has
     // written down is a rule two replays of one seed can disagree about.
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 1, 0);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
     advanceShove(impulse);
     advanceShove(impulse);
-    startShove(impulse, 1, 0, 40, 1, 0);
+    startShove(impulse, 'bell', 1, 0, 40, 1, 0);
     const steps = stepsOf(impulse, SHOVE_TICKS);
     expect(steps.filter((step) => step !== null)).toHaveLength(SHOVE_TICKS);
     for (const step of steps) expect(step!.y).toBe(0);
@@ -181,10 +209,10 @@ describe('a shove landing on a body that is already flying', () => {
 
   it('keeps what the body has already travelled, so nothing it was shoved goes unreported', () => {
     const impulse = blankImpulse();
-    startShove(impulse, UP_X, UP_Y, 40, 1, 0);
+    startShove(impulse, 'bell', UP_X, UP_Y, 40, 1, 0);
     advanceShove(impulse);
     impulse.travelled = 10;
-    startShove(impulse, 1, 0, 40, 1, 0);
+    startShove(impulse, 'bell', 1, 0, 40, 1, 0);
     stepsOf(impulse, SHOVE_TICKS);
     impulse.travelled += 40;
     expect(takeShoveTravel(impulse)).toBe(50);

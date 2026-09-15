@@ -5,6 +5,7 @@ import type { WeaponLine } from './lines/roster';
 import type { PatchClosing } from './lines/territory';
 import type { FireKind } from './mobFire';
 import type { DamageSource, MobType } from './mobs';
+import type { ShoveSource } from './shove';
 import type { BossKind, DirectorCard } from './stage/waves';
 import type { SectionMusic, SectionName } from './stage/stage';
 import type { FoodKind } from './swallow';
@@ -338,6 +339,13 @@ interface MobShoved {
   readonly type: 'mobShoved';
   readonly id: number;
   readonly displacement: number;
+  /**
+   * Which push threw it. A reading has to be able to say bell or belch without
+   * inferring it from whichever toll window happens to be open, because the
+   * belch's own shoves arrive with no toll open at all and inference is what
+   * used to throw there (design record R9, READINGS_VERSION 5).
+   */
+  readonly source: ShoveSource;
 }
 
 /**
