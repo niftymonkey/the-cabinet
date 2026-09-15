@@ -8,6 +8,7 @@ import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { RunState } from '../run';
 import { freshnessScale } from '../tuning';
+import { MAX_LEVEL } from './roster';
 
 interface Skull {
   alive: boolean;
@@ -30,13 +31,15 @@ const COLUMNS_BY_LEVEL: readonly number[] = [0, 1, 2, 3, 4, 5];
  * lane repeats, and a curve that moved both would make the two
  * indistinguishable to anyone reading the code or the screen.
  *
- * The magnitude is derived rather than picked. A shambler takes five skulls
- * (#76 pass A), so a mob standing in one column dies to five volleys, and three
- * tenths of a second between them puts a trash kill at about 1.5 seconds under
- * a level-1 stream, which is the "trash dies in a second or two" the drain-out
- * is re-derived against. The kill time is the fixed thing here: pass A raises
- * the touch count and shortens the gap by the same factor, so the stream reads
- * denser and thinner on screen without trash surviving any longer.
+ * The magnitude is derived rather than picked, and what it is derived against
+ * is a kill time. At rung 1 a mow body takes one skull (ADR 0059), so a
+ * shambler standing in a column dies to the first volley that reaches it and
+ * the interval sets how often the stream offers that volley rather than how
+ * long trash survives. The bodies above the mow are what the interval is
+ * measured on: at rung 1 a ghoul is three skulls and a revenant eight, so a
+ * revenant standing in one column falls in eight volleys, about 2.4 seconds,
+ * and three tenths of a second between volleys is what keeps that inside the
+ * "trash dies in a second or two" the drain-out is re-derived against.
  */
 const STREAM_INTERVAL = 18;
 
@@ -80,10 +83,64 @@ const SURGE_FLOOR_VOLLEYS = 1;
 // one, which is the ratio it has always carried.
 const SURGE_INTERVAL = 6;
 
+/**
+ * The longest a running surge is ever extended to by further swallows, in
+ * ticks (ADR 0058 as amended). A swallow during a running surge lengthens it
+ * toward this rather than starting a second beside it.
+ *
+ * The magnitude is derived rather than picked, and it is derived against one
+ * surge's own length. SURGE_VOLLEYS 2 at SURGE_INTERVAL 6 is twelve ticks, so
+ * a second holds exactly five of them: a chain of five swallows inside one
+ * second lengthens the surge to its cap and every swallow after that buys
+ * nothing. That is what a cadence floor is for. Past the cap the swallow rate
+ * stops setting the stream's cadence, and once the swallows stop the stream is
+ * back at its own interval within a second, so a surge still reads as an
+ * answer to eating rather than as a mode the stream sits in.
+ *
+ * The other half of the derivation is that SKULL_CAP must not bind, which is
+ * the thing a floor exists to keep true: a bound cap is a fault and never a
+ * throttle (ADR 0056). A level-5 stream held at the surged interval stands
+ * five columns every six ticks against a skull's 109-tick crossing, about 91
+ * alive against a cap of 120, so the pool has room at any surge duration and
+ * this cap is a legibility bound rather than a pool one.
+ */
+const SURGE_DURATION_CAP_TICKS = 60;
+
+// The cap in the unit the surge is actually counted in.
+const SURGE_VOLLEY_CAP = SURGE_DURATION_CAP_TICKS / SURGE_INTERVAL;
+
 const SKULL_HALF_EXTENT = 4;
 
-// What one skull takes off a mob. Five of these is a shambler exactly (#76 pass A).
-const SKULL_DAMAGE = 8;
+/**
+ * What one skull takes off a mob at each rung, indexed by level. The lane adds
+ * 25% of the rung-1 figure per rung, to a ceiling of twice it
+ * (docs/research/weapon-growth-per-level-precedent.md section 4): this line's
+ * own ladder is already the genre's shortest at x5.0 throughput, so a x2
+ * damage lane over the top of it lands the stream at x10, inside the genre's
+ * x8 to x16 band, where a x3 lane would make the workhorse the strongest
+ * ladder in the game.
+ *
+ * One skull is a mow body at every rung (ADR 0059), so what the lane buys is
+ * the bodies above the mow: at rung 1 a ghoul is three skulls and a revenant
+ * eight, and at rung 5 they are two and four.
+ *
+ * Level 0 is a line a run does not hold, so it takes nothing off anything.
+ */
+const SKULL_DAMAGE_BY_LEVEL: readonly number[] = [0, 8, 10, 12, 14, 16];
+
+/**
+ * What one skull takes off a mob at this rung, clamped at the last rung the
+ * table authors rather than reading past it, which is the refusal bell.ts's
+ * rowFor already makes for the cone rows. A level below zero is not a rung and
+ * fails loudly.
+ */
+const skullDamage = (level: number): number => {
+  const damage = SKULL_DAMAGE_BY_LEVEL[Math.min(level, MAX_LEVEL)];
+  if (damage === undefined) {
+    throw new Error(`no skull damage at level ${level}`);
+  }
+  return damage;
+};
 
 const blankSkull = (): Skull => {
   return { alive: false, id: 0, x: 0, y: 0, vx: 0, vy: 0 };
@@ -222,11 +279,14 @@ const advanceStream = (state: RunState): SimEvent[] => {
 };
 
 /**
- * A swallow's surge, its length scaled by the corpse's freshness (ADR 0058).
+ * A swallow's surge, its length scaled by the corpse's freshness (ADR 0058 as
+ * amended).
  *
- * It sets the count rather than adding to it, which is Mark's 2026-08-22
- * ruling said in code: one swallow buys one burst, and a swallow chain
- * overwrites an unspent volley instead of banking a queue.
+ * It lengthens a running surge toward a cap rather than setting the count, and
+ * the cap is why that is not a banked queue: extending is what overwriting
+ * becomes once a swallow chain is the normal case rather than the corner
+ * (ADR 0059's mow made it the normal case), and past the cap a further swallow
+ * buys nothing at all.
  *
  * Freshness scales how many volleys the surge pays and never how wide the
  * stream fires, because the column count is what draws the line's five levels
@@ -235,21 +295,29 @@ const advanceStream = (state: RunState): SimEvent[] => {
  * only ever pays what it has fully bought.
  */
 const surgeStream = (state: RunState, freshness: number): void => {
-  const paid = Math.floor(SURGE_VOLLEYS * freshnessScale(freshness));
-  state.lines.surgeVolleys = Math.max(SURGE_FLOOR_VOLLEYS, paid);
+  const paid = Math.max(
+    SURGE_FLOOR_VOLLEYS,
+    Math.floor(SURGE_VOLLEYS * freshnessScale(freshness)),
+  );
+  state.lines.surgeVolleys = Math.min(
+    SURGE_VOLLEY_CAP,
+    state.lines.surgeVolleys + paid,
+  );
 };
 
 export {
   createSkullPool,
   advanceStream,
   surgeStream,
+  skullDamage,
   COLUMNS_BY_LEVEL,
   STREAM_INTERVAL,
   SKULL_SPEED,
   SURGE_VOLLEYS,
   SURGE_FLOOR_VOLLEYS,
   SURGE_INTERVAL,
+  SURGE_DURATION_CAP_TICKS,
   SKULL_HALF_EXTENT,
-  SKULL_DAMAGE,
+  SKULL_DAMAGE_BY_LEVEL,
 };
 export type { Skull };

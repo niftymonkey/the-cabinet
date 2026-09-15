@@ -8,6 +8,7 @@ import { TICK_HZ } from '../clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import {
   BASE_SPEED,
+  CORPSES_TO_CEILING,
   FEAST_PAYOUT,
   FRESHNESS_PAYOUT_FLOOR,
   FRESHNESS_SECONDS,
@@ -66,16 +67,43 @@ describe('the tuning derivations', () => {
     expect(FRESHNESS_PAYOUT_FLOOR).toBe(0.25);
   });
   it("the reservoir's capacity is the Banshee feast's payout exactly, so the beat is arithmetically reachable (entry 5.11)", () => {
-    // Entry 5.11: the Banshee's feast pays growth worth 8 to 10 fresh trash
-    // corpses, and the same swallow slams the reservoir full. Capacity being
-    // the feast's payout exactly is what makes a fully fresh feast fill the
-    // reservoir and waste nothing. A flat 100 here would have made the beat
-    // arithmetically impossible, because a full reservoir would then cost more
-    // cumulative growth than the entire floor-to-ceiling range.
+    // Entry 5.11's identity is the ruling and it holds: the same swallow that
+    // feeds slams the reservoir full, so capacity is the feast's payout
+    // exactly and a fully fresh feast wastes nothing. A flat 100 here would
+    // have made the beat arithmetically impossible, because a full reservoir
+    // would then cost more cumulative growth than the entire floor-to-ceiling
+    // range.
+    //
+    // The feast's own size in corpses is the magnitude and it moved with the
+    // economy: entry 5.11's 8 to 10 corpses was a reading of a reservoir of 9,
+    // and the reservoir is now stated in corpses of expected mowing
+    // (docs/research/weapon-growth-per-level-precedent.md is the weapon half;
+    // the economy half is the design record's section 4 table and its section
+    // 9, "about 300"). The ruling did not move; what it is measured in did.
     const corpses = FEAST_PAYOUT / TRASH_CORPSE_PAYOUT;
-    expect(corpses).toBeGreaterThanOrEqual(8);
-    expect(corpses).toBeLessThanOrEqual(10);
+    expect(corpses).toBeCloseTo(300, 9);
     expect(RESERVOIR_CAPACITY).toBe(FEAST_PAYOUT);
     expect(RESERVOIR_CAPACITY).toBeLessThan(SIZE_CEILING - SIZE_FLOOR);
+  });
+});
+
+describe('the food economy in corpses of expected mowing (the record section 5 item 4)', () => {
+  it('the ceiling is reached in the corpses the economy row names and not in a tenth of them', () => {
+    // The record's section 5 item 4 as a relation rather than as a figure: the
+    // whole climb from a run's start to its ceiling is exactly the corpses the
+    // economy row names, so a size on screen is a count of mowing and the row
+    // is the denominator of everything the grave is paid.
+    const climb = SIZE_CEILING - SIZE_START;
+    expect(CORPSES_TO_CEILING * TRASH_CORPSE_PAYOUT).toBeCloseTo(climb, 9);
+
+    // And the ceiling costs more mowing than a full reservoir pays, which is
+    // what "a Procession of mowing rather than ten seconds in" means once both
+    // rows are stated in the same unit. At the dead baseline the ceiling cost
+    // 80 corpses against a reservoir of 9, so the belch was a reflex and the
+    // ceiling arrived before the section did; the two now sit in the same
+    // order of magnitude with the ceiling above.
+    const reservoirInCorpses = RESERVOIR_CAPACITY / TRASH_CORPSE_PAYOUT;
+    expect(CORPSES_TO_CEILING).toBeGreaterThan(reservoirInCorpses);
+    expect(reservoirInCorpses).toBeGreaterThan(CORPSES_TO_CEILING / 2);
   });
 });

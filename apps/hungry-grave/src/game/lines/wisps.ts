@@ -7,6 +7,7 @@ import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { cos, normalize, rotateToward, sin } from '../math';
 import type { RunState } from '../run';
+import { MAX_LEVEL } from './roster';
 import type { StormTarget } from '../stormTargets';
 import { stormTarget, stormTargets } from '../stormTargets';
 import { freshnessScale } from '../tuning';
@@ -31,9 +32,10 @@ interface Wisp {
  * is eleven and the design and the arithmetic agree.
  *
  * The ladder is sized against what a volley clears rather than against its own
- * shape: #76 pass A costs a trash body four wisps where it used to cost three,
- * and eleven at the ceiling is what keeps a maxed volley clearing the same
- * couple of bodies it always did.
+ * shape. Under the mow a trash body costs one wisp at every rung (ADR 0059),
+ * so eleven souls at the ceiling is eleven bodies of a maxed volley's reach
+ * where a rung-1 volley clears one, and what the count buys is how much of a
+ * crowd one swallow answers.
  *
  * Level 0 is zero, so the line is silent at the start of a run and arrives only
  * through a power-up: homing is always bought with a dive.
@@ -67,8 +69,51 @@ const WISP_TURN_DEGREES_PER_SECOND = 180;
 
 const WISP_HALF_EXTENT = 4;
 
-// What one wisp takes off a mob. Four of these is a shambler exactly (#76 pass A).
-const WISP_DAMAGE = 10;
+/**
+ * What one wisp takes off a mob at each rung, indexed by level. The lane adds
+ * 25% of the rung-1 figure per rung to a ceiling of twice it, rounded down
+ * where the step lands between whole souls
+ * (docs/research/weapon-growth-per-level-precedent.md section 4: a quarter of
+ * 10 puts rungs 2 and 4 at 12.5 and 17.5, and the record authors 12 and 17).
+ * Nothing rules the damage a wisp carries, so this is the one lane in the
+ * roster set by precedent alone.
+ *
+ * One wisp is a mow body at every rung (ADR 0059). What the lane buys is the
+ * bodies above it: at rung 1 a ghoul is two wisps and a revenant seven, and at
+ * rung 5 they are one and four.
+ *
+ * Level 0 is a line a run does not hold, so it takes nothing off anything.
+ */
+const WISP_DAMAGE_BY_LEVEL: readonly number[] = [0, 10, 12, 15, 17, 20];
+
+/**
+ * What one wisp takes off a mob at this rung, clamped at the last rung the
+ * table authors rather than reading past it. A level below zero is not a rung
+ * and fails loudly.
+ */
+const wispDamage = (level: number): number => {
+  const damage = WISP_DAMAGE_BY_LEVEL[Math.min(level, MAX_LEVEL)];
+  if (damage === undefined) {
+    throw new Error(`no wisp damage at level ${level}`);
+  }
+  return damage;
+};
+
+/**
+ * The fewest ticks between two wisp volleys, whatever the swallow rate
+ * (ADR 0058 as amended). The magnitude is the design record's section 4 table
+ * and its section 9, about thirty ticks, against WISP_CAP 64, which must not
+ * bind: at ten swallows a second a level-five line launches on the order of
+ * 110 souls a second into that cap, and a bound cap is a fault rather than a
+ * throttle (ADR 0056).
+ *
+ * The clock this floors is slice E's, and nothing reads this row until it
+ * lands: every field of LineState is folded, so a volley clock is a folded
+ * field and a folded field moves WITNESS_VERSION, which moves exactly once in
+ * this step, in the commit that declares every new folded field. The floor's
+ * own spec tests stand as tripwires in __tests__/wisps.ts until then.
+ */
+const WISP_VOLLEY_INTERVAL_TICKS = 30;
 
 const blankWisp = (): Wisp => {
   return {
@@ -132,8 +177,11 @@ const nearestTarget = (
 ): StormTarget | null => {
   let nearest: StormTarget | null = null;
   let best = Infinity;
+  // The rung is read here rather than carried on a wisp: a wisp gains no field,
+  // and what a soul takes off a body is the run's rung at the moment it lands.
+  const damage = wispDamage(state.levels.wisps);
   for (const target of stormTargets(state)) {
-    if (withRoom && committedTo(state, target.id) * WISP_DAMAGE >= target.hp) {
+    if (withRoom && committedTo(state, target.id) * damage >= target.hp) {
       continue;
     }
     const distance = distanceTo(target, x, y);
@@ -278,12 +326,14 @@ export {
   createWispPool,
   launchWisps,
   advanceWisps,
+  wispDamage,
   WISPS_BY_LEVEL,
   WISP_FLOOR_SOULS,
   WISP_SPEED,
   WISP_LIFETIME,
   WISP_TURN_DEGREES_PER_SECOND,
   WISP_HALF_EXTENT,
-  WISP_DAMAGE,
+  WISP_DAMAGE_BY_LEVEL,
+  WISP_VOLLEY_INTERVAL_TICKS,
 };
 export type { Wisp };

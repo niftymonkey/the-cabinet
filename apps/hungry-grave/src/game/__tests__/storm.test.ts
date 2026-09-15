@@ -6,14 +6,15 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { SKULL_DAMAGE } from '../lines/skullStream';
+import { BIRTHRIGHT_LEVEL } from '../lines/roster';
+import { skullDamage } from '../lines/skullStream';
 import {
   PULL_BY_LEVEL,
   REHIT_BY_LEVEL,
   SLOW_BY_LEVEL,
   TERRITORY_DAMAGE,
 } from '../lines/territory';
-import { WISP_DAMAGE } from '../lines/wisps';
+import { wispDamage } from '../lines/wisps';
 import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
@@ -120,6 +121,10 @@ describe('the storm meeting a mob (plan 6.7)', () => {
     // ground's body stays the mow body, which takes two pulses and so comes
     // through the pass alive.
     const state = stormRun();
+    // Each line is owned at the rung its damage is read at, because the storm
+    // now reads the rung at the moment a skull or a wisp lands rather than
+    // carrying a figure on the entity.
+    state.levels.wisps = BIRTHRIGHT_LEVEL;
     const skulled = putMob(state, 'revenant', 100, 100);
     const grabbed = patchVictim(state, 200, 400);
     const wisped = putMob(state, 'revenant', 300, 100);
@@ -130,9 +135,13 @@ describe('the storm meeting a mob (plan 6.7)', () => {
       .filter((event) => event.type === 'mobKilled')
       .map((event) => (event.type === 'mobKilled' ? event.x : -1));
     expect(killed).toEqual([]);
-    expect(skulled.hp).toBe(MOB_TYPES.revenant.hp - SKULL_DAMAGE);
+    expect(skulled.hp).toBe(
+      MOB_TYPES.revenant.hp - skullDamage(BIRTHRIGHT_LEVEL),
+    );
     expect(grabbed.hp).toBe(MOB_TYPES.shambler.hp - TERRITORY_DAMAGE);
-    expect(wisped.hp).toBe(MOB_TYPES.revenant.hp - WISP_DAMAGE);
+    expect(wisped.hp).toBe(
+      MOB_TYPES.revenant.hp - wispDamage(BIRTHRIGHT_LEVEL),
+    );
   });
 
   it('consumes a skull and a wisp on the mob they hit, and never a patch', () => {

@@ -22,14 +22,20 @@ import { MAX_LEVEL } from '../roster';
 import {
   advanceStream,
   COLUMNS_BY_LEVEL,
+  skullDamage,
+  SKULL_DAMAGE_BY_LEVEL,
   SKULL_HALF_EXTENT,
   SKULL_SPEED,
   STREAM_INTERVAL,
+  SURGE_DURATION_CAP_TICKS,
   SURGE_FLOOR_VOLLEYS,
   SURGE_INTERVAL,
   SURGE_VOLLEYS,
   surgeStream,
 } from '../skullStream';
+
+/** The cap stated in the unit the surge is counted in. */
+const SURGE_VOLLEY_CAP = SURGE_DURATION_CAP_TICKS / SURGE_INTERVAL;
 
 /** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
 function requireDefined<T>(value: T | undefined, message: string): T {
@@ -248,19 +254,22 @@ describe('the surge is a rate change and never a damage bonus (plan section 3)',
     );
   });
 
-  it('a swallow chain cannot hold the surge open, because surgeStream sets rather than adds', () => {
-    // Mark's 2026-08-22 ruling, and the half of the fix a count alone would not
-    // give. Ten swallows land before the pending surge is spent, so they
-    // overwrite one another rather than banking a queue of ten.
+  it('a swallow chain lengthens one surge to its cap and never past it', () => {
+    // ADR 0058 as amended: extending is what overwriting becomes once a
+    // swallow chain is the normal case rather than the corner, and the cap is
+    // what keeps the chain from making the surged interval the stream's
+    // ordinary one. Ten swallows land before the surge is spent, and what they
+    // buy is one surge at its cap rather than a queue of ten.
     const chained = quietRun();
     for (let swallow = 0; swallow < 10; swallow++) {
       surgeStream(chained, 1);
       advanceStream(chained);
     }
+    expect(chained.lines.surgeVolleys).toBe(SURGE_VOLLEY_CAP);
     const gaps = gapsBetween(volleyTicks(chained, 300));
-    expect(gaps.filter((gap) => gap === SURGE_INTERVAL)).toHaveLength(
-      SURGE_VOLLEYS,
-    );
+    expect(
+      gaps.filter((gap) => gap === SURGE_INTERVAL).length,
+    ).toBeLessThanOrEqual(SURGE_VOLLEY_CAP);
   });
 
   it('changes the volley count and never the damage per skull', () => {
@@ -508,5 +517,88 @@ describe('a skull leaving the field (plan 6.7)', () => {
       advanceStream(state);
     }
     expect(skull.alive).toBe(false);
+  });
+});
+
+describe('the surge extends toward a cap (ADR 0058 as amended)', () => {
+  it('a swallow during a running surge extends it toward the cap rather than starting a second', () => {
+    // ADR 0058 as amended: "one running surge runs longer toward a cap rather
+    // than a second starting beside it." The tell that it is one surge and not
+    // two is that the shortened gaps come in a single run at the front: two
+    // surges side by side would put a fixed gap between them.
+    const state = quietRun();
+    surgeStream(state, 1);
+    expect(state.lines.surgeVolleys).toBe(SURGE_VOLLEYS);
+    surgeStream(state, 1);
+    expect(state.lines.surgeVolleys).toBe(2 * SURGE_VOLLEYS);
+
+    const gaps = gapsBetween(volleyTicks(state, 300));
+    const shortened = gaps.filter((gap) => gap === SURGE_INTERVAL);
+    expect(shortened).toHaveLength(2 * SURGE_VOLLEYS);
+    expect(gaps.lastIndexOf(SURGE_INTERVAL)).toBe(shortened.length - 1);
+  });
+
+  it('the surge never runs longer than its own cap', () => {
+    // The cap is the one figure the records leave to this slice, and what it
+    // holds is that the swallow rate never sets the stream's cadence: past the
+    // cap a further swallow buys nothing at all.
+    const state = quietRun();
+    for (let swallow = 0; swallow < 50; swallow++) surgeStream(state, 1);
+    expect(state.lines.surgeVolleys).toBe(SURGE_VOLLEY_CAP);
+    expect(SURGE_VOLLEY_CAP * SURGE_INTERVAL).toBe(SURGE_DURATION_CAP_TICKS);
+  });
+
+  it('extends by what one swallow pays, at the cap and past it', () => {
+    // The bounds of the extension itself: one swallow below the cap adds its
+    // own volleys, a swallow that would cross the cap lands exactly on it, and
+    // a swallow past it moves nothing.
+    const below = quietRun();
+    below.lines.surgeVolleys = SURGE_VOLLEY_CAP - SURGE_VOLLEYS;
+    surgeStream(below, 1);
+    expect(below.lines.surgeVolleys).toBe(SURGE_VOLLEY_CAP);
+
+    const crossing = quietRun();
+    crossing.lines.surgeVolleys = SURGE_VOLLEY_CAP - 1;
+    surgeStream(crossing, 1);
+    expect(crossing.lines.surgeVolleys).toBe(SURGE_VOLLEY_CAP);
+
+    const full = quietRun();
+    full.lines.surgeVolleys = SURGE_VOLLEY_CAP;
+    surgeStream(full, 1);
+    expect(full.lines.surgeVolleys).toBe(SURGE_VOLLEY_CAP);
+  });
+
+  it('freshness still pays the surge in volleys while it extends (ADR 0058)', () => {
+    // The freshness axis survives the amendment untouched: a rotten corpse
+    // extends the surge by less than a fresh one, and neither touches how wide
+    // the stream fires.
+    const fresh = quietRun();
+    fresh.lines.surgeVolleys = SURGE_VOLLEYS;
+    surgeStream(fresh, 1);
+    const rotten = quietRun();
+    rotten.lines.surgeVolleys = SURGE_VOLLEYS;
+    surgeStream(rotten, FRESHNESS_PAYOUT_FLOOR);
+
+    expect(rotten.lines.surgeVolleys).toBeLessThan(fresh.lines.surgeVolleys);
+    expect(rotten.lines.surgeVolleys).toBeGreaterThan(SURGE_VOLLEYS);
+  });
+});
+
+describe("the stream's damage climbs with its rungs (the weapon growth record, section 4)", () => {
+  it('a skull takes the damage its rung states, at every rung', () => {
+    // docs/research/weapon-growth-per-level-precedent.md section 4: a flat add
+    // of 25% of the rung-1 value per rung, to a ceiling of x2. Level 0 is a
+    // line a run does not hold, so it takes nothing off anything.
+    expect([...SKULL_DAMAGE_BY_LEVEL]).toEqual([0, 8, 10, 12, 14, 16]);
+    for (let level = 0; level <= MAX_LEVEL; level++) {
+      expect(skullDamage(level)).toBe(SKULL_DAMAGE_BY_LEVEL[level]);
+    }
+  });
+
+  it('reads no damage past the rungs it authors', () => {
+    // The tree's own rule for a level table (bell.ts's rowFor): a lookup
+    // refuses or clamps rather than answering for a rung nobody authored.
+    expect(skullDamage(MAX_LEVEL + 1)).toBe(skullDamage(MAX_LEVEL));
+    expect(() => skullDamage(-1)).toThrow();
   });
 });

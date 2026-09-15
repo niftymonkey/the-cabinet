@@ -116,11 +116,17 @@ const TERRITORY_OPENING_TICKS = 68;
 const TERRITORY_LEAD_TICKS = 150;
 
 /**
- * What one dwell pulse takes off a mob. PROVISIONAL.
+ * What one dwell pulse takes off a mob, at every rung. PROVISIONAL.
  *
- * The ruled contract is shambler-denominated against the pass A health scale:
- * a shambler's 40 is 8 pulses exactly, the ghoul's 20 is 4 pulses exactly
- * (#79), and the revenant rounds up to 13.
+ * The ruled contract is the count rather than the figure, and under the mow's
+ * health scale (ADR 0059) it is a shambler in 2 pulses, the ghoul's 20 in 4
+ * exactly (#79), and the revenant rounding up to 13.
+ *
+ * It is one flat figure and not a lane, which is the only line in the roster
+ * with no damage climb: ADR 0044 as amended 2026-08-28 holds the ruled touch
+ * counts flat and moves only the time the ground takes to deliver them, so a
+ * lane here would need that ruling reopened. The rung buys area, pull, slow
+ * and pace instead.
  */
 const TERRITORY_DAMAGE = 5;
 
@@ -129,16 +135,18 @@ const TERRITORY_DAMAGE = 5;
  *
  * The pace of the pulses is the third channel of control strength, beside the
  * pull and the slow (ADR 0044, amended 2026-08-28). Every ruled touch count is
- * untouched by it: TERRITORY_DAMAGE stays 5, so a shambler is still 8 pulses,
- * a ghoul 4 and a revenant 13, and only the time the ground takes to deliver
- * them moves with the level.
+ * untouched by it: TERRITORY_DAMAGE stays 5 at every rung, so under the mow a
+ * shambler is 2 pulses, a ghoul 4 and a revenant 13, and only the time the
+ * ground takes to deliver them moves with the level.
  *
  * Measured pure dwell for a shambler entering at the centre of open ground,
  * damage off: 376 ticks at level 1, then 923, 937, 954 and 979, every rung
  * above the first capped by the ground's own remaining life rather than by the
  * crossing, because from level 2 the mob is held until the ground goes.
  * Against those the ladder gives, at a centre entry: level 1 five pulses and
- * 25 damage, so the mob walks out alive at 15 of 40; level 2 death after 434
+ * 25 damage, which was a mob walking out alive at 15 of the 40 health a
+ * shambler carried when the ladder was derived and is a kill twice over under
+ * the mow's 8; level 2 death after 434
  * ticks of dwell; level 3 after 336; level 4 after 266; and level 5 after 210,
  * which is exactly the old flat window's figure, so the top rung is pinned to
  * the derivation the genre reading already settled, full damage on a per-enemy

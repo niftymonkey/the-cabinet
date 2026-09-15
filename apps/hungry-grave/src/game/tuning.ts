@@ -92,14 +92,30 @@ const HIT_SHRINK = 3;
  */
 const INVULNERABLE_TICKS = 24;
 
-// How many fully fresh trash corpses grow a run from its start to its ceiling. The economy's one declared magnitude.
-const CORPSES_TO_CEILING = 80;
+/**
+ * How many fully fresh trash corpses grow a run from its start to its ceiling.
+ * The economy's one declared magnitude, and it is stated in corpses of expected
+ * mowing rather than of the old trickle.
+ *
+ * What it is against: the ceiling lands late in the Procession rather than ten
+ * seconds into it. At 80 a mow's first seconds bought the whole climb, so the
+ * grave was full before the section it grows through had started.
+ */
+const CORPSES_TO_CEILING = 400;
 
 // The unit of food. Every mob's payout is stated as a multiple of this.
 const TRASH_CORPSE_PAYOUT = (SIZE_CEILING - SIZE_START) / CORPSES_TO_CEILING;
 
-// Decision-log entry 5.11: the Banshee's feast pays growth worth 8 to 10 fresh trash corpses.
-const FEAST_PAYOUT = 9 * TRASH_CORPSE_PAYOUT;
+/**
+ * Decision-log entry 5.11: the Banshee's feast pays growth worth a stated count
+ * of fresh trash corpses, and the same swallow slams the reservoir full.
+ *
+ * The count is the reservoir stated in corpses, because the reservoir is
+ * written as this payout and the two are one row. What it is against: a belch
+ * roughly every forty seconds at Crowd rates rather than every two, so the
+ * belch is a cadence the player waits for and spends rather than a reflex.
+ */
+const FEAST_PAYOUT = 300 * TRASH_CORPSE_PAYOUT;
 
 /**
  * Entry 5.11 again: the same swallow slams the reservoir full. Capacity is the

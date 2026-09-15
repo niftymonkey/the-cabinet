@@ -10,6 +10,7 @@ import {
   moveStormTarget,
   stormTargets,
 } from '../stormTargets';
+import { MAX_LEVEL } from './roster';
 
 /**
  * What one level's toll throws: where its cones point, how wide each one opens,
@@ -107,11 +108,30 @@ const BELL_CONE_ROWS: readonly ConeRow[] = [
   coneRow([-144, -72, 0, 72, 144], 33, 261, 40),
 ];
 
-// Damage at the grave itself. One shambler exactly, so a maxed bell kills trash outright only where the player is standing.
-const BELL_DAMAGE_NEAR = 40;
+/**
+ * Damage at the grave itself, at each rung, indexed by level. The bell is the
+ * named exception to the roster's x2 damage ceiling and lands at x2.6
+ * (docs/research/weapon-growth-per-level-precedent.md section 4): the far edge
+ * is exactly an eighth of the near edge (ADR 0036), so a step of 25% of 40
+ * would put the far edge at 6.25, and 40% of the rung-1 figure is the smallest
+ * step that keeps both whole.
+ *
+ * At rung 1 the near edge takes a mow body five times over (ADR 0059), so what
+ * the lane buys out here is the bodies the toll does not already delete: a
+ * revenant is two tolls at rung 1 and one at rung 5.
+ *
+ * Level 0 throws no cones at all, so it takes nothing off anything.
+ */
+const BELL_DAMAGE_NEAR_BY_LEVEL: readonly number[] = [0, 40, 56, 72, 88, 104];
 
-// Damage at the far edge of a cone. The far edge tickles, which is Mark's 2026-08-19 ruling recorded in ADR 0005: eight tolls out here to take one trash body (#76 pass A).
-const BELL_DAMAGE_FAR = 5;
+/**
+ * Damage at the far edge of a cone, at each rung. The far edge tickles, which
+ * is Mark's 2026-08-19 ruling recorded in ADR 0005 and held as a ratio in
+ * ADR 0036: an eighth of the near edge at every rung, which is what sized the
+ * near edge's own step. At rung 1 that is two tolls out here to take a mow
+ * body, against one at the grave.
+ */
+const BELL_DAMAGE_FAR_BY_LEVEL: readonly number[] = [0, 5, 7, 9, 11, 13];
 
 /**
  * The row a level throws, and nothing at all past the authored rows. Every
@@ -122,6 +142,28 @@ const rowFor = (level: number): ConeRow | undefined => {
   if (!Number.isInteger(level)) return undefined;
   if (level < 0 || level >= BELL_CONE_ROWS.length) return undefined;
   return BELL_CONE_ROWS[level];
+};
+
+/**
+ * What a toll at this rung takes at the grave, clamped at the last rung the
+ * table authors rather than reading past it. A level below zero is not a rung
+ * and fails loudly.
+ */
+const bellDamageNear = (level: number): number => {
+  const damage = BELL_DAMAGE_NEAR_BY_LEVEL[Math.min(level, MAX_LEVEL)];
+  if (damage === undefined) {
+    throw new Error(`no bell damage at level ${level}`);
+  }
+  return damage;
+};
+
+// What a toll at this rung takes at the far edge of its cones, an eighth of the near edge.
+const bellDamageFar = (level: number): number => {
+  const damage = BELL_DAMAGE_FAR_BY_LEVEL[Math.min(level, MAX_LEVEL)];
+  if (damage === undefined) {
+    throw new Error(`no bell damage at level ${level}`);
+  }
+  return damage;
 };
 
 // How far the leading edge of this toll's cones stands from the grave, at this much of its life.
@@ -267,8 +309,10 @@ const sweepToll = (
     if (!held) continue;
     toll.struck.add(target.id);
     const near = proximity(distance, row.reach);
-    const damage =
-      BELL_DAMAGE_FAR + (BELL_DAMAGE_NEAR - BELL_DAMAGE_FAR) * near;
+    // The rung is the toll's own, captured when it was armed, so a power-up
+    // taken while a ring is still expanding never raises what that ring carries.
+    const far = bellDamageFar(toll.level);
+    const damage = far + (bellDamageNear(toll.level) - far) * near;
     const shoved = pushTarget(state, toll, target, distance, near);
     if (shoved !== null) events.push(shoved);
     events.push(...damageStormTarget(state, target, damage, 'bell'));
@@ -321,10 +365,12 @@ export {
   coneHeading,
   insideCone,
   advanceBell,
+  bellDamageNear,
+  bellDamageFar,
   BELL_PERIOD,
   BELL_EXPAND_TICKS,
   BELL_CONE_ROWS,
-  BELL_DAMAGE_NEAR,
-  BELL_DAMAGE_FAR,
+  BELL_DAMAGE_NEAR_BY_LEVEL,
+  BELL_DAMAGE_FAR_BY_LEVEL,
 };
 export type { BellToll, ConeRow };

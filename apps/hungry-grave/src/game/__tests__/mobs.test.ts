@@ -20,10 +20,10 @@ import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { graveHitbox } from '../grave';
 import { advanceBell } from '../lines/bell';
-import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
+import { BIRTHRIGHT_LEVEL, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import {
   advanceStream,
-  SKULL_DAMAGE,
+  skullDamage,
   STREAM_INTERVAL,
   SURGE_INTERVAL,
   SURGE_VOLLEYS,
@@ -212,26 +212,31 @@ describe('the mob type table (ADR 0016)', () => {
 });
 
 describe('the mow (ADR 0059)', () => {
-  /** How many skulls a body of this type takes, landed one at a time. */
+  /**
+   * How many skulls a body of this type takes at the rung a run is born on,
+   * landed one at a time. The rung is named because damage climbs with it
+   * (docs/research/weapon-growth-per-level-precedent.md section 4), so a count
+   * is a reading of a curve rather than a constant.
+   */
   const skullsToKill = (type: Mob['type']): number => {
     const state = quietRun();
     const mob = putMob(state, type, 200, 200);
     let skulls = 0;
     while (mob.alive && skulls < 20) {
-      damageMob(state, mob, SKULL_DAMAGE, 'skullStream');
+      damageMob(state, mob, skullDamage(BIRTHRIGHT_LEVEL), 'skullStream');
       skulls += 1;
     }
     return skulls;
   };
 
-  it('kills a shambler with one skull', () => {
+  it('kills a shambler with one skull at the rung a run is born on', () => {
     // ADR 0059: density is bought with weak bodies, never tough ones, so the
     // mow body dies to the first thing the storm lands on it. Counted through
     // damageMob rather than divided, because what is promised is the kill.
     expect(skullsToKill('shambler')).toBe(1);
   });
 
-  it('kills a ghoul with three skulls and a revenant with eight', () => {
+  it('kills a ghoul with three skulls and a revenant with eight, at that same rung', () => {
     // The two rows the mow does not move. ADR 0059 is a change to trash and
     // never to the roster: the ghoul stays the body threat that dies fast but
     // not free, and the revenant stays few and tough at eight times the mow

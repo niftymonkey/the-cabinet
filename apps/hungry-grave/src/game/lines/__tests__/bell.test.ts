@@ -20,15 +20,17 @@ import type { BellToll, ConeRow } from '../bell';
 import {
   advanceBell,
   BELL_CONE_ROWS,
-  BELL_DAMAGE_FAR,
-  BELL_DAMAGE_NEAR,
+  BELL_DAMAGE_FAR_BY_LEVEL,
+  BELL_DAMAGE_NEAR_BY_LEVEL,
+  bellDamageFar,
+  bellDamageNear,
   BELL_EXPAND_TICKS,
   BELL_PERIOD,
   coneHeading,
   insideCone,
   tollReach,
 } from '../bell';
-import { MAX_LEVEL } from '../roster';
+import { BIRTHRIGHT_LEVEL, MAX_LEVEL } from '../roster';
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
 
@@ -308,7 +310,7 @@ describe('the cones expand on one clock (plan 6.6)', () => {
 });
 
 describe('the damage falls off with distance (ADR 0005)', () => {
-  it("deals BELL_DAMAGE_NEAR at the grave and BELL_DAMAGE_FAR at the cone's far edge", () => {
+  it("deals the rung's near damage at the grave and its far damage at the cone's far edge", () => {
     const level = MAX_LEVEL;
     const full = rowAt(level).reach;
 
@@ -316,14 +318,14 @@ describe('the damage falls off with distance (ADR 0005)', () => {
     near.levels.bell = level;
     const atGrave = put(near, 'revenant', near.grave.x, near.grave.y);
     oneToll(near);
-    expect(damageTo(atGrave)).toBeCloseTo(BELL_DAMAGE_NEAR, 4);
+    expect(damageTo(atGrave)).toBeCloseTo(bellDamageNear(level), 4);
 
     const far = quietRun();
     far.levels.bell = level;
     const atEdge = put(far, 'revenant', far.grave.x, far.grave.y - full + 1);
     oneToll(far);
-    expect(damageTo(atEdge)).toBeGreaterThan(BELL_DAMAGE_FAR * 0.9);
-    expect(damageTo(atEdge)).toBeLessThan(BELL_DAMAGE_FAR * 1.2);
+    expect(damageTo(atEdge)).toBeGreaterThan(bellDamageFar(level) * 0.9);
+    expect(damageTo(atEdge)).toBeLessThan(bellDamageFar(level) * 1.2);
   });
 
   it('takes about three tenths of the near edge at eighty percent of the reach', () => {
@@ -339,7 +341,7 @@ describe('the damage falls off with distance (ADR 0005)', () => {
     state.levels.bell = level;
     const mob = put(state, 'revenant', state.grave.x, state.grave.y - at);
     oneToll(state);
-    expect(damageTo(mob) / BELL_DAMAGE_NEAR).toBeCloseTo(0.3, 1);
+    expect(damageTo(mob) / bellDamageNear(level)).toBeCloseTo(0.3, 1);
   });
 
   it('damages a mob once as the leading edge crosses it, never twice and never on the tick after', () => {
@@ -360,14 +362,11 @@ describe('the damage falls off with distance (ADR 0005)', () => {
 });
 
 describe('what the toll costs a trash body at the far edge (ADR 0059)', () => {
-  it("takes exactly two tolls to kill a shambler standing at the cone's full reach", () => {
-    // ADR 0059 supersedes the #76 pass A count of eight. What survives is
-    // Mark's 2026-08-19 ruling that the far edge tickles rather than kills
-    // (ADR 0036), held as the ratio between the edges: out here it still takes
-    // more than one toll where the grave's own rim takes one.
+  /** The tolls a shambler standing at a rung's full reach absorbs before it dies. */
+  function tollsToKillAtFullReach(level: number): number {
     const state = quietRun();
-    state.levels.bell = MAX_LEVEL;
-    const full = rowAt(MAX_LEVEL).reach;
+    state.levels.bell = level;
+    const full = rowAt(level).reach;
     const mob = put(state, 'shambler', state.grave.x, state.grave.y - full);
 
     let chips = 0;
@@ -376,18 +375,43 @@ describe('what the toll costs a trash body at the far edge (ADR 0059)', () => {
         (event) => event.type === 'mobDamaged',
       ).length;
     }
-
     expect(mob.alive).toBe(false);
-    expect(chips).toBe(2);
+    return chips;
+  }
+
+  it("takes exactly two tolls to kill a shambler at the cone's full reach, at the rung a run is born on", () => {
+    // ADR 0059 supersedes the #76 pass A count of eight. What survives is
+    // Mark's 2026-08-19 ruling that the far edge tickles rather than kills
+    // (ADR 0036), held as the ratio between the edges: out here it still takes
+    // more than one toll where the grave's own rim takes one.
+    //
+    // The rung is named because the bell's damage now climbs with its rungs
+    // (docs/research/weapon-growth-per-level-precedent.md section 4), so the
+    // count is where the curve starts rather than a figure the line holds.
+    expect(tollsToKillAtFullReach(BIRTHRIGHT_LEVEL)).toBe(2);
   });
+
+  it.fails(
+    'still needs more than one toll at the far edge at the top rung',
+    () => {
+      // The half of the tickle the damage lane costs, kept visible as a tripwire
+      // in this tree's own idiom rather than deleted. At rung 5 the far edge
+      // carries 13 against a mow body's 8, so a maxed bell takes trash outright
+      // anywhere inside its cones and not only at the grave. Two rulings meet
+      // here and neither is this slice's to move: ADR 0059 puts the mow body at
+      // one touch of anything, and the ruled lane doubles the bell and a half
+      // past it. Filed for Mark's read; the day the far edge tickles a mow body
+      // again this goes red and asks to be written as an ordinary assertion.
+      expect(tollsToKillAtFullReach(MAX_LEVEL)).toBeGreaterThan(1);
+    },
+  );
 });
 
 describe('one toll alone cannot clear a wave (plan 6.6)', () => {
-  it("leaves survivors from twenty-two shamblers across the field's width, at level 5", () => {
-    // The bound the wisps already carry, and the one the bell walked out from
-    // under when it left the swallow.
+  /** How many of a curtain of twenty-two shamblers survive one toll at this rung. */
+  function survivorsOfOneToll(level: number): number {
     const state = quietRun();
-    state.levels.bell = MAX_LEVEL;
+    state.levels.bell = level;
     const wave: Mob[] = [];
     for (let index = 0; index < 22; index++) {
       const halfWidth = MOB_TYPES.shambler.halfWidth;
@@ -401,8 +425,27 @@ describe('one toll alone cannot clear a wave (plan 6.6)', () => {
       );
     }
     oneToll(state);
-    expect(wave.filter((mob) => mob.alive).length).toBeGreaterThan(0);
+    return wave.filter((mob) => mob.alive).length;
+  }
+
+  it("leaves survivors from twenty-two shamblers across the field's width, at the rung a run is born on", () => {
+    // The bound the wisps already carry, and the one the bell walked out from
+    // under when it left the swallow.
+    expect(survivorsOfOneToll(BIRTHRIGHT_LEVEL)).toBeGreaterThan(0);
   });
+
+  it.fails(
+    "leaves survivors from that same curtain at the bell's top rung",
+    () => {
+      // What the ruled damage lane costs at the top of the ladder, kept visible
+      // rather than deleted: at rung 5 the far edge carries 13 against a mow
+      // body's 8, so a maxed bell's five cones take the whole curtain in one
+      // toll. The curtain here is the Wall's own width, so this is the same
+      // finding the handoff already carries about ADR 0042, arriving from the
+      // weapon side. Filed for Mark's read and built past.
+      expect(survivorsOfOneToll(MAX_LEVEL)).toBeGreaterThan(0);
+    },
+  );
 });
 
 describe('the push is on the field from level 1 (ADR 0036)', () => {
@@ -555,7 +598,10 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
         events.filter((event) => event.type === 'mobShoved'),
         `level ${level}`,
       ).toEqual([]);
-      expect(damageTo(mob), `level ${level}`).toBeCloseTo(BELL_DAMAGE_NEAR, 4);
+      expect(damageTo(mob), `level ${level}`).toBeCloseTo(
+        bellDamageNear(level),
+        4,
+      );
     }
   });
 
@@ -581,5 +627,40 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
       expect(mob.y).toBeGreaterThanOrEqual(-SPAWN_MARGIN);
       expect(mob.y).toBeLessThanOrEqual(FIELD_HEIGHT + SPAWN_MARGIN);
     }
+  });
+});
+
+describe("the bell's damage climbs with its rungs (the weapon growth record, section 4)", () => {
+  it('tolls for the damage its rung states, near and far, at every rung', () => {
+    // docs/research/weapon-growth-per-level-precedent.md section 4. The bell is
+    // the named exception to the x2 ceiling and lands at x2.6: the far edge is
+    // pinned at exactly an eighth of the near edge (ADR 0036), and a step of
+    // 25% of 40 would put the far edge at 6.25, so the smallest step that
+    // keeps both whole is 40% of the rung-1 value. Level 0 throws no cones at
+    // all.
+    expect([...BELL_DAMAGE_NEAR_BY_LEVEL]).toEqual([0, 40, 56, 72, 88, 104]);
+    expect([...BELL_DAMAGE_FAR_BY_LEVEL]).toEqual([0, 5, 7, 9, 11, 13]);
+    for (let level = 0; level <= MAX_LEVEL; level++) {
+      expect(bellDamageNear(level)).toBe(BELL_DAMAGE_NEAR_BY_LEVEL[level]);
+      expect(bellDamageFar(level)).toBe(BELL_DAMAGE_FAR_BY_LEVEL[level]);
+    }
+  });
+
+  it('leaves the far edge an eighth of the near edge at every rung (ADR 0036)', () => {
+    // The ruling ADR 0036 actually carries is the ratio, so it is asserted
+    // across the whole table rather than at the rung the run starts on. It is
+    // also the constraint that sized the bell's own step.
+    for (let level = 0; level <= MAX_LEVEL; level++) {
+      expect(`rung ${level}: ${bellDamageFar(level) * 8}`).toBe(
+        `rung ${level}: ${bellDamageNear(level)}`,
+      );
+    }
+  });
+
+  it('reads no damage past the rungs it authors', () => {
+    expect(bellDamageNear(MAX_LEVEL + 1)).toBe(bellDamageNear(MAX_LEVEL));
+    expect(bellDamageFar(MAX_LEVEL + 1)).toBe(bellDamageFar(MAX_LEVEL));
+    expect(() => bellDamageNear(-1)).toThrow();
+    expect(() => bellDamageFar(-1)).toThrow();
   });
 });

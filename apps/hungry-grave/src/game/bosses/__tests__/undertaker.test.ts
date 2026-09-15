@@ -16,10 +16,11 @@ import type { TickCommand } from '../../command';
 import type { SimEvent } from '../../events';
 import { FIELD_WIDTH } from '../../field';
 import { graveWidth } from '../../grave';
-import { BELL_DAMAGE_NEAR, BELL_PERIOD } from '../../lines/bell';
+import { bellDamageNear, BELL_PERIOD } from '../../lines/bell';
+import { MAX_LEVEL } from '../../lines/roster';
 import {
   COLUMNS_BY_LEVEL,
-  SKULL_DAMAGE,
+  skullDamage,
   STREAM_INTERVAL,
 } from '../../lines/skullStream';
 import type { FireKind } from '../../mobFire';
@@ -279,9 +280,9 @@ const FULL_BUILD_DAMAGE_PER_SECOND =
     COLUMNS_BY_LEVEL[COLUMNS_BY_LEVEL.length - 1],
     'COLUMNS_BY_LEVEL is empty',
   ) *
-    SKULL_DAMAGE) /
+    skullDamage(MAX_LEVEL)) /
     (STREAM_INTERVAL / TICK_HZ) +
-  BELL_DAMAGE_NEAR / (BELL_PERIOD / TICK_HZ);
+  bellDamageNear(MAX_LEVEL) / (BELL_PERIOD / TICK_HZ);
 
 /** One full emit of a phase: the longest cycle any pattern live in it runs. */
 function emitTicks(phase: number): number {

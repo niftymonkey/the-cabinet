@@ -72,7 +72,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Storm**: The player's own airborne projectiles at saturation, the bullet heaven the player builds. Mob fire is never the storm. _Avoid_: bullet spam, DPS, firepower.
 
-**Surge**: The skull stream's answer to a swallow: a number of extra volleys at a shortened interval, never a damage bonus and never a time window. A rotten corpse buys a shorter surge and never a thinner one, because column count is what draws the line's levels. One swallow buys one surge, and a swallow chain overwrites an unspent one rather than banking a queue. _Avoid_: buff, haste, frenzy.
+**Surge**: The skull stream's answer to a swallow: a number of extra volleys at a shortened interval, never a damage bonus and never a time window. A rotten corpse buys a shorter surge and never a thinner one, because column count is what draws the line's levels. One swallow buys one surge, and a swallow during a running one lengthens it toward a cap rather than starting a second beside it or banking a queue (ADR 0058 as amended). _Avoid_: buff, haste, frenzy.
 
 **Toll**: One firing of the bell, on its own clock and never bought by a swallow. _Avoid_: pulse, tick, cast.
 

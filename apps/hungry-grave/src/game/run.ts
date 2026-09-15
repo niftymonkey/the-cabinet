@@ -41,7 +41,8 @@ type RunEnding = 'sealed' | 'victory';
 interface LineState {
   // Ticks to the next stream volley.
   streamIn: number;
-  // Surged volleys still owed, set by a swallow and never added to.
+  // Surged volleys still owed. A swallow lengthens a running surge toward its
+  // cap rather than starting a second beside it (ADR 0058 as amended).
   surgeVolleys: number;
   // Ticks to the next toll.
   tollIn: number;

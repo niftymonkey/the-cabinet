@@ -164,13 +164,19 @@ const NEVER_FEEDS: number[] = [];
  * offer; played past the budget both are paid, so what the set names is the
  * budget's reach and not a seed that cannot be paid.
  *
+ * Re-measured again for the economy stated in corpses of expected mowing, and
+ * two more went in. A run climbs to its ceiling over 400 corpses rather than
+ * 80, so a dodging grave stays near its starting size for the whole run, and a
+ * smaller mouth passes under fewer of the power-ups a carrier drops. Measured
+ * at this tip, none of the four crosses a carrier inside the budget.
+ *
  * This is a reading of `dodgePolicy` rather than of the game. The bot only
  * dodges, so it never levels a line and never clears a mow.
  *
  * Kept as an equality in both places that read it, so the day a seed is not
  * paid this file goes red and says which.
  */
-const NEVER_PAID: number[] = [202, 303];
+const NEVER_PAID: number[] = [202, 303, 404, 505];
 
 /**
  * The seeds whose fresh grave reaches victory on this policy, and there are
@@ -300,11 +306,17 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
  * the section runs on and the birthright stream is firing the whole time; on
  * 505 that is enough to take her down, and the run then seals in the Crowd.
  *
+ * 202 joined it when the economy was restated in corpses of expected mowing.
+ * A ceiling grave that takes a ring is ground down at the same rate as before
+ * and grows back about five times more slowly, so it spends her fight as a
+ * smaller target, takes fewer rings for it, and lives long enough for the
+ * birthright stream to finish her.
+ *
  * It is still a statement about the fight rather than about a build: none of
- * the five wins from the ceiling, and the set names which one her fight no
+ * the five wins from the ceiling, and the set names which ones her fight no
  * longer holds so the day another seed passes her this file says which.
  */
-const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [505];
+const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [202, 505];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it

@@ -187,10 +187,12 @@ const RICH_LEVELS: Readonly<Record<WeaponLine, number>> = {
 /**
  * Long enough that the fixture reaches the belch arm rather than only the
  * lines. Power is metered by carriers (ADR 0002), so the reservoir fills at
- * whatever rate the schedule and the wander together pay for: at 6000 ticks
- * this run pressed the belch twice and both presses caught an empty radius, so
- * the belch column it is here to attribute was measured over nothing. At 9000
- * it presses four times and lands nine hits.
+ * whatever rate the schedule and the wander together pay for, and the economy
+ * now states that rate in corpses of expected mowing: a full reservoir is 300
+ * fresh trash corpses rather than 9, so this run first belches at tick 8422
+ * where it used to belch four times before 9000. Measured at this tip it
+ * belches twice over its whole life and lands one hit, which is the belch
+ * column this file exists to attribute.
  *
  * It used to end with the run still live, and the Banshee (ADR 0007) is what
  * changed that: 9000 ticks reached her fight, and a wandering hand under her
@@ -198,19 +200,22 @@ const RICH_LEVELS: Readonly<Record<WeaponLine, number>> = {
  * rather than pinned as absent, which is what the assertion was always about,
  * that the replay recomputes the run the tape holds.
  *
- * The mow moved the ending back out past 9000 and the ceiling follows it. The
- * stage's authored floor now feeds a wandering grave far more than it did
- * (ADR 0060), so this hand grows instead of being ground down and reaches the
- * Banshee later: measured, it seals between tick 9200 and tick 9400. The
- * ceiling is 9600, far enough above that to hold the ending and near enough
- * that the fixture is still one recording rather than three.
+ * The mow moved the ending back out past 9000 and the economy moved it out
+ * again. The stage's authored floor feeds a wandering grave far more than it
+ * did (ADR 0060), so this hand grows instead of being ground down; and a run
+ * now climbs to its ceiling over 400 corpses rather than 80, so the grave this
+ * hand carries is smaller for longer and a smaller grave is a smaller target.
+ * Measured at this tip it seals at tick 21565 where it used to seal between
+ * 9200 and 9400. The ceiling is 21600, far enough above that to hold the
+ * ending and near enough that the fixture is still one recording rather than
+ * three.
  *
  * That makes this a ceiling and not the recording's length: the loop stops on
  * the tick the run ends, because executeTick does not read the ending and every
  * loop above it must (`execution.ts`, #52). What the fixture records is
  * `RichRecording.ticks`, and every assertion over the tape's length reads that.
  */
-const RICH_TICKS = 9600;
+const RICH_TICKS = 21600;
 const RICH_SPACING = 60;
 /** The ticks the rich fixture's expensive frames start at; zero pins the empty starting field. */
 const RICH_EXPENSIVE_TICKS = [0, 1200, 4500];

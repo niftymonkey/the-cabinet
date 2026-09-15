@@ -18,11 +18,13 @@ import { MAX_LEVEL } from '../roster';
 import {
   advanceWisps,
   launchWisps,
-  WISP_DAMAGE,
+  wispDamage,
+  WISP_DAMAGE_BY_LEVEL,
   WISP_FLOOR_SOULS,
   WISP_LIFETIME,
   WISP_SPEED,
   WISP_TURN_DEGREES_PER_SECOND,
+  WISP_VOLLEY_INTERVAL_TICKS,
   WISPS_BY_LEVEL,
 } from '../wisps';
 
@@ -56,8 +58,8 @@ function put(state: RunState, type: MobType, x: number, y: number): Mob {
  * How many wisps a body absorbs before it dies, which is what the no-overkill
  * rule budgets in. A count of touches, never a health total.
  */
-function wispsToKill(mob: Mob): number {
-  return Math.ceil(MOB_TYPES[mob.type].hp / WISP_DAMAGE);
+function wispsToKill(mob: Mob, level: number): number {
+  return Math.ceil(MOB_TYPES[mob.type].hp / wispDamage(level));
 }
 
 function liveWisps(state: RunState) {
@@ -223,20 +225,30 @@ describe('the no-overkill targeting rule (plan section 3)', () => {
     // three bodies can no longer hold a level-5 volley at all. The rule under
     // test needs somewhere for every soul to go, or it would pass on a volley
     // that had run out of field rather than on one that spread.
+    // The field carries six bodies rather than four because the damage lane
+    // moved what a volley can absorb, not because the rule moved: at rung 5 a
+    // wisp takes 20, so those four bodies absorb ten souls against a volley of
+    // eleven, and the eleventh would over-commit by the line's own surplus
+    // rule and make the bound a reading of the fixture instead of the rule.
     const mobs = [
       put(state, 'shambler', 260, 500),
       put(state, 'ghoul', 300, 480),
       put(state, 'revenant', 220, 460),
       put(state, 'revenant', 340, 520),
+      put(state, 'revenant', 250, 430),
+      put(state, 'revenant', 310, 560),
     ];
     const wisps = volley(state, MAX_LEVEL);
     expect(wisps).toHaveLength(soulsAt(MAX_LEVEL));
 
-    const capacity = mobs.reduce((total, mob) => total + wispsToKill(mob), 0);
+    const capacity = mobs.reduce(
+      (total, mob) => total + wispsToKill(mob, MAX_LEVEL),
+      0,
+    );
     expect(wisps.length).toBeLessThanOrEqual(capacity);
     for (const mob of mobs) {
       const committed = wisps.filter((wisp) => wisp.targetId === mob.id).length;
-      expect(`${mob.type}: ${committed <= wispsToKill(mob)}`).toBe(
+      expect(`${mob.type}: ${committed <= wispsToKill(mob, MAX_LEVEL)}`).toBe(
         `${mob.type}: true`,
       );
     }
@@ -247,7 +259,7 @@ describe('the no-overkill targeting rule (plan section 3)', () => {
     const near = put(state, 'shambler', 270, 560);
     const far = put(state, 'shambler', 270, 300);
     const wisps = volley(state, 3);
-    const enough = wispsToKill(near);
+    const enough = wispsToKill(near, 3);
     expect(wisps.filter((wisp) => wisp.targetId === near.id)).toHaveLength(
       enough,
     );
@@ -359,5 +371,78 @@ describe('re-targeting (plan 6.5)', () => {
     for (let tick = 0; tick < 20; tick++) advanceWisps(state);
     expect(liveWisps(state).map((wisp) => wisp.targetId)).toEqual(assigned);
     expect(far.alive && near.alive).toBe(true);
+  });
+});
+
+describe('the volley interval floors the cadence (ADR 0058 as amended)', () => {
+  // The interval's magnitude lands here and the clock that floors it lands in
+  // slice E, with the fold commit that declares every new folded field: every
+  // field of LineState is folded (witness.ts's foldLines), so a volley clock
+  // is a folded field and a folded field moves WITNESS_VERSION, which moves
+  // exactly once in this step. These two are it.fails tripwires until then,
+  // which is this tree's own idiom for a promise the build does not yet keep.
+  // The trigger that flips them to ordinary assertions is slice E's clock.
+  it.fails('two swallows inside the volley interval fire one volley', () => {
+    // ADR 0058 as amended: the fewest ticks between two volleys, whatever the
+    // swallow rate. Under the mow a swallow is continuous, and without the
+    // floor the homing line does the mowing and the player does not.
+    const state = quietRun();
+    put(state, 'shambler', 200, 300);
+    state.levels.wisps = 1;
+    launchWisps(state, [], 1);
+    launchWisps(state, [], 1);
+
+    expect(liveWisps(state)).toHaveLength(soulsAt(1));
+  });
+
+  it.fails('a volley skipped by the interval is not banked for later', () => {
+    // The deliberate-absence half: a banked volley would pay a stale corpse's
+    // freshness on a fresh corpse's tick, so a swallow inside the interval
+    // pays nothing at all rather than paying late.
+    const state = quietRun();
+    put(state, 'shambler', 200, 300);
+    state.levels.wisps = 1;
+    launchWisps(state, [], 1);
+    launchWisps(state, [], 1);
+    const launched = new Set(liveWisps(state).map((wisp) => wisp.id));
+    for (let tick = 0; tick < WISP_VOLLEY_INTERVAL_TICKS * 2; tick++) {
+      advanceWisps(state);
+      for (const wisp of liveWisps(state)) launched.add(wisp.id);
+    }
+
+    expect(launched.size).toBe(soulsAt(1));
+  });
+});
+
+describe("the wisps' damage climbs with their rungs (the weapon growth record, section 4)", () => {
+  it('a wisp takes the damage its rung states, at every rung', () => {
+    // docs/research/weapon-growth-per-level-precedent.md section 4. The column
+    // is rounded down rather than recomputed: a flat 25% of 10 gives 12.5 and
+    // 17.5 at rungs 2 and 4, and the record authors 12 and 17. Level 0 is a
+    // line a run does not hold, so it takes nothing off anything.
+    expect([...WISP_DAMAGE_BY_LEVEL]).toEqual([0, 10, 12, 15, 17, 20]);
+    for (let level = 0; level <= MAX_LEVEL; level++) {
+      expect(wispDamage(level)).toBe(WISP_DAMAGE_BY_LEVEL[level]);
+    }
+  });
+
+  it('reads no damage past the rungs it authors', () => {
+    expect(wispDamage(MAX_LEVEL + 1)).toBe(wispDamage(MAX_LEVEL));
+    expect(() => wispDamage(-1)).toThrow();
+  });
+
+  it('still scales the count with freshness and never the damage a wisp carries (ADR 0058)', () => {
+    // ADR 0058's freshness axis surviving the amendment untouched: the souls
+    // are what a rotten corpse buys fewer of, and what one soul takes off a
+    // body is the rung's figure whatever the corpse was.
+    const fresh = quietRun();
+    put(fresh, 'shambler', 200, 300);
+    const rotten = quietRun();
+    put(rotten, 'shambler', 200, 300);
+
+    expect(
+      volley(rotten, MAX_LEVEL, FRESHNESS_PAYOUT_FLOOR).length,
+    ).toBeLessThan(volley(fresh, MAX_LEVEL, 1).length);
+    expect(wispDamage(MAX_LEVEL)).toBe(20);
   });
 });

@@ -24,12 +24,12 @@ import type { TickCommand } from '../../command';
 import { asSwallowable, spawnFeast } from '../../corpses';
 import type { SimEvent } from '../../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
-import { BELL_DAMAGE_NEAR, BELL_PERIOD } from '../../lines/bell';
+import { bellDamageNear, BELL_PERIOD } from '../../lines/bell';
 import { BIRTHRIGHT, MAX_LEVEL } from '../../lines/roster';
 import { advanceTerritory } from '../../lines/territory';
 import {
   COLUMNS_BY_LEVEL,
-  SKULL_DAMAGE,
+  skullDamage,
   STREAM_INTERVAL,
 } from '../../lines/skullStream';
 import { MOB_TYPES, MOB_TYPE_NAMES, spawnMob } from '../../mobs';
@@ -103,9 +103,9 @@ const FULL_BUILD_DAMAGE_PER_SECOND =
     COLUMNS_BY_LEVEL[COLUMNS_BY_LEVEL.length - 1],
     'COLUMNS_BY_LEVEL is empty',
   ) *
-    SKULL_DAMAGE) /
+    skullDamage(MAX_LEVEL)) /
     (STREAM_INTERVAL / TICK_HZ) +
-  BELL_DAMAGE_NEAR / (BELL_PERIOD / TICK_HZ);
+  bellDamageNear(MAX_LEVEL) / (BELL_PERIOD / TICK_HZ);
 
 interface Source {
   readonly state: RunState;
@@ -699,10 +699,16 @@ const PROPERTY_SEEDS: readonly number[] = [SEED, 101, 202, 303, 404, 505];
  * this was written had eleven going the committing way and one the other, and
  * which seed that was moved with the window the trail was read over. What holds
  * across every sweep is the total, which the assertion below carries, and what
- * this set holds is that no seed in the standing five has gone the other way.
- * The day one does, this file goes red and says which.
+ * this set holds is which seeds have gone the other way. The day another does,
+ * this file goes red and says which.
+ *
+ * Seed 404 joined when the economy was restated in corpses of expected mowing:
+ * a run now climbs to its ceiling over 400 corpses rather than 80, so a grave
+ * that commits to the trail carries a smaller mouth through the Waking than it
+ * used to and the commit pays less on this seed. The property itself is
+ * unmoved and the total below still carries it.
  */
-const WAITING_EATS_MORE: number[] = [];
+const WAITING_EATS_MORE: number[] = [404];
 
 /**
  * How much more the committing hand takes across the seeds. Half again is well

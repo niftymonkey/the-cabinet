@@ -483,12 +483,18 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * in. The floor is what moved: a lane now has a mow standing in it, so a
  * birthright storm spends itself on what is nearest rather than reaching the
  * carrier a beat is holding, and the hand seals sooner for the same reason.
- * Measured, 202 and 303 cross a carrier and the other three do not.
+ * Measured then, 202 and 303 crossed a carrier and the other three did not.
+ *
+ * Re-measured again for the economy stated in corpses of expected mowing, and
+ * two seeds came back out. A run climbs to its ceiling over 400 corpses rather
+ * than 80, so the grave this hand carries stays small for far longer, and a
+ * small grave is a small target: the runs last longer and cross more carriers.
+ * Measured at this tip, 505 is the only seed the stage never pays.
  *
  * It is #39's first tuning input and never a reason to sharpen the hand: a
  * hand tuned until the stage pays it would measure the tuning of the hand.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [101, 404, 505];
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [505];
 
 /**
  * The seeds that finish above the birthright, which under the stage's authored
@@ -496,10 +502,15 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [101, 404, 505];
  *
  * It used to be 303 and 505 alone, with 202 buying one rung and a hit
  * stripping it (ADR 0003's ladder); the mow then paid every lane enough
- * carriers to outrun the strips (ADR 0059). The floor (ADR 0060) takes that
- * back: measured, two of the five are paid at all and both of those buy rungs
- * and are then ground back to the birthright before the run seals, which is the
- * ladder running the other way rather than the offers failing.
+ * carriers to outrun the strips (ADR 0059). The floor (ADR 0060) took that
+ * back: two of the five were paid at all and both bought rungs and were ground
+ * back to the birthright before the run sealed, which is the ladder running
+ * the other way rather than the offers failing.
+ *
+ * The economy stated in corpses of expected mowing puts one back. Four of the
+ * five are now paid, because a grave that climbs over 400 corpses rather than
+ * 80 is a smaller target for longer and the runs last longer, and on 101 a
+ * rung bought survives to the sealing where before it did not.
  *
  * This is a reading of this hand against the stage as authored, which is what
  * #39's tuning pass exists to move, and it is exactly the kind of figure the
@@ -508,7 +519,7 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [101, 404, 505];
  * Written as an equality rather than as "some seed does", so it fires the day
  * the set moves in either direction and says which seed did it.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [101];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

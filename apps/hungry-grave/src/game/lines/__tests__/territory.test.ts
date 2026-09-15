@@ -1153,6 +1153,27 @@ describe('the dwell ladder', () => {
     expect(counts.get('ghoul')).toBe(4);
     expect(counts.get('revenant')).toBe(13);
   });
+
+  it('carries no damage lane at all, while every other line climbs (ADR 0044)', () => {
+    // A deliberate absence, and the one line in the roster that has it. The
+    // other three lines' damage climbs with their rungs
+    // (docs/research/weapon-growth-per-level-precedent.md section 4); ADR 0044
+    // as amended 2026-08-28 holds Territory's ruled touch counts flat and
+    // moves only the time the ground takes to deliver them, so a lane here
+    // would need that ruling reopened. What the rung buys instead is area,
+    // pull, slow and pace.
+    expect(TERRITORY_DAMAGE).toBe(5);
+
+    const takenAt = (level: number): number => {
+      const run = territoryRun();
+      const patch = openGround(run, level);
+      const mob = putMob(run, patch.x, patch.y, 'revenant');
+      resolveTerritory(run);
+      return MOB_TYPES.revenant.hp - mob.hp;
+    };
+    expect(takenAt(1)).toBe(TERRITORY_DAMAGE);
+    expect(takenAt(MAX_LEVEL)).toBe(TERRITORY_DAMAGE);
+  });
 });
 
 /**

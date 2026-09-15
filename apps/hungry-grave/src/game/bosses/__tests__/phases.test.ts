@@ -12,12 +12,8 @@ import { describe, expect, it } from 'vitest';
 
 import { BELCH_PHASE_DAMAGE, fireBelch } from '../../belch';
 import type { SimEvent } from '../../events';
-import {
-  advanceBell,
-  BELL_DAMAGE_FAR,
-  BELL_DAMAGE_NEAR,
-} from '../../lines/bell';
-import { SKULL_DAMAGE } from '../../lines/skullStream';
+import { advanceBell, bellDamageFar, bellDamageNear } from '../../lines/bell';
+import { skullDamage } from '../../lines/skullStream';
 import type { Mob } from '../../mobs';
 import { cullMobs, MOB_TYPES, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
@@ -251,7 +247,9 @@ describe('the storm always matters (ADR 0007)', () => {
         (event) => event.id === boss.id,
       );
       expect(landed, `phase ${phase}`).toHaveLength(1);
-      expect(firstOf(landed).amount).toBe(SKULL_DAMAGE);
+      expect(firstOf(landed).amount).toBe(
+        skullDamage(state.levels.skullStream),
+      );
       expect(
         requireDefined(state.skulls[0], 'no skull pool slot 0').alive,
       ).toBe(false);
@@ -282,8 +280,10 @@ describe('the storm always matters (ADR 0007)', () => {
     // The same point, so the same number: full damage means the toll's own
     // falloff and never a share of it.
     expect(firstOf(onBoss).amount).toBe(firstOf(onMob).amount);
-    expect(firstOf(onBoss).amount).toBeGreaterThan(BELL_DAMAGE_FAR);
-    expect(firstOf(onBoss).amount).toBeLessThanOrEqual(BELL_DAMAGE_NEAR);
+    // The rung the toll was thrown at, because the bell's damage climbs with
+    // its rungs and a bound over a toll has to say which one it is.
+    expect(firstOf(onBoss).amount).toBeGreaterThan(bellDamageFar(1));
+    expect(firstOf(onBoss).amount).toBeLessThanOrEqual(bellDamageNear(1));
   });
 
   it('takes no bell pushback, while its adds are pushed by the same ring', () => {

@@ -329,15 +329,28 @@ const runScenario = (): ScenarioResult => {
  * skulls, and every other stream cursor. The Procession's teaching Drip moved
  * to a lone revenant in the same commit and does not reach this window at all,
  * because it stands at t=11 and the scenario is 600 ticks.
+ *
+ * Re-pinned on 2026-09-14 for the economy stated in corpses of expected mowing
+ * (the design record's section 5 item 4): CORPSES_TO_CEILING went from 80 to
+ * 400, so one fully fresh trash corpse now pays a fifth of what it paid, and
+ * the scenario's one swallowed corpse is what both moved fields are made of.
+ * size went from 24.50625 to 24.10125 and reservoir from 0.50625 to 0.10125,
+ * each exactly one fresh trash corpse's payout at the new figure, and the
+ * checksum moved from -279620599 because the witness folds the grave's size
+ * and the reservoir. Everything else held: the grave's position, mobs at 5,
+ * corpses at 1, skulls at 2, the two scripted kills, the levels record and
+ * every stream cursor. The weapon damage lane landed in the same commit and
+ * does not reach this window: the scenario's kills are scripted rather than
+ * struck, and its two live skulls hit nothing inside 600 ticks.
  */
 const GOLDEN: Digest = {
   tick: 600,
   seed: 20260820,
   graveX: 365.625,
   graveY: 318.875,
-  size: 24.50625,
+  size: 24.10125,
   score: 0,
-  reservoir: 0.50625,
+  reservoir: 0.10125,
   mobs: 5,
   shots: 0,
   corpses: 1,
@@ -357,7 +370,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -279620599,
+  checksum: 844453737,
 };
 
 export { runScenario, GOLDEN };

@@ -20,9 +20,9 @@
  */
 
 import type { SimEvent } from './events';
-import { SKULL_DAMAGE, SKULL_HALF_EXTENT } from './lines/skullStream';
+import { skullDamage, SKULL_HALF_EXTENT } from './lines/skullStream';
 import { resolveTerritory } from './lines/territory';
-import { WISP_DAMAGE, WISP_HALF_EXTENT } from './lines/wisps';
+import { wispDamage, WISP_HALF_EXTENT } from './lines/wisps';
 import type { Rect } from './overlap';
 import { overlaps } from './overlap';
 import type { RunState } from './run';
@@ -54,18 +54,24 @@ const targetUnder = (state: RunState, box: Rect): StormTarget | null => {
   return null;
 };
 
-// Skulls meeting the field. A skull is consumed by what it hits, one target per skull.
+/**
+ * Skulls meeting the field. A skull is consumed by what it hits, one target per
+ * skull.
+ *
+ * The rung is read here, at the moment the skull lands, rather than stamped on
+ * the skull when it left: a skull carries no damage of its own, so a line
+ * levelled mid-flight lands its new figure and the entity keeps its six fields.
+ */
 const resolveSkulls = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
+  const damage = skullDamage(state.levels.skullStream);
   for (const skull of state.skulls) {
     if (!skull.alive) continue;
     const box = squareAt(skull.x, skull.y, SKULL_HALF_EXTENT);
     const target = targetUnder(state, box);
     if (target === null) continue;
     skull.alive = false;
-    events.push(
-      ...damageStormTarget(state, target, SKULL_DAMAGE, 'skullStream'),
-    );
+    events.push(...damageStormTarget(state, target, damage, 'skullStream'));
   }
   return events;
 };
@@ -73,16 +79,20 @@ const resolveSkulls = (state: RunState): SimEvent[] => {
 /**
  * Wisps meeting the field. A wisp is consumed by whatever it hits, target or
  * not: one that flies through something on the way is not saved for later.
+ *
+ * The rung is read here for the same reason it is for a skull: the wisp entity
+ * carries flight and a target and never a damage figure.
  */
 const resolveWisps = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
+  const damage = wispDamage(state.levels.wisps);
   for (const wisp of state.wisps) {
     if (!wisp.alive) continue;
     const box = squareAt(wisp.x, wisp.y, WISP_HALF_EXTENT);
     const target = targetUnder(state, box);
     if (target === null) continue;
     wisp.alive = false;
-    events.push(...damageStormTarget(state, target, WISP_DAMAGE, 'wisps'));
+    events.push(...damageStormTarget(state, target, damage, 'wisps'));
   }
   return events;
 };
