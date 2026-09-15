@@ -13,7 +13,7 @@ The record is `apps/hungry-grave/docs/design/round-two-wall-belch.md` and the pr
 | H, the witness fold | `2e90597cad` | feat(hungry-grave): a body carries the shove that landed on it and the witness folds it (#126) |
 | H, the shove | `ed369353e2` | feat(hungry-grave): a toll starts a shove the body travels under, and the bell is its only caller (#126) |
 | I, the shove is measurable | `157946940c` | feat(hungry-grave): a shove says which push threw it and the batch reads the two apart (#126) |
-| H2, the push retuned and the bell's two reaches | | |
+| H2, the push retuned and the bell's two reaches | `d6794f9836` | feat(hungry-grave): a toll's push runs long enough to watch and reaches further than its damage (#126) |
 | J, the belch becomes a pushback | | |
 | K, the meter fills and changes corner | | |
 | L, the Wall is a wall | | |
@@ -309,6 +309,192 @@ Every figure is slice H's own. The one that reads differently, `loose-far` 904 a
 **For the orchestrator, one reading and no action.** The per-add placement above is the first time the batch could answer where a directed add landed, and across 121 adds the answer is that none is anywhere near an off-limits moment. That closes, for these twelve seeds, the half of ADR 0047 the 48-seed batch could not check. It is twelve runs and not forty-eight, so what it is evidence for is that the instrument works and that nothing obvious is wrong; the step 15 batch is where it answers at size.
 
 ## 10. Slice H2: the push is retuned to be watched, and the bell's kill reaches less far than its shove (#126)
+
+One code commit, `d6794f9836`, nine files, 395 insertions and 135 deletions, against the prompt's expected 6 to 15 files.
+
+**What the engine does now.** A toll's push runs half a second instead of a tenth of one, and it throws a body as fast as the cone edge that struck it: the first step is the edge's own advance and every step after it is smaller, so the body leaves with the front rather than being outrun by it. The bell's damage stops where its push does not. A cone is drawn at the reach it pushes to, and inside that a second, shorter reach is where the damage falls to nothing; past it a toll takes nothing at all off a body and emits no damage event, while still marking it struck. So the outer part of every drawn cone is push alone, and what a player watches travel is a living body rather than a corpse's last position.
+
+**What a player meets.** At the rung a run is born on, a toll throws a body 55 field units where it threw 6, and at the top rung 90 where it threw 40. Roughly three struck shamblers in five now survive their toll and travel, where before round two a shambler survived nothing at rung three or above. That is Mark's ruling 4 and his ruling 8 of 2026-09-15, and his read of the deployed build is ticket #126's own done line.
+
+### The decay row, and the JSDoc it carries
+
+`SHOVE_TICKS` is 30 and the fall is still linear. The JSDoc was rewritten rather than edited: the citation moved off `docs/research/push-feel-precedent.md` and onto `docs/research/watched-pushback-duration.md` section 5, option 2, which is Mark's own pick. What it says the figure is derived from: thirty ticks is half a second at sixty ticks a second, and it sits inside the usable band the perception work names rather than at its floor, where 100 milliseconds is only just perceivable, a substantial change wants 200 to 300, duration grows with the distance travelled, and the Blank runs its own knockback at exactly 500 (research section 4). The linear fall stands as slow out, which Smash and Nuclear Throne both ship.
+
+**The readability criterion stays and is restated in the row's own arithmetic.** A fall over thirty ticks covers 15.5 times its first step, so the top rung's 90 units open on 5.8, which is a quarter of a shambler's 22 and leaves every drawn position overlapping the last by most of a body. That is the same criterion the seven-tick figure met by a different route, and it is met more easily now rather than less.
+
+**No visual accompaniment was added**, for the reason slice H gave and the new record repeats: a trail, a squash, a flash or an afterimage during a shove is documented by no source for any of these games, and the honest counterexample in section 4 is a game where something else carries the read, which this one has not got.
+
+### The push column, re-derived, and all five rows
+
+Every row is the throw its own `reach` earns: the cone edge crosses `reach` in `BELL_EXPAND_TICKS`, and a linear fall over `SHOVE_TICKS` from a first step s covers `s * (SHOVE_TICKS + 1) / 2`, so each row is its own reach over 45, times 15.5, in whole units. The arithmetic sits in `BELL_CONE_ROWS`'s own JSDoc with R2 and the research's section 5 cited by path.
+
+| rung | reach | edge per tick | derived | push row | was |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 160 | 3.56 | 55.1 | **55** | 6 |
+| 2 | 183 | 4.07 | 63.0 | **63** | 10 |
+| 3 | 207 | 4.60 | 71.3 | **71** | 16 |
+| 4 | 231 | 5.13 | 79.6 | **80** | 26 |
+| 5 | 261 | 5.80 | 89.9 | **90** | 40 |
+
+**Level five is the check and it lands**: 261 over 45 is 5.8 a tick, and 5.8 spent down to nothing over 30 ticks covers 89.9, which rounds to the research's own 90. `reach`, `headings` and `halfAngle` did not move. A test pins the whole relation across every rung rather than the figures alone, *leaves at the speed the cone's leading edge advances, so its whole travel is the fall from that first step*.
+
+### The damage reach, and the ratio it was set against
+
+`ConeRow` gained `damageReach` beside `reach`, and `proximity` is now computed twice, once against `reach` inside `pushTarget` for the push and once against `damageReach` inside a new `tollDamageAt` for the damage. `reach` kept its name and both its meanings, the push's reach and the reach the cone is drawn at; `StormRenderer` draws off `tollReach`, which reads `row.reach`, so the drawn cone is the push reach with no renderer change at all.
+
+| rung | reach (push, drawn) | damage reach | as a share |
+| --- | --- | --- | --- |
+| 1 | 160 | **112** | 0.70 |
+| 2 | 183 | **128** | 0.70 |
+| 3 | 207 | **145** | 0.70 |
+| 4 | 231 | **162** | 0.70 |
+| 5 | 261 | **183** | 0.70 |
+
+**The ratio is 0.7, the shipped `Blank.prefab` reading, and that is a deliberate pick between the two figures research section 3 carries.** The prefab in the `fedes1to/EtG-source` decompile reads `knockbackRadius: 10` and `pushRadius: 10` against a damage radius of 7, and the record's own correction of 2026-09-15 says plainly that no prefab there carries the 15 the 0.47 reading came from. Picking the figure the shipped source states over the one the record first inferred is the whole of the reason. **The fringe below is what judges it, and at 0.7 it clears the bar**: about three in five struck shamblers travel alive at every rung measured. The figures are whole units like the push column, which also keeps the inclusive edge exact rather than resting on `160 * 0.7` landing on 112 in binary64.
+
+`proximity`'s JSDoc no longer says damage and push "share it deliberately". It states the constraint the code cannot show: the two reaches are two rows, R10 is the ruling, and a falloff shared between them leaves no living body to watch, because the bodies near enough to be pushed hard are exactly the bodies the damage kills. It says nothing about what the code used to do; the two planned tests are what guard the absence.
+
+### What a toll does outside its damage reach, and how it is pinned
+
+**It takes nothing at all, and a zero-damage event is not the way to say so**, because a count a reading sums must never carry a hit that took nothing. `tollDamageAt` returns null past the damage reach and `sweepToll` skips `damageStormTarget` entirely on that answer. **`toll.struck` still marks the body**, before the damage is even asked about, because the one-strike rule is about the toll reaching the body and a shoved body carried back across the leading edge earns no second strike either way.
+
+**The damage reach's own edge is inside it**, `distance > row.damageReach`, the same way `sweepToll`'s ring test is `distance > now`, so a body standing exactly at that edge is damaged and takes the far row.
+
+Three tests pin it: *takes nothing at all off a body outside its damage reach, and marks it struck all the same*, *shoves a body in the outer part of its drawn cone and leaves it alive, because the damage reaches less far than the push*, and *takes exactly two tolls to kill a shambler at the far edge of its damage reach, at the rung a run is born on*.
+
+### `bell.test.ts` re-handed, and one the prompt did not name
+
+**Four measured baselines moved, each re-pinned with its triple in its own comment.** The prompt's item (g) names three kinds of change and lists three tests; the fourth is recorded below as a prompt claim found false against the tree.
+
+- ***carries a body at level five the forty field units the row has always said*** became ***carries a body at level five the ninety field units its row now derives***. What stood: the row is exactly what the shove spends and the push column is still the tuning surface. What it replaced: the forty units held from before round two, which were the record's own arithmetic rather than anything Mark asked for. What it could not have known: that forty units reaches a living body as half a field unit, a fiftieth of a shambler's width (research section 1).
+- ***takes exactly two tolls to kill a shambler at the cone's full reach*** became ***at the far edge of its damage reach***. The far row still says what it always said and the count is still two; what moved is which edge the promise is made at. Its helper stopped requiring a death and returns Infinity where the toll takes nothing, which is the honest count for a body outside the damage reach.
+- ***deals the rung's near damage at the grave and its far damage at the cone's far edge*** became ***at the far edge of its damage reach***, and ***takes about three tenths of the near edge at eighty percent of the reach*** became ***of the damage reach***. Both are the same falloff read against the reach it actually falls off over, and the second one's figure did not move at all: eight tenths of the damage reach still carries three tenths of the near edge, because the curve is untouched.
+
+**Both `it.fails` tripwires went green and are now ordinary assertions**, keeping their exact titles, so they show in the expected-fail count rather than the test-name diff. *still needs more than one toll at the far edge at the top rung* passes because the drawn cone's far edge is now outside the damage reach entirely, so the count is Infinity rather than one. *leaves survivors from that same curtain at the bell's top rung* passes because the bodies in the outer part of each cone are shoved and live. Neither needed a row moved, and each carries the ruling in its comment.
+
+**The helpers widened with the constant and were checked rather than assumed.** `oneTollAndTravel` and the two loops over `BELL_PERIOD + BELL_EXPAND_TICKS + SHOVE_TICKS` now run 255 ticks instead of 232 and needed no edit. `putStill` was split so a test can stand a body still and keep its own health, which is what the first new promise needs: it is played on a revenant at rung two, where the near damage of 56 leaves its 64 alive to be watched.
+
+### `shove.test.ts`, and a figure in it that was not only a comment
+
+Its R2 block passes its own forty units and survives, with three comments corrected: the header's citation moved to the new record, the linear-decay comment now cites section 4's Smash and Nuclear Throne rather than the old record's Godot tutorial, and the overlap comment names the fall's own opening fraction instead of the old first step of ten. The "carries a body the whole distance it was given" comment no longer claims forty is the level-five push; it says plainly that forty is this file's own figure and that the bell's rows are pinned in `bell.test.ts`.
+
+**Its R3 block did not survive untouched, and that is a prompt claim found false against the tree**, recorded below. The three multi-shove tests passed a spacing of 10, which was wider than a seven-tick shove and is narrower than a thirty-tick one, so the waves overlapped and each replaced the last: one test read 30 travel ticks where it asserted 90, and another lost 41 of the 120 units it asserts. The spacing is now a named local, `WAVES_APART = SHOVE_TICKS + 10`, with a comment saying the belch's real figure is its own row and slice J's, and the expected first wave is derived from `SHOVE_TICKS` rather than written out as seven integers. No assertion was weakened: each still promises exactly what it promised.
+
+**One comment outside both files, and there were two rather than one.** `harnessPolicy.test.ts`'s narrative over `ENDS_ABOVE_THE_BIRTHRIGHT` now names `SHOVE_TICKS` instead of seven ticks, per the prompt, and no assertion moved; that set is still empty. `setPiece.test.ts` carried the same sentence and the prompt did not name it, so it is recorded below.
+
+### The repel reading's window, checked by arithmetic
+
+**One sentence in `Repel`'s own JSDoc**, "up to seven ticks of travel after it", now names `SHOVE_TICKS` and cites `shove.ts`. **The check owed beside it holds**: `BELL_EXPAND_TICKS` 45 plus `SHOVE_TICKS` 30 is 75 against a `BELL_PERIOD` of 180, so every shove still reports inside the toll window that opened it and attribution is unchanged. `READINGS_VERSION` did not move and the arm means exactly what it meant, over a shove that takes longer. **No red arrived in that suite and none should have**, and none did in the batches either: 34 tolls on the hand tape and 131 across the seven-seed sweep, with no throw anywhere.
+
+### `CONTEXT.md`'s Cone entry
+
+It now reads: *One expanding cone a toll throws, pushing what its leading edge crosses and damaging the nearer part of what it crosses, at every level and harder as the level rises (`bell.ts`, `BELL_CONE_ROWS`). Its angles, its reach, the shorter reach its damage falls off over and its push are tuning table rows. It is drawn at the reach it pushes to, so nothing is shoved by something the player cannot see. The Banshee's tear-rings are mob fire and are never a cone. Avoid: arc, ring, shockwave, wave, AOE.*
+
+The Avoid list, the tuning-row sentence and the entry's shape are unchanged. **Its code citation was re-read rather than trusted**: it pointed at `bell.ts:101-107`, which is inside `BELL_CONE_ROWS`'s JSDoc at this tip and not the rows, so it now names the file and the constant, which is what survives an edit. **No other entry moved**, and the Bell entry was read and left: its "bosses take its damage but never its push" is still true, and whether the shove and the impulse earn entries is still the open question slices H and I both left.
+
+### GOLDEN, and the versions
+
+**`GOLDEN` held at `-145039082` and `digest.test.ts` is green.** It should have held and the reason is the one R9 records: `digest.ts`'s canonical scenario runs `levels.bell` at 0 for the whole of its six hundred ticks and scripts `belch: false` on every tick, so no toll fires, nothing calls a shove, and neither the decay row nor a second reach on the bell's rows can reach it. Round two's budget is still exactly two, one spent in slice H and the second still slice J's.
+
+**`WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4**, each read out of the tree at this tip. No folded field was declared and none was needed: the impulse already carries everything a longer shove needs, which is exactly why slice H declared it. No fault identity was added.
+
+### The fringe, per rung, and it is R10's own ask
+
+**About three struck shamblers in five travel alive, at every rung measured.** A shambler counts as struck on the tick a toll first adds its id to that toll's `struck` set, and as travelling alive when it is still alive at the end of that tick with a shove in flight on it. The instrument is `local/round2/sliceH2-fringe.ts`, scratch and outside version control, driving the recorder's own wandering script through the one execution authority with the skull stream at the birthright rung and territory and wisps at zero, so the bell is the only thing beyond the birthright touching a body.
+
+| rung | tolls | shamblers struck | travelling alive | share | field units each |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 72 | 60 | 37 | **61.7%** | 9.3 |
+| 3 | 131 | 344 | 211 | **61.3%** | 10.4 |
+| 5 | 189 | 1083 | 672 | **62.0%** | 12.6 |
+
+Seven seeds each, 77 and 900 to 905, 6000 ticks apiece. Seed 77 alone reads 33.3%, 59.8% and 63.2%; the rung-one figure there is six struck bodies on a run that sealed at 2249 ticks, which is why the sweep was widened rather than reported off one seed. **No rung reads zero**, so R10's trigger for the separate-clocks ruling is not fired.
+
+**What is worth the orchestrator's eye is the distance rather than the share.** A surviving body travels about ten to thirteen field units, half a shambler's width, because the survivors are by construction the bodies out past the damage reach where the push's own falloff is small: at the top rung a body just outside it takes 27 units and one at the drawn edge takes none. The prompt's own note says the 0.47 ratio would make the living fringe roughly twice as wide and twice as fast. **That is a tuning input and not a row to move here**, and it is filed rather than acted on.
+
+### The conditioned tape, beside slice I's
+
+A conditioned tape at every line's rung 5, seed 77, 6000 ticks, the same rig slices H and I both measured on: `outcome: 'verified'`, 101 checkpoints verified, none unreachable, `integrity: 'clean'`, no recorded or readback faults, `readingsVersion` 5.
+
+| | tolls | shoves | field units |
+| --- | --- | --- | --- |
+| slice I's tip | 33 | 2 | 20.09 |
+| **this tip** | **33** | **116** | **1277.82** |
+
+**The same 33 tolls, and the two later figures are what the slice is for.** For scale, the build below slice H, the one-tick teleport, read 230 shoves and 1269.7 units across those same 33 tolls. So the distance is back where it was and the shove count is half it, and the difference is that every one of these 116 is a body that survived its toll and travelled for half a second rather than a body teleported forty units and then killed.
+
+### Replay determinism, and the residue answer
+
+**Two runs on one seed rebuild identically.** Seeds 909 and 910 under `shaky-short`, played twice through `scripts/batch.ts`: same tick counts, 4552 and 2364, tapes of identical length, 42869 and 22385 bytes, **differing in exactly three bytes at offsets 202 to 204 in both**, which is the header's `recordedAt` stamp, and the two `report.json` files differing in exactly one field, `identity.recordedAt`. Every figure is slice H's own to the byte, which is the pass: that rig starts at the birthright, so its bell never tolls and nothing this slice changed can reach it.
+
+**So it was run again on the maxed rig, where the bell tolls at rung five**, seeds 909 and 910 under `shaky-short`, 21885 ticks to a victory and 82227 ticks with no ending. Both verified on replay, and both tapes identical across two plays apart from the same three stamp bytes. That is the "shoves in flight at a checkpoint" half of the record's section 6, which slice H could not obtain.
+
+**The residue answer, and it is the other one.** Slice H measured the in-flight ticks at seed 202, rung 1, over 20000 ticks and found 47 shoves, 249 in-flight ticks and residues mod 60 spanning 27 to 51, never reaching 0, so a tape's own checkpoints could never observe a bell shove. **At thirty ticks the same measurement reads 156 shoves, 2028 in-flight ticks, all 60 residues present and zero reached 56 times.** The blind spot has closed. It closed for two reasons at once and both are this slice's: a shove now spans half the gap between two checkpoints rather than an eighth of it, and R10 leaves far more bodies alive to be carried at all. The instrument is `local/round2/sliceH2-residues.ts`. **Nothing was wrong before and nothing is different now except what the tape can see**: a divergence inside a shove always showed at the next checkpoint through the position it produced, and it is now caught at the checkpoint itself.
+
+### The hand tape
+
+Recorded against the built app through `vite preview` and driven with `playwright-cli`, seed 88 with levels pinned at 5, sealed at 2333 ticks: `outcome: 'verified'`, 39 checkpoints verified, none unreachable, `integrity: 'clean'`, **`buildMismatch` null**, no recorded or readback faults, 30 kills. Its repel channel reads 12 tolls, 15 shoves and 193.64 field units. **`state.refusals` totalled over its own replay: `food` 0, `carriers` 0, `offers` 0.**
+
+**An anomaly chased rather than waved off, and it cost a second recording.** The first hand tape stamped `ee82d23500...-dirty-40125bdb94`, the commit below this slice, while the running build read `d6794f9836`. The cause is neither the format nor the fold: `vite preview` serves `dist/`, and `dist/` had been built before the code commit, so the bundle carried the new code and the old identity string. It verified anyway, 104 checkpoints and integrity clean, which says the served bundle really was this slice's code. It was thrown away regardless and the app was rebuilt at the committed tip and replayed, because a tape stamped against a dirty pre-commit identity is a weaker artifact than one that names its commit. **That is `buildIdentity` working exactly as #82 ruled**, and the lesson worth keeping is narrow: rebuild after the commit, not before, or the preview serves a tape a stale name.
+
+### The rendered check, what it saw and what it still could not
+
+**Two runs in one session against the built app at `d6794f9836`**, through `vite preview` and `playwright-cli`, because a check that only ever plays run one is structurally blind. Run one played by hand to a sealed ending at 2333 ticks with its tape saved from the end screen; run two started from RISE AGAIN and was watched to tick 938 with the field, the bodies, the corpses, the power-ups, the Banshee's tear-ring, the stick and the pause button all drawing. Nothing leaked through the screen pool. **The console carried zero errors across both runs**, and seven warnings, all of them the headless browser's own autoplay and WebGL readpixels families.
+
+**What was obtained, and slice H could not get it: a photograph of a level-five toll's cones drawn on the field with living bodies standing inside them.** Run two at tick 938 shows the five cones open around the grave at most of their reach, the five slits between them visible and one of them dead astern, with shamblers alive inside the outer part of the fan. That is R10's picture: the drawn cone reaches past what the toll kills.
+
+**What could not be obtained, said plainly: a body photographed at successive positions inside one shove.** The headless browser draws this build at 4 to 5 frames a second and the app answers by running fifteen to twenty sim ticks per drawn frame, and **two consecutive screenshots from the driver land 98 ticks apart**, measured off the tick readout three times in a row. Ninety-eight is more than three times a thirty-tick shove, so the sampling cannot reach inside one however long the shove gets; the limit is the driver's own round trip and not the shove's length. A clipped burst inside one browser call did no better: a toll's cone present in one frame was gone by the next. **The property is real in the sim and pinned by tests** (*draws a shoved body at a different place on every tick of its travel*, *stands a shoved body somewhere different on every tick, none of them a body-width from the last*, and now *leaves at the speed the cone's leading edge advances*), and `FieldRenderer` still writes `sprite.position.set(mob.x, mob.y)` straight off the sim with no interpolation. **So this property is human-checkable only, at 60 frames a second on a real device, and it is Mark's own step.**
+
+### The batch, on slice I's own seeds
+
+Seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig, **12 of 12 verified, none unfinished, no ceiling stop, `readingsVersion` 5 on both**.
+
+| | tolls | shoves | distance |
+| --- | --- | --- | --- |
+| `steady-far` 900 to 905 | 0, 0, 103, 0, 30, 0 | 0, 0, 196, 0, 65, 0 | 0, 0, 1795.2, 0, 625.9, 0 |
+| `loose-far` 900 to 905 | 21, 0, 0, 0, 32, 80 | 39, 0, 0, 0, 87, 111 | 357.9, 0, 0, 0, 903.1, 1011.7 |
+
+Slice I's own table on the same twelve seeds reads 0, 0, 171, 0, 29, 0 tolls and 0, 0, 160.2, 0, 11.7, 0 units under `steady-far`, and 26, 0, 0, 0, 77, 150 tolls and 9.6, 0, 0, 0, 46.0, 38.3 units under `loose-far`. **Read it per toll rather than per run, because these are not the same runs**: a bell that throws bodies fifteen times further changes where corpses land, what the lane meets and how long a run lasts, so the same seed buys its rungs at different times and tolls a different number of times. Per toll, `steady-far` 902 goes from 0.94 field units a toll to 17.4, and `loose-far` 905 from 0.26 to 12.6.
+
+**The belch arm is empty on all twelve**, `belchShoves` 0 and `belchDistance` 0, which is still the cited future waiting for slice J. **All three refusal counters read zero on all twelve** and on the conditioned tape and the hand tape too, so there is no fault and no finding there.
+
+**No cap bound and none moved.** Peak live bodies reached 247 against a `MOB_CAP` of 481 and peak mob fire 71 against a `MOB_FIRE_CAP` of 434. `caps.ts` was opened only to read.
+
+### CodeRabbit, one iteration
+
+**All nine staged files reviewed under `coderabbit review --agent --uncommitted`: zero findings at any severity**, so nothing was applied and nothing declined.
+
+### Verification
+
+`pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/` before the commit. **`pnpm verify` green twice on the committed tree at exit 0**: 146 test files, 2055 passed, 21 expected fail, 2 todo, where slice I left it at 146 files, 2050 passed, 23 and 2. **The two expected fails that went away are the two tripwires**, which are ordinary assertions now.
+
+**The six fences green, each by title**: *src/game imports only from src/game*, *src/dev imports only from src/dev and src/game and src/tape*, *a policy names no weapon line*, *the step fence (ADR 0017)*, *the harness reports and never judges* in all three parts, *orders no reading against a number of its own*, *carries no verdict, because nothing it declares is a yes or a no* and *prints no mean, so every figure it prints keeps its own tail*, and *every reading declares what comparing it means*, plus slice D's sixth, *the cap derivation reads tables and never the stage*. Beside them the core's cycle guard, *carries no value-import cycle beyond the ones written down*, is green with `KNOWN_CORE_CYCLES` still an empty list, and *a golden digest over a short scripted scenario matches the committed constant (ADR 0015)* is green at `-145039082`.
+
+**The test-name diff, against this branch's own tip captured before the first edit with the tree clean: 2073 names to 2076, 7 added and 4 removed.** The 2073 is exactly where slice I left it. **All four removals are retitles of tests that still exist and still assert what they asserted**, each listed in the re-handed block above; the seven added are those four under their new names plus the three new promises.
+
+### Record and prompt claims found false against the tree
+
+**`shove.test.ts`'s R3 block does not survive the retune untouched.** The prompt's item (h) says its R2 and R3 blocks "pass their own figures rather than reading the bell's, so most of the file survives untouched" and that what does not survive is "a sentence in a comment". The R2 block is as described. The R3 block is not: its three tests pass `10` as the spacing between waves, which is narrower than a thirty-tick shove, so `countTowardTheNextShove` re-arms a shove that is still in flight and each wave replaces the last. *shoves again on the tick its row names* read 30 travel ticks against the 90 it asserts, *carries the whole of each shove* read 79.14 units against 120, and *is spent only once its last shove has run* read spent where it asserts not spent. **The intent was followed rather than the letter**: the spacing became a named local derived from `SHOVE_TICKS`, so the tests keep promising what they promised at any duration, and the belch's own figure stays slice J's.
+
+**Two comments outside `shove.test.ts` name seven ticks, not one.** The prompt's item (h) says "one more comment sits outside that file" and names `harnessPolicy.test.ts`. `setPiece.test.ts` carries the same sentence in `WAITING_EATS_MORE`'s own JSDoc, "carry bodies over seven ticks now". Both were corrected to name the constant rather than a figure, and no assertion moved for either.
+
+**A fourth `bell.test.ts` test is re-handed, not three.** The prompt's item (g) names three, and the damage-falloff block's *deals the rung's near damage at the grave and its far damage at the cone's far edge* is a fourth measured baseline whose input moved: at rung five its body stands at 260 units, which is outside the new damage reach, so it took nothing where it asserts the far row. Its sibling *takes about three tenths of the near edge at eighty percent of the reach* is a fifth, by the same cause. Both were re-pinned to the damage reach with their triples, and the second one's figure did not move at all.
+
+### Findings filed rather than fixed
+
+**The Waking's own property moved by a factor of four and a half, and it is a change to the game rather than noise.** `setPiece.test.ts`'s `WAITING_EATS_MORE` went from four seeds of twelve to none at all, and the totals behind it went from the committing hand taking 1.51 times the waiting hand to **413 corpses against 61**, which is 6.8 times. The mechanism is this slice and only this slice: a toll at the rung a run is born on throws a body 55 field units where it threw 6, so the bodies the bell strikes leave their corpses far enough up-field that a grave waiting at the bottom edge no longer has the scroll deliver them inside their freshness. **The property holds and holds harder**, and the assertion is still an equality, so the day any seed goes the other way it fires and says which. **Nothing was done about it**: whether a waiting grave should be left with that little is a tuning question and the tuning step is next. It is the loudest second-order consequence of the retune and it is worth Mark's eye before the sweeps are designed.
+
+**The living fringe is wide but shallow.** Three struck shamblers in five travel, and they travel nine to thirteen field units. The 0.47 ratio would roughly double both the width and the speed of that fringe, and the prompt says so in as many words. Filed as an input to the first tuning sweeps, per Mark's ruling 1 that round two fixes only what is plainly broken.
+
+**`repel.ts`'s `Repel` JSDoc carries a stale sentence this slice did not make stale.** It says a toll that shoved nothing still counts "because push only exists at bell levels 4 and 5", and push has begun at level one since ADR 0036's rows landed. The sentence's point survives, that zero is an honest reading for a toll that shoved nothing, but its reason no longer holds. It was left alone because the slice's item (i) is one sentence and this is not that sentence. **Trigger: whoever next edits that JSDoc.**
+
+### Left for later slices, each named
+
+**Slice J owns the belch and inherits a wave that is now worth counting.** `SHOVE_TICKS` is 30, so three waves plus their spacing is a second and a half of travel rather than a fifth of one, and R3 as superseded rules each wave a full watched push. **One concrete thing it should know**: the spacing it passes has to be at least `SHOVE_TICKS`, or a later wave re-arms a shove still in flight and replaces it rather than following it, which is exactly what reddened `shove.test.ts`'s R3 block here. The module's behaviour is right and was ruled in slice H; what the belch has to do is name a spacing wide enough for the waves to read apart.
+
+**Slice J also inherits a wider window to check.** Three waves at 30 ticks, spaced, is longer than the 75 ticks the bell's shove now needs, so `repel.ts`'s attribution arithmetic has to be redone against `BELCH` cadence rather than `BELL_PERIOD` when the belch emits its own shoves.
+
+**For the orchestrator, one reading and no action.** The tape's checkpoint blind spot over bell shoves, which slice H measured and left as "seen and left, for nobody in particular", is closed by this slice without anything being done about it. Both numbers it rested on moved: the shove is four times longer and far more bodies survive to carry one. Nothing needs doing and the note in section 8 can be read as answered.
 
 ## 11. Slice J: the belch becomes a pushback (#124)
 
