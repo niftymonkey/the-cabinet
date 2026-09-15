@@ -547,21 +547,35 @@ function sealedRun(seed: number): { state: RunState; events: SimEvent[] } {
  */
 const ONE_WHOLE_STAGE_MS = 30000;
 
+/**
+ * The budget for a walk of the opening section alone.
+ *
+ * It crossed vitest's five-second default when the stage's authored floor
+ * landed (ADR 0060): the Procession stands at two to five bodies a second now,
+ * so one walk of it steps hundreds of bodies where it stepped tens. A budget
+ * and never a reading of how long a section should take.
+ */
+const ONE_SECTION_MS = 20000;
+
 describe('dodgePolicy over the whole stage (ADR 0013)', () => {
   for (const seed of SEEDS) {
     const survives = !SEALS_IN_THE_PROCESSION.includes(seed);
-    it(`${survives ? 'survives' : 'seals shut inside'} the Procession on seed ${seed}`, () => {
-      // Three of these five were declared expected failures before weapons
-      // existed, and dispatch 5 is what turns them into ordinary assertions:
-      // the storm cuts how long an armed mob lives, and a weaponless build
-      // inflates mob fire by roughly a factor of five. SEALS_IN_THE_PROCESSION
-      // carries the seeds that go the other way: its comment is where that is
-      // measured.
-      const state = createRun(seed);
-      play(state, dodgePolicy, PROCESSION_TICKS);
-      if (survives) expect(state.ending).toBeNull();
-      else expect(state.ending).toBe('sealed');
-    });
+    it(
+      `${survives ? 'survives' : 'seals shut inside'} the Procession on seed ${seed}`,
+      () => {
+        // Three of these five were declared expected failures before weapons
+        // existed, and dispatch 5 is what turns them into ordinary assertions:
+        // the storm cuts how long an armed mob lives, and a weaponless build
+        // inflates mob fire by roughly a factor of five. SEALS_IN_THE_PROCESSION
+        // carries the seeds that go the other way: its comment is where that is
+        // measured.
+        const state = createRun(seed);
+        play(state, dodgePolicy, PROCESSION_TICKS);
+        if (survives) expect(state.ending).toBeNull();
+        else expect(state.ending).toBe('sealed');
+      },
+      ONE_SECTION_MS,
+    );
   }
 
   for (const seed of SEEDS) {
@@ -1150,59 +1164,63 @@ describe("the Wall's two-sided property (ADR 0042)", () => {
 
 describe('the sparse last wave and its two boundaries (ADR 0051)', () => {
   for (const seed of SEEDS) {
-    it(`meets each boss on an empty field and the set piece in traffic on seed ${seed}`, () => {
-      // The grave is held immortal for the same reason the stage's own timeline
-      // tests hold it: this is a property of the waves and the storm, and a
-      // grave ground down inside the Crowd would stop the clock before the
-      // boundary being measured. The storm still fires the whole way.
-      const state = createRun(seed);
-      // One authority across the whole loop, because a fresh one per tick
-      // would put a fresh stage watch on every tick and the two stage
-      // invariants would compare against nothing.
-      const execution = createExecution(state);
-      const budget = STAGE_TICKS + 120;
-      const atBoundary: string[] = [];
-      for (let tick = 0; tick < budget; tick++) {
-        const { events } = runPolicy(execution, dodgePolicy, 1);
-        state.grave.size = 40;
-        state.ending = null;
-        // Whatever boss arrives is emptied by the rig rather than by the hand,
-        // for the same reason the grave is held immortal: what is being
-        // measured is what the waves put on the field at a boundary, and this
-        // policy only dodges, so a real fight would hold the run at the first
-        // boundary and none of the five below would ever be reached. How long
-        // a fight takes is the boss modules' own tests' subject.
-        if (state.boss !== null) {
-          const source = BIRTHRIGHT[0];
-          if (source === undefined) throw new Error('BIRTHRIGHT is empty');
-          damageBoss(state, state.boss.hp, source);
+    it(
+      `meets each boss on an empty field and the set piece in traffic on seed ${seed}`,
+      () => {
+        // The grave is held immortal for the same reason the stage's own timeline
+        // tests hold it: this is a property of the waves and the storm, and a
+        // grave ground down inside the Crowd would stop the clock before the
+        // boundary being measured. The storm still fires the whole way.
+        const state = createRun(seed);
+        // One authority across the whole loop, because a fresh one per tick
+        // would put a fresh stage watch on every tick and the two stage
+        // invariants would compare against nothing.
+        const execution = createExecution(state);
+        const budget = STAGE_TICKS + 120;
+        const atBoundary: string[] = [];
+        for (let tick = 0; tick < budget; tick++) {
+          const { events } = runPolicy(execution, dodgePolicy, 1);
+          state.grave.size = 40;
+          state.ending = null;
+          // Whatever boss arrives is emptied by the rig rather than by the hand,
+          // for the same reason the grave is held immortal: what is being
+          // measured is what the waves put on the field at a boundary, and this
+          // policy only dodges, so a real fight would hold the run at the first
+          // boundary and none of the five below would ever be reached. How long
+          // a fight takes is the boss modules' own tests' subject.
+          if (state.boss !== null) {
+            const source = BIRTHRIGHT[0];
+            if (source === undefined) throw new Error('BIRTHRIGHT is empty');
+            damageBoss(state, state.boss.hp, source);
+          }
+          const alive = state.mobs.filter((mob) => mob.alive).length;
+          for (const event of events) {
+            if (event.type !== 'sectionChanged') continue;
+            atBoundary.push(`${event.section}=${alive}`);
+          }
         }
-        const alive = state.mobs.filter((mob) => mob.alive).length;
-        for (const event of events) {
-          if (event.type !== 'sectionChanged') continue;
-          atBoundary.push(`${event.section}=${alive}`);
-        }
-      }
-      expect(execution.faults).toEqual([]);
+        expect(execution.faults).toEqual([]);
 
-      // ADR 0051: "the Banshee and the Undertaker arrive alone on an empty
-      // field," and "there is no drain-out before the set piece ... only the
-      // two boss boundaries need the field empty." So the two boss boundaries
-      // report nothing alive and the set piece's reports trash, which is the
-      // ruling's two halves on one run.
-      const aliveAt = (section: string): number =>
-        Number(
-          atBoundary
-            .find((each) => each.startsWith(`${section}=`))!
-            .split('=')[1],
+        // ADR 0051: "the Banshee and the Undertaker arrive alone on an empty
+        // field," and "there is no drain-out before the set piece ... only the
+        // two boss boundaries need the field empty." So the two boss boundaries
+        // report nothing alive and the set piece's reports trash, which is the
+        // ruling's two halves on one run.
+        const aliveAt = (section: string): number =>
+          Number(
+            atBoundary
+              .find((each) => each.startsWith(`${section}=`))!
+              .split('=')[1],
+          );
+        expect(atBoundary.map((each) => each.split('=')[0])).toEqual(
+          SECTION_ORDER.slice(),
         );
-      expect(atBoundary.map((each) => each.split('=')[0])).toEqual(
-        SECTION_ORDER.slice(),
-      );
-      expect(`banshee=${aliveAt('banshee')}`).toBe('banshee=0');
-      expect(`undertaker=${aliveAt('undertaker')}`).toBe('undertaker=0');
-      expect(aliveAt('waking')).toBeGreaterThan(0);
-    });
+        expect(`banshee=${aliveAt('banshee')}`).toBe('banshee=0');
+        expect(`undertaker=${aliveAt('undertaker')}`).toBe('undertaker=0');
+        expect(aliveAt('waking')).toBeGreaterThan(0);
+      },
+      ONE_WHOLE_STAGE_MS,
+    );
   }
 });
 

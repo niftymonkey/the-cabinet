@@ -434,8 +434,13 @@ const STILL_PLAY = playStage(77, stillHand, STAGE_TICKS);
  * runs no longer fit inside vitest's own five seconds. It is stated on the one
  * test rather than raised for the suite, because every other run in this file
  * is either one of the two above or a fraction of a stage.
+ *
+ * It went from twenty seconds to sixty with the stage's authored floor (ADR
+ * 0060): the same two runs now step thousands of bodies where they stepped
+ * hundreds, and at twenty it timed out under the load of a full `pnpm verify`,
+ * where the two workspaces' suites run at once.
  */
-const TWO_WHOLE_STAGES_MS = 20000;
+const TWO_WHOLE_STAGES_MS = 60000;
 
 describe('the three sections and their boundary events (ADR 0050)', () => {
   it('runs three sections, with the Banshee, the set piece and the Undertaker as their boundary events', () => {

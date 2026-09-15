@@ -80,18 +80,34 @@ describe("the sim's path", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it('writes nothing at all, and nothing to stdout in particular', () => {
-    // The behaviour fingerprint runs the sim under vite-node and reads its JSON
-    // off stdout. console.log goes to stdout in node and console.warn does not,
-    // so one stray log anywhere on this path corrupts the fingerprint and the
-    // failure reads as a behaviour change rather than as a logging mistake.
-    for (const seed of [1, 7, 42]) {
-      runPolicy(createExecution(createRun(seed)), dodgePolicy, 3000);
-      runPolicy(createExecution(createRun(seed)), belchingPolicy, 3000);
-    }
+  /**
+   * The budget for six three-thousand-tick runs, which is what this one test
+   * pays for.
+   *
+   * It crossed vitest's five-second default when the stage's authored floor
+   * landed (ADR 0060): the same six runs now put thousands of bodies on the
+   * field where they put hundreds, so the sim work inside them is roughly ten
+   * times what it was. It is a budget that stops a broken run hanging the suite
+   * and never a reading of how long the six should take.
+   */
+  const SIX_RUNS_MS = 60000;
 
-    expect(console.log).not.toHaveBeenCalled();
-    expect(console.warn).not.toHaveBeenCalled();
-    expect(console.error).not.toHaveBeenCalled();
-  });
+  it(
+    'writes nothing at all, and nothing to stdout in particular',
+    () => {
+      // The behaviour fingerprint runs the sim under vite-node and reads its JSON
+      // off stdout. console.log goes to stdout in node and console.warn does not,
+      // so one stray log anywhere on this path corrupts the fingerprint and the
+      // failure reads as a behaviour change rather than as a logging mistake.
+      for (const seed of [1, 7, 42]) {
+        runPolicy(createExecution(createRun(seed)), dodgePolicy, 3000);
+        runPolicy(createExecution(createRun(seed)), belchingPolicy, 3000);
+      }
+
+      expect(console.log).not.toHaveBeenCalled();
+      expect(console.warn).not.toHaveBeenCalled();
+      expect(console.error).not.toHaveBeenCalled();
+    },
+    SIX_RUNS_MS,
+  );
 });
