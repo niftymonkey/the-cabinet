@@ -15,9 +15,10 @@ import type { SimEvent } from '../../events';
 import { advanceBell, bellDamageFar, bellDamageNear } from '../../lines/bell';
 import { skullDamage } from '../../lines/skullStream';
 import type { Mob } from '../../mobs';
-import { cullMobs, MOB_TYPES, spawnMob } from '../../mobs';
+import { advanceMobs, cullMobs, MOB_TYPES, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
+import { SHOVE_TICKS } from '../../shove';
 import { SECTIONS } from '../../stage/stage';
 import { resolveStorm } from '../../storm';
 import { FIELD_HEIGHT } from '../../field';
@@ -106,6 +107,27 @@ function tollThrough(state: RunState, level: number): SimEvent[] {
   state.lines.tollIn = 1;
   const events = [...advanceBell(state)];
   while (state.lines.ring !== null) events.push(...advanceBell(state));
+  return events;
+}
+
+/**
+ * The same toll with the bodies advancing beside it, and a shove's own length
+ * past the ring's end so every shove it started has finished travelling. A
+ * shove is the body's own motion from the moment it lands (shove.ts), so a
+ * push read off advanceBell alone would read an empty set.
+ */
+function tollAndTravelThrough(state: RunState, level: number): SimEvent[] {
+  state.levels.bell = level;
+  state.lines.tollIn = 1;
+  const events: SimEvent[] = [];
+  do {
+    events.push(...advanceBell(state));
+    events.push(...advanceMobs(state));
+  } while (state.lines.ring !== null);
+  for (let tick = 0; tick < SHOVE_TICKS; tick++) {
+    events.push(...advanceBell(state));
+    events.push(...advanceMobs(state));
+  }
   return events;
 }
 
@@ -297,9 +319,15 @@ describe('the storm always matters (ADR 0007)', () => {
     boss.x = standing.x;
     boss.y = standing.y;
     const add = putMob(state, standing.x, standing.y);
+    // More health than the toll takes, because a body killed on the tick the
+    // toll reaches it is never carried anywhere: the shove takes ticks now.
+    add.hp = 1e6;
+    add.beat = Number.MAX_SAFE_INTEGER;
+    add.vx = 0;
+    add.vy = 0;
     const addStoodY = add.y;
 
-    const tolled = tollThrough(state, 1);
+    const tolled = tollAndTravelThrough(state, 1);
     const shoved = only(tolled, 'mobShoved');
 
     // The ring reached the boss, which is what makes "it was not shoved" a

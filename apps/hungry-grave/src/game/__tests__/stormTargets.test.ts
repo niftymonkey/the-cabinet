@@ -15,6 +15,7 @@ import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
+import { shoveInFlight } from '../shove';
 import { SET_PIECE_HP } from '../stage/waves';
 import {
   advanceSetPiece,
@@ -25,6 +26,7 @@ import {
 import {
   damageStormTarget,
   moveStormTarget,
+  shoveStormTarget,
   stormTarget,
   stormTargets,
 } from '../stormTargets';
@@ -324,6 +326,51 @@ describe('what a line may do to a target', () => {
 
     expect(target.box.x).toBe(stood + 30);
     expect(target.box.width).toBe(MOB_TYPES.shambler.halfWidth * 2);
+  });
+
+  it('starts a shove on a pushable target and on nothing else (ADR 0007)', () => {
+    // pushable is answered in one place and it answers for the shove as well
+    // as for the move: a boss's authored pattern and a set piece's source are
+    // places the field arrives at rather than bodies standing on it, so
+    // neither is ever carried anywhere. A shove that could start on one would
+    // smear a pattern the player is meant to read.
+    const state = createRun(SEED);
+    const mob = putMob(state, 100, 200);
+    const boss = spawnBoss(state, 'banshee');
+    const piece = placeSetPiece(state);
+    piece.open = true;
+    const targets = stormTargets(state);
+    const asMob = requireDefined(targets[0], 'no first storm target');
+    const asBoss = requireDefined(targets[1], 'no second storm target');
+    const asSource = requireDefined(targets[2], 'no third storm target');
+    const bossStood = { x: boss.x, y: boss.y };
+    const sourceStood = { x: piece.x, y: piece.y };
+
+    for (const target of [asMob, asBoss, asSource]) {
+      shoveStormTarget(state, target, 0, -1, 40, 1, 0);
+    }
+
+    expect(shoveInFlight(mob.impulse)).toBe(true);
+    // Nothing carried either of the other two, and neither has an impulse to
+    // carry it with: the seam refused before shove.ts was ever asked.
+    expect(boss.x).toBe(bossStood.x);
+    expect(boss.y).toBe(bossStood.y);
+    expect(piece.x).toBe(sourceStood.x);
+    expect(piece.y).toBe(sourceStood.y);
+  });
+
+  it('starts nothing on a target that has already gone', () => {
+    // The same ordinary outcome damageStormTarget has: one line's pass can
+    // kill a target another line is still walking.
+    const state = createRun(SEED);
+    const mob = putMob(state, 100, 200);
+    const target = requireDefined(stormTargets(state)[0], 'no storm target');
+
+    mob.alive = false;
+    stormTargets(state);
+    shoveStormTarget(state, target, 0, -1, 40, 1, 0);
+
+    expect(shoveInFlight(mob.impulse)).toBe(false);
   });
 
   it('holds a push inside the field it may stand in', () => {

@@ -759,8 +759,15 @@ const PROPERTY_SEEDS: readonly number[] = [
  * Four of twelve, where the first six alone held one. They are the seeds whose
  * trail the pour's own stream now lays where the committing hand does not catch
  * it, and the total below is what says the property is unmoved by that.
+ *
+ * Re-measured for the shove that travels (#126): 101 went out and 11 came in,
+ * still four of twelve, and the totals still carry the property. This is the
+ * noise the paragraph above describes rather than a change to the Waking: a run
+ * that buys a bell rung has its tolls carry bodies over seven ticks now, so the
+ * trail a hand catches moves by a body here and there, and which side of the
+ * comparison a single seed lands on moves with it.
  */
-const WAITING_EATS_MORE: number[] = [SEED, 101, 303, 404];
+const WAITING_EATS_MORE: number[] = [SEED, 303, 404, 11];
 
 /**
  * How much more the committing hand takes across the seeds. A quarter again is

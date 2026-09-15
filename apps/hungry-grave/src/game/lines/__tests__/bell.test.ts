@@ -12,9 +12,10 @@ import type { SimEvent } from '../../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import { cos, sin } from '../../math';
 import type { Mob, MobType } from '../../mobs';
-import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../../mobs';
+import { advanceMobs, MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
+import { SHOVE_TICKS } from '../../shove';
 import { PROCESSION_WAVES } from '../../stage/waves';
 import type { BellToll, ConeRow } from '../bell';
 import {
@@ -87,6 +88,62 @@ function tollFor(state: RunState, ticks: number): SimEvent[] {
 /** One whole toll, from the clock firing it to its cones reaching full. */
 function oneToll(state: RunState): SimEvent[] {
   return tollFor(state, BELL_PERIOD + BELL_EXPAND_TICKS);
+}
+
+/**
+ * The bell and the bodies both, for a window. A shove is the body's own motion
+ * from the moment it lands, so what the toll starts only travels once the mobs
+ * advance, and a push read off advanceBell alone would read an empty set.
+ *
+ * The bodies advance before the bell, which is the order the tick itself keeps
+ * (step.ts): a shove the toll starts is first travelled on the tick after,
+ * exactly as a shot fired this tick does not also fly this tick. A helper that
+ * ran them the other way round would model an order the sim does not have.
+ */
+function tollAndTravelFor(state: RunState, ticks: number): SimEvent[] {
+  const events: SimEvent[] = [];
+  for (let tick = 0; tick < ticks; tick++) {
+    events.push(...advanceMobs(state));
+    events.push(...advanceBell(state));
+  }
+  return events;
+}
+
+/**
+ * One whole toll with the shoves it started carried all the way out. It runs
+ * a shove's own length past the cones reaching full, because the edge can
+ * reach the furthest body it will reach on the last tick of the expansion and
+ * that body then travels for SHOVE_TICKS more.
+ */
+function oneTollAndTravel(state: RunState): SimEvent[] {
+  return tollAndTravelFor(state, BELL_PERIOD + BELL_EXPAND_TICKS + SHOVE_TICKS);
+}
+
+/**
+ * More health than any toll takes at any rung, so a push test measures the push
+ * and never the damage. A shove spends itself over several ticks, so a body the
+ * toll kills on the tick it reaches it is never carried anywhere at all, and at
+ * the top rungs the toll kills a revenant outright. The bell's damage has its
+ * own describe block below.
+ */
+const OUTLIVES_ANY_TOLL = 1e6;
+
+/**
+ * A body that stands exactly where it is put while the mobs advance, so what
+ * moves it is the toll and nothing else.
+ *
+ * It holds its arriving beat for longer than any window here, which is the one
+ * state ADR 0041 gives a body where its own rule does not run, and it carries
+ * no velocity of its own to drift on. Every push figure below is then the
+ * shove's whole travel rather than the shove plus a walk.
+ */
+function putStill(state: RunState, degrees: number, distance: number): Mob {
+  const mob = putAtBearing(state, degrees, distance);
+  mob.beat = Number.MAX_SAFE_INTEGER;
+  mob.vx = 0;
+  mob.vy = 0;
+  mob.hp = OUTLIVES_ANY_TOLL;
+  return mob;
 }
 
 function tolls(events: SimEvent[]) {
@@ -471,9 +528,9 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     for (let level = 1; level <= MAX_LEVEL; level++) {
       const state = quietRun();
       state.levels.bell = level;
-      const mob = putAtBearing(state, 0, 40);
+      const mob = putStill(state, 0, 150);
       const from = mob.y;
-      const events = oneToll(state);
+      const events = oneTollAndTravel(state);
       expect(
         events.filter((event) => event.type === 'mobShoved'),
         `level ${level}`,
@@ -484,6 +541,55 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     }
   });
 
+  it('carries a body at level five the forty field units the row has always said', () => {
+    // The whole point of ruling R2: today's distance is held exactly and it is
+    // spent over seven ticks instead of in one write. BELL_CONE_ROWS's push
+    // column is untouched, so a tuning pass reads the same table it always did.
+    const state = quietRun();
+    state.levels.bell = MAX_LEVEL;
+    // Half a unit off the grave, where the falloff is all but one, so what
+    // lands is the row's whole push to six places.
+    const distance = 0.5;
+    const mob = putStill(state, 0, distance);
+    const from = mob.y;
+    const events = oneTollAndTravel(state);
+
+    const expected =
+      rowAt(MAX_LEVEL).push * (1 - distance / rowAt(MAX_LEVEL).reach);
+    expect(rowAt(MAX_LEVEL).push).toBe(40);
+    expect(from - mob.y).toBeCloseTo(expected, 6);
+    expect(events.filter((event) => event.type === 'mobShoved')).toEqual([
+      {
+        type: 'mobShoved',
+        id: mob.id,
+        displacement: expect.closeTo(expected, 6),
+      },
+    ]);
+  });
+
+  it('draws a shoved body at a different place on every tick of its travel', () => {
+    // Mark's ruling 4 of 2026-09-15: the bell's repel jumped a body in one
+    // frame and read as a glitch. A shambler is 22 field units wide and the
+    // old push moved a body 40 in one tick, leaving an 18-unit hole between
+    // two drawn positions; every step of the new one overlaps the last.
+    const state = quietRun();
+    state.levels.bell = MAX_LEVEL;
+    const mob = putStill(state, 0, 150);
+
+    const seen: number[] = [];
+    const window = BELL_PERIOD + BELL_EXPAND_TICKS + SHOVE_TICKS;
+    for (let tick = 0; tick < window; tick++) {
+      const before = mob.y;
+      advanceMobs(state);
+      advanceBell(state);
+      if (mob.y !== before) seen.push(before - mob.y);
+    }
+
+    expect(seen.length).toBeGreaterThan(1);
+    const width = MOB_TYPES.revenant.halfWidth * 2;
+    for (const step of seen) expect(step).toBeLessThan(width);
+  });
+
   it('shoves with the level the toll froze, not a level gained while it was live', () => {
     // A toll is live for a quarter of every period, so a bell power-up lands
     // during one often. The reach and the sweep both read the toll's own
@@ -492,13 +598,13 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     const state = quietRun();
     state.levels.bell = 4;
     const distance = 40;
-    const mob = putAtBearing(state, 0, distance);
+    const mob = putStill(state, 0, distance);
     const from = mob.y;
-    tollFor(state, BELL_PERIOD);
+    tollAndTravelFor(state, BELL_PERIOD);
     expect(state.lines.ring?.level).toBe(4);
 
     state.levels.bell = MAX_LEVEL;
-    tollFor(state, BELL_EXPAND_TICKS);
+    tollAndTravelFor(state, BELL_EXPAND_TICKS);
     const near = 1 - distance / rowAt(4).reach;
     expect(from - mob.y).toBeCloseTo(rowAt(4).push * near, 4);
   });
@@ -539,26 +645,31 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     }
   });
 
-  it('a shove emits mobShoved carrying the distance the clamp let the mob move, not the nominal push', () => {
+  it('a shove emits mobShoved carrying the distance the bound let the mob cover, not the nominal push', () => {
     // Grave hard against the right edge, mob 150 out along the level-5 cone
     // that answers the side: near is 1 - 150/261 = 0.425, so the nominal push
-    // is about 17, but the field clamp at FIELD_WIDTH + SPAWN_MARGIN leaves
-    // only 10 of it. The event reports the 10 the mob really moved, which is
-    // the only figure a repel reading can honestly sum.
+    // is about 17, but the bound at FIELD_WIDTH + SPAWN_MARGIN leaves only 10
+    // of it. The event reports the 10 the mob really moved, which is the only
+    // figure a repel reading can honestly sum, and it reports it once the
+    // travel is over rather than on the tick the shove landed.
     const state = quietRun();
     state.levels.bell = MAX_LEVEL;
     state.grave.x = FIELD_WIDTH;
     const mob = put(state, 'revenant', FIELD_WIDTH + 150, state.grave.y);
-    const events = oneToll(state);
+    mob.beat = Number.MAX_SAFE_INTEGER;
+    mob.vx = 0;
+    mob.vy = 0;
+    mob.hp = OUTLIVES_ANY_TOLL;
+    const events = oneTollAndTravel(state);
     const shoves = events.filter((event) => event.type === 'mobShoved');
     expect(shoves).toEqual([
-      { type: 'mobShoved', id: mob.id, displacement: 10 },
+      { type: 'mobShoved', id: mob.id, displacement: expect.closeTo(10, 9) },
     ]);
     expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
   });
 
   it('a mob pinned at the widened field boundary is struck but never shoved', () => {
-    // The clamp can refuse the whole move: a mob already at
+    // The bound can refuse the whole move: a mob already at
     // FIELD_WIDTH + SPAWN_MARGIN with the away direction pointing outward
     // covers zero distance. The repel reading counts events, so a
     // zero-distance shove would report a push that never happened.
@@ -571,7 +682,10 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
       FIELD_WIDTH + SPAWN_MARGIN,
       state.grave.y,
     );
-    const events = oneToll(state);
+    mob.beat = Number.MAX_SAFE_INTEGER;
+    mob.vx = 0;
+    mob.vy = 0;
+    const events = oneTollAndTravel(state);
     expect(events.filter((event) => event.type === 'mobShoved')).toEqual([]);
     expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
     expect(damageTo(mob)).toBeGreaterThan(0);
@@ -582,11 +696,11 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     // level 1 is inside the reach the whole time and takes nothing at all.
     const state = quietRun();
     state.levels.bell = 1;
-    const mob = putAtBearing(state, 180, 20);
+    const mob = putStill(state, 180, 20);
     const fromY = mob.y;
-    const events = oneToll(state);
+    const events = oneTollAndTravel(state);
     expect(events.filter((event) => event.type === 'mobShoved')).toEqual([]);
-    expect(damageTo(mob)).toBe(0);
+    expect(mob.hp).toBe(OUTLIVES_ANY_TOLL);
     expect(mob.y).toBe(fromY);
   });
 
@@ -599,7 +713,10 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
       const state = quietRun();
       state.levels.bell = level;
       const mob = put(state, 'revenant', state.grave.x, state.grave.y);
-      const events = oneToll(state);
+      mob.beat = Number.MAX_SAFE_INTEGER;
+      mob.vx = 0;
+      mob.vy = 0;
+      const events = oneTollAndTravel(state);
       expect(
         events.filter((event) => event.type === 'mobShoved'),
         `level ${level}`,
@@ -609,6 +726,26 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
         4,
       );
     }
+  });
+
+  it('strikes each body once, and a body shoved back across the leading edge earns no second strike', () => {
+    // toll.struck exists because a reach test alone is not enough once a push
+    // exists: the push carries a body back outside the edge that has just
+    // passed it and the edge catches it again. A shove that takes ticks puts
+    // the body outside the edge for several of them rather than one, so the
+    // rule matters more and not less.
+    const state = quietRun();
+    state.levels.bell = MAX_LEVEL;
+    const mob = putStill(state, 0, 30);
+    const events = oneTollAndTravel(state);
+
+    const damaged = events.filter(
+      (event) => event.type === 'mobDamaged' && event.id === mob.id,
+    );
+    expect(damaged).toHaveLength(1);
+    expect(events.filter((event) => event.type === 'mobShoved')).toHaveLength(
+      1,
+    );
   });
 
   it('keeps a pushed mob inside the field widened by SPAWN_MARGIN', () => {
@@ -623,11 +760,11 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     state.levels.bell = MAX_LEVEL;
     const pushed: Mob[] = [];
     for (const bearing of [-150, -90, 0, 90]) {
-      pushed.push(putAtBearing(state, bearing, 150));
+      pushed.push(putStill(state, bearing, 150));
     }
-    oneToll(state);
+    oneTollAndTravel(state);
     for (const mob of pushed) {
-      expect(damageTo(mob)).toBeGreaterThan(0);
+      expect(mob.hp).toBeLessThan(OUTLIVES_ANY_TOLL);
       expect(mob.x).toBeGreaterThanOrEqual(-SPAWN_MARGIN);
       expect(mob.x).toBeLessThanOrEqual(FIELD_WIDTH + SPAWN_MARGIN);
       expect(mob.y).toBeGreaterThanOrEqual(-SPAWN_MARGIN);

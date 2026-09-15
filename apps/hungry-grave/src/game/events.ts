@@ -316,13 +316,23 @@ interface Tolled {
 }
 
 /**
- * The ring shoved a mob (#79). The repel reading is what reads it, summing
- * shoves per toll. It is one event per shove rather than a field on `tolled`
- * because the shoves land across the ring's expansion, after the tolled event
- * has already fired at ring birth, so no toll-time event can carry them.
- * `displacement` is the distance the mob actually moved after the field
- * clamp, not the nominal push, so a shove into the field's edge reports what
- * it truly bought.
+ * A mob finished being shoved (#79, #126). The repel reading is what reads it,
+ * summing shoves per toll. It is one event per shove rather than a field on
+ * `tolled` because the shoves land across the ring's expansion, after the
+ * tolled event has already fired at ring birth, so no toll-time event can carry
+ * them.
+ *
+ * It fires once per impulse and at the end of it rather than at the start,
+ * because a shove spends itself over several ticks and has no realized
+ * displacement on the tick it lands. `displacement` is therefore the distance
+ * the mob actually covered, every tick of it, after the bound that holds a body
+ * inside the field: a shove into the field's edge reports what it truly bought
+ * and never the nominal push. A body killed or culled mid-flight reports what
+ * it had already been carried, and a body that covered nothing reports nothing.
+ *
+ * One event per impulse and never one per tick: a per-tick event would multiply
+ * the count the repel reading holds by the ticks a shove runs for, and change
+ * what the channel means with no READINGS_VERSION move under it.
  */
 interface MobShoved {
   readonly type: 'mobShoved';

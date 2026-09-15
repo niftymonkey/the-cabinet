@@ -7,7 +7,7 @@ import type { RunState } from '../run';
 import type { StormTarget } from '../stormTargets';
 import {
   damageStormTarget,
-  moveStormTarget,
+  shoveStormTarget,
   stormTargets,
 } from '../stormTargets';
 import { MAX_LEVEL } from './roster';
@@ -232,22 +232,28 @@ const proximity = (distance: number, full: number): number => {
 };
 
 /**
- * Shoves a target away from the grave. The line keeps its own push arithmetic
- * and only asks the seam to apply the move, which is what holds the field
- * bounds: the seam holds a body inside the field widened by SPAWN_MARGIN, so
- * the player's own weapon can never push something out of the box the invariant
- * harness checks.
+ * Starts a shove on a target, away from the grave. The line keeps its own push
+ * arithmetic and its own row and only asks the seam to start the shove: how the
+ * shove then spends itself is shove.ts's, and whether the target may be shoved
+ * at all is the seam's, which is what keeps a push off an authored pattern
+ * (ADR 0007) and inside the field widened by SPAWN_MARGIN.
  *
  * The force comes from the toll's own level, the level the reach and the sweep
  * are already working from, so a level-up mid-toll cannot shove harder than the
- * toll that is shoving reaches.
+ * toll that is shoving reaches. What the row's push column says is unchanged:
+ * the shove spends it over several ticks instead of in one write, which is
+ * Mark's ruling 4 of 2026-09-15.
  *
- * A shove that lands returns its mobShoved event, carrying the distance the
- * move really covered rather than the nominal push, read back off the target
- * rather than assumed. A shove refused returns null and reports nothing, and
- * the refusals are one list whatever the reason: no push at this level, a
- * non-finite strength, a target with no away direction, a target the seam does
- * not move at all, or one the bounds let move nowhere.
+ * The shove is what reports itself, once, when the body it is carrying has
+ * finished travelling (mobs.ts, reportShoveTravel), because a shove that takes
+ * ticks has no realized displacement on the tick it starts. The refusals here
+ * are one list whatever the reason: no push at this level, a non-finite
+ * strength, or a target with no away direction.
+ *
+ * A shove started here first carries the body on the tick after, because the
+ * lines run after the mobs in a tick (step.ts). That is the rule a shot already
+ * keeps, being left at its emitter for one tick, and here it leaves the body
+ * standing where the leading edge found it for one frame before it goes.
  */
 const pushTarget = (
   state: RunState,
@@ -255,21 +261,17 @@ const pushTarget = (
   target: StormTarget,
   distance: number,
   near: number,
-): SimEvent | null => {
+): void => {
   const row = rowFor(toll.level);
-  if (row === undefined) return null;
+  if (row === undefined) return;
   const push = row.push * near;
-  if (!Number.isFinite(push) || push <= 0 || distance === 0) return null;
+  if (!Number.isFinite(push) || push <= 0 || distance === 0) return;
   const away = normalize(target.x - state.grave.x, target.y - state.grave.y);
-  if (away.length === 0) return null;
-  const fromX = target.x;
-  const fromY = target.y;
-  moveStormTarget(state, target, fromX + away.x * push, fromY + away.y * push);
-  const movedX = target.x - fromX;
-  const movedY = target.y - fromY;
-  const displacement = Math.sqrt(movedX * movedX + movedY * movedY);
-  if (displacement === 0) return null;
-  return { type: 'mobShoved', id: target.id, displacement };
+  if (away.length === 0) return;
+  // One shove, and no spacing because there is no second one to space from: a
+  // toll's push is one push, and the wave structure belongs to the belch
+  // (design record R3, slice J).
+  shoveStormTarget(state, target, away.x, away.y, push, 1, 0);
 };
 
 /**
@@ -313,8 +315,7 @@ const sweepToll = (
     // taken while a ring is still expanding never raises what that ring carries.
     const far = bellDamageFar(toll.level);
     const damage = far + (bellDamageNear(toll.level) - far) * near;
-    const shoved = pushTarget(state, toll, target, distance, near);
-    if (shoved !== null) events.push(shoved);
+    pushTarget(state, toll, target, distance, near);
     events.push(...damageStormTarget(state, target, damage, 'bell'));
   }
   return events;

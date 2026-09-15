@@ -540,8 +540,20 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202];
  * Re-measured under the director: 505 stands here where 101 did, and it is the
  * same one-seed set it was. Ending above the birthright needs a carrier crossed
  * and then dived on, so it moves with the set above and for the same reason.
+ *
+ * Re-measured again for the shove that travels (#126), and 505 went out, so no
+ * seed ends above the birthright under this hand. The mechanism is the bell and
+ * only the bell: a run that buys a bell rung now has its tolls carry bodies
+ * over seven ticks instead of moving them in one write, and a body the toll
+ * kills where it stands is no longer teleported first, so where corpses land
+ * and which bodies the lane meets both move from the first toll onward. The set
+ * above is unmoved, which says the difference is in what a paid run does with
+ * its rungs and not in which runs are paid.
+ *
+ * An empty set still has teeth, because it is written as an equality: the day
+ * any seed ends above the birthright this fires and says which.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [505];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

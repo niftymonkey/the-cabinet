@@ -27,6 +27,7 @@ import type { DamageSource, Mob } from './mobs';
 import { damageMob, hasEntered, mobHitbox, moveMobInsideBounds } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
+import { startShove } from './shove';
 import type { SetPiece } from './stage/setPiece';
 import { damageSetPiece, setPieceHitbox } from './stage/setPiece';
 import { SCROLL_SPEED } from './tuning';
@@ -319,5 +320,40 @@ const moveStormTarget = (
   slot.y = slot.mob.y;
 };
 
-export { stormTargets, stormTarget, damageStormTarget, moveStormTarget };
+/**
+ * Starts a shove on whatever carries this target, for a line that pushes over
+ * several ticks rather than in one write.
+ *
+ * pushable is answered here and nowhere else, exactly as it is for the move
+ * above, so a boss's authored pattern and a set piece's source can never be
+ * carried anywhere (ADR 0007). The caller keeps its own falloff and its own row
+ * and the decay is the shove's, so the two never learn each other's arithmetic.
+ *
+ * `shoves` and `ticksBetween` are the wave structure the impulse carries: the
+ * bell passes one shove, and slice J's belch passes three ten ticks apart
+ * (design record R3).
+ */
+const shoveStormTarget = (
+  // The run is in the signature for the same reason moveStormTarget carries it:
+  // a body starting to fly is the run's own state changing.
+  _state: RunState,
+  target: StormTarget,
+  awayX: number,
+  awayY: number,
+  distance: number,
+  shoves: number,
+  ticksBetween: number,
+): void => {
+  const slot = slotFor(target);
+  if (slot === null || !slot.pushable || slot.mob === null) return;
+  startShove(slot.mob.impulse, awayX, awayY, distance, shoves, ticksBetween);
+};
+
+export {
+  stormTargets,
+  stormTarget,
+  damageStormTarget,
+  moveStormTarget,
+  shoveStormTarget,
+};
 export type { StormTarget };
