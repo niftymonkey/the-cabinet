@@ -179,3 +179,174 @@ Green tests plus wrong observed behaviour means the test plan has a hole: pin th
 - **Slice C's work**, including the stale damage comments in `skullStream.ts`, `territory.ts` and `bell.ts`.
 - **Prose in `docs/design` and `docs/adr` beyond the eight renamed ADR titles.**
 - **Deploying, pushing, merging, opening a PR, or closing a ticket.** Each needs its own explicit yes and none of them is yours.
+
+---
+
+## Slice B: the standing waves and the re-authored waves
+
+Model: Opus, subagent type general-purpose. One coder, one code commit, one docs commit. Commit messages end in `(#39)`, which is the ticket every step 4 docs and code commit cites.
+
+Step 4 slice B of The Hungry Grave (ticket #39): the stage's authored floor grows over the run, as standing waves written into the section tables beside the shaped waves.
+
+**This prompt is written in the new vocabulary, which slice B0 landed.** A wave is what used to be a row, a formation what used to be a template, a section what used to be a phase, a phase what used to be a boss chunk, a power-up what used to be a drop. The files are `src/game/stage/waves.ts`, `src/game/stage/formations.ts` and `src/game/bosses/phases.ts`. Where the step 4 plan and the design record still say row, template or phase, they are speaking the old words about the same things: translate, and never take a word difference for a different thing. If the tree does not match the names above, slice B0 did not land as planned and that is a stop.
+
+### Read first, in this order, before any edit
+
+1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it. The six dispatch contract items are the sections below.
+2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md` at the repo root, plus `docs/agents/code-examples.md` for any rule that leaves the path unclear, and `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
+3. `apps/hungry-grave/docs/design/step-4-mow-ladder-director-dispatch.md`, 130 KB, with the Read tool in ranges and never with `cat`. **Its step 8 in section 10 is this slice and it is the contract.** Section 4's `rows.ts` block is the seam text, section 5 is the module table, section 6 is the planned test list, section 7 is the constants and their readers, section 3 is the verification steps.
+4. `apps/hungry-grave/docs/design/mow-ladder-director.md`, the design record. Section 5 item 3 is what this slice builds, section 9 is the magnitude table, section 3 is the dead baseline the slice is measured against.
+5. `apps/hungry-grave/docs/push/handoff.md`, the STEP 4 BRIEF and the Standing rules. Mark's four rulings are there, and so are the findings filed for his read.
+6. `apps/hungry-grave/docs/push/step-4-progress.md`: section 1 for the state of the step, section 2 for the `GOLDEN` moves, section 4 items 7 and 8 for the two findings slice A filed, section 6 for the test baseline's real path, section 11 for what slice A landed, section 12 for the second gate round, section 13 for slice B0's rename.
+7. `apps/hungry-grave/CONTEXT.md`, the entries Wave, Standing wave, Formation, Section, Phase, The mow, Ladder, Carrier, Sparse last wave, The Procession, The Crowd, The Vigil, Directed density and Add. **You add nothing to it**, and the entries are what your names have to agree with.
+
+### The definition, in observable terms
+
+After this slice: a `StageWave` may carry a `repeat`, and a wave that carries one puts bodies on the field at its own rate from its own section-local time until the next wave of any kind fires. The Procession authors nothing under its teaching waves, then 2, then 3.5, then 5 bodies a second, then 0 at its sparse last wave; the Crowd authors 8, then 3 mid-section, then 12; the Vigil authors none, and a test fails if one appears there. The shaped waves' counts are roughly doubled and the 25 carriers are re-placed across them, so the ladder's supply is unchanged in number. A reader opening a section's table sees one list in time order with the standing waves in their places, and finds no `StandingWave` type, no `Section.standing`, no standing-wave constants, no span helper and no new field on `StageState`. `peakArrivals` prices a table carrying a standing wave above the same table without it. The Waking's pour carries the active standing wave in at `t: 0` with its interval widened by `1 / share`. `pnpm verify` is green, the test-name diff is read against the baseline, and `state.refusals` off this slice's own hand tape is printed in the report.
+
+What a player meets: the Procession still teaches with a lone swallow and a lone revenant before anything else arrives, and the ground then thickens twice; the Crowd is a mow with an authored trough in the middle of it; the field still reads clear before the Banshee, so she still arrives.
+
+### The work, in this order
+
+**(a) The tests first, red, from the plan's section 6.** Spec tests 7, 8, 8a, 9, 9a, 10, 11, 12, 13, 14 and 15, each written as a `test.todo` placeholder first and then turned red against a stub, in `src/game/stage/__tests__/waves.test.ts` and `stage.test.ts`. The module tests are the plan's group 58 to 72 for `repeatingArrivals`: a wave with no repeat, an interval of one tick, an interval already at its minimum, a time before the wave's own, a time inside the teaching waves, and a section's last standing wave running out at its sparse last wave. Spec test 14 (the Procession's first mob fire is a lone revenant Drip) and spec test 15 (the Wall is the one authored wave the director may not add over) already exist from slice A and are re-read rather than rewritten.
+
+**(b) `Repeat` and `StageWave.repeat`, authored in seconds.** The seam text is the plan's section 4. Three fields: `intervalSeconds`, `reduceSeconds` (what each firing takes off the interval, zero on a wave that holds one rate) and `minimumSeconds` (the floor). It is Brotato's `repeating_interval`, `reduce_repeating_interval` and `min_repeating_interval` on the resource that already carries the one-shot groups, and the reason it is fields on the wave rather than a second kind of wave is ADR 0060 as re-ruled. `repeat` is `Repeat | null` and it is null on every wave that exists today.
+
+**(c) `repeatingArrivals(wave, sectionSeconds): number`.** How many times a wave fires on this section-local tick: once at its own time, again on its repeat, zero everywhere else. One function over any wave, so a wave with `repeat` null answers for itself and the caller never asks which kind it holds. **Stateless, and that is a requirement rather than a detail**: a pure function of the time inside the section, so the stage keeps no cursor for a repeating wave and the witness folds no field for it. **It takes section-local seconds and never ticks**, because `t` and every field on `Repeat` are authored in seconds and `waves.ts` value-imports nothing: reaching `TICK_HZ` would cost it the property the caps derivation depends on. `stage.ts` converts through the `waveTicks` it already has.
+
+**(d) The section tables, re-authored.** The standing waves go into `PROCESSION_WAVES`, `CROWD_WAVES` and nowhere else, **in time order beside the shaped waves**, which is what one construct and one list buys. The magnitudes, from the record's section 9 and the plan's step 8, are initial data rows and you author exactly these:
+
+- **The Procession: 0 through the teaching waves, then 2, then 3.5, then 5 bodies a second, then 0 at the sparse last wave.** The teaching waves are the Drip of one at `t: 2` and the lone revenant Drip at `t: 11`, and **the first standing wave starts behind them**, because the first swallow and the game's first mob fire each have to arrive alone (ADR 0016) and because ADR 0015's golden scenario runs 600 ticks and must keep roughly the field it has.
+- **The Crowd: 8, then 3 mid-section, then 12 bodies a second.** The 3 is the authored trough, a wave somebody wrote and never a dip in a curve, so a reader sees three consecutive waves rather than one rate with an exception carved into it.
+- **The Vigil: none.** It owns scarcity, and a standing wave there would pass a corpses-per-second reading while feeding better.
+- **The closing zero.** A section whose phase ends on `wavesSpentAndFieldClear` closes its list with a standing wave authored at a rate of zero, at its sparse last wave's time, or the field never reads clear and its boss never arrives (ADR 0051). Today that binds the Procession alone: its sparse last wave runs from 112 and its last authored time is 116.5, the Crowd ends on `setPieceOpened`, the Vigil authors no standing wave at all.
+- **The shaped waves' counts roughly doubled**, never tenfolded: a formation places bodies at a `BODY` spacing of 26 units across a field 540 wide, so a File of 60 is two and a half field widths or a stack.
+- **The carriers re-placed across them.** 25 `carries: true` waves today and 25 after, `CARRIER_SLACK` 1.3 unchanged. **`carries` is false on every standing wave**, because the 25 are authored placements and the ladder's whole supply (ADR 0048), and a rate that carried would hand out rungs at a figure nobody wrote down.
+- **Every standing wave sets `directed` deliberately, and it is not a default.** `StageWave.directed` says whether the director may spend in the span the wave opens, and a standing wave is the span opener the director sees for most of a section. A flag copied from a neighbour is a permission nobody decided.
+- **No stat step on the clock**, which the second gate round struck on evidence. Not health, not fall speed, not anything. Growth here is arrivals and nothing else.
+
+**(e) The stage stands the rate, and keeps no state to do it.** `spawnDueWaves` already walks the section's waves in time order and consumes them through `firedWaves`, and that cursor is the whole answer. **The active standing wave is the last wave carrying a `repeat` among `waves[0..firedWaves)`**, which is by definition the most recent standing wave the tick has passed, and a later wave of any kind that is also standing replaces it. That is what "a standing wave ends at the next wave of any kind" means mechanically. On each tick the stage asks `repeatingArrivals` of that one wave alone, for the ticks after its own `t`, and fires that many of its groups through the `spawnWave` that already exists. **The wave's first group is fired by the cursor**, on the tick `spawnDueWaves` consumes it, exactly as a one-shot wave is, so `repeatingArrivals` answers zero at the wave's own time and nothing double-fires.
+
+**No `Section.standing` and no new stage state.** The standing waves reach the section through the `waves` column it already has, and the pick is a function of `firedWaves` and the table, both of which the witness already holds, so a standing wave costs the tape nothing and a replay rebuilds the rate by rebuilding the cursor. **`spawnMob` is not touched and gains no argument**: it has three callers (`stage.ts`, `setPiece.ts`, `undertaker.ts`) plus the digest's scripted mobs, and the provenance mark spec test 43 will want is slice E's, in the fold commit. If you find yourself wanting it here, that is a stop.
+
+**(f) `peakArrivals` gains the rate term, and it is this slice's rather than slice D's.** It is the corpse cap's first clock and it already walks `SECTION_TABLES`, so the moment a standing wave enters a section table its window is wrong: a table that authors a rate prices identically to one that does not, and `CORPSE_CAP` is a proof rather than an estimate. The term is the rate times the window, read off the same waves the section walk already reads, and the test is that a table carrying one standing wave prices above the same table without it. **`MOB_CAP` and `MOB_FIRE_CAP` stay constants in this slice**; slice D makes them derivations.
+
+**(g) `wavesUnderThePour` carries the standing wave in.** It re-times the Crowd's last groups into the Waking and multiplies each count by the share, and a standing wave cannot be thinned that way: its count is one group's bodies and its rate is the interval. So the function also carries in the standing wave active at the pour's own opening time, at `t: 0`, with its `intervalSeconds` widened by `1 / share` and its `reduceSeconds` and `minimumSeconds` widened with it. **A rate thins by interval, never by count.** The pour test at `waves.test.ts:380` extends to it: the carried standing wave's rate is below the Crowd's own and above zero, on the same terms the existing test holds the counts to.
+
+**(h) The guard test the handoff owes this slice: a body carries exactly its `MOB_TYPES` row.** It is the deliberate absence of any stat step made mechanical, and a deliberate absence in production code is guarded by a test that fails if the absent thing appears. A spawned mob's health, speed and half-widths equal the table's row for its type, read at a late tick as well as an early one, so a per-minute step on any of them fails here. It lives in `src/game/__tests__/mobs.test.ts` beside the mow's own tests, and its comment carries the ruling: ADR 0059 rules growth as more enemies and harder ones, the second gate round struck the per-minute step on the evidence that its figures were Mad Forest's Inverse mode, and `timeToKill.ts` in slice G is the reading that would reopen it.
+
+**(i) The two stale ramp comments, also owed to this slice.** `digest.ts`'s JSDoc at `:33-45` says scripting keeps the golden off "the ramp's own tuning", and there is no ramp: rewrite the sentence to name the stage's authored growth, in the commit that makes it stale. `screenLifecycle.test.ts` near `:918` says "less of what the ramp sends ever reaches the grave" and its parked-run bound is three times a measured seal tick, which this slice moves: rewrite the comment and re-measure the bound. **The dated re-pin paragraphs further down `digest.ts` are history and are not rewritten**, including the one at `:290` that names two ramp waves; history says what it said at the time.
+
+**(j) `game-concept.md`'s stage paragraph.** It gains the standing waves and its economy paragraph's density sentence is restated. **That page is Mark's own wording**: cite the ADRs, date the addition, and never silently rewrite a sentence of his. Write your additions in the new vocabulary; the rest of the page's old words are the follow-up docs pass's, not yours. **`CONTEXT.md` gains nothing**: the second gate round's docs pass landed Standing wave, the widened Wave clause, The mow, Signal lock, Ladder and the Add clause, and slice B0 realigned them. Check the Procession's entry reads true against the table you author and stop if it does not.
+
+**(k) The Wall's wave, which you own and must not re-author past Mark's answer.** Slice A measured that the mow takes both of ADR 0042's halves off the Wall: at 8 health the storm thins the curtain enough for a lane to open and the grave crosses untouched, and a curtain of silent bodies puts no shots in the air for a belch to be worth spending on. Two halves of that ADR now stand as `it.fails` tripwires carrying the measurement. **This slice owns the Crowd's table, which holds the Wall's wave, and it must not re-author that wave past this finding without his answer** (plan verification step 22, progress note section 4 item 7). Double its count as a shaped wave like the others if the doubling rule reaches it, and change nothing else about it: no new health, no restored fire, no protective rule. If you believe the Wall needs re-authoring to make the slice's own tests pass, that is a stop-and-report and not a call you make.
+
+**(l) `GOLDEN` re-pins here if anything inside the scenario's first 600 ticks moves.** The plan permits five re-pins in all, in slices A, B, C, E and F. **One is used, slice A's; this is the second permitted, and three remain after you.** A re-pin lands with a dated paragraph in `digest.ts`'s JSDoc naming what moved, what held and why, in the shape the eight paragraphs already there use. **A re-pin here is planned and expected and never a stop-and-report**, and so is not moving it: whether a change reaches inside the scenario's window is a fact about the window and not about the slice. The teaching-wave rule is what keeps any move to the smallest possible one, by keeping standing arrivals out of that window. A move with no paragraph is a stop even when the number is right.
+
+**(m) `pnpm verify` green** at the repo root, after `pnpm typecheck` and `pnpm vitest run` green in `apps/hungry-grave/`. A timeout with no assertion is contention and not a failure: run the suite alone once more before calling anything red (`docs/agents/lessons.md`).
+
+**(n) The measurements this slice owes.** A hand-recorded tape at your own tip, recorded against the built app through `vite preview` and driven with `playwright-cli` and never the Playwright MCP, then `pnpm vite-node --config vite.headless.config.ts scripts/measure.ts <tape>` asserting `outcome: 'verified'`. **Print `state.refusals` off that tape in your report, all three counters** (`food`, `carriers`, `offers`), because a slice that multiplies arrivals under caps derived for a thinner field is the one most likely to bind a cap, and a bound cap is a fault rather than a number to raise. Note that the plan's verification step 10 says "the corpse, mob and mob-fire refusal counters", and the tree carries three counters under those names instead, with `refusals.carriers` being what the mob pool turned away; report against what the tree has. Where reaching Crowd density by hand is impractical, a conditioned tape gets you there: `pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out> <seed> <ticks> skullStream=N territory=N wisps=N bell=N`, measured the same way. The rendered check carries **one named shot: an offer standing open in a Crowd-density field** (plan verification step 20). Take it, read it yourself, say in the report what you see, and hand it to Mark; whether three bodies still read as a choice inside a mow is his. Play a run, end it, and play again, because a rendered check that only ever plays run one is structurally blind.
+
+**(o) CodeRabbit CLI, one iteration.** `git add` every changed, new and renamed file **by path**, never `git add -A` and never `git add .`, because the review does not see untracked files. Then, from the worktree root, `coderabbit review --agent --uncommitted`. Apply the real findings. Decline the rest with a reason recorded in the progress note. **One iteration**, then move on.
+
+**(p) One code commit, conventional, single line, ending in `(#39)`.** Something in the shape of `feat(hungry-grave): the stage's authored floor grows as standing waves (#39)`. Pass the message with `-m`. **Never a heredoc.** No body and no trailer of any kind: every commit on this branch is one line, and a `Co-Authored-By` line is a trailer. Never commit unverified code.
+
+**(q) The progress note.** Append a new section to `apps/hungry-grave/docs/push/step-4-progress.md`, numbered **14** and titled "Slice B: the standing waves and the re-authored waves (#39)", and add your row to section 1's table and your entry to section 2's `GOLDEN` list. Say what the game does now, the magnitudes you authored, the file count and the test-name diff's two numbers against the plan's expected 15 to 20 files, the `GOLDEN` outcome with its paragraph, `state.refusals` off your hand tape, what the offer shot showed, the CodeRabbit findings applied and declined, anything in the plan or the record you found false against the tree, and anything you left for a later slice with the slice named. Commit it as `docs(hungry-grave): step 4 progress note records slice B (#39)`.
+
+**(r) Stop and report.** Under 300 words: the commit hashes, the test counts before and after, the test-name diff's removed and added figures, the `GOLDEN` outcome, the three refusal counters, the offer shot in one sentence, the CodeRabbit outcome, and anything you could not do. Do not start the next slice.
+
+### What must not move, and a move is a stop
+
+- **The fences.** `boundary.test.ts`, `lineAgnosticPolicies.test.ts`, `executionFence.test.ts`, `harnessStatesNoTarget.test.ts` and `comparisonDeclared.test.ts`, five files, all green, each named by test title in the note.
+- **The invariants.** Every check in `invariants.ts` keeps its meaning and its severity, and the three fault identity wire numbers 11, 12 and 19 are held. `entity caps`, `corpse cap never binds` and `carrier spawn never refused` are the three this slice is most likely to trip, and tripping one is a finding rather than a cap to raise.
+- **Replay determinism.** One seed played twice under `shaky-short` gives the same tick count, the same witness at every checkpoint and identical stream cursors. A tape recorded at your tip decodes, replays and verifies.
+- **`FORMAT_VERSION` 3** (`wireCodes.ts`), **`WITNESS_VERSION` 6** (`witness.ts`) and **`READINGS_VERSION` 4** (`readingsVersion.ts`, moved to 4 by slice B0). None of the three moves in this slice, and a move in any of them is a stop-and-report. `FORMAT_VERSION` is slice G's single move and `WITNESS_VERSION` is slice E's.
+- **`spawnMob`'s signature**, and the `Mob` provenance mark that is not in it. Slice E's.
+- **`MOB_CAP`, `MOB_FIRE_CAP` and `CORPSE_CAP` as they stand.** Slice D turns them into derivations; this slice only makes `peakArrivals` price the new tables honestly.
+- **The harness's own rows.** `enoughClearance`, `belchWorthIt`, every lapse rate and every look-ahead list belong to the hand, and the hand's rows are never tuned with the game's. A hand row moved between two batches would compare two builds through two instruments.
+- **No test is deleted, skipped, weakened or rewritten to reach green.** A measured baseline that moves because the field moved is re-measured with its comment saying what moved and why; a test you believe is wrong is a stop-and-report, because replanning is not your call.
+- **What `GOLDEN` is permitted to do, and only that.** It may re-pin once here, with its dated paragraph. Nothing else about the digest scenario moves.
+
+### Seams under test
+
+`src/game/stage/waves.ts`: `StageWave` gaining `repeat`, the `Repeat` type, `repeatingArrivals` over section-local seconds, the three section tables, `sparseLastWave`'s callers, `wavesUnderThePour` and `peakArrivals`. `src/game/stage/stage.ts`: the active standing wave picked off `firedWaves`, `repeatingArrivals` called on it alone, `waveTicks` doing the conversion, and `spawnWave` firing its groups. `src/game/mobs.ts` through its table, read by the new guard test and written by nobody here. `src/dev/digest.ts`: the golden pin and the rewritten JSDoc sentence.
+
+### Module boundaries
+
+No module is created, deleted, merged or split. **`waves.ts` value-imports nothing and that must still be true at the end**: its imports stay `import type`, which is what lets `caps.ts` derive from it while importing only it. **`caps.ts` never imports `stage.ts`**, by neither a value nor a type import, because `stage.ts` imports `mobs.ts` and `mobs.ts` imports `caps.ts` and that edge closes a cycle. If you find yourself wanting `import { SECTIONS } from './stage'` inside `caps.ts`, you have found the cycle: stop rather than reaching for a type-only import to dodge it. `src/game` still imports nothing from `src/dev`, and `boundary.test.ts` proves it. The seconds-to-ticks conversion lives in `stage.ts` and never in `waves.ts`.
+
+### The planned test list
+
+From the plan's section 6, item by item, each written red first.
+
+7. *A standing wave puts bodies on the field at its own rate and the one-shot waves keep their times.* ADR 0047's "the waves stay the floor": a standing wave is a second floor and never a replacement.
+8. *Consecutive standing waves step the rate at their own times, and a standing wave ends at the next wave of any kind.* ADR 0060 as re-ruled. **The second half is the tech architecture gate's:** no section that ends on `wavesSpentAndFieldClear` has a standing wave live at its last wave's time, and a section's last standing wave ends before its sparse last wave begins, or the field never clears and the boss never arrives (ADR 0051).
+8a. *A wave with no repeat fires exactly once, on its own tick.* One construct and one list: every wave in the tree today is the same shape with `repeat` unset.
+9. *A wave's repeat interval shrinks by its own step and never below its minimum.*
+9a. *The Crowd's trough is a standing wave somebody authored and not a dip in a curve.* Its middle standing wave carries a lower figure than the waves either side, and there is no expression anywhere that produces a dip.
+10. *The Procession's first standing wave puts nothing on the field until its teaching waves have fired.* The game design gate's finding.
+11. *`repeatingArrivals` is a pure function of its arguments, and a standing wave fires once on its own tick.* Called twice for the same time it answers the same count, the stage carries no cursor, and the wave's own tick is the cursor's so nothing double-fires.
+12. *No wave in the Vigil's table carries a repeat, and no standing wave anywhere carries.* Two deliberate-absence guards.
+13. *The Vigil pays less food per second than the Crowd.* The property item 12's absence exists for, measured in food swallowed per second and never corpses per second, because a revenant corpse pays double.
+14. *The Procession's first mob fire is a lone revenant Drip.* Landed in slice A; it must still pass against your table. **Slice A left two lone revenant Drips in the section, at `t: 11` and `t: 31`, and folding that pair is yours** (progress note section 11).
+15. *The Wall is still the one authored wave the director may not add over.* Landed in slice A, read through the data, and it must still pass.
+- **Module tests** for `repeatingArrivals` at its bounds, the six the plan names.
+- **The new guard:** *a body carries exactly its `MOB_TYPES` row*, item (h).
+- **The extended pour test** at `waves.test.ts:380`, item (g).
+- **The key-shape pin at `waves.test.ts:737`** asserts every wave declares exactly six fields; it now has to allow a seventh, and the assertion is widened rather than deleted.
+- **The corpse-cap identity tests** at `waves.test.ts:303-305` and `caps.test.ts:155-156`, which keep `peakArrivals` honest through the new term.
+- **The golden digest** at `digest.test.ts`, per item (l).
+- **The five fences**, green, each named by title.
+
+**What this slice is expected to turn red, so the diff is read against something.** The key-shape pin; the four wave literals across the section tables; the `sparseLastWave` and `wavesUnderThePour` literals and the pour test that walks them; the per-seed baseline tables in `bot.test.ts` and `harnessPolicy.test.ts`, which are measured figures against a field that is about to change; `screenLifecycle.test.ts:918`'s parked-run bound; `verificationReadback.test.ts`'s run-length bound; `digest.test.ts` with the re-pin; and `caps.test.ts` if a cap binds, which is a finding rather than a fix. **A realistic count is 15 to 20 files.** A diff much smaller than that is a reason to look for the tests that should have moved and did not. Slice A's table said five files and the diff said 19, with 42 tests red across 13.
+
+### Verification steps, with actors
+
+1. **Agent.** `pnpm typecheck` green from `apps/hungry-grave/`. It is the only judge of diagnostics; editor diagnostics name scratch files and stale states.
+2. **Agent.** `pnpm vitest run` green from `apps/hungry-grave/`, then `pnpm build`, then `pnpm verify` green at the repo root.
+3. **Agent.** The test-name diff. `pnpm vitest list --json > <current>` into the scratchpad, then `pnpm vite-node --config vite.headless.config.ts scripts/test-names.ts apps/hungry-grave/local/step4/tests-baseline.txt <current>`. **The baseline is at `apps/hungry-grave/local/step4/tests-baseline.txt`, beside its `.json` sibling, 1834 names**, and not at the worktree root where the handoff's wording reads. Do not recreate either file. Both figures go in the note, read against the 15 to 20 files above.
+4. **Agent.** Replay determinism: one seed played twice under `shaky-short`, same tick count, same witness at every checkpoint, identical stream cursors.
+5. **Agent.** A hand-recorded tape at this tip through `vite preview`, driven with `playwright-cli`, run through `pnpm vite-node --config vite.headless.config.ts scripts/measure.ts <tape>` asserting `outcome: 'verified'`, with `state.refusals` printed into the note. Item (n).
+6. **Agent.** The rendered check with the named shot, an offer standing open in a Crowd-density field, read and reported. Item (n).
+7. **Agent.** The five fences green, each named by test title in the note.
+8. **Agent.** CodeRabbit CLI, one iteration, before the code commit.
+9. **Human (Mark), and none of these blocks you.** Whether the mow feels like a mow; whether an offer is readable at mow density (verification step 20, your shot is the input); whether the Wall is still meant to cost something (verification step 22, and item (k) is what it binds); whether Territory's bottom rung still reads as his #79 ruling meant it (verification step 23, and no slice owns Territory's rungs). The push runs in one-push mode: you continue past every one of them and he reads them on the branch.
+
+### State of the branch
+
+- Branch `hungry-grave-v1`, worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/hungry-grave-v1`. Run `git log --oneline -25` and `git status --short` first and check the tree is clean before your first edit. **The tip should be slice B0's docs commit; the last code commit should be slice B0's rename, and the one before it `d4dedf6d9a`, slice A.**
+- At `d4dedf6d9a`, `pnpm verify` was green, exit 0: 141 test files, 1860 passed, 19 expected fail, 2 todo, five fences green at 71 tests. Slice B0 moves the names and not the count. `GOLDEN` has re-pinned once; `WITNESS_VERSION` 6, `FORMAT_VERSION` 3, `READINGS_VERSION` 4.
+- Slice A is deployed at https://hungry-grave.vercel.app. **You do not deploy.**
+- `local/` reaches none of the standing checks: outside version control, outside eslint, outside prettier, outside `tsconfig.json`'s `include`. The one thing that does reach it is vitest, which has no config of its own, so a `*.test.ts` left under `local/` runs in the suite. **Nothing under `local/` ever enters a commit.** Scratch work goes in the scratchpad directory your system prompt names, never under the repo.
+- Nothing under `docs/` is ever handed to prettier by name. `pnpm`, never `npm`, and app commands run from `apps/hungry-grave/`.
+- Reading a file over roughly 30 KB: the Read tool in ranges, never `cat`. In zsh a bare `echo ====` fails and `--include=*.ts` needs quoting.
+
+### The worktree guard, and git
+
+**The isolation guard refuses compound Bash that mentions git, even inside quoted text, and even inside a loop or a variable it cannot evaluate.** So: **one plain git command per Bash call.** Never chain with `&&`, `;` or `|` when the command names git. A script that needs a loop goes in the scratchpad directory and is run by path.
+
+**Never touch the main checkout at `/home/mlo/dev/niftymonkey/the-cabinet`**, not to read, not to run a command in, not to write. Everything happens inside the worktree.
+
+**Never use the stash.** The stack is shared with the main checkout and other sessions. Set work aside with a temporary commit if you must set it aside at all.
+
+**Never `git add -A` or `git add .`.** Add each path.
+
+**Never write an em dash (U+2014) anywhere**: not in code, not in a comment, not in a commit message, not in the progress note. Comma, colon, parentheses, or two sentences.
+
+### The stuck rule
+
+**Two failed honest attempts at the same thing, or a decision only Mark can make, or an unauthorized irreversible step: stop and report.** Write what you were doing, the two attempts and why each failed, and one sentence naming the question. **Do not send anything to Discord yourself; the orchestrator does that.** Hand your report back and stop.
+
+Green tests plus wrong observed behaviour means the test plan has a hole: pin the wrongness as a new red test first, never patch first. A claim in the plan or the record that is false against the tree is recorded in the progress note and the source's intent is followed rather than its stale letter; if the intent is unclear, that is a stop. **A gate finding or a measurement that argues against something Mark ruled is filed for his read and built past, never applied.**
+
+### What is not your job
+
+- **Slice C's work.** `CORPSES_TO_CEILING` and the reservoir with its feast identity, the two cadence waves and the intervals they pay on, the per-rung weapon climb read from `docs/research/weapon-growth-per-level-precedent.md`, and the stale damage comments in `skullStream.ts`, `territory.ts` and `bell.ts` that still describe a 40-health shambler.
+- **Slice D's work.** `MOB_CAP`, `MOB_FIRE_CAP` and `peakLive` as derivations, the card table, `BODY_COST`, `cardCost`, the three section purses and the new import fence. `peakArrivals`'s rate term is yours and none of the rest is.
+- **Slice E's work.** The widened fold, `WITNESS_VERSION` 6 to 7, `StreamName`, `director.ts`'s first appearance, and the `Mob` provenance mark.
+- **Slice F's work.** The director's signal, `Section.purse`, the spend, the quiet interval, the `directedAdd` event and the purse invariant.
+- **Slice G's work.** The readings, the signal lock, `FORMAT_VERSION` 3 to 4 and the `bot.ts` comment.
+- **Territory's rungs**, which no slice in the plan owns and which are Mark's.
+- **Prose in `docs/design` and `docs/adr` still carrying the old six words**, beyond the sentences you add to `game-concept.md`. A follow-up docs pass owns it.
+- **Mark's follow-along doc**, https://md.niftymonkey.dev/api/raw/CTtB5BJJ. The orchestrator's.
+- **Deploying, pushing, merging, opening a PR, or closing a ticket.** Each needs its own explicit yes and none of them is yours.
