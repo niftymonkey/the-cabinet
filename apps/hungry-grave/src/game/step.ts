@@ -1,4 +1,5 @@
 import { fireBelch } from './belch';
+import { advanceDirectorSignal } from './director';
 import { advanceBoss } from './bosses/phases';
 import type { TickCommand } from './command';
 import type { Corpse } from './corpses';
@@ -26,7 +27,12 @@ import { overlaps } from './overlap';
 import type { RunState } from './run';
 import { clearRefusals } from './run';
 import { advanceSetPiece } from './stage/setPiece';
-import { advanceStage, bankOpensNow, winStage } from './stage/stage';
+import {
+  advanceStage,
+  bankOpensNow,
+  spendDirected,
+  winStage,
+} from './stage/stage';
 import { resolveStorm } from './storm';
 import { swallow } from './swallow';
 import { SCROLL_SPEED } from './tuning';
@@ -202,16 +208,25 @@ const resolveDeaths = (
  * events are returned, because at storm density pooled entities mutated in
  * place are the right answer.
  *
- * The order is scroll, the move command, the belch, spawns, mob motion and fire,
- * the boss's own tick, the set piece's own tick, the weapon lines, the bank's
- * own tick, overlap detection, deaths, the stage's own ending, decay, culling,
- * the offer's own loss, then the grave's own tick and the counters.
+ * The order is scroll, the move command, the belch, spawns, the director's own
+ * spend, mob motion and fire, the boss's own tick, the set piece's own tick,
+ * the weapon lines, the bank's own tick, overlap detection, deaths, the stage's
+ * own ending, decay, culling, the offer's own loss, then the grave's own tick,
+ * the pressure signal and the counters.
  *
  * The boss ticks with the mobs and before the lines, because its pattern is
  * fire on the field and a shot fired this tick must not also fly this tick,
  * which is the rule mob fire already has. The set piece ticks beside it and
  * after it, so a body it pours arrives on the field the same way a boss's own
  * add does.
+ *
+ * The director's two moments sit at opposite ends of the tick and the split is
+ * what the signal's inputs force. It spends immediately after spawns: the
+ * authored waves have fired, so it never adds over a wave that has not arrived,
+ * and mob motion has not run, so a directed body lives its first tick exactly
+ * as an authored one does. Its signal moves last, because the tick's harm is
+ * resolved in the overlap and death sections below and a signal read before
+ * them would answer every hit a tick late and every floor event never.
  *
  * The belch runs before spawns and before every overlap. A bomb pressed on the
  * frame a shot would land has to save the player, or the button is a lie at the
@@ -236,6 +251,7 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   moveGrave(state.grave, command.move);
   if (command.belch) events.push(...fireBelch(state));
   events.push(...advanceStage(state));
+  events.push(...spendDirected(state));
   events.push(...advanceMobs(state));
   events.push(...advanceBoss(state));
   events.push(...advanceSetPiece(state));
@@ -254,6 +270,7 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   // the field and the cull is what takes it (ADR 0034).
   events.push(...loseOffer(state));
   ageGrave(state.grave);
+  advanceDirectorSignal(state, events);
   state.tick += 1;
   state.stage.sectionTick += 1;
   return events;

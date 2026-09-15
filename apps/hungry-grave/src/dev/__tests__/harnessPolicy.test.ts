@@ -503,7 +503,15 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * It is #39's first tuning input and never a reason to sharpen the hand: a
  * hand tuned until the stage pays it would measure the tuning of the hand.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202, 404, 505];
+/**
+ * Re-measured under the director (ADR 0047, ADR 0056): 303, 404 and 505 left
+ * it, so four of the five now cross a carrier where two did.
+ * Whether a lane meets one is a fact about where this hand walks, and the
+ * director puts a handful of cards in front of it over a run, which is enough
+ * to move which waves that lane passes through. It is the mechanism slice E
+ * recorded when the pour took its own stream, reached by a different road.
+ */
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202];
 
 /**
  * The seeds that finish above the birthright, which under the stage's authored
@@ -528,7 +536,12 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202, 404, 505];
  * Written as an equality rather than as "some seed does", so it fires the day
  * the set moves in either direction and says which seed did it.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [101];
+/**
+ * Re-measured under the director: 505 stands here where 101 did, and it is the
+ * same one-seed set it was. Ending above the birthright needs a carrier crossed
+ * and then dived on, so it moves with the set above and for the same reason.
+ */
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [505];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

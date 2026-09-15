@@ -660,7 +660,7 @@ describe('the section tables as data (ADR 0006)', () => {
       'banshee null null',
       'crowd null null',
       'waking null null',
-      'vigil null 4',
+      'vigil null 28',
       'undertaker null null',
       'over null null',
     ]);

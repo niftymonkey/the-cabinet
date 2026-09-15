@@ -1,5 +1,19 @@
-// The director's own state (ADR 0047, ADR 0056): what it holds across a run,
-// and nothing it does with it.
+// The director (ADR 0047, ADR 0056): the pressure it reads, and the cards it
+// buys with a section's purse while that reads low. It puts no body on the
+// field and calls nothing that does, so the one execution authority stays the
+// stage's (ADR 0017).
+
+import { TICK_HZ } from './clock';
+import type { SimEvent } from './events';
+import type { MobOrigin } from './mobs';
+import type { Stream } from './rng';
+import type { RunState } from './run';
+import type { SpawnOrder } from './stage/formations';
+import { place } from './stage/formations';
+import type { Section } from './stage/stage';
+import type { DirectorCard, StageWave } from './stage/waves';
+import { CARDS, cardCost, QUIET_INTERVAL_MINIMUM_SECONDS } from './stage/waves';
+import { HIT_SHRINK, SIZE_FLOOR, SIZE_START } from './tuning';
 
 /**
  * The pressure the run is putting on the player (CONTEXT.md Pressure): harm and
@@ -32,29 +46,16 @@ interface PressureSignal {
  */
 interface DirectorState {
   readonly signal: PressureSignal;
-  /**
-   * What is left of the section's purse, in bodies (ADR 0056). Nothing spends
-   * it in this commit: the spend, and Section.purse that grants it, are the
-   * plan's step 12, slice F.
-   */
+  // What is left of the section's purse, in bodies (ADR 0056).
   readonly purseLeft: number;
-  /**
-   * The tick the quiet interval after an add ends on. Nothing draws it in this
-   * commit either: the draw is the plan's step 12, slice F, and the minimum it
-   * draws above is already authored beside the card table
-   * (waves.ts's QUIET_INTERVAL_MINIMUM_SECONDS).
-   */
+  // The tick the quiet interval after an add ends on.
   readonly quietUntilTick: number;
 }
 
 /**
- * The director at the top of a run: nothing granted, nothing held, no quiet
- * owed.
- *
- * A purse of zero here is "no section has granted one yet" and never "a section
- * with no purse": the purse is granted per section and Section.purse is slice
- * F's, so the Vigil's authored zero (waves.ts's VIGIL_PURSE) is a different
- * zero that nothing reads yet.
+ * The director at the top of a run: nothing held and no quiet owed. The purse
+ * is a section's to grant, so createRun grants the opening section's over this
+ * value rather than this value naming a figure of its own.
  */
 const STARTING_DIRECTOR: DirectorState = {
   signal: { value: 0, heldUntilTick: 0 },
@@ -62,5 +63,289 @@ const STARTING_DIRECTOR: DirectorState = {
   quietUntilTick: 0,
 };
 
-export { STARTING_DIRECTOR };
-export type { DirectorState, PressureSignal };
+/**
+ * The signal's own scale, and **no source states it**. The record's section 5
+ * item 6 gives the hold and the decay, ADR 0056 gives the three inputs, and the
+ * weight of each input and the figure that counts as low are a gap in the plan
+ * rather than a licence: they are authored here, derived rather than tuned, on
+ * the same terms as slice C's surge cap and slice D's card table.
+ *
+ * The scale is normalized. One means the run is under as much pressure as the
+ * signal tracks, which is what makes the decay below read as thirty seconds
+ * from full to nothing rather than as a rate nobody can state.
+ */
+const SIGNAL_FULL = 1;
+
+/**
+ * What one hit on the grave is worth, and the derivation is ADR 0003's own
+ * ladder: a grave that starts at SIZE_START loses HIT_SHRINK per hit until it
+ * reaches SIZE_FLOOR, so three hits is the whole walk from a starting grave to
+ * the floor and each of them is a third of the scale.
+ *
+ * It is read off the tuning rows rather than written down, so a retune of the
+ * shrink or the floor moves what a hit is worth to the director with it.
+ */
+const GRAVE_HIT_WEIGHT = HIT_SHRINK / (SIZE_START - SIZE_FLOOR);
+
+/**
+ * What one rung of the floor ladder is worth: the whole scale. A floor event
+ * only fires on a grave that cannot shrink any further (grave.ts's
+ * runFloorLadder), which is the most pressure this signal measures short of the
+ * run ending, so one of them alone reads the signal full.
+ *
+ * The two rungs weigh the same. Which rung fired says how deep the run is in
+ * the ladder; it does not say the run is under more or less pressure than the
+ * other, and a split between them would be a tuned number rather than a stated
+ * one.
+ */
+const FLOOR_EVENT_WEIGHT = SIGNAL_FULL;
+
+/**
+ * What each of the signal's three inputs is worth (ADR 0056). One graveHit is a
+ * third of one weaponStripped, because three hits is the walk a starting grave
+ * takes to reach the floor and a strip is what the floor pays out.
+ *
+ * Nothing else is an input, and in particular no kill at any distance: the
+ * lookup answers zero for every other event, which is the deliberate absence
+ * ADR 0056 rules and Darktide shipped after Vermintide 2's near-kill term read
+ * a player mowing a horde as a player in trouble.
+ */
+const SIGNAL_WEIGHTS: Readonly<Partial<Record<SimEvent['type'], number>>> = {
+  graveHit: GRAVE_HIT_WEIGHT,
+  scoreBled: FLOOR_EVENT_WEIGHT,
+  weaponStripped: FLOOR_EVENT_WEIGHT,
+};
+
+/**
+ * What counts as reading low, and the director spends only below it (ADR 0056).
+ *
+ * Two hits' worth. One hit inside the hold is ordinary play, since the grave is
+ * a body the player steers through a field of bodies; two is the run pressing,
+ * and pressing is what the director is told to stand down for. Stated as a
+ * multiple of the hit weight rather than as a decimal, so the sentence a reader
+ * gets is "two hits in five seconds" and not "0.67".
+ */
+const SIGNAL_LOW_THRESHOLD = 2 * GRAVE_HIT_WEIGHT;
+
+/**
+ * How long the signal holds at whatever it reached before it starts falling:
+ * five seconds, which is Left 4 Dead's shipped constant (the record's section 5
+ * item 6 table). Converted through TICK_HZ here, because seconds are what the
+ * record states and ticks are what the run is played in.
+ */
+const SIGNAL_HOLD_TICKS = 5 * TICK_HZ;
+
+/**
+ * How long a full signal takes to fall to nothing: thirty seconds, Left 4
+ * Dead's other shipped constant (the record's section 5 item 6 table).
+ */
+const SIGNAL_DECAY_TICKS = 30 * TICK_HZ;
+
+/**
+ * The fall, per tick, and it is a fixed quantity rather than a share of what
+ * the signal held.
+ *
+ * The plan states the decay as linear over thirty seconds, which reads as "the
+ * held value, straight-lined to zero", and that needs a third field holding the
+ * value the fall began from. PressureSignal carries two fields and slice E
+ * declared them in the commit that moved WITNESS_VERSION, so a third field is
+ * not this slice's to add. A fixed rate, the signal's own full scale over
+ * SIGNAL_DECAY_TICKS, needs only the two fields that are there and is the same
+ * shipped shape: Left 4 Dead's decay is a rate. A signal at half scale takes
+ * fifteen seconds to reach nothing rather than thirty, which is what a rate
+ * means and what the source describes.
+ */
+const SIGNAL_DECAY_PER_TICK = SIGNAL_FULL / SIGNAL_DECAY_TICKS;
+
+/**
+ * The shortest the director may go between two adds, in ticks. The figure lives
+ * in waves.ts and is read from there rather than copied: the corpse cap and the
+ * mob cap both derive from the same row, and a second copy here would let a cap
+ * and the director disagree about the same director, which is the exact defect
+ * commit 2fb33ee5de removed.
+ */
+const QUIET_MIN_TICKS = QUIET_INTERVAL_MINIMUM_SECONDS * TICK_HZ;
+
+/**
+ * The longest, at eight seconds from the record's section 9's four-to-eight
+ * band. The minimum's home is waves.ts because a cap derives from it; nothing
+ * derives from the maximum, so it is authored here with the rest of the
+ * director's own rows.
+ */
+const QUIET_MAX_TICKS = 8 * TICK_HZ;
+
+/**
+ * What the director bought this tick: the card, where its bodies go, what the
+ * purse has left and when it may buy again.
+ *
+ * It answers with the add rather than performing it, so the spawn stays where
+ * every other spawn is (ADR 0017). The placement is drawn here rather than by
+ * the executor so that every die the director rolls is rolled in one function,
+ * which is what lets one test say no other stream's cursor moved.
+ */
+interface Spend {
+  readonly card: DirectorCard;
+  readonly orders: readonly SpawnOrder[];
+  readonly purseLeft: number;
+  readonly quietUntilTick: number;
+  // The signal the gate read low, which is why this spend was permitted.
+  readonly signal: number;
+}
+
+// What one tick's events add to the signal, over the three inputs and nothing else.
+const raisedBy = (events: readonly SimEvent[]): number => {
+  return events.reduce(
+    (raise, event) => raise + (SIGNAL_WEIGHTS[event.type] ?? 0),
+    0,
+  );
+};
+
+/**
+ * The signal after one tick's events, which are the only thing that raises it.
+ *
+ * A tick carrying a raising event pushes the hold out to this tick plus the
+ * whole interval, so a run under sustained harm never starts decaying, which is
+ * what a hold is for.
+ *
+ * It is pure: the signal in, the tick's events and the tick number, a new signal
+ * out. Slice G's lock drops in as a guard at the top of this function and
+ * nothing here has to be unpicked for it.
+ */
+const advancePressure = (
+  signal: PressureSignal,
+  events: readonly SimEvent[],
+  tick: number,
+): PressureSignal => {
+  const raise = raisedBy(events);
+  if (raise > 0) {
+    return {
+      value: Math.min(SIGNAL_FULL, signal.value + raise),
+      heldUntilTick: tick + SIGNAL_HOLD_TICKS,
+    };
+  }
+  if (tick <= signal.heldUntilTick) return signal;
+  return {
+    value: Math.max(0, signal.value - SIGNAL_DECAY_PER_TICK),
+    heldUntilTick: signal.heldUntilTick,
+  };
+};
+
+/**
+ * The run's own signal, moved on by this tick's events. It is the one write
+ * this module makes, and it writes the director's own record and never the
+ * field.
+ */
+const advanceDirectorSignal = (
+  state: RunState,
+  events: readonly SimEvent[],
+): void => {
+  state.director = {
+    ...state.director,
+    signal: advancePressure(state.director.signal, events, state.tick),
+  };
+};
+
+/**
+ * A body the section's ceilings count: a shaped group's, authored or directed.
+ * A standing wave's arrivals are the floor rather than a shaped group (the
+ * record's section 5 item 6), so they sit outside every ceiling and the ceiling
+ * bounds only what stands above the floor.
+ */
+const SHAPED_ORIGINS: readonly MobOrigin[] = ['wave', 'directed'];
+
+const liveShapedBodies = (state: RunState): number => {
+  return state.mobs.filter(
+    (mob) => mob.alive && SHAPED_ORIGINS.includes(mob.from),
+  ).length;
+};
+
+/**
+ * Whether the section's own ceilings are already met, so the director may not
+ * add over them (ADR 0047, ADR 0050).
+ *
+ * The formation count saturates. A body carries the mark of what put it on the
+ * field and not which group it arrived in, so shaped bodies alive mean at least
+ * one live formation and the count cannot tell one from two. Reading that as
+ * the ceiling met is the strict answer, and it is exact against the one
+ * formation ceiling the table states, the Procession's ceiling of one.
+ */
+const ceilingMet = (state: RunState, section: Section): boolean => {
+  const shaped = liveShapedBodies(state);
+  if (section.liveFormationCeiling !== null && shaped > 0) return true;
+  if (section.liveBodyCeiling === null) return false;
+  return shaped >= section.liveBodyCeiling;
+};
+
+/**
+ * The wave whose span this tick sits in: the last one the section's cursor has
+ * fired, of any kind. A wave's span runs from its own fire until the next wave
+ * fires, so the permission cell the director reads is that wave's.
+ *
+ * Null before a section's first wave has fired, which is a span that does not
+ * exist yet rather than one that permits.
+ */
+const spanWave = (state: RunState, section: Section): StageWave | null => {
+  return section.waves[state.stage.firedWaves - 1] ?? null;
+};
+
+/**
+ * What the director spends this tick, or nothing (ADR 0056).
+ *
+ * The gate, in the order a reader would check it: the section's permission
+ * cell, then a purse with something in it the cheapest card fits inside, then
+ * the signal, then the quiet interval, then the section's own ceiling, then the
+ * permission cell of the wave whose span the card would land in. Every one of
+ * them reads off data and none of them names a section, a boss or a set piece,
+ * which is ADR 0047's own requirement.
+ *
+ * A tick it refuses draws nothing at all. The draws sit past the last refusal
+ * on purpose: a stream advanced on a gate it never passed rebuilds #108's
+ * defect inside the director.
+ */
+const directorSpend = (
+  state: RunState,
+  section: Section,
+  stream: Stream,
+): Spend | null => {
+  if (!section.directed) return null;
+  if (section.purse === null) return null;
+  const affordable = CARDS.filter(
+    (card) => cardCost(card) <= state.director.purseLeft,
+  );
+  if (affordable.length === 0) return null;
+  if (state.director.signal.value >= SIGNAL_LOW_THRESHOLD) return null;
+  if (state.tick < state.director.quietUntilTick) return null;
+  if (ceilingMet(state, section)) return null;
+  const span = spanWave(state, section);
+  if (span === null || !span.directed) return null;
+
+  const card = affordable[stream.nextInt(affordable.length)];
+  if (card === undefined) return null;
+  const orders = place(card.formation, card.count, stream);
+  const quiet =
+    QUIET_MIN_TICKS + stream.nextInt(QUIET_MAX_TICKS - QUIET_MIN_TICKS + 1);
+  return {
+    card,
+    orders,
+    purseLeft: state.director.purseLeft - cardCost(card),
+    quietUntilTick: state.tick + quiet,
+    signal: state.director.signal.value,
+  };
+};
+
+export {
+  STARTING_DIRECTOR,
+  advancePressure,
+  advanceDirectorSignal,
+  directorSpend,
+  GRAVE_HIT_WEIGHT,
+  FLOOR_EVENT_WEIGHT,
+  SIGNAL_FULL,
+  SIGNAL_LOW_THRESHOLD,
+  SIGNAL_HOLD_TICKS,
+  SIGNAL_DECAY_TICKS,
+  SIGNAL_DECAY_PER_TICK,
+  QUIET_MIN_TICKS,
+  QUIET_MAX_TICKS,
+};
+export type { DirectorState, PressureSignal, Spend };

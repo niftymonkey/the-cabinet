@@ -581,6 +581,26 @@ const checkBank = (state: RunState, faults: Fault[]): void => {
 };
 
 /**
+ * The director spends whole bodies out of a whole purse, so what is left is a
+ * count and never goes below zero (ADR 0056).
+ *
+ * A fraction is caught here rather than a tick later, on the bank's and the set
+ * piece's own reading: half a body still reads as room for a card, so the next
+ * spend takes it and leaves the purse at minus a half, which this identity
+ * would then record against a state one tick removed from the write that broke
+ * it.
+ */
+const checkDirectorPurse = (state: RunState, faults: Fault[]): void => {
+  const purse = state.director.purseLeft;
+  if (Number.isInteger(purse) && purse >= 0) return;
+  record(
+    faults,
+    'director purse not negative',
+    `the director has ${purse} bodies left to spend`,
+  );
+};
+
+/**
  * Nothing a cap turned away this tick (ADR 0056).
  *
  * Every cap here is a safety net sized above the densest thing its pool can
@@ -853,6 +873,7 @@ const checkInvariants = (
   checkOneLiveOffer(state, faults);
   checkOfferBodies(state, faults);
   checkBank(state, faults);
+  checkDirectorPurse(state, faults);
   checkSetPieceBudget(state, faults);
   checkSetPieceBody(state, faults);
   checkStage(state, watch, faults);

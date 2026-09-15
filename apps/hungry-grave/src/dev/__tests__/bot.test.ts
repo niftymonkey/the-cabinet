@@ -182,7 +182,17 @@ const NEVER_FEEDS: number[] = [];
  * Kept as an equality in both places that read it, so the day a seed is not
  * paid this file goes red and says which.
  */
-const NEVER_PAID: number[] = [202, 404, 505];
+const NEVER_PAID: number[] = [202, 303, 505];
+
+/**
+ * Re-measured under the director (ADR 0047, ADR 0056): 303 joined it and 404
+ * left it, and nothing else moved. Whether a lane crosses a carrier is a fact
+ * about where this hand walks, and the director puts one to three cards in
+ * front of it over a whole run, which is enough to move which waves that lane
+ * passes through. It is the same mechanism slice E recorded when the pour took
+ * its own stream, reached by a different road: a few bodies rather than a
+ * different sequence.
+ */
 
 /**
  * The seeds whose fresh grave reaches victory on this policy, and there are
@@ -329,8 +339,23 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
  * It is still a statement about the fight rather than about a build: none of
  * the five wins from the ceiling, and the set names which ones her fight no
  * longer holds so the day another seed passes her this file says which.
+ *
+ * **Re-measured under the director and it is empty again.** Her own section is
+ * off limits to the director, so nothing is added inside the fight: what moved
+ * is the run that arrives at it. Measured on a budget three times the authored
+ * one, all five still get past her, at ticks 34250, 74371, 86871, 34888 and
+ * 40313 against 25760, 21140 and 12060 for the three that used to make it
+ * inside the stage's own ceiling. So the fight is two to four times longer from
+ * a ceiling grave and none of the five finishes it inside the budget this file
+ * plays on. The cause is the hand rather than the density: these runs meet one
+ * to three cards over their whole length, three to ten bodies, and a policy
+ * that never aims is steered down a different lane by the first of them, so it
+ * arrives at her having killed a fraction of what it killed and carrying fewer
+ * rungs. The budget is deliberately not raised for it: it is the stage's own
+ * authored ceiling, and a birthright run that cannot empty a boss buys nothing
+ * with more minutes.
  */
-const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [202, 303, 505];
+const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
@@ -976,6 +1001,27 @@ describe('both endings across the three loadouts', () => {
 const STRIPS_A_RUNG: number[] = [];
 
 /**
+ * The seeds whose ceiling run has a score to bleed when the grave reaches the
+ * floor, which is three of the five.
+ *
+ * It was every seed until the director spent (ADR 0047, ADR 0056), and it is
+ * pinned as a set for exactly the reason STRIPS_A_RUNG is: which rung a run
+ * reaches is a fact about this policy on this stage rather than about the
+ * ladder, and ADR 0003's whole ladder in order is re-established in
+ * src/__tests__/endings.test.ts on a run pinned above the birthright.
+ *
+ * What moved is the hand and not the ladder. A ceiling grave's score comes from
+ * overflow, which it only pays while it is full, and the director puts a
+ * handful of extra bodies in front of a policy that never aims: one to three
+ * cards over a whole run, three to ten bodies, is enough to send this hand down
+ * a different lane from the first minute. On 303 and 505 the grave is taken off
+ * the ceiling before it has overflowed once, so it arrives at the floor with
+ * nothing to bleed and runFloorLadder starts at the rung it can reach, which is
+ * grave.ts's own rule and not a skipped step.
+ */
+const BLEEDS_SCORE: number[] = [101, 202, 404];
+
+/**
  * The build the whole ladder is walked under, and the score it brings.
  *
  * A rung is only strippable if the run bought one, and this policy cannot buy
@@ -1066,14 +1112,14 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
       expect(state.ending).toBe('sealed');
       expect(count(events, 'sealed')).toBe(1);
       expect(count(events, 'graveHit')).toBeGreaterThan(10);
-      // The first rung is real and is asserted outright: overflow from a
-      // swallow pays score and the ladder bleeds it before anything else.
-      // Whether the second rung is reached is a fact about this policy on this
-      // stage rather than about the ladder, so it is pinned as a set, and
-      // STRIPS_A_RUNG is where it is measured and where its cause is written
-      // down. The floor a level falls to is the birthright either way, which
-      // the levels below hold.
-      expect(count(events, 'scoreBled')).toBe(1);
+      // Which rungs this run reaches is a fact about this policy on this stage
+      // rather than about the ladder, so both are pinned as sets: BLEEDS_SCORE
+      // and STRIPS_A_RUNG are where each is measured and where its cause is
+      // written down. The floor a level falls to is the birthright whichever
+      // rungs were reached, which the levels below hold.
+      expect(count(events, 'scoreBled')).toBe(
+        BLEEDS_SCORE.includes(seed) ? 1 : 0,
+      );
       expect(count(events, 'weaponStripped') > 0).toBe(
         STRIPS_A_RUNG.includes(seed),
       );

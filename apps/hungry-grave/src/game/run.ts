@@ -24,7 +24,7 @@ import type { Stream, StreamName } from './rng';
 import { stream, STREAM_SALTS } from './rng';
 import type { SetPiece } from './stage/setPiece';
 import type { StageState } from './stage/stage';
-import { createStage } from './stage/stage';
+import { createStage, openingDirector } from './stage/stage';
 import { SIZE_START } from './tuning';
 
 // How a run finishes. Null while it is live.
@@ -305,7 +305,10 @@ const createRun = (
     boss: null,
     setPiece: null,
     lines: startingLines(),
-    director: STARTING_DIRECTOR,
+    // The opening section's grant, made here because a run begins already
+    // inside that section and no crossing grants it (stage.ts's
+    // openingDirector).
+    director: openingDirector(STARTING_DIRECTOR),
     refusals: { food: 0, carriers: 0, offers: 0 },
     nextEntityId: 1,
   };

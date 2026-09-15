@@ -5,7 +5,7 @@ import type { WeaponLine } from './lines/roster';
 import type { PatchClosing } from './lines/territory';
 import type { FireKind } from './mobFire';
 import type { DamageSource, MobType } from './mobs';
-import type { BossKind } from './stage/waves';
+import type { BossKind, DirectorCard } from './stage/waves';
 import type { SectionMusic, SectionName } from './stage/stage';
 import type { FoodKind } from './swallow';
 
@@ -433,6 +433,35 @@ interface SectionChanged {
 }
 
 /**
+ * The director bought a card and the executor put it down (ADR 0047, ADR 0056).
+ *
+ * It is not on the wire and cannot be: OBSERVATION_KINDS in tape/wireCodes.ts
+ * is ['frame', 'fault'], so a SimEvent reaches no encoder and FORMAT_VERSION
+ * cannot move for one.
+ *
+ * It carries what a reading needs to draw the director's run against the tape
+ * (#85): the card, where it landed, why the spend was permitted and what the
+ * purse has left. A reading is computed from events and never from the
+ * director's own state, so an event that left any of those out would force the
+ * reading to re-derive the director's rules.
+ *
+ * The payload is the card, which is what keeps the name honest: CONTEXT.md's
+ * Add entry reserves the bare word for a boss's summon, and its Card entry's
+ * own prose reads "every directed add is a card".
+ */
+interface DirectedAdd {
+  readonly type: 'directedAdd';
+  readonly card: DirectorCard;
+  // The middle of the group's own bodies, which is where the shape landed.
+  readonly x: number;
+  // The section whose permission cell and purse the spend read.
+  readonly section: SectionName;
+  // The signal the gate read low, which is why the spend was permitted.
+  readonly signal: number;
+  readonly purseLeft: number;
+}
+
+/**
  * Payloads carry values, never entity references: entities are pooled and
  * mutated in place, so a held reference is a recycled slot by the time a sound
  * or an instrument reads it.
@@ -481,7 +510,8 @@ type SimEvent =
   | OfferBanked
   | OfferTaken
   | OfferLost
-  | SectionChanged;
+  | SectionChanged
+  | DirectedAdd;
 
 // SectionMusic is the stage's own type and is re-exported here because a section
 // change carries it: src/app/sound.ts may reach this module and no other

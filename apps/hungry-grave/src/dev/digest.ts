@@ -380,6 +380,22 @@ const runScenario = (): ScenarioResult => {
  * have meant the pour reached a window it cannot reach. The Banshee's ring took
  * its own stream too and the scenario never meets her, so `drawn.mobFire`
  * stayed at the zero the mow left it at.
+ *
+ * Re-pinned on 2026-09-15 for the director's signal and spend. The checksum
+ * moved from 1122531117 and it is the only field that moved, because the
+ * director now carries the opening section's grant from the run's first tick:
+ * `director.purseLeft` is folded and reads the Procession's 116 where it read
+ * the zero that meant no section had granted one yet, and `quietUntilTick`
+ * reads 1 where it read 0, because a section is silent for the tick it opens on
+ * and a run's own opening is that tick. **The director
+ * spends nothing inside this window and `drawn.director` holds at zero**, which
+ * is the thing to watch here rather than the checksum: the Procession's ceiling
+ * of one shaped group is met from the tick the scenario's own scripted File
+ * lands, so the gate refuses on every tick of the scenario and a refused tick
+ * draws nothing at all. Everything else held: tick 600, the seed, the grave's
+ * position and size, the score, the reservoir, mobs at 5, shots at 0, corpses
+ * at 1, skulls at 2, wisps at 0, kills at 2, the levels record and every one of
+ * the eight stream cursors.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -411,7 +427,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 1122531117,
+  checksum: -489751710,
 };
 
 export { runScenario, GOLDEN };

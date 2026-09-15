@@ -916,12 +916,14 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
     // over a run nobody arranged.
     let spawned = false;
     let ticks = 0;
-    // A parked run seals at tick 2417 on this seed. It was 1118 before the mow
-    // and 6135 after it: silencing the mow body took the fire off the grave
-    // (ADR 0059) and the stage's authored floor then put far more bodies on it
-    // (ADR 0060), so what reaches a parked grave is back up again. The bound is
-    // three times the measured tick, so content that stops ending a parked run
-    // fails here rather than hanging the suite.
+    // A parked run seals at tick 1043 on this seed. It was 1118 before the mow,
+    // 6135 after it, and 2417 once the stage's authored floor landed: silencing
+    // the mow body took the fire off the grave (ADR 0059) and the floor then put
+    // far more bodies on it (ADR 0060). It halves again under the director,
+    // which adds over a parked grave exactly where a parked grave is coasting
+    // and the signal reads low (ADR 0047). The upper bound is over seven times
+    // the measured tick, so content that stops ending a parked run fails here
+    // rather than hanging the suite.
     while (run.ending === null && ticks < 7500) {
       screen.update(frame(TICK_MS * 10));
       ticks += 10;
@@ -930,7 +932,7 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
 
     expect(spawned).toBe(true);
     expect(run.ending).toBe('sealed');
-    expect(run.tick).toBeGreaterThan(2000);
+    expect(run.tick).toBeGreaterThan(700);
     expect(screen['ending'].ended).toBe(true);
     expect(showScreen).toHaveBeenCalledTimes(1);
     expect(runHandoff.read()?.ending).toBe('sealed');

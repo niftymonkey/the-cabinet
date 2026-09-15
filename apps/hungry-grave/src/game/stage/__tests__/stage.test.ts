@@ -589,7 +589,20 @@ describe('one property per section (game-concept.md:48)', () => {
       const window = liveThrough(STILL_PLAY, name);
       return window.filter((count) => count === 0).length / window.length;
     };
-    expect(emptyShare('procession')).toBeGreaterThan(4 * emptyShare('crowd'));
+    //
+    // **Re-measured under the director (slice F).** It read a factor of four
+    // before the director spent anything, on 0.0951 of the Procession's ticks
+    // empty against 0.0189 of the Crowd's; it reads 0.0236 against the same
+    // 0.0189 now, a factor of 1.25. The Crowd's figure did not move at all,
+    // because its empty ticks are the ones before its first wave has fired and
+    // the director has no span to add over until one has. What moved is the
+    // Procession's, and it moved because filling the space between the authored
+    // beats is what the director is for (ADR 0047): the ceiling of one shaped
+    // group keeps it off every beat while that beat is still on the field, and
+    // what it takes is the gaps between them. The promise is unchanged, the
+    // Procession's field is empty more often than the Crowd's; the factor is a
+    // measured figure and this is what the build measures.
+    expect(emptyShare('procession')).toBeGreaterThan(1.2 * emptyShare('crowd'));
   });
 
   it('raises no fault when a slower hand leaves two formations on the Procession at once', () => {
@@ -1381,12 +1394,16 @@ describe('the stage standing a rate (ADR 0060)', () => {
   it('a body says which kind of wave put it on the field', () => {
     // The mark is read off the wave itself, and this is the rig's independent
     // answer to the same question. It is one-sided on purpose: a section-local
-    // tick no one-shot wave is due at can only be the floor standing, so every
-    // body arriving there is a standing wave's, while a shaped beat's own tick
-    // can carry both at once, because the rate lands underneath the beats
-    // rather than instead of them. Spec test 43 (slice F's) is what needs the
-    // two told apart, and a wave index could not have done it, because a body
-    // outlives the section it arrived in.
+    // tick no one-shot wave is due at can only be the floor standing or the
+    // director spending, so no body arriving there is a one-shot wave's, while
+    // a shaped beat's own tick can carry both at once, because the rate lands
+    // underneath the beats rather than instead of them. Spec test 43 (slice F's)
+    // is what needs the two told apart, and a wave index could not have done
+    // it, because a body outlives the section it arrived in.
+    //
+    // The director's own mark joined the permitted set in slice F, which is the
+    // commit that gave `directed` a producer. The walk is unweakened by it: a
+    // one-shot wave's body arriving off its own beat still fails.
     const state = createRun(77);
     const step = stepping(state);
     const known = new Set<number>();
@@ -1407,13 +1424,16 @@ describe('the stage standing a rate (ADR 0060)', () => {
           shapedTicks += 1;
           continue;
         }
-        expect(`id ${mob.id}: ${mob.from}`).toBe(`id ${mob.id}: standingWave`);
+        expect(`id ${mob.id}: ${mob.from !== 'wave'}`).toBe(
+          `id ${mob.id}: true`,
+        );
       }
     }
-    // And both kinds really arrived, so the walk above is not green over one of
-    // them alone.
+    // And all three kinds really arrived, so the walk above is not green over
+    // one of them alone.
     expect(marks).toContain('wave');
     expect(marks).toContain('standingWave');
+    expect(marks).toContain('directed');
     expect(shapedTicks).toBeGreaterThan(0);
   }, 30000);
 

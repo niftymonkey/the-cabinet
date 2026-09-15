@@ -73,17 +73,24 @@ const productionModulesUnder = (dir: string): string[] =>
   });
 
 /**
- * The five modules that decide what a run may be offered and what a hand
- * reaches for. Each is a policy over the lines rather than a line, so naming
- * one is the failure this fence exists for.
+ * The six modules that decide what a run may be offered, what it meets, and
+ * what a hand reaches for. Each is a policy over the lines rather than a line,
+ * so naming one is the failure this fence exists for.
  *
  * The harness's two join it because the hand walks to a body by distance and
  * entity id and a configuration is a hand rather than a weapon, so a fifth
  * line needs no edit in either.
+ *
+ * The director joins it because ADR 0047 rules that the signal is the pressure
+ * the player is under and never the power the player holds: a director that
+ * learned a line's name to price pressure is the one thing that ruling forbids,
+ * and Battle Garegga's rank rising with power is the shipped case it is ruled
+ * against.
  */
 const POLICY_MODULES: readonly string[] = [
   'game/offer.ts',
   'game/carriers.ts',
+  'game/director.ts',
   'dev/bot.ts',
   'dev/harnessPolicy.ts',
   'dev/configurations.ts',

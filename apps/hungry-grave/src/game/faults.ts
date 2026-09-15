@@ -7,8 +7,8 @@
  *
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
- * section and hardens the moment the first tape exists. Twenty-one identities
- * against twenty-two checks: checkPools carries two, the caps and the ids,
+ * section and hardens the moment the first tape exists. Twenty-two identities
+ * against twenty-three checks: checkPools carries two, the caps and the ids,
  * checkStage carries two, one for each of the two things it watches, and
  * checkRefusals carries three, one per cap that can turn something away, while
  * the six bounds checks share one identity between them. The grave's own bounds
@@ -38,6 +38,7 @@ const FAULT_IDENTITIES = [
   'boss phase only increases',
   'set piece budget not negative',
   'set piece body gone when spent',
+  'director purse not negative',
 ] as const;
 
 // One member of the closed list above.
@@ -61,7 +62,7 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * structural assumption was violated outside the pool API, after which no other
  * check's answer is trustworthy.
  *
- * Recoverable, fifteen checks and thirteen identities. A stray entity is culled or
+ * Recoverable, sixteen checks and sixteen identities. A stray entity is culled or
  * draws off-screen and nothing reads it wrong, and the six checks that watch
  * for one all record under the same identity. A corpse pays the wrong amount
  * into a size the fatal check still guards. One line's charge is wrong and
@@ -82,6 +83,14 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * carrier or an offer that the game itself could not deliver. The run is coherent
  * and one body poorer, which is exactly a state to report loudly and carry on
  * from, and terminating it would take a whole run away over food.
+ *
+ * The director's purse is recoverable on the bank's own reading, and the
+ * precedent is exact: `bank not negative` and `set piece budget not negative`
+ * are both bookkeeping budgets that go wrong without poisoning a value anything
+ * downstream reads, and both are recoverable. A purse below zero means the
+ * director was paid for a card it could not afford; the run is coherent and the
+ * section's floor is intact, and killing the run over a budget the player
+ * cannot see would be a worse answer than reporting it.
  *
  * The boss's phase and the set piece's two are recoverable on the stage's own
  * reading (ADR 0007, ADR 0042). A phase that went backwards replays a pattern
@@ -113,6 +122,7 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'boss phase only increases': 'recoverable',
   'set piece budget not negative': 'recoverable',
   'set piece body gone when spent': 'recoverable',
+  'director purse not negative': 'recoverable',
 };
 
 // One invariant found broken on one tick.

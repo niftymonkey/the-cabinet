@@ -11,6 +11,7 @@ import { STARTING_DIRECTOR } from '../director';
 import type { WeaponLine } from '../lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import { createRun, uniformLevels } from '../run';
+import { PROCESSION_PURSE } from '../stage/waves';
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../tuning';
 
 describe('createRun', () => {
@@ -51,10 +52,20 @@ describe('createRun', () => {
     });
   });
 
-  it('starts the director at the value its own module declares', () => {
+  it("starts the director at its module's value, with the opening section's purse in it", () => {
     // The state lives on RunState so the witness folds it (ADR 0047), and the
-    // module owns what it starts as. Nothing spends it in this commit.
-    expect(createRun(1).director).toBe(STARTING_DIRECTOR);
+    // module owns what it starts as. The purse is the one field a section
+    // grants rather than the module: enterNextSection grants it at every
+    // crossing, and a run begins already inside the first section, so the
+    // opening one is granted here.
+    expect(createRun(1).director).toEqual({
+      ...STARTING_DIRECTOR,
+      purseLeft: PROCESSION_PURSE,
+      // Silent for the tick it was granted on, which is the rule every section
+      // boundary takes and which the run's own opening is (stage.ts's
+      // directorGranted).
+      quietUntilTick: 1,
+    });
   });
 
   it("starts the wisps' volley clock at zero, unlike the always-on clocks", () => {
