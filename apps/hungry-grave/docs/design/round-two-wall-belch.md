@@ -1,0 +1,219 @@
+# Design record: round two of step 4, the push, the belch, the meter and the Wall (tickets #126, #124, #127 and #123)
+
+Planning half only, written per `docs/agents/feature-playbook.md`. No production code was written and nothing in the worktree was edited while this record was made. The research it stands on is [`../research/push-feel-precedent.md`](../research/push-feel-precedent.md), and every craft number below traces to a source there.
+
+## 0. What this record may claim, and what it cannot
+
+Every claim about existing code cites a file and a line, read on 2026-09-15 at tip `97fc911527`, which is slice G's docs commit and the end of step 4's coding. **A line moves the moment a slice lands, so a slice locates its site by content and never by the number.** **Mark's rulings of 2026-09-15 bind this record and are never reopened by it** (`../push/handoff.md`, "Mark's rulings, 2026-09-15, all binding"), and where precedent disagreed with an ADR the record re-ruled the ADR rather than permitting both. Two ADRs were in that position, 0008 and 0042, and both are amended in place ahead of the coding slices.
+
+**How the current shove moves a body, exactly.** `pushTarget` (`src/game/lines/bell.ts:252-274`) computes `push = row.push * near` (`bell.ts:261`) and calls `moveStormTarget` once with the destination already at full distance (`bell.ts:267`), and `moveStormTarget` (`src/game/stormTargets.ts:303-326`) writes `slot.mob.x` and `slot.mob.y` directly, clamped to the field plus the spawn margin (`stormTargets.ts:317-318`). **The whole shove is a single-tick position write**, applied once per mob per toll because `toll.struck` refuses a second (`bell.ts:300`, `bell.ts:310`), up to 40 field units at level five (`bell.ts:108`). The renderer sets a sprite straight from the sim with no interpolation anywhere (`src/app/screens/game/FieldRenderer.ts:216`), and a shambler is 22 field units wide (`src/game/mobs.ts:91`), so successive drawn positions leave an 18-unit hole between them. That is Mark's flicker, and it is arithmetic rather than a feeling.
+
+The belch pushes nothing and says so deliberately (`src/game/belch.ts:78`): it cancels every live mob-fire shot and kills outright inside a 160-unit radius (`belch.ts:19`, `belch.ts:82-91`). The Wall is 22 shamblers in the `wall` formation, one authored Crowd wave the director may not spend in (`src/game/stage/waves.ts:492-500`), spaced at `FIELD_WIDTH / count`: 24.5 units holding 22 units of body, so the gap between neighbours is 2.5 (`src/game/stage/formations.ts:179-188`) against a grave 27 units wide at the starting size and 18 at the floor (`src/game/grave.ts:79-81`, `src/game/tuning.ts:58`, `tuning.ts:66`).
+
+## 1. The goal, and the done line
+
+Round two makes force visible. A shove stops being a jump cut and becomes a body travelling: the bell's toll throws mobs out of the grave's space over a handful of ticks, and the belch, stripped of its kill, becomes the game's one big push, two or three shoves that clear the ground and open a way through what stands in front of it. The meter under the thumb stops being a light that turns on and becomes a thing that fills, in a corner the steering thumb is not already in. And the Wall, built to give a damaging belch a reason and left without one when the belch stopped damaging, gets a new one: a curtain costing more to cross than a player has.
+
+**The done line, in gameplay terms.** A first-time player watching a toll land says the mob was pushed, not that it blinked. After spending a belch they can say what it did for them unprompted, which is ticket #124's done line. Without looking away from the field they can tell roughly how close the belch is to ready. And when the curtain comes down they try to get through, find they cannot, spend the belch, and go through the hole it makes, which is ticket #123's "a crossing reads as a cost in play".
+
+## 2. The rulings
+
+Every question this record's draft left open is ruled here. None of them is Mark's and none of them is a slice's to reopen. Each carries the minimum rationale needed to understand why it was chosen, and the evidence sits in the research record beside it.
+
+### R1. A shove is per-body impulse state, and the witness moves 7 to 8
+
+**Ruled: new per-body impulse fields on `Mob`, folded, and `WITNESS_VERSION` goes 7 to 8.**
+
+Every source that specifies a mechanism uses a velocity over several frames with decay, and no source anywhere describes knockback as a single-frame position set (research record section 1). So the shove needs state living longer than one tick, and a new pair of fields plus a countdown is the shape every numbered precedent uses. It leaves the body's own motion a free choice rather than borrowing a field that already means something.
+
+**The fields already folded were rejected.** `mob.vx`, `mob.vy` and `mob.beat` are all folded today (`src/game/witness.ts:177-178`) and `moveMob` already has the shape a shove needs (`mobs.ts:360-372`), which is Vampire Survivors' own mechanism, and it would have cost no version move. It is refused on two counts. `canTouchGrave` reads `beat` to decide whether a body may hurt the grave (`mobs.ts:285-287`), so a shoved body would become harmless while it flies, which is a design change nobody ruled. And ADR 0041 gives `beat` one meaning, the formation's arriving motion held for a beat, so a second owner needs that ADR amended for a reason that is convenience rather than design.
+
+**Renderer-only easing was rejected.** The drawn body would not be where the sim body is at the moment the player is judging whether they will be hit, and the Wall's gap has to be real geometry rather than a picture of one.
+
+**The walk is suspended for the shove's duration and resumes after.** Every source that speaks to it suspends the body's own motion rather than adding the shove on top, and adding on top has no source behind it.
+
+**Hit-stop stays refused and is not reopened.** A sim pause changes the tick count and ADR 0015 makes the tick count the run, the refusal already sits in `StormRenderer.ts`, and no bullet-heaven source documents hit-stop at all (research record section 1).
+
+**The plan change, stated plainly.** Step 4's plan holds `WITNESS_VERSION` at 7 and spent its single move in slice E. **This record moves it to 8, and that is the orchestrator's call under one-push mode, taken as the arithmetic of Mark's push ruling rather than as a new decision.** Mark ruled that every shove must feel like a force going out; the research says that needs multi-tick state; state a replay must rebuild is folded state (ADR 0019); folded state that gains a field moves the version. **It lands inside slice H as its own commit, declaring every new folded field with a dated paragraph the way slice E's did, and it is written into this record and the handoff for Mark's read on the branch, not asked of him.** Every tape recorded before slice H is refused at the witness from that commit on, which is the fourth time this step has made saved tapes a dead baseline and is taken eyes open.
+
+### R2. Ten units a tick, decaying linearly to nothing over seven ticks
+
+**Ruled: linear decay, an initial step of 10 field units a tick, seven ticks, 40 units in total at bell level five, which is exactly today's distance.**
+
+Vampire Survivors runs a shove for 120 milliseconds, which is 7.2 ticks at this game's 60Hz, and the only fully numbered implementation found decays linearly at a constant rate (research record section 1). The readability criterion is arithmetic rather than taste: successive drawn positions must overlap, so a per-tick step stays under a body's own width, 22 units for a shambler (`mobs.ts:91`), and today's 40 units in one tick fails that by 18. A linear decay from an initial step to zero over seven ticks covers four times that step, so holding today's level-five distance of 40 units gives an initial step of 10. **Every step overlaps the previous drawn position by more than half a shambler's width**, the first by 12 units and every step after by more. Precedent's duration and today's magnitude agree without either being bent.
+
+**These are data with their precedent cited in the JSDoc of the row that holds them, and never compiled magic.** They join the tuning record in the next step (Mark's ruling 2), which is where every tunable number lands.
+
+### R3. The belch shoves in three discrete waves, ten ticks apart
+
+**Ruled: three discrete waves, ten ticks apart, inside the eruption's existing twenty ticks. A wave landing on a body still flying re-shoves it, following the bell's `toll.struck` pattern.**
+
+Mark's words are "two or three shoves", and a wave the player can count makes that literal. The eruption already reads for 20 ticks out to the field's diagonal (`src/app/screens/game/StormRenderer.ts:138-139`), so three shoves about 10 ticks apart sit inside a visual that already exists, and the Flower Wall's five waves are the shipped precedent for a set piece arriving in countable waves (research record section 2). One impulse with a long tail is one decay row and cannot read as two or three, which is the thing being bought.
+
+Whether a later wave re-shoves a body still flying is the question a push creates and the bell already answered once: `toll.struck` exists because a reach test alone is not enough once a push exists, and its JSDoc records why (`bell.ts:33-47`). The belch takes the same shape, per wave.
+
+**The waves live on the per-body impulse slice H declares, not on a belch clock, and that is what keeps the witness moving once.** A global "a belch fired at tick T with two waves left" would be run state a replay must rebuild, so it would be folded, so it would owe a second `WITNESS_VERSION` move this round does not have. Per-body it is the impulse's own row: the bell passes one wave, the belch passes three at ten ticks, and slice J folds nothing new. The fields are declared in slice H with slice J cited in their JSDoc, which is the cited-future rule satisfied by a caller written down here, and slice H tests the multi-wave path at the shove module's own seam rather than leaving it unexercised.
+
+**The wave count and the spacing are data**, in the same row as R2's numbers and for the same reason: they are the lever R4 names if the lane does not open.
+
+### R4. The Wall opens because bodies moved, and no rule is keyed on the set piece
+
+**Ruled: the bodies are shoved apart and the gap is geometry. No special case anywhere.**
+
+The shove is the same shove, and a hole opens because bodies moved. Two neighbours must separate by about 24.5 more units to clear a 27-unit grave, 12.3 each laterally, and a 40-unit radial shove gives 28 units of lateral component at 45 degrees off the grave's axis and 20 at 30 degrees. **The risk is named rather than discovered: a body directly above the grave gets no lateral component at all**, so the curtain may bow away up-field rather than part, and the lane opens as a cone either side of dead ahead.
+
+**So the slice measures first whether the dead-ahead body leaves a dent or a hole.** If a dent, **the wave count and the spacing are the lever and never a special case**: a second wave landing on a body that has already moved off the axis has a lateral component the first did not. **If no lane opens at any authored setting, that is the stop Mark pre-ruled and the Wall is cut**, which the slice reports rather than decides.
+
+**Killing only the wall bodies, and parting the wall on any belch regardless of reach, are both refused.** Each is a rule keyed on which set piece is on the field, which is the fixed-membership club ADRs 0016 and 0042 exist to dismantle, and the first contradicts the no-damage ruling besides.
+
+**"Cannot pass" means blocked by cost and never by an impassable body.** The grave swallows and passes under, and nothing in this game blocks. A curtain it cannot pass is one whose crossing costs more than a player has, which is how the Flower Wall works and why no shipped event in the research is a true unescapable lock (research record section 2). This is now ADR 0042's own wording.
+
+### R5. The Wall's body is a new durable row in the mob pool
+
+**Ruled: a new durable mob type in the pool, high health, no fire, and never a cast pinned by the set piece.**
+
+Ticket #123 says why the shambler cannot do it: at 8 health (`mobs.ts:93`) the storm opens a lane at one skull and the bodies fire nothing (`mobs.ts:98-103`, ADR 0059), so the crossing costs nothing. The Flower Wall is its own unit for the same reason (research record section 2). A type in the pool is a type any wave may use, so ADR 0042's cast rule stands untouched: the Wall's wave names the type the way every other wave names one, and nothing is keyed on the set piece.
+
+**Its name is chosen by research inside the slice, from the glossary and the agreed asset mapping, and never by Mark.** `CONTEXT.md`'s Mob type entry binds it: a mob type owns how it moves, whether and how it fires, its health, its corpse payout and its size, and it must be readable before it acts. The four motions the field already carries are falls, chases, the diamond and the wedge (`src/app/screens/game/mobSprite.ts:54-57`), so the new body needs a silhouette none of them owns.
+
+**The shambler with count and spacing doing the work is refused because it is what exists and it is what failed**, measured at the floor build (`../push/step-4-progress.md` section 4 item 7).
+
+### R6. Both ADRs are amended in place, in one docs commit, ahead of every coder
+
+**Ruled: ADR 0008 and ADR 0042 are both amended in place with the dated what-stood, what-it-replaced, what-it-could-not-have-known triple, and both land in one docs commit before any coding slice.**
+
+**ADR 0008 must land before any belch test is written.** It says the burst "kills the mobs within a local radius of the grave" and that "nothing is pushed, ever". Mark's ruling reverses both halves, so a belch test written against the tree as it stands would be written against a rule that no longer holds. What stood: full-only firing, the dedicated button (ADR 0038), the field-wide gas that kills nothing, the scope limit to bodies that have entered. What it replaced: the burst as a kill rule, the chunk of boss damage it carried, and the no-push rule. What it could not have known: that the split would leave the belch with nothing a player could name after spending one, which is #124, and the mow, under which a local kill radius deletes bodies the storm was deleting anyway.
+
+**Its title moves with the decision and so does its filename**, from `0008-the-belch-full-only-gas-everywhere-burst-nearby.md` to `0008-the-belch-full-only-gas-everywhere-shove-nearby.md`, on slice B0's precedent that an ADR filename moves with its `# Title` line and the documents that link it by filename are repointed (`../push/step-4-progress.md` section 13).
+
+**ADR 0042 must land before the Wall slice.** Its title stands, because the decision it names is unchanged: a set piece names the property it must keep and never the cast. What moves is the Wall's own property. What stood: the property-not-cast rule, that the crossing is never free, and the caution that a bot proof is an upper bound on perfect play. What it replaced: "stays crossable unloaded, and is never crossable for free"; the unloaded half is withdrawn and a belch is what opens the curtain. What it could not have known: the mow, which had already made the unloaded crossing free and the loaded one pointless, and the belch's own change.
+
+### R7. The meter is a radial fill of the ring it already is, in the bottom-left corner
+
+**Ruled: a radial fill of the existing ring. Ready is a colour change plus the pulse that already exists, and the dim-to-bright alpha step goes. The control moves to the bottom-left corner.**
+
+**The form.** Every shipped phone precedent found is a radial fill: Brawl Stars' filling ring, Genshin's burst icon filling with the element's colour, and Riot's own name for the convention, "radial timer" (research record section 4). **The claim that a radial is harder to read than a bar could not be sourced and is folklore, so it is not cited.** The control is already a ring (`src/app/screens/game/BelchButton.ts:119-126`), so a fill is the smaller and the better-sourced change, and a bar has no shipped precedent in this set.
+
+**The ready tell, and why the alpha step has to go.** Ready is a colour change plus a glow or a pulse in every precedent, and the pulse already exists (`BelchButton.ts:53-57`). What also exists is a dim-to-bright step, `QUIET_ALPHA` 0.32 while filling against full alpha at ready (`BelchButton.ts:40`, `BelchButton.ts:53-57`). ADR 0054's reading of ADR 0014 binds the HUD to announce by count, by shape or by subtraction and never by getting brighter, so **the fill announces by area, which is the compliant channel, and the alpha step is the one that goes**. The pulse stays: it is motion rather than a brightness comparison the player has to make against a remembered state.
+
+**The colour is chosen by research inside the slice and is bounded before it is chosen.** The button draws in `PALETTE.graveGlow` at luma 67.25 (`src/app/palette.ts:52`), against a band ceiling of 68 that binds every colour drawn while the field is live (`palette.ts:13`, `palette.ts:19`, `palette.ts:112`), so the filled and unfilled channels have to separate by hue and by area rather than by value, and the palette test is what says so.
+
+**The corner, and it breaks no layout record.** `READOUT_RESERVE` reserves the two **top** corners only (`src/app/layout.ts:69-73`, `layout.ts:142-157`), and the belch button is positioned in `GameScreen.resize` (`src/app/screens/game/GameScreen.ts:455-458`) independently of `fitField`. **So the move is one `position.set` plus the two rects in `BelchButton.test.ts:53-64`, and the 540 by 760 fit is untouched.** The floor that must hold is the 44 by 44 CSS pixel target at every viewport, already asserted against `BELCH_SIZE` 108 (`BelchButton.ts:23-31`).
+
+**One finding filed rather than applied, because Mark ruled the corner.** Hurff puts the far bottom corner across from the holding hand in the hard-reach zone for a one-handed grip (research record section 5). The button already carries a claimed-pointer field because a press in the bottom right also reaches the steer model (`BelchButton.ts:70`, `BelchButton.ts:91-106`), so the steering thumb and the belch share a corner today either way, and handedness is already ruled future work (Mark's ruling 5). It is in section 7 for his read.
+
+### R8. One shove module, two callers
+
+**Ruled: one module, imported by the bell and by the belch.**
+
+Rule of three says two copies are fine, so the argument is the deletion test. A one-tick push is arithmetic at the call site, which is why `pushTarget` is local to the bell today and correctly so. A shove that persists across ticks is not: it is per-body state, a per-tick advance at one place in the step, a fold site, and an invariant. Two copies means two of each, and the second copy is where they drift apart on the tick the two are compared.
+
+### R9. What else moves, and what holds
+
+**`GOLDEN` may re-pin twice in round two, once in slice H and once in slice J, each with its own dated paragraph.** Step 4's five permitted re-pins are spent or forfeit and the spare is not round two's to take; **round two carries its own budget of exactly two**. Both are owed: the canonical scenario folds live mob positions and its bell tolls, and the belch changes what the scenario's bodies do. A move anywhere else is a stop.
+
+**`WITNESS_VERSION` 7 to 8 in slice H**, per R1, in its own commit declaring every new folded field.
+
+**`READINGS_VERSION` 4 to 5 in slice I, and it is not optional.** `observeRepel` throws outright on a `mobShoved` arriving with no toll window open (`src/dev/readings/repel.ts:36-49`), which is exactly what the first belch shove produces. **The belch emits its own shove event rather than the repel reading being widened to swallow both**, so the two pushes stay separable in every batch, and that is a change of comparison semantics on an existing reading, which is `readingsVersion.ts`'s own rule for when the version moves. **Every step 4 batch is thereby incomparable with every post-belch batch**, which is accepted, written down here, and written into `readingsVersion.ts`'s own version 5 note.
+
+**`FORMAT_VERSION` 4 holds.** Nothing new is recorded in a header.
+
+**The fences all hold and none moves.** `boundary.test.ts` gains a new core module to police, `lineAgnosticPolicies.test.ts` binds both the belch and the bell to `stormTargets.ts`, and the two harness fences bind any reading added.
+
+## 3. The proposed shape
+
+**Core.** A new `src/game/shove.ts`, dependency-free apart from the math helpers and the mob type. It owns the impulse record, the decay row, the function that starts a shove, and the function that advances every live shove by one tick, and it imports nothing from `src/app`, `src/dev` or the lines.
+
+**Satellites, each seeing the core and not each other.** `bell.ts` stops writing a destination and asks `shove.ts` to start one, keeping its own proximity arithmetic; `belch.ts` gains the same call and loses `burstNearbyTargets`' kill; `mobs.ts` calls the advance inside `advanceMobs` (`mobs.ts:404-417`), before the walk, because by then the shove is the body's own motion and no line owns it. `stormTargets.ts` stays the one way a body is moved and the one place `pushable` is answered (`stormTargets.ts:316`), so a shove cannot start on a boss or a set piece and cannot leave the field plus its margin. **The arrows:** those three point at `shove.ts`, which points at nothing but math and the mob type, and nothing points back out.
+
+**The shell.** `FieldRenderer` needs no change at all, which is the point: a body shoved over ticks is drawn at every intermediate position for free. `StormRenderer` gains the belch's push front on the `belchEruption` layer already below `mobFire` (`StormRenderer.ts:455`), `BelchButton` gains the fill and `GameScreen` moves the corner. **The adapter is unchanged**: pixi stays behind the renderers and no new library enters.
+
+## 4. The slices, in one order
+
+Each is one commit: tests, minimal implementation, record amendment, green before the next begins, with CodeRabbit CLI before each code commit and the test-name diff on every slice. One Opus coder per slice, each handed `../push/step-4-coder-contract.md` and the dispatch contract, and the per-slice prompts are `../push/round-two-slice-prompts.md`.
+
+**Steps R1 and R2, the two ADRs, amended in place in one docs commit**, ahead of every coding slice. ADR 0008 has to be in the tree before any belch test is written and ADR 0042 before slice L, and one commit satisfies both. The game concept doc's two stale sentences ride in the same commit.
+
+**Slice R-fix. Three tech gate findings, one commit, no behaviour change. Ticket #126.** The step 4 tech gate's findings 4, 5 and 6, taken verbatim: a formation ceiling of 2 silently behaves as 1 and must fail loudly instead; `src/tape/records.ts` importing the director for one predicate undoes the property `signalLock.ts` was written for, so the predicate moves to where the lock lives; and `directorSpend` allocates its affordable-cards array before its two scalar gates, which refuse on well over ninety per cent of ticks. **No printed figure moves, `GOLDEN` holds, no version moves, and any of those moving is a stop.** It sits ahead of slice H because it is cheap, because it touches files slice H's fold commit will also touch, and because a tidy tree makes the fold's diff readable.
+
+**Slice H. The shove, and the bell alone uses it. Ticket #126.** `shove.ts`, the impulse fields on `Mob`, the advance inside `advanceMobs`, `bell.ts` rewired, the fold, the invariant, `WITNESS_VERSION` 7 to 8 in its own commit, `GOLDEN` re-pinned. **Push feel first is Mark's ruling and the only order that works**: a belch slice ahead of it would build the second copy R8 exists to prevent, and the Wall depends on a belch that can move a body. The draft's separate witness step is dissolved into this slice, because R1 answered it.
+
+**Slice I. The shove is measurable, and three readings the 48-seed batch could not answer. Ticket #126.** The belch's own shove event and the repel reading split to attribute a shove to its source, `READINGS_VERSION` 4 to 5, every reading declared in `batchReport.ts` and `compareRuns.ts`. Its own slice, because a reading landing in the same commit as the mechanic hides which of the two moved a number. **It carries three more, each because the 48-seed batch asked a question the report structurally could not answer**, and all three ride here because the version is already moving and a second move is not available.
+
+- **The three refusal counters declared as batch readings.** `food`, `carriers` and `offers` live on `RunState.refusals` and the harness reads them per tick, but `Metrics` never carries them and `BATCH_READINGS` never declares them, so no batch report can print that row. Verification step 10 asks for those counters at zero on every run, and the 48-seed batch answered it off hand tapes rather than off the report.
+- **The per-add tick, carried into the batch report.** Adds file under `tuning.pressure.adds.<section>`, so ADR 0047's first off-limits moment is checkable from the report and the other three are not: the sparse wave before each boss, the Wall, and the swarm set piece are tick ranges inside the Procession and the Crowd, and only the per-add tick that `DirectedCardSeen` already holds can place an add inside one. Today those three need the tapes replayed against the wave schedule.
+- **`scripts/__tests__/measure.test.ts` made tree-stable.** It compares a subprocess's stdout byte for byte against an in-process `measure()` call made seconds later, and both sides embed a live `git status` digest, so any write anywhere in the worktree between the two reads reddens it with a real assertion diff rather than a timeout. On a branch where a docs agent and a headless batch share the worktree that is ordinary rather than exotic. **The test must not depend on the tree being still between two reads**, and the promise it makes, that the shell prints exactly what the module returns, survives lifting the identity fields out of the comparison.
+
+**Slice J. The belch becomes a pushback. Ticket #124.** The kill removed, the three shove waves added per R3, the event slice I declared now emitted, `BELCH_BURST_RADIUS` re-read as a shove reach, the eruption's front, `GOLDEN` re-pinned.
+
+**Slice K. The meter fills and changes corner. Ticket #127.** The radial fill, the ready tell re-read against ADR 0014's ceiling, the alpha step removed, the corner moved with its test rects. No sim change, so no `GOLDEN` and no witness move, which is why it is separable and could run beside J if the orchestrator wants it to.
+
+**Slice L. The Wall. Ticket #123.** R5's body, R4's opening, the wave row, and the property asserted the way ADR 0042 now words it. Last, because it depends on all three before it.
+
+**Step R3. The gates, then CodeRabbit on the exact tip**, then the batch, then the deploy. Gates before the reviewer, because a finding that changes code invalidates a review, and a finding against a ruling is filed and built past.
+
+## 5. What must not move
+
+The step 4 contract's what-must-not-move list stands whole and unabridged. This round adds five.
+
+**`FORMAT_VERSION` 4 stays.**
+
+**`WITNESS_VERSION` moves exactly once, 7 to 8, in slice H, in its own commit.** A second move anywhere is a stop, and no other slice declares a folded field.
+
+**`GOLDEN` re-pins exactly twice, in slice H and in slice J.** A move in any other slice is a stop and report, never a re-pin.
+
+**`moveStormTarget` stays the only way a body is moved and `pushable` the only answer to whether it may be**, so a shove can never smear an authored boss pattern (ADR 0007).
+
+**No hit-stop, no sim pause, no render hold.**
+
+And the harness's rows stay put: a row moved between two batches compares two builds through two instruments, so `belchWorthIt` becomes a new named configuration or it does not move. It now prices a belch that kills nothing, which is a reading about the hand rather than a row to fix.
+
+## 6. Verification, and the tests that pin the promises
+
+Actor agent unless named. `pnpm typecheck`, `pnpm vitest run`, `pnpm build` and `pnpm verify` green twice on the committed tree. Replay determinism at each slice's tip: one seed played twice under `shaky-short`, same tick count, same witness at every checkpoint, identical stream cursors, and at slice H's tip with shoves in flight at a checkpoint. A tape measured to `outcome: 'verified'`, and a conditioned tape at `bell=5` the same way, because the bell's push is loudest at the top rungs. A pre-H tape refused by its witness version rather than diverging, once, in slice H. The fences green, each named by title. A batch under `steady-far` and `loose-far` reporting the shove channel per toll and per belch. A rendered check that plays a run, ends it, and plays another, because one that only ever plays run one is structurally blind. **Actor Mark, blocking nothing**: a curtain met, a belch spent, a toll watched.
+
+The tests, named as the sentences they promise.
+
+- A shoved body is visible at intermediate positions: a body shoved 40 units stands somewhere different on each tick between, and no tick moves it further than its own width.
+- A shove decays to nothing and the body resumes its own rule on the tick after it ends.
+- A shoved body's walk is suspended while it flies and its arriving beat is untouched by the shove.
+- A shove never carries a body outside the field plus the spawn margin, however large the impulse, and a boss and a set piece's source are never shoved at all.
+- A second shove landing on a body already flying resolves to one answer, the same on every replay of the same seed.
+- Two runs on one seed with the same inputs rebuild identically with shoves in flight at a checkpoint.
+- A tape recorded before the witness moved is refused by its version rather than diverging at a checkpoint.
+- The bell's toll strikes each body once, and a shove carrying a body back across the leading edge earns no second strike.
+- A belch takes no health off anything, boss included.
+- A belch shoves in the number of waves the row declares, and a player counting them counts that many.
+- A belch landing on the curtain opens a gap at least as wide as the grave, and the grave crossing without one loses health.
+- The curtain's body survives a rung-one storm long enough to still be a curtain when the grave reaches it.
+- The meter reads partway full at a partway-full reservoir, its fill a function of the reservoir alone, and every colour it draws sits under the field's ceiling while the field is live.
+- The meter's charge never announces by brightness alone: the unfilled and filled channels differ in grayscale by area rather than by a step in alpha.
+- The belch's control sits in the bottom-left corner at every viewport, with a target at least 44 by 44 CSS pixels, overlapping neither the corner readout stack nor the pause button.
+- The shove reading holds a belch's shoves without throwing, and attributes them to the belch rather than to a toll.
+- A section stating a formation ceiling above one fails loudly rather than behaving as one.
+- The tape codec imports nothing from the director, and the lock's module still imports nothing at all.
+- A batch report says what each of the three refusal counters read, per run.
+- An add can be placed inside a tick range, so a directed add inside an off-limits moment is visible from the report alone.
+- The measure tool's output is compared to the module's without either side depending on the tree being still between two reads.
+
+## 7. Findings filed for Mark's read, not applied
+
+Each is written down and built past, per the standing rule that a finding against something he ruled is filed rather than applied.
+
+**The bottom-left corner is the hard-reach corner for a right-handed one-handed grip.** Hurff's map puts the far bottom corner across from the holding hand in the red zone, and 49 percent of observed grips are one-handed with the right thumb on screen 67 percent of that time (research record section 5). Mark ruled the corner and ruled handedness future work, so the move is made as ruled. What is worth his eye is that the button already claims the pointer because the bottom right also reaches the steer model, so the two thumbs share a corner in either position, and the choice is which thumb is inconvenienced rather than whether one is.
+
+**A body costs about a third fewer hits by minute six.** Slice G's batch, twelve runs across both configurations: a ghoul goes from 3 hits in minute zero to about 2 by minute five, and a revenant from 8 to about 5.9 by minute six in `loose-far` (`../push/step-4-progress.md` section 19). The shambler is already a one-touch body and cannot get cheaper. Both configurations agree on the direction. **This is the evidence the step 4 record's section 12 item 6 asked for when the per-minute enemy health step was struck, and that record marks the call as his.** Nothing in round two acts on it.
+
+**And the 48-seed batch's own reads, one line each with the number.** Seeds 1000 to 1047 under `steady-far` and under `loose-far`, 96 runs, all verified, build `cd07ffb3f5`. **Every one of these is an input to the tuning step's first sweeps and none of them is round two's work**, per Mark's ruling 1 of 2026-09-15 that round two fixes only what is plainly broken plus the Wall and belch work, and his ruling 2 that the step after it is the tuning record the orchestrator iterates from.
+
+- **The ladder barely climbs under the bot.** A median of one rung a run, 20 of 48 runs on `steady-far` and 19 of 48 on `loose-far` buying nothing at all, and no run reaching level five on any line in either batch. Offers never taken: 12 and 20. Power-ups lost off the bottom edge: 27 and 48. **The bot does not hunt, so most of this is the policy rather than the game**, but offers per run also fell from about 1.96 to 0.83 against the step 3 batch, and that half is the simulation.
+- **The director spends about nine adds a run and its purse is not the binding gate.** Purse left is about 0.88 of both the Procession's 116 and the Crowd's 388 across both hands, so **the quiet interval binds and ADR 0056's "the storm is seen to win" is unreachable at these figures**. Raising the purse would move no printed number, which is the tech gate's unpriced-input case in its plain form.
+- **Contact is now the dominant harm and it has no tell.** Total hits a run went from about 13 to about 27 between the step 3 and step 4 reports, shambler fire went 3 to 0 exactly as ADR 0059 ruled, and contact with a live body went 4 to 14, slightly more than half of all damage. The design gate's own reading is that a positional threat replacing a projectile threat moves the design toward its own thesis, and that whether it reads as skill or as noise is a play question only Mark can answer.
+- **#118 did not reproduce.** Zero ceiling stops in 108 bot runs across two builds, and `unfinished` empty on all of them. The instrument is proved by its own spec test rather than by a batch that never triggered it.
+- **No trash body entered the field during the Banshee in any of 96 runs.** Arrivals in the Banshee span read zero with the key absent across 42 and 45 closed spans, and no rung was bought in a Banshee or a Waking span in any run.
+
+## 8. Open questions that need Mark
+
+None. Every question in section 2 is ruled above from the evidence beside it.
+
+One thing is surfaced rather than asked: **`WITNESS_VERSION` moves 7 to 8 in slice H**, which step 4's plan held still, and it is the orchestrator's call under one-push mode as the arithmetic of Mark's push ruling. It is in the handoff as a plan change for his read on the branch.

@@ -1,0 +1,905 @@
+# Round two slice prompts
+
+One block per slice, in the order the design record's section 4 dispatches them. The launch preamble is the same for every slice: name the playbook, name the record sections carrying the dispatch contract items, then give the slice.
+
+**Round two's coder contract is `step-4-coder-contract.md`, unchanged and still binding.** It carries how to work in the worktree, the commit and review rules, the progress note, the verification commands, what must not move in any slice, what is never a slice's job, and the stuck rule. Every block below names it and holds only what is its own.
+
+**Three standing overrides of that contract, and they apply to every block below.**
+
+1. **The ticket in the commit message is this slice's own, not `#39`.** The contract's "(#39), which is the ticket every step 4 docs and code commit cites" is step 4's. Round two's slices cite `#126` (H and I), `#124` (J and the ADR commit), `#127` (K) and `#123` (L).
+2. **The progress note is `apps/hungry-grave/docs/push/round-two-progress.md`, not step 4's.** The section numbers are fixed: **the ADR commit is 6, R-fix is 7, H is 8, I is 9, J is 10, K is 11, L is 12.** Step 4's note is read and never appended to.
+3. **Scratch under `local/` goes in `local/round2/`, and every file in it carries your slice's letter**, because the scratchpad is shared between agents and a generic baseline filename gets clobbered by another agent's.
+
+**The design record is `apps/hungry-grave/docs/design/round-two-wall-belch.md`.** Its section 2 is nine rulings, each final, and **no slice reopens one**. Its section 5 is what must not move. Its section 6 is the verification list and the test sentences. Its section 7 is the two findings already filed for Mark, which no slice acts on.
+
+**Line numbers in these prompts were read at tip `97fc911527`, and every slice moves some of them. Find the name, never the line.**
+
+---
+
+## The ADR commit: the two amendments and the stale concept sentences (#124)
+
+Model: Opus, subagent type general-purpose. **One docs commit and no code commit at all.** The message ends in `(#124)`.
+
+This is the design record's steps R1 and R2, folded into one commit because both land before the first coder and neither is code. **No coding slice may start until this commit is in the tree**: ADR 0008 as it stands says the belch kills and that nothing is pushed ever, so a belch test written before it is written against a rule that no longer holds.
+
+**The standing rules are in `step-4-coder-contract.md`; read it first.**
+
+### The work, in this order
+
+**(a) ADR 0008 is amended in place and its filename moves with its title.** From `docs/adr/0008-the-belch-full-only-gas-everywhere-burst-nearby.md` to `docs/adr/0008-the-belch-full-only-gas-everywhere-shove-nearby.md`. **Move it with `git mv` and never copy-and-delete**, so the history follows the file, which is slice B0's precedent (`step-4-progress.md` section 13). The body's second paragraph states the decision as it now is, and a new dated paragraph carries the what-stood, what-it-replaced, what-it-could-not-have-known triple. The record's ruling R6 words all three parts and the wording there is the wording to use.
+
+**(b) The two documents that link ADR 0008 by filename are repointed.** They are `docs/push/step-4-progress.md` and `docs/push/step-4-slice-prompts.md`, and the link text is the only thing that moves in either. **Say in the note that both are append-only process history and that only the link target was touched**, so nobody later reads the diff as a rewrite. `docs/design/dispatch-5-weapons.md:13` links a filename that has never existed, `0008-the-belch-full-only-the-bomb-everywhere.md`; that is pre-existing, it is not yours, and slice B0 already left it alone deliberately.
+
+**(c) ADR 0042 is amended in place and its filename does not move.** The decision its title names is unchanged: a set piece names the property it must keep and never the cast. What moves is the Wall's own property, from the two-sided "stays crossable unloaded, and is never crossable for free" to a curtain costing more to cross than an unloaded grave has, opened by a belch. **Cannot pass means blocked by cost and never by an impassable body**, and the record's ruling R4 says why. The dated triple is worded in ruling R6 and the pre-ruled cut belongs to the Wall rather than to the rule.
+
+**(d) The concept doc's two stale sentences, in its own voice.** `docs/design/game-concept.md` still says the belch's burst kills what it hits, in its belch section and again in its boss section, and still says the wisps pay "one corpse in, one theatrical volley out", which slice E's floored cadence ended: two swallows inside the floor pay one volley and the second is not banked (`step-4-progress.md` section 17). Correct exactly those claims and nothing else.
+
+**(e) What you leave alone, and you say so in the note.** The concept doc's Wall paragraph still describes a lane's corpses raining down as the reward and the curtain's bodies as the ordinary trash mob. Both go stale under slice L rather than under this commit, and rewriting the Wall's paragraph ahead of the slice that decides it would put a guess in the doc. **Record it as a known stale passage with slice L as its trigger.**
+
+**(f) No ADR gains a combat magnitude.** Not the shove's distance, not the wave count, not the new body's health. Those are data rows in the module that owns them, cited to the design record.
+
+**(g) The note**, section **6**, titled "The ADR commit: the two amendments and the stale concept sentences (#124)". Say: both triples in one sentence each, the filename that moved and the two links repointed, the two concept sentences as they now read, and the Wall paragraph left for slice L.
+
+**(h) Stop and report.** Under 150 words: the commit hash, the slug before and after, the two links repointed, the concept sentences corrected, and anything you left.
+
+### What must not move
+
+`step-4-coder-contract.md`'s list, whole. Plus: no code file is in this commit at all, no test moves, and no version constant moves. **If `pnpm verify` is not green before you commit, that is a stop**, because a docs-only commit that reddens the suite means you touched something you were not asked to.
+
+---
+
+## Slice R-fix: three tech gate findings, and no printed figure moves (#126)
+
+Model: Opus, subagent type general-purpose. One coder, **one code commit and one docs commit**. Messages end in `(#126)`.
+
+Round two slice R-fix of The Hungry Grave (ticket #126): three findings from the step 4 tech architecture gate, each a consistency fix and none of them a behaviour change.
+
+**The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to this slice.
+
+**It runs before slice H.** It is cheap, it touches two files slice H's fold commit will also touch, and a tidy tree makes that fold's diff readable. **The ADR commit lands before you and you verify it**, though nothing here depends on either ADR.
+
+**One ruling shapes the whole slice and it is the acceptance criterion as well as the constraint.** **No printed figure moves.** `GOLDEN` holds, `WITNESS_VERSION` 7 holds, `READINGS_VERSION` 4 holds, `FORMAT_VERSION` 4 holds, no batch reading changes its name, shape, meaning or reduction, and no tape recorded before this commit stops replaying. **Any one of those moving is a stop and report, never a re-pin and never a version bump.** If a fix cannot be made without moving one, that fix is not this slice's and it goes back to the orchestrator.
+
+### Read first, in this order, before any edit
+
+1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it.
+2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
+3. `apps/hungry-grave/docs/design/round-two-wall-belch.md` section 4, where this slice sits, and section 5, what must not move.
+4. `apps/hungry-grave/docs/push/step-4-progress.md` sections 18 and 19, for what slices F and G actually did to the three files below.
+5. The tree: `src/game/director.ts` whole, `src/game/signalLock.ts` whole, `src/tape/records.ts` whole, `src/game/stage/waves.ts`'s `liveFormationCeiling` column and every cell that states one, `src/game/__tests__/director.test.ts` and `waves.test.ts`, and `src/__tests__/boundary.test.ts`, which fences `src/game` and `src/dev` and has **no fence over `src/tape`**, which is why finding 5 was not caught.
+
+### The definition, in observable terms
+
+After this slice: authoring a formation ceiling above one fails loudly rather than compiling and quietly meaning one. The tape codec imports nothing from the director, and the lock's own module still imports nothing at all. The director's spend answers its two scalar refusals before it allocates anything.
+
+**Nothing a player meets changes, nothing a batch prints changes, and nothing a tape replays changes.** That is the acceptance criterion and it is checked rather than assumed.
+
+### The work, in this order
+
+**(a) Verify the tree is clean, capture your own test-name baseline** into `local/round2/` under a name carrying the letters Rfix, then read the five files whole.
+
+**(b) Finding 4, the silent formation ceiling.** `ceilingMet` reads only whether `liveFormationCeiling` is null, never its value, so **authoring `liveFormationCeiling: 2` in `waves.ts` is a one-cell data edit that compiles, passes every test, and quietly means one**. `director.test.ts` asserts the Procession's cell is 1, which pins the datum and not the column. The gate names two closers and **either one is acceptable**: narrow the column's type so a 2 is a compile error and reads as the constraint it is, or add a test in `waves.test.ts` that fails if any section states a ceiling above one, with the ruling in its own comment. **The second is the code rules' own idiom for a deliberate absence**, which is the reason to prefer it, but the type narrowing is the stronger guard. **Choose one, say in the note which and why**, and say plainly that the ceiling's grain is coupled to `Mob.from`'s grain and that the coupling is invisible from the editing site.
+
+**(c) Finding 5, the codec's import of the director.** `src/tape/records.ts` imports `holdableSignal` from `src/game/director`, so the codec, which imported nothing from `src/game` before step 4, now pulls `director.ts` and through it `run.ts`, `stage/waves.ts`, `stage/formations.ts` and `tuning.ts`. **`signalLock.ts` was written to import nothing, and its own JSDoc gives the reason**: that is what lets the sim, the header and playback all own the same type without any of them importing a consumer. **Move `holdableSignal` and the scale it reads into `signalLock.ts`**, leaving that module importing nothing and letting `director.ts` import the scale from where the lock already lives. **The parse-at-the-edge itself is right and the refusal message is good**: only the home of the names moves. **If a cheaper honest shape exists in the tree, take it and say why.**
+
+**(d) Finding 6, the allocation before the gates.** `directorSpend` filters `CARDS` into an affordable array and only then tests the signal threshold and the quiet interval. **The quiet interval is 240 to 480 ticks, so on well over ninety per cent of ticks in a directed section that array is allocated and discarded by the next two lines.** Move the two scalar comparisons above the filter. **No draw happens before the last refusal either way**, so the property that a refused tick draws nothing is untouched and no cursor moves, which is #108's defect kept out by construction. **`ceilingMet` also allocates**, through a filter over a 481-slot pool plus an `includes` scan per slot, **but it already sits past the quiet gate and is not this slice's**: record it in the note as seen and left, with a counting loop named as the better shape at that pool size.
+
+**(e) A fence over `src/tape`, and this is a judgment call you make and record.** Nothing caught finding 5 because `boundary.test.ts` has no fence over `src/tape`. **A fence would stop it recurring and it is one more rule in a file that already holds six.** Decide whether it belongs in this slice or is its own decision, **do it or record it as a finding with its trigger, and say which you did and why.** What you may not do is add it silently.
+
+**(f) The proof that nothing moved, and it is the slice's real work.** Each of these is stated in the note with its figure.
+
+- `digest.test.ts` green with `GOLDEN` untouched, and `git diff --stat` over `src/dev/digest.ts` answering with nothing.
+- `src/game/witness.ts`, `src/tape/wireCodes.ts` and `src/dev/readingsVersion.ts` all absent from the diff entirely.
+- **A tape recorded before this commit replays and verifies at this tip**, unchanged, which is what says the codec move cost nothing on the wire.
+- **A batch at this tip against a batch at the tip below it, on the same seeds and the same configuration**, with every figure identical. `compare-batches.ts` withholds orderings across configurations, so **run the same configuration on both sides**. A figure that moved is a stop and report.
+- **Replay determinism at this tip.**
+
+**(g) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `refactor(hungry-grave): the ceiling refuses a figure it cannot honour and the codec stops reaching for the director (#126)`.
+
+**(h) The progress note**, section **7**, titled "Slice R-fix: three tech gate findings, and no printed figure moves (#126)". Beyond the contract's list, say: which closer you chose for the ceiling and why; what moved into `signalLock.ts` and that it still imports nothing; the gate reorder with the refused-tick-draws-nothing property named as held; what you did about the `src/tape` fence; and **every one of item (f)'s proofs with its figure**.
+
+**(i) Stop and report.** Under 200 words. **Do not start slice H.**
+
+### What must not move, and a move is a stop
+
+- **Every printed figure.** The acceptance criterion above, and the whole point of the slice.
+- **`GOLDEN`, `WITNESS_VERSION` 7, `READINGS_VERSION` 4 and `FORMAT_VERSION` 4.** None of the four files is in the commit.
+- **Every reading's name, shape, meaning and reduction.**
+- **The director's own rules.** The signal's scale, weights and threshold, the six refusals and their order of effect, the purse figures, the quiet interval's bounds. **You reorder two gates that cannot change an answer and you change nothing else.**
+- **`holdableSignal`'s behaviour and the refusal message it produces.** The names move and what they do does not.
+- **Every cell in `waves.ts`.** You guard the column; you do not author a cell.
+- **The six fences**, all green by title.
+- **No ADR is filed or amended, and no ADR gains a combat magnitude.**
+
+### Seams under test
+
+`src/game/stage/waves.ts`: the formation ceiling column, guarded. `src/game/director.ts`: `ceilingMet` unchanged in behaviour, `directorSpend`'s two scalar gates ahead of the filter, and the scale imported from the lock's module. `src/game/signalLock.ts`: `holdableSignal` and the scale, with the module still importing nothing. `src/tape/records.ts`: the parse-at-the-edge unchanged, importing the lock's module and not the director.
+
+### Module boundaries
+
+**Nothing is created, deleted, merged or split.** One import direction is removed: `src/tape` no longer reaches `src/game/director`, which restores what `signalLock.ts` was written for. **`signalLock.ts` still imports nothing**, and that is the property to assert rather than to assume. **`src/game` still imports nothing from `src/dev`**, and `boundary.test.ts` proves it.
+
+### The planned test list
+
+1. *A section stating a formation ceiling above one fails loudly.* Whichever closer you chose, the sentence is this.
+2. *The lock's module imports nothing.* Asserted rather than commented, because the comment was true and the tree drifted past it anyway.
+3. *The tape codec imports nothing from the director.*
+4. *A signal the header cannot honour is still refused at the decode, with the same message.* The behaviour held across the move.
+5. *A refused tick draws nothing.* The existing promise, confirmed green over the reorder rather than rewritten.
+6. **The six fences**, green, each by title.
+7. **The golden digest**, unmoved, confirmed.
+
+**What this slice is expected to turn red.** Almost nothing, and that is the point: import sites for the two moved names, `director.test.ts` and `waves.test.ts` over the new guard. **A realistic count is 4 to 10 files.** A diff larger than that is a reason to check what you reached into.
+
+### Verification steps, with actors
+
+1. **Agent.** Every proof in item (f), each with its figure.
+2. **Agent.** A pre-commit tape replaying and verifying at this tip.
+3. **Agent.** Two batches on the same seeds and the same configuration, one either side of the commit, with every figure identical.
+4. **Agent.** The four version constants and `GOLDEN` untouched, with none of the four files in the diff.
+5. **Human (Mark), and none of these blocks you.** Nothing. This slice has no player-facing half at all.
+
+### State of the branch
+
+- The tip should be the ADR commit. **`WITNESS_VERSION` 7, `FORMAT_VERSION` 4, `READINGS_VERSION` 4, `GOLDEN` checksum `-489751710`.**
+- At slice G's tip, `pnpm verify` was green twice at exit 0: 144 test files, 1994 passed, 23 expected fail, 2 todo. The test-name list stood at 2017 names.
+- **`pnpm verify` at the repo root can go red on this branch for a reason that is not your code.** `scripts/__tests__/measure.test.ts` compares a subprocess's stdout against an in-process call made seconds later while both embed a live `git status` digest, so a concurrent write anywhere in the worktree reddens it with a real assertion diff rather than a timeout. **Slice I fixes it. Until then, read the failure before calling it red**: a diff inside `buildMismatch.running` is that, and re-running the file alone on a still tree is the check.
+
+### The stuck rule
+
+**Two things are already known to be a stop:** any printed figure, version constant or `GOLDEN` moving; and a fix that cannot be made without moving one. **And one thing is a judgment you record rather than a stop:** whether the `src/tape` fence belongs here.
+
+### What is not your job
+
+- **The tech gate's findings 1, 2, 3 and 7.** Finding 1 is the pool allocation against the derived caps and it is the orchestrator's; finding 2 is the tree-stable test and it is slice I's; finding 3 is the director's refusal instrument, deferred with its own trigger; finding 7 is a card the mob cap refuses, deferred with its own trigger. **You fix three and you name the other four as not yours.**
+- **The shove, the belch, the meter and the Wall**, which are slices H through L.
+- **The record's section 7 findings**, which no slice acts on.
+
+---
+
+## Slice H: the shove is a body travelling, and the bell alone uses it (#126)
+
+Model: Opus, subagent type general-purpose. **Two code commits and one docs commit**, which is this slice's one authorized departure from the contract's one-code-commit rule, and the reason is item (e) below. Messages end in `(#126)`.
+
+Round two slice H of The Hungry Grave (ticket #126): a shove stops being a one-tick position write and becomes a body travelling, decaying to nothing over seven ticks, drawn at every position between, and the bell is its only caller.
+
+**The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice H.
+
+**The ADR commit and slice R-fix both land before you.** Verify before your first edit that `docs/adr/0008-the-belch-full-only-gas-everywhere-shove-nearby.md` exists and that `docs/adr/0042-a-set-piece-names-the-property-it-must-keep.md` carries a 2026-09-15 triple. **Either one missing is a stop and report**, because the belch's no-push rule is still live in the tree until they land and you are about to build the thing that reverses it. Read round two progress note section 7 for what R-fix did to `director.ts`, `signalLock.ts` and `waves.ts`, so you do not re-derive it.
+
+**Five rulings shape this slice and none of them is yours to revisit.**
+
+**First: the shove is new per-body impulse state on `Mob`, folded, and `WITNESS_VERSION` moves 7 to 8.** The record's ruling R1. **You do not reach for `mob.vx`, `mob.vy` or `mob.beat`**: `canTouchGrave` reads `beat` to decide whether a body may hurt the grave, so a shoved body riding `beat` would go harmless while it flies, and ADR 0041 gives `beat` one meaning. **The version move is the orchestrator's, taken under one-push mode as the arithmetic of Mark's push ruling, and it is already written into the record and the handoff for his read.** It is not yours to question and it is not yours to skip.
+
+**Second: the numbers are 10 units a tick, decaying linearly to nothing over seven ticks, 40 units in total at bell level five.** The record's ruling R2, and the precedent is Vampire Survivors' 120 milliseconds and the one fully numbered implementation's linear decay (`docs/research/push-feel-precedent.md` section 1). **They are data in a row with the precedent cited in that row's own JSDoc, never compiled magic and never an ADR's.** Today's level-five distance is held exactly: `BELL_CONE_ROWS`'s push column is unchanged and the shove spends it over seven ticks instead of one.
+
+**Third: the walk is suspended for the shove's duration and resumes on the tick after.** Every source that speaks to it suspends the body's own motion rather than adding the shove on top. **Hit-stop, a sim pause and a render hold are all refused and none of them is reopened**: a sim pause changes the tick count and ADR 0015 makes the tick count the run.
+
+**Fourth: the impulse carries the wave structure, and slice J is the cited caller for more than one wave.** The belch shoves in three waves ten ticks apart (ruling R3), and a global belch clock would be a second folded field owing a second version move this round does not have. **So the wave count and the ticks between waves live on the per-body impulse you declare here**, the bell passes one wave, and slice J passes three. That is the cited-future rule satisfied by a caller written down in the design record's section 4, and **you test the multi-wave path at the shove module's own seam rather than leaving it unexercised**.
+
+**Fifth: `GOLDEN` re-pins here, and it is the first of round two's two.** Step 4's five slots are spent or forfeit and its spare is not round two's. The move is expected and its cause is mechanical: the fold gains fields, so the checksum moves even where no toll lands inside the scenario's six hundred ticks. **If anything other than the checksum moves, the reason matters far more than the number** and it goes in the note.
+
+### Read first, in this order, before any edit
+
+1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it. The six dispatch contract items are the sections below.
+2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md` at the repo root, plus `docs/agents/code-examples.md` for any rule that leaves the path unclear, and `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
+3. `apps/hungry-grave/docs/design/round-two-wall-belch.md`, the whole record. **Section 0 is how the current shove actually moves a body and it is the thing your first edit deletes.** Section 2's rulings R1, R2, R3 and R8 are yours. Section 3 is the module shape. Section 5 is what must not move. Section 6 is the verification list and the test sentences.
+4. `apps/hungry-grave/docs/research/push-feel-precedent.md` section 1 in full, which is where every number in ruling R2 comes from and which also says plainly what no source answers: no source documents a trail, a squash, a flash or an afterimage during a shove, so **you add no visual accompaniment the research does not carry**. Its Megabonk caution is the other side: a shove too strong or too frequent reads as chaos rather than force.
+5. `apps/hungry-grave/docs/adr/0041-a-mob-holds-the-formations-arriving-motion-for-a-beat.md`, which is why `beat` is not available to you; `0019-the-witness-and-the-refusal-rule.md` and `0015-determinism-across-devices.md`, which are why the state is folded and why there is no pause; `0036-the-bell-is-a-timed-pulse-of-cones.md`, whose push column you are spending differently and not changing; `0007-bosses-always-shootable.md`, which is why an authored pattern is never smeared.
+6. `apps/hungry-grave/docs/push/step-4-progress.md` **section 17 in full**, which is the worked precedent for a `WITNESS_VERSION` move: nine fields declared in one commit, the two partitions going red and being decided explicitly, and the dated paragraph in `digest.ts`'s JSDoc. **Section 2** for the `GOLDEN` history and **section 19** for where slice G left the branch.
+7. `apps/hungry-grave/docs/push/handoff.md`, the standing rules and Mark's rulings of 2026-09-15, ruling 4 in particular, which is the sentence this slice exists to answer.
+8. `apps/hungry-grave/CONTEXT.md`, the entries Mob, Repel, Bell, Storm and Witness. **Read the Avoid lists before naming anything.** If the shove needs a glossary entry, that is a finding for the note and a decision above you, not an entry you add.
+9. The tree itself, before you write anything: `src/game/lines/bell.ts` whole; `src/game/stormTargets.ts` whole, which is 329 lines and is the seam every push goes through; `src/game/mobs.ts`'s `Mob`, `moveMob`, `advanceMobs`, `canTouchGrave`, `hasEntered` and `SPAWN_MARGIN`; `src/game/witness.ts` whole; `src/game/invariants.ts`'s `checkFinite` partitions; `src/game/events.ts`'s `mobShoved`; `src/dev/readings/repel.ts`, all 59 lines; `src/dev/digest.ts`'s `GOLDEN` and its dated JSDoc paragraphs; `src/app/screens/game/FieldRenderer.ts` around its `sprite.position.set(mob.x, mob.y)`; and `src/__tests__/boundary.test.ts` and `lineAgnosticPolicies.test.ts`, the two fences a new core module meets.
+
+### The definition, in observable terms
+
+After this slice: a bell toll throws a body away from the grave over seven ticks rather than one, and the body is drawn at a different place on each of them, none of them further from the last than the body's own width. The body's walk does not run while it flies and resumes on the tick after the shove ends. A shove never carries a body outside the field plus the spawn margin however large the impulse, and a boss and a set piece's source are never shoved at all. The total distance is what it was: 40 field units at bell level five.
+
+Two runs on one seed with the same inputs rebuild identically with shoves in flight at a checkpoint. `WITNESS_VERSION` reads 8, every folded field it gained is named in one commit's own paragraph, and every tape recorded before that commit is refused by its version rather than diverging.
+
+What a player meets: the bell's repel stops reading as a glitch. That is Mark's ruling 4 and it is the only thing in this slice a person can see.
+
+### The work, in this order
+
+**(a) Verify the two ADRs, then read the tree.** Per the stop above. Then `git log --oneline -25` and `git status --short`, and **capture this branch's own test-name baseline before your first edit**, into `local/round2/` under a name carrying the letter H.
+
+**(b) The tests first, red, from the planned list below.** Write the shove module's own tests against a stub before the bell is touched at all, because the module is the unit and the bell is a caller. **Write the determinism test and the refusal test early**: they are what the version move costs, stated as tests rather than discovered.
+
+**(c) `src/game/shove.ts`, a new module in `src/game`.**
+
+- It owns **the impulse record**, **the decay row**, **the function that starts a shove** and **the function that advances every live shove by one tick**. Nothing else.
+- **It imports nothing from `src/app`, `src/dev` or `src/game/lines`**, and nothing but the math helpers and the mob type from `src/game`. `boundary.test.ts` is what holds you to it.
+- **The decay row carries the precedent in its own JSDoc**: 120 milliseconds is 7.2 ticks at this game's tick rate, the one numbered implementation decays linearly, and the readability criterion is that a per-tick step stays under a shambler's 22 units. Cite `docs/research/push-feel-precedent.md` section 1 by path.
+- **The wave fields are on the impulse**, per the fourth ruling, with slice J named in their JSDoc as the caller that passes more than one.
+- **The module's public interface is one export block at its end**, and it names no weapon line. `lineAgnosticPolicies.test.ts` is what holds you to that.
+
+**(d) `Mob` gains the impulse, and `advanceMobs` advances it.**
+
+- The fields go on `Mob` beside `vx`, `vy` and `beat`, in the tree's own idiom. **Name them for what they are and read the Avoid lists first.**
+- **The advance runs inside `advanceMobs`, before the walk**, because by then the shove is the body's own motion and no line owns it. `moveMob` reads the impulse and skips the walk while one is live.
+- **The body's position still changes through `moveStormTarget` and never by a raw write**, so the field-plus-margin clamp and the `pushable` answer stay in one place. The record's section 5 makes that a stop.
+
+**(e) `WITNESS_VERSION` 7 to 8, in its own commit, and this is the first of the slice's two code commits.** It declares every folded field the slice adds, with a dated paragraph in `witness.ts`'s own JSDoc in the shape the version 6 and version 7 paragraphs use: what fields the fold gained, why each one folds, and that every earlier tape is now refused. **Both partitions will go red the moment your fields exist**, `witness.test.ts`'s and `invariants.test.ts`'s, and that is the mechanism working: decide about each field explicitly, in `FOLDED` or in `EXCLUDED` with its reason in prose. **A shove is written by the rules and rebuilt by a replay, so it folds; nothing here belongs in `EXCLUDED`.** Slice E's section 17 is the worked precedent for the whole of this item.
+
+**(f) `bell.ts` rewired, and this is the second code commit.** `pushTarget` stops computing a destination and asks `shove.ts` to start one, keeping its own proximity arithmetic and its own row. **`toll.struck` is untouched**: it exists because a reach test alone is not enough once a push exists and its JSDoc says why, and a body shoved back across the leading edge still earns no second strike.
+
+**(g) The `mobShoved` event, and you author its honest shape.** It carries `id` and `displacement` today, read back off the target after the write, and `repel.ts` sums it per toll. A multi-tick shove has no realized displacement at the tick it starts. **Two honest shapes exist**: fire once at the start carrying the distance the impulse will travel unclamped, or fire once at the end carrying what it actually travelled. **Author one, say in the note what you set it against, and pin it with a test.** What you may not do is fire it per tick, which would multiply the event count by seven and change what `repel.ts` means without a `READINGS_VERSION` move this slice does not have. **`READINGS_VERSION` stays 4 in this slice** and slice I owns the reading.
+
+**(h) The invariants, and you add no fault identity.** The existing no-NaN partition reaches the fields you create, which is coverage rather than a new check, exactly as slice G's lock was. **`FAULT_IDENTITY_CODES` is closed and append-only by its own JSDoc (ADR 0024) and identities 1 to 22 are all held.** If you believe a new check earns a new identity, that is a stop and report.
+
+**(i) `GOLDEN` re-pinned, per the fifth ruling**, with its dated paragraph in `digest.ts`'s JSDoc naming every field that moved and why. **Report the before and after checksum and every other field, moved or held.**
+
+**(j) The measurements this slice owes.**
+
+- **Replay determinism at your own tip, with shoves in flight at a checkpoint.** One seed played twice under `shaky-short`, same tick count, same witness at every checkpoint, identical stream cursors, byte-identical tapes. Say how you got a shove in flight at a checkpoint rather than assuming one was.
+- **A conditioned tape at `bell=5`**, measured to `outcome: 'verified'`, because the bell's push is loudest at the top rungs and the birthright rig barely tolls at all.
+- **A hand-recorded tape at your tip** against the built app through `vite preview`, driven with `playwright-cli`, measured verified, with `state.refusals` printed, all three counters.
+- **A pre-H tape refused by its witness version**, with the message naming both numbers, rather than diverging at a checkpoint. **Say in the note that every tape recorded before this commit is now refused**, which is expected and is what the move costs.
+- **A rendered check, and this slice plainly owes one.** A toll watched landing on a body, in the built app, with the shove visible across ticks. **Play a run, end it, and play another**, because a check that only ever plays run one is structurally blind. Read the screenshots rather than collecting them.
+- **A batch at your tip**, a handful of seeds under `steady-far` and the same under `loose-far`, with the repel reading printed. This is not the orchestrator's batch; yours is the proof the mechanic works on real tapes.
+
+**(k) CodeRabbit CLI, one iteration, before each code commit.** The standing rules are in `step-4-coder-contract.md`.
+
+**(l) The progress note**, section **8**, titled "Slice H: the shove is a body travelling, and the bell alone uses it (#126)". Beyond what the contract asks of every note, say: the impulse's field names and what each is; the decay row's figures and the precedent cited beside them; **the nine-or-however-many folded fields and why each folds**, with the version paragraph you wrote; the `mobShoved` shape you authored and what you set it against; `GOLDEN`'s before and after with every field that moved; the pre-H refusal; the determinism result with the shoves-in-flight half named; the rendered check and what you actually saw; and the batch's repel figures.
+
+**(m) Stop and report.** Under 300 words: the commit hashes, `WITNESS_VERSION` 8 moved once, `GOLDEN` re-pinned with both checksums, `READINGS_VERSION` 4 and `FORMAT_VERSION` 4 held, the decay row's figures, the `mobShoved` shape, the test counts before and after, the test-name diff's two figures, the three refusal counters, the CodeRabbit outcome, and anything you could not do. **Do not start slice I.**
+
+### What must not move, and a move is a stop
+
+The standing rules are in `step-4-coder-contract.md`; read it first. These are the ones this slice adds.
+
+- **The fences**, per the contract, all six by title. **`src/game` imports nothing from `src/dev`**, and `shove.ts` living in `src/game` is that rule doing its work. **`lineAgnosticPolicies.test.ts` binds the bell to `stormTargets.ts`**, and it will now bind it to `shove.ts` as well.
+- **`moveStormTarget` stays the only way a body is moved and `pushable` the only answer to whether it may be.** A raw write to `mob.x` from the shove module is a stop, not a shortcut.
+- **`READINGS_VERSION` 4 and `FORMAT_VERSION` 4.** Neither moves in this slice and a move in either is a stop.
+- **`WITNESS_VERSION` moves exactly once, to 8.** A second move anywhere in round two is a stop.
+- **`BELL_CONE_ROWS`'s every figure**, the push column included. You spend the push over seven ticks and you do not change what it is.
+- **`toll.struck` and its JSDoc.** The one-strike-per-toll rule is not yours to relax.
+- **`beat`, `canTouchGrave` and ADR 0041.** Untouched, per the first ruling.
+- **`STREAM_SALTS`, `STREAM_ORDER`, every fault identity wire number, and every cap.** A cap that binds in your batch is a finding and never a number to raise.
+- **The harness's own rows.** `enoughClearance`, `belchWorthIt` and every lapse rate belong to the hand, and a hand row moved between two batches compares two builds through two instruments.
+- **No ADR gains a combat magnitude and you file no ADR and amend none.** The two amendments already landed.
+
+### Seams under test
+
+`src/game/shove.ts`: the impulse record, the decay row, the function that starts a shove, the function that advances every live shove, and the module's public interface at its end. `src/game/mobs.ts`: `Mob`'s impulse fields, the advance inside `advanceMobs`, and `moveMob` skipping the walk while a shove is live. `src/game/lines/bell.ts`: `pushTarget` starting a shove instead of writing a destination, with `toll.struck` unchanged. `src/game/stormTargets.ts`: still the only mover, unchanged. `src/game/witness.ts`: the new folded fields and `WITNESS_VERSION` at 8. `src/game/invariants.ts`: the existing no-NaN partition reaching the new fields. `src/game/events.ts`: `mobShoved`'s shape. `src/dev/digest.ts`: `GOLDEN` re-pinned with its paragraph.
+
+### Module boundaries
+
+**One module is created, `src/game/shove.ts`, and nothing is deleted, merged or split.** It is imported by `mobs.ts` and by `lines/bell.ts`, and in slice J by `belch.ts`, which is ruling R8's two callers. **It imports nothing of the game's but the math helpers and the mob type**, so the arrows point inward and nothing points back out.
+
+**`bell.ts` keeps its own proximity arithmetic and its own row**, because the falloff is the bell's and the decay is the shove's. **`stormTargets.ts` stays the one seam a body moves through**, which is what keeps a shove off a boss and inside the field. **`src/game` still imports nothing from `src/dev`**, and `boundary.test.ts` proves it.
+
+### The planned test list
+
+Each written red first, and each named as the sentence it promises. The record's section 6 is the source.
+
+1. *A shoved body is visible at intermediate positions.* A body shoved 40 units stands somewhere different on each tick between, and no tick moves it further than its own width.
+2. *A shove decays to nothing and the body resumes its own rule on the tick after it ends.*
+3. *A shoved body's walk is suspended while it flies and its arriving beat is untouched by the shove.* Pins the third ruling and pins that `beat` was not borrowed.
+4. *A shove never carries a body outside the field plus the spawn margin, however large the impulse.*
+5. *A boss and a set piece's source are never shoved at all.* Pins ADR 0007 through `pushable`.
+6. *A second shove landing on a body already flying resolves to one answer, the same on every replay of the same seed.*
+7. *An impulse carrying more than one wave shoves again on the tick its row names.* The multi-wave path at the module's own seam, with slice J cited.
+8. *The bell's toll strikes each body once, and a shove carrying a body back across the leading edge earns no second strike.*
+9. *A shove at bell level five carries a body forty field units in total.* Pins that today's distance is held exactly.
+10. *Two runs on one seed with the same inputs rebuild identically with shoves in flight at a checkpoint.*
+11. *A tape recorded before the witness moved is refused by its version rather than diverging at a checkpoint.* Follow the shape of the existing refusals and **do not move the tapes they hold**.
+12. **The fold's partition**, in `witness.test.ts`, naming every new field and refusing to pass until it is decided; and `invariants.test.ts`'s no-NaN partition the same way.
+13. **The six fences**, green, each named by title.
+14. **The golden digest** at `digest.test.ts`, re-pinned, with the before and after in the note.
+
+**What this slice is expected to turn red, so the diff is read against something.** Everything folding a mob, everything constructing one, `bell.test.ts` over the push, `repel.ts`'s own suite over the event's shape, `witness.test.ts` and `invariants.test.ts`'s partitions, `digest.test.ts`'s checksum, and every tape fixture pinned at witness 7. **A realistic count is 20 to 45 files.** Slice E touched 55 for a comparable fold move and slice G 53. A diff much smaller than that is a reason to look for the tests that should have moved and did not.
+
+### Verification steps, with actors
+
+The standing rules are in `step-4-coder-contract.md`; read it first. These are the checks this slice adds.
+
+1. **Agent.** `WITNESS_VERSION` at 8, moved in exactly one commit, with its own dated paragraph naming every field.
+2. **Agent.** `GOLDEN` re-pinned once, with both checksums and every other field stated as moved or held.
+3. **Agent.** `READINGS_VERSION` 4 and `FORMAT_VERSION` 4 held, each stated.
+4. **Agent.** Replay determinism at this tip with shoves in flight at a checkpoint.
+5. **Agent.** A conditioned tape at `bell=5`, verified.
+6. **Agent.** A hand tape at this tip, verified, with all three refusal counters printed.
+7. **Agent.** A pre-H tape refused by its witness version with both numbers named.
+8. **Agent.** A rendered check of a toll landing, across two runs in one session, with the screenshots read.
+9. **Agent.** A batch at this tip under both configurations with the repel channel printed.
+10. **Human (Mark), and none of these blocks you.** Whether a toll now reads as a push rather than a blink, which is ticket #126's own done line. **The push runs in one-push mode: you continue past it and he reads it on the branch.**
+
+### State of the branch
+
+- **The tip should be slice R-fix's docs commit.** Below it the ADR commit, then `97fc911527` and `cd07ffb3f5` the step 4 handoff and slice G's note, `7f18ec83fe` slice G, `524bb68447` and `982536a5d5` slice F.
+- At slice G's tip, `pnpm verify` was green twice at exit 0: 144 test files, 1994 passed, 23 expected fail, 2 todo, six fences green. The test-name list stood at 2017 names.
+- **`WITNESS_VERSION` 7, `FORMAT_VERSION` 4, `READINGS_VERSION` 4, `GOLDEN` checksum `-489751710`.**
+- The caps as slice D left them: `MOB_CAP` 481, `MOB_FIRE_CAP` 434, `CORPSE_CAP` 704, `WISP_CAP` 64 and `SKULL_CAP` 120. None binds today and one that binds in your batch is a finding.
+- **A recurring anomaly worth not rediscovering:** a sibling worktree's `pnpm install` can repoint this worktree's `node_modules` links and leave them dangling, so a missing-module error is a reason to check the link targets first. It has recurred under slices C, D and E.
+
+### The stuck rule
+
+The standing rules are in `step-4-coder-contract.md`; read it first.
+
+**Four things in this slice are already known to be a stop or a ruling, so you do not have to discover them:** either ADR missing, which is the slice's first planned stop; a second `WITNESS_VERSION` move; a new fault identity; and a `GOLDEN` move in anything other than the one re-pin. **And one thing is ruled rather than open:** `beat` is not available to carry a shove, and the reasons are in the first ruling.
+
+**Green tests plus wrong observed behaviour means the test plan has a hole**: pin the wrongness as a new red test first, never patch first. A claim in this prompt or in the record that is false against the tree is recorded in the note and the source's intent is followed rather than its stale letter.
+
+### What is not your job
+
+The standing rules are in `step-4-coder-contract.md`; read it first. These are the ones this slice adds.
+
+- **The belch, in every part.** Its kill, its waves, its event, its radius. Slice J's, and `belch.ts` is opened only to read.
+- **The reading.** The repel reading's shape and `READINGS_VERSION` are slice I's, and you leave `repel.ts` alone except where the event's shape forces a compile fix, which you record.
+- **The meter and its corner**, slice K's. **The Wall and the new mob type**, slice L's.
+- **Territory's rungs**, #125, and #122 the offer bubble. Neither is round two's at all.
+- **The two findings in the record's section 7.** The thumb zone and the per-minute hits-to-kill fall are filed for Mark and no slice acts on either.
+- **Deploying, pushing, merging, opening a PR, opening or closing a ticket.** Each needs its own explicit yes.
+
+---
+
+## Slice I: the shove is measurable, and three readings the batch could not answer (#126)
+
+Model: Opus, subagent type general-purpose. One coder, one code commit, one docs commit. Messages end in `(#126)`.
+
+Round two slice I of The Hungry Grave (ticket #126): the batch can say what a shove did and which of the two pushes did it, before the belch exists to confuse the reading, and three questions the 48-seed batch asked and the report structurally could not answer are answerable.
+
+**The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice I.
+
+**Slice H lands immediately before you.** **Your first act after reading is to verify each of these by name in the tree, and any one missing is a stop and report:** `src/game/shove.ts` exists with the impulse, the decay row, the start and the advance; `Mob` carries the impulse fields and `witness.ts` folds them; `WITNESS_VERSION` reads 8; `bell.ts`'s `pushTarget` starts a shove rather than writing a destination; and `mobShoved` carries whatever shape slice H authored, **which is your reading's whole input**. Read round two progress note section 8 for what slice H actually did rather than trusting that list.
+
+**Four rulings shape this slice and none of them is yours to revisit.**
+
+**First: `READINGS_VERSION` moves 4 to 5, and it is not optional.** The record's ruling R9. `observeRepel` throws outright on a `mobShoved` arriving with no toll window open (`src/dev/readings/repel.ts:36-49`), which is exactly what slice J's first belch shove produces. **The belch emits its own shove event rather than the repel reading being widened to swallow both**, so the two pushes stay separable in every batch, and that is a change of comparison semantics on an existing reading, which is `readingsVersion.ts`'s own rule for when the version moves. **Every step 4 batch is thereby incomparable with every post-belch batch. That is accepted, it is written into the design record's ruling R9, and you write it into the version 5 note in the file's own shape.** Version 3 is the worked precedent: `levelUps` went from one flat row to named siblings and no row could be subtracted from its predecessor by name.
+
+**Second: the belch's arm is declared here and emitted in slice J, and that is a cited future rather than speculative generality.** The cited-future rule asks for a caller written down, and slice J is written down in the design record's section 4 and in this file. **So the reading carries a belch arm that is provably empty at your own tip, and you pin that with a test that plants a belch shove event rather than by hoping.** The site names slice J in its own comment.
+
+**Third: three more readings ride here, because the version is already moving and a second move is not available.** The design record's section 4 names all three and the 48-seed batch brief is where each was found missing. They are item (f) below and they are not optional extras: **the refusal counters, the per-add tick, and the tree-stable measure test**. A slice that lands the shove split and leaves the other three would spend the version move and still leave the report unable to answer verification step 10 off a batch.
+
+**Fourth: `WITNESS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN` all hold, and a move in any is a stop.** You declare no folded field, you record nothing new in a header, and nothing under `src/dev` is folded, so the scenario's six hundred ticks run exactly as they ran at slice H's tip. **Round two's second `GOLDEN` re-pin belongs to slice J and you are not permitted one.**
+
+### Read first, in this order, before any edit
+
+1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it.
+2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
+3. `apps/hungry-grave/docs/design/round-two-wall-belch.md`, **ruling R9 in full**, which is this slice's contract, plus section 4 for where you sit and section 6's last test sentence.
+4. `apps/hungry-grave/docs/adr/0053-the-playing-harness-is-one-policy-over-many-seeds.md` in full, because **the harness reports and never judges**: comparisons and never thresholds, a distribution and never a mean. Beside it `0021-the-instruments-purposes-are-an-open-pool.md` and `0013-the-sim-verification-contract.md`.
+5. `apps/hungry-grave/docs/push/step-4-progress.md` **section 19**, which is the worked precedent for adding readings without moving the version and for the two declaration guards, and **section 8** of the round two note for slice H.
+6. `apps/hungry-grave/docs/push/round-two-progress.md` section 7 for slice R-fix, which took the tech gate's findings 4, 5 and 6 and left finding 2 to you.
+7. The tree: `src/dev/readings/repel.ts` whole; `src/dev/readings/readings.ts` whole, which is the one place the graph is declared; `src/dev/readings/pressure.ts` whole, which already holds the per-add tick; `src/dev/readingsVersion.ts` and its version 3 and version 4 notes; `src/dev/batchReport.ts`'s `BATCH_READINGS`, its declaration types and its `unfinished` and `ceilingStops` fields, which are the precedent for a figure that is not a `BATCH_READINGS` entry; `src/dev/harnessRun.ts`, which is where a run's own state reaches a report; `src/dev/compareRuns.ts`'s `READING_COMPARISONS`; `src/dev/__tests__/batchReadingDeclared.test.ts` and `comparisonDeclared.test.ts`, the two guards that will hold you to the tables; `src/__tests__/harnessStatesNoTarget.test.ts`, whose three rules you are most likely to trip; `src/game/run.ts`'s `RunState.refusals`; `src/game/events.ts`; **`apps/hungry-grave/scripts/__tests__/measure.test.ts` and `src/dev/__tests__/measure.test.ts`, both of them**, plus `src/tape/buildIdentity.ts` and `scripts/buildIdentity.ts`; and `src/game/belch.ts`, to read and not to touch.
+8. `apps/hungry-grave/CONTEXT.md`, the entries Repel, Reading, Batch and Refusal. **Read the Avoid lists before naming anything.**
+
+### The definition, in observable terms
+
+After this slice: a batch says what each push did and which push did it. A bell toll's shoves are counted and totalled per toll as they are today. A belch's shoves are counted and totalled in their own arm, attributable to the belch and never filed under a toll, and the reading holds a belch's shoves without throwing. `READINGS_VERSION` reads 5 with a note saying what moved and that step 4's batches no longer subtract from post-belch ones by name.
+
+A batch report also says what each of the three refusal counters read on every run it played, and where each directed add landed by tick rather than only by section, so an add inside one of ADR 0047's tick-range off-limits moments is visible from the report alone. And `pnpm verify` at the repo root no longer goes red because two reads of the tree disagreed.
+
+`WITNESS_VERSION` still reads 8, `FORMAT_VERSION` still reads 4, `GOLDEN` has not moved, and `pnpm verify` is green, twice, with other work running in the worktree.
+
+What a player meets: nothing at all. This slice adds no rule the simulation runs.
+
+### The work, in this order
+
+**(a) Verify slice H's five inputs before you write a line**, per the list above, and stop on any that is missing. Then `git log --oneline -25`, `git status --short`, and your own test-name baseline into `local/round2/` under a name carrying the letter I.
+
+**(b) The tests first, red.** **Write the two that state what the version move costs first**: the belch arm holding a planted belch shove without throwing, and the toll arm still reading exactly what it read.
+
+**(c) `mobShoved` gains its source, and the shape is yours to author within one rule.** The rule is that a reading must be able to say bell or belch without inferring it from a toll window, because inference is what throws today. **Author the discriminator, say in the note what you set it against, and take a cheaper honest shape if the tree shows one.** The bell fills it with the bell's own value; nothing fills it with the belch's until slice J.
+
+**(d) The reading, split by source.** The toll arm keeps its exact name, its exact shape and its exact reduction, because that is half of what the version note has to be able to say. The belch arm is new beside it. **A `mobShoved` with no toll window open is no longer a bug and no longer throws when its source is the belch; it is still a bug when its source is the bell**, and that distinction is the whole of this slice. Keep the throw for the case that is still impossible and say so in its comment.
+
+**(e) The graph, and the two tables.** The reading joins `readings.ts` in all four places the graph is declared. **Every new reading declares how a batch reduces it** in `batchReport.ts`'s `BATCH_READINGS` or `batchReadingDeclared.test.ts` stays red, **and declares what comparing it means** in `compareRuns.ts`'s `READING_COMPARISONS` or `comparisonDeclared.test.ts` stays red. **No mean anywhere**: `harnessStatesNoTarget.test.ts` forbids `meanOf` inside `batchReport.ts` outright, and `fiveNumbersOf` is what a distribution prints as.
+
+**(f) The three readings the 48-seed batch could not answer, per the third ruling.** Each goes in beside what exists, each declares its reduction in `BATCH_READINGS` and its comparison in `READING_COMPARISONS`, and none of them renames or reshapes an existing key.
+
+- **The three refusal counters, as batch readings.** `food`, `carriers` and `offers` live on `RunState.refusals` and the harness already reads them per tick, but **`Metrics` never carries them and `BATCH_READINGS` never declares them, so no batch report can print that row at all**. Verification step 10 asks for those counters at zero on every run and every slice so far has answered it off hand tapes instead. **They are the run's own state rather than a reading over events**, so say in the note which door you brought them through and what you set it against. **A non-zero counter is a fault and a finding, never a cap to raise**, and the reading exists so a batch can say so.
+- **The per-add tick, carried into the batch report.** Adds file under `tuning.pressure.adds.<section>` today, so **ADR 0047's first off-limits moment is checkable from the report and the other three are not**: the sparse wave before each boss, the Wall, and the swarm set piece are tick ranges inside the Procession and the Crowd, and only a per-add tick can place an add inside one. **`DirectedCardSeen` already holds the tick**, so this is carrying a figure the reading has rather than deriving one it does not. **You report where adds landed and you build no rule on it**: whether an add inside one of those ranges is a defect is ADR 0047's question and the orchestrator's, not a gate you add here.
+- **`scripts/__tests__/measure.test.ts` made tree-stable, which is the tech gate's finding 2.** It compares a subprocess's stdout byte for byte against an in-process `measure()` call made seconds later, and **both sides embed `buildMismatch.running`, a digest over a live `git status --untracked-files=all` and the contents behind it**, so any write anywhere in the worktree between the two reads reddens it. On this branch a docs agent and a headless batch share the worktree, so the condition is ordinary. **It is an assertion and not a timeout, so the contract's contention escape hatch does not cover it**, and a reader hitting it sees a real diff and reasonably suspects the codec. **The promise is that the shell prints exactly what the module returns, and that promise survives comparing the two with the identity fields lifted out, or computing the expected value inside the same window.** Neither weakens it. **Do not weaken it any other way**, and do not touch `buildIdentity` itself, whose behaviour is #82's and is correct.
+
+**(g) `READINGS_VERSION` 4 to 5, with its own dated note** in the shape the version 3 and version 4 notes use: what changed meaning, why old and new reports are not directly equivalent, and that every step 4 batch is now incomparable with every post-belch one, taken eyes open on the design record's ruling R9. **Say in the note that the three readings in item (f) go in beside unchanged keys and are not what moves the version**; the repel split is.
+
+**(h) `harnessStatesNoTarget.test.ts`'s module list is three modules and not the sixteen reading modules.** Slice G confirmed it rather than extending it (`step-4-progress.md` section 19). **Do not add your reading to it**; the two declaration guards are what hold a new reading.
+
+**(i) The measurements this slice owes.**
+
+- **A batch at your tip**, a handful of seeds under `steady-far` and `loose-far`, with the toll arm printed beside what slice H's batch printed. **They should agree**, and a disagreement is a finding about one of the two slices rather than a number to accept.
+- **The belch arm proved empty at your own tip and non-empty on a planted event.** Both, stated.
+- **Replay determinism at your tip**, because a reading that reached the sim would show here.
+- **The three refusal counters printed off that batch, per run**, which is verification step 10 answered off a report for the first time. **Any non-zero counter is a fault and a finding.**
+- **The per-add ticks printed off that batch**, with each add placed against the wave schedule, stated as a reading and never as a verdict.
+- **The tree-stable test proved rather than assumed.** Run `scripts/__tests__/measure.test.ts` **while writing to the worktree from another process**, and show it green. Then say plainly what the comparison now covers and what it no longer compares.
+- **No rendered check is owed and the claim is checked rather than assumed.** Nothing a player sees changes. If anything on screen looks wrong while you verify, say so.
+
+**(j) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): a shove says which push threw it and the batch reads the two apart (#126)`.
+
+**(k) The progress note**, section **9**. Beyond the contract's list, say: the discriminator you authored and what you set it against; the toll arm proved unchanged; the belch arm's two proofs; the version 5 note as you wrote it and the incomparability stated plainly; `WITNESS_VERSION`, `FORMAT_VERSION` and `GOLDEN` named as held; **which door the refusal counters came through and what you set it against**; the per-add tick's shape; and **what the measure comparison now covers and what it no longer compares**, with the concurrent-write proof.
+
+**(l) Stop and report.** Under 250 words. **Do not start slice J.**
+
+### What must not move, and a move is a stop
+
+- **The fences**, all six by title, and `harnessStatesNoTarget.test.ts`'s three rules in particular: no reading ordered against a number of its own, no boolean in the report modules, no mean in `batchReport.ts`.
+- **`WITNESS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN`.** None moves and a move in any is a stop.
+- **Every existing reading's name, shape, meaning and reduction except the repel reading's own split**, which is the one thing this slice is permitted and the whole reason the version moves.
+- **Slice H's work.** The shove module, the decay row, the impulse fields, the advance, the bell's rewiring. You read every one and author none again.
+- **`src/game/belch.ts`.** Opened to read and never edited. Its kill is slice J's.
+- **Every cap, every fault identity, `STREAM_SALTS` and `STREAM_ORDER`.**
+- **`buildIdentity` and what it folds.** Its behaviour is #82's and it is correct: a tree with untracked work is uncommitted work. **The test changes, never the identity.**
+- **`measure.test.ts`'s promise.** The shell prints exactly what the module returns, and it is still asserted. **Deleting the comparison, skipping the test, or comparing only a subset chosen for convenience is a stop.**
+- **The director's own rules.** You carry a tick a reading already holds; you add no gate on where an add may land.
+- **No ADR is filed or amended, and no ADR gains a combat magnitude.** **ADR 0047 is applied and not amended**, and applying a rule is not amending it.
+
+### Seams under test
+
+`src/game/events.ts`: `mobShoved`'s source discriminator. `src/game/lines/bell.ts`: the bell filling it, and nothing else about the bell. `src/dev/readings/repel.ts`: the toll arm unchanged, the belch arm beside it, and the throw kept for the case still impossible. `src/dev/readings/readings.ts`: the graph declared in all four places. `src/dev/batchReport.ts` and `src/dev/compareRuns.ts`: one declaration per reading in each table. `src/dev/readingsVersion.ts`: the version at 5 with its note. `src/dev/harnessRun.ts` and `src/dev/batchReport.ts`: the three refusal counters reaching a per-run report and declared as readings. `src/dev/readings/pressure.ts`: the per-add tick carried through to the report. `apps/hungry-grave/scripts/__tests__/measure.test.ts`: the comparison made independent of two reads of the tree.
+
+### Module boundaries
+
+**Nothing is created, deleted, merged or split, and no import direction changes.** `repel.ts` stays in `src/dev/readings/` with the other seventeen, reads `SimEvent` types like every one of them, and reads no sim state. **`src/game` still imports nothing from `src/dev`**, which is why the shove's instrument is a reading computed off a tape rather than a hook inside the sim, and `boundary.test.ts` proves it. `src/dev` still may not reach `src/app`.
+
+### The planned test list
+
+1. *The shove reading holds a belch's shoves without throwing.*
+2. *A shove is attributed to the belch rather than to a toll.*
+3. *A bell shove arriving with no toll open is still a bug and still throws.* The half that is deliberately kept.
+4. *The toll arm reads exactly what it read before the split.* The half that the version note has to be able to say.
+5. *The belch arm is empty on every tape this build can produce.* The cited-future half, with slice J named in the test's own comment.
+6. *A batch report says what each of the three refusal counters read, per run.* Asserted over a batch where one is non-zero as well as one where all three are zero, so the row is proved to be able to say something.
+7. *An add can be placed inside a tick range, so a directed add inside an off-limits moment is visible from the report alone.* The reading, not a rule.
+8. *The measure tool's output is compared to the module's without either side depending on the tree being still between two reads.* **Proved by writing to the tree between the two reads and watching it stay green**, not by reading the code.
+9. **The two declaration guards**, green over every reading added.
+10. **The six fences**, green, each by title.
+11. **The golden digest**, unmoved, confirmed rather than assumed.
+
+**What this slice is expected to turn red.** `repel.test.ts`, everything constructing a `mobShoved`, `batchReport.test.ts`, `compareRuns.test.ts`, `harnessRun.test.ts`, `measure.test.ts` in both its homes, the two declaration guards and the readings' own suites. **A realistic count is 10 to 25 files.**
+
+### Verification steps, with actors
+
+1. **Agent.** `READINGS_VERSION` at 5, moved in exactly one commit, with its own note.
+2. **Agent.** `WITNESS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN` all held, each stated.
+3. **Agent.** A batch at this tip with the toll arm agreeing with slice H's.
+4. **Agent.** The belch arm empty at this tip and non-empty on a planted event.
+5. **Agent.** Replay determinism at this tip.
+6. **Agent.** The three refusal counters printed off a batch report, per run.
+7. **Agent.** The per-add ticks printed off a batch report, placed against the wave schedule.
+8. **Agent.** `measure.test.ts` green while another process writes to the worktree.
+9. **Human (Mark), and none of these blocks you.** Nothing. This slice has no player-facing half.
+
+### State of the branch
+
+- The tip should be slice H's docs commit. **`WITNESS_VERSION` 8, `FORMAT_VERSION` 4, `READINGS_VERSION` 4 until you move it, `GOLDEN` as slice H re-pinned it.**
+- **Round two's `GOLDEN` budget is two, slice H has spent one, and the other is slice J's. You are permitted none.**
+- Read round two progress note section 8 for the test counts and the test-name list at slice H's tip.
+
+### The stuck rule
+
+The standing rules are in `step-4-coder-contract.md`. **Three things are already known to be a stop:** any of slice H's five inputs missing; a `GOLDEN` move; and a `WITNESS_VERSION` or `FORMAT_VERSION` move. **If `mobShoved` does not carry what your reading needs, that is a stop and not a payload you widen yourself**, because widening it would reach into slice H's authored shape. **And one thing is ruled rather than open:** the refusal counters sit in `witness.test.ts`'s `EXCLUDED` as the harness's input rather than the run's state, which slice E ruled (`step-4-progress.md` section 17), so **reading them into a report does not fold them and does not owe a witness move**.
+
+### What is not your job
+
+- **The belch's behaviour**, slice J's. You declare the channel; you do not emit into it.
+- **The other four tech gate findings.** Findings 4, 5 and 6 were slice R-fix's and are done; **finding 1**, the pool allocation against the derived caps, is the orchestrator's; **finding 3**, the director's refusal instrument, and **finding 7**, a card the mob cap refuses, are both deferred with their own triggers. **Finding 2 is yours and it is the only one of the seven you touch.**
+- **Any rule about where a directed add may land.** You report the ticks; ADR 0047's question is the orchestrator's.
+- **Slice H's work**, in every part.
+- **The meter**, slice K's. **The Wall and the new mob type**, slice L's.
+- **The orchestrator's batch**, the gates and the deploy.
+- **The record's section 7 findings**, which no slice acts on.
+
+---
+
+## Slice J: the belch becomes a pushback (#124)
+
+Model: Opus, subagent type general-purpose. One coder, one code commit, one docs commit. Messages end in `(#124)`.
+
+Round two slice J of The Hungry Grave (ticket #124): the belch stops killing and becomes the game's one big push, three waves of shove that clear the ground around the grave.
+
+**The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice J.
+
+**Slices H and I land before you.** **Verify each of these by name and any one missing is a stop and report:** `shove.ts` with an impulse carrying the wave structure; `WITNESS_VERSION` 8; `mobShoved` carrying slice I's source discriminator; the shove reading's belch arm, empty and waiting; `READINGS_VERSION` 5; and **`docs/adr/0008-the-belch-full-only-gas-everywhere-shove-nearby.md` in the tree**, because the ADR that still says the burst kills is the thing that must be gone before a belch test is written. Read round two progress note sections 8 and 9 for what those slices actually did.
+
+**Four rulings shape this slice and none of them is yours to revisit.**
+
+**First: the belch takes health off nothing at all, boss included.** Mark's ruling 3 of 2026-09-15 and ADR 0008 as amended. `burstNearbyTargets`' kill goes, `BELCH_PHASE_DAMAGE` goes with it, and the belch's chunk of boss damage goes with both. **The gas is untouched**: it still smothers every mob-fire shot on the whole field, boss patterns included, and still kills nothing.
+
+**Second: three discrete waves, ten ticks apart, inside the eruption's existing twenty.** The record's ruling R3. **The wave count and the spacing are data** in the belch's own row, cited to the record, and they are the lever ruling R4 names if the Wall's lane does not open. Three shoves about ten ticks apart sit inside a visual that already exists (`StormRenderer.ts`'s `ERUPTION_TICKS` 20) and the Flower Wall's five waves are the shipped precedent for countable waves (`docs/research/push-feel-precedent.md` section 2).
+
+**Third: one belch strikes each body once, and that one strike carries three waves.** That is the bell's `toll.struck` pattern applied, per ruling R3: the body set is captured when the belch fires, each body gets one impulse, and the impulse's own wave row is what re-boosts it at ten and twenty ticks. **A body shoved out of reach still gets its later waves**, because the strike was already made, and that is deterministic by construction rather than by a reach test run three times.
+
+**Fourth: `GOLDEN` is permitted one re-pin here and it is round two's second and last.** Whether it actually moves is a question rather than a given: the canonical scenario's reservoir sits far below full and a scenario that never belches feels nothing this slice does. **If it does not move, say so and say why, and the permit goes unused.** If it moves, its cause goes in the dated paragraph. **A move anywhere in slices K or L is a stop.**
+
+### Read first, in this order, before any edit
+
+1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it.
+2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
+3. `apps/hungry-grave/docs/design/round-two-wall-belch.md`: **rulings R3 and R8 are yours**, R4 is why the wave row is a lever and not a magnitude you may tune, section 3 is the module shape, section 5 is what must not move, section 6's belch sentences are your tests.
+4. `apps/hungry-grave/docs/research/push-feel-precedent.md` **sections 2 and 3 in full**. Section 3 is the honest state of the evidence that a no-damage push reads as a boom: Smash's windbox deals knockback with no hitstun and F.L.U.D.D.'s payoff is positional rather than numeric, Lucio's boop is read for its displacement rather than its damage, and **the record says plainly that no GDC talk or dev blog was found arguing the case explicitly, so the rest is inference and is marked as such wherever it is cited**. Do not cite it as more than it is.
+5. `apps/hungry-grave/docs/adr/0008-the-belch-full-only-gas-everywhere-shove-nearby.md` as amended, **which is the contract for what the belch now is**; `0038-the-belch-binds-to-a-dedicated-button.md`; `0014-readability-layering.md`, because the eruption may not occlude mob fire and ADR 0008 grants no invulnerability; `0007-bosses-always-shootable.md`, because an authored pattern is never smeared; `0034-a-power-up-is-an-offer-of-three-and-the-grave-swallows-one.md`, whose regeneration rule ADR 0008 names.
+6. `apps/hungry-grave/docs/push/round-two-progress.md` sections 8 and 9, and `step-4-progress.md` section 2 for the `GOLDEN` history.
+7. `apps/hungry-grave/CONTEXT.md`, the entries Belch, Reservoir, Gas, Repel and Storm. **Read the Avoid lists before naming anything.**
+8. The tree: `src/game/belch.ts` whole, all 119 lines; `src/game/shove.ts` as slice H wrote it; `src/game/stormTargets.ts`'s `pushable` and `moveStormTarget`; `src/game/events.ts`'s `belched` and `mobShoved`; `src/dev/readings/repel.ts` and `belchCadence.ts`; `src/app/screens/game/StormRenderer.ts`'s eruption, its `ERUPTION_TICKS`, `ERUPTION_REACH` and `erupt`; `src/app/palette.ts`'s `belchEruption` entry and the band ceiling; `src/dev/bot.ts`'s `belchWorthIt`, to read and never to touch.
+
+### The definition, in observable terms
+
+After this slice: a belch takes no health off anything, boss included, and no corpse of its own is left behind because nothing died. It throws every body inside its reach away from the grave in three waves the player can count, ten ticks apart, and a body caught by the belch travels over ticks and is drawn at every position between. The gas still smothers every mob-fire shot on the field. A boss and a set piece's source are still never moved.
+
+The batch can say what a belch's shoves did, in the arm slice I declared and left empty. `WITNESS_VERSION` still reads 8, `READINGS_VERSION` still reads 5, `FORMAT_VERSION` still reads 4, and `pnpm verify` is green.
+
+What a player meets: the belch stops deleting a handful of bodies and starts clearing the ground. That is Mark's ruling 3 and ticket #124's done line is that after spending one they can say what it did for them, unprompted.
+
+### The work, in this order
+
+**(a) Verify the six inputs**, per the stop above, then `git log --oneline -25`, `git status --short`, and your own test-name baseline into `local/round2/` under a name carrying the letter J.
+
+**(b) The tests first, red.** **Write the no-damage test first**: a belch takes no health off anything, boss included. It is the ruling stated as a test rather than discovered, and it is the one a later change is most likely to quietly undo.
+
+**(c) The kill comes out of `belch.ts`.** `burstNearbyTargets` stops calling `damageStormTarget`, `BELCH_PHASE_DAMAGE` goes, the `killed` count on the `belched` event has nothing left to count. **Decide what happens to that field explicitly rather than leaving a zero**: a count that is structurally always zero is a lie a reading can still read. **Author the honest shape, say in the note what you set it against**, and remember that `belchCadence.ts` and the sound layer read the `belched` event.
+
+**(d) The shove goes in, through `shove.ts` and never a second copy.** Ruling R8: one module, two callers. The belch captures its body set once, starts one impulse per body with three waves at ten ticks, and passes its own reach. **`BELCH_BURST_RADIUS` is re-read as a shove reach rather than replaced**, and its JSDoc says so, because the reach is what it always was and only what happens inside it changed. **`moveStormTarget` and `pushable` still answer whether a body may move**, so the boss and the set piece's source are excluded structurally rather than by a branch in `belch.ts`.
+
+**(e) The wave row, and it is data.** Count and spacing in the belch's own row with the record's ruling R3 cited in the JSDoc, beside the note that they are ruling R4's lever for the Wall. **No ADR gains a combat magnitude**, ADR 0008 included.
+
+**(f) The event slice I declared, now emitted.** Every shove the belch starts emits `mobShoved` with the belch's source. **The reading's belch arm should go from provably empty to populated, and you show both**: slice I's own test that the arm is empty at slice I's tip is expected to change meaning here, so **say in the note what you did with it** rather than deleting it quietly.
+
+**(g) The eruption's front, on the layer that already exists.** `StormRenderer`'s eruption rides the `belchEruption` layer, which ADR 0014 already places below `mobFire`, and nothing you add may occlude mob fire. **The eruption reads for twenty ticks and the waves land at nought, ten and twenty**, so the front the player sees and the shoves they feel should agree; author that agreement and say what you set it against. **Every colour you draw sits under the band ceiling while the field is live**, and `palette.test.ts` is what says so.
+
+**(h) `GOLDEN`, per the fourth ruling.** Run `digest.test.ts`. If it holds, say why it should have. If it moves, re-pin once with a dated paragraph naming every field that moved.
+
+**(i) The measurements this slice owes.**
+
+- **A hand-recorded tape with a belch spent in it**, at your tip, against the built app through `vite preview`, driven with `playwright-cli`, measured to `outcome: 'verified'`, with all three `state.refusals` counters printed. **A belch needs a full reservoir, so say how you got one** rather than leaving the reader to wonder whether the tape has one at all.
+- **A rendered check, and this slice plainly owes one.** Read the screenshots: three waves, countable, the ground clearing, nothing dying. **Play a run, end it, and play another.**
+- **A conditioned tape**, measured, so the belch's change is visible against slices H and I's own rigs.
+- **A batch at your tip** under `steady-far` and `loose-far`, with the shove reading's belch arm printed and `belchCadence` beside it. **`belchWorthIt` now prices a belch that kills nothing**, which is a reading about the hand and **never a row you touch**; print what it did and leave it alone.
+- **Replay determinism at your tip**, with a belch's shoves in flight at a checkpoint.
+
+**(j) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the belch clears the ground in three waves and takes health off nothing (#124)`.
+
+**(k) The progress note**, section **10**. Beyond the contract's list, say: what became of the `killed` count and what you set it against; the wave row's figures; `BELCH_BURST_RADIUS` re-read rather than replaced; the eruption's agreement with the waves and what you set it against; what you did with slice I's empty-arm test; `GOLDEN` moved or held with the reason; the hand tape with the belch in it and how you got the reservoir full; and the batch's belch arm.
+
+**(l) Stop and report.** Under 300 words. **Do not start slice K.**
+
+### What must not move, and a move is a stop
+
+- **The fences**, all six by title. **`lineAgnosticPolicies.test.ts` now binds the belch to `shove.ts` and `stormTargets.ts` both.**
+- **`WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4.** None moves and a move in any is a stop. **You declare no folded field**: the impulse's wave fields already exist and are already folded, which is exactly why slice H declared them.
+- **The gas.** Its field-wide scope, its boss-pattern reach and its killing nothing are all ADR 0008's and none of them is touched.
+- **`pushable` and `moveStormTarget`.** A raw position write from `belch.ts` is a stop.
+- **`toll.struck` and the bell's own arithmetic.** Slice H's, untouched.
+- **The harness's own rows**, `belchWorthIt` above all. A hand row moved between two batches compares two builds through two instruments.
+- **Every cap, every fault identity, `STREAM_SALTS` and `STREAM_ORDER`.**
+- **You file no ADR and amend none.** ADR 0008 already landed and **applying a rule is not amending it**.
+
+### Seams under test
+
+`src/game/belch.ts`: `fireBelch` with no damage at all, the body set captured once, the shove started through `shove.ts`, `BELCH_BURST_RADIUS` as a reach, and the wave row. `src/game/events.ts`: `belched`'s payload after the kill count's fate is decided, and `mobShoved` carrying the belch's source. `src/game/shove.ts`: the multi-wave path, now with a real caller. `src/dev/readings/repel.ts`: the belch arm populated. `src/app/screens/game/StormRenderer.ts`: the eruption's front agreeing with the waves.
+
+### Module boundaries
+
+**Nothing is created, deleted, merged or split.** `belch.ts` gains an import of `shove.ts` and loses its damage call, which is ruling R8's second caller arriving. **`shove.ts` still imports nothing but the math helpers and the mob type**, and `boundary.test.ts` proves it. `StormRenderer` stays behind the renderers and no new library enters.
+
+### The planned test list
+
+1. *A belch takes no health off anything, boss included.* **Write it first.**
+2. *A belch shoves in the number of waves the row declares, and a player counting them counts that many.*
+3. *A belch strikes each body once, and its later waves re-boost the same impulse rather than starting a second.*
+4. *A body shoved out of a belch's reach still takes the waves that belch already owed it.*
+5. *A boss and a set piece's source are never moved by a belch.*
+6. *A belch's gas still smothers every mob-fire shot on the field and still kills nothing.* The half that did not change, asserted so it cannot drift out.
+7. *A shove is attributed to the belch rather than to a toll*, now over a real belch rather than a planted event.
+8. *Two runs on one seed rebuild identically with a belch's shoves in flight at a checkpoint.*
+9. **The palette scan**, green over anything the eruption draws.
+10. **The six fences**, green, each by title.
+11. **The golden digest**, moved once with its paragraph or held with its reason.
+
+**What this slice is expected to turn red.** `belch.test.ts`, everything reading the `belched` event, `repel.test.ts`, `belchCadence.test.ts`, the sound layer's suite, `StormRenderer`'s suite, `measure.test.ts`'s rich fixture whose belch arm slice E already had to re-hand, and `bot.test.ts` wherever `belchWorthIt` changes what a run does. **A realistic count is 15 to 35 files.**
+
+### Verification steps, with actors
+
+1. **Agent.** A belch proved to take no health off anything, boss included.
+2. **Agent.** Three waves, counted off a tape rather than off the source.
+3. **Agent.** `WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4 all held.
+4. **Agent.** `GOLDEN` moved once with its paragraph, or held with its reason stated.
+5. **Agent.** A hand tape with a belch in it, verified, with the three refusal counters.
+6. **Agent.** A rendered check across two runs with the screenshots read.
+7. **Agent.** A batch at this tip with the belch arm printed.
+8. **Agent.** Replay determinism with belch shoves in flight.
+9. **Human (Mark), and none of these blocks you.** Whether he can say what the belch did for him, unprompted, which is ticket #124's own done line.
+
+### State of the branch
+
+- The tip should be slice I's docs commit. **`WITNESS_VERSION` 8, `FORMAT_VERSION` 4, `READINGS_VERSION` 5, `GOLDEN` as slice H re-pinned it.**
+- **Round two's `GOLDEN` budget is two, slice H spent one, and this is the other.** Slices K and L are permitted none.
+- Read round two progress note sections 8 and 9 for the test counts and the test-name list.
+
+### The stuck rule
+
+**Three things are already known to be a stop:** any of the six inputs missing, the ADR above all; a `WITNESS_VERSION`, `READINGS_VERSION` or `FORMAT_VERSION` move; and a second `GOLDEN` re-pin. **And one thing is ruled rather than open:** the belch does no damage of any kind, and a measurement showing the belch is now weak is a finding for the note, never a reason to give it a point of damage back.
+
+### What is not your job
+
+- **The Wall**, in every part, including whether the belch opens it. Slice L's, and `waves.ts` and the mob table are opened only to read.
+- **The meter and its corner**, slice K's.
+- **Slices H and I's work.** The shove module's arithmetic, the impulse, the reading's shape and the version note.
+- **The harness's rows and the orchestrator's batch.**
+- **The record's section 7 findings.**
+
+---
+
+## Slice K: the meter fills and changes corner (#127)
+
+Model: Opus, subagent type general-purpose. One coder, one code commit, one docs commit. Messages end in `(#127)`.
+
+Round two slice K of The Hungry Grave (ticket #127): the belch's control stops being a light that turns on and becomes a ring that fills, in the corner the steering thumb is not already in.
+
+**The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice K.
+
+**This slice changes no simulation rule at all**, which is why it is separable from J and why it owes no `GOLDEN`, no witness move and no version move of any kind.
+
+**Four rulings shape this slice and none of them is yours to revisit.**
+
+**First: a radial fill of the ring that already exists.** The record's ruling R7. Every shipped phone precedent found is a radial fill: Brawl Stars' filling ring, Genshin's burst icon filling with the element's colour, and Riot's own name for the convention, "radial timer" (`docs/research/push-feel-precedent.md` section 4). **The claim that a radial is harder to read than a bar could not be sourced and is folklore; do not cite it and do not act on it.** A bar has no shipped precedent in this set and is not an option here.
+
+**Second: ready is a colour change plus the pulse that already exists, and the dim-to-bright alpha step goes.** ADR 0054's reading of ADR 0014 binds the HUD to announce by count, by shape or by subtraction and **never by getting brighter**. The fill announces by area, which is the compliant channel. `QUIET_ALPHA` is the non-compliant one and it comes out. **The pulse stays**: it is motion rather than a brightness comparison the player has to make against a remembered state.
+
+**Third: the corner is bottom-left.** Mark's ruling 5 of 2026-09-15. **A handedness setting is future work and is not this slice**, and **the thumb-zone finding against this corner is already filed for his read in the record's section 7 and is not yours to apply**. `READOUT_RESERVE` reserves the two **top** corners only and the belch button is positioned in `GameScreen.resize` independently of `fitField`, so the move is one `position.set` plus the two rects in `BelchButton.test.ts`, and the 540 by 760 fit is untouched.
+
+**Fourth: the 44 by 44 CSS pixel target floor holds at every viewport.** It is asserted rather than eyeballed today, against `BELCH_SIZE` 108, because the stage scales per viewport and the phone is where it binds. **A fill that shrinks the touchable area is a stop.**
+
+### Read first, in this order, before any edit
+
+1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it.
+2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
+3. `apps/hungry-grave/docs/design/round-two-wall-belch.md`: **ruling R7 in full is this slice's contract**, and **section 7's first finding is the one thing about this corner that is filed and not applied**.
+4. `apps/hungry-grave/docs/research/push-feel-precedent.md` **sections 4 and 5 in full**. Section 4 is the form; section 5 is the thumb zones and the touch-target floors, Apple's 44 points, Material's 48 dp and WCAG 2.5.5's 44 CSS pixels at AAA. **Section 5 also says plainly that no primary description of button geometry in a named portrait mobile shmup could be found**, so a 540 by 760 portrait layout has no shipped citation behind it and you do not invent one.
+5. `apps/hungry-grave/docs/adr/0054-the-ladder-reads-twice-in-the-storm-and-on-the-hud.md` and `0014-readability-layering.md` in full, which are the second ruling's whole basis, plus `0038-the-belch-binds-to-a-dedicated-button.md` and `0039-the-field-boundary-is-a-readout.md`, because a second readout on the same frame has to be told apart from the first.
+6. `apps/hungry-grave/CONTEXT.md`, the entries Belch, Reservoir and HUD. **Read the Avoid lists before naming anything.**
+7. The tree: `src/app/screens/game/BelchButton.ts` whole, all 134 lines, and its test file whole; `src/app/screens/game/GameScreen.ts`'s `resize` around the pause button and the belch button; `src/app/layout.ts` whole, especially `READOUT_RESERVE` and the corner-intersection helpers; `src/app/palette.ts`'s `graveGlow`, `hudInk`, `hudDim`, the band constants and the live-field entry list; `src/app/__tests__/palette.test.ts`, which is the source scan that will hold you to the ceiling.
+
+### The definition, in observable terms
+
+After this slice: the belch's ring reads partway full at a partway-full reservoir, and its fill is a function of the reservoir alone. At a full reservoir it changes colour and pulses, and it never announces its charge by getting brighter. It sits in the bottom-left corner at every viewport the game runs at, with a touchable target at least 44 by 44 CSS pixels, overlapping neither the corner readout stack nor the pause button. Every colour it draws sits under the field's own band ceiling while the field is live.
+
+No simulation rule changes at all. `WITNESS_VERSION` 8, `READINGS_VERSION` 5, `FORMAT_VERSION` 4 and `GOLDEN` are all untouched, and none of the four files is in the commit.
+
+What a player meets: without looking away from the field they can tell roughly how close the belch is to ready, and their steering thumb is no longer in the same corner as the button. That is ticket #127's done line.
+
+### The work, in this order
+
+**(a) Read the four files whole before you edit one**, then `git log --oneline -25`, `git status --short`, and your own test-name baseline into `local/round2/` under a name carrying the letter K.
+
+**(b) The tests first, red.** **Write the ceiling test and the target-floor test first**, because they are the two this slice is most likely to break and least likely to notice breaking.
+
+**(c) The fill.** The ring becomes a radial fill of the reservoir's own fraction, drawn as an arc rather than as a second full ring at a different alpha. `sync` already takes the reservoir's loaded state and the tick (`GameScreen` passes `run.reservoir >= RESERVOIR_CAPACITY`); **it needs the fraction rather than the boolean**, and the fraction is the reservoir over its capacity. **Keep `GameScreen` the one place that reads the run**: the button takes numbers, not a `RunState`.
+
+**(d) The ready tell, and the alpha step's removal.** Colour plus the existing pulse. `QUIET_ALPHA` comes out and `ringAlpha`'s two-state shape goes with it. **`LIT_PULSE_DEPTH` and `LIT_PULSE_TICKS` stay.** Whatever replaces `ringAlpha` keeps a pure function testable without a renderer, because that is what the existing tests stand on.
+
+**(e) The colour, and this is the one craft choice you research rather than pick.** The button draws in `PALETTE.graveGlow` at luma 67.25 against a band ceiling of 68 that binds every colour drawn while the field is live, so **the filled and unfilled channels cannot separate by value and must separate by hue and by area**. **Research it before you choose it**: the precedent record's section 4 says what each shipped game uses as the fill's own colour, Genshin filling with the element's colour and Brawl Stars with a slim yellow ring on grey. **Say in the note what you chose, which precedent it came from, its luma, and what you set it against.** If no honest colour exists under the ceiling that separates from `graveGlow` by hue, that is a stop and report, not a ceiling you raise. The palette's live-field list and `palette.test.ts`'s source scan are what hold you.
+
+**(f) The corner.** One `position.set` in `GameScreen.resize`, positioned from `READOUT_RESERVE.margin` the way the pause button and today's belch button both are, **so the two cannot drift apart and the non-overlap rule stays one rule in one place**. The comment above it says what the old one said about why it sits over the field, updated for the side it is now on.
+
+**(g) The test rects, and this is where the old assertion becomes wrong rather than stale.** `BelchButton.test.ts` computes a pause rect and a belch rect and asserts they do not overlap. **The belch rect moves to the left edge and the assertion has to be re-derived rather than edited by hand**: on the left the button is now under the corner readout stack's column rather than the pause button's, so **the rect it must not overlap changes too**. `READOUT_RESERVE.width` 260 and `.height` 120 are what the stack claims. Assert against both corners rather than one.
+
+**(h) The measurements this slice owes.**
+
+- **A rendered check, and it is the point of this slice.** The built app through `vite preview`, driven with `playwright-cli`, at a phone viewport and at a desktop one. **Screenshots at an empty reservoir, a partway one and a full one**, read rather than collected, and say what you actually saw. **Play a run, end it, and play another**, because a check that only ever plays run one is structurally blind.
+- **A grayscale read of the full-reservoir frame**, because the ceiling is a value rule and `filter: grayscale(1)` is exactly what the rule is measured in. Say whether the fill is still legible with the hue removed, which is the honest limit of a hue-separated design.
+- **The target floor asserted at every viewport in `VIEWPORTS`**, not just at the phone.
+- **No tape, no batch, no determinism run is owed**, and that claim is checked rather than assumed: nothing under `src/app/screens` is folded and no rule the simulation runs is in this commit. **If any of the four version constants or `GOLDEN` moves, that is a stop and report**, because it would mean something here reached the sim.
+
+**(i) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the belch's ring fills with its reservoir and moves under the other thumb (#127)`.
+
+**(j) The progress note**, section **11**. Beyond the contract's list, say: the fill's shape; the colour you chose with its precedent, its luma and what you set it against; the alpha step removed and the pulse kept, cited to ADR 0054; the corner moved and the two rects re-derived; the grayscale read and what it showed; the target floor at every viewport; and the four constants and `GOLDEN` all named as untouched.
+
+**(k) Stop and report.** Under 250 words. **Do not start slice L.**
+
+### What must not move, and a move is a stop
+
+- **`WITNESS_VERSION` 8, `READINGS_VERSION` 5, `FORMAT_VERSION` 4 and `GOLDEN`.** None moves, none of the four files is in the commit, and a move in any is a stop and report rather than a re-pin.
+- **The band ceiling and the palette's live-field list.** A colour that will not fit under the ceiling is a stop, never a ceiling you raise or an exemption you claim. **The exemption list is for colours that only ever draw when the field is not live**, and this control draws over a live field.
+- **`BELCH_SIZE` 108 and the 44 by 44 CSS pixel floor.**
+- **The layering.** ADR 0014's stack is pinned by the layering test and nothing here draws above `mobFire`.
+- **The claimed-pointer field and the steer model's release path.** A press on the button must still not anchor a drag, whichever corner it is in.
+- **`READOUT_RESERVE`'s three figures and `fitField`.** The two top corners stay reserved and the field's fit is untouched, which is why this move is cheap.
+- **The template's shared `Button` in `src/app/ui`.** It carries hardcoded pinks that the palette scan does not reach, which is why this control is purpose-built, and #38 owns the shared widgets.
+- **No ADR is filed or amended, and no ADR gains a combat magnitude.**
+
+### Seams under test
+
+`src/app/screens/game/BelchButton.ts`: the fill as a pure function of the reservoir's fraction, the ready tell after the alpha step is gone, the drawing, the hit area and the claimed pointer. `src/app/screens/game/GameScreen.ts`: the one `position.set` and what it is positioned from. `src/app/palette.ts`: the fill's colour entry, under the ceiling and inside the live-field list.
+
+### Module boundaries
+
+**Nothing is created, deleted, merged or split, and no import direction changes.** `BelchButton` stays a dumb view: data in, pixels out, taking numbers from `GameScreen` and owning no data source, no loop subscription and no change detection. **`GameScreen` stays the driver that reads the run.** `src/app` still reaches `src/game` for types and nothing reaches back.
+
+### The planned test list
+
+1. *The meter reads partway full at a partway-full reservoir.*
+2. *The fill is a function of the reservoir alone.* Same reservoir, same fill, whatever the tick.
+3. *The meter's charge never announces by brightness alone.* The unfilled and filled channels differ by area rather than by a step in alpha, asserted over the pure function.
+4. *The ready tell reads at a full reservoir and not below one.*
+5. *Every colour the control draws sits under the field's ceiling while the field is live.* Through `palette.test.ts`'s existing scan; **confirm it green over your addition rather than writing a second one**.
+6. *The belch's control sits in the bottom-left corner at every viewport.*
+7. *It carries a target at least 44 by 44 CSS pixels at every viewport.* The existing assertion, held.
+8. *It overlaps neither the corner readout stack nor the pause button, at every viewport.* The re-derived rect, against both corners.
+9. *A press on the control still does not anchor a drag.* The claimed-pointer path, held.
+10. **The layering test**, green.
+
+**What this slice is expected to turn red.** `BelchButton.test.ts` throughout, `GameScreen`'s own resize tests, `palette.test.ts` over the new entry, and any screen-lifecycle test that asserts the button's position. **A realistic count is 4 to 10 files.** A diff larger than that is a reason to check what you reached into.
+
+### Verification steps, with actors
+
+1. **Agent.** A rendered check at a phone viewport and a desktop one, at three reservoir levels, screenshots read.
+2. **Agent.** A grayscale read of the full-reservoir frame, with the honest limit stated.
+3. **Agent.** The target floor asserted at every viewport.
+4. **Agent.** The four version constants and `GOLDEN` all untouched, stated, with none of the four files in the commit.
+5. **Agent.** The palette scan green over the new colour, with its luma printed.
+6. **Human (Mark), and none of these blocks you.** Whether he can tell how close the belch is to ready without looking away from the field, and whether the corner is the right one under his own grip. **The thumb-zone finding in the record's section 7 is his read and not yours.**
+
+### State of the branch
+
+- The tip should be slice J's docs commit. **`WITNESS_VERSION` 8, `FORMAT_VERSION` 4, `READINGS_VERSION` 5, `GOLDEN` as slice H or slice J last pinned it.**
+- **You are permitted no `GOLDEN` re-pin.** Round two's two are spent or accounted for.
+- The headless browser runs at 3 to 21 FPS under SwiftShader, which slices B, D, F and G all recorded. That is the harness and not the build.
+
+### The stuck rule
+
+**Three things are already known to be a stop:** any version constant or `GOLDEN` moving; no honest fill colour existing under the band ceiling; and the target floor failing at any viewport. **And one thing is ruled rather than open:** the corner is bottom-left and the thumb-zone research against it is filed for Mark, so a measurement or a gate finding arguing for the other corner goes in the note and is built past.
+
+### What is not your job
+
+- **Handedness**, which Mark ruled future work.
+- **The shared widgets in `src/app/ui`**, which are #38's.
+- **The HUD's ladder pips and the field boundary's grading**, which are ADR 0054's and ADR 0039's own work and not this control's.
+- **Slices H, I and J's work**, in every part. Nothing under `src/game` is in this commit.
+- **The Wall**, slice L's.
+- **The record's section 7 findings.**
+
+---
+
+## Slice L: the Wall is a wall (#123)
+
+Model: Opus, subagent type general-purpose. One coder, one code commit, one docs commit. Messages end in `(#123)`.
+
+Round two slice L of The Hungry Grave (ticket #123): the curtain gets a body the storm cannot thin, and a belch is what opens it.
+
+**The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice L.
+
+**All four slices before you land first.** **Verify each of these by name and any one missing is a stop and report:** `shove.ts` with its impulse and its wave structure; `belch.ts` shoving in three waves and doing no damage; `mobShoved` carrying its source and the reading's belch arm populated; and **`docs/adr/0042-a-set-piece-names-the-property-it-must-keep.md` carrying its 2026-09-15 triple**, because the property you are about to assert is the one that ADR now words. Read round two progress note sections 8 through 11.
+
+**Five rulings shape this slice and none of them is yours to revisit.**
+
+**First: the curtain's body is a new durable mob row in the pool, high health, no fire.** The record's ruling R5. The shambler cannot do it: at 8 health the storm opens a lane at one skull and the bodies fire nothing, so the crossing costs nothing, and that is measured rather than argued (`step-4-progress.md` section 4 item 7). **A type in the pool is not a cast pinned by the set piece**, so ADR 0042's own rule stands untouched: the Wall's wave names a type the way every wave names one.
+
+**Second: the gap is geometry and there is no special case anywhere.** The record's ruling R4. The shove is the same shove and a hole opens because bodies moved. **No rule is keyed on which set piece is on the field**, which is the fixed-membership club ADRs 0016 and 0042 exist to dismantle. Killing only the wall bodies and parting the wall on any belch regardless of reach are both refused.
+
+**Third: cannot pass means blocked by cost and never by an impassable body.** The grave swallows and passes under, nothing in this game blocks, and a body the grave cannot cross would be new physics against the grave's own verb. **You do not build a collision rule, a barrier, or a body that refuses to be passed.**
+
+**Fourth: you measure whether the dead-ahead body leaves a dent or a hole, before you tune anything.** A body directly above the grave gets no lateral component from a radial shove at all, so the curtain may bow away up-field rather than part. **If it is a dent, the lever is the wave count and the spacing in slice J's row, and nothing else.** A second wave landing on a body that has already moved off the axis has a lateral component the first did not. **If no lane opens at any authored setting of the count and the spacing, that is the stop Mark pre-ruled: the Wall is cut, and you report it rather than deciding it.**
+
+**Fifth: `GOLDEN` does not move and you are permitted none.** Round two's two re-pins belong to slices H and J. The Wall is a Crowd wave and the canonical scenario is six hundred ticks of the Procession, so nothing you author reaches inside that window. **A move is a stop and report**, and the reason matters far more than the number.
+
+### Read first, in this order, before any edit
+
+1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it.
+2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
+3. `apps/hungry-grave/docs/design/round-two-wall-belch.md`: **rulings R4 and R5 in full are this slice's contract**, section 0's arithmetic of the curtain's spacing against the grave's width is the thing you re-derive rather than trust, and section 6's Wall sentences are your tests.
+4. `apps/hungry-grave/docs/research/push-feel-precedent.md` **section 2 in full**. The Flower Wall blocks by durability and cost rather than by a rule and the wiki's own advice is to break through rather than stay trapped; the Coffin ring is cleared by ordinary damage; Risk of Rain 2's dome is explicitly leaveable. **None of the three is an unescapable lock, and that finding is what the third ruling stands on.**
+5. `apps/hungry-grave/docs/adr/0042-a-set-piece-names-the-property-it-must-keep.md` as amended, **which is the property you assert**; `0016-mob-types-and-formations-are-pools.md`, which is why a new type is a pool member and never a cast; `0059-a-trash-minute-is-a-mow-and-density-is-bought-with-weak-bodies.md`, which is why the mow body is one touch and why the curtain cannot be made of it; `0006-authored-waves-not-a-director.md` and `0047-directed-density-inside-authored-beats.md`, because the Wall's wave is the one cell the director may not spend in; `0003-size-is-health.md` for the grave's width at the floor.
+6. `apps/hungry-grave/docs/push/step-4-progress.md` **section 4 item 7**, which is the measured failure this slice exists to answer, and **section 2** for the `GOLDEN` history.
+7. `apps/hungry-grave/CONTEXT.md`, the **Mob type** entry above all, which binds what a new type must own and says a mob type must be readable before it acts, plus Wave, Formation, Set piece and Mow. **Read the Avoid lists before naming anything.**
+8. The tree: `src/game/mobs.ts`'s `MOB_TYPES`, `MobType`, `MOB_TYPE_NAMES` and the shambler row's own comment about the curtain; `src/game/stage/waves.ts`'s `CROWD_WAVES` and the Wall's wave with the comment above it; `src/game/stage/formations.ts`'s `wall`; `src/game/caps.ts`, to read; `src/app/screens/game/mobSprite.ts`, which is where a type's silhouette is drawn; `src/dev/bot.ts`'s policies, to read and never to touch; `src/__tests__/boundary.test.ts`'s cap-derivation fence.
+
+### The definition, in observable terms
+
+After this slice: the curtain that arrives two seconds after the Banshee dies is built from a body the rung-one storm does not delete on contact, so it is still a curtain when the grave reaches it. A grave crossing it without a belch loses health. A belch spent on it opens a gap at least as wide as the grave, because the bodies moved and for no other reason. Nothing anywhere is keyed on the Wall being the Wall.
+
+The new type is a member of the mob pool like the other three: it owns how it moves, whether it fires, its health, its corpse payout and its size, and it is readable before it acts. Any wave may name it.
+
+`WITNESS_VERSION` 8, `READINGS_VERSION` 5, `FORMAT_VERSION` 4 and `GOLDEN` are all untouched.
+
+What a player meets: the curtain comes down, they try to get through, they find they cannot, they spend the belch and they go through the hole it makes. That is ticket #123's "a crossing reads as a cost in play".
+
+### The work, in this order
+
+**(a) Verify the four inputs**, per the stop above, then `git log --oneline -25`, `git status --short`, and your own test-name baseline into `local/round2/` under a name carrying the letter L.
+
+**(b) Measure before you author, and this is the slice's first real act.** Stand the curtain as it is today and belch at it, in a test or a script, and **measure whether the dead-ahead body leaves a dent or a hole**. Print the geometry: the lateral separation each neighbour pair reaches, the widest gap, and where along the width it sits. **That measurement is what the fourth ruling turns on and everything after it depends on the answer.**
+
+**(c) The tests first, red**, from the planned list. **Write the gap test and the no-special-case test first.**
+
+**(d) The new mob row, and its name is research rather than a pick.** `CONTEXT.md`'s Mob type entry binds what it owns. **Research the name before you choose it**: it comes from the glossary's own register and from the silhouette the sprite module will draw, and the four shapes already taken are the shambler's squat body, the revenant's diamond, the ghoul's wedge and the boss forms. **Say in the note what you chose, what you set it against, and which Avoid list you checked it against.** It is not Mark's to pick and it is not a question for him.
+
+- **High health, so the rung-one storm does not delete it on contact.** The figure is derived rather than felt: it is what survives long enough for the curtain to still be a curtain when the grave reaches it, against the storm's own measured throughput, and **the derivation goes in the row's JSDoc citing the design record**. **No ADR gains it.**
+- **No fire**, per ruling R5. The cost of the crossing is the bodies themselves.
+- **Its corpse payout and tier are a real decision, not a copy.** A durable body that dies to a belch's shove does not die at all, so what it pays when the storm finally kills one matters. **Author it, say what you set it against.**
+- **Its width is what the curtain's count is derived from**, per the next item.
+
+**(e) The Wall's wave, and the count is derived rather than kept.** `waves.ts`'s comment says twenty-two is not a density row: it is the field's width over a body's, and `wall()` spaces its bodies at the width divided by the count. **A new body of a different width therefore changes the count**, and the comment has to say so in the new body's terms. **The Wall's wave stays undirected**, which the comment above `CROWD_WAVES` already says and ADR 0047 requires.
+
+**(f) The shambler row's own comment goes stale and you fix it.** It says an edge-to-edge curtain at 22 units wide needs 22 mobs to fill the field's 540 and that the size floor makes the grave 18 units wide, so the curtain has no gap the grave can slip through at any size. **That is the curtain's arithmetic living on the wrong row once the curtain is not shamblers.** Move the reasoning to where it now belongs and leave the shambler's row saying only what is the shambler's.
+
+**(g) The caps, and you check rather than change.** `caps.ts` derives from the stage's tables and `boundary.test.ts` holds it to reading tables and never the stage. A curtain of a different count moves what the tables say. **Confirm the derivation still stands and report the figures. A cap that binds is a finding and never a number you raise.**
+
+**(h) The property asserted the way ADR 0042 now words it.** Two bot policies carry it, one crossing without belching and paying a real cost, one belching and crossing clean, **and the unloaded policy is written as a plausible human rather than an optimizer**, because a bot proof is an upper bound on perfect play and never a fairness result. **The harness's own rows are not yours to tune**: if the existing policies cannot express the crossing, that is a finding for the note naming what is missing, not a row you move.
+
+**(i) The measurements this slice owes.**
+
+- **The dent-or-hole measurement from item (b), before and after**, with the geometry printed both times.
+- **If it is a dent: the wave count and spacing swept**, and the widest gap at each setting printed. **The sweep is a measurement and the row stays where slice J put it unless a setting is chosen**, in which case you say which and why.
+- **If no lane opens at any setting: stop and report it as Mark's pre-ruled cut.** Print every setting you tried and what each gave. **Do not decide the cut and do not remove the Wall.**
+- **A rendered check, and this slice plainly owes one.** The curtain met, the belch spent, the hole gone through, in the built app. Screenshots read rather than collected. **Play a run, end it, and play another.**
+- **A batch at your tip** under `steady-far` and `loose-far`, with the belch arm and the arrivals printed, plus whatever the bot policies say about the two crossings.
+- **Replay determinism at your tip.**
+
+**(j) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the curtain stands against the storm and a belch is what opens it (#123)`.
+
+**(k) The progress note**, section **12**. Beyond the contract's list, say: the dent-or-hole measurement with its geometry, before and after; the new type's name, what you set it against and its Avoid check; its health's derivation; its payout and tier and what you set them against; the Wall's count re-derived and the shambler comment moved; the caps confirmed with their figures; the two bot policies and what they showed; and **`GOLDEN` and all three version constants named as held**.
+
+**(l) Stop and report.** Under 300 words, and **if the lane does not open, that is the whole report**: every setting tried, what each gave, and the cut named as Mark's to take. **Do not start anything after this slice; the gates, the review, the batch and the deploy are the orchestrator's.**
+
+### What must not move, and a move is a stop
+
+- **The fences**, all six by title, and **slice D's cap-derivation fence in particular**: the derivation reads tables and never the stage.
+- **`WITNESS_VERSION` 8, `READINGS_VERSION` 5, `FORMAT_VERSION` 4 and `GOLDEN`.** None moves. You declare no folded field: **`mob.type` is not folded, because a divergence in type shows through the health and the motion the walk already folds** (`step-4-progress.md` section 17).
+- **No rule keyed on the set piece.** ADR 0042's whole point, and the second ruling.
+- **No collision rule, no barrier, no impassable body.** The third ruling.
+- **The shove, the belch and the reading.** Slices H, I and J's, read and never re-authored. **If the belch cannot open the curtain, that is the fourth ruling's measurement and a report, never a change to `belch.ts`'s reach or a point of damage given back.**
+- **The harness's own rows**, every lapse rate and look-ahead list included.
+- **Every existing mob row.** The shambler's, the revenant's and the ghoul's figures are untouched; what moves is one comment that was never the shambler's to hold.
+- **`STREAM_SALTS`, `STREAM_ORDER` and every fault identity wire number.**
+- **No ADR is filed or amended, and no ADR gains a combat magnitude.** ADR 0042 already landed and applying a rule is not amending it.
+
+### Seams under test
+
+`src/game/mobs.ts`: the new `MOB_TYPES` row, `MobType`, `MOB_TYPE_NAMES`, and the shambler row's comment relieved of the curtain's arithmetic. `src/game/stage/waves.ts`: the Wall's wave naming the new type with its count re-derived, still undirected. `src/game/stage/formations.ts`: `wall`, unchanged, confirmed. `src/game/caps.ts`: the derivation confirmed rather than changed. `src/app/screens/game/mobSprite.ts`: the new type's silhouette. `src/dev/bot.ts`: the two policies that carry ADR 0042's property.
+
+### Module boundaries
+
+**Nothing is created, deleted, merged or split, and no import direction changes.** The new type is a row in the table `mobs.ts` already owns, which is why a set piece can name it without anything being keyed on the set piece. **`caps.ts` still imports `waves.ts` and never `stage.ts`**, and **`waves.ts` still value-imports nothing**. **`src/game` still imports nothing from `src/dev`**, so the bot's policies read the game and the game knows nothing of them.
+
+### The planned test list
+
+1. *A belch landing on the curtain opens a gap at least as wide as the grave.*
+2. *The gap opens because bodies moved, and no rule anywhere reads which set piece is on the field.* The no-special-case half, asserted structurally.
+3. *The grave crossing the curtain without a belch loses health.*
+4. *The curtain's body survives a rung-one storm long enough to still be a curtain when the grave reaches it.* The measured failure of the shambler, turned into the new body's promise.
+5. *The curtain's body fires nothing.*
+6. *A wave other than the Wall's may name the curtain's body.* The pool rule, asserted so the type never becomes a cast.
+7. *The curtain spans the field edge to edge at its derived count, with no gap the grave can slip through at any size.* The arithmetic moved off the shambler's row and asserted rather than commented.
+8. *The Wall's wave is undirected and the director never spends in it.* Held, per ADR 0047.
+9. **The cap derivation**, confirmed green with its figures printed.
+10. **The two bot policies**, one crossing unloaded at a real cost, one belching and crossing clean.
+11. **The six fences**, green, each by title.
+12. **The golden digest**, unmoved, confirmed rather than assumed.
+
+**What this slice is expected to turn red.** `mobs.test.ts` over the table and over the guard that a body carries exactly its `MOB_TYPES` row, `waves.test.ts` and `stage.test.ts` over the Crowd's table, `formations.test.ts`, `caps.test.ts`, `mobSprite.test.ts`, `foodSprite.test.ts`'s per-type loop, `sound.test.ts` wherever a mob type is named, and `bot.test.ts`. **A realistic count is 12 to 30 files.**
+
+### Verification steps, with actors
+
+1. **Agent.** The dent-or-hole measurement, printed with its geometry, before any tuning.
+2. **Agent.** If a dent, the wave-count and spacing sweep with the widest gap at each setting.
+3. **Agent.** The gap at least as wide as the grave, asserted at the grave's start size and at its floor.
+4. **Agent.** The unloaded crossing costing health, measured rather than asserted from the table.
+5. **Agent.** The cap derivation confirmed with its figures.
+6. **Agent.** A rendered check of the curtain met, the belch spent and the hole crossed, across two runs, screenshots read.
+7. **Agent.** A batch at this tip under both configurations.
+8. **Agent.** `GOLDEN` and all three version constants held, each stated.
+9. **Human (Mark), and none of these blocks you.** Whether the curtain reads as a wall rather than as more stuff in a line, which is his own 2026-09-14 words and ticket #123's done line. **And, if the lane did not open, whether the Wall is cut, which is his pre-ruling and his call.**
+
+### State of the branch
+
+- The tip should be slice K's docs commit. **`WITNESS_VERSION` 8, `FORMAT_VERSION` 4, `READINGS_VERSION` 5, `GOLDEN` as slice H or slice J last pinned it.**
+- **Round two's two `GOLDEN` re-pins are spent or accounted for and you are permitted none.**
+- The caps as slice D left them: `MOB_CAP` 481, `MOB_FIRE_CAP` 434, `CORPSE_CAP` 704, `WISP_CAP` 64 and `SKULL_CAP` 120. **`WISP_CAP` stopped binding once slice E's volley clock landed.**
+- **One fact worth not re-deriving:** nothing in a run draws from the `mobFire` stream at all, because the Banshee's nudge moved to its own stream and every `firstShotJitter` is zero. A new type with no fire does not change that; a new type with fire would, and this one has none.
+
+### The stuck rule
+
+**Four things are already known to be a stop:** any of the four inputs missing; a `GOLDEN` or version move; no lane opening at any authored setting, which is Mark's pre-ruled cut and which you report rather than take; and the existing bot policies being unable to express the two crossings. **And two things are ruled rather than open:** the body is a pool member and never a cast, and nothing blocks.
+
+**Green tests plus a curtain that still opens to the storm means the test plan has a hole**: pin it as a red test first, never patch the health first.
+
+### What is not your job
+
+- **Cutting the Wall.** You report that the lane does not open; Mark takes the cut.
+- **Slices H, I, J and K's work**, in every part.
+- **Territory's rungs**, #125, and the offer bubble, #122. Neither is round two's.
+- **The gates, the review on the tip, the orchestrator's batch and the deploy.**
+- **The record's section 7 findings**, which no slice acts on.
