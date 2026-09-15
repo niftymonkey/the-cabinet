@@ -61,6 +61,26 @@ const TRANSIT_SECONDS =
   (MAX_ENTRY_DEPTH + FIELD_HEIGHT + BODY) / (SCROLL_SPEED * TICK_HZ);
 
 /**
+ * The most bodies the director can put on the field inside a window of this
+ * length: one card at the window's opening and one more at every quiet interval
+ * inside it, at this many bodies an add.
+ *
+ * One function for every window this module prices, because every cap here that
+ * counts the director counts it the same way. Two terms reading the same
+ * director through two different rules is the defect this replaces.
+ *
+ * It takes the card's bodies rather than a mob type, so the derivation still
+ * names no type at all: the mob table cannot be read from here, and a caller
+ * that wants one type's cards asks waves.ts for them and hands the answer in.
+ *
+ * The quiet interval's minimum is the divisor rather than its draw, because a
+ * drawn interval is at least the minimum and the shortest one is what a worst
+ * case prices (ADR 0056, the record's section 5 item 6).
+ */
+const directedInside = (seconds: number, bodiesAnAdd: number): number =>
+  bodiesAnAdd * (Math.floor(seconds / QUIET_INTERVAL_MINIMUM_SECONDS) + 1);
+
+/**
  * The most bodies the stage can hold alive at once, derived from the stage's
  * own waves rather than written down (ADR 0056).
  *
@@ -72,12 +92,12 @@ const TRANSIT_SECONDS =
  * beats that fall inside it together. A field nobody clears is the worst case,
  * and that is the case this prices.
  *
- * The director's own term is the largest single card and never a section's
- * purse (ADR 0056, the record's section 5 item 6). A purse is spent over a
- * section with a quiet interval between every add, so a purse-sized addend
- * would size the pool for a moment the quiet interval forbids; the largest card
- * is the most the director can put down at once, which is what a pool has to
- * hold.
+ * The director's own term is the cards a transit window holds and never a
+ * section's purse (ADR 0056, ruled 2026-09-14). A purse is what a section may
+ * spend over its whole length, so a purse-sized addend prices a moment the
+ * quiet interval forbids; what the window does hold is one card at its opening
+ * and one more at every quiet interval inside it, because bodies from several
+ * adds are in transit at once.
  *
  * The headroom a safety net needs is inside the derivation rather than bolted
  * onto it: the transit bound above prices every body at the slowest descent the
@@ -85,7 +105,8 @@ const TRANSIT_SECONDS =
  * reading one.
  */
 const peakLive = (): number =>
-  peakArrivals(TRANSIT_SECONDS) + largestCard(null);
+  peakArrivals(TRANSIT_SECONDS) +
+  directedInside(TRANSIT_SECONDS, largestCard(null));
 
 const MOB_CAP = peakLive();
 
@@ -120,11 +141,13 @@ const shotsInTheAir = (pattern: ShotPattern): number =>
  * The revenant is the only trash type that fires, because the mow body carries
  * no fire and the ghoul closes instead (ADR 0059), so the peak is a per-type
  * one over the same transit window MOB_CAP uses. The director can add revenants
- * too, and its term here is the largest revenant card for the same reason it is
- * the largest card above.
+ * too, and its term here is the revenant cards that window holds, on the same
+ * rule and through the same function: a pool counted per add where the one
+ * beside it counts per window would be the same defect wearing a second coat.
  */
 const REVENANT_FIRE_PEAK =
-  (peakArrivalsOf('revenant', TRANSIT_SECONDS) + largestCard('revenant')) *
+  (peakArrivalsOf('revenant', TRANSIT_SECONDS) +
+    directedInside(TRANSIT_SECONDS, largestCard('revenant'))) *
   shotsInTheAir(REVENANT_FIRE);
 
 // What one boss phase holds in the air at once, its emitters together.
@@ -200,9 +223,10 @@ const TREASURE_ALLOWANCE = 10;
  * one more at every minimum interval after it (ADR 0056, the record's section 5
  * item 7).
  */
-const DIRECTED_INSIDE_FRESHNESS =
-  largestCard(null) *
-  (Math.floor(FRESHNESS_SECONDS / QUIET_INTERVAL_MINIMUM_SECONDS) + 1);
+const DIRECTED_INSIDE_FRESHNESS = directedInside(
+  FRESHNESS_SECONDS,
+  largestCard(null),
+);
 
 const CORPSE_CAP =
   MOB_CAP +

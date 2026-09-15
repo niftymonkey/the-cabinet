@@ -301,15 +301,29 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     expect(TRANSIT_SECONDS).toBeGreaterThan(FRESHNESS_SECONDS);
   });
 
-  it("takes the mob cap's director term as the largest card and never a purse", () => {
-    // A purse is spent over a section with a quiet interval between every add,
-    // so a purse-sized addend would size the pool for a moment the quiet
-    // interval forbids. The largest card is the most the director can put down
-    // at once, which is what a pool has to hold.
-    expect(peakLive()).toBe(peakArrivals(TRANSIT_SECONDS) + largestCard(null));
+  it("prices the mob cap's director term as the cards a transit window holds, at the quiet interval's minimum", () => {
+    // Re-ruled 2026-09-14. What stood: the transit window as the span a cap is
+    // proved over, the quiet interval as what bounds the director's rate, and
+    // the largest card as the per-add unit. What it replaced: the largest
+    // single card, which was one add and therefore a term ordinary play can
+    // exceed, and a cap with such a term is not the proof ADR 0056 asks for.
+    // What the planned test could not have known: that the corpse cap would
+    // price the director per interval in the same file, so the two terms would
+    // have read the same director through two different rules.
+    //
+    // A purse is still not the addend. A purse is what a section may spend over
+    // its whole length, and a window holds only the adds its quiet intervals
+    // leave room for.
+    const perWindow =
+      largestCard(null) *
+      (Math.floor(TRANSIT_SECONDS / QUIET_INTERVAL_MINIMUM_SECONDS) + 1);
+    expect(peakLive()).toBe(peakArrivals(TRANSIT_SECONDS) + perWindow);
     expect(largestCard(null)).toBeGreaterThan(0);
-    expect(largestCard(null)).toBeLessThan(PROCESSION_PURSE);
-    expect(largestCard(null)).toBeLessThan(CROWD_PURSE);
+    // The teeth on both sides: it is more than one card, because a transit
+    // window holds several quiet intervals, and still well under a purse.
+    expect(perWindow).toBeGreaterThan(largestCard(null));
+    expect(perWindow).toBeLessThan(PROCESSION_PURSE);
+    expect(perWindow).toBeLessThan(CROWD_PURSE);
   });
 
   it('stands the mob-fire cap above the revenant peak plus the worst boss pattern', () => {
