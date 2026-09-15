@@ -396,6 +396,19 @@ const runScenario = (): ScenarioResult => {
  * position and size, the score, the reservoir, mobs at 5, shots at 0, corpses
  * at 1, skulls at 2, wisps at 0, kills at 2, the levels record and every one of
  * the eight stream cursors.
+ *
+ * Re-pinned on 2026-09-15 for the shove becoming a body travelling (round two,
+ * design record R1). The checksum moved from -489751710 and it is the only
+ * field that moved, and the cause is mechanical rather than anything the
+ * scenario does: every live body now carries an impulse of seven folded
+ * numbers, `WITNESS_VERSION` reads 8, and seven zeroes per live mob fold into
+ * the number. **No shove happens inside this window at all**, which is the
+ * thing to watch here: `levels.bell` is 0 for the whole scenario, so no toll
+ * fires, nothing calls a shove and every one of those seven fields is at its
+ * resting zero on every one of the 600 ticks. Everything else held: tick 600,
+ * the seed, the grave's position and size, the score, the reservoir, mobs at 5,
+ * shots at 0, corpses at 1, skulls at 2, wisps at 0, kills at 2, the levels
+ * record and every one of the eight stream cursors.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -427,7 +440,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -489751710,
+  checksum: -145039082,
 };
 
 export { runScenario, GOLDEN };

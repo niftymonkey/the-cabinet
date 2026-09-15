@@ -82,6 +82,35 @@ const checkMobsNoNaN = (state: RunState, faults: Fault[]): void => {
     checkSlotFinite(faults, 'mob', mob.id, 'hp', mob.hp);
     checkSlotFinite(faults, 'mob', mob.id, 'beat', mob.beat);
     checkSlotFinite(faults, 'mob', mob.id, 'fireIn', mob.fireIn);
+    // The shove a body is carrying: coverage of the fields shove.ts writes
+    // rather than a new check, because a non-finite step reaches the body's
+    // own position on the very next tick.
+    const impulse = mob.impulse;
+    checkSlotFinite(faults, 'mob', mob.id, 'impulse.stepX', impulse.stepX);
+    checkSlotFinite(faults, 'mob', mob.id, 'impulse.stepY', impulse.stepY);
+    checkSlotFinite(
+      faults,
+      'mob',
+      mob.id,
+      'impulse.ticksLeft',
+      impulse.ticksLeft,
+    );
+    checkSlotFinite(
+      faults,
+      'mob',
+      mob.id,
+      'impulse.travelled',
+      impulse.travelled,
+    );
+    checkSlotFinite(
+      faults,
+      'mob',
+      mob.id,
+      'impulse.shovesLeft',
+      impulse.shovesLeft,
+    );
+    checkSlotFinite(faults, 'mob', mob.id, 'impulse.nextIn', impulse.nextIn);
+    checkSlotFinite(faults, 'mob', mob.id, 'impulse.spacing', impulse.spacing);
   }
 };
 

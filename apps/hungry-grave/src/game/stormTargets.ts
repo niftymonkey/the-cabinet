@@ -23,9 +23,8 @@ import type { Boss } from './bosses/phases';
 import { bossHitbox, damageBoss } from './bosses/phases';
 import { MOB_CAP } from './caps';
 import type { SimEvent } from './events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { DamageSource, Mob } from './mobs';
-import { damageMob, hasEntered, mobHitbox, SPAWN_MARGIN } from './mobs';
+import { damageMob, hasEntered, mobHitbox, moveMobInsideBounds } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
 import type { SetPiece } from './stage/setPiece';
@@ -288,10 +287,6 @@ const damageStormTarget = (
   return [];
 };
 
-const clamp = (value: number, low: number, high: number): number => {
-  return Math.min(Math.max(value, low), high);
-};
-
 /**
  * Moves whatever carries this target, for a line that pushes. A no-op on a
  * target that is not pushable, so the caller never branches on what it hit and
@@ -314,8 +309,7 @@ const moveStormTarget = (
   // They agree today, and only the first of them is a decision: a target the
   // seam has no way to move is a target nothing can push either way.
   if (slot === null || !slot.pushable || slot.mob === null) return;
-  slot.mob.x = clamp(x, -SPAWN_MARGIN, FIELD_WIDTH + SPAWN_MARGIN);
-  slot.mob.y = clamp(y, -SPAWN_MARGIN, FIELD_HEIGHT + SPAWN_MARGIN);
+  moveMobInsideBounds(slot.mob, x, y);
   // The reading follows the move, the body with it, so a pass that moves a
   // target and then tests it again reads where it now is rather than where it
   // stood when the list was filled.

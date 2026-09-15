@@ -207,6 +207,30 @@ describe('the playback', () => {
     expect(result.readerWitnessVersion).toBe(WITNESS_VERSION);
   });
 
+  it('refuses a tape recorded at witness version seven, which round two moved off', () => {
+    // The same cost paid a second time, and stated the same way. Version 7 is
+    // the fold every tape recorded across the whole of step 4 carries, and what
+    // it lost is the impulse a shoved body travels under. A tape carrying it is
+    // refused by its version rather than diverging at a checkpoint, and the
+    // refusal names both numbers so a reader can see which fold it was made in.
+    const superseded = 7;
+    expect(WITNESS_VERSION).toBeGreaterThan(superseded);
+
+    const tape = recordARun();
+    const playback = createPlayback({
+      ...tape,
+      header: { ...tape.header, witnessVersion: superseded },
+    });
+
+    expect(playback.advanceTick()).toBe(false);
+    const result = playback.result();
+    expect(result.outcome).toBe('witnessVersionMismatch');
+    expect(result.firstDivergentCheckpoint).toBeNull();
+    expect(result.ticksReproduced).toBe(0);
+    expect(result.tapeWitnessVersion).toBe(superseded);
+    expect(result.readerWitnessVersion).toBe(WITNESS_VERSION);
+  });
+
   it('reaches the same verdict stepwise as when driven in one call', () => {
     // The replay screen paces reproduction across frames (#58), and pacing
     // must change nothing: both forms are one loop, so the verdicts match to

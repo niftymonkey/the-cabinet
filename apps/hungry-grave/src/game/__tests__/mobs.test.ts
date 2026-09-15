@@ -32,13 +32,16 @@ import {
 import { advanceWisps, launchWisps } from '../lines/wisps';
 import type { Mob } from '../mobs';
 import {
+  advanceMobs,
   ARRIVE_TICKS,
   damageMob,
   hasEntered,
   MOB_TYPE_NAMES,
   MOB_TYPES,
+  SPAWN_MARGIN,
   spawnMob,
 } from '../mobs';
+import { SHOVE_TICKS, startShove } from '../shove';
 import type { RunState } from '../run';
 import { createRun } from '../run';
 import { SECTIONS } from '../stage/stage';
@@ -892,5 +895,150 @@ describe('the absence of any stat step on the clock (ADR 0059)', () => {
         return `${type} ${row.hp} ${row.halfWidth} ${row.halfHeight}`;
       }),
     );
+  });
+});
+
+describe('a body travelling under a shove (design record R1, R2)', () => {
+  it('stands a shoved body down from its own walk, and walks it again on the tick after', () => {
+    // Every source that specifies a mechanism suspends the body's own motion
+    // rather than adding the shove on top, and adding on top has no source
+    // behind it (docs/research/push-feel-precedent.md section 1). So a body
+    // being carried away from the grave does not also fall while it flies.
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', 200, 300);
+    startShove(mob.impulse, 0, -1, 40, 1, 0);
+
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) {
+      const stood = mob.y;
+      advanceMobs(state);
+      expect(mob.y, `tick ${tick}`).toBeLessThan(stood);
+    }
+
+    const settled = mob.y;
+    advanceMobs(state);
+    expect(mob.y - settled).toBeCloseTo(MOB_TYPES.shambler.speed, 9);
+  });
+
+  it("leaves a shoved body's arriving beat exactly where it stood, so no shove borrows it", () => {
+    // ADR 0041 gives the beat one meaning, the formation's arriving motion held
+    // for a beat, and canTouchGrave reads it to decide whether a body may hurt
+    // the grave. A shove riding the beat would make a flying body harmless,
+    // which is a design change nobody ruled (design record R1).
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', 200, 300);
+    mob.beat = ARRIVE_TICKS;
+    startShove(mob.impulse, 0, -1, 40, 1, 0);
+
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) advanceMobs(state);
+    expect(mob.beat).toBe(ARRIVE_TICKS);
+
+    advanceMobs(state);
+    expect(mob.beat).toBe(ARRIVE_TICKS - 1);
+  });
+
+  it('stands a shoved body somewhere different on every tick, none of them a body-width from the last', () => {
+    // The whole of what this slice buys a player: a toll that used to jump a
+    // body 40 units in one frame, leaving an 18-unit hole between two drawn
+    // positions, now draws it at every place between. That is Mark's ruling 4
+    // of 2026-09-15 and it is arithmetic rather than a feeling.
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', 200, 400);
+    startShove(mob.impulse, 0, -1, 40, 1, 0);
+    const width = MOB_TYPES.shambler.halfWidth * 2;
+
+    const seen: number[] = [mob.y];
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) {
+      advanceMobs(state);
+      const last = seen.at(-1)!;
+      expect(mob.y, `tick ${tick}`).not.toBe(last);
+      expect(last - mob.y, `tick ${tick}`).toBeLessThan(width);
+      seen.push(mob.y);
+    }
+    expect(new Set(seen).size).toBe(SHOVE_TICKS + 1);
+  });
+
+  it('never carries a body outside the field widened by the spawn margin, however large the impulse', () => {
+    // The bound is where a body may stand, and the player's own weapon must
+    // never push one out of the box the invariant harness checks. A hundred
+    // thousand units of impulse is the honest form of "however large".
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', FIELD_WIDTH - 10, 300);
+    startShove(mob.impulse, 1, 0, 100000, 1, 0);
+
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) {
+      advanceMobs(state);
+      expect(mob.x, `tick ${tick}`).toBeLessThanOrEqual(
+        FIELD_WIDTH + SPAWN_MARGIN,
+      );
+    }
+    expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
+  });
+
+  it('reports one mobShoved for the whole impulse, carrying what the body really travelled', () => {
+    // One event per impulse and never one per tick: a per-tick event would
+    // multiply the repel reading's count by seven and change what the channel
+    // means without a READINGS_VERSION move.
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', 200, 400);
+    const stood = mob.y;
+    startShove(mob.impulse, 0, -1, 40, 1, 0);
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) {
+      events.push(...advanceMobs(state));
+    }
+
+    expect(types(events, 'mobShoved')).toEqual([
+      { type: 'mobShoved', id: mob.id, displacement: expect.closeTo(40, 9) },
+    ]);
+    expect(stood - mob.y).toBeCloseTo(40, 9);
+  });
+
+  it('reports what a body was already carried when it is killed in flight', () => {
+    // The one-tick push reported its whole distance before anything could kill
+    // the body, so nothing was ever lost. A shove that takes ticks can be
+    // interrupted by a kill, and what the ring really pushed has to reach the
+    // repel reading anyway or the channel quietly under-reports itself.
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', 200, 400);
+    startShove(mob.impulse, 0, -1, 40, 1, 0);
+    advanceMobs(state);
+    advanceMobs(state);
+
+    const events = damageMob(state, mob, MOB_TYPES.shambler.hp, 'bell');
+    const shoves = types(events, 'mobShoved');
+    expect(shoves).toHaveLength(1);
+    expect(shoves[0]).toEqual({
+      type: 'mobShoved',
+      id: mob.id,
+      displacement: expect.closeTo(10 + 10 * (6 / 7), 9),
+    });
+  });
+
+  it('reports nothing for a body killed on the tick the shove landed on it', () => {
+    // It never travelled, so there is nothing to report: a body the toll kills
+    // where it stands is not a body the toll pushed.
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', 200, 400);
+    startShove(mob.impulse, 0, -1, 40, 1, 0);
+
+    const events = damageMob(state, mob, MOB_TYPES.shambler.hp, 'bell');
+    expect(types(events, 'mobShoved')).toEqual([]);
+  });
+
+  it('reports nothing for a shove the bounds refused entirely', () => {
+    // A zero-distance shove would report a push that never happened, which is
+    // the rule the one-tick push already kept.
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', FIELD_WIDTH + SPAWN_MARGIN, 300);
+    startShove(mob.impulse, 1, 0, 40, 1, 0);
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) {
+      events.push(...advanceMobs(state));
+    }
+
+    expect(types(events, 'mobShoved')).toEqual([]);
+    expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
   });
 });

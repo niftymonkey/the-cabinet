@@ -10,6 +10,7 @@ import { WEAPON_LINES } from './lines/roster';
 import type { CorpseTier, MobOrigin } from './mobs';
 import type { StreamName } from './rng';
 import type { LineState, RunEnding, RunState } from './run';
+import type { Impulse } from './shove';
 import type { BossKind } from './stage/waves';
 import type { SetPiece } from './stage/setPiece';
 import type { StageState } from './stage/stage';
@@ -71,8 +72,39 @@ const STREAM_ORDER: readonly StreamName[] = [
  * every run that reaches either moment, and the version move in this same
  * commit refuses every tape that could have noticed before a checkpoint is ever
  * compared.
+ *
+ * **7 to 8, and these are the seven fields the move declares.** They are the
+ * one impulse a body carries (shove.ts), and every one of them is added by the
+ * same commit that stamps the version, for the reason above. A shove is written
+ * by the rules and rebuilt by a replay, so none of them is excluded: a body
+ * three ticks into a forty-unit shove is in a state nothing else on the run
+ * shows, and a replay that folded only its position would call two different
+ * runs the same one on the tick the shove ends.
+ *
+ * - `mobs[].impulse.stepX` and `mobs[].impulse.stepY`, the travel the first
+ *   tick of the current shove owes. They are what the remaining ticks are
+ *   computed from, so a divergence in either is a divergence in every tick
+ *   still to come.
+ * - `mobs[].impulse.ticksLeft`, how much of the shove is left. It decides
+ *   whether the body walks at all this tick, which is the third ruling of the
+ *   design record, so it is a rule and not only a clock.
+ * - `mobs[].impulse.travelled`, what the body has really been carried. It is
+ *   what the one mobShoved event reports when the impulse is spent, and the
+ *   bounds can refuse part of a step, so it cannot be derived from the impulse
+ *   alone.
+ * - `mobs[].impulse.shovesLeft`, `mobs[].impulse.nextIn` and
+ *   `mobs[].impulse.spacing`, the wave structure. The bell passes one shove and
+ *   no spacing; the belch passes three ten ticks apart (design record R3), and
+ *   they are declared here rather than the day that caller is written, because
+ *   a field arriving later would change what every tape recorded in between
+ *   folded, which is exactly what `mobs[].from` was declared early to avoid.
+ *
+ * **What this move costs, again stated rather than discovered.** Every tape
+ * recorded before this commit is refused by its version and not one of them
+ * replays at this tip, which is the fourth time step 4 has made saved tapes a
+ * dead baseline. It is taken eyes open on the design record's ruling R1.
  */
-const WITNESS_VERSION = 7;
+const WITNESS_VERSION = 8;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -170,6 +202,19 @@ const foldGrave = (checksum: number, grave: Grave): number => {
   return fold(next, grave.invulnerable);
 };
 
+/**
+ * The shove one body is carrying (shove.ts). It appends after the body's own
+ * fields rather than sitting beside the velocity it is not, because a widening
+ * appends and never reshuffles what is already in place, and because the shove
+ * is a second motion rather than a change to the first.
+ */
+const foldImpulse = (checksum: number, impulse: Impulse): number => {
+  let next = fold(fold(checksum, impulse.stepX), impulse.stepY);
+  next = fold(fold(next, impulse.ticksLeft), impulse.travelled);
+  next = fold(fold(next, impulse.shovesLeft), impulse.nextIn);
+  return fold(next, impulse.spacing);
+};
+
 const foldMobs = (checksum: number, run: RunState): number => {
   let next = checksum;
   for (const mob of run.mobs) {
@@ -178,6 +223,7 @@ const foldMobs = (checksum: number, run: RunState): number => {
     next = fold(fold(fold(next, mob.hp), mob.beat), mob.fireIn);
     next = fold(fold(next, boolCode(mob.armed)), boolCode(mob.carries));
     next = fold(next, MOB_ORIGIN_CODES[mob.from]);
+    next = foldImpulse(next, mob.impulse);
   }
   return next;
 };

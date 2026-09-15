@@ -345,6 +345,41 @@ const ENTITY_CASES: readonly FieldCase[] = [
     restore: (run) => void (slot0(run.mobs).from = 'standingWave'),
   },
   {
+    path: 'mobs[].impulse.stepX',
+    move: (run) => void (slot0(run.mobs).impulse.stepX += 1e-6),
+    restore: (run) => void (slot0(run.mobs).impulse.stepX -= 1e-6),
+  },
+  {
+    path: 'mobs[].impulse.stepY',
+    move: (run) => void (slot0(run.mobs).impulse.stepY += 1e-6),
+    restore: (run) => void (slot0(run.mobs).impulse.stepY -= 1e-6),
+  },
+  {
+    path: 'mobs[].impulse.ticksLeft',
+    move: (run) => void (slot0(run.mobs).impulse.ticksLeft -= 1),
+    restore: (run) => void (slot0(run.mobs).impulse.ticksLeft += 1),
+  },
+  {
+    path: 'mobs[].impulse.travelled',
+    move: (run) => void (slot0(run.mobs).impulse.travelled += 1e-6),
+    restore: (run) => void (slot0(run.mobs).impulse.travelled -= 1e-6),
+  },
+  {
+    path: 'mobs[].impulse.shovesLeft',
+    move: (run) => void (slot0(run.mobs).impulse.shovesLeft -= 1),
+    restore: (run) => void (slot0(run.mobs).impulse.shovesLeft += 1),
+  },
+  {
+    path: 'mobs[].impulse.nextIn',
+    move: (run) => void (slot0(run.mobs).impulse.nextIn -= 1),
+    restore: (run) => void (slot0(run.mobs).impulse.nextIn += 1),
+  },
+  {
+    path: 'mobs[].impulse.spacing',
+    move: (run) => void (slot0(run.mobs).impulse.spacing -= 1),
+    restore: (run) => void (slot0(run.mobs).impulse.spacing += 1),
+  },
+  {
     path: 'mobFire[].x',
     move: (run) => void (slot0(run.mobFire).x += 1e-6),
     restore: (run) => void (slot0(run.mobFire).x -= 1e-6),
@@ -764,6 +799,13 @@ const FOLDED: readonly string[] = [
   'mobs[].armed',
   'mobs[].carries',
   'mobs[].from',
+  'mobs[].impulse.stepX',
+  'mobs[].impulse.stepY',
+  'mobs[].impulse.ticksLeft',
+  'mobs[].impulse.travelled',
+  'mobs[].impulse.shovesLeft',
+  'mobs[].impulse.nextIn',
+  'mobs[].impulse.spacing',
   'mobFire[].x',
   'mobFire[].y',
   'mobFire[].vx',
@@ -1280,10 +1322,11 @@ describe("the harness's own stream stays outside the run (ADR 0019)", () => {
   it('leaves the witness version where the sim put it, which the harness must not move', () => {
     // Hand-forward (f) pins it: the whole harness is built outside RunState, so
     // no version move is ever the hand's. This is what says it was not, on a
-    // branch that added a stream to the project. The sim moved it to 7 for the
-    // director's own stream and the rest of the fold this step widened, and the
-    // three names above are the run's rather than the hand's.
-    expect(WITNESS_VERSION).toBe(7);
+    // branch that added a stream to the project. The sim moved it to 8 for the
+    // impulse a shoved body carries, and to 7 before that for the director's own
+    // stream and the rest of the fold that step widened; the three names above
+    // are the run's rather than the hand's.
+    expect(WITNESS_VERSION).toBe(8);
     expect(Object.keys(createRun(0).streams)).not.toContain(HAND_STREAM);
   });
 });

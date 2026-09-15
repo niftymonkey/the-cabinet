@@ -885,6 +885,55 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
+    path: 'mobs[].impulse.stepX',
+    poison: (run) => {
+      slot0(run.mobs).impulse.stepX = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.stepY',
+    poison: (run) => {
+      slot0(run.mobs).impulse.stepY = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.ticksLeft',
+    poison: (run) => {
+      slot0(run.mobs).impulse.ticksLeft = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.travelled',
+    poison: (run) => {
+      slot0(run.mobs).impulse.travelled = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.shovesLeft',
+    poison: (run) => {
+      slot0(run.mobs).impulse.shovesLeft = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.nextIn',
+    poison: (run) => {
+      slot0(run.mobs).impulse.nextIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.spacing',
+    poison: (run) => {
+      slot0(run.mobs).impulse.spacing = NaN;
+      return run;
+    },
+  },
+  {
     path: 'mobFire[].x',
     poison: (run) => {
       slot0(run.mobFire).x = NaN;

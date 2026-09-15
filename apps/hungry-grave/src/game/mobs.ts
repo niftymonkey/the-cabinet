@@ -19,6 +19,15 @@ import {
 } from './mobFire';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
+import type { Impulse } from './shove';
+import {
+  advanceShove,
+  blankImpulse,
+  clearImpulse,
+  impulseSpent,
+  shoveInFlight,
+  takeShoveTravel,
+} from './shove';
 import type { SpawnOrder } from './stage/formations';
 import { MAX_ENTRY_DEPTH } from './stage/formations';
 import { BASE_SPEED, SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from './tuning';
@@ -226,6 +235,13 @@ interface Mob {
    * cannot change once it is standing there.
    */
   from: MobOrigin;
+  /**
+   * The shove this body is carrying, if one landed on it. It sits beside the
+   * body's own motion rather than inside it, because the shove replaces the
+   * walk for its ticks and a body flying is still a body whose own rule is
+   * waiting (shove.ts, design record R1).
+   */
+  impulse: Impulse;
 }
 
 const blankMob = (): Mob => {
@@ -244,6 +260,7 @@ const blankMob = (): Mob => {
     carries: false,
     appearedInside: false,
     from: 'wave',
+    impulse: blankImpulse(),
   };
 };
 
@@ -311,6 +328,9 @@ const spawnMob = (
   mob.armed = isArmed(row.fire.armedShare, order.index);
   mob.carries = carries;
   mob.from = from;
+  // The slot may be one a shoved body died in, and an inherited impulse would
+  // carry a new body away on a push that never reached it.
+  clearImpulse(mob.impulse);
   mob.fireIn = mob.armed ? ARRIVE_TICKS + firstShotOffset(state, row.fire) : 0;
   return mob;
 };
@@ -356,8 +376,76 @@ const fall = (mob: Mob): void => {
   mob.vy = row.speed;
 };
 
-// One mob's motion for this tick: the arriving beat first, then its own rule.
+const clamp = (value: number, low: number, high: number): number => {
+  return Math.min(Math.max(value, low), high);
+};
+
+/**
+ * Puts a body at a place, held inside the box a body may stand in: the field
+ * widened by the spawn margin, which is where a formation places one and the
+ * furthest anything may carry one.
+ *
+ * It is the one bound and it lives here because this module owns SPAWN_MARGIN.
+ * Both things that carry a body somewhere it did not walk read it: the storm's
+ * push seam (stormTargets.ts) and the shove's own travel below. A push is never
+ * what takes something out of the world, so the harness never fires on a legal
+ * move by the player's own weapon.
+ */
+const moveMobInsideBounds = (mob: Mob, x: number, y: number): void => {
+  mob.x = clamp(x, -SPAWN_MARGIN, FIELD_WIDTH + SPAWN_MARGIN);
+  mob.y = clamp(y, -SPAWN_MARGIN, FIELD_HEIGHT + SPAWN_MARGIN);
+};
+
+/**
+ * The one report an impulse makes: how far the body it was carrying really
+ * went. It is taken when the impulse is spent and when the body stops carrying
+ * it by dying, so nothing the storm actually pushed goes unreported.
+ *
+ * A body that covered nothing reports nothing, whether the bound refused the
+ * whole move or the body was killed on the tick the shove landed on it. A shove
+ * that bought no distance would otherwise report a push that never happened.
+ */
+const reportShoveTravel = (mob: Mob): SimEvent[] => {
+  const displacement = takeShoveTravel(mob.impulse);
+  if (displacement === 0) return [];
+  return [{ type: 'mobShoved', id: mob.id, displacement }];
+};
+
+/**
+ * One tick of the shove a body is carrying: the travel it owes, applied and
+ * measured, and the report once the impulse is spent.
+ *
+ * What is recorded is the distance the body really covered rather than the
+ * distance the impulse asked for, because the bound above can refuse part of a
+ * step and a repel reading may only sum what actually happened.
+ */
+const travelShove = (mob: Mob): SimEvent[] => {
+  const impulse = mob.impulse;
+  if (impulseSpent(impulse)) return [];
+  const step = advanceShove(impulse);
+  if (step !== null) {
+    const fromX = mob.x;
+    const fromY = mob.y;
+    moveMobInsideBounds(mob, mob.x + step.x, mob.y + step.y);
+    const movedX = mob.x - fromX;
+    const movedY = mob.y - fromY;
+    impulse.travelled += Math.sqrt(movedX * movedX + movedY * movedY);
+  }
+  if (!impulseSpent(impulse)) return [];
+  return reportShoveTravel(mob);
+};
+
+/**
+ * One mob's motion for this tick: the arriving beat first, then its own rule.
+ *
+ * A body a shove is carrying stands its own walk down for those ticks and picks
+ * it up on the tick after, which is what every source that specifies a
+ * mechanism does (design record R1). Its arriving beat stands still with it:
+ * the shove never writes the beat, because ADR 0041 gives the beat one meaning
+ * and canTouchGrave reads it.
+ */
 const moveMob = (mob: Mob, grave: Grave): void => {
+  if (shoveInFlight(mob.impulse)) return;
   if (hasEntered(mob)) {
     if (mob.beat > 0) {
       mob.beat -= 1;
@@ -405,7 +493,12 @@ const advanceMobs = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
+    // The walk reads the impulse and stands down for a body still flying, and
+    // the shove travels after it, so the last tick of a shove is never also a
+    // tick of walking. No line owns either of them by here: a shove that has
+    // landed is the body's own motion.
     moveMob(mob, state.grave);
+    events.push(...travelShove(mob));
   }
   advanceShots(state);
   for (const mob of state.mobs) {
@@ -442,6 +535,9 @@ const damageMob = (
   ];
   if (mob.hp > 0) return events;
   mob.alive = false;
+  // A body killed while a shove was still carrying it stops carrying it here,
+  // so what it had already been pushed is reported rather than lost with it.
+  events.push(...reportShoveTravel(mob));
   events.push({
     type: 'mobKilled',
     id: mob.id,
@@ -480,6 +576,9 @@ const cullMobs = (state: RunState): SimEvent[] => {
       mob.x > FIELD_WIDTH + SPAWN_MARGIN;
     if (!gone) continue;
     mob.alive = false;
+    // The same reason as the kill path: a body leaving the field mid-shove was
+    // pushed as far as it got, and the reading sums what happened.
+    events.push(...reportShoveTravel(mob));
     if (mob.carries) {
       events.push({
         type: 'carrierLost',
@@ -499,6 +598,7 @@ export {
   canTouchGrave,
   mobTellLit,
   spawnMob,
+  moveMobInsideBounds,
   advanceMobs,
   damageMob,
   cullMobs,
