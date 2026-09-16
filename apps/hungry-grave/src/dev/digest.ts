@@ -468,6 +468,22 @@ const runScenario = (): ScenarioResult => {
  * the grave's position and size, the score, the reservoir, mobs at 5, shots at
  * 0, corpses at 1, skulls at 2, wisps at 0, kills at 2, the `drawn` record, the
  * levels record and every one of the eight stream cursors.
+ *
+ * Re-pinned on 2026-09-16 for a kill paying score (ADR 0002 as amended on
+ * Mark's ruling of the same day, design record R4, #99). **Two fields moved and
+ * this is the first re-pin in six where the scenario's own play is the cause
+ * rather than a mechanical widening.** `score` moved from 0 to 200, which is the
+ * scenario's two scripted kills at ticks 240 and 540 paying their own rows: both
+ * are shamblers, the shambler's row pays one `TRASH_KILL_SCORE`, and two of them
+ * is 200. The checksum moved from `-1110848414` with it, because `run.score` has
+ * been folded since long before this. **`kills` holds at 2**, which is the thing
+ * to watch beside the score: nothing new dies here, the same two deaths now pay.
+ * The overflow input is untouched and pays nothing in this window, because the
+ * grave ends at 24.10125 against a ceiling of 67.5 and never reaches it.
+ * Everything else held against the pin above: tick 600, the seed, the grave's
+ * position and size, the reservoir, mobs at 5, shots at 0, corpses at 1, skulls
+ * at 2, wisps at 0, the `drawn` record, the levels record and every one of the
+ * eight stream cursors.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -475,7 +491,7 @@ const GOLDEN: Digest = {
   graveX: 365.625,
   graveY: 318.875,
   size: 24.10125,
-  score: 0,
+  score: 200,
   reservoir: 0.10125,
   mobs: 5,
   shots: 0,
@@ -499,7 +515,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -1110848414,
+  checksum: -2049717150,
 };
 
 export { runScenario, GOLDEN };

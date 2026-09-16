@@ -72,6 +72,21 @@ const LADDER_LEVEL = 2;
  */
 const SCORE_BROUGHT_TO_THE_FIGHT = 1200;
 
+/**
+ * The score this hand earns inside the fight before the first floor hit lands,
+ * measured on 2026-09-16 when a kill began paying score (#99, design record
+ * R4).
+ *
+ * It exists because the rung bleeds whole, so what the bleed reports is
+ * everything the score held at that moment, and the score is no longer only
+ * what was handed to the run above. Three mow bodies fall to this build in the
+ * window between the phase starting and the grave reaching the floor. It is a
+ * fact about this policy on this stage in the same way LADDER_LEVEL is, and
+ * what the assertion rests on is still that the first rung takes the whole of
+ * whatever it found.
+ */
+const SCORE_EARNED_INSIDE_THE_FIGHT = 300;
+
 /** The section the stage authors this boss's fight in. */
 function sectionOf(boss: BossKind): number {
   return SECTIONS.findIndex((section) => section.boss === boss);
@@ -305,6 +320,10 @@ describe("the grave's ending (ADR 0003)", () => {
     onItsLastPhase(fight.state);
     fight.state.score = SCORE_BROUGHT_TO_THE_FIGHT;
     const rungs: SimEvent[] = [];
+    // The score on the tick the rung bled, because after this change the score
+    // goes on rising from kills and the end of the run can no longer say what
+    // the bleed left behind.
+    let leftByTheBleed: number | null = null;
     let caused: SimEvent[] = [];
     for (let tick = 0; tick < FIGHT_TICKS; tick++) {
       // The tick before's events, which is what a policy is handed by the
@@ -319,6 +338,9 @@ describe("the grave's ending (ADR 0003)", () => {
         ) {
           rungs.push(event);
         }
+        if (event.type === 'scoreBled' && leftByTheBleed === null) {
+          leftByTheBleed = fight.state.score;
+        }
       }
       if (fight.state.ending !== null) break;
     }
@@ -330,8 +352,8 @@ describe("the grave's ending (ADR 0003)", () => {
     expect(order[0]).toBe('scoreBled');
     expect(
       requireDefined(only(rungs, 'scoreBled')[0], 'no scoreBled rung').amount,
-    ).toBe(SCORE_BROUGHT_TO_THE_FIGHT);
-    expect(fight.state.score).toBe(0);
+    ).toBe(SCORE_BROUGHT_TO_THE_FIGHT + SCORE_EARNED_INSIDE_THE_FIGHT);
+    expect(leftByTheBleed).toBe(0);
     // Then the levels, then the seal, and the seal is the last thing that
     // happens because there is nothing left to bleed.
     expect(order.indexOf('weaponStripped')).toBeGreaterThan(

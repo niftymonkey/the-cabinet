@@ -30,7 +30,12 @@ import {
 } from './shove';
 import type { SpawnOrder } from './stage/formations';
 import { MAX_ENTRY_DEPTH } from './stage/formations';
-import { BASE_SPEED, SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from './tuning';
+import {
+  BASE_SPEED,
+  SCROLL_SPEED,
+  TRASH_CORPSE_PAYOUT,
+  TRASH_KILL_SCORE,
+} from './tuning';
 
 type MobType = 'shambler' | 'revenant' | 'ghoul' | 'cairn';
 
@@ -76,6 +81,8 @@ interface MobRow {
   readonly hp: number;
   readonly corpsePayout: number;
   readonly corpseTier: CorpseTier;
+  // What killing this body pays into the score (design record R4).
+  readonly scorePayout: number;
   // The type's own speed in field units per tick. The scroll is added separately.
   readonly speed: number;
   readonly motion: MobMotion;
@@ -97,6 +104,14 @@ interface MobRow {
  * two tolls at the bell's far edge and two Territory pulses. 8 is the smallest
  * health that makes the skull exact rather than rounded, so no damage row has
  * to become a float, and the other two rows are whole skull counts against it.
+ *
+ * What a kill pays into the score is the whole number of mow bodies the body's
+ * health is worth, floored so no row pays more than it cost to take down: the
+ * revenant's 64 is eight of the shambler's 8, and the ghoul's 20 is two with
+ * the half discarded. The cairn is the one row that does not follow it, for the
+ * same reason its corpse payout does not, and its own entry says so. Every
+ * figure is a first pass against TRASH_KILL_SCORE, and the score a whole run
+ * ends on is what the tuning step reads them against.
  */
 const MOB_TYPES = {
   shambler: {
@@ -107,6 +122,7 @@ const MOB_TYPES = {
     hp: 8,
     corpsePayout: TRASH_CORPSE_PAYOUT,
     corpseTier: 'trash',
+    scorePayout: TRASH_KILL_SCORE,
     speed: 0.5 * SCROLL_SPEED,
     motion: 'falls',
     // The mow body carries no fire at all (ADR 0059). Ten times the shamblers
@@ -121,6 +137,7 @@ const MOB_TYPES = {
     hp: 64,
     corpsePayout: 2 * TRASH_CORPSE_PAYOUT,
     corpseTier: 'rich',
+    scorePayout: 8 * TRASH_KILL_SCORE,
     speed: 0.35 * SCROLL_SPEED,
     motion: 'falls',
     fire: {
@@ -140,6 +157,7 @@ const MOB_TYPES = {
     hp: 20,
     corpsePayout: TRASH_CORPSE_PAYOUT,
     corpseTier: 'trash',
+    scorePayout: 2 * TRASH_KILL_SCORE,
     // A real fraction of the grave's own speed, because ADR 0016 bounds this
     // type by its turn rate rather than by a speed cap, and that is only a
     // meaningful safety valve if the speed is meaningful.
@@ -207,6 +225,17 @@ const MOB_TYPES = {
      */
     corpsePayout: TRASH_CORPSE_PAYOUT,
     corpseTier: 'trash',
+    /**
+     * The mow body's score too, and the one row that does not follow the table
+     * header's health rule.
+     *
+     * At 2206 health the rule would make this the best-paying body in the game
+     * by a wide margin, so grinding the curtain down would be the play that
+     * scores, which is exactly what its corpse payout above is written to
+     * refuse and what ADR 0042 puts at the centre of this set piece. There is
+     * nothing in stone to kill for, so stone pays what the ordinary body pays.
+     */
+    scorePayout: TRASH_KILL_SCORE,
     // The mow body's own descent, so the curtain arrives on the beat the
     // Crowd's table already spaces its next wave against (stage/waves.ts).
     speed: 0.5 * SCROLL_SPEED,
@@ -661,6 +690,13 @@ const damageMob = (
     carried: mob.carries,
   });
   const row = MOB_TYPES[mob.type];
+  // A kill pays score from its own row, which is ADR 0002's surviving clause as
+  // Mark amended it on 2026-09-16: a kill pays, and a kill is never the whole of
+  // what does. It is paid here and not at the swallow, which is what keeps the
+  // two currencies clean (design record R4). The boss and the set piece's source
+  // die down their own paths and pay nothing yet; what they pay is ruled with
+  // the rest of R4's inputs and is not built ahead of that.
+  state.score += row.scorePayout;
   // The corpse the kill leaves takes the shove over and finishes the flight, so
   // a body caught by a press travels the whole of what the press threw whether
   // or not the storm kills it on the way (design record R10). That makes the

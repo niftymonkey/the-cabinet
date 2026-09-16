@@ -1010,24 +1010,24 @@ const STRIPS_A_RUNG: number[] = [];
 
 /**
  * The seeds whose ceiling run has a score to bleed when the grave reaches the
- * floor, which is three of the five.
+ * floor, which is now all five.
  *
- * It was every seed until the director spent (ADR 0047, ADR 0056), and it is
- * pinned as a set for exactly the reason STRIPS_A_RUNG is: which rung a run
- * reaches is a fact about this policy on this stage rather than about the
+ * It is pinned as a set for exactly the reason STRIPS_A_RUNG is: which rung a
+ * run reaches is a fact about this policy on this stage rather than about the
  * ladder, and ADR 0003's whole ladder in order is re-established in
  * src/__tests__/endings.test.ts on a run pinned above the birthright.
  *
- * What moved is the hand and not the ladder. A ceiling grave's score comes from
- * overflow, which it only pays while it is full, and the director puts a
- * handful of extra bodies in front of a policy that never aims: one to three
- * cards over a whole run, three to ten bodies, is enough to send this hand down
- * a different lane from the first minute. On 303 and 505 the grave is taken off
- * the ceiling before it has overflowed once, so it arrives at the floor with
- * nothing to bleed and runFloorLadder starts at the rung it can reach, which is
- * grave.ts's own rule and not a skipped step.
+ * Re-measured on 2026-09-16 for a kill paying score (#99, design record R4).
+ * What moved is where the score comes from, not the ladder and not the hand. It
+ * read [101, 202, 404] when overflow was the only thing in the simulation that
+ * wrote the score, and a ceiling grave only overflows while it is full: 303 and
+ * 505 were taken off the ceiling before they had overflowed once, so they
+ * arrived at the floor with nothing to bleed. A kill pays now, this policy kills
+ * the whole way down, and no run reaches the floor empty any more. That is R4's
+ * own claim about the first rung showing up in a measurement rather than in an
+ * argument.
  */
-const BLEEDS_SCORE: number[] = [101, 202, 404];
+const BLEEDS_SCORE: number[] = [...SEEDS];
 
 /**
  * The build the whole ladder is walked under, and the score it brings.

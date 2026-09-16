@@ -155,7 +155,51 @@
  * ever encoded into a tape at all, so a new event per shove costs no bytes.
  * `WITNESS_VERSION` moved to 10 in its own commit for the press the run now
  * carries, which is folded state and not a reading.
+ *
+ * Version 8: a kill pays score (#99, Mark's ruling of 2026-09-16 that the score
+ * is one number fed by several inputs, design record R4). **One existing
+ * reading changes meaning, which is this file's own rule for when the version
+ * moves.**
+ *
+ * `run.score` used to mean growth past the size ceiling alone, because overflow
+ * was the only thing in the whole simulation that wrote it. It now means the
+ * kills a run made plus that same overflow, from their own rows on the mob
+ * table. The name, the shape and the reduction are all unchanged and the number
+ * is a different quantity: a run that never reached the ceiling read exactly
+ * zero for its whole length before this and reads its whole kill tally after
+ * it. **So every batch recorded before this commit is incomparable with every
+ * batch recorded after it on that key**: subtracting one build's `run.score`
+ * from the other's would be arithmetic across a definition that changed
+ * underneath it, which is exactly the case version 3 was written to make loud.
+ * It is taken eyes open.
+ *
+ * **`tuning.damageTaken.scoreBled` moves with it, and it is the only other key
+ * that does.** It is denominated in score: it sums what the ladder's first rung
+ * took, so its definition is stated in terms of the quantity above and a
+ * version-7 figure and a version-8 one are sums of two different compositions.
+ * **`scoreBleeds` beside it does not move**, because it counts bleeds and a
+ * bleed is still a bleed. Neither does `weaponStrips`, `linesStripped`,
+ * `seals`, `totalHits` or `hits`.
+ *
+ * **What was checked and holds.** Every other declared reading in
+ * `batchReport.ts` and `compareRuns.ts` was read for the same exposure, and
+ * `run.score` and `scoreBled` are the only two denominated in score at all. The
+ * ladder's own rungs are also reachable in runs that never reached them before,
+ * because the first rung now holds something in every run rather than only in a
+ * run that overflowed, so `scoreBleeds`, `weaponStrips` and `linesStripped`
+ * read larger numbers without meaning anything new; a key that merely reads a
+ * different number never moves this. `MeasureReport.score` and
+ * `ReplayTallies.score` ride on `run.score` and are the same change under
+ * another name rather than a second one.
+ *
+ * The other two versions hold and each for its own reason. `FORMAT_VERSION`
+ * stays 4 because nothing new is recorded in a tape header and no sim event is
+ * ever encoded into a tape at all, so a kill paying costs no bytes; the fault
+ * identity the ladder's own invariant appends is append-only under ADR 0024 and
+ * moves no byte's meaning. `WITNESS_VERSION` moved to 11 in its own commit for
+ * the score rung the floor ladder now remembers, which is folded state and not
+ * a reading.
  */
-const READINGS_VERSION = 7;
+const READINGS_VERSION = 8;
 
 export { READINGS_VERSION };

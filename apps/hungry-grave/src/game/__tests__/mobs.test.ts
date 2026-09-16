@@ -54,8 +54,13 @@ import { resolveStorm } from '../storm';
 import {
   RESERVOIR_CAPACITY,
   SCROLL_SPEED,
+  SIZE_CEILING,
+  SIZE_FLOOR,
   TRASH_CORPSE_PAYOUT,
+  TRASH_KILL_SCORE,
 } from '../tuning';
+import { hitGrave } from '../grave';
+import { swallow } from '../swallow';
 
 /** A tick that only steers, which is every tick these tests are about. */
 function drift(x: number, y: number): TickCommand {
@@ -599,16 +604,103 @@ describe("a mob's death (ADR 0037)", () => {
   });
 });
 
+/** One body of a type, put on the field and killed outright. */
+function kill(
+  state: RunState,
+  type: 'shambler' | 'revenant' | 'ghoul',
+  x: number,
+): void {
+  spawnMob(state, type, order(x, 100), false, 'wave');
+  const body = only(state);
+  damageMob(state, body, body.hp, 'skullStream');
+}
+
 describe('what a kill pays into the score (design record R4, #99)', () => {
-  it.todo(
-    'every mob row carries a score payout, so a body without one is not a state the type permits',
-  );
-  it.todo(
-    "a kill pays score from its own row, and a run's score is what it killed plus what it overflowed",
-  );
-  it.todo(
-    'kills keep paying score while the rung is bled, and the floor hit after them strips a level rather than bleeding again',
-  );
+  it('every mob row carries a score payout, so a body without one is not a state the type permits', () => {
+    // The same property corpsePayout has: it is a field on the row rather than
+    // a table beside it, so a body with no score payout is a state the type
+    // refuses. Stated as a whole multiple of the mow body's own unit, because
+    // that relation is what the table is written to show.
+    for (const type of MOB_TYPE_NAMES) {
+      const paid = MOB_TYPES[type].scorePayout;
+      expect(`${type} pays ${paid}`).toBe(
+        `${type} pays ${Math.round(paid / TRASH_KILL_SCORE) * TRASH_KILL_SCORE}`,
+      );
+      expect(paid).toBeGreaterThanOrEqual(TRASH_KILL_SCORE);
+    }
+  });
+
+  it('pays the row of the body that died, so two types pay two different amounts', () => {
+    const state = quietRun();
+    spawnMob(state, 'shambler', order(100, 100), false, 'wave');
+    const shambler = only(state);
+    damageMob(state, shambler, shambler.hp, 'skullStream');
+    expect(state.score).toBe(MOB_TYPES.shambler.scorePayout);
+
+    spawnMob(state, 'revenant', order(300, 100), false, 'wave');
+    const revenant = only(state);
+    damageMob(state, revenant, revenant.hp, 'skullStream');
+    expect(state.score).toBe(
+      MOB_TYPES.shambler.scorePayout + MOB_TYPES.revenant.scorePayout,
+    );
+    // The rows differ, so the sum above could not have come from one figure
+    // used twice.
+    expect(MOB_TYPES.revenant.scorePayout).not.toBe(
+      MOB_TYPES.shambler.scorePayout,
+    );
+  });
+
+  it("a run's score is what it killed plus what it overflowed, which at this tip are the only two inputs built (ADR 0002 as amended, ADR 0003)", () => {
+    // Mark's ruling of 2026-09-16: score is one number fed by several inputs and
+    // a kill is the first of them to be built. The overflow keeps its own place
+    // beside it rather than being traded for it, which is the half this asserts
+    // cannot drift out.
+    const state = quietRun();
+    spawnMob(state, 'ghoul', order(100, 100), false, 'wave');
+    const ghoul = only(state);
+    damageMob(state, ghoul, ghoul.hp, 'skullStream');
+    const killed = MOB_TYPES.ghoul.scorePayout;
+    expect(state.score).toBe(killed);
+
+    state.grave.size = SIZE_CEILING;
+    swallow(state, {
+      id: 9001,
+      kind: 'corpse',
+      freshness: 1,
+      payout: TRASH_CORPSE_PAYOUT,
+    });
+
+    expect(state.score).toBeCloseTo(killed + TRASH_CORPSE_PAYOUT, 10);
+  });
+
+  it('keeps paying score while the rung is bled, and the floor hit after them strips a level rather than bleeding again (design record R4)', () => {
+    // The half of R4 that keeps the player from being punished twice: what the
+    // bled rung withholds is the cushion, never the number.
+    const state = quietRun();
+    for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
+    state.grave.size = SIZE_FLOOR;
+
+    // A kill first, so the first floor hit has something to bleed. This is the
+    // whole of what R4 is about: under overflow alone this run's score was zero.
+    kill(state, 'shambler', 100);
+    expect(state.score).toBe(MOB_TYPES.shambler.scorePayout);
+
+    const bled = hitGrave(state, 'contact');
+    expect(bled.map((event) => event.type)).toContain('scoreBled');
+    expect(state.score).toBe(0);
+
+    // The storm keeps killing while the rung is bled, and the score keeps
+    // rising, which is the half that keeps the player from being punished twice.
+    kill(state, 'shambler', 300);
+    expect(state.score).toBe(MOB_TYPES.shambler.scorePayout);
+
+    state.grave.invulnerable = 0;
+    const second = hitGrave(state, 'contact');
+
+    expect(second.map((event) => event.type)).toContain('weaponStripped');
+    expect(second.map((event) => event.type)).not.toContain('scoreBled');
+    expect(state.score).toBe(MOB_TYPES.shambler.scorePayout);
+  });
 });
 
 describe('a carrier is told apart from the mob it rides in (ADR 0002)', () => {

@@ -439,7 +439,27 @@ describe('the take (ADR 0034)', () => {
 });
 
 describe("an offer's vanished siblings (design record R4, #99)", () => {
-  it.todo('pay no score, because nothing died there');
+  it('pay no score, because nothing died there', () => {
+    // A kill pays score, and vanishSiblings is the one other place in the sim
+    // that clears `alive` on a body the player was looking at. Nothing died
+    // there: the two bodies the grave did not pass under are the offer being
+    // resolved, so the take pays the level it named and no score at all.
+    const state = quietRun();
+    const step = stepping(state);
+    openOffer(state, state.grave.x, state.grave.y);
+    expect(offerBodies(state)).toHaveLength(3);
+    const before = state.score;
+
+    const events = step(STILL);
+
+    const taken = events.find((event) => event.type === 'offerTaken')!;
+    expect([...taken.passed]).toHaveLength(2);
+    expect(state.corpses.filter((corpse) => corpse.alive)).toEqual([]);
+    // The grave is nowhere near the size ceiling, so the body it did swallow
+    // pays growth rather than overflow and the score has no other way to move.
+    expect(state.grave.size).toBeLessThan(SIZE_CEILING);
+    expect(state.score).toBe(before);
+  });
 });
 
 describe('exactly one offer at a time, and the bank (ADR 0034)', () => {

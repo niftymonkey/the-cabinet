@@ -125,6 +125,22 @@ const FEAST_PAYOUT = 300 * TRASH_CORPSE_PAYOUT;
 const RESERVOIR_CAPACITY = FEAST_PAYOUT;
 
 /**
+ * The unit of score: what killing one mow body pays. Every mob's score payout
+ * is stated as a multiple of this, exactly as every food payout is stated as a
+ * multiple of the trash corpse's.
+ *
+ * It is a first figure, and it is a figure rather than a derivation because
+ * nothing can measure what a kill should pay before kills pay anything. Score
+ * is one number fed by several inputs and the kill is only the first of them
+ * (ADR 0002 as amended 2026-09-16, design record `show-what-you-have.md` R4),
+ * so what this is read against is the score a whole run ends on, which is M6's
+ * reading and not anything available here. A round hundred for the commonest
+ * body is the genre's own convention, and it keeps the number legible beside
+ * the overflow's fractions, which the same readout has to carry.
+ */
+const TRASH_KILL_SCORE = 100;
+
+/**
  * Freshness scales a payout down to a floor and never to zero (ADR 0004).
  *
  * It sits beside the floor rather than in swallow.ts, because three payers now
@@ -151,6 +167,7 @@ export {
   INVULNERABLE_TICKS,
   CORPSES_TO_CEILING,
   TRASH_CORPSE_PAYOUT,
+  TRASH_KILL_SCORE,
   FEAST_PAYOUT,
   RESERVOIR_CAPACITY,
 };
