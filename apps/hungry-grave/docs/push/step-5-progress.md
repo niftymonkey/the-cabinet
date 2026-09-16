@@ -14,7 +14,7 @@ The record is `apps/hungry-grave/docs/design/show-what-you-have.md` and the prom
 | M2, the frame composed and the band reserved | `0c7f877ad1` | `feat(hungry-grave): the frame is composed across three regimes and the HUD's band is reserved (#72)` |
 | M3, the HUD carries the ladder and the score | `48383d4d68` | `feat(hungry-grave): the row carries the score and every rostered line's rungs as marks (#99)` |
 | M4, the loss is watched | `d463dc8252` | `feat(hungry-grave): the score is watched leaving and every line that paid says so (#99)` |
-| M5, the stripped rung falls | | |
+| M5, the stripped rung falls | `9aa6f83a6a` | `feat(hungry-grave): a stripped rung falls onto the field as a body the dive can catch (#99)` |
 | M6, the ladder's cost is measurable | | |
 
 Slice M1 carries two code commits, the fold and the rule, which is this step's one authorized departure from the contract's one-code-commit rule.
@@ -566,5 +566,169 @@ The mark's body drains from the top down: `fill.scale.y` is the share left and i
 **Two records and one research file were dirty in the shared worktree throughout.** `show-what-you-have.md`, `step-5-slice-prompts.md` and an untracked `docs/research/score-inputs-precedent.md`, all the orchestrator's in-flight work. **Nothing of them is in this slice's commit**, every path was staged by name, and the only cost was the four CodeRabbit findings above that the review took against them.
 
 ## 11. Slice M5: the stripped rung falls and the dive catches it (#99)
+
+Twenty-one files: six under `src/game`, three under `src/app`, and twelve test files. **`src/game/corpses.ts`, `grave.ts`, `swallow.ts`, `events.ts`, `offer.ts` and `witness.ts` are the whole of the sim's side**, and no module was created, deleted, merged or split.
+
+### The fourth kind, and why it is not a new pool
+
+`FoodKind` is `'corpse' | 'powerUp' | 'feast' | 'fallenRung'` and the body is a row on the existing corpse pool (record section 3.4, ADR 0055). **What that bought, checked rather than assumed**: the scroll (`step.ts` moves every live corpse by `SCROLL_SPEED`), the cull at the bottom edge by the body's own extent, the corpse cap and its refusal, the swallow path through `coveredFood` and `resolveSwallows`, and the renderer's own pooled slot. **Not one of those six sites was edited.** A new pool would have been six new implementations of rules that already exist.
+
+### The spread and the offset, both set against something, both first figures
+
+**The spacing is the offer's own, `OFFER_SPACING` 90, reused rather than restated.** `offer.ts` gains one exported seam, `spreadX(x, count, index)`, which is `groupCentre` plus the per-index offset the offer already computed inline; `standOffer` now calls it too, so there is one implementation of "side by side at the spacing, group shifted whole to stay on the field" rather than two. **What it is set against**: at 90 apart a grave at the size floor sits over one body's midpoint at a time, so a four-rung strip is a choice of which line to save rather than a sweep that returns the lot. Not retuned, and no measurement here argues it should move.
+
+**`FALLEN_RUNG_DROP` is `SIZE_FLOOR + POWER_UP_HALF_EXTENT + BASE_SPEED`, 36.5 field units, and it is a first figure.** Derived, not typed: a strip runs only at the size floor, so the grave's half-height there is exactly `SIZE_FLOOR` and the body's own is the treasure extent, which puts the bare touch at 32; the extra `BASE_SPEED` is one tick of the grave's own travel, so a grave already diving at full speed cannot reach a body on the tick after the fall either. **That is the transferable half of Sonic's no-recollect window as geometry rather than as a clock.** The tick-after case lands on an exact touch, and `overlap.ts`'s half-open convention is what makes a touch not a swallow; on any real tick the scroll has carried the body further away as well.
+
+**The group is centred on the grave's x and contained on x by shifting whole. There is no containment on y**, which is the record's own ruling and is the edge rule the batch below measures.
+
+### The roster walk, which changes no order today
+
+`strippableLines` walked `WEAPON_LINES` and now walks `state.roster` (R3, R6). **It changes no behaviour at this tip**, because `implementsLines` keeps a roster inside the pool and every run today is born with the whole pool in the pool's own order. It is the line a fifth weapon would break, and the test that holds it drives a roster of `['bell', 'skullStream', 'wisps']` and asserts the bodies stand in that order and not in the build's.
+
+### The restore, the cap, and the one call that was mine
+
+A swallowed fallen rung calls `catchRung` in `grave.ts`, which owns the ladder that took it. It gives the rung back to the line it came off and to no other, and `MAX_LEVEL` is never crossed. **The call that was mine rather than the record's: `rungCaught` fires on the catch and not on the restore**, so a rung caught onto a line that climbed back to its cap in the meantime still announces, with the unchanged level in the payload. The reason is that M6's catch count reads this event and nothing else, and a count that dropped the ones that paid nothing would measure the ladder rather than the dive. It is annotated in `grave.ts` and is one line to reverse.
+
+**A fallen rung swallowed with no line throws.** It is a value this sim wrote at the spawn, so a missing one is a bug rather than something to repair into another line's rung, which is `resolveOffer`'s own precedent for the same shape.
+
+### The two new events, and the two counters they stay out of
+
+`rungFell` carries the line and the point; `rungCaught` carries the line and the level after. **Neither reuses an existing type.** `powerUpSpawned` is the offer's and carries the body id the offer joins on; `weaponLeveled` is a rung bought, which `src/dev/replayTallies.ts`'s `levelUps` counts, and a restore counted there would have moved that reading's meaning with no version to say so.
+
+**`bodyIdIn` and `powerUpLedger` were checked and are unreached, and there is now a test that says so.** `bodyIdIn` scans for `powerUpSpawned` and its only caller is `standOffer`, which only ever sees `spawnPowerUp`'s events. `powerUpLedger` keys on `kind === 'powerUp'`, `powerUpSpawned`, `swallowed` with kind `powerUp`, and `corpseLost` with kind `powerUp`; a fallen rung is `fallenRung` at every one. The new test in `powerUpLedger.test.ts` walks a rung through spawn, swallow and loss and asserts every one of the ledger's five figures still reads zero.
+
+### Treasure moved onto the row, and one claim in the record that is false against the tree
+
+**The record's section 4 note says M5 widens `FieldRenderer`'s predicate "by kind rather than by a new flag". The slice prompt rules the opposite and is the later word**, so treasure is a property on the row: `Corpse.treasureBody`, carried through `Swallowable` and the `chimed` event. `FieldRenderer` reads `corpse.treasureBody` and `sound.ts` reads `event.treasureBody`, and **neither file now names a food kind at all**; a test asserts `sound.ts`'s source matches neither `powerUp` nor `fallenRung`, so a fifth kind costs that site no edit.
+
+**And the row is named `treasureBody` rather than `treasure`, because the glossary's Treasure and the two sites' predicate are not the same set in this tree.** `CONTEXT.md` makes a feast treasure, and a feast draws through `drawCorpse` in the corpses layer and chimes as a plain swallow, both pinned by tests that predate this slice. A flag called `treasure` reading false on a feast would be a name that lies, and setting it true would move a feast's drawing and its sound, which is not this slice's to widen. **The row is what wears the treasure body: the breath, the treasure layer, the treasure chime.** The gap is recorded here rather than closed.
+
+**`drawPowerUp` is renamed `drawTreasureBody`** for the same reason: it now draws a fallen rung too, and a function named for one of the two bodies it draws is the same lying name one level down. Nothing else in `foodSprite.ts` moved: the aspects stay apart, each icon still fills its box, and `drawPowerUpIcon` is untouched.
+
+### The icon, and the silhouette question answered in words
+
+The body wears its own line's icon at the power-up's extent, through `drawTreasureBody`, which is the vocabulary slice M3's HUD row already taught. **The rung and an offer's body share the treasure shape on purpose**, and a test pins the sharing rather than a separation, because telling those two apart is #122's.
+
+**Can you tell a fallen rung from a corpse, and one line's rung from another's, with the colour removed? Yes, on both counts, read off grayscale crops of the built app.** A four-rung strip photographed at the desktop viewport shows, left to right, a filled circle, a tall narrow hand, a pointed kite and a wide trapezoid, all at one brightness and all clearly one vocabulary; a corpse in the same crop is a small dim hexagon at roughly half the width and well below their value. **The rung against the corpse is a size and a brightness read before it is a shape read**, which is ADR 0014's own ordering working. Rung against offer is not claimed.
+
+### The witness: a new food code, and the field list does not move
+
+`FOOD_KIND_CODES` gains `fallenRung: 4`, appended rather than reusing any of the three, which is the map's own append-only rule. **`WITNESS_VERSION` stays at 11**, and `witness.ts`'s own rule is quoted: the version moves when the field list moves. **This slice declares no new folded field.** `foldCorpses` already folds `kind` and `line` and folds neither `decays` nor the new `treasureBody`, both of which are written once at the spawn from the kind the fold already carries, and the exclusion list in `witness.test.ts` now carries `corpses[].treasureBody` with that reason beside it. A new test folds one fixture as a power-up and the same fixture as a fallen rung, gets two different checksums, and asserts the corpse half of `FOLDED` is unchanged.
+
+### The freshness question, answered rather than assumed
+
+A fallen rung is spawned at freshness 1 and never decays, so `freshnessScale` never scales its payout and it always pays a whole `TRASH_CORPSE_PAYOUT`: **the catch is the same growth as the treasure beside it rather than a cheap dive.** For `tuning.freshness`, which is keyed by `FoodKind`, a fourth key arrives beside three unchanged ones and every one of its four maps is a `Partial<Record<FoodKind, number>>`, so nothing had to be filled in and no existing reading changed meaning. **`READINGS_VERSION` does not move**, which is `readingsVersion.ts`'s own rule: "Adding a brand-new reading beside unchanged ones does not bump it: every old reading still means what it meant." No existing reading was found whose meaning moves.
+
+### The batch, the floor-hit split, and the bot's take rate
+
+**Seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig, which is the set slice M1 measured.** Played through the harness's own path, `runPolicy` over `harnessPolicy` at `runTickBudget()`, with the two new events counted off the run.
+
+| Configuration | Seed | Ticks | Ending | Bleeds | Strips | Line-levels | Seals | Rungs fell | Rungs caught |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| steady-far | 900 | 19925 | sealed | 1 | 0 | 0 | 1 | 0 | 0 |
+| steady-far | 901 | 16721 | sealed | 1 | 0 | 0 | 1 | 0 | 0 |
+| steady-far | 902 | 20123 | sealed | 1 | 0 | 0 | 1 | 0 | 0 |
+| steady-far | 903 | 21938 | sealed | 1 | 1 | 2 | 1 | 2 | 0 |
+| steady-far | 904 | 38445 | victory | 1 | 0 | 0 | 0 | 0 | 0 |
+| steady-far | 905 | 19583 | sealed | 1 | 0 | 0 | 1 | 0 | 0 |
+| loose-far | 900 | 22208 | sealed | 1 | 0 | 0 | 1 | 0 | 0 |
+| loose-far | 901 | 22448 | sealed | 1 | 1 | 2 | 1 | 2 | 0 |
+| loose-far | 902 | 21326 | sealed | 1 | 1 | 1 | 1 | 1 | 0 |
+| loose-far | 903 | 22482 | sealed | 1 | 1 | 2 | 1 | 2 | 0 |
+| loose-far | 904 | 17172 | sealed | 1 | 0 | 0 | 1 | 0 | 0 |
+| loose-far | 905 | 42666 | victory | 2 | 1 | 3 | 0 | 3 | 0 |
+
+**Ten rungs fell across the twelve runs and the bot caught none of them. The take rate is zero of ten.** **The bot only dodges, so that number measures the policy and never a player**: the hand's wanted point is the live offer's nearest body, else the nearest food, else the starting mark (`harnessPolicy.ts`), and with 5 to 129 corpses lost per run the nearest food at the moment of a strip is very often something else entirely. **It is printed rather than declared, which is M6's.**
+
+**Half of the ten never reached the field at all, and that is the record's section 7 edge rule firing rather than anything new.** The grave's y at each of the five strips, with how many of that strip's bodies landed below the field's bottom edge:
+
+| Configuration | Seed | Tick | Grave y | Rungs | Below the field | Ticks left in the run |
+| --- | --- | --- | --- | --- | --- | --- |
+| steady-far | 903 | 21625 | 742.0 | 2 | 2 | 313 |
+| loose-far | 901 | 22420 | 741.8 | 2 | 2 | 28 |
+| loose-far | 902 | 21254 | 742.0 | 1 | 1 | 72 |
+| loose-far | 903 | 21523 | 666.1 | 2 | 0 | 959 |
+| loose-far | 905 | 30195 | 715.8 | 3 | 0 | 12471 |
+
+**Three of the five strips landed with the grave at its bottom clamp, 742.0 of 760 at the size floor, and every rung of those three was gone on the tick it fell.** That is Mark's edge rule and it is not repaired here. **What it says that the hypothetical did not**: a hand under fire at the floor retreats downfield, so the clamp is not a corner case for it, it is where the ladder usually finds it. **A human is the other half of the question and this number is not it.**
+
+**A zero take rate could have hidden a rung the pool can never hand back, so the recovery path is now pinned end to end rather than through `swallow()` alone.** `corpses.test.ts` stands a rung one extent below the grave, steers down through the real tick loop, and asserts the body goes, the line's level comes back and exactly one `rungCaught` fires. It passes, so the zero is the hand and not the path.
+
+### The conditioned tape, and the determinism a fallen rung has to survive
+
+**One tape, the ladder rig: seed 404 at 6000 ticks with every line pinned to 5**, recorded twice on the committed tree at `9aa6f83a6a` with a clean build identity. It measures to **`outcome: 'verified'`** at `readingsVersion` 8, **101 of 101 checkpoints verified and none unreachable**, and it carries the rule whole: 5 hits, one bleed of 5200, one strip of four line-levels, no seal, and every line ending at 4 rather than 5.
+
+**Four rungs fell at tick 2628 and every one of them landed on the field.** Their points are the derivation read back rather than restated: x at 132.8, 222.8, 312.8 and 402.8, exactly 90 apart and centred on the grave's own 267.8, in roster order; y at 642.2 against a grave at 605.7, which is the drop's 36.5 exactly. **They stand at four consecutive checkpoints, 2640, 2700, 2760 and 2820**, so this tape is a replay with fallen rungs on the field at a checkpoint and its verdict is the determinism claim.
+
+**The two recordings differ in two bytes and both of them are `recordedAt`.** 56437 bytes each, and decoding both says the same thing field by field: all 6000 commands identical, all 101 checkpoints identical, the trailer identical, the observations identical, and `recordedAt` the only header field that moved.
+
+**Seed 909 under `shaky-short` also holds at 5997 ticks, sealed, 56419 bytes, verified**, which is the tick count and the byte length slice M1 recorded for it. That seed never reaches a strip, which is why the ladder rig is the tape this slice leans on.
+
+### The rendered check, across three runs and two viewports
+
+`pnpm build` then `pnpm exec vite preview`, driven with `playwright-cli` against the built app at 393 by 660 and at 1440 by 900, opened at `?levels=3&size=18&seed=4242` so the grave starts at the size floor and every contact runs the ladder. **Zero console errors and seven warnings**, the same two families M2, M3 and M4 saw: the audio autoplay policy and headless Chromium's software renderer, neither from this slice.
+
+**Three runs, two of them on the same pooled screen.** Run one at the phone sealed at 2621 ticks; run two opened on the pooled screen and was played out; run three was played at the desktop after a resize.
+
+**A four-rung strip was photographed at both viewports.** At the phone, tick 2384: four amber bodies standing in one row below the grave, evenly spaced, in roster order, circle then hand then kite then trapezoid. At the desktop, tick 2460, the better frame: **two strips' worth on screen at once**, four bodies in a row just below the grave and the earlier strip's four further down the field, the scroll having carried them, with the HUD's four rows reading nearly empty above. **The bodies stand apart rather than stacked, which is the picture the spacing was reused for.**
+
+**What it could not see.** No catch was photographed: the driver runs at 4 to 6 FPS under SwiftShader and the window between a rung falling and the scroll taking it is about 180 ticks, and the bot is not driving. The catch is pinned at the seam and through the tick loop instead, and how the chase feels at sixty frames a second is Mark's own.
+
+### Craft values decided rather than asked, each with what it was set against
+
+- **`FALLEN_RUNG_DROP` 36.5**, above. A first figure, derived from the two extents plus one tick of the grave's travel, and open.
+- **The fallen rung's payout is `TRASH_CORPSE_PAYOUT` and its extent is `POWER_UP_HALF_EXTENT`**, both the offer body's own rows. Nothing swallowed is ever worthless (ADR 0002), and the catch box stays the treasure box because collecting treasure is never a precision test.
+- **`rungCaught` fires on the catch and not on the restore**, above.
+- **The strip is announced before the bodies**, so `weaponStripped` still reaches M4's transient first and a reader meets the loss before what is left of it.
+- **No palette entry was added**: the rung draws in `PALETTE.powerUp`, which the existing scan already covers.
+
+### Verification
+
+1. `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/`, then **`pnpm verify` green twice on the committed tree**.
+2. **The test-name diff: 2241 names in the baseline at this slice's own tip, 2272 now, 32 added and 1 removed.** The one removal is the sound test reworded from "chosen from the kind the event already carries" to "chosen from the row the event already carries", and it is in the 32 added.
+3. **Replay determinism with four fallen rungs standing at a checkpoint**, below.
+4. **A conditioned tape at the ladder rig, measured to `outcome: 'verified'`**, below.
+5. The batch, the floor-hit split and the take rate, above.
+6. The rendered check, above, with the silhouette question answered.
+7. The four constants, below.
+8. **Mark's own, blocking nothing**: whether he chases one, whether he ever decides not to, and whether picking one rung out of four lands as a choice.
+
+### What was expected to turn red and did not, each checked by running it
+
+`caps.test.ts`, `invariants.test.ts`, `measure.test.ts` and `harnessPolicy.test.ts`'s per-seed baselines are all green unchanged. **The reason is one fact**: a fallen rung only exists after a floor hit that strips, and not one of those four fixtures reaches one. `checkOneLiveOffer` filters on `kind !== 'powerUp'`, so a rung carrying a line trips nothing there. **`replayTallies.test.ts` does not exist in this tree**; the property the prompt asks it for, that `levelUps` does not count a restore, is pinned in `swallow.test.ts` as the absence of `weaponLeveled` on a catch, which is the whole of what `levelUps` reads.
+
+### What is left for a later slice, each with the slice named
+
+- **The catch count and the rungs recovered per strip as declared readings**, which is M6's. This slice printed both off a scratch script and declared nothing.
+- **The grave's y at each strip as a printed reading**, also M6's, and the table above is the first measurement of it.
+- **#81, bodies stacking on one spot**, which already names the rung body as a new caller and is not closed here.
+- **#122, telling a fallen rung from an offer's body**, which the shared treasure shape is deliberate about.
+
+### CodeRabbit, one iteration: 21 files reviewed, zero findings, nothing applied and nothing declined
+
+`coderabbit review --agent --uncommitted` over every path this slice touched, staged by name. It returned `review_completed` with `findings: 0` and listed all 21 files, so there was nothing to apply and nothing to decline. **Two changes landed after the review and both are named rather than hidden**: the end-to-end catch test in `corpses.test.ts` below, and dropping `FALLEN_RUNG_DROP` from `grave.ts`'s export block because nothing outside the module cites it, which is the cited-future rule.
+
+### The four constants and `GOLDEN`, all read off this slice's own tip
+
+`WITNESS_VERSION` **11** (`src/game/witness.ts`), `READINGS_VERSION` **8** (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` **4** (`src/tape/wireCodes.ts`), and `GOLDEN`'s checksum **`-2049717150`** with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` inside it (`src/dev/digest.ts`), every one of them read before the first edit and unchanged after the last.
+
+**`GOLDEN`'s at-most permit went unused, which is the expected outcome and not a miss.** `digest.test.ts` was green at every run of the suite. The cause is the one the record names: the scripted scenario ends with the grave at 24.10125 against a floor of 18, so `runFloorLadder` is never called in it and nothing in it can strip a rung. **`src/dev/digest.ts` is not in the commit.**
+
+**`WITNESS_VERSION` does not move and the rule that says so is `witness.ts`'s own**: the version moves when the fold's field list moves, and a new code inside a field the fold already carries is not a new folded field. `FOOD_KIND_CODES` gained `fallenRung: 4` and `FOLDED`'s corpse half is unchanged, both asserted.
+
+**`FORMAT_VERSION` 4 and `READINGS_VERSION` 8 are held.** Nothing here reaches the wire: no sim event is ever encoded into a tape and no header field moved. No existing reading changed meaning, and the one new key, `tuning.freshness`'s fourth, arrives beside three unchanged ones.
+
+### Claims found false against the tree, and what was followed instead
+
+**One, and it is the record's rather than the prompt's.** Section 4's notes say M5 widens `FieldRenderer`'s treasure predicate "by kind rather than by a new flag". The slice prompt, written later and folding both gates, rules that treasure becomes a property on the row. **The prompt's intent was followed** and the note above says what the row is called and why.
+
+**The prompt's expected-red list names `replayTallies.test.ts`, which does not exist in this tree.** `src/dev/replayTallies.ts` has no test file of its own; the property it is named for is pinned in `swallow.test.ts`.
+
+### Anomalies
+
+**The branch tip moved under the slice while it ran.** It opened on `437ded35ba`, slice M4's docs commit, and the orchestrator committed `d06dd74930`, slice M6's prompt, on top. Nothing in it touches `src/`, and this slice's work sat on the newer tip with no conflict.
+
+**None of the rest are this slice's.** The one worth writing down is not an anomaly but a measurement that argues against an eyes-open cost ADR 0055 records: the ADR says a body at the bottom of the field is something the base harness policy will always walk to, and the measured take rate across twelve runs is zero of ten. **The hand's rule is right, the outcome is not what the ADR expected**, and the reason is in the table above: three of the five strips dropped their rungs off the field entirely, and the other two left rungs the hand never reached while it was dodging. **It is filed for Mark's read and for M6's declaration, and nothing here acts on it.**
+
 
 ## 12. Slice M6: the ladder's cost is measurable (#99)
