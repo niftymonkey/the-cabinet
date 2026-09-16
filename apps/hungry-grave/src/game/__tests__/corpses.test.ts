@@ -20,12 +20,15 @@ import {
   spawnCorpse,
   spawnPowerUp,
   spawnFeast,
+  spawnFallenRung,
 } from '../corpses';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { Mob, MobType } from '../mobs';
 import { damageMob, MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../mobs';
+import { BELL_EXPAND_TICKS } from '../lines/bell';
+import { MAX_LEVEL } from '../lines/roster';
 import { openOffer } from '../offer';
 import type { RunState } from '../run';
 import { createRun } from '../run';
@@ -36,6 +39,7 @@ import { swallow } from '../swallow';
 import {
   FRESHNESS_PAYOUT_FLOOR,
   FRESHNESS_SECONDS,
+  RESERVOIR_CAPACITY,
   SCROLL_SPEED,
 } from '../tuning';
 
@@ -274,6 +278,8 @@ describe('what a corpse shows and what it hides (tracer plan section 4)', () => 
       kind: 'corpse',
       freshness: 0.5,
       payout: MOB_TYPES.revenant.corpsePayout,
+      treasureBody: false,
+      line: undefined,
     });
     // The id travels because the offer names the body that went in by id, and
     // an id is a value like every other field here. What must not travel is the
@@ -603,5 +609,164 @@ describe('a corpse a shove is carrying (design record R10)', () => {
       'powerUp',
     ]);
     for (const corpse of live) expect(corpse.impulse).toEqual(blankImpulse());
+  });
+});
+
+/**
+ * A rung the floor ladder took, on the field as a body the dive can catch
+ * (ADR 0055, decision 24, design record R6). It is a fourth kind on this pool,
+ * so what it inherits is as much the test as what it declares.
+ */
+describe('a fallen rung on the food pool (ADR 0055)', () => {
+  const rungOf = (state: RunState) => {
+    const body = state.corpses.find(
+      (corpse) => corpse.alive && corpse.kind === 'fallenRung',
+    );
+    if (body === undefined) throw new Error('no fallen rung');
+    return body;
+  };
+
+  it('sets decay off as its row and carries the line it came off, at the treasure extent', () => {
+    const state = quietRun();
+    spawnFallenRung(state, 200, 300, 'wisps');
+    const rung = rungOf(state);
+
+    expect(rung.kind).toBe('fallenRung');
+    expect(rung.freshness).toBe(1);
+    expect(rung.decays).toBe(false);
+    expect(rung.treasureBody).toBe(true);
+    expect(rung.line).toBe('wisps');
+    expect(rung.halfExtent).toBe(POWER_UP_HALF_EXTENT);
+  });
+
+  it('decays when its row says so, so non-decay is the default and not an impossibility', () => {
+    // ADR 0055 and decision 20 both leave decay as tuning data, so a later pass
+    // may turn the flag on without a record to re-rule. The flag is flipped on
+    // the spawned slot rather than passed in, because no caller wants it today.
+    const state = quietRun();
+    spawnFallenRung(state, 200, 300, 'bell');
+    const rung = rungOf(state);
+    rung.decays = true;
+
+    for (let tick = 0; tick < FRESHNESS_SECONDS * TICK_HZ; tick++) {
+      advanceCorpses(state);
+    }
+
+    expect(rung.freshness).toBe(0);
+    expect(rung.alive).toBe(false);
+  });
+
+  it('drifts at the scroll alone and nothing else carries it', () => {
+    // The scroll is already the corpse deadline and the power-up deadline both,
+    // and a second speed would be a second rule for a reader to hold.
+    const state = quietRun();
+    const step = stepping(state);
+    spawnFallenRung(state, 200, 300, 'bell');
+    const rung = rungOf(state);
+    const from = { x: rung.x, y: rung.y };
+
+    for (let tick = 0; tick < 30; tick++) step(STILL);
+
+    expect(rung.x).toBe(from.x);
+    expect(rung.y - from.y).toBeCloseTo(30 * SCROLL_SPEED, 9);
+  });
+
+  it('nobody takes stays on the field until the scroll carries it off, and is lost the way any body is', () => {
+    // Battle Garegga's own answer: a dropped power item is an ordinary field
+    // item on the ordinary clock, and nothing about a rung expires early.
+    const state = quietRun();
+    const step = stepping(state);
+    // Away from the grave's lane, so the run never dives under it by accident.
+    spawnFallenRung(state, 40, 20, 'bell');
+    const rung = rungOf(state);
+
+    const events: SimEvent[] = [];
+    const toTheEdge = Math.ceil(
+      (FIELD_HEIGHT + POWER_UP_HALF_EXTENT - rung.y) / SCROLL_SPEED,
+    );
+    for (let tick = 0; tick < toTheEdge; tick++) {
+      expect(rung.alive).toBe(true);
+      expect(rung.freshness).toBe(1);
+      events.push(...step(STILL));
+    }
+    events.push(...step(STILL));
+
+    expect(rung.alive).toBe(false);
+    expect(events.filter((event) => event.type === 'corpseExpired')).toEqual(
+      [],
+    );
+    const lost = events.filter((event) => event.type === 'corpseLost');
+    expect(lost).toHaveLength(1);
+    expect(lost[0]?.type === 'corpseLost' && lost[0].kind).toBe('fallenRung');
+  });
+
+  it('is not a storm target: no belch, no bell and no shove moves it', () => {
+    // The storm reaches mobs and never food (stormTargets.ts), and this stands
+    // a rung where the belch's burst and the toll's cones both cover it so the
+    // claim is taken against a live storm rather than against an empty field.
+    const state = quietRun();
+    const step = stepping(state);
+    state.reservoir = RESERVOIR_CAPACITY;
+    state.levels.bell = MAX_LEVEL;
+    state.lines.tollIn = 1;
+    // Inside the belch's burst and the toll's cones, and clear of the grave's
+    // own swallow box, so what the tick does to it is the storm's doing alone.
+    spawnFallenRung(state, state.grave.x, state.grave.y - 80, 'bell');
+    const rung = rungOf(state);
+    const from = { x: rung.x, y: rung.y };
+
+    // Long enough for the belch's whole press and for a toll to expand fully.
+    const ticks = BELL_EXPAND_TICKS + 2;
+    const events = [...step({ move: { x: 0, y: 0 }, belch: true })];
+    for (let tick = 1; tick < ticks; tick++) events.push(...step(STILL));
+
+    expect(events.map((event) => event.type)).toContain('belched');
+    expect(events.map((event) => event.type)).toContain('tolled');
+    expect(rung.x).toBe(from.x);
+    expect(rung.y - from.y).toBeCloseTo(ticks * SCROLL_SPEED, 9);
+    expect(rung.impulse.source).toBeNull();
+  });
+
+  it('is caught by an ordinary dive, through the tick loop the rendered game runs', () => {
+    // The recovery path end to end rather than through swallow() alone: the
+    // batch's measured take rate on these is zero (progress note section 11),
+    // so a rung the pool could never hand back would read exactly the same on
+    // a batch as a rung the hand simply never reached.
+    const state = quietRun();
+    const step = stepping(state);
+    state.levels.bell = 2;
+    spawnFallenRung(
+      state,
+      state.grave.x,
+      state.grave.y + state.grave.size + POWER_UP_HALF_EXTENT + 1,
+      'bell',
+    );
+    const rung = rungOf(state);
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < 20 && rung.alive; tick++) {
+      events.push(...step(drift(0, 1)));
+    }
+
+    expect(rung.alive).toBe(false);
+    expect(state.levels.bell).toBe(3);
+    expect(events.filter((event) => event.type === 'rungCaught')).toHaveLength(
+      1,
+    );
+  });
+
+  it('refused at the corpse cap is lost, and nothing banks it for later', () => {
+    // There is no bank analogue for a rung and none is built: the cap refuses
+    // it the way it refuses any body, and the level is gone either way.
+    const state = quietRun();
+    for (const slot of state.corpses) slot.alive = true;
+    const refusalsBefore = state.refusals.food;
+
+    const events = spawnFallenRung(state, 200, 300, 'bell');
+
+    expect(events).toEqual([]);
+    expect(state.refusals.food).toBe(refusalsBefore + 1);
+    expect(state.bankedOffers).toBe(0);
+    expect(state.refusals.offers).toBe(0);
   });
 });

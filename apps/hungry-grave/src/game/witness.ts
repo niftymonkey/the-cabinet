@@ -243,6 +243,7 @@ const FOOD_KIND_CODES: Readonly<Record<FoodKind, number>> = {
   corpse: 1,
   powerUp: 2,
   feast: 3,
+  fallenRung: 4,
 };
 
 /**

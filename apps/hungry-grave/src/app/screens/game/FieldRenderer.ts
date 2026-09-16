@@ -7,7 +7,7 @@ import { MOB_TYPES } from '../../../game/mobs';
 import type { RunState } from '../../../game/run';
 import { INVULNERABLE_TICKS } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
-import { drawCorpse, drawPowerUp, freshnessTint } from './foodSprite';
+import { drawCorpse, drawTreasureBody, freshnessTint } from './foodSprite';
 import type { FieldLayers } from './layering';
 import { drawScatter, drawShot, SCATTER_TICKS } from './mobFireSprite';
 import { drawMob, mobLook } from './mobSprite';
@@ -90,9 +90,11 @@ class FieldRenderer {
   /**
    * A parallel sprite per corpse slot, in the treasure layer.
    *
-   * Power-ups ride the corpse pool, and ADR 0014's stack puts treasure two layers
-   * above corpses, so one slot needs a sprite in each: a Graphics cannot be in
-   * two layers, and which one shows is decided per slot by the food's kind.
+   * Power-ups and fallen rungs ride the corpse pool, and ADR 0014's stack puts
+   * treasure two layers above corpses, so one slot needs a sprite in each: a
+   * Graphics cannot be in two layers, and which one shows is decided per slot by
+   * the food's own row rather than by its kind, so a fifth kind costs this
+   * renderer no edit (design record R6).
    */
   private readonly treasureSprites: Graphics[] = [];
   private readonly scatters: Scatter[] = [];
@@ -261,7 +263,7 @@ class FieldRenderer {
   private syncCorpses(run: RunState): void {
     for (let slot = 0; slot < run.corpses.length; slot++) {
       const corpse = requireSlot(run.corpses[slot], slot, 'corpse');
-      const treasure = corpse.kind === 'powerUp';
+      const treasure = corpse.treasureBody;
       const corpseSprite = requireSlot(
         this.corpseSprites[slot],
         slot,
@@ -280,8 +282,8 @@ class FieldRenderer {
       if (treasure) {
         // Redrawn every tick rather than cached on a look: the breath moves
         // the geometry itself, which is what holds the stroke's on-screen
-        // width still (see drawPowerUp).
-        drawPowerUp(sprite, corpse, run.tick);
+        // width still (see drawTreasureBody).
+        drawTreasureBody(sprite, corpse, run.tick);
       } else {
         const look = `${corpse.kind}|${corpse.tier}`;
         if (look !== this.corpseTiers[slot]) {

@@ -4,6 +4,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { corpseHitbox, cullCorpses, POWER_UP_HALF_EXTENT } from '../corpses';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import {
   ageGrave,
@@ -15,7 +16,10 @@ import {
   moveGrave,
   SCORE_RUNG_REARM_SIZE,
 } from '../grave';
+import type { WeaponLine } from '../lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
+import { OFFER_SPACING } from '../offer';
+import { overlaps } from '../overlap';
 import { createRun } from '../run';
 import {
   BASE_SPEED,
@@ -472,5 +476,174 @@ describe('the grave', () => {
       expect(run.grave.size).toBeGreaterThanOrEqual(SIZE_FLOOR);
       expect(run.grave.size).toBeLessThanOrEqual(SIZE_CEILING);
     }
+  });
+});
+
+/**
+ * The floor ladder's second rung on the field (ADR 0055, decision 24, design
+ * record R6): a hit at the floor with nothing left to bleed drops one body per
+ * rung it took, and the dive can catch one of them.
+ */
+describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
+  /** A run standing at the size floor with its score already bled, so the next hit strips. */
+  function atTheFloorWithNoScore(levels: number): ReturnType<typeof createRun> {
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.grave.scoreRungBled = true;
+    run.score = 0;
+    for (const line of WEAPON_LINES) run.levels[line] = levels;
+    return run;
+  }
+
+  const fallenRungs = (run: ReturnType<typeof createRun>) =>
+    run.corpses.filter(
+      (corpse) => corpse.alive && corpse.kind === 'fallenRung',
+    );
+
+  it('takes one level off every line that has one to give and drops exactly that many bodies', () => {
+    const run = atTheFloorWithNoScore(3);
+    const events = hitGrave(run, 'contact');
+
+    const stripped = events.find((event) => event.type === 'weaponStripped');
+    expect(stripped?.lines).toEqual([...run.roster]);
+    for (const line of WEAPON_LINES) expect(run.levels[line]).toBe(2);
+
+    const bodies = fallenRungs(run);
+    expect(bodies).toHaveLength(run.roster.length);
+    expect(
+      events.filter((event) => event.type === 'rungFell').map((e) => e.line),
+    ).toEqual([...run.roster]);
+  });
+
+  it('drops one body for each line that had a rung and none for the lines that did not', () => {
+    // The strip's own rule, unchanged: every line that has one to give, in the
+    // same tick. A birthright line at its floor gives nothing, so nothing falls
+    // for it.
+    const run = atTheFloorWithNoScore(0);
+    run.levels.skullStream = 1;
+    run.levels.bell = 2;
+
+    hitGrave(run, 'contact');
+
+    expect(fallenRungs(run).map((body) => body.line)).toEqual(['bell']);
+  });
+
+  it("stands the bodies apart at the offer's own spacing, in roster order, centred on the grave's x", () => {
+    // The loss is the mirror of the gain (design record R6): the same spacing
+    // the offer lays three bodies at, so one dive cannot catch all four.
+    const run = atTheFloorWithNoScore(3);
+    run.grave.x = FIELD_WIDTH / 2;
+
+    hitGrave(run, 'contact');
+
+    const bodies = fallenRungs(run);
+    expect(bodies.map((body) => body.line)).toEqual([...run.roster]);
+    const xs = bodies.map((body) => body.x);
+    for (let index = 1; index < xs.length; index += 1) {
+      expect(xs[index]! - xs[index - 1]!).toBeCloseTo(OFFER_SPACING, 9);
+    }
+    const middle = (xs[0]! + xs[xs.length - 1]!) / 2;
+    expect(middle).toBeCloseTo(run.grave.x, 9);
+  });
+
+  it('shifts the whole group inward at an edge, so the gap between bodies never changes', () => {
+    // Clamping each body on its own would stack two rungs on one x at exactly
+    // the edge a pinned player takes the hit against, which deletes the choice
+    // of which line to save.
+    const run = atTheFloorWithNoScore(3);
+    run.grave.x = 0;
+
+    hitGrave(run, 'contact');
+
+    const xs = fallenRungs(run).map((body) => body.x);
+    expect(xs).toHaveLength(run.roster.length);
+    for (let index = 1; index < xs.length; index += 1) {
+      expect(xs[index]! - xs[index - 1]!).toBeCloseTo(OFFER_SPACING, 9);
+    }
+    for (const x of xs) {
+      expect(x - POWER_UP_HALF_EXTENT).toBeGreaterThanOrEqual(0);
+      expect(x + POWER_UP_HALF_EXTENT).toBeLessThanOrEqual(FIELD_WIDTH);
+    }
+  });
+
+  it('spawns below the grave and clear of its own swallow box at the size floor', () => {
+    // The design gate's finding: a body landing inside the swallow box hands
+    // the rung straight back on the tick it was lost and makes the whole loss a
+    // flicker.
+    const run = atTheFloorWithNoScore(3);
+
+    hitGrave(run, 'contact');
+
+    const box = graveHitbox(run.grave);
+    const bodies = fallenRungs(run);
+    expect(bodies).toHaveLength(run.roster.length);
+    for (const body of bodies) {
+      // On y rather than through the box alone, because a body standing in a
+      // lane the narrow grave does not cover would clear the box while sitting
+      // level with it, and what is ruled is that it falls below the grave.
+      expect(body.y - body.halfExtent).toBeGreaterThan(
+        run.grave.y + run.grave.size,
+      );
+      expect(overlaps(corpseHitbox(body), box)).toBe(false);
+    }
+  });
+
+  it('is still clear of the swallow box after a tick of the grave diving at full speed', () => {
+    // The transferable half of Sonic's no-recollect window, as geometry rather
+    // than as a clock: the loss registers before the chase can connect.
+    const run = atTheFloorWithNoScore(3);
+    run.grave.y = FIELD_HEIGHT / 2;
+
+    hitGrave(run, 'contact');
+    moveGrave(run.grave, { x: 0, y: 1 });
+
+    const box = graveHitbox(run.grave);
+    const bodies = fallenRungs(run);
+    expect(bodies).toHaveLength(run.roster.length);
+    for (const body of bodies) {
+      // The drop's own derivation makes the two edges meet exactly here, and
+      // overlap.ts's half-open convention is what says a touch is not a
+      // swallow. On any real tick the scroll has carried the body further away
+      // as well, so the clearance is strict in play.
+      expect(body.y - body.halfExtent).toBeGreaterThanOrEqual(
+        run.grave.y + run.grave.size,
+      );
+      expect(overlaps(corpseHitbox(body), box)).toBe(false);
+    }
+  });
+
+  it("spawns in the run's own roster order and never the build's", () => {
+    // The line a fifth weapon would break: WEAPON_LINES is the build's four and
+    // the roster is what this run was born with (ADR 0046, design record R3).
+    const roster: WeaponLine[] = ['bell', 'skullStream', 'wisps'];
+    const run = createRun(1, SIZE_FLOOR, undefined, roster);
+    run.grave.scoreRungBled = true;
+    run.score = 0;
+    for (const line of roster) run.levels[line] = 3;
+
+    hitGrave(run, 'contact');
+
+    expect(fallenRungs(run).map((body) => body.line)).toEqual(roster);
+    expect(fallenRungs(run).map((body) => body.line)).not.toEqual(
+      WEAPON_LINES.filter((line) => roster.includes(line)),
+    );
+  });
+
+  it('drops the bodies below the field at the bottom clamp, where they are lost on the tick they fell', () => {
+    // Defender's fall-too-far, and the lever is the distance the player left
+    // themselves. It is filed for Mark in the record's section 7 as the edge
+    // rule rather than repaired here, and M6 counts how often it happens.
+    const run = atTheFloorWithNoScore(3);
+    run.grave.y = FIELD_HEIGHT;
+    moveGrave(run.grave, { x: 0, y: 0 });
+
+    hitGrave(run, 'contact');
+    const standing = fallenRungs(run);
+    expect(standing.length).toBeGreaterThan(0);
+    for (const body of standing) expect(body.y).toBeGreaterThan(FIELD_HEIGHT);
+
+    const lost = cullCorpses(run);
+    expect(lost).toHaveLength(standing.length);
+    expect(fallenRungs(run)).toHaveLength(0);
   });
 });

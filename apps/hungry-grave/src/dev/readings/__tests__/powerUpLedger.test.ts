@@ -8,7 +8,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Corpse } from '../../../game/corpses';
-import { asSwallowable, cullCorpses } from '../../../game/corpses';
+import {
+  asSwallowable,
+  cullCorpses,
+  spawnFallenRung,
+} from '../../../game/corpses';
 import { FIELD_HEIGHT } from '../../../game/field';
 import type { WeaponLine } from '../../../game/lines/roster';
 import { MAX_LEVEL, WEAPON_LINES } from '../../../game/lines/roster';
@@ -168,6 +172,40 @@ describe('power-up ledger', () => {
     const ledger = powerUpLedgerOf(accumulator);
     expect(ledger.spawned).toBe(1);
     expect(ledger.swallowed).toBe(1);
+    expect(ledger.byLine).toEqual({});
+  });
+});
+
+describe('the ledger counts offers and goes on counting only offers', () => {
+  it('a fallen rung spawned, standing, swallowed and lost moves nothing in it', () => {
+    // A fourth food kind arrived on the corpse pool (ADR 0055), and the
+    // denominator this ledger is read against is the offers a run opened. A
+    // rung counted here would change what every one of its figures means, so
+    // the check is that the rung passes through every one of the four terminal
+    // states and the ledger reads exactly as it does on an empty run.
+    const run = createRun(SEED);
+    const accumulator = createPowerUpLedger();
+
+    observePowerUpLedger(
+      accumulator,
+      spawnFallenRung(run, 200, 300, 'wisps'),
+      run,
+    );
+    const rung = run.corpses.find(
+      (corpse) => corpse.alive && corpse.kind === 'fallenRung',
+    );
+    if (rung === undefined) throw new Error('no fallen rung');
+    observePowerUpLedger(accumulator, swallow(run, asSwallowable(rung)), run);
+    rung.alive = true;
+    rung.y = FIELD_HEIGHT + rung.halfExtent + 1;
+    observePowerUpLedger(accumulator, cullCorpses(run), run);
+
+    const ledger = powerUpLedgerOf(accumulator);
+    expect(ledger.spawned).toBe(0);
+    expect(ledger.swallowed).toBe(0);
+    expect(ledger.passed).toBe(0);
+    expect(ledger.lost).toBe(0);
+    expect(ledger.onFieldAtStop).toBe(0);
     expect(ledger.byLine).toEqual({});
   });
 });

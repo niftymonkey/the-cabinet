@@ -2,11 +2,13 @@
 // Hides ADR 0003 entirely: no other module knows what a hit costs.
 
 import type { MoveCommand } from './command';
+import { POWER_UP_HALF_EXTENT, spawnFallenRung } from './corpses';
 import type { SimEvent } from './events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { MobType } from './mobs';
 import type { WeaponLine } from './lines/roster';
-import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
+import { BIRTHRIGHT, MAX_LEVEL } from './lines/roster';
+import { spreadX } from './offer';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
 import type { BossKind } from './stage/waves';
@@ -176,20 +178,106 @@ const levelFloor = (line: WeaponLine): number => {
   return BIRTHRIGHT.includes(line) ? 1 : 0;
 };
 
+/**
+ * The lines this hit can take a rung off, in the run's own roster order
+ * (ADR 0046, design record R3 and R6).
+ *
+ * It walks the roster rather than the build's four, so the bodies the strip
+ * drops stand in the order the HUD's rows read. It changes no order today,
+ * because implementsLines already keeps a roster inside the pool; it is the
+ * line a fifth weapon would break.
+ */
 const strippableLines = (state: RunState): WeaponLine[] => {
-  return WEAPON_LINES.filter((line) => state.levels[line] > levelFloor(line));
+  return state.roster.filter((line) => state.levels[line] > levelFloor(line));
 };
 
 /**
- * One level off every line that has one to give. Taking the whole loadout down
- * a step bounds the ladder at five rungs whatever the build, so a great run and
- * a poor one die at the same length, and each rung visibly thins the entire
- * storm in one beat.
+ * How far below the grave's own centre a fallen rung stands, in field units. An
+ * initial data row.
+ *
+ * Downfield rather than upfield, which is decision 20's own "how far down the
+ * rung body spawns": an upfield body is scrolled back into the swallow box
+ * within a tick or two and hands the rung to a player who only has to hold the
+ * lane, which is the Salamander shape Mark rejected.
+ *
+ * Far enough to clear the swallow box on the tick it falls, and one tick of the
+ * grave's own travel further. A strip runs only at the size floor, so the
+ * grave's half-height there is SIZE_FLOOR exactly and the body's own is the
+ * treasure extent; a grave already diving at full speed therefore cannot reach
+ * a body on the tick after the fall either. That is the transferable half of
+ * Sonic's no-recollect window, as geometry rather than as a clock: the loss
+ * registers before the chase can connect.
+ *
+ * There is no containment on y, so a strip taken at the bottom clamp drops its
+ * bodies below the field and they are lost on the tick they fell. That is
+ * Defender's fall-too-far and the lever is the distance the player left
+ * themselves; it is filed for Mark in the design record's section 7 rather than
+ * repaired here.
+ */
+const FALLEN_RUNG_DROP = SIZE_FLOOR + POWER_UP_HALF_EXTENT + BASE_SPEED;
+
+/**
+ * One body per rung the strip took, standing apart at the offer's own spacing
+ * in roster order, centred on the grave's x and shifted whole to stay inside
+ * the field (ADR 0055, decision 24, design record R6).
+ *
+ * The group shifts rather than each body clamping on its own, which is the
+ * offer's rule and the reason it is one function: clamping each would stack two
+ * rungs on one x at exactly the edge a pinned player takes the hit against, and
+ * the choice of which line to save is the whole point of the spread.
+ */
+const dropFallenRungs = (
+  state: RunState,
+  lines: readonly WeaponLine[],
+): SimEvent[] => {
+  const events: SimEvent[] = [];
+  const y = state.grave.y + FALLEN_RUNG_DROP;
+  for (const [index, line] of lines.entries()) {
+    const at = spreadX(state.grave.x, lines.length, index);
+    events.push(...spawnFallenRung(state, at, y, line));
+  }
+  return events;
+};
+
+/**
+ * One level off every line that has one to give, and one body onto the field
+ * per rung taken. Taking the whole loadout down a step bounds the ladder at
+ * five rungs whatever the build, so a great run and a poor one die at the same
+ * length, and each rung visibly thins the entire storm in one beat.
+ *
+ * The strip is announced before the bodies, so a reader meets the loss and then
+ * what is left of it, which is the order the player sees it in.
  */
 const stripLevels = (state: RunState): SimEvent[] => {
   const lines = strippableLines(state);
   for (const line of lines) state.levels[line] -= 1;
-  return [{ type: 'weaponStripped', lines }];
+  const stripped: SimEvent = { type: 'weaponStripped', lines };
+  return [stripped, ...dropFallenRungs(state, lines)];
+};
+
+/**
+ * The dive catching a fallen rung: the line it came off gets its rung back and
+ * no other line moves (decision 24), and a line already at its cap is never
+ * taken past it (ADR 0034's MAX_LEVEL).
+ *
+ * The event fires on the catch and not on the restore, so a rung caught onto a
+ * line that climbed back to its cap in the meantime is still a catch: the
+ * player dived and took the body, and a reading that counted only the ones that
+ * paid would measure the ladder rather than the dive.
+ *
+ * A fallen rung with no line is a value this module produced, so a missing one
+ * is a bug and fails loudly rather than being repaired into some other line's
+ * rung.
+ */
+const catchRung = (
+  state: RunState,
+  line: WeaponLine | undefined,
+): SimEvent[] => {
+  if (line === undefined) {
+    throw new Error('a fallen rung was swallowed carrying no line');
+  }
+  if (state.levels[line] < MAX_LEVEL) state.levels[line] += 1;
+  return [{ type: 'rungCaught', line, level: state.levels[line] }];
 };
 
 const sealShut = (state: RunState): SimEvent[] => {
@@ -253,6 +341,7 @@ export {
   growGrave,
   ageGrave,
   hitGrave,
+  catchRung,
   SCORE_RUNG_REARM_SIZE,
 };
 export type { GraveHitSource, Grave };

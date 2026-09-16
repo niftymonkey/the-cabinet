@@ -48,12 +48,13 @@ const LEVELS: Record<keyof typeof CLIPS, number> = {
 /**
  * Which clip an event asks for, or null for the events that make no sound.
  *
- * The power-up's own chime is chosen from the kind the chimed event already carries,
- * so telling treasure from a corpse needs no game rule here and no new event.
+ * The treasure chime is chosen from the row the chimed event already carries, so
+ * telling treasure from a corpse needs no game rule here, no new event, and no
+ * list of kinds this file would have to be edited to extend.
  */
 const clipFor = (event: SimEvent): keyof typeof CLIPS | null => {
   if (event.type === 'chimed') {
-    return event.kind === 'powerUp' ? 'treasure' : 'swallow';
+    return event.treasureBody ? 'treasure' : 'swallow';
   }
   if (event.type === 'tolled') return 'toll';
   if (event.type === 'graveHit') return 'hit';

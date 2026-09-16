@@ -1042,6 +1042,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'corpses[].id': 'spawn identity, as mobs[].id is.',
   'corpses[].decays':
     'written once at spawn from the kind, which is folded: treasure never decays and a corpse always does.',
+  'corpses[].treasureBody':
+    'written once at spawn from the kind, which is folded, exactly as decays is: a power-up and a fallen rung wear the treasure body and a corpse and a feast do not. It answers how a body draws and chimes and no rule reads it.',
   'corpses[].halfExtent':
     'written once at spawn from the kind, which is folded: a power-up is larger than a corpse.',
   'skulls[].alive': 'gates the walk, as mobs[].alive does.',
@@ -1236,7 +1238,16 @@ describe('the five non-numeric encodings', () => {
   });
 
   it('the food kind code map is pinned by name and never by ordinal', () => {
-    expect(FOOD_KIND_CODES).toEqual({ corpse: 1, powerUp: 2, feast: 3 });
+    // The fallen rung appends at 4 rather than taking a code any of the three
+    // already holds (ADR 0019's append-only rule). A new code inside a field
+    // the fold already carries is not a new folded field, so the field list
+    // does not move and WITNESS_VERSION stays where it is.
+    expect(FOOD_KIND_CODES).toEqual({
+      corpse: 1,
+      powerUp: 2,
+      feast: 3,
+      fallenRung: 4,
+    });
   });
 
   it('the weapon line code map is pinned by name and never by ordinal', () => {
@@ -1446,6 +1457,38 @@ describe("the harness's own stream stays outside the run (ADR 0019)", () => {
     expect(FOLDED.filter((path) => path.startsWith('streams.')).sort()).toEqual(
       held.map((name) => `streams.${name}.drawn`).sort(),
     );
+  });
+
+  it('folds a fallen rung apart from a power-up without widening the field list', () => {
+    // The fourth food kind rides the corpse pool on fields the fold already
+    // carries, so FOOD_KIND_CODES gains a code and the field list does not
+    // move. witness.ts's own rule is that the version moves when the field list
+    // moves, so the version holds at 11 with the pin above. The two folds
+    // differing is what says the new code is inside the walk rather than beside
+    // it.
+    const asPowerUp = fixture();
+    const asRung = fixture();
+    slot0(asRung.corpses).kind = 'fallenRung';
+
+    expect(foldWitness(asRung, 0)).not.toBe(foldWitness(asPowerUp, 0));
+    expect(FOLDED.filter((path) => path.startsWith('corpses['))).toEqual([
+      'corpses[].x',
+      'corpses[].y',
+      'corpses[].freshness',
+      'corpses[].payout',
+      'corpses[].tier',
+      'corpses[].kind',
+      'corpses[].line',
+      'corpses[].impulse.stepX',
+      'corpses[].impulse.stepY',
+      'corpses[].impulse.ticksLeft',
+      'corpses[].impulse.travelled',
+      'corpses[].impulse.shovesLeft',
+      'corpses[].impulse.nextIn',
+      'corpses[].impulse.spacing',
+      'corpses[].impulse.owedStepX',
+      'corpses[].impulse.owedStepY',
+    ]);
   });
 
   it('leaves the witness version where the sim put it, which the harness must not move', () => {

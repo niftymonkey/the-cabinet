@@ -1,5 +1,5 @@
-// The food on the field: a corpse or feast fading by its freshness, and a power-up
-// wearing its own line's silhouette (ADR 0014, ADR 0004).
+// The food on the field: a corpse or feast fading by its freshness, and a
+// treasure body wearing its own line's silhouette (ADR 0014, ADR 0004).
 
 import { Graphics } from 'pixi.js';
 
@@ -279,8 +279,14 @@ const drawOptionlessBody = (into: Graphics, extent: number): void => {
 };
 
 /**
- * A power-up on the field: its line's silhouette in treasure's colour, with the food
- * layer's own companion around it.
+ * A treasure body on the field: its line's silhouette in treasure's colour,
+ * with the food layer's own companion around it.
+ *
+ * An offer's body and a fallen rung both wear it, and the sharing is deliberate
+ * (design record R6): both are treasure, the icon is what parts one line's rung
+ * from another's, and the treasure body itself is what parts a rung from a
+ * corpse. Which bodies wear it is the food's own row and never a kind test here
+ * (corpses.ts).
  *
  * The silhouette is solid to its outline. Nothing dark is drawn through the
  * middle, because the bright field of the sprite is what carries the read, and
@@ -292,7 +298,11 @@ const drawOptionlessBody = (into: Graphics, extent: number): void => {
  * The per-tick rebuild is bounded by the handful of power-ups alive at once, never
  * a wave.
  */
-const drawPowerUp = (into: Graphics, corpse: Corpse, tick: number): void => {
+const drawTreasureBody = (
+  into: Graphics,
+  corpse: Corpse,
+  tick: number,
+): void => {
   const extent = POWER_UP_DRAW_HALF_EXTENT * powerUpBreath(tick, corpse.id);
   into.clear();
   if (corpse.line === undefined) {
@@ -312,7 +322,7 @@ const drawPowerUp = (into: Graphics, corpse: Corpse, tick: number): void => {
 
 export {
   drawCorpse,
-  drawPowerUp,
+  drawTreasureBody,
   drawPowerUpIcon,
   freshnessBrightness,
   freshnessTint,

@@ -41,6 +41,8 @@ vi.mock('@pixi/sound', () => ({
 
 vi.mock('motion', () => ({ animate: () => Promise.resolve() }));
 
+import soundSource from '../sound.ts?raw';
+
 import { BGM } from '../../engine/audio/audio';
 import type { SimEvent } from '../../game/events';
 import { createRun } from '../../game/run';
@@ -61,9 +63,10 @@ const SRC = resolve(import.meta.dirname, '..', '..');
 /** One of every event the sim can emit, so the ignored ones are checked as a set. */
 const EVERY_EVENT: SimEvent[] = [
   { type: 'swallowed', kind: 'corpse', freshness: 1, payout: 1 },
-  { type: 'chimed', kind: 'corpse' },
-  { type: 'chimed', kind: 'powerUp' },
-  { type: 'chimed', kind: 'feast' },
+  { type: 'chimed', kind: 'corpse', treasureBody: false },
+  { type: 'chimed', kind: 'powerUp', treasureBody: true },
+  { type: 'chimed', kind: 'feast', treasureBody: false },
+  { type: 'chimed', kind: 'fallenRung', treasureBody: true },
   { type: 'grew', amount: 1, size: 20 },
   { type: 'overflowed', amount: 1, score: 1 },
   { type: 'reservoirCharged', amount: 1, reservoir: 1 },
@@ -115,18 +118,37 @@ describe('the swallow chime and the treasure chime (plan 6.22)', () => {
   it('chimes for a corpse and for a feast, from the very first swallow whatever the loadout', () => {
     // The headline criterion that stops an unlucky power-up sequence leaving the
     // early minutes silent.
-    expect(clipFor({ type: 'chimed', kind: 'corpse' })).toBe('swallow');
-    expect(clipFor({ type: 'chimed', kind: 'feast' })).toBe('swallow');
+    expect(
+      clipFor({ type: 'chimed', kind: 'corpse', treasureBody: false }),
+    ).toBe('swallow');
+    expect(
+      clipFor({ type: 'chimed', kind: 'feast', treasureBody: false }),
+    ).toBe('swallow');
   });
 
-  it('plays a different clip for a power-up, chosen from the kind the event already carries', () => {
+  it('plays a different clip for a treasure body, chosen from the row the event already carries', () => {
     // The scarcest object in the game must not sound like the commonest, and
     // this needs no event change and no game rule here: Chimed already carries
-    // the food's kind.
-    expect(clipFor({ type: 'chimed', kind: 'powerUp' })).toBe('treasure');
-    expect(clipFor({ type: 'chimed', kind: 'powerUp' })).not.toBe(
-      clipFor({ type: 'chimed', kind: 'corpse' }),
+    // the food's own row.
+    expect(
+      clipFor({ type: 'chimed', kind: 'powerUp', treasureBody: true }),
+    ).toBe('treasure');
+    expect(
+      clipFor({ type: 'chimed', kind: 'powerUp', treasureBody: true }),
+    ).not.toBe(
+      clipFor({ type: 'chimed', kind: 'corpse', treasureBody: false }),
     );
+  });
+
+  it('chimes a fallen rung as treasure without this file naming the kind', () => {
+    // Design record R6: treasure is a property on the food's row, so a fourth
+    // kind of food sounds right here with no edit at this site at all. The
+    // second half is what says so: the row decides and the kind does not.
+    expect(
+      clipFor({ type: 'chimed', kind: 'fallenRung', treasureBody: true }),
+    ).toBe('treasure');
+    expect(soundSource).not.toMatch(/fallenRung/);
+    expect(soundSource).not.toMatch(/powerUp/);
   });
 });
 
@@ -148,7 +170,11 @@ describe('a clip that will not play', () => {
     // A fresh module per test, because the report is once per session.
     const { playFor } = await import('../sound');
 
-    playFor(missingClip, { type: 'chimed', kind: 'corpse' });
+    playFor(missingClip, {
+      type: 'chimed',
+      kind: 'corpse',
+      treasureBody: false,
+    });
 
     const said = vi
       .mocked(console.warn)
@@ -163,7 +189,11 @@ describe('a clip that will not play', () => {
     const { playFor } = await import('../sound');
 
     for (let event = 0; event < 500; event += 1) {
-      playFor(missingClip, { type: 'chimed', kind: 'corpse' });
+      playFor(missingClip, {
+        type: 'chimed',
+        kind: 'corpse',
+        treasureBody: false,
+      });
     }
 
     expect(console.warn).toHaveBeenCalledTimes(1);

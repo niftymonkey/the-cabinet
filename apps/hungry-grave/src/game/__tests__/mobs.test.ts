@@ -668,6 +668,7 @@ describe('what a kill pays into the score (design record R4, #99)', () => {
       kind: 'corpse',
       freshness: 1,
       payout: TRASH_CORPSE_PAYOUT,
+      treasureBody: false,
     });
 
     expect(state.score).toBeCloseTo(killed + TRASH_CORPSE_PAYOUT, 10);

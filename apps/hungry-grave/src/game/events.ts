@@ -18,10 +18,17 @@ interface Swallowed {
   readonly payout: number;
 }
 
-// The swallow chime, on every swallow from the very first, whatever the loadout.
+/**
+ * The swallow chime, on every swallow from the very first, whatever the loadout.
+ *
+ * The treasure chime is chosen from the body's own row rather than from its
+ * kind, so a fourth kind of food chimes correctly without src/app/sound.ts
+ * learning that the kind exists (corpses.ts, design record R6).
+ */
 interface Chimed {
   readonly type: 'chimed';
   readonly kind: FoodKind;
+  readonly treasureBody: boolean;
 }
 
 // The grave grew. Size is the new size, so a renderer needs nothing else.
@@ -86,6 +93,39 @@ interface ScoreBled {
 interface WeaponStripped {
   readonly type: 'weaponStripped';
   readonly lines: readonly WeaponLine[];
+}
+
+/**
+ * A stripped rung standing on the field as a body the dive can catch
+ * (ADR 0055). One per rung the ladder took, at the point the body stands.
+ *
+ * It is not powerUpSpawned. That one is the offer's, it carries the body id the
+ * offer joins on, and a fallen rung belongs to no offer: counting the two
+ * together would move what the power-up ledger's denominator means.
+ *
+ * It is absent for a rung the corpse cap refused, because nothing fell onto the
+ * field: the level is still gone and weaponStripped is what says so.
+ */
+interface RungFell {
+  readonly type: 'rungFell';
+  readonly line: WeaponLine;
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * A fallen rung swallowed: the dive caught it (ADR 0055, decision 24). The
+ * level is the line's after the catch, which is unchanged where the line had
+ * climbed back to its cap in the meantime.
+ *
+ * It is not weaponLeveled. That one is a rung bought, which
+ * src/dev/replayTallies.ts counts as a level-up, and a restore counted there
+ * would quietly change what that reading has always meant.
+ */
+interface RungCaught {
+  readonly type: 'rungCaught';
+  readonly line: WeaponLine;
+  readonly level: number;
 }
 
 // The end of the ladder, and of the run (ADR 0003).
@@ -618,6 +658,8 @@ type SimEvent =
   | MobDamaged
   | ScoreBled
   | WeaponStripped
+  | RungFell
+  | RungCaught
   | Sealed
   | Victory
   | MobKilled

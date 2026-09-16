@@ -55,7 +55,11 @@ describe('a normal boot', () => {
     expect(getResolution()).toBe(2);
     expect(userSettings.getKeyboardSpeed()).toBe(1);
     fitField(1440, 900);
-    playFor(workingSound, { type: 'chimed', kind: 'corpse' });
+    playFor(workingSound, {
+      type: 'chimed',
+      kind: 'corpse',
+      treasureBody: false,
+    });
     playFor(workingSound, { type: 'belched', cancelled: 3, shoved: 1 });
 
     expect(console.log).not.toHaveBeenCalled();

@@ -24,6 +24,7 @@ import {
   OFFER_ENTRY_DEPTH,
   OFFER_SIZE,
   OFFER_SPACING,
+  spreadX,
 } from '../offer';
 import type { RunState } from '../run';
 import { createRun, uniformLevels } from '../run';
@@ -731,5 +732,35 @@ describe('nothing offerable (ADR 0034)', () => {
     expect(
       typesOf(paid).some((type) => type === 'grew' || type === 'overflowed'),
     ).toBe(true);
+  });
+});
+
+/**
+ * The spread the offer lays its bodies at, as its own seam. The floor ladder's
+ * fallen rungs stand at the same one (design record R6, grave.ts), so the rule
+ * is one function rather than the same two lines in two places.
+ */
+describe('the spread the offer lays at (ADR 0034)', () => {
+  it('lays a group side by side at the spacing, centred on the point', () => {
+    const xs = [0, 1, 2].map((index) => spreadX(FIELD_WIDTH / 2, 3, index));
+    expect(xs).toEqual([
+      FIELD_WIDTH / 2 - OFFER_SPACING,
+      FIELD_WIDTH / 2,
+      FIELD_WIDTH / 2 + OFFER_SPACING,
+    ]);
+  });
+
+  it('shifts the whole group inward at an edge, so the gap never changes', () => {
+    // Whatever the group's size, and four is what a four-line strip drops.
+    for (const count of [1, 2, 3, 4]) {
+      const at = (index: number) => spreadX(0, count, index);
+      for (let index = 1; index < count; index += 1) {
+        expect(at(index) - at(index - 1)).toBeCloseTo(OFFER_SPACING, 9);
+      }
+      expect(at(0) - POWER_UP_HALF_EXTENT).toBeGreaterThanOrEqual(0);
+      expect(at(count - 1) + POWER_UP_HALF_EXTENT).toBeLessThanOrEqual(
+        FIELD_WIDTH,
+      );
+    }
   });
 });

@@ -14,6 +14,7 @@ import {
   POWER_UP_HALF_EXTENT,
   spawnCorpse,
   spawnPowerUp,
+  spawnFallenRung,
 } from '../../../../game/corpses';
 import type { WeaponLine } from '../../../../game/lines/roster';
 import { WEAPON_LINES } from '../../../../game/lines/roster';
@@ -1068,5 +1069,125 @@ describe("a power-up's legibility (the fix inside #36)", () => {
     expect(POWER_UP_HALF_EXTENT).toBeGreaterThanOrEqual(
       POWER_UP_DRAW_HALF_EXTENT,
     );
+  });
+});
+
+/**
+ * A rung the floor ladder took, on the field (ADR 0055, design record R6). Two
+ * reads have to hold with the colour removed: a rung against a corpse, and one
+ * line's rung against another's. Rung against an offer's body is deliberately
+ * not claimed: they share the treasure body on purpose and #122 owns it.
+ */
+describe('a fallen rung on the field (ADR 0055)', () => {
+  function rungAt(state: RunState, line: WeaponLine) {
+    spawnFallenRung(state, 200, 300, line);
+    return state.corpses.find((corpse) => corpse.alive)!;
+  }
+
+  /** The one visible sprite in a layer, as the shape its own points make. */
+  function shapeOf(layers: FieldLayers, name: 'treasure' | 'corpses'): string {
+    const sprite = (layers.layer(name).children as Graphics[]).find(
+      (each) => each.visible,
+    );
+    if (sprite === undefined) throw new Error(`nothing visible in ${name}`);
+    const box = sprite.getLocalBounds();
+    return `${box.width.toFixed(3)}x${box.height.toFixed(3)}`;
+  }
+
+  it('draws in the treasure layer and never in the corpses layer', () => {
+    // It is treasure, so ADR 0014's stack puts it above mob bodies: a rung
+    // under a pile still reads as the thing worth diving for. The renderer
+    // learns no fourth kind to do it, because the food's own row says treasure.
+    const { layers, renderer } = attached();
+    const state = createRun(3);
+    rungAt(state, 'bell');
+    renderer.sync(state);
+
+    expect(
+      (layers.layer('treasure').children as Graphics[]).filter(
+        (each) => each.visible,
+      ),
+    ).toHaveLength(1);
+    expect(
+      (layers.layer('corpses').children as Graphics[]).filter(
+        (each) => each.visible,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('is told from a corpse by silhouette alone, with the colour removed', () => {
+    // ADR 0014 makes silhouette the first discriminator, so the read has to
+    // survive grayscale: the shapes differ, and the rung is the larger of the
+    // two by its own extent.
+    const rung = attached();
+    const rungState = createRun(3);
+    rungAt(rungState, 'bell');
+    rung.renderer.sync(rungState);
+
+    const body = attached();
+    const corpseState = createRun(3);
+    const dead = put(corpseState, 'shambler', 200, 300);
+    dead.alive = false;
+    spawnCorpse(corpseState, dead, MOB_TYPES.shambler.corpsePayout, 'trash');
+    body.renderer.sync(corpseState);
+
+    expect(shapeOf(rung.layers, 'treasure')).not.toBe(
+      shapeOf(body.layers, 'corpses'),
+    );
+    expect(POWER_UP_HALF_EXTENT).toBeGreaterThan(CORPSE_HALF_EXTENT);
+  });
+
+  it("wears the icon its own HUD row taught, so one line's rung is told from another's", () => {
+    // The HUD has already taught the player one icon per line (design record
+    // R1 and R6), so the body wears that same icon and the reading needs no
+    // second vocabulary.
+    const shapes = new Set<string>();
+    for (const line of WEAPON_LINES) {
+      const { layers, renderer } = attached();
+      const state = createRun(3);
+      rungAt(state, line);
+      renderer.sync(state);
+      shapes.add(shapeOf(layers, 'treasure'));
+    }
+    expect(shapes.size).toBe(WEAPON_LINES.length);
+  });
+
+  it("draws the same treasure body an offer's body draws, which is deliberate", () => {
+    // Both are treasure, and teaching the player two treasure shapes to say the
+    // same thing is the cost the record does not pay. Telling a rung from an
+    // offer's body is #122's and is out of scope here, so this pins the sharing
+    // rather than a separation.
+    const rung = attached();
+    const rungState = createRun(3);
+    rungAt(rungState, 'wisps');
+    rung.renderer.sync(rungState);
+
+    const offer = attached();
+    const offerState = createRun(3);
+    spawnPowerUp(offerState, 200, 300, 'wisps');
+    offer.renderer.sync(offerState);
+
+    expect(shapeOf(rung.layers, 'treasure')).toBe(
+      shapeOf(offer.layers, 'treasure'),
+    );
+  });
+
+  it('stays steady-bright where a corpse fades, whatever the tick', () => {
+    // It never decays, so steady-bright always meaning treasure (ADR 0004)
+    // holds for it exactly as it does for a power-up.
+    const { layers, renderer } = attached();
+    const state = createRun(3);
+    const rung = rungAt(state, 'wisps');
+    const tints = new Set<number>();
+    for (const tick of [0, 7, 13, 40, 121]) {
+      state.tick = tick;
+      renderer.sync(state);
+      const sprite = (layers.layer('treasure').children as Graphics[]).find(
+        (each) => each.visible,
+      )!;
+      tints.add(sprite.tint);
+    }
+    expect(tints.size).toBe(1);
+    expect(freshnessBrightness(rung, 0)).toBe(1);
   });
 });

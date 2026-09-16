@@ -142,6 +142,22 @@ const groupCentre = (x: number, count: number): number => {
   return Math.min(Math.max(x, margin), FIELD_WIDTH - margin);
 };
 
+/**
+ * Where one body of a group of `count` stands on x: laid side by side at the
+ * offer's own spacing around a point, with the whole group shifted to keep
+ * every body on the field.
+ *
+ * It is one function rather than the same two lines at each caller, because the
+ * floor ladder's fallen rungs stand at this spacing too and the reuse is the
+ * ruling: a gain is three bodies side by side and the grave gets the one it
+ * passes under, a loss is up to four and the grave gets back the one it dives
+ * for (design record R6). What the spacing buys in both directions is that one
+ * dive cannot take the lot.
+ */
+const spreadX = (x: number, count: number, index: number): number => {
+  return groupCentre(x, count) + (index - (count - 1) / 2) * OFFER_SPACING;
+};
+
 // The id the spawn reported, or null when the food pool refused the body.
 const bodyIdIn = (events: readonly SimEvent[]): number | null => {
   for (const event of events) {
@@ -172,7 +188,7 @@ const standOffer = (
   const bodyIds: number[] = [];
   const laid: WeaponLine[] = [];
   for (const [index, line] of options.entries()) {
-    const at = centre + (index - (options.length - 1) / 2) * OFFER_SPACING;
+    const at = spreadX(x, options.length, index);
     const spawned = spawnPowerUp(state, at, y, line);
     bodies.push(...spawned);
     const id = bodyIdIn(spawned);
@@ -352,6 +368,7 @@ export {
   chooseOfferBody,
   resolveOffer,
   loseOffer,
+  spreadX,
   OFFER_SIZE,
   OFFER_SPACING,
   OFFER_ENTRY_DEPTH,

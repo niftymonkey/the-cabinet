@@ -86,7 +86,19 @@ interface Corpse {
   kind: FoodKind;
   // Feasts never decay (ADR 0004), and the flag lives on the record so the boss dispatch authors a shed rather than a mechanism.
   decays: boolean;
-  // Which line a power-up levels, decided by the dice at spawn (ADR 0034). Absent on corpses and feasts.
+  /**
+   * Whether this body wears the treasure body: the breath, the treasure layer
+   * two above corpses (ADR 0014), and the treasure chime. It is a row rather
+   * than a kind test at each drawing and sounding site, so a fifth kind of food
+   * costs neither of them an edit (design record R6).
+   *
+   * A feast is treasure by the glossary's class and never decays, and it still
+   * says false here: it wears the food layer's own body in the feast's colour
+   * and chimes as a plain swallow, which is what the tree has always drawn and
+   * sounded and is not this slice's to widen.
+   */
+  treasureBody: boolean;
+  // Which line a power-up levels, decided by the dice at spawn (ADR 0034), or which line a fallen rung came off. Absent on corpses and feasts.
   line?: WeaponLine;
   /**
    * How large this food is swallowed at. It lives on the record rather than
@@ -119,6 +131,7 @@ const blankCorpse = (): Corpse => {
     tier: 'trash',
     kind: 'corpse',
     decays: true,
+    treasureBody: false,
     line: undefined,
     halfExtent: CORPSE_HALF_EXTENT,
     impulse: blankImpulse(),
@@ -150,6 +163,7 @@ const asSwallowable = (corpse: Corpse): Swallowable => {
     kind: corpse.kind,
     freshness: corpse.freshness,
     payout: corpse.payout,
+    treasureBody: corpse.treasureBody,
     line: corpse.line,
   };
 };
@@ -214,6 +228,7 @@ const spawnCorpse = (
   corpse.tier = tier;
   corpse.kind = 'corpse';
   corpse.decays = true;
+  corpse.treasureBody = false;
   corpse.line = undefined;
   corpse.halfExtent = CORPSE_HALF_EXTENT;
   handOverImpulse(mob.impulse, corpse.impulse);
@@ -244,6 +259,7 @@ const spawnFeast = (
   corpse.tier = 'rich';
   corpse.kind = 'feast';
   corpse.decays = false;
+  corpse.treasureBody = false;
   corpse.line = undefined;
   corpse.halfExtent = CORPSE_HALF_EXTENT;
   return events;
@@ -281,9 +297,60 @@ const spawnPowerUp = (
   corpse.tier = 'trash';
   corpse.kind = 'powerUp';
   corpse.decays = false;
+  corpse.treasureBody = true;
   corpse.line = line;
   corpse.halfExtent = POWER_UP_HALF_EXTENT;
   events.push({ type: 'powerUpSpawned', id: corpse.id, line, x, y });
+  return events;
+};
+
+/**
+ * A rung the floor ladder took, standing on the field as a body the dive can
+ * catch (ADR 0055, decision 24). A fourth kind on this pool rather than a pool
+ * of its own, so the scroll, the containment, the swallow and the renderer all
+ * come free.
+ *
+ * It wears the treasure body at the power-up's own extent, deliberately the
+ * same drawing an offer's body wears: both are treasure, and teaching the
+ * player a second treasure shape to say the same thing is a cost the record
+ * does not pay (design record R6). The line it came off is what parts one
+ * fallen rung from another, through the icon the HUD's row already taught.
+ *
+ * Never decaying is this row's default and not an impossibility. ADR 0055 and
+ * decision 20 both leave decay as tuning data, so a later pass may turn the
+ * flag on without a record to re-rule, and the scroll stays the one deadline
+ * until it does.
+ *
+ * It pays the trash corpse's payout, as an offer's body does: nothing swallowed
+ * is ever worthless (ADR 0002), and a rung caught pays the same growth as the
+ * treasure beside it so the catch is never the cheap dive.
+ *
+ * A body the cap refuses reports nothing, because nothing fell onto the field.
+ * The level is still gone and weaponStripped is what says so; there is no bank
+ * analogue for a rung and none is built (design record R6).
+ */
+const spawnFallenRung = (
+  state: RunState,
+  x: number,
+  y: number,
+  line: WeaponLine,
+): SimEvent[] => {
+  const events: SimEvent[] = [];
+  const corpse = claimSlot(state);
+  if (corpse === null) return events;
+
+  corpse.alive = true;
+  corpse.x = x;
+  corpse.y = y;
+  corpse.freshness = 1;
+  corpse.payout = TRASH_CORPSE_PAYOUT;
+  corpse.tier = 'trash';
+  corpse.kind = 'fallenRung';
+  corpse.decays = false;
+  corpse.treasureBody = true;
+  corpse.line = line;
+  corpse.halfExtent = POWER_UP_HALF_EXTENT;
+  events.push({ type: 'rungFell', line, x, y });
   return events;
 };
 
@@ -329,6 +396,7 @@ export {
   spawnCorpse,
   spawnFeast,
   spawnPowerUp,
+  spawnFallenRung,
   advanceCorpses,
   cullCorpses,
   CORPSE_HALF_EXTENT,

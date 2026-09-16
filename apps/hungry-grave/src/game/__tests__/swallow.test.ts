@@ -8,7 +8,8 @@ import { describe, expect, it } from 'vitest';
 import { stepping } from '../../dev/stepping';
 import { asSwallowable } from '../corpses';
 import type { SimEvent } from '../events';
-import { MAX_LEVEL } from '../lines/roster';
+import type { WeaponLine } from '../lines/roster';
+import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import { openOffer } from '../offer';
 import { createRun } from '../run';
 import type { Swallowable } from '../swallow';
@@ -31,6 +32,7 @@ function corpse(freshness: number): Swallowable {
     kind: 'corpse',
     freshness,
     payout: TRASH_CORPSE_PAYOUT,
+    treasureBody: false,
   };
 }
 
@@ -41,6 +43,7 @@ function powerUp(line: 'wisps' | 'skullStream'): Swallowable {
     kind: 'powerUp',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
+    treasureBody: true,
     line,
   };
 }
@@ -52,11 +55,30 @@ function bodyWithNoOption(): Swallowable {
     kind: 'powerUp',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
+    treasureBody: true,
+  };
+}
+
+/** A rung the floor ladder took, as the value the swallow takes. */
+function fallenRung(line: WeaponLine): Swallowable {
+  return {
+    id: NO_BODY,
+    kind: 'fallenRung',
+    freshness: 1,
+    payout: TRASH_CORPSE_PAYOUT,
+    treasureBody: true,
+    line,
   };
 }
 
 function feast(): Swallowable {
-  return { id: NO_BODY, kind: 'feast', freshness: 1, payout: FEAST_PAYOUT };
+  return {
+    id: NO_BODY,
+    kind: 'feast',
+    freshness: 1,
+    payout: FEAST_PAYOUT,
+    treasureBody: false,
+  };
 }
 
 function kinds(events: SimEvent[]): string[] {
@@ -319,5 +341,99 @@ describe('no burst is ever paid without freshness applied (ADR 0058, #68)', () =
 
     expect(run.wisps.filter((wisp) => wisp.alive).length).toBeGreaterThan(0);
     expect(run.lines.surgeVolleys).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * The dive catching a rung the floor ladder took (ADR 0055, decision 24). The
+ * rung goes back on the line it came off and nowhere else, which is the ruling
+ * Salamander is the one shipped precedent for.
+ */
+describe('a fallen rung swallowed (ADR 0055)', () => {
+  it('restores the line it came from and no other', () => {
+    const run = createRun(1);
+    for (const line of WEAPON_LINES) run.levels[line] = 2;
+
+    const events = swallow(run, fallenRung('wisps'));
+
+    expect(run.levels.wisps).toBe(3);
+    for (const line of WEAPON_LINES) {
+      if (line === 'wisps') continue;
+      expect(run.levels[line]).toBe(2);
+    }
+    expect(find(events, 'rungCaught')).toEqual({
+      type: 'rungCaught',
+      line: 'wisps',
+      level: 3,
+    });
+  });
+
+  it('never takes a line past its cap', () => {
+    // A line stripped to four can climb back to five off an offer before the
+    // body it dropped is reached, so the cap is a live case and not a
+    // hypothetical.
+    const run = createRun(1);
+    run.levels.bell = MAX_LEVEL;
+
+    const events = swallow(run, fallenRung('bell'));
+
+    expect(run.levels.bell).toBe(MAX_LEVEL);
+    expect(find(events, 'rungCaught').level).toBe(MAX_LEVEL);
+  });
+
+  it('announces on its own event and never as a rung bought', () => {
+    // src/dev/replayTallies.ts counts weaponLeveled as a level-up, so a restore
+    // counted there would quietly change what that reading has always meant.
+    // rungCaught is M6's only source for the catch count.
+    const run = createRun(1);
+    run.levels.wisps = 1;
+
+    const events = swallow(run, fallenRung('wisps'));
+
+    expect(kinds(events)).toContain('rungCaught');
+    expect(kinds(events)).not.toContain('weaponLeveled');
+    expect(kinds(events)).not.toContain('powerUpSpawned');
+    expect(kinds(events)).not.toContain('offerTaken');
+  });
+
+  it('pays growth, charge and overflow the way any other food does', () => {
+    // Nothing swallowed is ever worthless (ADR 0002): the rung is food on the
+    // way back in as well as a level.
+    const run = createRun(1);
+    const before = run.grave.size;
+
+    const events = swallow(run, fallenRung('wisps'));
+
+    expect(run.grave.size).toBeGreaterThan(before);
+    expect(kinds(events)).toContain('grew');
+    expect(kinds(events)).toContain('reservoirCharged');
+    expect(find(events, 'chimed').treasureBody).toBe(true);
+  });
+
+  it('a body carrying no line at all is a bug and fails loudly', () => {
+    // A fallen rung's line is a value this sim wrote at the spawn, so a missing
+    // one is never repaired into some other line's rung.
+    const run = createRun(1);
+    const noLine: Swallowable = {
+      id: NO_BODY,
+      kind: 'fallenRung',
+      freshness: 1,
+      payout: TRASH_CORPSE_PAYOUT,
+      treasureBody: true,
+    };
+
+    expect(() => swallow(run, noLine)).toThrow(/fallen rung/);
+  });
+
+  it("an offer's body never gives a rung back, though it wears the same treasure body", () => {
+    // The treasure row says how a body draws and chimes; which body it is stays
+    // the kind's, and #122 owns telling the two apart on screen.
+    const run = createRun(1);
+    run.levels.wisps = 2;
+
+    const events = swallow(run, powerUp('wisps'));
+
+    expect(kinds(events)).not.toContain('rungCaught');
+    expect(run.levels.wisps).toBe(2);
   });
 });
