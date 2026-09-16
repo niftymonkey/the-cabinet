@@ -25,6 +25,7 @@ import { MAX_LEVEL } from '../lines/roster';
 import { openOffer } from '../offer';
 import { SKULL_HALF_EXTENT } from '../lines/skullStream';
 import { RADIUS_BY_LEVEL } from '../lines/territory';
+import { SCORE_RUNG_REARM_SIZE } from '../grave';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from '../tuning';
 import type { Fault, FaultIdentity } from '../faults';
 import { checkInvariants, createStageWatch } from '../invariants';
@@ -104,6 +105,48 @@ describe('the sim invariants', () => {
       step(i % 2 === 0 ? { move: { x: 1, y: -1 }, belch: false } : STILL);
     }
     expect(run.tick).toBe(300);
+  });
+
+  it('records a fault when the score rung is still bled at a size that has already bought it back (design record R4)', () => {
+    // R4's one impossible state. Two halves of one rule produce the mark and
+    // clear it, the ladder at the floor and growGrave a full hit's worth above
+    // it, so a mark surviving that size means one of the halves stopped running.
+    const grown = createRun(1);
+    grown.grave.size = SCORE_RUNG_REARM_SIZE;
+    grown.grave.scoreRungBled = true;
+    expect(brokenOn(grown)).toContain('score rung re-armed by growth');
+
+    // A crumb above the floor is not the fault, and this is the half that says
+    // the check is the rule's and not just a floor comparison: the mark is meant
+    // to survive every growth short of a full hit's worth.
+    const crumb = createRun(1);
+    crumb.grave.size = SIZE_FLOOR + 0.01;
+    crumb.grave.scoreRungBled = true;
+    expect(brokenOn(crumb)).not.toContain('score rung re-armed by growth');
+  });
+
+  it('never reaches that state through the rules themselves, over a run played from the size floor with score standing (design record R4)', () => {
+    // Through the harness rather than by reaching into the check: the rig
+    // throws on any fault any tick records, so a run that finishes is the
+    // assertion. The ladder is asserted to have actually run, so this cannot
+    // pass on a run that never reached the floor at all.
+    const run = createRun(7);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 500;
+    const step = stepping(run);
+    let ladderRuns = 0;
+    for (let i = 0; i < 600; i++) {
+      // A steering script with a shape, so a body of zeroes cannot walk the
+      // grave into a corner the storm never reaches.
+      const move = { x: (i % 7) / 6 - 0.5, y: (i % 5) / 4 - 0.5 };
+      const events = step({ move, belch: false });
+      for (const event of events) {
+        if (event.type === 'scoreBled' || event.type === 'weaponStripped') {
+          ladderRuns += 1;
+        }
+      }
+    }
+    expect(ladderRuns).toBeGreaterThan(0);
   });
 
   it('a checker that cannot run still throws rather than being recorded as a fault', () => {

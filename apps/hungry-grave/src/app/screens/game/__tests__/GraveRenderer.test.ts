@@ -12,7 +12,7 @@ import { glowAlpha, GRAVE_RIM_STROKE, GraveRenderer } from '../GraveRenderer';
 import { FieldLayers } from '../layering';
 
 function grave(size: number, x = 270, y = 600): Grave {
-  return { x, y, size, invulnerable: 0 };
+  return { x, y, size, invulnerable: 0, scoreRungBled: false };
 }
 
 function attached(): { layers: FieldLayers; renderer: GraveRenderer } {

@@ -7,11 +7,11 @@
  *
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
- * section and hardens the moment the first tape exists. Twenty-two identities
- * against twenty-three checks: checkPools carries two, the caps and the ids,
- * checkStage carries two, one for each of the two things it watches, and
- * checkRefusals carries three, one per cap that can turn something away, while
- * the six bounds checks share one identity between them. The grave's own bounds
+ * section and hardens the moment the first tape exists. Twenty-three
+ * identities against twenty-four checks: checkPools carries two, the caps and
+ * the ids, checkStage carries two, one for each of the two things it watches,
+ * and checkRefusals carries three, one per cap that can turn something away,
+ * while the six bounds checks share one identity between them. The grave's own bounds
  * check is "in bounds" and sits beside a separate "entities in bounds", one
  * fatal and one recoverable, which is the pair a severity table most easily
  * confuses.
@@ -39,6 +39,7 @@ const FAULT_IDENTITIES = [
   'set piece budget not negative',
   'set piece body gone when spent',
   'director purse not negative',
+  'score rung re-armed by growth',
 ] as const;
 
 // One member of the closed list above.
@@ -62,7 +63,7 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * structural assumption was violated outside the pool API, after which no other
  * check's answer is trustworthy.
  *
- * Recoverable, sixteen checks and sixteen identities. A stray entity is culled or
+ * Recoverable, seventeen checks and seventeen identities. A stray entity is culled or
  * draws off-screen and nothing reads it wrong, and the six checks that watch
  * for one all record under the same identity. A corpse pays the wrong amount
  * into a size the fatal check still guards. One line's charge is wrong and
@@ -91,6 +92,14 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * director was paid for a card it could not afford; the run is coherent and the
  * section's floor is intact, and killing the run over a budget the player
  * cannot see would be a worse answer than reporting it.
+ *
+ * The score rung reads the same way, and the bank is again the precedent. A
+ * rung still marked spent at a size that has already bought it back withholds
+ * a cushion the player paid for, which spoils a run without making one number
+ * in it untrustworthy: the size, the score and the levels are each still
+ * exactly what the rules wrote, and nothing downstream reads a poisoned value.
+ * Ending the run over a cushion the player cannot see would be the worse
+ * answer.
  *
  * The boss's phase and the set piece's two are recoverable on the stage's own
  * reading (ADR 0007, ADR 0042). A phase that went backwards replays a pattern
@@ -123,6 +132,7 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'set piece budget not negative': 'recoverable',
   'set piece body gone when spent': 'recoverable',
   'director purse not negative': 'recoverable',
+  'score rung re-armed by growth': 'recoverable',
 };
 
 // One invariant found broken on one tick.

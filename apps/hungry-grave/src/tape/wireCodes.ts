@@ -138,6 +138,7 @@ const FAULT_IDENTITY_CODES: Readonly<Record<FaultIdentity, number>> = {
   'set piece budget not negative': 20,
   'set piece body gone when spent': 21,
   'director purse not negative': 22,
+  'score rung re-armed by growth': 23,
 };
 
 const FAULT_SEVERITIES = ['fatal', 'recoverable'] as const;

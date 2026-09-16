@@ -11,7 +11,7 @@ import { combineSteer } from '../steering';
 import { DRAG_RATIO, STEER_SLOP, TouchSteer } from '../touch';
 
 function grave(x: number, y: number): Grave {
-  return { x, y, size: SIZE_START, invulnerable: 0 };
+  return { x, y, size: SIZE_START, invulnerable: 0, scoreRungBled: false };
 }
 
 describe('combineSteer', () => {

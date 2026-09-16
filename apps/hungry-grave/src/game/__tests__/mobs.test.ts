@@ -599,6 +599,18 @@ describe("a mob's death (ADR 0037)", () => {
   });
 });
 
+describe('what a kill pays into the score (design record R4, #99)', () => {
+  it.todo(
+    'every mob row carries a score payout, so a body without one is not a state the type permits',
+  );
+  it.todo(
+    "a kill pays score from its own row, and a run's score is what it killed plus what it overflowed",
+  );
+  it.todo(
+    'kills keep paying score while the rung is bled, and the floor hit after them strips a level rather than bleeding again',
+  );
+});
+
 describe('a carrier is told apart from the mob it rides in (ADR 0002)', () => {
   it("reports carried on a killed carrier's death and never on an ordinary mob's", () => {
     // The kill event is what the offer opens from, so the flag travels as a

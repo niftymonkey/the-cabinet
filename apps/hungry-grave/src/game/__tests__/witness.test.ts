@@ -210,6 +210,9 @@ function fillGrave(run: RunState): void {
   run.grave.y = 421.25;
   run.grave.size = 23.5;
   run.grave.invulnerable = 7;
+  // Not the blank grave's own value, so a fold that never reached the field
+  // could not pass the perturbation below by accident.
+  run.grave.scoreRungBled = true;
 }
 
 function fillMob(run: RunState): void {
@@ -312,6 +315,11 @@ const ENTITY_CASES: readonly FieldCase[] = [
     path: 'grave.invulnerable',
     move: (run) => void (run.grave.invulnerable -= 1),
     restore: (run) => void (run.grave.invulnerable += 1),
+  },
+  {
+    path: 'grave.scoreRungBled',
+    move: (run) => void (run.grave.scoreRungBled = false),
+    restore: (run) => void (run.grave.scoreRungBled = true),
   },
   {
     path: 'mobs[].x',
@@ -886,6 +894,7 @@ const FOLDED: readonly string[] = [
   'grave.y',
   'grave.size',
   'grave.invulnerable',
+  'grave.scoreRungBled',
   'mobs[].x',
   'mobs[].y',
   'mobs[].vx',
@@ -1442,12 +1451,13 @@ describe("the harness's own stream stays outside the run (ADR 0019)", () => {
   it('leaves the witness version where the sim put it, which the harness must not move', () => {
     // Hand-forward (f) pins it: the whole harness is built outside RunState, so
     // no version move is ever the hand's. This is what says it was not, on a
-    // branch that added a stream to the project. The sim moved it to 10 for the
-    // press the run now carries, to 9 before that for the impulse a corpse
-    // carries, to 8 before that for the impulse a shoved body carries, and to 7
-    // before that for the director's own stream and the rest of the fold that
-    // step widened; the three names above are the run's rather than the hand's.
-    expect(WITNESS_VERSION).toBe(10);
+    // branch that added a stream to the project. The sim moved it to 11 for the
+    // score rung the floor ladder remembers, to 10 before that for the press
+    // the run carries, to 9 before that for the impulse a corpse carries, to 8
+    // before that for the impulse a shoved body carries, and to 7 before that
+    // for the director's own stream and the rest of the fold that step widened;
+    // the three names above are the run's rather than the hand's.
+    expect(WITNESS_VERSION).toBe(11);
     expect(Object.keys(createRun(0).streams)).not.toContain(HAND_STREAM);
   });
 });

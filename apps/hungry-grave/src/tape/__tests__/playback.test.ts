@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { WEAPON_LINES } from '../../game/lines/roster';
+import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
@@ -22,6 +22,7 @@ import type { Tape, TapeHeader } from '../tape';
 import { SCRIPT_POLICY } from '../tape';
 import { readBackForVerification } from '../verificationReadback';
 import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { SIZE_FLOOR } from '../../game/tuning';
 
 const SEED = 20260823;
 const SPACING = 20;
@@ -65,6 +66,33 @@ function recordARun(commandAt: (tick: number) => TickCommand = steer): Tape {
   const recorder = recordInto(execution, header(run));
   for (let tick = 0; tick < TICKS; tick++) {
     executeTick(execution, commandAt(tick));
+  }
+  sealTrailer(recorder, execution, 0);
+  return tapeOf(recorder);
+}
+
+/**
+ * The tick count a ladder run needs: the seed below first runs the ladder on
+ * tick 501, and the tape has to carry checkpoints on both sides of it.
+ */
+const LADDER_TICKS = 700;
+
+/** A seed whose storm reaches a full build parked at the size floor. */
+const LADDER_SEED = 42;
+
+/**
+ * A run that starts at the size floor with a full loadout, so the storm's first
+ * hit runs ADR 0003's ladder rather than shrinking anything. The size and the
+ * levels both ride in the header, so a replay starts where the recording did.
+ */
+function recordALadderRun(): Tape {
+  const run = createRun(LADDER_SEED);
+  run.grave.size = SIZE_FLOOR;
+  for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+  const execution = createExecution(run);
+  const recorder = recordInto(execution, header(run));
+  for (let tick = 0; tick < LADDER_TICKS; tick++) {
+    executeTick(execution, steer(tick));
   }
   sealTrailer(recorder, execution, 0);
   return tapeOf(recorder);
@@ -229,6 +257,66 @@ describe('the playback', () => {
     expect(result.ticksReproduced).toBe(0);
     expect(result.tapeWitnessVersion).toBe(superseded);
     expect(result.readerWitnessVersion).toBe(WITNESS_VERSION);
+  });
+
+  it('refuses a tape recorded at witness version ten, which the score rung moved off', () => {
+    // The cost of the move, stated as a test rather than discovered on a tape.
+    // Version 10 is the fold every tape recorded across the whole of round two
+    // carries, and what it lost is the floor ladder's memory of the score rung
+    // it has already spent (design record R4). A tape carrying it is refused by
+    // its version rather than diverging at a checkpoint.
+    const superseded = 10;
+    expect(WITNESS_VERSION).toBeGreaterThan(superseded);
+
+    const tape = recordARun();
+    const playback = createPlayback({
+      ...tape,
+      header: { ...tape.header, witnessVersion: superseded },
+    });
+
+    expect(playback.advanceTick()).toBe(false);
+    const result = playback.result();
+    expect(result.outcome).toBe('witnessVersionMismatch');
+    expect(result.firstDivergentCheckpoint).toBeNull();
+    expect(result.ticksReproduced).toBe(0);
+    expect(result.tapeWitnessVersion).toBe(superseded);
+    expect(result.readerWitnessVersion).toBe(WITNESS_VERSION);
+  });
+
+  it('rebuilds the bled score rung at every checkpoint (design record R4)', () => {
+    // The mark is a rule the next floor hit reads and the run carries it across
+    // ticks, so a replay that could not rebuild it would bleed where the
+    // recorded run stripped. Both values are asserted to occur in the tape, so
+    // the comparison cannot pass on a run where the mark never moved.
+    const tape = recordALadderRun();
+    const recorded = new Map<number, boolean>();
+    const reference = createRun(LADDER_SEED);
+    reference.grave.size = SIZE_FLOOR;
+    for (const line of WEAPON_LINES) reference.levels[line] = MAX_LEVEL;
+    const referenceExecution = createExecution(reference);
+    const checkpointTicks = new Set(tape.checkpoints.map((one) => one.index));
+    for (const command of tape.commands) {
+      executeTick(referenceExecution, command);
+      if (checkpointTicks.has(reference.tick)) {
+        recorded.set(reference.tick, reference.grave.scoreRungBled);
+      }
+    }
+    const marks = [...recorded.values()];
+    expect(marks).toContain(false);
+    expect(marks).toContain(true);
+
+    const playback = createPlayback(tape);
+    const replayed = new Map<number, boolean>();
+    while (playback.advanceTick()) {
+      const tick = playback.run.tick;
+      if (checkpointTicks.has(tick)) {
+        replayed.set(tick, playback.run.grave.scoreRungBled);
+      }
+    }
+
+    expect(playback.result().outcome).toBe('verified');
+    expect(playback.result().checkpointsVerified).toBe(tape.checkpoints.length);
+    expect([...replayed.entries()]).toEqual([...recorded.entries()]);
   });
 
   it('reaches the same verdict stepwise as when driven in one call', () => {

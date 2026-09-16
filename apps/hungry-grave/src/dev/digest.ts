@@ -450,6 +450,24 @@ const runScenario = (): ScenarioResult => {
  * 600, the seed, the grave's position and size, the score, the reservoir, mobs
  * at 5, shots at 0, corpses at 1, skulls at 2, wisps at 0, kills at 2, the
  * levels record and every one of the eight stream cursors.
+ *
+ * Re-pinned on 2026-09-16 for the score rung the floor ladder now remembers
+ * (design record `show-what-you-have.md` R4, #99). The checksum moved from
+ * `1307518644` and it is the only field that moved, and the cause is mechanical
+ * rather than anything the scenario does: the grave carries one more folded
+ * field, `WITNESS_VERSION` reads 11, and one resting zero per tick folds into
+ * the number. **The ladder never runs inside this window at all**, which is the
+ * thing to watch here rather than the checksum: the grave stands at 24.10125
+ * against a floor of 18 for the whole scenario, and the File is placed clear of
+ * the script's own wander precisely so it can never be ground down, so nothing
+ * ever calls `runFloorLadder` and the memory is false on every one of the 600
+ * ticks. **The isolation run proved it rather than asserting it**: the same
+ * scenario, with the memory asserted false inside the fold on all 600 ticks and
+ * folded the old way, returns `1307518644` whole, every field and the checksum
+ * (step 5 progress note section 7). Everything else held: tick 600, the seed,
+ * the grave's position and size, the score, the reservoir, mobs at 5, shots at
+ * 0, corpses at 1, skulls at 2, wisps at 0, kills at 2, the `drawn` record, the
+ * levels record and every one of the eight stream cursors.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -481,7 +499,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 1307518644,
+  checksum: -1110848414,
 };
 
 export { runScenario, GOLDEN };

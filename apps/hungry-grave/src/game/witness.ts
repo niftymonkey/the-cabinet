@@ -173,8 +173,27 @@ const STREAM_ORDER: readonly StreamName[] = [
  * dead baseline. It is taken eyes open: the press is run state by construction
  * once every shove of it re-reads the field, so the move is not a choice any
  * shape could have avoided.
+ *
+ * **10 to 11, 2026-09-16, and this is the one field the move declares.** It is
+ * the floor ladder's memory of the score rung it has already spent (grave.ts),
+ * and it is added by the same commit that stamps the version, for the reason
+ * above.
+ *
+ * - `grave.scoreRungBled`. Any ladder run spends the score rung and only a full
+ *   hit's worth of growth off the floor gives it back (design record R4), so
+ *   two runs at the same size, score and levels differ in what the next floor
+ *   hit costs and in nothing else. A replay that could not rebuild it would
+ *   bleed where the recorded run stripped (ADR 0019). It appends after
+ *   `invulnerable` rather than sitting beside the size it is not, because a
+ *   widening appends and never reshuffles what is already in place.
+ *
+ * **What this move costs, again stated rather than discovered.** Every tape
+ * recorded before this commit is refused by its version and not one of them
+ * replays at this tip. It is taken eyes open: the memory is folded state by
+ * construction, because it is a rule the next hit reads and the run carries it
+ * across ticks.
  */
-const WITNESS_VERSION = 10;
+const WITNESS_VERSION = 11;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -269,7 +288,8 @@ const foldGrave = (checksum: number, grave: Grave): number => {
   let next = fold(checksum, grave.x);
   next = fold(next, grave.y);
   next = fold(next, grave.size);
-  return fold(next, grave.invulnerable);
+  next = fold(next, grave.invulnerable);
+  return fold(next, boolCode(grave.scoreRungBled));
 };
 
 /**

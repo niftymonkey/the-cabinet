@@ -42,6 +42,15 @@ interface Grave {
   size: number;
   // Ticks of invulnerability left. Zero means a hit lands.
   invulnerable: number;
+  /**
+   * Whether the floor ladder has already spent its score rung without yet
+   * having it back (design record `show-what-you-have.md` R4).
+   *
+   * It is the grave's and not the run's because growth is what gives the rung
+   * back and growGrave takes a Grave: kept on the run, this module's own rule
+   * would have to be cleared from swallow.ts.
+   */
+  scoreRungBled: boolean;
 }
 
 /**
@@ -68,6 +77,7 @@ const createGrave = (size: number = SIZE_START): Grave => {
     y: START_Y,
     size: started,
     invulnerable: 0,
+    scoreRungBled: false,
   };
 };
 
@@ -121,14 +131,30 @@ const moveGrave = (grave: Grave, command: MoveCommand): void => {
 };
 
 /**
+ * The size at which the floor ladder has its score rung back: a full hit's
+ * worth of growth off the floor (design record R4).
+ *
+ * A crumb is deliberately not enough. A fully stale trash corpse pays 0.025
+ * units against a fresh one's 0.10125, so a rung given back at any growth at
+ * all would be bought back invisibly inside the mow, which is the hole the rule
+ * above it exists to close one step up.
+ */
+const SCORE_RUNG_REARM_SIZE = SIZE_FLOOR + HIT_SHRINK;
+
+/**
  * Grows the grave and returns whatever did not fit under the ceiling, as
  * overflow (ADR 0003). A wider grave can end up straddling an edge it was
  * pressed against, so the containment runs again here rather than waiting for
  * the next move command.
+ *
+ * Growing a full hit's worth off the floor is also what gives the score rung
+ * back (design record R4), and it lands here because this is where growth
+ * lands: the rule reads end to end in the module that owns the ladder.
  */
 const growGrave = (grave: Grave, amount: number): number => {
   const grown = grave.size + amount;
   grave.size = Math.min(grown, SIZE_CEILING);
+  if (grave.size >= SCORE_RUNG_REARM_SIZE) grave.scoreRungBled = false;
   containGrave(grave);
   return Math.max(0, grown - SIZE_CEILING);
 };
@@ -175,9 +201,17 @@ const sealShut = (state: RunState): SimEvent[] => {
  * ADR 0003's floor ladder, one rung per hit. The floor is hard, so a hit here
  * never shrinks: it bleeds all of the score, then takes one level off every
  * line, and only when nothing is left to bleed does it seal the grave shut.
+ *
+ * Every ladder run spends the score rung, the run that finds no score included,
+ * and only growth gives it back (design record R4). A rung the next kill
+ * re-armed would be a floor the storm paid for: at the storm's measured 2.47
+ * kills a second the level strip could fire only where nothing was dying, and
+ * ADR 0003 says the floor is never immortality.
  */
 const runFloorLadder = (state: RunState): SimEvent[] => {
-  if (state.score > 0) return bleedScore(state);
+  const rungArmed = !state.grave.scoreRungBled;
+  state.grave.scoreRungBled = true;
+  if (rungArmed && state.score > 0) return bleedScore(state);
   if (strippableLines(state).length > 0) return stripLevels(state);
   return sealShut(state);
 };
@@ -219,5 +253,6 @@ export {
   growGrave,
   ageGrave,
   hitGrave,
+  SCORE_RUNG_REARM_SIZE,
 };
 export type { GraveHitSource, Grave };

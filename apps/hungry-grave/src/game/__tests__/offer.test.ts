@@ -438,6 +438,10 @@ describe('the take (ADR 0034)', () => {
   });
 });
 
+describe("an offer's vanished siblings (design record R4, #99)", () => {
+  it.todo('pay no score, because nothing died there');
+});
+
 describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
   it('keeps exactly one offer live at a time', () => {
     // ADR 0034: "Exactly one offer is live at a time." Three carriers die on

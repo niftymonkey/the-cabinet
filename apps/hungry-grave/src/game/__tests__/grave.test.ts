@@ -13,17 +13,20 @@ import {
   growGrave,
   hitGrave,
   moveGrave,
+  SCORE_RUNG_REARM_SIZE,
 } from '../grave';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import { createRun } from '../run';
 import {
   BASE_SPEED,
+  freshnessScale,
   GRAVE_ASPECT,
   HIT_SHRINK,
   INVULNERABLE_TICKS,
   SIZE_CEILING,
   SIZE_FLOOR,
   SIZE_START,
+  TRASH_CORPSE_PAYOUT,
 } from '../tuning';
 
 /** Waits out the invulnerability window, so the next hit lands. */
@@ -320,6 +323,138 @@ describe('the grave', () => {
     const owned = WEAPON_LINES.filter((line) => run.levels[line] > 0);
     expect(owned).toEqual(['skullStream']);
     expect(run.levels.skullStream).toBe(1);
+  });
+
+  it('a hit at the size floor with score standing bleeds the score and takes no level (ADR 0003)', () => {
+    // The ladder's first rung, read on its own rather than through the whole
+    // ladder: the score tier is exactly one rung, so it never partly bleeds and
+    // it never reaches a weapon level on the same hit.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 250;
+    for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+
+    const events = hitGrave(run, 'contact');
+
+    expect(kinds(events)).toContain('scoreBled');
+    expect(kinds(events)).not.toContain('weaponStripped');
+    expect(run.score).toBe(0);
+    for (const line of WEAPON_LINES) expect(run.levels[line]).toBe(MAX_LEVEL);
+  });
+
+  it('a second floor hit while still at the floor strips a level rather than bleeding the score again (design record R4)', () => {
+    // R4: a rung the next kill re-armed would be a floor the storm paid for, so
+    // the rung the ladder bled stays bled until the grave grows. Score standing
+    // again at the second hit is the case the rule exists for, and it costs a
+    // level rather than the score.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 250;
+    for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+
+    hitGrave(run, 'contact');
+    run.score = 800;
+    ageOut(run);
+    const second = hitGrave(run, 'contact');
+
+    expect(kinds(second)).toContain('weaponStripped');
+    expect(kinds(second)).not.toContain('scoreBled');
+    // The score keeps accruing while the rung is bled: what is withheld is the
+    // rung, never the number.
+    expect(run.score).toBe(800);
+    for (const line of WEAPON_LINES)
+      expect(run.levels[line]).toBe(MAX_LEVEL - 1);
+  });
+
+  it('a third floor hit while still at the floor strips again, because the memory is not a one-shot (design record R4)', () => {
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 250;
+    for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+
+    hitGrave(run, 'contact');
+    ageOut(run);
+    hitGrave(run, 'contact');
+    run.score = 800;
+    ageOut(run);
+    const third = hitGrave(run, 'contact');
+
+    expect(kinds(third)).toContain('weaponStripped');
+    expect(kinds(third)).not.toContain('scoreBled');
+    expect(run.score).toBe(800);
+    for (const line of WEAPON_LINES)
+      expect(run.levels[line]).toBe(MAX_LEVEL - 2);
+  });
+
+  it('a floor hit that finds no score leaves the rung bled too, so score arriving after it does not buy the cushion back (design record R4)', () => {
+    // Any ladder run spends the rung, the one that finds nothing included.
+    // Otherwise a hit that stripped would leave the rung re-armable by the next
+    // kill, which is the same hole one rung down.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 0;
+    for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+
+    const first = hitGrave(run, 'contact');
+    expect(kinds(first)).toContain('weaponStripped');
+
+    run.score = 400;
+    ageOut(run);
+    const second = hitGrave(run, 'contact');
+
+    expect(kinds(second)).toContain('weaponStripped');
+    expect(kinds(second)).not.toContain('scoreBled');
+    expect(run.score).toBe(400);
+  });
+
+  it("growth of a full hit's worth off the floor re-arms the score rung (design record R4)", () => {
+    // Growing is the player's own act, which is the whole of why it is what
+    // gives the rung back. The threshold is read off the rule rather than
+    // written down here.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 250;
+    hitGrave(run, 'contact');
+    expect(run.score).toBe(0);
+
+    growGrave(run.grave, SCORE_RUNG_REARM_SIZE - run.grave.size);
+    expect(run.grave.size).toBe(SCORE_RUNG_REARM_SIZE);
+
+    // Back at the floor with score standing, the rung absorbs the hit again.
+    run.grave.size = SIZE_FLOOR;
+    run.score = 250;
+    ageOut(run);
+    const after = hitGrave(run, 'contact');
+
+    expect(kinds(after)).toContain('scoreBled');
+    expect(kinds(after)).not.toContain('weaponStripped');
+    expect(run.score).toBe(0);
+  });
+
+  it('a crumb of growth does not re-arm the score rung (design record R4)', () => {
+    // A fully stale trash corpse is the crumb the threshold exists to refuse: a
+    // rung given back at any growth at all would be bought back invisibly
+    // inside the mow.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 250;
+    for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+    hitGrave(run, 'contact');
+
+    const crumb = TRASH_CORPSE_PAYOUT * freshnessScale(0);
+    expect(SIZE_FLOOR + crumb).toBeLessThan(SCORE_RUNG_REARM_SIZE);
+    growGrave(run.grave, crumb);
+
+    // Back at the floor, exactly as the re-arming test puts it back, so the
+    // only thing that differs between the two is how much was grown.
+    run.grave.size = SIZE_FLOOR;
+    run.score = 250;
+    ageOut(run);
+    const after = hitGrave(run, 'contact');
+
+    expect(kinds(after)).toContain('weaponStripped');
+    expect(kinds(after)).not.toContain('scoreBled');
+    expect(run.score).toBe(250);
   });
 
   it('size never leaves floor-to-ceiling across any sequence of grows and hits (ADR 0003)', () => {

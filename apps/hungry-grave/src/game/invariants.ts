@@ -8,7 +8,7 @@ import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP, SKULL_CAP, WISP_CAP } from './caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { Fault, FaultIdentity } from './faults';
 import { FAULT_SEVERITY } from './faults';
-import { graveHitbox } from './grave';
+import { graveHitbox, SCORE_RUNG_REARM_SIZE } from './grave';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from './lines/roster';
 import { BELL_EXPAND_TICKS } from './lines/bell';
 import { SKULL_HALF_EXTENT } from './lines/skullStream';
@@ -301,6 +301,27 @@ const checkSize = (state: RunState, faults: Fault[]): void => {
   const { size } = state.grave;
   if (size < SIZE_FLOOR || size > SIZE_CEILING) {
     record(faults, 'size within floor and ceiling', `size is ${size}`);
+  }
+};
+
+/**
+ * The one state design record R4's mechanism must never reach: a score rung
+ * still marked spent at a size that has already bought it back.
+ *
+ * It sits beside checkSize because it is the floor read from the other end. The
+ * ladder spends the rung at the floor and growGrave gives it back the moment
+ * the grave stands a full hit's worth above it, so a grave carrying the mark at
+ * that size means one of the two halves stopped running. A crumb of growth is
+ * not enough and is not a fault: the mark is expected to survive it.
+ */
+const checkScoreRung = (state: RunState, faults: Fault[]): void => {
+  const { size, scoreRungBled } = state.grave;
+  if (scoreRungBled && size >= SCORE_RUNG_REARM_SIZE) {
+    record(
+      faults,
+      'score rung re-armed by growth',
+      `the score rung is still bled at size ${size}`,
+    );
   }
 };
 
@@ -900,6 +921,7 @@ const checkInvariants = (
   const faults: Fault[] = [];
   checkNoNaN(state, faults);
   checkSize(state, faults);
+  checkScoreRung(state, faults);
   checkInBounds(state, faults);
   // The order of the six is load-bearing: they share one identity and record
   // keeps the first detail per identity, so this order decides which entity a
