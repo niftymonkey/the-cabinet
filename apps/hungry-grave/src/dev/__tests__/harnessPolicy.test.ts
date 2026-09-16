@@ -510,8 +510,15 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * director puts a handful of cards in front of it over a run, which is enough
  * to move which waves that lane passes through. It is the mechanism slice E
  * recorded when the pour took its own stream, reached by a different road.
+ *
+ * Re-measured 2026-09-16 for the belch's reach at half the field's width
+ * (design record R11), and 202 left it, so the stage pays every seed in the
+ * set. The mechanism is the press: a press now catches close to three times
+ * the ground it did, so this hand's runs last longer and its lane passes
+ * through more waves, and 202 crosses a carrier where before it never did. Its
+ * offer stands unreached, which is the set below.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202];
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [];
 
 /**
  * The seeds where an offer stands and the hand never reaches it, which is a
@@ -527,9 +534,14 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202];
  * It is the stage and the walk rather than the policy: the hand steers at the
  * offer body nearest the grave exactly as it did, and an offer that opens far
  * from the grave can scroll off before the walk reaches it. Both halves are
- * asserted, so the day 303 takes its offer again this fires and says so.
+ * asserted, so the day a seed here takes its offer this fires and says so.
+ *
+ * Re-measured 2026-09-16 for the reach at half the field's width (R11), and
+ * 202 came in: the wider press bought it the carrier it never used to cross,
+ * and the one offer that opens on it stands unreached for the same reason 303's
+ * does. Both seeds open exactly one offer and take none of it.
  */
-const STOOD_BUT_NEVER_REACHED: readonly number[] = [303];
+const STOOD_BUT_NEVER_REACHED: readonly number[] = [202, 303];
 
 /**
  * The seeds that finish above the birthright, which under the stage's authored
@@ -570,8 +582,16 @@ const STOOD_BUT_NEVER_REACHED: readonly number[] = [303];
  *
  * An empty set still has teeth, because it is written as an equality: the day
  * any seed ends above the birthright this fires and says which.
+ *
+ * Re-measured 2026-09-16 for the reach at half the field's width (R11), and
+ * 101 came in holding all four lines above the birthright. It is the largest
+ * move this set has made and it is what the reach bought: 101 takes five of the
+ * six offers it is paid and is the one seed of the five still unsealed when the
+ * stage's own budget runs out, at 27409 ticks. A press that clears the ground
+ * around the grave keeps the grave alive long enough to spend what it is paid,
+ * which is the whole of ticket #124's own argument, read off this hand.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [101];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

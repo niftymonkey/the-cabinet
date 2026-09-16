@@ -15,6 +15,7 @@ import {
 } from '../belch';
 import { spawnBoss } from '../bosses/phases';
 import type { SimEvent } from '../events';
+import { createExecution, executeTick } from '../execution';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { Mob } from '../mobs';
 import { advanceMobs, hasEntered, spawnMob } from '../mobs';
@@ -23,7 +24,7 @@ import { createRun } from '../run';
 import { SHOVE_TICKS } from '../shove';
 import { placeSetPiece } from '../stage/setPiece';
 import { PROCESSION_WAVES } from '../stage/waves';
-import { RESERVOIR_CAPACITY } from '../tuning';
+import { RESERVOIR_CAPACITY, SCROLL_SPEED } from '../tuning';
 
 /**
  * The whole of one belch's push, in ticks: the last shove begins after the ones
@@ -39,6 +40,10 @@ const WHOLE_THROW = BELCH_SHOVES * BELCH_SHOVE_THROW;
 // moves neither case across the line.
 const NEAR = BELCH_BURST_RADIUS / 2;
 const FAR = BELCH_BURST_RADIUS * 2;
+
+// Health no run of this length can spend, for the fixtures that have to be
+// standing at the end of a window the whole tick runs through.
+const OUTLIVES_THE_WINDOW = Number.MAX_SAFE_INTEGER;
 
 function quietRun(seed = 16): RunState {
   const run = createRun(seed);
@@ -264,6 +269,35 @@ describe('the gas smothers the whole field (ADR 0008)', () => {
 });
 
 describe('the shove clears the ground around the grave (ADR 0008 as amended)', () => {
+  it('shoves what stands inside the reach the row names and leaves what stands outside it', () => {
+    // Design record R11, Mark's option 1 of 2026-09-16: the reach is what a
+    // press catches. Both bodies are placed against the row rather than at a
+    // distance typed here, so a retuned reach carries both cases with it, and
+    // the far one is asserted to have entered the field so that what refuses it
+    // is the reach and never ADR 0008's older entry gate.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const inside = putStillAt(state, state.grave.x, state.grave.y - NEAR);
+    const outside = putStillAt(state, state.grave.x, state.grave.y - FAR);
+    const stoodAt = { x: outside.x, y: outside.y };
+    expect(hasEntered(outside)).toBe(true);
+
+    const events = fireBelch(state);
+    travelFor(state, WHOLE_PUSH);
+
+    expect(find(events, 'belched').shoved).toBe(1);
+    expect(distanceFromGrave(state, inside)).toBeCloseTo(NEAR + WHOLE_THROW, 6);
+    expect(outside.x).toBe(stoodAt.x);
+    expect(outside.y).toBe(stoodAt.y);
+  });
+
+  it("the reach is half the field's width, read off the field rather than written down", () => {
+    // R11: the basis is the field's width and never its height, its diagonal or
+    // its area. A reach off the height would cover about three quarters of the
+    // field, which is the whole screen, and that is the option Mark declined.
+    expect(BELCH_BURST_RADIUS).toBe(FIELD_WIDTH / 2);
+  });
+
   it('shoves in the number of waves the row declares, and a player counting them counts that many', () => {
     // Design record R3 as superseded 2026-09-15: three discrete pushes, each a
     // full watched one, so that Mark's "two or three shoves" is literal. What a
@@ -284,11 +318,18 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     expect(surges).toHaveLength(BELCH_SHOVES);
   });
 
-  it("carries a body standing beside the grave clear of the belch's own reach", () => {
+  it('carries a body standing beside the grave the whole of what its three waves throw', () => {
     // Beside it and never on it: a body at a distance of exactly zero has no
     // direction to be thrown along and is refused, the same way the bell's own
-    // push refuses it. The three throws total more than the reach, which is the
-    // whole reason those figures were picked (research section 5, option 2).
+    // push refuses it.
+    //
+    // Retitled 2026-09-16 under ruling R11, which moved the reach and left the
+    // three throw rows where Mark set them on 2026-09-15. It used to promise
+    // that the three waves carried a body clear of the belch's own reach, which
+    // was arithmetic off the old 160 and cannot be made to hold again without
+    // overruling his pick. What stands in its place is R11's own sentence: the
+    // reach is what a press catches and the throw is how far each caught body
+    // travels.
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     const beside = putStillAt(state, state.grave.x + 1, state.grave.y);
@@ -296,10 +337,7 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     fireBelch(state);
     travelFor(state, WHOLE_PUSH);
 
-    expect(distanceFromGrave(state, beside)).toBeGreaterThan(
-      BELCH_BURST_RADIUS,
-    );
-    expect(WHOLE_THROW).toBeGreaterThan(BELCH_BURST_RADIUS);
+    expect(distanceFromGrave(state, beside)).toBeCloseTo(WHOLE_THROW + 1, 6);
   });
 
   it('leaves a body standing exactly on the grave where it stands', () => {
@@ -333,17 +371,25 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     const stoodAt = { x: latecomer.x, y: latecomer.y };
     travelFor(state, WHOLE_PUSH);
 
-    expect(distanceFromGrave(state, caught)).toBeGreaterThan(
-      BELCH_BURST_RADIUS,
-    );
+    // The caught body took the whole press and the latecomer took none of it.
+    // This used to say the caught body ended past the reach, which was the
+    // clear-the-reach sentence ruling R11 withdrew on 2026-09-16; what the test
+    // is for is that the press is closed to newcomers, so it now says the one
+    // thing that separates the two bodies.
+    expect(distanceFromGrave(state, caught)).toBeCloseTo(WHOLE_THROW + 1, 6);
     expect(latecomer.x).toBe(stoodAt.x);
     expect(latecomer.y).toBe(stoodAt.y);
   });
 
-  it('still owes its later waves to a body its first wave carried out of reach', () => {
-    // One strike carries all three, so a body thrown past the reach by the
-    // first is not re-tested and does not lose the rest. A body on the edge
-    // ends a whole throw past where a single push would have left it.
+  it('still owes its later waves to a body its first wave already carried', () => {
+    // One strike carries all three, so a body the first wave has already moved
+    // is not re-tested against the reach and does not lose the rest.
+    //
+    // Retitled 2026-09-16 under ruling R11, for the same reason as the test
+    // above: it used to say the first wave carried the body out of reach, which
+    // was true only of the old 160. What it is really for is that the press
+    // owes its later waves to a body it has already begun to move, so the body
+    // starts on the reach's own edge and every wave it is owed is counted.
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     const edge = putStillAt(
@@ -357,7 +403,7 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     const afterOne = distanceFromGrave(state, edge);
     travelFor(state, WHOLE_PUSH);
 
-    expect(afterOne).toBeGreaterThan(BELCH_BURST_RADIUS);
+    expect(afterOne).toBeCloseTo(BELCH_BURST_RADIUS + BELCH_SHOVE_THROW, 6);
     expect(distanceFromGrave(state, edge)).toBeCloseTo(
       BELCH_BURST_RADIUS + WHOLE_THROW,
       6,
@@ -421,6 +467,12 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     for (const [dx, dy] of offsets) {
       const state = quietRun();
       state.reservoir = RESERVOIR_CAPACITY;
+      // The grave stands in the middle of the field, because from its own
+      // starting mark a body thrown down the field runs into the bottom bound
+      // and loses the tail of its throw. That the bound refuses a throw is
+      // mobs.ts's own promise; what is asserted here is that the reach and the
+      // throw are the same in every direction when nothing refuses them.
+      state.grave.y = FIELD_HEIGHT / 2;
       const mob = putStillAt(state, state.grave.x + dx, state.grave.y + dy);
       fireBelch(state);
       travelFor(state, WHOLE_PUSH);
@@ -507,6 +559,39 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     expect(events.filter((event) => event.type === 'belched')).toEqual([
       { type: 'belched', cancelled: 17, shoved: 1 },
     ]);
+  });
+
+  it("carries the field's own drift as well, so a throw up the field nets less than a throw down it", () => {
+    // Design record R11's closing paragraph, ruled 2026-09-16: the scroll
+    // composes with the shove for both lines that push, and step.ts is not
+    // touched. Exempting a body under a shove would silently retune the bell,
+    // which starts its push through the same seam, and keying the exemption on
+    // the belch would be a world rule keyed on which line pushed (ADRs 0016 and
+    // 0042). This test is here so a later slice cannot quietly exempt one line.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    // Mid-field, so neither throw runs into a bound, and the lines that can
+    // kill a standing body are put down so what moves these two is the press
+    // and the scroll alone. skullStream is the birthright and an invariant
+    // holds it above zero, so its fixtures outlive it instead.
+    state.grave.y = FIELD_HEIGHT / 2;
+    state.levels.bell = 0;
+    state.levels.territory = 0;
+    state.levels.wisps = 0;
+    const up = putStillAt(state, state.grave.x, state.grave.y - NEAR);
+    const down = putStillAt(state, state.grave.x, state.grave.y + NEAR);
+    up.hp = OUTLIVES_THE_WINDOW;
+    down.hp = OUTLIVES_THE_WINDOW;
+    const stoodAt = { up: up.y, down: down.y };
+
+    const execution = createExecution(state);
+    for (let tick = 0; tick < WHOLE_PUSH; tick++) {
+      executeTick(execution, { move: { x: 0, y: 0 }, belch: tick === 0 });
+    }
+
+    const drift = WHOLE_PUSH * SCROLL_SPEED;
+    expect(up.y - stoodAt.up).toBeCloseTo(drift - WHOLE_THROW, 6);
+    expect(down.y - stoodAt.down).toBeCloseTo(drift + WHOLE_THROW, 6);
   });
 
   it("never re-arms a shove still in flight: its spacing is at least one shove's own length", () => {

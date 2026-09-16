@@ -1,8 +1,11 @@
 import { Graphics } from 'pixi.js';
 
-import { BELCH_SHOVE_SPACING, BELCH_SHOVES } from '../../../game/belch';
+import {
+  BELCH_BURST_RADIUS,
+  BELCH_SHOVE_SPACING,
+  BELCH_SHOVES,
+} from '../../../game/belch';
 import { SKULL_CAP, WISP_CAP } from '../../../game/caps';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import {
   BELL_CONE_ROWS,
   BELL_EXPAND_TICKS,
@@ -19,6 +22,7 @@ import {
 } from '../../../game/lines/territory';
 import { WISP_HALF_EXTENT } from '../../../game/lines/wisps';
 import type { RunState } from '../../../game/run';
+import { SCROLL_SPEED } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
 import type { FieldLayers } from './layering';
 
@@ -145,34 +149,30 @@ const CONE_FILL_ALPHA = 0.35;
 const ERUPTION_TICKS = (BELCH_SHOVES - 1) * BELCH_SHOVE_SPACING + SHOVE_TICKS;
 
 /**
- * How far one front reaches, in field units: the field's own diagonal rather
- * than its width, so it leaves the far corner behind.
+ * How far one front reaches, in field units: the belch's own shove reach, read
+ * off its row rather than copied, the way the duration above reads its rows.
  *
- * It does not move with the duration, and that is an authored call rather than
- * a figure any ruling hands over. R3 rules the count and the duration and says
- * nothing about reach or speed. What the front pictures is the gas, which this
- * slice does not touch and which still smothers every mob-fire shot on the
- * whole field, so a front that stopped short of the far corner would stop short
- * of half of what the press does. The shove is the other half and is legibly
- * local: a body starts inside the belch's own 160-unit reach and ends at most
- * 340 units out, well inside this, so nothing is ever moved by something the
- * player cannot see (design record R10) and every front passes over every body
- * it threw.
+ * Design record R11, ruled 2026-09-16. The front and the push name one circle,
+ * because here the push is the payload (R3): a front sweeping past it promises
+ * ground the press did not touch, which is what a player reads as three rings
+ * crossing the whole screen with nothing moving.
  *
- * A front running well past the push it draws is shipped practice rather than
- * this game's invention: Enter the Gungeon's Blank sweeps its clear front to 25
- * tiles over a knockback that ends at 10 (docs/research/watched-pushback-
- * duration.md section 3). What the longer front costs is speed, and the cost is
- * the point: the same reach over one shove's thirty ticks instead of twenty
- * runs at two thirds of what it ran at, which moves it toward the Gungeon front
- * that is the only shipped ruler this can be measured against rather than away
- * from it. Anything shorter in reach reads as a large bell toll, and the bell is
- * a different line: the bell's cones take 45 ticks to a quarter of the distance,
- * which is what keeps the two tellable apart under ADR 0005's generative rule.
+ * The precedent this declines is Enter the Gungeon's Blank, whose clear front
+ * sweeps to 25 tiles over a knockback ending at 10 (docs/research/watched-
+ * pushback-duration.md section 3), a ratio of two and a half. It does not carry
+ * over: in Gungeon the bullets are the Blank's payload and the front pictures
+ * the cancel that takes them, so the front is drawing the field-wide half of
+ * that press. Here the field-wide half is the gas, and R10's rule runs the
+ * other way, that nothing may be moved by something the player cannot see. One
+ * circle satisfies R10 exactly rather than a fortiori.
+ *
+ * What the shorter reach costs is speed, and it is watched rather than tuned:
+ * the same clock over this reach runs at about a field width a second, which is
+ * under the Gungeon front's 1.67 and reads as gas spreading rather than as a
+ * blast. The clock is R3's and does not move, so the levers if it ever needs
+ * one are the stroke below and the fade.
  */
-const ERUPTION_REACH = Math.sqrt(
-  FIELD_WIDTH * FIELD_WIDTH + FIELD_HEIGHT * FIELD_HEIGHT,
-);
+const ERUPTION_REACH = BELCH_BURST_RADIUS;
 
 // How thick the eruption's front is stroked, in field units.
 const ERUPTION_STROKE = 14;
@@ -359,7 +359,7 @@ const drawCones = (into: Graphics, level: number, reach: number): void => {
 };
 
 // One front of the eruption as it stands this tick: how far it has reached from
-// the mouth, and how thick its edge is drawn.
+// the grave's centre, and how thick its edge is drawn.
 interface EruptionFront {
   readonly radius: number;
   readonly width: number;
@@ -392,7 +392,7 @@ const eruptionFrontsAt = (age: number): EruptionFront[] => {
   return fronts;
 };
 
-// The belch's shock fronts, leaving the mouth and expanding past the field's far corner.
+// The belch's shock fronts, leaving the grave and stopping where its push stops.
 const drawEruption = (into: Graphics, age: number): void => {
   into.clear();
   for (const front of eruptionFrontsAt(age)) {
@@ -463,16 +463,24 @@ const requireSlot = <T>(
   return value;
 };
 
-// One momentary effect at a place, on its own clock.
+/**
+ * One momentary effect at a place, on its own clock, and how far its own place
+ * travels down the field each tick it is out.
+ *
+ * A burst drawn over ground drifts with the ground at SCROLL_SPEED, because
+ * everything standing on it does (step.ts, scrollField). A burst belonging to
+ * the grave drifts at nothing, because the grave does not scroll.
+ */
 interface Burst {
   readonly sprite: Graphics;
+  readonly drift: number;
   born: number;
   x: number;
   y: number;
 }
 
-const blankBurst = (): Burst => {
-  return { sprite: new Graphics(), born: -Infinity, x: 0, y: 0 };
+const blankBurst = (drift: number): Burst => {
+  return { sprite: new Graphics(), drift, born: -Infinity, x: 0, y: 0 };
 };
 
 class StormRenderer {
@@ -481,8 +489,10 @@ class StormRenderer {
   private readonly arrivalSprites: Graphics[] = [];
   private readonly wispSprites: Graphics[] = [];
   private readonly ring = new Graphics();
-  private readonly eruption = blankBurst();
-  private readonly splash = blankBurst();
+  // The eruption is drawn over the ground the press caught, so it rides it. The
+  // splash is a spray out of the grave's mouth and rides nothing.
+  private readonly eruption = blankBurst(SCROLL_SPEED);
+  private readonly splash = blankBurst(0);
 
   private readonly skullDrawn: boolean[] = [];
   /**
@@ -586,11 +596,19 @@ class StormRenderer {
     this.syncBursts(run);
   }
 
-  // The belch landed. It is an event and not a state, so the screen tells the renderer.
+  /**
+   * The belch landed. It is an event and not a state, so the screen tells the
+   * renderer.
+   *
+   * It is centred on the grave and not on its mouth, because the grave's centre
+   * is where the belch measures its reach from (belch.ts, insideBurst). Drawn
+   * at the mouth the ring and the caught circle were offset by the grave's own
+   * size, so the picture and the push were two circles.
+   */
   public erupt(run: RunState): void {
     this.eruption.born = run.tick;
     this.eruption.x = run.grave.x;
-    this.eruption.y = run.grave.y - run.grave.size;
+    this.eruption.y = run.grave.y;
   }
 
   // Charge went over the side at a full reservoir (ADR 0008).
@@ -739,6 +757,10 @@ class StormRenderer {
    * One transient at its own age in ticks. The age goes to the draw rather than
    * a share of the life, because the eruption's fronts each run on their own
    * clock inside the whole and a single share cannot say which of them is out.
+   *
+   * Its place travels its own drift for every tick of that age, so a burst
+   * drawn over ground stays over the same ground rather than being left behind
+   * by the crowd it drew.
    */
   private syncBurst(
     run: RunState,
@@ -752,7 +774,7 @@ class StormRenderer {
       return;
     }
     burst.sprite.visible = true;
-    burst.sprite.position.set(burst.x, burst.y);
+    burst.sprite.position.set(burst.x, burst.y + age * burst.drift);
     draw(burst.sprite, age);
   }
 }

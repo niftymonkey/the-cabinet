@@ -2,27 +2,37 @@
 // the gas over the whole field and the shove around the grave.
 
 import type { SimEvent } from './events';
+import { FIELD_WIDTH } from './field';
 import { normalize } from './math';
 import type { RunState } from './run';
 import { shoveStormTarget, stormTargets } from './stormTargets';
 import { RESERVOIR_CAPACITY } from './tuning';
 
 /**
- * How far the shove reaches from the grave, in field units. Initial, tuned by
- * the harness at step 4.
+ * How far the shove reaches from the grave, in field units: half the field's
+ * width, derived from it rather than written down, so the reach follows the
+ * field it is a share of.
  *
- * Under a third of the field's 540 width, so the press is legibly local against
- * a field-wide gas. What made the belch dominant was never its price but its
- * scope: the 2026-08-31 tapes read it at 35 and 46 percent of all kills with
- * the reservoir full 62 to 79 percent of the run (ADR 0008), and cutting the
- * scope is the answer to that rather than cutting the charge.
+ * Design record ruling R11, Mark's option 1 of three, picked 2026-09-16 on his
+ * read of the deployed build. The basis is the field's width and never its
+ * height, its diagonal or its area: a reach off the height would cover about
+ * three quarters of the field, which is the whole screen, and that is the
+ * option he declined.
  *
- * The reach is what it always was and only what happens inside it changed: it
- * used to bound a kill and it now bounds a push (ADR 0008 as amended, design
- * record R3 as superseded 2026-09-15). The three shoves below total more than
- * it, so a body standing beside the grave ends outside it.
+ * What stood from the 160 this replaces is that the shove is local rather than
+ * field-wide, which is ADR 0008's own "shove nearby": the gas takes every shot
+ * on the field and the push takes the ground around the grave, and the two
+ * scopes reading differently is the whole of the split.
+ *
+ * What did not stand is the 160 itself. It came over from the kill the reach
+ * used to bound, where a narrow scope was the answer to a belch that took 35
+ * and 46 percent of all kills on the 2026-08-31 tapes (ADR 0008). A press that
+ * takes no health off anything cannot dominate a kill count, so that reason
+ * retired with the kill; what the narrow scope cost instead was bodies, at 0 to
+ * 21 of 30 to 93 live ones a press and nothing at all in reach on 58 percent of
+ * a still grave's ticks.
  */
-const BELCH_BURST_RADIUS = 160;
+const BELCH_BURST_RADIUS = FIELD_WIDTH / 2;
 
 /**
  * The shove one press throws: how many, how far each carries a body, and how
@@ -39,9 +49,14 @@ const BELCH_BURST_RADIUS = 160;
  * The 60 apiece is docs/research/watched-pushback-duration.md section 5, option
  * 2, which Mark picked on 2026-09-15: 180 in all is the Blank's own third of
  * its playfield transferred to this field's 540 width, 8.2 shambler widths and
- * 9.5 seconds of a shambler's advance bought back, and it clears the reach
- * above by 20, which is ticket #124's done line of a player naming unprompted
- * what the belch did for them.
+ * 9.5 seconds of a shambler's advance bought back.
+ *
+ * It used to be said of these three that they carried a body clear of the reach
+ * above, and ruling R11 withdrew that on 2026-09-16 rather than repairing it:
+ * the reach moved and these three stayed where Mark set them, so what holds now
+ * is that the reach is what a press catches and the throw is how far each
+ * caught body travels. Growing the throw to clear the new reach would overrule
+ * his own pick and is refused there.
  *
  * All three are data and the tuning step owns them (design record R3 as
  * superseded, Mark's ruling 2 of 2026-09-15). They are also ruling R4's own
@@ -121,7 +136,7 @@ const shoveNearbyTargets = (state: RunState): number => {
 /**
  * The two scopes at once: the gas takes every mob-fire shot on the whole field
  * and kills nothing, the shove throws what stands within a radius of the grave
- * clear of it, and the reservoir empties.
+ * away from it, and the reservoir empties.
  *
  * It takes health off nothing at all, boss included (Mark's ruling 3 of
  * 2026-09-15, ADR 0008 as amended), so no corpse of its own is left behind

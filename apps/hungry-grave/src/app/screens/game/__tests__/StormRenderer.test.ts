@@ -15,8 +15,13 @@ import {
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { PROCESSION_WAVES } from '../../../../game/stage/waves';
-import { BELCH_SHOVE_SPACING, BELCH_SHOVES } from '../../../../game/belch';
+import {
+  BELCH_BURST_RADIUS,
+  BELCH_SHOVE_SPACING,
+  BELCH_SHOVES,
+} from '../../../../game/belch';
 import { SHOVE_TICKS } from '../../../../game/shove';
+import { SCROLL_SPEED } from '../../../../game/tuning';
 import { FieldLayers } from '../layering';
 import {
   ERUPTION_TICKS,
@@ -311,16 +316,71 @@ describe('the momentary effects (plan 6.19)', () => {
     expect(splash.visible).toBe(true);
   });
 
-  it("puts both at the grave's mouth, which is where they come out of", () => {
+  it('stops every front at the reach the belch shoves over, and never past it', () => {
+    // Design record R11, Mark's option 1 of 2026-09-16: the front and the push
+    // name one circle, because here the push is the payload. So nothing on
+    // screen promises ground the press did not touch. The Blank's shipped ratio
+    // of a clear front at 2.5 times its knockback is the precedent R11
+    // declines: in Gungeon the bullets are the payload and the front pictures
+    // the cancel, which is not what this front is doing.
+    let furthest = 0;
+    for (let age = 0; age < ERUPTION_TICKS; age++) {
+      for (const front of eruptionFrontsAt(age)) {
+        expect(`tick ${age}: ${front.radius <= BELCH_BURST_RADIUS}`).toBe(
+          `tick ${age}: true`,
+        );
+        furthest = Math.max(furthest, front.radius);
+      }
+    }
+    // And it goes all the way there: a front is one tick's own step short of
+    // the reach on the last tick it is drawn, which is where its push ends.
+    expect(furthest).toBeCloseTo(
+      BELCH_BURST_RADIUS * ((SHOVE_TICKS - 1) / SHOVE_TICKS),
+      6,
+    );
+  });
+
+  it('centres the eruption where the belch measures its reach from, and leaves the splash at the mouth', () => {
+    // The belch reads its reach from the grave's centre (belch.ts, insideBurst)
+    // and the ring used to be drawn from the mouth, so the circle a player saw
+    // and the circle the press caught were offset by the grave's own size. The
+    // splash stays at the mouth because it is a spray coming out of the mouth
+    // and is not this circle.
     const { layers, renderer } = attached();
     const state = quietRun();
     renderer.erupt(state);
     renderer.splashed(state);
     renderer.sync(state);
-    for (const burst of children(layers, 'belchEruption')) {
-      expect(burst.position.x).toBe(state.grave.x);
-      expect(burst.position.y).toBe(state.grave.y - state.grave.size);
-    }
+
+    const eruption = spriteAt(layers, 'belchEruption', 0);
+    expect(eruption.position.x).toBe(state.grave.x);
+    expect(eruption.position.y).toBe(state.grave.y);
+
+    const splash = spriteAt(layers, 'belchEruption', 1);
+    expect(splash.position.x).toBe(state.grave.x);
+    expect(splash.position.y).toBe(state.grave.y - state.grave.size);
+  });
+
+  it('drifts the eruption down the field, so it still covers the bodies it caught when it ends', () => {
+    // Every body the press threw rides the field down at SCROLL_SPEED while the
+    // ring is out (step.ts, scrollField), so a ring pinned to the point it was
+    // born at is left behind by the crowd it drew. R11's closing paragraph
+    // closes that finding here, in the picture, rather than by exempting a
+    // shoved body from the scroll in the sim.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    renderer.erupt(state);
+    renderer.sync(state);
+    const eruption = spriteAt(layers, 'belchEruption', 0);
+    expect(eruption.position.y).toBe(state.grave.y);
+
+    const born = state.grave.y;
+    state.tick += ERUPTION_TICKS - 1;
+    renderer.sync(state);
+    expect(eruption.position.y).toBeCloseTo(
+      born + (ERUPTION_TICKS - 1) * SCROLL_SPEED,
+      6,
+    );
   });
 });
 
