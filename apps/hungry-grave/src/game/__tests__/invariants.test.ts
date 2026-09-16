@@ -934,6 +934,55 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
+    path: 'corpses[].impulse.stepX',
+    poison: (run) => {
+      slot0(run.corpses).impulse.stepX = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.stepY',
+    poison: (run) => {
+      slot0(run.corpses).impulse.stepY = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.ticksLeft',
+    poison: (run) => {
+      slot0(run.corpses).impulse.ticksLeft = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.travelled',
+    poison: (run) => {
+      slot0(run.corpses).impulse.travelled = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.shovesLeft',
+    poison: (run) => {
+      slot0(run.corpses).impulse.shovesLeft = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.nextIn',
+    poison: (run) => {
+      slot0(run.corpses).impulse.nextIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.spacing',
+    poison: (run) => {
+      slot0(run.corpses).impulse.spacing = NaN;
+      return run;
+    },
+  },
+  {
     path: 'mobFire[].x',
     poison: (run) => {
       slot0(run.mobFire).x = NaN;
@@ -1419,6 +1468,12 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   ending: 'a run ending name or null, never a number',
   'mobs[].impulse.source':
     'which push threw the shove a body is carrying, or null on a body carrying nothing: one of two words and never a number, as ending is. It is written once when the shove starts and no arithmetic touches it',
+  'mobs[].impulse.bodyId':
+    'the id of the body the shove landed on, written once when the shove starts from an id the pool handed out: spawn identity, as corpses[].id is, and no arithmetic reaches it',
+  'corpses[].impulse.source':
+    'which push threw the shove a corpse is carrying, as mobs[].impulse.source is: it is the same record handed across at the kill',
+  'corpses[].impulse.bodyId':
+    'the id of the body the shove landed on, as mobs[].impulse.bodyId is',
   'offer.bodyIds[]':
     'spawn identity, as corpses[].id is: the offer holds the ids the food pool handed out and never computes one',
   'refusals.food':

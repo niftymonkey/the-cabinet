@@ -979,3 +979,7 @@ describe("the bell's damage climbs with its rungs (the weapon growth record, sec
     expect(() => bellDamageFar(-1)).toThrow();
   });
 });
+
+describe('a body the cone kills on arrival (design record R10)', () => {
+  it.todo("is carried the whole of the toll's push");
+});

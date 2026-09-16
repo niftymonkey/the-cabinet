@@ -351,6 +351,7 @@ const shoveStormTarget = (
   startShove(
     slot.mob.impulse,
     source,
+    slot.mob.id,
     awayX,
     awayY,
     distance,

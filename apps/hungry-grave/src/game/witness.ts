@@ -104,8 +104,36 @@ const STREAM_ORDER: readonly StreamName[] = [
  * recorded before this commit is refused by its version and not one of them
  * replays at this tip, which is the fourth time step 4 has made saved tapes a
  * dead baseline. It is taken eyes open on the design record's ruling R1.
+ *
+ * **8 to 9, 2026-09-16, and these are the seven fields the move declares.**
+ * They are the one impulse a corpse carries (corpses.ts), and every one of them
+ * is added by the same commit that stamps the version, for the reason above.
+ *
+ * - `corpses[].impulse.stepX`, `corpses[].impulse.stepY`,
+ *   `corpses[].impulse.ticksLeft`, `corpses[].impulse.travelled`,
+ *   `corpses[].impulse.shovesLeft`, `corpses[].impulse.nextIn` and
+ *   `corpses[].impulse.spacing`. Each folds for exactly the reason its mob
+ *   twin above does, because it is the same record on a second pool: a shove
+ *   now outlives the body carrying it and is handed to the corpse the kill
+ *   leaves, so a corpse three ticks into a sixty-unit flight is in a state
+ *   nothing else on the run shows, and a replay that folded only its position
+ *   would call two different runs the same one on the tick the flight ends
+ *   (design record R10's separate-clocks lever, taken 2026-09-16).
+ *
+ * `impulse.bodyId` is not among them and is excluded on `impulse.source`'s own
+ * terms, on both pools: it is written once when the shove starts and never
+ * mutated, no rule reads it, and its one consumer is the mobShoved event a
+ * reading counts off a tape (witness.test.ts's EXCLUDED).
+ *
+ * **What this move costs, again stated rather than discovered.** Every tape
+ * recorded before this commit is refused by its version and not one of them
+ * replays at this tip, which is the fifth time this step has made saved tapes a
+ * dead baseline. It is taken eyes open, and it exceeds the design record's
+ * section 5, which permits the witness exactly one move in round two: it is the
+ * orchestrator's call under one-push mode, taken as the arithmetic of R10's own
+ * deferral rather than as a new decision.
  */
-const WITNESS_VERSION = 8;
+const WITNESS_VERSION = 9;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -204,10 +232,14 @@ const foldGrave = (checksum: number, grave: Grave): number => {
 };
 
 /**
- * The shove one body is carrying (shove.ts). It appends after the body's own
- * fields rather than sitting beside the velocity it is not, because a widening
- * appends and never reshuffles what is already in place, and because the shove
- * is a second motion rather than a change to the first.
+ * The shove one carrier is carrying (shove.ts). It appends after the carrier's
+ * own fields rather than sitting beside the velocity it is not, because a
+ * widening appends and never reshuffles what is already in place, and because
+ * the shove is a second motion rather than a change to the first.
+ *
+ * One function over both pools rather than two, because it is one record: a
+ * shove handed from a body to the corpse it left is the same seven numbers, and
+ * two copies is where the two folds drift apart.
  */
 const foldImpulse = (checksum: number, impulse: Impulse): number => {
   let next = fold(fold(checksum, impulse.stepX), impulse.stepY);
@@ -253,6 +285,7 @@ const foldCorpses = (checksum: number, run: RunState): number => {
     next = fold(next, CORPSE_TIER_CODES[corpse.tier]);
     next = fold(next, FOOD_KIND_CODES[corpse.kind]);
     next = fold(next, corpseLineCode(corpse));
+    next = foldImpulse(next, corpse.impulse);
   }
   return next;
 };

@@ -40,6 +40,17 @@ interface Impulse {
    * the witness excludes it rather than folding it (witness.test.ts's EXCLUDED).
    */
   source: ShoveSource | null;
+  /**
+   * The id of the body the shove landed on, or zero on a carrier carrying
+   * nothing. nextEntityId starts at 1, so zero is an id no entity holds.
+   *
+   * It rides on the impulse for the same reason the source does, and for one
+   * more: an impulse can outlive the body it landed on, so the report at the
+   * end has no body left to ask. The one report names the body the push reached
+   * whoever is carrying the impulse when it is spent, which is what the repel
+   * reading has always meant by it (events.ts, MobShoved).
+   */
+  bodyId: number;
   // The travel the first tick of the current shove owes, x and y in field units.
   stepX: number;
   stepY: number;
@@ -91,10 +102,17 @@ interface ShoveStep {
  */
 const SHOVE_TICKS = 30;
 
-/** A body carrying nothing: the resting value of every field above. */
+/**
+ * What `bodyId` reads on a carrier carrying nothing. Entity ids start at 1 and
+ * only ever increase (run.ts, nextEntityId), so zero is an id no body holds.
+ */
+const NO_BODY_ID = 0;
+
+/** A carrier carrying nothing: the resting value of every field above. */
 const blankImpulse = (): Impulse => {
   return {
     source: null,
+    bodyId: NO_BODY_ID,
     stepX: 0,
     stepY: 0,
     ticksLeft: 0,
@@ -112,6 +130,7 @@ const blankImpulse = (): Impulse => {
  */
 const clearImpulse = (impulse: Impulse): void => {
   impulse.source = null;
+  impulse.bodyId = NO_BODY_ID;
   impulse.stepX = 0;
   impulse.stepY = 0;
   impulse.ticksLeft = 0;
@@ -147,6 +166,7 @@ const firstStepOf = (distance: number): number => {
 const startShove = (
   impulse: Impulse,
   source: ShoveSource,
+  bodyId: number,
   awayX: number,
   awayY: number,
   distance: number,
@@ -155,6 +175,7 @@ const startShove = (
 ): void => {
   const first = firstStepOf(distance);
   impulse.source = source;
+  impulse.bodyId = bodyId;
   impulse.stepX = awayX * first;
   impulse.stepY = awayY * first;
   impulse.ticksLeft = SHOVE_TICKS;

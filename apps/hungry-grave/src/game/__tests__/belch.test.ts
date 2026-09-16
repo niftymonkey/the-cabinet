@@ -633,3 +633,16 @@ describe('the belch takes health off nothing (ADR 0008 as amended)', () => {
     expect(events.filter((event) => event.type === 'mobKilled')).toEqual([]);
   });
 });
+
+describe("the press's own record of what it reached (#124)", () => {
+  it.todo('records every body in the frame, moved or not');
+  it.todo(
+    'records its own reason against a body that has not entered, one outside the reach, one with no direction to be thrown along and one that may not be pushed',
+  );
+  it.todo(
+    'records a moved count that is the same number shoved has always been',
+  );
+  it.todo(
+    "records a boss and a set piece's source, and still moves neither of them",
+  );
+});

@@ -409,6 +409,26 @@ const runScenario = (): ScenarioResult => {
  * the seed, the grave's position and size, the score, the reservoir, mobs at 5,
  * shots at 0, corpses at 1, skulls at 2, wisps at 0, kills at 2, the levels
  * record and every one of the eight stream cursors.
+ *
+ * Re-pinned on 2026-09-16 for a shove outliving the body that carried it
+ * (round two, design record R10's held lever, taken on Mark's own sighting).
+ * The checksum moved from -145039082 and it is the only field that moved, and
+ * the cause is mechanical rather than anything the scenario does: every live
+ * corpse now carries an impulse of seven folded numbers, `WITNESS_VERSION`
+ * reads 9, and seven zeroes per live corpse fold into the number, exactly as
+ * seven per live mob did at version 8. **No shove happens inside this window at
+ * all and no corpse is ever carried anywhere**, which is the thing to watch
+ * here: `runScenario` passes `belch: false` on every one of the 600 ticks,
+ * `levels.bell` is 0 for the whole scenario so no toll arms a ring, and
+ * `startShove`'s only production caller is `shoveStormTarget`, whose own two
+ * callers are the belch and the bell. **The isolation run proved it rather than
+ * asserting it**: the same scenario, with every one of the corpse's new fields
+ * asserted at its resting value on all 600 ticks and folded the old way,
+ * returns `-145039082` whole, every field and the checksum (round two progress
+ * note section 15). Everything else held: tick 600, the seed, the grave's
+ * position and size, the score, the reservoir, mobs at 5, shots at 0, corpses
+ * at 1, skulls at 2, wisps at 0, kills at 2, the levels record and every one of
+ * the eight stream cursors.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -440,7 +460,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: -145039082,
+  checksum: 1275540894,
 };
 
 export { runScenario, GOLDEN };

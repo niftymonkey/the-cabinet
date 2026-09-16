@@ -435,6 +435,41 @@ const ENTITY_CASES: readonly FieldCase[] = [
     restore: (run) => void (slot0(run.corpses).line = 'wisps'),
   },
   {
+    path: 'corpses[].impulse.stepX',
+    move: (run) => void (slot0(run.corpses).impulse.stepX += 1e-6),
+    restore: (run) => void (slot0(run.corpses).impulse.stepX -= 1e-6),
+  },
+  {
+    path: 'corpses[].impulse.stepY',
+    move: (run) => void (slot0(run.corpses).impulse.stepY += 1e-6),
+    restore: (run) => void (slot0(run.corpses).impulse.stepY -= 1e-6),
+  },
+  {
+    path: 'corpses[].impulse.ticksLeft',
+    move: (run) => void (slot0(run.corpses).impulse.ticksLeft -= 1),
+    restore: (run) => void (slot0(run.corpses).impulse.ticksLeft += 1),
+  },
+  {
+    path: 'corpses[].impulse.travelled',
+    move: (run) => void (slot0(run.corpses).impulse.travelled += 1e-6),
+    restore: (run) => void (slot0(run.corpses).impulse.travelled -= 1e-6),
+  },
+  {
+    path: 'corpses[].impulse.shovesLeft',
+    move: (run) => void (slot0(run.corpses).impulse.shovesLeft -= 1),
+    restore: (run) => void (slot0(run.corpses).impulse.shovesLeft += 1),
+  },
+  {
+    path: 'corpses[].impulse.nextIn',
+    move: (run) => void (slot0(run.corpses).impulse.nextIn -= 1),
+    restore: (run) => void (slot0(run.corpses).impulse.nextIn += 1),
+  },
+  {
+    path: 'corpses[].impulse.spacing',
+    move: (run) => void (slot0(run.corpses).impulse.spacing -= 1),
+    restore: (run) => void (slot0(run.corpses).impulse.spacing += 1),
+  },
+  {
     path: 'skulls[].x',
     move: (run) => void (slot0(run.skulls).x += 1e-6),
     restore: (run) => void (slot0(run.skulls).x -= 1e-6),
@@ -817,6 +852,13 @@ const FOLDED: readonly string[] = [
   'corpses[].tier',
   'corpses[].kind',
   'corpses[].line',
+  'corpses[].impulse.stepX',
+  'corpses[].impulse.stepY',
+  'corpses[].impulse.ticksLeft',
+  'corpses[].impulse.travelled',
+  'corpses[].impulse.shovesLeft',
+  'corpses[].impulse.nextIn',
+  'corpses[].impulse.spacing',
   'skulls[].x',
   'skulls[].y',
   'skulls[].vx',
@@ -934,6 +976,12 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'written once at the lay (territory.ts layPatch) and never mutated, as mobs[].type is. A divergence in the birth rung shows through the radius, pull, slow and re-hit the walk folds, each captured from the same rung of a ladder with distinct values per rung.',
   'mobs[].impulse.source':
     "which push threw the shove a body is carrying, written once when the shove starts (shove.ts startShove) and never mutated, as mobFire[].kind is. No rule reads it: its one consumer is the mobShoved event a reading counts off a tape, so it answers who pushed rather than where the body goes. A divergence in it shows through the impulse's seven folded fields, because the bell starts one shove with no spacing and the belch three, spaced by its own row (design record R3 as superseded).",
+  'mobs[].impulse.bodyId':
+    'the id of the body the shove landed on, written once when the shove starts (shove.ts startShove) and never mutated, exactly as impulse.source is. No rule reads it: its one consumer is the mobShoved event a reading counts off a tape, so it answers who was pushed rather than where anything goes, and the body it names is folded by the walk for as long as it is alive.',
+  'corpses[].impulse.source':
+    "which push threw the shove a corpse is carrying, on mobs[].impulse.source's own terms: it is the same record handed across at the kill and it is written once at the shove's start. A divergence in it shows through the seven folded fields of the same impulse.",
+  'corpses[].impulse.bodyId':
+    "the id of the body the shove landed on, on mobs[].impulse.bodyId's own terms. On a corpse it is deliberately not the corpse's own id: the one report names the body the push reached, which is what the repel reading has always meant by it.",
   'refusals.food':
     "what the corpse pool turned away on one tick, cleared at the top of every tick and read by the invariant harness at the end of it. It is the harness's input rather than the run's state, and every refusal it counts is decided by the pools the fold already walks.",
   'refusals.carriers':
@@ -1324,11 +1372,12 @@ describe("the harness's own stream stays outside the run (ADR 0019)", () => {
   it('leaves the witness version where the sim put it, which the harness must not move', () => {
     // Hand-forward (f) pins it: the whole harness is built outside RunState, so
     // no version move is ever the hand's. This is what says it was not, on a
-    // branch that added a stream to the project. The sim moved it to 8 for the
-    // impulse a shoved body carries, and to 7 before that for the director's own
-    // stream and the rest of the fold that step widened; the three names above
-    // are the run's rather than the hand's.
-    expect(WITNESS_VERSION).toBe(8);
+    // branch that added a stream to the project. The sim moved it to 9 for the
+    // impulse a corpse now carries, to 8 before that for the impulse a shoved
+    // body carries, and to 7 before that for the director's own stream and the
+    // rest of the fold that step widened; the three names above are the run's
+    // rather than the hand's.
+    expect(WITNESS_VERSION).toBe(9);
     expect(Object.keys(createRun(0).streams)).not.toContain(HAND_STREAM);
   });
 });

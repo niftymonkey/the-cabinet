@@ -15,6 +15,7 @@ import { SKULL_HALF_EXTENT } from './lines/skullStream';
 import { TERRITORY_CAP } from './lines/territory';
 import { SPAWN_MARGIN } from './mobs';
 import type { RunState } from './run';
+import type { Impulse } from './shove';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from './tuning';
 
 /**
@@ -59,6 +60,30 @@ const checkSlotFinite = (
   }
 };
 
+/**
+ * The shove one carrier is carrying: coverage of the fields shove.ts writes
+ * rather than a new check, because a non-finite step reaches the carrier's own
+ * position on the very next tick.
+ *
+ * One walk over both pools, because it is one record: a body hands its impulse
+ * to the corpse its kill leaves, and two copies of these seven names is where
+ * one pool quietly loses a field the other gained.
+ */
+const checkImpulseNoNaN = (
+  faults: Fault[],
+  pool: string,
+  id: number,
+  impulse: Impulse,
+): void => {
+  checkSlotFinite(faults, pool, id, 'impulse.stepX', impulse.stepX);
+  checkSlotFinite(faults, pool, id, 'impulse.stepY', impulse.stepY);
+  checkSlotFinite(faults, pool, id, 'impulse.ticksLeft', impulse.ticksLeft);
+  checkSlotFinite(faults, pool, id, 'impulse.travelled', impulse.travelled);
+  checkSlotFinite(faults, pool, id, 'impulse.shovesLeft', impulse.shovesLeft);
+  checkSlotFinite(faults, pool, id, 'impulse.nextIn', impulse.nextIn);
+  checkSlotFinite(faults, pool, id, 'impulse.spacing', impulse.spacing);
+};
+
 // The run's own numbers, and the grave's.
 const checkRunNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'tick', state.tick);
@@ -82,35 +107,7 @@ const checkMobsNoNaN = (state: RunState, faults: Fault[]): void => {
     checkSlotFinite(faults, 'mob', mob.id, 'hp', mob.hp);
     checkSlotFinite(faults, 'mob', mob.id, 'beat', mob.beat);
     checkSlotFinite(faults, 'mob', mob.id, 'fireIn', mob.fireIn);
-    // The shove a body is carrying: coverage of the fields shove.ts writes
-    // rather than a new check, because a non-finite step reaches the body's
-    // own position on the very next tick.
-    const impulse = mob.impulse;
-    checkSlotFinite(faults, 'mob', mob.id, 'impulse.stepX', impulse.stepX);
-    checkSlotFinite(faults, 'mob', mob.id, 'impulse.stepY', impulse.stepY);
-    checkSlotFinite(
-      faults,
-      'mob',
-      mob.id,
-      'impulse.ticksLeft',
-      impulse.ticksLeft,
-    );
-    checkSlotFinite(
-      faults,
-      'mob',
-      mob.id,
-      'impulse.travelled',
-      impulse.travelled,
-    );
-    checkSlotFinite(
-      faults,
-      'mob',
-      mob.id,
-      'impulse.shovesLeft',
-      impulse.shovesLeft,
-    );
-    checkSlotFinite(faults, 'mob', mob.id, 'impulse.nextIn', impulse.nextIn);
-    checkSlotFinite(faults, 'mob', mob.id, 'impulse.spacing', impulse.spacing);
+    checkImpulseNoNaN(faults, 'mob', mob.id, mob.impulse);
   }
 };
 
@@ -131,6 +128,7 @@ const checkCorpsesNoNaN = (state: RunState, faults: Fault[]): void => {
     checkSlotFinite(faults, 'corpse', corpse.id, 'y', corpse.y);
     checkSlotFinite(faults, 'corpse', corpse.id, 'freshness', corpse.freshness);
     checkSlotFinite(faults, 'corpse', corpse.id, 'payout', corpse.payout);
+    checkImpulseNoNaN(faults, 'corpse', corpse.id, corpse.impulse);
   }
 };
 

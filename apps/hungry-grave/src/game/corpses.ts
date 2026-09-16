@@ -10,6 +10,8 @@ import type { WeaponLine } from './lines/roster';
 import type { CorpseTier, Mob } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
+import type { Impulse } from './shove';
+import { blankImpulse, clearImpulse } from './shove';
 import type { FoodKind, Swallowable } from './swallow';
 import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from './tuning';
 
@@ -86,6 +88,16 @@ interface Corpse {
    * where a corpse goes.
    */
   halfExtent: number;
+  /**
+   * The shove this corpse is carrying, if one was handed to it (shove.ts).
+   *
+   * It is declared with the fold that folds it rather than the day something
+   * hands one over, because a folded field arriving later would change what
+   * every tape recorded in between folded, which is the rule mobs[].from was
+   * declared early under. The caller is written down: the design record's
+   * section 4, slice J2, where a shove outlives the body that carried it.
+   */
+  impulse: Impulse;
 }
 
 const blankCorpse = (): Corpse => {
@@ -101,6 +113,7 @@ const blankCorpse = (): Corpse => {
     decays: true,
     line: undefined,
     halfExtent: CORPSE_HALF_EXTENT,
+    impulse: blankImpulse(),
   };
 };
 
@@ -151,6 +164,11 @@ const claimSlot = (state: RunState): Corpse | null => {
     return null;
   }
   state.nextEntityId += 1;
+  // The slot may be one a carried corpse died in, and an inherited impulse
+  // would carry new food away on a push that never reached it. It is cleared
+  // here rather than in each of the three spawns, because every one of them
+  // comes through this door (spawnMob keeps the same rule on the mob pool).
+  clearImpulse(free.impulse);
   return free;
 };
 

@@ -671,3 +671,7 @@ describe('a belch pays nothing, because it kills nothing (Mark, 2026-09-15)', ()
     expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(wave);
   });
 });
+
+describe('a corpse swallowed while a shove is carrying it (design record R10)', () => {
+  it.todo('reports what it was carried and stops carrying it');
+});

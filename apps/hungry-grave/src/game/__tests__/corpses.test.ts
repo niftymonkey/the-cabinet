@@ -470,3 +470,17 @@ describe('what a lost corpse reports (plan 6.9)', () => {
     expect(lost?.type === 'corpseLost' && lost.kind).toBe('powerUp');
   });
 });
+
+describe('a corpse a shove is carrying (design record R10)', () => {
+  it.todo('drifts at the scroll alone when nothing is carrying it');
+  it.todo("rides the field's own drift as well while a shove carries it");
+  it.todo(
+    'is never carried outside the field plus the spawn margin, and is lost off the bottom edge the way any corpse is',
+  );
+  it.todo(
+    'has further left to drift to the grave than a corpse nothing threw, which is what a throw up the field costs',
+  );
+  it.todo(
+    'hands out a cleared impulse on every spawn path, so a corpse never inherits a push that never reached it',
+  );
+});
