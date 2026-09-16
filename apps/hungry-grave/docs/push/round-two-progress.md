@@ -597,6 +597,8 @@ One code commit, `eda21401a0`, twenty-two files, 686 insertions and 243 deletion
 
 **Seen and left, for nobody in particular.** `record-conditioned.ts` scripts `belch: false` on every tick, so no conditioned tape can ever carry a belch. That was correct while the belch only killed and is now the reason the belch's own change cannot be seen on the rig the tuning step will use most. Changing it would move a harness row between two builds, which is exactly what the record forbids, so the honest fix is a new named configuration rather than an edit, and that is the tuning step's call and not a slice's.
 
-## 12. Slice K: the meter fills and changes corner (#127)
+## 12. Slice J-fix: the belch's push reaches half the field's width and the eruption stops where the push stops (#124)
 
-## 13. Slice L: the Wall is a wall (#123)
+## 13. Slice K: the meter fills and changes corner (#127)
+
+## 14. Slice L: the Wall is a wall (#123)
