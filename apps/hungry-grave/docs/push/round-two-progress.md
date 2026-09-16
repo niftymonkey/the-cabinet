@@ -20,8 +20,11 @@ The record is `apps/hungry-grave/docs/design/round-two-wall-belch.md` and the pr
 | J2, the witness fold | `3351044752` | feat(hungry-grave): a corpse carries a shove of its own and the witness folds it (#124) |
 | J2, a shove outlives its body | `62bbbd753c` | feat(hungry-grave): a body killed in flight finishes its shove and the press records what it missed (#124) |
 | L, the Wall is a wall | `dacbce3abd` | feat(hungry-grave): the curtain stands against the storm and a belch is what opens it (#123) |
+| L-fix, the Wall holds at every build | `455f74c62f` | fix(hungry-grave): the Wall's cairns hold at the ceiling build so only a belch opens it (#123) |
+| J3, the witness fold | `c64d71306c` | feat(hungry-grave): the press is state the run carries and the witness folds it (#124) |
+| J3, every shove throws what stands inside it | `7846502867` | feat(hungry-grave): every shove of a press throws what stands inside it and the record gains a shove axis (#124) |
 
-Slice H carries two code commits, the fold and the rewiring, which is this round's one authorized departure from the contract's one-code-commit rule. Slice J2 carries two for the same reason and is the second, authorized in its own prompt: a version stamped before the fold stops moving names several folds.
+Slice H carries two code commits, the fold and the rewiring, which is this round's one authorized departure from the contract's one-code-commit rule. Slice J2 carries two for the same reason and is the second, authorized in its own prompt: a version stamped before the fold stops moving names several folds. Slice J3 carries two and is the third, on the same reason and authorized the same way.
 
 ## 2. The version ledger
 
@@ -29,16 +32,18 @@ Where each constant stood when round two opened, where it is permitted to go, an
 
 | Constant | At slice G's tip | Permitted move | Owner | Landed |
 | --- | --- | --- | --- | --- |
-| `WITNESS_VERSION` (`src/game/witness.ts`) | 7 | 7 to 8, exactly once | Slice H, in its own commit | **9**: 8 in `2e90597cad`, then 9 in `3351044752`, granted to slice J2 beyond what section 5 permits |
-| `READINGS_VERSION` (`src/dev/readingsVersion.ts`) | 4 | 4 to 5, exactly once | Slice I | **6**: 5 in `157946940c`, then 6 in `62bbbd753c`, slice J2's and not optional |
-| `FORMAT_VERSION` (`src/tape/wireCodes.ts`) | 4 | none | nobody | 4 after slice J2, stated and unmoved |
-| `GOLDEN` (`src/dev/digest.ts`), checksum `-489751710` | pinned | two re-pins, plus one granted to J2 | Slice H, slice J, slice J2 | re-pinned in `2e90597cad` to `-145039082`, then in `3351044752` to `1275540894` |
+| `WITNESS_VERSION` (`src/game/witness.ts`) | 7 | 7 to 8, exactly once | Slice H, in its own commit | **10**: 8 in `2e90597cad`, 9 in `3351044752`, then 10 in `c64d71306c`, each granted beyond what section 5 permits |
+| `READINGS_VERSION` (`src/dev/readingsVersion.ts`) | 4 | 4 to 5, exactly once | Slice I | **7**: 5 in `157946940c`, 6 in `62bbbd753c`, then 7 in `7846502867`, slice J3's and not optional |
+| `FORMAT_VERSION` (`src/tape/wireCodes.ts`) | 4 | none | nobody | 4 after slice J3, stated and unmoved |
+| `GOLDEN` (`src/dev/digest.ts`), checksum `-489751710` | pinned | two re-pins, plus one granted to J2 and one to J3 | Slice H, slice J, slice J2, slice J3 | re-pinned in `2e90597cad` to `-145039082`, in `3351044752` to `1275540894`, then in `c64d71306c` to `1307518644` |
 
 **Slice J2's two version moves and its re-pin are all past what section 5 permits, and all three are the orchestrator's under one-push mode**, taken as the arithmetic of ruling R10's own deferral rather than as new decisions. The `GOLDEN` grant is worded and bounded in R9's own closing paragraph of 2026-09-16 and is granted against a proof, which slice J2 ran before pinning anything (section 15).
 
 **Round two's `GOLDEN` budget is two and it is its own.** Step 4's five slots were spent in slices A, C, E and F with one forfeit, and its spare is not this round's to take. **Slices R-fix, I, K and L are permitted none.** **One further re-pin was granted to slice J2 on 2026-09-16 and to nothing else**; a forfeit permit is not a draw a later slice inherits, which is why the grant was needed even though slice J's went unused.
 
 **What the two version moves cost, stated rather than discovered.** `WITNESS_VERSION` 8 refuses every tape recorded before slice H's fold commit, which is the fourth time this step has made saved tapes a dead baseline, after the waves, the witness and the tape format. `READINGS_VERSION` 5 makes every step 4 batch incomparable with every post-belch batch, because the repel reading splits by source rather than being widened. Both are taken eyes open on the design record's rulings R1 and R9. **`WITNESS_VERSION` 9 refuses every tape recorded before slice J2's fold commit, the fifth such dead baseline, and `READINGS_VERSION` 6 makes every batch recorded at slice J-fix's tip incomparable with every batch after it on both the belch arm and the toll arm**, because a shove now outlives the body carrying it on both lines.
+
+**Slice J3's two version moves and its re-pin are all past what section 5 permits too, and all three are the orchestrator's under one-push mode**, granted up front in the slice's own fourth ruling on Mark's sighting of 2026-09-16 and recorded by the second amendment to R9. **`WITNESS_VERSION` 10 refuses every tape recorded before slice J3's fold commit, the sixth such dead baseline**, and it is certain by construction rather than chosen: a press outlives its own tick, so it is run state a replay must rebuild, and an absent run field folds `ABSENT_CODE`. **`READINGS_VERSION` 7 makes every batch recorded at slice L-fix's tip incomparable with every batch after it on the belch arm**, because a press now starts a shove on every body that walks into its circle while it is out.
 
 ## 3. GOLDEN moves
 
@@ -47,6 +52,8 @@ One entry per slice that was permitted one, whether or not it moved, with the da
 **Slice H: re-pinned, the first of round two's two.** The checksum moved from `-489751710` to `-145039082` and **it is the only field that moved**. Every other field held exactly: tick 600, seed 20260820, `graveX` 365.625, `graveY` 318.875, `size` 24.10125, `score` 0, `reservoir` 0.10125, `mobs` 5, `shots` 0, `corpses` 1, `skulls` 2, `wisps` 0, `kills` 2, the levels record and every one of the eight stream cursors. The cause is mechanical and not anything the scenario does: every live body now carries an impulse of seven folded numbers, so seven more zeroes per live mob fold into the number. **No shove happens inside the window at all**, which is the thing to watch here rather than the checksum: `levels.bell` is 0 for the whole scenario, so no toll fires and every one of the seven fields sits at its resting zero on all 600 ticks. The dated paragraph is in `digest.ts`'s JSDoc. One re-pin remains, slice J's.
 
 **Slice J: permitted one, took none, and that is what should have happened.** The canonical scenario scripts `belch: false` on every one of its six hundred ticks, so nothing slice J changed can be reached by it. The permit was forfeit rather than carried.
+
+**Slice J3: re-pinned, granted beyond the budget in R9's second amendment of 2026-09-16.** The checksum moved from `1275540894` to `1307518644` and **it is the only field that moved**. Every other field held exactly: tick 600, seed 20260820, `graveX` 365.625, `graveY` 318.875, `size` 24.10125, `score` 0, `reservoir` 0.10125, `mobs` 5, `shots` 0, `corpses` 1, `skulls` 2, `wisps` 0, `kills` 2, the levels record and every one of the eight stream cursors. The cause is mechanical and not anything the scenario does: an absent press folds `ABSENT_CODE` on every tick, exactly as the ending, the ring, the boss and the set piece already do, with two owed-step zeroes per live carrier beside it. **No press is reachable in the scenario at all** and **the grant was against a proof rather than a promise**: the same scenario with the press asserted absent and every owed step asserted at rest on all 600 ticks and folded the old way returns `1275540894` whole, both digests printed side by side in section 18. The dated paragraph is in `digest.ts`'s JSDoc.
 
 **Slice J2: re-pinned, granted beyond the budget in R9's closing paragraph of 2026-09-16.** The checksum moved from `-145039082` to `1275540894` and **it is the only field that moved**. Every other field held exactly: tick 600, seed 20260820, `graveX` 365.625, `graveY` 318.875, `size` 24.10125, `score` 0, `reservoir` 0.10125, `mobs` 5, `shots` 0, `corpses` 1, `skulls` 2, `wisps` 0, `kills` 2, the levels record and every one of the eight stream cursors. The cause is mechanical and not anything the scenario does: every live corpse now carries an impulse of seven folded numbers, so seven more zeroes per live corpse fold into the number, exactly as seven per live mob did at version 8. **No shove is reachable in the scenario at all** and **the grant was against a proof rather than a promise**: the same scenario with every new field asserted at its resting value on all 600 ticks and folded the old way returns `-145039082` whole, both runs printed side by side in section 15. The dated paragraph is in `digest.ts`'s JSDoc. **No re-pin remains, and slice L is permitted none.**
 
@@ -67,6 +74,8 @@ One entry per code commit: files reviewed, findings by severity, applied and dec
 **Slice J2's fold commit, `3351044752`.** All fourteen staged files reviewed under `coderabbit review --agent --uncommitted`, **zero findings at any severity**, so nothing was applied and nothing declined.
 
 **Slice J2's second commit, `62bbbd753c`.** All twenty-three staged files reviewed, **zero findings at any severity**, so nothing was applied and nothing declined.
+
+**Slice J3's fold commit, `c64d71306c`.** All ten staged files reviewed under `coderabbit review --agent --uncommitted`, **zero findings at any severity**, so nothing was applied and nothing declined. **Its second commit, `7846502867`.** All fifteen staged files reviewed, **zero findings at any severity**, so nothing was applied and nothing declined.
 
 **Slice K, `538fd21a9b`.** All six staged files reviewed, **one finding, minor, applied, and it was a real misread the tests had not caught**. The arc's segment count was `Math.round(filled * 64)`, which closes the ring at 63.5 segments, so a reservoir a half-segment short of full would have drawn the complete circle the ready state draws. It is now a named pure function, `filledSegments`, rounding down below full and answering the full count only at a full reservoir, with its own test, *closes the ring at a full reservoir and never a segment before one*. Nothing was declined.
 
@@ -1231,3 +1240,197 @@ Three gates on the whole round, `97fc911527..d64c214820`, each a marker comment 
 **Its limit is stated rather than discovered.** The batch hand presses only on live shots (`harnessPolicy.ts`), so **no batch in this round ever opened the Wall**, and the curtain's crossing is pinned by tests and by hand-measured scripts alone. That is #134, filed above, and it is why the record's route for it is a new named configuration rather than a moved row.
 
 **L-fix's own tip carries no batch**, because its one changed figure is a mob's health at a build no batch configuration plays and the batch could not have read the Wall either way.
+
+## 18. Slice J3: every shove of a press throws what stands inside it, and the press record gains a shove axis (#124)
+
+Two code commits and one docs commit. The witness fold is `c64d71306c`, ten files, 372 insertions and 16 deletions; the rest is `7846502867`, fifteen files, 1208 insertions and 195 deletions, against the prompt's expected 15 to 25 files. It is the third authorized departure from the contract's one-code-commit rule, on slice H's and slice J2's own reason.
+
+**What the engine does now.** A press throws three times rather than once. Each of its three shoves re-reads the field at its own tick and throws whatever stands inside the reach then, so a body that walks into the circle after the press landed is thrown by the shoves that are left: caught by the second it carries two, caught by the third it carries one, and the press still ends exactly where it always ended. A body the press has already thrown keeps what it was given and is never re-armed by the shoves behind it. A body a bell toll is carrying is thrown exactly as a walking one is. And a new push never shortens, re-times or re-throws what a body is already owed: a toll landing mid-press replaces the shove in flight and leaves the waves the press still owes at the belch's own throw, on the belch's own clock. Nothing else about the belch moved: the reach, the count, the spacing and the throw are exactly as Mark set them, and it still takes health off nothing.
+
+**What a player meets.** The three rings he can count each throw the crowd, instead of the first one throwing it and the other two sweeping over a crowd that has walked back in.
+
+### The before table, and the prompt's own claim that did not survive
+
+**Mark's tape does not replay at this tip, and the cause is slice L-fix rather than anything of this slice's.** The prompt's item (b) says the tape "reproduces because the build matches his". It does not: `measure.ts` reads `outcome: 'diverged'` at the first divergent checkpoint, **2700**, with 45 checkpoints verified. The cause was found rather than assumed. **L-fix moved the cairn's health from 296 to 2206** and the Procession's lone cairn Drip arrives in this run at **tick 2641** with `hp` 2206, which is inside the window checkpoint 2700 closes (`local/round2/j3-divergence-probe.ts`). With that one row put back to 296 in the working tree, **his tape verifies 373 of 373 checkpoints and 22323 ticks**, which is both the proof of the cause and the build the before table is taken on. The row was restored immediately afterwards and the tree checked clean.
+
+**The before table, off `local/round2/j3-mark-1999305952.tape` at slice L's own code** (the tape is copied into `local/round2/` from the session scratchpad it arrived in, and the instrument is `local/round2/j3-per-wave.ts`). For each shove of each press: the bodies alive, entered and inside `BELCH_BURST_RADIUS` at that shove's own tick that were not already carrying a belch shove, and how many of them were moving under one on the tick after.
+
+| press tick | shove 1 | shove 2 | shove 3 |
+| --- | --- | --- | --- |
+| 8214 | 11 of 11 | 0 of 2 | 0 of 2 |
+| 15569 | 14 of 15 | 0 of 0 | 0 of 7 |
+| 21977 | 2 of 2 | 0 of 1 | 0 of 1 |
+| **all three** | **27 of 28, 96.4%** | **0 of 3** | **0 of 10** |
+
+**His sighting reproduces and the third shove's "0 of 11" is met at 0 of 10.** The prompt's 89 and 47 per cent for the first two shoves are a looser denominator than this one: measured the other way, counting every body inside the reach that was merely standing still rather than free of the press entirely, the same three presses read 27 of 28, 0 of 2 and 0 of 10, so the second shove is zero under both readings here.
+
+### The after table, and why it is a different kind of thing
+
+**The after table is a readback of his commands against a changed field, and the before beside it is the same route.** A replay of his tape at this tip is impossible twice over now: the witness moved, so it is refused before a tick runs, and the field diverges at his run's own cairn anyway. So both tables below feed his commands into a fresh run and check no checkpoint, which makes them like for like, and **the presses in them are not his presses**.
+
+| route, seed 1999305952 | presses | shove 1 | shove 2 | shove 3 |
+| --- | --- | --- | --- | --- |
+| readback, before this slice | 1, at 15569 | 7 of 7 | **0 of 1** | 0 of 1 |
+| readback, after this slice | 1, at 15569 | 7 of 7 | **1 of 1** | nothing in frame |
+
+**The one body his second ring swept and left standing is now thrown by it**, and by the time the third ring goes out there is nothing left inside the circle to throw. That is one press and a thin frame, so the weight of the evidence is the batch below rather than this table.
+
+### The pass line, on every press of a whole batch
+
+**The per-shove pass line is that at every shove's tick, every alive entered pushable body inside the burst radius is moving under this press or has just been given a shove by this one.** It is checked two ways.
+
+**By the sim's own record, over all fourteen presses of the `steady-far` batch** (`local/round2/j3-press-frames.ts`, 42 frames):
+
+| shove | frames | in frame | moved | carried | caught | outOfReach | notEntered | notPushable |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 14 | 767 | 181 (23.6%) | 0 | 23.6% | 527 | 53 | 6 |
+| 2 | 14 | 841 | 17 (2.0%) | 162 (19.3%) | 21.3% | 524 | 136 | 2 |
+| 3 | 14 | 833 | 61 (7.3%) | 169 (20.3%) | 27.6% | 469 | 134 | 0 |
+
+**Every entry of every frame is accounted for**: 181 + 527 + 53 + 6 is 767 exactly, 17 + 162 + 524 + 136 + 2 is 841 exactly, and 61 + 169 + 469 + 134 is 833 exactly. There is no body in any frame that is neither moved, nor carried, nor refused at a named gate, which is the pass line met by construction of the record.
+
+**And by an instrument that recomputes the frame from the state rather than reading the record**, over three of those tapes: seed 900 reads 31 of 32, 2 of 2 and 11 of 11; seed 902 reads 28 of 28, 3 of 3 and 4 of 4; seed 904 reads 37 of 37, 4 of 4 and 17 of 18. **The two bodies the instrument reads as unmoved are bodies the storm killed on the tick the shove landed**: the shove hands the impulse to the corpse (slice J2) and the mob is gone from the next tick's snapshot, so the instrument loses it where the record keeps it. That is the instrument's own limit and not a body the press missed.
+
+**Six of the fourteen presses moved nobody at all, and the record says why in one line each**: every one of them had **exactly one body in the frame and it was the Banshee**, refused `notPushable` on the first shove and `outOfReach` on the two after it as she moves away. That is ADR 0007 working and a press spent on empty ground, which is exactly the press slice J2's record was built to tell from a press that failed.
+
+### What a press now costs the field
+
+**Shoves started per press, over the `steady-far` batch's fourteen presses**: 0, 0, 0, 0, 0, 0, 4, 5, 8, 35, 45, 48, 49, 65, **259 in all**. The belch arm against slice J2's own table on the same six seeds, **and the two are not subtractable**, which is what `READINGS_VERSION` 7 declares:
+
+| | belch shoves, J2 | belch shoves, here |
+| --- | --- | --- |
+| `steady-far` 900 to 905 | 20, 13, 42, 12, 17, 40 (144) | **45, 48, 35, 8, 57, 65 (258)** |
+| `loose-far` 900 to 905 | 32, 0, 10, 37, 32, 21 (132) | **45, 12, 42, 61, 54, 0 (214)** |
+
+**Per-shove moved counts, printed for the first time**, `steady-far` seeds 900 to 905: shove 1 reads 32, 31, 28, 8, 37, 45; shove 2 reads 2, 2, 3, 0, 4, 6; shove 3 reads 11, 15, 4, 0, 17, 14. `loose-far` reads 34, 12, 27, 41, 33, 0 then 3, 0, 3, 6, 14, 0 then 8, 0, 12, 14, 7, 0.
+
+**The second shove moves far fewer bodies than the third, and that is filed rather than acted on.** Over the whole `steady-far` batch the second throws 17 bodies and the third 61, because thirty ticks after a press the crowd it threw is still in the air and nothing has walked back in, while sixty ticks after it the ring is over refilled ground. **The spacing is one of Mark's four belch rows and no measurement moves one**, per the fifth ruling; it is a tuning-step input with a number beside it.
+
+### The mid-press toll, body 16023's case re-run
+
+`local/round2/j3-mid-press-toll.ts`, a body 60 units above a mid-field grave, pressed and then reached by a toll pushing sideways, so the up-field travel is exactly the waves it received at the press's own throw. The before column is the same script with the larger-of rule turned off in the working tree, run and then restored.
+
+| the toll lands | waves owed then | before | after |
+| --- | --- | --- | --- |
+| never | 2 | 3.00 waves, 180.00 up | 3.00 waves, 180.00 up |
+| press plus 5 | 2 | **0.30 waves, 18.06 up** | **2.30 waves, 138.06 up** |
+| press plus 30 | 1 | 1.00 wave, 60.00 up | **2.00 waves, 120.00 up** |
+| press plus 35 | 1 | 1.30 waves, 78.06 up | **2.30 waves, 138.06 up** |
+| press plus 60 | 0 | 2.00 waves, 120.00 up | 2.00 waves, 120.00 up |
+
+**The toll's own 90 units sideways are in every row of both columns**, so nothing was taken from the bell: what changed is that the press's remaining waves survive it. **The last row is identical by design**: a body owed nothing loses nothing, which is the rule reading correctly from the other end.
+
+### The shape, and what it was set against
+
+**The press lives on the run, as a field and never a pool**, on the boss's, the offer's and the set piece's own precedent (`RunState.press`). It is declared in `belch.ts` beside the rows it reads, because the concept is the belch's own firing and every export of that file serves it; a file of its own would have split one concept across two modules for no reader. **The wave clock is not a second copy of the impulse's.** `shove.ts` gains a `WaveClock` role, two numbers, and `countTowardTheNextShove` counts for the impulse and for the press through one function, which is design record R8 applied rather than restated. The spacing stays a parameter rather than a field of the clock, because an impulse is advanced with no caller present and carries its own while the press is advanced by the module that owns the row.
+
+**The skip is by id off the press's own caught record**, a `Set<number>` folded with the press, and `impulse.source` stays excluded from the fold exactly as slice I defended it: no rule reads it, and the rule that might have wanted it reads the caught record instead.
+
+**The larger-of rule is two named functions rather than one branchy one.** `takeOverTheFlight` replaces the shove in flight, always, and `oweTheRest` replaces what is owed, only when the newcomer offers more; the count, its clock, its spacing and its throw are untouched otherwise. **The owed waves keep their own throw through two new impulse fields**, `owedStepX` and `owedStepY`, which are what `armTheNextShove` reads: without them a toll would silently re-throw a press's remaining waves at the bell's magnitude, which is the design gate's own finding. **The invariant that `shovesLeft` greater than zero implies `nextIn` greater than zero** is pinned as its own test and held on every tick of a press a toll lands in.
+
+**Two presses inside one press's length is reachable on one feast** (`RESERVOIR_CAPACITY` is `FEAST_PAYOUT` exactly), so the answer is built rather than measured toward: **the newer press replaces the live one whole**, its own three shoves run from its own tick, and a body the older press had caught is no longer protected by its record, so the new press throws it. A test pins all three halves.
+
+**A corpse is never caught by a later shove, and it is checked rather than left to be rediscovered**: the storm's target seam holds mobs, the boss and the set piece's source and no corpses at all, so a shove never sees one. The test asserts a flying corpse's own impulse is untouched across a whole shove.
+
+### The press's own phase in the tick
+
+**`advancePress` runs immediately before `fireBelch`**, after the move command and before spawns, the director's spend and mob motion. Two reasons, both in `step.ts`'s own JSDoc. A shove firing later in the tick than the press did would read the field after the spawns and the motion the press itself ran before, which is a behaviour difference nobody ruled. And it runs **before** rather than after the belch because the clock counts the ticks between one shove beginning and the next: counting on the tick the press landed would bring every later shove in a tick early. A test in `step.test.ts` runs whole ticks through `executeTick` and pins the body moving up the field, against the scroll, on the very tick the second shove goes out.
+
+### The event, and its name
+
+**`bodies` leaves `belched` and lives on a new sim event, one per shove of the press, the first included.** `belched` keeps its place on the press tick and keeps `cancelled` and `shoved`, because the eruption, the sound and the cadence reading's own tick all key on it; a frame taken sixty ticks after that event cannot ride on it, and all three shoves reporting through one shape is what keeps a reader from special-casing the first. **A `Belched` with no frame in it is that move and never a regression**, and both JSDocs say so.
+
+**The name is `burstShoved`, and it is research rather than a pick.** `CONTEXT.md`'s Burst entry is the belch's local half, "the eruption that throws the bodies within a radius of the grave away from it, in three shoves a player can count", so one shove of the burst is the register's own sentence for what the event is. **All three of the prompt's candidates fail the Avoid check and they fail it on the same word**: `pressWave`, `eruptionWave` and `belchWave` all carry "wave", which the **Cone** entry bans outright (*Avoid: arc, ring, shockwave, wave, AOE*) and which **Wave** already owns as one entry of the authored timeline. `burstShoved` was set against `pressShoved`, which continues the in-code press family, and lost to it on one point: "press" is not in the register at all, and item (e) asks for a name out of the register. The live record on the run stays `Press`, because `PressedBody`, `PressRefusal` and `PressMisses` have been the record's family since slice J2.
+
+**`belchCadence` now joins a shove to its press by the press's own tick** rather than reading the frame off `belched`, so a `BelchFire` gains `beganAt` and its own `shoves` list.
+
+### The record's third outcome
+
+**`PressedBody` is now a union of three**, so an entry says one of moved, carried or refused with its gate, and one that is none of the three cannot be built at all. **`carried` means already travelling under this press**, and it is an outcome rather than a fifth refusal: the four `PressRefusal` reasons do not change and there is still deliberately no already-dead one. Without it a shove sweeping a crowd that is all in flight would read as an empty frame, which is the unreadable zero slice J2's record exists to kill.
+
+**Waves two and three count a carried body as caught by the press in their frame share and count moved-this-shove separately**, and the reading's JSDoc says that in those words so nobody adds the two together. `tuning.belchCadence.caughtSharePerShove` is moved plus carried over the frame; `movedPerShove` is what that shove itself threw.
+
+**What the frames cost.** A press builds three of them instead of one, each up to `MOB_CAP + 2` entries, which is what the seam is sized to. Every entry is a value copied out of the seam's list rather than a handle into it, and **the seam's own retention rule is kept**: the frame is asked for afresh at every shove and never held across one, because the slots are reused and a press holding a target across sixty ticks would be reading whatever now stands in that slot. The press carries ids and asks again.
+
+### GOLDEN, and the isolation proof
+
+**`GOLDEN` re-pinned once, in the fold commit, and the diff was proved to have one cause before anything was pinned.** The isolation run: the canonical scenario with the press asserted absent and every owed step asserted at rest on all six hundred ticks, folded the old way, returned the old digest **whole**, every field and the checksum, over 600 folded ticks.
+
+| | isolation run, old fold | new pin |
+| --- | --- | --- |
+| checksum | **1275540894** | **1307518644** |
+| everything else | tick 600, seed 20260820, graveX 365.625, graveY 318.875, size 24.10125, score 0, reservoir 0.10125, mobs 5, shots 0, corpses 1, skulls 2, wisps 0, kills 2, all eight cursors, the levels record | identical |
+
+**The checksum is the only field that moved** and the cause is mechanical: an absent press folds `ABSENT_CODE` on every tick of the scenario, exactly as the ending, the ring, the boss and the set piece already do, with two owed-step zeroes per live carrier beside it. **No press is reachable in the scenario at all**: `runScenario` passes `belch: false` on every one of the 600 ticks, so none is ever created, and `levels.bell` is 0 throughout, so no toll arms a ring and `startShove` is never called. The probe that carried the assertions was inside `foldImpulse` and `foldWitness` and was removed before the commit. The dated paragraph is in `digest.ts`'s JSDoc above `GOLDEN`, and its section 3 entry is below.
+
+### The versions
+
+**`WITNESS_VERSION` 9 to 10**, in its own commit, `c64d71306c`, declaring eight fields in a dated paragraph: `press` and its sentinel, `press.beganAt`, `press.shovesLeft`, `press.nextIn`, `press.caught`, and `owedStepX` and `owedStepY` on both the mob and the corpse pools. **What it costs, stated rather than discovered: every tape recorded before that commit is refused at the decode, the sixth time this step has made saved tapes a dead baseline.** Proved rather than asserted: Mark's own tape, recorded at slice L's code, measures to **`outcome: 'witnessVersionMismatch'`, tape version 9 against reader version 10**, refused by its version rather than diverging at a checkpoint.
+
+**`READINGS_VERSION` 6 to 7**, with version 7's own note naming the one reading that changed meaning on both of its arms: `tuning.repel.belchShoves` and `belchDistance` now count every body a press's three shoves catch rather than the one set the press tick caught, and the bell's arm picks up more belch travel under the last-pusher rule because a press now owes waves to more bodies for longer. **Every batch recorded at slice L-fix's tip is incomparable with every batch after this on the belch arm.** The three readings that land beside it, `movedPerShove`, `caughtSharePerShove` and every `BelchFire`'s own `shoves` list, are new beside unchanged keys and move no version on their own; `shoved`, `inFrame`, `misses` and `frameShares` all keep their exact meanings and are all the press's own first shove.
+
+**`FORMAT_VERSION` holds at 4**, read out of the tree at the committed tip. No sim event is ever encoded into a tape, so three frames a press cost no bytes.
+
+### The batch
+
+Seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig, **12 of 12 verified, none unverified, none unfinished, no ceiling stop, `readingsVersion` 7 on both, build identity `7846502867` clean**. **`damage.belch` and `tuning.engagements.fatalBlows.belch` read zero on all twelve**, and **all three `state.refusals` counters read zero on all twelve**. **`belchWorthIt` was printed and left alone**: its hand still spends 2 belches a run on eleven of the twelve and 4 on one, and `ticksAtFull` still splits into the same two populations, a couple of ticks on some seeds and around 1500 on others.
+
+### Replay determinism, with a press mid-waves at a checkpoint
+
+**A press really is live at a checkpoint, measured rather than argued.** Seed 904 under `steady-far`, 38445 ticks and a victory: **240 ticks carry a live press and four of them land exactly on a checkpoint tick**, at 11340, 20220, 34020 and 34980, and the tape verifies **641 of 641** checkpoints. Seed 900 has two such ticks and verifies 332 of 332.
+
+**Two plays of each seed.** Seeds 909 and 910 under `shaky-short`: identical tick counts at 5665 and 2364, **identical byte lengths at 53304 and 22385, and three differing bytes each, all at offsets 202 to 204**, which is the header's own recorded-at stamp. Seed 904 under `steady-far` twice: identical at 360335 bytes with two differing bytes at the same stamp.
+
+### The hand tape, and the route used to measure a belch
+
+**Seed 606 with `?levels=3`, recorded against the built app at `7846502867` through `vite preview` and driven with `playwright-cli`: sealed at 2333 ticks, `outcome: 'verified'`, `buildMismatch: null`, identity clean, 39 checkpoints verified.** **All three `state.refusals` counters read zero**: `food` 0, `carriers` 0, `offers` 0. Its toll arm reads 9 shoves over 137.48 units and `damage.belch` reads 0.
+
+**It carries no belch, which is what note sections 11, 12 and 15 already measured three times**, so no runs were spent chasing one. **The route used to measure a belch is recorded tapes**: the twelve batch tapes above, read press by press and shove by shove.
+
+**One tape was recorded before the rebuild and is kept as the thing it proves.** `local/round2/j3-hand-404-prebuild.tape`, seed 404, sealed at 3352 ticks, was recorded against a build stamped `c64d71306c-dirty-a187bd3978` because the browser was still holding the pre-rebuild bundle; **it verifies at this tip anyway**, which is the sim being identical across the two stamps rather than a second measurement.
+
+### The rendered check, what it saw and what it could not
+
+**Two live runs and a replay against the built app at `7846502867`**, the second run taken from RISE AGAIN rather than a fresh load, because a check that only ever plays run one cannot see a pooled sprite leaking between runs. **One console error across the whole session and it is the known one**: `The AudioContext encountered an error from the audio device`, which is the headless container having no audio device and which slices J and J-fix both recorded, plus three autoplay warnings of the same family. Nothing left over from run one in run two: the field, the ground art, the bodies, a bell cone, a Territory patch and the belch's corner ring all draw.
+
+**What was obtained, and it is the before and the after in two frames.** Replaying seed 900 across the press at tick 17600: at **tick 17568**, thirty-two ticks before it, the crowd is pressed dense around the grave and through the middle of the field. At **tick 17714**, twenty-four ticks after the press ended, the ground around the grave is visibly clear and the crowd sits further out.
+
+**What could not be obtained, said plainly: the three rings photographed inside one press.** The driver's round trip here is about **700 ticks** at 5 FPS, against note section 12's 120 and note section 15's 74 to 120, and a press is 90 ticks; even the replay's own `at=` jump overshoots by 110 to 280 ticks once its verify pass and fast-forward have run. **So whether the second and third rings visibly throw the crowd is human-checkable only, and it is Mark's own step on the deploy after this slice.** What is asserted instead is the record, on every press of a whole batch, above.
+
+### CodeRabbit, one iteration each
+
+**The fold commit `c64d71306c`: all ten staged files reviewed under `coderabbit review --agent --uncommitted`, zero findings at any severity**, so nothing was applied and nothing declined. **The second commit `7846502867`: all fifteen staged files reviewed, zero findings at any severity**, so nothing was applied and nothing declined.
+
+### Verification
+
+`pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/` before each commit. **`pnpm verify` green at the repo root twice on the fold commit's own tree and twice on the tip**, exit 0 every time: at the fold, 147 test files, 2147 passed, 11 expected fail and 20 todo; at the tip, **147 test files, 2166 passed, 11 expected fail, 2 todo**, where L-fix left it at 147 files, 2132 passed, 11 and 2.
+
+**The fences green, each by title**: *src/game imports only from src/game*, *src/dev imports only from src/dev and src/game and src/tape*, *a policy names no weapon line*, *the step fence (ADR 0017) passes from the execution module alone*, *the harness reports and never judges* in all three of its parts, and *every reading declares what comparing it means*, plus slice D's sixth, *the cap derivation reads tables and never the stage*. Beside them: *carries no value-import cycle beyond the ones written down* green with `KNOWN_CORE_CYCLES` **still empty**, *src/game/belch.ts reaches what it can hit through the seam* green, and the golden digest green at `1307518644`.
+
+**The test-name diff, against this branch's own tip captured before the first edit: 2143 names to 2177, 35 added and 1 removed.** **The one removal has its replacement in the thirty-five**: *strikes each body once, and a body that walks in afterwards takes nothing* becomes ***strikes a body it has already caught exactly once, whatever its later shoves sweep***, because the latecomer half of that sentence is what Mark's ruling reversed and it is now its own test. Against the step 4 baseline the figures are 1834 to 2177.
+
+### Red first, proved rather than manufactured
+
+The walks-in test and the larger-of tests were both shown to block the behaviour they are for, by turning the behaviour off in the working tree and running them. With `advancePress` returning early, **six of the fourteen new belch tests go red**, the walks-in test among them. With the larger-of guard removed from `startShove`, **three of the four new shove tests go red**. Both were restored immediately and the suite is green.
+
+### Record and prompt claims found false against the tree
+
+**Mark's tape does not reproduce at this tip**, above. The prompt's item (b) says it does. The intent was followed rather than the stale letter: the before table is taken at the build he played, with the one row that diverged restored and then put back, and the cause is proved rather than asserted.
+
+**The tip had moved one commit further than the prompt's `c2ec9804df`.** `ece6c6e338`, the handoff carrying round two closed, was already in the tree; it is documentation and touches no code.
+
+**`harnessPolicy.test.ts`'s measured per-seed baselines did not move and neither did `bot.test.ts`.** The prompt's expected-red list names both. Nothing was re-pinned, because nothing went red: the seeds those baselines are measured on reach their same ends. `stormTargets.test.ts` did not need a change either, for the same reason its seam did not move: it is read afresh at every shove and never re-authored.
+
+**Nothing else in the prompt or in either record failed against the tree.** Every named input verified present by name before the first edit, and `WITNESS_VERSION` 9, `READINGS_VERSION` 6, `FORMAT_VERSION` 4 and `GOLDEN`'s `1275540894` were all read off the tree rather than off the prompt's list.
+
+### Findings filed rather than acted on
+
+**The second shove throws far fewer bodies than the third**, 17 against 61 across the `steady-far` batch, because thirty ticks after a press the crowd it threw is still in the air. **The spacing is Mark's row and the fifth ruling forbids moving it**; it is a tuning-step input.
+
+**A press's own record now costs three frames rather than one**, up to `MOB_CAP + 2` entries each. Nothing was pooled for it, on the same reasoning slice J2 used: a press is a rare event.
+
+### Left for later, each named
+
+**The tuning step inherits the per-shove counts**, which the batch now prints under `tuning.belchCadence.movedPerShove` and `caughtSharePerShove`, and the shove spacing question above.
+
+**Mark's own done line is untouched by any of this**: whether everything inside the eruption now gets pushed on each ring is his read on the deploy, and no measurement here answers it.
