@@ -19,7 +19,7 @@ The record is `apps/hungry-grave/docs/design/round-two-wall-belch.md` and the pr
 | K, the meter fills and changes corner | `538fd21a9b` | feat(hungry-grave): the belch's ring fills with its reservoir and moves under the other thumb (#127) |
 | J2, the witness fold | `3351044752` | feat(hungry-grave): a corpse carries a shove of its own and the witness folds it (#124) |
 | J2, a shove outlives its body | `62bbbd753c` | feat(hungry-grave): a body killed in flight finishes its shove and the press records what it missed (#124) |
-| L, the Wall is a wall | | |
+| L, the Wall is a wall | `dacbce3abd` | feat(hungry-grave): the curtain stands against the storm and a belch is what opens it (#123) |
 
 Slice H carries two code commits, the fold and the rewiring, which is this round's one authorized departure from the contract's one-code-commit rule. Slice J2 carries two for the same reason and is the second, authorized in its own prompt: a version stamped before the fold stops moving names several folds.
 
@@ -1039,3 +1039,89 @@ Seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthrig
 **Slice L owns the Wall and two things it should know.** A body a press catches now travels its whole 180 whether or not the storm kills it, so a curtain measured against the press will read further than slice J-fix's own figures suggested. And a curtain measured near the bottom edge will read short for a reason that is not the push: the bodies leave the field.
 
 **The tuning step inherits three measured inputs**: the freshness a thrown corpse spends, the swallows the hand loses to a throw, and the belch's frame share, which the batch now prints per press.
+
+## 14. Slice L: the Wall is a wall (#123)
+
+The curtain is a new mob type the rung-one storm does not take down, the Wall's wave names it the way every wave names a type, and a belch is what opens it. **It is a hole and not a dent**, at every distance a press can reach, so the fourth ruling's count-and-spacing sweep was never entered and slice J's row is untouched.
+
+### The dent-or-hole measurement, before and after
+
+Measured first against the curtain as it stood, twenty-two shamblers, with the grave still and the press spent when the curtain's lowest body was sixty units above it (`local/round2/L-dent-or-hole.ts`). **The storm had already opened the lane before the press was spent**: 20 of 22 bodies standing, the two dead-ahead gone, and a 241.6-unit hole at the grave's own column with no belch in it at all. That is step 4 section 4 item 7's failure reproduced at this tip, and it is the whole reason this slice exists. With the storm off, the same curtain's press left gaps at the grave's column of 109.9, 75.6, 46.8, 30.1 and 20.9 units at rows 40, 60, 100, 160 and 240 above the grave, so the press was always a hole rather than a dent and the shambler's problem was never the geometry.
+
+After: eighteen cairns, storm on at the birthright, **18 of 18 standing at the press on both seeds measured**, the curtain flush edge to edge with a gap of exactly zero before the press, and the press opening **128.4, 88.4, 53.9, 33.6 and 22.5 units** at the grave's own column at those same five rows. The grave is 27 units wide at its starting size and 18 at the floor, so a press opens a lane the starting grave fits through out to 160 units of range and one the floor grave fits through at every range the reach covers. The press's own record says why the far thirds do not open: 19 bodies in frame, all 19 moved at 40 and 60 units, then 17, 14 and 8 moved as `outOfReach` takes 2, 5 and 11 of them.
+
+**The reading of ruling R4's gap sentence, ruled by the orchestrator 2026-09-16 and recorded here rather than as a change to it.** The belch's reach is half the field's width from the grave, so a press can only open the curtain within that reach; the gap "at least as wide as the grave" is measured at the grave's own column where the curtain meets it, which is where a player spends the press. A press cannot open the curtain's far thirds and is not asked to.
+
+### The new type, and what each figure was set against
+
+**It is the cairn**, a heap of stones over a grave. Set against three others. **Pallbearer** was refused because `mob.carries` already means carrying the offer, so a pallbearer carrying nothing would put two meanings on one word in the glossary. **Mourner** and **wight** were refused because neither says durable at a glance, and Mark's own done line for this set piece is whether the curtain reads as a wall rather than as more stuff in a line, which a row of standing figures does not answer. **Headstone** was refused because #76 retired it as a weapon line's name and reusing it would make two things in one glossary share a word. A cairn is stone, in a game whose protagonist is a walking grave, and a row of them is masonry. **Avoid lists checked**: Mob's (enemy, monster, creature, unit), Mob type's (enemy class, variant, archetype) and Grave's (player character, hole, ship, hero). It is on none of them.
+
+**Its size is 30 by 22, the widest body in the game and the only one wider than it is tall.** The width is what the curtain's count is derived from and 30 divides the field's 540 exactly, so eighteen stand edge to edge with a gap of zero where twenty-two shamblers left 2.5 units. Being wider than tall is also the silhouette read: a flat-topped tapering slab, which is a shape no other type owns, and the drawn geometry is what a test asserts rather than the row.
+
+**Its health is 296 and it is measured rather than felt.** The rung-one storm's whole-descent throughput on the one body a parked grave's column can reach is 36 skulls for 288 over the 668 ticks from the curtain's spawn to the grave's row, and nothing at all on any other body (`local/round2/L-storm-throughput.ts`, three seeds, identical). One touch more, 37 at the birthright's 8 a skull, is 296: the first health that leaves that body standing at contact however the descent is spent. The derivation is in the row's own JSDoc and **no ADR gained it**.
+
+**Its payout is the mow body's and its tier is trash, and that is a decision rather than a copy.** A rich payout on a body that takes a whole descent to kill would make grinding the curtain down the better play and retire the belch as its key, which is the whole of what ADR 0042 puts at the centre of this set piece. There is nothing in stone to eat, and the tier rides with the payout rather than with the size, because a tier is a payout read and never a size (ADR 0014).
+
+**Its descent is the shambler's**, so the curtain arrives on the beat the Crowd's table already spaces its next wave against, and **it fires nothing**, per ruling R5.
+
+### The Wall's count re-derived, and the shambler's comment moved
+
+The Wall's wave is **eighteen cairns**, derived as the field's width over a body's exactly as the twenty-two was, and its comment now carries the derivation in the cairn's terms and says a body of another width moves the count with it. **The wave is still undirected** and the comment above `CROWD_WAVES` now gives the director's own reason in terms that survive the amendment: the count is derived rather than authored as density, so an added body thickens nothing and only stands where the curtain has no room for it.
+
+The shambler's row kept the curtain's arithmetic and no longer should, so it moved. What is left on that row is the one thing still the shambler's: its 22 units is the body width `shove.ts` states its readability criterion against.
+
+### Two things the plan did not name, both folded in
+
+**A new type has to arrive first as a lone Drip, and the Wall is eighteen at once.** `stage.test.ts`'s *introduces every mob type as a lone Drip before it appears in numbers (ADR 0016)* went red the moment the Crowd's wave named the cairn, and the rule is the stage's standing one (`docs/design/dispatch-4-field.md`, `stage-floor.md` section 1). The Crowd cannot host it, because the Crowd opens on the Wall two seconds after the Banshee dies and that anchor is the concept doc's. **So the cairn's lone Drip stands in the Procession at t=44**, in the gap the section authors nothing shaped in, while the mow is still at two bodies a second and a run has rungs enough that failing to kill one reads as the body rather than as the build. It is well outside the golden scenario's six hundred ticks. The arc it buys is the right one: meet one cairn and fail to kill it, then meet eighteen.
+
+**`BODY_COST` is a total record over the type union and a new type fails the typecheck until it has a cost.** The cairn's is 8, the dearest in the table, because it is the one body the storm does not clear. **No card names it**, so nothing directed can spend on it today and the figure prices a card only a later slice would write.
+
+### The caps, confirmed and not changed
+
+Every figure is exactly where slice D left it: **`MOB_CAP` 481, `MOB_FIRE_CAP` 434 (revenant peak 200 plus worst boss pattern 234), `CORPSE_CAP` 704, `SKULL_CAP` 120, `WISP_CAP` 64**, with `TRANSIT_SECONDS` at 24.895. Four fewer bodies in the Wall does not move them, because `peakArrivals` maximises over every placement of a 24.9-second transit window and the Crowd's curtain never sets that peak. **Nothing binds and no cap was raised.**
+
+### The two bot policies, and the one judgement that had to move
+
+Both halves of ADR 0042 as amended are now ordinary assertions, and the two `it.fails` tripwires that stood in their place are gone because they fired. `unloadedPolicy` at the floor build now **loses health on every one of the five seeds** and the grave ends smaller than it started, where under the shambler curtain it crossed for nothing. `belchingPolicy` at the birthright with a full reservoir and no build at all **spends the press and crosses clean on every seed**: no grave hit, and the size never smaller than it started.
+
+**The belch judgement had to move and it is the bot's own, not the harness's.** `belchingPolicy` spent a press only when eight shots were in the air, and a curtain of silent bodies never puts one there, so it could not express the crossing at all. It now also presses when the thumb has nowhere clear to go: every one of the nine moves puts the grave inside something somewhere over the look-ahead. **A body count cannot stand in for that and it is measured rather than assumed**: the stage's own mow puts a median of 12 bodies inside the press's reach and 45 at its ninetieth percentile, where the whole curtain is 16, so a hand belching on a count would empty its reservoir into ordinary traffic and meet the curtain with nothing (`local/round2/L-bodies-in-reach.ts`). **`configurations.ts`'s `belchWorthIt` rows were not touched**, so no batch compares two builds through two instruments.
+
+The ceiling-build crossing is kept and its meaning changed, which is written into the test: at the maxed build the storm kills four of the eighteen on the way down and the grave walks through the hole that leaves, so a ceiling-build crossing says nothing about the belch. The key is now withheld outright there, and the promise ADR 0042 makes is read at the birthright with a full reservoir and nothing else.
+
+### GOLDEN and the three version constants, each stated
+
+**`GOLDEN`'s checksum is `1275540894`, unmoved and confirmed rather than assumed**: `digest.test.ts` is green against the committed tree. The canonical scenario is six hundred ticks of the Procession and nothing this slice authored reaches inside that window: the cairn's lone Drip is at t=44 and the Wall is a Crowd wave. **`WITNESS_VERSION` is 9**, and no folded field was declared: `mob.type` is not folded, because a divergence in type shows through the health and the motion the walk already folds. **`FORMAT_VERSION` is 4**: no mob type reaches the wire, and the codec names none. **`READINGS_VERSION` is 6**, and a fourth per-type key in the arrivals, damage-taken and time-to-kill readings is a new reading beside unchanged ones, which that file's own rule says does not move it: every old key still means exactly what it meant.
+
+### The baselines that moved, each re-measured with its cause
+
+Three measured seed sets moved, all of them for one mechanism: the Crowd used to open on twenty-two shamblers the storm took as they crossed the edge, which is twenty-two kills and whatever carriers rode them, and it opens on eighteen cairns the storm does not take at all. A curtain that no longer dies is a lane's worth of kills that no longer happen, so where a hand's corpses lie and which waves its lane then passes through both move from the Crowd onward. `NEVER_PAID_AT_THE_BIRTHRIGHT` is now `[202, 404]`, `STOOD_BUT_NEVER_REACHED` is empty and `ENDS_ABOVE_THE_BIRTHRIGHT` is empty, all three still written as equalities so the day one moves again it says which seed did it. `bot.test.ts`'s `NEVER_PAID` lost 505 for the same reason.
+
+**One fixture was repaired rather than a baseline re-measured.** `corpses.test.ts`'s *takes a live body off the field only through a swallow, an expiry or a cull* needs the corpse cap to bind, and the pressure that made it bind was the Wall's shamblers dying against a still-full pool. That was incidental traffic from a wave the test never named. The pool is now held pressed from the test's own hand, which is the same repair the section above it already got, one step further in.
+
+### CodeRabbit, one iteration
+
+All thirteen staged files reviewed under `coderabbit review --agent --uncommitted`. **Two findings, both minor and both the same point, applied.** The ceiling-build test was handed a full reservoir while claiming to measure a storm-only crossing, so a crossing there could have been either. The key is withheld and the test is green, which is the stronger version of what it was already for. Nothing was declined.
+
+### Verification
+
+`pnpm typecheck` green. `pnpm vitest run` green, 147 files, 2128 passed, 11 expected fail, 2 todo. `pnpm build` green. `pnpm verify` green at the repo root. The six fences green by title: *the rendering-import boundary*, *src/game imports only from src/game*, *a test imports only from inside its parent folder's subtree*, *the core has no import cycle*, *line-agnostic policies*, *the execution fence*, *the harness states no target*, *the comparison is declared*, and slice D's *the cap derivation reads tables and never the stage*. **Replay determinism at this tip**: seed 909 under `shaky-short` played twice, 6227 ticks both times, both verified, and the two reports are byte-identical once the recording stamp is set aside. **A batch under both configurations**: `steady-far` and `loose-far`, eight seeds each from 2101, **8 of 8 verified in both**, nothing unfinished, `damage.belch` zero everywhere and `tuning.repel.belchShoves` at a median of 26 and 25. The cairn reaches play in both: `tuning.arrivals.byType.cairn` is 19 at the median, which is the curtain's eighteen plus the lone Drip. **A tape measured to `outcome: 'verified'`.**
+
+**The test-name diff: 2128 names in the baseline at this branch's own tip, 2139 now, 35 added and 24 removed.** Every removal is a rename inside the Wall's own block, the three harness seed-set titles, or the curtain-width test that used to say "at the shambler's size". Nothing lost its meaning. **Thirteen files in the code commit**, which is inside the prompt's 12 to 30.
+
+### The rendered check, and what it showed
+
+Two runs, recorded through the one execution authority with the harness's own steering and a press spent when a curtain body stood inside the reach, then replayed in the built app through `vite preview` on the instrument route and screenshotted (`local/round2/L-record-wall.ts`). **Seed 2101**: the curtain arrives at tick 13522, reads at 13884 as an unbroken green band spanning the field edge to edge with the grave under it, the press lands at 13900, and by 14063 the bodies are scattered up-field with clear ground directly above the grave; at 14247 the grave is through. **Seed 2105**: the same, the curtain solid at 14539, the press at 14652 with the eruption's front drawn as a circle around the grave and the curtain already parting at 14713, and clear ground at 14893.
+
+**One thing worth Mark's eye rather than a change.** The cairns stand flush, with a gap of exactly zero, so at a glance the intact curtain reads as one solid bar rather than as eighteen bodies. That is the wall reading taken to its end, and whether it is the right one is his call: it is the same question his own done line asks.
+
+### Findings filed rather than acted on
+
+**A maxed storm opens the curtain without a press**, four of eighteen dead on the way down at level five across all four lines. It is not a breach of the property, which speaks about a grave that has not got a build, and it is recorded because it is what makes a ceiling-build crossing say nothing about the belch.
+
+**Nothing else in the prompt or in either record failed against the tree.** All four named inputs verified present by name before the first edit: `shove.ts` with its impulse and wave structure, `belch.ts` at `BELCH_SHOVES` 3, `BELCH_SHOVE_THROW` 60, `BELCH_SHOVE_SPACING` 30 and a reach of `FIELD_WIDTH / 2`, `mobShoved` carrying its source and `bodyId`, and ADR 0042 carrying its 2026-09-15 triple. **The branch tip was `764824e7d6` rather than the prompt's `45a25ee6eb`**, which is this slice's own prompt commit and a fact rather than a stop.
+
+### Left for later, each named
+
+**The tuning step inherits the cairn's three magnitudes**: 296 health, 30 by 22, and the trash payout. Each is a first pass with its derivation written down, and the health in particular is derived against the rung-one storm alone.
+
+**`docs/design/game-concept.md`'s Wall paragraph is now stale and slice L was its named trigger** (the ADR commit's note, section 6 item e). It still describes the curtain's bodies as the ordinary trash mob and a lane's corpses raining down as the reward. **It was not rewritten here**, because prose in `docs/design` carrying superseded wording is the follow-up docs pass's, which the coder contract names as never a slice's job. It is now a known stale passage with no trigger left, so it needs an owner.
