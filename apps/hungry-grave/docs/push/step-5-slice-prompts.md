@@ -918,118 +918,140 @@ What a player meets: they try for a falling rung at least once, and they sometim
 
 Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#99)`.
 
-Slice M6 of The Hungry Grave: the batch cannot print the two numbers this step's own argument turns on, because nobody has declared them. This slice declares them.
+Slice M6 of The Hungry Grave: the batch already prints how often the ladder bled and how often it stripped, and it says nothing at all about what happened to the rungs that fell, where the player was standing when they went, whether the memory that keeps the strip reachable ever cleared, or whether the loss landed in a boss. This slice declares those.
 
 **The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice M6.
 
-**Three rulings shape this slice and none of them is yours to revisit.**
+**Five rulings shape this slice and none of them is yours to revisit.**
 
-**First: the two readings are the bot's take rate on fallen rungs and strips per run** (record section 4's M6 paragraph). **A body at the bottom of the field is something the base policy will always walk to** (ADR 0055 and ADR 0053), so the take rate is a reading rather than a bug. **Strips per run is what says whether R4's bled-rung memory left the level strip reachable in ordinary play or whether the storm's kill rate still buries it**; the vision gate and the design gate both asked for it, **and it is the evidence beside the record's section 7 first finding when Mark answers it.**
+**First: strips per run already exists and you do not re-declare it.** `tuning.damageTaken.weaponStrips`, `linesStripped`, `scoreBleeds`, `scoreBled` and `seals` are declared readings today, spread per batch in `batchReport.ts` and compared in `compareRuns.ts`, and the bleed-versus-strip split is already the split between `scoreBleeds` and `weaponStrips`. **A second key for a count that exists is exactly what `readingsVersion.ts`'s worked example is written to warn about**, and an earlier draft of this prompt asked for one. Your readings go beside `damageTaken`, never over it.
 
-**Second: `READINGS_VERSION` does not move in this slice, and the tech gate is right to stop it** (record section 4 and section 5). `readingsVersion.ts`'s own rule is that the version moves when a reading's **meaning** changes, a split or a redefinition, and not when new readings arrive beside unchanged ones. **Both of these are new.** **Slice M1 already moved it 7 to 8, for `run.score`'s meaning changing under R4, and slice M7 after you moves it 8 to 9 for the same reading changing again under R4's further inputs**; neither is yours, and your two readings arrive beside unchanged ones and move nothing. **If you find an existing reading whose meaning moved under this step, that is a stop and report and never a version bump you take**, because a move beyond the record's budget is the orchestrator's call under one-push mode.
+**Second: a reading reads events first and the run's state where no event carries the fact.** `observeReadings` hands `state: RunState` to every reading in the graph, and `gravePath`, `groundHeld` and `refusals` all read it; `refusals.ts`'s own JSDoc writes out why, that the run clears its ledger at the top of every tick and no event carries a refusal, so the only way to read one is to look at the end of the tick where the invariant harness looks. **Two of your readings are in exactly that position**, the grave's y at a strip and the bled-rung memory's edge, and taking the state at the end of the tick an event fired on is `gravePath`'s precedent and is permitted. **What is still forbidden is `src/dev` writing the run**, and re-implementing a sim rule inside a reading: read the edge, never recompute the predicate that moves it.
 
-**Third: it is its own commit rather than part of M5**, for round two's stated reason that a reading landing in the same commit as the mechanic hides which of the two moved a number.
+**Third: every one of these is a declared reading, list or scalar. There is no print beside the batch.** Both declaration fences walk every path on a report, so a number that exists only in your report text cannot be read by step 6 and cannot be compared across two batches. **The tape rule is the reason**: step 6 iterates from numbers a batch carries, and it cannot re-read a print.
+
+**Fourth: `READINGS_VERSION` does not move in this slice, and `readingsVersion.ts` is not in your commit.** Its rule is that the version moves when a reading's *meaning* changes, a split or a redefinition, and not when new readings arrive beside unchanged ones; every reading here is new. **Slice M1 already moved it 7 to 8 for `run.score`'s meaning changing under R4, and slice M7 after you moves it 8 to 9 for the same reading changing again**; neither is yours. **The reason the version is held goes in the progress note and nowhere else**, because the file is on the must-not-move list and a prose edit inside it is still a file in the commit. **If you find an existing reading whose meaning moved under this step, that is a stop and report and never a version bump you take.**
+
+**Fifth: it is its own commit rather than part of M5**, for round two's stated reason that a reading landing in the same commit as the mechanic hides which of the two moved a number.
 
 ### Read first, in this order, before any edit
 
 1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it.
 2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
-3. `apps/hungry-grave/docs/design/show-what-you-have.md`: **section 4's M6 paragraph and its `READINGS_VERSION` paragraph in full**, R4 in full for what the strips reading is evidence about, section 5, and **section 7's first finding, which is the question these numbers answer**.
+3. `apps/hungry-grave/docs/design/show-what-you-have.md`: **section 4's M6 paragraph and its `READINGS_VERSION` paragraph in full**, R4 and R6 in full for what these readings are evidence about, section 5, and **section 7's first three findings and its bottom-clamp finding, which are the questions these numbers answer**.
 4. `apps/hungry-grave/docs/adr/0053-the-playing-harness-is-one-policy-over-many-seeds.md` in full, **especially the harness reports and never judges**, plus `0055`.
 5. `apps/hungry-grave/docs/push/round-two-progress.md` **section 9 in full**, which is slice I declaring a reading, splitting an existing one and writing a version note, and **section 15's readings item**, which is J2 doing the same for two arms at once.
 6. `apps/hungry-grave/docs/push/step-4-progress.md`'s own storm kill rate, **2.47 bodies a second**, which is the number R4's whole mechanism was ruled against.
 7. `apps/hungry-grave/CONTEXT.md`, the entries **Fallen rung, Rung, Dive, Score** and **Tape**. **Read the Avoid lists before naming anything.**
-8. The tree: `src/dev/readings/readings.ts` and two or three of its siblings read whole as the shape to follow, **including `powerUpLedger.ts` and `refusals.ts`**; `src/dev/readingsVersion.ts` whole; `src/dev/batchReport.ts` and `src/dev/compareRuns.ts` where readings are declared and where comparing one is declared to mean something; `src/dev/bot.ts` for the base policy that walks to a body; `src/dev/harnessPolicy.ts` and its measured baselines; `src/game/events.ts` for the events a reading is built from, **because a reading reads events and never the run**.
+8. The tree, and **read `src/dev/readings/powerUpLedger.ts` whole before you write a line**: it is the four-fate ledger your first reading copies. Then `readings.ts` for the graph and for the fact that every reading is handed the state; `gravePath.ts` and `refusals.ts` for the two readings that take the state at the end of the tick and for the JSDoc that says why; `damageTaken.ts`, which already holds the strips and the bleeds; `readingsVersion.ts` whole, read and not edited; `batchReport.ts` and `compareRuns.ts`, where a reading declares how a batch reduces it and what comparing it means, and `arrivals.perSecond`'s `number | null` on the reading with `?? undefined` at the declaration, **which is the precedent for an absent rate**; `src/dev/__tests__/comparisonDeclared.test.ts` and `src/dev/__tests__/batchReadingDeclared.test.ts`, **which are two fences and not one**; `src/dev/bot.ts` and `src/dev/harnessPolicy.ts` for what the hand actually wants each tick; `src/game/events.ts` for the events you build from, **including M5's landed `rungFell` and `rungCaught`**; and `src/game/grave.ts` for `scoreRungBled` and `SCORE_RUNG_REARM_SIZE`.
 
 ### The definition, in observable terms
 
-After this slice: a batch prints **what share of fallen rungs the bot took and what share the scroll carried off**, and **how many times a run's floor ladder bled and how many times it stripped**, per run and across a batch. Both are new keys beside unchanged ones, **so every reading that existed before still means exactly what it meant** and `READINGS_VERSION` does not move.
+After this slice a batch prints, per run and reduced across the batch:
+
+- **Where every fallen rung ended up**, in `powerUpLedger`'s own four-fate shape, with the sum asserted against the count that fell.
+- **Where the player was standing when each strip landed**, as the grave's y at the strip's own tick, and how close to the bottom clamp that was.
+- **How long each fallen rung was on the field** before it was caught or lost.
+- **What the bled-rung memory did**: how often it was set, how often it cleared, and how much growth arrived while it was set without clearing it.
+- **Whether each strip landed with a boss on the field**, which is the worst moment for one because there is nothing on the field to rebuild from.
+
+Every one is a declared reading. Both new keys and existing keys still mean exactly what they meant, **so `READINGS_VERSION` does not move** and `readingsVersion.ts` is not in the commit.
 
 `WITNESS_VERSION`, `READINGS_VERSION`, `FORMAT_VERSION` and `GOLDEN` are all untouched. **No simulation rule changes and nothing under `src/game` or `src/app` is in this commit.**
 
-What this buys: the record's section 7 first finding stops being an argument and becomes a number beside Mark's own play.
+What this buys: section 7's findings stop being arguments and become numbers beside Mark's own play.
 
 ### The work, in this order
 
-**(a) Verify the inputs.** `git log --oneline -25`, `git status --short`, the four constants read off the tree and reported, and your own test-name baseline into `local/step5/` under a name carrying `m6`. **Slices M1 through M5 must all be in the tree**, because a reading declared over a mechanic that is not there measures nothing.
+**(a) Verify the inputs.** `git log --oneline -25`, `git status --short`, the four constants read off the tree and reported, and your own test-name baseline into `local/step5/` under a name carrying `m6`. **Slices M1 through M5 must all be in the tree**, because a reading declared over a mechanic that is not there measures nothing. **Read M5's landed `rungFell`, `rungCaught` and its fourth `FoodKind` before you design anything**, because what those events carry decides how three of your readings are built.
 
-**(b) The tests first, red.** **Write the declaration test first**: every reading declares what comparing it means, which is an existing fence and the one your two readings have to satisfy.
+**(b) The tests first, red.** **Write the two declaration tests first**, one per fence: every reading declares how a batch reduces it, and every reading declares what comparing it means.
 
-**(c) The take rate.** What share of fallen rungs were swallowed and what share the scroll carried off, built from the events and never from the run's state. **Name what it is a share of and say so in the reading's own declaration**, because a rate whose denominator is not written down is the reading `readingsVersion.ts`'s worked example exists to warn about.
+**(c) The fallen-rung ledger, in `powerUpLedger`'s shape.** **Fell equals caught plus lost plus refused plus on field at the stop, and the sum is asserted in the reading's own test**, which is the check `powerUpLedger` already runs on itself and the reason its JSDoc can claim no body leaves unobserved. The arms: `rungFell` for the denominator, `rungCaught` for the catch, `corpseLost` under M5's fourth kind for the scroll, and the field at the last tick for what was still standing. **The denominator counts a rung only if `rungFell` fires for it**, which is the whole question the refusal arm turns on: M5's own test list has a rung refused at `CORPSE_CAP` lost with nothing banking it, and M5's prompt does not say whether the event fires for a body that never reached the field. **Read M5's landed code and say in the note which it is.** If it does fire, the refusal arm's only source is `state.refusals.food`, and **that counter is every food refusal and not rungs alone**, so say exactly that in the reading's JSDoc rather than letting a reader take it for rungs; if it does not fire, the ledger is three arms and the note says the denominator is bodies that reached the field.
 
-**(d) Strips per run.** How many floor hits bled and how many stripped, and **what the bled-rung memory did between them**, because the whole question is whether the strip is reachable in ordinary play. **The harness reports and never judges** (ADR 0053): the reading prints what happened and says nothing about whether it is enough.
+**(d) The grave's y at each strip, and the clamp.** `rungFell` carries the line and not a position, and M5 is building while you read, **so take the state at the tick `weaponStripped` fires**, which is `gravePath`'s own precedent and permitted by the second ruling. **The clamp is `FIELD_HEIGHT - state.grave.size`**, computed the way `gapUnderGrave` computes the gap under the rim rather than under the centre, and for `gapUnderGrave`'s own stated reason: a centre test measures a band that shrinks as the grave grows and would invert the reading. **Declare the y per strip as a list and the gap beside it**, so a batch can say both how often a strip landed against the clamp and how far off it the rest were. This is the number section 7's bottom-clamp finding is answered with.
 
-**(e) The version, held, with the reason written down.** Both readings are new beside unchanged ones, so nothing moves. **Say so in the note with `readingsVersion.ts`'s own rule quoted**, the way round two's slice I said the opposite with the same rule quoted.
+**(e) Ticks from fall to catch or loss, per fallen rung.** If M5's events carry an id, match on it. **If they carry only the line, match oldest-first within the line and say so in the JSDoc**, on `powerUpLedger`'s own precedent: `linesTakenIn` splices one entry per line for exactly this reason and writes down why the splice is unambiguous. A rung still standing at the stop has no span and carries absence rather than a zero, **on `arrivals.perSecond`'s precedent**, a `number | null` on the reading with `?? undefined` at the declaration.
 
-**(f) The measurements this slice owes.**
+**(f) The bled-rung memory's transitions, read off the state's edge.** `state.grave.scoreRungBled` has no event and its clear predicate lives in `grave.ts`; **reading the edge per tick is the reading, and re-implementing the predicate in `src/dev` is not**. Count the ticks it was set, the times it went set, the times it cleared, and **the growth that arrived while it was set and did not clear it**, which is Mark's crumb-threshold question made measurable: section 7 says the lever is whether a crumb or a hit's worth of growth re-arms the cushion, and this is what that lever is read against. Take the state at the end of the tick, which is where `refusals.ts` looks and why.
 
-- **A batch at your tip** on the configurations and seeds M1 and M5 used, with both new readings printed beside the existing ones. **Print the strips per run against the storm's measured 2.47 kills a second**, which is the figure R4's mechanism was ruled against.
-- **The grave's y at each strip, printed, and the count of strips taken at the bottom clamp.** R6 spawns the bodies downfield with no containment on y, so a strip at the clamp drops them below the field and they are lost on the tick they fell; **this is the number that says how often that happens**, and it is a print beside the batch rather than a third declared reading. The edge rule itself is Mark's and is filed in the record's section 7.
-- **The bot's take rate stated plainly, with what it measures and what it does not.** **The bot is not a player**: it only dodges, so its number measures the policy rather than the game, and it is never a reason to skip Mark's own play.
-- **A reading that comes out at zero is a finding to explain before it is a result.** A take rate over no fallen rungs means the batch's runs never reached the floor with levels to lose, which is a fact about the configuration and is worth saying out loud.
+**(g) Each strip tagged with whether a boss was on the field.** A boss is live from `bossArrived` until `bossKilled` or `sectionChanged`, both of which exist today. **A strip inside a boss is the worst moment for one**: nothing is dying, so there is nothing on the field to rebuild from, and a strip there and a strip in the mow are different events wearing one count. Tag the strip and let the batch split on it.
+
+**(h) The version, held, with the reason in the note and not in the file.** `readingsVersion.ts` is on the must-not-move list and is not in your commit. **Quote its own rule in the progress note**, the way round two's slice I quoted the same rule to say the opposite.
+
+**(i) The measurements this slice owes.**
+
+- **A batch at your tip** on the configurations and seeds M1 and M5 used, with every new reading printed beside the existing ones. **Set `tuning.damageTaken.weaponStrips` against the storm's measured 2.47 kills a second**, which is the figure R4's mechanism was ruled against; it is an existing reading you read rather than one you declare.
+- **The bot's number stated plainly, with what it measures and what it does not, and the direction it is off in.** **The bot is not a player**: its rate measures the policy. **Read `harnessPolicy`'s `pointWanted` yourself and report what it does rather than what any record says it does.** What is in the tree: the hand wants the live offer's nearest body, else the nearest food of any kind, else `HOME`, and `nearestFood` walks every alive corpse without looking at its kind, so **a fallen rung is one candidate among every body on the field and a live offer outranks it outright**. So the number is neither a ceiling nor a clean floor: it is short of a player who decides to dive for a particular rung, and long of a player who never noticed one, because the hand can swallow a rung by accident while walking at something else. **Say which way your batch's figures point and why.** **It is never a reason to skip Mark's own play.**
+- **A reading that comes out at zero is a finding to explain before it is a result.** A ledger over no fallen rungs means the batch's runs never reached the floor with levels to lose, which is a fact about the configuration and is worth saying out loud.
 - **No witness move, no `GOLDEN` re-pin and no determinism run is owed**, and that claim is checked rather than assumed: nothing under `src/game` is in this commit. **If any of the four version constants or `GOLDEN` moves, that is a stop and report.**
 
-**(g) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the batch reads what the ladder cost and what the dive took back (#99)`.
+**(j) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the batch reads what the ladder cost and what the dive took back (#99)`.
 
-**(h) The progress note**, section **12**. Beyond the contract's list, say: both readings with their denominators named; the batch's figures for each; the strips per run against the storm's kill rate; `READINGS_VERSION` named as held with the rule quoted; the bot's take rate with what it measures and what it does not; and the four constants and `GOLDEN` all named as untouched.
+**(k) The progress note**, section **12**. Beyond the contract's list, say: every reading with its denominator named; whether `rungFell` fires for a cap-refused body and what that did to the ledger's arms; the batch's figures for each; `weaponStrips` against the storm's kill rate; `READINGS_VERSION` named as held with the rule quoted and the file named as absent from the commit; the bot's number with what it measures, what it does not and which way it is off; and the four constants and `GOLDEN` all named as untouched.
 
-**(i) Stop and report.** Under 250 words. **Do not start slice M7**, which follows you and pays the score's other inputs.
+**(l) Stop and report.** Under 250 words. **Do not start slice M7**, which follows you and pays the score's other inputs.
 
 ### What must not move, and a move is a stop
 
-- **`WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN` as M1 pinned it.** None moves, none of the four files is in the commit, and **you read all four off the tree rather than off this line**, and a move in any is a stop and report.
-- **Every existing reading's meaning.** A new key goes beside them; none of them is widened, split or renamed.
+- **`WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN` at `-2049717150`.** None moves, none of the four files is in the commit, and **you read all four off the tree rather than off this line**, and a move in any is a stop and report.
+- **Every existing reading's meaning**, `tuning.damageTaken`'s five above all. A new key goes beside them; none of them is widened, split or renamed.
 - **The harness reports and never judges** (ADR 0053), which is a fence by that name.
 - **The harness's own rows and its measured per-seed baselines**, which are re-measured with a reason and never re-pinned blind.
 - **The fences**, every one by title, plus the core's cycle guard.
-- **Nothing under `src/game` or `src/app` is in this commit**, and `src/dev` reads events and never writes the run.
+- **Nothing under `src/game` or `src/app` is in this commit**, and `src/dev` reads the run and never writes it.
 - **No ADR is filed or amended.**
 
 ### Seams under test
 
-`src/dev/readings/`: the two new readings, each built from events, each with its denominator named. `src/dev/batchReport.ts` and `src/dev/compareRuns.ts`: each reading declaring what comparing it means. `src/dev/readingsVersion.ts`: the version held, with the reason in its own prose.
+`src/dev/readings/`: the new readings, each with its denominator named and each saying in its own JSDoc where it read its facts, events or the state's end-of-tick value. `src/dev/batchReport.ts`: each reading declaring how a batch reduces it. `src/dev/compareRuns.ts`: each reading declaring what comparing it means. **`src/dev/readingsVersion.ts` is read and not edited.**
 
 ### Module boundaries
 
-**Two readings join the readings folder as their own concept modules, or one if they are one concept**, named for what they measure, with their public interface at the module's end. **Nothing is deleted, merged or split.** `src/dev` imports only from `src/dev`, `src/game` and `src/tape`, which is a fence by name. No new library enters.
+**The new readings join the readings folder as concept modules**, named for what they measure, with their public interface at the module's end. **The fallen-rung ledger is one concept and is one module**; the strip's own circumstances, the y, the clamp gap and the boss tag, are one concept and may be a second; the memory's transitions are a third. **Nothing is deleted, merged or split**, and `damageTaken.ts` is not touched. `src/dev` imports only from `src/dev`, `src/game` and `src/tape`, which is a fence by name. No new library enters.
 
 ### The planned test list
 
-1. *A swallowed fallen rung is counted as taken and one the scroll carried off is counted as lost.*
-2. *The take rate's denominator is every fallen rung the run dropped*, asserted rather than described.
-3. *A run with no fallen rungs reports a take rate of nothing rather than a rate of zero*, so an absent measurement is not read as a measured zero.
-4. *A floor hit that bleeds and a floor hit that strips are counted apart.*
-5. *A run reports the strips it took, the bleeds it took, and them in the order they happened.*
-6. *Every reading declares what comparing it means.* The existing fence, green over your two.
-7. *The harness reports and never judges.* The existing fence, green.
-8. *Both readings are new beside unchanged ones, so no existing reading's meaning moved.* Asserted by the version staying put with its reason.
+1. *A caught fallen rung, one the scroll carried off, one refused and one still standing at the stop each land in their own arm.*
+2. *The four arms add up to the rungs that fell*, asserted rather than described, which is the ledger's own check on itself.
+3. *A run that dropped no fallen rung reports the ledger's arms as zero and its shares as absent*, so an absent measurement is not read as a measured zero.
+4. *A strip reports the grave's y at the tick it landed, and the gap left under the grave's rim at that y.*
+5. *A strip taken at the bottom clamp reports a gap of nothing left*, which is the case section 7's finding is about.
+6. *A fallen rung reports the ticks from its fall to its catch or its loss, and one still standing at the stop reports no span at all.*
+7. *The bled-rung memory reports the ticks it was set, the times it was set, the times it cleared, and the growth that arrived while it was set without clearing it.*
+8. *A strip with a boss on the field is told apart from a strip in the mow.*
+9. *Every reading declares how a batch reduces it.* The existing fence, green over the new readings.
+10. *Every reading declares what comparing it means.* The existing fence, green over the new readings.
+11. *The harness reports and never judges.* The existing fence, green.
 
-**What this slice is expected to turn red.** The readings' own tests, `batchReport`'s and `compareRuns`' declaration tests, and the fence tests over the new declarations. **A realistic count is 5 to 10 files.** A diff larger than that is a reason to check what you reached into.
+**What this slice is expected to turn red.** The new readings' own tests, `batchReport`'s and `compareRuns`' declaration tests, and both fence tests over the new declarations. **A realistic count is 5 to 10 files and the honest expectation is the top of that range**: the new reading modules and their tests, `readings/readings.ts`, `batchReport.ts`, `compareRuns.ts`, `__tests__/batchReport.test.ts` and `__tests__/compareRuns.test.ts`. A diff larger than that is a reason to check what you reached into.
 
 ### Verification steps, with actors
 
 1. **Agent.** `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/`, then `pnpm verify` green twice on the committed tree.
 2. **Agent.** The test-name diff, both figures.
-3. **Agent.** A batch with both readings printed, and the strips per run set beside the storm's 2.47 kills a second.
-4. **Agent.** The fences green, each named by test title, including *every reading declares what comparing it means* and *the harness reports and never judges*.
+3. **Agent.** A batch with every new reading printed, and `tuning.damageTaken.weaponStrips` set beside the storm's 2.47 kills a second.
+4. **Agent.** The fences green, each named by test title, including *every reading declares how a batch reduces it*, *every reading declares what comparing it means* and *the harness reports and never judges*.
 5. **Agent.** The four version constants and `GOLDEN` untouched, with none of the four files in the commit.
-6. **Human (Mark), and none of these blocks you.** The record's section 7 first finding is his to answer, **and these two numbers are the evidence beside the question rather than the answer to it**. His own play is the answer.
+6. **Human (Mark), and none of these blocks you.** Section 7's findings are his to answer, **and these numbers are the evidence beside the questions rather than the answers to them**. His own play is the answer.
 
 ### State of the branch
 
-- The tip should be slice M5's docs commit.
-- **`WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4, and `GOLDEN` as M1 pinned it or as M5 explained it.** **Read all four off the tree yourself and say what you read**, because every move before you is M1's and a line here is not the tree.
-- **You are permitted no `GOLDEN` re-pin and no version move of any kind.**
+- The tip should be slice M5's docs commit. **M5 lands before you**, and its events and its fourth food kind are what three of your readings are built from.
+- **At HEAD the four read `WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150`.** **Read all four off the tree yourself and say what you read**, because M5 lands between this line and you and a line here is not the tree.
+- **You are permitted no `GOLDEN` re-pin and no version move of any kind.** **M6 moves none of the four.**
 - **Slice M7 follows you** and pays the score's other inputs, and **it holds the step's second `READINGS_VERSION` move, 8 to 9**. It is not yours to start and its move is not yours to take. **Step 5.7 is the orchestrator's** and comes after it: the gates, then CodeRabbit on the exact tip, then a batch, then the deploy. **Gates before the reviewer, because a finding that changes code invalidates a review.**
 
 ### The stuck rule
 
-**Three things are already known to be a stop:** any version constant or `GOLDEN` moving; an existing reading whose meaning moved under this step, which is reported and never fixed with a bump; and a reading that cannot be built from events without reading the run's own state. **And two things are ruled rather than open:** the version does not move, and the harness reports rather than judges. **A number that argues against something Mark ruled goes in the note for his read and is never applied.**
+**Two things are already known to be a stop:** any version constant or `GOLDEN` moving; and an existing reading whose meaning moved under this step, which is reported and never fixed with a bump. **And three things are ruled rather than open:** the version does not move and its file is not in the commit, the harness reports rather than judges, and a reading may take the run's state at the end of the tick where no event carries the fact. **A number that argues against something Mark ruled goes in the note for his read and is never applied.**
 
 ### What is not your job
 
 - **Tuning anything.** The readings exist so the tuning step has numbers; **the tuning step is step 6** and the record's own note says so.
 - **Judging the numbers.** ADR 0053.
+- **Re-declaring strips, bleeds, lines stripped or seals**, all five of which `damageTaken` already carries as declared readings.
+- **Changing the bot**, whose policy is ADR 0053's and whose bias is reported rather than corrected.
 - **The gates, the review, the batch and the deploy**, all step 5.7's and all the orchestrator's.
 - **Anything under `src/game` or `src/app`.**
 - **The record's section 7 findings**, none of which any slice acts on.
