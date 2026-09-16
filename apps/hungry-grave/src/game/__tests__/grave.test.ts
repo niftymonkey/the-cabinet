@@ -629,21 +629,102 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     );
   });
 
-  it('drops the bodies below the field at the bottom clamp, where they are lost on the tick they fell', () => {
-    // Defender's fall-too-far, and the lever is the distance the player left
-    // themselves. It is filed for Mark in the record's section 7 as the edge
-    // rule rather than repaired here, and M6 counts how often it happens.
+  /** The drop the placement uses, read off an ordinary strip rather than imported. */
+  function dropOffset(): number {
+    const run = atTheFloorWithNoScore(3);
+    run.grave.y = FIELD_HEIGHT / 2;
+    hitGrave(run, 'contact');
+    const body = fallenRungs(run)[0];
+    if (body === undefined) throw new Error('no body fell');
+    return body.y - run.grave.y;
+  }
+
+  /** A run standing at the bottom clamp, where nothing fits below the grave. */
+  function atTheBottomClamp(): ReturnType<typeof createRun> {
     const run = atTheFloorWithNoScore(3);
     run.grave.y = FIELD_HEIGHT;
     moveGrave(run.grave, { x: 0, y: 0 });
+    return run;
+  }
+
+  it('drops the bodies above the grave at the bottom clamp, where every one stands inside the field', () => {
+    // Mark's ask is a lost level the player can see fall and dive to catch, and
+    // a rung that never appears cannot be dived for. So with no room below, the
+    // same offset is mirrored upfield (orchestrator, 2026-09-16, under design
+    // record R6). It replaces the test that pinned those rungs as lost on the
+    // tick they fell.
+    const run = atTheBottomClamp();
 
     hitGrave(run, 'contact');
-    const standing = fallenRungs(run);
-    expect(standing.length).toBeGreaterThan(0);
-    for (const body of standing) expect(body.y).toBeGreaterThan(FIELD_HEIGHT);
 
-    const lost = cullCorpses(run);
-    expect(lost).toHaveLength(standing.length);
-    expect(fallenRungs(run)).toHaveLength(0);
+    const standing = fallenRungs(run);
+    expect(standing).toHaveLength(run.roster.length);
+    for (const body of standing) {
+      expect(body.y).toBeLessThan(run.grave.y);
+      expect(body.y - body.halfExtent).toBeGreaterThanOrEqual(0);
+      expect(body.y + body.halfExtent).toBeLessThanOrEqual(FIELD_HEIGHT);
+    }
+    expect(cullCorpses(run)).toHaveLength(0);
+  });
+
+  it("mirrors the drop upfield only once a body's own extent no longer fits below the grave", () => {
+    // The switch is the body's own extent reaching the field's bottom edge and
+    // not the grave's position, because a body dropped half off the field is a
+    // rung the player cannot read as catchable either.
+    const drop = dropOffset();
+    const lastWithRoom = FIELD_HEIGHT - drop - POWER_UP_HALF_EXTENT;
+
+    const roomy = atTheFloorWithNoScore(3);
+    roomy.grave.y = lastWithRoom;
+    hitGrave(roomy, 'contact');
+    for (const body of fallenRungs(roomy)) {
+      expect(body.y).toBeCloseTo(lastWithRoom + drop, 9);
+      expect(body.y + body.halfExtent).toBeLessThanOrEqual(FIELD_HEIGHT);
+    }
+
+    const tight = atTheFloorWithNoScore(3);
+    tight.grave.y = lastWithRoom + 0.5;
+    hitGrave(tight, 'contact');
+    for (const body of fallenRungs(tight)) {
+      expect(body.y).toBeCloseTo(lastWithRoom + 0.5 - drop, 9);
+    }
+  });
+
+  it("stands an upfield rung clear of the grave's own swallow box on the tick it falls", () => {
+    // The design gate's finding holds on the upfield side too: a body landing
+    // inside the swallow box hands the rung straight back on the tick it was
+    // lost. The scroll then carries it down toward the grave, which is the
+    // window the player can re-catch it in rather than a hand-back.
+    const run = atTheBottomClamp();
+
+    hitGrave(run, 'contact');
+
+    const box = graveHitbox(run.grave);
+    const bodies = fallenRungs(run);
+    expect(bodies).toHaveLength(run.roster.length);
+    for (const body of bodies) {
+      expect(body.y + body.halfExtent).toBeLessThan(
+        run.grave.y - run.grave.size,
+      );
+      expect(overlaps(corpseHitbox(body), box)).toBe(false);
+    }
+  });
+
+  it("spreads an upfield drop at the offer's own spacing and centres it exactly as a downfield one", () => {
+    // One rule read on two axes: which side of the grave the group stands on
+    // changes nothing about the spread, so the choice of which line to save is
+    // the same choice wherever the hit landed.
+    const run = atTheBottomClamp();
+
+    hitGrave(run, 'contact');
+
+    const bodies = fallenRungs(run);
+    expect(bodies.map((body) => body.line)).toEqual([...run.roster]);
+    const xs = bodies.map((body) => body.x);
+    for (let index = 1; index < xs.length; index += 1) {
+      expect(xs[index]! - xs[index - 1]!).toBeCloseTo(OFFER_SPACING, 9);
+    }
+    expect((xs[0]! + xs[xs.length - 1]!) / 2).toBeCloseTo(run.grave.x, 9);
+    expect(new Set(bodies.map((body) => body.y)).size).toBe(1);
   });
 });

@@ -611,8 +611,17 @@ const STOOD_BUT_NEVER_REACHED: readonly number[] = [];
  * mechanism as the two sets above: 101 is still paid and still takes what it is
  * paid, two offers rather than five, and the rungs it buys are ground back to
  * the birthright before it seals. The Crowd's curtain no longer feeds it.
+ *
+ * Re-measured 2026-09-16 for a strip with no room below the grave dropping its
+ * rungs above it instead, and 101 and 303 both came in. The mechanism is the
+ * catch: a hand under fire at the floor sits low, so nine of the twelve rungs
+ * these five seeds now drop fall with no room below and stand upfield of the
+ * grave rather than off the field, and the scroll carries them back down into
+ * it. 101 catches a bell rung twice and 303 catches a skull rung five times,
+ * and those two are the seeds that outlast the stage's budget, so they end
+ * holding what they caught rather than being ground back before sealing.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [101, 303];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

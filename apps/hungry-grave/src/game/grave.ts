@@ -208,13 +208,33 @@ const strippableLines = (state: RunState): WeaponLine[] => {
  * Sonic's no-recollect window, as geometry rather than as a clock: the loss
  * registers before the chase can connect.
  *
- * There is no containment on y, so a strip taken at the bottom clamp drops its
- * bodies below the field and they are lost on the tick they fell. That is
- * Defender's fall-too-far and the lever is the distance the player left
- * themselves; it is filed for Mark in the design record's section 7 rather than
- * repaired here.
+ * There is no containment on y. Where the field has no room below the grave the
+ * offset is mirrored above it instead, which fallenRungY rules.
  */
 const FALLEN_RUNG_DROP = SIZE_FLOOR + POWER_UP_HALF_EXTENT + BASE_SPEED;
+
+/**
+ * Which side of the grave the strip's bodies stand on: the drop below it, or
+ * the same offset mirrored above it when there is no room below (orchestrator,
+ * 2026-09-16, under design record R6 and Mark's ask).
+ *
+ * No room below means the downfield spawn would put a body's own extent past
+ * the field's bottom edge, where it is lost on the tick it fell. Mark's ask is
+ * a lost level the player can see fall and dive to catch, and a rung that never
+ * appears cannot be dived for, so the drop mirrors rather than vanishing.
+ *
+ * Mirrored at the same offset, so an upfield body clears the swallow box by the
+ * margin a downfield one does and the loss is never handed straight back. The
+ * scroll then carries it down toward the grave and past it, which is a window
+ * to re-catch it rather than the Salamander hand-back an upfield spawn with
+ * room below would be, and it is lost off the bottom edge like any other body
+ * if nobody takes it.
+ */
+const fallenRungY = (graveY: number): number => {
+  const below = graveY + FALLEN_RUNG_DROP;
+  const roomBelow = below + POWER_UP_HALF_EXTENT <= FIELD_HEIGHT;
+  return roomBelow ? below : graveY - FALLEN_RUNG_DROP;
+};
 
 /**
  * One body per rung the strip took, standing apart at the offer's own spacing
@@ -231,7 +251,7 @@ const dropFallenRungs = (
   lines: readonly WeaponLine[],
 ): SimEvent[] => {
   const events: SimEvent[] = [];
-  const y = state.grave.y + FALLEN_RUNG_DROP;
+  const y = fallenRungY(state.grave.y);
   for (const [index, line] of lines.entries()) {
     const at = spreadX(state.grave.x, lines.length, index);
     events.push(...spawnFallenRung(state, at, y, line));
