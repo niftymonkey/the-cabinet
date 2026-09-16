@@ -1153,10 +1153,10 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
  * What a hand brings to the curtain: the lines it holds and whether it holds
  * the key.
  *
- * The two are separate because the amended property is about the key alone. A
- * maxed storm opens the curtain by killing through it, which is a strong build
- * doing what a strong build should; what ADR 0042 promises is about a grave
- * that has not got one, so the belch has to be readable apart from the lines.
+ * The two are separate because the amended property is about the key alone, and
+ * unloaded there means no belch at any build. The curtain's own health is
+ * derived against the ceiling build for exactly that reason (`mobs.ts`), so
+ * both rungs pay the same crossing and only the key opens it.
  */
 interface WallHand {
   readonly lines: 'birthright' | 'maxed';
@@ -1206,12 +1206,10 @@ const WALL_TICKS = 1400;
  * the air is thick, because a wall of silent bodies is exactly the case a
  * shot-count judgement cannot see.
  *
- * The key is set apart from the lines, and the reason is measured. At the maxed
- * build the storm kills four of the eighteen on the way down and the grave
- * walks through the hole that leaves, so a ceiling-build crossing says nothing
- * about the belch at all. The promise ADR 0042 makes is about a grave that has
- * not got a build, so the belch is read at the birthright with a full
- * reservoir and nothing else.
+ * The key is set apart from the lines because only the key opens the curtain,
+ * and the crossing is read at both ends of the ladder. The birthright hand pays
+ * and the ceiling hand pays, and the same birthright hand holding a full
+ * reservoir comes through clean, which is the whole of the amended property.
  */
 describe("the Wall's property (ADR 0042 as amended)", () => {
   for (const seed of SEEDS) {
@@ -1266,19 +1264,22 @@ describe("the Wall's property (ADR 0042 as amended)", () => {
   }
 
   for (const seed of SEEDS) {
-    it(`is crossed clean at the ceiling build on seed ${seed}`, () => {
-      // A strong build crossing on its storm rather than on its key, which the
-      // property permits: what it promises is about a grave without a build.
-      // The key is withheld outright so the crossing can only be the storm's,
-      // and the hand is the belching one so it would spend a key if it had one.
+    it(`costs a crossing without the key at the ceiling build on seed ${seed}`, () => {
+      // The same cost at the other end of the ladder, which is what ADR 0042's
+      // unloaded crossing means: no belch, any build. A hand holding every line
+      // at its top rung is the hand most likely to be built when the curtain
+      // arrives, so a storm that opened it would leave the Wall a wall to
+      // nobody. The curtain still goes past, because cannot pass means blocked
+      // by cost and never by an impassable body.
       const state = wallRun(seed, { lines: 'maxed', key: false });
       const before = state.grave.size;
-      const { events } = play(state, belchingPolicy, WALL_TICKS);
+      const { events } = play(state, unloadedPolicy, WALL_TICKS);
 
       expect(state.ending).toBeNull();
       expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(0);
-      expect(count(events, 'graveHit')).toBe(0);
-      expect(state.grave.size).toBe(before);
+      expect(count(events, 'belched')).toBe(0);
+      expect(count(events, 'graveHit')).toBeGreaterThan(0);
+      expect(state.grave.size).toBeLessThan(before);
     });
   }
 });

@@ -1061,9 +1061,9 @@ const BODY_COST: Readonly<Record<MobType, number>> = {
   ghoul: 3,
   revenant: 4,
   // The dearest body in the table, because it is the one the storm does not
-  // clear: at 296 it stands its whole descent under a birthright, where the
-  // other three are 1, 3 and 8 skulls apiece. No card names it, and this figure
-  // is what one would cost if a later card did.
+  // clear: at 2206 it stands its whole descent under the ceiling build, where
+  // the other three are 1, 3 and 8 skulls apiece under a birthright. No card
+  // names it, and this figure is what one would cost if a later card did.
   cairn: 8,
 };
 

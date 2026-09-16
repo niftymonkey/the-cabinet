@@ -17,7 +17,13 @@ import { describe, expect, it } from 'vitest';
 import { fireBelch } from '../belch';
 import { createExecution, executeTick } from '../execution';
 import { graveWidth } from '../grave';
-import { BIRTHRIGHT, BIRTHRIGHT_LEVEL, WEAPON_LINES } from '../lines/roster';
+import {
+  BIRTHRIGHT,
+  BIRTHRIGHT_LEVEL,
+  MAX_LEVEL,
+  WEAPON_LINES,
+} from '../lines/roster';
+import type { WeaponLine } from '../lines/roster';
 import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
@@ -42,18 +48,36 @@ const WALL_WAVE = requireDefined(
 const STILL = { move: { x: 0, y: 0 }, belch: false };
 
 /**
- * The curtain standing on a quiet stage at a chosen size, with the storm at the
- * rung a run is born on.
+ * The build the curtain is met with: the rung a run is born on, or every line
+ * at the top of its ladder, which is the strongest storm the game can throw.
+ *
+ * Both are met, because ADR 0042's unloaded crossing is about the key and not
+ * about the lines: a curtain a strong build walks through is a curtain that
+ * costs nothing to whoever is most likely to be holding one when it arrives.
+ */
+type Build = 'birthright' | 'ceiling';
+
+const rungFor = (build: Build, line: WeaponLine): number => {
+  if (build === 'ceiling') return MAX_LEVEL;
+  return BIRTHRIGHT.includes(line) ? BIRTHRIGHT_LEVEL : 0;
+};
+
+/**
+ * The curtain standing on a quiet stage at a chosen size and a chosen build.
  *
  * The stage is stood in the last section of the table, the one section the
  * machine never leaves, so nothing else arrives on top of what is being
  * measured. It is the same fixture bot.test.ts builds the Wall from.
  */
-const curtainRun = (seed: number, size: number): RunState => {
+const curtainRun = (
+  seed: number,
+  size: number,
+  build: Build = 'birthright',
+): RunState => {
   const state = createRun(seed, size);
   state.stage.sectionIndex = SECTIONS.length - 1;
   for (const line of WEAPON_LINES) {
-    state.levels[line] = BIRTHRIGHT.includes(line) ? BIRTHRIGHT_LEVEL : 0;
+    state.levels[line] = rungFor(build, line);
   }
   for (const order of place(
     WALL_WAVE.formation,
@@ -143,6 +167,26 @@ describe('a belch opens the curtain (ADR 0042 as amended)', () => {
     });
   }
 
+  for (const size of [SIZE_START, SIZE_FLOOR]) {
+    it(`opens a gap wider than a grave of ${size} at the ceiling build`, () => {
+      // The key still works on the strongest storm the game can throw, which is
+      // the half of the promise a ceiling build can put in question: a curtain
+      // the storm has already thinned would open to anything.
+      const state = curtainRun(101, size, 'ceiling');
+      fallToward(state, SPENT_AT);
+      const before = gapAtTheGravesColumn(state);
+      state.reservoir = RESERVOIR_CAPACITY;
+      fireBelch(state);
+      const execution = createExecution(state);
+      for (let tick = 0; tick < FLIGHT_TICKS; tick++) {
+        executeTick(execution, STILL);
+      }
+
+      expect(before).toBeLessThan(graveWidth(size));
+      expect(gapAtTheGravesColumn(state)).toBeGreaterThan(graveWidth(size));
+    });
+  }
+
   it('opens it because bodies moved and never because bodies died', () => {
     // The mechanism, which is ruling R4: the press takes health off nothing, so
     // every body that was standing in the curtain is still standing after it,
@@ -178,6 +222,39 @@ describe('the curtain is a curtain when the grave reaches it (design record R5)'
 
     expect(curtainBodies(state)).toHaveLength(WALL_WAVE.count);
     expect(gapAtTheGravesColumn(state)).toBeLessThan(graveWidth(SIZE_FLOOR));
+  });
+
+  it('stands whole through a ceiling-build storm all the way down', () => {
+    // The storm the game can actually throw, which is where the cairn's health
+    // is derived: every line at the top of its ladder, the grave held still so
+    // its whole column lands on one body, and the curtain still eighteen bodies
+    // with no gap the narrowest grave could slip through when it arrives. The
+    // Wall is a real wall only a belch opens, so a maxed build walking through
+    // it unpressed would be the same failure the shambler curtain had.
+    const state = curtainRun(101, SIZE_FLOOR, 'ceiling');
+    state.grave.invulnerable = Number.MAX_SAFE_INTEGER;
+    fallToward(state, 0);
+
+    expect(curtainBodies(state)).toHaveLength(WALL_WAVE.count);
+    expect(gapAtTheGravesColumn(state)).toBeLessThan(graveWidth(SIZE_FLOOR));
+  });
+
+  it('costs a ceiling build health when it is crossed without a belch', () => {
+    // The cost is paid at every build and not only at the birthright: the key
+    // is what opens the curtain, so a grave that spends none is smaller
+    // afterwards however many rungs it holds (ADR 0042 as amended).
+    const state = curtainRun(101, SIZE_START, 'ceiling');
+    const before = state.grave.size;
+    const execution = createExecution(state);
+    let hits = 0;
+    for (let tick = 0; tick < 1400; tick++) {
+      for (const event of executeTick(execution, STILL)) {
+        if (event.type === 'graveHit') hits += 1;
+      }
+    }
+
+    expect(hits).toBeGreaterThan(0);
+    expect(state.grave.size).toBeLessThan(before);
   });
 
   it('costs the grave health when it is crossed without a belch', () => {

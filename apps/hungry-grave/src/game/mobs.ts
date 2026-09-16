@@ -165,22 +165,36 @@ const MOB_TYPES = {
     halfWidth: 15,
     halfHeight: 11,
     /**
-     * What the rung-one storm cannot take down before the grave reaches it,
-     * measured rather than felt: a curtain thinned into a lane on the way down
-     * costs nothing to cross, which is the shambler's measured failure this
-     * row exists to answer (`docs/push/step-4-progress.md` section 4 item 7).
+     * What the strongest storm the game can throw cannot take down before the
+     * grave reaches it, measured rather than felt: a curtain thinned into a
+     * lane on the way down costs nothing to cross, which is the shambler's
+     * measured failure this row exists to answer
+     * (`docs/push/step-4-progress.md` section 4 item 7).
      *
-     * The measurement is the worst case the storm can make: a grave parked
-     * under one body for the whole descent, which is 668 ticks from the
-     * curtain's spawn to the grave's own row, its column landing 36 skulls for
-     * 288 on the one body it can reach and nothing at all on any other. One
-     * touch more, 37 at the birthright's 8 a skull, is 296: the first health
+     * It is derived against the ceiling build and not against the rung a run
+     * is born on, because a wall only a weak hand cannot pass is not a wall to
+     * the hand most likely to be holding one when the curtain arrives. Vampire
+     * Survivors keeps its own Flower Wall solid at every power the same way,
+     * by reading the player's level into the wall's health
+     * (https://vampire.survivors.wiki/w/Flower_Wall, the wiki's
+     * Enemies with HP x Level). A static row derived against the ceiling
+     * reaches that property with nothing keyed on the build.
+     *
+     * The measurement is the worst case the storm can make: every line at the
+     * top of its ladder and the grave parked under one body for the whole
+     * descent, which is 668 ticks from the curtain's spawn to the grave's own
+     * row. That lands 2158.8 on the one body the column can reach and nothing
+     * near it on any other, worst at the grave's floor size where the column is
+     * narrowest, identical on every seed measured
+     * (`local/round2/Lfix-storm-throughput.ts`). One touch more of the dearest
+     * thing that touched it, 46.8, is 2205.6, so 2206 is the first whole point
      * that leaves that body standing at contact however the descent is spent,
-     * so the belch stays the key rather than the stream (design record R5).
+     * and the belch stays the key rather than the stream (design record R5,
+     * ADR 0042 as amended).
      *
      * It is data and the tuning step owns it, like every other magnitude here.
      */
-    hp: 296,
+    hp: 2206,
     /**
      * The mow body's payout and the mow body's tier, at four times its health.
      *

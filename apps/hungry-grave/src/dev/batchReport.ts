@@ -663,10 +663,11 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
     'tuning.belchCadence.wasted',
     (report) => report.tuning.belchCadence.wasted,
   ),
-  // What share of its own frame a press typically reaches, as a distribution
-  // over the presses themselves: a run with one press and a run with twelve
-  // both contribute what each of their presses did, because the question is
-  // about a press and not about a run (#124).
+  // What share of its own frame a press typically reaches. Every reduction here
+  // is per run, this one included: a run's own presses become that run's five
+  // numbers and those are what spread across the batch, so a run with one press
+  // files a summary of that one press rather than pooling it with a run that
+  // pressed twelve times (#124).
   distributionReading(
     'tuning.belchCadence.frameShares',
     (report) => report.tuning.belchCadence.frameShares,

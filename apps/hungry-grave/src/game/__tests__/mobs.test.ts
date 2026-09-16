@@ -237,14 +237,16 @@ describe('the mob type table (ADR 0016)', () => {
   it('gives the cairn the curtain it has to build: wide, durable and silent', () => {
     // The three figures the Wall stands on (#123, design record R5). The width
     // is what the curtain's count is derived from and it is the only body
-    // wider than it is tall; the health is what a rung-one storm cannot take
-    // down over a whole descent; and the silence is why the cost of crossing is
-    // the bodies themselves.
+    // wider than it is tall; the health is what the ceiling build's storm
+    // cannot take down over a whole descent, re-measured from 296 because the
+    // first derivation read the rung-one storm alone and a maxed one opened the
+    // curtain unpressed; and the silence is why the cost of crossing is the
+    // bodies themselves.
     expect(MOB_TYPES.cairn.halfWidth).toBe(15);
     expect(MOB_TYPES.cairn.halfWidth).toBeGreaterThan(
       MOB_TYPES.cairn.halfHeight,
     );
-    expect(MOB_TYPES.cairn.hp).toBe(296);
+    expect(MOB_TYPES.cairn.hp).toBe(2206);
     expect(MOB_TYPES.cairn.fire).toBe(NEVER_FIRES);
     expect(MOB_TYPES.cairn.motion).toBe('falls');
     // A payout a grind would be paid for is what would retire the belch as the
