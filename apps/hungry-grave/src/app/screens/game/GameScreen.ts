@@ -416,7 +416,7 @@ class GameScreen extends Container {
     this.fieldRenderer.sync(run);
     this.bossRenderer.sync(run);
     this.stormRenderer.sync(run);
-    this.belchButton.sync(run.reservoir >= RESERVOIR_CAPACITY, run.tick);
+    this.belchButton.sync(run.reservoir / RESERVOIR_CAPACITY, run.tick);
   }
 
   /**
@@ -448,12 +448,15 @@ class GameScreen extends Container {
       READOUT_RESERVE.margin + PAUSE_HEIGHT / 2,
     );
     this.countdown.resize(width, height);
-    // Bottom right, from the same reserve the pause button is positioned from,
+    // Bottom left, from the same reserve the pause button is positioned from,
     // so the two cannot drift apart and the non-overlap rule stays one rule in
     // one place. It sits over the field: Mark ruled on 2026-08-22 that the
-    // field never pays width for a readout.
+    // field never pays width for a readout. The corner is the left one on his
+    // ruling of 2026-09-15, so the steering thumb and the belch no longer share
+    // it; the reserve claims the two top corners only, which is why the move
+    // costs the field's fit nothing.
     this.belchButton.position.set(
-      width - READOUT_RESERVE.margin - BELCH_SIZE / 2,
+      READOUT_RESERVE.margin + BELCH_SIZE / 2,
       height - READOUT_RESERVE.margin - BELCH_SIZE / 2,
     );
   }

@@ -924,8 +924,10 @@ describe('the stand-in ground (ADR 0049, decision 22, #38)', () => {
   it("puts the Vigil's departure in the hue band the readability record records as empty", () => {
     // Spec 59. `docs/research/readability-value-band.md` section 7.5, quoted in
     // #38's second comment: "hue 50 to 125 and 175 to 205 are entirely empty."
-    // The teal half is the one still empty today, because territory sits at hue
-    // 95 and mob at about 127.
+    // Neither half is empty of every colour today: territory sits at hue 100.56
+    // in the first and reservoirCharge at 199.79 in the second. What the two
+    // named clearances below hold is what the band was recorded for, that no
+    // sprite crowds the departure, and a readout in a fixed corner is not one.
     const hue = hsv(PALETTE.standInVigilTint.hex).h;
     expect(`${hue.toFixed(2)} in band ${hue >= 175 && hue <= 205}`).toBe(
       `${hue.toFixed(2)} in band true`,

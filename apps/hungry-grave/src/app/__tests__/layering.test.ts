@@ -15,6 +15,7 @@ import { SEED_LIMIT } from '../../game/run';
 import { METER_FONT_SIZE, meterLinePosition } from '../cornerReadout';
 import type { FieldPlacement } from '../layout';
 import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
+import { BELCH_SIZE } from '../screens/game/BelchButton';
 import type { LayerName } from '../screens/game/layering';
 import { FieldLayers, LAYER_ORDER } from '../screens/game/layering';
 
@@ -360,6 +361,28 @@ describe('the readouts stay inside the reserve the field is fitted around', () =
     expect(button.position.y + 68 / 2).toBeLessThanOrEqual(
       READOUT_RESERVE.height,
     );
+  });
+
+  it("puts the belch's control in the bottom-left corner, inset by the same margin", () => {
+    // Mark ruled the corner on 2026-09-15, so the steering thumb and the belch
+    // no longer share one. It is positioned from the reserve the pause button
+    // is positioned from, which is what keeps the non-overlap rule in one
+    // place, and the reserve claims the two top corners only, so the field's
+    // own fit is untouched by the move.
+    for (const [width, height] of [
+      [1440, 900],
+      [390, 844],
+    ] as const) {
+      const screen = gameScreen();
+      screen.resize(width, height);
+      const button = screen['belchButton'];
+      expect(`${width}: ${button.position.x - BELCH_SIZE / 2}`).toBe(
+        `${width}: ${READOUT_RESERVE.margin}`,
+      );
+      expect(`${width}: ${height - (button.position.y + BELCH_SIZE / 2)}`).toBe(
+        `${width}: ${READOUT_RESERVE.margin}`,
+      );
+    }
   });
 
   it("keeps the bank, levels and fault lines, past the reserve's height, inside its width", () => {

@@ -199,10 +199,13 @@ const PALETTE = {
    * the first two sections (Downwell's move: spent once or not at all).
    *
    * Deep teal-cyan at hue 190.43. `docs/research/readability-value-band.md`
-   * section 7.5 records hue 175 to 205 as entirely empty and it still is: the
-   * nearest occupants are `wisp` at 172.24 and `skull` at 208.24, so 190 sits
-   * eighteen degrees clear of each against a fifteen-degree sprite-separation
-   * minimum. It carries the highest saturation of the four ground colours,
+   * section 7.5 records hue 175 to 205 as entirely empty, and of the sprites it
+   * still is: the nearest are `wisp` at 172.24 and `skull` at 208.24, so 190
+   * sits eighteen degrees clear of each against a fifteen-degree
+   * sprite-separation minimum. `reservoirCharge` joined the band at 199.79 on
+   * 2026-09-16, a readout rather than a sprite and 37.25 luma above this one,
+   * so it changes neither clearance. It carries the highest saturation of the
+   * four ground colours,
    * 0.500, because the addition has to be the event.
    */
   standInVigilTint: { hex: 0x2e545c, luma: 30 },
@@ -227,6 +230,39 @@ const PALETTE = {
   // readouts drawn over the field, inside the ceiling because they draw over play
   hudInk: { hex: 0xa8acb0, luma: 67.23 },
   hudDim: { hex: 0x76839a, luma: 50.94 },
+  /**
+   * The reservoir's charge, drawn as the filled part of the belch's ring.
+   *
+   * Every shipped phone precedent for a charge is a coloured fill on a neutral
+   * track: Brawl Stars' slim yellow ring on a grey meter, Genshin's burst icon
+   * filling with the element's own colour (`docs/research/push-feel-precedent.md`
+   * section 4). So the track is `hudInk`, the readouts' own near-neutral, and
+   * this is the fill. Ready leaves for `graveGlow`, which is treasure's colour
+   * and means a thing there is to spend.
+   *
+   * The luma is forced to the point rather than to a window. All three colours
+   * the control draws sit inside 0.02 luma of each other, 67.23, 67.25 and
+   * 67.25, so neither the charge nor the ready tell can announce by getting
+   * brighter, which is what ADR 0054's reading of ADR 0014 forbids. What is
+   * left to separate them is hue and area, and APCA measures Lc 0.00 against
+   * the track, so the arc's own width and length carry the whole reading in
+   * grayscale.
+   *
+   * The hue is forced the same way the two before it were. Fire's 20-degree
+   * exclusion closes 20 to 39, amber at 41 is the ready tell itself, corpse and
+   * feast hold the warm bone, the green family from 76 to 155 is the mobs and
+   * the moss, purple is banned outright, and 237.5 is claimed ground. What is
+   * left at this luma is the grave's own cold family, 175 to 220, where the
+   * readouts already live. 199.79 is the one spot in it with room for real
+   * chroma: it clears `wisp` at 172.24 by 27.5 degrees, `bellRing` at 210 on
+   * saturation by 0.292 against a 0.25 minimum, and the track by 0.406, which
+   * is the separation the eye actually reads.
+   *
+   * Measured: APCA Lc 58.35 against night, and 37.25 luma above the Vigil's
+   * ground tint nine hue degrees away, which is a ground fill under the field
+   * where this is a ring in the corner.
+   */
+  reservoirCharge: { hex: 0x76b7d7, luma: 67.25 },
 } as const satisfies Record<string, PaletteEntry>;
 
 /**
