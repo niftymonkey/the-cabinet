@@ -118,7 +118,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **The mow**: What the storm does to a field of weak bodies, and the feel the whole density pass exists to produce. Density is bought by making bodies weaker, never tougher (ADR 0059). _Avoid_: grinding, farming, clearing, trash cleanup.
 
-**Mob type**: A kind of mob, owning how it moves, whether and how it fires, its health, its corpse payout, and its size. v1 ships three and the pool is open by design: the shambler falls, the revenant fires an aimed shot with a tell before it, and the ghoul is the closer, turning toward the grave so its body is the threat. A mob type must be readable before it acts. _Avoid_: enemy class, variant, archetype.
+**Mob type**: A kind of mob, owning how it moves, whether and how it fires, its health, its corpse payout, and its size. v1 ships four and the pool is open by design: the shambler falls, the revenant fires an aimed shot with a tell before it, the ghoul is the closer, turning toward the grave so its body is the threat, and the cairn is the durable one, a wide stone slab that fires nothing and that the storm does not clear. A mob type must be readable before it acts. _Avoid_: enemy class, variant, archetype.
 
 **Formation**: A named placement from the library: where a group of mobs arrives and how it is arranged, never which mob type is in it. Each teaches a lesson, and the library is open. The starting six are Drips, the File, the V, the Pincer, the Rain, the Wall. _Avoid_: template, pattern, spawn type, wave (which is the entry, not the shape).
 
@@ -140,7 +140,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Set piece**: An authored moment that names the property it must keep rather than the mob types allowed in it. The Wall is the first, and the swarm that ends the middle section is the second. The director adds nothing during one. _Avoid_: scripted event, cutscene, special wave.
 
-**The Wall**: The feast wave: an edge-to-edge curtain of trash launched by the miniboss's death. _Avoid_: swarm wave, horde.
+**The Wall**: The feast wave: an edge-to-edge curtain of cairns launched by the miniboss's death, costing more to cross than an unloaded grave has and opened by a belch. It is never an impassable body: the shove moves the cairns and a gap appears because they moved (ADR 0042 as amended). _Avoid_: swarm wave, horde.
 
 **The Waking**: The swarm set piece that ends the Crowd: a dormant eye placed by a Crowd wave, riding the ground down until it opens around mid-field and pours trash from its one point while the source drags across. It fires nothing and never touches the grave, and its corpses are the payout. A toll pushes its source a fraction of the push a mob takes, so a high enough bell holds the grave under the pour (ADR 0008 as re-ruled 2026-09-15). _Avoid_: the swarm, the eye event, the mouth.
 

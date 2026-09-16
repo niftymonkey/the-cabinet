@@ -270,7 +270,7 @@ Each is one commit: tests, minimal implementation, record amendment, green befor
 The HUD entry's amended text, so the docs slice writes it rather than composes it.
 
 > **HUD**: The slim readout at the field's top edge carrying the score and each line's rungs as marks: the ladder's second channel, and the one that makes a rung lost legible inside a dense storm. It sits in the band above the field where the screen leaves one and over the field's own top edge where it does not, and it announces by count, shape or subtraction, never by brightness. _Avoid_: strip, bar, panel, overlay.
-
+>
 > **Amended 2026-09-16, at path step 5.** What stood: the readout's job, its content, and the announcing rule. What changed: "inside the field frame" becomes the field's top edge, because the readout has one home on both screen shapes and the frame's inside is not it. What the entry could not have known: a phone leaves no side gutter at all and a desktop leaves no band at all, both measured exactly zero, so the surround the readout wants is on a different axis on each shape (`docs/design/show-what-you-have.md` section 3.1).
 
 The three new entries are **Dive**, the verb the grave recovers with, used in the Wisps and Rung entries today and defined nowhere; **Score**, which R4 gives two sources, kills and overflow; and **Fallen rung**, the body ADR 0055 rules, named so it is plainly the same thing as a Rung at a second moment.

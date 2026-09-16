@@ -8,7 +8,7 @@ The record is `apps/hungry-grave/docs/design/round-two-wall-belch.md` and the pr
 
 | Slice | Commit | Message |
 | --- | --- | --- |
-| The ADR commit, both amendments | | |
+| The ADR commit, both amendments | `ec87a2e9e7` | docs(hungry-grave): ADR 0008 and ADR 0042 re-ruled in place, the belch shoves and the Wall is opened by a belch (#124) |
 | R-fix, three tech gate findings | `eddb32c4cb` | refactor(hungry-grave): the ceiling refuses a figure it cannot honour and the codec stops reaching for the director (#126) |
 | H, the witness fold | `2e90597cad` | feat(hungry-grave): a body carries the shove that landed on it and the witness folds it (#126) |
 | H, the shove | `ed369353e2` | feat(hungry-grave): a toll starts a shove the body travels under, and the bell is its only caller (#126) |
@@ -93,6 +93,18 @@ Every claim in the design record or in a slice prompt that did not survive conta
 **Slice J-fix. The ADR commit landed but never wrote its own note.** `ec87a2e9e7` moved ADR 0008's filename to `0008-the-belch-full-only-gas-everywhere-shove-nearby.md` and is in the tree, so the prerequisite every belch slice depends on is met. Section 6 below and its row in section 1 are still empty. Neither is this slice's to write and neither is filled in here.
 
 ## 6. The ADR commit: the two amendments and the stale concept sentences (#124)
+
+Commit `ec87a2e9e7`, six files, 23 insertions and 19 deletions. Written here at round two's close rather than by the commit itself, which left the heading empty and its row in section 1 blank; slice J-fix recorded the hole in section 5 and it stayed open through every coding slice. The account below is read out of `git show ec87a2e9e7` and nothing in the tree moved to write it.
+
+**ADR 0008's triple.** The local kill is superseded by the shove on Mark's ruling of 2026-09-15 that the belch is a big pushback with no damage, two or three shoves: what stood is full-only firing at a full reservoir, the dedicated button, the field-wide gas that smothers every shot and kills nothing, the scope limit to bodies that have entered, the splash past full and the swallow-refilled cost; what it replaced is the burst as a kill rule, the chunk of boss damage it carried, the flat "nothing is pushed, ever" and the belch-kills-leave-corpses clause that goes with the kill; what it could not have known is that removing the kill leaves the belch with nothing a player could name after spending one (#124), and the mow, under which a local kill radius deletes bodies the storm was deleting anyway.
+
+**ADR 0042's triple.** The unloaded half is superseded on the same day's ruling that the Wall becomes a real wall only a belch opens: what stood is the property-not-cast rule itself, that the crossing is never free, and the caution that a bot proof is an upper bound on perfect play; what it replaced is "stays crossable unloaded, and is never crossable for free", the unloaded half withdrawn and the belch put in its place; what it could not have known is the mow, which had already made the unloaded crossing free and the loaded one pointless, and the belch's own change, since a belch that kills nothing could not have opened the old curtain at all. The record's own body also gained the cost-not-a-barrier wording, the geometry of the opening, and the pre-ruled cut as the Wall's rather than the rule's.
+
+**The filename that moved and the two links repointed.** `docs/adr/0008-the-belch-full-only-gas-everywhere-burst-nearby.md` became `0008-the-belch-full-only-gas-everywhere-shove-nearby.md`, its title moving with its decision. `docs/push/step-4-progress.md` and `docs/push/step-4-slice-prompts.md` each carry one link to it and the link target is the only thing that moved in either; both are append-only process history and neither was rewritten. `docs/design/dispatch-5-weapons.md` links a filename that has never existed and was deliberately left alone, which is slice B0's own precedent.
+
+**The two concept sentences.** `game-concept.md`'s belch section and its boss section both said the burst kills what it hits and now say the shove throws bodies away from the grave and takes health off nothing; the wisps' line said "one corpse in, one theatrical volley out" and now says two swallows inside the floor pay one volley rather than two.
+
+**The Wall paragraph left for slice L**, recorded there as a known stale passage with slice L as its trigger. Slice L did not take it, because prose in `docs/design` carrying superseded wording is the follow-up docs pass's; it is rewritten in section 17's own commit, which is that pass.
 
 ## 7. Slice R-fix: three tech gate findings, and no printed figure moves (#126)
 
@@ -845,8 +857,6 @@ One code commit, `538fd21a9b`, six files, 406 insertions and 82 deletions, again
 
 **Seen and left, for nobody in particular.** The charging state is now drawn at full alpha where the old ring drew at 0.32, because the alpha step is what ADR 0054 forbids, so the corner is as loud while filling as it used to be only at ready. The track is held to the narrow stroke to pay for it, and whether the corner now reads as too loud on a real device is a feel call and Mark's.
 
-## 14. Slice L: the Wall is a wall (#123)
-
 ## 15. Slice J2: a body that dies mid-shove finishes its flight, and the press writes down every body it missed (#124)
 
 Two code commits and one docs commit. The witness fold is `3351044752`, fourteen files, 317 insertions and 66 deletions; the rest is `62bbbd753c`, twenty-three files, 1073 insertions and 181 deletions, against the prompt's expected 20 to 30 files.
@@ -1042,6 +1052,8 @@ Seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthrig
 
 ## 14. Slice L: the Wall is a wall (#123)
 
+**This section sits after section 15 and not before it.** The heading was written into the note before J2 was ordered ahead of L, and the note is appended to and never renumbered, so L's own section lands where L's coder reached it. Section 16 below is L-fix, which is where this slice's health figure now stands.
+
 The curtain is a new mob type the rung-one storm does not take down, the Wall's wave names it the way every wave names a type, and a belch is what opens it. **It is a hole and not a dent**, at every distance a press can reach, so the fourth ruling's count-and-spacing sweep was never entered and slice J's row is untouched.
 
 ### The dent-or-hole measurement, before and after
@@ -1104,7 +1116,7 @@ All thirteen staged files reviewed under `coderabbit review --agent --uncommitte
 
 ### Verification
 
-`pnpm typecheck` green. `pnpm vitest run` green, 147 files, 2128 passed, 11 expected fail, 2 todo. `pnpm build` green. `pnpm verify` green at the repo root. The six fences green by title: *the rendering-import boundary*, *src/game imports only from src/game*, *a test imports only from inside its parent folder's subtree*, *the core has no import cycle*, *line-agnostic policies*, *the execution fence*, *the harness states no target*, *the comparison is declared*, and slice D's *the cap derivation reads tables and never the stage*. **Replay determinism at this tip**: seed 909 under `shaky-short` played twice, 6227 ticks both times, both verified, and the two reports are byte-identical once the recording stamp is set aside. **A batch under both configurations**: `steady-far` and `loose-far`, eight seeds each from 2101, **8 of 8 verified in both**, nothing unfinished, `damage.belch` zero everywhere and `tuning.repel.belchShoves` at a median of 26 and 25. The cairn reaches play in both: `tuning.arrivals.byType.cairn` is 19 at the median, which is the curtain's eighteen plus the lone Drip. **A tape measured to `outcome: 'verified'`.**
+`pnpm typecheck` green. `pnpm vitest run` green, 147 files, 2128 passed, 11 expected fail, 2 todo. `pnpm build` green. `pnpm verify` green at the repo root. The fences green, and the nine titles below are the contract's six counted as tests rather than as files, because `boundary.test.ts` carries four of them beside slice D's: *the rendering-import boundary*, *src/game imports only from src/game*, *a test imports only from inside its parent folder's subtree*, *the core has no import cycle*, *line-agnostic policies*, *the execution fence*, *the harness states no target*, *the comparison is declared*, and slice D's *the cap derivation reads tables and never the stage*. **Replay determinism at this tip**: seed 909 under `shaky-short` played twice, 6227 ticks both times, both verified, and the two reports are byte-identical once the recording stamp is set aside. **A batch under both configurations**: `steady-far` and `loose-far`, eight seeds each from 2101, **8 of 8 verified in both**, nothing unfinished, `damage.belch` zero everywhere and `tuning.repel.belchShoves` at a median of 26 and 25. The cairn reaches play in both: `tuning.arrivals.byType.cairn` is 19 at the median, which is the curtain's eighteen plus the lone Drip. **A tape measured to `outcome: 'verified'`.**
 
 **The test-name diff: 2128 names in the baseline at this branch's own tip, 2139 now, 35 added and 24 removed.** Every removal is a rename inside the Wall's own block, the three harness seed-set titles, or the curtain-width test that used to say "at the shambler's size". Nothing lost its meaning. **Thirteen files in the code commit**, which is inside the prompt's 12 to 30.
 
@@ -1125,3 +1137,97 @@ Two runs, recorded through the one execution authority with the harness's own st
 **The tuning step inherits the cairn's three magnitudes**: 296 health, 30 by 22, and the trash payout. Each is a first pass with its derivation written down, and the health in particular is derived against the rung-one storm alone.
 
 **`docs/design/game-concept.md`'s Wall paragraph is now stale and slice L was its named trigger** (the ADR commit's note, section 6 item e). It still describes the curtain's bodies as the ordinary trash mob and a lane's corpses raining down as the reward. **It was not rewritten here**, because prose in `docs/design` carrying superseded wording is the follow-up docs pass's, which the coder contract names as never a slice's job. It is now a known stale passage with no trigger left, so it needs an owner.
+
+## 16. Slice L-fix: the Wall holds at every build (#123)
+
+Commit `455f74c62f`, six files, 140 insertions and 45 deletions. One figure moves, the cairn's health, and it moves because slice L derived it against the wrong storm.
+
+### What was wrong, measured before anything was changed
+
+Slice L derived the cairn's health against the rung-one storm and filed the maxed storm as a finding rather than a breach, on the reading that ADR 0042's unloaded crossing speaks about a grave with no build. **The orchestrator reversed that reading on 2026-09-16: unloaded means no belch and any build**, so a curtain the strongest storm walks through is a curtain that costs nothing to the hand most likely to be built when it arrives.
+
+Reproduced at the committed tip with every line at its top rung, the grave held still under the curtain and no press spent (`local/round2/Lfix-ceiling-crossing.ts`): **4 of 18 cairns dead on the way down and a 182.3-unit hole at the grave's own column**, against a grave 67.5 units wide at the ceiling and 18 at the floor. Identical on all five seeds measured, 101, 505, 902, 2101 and 2105, because a still grave and a fixed build make the descent deterministic.
+
+### The health re-derived, and the precedent it now cites
+
+The derivation keeps slice L's shape and changes its storm (`local/round2/Lfix-storm-throughput.ts`, immortal bodies so the whole descent is read off the damage events rather than off the part before the first death). Over the 668 ticks from the curtain's spawn to the grave's row, at every line's top rung, the worst body takes **1246.8 at the ceiling grave, 1678.8 at the starting size and 2158.8 at the floor**, the biggest single touch being 46.8 throughout. **The floor is the worst case and that is the finding inside the finding**: a narrow grave lands its whole column on one body where a wide one splits it across two, so the storm concentrates as the grave shrinks. Every seed measured returns the same figures.
+
+One touch more of the dearest thing that touched it, 2158.8 plus 46.8, is 2205.6, so **the row is 2206**, the first whole point that leaves that body standing at contact however the descent is spent. **Vampire Survivors is cited in the row for the property rather than for the number**: it keeps its own Flower Wall solid at every power by reading the player's level into the wall's health (`vampire.survivors.wiki`, the wiki's Enemies with HP x Level category). A static row derived against the ceiling reaches the same property with nothing keyed on the build, which is what ADR 0016 and ADR 0042 require.
+
+### The crossing after, and the gap a press opens
+
+At 2206, with every line maxed and the grave still: **18 of 18 standing at the crossing at all three sizes, none dead, and the gap at the grave's column 13.7 units** against the narrowest grave's 18, so the curtain is still a curtain the floor grave cannot slip through. **The 13.7 is the maxed bell's own shove and not a kill**: at the birthright the same measurement is a gap of exactly zero (section 14), and the tolls nudge the bodies apart without taking one down.
+
+A press spent at the ceiling build with the curtain's lowest body 60 units above the grave opens the column from **13.7 to 72.7 units**, wider than the grave at its start size of 27 and at its floor of 18. Slice L's rung-one figures are untouched and its rung-one tests are unchanged and green.
+
+### The test that was reversed, and the two it gained
+
+`bot.test.ts`'s *is crossed clean at the ceiling build* is now *costs a crossing without the key at the ceiling build*, on `unloadedPolicy` rather than on the belching hand, asserting no belch, a grave hit and a smaller grave, and keeping the curtain leaving the field so cannot pass still means blocked by cost. Its two JSDoc paragraphs, which carried the withheld-key reading, say instead that unloaded means no belch at any build. **Nothing was weakened**: a test that asserted a crossing now asserts a cost, which is the stronger sentence and the one ADR 0042 words.
+
+`curtainOpensToABelch.test.ts` gained four: *stands whole through a ceiling-build storm all the way down*, *costs a ceiling build health when it is crossed without a belch*, and the gap test at both grave sizes at the ceiling build. Its fixture takes a build rather than assuming the birthright, so both rungs run through one fixture.
+
+### The baselines that moved, each re-measured with its cause
+
+`mobs.test.ts`'s cairn row pin moved from 296 to 2206 with its comment saying which storm each was derived against. `waves.ts`'s `BODY_COST` comment cited 296 as a birthright descent and now cites 2206 as a ceiling one; the cost itself, 8, is untouched. **Nothing else moved**: the Wall's wave, its count of eighteen, `formations.ts`'s `wall`, `caps.ts` and `bot.ts`'s policies are all as slice L left them.
+
+### The caps, confirmed and not changed
+
+`MOB_CAP` 481, `MOB_FIRE_CAP` 434, `CORPSE_CAP` 704, `SKULL_CAP` 120, `WISP_CAP` 64, `TRANSIT_SECONDS` 24.895 (`local/round2/L-caps.ts` re-run at this tip). A health row is not a table the derivation reads, so nothing binds and no cap was raised.
+
+### GOLDEN and the three version constants, each stated
+
+**`GOLDEN`'s checksum is `1275540894`, unmoved and confirmed rather than assumed**: `digest.test.ts` is green against the committed tree, which is also the confirmation that the canonical scenario never reaches a cairn, since a scenario that met one would have folded a health that moved by 1910. **`WITNESS_VERSION` 9, `READINGS_VERSION` 6 and `FORMAT_VERSION` 4**, none of them touched and no folded field declared: a health row is not a new field.
+
+### CodeRabbit, one iteration
+
+All six staged files reviewed under `coderabbit review --agent --uncommitted`, **zero findings at any severity**, so nothing was applied and nothing declined. The round's own review had one finding in this commit's files, `batchReport.ts`'s `frameShares` comment claiming a pooled set where every reduction there is per run; the comment is corrected here, and the reviewer's alternative, a new pooled reduction, is declined because it would move a printed figure and no slice is permitted one.
+
+### Verification
+
+`pnpm typecheck` green. `pnpm vitest run` green, 147 files, 2132 passed, 11 expected fail, 2 todo. `pnpm build` green. **`pnpm verify` green at the repo root three times**, once on the working tree before the code commit, once on the committed tree after it, and once after the docs commit. The fences green by title, the same nine section 14 names, slice D's *the cap derivation reads tables and never the stage* among them. **The test-name diff: 2139 names in the baseline at this branch's own tip, 2143 now, 9 added and 5 removed**, which is the five reversed bot titles out and their five replacements plus the four new curtain tests in. Nothing else in the suite changed name.
+
+### What Mark still owns
+
+**Whether the curtain reads as a wall**, which is his own done line and which no measurement answers. Nothing here blocks on it.
+
+### Left for later, each named
+
+**The tuning step inherits the cairn's health at 2206 rather than 296**, still a first pass with its derivation written down, and now derived against the ceiling build rather than against the rung a run is born on. The other two magnitudes, 30 by 22 and the trash payout, are unchanged.
+
+## 17. Round two's close
+
+Written with the round's last commit, which is this note's own. It records the four reviews, what was fixed on their findings, what was filed, and what the round's batch is.
+
+### The four reviews and their markers
+
+Three gates on the whole round, `97fc911527..d64c214820`, each a marker comment on #124: **product vision** `issuecomment-5698141752`, **game design** `issuecomment-5698162337`, **tech architecture** `issuecomment-5698198853`. Beside them **CodeRabbit CLI on the committed round**, run by the orchestrator against base `97fc911527`.
+
+### What the close fixed
+
+**The maxed-storm Wall**, which both the vision and the design gate raised as the one finding against a shipped promise rather than against prose. It is slice L-fix above, section 16, and it is the only code the close carries.
+
+**The progress note's own holes**: section 6 written from `git show ec87a2e9e7` and its hash put in section 1, the stray empty section 14 heading above section 15 removed with the real one saying where it sits, and section 14's fence count corrected from six to the nine titles it actually lists.
+
+**The design record**: R3's Ruled line amended with a dated triple pointing at R11, R10's "cannot be taken this round" closed by J2 with the hard edge left open, section 5's witness ledger rewritten as a dated triple with the round's actual end values, section 6's withdrawn verification item marked, and section 7 given the seven findings the slices filed but never routed there.
+
+**`CONTEXT.md` and `game-concept.md`**, which both still shipped three mob types and a Wall of trash whose corpses rain down. The concept doc's Wall paragraph is the one slice L left with no owner (section 14's closing note); this commit is the docs pass that owns it.
+
+**Seven small documentation fixes from CodeRabbit**, each checked against its own source before it was taken: `batchReport.ts`'s `frameShares` comment (in the code commit), `step-4-slice-prompts.md`'s stale ADR filename, the Blank's lifetime in `watched-pushback-duration.md`, Apple's 44 by 44 read as a default rather than a minimum and an overclaiming synthesis line in `push-feel-precedent.md`, the gross and net figures and a missing fence tag in `boss-hit-tell-and-resisted-push.md`, `show-what-you-have.md`'s MD028 blank lines, and `handoff.md`'s 540 by 760 item, which is resolved and struck.
+
+**The CodeRabbit findings against ADR 0008 and ADR 0042 are false and none was taken.** Both records carry Mark's dated rulings with their triples, and a reviewer reading an amended ADR against the tree it superseded is reading the wrong direction.
+
+### What was filed rather than fixed
+
+**#133, a dead rule from the belch's kill still in the storm's targeting.** `killableOutright` has had no production reader since slice J retired the kill and its JSDoc still describes it. The tech gate's finding and CodeRabbit's, from opposite sides.
+
+**#134, no batch can spend a belch on the Wall.** The batch hand presses only on live shots and the curtain fires nothing, so the one crossing round two built cannot be measured by any batch, and `harnessPolicy.ts`'s JSDoc claim that the rule is `belchingPolicy`'s stopped being true when slice L taught the bot a second reason to press. The record's own section 5 fixes the shape: a new named configuration, never a moved row.
+
+**Everything else the gates raised is already in the design record's section 7 or is a deferral naming Mark.** The lone cairn Drip at t=44 and the flush bar are both his read.
+
+### The round's batch, and the limit it carries
+
+**Slice L's batch at `dacbce3abd` stands as round two's batch.** It is `steady-far` and `loose-far`, eight seeds each from 2101, 8 of 8 verified in both, and it was taken at the round's last code identity: every commit after it until this close was documentation, so the code it exercised is the code the round shipped up to L-fix.
+
+**Its limit is stated rather than discovered.** The batch hand presses only on live shots (`harnessPolicy.ts`), so **no batch in this round ever opened the Wall**, and the curtain's crossing is pinned by tests and by hand-measured scripts alone. That is #134, filed above, and it is why the record's route for it is a new named configuration rather than a moved row.
+
+**L-fix's own tip carries no batch**, because its one changed figure is a mob's health at a build no batch configuration plays and the batch could not have read the Wall either way.
