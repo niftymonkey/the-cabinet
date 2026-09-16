@@ -9,8 +9,13 @@ import type { RunState } from '../../../game/run';
 import { sectionUnderway } from '../../../game/stage/stage';
 import { RESERVOIR_CAPACITY } from '../../../game/tuning';
 import type { FrameReason } from '../../../tape/tape';
-import type { FieldPlacement } from '../../layout';
-import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../../layout';
+import type { FieldPlacement, HudRow } from '../../layout';
+import {
+  DEGENERATE_PLACEMENT,
+  fitField,
+  hudRow,
+  READOUT_RESERVE,
+} from '../../layout';
 import type { RendererIdentity } from '../../tapeHeader';
 import { runConditionsHere } from '../../tapeHeader';
 import type { ButtonChrome } from '../../ui/Button';
@@ -23,6 +28,7 @@ import { FieldRenderer } from './FieldRenderer';
 import { boundaryReadout, fieldClip } from './fieldFrame';
 import { createFramePolicy } from './framePolicy';
 import { GraveRenderer } from './GraveRenderer';
+import { createLadderHud } from './LadderHud';
 import { FieldLayers } from './layering';
 import type { ResumeCountdown } from './resumeCountdown';
 import { createResumeCountdown } from './resumeCountdown';
@@ -55,6 +61,38 @@ interface FrameWork {
 
 // The report of a frame the sim held still through: no advance, no ending.
 const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
+
+/**
+ * Where the pause button's own rectangle starts, in stage units: the reserve's
+ * margin, or clear below the HUD's row at the one regime where the row reaches
+ * the corner it stands in.
+ *
+ * At a viewport near the field's own aspect the stage's band above the field
+ * and its side gutter both collapse, the row runs the field's full width across
+ * the top-right corner, and the row cannot narrow to clear it: R1's content is
+ * 520 field units inside the field's 540, and a stage whose reserve claims 260
+ * units at each end leaves 20 between them. So the button moves and the row
+ * does not, at that regime alone, because a readout drawn across a control is
+ * worse than a control one band lower and the button's own target floor is
+ * untouched by the move. Where the row clears the corner, on a tall stage
+ * because the band holds the row and on a wide one because the gutter holds the
+ * button, nothing moves at all.
+ *
+ * The crossing is measured rather than named by viewport, for the reason
+ * fitField gives for having no breakpoint: a short phone window and a portrait
+ * tablet are the same shape here and must get the same answer.
+ */
+const pauseButtonTop = (row: HudRow, stageWidth: number): number => {
+  const margin = READOUT_RESERVE.margin;
+  const left = stageWidth - margin - PAUSE_WIDTH;
+  // Half-open on both axes, the convention layout.ts's own overlap uses.
+  const crosses =
+    row.left < stageWidth - margin &&
+    left < row.left + row.width &&
+    row.top < margin + PAUSE_HEIGHT &&
+    margin < row.top + row.height;
+  return crosses ? row.top + row.height + margin : margin;
+};
 
 /**
  * What a run needs from the app around it. Every entry is a power the screen
@@ -130,6 +168,12 @@ class GameScreen extends Container {
   private readonly stormRenderer = new StormRenderer();
 
   private readonly hud = createRunHud();
+  /**
+   * The ladder HUD's row, a sibling of the field rather than a child of it: a
+   * child would be clipped by the field's own clip and hidden on every screen
+   * where the row sits outside the field (record R1).
+   */
+  private readonly ladder = createLadderHud();
   private readonly countdown: ResumeCountdown;
   private readonly pauseButton: Button;
   private readonly belchButton: BelchButton;
@@ -217,6 +261,7 @@ class GameScreen extends Container {
 
     this.addChild(
       this.field,
+      this.ladder.view,
       this.hud.view,
       this.countdown.view,
       this.pauseButton,
@@ -275,11 +320,12 @@ class GameScreen extends Container {
       runConditionsHere(this.props.renderer),
     );
     this.hud.showIdentity(started.identity);
+    this.ladder.showIdentity(started.identity);
     this.syncScreen(started.run);
     // The section the run opens in. The stage announces crossings alone, so the
     // first section has no event of its own and a run would open on silence.
     this.announce(started.run, [sectionUnderway(started.run)]);
-    this.hud.render(this.session.readout);
+    this.readOut();
 
     this.releaseKeys = bindKeyPress('Escape', () => this.togglePause());
     this.releaseListeners = this.steering.listen();
@@ -396,8 +442,19 @@ class GameScreen extends Container {
     );
     this.announce(run, frame.events);
     this.syncScreen(run);
-    this.hud.render(this.session.readout);
+    this.readOut();
     return { advanceMs: frame.advanceMs, endedRun: endedIn(frame.events) };
+  }
+
+  /**
+   * Both readouts, from the one reading. The session builds the readout once
+   * per frame and this is the only place either view is handed it, so the two
+   * can never be a frame apart.
+   */
+  private readOut(): void {
+    const readout = this.session.readout;
+    this.hud.render(readout);
+    this.ladder.render(readout);
   }
 
   /**
@@ -441,11 +498,18 @@ class GameScreen extends Container {
     // still steers.
     this.hitArea = new Rectangle(0, 0, width, height);
     this.steering.setSlop(this.placement.scale);
+    // The row is applied exactly as the field's own placement is, from the same
+    // output, so the two cannot be computed in parallel and drift.
+    const row = hudRow(this.placement);
+    this.ladder.view.position.set(row.left, row.top);
+    this.ladder.view.scale.set(this.placement.scale);
     // Positioned from the reserve layout.ts fits the field around, so the two
-    // cannot drift and the non-overlap invariant is one rule in one place.
+    // cannot drift and the non-overlap invariant is one rule in one place,
+    // except where the row itself reaches the corner and the button drops
+    // below it.
     this.pauseButton.position.set(
       width - READOUT_RESERVE.margin - PAUSE_WIDTH / 2,
-      READOUT_RESERVE.margin + PAUSE_HEIGHT / 2,
+      pauseButtonTop(row, width) + PAUSE_HEIGHT / 2,
     );
     this.countdown.resize(width, height);
     // Bottom left, from the same reserve the pause button is positioned from,

@@ -7,7 +7,6 @@ import { Container, Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import { resize } from '../../engine/resize/resize';
-import { carriersScheduled } from '../../game/carriers';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import type { FaultRecord } from '../../game/execution';
 import type { FaultIdentity } from '../../game/faults';
@@ -42,7 +41,6 @@ vi.mock('../ui/Button', () => ({
 
 import { GameScreen } from '../screens/game/GameScreen';
 import {
-  bankReadout,
   FAULT_LINE_MAX_CHARS,
   faultReadout,
   levelsReadout,
@@ -373,9 +371,27 @@ describe("the frame's three regimes (record R10)", () => {
         `${regime.name} ${placement.offsetY} ${placement.scale}`,
       );
 
+      // The button holds the reserve's own corner except at the squeeze, where
+      // the row reaches that corner and the button drops clear below it.
+      const row = hudRow(placement);
+      const squeezed = crossedBy(row, [
+        {
+          name: 'pause corner',
+          box: {
+            left: stage.width - READOUT_RESERVE.margin - 132,
+            top: READOUT_RESERVE.margin,
+            right: stage.width - READOUT_RESERVE.margin,
+            bottom: READOUT_RESERVE.margin + 68,
+          },
+        },
+      ]);
       const pause = centredOn(screen['pauseButton'].position, 132, 68);
+      const expectedTop =
+        squeezed === ''
+          ? READOUT_RESERVE.margin
+          : row.top + row.height + READOUT_RESERVE.margin;
       expect(`${regime.name} ${pause.right} ${pause.top}`).toBe(
-        `${regime.name} ${stage.width - READOUT_RESERVE.margin} ${READOUT_RESERVE.margin}`,
+        `${regime.name} ${stage.width - READOUT_RESERVE.margin} ${expectedTop}`,
       );
 
       const belch = centredOn(
@@ -415,6 +431,23 @@ describe("the frame's three regimes (record R10)", () => {
     }
   });
 
+  it("keeps the ladder HUD's row outside the field's own stack", () => {
+    // ADR 0014 fixes what draws inside the field and lets nothing above
+    // mobFire. The row is a readout drawn on top of the field, which the ADR's
+    // own sentence contemplates, rather than a thirteenth layer or an exception
+    // to the list: a child of the field would inherit the field's clip and
+    // vanish at every viewport where the row sits outside it (record R1).
+    const screen = gameScreen();
+    const row = screen['ladder'].view;
+    const field: Container = screen['field'];
+
+    expect(row.parent).toBe(screen);
+    expect(field.children).not.toContain(row);
+    expect(screen.children.indexOf(row)).toBeGreaterThan(
+      screen.children.indexOf(field),
+    );
+  });
+
   it('records which top corner the row runs into at each regime, and which it clears', () => {
     // The corners the row has to live beside are the readout stack's on the
     // left and the pause button's on the right, both 120 stage units deep. The
@@ -440,14 +473,16 @@ describe("the frame's three regimes (record R10)", () => {
     ]);
   });
 
-  it("clears the pause button's own rectangle at every regime but the squeeze", () => {
+  it("clears the pause button's own rectangle at every regime, the squeeze included", () => {
     // The dev stack comes out before v1 (#66) and the pause button does not, so
     // the button's own footprint is the crossing that reaches a player. At the
-    // tall regime the row sits below it and clears it; at the wide regime the
-    // side gutter holds it. At a viewport near the field's own aspect the band
-    // and the gutter both collapse and the row crosses the button, which is
-    // filed for Mark's read and built past rather than solved here: moving the
-    // button is his ruling and narrowing the row would starve the band.
+    // tall regime the band holds the row above the button and at the wide one
+    // the side gutter holds the button clear of the field's width. At a
+    // viewport near the field's own aspect both collapse, and there the button
+    // drops below the row rather than the row narrowing: R1's content is 520
+    // field units inside the field's 540, so a row that cleared both reserved
+    // corners would be 20 units wide. Slice M2 pinned that crossing; this is
+    // the clearance that replaced it.
     const crossed = REGIMES.map((regime) => {
       const stage = stageOf(regime);
       const row = hudRow(fitField(stage.width, stage.height));
@@ -459,19 +494,38 @@ describe("the frame's three regimes (record R10)", () => {
       };
       return `${regime.name}: ${crossedBy(row, [pause])}`;
     });
-    expect(crossed).toEqual([
-      'tall: ',
-      'wide: ',
-      "the field's own aspect: pause button",
+    expect(crossed).toEqual(['tall: ', 'wide: ', "the field's own aspect: "]);
+  });
+
+  it('drops the pause button below the row at the squeeze and moves it nowhere else', () => {
+    // The two halves of the same rule, said as positions rather than as an
+    // absence of overlap: a button that had vanished would clear the row too.
+    // The button stays in the reserve's corner at both regimes that hold it,
+    // the tall one because the band carries the row above it and the wide one
+    // because the side gutter carries the button clear of the field's width,
+    // and only the squeeze puts it below the row's own bottom edge.
+    const tops = REGIMES.map((regime) => {
+      const stage = stageOf(regime);
+      const screen = gameScreen();
+      screen.resize(stage.width, stage.height);
+      const row = hudRow(fitField(stage.width, stage.height));
+      const pause = centredOn(screen['pauseButton'].position, 132, 68);
+      const below = pause.top >= row.top + row.height;
+      return `${regime.name}: top ${pause.top} below the row ${below}`;
+    });
+    expect(tops).toEqual([
+      'tall: top 12 below the row false',
+      'wide: top 12 below the row false',
+      "the field's own aspect: top 67.48148148148145 below the row true",
     ]);
   });
 });
 
 /**
  * How many stack lines the reserve's height covers: FPS, DEBT, TICK, SEED and
- * SIZE. The bank, levels and fault lines below them deliberately sit past the
+ * SIZE. The levels and fault lines below them deliberately sit past the
  * reserve and draw over the field, the meter's own allowance under ADR 0014,
- * so the height rule stops here and the three of them carry the width rule on
+ * so the height rule stops here and the two of them carry the width rule on
  * their own.
  */
 const RESERVED_LINES = 5;
@@ -493,14 +547,6 @@ const WIDEST_LEVELS_LINE = `LEVELS ${levelsReadout({
   wisps: MAX_LEVEL,
   bell: 0,
 })} PINNED`;
-
-/**
- * The widest bank line the run can reach: every carrier the stage schedules
- * killed with the offer never resolved, which is the most that can ever stand
- * behind the live one. Derived rather than a figure written here, so a stage
- * that schedules more carriers moves the case instead of outrunning it.
- */
-const WIDEST_BANK_LINE = bankReadout(carriersScheduled());
 
 /** A record as the authority keeps them, for driving the readout over the closed list. */
 function faultRecord(identity: FaultIdentity): FaultRecord {
@@ -581,14 +627,12 @@ describe('the readouts stay inside the reserve the field is fitted around', () =
     }
   });
 
-  it("keeps the bank, levels and fault lines, past the reserve's height, inside its width", () => {
-    // The three lines below the reserve draw over the field, so its height
-    // does not bind them. Its width still does: a wider line runs most of a
+  it("keeps the levels and fault lines, past the reserve's height, inside its width", () => {
+    // The two lines below the reserve draw over the field, so its height does
+    // not bind them. Its width still does: a wider line runs most of a
     // 390-unit phone stage, and the fault line exists under ADR 0017's ruling
-    // that it stays minimal, never a banner across the field.
-    expect(lineRight(WIDEST_BANK_LINE)).toBeLessThanOrEqual(
-      READOUT_RESERVE.width,
-    );
+    // that it stays minimal, never a banner across the field. The bank was a
+    // third of these until the ladder HUD took it (record R11).
     expect(lineRight(WIDEST_LEVELS_LINE)).toBeLessThanOrEqual(
       READOUT_RESERVE.width,
     );

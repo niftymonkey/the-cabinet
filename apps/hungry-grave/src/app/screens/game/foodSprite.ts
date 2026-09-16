@@ -185,6 +185,11 @@ const powerUpBreath = (tick: number, id: number): number => {
  *
  * The extent passed in is the drawn one, already carrying the breath, and never
  * the hitbox.
+ *
+ * The ladder HUD's row draws these same silhouettes at its own size, so the
+ * offer's body and the row teach one vocabulary and a fallen rung wears the
+ * icon its row taught (`LadderHud.ts`, design record R6). Both properties above
+ * bind at the row's size too, and a replacement at #38 has to hold them there.
  */
 const drawPowerUpIcon = (
   into: Graphics,
@@ -308,6 +313,7 @@ const drawPowerUp = (into: Graphics, corpse: Corpse, tick: number): void => {
 export {
   drawCorpse,
   drawPowerUp,
+  drawPowerUpIcon,
   freshnessBrightness,
   freshnessTint,
   polygon,

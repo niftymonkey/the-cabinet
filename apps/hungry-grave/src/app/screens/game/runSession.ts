@@ -34,6 +34,13 @@ import {
  */
 interface RunIdentity {
   readonly seed: number;
+  /**
+   * The lines this run fields, in the order it fields them (ADR 0046). It is
+   * what the ladder HUD draws a row for, never the build's WEAPON_LINES, so a
+   * run never carries a row for a line it was not born with and a fifth line
+   * joining the pool needs no retune of the other four (design record R3).
+   */
+  readonly roster: readonly WeaponLine[];
   // Whether the URL named the seed, which is the only thing that makes it a pin.
   readonly seedPinned: boolean;
   // The size the run opened at when the URL pinned it, and null on an ordinary run.
@@ -46,6 +53,24 @@ interface RunIdentity {
 interface RunReadout {
   readonly debtTicks: number;
   readonly tick: number;
+  // The run's own score, which a kill pays and an overflow converts into (ADR 0002).
+  readonly score: number;
+  /**
+   * Every line's level this frame, copied rather than aliased.
+   *
+   * `run.levels` is mutated in place by the offer's take, so handing the record
+   * itself out would give a dumb view live simulation state and would defeat
+   * any diff the driver takes: the old and the new reading would be the same
+   * object.
+   */
+  readonly levels: Readonly<Record<WeaponLine, number>>;
+  /**
+   * Whether the ladder has already spent the score rung and not yet had it back
+   * (design record R4). It is the cushion's own state: armed while it is false,
+   * gone while it is true, and re-armed by growth a full hit's worth off the
+   * size floor.
+   */
+  readonly scoreRungBled: boolean;
   // Carriers killed under a live offer, waiting their turn (ADR 0034).
   readonly bankedOffers: number;
   // The authority's own de-duplicated record, never a second tally (ADR 0017).
@@ -108,6 +133,13 @@ interface Session {
 const NO_FAULTS: readonly FaultRecord[] = [];
 
 /**
+ * The levels a readout carries when no run is live. Shared rather than
+ * allocated, and never handed to anything that writes: the copy below is what
+ * a live run's frame gets, and this is the no-run case alone.
+ */
+const NO_LEVELS: Readonly<Record<WeaponLine, number>> = uniformLevels(0);
+
+/**
  * The run the URL asks for (ADR 0012). undefined and not null for the seed,
  * because createRun's default parameter is what rolls the fresh dice.
  *
@@ -144,6 +176,7 @@ const begin = (session: Session): StartedRun => {
     execution,
     identity: {
       seed: run.seed,
+      roster: run.roster,
       seedPinned: seed !== null,
       pinnedSize: size === null ? null : run.grave.size,
       // Gated on differing from the birthright rather than on the parameter's
@@ -210,10 +243,15 @@ const createRunSession = (): RunSession => {
       return session.clock;
     },
     get readout() {
+      const run = session.run;
       return {
         debtTicks: session.clock.debtTicks,
-        tick: session.run?.tick ?? 0,
-        bankedOffers: session.run?.bankedOffers ?? 0,
+        tick: run?.tick ?? 0,
+        score: run?.score ?? 0,
+        // Spread rather than passed: see RunReadout.levels.
+        levels: run === null ? NO_LEVELS : { ...run.levels },
+        scoreRungBled: run?.grave.scoreRungBled ?? false,
+        bankedOffers: run?.bankedOffers ?? 0,
         faults: session.execution?.faults ?? NO_FAULTS,
       };
     },
