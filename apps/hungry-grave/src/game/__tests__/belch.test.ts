@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  advancePress,
   BELCH_BURST_RADIUS,
   BELCH_SHOVE_SPACING,
   BELCH_SHOVE_THROW,
@@ -21,7 +22,7 @@ import type { Mob } from '../mobs';
 import { advanceMobs, hasEntered, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { SHOVE_TICKS } from '../shove';
+import { SHOVE_TICKS, startShove } from '../shove';
 import { placeSetPiece } from '../stage/setPiece';
 import { PROCESSION_WAVES } from '../stage/waves';
 import { RESERVOIR_CAPACITY, SCROLL_SPEED } from '../tuning';
@@ -129,15 +130,51 @@ function distanceFromGrave(state: RunState, mob: Mob): number {
 }
 
 /**
- * The mobs advanced for this many ticks, with everything they reported.
+ * The press's own clock and then the mobs, for this many ticks, with everything
+ * the two reported.
  *
- * Only the mobs, because the belch starts its shoves at the press and nothing
- * else on the run has to run for a body to be carried by one.
+ * Both, and in that order, because the tick runs them in it: a press throws
+ * three times and its later shoves come out of its own clock, before the bodies
+ * move, exactly as the press itself did (step.ts).
  */
 function travelFor(state: RunState, ticks: number): SimEvent[] {
   const events: SimEvent[] = [];
-  for (let tick = 0; tick < ticks; tick++) events.push(...advanceMobs(state));
+  for (let tick = 0; tick < ticks; tick++) {
+    events.push(...advancePress(state));
+    events.push(...advanceMobs(state));
+  }
   return events;
+}
+
+/** Every shove of a press that went out, in the order they went out. */
+function shovesIn(
+  events: SimEvent[],
+): Extract<SimEvent, { type: 'burstShoved' }>[] {
+  return events.filter((event) => event.type === 'burstShoved');
+}
+
+/** One shove's frame, keyed by the body each entry is about. */
+function frameOf(
+  shove: Extract<SimEvent, { type: 'burstShoved' }>,
+): Map<number, PressedBody> {
+  return new Map(shove.bodies.map((body) => [body.id, body]));
+}
+
+/** What one shove of a press did about one body, or absent when it was not in the frame. */
+function outcomeFor(
+  shove: Extract<SimEvent, { type: 'burstShoved' }>,
+  id: number,
+): string | undefined {
+  const body = frameOf(shove).get(id);
+  if (body === undefined) return undefined;
+  return body.outcome === 'refused' ? body.refusal : body.outcome;
+}
+
+/** How far one body has been carried from where it stood. */
+function movedFrom(mob: Mob, from: { x: number; y: number }): number {
+  const dx = mob.x - from.x;
+  const dy = mob.y - from.y;
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 /** What each tick of a window carried this body, in field units. */
@@ -205,7 +242,8 @@ describe('the belch is full only (ADR 0008)', () => {
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     expect(fireBelch(state)).toEqual([
-      { type: 'belched', cancelled: 0, shoved: 0, bodies: [] },
+      { type: 'belched', cancelled: 0, shoved: 0 },
+      { type: 'burstShoved', beganAt: 0, shove: 1, bodies: [] },
     ]);
   });
 
@@ -356,29 +394,31 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     expect(find(events, 'belched').shoved).toBe(0);
   });
 
-  it('strikes each body once, and a body that walks in afterwards takes nothing', () => {
-    // The body set is captured the tick the press lands, which is the bell's
-    // toll.struck shape reached by construction: the impulse's own row brings
-    // the later pushes in, so nothing re-tests the reach and nothing new can
-    // join the press after it has landed.
+  it('strikes a body it has already caught exactly once, whatever its later shoves sweep', () => {
+    // A body the press has already thrown keeps the shoves it was given: a
+    // shove landing on a shove in flight replaces it rather than following it,
+    // so re-arming would cost the body the rest of what it was owed. That is
+    // the bell's toll.struck shape, read here off the press's own caught
+    // record.
+    //
+    // Retitled 2026-09-16 under slice J3, and this is the second retitle it has
+    // taken. It used to promise that a body walking in after the press landed
+    // took nothing, which was true while the press read the field once; Mark
+    // ruled on 2026-09-16 that everything within the eruption is pushed on each
+    // erupt animation, so a latecomer is now thrown by the next shove and that
+    // half is pinned by *throws a body that walks into the reach after the
+    // press landed, on the next shove*. What stands here is the strike-once
+    // rule, which is what this test was always for. Before that it said the
+    // caught body ended past the reach, which was the clear-the-reach sentence
+    // ruling R11 withdrew.
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     const caught = putStillAt(state, state.grave.x + 1, state.grave.y);
 
     fireBelch(state);
-    travelFor(state, BELCH_SHOVE_SPACING);
-    const latecomer = putStillAt(state, state.grave.x - 1, state.grave.y);
-    const stoodAt = { x: latecomer.x, y: latecomer.y };
     travelFor(state, WHOLE_PUSH);
 
-    // The caught body took the whole press and the latecomer took none of it.
-    // This used to say the caught body ended past the reach, which was the
-    // clear-the-reach sentence ruling R11 withdrew on 2026-09-16; what the test
-    // is for is that the press is closed to newcomers, so it now says the one
-    // thing that separates the two bodies.
     expect(distanceFromGrave(state, caught)).toBeCloseTo(WHOLE_THROW + 1, 6);
-    expect(latecomer.x).toBe(stoodAt.x);
-    expect(latecomer.y).toBe(stoodAt.y);
   });
 
   it('still owes its later waves to a body its first wave already carried', () => {
@@ -634,10 +674,28 @@ describe('the belch takes health off nothing (ADR 0008 as amended)', () => {
 });
 
 describe("the press's own record of what it reached (#124)", () => {
-  /** The record one press wrote down, keyed by the body it is about. */
+  /**
+   * The record a press's first shove wrote down, keyed by the body it is about.
+   *
+   * It comes off the press's own first burstShoved rather than off `belched`,
+   * which is where slice J2 put it: a press writes one frame per shove now and
+   * a frame taken sixty ticks later cannot ride on an event emitted at the
+   * press's own tick (#124).
+   */
   function recordOf(events: SimEvent[]): Map<number, PressedBody> {
-    const bodies = find(events, 'belched').bodies;
-    return new Map(bodies.map((body) => [body.id, body]));
+    const shoves = shovesIn(events);
+    expect(shoves).toHaveLength(1);
+    return frameOf(shoves[0]!);
+  }
+
+  /** Which gate turned a body away, or what the press did with it instead. */
+  function gateFor(
+    record: Map<number, PressedBody>,
+    id: number,
+  ): string | undefined {
+    const body = record.get(id);
+    if (body === undefined) return undefined;
+    return body.outcome === 'refused' ? body.refusal : body.outcome;
   }
 
   it('records every body in the frame, moved or not', () => {
@@ -653,8 +711,8 @@ describe("the press's own record of what it reached (#124)", () => {
     const record = recordOf(fireBelch(state));
 
     expect([...record.keys()].sort()).toEqual([near.id, far.id].sort());
-    expect(record.get(near.id)?.moved).toBe(true);
-    expect(record.get(far.id)?.moved).toBe(false);
+    expect(gateFor(record, near.id)).toBe('moved');
+    expect(gateFor(record, far.id)).toBe('outOfReach');
     // The distance is the whole reason the record exists: his sighting is about
     // bodies at about the same distance going different ways.
     expect(record.get(near.id)?.distance).toBeCloseTo(NEAR, 9);
@@ -678,12 +736,12 @@ describe("the press's own record of what it reached (#124)", () => {
     const record = recordOf(fireBelch(state));
 
     expect(hasEntered(above)).toBe(false);
-    expect(record.get(above.id)?.refusal).toBe('notEntered');
-    expect(record.get(far.id)?.refusal).toBe('outOfReach');
-    expect(record.get(onTop.id)?.refusal).toBe('noDirection');
-    expect(record.get(boss.id)?.refusal).toBe('notPushable');
+    expect(gateFor(record, above.id)).toBe('notEntered');
+    expect(gateFor(record, far.id)).toBe('outOfReach');
+    expect(gateFor(record, onTop.id)).toBe('noDirection');
+    expect(gateFor(record, boss.id)).toBe('notPushable');
     for (const id of [above.id, far.id, onTop.id, boss.id]) {
-      expect(record.get(id)?.moved, `body ${id}`).toBe(false);
+      expect(record.get(id)?.outcome, `body ${id}`).toBe('refused');
     }
   });
 
@@ -698,11 +756,13 @@ describe("the press's own record of what it reached (#124)", () => {
     }
     putStillAt(state, state.grave.x, state.grave.y - FAR);
 
-    const belched = find(fireBelch(state), 'belched');
+    const events = fireBelch(state);
+    const belched = find(events, 'belched');
+    const first = shovesIn(events)[0]!;
 
-    expect(belched.bodies.filter((body) => body.moved)).toHaveLength(
-      belched.shoved,
-    );
+    expect(
+      first.bodies.filter((body) => body.outcome === 'moved'),
+    ).toHaveLength(belched.shoved);
     expect(belched.shoved).toBe(4);
   });
 
@@ -724,48 +784,376 @@ describe("the press's own record of what it reached (#124)", () => {
     const record = recordOf(fireBelch(state));
     travelFor(state, WHOLE_PUSH);
 
-    expect(record.get(boss.id)?.refusal).toBe('notPushable');
-    expect(record.get(piece.id)?.refusal).toBe('notPushable');
+    expect(gateFor(record, boss.id)).toBe('notPushable');
+    expect(gateFor(record, piece.id)).toBe('notPushable');
     expect([boss.x, boss.y]).toEqual([stood.bossX, stood.bossY]);
     expect([piece.x, piece.y]).toEqual([stood.x, stood.y]);
   });
 });
 
 /**
- * Slice J3's planned tests, pinned as the sentences they promise before the
- * behaviour behind them exists (feature playbook step 3). They are written here
- * in the fold commit and filled in the commit after it, because a version
- * stamped before the fold stops moving names several folds.
+ * Every shove of a press is a press of its own over whatever stands inside the
+ * reach at its own tick (#124, Mark's ruling of 2026-09-16: "Everything within
+ * the eruption should be pushed on each erupt animation").
+ *
+ * The press is left on the run and its own clock brings the later shoves out,
+ * so every test here runs whole ticks through `travelFor` rather than advancing
+ * the mobs alone.
  */
 describe('every shove of a press throws what stands inside it (#124)', () => {
-  it.todo(
-    'throws a body that walks into the reach after the press landed, on the next shove',
-  );
-  it.todo('leaves a body this press already caught to the shoves it was given');
-  it.todo('throws a body a bell toll is carrying when a shove reaches it');
-  it.todo(
-    'gives a body caught by the second shove two shoves and one caught by the third a single shove',
-  );
-  it.todo('ends where it always ended, whatever walked into it');
-  it.todo(
-    'throws the crowd of a press whose circle was empty at its first shove and full at its third',
-  );
-  it.todo('writes one frame per shove, taken at that shove own tick');
-  it.todo(
-    'records a body refused by each of the four gates with its own reason, on whichever shove refused it',
-  );
-  it.todo(
-    'records a body it has already caught as carried, on every later shove',
-  );
-  it.todo(
-    'records a first-shove moved count that is the same number shoved has always been',
-  );
-  it.todo(
-    "records a boss and a set piece's source on every shove and still moves neither",
-  );
-  it.todo('takes no health off anything on any of its shoves, boss included');
-  it.todo('never catches a corpse a shove is carrying');
-  it.todo(
-    'replaces a press that still owes shoves, and runs its own shoves from its own tick',
-  );
+  /** The tick of a press at which its next shove goes out. */
+  const NEXT_SHOVE = BELCH_SHOVE_SPACING;
+
+  /**
+   * The press's own tick, in the order the tick runs it: the belch fires and
+   * then the bodies move.
+   *
+   * The press's clock and the impulse's clock only stay in step when the press
+   * tick carries its own mob advance, because `advancePress` runs before
+   * `fireBelch` and so never counts the tick the press landed on while the
+   * impulse it started counts it at once (step.ts).
+   */
+  function pressNow(state: RunState): SimEvent[] {
+    const events = fireBelch(state);
+    events.push(...advanceMobs(state));
+    return events;
+  }
+
+  /** A body put inside the reach after the press has landed, as one walking in. */
+  function walkIntoReach(state: RunState, mob: Mob): void {
+    mob.x = state.grave.x;
+    mob.y = state.grave.y - NEAR;
+  }
+
+  it('throws a body that walks into the reach after the press landed, on the next shove', () => {
+    // The whole of the slice in one sentence. Before it, the press read the
+    // field once and its later shoves swept a circle the crowd had walked back
+    // into and moved nobody (Mark's tape of 2026-09-16, seed 1999305952: its
+    // second shove moved 0 of 3 and its third 0 of 10).
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const latecomer = putStillAt(state, state.grave.x, state.grave.y - FAR);
+
+    pressNow(state);
+    travelFor(state, NEXT_SHOVE - 1);
+    walkIntoReach(state, latecomer);
+    const stoodAt = { x: latecomer.x, y: latecomer.y };
+    const shove = travelFor(state, 1);
+    travelFor(state, WHOLE_PUSH);
+
+    // Two shoves and not three, because the press had already spent one.
+    expect(outcomeFor(shovesIn(shove)[0]!, latecomer.id)).toBe('moved');
+    expect(movedFrom(latecomer, stoodAt)).toBeCloseTo(
+      (BELCH_SHOVES - 1) * BELCH_SHOVE_THROW,
+      6,
+    );
+  });
+
+  it('leaves a body this press already caught to the shoves it was given', () => {
+    // A shove landing on a shove in flight replaces it rather than following
+    // it, so re-arming a body the press already threw would cost it the rest of
+    // what it was owed. The skip is by id off the press's own record.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const caught = putStillAt(state, state.grave.x + 1, state.grave.y);
+
+    const landed = pressNow(state);
+    const later = travelFor(state, WHOLE_PUSH - 1);
+
+    expect(outcomeFor(shovesIn(landed)[0]!, caught.id)).toBe('moved');
+    for (const shove of shovesIn(later)) {
+      expect(outcomeFor(shove, caught.id), `shove ${shove.shove}`).toBe(
+        'carried',
+      );
+    }
+    expect(distanceFromGrave(state, caught)).toBeCloseTo(WHOLE_THROW + 1, 6);
+  });
+
+  it('throws a body a bell toll is carrying when a shove reaches it', () => {
+    // The separating test: the skip is "already caught by this press" and never
+    // "already carrying a shove". A toll's cone is on the field for most of a
+    // press, so the wider rule would leave a body standing under a ring
+    // untouched, which is the sighting this slice answers arriving by another
+    // route. The travel is read as the waves received rather than as a total,
+    // because what the bell's own shove had already covered rides with it.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const tolled = putStillAt(state, state.grave.x, state.grave.y - NEAR);
+    startShove(tolled.impulse, 'bell', tolled.id, 0, -1, 40, 1, 0);
+    advanceMobs(state);
+    expect(tolled.impulse.source).toBe('bell');
+
+    const landed = pressNow(state);
+
+    expect(outcomeFor(shovesIn(landed)[0]!, tolled.id)).toBe('moved');
+    expect(tolled.impulse.source).toBe('belch');
+    expect(tolled.impulse.shovesLeft).toBe(BELCH_SHOVES - 1);
+  });
+
+  it('gives a body caught by the second shove two shoves and one caught by the third a single shove', () => {
+    // The press always ends exactly where it began plus its own length, so what
+    // a latecomer is given is what is left rather than a fresh three.
+    for (const shove of [2, 3]) {
+      const state = quietRun();
+      state.reservoir = RESERVOIR_CAPACITY;
+      const latecomer = putStillAt(state, state.grave.x, state.grave.y - FAR);
+
+      pressNow(state);
+      travelFor(state, NEXT_SHOVE * (shove - 1) - 1);
+      walkIntoReach(state, latecomer);
+      const stoodAt = { x: latecomer.x, y: latecomer.y };
+      travelFor(state, 1 + WHOLE_PUSH);
+
+      const owed = BELCH_SHOVES - (shove - 1);
+      expect(`${shove}: ${movedFrom(latecomer, stoodAt).toFixed(3)}`).toBe(
+        `${shove}: ${(owed * BELCH_SHOVE_THROW).toFixed(3)}`,
+      );
+    }
+  });
+
+  it('ends where it always ended, whatever walked into it', () => {
+    // No tail: a body the last shove catches carries one shove and finishes
+    // with the press rather than after it, so the last tick anything is carried
+    // is the press's own last tick however late a body joined.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const caught = putStillAt(state, state.grave.x + 1, state.grave.y);
+    const latecomer = putStillAt(state, state.grave.x, state.grave.y - FAR);
+
+    pressNow(state);
+    let lastCarried = 0;
+    for (let tick = 1; tick <= WHOLE_PUSH + SHOVE_TICKS; tick++) {
+      if (tick === NEXT_SHOVE * (BELCH_SHOVES - 1)) {
+        walkIntoReach(state, latecomer);
+      }
+      const stood = [
+        { x: caught.x, y: caught.y },
+        { x: latecomer.x, y: latecomer.y },
+      ];
+      travelFor(state, 1);
+      const carried =
+        movedFrom(caught, stood[0]!) > 0 || movedFrom(latecomer, stood[1]!) > 0;
+      if (carried) lastCarried = tick;
+    }
+
+    // The press's own tick is tick zero, so its last carrying tick is one short
+    // of its whole length.
+    expect(lastCarried).toBe(WHOLE_PUSH - 1);
+    expect(state.press).toBe(null);
+  });
+
+  it('throws the crowd of a press whose circle was empty at its first shove and full at its third', () => {
+    // Mark's own case, turned into a test: he watched three rings sweep a
+    // crowd and move nobody after the first.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+
+    pressNow(state);
+    travelFor(state, NEXT_SHOVE * (BELCH_SHOVES - 1) - 1);
+    const crowd = [
+      putStillAt(state, state.grave.x + 10, state.grave.y - NEAR),
+      putStillAt(state, state.grave.x - 10, state.grave.y - NEAR),
+      putStillAt(state, state.grave.x + NEAR, state.grave.y),
+    ];
+    const stoodAt = crowd.map((mob) => ({ x: mob.x, y: mob.y }));
+    const last = travelFor(state, 1);
+    travelFor(state, WHOLE_PUSH);
+
+    const frame = shovesIn(last)[0]!;
+    expect(frame.shove).toBe(BELCH_SHOVES);
+    for (const [at, mob] of crowd.entries()) {
+      expect(outcomeFor(frame, mob.id), `body ${at}`).toBe('moved');
+      expect(movedFrom(mob, stoodAt[at]!)).toBeCloseTo(BELCH_SHOVE_THROW, 6);
+    }
+  });
+
+  it('writes one frame per shove, taken at that shove own tick', () => {
+    // Without the shove axis, a press whose later shoves moved nobody and a
+    // press whose three all landed read identically in every tape we hold.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const standing = putStillAt(state, state.grave.x + 1, state.grave.y);
+
+    const landed = pressNow(state);
+    const later = travelFor(state, WHOLE_PUSH - 1);
+    const arrived = putStillAt(state, state.grave.x - 1, state.grave.y);
+
+    const shoves = [...shovesIn(landed), ...shovesIn(later)];
+    expect(shoves.map((shove) => shove.shove)).toEqual([1, 2, 3]);
+    expect(new Set(shoves.map((shove) => shove.beganAt))).toEqual(
+      new Set([state.press?.beganAt ?? 0]),
+    );
+    // The body that was not on the field yet is in no frame at all, which is
+    // what makes each frame the field at its own tick rather than at the press.
+    for (const shove of shoves) {
+      expect(outcomeFor(shove, standing.id)).not.toBe(undefined);
+      expect(outcomeFor(shove, arrived.id)).toBe(undefined);
+    }
+  });
+
+  it('records a body refused by each of the four gates with its own reason, on whichever shove refused it', () => {
+    // The gates do not change and there is no fifth: the reasons are the ones
+    // pressOneBody runs, on every shove rather than on the first alone.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const above = putStillAt(state, state.grave.x, -20);
+    const far = putStillAt(state, state.grave.x, state.grave.y - FAR);
+    const onTop = putStillAt(state, state.grave.x, state.grave.y);
+    const boss = spawnBoss(state, 'undertaker');
+    boss.x = state.grave.x + 1;
+    boss.y = state.grave.y - NEAR;
+
+    pressNow(state);
+    const later = travelFor(state, NEXT_SHOVE);
+
+    const second = shovesIn(later)[0]!;
+    expect(second.shove).toBe(2);
+    expect(outcomeFor(second, above.id)).toBe('notEntered');
+    expect(outcomeFor(second, far.id)).toBe('outOfReach');
+    expect(outcomeFor(second, onTop.id)).toBe('noDirection');
+    expect(outcomeFor(second, boss.id)).toBe('notPushable');
+  });
+
+  it('records a body it has already caught as carried, on every later shove', () => {
+    // Never an absence and never an unexplained unmoved: a shove sweeping a
+    // crowd that is all in flight would otherwise read as an empty frame, which
+    // is the unreadable zero the record exists to kill.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const crowd = [
+      putStillAt(state, state.grave.x + 10, state.grave.y),
+      putStillAt(state, state.grave.x - 10, state.grave.y),
+    ];
+
+    pressNow(state);
+    const later = travelFor(state, WHOLE_PUSH);
+
+    for (const shove of shovesIn(later)) {
+      expect(shove.bodies.length, `shove ${shove.shove}`).toBe(crowd.length);
+      for (const mob of crowd) {
+        expect(outcomeFor(shove, mob.id), `shove ${shove.shove}`).toBe(
+          'carried',
+        );
+      }
+    }
+  });
+
+  it('records a first-shove moved count that is the same number shoved has always been', () => {
+    // shoved keeps its exact meaning, so no batch recorded before the shove
+    // axis existed reads that figure differently afterwards.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    for (let at = 0; at < 3; at++) {
+      putStillAt(state, state.grave.x + at * 10, state.grave.y - NEAR);
+    }
+    putStillAt(state, state.grave.x, state.grave.y - FAR);
+
+    const landed = pressNow(state);
+
+    const first = shovesIn(landed)[0]!;
+    expect(
+      first.bodies.filter((body) => body.outcome === 'moved'),
+    ).toHaveLength(find(landed, 'belched').shoved);
+    expect(find(landed, 'belched').shoved).toBe(3);
+  });
+
+  it("records a boss and a set piece's source on every shove and still moves neither", () => {
+    // ADR 0007: the seam answers whether a body may be pushed, on every shove
+    // exactly as on the first, and writing the refusal down is what makes it
+    // readable off a tape rather than invisible.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const boss = spawnBoss(state, 'undertaker');
+    boss.x = state.grave.x + 1;
+    boss.y = state.grave.y - NEAR;
+    const piece = placeSetPiece(state);
+    piece.open = true;
+    piece.x = state.grave.x - 1;
+    piece.y = state.grave.y - NEAR;
+    const stood = { bossX: boss.x, bossY: boss.y, x: piece.x, y: piece.y };
+
+    const landed = pressNow(state);
+    const later = travelFor(state, WHOLE_PUSH - 1);
+
+    for (const shove of [...shovesIn(landed), ...shovesIn(later)]) {
+      expect(outcomeFor(shove, boss.id), `shove ${shove.shove}`).toBe(
+        'notPushable',
+      );
+      expect(outcomeFor(shove, piece.id), `shove ${shove.shove}`).toBe(
+        'notPushable',
+      );
+    }
+    expect([boss.x, boss.y]).toEqual([stood.bossX, stood.bossY]);
+    expect([piece.x, piece.y]).toEqual([stood.x, stood.y]);
+  });
+
+  it('takes no health off anything on any of its shoves, boss included', () => {
+    // Mark's ruling 3 of 2026-09-15 held across all three shoves: a press that
+    // throws three times still takes not one point off anything.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const near = putStillAt(state, state.grave.x + 1, state.grave.y);
+    const boss = spawnBoss(state, 'undertaker');
+    boss.x = state.grave.x - 1;
+    boss.y = state.grave.y;
+    const health = { near: near.hp, boss: boss.hp, phase: boss.phaseIndex };
+
+    const landed = pressNow(state);
+    const later = travelFor(state, WHOLE_PUSH - 1);
+
+    expect(near.hp).toBe(health.near);
+    expect(boss.hp).toBe(health.boss);
+    expect(boss.phaseIndex).toBe(health.phase);
+    expect(liveCorpses(state)).toBe(0);
+    for (const event of [...landed, ...later]) {
+      expect(event.type).not.toBe('mobDamaged');
+      expect(event.type).not.toBe('mobKilled');
+    }
+  });
+
+  it('never catches a corpse a shove is carrying', () => {
+    // Checked rather than left to be rediscovered: the storm's target seam
+    // holds mobs, the boss and the set piece's source and no corpses at all
+    // (stormTargets.ts), so a later shove never sees one. A shove re-throwing
+    // corpses is not this slice's work.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const corpse = state.corpses[0]!;
+    corpse.alive = true;
+    corpse.id = 909;
+    corpse.x = state.grave.x + 5;
+    corpse.y = state.grave.y;
+    startShove(corpse.impulse, 'belch', 11, 0, -1, BELCH_SHOVE_THROW, 1, 0);
+    const owed = corpse.impulse.shovesLeft;
+
+    pressNow(state);
+    const later = travelFor(state, NEXT_SHOVE);
+
+    for (const shove of shovesIn(later)) {
+      expect(outcomeFor(shove, corpse.id)).toBe(undefined);
+    }
+    expect(corpse.impulse.shovesLeft).toBe(owed);
+  });
+
+  it('replaces a press that still owes shoves, and runs its own shoves from its own tick', () => {
+    // Two presses inside one press's length is reachable on one feast, because
+    // RESERVOIR_CAPACITY is FEAST_PAYOUT exactly (tuning.ts). The newer press
+    // replaces the live one whole, so a body the older one caught is not
+    // protected by its record any more.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const caught = putStillAt(state, state.grave.x + 1, state.grave.y);
+
+    pressNow(state);
+    travelFor(state, NEXT_SHOVE);
+    state.reservoir = RESERVOIR_CAPACITY;
+    const again = pressNow(state);
+
+    expect(state.press?.beganAt).toBe(state.tick);
+    expect(state.press?.shovesLeft).toBe(BELCH_SHOVES - 1);
+    // The older press's record went with it, so the second press throws the
+    // body the first one had caught rather than skipping it.
+    expect(outcomeFor(shovesIn(again)[0]!, caught.id)).toBe('moved');
+    expect(caught.impulse.shovesLeft).toBe(BELCH_SHOVES - 1);
+  });
 });

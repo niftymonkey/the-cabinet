@@ -1,5 +1,6 @@
 // What a batch of harness runs says: one spread per reading (ADR 0053, #98).
 
+import { BELCH_SHOVES } from '../game/belch';
 import { WEAPON_LINES } from '../game/lines/roster';
 import type { WeaponLine } from '../game/lines/roster';
 import { MOB_TYPES } from '../game/mobs';
@@ -304,6 +305,19 @@ const perLineReading = (
   reading: string,
   numbersOf: (report: Metrics) => NumberRecord,
 ): NumbersDeclaration => ({ reading, reduction: 'perLine', numbersOf });
+
+/**
+ * A per-shove reading as named numbers, keyed by the shove's own place in its
+ * press. The keys are fixed by the belch's own row, so a run whose presses
+ * never reached a third shove reads zero there rather than leaving the name
+ * out.
+ */
+const byShove = (perShove: readonly number[]): NumberRecord => {
+  const named: Record<string, number> = {};
+  for (let at = 0; at < BELCH_SHOVES; at++)
+    named[`${at + 1}`] = perShove[at] ?? 0;
+  return named;
+};
 
 const byNameReading = (
   reading: string,
@@ -678,6 +692,16 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   byNameReading('tuning.belchCadence.misses', (report) => ({
     ...report.tuning.belchCadence.misses,
   })),
+  // What each shove of a press threw, and what share of its own circle each one
+  // was holding. Named numbers and never a spread, because the three shoves are
+  // three different questions and a press that throws on its first and nobody
+  // after is exactly what these exist to show (#124).
+  byNameReading('tuning.belchCadence.movedPerShove', (report) =>
+    byShove(report.tuning.belchCadence.movedPerShove),
+  ),
+  byNameReading('tuning.belchCadence.caughtSharePerShove', (report) =>
+    byShove(report.tuning.belchCadence.caughtSharePerShove),
+  ),
   // The director's own instrument, read back off the tape (#85).
   distributionReading(
     'tuning.pressure.signalPerTick',

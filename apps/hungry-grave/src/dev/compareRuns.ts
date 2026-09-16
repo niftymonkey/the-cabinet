@@ -1,5 +1,6 @@
 // Two measured runs, side by side, with no hand arithmetic.
 
+import { BELCH_SHOVES } from '../game/belch';
 import type { MobType } from '../game/mobs';
 import type { Distribution } from './framePerformance';
 import type { Divergence, Measurement, Metrics, Refusal } from './measure';
@@ -205,6 +206,19 @@ const scalarReading = (
     };
   },
 });
+
+/**
+ * A per-shove reading as named numbers, keyed by the shove's own place in its
+ * press. The keys are fixed by the belch's own row, so a run whose presses
+ * never reached a third shove reads zero there rather than leaving the name
+ * out.
+ */
+const byShove = (perShove: readonly number[]): NumberRecord => {
+  const named: Record<string, number> = {};
+  for (let at = 0; at < BELCH_SHOVES; at++)
+    named[`${at + 1}`] = perShove[at] ?? 0;
+  return named;
+};
 
 const namedNumbersReading = (
   reading: string,
@@ -529,6 +543,16 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
   namedNumbersReading('tuning.belchCadence.misses', (report) => ({
     ...report.tuning.belchCadence.misses,
   })),
+  // What each shove of a press threw, and what share of its own circle each one
+  // was holding, as named numbers on the misses' own terms: the shove count is
+  // fixed by the belch's row, so a shove no press of one run reached reads zero
+  // rather than absent (#124).
+  namedNumbersReading('tuning.belchCadence.movedPerShove', (report) =>
+    byShove(report.tuning.belchCadence.movedPerShove),
+  ),
+  namedNumbersReading('tuning.belchCadence.caughtSharePerShove', (report) =>
+    byShove(report.tuning.belchCadence.caughtSharePerShove),
+  ),
   // The director's own run (#85). The signal is a per-tick series, the adds are
   // a list because no add of one run pairs with an add of another, and the
   // purse left is named numbers because a section one run never entered is

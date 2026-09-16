@@ -7,6 +7,7 @@ import { normalize } from './math';
 import type { RunState } from './run';
 import type { StormTarget } from './stormTargets';
 import { shoveStormTarget, stormTargets } from './stormTargets';
+import { countTowardTheNextShove } from './shove';
 import type { WaveClock } from './shove';
 import { RESERVOIR_CAPACITY } from './tuning';
 
@@ -129,18 +130,39 @@ const distanceFromGrave = (state: RunState, x: number, y: number): number => {
   return Math.sqrt(dx * dx + dy * dy);
 };
 
-// One body the press looked at and did not move, and which gate turned it away.
+// One body the shove looked at and did not throw, and which gate turned it away.
 const refused = (
   target: StormTarget,
   distance: number,
   refusal: PressRefusal,
 ): PressedBody => {
-  return { id: target.id, distance, moved: false, refusal };
+  return { id: target.id, distance, outcome: 'refused', refusal };
 };
 
 /**
- * One body in the press's frame: thrown away from the grave, or written down
- * with the gate that refused it.
+ * How many shoves a body caught by the shove going out now is given: this one
+ * and every one the press still owes after it.
+ *
+ * A body caught by the first shove carries three, one that walks in by the
+ * second carries two and one that walks in by the third carries one, so the
+ * press always ends exactly where it began plus its own length and never grows
+ * a tail.
+ */
+const shovesOwedFrom = (press: Press): number => {
+  return press.shovesLeft + 1;
+};
+
+/**
+ * One body in one shove's frame: already travelling under this press, thrown
+ * away from the grave, or written down with the gate that refused it.
+ *
+ * THE SKIP IS BY ID OFF THE PRESS'S OWN RECORD AND NEVER BY WHETHER A SHOVE IS
+ * IN FLIGHT. A body this press has already caught keeps the shoves it was
+ * given, because a shove landing on a shove in flight replaces it rather than
+ * following it. A body any other push is carrying is thrown exactly as a
+ * walking one is: a toll's cone is on the field for most of a press, and the
+ * wider rule would leave a body standing under a ring untouched, which is the
+ * sighting this slice answers arriving again by another route.
  *
  * The gates read in the order the press runs them, so the reason a body carries
  * is the first thing that was true of it. Two of them are the reach's own. A
@@ -157,8 +179,15 @@ const refused = (
  * reason down: the seam still refuses the move, and a target that reached the
  * call would be a no-op there either way.
  */
-const pressOneBody = (state: RunState, target: StormTarget): PressedBody => {
+const pressOneBody = (
+  state: RunState,
+  press: Press,
+  target: StormTarget,
+): PressedBody => {
   const distance = distanceFromGrave(state, target.x, target.y);
+  if (press.caught.has(target.id)) {
+    return { id: target.id, distance, outcome: 'carried' };
+  }
   if (!target.entered) return refused(target, distance, 'notEntered');
   if (!insideBurst(state, target.x, target.y)) {
     return refused(target, distance, 'outOfReach');
@@ -175,33 +204,89 @@ const pressOneBody = (state: RunState, target: StormTarget): PressedBody => {
     away.x,
     away.y,
     BELCH_SHOVE_THROW,
-    BELCH_SHOVES,
+    shovesOwedFrom(press),
     BELCH_SHOVE_SPACING,
   );
-  return { id: target.id, distance, moved: true, refusal: null };
+  press.caught.add(target.id);
+  return { id: target.id, distance, outcome: 'moved' };
 };
 
 /**
- * Throws what stands inside the reach away from the grave, and writes down
- * every body in the frame with what the press did about it.
+ * One shove of the press: what stands inside the reach at this tick is thrown
+ * away from the grave, and every body in the frame is written down with what
+ * this shove did about it.
  *
- * Each body is struck once and that one strike carries all three shoves: the
- * body set is captured the tick the belch fires and each body gets one impulse
- * whose own row brings the later shoves in, so a body already carried out of
- * reach still takes the shoves this press already owed it. That is the bell's
- * `toll.struck` shape (bell.ts) reached by construction rather than by a reach
- * test run three times.
+ * THE FRAME IS ASKED FOR AFRESH AT EVERY SHOVE AND NEVER RETAINED ACROSS ONE.
+ * The seam's slots are reused, so a press holding a target across sixty ticks
+ * would be reading whatever now stands in that slot (stormTargets.ts). The
+ * press carries ids and asks again.
  *
- * The record is built fresh per press rather than off a pooled buffer, because
- * a press is a rare event and the seam's own list may not be retained past this
- * pass: every entry here is a value copied out of it.
+ * The record is built fresh per shove rather than off a pooled buffer, because
+ * a press is a rare event and every entry here is a value copied out of the
+ * seam's list rather than a handle into it.
  */
-const shoveNearbyTargets = (state: RunState): PressedBody[] => {
+const shoveNearbyTargets = (state: RunState, press: Press): PressedBody[] => {
   const bodies: PressedBody[] = [];
   for (const target of stormTargets(state)) {
-    bodies.push(pressOneBody(state, target));
+    bodies.push(pressOneBody(state, press, target));
   }
   return bodies;
+};
+
+/**
+ * The shove that just went out, reported: which press threw it, which of the
+ * press's shoves it was, and the frame it swept.
+ *
+ * All three shoves report through this one shape, the first included, so no
+ * reader special-cases the one that landed with the press.
+ */
+const burstShoved = (press: Press, bodies: PressedBody[]): SimEvent => {
+  return {
+    type: 'burstShoved',
+    beganAt: press.beganAt,
+    shove: BELCH_SHOVES - press.shovesLeft,
+    bodies,
+  };
+};
+
+/**
+ * A press beginning on this tick, owing every shove after the one about to go
+ * out. The newer press replaces whatever the run was carrying whole, and a body
+ * the older one had caught is not protected by its record any more.
+ */
+const beginPress = (tick: number): Press => {
+  const shovesLeft = BELCH_SHOVES - 1;
+  return {
+    beganAt: tick,
+    shovesLeft,
+    nextIn: shovesLeft > 0 ? BELCH_SHOVE_SPACING : 0,
+    caught: new Set<number>(),
+  };
+};
+
+// Whether the press owes nothing more, now or later.
+const pressSpent = (press: Press): boolean => {
+  return press.shovesLeft === 0 && press.nextIn === 0;
+};
+
+/**
+ * The press's own clock, one tick of it: the shove it owes goes out at its own
+ * tick, over whatever stands inside the reach then.
+ *
+ * It counts through the same function the impulse's own clock counts through
+ * (shove.ts), so the two never drift apart, and it reads the spacing off this
+ * module's own row rather than carrying a copy of it. A spent press is put down
+ * on the tick its last shove goes out, so a run between presses folds the
+ * absence rather than a record nothing will ever read again.
+ */
+const advancePress = (state: RunState): SimEvent[] => {
+  const press = state.press;
+  if (press === null) return [];
+  if (!countTowardTheNextShove(press, BELCH_SHOVE_SPACING)) return [];
+  const bodies = shoveNearbyTargets(state, press);
+  const event = burstShoved(press, bodies);
+  if (pressSpent(press)) state.press = null;
+  return [event];
 };
 
 /**
@@ -222,17 +307,28 @@ const shoveNearbyTargets = (state: RunState): PressedBody[] => {
  * The shoves report themselves later and elsewhere, one event per body when its
  * impulse is spent (mobs.ts, reportShoveTravel), because a shove that takes
  * ticks has no realized displacement on the tick it lands.
+ *
+ * What it fires here is the first of the press's shoves alone. The press is
+ * left on the run and its own clock brings the other two out at their own
+ * ticks, each over whatever stands inside the reach then (Mark's ruling of
+ * 2026-09-16 that everything within the eruption is pushed on each erupt
+ * animation).
  */
 const fireBelch = (state: RunState): SimEvent[] => {
   if (state.reservoir < RESERVOIR_CAPACITY) return [];
   const cancelled = cancelMobFire(state);
-  const bodies = shoveNearbyTargets(state);
-  const shoved = bodies.filter((body) => body.moved).length;
+  const press = beginPress(state.tick);
+  state.press = press;
+  const bodies = shoveNearbyTargets(state, press);
+  const shoved = bodies.filter((body) => body.outcome === 'moved').length;
   state.reservoir = 0;
-  return [{ type: 'belched', cancelled, shoved, bodies }];
+  // The press's own event first, because the eruption, the sound and the
+  // cadence reading's tick all key on it and a subscriber reads in order.
+  return [{ type: 'belched', cancelled, shoved }, burstShoved(press, bodies)];
 };
 
 export {
+  advancePress,
   fireBelch,
   BELCH_BURST_RADIUS,
   BELCH_SHOVES,

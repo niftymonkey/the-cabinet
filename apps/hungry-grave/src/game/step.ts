@@ -1,4 +1,4 @@
-import { fireBelch } from './belch';
+import { advancePress, fireBelch } from './belch';
 import { advanceDirectorSignal } from './director';
 import { advanceBoss } from './bosses/phases';
 import type { TickCommand } from './command';
@@ -250,11 +250,11 @@ const resolveDeaths = (
  * events are returned, because at storm density pooled entities mutated in
  * place are the right answer.
  *
- * The order is scroll, the move command, the belch, spawns, the director's own
- * spend, mob motion and fire, the boss's own tick, the set piece's own tick,
- * the weapon lines, the bank's own tick, overlap detection, deaths, the stage's
- * own ending, decay, culling, the offer's own loss, then the grave's own tick,
- * the pressure signal and the counters.
+ * The order is scroll, the move command, the press's own clock, the belch,
+ * spawns, the director's own spend, mob motion and fire, the boss's own tick,
+ * the set piece's own tick, the weapon lines, the bank's own tick, overlap
+ * detection, deaths, the stage's own ending, decay, culling, the offer's own
+ * loss, then the grave's own tick, the pressure signal and the counters.
  *
  * The boss ticks with the mobs and before the lines, because its pattern is
  * fire on the field and a shot fired this tick must not also fly this tick,
@@ -275,6 +275,20 @@ const resolveDeaths = (
  * only moment it matters; running it after resolveOverlaps would cancel the shot
  * on the tick after it hit.
  *
+ * The press's own clock sits immediately before the belch, for two reasons. A
+ * press throws three times, thirty ticks apart, and each of those shoves is a
+ * press of its own over whatever stands inside the reach at its own tick; a
+ * shove firing later in the tick than the press did would read the field after
+ * the spawns and the motion the press itself ran before, which is a behaviour
+ * difference nobody ruled. And it runs before rather than after `fireBelch`
+ * because the clock counts the ticks between one shove beginning and the next:
+ * counting on the tick the press landed would bring every later shove in a tick
+ * early.
+ *
+ * It sits after the move command deliberately, so every shove of a press
+ * measures its reach from where this tick's steering put the grave, exactly as
+ * the press itself does.
+ *
  * Overlap before decay is deliberate. A corpse at exactly zero freshness that
  * the grave is under this tick is swallowed rather than taken under, so greed
  * that arrives on the last tick is rewarded, which is the direction ADR 0004
@@ -291,6 +305,10 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   clearRefusals(state);
   scrollField(state);
   moveGrave(state.grave, command.move);
+  // The press's own clock, immediately before the press itself, so a shove of a
+  // press that landed sixty ticks ago goes out at exactly the point in the tick
+  // the press it belongs to went out at.
+  events.push(...advancePress(state));
   if (command.belch) events.push(...fireBelch(state));
   events.push(...advanceStage(state));
   events.push(...spendDirected(state));

@@ -219,18 +219,64 @@ const firstStepOf = (distance: number): number => {
 };
 
 /**
+ * The shove in flight, replaced by a newcomer's: it travels the newcomer's own
+ * throw, along the newcomer's own direction, for the whole of its own length.
+ *
+ * What the body has already travelled is deliberately not cleared: the one
+ * report at the end carries everything the body was shoved rather than only the
+ * last of it. The source is replaced with it, so a body a belch catches
+ * mid-toll reports its whole travel under the belch, which follows from there
+ * being one report per impulse rather than one per push.
+ */
+const takeOverTheFlight = (
+  impulse: Impulse,
+  source: ShoveSource,
+  bodyId: number,
+  awayX: number,
+  awayY: number,
+  distance: number,
+): void => {
+  const first = firstStepOf(distance);
+  impulse.source = source;
+  impulse.bodyId = bodyId;
+  impulse.stepX = awayX * first;
+  impulse.stepY = awayY * first;
+  impulse.ticksLeft = SHOVE_TICKS;
+};
+
+/**
+ * What the impulse owes after the shove in flight, taken from the newcomer:
+ * how many shoves, how far apart, and the throw and direction each of them
+ * will travel at.
+ */
+const oweTheRest = (
+  impulse: Impulse,
+  shoves: number,
+  ticksBetween: number,
+): void => {
+  impulse.shovesLeft = shoves;
+  impulse.spacing = ticksBetween;
+  impulse.nextIn = shoves > 0 ? ticksBetween : 0;
+  impulse.owedStepX = impulse.stepX;
+  impulse.owedStepY = impulse.stepY;
+};
+
+/**
  * Starts a shove on a body, along a unit direction away from whatever pushed
  * it, covering `distance` field units per shove.
  *
- * What the body has already travelled is deliberately not cleared: a shove
- * landing on a body still flying replaces the shove and keeps the accounting,
- * so the one report at the end carries everything the body was shoved rather
- * than only the last of it.
+ * A NEW PUSH GOVERNS THE SHOVE IN FLIGHT AND NEVER WHAT IS ALREADY OWED. It
+ * takes the larger of the two: a push offering fewer shoves than the body is
+ * already owed replaces the flight and leaves the count, the clock and the
+ * throw of the rest exactly where they are. A bell toll landing thirty ticks
+ * into a belch press used to replace the press's two remaining waves with the
+ * bell's single shove, which took away a push the body had already been given
+ * (Mark's tape of 2026-09-16, body 16023, which stopped at 69 units where the
+ * press owed it 180).
  *
- * The source is replaced with it, so a body a belch catches mid-toll reports
- * its whole travel under the belch. That follows from there being one report
- * per impulse rather than one per push, and splitting the travel would mean
- * splitting the report, which is the shape slice H ruled against.
+ * The clock is left alone with the count for the same reason: re-arming
+ * `nextIn` from the newcomer's spacing reads as a reset, and a reset grows the
+ * press a tail for every toll that lands on it.
  */
 const startShove = (
   impulse: Impulse,
@@ -242,15 +288,10 @@ const startShove = (
   shoves: number,
   ticksBetween: number,
 ): void => {
-  const first = firstStepOf(distance);
-  impulse.source = source;
-  impulse.bodyId = bodyId;
-  impulse.stepX = awayX * first;
-  impulse.stepY = awayY * first;
-  impulse.ticksLeft = SHOVE_TICKS;
-  impulse.shovesLeft = Math.max(shoves - 1, 0);
-  impulse.spacing = ticksBetween;
-  impulse.nextIn = impulse.shovesLeft > 0 ? ticksBetween : 0;
+  takeOverTheFlight(impulse, source, bodyId, awayX, awayY, distance);
+  const offered = Math.max(shoves - 1, 0);
+  if (offered <= impulse.shovesLeft) return;
+  oweTheRest(impulse, offered, ticksBetween);
 };
 
 /**
@@ -277,18 +318,39 @@ const travelThisTick = (impulse: Impulse): ShoveStep | null => {
 };
 
 /**
- * The clock that brings the next shove of a multi-shove impulse in. It counts
+ * One tick of a wave clock, and whether the next shove begins on it. It counts
  * down through the shove in flight as well as between shoves, so the spacing a
  * caller names is the gap between two shoves beginning and not the rest after
  * one ends.
+ *
+ * The press the belch leaves on the run counts through this same function
+ * (belch.ts), so the press's clock is never a second copy of the impulse's
+ * (design record R8). The spacing is a parameter rather than a field of the
+ * clock because the two carriers hold it differently: an impulse is advanced
+ * with no caller present and carries its own, and the press is advanced by the
+ * module that owns the row.
  */
-const countTowardTheNextShove = (impulse: Impulse): void => {
-  if (impulse.nextIn <= 0) return;
-  impulse.nextIn -= 1;
-  if (impulse.nextIn > 0) return;
-  impulse.shovesLeft -= 1;
+const countTowardTheNextShove = (
+  clock: WaveClock,
+  spacing: number,
+): boolean => {
+  if (clock.nextIn <= 0) return false;
+  clock.nextIn -= 1;
+  if (clock.nextIn > 0) return false;
+  clock.shovesLeft -= 1;
+  clock.nextIn = clock.shovesLeft > 0 ? spacing : 0;
+  return true;
+};
+
+/**
+ * The next shove this impulse owed, begun. It travels at the throw and along
+ * the direction the push that owed it gave, and never at a newcomer's: what a
+ * newcomer governs is the shove in flight alone.
+ */
+const armTheNextShove = (impulse: Impulse): void => {
+  impulse.stepX = impulse.owedStepX;
+  impulse.stepY = impulse.owedStepY;
   impulse.ticksLeft = SHOVE_TICKS;
-  impulse.nextIn = impulse.shovesLeft > 0 ? impulse.spacing : 0;
 };
 
 /**
@@ -301,7 +363,9 @@ const countTowardTheNextShove = (impulse: Impulse): void => {
  */
 const advanceShove = (impulse: Impulse): ShoveStep | null => {
   const step = travelThisTick(impulse);
-  countTowardTheNextShove(impulse);
+  if (countTowardTheNextShove(impulse, impulse.spacing)) {
+    armTheNextShove(impulse);
+  }
   return step;
 };
 
@@ -321,6 +385,7 @@ const takeShoveTravel = (impulse: Impulse): number => {
 export {
   blankImpulse,
   clearImpulse,
+  countTowardTheNextShove,
   handOverImpulse,
   startShove,
   shoveInFlight,

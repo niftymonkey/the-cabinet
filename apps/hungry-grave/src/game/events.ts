@@ -369,21 +369,53 @@ type PressRefusal =
   | 'notPushable';
 
 /**
- * One body a press looked at, and what the press did about it.
+ * Where one body stood when a shove of the press looked at it, in field units
+ * centre to centre from the grave.
  *
  * The distance is the whole reason this record exists rather than a count of
  * misses: Mark's sighting of 2026-09-16 is bodies *at about the same distance*
  * going different ways, and a record with no distance in it cannot answer that.
- * It is measured centre to centre from the grave in field units, the same way
- * the reach is, and it is taken on the tick the press lands.
+ * It is measured the same way the reach is, and it is taken at the tick of the
+ * shove that wrote the entry rather than at the tick the press landed.
  */
-interface PressedBody {
+interface BodyInFrame {
   readonly id: number;
   readonly distance: number;
-  readonly moved: boolean;
-  // Which gate refused it, or null on a body the press moved.
-  readonly refusal: PressRefusal | null;
 }
+
+// One body this shove of the press threw.
+interface MovedBody extends BodyInFrame {
+  readonly outcome: 'moved';
+}
+
+/**
+ * One body this press had already thrown, still travelling under the shoves it
+ * was given.
+ *
+ * It is an outcome and never a refusal, and never an absence either. A shove
+ * sweeping a crowd that is all in flight would otherwise read as an empty
+ * frame, which is the same unreadable zero the record exists to kill, and
+ * writing it down as unmoved with no reason against it would be a state
+ * nothing explains.
+ */
+interface CarriedBody extends BodyInFrame {
+  readonly outcome: 'carried';
+}
+
+// One body a shove of the press looked at and did not throw, with its gate.
+interface RefusedBody extends BodyInFrame {
+  readonly outcome: 'refused';
+  readonly refusal: PressRefusal;
+}
+
+/**
+ * One body in one shove's frame, and what that shove did about it: threw it,
+ * found it already travelling under this press, or refused it at a named gate.
+ *
+ * A union rather than one record with optional fields, so an entry that is none
+ * of the three cannot be built at all.
+ */
+type PressedBody = MovedBody | CarriedBody | RefusedBody;
 
 /**
  * The belch fired (ADR 0008). The counts are what the belch-on-wave instrument
@@ -398,24 +430,48 @@ interface PressedBody {
  * belch: what each body then really travels arrives up to ninety ticks later as
  * its own mobShoved, with no belch left to attribute it to.
  *
- * `bodies` is every body in the frame, moved or not, with the reason against
- * each one the press did not move (Mark's standing rule of 2026-09-16 that
- * everything worth measuring has a representation in the tape). A press with a
- * hundred bodies in the frame and none in reach and a press with nothing alive
- * on the field both read `shoved: 0`, and this is what tells them apart.
- * `shoved` keeps its exact meaning and is the count of entries whose `moved` is
- * true.
- *
- * One press can put up to as many entries in here as the storm's target seam
- * has slots, the mob pool plus the boss plus the set piece's source. That costs
- * no tape bytes at all, because no sim event is ever encoded into a tape: a
- * replay rebuilds every event from the seed and the commands, so the tape
- * carries this by construction and FORMAT_VERSION does not move.
+ * **`bodies` left this event on 2026-09-16 and lives on `burstShoved` below**,
+ * one event per shove of the press. A press throws three times now and a frame
+ * taken sixty ticks after this event was emitted cannot ride on it, and all
+ * three shoves report through one shape so no reader special-cases the first.
+ * A `Belched` with no frame in it is that move and never a regression.
+ * `shoved` keeps its exact meaning, the bodies the press moved on the tick it
+ * landed, which is the first shove's own moved count.
  */
 interface Belched {
   readonly type: 'belched';
   readonly cancelled: number;
   readonly shoved: number;
+}
+
+/**
+ * One shove of the burst went out, and this is the frame it swept (#124).
+ *
+ * One event per shove of a press, the first included, emitted on that shove's
+ * own tick. Mark's ruling of 2026-09-16 is that everything within the eruption
+ * is pushed on each erupt animation, so each shove re-reads the field at its
+ * own tick and throws what stands inside the reach then; without a frame per
+ * shove, a press whose later shoves moved nobody and a press whose three all
+ * landed read identically in every tape we hold.
+ *
+ * It rides beside `belched` rather than replacing it, because the eruption, the
+ * sound and the cadence reading's own tick all key on the press's own tick and
+ * deferring that to the last shove would make the button lie at the one moment
+ * it matters.
+ *
+ * One shove can put up to as many entries in `bodies` as the storm's target
+ * seam has slots, the mob pool plus the boss plus the set piece's source, and a
+ * press writes three such frames. That costs no tape bytes at all, because no
+ * sim event is ever encoded into a tape: a replay rebuilds every event from the
+ * seed and the commands, so the tape carries this by construction and
+ * FORMAT_VERSION does not move.
+ */
+interface BurstShoved {
+  readonly type: 'burstShoved';
+  // The tick the press began on, which is what joins a shove to its press.
+  readonly beganAt: number;
+  // Which shove of the press this is, counting from one.
+  readonly shove: number;
   readonly bodies: readonly PressedBody[];
 }
 
@@ -581,6 +637,7 @@ type SimEvent =
   | PatchLaid
   | PatchClosed
   | Belched
+  | BurstShoved
   | PowerUpSpawned
   | OfferOpened
   | OfferBanked
@@ -594,6 +651,7 @@ type SimEvent =
 // (src/__tests__/boundary.test.ts), so the vocabulary a subscriber reads has to
 // be reachable from the vocabulary it subscribes to.
 export type {
+  BodyInFrame,
   CarrierLoss,
   OfferSite,
   PressedBody,

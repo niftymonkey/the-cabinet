@@ -116,7 +116,46 @@
  * and the commands, so the press's record costs no bytes. `WITNESS_VERSION`
  * moved to 9 in its own commit for the impulse a corpse now carries, which is
  * folded state and not a reading.
+ *
+ * Version 7: every shove of a press throws what stands inside it (#124, Mark's
+ * ruling of 2026-09-16 that everything within the eruption is pushed on each
+ * erupt animation). **One existing reading changes meaning on both of its arms,
+ * which is this file's own rule for when the version moves.**
+ *
+ * `tuning.repel.belchShoves` and `belchDistance` used to count the one set of
+ * bodies a press caught on the tick it landed. A press now re-reads the field
+ * at each of its three shoves and throws whatever stands inside the reach then,
+ * so it starts a shove on every body that walks into its circle while it is
+ * out, and its counts rise by as much as the crowd refills. **So every batch
+ * recorded at slice L-fix's tip is incomparable with every batch recorded after
+ * this on the belch arm**: subtracting one build's `belchShoves` from the
+ * other's would be arithmetic across a definition that changed underneath it,
+ * which is exactly the case version 3 was written to make loud. It is taken
+ * eyes open.
+ *
+ * **And the bell's arm carries belch travel more often than it did, which is
+ * attribution working rather than breaking.** A shove reports under whichever
+ * push threw it last (design record R9, slice I), and a toll landing on a body
+ * a press still owes waves to relabels the whole of that impulse as the bell's.
+ * A press now owes waves to more bodies for longer, so `tuning.repel.tolls`,
+ * `totalShoves` and `totalDistance` pick up more of it. **That is named here
+ * rather than fixed**: the last-pusher rule is ruled and a reading that does
+ * not say so is a reading that misleads.
+ *
+ * **Three readings land in the same commit and none of them is what moves
+ * this.** `tuning.belchCadence.movedPerShove` and `caughtSharePerShove` are new
+ * beside unchanged keys, and every `BelchFire` gains `beganAt` and its own
+ * `shoves` list. `shoved`, `inFrame`, `misses` and `frameShares` keep their
+ * exact meanings: all four are the press's own first shove, which is what they
+ * have always been, and the later shoves are read off the new list rather than
+ * summed into them.
+ *
+ * The other two versions hold and each for its own reason. `FORMAT_VERSION`
+ * stays 4 because nothing new is recorded in a tape header and no sim event is
+ * ever encoded into a tape at all, so a new event per shove costs no bytes.
+ * `WITNESS_VERSION` moved to 10 in its own commit for the press the run now
+ * carries, which is folded state and not a reading.
  */
-const READINGS_VERSION = 6;
+const READINGS_VERSION = 7;
 
 export { READINGS_VERSION };

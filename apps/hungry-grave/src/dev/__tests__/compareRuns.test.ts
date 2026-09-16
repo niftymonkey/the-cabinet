@@ -338,6 +338,7 @@ describe('compareRuns', () => {
           fires: [
             {
               tick: 12,
+              beganAt: 11,
               shoved: 3,
               cancelled: 4,
               inFrame: 5,
@@ -347,6 +348,7 @@ describe('compareRuns', () => {
                 noDirection: 0,
                 notPushable: 0,
               },
+              shoves: [],
             },
           ],
         },
@@ -363,6 +365,7 @@ describe('compareRuns', () => {
     expect(fires.rightEntries).toEqual([
       {
         tick: 12,
+        beganAt: 11,
         shoved: 3,
         cancelled: 4,
         inFrame: 5,
@@ -372,6 +375,7 @@ describe('compareRuns', () => {
           noDirection: 0,
           notPushable: 0,
         },
+        shoves: [],
       },
     ]);
     expect(Object.keys(fires).sort()).toEqual([

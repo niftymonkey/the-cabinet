@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { BELCH_SHOVE_SPACING, BELCH_SHOVE_THROW, BELCH_SHOVES } from '../belch';
 import { MOB_TYPES } from '../mobs';
 import type { Impulse, ShoveStep } from '../shove';
 import {
@@ -27,6 +28,9 @@ const UP_Y = -1;
 
 /** The body every shove in this file lands on. Any id an entity could hold does. */
 const BODY = 7;
+
+/** The whole of one press's push, in ticks, derived from the belch's own rows. */
+const WHOLE_PRESS = (BELCH_SHOVES - 1) * BELCH_SHOVE_SPACING + SHOVE_TICKS;
 
 /** Every step one whole impulse owes, tick by tick, until it is spent. */
 function stepsOf(impulse: Impulse, ticks: number): (ShoveStep | null)[] {
@@ -240,18 +244,112 @@ describe('a shove landing on a body that is already flying', () => {
 });
 
 /**
- * Slice J3's planned tests, pinned as the sentences they promise before the
- * behaviour behind them exists (feature playbook step 3). They are written here
- * in the fold commit and filled in the commit after it, because a version
- * stamped before the fold stops moving names several folds.
+ * A new shove never shortens, re-times or re-throws what a body is already owed
+ * (#124, design record R8: one shove module, and this rule reaches both its
+ * callers).
+ *
+ * The press's own three rows are imported rather than typed here, because the
+ * case this rule exists for is a bell toll landing in the middle of a belch
+ * press and the figures that make it that case are the belch's own.
  */
 describe('a new shove never shortens what a body is already owed (#124)', () => {
-  it.todo(
-    'keeps the two waves a press still owed a body when a toll reaches it mid-press',
-  );
-  it.todo(
-    'travels a wave the press still owes at the throw the press gave it, whatever pushed the body last',
-  );
-  it.todo('always has a clock bringing in a shove it still owes');
-  it.todo('attributes a body two pushes reached to whichever pushed it last');
+  /** A press's own shove, started on a body standing still. */
+  function press(impulse: Impulse): void {
+    startShove(
+      impulse,
+      'belch',
+      BODY,
+      UP_X,
+      UP_Y,
+      BELCH_SHOVE_THROW,
+      BELCH_SHOVES,
+      BELCH_SHOVE_SPACING,
+    );
+  }
+
+  /** A single toll's shove, sideways, so its own direction is visible in the step. */
+  function toll(impulse: Impulse, distance: number): void {
+    startShove(impulse, 'bell', BODY, 1, 0, distance, 1, 0);
+  }
+
+  it('keeps the two waves a press still owed a body when a toll reaches it mid-press', () => {
+    // Body 16023 of Mark's tape of 2026-09-16 is the worked case: a toll
+    // arriving at press plus thirty replaced the body's two remaining belch
+    // waves with the bell's single shove, and it stopped at 69 units where the
+    // press owed it 180. A push that arrives is never allowed to take away a
+    // push already owed.
+    const impulse = blankImpulse();
+    press(impulse);
+    stepsOf(impulse, BELCH_SHOVE_SPACING);
+    const owed = impulse.shovesLeft;
+
+    toll(impulse, 90);
+
+    expect(owed).toBe(BELCH_SHOVES - 2);
+    expect(impulse.shovesLeft).toBe(owed);
+    // The count, its clock and its spacing are all left exactly where they
+    // were: re-arming nextIn from the newcomer's spacing reads as a reset, and
+    // a reset grows the press a tail for every toll that lands on it.
+    expect(impulse.spacing).toBe(BELCH_SHOVE_SPACING);
+    expect(impulse.nextIn).toBeGreaterThan(0);
+  });
+
+  it('travels a wave the press still owes at the throw the press gave it, whatever pushed the body last', () => {
+    // A newcomer's step governs the shove in flight and nothing behind it, so
+    // the press's remaining waves keep the belch's own throw and the belch's
+    // own direction. Read as the travel of the waves themselves, because what
+    // the toll's own shove covered rides with them in the accounting.
+    const alone = blankImpulse();
+    press(alone);
+    const undisturbed = travelLengths(stepsOf(alone, WHOLE_PRESS));
+
+    const reached = blankImpulse();
+    press(reached);
+    stepsOf(reached, BELCH_SHOVE_SPACING);
+    toll(reached, 90);
+    const steps = stepsOf(reached, WHOLE_PRESS);
+
+    // Every tick from the second wave onward is the press's own, in length and
+    // in direction, however hard the toll pushed in between.
+    const owedTicks = travelLengths(steps).slice(SHOVE_TICKS);
+    const pressOwed = undisturbed.slice(2 * SHOVE_TICKS);
+    expect(owedTicks).toEqual(pressOwed);
+    for (const step of steps.slice(SHOVE_TICKS)) {
+      if (step === null) continue;
+      expect(step.x).toBe(0);
+    }
+  });
+
+  it('always has a clock bringing in a shove it still owes', () => {
+    // The invariant the larger-of rule has to keep: a wave with no clock under
+    // it is a wave that never arrives, and one whose clock is re-armed is a
+    // press that grew a tail.
+    const impulse = blankImpulse();
+    press(impulse);
+    const broken: string[] = [];
+    for (let tick = 0; tick < WHOLE_PRESS; tick++) {
+      if (tick === BELCH_SHOVE_SPACING) toll(impulse, 90);
+      if (impulse.shovesLeft > 0 && impulse.nextIn <= 0) {
+        broken.push(`tick ${tick}: ${impulse.shovesLeft} owed, no clock`);
+      }
+      advanceShove(impulse);
+    }
+    expect(broken).toEqual([]);
+  });
+
+  it('attributes a body two pushes reached to whichever pushed it last', () => {
+    // Slice I's attribution rule, held: there is one report per impulse rather
+    // than one per push, and splitting the travel would mean splitting the
+    // report. So a toll landing mid-press relabels the whole of that flight as
+    // the bell's, the waves the press still owes included.
+    const impulse = blankImpulse();
+    press(impulse);
+    expect(impulse.source).toBe('belch');
+
+    stepsOf(impulse, BELCH_SHOVE_SPACING);
+    toll(impulse, 90);
+
+    expect(impulse.source).toBe('bell');
+    expect(impulse.shovesLeft).toBeGreaterThan(0);
+  });
 });

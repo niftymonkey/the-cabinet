@@ -16,6 +16,7 @@ import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
 import type { RunState } from '../run';
 import { createRun } from '../run';
+import { BELCH_BURST_RADIUS, BELCH_SHOVE_SPACING } from '../belch';
 import { blankImpulse, startShove } from '../shove';
 import { PROCESSION_WAVES } from '../stage/waves';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
@@ -482,6 +483,41 @@ describe('the belch in the tick order (plan 6.13)', () => {
     expect(typesOf(events)).not.toContain('graveHit');
     expect(state.grave.size).toBe(before);
     expect(shot.alive).toBe(false);
+  });
+
+  it("brings a press's later shoves out on the press's own beat, over what stands inside the reach then", () => {
+    // The press's own clock is a phase of the tick, immediately before the
+    // belch itself (#124). Run through the whole tick rather than through the
+    // belch alone, because that placement is the thing under test: a shove
+    // firing later in the tick than the press did would read the field after
+    // the spawns and the motion the press itself ran before, and a clock
+    // counting on the press's own tick would bring every later shove in a tick
+    // early.
+    const state = quietRun();
+    const step = stepping(state);
+    state.reservoir = RESERVOIR_CAPACITY;
+    const latecomer = mobOnGrave(state, -BELCH_BURST_RADIUS * 2);
+    // It stands exactly where it is put while the tick runs, so what moves it
+    // is the press and nothing else, and it outlives a window the whole tick
+    // runs through.
+    latecomer.beat = Number.MAX_SAFE_INTEGER;
+    latecomer.vy = 0;
+    latecomer.hp = Number.MAX_SAFE_INTEGER;
+
+    step({ move: { x: 0, y: 0 }, belch: true });
+    for (let tick = 1; tick < BELCH_SHOVE_SPACING; tick++) step(STILL);
+    latecomer.x = state.grave.x;
+    latecomer.y = state.grave.y - BELCH_BURST_RADIUS / 2;
+    const stoodAt = { x: latecomer.x, y: latecomer.y };
+    const events = step(STILL);
+
+    const shove = events.find((event) => event.type === 'burstShoved');
+    expect(shove?.shove).toBe(2);
+    expect(latecomer.impulse.source).toBe('belch');
+    // It travelled up the field on the very tick the shove went out, against
+    // the scroll that carries everything down, which is what puts the clock
+    // before the bodies rather than after them.
+    expect(latecomer.y).toBeLessThan(stoodAt.y);
   });
 
   it('does nothing at all when the command does not ask for one', () => {

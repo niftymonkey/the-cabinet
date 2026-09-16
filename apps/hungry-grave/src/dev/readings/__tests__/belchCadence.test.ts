@@ -11,7 +11,7 @@ import { spawnMob } from '../../../game/mobs';
 import { createRun } from '../../../game/run';
 import { swallow } from '../../../game/swallow';
 import { RESERVOIR_CAPACITY } from '../../../game/tuning';
-import type { BelchFire, PressMisses } from '../belchCadence';
+import type { BelchFireAcc, PressMisses } from '../belchCadence';
 import {
   belchCadenceOf,
   createBelchCadence,
@@ -30,9 +30,18 @@ const NO_MISSES: PressMisses = {
   notPushable: 0,
 };
 
-/** One press for the tests that are about the cadence rather than the frame. */
-function fire(tick: number, shoved: number, cancelled: number): BelchFire {
-  return { tick, shoved, cancelled, inFrame: shoved, misses: NO_MISSES };
+/**
+ * One press for the tests that are about the cadence rather than the frame. It
+ * is built as the accumulator holds it, one shove that threw what the press
+ * threw, because a fire is opened by its own first shove (#124).
+ */
+function fire(tick: number, shoved: number, cancelled: number): BelchFireAcc {
+  return {
+    tick,
+    beganAt: tick,
+    cancelled,
+    shoves: [{ inFrame: shoved, moved: shoved, carried: 0, misses: NO_MISSES }],
+  };
 }
 
 describe('belch cadence', () => {
@@ -83,13 +92,19 @@ describe('belch cadence', () => {
 
     // Two bodies in the frame and both of them moved, so the press reached the
     // whole of its own frame and missed nothing (#124).
+    const shove = { inFrame: 2, moved: 2, carried: 0, misses: NO_MISSES };
     expect(belchCadenceOf(accumulator).fires).toEqual([
       {
         tick: FIRE_TICK,
+        beganAt: 0,
         shoved: 2,
         cancelled: LIVE_SHOTS,
         inFrame: 2,
         misses: NO_MISSES,
+        // The press's own first shove, which is the only one that has gone out
+        // on the tick it landed; the other two come out of the press's own
+        // clock over the ninety ticks after it (#124).
+        shoves: [shove],
       },
     ]);
     expect(belchCadenceOf(accumulator).frameShares).toEqual([1]);
