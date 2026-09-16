@@ -16,7 +16,7 @@ The record is `apps/hungry-grave/docs/design/round-two-wall-belch.md` and the pr
 | H2, the push retuned and the bell's two reaches | `d6794f9836` | feat(hungry-grave): a toll's push runs long enough to watch and reaches further than its damage (#126) |
 | J, the belch becomes a pushback | `eda21401a0` | feat(hungry-grave): the belch clears the ground in three waves and takes health off nothing (#124) |
 | J-fix, the reach and the eruption made one circle | `6caa2fa72b` | fix(hungry-grave): the belch catches half the field's width and its eruption stops where the push stops (#124) |
-| K, the meter fills and changes corner | | |
+| K, the meter fills and changes corner | `538fd21a9b` | feat(hungry-grave): the belch's ring fills with its reservoir and moves under the other thumb (#127) |
 | L, the Wall is a wall | | |
 
 Slice H carries two code commits, the fold and the rewiring, which is this round's one authorized departure from the contract's one-code-commit rule.
@@ -55,6 +55,8 @@ One entry per code commit: files reviewed, findings by severity, applied and dec
 **Slice I, `157946940c`.** All twenty-one staged files reviewed, **one finding, major, declined**. It asks for `mobs[].impulse.source` to be folded rather than excluded and for `WITNESS_VERSION` to bump with it, which the slice's own fourth ruling and the design record's section 5 both forbid: the witness moves exactly once in round two and that move was slice H's. The reasoning behind the exclusion, and slice G's worked precedent for declining a reviewer's version move, are in section 9.
 
 **Slice J-fix, `6caa2fa72b`.** All five staged files reviewed, **zero findings at any severity**, so nothing was applied and nothing declined.
+
+**Slice K, `538fd21a9b`.** All six staged files reviewed, **one finding, minor, applied, and it was a real misread the tests had not caught**. The arc's segment count was `Math.round(filled * 64)`, which closes the ring at 63.5 segments, so a reservoir a half-segment short of full would have drawn the complete circle the ready state draws. It is now a named pure function, `filledSegments`, rounding down below full and answering the full count only at a full reservoir, with its own test, *closes the ring at a full reservoir and never a segment before one*. Nothing was declined.
 
 ## 5. Record and prompt claims found false against the tree
 
@@ -722,5 +724,107 @@ Totals go from 44 to 142 and from 53 to 151, both close to the area's own 2.85x.
 **Seen and left, for nobody in particular.** The old front swept the field's diagonal and was the only picture the gas had; stopped at the push reach it pictures only the push, so a press against a curtain of unarmed bodies now draws a local ring and nothing else. That is already the design record's section 7, filed as a tuning-step input by the game design gate, and no slice acts on it.
 
 ## 13. Slice K: the meter fills and changes corner (#127)
+
+One code commit, `538fd21a9b`, six files, 406 insertions and 82 deletions, against the prompt's expected 4 to 10 files.
+
+**What a player meets now.** The belch's control is a grey ring in the bottom-left corner with a charge arc filling it clockwise from the top, so a glance says roughly how close the belch is to ready without reading anything. At a full reservoir the arc is a closed circle in the grave's own amber and it pulses. Nothing about it gets brighter as it fills, and the steering thumb no longer shares its corner. No simulation rule moved at all: `src/game` was not opened.
+
+### The fill's shape
+
+**The ring became a track and an arc, and the arc is the charge.** The unfilled ring stays where it was, a full circle at `RING_STROKE` 5 in `hudInk`. Over it the charge draws as an arc at `CHARGE_STROKE` 9, starting at top centre and sweeping clockwise, both strokes inset by half their own width so the widest of them ends exactly on the button's diameter. **The arc is wider than the track on purpose**, and that is the whole grayscale reading: the two colours are held at one luma, so they measure APCA Lc 0.00 against each other and only width and length survive the hue being removed.
+
+**The quantum is Territory's own construction, read out of `GraveRenderer` rather than invented.** `CHARGE_SEGMENTS` is 64 and the arc is rebuilt only when the charge crosses a segment, which keeps the redraw rate at the arc's visible resolution rather than the clock's. The alpha is set every frame, which is free, and the geometry is not.
+
+**Two pixi facts were found by a red test rather than by reading, and both are written into the code.** An arc with a current point already set draws a line to its own start, so the arc following the track circle ran a chord back across the ring and pushed the control's footprint from 108 units to **112.21**; a `moveTo` to the arc's own start is what closes it. And a miter join at a sampled vertex bulges past the stroke's envelope, leaving the footprint at 108.02 rather than 108.00, so the arc is stroked with round caps and joins, which is `GraveRenderer.redrawArc`'s own recorded reason for the same choice. The footprint is now exactly 108 by 108 at every charge, asserted at seven of them rather than only at full.
+
+### The colour, and what it is set against
+
+**`PALETTE.reservoirCharge`, `0x76b7d7`, luma 67.25, hue 199.79, saturation 0.451.** It is declared beside `hudInk` and `hudDim` under the readouts that draw over the field, inside the live-field list and under the ceiling, and it is **not** on `palette.test.ts`'s `NOT_SPRITES` list, because it clears the full sprite-separation pair check on its own and an exemption it does not need would be an exemption nobody could see it did not need.
+
+**The precedent is section 4 of `docs/research/push-feel-precedent.md`, and it is the form rather than the hex.** Brawl Stars shows the Super as "a gray circular meter with a slim yellow ring", a coloured fill on a neutral track, and Genshin fills the burst icon with the ability's own colour and announces ready with a glow and a pulse. The track is therefore the readouts' own near-neutral `hudInk` and the charge is a colour of its own. **The ready tell keeps the amber it already had**, `graveGlow`, because in this palette amber is treasure and the grave's glow, which is what a thing you can spend looks like, and because a state Mark has already played should not change under a slice about the state he has not.
+
+**The three colours sit inside 0.02 luma of each other: `hudInk` 67.23, `reservoirCharge` 67.25, `graveGlow` 67.25.** That is the point rather than a coincidence, and a test holds it, *holds its three colours at one value, so no state of it is brighter than another*. Neither the charge nor the ready tell can announce by getting brighter whatever the drawing code does, which is the channel ADR 0054's reading of ADR 0014 closes.
+
+**The hue was forced, the same way `territory`'s and `territoryGround`'s were.** Fire's 20-degree exclusion closes 20 to 39, amber at 41 is the ready tell itself, corpse and feast hold the warm bone, the green family from 76 to 155 is the mobs and the moss, purple is banned outright, and 237.5 is claimed ground. What is left at this luma is the grave's own cold family, 175 to 220, where the readouts already live. **199.79 is the one spot in it with room for real chroma**: it clears `wisp` at 172.24 by 27.5 hue degrees, `bellRing` at 210 on saturation by 0.292 against a 0.25 minimum, and the track by 0.406. Measured: APCA Lc 58.35 against night, and 37.25 luma above the Vigil's ground tint nine hue degrees away.
+
+**One other colour's comment went stale on the same commit and was corrected rather than left.** `standInVigilTint`'s derivation said hue 175 to 205 "is entirely empty and it still is". It now says that of the sprites it still is, names `reservoirCharge` at 199.79 as a readout 37.25 luma above it, and says that neither of the Vigil's two named clearances moves. `palette.test.ts`'s own comment on that test carried the same claim and carries the corrected one now. **This is `docs/agents/lessons.md`'s own rule followed: after adding a declared value, grep the record for any count that ranges over its category.**
+
+### The alpha step out, the pulse kept
+
+**`QUIET_ALPHA` 0.32 and `ringAlpha`'s two-state shape are gone**, and `LIT_PULSE_DEPTH` 0.22 and `LIT_PULSE_TICKS` 40 are untouched. What replaced them is `chargeFace(charge, tick)`, a pure function returning the filled share of a turn, the ink and the alpha, testable with no renderer, which is what the old tests stood on. **Below a full reservoir the alpha is exactly 1 at every charge**, so the charge moves on area alone; at a full one the ink becomes `graveGlow` and the alpha pulses between 0.78 and 1. The clamp lives in the function rather than at the caller, because the reservoir's own fill can exceed its capacity by one ulp and a fraction a hair over one has to read as ready rather than wrap.
+
+**Cited to ADR 0054**, whose reading of ADR 0014 binds the HUD to announce by count, by shape or by subtraction and never by getting brighter. The fill announces by area, which is the compliant channel, and the pulse is motion rather than a brightness comparison the player has to make against a remembered state.
+
+### The corner, and the two rects re-derived
+
+**One `position.set` in `GameScreen.resize`**, from `READOUT_RESERVE.margin` exactly as the pause button is, so the two cannot drift apart and the non-overlap rule stays one rule in one place. The comment above it keeps what the old one said about sitting over the field, Mark's 2026-08-22 ruling that the field never pays width for a readout, and adds his 2026-09-15 ruling of the corner and the fact that the reserve claims the two top corners only, which is why the move costs `fitField` nothing. **`READOUT_RESERVE`'s three figures, `fitField` and the 540 by 760 fit are untouched.**
+
+**The old assertion was wrong rather than stale and was re-derived.** On the right the button's only neighbour was the pause button; on the left the corner it has to clear is the readout stack's own column. The test now builds the two reserved corners exactly as `layout.ts`'s `coversAReadout` builds them, both starting at the stage's top edge and 260 by 120, plus the pause button's own 132 by 68 rect, and asserts the belch rect overlaps none of the three at every viewport, with the same half-open convention `layout.ts` uses. It also asserts the rect's left edge is the margin and its bottom edge is the margin up from the stage's bottom, so a rect that drifted would fail rather than pass by overlapping nothing.
+
+**A derived rect is not a reading of the code, so the real position is asserted too**, in `layering.test.ts` beside the pause button's own assertion, at a desktop and a phone viewport: *puts the belch's control in the bottom-left corner, inset by the same margin*, off a real `GameScreen` after a real `resize`.
+
+### The target floor, at every viewport
+
+**Held, and it is the existing assertion rather than a new one**: `BELCH_SIZE` 108 against 44 CSS pixels at phone, tablet and desktop, which measure **78.0, 108.0 and 108.0 CSS pixels**. A narrow 320 by 568 viewport, measured but not asserted because it is not in `VIEWPORTS`, gives 64.0.
+
+**A second floor was added because this slice is what could break it**: *carries the same target at an empty reservoir as at a full one*. The hit area is now built once in the constructor rather than inside the drawing, so no state of the charge can reach it at all, and the test presses five points at three charges to say so.
+
+### The rendered check, what it saw and what it could not
+
+**Against the built app at this tip** through `vite preview` and `playwright-cli`, phone 390 by 844 and desktop 1440 by 900, **seven runs across two seeds**, every run started from the title or from RISE AGAIN, **zero console errors and zero warnings** over the whole session.
+
+**Empty, read twice and on two different runs.** At tick 254 of run one and at tick 67 of run two, taken from RISE AGAIN rather than a fresh load, the control is a grey ring with the charge colour on the inner mark and no arc at all. **Run two mattering is the point**: a check that only ever plays run one is structurally blind, and the arc drawn partway through run one did not survive into run two.
+
+**Partway, read at five charges.** A bare tick of arc at tick 3140 of one run, about a tenth at tick 5707, about a third at ticks 3765 and 3981, and about two fifths at tick 6552. In every one the arc starts at top centre, sweeps clockwise, and is visibly thicker than the ring it lies on.
+
+**Desktop, at tick 2881 of run two.** The control sits in the bottom-left corner of the stage, clear of the letterboxed field, clear of the corner readout stack above it and the whole width of the stage away from the pause button, with the arc about a fifth round.
+
+**What could not be obtained, said plainly: a full reservoir.** Seven runs, the best of them 11498 ticks, peaked at roughly two fifths of capacity. **This is the driver and not the build, and it is the same limit slice J-fix measured and wrote down**: `RESERVOIR_CAPACITY` is `FEAST_PAYOUT` exactly and a feast is shed when a boss phase breaks, so the route to full is a broken phase eaten rather than trash accumulated, and across J-fix's twelve batch tapes the bot's own first belch lands between ticks 10097 and 15534 while a blind keyboard or mouse driver at 4 to 6 frames a second seals between 6564 and 11498. Pins were spent trying: `?size=67.5` at ADR 0003's ceiling, `?levels=5`, `?signal=1` locking the pressure signal full, a still grave, keyboard sweeps and a 1:1 mouse serpentine over the whole field. **So the ready state's picture is pinned by test rather than by a screenshot**, by *changes colour and pulses at a full reservoir and at nothing below one* and *is a ring rather than a filled disc* at charge 1, and **whether a closed amber pulsing ring reads as ready at sixty frames a second is Mark's own step.**
+
+### The grayscale read, measured off the pixels rather than eyeballed
+
+**The full-reservoir frame was not available, so the read was taken at a two-fifths charge**, which is where the question actually bites: whether the filled share can be told from the unfilled one with the hue gone. `filter: grayscale(1)` on the page, a 120 by 114 crop of the corner, and the ring walked on twelve rays from its own centre.
+
+**In colour, the two bands render at exactly their declared values.** The arc measures `rgb(118,183,215)`, luma **67.25**, on every ray from 0 to 4 o'clock; the track measures `rgb(168,172,176)`, luma **67.23**, on every ray from 5 to 11. The boundary between them sits between 4 and 5 o'clock, which is the charge itself. **0.02 luma apart, so in grayscale they are one value and the colour contributes nothing**, which is the honest limit of a hue-separated design and is exactly what the band ceiling forces.
+
+**What carries the reading in grayscale is width, and it measures about double.** The filled band runs **6.25 to 7.50 CSS pixels** and the bare track **3.00 to 4.00**, at the phone viewport where the stage is smallest. The arc is still legible with the hue removed, by area rather than by value, which is what the design record's own test sentence promises.
+
+### What did not move, each read out of the tree at the committed tip
+
+**`WITNESS_VERSION` 8** (`src/game/witness.ts:108`), **`FORMAT_VERSION` 4** (`src/tape/wireCodes.ts:50`), **`READINGS_VERSION` 5** (`src/dev/readingsVersion.ts:87`) and **`GOLDEN`'s checksum `-145039082`** (`src/dev/digest.ts:443`). **None of the four files is in the commit**, and the commit's six files are all under `src/app`. No `GOLDEN` re-pin was taken and none was permitted.
+
+**No tape, no batch and no determinism run is owed, and the claim was checked rather than assumed.** Nothing under `src/game`, `src/tape`, `src/dev` or `src/input` is in the commit, no rule the simulation runs was touched, and the one sim value the slice reads, `run.reservoir / RESERVOIR_CAPACITY`, is the expression `GameScreen` already handed the grave.
+
+**Also untouched:** the layering, with the layering test green and nothing drawing above `mobFire`; the claimed-pointer field and the steer model's release path, with *claims the pointer that pressed it, so a thumb that rolls does not steer* and *drops every claim on release()* both green and unchanged; the template's shared `Button` in `src/app/ui`, which is #38's; and every ADR, none filed and none amended.
+
+### Verification
+
+`pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/` before the commit. **`pnpm verify` green twice on the committed tree at exit 0**: 146 test files, 2075 passed, 21 expected fail, 2 todo, where slice J-fix left it at 146 files, 2068 passed, 21 and 2.
+
+**The six fences green, each by title**: *src/game imports only from src/game*, *src/dev imports only from src/dev and src/game and src/tape*, *a policy names no weapon line*, *the step fence (ADR 0017) passes from the execution module alone*, *the harness reports and never judges* in all three of its parts, and *every reading declares what comparing it means*, plus slice D's sixth, *the cap derivation reads tables and never the stage*. Beside them: *every test file imports only from inside its parent folder's subtree* green, *carries no value-import cycle beyond the ones written down* green, *a golden digest over a short scripted scenario matches the committed constant (ADR 0015)* green at `-145039082`, and **the palette scan green over the new colour in all of its parts**, including *puts every other field colour at or below FIELD_LUMA_CEILING* at luma 67.25, *keeps every non-fire hue at least 20 degrees off every mob-fire body hue* at a minimum gap of 164.23, *keeps every pair of field sprites apart on luma, hue or saturation*, *declares no brown*, and *reaches no MENU colour, writes no colour literal, and sets no blendMode*.
+
+**The test-name diff, against this branch's own tip captured before the first edit: 2089 names to 2096, 11 added and 4 removed.** **Every one of the four removals has its replacement in the eleven.** *reads quiet below a full reservoir and lit at full* and *pulses at full, so full is a state rather than the top of a ramp* were `ringAlpha`'s two tests and are replaced by *never announces the charge by brightness alone* and *changes colour and pulses at a full reservoir and at nothing below one*, which is the ruling that retired them rather than a rename. *does not overlap the pause button at any of them* is replaced by *sits in the bottom-left corner and overlaps neither reserved corner nor the pause button*, which asserts strictly more. *draws only declared palette colours* is replaced by *draws only declared palette colours, all three inside the ceiling*. Against the step 4 baseline the figures are 1834 to 2096, 522 added and 260 removed.
+
+### The fence that caught something, and it was right to
+
+**`src/app`'s test-span allowance is `app/palette` and `app/layout` and nothing else**, so a first draft of the one-value test importing `luma` from `app/color` failed *every test file imports only from inside its parent folder's subtree* by name. **The fence was not touched.** The test reads the declared lumas instead, which is the right source anyway: `palette.test.ts` already holds every declared luma against its hex, so reading the declaration is reading the measurement rather than repeating it.
+
+### Record and prompt claims found false against the tree
+
+**None.** Every claim slice K's prompt and the record's ruling R7 make about the tree held: `QUIET_ALPHA` at `BelchButton.ts:40`, the pulse at 53 to 57, the ring at 119 to 126, `BELCH_SIZE` and its floor at 23 to 31, the two rects in `BelchButton.test.ts` at 53 to 64, `READOUT_RESERVE`'s two top corners in `layout.ts`, `graveGlow` at luma 67.25 and the ceiling at 68. The prompt's state-of-the-branch line naming slice J's docs commit as the tip was already corrected in the dispatch, and the tip was `7f5cb0105b`.
+
+**One thing the prompt did not anticipate and it is not a contradiction.** It says to confirm the existing palette scan green over the new colour rather than writing a second one, which is what happened; what it could not know is that adding a colour at hue 199.79 makes another entry's derivation comment stale, so `standInVigilTint`'s paragraph and `palette.test.ts`'s comment on the Vigil test were corrected in the same commit. No assertion moved.
+
+### Filed for Mark's read, not applied
+
+**The bottom-left corner is the hard-reach corner for a right-handed one-handed grip.** The design record's section 7 already carries it with Hurff's map behind it. Mark ruled the corner and ruled handedness future work, so the move was made as ruled and nothing here acts on the finding. What this slice adds to his read is only that it is now true on screen at both viewports, so the question is answerable by grip rather than by argument.
+
+### Left for later slices, each named
+
+**Slice L owns the Wall and inherits nothing from here.** Nothing under `src/game` was opened and no belch rule moved.
+
+**The shared widgets are still #38's.** The pause button remains the template's `Button` in the template's pink, outside the palette scan, at the one corner of the stage the scan cannot reach. This control is purpose-built for exactly that reason and the gap is unchanged.
+
+**Seen and left, for nobody in particular.** The charging state is now drawn at full alpha where the old ring drew at 0.32, because the alpha step is what ADR 0054 forbids, so the corner is as loud while filling as it used to be only at ready. The track is held to the narrow stroke to pay for it, and whether the corner now reads as too loud on a real device is a feel call and Mark's.
 
 ## 14. Slice L: the Wall is a wall (#123)
