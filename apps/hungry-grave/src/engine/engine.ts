@@ -15,6 +15,29 @@ import { CreationNavigationPlugin } from './navigation/NavigationPlugin';
 import { CreationResizePlugin } from './resize/ResizePlugin';
 import { getResolution } from './utils/getResolution';
 
+// The element the page gives the engine to measure, beside the one it gives it to append the canvas to.
+const STAGE_BOX_ID = 'app';
+
+/**
+ * The box the renderer is sized from.
+ *
+ * The element rather than the window, because `globalThis.innerHeight` tracks
+ * the dynamic viewport on iOS: a renderer sized from the window re-fits its
+ * stage mid-run as the browser's chrome retracts, whatever height the page's own
+ * stylesheet asks for, so the element is what makes a small-viewport height
+ * reach the canvas at all. A page with no such element is measured from the
+ * window, which is the stock behaviour, and the fall back is said out loud
+ * because it is the case where the stage moves under a run.
+ */
+const measuredBox = (): Window | HTMLElement => {
+  const box = document.getElementById(STAGE_BOX_ID);
+  if (box !== null) return box;
+  console.warn(
+    `there is no #${STAGE_BOX_ID} element to measure, so the renderer is sized from the window instead; the stage will re-fit whenever the browser's chrome moves`,
+  );
+  return window;
+};
+
 /**
  * Swaps Pixi's stock resize handling for the engine's own and adds the audio
  * and navigation plugins the engine's API is built on. Application reads the
@@ -43,7 +66,7 @@ const registerEnginePlugins = (): void => {
 export class CreationEngine extends Application {
   /** Initialize the application */
   public async init(opts: Partial<ApplicationOptions>): Promise<void> {
-    opts.resizeTo ??= window;
+    opts.resizeTo ??= measuredBox();
     opts.resolution ??= getResolution();
 
     await super.init(opts);
@@ -83,4 +106,4 @@ export class CreationEngine extends Application {
   };
 }
 
-export { registerEnginePlugins };
+export { measuredBox, registerEnginePlugins };

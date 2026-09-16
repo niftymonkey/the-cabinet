@@ -14,8 +14,16 @@ body {
 #app {
   width: 100%;
   height: 100vh;
-  /* Dynamic viewport height, so the mobile URL bar never hides the HUD */
-  height: 100dvh;
+  /* The small viewport, which is the window with the browser's chrome fully
+       expanded, less the bottom safe-area inset the entry point reads once at
+       boot and writes to --inset-bottom. Small rather than dynamic because a
+       dynamic height re-fits the field under the player as the chrome
+       retracts, and read once rather than live because the inset itself moves
+       with the toolbar on iOS Safari and Chrome Android. The box the renderer
+       measures is then clear of the home indicator and never changes again.
+       env(safe-area-max-inset-bottom) is the static value this wants and
+       Safari does not carry it yet. */
+  height: calc(100svh - var(--inset-bottom, 0px));
   overflow: hidden;
   display: flex;
   justify-content: center;

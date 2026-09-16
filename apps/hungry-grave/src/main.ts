@@ -32,6 +32,41 @@ import { CreationEngine, registerEnginePlugins } from './engine/engine';
 import '@pixi/sound';
 import 'pixi.js/app';
 
+/**
+ * Takes the bottom safe-area inset out of the box the renderer measures, once.
+ *
+ * `#app`'s height subtracts `--inset-bottom` and this is the one write of it.
+ * Read once and never live: the inset moves with the browser's toolbar on iOS
+ * Safari and Chrome Android, so a bare `env()` inside that height would re-fit
+ * the field mid-run, which is the exact movement the small viewport is there to
+ * stop. `env(safe-area-max-inset-bottom)` is the static value this wants and
+ * Safari does not carry it yet.
+ *
+ * It is measured through a probe element rather than read back off a custom
+ * property because a laid-out element resolves `env()` to a used length in every
+ * browser, and `viewport-fit=cover` in index.html is what makes that length a
+ * real inset rather than zero.
+ */
+const reserveBottomSafeArea = (): void => {
+  const probe = document.createElement('div');
+  probe.style.position = 'fixed';
+  probe.style.width = '0';
+  probe.style.height = 'env(safe-area-inset-bottom, 0px)';
+  document.body.appendChild(probe);
+  const reported = probe.getBoundingClientRect().height;
+  probe.remove();
+
+  // A live environment input, so it is repaired to a safe value rather than
+  // trusted, and a browser that reports nothing usable costs the box nothing.
+  const inset = Number.isFinite(reported) && reported > 0 ? reported : 0;
+  if (inset !== reported) {
+    console.warn(
+      `the page reported a bottom safe-area inset of ${reported}, which no height can be computed from; the stage box takes nothing out for it and a control in the bottom corner may sit under the home indicator`,
+    );
+  }
+  document.documentElement.style.setProperty('--inset-bottom', `${inset}px`);
+};
+
 const initEngine = async (): Promise<CreationEngine> => {
   registerEnginePlugins();
   const engine = new CreationEngine();
@@ -362,6 +397,8 @@ const startRouter = (engine: CreationEngine): Promise<void> => {
 };
 
 const main = async (): Promise<void> => {
+  // Before the engine, because the engine measures the box this shrinks.
+  reserveBottomSafeArea();
   const engine = await initEngine();
   applySavedVolumes(engine.audio);
   attachFpsMeter(engine);

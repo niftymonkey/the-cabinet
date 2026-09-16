@@ -20,9 +20,15 @@ import {
 /** APCA and the touch-target floors are both published; this is the smaller of the two. */
 const TOUCH_TARGET_CSS = 44;
 
-/** The viewports the layout tests already use. */
+/**
+ * The viewports the layout tests already use, plus the phone at its small
+ * viewport. The 390 by 844 row is the height a phone reports with its chrome
+ * retracted, which is not what the page is sized to: `#app` is sized at `svh`,
+ * so the standing case is a shorter window and nothing in this sweep saw it.
+ */
 const VIEWPORTS = [
   { name: 'phone', width: 390, height: 844 },
+  { name: 'phone at svh 660', width: 393, height: 660 },
   { name: 'tablet', width: 820, height: 1180 },
   { name: 'desktop', width: 1440, height: 900 },
 ];

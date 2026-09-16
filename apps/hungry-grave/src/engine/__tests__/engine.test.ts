@@ -26,7 +26,10 @@ import 'pixi.js/app';
  */
 vi.hoisted(() => {
   Object.defineProperty(globalThis, 'document', {
-    value: { createElement: () => ({ canPlayType: () => '' }) },
+    value: {
+      createElement: () => ({ canPlayType: () => '' }),
+      getElementById: () => null,
+    },
     configurable: true,
   });
   Object.defineProperty(globalThis, 'window', {
@@ -85,5 +88,46 @@ describe('the engine module', () => {
     registerEnginePlugins();
 
     expect(registeredPlugins()).toEqual(afterFirst);
+  });
+});
+
+describe('the box the renderer measures', () => {
+  /** What the page hands the engine, swapped per case. */
+  function pageHolding(box: unknown): void {
+    Object.defineProperty(globalThis, 'document', {
+      value: {
+        createElement: () => ({ canPlayType: () => '' }),
+        getElementById: (id: string) => (id === 'app' ? box : null),
+      },
+      configurable: true,
+    });
+  }
+
+  it('is the page element rather than the window', async () => {
+    // The window is what the stock default measures, and `innerHeight` tracks
+    // the dynamic viewport on iOS: a renderer sized from the window re-fits its
+    // stage mid-run as the browser's chrome retracts, whatever height the
+    // page's own stylesheet asks for. Measuring the element is what makes the
+    // stylesheet's small-viewport height reach the canvas at all.
+    const { measuredBox } = await import('../engine');
+    const box = { id: 'app' };
+    pageHolding(box);
+
+    expect(measuredBox()).toBe(box);
+    expect(measuredBox()).not.toBe(globalThis.window);
+  });
+
+  it('falls back to the window on a page with no such element, and says so', async () => {
+    const { measuredBox } = await import('../engine');
+    pageHolding(null);
+    const said = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(measuredBox()).toBe(globalThis.window);
+
+    // Nothing abnormal is silent: what happened, and what it costs.
+    const words = said.mock.calls.map((call) => call.join(' ')).join(' ');
+    expect(words).toContain('app');
+    expect(words).toContain('window');
+    said.mockRestore();
   });
 });
