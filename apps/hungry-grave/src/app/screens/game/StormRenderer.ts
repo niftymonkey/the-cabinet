@@ -21,6 +21,7 @@ import {
   TERRITORY_OPENING_TICKS,
 } from '../../../game/lines/territory';
 import { WISP_HALF_EXTENT } from '../../../game/lines/wisps';
+import type { WeaponLine } from '../../../game/lines/roster';
 import type { RunState } from '../../../game/run';
 import { SCROLL_SPEED } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
@@ -183,6 +184,23 @@ const SPLASH_REACH = 26;
 const SPLASH_SPOKES = 7;
 
 /**
+ * How long a stripped line's expression reads as blowing up, in ticks, and how
+ * far one ring reaches and how thick it starts, both in field units.
+ *
+ * A first figure. The splash's 18 is the order a pop sits at against the
+ * eruption's field-wide 90, and the invulnerable window is 24 (tuning.ts), so
+ * the announcement is done about when the player can be hit again. The reach is
+ * two skulls' width, which is large enough to read against the column it left
+ * and small enough that a full stream's worth does not paint the field.
+ */
+const LOSS_BLOW_UP_TICKS = 24;
+const LOSS_BLOW_UP_REACH = 16;
+const LOSS_BLOW_UP_STROKE = 6;
+
+/** The line whose field expression carries a lost rung today (design record 3.3). */
+const BLOWN_UP_LINE: WeaponLine = 'skullStream';
+
+/**
  * Every transient read this renderer holds across frames, with its lifetime in
  * ticks: a burst's born is a past tick the run state no longer carries, so a
  * replay primed mid-run has to start far enough back to have seen it born
@@ -194,6 +212,7 @@ const STORM_RENDERER_TRANSIENT_TICKS = {
   eruption: ERUPTION_TICKS,
   splash: SPLASH_TICKS,
   territoryArrival: TERRITORY_OPENING_TICKS,
+  lossBlowUp: LOSS_BLOW_UP_TICKS,
 } as const;
 
 const clamp = (value: number, low: number, high: number): number => {
@@ -424,6 +443,40 @@ const drawSplash = (into: Graphics, age: number): void => {
   into.fill({ color: PALETTE.splash.hex });
 };
 
+/** Where one of a stripped line's sprites stood on the tick the rung was lost. */
+interface LossPop {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * The stream's columns blowing up: one expanding ring where each skull stood on
+ * the tick the rung went (ADR 0054 as amended by record R8, record R7).
+ *
+ * The rings stay where the column was rather than following the skulls, which
+ * keep flying. The sim takes a level and does nothing else, so what a pop
+ * announces is the loss and never a change in the line's own arithmetic: it is
+ * a picture and never a rule.
+ */
+const drawLossPops = (
+  into: Graphics,
+  pops: readonly LossPop[],
+  age: number,
+): void => {
+  into.clear();
+  const progress = age / LOSS_BLOW_UP_TICKS;
+  const radius = LOSS_BLOW_UP_REACH * progress;
+  // A ring on the tick it is born has reached nowhere yet and is nothing to draw.
+  if (radius <= 0) return;
+  for (const pop of pops) {
+    into.circle(pop.x, pop.y, radius).stroke({
+      width: LOSS_BLOW_UP_STROKE * (1 - progress) + SPRITE_STROKE,
+      color: PALETTE.skull.hex,
+      alignment: 0.5,
+    });
+  }
+};
+
 // What a patch sprite's geometry depends on, so a redraw happens only when it moves.
 const patchLook = (patch: Patch): string => `${patch.radius}`;
 
@@ -493,6 +546,12 @@ class StormRenderer {
   // splash is a spray out of the grave's mouth and rides nothing.
   private readonly eruption = blankBurst(SCROLL_SPEED);
   private readonly splash = blankBurst(0);
+  /**
+   * The loss announcement. It rides nothing and sits at the field's own origin,
+   * because each of its rings carries the field position of the sprite it left.
+   */
+  private readonly lossBlowUp = blankBurst(0);
+  private readonly lossPops: LossPop[] = [];
 
   private readonly skullDrawn: boolean[] = [];
   /**
@@ -531,8 +590,10 @@ class StormRenderer {
     for (const sprite of this.patchSprites) storm.addChild(sprite);
     for (const sprite of this.wispSprites) storm.addChild(sprite);
     // Last into the storm layer, so a mark still in the air draws over the
-    // dimmed ground it is on its way to.
+    // dimmed ground it is on its way to, and the loss announcement over the
+    // storm it announces.
     for (const sprite of this.arrivalSprites) storm.addChild(sprite);
+    storm.addChild(this.lossBlowUp.sprite);
     layers.layer('bellRing').addChild(this.ring);
     layers.layer('belchEruption').addChild(this.eruption.sprite);
     layers.layer('belchEruption').addChild(this.splash.sprite);
@@ -553,10 +614,11 @@ class StormRenderer {
    * frame, so the skip forgets and the lead-in rebuilds it.
    */
   public forgetPreviousRun(): void {
-    for (const burst of [this.eruption, this.splash]) {
+    for (const burst of [this.eruption, this.splash, this.lossBlowUp]) {
       burst.born = -Infinity;
       burst.sprite.visible = false;
     }
+    this.lossPops.length = 0;
     this.ring.visible = false;
     for (const sprite of this.skullSprites) sprite.visible = false;
     for (const sprite of this.patchSprites) sprite.visible = false;
@@ -575,6 +637,7 @@ class StormRenderer {
     this.ring.removeFromParent();
     this.eruption.sprite.removeFromParent();
     this.splash.sprite.removeFromParent();
+    this.lossBlowUp.sprite.removeFromParent();
   }
 
   private build(): void {
@@ -609,6 +672,22 @@ class StormRenderer {
     this.eruption.born = run.tick;
     this.eruption.x = run.grave.x;
     this.eruption.y = run.grave.y;
+  }
+
+  /**
+   * The floor ladder took a rung. The field channel is built for the skull
+   * stream alone today: its columns are the one expression of the four that is
+   * on screen continuously (design record section 3.3), so an announcement on
+   * any other line would play only when that line happened to be mid-event.
+   * Section 7's sixth finding owns the rest of the channel.
+   */
+  public weaponStripped(run: RunState, lines: readonly WeaponLine[]): void {
+    if (!lines.includes(BLOWN_UP_LINE)) return;
+    this.lossPops.length = 0;
+    for (const skull of run.skulls) {
+      if (skull.alive) this.lossPops.push({ x: skull.x, y: skull.y });
+    }
+    this.lossBlowUp.born = run.tick;
   }
 
   // Charge went over the side at a full reservoir (ADR 0008).
@@ -751,6 +830,9 @@ class StormRenderer {
   private syncBursts(run: RunState): void {
     this.syncBurst(run, this.eruption, ERUPTION_TICKS, drawEruption);
     this.syncBurst(run, this.splash, SPLASH_TICKS, drawSplash);
+    this.syncBurst(run, this.lossBlowUp, LOSS_BLOW_UP_TICKS, (into, age) =>
+      drawLossPops(into, this.lossPops, age),
+    );
   }
 
   /**

@@ -10,6 +10,8 @@ import { PALETTE } from '../../palette';
 import { Label } from '../../ui/Label';
 import { drawPowerUpIcon } from './foodSprite';
 import type { RunIdentity, RunReadout } from './runSession';
+import type { WatchedLoss } from './watchedLoss';
+import { lossReading } from './watchedLoss';
 
 /**
  * How far in from the field's own edges the content starts.
@@ -129,8 +131,14 @@ interface LadderHud {
   readonly view: Container;
   // The roster, written once when the run starts: one row per line it names.
   showIdentity(identity: RunIdentity): void;
-  // Everything that changes as the run goes.
-  render(readout: RunReadout): void;
+  /**
+   * Everything that changes as the run goes, plus whatever loss the driver is
+   * still watching. The loss arrives from outside because it is born of an
+   * event: a view that read it off a falling score would be a second
+   * implementation of the rule, and a diff cannot tell a bleed from an overflow
+   * that happened to be negative (record R5).
+   */
+  render(readout: RunReadout, loss: WatchedLoss): void;
 }
 
 /**
@@ -162,8 +170,33 @@ const createMark = (): Mark => {
   return { view, fill };
 };
 
-const showMark = (mark: Mark, filled: boolean): void => {
-  mark.fill.visible = filled;
+/**
+ * How much of a mark's body is drawn, as a share of its own square. The body
+ * drains from the top down, so a mark on its way out loses area and takes no
+ * step in value and no step in brightness, which is R2's rule holding at the
+ * moment of the loss as much as before it (ADR 0014).
+ *
+ * At nothing left it is hidden, so an emptied mark is exactly the empty mark
+ * the row already draws rather than a second state that resembles it.
+ */
+const fillMark = (mark: Mark, share: number): void => {
+  const held = Math.max(0, Math.min(1, share));
+  mark.fill.visible = held > 0;
+  mark.fill.scale.set(1, held);
+  mark.fill.position.set(0, MARK * (1 - held));
+};
+
+/**
+ * How full one rung's mark draws: solid below the line's level, emptying at the
+ * level itself while a strip is still being watched, and empty above.
+ *
+ * The emptying mark is the one at the level rather than one above it, because
+ * the sim has already taken the rung: the mark the player watches leave is the
+ * top one the line no longer has.
+ */
+const markShare = (rung: number, filled: number, emptying: number): number => {
+  if (rung < filled) return 1;
+  return rung === filled ? emptying : 0;
 };
 
 /**
@@ -277,13 +310,17 @@ const createLadderHud = (): LadderHud => {
         shown.push({ line, row });
       });
     },
-    render(readout) {
-      score.text = scoreReading(readout.score);
-      showMark(cushion, !readout.scoreRungBled);
+    render(readout, loss) {
+      const watched = lossReading(loss, readout);
+      score.text = scoreReading(watched.score);
+      fillMark(cushion, watched.cushion);
       bank.text = bankReading(readout.bankedOffers);
       for (const { line, row } of shown) {
         const filled = filledMarks(readout.levels[line]);
-        row.marks.forEach((mark, rung) => showMark(mark, rung < filled));
+        const emptying = watched.emptying[line] ?? 0;
+        row.marks.forEach((mark, rung) =>
+          fillMark(mark, markShare(rung, filled, emptying)),
+        );
       }
     },
   };

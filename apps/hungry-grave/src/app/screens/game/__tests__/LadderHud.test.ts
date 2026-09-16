@@ -13,6 +13,7 @@ import { MAX_LEVEL, WEAPON_LINES } from '../../../../game/lines/roster';
 import { openOffer, resolveOffer } from '../../../../game/offer';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
+import { INVULNERABLE_TICKS } from '../../../../game/tuning';
 import { BOUNDARY_STROKE, fitField, HUD_BAND } from '../../../layout';
 import { PALETTE } from '../../../palette';
 import type { RunIdentity, RunReadout } from '../runSession';
@@ -35,6 +36,12 @@ vi.mock('../../../ui/Label', () => ({
 }));
 
 import { createLadderHud } from '../LadderHud';
+import {
+  NO_LOSS_WATCHED,
+  RUNG_STRIP_TICKS,
+  SCORE_BLEED_TICKS,
+  watchLoss,
+} from '../watchedLoss';
 
 /**
  * An upper bound on a monospace advance, as a share of the font size. Common
@@ -149,6 +156,10 @@ const merged = (boxes: readonly Box[]): Box => ({
  * through the advance bound above.
  */
 const boxesIn = (node: Container, atX: number, atY: number): Box[] => {
+  // What is drawn, so a body the row is hiding measures as nothing: a mark's
+  // empty body is parked at the bottom of its own square and would otherwise
+  // report ink the row never puts on the screen.
+  if (!node.visible) return [];
   const x = atX + node.x;
   const y = atY + node.y;
   const text = (node as { text?: string }).text;
@@ -164,13 +175,17 @@ const boxesIn = (node: Container, atX: number, atY: number): Box[] => {
     ];
   }
   if (node instanceof Graphics) {
+    // Scaled by its own transform, because a body part way through emptying is
+    // drawn at a share of its geometry and the box has to say so. Every
+    // container between here and the row is unscaled; the placement's own scale
+    // is applied outside this view.
     const bounds = node.getLocalBounds();
     return [
       {
-        left: x + bounds.minX,
-        top: y + bounds.minY,
-        right: x + bounds.maxX,
-        bottom: y + bounds.maxY,
+        left: x + bounds.minX * node.scale.x,
+        top: y + bounds.minY * node.scale.y,
+        right: x + bounds.maxX * node.scale.x,
+        bottom: y + bounds.maxY * node.scale.y,
       },
     ];
   }
@@ -255,6 +270,29 @@ const drawing = (view: Container): string[] => [
 ];
 
 /** Which of two readings of the rows changed, named line by line. */
+/**
+ * How much of a mark's own square its body currently covers, as a share of that
+ * square, off the body's drawn geometry and its transform. Area is the channel
+ * R2 leaves open, so area is what this reads.
+ */
+const areaShareOf = (mark: Container): number => {
+  const fill = markBody(mark, 'fill');
+  if (!fill.visible) return 0;
+  const bounds = fill.getLocalBounds();
+  const drawn =
+    (bounds.maxX - bounds.minX) *
+    fill.scale.x *
+    ((bounds.maxY - bounds.minY) * fill.scale.y);
+  return drawn / (HUD_BAND.mark * HUD_BAND.mark);
+};
+
+/** The mark a line is currently emptying, which is the one at its own level. */
+const markAtLevel = (view: Container, level: number): Container => {
+  const mark = marksOf(rowsOf(view)[0]!)[level];
+  if (mark === undefined) throw new Error(`the row drew no mark at ${level}`);
+  return mark;
+};
+
 const differences = (before: string[], after: string[]): string[] =>
   after.flatMap((row, index) =>
     row === before[index] ? [] : [`${before[index]} to ${row}`],
@@ -266,7 +304,7 @@ describe('the ladder HUD', () => {
     // tape header (ADR 0046), and a HUD driven by the build's WEAPON_LINES
     // would draw a row for a line the run never had.
     const hud = hudShowing(['wisps', 'skullStream']);
-    hud.render(readoutWith({ levels: uniform(1) }));
+    hud.render(readoutWith({ levels: uniform(1) }), NO_LOSS_WATCHED);
 
     expect(rowsOf(hud.view).map((row) => row.label)).toEqual([
       'wisps',
@@ -278,7 +316,7 @@ describe('the ladder HUD', () => {
     // A line at zero can still be offered, so it keeps its place in the row:
     // what says it is unowned is five empty marks rather than an absence.
     const hud = hudShowing(['territory']);
-    hud.render(readoutWith({ levels: uniform(0) }));
+    hud.render(readoutWith({ levels: uniform(0) }), NO_LOSS_WATCHED);
 
     expect(marksOf(rowsOf(hud.view)[0]!).length).toBe(MAX_LEVEL);
     expect(readRows(hud.view)).toEqual(['territory .....']);
@@ -290,7 +328,7 @@ describe('the ladder HUD', () => {
     // and an unlit one cannot differ in value and hue vanishes in grayscale,
     // which leaves area. The pair is hudInk against itself.
     const hud = hudShowing(['skullStream']);
-    hud.render(readoutWith({ levels: uniform(1) }));
+    hud.render(readoutWith({ levels: uniform(1) }), NO_LOSS_WATCHED);
     const mark = marksOf(rowsOf(hud.view)[0]!)[0]!;
 
     const fill = markBody(mark, 'fill');
@@ -309,7 +347,10 @@ describe('the ladder HUD', () => {
     // widest case is a full roster with the widest score and the widest bank
     // the stage can ever stand behind a live offer.
     const hud = hudShowing(WEAPON_LINES);
-    hud.render(readoutWith({ score: 999999, bankedOffers: 25 }));
+    hud.render(
+      readoutWith({ score: 999999, bankedOffers: 25 }),
+      NO_LOSS_WATCHED,
+    );
 
     const content = contentOf(hud.view);
     expect(`top ${content.top >= 0}`).toBe('top true');
@@ -326,7 +367,7 @@ describe('the ladder HUD', () => {
     // reading with it: the outline's floor is foodSprite's own SPRITE_STROKE at
     // the narrowest phone and the gap's is three field units at the same scale.
     const hud = hudShowing(['bell']);
-    hud.render(readoutWith({ levels: uniform(5) }));
+    hud.render(readoutWith({ levels: uniform(5) }), NO_LOSS_WATCHED);
     const row = rowsOf(hud.view)[0]!;
     const mark = marksOf(row)[0]!;
     const side = markBody(mark, 'fill').getLocalBounds().maxX;
@@ -356,7 +397,7 @@ describe('the ladder HUD', () => {
     // of padding are exactly the boundary's own stroke, so the gap leg does not
     // carry the reading and the luma leg does.
     const hud = hudShowing(WEAPON_LINES);
-    hud.render(readoutWith({ levels: uniform(3) }));
+    hud.render(readoutWith({ levels: uniform(3) }), NO_LOSS_WATCHED);
     const narrow = VIEWPORTS[0];
     const css = cssPerFieldUnit(narrow.width, narrow.height);
     const gap = (contentOf(hud.view).top - BOUNDARY_STROKE) * css;
@@ -373,14 +414,14 @@ describe('the ladder HUD', () => {
     // would pass over a view that never drew anything.
     const run = createRun(20260916);
     const hud = hudShowing(run.roster);
-    hud.render(readoutOf(run));
+    hud.render(readoutOf(run), NO_LOSS_WATCHED);
     const before = readRows(hud.view);
 
     openOffer(run, run.grave.x, run.grave.y);
     const offer = run.offer!;
     const taken = offer.options.indexOf('wisps');
     resolveOffer(run, offer.bodyIds[taken]!);
-    hud.render(readoutOf(run));
+    hud.render(readoutOf(run), NO_LOSS_WATCHED);
 
     expect(differences(before, readRows(hud.view))).toEqual([
       'wisps ..... to wisps x....',
@@ -395,13 +436,16 @@ describe('the ladder HUD', () => {
     // moment, spent rung or not (record R2, orchestrator 2026-09-16).
     const hud = hudShowing(['skullStream']);
 
-    hud.render(readoutWith({ score: 0 }));
+    hud.render(readoutWith({ score: 0 }), NO_LOSS_WATCHED);
     expect(scoreOf(hud.view)).toBe('000000');
 
-    hud.render(readoutWith({ score: 12400 }));
+    hud.render(readoutWith({ score: 12400 }), NO_LOSS_WATCHED);
     expect(scoreOf(hud.view)).toBe('012400');
 
-    hud.render(readoutWith({ score: 12400, scoreRungBled: true }));
+    hud.render(
+      readoutWith({ score: 12400, scoreRungBled: true }),
+      NO_LOSS_WATCHED,
+    );
     expect(scoreOf(hud.view)).toBe('012400');
   });
 
@@ -412,13 +456,13 @@ describe('the ladder HUD', () => {
     // lets one vocabulary animate both.
     const hud = hudShowing(['skullStream']);
 
-    hud.render(readoutWith({ scoreRungBled: false }));
+    hud.render(readoutWith({ scoreRungBled: false }), NO_LOSS_WATCHED);
     expect(isFilled(named(hud.view, 'cushion'))).toBe(true);
 
-    hud.render(readoutWith({ scoreRungBled: true }));
+    hud.render(readoutWith({ scoreRungBled: true }), NO_LOSS_WATCHED);
     expect(isFilled(named(hud.view, 'cushion'))).toBe(false);
 
-    hud.render(readoutWith({ scoreRungBled: false }));
+    hud.render(readoutWith({ scoreRungBled: false }), NO_LOSS_WATCHED);
     expect(isFilled(named(hud.view, 'cushion'))).toBe(true);
   });
 
@@ -428,10 +472,10 @@ describe('the ladder HUD', () => {
     // one more number the player learns to stop reading (ADR 0034, record R11).
     const hud = hudShowing(['skullStream']);
 
-    hud.render(readoutWith({ bankedOffers: 0 }));
+    hud.render(readoutWith({ bankedOffers: 0 }), NO_LOSS_WATCHED);
     expect(bankOf(hud.view)).toBe('');
 
-    hud.render(readoutWith({ bankedOffers: 3 }));
+    hud.render(readoutWith({ bankedOffers: 3 }), NO_LOSS_WATCHED);
     expect(bankOf(hud.view)).toBe('+3');
   });
 
@@ -439,12 +483,136 @@ describe('the ladder HUD', () => {
     // A dumb view: no data source, no loop subscription, no change detection,
     // and nothing of its own carried between renders.
     const hud = hudShowing(WEAPON_LINES);
-    hud.render(readoutWith({ tick: 1, score: 4200, levels: uniform(2) }));
+    hud.render(
+      readoutWith({ tick: 1, score: 4200, levels: uniform(2) }),
+      NO_LOSS_WATCHED,
+    );
     const first = drawing(hud.view);
 
-    hud.render(readoutWith({ tick: 9999, score: 4200, levels: uniform(2) }));
+    hud.render(
+      readoutWith({ tick: 9999, score: 4200, levels: uniform(2) }),
+      NO_LOSS_WATCHED,
+    );
 
     expect(drawing(hud.view)).toEqual(first);
+  });
+
+  it("empties a stripped line's top mark over the strip's own lifetime, by area and by no step in value", () => {
+    // Record R2 and R5: the end state is the empty mark the row already draws,
+    // reached by losing area rather than by a step in value, so the moment of
+    // the loss speaks the same vocabulary as every moment before it. The line
+    // is at 2 because the sim has already taken the rung: the mark the player
+    // watches leave is the top one the line no longer has.
+    const hud = hudShowing(['wisps']);
+    const stripped = watchLoss(
+      NO_LOSS_WATCHED,
+      { type: 'weaponStripped', lines: ['wisps'] },
+      0,
+    );
+    const at = (tick: number): number => {
+      hud.render(readoutWith({ tick, levels: uniform(2) }), stripped);
+      return areaShareOf(markAtLevel(hud.view, 2));
+    };
+
+    expect(at(0)).toBeCloseTo(1, 6);
+    expect(at(RUNG_STRIP_TICKS / 2)).toBeCloseTo(0.5, 6);
+    expect(new Set(colorsIn(hud.view))).toEqual(new Set([PALETTE.hudInk.hex]));
+
+    hud.render(
+      readoutWith({ tick: RUNG_STRIP_TICKS, levels: uniform(2) }),
+      stripped,
+    );
+    expect(readRows(hud.view)).toEqual(['wisps xx...']);
+  });
+
+  it('empties a mark on every line that paid and on none that did not', () => {
+    // Record R7: stripLevels takes one off every line that has one to give, so
+    // four marks emptying at once is the bigger event it is rather than a defect.
+    const hud = hudShowing(WEAPON_LINES);
+    const stripped = watchLoss(
+      NO_LOSS_WATCHED,
+      { type: 'weaponStripped', lines: ['skullStream', 'bell'] },
+      0,
+    );
+    hud.render(
+      readoutWith({ tick: RUNG_STRIP_TICKS / 2, levels: uniform(3) }),
+      stripped,
+    );
+
+    const paid = rowsOf(hud.view).map(
+      (row) => `${row.label} ${areaShareOf(marksOf(row)[3]!).toFixed(2)}`,
+    );
+    expect(paid).toEqual([
+      'skullStream 0.50',
+      'territory 0.00',
+      'wisps 0.00',
+      'bell 0.50',
+    ]);
+  });
+
+  it('counts the digits down while the cushion beside them empties, both of the one loss', () => {
+    // Record R5: the digits and the mark are one vocabulary, so a hit that
+    // bleeds shows the number leaving and the cushion going at the same pace.
+    const hud = hudShowing(['skullStream']);
+    const watching = watchLoss(
+      NO_LOSS_WATCHED,
+      { type: 'scoreBled', amount: 41300 },
+      0,
+    );
+    const midpoint = readoutWith({
+      tick: SCORE_BLEED_TICKS / 2,
+      score: 0,
+      scoreRungBled: true,
+    });
+
+    hud.render(midpoint, watching);
+
+    expect(scoreOf(hud.view)).toBe('020650');
+    expect(areaShareOf(named(hud.view, 'cushion'))).toBeCloseTo(0.5, 6);
+  });
+
+  it('is told a bleed happened and never infers one from a score that fell', () => {
+    // A view that diffed the score would be a second implementation of the
+    // rule, and a diff cannot tell a bleed from an overflow that was negative.
+    const hud = hudShowing(['skullStream']);
+
+    hud.render(readoutWith({ tick: 0, score: 41300 }), NO_LOSS_WATCHED);
+    hud.render(readoutWith({ tick: 1, score: 0 }), NO_LOSS_WATCHED);
+
+    expect(scoreOf(hud.view)).toBe('000000');
+    expect(isFilled(named(hud.view, 'cushion'))).toBe(true);
+  });
+
+  it('draws a strip landing while the cushion is still emptying with both live', () => {
+    // INVULNERABLE_TICKS is 24 and the countdown is 40, so the second hit is
+    // legal before the first has finished being watched (record R5).
+    const hud = hudShowing(['bell']);
+    const bleeding = watchLoss(
+      NO_LOSS_WATCHED,
+      { type: 'scoreBled', amount: 41300 },
+      0,
+    );
+    const andStripped = watchLoss(
+      bleeding,
+      { type: 'weaponStripped', lines: ['bell'] },
+      INVULNERABLE_TICKS,
+    );
+    hud.render(
+      readoutWith({
+        tick: INVULNERABLE_TICKS + 4,
+        score: 0,
+        scoreRungBled: true,
+        levels: uniform(1),
+      }),
+      andStripped,
+    );
+
+    const cushion = areaShareOf(named(hud.view, 'cushion'));
+    const rung = areaShareOf(markAtLevel(hud.view, 1));
+    expect(cushion).toBeGreaterThan(0);
+    expect(cushion).toBeLessThan(1);
+    expect(rung).toBeGreaterThan(0);
+    expect(rung).toBeLessThan(1);
   });
 
   it("makes its rows a function of the roster's length and each line's index in it", () => {
@@ -460,15 +628,15 @@ describe('the ladder HUD', () => {
     ];
     const seen = rosters.map((roster) => {
       const hud = hudShowing(roster);
-      hud.render(readoutWith({ levels: uniform(1) }));
+      hud.render(readoutWith({ levels: uniform(1) }), NO_LOSS_WATCHED);
       return rowsOf(hud.view).map((row) => row.label);
     });
     expect(seen).toEqual(rosters);
 
     const reused = hudShowing(['bell', 'wisps', 'skullStream']);
-    reused.render(readoutWith({ levels: uniform(1) }));
+    reused.render(readoutWith({ levels: uniform(1) }), NO_LOSS_WATCHED);
     reused.showIdentity(identityWith(['territory']));
-    reused.render(readoutWith({ levels: uniform(1) }));
+    reused.render(readoutWith({ levels: uniform(1) }), NO_LOSS_WATCHED);
     expect(rowsOf(reused.view).map((row) => row.label)).toEqual(['territory']);
   });
 });

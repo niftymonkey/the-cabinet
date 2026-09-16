@@ -26,6 +26,7 @@ import { FieldLayers } from '../layering';
 import {
   ERUPTION_TICKS,
   eruptionFrontsAt,
+  STORM_RENDERER_TRANSIENT_TICKS,
   StormRenderer,
 } from '../StormRenderer';
 
@@ -109,10 +110,11 @@ function putWisp(state: RunState, slot: number, x: number, y: number) {
 describe("the storm's sprite pools (plan 6.19)", () => {
   it('holds a sprite per entity cap, so a spawn never allocates', () => {
     const { layers } = attached();
-    // The storm layer carries the skulls, Territory's patches, the wisps and
-    // one arrival mark per patch.
+    // The storm layer carries the skulls, Territory's patches, the wisps, one
+    // arrival mark per patch, and the loss announcement, which has no sim
+    // entity behind it and so gets one sprite rather than a pool.
     expect(children(layers, 'storm')).toHaveLength(
-      SKULL_CAP + 2 * TERRITORY_CAP + WISP_CAP,
+      SKULL_CAP + 2 * TERRITORY_CAP + WISP_CAP + 1,
     );
     expect(children(layers, 'bellRing')).toHaveLength(1);
     // The eruption and the splash, both momentary and both with no sim entity.
@@ -502,15 +504,16 @@ describe("Territory's claimed ground", () => {
 
   it('nothing draws a stone', () => {
     // A deliberate-absence test guarding the headstones' removal (#76). The
-    // storm layer is exactly the three pools it now has, and a run that has
-    // swallowed nothing draws nothing in it: an orbiting solid would show up
-    // here as a visible sprite around a grave that has claimed no ground.
+    // storm layer is exactly the three pools it now has plus the single loss
+    // announcement, and a run that has swallowed nothing draws nothing in it:
+    // an orbiting solid would show up here as a visible sprite around a grave
+    // that has claimed no ground.
     const { layers, renderer } = attached();
     const state = quietRun();
     renderer.sync(state);
 
     expect(children(layers, 'storm')).toHaveLength(
-      SKULL_CAP + 2 * TERRITORY_CAP + WISP_CAP,
+      SKULL_CAP + 2 * TERRITORY_CAP + WISP_CAP + 1,
     );
     expect(
       children(layers, 'storm').filter((sprite) => sprite.visible),
@@ -684,5 +687,97 @@ describe('the arrival mark', () => {
     patch.opening = TERRITORY_OPENING_TICKS;
     renderer.sync(state);
     expect(mark(layers).position.x).toBeCloseTo(400, 6);
+  });
+});
+
+describe("a stripped line's expression blowing up (record R7)", () => {
+  /** The loss announcement's own sprite: last into the storm layer. */
+  const blowUp = (layers: FieldLayers): Graphics => {
+    const storm = children(layers, 'storm');
+    const sprite = storm[storm.length - 1];
+    if (sprite === undefined) throw new Error('no loss sprite in the storm');
+    return sprite;
+  };
+
+  /** How many rings the announcement is drawing this frame. */
+  const rings = (sprite: Graphics): number =>
+    sprite.context.instructions.filter(
+      (instruction) => instruction.action === 'stroke',
+    ).length;
+
+  it('blows up the skull stream, one ring where each of its skulls stood when the rung went', () => {
+    // ADR 0054 as amended by record R8: a line's rung is carried by that line's
+    // own expression on the field, and section 3.3 measures the stream's
+    // columns as the one expression of the four that is on screen continuously.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    state.tick = 40;
+    putSkull(state, 0, 100, 200);
+    putSkull(state, 1, 140, 260);
+    renderer.sync(state);
+
+    renderer.weaponStripped(state, ['skullStream', 'territory']);
+    state.tick = 46;
+    renderer.sync(state);
+
+    const sprite = blowUp(layers);
+    expect(sprite.visible).toBe(true);
+    expect(rings(sprite)).toBe(2);
+  });
+
+  it('announces nothing for a line whose expression it does not draw', () => {
+    // Section 3.3 and section 7's sixth finding: the bell's cones are on screen
+    // only during a toll, the wisps only while a flight is alive, and
+    // Territory's ground is an area and never a count, so the field channel is
+    // built for the stream alone and an unbuilt line stays silent here.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    state.tick = 40;
+    putSkull(state, 0, 100, 200);
+    renderer.sync(state);
+
+    renderer.weaponStripped(state, ['bell', 'wisps', 'territory']);
+    state.tick = 44;
+    renderer.sync(state);
+
+    expect(blowUp(layers).visible).toBe(false);
+  });
+
+  it('declares its lifetime in the registry and plays for exactly that long', () => {
+    // The registry in transients.ts aggregates this renderer's own declaration,
+    // and the covering test holds the replay lead-in over it (#58).
+    const life = STORM_RENDERER_TRANSIENT_TICKS.lossBlowUp;
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    putSkull(state, 0, 100, 200);
+    renderer.weaponStripped(state, ['skullStream']);
+
+    state.tick = life - 1;
+    renderer.sync(state);
+    expect(blowUp(layers).visible).toBe(true);
+
+    state.tick = life;
+    renderer.sync(state);
+    expect(blowUp(layers).visible).toBe(false);
+  });
+
+  it('forgetPreviousRun drops it, so a second run out of the pool never replays it', () => {
+    // The pooled-screen leak: a born tick carried across runs replays the loss
+    // for a rung nobody lost.
+    const { layers, renderer } = attached();
+    const first = quietRun();
+    first.tick = 12;
+    putSkull(first, 0, 100, 200);
+    renderer.weaponStripped(first, ['skullStream']);
+    renderer.sync(first);
+    expect(blowUp(layers).visible).toBe(true);
+
+    layers.clear();
+    renderer.attach(layers);
+    const second = quietRun(19);
+    second.tick = 12;
+    renderer.sync(second);
+
+    expect(blowUp(layers).visible).toBe(false);
   });
 });

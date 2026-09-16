@@ -162,6 +162,14 @@ class ReplayScreen extends Container {
     for (const event of events) {
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
+      // The loss announcement, mirrored from GameScreen.announce: wired into
+      // the live screen alone it would simply not play on a replay, and the
+      // lead-in's whole promise is that a replay shows what the run showed
+      // (#58). The row's own countdown is not mirrored because the replay
+      // carries no HUD at all.
+      if (event.type === 'weaponStripped') {
+        this.stormRenderer.weaponStripped(run, event.lines);
+      }
     }
     this.grave.sync(
       run.grave,

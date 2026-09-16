@@ -40,6 +40,8 @@ import { createRunSession } from './runSession';
 import type { RunSteering } from './steering';
 import { createRunSteering } from './steering';
 import { StormRenderer } from './StormRenderer';
+import type { WatchedLoss } from './watchedLoss';
+import { NO_LOSS_WATCHED, watchLoss } from './watchedLoss';
 
 // The pause button's size, in stage units. Its corner inset comes from the readout reserve, which is what layout.ts fits the field around.
 const PAUSE_WIDTH = 132;
@@ -191,6 +193,13 @@ class GameScreen extends Container {
    * agree only until something moves one of them.
    */
   private placement: FieldPlacement = DEGENERATE_PLACEMENT;
+  /**
+   * The loss the row is still watching, which is this driver's own per-run
+   * memory: a born tick and a bled amount belonging to a run that is over.
+   * prepare() drops it beside the ending and the countdown, because a pooled
+   * screen left holding it opens the next run mid-countdown.
+   */
+  private loss: WatchedLoss = NO_LOSS_WATCHED;
   private releaseKeys: (() => void) | null = null;
   private releaseListeners: (() => void) | null = null;
   /**
@@ -298,6 +307,7 @@ class GameScreen extends Container {
     this.ending.reset();
     this.framePolicy.reset();
     this.menuTransition = null;
+    this.loss = NO_LOSS_WATCHED;
     // A pooled screen must not inherit the previous run's held keys, drag
     // anchor, belch request or count.
     this.steering.goQuiet();
@@ -454,7 +464,7 @@ class GameScreen extends Container {
   private readOut(): void {
     const readout = this.session.readout;
     this.hud.render(readout);
-    this.ladder.render(readout);
+    this.ladder.render(readout, this.loss);
   }
 
   /**
@@ -487,6 +497,10 @@ class GameScreen extends Container {
       this.props.playMusic(event);
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
+      if (event.type === 'weaponStripped') {
+        this.stormRenderer.weaponStripped(run, event.lines);
+      }
+      this.loss = watchLoss(this.loss, event, run.tick);
     }
   }
 

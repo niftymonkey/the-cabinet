@@ -71,7 +71,12 @@ import { tapeFileName } from '../tapeExport';
 import type { FrameObservation } from '../../tape/tape';
 import { faultObservations, frameObservations } from '../../tape/tape';
 import { MAX_LEVEL } from '../../game/lines/roster';
+import type { RunState } from '../../game/run';
 import { uniformLevels } from '../../game/run';
+import {
+  RUNG_STRIP_TICKS,
+  SCORE_BLEED_TICKS,
+} from '../screens/game/watchedLoss';
 
 /** The canvas the run listens on for a gesture the platform took away. */
 const canvas = {
@@ -1698,5 +1703,145 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
 
     expect(screen['hud'].lines.fault.text).toBe('');
     screen.reset();
+  });
+});
+
+/**
+ * The floor ladder watched on the row (design record R5, R7). The driver owns
+ * the events and the per-run memory; the row is a dumb view and reads no diff.
+ */
+describe('a loss watched on the ladder row', () => {
+  beforeEach(() => {
+    keyHandlers.clear();
+    canvasListeners.clear();
+    navigation.currentPopup = undefined;
+    showScreen.mockReset().mockResolvedValue(undefined);
+  });
+
+  /** The row's own display tree, which the driver hands the readout and the loss. */
+  function row(screen: GameScreen): Container {
+    return screen['ladder'].view;
+  }
+
+  function named(parent: Container, label: string): Container {
+    const found = parent.children.find((child) => child.label === label);
+    if (found === undefined) throw new Error(`the row drew no ${label}`);
+    return found as Container;
+  }
+
+  /** The digits the score reads this frame. */
+  function digits(screen: GameScreen): string {
+    return (named(row(screen), 'score') as unknown as { text: string }).text;
+  }
+
+  /**
+   * How full a mark's body draws, as a share of its own square: solid at one,
+   * gone at nothing, and part way through emptying in between.
+   */
+  function shareOf(mark: Container): number {
+    const fill = mark.children.find((child) => child.label === 'fill');
+    if (fill === undefined) throw new Error('a mark drew no fill');
+    return fill.visible ? fill.scale.y : 0;
+  }
+
+  /** Every line mark on the row that is part way through emptying. */
+  function emptying(screen: GameScreen): number {
+    const rows = named(row(screen), 'rows');
+    return rows.children
+      .flatMap((line) => (line as Container).children)
+      .filter((child) => child.label === 'mark')
+      .map((mark) => shareOf(mark as Container))
+      .filter((share) => share > 0 && share < 1).length;
+  }
+
+  /** A mob standing in the grave, which is one contact per frame it is alive. */
+  function standOnGrave(run: RunState): void {
+    const mob = run.mobs[0];
+    if (mob === undefined) throw new Error('no mob pool slot 0');
+    mob.alive = true;
+    mob.type = 'shambler';
+    mob.hp = MOB_TYPES.shambler.hp * 100;
+    mob.x = run.grave.x;
+    mob.y = run.grave.y;
+  }
+
+  it('shows the score falling and the cushion emptying on a floor hit with score standing', () => {
+    // Record R5: the sim zeroes the score in one tick and the row animates the
+    // readout down, so the number is seen to leave rather than to have left.
+    const screen = gameScreen();
+    screen.prepare();
+    const run = screen['session'].run!;
+    run.grave.size = SIZE_FLOOR;
+    run.score = 41300;
+    standOnGrave(run);
+
+    screen.update(frame(TICK_MS));
+
+    expect(run.score).toBe(0);
+    expect(Number(digits(screen))).toBeGreaterThan(40000);
+    expect(shareOf(named(row(screen), 'cushion'))).toBeCloseTo(1, 6);
+
+    // Half the countdown later the digits read about half the bled amount, and
+    // the cushion beside them is half gone, which is the one vocabulary.
+    run.grave.invulnerable = SCORE_BLEED_TICKS;
+    for (let spent = 0; spent < SCORE_BLEED_TICKS / 2; spent++) {
+      screen.update(frame(TICK_MS));
+    }
+    expect(Number(digits(screen))).toBeLessThan(41300 * 0.6);
+    expect(Number(digits(screen))).toBeGreaterThan(41300 * 0.4);
+    expect(shareOf(named(row(screen), 'cushion'))).toBeLessThan(1);
+    expect(shareOf(named(row(screen), 'cushion'))).toBeGreaterThan(0);
+  });
+
+  it('empties a mark on every line that paid when a floor hit with no score strips', () => {
+    // Record R7: stripLevels takes one off every line that has one to give, so
+    // every line that paid announces and four marks empty at once.
+    const screen = gameScreen();
+    screen.prepare();
+    const run = screen['session'].run!;
+    run.grave.size = SIZE_FLOOR;
+    run.score = 0;
+    for (const line of run.roster) run.levels[line] = 3;
+    standOnGrave(run);
+
+    screen.update(frame(TICK_MS));
+    expect(run.roster.every((line) => run.levels[line] === 2)).toBe(true);
+
+    // The mark starts full and loses area from there, so the frame that reads
+    // it part way through is a few ticks after the one it was born on. The
+    // invulnerable window is held open so the ladder does not run a second time
+    // underneath the assertion.
+    run.grave.invulnerable = RUNG_STRIP_TICKS * 2;
+    for (let spent = 0; spent < RUNG_STRIP_TICKS / 2; spent++) {
+      screen.update(frame(TICK_MS));
+    }
+
+    expect(emptying(screen)).toBe(run.roster.length);
+  });
+
+  it('opens a second run on the pooled screen with no countdown and no emptying mark', () => {
+    // The pooled-screen leak: a born tick and a bled amount belong to the run
+    // that made them, and the second run reaching the same tick is the frame a
+    // leaked one would play on. prepare() drops them beside the ending.
+    const screen = gameScreen();
+    screen.prepare();
+    const first = screen['session'].run!;
+    for (let spent = 0; spent < 20; spent++) screen.update(frame(TICK_MS));
+    first.grave.size = SIZE_FLOOR;
+    first.score = 41300;
+    for (const line of first.roster) first.levels[line] = 3;
+    standOnGrave(first);
+    screen.update(frame(TICK_MS));
+    const bledAt = first.tick;
+    expect(Number(digits(screen))).toBeGreaterThan(40000);
+
+    screen.reset();
+    screen.prepare();
+    const second = screen['session'].run!;
+    while (second.tick < bledAt) screen.update(frame(TICK_MS));
+
+    expect(Number(digits(screen))).toBe(second.score);
+    expect(shareOf(named(row(screen), 'cushion'))).toBeCloseTo(1, 6);
+    expect(emptying(screen)).toBe(0);
   });
 });
