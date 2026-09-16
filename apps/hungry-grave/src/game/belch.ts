@@ -7,6 +7,7 @@ import { normalize } from './math';
 import type { RunState } from './run';
 import type { StormTarget } from './stormTargets';
 import { shoveStormTarget, stormTargets } from './stormTargets';
+import type { WaveClock } from './shove';
 import { RESERVOIR_CAPACITY } from './tuning';
 
 /**
@@ -67,6 +68,31 @@ const BELCH_BURST_RADIUS = FIELD_WIDTH / 2;
 const BELCH_SHOVES = 3;
 const BELCH_SHOVE_THROW = 60;
 const BELCH_SHOVE_SPACING = 30;
+
+/**
+ * The one press the run is carrying, or null between presses (ADR 0008).
+ *
+ * A press outlives the tick it landed on: its three shoves go out thirty ticks
+ * apart and each one is a press of its own over whatever stands inside the
+ * reach at its own tick, so what the first shove caught, how many shoves are
+ * still owed and when the next one begins are all state the run holds between
+ * ticks and a replay rebuilds (ADR 0019). It is a field and never a pool, on
+ * the boss's, the offer's and the set piece's own terms: exactly one press is
+ * live at a time, and the newer one replaces the live one whole.
+ *
+ * `caught` is what the skip reads: a body this press has already thrown keeps
+ * the shoves it was given rather than being re-armed by the shoves behind it,
+ * because a shove landing on a shove in flight replaces it rather than
+ * following it. It is read by id and never by whether a body is carrying a
+ * shove at all: a bell toll's cone is on the field for most of a press, and a
+ * body a toll is carrying is thrown by a ring exactly as a walking one is.
+ */
+interface Press extends WaveClock {
+  // The tick the press landed on, which is what joins its shoves to it.
+  readonly beganAt: number;
+  // Every body this press has already thrown, by id.
+  readonly caught: Set<number>;
+}
 
 // Takes every live shot off the field, and reports how many went.
 const cancelMobFire = (state: RunState): number => {
@@ -213,3 +239,4 @@ export {
   BELCH_SHOVE_THROW,
   BELCH_SHOVE_SPACING,
 };
+export type { Press };

@@ -1,4 +1,5 @@
 import type { Boss } from './bosses/phases';
+import type { Press } from './belch';
 import type { Corpse } from './corpses';
 import { createCorpsePool } from './corpses';
 import type { DirectorState } from './director';
@@ -139,6 +140,16 @@ interface RunState {
   boss: Boss | null;
   // The one set piece on the field, or null (ADR 0042). A field for the same reason.
   setPiece: SetPiece | null;
+  /**
+   * The one press the belch is carrying, or null between presses (ADR 0008).
+   * A field and never a pool, exactly as the boss and the set piece are: one
+   * press is live at a time and the newer one replaces it whole.
+   *
+   * It lives here so the witness folds it and a replay rebuilds it, which is
+   * what makes the second and third shoves of a press reproducible from a tape
+   * alone (ADR 0019).
+   */
+  press: Press | null;
   readonly lines: LineState;
   /**
    * What the director holds across the run (ADR 0047). It lives here so the
@@ -312,6 +323,7 @@ const createRun = (
     stage: createStage(),
     boss: null,
     setPiece: null,
+    press: null,
     lines: startingLines(),
     // The opening section's grant, made here because a run begins already
     // inside that section and no crossing grants it (stage.ts's

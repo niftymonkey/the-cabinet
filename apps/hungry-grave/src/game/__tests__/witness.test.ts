@@ -80,6 +80,7 @@ function fixture(): RunState {
   fillRun(run);
   fillBoss(run);
   fillSetPiece(run);
+  fillPress(run);
   return run;
 }
 
@@ -96,6 +97,24 @@ function fillBoss(run: RunState): void {
     patternTick: 34,
   };
 }
+
+/**
+ * The fixture's press, mid-way through its three shoves with one body already
+ * thrown, so a per-field test can move any one part of it. It is hand-built for
+ * the same reason the ring and the offer are: the nullable field has to be
+ * present before anything can move it.
+ */
+function fillPress(run: RunState): void {
+  run.press = {
+    beganAt: 41,
+    shovesLeft: 1,
+    nextIn: 12,
+    caught: new Set(PRESS_CAUGHT),
+  };
+}
+
+/** The fixture press's own caught ids, so a per-field test can move one of them. */
+const PRESS_CAUGHT: readonly number[] = [11, 19];
 
 /** The fixture's set piece, open and part-way through its pour. */
 function fillSetPiece(run: RunState): void {
@@ -380,6 +399,16 @@ const ENTITY_CASES: readonly FieldCase[] = [
     restore: (run) => void (slot0(run.mobs).impulse.spacing += 1),
   },
   {
+    path: 'mobs[].impulse.owedStepX',
+    move: (run) => void (slot0(run.mobs).impulse.owedStepX += 1e-6),
+    restore: (run) => void (slot0(run.mobs).impulse.owedStepX -= 1e-6),
+  },
+  {
+    path: 'mobs[].impulse.owedStepY',
+    move: (run) => void (slot0(run.mobs).impulse.owedStepY += 1e-6),
+    restore: (run) => void (slot0(run.mobs).impulse.owedStepY -= 1e-6),
+  },
+  {
     path: 'mobFire[].x',
     move: (run) => void (slot0(run.mobFire).x += 1e-6),
     restore: (run) => void (slot0(run.mobFire).x -= 1e-6),
@@ -468,6 +497,16 @@ const ENTITY_CASES: readonly FieldCase[] = [
     path: 'corpses[].impulse.spacing',
     move: (run) => void (slot0(run.corpses).impulse.spacing -= 1),
     restore: (run) => void (slot0(run.corpses).impulse.spacing += 1),
+  },
+  {
+    path: 'corpses[].impulse.owedStepX',
+    move: (run) => void (slot0(run.corpses).impulse.owedStepX += 1e-6),
+    restore: (run) => void (slot0(run.corpses).impulse.owedStepX -= 1e-6),
+  },
+  {
+    path: 'corpses[].impulse.owedStepY',
+    move: (run) => void (slot0(run.corpses).impulse.owedStepY += 1e-6),
+    restore: (run) => void (slot0(run.corpses).impulse.owedStepY -= 1e-6),
   },
   {
     path: 'skulls[].x',
@@ -804,6 +843,29 @@ const RUN_CASES: readonly FieldCase[] = [
       void (run.director = { ...run.director, quietUntilTick: 421 }),
     restore: (run) => void fillRun(run),
   },
+  {
+    // The tick a press landed on is read-only on the record, so the only way to
+    // move it is to hand the run a different press, exactly as the boss's kind
+    // is moved.
+    path: 'press.beganAt',
+    move: (run) => void (run.press = { ...run.press!, beganAt: 42 }),
+    restore: (run) => void fillPress(run),
+  },
+  {
+    path: 'press.shovesLeft',
+    move: (run) => void (run.press!.shovesLeft -= 1),
+    restore: (run) => void (run.press!.shovesLeft += 1),
+  },
+  {
+    path: 'press.nextIn',
+    move: (run) => void (run.press!.nextIn -= 1),
+    restore: (run) => void (run.press!.nextIn += 1),
+  },
+  {
+    path: 'press.caught',
+    move: (run) => void run.press!.caught.add(23),
+    restore: (run) => void fillPress(run),
+  },
 ];
 
 const FIELD_CASES: readonly FieldCase[] = [...ENTITY_CASES, ...RUN_CASES];
@@ -841,6 +903,8 @@ const FOLDED: readonly string[] = [
   'mobs[].impulse.shovesLeft',
   'mobs[].impulse.nextIn',
   'mobs[].impulse.spacing',
+  'mobs[].impulse.owedStepX',
+  'mobs[].impulse.owedStepY',
   'mobFire[].x',
   'mobFire[].y',
   'mobFire[].vx',
@@ -859,6 +923,8 @@ const FOLDED: readonly string[] = [
   'corpses[].impulse.shovesLeft',
   'corpses[].impulse.nextIn',
   'corpses[].impulse.spacing',
+  'corpses[].impulse.owedStepX',
+  'corpses[].impulse.owedStepY',
   'skulls[].x',
   'skulls[].y',
   'skulls[].vx',
@@ -925,6 +991,10 @@ const FOLDED: readonly string[] = [
   'director.signal.heldUntilTick',
   'director.purseLeft',
   'director.quietUntilTick',
+  'press.beganAt',
+  'press.shovesLeft',
+  'press.nextIn',
+  'press.caught',
 ];
 
 /**
@@ -1372,12 +1442,12 @@ describe("the harness's own stream stays outside the run (ADR 0019)", () => {
   it('leaves the witness version where the sim put it, which the harness must not move', () => {
     // Hand-forward (f) pins it: the whole harness is built outside RunState, so
     // no version move is ever the hand's. This is what says it was not, on a
-    // branch that added a stream to the project. The sim moved it to 9 for the
-    // impulse a corpse now carries, to 8 before that for the impulse a shoved
-    // body carries, and to 7 before that for the director's own stream and the
-    // rest of the fold that step widened; the three names above are the run's
-    // rather than the hand's.
-    expect(WITNESS_VERSION).toBe(9);
+    // branch that added a stream to the project. The sim moved it to 10 for the
+    // press the run now carries, to 9 before that for the impulse a corpse
+    // carries, to 8 before that for the impulse a shoved body carries, and to 7
+    // before that for the director's own stream and the rest of the fold that
+    // step widened; the three names above are the run's rather than the hand's.
+    expect(WITNESS_VERSION).toBe(10);
     expect(Object.keys(createRun(0).streams)).not.toContain(HAND_STREAM);
   });
 });

@@ -730,3 +730,42 @@ describe("the press's own record of what it reached (#124)", () => {
     expect([piece.x, piece.y]).toEqual([stood.x, stood.y]);
   });
 });
+
+/**
+ * Slice J3's planned tests, pinned as the sentences they promise before the
+ * behaviour behind them exists (feature playbook step 3). They are written here
+ * in the fold commit and filled in the commit after it, because a version
+ * stamped before the fold stops moving names several folds.
+ */
+describe('every shove of a press throws what stands inside it (#124)', () => {
+  it.todo(
+    'throws a body that walks into the reach after the press landed, on the next shove',
+  );
+  it.todo('leaves a body this press already caught to the shoves it was given');
+  it.todo('throws a body a bell toll is carrying when a shove reaches it');
+  it.todo(
+    'gives a body caught by the second shove two shoves and one caught by the third a single shove',
+  );
+  it.todo('ends where it always ended, whatever walked into it');
+  it.todo(
+    'throws the crowd of a press whose circle was empty at its first shove and full at its third',
+  );
+  it.todo('writes one frame per shove, taken at that shove own tick');
+  it.todo(
+    'records a body refused by each of the four gates with its own reason, on whichever shove refused it',
+  );
+  it.todo(
+    'records a body it has already caught as carried, on every later shove',
+  );
+  it.todo(
+    'records a first-shove moved count that is the same number shoved has always been',
+  );
+  it.todo(
+    "records a boss and a set piece's source on every shove and still moves neither",
+  );
+  it.todo('takes no health off anything on any of its shoves, boss included');
+  it.todo('never catches a corpse a shove is carrying');
+  it.todo(
+    'replaces a press that still owes shoves, and runs its own shoves from its own tick',
+  );
+});

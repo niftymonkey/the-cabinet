@@ -82,6 +82,8 @@ const checkImpulseNoNaN = (
   checkSlotFinite(faults, pool, id, 'impulse.shovesLeft', impulse.shovesLeft);
   checkSlotFinite(faults, pool, id, 'impulse.nextIn', impulse.nextIn);
   checkSlotFinite(faults, pool, id, 'impulse.spacing', impulse.spacing);
+  checkSlotFinite(faults, pool, id, 'impulse.owedStepX', impulse.owedStepX);
+  checkSlotFinite(faults, pool, id, 'impulse.owedStepY', impulse.owedStepY);
 };
 
 // The run's own numbers, and the grave's.
@@ -208,6 +210,18 @@ const checkSetPieceNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'setPiece.hp', piece?.hp ?? 0);
 };
 
+/**
+ * The press's own numbers (ADR 0008), on the set piece's terms: an absent press
+ * reads zero rather than being skipped, so the check is written once and covers
+ * both states.
+ */
+const checkPressNoNaN = (state: RunState, faults: Fault[]): void => {
+  const press = state.press;
+  checkFinite(faults, 'press.beganAt', press?.beganAt ?? 0);
+  checkFinite(faults, 'press.shovesLeft', press?.shovesLeft ?? 0);
+  checkFinite(faults, 'press.nextIn', press?.nextIn ?? 0);
+};
+
 // The director's own numbers, its signal's three included.
 const checkDirectorNoNaN = (state: RunState, faults: Fault[]): void => {
   const director = state.director;
@@ -275,6 +289,7 @@ const checkNoNaN = (state: RunState, faults: Fault[]): void => {
   checkLinesNoNaN(state, faults);
   checkBossNoNaN(state, faults);
   checkSetPieceNoNaN(state, faults);
+  checkPressNoNaN(state, faults);
   checkDirectorNoNaN(state, faults);
   checkStageNoNaN(state, faults);
   checkLevelsNoNaN(state, faults);

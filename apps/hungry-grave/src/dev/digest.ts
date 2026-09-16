@@ -429,6 +429,27 @@ const runScenario = (): ScenarioResult => {
  * position and size, the score, the reservoir, mobs at 5, shots at 0, corpses
  * at 1, skulls at 2, wisps at 0, kills at 2, the levels record and every one of
  * the eight stream cursors.
+ *
+ * Re-pinned on 2026-09-16 for the press the run now carries (round two, ticket
+ * #124, Mark's own sighting that the bodies inside an eruption were not being
+ * pushed). The checksum moved from `1275540894` and it is the only field that
+ * moved, and the cause is mechanical rather than anything the scenario does:
+ * every shove of a press after its first is fired from run state, so the press
+ * is folded (ADR 0019), and a run with no press live folds `ABSENT_CODE` on
+ * every tick exactly as the ending, the ring, the boss and the set piece
+ * already do. Two owed-step numbers per live carrier fold beside it, at their
+ * resting zero. **No press happens inside this window at all and no shove is
+ * reachable in it**, which is the thing to watch here rather than the checksum:
+ * `runScenario` passes `belch: false` on every one of the 600 ticks, so no
+ * press is ever created, and `levels.bell` is 0 for the whole scenario, so no
+ * toll arms a ring and `startShove` is never called. **The isolation run proved
+ * it rather than asserting it**: the same scenario, with the press asserted
+ * absent and every owed step asserted at rest on all 600 ticks and folded the
+ * old way, returns `1275540894` whole, every field and the checksum, over 600
+ * folded ticks (round two progress note section 18). Everything else held: tick
+ * 600, the seed, the grave's position and size, the score, the reservoir, mobs
+ * at 5, shots at 0, corpses at 1, skulls at 2, wisps at 0, kills at 2, the
+ * levels record and every one of the eight stream cursors.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -460,7 +481,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 1275540894,
+  checksum: 1307518644,
 };
 
 export { runScenario, GOLDEN };

@@ -608,6 +608,7 @@ function filledRun(): RunState {
   fillOffer(run);
   fillBoss(run);
   fillSetPiece(run);
+  fillPress(run);
   return run;
 }
 
@@ -622,6 +623,16 @@ function fillBoss(run: RunState): void {
     y: 110,
     flash: 0,
     patternTick: 34,
+  };
+}
+
+/** The fixture's press, mid-way through its three shoves with one body thrown. */
+function fillPress(run: RunState): void {
+  run.press = {
+    beganAt: 41,
+    shovesLeft: 1,
+    nextIn: 12,
+    caught: new Set([11]),
   };
 }
 
@@ -934,6 +945,20 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
+    path: 'mobs[].impulse.owedStepX',
+    poison: (run) => {
+      slot0(run.mobs).impulse.owedStepX = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.owedStepY',
+    poison: (run) => {
+      slot0(run.mobs).impulse.owedStepY = NaN;
+      return run;
+    },
+  },
+  {
     path: 'corpses[].impulse.stepX',
     poison: (run) => {
       slot0(run.corpses).impulse.stepX = NaN;
@@ -979,6 +1004,20 @@ const NAN_CASES: readonly NanCase[] = [
     path: 'corpses[].impulse.spacing',
     poison: (run) => {
       slot0(run.corpses).impulse.spacing = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.owedStepX',
+    poison: (run) => {
+      slot0(run.corpses).impulse.owedStepX = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.owedStepY',
+    poison: (run) => {
+      slot0(run.corpses).impulse.owedStepY = NaN;
       return run;
     },
   },
@@ -1443,6 +1482,27 @@ const NAN_CASES: readonly NanCase[] = [
     path: 'setPiece.hp',
     poison: (run) => {
       if (run.setPiece !== null) run.setPiece.hp = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'press.beganAt',
+    poison: (run) => {
+      if (run.press !== null) run.press = { ...run.press, beganAt: NaN };
+      return run;
+    },
+  },
+  {
+    path: 'press.shovesLeft',
+    poison: (run) => {
+      if (run.press !== null) run.press.shovesLeft = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'press.nextIn',
+    poison: (run) => {
+      if (run.press !== null) run.press.nextIn = NaN;
       return run;
     },
   },

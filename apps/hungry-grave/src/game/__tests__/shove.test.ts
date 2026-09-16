@@ -238,3 +238,20 @@ describe('a shove landing on a body that is already flying', () => {
     expect(takeShoveTravel(impulse)).toBe(50);
   });
 });
+
+/**
+ * Slice J3's planned tests, pinned as the sentences they promise before the
+ * behaviour behind them exists (feature playbook step 3). They are written here
+ * in the fold commit and filled in the commit after it, because a version
+ * stamped before the fold stops moving names several folds.
+ */
+describe('a new shove never shortens what a body is already owed (#124)', () => {
+  it.todo(
+    'keeps the two waves a press still owed a body when a toll reaches it mid-press',
+  );
+  it.todo(
+    'travels a wave the press still owes at the throw the press gave it, whatever pushed the body last',
+  );
+  it.todo('always has a clock bringing in a shove it still owes');
+  it.todo('attributes a body two pushes reached to whichever pushed it last');
+});

@@ -15,6 +15,26 @@
 type ShoveSource = 'bell' | 'belch';
 
 /**
+ * What a push of several shoves still owes, and when the next one begins.
+ *
+ * It is one concept with two carriers: a body's own impulse below, and the
+ * press the belch leaves on the run (belch.ts). Both count the same way, so the
+ * count is written here once and the press's clock is never a second copy of
+ * the impulse's (design record R8).
+ *
+ * The spacing is not a field of it, because the two carriers hold it
+ * differently: an impulse is advanced with no caller present and carries its
+ * own, and a press is advanced by the module that owns the row and reads the
+ * row.
+ */
+interface WaveClock {
+  // Shoves still owed after the one in flight. Zero once the push is done.
+  shovesLeft: number;
+  // Ticks until the next shove begins. Zero once none is owed.
+  nextIn: number;
+}
+
+/**
  * The impulse one body carries: the shove moving it right now, and the shoves
  * the same impulse still owes it.
  *
@@ -31,7 +51,7 @@ type ShoveSource = 'bell' | 'belch';
  * replace it rather than follow it, so a caller that wants its pushes counted
  * names a spacing at least that wide.
  */
-interface Impulse {
+interface Impulse extends WaveClock {
   /**
    * Which push threw this impulse, or null on a body carrying nothing.
    *
@@ -58,10 +78,15 @@ interface Impulse {
   ticksLeft: number;
   // What the body has really been carried by this impulse, the bounds included.
   travelled: number;
-  // Shoves this impulse still owes after the one in flight.
-  shovesLeft: number;
-  // Ticks until the next shove of this impulse begins. Zero once none is owed.
-  nextIn: number;
+  /**
+   * The travel the first tick of each shove this impulse still owes, x and y in
+   * field units. It is the shove in flight's own pair for every shove that push
+   * started, and it parts from it only when a newcomer takes the flight over:
+   * a new push governs the shove in flight and never what is already owed, so
+   * two belch waves a toll lands on keep the belch's throw and its direction.
+   */
+  owedStepX: number;
+  owedStepY: number;
   // Ticks from one shove of this impulse beginning to the next beginning.
   spacing: number;
 }
@@ -132,6 +157,8 @@ const blankImpulse = (): Impulse => {
     stepY: 0,
     ticksLeft: 0,
     travelled: 0,
+    owedStepX: 0,
+    owedStepY: 0,
     shovesLeft: 0,
     nextIn: 0,
     spacing: 0,
@@ -150,6 +177,8 @@ const clearImpulse = (impulse: Impulse): void => {
   impulse.stepY = 0;
   impulse.ticksLeft = 0;
   impulse.travelled = 0;
+  impulse.owedStepX = 0;
+  impulse.owedStepY = 0;
   impulse.shovesLeft = 0;
   impulse.nextIn = 0;
   impulse.spacing = 0;
@@ -172,6 +201,8 @@ const handOverImpulse = (from: Impulse, to: Impulse): void => {
   to.stepY = from.stepY;
   to.ticksLeft = from.ticksLeft;
   to.travelled = from.travelled;
+  to.owedStepX = from.owedStepX;
+  to.owedStepY = from.owedStepY;
   to.shovesLeft = from.shovesLeft;
   to.nextIn = from.nextIn;
   to.spacing = from.spacing;
@@ -298,4 +329,4 @@ export {
   takeShoveTravel,
   SHOVE_TICKS,
 };
-export type { Impulse, ShoveCarrier, ShoveSource, ShoveStep };
+export type { Impulse, ShoveCarrier, ShoveSource, ShoveStep, WaveClock };

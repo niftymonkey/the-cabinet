@@ -1,6 +1,7 @@
 // The witness (ADR 0019): the number a run folds its own state down to.
 
 import type { Boss } from './bosses/phases';
+import type { Press } from './belch';
 import type { Corpse } from './corpses';
 import type { DirectorState } from './director';
 import type { Grave } from './grave';
@@ -132,8 +133,48 @@ const STREAM_ORDER: readonly StreamName[] = [
  * section 5, which permits the witness exactly one move in round two: it is the
  * orchestrator's call under one-push mode, taken as the arithmetic of R10's own
  * deferral rather than as a new decision.
+ *
+ * **9 to 10, 2026-09-16, and these are the eight fields the move declares.** They
+ * are the one press the run carries (belch.ts) and the throw each shove an
+ * impulse still owes travels at (shove.ts), and every one of them is added by
+ * the same commit that stamps the version, for the reason above.
+ *
+ * - `press`, which folds `ABSENT_CODE` when no press is live, exactly as the
+ *   ending, the ring, the boss and the set piece already do. Every shove of a
+ *   press after its first is fired from run state, so a replay that could not
+ *   rebuild the press would be a replay of a different run (ADR 0019), and a
+ *   run with no press live folding nothing at all would read as a run whose
+ *   press folded to zero.
+ * - `press.beganAt`, the tick the press landed on. It is what joins a press's
+ *   later shoves to it, and two presses one spacing apart differ in nothing
+ *   else at the tick the second lands.
+ * - `press.shovesLeft` and `press.nextIn`, the press's own wave clock. They
+ *   decide whether a shove goes out this tick and how much of the press is
+ *   left, so they are rules and not only clocks.
+ * - `press.caught`, every body the press has already thrown, by id. It is what
+ *   the skip reads, so a divergence in it is a divergence in who the next shove
+ *   throws. It folds through the struck set's own shape, its size before its
+ *   members, and its iteration order is the frame's own order, which is the
+ *   target seam's fixed order (stormTargets.ts).
+ * - `mobs[].impulse.owedStepX`, `owedStepY` and their `corpses[]` twins, the
+ *   travel each shove an impulse still owes will start at. They part from
+ *   `stepX` and `stepY` the moment a second push takes the flight over, which
+ *   is exactly the case a replay could not otherwise rebuild: a body owed two
+ *   belch waves that a toll reaches keeps the belch's throw and the belch's
+ *   direction for both of them.
+ *
+ * `impulse.source` and `impulse.bodyId` stay excluded on their own terms, on
+ * both pools. The skip above reads the press's own caught record and no
+ * provenance at all, which is what keeps them out (witness.test.ts's EXCLUDED).
+ *
+ * **What this move costs, again stated rather than discovered.** Every tape
+ * recorded before this commit is refused by its version and not one of them
+ * replays at this tip, which is the sixth time this step has made saved tapes a
+ * dead baseline. It is taken eyes open: the press is run state by construction
+ * once every shove of it re-reads the field, so the move is not a choice any
+ * shape could have avoided.
  */
-const WITNESS_VERSION = 9;
+const WITNESS_VERSION = 10;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -245,7 +286,11 @@ const foldImpulse = (checksum: number, impulse: Impulse): number => {
   let next = fold(fold(checksum, impulse.stepX), impulse.stepY);
   next = fold(fold(next, impulse.ticksLeft), impulse.travelled);
   next = fold(fold(next, impulse.shovesLeft), impulse.nextIn);
-  return fold(next, impulse.spacing);
+  // The owed pair appends after the spacing rather than sitting beside the step
+  // it is the other half of, because a widening appends and never reshuffles
+  // what is already in place.
+  next = fold(next, impulse.spacing);
+  return fold(fold(next, impulse.owedStepX), impulse.owedStepY);
 };
 
 const foldMobs = (checksum: number, run: RunState): number => {
@@ -493,6 +538,25 @@ const foldSetPiece = (checksum: number, piece: SetPiece | null): number => {
 };
 
 /**
+ * The one press the belch is carrying (ADR 0008), on the same terms as the boss
+ * and the set piece: an absent one folds its own sentinel rather than being
+ * skipped, so a run between presses and a run whose press folds to zero are two
+ * witnesses.
+ *
+ * What is folded is what the rules mutate: the tick it landed on, its own wave
+ * clock, and every body it has already thrown. The caught ids fold through the
+ * struck set's own shape, the size before the members, and the iteration order
+ * is the order the frame was walked in, which is the target seam's own fixed
+ * order (stormTargets.ts).
+ */
+const foldPress = (checksum: number, press: Press | null): number => {
+  if (press === null) return fold(checksum, ABSENT_CODE);
+  let next = fold(fold(checksum, 1), press.beganAt);
+  next = fold(fold(next, press.shovesLeft), press.nextIn);
+  return foldStruck(next, press.caught);
+};
+
+/**
  * The whole run, folded into one integer from a starting value (ADR 0019). One
  * function with a starting-value parameter, used two ways rather than being two
  * behaviours: chained across ticks for the golden digest's accumulator, and as
@@ -517,7 +581,7 @@ const foldWitness = (run: RunState, from: number): number => {
   checksum = foldStage(checksum, run.stage);
   checksum = foldOffer(foldLines(checksum, run.lines), run);
   checksum = foldSetPiece(foldBoss(checksum, run.boss), run.setPiece);
-  return foldDirector(checksum, run.director);
+  return foldPress(foldDirector(checksum, run.director), run.press);
 };
 
 export {
