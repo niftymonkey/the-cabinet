@@ -1313,7 +1313,11 @@ Round two slice L of The Hungry Grave (ticket #123): the curtain gets a body the
 
 **The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice L.
 
-**All six slices before you land first.** **Verify each of these by name and any one missing is a stop and report:** `shove.ts` with its impulse and its wave structure; `belch.ts` shoving in three waves, doing no damage, and reaching about half the field per slice J-fix, **which is the reach your curtain measurement is taken against**; `mobShoved` carrying its source and the reading's belch arm populated; and **`docs/adr/0042-a-set-piece-names-the-property-it-must-keep.md` carrying its 2026-09-15 triple**, because the property you are about to assert is the one that ADR now words. Read round two progress note sections 8 through 12.
+**All eight slices before you land first: R-fix, H, I, H2, J, J-fix, K and J2.** **Verify each of these by name and any one missing is a stop and report:** `shove.ts` with its impulse and its wave structure; `belch.ts` shoving in three waves at `BELCH_SHOVES` 3, `BELCH_SHOVE_THROW` 60 and `BELCH_SHOVE_SPACING` 30, doing no damage, and catching what stands inside `BELCH_BURST_RADIUS`, which slice J-fix made `FIELD_WIDTH / 2` and is 270 field units; `mobShoved` carrying its source and its `bodyId`, and the reading's belch arm populated; and **`docs/adr/0042-a-set-piece-names-the-property-it-must-keep.md` carrying its 2026-09-15 triple**, because the property you are about to assert is the one that ADR now words. Read round two progress note sections 8 through 13 and 15, which is every slice of round two; 14 is your own and is empty.
+
+**The reach and the throw are two different figures and your curtain measurement uses both.** Slice J-fix's ruling R11 withdrew the sentence that three waves carry a caught body clear of the belch's own reach rather than repairing it, so what holds is that **the reach, 270, is what a press catches, and the throw, 60 a wave and 180 in all, is how far each caught body travels** (progress note section 12, `belch.ts`'s own row JSDoc). The lateral separation your gap is made of comes off the throw. The reach decides which of the curtain's bodies are in the frame at all, and a curtain spanning the field's 540 edge to edge does not fit inside one press's circle, so the lane opens near the grave or not at all.
+
+**One instrument arrived after this prompt was written and item (b) is what it is for.** Slice J2 gave the `belched` event a `bodies` record: one entry per body in the press's frame carrying its id, its distance from the grave in field units, whether the press moved it, and which of four gates refused it when it did not, the four being `notEntered`, `outOfReach`, `noDirection` and `notPushable` (progress note section 15). A curtain body the press did not move now says why without you instrumenting anything.
 
 **Five rulings shape this slice and none of them is yours to revisit.**
 
@@ -1325,7 +1329,7 @@ Round two slice L of The Hungry Grave (ticket #123): the curtain gets a body the
 
 **Fourth: you measure whether the dead-ahead body leaves a dent or a hole, before you tune anything.** A body directly above the grave gets no lateral component from a radial shove at all, so the curtain may bow away up-field rather than part. **If it is a dent, the lever is the wave count and the spacing in slice J's row, and nothing else.** A second wave landing on a body that has already moved off the axis has a lateral component the first did not. **If no lane opens at any authored setting of the count and the spacing, that is the stop Mark pre-ruled: the Wall is cut, and you report it rather than deciding it.**
 
-**Fifth: `GOLDEN` does not move and you are permitted none.** Round two's two re-pins belong to slices H and J. The Wall is a Crowd wave and the canonical scenario is six hundred ticks of the Procession, so nothing you author reaches inside that window. **A move is a stop and report**, and the reason matters far more than the number.
+**Fifth: `GOLDEN` does not move and you are permitted none.** Round two's budget of two was spent by slice H, which re-pinned to `-145039082`, and by slice J, which forfeit its permit rather than passing it on. **One further re-pin was granted to slice J2 alone**, worded and bounded in ruling R9's closing paragraph of 2026-09-16, and it took it, to `1275540894`. **No re-pin remains and the design record's section 5 names you as permitted none** (progress note sections 2 and 3). The Wall is a Crowd wave and the canonical scenario is six hundred ticks of the Procession, so nothing you author reaches inside that window. **A move is a stop and report**, and the reason matters far more than the number.
 
 ### Read first, in this order, before any edit
 
@@ -1334,7 +1338,7 @@ Round two slice L of The Hungry Grave (ticket #123): the curtain gets a body the
 3. `apps/hungry-grave/docs/design/round-two-wall-belch.md`: **rulings R4 and R5 in full are this slice's contract**, section 0's arithmetic of the curtain's spacing against the grave's width is the thing you re-derive rather than trust, and section 6's Wall sentences are your tests.
 4. `apps/hungry-grave/docs/research/push-feel-precedent.md` **section 2 in full**. The Flower Wall blocks by durability and cost rather than by a rule and the wiki's own advice is to break through rather than stay trapped; the Coffin ring is cleared by ordinary damage; Risk of Rain 2's dome is explicitly leaveable. **None of the three is an unescapable lock, and that finding is what the third ruling stands on.**
 5. `apps/hungry-grave/docs/adr/0042-a-set-piece-names-the-property-it-must-keep.md` as amended, **which is the property you assert**; `0016-mob-types-and-formations-are-pools.md`, which is why a new type is a pool member and never a cast; `0059-a-trash-minute-is-a-mow-and-density-is-bought-with-weak-bodies.md`, which is why the mow body is one touch and why the curtain cannot be made of it; `0006-authored-waves-not-a-director.md` and `0047-directed-density-inside-authored-beats.md`, because the Wall's wave is the one cell the director may not spend in; `0003-size-is-health.md` for the grave's width at the floor.
-6. `apps/hungry-grave/docs/push/step-4-progress.md` **section 4 item 7**, which is the measured failure this slice exists to answer, and **section 2** for the `GOLDEN` history.
+6. `apps/hungry-grave/docs/push/step-4-progress.md` **section 4 item 7**, which is the measured failure this slice exists to answer, and **section 2** for step 4's own `GOLDEN` history. Round two's is `round-two-progress.md` sections 2 and 3.
 7. `apps/hungry-grave/CONTEXT.md`, the **Mob type** entry above all, which binds what a new type must own and says a mob type must be readable before it acts, plus Wave, Formation, Set piece and Mow. **Read the Avoid lists before naming anything.**
 8. The tree: `src/game/mobs.ts`'s `MOB_TYPES`, `MobType`, `MOB_TYPE_NAMES` and the shambler row's own comment about the curtain; `src/game/stage/waves.ts`'s `CROWD_WAVES` and the Wall's wave with the comment above it; `src/game/stage/formations.ts`'s `wall`; `src/game/caps.ts`, to read; `src/app/screens/game/mobSprite.ts`, which is where a type's silhouette is drawn; `src/dev/bot.ts`'s policies, to read and never to touch; `src/__tests__/boundary.test.ts`'s cap-derivation fence.
 
@@ -1344,7 +1348,7 @@ After this slice: the curtain that arrives two seconds after the Banshee dies is
 
 The new type is a member of the mob pool like the other three: it owns how it moves, whether it fires, its health, its corpse payout and its size, and it is readable before it acts. Any wave may name it.
 
-`WITNESS_VERSION` 8, `READINGS_VERSION` 5, `FORMAT_VERSION` 4 and `GOLDEN` are all untouched.
+`WITNESS_VERSION` 9, `READINGS_VERSION` 6, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `1275540894` are all untouched.
 
 What a player meets: the curtain comes down, they try to get through, they find they cannot, they spend the belch and they go through the hole it makes. That is ticket #123's "a crossing reads as a cost in play".
 
@@ -1352,7 +1356,7 @@ What a player meets: the curtain comes down, they try to get through, they find 
 
 **(a) Verify the four inputs**, per the stop above, then `git log --oneline -25`, `git status --short`, and your own test-name baseline into `local/round2/` under a name carrying the letter L.
 
-**(b) Measure before you author, and this is the slice's first real act.** Stand the curtain as it is today and belch at it, in a test or a script, and **measure whether the dead-ahead body leaves a dent or a hole**. Print the geometry: the lateral separation each neighbour pair reaches, the widest gap, and where along the width it sits. **That measurement is what the fourth ruling turns on and everything after it depends on the answer.**
+**(b) Measure before you author, and this is the slice's first real act.** Stand the curtain as it is today and belch at it, in a test or a script, and **measure whether the dead-ahead body leaves a dent or a hole**. Print the geometry: the lateral separation each neighbour pair reaches, the widest gap, and where along the width it sits. **Print the press's own `bodies` record beside it**, so which of the curtain's bodies the press caught and which gate refused the rest is read rather than inferred. **Follow the flight and never the body**: since slice J2 a body the storm kills mid-flight hands its whole impulse to the corpse its kill leaves, so a script reading the mob's end position can only ever show where the storm caught it (progress note section 15, which says exactly that of `local/jfix-equal-distance.ts`). **Two ways a measurement reads short for a reason that is not the push, both handed to you by name** (progress note sections 12 and 15): a body near an edge is thrown less than the nominal because the field-plus-margin bound refuses part of it, and a body thrown off the bottom edge leaves the field with no corpse behind it. **Say which of the two any short figure is before you call it a dent.** **That measurement is what the fourth ruling turns on and everything after it depends on the answer.**
 
 **(c) The tests first, red**, from the planned list. **Write the gap test and the no-special-case test first.**
 
@@ -1389,10 +1393,10 @@ What a player meets: the curtain comes down, they try to get through, they find 
 ### What must not move, and a move is a stop
 
 - **The fences**, all six by title, and **slice D's cap-derivation fence in particular**: the derivation reads tables and never the stage.
-- **`WITNESS_VERSION` 8, `READINGS_VERSION` 5, `FORMAT_VERSION` 4 and `GOLDEN`.** None moves. You declare no folded field: **`mob.type` is not folded, because a divergence in type shows through the health and the motion the walk already folds** (`step-4-progress.md` section 17).
+- **`WITNESS_VERSION` 9, `READINGS_VERSION` 6, `FORMAT_VERSION` 4 and `GOLDEN` at `1275540894`.** None moves. You declare no folded field: **`mob.type` is not folded, because a divergence in type shows through the health and the motion the walk already folds** (`step-4-progress.md` section 17).
 - **No rule keyed on the set piece.** ADR 0042's whole point, and the second ruling.
 - **No collision rule, no barrier, no impassable body.** The third ruling.
-- **The shove, the belch and the reading.** Slices H, I and J's, read and never re-authored. **If the belch cannot open the curtain, that is the fourth ruling's measurement and a report, never a change to `belch.ts`'s reach or a point of damage given back.**
+- **The shove, the belch and the reading.** Slices H, I, H2, J, J-fix and J2's, read and never re-authored. That includes the corpse's own impulse, `moveInsideBounds` and its `ShoveCarrier` role, the sweep in `step.ts` that reports a shove whose carrier is gone, and the `bodies` record on `belched`. **If the belch cannot open the curtain, that is the fourth ruling's measurement and a report, never a change to `belch.ts`'s reach or a point of damage given back.**
 - **The harness's own rows**, every lapse rate and look-ahead list included.
 - **Every existing mob row.** The shambler's, the revenant's and the ghoul's figures are untouched; what moves is one comment that was never the shambler's to hold.
 - **`STREAM_SALTS`, `STREAM_ORDER` and every fault identity wire number.**
@@ -1437,8 +1441,9 @@ What a player meets: the curtain comes down, they try to get through, they find 
 
 ### State of the branch
 
-- The tip should be slice K's docs commit. **`WITNESS_VERSION` 8, `FORMAT_VERSION` 4, `READINGS_VERSION` 5, `GOLDEN` as slice H or slice J last pinned it.**
-- **Round two's two `GOLDEN` re-pins are spent or accounted for and you are permitted none.**
+- **The tip is `45a25ee6eb`**, which is step 5's own docs commit on this branch and not round two's. Round two's last code commit is slice J2's `62bbbd753c` and its docs commit is `f2f1d0ad30`. **Nothing of step 5 is built**, so the tree's code is exactly where slice J2 left it; verify the tip by `git log` rather than trusting this line, and a tip further on is a fact for your note rather than a stop.
+- **`WITNESS_VERSION` 9** (`src/game/witness.ts`), **`READINGS_VERSION` 6** (`src/dev/readingsVersion.ts`), **`FORMAT_VERSION` 4** (`src/tape/wireCodes.ts`) and **`GOLDEN`'s checksum `1275540894`** (`src/dev/digest.ts`). Slice H moved the witness to 8 and slice J2 to 9; slice I moved the readings to 5 and slice J2 to 6.
+- **Every `GOLDEN` re-pin round two has is spent: slice H's, and the one further re-pin granted to slice J2 alone. The design record's section 5 permits you none.**
 - The caps as slice D left them: `MOB_CAP` 481, `MOB_FIRE_CAP` 434, `CORPSE_CAP` 704, `WISP_CAP` 64 and `SKULL_CAP` 120. **`WISP_CAP` stopped binding once slice E's volley clock landed.**
 - **One fact worth not re-deriving:** nothing in a run draws from the `mobFire` stream at all, because the Banshee's nudge moved to its own stream and every `firstShotJitter` is zero. A new type with no fire does not change that; a new type with fire would, and this one has none.
 
@@ -1451,7 +1456,8 @@ What a player meets: the curtain comes down, they try to get through, they find 
 ### What is not your job
 
 - **Cutting the Wall.** You report that the lane does not open; Mark takes the cut.
-- **Slices H, I, J and K's work**, in every part.
+- **Slices R-fix, H, I, H2, J, J-fix, K and J2's work**, in every part.
+- **The four things slice J2's note section 15 filed rather than acted on**: a corpse a push throws being food the hand never gets back, `StormTarget.killableOutright` having no production reader and a stale JSDoc, the bell's own shove count nearly doubling because `sweepToll` pushes before it damages, and the fourth exit that ends a flight when a corpse itself is culled or taken under. None is yours.
 - **Territory's rungs**, #125, and the offer bubble, #122. Neither is round two's.
 - **The gates, the review on the tip, the orchestrator's batch and the deploy.**
 - **The record's section 7 findings**, which no slice acts on.
