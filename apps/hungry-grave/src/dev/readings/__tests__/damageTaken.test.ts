@@ -49,6 +49,7 @@ describe('damage taken', () => {
       shambler: 2,
       revenant: 0,
       ghoul: 1,
+      cairn: 0,
       banshee: 0,
       undertaker: 0,
       contact: 0,

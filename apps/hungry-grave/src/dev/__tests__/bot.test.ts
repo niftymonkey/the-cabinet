@@ -181,8 +181,16 @@ const NEVER_FEEDS: number[] = [];
  *
  * Kept as an equality in both places that read it, so the day a seed is not
  * paid this file goes red and says which.
+ *
+ * 505 left it for the curtain's own body (#123). The Crowd used to open on
+ * twenty-two shamblers the storm took as they crossed the edge and now opens on
+ * eighteen cairns it does not take at all, so a lane that used to arrive in the
+ * Crowd behind a cleared curtain now arrives behind a standing one and passes
+ * through different waves from there on. It is the same mechanism every other
+ * entry here records, reached by a different road: which waves this lane meets
+ * decides whether it crosses a carrier, and nothing about the weapons moved.
  */
-const NEVER_PAID: number[] = [202, 303, 505];
+const NEVER_PAID: number[] = [202, 303];
 
 /**
  * Re-measured under the director (ADR 0047, ADR 0056): 303 joined it and 404
@@ -1136,12 +1144,27 @@ describe("hitTakingPolicy walks ADR 0003's ladder", () => {
  * The Wall, built from its own wave on a quiet stage.
  *
  * ADR 0042 makes the set piece a property rather than a cast, and the property
- * is two-sided over build strength: crossable unloaded has to hold at the
- * weakest build a run can produce and never crossable for free has to hold at
- * the strongest. Whatever five seeds happen to roll is neither, so both builds
- * are set on the run rather than left to the dice.
+ * as amended 2026-09-15 is read over build strength: a crossing without the key
+ * costs more than an unloaded grave has, and a hand holding the key crosses
+ * clean. Whatever five seeds happen to roll is neither the weakest build nor
+ * the strongest, so both are set on the run rather than left to the dice.
  */
-function wallRun(seed: number, loaded: boolean): RunState {
+/**
+ * What a hand brings to the curtain: the lines it holds and whether it holds
+ * the key.
+ *
+ * The two are separate because the amended property is about the key alone. A
+ * maxed storm opens the curtain by killing through it, which is a strong build
+ * doing what a strong build should; what ADR 0042 promises is about a grave
+ * that has not got one, so the belch has to be readable apart from the lines.
+ */
+interface WallHand {
+  readonly lines: 'birthright' | 'maxed';
+  readonly key: boolean;
+}
+
+function wallRun(seed: number, hand: WallHand): RunState {
+  const loaded = hand.lines === 'maxed';
   const state = createRun(seed, loaded ? SIZE_CEILING : undefined);
   // The curtain is placed by hand, so the stage is stood in the last section of
   // the table, the one section the machine never leaves. Marking a section's waves
@@ -1151,8 +1174,8 @@ function wallRun(seed: number, loaded: boolean): RunState {
   state.stage.sectionIndex = SECTIONS.length - 1;
   if (loaded) {
     for (const line of WEAPON_LINES) state.levels[line] = MAX_LEVEL;
-    state.reservoir = RESERVOIR_CAPACITY;
   }
+  if (hand.key) state.reservoir = RESERVOIR_CAPACITY;
   for (const order of place(
     WALL_WAVE.formation,
     WALL_WAVE.count,
@@ -1167,36 +1190,54 @@ function wallRun(seed: number, loaded: boolean): RunState {
 const WALL_TICKS = 1400;
 
 /**
- * ADR 0042's second half is not met under the mow, and the two expected
- * failures below are where that is written down rather than hidden.
+ * ADR 0042's property as amended 2026-09-15, asserted outright on both sides.
  *
- * The curtain is twenty-two shamblers (`waves.ts`, the Crowd's t=2 wall wave) and
- * the cost it charged was a reading of the old health row. Measured on this
- * commit, at the floor build over 1400 ticks on seeds 101 and 505: the old waves
- * killed 2 of 22 and landed 2 grave hits, taking the grave from 27 to 21; the
- * mow's waves kill 2 of 22 and land none, and the grave ends the size it
- * started. The storm at the birthright thins the curtain enough for a dodging
- * lane to open, and with the mow body silent (ADR 0059) there is no fire left
- * to make a belch worth spending either, so `belchingPolicy` never belches at
- * a wall.
+ * The four assertions below were two plain ones and two `it.fails` tripwires
+ * while the curtain was twenty-two shamblers: at 8 health the storm opened a
+ * lane on the way down, so a dodging hand crossed for nothing, and a curtain of
+ * silent bodies never put BELCH_WORTH_IT shots in the air, so the reservoir was
+ * never spent. Both tripwires fired the moment the curtain became eighteen
+ * cairns (#123), which is what they were written to do, and each is now the
+ * ordinary assertion its own comment asked for.
  *
- * Nothing here is weakened to reach green and no hand row is moved: the two
- * halves that still hold are asserted outright, and the two that do not are
- * `it.fails` tripwires, which is this file's own idiom for a band the game does
- * not reach. The day the Wall costs something again, they go red and ask to be
- * rewritten as ordinary assertions. Re-authoring the Wall's own wave is #39's
- * standing-waves slice, which owns that table.
+ * Nothing here is weakened and no harness row is moved. What did move is
+ * `belchingPolicy`'s own judgement, which is the bot's and not the harness's:
+ * it now spends a press when the thumb has nowhere clear to go as well as when
+ * the air is thick, because a wall of silent bodies is exactly the case a
+ * shot-count judgement cannot see.
+ *
+ * The key is set apart from the lines, and the reason is measured. At the maxed
+ * build the storm kills four of the eighteen on the way down and the grave
+ * walks through the hole that leaves, so a ceiling-build crossing says nothing
+ * about the belch at all. The promise ADR 0042 makes is about a grave that has
+ * not got a build, so the belch is read at the birthright with a full
+ * reservoir and nothing else.
  */
-describe("the Wall's two-sided property (ADR 0042)", () => {
+describe("the Wall's property (ADR 0042 as amended)", () => {
   for (const seed of SEEDS) {
-    it(`is crossable unloaded at the floor build on seed ${seed}`, () => {
+    it(`costs a crossing without the key at the floor build on seed ${seed}`, () => {
       // The floor build is the birthright and nothing else, which is what
       // createRun starts every run at. Read off BIRTHRIGHT rather than written
       // out, so a thinner birthright moves the fixture and not the property.
-      const state = wallRun(seed, false);
+      const state = wallRun(seed, { lines: 'birthright', key: false });
       for (const line of WEAPON_LINES) {
         expect(state.levels[line]).toBe(BIRTHRIGHT.includes(line) ? 1 : 0);
       }
+      const before = state.grave.size;
+      const { events } = play(state, unloadedPolicy, WALL_TICKS);
+
+      expect(count(events, 'belched')).toBe(0);
+      expect(count(events, 'graveHit')).toBeGreaterThan(0);
+      expect(state.grave.size).toBeLessThan(before);
+    });
+  }
+
+  for (const seed of SEEDS) {
+    it(`leaves the field clear of the curtain on seed ${seed}`, () => {
+      // Cannot pass means blocked by cost and never by an impassable body: the
+      // curtain still goes past, and a grave that paid for it is still playing
+      // (design record R4, ADR 0042 as amended).
+      const state = wallRun(seed, { lines: 'birthright', key: false });
       const { events } = play(state, unloadedPolicy, WALL_TICKS);
 
       expect(state.ending).toBeNull();
@@ -1206,24 +1247,31 @@ describe("the Wall's two-sided property (ADR 0042)", () => {
   }
 
   for (const seed of SEEDS) {
-    it.fails(
-      `is never crossed for free at the floor build on seed ${seed}`,
-      () => {
-        // The cost, which is the half of the property that stops the curtain
-        // becoming comfortable, and which the mow removed.
-        const state = wallRun(seed, false);
-        const before = state.grave.size;
-        const { events } = play(state, unloadedPolicy, WALL_TICKS);
+    it(`is crossed clean on the key alone on seed ${seed}`, () => {
+      // The whole of the amended property: the same birthright grave that pays
+      // above, holding a full reservoir and nothing else, spends it and comes
+      // through the curtain having lost nothing.
+      const state = wallRun(seed, { lines: 'birthright', key: true });
+      const before = state.grave.size;
+      const { events } = play(state, belchingPolicy, WALL_TICKS);
 
-        expect(count(events, 'graveHit')).toBeGreaterThan(0);
-        expect(state.grave.size).toBeLessThan(before);
-      },
-    );
+      expect(count(events, 'belched')).toBeGreaterThan(0);
+      expect(state.ending).toBeNull();
+      expect(count(events, 'graveHit')).toBe(0);
+      // Never smaller rather than exactly the same: this grave is at its
+      // starting size rather than at the ceiling, so a corpse it passes under
+      // on the way through grows it, and growing is not a cost.
+      expect(state.grave.size).toBeGreaterThanOrEqual(before);
+    });
   }
 
   for (const seed of SEEDS) {
     it(`is crossed clean at the ceiling build on seed ${seed}`, () => {
-      const state = wallRun(seed, true);
+      // A strong build crossing on its storm rather than on its key, which the
+      // property permits: what it promises is about a grave without a build.
+      // The key is withheld outright so the crossing can only be the storm's,
+      // and the hand is the belching one so it would spend a key if it had one.
+      const state = wallRun(seed, { lines: 'maxed', key: false });
       const before = state.grave.size;
       const { events } = play(state, belchingPolicy, WALL_TICKS);
 
@@ -1232,22 +1280,6 @@ describe("the Wall's two-sided property (ADR 0042)", () => {
       expect(count(events, 'graveHit')).toBe(0);
       expect(state.grave.size).toBe(before);
     });
-  }
-
-  for (const seed of SEEDS) {
-    it.fails(
-      `spends a belch crossing at the ceiling build on seed ${seed}`,
-      () => {
-        // The other half the mow removed: a curtain of silent bodies never puts
-        // BELCH_WORTH_IT shots in the air, so the reservoir is never spent. The
-        // hand's own row is not moved to make this pass (#116, and the record's
-        // standing rule that a changed hand row is a new hand with a new name).
-        const state = wallRun(seed, true);
-        const { events } = play(state, belchingPolicy, WALL_TICKS);
-
-        expect(count(events, 'belched')).toBeGreaterThan(0);
-      },
-    );
   }
 });
 

@@ -432,6 +432,17 @@ const SHARP = playStage(77, sharpHand, STAGE_TICKS);
 const STILL_PLAY = playStage(77, stillHand, STAGE_TICKS);
 
 /**
+ * How many bodies the Wall lands, read off the table rather than written down.
+ * A recorded arrival carries its count and nothing else, and the curtain's
+ * count is derived from its body's own width, so a body of another width moves
+ * it (waves.ts, mobs.ts's cairn row).
+ */
+const WALL_COUNT = requireDefined(
+  CROWD_WAVES.find((wave) => wave.formation === 'wall'),
+  'the Crowd has no Wall',
+).count;
+
+/**
  * The budget for the one test that plays two whole stages nothing else has
  * warmed. A stage is a fight longer than it was since the Banshee landed
  * (ADR 0007), about five thousand ticks under the still hand, and two of these
@@ -709,7 +720,9 @@ describe('the waves as data (ADR 0006)', () => {
         `${wave.type} drip 1`,
       );
     }
-    expect(seen.size).toBe(3);
+    // The four the trash sections name: the mow body, the armed minority, the
+    // closer and the curtain's own stone (#123).
+    expect(seen.size).toBe(4);
   });
 
   it('keeps the Procession clear of the closer and of the density formations', () => {
@@ -737,7 +750,7 @@ describe('the waves as data (ADR 0006)', () => {
     );
   });
 
-  it("fills the Wall's width at the shambler's size, so no gap in the curtain is wider than a floor-size grave", () => {
+  it("fills the Wall's width at the cairn's size, so no gap in the curtain is wider than a floor-size grave", () => {
     const wall = CROWD_WAVES.find((wave) => wave.formation === 'wall')!;
     const placed = place('wall', wall.count, createRun(1).streams.spawns);
     const half = MOB_TYPES[wall.type].halfWidth;
@@ -874,7 +887,7 @@ describe('the section machine (ADR 0006)', () => {
     const crowd = STILL_PLAY.boundaries.find(
       (each) => each.section === 'crowd',
     )!.tick;
-    const wall = STILL_PLAY.arrivals.find((each) => each.count === 22)!;
+    const wall = STILL_PLAY.arrivals.find((each) => each.count === WALL_COUNT)!;
     expect(wall).toBeDefined();
     expect(wall.tick - crowd).toBe(2 * TICK_HZ);
   });
@@ -889,7 +902,9 @@ describe('the section machine (ADR 0006)', () => {
       STILL_PLAY.arrivals[0],
       'no first arrival',
     ).tick;
-    const wall = STILL_PLAY.arrivals.find((each) => each.count === 22)!.tick;
+    const wall = STILL_PLAY.arrivals.find(
+      (each) => each.count === WALL_COUNT,
+    )!.tick;
     expect(first).toBe(2 * TICK_HZ);
     expect(wall).toBe(crowd + 2 * TICK_HZ);
     expect(wall).not.toBe(first);

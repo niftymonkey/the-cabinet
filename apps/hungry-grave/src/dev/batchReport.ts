@@ -47,6 +47,7 @@ const MOB_WIDTHS: Readonly<Record<MobType, number>> = {
   shambler: MOB_TYPES.shambler.halfWidth * 2,
   revenant: MOB_TYPES.revenant.halfWidth * 2,
   ghoul: MOB_TYPES.ghoul.halfWidth * 2,
+  cairn: MOB_TYPES.cairn.halfWidth * 2,
 };
 
 // The bosses a belch can be spent in front of, which is where #37's story 12 is.

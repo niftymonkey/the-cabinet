@@ -517,8 +517,17 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * the ground it did, so this hand's runs last longer and its lane passes
  * through more waves, and 202 crosses a carrier where before it never did. Its
  * offer stands unreached, which is the set below.
+ *
+ * Re-measured 2026-09-16 for the curtain's own body (#123), and 202 and 404
+ * came back in, so two of the five are never paid. The mechanism is the Crowd's
+ * opening: the Wall used to be twenty-two shamblers the storm took as they
+ * crossed the edge, which is twenty-two kills and whatever carriers rode them,
+ * and it is eighteen cairns the storm does not take at all. A curtain that no
+ * longer dies is a lane's worth of kills that no longer happen, so where this
+ * hand's corpses lie and which waves its lane then passes through both move
+ * from the Crowd onward.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [];
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202, 404];
 
 /**
  * The seeds where an offer stands and the hand never reaches it, which is a
@@ -540,8 +549,14 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [];
  * 202 came in: the wider press bought it the carrier it never used to cross,
  * and the one offer that opens on it stands unreached for the same reason 303's
  * does. Both seeds open exactly one offer and take none of it.
+ *
+ * Re-measured 2026-09-16 for the curtain's own body (#123), and the set is
+ * empty: 202 went back to never being paid at all, and 303 now takes both the
+ * offers it is paid. It moves with the set above and by the same mechanism, a
+ * curtain that no longer dies to the storm, and an empty set still has teeth
+ * because it is written as an equality.
  */
-const STOOD_BUT_NEVER_REACHED: readonly number[] = [202, 303];
+const STOOD_BUT_NEVER_REACHED: readonly number[] = [];
 
 /**
  * The seeds that finish above the birthright, which under the stage's authored
@@ -590,8 +605,14 @@ const STOOD_BUT_NEVER_REACHED: readonly number[] = [202, 303];
  * stage's own budget runs out, at 27409 ticks. A press that clears the ground
  * around the grave keeps the grave alive long enough to spend what it is paid,
  * which is the whole of ticket #124's own argument, read off this hand.
+ *
+ * Re-measured 2026-09-16 for the curtain's own body (#123), and 101 went out
+ * again, so no seed ends above the birthright under this hand. It is the same
+ * mechanism as the two sets above: 101 is still paid and still takes what it is
+ * paid, two offers rather than five, and the rungs it buys are ground back to
+ * the birthright before it seals. The Crowd's curtain no longer feeds it.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [101];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

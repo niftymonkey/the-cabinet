@@ -106,3 +106,54 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
     expect(tellRadius('revenant', 1)).toBeLessThan(tellRadius('revenant', 0));
   });
 });
+
+describe('the four silhouettes (ADR 0014, ADR 0016)', () => {
+  /** The shapes one type's body is filled from, read off the drawing instructions. */
+  function outlineOf(type: (typeof MOB_TYPE_NAMES)[number]) {
+    const state = createRun(3);
+    const mob = spawnMob(
+      state,
+      type,
+      { x: 60, y: 40, vx: 0, vy: 1, index: 0 },
+      false,
+      'wave',
+    )!;
+    const sprite = new Graphics();
+    drawMob(sprite, mob);
+    const pieces = [];
+    for (const instruction of sprite.context.instructions) {
+      if (instruction.action !== 'fill') continue;
+      pieces.push(...instruction.data.path.instructions);
+    }
+    return pieces;
+  }
+
+  it('draws every type an outline no other type owns', () => {
+    // ADR 0016's admission rule is readability and ADR 0014 makes silhouette
+    // the first discriminator, so a fourth type earns its place by not looking
+    // like any of the three. Read off the geometry rather than off the module's
+    // source, because the claim is about what is drawn.
+    const drawn = MOB_TYPE_NAMES.map((type) =>
+      JSON.stringify(
+        outlineOf(type).map((piece) => [piece.action, piece.data]),
+      ),
+    );
+    expect(new Set(drawn).size).toBe(MOB_TYPE_NAMES.length);
+  });
+
+  it('draws the cairn wider than it is tall, which no other body is', () => {
+    // The curtain has to read as masonry rather than as more bodies in a line
+    // (#123), and the one thing a silhouette can say about that before it acts
+    // is its proportion. Read off the drawn points and not off the row.
+    const drawn = outlineOf('cairn').flatMap(
+      (piece) => (piece.data[0] as number[] | undefined) ?? [],
+    );
+    const xs = drawn.filter((_unused, index) => index % 2 === 0);
+    const ys = drawn.filter((_unused, index) => index % 2 === 1);
+
+    expect(drawn.length).toBeGreaterThan(0);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(
+      Math.max(...ys) - Math.min(...ys),
+    );
+  });
+});

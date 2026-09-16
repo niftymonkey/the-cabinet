@@ -51,7 +51,34 @@ const mobBodyColour = (mob: Mob): number => {
   return mob.carries ? PALETTE.powerUp.hex : PALETTE.mob.hex;
 };
 
-// The body outline of one mob type. A shambler is squat, a revenant is a diamond, and a ghoul is a wedge that points where it is going.
+// How far in the cairn's flat top is drawn from its base, as a share of its half-width.
+const CAIRN_TOP_SHARE = 0.55;
+
+/**
+ * The stone the curtain is built from: a flat-topped slab, wide at the base and
+ * tapering, which is the fourth outline and the only one wider than it is tall.
+ *
+ * ADR 0014 makes silhouette the first discriminator between types, and the
+ * three the field already carries are the shambler's squat rounded body, the
+ * revenant's diamond and the ghoul's wedge. A taper is in none of their
+ * vocabularies, and a row of them reads as masonry rather than as more bodies
+ * in a line, which is what the set piece is for.
+ */
+const cairnOutline = (halfWidth: number, halfHeight: number): number[] => {
+  const top = halfWidth * CAIRN_TOP_SHARE;
+  return [
+    -halfWidth,
+    halfHeight,
+    halfWidth,
+    halfHeight,
+    top,
+    -halfHeight,
+    -top,
+    -halfHeight,
+  ];
+};
+
+// The body outline of one mob type. A shambler is squat, a revenant is a diamond, a ghoul is a wedge that points where it is going, and a cairn is a slab.
 const drawBody = (into: Graphics, type: MobType): void => {
   const row = MOB_TYPES[type];
   if (type === 'shambler') {
@@ -66,6 +93,10 @@ const drawBody = (into: Graphics, type: MobType): void => {
   }
   if (type === 'revenant') {
     into.poly(polygon(4, row.halfWidth));
+    return;
+  }
+  if (type === 'cairn') {
+    into.poly(cairnOutline(row.halfWidth, row.halfHeight));
     return;
   }
   into.poly(polygon(3, row.halfWidth, Math.PI));

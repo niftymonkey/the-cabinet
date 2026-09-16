@@ -247,9 +247,10 @@ const sparseLastWave = (
  * repeating would be a column down one lane rather than ground filling in. The
  * shaped beats above the mow are still only Files and Vs beside the Drips, and
  * the Pincer is two files at once, which no section holding one shaped
- * formation live wants. No ghoul: the closer arrives in the next section, and a
+ * formation live wants. No ghoul: the closer arrives in the next section. A
  * type arriving first as a lone Drip is the standing rule (ADR 0016's
- * readable-before-it-acts).
+ * readable-before-it-acts), which is why the cairn's own lone Drip stands here
+ * and not in the Crowd, where its only appearance is eighteen at once.
  *
  * Which waves may carry is a property of the table rather than of the schedule,
  * so it is authored here and the placement is carriers.ts's. The Drips are held
@@ -324,6 +325,28 @@ const PROCESSION_WAVES: readonly StageWave[] = [
     formation: 'drip',
     count: 4,
     type: 'shambler',
+    carries: false,
+    directed: true,
+    repeat: null,
+  },
+  /**
+   * The cairn arrives here, first as a lone Drip, which is the standing rule
+   * for a type before it appears in numbers (ADR 0016's readable-before-it-acts).
+   * It is the Wall's own body and the Wall is a Crowd wave, so without this the
+   * player's first cairn would be eighteen of them at once.
+   *
+   * The slot is this gap and not a later one. The lesson is that the storm does
+   * not take this body down, which is only readable while the ground is thin:
+   * the mow is still at two bodies a second until t=45, the section authors
+   * nothing shaped between t=40 and t=50, and by here a run has rungs enough
+   * that failing to kill one reads as the body rather than as the build. It
+   * sits well outside the golden scenario's six hundred ticks (ADR 0015).
+   */
+  {
+    t: 44,
+    formation: 'drip',
+    count: 1,
+    type: 'cairn',
     carries: false,
     directed: true,
     repeat: null,
@@ -456,8 +479,10 @@ const PROCESSION_PURSE = 116;
  *
  * It opens on the Wall two seconds after the Banshee dies, which is the anchor
  * the concept doc names, and the Wall's own wave is the one cell in this table
- * the director may not spend in: its crossable-unloaded property is two-sided
- * and fails silently with every test still green (ADR 0047).
+ * the director may not spend in: the curtain's property fails silently with
+ * every test still green (ADR 0047), and its count is derived from the body's
+ * own width rather than authored as density, so an added body thickens nothing
+ * and only stands where the curtain has no room for it.
  *
  * The ghoul arrives here, first as a lone Drip.
  *
@@ -481,19 +506,21 @@ const PROCESSION_PURSE = 116;
  * undirected, the ghoul's lone Drip before any ghoul in numbers, and one trough
  * before the end.
  *
- * The Wall keeps its twenty-two while every other shaped count roughly doubles,
- * because twenty-two is not a density row: it is the field's width over a
- * body's, and `wall()` spaces its bodies at the width divided by the count, so
- * doubling it would stack a curtain on itself rather than thicken it. ADR
- * 0042's own cost is a separate and open question (`docs/push/step-4-progress.md`
- * section 4 item 7).
+ * The Wall's eighteen is not a density row and never doubles with the others:
+ * it is the field's width over a body's, and `wall()` spaces its bodies at the
+ * width divided by the count, so a count over the derivation would stack a
+ * curtain on itself rather than thicken it and a count under it would leave a
+ * hole the grave walks through unbelched. The body is the cairn, 30 units
+ * wide, and 540 over 30 is eighteen exactly, so the curtain closes edge to edge
+ * with no gap at all; it was twenty-two while the body was the 22-unit
+ * shambler. A body of another width moves this count with it.
  */
 const CROWD_WAVES: readonly StageWave[] = [
   {
     t: 2,
     formation: 'wall',
-    count: 22,
-    type: 'shambler',
+    count: 18,
+    type: 'cairn',
     carries: false,
     directed: false,
     repeat: null,
@@ -1033,6 +1060,11 @@ const BODY_COST: Readonly<Record<MobType, number>> = {
   shambler: 1,
   ghoul: 3,
   revenant: 4,
+  // The dearest body in the table, because it is the one the storm does not
+  // clear: at 296 it stands its whole descent under a birthright, where the
+  // other three are 1, 3 and 8 skulls apiece. No card names it, and this figure
+  // is what one would cost if a later card did.
+  cairn: 8,
 };
 
 /**

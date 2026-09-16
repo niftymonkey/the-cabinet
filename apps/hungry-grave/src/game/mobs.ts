@@ -32,7 +32,7 @@ import type { SpawnOrder } from './stage/formations';
 import { MAX_ENTRY_DEPTH } from './stage/formations';
 import { BASE_SPEED, SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from './tuning';
 
-type MobType = 'shambler' | 'revenant' | 'ghoul';
+type MobType = 'shambler' | 'revenant' | 'ghoul' | 'cairn';
 
 // Which corpse a kill leaves. The tier is a payout read and never a size (ADR 0014).
 type CorpseTier = 'trash' | 'rich';
@@ -100,10 +100,8 @@ interface MobRow {
  */
 const MOB_TYPES = {
   shambler: {
-    // The one load-bearing size here: an edge-to-edge curtain at 22 units wide
-    // needs 22 mobs to fill the field's 540, leaving gaps of 2.5 units, and the
-    // size floor makes the grave 18 units wide, so the curtain has no gap the
-    // grave can slip through at any size.
+    // The mow body's own 22 units, which is the body width shove.ts states its
+    // readability criterion against: a drawn step has to stay under one.
     halfWidth: 11,
     halfHeight: 11,
     hp: 8,
@@ -149,9 +147,68 @@ const MOB_TYPES = {
     motion: 'chases',
     fire: NEVER_FIRES,
   },
+  /**
+   * The curtain's body: stone rather than a body, and a member of this pool
+   * like the other three, so any wave may name it and nothing anywhere is
+   * keyed on the set piece that happens to name it today (ADR 0016, ADR 0042
+   * as amended 2026-09-15).
+   *
+   * Every figure below follows from it being stone. It is the widest thing on
+   * the field and the only one wider than it is tall, so a row of them reads
+   * as masonry rather than as more bodies in a line, which is the set piece's
+   * own done line. 30 units divides the field's 540 exactly, so eighteen stand
+   * edge to edge with no gap at all where twenty-two shamblers left 2.5 units
+   * between neighbours; the Wall's wave carries that count and its derivation
+   * (stage/waves.ts).
+   */
+  cairn: {
+    halfWidth: 15,
+    halfHeight: 11,
+    /**
+     * What the rung-one storm cannot take down before the grave reaches it,
+     * measured rather than felt: a curtain thinned into a lane on the way down
+     * costs nothing to cross, which is the shambler's measured failure this
+     * row exists to answer (`docs/push/step-4-progress.md` section 4 item 7).
+     *
+     * The measurement is the worst case the storm can make: a grave parked
+     * under one body for the whole descent, which is 668 ticks from the
+     * curtain's spawn to the grave's own row, its column landing 36 skulls for
+     * 288 on the one body it can reach and nothing at all on any other. One
+     * touch more, 37 at the birthright's 8 a skull, is 296: the first health
+     * that leaves that body standing at contact however the descent is spent,
+     * so the belch stays the key rather than the stream (design record R5).
+     *
+     * It is data and the tuning step owns it, like every other magnitude here.
+     */
+    hp: 296,
+    /**
+     * The mow body's payout and the mow body's tier, at four times its health.
+     *
+     * A rich payout would make grinding the curtain down the better play and
+     * retire the belch as its key, which is the whole of what ADR 0042 puts at
+     * the centre of this set piece. There is nothing in stone to eat, so what
+     * a kill leaves pays what the ordinary body pays, and the tier rides with
+     * the payout rather than with the size: the tier is a payout read and
+     * never a size (ADR 0014), so a corpse that pays trash has to look it.
+     */
+    corpsePayout: TRASH_CORPSE_PAYOUT,
+    corpseTier: 'trash',
+    // The mow body's own descent, so the curtain arrives on the beat the
+    // Crowd's table already spaces its next wave against (stage/waves.ts).
+    speed: 0.5 * SCROLL_SPEED,
+    motion: 'falls',
+    // The cost of the crossing is the bodies themselves and never a shot they
+    // put in the air (design record R5).
+    fire: NEVER_FIRES,
+  },
 } as const satisfies Record<MobType, MobRow>;
 
-const MOB_TYPE_NAMES: readonly MobType[] = ['shambler', 'revenant', 'ghoul'];
+const MOB_TYPE_NAMES: readonly MobType[] = [
+  'shambler',
+  'revenant',
+  'ghoul',
+  'cairn',
+];
 
 /**
  * How long a mob holds the formation's arriving motion once it is on screen

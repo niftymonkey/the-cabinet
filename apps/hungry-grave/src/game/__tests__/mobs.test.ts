@@ -1,5 +1,5 @@
 /**
- * The three mob types, how they move and how they die (ADR 0016). Every sim
+ * The four mob types, how they move and how they die (ADR 0016). Every sim
  * test here steps through the one execution authority (ADR 0017), and
  * stepping() fails the test on any fault the run records.
  *
@@ -30,6 +30,7 @@ import {
   surgeStream,
 } from '../lines/skullStream';
 import { advanceWisps, launchWisps } from '../lines/wisps';
+import { NEVER_FIRES } from '../mobFire';
 import type { Corpse } from '../corpses';
 import type { Mob } from '../mobs';
 import {
@@ -231,6 +232,43 @@ describe('the mob type table (ADR 0016)', () => {
     expect([MOB_TYPES.ghoul.halfWidth, MOB_TYPES.ghoul.halfHeight]).toEqual([
       9, 9,
     ]);
+  });
+
+  it('gives the cairn the curtain it has to build: wide, durable and silent', () => {
+    // The three figures the Wall stands on (#123, design record R5). The width
+    // is what the curtain's count is derived from and it is the only body
+    // wider than it is tall; the health is what a rung-one storm cannot take
+    // down over a whole descent; and the silence is why the cost of crossing is
+    // the bodies themselves.
+    expect(MOB_TYPES.cairn.halfWidth).toBe(15);
+    expect(MOB_TYPES.cairn.halfWidth).toBeGreaterThan(
+      MOB_TYPES.cairn.halfHeight,
+    );
+    expect(MOB_TYPES.cairn.hp).toBe(296);
+    expect(MOB_TYPES.cairn.fire).toBe(NEVER_FIRES);
+    expect(MOB_TYPES.cairn.motion).toBe('falls');
+    // A payout a grind would be paid for is what would retire the belch as the
+    // curtain's key, so the durable body pays exactly what the cheap one pays.
+    expect(MOB_TYPES.cairn.corpsePayout).toBe(TRASH_CORPSE_PAYOUT);
+    expect(MOB_TYPES.cairn.corpseTier).toBe('trash');
+  });
+
+  it('holds the cairn as a pool member, so any wave may name it', () => {
+    // ADR 0016's pool rule and ADR 0042's cast rule together: a set piece names
+    // a type the way every wave names one, and nothing about the type belongs
+    // to the set piece. A Drip of one, which is the formation furthest from the
+    // curtain, stands a cairn with exactly its own row.
+    const state = createRun(1);
+    const placed = place('drip', 1, state.streams.spawns);
+    const order = placed[0];
+    if (order === undefined) throw new Error('no placement');
+    const mob = spawnMob(state, 'cairn', order, false, 'wave');
+    if (mob === null) throw new Error('the pool refused a cairn');
+
+    expect(mob.type).toBe('cairn');
+    expect(mob.hp).toBe(MOB_TYPES.cairn.hp);
+    expect(mob.armed).toBe(false);
+    expect(MOB_TYPE_NAMES).toContain('cairn');
   });
 
   it("makes the ghoul's speed a real fraction of the grave's, because the type table bounds it by turn rate and not by a cap", () => {

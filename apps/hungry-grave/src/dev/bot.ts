@@ -184,6 +184,29 @@ const distanceTo = (
 };
 
 /**
+ * The least room a move leaves over the whole look-ahead, capped at what counts
+ * as enough. Negative means the grave is inside something at some sample, so a
+ * move whose best is negative has nowhere clear to put the grave at all.
+ */
+const tightestClearance = (
+  state: RunState,
+  move: MoveCommand,
+  threats: readonly Threat[],
+  speed: number,
+  enough: number,
+  samples: readonly number[],
+): number => {
+  let tightest = enough;
+  for (const ticks of samples) {
+    const at = graveAfter(state, move, ticks, speed);
+    for (const threat of threats) {
+      tightest = Math.min(tightest, clearanceAt(state, at, threat, ticks));
+    }
+  }
+  return tightest;
+};
+
+/**
  * How good a move looks: the tightest clearance it leaves over the look-ahead,
  * capped, with the drift toward where the hand wants to be breaking ties.
  * Capping the clearance is what keeps this a plausible human rather than an
@@ -204,13 +227,14 @@ const scoreMove = (
   enough: number,
   samples: readonly number[],
 ): number => {
-  let tightest = enough;
-  for (const ticks of samples) {
-    const at = graveAfter(state, move, ticks, speed);
-    for (const threat of threats) {
-      tightest = Math.min(tightest, clearanceAt(state, at, threat, ticks));
-    }
-  }
+  const tightest = tightestClearance(
+    state,
+    move,
+    threats,
+    speed,
+    enough,
+    samples,
+  );
   const farthest = samples[samples.length - 1];
   if (farthest === undefined)
     throw new Error('scoreMove called with no samples');
@@ -279,13 +303,15 @@ const bestMoveToward = (
 };
 
 /**
- * Dodges and never belches. It carries the first half of ADR 0042's two-sided
- * Wall property: an edge-to-edge curtain built as the belch's target stays
- * crossable unloaded, at a real cost in size or hits.
+ * Dodges and never belches. It carries the first half of ADR 0042's Wall
+ * property as amended 2026-09-15: a curtain crossed without the key costs the
+ * grave more than an unloaded one has.
  *
  * Written as a plausible human and not as an optimizer, the same rule
  * dodgePolicy is written under, because a bot proof is an upper bound on
- * perfect play and never a fairness result.
+ * perfect play and never a fairness result. That matters most on exactly this
+ * property: an optimizer threading a curtain would prove a crossing no person
+ * can make, and the cost this policy pays is the one a person pays.
  */
 const unloadedPolicy: Policy = (state, caused) => {
   return { move: dodgePolicy(state, caused).move, belch: false };
@@ -293,15 +319,47 @@ const unloadedPolicy: Policy = (state, caused) => {
 
 /**
  * How many shots on the field make a belch worth spending. Below this the
- * reservoir is better kept, which is the judgement a person makes and the only
- * thing this policy adds to dodging.
+ * reservoir is better kept, which is the judgement a person makes and one of
+ * the two things this policy adds to dodging.
  */
 const BELCH_WORTH_IT = 8;
 
 /**
- * Dodges, and belches when the reservoir is full and there is a curtain worth
- * cancelling. It carries the other half of ADR 0042's property: the curtain is
- * never crossable for free.
+ * Whether the thumb has nowhere clear to go: every one of the nine moves puts
+ * the grave inside something somewhere over the look-ahead.
+ *
+ * It is the second thing a person spends a press on, and it is geometry rather
+ * than a set piece: the policy asks whether it can get through what is in front
+ * of it and never what put it there, so nothing here is keyed on which set
+ * piece is on the field (ADR 0042, design record R4).
+ *
+ * A body count cannot stand in for it and that is measured, not assumed: the
+ * stage's own mow puts a median of 12 bodies inside the press's reach and 45 at
+ * its ninetieth percentile, where the whole curtain is 16, so a hand belching
+ * on a count would empty its reservoir into ordinary traffic and stand at the
+ * curtain with nothing (local/round2/L-bodies-in-reach.ts, 2026-09-16).
+ */
+const nowhereClearToGo = (state: RunState): boolean => {
+  const threats = threatsNear(state);
+  for (const move of MOVES) {
+    const room = tightestClearance(
+      state,
+      move,
+      threats,
+      BASE_SPEED,
+      ENOUGH_CLEARANCE,
+      LOOKAHEAD_SAMPLES,
+    );
+    if (room >= 0) return false;
+  }
+  return true;
+};
+
+/**
+ * Dodges, and belches when the reservoir is full and either the air is thick
+ * with shots or the thumb has nowhere clear to go. It carries the other half of
+ * ADR 0042's property as amended: the belch is the key, so a hand holding one
+ * crosses the curtain clean.
  */
 const belchingPolicy: Policy = (state, caused) => {
   const loaded = state.reservoir >= RESERVOIR_CAPACITY;
@@ -311,7 +369,7 @@ const belchingPolicy: Policy = (state, caused) => {
   );
   return {
     move: dodgePolicy(state, caused).move,
-    belch: loaded && shots >= BELCH_WORTH_IT,
+    belch: loaded && (shots >= BELCH_WORTH_IT || nowhereClearToGo(state)),
   };
 };
 

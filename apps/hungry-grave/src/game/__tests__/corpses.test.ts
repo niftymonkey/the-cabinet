@@ -421,6 +421,21 @@ describe('what takes food off the field (ADR 0056)', () => {
     const unexplained: string[] = [];
     const explained = { swallowed: 0, expired: 0, lost: 0 };
     for (let tick = 0; tick < 900; tick++) {
+      // The pool is held pressed from the test's own hand rather than from the
+      // section's traffic. It used to come from the Crowd's own curtain: the
+      // Wall was twenty-two shamblers and the storm took them as they crossed
+      // the edge, which put corpse spawns against a still-full pool. The
+      // curtain is cairns now and the storm does not take them down at all
+      // (#123), so the pressure that made the cap bind here was incidental to a
+      // wave this test never named. Naming it is the same repair the section
+      // above already got, one step further in.
+      for (
+        let made = 0;
+        state.corpses.some((corpse) => !corpse.alive);
+        made++
+      ) {
+        leaveCorpse(state, killAt(state, 'shambler', 60, 400 + (made % 200)));
+      }
       const before = liveIds();
       const events = executeTick(execution, STILL);
       let said = 0;
