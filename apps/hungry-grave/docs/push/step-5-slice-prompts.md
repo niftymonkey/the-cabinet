@@ -2,11 +2,13 @@
 
 One block per slice, in the design record's section 4 order. The launch preamble is the same for every slice: name the playbook, name the record sections carrying the dispatch contract items, then give the slice.
 
+**The order the blocks run in is step 5.0, M1, M2, M3, M4, M5, M5-fix, M1-fix, M6, M7, then step 5.7.** **Slice M1-fix runs between M5-fix and M6 and it is M1's repair rather than a slice of its own**, so its progress-note entry rides inside section 7 as a subsection the way M5-fix's rides inside section 11. Mark ruled on 2026-09-16 that the floor ladder's score bleed is capped (record R4's closing amendment), and it lands before M6 because M6 declares what the ladder cost and a reading declared over an amount that is about to change would measure the wrong rule on its first batch.
+
 **Step 5's coder contract is `step-4-coder-contract.md`, unchanged and still binding.** It carries how to work in the worktree, the commit and review rules, the progress note, the verification commands, what must not move in any slice, what is never a slice's job, and the stuck rule. Every block below names it and holds only what is its own.
 
 **Three standing overrides of that contract, and they apply to every block below.**
 
-1. **The ticket in the commit message is this slice's own, not `#39`.** The contract's "(#39), which is the ticket every step 4 docs and code commit cites" is step 4's. Step 5 runs on two tickets and a slice cites the one whose acceptance criteria its own done line closes: **#72** for the frame and the composed play space (slice M2), **#99** for the ladder being legible and a loss being watchable (step 5.0 and slices M1, M3, M4, M5, M6 and M7). **#135 is the friends' high score list and waits on the step 6 store**, so a slice that widens what the score is still cites #99 and never #135. Where a slice closes criteria on both, the commit cites the one above and the progress note names the other by criterion.
+1. **The ticket in the commit message is this slice's own, not `#39`.** The contract's "(#39), which is the ticket every step 4 docs and code commit cites" is step 4's. Step 5 runs on two tickets and a slice cites the one whose acceptance criteria its own done line closes: **#72** for the frame and the composed play space (slice M2), **#99** for the ladder being legible and a loss being watchable (step 5.0 and slices M1, M1-fix, M3, M4, M5, M6 and M7). **#135 is the friends' high score list and waits on the step 6 store**, so a slice that widens what the score is still cites #99 and never #135. Where a slice closes criteria on both, the commit cites the one above and the progress note names the other by criterion.
 2. **The progress note is `apps/hungry-grave/docs/push/step-5-progress.md`, not round two's and not step 4's.** The section numbers are fixed: **step 5.0 is 6, M1 is 7, M2 is 8, M3 is 9, M4 is 10, M5 is 11, M6 is 12, M7 is 13.** Sections 1 to 5 are the cross-slice facts and every slice writes its own rows into them. Round two's note and step 4's note are read and never appended to.
 3. **Scratch under `local/` goes in `local/step5/`, and every file in it carries your slice's name**, because the scratchpad and `local/` are shared between agents and a generic baseline filename gets clobbered by another agent's. Nothing under `local/` ever enters a commit.
 
@@ -18,7 +20,7 @@ One block per slice, in the design record's section 4 order. The launch preamble
 
 **The version constants and `GOLDEN` at HEAD, which is the tip these prompts read against.** `WITNESS_VERSION` **10** (`src/game/witness.ts`), `READINGS_VERSION` **7** (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` **4** (`src/tape/wireCodes.ts`), `GOLDEN`'s checksum **`1307518644`** (`src/dev/digest.ts`) as slice J3 pinned it, with `score: 0`, `mobs: 5`, `corpses: 1` and `kills: 2` inside it. **A slice may land between this line and you**, so **every slice re-reads all four off its own tip before it leans on any of them** and reports what it read.
 
-**The step's whole ledger, and every move in it is slice M1's except one.** `WITNESS_VERSION` **10 to 11**, in M1's fold commit, for R4's bled-rung memory. `READINGS_VERSION` **7 to 8**, in M1's score commit, for `run.score`'s meaning changing. `GOLDEN` **re-pinned twice, once per M1 code commit**: the checksum alone at the fold, `score` beside it at the score commit. **`FORMAT_VERSION` 4 does not move at all.** **M5 is permitted at most one `GOLDEN` re-pin** and is expected not to use it; **M2, M3, M4 and M6 are permitted none**. **The one move that is not M1's is `READINGS_VERSION` 8 to 9 in M7**, for `run.score`'s meaning changing a second time under R4's further inputs, and **M7 is permitted no `GOLDEN` re-pin and no witness move**: a fold there is a stop and report before it is written rather than a move it takes. **After M1 the four read 11, 8, 4 and `GOLDEN` as M1 pinned it**, and every slice after M1 reads them off the tree.
+**The step's whole ledger, and every move in it is slice M1's except one.** `WITNESS_VERSION` **10 to 11**, in M1's fold commit, for R4's bled-rung memory. `READINGS_VERSION` **7 to 8**, in M1's score commit, for `run.score`'s meaning changing. `GOLDEN` **re-pinned twice, once per M1 code commit**: the checksum alone at the fold, `score` beside it at the score commit. **`FORMAT_VERSION` 4 does not move at all.** **M5 is permitted at most one `GOLDEN` re-pin** and is expected not to use it; **M2, M3, M4, M6 and M1-fix are permitted none**. **The one move that is not M1's is `READINGS_VERSION` 8 to 9 in M7**, for `run.score`'s meaning changing a second time under R4's further inputs, and **M7 is permitted no `GOLDEN` re-pin and no witness move**: a fold there is a stop and report before it is written rather than a move it takes. **After M1 the four read 11, 8, 4 and `GOLDEN` as M1 pinned it**, and every slice after M1 reads them off the tree.
 
 **Section 5's "`READINGS_VERSION` does not move in this step at all" is corrected rather than obeyed, by the orchestrator on 2026-09-16 under one-push mode.** `run.score` is a declared reading in `batchReport.ts` and `compareRuns.ts`, and slice M1 changes what it means, which is `readingsVersion.ts`'s own stated case for a bump; the record's sentence was written before that was seen and its stated reason covers only M6's two new readings. **So the step carries two `READINGS_VERSION` moves and both are the same reading**, 7 to 8 in slice M1 for the kill, and **8 to 9 in slice M7** for the three further inputs R4 rules, which redefine `run.score` a second time on the same terms. M6's two new readings still move nothing, and neither do M7's per-input tallies, because new readings beside unchanged ones never do; what moves it both times is the reading that was already there.
 
@@ -914,6 +916,166 @@ What a player meets: they try for a falling rung at least once, and they sometim
 
 ---
 
+## Slice M1-fix: the bleed is capped (#99)
+
+Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#99)`.
+
+Slice M1-fix of The Hungry Grave: slice M1 made a kill pay score, and ADR 0003's floor ladder spends the whole of the score before it spends a level, so one hit at the size floor takes every point a run has made. M1's own batch measures it: the ladder took **11,900 to 54,201** from twelve runs that ended holding **0 to 22,611**, so the bleed is not a tax on a run, it is the run. Mark ruled the repair on 2026-09-16 and this slice builds it.
+
+**The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice M1-fix.
+
+**It is M1's repair rather than a slice of its own, so its progress-note entry rides inside section 7** as a `### M1-fix: the bleed is capped (#99)` subsection with your commit hash, which is exactly what M5-fix did inside section 11 and is why the prompts file's second override fixes the section numbers at all. **You open no new section.**
+
+**Mark's ruling, in his own words, and it is the whole of this slice.** He was told that under ADR 0003 the score bleeds before the level, that with kills now paying score one late floor hit takes every point in the run, boss damage included, and that a friends' high score (#135) would therefore be decided first by whether a late hit landed rather than by how the run was played. He chose to cap the bleed over parking it and over leaving it. **His words: "Cap the bleed."**
+
+**Seven rulings shape this slice and none of them is yours to revisit.**
+
+**First: ADR 0003's order stands whole and only the amount changes** (record R4's closing amendment, Mark 2026-09-16). The ladder still spends the score rung first, then one level off every line that has one to give, then seals. **A floor hit bleeds a capped slice of the standing score and the remainder stays.** Every event the ladder fires stays the same event on the same tick for every run: `scoreBled` fires once per armed rung, `weaponStripped` and `sealed` are untouched, and the ladder is still finite because the rung is spent once per arming whatever it paid. **A run's event sequence must be identical before and after your change**, and a batch is how you prove it.
+
+**Second: M1's bled-rung memory still sets on the hit exactly as it does now** (record R4). `runFloorLadder` sets `grave.scoreRungBled` on any ladder run, the bleeding one and the stripping one alike, and `growGrave` clears it at `SCORE_RUNG_REARM_SIZE`. **The cap changes what a bleed costs and never what a bleed is**, so the second floor hit while small still strips and the third still strips.
+
+**Third: the cap is the lesser of the standing score and a flat amount, and the flat amount is a data row beside `TRASH_KILL_SCORE`'s own home in `tuning.ts`.** **The shape is ruled from the research and is not yours to reopen** ([`../research/score-loss-on-a-hit-precedent.md`](../research/score-loss-on-a-hit-precedent.md), written for this slice). Nothing shipped takes a fraction of a banked score at all; every genuine arcade score subtraction is a flat amount and two of the three floor at zero; the lesser-of-a-flat-and-what-you-hold rule ships in Mario Kart's three coins and Shadow the Hedgehog's ten rings; and where a bound rides on a fraction it is always the lesser of the two and never the larger. **The game's own reason is the stronger one**: the score rung is spent once per arming whatever it paid, including on a hit that finds no score, so a rung whose cost in rungs is constant and whose cost in points is not would be two rules wearing one name.
+
+**Fourth: the value inside the band is yours, and the band is 10 to 40 trash kills.** That is **1,000 to 4,000 points** at today's `TRASH_KILL_SCORE` of 100 and **4 to 16 seconds of mowing** at the storm's measured 2.47 kills a second. **Both ends are argued in the research's section 5 and neither is yours to cross**: below 10 the rung reads as free, which is Great Mahou Daisakusen's own named failure, and above 40 a run that bleeds twice loses two thirds of the leanest measured run's whole gross and the ladder is again the first thing that decides a list. **State it as a multiple of `TRASH_KILL_SCORE`**, exactly as every mob row's `scorePayout` is stated and as `TRASH_CORPSE_PAYOUT`'s own comment demands of food, **annotate it as a first figure**, and say in the note what you set it against. **A number typed into a test is a stop; a row the test reads is the rule.**
+
+**Fifth: `scoreBled` carries the amount actually bled, and `tuning.damageTaken.scoreBled` does not change meaning.** The event's `amount` is what was taken, which is what it means today and what the reading sums. **So `READINGS_VERSION` holds at 8** and `readingsVersion.ts` is not in your commit: its own version-8 paragraph already writes the rule out, that "a key that merely reads a different number never moves this", and this is that case exactly. `run.score` keeps the meaning version 8 gave it, kills plus overflow, because the cap changes what the ladder takes and never what the score is made of. **Say that in the note with the rule quoted**, the way M6's prompt requires of its own held version, and **if you find a reading whose meaning genuinely moved, that is a stop and report and never a bump you take.**
+
+**Sixth: the M4 countdown's start is this slice's to fix, and its shape does not move.** `scoreCountingDown` (`src/app/screens/game/watchedLoss.ts`) runs linearly from `bleed.amount` toward the live score. Today `bleed.amount` is the whole pre-hit score, so the digits fall; **under a cap it is a slice, and the same expression would make the digits jump down to the slice and then climb back to the remainder**, which is the opposite of R5's promise that the score is seen to leave. **The countdown starts from the score as it stood before the hit and falls to the remainder.** The lifetime stays 40 ticks, the curve stays linear, the midpoint still reads about halfway, and the view is still told rather than inferring. **This claim is written out because the dispatch that ordered this slice said the countdown was unchanged**, which is true of its shape and false of its start; the tree was read and the start is what moved.
+
+**Seventh: ADR 0003 is amended in place, in the docs commit, and it carries ADR 0058's overrule line because it is one Mark ruled.** The number, the title and the filename do not move. The decision did not change; the amount did.
+
+### Read first, in this order, before any edit
+
+1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it.
+2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
+3. `apps/hungry-grave/docs/design/show-what-you-have.md`: **R4 in full and its closing amendment above all, which is the whole of this slice**, then R5 in full for the countdown, section 4's M1-fix paragraph, section 5's budget, section 6's test sentences, and **section 7's "a hit costs points" finding as it now reads, which is Mark's own ruling written out and is not yours to soften.**
+4. `apps/hungry-grave/docs/research/score-loss-on-a-hit-precedent.md` **whole**, which is this slice's own research: section 3 for why the shape is a lesser-of, section 5 for the band and what each end is argued from, and section 6 for what was searched and not found.
+5. `apps/hungry-grave/docs/adr/0003-size-is-health.md` **whole**, which you are amending, and `0058-each-on-swallow-line-pays-in-its-own-currency-at-its-own-cadence.md`, **its opening amendment sentence only**, which is the wording your overrule line copies. Then `0002-corpses-are-fuel-and-carriers-meter-power.md` **as step 5.0 amended it**, which is the nearest model for how a Mark-ruled ADR gains a supersession paragraph in this project's voice, and `0054-the-ladder-reads-twice-in-the-storm-and-on-the-hud.md`'s paragraph beginning "One thing is recorded as new ground", **which stays true and is not edited.**
+6. `apps/hungry-grave/docs/push/step-5-progress.md` **section 7 whole**, which is M1's own note and is where yours goes, and **section 11's M5-fix subsection**, which is the form a repair's entry takes and is the nearer precedent to yours than any full slice's.
+7. `apps/hungry-grave/CONTEXT.md`, the entries **Score**, **Size floor**, **Rung** and **Dive**. **Read three of its existing dated amendment paragraphs before you write one**, because the voice is the file's and not yours.
+8. The tree, whole where it is short and by function otherwise: `src/game/grave.ts` **whole**, and `bleedScore`, `runFloorLadder` and `hitGrave` above all; `src/game/tuning.ts`'s `TRASH_KILL_SCORE` and `TRASH_CORPSE_PAYOUT` with their comments; `src/game/events.ts`'s `ScoreBled` and `Overflowed`, **which already carries `{ amount, score }` and is the in-repo precedent for a payment event naming the total it left behind**; `src/game/invariants.ts`'s `checkScoreRung` and `checkRunNoNaN`; `src/game/director.ts`'s `SIGNAL_WEIGHTS`, **to confirm the pressure signal weights the event and never its amount**; `src/dev/readings/damageTaken.ts` whole; `src/dev/readingsVersion.ts` **whole, read and not edited**; `src/dev/digest.ts`'s `GOLDEN` and `runScenario`; `src/app/screens/game/watchedLoss.ts` **whole**, and `scoreCountingDown` and `watchLoss` above all; `src/app/screens/game/GameScreen.ts` where `watchLoss` is called.
+9. The tests that assert the whole bleed: `src/game/__tests__/grave.test.ts`, `src/__tests__/endings.test.ts`'s ladder-in-a-fight test with its `leftByTheBleed` capture, `src/app/screens/game/__tests__/watchedLoss.test.ts` and `LadderHud.test.ts`, and `src/dev/__tests__/bot.test.ts`'s `BLEEDS_SCORE`.
+
+**Four files are uncommitted in the shared worktree when you start and they are not another agent's in-flight edits.** `docs/design/show-what-you-have.md`, `docs/push/step-5-slice-prompts.md` and the new `docs/research/score-loss-on-a-hit-precedent.md` are the orchestrator's, made for this slice, and the research file is untracked. **Add the record and the research file to your docs commit by path; the prompts file is the orchestrator's and never yours.** **Do not edit the design record or the research file**, not for a typo and not for a stale line: a record edited by the slice dispatched against it stops being the thing the dispatch was written from. Anything you believe is wrong in either goes in the note. **Anything uncommitted under `src/` is a different matter and is a stop and report.**
+
+### The definition, in observable terms
+
+After this slice: a hit at the size floor with a large score standing takes a bounded slice of it and the rest stays, so the run keeps most of what it earned and goes on earning. A hit with a score smaller than the cap takes all of it, which is what happens today and is the only case that does not change. The rung is still spent either way, so the next floor hit while the grave is still at the floor still strips a level off every line, and growth of a full hit's worth off the floor still gives the rung back.
+
+**On the screen, the digits still fall and never climb.** The readout starts at the score as it stood before the hit, falls linearly over 40 ticks to what the bleed left, and eases toward the live score as kills go on paying, which is R5's promise holding under the new amount rather than a new behaviour.
+
+**Nothing else in the simulation moves.** The event sequence a seed produces is identical, the director's pressure signal is identical because `SIGNAL_WEIGHTS` weights `scoreBled` by event and never by amount, `stripLevels` is untouched, and the ladder is still finite.
+
+`WITNESS_VERSION` reads **11**, `READINGS_VERSION` reads **8**, `FORMAT_VERSION` reads **4**, `GOLDEN` holds at the checksum M1 pinned, and `pnpm verify` is green.
+
+What a player meets: the floor still has teeth, and a run is no longer decided by one hit near the end of it.
+
+### The work, in this order
+
+**(a) Verify the inputs.** `git log --oneline -25`, `git status --short`, the four constants read off the tree and reported, and your own test-name baseline into `local/step5/` under a name carrying `m1fix`. **Slices M1 through M5 and M5-fix must all be in the tree.** **Three docs files and one untracked research file will be dirty and that is expected**, per the paragraph above; anything dirty under `src/` is a stop.
+
+**(b) The tests first, red.** **Write the two ladder tests first**, the hit above the cap and the hit below it, both expressed against the row rather than against a number typed in the test.
+
+**(c) The cap row, and this is the one number you pick.** In `tuning.ts` beside `TRASH_KILL_SCORE`, stated as a multiple of it, inside the band 10 to 40 trash kills. **Its JSDoc says what it is, that it is a first figure, what it was set against, and that M6's readings are what it gets tuned against**, in the voice `TRASH_KILL_SCORE`'s own comment already uses. Say in the note what you chose and why that point in the band rather than either end.
+
+**(d) `bleedScore` keeps the remainder.** It takes the lesser of the standing score and the cap, subtracts it, and fires `scoreBled` carrying what it actually took. **The remainder can never be negative by construction rather than by a check**, because the lesser-of makes it impossible, and that is why **no new invariant is added**: a check for a state the arithmetic cannot produce would be noise under the deletion test, and the test that pins the lesser-of is what guards it. Say that decision in the note rather than leaving the absence unexplained.
+
+**(e) The comments that go false, each found by content and each rewritten.** `bleedScore`'s own "The whole score, gone. The score tier is exactly one rung, so it never partly bleeds" is now exactly wrong in its second half. `runFloorLadder`'s JSDoc says "it bleeds all of the score". `ScoreBled`'s comment in `events.ts` says "the whole score, gone". `endings.test.ts` carries "Score first, and the whole of it: the score tier is one rung and never partly bleeds" as a ruling inside a test, which is where a ruling belongs and is why it has to move with the ruling. **Grep for the claim rather than trusting this list, and say in the note what you found beyond it.**
+
+**(f) The countdown's start, in `watchedLoss.ts`.** It runs from the score as it stood before the hit. **The recommended seam is to widen `ScoreBled` with what is left standing, exactly as `Overflowed` already carries `{ amount, score }`**, so the view's start is the event's own arithmetic and the driver still hands it the event rather than diffing anything. **Widening the event costs no version and the reason is in `readingsVersion.ts`'s own version-8 paragraph**: "no sim event is ever encoded into a tape at all", the event is in no wire code map, and `damageTaken` reads only `.amount`. **M4's prompt says the three events stay three and none changes shape; that sentence is M4's and this slice supersedes its second half for this one case**, the way M5-fix superseded M5's upfield stop, and the note says so with what stood and what changed. **If you find a seam that is cleaner and keeps the event's shape, take it and say why**, but a view that infers the start from a score diff is a stop: a diff cannot tell a bleed from an overflow that happened to be negative.
+
+**(g) ADR 0003, amended in place.** The filename does not move, because the title does not. **Find the floor-ladder sentence by content, not by line**, the one reading "hits bleed score first, then weapon levels down to the birthright loadout", and carry the cap in it. Then a new dated paragraph with the what-stood, what-changed, what-it-could-not-have-known triple: what stood is the ladder's order, the floor never being immortality and death never being abrupt; what changed is the amount, a capped slice rather than the whole; what it could not have known is that nothing paid score for a kill when it was written, so a run that never reached the size ceiling carried a score of zero and a whole bleed had nothing to take. **Quote Mark's own words, "Cap the bleed", inside it** rather than paraphrasing them, and **end the paragraph with ADR 0058's own overrule sentence**, because this is a Mark-ruled ADR amended by a slice of ours under one-push mode.
+
+**(h) `CONTEXT.md`'s Score entry.** It reads "a hit at the size floor bleeding the whole of it before any weapon level goes", which is the clause that goes false. Amend the entry and follow it with the file's own dated amendment paragraph in the file's voice. **The Size floor entry is checked and left alone unless it has gone false**, because it names the order and not the amount, and either way you say in the note what you decided and why.
+
+**(i) The measurements this slice owes.**
+
+- **A batch on the same seeds and configurations M1 measured**, 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig, **printed as score bled against score earned, before and after**. M1's own figures are the before and they are in its note: `scoreBled` 11,900 to 54,201 against `run.score` 0 to 22,611. **Say plainly what share of a run the ladder now takes** and how many runs still end holding nothing.
+- **The event sequence proved identical, not assumed.** Same seeds, same counts of `scoreBled`, `weaponStripped` and `sealed` per run, and the same floor-hit split M1's own table carries. **A count that moved is a finding to explain before it is a result**, because the ladder's branch conditions did not change.
+- **Replay determinism at your tip.** One seed played twice under `shaky-short`, same tick count, same witness at every checkpoint, identical stream cursors.
+- **A tape recorded before your commit, replayed after it.** **It diverges at a checkpoint rather than being refused, and that is the expected outcome and not a fault**: `run.score` is folded into the witness, the cap changes what it holds after a bleed, and no folded field was added, so `witness.ts`'s own rule keeps the version still. **Say it in the note plainly rather than reaching for a version bump**, which is the shape M5 already had for a sim rule change.
+- **A conditioned tape at the ladder rig with levels pinned**, measured to `outcome: 'verified'`, because the ladder is loudest with a full build.
+
+**(j) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `fix(hungry-grave): a floor hit bleeds a capped slice of the score and the remainder stays (#99)`. Then the docs commit, carrying ADR 0003, `CONTEXT.md`, the design record, the research file and the progress note.
+
+**(k) The progress note**, section **7**, as a new `### M1-fix` subsection at its end. Beyond the contract's list, say: the cap you chose, where in the band it sits and what you set it against; the lesser-of written out and the invariant deliberately not added with the reason; every comment that went false and what it says now; the countdown's start, the seam you took for it and M4's superseded sentence with its triple; ADR 0003's triple in one sentence with the overrule line quoted; `CONTEXT.md`'s before and after in one line each and the Size floor decision; the batch's before-and-after table and the share of a run the ladder now takes; the event sequence proved identical; the pre-cap tape diverging rather than being refused and why that is right; `READINGS_VERSION` held at 8 with the rule quoted; and the four constants and `GOLDEN` all named as read off your own tip.
+
+**(l) Stop and report.** Under 250 words. **Do not start slice M6.** **This slice's tip is a deploy the orchestrator takes**, because the cap is a feel Mark has never had and his own play is what settles the value.
+
+### What must not move, and a move is a stop
+
+- **`WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN` as M1 pinned it.** None moves, **`readingsVersion.ts`, `witness.ts`'s version, `wireCodes.ts` and `digest.ts`'s pin are not in either commit**, and you read all four off the tree rather than off this line.
+- **ADR 0003's ladder order.** Score before levels, levels before the seal, the floor never immortality. **You are changing an amount, not a ruling**, and an amendment that changes what the ADR decides is a stop and report.
+- **The bled-rung memory, both its sites and its threshold.** `runFloorLadder` sets it on any ladder run, `growGrave` clears it at `SIZE_FLOOR + HIT_SHRINK`, and `swallow.ts` is not opened. **The threshold is Mark's own lever and section 7 carries it**; it is not yours to move while you are next to it.
+- **`stripLevels`' own rule** and the roster walk M5 gave it, **`hitGrave`'s invulnerability window**, and `strippableLines`.
+- **`state.score`'s other writer.** `swallow.ts`'s overflow keeps its exact meaning and `mobs.ts`'s `damageMob` keeps paying `row.scorePayout` on the kill.
+- **The three ladder events stay three.** `ScoreBled` may gain a field for the countdown's sake, per item (f); **`weaponStripped` and `sealed` do not change at all**, and no event is added, removed or merged.
+- **Every existing invariant's meaning and severity, the fault identity list, every cap, `STREAM_SALTS` and `STREAM_ORDER`.**
+- **The fences**, every one by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` empty.
+- **R5's countdown shape.** 40 ticks, linear, midpoint at about half, targeting the live score, told by the event and never inferred from a diff. **Only its start moves.**
+- **No test is deleted, skipped, weakened or rewritten to reach green.** A test asserting the whole bleed is re-expressed against the new rule with its ruling comment rewritten, which is not the same thing as deleting it. A measured baseline that moves is re-measured with its comment saying what moved and why.
+- **Nothing under `src/dev` or `src/tape` is in this commit**, and nothing under `src/app` beyond the countdown's start and whatever its own tests need.
+
+### Seams under test
+
+`src/game/grave.ts`: the floor ladder taking the lesser of the standing score and the cap, the remainder staying, the rung still spent on any ladder run, and the second hit still stripping. `src/game/tuning.ts`: the cap as a row stated in trash kills. `src/game/events.ts`: `scoreBled` carrying the amount actually bled, and whatever the countdown's start needs beside it. `src/app/screens/game/watchedLoss.ts`: the digits falling from the pre-hit score to the remainder, linearly, over the declared lifetime, with the view told rather than inferring.
+
+### Module boundaries
+
+**Nothing is created, deleted, merged or split, and no import direction changes.** `src/game` stays dependency-free and pure, the core's cycle guard keeps `KNOWN_CORE_CYCLES` empty, and `src/dev` is not opened at all. **The cap lives in `tuning.ts` because that is where the score's unit already lives** and a helper joins the file whose concept it serves; it is not a constant inside `grave.ts`, for the same reason `TRASH_KILL_SCORE` is not one inside `mobs.ts`. The HUD stays a dumb view and `GameScreen` stays the driver. No new library enters.
+
+### The planned test list
+
+1. *A floor hit with more score standing than the cap bleeds the cap and the rest stays.*
+2. *A floor hit with less score standing than the cap bleeds all of it*, which is the only case that does not change.
+3. *A floor hit that bleeds a capped slice still spends the rung*: the next floor hit while the grave is still at the floor strips a level rather than bleeding again, whatever score is standing.
+4. *A third floor hit while still at the floor strips again*, unchanged, because the memory is not a one-shot.
+5. *Growth of a full hit's worth off the floor still re-arms the rung*, and the hit after it bleeds a capped slice rather than stripping.
+6. *`scoreBled` carries the amount actually bled*, so the reading that sums it still sums what was taken.
+7. *The ladder is still finite*: from a maxed run at the floor holding score, at most seven hits end in sealed shut, whatever the score, because the rung is spent once per arming.
+8. *A run can end sealed while still holding score*, which is a state that could not exist before and is the whole point of the ruling.
+9. *The readout falls from the score as it stood before the hit to what the bleed left, and never climbs*, with the midpoint tick reading about halfway between the two. **The never-climbs assertion is the point of this test**, because the old expression passes a midpoint test while running the wrong way.
+10. *The countdown still eases toward the live score*, so kills paying while the grave is at the floor are landed on rather than jumped to.
+11. *The view is still told a bleed happened and never infers it*, unchanged.
+12. **The fences**, green, each by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` still empty.
+13. **The golden digest**, green and unmoved. `GOLDEN` reads `size: 24.10125` against a floor of 18 and `score: 200`, which is exactly the two scripted shambler kills' own rows, **so the scenario never reaches the floor and the ladder never runs in it**. A digest that moves here is a stop and report and never a re-pin.
+
+**What this slice is expected to turn red.** `grave.test.ts` throughout the ladder block, `endings.test.ts`'s ladder-in-a-fight test on both its amount assertion and its `leftByTheBleed` capture, `watchedLoss.test.ts` and `LadderHud.test.ts` over the countdown's start, `events`' own tests if you widen `ScoreBled`, and `bot.test.ts`'s `BLEEDS_SCORE` and `harnessPolicy.test.ts`'s measured baselines **if the batch says the runs diverged, which they should not**. **A realistic count is 5 to 9 files.** A diff much larger than that is a reason to check what you reached into, and a set of measured baselines that moved is a reason to check the third ruling above before re-pinning anything.
+
+### Verification steps, with actors
+
+1. **Agent.** `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/`, then `pnpm verify` green twice on the committed tree.
+2. **Agent.** The test-name diff, both figures, against a baseline captured before your first edit.
+3. **Agent.** The four version constants and `GOLDEN`, each read off the tree and each named as held, with none of their four files in either commit.
+4. **Agent.** The batch, printed as score bled against score earned, before and after, on M1's own seeds and configurations.
+5. **Agent.** The event sequence proved identical per seed, counts and floor-hit split beside M1's table.
+6. **Agent.** Replay determinism on one seed under `shaky-short`, a conditioned tape at the ladder rig measured to `outcome: 'verified'`, and a pre-cap tape diverging at a checkpoint rather than being refused, with the reason stated.
+7. **Agent.** The fences green, each named by test title.
+8. **Human (Mark), and none of these blocks you.** Whether the cap's value feels right: take a hit at the floor late in a run and see what it costs, then take a second before growing and lose a level off every line. **The lever is one data row and it is his**, and M6's bleeds and strips per run are the evidence beside it. **The deploy that puts it in front of him is the orchestrator's, straight after your report.**
+
+### State of the branch
+
+- The tip should be slice M5-fix's docs commit, `d68114a1a8`. **At HEAD the four read `WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150`.** **Read all four off the tree yourself before you lean on any of them and say what you read**, because a slice may land between this line and you.
+- **You are permitted no version move of any kind and no `GOLDEN` re-pin.** The step's whole ledger was spent in M1 and M7 holds the one move still outstanding.
+- **Slice M6 follows you** and declares what the ladder cost, which is why you land first: a reading declared over the uncapped amount would measure a rule that was about to change.
+- The headless browser runs at 3 to 21 FPS under SwiftShader and puts consecutive screenshots 74 to 120 ticks apart, so a 40-tick countdown is shorter than the gap between two of its frames. **The countdown is pinned by test and its feel is Mark's own read**; do not spend runs chasing a frame.
+
+### The stuck rule
+
+**Four things are already known to be a stop:** anything under `src/` uncommitted when you start; any version constant or `GOLDEN` moving; a batch whose event counts or floor-hit split moved, which says a branch condition changed when none should have; and a reading whose meaning genuinely moved, which is reported and never fixed with a bump. **And four things are ruled rather than open:** the cap's shape is the lesser of the standing score and a flat amount, the band is 10 to 40 trash kills, ADR 0003's order stands and only the amount changes, and the bled-rung memory and its threshold are untouched. **A measurement arguing the cap is too harsh or too soft is a data row you annotate and a finding for the note, and Mark's own play is what settles it.** **Green tests plus wrong observed behaviour means the test plan has a hole: pin the wrongness as a new red test first, never patch first.**
+
+### What is not your job
+
+- **The bled-rung memory's threshold**, which is Mark's lever and section 7's, even though you are in the file it lives in.
+- **The score's other inputs**, M7's, and **the score's own event**, which M7 declares.
+- **Declaring a reading**, M6's. You measure and print; you declare nothing.
+- **The fallen rung, the dive and the field channel**, all landed or filed, none of them touched here.
+- **#135's high score list**, which needs the step 6 store and is filed in the record's section 7 as a ticket after V1.
+- **The record's section 7 findings**, none of which any slice acts on, and **the two prompt files**, which are the orchestrator's.
+- **Deploying, pushing, merging, opening a PR, opening or closing a ticket.**
+
+---
+
 ## Slice M6: the ladder's cost is measurable (#99)
 
 Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#99)`.
@@ -1037,8 +1199,8 @@ What this buys: section 7's findings stop being arguments and become numbers bes
 
 ### State of the branch
 
-- The tip should be slice M5's docs commit. **M5 lands before you**, and its events and its fourth food kind are what three of your readings are built from.
-- **At HEAD the four read `WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150`.** **Read all four off the tree yourself and say what you read**, because M5 lands between this line and you and a line here is not the tree.
+- The tip should be slice M1-fix's docs commit. **M5, M5-fix and M1-fix all land before you.** M5's events and its fourth food kind are what three of your readings are built from, and **M1-fix caps the floor ladder's score bleed** (Mark, 2026-09-16, record R4's closing amendment), which is why it lands first: a reading declared over the uncapped amount would measure a rule that was about to change. **Read `bleedScore` and the cap's own row in `tuning.ts` off the tree before you design the memory's transitions**, because the amount a bleed takes is now bounded and your own batch prints it.
+- **At HEAD the four read `WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150`.** **Read all four off the tree yourself and say what you read**, because M5, M5-fix and M1-fix all land between this line and you and a line here is not the tree. **M1-fix moves none of them either**, so the four should read the same when you arrive.
 - **You are permitted no `GOLDEN` re-pin and no version move of any kind.** **M6 moves none of the four.**
 - **Slice M7 follows you** and pays the score's other inputs, and **it holds the step's second `READINGS_VERSION` move, 8 to 9**. It is not yours to start and its move is not yours to take. **Step 5.7 is the orchestrator's** and comes after it: the gates, then CodeRabbit on the exact tip, then a batch, then the deploy. **Gates before the reviewer, because a finding that changes code invalidates a review.**
 
