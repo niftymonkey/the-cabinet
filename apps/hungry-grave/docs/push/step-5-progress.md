@@ -12,7 +12,7 @@ The record is `apps/hungry-grave/docs/design/show-what-you-have.md` and the prom
 | M1, the fold | `2c7a281657` | `feat(hungry-grave): the ladder remembers the rung it bled and the witness folds it (#99)` |
 | M1, a kill pays score | `11483ecf31` | `feat(hungry-grave): a kill pays score and a bled rung stays bled until the grave grows (#99)` |
 | M2, the frame composed and the band reserved | `0c7f877ad1` | `feat(hungry-grave): the frame is composed across three regimes and the HUD's band is reserved (#72)` |
-| M3, the HUD carries the ladder and the score | | |
+| M3, the HUD carries the ladder and the score | `48383d4d68` | `feat(hungry-grave): the row carries the score and every rostered line's rungs as marks (#99)` |
 | M4, the loss is watched | | |
 | M5, the stripped rung falls | | |
 | M6, the ladder's cost is measurable | | |
@@ -73,6 +73,8 @@ One entry per code commit: files reviewed, findings by severity, applied and dec
 
 **M1's score commit, one iteration: 8 files reviewed, 3 findings, none of them on this slice's code and all three declined.** All three are on `docs/push/step-5-slice-prompts.md`, on an uncommitted edit to slice M2's block that another agent was making in the shared worktree while M1 ran (see section 5). Two majors and one minor, all about reading `env(safe-area-inset-bottom)` once at boot and whether `safe-area-max-inset-bottom` should be preferred. **Declined because the file is not this slice's and the subject is M2's**, and because the edit under review was not committed by anything M1 did. The review saw those two docs files in both runs because they were dirty in the worktree the whole time.
 
+**M3's code commit, one iteration: 8 files reviewed, 0 findings.** Nothing applied and nothing declined. The worktree was clean of other agents' edits this time, so the review saw this slice's eight files and nothing else.
+
 ## 5. Record and prompt claims found false against the tree
 
 Every claim in the design record or in a slice prompt that did not survive contact, with the file and what is actually there. **The source's intent is followed rather than its stale letter, and an unclear intent is a stop.**
@@ -98,6 +100,10 @@ Every claim in the design record or in a slice prompt that did not survive conta
 **M2. The record's narrow-phone belch overlap is 112 stage units and measures 108.** `BELCH_SIZE` is 108, so 108 is the whole button and 112 is not a figure that row can produce. Every other cell in section 3.1 survived re-derivation at this tip, including the three rows the even split moves.
 
 **M2. None of the exact-offset assertions the prompt expected to turn red did.** Every existing viewport in `layout.test.ts` either does not refit or refits to the same offset under both rules, `layering.test.ts` turned red only on the new tests, and `BelchButton.test.ts`'s two rects did not move. All twelve red tests were M2's own, and the four green files were checked by running them rather than assumed.
+
+**M3. Both of R2's own legibility floors are a rounding above the widths they were derived from, so neither 1.5 nor 3 field units reaches its own floor.** The stroke floor is stated as 0.89 CSS pixels and derived as `SPRITE_STROKE` 1.5 at "the narrow phone's 0.59 CSS pixels per field unit"; the true figure is 320/540, which is 0.5926, so 1.5 units measures **0.8889** and misses the stated floor by a thousandth. The gap floor is stated as 1.8 and derived as 3 units at the same scale; 3 units measures **1.7778** and misses by two hundredths. **The record's intent is the floor rather than the figure**, which item (h) says in as many words, so the mark's outline is **1.6 units** and the gap between two marks is **3.2**, measuring 0.948 and 1.896 at that viewport. Both are written into `LadderHud.ts` with this derivation beside them. The mark itself is untouched at 11 and clears 6.25 at 6.519.
+
+**M3. The row's content clears the field's boundary at a mark and not at an icon, so the gap leg of the separability predicate does not carry the reading and the luma leg does.** The prompt reads the gap as "the band's 2 units of padding, about 1.2 CSS pixels there", which is what it is where the row sits above the field. Where the row draws over the field's top edge, which is the narrow phone the predicate is measured at, those same 2 units are exactly `BOUNDARY_STROKE`'s own 2, so the icon's box begins where the boundary's stroke ends and the measurement is **0 CSS pixels at an icon and 4 at a mark**. Section 9 carries the measured pixels and the leg that carries it.
 
 ## 6. Step 5.0: the docs commit, ADR 0054 amended and the glossary gains three terms (#99)
 
@@ -317,6 +323,130 @@ One code commit, `0c7f877ad1`, plus this note. **Eight files**, against the prom
 
 
 ## 9. Slice M3: the HUD carries the ladder and the score (#99)
+
+One code commit, `48383d4d68`, plus this note. **Eight files**, inside the prompt's realistic 8 to 14: three production files changed (`GameScreen.ts`, `RunHud.ts`, `runSession.ts`), one production file gaining an export and a sentence of JSDoc (`foodSprite.ts`), one production file created (`LadderHud.ts`), and three test files (`layering.test.ts`, `RunHud.test.ts`, and the new `LadderHud.test.ts`). **Nothing under `src/game`, `src/dev` or `src/tape` was opened.** The test-name diff against a baseline captured at `3a22fdc798` before the first edit reads **2205 names in the baseline, 2219 now: 17 added, 3 removed**, and every removal has its replacement among the additions (below).
+
+**What a player meets now.** A slim row sits at the field's top edge. At its left is the score at six digits with one mark beside it, then, for each line the run was born with and in that order, that line's own silhouette with five marks against it, filled up to the level it holds. Swallowing a power-up fills one more mark on the line it levelled, on the tick it was swallowed. Nothing on the row gets brighter, ever: a rung that is held is a solid square and a rung that is not is the outline of the same square at the same grey. The row draws no plate, so the field shows through between the marks.
+
+### The view's seam, and what arrives once against what arrives per frame
+
+**The module is `src/app/screens/game/LadderHud.ts`**, named for the concept `CONTEXT.md` calls the HUD and for the ladder it carries, which is `RunHud.ts`'s own word for it in the comment this slice corrects. It lives beside the field's other renderers so `palette.test.ts`'s source scan reads it as text, it is a sibling of the field container rather than a child, and its public interface is one export block at the end: `createLadderHud` and the `LadderHud` type.
+
+**The roster arrives once, through `showIdentity`**, which is already the seam for what a run was born with, and `RunIdentity` gains `roster` there. **The score, every line's level, the ladder's bled-rung memory and the bank arrive every frame through `render`**, which is three new fields on `RunReadout` plus the `bankedOffers` already on it. **The levels are a per-frame copy and never `run.levels` itself**: the offer's take mutates that record in place, so an alias would hand a dumb view live simulation state and would make any diff the driver takes compare an object with itself. The field carries that reason in its own JSDoc.
+
+**The view is dumb and holds no change detection.** Every mark is two bodies, an outline and a fill, both drawn once at construction; `render` shows or hides the fill. No frame rebuilds any geometry, which is what makes twenty-one marks per frame free, and the "draws the same pixels for the same readout, whatever the tick" test is what says the view carries nothing of its own between renders.
+
+**`GameScreen` owns the data, the diffing and the loop**, and it reads the session's readout once per frame and hands the same reading to both views through one small `readOut()`, so the corner stack and the row can never be a frame apart. **The row's rectangle is `hudRow`'s output applied exactly as `fitField`'s is applied to the field**, position and scale, never a second computation.
+
+### The mark, the outline and the gap, measured at every viewport
+
+Measured off the drawn geometry rather than computed from the constants, then converted at each viewport's own CSS pixels per field unit.
+
+| viewport | CSS px per field unit | mark, floor 6.25 | outline, floor 0.89 | gap, floor 1.8 |
+| --- | --- | --- | --- | --- |
+| narrow phone, 320x460 | 0.5926 | **6.519** | **0.948** | **1.896** |
+| iPhone 15, 390x844 | 0.7222 | 7.944 | 1.156 | 2.311 |
+| phone at svh 660, 393x660 | 0.7278 | 8.006 | 1.164 | 2.329 |
+| tablet portrait, 820x1180 | 1.5185 | 16.704 | 2.430 | 4.859 |
+| desktop, 1440x900 | 1.1842 | 13.026 | 1.895 | 3.789 |
+
+**The mark is 11 field units, exactly as `layout.ts` declares it, and nothing moved it.** What did move are the two figures the record derived the other two floors from, because both were rounded up past what they describe: section 5 above carries that entry with the arithmetic. The outline is **1.6** units and the gap between two marks is **3.2**.
+
+**The filled mark carries 2.011 times the ink of the empty one**, 121 square field units against 60.16, and the test holds that ratio at 1.8 or better so the two constants cannot drift into each other.
+
+**The score's digits measured 63.4 field units for six at the phone viewport**, against a declared budget of 66.96, so the real monospace advance is about 0.587 em and the 0.62 bound the corner stack is held to holds here too. **The whole row's content measures 10 to 527.08 across and 2 to 26 down**, inside the field's 540 and inside the band's 28, with 12.92 units of margin at the right end.
+
+### The grayscale read, measured off the pixels
+
+`filter: grayscale(1)` on the page, the built app through `vite preview`, the phone viewport, run two rather than run one.
+
+**In colour the two bodies render at exactly one declared value.** Every painted pixel of the row measures `rgb(168,172,176)`, which is `hudInk`'s own `0xa8acb0`, on the filled marks, the empty marks' outlines, the icons and the digits alike. **There is no second colour on the row at all**, so the value step between a held rung and a lost one is zero by construction rather than by measurement.
+
+**In grayscale both read `rgb(171,171,171)` and the reading survives on area alone.** On a scan line through the marks at 390 wide, a filled mark is **8 CSS pixels of solid ink** and an empty one is **two 1-pixel strokes with a 6-pixel hole between them**, the same 8 pixels wide. That is the record's own promise with the hue removed: about four times the ink on a scan line, about twice by area, and not one step of value between them.
+
+### The row against the field's boundary
+
+At the narrowest phone in the sweep the row draws **over** the field's top edge, because that stage leaves 8 stage units of band against the row's 28. Measured there, in colour so the two readouts can be told apart by hex:
+
+- The boundary's stroke reads `rgb(143,160,199)`, which is `fieldFrame`'s `0x8fa0c7`, as a **1 CSS pixel** line.
+- At a mark's column the nearest painted pixel of the row is **4 CSS pixels** below it.
+- At an icon's column the row paints **over** the boundary: the icon's 24-unit box starts 2 units below the row's top and `BOUNDARY_STROKE` is exactly those 2 units, so the gap is **0**.
+
+**The luma leg carries the reading and the gap leg does not**, which is what the record predicted: `hudInk` at 67.23 against `fieldFrame` at 62.43 is **4.80 points** against the palette's own 2.0-point separation, 2.4 times the floor. The test asserts both numbers in one reading, `gap false luma true separable true`, so the day the luma leg is lost the test fails rather than the disjunction quietly carrying on.
+
+### The icon, and what it was set against
+
+**`drawPowerUpIcon` gained an export from `foodSprite.ts` and the row imports it**, which is the reuse path the prompt ruled: the offer's body already teaches one silhouette per line, and R6 has the fallen rung wearing the icon its row taught, so a second vocabulary would put the body and the row in disagreement. Its JSDoc now says that the row draws the same silhouettes and that both of its properties bind at the row's size too, so #38's replacement is held to them there.
+
+**Both properties survive the size, measured at the row's 24-unit box.** The skull stream's circle is 24.00 by 24.00, Territory's hand is 8.16 by 24.00, the wisps' kite is 11.52 by 24.00 and the bell is 24.00 by 12.48. **Each still fills its box on its long axis at exactly 24 units**, and the four aspects stay apart at 1.00, 0.34, 0.48 and 1.92, which is the coarse tall-round-pointed-wide split the sprite's own comment names. Read off the rendered screenshots at both viewports, the four are tellable at a glance: the circle, the three-fingered hand, the teardrop and the wide dome.
+
+The icon draws in `hudInk` filled solid, the row's one ink, rather than in the power-up's own treasure colour. That is a craft call and its reason is that the row has exactly one ink by design: a second colour on it would be a second thing for the eye to rank, and the silhouette is what carries the line's identity.
+
+### The pause button's drop, and M2's crossing pin replaced
+
+**The button drops below the row at the squeeze regime and moves nowhere else.** The rule is measured rather than named by viewport, for the reason `fitField` gives for having no breakpoint: `pauseButtonTop` in `GameScreen.ts` takes the row's own rectangle and the reserve's own corner and moves the button only where the two actually cross. At the tall regime the band holds the row below the button and it does not cross; at the wide regime the side gutter holds the button clear of the field's width; at a viewport near the field's own aspect both collapse and the button goes to `row.top + row.height + margin`.
+
+**M2's crossing pin is replaced by the clearance, not deleted.** `clears the pause button's own rectangle at every regime but the squeeze` becomes `clears the pause button's own rectangle at every regime, the squeeze included`, and a second test beside it pins the positions rather than the absence of an overlap, because a button that had vanished would clear the row too: **top 12 at the tall and wide regimes and 67.48 at the squeeze, below the row's own bottom edge only there**. The first regime test also gained the conditional, so the three regimes are still asserted in one place. **The reserved-corner pin is untouched**: the row still runs into both reserved corners at the tall and squeeze regimes, which is R12's dev-build-only collision and #66's.
+
+Seen in the rendered check at 320 by 460: the button sits at CSS y 34 to 52, clear below the row, with the row running the full width above it.
+
+### The bank moved, and `RunHud`'s comment corrected
+
+**`BANK n` is gone from the dev corner stack** and the levels and fault lines moved up to stack lines 5 and 6. `bankReadout` went with it, and `RunHud`'s comment about the stand-in form is replaced by a short constraint beside the lines it binds, naming the ladder HUD as the reading's one home. **The absence is guarded by a test** rather than left to the comment, per the standing rule: `carries no bank line, because the ladder HUD carries the bank now` fails if a bank line reappears in the stack.
+
+**On the row the bank reads as `+n` and draws nothing at all at zero**, the existing rule with its reason unchanged. **Two craft values here are first figures and both are open for Mark's read.** The marker is `+` rather than a word, because the row's budget for it is 23 field units and `BANK` alone is wider than that. Its font is 12 field units, the smallest reading on the row, which is 7.1 CSS pixels at the narrowest phone and 8.7 at an iPhone: the budget is sized for the widest bank the stage can produce, which is `carriersScheduled()` at 25, so `+25` is three characters and the size falls out of the width. **If the bank should read larger, the width has to come off the score's own budget**, because R1's arithmetic leaves the row 2.2 units of slack in total.
+
+### The palette scan, and every luma printed
+
+**`palette.test.ts`'s source scan is green over the new module and no entry was added.** `LadderHud.ts` names exactly one palette entry, `hudInk`, writes no colour literal, reaches no `MENU` colour and sets no `blendMode`. The scan walks `src/app/screens/game` as text, so the file joined it by existing.
+
+The lumas the row is judged on, all read off the declarations and all confirmed against the rendered pixels: **`hudInk` 67.23** (the row's one ink), **`fieldFrame` 62.43** (the boundary it must be told from), **`hudDim` 50.94** (the dev stack beside it), **`reservoirCharge` 67.25** (slice K's own filled readout), against **`FIELD_LUMA_CEILING` 68**. Every one of them is at or under the ceiling and inside the live-field list, which is what the scan's own parts assert.
+
+### The rendered check, across two runs and two viewports
+
+`pnpm build` then `pnpm exec vite preview`, driven with `playwright-cli` against the built app, at 390 by 844, 320 by 460 and 1440 by 900, with `?levels=3` pinned so the marks start partway. **Zero console errors and seven warnings over the whole session**, all of them the audio autoplay policy and headless Chromium's software renderer, both pre-existing and both the same seven M2 saw.
+
+**Run one, phone.** The row reads `000100` with a filled cushion beside it, then the circle at three of five, the hand at three, the kite at three and the bell at three, which is the pin. The row sits in the band above the field, clear of everything.
+
+**Run one ended by play, sealed shut at 3383 ticks, and run two was played from RISE AGAIN.** The row drew the second run's own rows from the second run's own roster, which is the pooled reuse the unit test asserts and the check that slice K's empty-ring read proved is worth taking.
+
+**Desktop, 1440 by 900, mid-run.** The row draws over the field's top edge inside the field's own width, with the corner stack and the pause button both out in the side gutter. It read `002000` with **the cushion mark empty**, which is M1's rule caught live rather than staged: the run had taken a floor hit, the ladder spent the score rung, kills kept paying score afterwards, and the marks read 2, 1, 2 and 3 across the four lines because later floor hits had stripped levels. That is the one state a headless driver was never going to be able to stage on purpose.
+
+**What the check could not see.** A roster of fewer than four lines, because nothing in the build pins a roster and `createRun` defaults to the whole pool; the unit tests drive rosters of one to four. A non-zero bank, because it needs a carrier killed while an offer stands and the driver cannot steer well enough to arrange one. And the cushion re-arming, because that needs a dive that grows the grave a full hit's worth off the floor. All three are pinned by test.
+
+### The four constants and `GOLDEN`, all untouched
+
+`WITNESS_VERSION` **11** (`src/game/witness.ts`), `READINGS_VERSION` **8** (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` **4** (`src/tape/wireCodes.ts`) and `GOLDEN`'s checksum **`-2049717150`** (`src/dev/digest.ts`), each read off this slice's own committed tip. **None of the four files is in the commit** and neither is anything else under `src/game`, `src/dev` or `src/tape`. **No tape, batch or determinism run is owed and the claim was checked rather than assumed**: no simulation rule was touched, and the one thing the row reads that the sim owns, `run.levels`, it reads as a copy.
+
+### Verification
+
+`pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/` before the commit. **`pnpm verify` green twice on the committed tree at exit 0**: 148 test files, 2208 passed, 11 expected fail and 2 todo, against the 2205 test names M2's own note left and the 2219 this slice's diff reports.
+
+**The fences green, each by title**: *src/game imports only from src/game*, *src/dev imports only from src/dev and src/game and src/tape*, *a policy names no weapon line*, *the step fence (ADR 0017) passes from the execution module alone*, *the harness reports and never judges*, *the cap derivation reads tables and never the stage* and *every reading declares what comparing it means*. Beside them, *every test file imports only from inside its parent folder's subtree* green over the new test file, *a golden digest over a short scripted scenario matches the committed constant (ADR 0015)* green at `-2049717150`, and the palette scan green in all of its parts.
+
+**The twelve red tests were this slice's own and the expected-red list was right about every file.** `RunHud.test.ts` over the bank line, `layering.test.ts` over the crossing pins, and `LadderHud.test.ts` red twelve times against a stub that threw before a line of the view existed. **`GameScreen` has no test file of its own**; its wiring is asserted through `layering.test.ts`, which builds a real screen and resizes it, and that is where the row's placement and the button's drop are held. **There is no `runSession.test.ts`** and none was looked for.
+
+### Craft values decided rather than asked, each with what it was set against
+
+- **The mark's outline at 1.6 field units and the gap at 3.2**, raised off the record's 1.5 and 3 so both clear the floors those figures were derived from. Section 5 has the arithmetic.
+- **The band's 28 units spend 2 above the content and 2 below**, exactly as `layout.ts`'s own derivation states, which is what puts the icon's top edge on the boundary's stroke where the row draws over the field. A 3-and-1 split would have bought the gap leg 1 CSS pixel at both placements and was not taken, because the band's derivation is M2's and the luma leg carries the reading without it.
+- **The score at 18 field units, six digits, zero-padded**, which is 10.7 CSS pixels at the narrowest phone and 21.3 on a desktop. Padded because a fixed width is what keeps the row from shifting under a growing number, and because it is the arcade convention the genre already reads.
+- **The score group sits at the row's left and the line groups to its right**, in reading order, with the cushion's mark between the digits and the bank.
+- **The gap between two line groups is twice the gap inside one**, 6.4 against 3.2, so the groups separate before the marks do and the figure is derived rather than chosen.
+- **The bank's marker and size**, named above as first figures.
+
+### What is left for a later slice, each with the slice named
+
+- **The countdown on the score and a mark going dark are M4's**, the cushion's mark included. This slice draws the current state and nothing animates.
+- **The fallen rung's body is M5's**, and it wears the icon this row now teaches, which is why the export landed here.
+- **A roster shorter than the build's four is unreachable from the URL**, so the rendered check could not show one. If a later slice wants one on screen, a roster pin is the smallest thing that would do it; no ticket is filed, because nothing needs it yet.
+
+### Filed for Mark, built past
+
+**At the narrowest phone the dev corner stack's FPS line sits on top of the row's score.** The stack starts at stage y 12 and the row's content sits at stage y 10 to 26 there, so `0 FPS` and `000100` overprint. **R12 already rules this collision a dev-build-only one and #66 owns the build flavour that removes it**, so nothing here acts on it; what is new is that the thing it lands on is now the player's own score rather than empty band. It is visible in the 320 by 460 screenshot and it is invisible on every other viewport in the sweep.
+
+**Where the row draws over the field, a mob passes behind the marks.** Seen at 320 by 460, a live mob sat behind one of the wisps' empty marks and both stayed readable. This is the no-plate arrangement working as R1 intends and it is named because it is the first time anything in this game draws over live play.
+
 
 ## 10. Slice M4: the loss is watched (#99)
 
