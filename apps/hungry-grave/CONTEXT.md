@@ -22,7 +22,7 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Sealed shut**: Death: shrunk to nothing, filled in, and closed. The grave is never destroyed or killed; it is sealed. _Avoid_: dead, killed, game over, destroyed.
 
-**Score**: The number a run accumulates, paid two ways: a kill pays it, and growth past the size ceiling converts into it, so the storm and the swallow both feed it (ADR 0002, ADR 0003). It is also what the floor ladder spends first, a hit at the size floor bleeding the whole of it before any weapon level goes, and the HUD carries it beside the rungs. _Avoid_: points, XP, experience, currency.
+**Score**: The run's worth in one number, fed by several inputs and never by kills alone: a kill pays it and growth past the size ceiling converts into it, so the storm and the swallow both feed it, and what else feeds it is open (ADR 0002 as amended, ADR 0003, #135). It is also what the floor ladder spends first, a hit at the size floor bleeding the whole of it before any weapon level goes, and the HUD carries it beside the rungs. _Avoid_: points, XP, experience, currency.
 
 **Focus**: Hold-to-slow precise movement, keyboard only. On touch, drag precision is the fine control and focus is nothing. _Avoid_: slow mode, precision mode, walk.
 
