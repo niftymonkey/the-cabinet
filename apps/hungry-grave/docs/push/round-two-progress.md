@@ -15,6 +15,7 @@ The record is `apps/hungry-grave/docs/design/round-two-wall-belch.md` and the pr
 | I, the shove is measurable | `157946940c` | feat(hungry-grave): a shove says which push threw it and the batch reads the two apart (#126) |
 | H2, the push retuned and the bell's two reaches | `d6794f9836` | feat(hungry-grave): a toll's push runs long enough to watch and reaches further than its damage (#126) |
 | J, the belch becomes a pushback | `eda21401a0` | feat(hungry-grave): the belch clears the ground in three waves and takes health off nothing (#124) |
+| J-fix, the reach and the eruption made one circle | `6caa2fa72b` | fix(hungry-grave): the belch catches half the field's width and its eruption stops where the push stops (#124) |
 | K, the meter fills and changes corner | | |
 | L, the Wall is a wall | | |
 
@@ -53,6 +54,8 @@ One entry per code commit: files reviewed, findings by severity, applied and dec
 
 **Slice I, `157946940c`.** All twenty-one staged files reviewed, **one finding, major, declined**. It asks for `mobs[].impulse.source` to be folded rather than excluded and for `WITNESS_VERSION` to bump with it, which the slice's own fourth ruling and the design record's section 5 both forbid: the witness moves exactly once in round two and that move was slice H's. The reasoning behind the exclusion, and slice G's worked precedent for declining a reviewer's version move, are in section 9.
 
+**Slice J-fix, `6caa2fa72b`.** All five staged files reviewed, **zero findings at any severity**, so nothing was applied and nothing declined.
+
 ## 5. Record and prompt claims found false against the tree
 
 Every claim in the design record or in a slice prompt that did not survive contact, with the file and what is actually there. **The source's intent is followed rather than its stale letter, and an unclear intent is a stop.**
@@ -64,6 +67,10 @@ Every claim in the design record or in a slice prompt that did not survive conta
 **Slice H. `mobs.ts` cannot call `moveStormTarget`, because `stormTargets.ts` imports `mobs.ts` and the core carries no import cycle.** The prompt's item (d) and the record's section 3 both ask for the shove's own travel to go through `moveStormTarget` while the advance runs inside `advanceMobs`. Those two cannot both hold: `stormTargets.ts:27-28` imports `damageMob`, `hasEntered`, `mobHitbox` and `SPAWN_MARGIN` from `mobs.ts`, so a call the other way closes a value cycle, and `boundary.test.ts`'s third fence, *the core has no import cycle*, holds `KNOWN_CORE_CYCLES` at an empty list with its own JSDoc saying that adding to it is the thing to argue about rather than reach for. The fences must not move, so the cycle was not available. **The intent was followed and both properties the instruction protects are held in one place each.** `pushable` is answered in `stormTargets.ts` and nowhere else, at the shove's start, through a new `shoveStormTarget` beside `moveStormTarget`; a boss and a set piece's source are refused there and a test pins it. The field-plus-margin bound moved up into `mobs.ts` as `moveMobInsideBounds`, beside the `SPAWN_MARGIN` it is made of, and `moveStormTarget` now calls it, so the bound is written once and both things that carry a body somewhere it did not walk read the same line.
 
 **Slice H. The advance runs after the walk inside `advanceMobs` and not before it, and the reason is an off-by-one.** The prompt's item (d) says the advance runs before the walk. With `moveMob` standing down while `ticksLeft > 0`, running the travel first means the shove's last tick decrements `ticksLeft` to zero and `moveMob` then walks the body on that same tick, so the body both flies and walks once per shove. Running the walk first gives the shove precedence on every tick it is live and the walk back on the tick after, which is what the instruction is for. The order carries a comment saying so.
+
+**Slice J-fix. The prompt says the clear-the-reach sentence is pinned in two places in `belch.test.ts` and it is pinned in three.** The third is inside *strikes each body once, and a body that walks in afterwards takes nothing*, which asserted the caught body ended past the reach and went red at the new figure. The intent was followed: it is re-expressed rather than deleted, and it keeps its own title because its subject is the strike-once rule and the reach was never what it was for.
+
+**Slice J-fix. The ADR commit landed but never wrote its own note.** `ec87a2e9e7` moved ADR 0008's filename to `0008-the-belch-full-only-gas-everywhere-shove-nearby.md` and is in the tree, so the prerequisite every belch slice depends on is met. Section 6 below and its row in section 1 are still empty. Neither is this slice's to write and neither is filled in here.
 
 ## 6. The ADR commit: the two amendments and the stale concept sentences (#124)
 
@@ -598,6 +605,121 @@ One code commit, `eda21401a0`, twenty-two files, 686 insertions and 243 deletion
 **Seen and left, for nobody in particular.** `record-conditioned.ts` scripts `belch: false` on every tick, so no conditioned tape can ever carry a belch. That was correct while the belch only killed and is now the reason the belch's own change cannot be seen on the rig the tuning step will use most. Changing it would move a harness row between two builds, which is exactly what the record forbids, so the honest fix is a new named configuration rather than an edit, and that is the tuning step's call and not a slice's.
 
 ## 12. Slice J-fix: the belch's push reaches half the field's width and the eruption stops where the push stops (#124)
+
+One code commit, `6caa2fa72b`, five files, 281 insertions and 79 deletions, against the prompt's expected 6 to 15 files.
+
+**What the engine does now.** A press catches what stands within half the field's width of the grave rather than within 160 units of it, which is close to three times the ground. The eruption's three fronts sweep out to exactly that circle and stop, so nothing on screen promises ground the press did not touch. The drawn circle is centred where the belch measures its reach from, and it rides the field down at the scroll speed while it is out, so it keeps sitting over the bodies it caught. Nothing else about the belch moved: no damage of any kind, the gas still field-wide, each body struck once carrying three shoves, a boss and a set piece's source still never moved, and the count, the spacing and the per-shove throw exactly as slice J set them.
+
+### The reach, and the two things it is derived from
+
+**`BELCH_BURST_RADIUS` is now `FIELD_WIDTH / 2`**, imported from `src/game/field.ts`, which is the half-width ruling R11 names and is derived rather than typed. The basis is the width and never the height: the JSDoc says so and says why, that a reach off the height covers about three quarters of the field and is option 2, the whole screen, which Mark declined. What stood from the 160 is in the same JSDoc, that the shove is local rather than field-wide, ADR 0008's own "shove nearby".
+
+**The old dominance paragraph was false as written and is corrected rather than left.** It said the 2026-08-31 tapes read the belch at 35 and 46 percent of all kills and that cutting the scope was the answer. A press that takes no health off anything cannot dominate a kill count at all, so that reason retired with the kill in slice J; the JSDoc now says that, and says what the narrow scope cost instead in the figures below.
+
+**The import trips nothing, and it was run rather than taken on trust.** `src/game imports only from src/game` green, `the core has no import cycle > carries no value-import cycle beyond the ones written down` green with `KNOWN_CORE_CYCLES` still empty (`field.ts` imports nothing), `src/game/belch.ts reaches what it can hit through the seam` green, and `a line's constants are declared in that line's own module > no module outside a line declares a constant carrying that line name` green.
+
+### The eruption: one circle, one centre, and a ring that rides the field
+
+**`ERUPTION_REACH` reads `BELCH_BURST_RADIUS` and the diagonal derivation is deleted**, not left unused, so the renderer imports the belch's reach beside the two rows `ERUPTION_TICKS` already reads. Its JSDoc's argument is reversed to R11's: the front and the push name one circle because here the push is the payload, and the Blank's shipped 2.5 ratio is named as the precedent declined, with the reason, that in Gungeon the bullets are the Blank's payload and its front pictures the cancel. The front count and the per-front duration did not move.
+
+**Two renderer bugs, both fixed, and the sim is untouched by both.** `erupt` anchored the ring at `run.grave.y - run.grave.size`, the mouth, while `insideBurst` measures from the grave's centre, so the drawn circle and the caught circle sat one grave-size apart; it now anchors at `run.grave.y`. `splashed` and `originOf` still anchor at the mouth, because the splash is a spray out of the mouth and is not this circle. And `syncBurst` re-positioned a burst from its frozen born-tick point every frame while every body it caught drifted with the field, so the ring was left behind by its own crowd; `Burst` now carries a `drift` in field units a tick, `SCROLL_SPEED` for the eruption and zero for the splash, and `syncBurst` adds `age * drift` to the sprite's y. **This is the renderer's answer to R11's fourth ruling** and it is why `step.ts` was not opened.
+
+### The measurements
+
+**The headline, off `local/belch-play.ts` at the tip before the first edit and again at the commit, unedited in between.** Eleven presses a seed under the diving bot, the median share of live bodies caught per press:
+
+| seed | before | after | bodies caught across the eleven presses |
+| --- | --- | --- | --- |
+| 902 | 10.8% | **43.5%**, 4.04x | 64 to 265 |
+| 17 | 16.1% | **35.0%**, 2.17x | 82 to 211 |
+| 5150 | 12.3% | **48.9%**, 3.96x | 90 to 280 |
+
+The before reproduces session 26 to the digit, 0 to 21 caught of 30 to 93 alive, typically 4 to 14. **The pass line was at least double on all three seeds and all three cleared it**, 17 by the narrowest margin.
+
+**The second headline misses its pass line and this is reported rather than tuned.** `local/belch-reach.ts`, a still grave on seed 902 sealing at 1616 ticks: nothing at all inside the reach on **37.4 percent** of its ticks, against session 26's 58.0 percent reproduced exactly at the old reach. The pass line was below half of 58, which is 29.0, so it misses by 8.4 points. **What is inside that number was measured rather than guessed** (`local/round2/jfix-reach-split.ts`, which counts both reaches in one pass because a script that never presses runs the same sim under either): **7.5 percent of those ticks have no body alive on the field at all**, which no reach can do anything about, and the rest, bodies alive with none in reach, falls from **50.6 to 29.9 percent**. Read the other way round, the ticks where a press would land go from 42.0 to 62.6 percent. **Why it is sub-linear:** the circle's on-field area goes from 19.5 to 46.8 percent of the field, 2.4x, but the grave stands at 0.8 of the field's height and the bodies enter at the top, so a circle grown around the grave buys less than its own area. **This is a finding and not a row to move**: R11 rules the basis and Mark declined the whole screen.
+
+**A body's net travel, up the field and down it, per the fourth ruling.** `scrollField` adds `SCROLL_SPEED` to a shoved body too, so over one press's 90 ticks the field carries every body 57.0 units down. A body thrown straight up nets **123.0** and one thrown straight down nets **237.0**, against the row's nominal 180. Both are asserted at the seam by *carries the field's own drift as well, so a throw up the field nets less than a throw down it*, which runs whole ticks through `executeTick` so no later slice can quietly exempt one line. **`step.ts` was not touched** and neither was the bell.
+
+**The front's new speed, printed both ways.** 270 units over one shove's 30 ticks is **9.0 units a tick, 1.00 field widths a second**, against slice J's 31.08 and 3.45 and against Enter the Gungeon's Blank at 1.67. **It reads as gas spreading and not as a blast**, which is the third ruling's own expected answer and is what the screenshots show. **No lever was moved**: `ERUPTION_STROKE` is still 14 and the per-front fade is untouched, because a front stopping exactly where the push stops reads correctly on its own at this size and moving a lever to make a correct picture louder is a tuning call with no measurement behind it. **This is not filed as a finding, because Mark ruled it while this slice was in flight.** Ruling R12 of 2026-09-16 says the eruption may not read as a shockwave and that a belch of guts travels at the speed of what it is, so the slower front is the goal rather than a cost to watch, and the game design gate's own worry about a creeping front is answered and closed rather than carried. R12 lands as its own slice after this one, and this slice did not touch its scope.
+
+**Off a real tape at this tip**, seed 902 under `steady-far`, two presses at ticks 10524 and 15572, the same two ticks slice J measured: **40 bodies shoved against slice J's 19, 6360.00 field units against 2807.74**, per body a median and a maximum of exactly **180.00** and a minimum of 27.35. **None of the forty cleared the reach**, which is R11's own arithmetic rather than a regression: 180 is less than 270 and the fifth ruling withdrew the clear-the-reach sentence rather than repairing it.
+
+**A batch at this tip**, seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig, **12 of 12 verified, none unfinished, no ceiling stop, `readingsVersion` 5 on both, build identity `6caa2fa72b` clean**. The belch arm against slice J's own table:
+
+| | belch shoves, slice J | belch shoves, here |
+| --- | --- | --- |
+| `steady-far` 900 to 905 | 6, 0, 19, 0, 5, 14 | **20, 13, 40, 12, 17, 40** |
+| `loose-far` 900 to 905 | 13, 0, 0, 15, 14, 11 | **32, 0, 10, 37, 32, 40** |
+
+Totals go from 44 to 142 and from 53 to 151, both close to the area's own 2.85x. **`damage.belch` and `tuning.engagements.fatalBlows.belch` read zero on all twelve** and **all three refusal counters read zero on all twelve**. **`belchWorthIt` priced a belch whose scope just grew and the row was not touched**: its hand still spends 1 or 2 belches a run on every one of the twelve, and `ticksAtFull` still splits into the same two populations, a handful of ticks on some seeds and around 1500 on others.
+
+**Replay determinism at this tip.** `shaky-short` seeds 909 and 910 played twice through `scripts/batch.ts`: identical tick counts, 4552 and 2364, identical byte lengths, 42869 and 22385, and **identical byte for byte apart from three bytes of the header's own recorded-at stamp**. All four tapes verify off their own headers, which is the witness checked at every checkpoint.
+
+### GOLDEN, and the three versions
+
+**`GOLDEN` held at `-145039082` and no re-pin was taken, which is what had to happen: round two's budget of two is spent, slice H took one and slice J forfeit the other.** Two facts carry it and both were read out of the tree rather than assumed. `digest.ts:271` scripts `belch: false` on every one of the canonical scenario's six hundred ticks, so `fireBelch` is never called and nothing this slice changed can be reached. And `levels.bell` is 0 for the whole scenario, so no toll fires either, which is the same fact ruling R9 used to deny slice H2 a re-pin. `digest.test.ts`'s *a golden digest over a short scripted scenario matches the committed constant (ADR 0015)* is green.
+
+**`WITNESS_VERSION` 8, `READINGS_VERSION` 5 and `FORMAT_VERSION` 4 all hold**, each read out of the tree at the committed tip. The reach is a magnitude and no reading's meaning moved.
+
+### The tests, and the three places the withdrawn sentence was pinned
+
+**The prompt said two and there are three.** Slice J's sentence that three shoves carry a body clear of the belch's own reach was pinned near `belch.test.ts`'s lines 302 and 360 as the prompt says, and a third time inside *strikes each body once, and a body that walks in afterwards takes nothing*, which asserted the caught body ended past the reach. **All three are re-expressed to what now holds and none is deleted**, with the reason in a comment beside each:
+
+- *carries a body standing beside the grave clear of the belch's own reach* becomes ***carries a body standing beside the grave the whole of what its three waves throw***, asserting the travel against `WHOLE_THROW` rather than against the reach.
+- *still owes its later waves to a body its first wave carried out of reach* becomes ***still owes its later waves to a body its first wave already carried***, and its loose "greater than the reach" becomes the exact first throw.
+- *strikes each body once* keeps its title, because the strike-once rule is its subject and the reach was never what it was for; its assertion now says the caught body took the whole press and the latecomer took none of it.
+
+**Five tests added.** *shoves what stands inside the reach the row names and leaves what stands outside it* (written first, red first, both bodies expressed against the row and the far one asserted to have entered so the refusal is the reach's and not the entry gate's), *the reach is half the field's width, read off the field rather than written down*, *carries the field's own drift as well, so a throw up the field nets less than a throw down it*, *stops every front at the reach the belch shoves over, and never past it*, and *drifts the eruption down the field, so it still covers the bodies it caught when it ends*. One renderer test is retitled: *puts both at the grave's mouth, which is where they come out of* becomes ***centres the eruption where the belch measures its reach from, and leaves the splash at the mouth***, which is the two anchors asserted apart because they are now two anchors.
+
+**One test in the four-directions case needed its fixture moved rather than its promise weakened.** *reaches the same distance in every direction from the grave* places a body at `NEAR` in each of four directions, and `NEAR` is derived from the reach, so at the new reach the body thrown down the field runs into the bottom bound and loses three units of its throw. The grave is moved to the middle of the field for that case with a comment saying why: that the bound refuses a throw is `mobs.ts`'s own promise, and what this test is for is that the reach and the throw are the same in every direction when nothing refuses them.
+
+**Two measured per-seed baselines in `harnessPolicy.test.ts` moved and both are re-measured with the reason beside them**, which is the contract's rule for a measured baseline rather than a test weakened. `NEVER_PAID_AT_THE_BIRTHRIGHT` goes from `[202]` to empty, because the wider press keeps this hand's runs alive long enough to cross a carrier on 202 where it never used to; 202 joins `STOOD_BUT_NEVER_REACHED` beside 303, opening exactly one offer and taking none of it. `ENDS_ABOVE_THE_BIRTHRIGHT` goes from empty to `[101]`, **the largest move that set has made**: 101 now takes five of the six offers it is paid, ends holding all four lines above the birthright, and is the one seed of the five still unsealed when the stage's own budget runs out, at 27409 ticks. That is ticket #124's argument read off the hand: a press that clears the ground keeps the grave alive long enough to spend what it is paid.
+
+### The rendered check, what it saw and what it could not
+
+**Against the built app at `6caa2fa72b`** through `vite preview` and `playwright-cli`: seed 902's own tape served to `#/replay?tape=&at=`, then two live runs, the second taken from RISE AGAIN rather than from a fresh load, because a check that only ever plays run one cannot see a pooled sprite leaking between runs. Run one sealed at 8589 ticks on seed 404; run two was watched to tick 1108 with the field, the corpses, the skulls, a level-five toll's cones and the belch button all rendering and nothing left over from run one.
+
+**What was obtained, and it is the picture this slice is for.** At **tick 10505**, nineteen ticks before the press, the grave is up under the Banshee and the crowd is scattered across the field. At **tick 10607**, 83 ticks into the eruption and inside its third front, there is **one khaki ring, unmistakably local, a little under half the field across, with bodies standing inside it and bodies standing outside it**, and the far corners of the field are untouched. That ring's centre sits about 101 field units below where the grave stood at tick 10505, which reconciles: **about 51 of that is the grave's own dive between 10505 and the press and about 52 is the eruption's drift over 83 ticks**, so the drift is visible on screen and not only in a test. At **tick 10625**, eleven ticks past the span, there is no ring, the ground around the grave is clear and the bodies are alive and further out. The colour is `belchEruption`'s own `0xb5ac8e` and not the bell's `0x9faebd`, so what is in the frame is the eruption.
+
+**What could not be obtained, said plainly: three fronts photographed inside one press.** The driver's round trip puts consecutive frames **120 ticks apart** here, worse than slice J's 74 and worse than slice H's own finding, and the whole eruption is 90 ticks, **so at most one front per press can ever be caught**. That three are drawn, each for exactly its own shove's length and each stopping at the same circle, is asserted instead by *draws as many fronts as the belch throws waves, each lasting as long as its wave* and *stops every front at the reach the belch shoves over, and never past it*, both of which walk every tick of the span. **Whether three fronts read as three at sixty frames a second on a real device is human-checkable only, and it is Mark's own step.**
+
+**The hand tape verifies at this tip and does not have a belch in it, and the cause is measured rather than guessed.** Seed 404 with `?size=67.5&levels=5`, sealed at 8589 ticks, recorded against the built app through `vite preview` and driven with `playwright-cli`, `outcome: 'verified'`, **recorded identity `6caa2fa72b` clean**. Its `buildMismatch.running` reads `6caa2fa72b...-dirty-3dde4aef80`, which is this note being uncommitted in the worktree at the moment the measurement ran and not any work of another session's: the tape itself is stamped clean and verifies. **All three `state.refusals` counters read zero**: `food` 0, `carriers` 0, `offers` 0.
+
+**How the reservoir was chased.** The tape carries **57 belch commands**, so the Space binding reaches the app and every press was spent asking. `?size=` was pinned at ADR 0003's ceiling of 67.5 beside `?levels=5`, on the reasoning that a mouth two and a half times wider swallows more corpses per length of path. **It did not move the peak at all**: this run reached **7.28 of a capacity of 30.375, 24.0 percent, across 103 swallows**, where slice J reached 36 percent across 116 swallows at the starting size. A first attempt on seed 902 at the same pins sealed at 9645 ticks with 112 swallows and a 23.7 percent peak.
+
+**Why, measured from the other side, and this is the useful half.** `RESERVOIR_CAPACITY` is `FEAST_PAYOUT` exactly, and a feast is spawned when a boss phase breaks (`bosses/phases.ts:171`), so the route to a full reservoir is a broken phase eaten rather than trash accumulated over a run. **Across all twelve batch tapes at this tip the bot's own first belch lands between ticks 10097 and 15534, eleven of the twelve between 10097 and 11519.** A blind keyboard driver seals at 8589 and at 9645. **So a hand tape misses its first belch by roughly five hundred to two thousand ticks of survival**, which is a limit of a driver that cannot see the field at four frames a second and not a fact about the belch. The belch's own behaviour is measured off recorded tapes instead, above, where the same two press ticks slice J measured are measured again.
+
+**One console error was new and it was chased rather than written off.** The session carried two: `The AudioContext encountered an error from the audio device`, which is the headless container having no audio device and which slice J recorded, and `[Loader.load] Failed to load .../assets/main/ui.webp.json. TypeError: Failed to fetch`, which slice J did not. **It is the driver and not the build.** The network log shows `net::ERR_ABORTED` on the whole `/assets/main/*` batch at once, the atlas, the logo and all eight sounds, which is the asset bundle's background load being cancelled by a navigation; the file serves 200 to `curl` and is present in `dist/`. **Loaded once and left alone, the page reports zero errors**, which is the check that settles it. Nothing leaked through the screen pool in either run.
+
+### CodeRabbit, one iteration
+
+**All five staged files reviewed under `coderabbit review --agent --uncommitted`: zero findings at any severity**, so nothing was applied and nothing declined.
+
+### Verification
+
+`pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/` before the commit. **`pnpm verify` green twice on the committed tree at exit 0**: 146 test files, 2068 passed, 21 expected fail, 2 todo, where slice J left it at 146 files, 2063 passed, 21 and 2.
+
+**The six fences green, each by title**: *src/game imports only from src/game*, *src/dev imports only from src/dev and src/game and src/tape*, *a policy names no weapon line*, *the step fence (ADR 0017) passes from the execution module alone*, *the harness reports and never judges* in all three of its parts, and *every reading declares what comparing it means*, plus slice D's sixth, *the cap derivation reads tables and never the stage*. Beside them: *carries no value-import cycle beyond the ones written down* green with `KNOWN_CORE_CYCLES` empty, *src/game/belch.ts reaches what it can hit through the seam* green, the palette scan green over the eruption's colour in all of its parts, and the golden digest green at `-145039082`.
+
+**The test-name diff, against this branch's own tip captured before the first edit: 2084 names to 2089, 9 added and 4 removed.** **Every one of the four removals has its replacement in the nine**: the two clear-the-reach retitles, the renderer's two-anchors retitle, and `harnessPolicy.test.ts`'s seed 303 row, whose title is generated from which set the seed sits in and so followed 202 into `STOOD_BUT_NEVER_REACHED`. Against the step 4 baseline the figures are 1834 to 2089, 511 added and 256 removed.
+
+### Record and prompt claims found false against the tree
+
+**The withdrawn clear-the-reach sentence is pinned in three places in `belch.test.ts` and not two.** The prompt's fifth ruling names lines 302 and 360. A third assertion, inside *strikes each body once, and a body that walks in afterwards takes nothing*, said the caught body ended past the reach and went red at the new figure. The intent was followed: it is re-expressed rather than deleted, and it keeps its own title because its subject is the strike-once rule.
+
+**Nothing else in the prompt or in either record failed against the tree.** All five named inputs verified present by name before the first edit.
+
+### Left for later slices, each named
+
+**Ruling R12's own slice owns the front's curve and its body, and it was ruled while this slice was in flight.** It lands after this one and nothing here anticipates it. What it inherits is `eruptionFrontsAt`, now a value returning one front per shove with each radius a linear share of `BELCH_BURST_RADIUS`, and the two tests that walk every tick of the span, so the curve can be changed underneath them and the count, the duration and the stopping point stay pinned. `ERUPTION_STROKE` and the per-front fade are untouched and are its levers.
+
+**Slice K owns the meter and inherits nothing from here.** `BelchButton` and `GameScreen` were not opened.
+
+**Slice L owns the Wall and its lever just got more expensive to reason about.** The reach is now 270 against a throw of 180, so **a body a press catches is no longer carried clear of the press's own circle**, and a curtain measured against the reach will read differently from one measured against the throw. The count and the spacing in `belch.ts` are still R4's named lever and they did not move. The two things slice J left for L still stand: a body directly above the grave gets no lateral component, and a body near the top edge is thrown less than the nominal because the bound refuses part of it.
+
+**Filed for Mark's read, not applied.** The still-grave empty-reach share misses its pass line at 37.4 percent against 29.0, decomposed above. Nothing was tuned for it.
+
+**Seen and left, for nobody in particular.** The old front swept the field's diagonal and was the only picture the gas had; stopped at the push reach it pictures only the push, so a press against a curtain of unarmed bodies now draws a local ring and nothing else. That is already the design record's section 7, filed as a tuning-step input by the game design gate, and no slice acts on it.
 
 ## 13. Slice K: the meter fills and changes corner (#127)
 
