@@ -12,6 +12,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Swallow**: The one verb of collection: the grave passes under a corpse or power-up and it falls in. Every payout in the game arrives through a swallow. _Avoid_: eat, collect, pick up, consume, drive over.
 
+**Dive**: The move that swallows: steering the grave under what it wants until the thing falls in. It is ordinary steering rather than a move of its own, so every payout is bought with position: growth, weapon levels and the belch's charge alike, and the way back from a rung the floor ladder took is the same verb as the way up. _Avoid_: dash, lunge, plunge, dip, special move.
+
 **Size**: The grave's one scalar, its half-height; width follows at a fixed aspect. Size is health: swallowing grows it, hits shrink it. _Avoid_: health, HP, radius, scale.
 
 **Size floor**: The hard minimum size, so the recovery path never physically closes. Size never gates a swallow: whatever the grave passes under goes in. At the floor, hits bleed score, then weapon levels down to the birthright loadout, and only when nothing is left to bleed does the next hit seal the grave shut. _Avoid_: minimum health, death's door.
@@ -19,6 +21,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 **Size ceiling**: The hard maximum size, the grave standing about a quarter of the field's width tall. Growth past it converts to score, so a big meal at full size is never worthless. _Avoid_: max level, size cap.
 
 **Sealed shut**: Death: shrunk to nothing, filled in, and closed. The grave is never destroyed or killed; it is sealed. _Avoid_: dead, killed, game over, destroyed.
+
+**Score**: The number a run accumulates, paid two ways: a kill pays it, and growth past the size ceiling converts into it, so the storm and the swallow both feed it (ADR 0002, ADR 0003). It is also what the floor ladder spends first, a hit at the size floor bleeding the whole of it before any weapon level goes, and the HUD carries it beside the rungs. _Avoid_: points, XP, experience, currency.
 
 **Focus**: Hold-to-slow precise movement, keyboard only. On touch, drag precision is the fine control and focus is nothing. _Avoid_: slow mode, precision mode, walk.
 
@@ -94,9 +98,13 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Ladder**: The power staircase a run climbs, every weapon line's rungs together, from the birthright to a full build. It reads twice, in the storm and on the HUD (ADR 0054), and it runs both ways: rungs are gained from power-ups and stripped at the size floor. _Avoid_: progression, XP, levels, tech tree.
 
-**Rung**: One step of one weapon line's level, the unit the ladder shows, gains and loses. A rung is carried by that line's own projectiles, and a rung stripped at the size floor falls onto the field as a body the dive can catch. _Avoid_: rank, tier, pip (which is the mark, not the step).
+**Rung**: One step of one weapon line's level, the unit the ladder shows, gains and loses. A rung is carried by that line's own expression on the field, and a rung stripped at the size floor falls onto the field as a body the dive can catch. _Avoid_: rank, tier, pip (which is the mark, not the step).
 
-**HUD**: The slim readout inside the field frame carrying the score and each line's rungs as pips: the ladder's second channel, and the one that makes a rung lost legible inside a dense storm. It announces by count, shape or subtraction, never by brightness. _Avoid_: strip, bar, panel, overlay.
+**Fallen rung**: The body a stripped rung becomes, the same rung at a second moment: one body per rung the floor ladder takes, spread in roster order at the offer's own spacing and offset from the grave so the loss is never handed straight back, riding the scroll down and not decaying, and a swallow gives the rung back to the line it came off (ADR 0055). It wears the icon its HUD row taught, so one line's rung is told from another's. _Avoid_: dropped level, gem, refund, loot.
+
+**HUD**: The slim readout at the field's top edge carrying the score and each line's rungs as marks: the ladder's second channel, and the one that makes a rung lost legible inside a dense storm. It sits in the band above the field where the screen leaves one and over the field's own top edge where it does not, and it announces by count, shape or subtraction, never by brightness. _Avoid_: strip, bar, panel, overlay.
+
+**Amended 2026-09-16, at path step 5.** What stood: the readout's job, its content, and the announcing rule. What changed: "inside the field frame" becomes the field's top edge, because the readout has one home on both screen shapes and the frame's inside is not it. What the entry could not have known: a phone leaves no side gutter at all and a desktop leaves no band at all, both measured exactly zero, so the surround the readout wants is on a different axis on each shape (`docs/design/show-what-you-have.md` section 3.1).
 
 ### The field and the stage
 

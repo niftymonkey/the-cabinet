@@ -288,6 +288,8 @@ The reason is the split every shipped game in this document makes and none of th
 
 Concretely: each line's rung lives in its own projectile, by count and size and never by brightness, so the player reads their whole ladder by looking at the storm they are already looking at. A rung lost ejects the rung as an object from the rim into the field, which announces the loss as a departure rather than a decrement, and hands the recovery to the verb the game is built on. And a top rung carries Cave Story's MAX buffer, so the first hit at the top of a line costs the buffer rather than the level.
 
+**Superseded on the MAX buffer, 2026-09-16:** this document's recommendation to build Cave Story's MAX buffer is ruled out of V1 by path step 5, on the grounds that the floor ladder's first rung already holds the score and is itself the cushion, so the buffer would be a second cushion stacked in front of the first; the ruling and what it would have bought are in [../design/show-what-you-have.md](../design/show-what-you-have.md) section 7, and nothing else in this document is superseded.
+
 What that leaves unresolved, and what no source in this pass settles, is whether the ejected rung should be catchable. Salamander, Gradius V and Raiden all say yes and all of them are recovering from a *death*, not from a hit at the floor. Hungry Grave strips levels on the way to death with the field intact ([floor-ladder-precedent.md](floor-ladder-precedent.md)), so a catchable rung might make the floor ladder toothless, and the scroll deadline might already be the right amount of teeth. That one is a play question rather than a precedent question, and the designer decides.
 
 ---
