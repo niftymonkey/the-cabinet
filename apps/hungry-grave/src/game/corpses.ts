@@ -11,7 +11,7 @@ import type { CorpseTier, Mob } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
 import type { Impulse } from './shove';
-import { blankImpulse, clearImpulse } from './shove';
+import { blankImpulse, clearImpulse, handOverImpulse } from './shove';
 import type { FoodKind, Swallowable } from './swallow';
 import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from './tuning';
 
@@ -58,12 +58,20 @@ const POWER_UP_HALF_EXTENT = 14;
 const FRESHNESS_PER_TICK = 1 / (FRESHNESS_SECONDS * TICK_HZ);
 
 /**
- * A corpse has no velocity of its own, and the scroll-speed coupling is the
- * whole point of that. The scroll phase moves it and nothing else does, so a
- * corpse drifts at exactly SCROLL_SPEED, and FRESHNESS_SECONDS is already
- * derived as the time a mid-field corpse takes to reach the bottom edge at that
- * speed. A mid-field kill therefore arrives at the bottom edge as a nearly
- * empty scrap by construction rather than by two numbers agreeing.
+ * A corpse has no motion of its own, and the scroll-speed coupling is the whole
+ * point of that. A corpse nothing threw drifts at exactly SCROLL_SPEED, and
+ * FRESHNESS_SECONDS is derived as the time a mid-field corpse takes to reach
+ * the bottom edge at that speed, so a mid-field kill arrives at the bottom edge
+ * as a nearly empty scrap by construction rather than by two numbers agreeing.
+ *
+ * One thing composes with that drift and it is not a motion of the corpse's
+ * own: a shove handed over by the body this corpse came off, which carries it
+ * for the rest of that one flight and then stops (design record R10). The
+ * derivation above is exact for every corpse nothing threw and is off by the
+ * length of one flight for a thrown one, which is bounded by the shove's own
+ * row and priced in freshness. The scroll still runs underneath it, exactly as
+ * it does for a body being shoved (design record R11's fourth ruling), so the
+ * throw composes with the drift rather than replacing it.
  */
 interface Corpse {
   alive: boolean;
@@ -173,8 +181,15 @@ const claimSlot = (state: RunState): Corpse | null => {
 };
 
 /**
- * What a kill leaves behind: fully fresh, at the dead mob's centre, with no
- * velocity of its own.
+ * What a kill leaves behind: fully fresh, at the dead mob's centre, and
+ * carrying whatever was carrying the body.
+ *
+ * The shove travels with it so the flight the press paid for finishes: a body
+ * killed partway through is carried the whole of what threw it and its corpse
+ * ends where the flight was going rather than where the storm caught it (design
+ * record R10). The handover is here rather than at the kill site because the
+ * corpse only exists once a slot has been claimed, and at the food cap there is
+ * no slot, which is the one case where the shove stays on the body.
  *
  * The payout and the tier arrive as values rather than being looked up off the
  * mob table here. mobs.ts owns that table, so mobs.ts reads its own row and
@@ -201,6 +216,7 @@ const spawnCorpse = (
   corpse.decays = true;
   corpse.line = undefined;
   corpse.halfExtent = CORPSE_HALF_EXTENT;
+  handOverImpulse(mob.impulse, corpse.impulse);
   return events;
 };
 

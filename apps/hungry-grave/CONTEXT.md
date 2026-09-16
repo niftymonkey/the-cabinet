@@ -26,6 +26,8 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Corpse**: What a kill leaves behind, scrolling down the field. Fuel, common, and always decaying. _Avoid_: body, gem, pickup, loot.
 
+**Amended 2026-09-16, taking the separate-clocks lever the round two record holds at ruling R10:** a corpse left by a body that was in mid-flight carries the rest of that flight before it settles into the scroll, so for the length of one push it travels rather than only drifting. What stood: everything else in the entry, that a corpse is what a kill leaves, that it is fuel, that it is common, and that it is always decaying at the scroll's own rate. What changed: the drift is no longer the only thing that moves one, for the length of one shove and no longer; a thrown corpse lands further from the grave and has spent part of its freshness getting there, which is a real cost and is measured. What the entry could not have known: nothing pushed a body over several ticks when it was written, so a body killed mid-push and its corpse were the same place.
+
 **Corpse tier**: Which mob a corpse came off, read as a hue. Corpses hold one size across mob types, so a tier is the only thing that shows a payout, and every tier shares one brightness because brightness is freshness. _Avoid_: rarity, grade, quality.
 
 **Freshness**: A corpse's one meter, running from kill to gone in seconds derived from scroll speed. It scales every payout down to a floor, and at empty the dirt takes the corpse under. _Avoid_: decay, timer, expiry, TTL.

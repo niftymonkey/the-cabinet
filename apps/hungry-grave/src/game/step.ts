@@ -16,7 +16,13 @@ import { advanceStream } from './lines/skullStream';
 import { advanceTerritory } from './lines/territory';
 import { advanceWisps } from './lines/wisps';
 import { cullShots, shotHitbox } from './mobFire';
-import { advanceMobs, canTouchGrave, cullMobs, mobHitbox } from './mobs';
+import {
+  advanceMobs,
+  canTouchGrave,
+  cullMobs,
+  mobHitbox,
+  reportShoveTravel,
+} from './mobs';
 import {
   chooseOfferBody,
   loseOffer,
@@ -33,6 +39,7 @@ import {
   spendDirected,
   winStage,
 } from './stage/stage';
+import { impulseSpent } from './shove';
 import { resolveStorm } from './storm';
 import { swallow } from './swallow';
 import { SCROLL_SPEED } from './tuning';
@@ -41,8 +48,11 @@ import { SCROLL_SPEED } from './tuning';
  * The constant downward drift of everything on the field. Mob fire does not
  * carry it: an aimed shot that then drifts downward is not aimed.
  *
- * A corpse has no velocity of its own, so this is the only thing that moves it,
- * and that is what makes ADR 0004's coupling true by construction.
+ * A corpse has no motion of its own, so for every corpse nothing threw this is
+ * the only thing that moves it, and that is what makes ADR 0004's coupling true
+ * by construction. A corpse a shove is carrying takes this drift as well as the
+ * throw, exactly as a shoved body does: the scroll composes with every shove
+ * and is exempted for neither line (design record R11's fourth ruling).
  */
 const scrollField = (state: RunState): void => {
   for (const mob of state.mobs) {
@@ -112,12 +122,22 @@ const coveredFood = (state: RunState): CoveredFood[] => {
     .map((body) => ({ body, id: body.id }));
 };
 
+/**
+ * The grave taking one piece of food.
+ *
+ * A corpse swallowed mid-flight ends the flight where the grave took it, so the
+ * shove reports what it really carried and stops carrying it. Without that the
+ * swallow would take a live impulse out of the world unreported and uncleared,
+ * and the slot would hand the leftovers to the next piece of food that claimed
+ * it.
+ */
 const swallowFood = (
   state: RunState,
   corpse: Corpse,
   events: SimEvent[],
 ): void => {
   corpse.alive = false;
+  events.push(...reportShoveTravel(corpse));
   events.push(...swallow(state, asSwallowable(corpse)));
 };
 
@@ -158,6 +178,28 @@ const resolveOverlaps = (state: RunState): SimEvent[] => {
   resolveMobContact(state, events);
   resolveSwallows(state, events);
   return events;
+};
+
+/**
+ * A shove whose carrier is gone: a corpse culled off the bottom edge or taken
+ * under by the dirt while a shove was still carrying it.
+ *
+ * It reports what the shove really covered and stops carrying it, on cullMobs'
+ * own rule: nothing is left to hand the impulse to, so the honest answer is the
+ * partial report rather than a distance that never reaches the reading. One
+ * sweep rather than a report inside each of those two rules, because the fact
+ * they share is the carrier being gone with a live shove still on it, and
+ * corpses.ts reaching for the report itself would close a value cycle the core
+ * does not carry.
+ */
+const reportShovesLeftWithNoCarrier = (
+  state: RunState,
+  events: SimEvent[],
+): void => {
+  for (const corpse of state.corpses) {
+    if (corpse.alive || impulseSpent(corpse.impulse)) continue;
+    events.push(...reportShoveTravel(corpse));
+  }
 };
 
 /**
@@ -266,6 +308,9 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   events.push(...cullMobs(state));
   cullShots(state);
   events.push(...cullCorpses(state));
+  // After both of the rules that can take a corpse off the field, so a flight
+  // either of them cut short is reported once and in one place.
+  reportShovesLeftWithNoCarrier(state, events);
   // After the cull, because an offer is lost on the tick its last body leaves
   // the field and the cull is what takes it (ADR 0034).
   events.push(...loseOffer(state));

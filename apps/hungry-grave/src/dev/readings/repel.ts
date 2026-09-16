@@ -12,13 +12,20 @@ interface TollShoves {
 /**
  * The repel reading, split by the push that threw each shove.
  *
- * The toll arm is unchanged. A tolled event opens a toll window and every bell
- * shove lands in the window open at the time; the shoves arrive across the
+ * The toll arm keeps its shape. A tolled event opens a toll window and every
+ * bell shove lands in the window open at the time; the shoves arrive across the
  * ring's expansion and up to SHOVE_TICKS ticks of travel after it (shove.ts),
- * which is still well inside the bell's own period. A toll that shoved
- * nothing still counts, because push only exists at bell levels 4 and 5 and
- * zero is the honest reading for every toll below them. The totals are the
- * bell's whole repel, declared beside the per-toll view they reduce.
+ * which is still well inside the bell's own period. A toll that shoved nothing
+ * still counts, because zero is the honest reading for a toll that reached no
+ * body it could move. The totals are the bell's whole repel, declared beside
+ * the per-toll view they reduce.
+ *
+ * **What both arms now measure changed under them, and READINGS_VERSION 6 is
+ * where that is declared.** A shove outlives the body carrying it, so a
+ * distance here is what a whole flight covered rather than what a body was
+ * carried before it died. It moves the bell as much as the belch: sweepToll
+ * pushes before it damages (bell.ts), so a body the cone kills on arrival used
+ * to report nothing and now reports the whole of the toll's push.
  *
  * The belch's arm is flat and never per belch. What a batch asks of it is how
  * much pushback the belch bought, and when each belch fired is already the

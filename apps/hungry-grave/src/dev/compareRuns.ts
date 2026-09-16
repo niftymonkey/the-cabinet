@@ -516,6 +516,19 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.belchCadence.wasted',
     (report) => report.tuning.belchCadence.wasted,
   ),
+  // The share of its own frame each press reached, summarised as a series on
+  // the fire list's own terms: no press of one run is paired with a press of
+  // the other, because two runs' third belch is not the same belch (#124).
+  seriesReading(
+    'tuning.belchCadence.frameShares',
+    (report) => report.tuning.belchCadence.frameShares,
+    populationSummary,
+  ),
+  // What the misses were made of, as named numbers: a reason no press of one
+  // run met reads zero rather than absent, because the four names are fixed.
+  namedNumbersReading('tuning.belchCadence.misses', (report) => ({
+    ...report.tuning.belchCadence.misses,
+  })),
   // The director's own run (#85). The signal is a per-tick series, the adds are
   // a list because no add of one run pairs with an add of another, and the
   // purse left is named numbers because a section one run never entered is

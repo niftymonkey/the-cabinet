@@ -83,7 +83,40 @@
  * type, `drawn.drops` to `drawn.powerUps`, holding its value: that is a field
  * rename on the `Digest` interface and not a re-pin, so ADR 0019's regeneration
  * ritual does not apply.
+ *
+ * Version 6: a shove outlives the body carrying it (design record R10, #124).
+ * **Three things change meaning at once and every one of them is an existing
+ * reading, which is this file's own rule for when the version moves.**
+ *
+ * First, `tuning.repel.belchShoves` and `belchDistance` used to count what a
+ * body was carried **before it died**, because the one report fired on the kill
+ * path. A body killed in flight now hands its shove to the corpse the kill
+ * leaves and the flight finishes, so a distance here is what a whole flight
+ * covered. Second, **the bell is in exactly the same position**, which is easy
+ * to miss because the sighting behind this move was a belch: `sweepToll`
+ * (`src/game/lines/bell.ts`) pushes before it damages, so a body the cone kills
+ * on arrival used to die holding a live impulse and report nothing, and now
+ * flies the whole of the toll's push. So `tuning.repel.totalDistance` and each
+ * toll's own `distance` move exactly the way `belchDistance` does, and they
+ * move most at the top rungs, where the kill reaches most of the cone (round
+ * two progress note section 10). Third, the belch's own record gains the
+ * misses, which is what makes `shoved: 0` readable: `tuning.belchCadence`
+ * gains `frameShares` and `misses` beside the fires it already carried, and
+ * every `BelchFire` gains `inFrame` and its own `misses`.
+ *
+ * **So every batch recorded at slice J-fix's tip is incomparable with every
+ * batch recorded after this, on both arms.** Subtracting one build's
+ * `totalDistance` or `belchDistance` from the other's would be arithmetic
+ * across a definition that changed underneath it, which is exactly the case
+ * version 3 was written to make loud. It is taken eyes open.
+ *
+ * The other two versions hold and each for its own reason. `FORMAT_VERSION`
+ * stays 4 because nothing new is recorded in a tape header and no sim event is
+ * ever encoded into a tape at all: a replay rebuilds every event from the seed
+ * and the commands, so the press's record costs no bytes. `WITNESS_VERSION`
+ * moved to 9 in its own commit for the impulse a corpse now carries, which is
+ * folded state and not a reading.
  */
-const READINGS_VERSION = 5;
+const READINGS_VERSION = 6;
 
 export { READINGS_VERSION };

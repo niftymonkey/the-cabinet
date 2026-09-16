@@ -14,7 +14,7 @@ import {
   fireBelch,
 } from '../belch';
 import { spawnBoss } from '../bosses/phases';
-import type { SimEvent } from '../events';
+import type { PressedBody, SimEvent } from '../events';
 import { createExecution, executeTick } from '../execution';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { Mob } from '../mobs';
@@ -205,7 +205,7 @@ describe('the belch is full only (ADR 0008)', () => {
     const state = quietRun();
     state.reservoir = RESERVOIR_CAPACITY;
     expect(fireBelch(state)).toEqual([
-      { type: 'belched', cancelled: 0, shoved: 0 },
+      { type: 'belched', cancelled: 0, shoved: 0, bodies: [] },
     ]);
   });
 
@@ -556,9 +556,8 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
 
     const events = fireBelch(state);
 
-    expect(events.filter((event) => event.type === 'belched')).toEqual([
-      { type: 'belched', cancelled: 17, shoved: 1 },
-    ]);
+    const belched = find(events, 'belched');
+    expect([belched.cancelled, belched.shoved]).toEqual([17, 1]);
   });
 
   it("carries the field's own drift as well, so a throw up the field nets less than a throw down it", () => {
@@ -635,14 +634,99 @@ describe('the belch takes health off nothing (ADR 0008 as amended)', () => {
 });
 
 describe("the press's own record of what it reached (#124)", () => {
-  it.todo('records every body in the frame, moved or not');
-  it.todo(
-    'records its own reason against a body that has not entered, one outside the reach, one with no direction to be thrown along and one that may not be pushed',
-  );
-  it.todo(
-    'records a moved count that is the same number shoved has always been',
-  );
-  it.todo(
-    "records a boss and a set piece's source, and still moves neither of them",
-  );
+  /** The record one press wrote down, keyed by the body it is about. */
+  function recordOf(events: SimEvent[]): Map<number, PressedBody> {
+    const bodies = find(events, 'belched').bodies;
+    return new Map(bodies.map((body) => [body.id, body]));
+  }
+
+  it('records every body in the frame, moved or not', () => {
+    // Mark's standing rule of 2026-09-16: everything worth measuring has a
+    // representation in the tape. A press with a hundred bodies in the frame
+    // and none in reach and a press with nothing alive both read shoved 0, and
+    // this is what tells them apart.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const near = putStillAt(state, state.grave.x, state.grave.y - NEAR);
+    const far = putStillAt(state, state.grave.x, state.grave.y - FAR);
+
+    const record = recordOf(fireBelch(state));
+
+    expect([...record.keys()].sort()).toEqual([near.id, far.id].sort());
+    expect(record.get(near.id)?.moved).toBe(true);
+    expect(record.get(far.id)?.moved).toBe(false);
+    // The distance is the whole reason the record exists: his sighting is about
+    // bodies at about the same distance going different ways.
+    expect(record.get(near.id)?.distance).toBeCloseTo(NEAR, 9);
+    expect(record.get(far.id)?.distance).toBeCloseTo(FAR, 9);
+  });
+
+  it('records its own reason against a body that has not entered, one outside the reach, one with no direction to be thrown along and one that may not be pushed', () => {
+    // The reasons are the gates the code actually runs, in the order it runs
+    // them, and never a diagnosis laid over them. There is deliberately no
+    // already-dead reason: the target seam skips a dead slot before the belch
+    // ever sees it, so a dead body is never in the frame at all.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const above = putStillAt(state, state.grave.x, -20);
+    const far = putStillAt(state, state.grave.x, state.grave.y - FAR);
+    const onTop = putStillAt(state, state.grave.x, state.grave.y);
+    const boss = spawnBoss(state, 'undertaker');
+    boss.x = state.grave.x + 1;
+    boss.y = state.grave.y - NEAR;
+
+    const record = recordOf(fireBelch(state));
+
+    expect(hasEntered(above)).toBe(false);
+    expect(record.get(above.id)?.refusal).toBe('notEntered');
+    expect(record.get(far.id)?.refusal).toBe('outOfReach');
+    expect(record.get(onTop.id)?.refusal).toBe('noDirection');
+    expect(record.get(boss.id)?.refusal).toBe('notPushable');
+    for (const id of [above.id, far.id, onTop.id, boss.id]) {
+      expect(record.get(id)?.moved, `body ${id}`).toBe(false);
+    }
+  });
+
+  it('records a moved count that is the same number shoved has always been', () => {
+    // shoved keeps its exact meaning, the count of bodies the press moved, so
+    // no batch recorded before this record existed reads that figure
+    // differently afterwards.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    for (let at = 0; at < 4; at++) {
+      putStillAt(state, state.grave.x + at * 10, state.grave.y - NEAR);
+    }
+    putStillAt(state, state.grave.x, state.grave.y - FAR);
+
+    const belched = find(fireBelch(state), 'belched');
+
+    expect(belched.bodies.filter((body) => body.moved)).toHaveLength(
+      belched.shoved,
+    );
+    expect(belched.shoved).toBe(4);
+  });
+
+  it("records a boss and a set piece's source, and still moves neither of them", () => {
+    // ADR 0007: an authored pattern is never smeared by a push, and the seam
+    // answers that rather than a branch in the belch. Writing them down is what
+    // makes the refusal readable off a tape rather than invisible.
+    const state = quietRun();
+    state.reservoir = RESERVOIR_CAPACITY;
+    const boss = spawnBoss(state, 'undertaker');
+    boss.x = state.grave.x + 1;
+    boss.y = state.grave.y - NEAR;
+    const piece = placeSetPiece(state);
+    piece.open = true;
+    piece.x = state.grave.x - 1;
+    piece.y = state.grave.y - NEAR;
+    const stood = { bossX: boss.x, bossY: boss.y, x: piece.x, y: piece.y };
+
+    const record = recordOf(fireBelch(state));
+    travelFor(state, WHOLE_PUSH);
+
+    expect(record.get(boss.id)?.refusal).toBe('notPushable');
+    expect(record.get(piece.id)?.refusal).toBe('notPushable');
+    expect([boss.x, boss.y]).toEqual([stood.bossX, stood.bossY]);
+    expect([piece.x, piece.y]).toEqual([stood.x, stood.y]);
+  });
 });

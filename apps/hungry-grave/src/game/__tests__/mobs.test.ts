@@ -30,10 +30,12 @@ import {
   surgeStream,
 } from '../lines/skullStream';
 import { advanceWisps, launchWisps } from '../lines/wisps';
+import type { Corpse } from '../corpses';
 import type { Mob } from '../mobs';
 import {
   advanceMobs,
   ARRIVE_TICKS,
+  cullMobs,
   damageMob,
   hasEntered,
   MOB_TYPE_NAMES,
@@ -41,7 +43,7 @@ import {
   SPAWN_MARGIN,
   spawnMob,
 } from '../mobs';
-import { SHOVE_TICKS, startShove } from '../shove';
+import { blankImpulse, SHOVE_TICKS, startShove } from '../shove';
 import type { RunState } from '../run';
 import { createRun } from '../run';
 import { SECTIONS } from '../stage/stage';
@@ -179,6 +181,26 @@ function run(
 
 function types(events: SimEvent[], type: SimEvent['type']): SimEvent[] {
   return events.filter((event) => event.type === type);
+}
+
+/** Every shove one list reports, as the pair a travel assertion needs. */
+function shoves(
+  events: readonly SimEvent[],
+): { id: number; displacement: number }[] {
+  return events.flatMap((event) =>
+    event.type === 'mobShoved'
+      ? [{ id: event.id, displacement: event.displacement }]
+      : [],
+  );
+}
+
+/** The one corpse a kill left on the field. */
+function liveCorpse(state: RunState): Corpse {
+  const corpses = state.corpses.filter((corpse) => corpse.alive);
+  if (corpses.length !== 1) {
+    throw new Error(`expected one live corpse, found ${corpses.length}`);
+  }
+  return corpses[0]!;
 }
 
 describe('the mob type table (ADR 0016)', () => {
@@ -1000,44 +1022,47 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     expect(stood - mob.y).toBeCloseTo(40, 9);
   });
 
-  it('reports what a body was already carried when it is killed in flight', () => {
-    // The one-tick push reported its whole distance before anything could kill
-    // the body, so nothing was ever lost. A shove that takes ticks can be
-    // interrupted by a kill, and what the ring really pushed has to reach the
-    // repel reading anyway or the channel quietly under-reports itself.
+  it('hands what a body was already carried to the corpse its kill leaves, rather than reporting it there', () => {
+    // Its old title said it reported what a body was already carried when it
+    // was killed in flight (slice H's own CodeRabbit finding). The distance
+    // still reaches the reading and nothing is lost, which is what that test
+    // was for; what changed is when, because the flight now finishes on the
+    // corpse and one impulse still makes exactly one report (design record
+    // R10).
     const state = quietRun();
     const mob = putMob(state, 'shambler', 200, 400);
     startShove(mob.impulse, 'bell', mob.id, 0, -1, 40, 1, 0);
     advanceMobs(state);
     advanceMobs(state);
-
-    const events = damageMob(state, mob, MOB_TYPES.shambler.hp, 'bell');
-    const shoves = types(events, 'mobShoved');
     // The two ticks it flew, off the fall's own shape rather than off a figure:
     // the first step of a forty-unit shove and then that step less one
     // SHOVE_TICKS-th of itself.
     const first = (40 * 2) / (SHOVE_TICKS + 1);
-    expect(shoves).toHaveLength(1);
-    expect(shoves[0]).toEqual({
-      type: 'mobShoved',
-      id: mob.id,
-      displacement: expect.closeTo(
-        first + (first * (SHOVE_TICKS - 1)) / SHOVE_TICKS,
-        9,
-      ),
-      source: 'bell',
-    });
+    const flown = first + (first * (SHOVE_TICKS - 1)) / SHOVE_TICKS;
+
+    const events = damageMob(state, mob, MOB_TYPES.shambler.hp, 'bell');
+
+    expect(types(events, 'mobShoved')).toEqual([]);
+    const corpse = liveCorpse(state);
+    expect(corpse.impulse.travelled).toBeCloseTo(flown, 9);
+    expect(corpse.impulse.ticksLeft).toBe(SHOVE_TICKS - 2);
+    expect(mob.impulse).toEqual(blankImpulse());
   });
 
-  it('reports nothing for a body killed on the tick the shove landed on it', () => {
-    // It never travelled, so there is nothing to report: a body the toll kills
-    // where it stands is not a body the toll pushed.
+  it('reports nothing at the kill for a body killed on the tick the shove landed on it, because the corpse takes the whole of it', () => {
+    // Its old title said it reported nothing for a body killed on the tick the
+    // shove landed on it. The promise that nothing is reported at the kill
+    // stands and its reason has changed: it used to be that the body never
+    // travelled, and now it is that the corpse has the whole shove still to
+    // run.
     const state = quietRun();
     const mob = putMob(state, 'shambler', 200, 400);
     startShove(mob.impulse, 'bell', mob.id, 0, -1, 40, 1, 0);
 
     const events = damageMob(state, mob, MOB_TYPES.shambler.hp, 'bell');
+
     expect(types(events, 'mobShoved')).toEqual([]);
+    expect(liveCorpse(state).impulse.ticksLeft).toBe(SHOVE_TICKS);
   });
 
   it('reports nothing for a shove the bounds refused entirely', () => {
@@ -1058,19 +1083,142 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
 });
 
 describe('a shove outliving the body that carried it (design record R10)', () => {
-  it.todo(
-    'finishes the shove a body was given even when the storm kills it partway through',
-  );
-  it.todo(
-    'carries twelve bodies caught at one distance the same distance, whether they live or die',
-  );
-  it.todo(
-    'carries a body killed on the tick a shove landed on it the whole of that shove',
-  );
-  it.todo(
-    'reports a shove once, when the impulse is spent, whoever was carrying it at the end',
-  );
-  it.todo(
-    'reports what a culled body was carried and hands nothing on, because a culled body leaves no corpse',
-  );
+  /** How far one whole shove of this row carries whatever is carrying it. */
+  const THROW = 40;
+
+  /**
+   * The travel a shove really bought, off the report rather than off a
+   * position, because a position also carries the field's own scroll.
+   */
+  function travelOf(events: readonly SimEvent[], id: number): number {
+    return shoves(events)
+      .filter((shove) => shove.id === id)
+      .reduce((sum, shove) => sum + shove.displacement, 0);
+  }
+
+  it('finishes the shove a body was given even when the storm kills it partway through', () => {
+    // The whole of what this slice buys: a press hands every body at one
+    // distance an identical impulse, and half of them used to stop dead where
+    // they died at no distance the player could see (design record R10, Mark's
+    // sighting of 2026-09-16). Expressed against the row rather than a number.
+    const state = quietRun();
+    const lived = putMob(state, 'shambler', 150, 300);
+    const died = putMob(state, 'shambler', 350, 300);
+    startShove(lived.impulse, 'bell', lived.id, 0, -1, THROW, 1, 0);
+    startShove(died.impulse, 'bell', died.id, 0, -1, THROW, 1, 0);
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) {
+      if (tick === 5) {
+        events.push(...damageMob(state, died, MOB_TYPES.shambler.hp, 'bell'));
+      }
+      events.push(...advanceMobs(state));
+    }
+
+    expect(travelOf(events, died.id)).toBeCloseTo(THROW, 9);
+    expect(travelOf(events, died.id)).toBeCloseTo(
+      travelOf(events, lived.id),
+      9,
+    );
+  });
+
+  it('carries twelve bodies caught at one distance the same distance, whether they live or die', () => {
+    // Mark's own sighting turned into a test: twelve bodies on one ring at one
+    // distance, handed twelve identical impulses, with every other one killed
+    // partway through the flight. Session 27 measured six of twelve stopping
+    // dead at a fraction of the travel.
+    const state = quietRun();
+    const ring: Mob[] = [];
+    for (let at = 0; at < 12; at++) {
+      const body = putMob(state, 'shambler', 40 + at * 40, 300);
+      startShove(body.impulse, 'bell', body.id, 0, -1, THROW, 1, 0);
+      ring.push(body);
+    }
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) {
+      if (tick === 7) {
+        for (const [at, body] of ring.entries()) {
+          if (at % 2 === 1) continue;
+          events.push(...damageMob(state, body, MOB_TYPES.shambler.hp, 'bell'));
+        }
+      }
+      events.push(...advanceMobs(state));
+    }
+
+    const travels = ring.map((body) => travelOf(events, body.id));
+    expect(travels).toHaveLength(12);
+    for (const travel of travels) expect(travel).toBeCloseTo(THROW, 9);
+  });
+
+  it('carries a body killed on the tick a shove landed on it the whole of that shove', () => {
+    // The boundary case. A body the storm takes before it has moved at all has
+    // travelled nothing to report, and the corpse it leaves owes the whole of
+    // the flight rather than none of it.
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', 200, 300);
+    startShove(mob.impulse, 'bell', mob.id, 0, -1, THROW, 1, 0);
+
+    const events = [...damageMob(state, mob, MOB_TYPES.shambler.hp, 'bell')];
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) {
+      events.push(...advanceMobs(state));
+    }
+
+    expect(travelOf(events, mob.id)).toBeCloseTo(THROW, 9);
+  });
+
+  it('reports a shove once, when the impulse is spent, whoever was carrying it at the end', () => {
+    // One event per impulse and never one per carrier: a report at the kill and
+    // a second at the end of the flight would count one push twice in the repel
+    // reading and change what the channel means.
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', 200, 300);
+    startShove(mob.impulse, 'bell', mob.id, 0, -1, THROW, 1, 0);
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < SHOVE_TICKS * 2; tick++) {
+      if (tick === 5) {
+        events.push(...damageMob(state, mob, MOB_TYPES.shambler.hp, 'bell'));
+      }
+      events.push(...advanceMobs(state));
+    }
+
+    // The id is the body the push reached and never the corpse that finished
+    // carrying it, which is what the repel reading has always meant by it.
+    expect(types(events, 'mobShoved')).toEqual([
+      {
+        type: 'mobShoved',
+        id: mob.id,
+        displacement: expect.closeTo(THROW, 9),
+        source: 'bell',
+      },
+    ]);
+  });
+
+  it('reports what a culled body was carried and hands nothing on, because a culled body leaves no corpse', () => {
+    // The cull exit, held exactly as it was. A body that leaves the field is
+    // gone from the world with nothing left behind to carry the shove, so the
+    // honest answer is the partial report rather than a distance the reading
+    // never sees.
+    const state = quietRun();
+    const mob = putMob(state, 'shambler', 200, FIELD_HEIGHT + 8);
+    startShove(mob.impulse, 'bell', mob.id, 0, 1, THROW, 1, 0);
+    advanceMobs(state);
+    advanceMobs(state);
+    const flown = mob.impulse.travelled;
+
+    const events = cullMobs(state);
+
+    expect(mob.alive).toBe(false);
+    expect(state.corpses.filter((corpse) => corpse.alive)).toEqual([]);
+    expect(types(events, 'mobShoved')).toEqual([
+      {
+        type: 'mobShoved',
+        id: mob.id,
+        displacement: expect.closeTo(flown, 9),
+        source: 'bell',
+      },
+    ]);
+    expect(flown).toBeLessThan(THROW);
+  });
 });

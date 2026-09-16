@@ -981,5 +981,35 @@ describe("the bell's damage climbs with its rungs (the weapon growth record, sec
 });
 
 describe('a body the cone kills on arrival (design record R10)', () => {
-  it.todo("is carried the whole of the toll's push");
+  it("is carried the whole of the toll's push", () => {
+    // The bell's own half of the slice, and nothing here was built for it:
+    // sweepToll pushes before it damages, so a body the cone kills on arrival
+    // dies holding a live impulse, and after the corpse takes that impulse over
+    // the flight finishes. Nothing asserted it before, and at the top rungs
+    // note section 10 measured the kill reaching most of the cone, which is
+    // where this is the whole difference.
+    const state = quietRun();
+    state.levels.bell = MAX_LEVEL;
+    // Both at one point, so the two travels are the same push and the only
+    // thing that differs between them is which one the cone kills.
+    const at = rowAt(MAX_LEVEL).damageReach / 2;
+    const inTheCone = standStill(putAtBearing(state, 0, at));
+    inTheCone.hp = 1;
+    const lived = standStill(putAtBearing(state, 0, at));
+    lived.hp = OUTLIVES_ANY_TOLL;
+
+    const events = oneTollAndTravel(state);
+
+    expect(inTheCone.alive).toBe(false);
+    const travelOf = (id: number) =>
+      events
+        .filter((event) => event.type === 'mobShoved' && event.id === id)
+        .reduce(
+          (sum, event) =>
+            sum + (event.type === 'mobShoved' ? event.displacement : 0),
+          0,
+        );
+    expect(travelOf(inTheCone.id)).toBeGreaterThan(0);
+    expect(travelOf(inTheCone.id)).toBeCloseTo(travelOf(lived.id), 6);
+  });
 });

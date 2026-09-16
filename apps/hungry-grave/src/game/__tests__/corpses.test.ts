@@ -23,12 +23,13 @@ import {
 } from '../corpses';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { Mob, MobType } from '../mobs';
-import { damageMob, MOB_TYPES, spawnMob } from '../mobs';
+import { damageMob, MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../mobs';
 import { openOffer } from '../offer';
 import type { RunState } from '../run';
 import { createRun } from '../run';
+import { blankImpulse, SHOVE_TICKS, startShove } from '../shove';
 import { PROCESSION_WAVES } from '../stage/waves';
 import { SECTIONS } from '../stage/stage';
 import { swallow } from '../swallow';
@@ -83,7 +84,7 @@ function leaveCorpse(state: RunState, mob: Mob) {
 }
 
 describe("a corpse's drift (ADR 0004)", () => {
-  it('has no velocity of its own, so the scroll is the only thing that moves it', () => {
+  it('drifts at the scroll alone when nothing is carrying it', () => {
     const state = quietRun();
     const step = stepping(state);
     leaveCorpse(state, killAt(state, 'shambler', 60, 200));
@@ -472,15 +473,120 @@ describe('what a lost corpse reports (plan 6.9)', () => {
 });
 
 describe('a corpse a shove is carrying (design record R10)', () => {
-  it.todo('drifts at the scroll alone when nothing is carrying it');
-  it.todo("rides the field's own drift as well while a shove carries it");
-  it.todo(
-    'is never carried outside the field plus the spawn margin, and is lost off the bottom edge the way any corpse is',
-  );
-  it.todo(
-    'has further left to drift to the grave than a corpse nothing threw, which is what a throw up the field costs',
-  );
-  it.todo(
-    'hands out a cleared impulse on every spawn path, so a corpse never inherits a push that never reached it',
-  );
+  /** How far one whole shove of this file's own row carries a corpse. */
+  const THROW = 60;
+
+  /** Straight up the field, which is the away direction of a body ahead of the grave. */
+  const UP_X = 0;
+  const UP_Y = -1;
+
+  it("rides the field's own drift as well while a shove carries it", () => {
+    // R11's fourth ruling: the scroll composes with every shove for both lines,
+    // so a corpse in flight takes the field's own drift exactly as a shoved
+    // body does. A throw up the field therefore nets less than it was given.
+    const state = quietRun();
+    const step = stepping(state);
+    leaveCorpse(state, killAt(state, 'shambler', 60, 400));
+    const thrown = corpseOf(state);
+    const from = thrown.y;
+    startShove(thrown.impulse, 'belch', 99, UP_X, UP_Y, THROW, 1, 0);
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) events.push(...step(STILL));
+
+    const drift = SHOVE_TICKS * SCROLL_SPEED;
+    expect(from - thrown.y).toBeCloseTo(THROW - drift, 9);
+    // The shove's own travel is the whole throw: the reading counts the shove
+    // and never the ground moving underneath it.
+    const shoved = events.filter((event) => event.type === 'mobShoved');
+    expect(shoved).toHaveLength(1);
+    expect(
+      shoved[0]?.type === 'mobShoved' ? shoved[0].displacement : 0,
+    ).toBeCloseTo(THROW, 9);
+  });
+
+  it('is never carried outside the field plus the spawn margin, however large the impulse', () => {
+    // The bound is where a body may stand and the invariant harness checks it,
+    // so a corpse the storm's push threw must be held by the same line a body
+    // is (mobs.ts, moveInsideBounds).
+    const state = quietRun();
+    const step = stepping(state);
+    leaveCorpse(state, killAt(state, 'shambler', FIELD_WIDTH - 10, 300));
+    const corpse = corpseOf(state);
+    startShove(corpse.impulse, 'belch', 99, 1, 0, 100000, 1, 0);
+
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) step(STILL);
+
+    expect(corpse.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
+  });
+
+  it('is lost off the bottom edge the way any corpse is when a shove carries it there', () => {
+    // The existing rule doing its job rather than something to repair: a corpse
+    // thrown down the field meets cullCorpses' edge at FIELD_HEIGHT before it
+    // meets the bound a spawn margin further down.
+    const state = quietRun();
+    const step = stepping(state);
+    leaveCorpse(state, killAt(state, 'shambler', 200, FIELD_HEIGHT - 20));
+    const corpse = corpseOf(state);
+    startShove(corpse.impulse, 'belch', 99, 0, 1, THROW, 1, 0);
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) events.push(...step(STILL));
+
+    expect(corpse.alive).toBe(false);
+    expect(events.filter((event) => event.type === 'corpseLost')).toHaveLength(
+      1,
+    );
+    expect(corpse.y).toBeLessThanOrEqual(FIELD_HEIGHT + SPAWN_MARGIN);
+  });
+
+  it('has further left to drift to the bottom edge than a corpse nothing threw, which is what a throw up the field costs', () => {
+    // The cost is the drift left to travel and never the freshness at the
+    // flight's last tick, where a thrown corpse and an unthrown one are equally
+    // fresh: freshness drains on the clock and not on the distance (ADR 0004).
+    const state = quietRun();
+    const step = stepping(state);
+    leaveCorpse(state, killAt(state, 'shambler', 60, 400));
+    const thrown = corpseOf(state);
+    startShove(thrown.impulse, 'belch', 99, UP_X, UP_Y, THROW, 1, 0);
+    leaveCorpse(state, killAt(state, 'shambler', 300, 400));
+    const still = state.corpses.filter((corpse) => corpse.alive)[1]!;
+
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) step(STILL);
+
+    expect(still.y - thrown.y).toBeCloseTo(THROW, 9);
+    expect(thrown.freshness).toBeCloseTo(still.freshness, 9);
+    const ticksLeft = (edge: number) => (FIELD_HEIGHT - edge) / SCROLL_SPEED;
+    expect(ticksLeft(thrown.y) - ticksLeft(still.y)).toBeCloseTo(
+      THROW / SCROLL_SPEED,
+      6,
+    );
+  });
+
+  it('hands out a cleared impulse on every spawn path, so food never inherits a push that never reached it', () => {
+    // spawnMob's own precedent on the other pool: a slot arrives where a
+    // carried corpse may have died, and an inherited impulse would carry new
+    // food away on a push that never reached it.
+    const state = quietRun();
+    const dirty = (slot: number) => {
+      const free = state.corpses.filter((corpse) => !corpse.alive)[slot]!;
+      startShove(free.impulse, 'belch', 99, 1, 0, THROW, 3, SHOVE_TICKS);
+      return free;
+    };
+
+    dirty(0);
+    leaveCorpse(state, killAt(state, 'shambler', 60, 200));
+    dirty(0);
+    spawnFeast(state, 120, 200, 4);
+    dirty(0);
+    spawnPowerUp(state, 180, 200, 'wisps');
+
+    const live = state.corpses.filter((corpse) => corpse.alive);
+    expect(live.map((corpse) => corpse.kind)).toEqual([
+      'corpse',
+      'feast',
+      'powerUp',
+    ]);
+    for (const corpse of live) expect(corpse.impulse).toEqual(blankImpulse());
+  });
 });

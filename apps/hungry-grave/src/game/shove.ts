@@ -73,6 +73,21 @@ interface ShoveStep {
 }
 
 /**
+ * Anything a shove can carry: a place on the field and the one impulse moving
+ * it there.
+ *
+ * A body and the corpse its kill leaves are both one of these, because a shove
+ * outlives the body that carried it (design record R10). It is the role the
+ * travel and the bound need rather than either record's own type, so one loop
+ * advances both carriers and one bound holds both.
+ */
+interface ShoveCarrier {
+  x: number;
+  y: number;
+  impulse: Impulse;
+}
+
+/**
  * How long one shove travels, and the shape of the fall that spends it: thirty
  * ticks, the step falling linearly to nothing.
  *
@@ -138,6 +153,29 @@ const clearImpulse = (impulse: Impulse): void => {
   impulse.shovesLeft = 0;
   impulse.nextIn = 0;
   impulse.spacing = 0;
+};
+
+/**
+ * Hands a live impulse to whatever carries it on, leaving the first carrier
+ * carrying nothing.
+ *
+ * Every field travels, the accounting included, so the one report at the end
+ * covers the whole flight rather than the part that happened after the handover
+ * (design record R10). The body id travels with it deliberately: the report
+ * names the body the push reached and never the thing that finished carrying
+ * it, which is what the repel reading has always meant by it.
+ */
+const handOverImpulse = (from: Impulse, to: Impulse): void => {
+  to.source = from.source;
+  to.bodyId = from.bodyId;
+  to.stepX = from.stepX;
+  to.stepY = from.stepY;
+  to.ticksLeft = from.ticksLeft;
+  to.travelled = from.travelled;
+  to.shovesLeft = from.shovesLeft;
+  to.nextIn = from.nextIn;
+  to.spacing = from.spacing;
+  clearImpulse(from);
 };
 
 /**
@@ -252,6 +290,7 @@ const takeShoveTravel = (impulse: Impulse): number => {
 export {
   blankImpulse,
   clearImpulse,
+  handOverImpulse,
   startShove,
   shoveInFlight,
   impulseSpent,
@@ -259,4 +298,4 @@ export {
   takeShoveTravel,
   SHOVE_TICKS,
 };
-export type { Impulse, ShoveSource, ShoveStep };
+export type { Impulse, ShoveCarrier, ShoveSource, ShoveStep };

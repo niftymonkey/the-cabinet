@@ -349,6 +349,43 @@ interface MobShoved {
 }
 
 /**
+ * Which gate turned a body away from a press, spelled as the gates the belch
+ * actually runs (belch.ts, shoveNearbyTargets) and never as a diagnosis on top
+ * of them.
+ *
+ * There is deliberately no already-dead reason. The storm's target seam skips a
+ * dead slot before the belch ever sees it, so a dead body is never in the frame
+ * at all.
+ */
+type PressRefusal =
+  // Still above the top edge, so reaching it would move authored content a
+  // player never saw arrive (ADR 0008's older scope limit).
+  | 'notEntered'
+  // Further from the grave than the reach the press catches (design record R11).
+  | 'outOfReach'
+  // Standing exactly on the grave, with no direction to be thrown along.
+  | 'noDirection'
+  // An authored pattern a push may not smear (ADR 0007), answered at the seam.
+  | 'notPushable';
+
+/**
+ * One body a press looked at, and what the press did about it.
+ *
+ * The distance is the whole reason this record exists rather than a count of
+ * misses: Mark's sighting of 2026-09-16 is bodies *at about the same distance*
+ * going different ways, and a record with no distance in it cannot answer that.
+ * It is measured centre to centre from the grave in field units, the same way
+ * the reach is, and it is taken on the tick the press lands.
+ */
+interface PressedBody {
+  readonly id: number;
+  readonly distance: number;
+  readonly moved: boolean;
+  // Which gate refused it, or null on a body the press moved.
+  readonly refusal: PressRefusal | null;
+}
+
+/**
  * The belch fired (ADR 0008). The counts are what the belch-on-wave instrument
  * reads to tell a press that landed on a curtain from one spent on empty sky.
  * Cancelled is mob fire taken off the field and shoved is bodies thrown off the
@@ -360,11 +397,26 @@ interface MobShoved {
  * lands, which is the only tick that can say how much the field gave this one
  * belch: what each body then really travels arrives up to ninety ticks later as
  * its own mobShoved, with no belch left to attribute it to.
+ *
+ * `bodies` is every body in the frame, moved or not, with the reason against
+ * each one the press did not move (Mark's standing rule of 2026-09-16 that
+ * everything worth measuring has a representation in the tape). A press with a
+ * hundred bodies in the frame and none in reach and a press with nothing alive
+ * on the field both read `shoved: 0`, and this is what tells them apart.
+ * `shoved` keeps its exact meaning and is the count of entries whose `moved` is
+ * true.
+ *
+ * One press can put up to as many entries in here as the storm's target seam
+ * has slots, the mob pool plus the boss plus the set piece's source. That costs
+ * no tape bytes at all, because no sim event is ever encoded into a tape: a
+ * replay rebuilds every event from the seed and the commands, so the tape
+ * carries this by construction and FORMAT_VERSION does not move.
  */
 interface Belched {
   readonly type: 'belched';
   readonly cancelled: number;
   readonly shoved: number;
+  readonly bodies: readonly PressedBody[];
 }
 
 /**
@@ -541,4 +593,12 @@ type SimEvent =
 // change carries it: src/app/sound.ts may reach this module and no other
 // (src/__tests__/boundary.test.ts), so the vocabulary a subscriber reads has to
 // be reachable from the vocabulary it subscribes to.
-export type { CarrierLoss, OfferSite, SectionMusic, SetPieceClosing, SimEvent };
+export type {
+  CarrierLoss,
+  OfferSite,
+  PressedBody,
+  PressRefusal,
+  SectionMusic,
+  SetPieceClosing,
+  SimEvent,
+};

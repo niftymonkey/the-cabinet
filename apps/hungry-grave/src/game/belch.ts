@@ -1,10 +1,11 @@
 // The one button (ADR 0008): the full reservoir vomited in two scopes at once,
 // the gas over the whole field and the shove around the grave.
 
-import type { SimEvent } from './events';
+import type { PressedBody, PressRefusal, SimEvent } from './events';
 import { FIELD_WIDTH } from './field';
 import { normalize } from './math';
 import type { RunState } from './run';
+import type { StormTarget } from './stormTargets';
 import { shoveStormTarget, stormTargets } from './stormTargets';
 import { RESERVOIR_CAPACITY } from './tuning';
 
@@ -87,8 +88,76 @@ const insideBurst = (state: RunState, x: number, y: number): boolean => {
 };
 
 /**
- * Throws what stands inside the reach away from the grave, and reports how many
- * bodies it threw.
+ * How far a body stands from the grave, centre to centre, in field units. It is
+ * the reading the press writes down beside each body and never the gate: the
+ * gate orders squared and is left alone, so what a press catches does not
+ * change by a rounding when the record was added.
+ *
+ * Math.sqrt and never Math.hypot: sqrt is exactly specified in the language and
+ * hypot is implementation-approximated, and a determinism-critical core carries
+ * no approximated operation (math.ts, ADR 0015).
+ */
+const distanceFromGrave = (state: RunState, x: number, y: number): number => {
+  const dx = x - state.grave.x;
+  const dy = y - state.grave.y;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+// One body the press looked at and did not move, and which gate turned it away.
+const refused = (
+  target: StormTarget,
+  distance: number,
+  refusal: PressRefusal,
+): PressedBody => {
+  return { id: target.id, distance, moved: false, refusal };
+};
+
+/**
+ * One body in the press's frame: thrown away from the grave, or written down
+ * with the gate that refused it.
+ *
+ * The gates read in the order the press runs them, so the reason a body carries
+ * is the first thing that was true of it. Two of them are the reach's own. A
+ * body further out than the radius is the whole of the split: a press that
+ * clears the air and leaves the crowd walking hands the wave back to the storm.
+ * And a body still above the top edge is ADR 0008's older scope limit standing
+ * through the split, because reaching past the edge would silently move
+ * authored content a player never saw arrive.
+ *
+ * Nothing here branches on what it is hitting. The seam answers whether a body
+ * may be pushed at all, so a boss's authored pattern and a set piece's source
+ * are refused there and never by a branch here (ADR 0007), and the decay of
+ * each shove is the shove module's. `pushable` is read here only to write the
+ * reason down: the seam still refuses the move, and a target that reached the
+ * call would be a no-op there either way.
+ */
+const pressOneBody = (state: RunState, target: StormTarget): PressedBody => {
+  const distance = distanceFromGrave(state, target.x, target.y);
+  if (!target.entered) return refused(target, distance, 'notEntered');
+  if (!insideBurst(state, target.x, target.y)) {
+    return refused(target, distance, 'outOfReach');
+  }
+  const away = normalize(target.x - state.grave.x, target.y - state.grave.y);
+  // A body standing exactly on the grave has no direction to be thrown along,
+  // which is the one refusal the bell already keeps (bell.ts, pushTarget).
+  if (away.length === 0) return refused(target, distance, 'noDirection');
+  if (!target.pushable) return refused(target, distance, 'notPushable');
+  shoveStormTarget(
+    state,
+    target,
+    'belch',
+    away.x,
+    away.y,
+    BELCH_SHOVE_THROW,
+    BELCH_SHOVES,
+    BELCH_SHOVE_SPACING,
+  );
+  return { id: target.id, distance, moved: true, refusal: null };
+};
+
+/**
+ * Throws what stands inside the reach away from the grave, and writes down
+ * every body in the frame with what the press did about it.
  *
  * Each body is struck once and that one strike carries all three shoves: the
  * body set is captured the tick the belch fires and each body gets one impulse
@@ -97,40 +166,16 @@ const insideBurst = (state: RunState, x: number, y: number): boolean => {
  * `toll.struck` shape (bell.ts) reached by construction rather than by a reach
  * test run three times.
  *
- * Two things are outside its reach. A body further out than the radius, which
- * is the whole of the split: a press that clears the air and leaves the crowd
- * walking hands the wave back to the storm. And a body still above the top
- * edge, which is ADR 0008's older scope limit standing through the split,
- * because reaching past the edge would silently move authored content a player
- * never saw arrive.
- *
- * Nothing here branches on what it is hitting. The seam answers whether a body
- * may be pushed at all, so a boss's authored pattern and a set piece's source
- * are refused there and never by a branch here (ADR 0007), and the decay of
- * each shove is the shove module's.
+ * The record is built fresh per press rather than off a pooled buffer, because
+ * a press is a rare event and the seam's own list may not be retained past this
+ * pass: every entry here is a value copied out of it.
  */
-const shoveNearbyTargets = (state: RunState): number => {
-  let shoved = 0;
+const shoveNearbyTargets = (state: RunState): PressedBody[] => {
+  const bodies: PressedBody[] = [];
   for (const target of stormTargets(state)) {
-    if (!target.entered) continue;
-    if (!insideBurst(state, target.x, target.y)) continue;
-    const away = normalize(target.x - state.grave.x, target.y - state.grave.y);
-    // A body standing exactly on the grave has no direction to be thrown along,
-    // which is the one refusal the bell already keeps (bell.ts, pushTarget).
-    if (away.length === 0) continue;
-    shoveStormTarget(
-      state,
-      target,
-      'belch',
-      away.x,
-      away.y,
-      BELCH_SHOVE_THROW,
-      BELCH_SHOVES,
-      BELCH_SHOVE_SPACING,
-    );
-    if (target.pushable) shoved += 1;
+    bodies.push(pressOneBody(state, target));
   }
-  return shoved;
+  return bodies;
 };
 
 /**
@@ -155,9 +200,10 @@ const shoveNearbyTargets = (state: RunState): number => {
 const fireBelch = (state: RunState): SimEvent[] => {
   if (state.reservoir < RESERVOIR_CAPACITY) return [];
   const cancelled = cancelMobFire(state);
-  const shoved = shoveNearbyTargets(state);
+  const bodies = shoveNearbyTargets(state);
+  const shoved = bodies.filter((body) => body.moved).length;
   state.reservoir = 0;
-  return [{ type: 'belched', cancelled, shoved }];
+  return [{ type: 'belched', cancelled, shoved, bodies }];
 };
 
 export {

@@ -662,6 +662,20 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
     'tuning.belchCadence.wasted',
     (report) => report.tuning.belchCadence.wasted,
   ),
+  // What share of its own frame a press typically reaches, as a distribution
+  // over the presses themselves: a run with one press and a run with twelve
+  // both contribute what each of their presses did, because the question is
+  // about a press and not about a run (#124).
+  distributionReading(
+    'tuning.belchCadence.frameShares',
+    (report) => report.tuning.belchCadence.frameShares,
+  ),
+  // What the misses were made of. Named numbers rather than a spread, because
+  // the four reasons are four different facts about a press and summing them
+  // into one figure would say only that a press missed.
+  byNameReading('tuning.belchCadence.misses', (report) => ({
+    ...report.tuning.belchCadence.misses,
+  })),
   // The director's own instrument, read back off the tape (#85).
   distributionReading(
     'tuning.pressure.signalPerTick',

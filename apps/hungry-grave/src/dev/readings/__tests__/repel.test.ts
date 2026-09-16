@@ -51,9 +51,10 @@ describe('repel', () => {
   });
 
   it('counts a toll that shoved nothing, because zero is a reading', () => {
-    // Push only exists at bell levels 4 and 5, so an ordinary run's tolls all
-    // look like this, and a reading that skipped them would hide the fact the
-    // bell was tolling at all.
+    // Every rung pushes now (design record R2 as superseded, slice H2), so a
+    // toll like this is one that reached no body it could move rather than one
+    // fired at a rung with no push. A reading that skipped it would hide the
+    // fact the bell was tolling at all.
     const reading = readingOf([[toll(1)], [], [toll(2)], []]);
     expect(reading.tolls).toEqual([
       { shoves: 0, distance: 0 },

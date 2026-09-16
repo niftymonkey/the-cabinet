@@ -1,12 +1,39 @@
 // The belch's rhythm: what it hit, how long it sat full, and what it spilled.
 
-import type { SimEvent } from '../../game/events';
+import type { PressedBody, PressRefusal, SimEvent } from '../../game/events';
 import type { RunState } from '../../game/run';
 import { RESERVOIR_CAPACITY } from '../../game/tuning';
 
 /**
- * One belch, and what the field gave it: the shots it took out of the air and
- * the bodies it threw off the ground around the grave.
+ * How many bodies each gate turned away, by the gate's own name. Every reason
+ * is present at zero rather than absent, so a batch prints the same four keys
+ * for every run and a missing key is never mistaken for a run that had none.
+ */
+type PressMisses = Readonly<Record<PressRefusal, number>>;
+
+const NO_MISSES: PressMisses = {
+  notEntered: 0,
+  outOfReach: 0,
+  noDirection: 0,
+  notPushable: 0,
+};
+
+/**
+ * Every reason by name, so a sum walks the same four names on every run. It is
+ * spelled out rather than read off a record's keys, because a reduction whose
+ * order depends on insertion order is one nobody can reproduce from the type.
+ */
+const PRESS_REFUSALS: readonly PressRefusal[] = [
+  'notEntered',
+  'outOfReach',
+  'noDirection',
+  'notPushable',
+];
+
+/**
+ * One belch, and what the field gave it: the shots it took out of the air, the
+ * bodies it threw off the ground around the grave, and the bodies it looked at
+ * and did not throw.
  *
  * It counted kills until the belch stopped killing (ADR 0008 as amended, design
  * record R3 as superseded), and it counts the bodies the same press now throws
@@ -14,11 +41,19 @@ import { RESERVOIR_CAPACITY } from '../../game/tuning';
  * could still be asked to answer, and what the reading is for is telling a
  * press spent on a curtain from one spent on empty sky, which needs a body
  * count beside the shot count either way.
+ *
+ * `inFrame` and `misses` are what make `shoved: 0` readable: a press with a
+ * hundred bodies in the frame and none in reach and a press with nothing alive
+ * on the field are the same figure today and two different presses (Mark's
+ * sighting and his standing rule of 2026-09-16, design record section 4).
  */
 interface BelchFire {
   readonly tick: number;
   readonly shoved: number;
   readonly cancelled: number;
+  // Every body the press looked at, the ones it moved included.
+  readonly inFrame: number;
+  readonly misses: PressMisses;
 }
 
 /**
@@ -45,6 +80,18 @@ interface BelchCadence {
   readonly intervals: readonly number[];
   readonly ticksAtFull: number;
   readonly wasted: number;
+  /**
+   * The share of its own frame each press moved, one entry per press that had
+   * a frame at all.
+   *
+   * A press fired over an empty field contributes nothing rather than a zero,
+   * on the interval list's own terms: a press with no body to reach has no
+   * share of the field to be a share of, and averaging its zero in would read
+   * as a press that failed rather than as a press with nothing to do.
+   */
+  readonly frameShares: readonly number[];
+  // What the run's misses were made of, summed over every press.
+  readonly misses: PressMisses;
 }
 
 interface BelchCadenceAcc {
@@ -59,6 +106,16 @@ const createBelchCadence = (): BelchCadenceAcc => ({
   wasted: 0,
 });
 
+// What one press's record says its misses were made of.
+const missesOf = (bodies: readonly PressedBody[]): PressMisses => {
+  const counted = { ...NO_MISSES };
+  for (const body of bodies) {
+    if (body.refusal === null) continue;
+    counted[body.refusal] += 1;
+  }
+  return counted;
+};
+
 const observeBelchCadence = (
   acc: BelchCadenceAcc,
   tick: number,
@@ -71,6 +128,8 @@ const observeBelchCadence = (
         tick,
         shoved: event.shoved,
         cancelled: event.cancelled,
+        inFrame: event.bodies.length,
+        misses: missesOf(event.bodies),
       });
     }
     if (event.type === 'splashed') acc.wasted += event.wasted;
@@ -90,12 +149,30 @@ const intervalsOf = (fires: readonly BelchFire[]): number[] => {
   return intervals;
 };
 
+// The share of its own frame each press moved, over the presses that had one.
+const frameSharesOf = (fires: readonly BelchFire[]): number[] => {
+  return fires
+    .filter((fire) => fire.inFrame > 0)
+    .map((fire) => fire.shoved / fire.inFrame);
+};
+
+// Every press's misses added up, reason by reason.
+const missesOverRun = (fires: readonly BelchFire[]): PressMisses => {
+  const summed = { ...NO_MISSES };
+  for (const fire of fires) {
+    for (const reason of PRESS_REFUSALS) summed[reason] += fire.misses[reason];
+  }
+  return summed;
+};
+
 const belchCadenceOf = (acc: BelchCadenceAcc): BelchCadence => ({
   fires: [...acc.fires],
   intervals: intervalsOf(acc.fires),
   ticksAtFull: acc.ticksAtFull,
   wasted: acc.wasted,
+  frameShares: frameSharesOf(acc.fires),
+  misses: missesOverRun(acc.fires),
 });
 
 export { createBelchCadence, observeBelchCadence, belchCadenceOf };
-export type { BelchCadence, BelchFire, BelchCadenceAcc };
+export type { BelchCadence, BelchFire, BelchCadenceAcc, PressMisses };

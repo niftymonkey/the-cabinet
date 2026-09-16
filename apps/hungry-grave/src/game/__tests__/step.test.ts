@@ -16,6 +16,7 @@ import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
 import type { RunState } from '../run';
 import { createRun } from '../run';
+import { blankImpulse, startShove } from '../shove';
 import { PROCESSION_WAVES } from '../stage/waves';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
 import { MAX_LEVEL } from '../lines/roster';
@@ -673,5 +674,36 @@ describe('a belch pays nothing, because it kills nothing (Mark, 2026-09-15)', ()
 });
 
 describe('a corpse swallowed while a shove is carrying it (design record R10)', () => {
-  it.todo('reports what it was carried and stops carrying it');
+  it('reports what it was carried and stops carrying it', () => {
+    // The third exit. A swallow kills a corpse where it stands, so without a
+    // report here a live impulse would leave the world unreported and uncleared
+    // and the slot would hand the leftovers to the next food that claimed it.
+    const state = quietRun();
+    const step = stepping(state);
+    const dead = spawnMob(
+      state,
+      'shambler',
+      { x: state.grave.x, y: state.grave.y, vx: 0, vy: 1, index: 0 },
+      false,
+      'wave',
+    )!;
+    dead.alive = false;
+    leaveCorpse(state, dead);
+    const corpse = requireDefined(
+      state.corpses.find((each) => each.alive),
+      'no corpse to swallow',
+    );
+    // Sideways, so the throw does not carry it out from under the grave before
+    // the swallow pass reaches it.
+    startShove(corpse.impulse, 'belch', dead.id, 1, 0, 60, 1, 0);
+
+    const events = step(STILL);
+
+    expect(typesOf(events)).toContain('swallowed');
+    expect(corpse.alive).toBe(false);
+    expect(corpse.impulse).toEqual(blankImpulse());
+    const shoved = events.filter((event) => event.type === 'mobShoved');
+    expect(shoved).toHaveLength(1);
+    expect(shoved[0]?.type === 'mobShoved' && shoved[0].id).toBe(dead.id);
+  });
 });

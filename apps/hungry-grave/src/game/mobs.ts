@@ -19,7 +19,7 @@ import {
 } from './mobFire';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
-import type { Impulse } from './shove';
+import type { Impulse, ShoveCarrier } from './shove';
 import {
   advanceShove,
   blankImpulse,
@@ -388,65 +388,84 @@ const clamp = (value: number, low: number, high: number): number => {
 };
 
 /**
- * Puts a body at a place, held inside the box a body may stand in: the field
+ * Puts a carrier at a place, held inside the box a body may stand in: the field
  * widened by the spawn margin, which is where a formation places one and the
  * furthest anything may carry one.
  *
  * It is the one bound and it lives here because this module owns SPAWN_MARGIN.
- * Both things that carry a body somewhere it did not walk read it: the storm's
- * push seam (stormTargets.ts) and the shove's own travel below. A push is never
- * what takes something out of the world, so the harness never fires on a legal
- * move by the player's own weapon.
+ * Everything that carries something somewhere it did not walk reads it: the
+ * storm's push seam (stormTargets.ts) and the shove's own travel below, for a
+ * body and for the corpse a kill hands the shove to alike. A push is never what
+ * takes something out of the world, so the harness never fires on a legal move
+ * by the player's own weapon.
+ *
+ * A corpse thrown down the field meets cullCorpses' edge at FIELD_HEIGHT before
+ * it meets this bound, so it is lost as food the way any corpse is rather than
+ * being parked at the margin.
  */
-const moveMobInsideBounds = (mob: Mob, x: number, y: number): void => {
-  mob.x = clamp(x, -SPAWN_MARGIN, FIELD_WIDTH + SPAWN_MARGIN);
-  mob.y = clamp(y, -SPAWN_MARGIN, FIELD_HEIGHT + SPAWN_MARGIN);
+const moveInsideBounds = (
+  carrier: ShoveCarrier,
+  x: number,
+  y: number,
+): void => {
+  carrier.x = clamp(x, -SPAWN_MARGIN, FIELD_WIDTH + SPAWN_MARGIN);
+  carrier.y = clamp(y, -SPAWN_MARGIN, FIELD_HEIGHT + SPAWN_MARGIN);
 };
 
 /**
- * The one report an impulse makes: how far the body it was carrying really
- * went. It is taken when the impulse is spent and when the body stops carrying
- * it by dying, so nothing the storm actually pushed goes unreported.
+ * The one report an impulse makes: how far it really carried whatever was
+ * carrying it, taken once, when the impulse is spent.
  *
- * A body that covered nothing reports nothing, whether the bound refused the
- * whole move or the body was killed on the tick the shove landed on it. A shove
- * that bought no distance would otherwise report a push that never happened.
+ * It is also taken at an exit that ends a flight early and hands the impulse to
+ * nothing, so nothing the storm actually pushed goes unreported: a body culled
+ * off the field, a corpse swallowed mid-flight, a corpse lost off the bottom
+ * edge. The kill exit is the one that hands over instead, because it is the one
+ * that leaves a corpse to carry it on.
+ *
+ * The event names the body the push reached, off the impulse and never off the
+ * carrier, because the carrier at the end may be a corpse the body left behind.
+ *
+ * A carrier that covered nothing reports nothing, whether the bound refused the
+ * whole move or the body died on the tick the shove landed on it. A shove that
+ * bought no distance would otherwise report a push that never happened.
  */
-const reportShoveTravel = (mob: Mob): SimEvent[] => {
-  const source = mob.impulse.source;
-  const displacement = takeShoveTravel(mob.impulse);
+const reportShoveTravel = (carrier: ShoveCarrier): SimEvent[] => {
+  const impulse = carrier.impulse;
+  const source = impulse.source;
+  const id = impulse.bodyId;
+  const displacement = takeShoveTravel(impulse);
   if (displacement === 0) return [];
   if (source === null) {
     // Travel only accumulates under a shove and a shove only starts with a
-    // source, so a body that went somewhere under nothing is a bug in this
+    // source, so something that went somewhere under nothing is a bug in this
     // module rather than a reading to repair.
-    throw new Error(`mob ${mob.id} travelled ${displacement} under no shove`);
+    throw new Error(`body ${id} travelled ${displacement} under no shove`);
   }
-  return [{ type: 'mobShoved', id: mob.id, displacement, source }];
+  return [{ type: 'mobShoved', id, displacement, source }];
 };
 
 /**
- * One tick of the shove a body is carrying: the travel it owes, applied and
+ * One tick of the shove a carrier is carrying: the travel it owes, applied and
  * measured, and the report once the impulse is spent.
  *
- * What is recorded is the distance the body really covered rather than the
- * distance the impulse asked for, because the bound above can refuse part of a
- * step and a repel reading may only sum what actually happened.
+ * What is recorded is the distance really covered rather than the distance the
+ * impulse asked for, because the bound above can refuse part of a step and a
+ * repel reading may only sum what actually happened.
  */
-const travelShove = (mob: Mob): SimEvent[] => {
-  const impulse = mob.impulse;
+const travelShove = (carrier: ShoveCarrier): SimEvent[] => {
+  const impulse = carrier.impulse;
   if (impulseSpent(impulse)) return [];
   const step = advanceShove(impulse);
   if (step !== null) {
-    const fromX = mob.x;
-    const fromY = mob.y;
-    moveMobInsideBounds(mob, mob.x + step.x, mob.y + step.y);
-    const movedX = mob.x - fromX;
-    const movedY = mob.y - fromY;
+    const fromX = carrier.x;
+    const fromY = carrier.y;
+    moveInsideBounds(carrier, carrier.x + step.x, carrier.y + step.y);
+    const movedX = carrier.x - fromX;
+    const movedY = carrier.y - fromY;
     impulse.travelled += Math.sqrt(movedX * movedX + movedY * movedY);
   }
   if (!impulseSpent(impulse)) return [];
-  return reportShoveTravel(mob);
+  return reportShoveTravel(carrier);
 };
 
 /**
@@ -514,6 +533,19 @@ const advanceMobs = (state: RunState): SimEvent[] => {
     moveMob(mob, state.grave);
     events.push(...travelShove(mob));
   }
+  // The second carrier, advanced from this same pass rather than from one of
+  // its own, because one module owns the travel and the bound is written once
+  // (design record R10). It also keeps one impulse to one advance a tick: the
+  // deaths section runs later in the tick than this, so a corpse's own pass
+  // placed down there would advance the shove a body handed over on the very
+  // tick that body had already been advanced under it.
+  //
+  // A corpse this pass has already walked past cannot be handed one either,
+  // because nothing inside this function kills a body.
+  for (const corpse of state.corpses) {
+    if (!corpse.alive) continue;
+    events.push(...travelShove(corpse));
+  }
   advanceShots(state);
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
@@ -549,9 +581,6 @@ const damageMob = (
   ];
   if (mob.hp > 0) return events;
   mob.alive = false;
-  // A body killed while a shove was still carrying it stops carrying it here,
-  // so what it had already been pushed is reported rather than lost with it.
-  events.push(...reportShoveTravel(mob));
   events.push({
     type: 'mobKilled',
     id: mob.id,
@@ -561,7 +590,16 @@ const damageMob = (
     carried: mob.carries,
   });
   const row = MOB_TYPES[mob.type];
+  // The corpse the kill leaves takes the shove over and finishes the flight, so
+  // a body caught by a press travels the whole of what the press threw whether
+  // or not the storm kills it on the way (design record R10). That makes the
+  // kill the one exit that hands over: the report is the corpse's when the
+  // impulse is finally spent.
   events.push(...spawnCorpse(state, mob, row.corpsePayout, row.corpseTier));
+  // At the food cap no corpse spawns, so the impulse is still on the body and
+  // there is nothing to carry it on. It reports what it was already carried
+  // rather than leaving that distance out of the reading.
+  events.push(...reportShoveTravel(mob));
   return events;
 };
 
@@ -612,7 +650,8 @@ export {
   canTouchGrave,
   mobTellLit,
   spawnMob,
-  moveMobInsideBounds,
+  moveInsideBounds,
+  reportShoveTravel,
   advanceMobs,
   damageMob,
   cullMobs,

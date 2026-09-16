@@ -24,7 +24,7 @@ import { bossHitbox, damageBoss } from './bosses/phases';
 import { MOB_CAP } from './caps';
 import type { SimEvent } from './events';
 import type { DamageSource, Mob } from './mobs';
-import { damageMob, hasEntered, mobHitbox, moveMobInsideBounds } from './mobs';
+import { damageMob, hasEntered, mobHitbox, moveInsideBounds } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
 import { startShove } from './shove';
@@ -311,7 +311,7 @@ const moveStormTarget = (
   // They agree today, and only the first of them is a decision: a target the
   // seam has no way to move is a target nothing can push either way.
   if (slot === null || !slot.pushable || slot.mob === null) return;
-  moveMobInsideBounds(slot.mob, x, y);
+  moveInsideBounds(slot.mob, x, y);
   // The reading follows the move, the body with it, so a pass that moves a
   // target and then tests it again reads where it now is rather than where it
   // stood when the list was filled.

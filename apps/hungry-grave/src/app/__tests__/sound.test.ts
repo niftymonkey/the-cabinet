@@ -82,7 +82,7 @@ const EVERY_EVENT: SimEvent[] = [
   { type: 'corpseExpired', x: 1, y: 2 },
   { type: 'corpseLost', kind: 'corpse', x: 1, y: 2, freshness: 0.5 },
   { type: 'tolled', level: 3, radius: 165 },
-  { type: 'belched', cancelled: 12, shoved: 4 },
+  { type: 'belched', cancelled: 12, shoved: 4, bodies: [] },
   { type: 'powerUpSpawned', id: 9, line: 'wisps', x: 1, y: 2 },
   { type: 'sectionChanged', section: 'crowd', music: 'crowd', tick: 10 },
 ];
