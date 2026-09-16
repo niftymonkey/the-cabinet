@@ -13,7 +13,7 @@ The record is `apps/hungry-grave/docs/design/show-what-you-have.md` and the prom
 | M1, a kill pays score | `11483ecf31` | `feat(hungry-grave): a kill pays score and a bled rung stays bled until the grave grows (#99)` |
 | M2, the frame composed and the band reserved | `0c7f877ad1` | `feat(hungry-grave): the frame is composed across three regimes and the HUD's band is reserved (#72)` |
 | M3, the HUD carries the ladder and the score | `48383d4d68` | `feat(hungry-grave): the row carries the score and every rostered line's rungs as marks (#99)` |
-| M4, the loss is watched | | |
+| M4, the loss is watched | `d463dc8252` | `feat(hungry-grave): the score is watched leaving and every line that paid says so (#99)` |
 | M5, the stripped rung falls | | |
 | M6, the ladder's cost is measurable | | |
 
@@ -75,6 +75,8 @@ One entry per code commit: files reviewed, findings by severity, applied and dec
 
 **M3's code commit, one iteration: 8 files reviewed, 0 findings.** Nothing applied and nothing declined. The worktree was clean of other agents' edits this time, so the review saw this slice's eight files and nothing else.
 
+**M4's code commit, one iteration: 14 files reviewed, 7 findings, none applied and all seven declined.** Section 10 carries each decline with its reason. Four of the seven are on `docs/design/show-what-you-have.md` and `docs/push/step-5-slice-prompts.md`, which were dirty in the shared worktree while the review ran and are not this slice's files; **all four are one argument, that M7's `run.score` change needs a `READINGS_VERSION` 8 to 9 move the section 5 ledger forbids**, and it is left here for the orchestrator rather than acted on.
+
 ## 5. Record and prompt claims found false against the tree
 
 Every claim in the design record or in a slice prompt that did not survive contact, with the file and what is actually there. **The source's intent is followed rather than its stale letter, and an unclear intent is a stop.**
@@ -104,6 +106,12 @@ Every claim in the design record or in a slice prompt that did not survive conta
 **M3. Both of R2's own legibility floors are a rounding above the widths they were derived from, so neither 1.5 nor 3 field units reaches its own floor.** The stroke floor is stated as 0.89 CSS pixels and derived as `SPRITE_STROKE` 1.5 at "the narrow phone's 0.59 CSS pixels per field unit"; the true figure is 320/540, which is 0.5926, so 1.5 units measures **0.8889** and misses the stated floor by a thousandth. The gap floor is stated as 1.8 and derived as 3 units at the same scale; 3 units measures **1.7778** and misses by two hundredths. **The record's intent is the floor rather than the figure**, which item (h) says in as many words, so the mark's outline is **1.6 units** and the gap between two marks is **3.2**, measuring 0.948 and 1.896 at that viewport. Both are written into `LadderHud.ts` with this derivation beside them. The mark itself is untouched at 11 and clears 6.25 at 6.519.
 
 **M3. The row's content clears the field's boundary at a mark and not at an icon, so the gap leg of the separability predicate does not carry the reading and the luma leg does.** The prompt reads the gap as "the band's 2 units of padding, about 1.2 CSS pixels there", which is what it is where the row sits above the field. Where the row draws over the field's top edge, which is the narrow phone the predicate is measured at, those same 2 units are exactly `BOUNDARY_STROKE`'s own 2, so the icon's box begins where the boundary's stroke ends and the measurement is **0 CSS pixels at an icon and 4 at a mark**. Section 9 carries the measured pixels and the leg that carries it.
+
+**M4. There is no `ReplayScreen.test.ts` and the replay's own tests live in `src/app/__tests__/replayLifecycle.test.ts`.** The prompt's expected-red list and its seams both name `ReplayScreen.test.ts`. **The intent was followed**: the mirrored blow-up's test is in `replayLifecycle.test.ts`, which is the file that owns the replay screen's wiring and pooled lifecycle, and it is where `REPLAY_LEAD_IN_TICKS` is already asserted.
+
+**M4. The prompt's "the three events reaching the view from the driver" is two events and one that never reaches it.** `sealed` ends the run and reaches `runEnding`, never the row: there is nothing for a row to draw of a run that is over. The two the row is handed are `scoreBled` and `weaponStripped`, which is what the definition's own sentence names and what R7's first two channels need.
+
+**M4. Section 3.3's "on screen between events" is a stronger claim for the wisps than the line's own code supports.** The table reads "while any are alive", which a reader can take as most of the time. `wisps.ts` fires a flight on each swallow with a 90-tick life and is never always-on, by ADR 0005 and its own file header, so a wisp is on screen only in the window after a swallow. **That is why the wisps got no field blow-up**, and it is the reading section 10 states per line.
 
 ## 6. Step 5.0: the docs commit, ADR 0054 amended and the glossary gains three terms (#99)
 
@@ -449,6 +457,113 @@ The lumas the row is judged on, all read off the declarations and all confirmed 
 
 
 ## 10. Slice M4: the loss is watched (#99)
+
+Twelve files, all under `src/app`: one new module and its tests, the registry and its covering test, the row and its tests, the storm renderer and its tests, the two screens, and the two lifecycle harnesses. **Renderer only. Nothing under `src/game`, `src/dev` or `src/tape` is in the commit, no sim rule moved, and `bleedScore` still zeroes the score in one tick while `stripLevels` still takes one level off every line that has one to give.**
+
+### The loss is its own concept, and it is one file
+
+`src/app/screens/game/watchedLoss.ts`. The module boundary permitted a new file only if the loss's announcement is its own concept, and it is: the two lifetimes, the state a run accumulates, the fold that takes an event into it, and the one reading the row draws from it are all the same subject, and none of them is the row's pixels. **`LadderHud` stays a dumb view and `GameScreen` stays the driver**: the driver holds the state, folds each event into it, and clears it, and the row is handed the state and the frame's readout and draws what the reading says. Its interface reads in one place at the module's end and no import direction changed.
+
+### The countdown, linear, and the registry's figures
+
+**`SCORE_BLEED_TICKS` 40, the record's own declared starting figure, and the curve is linear over the whole lifetime.** The reading runs from the bled amount toward whatever the run's score currently reads, so a score climbing from kills while the grave is at the floor is landed on rather than jumped to. **The midpoint is what pins it**, because a test asking only for a value between the old one and zero passes on ease-out too, and ease-out is the snap R5 rejected, stretched.
+
+**The registry, printed off this tip, with the lead-in above it.** `REPLAY_LEAD_IN_TICKS` **90**; `scatter` 12, `eruption` 90, `splash` 18, `territoryArrival` 68, `lossBlowUp` 24, `scoreBleed` 40, `rungStrip` 40. **Every lifetime is at or under the lead-in** and the covering test takes its bound over the registry rather than over a hand list. Two new lines in it and not one, per R5: the bleed's and the strip's.
+
+### The strip's mark empties over the bleed's own lifetime
+
+**`RUNG_STRIP_TICKS` is `SCORE_BLEED_TICKS`, written as that constant and not as a second 40**, so the one vocabulary is a fact in the code rather than a coincidence two figures happen to have. It is a second held transient born of `weaponStripped` and owned by the driver exactly as the bleed is, and it is not drawn from `levels`, which would snap. **`INVULNERABLE_TICKS` is 24, under the 40**, so a strip can land while the cushion's own mark is still emptying; the reading takes both together and a test at both layers pins the overlap.
+
+### The event-driven seam, and why no diff is read
+
+`GameScreen.announce` folds each event into the loss with `watchLoss`, beside the storm renderer's own `belched` and `splashed` calls. **The row never diffs the score**, because a diff cannot tell a bleed from an overflow that happened to be negative, and a view that inferred one would be a second implementation of the rule. The test that holds it hands the row a falling score with no event and gets the score itself, with the cushion untouched.
+
+### Emptying is subtraction of area
+
+The mark's body drains from the top down: `fill.scale.y` is the share left and its position follows, so the body loses area and takes **no step in value and no step in brightness** (ADR 0014, R2). At nothing left the body is hidden, so **an emptied mark is exactly the empty mark the row already draws** rather than a second state that resembles it, and the palette scan stays green with no new colour anywhere in the slice.
+
+### What `prepare()` now clears, and how the second run proves it
+
+`GameScreen.prepare()` sets the watched loss back to nothing, beside the ending, the frame policy, the steering and the countdown it already cleared; `StormRenderer.forgetPreviousRun` drops the blow-up's born tick and its pops, in the one place per-run renderer memory dies. **The test is not "the second run opens clean at tick zero", because at tick zero a stale born tick reads as not live anyway and the leak would hide.** It plays run one until a loss lands at a tick, ends it, opens run two on the same pooled screen, and plays run two to that same tick: that is the frame a leaked countdown would run on. The storm renderer has its own copy of the same test.
+
+### The replay's mirrored line, and the HUD it does not have
+
+`ReplayScreen.syncScreen` hand-mirrors `GameScreen.announce`, so the blow-up is wired there in the same commit: wired into the live screen alone it would simply not play on a replay, and the lead-in's whole promise is that a replay shows what the live run showed. **The replay carries no HUD at all**, so the countdown and the emptying mark are moot there and nothing is owed for them; that is an absence by construction rather than an omission. The test proves the wiring bites, checked by removing the line and watching it go red.
+
+### The field channel, per line, built and unbuilt
+
+| line | built | why |
+| --- | --- | --- |
+| skull stream | **yes** | Its columns are the one expression of the four that is on screen continuously (section 3.3), and it is the birthright every run has, so the announcement always has something to blow up. One expanding ring where each live skull stood on the tick the rung went, drawn in `skull`'s own colour. |
+| bell | no | Its cones are on screen **only during a toll** (section 3.3), so an announcement on it would play on the fraction of strips that happen to land inside a toll's window and be silent otherwise. An announcement that is usually absent is worse than none. |
+| wisps | no | Its flight is fired by a swallow and expires in 90 ticks (`wisps.ts`, ADR 0005), so it is on screen only in the window after a swallow, which is not the window a player takes a floor hit in. It is the nearest candidate of the three and it is written down here as such. |
+| Territory | no | Its level buys radius: **an area and never a count**, which is the whole reason R8 amends ADR 0054, and a patch may not exist at the moment of the strip at all. |
+
+**This is section 7's sixth finding holding, not a miss**: step 5 builds the HUD channel whole and does not finish the field one, because making each line's rung readable in its own expression is a design job per line.
+
+**`LOSS_BLOW_UP_TICKS` 24, a first figure and open.** It sits at the splash's order of magnitude, 18, rather than the eruption's field-wide 90, because a pop is a hit-sized event; 24 is also the invulnerable window's own length, so the announcement finishes about when the player can be hit again. It is written as its own constant rather than derived from `INVULNERABLE_TICKS`, because a picture may not quietly follow a rule's retune.
+
+### The rendered check, and what it could and could not see
+
+`pnpm build` then `pnpm exec vite preview`, driven with `playwright-cli` against the built app at 393 by 660 and at 1440 by 900, opened at `?levels=3&size=18&seed=4242` so the grave starts at the size floor and every contact runs the ladder. **Zero console errors and seven warnings**, the same seven families M2 and M3 saw: the audio autoplay policy and headless Chromium's software renderer, both pre-existing, and none from this slice.
+
+**Three runs were played, two of them on the same pooled screen.** Run one bled and stripped until it sealed at 2621 ticks. **Run two opened on the pooled screen at tick 70 reading `000000` with a filled cushion and every line at three of five, with no countdown and no emptying mark anywhere**, which is the pooled-run check taken on the built app rather than only in a test.
+
+**The loss was caught on screen, which is more than the driver's own limits promised.** At 5 FPS under SwiftShader consecutive screenshots land 1.6 seconds apart, about 96 ticks, so a 40-tick transient falls between two frames more often than not, and **run one's whole four-rung ladder ran between two consecutive frames with nothing of it photographed**. Run two's did not: one frame at tick 2358 carries **the cushion drawn as an outline, four marks each part way through emptying at once on all four lines, and three expanding rings standing in a vertical column above the grave where the stream's skulls were when the rung went.** Both channels of R7 in one photograph.
+
+**What it could not see.** The digits mid-countdown: every frame that caught a loss caught it after the 40 ticks had run, and the digit churn is what the driver's frame gap is worst at. The desktop half caught the row drawing correctly over the field's top edge with the score climbing and the cushion filled, but no hit landed inside its burst. **Neither is chased further**: both are pinned by test at the pure function and at the row, and how the fall reads at sixty frames a second is Mark's own.
+
+### The seam test's placement, and why
+
+**The pure function got a new file**, `__tests__/watchedLoss.test.ts`, beside the module it tests. **The driver's own per-run memory went into `src/app/__tests__/screenLifecycle.test.ts`** rather than a new file, because that file's concept is exactly the lifecycle rule under test, it already drives a real floor hit off `SIZE_FLOOR` with a mob standing in the grave, and a second harness mocking the same two widgets would be a second copy of this one.
+
+**Every new assertion was proved to bite rather than assumed.** Swapping the linear curve for an ease-out and the emptying mark for a snapping one reddens exactly the eight tests that pin those two properties and nothing else; removing the replay's mirrored line reddens exactly the replay test.
+
+### An existing test helper was measuring ink the row never draws
+
+`LadderHud.test.ts`'s `boxesIn` counted a hidden body and ignored a body's own scale, and the band-fit test went red the moment an empty mark's body moved to the bottom of its square. **The helper was corrected rather than the assertion relaxed**: it now skips an invisible node and scales a body's bounds by its own transform, which is what "its measured content" meant all along. The band-fit assertion itself is untouched.
+
+### Craft values decided rather than asked, each with what it was set against
+
+- **`LOSS_BLOW_UP_TICKS` 24.** Above. Open, and the lever if it reads wrong is one number.
+- **`LOSS_BLOW_UP_REACH` 16 field units and `LOSS_BLOW_UP_STROKE` 6.** The reach is about two skulls' width, large enough to read against the column it left and small enough that a full stream's worth does not paint the field; the stroke thins to the storm's own `SPRITE_STROKE` as the ring reaches, which is `drawEruption`'s own construction rather than a new one. Read on screen at the phone and they read as pops.
+- **The pop draws in `PALETTE.skull`**, the line's own colour at luma 57.78, under the field's ceiling of 68. **No palette entry was added**, so the existing scan covers it.
+- **The mark drains from the top down.** A vessel emptying rather than a bar shortening sideways, because the mark is a square and a sideways drain at 6.5 CSS pixels would read as a thinner mark rather than a mark going.
+- **The blow-up sits last in the `storm` layer**, so it draws over the storm it announces and still under `mobFire`, which nothing may occlude.
+
+### CodeRabbit, one iteration: 14 files reviewed, 7 findings, none applied and all seven declined
+
+**Two minors, both the same point: `spentOf` reaches `(life - 1) / life` on its last live tick rather than 1.** Declined. Every held transient already in this renderer reads its age the same way, `drawEruption`, `drawSplash` and `syncRing` alike, so the suggestion would make this one the odd one out. It would also break the ruling: at a lifetime of 40 the midpoint tick reads 20/39 rather than a half, and **the midpoint reading half is exactly what R5 pins**. And the residual is not a discontinuity at all: the final step to the live score is one tick's worth of the same constant slope, and the mark's last drawn share is 1/40 of its square, about 0.09 CSS pixels at the phone.
+
+**One major on `ReplayScreen.ts`: a buffered event should be announced against the run state of its own tick rather than the frame's final one.** Declined. It is the frame-level announcement both screens already use for `belched` and `splashed`, and the replay's own comment says so in as many words; the slice's requirement was to mirror that wiring, and changing it is a per-tick event delivery change across both screens and both transients that exist today. The skew is bounded by one frame's ticks against a 24-tick lifetime, the same bound the eruption's 90 already carries. **Left for whoever next opens event delivery**, named here so it is not rediscovered.
+
+**Four majors on the two docs files, none of them this slice's.** `show-what-you-have.md` and `step-5-slice-prompts.md` were dirty in the shared worktree while the review ran. All four are one argument: that **M7's `run.score` change needs a `READINGS_VERSION` 8 to 9 move which section 5's ledger and the prompts' own overrides forbid**, and that M6 is described as the last building slice. Declined because neither file is this slice's and the subject is the step's ledger, which is the orchestrator's. **It is worth the orchestrator's eye**, because the same reasoning is what already corrected the ledger once for M1.
+
+### Verification
+
+1. `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/`, then **`pnpm verify` green twice on the committed tree**, 149 files and 2230 tests both times.
+2. **The test-name diff: 2219 names in the baseline at this slice's own tip, 2241 now, 24 added and 2 removed.** The two removals are the registry covering test's first two names, reworded from "each renderer declares" to "each owner declares" because the registry now aggregates a view's declaration beside two renderers'. **Same two tests, renamed, and both are in the 24 added.**
+3. The registry printed above, with the two new lifetimes and the lead-in.
+4. The rendered check above, across three runs and two viewports, screenshots read, the driver's limits stated.
+5. The per-line field channel above, built and unbuilt, each with its reason.
+6. The four constants and `GOLDEN`, below.
+7. **Mark's own, blocking nothing**: whether the score is seen to leave rather than to have left, and whether four marks emptying at once reads as the bigger event it is.
+
+### The four constants and `GOLDEN`, all untouched, all read off this tip
+
+`WITNESS_VERSION` **11** (`src/game/witness.ts`), `READINGS_VERSION` **8** (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` **4** (`src/tape/wireCodes.ts`), `GOLDEN`'s checksum **`-2049717150`** with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` inside it (`src/dev/digest.ts`). **None of the four files is in the commit**, and no tape, batch or determinism run is owed: the claim was checked against the diff rather than assumed.
+
+### What is left for a later slice, each with the slice named
+
+- **The body departing**, which is R7's third channel and **slice M5's**. This slice announced on the two that exist.
+- **The field channel for the bell, the wisps and Territory**, which is the record's section 7 sixth finding and a design job per line, beside each line.
+- **Per-tick event delivery on both screens**, from CodeRabbit's declined major above. Nobody owns it and nothing needs it today.
+
+### Anomalies, neither of them this slice's
+
+**The branch tip moved under the slice while it ran.** It opened on `ded89c5242` and the orchestrator committed `c4b8121fdc` and `43ed76c9df` on top, both docs. Nothing in either touches `src/`, and the slice's work sat on the newer tip with no conflict.
+
+**Two records and one research file were dirty in the shared worktree throughout.** `show-what-you-have.md`, `step-5-slice-prompts.md` and an untracked `docs/research/score-inputs-precedent.md`, all the orchestrator's in-flight work. **Nothing of them is in this slice's commit**, every path was staged by name, and the only cost was the four CodeRabbit findings above that the review took against them.
 
 ## 11. Slice M5: the stripped rung falls and the dive catches it (#99)
 
