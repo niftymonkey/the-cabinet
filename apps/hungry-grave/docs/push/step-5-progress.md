@@ -18,7 +18,7 @@ The record is `apps/hungry-grave/docs/design/show-what-you-have.md` and the prom
 | 6b (M5-fix), the rungs fall above a clamped grave | `52a62e16d1` | `fix(hungry-grave): a strip with no room below the grave drops its rungs above it (#99)` |
 | 7 (M1-fix), the bleed is capped | `f98c01767d` | `fix(hungry-grave): a floor hit bleeds a capped slice of the score and the remainder stays (#99)` |
 | 8 (M1-stage), the ladder is staged in the harness | `78b2d85fe8` | `feat(hungry-grave): the harness stages a run at the floor holding a score and walks the ladder hit by hit (#99)` |
-| 9 (M6), the ladder's cost is measurable | | |
+| 9 (M6), the ladder's cost is measurable | `e173dbad0f` | `feat(hungry-grave): the batch reads what the ladder cost and what the dive took back (#99)` |
 
 Slice 2 (M1) carries two code commits, the fold and the rule, which is this step's one authorized departure from the contract's one-code-commit rule.
 
@@ -44,6 +44,8 @@ Where each constant stood when step 5 opened, where it is permitted to go, and w
 **M1's readings move costs the comparability of `run.score` and `tuning.damageTaken.scoreBled` across `11483ecf31`.** Every batch recorded before that commit is incomparable with every batch after it on those two keys, and version 8's own paragraph in `readingsVersion.ts` names them and names what holds beside them.
 
 **`FORMAT_VERSION` did not move and the fault identity M1 appended is why it did not have to.** `score rung re-armed by growth` takes code 23 in `FAULT_IDENTITY_CODES`, appended at the end (ADR 0024, closed and append-only), so no byte's meaning moved and no existing identity changed code.
+
+**M6 moved none of the four and was permitted none.** `WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150`, each read off its own tip before the first edit and again after the last, and none of the four files is in either of its commits. Section 12 carries `readingsVersion.ts`'s own rule quoted beside the reason the version is held.
 
 **The table's baseline column is slice J2's tip and step 5 opens at slice J3's, which is two commits further on** (step 5.0, read off `d648c97bf7`). The tree reads `WITNESS_VERSION` **10** (`witness.ts:177`), `READINGS_VERSION` **7** (`readingsVersion.ts:159`), `FORMAT_VERSION` **4** (`wireCodes.ts:50`) and `GOLDEN`'s checksum **`1307518644`** (`digest.ts`), with `score: 0`, `mobs: 5`, `corpses: 1` and `kills: 2` inside it. Round two's slice J3 spent the same two numbers the table reserves for slice M1, so **the permitted moves are one move each and the figures now read 10 to 11 and 7 to 8**; the budget is the intent and the arithmetic is what moved. The table's cells are left as they were filed rather than rewritten, and **slice M1 confirms both figures against its own tip before it moves either.**
 
@@ -83,6 +85,8 @@ One entry per code commit: files reviewed, findings by severity, applied and dec
 **M4's code commit, one iteration: 14 files reviewed, 7 findings, none applied and all seven declined.** Section 10 carries each decline with its reason. Four of the seven are on `docs/design/show-what-you-have.md` and `docs/push/step-5-slice-prompts.md`, which were dirty in the shared worktree while the review ran and are not this slice's files; **all four are one argument, that M7's `run.score` change needs a `READINGS_VERSION` 8 to 9 move the section 5 ledger forbids**, and it is left here for the orchestrator rather than acted on.
 
 **M1-stage's code commit, one iteration: 14 files reviewed, one finding, applied, and nothing declined.** A minor on `scripts/record-conditioned.ts`: the keyed-argument reader took the first match, so `score=1 score=2` silently resolved to the first. Real, and the same rule `parseLevels` already held for a line named twice, so a repeated `rig=` or `score=` is now refused by name. The worktree held no other agent's edits, so the review saw this slice's fourteen files and nothing else.
+
+**M6's code commit, one iteration: nine files reviewed, one finding, minor, its fix declined and the honest half taken.** The finding asks `tuning.bledRungMemory.growthShortOfClearing` to sum growth off ordered events rather than off the size edge, so a shrink on the same tick cannot mask it. **The under-count is real and the fix it names is not available**: no event carries the size a swallow paid, so the growth would have to be recomputed from `swallowed`'s payout and freshness against `growGrave`'s ceiling clamp, which is a second copy of two sim rules inside `src/dev` and is forbidden by the slice's second ruling; adding an event is `src/game` and is out of the commit by the same ruling. **The reading's JSDoc now names the residual instead**, so the figure cannot be read for more than it is. Section 12 carries it whole. The worktree held no other agent's edits, so the review saw this slice's nine files and nothing else.
 
 ## 5. Record and prompt claims found false against the tree
 
@@ -125,6 +129,14 @@ Every claim in the design record or in a slice prompt that did not survive conta
 **M1-stage. The prompt's rig-and-levels refusal does not extend to the score, and ruling four is what says so.** Refusing `rig=` beside `score=` on the levels argument, which the first cut did, blocks the exact command ruling four requires: the conditioned ladder tape recorded on the ladder rig at a starting score of zero. It was backed out for an override, the row's size and levels with the named score in place of the row's, and the reason is in the function's own JSDoc.
 
 **M1-stage. The realistic file count is 7 to 10 and the slice is 14.** The four the estimate is short by are the two new test files, which the prompt's own test list requires, and `harnessRun.ts` with its test, which ruling four's "`playHarnessRun` passes it through" requires. Nothing was cut to reach the number.
+
+**M6. The three new tests sit at `src/dev/__tests__/` rather than beside their readings, and the span fence decided it.** The prompt tells the slice to stage its floor runs with `RIGS.ladder` rather than with hand-built state, and a test under `src/dev/readings/__tests__/` reaching `src/dev/rigs.ts` is a span violation: `boundary.test.ts`'s `SAME_ROOT_ALLOWANCES` gives `game` and `engine` a blanket and gives `dev` none. **The intent was followed and the placement follows the fence's own rule**, a test in the test folder of the lowest folder holding everything it spans, which is `src/dev`. Each file says so in its header.
+
+**M6. The prompt's ladder-rig batch cannot be run, and the reason was filed by slice 8.** Item (i) asks for a batch on `rig=ladder` where a zero would be the finding. `batch.ts` accepts the row and every seed diverges at readback, so the report carries no readings at all, which is the tape-header gap section 14 files by name. Section 12 records it and what was measured instead.
+
+**M6. `batchReport.test.ts` and `compareRuns.test.ts` did not turn red.** Both are on the prompt's expected-red list. Neither asserts an exhaustive reading list of its own, so a new reading is turned red by the two declaration fences, and it was. Checked by running them.
+
+**M6. `pnpm verify` was already red on the branch, on a doubled blank line in `CONTEXT.md` that arrived with slice 8's docs commit `5421919529`.** Slice 8's own verify runs were made before that commit existed. It is removed in M6's docs commit, whitespace only, and section 12 carries it.
 
 ## 6. Step 5.0: the docs commit, ADR 0054 amended and the glossary gains three terms (#99)
 
@@ -906,6 +918,129 @@ A fallen rung is spawned at freshness 1 and never decays, so `freshnessScale` ne
 **An anomaly, and it is not this slice's.** Two docs files were uncommitted in the shared worktree for the whole of this slice, `docs/push/step-5-slice-prompts.md` and `docs/research/score-inputs-precedent.md`, both of them another agent's edits to slice M7's material. Nothing under `src/` was dirty, nothing of theirs entered either commit, and the only trace they left is the CodeRabbit finding recorded in section 4.
 
 ## 12. Slice M6: the ladder's cost is measurable (#99)
+
+**A batch now says what happened to the rungs the ladder took, where the player was standing when it took them, and what the bled-rung memory did.** Three new readings joined the graph beside `tuning.damageTaken`, none of them a second key for a count that already exists: the fallen-rung ledger, the strips' own circumstances, and the memory's transitions. **Nothing a player can meet changed.** Nothing under `src/game` or `src/app` is in the commit, no rule of the sim moved, and all four version constants and `GOLDEN` are untouched.
+
+**One code commit, `e173dbad0f`, nine files, 1,022 insertions and 0 deletions**, against the prompt's realistic 5 to 10 and its honest expectation of the top of that range. Six are new: three reading modules and their three test files. Three are edits: `readings/readings.ts`, `batchReport.ts` and `compareRuns.ts`. **The test-name diff against a baseline captured at `3b1516e92f` before the first edit reads 2,292 names in the baseline and 2,302 now, 10 added and 0 removed.** The 2,292 is exactly where slice 8 left it. No test was deleted, skipped, weakened or renamed.
+
+### The three readings, each with its denominator named
+
+**`tuning.fallenRungLedger`, denominator the rungs that reached the field.** `fell`, `caught`, `lost` and `onFieldAtStop`, plus `ticksOnField`, one entry per rung in the order they fell. `fell` is counted off `rungFell`; `caught` off `rungCaught`; `lost` off a body leaving the field with no catch of its line unspent; `onFieldAtStop` off the pool at the last tick. **Fell equals caught plus lost plus on field at the stop, asserted in the reading's own test** rather than described, which is `powerUpLedger`'s own check on itself.
+
+**`tuning.stripsLanded`, denominator the strips the ladder ran.** `graveY` and `gapUnderGrave`, one entry per strip in the order they landed, plus `atClamp` and `inBoss` as counts. The grave is read off the run's state at the end of the tick `weaponStripped` fired on, which is `tuning.gravePath`'s own read point and the second ruling's permitted one. The gap is measured under the rim and never under the centre, exactly as `gapUnderGrave` computes it and for that reading's stated reason.
+
+**`tuning.bledRungMemory`, denominator the run's own ticks.** `ticksSet`, `timesSet`, `timesCleared` and `growthShortOfClearing`, read off the edge between one end-of-tick sample and the next. **The clear predicate is never re-run here**: what the reading reads is `grave.scoreRungBled` moving, and `growGrave` is the only thing that moves it back.
+
+### `rungFell` does not fire for a cap-refused body, so the ledger is three arms
+
+**Read off the landed code rather than assumed.** `spawnFallenRung` (`src/game/corpses.ts`) claims its slot first and returns an empty event list when `claimSlot` refuses, so the event never fires for a rung that never reached the field; `RungFell`'s own JSDoc in `events.ts` says the same in as many words. **So there is no refused arm and the denominator is bodies that reached the field**, which is also what keeps `state.refusals.food` out of this reading: that counter is every food refusal and not rungs alone, and reading it here would have put a number in a denominator that does not belong to it.
+
+**The refusal case is still pinned by a test rather than left to the argument.** *lands a caught rung, one the scroll carried off and one still standing in their own arms, and counts a rung the cap refused in none of them* fills the corpse pool but for three slots, takes the four-line strip, and asserts `run.refusals.food` is 1 and `fell` is 3. **The input is proved able to produce presence**, which is the lesson a test asserting absence has to answer.
+
+**And on the twelve birthright runs no rung was refused at all**: `fell` totals 17 across them and `tuning.damageTaken.linesStripped` totals 17 too, so every rung the ladder took reached the field.
+
+### The batch, and section 14's table reproduced to the seed
+
+**Seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig, recorded on the committed tree at `e173dbad0f` with a clean identity: 12 of 12 verified, none unfinished, no ceiling stop, `readingsVersion` 8 on both.**
+
+**The five `damageTaken` readings and `run.score` reproduce section 14's per-seed table exactly, every cell, both configurations.** This slice changes no rule, so a count that moved would have been a stop. **None moved.** The totals that ride on it are section 14's own too: **11 strips and 17 rungs fallen across the twelve.**
+
+| reading | `steady-far` 900 to 905 | `loose-far` 900 to 905 |
+| --- | --- | --- |
+| `fallenRungLedger.fell` | 0, 0, 0, 3, 0, 0 | 0, 2, 6, 2, 0, 4 |
+| `fallenRungLedger.caught` | 0, 0, 0, 1, 0, 0 | 0, 0, 4, 0, 0, 2 |
+| `fallenRungLedger.lost` | 0, 0, 0, 2, 0, 0 | 0, 0, 2, 2, 0, 2 |
+| `fallenRungLedger.onFieldAtStop` | 0, 0, 0, 0, 0, 0 | 0, 2, 0, 0, 0, 0 |
+| `stripsLanded.atClamp` | 0, 0, 0, 1, 0, 0 | 0, 0, 2, 0, 0, 0 |
+| `stripsLanded.inBoss` | 0, 0, 0, 0, 0, 0 | 0, 0, 1, 0, 0, 2 |
+| `bledRungMemory.timesSet` | 1, 1, 1, 1, 1, 1 | 1, 1, 1, 1, 1, 2 |
+| `bledRungMemory.timesCleared` | 0, 0, 0, 0, 1, 0 | 0, 0, 0, 0, 0, 2 |
+| `bledRungMemory.growthShortOfClearing` | 0, 0, 0, 0.72, 0.70, 0 | 0.28, 0, 2.59, 0.42, 0, 3.37 |
+| `bledRungMemory.ticksSet` | 48, 33, 27, 1785, 3140, 130 | 2139, 58, 8656, 1076, 117, 14769 |
+
+**What the twelve say, as readings and never as verdicts.** 17 rungs fell, **7 were caught, 8 were lost off the bottom edge and 2 were still standing when the run stopped**, and the three add to the 17. **3 of the 11 strips landed against the bottom clamp** and 3 landed with a boss on the field. The memory was set 13 times and **cleared 3 times**, so in 10 of 13 arms the grave never grew a full hit's worth off the floor again before the run ended. **The growth that arrived while it stood set and left it set totals 8.08 size units across the twelve**, against a threshold of `HIT_SHRINK` 3: only `loose-far` 905, the run that cleared twice, carries a figure above 3.
+
+**The spans, which are the ticks a rung stood on the field.** `steady-far` 903's three read 25, 83 and 109 ticks. `loose-far` 902's six run 7 to 131 with a median of 8, 903's two are 106 each, and 905's four run 2 to 157 with a median of 3. **A span of 2 or 3 ticks is the hand-back M5-fix filed**: a rung dropped above a grave that has not moved is back inside the swallow box almost at once, and `loose-far` 902 and 905 are where that shows.
+
+### `weaponStrips` set beside the storm's 2.47 kills a second
+
+**The figure R4's mechanism was ruled against is a rung-5 build's, and these twelve runs are not that build.** `steady-far` kills **0.61 bodies a second** across 138,182 ticks and `loose-far` **0.60** across 157,839, which is about a quarter of the 2.47 (`step-4-progress.md` section 18). **So the twelve say nothing about whether autofire re-arms the rung at the rate R4 was written against**, because the birthright rig never reaches the build that produces it.
+
+**Against that, strips are rare: 2 in `steady-far` and 9 in `loose-far`, which is 0.05 and 0.21 strips a minute.** Stated as a reading and nothing more; whether that is the right frequency is the tuning step's question and Mark's play.
+
+### The ladder rig could not be batched at all, and the cause is already filed
+
+**`scripts/batch.ts ... rig=ladder` runs and verifies nothing: 0 of 12 verified, all twelve `diverged`, and the report carries no readings at all** (`spreads` is empty and `identity.rigs` is `[]`, because only a verified run is collected). **This is exactly the gap slice 8 filed by name**: a tape header carries no score, `runFromHeader` rebuilds the run from the header alone, and `witness.ts` folds `run.score`, so a run staged holding a score replays from zero and diverges at the first checkpoint (section 14, "The tape-header gap, plainly, and filed rather than taken", which names `batch.ts` and `rig=ladder` as the one shell still carrying it). **Nothing here closes it**: the fix is a header field and a `FORMAT_VERSION` move, and M6 is permitted none.
+
+**The route slice 8 proved verifiable was taken instead**, three conditioned ladder tapes at `rig=ladder score=0`, seeds 404, 900 and 902 at 6,000 ticks, each `outcome: 'verified'` and banded as the `ladder` rig off its own header. The run earns its score by play off a maxed build and reaches the floor by play, which is what makes it verifiable.
+
+| | 404 | 900 | 902 |
+| --- | --- | --- | --- |
+| ticks, ending | 3277, sealed | 2416, sealed | 1686, sealed |
+| `damageTaken` strips / lines | 5 / 19 | 5 / 20 | 5 / 19 |
+| `fallenRungLedger` fell / caught / lost / on field | 19 / 0 / 19 / 0 | 20 / 0 / 16 / 4 | 19 / 0 / 12 / 7 |
+| `stripsLanded` graveY | 606.1 to 606.9 | 606.1 to 608 | 605.7 to 608 |
+| `stripsLanded` atClamp / inBoss | 0 / 0 | 0 / 0 | 0 / 0 |
+| `bledRungMemory` set / cleared / growth | 1 / 0 / 0 | 1 / 0 / 0.101 | 1 / 0 / 0 |
+
+**58 rungs fell across the three and not one was caught, and that is the hand rather than the mechanic.** `record-conditioned.ts` steers with the wandering script and not `harnessPolicy`, which the tapes say themselves: `provenance.policy` reads `script` and `exclusions` carries `script`, `policy` and `conditioned`. **A hand that never dives at a body cannot catch one**, so the zero here measures the script and the 7 of 17 above measures the policy. **The spans are the useful half**: 205 to 208 ticks, about 3.45 seconds, which is a rung falling at the start mark and riding the scroll to the bottom edge untouched, and it is R6's own "roughly three seconds of field left" measured rather than derived.
+
+### The bot's number, what it measures and which way it is off
+
+**7 of 17 fallen rungs caught across the twelve birthright runs, 41 percent.** **It measures the policy and never a player** (ADR 0053), and `harnessPolicy`'s `pointWanted` was read at this tip rather than taken from any record: the hand wants the live offer's nearest body, else `nearestFood`, else `HOME`, and `nearestFood` (`src/dev/bot.ts`) walks every alive corpse without looking at its kind. **So a fallen rung is one candidate among every body on the field and a live offer outranks it outright.**
+
+**Which way it is off, and it is off in both directions at once.** It is **short** of a player who decides to dive for a particular rung, because the hand never decides to; and it is **long** of a player who never noticed one, because the hand can swallow a rung by accident while walking at something nearer. **So it is neither a ceiling nor a clean floor**, and ADR 0055's sentence that the base policy will always walk to a body at the bottom of the field is not what the tree does. **Nothing here amends the ADR**, which is Mark's and which record section 7 already carries the correction for. **It is never a reason to skip his own play.**
+
+### `READINGS_VERSION` held at 8, with the rule quoted and the file absent from the commit
+
+**`readingsVersion.ts`'s own rule, quoted: "Bump it when an existing reading changes meaning, or when comparison semantics change, in a way that leaves old and new reports not directly equivalent. Adding a brand-new reading beside unchanged ones does not bump it: every old reading still means what it meant."**
+
+**Every one of M6's thirteen declared paths is new and not one existing reading changed meaning**, which was checked and not assumed: the five `damageTaken` readings and `run.score` reproduce section 14's table cell for cell, which is the same claim stated as a measurement. **So the version is held and `readingsVersion.ts` is not in the commit**, because it is on the step's must-not-move list and a prose edit inside it would still be a file in the diff. That is round two's slice I quoting the same rule to say the opposite.
+
+**The step's two moves are both `run.score`'s and neither is mine**: M1's 7 to 8, landed, and M7's 8 to 9, which follows.
+
+### The four constants and `GOLDEN`, read off this slice's own tip
+
+**`WITNESS_VERSION` 11 (`witness.ts:196`), `READINGS_VERSION` 8 (`readingsVersion.ts:203`), `FORMAT_VERSION` 4 (`wireCodes.ts:50`) and `GOLDEN`'s checksum `-2049717150` (`digest.ts:518`), with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` inside it.** Each was read off the tree before the first edit and read again after the last, and each held. **None of `witness.ts`, `readingsVersion.ts`, `wireCodes.ts` or `digest.ts` is in either commit.**
+
+**No determinism run and no `GOLDEN` re-pin is owed, and the claim was checked rather than assumed.** Nothing under `src/game` is in the commit, every new module is under `src/dev`, and `digest.test.ts` was green at every run.
+
+### CodeRabbit, one iteration: nine files, one finding, the fix declined and the honest half taken
+
+**`coderabbit review --agent --uncommitted` from the worktree root with all nine files staged by path: 9 files reviewed, one finding, minor.** The worktree held no other agent's edits, so the review saw this slice's nine files and nothing else.
+
+- **Declined, minor**, on `bledRungMemory.ts`. It asks `growthShortOfClearing` to sum growth off ordered events during a tick rather than off the size edge, so that growth is counted even when a hit's shrink on the same tick offsets it. **The under-count is real and the fix it names is not available**: no event carries the size a swallow paid, `swallowed` carrying the payout and the freshness, so the growth would have to be recomputed as `payout * freshnessScale(freshness)` against `growGrave`'s own ceiling clamp, which is a second copy of two sim rules inside `src/dev` and is what this slice's second ruling forbids by name. Adding an event is `src/game` and is out of this commit by the same ruling. **What was taken instead is the honest half**: the reading's JSDoc now names the residual, that growth landing on the same tick as a shrink is netted away and is bounded by that tick's own swallows, so the figure cannot be read for more than it is. **The residual is small in what the batch measured**: the memory is set only at or near the floor, where a hit does not shrink at all, so the masking needs a swallow and a shrinking hit on one tick.
+
+### Verification
+
+1. **Agent.** `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/`, and **`pnpm verify` green twice at the repo root**, 154 test files, 2,291 passed, 11 expected fail, 2 todo, both times. The build's chunk-size warning is the pre-existing one.
+2. **Agent.** The test-name diff, 2,292 to 2,302, 10 added and 0 removed, above.
+3. **Agent.** The batch with every new reading printed, and `weaponStrips` set beside the storm's 2.47 kills a second, above.
+4. **Agent.** The fences green, each by title. `batchReadingDeclared.test.ts`: *every reading declares how a batch reduces it* in both its parts. `comparisonDeclared.test.ts`: *every reading declares what comparing it means*. `harnessStatesNoTarget.test.ts`: *the harness reports and never judges* in all three parts, *orders no reading against a number of its own*, *carries no verdict, because nothing it declares is a yes or a no* and *prints no mean, so every figure it prints keeps its own tail*. `boundary.test.ts`: *the test-span fence*, *src/dev imports only from src/dev and src/game and src/tape*, *the rendering-import boundary*, *the core has no import cycle* and slice D's sixth *the cap derivation reads tables and never the stage*. `lineAgnosticPolicies.test.ts` and `executionFence.test.ts` green. **The core's cycle guard is green with `KNOWN_CORE_CYCLES` still `[]`.**
+5. **Agent.** The four constants and `GOLDEN` untouched, none of their four files in either commit, above.
+6. **Human (Mark), and none of it blocks anything.** Section 7's findings are his, and these numbers are the evidence beside the questions rather than the answers to them.
+
+### An anomaly chased rather than waved off: `pnpm verify` was already red on the branch
+
+**`prettier --check` failed on `apps/hungry-grave/CONTEXT.md` before this slice touched anything**, on a doubled blank line between the Rig entry's amendment paragraph and the Batch entry. **It arrived in slice 8's docs commit `5421919529`**, which is the commit that added the Rig row, and slice 8's own `pnpm verify` runs were made on its code commit's tree before that docs commit existed, so nothing had run the standing check since. **Reproduced rather than assumed**: the file is clean in git and `prettier --write` removes exactly that one line.
+
+**The blank line is removed in this slice's docs commit**, because `pnpm verify` is a standing check every slice after this one owes and a red one teaches a reader to stop reading it. **It is whitespace and nothing else**: no word of `CONTEXT.md` changed, and the file is not in the code commit.
+
+### Record and prompt claims found false against the tree
+
+**The three new tests sit at `src/dev/__tests__/` rather than beside their readings, and the span fence is what decided it.** The prompt tells the slice to stage its floor runs with `RIGS.ladder` (slice 8, #107) rather than with hand-built state, and a test under `src/dev/readings/__tests__/` reaching `src/dev/rigs.ts` is a span violation: `SAME_ROOT_ALLOWANCES` gives `game` and `engine` a blanket and gives `dev` none, so `boundary.test.ts`'s *the test-span fence* refuses it. **The intent was followed and the placement follows the rule the fence states**: a test sits in the test folder of the lowest folder holding everything it spans, and that is `src/dev`. Each file says so in its own header.
+
+**The prompt's ladder-rig batch cannot be run, and the reason was already filed.** Item (i) asks for a batch on `rig=ladder` where a zero would be the finding. `batch.ts` accepts the row and the readback diverges on every seed, which is slice 8's own filed gap, recorded above with what was measured instead.
+
+**`batchReport.test.ts` and `compareRuns.test.ts` did not turn red.** The prompt's expected-red list names both. Neither asserts an exhaustive reading list of its own, so the two declaration fences are what a new reading turns red, and they did. **Checked by running them rather than assumed.**
+
+### Left for a later slice, each named
+
+**Slice M7 owns the score's other inputs and the step's second `READINGS_VERSION` move, 8 to 9.** Nothing here touches `run.score`'s meaning, and the three new readings arrive beside unchanged keys.
+
+**Widening the tape header so a staged score replays is still slice 8's filed item and is still not taken**, and it is what a `rig=ladder` batch needs before it can report anything at all. `batch.ts` still says nothing about the readback when it is handed that row.
+
+**Nothing in `CONTEXT.md` gained or lost a word, no ADR was filed or amended, no record was edited, and neither ticket was opened or closed.** No cap moved, no measured baseline moved and nothing was re-pinned anywhere.
 
 ## 14. Slice M1-stage: the ladder is staged in the harness (#99)
 
