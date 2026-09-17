@@ -13,6 +13,7 @@ The design record is `apps/hungry-grave/docs/push/drafts/step-5-tuning-record-dr
 | 3 (A), the record exists | `a9d2ecad8e` | `feat(hungry-grave): the tuning record declares ten magnitudes and resolves to the values the build compiles (#142)` |
 | 4 (B1), the record reaches the run | `f5569b2330` | `feat(hungry-grave): a run derives its own caps from the tuning record it started under (#142)` |
 | 5 (B2), the score group's readers | `82e9ab71f6` | `feat(hungry-grave): the purses, the quiet interval and the score's five rows are read off the run's tuning record (#142)` |
+| 6 (C), the header | `47c4543d25` | `feat(hungry-grave): a tape header carries the whole starting condition as a self-describing block (#142)` |
 
 ## 2. The version ledger
 
@@ -22,7 +23,7 @@ Where each constant stood when step 6 opened, where it is permitted to go, and w
 | --- | --- | --- | --- | --- |
 | `WITNESS_VERSION` (`src/game/witness.ts`) | 11 | none, in any slice | nobody | |
 | `READINGS_VERSION` (`src/dev/readingsVersion.ts`) | 9 | none, in any slice | nobody | |
-| `FORMAT_VERSION` (`src/tape/wireCodes.ts`) | 4 | 4 to 5, exactly once | Slice 6, the header, and no other slice | |
+| `FORMAT_VERSION` (`src/tape/wireCodes.ts`) | 4 | 4 to 5, exactly once | Slice 6, the header, and no other slice | **4 to 5 at `47c4543d25`**, the step's one move, spent |
 | `GOLDEN` (`src/dev/digest.ts`), checksum `-2049717150` | pinned by step 5's slice M1 | no re-pin, in any slice | nobody | |
 
 **The whole budget is slice 6's single `FORMAT_VERSION` move and nothing else** (prompts ruling 4, draft section 2a rulings 6 and 7). The witness does not move because the record is a starting condition and every consequence of it is already in the fold through live state; the readings do not move because no existing reading changes meaning; `GOLDEN` holds by arithmetic in every slice, because a re-pin would mean a magnitude moved and a moved magnitude is a stop.
@@ -34,6 +35,8 @@ Where each constant stood when step 6 opened, where it is permitted to go, and w
 **Slice 4 moved none of the four and was permitted none.** `WITNESS_VERSION` 11 (`src/game/witness.ts`), `READINGS_VERSION` 9 (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` 4 (`src/tape/wireCodes.ts`) and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` (`src/dev/digest.ts`), each read off slice 3's docs tip `4001925e44` before the first edit and read again off the code commit's own tree, and none of the four files is in either commit. The witness held because nothing folded changed: the thirteen new `RunState` paths are the record's ten rows and the three caps, every one of them a starting condition or a derivation of one, and each is in `witness.test.ts`'s `EXCLUDED` with its reason. `GOLDEN` held by arithmetic: the default record's rows are the constants, so all three caps derive to exactly the numbers they were, and `digest.ts`'s `createRun(SEED)` is untouched.
 
 **Slice 5 moved none of the four and was permitted none.** `WITNESS_VERSION` 11 (`src/game/witness.ts`), `READINGS_VERSION` 9 (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` 4 (`src/tape/wireCodes.ts`) and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` (`src/dev/digest.ts`), each read off slice 4's docs tip `4c108a18ce` before the first edit and read again off the code commit's own tree, and none of the four files is in either commit. `GOLDEN` held by arithmetic, which is the claim this slice had the most ways to break: nine constants were deleted and every one of their readers moved, and every product is the number it was, so the scenario's two scripted kills still pay 200. The witness held because nothing folded changed meaning: `director.purseLeft` still carries what a section granted, and what a section grants is the same figure read from a different place.
+
+**Slice 6 spent the step's whole budget and moved nothing else.** `FORMAT_VERSION` 4 to 5 in `src/tape/wireCodes.ts`, in the code commit and nowhere else, with its own dated paragraph above the constant. `WITNESS_VERSION` 11 (`src/game/witness.ts`), `READINGS_VERSION` 9 (`src/dev/readingsVersion.ts`) and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` (`src/dev/digest.ts`) all held, each read off slice 5's docs tip `000dbf95bf` before the first edit and read again off the code commit's own tree, and none of those three files is in either commit. The witness held for the reason ruling 5 gives: the header records what a run started under and changes nothing a run does, so no folded field moved and `digest.test.ts`'s nine tests were green at every run. **The ledger is now closed: every row of it is filled and no slice after this one is permitted a move.**
 
 **Slice 1 moved none of the four and was permitted none.** `WITNESS_VERSION` 11, `READINGS_VERSION` 9, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2`, each read off the tree before the first edit, and none of the four files is in the commit. Every figure matched the prompts' own header line, so nothing in this step starts from a stale constant.
 
@@ -321,3 +324,105 @@ Two files: `apps/hungry-grave/CONTEXT.md` and this note, new. **Written inside t
 **CodeRabbit, one iteration: 31 files reviewed, four findings, all major, all four declined.** All four are one claim wearing four coats: that `resolveTuning` should reject a row that is non-finite, zero, negative or non-integral before a run starts, raised against `phases.ts`'s division by `bossHealthPerKill`, `mobs.ts`'s multiply by `trashKillScore` and twice against `director.ts`'s `stream.nextInt` span. **It is right about where that validation goes and wrong about when**, which is the same slice boundary section 4 already records against slice 3. Nothing at this tip can put such a value into the resolver: every record in the tree is one our own code produced, which is repair by origin, and **parsing a raw name a person typed is slice 7's edge**, which this slice's own "what is not your job" assigns to the candidates, the command line and the URL. The worst case the review names is also already defended: `rng.ts`'s `nextInt` refuses a bound outside 1 to 4294967296 with a `RangeError` naming the bound, by its own JSDoc, because "a hang with no diagnostic is the worst failure a computed bound can have". **The substance is filed here for slice 7**, which is the commit that first lets a person's typed value reach the resolver and therefore owns the check.
 
 **Nothing was left for a later slice that this slice could have done.** Slice 6 owns the header and the one `FORMAT_VERSION` move, and the probes above are the reason it has to: a run under a moved record cannot be replayed from a header that does not carry it. Slice 7 owns the candidates, the two command surfaces and the edge that parses a person's typed row. Slice 8 owns the sweep runner and the report's identity.
+
+## 11. Slice 6 (C): the tape header carries the whole starting condition, and the format moves 4 to 5 (#142)
+
+**The code commit is `47c4543d25`, 39 files, 1,579 lines added and 625 removed.** One file is created, `src/tape/startingCondition.ts`, and one test file beside it; none is deleted, merged or split. The worktree was clean before the first edit, `git status --short` returned nothing, the tip was slice 5's docs commit `000dbf95bf`, and both of slice 5's commits were in the tree.
+
+**The four constants, read off that tip and off the code commit's own tree.** `WITNESS_VERSION` 11, `READINGS_VERSION` 9, `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2`, and `FORMAT_VERSION` 4 before and **5 after**. That last one is the step's whole ledger and it is spent here; `witness.ts`, `readingsVersion.ts` and `digest.ts` are in neither commit.
+
+### The block, and the four fields it replaced
+
+`TapeHeader` loses `startingSize`, `recordedRoster`, `startingLevels` and `signalLock`, and gains one `startingCondition`: a `readonly StartingConditionEntry[]` of a name string and a plain number, written length-prefixed as a u16 count and then one length-prefixed name and one f64 apiece, straight after the seed where the four positional fields used to begin. **Seventeen rows today**: `startingSize`, one `levels.<line>` per fielded line in the order the run fielded them, `signalLock`, `startingScore`, and the tuning record's ten rows under their dotted names.
+
+**The roster is the level rows and their order, and has no entry of its own.** The set and the order are one fact, so a second spelling could disagree with the first; that is the defect the block removes rather than guards, and `segments.test.ts` now pins the absence instead of the guard.
+
+**One f64 for every value, deliberately.** A per-row width would be a positional assumption over an open set wearing a different coat, and the rows the block already carries are a size, a lock and a pile of tuning magnitudes.
+
+### The bump's dated paragraph
+
+`wireCodes.ts`'s `FORMAT_VERSION` JSDoc gains a fifth dated paragraph, in the shape of the four above it. It says what the block is, what the four replaced fields were, why a version-5 reader walking a version-4 header would read the starting size's eight bytes as the block's count and a string length, **why the bump is one rather than two** (two starting facts arrived together and a header carrying the record but not the score would have left a rig that starts holding one still unreplayable, so the second bump would have followed inside the same step), and that **every format 4 tape is refused outright at the decode from here**, this branch's own earlier tapes included. It names this as ADR 0056's own trigger firing: the purse became a row a run resolves, so ADR 0027 pulls it into the header.
+
+### The resolve, the refusal and the outcome it answers with
+
+**`src/tape/startingCondition.ts` is the one place a block becomes a condition and a condition becomes a block.** It sits beside `playback.ts` at the tape edge, imports `run`, `signalLock` and `tuningRecord` from the core and `startingLevels` beside it, and `src/tape` still reaches only `tape` and `game`.
+
+`resolveStartingCondition` answers `implemented` with a whole `StartingConditions`, or `notImplemented` with a `refusal` of `'roster'` or `'condition'`, the recorded roster, and **a reason in the tape's own vocabulary naming the row**. `PlaybackOutcome` gains `conditionNotImplemented` beside `rosterNotImplemented`, and `PlaybackResult` gains `unimplementedCondition: string | null` beside `unimplementedRoster`. The two stay apart on the way out as well as on the way in: a block naming a row this build does not have still names a roster this build implements.
+
+**The refusals, each in its own words.**
+
+| What the tape says | The reason, verbatim in shape |
+| --- | --- |
+| a row this build does not have | `weather.fogDensity is a starting condition this build does not have` |
+| a row this build requires and the tape lacks | `score.trashKillScore is a starting condition this build requires and this tape does not name` |
+| a value that is not finite | `startingSize is written as NaN, which is not a number this build can start a run from` |
+| a negative where the row has no below | `startingScore is written as -1, and nothing this build starts from is negative` |
+| a fraction where the row counts whole things | `levels.bell is written as 1.5, and it counts whole things` |
+| a lock outside the signal's scale | `signalLock is written as 4, which the signal's own scale cannot stand at` |
+| the quiet interval inverted | `resolveTuning`'s own sentence, naming both ends |
+| a name stated twice | `startingScore is named twice, so one of its two values is unreachable by name` |
+
+**Which rows count whole things is read off the names rather than listed beside them**: a level is a rung, a score is points a run holds, and a purse is bodies a section gives the director, which is the same `Purse` suffix `stage.ts` already derives its own `PurseRow` from. A seconds row and every row stated as a multiple of a trash kill are quantities and a fraction is an ordinary value for them.
+
+**The quiet interval's bound is the resolver's own and is not copied here.** `resolveTuning` throws on it by slice 3's design, and a record our own code produced cannot fail it; a tape is the one place an illegal record arrives from outside, so this is the one call site that catches that throw and reports it as the document defect it is.
+
+**`readHeader`'s `holdableSignal` rejection moved rather than being lost.** It is in `lockRefusal` now, in the same shape, because which name is the lock is a question about this build's vocabulary and the decoder holds what the tape said. `records.ts` no longer imports `signalLock` at all, and the codec's own test now pins that an unholdable lock survives the wire while `startingCondition.test.ts` pins the refusal.
+
+**`resolveStartingLevels` keeps its subset rule and its whole promise**, and takes the recorded roster and the recorded levels rather than a header, because which of the block's entries are lines is the resolve's reading.
+
+### The cost, proved rather than asserted
+
+A birthright tape was recorded at the starting tip `000dbf95bf`, `local/step6/cheader-prebump.tape`, and measured there to `outcome: 'verified'`, 1,800 ticks, 31 of 31 checkpoints. **Measured again at this tip it answers:**
+
+> `local/step6/cheader-prebump.tape is not a tape (this tape is format version 4 and this reader is version 5); no measurement was taken`
+
+A refusal naming the format, before a chunk is walked, and not a divergence at a checkpoint. **Every tape recorded before this commit is now unreadable**, and ADR 0057's store is still dormant, which is what makes this the cheapest moment.
+
+### The gap closing, which is the slice's headline
+
+**A `rig=ladder` tape now verifies.** `local/step6/cheader-ladder.tape`, recorded on the committed tree at the ladder row's own starting score of 6,000 and driven to the seal: 3,350 ticks, `ending: sealed`, `outcome: 'verified'`, 56 of 56 checkpoints, 0 unreachable, ending score 10,600, clean build identity with no mismatch. Its provenance bands `rig: ladder`.
+
+**And the batch form of it, which is what the handoff's open item 5 said verifies nothing.** `steady-middling` on the ladder rig, three seeds: **3 of 3 verified, 0 not**, `identity.rigs` reading `["ladder"]`. Step 5's slice 9 (note section 12) had to measure conditioned ladder tapes at score zero instead, and its note said so; that workaround is retired. **Open item 5 is closed and so is open item 7's other half**: `batch.ts`'s missing divergence warning for `rig=ladder` is now unnecessary rather than fixed, because there is no divergence to warn about. `record-conditioned.ts`'s own warning, `reportUnreplayableScore`, went false in this commit and was deleted rather than left standing.
+
+### `rigOf` widened, and slice 8's narrowness reversed with the reason
+
+**`rigOf` takes the size, the levels and the starting score**, and the uniqueness key in `rigs.test.ts` widens to the same three. Step 5's slice 8 kept it at two for one stated reason, recorded in its own note section 14: a tape header carried no score, so a banding rule reading a fact the header cannot hold would answer null forever. **The header holds it now, so the reason is spent.** The JSDoc paragraph in `rigs.ts` that explained the narrowness went false and was rewritten in the same commit; it now says that the banding is by the rig's own three fields and **never by the roster, the lock or the tuning record**, because every row states the whole pool, a live signal and the build's own record, so reading those would answer the same thing for every row while making a run under a record of its own unbandable. A candidate is its own identity and rides beside the rig (ADR 0064). A new test pins the half that matters: a run at the ladder row's size and levels holding nothing bands to no rig at all.
+
+### The renderer's attach, which slice 4 filed for this slice
+
+Slice 4's note section 9 item 1 filed it: the three screens pass the default record's caps to `attach` because no run exists where they dress their field, **and slice 6 is where a replayed tape first carries a record of its own**. `ReplayScreen.update` now calls `beginDrawing(frame.run)` on the frame the lead-in begins, which hands the replayed run's own `caps` to `fieldRenderer.attach`; the pools are grow-only and attach is the one place they grow. **The test has teeth and was watched fail**: without it, a tape recorded under a one-second quiet interval throws `no corpse sprite at slot 704` in the renderer's slot walk on its first drawn frame. `GameScreen` and `FrameBudgetScreen` are untouched, because nothing at this tip gives either of them a run under a record of its own; that is slice 7's.
+
+### The measurements
+
+- **The batch: twelve seeds, identical.** `steady-middling` at the birthright rig, seeds 20260820 to 20260831, played at the starting tip and again on the committed tree. **The two `report.json` files are identical field for field** with `identity.recordedAt` and `identity.commitHashes` stripped: 12 of 12 verified on both sides, the same tick counts, endings, scores, kills, directed adds, spreads and section spans. The tapes differ by a few hundred bytes because the block is wider than the four fields it replaced, which is why the comparison is the report and not a checksum of the bytes.
+- **Its tapes band to the rig they were played under**: `identity.rigs` reads `["birthright"]` on the twelve and `["ladder"]` on the three.
+- **Replay determinism at this tip.** Seed 20260820 under `shaky-short`, played twice: 6,350 ticks both times, 60,147 bytes both times, `verified` 1 of 1 both times, and the two tapes compared record by record are identical in header (bar `recordedAt`, which is wall clock), in all 6,350 commands, in all 106 checkpoints with the same witness at each, and in the trailer. The block reads 17 rows.
+- **A hand-recorded tape at the new format.** `pnpm build` on the committed tree, `pnpm exec vite preview`, driven with `playwright-cli` at 393 by 660: a run at `?seed=20260821&size=18`, played, ended from the pause menu and saved with SAVE TAPE. Measured to `outcome: 'verified'`, 390 ticks, 7 of 7 checkpoints, `stop: quit`, **build identity `47c4543d25` matching and no mismatch**. Zero console errors, three warnings, the usual audio-autoplay and software-renderer families.
+
+### The tests
+
+**36 added, 10 removed, none skipped or weakened. The test-name diff: 2,378 names in the baseline, 2,404 now.** The baseline is this branch's own tip captured before the first edit, into `local/step6/tests-baseline-cheader.json`, outside version control and in no commit.
+
+**Eight of the ten removals are renames and the promise did not move**: the codec's self-describing-header suite carries the ticket number now and its assertions read the block's rows where they read a header field. **Two are real removals and both are the same fact.** `segments.test.ts`'s *refuses to write a level for a recorded line the header carries none for* and *refuses a recorded line named `__proto__` rather than writing an inherited value* guarded `recordedLevel`, the writer's own check that a roster name had a level beside it. **The block makes that defect inexpressible**: one entry carries the name and the value together, so neither half can exist without the other, and `recordedLevel` is gone. In their place is *carries no roster beside the levels, so the two can never disagree*, which asserts the absence, and the `__proto__` round trip survives as a level row because `levelsIn` is still prototype-free.
+
+**The planned list, all thirteen items, each landed.** 1 and 2 and 3 in `codec.test.ts` and `playback.test.ts`; 4 to 7 in `startingCondition.test.ts` with their playback twins; 8 as *a format 4 tape is refused outright at the decode, by its version*; 9 in `harnessRun.test.ts` and in the ladder batch above; 10 and 11 in `rigs.test.ts`; 12 the fences; 13 the golden.
+
+**One fence was added inside `startingCondition.test.ts` rather than as its own file**, *requires every row of the tuning record, one by one*: it holds the resolve's own written-out row list against `tuningRows(DEFAULT_TUNING)`'s walk over the record's nesting and fails if either gains a row the other has not heard of. The list is written out rather than walked so the compiler holds it total, and this is the half a compiler cannot.
+
+**The fences, each by title, all green.** `src/game imports only from src/game`, `src/tape imports only from src/tape and src/game`, `every test file imports only from inside its parent folder's subtree`, `no screen imports another screen`, `no module under src/app reaches for engine()`, `carries no value-import cycle beyond the ones written down` with `KNOWN_CORE_CYCLES` still empty, `reaches nothing in game/stage/stage from game/caps`, `the caps derivation and the core read the record off the run`, `every row of the tuning record has a reader`, `the lock's module imports nothing`, `the tuning record's module imports nothing`, `the tape codec imports nothing from the director`, `src/game/storm.ts reaches what it can hit through the seam` and its four siblings, `blocks './step' from src/game/sim.ts` and its six siblings, `orders no reading against a number of its own`, and `every reading on a verified report carries a declared comparison meaning`.
+
+**`pnpm verify` green twice on the code commit's tree**, plus `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green from `apps/hungry-grave/` before it. 160 test files, 2,393 passing, the same 11 expected failures and 2 todos throughout.
+
+### CodeRabbit
+
+**One iteration, `coderabbit review --agent --uncommitted`: 39 files reviewed, two findings, both minor, both the same claim, applied.** Both say `unimplementedRoster` should be populated only when the refusal is the roster's, and they are right: on a condition refusal the field named a roster this build does implement, which the field's own JSDoc says it never does. **Applied as a bug fix rather than a patch**: the wrongness was pinned first as a test, *names no unimplemented roster, because the lines are ones this build has*, then the guard narrowed. Nothing was declined.
+
+### Found false against the tree, and things filed rather than taken
+
+1. **The prompt's step (f) names three header builders and the tree has four.** It says "`runFromHeader`, `harnessHeader` and `headerFor`"; `src/app/tapeHeader.ts`'s `tapeHeaderFor` is the fourth and is the one a person's own run goes through. It moved with the other three, off `run.conditions`, because a header builder the block did not reach would not have compiled.
+2. **Two test fixtures staged their condition by writing live state after `createRun`.** `playback.test.ts`'s `recordALadderRun` and the two reference runs beside it set `run.grave.size` and `run.levels` directly, which the header used to capture because it read `run.grave.size` and `run.levels`. **Reading `run.conditions` is the ruling, and it is the thing that caught them**: a size written over the grave afterwards is a run the tape never describes. All three now go through `createRun`'s own record, which is what a real run does.
+3. **`boundary.test.ts`'s `importsOf` reads the word "from" in prose as an import, which cost three test titles.** Slice 4's note section 5 filed the same trap for the word "import"; the regex is `(?:from|import)\s*\(?\s*["']`, so any title ending in either word takes the closing quote as the specifier's. **Three titles were reworded and the fence was left alone**, because the fence is not this slice's to change. It is filed here a second time: the fix is one lookahead in a regex nobody should edit inside a slice that is moving a wire format.
+4. **The level's old 0-to-255 ceiling was a byte width and is gone with the byte.** A level row is checked as integral and non-negative and not against `MAX_LEVEL`, because the ceiling was never a document rule: `levels in range` is the invariant that owns it and it fires loudly. Named here rather than discovered.
+5. **`score.bossHealthPerKill` is a divisor and a zero in it is still not refused.** A tape writing zero there replays to an infinite score and the `no NaN` invariant fires, which is loud rather than silent. **This is the substance slice 5's note already filed for slice 7** off CodeRabbit's four declines, and it is extended here to the header's own edge rather than filed a second time: whoever builds the typed-value edge should decide the positive-only rows for both surfaces at once.
+
+**Nothing was left for a later slice that this slice could have done.** Slice 7 owns the candidates, the command line and the URL, and nothing at this tip names a non-default record; the block carries the default just the same, and a run under a named candidate now has a header that can replay it. Slice 8 owns the sweep runner and the report's tuning identity.
