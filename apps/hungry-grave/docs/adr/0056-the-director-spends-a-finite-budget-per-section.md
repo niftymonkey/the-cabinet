@@ -18,6 +18,6 @@ Two things this closes. A finite purse makes the storm's payoff visible, because
 
 The cost is taken eyes-open: a budget burned early leaves the rest of its section at the floor.
 
-Left open as design work: whether the budget is counted in credits or in mobs, the bounds of the quiet interval, and the cost and weight of each card. Whether the budget travels in the tape header or is pinned to the build was the fourth item and it is answered in the amendment above: pinned to the build. It was ADR 0043's question, since a new header field is a change of wire layout and ADR 0043 is where header-or-build is decided; ADR 0027 rules only the form a header value takes once it is there, a resolved value and never an absence, and ADR 0019's witness stays the fidelity gate either way.
+Left open as design work: whether the budget is counted in credits or in mobs, the bounds of the quiet interval, and the cost and weight of each card. Whether the budget travels in the tape header or is pinned to the build was the fourth item and it is answered in the 2026-09-17 amendment above: the budget travels in the tape header, as a row of the tuning record the run started under. It was ADR 0043's question, since a new header field is a change of wire layout and ADR 0043 is where header-or-build is decided; ADR 0027 rules only the form a header value takes once it is there, a resolved value and never an absence, and ADR 0019's witness stays the fidelity gate either way.
 
 Ruled by Mark 2026-09-07 in the V1 grill.

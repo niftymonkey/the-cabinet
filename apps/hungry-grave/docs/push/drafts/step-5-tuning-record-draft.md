@@ -104,7 +104,9 @@ Each is one commit for one Opus coder: its tests, its minimal implementation, an
 
 ## 5. What must not move
 
-The fences: `boundary.test.ts`, `lineAgnosticPolicies.test.ts`, `executionFence.test.ts`, `harnessStatesNoTarget.test.ts`, `comparisonDeclared.test.ts`, and step 4 slice D's sixth, the cap derivation reading tables and never the stage. The invariants: every check in `invariants.ts` keeps its meaning and severity, and every fault identity keeps its wire number (ADR 0024). Replay determinism: two runs on one seed with the same inputs rebuild identically, and a tape replays and verifies off its own header. `STREAM_SALTS` and `STREAM_ORDER`. `WITNESS_VERSION` 7 (`witness.ts:75`). `READINGS_VERSION` 4 (`readingsVersion.ts:61`), because this step adds no reading and changes no reading's meaning. `GOLDEN`, except in slice B and only if Decision 3 moves the scenario's call. And every magnitude in the tree: a moved number is a stop and report.
+The fences: `boundary.test.ts`, `lineAgnosticPolicies.test.ts`, `executionFence.test.ts`, `harnessStatesNoTarget.test.ts`, `comparisonDeclared.test.ts`, and step 4 slice D's sixth, the cap derivation reading tables and never the stage. The invariants: every check in `invariants.ts` keeps its meaning and severity, and every fault identity keeps its wire number (ADR 0024). Replay determinism: two runs on one seed with the same inputs rebuild identically, and a tape replays and verifies off its own header. `STREAM_SALTS` and `STREAM_ORDER`. `WITNESS_VERSION` 11 (`witness.ts`). `READINGS_VERSION` 9 (`readingsVersion.ts`), because this step adds no reading and changes no reading's meaning. `FORMAT_VERSION` 5 (`wireCodes.ts`), which slice 6 moved from 4 to 5 and which nothing after it moves. `GOLDEN` `-2049717150` with `score: 200`, except in slice B and only if Decision 3 moves the scenario's call. And every magnitude in the tree: a moved number is a stop and report.
+
+The step landed as the eight slices in `step-6-slice-prompts.md` rather than the five lettered here, and that file is where the slice boundaries as built are read.
 
 ---
 
