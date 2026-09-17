@@ -45,7 +45,7 @@ import {
 } from '../readings/upfieldTraffic';
 import { READINGS_VERSION } from '../readingsVersion';
 import type { FieldDensity, LevelUp } from '../replayTallies';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const SEED = 20260823;
 const SPACING = 20;
@@ -64,9 +64,7 @@ function header(
 ): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -80,7 +78,6 @@ function header(
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
-    signalLock: SIGNAL_RAN_LIVE,
     ...overrides,
   };
 }
@@ -134,8 +131,10 @@ function aPhantomRosterTape(): Tape {
     ...tape,
     header: {
       ...tape.header,
-      recordedRoster: [...tape.header.recordedRoster, PHANTOM_LINE],
-      startingLevels: { ...tape.header.startingLevels, [PHANTOM_LINE]: 1 },
+      startingCondition: [
+        ...tape.header.startingCondition,
+        { name: `levels.${PHANTOM_LINE}`, value: 1 },
+      ],
     },
   };
 }
@@ -805,14 +804,7 @@ describe('measure', () => {
     // rigs are never banded as one measurement. The rig and the policy are two
     // facts about one run and neither answers the other.
     const maxed = verified(
-      measure(
-        decodedOf(
-          recordARun(
-            { startingLevels: uniformLevels(MAX_LEVEL) },
-            { levels: uniformLevels(MAX_LEVEL) },
-          ),
-        ),
-      ),
+      measure(decodedOf(recordARun({}, { levels: uniformLevels(MAX_LEVEL) }))),
     );
 
     expect(maxed.provenance.rig).toBe('maxed');

@@ -9,7 +9,6 @@ import { describe, expect, it } from 'vitest';
 import { TICK_HZ } from '../../game/clock';
 import type { TickCommand } from '../../game/command';
 import { createExecution, executeTick } from '../../game/execution';
-import { WEAPON_LINES } from '../../game/lines/roster';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
@@ -33,7 +32,7 @@ import { ABSENT, compareRuns, INCOMPARABLE } from '../compareRuns';
 import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
 import { READINGS_VERSION } from '../readingsVersion';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const SEED = 20260826;
 const SPACING = 20;
@@ -48,9 +47,7 @@ function header(
 ): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -64,7 +61,6 @@ function header(
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
-    signalLock: SIGNAL_RAN_LIVE,
     ...overrides,
   };
 }

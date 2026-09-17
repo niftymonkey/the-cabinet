@@ -10,8 +10,6 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { WEAPON_LINES } from '../../game/lines/roster';
-
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
 import type { Fault } from '../../game/faults';
@@ -33,7 +31,7 @@ import {
   SCRIPT_POLICY,
   stopOf,
 } from '../tape';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { startingConditionBlock } from '../startingCondition';
 
 const SEED = 20260823;
 
@@ -41,9 +39,7 @@ const SEED = 20260823;
 function header(run: RunState, spacing = 5): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: spacing,
     witnessVersion: WITNESS_VERSION,
@@ -57,7 +53,6 @@ function header(run: RunState, spacing = 5): TapeHeader {
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_700_000_000_000,
-    signalLock: SIGNAL_RAN_LIVE,
   };
 }
 

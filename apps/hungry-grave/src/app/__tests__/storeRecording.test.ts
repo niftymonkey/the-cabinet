@@ -23,14 +23,21 @@ import { TAPE_MAGIC } from '../../tape/wireCodes';
 import { recordRunToStore } from '../storeRecording';
 import type { TapePart, TapeStore } from '../tapeStore';
 import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const SPACING = 4;
 
 const HEADER: TapeHeader = {
   seed: 41,
-  startingSize: 24,
-  recordedRoster: [...WEAPON_LINES],
-  startingLevels: { skullStream: 0, territory: 0, wisps: 0, bell: 0 },
+  startingCondition: startingConditionBlock({
+    startingSize: 24,
+    startingLevels: { skullStream: 0, territory: 0, wisps: 0, bell: 0 },
+    roster: [...WEAPON_LINES],
+    signalLock: SIGNAL_RAN_LIVE,
+    startingScore: 0,
+    tuning: DEFAULT_TUNING,
+  }),
   tickRate: 60,
   checkpointSpacing: SPACING,
   witnessVersion: 1,
@@ -44,7 +51,6 @@ const HEADER: TapeHeader = {
   rendererResolution: 2,
   devicePixelRatio: 2,
   recordedAt: 1_766_300_000_000,
-  signalLock: SIGNAL_RAN_LIVE,
 };
 
 interface AppendCall {

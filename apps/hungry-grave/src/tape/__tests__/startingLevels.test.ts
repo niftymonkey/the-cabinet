@@ -4,34 +4,14 @@ import { describe, expect, it } from 'vitest';
 
 import { WEAPON_LINES } from '../../game/lines/roster';
 import { resolveStartingLevels } from '../startingLevels';
-import type { TapeHeader } from '../tape';
-import { SCRIPT_POLICY } from '../tape';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
-const BASE: TapeHeader = {
-  seed: 20260827,
-  startingSize: 27,
-  recordedRoster: [...WEAPON_LINES],
-  startingLevels: { skullStream: 1, territory: 3, wisps: 0, bell: 5 },
-  tickRate: 60,
-  checkpointSpacing: 60,
-  witnessVersion: 2,
-  commitHash: 'f389eb55ff',
-  buildIdentity: '',
-  author: 'unknown',
-  inputDevice: 'script',
-  policy: SCRIPT_POLICY,
-  keyboardSpeed: 1,
-  rendererBackend: 'webgl',
-  rendererResolution: 2,
-  devicePixelRatio: 2,
-  recordedAt: 1_766_000_000_000,
-  signalLock: SIGNAL_RAN_LIVE,
+/** The levels a tape recorded, in its own vocabulary rather than this build's. */
+const RECORDED: Record<string, number> = {
+  skullStream: 1,
+  territory: 3,
+  wisps: 0,
+  bell: 5,
 };
-
-function headerWith(over: Partial<TapeHeader>): TapeHeader {
-  return { ...BASE, ...over };
-}
 
 describe('resolveStartingLevels', () => {
   it('reads starting levels by name against the recorded roster, never by position', () => {
@@ -40,9 +20,7 @@ describe('resolveStartingLevels', () => {
     // positional read would hand back a permuted record and nothing would say
     // so, which is the exact failure ADR 0043 was written against.
     const shuffled = [...WEAPON_LINES].reverse();
-    const resolved = resolveStartingLevels(
-      headerWith({ recordedRoster: shuffled }),
-    );
+    const resolved = resolveStartingLevels(shuffled, RECORDED);
 
     expect(resolved.outcome).toBe('implemented');
     if (resolved.outcome !== 'implemented') return;
@@ -59,12 +37,10 @@ describe('resolveStartingLevels', () => {
     // roster it was handed, unedited. Nothing is dropped to make it fit and
     // nothing is invented to fill it out.
     const recorded = [...WEAPON_LINES, 'moonlight'];
-    const resolved = resolveStartingLevels(
-      headerWith({
-        recordedRoster: recorded,
-        startingLevels: { ...BASE.startingLevels, moonlight: 2 },
-      }),
-    );
+    const resolved = resolveStartingLevels(recorded, {
+      ...RECORDED,
+      moonlight: 2,
+    });
 
     expect(resolved.outcome).toBe('notImplemented');
     if (resolved.outcome !== 'notImplemented') return;
@@ -77,11 +53,9 @@ describe('resolveStartingLevels', () => {
     // bell is an ordinary run, not an older format, so the roster resolves and
     // the lines it does not name are unowned rather than unsaid.
     const smaller = [...WEAPON_LINES].filter((line) => line !== 'bell');
-    const levels = { ...BASE.startingLevels };
+    const levels = { ...RECORDED };
     delete levels.bell;
-    const resolved = resolveStartingLevels(
-      headerWith({ recordedRoster: smaller, startingLevels: levels }),
-    );
+    const resolved = resolveStartingLevels(smaller, levels);
 
     expect(resolved.outcome).toBe('implemented');
     if (resolved.outcome !== 'implemented') return;
@@ -100,12 +74,12 @@ describe('resolveStartingLevels', () => {
     // vocabulary." The rename spends no format version, so the bytes still
     // decode and the refusal is precise rather than blanket.
     const old = ['soulStream', 'territory', 'wisps', 'bell'];
-    const resolved = resolveStartingLevels(
-      headerWith({
-        recordedRoster: old,
-        startingLevels: { soulStream: 1, territory: 3, wisps: 0, bell: 5 },
-      }),
-    );
+    const resolved = resolveStartingLevels(old, {
+      soulStream: 1,
+      territory: 3,
+      wisps: 0,
+      bell: 5,
+    });
 
     expect(resolved.outcome).toBe('notImplemented');
     if (resolved.outcome !== 'notImplemented') return;
@@ -114,14 +88,12 @@ describe('resolveStartingLevels', () => {
   });
 
   it('refuses a roster that names the same line twice', () => {
-    // A duplicate name means one of the two level bytes is unreachable by name,
-    // which is the positional ambiguity this whole seam exists to remove.
+    // A duplicate name means one of the two recorded levels is unreachable by
+    // name, which is the positional ambiguity this whole seam exists to remove.
     const firstLine = WEAPON_LINES[0];
     if (firstLine === undefined) throw new Error('WEAPON_LINES is empty');
     const doubled = [...WEAPON_LINES, firstLine];
-    const resolved = resolveStartingLevels(
-      headerWith({ recordedRoster: doubled }),
-    );
+    const resolved = resolveStartingLevels(doubled, RECORDED);
 
     expect(resolved.outcome).toBe('notImplemented');
   });

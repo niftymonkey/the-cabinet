@@ -19,7 +19,6 @@ import { describe, expect, it } from 'vitest';
 
 import { TICK_HZ } from '../../src/game/clock';
 import { createExecution, executeTick } from '../../src/game/execution';
-import { WEAPON_LINES } from '../../src/game/lines/roster';
 import { createRun } from '../../src/game/run';
 import { WITNESS_VERSION } from '../../src/game/witness';
 import { recordInto, sealTrailer, tapeOf } from '../../src/tape/recorder';
@@ -29,7 +28,7 @@ import type { BatchReport } from '../../src/dev/batchReport';
 import type { ConfigurationName } from '../../src/dev/configurations';
 import { measure } from '../../src/dev/measure';
 import type { Metrics } from '../../src/dev/measure';
-import { SIGNAL_RAN_LIVE } from '../../src/game/signalLock';
+import { startingConditionBlock } from '../../src/tape/startingCondition';
 
 const APP = resolve(import.meta.dirname, '..', '..');
 const VITE_NODE = join(APP, 'node_modules', '.bin', 'vite-node');
@@ -60,9 +59,7 @@ const verifiedReport = (seed: number): Metrics => {
   const execution = createExecution(run);
   const recorder = recordInto(execution, {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: 20,
     witnessVersion: WITNESS_VERSION,
@@ -76,7 +73,6 @@ const verifiedReport = (seed: number): Metrics => {
     rendererResolution: 0,
     devicePixelRatio: 0,
     recordedAt: 1_788_000_000_000,
-    signalLock: SIGNAL_RAN_LIVE,
   });
   for (let tick = 0; tick < TICKS; tick++) {
     executeTick(execution, { move: { x: 0.2, y: -0.1 }, belch: false });

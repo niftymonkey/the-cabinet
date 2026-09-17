@@ -19,6 +19,14 @@ import { SHARP_HAND } from '../../src/dev/configurations';
 import { MAX_LEVEL, WEAPON_LINES } from '../../src/game/lines/roster';
 import { SEED_LIMIT } from '../../src/game/run';
 import { decodeTape } from '../../src/tape/decode';
+import type { TapeHeader } from '../../src/tape/tape';
+
+/** The level a header's block records for one line, read by name. */
+function levelIn(header: TapeHeader, line: string): number | undefined {
+  return header.startingCondition.find(
+    (entry) => entry.name === `levels.${line}`,
+  )?.value;
+}
 
 const APP = resolve(import.meta.dirname, '..', '..');
 const VITE_NODE = join(APP, 'node_modules', '.bin', 'vite-node');
@@ -192,7 +200,7 @@ describe('the batch command', () => {
         new Uint8Array(readFileSync(join(folder, `${FIRST_SEED}.tape`))),
       ).tape;
       for (const line of WEAPON_LINES) {
-        expect(header.startingLevels[line]).toBe(MAX_LEVEL);
+        expect(levelIn(header, line)).toBe(MAX_LEVEL);
       }
 
       const report: BatchReport = JSON.parse(

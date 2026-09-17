@@ -16,6 +16,7 @@ import { SECTIONS } from '../game/stage/stage';
 import { SCROLL_SPEED } from '../game/tuning';
 import { WITNESS_VERSION } from '../game/witness';
 import { RUNNING_BUILD } from '../tape/buildIdentity';
+import { startingConditionBlock } from '../tape/startingCondition';
 import { encodeTape } from '../tape/encode';
 import {
   RECORDER_CHECKPOINT_SPACING,
@@ -111,9 +112,9 @@ const harnessHeader = (
 ): TapeHeader => {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...run.roster],
-    startingLevels: { ...run.levels },
+    // The run's own resolved record, whole, rather than the same facts
+    // reassembled from live state (ADR 0063).
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -127,9 +128,6 @@ const harnessHeader = (
     rendererResolution: 0,
     devicePixelRatio: 0,
     recordedAt,
-    // Read off the run, as the size and the levels are: a harness run holds no
-    // signal, so what this records is the resolved value that means it ran live.
-    signalLock: run.director.signal.lock,
   };
 };
 

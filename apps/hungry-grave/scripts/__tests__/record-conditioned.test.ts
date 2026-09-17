@@ -13,6 +13,14 @@ import { describe, expect, it } from 'vitest';
 import { measure } from '../../src/dev/measure';
 import { decodeTape } from '../../src/tape/decode';
 import { SCRIPT_POLICY } from '../../src/tape/tape';
+import type { TapeHeader } from '../../src/tape/tape';
+
+/** The level a header's block records for one line, read by name. */
+function levelIn(header: TapeHeader, line: string): number | undefined {
+  return header.startingCondition.find(
+    (entry) => entry.name === `levels.${line}`,
+  )?.value;
+}
 
 const APP = resolve(import.meta.dirname, '..', '..');
 const VITE_NODE = join(APP, 'node_modules', '.bin', 'vite-node');
@@ -67,12 +75,10 @@ describe('the record-conditioned tool', () => {
 
       const decoded = decodeTape(new Uint8Array(readFileSync(out)));
       expect(decoded.tape.header.seed).toBe(SEED);
-      expect(decoded.tape.header.startingLevels).toEqual({
-        skullStream: 2,
-        territory: 3,
-        wisps: 1,
-        bell: 4,
-      });
+      expect(levelIn(decoded.tape.header, 'skullStream')).toBe(2);
+      expect(levelIn(decoded.tape.header, 'territory')).toBe(3);
+      expect(levelIn(decoded.tape.header, 'wisps')).toBe(1);
+      expect(levelIn(decoded.tape.header, 'bell')).toBe(4);
       expect(decoded.tape.header.inputDevice).toBe('script');
       // A fixed arithmetic wander is neither a person nor a policy, and ADR
       // 0027 forbids the absence that would otherwise say so.

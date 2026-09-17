@@ -5,6 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_LEVEL } from '../../game/lines/roster';
+import type { RunState } from '../../game/run';
 import { createRun, SEED_LIMIT } from '../../game/run';
 import { SIZE_CEILING, SIZE_FLOOR } from '../../game/tuning';
 import { SIGNAL_FULL, SIGNAL_RAN_LIVE } from '../../game/signalLock';
@@ -151,6 +152,18 @@ const CONDITIONS: RunConditions = {
   recordedAt: 1_766_000_000_000,
 };
 
+/**
+ * The lock the header this run would write carries, off the block's own row.
+ *
+ * The header records the whole starting condition as one self-describing block
+ * (ADR 0043), so the lock is read by name rather than as a field of its own.
+ */
+function lockRecordedBy(run: RunState): number | undefined {
+  return tapeHeaderFor(run, CONDITIONS).startingCondition.find(
+    (entry) => entry.name === 'signalLock',
+  )?.value;
+}
+
 describe('signalLockFromUrl (CONTEXT.md Signal lock)', () => {
   beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => {}));
   afterEach(() => vi.restoreAllMocks());
@@ -162,7 +175,7 @@ describe('signalLockFromUrl (CONTEXT.md Signal lock)', () => {
 
     const run = createRun(1234);
     expect(run.director.signal.lock).toBe(SIGNAL_RAN_LIVE);
-    expect(tapeHeaderFor(run, CONDITIONS).signalLock).toBe(SIGNAL_RAN_LIVE);
+    expect(lockRecordedBy(run)).toBe(SIGNAL_RAN_LIVE);
   });
 
   it('a lock the URL states resolves to that figure, and the header records it', () => {
@@ -174,7 +187,7 @@ describe('signalLockFromUrl (CONTEXT.md Signal lock)', () => {
     const run = createRun(1234, { signalLock: 0.25 });
     expect(run.director.signal.lock).toBe(0.25);
     expect(run.director.signal.value).toBe(0.25);
-    expect(tapeHeaderFor(run, CONDITIONS).signalLock).toBe(0.25);
+    expect(lockRecordedBy(run)).toBe(0.25);
   });
 
   it('a lock the module cannot use is warned about once and ignored, and the run plays', () => {

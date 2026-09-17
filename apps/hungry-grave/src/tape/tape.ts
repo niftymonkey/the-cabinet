@@ -60,6 +60,31 @@ type TapeIntegrity = (typeof TAPE_INTEGRITIES)[number];
 type TapeStop = StopReason | 'unknown';
 
 /**
+ * One thing a run started from, under the one addressable name every text
+ * surface uses for it, and its value (ADR 0043).
+ *
+ * A name string and a plain number, never the starting condition's own typed
+ * record: the set of names is open, so a reader that supplied them from its own
+ * present-day world would return a wrong number the moment the set moved, which
+ * is the mistake ADR 0043 was written against. Whether this build implements
+ * what a name says is `resolveStartingCondition`'s question and no decoder's.
+ */
+interface StartingConditionEntry {
+  readonly name: string;
+  readonly value: number;
+}
+
+/**
+ * The whole condition a run started from, as the tape holds it: every name it
+ * resolved, in the order the run states them (ADR 0043, ADR 0063).
+ *
+ * A list and not a map, because the order is itself recorded: the `levels.`
+ * entries are the roster, in the order the run fielded its lines, so a map
+ * would lose the one fact that makes the levels readable at all.
+ */
+type StartingConditionBlock = readonly StartingConditionEntry[];
+
+/**
  * The run's identity and its conditions, written before the first tick.
  *
  * It carries nothing knowable only when a run stops. That rule is what makes
@@ -69,35 +94,17 @@ type TapeStop = StopReason | 'unknown';
 interface TapeHeader {
   readonly seed: number;
   /**
-   * The starting size the run actually resolved to, as a number rather than a
-   * nullable "pinned or not". Recording the absence would let a later tune of
-   * the compiled default silently change what every old tape replays as.
-   */
-  readonly startingSize: number;
-  /**
-   * The weapon lines this tape was written against, in the order its level
-   * bytes follow (ADR 0043).
+   * Everything the run started from, resolved and self-describing (ADR 0043,
+   * ADR 0063): its size, its levels per fielded line, its signal lock, the
+   * score it began holding and every row of the tuning record it played under.
    *
-   * It is recorded so the level bytes can be read by name instead of by
-   * position: the roster is an open set, so a reader that supplied the names
-   * from its own present-day world would return a wrong number the moment the
-   * set moved. Strings and not the WeaponLine union, because the whole point is
-   * to hold what the tape said even when this build does not implement it.
+   * One block rather than a field apiece, because the condition is one record
+   * (ADR 0063) and two spellings of one fact is the defect the block exists to
+   * remove. Every value is the value the run actually started from and never an
+   * absence meaning "the default" (ADR 0027), so a later tune of a default
+   * cannot silently change what an old tape replays as.
    */
-  readonly recordedRoster: readonly string[];
-  /**
-   * The starting level each recorded line actually resolved to, keyed by the
-   * tape's own vocabulary rather than the reader's (ADR 0043).
-   *
-   * Resolved for every run rather than only a pinned one: an unpinned run
-   * records its birthright the same way, or a later tune of the birthright
-   * would silently change what every old tape replays as (ruled by Mark
-   * 2026-08-24, widening the closed list by the same record-the-resolved-value
-   * argument as the size above). `resolveStartingLevels` is the one step that
-   * asks whether this build can run what is written here, and it is the only
-   * thing that ever produces a Record over the current roster.
-   */
-  readonly startingLevels: Readonly<Record<string, number>>;
+  readonly startingCondition: StartingConditionBlock;
   // What makes "one command per tick" mean anything, and what the observations join to wall clock through.
   readonly tickRate: number;
   // Ticks between checkpoints, obeyed by the reader rather than compiled into it.
@@ -142,21 +149,6 @@ interface TapeHeader {
   readonly devicePixelRatio: number;
   // Wall clock, in epoch milliseconds, so a folder of tapes has an order.
   readonly recordedAt: number;
-  /**
-   * The figure the run held its pressure signal at, as a number rather than a
-   * nullable "held or not" (ADR 0027).
-   *
-   * It is the value the run actually started from, on the same terms as the
-   * starting size above: a run nothing pinned records SIGNAL_RAN_LIVE, and
-   * recording the absence would let a later change of that default silently
-   * change what every old tape replays as. Playback rebuilds the run from it,
-   * which is what makes a held run replay held.
-   *
-   * Last in the record, because the header is positional and appending is the
-   * one place a field can go without moving every reader's walk past it. The
-   * walk still changes, which is why FORMAT_VERSION moved to 4.
-   */
-  readonly signalLock: number;
 }
 
 /**
@@ -335,6 +327,8 @@ export type {
   TapeInputDevice,
   TapeIntegrity,
   TapeStop,
+  StartingConditionEntry,
+  StartingConditionBlock,
   TapeHeader,
   TapeCheckpoint,
   FrameReason,

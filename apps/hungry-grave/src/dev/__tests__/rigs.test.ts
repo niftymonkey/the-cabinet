@@ -30,10 +30,15 @@ describe('the rigs a harness run is played out of', () => {
     // #107: no two rigs with different starting conditions share one label,
     // and no two labels share one starting condition either, or naming a
     // figure's rig would be a coin toss.
+    // The key is the rig's own three fields, which is exactly what rigOf bands
+    // by: a row unique on less than the banding reads would be two rows the
+    // banding cannot tell apart, and a row unique on more would be a row the
+    // banding answers null for.
     const conditions = RIG_NAMES.map((name) =>
       JSON.stringify([
         RIGS[name].conditions.startingSize,
         RIGS[name].conditions.startingLevels,
+        RIGS[name].conditions.startingScore,
       ]),
     );
 
@@ -97,19 +102,33 @@ describe('the rigs a harness run is played out of', () => {
   });
 
   it('names the rig a tape started from, off the conditions alone', () => {
-    expect(rigOf(SIZE_START, RIGS.birthright.conditions.startingLevels)).toBe(
-      'birthright',
-    );
-    expect(rigOf(SIZE_START, RIGS.maxed.conditions.startingLevels)).toBe(
+    expect(
+      rigOf(SIZE_START, RIGS.birthright.conditions.startingLevels, 0),
+    ).toBe('birthright');
+    expect(rigOf(SIZE_START, RIGS.maxed.conditions.startingLevels, 0)).toBe(
       'maxed',
     );
-    // A header carries a size and levels and no score, which is why rigOf
-    // keeps its two arguments: a banding rule reading a fact the header cannot
-    // hold would answer null forever, and the ladder rig is the first row whose
-    // condition has a third half.
-    expect(rigOf(SIZE_FLOOR, RIGS.ladder.conditions.startingLevels)).toBe(
-      'ladder',
-    );
+    // The header carries the whole starting condition now
+    // (FORMAT_VERSION 5), so the score is one of the three fields the banding
+    // reads: the ladder row is the first whose condition has a third half, and
+    // banding without it would name the row by two thirds of what it states.
+    expect(
+      rigOf(
+        SIZE_FLOOR,
+        RIGS.ladder.conditions.startingLevels,
+        RIGS.ladder.conditions.startingScore,
+      ),
+    ).toBe('ladder');
+  });
+
+  it('names no rig for a run that starts at a row levels and size holding nothing', () => {
+    // The ladder row's whole point is the score it begins with, so a run at its
+    // size and levels holding zero is not that row: it is the condition #107
+    // asks a figure never to be banded under, and the answer is null rather
+    // than the nearest row.
+    expect(
+      rigOf(SIZE_FLOOR, RIGS.ladder.conditions.startingLevels, 0),
+    ).toBeNull();
   });
 
   it('names no rig for a starting condition no row holds', () => {
@@ -118,10 +137,10 @@ describe('the rigs a harness run is played out of', () => {
     // was raised for. An unnamed condition is answered as unnamed rather than
     // as the nearest row.
     expect(
-      rigOf(SIZE_CEILING, RIGS.maxed.conditions.startingLevels),
+      rigOf(SIZE_CEILING, RIGS.maxed.conditions.startingLevels, 0),
     ).toBeNull();
     expect(
-      rigOf(SIZE_START, { skullStream: 3, territory: 3, wisps: 3, bell: 3 }),
+      rigOf(SIZE_START, { skullStream: 3, territory: 3, wisps: 3, bell: 3 }, 0),
     ).toBeNull();
   });
 

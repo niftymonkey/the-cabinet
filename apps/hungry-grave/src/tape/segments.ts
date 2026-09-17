@@ -25,6 +25,7 @@ import type {
   FaultObservation,
   FrameObservation,
   Observation,
+  StartingConditionBlock,
   TapeCheckpoint,
   TapeHeader,
   TapeTrailer,
@@ -49,44 +50,32 @@ const writeMagic = (writer: ByteWriter): void => {
 };
 
 /**
- * The level the header recorded for one of the lines its own roster names.
+ * The whole starting condition, length-prefixed, one name and one f64 apiece in
+ * the order the run states them (ADR 0043).
  *
- * Never a fallback. The roster and the levels are written together by this
- * build, so a recorded line carrying no level is a bug here rather than
- * anything a tape could hold, and a zero would repair a value our own code
- * produced into "this run started with that line unowned": the ADR 0027
- * absence `resolveStartingLevels` exists to refuse on the way back in. The
- * record is widened to its honest partial type first, because the header's
- * `Record<string, number>` hands back a `number` for a key it does not have.
+ * The count leads so a reader walks exactly the entries the tape wrote and
+ * never counts to a layout of its own, and every value is an f64 because the
+ * block is one shape for every row it will ever carry: a per-row width would be
+ * a positional assumption over an open set wearing a different coat, and the
+ * rows it holds are already a size, a lock and a pile of tuning magnitudes.
  */
-const recordedLevel = (header: TapeHeader, line: string): number => {
-  const recorded: Readonly<Partial<Record<string, number>>> =
-    header.startingLevels;
-  // An own property, never an inherited one. A header built as an ordinary
-  // object hands back Object.prototype for the line name `__proto__`, which is
-  // not undefined and would be written out as a byte.
-  const level = Object.prototype.hasOwnProperty.call(recorded, line)
-    ? recorded[line]
-    : undefined;
-  if (level === undefined) {
-    throw new Error(
-      `the header's roster names ${line} with no starting level recorded for it`,
-    );
+const writeStartingCondition = (
+  payload: ByteWriter,
+  block: StartingConditionBlock,
+): void => {
+  writeU16(payload, block.length);
+  for (const entry of block) {
+    writeString(payload, entry.name);
+    writeF64(payload, entry.value);
   }
-  return level;
 };
 
 const writeHeaderRecord = (payload: ByteWriter, header: TapeHeader): void => {
   writeU32(payload, header.seed);
-  writeF64(payload, header.startingSize);
-  // The roster first, then one level byte per recorded name in that same order,
-  // so the bytes carry their own vocabulary and a reader never supplies it from
-  // its own present-day world (ADR 0043).
-  writeU8(payload, header.recordedRoster.length);
-  for (const line of header.recordedRoster) writeString(payload, line);
-  for (const line of header.recordedRoster) {
-    writeU8(payload, recordedLevel(header, line));
-  }
+  // Straight after the seed, where the four positional starting-condition
+  // fields used to begin: the run's identity, then everything it started from,
+  // then what the recording itself was made on.
+  writeStartingCondition(payload, header.startingCondition);
   writeU16(payload, header.tickRate);
   writeU32(payload, header.checkpointSpacing);
   writeU8(payload, header.witnessVersion);
@@ -100,12 +89,6 @@ const writeHeaderRecord = (payload: ByteWriter, header: TapeHeader): void => {
   writeF32(payload, header.rendererResolution);
   writeF32(payload, header.devicePixelRatio);
   writeF64(payload, header.recordedAt);
-  // Appended last, so every field a version 3 reader knew is still where it
-  // was; what changes is that its walk now stops one f64 early, which is what
-  // FORMAT_VERSION 4 exists to refuse. An f64 for the same reason the starting
-  // size is one: the signal's scale is fractional and the sentinel that means
-  // it ran live is a figure that scale cannot produce.
-  writeF64(payload, header.signalLock);
 };
 
 /**
@@ -217,7 +200,7 @@ const chunkBytes = (
  * They travel as one segment because a header chunk without the magic in front
  * of it is not appendable to anything a reader accepts. Segments concatenated
  * in the order a run produces them are therefore themselves a canonical
- * FORMAT_VERSION 2 stream.
+ * stream at whatever version FORMAT_VERSION currently names.
  *
  * The layout is frozen at each version: codec.test.ts pins encodeTape's bytes
  * and segments.test.ts pins these encoders against encodeTape.

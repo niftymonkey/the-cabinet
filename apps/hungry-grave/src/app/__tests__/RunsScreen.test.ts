@@ -7,8 +7,6 @@
 import { Container } from 'pixi.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { WEAPON_LINES } from '../../game/lines/roster';
-
 /** The real widgets need a renderer: text metrics and a loaded texture. */
 vi.mock('../ui/Label', () => ({
   Label: class extends Container {
@@ -66,7 +64,7 @@ import { REPLAY_HASH } from '../routes';
 import { tapeFileName } from '../tapeExport';
 import type { StoredRunSummary, TapeStore } from '../tapeStore';
 import { RunsScreen } from '../screens/RunsScreen';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const fakeLocation = { search: '', hash: '' };
 
@@ -95,9 +93,7 @@ Object.defineProperty(globalThis, 'window', {
 function headerFor(run: RunState): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: 60,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -111,7 +107,6 @@ function headerFor(run: RunState): TapeHeader {
     rendererResolution: 1,
     devicePixelRatio: 1,
     recordedAt: 0,
-    signalLock: SIGNAL_RAN_LIVE,
   };
 }
 

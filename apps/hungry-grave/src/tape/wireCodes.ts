@@ -16,7 +16,7 @@ const TAPE_MAGIC = 'HGTP';
 
 /**
  * The format's own version, separate from the witness version the header
- * carries and from the roster the header now records (ADR 0043).
+ * carries and from the starting condition the header now records (ADR 0043).
  *
  * It moved to 2 with #76. A positional list of one level byte per line kept its
  * byte count while its meaning moved underneath it, so a version-1 reader
@@ -46,8 +46,26 @@ const TAPE_MAGIC = 'HGTP';
  * build. Every format 3 tape is refused outright at the decode from here, which
  * is a cost this step had already paid twice over through the waves and the
  * witness.
+ *
+ * It moved to 5 with #142, on 2026-09-17, and this is ADR 0056's trigger
+ * firing: the purse became a row a run resolves, so it is a starting value,
+ * ADR 0027 pulls it into the header, and the second bump that amendment named
+ * is this one. The header's four positional starting-condition fields, the
+ * starting size, the recorded roster, the starting levels and the signal lock,
+ * are gone, and in their place is one length-prefixed self-describing block of
+ * names and f64 values carrying the whole starting condition of ADR 0063: the
+ * size, one `levels.<line>` entry per fielded line in the order the run fielded
+ * them, which is the roster and so needs no entry of its own, the lock, the
+ * score the run began holding, and every row of the tuning record by its dotted
+ * name. The bump is one rather than two because two starting facts arrived
+ * together and ADR 0043 says a bump is taken at the point where it is smallest:
+ * a header that carried the tuning record but no score would have left a rig
+ * that starts holding one still unreplayable, so the second bump would have
+ * followed within the step. Every format 4 tape is refused outright at the
+ * decode from here, this branch's own earlier tapes included, and ADR 0057's
+ * store is still dormant, which is what makes now the cheapest moment.
  */
-const FORMAT_VERSION = 4;
+const FORMAT_VERSION = 5;
 
 /**
  * EVERY ENCODING HERE IS PERMANENT FROM THE FIRST TAPE. The code maps are

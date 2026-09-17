@@ -21,6 +21,7 @@ import type { WeaponLine } from '../../game/lines/roster';
 import type { TickCommand } from '../../game/command';
 import type { RunState } from '../../game/run';
 import { createRun, uniformLevels } from '../../game/run';
+import { SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
 import { decodeTape } from '../decode';
 import { encodeTape } from '../encode';
@@ -28,7 +29,17 @@ import { recordFrame, recordInto, sealTrailer, tapeOf } from '../recorder';
 import type { Tape, TapeHeader } from '../tape';
 import { SCRIPT_POLICY } from '../tape';
 import { readBackForVerification } from '../verificationReadback';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { startingConditionBlock } from '../startingCondition';
+
+/** The same header with one row of its block written differently. */
+function rowWritten(head: TapeHeader, name: string, value: number): TapeHeader {
+  return {
+    ...head,
+    startingCondition: head.startingCondition.map((entry) =>
+      entry.name === name ? { name, value } : entry,
+    ),
+  };
+}
 
 const SEED = 20260823;
 const SPACING = 20;
@@ -37,9 +48,7 @@ const TICKS = 90;
 function header(run: RunState): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -53,7 +62,6 @@ function header(run: RunState): TapeHeader {
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
-    signalLock: SIGNAL_RAN_LIVE,
   };
 }
 
@@ -147,7 +155,7 @@ describe('verification readback', () => {
 
     const result = readBackForVerification({
       ...tape,
-      header: { ...tape.header, startingSize: tape.header.startingSize + 1 },
+      header: rowWritten(tape.header, 'startingSize', SIZE_START + 1),
     });
 
     expect(result.outcome).toBe('diverged');
@@ -163,7 +171,13 @@ describe('verification readback', () => {
       encodeTape(recordARun(TICKS, uniformLevels(MAX_LEVEL))),
     ).tape;
 
-    expect(pinned.header.startingLevels).toEqual(uniformLevels(MAX_LEVEL));
+    for (const line of WEAPON_LINES) {
+      expect(
+        pinned.header.startingCondition.find(
+          (entry) => entry.name === `levels.${line}`,
+        )?.value,
+      ).toBe(MAX_LEVEL);
+    }
     const result = readBackForVerification(pinned);
     expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(TICKS);
@@ -176,11 +190,7 @@ describe('verification readback', () => {
 
     const result = readBackForVerification({
       ...tape,
-      header: {
-        ...tape.header,
-        recordedRoster: [...WEAPON_LINES],
-        startingLevels: { ...tape.header.startingLevels, bell: 5 },
-      },
+      header: rowWritten(tape.header, 'levels.bell', 5),
     });
 
     expect(result.outcome).toBe('diverged');

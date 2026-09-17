@@ -13,7 +13,6 @@ import { describe, expect, it } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
-import { WEAPON_LINES } from '../../game/lines/roster';
 import { createRun } from '../../game/run';
 import { WITNESS_VERSION } from '../../game/witness';
 import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
@@ -21,7 +20,7 @@ import { SCRIPT_POLICY } from '../../tape/tape';
 import { BATCH_READINGS } from '../batchReport';
 import type { Metrics } from '../measure';
 import { measure } from '../measure';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const SEED = 20260826;
 const TICKS = 60;
@@ -32,9 +31,7 @@ const shortReport = (): Metrics => {
   const execution = createExecution(run);
   const recorder = recordInto(execution, {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: 20,
     witnessVersion: WITNESS_VERSION,
@@ -48,7 +45,6 @@ const shortReport = (): Metrics => {
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
-    signalLock: SIGNAL_RAN_LIVE,
   });
   for (let tick = 0; tick < TICKS; tick++) {
     executeTick(execution, { move: { x: 0.2, y: -0.1 }, belch: false });

@@ -6,8 +6,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { WEAPON_LINES } from '../../game/lines/roster';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
 
 import { decodeTape } from '../decode';
+import { startingConditionBlock } from '../startingCondition';
 import { encodeTape } from '../encode';
 import {
   bodySegment,
@@ -19,14 +22,18 @@ import {
 import type { Observation, Tape, TapeCheckpoint, TapeHeader } from '../tape';
 import { stopOf } from '../tape';
 import { FORMAT_VERSION, TAPE_MAGIC } from '../wireCodes';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 
 /** Every field a different value, so none can stand in for another. */
 const HEADER: TapeHeader = {
   seed: 20260824,
-  startingSize: 26.5,
-  recordedRoster: [...WEAPON_LINES],
-  startingLevels: { skullStream: 2, territory: 4, wisps: 1, bell: 0 },
+  startingCondition: startingConditionBlock({
+    startingSize: 26.5,
+    startingLevels: { skullStream: 2, territory: 4, wisps: 1, bell: 0 },
+    roster: [...WEAPON_LINES],
+    signalLock: SIGNAL_RAN_LIVE,
+    startingScore: 0,
+    tuning: DEFAULT_TUNING,
+  }),
   tickRate: 60,
   checkpointSpacing: 4,
   witnessVersion: 1,
@@ -40,7 +47,6 @@ const HEADER: TapeHeader = {
   rendererResolution: 2,
   devicePixelRatio: 2,
   recordedAt: 1_766_100_000_456,
-  signalLock: SIGNAL_RAN_LIVE,
 };
 
 function commands(from: number, until: number) {
@@ -201,47 +207,42 @@ describe('the segment encoders', () => {
   });
 });
 
-describe('the header writer and the roster it was handed (#76)', () => {
-  it('refuses to write a level for a recorded line the header carries none for', () => {
-    // The roster and the levels are written together by this build, so a line
-    // in one and not the other is a bug here and never a tape anyone holds.
-    // Writing a zero would repair a value our own code produced, and what it
-    // would say is that the run started with that line unowned: the exact ADR
-    // 0027 absence resolveStartingLevels exists to refuse on the way back in.
-    const missing: TapeHeader = {
-      ...HEADER,
-      recordedRoster: [...WEAPON_LINES, 'moonlight'],
-    };
+describe('the header writer and the roster it was handed (#76, #142)', () => {
+  it('carries no roster beside the levels, so the two can never disagree', () => {
+    // The block replaced a roster list and a parallel run of level bytes, and
+    // this is the defect that replacement removed: a recorded line the header
+    // carried no level for used to be expressible, and writing a zero for it
+    // would have said the run started with that line unowned, which is the
+    // ADR 0027 absence resolveStartingLevels exists to refuse on the way back
+    // in. One entry carries the name and the level together now, so neither
+    // half can exist without the other and there is nothing left to guard.
+    const names = HEADER.startingCondition.map((entry) => entry.name);
 
-    expect(() => headerSegment(missing)).toThrowError(/moonlight/);
-  });
-
-  it('refuses a recorded line named __proto__ rather than writing an inherited value', () => {
-    // A roster is decoded bytes, so its names are not our vocabulary. On an
-    // ordinary object `__proto__` reads back as Object.prototype, which is not
-    // undefined, so the guard above would pass it through and writeU8 would
-    // put a wrong byte in the tape with nothing said. That is the silent wrong
-    // number the tape format exists to make impossible.
-    const polluted: TapeHeader = {
-      ...HEADER,
-      recordedRoster: [...WEAPON_LINES, '__proto__'],
-    };
-
-    expect(() => headerSegment(polluted)).toThrowError(/__proto__/);
+    expect(names).not.toContain('recordedRoster');
+    expect(names.filter((name) => name.startsWith('levels.'))).toEqual(
+      WEAPON_LINES.map((line) => `levels.${line}`),
+    );
   });
 
   it("reads a level recorded against __proto__ back as that line's own level", () => {
-    // The decoder's record is prototype-free, so a name that collides with a
-    // prototype key is still the tape's own key and survives the round trip.
-    // The key is computed rather than written plainly, because `__proto__:` in
-    // an object literal sets the prototype instead of making an own property.
+    // A block's names are decoded bytes, so they are not our vocabulary. On an
+    // ordinary object `__proto__` reads back as Object.prototype, which is not
+    // undefined, so a resolve built on one would read a wrong level with
+    // nothing said. That is the silent wrong number the tape format exists to
+    // make impossible, and the decoder's own record is prototype-free.
     const named: TapeHeader = {
       ...HEADER,
-      recordedRoster: [...WEAPON_LINES, '__proto__'],
-      startingLevels: { ...HEADER.startingLevels, ['__proto__']: 3 },
+      startingCondition: [
+        ...HEADER.startingCondition,
+        { name: 'levels.__proto__', value: 3 },
+      ],
     };
 
     const { tape } = decodeTape(encodeTape({ ...FULL, header: named }));
-    expect(tape.header.startingLevels['__proto__']).toBe(3);
+    expect(
+      tape.header.startingCondition.find(
+        (entry) => entry.name === 'levels.__proto__',
+      )?.value,
+    ).toBe(3);
   });
 });

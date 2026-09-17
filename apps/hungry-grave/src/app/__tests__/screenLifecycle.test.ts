@@ -74,15 +74,22 @@ import type { TapeRecorder } from '../../tape/recorder';
 import { tapeOf } from '../../tape/recorder';
 import { readBackForVerification } from '../../tape/verificationReadback';
 import { tapeFileName } from '../tapeExport';
-import type { FrameObservation } from '../../tape/tape';
+import type { FrameObservation, TapeHeader } from '../../tape/tape';
 import { faultObservations, frameObservations } from '../../tape/tape';
-import { MAX_LEVEL } from '../../game/lines/roster';
+import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import { uniformLevels } from '../../game/run';
 import { standMobOnGrave } from '../../dev/staging';
 import {
   RUNG_STRIP_TICKS,
   SCORE_BLEED_TICKS,
 } from '../screens/game/watchedLoss';
+
+/** The level a header's block records for one line, read by name. */
+function levelIn(header: TapeHeader, line: string): number | undefined {
+  return header.startingCondition.find(
+    (entry) => entry.name === `levels.${line}`,
+  )?.value;
+}
 
 /** The canvas the run listens on for a gesture the platform took away. */
 const canvas = {
@@ -1205,20 +1212,19 @@ describe('the loadout pin (dispatch 6a)', () => {
     // change what an old tape replays as.
     const unpinned = gameScreen();
     unpinned.prepare();
-    expect(unpinned['recording'].recorder!.header.startingLevels).toEqual({
-      skullStream: 1,
-      territory: 0,
-      wisps: 0,
-      bell: 0,
-    });
+    const born = unpinned['recording'].recorder!.header;
+    expect(levelIn(born, 'skullStream')).toBe(1);
+    expect(levelIn(born, 'territory')).toBe(0);
+    expect(levelIn(born, 'wisps')).toBe(0);
+    expect(levelIn(born, 'bell')).toBe(0);
     unpinned.reset();
 
     fakeLocation.search = '?seed=7&levels=2';
     const pinned = gameScreen();
     pinned.prepare();
-    expect(pinned['recording'].recorder!.header.startingLevels).toEqual(
-      uniformLevels(2),
-    );
+    for (const line of WEAPON_LINES) {
+      expect(levelIn(pinned['recording'].recorder!.header, line)).toBe(2);
+    }
     pinned.reset();
   });
 
@@ -1265,7 +1271,9 @@ describe('the loadout pin (dispatch 6a)', () => {
 
     const { tape, truncated } = decodeTape(runHandoff.readTape()!);
     expect(truncated).toBe(false);
-    expect(tape.header.startingLevels).toEqual(uniformLevels(MAX_LEVEL));
+    for (const line of WEAPON_LINES) {
+      expect(levelIn(tape.header, line)).toBe(MAX_LEVEL);
+    }
     const result = readBackForVerification(tape);
     expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(120);

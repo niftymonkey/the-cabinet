@@ -112,10 +112,10 @@ class ReplayScreen extends Container {
    *
    * dressField runs from the constructor and from reset(), with no run in hand
    * either time, so the caps a run under the build's own record derives are
-   * what the sprite pools are grown to. Every run at this tip derives exactly
-   * these, because the default record is the only record anything names; the
-   * renderer's pools are grow-only, so the slice that gives a replay a record
-   * of its own grows them to that run's caps at the attach it already makes.
+   * what the sprite pools open at. A replayed tape carries the record it was
+   * played under (FORMAT_VERSION 5) and its caps can sit above these, which is
+   * what beginDrawing below is for: the pools are grow-only and attach is the
+   * one place they grow.
    */
   private fieldCaps(): Caps {
     return capsFor(DEFAULT_TUNING);
@@ -160,12 +160,26 @@ class ReplayScreen extends Container {
 
   public update(ticker: Ticker): void {
     const frame = this.session.advance(ticker.elapsedMS);
-    if (frame.forgetPreviousRun) {
-      this.fieldRenderer.forgetPreviousRun();
-      this.stormRenderer.forgetPreviousRun();
-    }
+    if (frame.forgetPreviousRun) this.beginDrawing(frame.run);
     if (frame.run !== null) this.syncScreen(frame.run, frame.events);
     this.readout.render(this.session.lines);
+  }
+
+  /**
+   * The renderers put back for the run about to be drawn.
+   *
+   * The field renderer goes through attach rather than forgetPreviousRun alone,
+   * because the run this screen is about to draw is the tape's and not this
+   * build's: a tape carries the tuning record it was played under, its caps are
+   * derived from that record (ADR 0056 as amended), and the sprite pools this
+   * screen dressed with have no reason to reach them. attach is the one place a
+   * pool grows and it forgets the previous run on its way through, so the slot
+   * walk in the first sync finds a sprite for every entity the run can hold.
+   */
+  private beginDrawing(run: RunState | null): void {
+    if (run === null) this.fieldRenderer.forgetPreviousRun();
+    else this.fieldRenderer.attach(this.layers, run.caps);
+    this.stormRenderer.forgetPreviousRun();
   }
 
   /**

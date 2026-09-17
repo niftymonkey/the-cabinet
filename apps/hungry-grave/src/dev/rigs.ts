@@ -138,22 +138,32 @@ const sameLevels = (
  *
  * Null rather than the nearest row, because a condition nobody named is
  * exactly what #107 asks a figure never to be banded under. A conditioned run
- * pinned to a row's own size and levels is that row: the rig is the starting
- * condition, and what steered the run is the policy beside it.
+ * pinned to a row's own size, levels and score is that row: the rig is the
+ * starting condition, and what steered the run is the policy beside it.
  *
- * It takes the size and the levels and never the score, because it answers
- * which row a tape was recorded under and a tape header carries no score at
- * all: a banding rule reading a fact the header cannot hold would answer null
- * forever. That is also why the rows stay unique on the size and the levels
- * alone, since two rows differing only by score would be unbandable.
+ * It bands by the rig's own three fields and never by the roster, the lock or
+ * the tuning record. Those three are facts about the starting condition that no
+ * row varies: every row states the whole pool, a live signal and the build's
+ * own record, so reading them would answer the same thing for every row while
+ * making a run under a record of its own unbandable. A candidate is its own
+ * identity and rides beside the rig rather than inside it (ADR 0064).
+ *
+ * The score joined the key when the header grew its self-describing block
+ * (FORMAT_VERSION 5). Step 5's slice 8 kept it out for one stated reason, that
+ * a tape header carried no score and a banding rule reading a fact the header
+ * cannot hold would answer null forever. The header holds it now, so the reason
+ * is spent: the ladder row is the first whose condition has a third half, and
+ * banding without it would name the row by two thirds of what it states.
  */
 const rigOf = (
   startingSize: number,
   levels: Readonly<Record<WeaponLine, number>>,
+  startingScore: number,
 ): RigName | null => {
   const named = RIG_NAMES.find(
     (name) =>
       RIGS[name].conditions.startingSize === startingSize &&
+      RIGS[name].conditions.startingScore === startingScore &&
       sameLevels(levels, RIGS[name]),
   );
   return named ?? null;

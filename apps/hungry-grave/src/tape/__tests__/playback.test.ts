@@ -19,11 +19,12 @@ import { WITNESS_VERSION } from '../../game/witness';
 import { RUNNING_BUILD } from '../buildIdentity';
 import { createPlayback, playTape } from '../playback';
 import { recordInto, sealTrailer, tapeOf } from '../recorder';
+import { startingConditionBlock } from '../startingCondition';
 import type { Tape, TapeHeader } from '../tape';
 import { SCRIPT_POLICY } from '../tape';
 import { readBackForVerification } from '../verificationReadback';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 import { SIZE_FLOOR } from '../../game/tuning';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
 
 const SEED = 20260823;
 const SPACING = 20;
@@ -32,9 +33,7 @@ const TICKS = 200;
 function header(run: RunState): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -48,7 +47,34 @@ function header(run: RunState): TapeHeader {
     rendererResolution: 2,
     devicePixelRatio: 2,
     recordedAt: 1_766_000_000_000,
-    signalLock: SIGNAL_RAN_LIVE,
+  };
+}
+
+/** The same header with one extra row wedged into its block. */
+function withRow(head: TapeHeader, name: string, value: number): TapeHeader {
+  return {
+    ...head,
+    startingCondition: [...head.startingCondition, { name, value }],
+  };
+}
+
+/** The same header with one row of its block taken out. */
+function withoutRow(head: TapeHeader, name: string): TapeHeader {
+  return {
+    ...head,
+    startingCondition: head.startingCondition.filter(
+      (entry) => entry.name !== name,
+    ),
+  };
+}
+
+/** The same header with one row of its block written differently. */
+function rowWritten(head: TapeHeader, name: string, value: number): TapeHeader {
+  return {
+    ...head,
+    startingCondition: head.startingCondition.map((entry) =>
+      entry.name === name ? { name, value } : entry,
+    ),
   };
 }
 
@@ -78,6 +104,12 @@ function recordARun(commandAt: (tick: number) => TickCommand = steer): Tape {
  */
 const LADDER_TICKS = 700;
 
+/** The condition a ladder run starts from: at the size floor, every line maxed. */
+const LADDER_CONDITIONS = {
+  startingSize: SIZE_FLOOR,
+  startingLevels: uniformLevels(MAX_LEVEL),
+};
+
 /** A seed whose storm reaches a full build parked at the size floor. */
 const LADDER_SEED = 42;
 
@@ -87,9 +119,10 @@ const LADDER_SEED = 42;
  * levels both ride in the header, so a replay starts where the recording did.
  */
 function recordALadderRun(): Tape {
-  const run = createRun(LADDER_SEED);
-  run.grave.size = SIZE_FLOOR;
-  for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+  // Staged through createRun's own record rather than by writing live state
+  // after it: the header records the condition the run resolved (ADR 0063), so
+  // a size written over the grave afterwards is a run the tape never describes.
+  const run = createRun(LADDER_SEED, LADDER_CONDITIONS);
   const execution = createExecution(run);
   const recorder = recordInto(execution, header(run));
   for (let tick = 0; tick < LADDER_TICKS; tick++) {
@@ -145,9 +178,7 @@ describe('the playback', () => {
     // of its own: no payment put a tally on the run, and witness.test.ts's own
     // completeness assertion is what says the field list did not move.
     const tape = recordALadderRun();
-    const reference = createRun(LADDER_SEED);
-    reference.grave.size = SIZE_FLOOR;
-    for (const line of WEAPON_LINES) reference.levels[line] = MAX_LEVEL;
+    const reference = createRun(LADDER_SEED, LADDER_CONDITIONS);
     const referenceExecution = createExecution(reference);
     const expected = tape.commands
       .map((command) => [...executeTick(referenceExecution, command)])
@@ -182,11 +213,7 @@ describe('the playback', () => {
       signalLock: 0.25,
     });
     const execution = createExecution(run);
-    const recorder = recordInto(execution, {
-      ...header(run),
-      recordedRoster: [...pinned],
-      signalLock: run.director.signal.lock,
-    });
+    const recorder = recordInto(execution, header(run));
     for (let tick = 0; tick < TICKS; tick++)
       executeTick(execution, steer(tick));
     sealTrailer(recorder, execution, 0);
@@ -351,9 +378,7 @@ describe('the playback', () => {
     // the comparison cannot pass on a run where the mark never moved.
     const tape = recordALadderRun();
     const recorded = new Map<number, boolean>();
-    const reference = createRun(LADDER_SEED);
-    reference.grave.size = SIZE_FLOOR;
-    for (const line of WEAPON_LINES) reference.levels[line] = MAX_LEVEL;
+    const reference = createRun(LADDER_SEED, LADDER_CONDITIONS);
     const referenceExecution = createExecution(reference);
     const checkpointTicks = new Set(tape.checkpoints.map((one) => one.index));
     for (const command of tape.commands) {
@@ -420,18 +445,11 @@ describe('a roster this build does not implement (#76, ADR 0043)', () => {
     // cannot implement, instead of failing to decode or fabricating a run over
     // a cast that never played.
     const tape = recordARun();
-    const recorded = [...tape.header.recordedRoster, 'moonlight'];
+    const recorded = [...WEAPON_LINES, 'moonlight'];
     let observed = 0;
 
     const playback = createPlayback(
-      {
-        ...tape,
-        header: {
-          ...tape.header,
-          recordedRoster: recorded,
-          startingLevels: { ...tape.header.startingLevels, moonlight: 1 },
-        },
-      },
+      { ...tape, header: withRow(tape.header, 'levels.moonlight', 1) },
       () => {
         observed += 1;
       },
@@ -455,10 +473,8 @@ describe('a roster this build does not implement (#76, ADR 0043)', () => {
     const result = playTape({
       ...tape,
       header: {
-        ...tape.header,
+        ...withRow(tape.header, 'levels.moonlight', 1),
         witnessVersion: WITNESS_VERSION + 1,
-        recordedRoster: [...tape.header.recordedRoster, 'moonlight'],
-        startingLevels: { ...tape.header.startingLevels, moonlight: 1 },
       },
     });
 
@@ -497,5 +513,171 @@ describe('the build identity on a playback', () => {
     expect(refused.outcome).toBe('witnessVersionMismatch');
     expect(refused.tapeBuildIdentity).toBe(recorded);
     expect(refused.readerBuildIdentity).toBe(RUNNING_BUILD);
+  });
+});
+
+/**
+ * The run a tape rebuilds is the one its own header describes, values and all
+ * (ADR 0027, ADR 0043, ADR 0063).
+ */
+describe('a run rebuilt from the header block (#142)', () => {
+  it('starts from the block own values and never from this build defaults', () => {
+    // Test 2. Every field of the condition, read back off the rebuilt run: a
+    // header that carried a name and left the value to the reader would let a
+    // later tune of a default silently change what an old tape replays as.
+    const conditions = {
+      startingSize: SIZE_FLOOR,
+      startingLevels: uniformLevels(MAX_LEVEL),
+      roster: [...WEAPON_LINES],
+      signalLock: 0.25,
+      startingScore: 6000,
+      tuning: DEFAULT_TUNING,
+    };
+    const staged = createRun(SEED, conditions);
+    const execution = createExecution(staged);
+    const recorder = recordInto(execution, header(staged));
+    sealTrailer(recorder, execution, 0);
+
+    const playback = createPlayback(tapeOf(recorder));
+
+    expect(playback.run.grave.size).toBe(SIZE_FLOOR);
+    expect(playback.run.score).toBe(6000);
+    expect(playback.run.director.signal.lock).toBe(0.25);
+    expect([...playback.run.roster]).toEqual([...WEAPON_LINES]);
+    for (const line of WEAPON_LINES) {
+      expect(playback.run.levels[line]).toBe(MAX_LEVEL);
+    }
+    expect(playback.run.conditions.tuning).toEqual(DEFAULT_TUNING);
+  });
+
+  it('runs under the tape own tuning record and not under this build defaults', () => {
+    // Test 3. The case that proves the block carries values rather than a name:
+    // a tape recorded under a record this build does not compile replays under
+    // that record, which is why a candidate can be replayed at all. The purse
+    // is read because it is the row the run resolves into a visible figure
+    // before a single tick has run.
+    const moved = {
+      ...DEFAULT_TUNING,
+      stage: { ...DEFAULT_TUNING.stage, processionPurse: 12 },
+    };
+    const run = createRun(SEED, { tuning: moved });
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run));
+    sealTrailer(recorder, execution, 0);
+
+    const playback = createPlayback(tapeOf(recorder));
+
+    expect(playback.run.conditions.tuning.stage.processionPurse).toBe(12);
+    expect(DEFAULT_TUNING.stage.processionPurse).not.toBe(12);
+    // It reached the sim and not only the record: the opening section grants
+    // its purse before the first tick.
+    expect(playback.run.director.purseLeft).toBe(12);
+  });
+});
+
+/**
+ * A starting condition this build cannot start a run from is readable,
+ * reportable and not replayable here (ADR 0043, ADR 0019).
+ */
+describe('a starting condition this build does not implement (#142)', () => {
+  /** Whatever the playback concluded, with no tick ever fed in. */
+  function refusedResult(head: TapeHeader) {
+    const tape = recordARun();
+    let observed = 0;
+    const playback = createPlayback({ ...tape, header: head }, () => {
+      observed += 1;
+    });
+    expect(playback.advanceTick()).toBe(false);
+    expect(observed).toBe(0);
+    return playback.result();
+  }
+
+  it('names a row this build does not have, rather than diverging at a checkpoint', () => {
+    // Tests 4 and 5. The refusal is a named outcome beside the roster's own and
+    // never a divergence discovered mid-run: a replay that cannot prove it is
+    // the original run reports nothing rather than reporting wrongly
+    // (ADR 0019). The header itself is untouched and still reports what the
+    // tape said, because reading and replaying are two obligations.
+    const tape = recordARun();
+    const named = withRow(tape.header, 'weather.fogDensity', 0.5);
+
+    const result = refusedResult(named);
+
+    expect(result.outcome).toBe('conditionNotImplemented');
+    expect(result.unimplementedCondition).toContain('weather.fogDensity');
+    expect(result.firstDivergentCheckpoint).toBeNull();
+    expect(result.ticksReproduced).toBe(0);
+    // Readable and reportable: the block comes back as recorded.
+    expect(named.startingCondition).toContainEqual({
+      name: 'weather.fogDensity',
+      value: 0.5,
+    });
+  });
+
+  it('names a row this build requires and the tape does not carry', () => {
+    // Test 6. The other half of the same rule, and the half a reader is most
+    // likely to meet: a tape from an older build that never had the row.
+    const tape = recordARun();
+
+    const result = refusedResult(
+      withoutRow(tape.header, 'score.trashKillScore'),
+    );
+
+    expect(result.outcome).toBe('conditionNotImplemented');
+    expect(result.unimplementedCondition).toContain('score.trashKillScore');
+  });
+
+  it('refuses a quiet interval whose minimum sits above its own maximum', () => {
+    // Test 7. The resolver's own bound, reported in the tape's words. It is
+    // where it is because a table catches committed rows only: a header
+    // replaying under its own values would otherwise reach the director's draw
+    // with a negative span.
+    const tape = recordARun();
+
+    const result = refusedResult(
+      rowWritten(tape.header, 'stage.quietIntervalMinimumSeconds', 30),
+    );
+
+    expect(result.outcome).toBe('conditionNotImplemented');
+    expect(result.unimplementedCondition).toContain(
+      'stage.quietIntervalMinimumSeconds',
+    );
+    expect(result.unimplementedCondition).toContain(
+      'stage.quietIntervalMaximumSeconds',
+    );
+  });
+
+  it('refuses a lock the signal own scale cannot stand at, which is where that refusal moved to', () => {
+    // It was readHeader's before the block existed and it is here now, in the
+    // same shape and never dropped quietly: a figure outside the scale would
+    // hold the gate where the signal can never stand.
+    const tape = recordARun();
+
+    const result = refusedResult(rowWritten(tape.header, 'signalLock', 4));
+
+    expect(result.outcome).toBe('conditionNotImplemented');
+    expect(result.unimplementedCondition).toContain('signalLock');
+  });
+
+  it('names no unimplemented roster, because the lines are ones this build has', () => {
+    // The two refusals stay apart on the way out as well as on the way in: a
+    // block naming a row this build does not have still names a roster this
+    // build implements, so reporting one here would say the lines cannot be
+    // simulated when they can.
+    const tape = recordARun();
+
+    const result = refusedResult(withRow(tape.header, 'weather.fogDensity', 1));
+
+    expect(result.outcome).toBe('conditionNotImplemented');
+    expect(result.unimplementedRoster).toBeNull();
+  });
+
+  it('a verified playback names no unimplemented condition', () => {
+    // The field is null on every result that is not this refusal, so nothing
+    // downstream can read a reason out of a tape this build did run.
+    const result = playTape(recordARun());
+
+    expect(result.outcome).toBe('verified');
+    expect(result.unimplementedCondition).toBeNull();
   });
 });

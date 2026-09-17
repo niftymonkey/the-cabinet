@@ -5,6 +5,7 @@ import { TICK_HZ } from '../game/clock';
 import type { RunState } from '../game/run';
 import { WITNESS_VERSION } from '../game/witness';
 import { RUNNING_BUILD } from '../tape/buildIdentity';
+import { startingConditionBlock } from '../tape/startingCondition';
 import type { TapeHeader, TapeInputDevice } from '../tape/tape';
 import { PERSON_POLICY } from '../tape/tape';
 import { RECORDER_CHECKPOINT_SPACING } from '../tape/recorder';
@@ -52,28 +53,18 @@ interface RunConditions {
  * one-way once tapes exist, so a value that changes during a run would have to
  * be an observation instead.
  *
- * The starting size goes in as the number the run actually resolved to. Reading
- * it off the grave is the point: with no ?size= the run starts at the compiled
- * default, and recording the absence would let a later tune of that default
- * silently change what every old tape replays as. The starting levels go in on
- * exactly the same terms (ruled by Mark 2026-08-24): the resolved record for
- * every run, pinned or not, copied because the run levels up in place and the
- * header is a record of the start.
- *
- * The roster goes in beside them so those levels stay readable when the roster
- * moves again (ADR 0043). What is recorded is the run's own resolved roster and
- * not the build's compiled pool (ADR 0046), so a replay fields what the run
- * fielded and a later reader reads a level by the name it was written under
- * rather than by a position it has to guess the meaning of.
+ * The whole starting condition goes in as one block, read off the run's own
+ * resolved record rather than reassembled from live state (ADR 0063). That is
+ * the point of reading `run.conditions`: with nothing pinned the run starts at
+ * the values the build compiles, and recording an absence would let a later
+ * tune of one of them silently change what every old tape replays as
+ * (ADR 0027). What is recorded is the run's own resolved roster and not the
+ * build's compiled pool (ADR 0046), so a replay fields what the run fielded and
+ * reads each level by the name it was written under.
  *
  * The build identity is the one field the browser does not read off the page:
  * the build shell stamped it, because only a build can see whether the tree it
  * was made from was dirty (#82).
- *
- * The signal lock goes in off the run for the same reason the size and the
- * levels do: the run resolved it before its first tick, so reading it here
- * keeps one source of truth and keeps RunConditions about the browser rather
- * than about what the URL asked for.
  */
 const tapeHeaderFor = (
   run: RunState,
@@ -81,9 +72,7 @@ const tapeHeaderFor = (
 ): TapeHeader => {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...run.roster],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -97,7 +86,6 @@ const tapeHeaderFor = (
     rendererResolution: conditions.rendererResolution,
     devicePixelRatio: conditions.devicePixelRatio,
     recordedAt: conditions.recordedAt,
-    signalLock: run.director.signal.lock,
   };
 };
 

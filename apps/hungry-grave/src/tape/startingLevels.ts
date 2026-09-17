@@ -4,7 +4,6 @@
 import type { WeaponLine } from '../game/lines/roster';
 import { implementsLines, WEAPON_LINES } from '../game/lines/roster';
 import { uniformLevels } from '../game/run';
-import type { TapeHeader } from './tape';
 
 /**
  * The recorded roster is one this build implements, so its levels become the
@@ -71,22 +70,27 @@ const rosterOf = (recorded: readonly string[]): readonly WeaponLine[] => {
  * obligations, and this is the one that answers replaying: a header naming a
  * line this build does not have is still reported truthfully, and only the
  * simulation refuses.
+ *
+ * It takes the recorded roster and the recorded levels rather than a header,
+ * because the header holds one open block now and which of its entries are
+ * lines is `resolveStartingCondition`'s reading (ADR 0043). What is asked here
+ * is unchanged: whether this build has every line the tape names.
  */
-const resolveStartingLevels = (header: TapeHeader): StartingLevels => {
-  if (!implementsRoster(header.recordedRoster)) {
-    return {
-      outcome: 'notImplemented',
-      recordedRoster: header.recordedRoster,
-    };
+const resolveStartingLevels = (
+  recordedRoster: readonly string[],
+  recordedLevels: Readonly<Record<string, number>>,
+): StartingLevels => {
+  if (!implementsRoster(recordedRoster)) {
+    return { outcome: 'notImplemented', recordedRoster };
   }
   // Built over this build's own pool at zero and filled from the tape's roster,
   // so every line has a number and the record is total by construction. A line
   // the tape's roster never named stays at zero, which is the run's own truth:
   // it did not field that line.
-  const roster = rosterOf(header.recordedRoster);
+  const roster = rosterOf(recordedRoster);
   const levels = uniformLevels(0);
   for (const line of roster) {
-    const level = header.startingLevels[line];
+    const level = recordedLevels[line];
     if (level === undefined) {
       throw new Error(
         `the recorded roster names ${line} with no starting level`,

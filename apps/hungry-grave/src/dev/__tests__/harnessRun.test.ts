@@ -24,15 +24,31 @@ import {
   SPAWN_MARGIN,
 } from '../../game/mobs';
 import { SECTIONS } from '../../game/stage/stage';
+import type { StartingConditions } from '../../game/run';
 import { SCROLL_SPEED, SIZE_FLOOR, SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
 import { RUNNING_BUILD } from '../../tape/buildIdentity';
 import { decodeTape } from '../../tape/decode';
+import { resolveStartingCondition } from '../../tape/startingCondition';
 import { RECORDER_CHECKPOINT_SPACING } from '../../tape/recorder';
+import type { TapeHeader } from '../../tape/tape';
 import { CONFIGURATIONS, SHARP_HAND } from '../configurations';
 import { playHarnessRun, runTickBudget, RUN_TICK_SLACK } from '../harnessRun';
 import { measure } from '../measure';
 import { RIGS, rigOf } from '../rigs';
+
+/**
+ * The condition a tape's header states, resolved. Every assertion below reads
+ * it rather than the block, because the block is the tape's vocabulary and the
+ * condition is the run's, and the resolve is the one step between them.
+ */
+function conditionsIn(header: TapeHeader): StartingConditions {
+  const resolved = resolveStartingCondition(header.startingCondition);
+  if (resolved.outcome !== 'implemented') {
+    throw new Error(`this build cannot start the run this header describes`);
+  }
+  return resolved.conditions;
+}
 
 /** The one wave this slice ships, which is the sharp corner. */
 const SHARP = CONFIGURATIONS[SHARP_HAND];
@@ -157,12 +173,13 @@ describe('the harness run', () => {
       // header is where a figure recovers which rig produced it.
       const { header } = decodeTape(sealingRun().bytes).tape;
 
+      const conditions = conditionsIn(header);
       expect(header.policy).toBe(SHARP.name);
       expect(header.inputDevice).toBe('bot');
-      expect(header.startingSize).toBe(SIZE_START);
-      expect(header.recordedRoster).toEqual([...WEAPON_LINES]);
+      expect(conditions.startingSize).toBe(SIZE_START);
+      expect([...conditions.roster]).toEqual([...WEAPON_LINES]);
       for (const line of WEAPON_LINES) {
-        expect(header.startingLevels[line]).toBe(
+        expect(conditions.startingLevels[line]).toBe(
           BIRTHRIGHT.includes(line) ? BIRTHRIGHT_LEVEL : 0,
         );
       }
@@ -237,10 +254,11 @@ describe('the harness run', () => {
       );
       const { header } = decodeTape(maxed.bytes).tape;
 
+      const conditions = conditionsIn(header);
       expect(maxed.rig).toBe('maxed');
-      expect(header.startingSize).toBe(RIGS.maxed.conditions.startingSize);
+      expect(conditions.startingSize).toBe(RIGS.maxed.conditions.startingSize);
       for (const line of WEAPON_LINES) {
-        expect(header.startingLevels[line]).toBe(MAX_LEVEL);
+        expect(conditions.startingLevels[line]).toBe(MAX_LEVEL);
       }
       // It reached the sim rather than only the header: the same seed under
       // the same hand from two rigs is two runs.
@@ -254,8 +272,9 @@ describe('the harness run', () => {
     () => {
       // A rig applied without its size or its score is a rig half applied, and
       // the figure it produced would name a condition it never played (#107).
-      // The header carries no score at all, which is why rigOf reads the size
-      // and the levels alone: banding is still answerable off what a tape holds.
+      // The header carries the whole condition now (FORMAT_VERSION 5), so the
+      // score is one of the three fields the banding reads and the row's own
+      // starting score is what the tape says it played.
       const staged = playHarnessRun(
         SHARP,
         RIGS.ladder,
@@ -265,12 +284,22 @@ describe('the harness run', () => {
       );
       const { header } = decodeTape(staged.bytes).tape;
 
+      const conditions = conditionsIn(header);
       expect(staged.rig).toBe('ladder');
-      expect(header.startingSize).toBe(SIZE_FLOOR);
+      expect(conditions.startingSize).toBe(SIZE_FLOOR);
+      expect(conditions.startingScore).toBe(
+        RIGS.ladder.conditions.startingScore,
+      );
       for (const line of WEAPON_LINES) {
-        expect(header.startingLevels[line]).toBe(MAX_LEVEL);
+        expect(conditions.startingLevels[line]).toBe(MAX_LEVEL);
       }
-      expect(rigOf(header.startingSize, header.startingLevels)).toBe('ladder');
+      expect(
+        rigOf(
+          conditions.startingSize,
+          conditions.startingLevels,
+          conditions.startingScore,
+        ),
+      ).toBe('ladder');
       // It reached the sim rather than only the header: the same seed under
       // the same hand from two rigs is two runs.
       expect(staged.bytes).not.toEqual(sealingRun().bytes);

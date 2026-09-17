@@ -3,19 +3,18 @@
 
 import type { WeaponLine } from '../game/lines/roster';
 import type { DamageSource } from '../game/mobs';
-import type { RunEnding } from '../game/run';
+import type { RunEnding, StartingConditions } from '../game/run';
 import { isBirthrightLevels } from '../game/run';
 import { SIZE_START } from '../game/tuning';
 import { buildMismatchOf } from '../tape/buildIdentity';
 import type { BuildMismatch } from '../tape/buildIdentity';
 import type { DecodedTape } from '../tape/decode';
 import { playTape } from '../tape/playback';
-import { resolveStartingLevels } from '../tape/startingLevels';
+import { resolveStartingCondition } from '../tape/startingCondition';
 import type { PlaybackResult } from '../tape/playback';
 import type {
   FaultObservation,
   Tape,
-  TapeHeader,
   TapeInputDevice,
   TapeIntegrity,
   TapeStop,
@@ -197,32 +196,47 @@ interface RosterRefusal {
   readonly recordedRoster: readonly string[];
 }
 
-type Refusal = WitnessRefusal | RosterRefusal;
+/**
+ * The tape's header describes a starting condition this build cannot start a
+ * run from, so it could not be simulated at all (ADR 0043).
+ *
+ * It carries the reason in the tape's own vocabulary, naming the row, for the
+ * same reason the roster arm names the roster: a refusal a reader cannot act on
+ * is a blanket refusal wearing a longer sentence.
+ */
+interface ConditionRefusal {
+  readonly outcome: 'conditionNotImplemented';
+  readonly recordedRoster: readonly string[];
+  readonly reason: string;
+}
+
+type Refusal = WitnessRefusal | RosterRefusal | ConditionRefusal;
 
 /**
  * The arms a measurement answers in (ADR 0019, ADR 0043): metrics from a
  * verified replay, a divergence naming the first checkpoint that disagreed, or
- * a refusal, which is either the fold's version or a roster this build cannot
- * implement. Metrics come only from a verified replay, so a silently wrong
- * metric is not a thing this interface can produce.
+ * a refusal, which is the fold's version, a roster this build cannot implement
+ * or a starting condition it cannot start from. Metrics come only from a
+ * verified replay, so a silently wrong metric is not a thing this interface can
+ * produce.
  */
 type Measurement = Metrics | Divergence | Refusal;
 
-const isConditioned = (
-  header: TapeHeader,
-  levels: Readonly<Record<WeaponLine, number>>,
-): boolean => header.startingSize !== SIZE_START || !isBirthrightLevels(levels);
+const isConditioned = (conditions: StartingConditions): boolean =>
+  conditions.startingSize !== SIZE_START ||
+  !isBirthrightLevels(conditions.startingLevels) ||
+  conditions.startingScore !== 0;
 
 const exclusionsOf = (
   tape: Tape,
-  levels: Readonly<Record<WeaponLine, number>>,
+  conditions: StartingConditions,
   recordedFaults: readonly FaultObservation[],
 ): AggregateExclusion[] => {
   const exclusions: AggregateExclusion[] = [];
   const device = tape.header.inputDevice;
   if (device === 'bot' || device === 'script') exclusions.push(device);
   if (tape.header.policy !== PERSON_POLICY) exclusions.push('policy');
-  if (isConditioned(tape.header, levels)) exclusions.push('conditioned');
+  if (isConditioned(conditions)) exclusions.push('conditioned');
   const integrity = tape.trailer?.integrity ?? null;
   if (integrity === 'faulted' || recordedFaults.length > 0) {
     exclusions.push('faulted');
@@ -233,14 +247,19 @@ const exclusionsOf = (
 
 const provenanceOf = (
   tape: Tape,
-  levels: Readonly<Record<WeaponLine, number>>,
+  conditions: StartingConditions,
   recordedFaults: readonly FaultObservation[],
 ): Provenance => ({
   inputDevice: tape.header.inputDevice,
   policy: tape.header.policy,
-  rig: rigOf(tape.header.startingSize, levels),
-  conditioned: isConditioned(tape.header, levels),
-  exclusions: exclusionsOf(tape, levels, recordedFaults),
+  // The rig's own three fields, off the condition the header carries whole.
+  rig: rigOf(
+    conditions.startingSize,
+    conditions.startingLevels,
+    conditions.startingScore,
+  ),
+  conditioned: isConditioned(conditions),
+  exclusions: exclusionsOf(tape, conditions, recordedFaults),
 });
 
 const runSummaryOf = (
@@ -275,27 +294,33 @@ const runSummaryOf = (
  */
 const measure = (decoded: DecodedTape): Measurement => {
   // Asked before anything is read off the header, because every reading below
-  // is keyed by this build's own line names and there are none to key by until
-  // the recorded roster turns out to be one this build has (ADR 0043).
-  const resolved = resolveStartingLevels(decoded.tape.header);
+  // is keyed by this build's own line names and by the run's own starting
+  // values, and there are none to key by until the recorded condition turns out
+  // to be one this build can start a run from (ADR 0043).
+  const resolved = resolveStartingCondition(
+    decoded.tape.header.startingCondition,
+  );
   if (resolved.outcome === 'notImplemented') {
-    return {
-      outcome: 'rosterNotImplemented',
-      recordedRoster: resolved.recordedRoster,
-    };
+    return resolved.refusal === 'roster'
+      ? {
+          outcome: 'rosterNotImplemented',
+          recordedRoster: resolved.recordedRoster,
+        }
+      : {
+          outcome: 'conditionNotImplemented',
+          recordedRoster: resolved.recordedRoster,
+          reason: resolved.reason,
+        };
   }
-  const startingLevels = resolved.levels;
-  const { startingSize } = decoded.tape.header;
+  const { conditions } = resolved;
+  const startingLevels = conditions.startingLevels;
+  const startingSize = conditions.startingSize;
   const frames = frameObservations(decoded.tape);
   const sampleAt = ticksToSample(frames);
   // The lines this run names, known before a tick has run, so every record the
   // report promises whole is whole even when the tape carries no command.
   const lines = linesInRun(startingLevels);
-  const readings = createReadings(
-    startingSize,
-    lines,
-    decoded.tape.header.signalLock,
-  );
+  const readings = createReadings(startingSize, lines, conditions.signalLock);
   const tallies = createTallies(readings, lines, startingLevels);
   // A frame starting at tick 0 began on the empty field, which no listener
   // call ever sees: the observer fires only after a tick has run.
@@ -341,11 +366,7 @@ const measure = (decoded: DecodedTape): Measurement => {
     performance: performanceOf(frames, tallies.densities),
     recordedFaults: result.recordedFaults,
     readbackFaults: result.readbackFaults,
-    provenance: provenanceOf(
-      decoded.tape,
-      startingLevels,
-      result.recordedFaults,
-    ),
+    provenance: provenanceOf(decoded.tape, conditions, result.recordedFaults),
   };
 };
 

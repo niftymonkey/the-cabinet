@@ -23,7 +23,7 @@ import type { BatchOrigin } from '../batchReport';
 import { runTickBudget } from '../harnessRun';
 import { measure } from '../measure';
 import type { Measurement, Metrics } from '../measure';
-import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const TICKS = 60;
 
@@ -46,9 +46,7 @@ const verifiedReport = (seed: number): Metrics => {
   const execution = createExecution(run);
   const recorder = recordInto(execution, {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: 20,
     witnessVersion: WITNESS_VERSION,
@@ -62,7 +60,6 @@ const verifiedReport = (seed: number): Metrics => {
     rendererResolution: 0,
     devicePixelRatio: 0,
     recordedAt: 1_788_000_000_000,
-    signalLock: SIGNAL_RAN_LIVE,
   });
   for (let tick = 0; tick < TICKS; tick++) {
     executeTick(execution, { move: { x: 0.2, y: -0.1 }, belch: false });

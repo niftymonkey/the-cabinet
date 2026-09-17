@@ -31,6 +31,7 @@ import { isRigName, RIGS, RIG_NAMES } from '../src/dev/rigs';
 import type { RigName } from '../src/dev/rigs';
 import { RUNNING_BUILD } from '../src/tape/buildIdentity';
 import { encodeTape } from '../src/tape/encode';
+import { startingConditionBlock } from '../src/tape/startingCondition';
 import {
   RECORDER_CHECKPOINT_SPACING,
   recordInto,
@@ -152,10 +153,11 @@ const parseLevels = (
  * than resolved, because the row already states every line's level and a
  * command that states them twice can state them differently.
  *
- * A score named beside a row is an override and not a contradiction, and it is
- * the one way to record a verifiable tape from a row whose score is not zero:
- * the header carries no score, so only a run that starts at zero replays as it
- * played. The size and the levels still come from the row.
+ * A score named beside a row is an override and not a contradiction: it is the
+ * one figure of a row a recording may want to move without naming a second row,
+ * and the size, the levels and the record still come from the row. The tape
+ * verifies either way now, because the header carries the score the run began
+ * holding (FORMAT_VERSION 5).
  */
 const conditionsFromRig = (
   raw: string,
@@ -194,22 +196,6 @@ const conditionsFromArguments = (
 };
 
 /**
- * Says that a tape started from a score will not replay as it played, before
- * it is written rather than after, because nothing abnormal is silent.
- *
- * The tape header carries the seed, the size, the roster, the levels and the
- * signal lock, and no score at all, while the witness folds run.score. So a
- * readback rebuilds a run that starts at zero and disagrees at its first
- * checkpoint. Widening the header is a later slice's question and not this
- * command's to answer.
- */
-const reportUnreplayableScore = (score: number): void => {
-  console.warn(
-    `this run starts holding ${score} and a tape header carries no score, so a readback rebuilds it from zero and diverges at the first checkpoint; the tape records what the run played and can never be verified against it`,
-  );
-};
-
-/**
  * The commit this tape records against, asked of git the way vite.config.ts
  * asks, because the headless config compiles no COMMIT_HASH define. Metadata
  * and never a fidelity gate (ADR 0018): a tree without git says so rather
@@ -231,9 +217,8 @@ const commitHashHere = (): string => {
 const headerFor = (run: RunState): TapeHeader => {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...run.roster],
-    startingLevels: { ...run.levels },
+    // The run's own resolved record, whole (ADR 0063).
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -247,9 +232,6 @@ const headerFor = (run: RunState): TapeHeader => {
     rendererResolution: 0,
     devicePixelRatio: 0,
     recordedAt: Date.now(),
-    // Read off the run, as the size and the levels are: a conditioned run holds
-    // no signal, so this records the value that means it ran live.
-    signalLock: run.director.signal.lock,
   };
 };
 
@@ -371,10 +353,6 @@ const main = (): void => {
     process.exitCode = 1;
     return;
   }
-  // Both ways of naming a condition state a score, so an absent one here would
-  // be this shell's own bug rather than a command that left it out.
-  const score = conditions.startingScore;
-  if (score !== undefined && score !== 0) reportUnreplayableScore(score);
   if (!writeOrRefuse(path, recordTape(seed, ticks, conditions))) {
     process.exitCode = 1;
     return;

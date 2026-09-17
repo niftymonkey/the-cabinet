@@ -22,12 +22,12 @@ import {
 } from './segments';
 import type {
   Observation,
+  StartingConditionEntry,
   TapeCheckpoint,
   TapeHeader,
   TapeTrailer,
 } from './tape';
 import { FRAME_REASONS, TAPE_INPUT_DEVICES, TAPE_INTEGRITIES } from './tape';
-import { holdableSignal, SIGNAL_RAN_LIVE } from '../game/signalLock';
 import { TapeFormatError } from './tapeFormatError';
 import {
   ABSENT_CODE,
@@ -72,42 +72,35 @@ const named = <T extends string>(
   return name;
 };
 
-// The line names this tape was written against, which are the order its level bytes follow.
-const readRecordedRoster = (payload: ByteReader): string[] => {
-  const roster: string[] = [];
-  const named = readU8(payload);
-  for (let line = 0; line < named; line++) roster.push(readString(payload));
-  return roster;
-};
-
 /**
- * The starting levels, read by name against the roster the tape recorded and
- * never by position (ADR 0043).
+ * The whole starting condition, read back as the names and values the tape
+ * wrote and nothing more (ADR 0043).
  *
- * Nothing is coerced into this build's own roster here. A tape naming a line
- * this build does not implement is reported as recorded, because the tape said
- * something true and the reader's job is not to edit it;
- * `resolveStartingLevels` is the separate step that asks whether this build can
- * run it.
+ * Nothing is coerced into this build's own vocabulary here and nothing is
+ * checked against it. A tape naming a row this build does not have is reported
+ * as recorded, because the tape said something true and the reader's job is not
+ * to edit it; `resolveStartingCondition` is the separate step that asks whether
+ * this build can run what is written, and a block decoded straight into the
+ * condition's own typed record is the mistake ADR 0043 was written against.
  */
-const readStartingLevels = (
+const readStartingCondition = (
   payload: ByteReader,
-  roster: readonly string[],
-): Record<string, number> => {
-  // Prototype-free, because the roster is decoded bytes rather than our own
-  // vocabulary. A line named `__proto__` assigned into an ordinary object is
-  // swallowed by the prototype setter and reads back as an inherited object,
-  // which is not the missing level it actually is.
-  const levels: Record<string, number> = Object.create(null);
-  for (const line of roster) levels[line] = readU8(payload);
-  return levels;
+): StartingConditionEntry[] => {
+  const block: StartingConditionEntry[] = [];
+  const named = readU16(payload);
+  for (let entry = 0; entry < named; entry++) {
+    // The name before the value, in the order they were written: readString
+    // and readF64 both bounds-check, so a count larger than the bytes behind it
+    // refuses here rather than yielding entries made of whatever followed.
+    const name = readString(payload);
+    block.push({ name, value: readF64(payload) });
+  }
+  return block;
 };
 
 const readHeader = (payload: ByteReader): TapeHeader => {
   const seed = readU32(payload);
-  const startingSize = readF64(payload);
-  const recordedRoster = readRecordedRoster(payload);
-  const startingLevels = readStartingLevels(payload, recordedRoster);
+  const startingCondition = readStartingCondition(payload);
   const tickRate = readU16(payload);
   const checkpointSpacing = readU32(payload);
   const witnessVersion = readU8(payload);
@@ -125,25 +118,17 @@ const readHeader = (payload: ByteReader): TapeHeader => {
   const rendererResolution = readF32(payload);
   const devicePixelRatio = readF32(payload);
   const recordedAt = readF64(payload);
-  const signalLock = readF64(payload);
   if (checkpointSpacing < 1) {
     throw new TapeFormatError('a checkpoint spacing below one stamps nothing');
   }
-  // A tape is a document, so a lock it cannot support is rejected here rather
-  // than repaired (the repair-by-origin rule): a figure outside the signal's own
-  // scale would hold the gate where the signal can never stand, and a NaN would
-  // freeze the run at one and fault on every tick after. Checked once, where the
-  // bytes enter, so everything downstream reads a value it can trust.
-  if (signalLock !== SIGNAL_RAN_LIVE && !holdableSignal(signalLock)) {
-    throw new TapeFormatError(
-      `this tape holds its signal at ${signalLock}, which the signal's own scale cannot stand at`,
-    );
-  }
+  // The signal lock's own scale is not asked here any more. It is a row of the
+  // starting-condition block now, and the block is open by construction: which
+  // name is the lock is a question about this build's vocabulary, which is
+  // resolveStartingCondition's to ask (ADR 0043). The refusal is not lost, it
+  // moved, and a lock this build cannot hold is refused there in the same shape.
   return {
     seed,
-    startingSize,
-    recordedRoster,
-    startingLevels,
+    startingCondition,
     tickRate,
     checkpointSpacing,
     witnessVersion,
@@ -157,7 +142,6 @@ const readHeader = (payload: ByteReader): TapeHeader => {
     rendererResolution,
     devicePixelRatio,
     recordedAt,
-    signalLock,
   };
 };
 
