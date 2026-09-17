@@ -8,11 +8,13 @@ import {
 } from '../../dev/frameBudget';
 import type { FieldSize } from '../../dev/syntheticField';
 import { standSyntheticField } from '../../dev/syntheticField';
-import { CORPSE_CAP, MOB_CAP } from '../../game/caps';
+import type { Caps } from '../../game/caps';
+import { capsFor } from '../../game/caps';
 import type { Execution } from '../../game/execution';
 import { createExecution, executeTick } from '../../game/execution';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
 import { MENU } from '../palette';
 import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
@@ -52,12 +54,14 @@ interface Measuring {
 }
 
 /**
- * A field this build's pools cannot hold. The caps are compiled in and are
- * identical on every device (`caps.ts`), so which of round 0's fields can stand
- * at all is a fact about the build that opened this URL.
+ * A field the runs this screen makes cannot hold. The caps are derived per run
+ * from the record it starts under (ADR 0056 as amended) and every run here
+ * starts under the build's own, so which of round 0's fields can stand at all
+ * is a fact about the build that opened this URL: the bench's config aliases
+ * the derivation and the shipped build does not.
  */
-const fits = (size: FieldSize): boolean =>
-  size.mobs <= MOB_CAP && size.corpses <= CORPSE_CAP;
+const fits = (size: FieldSize, caps: Caps): boolean =>
+  size.mobs <= caps.mobs && size.corpses <= caps.corpses;
 
 /**
  * Round 0's frame budget, measured in whatever browser opened this URL.
@@ -132,13 +136,16 @@ class FrameBudgetScreen extends Container {
   }
 
   public prepare() {
-    this.fieldRenderer.attach(this.layers);
-    this.queue = ROUND_ZERO_FIELDS.filter(fits);
+    // The runs below are all made with no record of their own, so this is what
+    // every one of them derives.
+    const caps = capsFor(DEFAULT_TUNING);
+    this.fieldRenderer.attach(this.layers, caps);
+    this.queue = ROUND_ZERO_FIELDS.filter((size) => fits(size, caps));
     this.measured = [];
     this.current = this.beginNextField();
     this.heading.text = 'FRAME BUDGET';
     this.table.text = 'measuring';
-    this.note.text = this.refusalNote();
+    this.note.text = this.refusalNote(caps);
   }
 
   /**
@@ -209,13 +216,13 @@ class FrameBudgetScreen extends Container {
    * as a measurement that stopped rather than as a build whose pools are
    * smaller than the record's largest rows.
    */
-  private refusalNote(): string {
-    const refused = ROUND_ZERO_FIELDS.filter((size) => !fits(size));
+  private refusalNote(caps: Caps): string {
+    const refused = ROUND_ZERO_FIELDS.filter((size) => !fits(size, caps));
     if (refused.length === 0) return '';
     const named = refused
       .map((size) => `${size.mobs} / ${size.corpses}`)
       .join(', ');
-    return `This build holds ${MOB_CAP} mobs and ${CORPSE_CAP} corpses, so it cannot stand ${named}. Those rows need a build made under vite.frame-budget.config.ts.`;
+    return `This build holds ${caps.mobs} mobs and ${caps.corpses} corpses, so it cannot stand ${named}. Those rows need a build made under vite.frame-budget.config.ts.`;
   }
 
   public reset() {

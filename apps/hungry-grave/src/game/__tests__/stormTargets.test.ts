@@ -17,6 +17,7 @@ import type { RunState } from '../run';
 import { createRun } from '../run';
 import { shoveInFlight } from '../shove';
 import { SET_PIECE_HP } from '../stage/waves';
+import { DEFAULT_TUNING } from '../tuningRecord';
 import {
   advanceSetPiece,
   damageSetPiece,
@@ -241,6 +242,39 @@ describe('what the storm can hit', () => {
     expect(
       requireDefined(stormTargets(state)[0], 'no storm target').entered,
     ).toBe(false);
+  });
+
+  it('grows its own scratch to the run it is handed, so nothing is sized when the module loads', () => {
+    // The scratch is a module-level buffer and it stays one, because five
+    // callers a tick would otherwise allocate a fresh array each. What it may
+    // no longer do is take its size from a module constant at import: the caps
+    // are derived per run now (ADR 0056 as amended), so a run under a record
+    // that earns larger pools has more bodies than any import-time size could
+    // have known about. Sized at import this call would throw for the slot it
+    // could not find.
+    const roomy = createRun(SEED, {
+      tuning: {
+        ...DEFAULT_TUNING,
+        stage: { ...DEFAULT_TUNING.stage, quietIntervalMinimumSeconds: 1 },
+      },
+    });
+    expect(roomy.mobs.length).toBeGreaterThan(createRun(SEED).mobs.length);
+    for (const mob of roomy.mobs) {
+      mob.alive = true;
+      mob.beat = 0;
+    }
+    spawnBoss(roomy, 'banshee');
+
+    expect(stormTargets(roomy)).toHaveLength(roomy.mobs.length + 1);
+  });
+
+  it('keeps a scratch it has already grown, so a smaller run reuses it', () => {
+    // Grow-only, which is what lets one module-level buffer serve every run a
+    // process plays whatever record each started under.
+    const small = createRun(SEED);
+    putMob(small, 100, 100);
+
+    expect(stormTargets(small)).toHaveLength(1);
   });
 });
 

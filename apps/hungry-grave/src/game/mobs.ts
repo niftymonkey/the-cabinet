@@ -1,7 +1,7 @@
 // The mob type table, one behaviour rule per type, and the consequence of a mob
 // being hit (tracer plan section 3).
 
-import { createPool, MOB_CAP, takeSlot } from './caps';
+import { createPool, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
 import { spawnCorpse } from './corpses';
 import type { SimEvent } from './events';
@@ -371,8 +371,8 @@ const blankMob = (): Mob => {
   };
 };
 
-const createMobPool = (): Mob[] => {
-  return createPool(MOB_CAP, blankMob);
+const createMobPool = (cap: number): Mob[] => {
+  return createPool(cap, blankMob);
 };
 
 const mobHitbox = (mob: Mob): Rect => {

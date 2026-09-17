@@ -47,7 +47,7 @@ const WARM_UP_FRAMES = 600;
 // Frames timed per field, three seconds of play at the tick rate.
 const TIMED_FRAMES = 180;
 
-// The largest field about to be measured, which is what the load-time arrays are sized against.
+// The largest field about to be measured, which is what the refusal check stands its run at.
 const largestField = (fields: readonly FieldSize[]): FieldSize =>
   fields.reduce((largest, field) =>
     field.mobs > largest.mobs ? field : largest,
@@ -71,11 +71,14 @@ interface FieldDriver {
 }
 
 /**
- * The driver, and the game it drives, loaded only once the ceiling is raised.
+ * The driver, and the game it drives.
  *
- * The import is dynamic because raising the ceiling is import-time work for
- * everything that reads a cap at module load, and a static import would have
- * read the shipped one before the first line of this file ran.
+ * The import stays dynamic, and what it buys is now one thing rather than two:
+ * the modules it pulls in are loaded after this shell has named its first
+ * field, so a module that ever did read a cap when it loaded would read the
+ * bench's. No module does any more, because the caps are derived per run from
+ * the record a run starts under (ADR 0056 as amended), and what decides a
+ * pool's size is the sizePoolsFor call before each createRun below.
  */
 const frameDriver = async (): Promise<FieldDriver> => {
   const { createExecution, executeTick } =

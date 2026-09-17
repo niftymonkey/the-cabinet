@@ -12,29 +12,35 @@
  * in, and only the frame-budget script imports it by name.
  *
  * Two caps move and the rest are the shipped ones, because a field is bodies
- * and food. They are live bindings rather than constants: the pools are built
- * inside createRun, which reads them at call time, so one process can size its
- * pools per row rather than per run of the tool. What does read a cap at module
- * load is stormTargets' scratch array, so the ceiling is raised once, to the
- * largest field about to be measured, before the game is imported at all.
+ * and food. They are derivations over the run's tuning record rather than
+ * numbers, because that is what the shipped module exports now: the pools are
+ * built inside createRun, which derives them at call time, so one process can
+ * size its pools per row rather than per run of the tool. Nothing here is read
+ * when the module loads, so the bench's own size is set by calling
+ * sizePoolsFor before the run that is to stand at it.
  */
 
 import type { FieldSize } from '../src/dev/syntheticField';
+import type { Caps, PoolSlot } from '../src/game/caps';
 import {
-  CORPSE_CAP as SHIPPED_CORPSE_CAP,
+  corpseCap as shippedCorpseCap,
   createPool,
   liveCount,
-  MOB_CAP as SHIPPED_MOB_CAP,
-  MOB_FIRE_CAP,
+  mobCap as shippedMobCap,
+  mobFireCap,
+  peakLive,
+  revenantFirePeak,
   SKULL_CAP,
   takeSlot,
+  TRANSIT_SECONDS,
   TREASURE_ALLOWANCE,
   WISP_CAP,
+  WORST_BOSS_PATTERN,
 } from '../src/game/caps';
-import type { PoolSlot } from '../src/game/caps';
+import type { TuningRecord } from '../src/game/tuningRecord';
 
-let MOB_CAP = SHIPPED_MOB_CAP;
-let CORPSE_CAP = SHIPPED_CORPSE_CAP;
+let benchMobs: number | null = null;
+let benchCorpses: number | null = null;
 
 /**
  * The pools every run made after this call is built with. It is world-changing
@@ -42,20 +48,43 @@ let CORPSE_CAP = SHIPPED_CORPSE_CAP;
  * being the shipped build.
  */
 const sizePoolsFor = (size: FieldSize): void => {
-  MOB_CAP = size.mobs;
-  CORPSE_CAP = size.corpses;
+  benchMobs = size.mobs;
+  benchCorpses = size.corpses;
 };
+
+// The bench's own body count once a field is named, and the shipped one before.
+const mobCap = (tuning: TuningRecord): number =>
+  benchMobs ?? shippedMobCap(tuning);
+
+// The bench's own food count once a field is named, and the shipped one before.
+const corpseCap = (tuning: TuningRecord): number =>
+  benchCorpses ?? shippedCorpseCap(tuning);
+
+/**
+ * The three caps a run is built at under this bench: the two the field names
+ * and the shipped mob-fire cap, which no field row moves.
+ */
+const capsFor = (tuning: TuningRecord): Caps => ({
+  mobs: mobCap(tuning),
+  mobFire: mobFireCap(tuning),
+  corpses: corpseCap(tuning),
+});
 
 export {
   createPool,
   takeSlot,
   liveCount,
-  MOB_CAP,
-  MOB_FIRE_CAP,
-  CORPSE_CAP,
+  peakLive,
+  TRANSIT_SECONDS,
+  mobCap,
+  revenantFirePeak,
+  WORST_BOSS_PATTERN,
+  mobFireCap,
+  corpseCap,
+  capsFor,
   TREASURE_ALLOWANCE,
   SKULL_CAP,
   WISP_CAP,
   sizePoolsFor,
 };
-export type { PoolSlot };
+export type { Caps, PoolSlot };

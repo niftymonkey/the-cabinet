@@ -1031,6 +1031,31 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     "the figure the run holds its signal at, on director.signal.lock's own terms: it is the same resolved value, carried here because a rig and a header state it, and what it decides shows through director.signal.value, which the walk folds.",
   'conditions.startingScore':
     "the score the run began holding, which score already carries from the first tick: score is folded, so a run staged with a different one diverges at checkpoint zero. It is a starting condition rather than run state, which is why the record's arrival moved no witness version.",
+  'conditions.tuning.stage.processionPurse':
+    "a row of the tuning record the run started under, which is a starting condition on conditions.startingScore's own terms: the shell resolves it once and createRun carries it, the rules never write it, and every consequence of it is already inside the fold through the live state it changes (ADR 0064, the draft's ruling 6). That is why the record's arrival moves no witness version.",
+  'conditions.tuning.stage.crowdPurse':
+    'as conditions.tuning.stage.processionPurse is.',
+  'conditions.tuning.stage.vigilPurse':
+    'as conditions.tuning.stage.processionPurse is.',
+  'conditions.tuning.stage.quietIntervalMinimumSeconds':
+    "as conditions.tuning.stage.processionPurse is. What it decides is the three caps and the director's own wait, and both show through the pools and the adds the walk folds.",
+  'conditions.tuning.stage.quietIntervalMaximumSeconds':
+    'as conditions.tuning.stage.quietIntervalMinimumSeconds is.',
+  'conditions.tuning.score.trashKillScore':
+    'as conditions.tuning.stage.processionPurse is: what it decides shows through score, which is folded from the first tick.',
+  'conditions.tuning.score.bleedCapInKills':
+    'as conditions.tuning.score.trashKillScore is.',
+  'conditions.tuning.score.bossHealthPerKill':
+    'as conditions.tuning.score.trashKillScore is.',
+  'conditions.tuning.score.sourceKillInKills':
+    'as conditions.tuning.score.trashKillScore is.',
+  'conditions.tuning.score.mealAtMaxedInKills':
+    'as conditions.tuning.score.trashKillScore is.',
+  'caps.mobs':
+    "what this run's mob pool was built at, derived once by createRun from the record above and never written again (ADR 0056 as amended). It is the run's identity in the same way the seed is, and what it decides is folded already: the pool it sized is walked every tick, and a run that derived a different cap diverges in what stands on the field rather than in a number beside it.",
+  'caps.mobFire':
+    "what this run's mob-fire pool was built at, as caps.mobs is.",
+  'caps.corpses': "what this run's corpse pool was built at, as caps.mobs is.",
   tick: "the witness's own address. A checkpoint at index N is by definition the state after executeTick has run N times, so the tick names a fold rather than being part of one.",
   'mobs[].alive':
     'gates the walk. A dead slot contributes nothing at all, so liveness already moves the fold by deciding which entities are folded.',

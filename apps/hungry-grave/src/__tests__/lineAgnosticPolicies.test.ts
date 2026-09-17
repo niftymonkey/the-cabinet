@@ -171,10 +171,12 @@ const carriesPrefixOf = (name: string, line: WeaponLine): boolean =>
  *
  * src/game/caps.ts owns the entity cap policy (caps.ts:1-15): a safety net is a
  * number far enough above the densest thing its pool can hold that reaching it
- * means something has gone wrong, read beside MOB_CAP and derived the same way,
- * rather than a rung of a line's ladder. The skulls' and the wisps' pools are
- * sized exactly that way (caps.ts:82-102), so a fifth line's safety net joins
- * them there and the recipe stays four registrations.
+ * means something has gone wrong, read beside the mob cap and argued the same
+ * way, rather than a rung of a line's ladder. The skulls' and the wisps' pools
+ * are sized exactly that way, so a fifth line's safety net joins them there and
+ * the recipe stays four registrations. The two named below are the only figures
+ * left in that file that are written down: the mob, mob-fire and corpse caps
+ * are derivations over a run's own tuning record now (ADR 0056 as amended).
  *
  * The `_CAP` suffix is deliberately not what excuses a name, because a suffix
  * excuses any row a line dresses in it. TERRITORY_CAP wore one while deciding

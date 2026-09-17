@@ -21,7 +21,6 @@
 
 import type { Boss } from './bosses/phases';
 import { bossHitbox, damageBoss } from './bosses/phases';
-import { MOB_CAP } from './caps';
 import type { SimEvent } from './events';
 import type { DamageSource, Mob } from './mobs';
 import { damageMob, hasEntered, mobHitbox, moveInsideBounds } from './mobs';
@@ -106,12 +105,27 @@ const blankSlot = (): TargetSlot => {
  * The slots this module owns, one per thing that can stand on the field at
  * once: the whole mob pool, the boss, and the set piece's own source.
  *
- * They are pre-allocated and refilled in place so that a tick allocates nothing
- * however many lines ask, which is the point. Five callers a tick over a
- * hundred-and-sixty-slot pool is exactly where a fresh array per call would
- * show up.
+ * They are refilled in place so that a tick allocates nothing however many
+ * lines ask, which is the point. Five callers a tick over a pool of hundreds is
+ * exactly where a fresh array per call would show up.
+ *
+ * Empty when this module loads and grown on the first ask, because the mob cap
+ * is a per-run derivation now (ADR 0056 as amended) and no size is known here
+ * until a run is in hand. It is module-level rather than a field of the run:
+ * these are the seam's own scratch and never state a witness folds or a tape
+ * rebuilds, and sixteen handle paths on RunState is what carrying them there
+ * would cost.
  */
-const SLOTS: TargetSlot[] = Array.from({ length: MOB_CAP + 2 }, blankSlot);
+const SLOTS: TargetSlot[] = [];
+
+/**
+ * The scratch, long enough for everything this run can stand on the field at
+ * once. Grow-only, so one process playing runs under several records keeps one
+ * buffer rather than reallocating per run.
+ */
+const growSlotsTo = (length: number): void => {
+  while (SLOTS.length < length) SLOTS.push(blankSlot());
+};
 
 /**
  * The list handed out, held at the number of slots filled. It is the same array
@@ -122,10 +136,10 @@ const SLOTS: TargetSlot[] = Array.from({ length: MOB_CAP + 2 }, blankSlot);
 const LIVE: TargetSlot[] = [];
 
 /**
- * The pool slot at this index. SLOTS is sized MOB_CAP + 2 and stormTargets
- * never fills past one mob-cap's worth plus the boss plus the set piece, so an
- * index outside the pool here is a bug in that capacity rather than a case to
- * handle.
+ * The pool slot at this index. SLOTS is grown to the run's own mob pool plus
+ * two before a fill begins, and stormTargets never fills past that pool plus
+ * the boss plus the set piece, so an index outside it here is a bug in the
+ * growth above rather than a case to handle.
  */
 const slotAt = (index: number): TargetSlot => {
   const slot = SLOTS[index];
@@ -224,6 +238,9 @@ const fillFromSetPiece = (
  * produce the same kills in the same order.
  */
 const stormTargets = (state: RunState): readonly StormTarget[] => {
+  // The mob pool, the boss and the set piece's source, which is the most this
+  // run can ever stand.
+  growSlotsTo(state.mobs.length + 2);
   let filled = 0;
   for (const mob of state.mobs) {
     if (!mob.alive) continue;

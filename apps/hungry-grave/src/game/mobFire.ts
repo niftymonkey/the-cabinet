@@ -1,7 +1,7 @@
 // The fire mobs emit: the firing numbers a mob type owns, the shot record, and
 // a shot's flight from the mob that fired it (ADR 0016, ADR 0014).
 
-import { createPool, MOB_FIRE_CAP, takeSlot } from './caps';
+import { createPool, takeSlot } from './caps';
 import type { SimEvent } from './events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import { normalize } from './math';
@@ -103,8 +103,8 @@ const blankShot = (): Shot => {
   };
 };
 
-const createShotPool = (): Shot[] => {
-  return createPool(MOB_FIRE_CAP, blankShot);
+const createShotPool = (cap: number): Shot[] => {
+  return createPool(cap, blankShot);
 };
 
 const shotHitbox = (shot: Shot): Rect => {

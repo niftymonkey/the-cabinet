@@ -9,11 +9,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  CORPSE_CAP,
-  MOB_CAP,
-  MOB_FIRE_CAP,
+  capsFor,
+  corpseCap,
+  mobCap,
+  mobFireCap,
   peakLive,
-  REVENANT_FIRE_PEAK,
+  revenantFirePeak,
   TRANSIT_SECONDS,
   TREASURE_ALLOWANCE,
   WORST_BOSS_PATTERN,
@@ -43,6 +44,26 @@ import {
   VIGIL_WAVES,
 } from '../stage/waves';
 import { FRESHNESS_SECONDS } from '../tuning';
+import { DEFAULT_TUNING } from '../tuningRecord';
+import type { TuningRecord } from '../tuningRecord';
+
+/**
+ * The three caps a run under the default record derives, which is every run at
+ * this tip: the record's rows are the values the build compiles, so each of
+ * these is the number the module constant held before the caps became
+ * derivations of a record (ADR 0056 as amended, ADR 0064).
+ */
+const MOB_CAP = mobCap(DEFAULT_TUNING);
+const MOB_FIRE_CAP = mobFireCap(DEFAULT_TUNING);
+const CORPSE_CAP = corpseCap(DEFAULT_TUNING);
+
+/** The default record with one stage row moved, and every other row left alone. */
+function tuningWithQuietMinimum(seconds: number): TuningRecord {
+  return {
+    ...DEFAULT_TUNING,
+    stage: { ...DEFAULT_TUNING.stage, quietIntervalMinimumSeconds: seconds },
+  };
+}
 
 function quietRun(seed = 12): RunState {
   const run = createRun(seed);
@@ -270,7 +291,7 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     // a number in data, so the mob cap is re-derived above that". Every cap
     // below is computed from the waves and read against them here, so a cap
     // that stopped describing the content it was taken from fails.
-    expect(MOB_CAP).toBe(peakLive());
+    expect(MOB_CAP).toBe(peakLive(DEFAULT_TUNING));
     expect(MOB_CAP).toBeGreaterThan(peakArrivals(FRESHNESS_SECONDS));
     expect(CORPSE_CAP).toBeGreaterThan(
       MOB_CAP + peakArrivals(FRESHNESS_SECONDS),
@@ -323,7 +344,9 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     const perWindow =
       largestCard(null) *
       (Math.floor(TRANSIT_SECONDS / QUIET_INTERVAL_MINIMUM_SECONDS) + 1);
-    expect(peakLive()).toBe(peakArrivals(TRANSIT_SECONDS) + perWindow);
+    expect(peakLive(DEFAULT_TUNING)).toBe(
+      peakArrivals(TRANSIT_SECONDS) + perWindow,
+    );
     expect(largestCard(null)).toBeGreaterThan(0);
     // The teeth on both sides: it is more than one card, because a transit
     // window holds several quiet intervals, and still well under a purse.
@@ -336,7 +359,9 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     // Boss fire and trash fire share one pool (mobFire.ts's createShotPool), so
     // a derivation over the revenants alone would size a pool for a field that
     // never happens.
-    expect(MOB_FIRE_CAP).toBe(REVENANT_FIRE_PEAK + WORST_BOSS_PATTERN);
+    expect(MOB_FIRE_CAP).toBe(
+      revenantFirePeak(DEFAULT_TUNING) + WORST_BOSS_PATTERN,
+    );
 
     // Each term stands above its own floor, read off the data rather than off
     // the derivation. A revenant holds more than one shot in the air because
@@ -344,7 +369,7 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     // one emit for the same reason.
     const revenants =
       peakArrivalsOf('revenant', TRANSIT_SECONDS) + largestCard('revenant');
-    expect(REVENANT_FIRE_PEAK).toBeGreaterThan(revenants);
+    expect(revenantFirePeak(DEFAULT_TUNING)).toBeGreaterThan(revenants);
     const worstEmit = Math.max(
       ...Object.values(BOSS_FIRE)
         .flat()
@@ -356,7 +381,7 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     // The teeth: without the boss term the cap would be the revenant half
     // alone, and the bosses put more in the air than the revenants ever do.
     expect(WORST_BOSS_PATTERN).toBeGreaterThan(0);
-    expect(MOB_FIRE_CAP).toBeGreaterThan(REVENANT_FIRE_PEAK);
+    expect(MOB_FIRE_CAP).toBeGreaterThan(revenantFirePeak(DEFAULT_TUNING));
 
     // And two phases share the pool at a break, which is why the boss term is a
     // phase beside the one that follows it rather than a phase alone: the flash
@@ -443,8 +468,65 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
       ),
     );
     expect(beats).toBeGreaterThan(0);
-    expect(peakLive()).toBeGreaterThan(beats);
+    expect(peakLive(DEFAULT_TUNING)).toBeGreaterThan(beats);
     // And it is not merely larger: the rates carry most of it.
-    expect(peakLive()).toBeGreaterThan(2 * beats);
+    expect(peakLive(DEFAULT_TUNING)).toBeGreaterThan(2 * beats);
+  });
+});
+
+describe('the caps as derivations of the run tuning record (ADR 0064)', () => {
+  it('derives the numbers the build compiles from the default record', () => {
+    // The whole of what makes this slice a move of where a cap is computed and
+    // never a move of a magnitude: the default record's rows are the constants
+    // the build compiles, so the three derivations answer exactly what the
+    // three module constants held.
+    expect(capsFor(DEFAULT_TUNING)).toEqual({
+      mobs: MOB_CAP,
+      mobFire: MOB_FIRE_CAP,
+      corpses: CORPSE_CAP,
+    });
+    expect(MOB_CAP).toBeGreaterThan(0);
+    expect(MOB_FIRE_CAP).toBeGreaterThan(0);
+    expect(CORPSE_CAP).toBeGreaterThan(0);
+  });
+
+  it('answers a larger cap for a record whose director may add more often', () => {
+    // The point of the derivation taking the record: the quiet interval's
+    // minimum is what bounds the director's rate, so a record that shortens it
+    // lets more bodies stand inside one transit window and all three caps grow
+    // with it. Nothing in the tree could say this while a cap was a const.
+    const often = tuningWithQuietMinimum(1);
+    expect(mobCap(often)).toBeGreaterThan(MOB_CAP);
+    expect(mobFireCap(often)).toBeGreaterThan(MOB_FIRE_CAP);
+    expect(corpseCap(often)).toBeGreaterThan(CORPSE_CAP);
+  });
+
+  it('answers a smaller cap for a record whose director must wait longer', () => {
+    // The other direction, so the derivation is a function of the row rather
+    // than a floor that only ever rises.
+    const seldom = tuningWithQuietMinimum(8);
+    expect(mobCap(seldom)).toBeLessThan(MOB_CAP);
+    expect(corpseCap(seldom)).toBeLessThan(CORPSE_CAP);
+  });
+
+  it('keeps every cap a proof over the record it was handed', () => {
+    // The identities the three JSDoc arguments state, held against a record
+    // that is not the default: the mob cap is its transit window's arrivals
+    // plus the cards that window holds, the mob-fire cap is the revenant peak
+    // plus the worst boss pattern, and the corpse cap is the mob cap plus a
+    // freshness window's arrivals plus the treasure allowance plus the
+    // director's own adds inside that window.
+    const moved = tuningWithQuietMinimum(2);
+    const perWindow = largestCard(null) * (Math.floor(TRANSIT_SECONDS / 2) + 1);
+    expect(mobCap(moved)).toBe(peakArrivals(TRANSIT_SECONDS) + perWindow);
+    expect(mobFireCap(moved)).toBe(
+      revenantFirePeak(moved) + WORST_BOSS_PATTERN,
+    );
+    expect(corpseCap(moved)).toBe(
+      mobCap(moved) +
+        peakArrivals(FRESHNESS_SECONDS) +
+        TREASURE_ALLOWANCE +
+        largestCard(null) * (Math.floor(FRESHNESS_SECONDS / 2) + 1),
+    );
   });
 });

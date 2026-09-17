@@ -788,6 +788,70 @@ describe('the cap derivation reads tables and never the stage', () => {
 });
 
 /**
+ * The record the caps derive from, and the one way the core is allowed to get
+ * it: off the run it was handed.
+ *
+ * The shell resolves the record once and passes it inward through createRun
+ * (ADR 0064), so a core module that imported the default would be reading a
+ * record nobody chose, and the run's own values would be quietly ignored on
+ * exactly the path a sweep exists to move. The rendering boundary above already
+ * forbids src/game reaching src/app at all, so what is left to say here is the
+ * half a fence can say about a module in its own root: nothing under src/game
+ * but the record's own module names the default, and the derivation takes what
+ * it reads as an argument.
+ *
+ * tuningRecord.ts is exempt because the default is its own declaration, and a
+ * test file is exempt because a test is not shipped and has to name a record to
+ * assert about one, which is the same carve-out the src/dev allowance above is.
+ */
+const DECLARES_THE_RECORD = 'game/tuningRecord';
+const THE_RECORD_S_DEFAULT = 'DEFAULT_TUNING';
+
+/** Whether a source takes the default record instead of the one it was handed. */
+function takesTheDefault(source: string): boolean {
+  return importsOf(source).some(
+    (specifier) =>
+      specifier.includes('tuningRecord') &&
+      new RegExp(`\\b${THE_RECORD_S_DEFAULT}\\b`).test(source),
+  );
+}
+
+/** Every shipped module under src/game but the one that declares the record. */
+function shippedCoreModulesBesides(module: string): string[] {
+  return typescriptFilesUnder(join(SRC, 'game'))
+    .filter((file) => !isTest(file))
+    .filter((file) => modulePathOf(file) !== module);
+}
+
+describe('the caps derivation and the core read the record off the run', () => {
+  it('takes the default in no shipped core module but the one that declares it', () => {
+    expect(
+      shippedCoreModulesBesides(DECLARES_THE_RECORD)
+        .filter((file) => takesTheDefault(readFileSync(file, 'utf8')))
+        .map(modulePathOf),
+    ).toEqual([]);
+  });
+
+  it('catches a core module reaching for the default, so the rule has teeth', () => {
+    // The wrongness it guards: a reader that imports the default answers the
+    // build's own numbers whatever record the run it sits inside was started
+    // under, which is a sweep that moves a row and changes nothing. Taking the
+    // type is not taking the value, so the fence has to read the name and not
+    // the specifier alone.
+    expect(
+      takesTheDefault(
+        `import { ${THE_RECORD_S_DEFAULT} } from './tuningRecord';\nconst cap = ${THE_RECORD_S_DEFAULT}.stage.quietIntervalMinimumSeconds;`,
+      ),
+    ).toBe(true);
+    expect(
+      takesTheDefault(
+        "import type { TuningRecord } from './tuningRecord';\nconst cap = (tuning: TuningRecord) => tuning.stage;",
+      ),
+    ).toBe(false);
+  });
+});
+
+/**
  * The module the lock's type lives in, and the whole of what it may depend on,
  * which is nothing.
  *

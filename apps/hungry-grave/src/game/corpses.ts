@@ -2,7 +2,7 @@
 // scroll-speed coupling, the payout floor, and the dirt taking an empty corpse
 // under.
 
-import { CORPSE_CAP, createPool, takeSlot } from './caps';
+import { createPool, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
 import type { SimEvent } from './events';
 import { FIELD_HEIGHT } from './field';
@@ -138,8 +138,8 @@ const blankCorpse = (): Corpse => {
   };
 };
 
-const createCorpsePool = (): Corpse[] => {
-  return createPool(CORPSE_CAP, blankCorpse);
+const createCorpsePool = (cap: number): Corpse[] => {
+  return createPool(cap, blankCorpse);
 };
 
 const corpseHitbox = (corpse: Corpse): Rect => {

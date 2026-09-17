@@ -4,7 +4,7 @@
  */
 
 import type { PoolSlot } from './caps';
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP, SKULL_CAP, WISP_CAP } from './caps';
+import { SKULL_CAP, WISP_CAP } from './caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { Fault, FaultIdentity } from './faults';
 import { FAULT_SEVERITY } from './faults';
@@ -517,9 +517,9 @@ const checkPool = (
 
 // Checking a cap is not enforcing one. caps.ts enforces; this only notices.
 const checkPools = (state: RunState, faults: Fault[]): void => {
-  checkPool(faults, 'mob', state.mobs, MOB_CAP);
-  checkPool(faults, 'mob fire', state.mobFire, MOB_FIRE_CAP);
-  checkPool(faults, 'corpse', state.corpses, CORPSE_CAP);
+  checkPool(faults, 'mob', state.mobs, state.caps.mobs);
+  checkPool(faults, 'mob fire', state.mobFire, state.caps.mobFire);
+  checkPool(faults, 'corpse', state.corpses, state.caps.corpses);
   checkPool(faults, 'skull', state.skulls, SKULL_CAP);
   checkPool(faults, 'wisp', state.wisps, WISP_CAP);
   checkPool(faults, 'patch', state.patches, TERRITORY_CAP);

@@ -6,7 +6,7 @@
 import type { Bounds, Graphics } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../../../../game/caps';
+import { capsFor } from '../../../../game/caps';
 import { TICK_HZ } from '../../../../game/clock';
 import { FIELD_HEIGHT } from '../../../../game/field';
 import {
@@ -28,6 +28,7 @@ import {
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { INVULNERABLE_TICKS } from '../../../../game/tuning';
+import { DEFAULT_TUNING } from '../../../../game/tuningRecord';
 import { MOB_FIRE, PALETTE } from '../../../palette';
 import { FieldRenderer } from '../FieldRenderer';
 import {
@@ -39,10 +40,16 @@ import { FieldLayers } from '../layering';
 import { SHOT_CORE_OF_HITBOX, SHOT_DRAW_SCALE } from '../mobFireSprite';
 import { tellRadius } from '../mobSprite';
 
+/** The caps every run at this tip derives, which is the default record's. */
+const DEFAULT_CAPS = capsFor(DEFAULT_TUNING);
+const MOB_CAP = DEFAULT_CAPS.mobs;
+const MOB_FIRE_CAP = DEFAULT_CAPS.mobFire;
+const CORPSE_CAP = DEFAULT_CAPS.corpses;
+
 function attached(): { layers: FieldLayers; renderer: FieldRenderer } {
   const layers = new FieldLayers();
   const renderer = new FieldRenderer();
-  renderer.attach(layers);
+  renderer.attach(layers, DEFAULT_CAPS);
   return { layers, renderer };
 }
 
@@ -357,7 +364,7 @@ describe('FieldRenderer', () => {
 
     renderer.detach();
     layers.clear();
-    renderer.attach(layers);
+    renderer.attach(layers, DEFAULT_CAPS);
 
     const second = createRun(2);
     renderer.sync(second);
@@ -380,7 +387,7 @@ describe('FieldRenderer', () => {
 
     renderer.detach();
     layers.clear();
-    renderer.attach(layers);
+    renderer.attach(layers, DEFAULT_CAPS);
 
     const second = createRun(2);
     renderer.sync(second);
@@ -438,10 +445,59 @@ describe('FieldRenderer', () => {
     }
 
     layers.clear();
-    renderer.attach(layers);
+    renderer.attach(layers, DEFAULT_CAPS);
     expect(layers.layer('corpses').children).toHaveLength(CORPSE_CAP);
     expect(layers.layer('mobBodies').children).toHaveLength(MOB_CAP);
     expect(layers.layer('hitDim').children).toHaveLength(1);
+  });
+
+  it('grows its sprite pools to the caps it is attached with, and never shrinks them', () => {
+    // The renderer holds no run when it builds and all three screens reuse one
+    // across runs, so the caps arrive at attach and the pools grow there (ADR
+    // 0056 as amended). Grow-only, because a sprite already in a layer belongs
+    // to a slot and a shrink would leave the layer holding sprites no pool
+    // walks.
+    const { layers, renderer } = attached();
+    const roomy = {
+      mobs: MOB_CAP + 7,
+      mobFire: MOB_FIRE_CAP + 5,
+      corpses: CORPSE_CAP + 3,
+    };
+
+    renderer.detach();
+    layers.clear();
+    renderer.attach(layers, roomy);
+    expect(layers.layer('mobBodies').children).toHaveLength(roomy.mobs);
+    expect(layers.layer('corpses').children).toHaveLength(roomy.corpses);
+    expect(layers.layer('treasure').children).toHaveLength(roomy.corpses);
+
+    renderer.detach();
+    layers.clear();
+    renderer.attach(layers, DEFAULT_CAPS);
+    expect(layers.layer('mobBodies').children).toHaveLength(roomy.mobs);
+    expect(layers.layer('corpses').children).toHaveLength(roomy.corpses);
+  });
+
+  it('shows nothing above the pool of the run it is now drawing, after a larger one', () => {
+    // The sixth leak of the pooled-screen kind, and the one the caps moving on
+    // to the run opens: sync walks the run's own pool, so a sprite above that
+    // length is never written to and would still be wearing the last run's
+    // liveness. A larger run leaves exactly those, and the smaller run after it
+    // would draw bodies nothing on the field stands behind.
+    const { layers, renderer } = attached();
+    const big = createRun(1);
+    put(big, 'shambler', 100, 100);
+    renderer.sync(big);
+    const drawn = sprites(layers, 'mobBodies').filter((each) => each.visible);
+    expect(drawn).toHaveLength(1);
+
+    renderer.detach();
+    layers.clear();
+    renderer.attach(layers, { ...DEFAULT_CAPS, mobs: 1 });
+
+    expect(
+      sprites(layers, 'mobBodies').filter((each) => each.visible),
+    ).toHaveLength(0);
   });
 });
 

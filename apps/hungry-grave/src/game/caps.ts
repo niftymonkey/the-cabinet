@@ -9,10 +9,10 @@ import {
   largestCard,
   peakArrivals,
   peakArrivalsOf,
-  QUIET_INTERVAL_MINIMUM_SECONDS,
   REVENANT_FIRE,
 } from './stage/waves';
 import { FRESHNESS_SECONDS, SCROLL_SPEED } from './tuning';
+import type { TuningRecord } from './tuningRecord';
 
 /**
  * At the cap something must be dropped, and which one is a gameplay rule rather
@@ -41,7 +41,23 @@ import { FRESHNESS_SECONDS, SCROLL_SPEED } from './tuning';
  * figure stopped describing the content it was taken from. It is a derivation
  * below, on ADR 0056's own terms: the content prices the cap and never the cap
  * the content.
+ *
+ * All three derivations take the run's tuning record, because the stage's own
+ * magnitudes are rows of it now (ADR 0064) and a legal record is open: no
+ * static worst case bounds a pool, so the bound is per run, which is what the
+ * pools already are, built in createRun, at a cap, once (ADR 0056 as amended).
+ * Nothing here holds a record of its own, and the caller hands one in.
  */
+
+/**
+ * What one run's pools are built at, and what every reader of a cap takes off
+ * the run rather than out of this module.
+ */
+interface Caps {
+  readonly mobs: number;
+  readonly mobFire: number;
+  readonly corpses: number;
+}
 
 /**
  * The longest a body can stand on the field, in seconds: the deepest a
@@ -75,10 +91,16 @@ const TRANSIT_SECONDS =
  *
  * The quiet interval's minimum is the divisor rather than its draw, because a
  * drawn interval is at least the minimum and the shortest one is what a worst
- * case prices (ADR 0056, the record's section 5 item 6).
+ * case prices (ADR 0056, the record's section 5 item 6). It arrives as a number
+ * rather than as the record, because this is the one row every cap here reads
+ * and a helper takes what it needs.
  */
-const directedInside = (seconds: number, bodiesAnAdd: number): number =>
-  bodiesAnAdd * (Math.floor(seconds / QUIET_INTERVAL_MINIMUM_SECONDS) + 1);
+const directedInside = (
+  seconds: number,
+  bodiesAnAdd: number,
+  quietIntervalMinimumSeconds: number,
+): number =>
+  bodiesAnAdd * (Math.floor(seconds / quietIntervalMinimumSeconds) + 1);
 
 /**
  * The most bodies the stage can hold alive at once, derived from the stage's
@@ -104,11 +126,16 @@ const directedInside = (seconds: number, bodiesAnAdd: number): number =>
  * sim allows, and peakArrivals maximises over window placements rather than
  * reading one.
  */
-const peakLive = (): number =>
+const peakLive = (tuning: TuningRecord): number =>
   peakArrivals(TRANSIT_SECONDS) +
-  directedInside(TRANSIT_SECONDS, largestCard(null));
+  directedInside(
+    TRANSIT_SECONDS,
+    largestCard(null),
+    tuning.stage.quietIntervalMinimumSeconds,
+  );
 
-const MOB_CAP = peakLive();
+// The most bodies a run under this record can hold alive at once.
+const mobCap = (tuning: TuningRecord): number => peakLive(tuning);
 
 /**
  * The longest straight line a shot can travel and still be on the field, so it
@@ -145,9 +172,13 @@ const shotsInTheAir = (pattern: ShotPattern): number =>
  * rule and through the same function: a pool counted per add where the one
  * beside it counts per window would be the same defect wearing a second coat.
  */
-const REVENANT_FIRE_PEAK =
+const revenantFirePeak = (tuning: TuningRecord): number =>
   (peakArrivalsOf('revenant', TRANSIT_SECONDS) +
-    directedInside(TRANSIT_SECONDS, largestCard('revenant'))) *
+    directedInside(
+      TRANSIT_SECONDS,
+      largestCard('revenant'),
+      tuning.stage.quietIntervalMinimumSeconds,
+    )) *
   shotsInTheAir(REVENANT_FIRE);
 
 // What one boss phase holds in the air at once, its emitters together.
@@ -193,7 +224,8 @@ const WORST_BOSS_PATTERN = Math.max(
  * slot is alive, so padding is paid on every tick of every run. A bound cap
  * refuses the shot, removes nothing, and raises a recoverable fault.
  */
-const MOB_FIRE_CAP = REVENANT_FIRE_PEAK + WORST_BOSS_PATTERN;
+const mobFireCap = (tuning: TuningRecord): number =>
+  revenantFirePeak(tuning) + WORST_BOSS_PATTERN;
 
 /**
  * Treasure the field can hold at once, which never decays and so is not covered
@@ -223,16 +255,29 @@ const TREASURE_ALLOWANCE = 10;
  * one more at every minimum interval after it (ADR 0056, the record's section 5
  * item 7).
  */
-const DIRECTED_INSIDE_FRESHNESS = directedInside(
-  FRESHNESS_SECONDS,
-  largestCard(null),
-);
+const directedInsideFreshness = (tuning: TuningRecord): number =>
+  directedInside(
+    FRESHNESS_SECONDS,
+    largestCard(null),
+    tuning.stage.quietIntervalMinimumSeconds,
+  );
 
-const CORPSE_CAP =
-  MOB_CAP +
+const corpseCap = (tuning: TuningRecord): number =>
+  mobCap(tuning) +
   peakArrivals(FRESHNESS_SECONDS) +
   TREASURE_ALLOWANCE +
-  DIRECTED_INSIDE_FRESHNESS;
+  directedInsideFreshness(tuning);
+
+/**
+ * The three caps one run is built at, derived together because createRun needs
+ * all three in the same call and a reader takes them off the run afterwards
+ * (ADR 0056 as amended).
+ */
+const capsFor = (tuning: TuningRecord): Caps => ({
+  mobs: mobCap(tuning),
+  mobFire: mobFireCap(tuning),
+  corpses: corpseCap(tuning),
+});
 
 /**
  * What every pooled entity carries. The id only ever increases and is not
@@ -311,13 +356,14 @@ export {
   liveCount,
   peakLive,
   TRANSIT_SECONDS,
-  MOB_CAP,
-  REVENANT_FIRE_PEAK,
+  mobCap,
+  revenantFirePeak,
   WORST_BOSS_PATTERN,
-  MOB_FIRE_CAP,
-  CORPSE_CAP,
+  mobFireCap,
+  corpseCap,
+  capsFor,
   TREASURE_ALLOWANCE,
   SKULL_CAP,
   WISP_CAP,
 };
-export type { PoolSlot };
+export type { Caps, PoolSlot };

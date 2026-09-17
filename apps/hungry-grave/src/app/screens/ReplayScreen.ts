@@ -1,10 +1,13 @@
 import type { Texture, Ticker } from 'pixi.js';
 import { Container, Graphics } from 'pixi.js';
 
+import type { Caps } from '../../game/caps';
+import { capsFor } from '../../game/caps';
 import type { SimEvent } from '../../game/events';
 import { territoryCharge } from '../../game/lines/territory';
 import type { RunState } from '../../game/run';
 import { RESERVOIR_CAPACITY } from '../../game/tuning';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
 import type { FieldPlacement } from '../layout';
 import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
 import { atFromUrl, tapeFromUrl } from '../seedFromUrl';
@@ -104,11 +107,25 @@ class ReplayScreen extends Container {
     this.addChild(this.field, this.readout.view, this.backButton);
   }
 
+  /**
+   * The caps this screen dresses its field at.
+   *
+   * dressField runs from the constructor and from reset(), with no run in hand
+   * either time, so the caps a run under the build's own record derives are
+   * what the sprite pools are grown to. Every run at this tip derives exactly
+   * these, because the default record is the only record anything names; the
+   * renderer's pools are grow-only, so the slice that gives a replay a record
+   * of its own grows them to that run's caps at the attach it already makes.
+   */
+  private fieldCaps(): Caps {
+    return capsFor(DEFAULT_TUNING);
+  }
+
   // The field's own furniture, put back after any clear() (see reset).
   private dressField(): void {
     this.layers.layer('fieldBoundary').addChild(this.frame);
     this.background.attach(this.layers);
-    this.fieldRenderer.attach(this.layers);
+    this.fieldRenderer.attach(this.layers, this.fieldCaps());
     // After the mob pool, so a boss draws over the adds it summons.
     this.bossRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);

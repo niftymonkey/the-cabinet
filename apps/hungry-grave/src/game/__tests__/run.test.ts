@@ -6,15 +6,28 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../caps';
+import { capsFor } from '../caps';
 import { STARTING_DIRECTOR } from '../director';
 import type { WeaponLine } from '../lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
-import type { RunState } from '../run';
+import type { RunState, StartingConditions } from '../run';
 import { createRun, uniformLevels } from '../run';
 import { SIGNAL_RAN_LIVE } from '../signalLock';
 import { PROCESSION_PURSE } from '../stage/waves';
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../tuning';
+import { DEFAULT_TUNING } from '../tuningRecord';
+import type { TuningRecord } from '../tuningRecord';
+
+// The caps every run at this tip derives, which is the default record's.
+const DEFAULT_CAPS = capsFor(DEFAULT_TUNING);
+
+/** The default record with the director's shortest wait moved, and nothing else. */
+function quietMinimumOf(seconds: number): TuningRecord {
+  return {
+    ...DEFAULT_TUNING,
+    stage: { ...DEFAULT_TUNING.stage, quietIntervalMinimumSeconds: seconds },
+  };
+}
 
 describe('createRun', () => {
   it('starts at SIZE_START when no starting size is asked for', () => {
@@ -46,13 +59,42 @@ describe('createRun', () => {
 
   it('pre-allocates every pool at full capacity, with nothing alive', () => {
     const run = createRun(1);
-    expect(run.mobs).toHaveLength(MOB_CAP);
-    expect(run.mobFire).toHaveLength(MOB_FIRE_CAP);
-    expect(run.corpses).toHaveLength(CORPSE_CAP);
+    expect(run.mobs).toHaveLength(DEFAULT_CAPS.mobs);
+    expect(run.mobFire).toHaveLength(DEFAULT_CAPS.mobFire);
+    expect(run.corpses).toHaveLength(DEFAULT_CAPS.corpses);
     expect(run.mobs.some((mob) => mob.alive)).toBe(false);
     expect(run.mobFire.some((shot) => shot.alive)).toBe(false);
     expect(run.corpses.some((corpse) => corpse.alive)).toBe(false);
     expect(run.nextEntityId).toBeGreaterThan(0);
+  });
+
+  it('carries the tuning record it started under, resolved to the default when none is asked for', () => {
+    // The record rides on the starting conditions the way every other starting
+    // condition does (ADR 0063, ADR 0064): optional for a caller, required on
+    // the resolved record, and never written again once the run is built.
+    expect(createRun(1).conditions.tuning).toEqual(DEFAULT_TUNING);
+    const quick = quietMinimumOf(1);
+    expect(createRun(1, { tuning: quick }).conditions.tuning).toEqual(quick);
+  });
+
+  it('derives its own three caps from the record it started under', () => {
+    // The caps are per-run derivations now and the run carries the answers, so
+    // a reader takes the run's field rather than a module constant (ADR 0056
+    // as amended).
+    expect(createRun(1).caps).toEqual(DEFAULT_CAPS);
+    const quick = quietMinimumOf(1);
+    expect(createRun(1, { tuning: quick }).caps).toEqual(capsFor(quick));
+  });
+
+  it('builds every pool at the caps the run derived, whatever record it started under', () => {
+    // What the caps are for: a run started under a record the default does not
+    // name holds pools of its own size, which is a thing nothing in the tree
+    // could say while a pool was built at a module constant.
+    const run = createRun(1, { tuning: quietMinimumOf(1) });
+    expect(run.mobs).toHaveLength(run.caps.mobs);
+    expect(run.mobFire).toHaveLength(run.caps.mobFire);
+    expect(run.corpses).toHaveLength(run.caps.corpses);
+    expect(run.caps.mobs).toBeGreaterThan(DEFAULT_CAPS.mobs);
   });
 
   it('starts the stage at its first section', () => {
@@ -214,9 +256,23 @@ describe("a run's starting conditions", () => {
     startingScore: run.score,
   });
 
+  /**
+   * The record without its tuning row, which is the part live state can be read
+   * back against. The tuning record decides the caps and, from slice 5 on, what
+   * the readers of its rows do, so what the run holds of it is the caps beside
+   * it rather than a second spelling inside the live state.
+   */
+  const exceptTuning = (conditions: StartingConditions) => ({
+    startingSize: conditions.startingSize,
+    startingLevels: conditions.startingLevels,
+    roster: conditions.roster,
+    signalLock: conditions.signalLock,
+    startingScore: conditions.startingScore,
+  });
+
   it('rolls the birthright run when only a seed is named, and says so in its record', () => {
     // The whole of what createRun(seed) means: a fresh run, and a record that
-    // states every one of the five rather than leaving any implicit (ADR 0027).
+    // states every one of the six rather than leaving any implicit (ADR 0027).
     const run = createRun(1);
 
     expect(run.conditions).toEqual({
@@ -225,12 +281,14 @@ describe("a run's starting conditions", () => {
       roster: WEAPON_LINES,
       signalLock: SIGNAL_RAN_LIVE,
       startingScore: 0,
+      tuning: DEFAULT_TUNING,
     });
-    expect(run.conditions).toEqual(conditionsOn(run));
+    expect(exceptTuning(run.conditions)).toEqual(conditionsOn(run));
+    expect(run.caps).toEqual(capsFor(run.conditions.tuning));
   });
 
   it('resolves every field a partial leaves out to the default a bare run resolves', () => {
-    // One test per field, as five partials naming one thing each: what is
+    // One test per field, as six partials naming one thing each: what is
     // pinned takes, and nothing else moves off the bare run's own record.
     const bare = createRun(1).conditions;
     const roster: readonly WeaponLine[] = [...BIRTHRIGHT];
@@ -240,12 +298,13 @@ describe("a run's starting conditions", () => {
       { roster },
       { signalLock: 0.25 },
       { startingScore: 6000 },
+      { tuning: quietMinimumOf(2) },
     ];
 
     for (const one of named) {
       const run = createRun(1, one);
       expect(run.conditions).toEqual({ ...bare, ...one });
-      expect(run.conditions).toEqual(conditionsOn(run));
+      expect(exceptTuning(run.conditions)).toEqual(conditionsOn(run));
     }
   });
 

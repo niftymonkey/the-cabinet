@@ -29,6 +29,8 @@ import { SCORE_RUNG_REARM_SIZE } from '../grave';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from '../tuning';
 import type { Fault, FaultIdentity } from '../faults';
 import { checkInvariants, createStageWatch } from '../invariants';
+import { capsFor } from '../caps';
+import { DEFAULT_TUNING } from '../tuningRecord';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
@@ -371,6 +373,25 @@ describe('the entity invariants (ADR 0013)', () => {
     const second = liveMob(twinned, 120);
     second.id = first.id;
     expect(brokenOn(twinned)).toContain('entity ids');
+  });
+
+  it("checks a pool against the run's own cap and never a module's", () => {
+    // The caps are derived per run from the record the run started under (ADR
+    // 0056 as amended), so a run whose record earns larger pools is inside its
+    // own cap while standing more than a default run's pool could hold. Read
+    // against a module constant this run would break the identity on its first
+    // tick, which is the wrongness this pins.
+    const roomy = createRun(1, {
+      tuning: {
+        ...DEFAULT_TUNING,
+        stage: { ...DEFAULT_TUNING.stage, quietIntervalMinimumSeconds: 1 },
+      },
+    });
+    expect(roomy.mobs.length).toBeGreaterThan(capsFor(DEFAULT_TUNING).mobs);
+    expect(brokenOn(roomy)).not.toContain('entity caps');
+
+    roomy.mobs.push({ ...requireDefined(roomy.mobs[0], 'no mob pool slot 0') });
+    expect(brokenOn(roomy)).toContain('entity caps');
   });
 
   it('records a freshness outside zero to one', () => {
@@ -1603,6 +1624,30 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'the figure the run holds its signal at, resolved once by createRun and never mutated: what it seeds is director.signal.value, which this harness checks every tick',
   'conditions.startingScore':
     'the score the run began holding, resolved once by createRun and never mutated: what it seeds is score, which this harness checks every tick',
+  'conditions.tuning.stage.processionPurse':
+    "a row of the record the run started under, resolved once by createRun and never mutated (ADR 0064). A NaN in it could reach the run only through what reads the row, and every reader's own output is checked here every tick",
+  'conditions.tuning.stage.crowdPurse':
+    'a row of the record the run started under, as conditions.tuning.stage.processionPurse is',
+  'conditions.tuning.stage.vigilPurse':
+    'a row of the record the run started under, as conditions.tuning.stage.processionPurse is',
+  'conditions.tuning.stage.quietIntervalMinimumSeconds':
+    "a row of the record the run started under, as conditions.tuning.stage.processionPurse is: what it decides is the three caps, and a pool over its cap is this harness's own entity caps identity",
+  'conditions.tuning.stage.quietIntervalMaximumSeconds':
+    'a row of the record the run started under, as conditions.tuning.stage.processionPurse is',
+  'conditions.tuning.score.trashKillScore':
+    'a row of the record the run started under, as conditions.tuning.stage.processionPurse is: what it seeds is score, which this harness checks every tick',
+  'conditions.tuning.score.bleedCapInKills':
+    'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
+  'conditions.tuning.score.bossHealthPerKill':
+    'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
+  'conditions.tuning.score.sourceKillInKills':
+    'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
+  'conditions.tuning.score.mealAtMaxedInKills':
+    'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
+  'caps.mobs':
+    "what this run's mob pool was built at, derived once by createRun from the record above and never mutated (ADR 0056 as amended). A NaN in it would show as a pool length this harness already reads, because a pool is built at it and pool.length is an integer whatever the cap was",
+  'caps.mobFire': "what this run's mob-fire pool was built at, as caps.mobs is",
+  'caps.corpses': "what this run's corpse pool was built at, as caps.mobs is",
   'mobs[].id': 'spawn identity, never mutated after spawn',
   'mobFire[].id': 'spawn identity, never mutated after spawn',
   'mobFire[].halfExtent': 'written once at spawn and never mutated',

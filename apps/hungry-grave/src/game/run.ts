@@ -1,5 +1,7 @@
 import type { Boss } from './bosses/phases';
 import type { Press } from './belch';
+import type { Caps } from './caps';
+import { capsFor } from './caps';
 import type { Corpse } from './corpses';
 import { createCorpsePool } from './corpses';
 import type { DirectorState } from './director';
@@ -29,6 +31,8 @@ import type { SetPiece } from './stage/setPiece';
 import type { StageState } from './stage/stage';
 import { createStage, openingDirector } from './stage/stage';
 import { SIZE_START } from './tuning';
+import type { TuningRecord } from './tuningRecord';
+import { resolveTuning } from './tuningRecord';
 
 // How a run finishes. Null while it is live.
 type RunEnding = 'sealed' | 'victory';
@@ -131,6 +135,15 @@ interface StartingConditions {
    * staged with one replays from zero.
    */
   readonly startingScore: number;
+  /**
+   * The tuning record the run plays under, defaulting to the values the build
+   * compiles (ADR 0064). It is a starting condition on exactly the terms the
+   * levels and the signal lock are: the shell resolves it once, from a named
+   * candidate or from the URL, and passes it inward, and the core never
+   * imports one. The three caps are derived from it inside createRun, so a
+   * record that moves a stage row moves the size of the pools this run builds.
+   */
+  readonly tuning: TuningRecord;
 }
 
 /**
@@ -159,6 +172,13 @@ interface RunState {
    * roster the reading build happens to compile.
    */
   readonly roster: readonly WeaponLine[];
+  /**
+   * What this run's three pools were built at, derived once at createRun from
+   * the record above (ADR 0056 as amended). Every reader of a cap takes it off
+   * the run: a legal record is open, so no module constant can answer for a
+   * run it knows nothing about.
+   */
+  readonly caps: Caps;
   // A run's length is counted in ticks, never wall clock.
   tick: number;
   readonly grave: Grave;
@@ -342,6 +362,11 @@ const resolveConditions = (
     roster,
     signalLock: asked.signalLock ?? SIGNAL_RAN_LIVE,
     startingScore: asked.startingScore ?? 0,
+    // Through the resolver and never a nullish default, because that is the one
+    // door every record in the tree enters by and the quiet interval's own
+    // bound is asserted behind it (ADR 0064). An absent record is the empty
+    // overlay, which resolves to the default row for row.
+    tuning: resolveTuning(asked.tuning ?? {}),
   };
 };
 
@@ -364,6 +389,9 @@ const createRun = (
 ): RunState => {
   const asked = resolveConditions(conditions);
   const grave = createGrave(asked.startingSize);
+  // Once, here, from the record this run starts under: the pools below are
+  // built at these numbers and every reader of a cap takes them off the run.
+  const caps = capsFor(asked.tuning);
   return {
     seed,
     // The size the grave took and never the one asked for: the bounds are
@@ -372,6 +400,7 @@ const createRun = (
     conditions: { ...asked, startingSize: grave.size },
     // The run and its record share the one copy, because neither writes it.
     roster: asked.roster,
+    caps,
     tick: 0,
     grave,
     score: asked.startingScore,
@@ -390,9 +419,9 @@ const createRun = (
       bossFire: stream(seed, STREAM_SALTS.bossFire),
       pour: stream(seed, STREAM_SALTS.pour),
     },
-    mobs: createMobPool(),
-    mobFire: createShotPool(),
-    corpses: createCorpsePool(),
+    mobs: createMobPool(caps.mobs),
+    mobFire: createShotPool(caps.mobFire),
+    corpses: createCorpsePool(caps.corpses),
     skulls: createSkullPool(),
     wisps: createWispPool(),
     patches: createTerritoryPool(),

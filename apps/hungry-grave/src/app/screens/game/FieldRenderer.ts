@@ -1,6 +1,6 @@
 import { Graphics } from 'pixi.js';
 
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../../../game/caps';
+import type { Caps } from '../../../game/caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import type { FireKind } from '../../../game/mobFire';
 import { MOB_TYPES } from '../../../game/mobs';
@@ -116,8 +116,9 @@ class FieldRenderer {
    * FieldLayers.clear() empties every layer between runs, so the renderer has
    * to be able to put itself back rather than assume it is still attached.
    */
-  public attach(layers: FieldLayers): void {
+  public attach(layers: FieldLayers, caps: Caps): void {
     this.build();
+    this.growPools(caps);
     this.forgetPreviousRun();
     const corpses = layers.layer('corpses');
     const treasure = layers.layer('treasure');
@@ -150,6 +151,15 @@ class FieldRenderer {
    * frame, so the skip forgets and the lead-in rebuilds it.
    */
   public forgetPreviousRun(): void {
+    // Every pooled sprite hidden, because sync walks the run's own pool and
+    // writes nothing above it: a run smaller than the one before it would
+    // otherwise draw the last run's bodies in the slots it never reaches. The
+    // pools are grow-only and a run's caps are its own (ADR 0056 as amended),
+    // so a shorter pool after a longer one is a case that exists now.
+    for (const sprite of this.mobSprites) sprite.visible = false;
+    for (const sprite of this.shotSprites) sprite.visible = false;
+    for (const sprite of this.corpseSprites) sprite.visible = false;
+    for (const sprite of this.treasureSprites) sprite.visible = false;
     this.shotMemory.length = 0;
     for (const scatter of this.scatters) {
       scatter.born = -SCATTER_TICKS;
@@ -168,16 +178,31 @@ class FieldRenderer {
   }
 
   /**
-   * The pools, allocated once. Their sizes come from the run rather than from
-   * the caps directly, so the sprite pool and the entity pool cannot drift.
+   * The sprite pools, at the caps the run being attached for derived. It runs
+   * on every attach and never under the built guard, because the caps are a
+   * per-run derivation (ADR 0056 as amended) and one renderer is reused across
+   * runs by all three screens: a replayed tape can ask for a field the first
+   * run of this process never needed. fill() is grow-only, so a smaller run
+   * after a larger one keeps the sprites it already has.
+   *
+   * Two pools at the corpse cap, because a power-up rides the corpse pool and
+   * ADR 0014's stack puts treasure two layers above corpses, so one entity slot
+   * needs a sprite in each.
+   */
+  private growPools(caps: Caps): void {
+    fill(this.mobSprites, caps.mobs);
+    fill(this.shotSprites, caps.mobFire);
+    fill(this.corpseSprites, caps.corpses);
+    fill(this.treasureSprites, caps.corpses);
+  }
+
+  /**
+   * The field's own furniture, built once: the hit dim and the scatter slots,
+   * neither of which is sized by a cap.
    */
   private build(): void {
     if (this.built) return;
     this.built = true;
-    fill(this.mobSprites, MOB_CAP);
-    fill(this.shotSprites, MOB_FIRE_CAP);
-    fill(this.corpseSprites, CORPSE_CAP);
-    fill(this.treasureSprites, CORPSE_CAP);
     this.dim
       .rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT)
       .fill({ color: PALETTE.night.hex });

@@ -6,6 +6,7 @@ import { birthrightLevels, uniformLevels } from '../game/run';
 import type { StartingConditions } from '../game/run';
 import { SIGNAL_RAN_LIVE } from '../game/signalLock';
 import { SCORE_BLEED_CAP, SIZE_FLOOR, SIZE_START } from '../game/tuning';
+import { DEFAULT_TUNING } from '../game/tuningRecord';
 
 /**
  * The starting conditions the harness plays from, and never a description of
@@ -66,10 +67,12 @@ const LADDER_RIG_BLEEDS = 3;
  * The ceiling rig the record names still has no row, because nothing plays it
  * through the harness; a row for it is a row the day something does.
  *
- * Every row states the whole pool and a live signal rather than leaving them
- * out, because a rig is the resolved condition (ADR 0063): those two are what
- * the sim resolves them to today, and writing them down is what stops a later
- * tune of a default from moving what a rig means.
+ * Every row states the whole pool, a live signal and the build's own tuning
+ * record rather than leaving them out, because a rig is the resolved condition
+ * (ADR 0063): those three are what the sim resolves them to today, and writing
+ * them down is what stops a later tune of a default from moving what a rig
+ * means. A rig plays under the default record because a run under a record of
+ * its own is a candidate and carries its own name (ADR 0064).
  */
 const RIGS: Readonly<Record<RigName, Rig>> = {
   birthright: {
@@ -80,6 +83,7 @@ const RIGS: Readonly<Record<RigName, Rig>> = {
       roster: WEAPON_LINES,
       signalLock: SIGNAL_RAN_LIVE,
       startingScore: 0,
+      tuning: DEFAULT_TUNING,
     },
   },
   maxed: {
@@ -90,6 +94,7 @@ const RIGS: Readonly<Record<RigName, Rig>> = {
       roster: WEAPON_LINES,
       signalLock: SIGNAL_RAN_LIVE,
       startingScore: 0,
+      tuning: DEFAULT_TUNING,
     },
   },
   ladder: {
@@ -100,6 +105,7 @@ const RIGS: Readonly<Record<RigName, Rig>> = {
       roster: WEAPON_LINES,
       signalLock: SIGNAL_RAN_LIVE,
       startingScore: LADDER_RIG_BLEEDS * SCORE_BLEED_CAP,
+      tuning: DEFAULT_TUNING,
     },
   },
 };
