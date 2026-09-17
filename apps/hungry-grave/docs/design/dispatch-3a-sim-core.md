@@ -314,11 +314,13 @@ export function hitGrave(state: RunState): SimEvent[];
 
 **The floor ladder, in order, one rung per hit (ADR 0003).** A hit at the floor never shrinks, because the floor is hard:
 
-1. If the run has score, bleed **all of it** and stop.
+1. If the run has score, bleed **the lesser of it and `SCORE_BLEED_CAP`**, leave the remainder standing, and stop.
 2. Otherwise, if any weapon line sits above the birthright loadout, **take one level off every line at once** and stop.
 3. Otherwise the grave seals shut.
 
-Rung 1 bleeds the whole score rather than a portion, so the score tier is exactly one rung. A proportional bleed never reaches zero and a fixed amount makes the ladder's length depend on a magnitude the tests are forbidden to know. Sonic is the precedent and it is on this side: the later games' partial ring loss reduced tension, because a large total trivialised the risk.
+Rung 1 bleeds a flat capped amount rather than a proportion, so the score tier is exactly one rung. A proportional bleed never reaches zero and makes the ladder's length depend on a magnitude the tests are forbidden to know. Sonic is the precedent and it is on this side: the later games' partial ring loss reduced tension, because a large total trivialised the risk.
+
+**Amended 2026-09-16 by Mark's ruling "Cap the bleed" (ADR 0003, step 5 slice 7).** This paragraph read "Rung 1 bleeds the whole score rather than a portion". What stood: a flat amount over a proportion, the score tier being exactly one rung, and the Sonic precedent. What changed: the amount alone, to the lesser of the standing score and `SCORE_BLEED_CAP` with the remainder left standing; the tier is still exactly one rung, because a bled rung stays bled until the grave grows a full hit's worth off the floor (design record `show-what-you-have.md` R4). What it could not have known: nothing in the game paid score for a kill when it was written, so a run that never reached the size ceiling held zero and a whole bleed had nothing to take.
 
 Rung 2 is Mark's ruling of 2026-08-20 and it replaces one-level-from-one-line. Taking a level off every line bounds the whole ladder at five rungs whatever the build, because `MAX_LEVEL` is 5, so a great run and a poor one die at the same length, and each rung visibly thins the entire storm in one beat. One-level-per-hit gave about eleven rungs on a good run, which is roughly thirteen seconds of low-agency dismantling that got *longer* the better the player had done: the slow-motion execution the shmup literature names. Stripping still stops at the birthright loadout exactly, so the birthright lines floor at level 1 and the others floor at 0.
 
@@ -482,7 +484,7 @@ These assert the **derivations**, never the magnitudes. A test here breaking mea
 37. A hit while invulnerable does nothing at all: no shrink, no ladder, no event.
 38. `ageGrave` counts invulnerability down and stops at zero, and a hit lands again on the tick it reaches zero.
 39. A hit never takes the grave below the floor (ADR 0003).
-40. **At the floor the ladder runs in order, one rung per hit**: with score, the hit bleeds all of the score and no weapon level is touched; with no score and a line above birthright, it takes one level off every line and seals nothing; with neither, it seals shut (ADR 0003). "Nothing else" here constrains **which rung runs**, not what else the hit does: the hit still starts invulnerability and still emits `graveHit`.
+40. **At the floor the ladder runs in order, one rung per hit**: with score, the hit bleeds the lesser of the standing score and `SCORE_BLEED_CAP` and touches no weapon level; with no score and a line above birthright, it takes one level off every line and seals nothing; with neither, it seals shut (ADR 0003). "Nothing else" here constrains **which rung runs**, not what else the hit does: the hit still starts invulnerability and still emits `graveHit`.
 41. **The ladder is finite from any state**: from a maxed run at the floor holding score, at most 7 hits end in sealed shut, one for the score, five for the levels and one to seal. Age the grave past `INVULNERABLE_TICKS` between hits, or the later hits are all ignored. Assert the bound and the ending, never the score magnitude, which is tuning.
 42. Stripping stops at the birthright loadout exactly: the birthright lines are never taken below level 1 and the others are never taken below 0 (glossary: birthright).
 43. Size never leaves floor-to-ceiling across any sequence of grows and hits, which is the invariant `checkInvariants` also asserts on every step.

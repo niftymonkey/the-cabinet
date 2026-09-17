@@ -255,7 +255,7 @@ The initial rows sit well above that floor, because the floor is not the fight's
 
 ### Sealed shut
 
-Built and real (`grave.ts:161-163`, `events.ts:89-92`). What a player sees: at the size floor, the next hit bleeds the whole score, then the hit after that strips one level off every line down to the birthright, and only when nothing is left to bleed does the next hit seal the grave shut. The end screen reads SEALED SHUT (`EndScreen.ts:20`). The grave is never destroyed or killed; it is sealed (`CONTEXT.md:21`).
+Built and real (`grave.ts:161-163`, `events.ts:89-92`). What a player sees: at the size floor, the next hit bleeds the lesser of the standing score and `SCORE_BLEED_CAP` and the remainder stays, then the hit after that strips one level off every line down to the birthright, and only when nothing is left to bleed does the next hit seal the grave shut. The end screen reads SEALED SHUT (`EndScreen.ts:20`). The grave is never destroyed or killed; it is sealed (`CONTEXT.md:21`).
 
 Nothing in this step changes it. What changes is that a run can now reach it inside a real boss fight, which is where the floor ladder was always meant to be read.
 

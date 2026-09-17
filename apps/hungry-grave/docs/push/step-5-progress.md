@@ -1398,3 +1398,23 @@ A fallen rung is spawned at freshness 1 and never decays, so `freshnessScale` ne
 5. **Agent.** The four constants and `GOLDEN` held, above.
 6. **Agent.** The fences green inside the whole-suite run. `boundary.test.ts`'s *the screen graph is declared in one place* and *the test-span fence* are the two the new file and its new test could have moved, and neither did.
 7. **Agent.** CodeRabbit, one iteration, nine files, zero findings, above.
+
+## 15. Step 5 closes
+
+**All three gates ran on 2026-09-17 over the step's whole diff at tip `602ab1160f`, and all three returned PASS WITH FINDINGS.** The scope each was given was the union of section 1's commits, slice 1 (5.0) through slice 10 (M7), and no gate raised a BLOCK: nothing it found makes the deployed build wrong for a player or breaks replay determinism, a fence or an invariant.
+
+**The product vision gate: PASS WITH FINDINGS.** It audited the ADRs the step touched and found the score's composite still unreadable at its built weights (NOTE, filed in the record's section 7), and it raised the replay's missing row alongside the other two (TICKET, #138).
+
+**The game design gate: PASS WITH FINDINGS.** It found the score had nowhere to land at the end of a run (FOLD, landed as the close fold slice, code `7ffcea5db5` and note `1d748d14e6`, subsection above), the bleed carrying no channel a phone can hear (TICKET, #137), the bank's readout under every platform's minimum text size on a phone (TICKET, #139), the cushion's re-arm firing only off a feast in the measured runs (NOTE, section 7), and the composite reading as kills with the vision gate (NOTE, section 7).
+
+**The technical architecture gate: PASS WITH FINDINGS.** It found the score ledger written out five times with its announcement beside it (TICKET, #140), the event announcements hand-mirrored across the played screen and the watched one (TICKET, #141), one starting condition carried in three shapes, `Rig`, `TapeHeader` and `createRun`'s positional list (folded into the tuning-record draft's decision 3, `docs/push/drafts/step-5-tuning-record-draft.md` section 2a), the replay's missing row with the other two (TICKET, #138), and `SCORE_DIGITS` and the cushion mark's x derived in prose from what a trash kill pays with nothing asserting it (filed as a tuning-step input in the handoff).
+
+**The five tickets were created on 2026-09-17, each with a Problem, a Need and a Done-when, and each with a context comment posted straight after carrying the measurement, the precedent and the levers.** **#137**, the bleed has no channel of its own. **#138**, a replay shows no score and no ladder, raised independently by all three gates. **#139**, the bank readout is unreadable on a phone. **#140**, the score ledger is one concept in five copies. **#141**, event announcements are hand-mirrored across two screens. All five are placed after this branch merges, not on `hungry-grave-v1`.
+
+**The vision gate's ADR audit came back clean.** The four ADRs this step amended in place, 0054, 0002, 0061 and 0003, and the one it filed, 0062, are each minimal against what was ruled, and none of them records a commitment Mark did not make.
+
+**The close batch is slice 10's own, at `6665fad6d4`, and nothing was re-run for the close.** It is twelve birthright seeds and twelve maxed, with sections 12 and 14 reproduced per seed and section 13's tables read off it. **No sim code changed after it**: the close fold is nine files under `src/app` alone, with nothing under `src/game`, `src/dev` or `src/tape` opened, so a fresh batch would have measured the same runs.
+
+**No CodeRabbit run was made over the step's range** (Mark, 2026-09-17): the CLI cannot review a whole branch on his plan, and a final whole-branch review is antithetical to the per-commit plan. Every commit in section 1 carries its own review, and the close's commits got theirs the same way.
+
+**The close is deployed.** Deployment `dpl_D1Fpx2RdzBJjdZpTBGxCBvgjhZzf` is READY on production at https://hungry-grave.vercel.app, built from `1d748d14e6`, which is this note's own commit above the close fold's code. Mark's phone-play address now carries the whole of step 5.

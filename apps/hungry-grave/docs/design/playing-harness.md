@@ -275,17 +275,22 @@ What it does cost is outside the tree. Mark saves tapes to `/mnt/c/Users/markd/D
 
 ## 6. The rigs, and what each one's figures mean
 
-#107 found two rigs under one label. There were five when this section was written and there are now six; the label covered two of them and is retired.
+#107 found two rigs under one label. There were five when this section was written and there are now seven; the label covered two of them and is retired.
 
-| Name | Starting size | Starting levels | Policy | Tape | Where |
-| --- | --- | --- | --- | --- | --- |
-| the ceiling rig | `SIZE_CEILING` | maxed | `dodgePolicy` | none | `bot.test.ts:431-441` |
-| the start-size rig | `SIZE_START` | maxed | `dodgePolicy` | records one | `local/slice13b-record.ts:55-70` |
-| the ladder rig | `SIZE_CEILING` | birthright | `hitTakingPolicy` | none | `bot.test.ts:452-463` |
-| the conditioned rig | `SIZE_START` | chosen per run | a fixed wander | records one | `scripts/record-conditioned.ts:165-195` |
-| the harness rig | `SIZE_START` | birthright | the base policy under a named configuration | records one | this step |
+| Name | Starting size | Starting levels | Starting score | Policy | Tape | Where |
+| --- | --- | --- | --- | --- | --- | --- |
+| the ceiling rig | `SIZE_CEILING` | maxed | 0 | `dodgePolicy` | none | `bot.test.ts:431-441` |
+| the start-size rig | `SIZE_START` | maxed | 0 | `dodgePolicy` | records one | `local/slice13b-record.ts:55-70` |
+| the hit-taking rig | `SIZE_CEILING` | every line at level 2 | 1,200 | `hitTakingPolicy` | none | `bot.test.ts`, `ladderRun` |
+| the ladder rig | `SIZE_FLOOR` | every line at `MAX_LEVEL` | `3 * SCORE_BLEED_CAP` | whatever plays the row, the staged walk or the harness's own policy | records one | `src/dev/rigs.ts`, `RIGS.ladder` |
+| the conditioned rig | `SIZE_START` | chosen per run | chosen per run | a fixed wander | records one | `scripts/record-conditioned.ts` |
+| the harness rig | `SIZE_START` | birthright | 0 | the base policy under a named configuration | records one | this step |
 
 "The maxed dodge bot at seed 101" is the label #107 found, and it covers the first two, which differ by starting size. The label is retired: every reported figure names its rig.
+
+**Amended 2026-09-17, step 5 slice 8: "the ladder rig" is a row in `src/dev/rigs.ts` and is no longer the bot test's hit-taking start.** `RIGS.ladder` begins at `SIZE_FLOOR`, at `uniformLevels(MAX_LEVEL)`, holding `LADDER_RIG_BLEEDS * SCORE_BLEED_CAP`. That is the floor ladder's own starting condition, and it exists because the harness could not stage that ladder at all: a run at the size floor holding a score is what "go to the lowest level, then the level below" means (#99). The condition this row used to name still exists and is the hit-taking rig above, the ceiling at level 2 with 1,200 on it, driven by `ladderRun` in `bot.test.ts`; it was never a `Rig` record and it no longer carries this name. **What changed for the table is a whole column**: a rig now states a starting score as well as a size and levels, because every field together is the rig and a row that left the score implicit would rebuild #107's own defect. **What stood**: every other row, and the rule that a figure names its rig beside its configuration. **What this section could not have known**: nothing in the game paid score for a kill when it was written, so a starting score was not a fact a rig had to carry.
+
+**`rigOf` bands on the size and the levels alone, and the ladder row's score does not survive a replay.** A tape header carries a seed, a size, a roster, levels and a signal lock and no score at all, so a banding rule that read the score would answer null forever. The same gap is why `scripts/batch.ts rig=ladder` diverges at the first checkpoint: the run replays from zero while `witness.ts` folds `run.score`. The verifiable route is a conditioned recording at `rig=ladder score=0`, which reaches the floor and earns its score by play (step 5 progress note sections 12 and 14). Widening the header is filed rather than taken.
 
 **The harness rig starts at the birthright and is the only one that does.** That is the point of it: #98's first acceptance line is that its runs reach levelled builds rather than sitting there, so a rig that started maxed could not show the thing the ticket asks for. Hand-forward (g) says no dodging birthright run crosses the stage today, which is the reading the harness rig exists to move.
 
@@ -293,7 +298,7 @@ What it does cost is outside the tree. Mark saves tapes to `/mnt/c/Users/markd/D
 
 Why it was added, and it is not a softening of the hand: **the hand's policy is untouched**. Every reading step 4 was about to tune on came from a near-birthright build, while Mark's own human runs end with all four lines at 5. His power-curve ruling of 2026-09-09 is about the maxed end, and no birthright reading can see it. Measured on the day it landed: seed 202 under `steady-far` seals at 19111 ticks from the birthright and reaches **victory** at 26411 from the pinned rig. That gap is the part of the game the instrument could not previously see, and it is not a claim about the hand being better.
 
-**Two of the five write no tape, and their figures live only in prose.** The `policy` field plus the header's resolved size and levels make a rig recoverable from the bytes for the three that record, so a figure from a tape names its own rig without anybody writing it down. The ceiling rig and the ladder rig have no such guard, and a figure from either is only ever as well labelled as the sentence carrying it. That is a limitation of those two rigs and not something this step fixes.
+**Two of the seven write no tape, and their figures live only in prose.** The `policy` field plus the header's resolved size and levels make a rig recoverable from the bytes for the five that record, so a figure from a tape names its own rig without anybody writing it down. The ceiling rig and the hit-taking rig have no such guard, and a figure from either is only ever as well labelled as the sentence carrying it. That is a limitation of those two rigs and not something this step fixes.
 
 ---
 
