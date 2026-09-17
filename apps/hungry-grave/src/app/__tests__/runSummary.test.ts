@@ -27,6 +27,7 @@ describe('the run summary', () => {
       seed: 77,
       ticks: 2,
       ending: 'victory',
+      score: 0,
       fault: null,
     });
   });
@@ -41,6 +42,7 @@ describe('the run summary', () => {
       seed: 23,
       ticks: 3,
       ending: null,
+      score: 0,
       fault: null,
     });
   });
@@ -51,6 +53,22 @@ describe('the run summary', () => {
     const summary = summarizeRun(run, execution);
     executeTick(execution, STILL);
     expect(summary.ticks).toBe(0);
+  });
+
+  it('carries what the run scored, so the end screen can present it', () => {
+    // The score lives on the run and the run is reused in place, so the seal is
+    // the last moment the number exists to be read: the end screen has no other
+    // source for it.
+    const scored = createRun(5);
+    scored.score = 12400;
+    expect(summarizeRun(scored, createExecution(scored)).score).toBe(12400);
+  });
+
+  it('carries a score of zero as a number and never as an absence', () => {
+    // A run that scored nothing still scored something the player can be told,
+    // and a missing field would read on the end screen as no score at all.
+    const scoreless = createRun(5);
+    expect(summarizeRun(scoreless, createExecution(scoreless)).score).toBe(0);
   });
 
   it('carries which ending the run reached, so the end screen can say it', () => {

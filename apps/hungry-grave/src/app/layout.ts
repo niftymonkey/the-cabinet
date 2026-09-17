@@ -278,11 +278,8 @@ const fitField = (
  * left-hand crossing is the dev corner stack's and record R12 rules it a
  * dev-build-only collision that comes out with #66.
  */
-const hudRow = (
-  placement: FieldPlacement,
-  band: HudBand = HUD_BAND,
-): HudRow => {
-  const height = band.height * placement.scale;
+const hudRow = (placement: FieldPlacement): HudRow => {
+  const height = HUD_BAND.height * placement.scale;
   const fieldTop = placement.offsetY;
   return {
     left: placement.offsetX,

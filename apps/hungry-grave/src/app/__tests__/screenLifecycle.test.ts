@@ -950,20 +950,23 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
     // sealed, so without this the victory copy ships drawn by nobody.
     const screen = endScreen();
     runHandoff.record(
-      { seed: 3, ticks: 12780, ending: 'victory', fault: null },
+      { seed: 3, ticks: 12780, ending: 'victory', score: 0, fault: null },
       null,
     );
     screen.prepare();
     expect(screen['title'].text).toBe('THE STAGE SURVIVED');
 
     runHandoff.record(
-      { seed: 3, ticks: 400, ending: 'sealed', fault: null },
+      { seed: 3, ticks: 400, ending: 'sealed', score: 0, fault: null },
       null,
     );
     screen.prepare();
     expect(screen['title'].text).toBe('SEALED SHUT');
 
-    runHandoff.record({ seed: 3, ticks: 400, ending: null, fault: null }, null);
+    runHandoff.record(
+      { seed: 3, ticks: 400, ending: null, score: 0, fault: null },
+      null,
+    );
     screen.prepare();
     expect(screen['title'].text).toBe('THE RUN IS OVER');
   });
@@ -980,6 +983,7 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
         seed: 3,
         ticks: 400,
         ending: null,
+        score: 0,
         fault: { identity: 'no NaN', firstTick: 123 },
       },
       null,
@@ -988,7 +992,10 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
     expect(screen['title'].text).toBe('THE GAME BROKE');
     expect(screen['faultLabel'].text).toBe('FAULT no NaN\nAT TICK 123');
 
-    runHandoff.record({ seed: 3, ticks: 400, ending: null, fault: null }, null);
+    runHandoff.record(
+      { seed: 3, ticks: 400, ending: null, score: 0, fault: null },
+      null,
+    );
     screen.prepare();
     expect(screen['title'].text).toBe('THE RUN IS OVER');
     expect(screen['faultLabel'].text).toBe('');
@@ -1011,6 +1018,29 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
         );
       }
     }
+  });
+
+  it("presents the run's final score, in the reading the ladder row showed", () => {
+    // The ladder row is the only place the score is drawn and it goes with the
+    // field at the seal, so without this line a player who just watched a
+    // capped bleed spare their score ends the run unable to say what they had.
+    // Every arcade results screen presents the final score. The reading is the
+    // row's own, whole points at six digits, so the number they watched is the
+    // number they are handed.
+    const screen = endScreen();
+    runHandoff.record(
+      { seed: 3, ticks: 400, ending: 'sealed', score: 12400, fault: null },
+      null,
+    );
+    screen.prepare();
+    expect(screen['scoreLabel'].text).toBe('SCORE 012400');
+
+    runHandoff.record(
+      { seed: 3, ticks: 40, ending: 'sealed', score: 0, fault: null },
+      null,
+    );
+    screen.prepare();
+    expect(screen['scoreLabel'].text).toBe('SCORE 000000');
   });
 });
 
@@ -1097,14 +1127,14 @@ describe('the minimal export (dispatch 6a)', () => {
     const screen = endScreen();
 
     runHandoff.record(
-      { seed: 3, ticks: 400, ending: 'sealed', fault: null },
+      { seed: 3, ticks: 400, ending: 'sealed', score: 0, fault: null },
       null,
     );
     screen.prepare();
     expect(screen['saveButton'].visible).toBe(false);
 
     runHandoff.record(
-      { seed: 3, ticks: 400, ending: 'sealed', fault: null },
+      { seed: 3, ticks: 400, ending: 'sealed', score: 0, fault: null },
       new Uint8Array([1]),
     );
     screen.prepare();
@@ -1114,7 +1144,7 @@ describe('the minimal export (dispatch 6a)', () => {
   it("saves the handoff's bytes under the run's own name, from the tap handler", () => {
     const bytes = new Uint8Array([72, 71, 84, 80]);
     runHandoff.record(
-      { seed: 505, ticks: 400, ending: 'sealed', fault: null },
+      { seed: 505, ticks: 400, ending: 'sealed', score: 0, fault: null },
       bytes,
     );
     const screen = endScreen();
@@ -1130,7 +1160,7 @@ describe('the minimal export (dispatch 6a)', () => {
 
   it('saves nothing when the last run left no tape', () => {
     runHandoff.record(
-      { seed: 505, ticks: 400, ending: 'sealed', fault: null },
+      { seed: 505, ticks: 400, ending: 'sealed', score: 0, fault: null },
       null,
     );
     const screen = endScreen();

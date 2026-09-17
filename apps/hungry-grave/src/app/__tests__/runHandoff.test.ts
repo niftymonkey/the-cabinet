@@ -11,15 +11,19 @@ describe('the run handoff', () => {
 
   it('the run read back is the last one recorded', () => {
     const handoff = new RunHandoff();
-    handoff.record({ seed: 5, ticks: 90, ending: 'sealed', fault: null }, null);
     handoff.record(
-      { seed: 6, ticks: 12, ending: 'victory', fault: null },
+      { seed: 5, ticks: 90, ending: 'sealed', score: 0, fault: null },
+      null,
+    );
+    handoff.record(
+      { seed: 6, ticks: 12, ending: 'victory', score: 0, fault: null },
       null,
     );
     expect(handoff.read()).toEqual({
       seed: 6,
       ticks: 12,
       ending: 'victory',
+      score: 0,
       fault: null,
     });
   });
@@ -29,10 +33,16 @@ describe('the run handoff', () => {
     // reset, and the end screen's export needs the record after that.
     const handoff = new RunHandoff();
     const tape = new Uint8Array([72, 71, 84, 80]);
-    handoff.record({ seed: 5, ticks: 90, ending: 'sealed', fault: null }, tape);
+    handoff.record(
+      { seed: 5, ticks: 90, ending: 'sealed', score: 0, fault: null },
+      tape,
+    );
     expect(handoff.readTape()).toBe(tape);
 
-    handoff.record({ seed: 6, ticks: 12, ending: null, fault: null }, null);
+    handoff.record(
+      { seed: 6, ticks: 12, ending: null, score: 0, fault: null },
+      null,
+    );
     expect(handoff.readTape()).toBeNull();
   });
 });
