@@ -20,6 +20,7 @@ import {
   SIZE_FLOOR,
   TRASH_CORPSE_PAYOUT,
 } from '../../../game/tuning';
+import { DEFAULT_TUNING } from '../../../game/tuningRecord';
 import type { ScoreByInputAcc } from '../scoreByInput';
 import {
   createScoreByInput,
@@ -82,7 +83,10 @@ describe('the score decomposed by input (design record R4)', () => {
     const reading = scoreByInputOf(acc);
 
     expect(reading.paid).toBeCloseTo(state.score, 10);
-    expect(reading.killPaid).toBe(MOB_TYPES.shambler.scorePayout);
+    expect(reading.killPaid).toBe(
+      MOB_TYPES.shambler.scorePayoutInKills *
+        DEFAULT_TUNING.score.trashKillScore,
+    );
     expect(reading.killPayments).toBe(1);
     expect(reading.bossDamagePayments).toBe(1);
     expect(reading.mealAtMaxedPayments).toBe(1);

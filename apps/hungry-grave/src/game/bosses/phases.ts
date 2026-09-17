@@ -7,7 +7,7 @@ import type { DamageSource } from '../mobs';
 import type { Rect } from '../overlap';
 import type { RunState } from '../run';
 import type { BossKind } from '../stage/waves';
-import { FEAST_PAYOUT, SCORE_PER_BOSS_HEALTH } from '../tuning';
+import { FEAST_PAYOUT } from '../tuning';
 import { advanceBanshee, bansheeDied } from './banshee';
 import { advanceUndertaker, undertakerDied } from './undertaker';
 
@@ -195,6 +195,20 @@ const killBoss = (state: RunState, boss: Boss): SimEvent[] => {
  * body, or a fight's damage record goes quiet exactly where the player is
  * hitting hardest.
  */
+/**
+ * What one point of boss health pays this run, as a rate against the run's own
+ * kill unit (ADR 0064).
+ *
+ * The record states the health one trash kill is worth rather than the rate
+ * itself, because that is the sentence the figure was argued in: roughly a
+ * hundred points of boss health to one trash kill is what the researched band
+ * converts to. Read off the run, so a fight under a record that moves either
+ * row pays what that record says.
+ */
+const bossHealthRateOf = (state: RunState): number =>
+  state.conditions.tuning.score.trashKillScore /
+  state.conditions.tuning.score.bossHealthPerKill;
+
 const damageBoss = (
   state: RunState,
   amount: number,
@@ -215,7 +229,7 @@ const damageBoss = (
     { type: 'mobDamaged', id: boss.id, amount, source },
   ];
   if (healthTaken > 0) {
-    const paid = healthTaken * SCORE_PER_BOSS_HEALTH;
+    const paid = healthTaken * bossHealthRateOf(state);
     state.score += paid;
     events.push({
       type: 'scorePaid',

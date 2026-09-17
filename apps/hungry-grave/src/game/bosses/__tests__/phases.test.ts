@@ -22,7 +22,9 @@ import { SHOVE_TICKS } from '../../shove';
 import { SECTIONS } from '../../stage/stage';
 import { resolveStorm } from '../../storm';
 import { FIELD_HEIGHT } from '../../field';
-import { RESERVOIR_CAPACITY, SCORE_PER_BOSS_HEALTH } from '../../tuning';
+import { RESERVOIR_CAPACITY } from '../../tuning';
+import type { TuningRecord } from '../../tuningRecord';
+import { DEFAULT_TUNING, resolveTuning } from '../../tuningRecord';
 import type { Boss } from '../phases';
 import {
   advanceBoss,
@@ -47,17 +49,29 @@ function firstOf<T>(items: readonly T[]): T {
 
 const SEED = 20260908;
 
-/** A run with nothing else on the field, which is what a boss section hands over. */
-function emptyRun(seed = SEED): RunState {
-  return createRun(seed);
-}
+/**
+ * What one point of boss health pays under a record, as a rate against that
+ * record's own kill unit (ADR 0064).
+ *
+ * The row is the health one trash kill is worth, so the rate is the unit over
+ * the row: a fight's worth follows the boss's own health and no typed figure
+ * here goes stale when either end moves.
+ */
+const rateUnder = (tuning: TuningRecord): number =>
+  tuning.score.trashKillScore / tuning.score.bossHealthPerKill;
+
+/** The rate the build compiles, which is what every run below starts under. */
+const DEFAULT_BOSS_RATE = rateUnder(DEFAULT_TUNING);
 
 /** The boss standing alone, and the run it stands in. */
-function fighting(kind: Boss['kind'] = 'undertaker'): {
+function fighting(
+  kind: Boss['kind'] = 'undertaker',
+  tuning?: TuningRecord,
+): {
   state: RunState;
   boss: Boss;
 } {
-  const state = emptyRun();
+  const state = createRun(SEED, tuning === undefined ? {} : { tuning });
   return { state, boss: spawnBoss(state, kind) };
 }
 
@@ -393,7 +407,7 @@ describe('boss damage pays score, per hit landed (design record R4)', () => {
 
     expect(paid).toHaveLength(1);
     expect(firstOf(paid).input).toBe('bossDamage');
-    expect(firstOf(paid).amount).toBeCloseTo(landed * SCORE_PER_BOSS_HEALTH);
+    expect(firstOf(paid).amount).toBeCloseTo(landed * DEFAULT_BOSS_RATE);
     expect(firstOf(paid).score).toBe(state.score);
     expect(boss.hp).toBe(
       requireDefined(PHASE_HP.undertaker[0], 'no phase') - landed,
@@ -414,7 +428,7 @@ describe('boss damage pays score, per hit landed (design record R4)', () => {
     );
 
     expect(paid).toHaveLength(1);
-    expect(firstOf(paid).amount).toBeCloseTo(left * SCORE_PER_BOSS_HEALTH);
+    expect(firstOf(paid).amount).toBeCloseTo(left * DEFAULT_BOSS_RATE);
   });
 
   it('pays nothing for a hit the phase flash absorbed, because it took no health', () => {
@@ -440,9 +454,35 @@ describe('boss damage pays score, per hit landed (design record R4)', () => {
     const paid = only(fightToDeath(state, boss), 'scorePaid');
 
     expect(paid.reduce((sum, event) => sum + event.amount, 0)).toBeCloseTo(
-      health * SCORE_PER_BOSS_HEALTH,
+      health * DEFAULT_BOSS_RATE,
     );
-    expect(state.score).toBeCloseTo(health * SCORE_PER_BOSS_HEALTH);
+    expect(state.score).toBeCloseTo(health * DEFAULT_BOSS_RATE);
+  });
+
+  it('a hit on a boss pays the rate the run started under, so a record that halves the row halves the fight (ADR 0064)', () => {
+    // The direction the row predicts: the row is the points of boss health one
+    // trash kill is worth, so doubling it makes a boss's health cheaper and the
+    // same landed hit pays half. The health taken is identical on both sides,
+    // so the record is the only thing between the two figures.
+    const landed = 40;
+    const cheaper = resolveTuning({
+      score: {
+        bossHealthPerKill: DEFAULT_TUNING.score.bossHealthPerKill * 2,
+      },
+    });
+    const underDefault = fighting();
+    const underCheaper = fighting('undertaker', cheaper);
+
+    const paidDefault = firstOf(
+      only(damageBoss(underDefault.state, landed, 'skullStream'), 'scorePaid'),
+    );
+    const paidCheaper = firstOf(
+      only(damageBoss(underCheaper.state, landed, 'skullStream'), 'scorePaid'),
+    );
+
+    expect(paidDefault.amount).toBeCloseTo(landed * DEFAULT_BOSS_RATE);
+    expect(paidCheaper.amount).toBeCloseTo(landed * rateUnder(cheaper));
+    expect(paidCheaper.amount).toBeCloseTo(paidDefault.amount / 2);
   });
 
   it('has still paid for every hit that landed on a boss that was never killed', () => {
@@ -458,7 +498,7 @@ describe('boss damage pays score, per hit landed (design record R4)', () => {
     expect(state.boss).not.toBeNull();
     expect(state.score).toBeCloseTo(
       (requireDefined(PHASE_HP.undertaker[0], 'no phase') + landed) *
-        SCORE_PER_BOSS_HEALTH,
+        DEFAULT_BOSS_RATE,
     );
   });
 });

@@ -17,18 +17,28 @@ import {
   FRESHNESS_PAYOUT_FLOOR,
   FRESHNESS_SECONDS,
   INVULNERABLE_TICKS,
-  MEAL_AT_MAXED_SCORE,
   RESERVOIR_CAPACITY,
-  SCORE_BLEED_CAP,
-  SCORE_PER_BOSS_HEALTH,
   SCROLL_SPEED,
   SIZE_CEILING,
   SIZE_FLOOR,
   SIZE_START,
-  SOURCE_KILL_SCORE,
   TRASH_CORPSE_PAYOUT,
-  TRASH_KILL_SCORE,
 } from '../tuning';
+import { DEFAULT_TUNING } from '../tuningRecord';
+
+/**
+ * The score's five rows as the figures the relations below are stated in, off
+ * the record the build compiles (ADR 0064).
+ *
+ * The rows are stated in trash kills and the relations are about points, so the
+ * conversion happens once here rather than at nine assertion sites. What the
+ * suite pins is unchanged: the relations between the rows, never a magnitude.
+ */
+const TRASH_KILL = DEFAULT_TUNING.score.trashKillScore;
+const BLEED_CAP = DEFAULT_TUNING.score.bleedCapInKills * TRASH_KILL;
+const PER_BOSS_HEALTH = TRASH_KILL / DEFAULT_TUNING.score.bossHealthPerKill;
+const SOURCE_KILL = DEFAULT_TUNING.score.sourceKillInKills * TRASH_KILL;
+const MEAL_AT_MAXED = DEFAULT_TUNING.score.mealAtMaxedInKills * TRASH_KILL;
 
 describe('the tuning derivations', () => {
   it("base speed crosses the field's width in two seconds (ADR 0003)", () => {
@@ -120,8 +130,7 @@ describe('the food economy in corpses of expected mowing (the record section 5 i
 describe("the score's inputs, each stated against a trash kill (design record R4)", () => {
   /** What a whole fight against this boss pays, off its own health and the row. */
   const wholeFight = (kind: BossKind): number =>
-    PHASE_HP[kind].reduce((sum, phase) => sum + phase, 0) *
-    SCORE_PER_BOSS_HEALTH;
+    PHASE_HP[kind].reduce((sum, phase) => sum + phase, 0) * PER_BOSS_HEALTH;
 
   it("pays a boss's health far slower than the mow's own, so one fight can never swamp a run", () => {
     // The swamping refusal, and it is the whole reason the boss row is a rate
@@ -131,8 +140,10 @@ describe("the score's inputs, each stated against a trash kill (design record R4
     // (docs/research/score-inputs-precedent.md section 4). Pinned as a relation
     // between the two rows and PHASE_HP, so a step 6 retune of any of them
     // moves it and no figure here goes stale.
-    const mowRate = MOB_TYPES.shambler.scorePayout / MOB_TYPES.shambler.hp;
-    expect(SCORE_PER_BOSS_HEALTH).toBeLessThan(mowRate);
+    const mowRate =
+      (MOB_TYPES.shambler.scorePayoutInKills * TRASH_KILL) /
+      MOB_TYPES.shambler.hp;
+    expect(PER_BOSS_HEALTH).toBeLessThan(mowRate);
 
     for (const kind of BOSS_KINDS) {
       const health = PHASE_HP[kind].reduce((sum, phase) => sum + phase, 0);
@@ -153,8 +164,10 @@ describe("the score's inputs, each stated against a trash kill (design record R4
     // researched band for a single input.
     const lastFight = Math.max(...BOSS_KINDS.map(wholeFight));
 
-    expect(SOURCE_KILL_SCORE).toBeGreaterThan(MOB_TYPES.revenant.scorePayout);
-    expect(SOURCE_KILL_SCORE).toBeLessThan(lastFight);
+    expect(SOURCE_KILL).toBeGreaterThan(
+      MOB_TYPES.revenant.scorePayoutInKills * TRASH_KILL,
+    );
+    expect(SOURCE_KILL).toBeLessThan(lastFight);
   });
 
   it('pays one large meal at least a mow body and far less than the source', () => {
@@ -163,16 +176,14 @@ describe("the score's inputs, each stated against a trash kill (design record R4
     // boss fight in slice M7's own batch rather than pinned here. What the
     // relation holds is the two ends of it, that a meal is never worth less
     // than the body it was cut from and never a prize of the source's order.
-    expect(MEAL_AT_MAXED_SCORE).toBeGreaterThanOrEqual(TRASH_KILL_SCORE);
-    expect(MEAL_AT_MAXED_SCORE).toBeLessThan(SOURCE_KILL_SCORE);
+    expect(MEAL_AT_MAXED).toBeGreaterThanOrEqual(TRASH_KILL);
+    expect(MEAL_AT_MAXED).toBeLessThan(SOURCE_KILL);
   });
 
   it("holds the ladder's cap below what one boss fight pays", () => {
     // The two rows meet at the floor: a hit takes a capped slice of a bank that
     // three further inputs now feed, so the cap stays smaller than what a fight
     // pays or one touch would take a whole fight with it.
-    expect(SCORE_BLEED_CAP).toBeLessThan(
-      Math.min(...BOSS_KINDS.map(wholeFight)),
-    );
+    expect(BLEED_CAP).toBeLessThan(Math.min(...BOSS_KINDS.map(wholeFight)));
   });
 });

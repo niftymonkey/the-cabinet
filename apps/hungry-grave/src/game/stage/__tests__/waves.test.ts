@@ -52,14 +52,12 @@ import {
   BOSS_FIRE,
   CARDS,
   cardCost,
-  CROWD_PURSE,
   CROWD_WAVES,
   largestCard,
   peakArrivals,
   peakArrivalsOf,
   POUR_SHARES,
   POUR_TYPE,
-  PROCESSION_PURSE,
   PROCESSION_WAVES,
   repeatingArrivals,
   REVENANT_FIRE,
@@ -70,12 +68,12 @@ import {
   SET_PIECE_SWEEP_MAX_X,
   SET_PIECE_SWEEP_MIN_X,
   SPARSE_LAST_WAVE,
-  VIGIL_PURSE,
   VIGIL_WAVES,
   WAKING_WAVES,
 } from '../waves';
 import type { Section } from '../stage';
 import { createStage, SECTIONS } from '../stage';
+import { DEFAULT_TUNING } from '../../tuningRecord';
 
 /**
  * How long ADR 0015's golden scenario runs, in the waves' own clock. The
@@ -1195,18 +1193,23 @@ describe("the director's table, beside the waves it adds over (ADR 0056)", () =>
     // to spend. Zero is a figure and never the absence a null would be, which
     // is what lets a reading see the section run empty from its first tick
     // (ADR 0056, the record's section 5 item 6).
-    expect(VIGIL_PURSE).toBe(0);
-    expect(VIGIL_PURSE).not.toBeNull();
-    expect(PROCESSION_PURSE).toBeGreaterThan(0);
-    expect(CROWD_PURSE).toBeGreaterThan(0);
+    expect(DEFAULT_TUNING.stage.vigilPurse).toBe(0);
+    expect(DEFAULT_TUNING.stage.vigilPurse).not.toBeNull();
+    expect(DEFAULT_TUNING.stage.processionPurse).toBeGreaterThan(0);
+    expect(DEFAULT_TUNING.stage.crowdPurse).toBeGreaterThan(0);
 
     // About a third of that section's standing-wave total in bodies, read off
     // the tables so a re-authored rate moves the assertion with it.
     expect(
-      Math.abs(PROCESSION_PURSE - standingBodiesIn(PROCESSION_WAVES) / 3),
+      Math.abs(
+        DEFAULT_TUNING.stage.processionPurse -
+          standingBodiesIn(PROCESSION_WAVES) / 3,
+      ),
     ).toBeLessThan(1);
     expect(
-      Math.abs(CROWD_PURSE - standingBodiesIn(CROWD_WAVES) / 3),
+      Math.abs(
+        DEFAULT_TUNING.stage.crowdPurse - standingBodiesIn(CROWD_WAVES) / 3,
+      ),
     ).toBeLessThan(1);
     // The Vigil's zero agrees from the other side: it authors no rate at all.
     expect(standingBodiesIn(VIGIL_WAVES)).toBe(0);
@@ -1231,7 +1234,9 @@ describe("the director's table, beside the waves it adds over (ADR 0056)", () =>
     // The largest card is an addend on the mob cap, so it is kept small on
     // purpose: a padded cap is paid on every tick of every run (the record's
     // section 5 item 7).
-    expect(largestCard(null)).toBeLessThan(PROCESSION_PURSE);
+    expect(largestCard(null)).toBeLessThan(
+      DEFAULT_TUNING.stage.processionPurse,
+    );
     expect(largestCard('revenant')).toBeLessThanOrEqual(largestCard(null));
   });
 

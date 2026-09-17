@@ -10,19 +10,24 @@ import type { DirectorState } from '../director';
 import { directorSpend } from '../director';
 import type { BossKind, StageWave } from './waves';
 import {
-  CROWD_PURSE,
   CROWD_WAVES,
-  PROCESSION_PURSE,
   PROCESSION_WAVES,
   repeatingArrivals,
   SET_PIECE_PLACED_AT,
-  VIGIL_PURSE,
   VIGIL_WAVES,
   WAKING_WAVES,
 } from './waves';
+import type { StageTuning, TuningRecord } from '../tuningRecord';
 import { placeSetPiece } from './setPiece';
 import type { SpawnOrder } from './formations';
 import { place } from './formations';
+
+/**
+ * The rows of the stage group a section may name as its purse (ADR 0064),
+ * derived from the record's own type so a row renamed there is a compile error
+ * here rather than a string nobody reads.
+ */
+type PurseRow = Extract<keyof StageTuning, `${string}Purse`>;
 
 type SectionName =
   | 'procession'
@@ -95,20 +100,22 @@ interface Section {
    */
   readonly bankOpens: boolean;
   /**
-   * The finite budget this section gives the director, counted in bodies
-   * (ADR 0056). Null where the section is undirected, so a section that may not
-   * spend has nothing to spend rather than a zero.
+   * Which row of the run's tuning record holds the finite budget this section
+   * gives the director, counted in bodies (ADR 0056, ADR 0064). Null where the
+   * section is undirected, so a section that may not spend names no row rather
+   * than naming one that reads zero.
    *
-   * The figure itself is a constant in waves.ts and this column is a reference
-   * to it, on the same terms as `waves`, because caps.ts derives from the table
-   * and may not import this module.
+   * The name and never the figure, because the figure is a magnitude a sweep
+   * moves and this table is authored content: a purse written in both places
+   * would be two spellings of one fact, and the table's job is to say which
+   * section spends rather than how much.
    *
    * A purse of zero is the third reading and not the same as either: a section
    * the director may look at and find empty from the first tick, which is the
    * Vigil's, against a spent purse, which is a section that has run its budget
    * out and stands at its authored floor for the rest of its length.
    */
-  readonly purse: number | null;
+  readonly purse: PurseRow | null;
 }
 
 /**
@@ -138,7 +145,7 @@ const SECTIONS: readonly Section[] = [
     liveFormationCeiling: 1,
     liveBodyCeiling: null,
     bankOpens: true,
-    purse: PROCESSION_PURSE,
+    purse: 'processionPurse',
   },
   {
     name: 'banshee',
@@ -162,7 +169,7 @@ const SECTIONS: readonly Section[] = [
     liveFormationCeiling: null,
     liveBodyCeiling: null,
     bankOpens: true,
-    purse: CROWD_PURSE,
+    purse: 'crowdPurse',
   },
   {
     // The source's own moment: it begins the tick the eye opens and ends the
@@ -197,11 +204,12 @@ const SECTIONS: readonly Section[] = [
     // and slice B's re-authored table left that stale: measured with the grave
     // held at the ceiling on seed 77, a diving hand, the Vigil's own waves
     // stand a mean of 12.6 shaped bodies live at rung 5 and 15.8 at rung 1,
-    // peaking at 38 and 40. It gates nothing today, because VIGIL_PURSE is
-    // zero and a section with nothing to spend never reaches a ceiling.
+    // peaking at 38 and 40. It gates nothing today, because the Vigil's own
+    // purse row is zero and a section with nothing to spend never reaches a
+    // ceiling.
     liveBodyCeiling: 28,
     bankOpens: true,
-    purse: VIGIL_PURSE,
+    purse: 'vigilPurse',
   },
   {
     name: 'undertaker',
@@ -497,16 +505,22 @@ const directorGranted = (
   director: DirectorState,
   section: Section,
   tick: number,
+  tuning: TuningRecord,
 ): DirectorState => {
   return {
     ...director,
-    purseLeft: section.purse ?? 0,
+    purseLeft: section.purse === null ? 0 : tuning.stage[section.purse],
     quietUntilTick: tick + 1,
   };
 };
 
 const grantPurse = (state: RunState, section: Section): void => {
-  state.director = directorGranted(state.director, section, state.tick);
+  state.director = directorGranted(
+    state.director,
+    section,
+    state.tick,
+    state.conditions.tuning,
+  );
 };
 
 /**
@@ -540,8 +554,11 @@ const enterNextSection = (state: RunState, events: SimEvent[]): void => {
  * fill. It goes through the grant above rather than beside it, so the run's
  * first tick and every boundary after it are one rule.
  */
-const openingDirector = (director: DirectorState): DirectorState => {
-  return directorGranted(director, sectionAt(0), 0);
+const openingDirector = (
+  director: DirectorState,
+  tuning: TuningRecord,
+): DirectorState => {
+  return directorGranted(director, sectionAt(0), 0, tuning);
 };
 
 /**
@@ -677,4 +694,11 @@ export {
   bankOpensNow,
   SECTIONS,
 };
-export type { SectionName, SectionEnd, SectionMusic, Section, StageState };
+export type {
+  SectionName,
+  SectionEnd,
+  SectionMusic,
+  PurseRow,
+  Section,
+  StageState,
+};

@@ -13,7 +13,6 @@ import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import type { RunState, StartingConditions } from '../run';
 import { createRun, uniformLevels } from '../run';
 import { SIGNAL_RAN_LIVE } from '../signalLock';
-import { PROCESSION_PURSE } from '../stage/waves';
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../tuning';
 import { DEFAULT_TUNING } from '../tuningRecord';
 import type { TuningRecord } from '../tuningRecord';
@@ -114,7 +113,7 @@ describe('createRun', () => {
     // opening one is granted here.
     expect(createRun(1).director).toEqual({
       ...STARTING_DIRECTOR,
-      purseLeft: PROCESSION_PURSE,
+      purseLeft: DEFAULT_TUNING.stage.processionPurse,
       // Silent for the tick it was granted on, which is the rule every section
       // boundary takes and which the run's own opening is (stage.ts's
       // directorGranted).

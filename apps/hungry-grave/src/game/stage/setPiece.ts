@@ -8,7 +8,7 @@ import type { DamageSource } from '../mobs';
 import { spawnMob } from '../mobs';
 import type { Rect } from '../overlap';
 import type { RunState } from '../run';
-import { SCROLL_SPEED, SOURCE_KILL_SCORE } from '../tuning';
+import { SCROLL_SPEED } from '../tuning';
 import type { SetPieceClosing } from '../events';
 import {
   POUR_JITTER_X,
@@ -259,6 +259,19 @@ const advanceSetPiece = (state: RunState): SimEvent[] => {
  * hand that commits up the trail and fights the source down never ends its own
  * food early.
  */
+/**
+ * What killing the source pays this run, in points: the run's own bonus, stated
+ * in trash kills, at the run's own kill unit (ADR 0064).
+ *
+ * Stated in kills because that is the sentence the figure was argued in, a
+ * trophy worth twenty-four mow bodies and below the tier a core kill that
+ * denied something would be paid. Read off the run, so a run under a record
+ * that moves either row pays what that record says.
+ */
+const sourceKillBonusOf = (state: RunState): number =>
+  state.conditions.tuning.score.sourceKillInKills *
+  state.conditions.tuning.score.trashKillScore;
+
 const damageSetPiece = (
   state: RunState,
   amount: number,
@@ -277,11 +290,12 @@ const damageSetPiece = (
   // the source was killed (design record R4). Killing it denies nothing: #104
   // keeps the pour running, so neither Xevious's milk-then-deny premium nor
   // Robotron's safety premium is the precedent behind the row.
-  state.score += SOURCE_KILL_SCORE;
+  const paid = sourceKillBonusOf(state);
+  state.score += paid;
   events.push({
     type: 'scorePaid',
     input: 'sourceKilled',
-    amount: SOURCE_KILL_SCORE,
+    amount: paid,
     score: state.score,
   });
   return events;

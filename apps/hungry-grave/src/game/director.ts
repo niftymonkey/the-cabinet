@@ -14,8 +14,9 @@ import type { SpawnOrder } from './stage/formations';
 import { place } from './stage/formations';
 import type { Section } from './stage/stage';
 import type { DirectorCard, StageWave } from './stage/waves';
-import { CARDS, cardCost, QUIET_INTERVAL_MINIMUM_SECONDS } from './stage/waves';
+import { CARDS, cardCost } from './stage/waves';
 import { HIT_SHRINK, SIZE_FLOOR, SIZE_START } from './tuning';
+import type { TuningRecord } from './tuningRecord';
 
 /**
  * The pressure the run is putting on the player (CONTEXT.md Pressure): harm and
@@ -162,21 +163,25 @@ const SIGNAL_DECAY_TICKS = 30 * TICK_HZ;
 const SIGNAL_DECAY_PER_TICK = SIGNAL_FULL / SIGNAL_DECAY_TICKS;
 
 /**
- * The shortest the director may go between two adds, in ticks. The figure lives
- * in waves.ts and is read from there rather than copied: the corpse cap and the
- * mob cap both derive from the same row, and a second copy here would let a cap
- * and the director disagree about the same director, which is the exact defect
- * commit 2fb33ee5de removed.
+ * The shortest this run's director may go between two adds, in ticks.
+ *
+ * Both ends are rows of the run's own tuning record (ADR 0064) and neither is a
+ * constant here, so a cap and the director cannot disagree about the same
+ * director: the corpse cap and the mob cap derive from the same row off the
+ * same record, which is what the defect commit 2fb33ee5de removed was made of.
+ * Stated in seconds on the record and converted here, because a per-tick
+ * magnitude is unreadable and a per-second one is the number a sweep moves.
  */
-const QUIET_MIN_TICKS = QUIET_INTERVAL_MINIMUM_SECONDS * TICK_HZ;
+const quietMinTicks = (tuning: TuningRecord): number =>
+  tuning.stage.quietIntervalMinimumSeconds * TICK_HZ;
 
 /**
- * The longest, at eight seconds from the record's section 9's four-to-eight
- * band. The minimum's home is waves.ts because a cap derives from it; nothing
- * derives from the maximum, so it is authored here with the rest of the
- * director's own rows.
+ * The longest, from the same record. The resolver asserts the minimum sits at
+ * or below the maximum before either reaches here, so the span the draw below
+ * takes is never negative and this module defends nothing (parse at the edge).
  */
-const QUIET_MAX_TICKS = 8 * TICK_HZ;
+const quietMaxTicks = (tuning: TuningRecord): number =>
+  tuning.stage.quietIntervalMaximumSeconds * TICK_HZ;
 
 /**
  * What the director bought this tick: the card, where its bodies go, what the
@@ -341,8 +346,9 @@ const directorSpend = (
   const card = affordable[stream.nextInt(affordable.length)];
   if (card === undefined) return null;
   const orders = place(card.formation, card.count, stream);
-  const quiet =
-    QUIET_MIN_TICKS + stream.nextInt(QUIET_MAX_TICKS - QUIET_MIN_TICKS + 1);
+  const floor = quietMinTicks(state.conditions.tuning);
+  const ceiling = quietMaxTicks(state.conditions.tuning);
+  const quiet = floor + stream.nextInt(ceiling - floor + 1);
   return {
     card,
     orders,
@@ -364,7 +370,7 @@ export {
   SIGNAL_HOLD_TICKS,
   SIGNAL_DECAY_TICKS,
   SIGNAL_DECAY_PER_TICK,
-  QUIET_MIN_TICKS,
-  QUIET_MAX_TICKS,
+  quietMinTicks,
+  quietMaxTicks,
 };
 export type { DirectorState, PressureSignal, Spend };

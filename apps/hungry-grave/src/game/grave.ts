@@ -17,7 +17,6 @@ import {
   GRAVE_ASPECT,
   HIT_SHRINK,
   INVULNERABLE_TICKS,
-  SCORE_BLEED_CAP,
   SIZE_CEILING,
   SIZE_FLOOR,
   SIZE_START,
@@ -168,6 +167,20 @@ const ageGrave = (grave: Grave): void => {
 };
 
 /**
+ * The most one hit at the size floor may bleed, in points: the run's own cap,
+ * stated in trash kills, at the run's own kill unit (ADR 0064).
+ *
+ * Two rows and not one, because the sentence the cap exists to make sayable is
+ * about the income it comes out of, "a hit at the floor costs you twenty
+ * kills", and a bare two thousand says nothing about that income. Read off the
+ * run so that a run started under a record that moves either row bleeds what
+ * that record says rather than what this build compiles.
+ */
+const bleedCapOf = (state: RunState): number =>
+  state.conditions.tuning.score.bleedCapInKills *
+  state.conditions.tuning.score.trashKillScore;
+
+/**
  * The lesser of the standing score and the cap, gone, and the remainder stays
  * (ADR 0003 as amended on Mark's ruling of 2026-09-16, design record R4's
  * closing amendment). The event carries what was taken beside what is left, so
@@ -178,7 +191,7 @@ const ageGrave = (grave: Grave): void => {
  * that pins the lesser-of is what holds it.
  */
 const bleedScore = (state: RunState): SimEvent[] => {
-  const amount = Math.min(state.score, SCORE_BLEED_CAP);
+  const amount = Math.min(state.score, bleedCapOf(state));
   state.score -= amount;
   return [{ type: 'scoreBled', amount, score: state.score }];
 };

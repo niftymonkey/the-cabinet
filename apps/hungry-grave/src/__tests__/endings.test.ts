@@ -28,7 +28,12 @@ import type { RunState } from '../game/run';
 import { createRun, uniformLevels } from '../game/run';
 import type { BossKind } from '../game/stage/waves';
 import { SECTIONS } from '../game/stage/stage';
-import { SCORE_BLEED_CAP, SIZE_CEILING, SIZE_FLOOR } from '../game/tuning';
+import { SIZE_CEILING, SIZE_FLOOR } from '../game/tuning';
+import { DEFAULT_TUNING } from '../game/tuningRecord';
+
+/** What one floor hit bleeds under the record the build compiles, in points (ADR 0064). */
+const BLEED_CAP =
+  DEFAULT_TUNING.score.bleedCapInKills * DEFAULT_TUNING.score.trashKillScore;
 
 /** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
 function requireDefined<T>(value: T | undefined, message: string): T {
@@ -360,7 +365,7 @@ describe("the grave's ending (ADR 0003)", () => {
       only(rungs, 'scoreBled')[0],
       'no scoreBled rung',
     ).amount;
-    expect(bled).toBeCloseTo(Math.min(stood, SCORE_BLEED_CAP), 10);
+    expect(bled).toBeCloseTo(Math.min(stood, BLEED_CAP), 10);
     expect(leftByTheBleed).toBeCloseTo(stood - bled, 10);
     // Then the levels, then the seal, and the seal is the last thing that
     // happens because there is nothing left to bleed.

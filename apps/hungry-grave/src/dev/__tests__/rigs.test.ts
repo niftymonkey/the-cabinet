@@ -16,12 +16,13 @@ import {
   WEAPON_LINES,
 } from '../../game/lines/roster';
 import { createRun } from '../../game/run';
-import {
-  SCORE_BLEED_CAP,
-  SIZE_CEILING,
-  SIZE_FLOOR,
-  SIZE_START,
-} from '../../game/tuning';
+import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../../game/tuning';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
+
+/** What one floor hit bleeds under the record the build compiles, in points (ADR 0064). */
+const BLEED_CAP =
+  DEFAULT_TUNING.score.bleedCapInKills * DEFAULT_TUNING.score.trashKillScore;
+
 import { isRigName, rigOf, RIGS, RIG_NAMES } from '../rigs';
 
 describe('the rigs a harness run is played out of', () => {
@@ -80,7 +81,7 @@ describe('the rigs a harness run is played out of', () => {
     // At least twice the cap, so the first bleed leaves a remainder standing
     // and the walk shows the cap's own rule rather than a score that happened
     // to vanish.
-    expect(run.score).toBeGreaterThanOrEqual(2 * SCORE_BLEED_CAP);
+    expect(run.score).toBeGreaterThanOrEqual(2 * BLEED_CAP);
   });
 
   it('applies every fact a row states when a row is applied, and never part of one', () => {

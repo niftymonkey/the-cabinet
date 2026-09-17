@@ -33,14 +33,11 @@ import { createRun } from '../run';
 import type { StageWave } from '../stage/waves';
 import {
   BOSS_FIRE,
-  CROWD_PURSE,
   CROWD_WAVES,
   largestCard,
   peakArrivals,
   peakArrivalsOf,
-  PROCESSION_PURSE,
   PROCESSION_WAVES,
-  QUIET_INTERVAL_MINIMUM_SECONDS,
   VIGIL_WAVES,
 } from '../stage/waves';
 import { FRESHNESS_SECONDS } from '../tuning';
@@ -211,7 +208,10 @@ describe('the corpse cap (ADR 0056)', () => {
     // minimum interval after it, and never a section's whole purse.
     const directed =
       largestCard(null) *
-      (Math.floor(FRESHNESS_SECONDS / QUIET_INTERVAL_MINIMUM_SECONDS) + 1);
+      (Math.floor(
+        FRESHNESS_SECONDS / DEFAULT_TUNING.stage.quietIntervalMinimumSeconds,
+      ) +
+        1);
     expect(directed).toBeGreaterThan(0);
     expect(CORPSE_CAP).toBe(
       MOB_CAP + peakArrivals(FRESHNESS_SECONDS) + TREASURE_ALLOWANCE + directed,
@@ -343,7 +343,10 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     // leave room for.
     const perWindow =
       largestCard(null) *
-      (Math.floor(TRANSIT_SECONDS / QUIET_INTERVAL_MINIMUM_SECONDS) + 1);
+      (Math.floor(
+        TRANSIT_SECONDS / DEFAULT_TUNING.stage.quietIntervalMinimumSeconds,
+      ) +
+        1);
     expect(peakLive(DEFAULT_TUNING)).toBe(
       peakArrivals(TRANSIT_SECONDS) + perWindow,
     );
@@ -351,8 +354,8 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     // The teeth on both sides: it is more than one card, because a transit
     // window holds several quiet intervals, and still well under a purse.
     expect(perWindow).toBeGreaterThan(largestCard(null));
-    expect(perWindow).toBeLessThan(PROCESSION_PURSE);
-    expect(perWindow).toBeLessThan(CROWD_PURSE);
+    expect(perWindow).toBeLessThan(DEFAULT_TUNING.stage.processionPurse);
+    expect(perWindow).toBeLessThan(DEFAULT_TUNING.stage.crowdPurse);
   });
 
   it('stands the mob-fire cap above the revenant peak plus the worst boss pattern', () => {

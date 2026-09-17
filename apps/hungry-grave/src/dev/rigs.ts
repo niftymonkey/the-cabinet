@@ -5,7 +5,7 @@ import type { WeaponLine } from '../game/lines/roster';
 import { birthrightLevels, uniformLevels } from '../game/run';
 import type { StartingConditions } from '../game/run';
 import { SIGNAL_RAN_LIVE } from '../game/signalLock';
-import { SCORE_BLEED_CAP, SIZE_FLOOR, SIZE_START } from '../game/tuning';
+import { SIZE_FLOOR, SIZE_START } from '../game/tuning';
 import { DEFAULT_TUNING } from '../game/tuningRecord';
 
 /**
@@ -44,11 +44,22 @@ interface Rig {
  * cap itself stayed. At three the remainder is plainly neither the cap nor
  * zero, which is what makes the bleed's own rule legible in the rows.
  *
- * What would move it: SCORE_BLEED_CAP's own value, which is re-read after
- * slice M7, and a walk that wanted more than one bleed in it, which needs the
- * grave to grow off the floor rather than a larger score.
+ * What would move it: the bleed cap's own rows, which are re-read after slice
+ * M7, and a walk that wanted more than one bleed in it, which needs the grave
+ * to grow off the floor rather than a larger score.
  */
 const LADDER_RIG_BLEEDS = 3;
+
+/**
+ * What one floor hit bleeds under the record every rig plays, in points.
+ *
+ * Read off the default record rather than off a constant, because the cap is
+ * two rows of that record now (ADR 0064) and a rig is a harness starting
+ * condition resolved against the build's own values. A run under a record of
+ * its own is a candidate and carries its own name, so nothing here reads one.
+ */
+const LADDER_RIG_BLEED_CAP =
+  DEFAULT_TUNING.score.bleedCapInKills * DEFAULT_TUNING.score.trashKillScore;
 
 /**
  * The rows, keyed by name.
@@ -104,7 +115,7 @@ const RIGS: Readonly<Record<RigName, Rig>> = {
       startingLevels: uniformLevels(MAX_LEVEL),
       roster: WEAPON_LINES,
       signalLock: SIGNAL_RAN_LIVE,
-      startingScore: LADDER_RIG_BLEEDS * SCORE_BLEED_CAP,
+      startingScore: LADDER_RIG_BLEEDS * LADDER_RIG_BLEED_CAP,
       tuning: DEFAULT_TUNING,
     },
   },

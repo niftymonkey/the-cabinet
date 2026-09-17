@@ -42,6 +42,7 @@ import type { TickCommand } from '../../command';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
 import { SCROLL_SPEED, SIZE_FLOOR, SIZE_START } from '../../tuning';
+import { DEFAULT_TUNING, resolveTuning } from '../../tuningRecord';
 import type { StageWave } from '../waves';
 import {
   CROWD_WAVES,
@@ -163,7 +164,19 @@ const shapedTicksIn = (waves: readonly StageWave[]): ReadonlySet<number> =>
 
 interface Played {
   /** Every sectionChanged, in order, as name and absolute tick. */
-  readonly boundaries: { section: SectionName; tick: number }[];
+  /**
+   * Each crossing, with what the section it opened granted the director.
+   *
+   * The purse is read after the step that crossed, which is the granted figure
+   * and never a spent one: the grant leaves the director silent for the tick it
+   * lands on (stage.ts's directorGranted), so nothing can have come out of it
+   * yet.
+   */
+  readonly boundaries: {
+    section: SectionName;
+    tick: number;
+    purseLeft: number;
+  }[];
   /** The absolute tick each group of mobs arrived on, with how many arrived. */
   readonly arrivals: { tick: number; count: number }[];
   /** How many of the stage's own groups have a body live on the field, per tick. */
@@ -213,7 +226,11 @@ interface Played {
 function playStage(seed: number, hand: Hand, ticks: number): Played {
   const state = createRun(seed);
   const step = stepping(state);
-  const boundaries: { section: SectionName; tick: number }[] = [];
+  const boundaries: {
+    section: SectionName;
+    tick: number;
+    purseLeft: number;
+  }[] = [];
   const arrivals: { tick: number; count: number }[] = [];
   const liveFormations: number[] = [];
   const shapedFormations: number[] = [];
@@ -241,7 +258,11 @@ function playStage(seed: number, hand: Hand, ticks: number): Played {
 
     for (const event of stepped) {
       if (event.type !== 'sectionChanged') continue;
-      boundaries.push({ section: event.section, tick: event.tick });
+      boundaries.push({
+        section: event.section,
+        tick: event.tick,
+        purseLeft: state.director.purseLeft,
+      });
     }
 
     const fresh = state.mobs.filter((mob) => mob.alive && !groupOf.has(mob.id));
@@ -791,6 +812,67 @@ describe('the waves as data (ADR 0006)', () => {
     }
     expect(deepest).toBeGreaterThan(150);
     expect(SPAWN_MARGIN).toBeGreaterThanOrEqual(deepest);
+  });
+});
+
+describe("a section's purse comes off the run's own record (ADR 0056, ADR 0064)", () => {
+  it('grants each directed section the row that section names, all three', () => {
+    // The table says which row a section spends and the record says how much is
+    // in it, so the grant is the two read together. All three at once, because
+    // a grant reading one row for every section would pass any single case.
+    for (const name of SECTION_NAMES) {
+      const row = section(name).purse;
+      if (row === null) throw new Error(`${name} names no purse row`);
+      const opened =
+        name === 'procession'
+          ? { purseLeft: createRun(77).director.purseLeft }
+          : requireDefined(
+              STILL_PLAY.boundaries.find((each) => each.section === name),
+              `${name} was never crossed`,
+            );
+      expect(`${name} granted ${opened.purseLeft}`).toBe(
+        `${name} granted ${DEFAULT_TUNING.stage[row]}`,
+      );
+    }
+  });
+
+  it('grants a section with no purse nothing, rather than carrying the last one over', () => {
+    // ADR 0056's own rule, and the case a record keyed by section name could
+    // most easily break: an undirected section names no row at all, so what it
+    // grants is zero and never whatever the section before it had left.
+    const undirected = STILL_PLAY.boundaries.filter(
+      (each) => section(each.section).purse === null,
+    );
+    expect(undirected.length).toBeGreaterThan(0);
+    for (const opened of undirected) {
+      expect(`${opened.section} granted ${opened.purseLeft}`).toBe(
+        `${opened.section} granted 0`,
+      );
+    }
+    // The section before at least one of them had something left, so a carry
+    // would have been visible rather than indistinguishable from the rule.
+    expect(DEFAULT_TUNING.stage.processionPurse).toBeGreaterThan(0);
+  });
+
+  it('grants the purse the run started under, so a halved row leaves the director less (ADR 0064)', () => {
+    // The direction the row predicts, read at the opening grant because that is
+    // the crossing every run makes. A run under a record that halves the
+    // Procession's purse begins with half as much to spend, and the section
+    // therefore reaches its authored floor sooner.
+    const lean = resolveTuning({
+      stage: { processionPurse: DEFAULT_TUNING.stage.processionPurse / 2 },
+    });
+
+    const underDefault = createRun(77);
+    const underLean = createRun(77, { tuning: lean });
+
+    expect(underDefault.director.purseLeft).toBe(
+      DEFAULT_TUNING.stage.processionPurse,
+    );
+    expect(underLean.director.purseLeft).toBe(lean.stage.processionPurse);
+    expect(underLean.director.purseLeft).toBe(
+      underDefault.director.purseLeft / 2,
+    );
   });
 });
 

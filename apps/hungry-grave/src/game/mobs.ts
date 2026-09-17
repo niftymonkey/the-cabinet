@@ -30,12 +30,7 @@ import {
 } from './shove';
 import type { SpawnOrder } from './stage/formations';
 import { MAX_ENTRY_DEPTH } from './stage/formations';
-import {
-  BASE_SPEED,
-  SCROLL_SPEED,
-  TRASH_CORPSE_PAYOUT,
-  TRASH_KILL_SCORE,
-} from './tuning';
+import { BASE_SPEED, SCROLL_SPEED, TRASH_CORPSE_PAYOUT } from './tuning';
 
 type MobType = 'shambler' | 'revenant' | 'ghoul' | 'cairn';
 
@@ -81,8 +76,13 @@ interface MobRow {
   readonly hp: number;
   readonly corpsePayout: number;
   readonly corpseTier: CorpseTier;
-  // What killing this body pays into the score (design record R4).
-  readonly scorePayout: number;
+  /**
+   * How many mow bodies killing this one is worth (design record R4). What it
+   * pays in score is this times the run's own kill unit, which is a row of the
+   * tuning record (ADR 0064), so the table says the relation and the record
+   * says the magnitude.
+   */
+  readonly scorePayoutInKills: number;
   // The type's own speed in field units per tick. The scroll is added separately.
   readonly speed: number;
   readonly motion: MobMotion;
@@ -110,8 +110,9 @@ interface MobRow {
  * revenant's 64 is eight of the shambler's 8, and the ghoul's 20 is two with
  * the half discarded. The cairn is the one row that does not follow it, for the
  * same reason its corpse payout does not, and its own entry says so. Every
- * figure is a first pass against TRASH_KILL_SCORE, and the score a whole run
- * ends on is what the tuning step reads them against.
+ * figure is a first pass stated in mow bodies, and what one of those pays is
+ * score.trashKillScore on the run's own record (ADR 0064); the score a whole
+ * run ends on is what the tuning step reads them against.
  */
 const MOB_TYPES = {
   shambler: {
@@ -122,7 +123,7 @@ const MOB_TYPES = {
     hp: 8,
     corpsePayout: TRASH_CORPSE_PAYOUT,
     corpseTier: 'trash',
-    scorePayout: TRASH_KILL_SCORE,
+    scorePayoutInKills: 1,
     speed: 0.5 * SCROLL_SPEED,
     motion: 'falls',
     // The mow body carries no fire at all (ADR 0059). Ten times the shamblers
@@ -137,7 +138,7 @@ const MOB_TYPES = {
     hp: 64,
     corpsePayout: 2 * TRASH_CORPSE_PAYOUT,
     corpseTier: 'rich',
-    scorePayout: 8 * TRASH_KILL_SCORE,
+    scorePayoutInKills: 8,
     speed: 0.35 * SCROLL_SPEED,
     motion: 'falls',
     fire: {
@@ -157,7 +158,7 @@ const MOB_TYPES = {
     hp: 20,
     corpsePayout: TRASH_CORPSE_PAYOUT,
     corpseTier: 'trash',
-    scorePayout: 2 * TRASH_KILL_SCORE,
+    scorePayoutInKills: 2,
     // A real fraction of the grave's own speed, because ADR 0016 bounds this
     // type by its turn rate rather than by a speed cap, and that is only a
     // meaningful safety valve if the speed is meaningful.
@@ -235,7 +236,7 @@ const MOB_TYPES = {
      * refuse and what ADR 0042 puts at the centre of this set piece. There is
      * nothing in stone to kill for, so stone pays what the ordinary body pays.
      */
-    scorePayout: TRASH_KILL_SCORE,
+    scorePayoutInKills: 1,
     // The mow body's own descent, so the curtain arrives on the beat the
     // Crowd's table already spaces its next wave against (stage/waves.ts).
     speed: 0.5 * SCROLL_SPEED,
@@ -696,11 +697,13 @@ const damageMob = (
   // two currencies clean (design record R4). The boss and the set piece's source
   // die down their own paths and pay at their own sites, so what a kill pays is
   // this row and nothing else.
-  state.score += row.scorePayout;
+  const paid =
+    row.scorePayoutInKills * state.conditions.tuning.score.trashKillScore;
+  state.score += paid;
   events.push({
     type: 'scorePaid',
     input: 'kill',
-    amount: row.scorePayout,
+    amount: paid,
     score: state.score,
   });
   // The corpse the kill leaves takes the shove over and finishes the flight, so

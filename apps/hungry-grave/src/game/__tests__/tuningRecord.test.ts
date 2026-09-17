@@ -1,59 +1,14 @@
 /**
- * The record's whole promise at this tip is that its default is the build's own
- * values, so the first suite below is ten assertions against ten constants and
- * never a loop over a pairing somebody typed: a loop proves the list and not the
- * values.
+ * The record is now the only spelling of its ten magnitudes: the constants they
+ * were lifted out of are gone, so the identity suite that held each row equal
+ * to its constant went with them, exactly as the module's own JSDoc said it
+ * would. What is left to pin here is the resolver and the walk.
  */
 
 import { describe, expect, it } from 'vitest';
-import { TICK_HZ } from '../clock';
-import { QUIET_MAX_TICKS } from '../director';
-import {
-  CROWD_PURSE,
-  PROCESSION_PURSE,
-  QUIET_INTERVAL_MINIMUM_SECONDS,
-  VIGIL_PURSE,
-} from '../stage/waves';
-import {
-  MEAL_AT_MAXED_SCORE,
-  SCORE_BLEED_CAP,
-  SCORE_PER_BOSS_HEALTH,
-  SOURCE_KILL_SCORE,
-  TRASH_KILL_SCORE,
-} from '../tuning';
 import { DEFAULT_TUNING, resolveTuning, tuningRows } from '../tuningRecord';
 
 describe('the default tuning record', () => {
-  it('holds exactly the values the build was compiled with', () => {
-    // The four score rows below hold their constant's own multiplier rather
-    // than its product, which is the form each constant is written in and why
-    // the default is identical by arithmetic instead of by a second copy of a
-    // number. Every row here is still a second spelling of its constant, held
-    // equal by this test and nothing else, and it retires with the constants.
-    expect(DEFAULT_TUNING.stage.processionPurse).toBe(PROCESSION_PURSE);
-    expect(DEFAULT_TUNING.stage.crowdPurse).toBe(CROWD_PURSE);
-    expect(DEFAULT_TUNING.stage.vigilPurse).toBe(VIGIL_PURSE);
-    expect(DEFAULT_TUNING.stage.quietIntervalMinimumSeconds).toBe(
-      QUIET_INTERVAL_MINIMUM_SECONDS,
-    );
-    expect(DEFAULT_TUNING.stage.quietIntervalMaximumSeconds).toBe(
-      QUIET_MAX_TICKS / TICK_HZ,
-    );
-    expect(DEFAULT_TUNING.score.trashKillScore).toBe(TRASH_KILL_SCORE);
-    expect(DEFAULT_TUNING.score.bleedCapInKills * TRASH_KILL_SCORE).toBe(
-      SCORE_BLEED_CAP,
-    );
-    expect(TRASH_KILL_SCORE / DEFAULT_TUNING.score.bossHealthPerKill).toBe(
-      SCORE_PER_BOSS_HEALTH,
-    );
-    expect(DEFAULT_TUNING.score.sourceKillInKills * TRASH_KILL_SCORE).toBe(
-      SOURCE_KILL_SCORE,
-    );
-    expect(DEFAULT_TUNING.score.mealAtMaxedInKills * TRASH_KILL_SCORE).toBe(
-      MEAL_AT_MAXED_SCORE,
-    );
-  });
-
   it("stands inside the quiet interval's own bound", () => {
     expect(() => resolveTuning({})).not.toThrow();
   });
@@ -130,35 +85,49 @@ describe('resolving a partial tuning record', () => {
 
 describe("the tuning record's rows", () => {
   it("read as dotted names off the record's own nesting", () => {
+    // Each name is paired with the row it is the name of, spelled out one at a
+    // time rather than walked: walking the record here would be the walk under
+    // test and would pass on any pairing at all.
     expect(tuningRows(DEFAULT_TUNING)).toEqual([
-      { name: 'stage.processionPurse', value: PROCESSION_PURSE },
-      { name: 'stage.crowdPurse', value: CROWD_PURSE },
-      { name: 'stage.vigilPurse', value: VIGIL_PURSE },
+      {
+        name: 'stage.processionPurse',
+        value: DEFAULT_TUNING.stage.processionPurse,
+      },
+      { name: 'stage.crowdPurse', value: DEFAULT_TUNING.stage.crowdPurse },
+      { name: 'stage.vigilPurse', value: DEFAULT_TUNING.stage.vigilPurse },
       {
         name: 'stage.quietIntervalMinimumSeconds',
-        value: QUIET_INTERVAL_MINIMUM_SECONDS,
+        value: DEFAULT_TUNING.stage.quietIntervalMinimumSeconds,
       },
       {
         name: 'stage.quietIntervalMaximumSeconds',
-        value: QUIET_MAX_TICKS / TICK_HZ,
+        value: DEFAULT_TUNING.stage.quietIntervalMaximumSeconds,
       },
-      { name: 'score.trashKillScore', value: TRASH_KILL_SCORE },
+      {
+        name: 'score.trashKillScore',
+        value: DEFAULT_TUNING.score.trashKillScore,
+      },
       {
         name: 'score.bleedCapInKills',
-        value: SCORE_BLEED_CAP / TRASH_KILL_SCORE,
+        value: DEFAULT_TUNING.score.bleedCapInKills,
       },
       {
         name: 'score.bossHealthPerKill',
-        value: TRASH_KILL_SCORE / SCORE_PER_BOSS_HEALTH,
+        value: DEFAULT_TUNING.score.bossHealthPerKill,
       },
       {
         name: 'score.sourceKillInKills',
-        value: SOURCE_KILL_SCORE / TRASH_KILL_SCORE,
+        value: DEFAULT_TUNING.score.sourceKillInKills,
       },
       {
         name: 'score.mealAtMaxedInKills',
-        value: MEAL_AT_MAXED_SCORE / TRASH_KILL_SCORE,
+        value: DEFAULT_TUNING.score.mealAtMaxedInKills,
       },
     ]);
+    // Ten distinct names, so a walk answering one row ten times could not have
+    // produced the list above.
+    expect(
+      new Set(tuningRows(DEFAULT_TUNING).map((row) => row.name)).size,
+    ).toBe(10);
   });
 });

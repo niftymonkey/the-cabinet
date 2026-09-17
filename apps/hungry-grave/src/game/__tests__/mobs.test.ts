@@ -32,7 +32,7 @@ import {
 import { advanceWisps, launchWisps } from '../lines/wisps';
 import { NEVER_FIRES } from '../mobFire';
 import type { Corpse } from '../corpses';
-import type { Mob } from '../mobs';
+import type { Mob, MobType } from '../mobs';
 import {
   advanceMobs,
   ARRIVE_TICKS,
@@ -57,8 +57,9 @@ import {
   SIZE_CEILING,
   SIZE_FLOOR,
   TRASH_CORPSE_PAYOUT,
-  TRASH_KILL_SCORE,
 } from '../tuning';
+import type { TuningRecord } from '../tuningRecord';
+import { DEFAULT_TUNING, resolveTuning } from '../tuningRecord';
 import { hitGrave } from '../grave';
 import { swallow } from '../swallow';
 
@@ -79,8 +80,8 @@ const RIGHT: TickCommand = drift(1, 0);
  * tick a test's field empties would roll the run into the next section and its
  * waves.
  */
-function quietRun(seed = 4): RunState {
-  const run = createRun(seed);
+function quietRun(seed = 4, tuning?: TuningRecord): RunState {
+  const run = createRun(seed, tuning === undefined ? {} : { tuning });
   run.stage.sectionIndex = SECTIONS.length - 1;
   // The stream and Territory's clock are held as well as the waves. These tests
   // are about how a mob moves, fires and dies, and both birthright lines act
@@ -533,8 +534,8 @@ describe("a mob's death (ADR 0037)", () => {
       {
         type: 'scorePaid',
         input: 'kill',
-        amount: MOB_TYPES.shambler.scorePayout,
-        score: MOB_TYPES.shambler.scorePayout,
+        amount: paidFor('shambler'),
+        score: paidFor('shambler'),
       },
     ]);
     const corpses = state.corpses.filter((corpse) => corpse.alive);
@@ -623,6 +624,16 @@ function kill(
   damageMob(state, body, body.hp, 'skullStream');
 }
 
+/**
+ * What killing this body pays under the record the build compiles, in points.
+ *
+ * The row is a bare multiple of the kill unit and the unit is a row of the
+ * tuning record (ADR 0064), so the product is the thing a payment is asserted
+ * against and it is spelled here once rather than at every site.
+ */
+const paidFor = (type: MobType): number =>
+  MOB_TYPES[type].scorePayoutInKills * DEFAULT_TUNING.score.trashKillScore;
+
 describe('what a kill pays into the score (design record R4, #99)', () => {
   it('every mob row carries a score payout, so a body without one is not a state the type permits', () => {
     // The same property corpsePayout has: it is a field on the row rather than
@@ -630,12 +641,35 @@ describe('what a kill pays into the score (design record R4, #99)', () => {
     // refuses. Stated as a whole multiple of the mow body's own unit, because
     // that relation is what the table is written to show.
     for (const type of MOB_TYPE_NAMES) {
-      const paid = MOB_TYPES[type].scorePayout;
-      expect(`${type} pays ${paid}`).toBe(
-        `${type} pays ${Math.round(paid / TRASH_KILL_SCORE) * TRASH_KILL_SCORE}`,
+      const multiple = MOB_TYPES[type].scorePayoutInKills;
+      expect(`${type} pays ${multiple}`).toBe(
+        `${type} pays ${Math.round(multiple)}`,
       );
-      expect(paid).toBeGreaterThanOrEqual(TRASH_KILL_SCORE);
+      expect(multiple).toBeGreaterThanOrEqual(1);
     }
+  });
+
+  it('a kill pays the unit the run started under, times the row it killed (ADR 0064)', () => {
+    // The direction the row predicts: the table says how many mow bodies this
+    // one is worth and the record says what a mow body pays, so a run under a
+    // record with a larger unit pays more per body and every multiple moves
+    // with it. Two types, so a single figure used twice could not produce it.
+    const doubled = resolveTuning({
+      score: { trashKillScore: DEFAULT_TUNING.score.trashKillScore * 2 },
+    });
+    const underDefault = quietRun();
+    const underDoubled = quietRun(4, doubled);
+
+    kill(underDefault, 'shambler', 100);
+    kill(underDefault, 'revenant', 300);
+    kill(underDoubled, 'shambler', 100);
+    kill(underDoubled, 'revenant', 300);
+
+    expect(underDefault.score).toBe(paidFor('shambler') + paidFor('revenant'));
+    expect(underDoubled.score).toBe(2 * underDefault.score);
+    expect(MOB_TYPES.revenant.scorePayoutInKills).not.toBe(
+      MOB_TYPES.shambler.scorePayoutInKills,
+    );
   });
 
   it('pays the row of the body that died, so two types pay two different amounts', () => {
@@ -643,19 +677,15 @@ describe('what a kill pays into the score (design record R4, #99)', () => {
     spawnMob(state, 'shambler', order(100, 100), false, 'wave');
     const shambler = only(state);
     damageMob(state, shambler, shambler.hp, 'skullStream');
-    expect(state.score).toBe(MOB_TYPES.shambler.scorePayout);
+    expect(state.score).toBe(paidFor('shambler'));
 
     spawnMob(state, 'revenant', order(300, 100), false, 'wave');
     const revenant = only(state);
     damageMob(state, revenant, revenant.hp, 'skullStream');
-    expect(state.score).toBe(
-      MOB_TYPES.shambler.scorePayout + MOB_TYPES.revenant.scorePayout,
-    );
+    expect(state.score).toBe(paidFor('shambler') + paidFor('revenant'));
     // The rows differ, so the sum above could not have come from one figure
     // used twice.
-    expect(MOB_TYPES.revenant.scorePayout).not.toBe(
-      MOB_TYPES.shambler.scorePayout,
-    );
+    expect(paidFor('revenant')).not.toBe(paidFor('shambler'));
   });
 
   it("a run's score is what it killed plus what it overflowed, which at this tip are the only two inputs built (ADR 0002 as amended, ADR 0003)", () => {
@@ -667,7 +697,7 @@ describe('what a kill pays into the score (design record R4, #99)', () => {
     spawnMob(state, 'ghoul', order(100, 100), false, 'wave');
     const ghoul = only(state);
     damageMob(state, ghoul, ghoul.hp, 'skullStream');
-    const killed = MOB_TYPES.ghoul.scorePayout;
+    const killed = paidFor('ghoul');
     expect(state.score).toBe(killed);
 
     state.grave.size = SIZE_CEILING;
@@ -693,7 +723,7 @@ describe('what a kill pays into the score (design record R4, #99)', () => {
     // A kill first, so the first floor hit has something to bleed. This is the
     // whole of what R4 is about: under overflow alone this run's score was zero.
     kill(state, 'shambler', 100);
-    expect(state.score).toBe(MOB_TYPES.shambler.scorePayout);
+    expect(state.score).toBe(paidFor('shambler'));
 
     const bled = hitGrave(state, 'contact');
     expect(bled.map((event) => event.type)).toContain('scoreBled');
@@ -702,14 +732,14 @@ describe('what a kill pays into the score (design record R4, #99)', () => {
     // The storm keeps killing while the rung is bled, and the score keeps
     // rising, which is the half that keeps the player from being punished twice.
     kill(state, 'shambler', 300);
-    expect(state.score).toBe(MOB_TYPES.shambler.scorePayout);
+    expect(state.score).toBe(paidFor('shambler'));
 
     state.grave.invulnerable = 0;
     const second = hitGrave(state, 'contact');
 
     expect(second.map((event) => event.type)).toContain('weaponStripped');
     expect(second.map((event) => event.type)).not.toContain('scoreBled');
-    expect(state.score).toBe(MOB_TYPES.shambler.scorePayout);
+    expect(state.score).toBe(paidFor('shambler'));
   });
 });
 

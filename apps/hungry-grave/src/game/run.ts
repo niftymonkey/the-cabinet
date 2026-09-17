@@ -433,10 +433,13 @@ const createRun = (
     // The opening section's grant, made here because a run begins already
     // inside that section and no crossing grants it (stage.ts's
     // openingDirector).
-    director: openingDirector({
-      ...STARTING_DIRECTOR,
-      signal: startingSignal(asked.signalLock),
-    }),
+    director: openingDirector(
+      {
+        ...STARTING_DIRECTOR,
+        signal: startingSignal(asked.signalLock),
+      },
+      asked.tuning,
+    ),
     refusals: { food: 0, carriers: 0, offers: 0 },
     nextEntityId: 1,
   };

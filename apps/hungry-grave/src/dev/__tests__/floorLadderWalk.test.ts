@@ -11,7 +11,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { WeaponLine } from '../../game/lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
-import { SCORE_BLEED_CAP, SIZE_FLOOR } from '../../game/tuning';
+import { SIZE_FLOOR } from '../../game/tuning';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
+
+/** What one floor hit bleeds under the record the build compiles, in points (ADR 0064). */
+const BLEED_CAP =
+  DEFAULT_TUNING.score.bleedCapInKills * DEFAULT_TUNING.score.trashKillScore;
+
 import type { LadderHit } from '../floorLadderWalk';
 import { LADDER_HIT_BUDGET, walkFloorLadder } from '../floorLadderWalk';
 import { RIGS } from '../rigs';
@@ -45,7 +51,7 @@ describe('the floor ladder, staged and walked hit by hit', () => {
     expect(first?.event).toBe('scoreBled');
     expect(first?.scoreBefore).toBe(RIGS.ladder.conditions.startingScore);
     expect(first?.scoreAfter).toBe(
-      RIGS.ladder.conditions.startingScore - SCORE_BLEED_CAP,
+      RIGS.ladder.conditions.startingScore - BLEED_CAP,
     );
     expect(first?.scoreAfter).toBeGreaterThan(0);
   });

@@ -460,18 +460,6 @@ const PROCESSION_WAVES: readonly StageWave[] = [
 ];
 
 /**
- * The bodies the Procession gives the director (ADR 0056), about a third of
- * what its own standing waves land over the section.
- *
- * Its three rates land 349 bodies: two a second from t=12 to t=45, three and a
- * half to t=78, five to t=111.5, and nothing after the rate of zero. A third of
- * that is 116, which is the record's own rule (its section 5 item 6) and what
- * "when the purse is empty the section runs at its authored floor for whatever
- * is left of it" is measured against.
- */
-const PROCESSION_PURSE = 116;
-
-/**
  * The Crowd, to the Waking. It owns overlap: Rain under a Pincer, a V through
  * Rain. Corpses stop being objects the player chooses between and become a floor
  * the grave swims through, and the question stops being whether one corpse is
@@ -869,17 +857,6 @@ const CROWD_WAVES: readonly StageWave[] = [
 ];
 
 /**
- * The bodies the Crowd gives the director, on the same third (ADR 0056).
- *
- * Its three rates land 1164 bodies: eight a second from t=6 to t=57, three
- * through the trough to t=81, and twelve to its last wave at t=138. A third of
- * that is 388. It is the largest of the three because the Crowd is the section
- * that owns overlap, so the floor the director adds over is the highest the
- * stage authors anywhere.
- */
-const CROWD_PURSE = 388;
-
-/**
  * The Vigil, to the Undertaker. It owns scarcity: less growth paid per second
  * than the Crowd, and tougher bodies. The roster inverts to revenants and ghouls
  * with the shambler thinned, so the field is more fire and less food and the
@@ -1023,19 +1000,6 @@ const VIGIL_WAVES: readonly StageWave[] = [
 ];
 
 /**
- * The bodies the Vigil gives the director, and it is zero (ADR 0056).
- *
- * Zero on two counts that agree. The section authors no standing wave at all,
- * so a third of its standing total is a third of nothing; and it owns scarcity,
- * so a purse spent here would buy exactly the growth the property forbids.
- *
- * It is zero and never null. Null would be a section the director may not touch
- * at all, and this is a section it may look at and find nothing in, which a
- * reading can see from the first tick (CONTEXT.md Purse).
- */
-const VIGIL_PURSE = 0;
-
-/**
  * One thing the director may buy with a purse (CONTEXT.md Card): a formation, a
  * mob type and a count, which is the same triple a StageWave carries, because
  * an add is a card and never a loose body.
@@ -1116,19 +1080,6 @@ const largestCard = (type: MobType | null): number =>
     (most, card) => Math.max(most, card.count),
     0,
   );
-
-/**
- * The shortest the director may ever go between two adds, in seconds. The
- * record's section 9 gives the interval as four to eight seconds and ADR 0056
- * leaves its bounds open as design work, so the minimum is authored here ahead
- * of the module that draws it.
- *
- * Nothing draws it yet: slice F is the commit where the director takes its own
- * quiet interval from this floor. What reads it today is the corpse cap, which
- * needs the most the director can add inside a freshness window, and that is
- * the cards this minimum leaves room for.
- */
-const QUIET_INTERVAL_MINIMUM_SECONDS = 4;
 
 /**
  * One emitter's fire, in the three figures a pool derivation needs and nothing
@@ -1620,10 +1571,6 @@ export {
   cardCost,
   largestCard,
   peakArrivalsOf,
-  PROCESSION_PURSE,
-  CROWD_PURSE,
-  VIGIL_PURSE,
-  QUIET_INTERVAL_MINIMUM_SECONDS,
   REVENANT_FIRE,
   BOSS_FIRE,
   PROCESSION_WAVES,

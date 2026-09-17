@@ -41,8 +41,9 @@ import {
   FRESHNESS_SECONDS,
   SCROLL_SPEED,
   SIZE_CEILING,
-  SOURCE_KILL_SCORE,
 } from '../../tuning';
+import type { TuningRecord } from '../../tuningRecord';
+import { DEFAULT_TUNING, resolveTuning } from '../../tuningRecord';
 import {
   CROWD_WAVES,
   POUR_JITTER_X,
@@ -77,6 +78,13 @@ function firstOf<T>(items: readonly T[]): T {
 
 // Any birthright line damages the set piece, and the birthright is never empty.
 const A_BIRTHRIGHT_LINE = requireDefined(BIRTHRIGHT[0], 'BIRTHRIGHT is empty');
+
+/** What killing the source pays under a record, in points (ADR 0064). */
+const sourceKillUnder = (tuning: TuningRecord): number =>
+  tuning.score.sourceKillInKills * tuning.score.trashKillScore;
+
+/** The bonus the build compiles, which is what every run below starts under. */
+const DEFAULT_SOURCE_KILL = sourceKillUnder(DEFAULT_TUNING);
 
 const SEED = 20260910;
 
@@ -121,8 +129,8 @@ interface Source {
  * stage puts it, and nothing else ticks: what arrives on the field here is the
  * pour's, which is what lets a count of arrivals be a count of the pour.
  */
-function atTheSource(): Source {
-  const state = createRun(SEED);
+function atTheSource(tuning?: TuningRecord): Source {
+  const state = createRun(SEED, tuning === undefined ? {} : { tuning });
   state.stage.sectionIndex = WAKING;
   placeSetPiece(state);
   return { state, tick: () => advanceSetPiece(state) };
@@ -812,8 +820,31 @@ describe("killing the Waking's source pays one bonus (design record R4)", () => 
 
     expect(paid).toHaveLength(1);
     expect(firstOf(paid).input).toBe('sourceKilled');
-    expect(firstOf(paid).amount).toBe(SOURCE_KILL_SCORE);
-    expect(source.state.score).toBe(SOURCE_KILL_SCORE);
+    expect(firstOf(paid).amount).toBe(DEFAULT_SOURCE_KILL);
+    expect(source.state.score).toBe(DEFAULT_SOURCE_KILL);
+  });
+
+  it("killing the Waking's source pays the bonus the run started under, so a larger row pays more (ADR 0064)", () => {
+    // The direction the row predicts: the bonus is stated in trash kills and
+    // paid at the run's own kill unit, so a run under a record that doubles the
+    // row is paid twice for the same kill. One bonus on each side, because what
+    // is being read is the row and never a rate.
+    const richer = resolveTuning({
+      score: {
+        sourceKillInKills: DEFAULT_TUNING.score.sourceKillInKills * 2,
+      },
+    });
+    const underDefault = atTheSource();
+    const underRicher = atTheSource(richer);
+    tickUntilItOpens(underDefault);
+    tickUntilItOpens(underRicher);
+
+    damageSetPiece(underDefault.state, SET_PIECE_HP, A_BIRTHRIGHT_LINE);
+    damageSetPiece(underRicher.state, SET_PIECE_HP, A_BIRTHRIGHT_LINE);
+
+    expect(underDefault.state.score).toBe(DEFAULT_SOURCE_KILL);
+    expect(underRicher.state.score).toBe(sourceKillUnder(richer));
+    expect(underRicher.state.score).toBe(2 * underDefault.state.score);
   });
 
   it('pays nothing for a second hit onto a body already taken', () => {
@@ -824,7 +855,7 @@ describe("killing the Waking's source pays one bonus (design record R4)", () => 
     const again = damageSetPiece(source.state, SET_PIECE_HP, A_BIRTHRIGHT_LINE);
 
     expect(only(again, 'scorePaid')).toEqual([]);
-    expect(source.state.score).toBe(SOURCE_KILL_SCORE);
+    expect(source.state.score).toBe(DEFAULT_SOURCE_KILL);
   });
 
   it('pays nothing at all for a source chipped and left alive', () => {

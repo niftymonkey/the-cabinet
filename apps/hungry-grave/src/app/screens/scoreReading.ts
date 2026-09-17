@@ -3,7 +3,7 @@
 /**
  * The score's digits, and the ladder row has no slack for a seventh.
  *
- * Trash pays `TRASH_KILL_SCORE` 100 and an elite eight times it, so at the
+ * Trash pays the record's own kill unit, 100, and an elite eight times it, so at the
  * storm's measured 2.47 kills a second a run passes five digits in about forty
  * seconds and a long one reaches six; a million points is about an hour of
  * play, which is longer than a run. The digits are never cut to their budget,

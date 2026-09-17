@@ -53,7 +53,13 @@ import { PHASE_HP, spawnBoss } from '../../game/bosses/phases';
 import { TICK_MS } from '../../game/clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
-import { SCORE_BLEED_CAP, SIZE_FLOOR } from '../../game/tuning';
+import { SIZE_FLOOR } from '../../game/tuning';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
+
+/** What one floor hit bleeds under the record the build compiles, in points (ADR 0064). */
+const BLEED_CAP =
+  DEFAULT_TUNING.score.bleedCapInKills * DEFAULT_TUNING.score.trashKillScore;
+
 import type { SimEvent } from '../../game/events';
 import { FAULT_IDENTITIES } from '../../game/faults';
 import { SECTIONS } from '../../game/stage/stage';
@@ -1799,7 +1805,7 @@ describe('a loss watched on the ladder row', () => {
 
     screen.update(frame(TICK_MS));
 
-    expect(run.score).toBe(standing - SCORE_BLEED_CAP);
+    expect(run.score).toBe(standing - BLEED_CAP);
     expect(Number(digits(screen))).toBe(standing);
     expect(shareOf(named(row(screen), 'cushion'))).toBeCloseTo(1, 6);
 

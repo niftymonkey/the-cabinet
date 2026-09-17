@@ -8,11 +8,7 @@ import { launchWisps } from './lines/wisps';
 import type { CorpseTier } from './mobs';
 import { everyLineMaxed, resolveOffer } from './offer';
 import type { RunState } from './run';
-import {
-  freshnessScale,
-  MEAL_AT_MAXED_SCORE,
-  RESERVOIR_CAPACITY,
-} from './tuning';
+import { freshnessScale, RESERVOIR_CAPACITY } from './tuning';
 
 /**
  * The kinds of food that ride the one pool. A fallen rung is a fourth kind on
@@ -92,6 +88,19 @@ const payReservoir = (
 };
 
 /**
+ * What one large meal at a maxed ladder pays this run, in points: the run's own
+ * row, stated in trash kills, at the run's own kill unit (ADR 0064).
+ *
+ * Stated in kills because the count is what binds this input: it pays per item
+ * and a run takes many, so the figure is argued against the meals a whole run
+ * takes rather than against one of them. Read off the run, so a run under a
+ * record that moves either row pays what that record says.
+ */
+const mealAtMaxedOf = (state: RunState): number =>
+  state.conditions.tuning.score.mealAtMaxedInKills *
+  state.conditions.tuning.score.trashKillScore;
+
+/**
  * The grave passes under food and it falls in. The only way anything is ever
  * paid (ADR 0002).
  *
@@ -142,11 +151,12 @@ const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
   // ceiling, which the overflow above already pays for; large food is the rich
   // tier, so the mow's own body pays nothing here however maxed the ladder is.
   if (food.tier === 'rich' && everyLineMaxed(state)) {
-    state.score += MEAL_AT_MAXED_SCORE;
+    const paid = mealAtMaxedOf(state);
+    state.score += paid;
     events.push({
       type: 'scorePaid',
       input: 'mealAtMaxed',
-      amount: MEAL_AT_MAXED_SCORE,
+      amount: paid,
       score: state.score,
     });
   }

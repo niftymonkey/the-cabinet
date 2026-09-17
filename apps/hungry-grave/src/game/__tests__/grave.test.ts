@@ -20,19 +20,36 @@ import type { WeaponLine } from '../lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
 import { OFFER_SPACING } from '../offer';
 import { overlaps } from '../overlap';
+import type { RunState } from '../run';
 import { createRun } from '../run';
+import { DEFAULT_TUNING, resolveTuning } from '../tuningRecord';
 import {
   BASE_SPEED,
   freshnessScale,
   GRAVE_ASPECT,
   HIT_SHRINK,
   INVULNERABLE_TICKS,
-  SCORE_BLEED_CAP,
   SIZE_CEILING,
   SIZE_FLOOR,
   SIZE_START,
   TRASH_CORPSE_PAYOUT,
 } from '../tuning';
+
+/**
+ * What one floor hit bleeds under the record the build compiles, in points.
+ *
+ * The cap is two rows of the tuning record rather than one number, because the
+ * ladder's rung is stated in trash kills and paid in score (ADR 0064). Every
+ * run below starts under the default, so the figure they assert against is the
+ * default's own product.
+ */
+const DEFAULT_BLEED_CAP =
+  DEFAULT_TUNING.score.bleedCapInKills * DEFAULT_TUNING.score.trashKillScore;
+
+/** The cap this run started under, in points, read off the run and never off a module. */
+const bleedCapOf = (run: RunState): number =>
+  run.conditions.tuning.score.bleedCapInKills *
+  run.conditions.tuning.score.trashKillScore;
 
 /** Waits out the invulnerability window, so the next hit lands. */
 function ageOut(run: ReturnType<typeof createRun>): void {
@@ -216,7 +233,7 @@ describe('the grave', () => {
   it("at the floor the ladder runs in order, one rung per hit: score, then every line's level, then sealed shut (ADR 0003)", () => {
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
-    run.score = SCORE_BLEED_CAP * 2;
+    run.score = DEFAULT_BLEED_CAP * 2;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
     // Rung one bleeds a capped slice of the score and touches no weapon level.
@@ -226,7 +243,7 @@ describe('the grave', () => {
     expect(kinds(bled)).toContain('scoreBled');
     expect(kinds(bled)).not.toContain('weaponStripped');
     expect(kinds(bled)).not.toContain('sealed');
-    expect(run.score).toBe(SCORE_BLEED_CAP);
+    expect(run.score).toBe(DEFAULT_BLEED_CAP);
     for (const line of WEAPON_LINES) expect(run.levels[line]).toBe(MAX_LEVEL);
 
     // Rung two takes one level off every line at once, and seals nothing.
@@ -256,7 +273,7 @@ describe('the grave', () => {
     // never buys a second hit's worth of ladder.
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
-    run.score = SCORE_BLEED_CAP * 100;
+    run.score = DEFAULT_BLEED_CAP * 100;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
     let hits = 0;
@@ -341,7 +358,7 @@ describe('the grave', () => {
     // what was taken and what was left, which is what the readout counts from.
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
-    run.score = SCORE_BLEED_CAP * 3;
+    run.score = DEFAULT_BLEED_CAP * 3;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
     const events = hitGrave(run, 'contact');
@@ -350,10 +367,10 @@ describe('the grave', () => {
     expect(kinds(events)).not.toContain('weaponStripped');
     expect(bled).toEqual({
       type: 'scoreBled',
-      amount: SCORE_BLEED_CAP,
-      score: SCORE_BLEED_CAP * 2,
+      amount: DEFAULT_BLEED_CAP,
+      score: DEFAULT_BLEED_CAP * 2,
     });
-    expect(run.score).toBe(SCORE_BLEED_CAP * 2);
+    expect(run.score).toBe(DEFAULT_BLEED_CAP * 2);
     for (const line of WEAPON_LINES) expect(run.levels[line]).toBe(MAX_LEVEL);
   });
 
@@ -363,7 +380,7 @@ describe('the grave', () => {
     // every shipped flat subtraction has without writing a second rule down.
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
-    run.score = SCORE_BLEED_CAP / 2;
+    run.score = DEFAULT_BLEED_CAP / 2;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
     const events = hitGrave(run, 'contact');
@@ -372,11 +389,41 @@ describe('the grave', () => {
     expect(kinds(events)).not.toContain('weaponStripped');
     expect(bled).toEqual({
       type: 'scoreBled',
-      amount: SCORE_BLEED_CAP / 2,
+      amount: DEFAULT_BLEED_CAP / 2,
       score: 0,
     });
     expect(run.score).toBe(0);
     for (const line of WEAPON_LINES) expect(run.levels[line]).toBe(MAX_LEVEL);
+  });
+
+  it('a floor hit bleeds the cap the run started under, so a larger cap takes more (ADR 0064)', () => {
+    // The direction the row predicts, which is the whole reason it is a row: the
+    // same hit on the same standing score takes more when the run started under
+    // a larger cap. Both runs hold far more than either cap, so the lesser-of
+    // answers the cap on both sides and the record is the only thing that
+    // differs between them.
+    const standing = DEFAULT_BLEED_CAP * 10;
+    const underDefault = createRun(1, { startingSize: SIZE_FLOOR });
+    const underDoubled = createRun(1, {
+      startingSize: SIZE_FLOOR,
+      tuning: resolveTuning({
+        score: { bleedCapInKills: DEFAULT_TUNING.score.bleedCapInKills * 2 },
+      }),
+    });
+    underDefault.score = standing;
+    underDoubled.score = standing;
+
+    const bledDefault = hitGrave(underDefault, 'contact').find(
+      (event) => event.type === 'scoreBled',
+    );
+    const bledDoubled = hitGrave(underDoubled, 'contact').find(
+      (event) => event.type === 'scoreBled',
+    );
+
+    expect(bledDefault?.amount).toBe(bleedCapOf(underDefault));
+    expect(bledDoubled?.amount).toBe(bleedCapOf(underDoubled));
+    expect(bledDoubled?.amount).toBe(2 * (bledDefault?.amount ?? 0));
+    expect(underDoubled.score).toBeLessThan(underDefault.score);
   });
 
   it('a run can end sealed shut while still holding what the bleed left (ADR 0003 as amended)', () => {
@@ -385,7 +432,7 @@ describe('the grave', () => {
     // the rung is spent, so what stands at the seal is what the cap left.
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
-    run.score = SCORE_BLEED_CAP * 4;
+    run.score = DEFAULT_BLEED_CAP * 4;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
     let hits = 0;
@@ -396,7 +443,7 @@ describe('the grave', () => {
     }
 
     expect(run.ending).toBe('sealed');
-    expect(run.score).toBe(SCORE_BLEED_CAP * 3);
+    expect(run.score).toBe(DEFAULT_BLEED_CAP * 3);
   });
 
   it('a second floor hit while still at the floor strips a level rather than bleeding the score again (design record R4)', () => {
@@ -406,11 +453,11 @@ describe('the grave', () => {
     // be allowed to move: a remainder left standing is not a rung left armed.
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
-    run.score = SCORE_BLEED_CAP * 3;
+    run.score = DEFAULT_BLEED_CAP * 3;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
     hitGrave(run, 'contact');
-    expect(run.score).toBe(SCORE_BLEED_CAP * 2);
+    expect(run.score).toBe(DEFAULT_BLEED_CAP * 2);
     ageOut(run);
     const second = hitGrave(run, 'contact');
 
@@ -418,7 +465,7 @@ describe('the grave', () => {
     expect(kinds(second)).not.toContain('scoreBled');
     // The score keeps accruing while the rung is bled: what is withheld is the
     // rung, never the number.
-    expect(run.score).toBe(SCORE_BLEED_CAP * 2);
+    expect(run.score).toBe(DEFAULT_BLEED_CAP * 2);
     for (const line of WEAPON_LINES)
       expect(run.levels[line]).toBe(MAX_LEVEL - 1);
   });

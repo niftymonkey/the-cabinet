@@ -18,12 +18,13 @@ import { swallow } from '../swallow';
 import {
   FEAST_PAYOUT,
   FRESHNESS_PAYOUT_FLOOR,
-  MEAL_AT_MAXED_SCORE,
   RESERVOIR_CAPACITY,
   SIZE_CEILING,
   SIZE_FLOOR,
   TRASH_CORPSE_PAYOUT,
 } from '../tuning';
+import type { TuningRecord } from '../tuningRecord';
+import { DEFAULT_TUNING, resolveTuning } from '../tuningRecord';
 
 /** An id no body of any offer holds, so a hand-built food takes no option. */
 const NO_BODY = 0;
@@ -100,12 +101,23 @@ function richCorpse(): Swallowable {
   };
 }
 
+/** What one meal at a maxed ladder pays under a record, in points (ADR 0064). */
+const mealUnder = (tuning: TuningRecord): number =>
+  tuning.score.mealAtMaxedInKills * tuning.score.trashKillScore;
+
+/** The meal the build compiles, which is what every run below starts under. */
+const DEFAULT_MEAL_AT_MAXED = mealUnder(DEFAULT_TUNING);
+
 /** A run whose every rostered line stands at the top of its ladder. */
-function maxedRun(roster?: readonly WeaponLine[]): RunState {
+function maxedRun(
+  roster?: readonly WeaponLine[],
+  tuning?: TuningRecord,
+): RunState {
   return createRun(1, {
     startingSize: SIZE_FLOOR,
     startingLevels: uniformLevels(MAX_LEVEL),
     roster,
+    tuning,
   });
 }
 
@@ -494,10 +506,32 @@ describe('large food taken at a maxed ladder pays score (design record R4)', () 
 
     expect(paid).toHaveLength(1);
     expect(find(events, 'scorePaid').input).toBe('mealAtMaxed');
-    expect(find(events, 'scorePaid').amount).toBe(MEAL_AT_MAXED_SCORE);
-    expect(run.score).toBe(MEAL_AT_MAXED_SCORE);
+    expect(find(events, 'scorePaid').amount).toBe(DEFAULT_MEAL_AT_MAXED);
+    expect(run.score).toBe(DEFAULT_MEAL_AT_MAXED);
     expect(kinds(events)).toContain('grew');
     expect(kinds(events)).toContain('reservoirCharged');
+  });
+
+  it('pays the row the run started under, so a record that triples it pays three times (ADR 0064)', () => {
+    // The direction the row predicts: the meal is stated in trash kills and
+    // paid at the run's own kill unit, so the same rich swallow at the same
+    // maxed ladder pays what the record says rather than what this build
+    // compiles. The count is what binds this input, so the row is the whole of
+    // what moves.
+    const richer = resolveTuning({
+      score: {
+        mealAtMaxedInKills: DEFAULT_TUNING.score.mealAtMaxedInKills * 3,
+      },
+    });
+    const underDefault = maxedRun();
+    const underRicher = maxedRun(undefined, richer);
+
+    swallow(underDefault, richCorpse());
+    swallow(underRicher, richCorpse());
+
+    expect(underDefault.score).toBe(DEFAULT_MEAL_AT_MAXED);
+    expect(underRicher.score).toBe(mealUnder(richer));
+    expect(underRicher.score).toBe(3 * underDefault.score);
   });
 
   it('pays a feast the same bonus, because the feast is large food too', () => {
@@ -505,7 +539,7 @@ describe('large food taken at a maxed ladder pays score (design record R4)', () 
 
     swallow(run, feast());
 
-    expect(run.score).toBeGreaterThanOrEqual(MEAL_AT_MAXED_SCORE);
+    expect(run.score).toBeGreaterThanOrEqual(DEFAULT_MEAL_AT_MAXED);
   });
 
   it('pays no bonus while one rostered line still stands below its top rung', () => {
@@ -543,7 +577,7 @@ describe('large food taken at a maxed ladder pays score (design record R4)', () 
 
     swallow(run, richCorpse());
 
-    expect(run.score).toBe(MEAL_AT_MAXED_SCORE);
+    expect(run.score).toBe(DEFAULT_MEAL_AT_MAXED);
     expect(WEAPON_LINES.length).toBeGreaterThan(roster.length);
   });
 });

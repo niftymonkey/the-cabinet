@@ -17,8 +17,8 @@ import {
   directorSpend,
   FLOOR_EVENT_WEIGHT,
   GRAVE_HIT_WEIGHT,
-  QUIET_MAX_TICKS,
-  QUIET_MIN_TICKS,
+  quietMaxTicks,
+  quietMinTicks,
   SIGNAL_DECAY_PER_TICK,
   SIGNAL_DECAY_TICKS,
   SIGNAL_HOLD_TICKS,
@@ -47,8 +47,8 @@ import {
   PROCESSION_WAVES,
   SPARSE_LAST_WAVE,
   sparseLastWave,
-  VIGIL_PURSE,
 } from '../stage/waves';
+import { DEFAULT_TUNING, resolveTuning } from '../tuningRecord';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
@@ -483,10 +483,49 @@ describe('the spend (ADR 0047, ADR 0056)', () => {
       state.director = { ...state.director, purseLeft: spend.purseLeft };
     }
     expect(drawn.length).toBeGreaterThan(50);
-    expect(Math.min(...drawn)).toBeGreaterThanOrEqual(QUIET_MIN_TICKS);
-    expect(Math.max(...drawn)).toBeLessThanOrEqual(QUIET_MAX_TICKS);
+    expect(Math.min(...drawn)).toBeGreaterThanOrEqual(
+      quietMinTicks(state.conditions.tuning),
+    );
+    expect(Math.max(...drawn)).toBeLessThanOrEqual(
+      quietMaxTicks(state.conditions.tuning),
+    );
     // The band is drawn across rather than pinned at one end.
     expect(new Set(drawn).size).toBeGreaterThan(20);
+  });
+
+  it('draws the quiet interval between the floor and the ceiling the run started under (ADR 0064)', () => {
+    // The direction both rows predict: a run under a record that moves either
+    // end waits inside that record's band and never the band this build
+    // compiles. The two bands are disjoint, so a director still reading the
+    // module's own figures could not produce the second one.
+    const slower = resolveTuning({
+      stage: {
+        quietIntervalMinimumSeconds:
+          DEFAULT_TUNING.stage.quietIntervalMaximumSeconds + 1,
+        quietIntervalMaximumSeconds:
+          DEFAULT_TUNING.stage.quietIntervalMaximumSeconds + 3,
+      },
+    });
+    const state = createRun(77, { tuning: slower });
+    state.director = {
+      signal: { value: 0, heldUntilTick: 0, lock: SIGNAL_RAN_LIVE },
+      purseLeft: 4000,
+      quietUntilTick: 0,
+    };
+    state.stage.firedWaves = 1;
+
+    const drawn: number[] = [];
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const spend = directorSpend(state, PROCESSION, state.streams.director);
+      if (spend === null) continue;
+      drawn.push(spend.quietUntilTick - state.tick);
+      state.director = { ...state.director, purseLeft: spend.purseLeft };
+    }
+
+    expect(drawn.length).toBeGreaterThan(50);
+    expect(Math.min(...drawn)).toBeGreaterThanOrEqual(quietMinTicks(slower));
+    expect(Math.max(...drawn)).toBeLessThanOrEqual(quietMaxTicks(slower));
+    expect(Math.min(...drawn)).toBeGreaterThan(quietMaxTicks(DEFAULT_TUNING));
   });
 
   it('draws nothing at all on a tick it refuses', () => {
@@ -527,7 +566,8 @@ describe('the spend (ADR 0047, ADR 0056)', () => {
 
   it('spends nothing in the Vigil, which has a purse and finds it empty', () => {
     const vigil = sectionNamed('vigil');
-    expect(vigil.purse).toBe(VIGIL_PURSE);
+    expect(vigil.purse).toBe('vigilPurse');
+    expect(DEFAULT_TUNING.stage.vigilPurse).toBe(0);
     expect(vigil.purse).not.toBeNull();
     expect(vigil.directed).toBe(true);
 
@@ -582,7 +622,7 @@ describe('the spend (ADR 0047, ADR 0056)', () => {
     // that carries one and a purse that could reach it.
     const spendable: Section = {
       ...vigil,
-      purse: 400,
+      purse: 'crowdPurse',
       waves: PROCESSION_WAVES,
     };
     const under = aProcessionRun(77, 400);
