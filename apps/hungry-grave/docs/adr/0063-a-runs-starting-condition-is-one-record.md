@@ -1,0 +1,11 @@
+# A run's starting condition is one record
+
+Three shapes spell one fact, each its own way. `Rig` (`src/dev/rigs.ts`) names a starting size, starting levels and a starting score. `TapeHeader` (`src/tape/tape.ts`) carries a starting size, a recorded roster, starting levels and a signal lock. `createRun` (`src/game/run.ts`) takes six positional parameters, and three call sites pad the middle of that list with `undefined` to reach the last one. A field added to any of the three falls through the other two, and the tree holds the proof: the starting score added for the harness's staged floor ladder reached `createRun` and the rig row and never the header, so a batch on the ladder rig verifies nothing, because every tape from a rig that begins holding a score diverges at its first checkpoint.
+
+**A run's starting condition is one record, and the rig, the tape header and `createRun` speak that record rather than each restating it.** The record is a bare domain noun. It is `createRun`'s second parameter, after the seed, optional as a whole and optional field by field, each absence resolving to exactly the default that parameter resolves to today, so `createRun(seed)` is today's run. A rig is that record with a name, the header carries it whole, and `rigOf` bands a tape by it.
+
+The code rules say powers arrive at construction as a narrow record of only what is needed, and a positional list callers pad with `undefined` is that rule's own smell. Resolving an absence to a value is `createRun`'s job and never a caller's (ADR 0027), which is why the record is optional rather than required. The header's form is a separate matter of parsing at the edge: what a tape records stays open, names and values, checked once where it enters and resolved into the typed record there, so inside the sim the type is the proof.
+
+A rig can no longer be half applied, a conditioned tape's command line and a replay build the same value, and a banding rule can read every fact a rig row states. The header carrying the record whole is a wire change, `FORMAT_VERSION` 4 to 5, recorded in ADR 0043's amendment and not here. No magnitude moves and no run plays differently.
+
+Filed by the dispatching session 2026-09-17 under the one-push rule, on the three spellings above, and Mark's to overrule on the branch before merge.
