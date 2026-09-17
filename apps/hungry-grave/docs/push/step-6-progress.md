@@ -12,6 +12,7 @@ The design record is `apps/hungry-grave/docs/push/drafts/step-5-tuning-record-dr
 | 2 (A1), the starting conditions | `5fa3a9744c` | `refactor(hungry-grave): a run's starting conditions are one record and createRun takes a seed beside it (#142)` |
 | 3 (A), the record exists | `a9d2ecad8e` | `feat(hungry-grave): the tuning record declares ten magnitudes and resolves to the values the build compiles (#142)` |
 | 4 (B1), the record reaches the run | `f5569b2330` | `feat(hungry-grave): a run derives its own caps from the tuning record it started under (#142)` |
+| 5 (B2), the score group's readers | `82e9ab71f6` | `feat(hungry-grave): the purses, the quiet interval and the score's five rows are read off the run's tuning record (#142)` |
 
 ## 2. The version ledger
 
@@ -32,13 +33,15 @@ Where each constant stood when step 6 opened, where it is permitted to go, and w
 
 **Slice 4 moved none of the four and was permitted none.** `WITNESS_VERSION` 11 (`src/game/witness.ts`), `READINGS_VERSION` 9 (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` 4 (`src/tape/wireCodes.ts`) and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` (`src/dev/digest.ts`), each read off slice 3's docs tip `4001925e44` before the first edit and read again off the code commit's own tree, and none of the four files is in either commit. The witness held because nothing folded changed: the thirteen new `RunState` paths are the record's ten rows and the three caps, every one of them a starting condition or a derivation of one, and each is in `witness.test.ts`'s `EXCLUDED` with its reason. `GOLDEN` held by arithmetic: the default record's rows are the constants, so all three caps derive to exactly the numbers they were, and `digest.ts`'s `createRun(SEED)` is untouched.
 
+**Slice 5 moved none of the four and was permitted none.** `WITNESS_VERSION` 11 (`src/game/witness.ts`), `READINGS_VERSION` 9 (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` 4 (`src/tape/wireCodes.ts`) and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` (`src/dev/digest.ts`), each read off slice 4's docs tip `4c108a18ce` before the first edit and read again off the code commit's own tree, and none of the four files is in either commit. `GOLDEN` held by arithmetic, which is the claim this slice had the most ways to break: nine constants were deleted and every one of their readers moved, and every product is the number it was, so the scenario's two scripted kills still pay 200. The witness held because nothing folded changed meaning: `director.purseLeft` still carries what a section granted, and what a section grants is the same figure read from a different place.
+
 **Slice 1 moved none of the four and was permitted none.** `WITNESS_VERSION` 11, `READINGS_VERSION` 9, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2`, each read off the tree before the first edit, and none of the four files is in the commit. Every figure matched the prompts' own header line, so nothing in this step starts from a stale constant.
 
 ## 3. GOLDEN moves
 
 One entry per slice that was permitted one, whether or not it moved, with the dated paragraph's location and every field that moved beside every field that held.
 
-**No slice in this step is permitted a re-pin**, so an entry here would itself be the report of a stop. Slice 1 has none: no file under `src/` is in its commit. **Slice 2 has none either, and it is the slice where the claim had to be checked rather than asserted**: 36 files under `src/` and `scripts/` moved, `digest.ts` is in neither commit, and `digest.test.ts` was green at every run. **Slice 3 has none**: `digest.ts` is in neither commit and all nine of `digest.test.ts`'s tests were green, including the golden itself. **Slice 4 has none, and it is the slice where the three numbers had to be printed rather than argued**: the mob, mob-fire and corpse caps read 481, 434 and 704 off a default run before the first edit and 481, 434 and 704 off the code commit's tree, `digest.ts` is in neither commit, and `digest.test.ts` was green at every run.
+**No slice in this step is permitted a re-pin**, so an entry here would itself be the report of a stop. Slice 1 has none: no file under `src/` is in its commit. **Slice 2 has none either, and it is the slice where the claim had to be checked rather than asserted**: 36 files under `src/` and `scripts/` moved, `digest.ts` is in neither commit, and `digest.test.ts` was green at every run. **Slice 3 has none**: `digest.ts` is in neither commit and all nine of `digest.test.ts`'s tests were green, including the golden itself. **Slice 4 has none, and it is the slice where the three numbers had to be printed rather than argued**: the mob, mob-fire and corpse caps read 481, 434 and 704 off a default run before the first edit and 481, 434 and 704 off the code commit's tree, `digest.ts` is in neither commit, and `digest.test.ts` was green at every run. **Slice 5 has none, and it is the slice with the most ways to have needed one**: nine constants were deleted, every reader moved, and the hold is arithmetic, `20 * 100` and `24 * 100` and `1 * 100` and a rate of `100 / 100`, so every payment is the number it was; `digest.ts` is in neither commit and all nine of `digest.test.ts`'s tests were green at every run.
 
 ## 4. CodeRabbit
 
@@ -233,3 +236,88 @@ Two files: `apps/hungry-grave/CONTEXT.md` and this note, new. **Written inside t
 3. **`mobCap` is `peakLive` under a second name**, exactly as `MOB_CAP` was: the derivation is the stage's peak and the cap is the policy, and both are exported because `caps.test.ts` reads each in its own right.
 
 **Nothing was left for a later slice that this slice could have done.** Slice 5 wires the purses, the quiet interval's director reader and the five score rows; the quiet interval where the caps derivation reads it is the only row this slice touched. Slice 6 owns the header and the one `FORMAT_VERSION` move, and a record on the run that no tape records is exactly the state this slice leaves.
+
+## 10. Slice 5 (B2): every admitted reader takes the record off the run (#142)
+
+**The code commit is `82e9ab71f6`, 31 files, 965 lines added and 465 removed.** One file is created, the fence, and none is deleted, merged or split. The worktree was clean before the first edit, `git status --short` returned nothing, the tip was slice 4's docs commit `4c108a18ce`, and both of slice 4's commits were in the tree.
+
+**The four constants and `GOLDEN`, read off that tip and off the code commit's own tree.** `WITNESS_VERSION` 11 (`src/game/witness.ts`), `READINGS_VERSION` 9 (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` 4 (`src/tape/wireCodes.ts`), and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` (`src/dev/digest.ts`). Every one matches the prompts' header line, none moved, and none of the four files is in either commit. `GOLDEN` held by arithmetic exactly as the ruling predicted: every product is the number it was, so the scenario's two scripted kills still pay 200 between them and `digest.test.ts`'s nine tests were green at every run, the golden itself included.
+
+**Every reader wired, by file and by row.**
+
+| Reader | Row it now takes off the run |
+| --- | --- |
+| `src/game/grave.ts`, `bleedCapOf` under `bleedScore` | `score.bleedCapInKills` times `score.trashKillScore` |
+| `src/game/mobs.ts`, the kill payment in `damageMob` | `score.trashKillScore` times the row's own `scorePayoutInKills` |
+| `src/game/bosses/phases.ts`, `bossHealthRateOf` under `damageBoss` | `score.trashKillScore` over `score.bossHealthPerKill` |
+| `src/game/stage/setPiece.ts`, `sourceKillBonusOf` under `damageSetPiece` | `score.sourceKillInKills` times `score.trashKillScore` |
+| `src/game/swallow.ts`, `mealAtMaxedOf` under `swallow` | `score.mealAtMaxedInKills` times `score.trashKillScore` |
+| `src/game/stage/stage.ts`, `directorGranted` under `grantPurse` and `openingDirector` | `stage[section.purse]`, which is one of the three purse rows |
+| `src/game/director.ts`, `quietMinTicks` and `quietMaxTicks` under `directorSpend` | `stage.quietIntervalMinimumSeconds` and `stage.quietIntervalMaximumSeconds` |
+| `src/game/caps.ts`, unchanged from slice 4 | `stage.quietIntervalMinimumSeconds` |
+
+**Every payment is a named private helper taking `RunState` rather than an expression inline**, because the arithmetic each one does is a sentence the site cannot show: the rows are stated in trash kills and the payment is in points, so the conversion is the thing that wants a name. Each helper's JSDoc carries why its row is stated the way it is, which is the half of the argument the row's own annotation does not hold.
+
+**The nine constants deleted, and where each last reader moved to.**
+
+| Constant | Its file | Where its last reader went |
+| --- | --- | --- |
+| `TRASH_KILL_SCORE` | `src/game/tuning.ts` | `mobs.ts`'s kill payment, plus the four other score readers that state their row against it |
+| `SCORE_BLEED_CAP` | same | `grave.ts`'s `bleedCapOf`, and `src/dev/rigs.ts`'s ladder row through `DEFAULT_TUNING` |
+| `SCORE_PER_BOSS_HEALTH` | same | `phases.ts`'s `bossHealthRateOf` |
+| `SOURCE_KILL_SCORE` | same | `setPiece.ts`'s `sourceKillBonusOf` |
+| `MEAL_AT_MAXED_SCORE` | same | `swallow.ts`'s `mealAtMaxedOf` |
+| `PROCESSION_PURSE` | `src/game/stage/waves.ts` | `stage.ts`'s `SECTIONS`, as the row name `'processionPurse'` |
+| `CROWD_PURSE` | same | the same table, as `'crowdPurse'` |
+| `VIGIL_PURSE` | same | the same table, as `'vigilPurse'` |
+| `QUIET_INTERVAL_MINIMUM_SECONDS` | same | `director.ts`'s `quietMinTicks`, and `caps.ts` since slice 4 |
+
+**Two more names went and neither was a magnitude.** `QUIET_MIN_TICKS` and `QUIET_MAX_TICKS` in `director.ts` are now `quietMinTicks(tuning)` and `quietMaxTicks(tuning)`, which is step (e)'s own instruction: the maximum's 8 seconds came off `director.ts` and onto `stage.quietIntervalMaximumSeconds`, so the draw's span is the run's own on both ends. **Nothing else in `tuning.ts` or `waves.ts` was touched**: `BASE_SPEED` through `RESERVOIR_CAPACITY` and every wave table keep every value and every reader they had.
+
+**Each deleted constant's JSDoc moved onto its row rather than dying with it**, which is the part of this slice that is not a rename. The five score constants carried the whole argument for their figures, the researched bands, the two named failure modes, the swamping refusal and what each is re-read against; the three purses carried their own derivations off the wave tables. All of it is now on `ScoreTuning` and `StageTuning` in `src/game/tuningRecord.ts`, beside the row it argues for. **That is where the prompts' own rule puts it**: a first figure is annotated with what it is set against and what would move it, and a sweep reads the row rather than the constant now.
+
+**`Section.purse` is `PurseRow | null`**, where `PurseRow` is the record's own stage rows ending in `Purse`, derived from `StageTuning` so a row renamed there is a compile error in the table rather than a string nobody reads. `directorSpend`'s null check keeps its meaning exactly: `section.purse === null` is still a section the director may not touch, and the grant reads `tuning.stage[section.purse]` on the other branch, so the Vigil's zero is still the third reading. **The five `SECTIONS` importers outside `stage.ts` were checked one at a time and none reads `purse`**: `src/dev/harnessRun.ts` reads `waves` and `boss`, `src/dev/batchReport.ts` reads `name` (its two `purse` hits are `tuning.pressure.purseLeftBySection`, a reading and not the column), `src/app/screens/game/BackgroundRenderer.ts` indexes the table for a section's name, `src/dev/readings/sectionTimeline.ts` reads `name`, and `src/dev/readings/arrivals.ts` reads `directed`. **Only two sites in the whole tree read `.purse`**, `director.ts`'s null check and `stage.ts`'s grant, plus `director.test.ts`'s two reads which now assert the row name.
+
+**The fence is `every row of the tuning record has a reader`**, in its own file `src/__tests__/everyTuningRowHasAReader.test.ts`, named for the behaviour it guards. It walks every shipped module under `src/game` but `tuningRecord.ts` and fails if a row's leaf name appears in none of them. **The mechanism is `boundary.test.ts`'s source walk with one addition: comments are stripped first**, block comments before line comments. That is the truer mechanism the prompt invited, and the reason is filed two sections above this one: `boundary.test.ts`'s `importsOf` reads the word "import" in prose as an import, and a row named in a JSDoc argument and read nowhere would pass a raw text search while a candidate moving it changed nothing at all. Three teeth tests stand beside it: a string literal counts as readily as a property, because `'processionPurse'` is how a section names its row; a row named only in a comment does not count; and a name nothing in the core spells answers with no readers. **It was also proved against the real tree**: `swallow.ts`'s one reference to `mealAtMaxedInKills` was temporarily replaced with a positional read and the fence went red naming that row, then restored.
+
+**The batch: twelve seeds, identical.** `steady-middling` at the birthright rig, seeds 20260820 to 20260831, played before the first edit and again on the finished tree. **The two `report.json` files are identical in every field but `identity.recordedAt`**, which is the wall clock; `commitHashes`, `configuration`, `firstSeed`, `mobWidths`, `rigs` and `seeds` all match, and so does every reading and every event count per seed. 12 of 12 verified on both sides.
+
+**The two probes, whole**, off `local/step6/b2readers-probe.ts`, which is in no commit. This is the first evidence in the step that the record does anything at all.
+
+**Probe 2, the bleed cap doubled**, and it is clean. The row moves from 20 to 40 trash kills at a unit of 100, and one floor hit on a run holding 100,000 points takes 2,000 under the default and 4,000 under the candidate, leaving 98,000 against 96,000. The direction the row predicts, exactly.
+
+**Probe 1, the Procession's purse, and it took four candidates rather than two to say anything**, which is a finding rather than a failure. The Procession alone, played to its own boundary on four seeds, at purses of 116 (the default), 58, 12 and 0:
+
+| Seed | granted 116 | granted 58 | granted 12 | granted 0 |
+| --- | --- | --- | --- | --- |
+| 20260820 | 3 adds, spent 11, left 105 | 3 adds, spent 11, left 47 | 3 adds, spent 11, left 1 | 0 adds |
+| 20260821 | 2 adds, spent 9, left 107 | 2 adds, spent 9, left 49 | 2 adds, spent 8, left 4 | 0 adds |
+| 20260822 | 2 adds, spent 11, left 105 | 2 adds, spent 11, left 47 | 2 adds, spent 11, left 1 | 0 adds |
+| 20260823 | 2 adds, spent 11, left 105 | 2 adds, spent 11, left 47 | 2 adds, spent 11, left 1 | 0 adds |
+
+**The record reaches the director and the row is what it grants**: `granted` tracks the row exactly on every line, and at zero the director buys nothing at all on any seed. **What halving it does not do is change the run**, because the Procession never spends more than 11 of its 116 under this hand, so neither 116 nor 58 ever binds. **That is the sweep list's own finding, measured**: the prompts' header says the purses are priced above what the quiet interval lets a section spend, and this is about nine per cent of the Procession's purse reaching the field. At 12 the gate finally bites, and seed 20260821 shows it doing so on the card rather than on the add, spending 8 where it spent 9. **It is filed here and no row moved**, which is the stuck rule: a measurement arguing a ruled row should move is a finding for the note.
+
+**Replay determinism at this tip.** Seed 20260820 under `shaky-short`, played headlessly and measured off its own bytes: 6,350 ticks, sealed, 59,728 bytes, `verified`, 1 of 1. **Every figure is identical to slices 3 and 4's**, which is the cheapest statement that a run started under no record plays the run it played before this step.
+
+**The tests: 13 added, 1 removed, none skipped or weakened.** Six are the direction tests, one per group's rows: the bleed at two records, a kill at two units for two mob types, a boss hit at two rates, the source's bonus at two rows, a meal at two rows, and the quiet interval drawn inside a band disjoint from the build's own. Three are the purse's, in `stage.test.ts`: each directed section granted the row it names for all three, a section with no purse granting nothing, and the opening grant halving with the row. Four are the fence's. **Each was written before the reader it tests and watched fail as an unmet promise**, never as a missing module.
+
+**The one removal was planned and is recorded in section 8**: `tuningRecord.test.ts`'s *holds exactly the values the build was compiled with* held each row equal to the constant it was lifted from, and the module's own JSDoc said "the slice that finally deletes them deletes that test in the same commit". **Nothing it pinned was lost.** The rows are now the only spelling, so an identity against a constant that no longer exists has no content; the relations those constants stood in are still pinned, moved onto the record in `tuning.test.ts`, which reads the five score rows off `DEFAULT_TUNING` and keeps every assertion it had.
+
+**The test-name diff: 2,366 names in the baseline, 2,378 now, 13 added and 1 removed.** The baseline is this branch's own tip captured before the first edit, into `local/step6/tests-baseline-b2readers.json`, which is outside version control and in no commit.
+
+**The fences, each by title, all green.** `src/game imports only from src/game`, `every test file imports only from inside its parent folder's subtree`, `no screen imports another screen`, `no module under src/app reaches for engine()`, `carries no value-import cycle beyond the ones written down` with `KNOWN_CORE_CYCLES` still empty, `reaches nothing in game/stage/stage from game/caps`, `the caps derivation and the core read the record off the run`, `the lock's module imports nothing`, `the tuning record's module imports nothing`, `the tape codec imports nothing from the director`, `src/game/storm.ts reaches what it can hit through the seam` and its four siblings, `blocks './step' from src/game/sim.ts` and its six siblings, `orders no reading against a number of its own`, and `every reading on a verified report carries a declared comparison meaning`. **The new one is `every row of the tuning record has a reader`**, with its four tests.
+
+**No import direction changed and no module gained a value import of the record.** `director.ts` and `stage.ts` each gained a type-only import of `TuningRecord`, which is what `caps.ts` already had and what the cycle guard is written to ignore; every reader takes its record as an argument off the run, and `KNOWN_CORE_CYCLES` is still empty.
+
+**`pnpm verify` green twice on the code commit's tree**, plus `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green from `apps/hungry-grave/` before it. 159 test files, 2,367 passing, the same 11 expected failures and 2 todos throughout.
+
+**Two things found false against the tree, both small.**
+
+1. **The prompt names the kill unit's row `score.trashKill` and the tree spells it `score.trashKillScore`.** Slice 5's second ruling writes it that way; section 8's own table and `tuningRecord.ts` both say `trashKillScore`, which is what was followed. The other nine dotted names in the ruling match the tree exactly.
+2. **`scorePayments.test.ts` was expected to redden and did not.** The prompt's reddening list names it first, and it imports no score constant at all: it drives each of the five payers and asserts that exactly one payment is announced under each input's own name, which is a property no magnitude touches. **The realistic count of 15 to 22 files ran under**, and the true figure is 31, of which 22 are test files.
+
+**One thing filed rather than fixed, because the file is barred from both commits.** `src/dev/digest.ts`'s re-pin paragraph says "the shambler's row pays one `TRASH_KILL_SCORE`". The sentence is still true in substance, the shambler's row pays one trash kill, but it names a constant that no longer exists. `digest.ts` is in neither commit by this slice's own rule, so it is left for a later docs pass. `src/app/screens/scoreReading.ts` carried the same stale name and was reworded, because nothing bars that file.
+
+**CodeRabbit, one iteration: 31 files reviewed, four findings, all major, all four declined.** All four are one claim wearing four coats: that `resolveTuning` should reject a row that is non-finite, zero, negative or non-integral before a run starts, raised against `phases.ts`'s division by `bossHealthPerKill`, `mobs.ts`'s multiply by `trashKillScore` and twice against `director.ts`'s `stream.nextInt` span. **It is right about where that validation goes and wrong about when**, which is the same slice boundary section 4 already records against slice 3. Nothing at this tip can put such a value into the resolver: every record in the tree is one our own code produced, which is repair by origin, and **parsing a raw name a person typed is slice 7's edge**, which this slice's own "what is not your job" assigns to the candidates, the command line and the URL. The worst case the review names is also already defended: `rng.ts`'s `nextInt` refuses a bound outside 1 to 4294967296 with a `RangeError` naming the bound, by its own JSDoc, because "a hang with no diagnostic is the worst failure a computed bound can have". **The substance is filed here for slice 7**, which is the commit that first lets a person's typed value reach the resolver and therefore owns the check.
+
+**Nothing was left for a later slice that this slice could have done.** Slice 6 owns the header and the one `FORMAT_VERSION` move, and the probes above are the reason it has to: a run under a moved record cannot be replayed from a header that does not carry it. Slice 7 owns the candidates, the two command surfaces and the edge that parses a person's typed row. Slice 8 owns the sweep runner and the report's identity.
