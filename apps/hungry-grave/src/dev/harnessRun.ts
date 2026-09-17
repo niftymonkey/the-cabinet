@@ -1,5 +1,5 @@
-// One harness run, played under one configuration from one rig and sealed to
-// bytes (ADR 0017, ADR 0053).
+// One harness run, played under one configuration from one rig and one tuning
+// candidate's record, and sealed to bytes (ADR 0017, ADR 0053).
 
 import { TICK_HZ } from '../game/clock';
 import { createExecution } from '../game/execution';
@@ -14,6 +14,7 @@ import type { RunEnding, RunState } from '../game/run';
 import { createRun } from '../game/run';
 import { SECTIONS } from '../game/stage/stage';
 import { SCROLL_SPEED } from '../game/tuning';
+import type { TuningRecord } from '../game/tuningRecord';
 import { WITNESS_VERSION } from '../game/witness';
 import { RUNNING_BUILD } from '../tape/buildIdentity';
 import { startingConditionBlock } from '../tape/startingCondition';
@@ -132,18 +133,28 @@ const harnessHeader = (
 };
 
 /**
- * Plays one seed under one configuration from one rig through the one
- * execution authority and seals it (ADR 0017), returning the bytes a tape file
- * holds and never writing them: the filesystem is the shell's.
+ * Plays one seed under one configuration, from one rig and under one tuning
+ * record, through the one execution authority and seals it (ADR 0017),
+ * returning the bytes a tape file holds and never writing them: the filesystem
+ * is the shell's.
  *
  * The rig is an argument and never a default, so every figure the harness
  * produces names the starting condition behind it (#107). It moves what a run
  * begins holding and nothing about how it is played: the hand's policy is the
  * configuration's, whichever rig it starts from.
+ *
+ * The record is the second argument for the same reason, and it is the record
+ * rather than the candidate that names it: a candidate is a starting condition
+ * on exactly the terms a rig is (ADR 0064), and what this needs of one is the
+ * rows a run plays under. The two compose here rather than at each caller, so
+ * a rig row states the build's own record and a run under a candidate is that
+ * row played under the candidate's, which is what keeps `rigOf` banding such a
+ * run by its rig.
  */
 const playHarnessRun = (
   configuration: Configuration,
   rig: Rig,
+  tuning: TuningRecord,
   seed: number,
   commitHash: string,
   recordedAt: number,
@@ -151,7 +162,7 @@ const playHarnessRun = (
   // The row's condition whole, because a rig applied without one of its fields
   // is a rig half applied and the figure it produces names a condition it did
   // not play (ADR 0063).
-  const run = createRun(seed, rig.conditions);
+  const run = createRun(seed, { ...rig.conditions, tuning });
   const execution = createExecution(run);
   const recorder = recordInto(
     execution,

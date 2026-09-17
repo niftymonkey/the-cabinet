@@ -81,6 +81,23 @@ describe('resolving a partial tuning record', () => {
       /stage\.quietIntervalMinimumSeconds.*stage\.quietIntervalMaximumSeconds/,
     );
   });
+
+  it('rejects a record whose boss-health rate is zero, naming the row', () => {
+    // The row is a divisor: what a fight pays is the boss's own health over it,
+    // so a zero replays to an infinite score. It is refused here for the reason
+    // the bound above is, and it is refused rather than repaired because a
+    // record reaching this function is either our own code's, where a bad one
+    // is a bug, or a tape's, which is a document.
+    expect(() => resolveTuning({ score: { bossHealthPerKill: 0 } })).toThrow(
+      /score\.bossHealthPerKill/,
+    );
+    // Its neighbours are multipliers and zero is an ordinary value for them: a
+    // candidate that pays nothing for a source kill is a candidate, not a
+    // defect.
+    expect(() =>
+      resolveTuning({ score: { sourceKillInKills: 0, mealAtMaxedInKills: 0 } }),
+    ).not.toThrow();
+  });
 });
 
 describe("the tuning record's rows", () => {

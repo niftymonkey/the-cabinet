@@ -1,9 +1,11 @@
 // What the URL asks of a run. Pure functions over two strings, so they are
 // testable without a browser.
 
+import { CANDIDATES, isCandidateName } from '../dev/tuningCandidates';
 import { SIGNAL_FULL } from '../game/signalLock';
 import { MAX_LEVEL } from '../game/lines/roster';
 import { SEED_LIMIT } from '../game/run';
+import type { TuningRecord } from '../game/tuningRecord';
 
 // The query the hash carries, which is everything after its first question mark.
 const hashQuery = (hash: string): string => {
@@ -180,6 +182,38 @@ const atFromUrl = (search: string, hash: string): number | null => {
   return value;
 };
 
+// The same, for the candidate pin, where falling back means the build's own record.
+const ignoreTuning = (raw: string): null => {
+  console.warn(
+    `Ignoring ?tuning=${raw}: the run plays the build's own tuning instead.`,
+  );
+  return null;
+};
+
+/**
+ * The tuning record the named candidate states, or null when the URL names none
+ * (CONTEXT.md Candidate, ADR 0064).
+ *
+ * A name and never a list of rows, so the build a person plays and the batch a
+ * finding came from name the same tuning. The name is checked here and exactly
+ * here, which is the one place a person's typed word becomes a record the sim
+ * can hold: nothing inside the run ever sees a candidate name at all.
+ *
+ * It answers null rather than the default record, because resolving the absence
+ * to a value is the run's job and never the parser's (ADR 0027), which is the
+ * split levelsFromUrl and signalLockFromUrl already keep.
+ *
+ * It is a tuning control and never a player-facing feature, on the same terms as
+ * ?levels= and ?signal= (ADR 0022): the default plays the record the build
+ * compiles, so an ordinary run plays exactly as it played without it.
+ */
+const tuningFromUrl = (search: string, hash: string): TuningRecord | null => {
+  const raw = rawParameter('tuning', search, hash);
+  if (raw === null) return null;
+  if (!isCandidateName(raw)) return ignoreTuning(raw);
+  return CANDIDATES[raw].record;
+};
+
 export {
   seedFromUrl,
   sizeFromUrl,
@@ -187,4 +221,5 @@ export {
   signalLockFromUrl,
   tapeFromUrl,
   atFromUrl,
+  tuningFromUrl,
 };

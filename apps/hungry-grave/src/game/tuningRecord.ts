@@ -262,7 +262,8 @@ const DEFAULT_TUNING: TuningRecord = {
 };
 
 /**
- * The quiet interval's own bound, and the whole of what the resolver refuses.
+ * The quiet interval's own bound, and the first of the two the resolver
+ * refuses.
  *
  * It lives here rather than in a candidate table because every record in the
  * tree enters through resolveTuning, and a table catches the rows somebody
@@ -280,13 +281,29 @@ const refuseInvertedQuietInterval = (stage: StageTuning): void => {
 };
 
 /**
+ * The score's own bound, and it is the one row of the group that is a divisor.
+ *
+ * What a fight pays is the boss's own health over this rate, so a zero here
+ * replays to an infinite score and the `no NaN` invariant fires a tick later.
+ * Every other score row is a multiplier and zero is an ordinary value for it: a
+ * candidate that pays nothing for a source kill is a candidate and not a
+ * defect, which is why this names the row rather than sweeping the group.
+ */
+const refuseZeroBossHealthRate = (score: ScoreTuning): void => {
+  if (score.bossHealthPerKill !== 0) return;
+  throw new Error(
+    `score.bossHealthPerKill is written as 0, and a fight's worth is the boss's own health over it`,
+  );
+};
+
+/**
  * The complete record an overlay stands for, every absent row filled from the
  * default.
  *
  * Its input is already typed, because parsing a raw name a person typed is the
  * edge's job: there is no such thing as an unknown row reaching here. What it
- * refuses is the one bound above and nothing else, and a record our own code
- * produced cannot fail it, which is repair by origin.
+ * refuses is the two bounds above and nothing else, and a record our own code
+ * produced cannot fail either, which is repair by origin.
  */
 const resolveTuning = (overlay: TuningOverlay): TuningRecord => {
   const resolved: TuningRecord = {
@@ -294,6 +311,7 @@ const resolveTuning = (overlay: TuningOverlay): TuningRecord => {
     score: { ...DEFAULT_TUNING.score, ...overlay.score },
   };
   refuseInvertedQuietInterval(resolved.stage);
+  refuseZeroBossHealthRate(resolved.score);
   return resolved;
 };
 

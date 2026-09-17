@@ -252,6 +252,15 @@ describe('a block this build cannot start any run at all', () => {
     expect(reason).toContain('stage.quietIntervalMaximumSeconds');
   });
 
+  it('refuses a boss-health rate of zero, because a fight divides by it', () => {
+    // The resolver's second bound, reported here in the tape's words for the
+    // same reason the first is: a block writing zero there replays to an
+    // infinite score, which the header's own slice filed for the candidates'.
+    expect(reasonFor(rowWritten('score.bossHealthPerKill', 0))).toContain(
+      'score.bossHealthPerKill',
+    );
+  });
+
   it('refuses a name the block states twice', () => {
     // One of the two values is then unreachable by name, which is the
     // positional ambiguity the whole block exists to remove.

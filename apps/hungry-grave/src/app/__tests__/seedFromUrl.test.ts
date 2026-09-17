@@ -9,6 +9,8 @@ import type { RunState } from '../../game/run';
 import { createRun, SEED_LIMIT } from '../../game/run';
 import { SIZE_CEILING, SIZE_FLOOR } from '../../game/tuning';
 import { SIGNAL_FULL, SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
+import { CANDIDATES } from '../../dev/tuningCandidates';
 import { tapeHeaderFor } from '../tapeHeader';
 import type { RunConditions } from '../tapeHeader';
 import {
@@ -18,6 +20,7 @@ import {
   signalLockFromUrl,
   sizeFromUrl,
   tapeFromUrl,
+  tuningFromUrl,
 } from '../seedFromUrl';
 
 /** The arguments of a mock's Nth call, once a call count assertion has proven it exists. */
@@ -258,5 +261,63 @@ describe('atFromUrl', () => {
     expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
       'abc',
     );
+  });
+});
+
+describe('tuningFromUrl (CONTEXT.md Candidate)', () => {
+  beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => {}));
+  afterEach(() => vi.restoreAllMocks());
+
+  it('?tuning= names a candidate and the run starts under its record', () => {
+    // ADR 0064: the shell resolves the record from a named candidate and passes
+    // it inward on the starting condition, so what the run plays under is read
+    // off the run rather than off the parameter.
+    expect(tuningFromUrl('?tuning=spendable', '')).toEqual(
+      CANDIDATES.spendable.record,
+    );
+    expect(tuningFromUrl('', '#/?tuning=spendable')).toEqual(
+      CANDIDATES.spendable.record,
+    );
+
+    const run = createRun(1234, { tuning: CANDIDATES.spendable.record });
+    expect(run.conditions.tuning).toEqual(CANDIDATES.spendable.record);
+    expect(run.conditions.tuning.stage.processionPurse).not.toBe(
+      DEFAULT_TUNING.stage.processionPurse,
+    );
+  });
+
+  it("with both present the hash's query wins, the same way the seed's does", () => {
+    expect(tuningFromUrl('?tuning=default', '#/?tuning=spendable')).toEqual(
+      CANDIDATES.spendable.record,
+    );
+  });
+
+  it('warns once about a name no candidate holds and plays the default instead', () => {
+    // seedFromUrl.ts's standing rule for a fat-fingered value: the URL is a
+    // person-typed edge, so an unusable name is repaired rather than refused
+    // and a playtester still gets a game. It answers null rather than the
+    // default record, because resolving an absence is createRun's job and never
+    // a parser's (ADR 0027), which is the split ?levels= and ?signal= keep.
+    for (const raw of ['lean', 'Spendable', '', 'default ']) {
+      expect(tuningFromUrl(`?tuning=${raw}`, '')).toBeNull();
+    }
+    expect(console.warn).toHaveBeenCalledTimes(4);
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      'lean',
+    );
+
+    const run = createRun(1234, { tuning: undefined });
+    expect(run.conditions.tuning).toEqual(DEFAULT_TUNING);
+  });
+
+  it('plays the record the build compiles when the URL names no candidate', () => {
+    // The unchanged case, which is the one this surface must not move: no
+    // parameter is an absence and the run resolves it to the default row for
+    // row, so an ordinary run plays exactly as it played before this parser
+    // existed.
+    expect(tuningFromUrl('', '')).toBeNull();
+    expect(console.warn).not.toHaveBeenCalled();
+
+    expect(createRun(1234).conditions.tuning).toEqual(DEFAULT_TUNING);
   });
 });

@@ -23,6 +23,7 @@ import {
   seedFromUrl,
   signalLockFromUrl,
   sizeFromUrl,
+  tuningFromUrl,
 } from '../../seedFromUrl';
 
 /**
@@ -160,10 +161,16 @@ const begin = (session: Session): StartedRun => {
   // experiment. Null resolves inside createRun, so the header records the value
   // the run started from rather than the absence (ADR 0027).
   const signalLock = signalLockFromUrl(search, hash);
+  // The named candidate's whole record, resolved at the shell and passed inward
+  // on the starting condition (ADR 0064). Null resolves inside createRun to the
+  // record the build compiles, so a run nobody named a candidate for plays what
+  // it always played.
+  const tuning = tuningFromUrl(search, hash);
   const run = createRun(seed ?? undefined, {
     startingSize: size ?? undefined,
     startingLevels: levels === null ? undefined : uniformLevels(levels),
     signalLock: signalLock ?? undefined,
+    tuning: tuning ?? undefined,
   });
   const execution = startExecution(run);
   session.run = run;

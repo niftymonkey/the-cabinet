@@ -16,16 +16,21 @@ import { describe, expect, it } from 'vitest';
 import { BATCH_SEEDS } from '../../src/dev/batchReport';
 import type { BatchReport } from '../../src/dev/batchReport';
 import { SHARP_HAND } from '../../src/dev/configurations';
+import { CANDIDATES } from '../../src/dev/tuningCandidates';
 import { MAX_LEVEL, WEAPON_LINES } from '../../src/game/lines/roster';
 import { SEED_LIMIT } from '../../src/game/run';
+import { tuningRows } from '../../src/game/tuningRecord';
 import { decodeTape } from '../../src/tape/decode';
 import type { TapeHeader } from '../../src/tape/tape';
 
+/** The value a header's block records under one row's name. */
+function rowIn(header: TapeHeader, name: string): number | undefined {
+  return header.startingCondition.find((entry) => entry.name === name)?.value;
+}
+
 /** The level a header's block records for one line, read by name. */
 function levelIn(header: TapeHeader, line: string): number | undefined {
-  return header.startingCondition.find(
-    (entry) => entry.name === `levels.${line}`,
-  )?.value;
+  return rowIn(header, `levels.${line}`);
 }
 
 const APP = resolve(import.meta.dirname, '..', '..');
@@ -207,6 +212,118 @@ describe('the batch command', () => {
         readFileSync(join(folder, 'report.json'), 'utf8'),
       );
       expect(report.identity.rigs).toEqual(['maxed']);
+    },
+    PLAYED_BATCH_BUDGET_MS,
+  );
+
+  it(
+    'refuses a tuning candidate nobody named, out loud, and plays nothing',
+    () => {
+      // Parse at the edge, on the rig's own terms: a command line is a person
+      // asking for one batch, so a name no row holds is refused here rather
+      // than repaired, and a folder never names a tuning its runs did not play.
+      const root = emptyRoot();
+      const result = runBatch(
+        SHARP_HAND,
+        String(FIRST_SEED),
+        '1',
+        root,
+        'tuning=lean',
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toContain('lean');
+      expect(result.stderr).toContain('no batch was played');
+      expect(result.stderr).not.toMatch(/^\s+at /m);
+      expect(readdirSync(root)).toEqual([]);
+    },
+    SUBPROCESS_BUDGET_MS,
+  );
+
+  it(
+    'refuses an argument written in a key it does not have, so a misspelled key is never a silent path',
+    () => {
+      // With two keys rather than one, `tunning=spendable` is a real typo, and
+      // ignored it becomes the output root: a batch that reads as the one asked
+      // for, written into a folder named after the mistake, under the default.
+      const root = emptyRoot();
+      const result = runBatch(
+        SHARP_HAND,
+        String(FIRST_SEED),
+        '1',
+        root,
+        'tunning=spendable',
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toContain('tunning=spendable');
+      expect(result.stderr).toContain('no batch was played');
+      expect(result.stderr).not.toMatch(/^\s+at /m);
+      expect(readdirSync(root)).toEqual([]);
+    },
+    SUBPROCESS_BUDGET_MS,
+  );
+
+  it(
+    'names the default candidate in its folder when the command names none, and plays the build its own record',
+    () => {
+      // Nothing changes when no candidate is named (ADR 0064): the folder gains
+      // one segment and the run does not move, which is the half of this
+      // surface that had to stay still. The segment is written on the terms
+      // `birthright` is when no rig is named.
+      const root = emptyRoot();
+      const result = runBatch(SHARP_HAND, String(FIRST_SEED), '1', root);
+
+      expect(result.status).toBe(0);
+      const folder = result.stdout.trimEnd();
+      expect(folder.split('/').at(-1)).toMatch(
+        new RegExp(`^${SHARP_HAND}-birthright-default-\\d+$`),
+      );
+
+      const { header } = decodeTape(
+        new Uint8Array(readFileSync(join(folder, `${FIRST_SEED}.tape`))),
+      ).tape;
+      for (const row of tuningRows(CANDIDATES.default.record)) {
+        expect(rowIn(header, row.name)).toBe(row.value);
+      }
+    },
+    PLAYED_BATCH_BUDGET_MS,
+  );
+
+  it(
+    'plays the tuning candidate the command names, and says so in the folder',
+    () => {
+      // The other half: a batch under a named candidate writes a folder naming
+      // it, and every tape in it carries that candidate's resolved record in
+      // its own header, so the run is replayable under the values it played
+      // under (FORMAT_VERSION 5).
+      const root = emptyRoot();
+      const result = runBatch(
+        SHARP_HAND,
+        String(FIRST_SEED),
+        '1',
+        root,
+        'tuning=spendable',
+      );
+
+      expect(result.status).toBe(0);
+      const folder = result.stdout.trimEnd();
+      expect(folder.split('/').at(-1)).toMatch(
+        new RegExp(`^${SHARP_HAND}-birthright-spendable-\\d+$`),
+      );
+
+      const { header } = decodeTape(
+        new Uint8Array(readFileSync(join(folder, `${FIRST_SEED}.tape`))),
+      ).tape;
+      for (const row of tuningRows(CANDIDATES.spendable.record)) {
+        expect(rowIn(header, row.name)).toBe(row.value);
+      }
+      // The moved row reached the run and not the folder's name alone.
+      expect(rowIn(header, 'stage.processionPurse')).not.toBe(
+        CANDIDATES.default.record.stage.processionPurse,
+      );
     },
     PLAYED_BATCH_BUDGET_MS,
   );

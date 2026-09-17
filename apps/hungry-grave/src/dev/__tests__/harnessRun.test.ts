@@ -36,6 +36,7 @@ import { CONFIGURATIONS, SHARP_HAND } from '../configurations';
 import { playHarnessRun, runTickBudget, RUN_TICK_SLACK } from '../harnessRun';
 import { measure } from '../measure';
 import { RIGS, rigOf } from '../rigs';
+import { CANDIDATES } from '../tuningCandidates';
 
 /**
  * The condition a tape's header states, resolved. Every assertion below reads
@@ -79,6 +80,7 @@ const sealingRun = () => {
   played ??= playHarnessRun(
     SHARP,
     RIGS.birthright,
+    CANDIDATES.default.record,
     SEALING_SEED,
     COMMIT_HASH,
     RECORDED_AT,
@@ -229,6 +231,7 @@ describe('the harness run', () => {
       const again = playHarnessRun(
         SHARP,
         RIGS.birthright,
+        CANDIDATES.default.record,
         SEALING_SEED,
         COMMIT_HASH,
         RECORDED_AT,
@@ -248,6 +251,7 @@ describe('the harness run', () => {
       const maxed = playHarnessRun(
         SHARP,
         RIGS.maxed,
+        CANDIDATES.default.record,
         SEALING_SEED,
         COMMIT_HASH,
         RECORDED_AT,
@@ -278,6 +282,7 @@ describe('the harness run', () => {
       const staged = playHarnessRun(
         SHARP,
         RIGS.ladder,
+        CANDIDATES.default.record,
         SEALING_SEED,
         COMMIT_HASH,
         RECORDED_AT,

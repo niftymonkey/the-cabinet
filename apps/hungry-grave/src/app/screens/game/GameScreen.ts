@@ -296,10 +296,12 @@ class GameScreen extends Container {
    *
    * dressField runs from the constructor and from reset(), with no run in hand
    * either time, so the caps a run under the build's own record derives are
-   * what the sprite pools are grown to. Every run at this tip derives exactly
-   * these, because the default record is the only record anything names; the
-   * renderer's pools are grow-only, so the slice that gives a replay a record
-   * of its own grows them to that run's caps at the attach it already makes.
+   * what the sprite pools are grown to. A run here can carry a record of its
+   * own now, because ?tuning= names a candidate (ADR 0064), and every run still
+   * derives exactly these caps: all three read one row, the quiet interval's
+   * minimum, and no candidate moves it. The renderer's pools are grow-only, so
+   * the row that first moves it is the one that has to grow them to the started
+   * run's caps at an attach of its own, the way ReplayScreen.beginDrawing does.
    */
   private fieldCaps(): Caps {
     return capsFor(DEFAULT_TUNING);

@@ -2,7 +2,7 @@
  * The batch entry: a seed range played headlessly under one configuration, one
  * tape per seed on disk with the batch's own report beside them, and the folder
  * path as the whole of stdout. Run as
- * `pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root]`.
+ * `pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root] [rig=<rig>] [tuning=<candidate>]`.
  *
  * The playing lives in src/dev/harnessRun.ts and the reducing in
  * src/dev/batchReport.ts, both of which carry mayImport: [] and may not touch
@@ -31,6 +31,12 @@ import { measure } from '../src/dev/measure';
 import type { Measurement } from '../src/dev/measure';
 import { isRigName, RIGS, RIG_NAMES } from '../src/dev/rigs';
 import type { RigName } from '../src/dev/rigs';
+import {
+  CANDIDATES,
+  CANDIDATE_NAMES,
+  isCandidateName,
+} from '../src/dev/tuningCandidates';
+import type { CandidateName } from '../src/dev/tuningCandidates';
 import { SEED_LIMIT } from '../src/game/run';
 import { UNSTAMPED_BUILD } from '../src/tape/buildIdentity';
 import { decodeTape } from '../src/tape/decode';
@@ -50,12 +56,22 @@ const DEFAULT_OUT_ROOT = 'local/batches';
  */
 const DEFAULT_RIG: RigName = 'birthright';
 
-const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root] [rig=<rig>]
+/**
+ * The tuning a batch is played under when the command line names none: the row
+ * whose record is the resolved default, so a bare command plays exactly the
+ * batch it played before candidates existed and its folder still says which
+ * tuning produced it (ADR 0064).
+ */
+const DEFAULT_CANDIDATE: CandidateName = 'default';
+
+const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root] [rig=<rig>] [tuning=<candidate>]
   configurations: ${CONFIGURATION_NAMES.join(', ')}
   rigs: ${RIG_NAMES.join(', ')}
+  candidates: ${CANDIDATE_NAMES.join(', ')}
   count defaults to ${BATCH_SEEDS}
   out-root defaults to ${DEFAULT_OUT_ROOT}
-  rig defaults to ${DEFAULT_RIG}`;
+  rig defaults to ${DEFAULT_RIG}
+  tuning defaults to ${DEFAULT_CANDIDATE}`;
 
 /**
  * A flawed argument is an external failure and the person holding the command
@@ -87,6 +103,25 @@ const parseRig = (raw: string | undefined): RigName | null => {
   if (raw === undefined) return DEFAULT_RIG;
   if (!isRigName(raw)) {
     return refuse(`${raw} names no rig (the rigs are ${RIG_NAMES.join(', ')})`);
+  }
+  return raw;
+};
+
+/**
+ * The tuning candidate the arguments name, or null once the name has been
+ * refused out loud.
+ *
+ * A keyed argument beside the rig's, and refused rather than repaired, which is
+ * the split between this surface and the URL's: a command line is a person
+ * asking for one batch and a batch under a tuning nobody asked for is a folder
+ * of runs whose name lies about them (ADR 0064).
+ */
+const parseCandidate = (raw: string | undefined): CandidateName | null => {
+  if (raw === undefined) return DEFAULT_CANDIDATE;
+  if (!isCandidateName(raw)) {
+    return refuse(
+      `${raw} names no tuning candidate (the candidates are ${CANDIDATE_NAMES.join(', ')})`,
+    );
   }
   return raw;
 };
@@ -150,20 +185,42 @@ const commitHashHere = (): string => {
 };
 
 /**
- * The folder this batch's tapes land in: the configuration and the stamp the
- * clock was asked for once, so two batches of one hand against two builds do
- * not collide.
+ * One batch, as the command line asked for it: the hand, the two starting
+ * conditions, the seeds it walks and where it writes.
+ *
+ * It is one record rather than five locals because parsing the arguments is a
+ * story of its own and `main` below tells the batch's: a reader of `main`
+ * should see the folder made, the runs played and the report written, and not
+ * eight exits over the same five `refuse` calls.
+ */
+interface BatchRequest {
+  readonly configuration: ConfigurationName;
+  readonly rig: RigName;
+  readonly candidate: CandidateName;
+  readonly seeds: readonly number[];
+  readonly outRoot: string;
+}
+
+/**
+ * The folder this batch's tapes land in: the two starting conditions beside the
+ * configuration, and the stamp the clock was asked for once, so two batches of
+ * one hand against two builds do not collide.
+ *
+ * The candidate is in there on exactly the terms the rig is: a figure names its
+ * starting condition, and a candidate is one (#107, ADR 0053, ADR 0064). A bare
+ * command's folder therefore differs from the one it wrote before candidates
+ * existed by the `default` segment alone, which is what `birthright` is written
+ * for when no rig is named.
  *
  * The name is a convenience and the bytes are authoritative (ADR 0057). The
  * stamp is the same number every header in the folder records, so the folder
  * and the bytes never disagree about when the batch was played.
  */
-const folderFor = (
-  outRoot: string,
-  configuration: ConfigurationName,
-  rig: RigName,
-  recordedAt: number,
-): string => join(outRoot, `${configuration}-${rig}-${recordedAt}`);
+const folderFor = (request: BatchRequest, recordedAt: number): string =>
+  join(
+    request.outRoot,
+    `${request.configuration}-${request.rig}-${request.candidate}-${recordedAt}`,
+  );
 
 /**
  * True once the bytes are on disk, or false once the path has been refused
@@ -224,17 +281,16 @@ const attribution = (measurement: Measurement): string => {
  */
 const playInto = (
   folder: string,
-  configuration: ConfigurationName,
-  rig: RigName,
-  seeds: readonly number[],
+  request: BatchRequest,
   commitHash: string,
   recordedAt: number,
 ): MeasuredRun[] | null => {
   const runs: MeasuredRun[] = [];
-  for (const seed of seeds) {
+  for (const seed of request.seeds) {
     const run = playHarnessRun(
-      CONFIGURATIONS[configuration],
-      RIGS[rig],
+      CONFIGURATIONS[request.configuration],
+      RIGS[request.rig],
+      CANDIDATES[request.candidate].record,
       seed,
       commitHash,
       recordedAt,
@@ -276,15 +332,20 @@ const makeFolderOrRefuse = (folder: string): boolean => {
  */
 const reportInto = (
   folder: string,
-  configuration: ConfigurationName,
-  seeds: readonly number[],
+  request: BatchRequest,
   recordedAt: number,
   runs: readonly MeasuredRun[],
 ): boolean => {
+  const seeds = request.seeds;
   const firstSeed = seeds[0];
   if (firstSeed === undefined) throw new Error('a batch has no seeds');
   const report = batchReportOf(
-    { configuration, firstSeed, seeds: seeds.length, recordedAt },
+    {
+      configuration: request.configuration,
+      firstSeed,
+      seeds: seeds.length,
+      recordedAt,
+    },
     runs,
   );
   // The count of runs that reached no ending rides on the line that already
@@ -304,60 +365,101 @@ const reportInto = (
   );
 };
 
-// The arguments split into the keyed rig and everything positional behind it.
-const RIG_ARGUMENT = /^rig=(.*)$/;
+/**
+ * The keys that stand outside the positional list, in the shape
+ * record-conditioned.ts already uses for its own optional conditions: a
+ * starting condition behind three optional positions would be reached by naming
+ * two arguments nobody wanted to name.
+ */
+const KEYS = ['rig', 'tuning'] as const;
 
-const main = (): void => {
-  const given = process.argv.slice(2);
-  const keyed = given.find((argument) => RIG_ARGUMENT.test(argument));
+/** Whether an argument names a key rather than filling a position. */
+const isKeyed = (argument: string): boolean =>
+  KEYS.some((key) => argument.startsWith(`${key}=`));
+
+/**
+ * A word and an equals sign, which is what every keyed argument opens with. A
+ * path never matches it, because the word runs to the first non-letter.
+ */
+const KEY_SHAPED = /^[A-Za-z]+=/;
+
+/**
+ * The first argument written in a key's shape under a key this command does not
+ * have, or null when none is.
+ *
+ * It exists because a misspelled key is otherwise a silent positional: with two
+ * keys rather than one the odds of writing `tunning=spendable` are real, and the
+ * cost is a batch that reads as the one that was asked for, writes its tapes
+ * into a folder named after the typo, and names the default candidate in them.
+ */
+const unknownKeyIn = (given: readonly string[]): string | null =>
+  given.find((argument) => KEY_SHAPED.test(argument) && !isKeyed(argument)) ??
+  null;
+
+/** What a key was given, or undefined when the command line names it nowhere. */
+const valueUnder = (
+  given: readonly string[],
+  key: (typeof KEYS)[number],
+): string | undefined =>
+  given
+    .find((argument) => argument.startsWith(`${key}=`))
+    ?.slice(key.length + 1);
+
+/**
+ * The batch the command line asked for, or null once the flaw has been refused
+ * out loud.
+ *
+ * Every argument becomes what it names here or is refused here, so nothing past
+ * this line holds a raw string at all (parse at the edge). The order is the one
+ * a person wrote the command in, and a missing positional pair is the usage
+ * alone: a command with nothing on it is somebody asking what the command is.
+ */
+const requestedBatch = (given: readonly string[]): BatchRequest | null => {
   const [configurationRaw, seedRaw, countRaw, outRoot = DEFAULT_OUT_ROOT] =
-    given.filter((argument) => argument !== keyed);
+    given.filter((argument) => !isKeyed(argument));
   if (configurationRaw === undefined || seedRaw === undefined) {
     console.error(USAGE);
-    process.exitCode = 1;
-    return;
+    return null;
+  }
+  const unknownKey = unknownKeyIn(given);
+  if (unknownKey !== null) {
+    return refuse(
+      `${unknownKey} names no argument this command has (the keys are ${KEYS.join(', ')})`,
+    );
   }
   const configuration = parseConfiguration(configurationRaw);
-  if (configuration === null) {
-    process.exitCode = 1;
-    return;
-  }
-  const rig = parseRig(keyed?.replace(RIG_ARGUMENT, '$1'));
-  if (rig === null) {
-    process.exitCode = 1;
-    return;
-  }
+  if (configuration === null) return null;
+  const rig = parseRig(valueUnder(given, 'rig'));
+  if (rig === null) return null;
+  const candidate = parseCandidate(valueUnder(given, 'tuning'));
+  if (candidate === null) return null;
   // The batch's own size when nobody names one, which is the row a person
   // running a batch never has to remember (ADR 0053).
   const count = countRaw === undefined ? BATCH_SEEDS : parseCount(countRaw);
-  if (count === null) {
-    process.exitCode = 1;
-    return;
-  }
+  if (count === null) return null;
   const seeds = parseSeeds(seedRaw, count);
-  if (seeds === null) {
+  if (seeds === null) return null;
+  return { configuration, rig, candidate, seeds, outRoot };
+};
+
+const main = (): void => {
+  const request = requestedBatch(process.argv.slice(2));
+  if (request === null) {
     process.exitCode = 1;
     return;
   }
   const recordedAt = Date.now();
-  const folder = folderFor(outRoot, configuration, rig, recordedAt);
+  const folder = folderFor(request, recordedAt);
   if (!makeFolderOrRefuse(folder)) {
     process.exitCode = 1;
     return;
   }
-  const runs = playInto(
-    folder,
-    configuration,
-    rig,
-    seeds,
-    commitHashHere(),
-    recordedAt,
-  );
+  const runs = playInto(folder, request, commitHashHere(), recordedAt);
   if (runs === null) {
     process.exitCode = 1;
     return;
   }
-  if (!reportInto(folder, configuration, seeds, recordedAt, runs)) {
+  if (!reportInto(folder, request, recordedAt, runs)) {
     process.exitCode = 1;
     return;
   }
