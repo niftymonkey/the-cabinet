@@ -22,7 +22,9 @@ This file is the vocabulary. The traps this codebase has actually shipped are in
 
 **Sealed shut**: Death: shrunk to nothing, filled in, and closed. The grave is never destroyed or killed; it is sealed. _Avoid_: dead, killed, game over, destroyed.
 
-**Score**: The run's worth in one number, fed by several inputs and never by kills alone: a kill pays it and growth past the size ceiling converts into it, so the storm and the swallow both feed it, and what else feeds it is open (ADR 0002 as amended, ADR 0003, #135). It is also what the floor ladder spends first, a hit at the size floor bleeding the whole of it before any weapon level goes, and the HUD carries it beside the rungs. _Avoid_: points, XP, experience, currency.
+**Score**: The run's worth in one number, fed by several inputs and never by kills alone: a kill pays it and growth past the size ceiling converts into it, so the storm and the swallow both feed it, and what else feeds it is open (ADR 0002 as amended, ADR 0003, #135). It is also what the floor ladder spends first, a hit at the size floor bleeding a capped slice of it before any weapon level goes, and the HUD carries it beside the rungs. _Avoid_: points, XP, experience, currency.
+
+**Amended 2026-09-16, on Mark's own ruling, "Cap the bleed":** a hit at the size floor takes a bounded slice of the score and the rest stays. What stood: everything else in the entry, that the score is the run's worth in one number, that a kill pays it and growth past the ceiling converts into it, that the ladder spends it before any weapon level goes, and that the HUD carries it beside the rungs. What changed: what a hit costs, a bounded number of kills rather than every point the run has made, so a run that takes a late hit is still judged on how it was played. What the entry could not have known: it was written on the day a kill first paid, before anything had measured what a whole bleed takes, and the first measurement of it was most of the run.
 
 **Focus**: Hold-to-slow precise movement, keyboard only. On touch, drag precision is the fine control and focus is nothing. _Avoid_: slow mode, precision mode, walk.
 

@@ -16,6 +16,7 @@ The record is `apps/hungry-grave/docs/design/show-what-you-have.md` and the prom
 | M4, the loss is watched | `d463dc8252` | `feat(hungry-grave): the score is watched leaving and every line that paid says so (#99)` |
 | M5, the stripped rung falls | `9aa6f83a6a` | `feat(hungry-grave): a stripped rung falls onto the field as a body the dive can catch (#99)` |
 | M5-fix, the rungs fall above a clamped grave | `52a62e16d1` | `fix(hungry-grave): a strip with no room below the grave drops its rungs above it (#99)` |
+| M1-fix, the bleed is capped | `f98c01767d` | `fix(hungry-grave): a floor hit bleeds a capped slice of the score and the remainder stays (#99)` |
 | M6, the ladder's cost is measurable | | |
 
 Slice M1 carries two code commits, the fold and the rule, which is this step's one authorized departure from the contract's one-code-commit rule.
@@ -270,6 +271,136 @@ Two code commits, `2c7a281657` the fold and `11483ecf31` the score and the ladde
 ### An anomaly, and it is not this slice's
 
 **Two documentation files were uncommitted and modified in the shared worktree for the whole of this slice, by something other than M1**: `docs/design/show-what-you-have.md` and `docs/push/step-5-slice-prompts.md`. The edits are substantive and are about R1's cost arithmetic, the `svh` inset handling and slice M2's own block. **Nothing here touched either file and neither entered either commit**, every path was staged by name. They are the reason both CodeRabbit runs list two files M1 never opened, and the reason every tape and batch this slice recorded carries a dirty build identity. **Recorded rather than acted on**: an in-flight edit by another agent is not M1's to commit, revert or review.
+
+### M1-fix: the bleed is capped (#99), `f98c01767d`
+
+**Mark ruled it in two words on 2026-09-16, "Cap the bleed", and this is the whole of the slice.** A hit at the size floor now takes the lesser of the standing score and a flat cap, and the remainder stays. ADR 0003's order is untouched: the score rung is still spent before any level, `scoreBled` still fires once per armed rung, M1's bled-rung memory still sets on any ladder run, and the second floor hit while small still strips. **12 files in the one code commit**, inside the prompt's realistic 8 to 12. **The test-name diff against a baseline captured at `25e229866a` before the first edit reads 2275 names in the baseline and 2277 now, 5 added and 3 removed**, and all three removed are renames of the same promise under the new rule: two in `watchedLoss.test.ts` and `a hit at the size floor with score standing bleeds the score and takes no level` in `grave.test.ts`, which split into the above-cap and below-cap pair.
+
+#### The cap, where in the band it sits, and what it was set against
+
+**`SCORE_BLEED_CAP` is `20 * TRASH_KILL_SCORE`, 2,000 points, in `tuning.ts` beside `TRASH_KILL_SCORE`** and stated as a multiple of it exactly as every mob row's `scorePayout` is. Twenty trash kills, about eight seconds of mowing at the storm's measured 2.47 kills a second.
+
+**It sits below the band's midpoint on purpose, and the early window is what put it there.** The research's band is 10 to 40 trash kills and its midpoint is 25. Until a run's score first crosses the cap the cap does not exist for the player at all and the first floor hit still takes everything, so the lower the figure the sooner the rule is real. **Measured rather than argued: every one of the twelve batch runs crossed 2,000 between tick 2,244 and tick 4,103, 5.4 to 20.4 percent of its own length, and the earliest first floor hit in the twelve landed at tick 6,618.** So at this value no measured run ever met the floor before the cap was real, and the early window never bit. At 40 trash kills the crossing would sit two to three times later and that stops being true.
+
+**What keeps it off the bottom of the band is the same evidence the band was drawn from**: below 10 trash kills the rung reads as free, which is Great Mahou Daisakusen's own named failure. **What it gets tuned against is M6's bleeds and strips per run, and it is re-read after M7 rather than against M6 alone**, because the band's upper end is argued against a run's gross and M7's boss damage, source kill and rich swallow all pay into that gross. The JSDoc carries all of this beside the row, annotated as a first figure.
+
+#### The lesser-of, and the invariant deliberately not added
+
+**`bleedScore` reads `Math.min(state.score, SCORE_BLEED_CAP)`, subtracts it, and fires `scoreBled` carrying what it took and what is left standing.** **No invariant was added and the absence is the decision**: the remainder cannot go negative because the lesser-of makes that state unreachable rather than merely unlikely, and a check for a state the arithmetic cannot produce would be noise under the deletion test. The two ladder tests that pin the lesser-of, above the cap and below it, are what guard it, and `bleedScore`'s own JSDoc carries the one sentence saying so.
+
+#### Every comment that went false, found by content
+
+**Four the prompt named, each rewritten.** `bleedScore`'s "The whole score, gone. The score tier is exactly one rung, so it never partly bleeds" is now a JSDoc naming the lesser-of and the remainder. `runFloorLadder`'s "it bleeds all of the score" reads "it bleeds a capped slice of the score". `ScoreBled`'s "the whole score, gone" reads "a capped slice of the score, gone", with the widened field's reason beside it. `endings.test.ts`'s ruling comment "Score first, and the whole of it: the score tier is one rung and never partly bleeds" reads "Score first, and the lesser of what stood and the cap: the score tier is one rung whatever it paid, and the remainder stays".
+
+**Five more found by grepping the claim rather than trusting the list.** `watchedLoss.ts`'s own lifetime JSDoc said "The sim sets the score to zero in one tick", now "takes the bleed in one tick". `grave.test.ts` carried the claim twice, in the ladder-order test's rung-one comment and in the first-rung test's own. `endings.test.ts` carried it twice more, in `SCORE_BROUGHT_TO_THE_FIGHT`'s JSDoc and in `SCORE_EARNED_INSIDE_THE_FIGHT`'s, both of which argued that the figure did not matter because the rung bleeds whole. `screenLifecycle.test.ts`'s ladder test said "the sim zeroes the score in one tick". All five now read the new rule.
+
+**Three stale sentences in `docs/` were found and left alone, because prose outside this slice's own records is a later docs pass's** (the contract's what-is-never-your-job list). `docs/design/stage-floor.md` says a floor hit "bleeds the whole score"; `docs/design/dispatch-3a-sim-core.md` says it twice, once as a rejected alternative arguing that "a fixed amount makes the ladder's length depend on a magnitude the tests are forbidden to know". **That old objection is answered rather than ignored**: R4's bled-rung memory spends the rung once per arming whatever it paid, so the ladder's length is seven hits at any cap, which `grave.test.ts`'s finiteness test now asserts with a score a hundred times the cap. `docs/design/show-what-you-have.md` section 3.2 also still says `runFloorLadder` "bleeds the whole score", and **the design record is not edited by the slice dispatched against it**, so it is recorded here.
+
+#### The countdown's start, the seam, and M4's superseded sentence
+
+**`ScoreBled` gained one field, `score`, the remainder left standing, which is exactly `Overflowed`'s own `{ amount, score }` shape.** `watchLoss` reads `event.amount + event.score` as the score that stood before the hit, so the view is handed the event's own arithmetic and still diffs nothing. The transient's field is renamed from `amount` to `from` for the same reason: what the digits fall from is no longer what was taken.
+
+**R5's shape does not move.** 40 ticks, linear, the midpoint reading about halfway, targeting the live score, told by the event. Only the start moved, from the slice taken to the score that stood, because the old expression would have jumped the digits down to the slice and then climbed them back to the remainder.
+
+**M4's prompt says the three ladder events stay three and none changes shape, and this slice supersedes the second half of that sentence for this one case.** What stood: three events rather than one ladder event, `weaponStripped` and `sealed` untouched, and nothing added, removed or merged. What changed: `scoreBled` carries what it left beside what it took. What M4 could not have known: it was written while a bleed took the whole score, so the amount and the pre-hit score were the same number and a view could not tell them apart.
+
+**Widening the event costs no version**, and `readingsVersion.ts`'s own version-8 paragraph is why: "no sim event is ever encoded into a tape at all". The event is in no wire code map and `damageTaken` reads only `.amount`.
+
+#### ADR 0003 and `CONTEXT.md`
+
+**ADR 0003 is amended in place, number, title and filename unmoved.** The triple in one sentence: what stood is the ladder's order and the floor never being immortality, what changed is the amount alone, and what it could not have known is that nothing paid score for a kill when it was written, so a whole bleed had nothing to take. It quotes "Cap the bleed" and ends with the overrule line: *"This amendment is taken by the dispatching session under the one-push rule, and it is Mark's to overrule on the branch before merge."*
+
+**`CONTEXT.md`'s Score entry, before**: "a hit at the size floor bleeding the whole of it before any weapon level goes". **After**: "a hit at the size floor bleeding a capped slice of it before any weapon level goes", with the file's own dated amendment paragraph under it.
+
+**The Size floor entry was checked and left alone, and here is the decision.** It names the order and not the amount, and its one clause worth weighing is "only when nothing is left to bleed does the next hit seal the grave shut". **That clause is about the rung being spent rather than the score reading zero, and it was already loose before this slice**: M1's bled-rung memory means kills keep paying while the grave is at the floor, and M1's own batch has `steady-far` 903 sealing while holding 1,700. So the cap does not make it false. **Filed rather than fixed**: the same clause sits in ADR 0003's own sentence and rewording it would be a ruling rather than an amount, which this slice is not permitted.
+
+#### The batch: what the ladder takes, before and after
+
+**Seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig, 12 of 12 verified, `readingsVersion` 8 on both, recorded on the committed tree at `f98c01767d` with a clean build identity.** The before column is slice M1's own batch at `11483ecf31`.
+
+| | `scoreBled`, before | `scoreBled`, after | `run.score`, before | `run.score`, after |
+| --- | --- | --- | --- | --- |
+| steady-far 900 | 13600 | **2000** | 0 | **11600** |
+| steady-far 901 | 14800.94 | **2000** | 100 | **12900.94** |
+| steady-far 902 | 20500.76 | **2000** | 100 | **18600.76** |
+| steady-far 903 | 33002.40 | **2000** | 1700 | **36002.40** |
+| steady-far 904 | 54201.08 | **2000** | 3911.32 | **56112.39** |
+| steady-far 905 | 15100 | **2000** | 700 | **13800** |
+| loose-far 900 | 14806.89 | **2000** | 4500 | **17306.89** |
+| loose-far 901 | 26804.29 | **2000** | 0 | **24804.29** |
+| loose-far 902 | 18403.14 | **2000** | 1300 | **35403.14** |
+| loose-far 903 | 32301.47 | **2000** | 4200 | **34501.47** |
+| loose-far 904 | 11900.35 | **2000** | 500 | **10400.35** |
+| loose-far 905 | 27603.29 | **4000** | 22611.67 | **48415.54** |
+
+**Said plainly: the ladder took 87.7 percent of everything the twelve runs made and it now takes 7.5 percent**, 26,000 points of 345,848 gross against 283,025 of 322,648 before. **Runs ending holding nothing went from 2 of 12 to 0 of 12.** Eleven runs bled once and paid exactly the cap; `loose-far` 905 bled twice and paid 4,000, which is the one run that re-armed the rung by growing.
+
+**The gross a run makes is untouched by the cap, and nine of the twelve say so exactly.** Adding each run's ending score to what its ladder took gives a figure identical to M1's own in nine of the twelve seeds, to within a hundredth of a point. **The three that differ are slice M5's and M5-fix's, not this slice's**: `steady-far` 903, `loose-far` 902 and `loose-far` 905 are runs where a fallen rung now stands on the field and changes what the harness's nearest-food rule steers at, which M5-fix's own note records (`loose-far` 902 going from 21,326 ticks to 29,853, and this batch reads 29,853).
+
+**Every run crossed the cap long before it met the floor.** Crossing ticks: `steady-far` 2244, 2996, 4103, 2411, 3445, 3864; `loose-far` 2388, 3227, 3054, 2410, 3031, 2356. The earliest first floor hit across the twelve is `loose-far` 905 at tick 6,618.
+
+#### The event sequence, measured rather than assumed
+
+**It is identical, and the measurement is against the tip the cap landed on rather than against M1's table.** M5 and M5-fix changed these runs after M1 measured them, so M1's floor-hit split is not a like-for-like before.
+
+- **The strips and the rungs match M5-fix's own batch exactly on the same twelve seeds: 11 strips and 17 rungs fallen**, and `loose-far` 902 ends at 29,853 ticks, which is M5-fix's own recorded figure to the tick.
+- **The bleed and strip ticks match M1's recorded ticks where M1 wrote them out.** `loose-far` 905 bled at 6,618 and again at 21,956, `steady-far` 903 bled at 21,601 and stripped at 21,625: the same four ticks M1's note carries.
+- **The conditioned ladder tape carries the rule whole and unchanged**: seed 404 at 6,000 ticks with every line pinned to 5 measures to `outcome: 'verified'` at `readingsVersion` 8, with 5 hits, one bleed, one strip of four line-levels and no seal, which is M5's own tape's ladder to the event. **Only the amount moved, 5,200 to 2,000.**
+
+**The branch the prompt's first ruling names did not fire, and it was checked rather than assumed.** `runFloorLadder` arms the bleed on `state.score > 0`, so a run could in principle strip before and bleed now. It never happens in the twelve: every bleed found thousands standing on both builds, and the pre-cap run that could have hit it, `loose-far` 905's second bleed, took 19,903 points at the same tick under M1.
+
+#### The pre-cap tape, which diverges rather than being refused
+
+**`local/step5/m5-ladder-a.tape`, recorded at M5's tip before the cap, replays at this tip to `outcome: 'diverged'`, first divergent checkpoint 2520, 42 checkpoints verified, 2520 ticks reproduced.** **That is the expected outcome and not a fault**: `run.score` has been folded into the witness since long before this, the cap changes what it holds after a bleed, and no folded field was added, so `witness.ts`'s own rule keeps the version still. A refusal would have meant a version move and there is none to make.
+
+**The divergence is the cap's and the arithmetic says so.** M5's note records that tape's only strip dropping its four rungs at tick 2,628, so nothing M5-fix changed can have acted by checkpoint 2520; the bleed is the one event before it that this slice touches.
+
+#### Replay determinism at this tip
+
+**Seed 909 under `shaky-short`, played twice on the committed tree: 5,997 ticks both times, 56,402 bytes both times, and three differing bytes at offsets 202 to 204.** Decoding both headers says those three are `recordedAt` alone: all 5,997 commands, all 100 checkpoints, the trailer and the observations are byte-identical, and both tapes verify. **The byte length moved from the 56,419 M1 and M5 both recorded for this seed**, which is the varint encoding of the folded score reading a different number after the bleed, not a change in what is recorded.
+
+#### The bot's bias, and the direction the figures are off in
+
+**The bot is not a player: it only dodges and never dives**, so it re-arms the score rung rarely, and one run in twelve did so here. **A diving hand re-arms more often, so it bleeds more times and strips fewer.** So the 7.5 percent share above is **a floor for what bleeds cost a player and a ceiling for what strips cost them**, and the twelve runs' single bleed apiece is the low end of what a hand would pay. **None of this is a reason to skip Mark's own play**, which is what settles the value.
+
+#### `READINGS_VERSION` held at 8, with the rule quoted
+
+**It does not move and `readingsVersion.ts` is not in either commit.** `scoreBled`'s `amount` still means what was taken and `tuning.damageTaken.scoreBled` still sums exactly that, so the key reads a smaller number without meaning anything new, which is the case version 8's own paragraph already writes out: *"a key that merely reads a different number never moves this"*. `run.score` keeps version 8's meaning, the kills a run made plus the overflow, because the cap changes what the ladder takes and never what the score is made of. **No reading was found whose meaning genuinely moved.**
+
+#### The four constants and `GOLDEN`, read off this slice's own tip
+
+**`WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4, and `GOLDEN`'s checksum `-2049717150`**, each read off the tree before the first edit and unchanged after the last. **None of `witness.ts`, `readingsVersion.ts`, `wireCodes.ts` or `digest.ts` is in either commit.** `digest.test.ts` was green at every run, which the scenario's own numbers explain: it ends at size 24.10125 against a floor of 18, so `runFloorLadder` is never called in it and the cap can never fire.
+
+#### CodeRabbit, one iteration
+
+**`coderabbit review --agent --uncommitted` from the worktree root with all twelve files staged by path: 12 files reviewed, zero findings.** Nothing applied and nothing declined. The worktree held no other agent's edits this time.
+
+#### Verification
+
+1. **Agent.** `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/`, and **`pnpm verify` green twice at the repo root on the committed tree**, 149 test files, 2266 passed, 11 expected fail, 2 todo, both times. The build's two warnings are the pre-existing #50 and #51.
+2. **Agent.** The test-name diff, both figures, above.
+3. **Agent.** The four constants and `GOLDEN`, above, none of their files in either commit.
+4. **Agent.** The batch, before and after, above, with the crossing ticks.
+5. **Agent.** The event sequence, above, measured against M5-fix's tip and M1's recorded ticks.
+6. **Agent.** Replay determinism, the conditioned tape at `outcome: 'verified'`, and the pre-cap tape diverging at checkpoint 2520, all above.
+7. **Agent.** The fences green, each by title. `boundary.test.ts`: *the rendering-import boundary*, *the test-span fence*, *the screen graph is declared in one place*, *the engine accessor is out of the app*, *the core has no import cycle*, slice D's sixth *the cap derivation reads tables and never the stage*, *the lock is owned by a module with nothing behind it* and *the tape codec parses a header without the director*. `lineAgnosticPolicies.test.ts`: *no weapon line walks the mob pool*, *a policy names no weapon line*, *no boss and no set piece names a weapon line*, *a line's constants are declared in that line's own module*, *only the offer draws from the power-ups stream* and *one module draws each stream*. `executionFence.test.ts`: *the step fence (ADR 0017)*. `harnessStatesNoTarget.test.ts`: *the harness reports and never judges*. `comparisonDeclared.test.ts` at `src/dev/__tests__/`: *every reading declares what comparing it means*. **The core's cycle guard is green with `KNOWN_CORE_CYCLES` still `[]`.**
+8. **Human (Mark), open and blocking nothing.** Whether 2,000 is the right cost for a floor hit, and whether a slice taken off a large score is seen to leave at all. **The deploy that puts it in front of him is the orchestrator's.**
+
+#### The announcement's own lever, left unbuilt and named
+
+**On a late score the falling digits carry much less than they did.** A 2,000 cap off a standing 22,000 moves about fifty points a tick over the countdown's 40, so the leading digits barely move and only the trailing three churn. That is the ruling's own consequence rather than a defect, and this slice does not design around it.
+
+**The lever, if his play says the loss is not seen**: a delta readout beside the digits, or the skull stream's blow-up firing on a bleed the way it already fires on a strip. **Sonic Mania is the precedent and it is exactly this problem**: its `Ring_LoseRings` builds a third group of purely decorative rings with no collision at all, so a sixty-ring hit looks worse than a thirty-five-ring hit and is worth the same to recover. The announcement is sized independently of what was lost. **Neither is built here and both are one small piece of view work.**
+
+#### What was expected to turn red and did not, each checked by running it
+
+**`bot.test.ts`'s `BLEEDS_SCORE` did not move**, and neither did `harnessPolicy.test.ts`'s measured baselines: the runs did not diverge, which the batch above says in full. **`mobs.test.ts`'s R4 pair and `damageTaken.test.ts`'s ladder fixture stayed green unchanged** because both hold a score under the cap, 100 and 10, so they exercise the one case that does not change. **`digest.test.ts` stayed green.** Nothing was re-pinned anywhere in this slice.
+
+#### What is left for a later slice, each named
+
+**M6 declares the readings.** This note prints the bleeds, the strips, the gross and the crossing tick off a scratch script and declares nothing. **M7 owns the score's other inputs** and is the slice after which the cap row is re-read. **A docs pass owns the three stale prose sentences** named above. **Nothing in the dispatch or in either record was found false against the tree beyond the design record's own section 3.2 sentence**, which is recorded above and was not edited.
+
+**One claim in the dispatch did not survive contact, and it cost nothing.** The prompt says four files are uncommitted in the shared worktree when this slice starts, the design record, the prompts file and an untracked research file among them, and tells the coder to add two of them to the docs commit by path. **The worktree was clean at `25e229866a` and all four were already committed**, the research file included, so this docs commit carries ADR 0003, `CONTEXT.md` and this note alone. Nothing under `src/` was ever dirty. It is the same thing step 5.0 recorded in section 5 about its own two records.
 
 
 ## 8. Slice M2: the frame is composed, and the band is reserved (#72)
