@@ -20,6 +20,7 @@ The record is `apps/hungry-grave/docs/design/show-what-you-have.md` and the prom
 | 8 (M1-stage), the ladder is staged in the harness | `78b2d85fe8` | `feat(hungry-grave): the harness stages a run at the floor holding a score and walks the ladder hit by hit (#99)` |
 | 9 (M6), the ladder's cost is measurable | `e173dbad0f` | `feat(hungry-grave): the batch reads what the ladder cost and what the dive took back (#99)` |
 | 10 (M7), the score's other inputs | `6665fad6d4` | `feat(hungry-grave): the score is fed by boss damage, the source killed and a meal taken at a maxed ladder (#99)` |
+| the close fold, the final score is presented at the seal | `7ffcea5db5`, and the docs commit this row rides in | `feat(hungry-grave): the end screen presents the final score, and hudRow drops its unused band parameter (#99)` |
 
 Slice 2 (M1) carries two code commits, the fold and the rule, which is this step's one authorized departure from the contract's one-code-commit rule.
 
@@ -92,6 +93,8 @@ One entry per code commit: files reviewed, findings by severity, applied and dec
 **M6's code commit, one iteration: nine files reviewed, one finding, minor, its fix declined and the honest half taken.** The finding asks `tuning.bledRungMemory.growthShortOfClearing` to sum growth off ordered events rather than off the size edge, so a shrink on the same tick cannot mask it. **The under-count is real and the fix it names is not available**: no event carries the size a swallow paid, so the growth would have to be recomputed from `swallowed`'s payout and freshness against `growGrave`'s ceiling clamp, which is a second copy of two sim rules inside `src/dev` and is forbidden by the slice's second ruling; adding an event is `src/game` and is out of the commit by the same ruling. **The reading's JSDoc now names the residual instead**, so the figure cannot be read for more than it is. Section 12 carries it whole. The worktree held no other agent's edits, so the review saw this slice's nine files and nothing else.
 
 **M7's code commit, one iteration: 30 files reviewed, 0 findings.** Nothing applied and nothing declined. The worktree held no other agent's edits, so the review saw this slice's thirty files and nothing else.
+
+**The close fold's code commit, one iteration: nine files reviewed, 0 findings.** Nothing applied and nothing declined. The worktree held no other agent's edits, so the review saw this slice's nine files and nothing else.
 
 ## 5. Record and prompt claims found false against the tree
 
@@ -1353,3 +1356,45 @@ A fallen rung is spawned at freshness 1 and never decays, so `freshnessScale` ne
 **A fourth score input is Mark's** and the research's three filed candidates (a flawless boss phase, a boss clock, stage objectives) sit in `score-inputs-precedent.md` section 6 pointed at #135's thread.
 
 **Nothing under `src/app` was opened**, no ADR was filed or amended, no cap moved and nothing was re-pinned anywhere.
+
+### The close fold: the final score is presented at the seal (#99), `7ffcea5db5`
+
+**The step 5 close's game design gate found the score had nowhere to land at the end of a run, and this is the whole of the slice.** `summarizeRun` carried seed, ticks, ending and fault, and `EndScreen` drew SEALED SHUT, SEED and TICKS, so the ladder row was the only place the number ever existed and it goes with the field at the seal: a player who had just watched a capped bleed spare their score ended the run unable to say what they had. `RunSummary` now carries `score`, read straight off `run.score`, and the end screen draws one `SCORE` line at the top of its stack. Every arcade results screen presents the final score, and Vampire Survivors' own results screen lists time, gold, level and kills. **Nine files in the one code commit, all of them under `src/app`**: nothing under `src/game`, `src/dev` or `src/tape` was opened, no event was added, and no ADR was filed or amended.
+
+#### The reading is the row's own, moved to a file both screens can see
+
+**`scoreReading` and `SCORE_DIGITS` left `LadderHud.ts` for `src/app/screens/scoreReading.ts`, unchanged in behaviour**: whole points, zero-padded to six digits, which is what the row has drawn since M3. **Copying the expression into the end screen was refused.** The two numbers have to agree by construction, because the whole point of the line is that the number a player watched is the number they are handed, and two copies are two things that can drift apart. The ladder row imports both back, so its width budget is still derived from the same digit count. The new file is not a screen, so `boundary.test.ts`'s *the screen graph is declared in one place* has nothing to say about the end screen reaching it, and it sits in `src/app/screens/` because that is the lowest folder holding both callers.
+
+**The zero padding travelled with the reading rather than being re-decided at the seal.** `SCORE 001600` is what a sealed run reads, not `SCORE 1600`. That is the prompt's own instruction, to format it the same way the row does, and it is named here because it is the one thing about this line a person could want different on sight.
+
+#### `hudRow`'s `band` parameter, and the seven call sites that never passed one
+
+**`hudRow(placement, band = HUD_BAND)` is now `hudRow(placement)`, reading `HUD_BAND` directly.** The cited-future rule wants every parameter to have a caller today or a citation written down, and this one had neither. **Seven call sites, grepped before and after and identical in both lists: `GameScreen.ts` once, `layering.test.ts` five times, `layout.test.ts` once**, and not one of them passed a second argument. `HUD_BAND` and the `HudBand` type are untouched and both still exported, because `HUD_BAND`'s own annotation is still a reader of the type.
+
+#### The tests, all five watched red before any production line moved
+
+**Five added across three files.** `runSummary.test.ts` gains *carries what the run scored, so the end screen can present it* and *carries a score of zero as a number and never as an absence*, which are the scored run and the scoreless one the slice asked for. `screenLifecycle.test.ts` gains *presents the run's final score, in the reading the ladder row showed*, asserting `SCORE 012400` and `SCORE 000000` against literal strings rather than against the production formatter. The new `src/app/screens/__tests__/scoreReading.test.ts` pins the reading itself, at six digits and at a fraction rather than at a round number. **Four of the five went red on the missing field and the fifth on the missing module**, which is the whole reason the module stub and the field were written after them and not before.
+
+**Fourteen existing summary literals gained `score: 0`**, nine in `screenLifecycle.test.ts` and five in `runHandoff.test.ts`, because `RunSummary` is exact and typecheck refuses a literal short of a field. **No test was deleted, skipped, weakened or renamed to reach green**, and the two `toEqual` shapes in `runSummary.test.ts` gained a field rather than losing an assertion. `layout.test.ts`'s and `layering.test.ts`'s `hudRow` tests pass unedited with the parameter gone, which is what says no caller ever wanted it.
+
+#### The rendered check, at two viewports
+
+**`pnpm build` then `pnpm exec vite preview`, driven with `playwright-cli` against the built app at 393 by 660 and at 1440 by 900, opened at `?levels=3&size=18&seed=4242`.** A run was played from RISE and sealed itself at tick 2621. The end screen reads SEALED SHUT, then **SCORE 001600**, then SEED 4242, then 2621 TICKS, with RISE AGAIN and SAVE TAPE clear below the stack at both viewports and nothing crowded. **Zero console errors and three warnings**, all three the audio autoplay policy, pre-existing and none of them this slice's.
+
+#### Left for a later slice, named rather than acted on
+
+**The fault line's offset grew from `0.42 + 80` to `0.42 + 120` to make room for the score, and on a short landscape stage that stack would reach further into RISE AGAIN than it did before.** It is empty on every run the instrument did not stop, so nothing a player normally sees moved, and the collision it would make is one the stack already had at `+80` rather than one this slice invented. **The branch cleanup pass is where it belongs if anyone wants the stack measured against the buttons at every viewport**; no ticket is filed, because nothing needs one yet.
+
+#### The four constants and `GOLDEN`, read off this slice's own tip
+
+**`WITNESS_VERSION` 11, `READINGS_VERSION` 9, `FORMAT_VERSION` 4 and `GOLDEN` with `score: 200` inside it, each read off the tree before the first edit and again after the last, and none of their four files is in either commit.** This slice was permitted no move and took none: it adds a field to an app-side fold that no witness, no declared reading and no wire byte can see.
+
+#### Verification
+
+1. **Agent.** `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/`, and **`pnpm verify` green at the repo root on the code commit's tree and again on the docs commit's**. 157 test files, 2,323 passed, 11 expected fail, 2 todo, against M7's 156 and 2,318. The build's chunk-size warning is the pre-existing one.
+2. **Agent.** The five new tests watched red before the code, above.
+3. **Agent.** The seven `hudRow` call sites grepped before and after, above.
+4. **Agent.** The rendered check at two viewports, screenshots read, above.
+5. **Agent.** The four constants and `GOLDEN` held, above.
+6. **Agent.** The fences green inside the whole-suite run. `boundary.test.ts`'s *the screen graph is declared in one place* and *the test-span fence* are the two the new file and its new test could have moved, and neither did.
+7. **Agent.** CodeRabbit, one iteration, nine files, zero findings, above.
