@@ -2,7 +2,7 @@
 
 One block per slice, in the design record's section 4 order. The launch preamble is the same for every slice: name the playbook, name the record sections carrying the dispatch contract items, then give the slice.
 
-**The order the blocks run in is step 5.0, M1, M2, M3, M4, M5, M5-fix, M1-fix, M6, M7, then step 5.7.** **Slice M1-fix runs between M5-fix and M6 and it is M1's repair rather than a slice of its own**, so its progress-note entry rides inside section 7 as a subsection the way M5-fix's rides inside section 11. Mark ruled on 2026-09-16 that the floor ladder's score bleed is capped (record R4's closing amendment), and it lands before M6 because M6 declares what the ladder cost and a reading declared over an amount that is about to change would measure the wrong rule on its first batch.
+**The order the blocks run in is slice 1 (5.0), 2 (M1), 3 (M2), 4 (M3), 5 (M4), 6 (M5), 6b (M5-fix), 7 (M1-fix), 8 (M1-stage), 9 (M6), 10 (M7), then the step's close.** **Every heading carries the ordinal it runs in and the internal code beside it** (Mark, 2026-09-17), so a list a person reads is in execution order while every cross-reference to a code stays valid; **slice 6b has no block of its own here**, because M5-fix was dispatched without one and its record is the progress note's section 11. **Slice 7 runs between 6b and 9 and it is slice 2's repair rather than a slice of its own**, so its progress-note entry rides inside section 7 as a subsection the way M5-fix's rides inside section 11. Mark ruled on 2026-09-16 that the floor ladder's score bleed is capped (record R4's closing amendment), and it lands before M6 because M6 declares what the ladder cost and a reading declared over an amount that is about to change would measure the wrong rule on its first batch.
 
 **Step 5's coder contract is `step-4-coder-contract.md`, unchanged and still binding.** It carries how to work in the worktree, the commit and review rules, the progress note, the verification commands, what must not move in any slice, what is never a slice's job, and the stuck rule. Every block below names it and holds only what is its own.
 
@@ -28,7 +28,7 @@ One block per slice, in the design record's section 4 order. The launch preamble
 
 ---
 
-## Step 5.0: the docs commit, ADR 0054 amended and the glossary gains three terms (#99)
+## Slice 1 (5.0): the docs commit, ADR 0054 amended and the glossary gains three terms (#99)
 
 Model: Opus, subagent type general-purpose. **One docs commit and no code commit at all.** The message ends in `(#99)`.
 
@@ -142,7 +142,7 @@ Nothing is created, deleted, merged or split under `src/`, and no import directi
 
 ---
 
-## Slice M1: a kill pays score, and a bled rung stays bled until the grave grows (#99)
+## Slice 2 (M1): a kill pays score, and a bled rung stays bled until the grave grows (#99)
 
 Model: Opus, subagent type general-purpose. **Two code commits and one docs commit.** Messages end in `(#99)`.
 
@@ -306,7 +306,7 @@ What a player meets, once the HUD lands behind it: the floor is a ladder with te
 
 ---
 
-## Slice M2: the frame is composed, and the band is reserved (#72)
+## Slice 3 (M2): the frame is composed, and the band is reserved (#72)
 
 Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#72)`.
 
@@ -446,7 +446,7 @@ What a player meets: on Mark's phone the play area is slightly smaller and **sto
 
 ---
 
-## Slice M3: the HUD carries the ladder and the score (#99)
+## Slice 4 (M3): the HUD carries the ladder and the score (#99)
 
 Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#99)`.
 
@@ -603,7 +603,7 @@ The HUD view itself: the marks as a pure function of a line's level, the roster 
 
 ---
 
-## Slice M4: the loss is watched (#99)
+## Slice 5 (M4): the loss is watched (#99)
 
 Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#99)`.
 
@@ -751,7 +751,7 @@ What a player meets: after a hit at the floor they can name what it cost. **That
 
 ---
 
-## Slice M5: the stripped rung falls and the dive catches it (#99)
+## Slice 6 (M5): the stripped rung falls and the dive catches it (#99)
 
 Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#99)`.
 
@@ -916,7 +916,7 @@ What a player meets: they try for a falling rung at least once, and they sometim
 
 ---
 
-## Slice M1-fix: the bleed is capped (#99)
+## Slice 7 (M1-fix): the bleed is capped (#99)
 
 Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#99)`.
 
@@ -1077,7 +1077,176 @@ What a player meets: the floor still has teeth, and a run is no longer decided b
 
 ---
 
-## Slice M6: the ladder's cost is measurable (#99)
+## Slice 8 (M1-stage): the ladder is staged in the harness (#99)
+
+Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#99)`.
+
+Slice 8 of The Hungry Grave: slice 7 capped the bleed, and its own verification step 8 handed Mark two questions a machine could have answered. **Mark ruled on 2026-09-17 that a mechanical question is never his**, and an audit of the harness the same day found why one keeps reaching him: the harness cannot stage the floor ladder at all. `createRun` cannot start a run holding a score, `rigs.ts` has no row at the size floor, and the one technique in the tree that puts a mob on the grave lives inside a single app test where nothing else can reach it. "Go to the lowest level, then the level below" is the scenario the harness exists for and is exactly the one it cannot play. **This slice builds the ability, and it is the whole of the slice.**
+
+**The standing rules are in `step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice 8.
+
+**Its progress-note entry is a section of its own, number 14**, appended at the end of `step-5-progress.md`. Slices 9 and 10 fill sections 12 and 13 above it afterwards, so section 14 sits below a section 12 heading that is still empty when you write. **You neither create their headings nor renumber anything.**
+
+**Mark's rule, in his own words, and it is why this slice exists.** On 2026-09-17: every mechanical question is proven by a unit test, by an integration test where one genuinely fits, or by a staged scenario in the computer player's harness, and never by him playing it. **A slice's Mark actor carries feel and nothing else, and a missing harness ability is the work rather than a reason to ask him.** This slice has no Mark actor at all.
+
+**Eight rulings shape this slice and none of them is yours to revisit.**
+
+**First: nothing a player can meet changes.** No rule of the sim moves, no screen moves, no data row that decides play moves. `bleedScore`, `runFloorLadder`, `stripLevels`, `hitGrave` and `growGrave` keep their bodies exactly, `SCORE_BLEED_CAP` keeps its value, and the only production file under `src/game` this slice opens at all is `run.ts`, for one defaulted parameter. **A diff that changes what a played run does is a stop and report**, whatever it fixes.
+
+**Second: `createRun`'s new parameter goes last in the list and never literally beside the size.** The signature is positional, so a parameter inserted after `startingSize` would silently re-read every existing call's third, fourth and fifth argument, and there are six call sites outside the tests. **`startingScore: number = 0` is appended after `signalLock`**, its JSDoc says it is the score the run begins holding and that it exists for the harness's staged ladder, and it names the rig row and the scenario below as its cited caller, which is what the cited-future rule asks of a parameter with no player-facing reader. **Nothing that calls `createRun` today changes at all**, which is the test that proves the placement right.
+
+**Third: the row is the ladder rig, named `ladder`, and `rigs.ts` already says it is waiting for it.** The file's own comment reads "The ceiling rig and the ladder rig the record names have no row here because nothing plays them through the harness; a row for either is a row the day something does." **This is that day.** Calling the new row `floor` would put a second name on a starting condition the record already names, which is the exact defect #107 was raised for. **The comment goes false the moment you add the row and is rewritten in the same commit**: the ceiling rig is still unrowed and still waiting, and the ladder rig now has a row because this slice plays it.
+
+**Fourth: a starting score is not a tape-header fact, and `FORMAT_VERSION` does not move.** `TapeHeader` carries the seed, the starting size, the roster, the starting levels and the signal lock, and `playback.ts`'s `runFromHeader` rebuilds a run from those alone. `run.score` is folded into the witness (`witness.ts`, the fold beside `run.reservoir`), so **a tape recorded from a run that started holding a score replays from zero and diverges at the first checkpoint.** That is arithmetic and not a defect to design around inside this slice. **So three things follow and all three are ruled.** The header is not widened and `FORMAT_VERSION` stays 4. `record-conditioned.ts` says the divergence out loud when a non-zero score is named, because nothing abnormal is ever silent, and it says it before it writes rather than after. **And the conditioned ladder tape this slice records and verifies is recorded at a starting score of zero**, on the ladder rig, where the run earns its own score off a maxed build at the floor and the bleed is reached by play; that tape measures to `outcome: 'verified'` like any other. **Widening the header so a staged score replays is a later slice's candidate and you file it in the note, never take it.**
+
+**Fifth: the scenario is its own file and `digest.ts` is not opened at all.** `runScenario` is the precedent for the shape and not the home: a second scenario inside `digest.ts` puts a new file's edits in the same module as `GOLDEN`, and the surest way the golden's own run cannot move is that its file is in neither commit. **`GOLDEN` holds at the checksum slice 2 pinned and `digest.test.ts` is green unchanged**, which you report as read off your own tip.
+
+**Sixth: the scenario returns its rows and prints nothing.** `src/dev` may import no bare package, vitest included, which is why `runScenario` returns its digest, its boundary extremes and its faults rather than asserting any of them; the same reasoning binds yours. **The per-hit table is printed by a scratch script in the scratchpad, never by a committed shell**, which is how slice 6b printed its own three probes, and the returned rows are what the unit tests assert. **No `console.log` enters `src/dev`.**
+
+**Seventh: the staging technique moves rather than being copied.** `standOnGrave` in `src/app/__tests__/screenLifecycle.test.ts` is nine lines that park an unkillable shambler on the grave's own coordinates, and it is the only way in the tree to make a hit land on demand. **It becomes a named helper in `src/dev` and `screenLifecycle.test.ts` imports it**, so one technique has one home. The fences permit it: the boundary table's `app` row is scoped `only: ['sound.ts']`, so no row governs `src/app/__tests__`, and `src/dev` may reach `dev`, `game` and `tape`. **Confirm that by running the fence rather than by trusting this sentence**, and if a fence refuses it, that is a stop and report.
+
+**Eighth: the two missing tests are at seams that already exist, and one of them may be an absence.** Neither is a new rule. The first is a case the ladder's tests infer from a shared path rather than pin. The second asks where the already-ended guard lives, and **reading the code is how you answer it, not this prompt**: `advance.ts`'s loop breaks on `execution.run.ending !== null` before it executes a tick, `hitGrave` itself has no such check, and `executeTick` is the one execution authority both `advance` and playback go through. **Rule it by reading all three, write whichever test the answer asks for, and say which you wrote and why in the note.**
+
+### Read first, in this order, before any edit
+
+1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it. **The six dispatch contract items are the sections below.**
+2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`. **The cited-future rule and the deletion test both bind this slice directly**, because every seam it widens is widened for a caller that does not ship.
+3. `apps/hungry-grave/docs/design/show-what-you-have.md`: **R4 in full and its closing amendment**, which is the ladder this slice stages, then section 6's test sentences and **section 7's findings, none of which you act on.**
+4. `apps/hungry-grave/docs/push/step-5-progress.md`: **section 7's `M1-fix` subsection whole**, which is the measurement this slice's scenario has to agree with, and **section 11's `M5-fix` subsection**, which is the form your own section 14 takes.
+5. `apps/hungry-grave/docs/design/playing-harness.md` and `apps/hungry-grave/docs/adr/0053-*`, **for what a rig is and what it is not**: a rig is a starting condition and never a description of the hand that steers it, and #107 is why both halves of a row are stated together.
+6. `apps/hungry-grave/CONTEXT.md`, the entries **Rig**, **Score**, **Size floor** and **Rung**. You amend none of them unless one has gone false, and you say in the note what you decided and why.
+7. The tree, whole where it is short and by function otherwise: `src/game/run.ts`'s `createRun` and its JSDoc, **which already explains why the size, the levels, the roster and the signal lock are each in that signature and is the voice your own sentence copies**; `src/dev/rigs.ts` **whole**, which is 88 lines; `src/dev/harnessRun.ts` **whole**, and `playHarnessRun` and `harnessHeader` above all; `src/dev/digest.ts`'s `runScenario`, `scriptedKills`, `ScenarioResult` and `reportUnplaceableVictim`, **read and not edited**; `src/game/grave.ts` **whole**, and `runFloorLadder`, `bleedScore`, `stripLevels`, `strippableLines`, `sealShut` and `hitGrave` above all; `src/game/advance.ts` **whole**, 55 lines, and its ending guard with the paragraph above it; `src/game/execution.ts`'s `executeTick`; `src/game/witness.ts` where `run.score` is folded; `src/tape/tape.ts`'s `TapeHeader` and `src/tape/playback.ts`'s `runFromHeader`; `scripts/record-conditioned.ts` **whole** and `scripts/batch.ts`'s `parseRig`, **which is the keyed-argument shape your new flags copy**.
+8. The tests: `src/app/__tests__/screenLifecycle.test.ts`'s `standOnGrave` and the two ladder tests around it; `src/dev/__tests__/rigs.test.ts` **whole**, which asserts every row's condition is unique and which your new row has to keep true; `src/game/__tests__/grave.test.ts`'s whole ladder block; `src/__tests__/boundary.test.ts`'s `BOUNDARIES` table.
+
+**Check the worktree is clean before your first edit and report what you find.** Anything uncommitted under `src/` is a stop and report. A docs file dirty in the shared worktree is another agent's and never enters your commits.
+
+### The definition, in observable terms
+
+After this slice the harness can stage the floor ladder and walk it hit by hit. A run can be started at the size floor, at chosen levels, holding a chosen score, by naming one row. A scenario plays that run and forces floor hits in sequence, and for each hit it reports the event the ladder fired, the score before and the score after, the levels after, and the ending if the hit produced one. **Walked from a score above the cap, the sequence it prints is the ladder's own: a bleed that takes the cap and leaves the remainder, then a strip for every line that still has a rung, then the seal, then nothing more.** One more hit past the seal is played and what it does is observed rather than assumed.
+
+**The command line can record that run as a tape.** `record-conditioned.ts` takes the rig row by name and a starting score, so the conditioned ladder tape is recorded on the ladder rig rather than by playing down to the floor from the start line. **A tape recorded with a non-zero starting score is named as unverifiable before it is written**, because the header carries no score, and the tape this slice verifies is the ladder rig at a score of zero driven all the way to the seal.
+
+**Two seams that already existed gain the test they were missing**: a floor hit at zero score with the rung still armed drops bodies, which the suite infers today from a path it shares with another case, and the question of what a hit on an already-ended run does, answered at whichever seam owns the guard.
+
+**Nothing a player meets changes.** No event, no magnitude, no screen, no rule. `WITNESS_VERSION` reads **11**, `READINGS_VERSION` reads **8**, `FORMAT_VERSION` reads **4**, `GOLDEN` holds at the checksum slice 2 pinned, and `pnpm verify` is green.
+
+What a player meets: nothing, and that is the definition. What Mark meets is one fewer question.
+
+### The work, in this order
+
+**(a) Verify the inputs.** `git log --oneline -25`, `git status --short`, the four constants read off the tree and reported, and your own test-name baseline into `local/step5/` under a name carrying `m1stage`. **Slice 7's two commits must both be in the tree.** Anything dirty under `src/` is a stop.
+
+**(b) The tests first, red.** Write the scenario's own tests before the scenario, from the test list below, and the two missing seam tests before whichever code they need. **A scenario written before the test it has to satisfy is a scenario shaped by what was easy to build.**
+
+**(c) `createRun`'s starting score.** Last in the list, defaulted to zero, with the JSDoc paragraph the other four parameters each already have and with the rig row and the scenario named as its caller. **Every existing call site is left untouched and you say in the note that you checked all six.**
+
+**(d) The ladder rig row.** `RIG_NAMES` gains `ladder`, and `RIGS.ladder` carries the size at `SIZE_FLOOR`, uniform levels at `MAX_LEVEL`, and a starting score. **`Rig` gains `startingScore` and every existing row states it as zero**, because both halves of a rig are stated together and a row that left it implicit would rebuild #107's own defect. **`playHarnessRun` passes it through**, so a rig is never half applied. **`rigOf` keeps its two arguments and gains no third**: it answers which row a tape was recorded under, the header carries a size and levels and no score, and a banding rule that read a fact the header cannot hold would answer null forever. Say that decision in the note rather than leaving it to be rediscovered.
+
+**(e) The rig's score, and this is the one number you pick.** Stated as a multiple of `SCORE_BLEED_CAP` and never as a bare figure, **at least twice it**, so the bleed leaves a remainder standing and the scenario's table shows the cap's own rule rather than a score that happened to vanish. Annotate it as a first figure, say what you set it against, and name what would move it. **A number typed into a test is a stop; a row the test reads is the rule.**
+
+**(f) The staging helper, moved.** `standOnGrave` leaves `screenLifecycle.test.ts` and becomes a named helper in `src/dev` in a file whose concept is staging a run into a state a play would take minutes to reach. **`src/dev/staging.ts` with `standMobOnGrave` is the recommendation and the concept is the ruling**: if a better name reads truer once you have both callers in front of you, take it and say why in the note. `screenLifecycle.test.ts` imports it and keeps no copy. **Run the fence before you lean on the import being allowed.**
+
+**(g) The scenario.** Its own file in `src/dev`, following `runScenario`'s shape: it builds the run, drives it through the one execution authority, and returns a record. **It returns one row per forced hit**, carrying the event the ladder fired, the score before and after, the levels after, and the ending, plus the run it left behind. It forces hits in sequence rather than waiting for the storm to land them, using the staging helper and the invulnerability window, **and it plays one hit past the seal.** It prints nothing and it asserts nothing.
+
+**(h) The shell's two flags.** `record-conditioned.ts` gains `rig=<name>` and `score=N`, keyed arguments in the shape `batch.ts`'s `parseRig` already uses, both optional. **A command naming a rig and naming the four line levels too is refused with the reason**, because the row already states the levels and a command that states them twice can state them differently. **Without either flag the command means exactly what it means today.** A non-zero score warns, before the write, that the header carries no score and the tape's readback will diverge at the first checkpoint. The usage line carries both.
+
+**(i) The two missing tests.** In `src/game/__tests__/grave.test.ts`: a floor hit at zero score with the rung still armed drops bodies, pinned directly rather than inferred from the case it shares a path with. Then the already-ended question, ruled by reading `advance.ts`, `executeTick` and `hitGrave`, and written as whichever the answer asks for: a no-op test at `hitGrave` if the guard belongs there, or **a test that fails if the guard ever appears in `hitGrave`**, with the constraint named in a short why-comment beside the code, if the answer is that it belongs to the loop above. **Say which you wrote and why in the note.**
+
+**(j) The measurements this slice owes.**
+
+- **The staged scenario's own per-hit table**, printed off a scratch script and pasted into the note whole. From a score above the cap: the bleed and what it took, every strip and which lines paid, the seal, and the hit after the seal.
+- **The conditioned ladder tape, re-recorded on the ladder rig at a score of zero and driven to the seal**, measured to `outcome: 'verified'`, with its readings in the note. **The pre-cap tape stays where the repo keeps them, `local/step5/`, which enters no commit**, so the superseded one is untouched rather than deleted.
+- **A batch on the same twelve seeds slice 7 measured**, 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig. **Event counts identical to slice 7's batch, per seed.** This slice changes no rule, so a count that moved is a stop and report rather than a finding: nothing here has a branch that could explain one.
+- **Replay determinism at your tip.** One seed played twice under `shaky-short`, same tick count, same witness at every checkpoint, identical stream cursors.
+- **The four constants and `GOLDEN`**, each read off the tree and each named as held, with none of their four files in either commit.
+
+**(k) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the harness stages a run at the floor holding a score and walks the ladder hit by hit (#99)`, or `test(hungry-grave): ...` if what you wrote is genuinely all test surface. Then the docs commit, carrying the progress note.
+
+**(l) The progress note**, section **14**, in slice 6b's subsection form: bold-led paragraphs, each naming one thing, no numbered list. Beyond the contract's list, say: the parameter's placement and the six call sites checked; the rig row, its score, what you set it against, and `rigOf` left at two arguments with the reason; `rigs.ts`'s comment that went false and what it says now; the scenario's file, its returned shape and the per-hit table whole; the staging helper's home and the fence run that permitted the import; the two flags, the refusal when both are named, and the warning's exact wording; **the tape-header gap written out plainly**, that a staged score does not survive a replay and that widening the header is filed rather than taken; the already-ended question, which seam owns the guard, and which test you wrote; the batch proving the event counts identical; and the four constants and `GOLDEN` all named as read off your own tip.
+
+**(m) Stop and report.** Under 250 words. **Do not start slice 9.** **This slice's tip is not a deploy**: nothing a player can meet changed, so there is nothing on it for Mark to see.
+
+### What must not move, and a move is a stop
+
+- **`WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN` as slice 2 pinned it.** None moves, **`readingsVersion.ts`, `witness.ts`, `wireCodes.ts` and `digest.ts` are in neither commit**, and you read all four off the tree rather than off this line. **The tape header is the one you will be tempted by**; it is a stop.
+- **Every rule of the sim.** `bleedScore`, `runFloorLadder`, `stripLevels`, `strippableLines`, `sealShut`, `hitGrave`, `growGrave` and the bled-rung memory keep their bodies exactly. **The only edit permitted under `src/game` is `createRun`'s new parameter and whatever the two missing tests need**, and a why-comment if the second one is an absence.
+- **`SCORE_BLEED_CAP`, `SIZE_FLOOR`, `HIT_SHRINK`, `INVULNERABLE_TICKS`, `SCORE_RUNG_REARM_SIZE` and `TRASH_KILL_SCORE`.** You read them; you move none.
+- **The two existing rig rows.** `birthright` and `maxed` keep their size and their levels exactly, and gaining an explicit zero score changes neither. **`rigs.test.ts`'s uniqueness assertion stays green as written.**
+- **`playHarnessRun`'s header, its policy and its budget**, and `harnessHeader`'s fields. The rig it is handed changes; what it records about one does not.
+- **The three ladder events and every other event.** None is added, removed, widened or renamed.
+- **Every existing invariant's meaning and severity, the fault identity list, every cap, `STREAM_SALTS` and `STREAM_ORDER`.**
+- **The fences**, every one by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` empty. **`src/game` still reaches nothing outward**, and the new parameter is a number with no import behind it.
+- **`record-conditioned.ts`'s existing behaviour with no new flag named.** Same arguments, same tape, byte for byte on the same seed and commit, which is a thing you can check rather than claim.
+- **No test is deleted, skipped, weakened or rewritten to reach green.** The two app tests that use `standOnGrave` keep their promises and their names; only where the helper comes from moves.
+- **Nothing under `src/app` beyond that import**, nothing under `src/tape` at all, and nothing under `src/game` beyond the parameter and the tests.
+
+### Seams under test
+
+`src/game/run.ts`: `createRun` starting a run at a chosen score, and defaulting to zero for every caller that names none. `src/dev/rigs.ts`: the ladder row as a starting condition, and `rigOf` still banding a tape by the two facts a header carries. `src/dev`'s new scenario: a staged run walked hit by hit, reporting per hit what the ladder fired, what the score was before and after, the levels, and the ending. `src/dev`'s staging helper: a hit made to land on demand. `src/game/grave.ts`: the floor hit at zero score with the rung armed, and whatever the already-ended question rules. `scripts/record-conditioned.ts`: a rig named by row, a starting score named beside it, both refused when they contradict the levels, and the divergence said out loud.
+
+### Module boundaries
+
+**Two files are created and none is deleted, merged or split.** The scenario is its own file in `src/dev` because it is one concept, a staged walk of the floor ladder, and every export serves it; it does not join `digest.ts`, whose concept is the golden scenario and its constant. The staging helper is its own file in `src/dev` for the same reason and because it has two callers in different trees. **No import direction changes**: `src/game` stays dependency-free and reaches only itself, `src/dev` reaches `dev`, `game` and `tape` as it already may, the app test reaching `src/dev` is governed by no boundary row, and `src/tape` is not opened. The starting score lives in `createRun`'s signature and not in a rig-aware branch inside the sim, for the same reason the starting size does: the sim takes a number and the harness decides what number. **No new library enters, and `src/dev` still imports no bare package.**
+
+### The planned test list
+
+1. *A run started with no score starts at zero*, which is every caller in the tree today.
+2. *A run started at a chosen score starts holding it*, and nothing else about the run differs from the same seed started at zero.
+3. *The ladder rig starts a run at the size floor, at its levels, holding its score*, all three read off the run rather than off the row.
+4. *Every rig row's starting condition is still unique*, the assertion `rigs.test.ts` already makes, with the new row in it.
+5. *A tape recorded from the ladder rig still bands as the ladder rig*, so `rigOf` answers the row's name off a header that carries no score.
+6. *The staged scenario's first hit on a score above the cap bleeds the cap and leaves the remainder*, read off the row it reports rather than off the run.
+7. *Its next hits strip, one line's rung per hit until every line is at its floor*, each strip reported with the lines that paid.
+8. *Its last hit seals*, and the row says so.
+9. *The hit after the seal is played and the scenario reports what it did*, which is the case the audit found nothing in the tree asserts.
+10. *The scenario walks the whole ladder in a bounded number of hits*, so a rule change that made the ladder infinite fails here rather than hanging.
+11. *A floor hit at zero score with the rung still armed drops bodies*, pinned at the `grave.ts` seam rather than inferred.
+12. *The already-ended case*, at whichever seam owns it, as a behaviour test or as an absence test with its why-comment.
+13. *The staging helper puts a hit on the grave on the next tick*, from the scenario's side, so the technique is pinned once where it lives.
+14. **The fences**, green, each by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` still empty.
+15. **The golden digest**, green and unmoved, with `digest.ts` in neither commit.
+
+**What this slice is expected to turn red.** Nothing, which is itself the claim to check. `rigs.test.ts` compiles against a widened `Rig`, `screenLifecycle.test.ts` compiles against a moved helper, and every other suite should be untouched. **A realistic count is 7 to 10 files.** A suite that reddens anywhere under `src/game` beyond the two new tests is a reason to stop and read what you reached into, because nothing here is supposed to change a rule.
+
+### Verification steps, with actors
+
+1. **Agent.** `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/`, then `pnpm verify` green twice on the committed tree.
+2. **Agent.** The test-name diff, both figures, against a baseline captured before your first edit.
+3. **Agent.** The four version constants and `GOLDEN`, each read off the tree and each named as held, with none of their four files in either commit.
+4. **Agent.** The staged scenario run end to end, its per-hit table printed and pasted into the note whole.
+5. **Agent.** The conditioned ladder tape re-recorded on the ladder rig at a score of zero, driven to the seal, measured to `outcome: 'verified'`, its readings in the note.
+6. **Agent.** A batch on slice 7's own twelve seeds and configurations, with event counts identical to slice 7's batch per seed.
+7. **Agent.** Replay determinism on one seed under `shaky-short`.
+8. **Agent.** The fences green, each named by test title.
+9. **Agent.** CodeRabbit CLI, one iteration, before the code commit.
+10. **There is no Mark actor in this slice.** Nothing here is a feel question and nothing on this tip is for him to play.
+
+### State of the branch
+
+- The tip should be slice 7's docs commit, `5a904b86ca`, or the handoff commit above it. **At HEAD the four read `WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150`.** **Read all four off the tree yourself before you lean on any of them and say what you read**, because a slice may land between this line and you.
+- **You are permitted no version move of any kind and no `GOLDEN` re-pin.** The step's ledger holds one move still outstanding and it is slice 10's.
+- **Slice 9 follows you** and declares the ladder's cost as readings. It is the first consumer of what you build: a reading declared over a ladder nobody could stage was measured on the bot's own luck.
+- The headless browser draws at 3 to 21 FPS under SwiftShader, so nothing in this slice is checked by screenshot and none of it needs to be.
+
+### The stuck rule
+
+**Four things are already known to be a stop:** any version constant, `GOLDEN` or the tape header moving; a rule of the sim changing; an event count that moved on slice 7's seeds; and a fence that refuses the app test's import of the helper. **And four things are ruled rather than open:** the new parameter goes last, the row is named `ladder`, the scenario is its own file and `digest.ts` is not opened, and a staged score is not a header fact. **A measurement arguing any of the four should move is a finding for the note, never a row you move here.** **Green tests plus wrong observed behaviour means the test plan has a hole: pin the wrongness as a new red test first, never patch first.**
+
+### What is not your job
+
+- **Declaring a reading**, slice 9's. You stage and you print; you declare nothing.
+- **Widening the tape header so a staged score replays.** Named in the note, filed, and not taken.
+- **The cap's value**, which is the tuning record's row and is read against slice 9's batch, even though you are staging the rule it governs.
+- **The announcement's lever**, the delta readout or the blow-up firing on a bleed, filed for the tuning record and unbuilt.
+- **The bled-rung memory's threshold**, which is Mark's lever, and **the score's other inputs**, slice 10's.
+- **The ceiling rig**, still unrowed and still waiting for something that plays it.
+- **A second scenario for anything else.** One staged walk, one file; the next scenario is the day something needs it.
+- **The record's section 7 findings**, none of which any slice acts on, and **the two prompt files**, which are the orchestrator's.
+- **Deploying, pushing, merging, opening a PR, opening or closing a ticket.**
+
+---
+
+## Slice 9 (M6): the ladder's cost is measurable (#99)
 
 Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#99)`.
 
@@ -1221,7 +1390,7 @@ What this buys: section 7's findings stop being arguments and become numbers bes
 
 ---
 
-## Slice M7: the score's other inputs (#99)
+## Slice 10 (M7): the score's other inputs (#99)
 
 Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#99)`.
 

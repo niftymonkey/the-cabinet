@@ -8,18 +8,19 @@ The record is `apps/hungry-grave/docs/design/show-what-you-have.md` and the prom
 
 | Slice | Commit | Message |
 | --- | --- | --- |
-| 5.0, the docs commit | the commit this note rides in, section 6 says why | `docs(hungry-grave): ADR 0054 reads a line's rung off its own expression, the HUD entry moves to the field's top edge and the glossary gains the dive, the score and the fallen rung (#99)` |
-| M1, the fold | `2c7a281657` | `feat(hungry-grave): the ladder remembers the rung it bled and the witness folds it (#99)` |
-| M1, a kill pays score | `11483ecf31` | `feat(hungry-grave): a kill pays score and a bled rung stays bled until the grave grows (#99)` |
-| M2, the frame composed and the band reserved | `0c7f877ad1` | `feat(hungry-grave): the frame is composed across three regimes and the HUD's band is reserved (#72)` |
-| M3, the HUD carries the ladder and the score | `48383d4d68` | `feat(hungry-grave): the row carries the score and every rostered line's rungs as marks (#99)` |
-| M4, the loss is watched | `d463dc8252` | `feat(hungry-grave): the score is watched leaving and every line that paid says so (#99)` |
-| M5, the stripped rung falls | `9aa6f83a6a` | `feat(hungry-grave): a stripped rung falls onto the field as a body the dive can catch (#99)` |
-| M5-fix, the rungs fall above a clamped grave | `52a62e16d1` | `fix(hungry-grave): a strip with no room below the grave drops its rungs above it (#99)` |
-| M1-fix, the bleed is capped | `f98c01767d` | `fix(hungry-grave): a floor hit bleeds a capped slice of the score and the remainder stays (#99)` |
-| M6, the ladder's cost is measurable | | |
+| 1 (5.0), the docs commit | the commit this note rides in, section 6 says why | `docs(hungry-grave): ADR 0054 reads a line's rung off its own expression, the HUD entry moves to the field's top edge and the glossary gains the dive, the score and the fallen rung (#99)` |
+| 2 (M1), the fold | `2c7a281657` | `feat(hungry-grave): the ladder remembers the rung it bled and the witness folds it (#99)` |
+| 2 (M1), a kill pays score | `11483ecf31` | `feat(hungry-grave): a kill pays score and a bled rung stays bled until the grave grows (#99)` |
+| 3 (M2), the frame composed and the band reserved | `0c7f877ad1` | `feat(hungry-grave): the frame is composed across three regimes and the HUD's band is reserved (#72)` |
+| 4 (M3), the HUD carries the ladder and the score | `48383d4d68` | `feat(hungry-grave): the row carries the score and every rostered line's rungs as marks (#99)` |
+| 5 (M4), the loss is watched | `d463dc8252` | `feat(hungry-grave): the score is watched leaving and every line that paid says so (#99)` |
+| 6 (M5), the stripped rung falls | `9aa6f83a6a` | `feat(hungry-grave): a stripped rung falls onto the field as a body the dive can catch (#99)` |
+| 6b (M5-fix), the rungs fall above a clamped grave | `52a62e16d1` | `fix(hungry-grave): a strip with no room below the grave drops its rungs above it (#99)` |
+| 7 (M1-fix), the bleed is capped | `f98c01767d` | `fix(hungry-grave): a floor hit bleeds a capped slice of the score and the remainder stays (#99)` |
+| 8 (M1-stage), the ladder is staged in the harness | | |
+| 9 (M6), the ladder's cost is measurable | | |
 
-Slice M1 carries two code commits, the fold and the rule, which is this step's one authorized departure from the contract's one-code-commit rule.
+Slice 2 (M1) carries two code commits, the fold and the rule, which is this step's one authorized departure from the contract's one-code-commit rule.
 
 ## 2. The version ledger
 
