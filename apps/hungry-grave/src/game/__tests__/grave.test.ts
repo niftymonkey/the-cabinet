@@ -514,6 +514,27 @@ describe('the grave', () => {
     expect(run.score).toBe(250);
   });
 
+  it('a hit on a run already sealed runs the ladder again: the ending guard belongs to the loops above (#52)', () => {
+    // A deliberate absence. hitGrave reads no ending, and a guard added here
+    // would change what a sealed tape carrying ticks after its ending
+    // recomputes at its checkpoints, so this test fails the day one appears.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.grave.scoreRungBled = true;
+    run.score = 0;
+    for (const line of WEAPON_LINES) {
+      run.levels[line] = BIRTHRIGHT.includes(line) ? 1 : 0;
+    }
+
+    expect(kinds(hitGrave(run, 'contact'))).toContain('sealed');
+    expect(run.ending).toBe('sealed');
+    ageOut(run);
+    const after = hitGrave(run, 'contact');
+
+    expect(kinds(after)).toEqual(['graveHit', 'sealed']);
+    expect(run.ending).toBe('sealed');
+  });
+
   it('size never leaves floor-to-ceiling across any sequence of grows and hits (ADR 0003)', () => {
     const run = createRun(1);
     const amounts = [0.4, 12, 0, 60, 3, 0.1];
@@ -566,6 +587,24 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     expect(
       events.filter((event) => event.type === 'rungFell').map((e) => e.line),
     ).toEqual([...run.roster]);
+  });
+
+  it('drops bodies on a floor hit that finds no score with the rung still armed', () => {
+    // Pinned rather than inferred. Every other case here bleeds the rung first
+    // and then strips, so the strip that runs on the very first hit of a
+    // scoreless run shared its bodies with a path nothing asserted directly,
+    // and the harness's own staged walk starts on exactly that hit.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 0;
+    for (const line of WEAPON_LINES) run.levels[line] = 3;
+    expect(run.grave.scoreRungBled).toBe(false);
+
+    const events = hitGrave(run, 'contact');
+
+    expect(kinds(events)).toContain('weaponStripped');
+    expect(kinds(events)).not.toContain('scoreBled');
+    expect(fallenRungs(run).map((body) => body.line)).toEqual([...run.roster]);
   });
 
   it('drops one body for each line that had a rung and none for the lines that did not', () => {

@@ -285,6 +285,14 @@ const isBirthrightLevels = (
  * levels are: ?signal= pins it, the default is the resolved value that means
  * the signal ran live, and a tape's header rebuilds a held run from the figure
  * it carries (ADR 0027), which is what makes a locked run replay locked.
+ *
+ * The starting score is the score the run begins holding, and it exists for
+ * the harness's staged floor ladder: the rigs' ladder row (src/dev/rigs.ts)
+ * and the walk that plays it (src/dev/floorLadderWalk.ts) are its callers, and
+ * no player-facing caller names it. It goes last in the list and never beside
+ * the size, because this signature is positional and a parameter inserted in
+ * the middle would silently re-read every existing call's arguments behind it.
+ * No tape header carries a score, so a run staged with one replays from zero.
  */
 const createRun = (
   seed: number = rollSeed(),
@@ -292,13 +300,14 @@ const createRun = (
   startingLevels?: Readonly<Record<WeaponLine, number>>,
   roster: readonly WeaponLine[] = WEAPON_LINES,
   signalLock: SignalLock = SIGNAL_RAN_LIVE,
+  startingScore: number = 0,
 ): RunState => {
   return {
     seed,
     roster: [...roster],
     tick: 0,
     grave: createGrave(startingSize),
-    score: 0,
+    score: startingScore,
     reservoir: 0,
     levels: { ...(startingLevels ?? birthrightLevels(roster)) },
     offer: null,

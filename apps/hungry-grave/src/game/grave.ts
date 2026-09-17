@@ -348,6 +348,13 @@ const runFloorLadder = (state: RunState): SimEvent[] => {
  * that skipped it would let the ladder run in consecutive ticks: sixty
  * full-field dims a second, in the exact state where the player is one hit from
  * sealed shut.
+ *
+ * It reads no ending, deliberately. The loops above it own that guard (#52,
+ * executeTick's own comment), and a guard here would change what a sealed
+ * FORMAT_VERSION 1 tape carrying ticks after its ending recomputes at its
+ * checkpoints, which a readback is obliged to reproduce in full. A hit on a
+ * sealed run therefore runs the ladder again and re-seals, which grave.test.ts
+ * pins so the guard cannot arrive here unnoticed.
  */
 const hitGrave = (state: RunState, source: GraveHitSource): SimEvent[] => {
   const grave = state.grave;

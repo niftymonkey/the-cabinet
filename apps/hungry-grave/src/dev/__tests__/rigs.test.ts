@@ -16,7 +16,12 @@ import {
   WEAPON_LINES,
 } from '../../game/lines/roster';
 import { createRun } from '../../game/run';
-import { SIZE_CEILING, SIZE_START } from '../../game/tuning';
+import {
+  SCORE_BLEED_CAP,
+  SIZE_CEILING,
+  SIZE_FLOOR,
+  SIZE_START,
+} from '../../game/tuning';
 import { isRigName, rigOf, RIGS, RIG_NAMES } from '../rigs';
 
 describe('the rigs a harness run is played out of', () => {
@@ -40,6 +45,7 @@ describe('the rigs a harness run is played out of', () => {
 
     expect(RIGS.birthright.startingSize).toBe(SIZE_START);
     expect(RIGS.birthright.startingLevels).toEqual(born.levels);
+    expect(RIGS.birthright.startingScore).toBe(born.score);
     for (const line of WEAPON_LINES) {
       expect(RIGS.birthright.startingLevels[line]).toBe(
         BIRTHRIGHT.includes(line) ? BIRTHRIGHT_LEVEL : 0,
@@ -51,9 +57,34 @@ describe('the rigs a harness run is played out of', () => {
     // The end the power-curve ruling is about: a run that begins where a
     // person's own runs finish, so step 4 can read the maxed end at all.
     expect(RIGS.maxed.startingSize).toBe(SIZE_START);
+    expect(RIGS.maxed.startingScore).toBe(0);
     for (const line of WEAPON_LINES) {
       expect(RIGS.maxed.startingLevels[line]).toBe(MAX_LEVEL);
     }
+  });
+
+  it('starts the ladder rig at the size floor, at its levels, holding its score', () => {
+    // The staged floor ladder (#99): the harness could not start a run at the
+    // floor holding a score at all, so "go to the lowest level, then the level
+    // below" was the one scenario it could not play. All three are read off a
+    // run built the way playHarnessRun builds one, because a row nothing
+    // applies is a row that says nothing.
+    const run = createRun(
+      1,
+      RIGS.ladder.startingSize,
+      RIGS.ladder.startingLevels,
+      undefined,
+      undefined,
+      RIGS.ladder.startingScore,
+    );
+
+    expect(run.grave.size).toBe(SIZE_FLOOR);
+    expect(run.score).toBe(RIGS.ladder.startingScore);
+    for (const line of WEAPON_LINES) expect(run.levels[line]).toBe(MAX_LEVEL);
+    // At least twice the cap, so the first bleed leaves a remainder standing
+    // and the walk shows the cap's own rule rather than a score that happened
+    // to vanish.
+    expect(run.score).toBeGreaterThanOrEqual(2 * SCORE_BLEED_CAP);
   });
 
   it('names the rig a tape started from, off the conditions alone', () => {
@@ -61,6 +92,11 @@ describe('the rigs a harness run is played out of', () => {
       'birthright',
     );
     expect(rigOf(SIZE_START, RIGS.maxed.startingLevels)).toBe('maxed');
+    // A header carries a size and levels and no score, which is why rigOf
+    // keeps its two arguments: a banding rule reading a fact the header cannot
+    // hold would answer null forever, and the ladder rig is the first row whose
+    // condition has a third half.
+    expect(rigOf(SIZE_FLOOR, RIGS.ladder.startingLevels)).toBe('ladder');
   });
 
   it('names no rig for a starting condition no row holds', () => {
@@ -79,6 +115,7 @@ describe('the rigs a harness run is played out of', () => {
     // nothing inside the harness ever holds a rig name it has not checked.
     expect(isRigName('maxed')).toBe(true);
     expect(isRigName('birthright')).toBe(true);
+    expect(isRigName('ladder')).toBe(true);
     expect(isRigName('ceiling')).toBe(false);
   });
 });

@@ -71,8 +71,8 @@ import { tapeFileName } from '../tapeExport';
 import type { FrameObservation } from '../../tape/tape';
 import { faultObservations, frameObservations } from '../../tape/tape';
 import { MAX_LEVEL } from '../../game/lines/roster';
-import type { RunState } from '../../game/run';
 import { uniformLevels } from '../../game/run';
+import { standMobOnGrave } from '../../dev/staging';
 import {
   RUNG_STRIP_TICKS,
   SCORE_BLEED_TICKS,
@@ -1754,17 +1754,6 @@ describe('a loss watched on the ladder row', () => {
       .filter((share) => share > 0 && share < 1).length;
   }
 
-  /** A mob standing in the grave, which is one contact per frame it is alive. */
-  function standOnGrave(run: RunState): void {
-    const mob = run.mobs[0];
-    if (mob === undefined) throw new Error('no mob pool slot 0');
-    mob.alive = true;
-    mob.type = 'shambler';
-    mob.hp = MOB_TYPES.shambler.hp * 100;
-    mob.x = run.grave.x;
-    mob.y = run.grave.y;
-  }
-
   it('shows the score falling and the cushion emptying on a floor hit with score standing', () => {
     // Record R5: the sim takes the bleed in one tick and the row animates the
     // readout down, so the number is seen to leave rather than to have left.
@@ -1776,7 +1765,7 @@ describe('a loss watched on the ladder row', () => {
     const run = screen['session'].run!;
     run.grave.size = SIZE_FLOOR;
     run.score = standing;
-    standOnGrave(run);
+    standMobOnGrave(run);
 
     screen.update(frame(TICK_MS));
 
@@ -1809,7 +1798,7 @@ describe('a loss watched on the ladder row', () => {
     run.grave.size = SIZE_FLOOR;
     run.score = 0;
     for (const line of run.roster) run.levels[line] = 3;
-    standOnGrave(run);
+    standMobOnGrave(run);
 
     screen.update(frame(TICK_MS));
     expect(run.roster.every((line) => run.levels[line] === 2)).toBe(true);
@@ -1837,7 +1826,7 @@ describe('a loss watched on the ladder row', () => {
     first.grave.size = SIZE_FLOOR;
     first.score = 41300;
     for (const line of first.roster) first.levels[line] = 3;
-    standOnGrave(first);
+    standMobOnGrave(first);
     screen.update(frame(TICK_MS));
     const bledAt = first.tick;
     expect(Number(digits(screen))).toBeGreaterThan(40000);

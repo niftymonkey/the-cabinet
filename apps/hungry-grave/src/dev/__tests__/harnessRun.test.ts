@@ -24,7 +24,7 @@ import {
   SPAWN_MARGIN,
 } from '../../game/mobs';
 import { SECTIONS } from '../../game/stage/stage';
-import { SCROLL_SPEED, SIZE_START } from '../../game/tuning';
+import { SCROLL_SPEED, SIZE_FLOOR, SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
 import { RUNNING_BUILD } from '../../tape/buildIdentity';
 import { decodeTape } from '../../tape/decode';
@@ -32,7 +32,7 @@ import { RECORDER_CHECKPOINT_SPACING } from '../../tape/recorder';
 import { CONFIGURATIONS, SHARP_HAND } from '../configurations';
 import { playHarnessRun, runTickBudget, RUN_TICK_SLACK } from '../harnessRun';
 import { measure } from '../measure';
-import { RIGS } from '../rigs';
+import { RIGS, rigOf } from '../rigs';
 
 /** The one wave this slice ships, which is the sharp corner. */
 const SHARP = CONFIGURATIONS[SHARP_HAND];
@@ -245,6 +245,35 @@ describe('the harness run', () => {
       // It reached the sim rather than only the header: the same seed under
       // the same hand from two rigs is two runs.
       expect(maxed.bytes).not.toEqual(sealingRun().bytes);
+    },
+    ONE_PLAYED_AND_REPLAYED_RUN_MS,
+  );
+
+  it(
+    'applies the whole ladder row, and its tape still bands as the ladder rig',
+    () => {
+      // A rig applied without its size or its score is a rig half applied, and
+      // the figure it produced would name a condition it never played (#107).
+      // The header carries no score at all, which is why rigOf reads the size
+      // and the levels alone: banding is still answerable off what a tape holds.
+      const staged = playHarnessRun(
+        SHARP,
+        RIGS.ladder,
+        SEALING_SEED,
+        COMMIT_HASH,
+        RECORDED_AT,
+      );
+      const { header } = decodeTape(staged.bytes).tape;
+
+      expect(staged.rig).toBe('ladder');
+      expect(header.startingSize).toBe(SIZE_FLOOR);
+      for (const line of WEAPON_LINES) {
+        expect(header.startingLevels[line]).toBe(MAX_LEVEL);
+      }
+      expect(rigOf(header.startingSize, header.startingLevels)).toBe('ladder');
+      // It reached the sim rather than only the header: the same seed under
+      // the same hand from two rigs is two runs.
+      expect(staged.bytes).not.toEqual(sealingRun().bytes);
     },
     ONE_PLAYED_AND_REPLAYED_RUN_MS,
   );

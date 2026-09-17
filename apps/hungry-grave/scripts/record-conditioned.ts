@@ -1,14 +1,17 @@
 /**
  * The conditioned-recording entry: a run recorded headlessly from a chosen
- * seed and chosen starting levels, sealed onto a tape file, with the written
- * path as the whole of stdout. Run as
- * `pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out-file> <seed> <ticks> skullStream=N territory=N wisps=N bell=N`.
+ * starting condition, sealed onto a tape file, with the written path as the
+ * whole of stdout.
  *
  * It exists because some evidence only plays at levels no reachable run
  * starts from (bell push exists only at levels 4 and 5), and the browser's
  * ?levels= pin is one uniform number across the lines. The recording goes
  * through the one execution authority (ADR 0017), so the tape is exactly what
  * a played run would have written.
+ *
+ * A rig names a whole starting condition instead, its size, its levels and its
+ * score together, so the floor ladder is recorded from the row that stages it
+ * rather than by playing down to the floor from the start line (#99).
  */
 
 import { execSync } from 'node:child_process';
@@ -22,6 +25,8 @@ import { MAX_LEVEL, WEAPON_LINES } from '../src/game/lines/roster';
 import type { RunState } from '../src/game/run';
 import { createRun, SEED_LIMIT, uniformLevels } from '../src/game/run';
 import { WITNESS_VERSION } from '../src/game/witness';
+import { isRigName, RIGS, RIG_NAMES } from '../src/dev/rigs';
+import type { RigName } from '../src/dev/rigs';
 import { RUNNING_BUILD } from '../src/tape/buildIdentity';
 import { encodeTape } from '../src/tape/encode';
 import {
@@ -33,9 +38,9 @@ import {
 import type { TapeHeader } from '../src/tape/tape';
 import { SCRIPT_POLICY } from '../src/tape/tape';
 
-const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out-file> <seed> <ticks> ${WEAPON_LINES.map(
+const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out-file> <seed> <ticks> [${WEAPON_LINES.map(
   (line) => `${line}=N`,
-).join(' ')}`;
+).join(' ')}] [rig=${RIG_NAMES.join('|')}] [score=N]`;
 
 /**
  * A flawed argument is an external failure and the person holding the command
@@ -73,6 +78,23 @@ const parseTicks = (raw: string): number | null => {
     return refuse(`${raw} is not a tick count (a whole number of at least 1)`);
   }
   return value;
+};
+
+/** The starting score, or null once the argument has been refused out loud. */
+const parseScore = (raw: string): number | null => {
+  const value = wholeNumber(raw);
+  if (value === null || value < 0) {
+    return refuse(`${raw} is not a score (a whole number of at least 0)`);
+  }
+  return value;
+};
+
+/** The rig row named, or null once the name has been refused out loud. */
+const parseRigName = (raw: string): RigName | null => {
+  if (!isRigName(raw)) {
+    return refuse(`${raw} names no rig (the rigs are ${RIG_NAMES.join(', ')})`);
+  }
+  return raw;
 };
 
 const isWeaponLine = (name: string): name is WeaponLine => {
@@ -117,6 +139,91 @@ const parseLevels = (
   const levels = uniformLevels(0);
   for (const [line, level] of named) levels[line] = level;
   return levels;
+};
+
+/**
+ * What a run is started from: the size, the levels and the score together,
+ * which is what a rig row states and what a command line assembles when it
+ * names no row.
+ */
+interface Conditions {
+  readonly startingSize: number | undefined;
+  readonly startingLevels: Readonly<Record<WeaponLine, number>>;
+  readonly startingScore: number;
+}
+
+/**
+ * The conditions a rig row names, whole: a rig applied without its size or its
+ * score is a rig half applied, and the tape would then name a starting
+ * condition it did not play (#107).
+ *
+ * A command that names a row and names the levels beside it is refused rather
+ * than resolved, because the row already states every line's level and a
+ * command that states them twice can state them differently.
+ *
+ * A score named beside a row is an override and not a contradiction, and it is
+ * the one way to record a verifiable tape from a row whose score is not zero:
+ * the header carries no score, so only a run that starts at zero replays as it
+ * played. The size and the levels still come from the row.
+ */
+const conditionsFromRig = (
+  raw: string,
+  levelArgs: readonly string[],
+  scoreRaw: string | undefined,
+): Conditions | null => {
+  const name = parseRigName(raw);
+  if (name === null) return null;
+  if (levelArgs.length > 0) {
+    return refuse(
+      `rig=${raw} already states every line's level, so ${levelArgs.join(' ')} states them a second time`,
+    );
+  }
+  const rig = RIGS[name];
+  const score =
+    scoreRaw === undefined ? rig.startingScore : parseScore(scoreRaw);
+  if (score === null) return null;
+  return {
+    startingSize: rig.startingSize,
+    startingLevels: rig.startingLevels,
+    startingScore: score,
+  };
+};
+
+/**
+ * The conditions the older arguments name: every line's level stated, the
+ * starting size left to the sim's own default, and a score only if one is
+ * asked for. With neither new flag named this is exactly what the command
+ * meant before they existed.
+ */
+const conditionsFromArguments = (
+  levelArgs: readonly string[],
+  scoreRaw: string | undefined,
+): Conditions | null => {
+  const levels = parseLevels(levelArgs);
+  if (levels === null) return null;
+  const score = scoreRaw === undefined ? 0 : parseScore(scoreRaw);
+  if (score === null) return null;
+  return {
+    startingSize: undefined,
+    startingLevels: levels,
+    startingScore: score,
+  };
+};
+
+/**
+ * Says that a tape started from a score will not replay as it played, before
+ * it is written rather than after, because nothing abnormal is silent.
+ *
+ * The tape header carries the seed, the size, the roster, the levels and the
+ * signal lock, and no score at all, while the witness folds run.score. So a
+ * readback rebuilds a run that starts at zero and disagrees at its first
+ * checkpoint. Widening the header is a later slice's question and not this
+ * command's to answer.
+ */
+const reportUnreplayableScore = (score: number): void => {
+  console.warn(
+    `this run starts holding ${score} and a tape header carries no score, so a readback rebuilds it from zero and diverges at the first checkpoint; the tape records what the run played and can never be verified against it`,
+  );
 };
 
 /**
@@ -184,9 +291,16 @@ const steer = (tick: number): TickCommand => {
 const recordTape = (
   seed: number,
   ticks: number,
-  levels: Readonly<Record<WeaponLine, number>>,
+  conditions: Conditions,
 ): Uint8Array => {
-  const run = createRun(seed, undefined, levels);
+  const run = createRun(
+    seed,
+    conditions.startingSize,
+    conditions.startingLevels,
+    undefined,
+    undefined,
+    conditions.startingScore,
+  );
   const execution = createExecution(run);
   const recorder = recordInto(execution, headerFor(run));
   for (
@@ -220,8 +334,45 @@ const writeOrRefuse = (path: string, bytes: Uint8Array): boolean => {
   }
 };
 
+// The two keyed arguments, in the shape batch.ts already reads its own rig in.
+const RIG_ARGUMENT = /^rig=(.*)$/;
+const SCORE_ARGUMENT = /^score=(.*)$/;
+
+/** The one value a keyed argument names, or undefined when it names none. */
+const valueOf = (
+  named: readonly string[],
+  keyed: RegExp,
+): string | undefined => {
+  const one = named[0];
+  return one === undefined ? undefined : one.replace(keyed, '$1');
+};
+
+/** Which starting condition the arguments name, keyed ones read out of the rest. */
+const conditionsIn = (args: readonly string[]): Conditions | null => {
+  const rigArgs = args.filter((argument) => RIG_ARGUMENT.test(argument));
+  const scoreArgs = args.filter((argument) => SCORE_ARGUMENT.test(argument));
+  // A key named twice is refused rather than resolved to the first, which is
+  // the rule parseLevels already holds for a line named twice: a command that
+  // states one thing two ways can state it two different ways.
+  if (rigArgs.length > 1) {
+    return refuse(`${rigArgs.join(' ')} names a rig more than once`);
+  }
+  if (scoreArgs.length > 1) {
+    return refuse(`${scoreArgs.join(' ')} names a score more than once`);
+  }
+  const levelArgs = args.filter(
+    (argument) =>
+      !RIG_ARGUMENT.test(argument) && !SCORE_ARGUMENT.test(argument),
+  );
+  const rigRaw = valueOf(rigArgs, RIG_ARGUMENT);
+  const scoreRaw = valueOf(scoreArgs, SCORE_ARGUMENT);
+  return rigRaw === undefined
+    ? conditionsFromArguments(levelArgs, scoreRaw)
+    : conditionsFromRig(rigRaw, levelArgs, scoreRaw);
+};
+
 const main = (): void => {
-  const [path, seedRaw, ticksRaw, ...levelArgs] = process.argv.slice(2);
+  const [path, seedRaw, ticksRaw, ...rest] = process.argv.slice(2);
   if (path === undefined || seedRaw === undefined || ticksRaw === undefined) {
     console.error(USAGE);
     process.exitCode = 1;
@@ -237,12 +388,15 @@ const main = (): void => {
     process.exitCode = 1;
     return;
   }
-  const levels = parseLevels(levelArgs);
-  if (levels === null) {
+  const conditions = conditionsIn(rest);
+  if (conditions === null) {
     process.exitCode = 1;
     return;
   }
-  if (!writeOrRefuse(path, recordTape(seed, ticks, levels))) {
+  if (conditions.startingScore !== 0) {
+    reportUnreplayableScore(conditions.startingScore);
+  }
+  if (!writeOrRefuse(path, recordTape(seed, ticks, conditions))) {
     process.exitCode = 1;
     return;
   }

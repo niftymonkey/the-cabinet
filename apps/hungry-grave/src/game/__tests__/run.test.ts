@@ -150,4 +150,28 @@ describe('createRun', () => {
 
     expect([...run.roster]).toEqual([...BIRTHRIGHT]);
   });
+
+  it('starts holding nothing when no starting score is asked for', () => {
+    // Every caller in the tree names none, so the default is what a run has
+    // always started at and the parameter changes no run that ships.
+    expect(createRun(1).score).toBe(0);
+    expect(createRun(1, SIZE_FLOOR, uniformLevels(MAX_LEVEL)).score).toBe(0);
+  });
+
+  it('starts holding the score it was asked for, and nothing else about the run differs', () => {
+    // The harness stages the floor ladder from a run that already holds a
+    // score (design record R4), and a staged start is a number the sim takes
+    // rather than a rig-aware branch inside it.
+    const held = createRun(1, undefined, undefined, undefined, undefined, 6000);
+
+    expect(held.score).toBe(6000);
+    // The streams are left out of the comparison because they hold closures,
+    // which toEqual compares by identity (docs/lessons.md, the sim).
+    const exceptScore = (run: ReturnType<typeof createRun>) => ({
+      ...run,
+      score: 0,
+      streams: null,
+    });
+    expect(exceptScore(held)).toEqual(exceptScore(createRun(1)));
+  });
 });
