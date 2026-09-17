@@ -51,3 +51,5 @@ The full derivations are in `docs/research/readability-value-band.md`. Two concl
 ## Where the V1 push's process records went
 
 The V1 push's process records under `docs/push/` (slice prompts, progress notes, coder contracts, plans) were removed at the cleanup pass on 2026-09-17, so a citation to `docs/push/<file>` from an ADR or a design record resolves in git history at the parent of the cleanup commit; step 6's progress note and the handoff stay until the branch merges, and the step 6 tuning plan moved to `docs/design/tuning-record.md`.
+
+The three step build plans that sat under `docs/design/` (`step-1-progression-dispatch.md`, `step-2-stage-floor-dispatch.md` and `step-4-mow-ladder-director-dispatch.md`) were retired on 2026-09-17 on Mark's ruling, their rulings moved into the step records (`progression.md`, which step 1 never had, and sections of `stage-floor.md` and `mow-ladder-director.md`), so a citation to one of those plans resolves in git history at the parent of the commit that removed them. `step-3-playing-harness-dispatch.md` was not in that ruling and stays.

@@ -1,9 +1,9 @@
 /**
  * The bell (ADR 0005, ADR 0036): always on from level 1, on its own clock,
  * never fired by a swallow, and what it throws is cones. Expected values come
- * from ADR 0036 and step 1's plan section 8; the rows themselves are initial
- * data the harness tunes, so what is pinned here is the shape and never a
- * magnitude the harness owns.
+ * from ADR 0036 and `docs/design/progression.md` section 1; the rows
+ * themselves are initial data the harness tunes, so what is pinned here is
+ * the shape and never a magnitude the harness owns.
  */
 
 import { describe, expect, it } from 'vitest';

@@ -271,7 +271,7 @@ The sim fires `victory` on his death. The topple and the swallow are the rendere
 
 ## 6. The carrier schedule across the new rows
 
-Step 1 builds the carrier column on `StageRow` and a first schedule on the old rows; step 2 re-authors the rows and re-places the carriers. The derivation is step 1's and does not move: nineteen carriers for a full build from the birthright, times `CARRIER_SLACK` 1.3, is twenty-five scheduled (step 1 plan, section 8).
+Step 1 builds the carrier column on `StageRow` and a first schedule on the old rows; step 2 re-authors the rows and re-places the carriers. The derivation is step 1's and does not move: nineteen carriers for a full build from the birthright, times `CARRIER_SLACK` 1.3, is twenty-five scheduled (`progression.md` section 1).
 
 Initial distribution: eight in the Procession, eleven in the Crowd, six in the Vigil.
 
@@ -280,6 +280,14 @@ The reason it is front-loaded twice over. A player who kills every carrier in th
 A carrier the player never kills pays nothing and nothing reaches after the player to make it up (ADR 0048). The Vigil's six are the schedule absorbing that, not a catch-up mechanism.
 
 Which mob in a row carries stays step 1's rule: the row's middle placement index, one carrier per carrying row, keyed to the row's own placement order and not to `SpawnOrder.index` (`stage.ts:267-271`, `carriers.ts:57-70`). The armed share is keyed to `SpawnOrder.index` (`templates.ts:23-28`, `mobFire.ts:114`) and the carrier deliberately is not: a mirrored template repeats that index once per arm, so keying the carrier to it would put one on each arm and break the one-per-row contract.
+
+### The bank's opening site, and supply that must not vanish at a cap
+
+Both were taken at step 1's implementation gates on 2026-09-08 and built in this step, because the column they need is a column on the phase.
+
+**The bank needs an opening site that is not a take or a loss.** Step 1's `openBanked` runs only from `resolveOffer` and `loseOffer`, so a bank held shut through a phase that does not permit it would never reopen once the phase ends: there is no offer to take or lose. The site and the column land together: a `Phase.bankOpens` boolean, and a per-tick check in `offer.ts` (no offer live, bank above zero, phase permits: open one) called from `step.ts` beside `advanceLines`. **The column is true by default and false only where this record names the reason. The one reason it names is the `over` phase**: the run has ended there, so there is no run left to spend an offer in. A boss phase and the sparse last row were both candidates and neither was taken, because the harness at step 3 reads take-by-slot on banked offers and the value is a data row rather than a ruling.
+
+**Supply must not vanish at a cap.** Step 1's `standOffer` with every body refused returned no event, no fault and no bank increment, and `spawnDueRows` dropped `spawnMob`'s null, so a refused carrier was never `carrierLost`. Both were unreachable until the corpse cap in this step could refuse. So: a refused carrier spawn raises `carrierLost` with its reason; an offer whose bodies are all refused banks rather than disappears, opening through the site above; and each gets a recoverable fault identity with its wire code, beside the corpse-refusal identity.
 
 ---
 

@@ -151,7 +151,7 @@ Integers stay and the scale is not rewritten. **The hit count is an initial data
 
 **One ruling inside that derivation survives, as a ratio.** The bell's far edge tickles rather than kills, which is Mark's own ruling of 2026-08-19 recorded in **ADR 0036** (`0036-the-bell-is-a-timed-pulse-of-cones.md:3`: "the far edge tickles rather than kills"). What survives is the ratio of far to near, an eighth (`bell.ts:111`, `:114`), and not the eight-tolls-to-a-shambler count that ratio produced at 40 health. At 8 health the far edge takes two tolls and the near edge takes one, and the curve between them is untouched (`bell.ts:270-271`).
 
-**Adjusted, and this is the adjustment: the brief cites ADR 0005 for the far-toll ruling and ADR 0005 does not contain it.** ADR 0005 is seven lines and rules only that a weapon line owns its own properties. The far-toll ruling is ADR 0036's, same ruling date. Two working documents carry the wrong citation (`dispatch-5-weapons.md:262` and `docs/push/handoff.md:27`) and one carries the right one (`step-1-progression-dispatch.md:392`). The substance is unchanged; the citation moves.
+**Adjusted, and this is the adjustment: the brief cites ADR 0005 for the far-toll ruling and ADR 0005 does not contain it.** ADR 0005 is seven lines and rules only that a weapon line owns its own properties. The far-toll ruling is ADR 0036's, same ruling date. Two working documents carry the wrong citation (`dispatch-5-weapons.md:262` and `docs/push/handoff.md:27`); step 1's build plan carried the right one and retired with it on 2026-09-17 (`../lessons.md`). The substance is unchanged; the citation moves.
 
 ### 3. Growth over the run is authored per section, as stepped rows
 
@@ -342,6 +342,8 @@ Two rounds as Mark asked, never a sweep. Every item below is carried from the br
 
 **Then pick the next move from that reading, dispatch it, run one more batch, then stop and let Mark play.** Nothing in round two is decided here: what round two moves is what round one's readings say is worth moving.
 
+**Eighteen steps in all, as the step ran: 0, 0a, and 1 through 16, of which eight are coding slices, A0 and A through G.** Step 0 made no commit; step 0a made one docs commit and one code commit; steps 2 to 6 made six doc and ADR commits, because step 5 filed ADR 0060 and then re-ruled it; steps 7 to 13 made seven code commits; steps 1, 14, 15 and 16 made one each or none. Two slices the brief asked for are not in that eight, the bank expiry and the director's fold riding inside the director slice; two the brief did not ask for are, the caps promoted into the bank's place and the fold as its own commit. **The slice-by-slice build plan this record was written beside retired on 2026-09-17, so every reference to the dispatch plan below and above resolves in git history at the parent of the commit that removed it** (`../lessons.md`). What it held that this record does not is the per-slice contract: the file lists, the test numbers and the verification menu, all of them spent.
+
 **What this step declines, and it is named here because the code points at this step. Adjusted by the product vision gate.** The dev-only autopilot in the rendered game is not built. ADR 0013 makes the same bot the dev-only autopilot, `bot.ts:38-41` records that it is not wired into the rendered app and names the tuning dispatch as where that would happen, and this is that dispatch. It is declined: watching a hand play is not a reading and the batch is, and the bot only dodges, so what it shows is the policy rather than the field (`docs/lessons.md`, "The bot"). The comment in `bot.ts` is updated to cite this decline rather than to promise a step that has now run.
 
 ---
@@ -493,7 +495,7 @@ Only what cannot be closed from this record, the code or the ADRs.
 
 ## 13. Claims in the brief found false against the code
 
-**1. The far-toll ruling is ADR 0036's, not ADR 0005's.** `docs/push/handoff.md:27` cites ADR 0005; ADR 0005 is seven lines and rules only that a weapon line owns its own properties. The ruling is at `0036-the-bell-is-a-timed-pulse-of-cones.md:3`, same ruling date, and `dispatch-5-weapons.md:262` carries the same wrong citation while `step-1-progression-dispatch.md:392` carries the right one. The substance stands.
+**1. The far-toll ruling is ADR 0036's, not ADR 0005's.** `docs/push/handoff.md:27` cites ADR 0005; ADR 0005 is seven lines and rules only that a weapon line owns its own properties. The ruling is at `0036-the-bell-is-a-timed-pulse-of-cones.md:3`, same ruling date, and `dispatch-5-weapons.md:262` carries the same wrong citation; step 1's build plan carried the right one and retired with it on 2026-09-17. The substance stands.
 
 **2. The Vigil's scarcity ruling is not in ADR 0049.** The brief attributes it there; ADR 0049 rules the stage's length and its division into named sections and does not name the Vigil at all. The scarcity property is in the glossary (`CONTEXT.md`, The Vigil) and its derivation is in `stage-floor.md` section 1. The reading that it is Vampire Survivors' minute 5 rather than a contradiction stands on the property, wherever the property is recorded.
 

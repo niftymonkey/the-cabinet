@@ -1,7 +1,7 @@
 /**
  * The offer of three and the bank (ADR 0034), and the carrier that pays for it
- * (ADR 0002). Expected values come from the ADRs and from the step 1 dispatch
- * plan's sections 6 and 8, never from running the module.
+ * (ADR 0002). Expected values come from the ADRs and from the progression
+ * record (`docs/design/progression.md`), never from running the module.
  */
 
 import { describe, expect, it } from 'vitest';

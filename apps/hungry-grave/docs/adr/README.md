@@ -1,6 +1,6 @@
 # Where the retired ADRs went
 
-This set was condensed from 64 records to 16 on Mark's ruling of 2026-09-18. The review every ruling came from is `docs/push/adr-review.md` at this commit's parent, card by card with the objection against each proposal; that file is push scaffolding and is removed when the branch merges, so the table below is what survives it.
+This set was condensed from 64 records to 16 on Mark's ruling of 2026-09-17. The review every ruling came from is `docs/push/adr-review.md` at this commit's parent, card by card with the objection against each proposal; that file is push scaffolding and is removed when the branch merges, so the table below is what survives it.
 
 The bar a record has to clear is Mark's: a really large, important, extremely tough-to-reverse, hard-won decision. A choice made in the moment, however real, is a design-record ruling and lives in the narrower home that owns it, a design record, the glossary, the lessons file or the feature playbook. The 16 records that cleared it are the files beside this one, and the table below is every number that did not: it is a retirement map rather than an index. Citations to those numbers still appear in code comments, tests, design records and the glossary, and they were left alone on purpose, because this table is how they resolve. Paths are from the app root, `apps/hungry-grave/`, except the feature playbook, which is the repo's own `docs/agents/feature-playbook.md`.
 

@@ -1,7 +1,7 @@
 /**
  * Carriers meter power (ADR 0002) and a missed carrier is missed (ADR 0048).
- * Expected values come from the ADRs and from the step 1 dispatch plan's
- * sections 6 and 8, never from running the module.
+ * Expected values come from the ADRs and from the progression record
+ * (`docs/design/progression.md`), never from running the module.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -227,7 +227,7 @@ describe('the schedule', () => {
       0,
     );
     expect(carriersForFullBuild()).toBe(stillNeeded);
-    // Today's roster, from the plan's section 8: four levels on the one
+    // Today's roster, from the record's section 1: four levels on the one
     // birthright line and five on each of the three the run is not born with.
     expect(carriersForFullBuild()).toBe(19);
   });
