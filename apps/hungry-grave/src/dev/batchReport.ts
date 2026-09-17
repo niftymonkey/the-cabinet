@@ -12,6 +12,7 @@ import type { ConfigurationName } from './configurations';
 import { runTickBudget } from './harnessRun';
 import type { Measurement, Metrics } from './measure';
 import type { NumberRecord } from './numbersByName';
+import { endedSpans } from './readings/fallenRungLedger';
 import { ledgerByLineNumbers } from './readings/powerUpLedger';
 import { addsBySection } from './readings/pressure';
 import type { DirectedCardSeen } from './readings/pressure';
@@ -558,6 +559,63 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   spreadReading(
     'tuning.damageTaken.seals',
     (report) => report.tuning.damageTaken.seals,
+  ),
+  // What the ladder cost after the counts above, never a second key for one of
+  // them (#99, design record section 4's M6 paragraph).
+  spreadReading(
+    'tuning.fallenRungLedger.fell',
+    (report) => report.tuning.fallenRungLedger.fell,
+  ),
+  spreadReading(
+    'tuning.fallenRungLedger.caught',
+    (report) => report.tuning.fallenRungLedger.caught,
+  ),
+  spreadReading(
+    'tuning.fallenRungLedger.lost',
+    (report) => report.tuning.fallenRungLedger.lost,
+  ),
+  spreadReading(
+    'tuning.fallenRungLedger.onFieldAtStop',
+    (report) => report.tuning.fallenRungLedger.onFieldAtStop,
+  ),
+  // The reading's own flattening, which drops a rung still standing at the stop
+  // rather than reducing its absent span to a zero.
+  distributionReading('tuning.fallenRungLedger.ticksOnField', (report) =>
+    endedSpans(report.tuning.fallenRungLedger),
+  ),
+  // Both series are per strip and not per tick, so the spread across a run is
+  // where each strip landed rather than a path through time.
+  distributionReading(
+    'tuning.stripsLanded.graveY',
+    (report) => report.tuning.stripsLanded.graveY,
+  ),
+  distributionReading(
+    'tuning.stripsLanded.gapUnderGrave',
+    (report) => report.tuning.stripsLanded.gapUnderGrave,
+  ),
+  spreadReading(
+    'tuning.stripsLanded.atClamp',
+    (report) => report.tuning.stripsLanded.atClamp,
+  ),
+  spreadReading(
+    'tuning.stripsLanded.inBoss',
+    (report) => report.tuning.stripsLanded.inBoss,
+  ),
+  spreadReading(
+    'tuning.bledRungMemory.ticksSet',
+    (report) => report.tuning.bledRungMemory.ticksSet,
+  ),
+  spreadReading(
+    'tuning.bledRungMemory.timesSet',
+    (report) => report.tuning.bledRungMemory.timesSet,
+  ),
+  spreadReading(
+    'tuning.bledRungMemory.timesCleared',
+    (report) => report.tuning.bledRungMemory.timesCleared,
+  ),
+  spreadReading(
+    'tuning.bledRungMemory.growthShortOfClearing',
+    (report) => report.tuning.bledRungMemory.growthShortOfClearing,
   ),
   byNameReading(
     'tuning.engagements.engaged',

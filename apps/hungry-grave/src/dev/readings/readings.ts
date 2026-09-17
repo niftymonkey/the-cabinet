@@ -12,12 +12,30 @@ import {
   createBelchCadence,
   observeBelchCadence,
 } from './belchCadence';
+import type { BledRungMemory, BledRungMemoryAcc } from './bledRungMemory';
+import {
+  bledRungMemoryOf,
+  createBledRungMemory,
+  observeBledRungMemory,
+} from './bledRungMemory';
 import type { DamageTaken, DamageTakenAcc } from './damageTaken';
 import {
   createDamageTaken,
   damageTakenOf,
   observeDamageTaken,
 } from './damageTaken';
+import type { FallenRungLedger, FallenRungLedgerAcc } from './fallenRungLedger';
+import {
+  createFallenRungLedger,
+  fallenRungLedgerOf,
+  observeFallenRungLedger,
+} from './fallenRungLedger';
+import type { StripsLanded, StripsLandedAcc } from './stripsLanded';
+import {
+  createStripsLanded,
+  observeStripsLanded,
+  stripsLandedOf,
+} from './stripsLanded';
 import type { Pressure, PressureAcc } from './pressure';
 import { createPressure, observePressure, pressureOf } from './pressure';
 import type { PowerUpLedger, PowerUpLedgerAcc } from './powerUpLedger';
@@ -97,6 +115,10 @@ import {
 interface TuningReadings {
   readonly arrivals: Arrivals;
   readonly damageTaken: DamageTaken;
+  // The floor ladder's cost, beside the counts damageTaken already carries.
+  readonly fallenRungLedger: FallenRungLedger;
+  readonly stripsLanded: StripsLanded;
+  readonly bledRungMemory: BledRungMemory;
   readonly engagements: Engagements;
   readonly gravePath: GravePath;
   readonly fieldPerLine: FieldPerLine;
@@ -118,6 +140,9 @@ interface TuningReadings {
 interface ReadingsAcc {
   readonly arrivals: ArrivalsAcc;
   readonly damageTaken: DamageTakenAcc;
+  readonly fallenRungLedger: FallenRungLedgerAcc;
+  readonly stripsLanded: StripsLandedAcc;
+  readonly bledRungMemory: BledRungMemoryAcc;
   readonly engagements: EngagementsAcc;
   readonly gravePath: GravePathAcc;
   readonly fieldPerLine: FieldPerLineAcc;
@@ -154,6 +179,9 @@ const createReadings = (
 ): ReadingsAcc => ({
   arrivals: createArrivals(),
   damageTaken: createDamageTaken(),
+  fallenRungLedger: createFallenRungLedger(),
+  stripsLanded: createStripsLanded(),
+  bledRungMemory: createBledRungMemory(startingSize),
   engagements: createEngagements(lines),
   gravePath: createGravePath(startingSize),
   fieldPerLine: createFieldPerLine(),
@@ -189,6 +217,9 @@ const observeReadings = (
 ): void => {
   observeArrivals(acc.arrivals, events, state);
   observeDamageTaken(acc.damageTaken, events);
+  observeFallenRungLedger(acc.fallenRungLedger, tick, events, state);
+  observeStripsLanded(acc.stripsLanded, events, state);
+  observeBledRungMemory(acc.bledRungMemory, state);
   observeEngagements(acc.engagements, tick, events, state);
   observeGravePath(acc.gravePath, state);
   observeFieldPerLine(acc.fieldPerLine, state, lines);
@@ -210,6 +241,9 @@ const observeReadings = (
 const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   arrivals: arrivalsOf(acc.arrivals),
   damageTaken: damageTakenOf(acc.damageTaken),
+  fallenRungLedger: fallenRungLedgerOf(acc.fallenRungLedger),
+  stripsLanded: stripsLandedOf(acc.stripsLanded),
+  bledRungMemory: bledRungMemoryOf(acc.bledRungMemory),
   engagements: engagementsOf(acc.engagements),
   gravePath: gravePathOf(acc.gravePath),
   fieldPerLine: fieldPerLineOf(acc.fieldPerLine),

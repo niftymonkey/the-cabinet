@@ -404,6 +404,64 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.damageTaken.seals',
     (report) => report.tuning.damageTaken.seals,
   ),
+  // What the ladder cost after the counts above, never a second key for one of
+  // them (#99, design record section 4's M6 paragraph).
+  scalarReading(
+    'tuning.fallenRungLedger.fell',
+    (report) => report.tuning.fallenRungLedger.fell,
+  ),
+  scalarReading(
+    'tuning.fallenRungLedger.caught',
+    (report) => report.tuning.fallenRungLedger.caught,
+  ),
+  scalarReading(
+    'tuning.fallenRungLedger.lost',
+    (report) => report.tuning.fallenRungLedger.lost,
+  ),
+  scalarReading(
+    'tuning.fallenRungLedger.onFieldAtStop',
+    (report) => report.tuning.fallenRungLedger.onFieldAtStop,
+  ),
+  // A list and never a series: the entries are one per rung that fell, so two
+  // runs that dropped a different number of rungs have no index to pair, and an
+  // absent span carries itself rather than being summarised away.
+  listReading(
+    'tuning.fallenRungLedger.ticksOnField',
+    (report) => report.tuning.fallenRungLedger.ticksOnField,
+  ),
+  // The same reason: the entries are one per strip and not one per tick.
+  listReading(
+    'tuning.stripsLanded.graveY',
+    (report) => report.tuning.stripsLanded.graveY,
+  ),
+  listReading(
+    'tuning.stripsLanded.gapUnderGrave',
+    (report) => report.tuning.stripsLanded.gapUnderGrave,
+  ),
+  scalarReading(
+    'tuning.stripsLanded.atClamp',
+    (report) => report.tuning.stripsLanded.atClamp,
+  ),
+  scalarReading(
+    'tuning.stripsLanded.inBoss',
+    (report) => report.tuning.stripsLanded.inBoss,
+  ),
+  scalarReading(
+    'tuning.bledRungMemory.ticksSet',
+    (report) => report.tuning.bledRungMemory.ticksSet,
+  ),
+  scalarReading(
+    'tuning.bledRungMemory.timesSet',
+    (report) => report.tuning.bledRungMemory.timesSet,
+  ),
+  scalarReading(
+    'tuning.bledRungMemory.timesCleared',
+    (report) => report.tuning.bledRungMemory.timesCleared,
+  ),
+  scalarReading(
+    'tuning.bledRungMemory.growthShortOfClearing',
+    (report) => report.tuning.bledRungMemory.growthShortOfClearing,
+  ),
   namedNumbersReading(
     'tuning.engagements.engaged',
     (report) => report.tuning.engagements.engaged,
