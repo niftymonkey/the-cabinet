@@ -26,7 +26,7 @@ One block per slice, in run order. The launch preamble is the same for every sli
 
 **The membership question, resolved rather than left to a coder.** Ruling 1 states the rule: a magnitude is in the record when a batch reading can move it and it is neither a derivation nor a safety net. **The rule decides eligibility. What this step carries is the rows the first sweep actually names**, because threading every eligible magnitude through every reader is a different size of job entirely: `grave.ts` alone reads twelve tuning constants across twenty-four sites, `mobs.ts` eighteen, `corpses.ts` nine, and `src/game/__tests__/grave.test.ts` seventy-nine. A record row nothing reads is worse than no row, because a candidate could move it and nothing would change, so **slice 3 declares exactly the rows slices 4 and 5 wire, a fence test fails if a row has no reader, and the eligible-but-not-yet-carried magnitudes are listed in the progress note for the next round to add one commit at a time.** The rows this step carries, from the handoff's own first sweep list:
 
-- **The stage group** (slices 3 and 4): `PROCESSION_PURSE`, `CROWD_PURSE`, `VIGIL_PURSE` and `QUIET_INTERVAL_MINIMUM_SECONDS` in `src/game/stage/waves.ts`. The sweep list's own finding is that the purses are priced above what the quiet interval lets a section spend and the director takes three quarters of the Procession's empty ticks.
+- **The stage group** (slices 3 and 4): `PROCESSION_PURSE`, `CROWD_PURSE`, `VIGIL_PURSE` and `QUIET_INTERVAL_MINIMUM_SECONDS` in `src/game/stage/waves.ts`, **and the director's own maximum beside that minimum**, `stage.quietIntervalMaximumSeconds`, authored at 8, which is today's `QUIET_MAX_TICKS` in `src/game/director.ts` read in seconds. **The record holds both ends of the interval so that its own resolver can assert the minimum sits at or below the maximum without importing anything**, which is where that bound lives (slice 3) rather than in the candidate table: a table bound catches committed rows only, while a tape header replaying under its own values would otherwise reach `stream.nextInt` with a negative span. The sweep list's own finding is that the purses are priced above what the quiet interval lets a section spend and the director takes three quarters of the Procession's empty ticks.
 - **The score group** (slices 3 and 5): `TRASH_KILL_SCORE`, `SCORE_BLEED_CAP`, `SCORE_PER_BOSS_HEALTH`, `SOURCE_KILL_SCORE` and `MEAL_AT_MAXED_SCORE` in `src/game/tuning.ts`. **All five are annotated in their own JSDoc as first figures waiting on a batch**, and the last three landed on 2026-09-17 in step 5's slice 10, after ruling 1 was written, which is why the ruling names only the first two.
 
 **What is eligible and not carried**, named here so nobody discovers it as a gap: the rest of `tuning.ts`'s declared numbers, `MOB_TYPES` in `src/game/mobs.ts`, `BODY_COST` and `CARDS` in `waves.ts`, the section wave tables, and each line's level curve. The exclusions the rule makes are unchanged: `MOB_CAP`, `MOB_FIRE_CAP` and `CORPSE_CAP` are derivations, `SKULL_CAP` and `WISP_CAP` are safety nets by their own JSDoc, `TRASH_CORPSE_PAYOUT` and `RESERVOIR_CAPACITY` are derivations whose whole point is that the feast identity is true by construction, and the harness's hand rows are excluded because a moved hand row is a new configuration with a new name (`src/dev/configurations.ts`).
@@ -300,7 +300,7 @@ Slice 3 of the tuning-record step, and it is the draft's slice A unchanged. **To
 
 **Six rulings shape this slice and none of them is yours to revisit.**
 
-**First: the rows are exactly the nine named in this file's header, and you add none.** Ruling 1's rule decides eligibility; what this step carries is the rows the first sweep names. **The stage group: `PROCESSION_PURSE`, `CROWD_PURSE`, `VIGIL_PURSE`, `QUIET_INTERVAL_MINIMUM_SECONDS`, all in `src/game/stage/waves.ts`. The score group: `TRASH_KILL_SCORE`, `SCORE_BLEED_CAP`, `SCORE_PER_BOSS_HEALTH`, `SOURCE_KILL_SCORE`, `MEAL_AT_MAXED_SCORE`, all in `src/game/tuning.ts`.** A tenth row is a stop and report, however obviously eligible it looks: a row nothing reads is worse than no row, because a candidate could move it and nothing would change.
+**First: the rows are exactly the ten named in this file's header, and you add none.** Ruling 1's rule decides eligibility; what this step carries is the rows the first sweep names. **The stage group: `PROCESSION_PURSE`, `CROWD_PURSE`, `VIGIL_PURSE`, `QUIET_INTERVAL_MINIMUM_SECONDS`, all in `src/game/stage/waves.ts`, and `stage.quietIntervalMaximumSeconds`, whose value is `QUIET_MAX_TICKS` in `src/game/director.ts` read in seconds, 8. The score group: `TRASH_KILL_SCORE`, `SCORE_BLEED_CAP`, `SCORE_PER_BOSS_HEALTH`, `SOURCE_KILL_SCORE`, `MEAL_AT_MAXED_SCORE`, all in `src/game/tuning.ts`.** An eleventh row is a stop and report, however obviously eligible it looks: a row nothing reads is worse than no row, because a candidate could move it and nothing would change.
 
 **Second: grouped in the type, dotted on every text surface (ruling 2).** The record is one typed object nested by group, so each group's numbers sit beside their own JSDoc and the caps derivation reads one group. **The dotted path is the one addressable name a command line, a tape header, a report and a comparison all use, and it is derived from the nesting and never hand-maintained**: a function walks the record and answers its rows as name and value pairs. **The group names are `stage` and `score`**, which is ruling 2's own example form (`grave.sizeFloor`): the group is the concept that owns the number, which is the module where the module is the concept.
 
@@ -308,7 +308,7 @@ Slice 3 of the tuning-record step, and it is the draft's slice A unchanged. **To
 
 **Fourth: the record's module imports nothing and nobody imports it from inside the core.** `src/game/tuningRecord.ts` is the recommendation and the concept is the ruling. It is the `signalLock.ts` shape: a type and a resolver the sim, the header and playback can each own without any of them importing a consumer. **Readers take the record as an argument and never import it** because ruling 7's fence says the core reads tuning only off the run, and because the module importing nothing is what lets `tuning.ts` and `waves.ts` later read their defaults from it without a cycle. **`KNOWN_CORE_CYCLES` stays empty and you prove it by running the guard.**
 
-**Fifth: the resolver takes a partial and answers a complete record, and it refuses nothing.** `resolveTuning(partial)` fills every absent row from the default, group by group. **Parsing a raw name a person typed is the edge's job and not this module's** (slice 7), so this function's input is already typed: it is `Partial` over the record's own shape, and there is no such thing as an unknown row reaching it. **A `Partial` over a nested record needs a written overlay interface per group (for example `stage?: Partial<StageTuning>`), which you shape**, and never a `Type & { extra }` intersection. **Repair by origin is why**: values our own code produced are never repaired, because a bad one is a bug.
+**Fifth: the resolver takes a partial, answers a complete record, and asserts exactly one bound.** `resolveTuning(partial)` fills every absent row from the default, group by group, **then asserts that `stage.quietIntervalMinimumSeconds` sits at or below `stage.quietIntervalMaximumSeconds` and rejects a record failing it with both rows named.** Both ends are rows, so the assertion imports nothing, and **every record in the tree enters through here**, which is why the bound lives in the resolver rather than in slice 7's table: a table catches the rows somebody committed, while a tape header replaying under its own values would reach `stream.nextInt` with a negative span. **That is the whole of what the resolver refuses**, and a record our own code produced cannot fail it. **Parsing a raw name a person typed is the edge's job and not this module's** (slice 7), so this function's input is already typed: it is `Partial` over the record's own shape, and there is no such thing as an unknown row reaching it. **A `Partial` over a nested record needs a written overlay interface per group (for example `stage?: Partial<StageTuning>`), which you shape**, and never a `Type & { extra }` intersection. **Repair by origin is why**: values our own code produced are never repaired, because a bad one is a bug.
 
 **Sixth: no magnitude moves and `GOLDEN` is not re-pinned.** Nothing in this slice runs at all: no production code path reads the record. `digest.ts` is in neither commit.
 
@@ -319,14 +319,14 @@ Slice 3 of the tuning-record step, and it is the draft's slice A unchanged. **To
 3. `apps/hungry-grave/docs/push/drafts/step-5-tuning-record-draft.md`, **sections 2a rulings 1, 2 and 7, then section 3 and section 6's test sentences.**
 4. `apps/hungry-grave/CONTEXT.md`, the **Tuning record**, **Candidate** and **Starting condition** entries slice 1 wrote, and **Rig**, **Configuration**, **Reading** and **Batch** beside them. Your type's name and your rows' names are checked against those entries.
 5. **ADR 0064**, a tuning magnitude is a row of one record resolved at the shell, which is this slice's own decision. **Read it and name it in the note.** If it is not at your tip, that is a stop and report.
-6. The tree, by name and never by line: **`src/game/tuning.ts` whole**, 293 lines, and the five score constants' JSDoc above all, **because that JSDoc is where each row's annotation comes from and it is not rewritten from scratch**; `src/game/stage/waves.ts`'s `PROCESSION_PURSE`, `CROWD_PURSE`, `VIGIL_PURSE` and `QUIET_INTERVAL_MINIMUM_SECONDS` with their JSDoc, found by name; `src/game/signalLock.ts` **whole**, which is the module shape you copy; `src/game/caps.ts`'s imports and `peakLive`, **read and not edited**.
+6. The tree, by name and never by line: **`src/game/tuning.ts` whole**, 293 lines, and the five score constants' JSDoc above all, **because that JSDoc is where each row's annotation comes from and it is not rewritten from scratch**; `src/game/stage/waves.ts`'s `PROCESSION_PURSE`, `CROWD_PURSE`, `VIGIL_PURSE` and `QUIET_INTERVAL_MINIMUM_SECONDS` with their JSDoc, found by name; `src/game/director.ts`'s `QUIET_MIN_TICKS`, `QUIET_MAX_TICKS` and the draw between them, **read and not edited**; `src/game/signalLock.ts` **whole**, which is the module shape you copy; `src/game/caps.ts`'s imports and `peakLive`, **read and not edited**.
 7. The tests: `src/__tests__/boundary.test.ts`'s `BOUNDARIES` table and its core cycle guard, `src/game/__tests__/tuning.test.ts` **whole**, which is what a test over declared magnitudes looks like here, and `src/game/__tests__/digest.test.ts`, green and untouched.
 
 **Check the worktree is clean before your first edit and report what you find.** Anything uncommitted under `src/` is a stop and report.
 
 ### The definition, in observable terms
 
-After this slice the tree holds one typed record naming nine magnitudes in two groups, a resolved default, a resolver that completes a partial, and a function that answers the record's rows as dotted names and values. **A test asserts, row by row, that the default record equals the compiled constant it names**, so the claim that nothing moved is checkable rather than asserted. **Every row is a second spelling of its constant at this tip**, held equal by that test and nothing else, and the duplicate lives until the slice that retires the constants retires the test beside them. **Nothing reads the record**: the game plays exactly as it played, every constant is still exported and still read by everything that read it, and the record is a value the build compiles and nothing calls.
+After this slice the tree holds one typed record naming ten magnitudes in two groups, a resolved default, a resolver that completes a partial and asserts the quiet interval's own bound, and a function that answers the record's rows as dotted names and values. **A test asserts, row by row, that the default record equals the compiled constant it names**, so the claim that nothing moved is checkable rather than asserted. **Every row is a second spelling of its constant at this tip**, held equal by that test and nothing else, and the duplicate lives until the slice that retires the constants retires the test beside them. **Nothing reads the record**: the game plays exactly as it played, every constant is still exported and still read by everything that read it, and the record is a value the build compiles and nothing calls.
 
 **Nothing a player meets changes.** `WITNESS_VERSION` reads 11, `READINGS_VERSION` reads 9, `FORMAT_VERSION` reads 4, `GOLDEN` holds at `-2049717150` with `score: 200`, and `pnpm verify` is green.
 
@@ -336,26 +336,26 @@ After this slice the tree holds one typed record naming nine magnitudes in two g
 
 **(b) The tests first, red.** The value-identity tests before the default, the resolver's tests before the resolver, the dotted-name test before the walk. **A default written before the test that pins it to the constants is a default nobody checked.**
 
-**(c) The type**, two groups, nine rows, each row carrying a one-line JSDoc that says what the number is and, where its constant's own JSDoc says so, that it is a first figure and what it is read against. **The annotations are moved from the constants' JSDoc rather than invented**, and the constants keep theirs: slice 4 and slice 5 decide what happens to each one, and this slice moves no comment out of a file it is not otherwise editing.
+**(c) The type**, two groups, ten rows, each row carrying a one-line JSDoc that says what the number is and, where its constant's own JSDoc says so, that it is a first figure and what it is read against. **The annotations are moved from the constants' JSDoc rather than invented**, and the constants keep theirs: slice 4 and slice 5 decide what happens to each one, and this slice moves no comment out of a file it is not otherwise editing.
 
-**(d) The default and the resolver.** The default is the nine values as their constants state them, in the same multiplier form. The resolver completes a partial group by group.
+**(d) The default and the resolver.** The default is the ten values as their constants state them, in the same multiplier form, the quiet interval's maximum read off `QUIET_MAX_TICKS` in seconds. The resolver completes a partial group by group and asserts the interval's bound.
 
 **(e) The dotted rows.** One function, walking the record's own nesting, answering `stage.processionPurse` and the rest with their values. **Hand-maintained name lists are a stop.**
 
-**(f) The value-identity test, which is the slice's whole promise.** One assertion per row against the constant it names, importing both. **Nine assertions and no loop over a hand-written pairing**, because a loop over a list somebody typed proves the list and not the values.
+**(f) The value-identity test, which is the slice's whole promise.** One assertion per row against the constant it names, importing both; the tenth reads `QUIET_MAX_TICKS` off `director.ts` in seconds, which is the one row whose constant lives in neither `tuning.ts` nor `waves.ts`. **Ten assertions and no loop over a hand-written pairing**, because a loop over a list somebody typed proves the list and not the values.
 
 **(g) The fences.** Run every one by title and name them in the note, plus the core cycle guard with `KNOWN_CORE_CYCLES` still empty. **The new module imports nothing, guarded by a sibling of `boundary.test.ts`'s `the lock's module imports nothing`, named for the tuning record**; the `game` row's `mayImport: []` forbids package imports only and does not cover a sibling import.
 
-**(h) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the tuning record declares nine magnitudes and resolves to the values the build compiles (#142)`. Then the docs commit, carrying the progress note.
+**(h) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): the tuning record declares ten magnitudes and resolves to the values the build compiles (#142)`. Then the docs commit, carrying the progress note.
 
-**(i) The progress note**, section **8**. Beyond the contract's list, say: the module's final name and the type's; the nine rows with their dotted names and their default values; **the eligible magnitudes you did not carry, listed by name**, which is the next round's own work and is recorded here so nobody rediscovers it as a gap; anything in the draft or in this file you found false against the tree; and the four constants and `GOLDEN` all named as read off your own tip.
+**(i) The progress note**, section **8**. Beyond the contract's list, say: the module's final name and the type's; the ten rows with their dotted names and their default values; the resolver's bound and the words it rejects with; **the eligible magnitudes you did not carry, listed by name**, which is the next round's own work and is recorded here so nobody rediscovers it as a gap; anything in the draft or in this file you found false against the tree; and the four constants and `GOLDEN` all named as read off your own tip.
 
 **(j) Stop and report.** Under 250 words. **Do not start slice 4.** **This slice's tip is not a deploy.**
 
 ### What must not move, and a move is a stop
 
 - **`WITNESS_VERSION` 11, `READINGS_VERSION` 9, `FORMAT_VERSION` 4 and `GOLDEN` at `-2049717150`.** None moves and none of their four files is in either commit.
-- **Every constant this slice names.** `tuning.ts` and `waves.ts` keep every export, every value and every reader they have. **The only edit permitted in either file is none**, and if you believe one is needed, that is a stop and report.
+- **Every constant this slice names.** `tuning.ts`, `waves.ts` and `director.ts` keep every export, every value and every reader they have. **The only edit permitted in any of the three is none**, and if you believe one is needed, that is a stop and report.
 - **`createRun`, `RunState` and `StartingConditions`.** Slice 4 puts the record on them and you do not touch them at all.
 - **The caps.** Still module constants, still derived at import, still exported from `caps.ts` unchanged.
 - **Every existing invariant's meaning and severity, the fault identity list, `STREAM_SALTS` and `STREAM_ORDER`.**
@@ -378,8 +378,9 @@ After this slice the tree holds one typed record naming nine magnitudes in two g
 4. *A partial naming one group leaves the other group whole.*
 5. *The record's rows read as dotted names*, all nine, derived from the nesting.
 6. *The resolved record is complete*, so nothing downstream ever handles an absent row.
-7. **The fences**, green, each by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` still empty and the new sibling fence naming the record's own module.
-8. **The golden digest**, green and unmoved, with `digest.ts` in neither commit.
+7. *A record whose quiet-interval minimum sits above its maximum is rejected by the resolver*, both rows named in the rejection, and the default record passes the bound.
+8. **The fences**, green, each by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` still empty and the new sibling fence naming the record's own module.
+9. **The golden digest**, green and unmoved, with `digest.ts` in neither commit.
 
 **What this slice is expected to turn red.** Nothing at all, which is itself the claim to check. **A realistic count is 2 to 3 files.** Anything red anywhere is a reason to stop and read what you reached into, because a module nothing imports cannot change a behaviour.
 
@@ -401,7 +402,7 @@ After this slice the tree holds one typed record naming nine magnitudes in two g
 
 ### The stuck rule
 
-**Four things are already known to be a stop:** a tenth row; a row restating a product instead of its multiplier; any edit to `tuning.ts` or `waves.ts`; and the cycle guard gaining an entry. **And three things are ruled rather than open:** the nine rows, the two group names, and the record importing nothing. **A gate finding or a measurement arguing against any of them is filed in the note, never applied.** **Green tests plus wrong observed behaviour means the test plan has a hole: pin the wrongness as a new red test first, never patch first.**
+**Four things are already known to be a stop:** an eleventh row; a row restating a product instead of its multiplier; any edit to `tuning.ts`, `waves.ts` or `director.ts`; and the cycle guard gaining an entry. **And three things are ruled rather than open:** the ten rows, the two group names, and the record importing nothing. **A gate finding or a measurement arguing against any of them is filed in the note, never applied.** **Green tests plus wrong observed behaviour means the test plan has a hole: pin the wrongness as a new red test first, never patch first.**
 
 ### What is not your job
 
@@ -431,7 +432,7 @@ Slice 4 of the tuning-record step, and it is the harder half of the draft's slic
 
 **First: no value moves and `GOLDEN` is not re-pinned (ruling 3 and ruling 7).** The default record is value-identical to the constants, so every cap derives to exactly the number it is today and the golden's run is the same run. **`digest.ts` is in neither commit and a re-pin is a stop and report**, because a re-pin would mean a value moved.
 
-**Second: the record rides on the starting conditions.** `StartingConditions` gains one `tuning` field, **optional in the `Partial` a caller passes and required on the resolved record**, resolving to the default inside `createRun` the way every other field resolves (ADR 0027's own rule about a resolved value, applied to a starting condition). **`RunState` carries the resolved record as a readonly field and nothing writes it after the first tick.** **`src/game/__tests__/witness.test.ts`'s `fieldPaths` walks a live fixture, so every new `RunState` field, the `tuning` record's nine paths and the three caps, is listed in `EXCLUDED` with its reason on `signalLock`'s precedent; `WITNESS_VERSION` does not move because nothing folded changed.**
+**Second: the record rides on the starting conditions.** `StartingConditions` gains one `tuning` field, **optional in the `Partial` a caller passes and required on the resolved record**, resolving to the default inside `createRun` the way every other field resolves (ADR 0027's own rule about a resolved value, applied to a starting condition). **`RunState` carries the resolved record as a readonly field and nothing writes it after the first tick.** **`src/game/__tests__/witness.test.ts`'s `fieldPaths` walks a live fixture, so every new `RunState` field, the `tuning` record's ten paths and the three caps, is listed in `EXCLUDED` with its reason on `signalLock`'s precedent; `WITNESS_VERSION` does not move because nothing folded changed.**
 
 **Third: the caps become functions of the record and the run carries their answers.** `caps.ts`'s `MOB_CAP`, `MOB_FIRE_CAP` and `CORPSE_CAP` stop being constants and become named derivations taking the record: **all three read `stage.quietIntervalMinimumSeconds` through `directedInside`, the mob-fire cap through its revenant director term (`REVENANT_FIRE_PEAK` in `caps.ts`), so all three take the record.** `RunState` carries the three answers in one readonly group beside the pools, and **every reader that read a module constant reads the run's field.**
 
@@ -451,7 +452,7 @@ Slice 4 of the tuning-record step, and it is the harder half of the draft's slic
 2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`.
 3. `apps/hungry-grave/docs/push/drafts/step-5-tuning-record-draft.md`, **section 2 decision 3's second half and section 2a rulings 3 and 7 in full**, then section 5.
 4. **ADR 0056 as the orchestrator amended it for this step**, which is the record that makes the caps derivations of the content, **ADR 0064** for the tuning record carried on the run and **ADR 0063** for the starting condition it rides on. Read all three and name them in the note. **If any is missing at your tip, that is a stop and report.**
-5. `apps/hungry-grave/docs/push/step-6-progress.md`, **section 8**, which lists the nine rows slice 3 declared and their dotted names.
+5. `apps/hungry-grave/docs/push/step-6-progress.md`, **section 8**, which lists the ten rows slice 3 declared and their dotted names.
 6. The tree, by name and never by line: `src/game/caps.ts` **whole**, 323 lines, **and its two opening JSDoc paragraphs above all, which say what a cap is and is not and which are the voice your derivations' own JSDoc keeps**; `src/game/run.ts`'s `createRun`, `RunState` and `StartingConditions`; `src/game/stormTargets.ts`'s `SLOTS`, `LIVE`, `slotAt` and their JSDoc; `src/game/mobs.ts`'s `createMobPool`, `src/game/corpses.ts`'s pool builder and `src/game/mobFire.ts`'s; `src/game/invariants.ts`'s three `checkPool` calls; `src/app/screens/game/FieldRenderer.ts`'s pool fill and its per-frame comment; `src/app/screens/FrameBudgetScreen.ts`; `scripts/frameBudgetCaps.ts` **whole**, 60 lines, **including its JSDoc, which is the sentence that goes false**; `src/game/tuningRecord.ts`, slice 3's.
 7. The tests: `src/game/__tests__/caps.test.ts` **whole**, `src/game/__tests__/invariants.test.ts`, `src/game/__tests__/run.test.ts`, `src/__tests__/boundary.test.ts`'s `BOUNDARIES` table, its core cycle guard and **the cap derivation's own fence, which is where yours goes**, and `src/game/__tests__/digest.test.ts`, green and untouched.
 
@@ -570,7 +571,7 @@ After this slice a run carries the tuning record it started under and the three 
 
 Model: Opus, subagent type general-purpose. One coder, one code commit and one docs commit. Messages end in `(#142)`.
 
-Slice 5 of the tuning-record step, and it is the rest of the draft's slice B. Slice 4 put the record on the run and made the caps read it; **eight of the nine rows still have a compiled constant as their only reader.** This slice finishes the wiring: the three purses, the quiet interval's director reader and the five score rows each come off the run's own record, and **a fence then fails if any row ever has no reader at all.**
+Slice 5 of the tuning-record step, and it is the rest of the draft's slice B. Slice 4 put the record on the run and made the caps read it; **nine of the ten rows still have a compiled constant as their only reader.** This slice finishes the wiring: the three purses, the quiet interval's minimum and maximum in the director and the five score rows each come off the run's own record, and **a fence then fails if any row ever has no reader at all.**
 
 **The standing rules are in `docs/push/step-4-coder-contract.md`; read it first, and read the three overrides at the top of this file.** Everything below is what is specific to slice 5.
 
@@ -580,7 +581,7 @@ Slice 5 of the tuning-record step, and it is the rest of the draft's slice B. Sl
 
 **First: no value moves, no rule of the game moves, and `GOLDEN` is not re-pinned.** The default record equals every constant, so every payment, every purse grant and every quiet interval is the number it is today. **`director.purseLeft` is folded into the witness**, so a purse that moved would move the golden's checksum; it does not, and a re-pin is a stop and report.
 
-**Second: the readers are these and no others.** `src/game/grave.ts`'s bleed (`score.bleedCapInKills`), `src/game/mobs.ts`'s kill payment and the four `scorePayout` rows in `MOB_TYPES` (`score.trashKill`), `src/game/bosses/phases.ts`'s per-hit boss payment (`score.bossHealthPerKill`), `src/game/stage/setPiece.ts`'s source kill (`score.sourceKillInKills`), `src/game/swallow.ts`'s meal at a maxed ladder (`score.mealAtMaxedInKills`), `src/game/stage/stage.ts`'s purse grant (`stage.processionPurse`, `stage.crowdPurse`, `stage.vigilPurse`) and `src/game/director.ts`'s quiet interval (`stage.quietIntervalMinimumSeconds`). **A reader this list does not name is a stop and report**, not a quiet extra edit.
+**Second: the readers are these and no others.** `src/game/grave.ts`'s bleed (`score.bleedCapInKills`), `src/game/mobs.ts`'s kill payment and the four `scorePayout` rows in `MOB_TYPES` (`score.trashKill`), `src/game/bosses/phases.ts`'s per-hit boss payment (`score.bossHealthPerKill`), `src/game/stage/setPiece.ts`'s source kill (`score.sourceKillInKills`), `src/game/swallow.ts`'s meal at a maxed ladder (`score.mealAtMaxedInKills`), `src/game/stage/stage.ts`'s purse grant (`stage.processionPurse`, `stage.crowdPurse`, `stage.vigilPurse`) and `src/game/director.ts`'s quiet interval, both ends of it (`stage.quietIntervalMinimumSeconds` and `stage.quietIntervalMaximumSeconds`). **A reader this list does not name is a stop and report**, not a quiet extra edit.
 
 **Third: `MOB_TYPES` is the delicate one and its rows stay in its own file.** The four `scorePayout` figures are stated as multiples of `TRASH_KILL_SCORE` and the table is a mob type's own stats, which `tuning.ts`'s own opening comment says is deliberately not this file's business. **`MOB_TYPES` is eligible for the record and is not carried in this step** (this file's header says so), so the table keeps its four rows and their multipliers where they are; what changes is how a row spells its multiplier and that the multiplier is applied against the run's kill unit rather than the module's. **The seam is where a kill pays**, not where the table is declared: `payKill` reads the run's record and the row's multiplier. **The four rows restate as bare multiples of the kill unit, `scorePayoutInKills` 1, 8, 2, 1, and the kill pays `row.scorePayoutInKills * tuning.score.trashKill`; the products do not move, so this is a spelling change and not a table change.**
 
@@ -598,7 +599,7 @@ Slice 5 of the tuning-record step, and it is the rest of the draft's slice B. Sl
 2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`. **"Parse at the edge" and "the interface is the test surface" both bind this slice directly.**
 3. `apps/hungry-grave/docs/push/drafts/step-5-tuning-record-draft.md`, **sections 2a rulings 1, 2 and 3, then section 5 and section 6's test sentences.**
 4. **ADR 0064**, a tuning magnitude is a row of one record resolved at the shell, and **ADR 0056 as amended**, for the purse and the quiet interval. Read both and name both in the note.
-5. `apps/hungry-grave/docs/push/step-6-progress.md`, **sections 8 and 9**: the nine rows and their dotted names, and what slice 4 left you.
+5. `apps/hungry-grave/docs/push/step-6-progress.md`, **sections 8 and 9**: the ten rows and their dotted names, and what slice 4 left you.
 6. The tree, by name and never by line: `src/game/tuning.ts`'s five score constants **and their JSDoc whole**, which is where each row's annotation already lives; `src/game/grave.ts`'s bleed; `src/game/mobs.ts`'s `MOB_TYPES` and the kill payment; `src/game/bosses/phases.ts`'s per-hit payment; `src/game/stage/setPiece.ts`'s source kill; `src/game/swallow.ts`'s meal payment; `src/game/stage/stage.ts`'s `SECTIONS`, `Section`, `directorGranted` and `grantPurse`; `src/game/director.ts`'s quiet interval; `src/game/stage/waves.ts`'s three purses and the quiet interval with their JSDoc; `src/game/witness.ts` where `director.purseLeft` folds, **read and not edited**; `src/dev/rigs.ts`, whose ladder row moves to the default record.
 7. The tests: `src/game/__tests__/grave.test.ts`'s ladder and bleed blocks, `src/game/__tests__/scorePayments.test.ts` **whole**, `src/game/__tests__/mobs.test.ts`, `src/game/__tests__/director.test.ts`, `src/game/__tests__/swallow.test.ts`, `src/__tests__/boundary.test.ts`'s `BOUNDARIES`, the cap fences and the core cycle guard, and `src/game/__tests__/digest.test.ts`, green and untouched.
 
@@ -606,7 +607,7 @@ Slice 5 of the tuning-record step, and it is the rest of the draft's slice B. Sl
 
 ### The definition, in observable terms
 
-After this slice every one of the nine rows has a reader, and a run started under a record that moves a row plays differently in the way that row predicts: **a smaller Procession purse leaves the director less to spend and the section runs at its authored floor sooner; a larger bleed cap takes more of the score on a floor hit; a larger kill unit pays more per body and moves every multiple with it.** A run started under no record plays exactly the run it plays today, which is the same claim slices 2, 3 and 4 made and is checked the same way. **No constant this step admits is read by two spellings**, and a row with no reader fails a fence.
+After this slice every one of the ten rows has a reader, and a run started under a record that moves a row plays differently in the way that row predicts: **a smaller Procession purse leaves the director less to spend and the section runs at its authored floor sooner; a larger bleed cap takes more of the score on a floor hit; a larger kill unit pays more per body and moves every multiple with it.** A run started under no record plays exactly the run it plays today, which is the same claim slices 2, 3 and 4 made and is checked the same way. **No constant this step admits is read by two spellings**, and a row with no reader fails a fence.
 
 **Nothing a player meets changes.** The same seed plays the same run, `GOLDEN` holds at `-2049717150` with `score: 200`, `WITNESS_VERSION` reads 11, `READINGS_VERSION` reads 9, `FORMAT_VERSION` reads 4, and a batch on twelve seeds runs the identical event sequence.
 
@@ -620,7 +621,7 @@ After this slice every one of the nine rows has a reader, and a run started unde
 
 **(d) The purse.** The record's stage group at the grant, `Section.purse` restated as the row it names, `SECTIONS`' five outside importers checked and reported.
 
-**(e) The quiet interval's director reader**, off the run's record: `QUIET_MIN_TICKS` becomes a function of the record and `QUIET_MAX_TICKS` stays authored at 8 s in `director.ts`.
+**(e) The quiet interval's two director readers**, both off the run's record: `QUIET_MIN_TICKS` and `QUIET_MAX_TICKS` each become a function of the record, the maximum off `stage.quietIntervalMaximumSeconds` rather than the 8 s authored in `director.ts`, so the draw's span is the run's own and the resolver's bound is what keeps it positive.
 
 **(f) The constants.** Delete the ones nothing reads any more, keep the ones something outside the core still does, and say which is which and why.
 
@@ -652,7 +653,7 @@ After this slice every one of the nine rows has a reader, and a run started unde
 
 ### Seams under test
 
-`src/game/grave.ts`: a floor hit bleeding the run's own cap. `src/game/mobs.ts`: a kill paying the run's own unit times the row's multiple. `src/game/bosses/phases.ts`: a hit on a boss paying the run's own rate. `src/game/stage/setPiece.ts`: the source's kill paying the run's own bonus. `src/game/swallow.ts`: a rich meal at a maxed ladder paying the run's own row. `src/game/stage/stage.ts`: a section's grant taking the run's own purse, and a section with none granting nothing. `src/game/director.ts`: the quiet interval drawn against the run's own floor. **The new guard**: every row of the record has a reader.
+`src/game/grave.ts`: a floor hit bleeding the run's own cap. `src/game/mobs.ts`: a kill paying the run's own unit times the row's multiple. `src/game/bosses/phases.ts`: a hit on a boss paying the run's own rate. `src/game/stage/setPiece.ts`: the source's kill paying the run's own bonus. `src/game/swallow.ts`: a rich meal at a maxed ladder paying the run's own row. `src/game/stage/stage.ts`: a section's grant taking the run's own purse, and a section with none granting nothing. `src/game/director.ts`: the quiet interval drawn between the run's own floor and its own ceiling. **The new guard**: every row of the record has a reader.
 
 ### Module boundaries
 
@@ -667,7 +668,7 @@ After this slice every one of the nine rows has a reader, and a run started unde
 5. *A rich meal taken at a maxed ladder pays the row the run started under.*
 6. *A section grants the purse the run started under*, per section, all three.
 7. *A section with no purse still grants nothing*, which is ADR 0056's rule and is the case a record keyed by section name could most easily break.
-8. *The director's quiet interval is drawn against the floor the run started under.*
+8. *The director's quiet interval is drawn between the floor and the ceiling the run started under*, both off its record.
 9. *A run started under no record plays the run it plays today*, asserted where it is cheapest to assert: the same seed, the same witness at every checkpoint.
 10. **The new guard**: *every row of the tuning record has a reader*, by that title.
 11. **The fences**, every existing one green by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` still empty.
@@ -727,7 +728,7 @@ Slice 6 of the tuning-record step, and it is the draft's slice C. **ADR 0056 nam
 
 **Second: the block is the recorded form of the record and never the record's own type.** `TapeHeader`'s roster is `readonly string[]` and its levels are `Record<string, number>` **precisely because the whole point is to hold what the tape said even when this build does not implement it** (ADR 0043). **The block keeps that**: names are strings and values are numbers, the set is open, and **the resolve step is the one place that asks whether this build implements what is written**, which is exactly what `resolveStartingLevels` already is and is the model your own resolve copies. **A block decoded straight into the typed record is the mistake ADR 0043 was written against.**
 
-**Third: the refusal is precise and it is built, in these words.** A tape whose block names a row this build's record does not have, or **lacks one this build requires**, is **readable and reportable in the tape's own vocabulary and is not replayable here**. A tape whose names all match **replays under the tape's own values, whatever this build's defaults are**, which is the point of carrying values at all. **The refusal is a named outcome beside the roster's own**, not a divergence discovered at a checkpoint, which is ADR 0019's rule: a replay that cannot prove it is the original run reports nothing rather than reporting wrongly. **`readHeader`'s `holdableSignal` rejection (`src/tape/records.ts`) moves into the resolve rather than being lost**: a lock this build cannot hold is refused in the same shape and never dropped quietly.
+**Third: the refusal is precise and it is built, in these words.** A tape whose block names a row this build's record does not have, or **lacks one this build requires**, is **readable and reportable in the tape's own vocabulary and is not replayable here**. **A block whose quiet-interval minimum sits above its own maximum is refused the same way**, because the resolver slice 3 wrote rejects that record and a tape is a document: it is read, reported in the tape's words, and not replayed. A tape whose names all match **replays under the tape's own values, whatever this build's defaults are**, which is the point of carrying values at all. **The refusal is a named outcome beside the roster's own**, not a divergence discovered at a checkpoint, which is ADR 0019's rule: a replay that cannot prove it is the original run reports nothing rather than reporting wrongly. **`readHeader`'s `holdableSignal` rejection (`src/tape/records.ts`) moves into the resolve rather than being lost**: a lock this build cannot hold is refused in the same shape and never dropped quietly.
 
 **Fourth: `FORMAT_VERSION` moves 4 to 5 in this commit and in no other, and every new field is declared in the same commit.** That is the witness-version lesson in its own shape: **stamp the version in the slice that changes the layout, because a version stamped before the layout stops moving names several layouts.** `wireCodes.ts`'s own JSDoc above the constant carries a dated paragraph per bump, and yours says what the block is, why the bump is one rather than two, and that **every format 4 tape is refused outright at the decode from here**.
 
@@ -796,7 +797,7 @@ After this slice a tape says on its own header what it was played under: its see
 - **Every rule of the game and every magnitude.** This slice records what a run started under; it changes nothing a run does.
 - **Every existing header field that is not one of the four replaced.** The tick rate, the checkpoint spacing, the witness version, the commit hash, the build identity, the author, the input device, the policy, the keyboard speed, the three renderer fields and `recordedAt` all keep their meaning, and the policy stays a name string and never a code byte (ADR 0043).
 - **Every existing fault identity's wire number and every existing code map's entries.** The maps are append-only and read by name.
-- **The three caps, their derivations and the record's nine rows.** Slices 4 and 5 own them.
+- **The three caps, their derivations and the record's ten rows.** Slices 4 and 5 own them.
 - **The fences**, every one by title, including the one that says the tape codec parses a header without the director, plus the core's cycle guard with `KNOWN_CORE_CYCLES` empty. **`src/tape` still reaches only `tape` and `game`**, and never `src/dev`.
 - **No test is deleted, skipped, weakened or rewritten to reach green.** A test asserting a header field asserts the block's row instead; its promise does not move.
 
@@ -816,12 +817,13 @@ After this slice a tape says on its own header what it was played under: its see
 4. *A tape naming a tuning row this build does not have is readable and reportable in its own vocabulary*, its header returned as recorded.
 5. *The same tape is refused for replay with the reason named*, and never diverges at a checkpoint instead.
 6. *A tape missing a row this build requires is refused the same way.*
-7. *A format 4 tape is refused outright at the decode.*
-8. *A tape recorded on the ladder rig replays and verifies*, which is the filed gap closing.
-9. *A tape recorded on a rig bands to that rig*, `rigOf` answering off the rig's own size, levels and score.
-10. *Every rig row's starting condition is still unique* under the widened key of those three.
-11. **The fences**, every one green by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` still empty.
-12. **The golden digest**, green and unmoved, with `digest.ts` in neither commit.
+7. *A tape whose quiet-interval minimum sits above its maximum is refused the same way*, the resolver's bound reported in the tape's own words.
+8. *A format 4 tape is refused outright at the decode.*
+9. *A tape recorded on the ladder rig replays and verifies*, which is the filed gap closing.
+10. *A tape recorded on a rig bands to that rig*, `rigOf` answering off the rig's own size, levels and score.
+11. *Every rig row's starting condition is still unique* under the widened key of those three.
+12. **The fences**, every one green by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` still empty.
+13. **The golden digest**, green and unmoved, with `digest.ts` in neither commit.
 
 **What this slice is expected to turn red.** Every test with a hand-built header and every fixture tape in the tree. **A realistic count is 10 to 16 files.** **A fixture tape that cannot be re-recorded is a stop and report, not a test you weaken**: it is evidence of the cost, and the cost is stated rather than paid quietly.
 
@@ -874,15 +876,15 @@ Slice 7 of the tuning-record step, and it is the draft's slice D. The record is 
 
 **First: a candidate is committed data with a name (ruling 4).** The name is what a batch folder and a report carry, so **the build Mark plays and the batch a finding came from name the same thing.** A candidate with no name cannot be compared by name, and the batch folder is already `<configuration>-<rig>-<recordedAt>`.
 
-**Second: the table is `src/dev/tuningCandidates.ts` on the `rigs.ts` model, and it carries at least two rows that differ in exactly one row of the record.** `rigs.ts` is the shape whole: a `const` tuple of names, a name type over it, a row interface, the rows keyed by name, a raw-name guard at the edge, and a function answering which row a record is. **One row is `default`**, whose record is the resolved default, so a batch always names a candidate and a folder always says which. **The other moves one row and it is the one number you pick in this slice**; see ruling five. **A candidate that moves `stage.quietIntervalMinimumSeconds` bounds it below `QUIET_MAX_TICKS`, which stays authored at 8 s in `director.ts`**, and the table asserts that bound the way `rigs.ts`' own edge guard asserts a rig row.
+**Second: the table is `src/dev/tuningCandidates.ts` on the `rigs.ts` model, and it carries at least two rows that differ in exactly one row of the record.** `rigs.ts` is the shape whole: a `const` tuple of names, a name type over it, a row interface, the rows keyed by name, a raw-name guard at the edge, and a function answering which row a record is. **One row is `default`**, whose record is the resolved default, so a batch always names a candidate and a folder always says which, **which is the one way the bare command's folder is not today's**: it differs from today's only by the `default` segment, on the terms `birthright` is written when no `rig=` is named. **The other moves one row and it is the one number you pick in this slice**; see ruling five. **A candidate that moves `stage.quietIntervalMinimumSeconds` keeps it at or below `stage.quietIntervalMaximumSeconds`, which is a row of the record itself and authored at 8 s**, and **the resolver slice 3 wrote is what asserts that bound**, because every record enters through it; the table asserts nothing of its own.
 
 **Third: the number you pick is a data row, annotated, and named as open.** The sweep's own first finding is that **the purses are priced above what the quiet interval lets a section spend, and the director takes three quarters of the Procession's empty ticks** (handoff, tuning-step inputs). **So the second candidate moves `stage.processionPurse` and nothing else.** Its figure is **stated against the quiet interval rather than picked**, which is what makes the candidate readable: the interval bounds how many adds a section's length allows, and a purse above what those adds can cost is a purse the section cannot spend. **Annotate it as a first figure, say what you set it against, name what would move it, and name it in the note as open.** A bare number with no annotation is a stop, and a number typed into a test rather than read from the row is a stop.
 
-**Fourth: nothing changes when no candidate is named.** `batch.ts` without the argument plays exactly the batch it plays today, folder name included; a build opened without `?tuning=` plays exactly the run it plays today. **That is the test that proves the surface right**, and a diff that changes either is a stop and report.
+**Fourth: nothing changes when no candidate is named.** `batch.ts` without the argument plays exactly the batch it plays today, **and its folder differs from today's only by the `default` segment, on the terms `birthright` is written when no `rig=` is named**; a build opened without `?tuning=` plays exactly the run it plays today. **That is the test that proves the surface right**, and a diff that changes either is a stop and report.
 
 **Fifth: the URL parser repairs and warns, and it builds no gate.** Every parser in `seedFromUrl.ts` repairs an unusable value to a safe one and warns once, and `?tuning=` does the same: **an unknown name warns and the run plays under the default.** ADR 0022 says instrumentation controls are gated at build time, and **`?levels=` and `?signal=` carry that as a JSDoc sentence and no gate exists in the tree**: `import.meta.env.DEV` gates only the broken-invariant handler. **So you build no gate and you claim none.** Your parser carries the same ADR 0022 sentence the other two carry, and **if you believe a real gate is needed, that is a finding for the note, never a gate you build here.**
 
-**Sixth: `batch.ts`'s `main` is at the line rule's edge and the argument does not go in on top.** It already carries six refusal paths and reads as a list. **The argument parsing comes out into a named function answering one record of what the command line asked for**, which is the forty-line rule applied where it bites, and the keyed-argument shape is `parseRig`'s, which `record-conditioned.ts` copied already.
+**Sixth: `batch.ts`'s `main` is at the line rule's edge and the argument does not go in on top.** It already carries eight exit paths over five `refuse(` calls and reads as a list. **The argument parsing comes out into a named function answering one record of what the command line asked for**, which is the forty-line rule applied where it bites, and the keyed-argument shape is `parseRig`'s, which `record-conditioned.ts` copied already.
 
 **Seventh: the folder says which candidate.** `folderFor` gains it, on the same terms the rig is in there: **a figure names its starting condition, and a candidate is a starting condition on exactly the terms a rig is** (#107, ADR 0053, and the `Candidate` glossary entry slice 1 wrote).
 
@@ -894,7 +896,7 @@ Slice 7 of the tuning-record step, and it is the draft's slice D. The record is 
 4. `apps/hungry-grave/docs/push/handoff.md`, **the "Tuning-step inputs, its first sweep list" bullets**, which are what the candidates exist to answer and where your one number's reasoning starts, and **`docs/adr/0022-*`** for what a build-time gate is and is not.
 5. `apps/hungry-grave/CONTEXT.md`, the **Candidate**, **Tuning record**, **Rig** and **Batch** entries. Your names are checked against them.
 6. `apps/hungry-grave/docs/push/step-6-progress.md`, **sections 8, 10 and 11**: the rows and their dotted names, the readers and the directions they predict, and the header.
-7. The tree, by name and never by line: `src/dev/rigs.ts` **whole**, 123 lines, **which is the file your table copies in structure, in JSDoc voice and in edge guard**; `src/dev/configurations.ts`'s opening JSDoc, for why a row is written out rather than computed; `src/app/seedFromUrl.ts` **whole**, 190 lines, for the five parsers and the repair-and-warn shape; `src/app/screens/game/runSession.ts`'s `begin`, which assembles them; `scripts/batch.ts` **whole**, 367 lines, and `parseRig`, `folderFor` and `main` above all; `scripts/record-conditioned.ts`'s keyed arguments and its usage line; `src/game/tuningRecord.ts`, slice 3's, and its resolver.
+7. The tree, by name and never by line: `src/dev/rigs.ts` **whole**, 123 lines, **which is the file your table copies in structure, in JSDoc voice and in edge guard**; `src/dev/configurations.ts`'s opening JSDoc, for why a row is written out rather than computed; `src/app/seedFromUrl.ts` **whole**, 190 lines, for the six parsers and the repair-and-warn shape; `src/app/screens/game/runSession.ts`'s `begin`, which assembles them; `scripts/batch.ts` **whole**, 367 lines, and `parseRig`, `folderFor` and `main` above all; `scripts/record-conditioned.ts`'s keyed arguments and its usage line; `src/game/tuningRecord.ts`, slice 3's, and its resolver.
 8. The tests: `src/dev/__tests__/rigs.test.ts` **whole**, `src/app/__tests__/seedFromUrl.test.ts` **whole**, and `src/__tests__/boundary.test.ts`'s `BOUNDARIES` table, **because the app reaching `src/dev` for the table is a thing to confirm by running the fence rather than by trusting this sentence.**
 
 **Check the worktree is clean before your first edit and report what you find.** Anything uncommitted under `src/` is a stop and report.
@@ -919,7 +921,7 @@ After this slice **one command plays a batch under a named tuning candidate: the
 
 **(e) `batch.ts`.** The keyed argument, the parsing extracted into its own named function, `folderFor` carrying the candidate, and the usage line. **Every existing refusal keeps its wording.**
 
-**(f) The URL.** `tuningFromUrl` in `seedFromUrl.ts` beside its four siblings, repairing to the default and warning once with the ADR 0022 sentence in its JSDoc; `runSession.ts`'s `begin` passing the resolved record into the starting conditions.
+**(f) The URL.** `tuningFromUrl` in `seedFromUrl.ts` beside its five siblings, repairing to the default and warning once with the ADR 0022 sentence in its JSDoc; `runSession.ts`'s `begin` passing the resolved record into the starting conditions.
 
 **(g) The measurements this slice owes.**
 
@@ -931,17 +933,17 @@ After this slice **one command plays a batch under a named tuning candidate: the
 
 **(h) CodeRabbit CLI, one iteration, then the code commit.** Something in the shape of `feat(hungry-grave): a batch and a build play under a named tuning candidate (#142)`. Then the docs commit, carrying the progress note.
 
-**(i) The progress note**, section **12**. Beyond the contract's list, say: the table's rows and the one number with its annotation and what would move it; the two surfaces and their exact warning wording; the argument parsing extracted and why; the folder's new name shape; **that no build-time gate exists for `?levels=`, `?signal=` or `?tuning=` and that you built none**, which corrects the draft's own sentence about ADR 0022 covering a new parser for free; the two batches and the tape; and the four constants and `GOLDEN` named as read off your own tip.
+**(i) The progress note**, section **12**. Beyond the contract's list, say: the table's rows and the one number with its annotation and what would move it; the two surfaces and their exact warning wording; **that a deployed `?tuning=<name>` and a batch share a row only at one commit**, because the folder carries the hash and the URL does not, and the tape header carrying values is what keeps the tape honest; the argument parsing extracted and why; the folder's new name shape; **that no build-time gate exists for `?levels=`, `?signal=` or `?tuning=` and that you built none**, which corrects the draft's own sentence about ADR 0022 covering a new parser for free; the two batches and the tape; and the four constants and `GOLDEN` named as read off your own tip.
 
 **(j) Stop and report.** Under 250 words. **Do not start slice 8.**
 
 ### What must not move, and a move is a stop
 
 - **All four constants.** `WITNESS_VERSION` 11, `READINGS_VERSION` 9, `FORMAT_VERSION` 5 and `GOLDEN` at `-2049717150`. **`FORMAT_VERSION`'s move was slice 6's and the step has no second one.**
-- **What a run does when no candidate is named**, on both surfaces, byte for byte on the same seed and commit.
+- **What a run does when no candidate is named**, on both surfaces, byte for byte on the same seed and commit. **The folder's new `default` segment is the one difference and it is in the name and never in the run.**
 - **Every existing refusal and warning in `batch.ts`, `compare-batches.ts` and `record-conditioned.ts`**, wording included.
-- **The five existing URL parsers**, their repairs and their warnings.
-- **The record's nine rows and their readers.** You name a record; you do not add a row or move a reader.
+- **The six existing URL parsers**, `seed`, `size`, `levels`, `signal`, `tape` and `at`, their repairs and their warnings.
+- **The record's ten rows and their readers.** You name a record; you do not add a row or move a reader.
 - **`RIGS`, `RIG_NAMES` and `rigOf`.** A candidate is a second starting condition beside a rig and never a replacement for one.
 - **Every existing invariant's meaning and severity, the fault identity list, `STREAM_SALTS` and `STREAM_ORDER`.**
 - **The fences**, every one by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` empty.
@@ -957,11 +959,11 @@ After this slice **one command plays a batch under a named tuning candidate: the
 
 ### The planned test list
 
-1. *Every candidate row's record is complete*, resolved through the resolver, so no row can be half a record.
+1. *Every candidate row's record is complete*, resolved through the resolver, so no row can be half a record and every committed row is proved against the resolver's quiet-interval bound.
 2. *The `default` row is the resolved default*, asserted against it rather than restated.
 3. *The moved row differs from the default in exactly one row*, which is what slice 8's comparison needs and is the assertion that keeps it true.
 4. *A raw name that is not a row is refused at the edge*, and never reaches the core.
-5. *A batch with no candidate argument plays what it plays today*, folder name included.
+5. *A batch with no candidate argument plays what it plays today*, and its folder differs from today's only by the `default` segment, on the terms `birthright` is written when no `rig=` is named.
 6. *A batch under a named candidate writes a folder naming it*, and its runs start under that record.
 7. *`?tuning=` names a candidate and the run starts under it*, read off the run.
 8. *`?tuning=` with an unknown name warns once and the run plays the default*, the warning's text asserted.
@@ -1022,7 +1024,7 @@ Slice 8 of the tuning-record step, and it is the draft's slice E. Everything the
 
 **First: `scripts/sweep.ts`, a new shell beside `batch.ts` and `compare-batches.ts` (ruling 9).** `compare-batches.ts` is already a second shell over the same `src/dev` modules, which is the precedent. **A mode of `batch.ts` is refused** and **a loop the agent writes each time is refused**: the done line says one command, and a loop written fresh each time is a loop written wrong once.
 
-**Second: the identity is carried and reported and never refuses (ruling 8).** `compareBatches` refuses on exactly three mismatches today, `readingsVersion`, `configuration` and `rig`, while `BatchIdentity`'s commit hashes are carried and never enforced. **A fourth refusing mismatch on the tuning would refuse what the step exists to do**, because comparing two tunings is the step's central command. **So `BatchIdentity` gains the candidate's name and the record's values on the commit-hash precedent**, and **when two reports differ, the comparison prints the differing rows first, then the readings.**
+**Second: the identity is carried and reported and never refuses (ruling 8).** `compareBatches` refuses on exactly three mismatches today, `readingsVersion`, `configuration` and `rig`, while `BatchIdentity`'s commit hashes are **carried and not refused by `compareBatches`, though `readAcrossCorners` reads them as `leftBuild` and `rightBuild`**. **A fourth refusing mismatch on the tuning would refuse what the step exists to do**, because comparing two tunings is the step's central command. **So `BatchIdentity` gains the candidate's name and the record's values on that precedent**, and **on the same precedent the corner read gains a `tuning` mismatch when the two corners compared different candidate pairs, while `compareBatches` itself refuses nothing.** **When two reports differ, the comparison prints the differing rows first, then the readings.**
 
 **Third: `READINGS_VERSION` does not move.** No existing reading changes meaning and no reading is added: an identity is not a reading, which is ADR 0062's own distinction, and the guard `comparisonDeclared.test.ts` is the fence that holds it. **A readings move here is a stop and report before it is written.**
 
@@ -1037,7 +1039,7 @@ Slice 8 of the tuning-record step, and it is the draft's slice E. Everything the
 1. `docs/agents/feature-playbook.md` at the repo root. Read it and follow it. **The six dispatch contract items are the sections below.**
 2. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`, plus `docs/agents/code-examples.md`, `docs/agents/lessons.md` and `apps/hungry-grave/docs/lessons.md`. **"An entry point is small named functions plus an orchestrator that sequences them in the order a reader would tell the story, with exactly one call at module end" is this slice's whole rule**, and `main().catch(...)` and never an IIFE is its TypeScript form.
 3. `apps/hungry-grave/docs/push/drafts/step-5-tuning-record-draft.md`, **sections 1, 2 decisions 8 and 9, section 2a rulings 8, 9 and 10, and section 6 whole.** Section 1's done line is what you are finishing.
-4. **ADR 0053** for what a batch and a configuration are, **ADR 0062** for a reading's meaning being declared, and **ADR 0043** for why a report that cannot say which tuning it read cannot support a finding.
+4. **ADR 0053** for what a batch and a configuration are and for why a report that cannot say which tuning it read cannot support a finding, and **ADR 0062** for a reading's meaning being declared.
 5. `apps/hungry-grave/docs/push/step-6-progress.md`, **sections 8 and 12**: the rows and the candidate table.
 6. `apps/hungry-grave/CONTEXT.md`, **Batch**, **Candidate**, **Tuning record**, **Reading** and **Rig**, and **the `Batch` amendment slice 1 wrote saying what a sweep is**, which is the sentence your command has to be true to.
 7. The tree, by name and never by line: `scripts/batch.ts` **whole**, 367 lines, **and `main`, `folderFor` and `playInto` above all, which is the shell shape your own copies**; `scripts/compare-batches.ts` **whole**, 204 lines, **which is the precedent for a second shell over the same seams**, its usage line and its refusals included; `src/dev/batchReport.ts`'s `BatchIdentity`, `BatchOrigin`, `BatchReport` and `batchReportOf`, found by name; `src/dev/compareBatches.ts`'s `mismatchesBetween`, `Mismatch` and the corner comparison beside it; `src/dev/compareRuns.ts`'s `READING_COMPARISONS`, **read and not extended**; `src/dev/tuningCandidates.ts`, slice 7's.
@@ -1057,11 +1059,11 @@ After this slice **one command plays a list of candidates, each as an ordinary b
 
 **(b) The tests first, red.** The identity's round trip and the comparison's ordering before either, and the sweep's own seam before the shell.
 
-**(c) `BatchIdentity`'s two new facts**, the candidate's name and the record's rows, written by `batchReportOf` off the runs the way the rigs and the commit hashes already are. **A report that cannot say which tuning it read cannot support ADR 0053's sentence**, which is the reason and belongs in the JSDoc.
+**(c) `BatchIdentity`'s two new facts**, the candidate's name and the record's rows, written by `batchReportOf` off the runs the way the rigs and the commit hashes already are. **A report that cannot say which tuning it read cannot support ADR 0053's sentence**, which is the reason and belongs in the JSDoc. **`candidates` is a set of names on the `rigs` precedent; `tuning` is the one record the folder's runs share, and a folder whose runs carry differing records reports `tuning: null` and the comparison prints no rows for it.**
 
-**(d) The comparison.** No fourth refusing mismatch. When the two records differ, **the differing rows print first, by dotted name, with both values**, then the readings as they print today. **`compare-batches.ts`'s existing refusals and their wording do not move.**
+**(d) The comparison.** No fourth refusing mismatch in `compareBatches`. When the two records differ, **the differing rows print first, by dotted name, with both values**, then the readings as they print today. **`readAcrossCorners` gains its `tuning` mismatch** on the build-hash precedent ruling two names. **`isBatchReport` requires the two new identity fields and its one refusal sentence names them; every other refusal in `compare-batches.ts` keeps its wording.** Its own JSDoc already says a report from an earlier build is a document rejected rather than read until it dies inside the comparison, so **the stale parenthesis naming the rigs and the per-run samples goes** and the sentence names what this build requires instead.
 
-**(e) `scripts/sweep.ts`.** Small named functions and one orchestrator sequencing them in the order a reader would tell the story, ending in exactly one call. It plays each named candidate as an ordinary batch through the same `src/dev` seams `batch.ts` uses, then prints the comparison across them. **Its usage line is in the shape `batch.ts`'s and `compare-batches.ts`'s are**, and **every refusal path says its reason out loud** the way theirs do.
+**(e) `scripts/sweep.ts`.** Small named functions and one orchestrator sequencing them in the order a reader would tell the story, ending in exactly one call. It plays each named candidate as an ordinary batch through the same `src/dev` seams `batch.ts` uses, then prints the comparison across them. **The sweep takes `batch.ts`'s own arguments, one configuration, a first seed, an optional count, out-root and `rig=`, plus `tuning=<a>,<b>,...`; it plays one batch per name in that order and prints one `compareBatches` of each later candidate against the first; the two-corner read across hands is the first real sweep's and not this slice's.** **Its usage line is in the shape `batch.ts`'s and `compare-batches.ts`'s are**, and **every refusal path says its reason out loud** the way theirs do.
 
 **(f) The measurements this slice owes.**
 
@@ -1081,16 +1083,17 @@ After this slice **one command plays a list of candidates, each as an ordinary b
 
 - **All four constants.** `WITNESS_VERSION` 11, `READINGS_VERSION` 9, `FORMAT_VERSION` 5 and `GOLDEN` at `-2049717150`. **`READINGS_VERSION` is the one you will be tempted by, because the report gains fields**; an identity is not a reading and the version does not move.
 - **`READING_COMPARISONS`.** No reading is added, removed or redefined, and **`comparisonDeclared.test.ts` stays green as written**, which is ADR 0062's guard.
-- **`compareBatches`' three existing refusing mismatches**, `readingsVersion`, `configuration` and `rig`, and the corner comparison's four beside them.
+- **`compareBatches`' three existing refusing mismatches**, `readingsVersion`, `configuration` and `rig`, and the corner comparison's four beside them, each keeping its meaning while the corner read gains a fifth for the tuning.
+- **Every refusal in `compare-batches.ts` but `isBatchReport`'s**, wording included. **`isBatchReport` requires the two new identity fields and its one refusal sentence names them**, which is the only refusal wording that moves in this slice.
 - **`batch.ts`'s behaviour**, which gains nothing in this slice: slice 7 gave it its argument.
-- **The record's nine rows, their readers, the caps and the header.** You read them and you move none.
+- **The record's ten rows, their readers, the caps and the header.** You read them and you move none.
 - **Every existing invariant's meaning and severity, the fault identity list, `STREAM_SALTS` and `STREAM_ORDER`.**
 - **The fences**, every one by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` empty. **`src/dev` still imports no bare package**, which is why the sweep prints from the shell and the seam returns rows.
 - **No test is deleted, skipped, weakened or rewritten to reach green.**
 
 ### Seams under test
 
-`src/dev/batchReport.ts`: a report carrying the candidate's name and the resolved record it was played under, read off the runs. `src/dev/compareBatches.ts`: two reports under different tunings compared rather than refused, with the differing rows answered first. `scripts/sweep.ts`: a list of candidates played as ordinary batches and one comparison printed across them, with each refusal path saying its reason.
+`src/dev/batchReport.ts`: a report carrying the candidate's name and the resolved record it was played under, read off the runs. `src/dev/compareBatches.ts`: two reports under different tunings compared rather than refused, with the differing rows answered first. `scripts/sweep.ts`: a list of candidates named by `tuning=<a>,<b>,...` beside `batch.ts`'s own arguments, each played as an ordinary batch, and one comparison of each later candidate against the first, with each refusal path saying its reason.
 
 ### Module boundaries
 
@@ -1103,10 +1106,10 @@ After this slice **one command plays a list of candidates, each as an ordinary b
 3. *Two reports under different tunings are compared rather than refused*, which is the ruling that keeps the step's central command working.
 4. *The comparison names the rows the two records differ in*, first, by dotted name, with both values.
 5. *Two reports under the same tuning compare exactly as they do today*, so nothing about an ordinary comparison moved.
-6. *The three existing refusing mismatches still refuse*, all three.
-7. *The sweep plays each candidate as an ordinary batch*, its folders indistinguishable from a hand-played batch's.
+6. *The three existing refusing mismatches still refuse*, all three, and *the corner read answers its new `tuning` mismatch* when two corners compared different candidate pairs.
+7. *The sweep plays each candidate as an ordinary batch*, in the order its argument names them, its folders indistinguishable from a hand-played batch's, and it prints one comparison of each later candidate against the first.
 8. *The sweep refuses a name that is not a candidate*, at the edge, with the reason said.
-9. *The sweep refuses its own argument errors* the way `batch.ts` refuses its six.
+9. *The sweep refuses its own argument errors* the way `batch.ts` does across its eight exit paths over five `refuse(` calls.
 10. **`comparisonDeclared.test.ts`**, green and unchanged.
 11. **The fences**, every one green by title, plus the core's cycle guard with `KNOWN_CORE_CYCLES` still empty.
 12. **The golden digest**, green and unmoved, with `digest.ts` in neither commit.
