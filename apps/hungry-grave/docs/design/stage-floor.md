@@ -197,7 +197,7 @@ Her tear-rings are mob fire, drawn in the reserved value band, and are never a c
 
 ## 4. The Undertaker's three chunks, as patterns
 
-ADR 0052 rules the length and the chunk count: about a minute and a half to two minutes, bought across three chunks rather than across a bigger health bar, with the third chunk a new pattern inside his own grammar. `game-concept.md:70` and `game-concept.md:72` fix the grammar: falling curtains and slow spirals, exclusive to him.
+The fight runs about a minute and a half to two minutes, and it gets there across three phases rather than across a bigger health bar, the third a new authored pattern inside his own grammar, with health per phase as tuning data and the harness's time-to-kill by style as what reads it (Mark's ruling, 2026-09-07). Three minutes and more was rejected because a boss is the one stretch of the stage the director never paces, so its length is the length of the game's longest unpaced moment. `game-concept.md:70` and `game-concept.md:72` fix the grammar: falling curtains and slow spirals, exclusive to him.
 
 ### Chunk one, the burial
 

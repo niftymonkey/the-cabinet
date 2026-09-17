@@ -52,6 +52,8 @@ This widens ADR 0053's own list of what the policy does. Section 10 carries it a
 
 ADR 0053 leaves this open in as many words, and adds that "the per-line preference belongs to the roster if the roster is ever built".
 
+**A roster of named personas over a weight vector is not built, and that is a ruling rather than a deferral** (ruled by Mark 2026-09-07 in the V1 grill). The authors of every shipped persona roster say the same thing about hand-set weights, that they are guesses until there is play to point them at, and the play this project will point them at is friends' tapes (the research record). So the machine that plays the game is one policy over many seeds, and only then the same policy wearing two error knobs; the per-line preference is the roster's if the roster is ever built.
+
 **The craft call: the nearest body by centre distance, ties broken by the lower entity id.** That is `chooseOfferBody`'s own rule (`offer.ts:223-248`), so the hand's rule and the sim's tie-break are one sentence and a hand that walks at the nearest body is never handed a different one.
 
 The rejected rule is the body carrying the lowest-level line, and it fails on what it would do to the instrument rather than on what it would do to the play. Mega Crit's first metric translates straight onto this offer, "how often a player picks a card when given the choice" (research record, section 4), and under a lowest-level rule that metric is 1.0 for whichever line is behind and 0 for the rest on every offer of every seed: the number would read the rule and never the game. Nearest hands the choice to where the danger put the grave, which is what the offer's own spacing was built to price (`offer.ts:29-41`: three bodies span a third of the field's width, "which makes choosing a real move").
@@ -63,6 +65,8 @@ The rejected rule is the body carrying the lowest-level line, and it fails on wh
 **What this costs, eyes open.** The hand's build is decided by geometry, so it never prefers a line and never turns one down. Ubisoft's warning is the exact shape of the risk: "Had we used the WinOnly model to give feedback to the designers... we would however have missed completely the feedback on the super capacities" (research record, section 4). The answer is the report and not the rule: take-by-line and pass-by-line are broken out, so "the hand never chose" is visible in the numbers rather than buried under them, and the per-line preference stays where ADR 0053 puts it.
 
 **A stripped rung is food and not an offer.** Once #99 lands, a stripped rung falls onto the field as a body (ADR 0055), which is the second clause of the rule above, so the base policy walks to it whenever it is the nearest food. ADR 0055 already predicts this and rules the take rate "a number to read rather than a bug to fix". The report carries it by line.
+
+**That take rate is the hand's own behaviour and is read rather than corrected.** A fallen rung is a body in the field and the base policy walks to bodies, so a batch's take rate on stripped rungs says what this hand does with a lost rung; it is never a defect in the policy and nothing is tuned to move it.
 
 ---
 
@@ -165,6 +169,8 @@ The standing extensibility constraint binds the report and not these rows: a con
 ---
 
 ## 4. The batch, and what its report says
+
+**What the harness produces is comparisons and never thresholds** (ruled by Mark 2026-09-07 in the V1 grill). This build against that build and this hand against that hand, never this number against a target: a harness number is read for the direction it moves in and no row of a report ever states a target. **A batch reports a distribution rather than a mean, because the interesting runs are in a tail, and a finding is believed when the sharp and the sloppy configuration agree on the ordering.** And a deterministic policy needs exactly one run per seed, so batch size is seeds and never repeats, which holds only while the hand's draws come from their own named stream seeded off the run's seed.
 
 ### The batch
 

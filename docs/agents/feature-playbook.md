@@ -45,6 +45,10 @@ Step 2 picks from this menu per feature. The escalations are mandatory when they
 - `pnpm typecheck` and the production build. Editor diagnostics are not a judge; these are. Actor: the agent.
 - Player-visible change: a rendered check of the built app (`vite preview`, never only the dev server), with the screenshot actually read. Actor: the agent.
 - Input-feel change: an on-device check from the deployed URL, named as a step in the plan. The agent delivers the build ready and reports it ready; the human runs the check, because only the human can feel it. The agent never claims the feel is right.
+- Sim-bearing change: spec tests authored from the design record before they ever run against an implementation, each citing the entry, ADR or spec line it enforces. A failing spec test indicts the code, never the test. Actor: the agent.
+- Sim-bearing change: the sim invariants, in bounds, size within floor and ceiling, no NaN and entity caps, checked on every step of every sim test, the same way they are checked on every tick of every build a player could play. Actor: the agent.
+- Sim-bearing change: a deterministic headless bot plays the full run in a test and asserts the run's shape, length in band, kills in band, drops matching the stage's carrier schedule, phases in order, both endings reachable, zero invariant fires. Actor: the agent.
+- Full-stage rendering: the same bot as a dev-only autopilot in the rendered game, so a whole run is watched and screenshotted without a human, plus a browser boot check over load, canvas, input and console errors. Actor: the agent.
 
 ## The stuck rule
 

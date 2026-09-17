@@ -246,6 +246,18 @@ The dev stack carries debt, tick, seed, pinned size, pinned levels and the fault
 
 What this does mean is that on a phone the dev stack occupies stage y 12 to 172 and the HUD's band sits immediately above the field's top edge at roughly 178 to 204, which is tight and will overlap on a shortened window. That is a dev-build-only collision and it is not worth paying field area for; it is named so nobody reports it as a bug.
 
+### R13. The ladder reads twice, in the storm and on the HUD
+
+**Ruled by Mark 2026-09-07 in the V1 grill, over the storm alone and over the HUD alone: both channels exist.** Every line's level is carried by that line's own expression on the field, so the player reads the whole ladder by looking at the storm they are already looking at, and the slim HUD confirms it with the score and a row of marks per line. A rung gained lights on both channels, and a rung lost empties a mark while that line's own expression blows up, so the player sees which line paid.
+
+**The two channels exist because gain and loss are not the same reading problem.** Gain arrives on a beat the player caused, at the moment the storm was about to change anyway, and the field carries it unaided; loss arrives on somebody else's beat, in the densest screen the run has produced, where a single rung subtracted from the storm is invisible. **What is ruled is that both channels exist and that neither one is the only reading of a loss, and the HUD's exact form is design work**, which is what R1 through R5 rule. The field channel's wording, a line's own expression rather than its projectiles, is taken by the dispatching session under the one-push rule and **is Mark's to overrule on the branch before merge** (R8).
+
+### R14. A stripped rung falls onto the field as a body
+
+**Ruled by Mark 2026-09-07 in the V1 grill:** when a hit at the floor takes a weapon level, the rung tumbles off the grave as a body and drifts down with the world like everything else on the field, so the dive can catch it and the scroll can take it away. That is what makes the loss land twice, because it announces as a departure rather than as a decrement and the way back is the verb the whole game is built on, so recovery is play rather than a rule. Battle Garegga's dropped power-up is the shape chosen: a rung that is simply gone gives the loss nothing to look at, and a rung that lingers beside the grave leaves the floor ladder toothless. Where it lands, how fast it drifts and whether it decays are stage and tuning data, which is what R6 rules.
+
+**The drop is new ground and it is noted rather than pushed against.** Every shipped catch-back in the record recovers from a death, and nothing on record strips power on a hit and then lets the player chase it. **One correction is filed against this ruling in section 7 and its trigger is Mark's own next read of it**: the cost taken with the ruling overstated what the base harness policy does with a fallen body, and the repair is one sentence.
+
 ## 3. What already exists in the tree
 
 Read at tip `55f05ccdd5`.
