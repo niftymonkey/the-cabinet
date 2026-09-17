@@ -42,6 +42,34 @@ Each is a question with its options and the evidence for each. None is settled h
 
 ---
 
+## Section 2a: the orchestrator's rulings on the eleven decisions (2026-09-17)
+
+Each decision above is ruled here, before any coder is dispatched. A ruling names its option by the letter above and the reason in one or two sentences. Nothing here moves a magnitude or a moment of play.
+
+1. **Membership is the stated rule, option C.** A magnitude is in the record when a batch reading can move it and it is neither a derivation nor a safety net. The list of what that admits today is re-read off the tree when the slice prompts are written, and it now includes `TRASH_KILL_SCORE` and `SCORE_BLEED_CAP`, both landed 2026-09-16 and both annotated as first figures read against slice 9's readings.
+
+2. **Grouped by owner module in the type, flat dotted names on every text surface, option B carrying A's naming.** The record is one typed object nested by owning module, so each module's numbers sit beside their own JSDoc and the caps derivation reads one group. The dotted path (`grave.sizeFloor`) is the one addressable name a command line, a tape header, a report and a comparison all use, derived from the nesting and never hand-maintained.
+
+3. **Resolved once at the shell and passed inward onto `RunState` through `createRun`, option B.** Option A is forbidden by the no-import-time-side-effects rule and stays ruled out. The sub-question is ruled too: **`createRun` moves to `seed` plus one narrow options record** for the starting conditions (size, levels, roster, signal lock, starting score, tuning record), because slice 8 makes the positional list six long and a seventh is past the smell. All call sites move in the same commit, none changes a value, and the golden holds. **The harder half is ruled by putting the caps on the run.** `MOB_CAP`, `MOB_FIRE_CAP` and `CORPSE_CAP` become per-run derivations computed inside `createRun` from the run's own record, carried on `RunState`, and every reader that read the module constant reads the run's field. A legal record is open, so the bound is per run rather than static, which is what the pools already are: built in `createRun`, at a cap, once.
+
+4. **Named candidates in a table under `src/dev` on the `RIGS` model, option C for the command line; `?tuning=<candidate>` on the URL, option A.** A candidate is committed data with a name a batch folder and a report carry, so the build Mark plays and the batch the finding came from name the same thing. The URL parser repairs an unknown name to the default and warns, the shape every existing parser has. A JSON file path is not built: the sweep's candidates are rows, added the way a rig row is added.
+
+5. **A second `FORMAT_VERSION` bump, 4 to 5, and the record rides in the header as a length-prefixed self-describing block of names and values, option A.** The refusal is precise and built: a tape whose block names a field this build's record does not have, or lacks one it requires, is readable and reportable in the tape's own vocabulary and is not replayable, said in those words. A tape whose names all match replays under the tape's own values, whatever this build's defaults are, which is the point of carrying values.
+
+6. **The witness fold is left alone, option B.** The record is a starting condition and every consequence of it is already in the fold through live state.
+
+7. **No `GOLDEN` re-pin in any slice of this step, and the fence is added, option B.** The default record is value-identical to today's constants, so the golden's run is the same run; a re-pin would mean a value moved and that is a stop. The new fence names that the caps derivation and the core read the record only off the run, never through a shell import.
+
+8. **Carried and reported, never refusing, with the difference printed beside the comparison, option B plus C's print.** Comparing two tunings is the step's central command. `BatchIdentity` gains the candidate's name and the record's values; when two reports differ, the comparison prints the differing rows first, then the readings.
+
+9. **`scripts/sweep.ts`, a new shell beside `batch.ts` and `compare-batches.ts`, option A.** `batch.ts` gains only the candidate argument.
+
+10. **The store is not wired in this step.** As the draft recommends, with its reopening trigger.
+
+11. **Two glossary entries: Tuning record and Candidate.** The record is the shape, the numbers a batch reading can move; a candidate is a named tuning record a batch or a play runs under. "Dial" is out because it implies a knob, and Mark ruled no comparison knobs before V1. "Override" is out by the glossary's own avoid-list. The step's title drops the word.
+
+**Housekeeping the prompts carry when written**: the version constants in section 5 are read off the tree at that time (11, 9 after slice 10, 4 to 5 here); the draft's slices A to E take run-order numbers; every line number in the draft is stale and none is cited in a prompt.
+
 ## 3. The proposed shape
 
 **The core.** `src/game/tuningRecord.ts` holds the `TuningRecord` type, the resolved default, and `resolveTuning(overlay)`, which takes a partial and answers a complete record. It is the `signalLock.ts` shape: a type and a resolver the sim, the header and playback can all own without any of them importing a consumer. The cycle guard in `boundary.test.ts` shapes it: `caps.ts` imports `waves.ts` today, so if `waves.ts` imported the record module the group would close, which is why readers take the record as an argument and never import it.
