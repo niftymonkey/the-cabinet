@@ -262,7 +262,7 @@ const DEFAULT_TUNING: TuningRecord = {
 };
 
 /**
- * The quiet interval's own bound, and the first of the two the resolver
+ * The quiet interval's own bound, and the first of the three the resolver
  * refuses.
  *
  * It lives here rather than in a candidate table because every record in the
@@ -277,6 +277,26 @@ const refuseInvertedQuietInterval = (stage: StageTuning): void => {
   }
   throw new Error(
     `stage.quietIntervalMinimumSeconds ${stage.quietIntervalMinimumSeconds} sits above stage.quietIntervalMaximumSeconds ${stage.quietIntervalMaximumSeconds}, so the director would draw over a negative span`,
+  );
+};
+
+/**
+ * The stage's own divisor, and it is the same row both ends of the interval sit
+ * around.
+ *
+ * Every cap prices a window as one card at its opening and one more at every
+ * quiet interval inside it, so a zero here floors to Infinity, the pools open
+ * at no capacity anybody can allocate, and a run never reaches a first tick to
+ * fault on. Only zero is refused: whether a lower positive bound belongs here
+ * is a data row a later round measures, and until it is measured a short
+ * interval is a candidate. It is the one stage row that is a divisor, which is
+ * why this names the row rather than sweeping the group: the Vigil's purse is
+ * zero by ruling.
+ */
+const refuseZeroQuietIntervalMinimum = (stage: StageTuning): void => {
+  if (stage.quietIntervalMinimumSeconds !== 0) return;
+  throw new Error(
+    `stage.quietIntervalMinimumSeconds is written as 0, and every cap prices the cards a window's shortest quiet interval leaves room for`,
   );
 };
 
@@ -302,8 +322,8 @@ const refuseZeroBossHealthRate = (score: ScoreTuning): void => {
  *
  * Its input is already typed, because parsing a raw name a person typed is the
  * edge's job: there is no such thing as an unknown row reaching here. What it
- * refuses is the two bounds above and nothing else, and a record our own code
- * produced cannot fail either, which is repair by origin.
+ * refuses is the three bounds above and nothing else, and a record our own code
+ * produced cannot fail any of them, which is repair by origin.
  */
 const resolveTuning = (overlay: TuningOverlay): TuningRecord => {
   const resolved: TuningRecord = {
@@ -311,6 +331,7 @@ const resolveTuning = (overlay: TuningOverlay): TuningRecord => {
     score: { ...DEFAULT_TUNING.score, ...overlay.score },
   };
   refuseInvertedQuietInterval(resolved.stage);
+  refuseZeroQuietIntervalMinimum(resolved.stage);
   refuseZeroBossHealthRate(resolved.score);
   return resolved;
 };

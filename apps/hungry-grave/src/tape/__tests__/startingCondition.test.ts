@@ -261,6 +261,23 @@ describe('a block this build cannot start any run at all', () => {
     );
   });
 
+  it('refuses a quiet-interval minimum of zero, because every cap divides by it', () => {
+    // The resolver's third bound, inherited here rather than written twice: a
+    // block writing zero there derives caps of Infinity and the run's own
+    // sprite pools never finish opening. Reading and replaying are two
+    // obligations, so the recorded roster still comes back off the header and
+    // only the replay refuses, with the row named (ADR 0043, ADR 0064).
+    const resolved = resolveStartingCondition(
+      rowWritten('stage.quietIntervalMinimumSeconds', 0),
+    );
+
+    expect(resolved.outcome).toBe('notImplemented');
+    if (resolved.outcome !== 'notImplemented') return;
+    expect(resolved.refusal).toBe('condition');
+    expect(resolved.recordedRoster).toEqual([...WEAPON_LINES]);
+    expect(resolved.reason).toContain('stage.quietIntervalMinimumSeconds');
+  });
+
   it('refuses a name the block states twice', () => {
     // One of the two values is then unreachable by name, which is the
     // positional ambiguity the whole block exists to remove.

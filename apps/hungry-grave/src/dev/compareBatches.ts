@@ -1,7 +1,6 @@
 // Two batches side by side: one ordering per reading, and never a target.
 
-import { tuningRows } from '../game/tuningRecord';
-import type { TuningRecord } from '../game/tuningRecord';
+import type { TuningRow } from '../game/tuningRecord';
 import type { BatchIdentity, BatchReport, Spread } from './batchReport';
 import { rankComparisonOf } from './rankTest';
 import type { RankComparison } from './rankTest';
@@ -259,12 +258,8 @@ const named = (names: readonly (string | null)[]): string =>
   [...new Set(names)].sort().join(',');
 
 // One record's rows by their dotted names, or nothing at all for no record.
-const rowsByName = (record: TuningRecord | null): Map<string, number> =>
-  new Map(
-    record === null
-      ? []
-      : tuningRows(record).map((row) => [row.name, row.value]),
-  );
+const rowsByName = (rows: readonly TuningRow[] | null): Map<string, number> =>
+  new Map(rows === null ? [] : rows.map((row) => [row.name, row.value]));
 
 /**
  * The rows the two batches' records differ in, and never a mismatch: comparing

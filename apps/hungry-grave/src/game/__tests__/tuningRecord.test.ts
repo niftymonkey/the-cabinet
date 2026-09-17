@@ -98,6 +98,24 @@ describe('resolving a partial tuning record', () => {
       resolveTuning({ score: { sourceKillInKills: 0, mealAtMaxedInKills: 0 } }),
     ).not.toThrow();
   });
+
+  it('rejects a record whose quiet-interval minimum is zero, naming the row', () => {
+    // The stage group's own divisor: every cap prices a window as one card at
+    // its opening and one more at every quiet interval inside it, so a zero
+    // there floors to Infinity and the sprite pools never finish opening. It is
+    // refused for the reason the boss-health rate is, and it is the one stage
+    // row that is a divisor: a purse of zero is the Vigil's own value.
+    expect(() =>
+      resolveTuning({ stage: { quietIntervalMinimumSeconds: 0 } }),
+    ).toThrow(/stage\.quietIntervalMinimumSeconds/);
+    // Only zero. Whether a lower positive bound belongs here is a data row a
+    // later round measures, and until it is measured a short interval is a
+    // candidate rather than a defect.
+    expect(() =>
+      resolveTuning({ stage: { quietIntervalMinimumSeconds: 0.5 } }),
+    ).not.toThrow();
+    expect(() => resolveTuning({ stage: { vigilPurse: 0 } })).not.toThrow();
+  });
 });
 
 describe("the tuning record's rows", () => {

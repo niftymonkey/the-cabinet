@@ -245,7 +245,7 @@ const tuningIn = (values: ReadonlyMap<string, number>): TuningRecord => {
  * record at all.
  *
  * `resolveTuning` is the one door every record in the tree enters by and it
- * throws on the quiet interval's bound (ADR 0064). A record our own code
+ * throws on each of the record's own bounds (ADR 0064). A record our own code
  * produced cannot fail it, which is why it throws rather than answering; a tape
  * is the one place an illegal record arrives from outside, so this is the one
  * call site that catches it and reports it as the document defect it is.

@@ -853,11 +853,11 @@ describe('the batch report', () => {
     expect(unnamed.identity.candidates).toEqual([null]);
   });
 
-  it('carries the one tuning record its runs shared, every row of it', () => {
-    // The name says which tuning and the record says what it was, because a
-    // name is a promise about the tree the build was made from and the rows are
-    // what a run actually played under (ADR 0064). A folder whose runs did not
-    // share one record carries none, rather than one of them standing for both.
+  it('carries the one tuning record its runs shared, as rows under their dotted names', () => {
+    // The name says which tuning and the rows say what it was, because a name
+    // is a promise about the tree the build was made from and the rows are what
+    // a run actually played under (ADR 0064). A folder whose runs did not share
+    // one record carries none, rather than one of them standing for both.
     const shared = batchReportOf(origin(2), [
       playedUnder(900, CANDIDATES.default.record),
       playedUnder(901, CANDIDATES.default.record),
@@ -868,15 +868,11 @@ describe('the batch report', () => {
     ]).identity.tuning;
 
     if (shared === null) throw new Error('the batch shared no tuning record');
-    const carried = tuningRows(shared);
-    const expected = tuningRows(CANDIDATES.default.record);
-    expect(carried.length).toBe(expected.length);
-    for (const row of expected) {
-      expect(
-        carried.find((one) => one.name === row.name)?.value,
-        row.name,
-      ).toBe(row.value);
-    }
+    expect(shared).toEqual(tuningRows(CANDIDATES.default.record));
+    // The dotted path and never a nesting: it is the one name a record has on
+    // every text surface, so the row a sweep says it moved is the row somebody
+    // reading report.json finds spelled the same way.
+    expect(shared.map((row) => row.name)).toContain('stage.processionPurse');
     expect(mixed).toBeNull();
   });
 

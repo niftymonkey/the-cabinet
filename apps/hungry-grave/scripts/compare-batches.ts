@@ -72,14 +72,15 @@ const holdsSpreads = (value: unknown): boolean =>
  * The record is a field a batch may honestly have none of, so its absence and
  * its null are two different answers: null is a batch whose own runs did not
  * share one record, and a missing field is a report from a build that could not
- * have said.
+ * have said. It is a list of rows, because the dotted path is the one name a
+ * record has on every text surface.
  */
 const isBatchReport = (value: unknown): value is BatchReport =>
   isPlainObject(value) &&
   isPlainObject(value.identity) &&
   Array.isArray(value.identity.rigs) &&
   Array.isArray(value.identity.candidates) &&
-  (isPlainObject(value.identity.tuning) || value.identity.tuning === null) &&
+  (Array.isArray(value.identity.tuning) || value.identity.tuning === null) &&
   Array.isArray(value.identity.commitHashes) &&
   typeof value.readingsVersion === 'number' &&
   holdsSpreads(value.spreads) &&

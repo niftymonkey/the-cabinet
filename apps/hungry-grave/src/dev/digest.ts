@@ -474,7 +474,7 @@ const runScenario = (): ScenarioResult => {
  * this is the first re-pin in six where the scenario's own play is the cause
  * rather than a mechanical widening.** `score` moved from 0 to 200, which is the
  * scenario's two scripted kills at ticks 240 and 540 paying their own rows: both
- * are shamblers, the shambler's row pays one `TRASH_KILL_SCORE`, and two of them
+ * are shamblers, the shambler's row pays one `score.trashKillScore`, and two of them
  * is 200. The checksum moved from `-1110848414` with it, because `run.score` has
  * been folded since long before this. **`kills` holds at 2**, which is the thing
  * to watch beside the score: nothing new dies here, the same two deaths now pay.

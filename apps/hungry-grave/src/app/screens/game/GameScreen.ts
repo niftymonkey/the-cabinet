@@ -297,14 +297,29 @@ class GameScreen extends Container {
    * dressField runs from the constructor and from reset(), with no run in hand
    * either time, so the caps a run under the build's own record derives are
    * what the sprite pools are grown to. A run here can carry a record of its
-   * own now, because ?tuning= names a candidate (ADR 0064), and every run still
-   * derives exactly these caps: all three read one row, the quiet interval's
-   * minimum, and no candidate moves it. The renderer's pools are grow-only, so
-   * the row that first moves it is the one that has to grow them to the started
-   * run's caps at an attach of its own, the way ReplayScreen.beginDrawing does.
+   * own, because ?tuning= names a candidate (ADR 0064), and a record that
+   * lowers the quiet interval's minimum derives caps above these: the pools are
+   * grow-only and attach is the one place they grow, which is what
+   * beginDrawing below is for.
    */
   private fieldCaps(): Caps {
     return capsFor(DEFAULT_TUNING);
+  }
+
+  /**
+   * The field renderer grown for the run about to be drawn.
+   *
+   * The run this screen is about to draw carries the tuning record it was
+   * started under and its caps are derived from that record (ADR 0056 as
+   * amended), while the pools dressField opened have no reason to reach them.
+   * attach is the one place a pool grows and it forgets the previous run on its
+   * way through, so the slot walk in the first sync finds a sprite for every
+   * entity the run can hold. It is ReplayScreen.beginDrawing's own shape,
+   * because the two screens have the same problem: neither has a run in hand
+   * when it dresses.
+   */
+  private beginDrawing(run: RunState): void {
+    this.fieldRenderer.attach(this.layers, run.caps);
   }
 
   // The field's own furniture, put back after any clear() (see reset).
@@ -343,6 +358,7 @@ class GameScreen extends Container {
     this.interactiveChildren = true;
 
     const started = this.session.begin();
+    this.beginDrawing(started.run);
     this.recording.begin(
       started.run,
       started.execution,

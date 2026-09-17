@@ -131,8 +131,9 @@ interface StartingConditions {
    * The score the run begins holding, which exists for the harness's staged
    * floor ladder: the rigs' ladder row (src/dev/rigs.ts) and the walk that
    * plays it (src/dev/floorLadderWalk.ts) are its callers, and no player-facing
-   * caller names it. No tape header carries a score at this tip, so a run
-   * staged with one replays from zero.
+   * caller names it. A tape header carries the whole starting condition, this
+   * row included (ADR 0043, ADR 0063), so a run staged with a score replays
+   * holding it and a staged ladder tape bands as itself.
    */
   readonly startingScore: number;
   /**

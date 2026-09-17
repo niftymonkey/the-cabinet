@@ -8,7 +8,7 @@ import type { MobType } from '../game/mobs';
 import { SECTIONS } from '../game/stage/stage';
 import type { SectionName } from '../game/stage/stage';
 import { tuningRows } from '../game/tuningRecord';
-import type { TuningRecord } from '../game/tuningRecord';
+import type { TuningRow } from '../game/tuningRecord';
 import type { BuildMismatch } from '../tape/buildIdentity';
 import type { ConfigurationName } from './configurations';
 import { runTickBudget } from './harnessRun';
@@ -97,16 +97,23 @@ interface BatchIdentity {
    */
   readonly candidates: readonly (CandidateName | null)[];
   /**
-   * The one record every run in the batch was played under, or null when they
-   * were not all played under one.
+   * The one record every run in the batch was played under, row by row under
+   * the dotted names it has everywhere else, or null when they were not all
+   * played under one.
    *
    * The name above says which tuning and this says what it was, because a name
    * is a promise about the tree the build was made from while the rows are what
    * a run played. Null rather than the first run's: a batch that spans two
    * records has no record, and a comparison against one of them would name rows
    * half the batch never played.
+   *
+   * Rows and not the nested record: the dotted path is the one name a record
+   * has on every text surface, and the header, the comparison and the command
+   * line all spell `stage.processionPurse` while a nested object spells it
+   * nowhere. A reader grepping the report for the row a sweep moved finds it
+   * here in the words the sweep said it in.
    */
-  readonly tuning: TuningRecord | null;
+  readonly tuning: readonly TuningRow[] | null;
   readonly mobWidths: Readonly<Record<MobType, number>>;
 }
 
@@ -1009,7 +1016,7 @@ interface Collected {
   readonly rigs: Set<RigName | null>;
   readonly candidates: Set<CandidateName | null>;
   // The records the runs played under, one entry per distinct set of rows.
-  readonly tunings: Map<string, TuningRecord>;
+  readonly tunings: Map<string, readonly TuningRow[]>;
 }
 
 const collected = (): Collected => ({
@@ -1128,15 +1135,13 @@ const fileTimeline = (acc: Collected, seed: number, report: Metrics): void => {
  * The rows a record states as one string, so two records are compared in one
  * place and by their rows rather than by the name a caller happened to hold.
  */
-const rowsKey = (record: TuningRecord): string =>
-  tuningRows(record)
-    .map((row) => `${row.name}=${row.value}`)
-    .join(',');
+const rowsKey = (rows: readonly TuningRow[]): string =>
+  rows.map((row) => `${row.name}=${row.value}`).join(',');
 
-/** The record every run shared, or null when they did not share one. */
+/** The rows every run shared, or null when they did not share one record. */
 const sharedTuning = (
-  tunings: ReadonlyMap<string, TuningRecord>,
-): TuningRecord | null =>
+  tunings: ReadonlyMap<string, readonly TuningRow[]>,
+): readonly TuningRow[] | null =>
   tunings.size === 1 ? ([...tunings.values()][0] ?? null) : null;
 
 // One verified run, offered to every declared reading in turn.
@@ -1144,7 +1149,8 @@ const collectRun = (acc: Collected, seed: number, report: Metrics): void => {
   acc.commitHashes.add(report.identity.commitHash);
   acc.rigs.add(report.provenance.rig);
   acc.candidates.add(report.provenance.candidate);
-  acc.tunings.set(rowsKey(report.provenance.tuning), report.provenance.tuning);
+  const rows = tuningRows(report.provenance.tuning);
+  acc.tunings.set(rowsKey(rows), rows);
   for (const declared of BATCH_READINGS) {
     if (declared.reduction === 'notReduced') continue;
     if (declared.reduction === 'sectionSpans') {
