@@ -820,6 +820,26 @@ describe('the lock is owned by a module with nothing behind it', () => {
 });
 
 /**
+ * The module the tuning record lives in, and the whole of what it may depend
+ * on, which is nothing.
+ *
+ * The emptiness is what lets every reader take the record as an argument
+ * instead of importing it: caps.ts imports waves.ts today, so a record module
+ * that reached waves.ts and a waves.ts that read its own defaults back off the
+ * record would close the core's first cycle. The `game` row's `mayImport: []`
+ * above forbids packages alone and says nothing about a sibling, so the
+ * emptiness needs asserting here rather than there.
+ */
+const OWNS_THE_TUNING_RECORD = 'game/tuningRecord';
+
+describe('the tuning record is owned by a module with nothing behind it', () => {
+  it("the tuning record's module imports nothing", () => {
+    const file = join(SRC, `${OWNS_THE_TUNING_RECORD}.ts`);
+    expect(importsOf(readFileSync(file, 'utf8'))).toEqual([]);
+  });
+});
+
+/**
  * The codec that parses a tape header, and the one module it may never reach.
  *
  * src/tape's own row above reaches src/game whole, because playback reproduces
