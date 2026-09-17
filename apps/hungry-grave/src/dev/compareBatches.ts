@@ -1,5 +1,7 @@
 // Two batches side by side: one ordering per reading, and never a target.
 
+import { tuningRows } from '../game/tuningRecord';
+import type { TuningRecord } from '../game/tuningRecord';
 import type { BatchIdentity, BatchReport, Spread } from './batchReport';
 import { rankComparisonOf } from './rankTest';
 import type { RankComparison } from './rankTest';
@@ -36,6 +38,23 @@ type Direction = 'up' | 'down' | 'flat' | 'incomparable' | 'withheld';
  */
 type Mismatch = 'readingsVersion' | 'configuration' | 'rig';
 
+/**
+ * One row the two batches' records state differently, by the dotted name a
+ * record has on every text surface (ADR 0064).
+ *
+ * The tuning is never a mismatch: comparing two tunings is what a sweep is for,
+ * so the difference is answered rather than refused (draft ruling 8). Null is a
+ * row the other side's record does not carry at all, which is a report from a
+ * build whose record held different rows: isBatchReport keeps a document from
+ * an older build out of a comparison, and this is what an unmatched row reads
+ * as rather than a row quietly dropped.
+ */
+interface TuningDifference {
+  readonly name: string;
+  readonly left: number | null;
+  readonly right: number | null;
+}
+
 interface ComparedSpread {
   readonly reading: string;
   readonly left: Spread | undefined;
@@ -67,6 +86,12 @@ interface BatchComparison {
   readonly readingsVersions: ReadingsVersions;
   // Empty means the two batches are comparable and every ordering below stands.
   readonly mismatches: readonly Mismatch[];
+  /**
+   * The rows the two tunings differ in, ahead of the readings because every
+   * ordering below is an answer to that difference. Empty where the two batches
+   * played one record, and empty where either side's runs did not share one.
+   */
+  readonly tuningDifferences: readonly TuningDifference[];
   readonly readings: readonly ComparedSpread[];
 }
 
@@ -85,8 +110,15 @@ type Agreement = 'agreed' | 'split' | 'withheld';
  * corner itself: handed one comparison twice, every row agrees with itself and
  * ADR 0053's rule is satisfied by nothing. A comparison that withheld its own
  * arithmetic carries no direction to agree about, which is the third.
+ *
+ * The tuning is the fourth, on the build pair's own precedent: a candidate pair
+ * is carried by a comparison and never refused by it, and two corners that
+ * compared different pairs answered different questions, so their agreement is
+ * about nothing. It is one name over the pair rather than a name per side,
+ * because what a corner read is the pair.
  */
-type CornerMismatch = 'leftBuild' | 'rightBuild' | 'hand' | 'comparison';
+type CornerMismatch =
+  'leftBuild' | 'rightBuild' | 'hand' | 'tuning' | 'comparison';
 
 interface CornerFinding {
   readonly reading: string;
@@ -226,6 +258,38 @@ const mismatchesBetween = (
 const named = (names: readonly (string | null)[]): string =>
   [...new Set(names)].sort().join(',');
 
+// One record's rows by their dotted names, or nothing at all for no record.
+const rowsByName = (record: TuningRecord | null): Map<string, number> =>
+  new Map(
+    record === null
+      ? []
+      : tuningRows(record).map((row) => [row.name, row.value]),
+  );
+
+/**
+ * The rows the two batches' records differ in, and never a mismatch: comparing
+ * two tunings is what the sweep exists to do (draft ruling 8).
+ *
+ * A batch whose own runs did not share one record has no record to be differed
+ * from, so nothing is printed for it: rows taken against the other side's
+ * record would name values half of one batch never played.
+ */
+const tuningDifferencesBetween = (
+  left: BatchIdentity,
+  right: BatchIdentity,
+): TuningDifference[] => {
+  if (left.tuning === null || right.tuning === null) return [];
+  const here = rowsByName(left.tuning);
+  const there = rowsByName(right.tuning);
+  return namesAcross(here, there)
+    .map((name) => ({
+      name,
+      left: here.get(name) ?? null,
+      right: there.get(name) ?? null,
+    }))
+    .filter((row) => row.left !== row.right);
+};
+
 /**
  * Two batches as one ordering per reading (ADR 0053).
  *
@@ -237,6 +301,9 @@ const named = (names: readonly (string | null)[]): string =>
  * is compareRuns.ts's own rule for a readings-version mismatch widened to the
  * two facts a batch adds: the hand and the rig. Both sides are real
  * measurements; what cannot be believed is the arithmetic between them.
+ *
+ * The rows the two tunings differ in stand whatever is withheld, because they
+ * are what the two batches were rather than arithmetic between them.
  */
 const compareBatches = (
   left: BatchReport,
@@ -256,6 +323,7 @@ const compareBatches = (
       right: right.readingsVersion,
     },
     mismatches,
+    tuningDifferences: tuningDifferencesBetween(left.identity, right.identity),
     readings: mismatches.length === 0 ? readings : readings.map(withheldSpread),
   };
 };
@@ -283,6 +351,10 @@ const directionsIn = (comparison: BatchComparison): Map<string, Direction> =>
  * pair assembled from four folders says whether it is one pair of builds
  * rather than resting on whoever named the folders.
  */
+// The two candidates one corner compared, as one string, ordered side by side.
+const candidatePairIn = (comparison: BatchComparison): string =>
+  `${named(comparison.left.candidates)} against ${named(comparison.right.candidates)}`;
+
 const mismatchesAcross = (
   sharp: BatchComparison,
   sloppy: BatchComparison,
@@ -296,6 +368,9 @@ const mismatchesAcross = (
   }
   if (sharp.left.configuration === sloppy.left.configuration) {
     mismatches.push('hand');
+  }
+  if (candidatePairIn(sharp) !== candidatePairIn(sloppy)) {
+    mismatches.push('tuning');
   }
   if (sharp.mismatches.length + sloppy.mismatches.length !== 0) {
     mismatches.push('comparison');
@@ -337,4 +412,5 @@ export type {
   Direction,
   Mismatch,
   ReadingsVersions,
+  TuningDifference,
 };

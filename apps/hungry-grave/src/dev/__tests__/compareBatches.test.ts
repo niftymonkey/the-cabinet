@@ -28,6 +28,8 @@ import { measure } from '../measure';
 import type { ConfigurationName } from '../configurations';
 import type { Measurement, Metrics } from '../measure';
 import type { SectionSpan } from '../readings/sectionTimeline';
+import { candidateOf, CANDIDATES } from '../tuningCandidates';
+import type { TuningRecord } from '../../game/tuningRecord';
 import { startingConditionBlock } from '../../tape/startingCondition';
 
 const TICKS = 60;
@@ -141,6 +143,39 @@ const rowsOn = (report: BatchReport): number =>
     0,
   ) +
   Object.keys(report.sectionSpans).length;
+
+/**
+ * The same four runs under a named hand and one tuning record, which is what a
+ * sweep hands the comparison.
+ *
+ * The candidate is banded off the record rather than named here, because that
+ * is the fact a run's own provenance holds (ADR 0064).
+ */
+const batchPlaying = (
+  configuration: ConfigurationName,
+  tuning: TuningRecord,
+  ticks: number,
+): BatchReport =>
+  batchReportOf(
+    { ...ORIGIN, configuration },
+    [0, 1, 2, 3].map((offset) => ({
+      seed: 900 + offset,
+      measurement: {
+        ...BASE,
+        run: { ...BASE.run, ticks: ticks + offset, kills: 0, score: 0 },
+        tuning: { ...BASE.tuning, sectionTimeline: { spans: SPANS } },
+        provenance: {
+          ...BASE.provenance,
+          candidate: candidateOf(tuning),
+          tuning,
+        },
+      },
+    })),
+  );
+
+/** The same four runs under one candidate's record, by the batch's own hand. */
+const batchUnderTuning = (tuning: TuningRecord, ticks: number): BatchReport =>
+  batchPlaying(ORIGIN.configuration, tuning, ticks);
 
 /** The same four runs under a named hand, which is what a corner is. */
 const batchAs = (
@@ -372,6 +407,68 @@ describe('two batches compared', () => {
     expect(ticks?.direction).toBe('up');
   });
 
+  it('compares two batches under two tunings rather than refusing either of them', () => {
+    // The step's central command is this tuning against that tuning, so a
+    // fourth refusing mismatch on the record would refuse exactly what the
+    // sweep exists to do (draft ruling 8). The identity is carried and reported
+    // on the commit hashes' own precedent, and the arithmetic stands.
+    const comparison = compareBatches(
+      batchUnderTuning(CANDIDATES.default.record, 10),
+      batchUnderTuning(CANDIDATES.spendable.record, 20),
+    );
+
+    expect(comparison.mismatches).toEqual([]);
+    expect(directionOn(comparison, 'run.ticks')).toBe('up');
+    expect(comparison.left.candidates).toEqual(['default']);
+    expect(comparison.right.candidates).toEqual(['spendable']);
+  });
+
+  it('names the rows the two records differ in before it says anything about a reading', () => {
+    // What a reader needs first is what the two tunings differ in, because
+    // every ordering below it is an answer to that difference. The row is named
+    // by its dotted path, which is a record's one name on every text surface
+    // (ADR 0064), and both values ride with it.
+    const comparison = compareBatches(
+      batchUnderTuning(CANDIDATES.default.record, 10),
+      batchUnderTuning(CANDIDATES.spendable.record, 20),
+    );
+
+    expect(comparison.tuningDifferences).toEqual([
+      {
+        name: 'stage.processionPurse',
+        left: CANDIDATES.default.record.stage.processionPurse,
+        right: CANDIDATES.spendable.record.stage.processionPurse,
+      },
+    ]);
+    // First is an order a reader can see: the rows sit ahead of the readings in
+    // the comparison itself, so the shell that prints it needs no rule of its
+    // own about which to say first.
+    const fields = Object.keys(comparison);
+    expect(fields.indexOf('tuningDifferences')).toBeLessThan(
+      fields.indexOf('readings'),
+    );
+  });
+
+  it('names no differing row when the two batches played one tuning', () => {
+    // The ordinary comparison, which is every comparison before this slice: two
+    // batches under one record differ in nothing, and a folder whose own runs
+    // did not share a record has none to be differed from.
+    const left = batchUnderTuning(CANDIDATES.default.record, 10);
+    const right = batchUnderTuning(CANDIDATES.default.record, 20);
+
+    const same = compareBatches(left, right);
+
+    expect(same.tuningDifferences).toEqual([]);
+    expect(same.mismatches).toEqual([]);
+    expect(directionOn(same, 'run.ticks')).toBe('up');
+    const mixed = compareBatches(
+      { ...left, identity: { ...left.identity, tuning: null } },
+      batchUnderTuning(CANDIDATES.spendable.record, 20),
+    );
+    expect(mixed.tuningDifferences).toEqual([]);
+    expect(mixed.mismatches).toEqual([]);
+  });
+
   it('reads flat on every row when the two batches are the same', () => {
     // Module test 68. The identity case: two batches of the same figures order
     // nothing, so every row is flat and none of them is incomparable.
@@ -483,6 +580,34 @@ describe('the two corners read together', () => {
     const { mismatches } = readAcrossCorners(sharp, sloppy);
 
     expect(mismatches).toEqual(['comparison']);
+  });
+
+  it('withholds the agreement when the two corners compared two different pairs of candidates', () => {
+    // The corner read is where a tuning mismatch belongs, on the build hashes'
+    // own precedent: they are carried by a comparison and never refused by it,
+    // and they stop the two corners being read together. Two corners that
+    // compared different candidate pairs answered different questions, so their
+    // agreement says nothing.
+    const sharp = compareBatches(
+      batchPlaying('steady-far', CANDIDATES.default.record, 10),
+      batchPlaying('steady-far', CANDIDATES.spendable.record, 20),
+    );
+    const sloppy = compareBatches(
+      batchPlaying('shaky-short', CANDIDATES.default.record, 10),
+      batchPlaying('shaky-short', CANDIDATES.default.record, 20),
+    );
+
+    const { mismatches, findings } = readAcrossCorners(sharp, sloppy);
+
+    expect(mismatches).toEqual(['tuning']);
+    expect(findings.every((one) => one.agreement === 'withheld')).toBe(true);
+    // The same pair on both corners is the case the sweep's own two-corner read
+    // will be, and it stands.
+    const agreed = compareBatches(
+      batchPlaying('shaky-short', CANDIDATES.default.record, 10),
+      batchPlaying('shaky-short', CANDIDATES.spendable.record, 20),
+    );
+    expect(readAcrossCorners(sharp, agreed).mismatches).toEqual([]);
   });
 
   it('reads a reading only one corner ordered as incomparable at the other', () => {

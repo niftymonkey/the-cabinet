@@ -15,6 +15,8 @@ import { createExecution, executeTick } from '../../game/execution';
 import { WEAPON_LINES } from '../../game/lines/roster';
 import { MOB_TYPES, MOB_TYPE_NAMES } from '../../game/mobs';
 import { createRun } from '../../game/run';
+import { resolveTuning, tuningRows } from '../../game/tuningRecord';
+import type { TuningRecord } from '../../game/tuningRecord';
 import { WITNESS_VERSION } from '../../game/witness';
 import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
 import { SCRIPT_POLICY } from '../../tape/tape';
@@ -23,6 +25,7 @@ import type { BatchOrigin } from '../batchReport';
 import { runTickBudget } from '../harnessRun';
 import { measure } from '../measure';
 import type { Measurement, Metrics } from '../measure';
+import { candidateOf, CANDIDATES } from '../tuningCandidates';
 import { startingConditionBlock } from '../../tape/startingCondition';
 
 const TICKS = 60;
@@ -84,6 +87,21 @@ interface MeasuredRun {
 const runOfTicks = (seed: number, ticks: number): MeasuredRun => ({
   seed,
   measurement: { ...BASE, run: { ...BASE.run, ticks } },
+});
+
+/**
+ * The same report as though its run had been played under one tuning record.
+ *
+ * The candidate is banded off the record rather than named here, because that
+ * is what a run's own provenance holds: a record read back off a tape's header
+ * bands the same way one taken from the table does (ADR 0064).
+ */
+const playedUnder = (seed: number, tuning: TuningRecord): MeasuredRun => ({
+  seed,
+  measurement: {
+    ...BASE,
+    provenance: { ...BASE.provenance, candidate: candidateOf(tuning), tuning },
+  },
 });
 
 const origin = (seeds: number): BatchOrigin => ({ ...ORIGIN, seeds });
@@ -806,6 +824,60 @@ describe('the batch report', () => {
 
     expect(one.identity.rigs).toEqual(['birthright']);
     expect([...two.identity.rigs].sort()).toEqual(['birthright', 'maxed']);
+  });
+
+  it('names every candidate its runs were played under, off the tapes themselves', () => {
+    // A report that cannot say which tuning it read cannot support ADR 0053's
+    // sentence, this tuning against that tuning, so the candidate is read off
+    // the runs for the same reason the rigs and the commits are: the folder's
+    // name is a convenience and the bytes are authoritative (ADR 0057).
+    const one = batchReportOf(origin(2), [
+      playedUnder(900, CANDIDATES.default.record),
+      playedUnder(901, CANDIDATES.default.record),
+    ]);
+    const two = batchReportOf(origin(2), [
+      playedUnder(900, CANDIDATES.default.record),
+      playedUnder(901, CANDIDATES.spendable.record),
+    ]);
+
+    expect(one.identity.candidates).toEqual(['default']);
+    expect([...two.identity.candidates].sort()).toEqual([
+      'default',
+      'spendable',
+    ]);
+    // A record no row holds names none rather than the nearest, which is what
+    // rigOf answers for a condition no rig holds (#107).
+    const unnamed = batchReportOf(origin(1), [
+      playedUnder(900, resolveTuning({ score: { trashKillScore: 7 } })),
+    ]);
+    expect(unnamed.identity.candidates).toEqual([null]);
+  });
+
+  it('carries the one tuning record its runs shared, every row of it', () => {
+    // The name says which tuning and the record says what it was, because a
+    // name is a promise about the tree the build was made from and the rows are
+    // what a run actually played under (ADR 0064). A folder whose runs did not
+    // share one record carries none, rather than one of them standing for both.
+    const shared = batchReportOf(origin(2), [
+      playedUnder(900, CANDIDATES.default.record),
+      playedUnder(901, CANDIDATES.default.record),
+    ]).identity.tuning;
+    const mixed = batchReportOf(origin(2), [
+      playedUnder(900, CANDIDATES.default.record),
+      playedUnder(901, CANDIDATES.spendable.record),
+    ]).identity.tuning;
+
+    if (shared === null) throw new Error('the batch shared no tuning record');
+    const carried = tuningRows(shared);
+    const expected = tuningRows(CANDIDATES.default.record);
+    expect(carried.length).toBe(expected.length);
+    for (const row of expected) {
+      expect(
+        carried.find((one) => one.name === row.name)?.value,
+        row.name,
+      ).toBe(row.value);
+    }
+    expect(mixed).toBeNull();
   });
 
   it('says what each of the three refusal counters read, per run', () => {

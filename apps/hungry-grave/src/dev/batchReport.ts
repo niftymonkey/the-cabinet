@@ -7,6 +7,8 @@ import { MOB_TYPES } from '../game/mobs';
 import type { MobType } from '../game/mobs';
 import { SECTIONS } from '../game/stage/stage';
 import type { SectionName } from '../game/stage/stage';
+import { tuningRows } from '../game/tuningRecord';
+import type { TuningRecord } from '../game/tuningRecord';
 import type { BuildMismatch } from '../tape/buildIdentity';
 import type { ConfigurationName } from './configurations';
 import { runTickBudget } from './harnessRun';
@@ -21,6 +23,7 @@ import { READINGS_VERSION } from './readingsVersion';
 import type { RigName } from './rigs';
 import { fiveNumbersOf, greatestOf, leastOf } from './seriesSummary';
 import type { FiveNumbers } from './seriesSummary';
+import type { CandidateName } from './tuningCandidates';
 
 /**
  * How many seeds one batch walks, initial (ADR 0053: seeds and never repeats).
@@ -86,6 +89,24 @@ interface BatchIdentity {
    * null is a run whose condition no rig holds.
    */
   readonly rigs: readonly (RigName | null)[];
+  /**
+   * Every tuning candidate the batch's runs were played under, read off the
+   * runs the way the rigs are (ADR 0064). A report that cannot say which tuning
+   * it read cannot support ADR 0053's one sentence, this tuning against that
+   * tuning, and null is a run whose record no row holds.
+   */
+  readonly candidates: readonly (CandidateName | null)[];
+  /**
+   * The one record every run in the batch was played under, or null when they
+   * were not all played under one.
+   *
+   * The name above says which tuning and this says what it was, because a name
+   * is a promise about the tree the build was made from while the rows are what
+   * a run played. Null rather than the first run's: a batch that spans two
+   * records has no record, and a comparison against one of them would name rows
+   * half the batch never played.
+   */
+  readonly tuning: TuningRecord | null;
   readonly mobWidths: Readonly<Record<MobType, number>>;
 }
 
@@ -972,7 +993,7 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   spreadReading('readbackFaults', (report) => report.readbackFaults.length),
   notReduced(
     'provenance',
-    "the hand is the batch's own configuration, the rig rides on the batch's own identity, and every harness run carries the same exclusions",
+    "the hand is the batch's own configuration, the rig and the tuning candidate both ride on the batch's own identity, and every harness run carries the same exclusions",
   ),
 ];
 
@@ -986,6 +1007,9 @@ interface Collected {
   readonly sections: Partial<Record<SectionName, Sample[]>>;
   readonly commitHashes: Set<string>;
   readonly rigs: Set<RigName | null>;
+  readonly candidates: Set<CandidateName | null>;
+  // The records the runs played under, one entry per distinct set of rows.
+  readonly tunings: Map<string, TuningRecord>;
 }
 
 const collected = (): Collected => ({
@@ -995,6 +1019,8 @@ const collected = (): Collected => ({
   sections: {},
   commitHashes: new Set(),
   rigs: new Set(),
+  candidates: new Set(),
+  tunings: new Map(),
 });
 
 const addSample = (samples: Samples, name: string, sample: Sample): void => {
@@ -1098,10 +1124,27 @@ const fileTimeline = (acc: Collected, seed: number, report: Metrics): void => {
   addCount(acc, 'reach', reached);
 };
 
+/**
+ * The rows a record states as one string, so two records are compared in one
+ * place and by their rows rather than by the name a caller happened to hold.
+ */
+const rowsKey = (record: TuningRecord): string =>
+  tuningRows(record)
+    .map((row) => `${row.name}=${row.value}`)
+    .join(',');
+
+/** The record every run shared, or null when they did not share one. */
+const sharedTuning = (
+  tunings: ReadonlyMap<string, TuningRecord>,
+): TuningRecord | null =>
+  tunings.size === 1 ? ([...tunings.values()][0] ?? null) : null;
+
 // One verified run, offered to every declared reading in turn.
 const collectRun = (acc: Collected, seed: number, report: Metrics): void => {
   acc.commitHashes.add(report.identity.commitHash);
   acc.rigs.add(report.provenance.rig);
+  acc.candidates.add(report.provenance.candidate);
+  acc.tunings.set(rowsKey(report.provenance.tuning), report.provenance.tuning);
   for (const declared of BATCH_READINGS) {
     if (declared.reduction === 'notReduced') continue;
     if (declared.reduction === 'sectionSpans') {
@@ -1264,6 +1307,8 @@ const batchReportOf = (
       recordedAt: origin.recordedAt,
       commitHashes: [...acc.commitHashes],
       rigs: [...acc.rigs],
+      candidates: [...acc.candidates],
+      tuning: sharedTuning(acc.tunings),
       mobWidths: MOB_WIDTHS,
     },
     readingsVersion: READINGS_VERSION,

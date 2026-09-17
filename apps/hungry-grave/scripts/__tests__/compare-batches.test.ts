@@ -28,6 +28,8 @@ import type { BatchReport } from '../../src/dev/batchReport';
 import type { ConfigurationName } from '../../src/dev/configurations';
 import { measure } from '../../src/dev/measure';
 import type { Metrics } from '../../src/dev/measure';
+import { candidateOf, CANDIDATES } from '../../src/dev/tuningCandidates';
+import type { TuningRecord } from '../../src/game/tuningRecord';
 import { startingConditionBlock } from '../../src/tape/startingCondition';
 
 const APP = resolve(import.meta.dirname, '..', '..');
@@ -102,6 +104,28 @@ const reportOf = (
     })),
   );
 
+/** The same four runs as though they had been played under one candidate. */
+const reportUnder = (
+  configuration: ConfigurationName,
+  ticks: number,
+  tuning: TuningRecord,
+): BatchReport =>
+  batchReportOf(
+    { configuration, firstSeed: 900, seeds: 4, recordedAt: 1_788_000_000_000 },
+    [0, 1, 2, 3].map((offset) => ({
+      seed: 900 + offset,
+      measurement: {
+        ...BASE,
+        run: { ...BASE.run, ticks: ticks + offset },
+        provenance: {
+          ...BASE.provenance,
+          candidate: candidateOf(tuning),
+          tuning,
+        },
+      },
+    })),
+  );
+
 /** A folder of report files, named as the command will be given them. */
 const written = (reports: Record<string, BatchReport>): string => {
   const folder = mkdtempSync(join(tmpdir(), 'hungry-grave-compare-'));
@@ -170,7 +194,9 @@ describe('the comparison command', () => {
       // A report from an earlier build carries no rigs on its identity and no
       // samples under its spreads, and both are fields the comparison reads
       // without asking. A document is rejected and never guessed at, so the
-      // shell says so rather than dying inside the comparison.
+      // shell says so rather than dying inside the comparison. The tuning
+      // candidates and the record they shared are the same kind of field and
+      // the case below is the same refusal, one build later.
       const older = reportOf('steady-far', 10);
       const folder = written({ 'left.json': reportOf('steady-far', 40) });
       writeFileSync(
@@ -221,8 +247,33 @@ describe('the comparison command', () => {
       expect(partial.status).toBe(1);
       expect(partial.stderr).toContain('partial.json');
       expect(partial.stderr).not.toMatch(/^\s+at /m);
+
+      // And the two the tuning record added, which is what a report written
+      // one build ago lacks. The refusal names them, because a refusal a
+      // reader cannot act on is a blanket refusal wearing a longer sentence.
+      writeFileSync(
+        join(folder, 'untuned.json'),
+        JSON.stringify({
+          ...older,
+          identity: {
+            ...older.identity,
+            candidates: undefined,
+            tuning: undefined,
+          },
+        }),
+      );
+      const untuned = runCompare(
+        join(folder, 'left.json'),
+        join(folder, 'untuned.json'),
+      );
+
+      expect(untuned.status).toBe(1);
+      expect(untuned.stderr).toContain('untuned.json');
+      expect(untuned.stderr).toContain('candidates');
+      expect(untuned.stderr).toContain('tuning record');
+      expect(untuned.stderr).not.toMatch(/^\s+at /m);
     },
-    SUBPROCESS_BUDGET_MS * 2,
+    SUBPROCESS_BUDGET_MS * 3,
   );
 
   it(
@@ -246,6 +297,44 @@ describe('the comparison command', () => {
       );
       expect(ticks.direction).toBe('up');
       expect(ticks.rank.rankBiserial).toBe(1);
+    },
+    SUBPROCESS_BUDGET_MS,
+  );
+
+  it(
+    'says the rows the two tunings differ in before it says anything about a reading',
+    () => {
+      // Two tunings are compared and never refused, and what a reader needs
+      // first is the row they differ in (draft ruling 8). The shell prints in
+      // the order the comparison carries, so the rows come off its own field.
+      const folder = written({
+        'left.json': reportUnder('steady-far', 10, CANDIDATES.default.record),
+        'right.json': reportUnder(
+          'steady-far',
+          40,
+          CANDIDATES.spendable.record,
+        ),
+      });
+      const result = runCompare(
+        join(folder, 'left.json'),
+        join(folder, 'right.json'),
+      );
+
+      expect(result.status).toBe(0);
+      const rows = result.stderr.indexOf('stage.processionPurse');
+      const readings = result.stderr.indexOf('readings ordered');
+      expect(rows).toBeGreaterThanOrEqual(0);
+      expect(readings).toBeGreaterThan(rows);
+      expect(result.stderr).toContain('default against spendable');
+      const compared = JSON.parse(result.stdout);
+      expect(compared.corners[0].mismatches).toEqual([]);
+      expect(compared.corners[0].tuningDifferences).toEqual([
+        {
+          name: 'stage.processionPurse',
+          left: CANDIDATES.default.record.stage.processionPurse,
+          right: CANDIDATES.spendable.record.stage.processionPurse,
+        },
+      ]);
     },
     SUBPROCESS_BUDGET_MS,
   );

@@ -16,7 +16,7 @@
 
 import { readFileSync } from 'node:fs';
 
-import type { BatchReport } from '../src/dev/batchReport';
+import type { BatchIdentity, BatchReport } from '../src/dev/batchReport';
 import { compareBatches, readAcrossCorners } from '../src/dev/compareBatches';
 import type { BatchComparison, CornersRead } from '../src/dev/compareBatches';
 
@@ -57,21 +57,29 @@ const holdsSpreads = (value: unknown): boolean =>
   isPlainObject(value) && Object.values(value).every(isSpread);
 
 /**
- * Whether this is a report the comparison can read: the identity it names two
- * instruments by, the rigs on it, the version it was computed under, and the
- * three families of spreads, each spread carrying the samples a rank test
- * reads.
+ * Whether this is a report the comparison can read: the identity it names its
+ * instruments and its two starting conditions by, the rigs and the tuning
+ * candidates on it with the record they shared, the version it was computed
+ * under, and the three families of spreads, each spread carrying the samples a
+ * rank test reads.
  *
  * A report written before those fields existed is a document from another
  * build, and a document is rejected rather than guessed at: read as though it
  * were this shape it would die inside the comparison instead, on a field
  * nothing said was missing. What this is otherwise here to catch is a path
  * that names some other JSON.
+ *
+ * The record is a field a batch may honestly have none of, so its absence and
+ * its null are two different answers: null is a batch whose own runs did not
+ * share one record, and a missing field is a report from a build that could not
+ * have said.
  */
 const isBatchReport = (value: unknown): value is BatchReport =>
   isPlainObject(value) &&
   isPlainObject(value.identity) &&
   Array.isArray(value.identity.rigs) &&
+  Array.isArray(value.identity.candidates) &&
+  (isPlainObject(value.identity.tuning) || value.identity.tuning === null) &&
   Array.isArray(value.identity.commitHashes) &&
   typeof value.readingsVersion === 'number' &&
   holdsSpreads(value.spreads) &&
@@ -97,7 +105,7 @@ const reportAt = (path: string): BatchReport | null => {
     const parsed: unknown = JSON.parse(raw);
     if (!isBatchReport(parsed)) {
       return refuse(
-        `${path} is not a batch report this build can compare (one written before the rigs and the per-run samples reads as one)`,
+        `${path} is not a batch report this build can compare (this build requires the candidates and the tuning record on its identity, so one written before them reads as one)`,
       );
     }
     return parsed;
@@ -153,12 +161,32 @@ const comparedFrom = (reports: readonly BatchReport[]): ComparedBatches => {
   };
 };
 
+// The candidates one side was played under, as a person reads them.
+const candidatesIn = (identity: BatchIdentity): string =>
+  identity.candidates.map((name) => name ?? 'a tuning no row holds').join(', ');
+
+/**
+ * The rows the two tunings differ in, said before anything about a reading,
+ * because every ordering under them is an answer to that difference.
+ */
+const sayTuningRows = (corner: BatchComparison): void => {
+  if (corner.tuningDifferences.length === 0) return;
+  console.error(
+    `${candidatesIn(corner.left)} against ${candidatesIn(corner.right)}, differing rows first:`,
+  );
+  for (const row of corner.tuningDifferences) {
+    console.error(`  ${row.name}: ${row.left} against ${row.right}`);
+  }
+};
+
 /**
  * What a person watching sees, on stderr because stdout is the comparison and
- * nothing else: which orderings stand, and what stops any of them standing.
+ * nothing else: the rows the two tunings differ in, then which orderings stand,
+ * and what stops any of them standing.
  */
 const sayWhatHappened = (compared: ComparedBatches): void => {
   for (const corner of compared.corners) {
+    sayTuningRows(corner);
     const where = `${corner.left.configuration} against ${corner.right.configuration}`;
     if (corner.mismatches.length === 0) {
       console.error(`${where}: ${corner.readings.length} readings ordered`);

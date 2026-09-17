@@ -45,6 +45,7 @@ import {
 } from '../readings/upfieldTraffic';
 import { READINGS_VERSION } from '../readingsVersion';
 import type { FieldDensity, LevelUp } from '../replayTallies';
+import { CANDIDATES } from '../tuningCandidates';
 import { startingConditionBlock } from '../../tape/startingCondition';
 
 const SEED = 20260823;
@@ -762,6 +763,8 @@ describe('measure', () => {
       inputDevice: 'bot',
       policy: PERSON_POLICY,
       rig: 'birthright',
+      candidate: 'default',
+      tuning: CANDIDATES.default.record,
       conditioned: false,
       exclusions: ['bot'],
     });
@@ -780,6 +783,10 @@ describe('measure', () => {
       policy: PERSON_POLICY,
       // A size no rig holds, so the run names none rather than the nearest.
       rig: null,
+      // The record is still the build's own, which is a different half of the
+      // starting condition and answers on its own terms.
+      candidate: 'default',
+      tuning: CANDIDATES.default.record,
       conditioned: true,
       exclusions: ['conditioned'],
     });
@@ -794,6 +801,8 @@ describe('measure', () => {
       inputDevice: 'keyboard',
       policy: PERSON_POLICY,
       rig: 'birthright',
+      candidate: 'default',
+      tuning: CANDIDATES.default.record,
       conditioned: false,
       exclusions: [],
     });

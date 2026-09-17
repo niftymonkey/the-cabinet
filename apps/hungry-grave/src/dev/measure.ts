@@ -6,6 +6,7 @@ import type { DamageSource } from '../game/mobs';
 import type { RunEnding, StartingConditions } from '../game/run';
 import { isBirthrightLevels } from '../game/run';
 import { SIZE_START } from '../game/tuning';
+import type { TuningRecord } from '../game/tuningRecord';
 import { buildMismatchOf } from '../tape/buildIdentity';
 import type { BuildMismatch } from '../tape/buildIdentity';
 import type { DecodedTape } from '../tape/decode';
@@ -36,6 +37,8 @@ import {
   EMPTY_FIELD,
 } from './replayTallies';
 import type { LevelUp, ReplayTallies } from './replayTallies';
+import { candidateOf } from './tuningCandidates';
+import type { CandidateName } from './tuningCandidates';
 
 /**
  * The run as a whole, recomputed and read off the tape.
@@ -89,6 +92,24 @@ interface Provenance {
    * being filed under the nearest row.
    */
   readonly rig: RigName | null;
+  /**
+   * Which tuning candidate the run was played under, or null when no row holds
+   * the record it carried (ADR 0064). It is the rig's own field for the other
+   * half of a starting condition: a report that cannot say which tuning it read
+   * cannot say this tuning against that tuning, which is the only sentence
+   * ADR 0053 lets a finding be written in.
+   */
+  readonly candidate: CandidateName | null;
+  /**
+   * The record itself, whole, off the condition the header carries. The name is
+   * a promise about the tree the build was made from and these are the rows the
+   * run actually played under, so both ride and neither stands for the other.
+   *
+   * It is the tuning record and not the tuning readings above it: those are
+   * figures this instrument computed, and this is a starting condition the tape
+   * states.
+   */
+  readonly tuning: TuningRecord;
   /**
    * Whether the resolved starting size or levels differ from today's
    * birthright. A birthright retune mislabels old tapes toward exclusion,
@@ -258,6 +279,10 @@ const provenanceOf = (
     conditions.startingLevels,
     conditions.startingScore,
   ),
+  // Banded off the record the header carries and never off a name, so a tape
+  // read back bands the same way a run taken from the table does (ADR 0064).
+  candidate: candidateOf(conditions.tuning),
+  tuning: conditions.tuning,
   conditioned: isConditioned(conditions),
   exclusions: exclusionsOf(tape, conditions, recordedFaults),
 });
