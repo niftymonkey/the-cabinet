@@ -83,10 +83,18 @@ interface GraveHit {
   readonly invulnerable: number;
 }
 
-// The floor ladder's first rung: the whole score, gone (ADR 0003).
+/**
+ * The floor ladder's first rung: a capped slice of the score, gone (ADR 0003 as
+ * amended 2026-09-16).
+ *
+ * It carries what was taken and what is left standing, the shape `overflowed`
+ * already uses, so a readout counting the digits down knows where the score
+ * stood before the hit without diffing anything.
+ */
 interface ScoreBled {
   readonly type: 'scoreBled';
   readonly amount: number;
+  readonly score: number;
 }
 
 // The floor ladder's second rung: one level off every line at once (ADR 0003).

@@ -64,7 +64,7 @@ const GRAVE_HIT: SimEvent = {
   size: 24,
   invulnerable: 24,
 };
-const SCORE_BLED: SimEvent = { type: 'scoreBled', amount: 100 };
+const SCORE_BLED: SimEvent = { type: 'scoreBled', amount: 100, score: 0 };
 const WEAPON_STRIPPED: SimEvent = { type: 'weaponStripped', lines: [] };
 
 // Everything the signal is deliberately deaf to, one of each shape it could

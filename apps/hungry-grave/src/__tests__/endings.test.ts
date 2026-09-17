@@ -28,7 +28,7 @@ import type { RunState } from '../game/run';
 import { createRun, uniformLevels } from '../game/run';
 import type { BossKind } from '../game/stage/waves';
 import { SECTIONS } from '../game/stage/stage';
-import { SIZE_CEILING, SIZE_FLOOR } from '../game/tuning';
+import { SCORE_BLEED_CAP, SIZE_CEILING, SIZE_FLOOR } from '../game/tuning';
 
 /** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
 function requireDefined<T>(value: T | undefined, message: string): T {
@@ -58,8 +58,8 @@ const FIGHT_TICKS = 6000;
 const LADDER_LEVEL = 2;
 
 /**
- * The score the run brings to the fight, which the ladder's first rung bleeds
- * whole.
+ * The score the run brings to the fight, which the ladder's first rung takes a
+ * capped slice of.
  *
  * It is pinned for the same reason the build above is: score arrives only as
  * overflow from a swallow at the size ceiling, and a rig standing in the last
@@ -67,8 +67,8 @@ const LADDER_LEVEL = 2;
  * policy's first hit lands at tick 88 and the fight's first corpse at tick 307,
  * so a grave that dives is off the ceiling long before the fight pays it
  * anything. The figure itself is not a magnitude the test rests on, because the
- * score tier is one rung and bleeds whole whatever it holds, which the
- * assertion below reads.
+ * assertion below reads the rule rather than the number: the rung takes the
+ * lesser of what stood and the cap, whichever of the two this fixture lands on.
  */
 const SCORE_BROUGHT_TO_THE_FIGHT = 1200;
 
@@ -77,13 +77,11 @@ const SCORE_BROUGHT_TO_THE_FIGHT = 1200;
  * measured on 2026-09-16 when a kill began paying score (#99, design record
  * R4).
  *
- * It exists because the rung bleeds whole, so what the bleed reports is
- * everything the score held at that moment, and the score is no longer only
- * what was handed to the run above. Three mow bodies fall to this build in the
- * window between the phase starting and the grave reaching the floor. It is a
- * fact about this policy on this stage in the same way LADDER_LEVEL is, and
- * what the assertion rests on is still that the first rung takes the whole of
- * whatever it found.
+ * It exists because what the bleed reports is measured against everything the
+ * score held at that moment, and the score is no longer only what was handed to
+ * the run above. Three mow bodies fall to this build in the window between the
+ * phase starting and the grave reaching the floor. It is a fact about this
+ * policy on this stage in the same way LADDER_LEVEL is.
  */
 const SCORE_EARNED_INSIDE_THE_FIGHT = 300;
 
@@ -347,13 +345,17 @@ describe("the grave's ending (ADR 0003)", () => {
     const order = rungs.map((rung) => rung.type);
 
     expect(fight.state.ending).toBe('sealed');
-    // Score first, and the whole of it: the score tier is one rung and never
-    // partly bleeds.
+    // Score first, and the lesser of what stood and the cap: the score tier is
+    // one rung whatever it paid, and the remainder stays (ADR 0003 as amended
+    // 2026-09-16 on Mark's ruling, "Cap the bleed").
     expect(order[0]).toBe('scoreBled');
-    expect(
-      requireDefined(only(rungs, 'scoreBled')[0], 'no scoreBled rung').amount,
-    ).toBe(SCORE_BROUGHT_TO_THE_FIGHT + SCORE_EARNED_INSIDE_THE_FIGHT);
-    expect(leftByTheBleed).toBe(0);
+    const stood = SCORE_BROUGHT_TO_THE_FIGHT + SCORE_EARNED_INSIDE_THE_FIGHT;
+    const bled = requireDefined(
+      only(rungs, 'scoreBled')[0],
+      'no scoreBled rung',
+    ).amount;
+    expect(bled).toBe(Math.min(stood, SCORE_BLEED_CAP));
+    expect(leftByTheBleed).toBe(stood - bled);
     // Then the levels, then the seal, and the seal is the last thing that
     // happens because there is nothing left to bleed.
     expect(order.indexOf('weaponStripped')).toBeGreaterThan(

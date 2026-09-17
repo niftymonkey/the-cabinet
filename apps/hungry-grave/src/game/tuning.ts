@@ -141,6 +141,35 @@ const RESERVOIR_CAPACITY = FEAST_PAYOUT;
 const TRASH_KILL_SCORE = 100;
 
 /**
+ * The most one hit at the size floor can bleed. The ladder's first rung takes
+ * the lesser of this and what the run is holding, and the remainder stays
+ * (ADR 0003 as amended 2026-09-16 on Mark's ruling "Cap the bleed", design
+ * record `show-what-you-have.md` R4's closing amendment).
+ *
+ * Stated as a multiple of the kill's own unit, exactly as every mob row's score
+ * payout is, because the sentence a flat cap exists to make sayable is "a hit
+ * at the floor costs you twenty kills" and a bare two thousand says nothing
+ * about the income it comes out of.
+ *
+ * It is a first figure inside the researched band of 10 to 40 trash kills
+ * (`docs/research/score-loss-on-a-hit-precedent.md` section 5), and it sits
+ * below that band's midpoint on purpose. What it is set against is the early
+ * window rather than the middle of the band: until a run's score first crosses
+ * the cap the cap does not exist for the player at all and the first floor hit
+ * still takes everything, so the lower the figure the sooner the rule is real.
+ * At the storm's measured 2.47 kills a second it is about eight seconds of
+ * mowing, and against slice M1's own batch, where a run made 12,400 to 58,112
+ * points gross, a run that bleeds twice pays about a third of the leanest run
+ * and a fifteenth of the richest.
+ *
+ * What it gets tuned against is slice M6's bleeds and strips per run, and it is
+ * re-read after slice M7 rather than against M6 alone: the band's upper end is
+ * argued against a run's gross, and M7's boss damage, source kill and rich
+ * swallow all pay into that gross.
+ */
+const SCORE_BLEED_CAP = 20 * TRASH_KILL_SCORE;
+
+/**
  * Freshness scales a payout down to a floor and never to zero (ADR 0004).
  *
  * It sits beside the floor rather than in swallow.ts, because three payers now
@@ -168,6 +197,7 @@ export {
   CORPSES_TO_CEILING,
   TRASH_CORPSE_PAYOUT,
   TRASH_KILL_SCORE,
+  SCORE_BLEED_CAP,
   FEAST_PAYOUT,
   RESERVOIR_CAPACITY,
 };

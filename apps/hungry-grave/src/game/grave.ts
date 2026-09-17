@@ -17,6 +17,7 @@ import {
   GRAVE_ASPECT,
   HIT_SHRINK,
   INVULNERABLE_TICKS,
+  SCORE_BLEED_CAP,
   SIZE_CEILING,
   SIZE_FLOOR,
   SIZE_START,
@@ -166,11 +167,20 @@ const ageGrave = (grave: Grave): void => {
   if (grave.invulnerable > 0) grave.invulnerable -= 1;
 };
 
-// The whole score, gone. The score tier is exactly one rung, so it never partly bleeds.
+/**
+ * The lesser of the standing score and the cap, gone, and the remainder stays
+ * (ADR 0003 as amended on Mark's ruling of 2026-09-16, design record R4's
+ * closing amendment). The event carries what was taken beside what is left, so
+ * a readout counting the digits down knows where the score stood.
+ *
+ * No invariant guards the remainder against going negative, because the
+ * lesser-of makes that state unreachable rather than merely unlikely; the test
+ * that pins the lesser-of is what holds it.
+ */
 const bleedScore = (state: RunState): SimEvent[] => {
-  const amount = state.score;
-  state.score = 0;
-  return [{ type: 'scoreBled', amount }];
+  const amount = Math.min(state.score, SCORE_BLEED_CAP);
+  state.score -= amount;
+  return [{ type: 'scoreBled', amount, score: state.score }];
 };
 
 // The level a line can never be stripped below (glossary: birthright).
@@ -307,8 +317,9 @@ const sealShut = (state: RunState): SimEvent[] => {
 
 /**
  * ADR 0003's floor ladder, one rung per hit. The floor is hard, so a hit here
- * never shrinks: it bleeds all of the score, then takes one level off every
- * line, and only when nothing is left to bleed does it seal the grave shut.
+ * never shrinks: it bleeds a capped slice of the score, then takes one level
+ * off every line, and only when nothing is left to bleed does it seal the grave
+ * shut.
  *
  * Every ladder run spends the score rung, the run that finds no score included,
  * and only growth gives it back (design record R4). A rung the next kill

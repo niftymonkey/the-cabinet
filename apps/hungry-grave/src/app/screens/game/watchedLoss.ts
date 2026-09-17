@@ -8,7 +8,7 @@ import type { RunReadout } from './runSession';
 /**
  * How long the score's readout takes to fall, in ticks.
  *
- * The sim sets the score to zero in one tick and that does not move (grave.ts,
+ * The sim takes the bleed in one tick and that does not move (grave.ts,
  * bleedScore); this is the renderer's own held transient, born of a past tick,
  * and it is declared here so the registry in transients.ts can hold it under
  * REPLAY_LEAD_IN_TICKS. A declared starting figure on the same terms as the
@@ -37,10 +37,16 @@ const WATCHED_LOSS_TRANSIENT_TICKS = {
   rungStrip: RUNG_STRIP_TICKS,
 } as const;
 
-/** The score that left, and the tick it left on. */
+/**
+ * The tick a bleed left on, and the score as it stood before it.
+ *
+ * The score before rather than the slice taken, because a capped bleed leaves a
+ * remainder standing and the digits have to fall from what the player was
+ * looking at (ADR 0003 as amended 2026-09-16, record R5).
+ */
 interface Bleed {
   readonly born: number;
-  readonly amount: number;
+  readonly from: number;
 }
 
 /** The lines that each paid a rung, and the tick they paid on. */
@@ -92,8 +98,8 @@ const spentOf = (born: number, tick: number, life: number): number | null => {
 };
 
 /**
- * The number the digits read: linear from the bled amount toward whatever the
- * run's score currently reads, over the whole lifetime.
+ * The number the digits read: linear from the score as it stood before the hit
+ * toward whatever the run's score currently reads, over the whole lifetime.
  *
  * Linear and never eased: ease-out spends most of the value in the first few
  * frames and leaves a tail, which is the snap record R5 rejected, stretched. It
@@ -109,7 +115,7 @@ const scoreCountingDown = (
   if (bleed === null) return liveScore;
   const spent = spentOf(bleed.born, tick, SCORE_BLEED_TICKS);
   if (spent === null) return liveScore;
-  return bleed.amount + (liveScore - bleed.amount) * spent;
+  return bleed.from + (liveScore - bleed.from) * spent;
 };
 
 /**
@@ -156,7 +162,9 @@ const watchLoss = (
   tick: number,
 ): WatchedLoss => {
   if (event.type === 'scoreBled') {
-    return { ...loss, bleed: { born: tick, amount: event.amount } };
+    // The event's own arithmetic, so the view computes no diff of its own: what
+    // was taken plus what was left is what stood before the hit.
+    return { ...loss, bleed: { born: tick, from: event.amount + event.score } };
   }
   if (event.type === 'weaponStripped') {
     return { ...loss, strip: { born: tick, lines: event.lines } };

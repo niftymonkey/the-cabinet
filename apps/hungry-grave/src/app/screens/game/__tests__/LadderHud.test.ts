@@ -553,21 +553,23 @@ describe('the ladder HUD', () => {
   it('counts the digits down while the cushion beside them empties, both of the one loss', () => {
     // Record R5: the digits and the mark are one vocabulary, so a hit that
     // bleeds shows the number leaving and the cushion going at the same pace.
+    // The bleed is a capped slice off a late score (ADR 0003 as amended), so
+    // the digits start at the 22,000 that stood and land on the 20,000 left.
     const hud = hudShowing(['skullStream']);
     const watching = watchLoss(
       NO_LOSS_WATCHED,
-      { type: 'scoreBled', amount: 41300 },
+      { type: 'scoreBled', amount: 2000, score: 20000 },
       0,
     );
     const midpoint = readoutWith({
       tick: SCORE_BLEED_TICKS / 2,
-      score: 0,
+      score: 20000,
       scoreRungBled: true,
     });
 
     hud.render(midpoint, watching);
 
-    expect(scoreOf(hud.view)).toBe('020650');
+    expect(scoreOf(hud.view)).toBe('021000');
     expect(areaShareOf(named(hud.view, 'cushion'))).toBeCloseTo(0.5, 6);
   });
 
@@ -589,7 +591,7 @@ describe('the ladder HUD', () => {
     const hud = hudShowing(['bell']);
     const bleeding = watchLoss(
       NO_LOSS_WATCHED,
-      { type: 'scoreBled', amount: 41300 },
+      { type: 'scoreBled', amount: 2000, score: 0 },
       0,
     );
     const andStripped = watchLoss(

@@ -21,7 +21,7 @@ const GRAVE_HIT: SimEvent = {
   invulnerable: 0,
 };
 
-const SCORE_BLED: SimEvent = { type: 'scoreBled', amount: 100 };
+const SCORE_BLED: SimEvent = { type: 'scoreBled', amount: 100, score: 0 };
 const WEAPON_STRIPPED: SimEvent = { type: 'weaponStripped', lines: [] };
 
 describe('the signal lock (ADR 0027, CONTEXT.md Signal lock)', () => {

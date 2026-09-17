@@ -30,7 +30,12 @@ const readoutWith = (over: Partial<RunReadout> = {}): RunReadout => ({
   ...over,
 });
 
-const bled = (amount: number): SimEvent => ({ type: 'scoreBled', amount });
+/** A bleed of `amount` that left `score` standing, as the ladder reports one. */
+const bled = (amount: number, score = 0): SimEvent => ({
+  type: 'scoreBled',
+  amount,
+  score,
+});
 
 const stripped = (lines: readonly WeaponLine[]): SimEvent => ({
   type: 'weaponStripped',
@@ -42,34 +47,55 @@ const scoreAt = (loss: WatchedLoss, tick: number, liveScore = 0): number =>
   lossReading(loss, readoutWith({ tick, score: liveScore })).score;
 
 describe('the score watched leaving', () => {
-  it("falls linearly, reading about half the bled amount at the countdown's midpoint tick", () => {
+  it('falls linearly from the score as it stood before the hit to what the bleed left, and never climbs', () => {
     // Record R5: counter guidance defaults to ease-out, which spends most of
     // the value in the first few frames and leaves a tail, and that is the snap
     // the ruling rejected, stretched. The midpoint is the assertion ease-out
     // fails, and every gauge the cited games drain, drains linearly.
-    const loss = watchLoss(NO_LOSS_WATCHED, bled(41300), 0);
+    //
+    // Under a capped bleed the start is the pre-hit score and not the amount
+    // taken (ADR 0003 as amended 2026-09-16): a countdown that began at the
+    // slice would jump down to it and then climb back to the remainder, which
+    // is the opposite of R5's promise that the score is seen to leave. The
+    // never-climbs assertion is the point, because the old expression passes a
+    // midpoint test while running the wrong way. It is a claim about this
+    // fixture and not about play: in play the countdown eases toward a live
+    // score, and one that gains more than the cap inside the lifetime climbs by
+    // design.
+    const loss = watchLoss(NO_LOSS_WATCHED, bled(2000, 20000), 0);
+    const held = 20000;
 
-    expect(scoreAt(loss, 0)).toBeCloseTo(41300, 6);
-    expect(scoreAt(loss, SCORE_BLEED_TICKS / 4)).toBeCloseTo(41300 * 0.75, 6);
-    expect(scoreAt(loss, SCORE_BLEED_TICKS / 2)).toBeCloseTo(41300 * 0.5, 6);
-    expect(scoreAt(loss, (SCORE_BLEED_TICKS * 3) / 4)).toBeCloseTo(
-      41300 * 0.25,
+    expect(scoreAt(loss, 0, held)).toBeCloseTo(22000, 6);
+    expect(scoreAt(loss, SCORE_BLEED_TICKS / 4, held)).toBeCloseTo(21500, 6);
+    expect(scoreAt(loss, SCORE_BLEED_TICKS / 2, held)).toBeCloseTo(21000, 6);
+    expect(scoreAt(loss, (SCORE_BLEED_TICKS * 3) / 4, held)).toBeCloseTo(
+      20500,
       6,
     );
+    expect(scoreAt(loss, SCORE_BLEED_TICKS, held)).toBe(held);
+
+    const readings = Array.from({ length: SCORE_BLEED_TICKS + 1 }, (_, tick) =>
+      scoreAt(loss, tick, held),
+    );
+    for (const [tick, reading] of readings.entries()) {
+      if (tick === 0) continue;
+      expect(`${tick} ${reading <= readings[tick - 1]!}`).toBe(`${tick} true`);
+    }
   });
 
-  it('lands on the live score rather than on zero, so a score climbing from kills is landed on and never jumped to', () => {
+  it('lands on the live score rather than on what the bleed left, so a score climbing from kills is landed on and never jumped to', () => {
     // Record R4 keeps kills paying score while the grave is at the floor, so
     // the sim's score is climbing again before the animation finishes; a
-    // countdown driving toward zero would land on a number the sim had left.
-    const loss = watchLoss(NO_LOSS_WATCHED, bled(41300), 0);
+    // countdown driving toward the remainder would land on a number the sim had
+    // left.
+    const loss = watchLoss(NO_LOSS_WATCHED, bled(2000, 20000), 0);
 
-    expect(scoreAt(loss, SCORE_BLEED_TICKS / 2, 900)).toBeCloseTo(
-      (41300 + 900) / 2,
+    expect(scoreAt(loss, SCORE_BLEED_TICKS / 2, 20900)).toBeCloseTo(
+      (22000 + 20900) / 2,
       6,
     );
-    expect(scoreAt(loss, SCORE_BLEED_TICKS, 900)).toBe(900);
-    expect(scoreAt(loss, SCORE_BLEED_TICKS * 4, 900)).toBe(900);
+    expect(scoreAt(loss, SCORE_BLEED_TICKS, 20900)).toBe(20900);
+    expect(scoreAt(loss, SCORE_BLEED_TICKS * 4, 20900)).toBe(20900);
   });
 
   it('is told a bleed happened and never infers one from a score that fell', () => {

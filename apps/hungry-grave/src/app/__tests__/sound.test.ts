@@ -75,7 +75,7 @@ const EVERY_EVENT: SimEvent[] = [
   { type: 'weaponLeveled', line: 'bell', level: 2 },
   { type: 'graveHit', source: 'contact', size: 20, invulnerable: 24 },
   { type: 'mobDamaged', id: 7, amount: 1, source: 'bell' },
-  { type: 'scoreBled', amount: 5 },
+  { type: 'scoreBled', amount: 5, score: 0 },
   { type: 'weaponStripped', lines: ['bell'] },
   { type: 'sealed', tick: 10 },
   { type: 'victory', tick: 10 },

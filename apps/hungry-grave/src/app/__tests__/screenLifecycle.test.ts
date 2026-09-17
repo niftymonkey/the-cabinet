@@ -53,7 +53,7 @@ import { PHASE_HP, spawnBoss } from '../../game/bosses/phases';
 import { TICK_MS } from '../../game/clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
-import { SIZE_FLOOR } from '../../game/tuning';
+import { SCORE_BLEED_CAP, SIZE_FLOOR } from '../../game/tuning';
 import type { SimEvent } from '../../game/events';
 import { FAULT_IDENTITIES } from '../../game/faults';
 import { SECTIONS } from '../../game/stage/stage';
@@ -1766,29 +1766,36 @@ describe('a loss watched on the ladder row', () => {
   }
 
   it('shows the score falling and the cushion emptying on a floor hit with score standing', () => {
-    // Record R5: the sim zeroes the score in one tick and the row animates the
+    // Record R5: the sim takes the bleed in one tick and the row animates the
     // readout down, so the number is seen to leave rather than to have left.
+    // Under ADR 0003 as amended 2026-09-16 the hit takes a capped slice, so the
+    // digits start where the score stood and land on what was left standing.
+    const standing = 41300;
     const screen = gameScreen();
     screen.prepare();
     const run = screen['session'].run!;
     run.grave.size = SIZE_FLOOR;
-    run.score = 41300;
+    run.score = standing;
     standOnGrave(run);
 
     screen.update(frame(TICK_MS));
 
-    expect(run.score).toBe(0);
-    expect(Number(digits(screen))).toBeGreaterThan(40000);
+    expect(run.score).toBe(standing - SCORE_BLEED_CAP);
+    expect(Number(digits(screen))).toBe(standing);
     expect(shareOf(named(row(screen), 'cushion'))).toBeCloseTo(1, 6);
 
-    // Half the countdown later the digits read about half the bled amount, and
-    // the cushion beside them is half gone, which is the one vocabulary.
+    // Half the countdown later the digits read about halfway between the score
+    // that stood and the score standing now, and the cushion beside them is
+    // half gone, which is the one vocabulary. The live score is read at that
+    // frame rather than assumed, because kills go on paying while the grave is
+    // at the floor and the countdown eases toward whatever it finds.
     run.grave.invulnerable = SCORE_BLEED_TICKS;
     for (let spent = 0; spent < SCORE_BLEED_TICKS / 2; spent++) {
       screen.update(frame(TICK_MS));
     }
-    expect(Number(digits(screen))).toBeLessThan(41300 * 0.6);
-    expect(Number(digits(screen))).toBeGreaterThan(41300 * 0.4);
+    expect(Number(digits(screen))).toBeLessThan(standing);
+    expect(Number(digits(screen))).toBeGreaterThan(run.score);
+    expect(Number(digits(screen))).toBeCloseTo((standing + run.score) / 2, -1);
     expect(shareOf(named(row(screen), 'cushion'))).toBeLessThan(1);
     expect(shareOf(named(row(screen), 'cushion'))).toBeGreaterThan(0);
   });

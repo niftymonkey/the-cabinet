@@ -27,6 +27,7 @@ import {
   GRAVE_ASPECT,
   HIT_SHRINK,
   INVULNERABLE_TICKS,
+  SCORE_BLEED_CAP,
   SIZE_CEILING,
   SIZE_FLOOR,
   SIZE_START,
@@ -215,16 +216,17 @@ describe('the grave', () => {
   it("at the floor the ladder runs in order, one rung per hit: score, then every line's level, then sealed shut (ADR 0003)", () => {
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
-    run.score = 250;
+    run.score = SCORE_BLEED_CAP * 2;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
-    // Rung one bleeds all of the score and touches no weapon level. The whole
-    // score, so that the score tier is exactly one rung.
+    // Rung one bleeds a capped slice of the score and touches no weapon level.
+    // The rung is exactly one rung whatever it paid, which is why the amount is
+    // bounded and the order is not (ADR 0003 as amended 2026-09-16).
     const bled = hitGrave(run, 'contact');
     expect(kinds(bled)).toContain('scoreBled');
     expect(kinds(bled)).not.toContain('weaponStripped');
     expect(kinds(bled)).not.toContain('sealed');
-    expect(run.score).toBe(0);
+    expect(run.score).toBe(SCORE_BLEED_CAP);
     for (const line of WEAPON_LINES) expect(run.levels[line]).toBe(MAX_LEVEL);
 
     // Rung two takes one level off every line at once, and seals nothing.
@@ -248,10 +250,13 @@ describe('the grave', () => {
   it('the ladder is finite: from a maxed run at the floor holding score, at most 7 hits end in sealed shut (ADR 0003)', () => {
     // One hit for the score, five for the levels and one to seal. The bound
     // holds whatever the build, because taking a level off every line at once
-    // is what stops a great run dying more slowly than a poor one.
+    // is what stops a great run dying more slowly than a poor one. It holds
+    // whatever the score too, and a score many times the cap is what says so:
+    // the rung is spent once per arming whatever it paid, so a bounded bleed
+    // never buys a second hit's worth of ladder.
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
-    run.score = 999;
+    run.score = SCORE_BLEED_CAP * 100;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
     let hits = 0;
@@ -329,35 +334,83 @@ describe('the grave', () => {
     expect(run.levels.skullStream).toBe(1);
   });
 
-  it('a hit at the size floor with score standing bleeds the score and takes no level (ADR 0003)', () => {
-    // The ladder's first rung, read on its own rather than through the whole
-    // ladder: the score tier is exactly one rung, so it never partly bleeds and
-    // it never reaches a weapon level on the same hit.
+  it('a hit at the size floor with more score standing than the cap bleeds the cap and the rest stays (ADR 0003 as amended)', () => {
+    // Mark's ruling of 2026-09-16, "Cap the bleed": the ladder still spends the
+    // score rung before it spends a level, and the amount alone is bounded, so
+    // a run keeps most of what it earned and goes on earning. The event carries
+    // what was taken and what was left, which is what the readout counts from.
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
-    run.score = 250;
+    run.score = SCORE_BLEED_CAP * 3;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
     const events = hitGrave(run, 'contact');
+    const bled = events.find((event) => event.type === 'scoreBled');
 
-    expect(kinds(events)).toContain('scoreBled');
     expect(kinds(events)).not.toContain('weaponStripped');
+    expect(bled).toEqual({
+      type: 'scoreBled',
+      amount: SCORE_BLEED_CAP,
+      score: SCORE_BLEED_CAP * 2,
+    });
+    expect(run.score).toBe(SCORE_BLEED_CAP * 2);
+    for (const line of WEAPON_LINES) expect(run.levels[line]).toBe(MAX_LEVEL);
+  });
+
+  it('a hit at the size floor with less score standing than the cap bleeds all of it (ADR 0003 as amended)', () => {
+    // The lesser of the two, so the one case that does not change is the small
+    // score: it is taken whole and the remainder is zero, which is the floor
+    // every shipped flat subtraction has without writing a second rule down.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = SCORE_BLEED_CAP / 2;
+    for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+
+    const events = hitGrave(run, 'contact');
+    const bled = events.find((event) => event.type === 'scoreBled');
+
+    expect(kinds(events)).not.toContain('weaponStripped');
+    expect(bled).toEqual({
+      type: 'scoreBled',
+      amount: SCORE_BLEED_CAP / 2,
+      score: 0,
+    });
     expect(run.score).toBe(0);
     for (const line of WEAPON_LINES) expect(run.levels[line]).toBe(MAX_LEVEL);
   });
 
-  it('a second floor hit while still at the floor strips a level rather than bleeding the score again (design record R4)', () => {
-    // R4: a rung the next kill re-armed would be a floor the storm paid for, so
-    // the rung the ladder bled stays bled until the grave grows. Score standing
-    // again at the second hit is the case the rule exists for, and it costs a
-    // level rather than the score.
+  it('a run can end sealed shut while still holding what the bleed left (ADR 0003 as amended)', () => {
+    // The whole point of the ruling: the ladder runs to its end and the number
+    // the run is judged on survives it. The score is never touched again after
+    // the rung is spent, so what stands at the seal is what the cap left.
     const run = createRun(1);
     run.grave.size = SIZE_FLOOR;
-    run.score = 250;
+    run.score = SCORE_BLEED_CAP * 4;
+    for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
+
+    let hits = 0;
+    while (run.ending === null && hits < 20) {
+      hitGrave(run, 'contact');
+      ageOut(run);
+      hits += 1;
+    }
+
+    expect(run.ending).toBe('sealed');
+    expect(run.score).toBe(SCORE_BLEED_CAP * 3);
+  });
+
+  it('a second floor hit while still at the floor strips a level rather than bleeding the score again (design record R4)', () => {
+    // R4: a rung the next kill re-armed would be a floor the storm paid for, so
+    // the rung the ladder bled stays bled until the grave grows. A capped bleed
+    // spends it exactly as a whole one did, which is the half the amount cannot
+    // be allowed to move: a remainder left standing is not a rung left armed.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = SCORE_BLEED_CAP * 3;
     for (const line of WEAPON_LINES) run.levels[line] = MAX_LEVEL;
 
     hitGrave(run, 'contact');
-    run.score = 800;
+    expect(run.score).toBe(SCORE_BLEED_CAP * 2);
     ageOut(run);
     const second = hitGrave(run, 'contact');
 
@@ -365,7 +418,7 @@ describe('the grave', () => {
     expect(kinds(second)).not.toContain('scoreBled');
     // The score keeps accruing while the rung is bled: what is withheld is the
     // rung, never the number.
-    expect(run.score).toBe(800);
+    expect(run.score).toBe(SCORE_BLEED_CAP * 2);
     for (const line of WEAPON_LINES)
       expect(run.levels[line]).toBe(MAX_LEVEL - 1);
   });
