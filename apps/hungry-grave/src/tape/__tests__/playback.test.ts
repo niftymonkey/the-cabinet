@@ -137,6 +137,35 @@ describe('the playback', () => {
     expect(seen).toEqual(expected);
   });
 
+  it('rebuilds every score payment a maxed run made, and verifies at every checkpoint (design record R4)', () => {
+    // run.score has been folded into the witness since ADR 0019, so a replay
+    // that rebuilt one of the score's five inputs differently diverges at the
+    // next checkpoint rather than passing quietly. Nothing here is folded state
+    // of its own: no payment put a tally on the run, and witness.test.ts's own
+    // completeness assertion is what says the field list did not move.
+    const tape = recordALadderRun();
+    const reference = createRun(LADDER_SEED);
+    reference.grave.size = SIZE_FLOOR;
+    for (const line of WEAPON_LINES) reference.levels[line] = MAX_LEVEL;
+    const referenceExecution = createExecution(reference);
+    const expected = tape.commands
+      .map((command) => [...executeTick(referenceExecution, command)])
+      .flat()
+      .filter((event) => event.type === 'scorePaid');
+
+    const replayed: SimEvent[] = [];
+    const result = playTape(tape, (_tick, _command, events) => {
+      for (const event of events) {
+        if (event.type === 'scorePaid') replayed.push(event);
+      }
+    });
+
+    expect(result.outcome).toBe('verified');
+    expect(result.checkpointsUnreachable).toBe(0);
+    expect(expected.length).toBeGreaterThan(0);
+    expect(replayed).toEqual(expected);
+  });
+
   it('reproduces a tape carrying a fatal fault to its end and reports the fault', () => {
     // ADR 0024 and #58 ruling 5: a fault today's checks raise never stops the
     // loop. The invariant authority sets the stop reason, but a playback

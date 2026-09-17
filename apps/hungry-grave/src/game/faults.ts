@@ -7,8 +7,8 @@
  *
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
- * section and hardens the moment the first tape exists. Twenty-three
- * identities against twenty-four checks: checkPools carries two, the caps and
+ * section and hardens the moment the first tape exists. Twenty-four
+ * identities against twenty-five checks: checkPools carries two, the caps and
  * the ids, checkStage carries two, one for each of the two things it watches,
  * and checkRefusals carries three, one per cap that can turn something away,
  * while the six bounds checks share one identity between them. The grave's own bounds
@@ -40,6 +40,7 @@ const FAULT_IDENTITIES = [
   'set piece body gone when spent',
   'director purse not negative',
   'score rung re-armed by growth',
+  'score not negative',
 ] as const;
 
 // One member of the closed list above.
@@ -63,7 +64,7 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * structural assumption was violated outside the pool API, after which no other
  * check's answer is trustworthy.
  *
- * Recoverable, seventeen checks and seventeen identities. A stray entity is culled or
+ * Recoverable, eighteen checks and eighteen identities. A stray entity is culled or
  * draws off-screen and nothing reads it wrong, and the six checks that watch
  * for one all record under the same identity. A corpse pays the wrong amount
  * into a size the fatal check still guards. One line's charge is wrong and
@@ -101,6 +102,13 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * Ending the run over a cushion the player cannot see would be the worse
  * answer.
  *
+ * A score below zero is recoverable on the same reading and never on a softer
+ * one. It is the run's own tally and nothing downstream of it reads a poisoned
+ * value: the size, the levels and the field are all exactly what the rules
+ * wrote, and a wrong number on the readout is not a reason to take the run
+ * away from the player. What it costs is the score, and the fault is what says
+ * so loudly enough to find the site that reversed a sign.
+ *
  * The boss's phase and the set piece's two are recoverable on the stage's own
  * reading (ADR 0007, ADR 0042). A phase that went backwards replays a pattern
  * the player has already beaten, a budget below zero pours nothing, and a body
@@ -133,6 +141,7 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'set piece body gone when spent': 'recoverable',
   'director purse not negative': 'recoverable',
   'score rung re-armed by growth': 'recoverable',
+  'score not negative': 'recoverable',
 };
 
 // One invariant found broken on one tick.

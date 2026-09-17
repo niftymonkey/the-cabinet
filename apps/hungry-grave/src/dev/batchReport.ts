@@ -560,6 +560,56 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
     'tuning.damageTaken.seals',
     (report) => report.tuning.damageTaken.seals,
   ),
+  // The score decomposed by the input that paid it, gross, beside run.score's
+  // net (#99, design record R4). The two do not sum in a run that hit the
+  // floor, and the difference is tuning.damageTaken.scoreBled above.
+  spreadReading(
+    'tuning.scoreByInput.paid',
+    (report) => report.tuning.scoreByInput.paid,
+  ),
+  spreadReading(
+    'tuning.scoreByInput.killPaid',
+    (report) => report.tuning.scoreByInput.killPaid,
+  ),
+  spreadReading(
+    'tuning.scoreByInput.killPayments',
+    (report) => report.tuning.scoreByInput.killPayments,
+  ),
+  spreadReading(
+    'tuning.scoreByInput.overflowPaid',
+    (report) => report.tuning.scoreByInput.overflowPaid,
+  ),
+  spreadReading(
+    'tuning.scoreByInput.overflowPayments',
+    (report) => report.tuning.scoreByInput.overflowPayments,
+  ),
+  // Absent on a run that never met a boss, on the same terms as the reading
+  // itself: a zero there would say a fight was had and scored nothing off it.
+  spreadReading(
+    'tuning.scoreByInput.bossDamagePaid',
+    (report) => report.tuning.scoreByInput.bossDamagePaid ?? undefined,
+  ),
+  spreadReading(
+    'tuning.scoreByInput.bossDamagePayments',
+    (report) => report.tuning.scoreByInput.bossDamagePayments ?? undefined,
+  ),
+  // Absent for the same reason on a run that never opened the Waking.
+  spreadReading(
+    'tuning.scoreByInput.sourceKilledPaid',
+    (report) => report.tuning.scoreByInput.sourceKilledPaid ?? undefined,
+  ),
+  spreadReading(
+    'tuning.scoreByInput.sourceKilledPayments',
+    (report) => report.tuning.scoreByInput.sourceKilledPayments ?? undefined,
+  ),
+  spreadReading(
+    'tuning.scoreByInput.mealAtMaxedPaid',
+    (report) => report.tuning.scoreByInput.mealAtMaxedPaid,
+  ),
+  spreadReading(
+    'tuning.scoreByInput.mealAtMaxedPayments',
+    (report) => report.tuning.scoreByInput.mealAtMaxedPayments,
+  ),
   // What the ladder cost after the counts above, never a second key for one of
   // them (#99, design record section 4's M6 paragraph).
   spreadReading(

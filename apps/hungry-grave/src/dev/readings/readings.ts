@@ -70,6 +70,12 @@ import {
   observeOfferChoices,
   offerChoicesOf,
 } from './offerChoices';
+import type { ScoreByInput, ScoreByInputAcc } from './scoreByInput';
+import {
+  createScoreByInput,
+  observeScoreByInput,
+  scoreByInputOf,
+} from './scoreByInput';
 import type { Refusals, RefusalsAcc } from './refusals';
 import { createRefusals, observeRefusals, refusalsOf } from './refusals';
 import type { Repel, RepelAcc } from './repel';
@@ -115,6 +121,8 @@ import {
 interface TuningReadings {
   readonly arrivals: Arrivals;
   readonly damageTaken: DamageTaken;
+  // What each input paid into the score, gross, beside run.score's net.
+  readonly scoreByInput: ScoreByInput;
   // The floor ladder's cost, beside the counts damageTaken already carries.
   readonly fallenRungLedger: FallenRungLedger;
   readonly stripsLanded: StripsLanded;
@@ -140,6 +148,7 @@ interface TuningReadings {
 interface ReadingsAcc {
   readonly arrivals: ArrivalsAcc;
   readonly damageTaken: DamageTakenAcc;
+  readonly scoreByInput: ScoreByInputAcc;
   readonly fallenRungLedger: FallenRungLedgerAcc;
   readonly stripsLanded: StripsLandedAcc;
   readonly bledRungMemory: BledRungMemoryAcc;
@@ -179,6 +188,7 @@ const createReadings = (
 ): ReadingsAcc => ({
   arrivals: createArrivals(),
   damageTaken: createDamageTaken(),
+  scoreByInput: createScoreByInput(),
   fallenRungLedger: createFallenRungLedger(),
   stripsLanded: createStripsLanded(),
   bledRungMemory: createBledRungMemory(startingSize),
@@ -217,6 +227,7 @@ const observeReadings = (
 ): void => {
   observeArrivals(acc.arrivals, events, state);
   observeDamageTaken(acc.damageTaken, events);
+  observeScoreByInput(acc.scoreByInput, events);
   observeFallenRungLedger(acc.fallenRungLedger, tick, events, state);
   observeStripsLanded(acc.stripsLanded, events, state);
   observeBledRungMemory(acc.bledRungMemory, state);
@@ -241,6 +252,7 @@ const observeReadings = (
 const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   arrivals: arrivalsOf(acc.arrivals),
   damageTaken: damageTakenOf(acc.damageTaken),
+  scoreByInput: scoreByInputOf(acc.scoreByInput),
   fallenRungLedger: fallenRungLedgerOf(acc.fallenRungLedger),
   stripsLanded: stripsLandedOf(acc.stripsLanded),
   bledRungMemory: bledRungMemoryOf(acc.bledRungMemory),

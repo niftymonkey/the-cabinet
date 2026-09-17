@@ -41,6 +41,7 @@ import {
   FRESHNESS_SECONDS,
   SCROLL_SPEED,
   SIZE_CEILING,
+  SOURCE_KILL_SCORE,
 } from '../../tuning';
 import {
   CROWD_WAVES,
@@ -791,6 +792,77 @@ const COMMITTING_PAYS_OVER = 1.25;
 
 /** The budget for the two tests that play a dozen whole Wakings each. */
 const A_DOZEN_WAKINGS_MS = 120000;
+
+describe("killing the Waking's source pays one bonus (design record R4)", () => {
+  it('pays its own row once, on the tick the source empties', () => {
+    // R4's ruling: it is a lump and never a rate, because what Mark named is
+    // whether the source was killed. The row is a trophy for the commitment up
+    // the trail (ADR 0042) and never a lever on the pour, because #104 already
+    // ruled that the kill denies nothing.
+    const source = atTheSource();
+    tickUntilItOpens(source);
+
+    const paid = only(
+      damageSetPiece(source.state, SET_PIECE_HP, A_BIRTHRIGHT_LINE),
+      'scorePaid',
+    );
+
+    expect(paid).toHaveLength(1);
+    expect(firstOf(paid).input).toBe('sourceKilled');
+    expect(firstOf(paid).amount).toBe(SOURCE_KILL_SCORE);
+    expect(source.state.score).toBe(SOURCE_KILL_SCORE);
+  });
+
+  it('pays nothing for a second hit onto a body already taken', () => {
+    const source = atTheSource();
+    tickUntilItOpens(source);
+    damageSetPiece(source.state, SET_PIECE_HP, A_BIRTHRIGHT_LINE);
+
+    const again = damageSetPiece(source.state, SET_PIECE_HP, A_BIRTHRIGHT_LINE);
+
+    expect(only(again, 'scorePaid')).toEqual([]);
+    expect(source.state.score).toBe(SOURCE_KILL_SCORE);
+  });
+
+  it('pays nothing at all for a source chipped and left alive', () => {
+    // Binary because what was named is binary: a hand that chipped at it on the
+    // way past is paid nothing, and that is the rule rather than a harshness to
+    // soften.
+    const source = atTheSource();
+    tickUntilItOpens(source);
+
+    const events = damageSetPiece(
+      source.state,
+      SET_PIECE_HP - 1,
+      A_BIRTHRIGHT_LINE,
+    );
+
+    expect(only(events, 'scorePaid')).toEqual([]);
+    expect(source.state.score).toBe(0);
+    expect(source.state.setPiece?.bodyGone).toBe(false);
+  });
+
+  it('changes nothing about the pour: the same budget, clock and close reason as a source nobody touched', () => {
+    // #104, Mark's own ruling. The bonus reads setPieceKilled and moves no
+    // budget, no clock and no close reason, so it is asserted against an
+    // untouched source rather than against a remembered figure.
+    const killed = atTheSource();
+    const untouched = atTheSource();
+    tickUntilItOpens(killed);
+    tickUntilItOpens(untouched);
+    damageSetPiece(killed.state, SET_PIECE_HP, A_BIRTHRIGHT_LINE);
+
+    const afterKill = tickUntilItCloses(killed);
+    const afterNothing = tickUntilItCloses(untouched);
+
+    expect(only(afterKill, 'setPiecePoured')).toEqual(
+      only(afterNothing, 'setPiecePoured'),
+    );
+    expect(only(afterKill, 'setPieceClosed')).toEqual(
+      only(afterNothing, 'setPieceClosed'),
+    );
+  });
+});
 
 describe("the Waking's own property (ADR 0042)", () => {
   it(

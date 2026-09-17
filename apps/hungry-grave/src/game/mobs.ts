@@ -694,9 +694,15 @@ const damageMob = (
   // Mark amended it on 2026-09-16: a kill pays, and a kill is never the whole of
   // what does. It is paid here and not at the swallow, which is what keeps the
   // two currencies clean (design record R4). The boss and the set piece's source
-  // die down their own paths and pay nothing yet; what they pay is ruled with
-  // the rest of R4's inputs and is not built ahead of that.
+  // die down their own paths and pay at their own sites, so what a kill pays is
+  // this row and nothing else.
   state.score += row.scorePayout;
+  events.push({
+    type: 'scorePaid',
+    input: 'kill',
+    amount: row.scorePayout,
+    score: state.score,
+  });
   // The corpse the kill leaves takes the shove over and finishes the flight, so
   // a body caught by a press travels the whole of what the press threw whether
   // or not the storm kills it on the way (design record R10). That makes the

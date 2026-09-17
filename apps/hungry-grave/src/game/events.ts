@@ -45,6 +45,47 @@ interface Overflowed {
   readonly score: number;
 }
 
+/**
+ * Which input paid, as a closed list (design record R4: the score is one number
+ * fed by several inputs, ruled by Mark on 2026-09-16).
+ *
+ * It is closed so that a payment carries a name from this list or does not
+ * compile. A reading that decomposes the score into its parts can then account
+ * for every point a run was paid, instead of carrying a residual it cannot
+ * explain.
+ *
+ * `overflow` and `kill` are the two that already paid. `bossDamage` is per hit
+ * landed and never a lump on the kill, `sourceKilled` is one bonus on the tick
+ * the Waking's source empties, and `mealAtMaxed` is a rich swallow taken while
+ * every rostered line stands at MAX_LEVEL. Mark left the list open and a sixth
+ * input is his (#135).
+ */
+type ScoreInput =
+  'kill' | 'overflow' | 'bossDamage' | 'sourceKilled' | 'mealAtMaxed';
+
+/**
+ * The score's ledger moving: which input paid, how much, and the running total
+ * (design record R4's last paragraph).
+ *
+ * It fires at every payment, the kill's and the overflow's included. Nothing
+ * else in the vocabulary carries the score a payment paid: `mobKilled` names
+ * the type and not the score, and `mobDamaged` wears the same shape for a mob,
+ * a boss and the source alike, so a reading would otherwise have to re-derive
+ * each arm from the tables and would be a second copy of the payment rule
+ * living in src/dev.
+ *
+ * `overflowed` keeps its own fields and is not widened, because it answers a
+ * different question: a swallow that could not pay its normal way (ADR 0003)
+ * rather than the score's ledger moving. Two events on the overflow's tick is
+ * the named cost of that and it is accepted eyes open.
+ */
+interface ScorePaid {
+  readonly type: 'scorePaid';
+  readonly input: ScoreInput;
+  readonly amount: number;
+  readonly score: number;
+}
+
 // The reservoir took charge from a swallow (ADR 0008).
 interface ReservoirCharged {
   readonly type: 'reservoirCharged';
@@ -658,6 +699,7 @@ type SimEvent =
   | Chimed
   | Grew
   | Overflowed
+  | ScorePaid
   | ReservoirCharged
   | Splashed
   | ReservoirFull
@@ -706,6 +748,7 @@ export type {
   OfferSite,
   PressedBody,
   PressRefusal,
+  ScoreInput,
   SectionMusic,
   SetPieceClosing,
   SimEvent,

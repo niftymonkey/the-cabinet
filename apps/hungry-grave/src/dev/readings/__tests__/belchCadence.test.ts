@@ -171,6 +171,7 @@ describe('belch cadence', () => {
       kind: 'corpse',
       freshness: 1,
       payout: PAYOUT,
+      tier: 'trash',
       treasureBody: false,
     });
     observeBelchCadence(accumulator, 2, spilling, run);

@@ -326,6 +326,22 @@ const checkScoreRung = (state: RunState, faults: Fault[]): void => {
 };
 
 /**
+ * The one state five payment sites and three data rows could reach between
+ * them: a score below zero (design record R4).
+ *
+ * It sits beside the rung above because both are the score's own floor read
+ * from one end or the other. Every input only ever adds and the ladder's bleed
+ * takes the lesser of what stood and the cap, so nothing in the rules can reach
+ * it; what the check is for is a reversed sign or a negative row at one of the
+ * five sites, which is the one arithmetic mistake nothing else here would see.
+ */
+const checkScoreNotNegative = (state: RunState, faults: Fault[]): void => {
+  if (state.score < 0) {
+    record(faults, 'score not negative', `the score is ${state.score}`);
+  }
+};
+
+/**
  * Rounding room, in field units. containGrave holds the grave's centre at
  * FIELD_HEIGHT minus its size, and the hitbox then computes (y - size) + 2 *
  * size, which is not the same binary64 expression: re-associating it overshoots
@@ -922,6 +938,7 @@ const checkInvariants = (
   checkNoNaN(state, faults);
   checkSize(state, faults);
   checkScoreRung(state, faults);
+  checkScoreNotNegative(state, faults);
   checkInBounds(state, faults);
   // The order of the six is load-bearing: they share one identity and record
   // keeps the first detail per identity, so this order decides which entity a

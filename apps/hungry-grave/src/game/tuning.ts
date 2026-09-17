@@ -170,6 +170,93 @@ const TRASH_KILL_SCORE = 100;
 const SCORE_BLEED_CAP = 20 * TRASH_KILL_SCORE;
 
 /**
+ * What one point of boss health taken pays, as a rate against the kill's own
+ * unit (design record R4: boss damage is paid per hit landed, never as a lump
+ * on the kill).
+ *
+ * The rate and not the fight: what a whole fight pays is this times the boss's
+ * own PHASE_HP, so a step 6 retune of a boss's health moves the fight's worth
+ * with it and no figure here goes stale. That is why the ratios are derived in
+ * prose rather than typed: at this rate the Banshee's 2,200 health is 22 trash
+ * kills and the Undertaker's 5,100 is 51, both inside the researched band of 20
+ * to 70 trash kills for a single input
+ * (`docs/research/score-inputs-precedent.md` section 4).
+ *
+ * What it is set against is the swamping refusal. The mob table pays one trash
+ * kill per 8 points of health, floored, and that rate applied to a boss pays
+ * 637 trash kills for the Undertaker, more than the whole rest of a run makes.
+ * Roughly a hundred points of boss health to one trash kill is what the band
+ * converts to, so a boss's health pays at a far slower rate than the mow's and
+ * a fight is felt without swamping what a run mows. The shape is ours and not
+ * the genre's: almost nothing ships boss damage as a per-hit trickle, and the
+ * reason the lump at the kill is refused is that it pays nothing to a run that
+ * fought the Undertaker and sealed before the last phase emptied (ADR 0007).
+ *
+ * It is a first figure. What it gets tuned against is each input's share of a
+ * run that reached a boss, which slice M7's own batch prints.
+ */
+const SCORE_PER_BOSS_HEALTH = TRASH_KILL_SCORE / 100;
+
+/**
+ * What killing the Waking's source pays, once, on the tick its health empties
+ * (design record R4: one bonus on the kill and never a rate).
+ *
+ * Stated as a multiple of the kill's own unit, exactly as every mob row's score
+ * payout and the bleed's cap are. Twenty-four trash kills, derived rather than
+ * picked: at the same hundred-health-per-trash-kill rate the boss row above
+ * carries, the source's 2,400 health is 24
+ * (`docs/research/score-inputs-precedent.md` section 4).
+ *
+ * What it is set against is the genre's two tiers, and the figure lands in the
+ * gap between them on purpose. A spawner pays 6x to 10x a trash kill across
+ * Robotron, Gradius and Defender; a structural core or a stage objective pays
+ * 30x to 130x across Bosconian, Gradius and Xevious. The source sits above the
+ * first because it is the section's objective rather than roadside furniture,
+ * and below the second because a core kill in all three of those games ends or
+ * denies something. Killing this one denies nothing: #104 keeps the pour
+ * running from the pour point whatever the storm did, so none of the denial
+ * premium the spawner tier is paid for applies here and neither Xevious's
+ * milk-then-deny greed decision nor Robotron's safety premium is the precedent
+ * to reach for. The bonus is a trophy for the commitment up the trail
+ * (ADR 0042) and nothing else.
+ *
+ * It is a first figure, read against the same batch as the row above.
+ */
+const SOURCE_KILL_SCORE = 24 * TRASH_KILL_SCORE;
+
+/**
+ * What one large meal taken at a maxed ladder pays, on top of the growth, the
+ * charge and the overflow that swallow already pays (design record R4: a
+ * swallow whose tier is rich, taken while every rostered line stands at
+ * MAX_LEVEL, counted as items and never as a fraction of a unit).
+ *
+ * Stated as the kill's own unit, one trash kill per meal, and it is the
+ * smallest of the three because the count is what binds it: the input pays per
+ * item and a run takes many. What it is set against is measured rather than
+ * argued. Slice M7's batch on the maxed rig, twelve runs played to the stage's
+ * end, took 24 to 47 large meals at full power per run, so at one trash kill
+ * each the whole input is 2,400 to 4,700 points across a run: between what the
+ * Banshee's whole fight pays and what the Undertaker's does, which is the same
+ * band as one boss fight rather than above it, and inside the researched 20 to
+ * 70 trash kills for a single input. At twice this the top of that range
+ * reaches 9,400 and the input outgrows both fights.
+ *
+ * No game in the research pass scores food at all, so there is no direct
+ * anchor and this row says so (`docs/research/score-inputs-precedent.md`
+ * section 3). What transfers is the band and the two named failure modes, both
+ * with a community's verdict attached: too small to bother with, which is Great
+ * Mahou Daisakusen's "extremely minuscule ... safely ignore" and Battle
+ * Garegga's own "not recommended"; and large enough to farm, which is Gunbird's
+ * scorers suiciding to stay at max and DoDonPachi's MAXIMUM bomb bonus becoming
+ * the entire high-level game. The nearest structural match is Bayonetta, which
+ * scales the payout with the pickup's tier, 50 halos for the half-bar item and
+ * 100 for the full one, and the rich tier is the tier this game already has.
+ *
+ * It is a first figure, read against the count the same batch prints.
+ */
+const MEAL_AT_MAXED_SCORE = TRASH_KILL_SCORE;
+
+/**
  * Freshness scales a payout down to a floor and never to zero (ADR 0004).
  *
  * It sits beside the floor rather than in swallow.ts, because three payers now
@@ -198,6 +285,9 @@ export {
   TRASH_CORPSE_PAYOUT,
   TRASH_KILL_SCORE,
   SCORE_BLEED_CAP,
+  SCORE_PER_BOSS_HEALTH,
+  SOURCE_KILL_SCORE,
+  MEAL_AT_MAXED_SCORE,
   FEAST_PAYOUT,
   RESERVOIR_CAPACITY,
 };

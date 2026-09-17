@@ -8,7 +8,7 @@ import type { DamageSource } from '../mobs';
 import { spawnMob } from '../mobs';
 import type { Rect } from '../overlap';
 import type { RunState } from '../run';
-import { SCROLL_SPEED } from '../tuning';
+import { SCROLL_SPEED, SOURCE_KILL_SCORE } from '../tuning';
 import type { SetPieceClosing } from '../events';
 import {
   POUR_JITTER_X,
@@ -273,6 +273,17 @@ const damageSetPiece = (
   if (piece.hp > 0) return events;
   piece.bodyGone = true;
   events.push({ type: 'setPieceKilled', left: piece.budget });
+  // One bonus on the kill and never a rate, because what was named is whether
+  // the source was killed (design record R4). Killing it denies nothing: #104
+  // keeps the pour running, so neither Xevious's milk-then-deny premium nor
+  // Robotron's safety premium is the precedent behind the row.
+  state.score += SOURCE_KILL_SCORE;
+  events.push({
+    type: 'scorePaid',
+    input: 'sourceKilled',
+    amount: SOURCE_KILL_SCORE,
+    score: state.score,
+  });
   return events;
 };
 

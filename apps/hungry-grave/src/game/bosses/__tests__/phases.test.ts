@@ -22,7 +22,7 @@ import { SHOVE_TICKS } from '../../shove';
 import { SECTIONS } from '../../stage/stage';
 import { resolveStorm } from '../../storm';
 import { FIELD_HEIGHT } from '../../field';
-import { RESERVOIR_CAPACITY } from '../../tuning';
+import { RESERVOIR_CAPACITY, SCORE_PER_BOSS_HEALTH } from '../../tuning';
 import type { Boss } from '../phases';
 import {
   advanceBoss,
@@ -378,6 +378,88 @@ describe('the storm always matters (ADR 0007)', () => {
     far.state.reservoir = RESERVOIR_CAPACITY;
     expect(only(fireBelch(far.state), 'mobDamaged')).toEqual([]);
     expect(far.boss.hp).toBe(whole);
+  });
+});
+
+describe('boss damage pays score, per hit landed (design record R4)', () => {
+  it('pays a landed hit from its own row, for the health the phase lost', () => {
+    // R4's ruling: boss damage is paid per hit landed and never as a lump on
+    // the kill, because a lump pays nothing at all to a run that fought the
+    // Undertaker for ninety seconds and sealed before the last phase emptied.
+    const { state, boss } = fighting();
+    const landed = 40;
+
+    const paid = only(damageBoss(state, landed, 'skullStream'), 'scorePaid');
+
+    expect(paid).toHaveLength(1);
+    expect(firstOf(paid).input).toBe('bossDamage');
+    expect(firstOf(paid).amount).toBeCloseTo(landed * SCORE_PER_BOSS_HEALTH);
+    expect(firstOf(paid).score).toBe(state.score);
+    expect(boss.hp).toBe(
+      requireDefined(PHASE_HP.undertaker[0], 'no phase') - landed,
+    );
+  });
+
+  it('pays a phase-emptying hit for the health that was left and never for the overkill', () => {
+    // What a hit pays for is the health the phase actually lost. damageBoss
+    // subtracts unclamped, so the amount it reports can be far more than the
+    // phase was holding, and the payment reads the health taken instead.
+    const { state, boss } = fighting();
+    const left = 3;
+    boss.hp = left;
+
+    const paid = only(
+      damageBoss(state, left + 101, 'skullStream'),
+      'scorePaid',
+    );
+
+    expect(paid).toHaveLength(1);
+    expect(firstOf(paid).amount).toBeCloseTo(left * SCORE_PER_BOSS_HEALTH);
+  });
+
+  it('pays nothing for a hit the phase flash absorbed, because it took no health', () => {
+    // The flash reports the hit as an amount of zero and applies nothing, so
+    // there is no health lost for the payment to read.
+    const { state, boss } = fighting();
+    boss.flash = PHASE_FLASH_TICKS;
+    const before = state.score;
+
+    const events = damageBoss(state, 40, 'skullStream');
+
+    expect(only(events, 'scorePaid')).toEqual([]);
+    expect(state.score).toBe(before);
+  });
+
+  it("pays a whole fight the boss's own health at the row's rate", () => {
+    // The swamping refusal, pinned as arithmetic rather than as a magnitude:
+    // what a fight is worth is PHASE_HP times the row and nothing else, so a
+    // step 6 retune of either moves it and no typed figure goes stale.
+    const { state, boss } = fighting();
+    const health = PHASE_HP.undertaker.reduce((sum, phase) => sum + phase, 0);
+
+    const paid = only(fightToDeath(state, boss), 'scorePaid');
+
+    expect(paid.reduce((sum, event) => sum + event.amount, 0)).toBeCloseTo(
+      health * SCORE_PER_BOSS_HEALTH,
+    );
+    expect(state.score).toBeCloseTo(health * SCORE_PER_BOSS_HEALTH);
+  });
+
+  it('has still paid for every hit that landed on a boss that was never killed', () => {
+    // The whole reason the payment is per hit: a run that fought the last
+    // phase down and sealed before it emptied keeps what the fight paid.
+    const { state, boss } = fighting();
+    const landed = 40;
+
+    damageBoss(state, boss.hp, 'skullStream');
+    for (let tick = 0; tick < PHASE_FLASH_TICKS; tick++) advanceBoss(state);
+    damageBoss(state, landed, 'skullStream');
+
+    expect(state.boss).not.toBeNull();
+    expect(state.score).toBeCloseTo(
+      (requireDefined(PHASE_HP.undertaker[0], 'no phase') + landed) *
+        SCORE_PER_BOSS_HEALTH,
+    );
   });
 });
 

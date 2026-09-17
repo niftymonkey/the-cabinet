@@ -278,6 +278,7 @@ describe('what a corpse shows and what it hides (tracer plan section 4)', () => 
       kind: 'corpse',
       freshness: 0.5,
       payout: MOB_TYPES.revenant.corpsePayout,
+      tier: MOB_TYPES.revenant.corpseTier,
       treasureBody: false,
       line: undefined,
     });

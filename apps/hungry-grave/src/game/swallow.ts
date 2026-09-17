@@ -5,9 +5,14 @@ import { catchRung, growGrave } from './grave';
 import type { WeaponLine } from './lines/roster';
 import { surgeStream } from './lines/skullStream';
 import { launchWisps } from './lines/wisps';
-import { resolveOffer } from './offer';
+import type { CorpseTier } from './mobs';
+import { everyLineMaxed, resolveOffer } from './offer';
 import type { RunState } from './run';
-import { freshnessScale, RESERVOIR_CAPACITY } from './tuning';
+import {
+  freshnessScale,
+  MEAL_AT_MAXED_SCORE,
+  RESERVOIR_CAPACITY,
+} from './tuning';
 
 /**
  * The kinds of food that ride the one pool. A fallen rung is a fourth kind on
@@ -29,6 +34,13 @@ interface Swallowable {
   readonly freshness: number;
   // What this food pays before freshness scales it, in size units.
   readonly payout: number;
+  /**
+   * Whether this body is large food, carried from the row rather than decided
+   * by kind (mobs.ts, corpses.ts). A rich corpse and a feast are both large
+   * food and only one of them is a feast, so the tier is the word that parts
+   * the rich tier from the mow and the kind cannot stand in for it.
+   */
+  readonly tier: CorpseTier;
   // Whether this body wears the treasure body, carried from the row rather than decided by kind (corpses.ts).
   readonly treasureBody: boolean;
   // Which option this body carries (ADR 0034), or which line a fallen rung came off. Absent on corpses, feasts, and the body a maxed run's carrier opens.
@@ -111,9 +123,32 @@ const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
   // draws and chimes while this is a rule about which body it is: an offer's
   // body wears the same treasure body and must not give a rung back.
   if (food.kind === 'fallenRung') events.push(...catchRung(state, food.line));
+  // The overflow keeps its own event and its own fields untouched, because it
+  // answers a different question: a swallow that could not pay its normal way
+  // (ADR 0003) rather than the score's ledger moving. Two events on this tick
+  // is the named cost of that and it is accepted eyes open (design record R4).
   if (overflow > 0) {
     state.score += overflow;
     events.push({ type: 'overflowed', amount: overflow, score: state.score });
+    events.push({
+      type: 'scorePaid',
+      input: 'overflow',
+      amount: overflow,
+      score: state.score,
+    });
+  }
+  // Large food taken at full power (design record R4). Full power is every
+  // rostered line at the top of its ladder and never the grave at its size
+  // ceiling, which the overflow above already pays for; large food is the rich
+  // tier, so the mow's own body pays nothing here however maxed the ladder is.
+  if (food.tier === 'rich' && everyLineMaxed(state)) {
+    state.score += MEAL_AT_MAXED_SCORE;
+    events.push({
+      type: 'scorePaid',
+      input: 'mealAtMaxed',
+      amount: MEAL_AT_MAXED_SCORE,
+      score: state.score,
+    });
   }
 
   // The on-swallow lines, after the payouts. They fire here rather than from the

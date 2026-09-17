@@ -149,6 +149,37 @@ describe('the sim invariants', () => {
     expect(ladderRuns).toBeGreaterThan(0);
   });
 
+  it('records a fault on a score below zero, and never on a run that only ever paid and bled (design record R4)', () => {
+    // The one state five payment sites and three data rows could reach between
+    // them. Every input only adds and the bleed takes the lesser of what stood
+    // and the cap, so the rules cannot produce it; what it catches is a
+    // reversed sign at a payment site.
+    const owing = createRun(1);
+    owing.score = -1;
+    expect(brokenOn(owing)).toContain('score not negative');
+
+    // The other half, through the harness rather than by reaching into the
+    // check: a run played from the size floor holding a score pays and bleeds
+    // its way through the ladder without ever reaching it, and the rig throws
+    // on any fault any tick records.
+    const run = createRun(7);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 500;
+    const step = stepping(run);
+    let paid = 0;
+    let bled = 0;
+    for (let i = 0; i < 600; i++) {
+      const move = { x: (i % 7) / 6 - 0.5, y: (i % 5) / 4 - 0.5 };
+      for (const event of step({ move, belch: false })) {
+        if (event.type === 'scorePaid') paid += 1;
+        if (event.type === 'scoreBled') bled += 1;
+      }
+    }
+    expect(paid).toBeGreaterThan(0);
+    expect(bled).toBeGreaterThan(0);
+    expect(run.score).toBeGreaterThanOrEqual(0);
+  });
+
   it('a checker that cannot run still throws rather than being recorded as a fault', () => {
     // Detecting a violated invariant is the checker working. A checker that
     // cannot run is a bug in the checker, and swallowing it into the list it

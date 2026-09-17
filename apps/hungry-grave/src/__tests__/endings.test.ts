@@ -72,19 +72,6 @@ const LADDER_LEVEL = 2;
  */
 const SCORE_BROUGHT_TO_THE_FIGHT = 1200;
 
-/**
- * The score this hand earns inside the fight before the first floor hit lands,
- * measured on 2026-09-16 when a kill began paying score (#99, design record
- * R4).
- *
- * It exists because what the bleed reports is measured against everything the
- * score held at that moment, and the score is no longer only what was handed to
- * the run above. Three mow bodies fall to this build in the window between the
- * phase starting and the grave reaching the floor. It is a fact about this
- * policy on this stage in the same way LADDER_LEVEL is.
- */
-const SCORE_EARNED_INSIDE_THE_FIGHT = 300;
-
 /** The section the stage authors this boss's fight in. */
 function sectionOf(boss: BossKind): number {
   return SECTIONS.findIndex((section) => section.boss === boss);
@@ -289,7 +276,16 @@ describe("the stage's ending (ADR 0007)", () => {
     const { events, before } = tickUntilTheBossFalls(fight);
     const after = held(fight.state);
 
-    expect(after.score).toBe(before.score);
+    // The victory itself still pays nothing. What the falling tick moves is the
+    // last of the boss's health the storm took, which is boss damage paying per
+    // hit (design record R4) and never the ending paying out, so the move is
+    // asserted to be exactly that and to carry no other input's name.
+    const paid = only(events, 'scorePaid');
+    expect(paid.every((event) => event.input === 'bossDamage')).toBe(true);
+    expect(after.score - before.score).toBeCloseTo(
+      paid.reduce((sum, event) => sum + event.amount, 0),
+      10,
+    );
     expect(after.size).toBe(before.size);
     expect(after.reservoir).toBe(before.reservoir);
     expect(after.levels).toEqual(before.levels);
@@ -322,6 +318,13 @@ describe("the grave's ending (ADR 0003)", () => {
     // goes on rising from kills and the end of the run can no longer say what
     // the bleed left behind.
     let leftByTheBleed: number | null = null;
+    // What the score's own inputs paid before the rung bled, summed off their
+    // own events in the order the sim reported them. The score is fed by five
+    // inputs now (design record R4), so what stood at the bleed is read off the
+    // ledger rather than pinned as a figure that every weight retune would
+    // stale.
+    let paidBeforeTheBleed = 0;
+    let beforeTheBleed = true;
     let caused: SimEvent[] = [];
     for (let tick = 0; tick < FIGHT_TICKS; tick++) {
       // The tick before's events, which is what a policy is handed by the
@@ -329,6 +332,9 @@ describe("the grave's ending (ADR 0003)", () => {
       const events = fight.tick(hitTakingPolicy(fight.state, caused));
       caused = [...events];
       for (const event of events) {
+        if (event.type === 'scorePaid' && beforeTheBleed) {
+          paidBeforeTheBleed += event.amount;
+        }
         if (
           event.type === 'scoreBled' ||
           event.type === 'weaponStripped' ||
@@ -337,6 +343,7 @@ describe("the grave's ending (ADR 0003)", () => {
           rungs.push(event);
         }
         if (event.type === 'scoreBled' && leftByTheBleed === null) {
+          beforeTheBleed = false;
           leftByTheBleed = fight.state.score;
         }
       }
@@ -349,13 +356,13 @@ describe("the grave's ending (ADR 0003)", () => {
     // one rung whatever it paid, and the remainder stays (ADR 0003 as amended
     // 2026-09-16 on Mark's ruling, "Cap the bleed").
     expect(order[0]).toBe('scoreBled');
-    const stood = SCORE_BROUGHT_TO_THE_FIGHT + SCORE_EARNED_INSIDE_THE_FIGHT;
+    const stood = SCORE_BROUGHT_TO_THE_FIGHT + paidBeforeTheBleed;
     const bled = requireDefined(
       only(rungs, 'scoreBled')[0],
       'no scoreBled rung',
     ).amount;
-    expect(bled).toBe(Math.min(stood, SCORE_BLEED_CAP));
-    expect(leftByTheBleed).toBe(stood - bled);
+    expect(bled).toBeCloseTo(Math.min(stood, SCORE_BLEED_CAP), 10);
+    expect(leftByTheBleed).toBeCloseTo(stood - bled, 10);
     // Then the levels, then the seal, and the seal is the last thing that
     // happens because there is nothing left to bleed.
     expect(order.indexOf('weaponStripped')).toBeGreaterThan(

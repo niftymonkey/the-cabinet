@@ -4,8 +4,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { PHASE_HP } from '../bosses/phases';
 import { TICK_HZ } from '../clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { MOB_TYPES } from '../mobs';
+import type { BossKind } from '../stage/waves';
+import { BOSS_KINDS } from '../stage/waves';
 import {
   BASE_SPEED,
   CORPSES_TO_CEILING,
@@ -13,12 +17,17 @@ import {
   FRESHNESS_PAYOUT_FLOOR,
   FRESHNESS_SECONDS,
   INVULNERABLE_TICKS,
+  MEAL_AT_MAXED_SCORE,
   RESERVOIR_CAPACITY,
+  SCORE_BLEED_CAP,
+  SCORE_PER_BOSS_HEALTH,
   SCROLL_SPEED,
   SIZE_CEILING,
   SIZE_FLOOR,
   SIZE_START,
+  SOURCE_KILL_SCORE,
   TRASH_CORPSE_PAYOUT,
+  TRASH_KILL_SCORE,
 } from '../tuning';
 
 describe('the tuning derivations', () => {
@@ -105,5 +114,65 @@ describe('the food economy in corpses of expected mowing (the record section 5 i
     const reservoirInCorpses = RESERVOIR_CAPACITY / TRASH_CORPSE_PAYOUT;
     expect(CORPSES_TO_CEILING).toBeGreaterThan(reservoirInCorpses);
     expect(reservoirInCorpses).toBeGreaterThan(CORPSES_TO_CEILING / 2);
+  });
+});
+
+describe("the score's inputs, each stated against a trash kill (design record R4)", () => {
+  /** What a whole fight against this boss pays, off its own health and the row. */
+  const wholeFight = (kind: BossKind): number =>
+    PHASE_HP[kind].reduce((sum, phase) => sum + phase, 0) *
+    SCORE_PER_BOSS_HEALTH;
+
+  it("pays a boss's health far slower than the mow's own, so one fight can never swamp a run", () => {
+    // The swamping refusal, and it is the whole reason the boss row is a rate
+    // of its own rather than the mob table's. That table pays one trash kill
+    // per 8 points of health, floored, and at that rate the Undertaker's health
+    // alone pays more than a measured run makes from everything it mows
+    // (docs/research/score-inputs-precedent.md section 4). Pinned as a relation
+    // between the two rows and PHASE_HP, so a step 6 retune of any of them
+    // moves it and no figure here goes stale.
+    const mowRate = MOB_TYPES.shambler.scorePayout / MOB_TYPES.shambler.hp;
+    expect(SCORE_PER_BOSS_HEALTH).toBeLessThan(mowRate);
+
+    for (const kind of BOSS_KINDS) {
+      const health = PHASE_HP[kind].reduce((sum, phase) => sum + phase, 0);
+      expect(wholeFight(kind), kind).toBeLessThan(health * mowRate);
+    }
+  });
+
+  it("puts the Waking's source above the richest body in the mow and below the fight that ends the stage", () => {
+    // Its tier is decided by what it is to the player and never by its health:
+    // the section's objective rather than roadside furniture, and a kill that
+    // denies nothing because #104 keeps the pour running. So it sits above the
+    // richest single kill in the mow and below the stage's last fight.
+    //
+    // The bound is the longest fight and not the shortest, because the source
+    // and the Banshee are derived at the same hundred-health rate and their
+    // health puts them within two trash kills of each other: the source's 2,400
+    // pays a little more than her whole 2,200, and both sit inside the same
+    // researched band for a single input.
+    const lastFight = Math.max(...BOSS_KINDS.map(wholeFight));
+
+    expect(SOURCE_KILL_SCORE).toBeGreaterThan(MOB_TYPES.revenant.scorePayout);
+    expect(SOURCE_KILL_SCORE).toBeLessThan(lastFight);
+  });
+
+  it('pays one large meal at least a mow body and far less than the source', () => {
+    // The count is what binds this row rather than the item: the input pays per
+    // item and a run takes many, so what a whole run takes is read against a
+    // boss fight in slice M7's own batch rather than pinned here. What the
+    // relation holds is the two ends of it, that a meal is never worth less
+    // than the body it was cut from and never a prize of the source's order.
+    expect(MEAL_AT_MAXED_SCORE).toBeGreaterThanOrEqual(TRASH_KILL_SCORE);
+    expect(MEAL_AT_MAXED_SCORE).toBeLessThan(SOURCE_KILL_SCORE);
+  });
+
+  it("holds the ladder's cap below what one boss fight pays", () => {
+    // The two rows meet at the floor: a hit takes a capped slice of a bank that
+    // three further inputs now feed, so the cap stays smaller than what a fight
+    // pays or one touch would take a whole fight with it.
+    expect(SCORE_BLEED_CAP).toBeLessThan(
+      Math.min(...BOSS_KINDS.map(wholeFight)),
+    );
   });
 });

@@ -163,6 +163,7 @@ const asSwallowable = (corpse: Corpse): Swallowable => {
     kind: corpse.kind,
     freshness: corpse.freshness,
     payout: corpse.payout,
+    tier: corpse.tier,
     treasureBody: corpse.treasureBody,
     line: corpse.line,
   };

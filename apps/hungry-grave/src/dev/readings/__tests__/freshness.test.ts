@@ -32,6 +32,7 @@ describe('freshness paid', () => {
         kind: 'corpse',
         freshness: 0.5,
         payout: PAYOUT,
+        tier: 'trash',
         treasureBody: false,
       }),
     );
@@ -42,6 +43,7 @@ describe('freshness paid', () => {
         kind: 'corpse',
         freshness: 0.1,
         payout: PAYOUT,
+        tier: 'trash',
         treasureBody: false,
       }),
     );
@@ -52,6 +54,7 @@ describe('freshness paid', () => {
         kind: 'powerUp',
         freshness: 1,
         payout: PAYOUT,
+        tier: 'trash',
         treasureBody: true,
       }),
     );

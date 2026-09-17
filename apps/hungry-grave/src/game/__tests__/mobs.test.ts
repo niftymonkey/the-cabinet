@@ -528,6 +528,14 @@ describe("a mob's death (ADR 0037)", () => {
         y: 100,
         carried: false,
       },
+      // The kill's own payment, announced with the input's name on it so a
+      // reading can decompose the score into its parts (design record R4).
+      {
+        type: 'scorePaid',
+        input: 'kill',
+        amount: MOB_TYPES.shambler.scorePayout,
+        score: MOB_TYPES.shambler.scorePayout,
+      },
     ]);
     const corpses = state.corpses.filter((corpse) => corpse.alive);
     expect(corpses).toHaveLength(1);
@@ -668,6 +676,7 @@ describe('what a kill pays into the score (design record R4, #99)', () => {
       kind: 'corpse',
       freshness: 1,
       payout: TRASH_CORPSE_PAYOUT,
+      tier: 'trash',
       treasureBody: false,
     });
 

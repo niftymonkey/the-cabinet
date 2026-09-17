@@ -404,6 +404,57 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.damageTaken.seals',
     (report) => report.tuning.damageTaken.seals,
   ),
+  // The score decomposed by the input that paid it, gross, beside run.score's
+  // net (#99, design record R4). Two runs differ on an arm when one input paid
+  // differently, and the parts never sum to run.score in a run that hit the
+  // floor: the difference is tuning.damageTaken.scoreBled above.
+  scalarReading(
+    'tuning.scoreByInput.paid',
+    (report) => report.tuning.scoreByInput.paid,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.killPaid',
+    (report) => report.tuning.scoreByInput.killPaid,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.killPayments',
+    (report) => report.tuning.scoreByInput.killPayments,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.overflowPaid',
+    (report) => report.tuning.scoreByInput.overflowPaid,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.overflowPayments',
+    (report) => report.tuning.scoreByInput.overflowPayments,
+  ),
+  // Descriptive because the arm is absent on a run that never met a boss, and
+  // a null against a count is not a difference to subtract.
+  descriptiveReading(
+    'tuning.scoreByInput.bossDamagePaid',
+    (report) => report.tuning.scoreByInput.bossDamagePaid,
+  ),
+  descriptiveReading(
+    'tuning.scoreByInput.bossDamagePayments',
+    (report) => report.tuning.scoreByInput.bossDamagePayments,
+  ),
+  // Descriptive for the same reason on a run that never opened the Waking.
+  descriptiveReading(
+    'tuning.scoreByInput.sourceKilledPaid',
+    (report) => report.tuning.scoreByInput.sourceKilledPaid,
+  ),
+  descriptiveReading(
+    'tuning.scoreByInput.sourceKilledPayments',
+    (report) => report.tuning.scoreByInput.sourceKilledPayments,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.mealAtMaxedPaid',
+    (report) => report.tuning.scoreByInput.mealAtMaxedPaid,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.mealAtMaxedPayments',
+    (report) => report.tuning.scoreByInput.mealAtMaxedPayments,
+  ),
   // What the ladder cost after the counts above, never a second key for one of
   // them (#99, design record section 4's M6 paragraph).
   scalarReading(

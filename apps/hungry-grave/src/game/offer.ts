@@ -62,6 +62,20 @@ const offerableLines = (state: RunState): readonly WeaponLine[] => {
 };
 
 /**
+ * Whether every line in the run's roster stands at the top of its ladder, which
+ * is what the glossary calls maxed and what design record R4 reads "full power"
+ * as.
+ *
+ * It is the offer's own question answered from the offer's own predicate rather
+ * than a second reading of the roster: a run with nothing left to be offered is
+ * a run at full power, and the two can never come apart. The roster and never
+ * the build's four, because the roster is what a run has (ADR 0046).
+ */
+const everyLineMaxed = (state: RunState): boolean => {
+  return offerableLines(state).length === 0;
+};
+
+/**
  * `count` distinct lines drawn off a pool, in draw order.
  *
  * Drawing without replacement rather than rolling each slot: an offer holding
@@ -363,6 +377,7 @@ const loseOffer = (state: RunState): SimEvent[] => {
 
 export {
   offerableLines,
+  everyLineMaxed,
   openOffer,
   openBankedOffer,
   chooseOfferBody,

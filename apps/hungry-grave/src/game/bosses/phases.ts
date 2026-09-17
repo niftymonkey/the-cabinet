@@ -7,7 +7,7 @@ import type { DamageSource } from '../mobs';
 import type { Rect } from '../overlap';
 import type { RunState } from '../run';
 import type { BossKind } from '../stage/waves';
-import { FEAST_PAYOUT } from '../tuning';
+import { FEAST_PAYOUT, SCORE_PER_BOSS_HEALTH } from '../tuning';
 import { advanceBanshee, bansheeDied } from './banshee';
 import { advanceUndertaker, undertakerDied } from './undertaker';
 
@@ -205,10 +205,25 @@ const damageBoss = (
   if (boss.flash > 0) {
     return [{ type: 'mobDamaged', id: boss.id, amount: 0, source }];
   }
+  // What the hit pays for is the health the phase actually lost and never the
+  // overkill, so it is read before the subtraction: the subtraction is
+  // deliberately unclamped, so a hit for a hundred onto a phase holding three
+  // reports a hundred while taking three (design record R4).
+  const healthTaken = Math.min(amount, boss.hp);
   boss.hp -= amount;
   const events: SimEvent[] = [
     { type: 'mobDamaged', id: boss.id, amount, source },
   ];
+  if (healthTaken > 0) {
+    const paid = healthTaken * SCORE_PER_BOSS_HEALTH;
+    state.score += paid;
+    events.push({
+      type: 'scorePaid',
+      input: 'bossDamage',
+      amount: paid,
+      score: state.score,
+    });
+  }
   if (boss.hp > 0) return events;
   events.push(
     ...(hasPhaseLeft(boss) ? breakPhase(state, boss) : killBoss(state, boss)),

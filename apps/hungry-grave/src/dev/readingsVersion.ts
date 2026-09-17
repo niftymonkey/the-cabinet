@@ -199,7 +199,53 @@
  * moves no byte's meaning. `WITNESS_VERSION` moved to 11 in its own commit for
  * the score rung the floor ladder now remembers, which is folded state and not
  * a reading.
+ *
+ * Version 9: the score's other inputs (#99, Mark's ruling of 2026-09-16, design
+ * record R4). **The same existing reading changes meaning a second time in the
+ * same step, which is this file's own rule for when the version moves.**
+ *
+ * At version 8 `run.score` meant the kills a run made plus the overflow. It now
+ * means those two plus boss damage paid per hit landed, the Waking's source
+ * killed, and the large food taken while every rostered line stood at its top
+ * rung. The name, the shape and the reduction are all unchanged and the number
+ * is a different quantity again: a run that fought a boss and never killed one
+ * read nothing for that fight before this and reads every point of health it
+ * took after it. **So every batch recorded before this commit is incomparable
+ * with every batch recorded after it on that key**: subtracting one build's
+ * `run.score` from the other's would be arithmetic across a definition that
+ * changed underneath it, which is exactly the case version 3 was written to
+ * make loud. It is taken eyes open.
+ *
+ * **`tuning.damageTaken.scoreBled` moves with it, and it is the only other key
+ * that does**, for the reason version 8 decided it does: it sums what the
+ * ladder's first rung took, so it is denominated in the quantity above and a
+ * version-8 figure and a version-9 one are slices of two different
+ * compositions. **`scoreBleeds` beside it does not move**, because it counts
+ * bleeds and a bleed is still a bleed, and neither does `weaponStrips`,
+ * `linesStripped`, `seals`, `totalHits` or `hits`.
+ *
+ * **The score's own new readings are not what moved it.** Every arm of
+ * `tuning.scoreByInput` is new and arrives beside unchanged keys, which never
+ * moves this version; that is worth saying because it is the half a reader will
+ * expect to be the cause. What moved it is the reading that was already there.
+ *
+ * **What was checked and holds.** Every declared reading in `batchReport.ts`
+ * and `compareRuns.ts` was read again for the same exposure, and `run.score`
+ * and `scoreBled` are still the only two denominated in score at all. M6's
+ * three, `tuning.fallenRungLedger`, `tuning.stripsLanded` and
+ * `tuning.bledRungMemory`, count rungs, places and transitions and mean exactly
+ * what they meant. `MeasureReport.score` and `ReplayTallies.score` ride on
+ * `run.score` and are the same change under another name rather than a second
+ * one.
+ *
+ * The other two versions hold and each for its own reason. `FORMAT_VERSION`
+ * stays 4 because nothing new is recorded in a tape header and no sim event is
+ * ever encoded into a tape at all, so the score's own event costs no bytes; the
+ * fault identity the score's floor appends is append-only under ADR 0024 and
+ * moves no byte's meaning. `WITNESS_VERSION` stays 11 because nothing here is
+ * folded state: every value the four payments read is already folded, and no
+ * tally lives on the run.
  */
-const READINGS_VERSION = 8;
+const READINGS_VERSION = 9;
 
 export { READINGS_VERSION };
