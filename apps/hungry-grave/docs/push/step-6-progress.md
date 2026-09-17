@@ -10,6 +10,7 @@ The design record is `apps/hungry-grave/docs/push/drafts/step-5-tuning-record-dr
 | --- | --- | --- |
 | 1, the vocabulary | the commit this note rides in, section 6 says why | `docs(hungry-grave): the glossary gains the tuning record, the candidate and the starting condition, and a sweep is not a batch (#142)` |
 | 2 (A1), the starting conditions | `5fa3a9744c` | `refactor(hungry-grave): a run's starting conditions are one record and createRun takes a seed beside it (#142)` |
+| 3 (A), the record exists | `a9d2ecad8e` | `feat(hungry-grave): the tuning record declares ten magnitudes and resolves to the values the build compiles (#142)` |
 
 ## 2. The version ledger
 
@@ -26,13 +27,15 @@ Where each constant stood when step 6 opened, where it is permitted to go, and w
 
 **Slice 2 moved none of the four and was permitted none.** `WITNESS_VERSION` 11, `READINGS_VERSION` 9, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2`, each read off the tree before the first edit and read again after the last, and none of `witness.ts`, `readingsVersion.ts`, `wireCodes.ts` or `digest.ts` is in either commit. `GOLDEN` held by arithmetic exactly as the prompts predicted: the seed stayed `createRun`'s first positional parameter, so the four `createRun(SEED)` calls did not move at all and the scenario's own run is untouched.
 
+**Slice 3 moved none of the four and was permitted none.** `WITNESS_VERSION` 11 (`src/game/witness.ts`), `READINGS_VERSION` 9 (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` 4 (`src/tape/wireCodes.ts`) and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` (`src/dev/digest.ts`), each read off slice 2's docs tip `b996bdc359` before the first edit, and none of the four files is in either commit. The hold needed no argument this time: no production code path reads the record, so nothing this slice added runs at all.
+
 **Slice 1 moved none of the four and was permitted none.** `WITNESS_VERSION` 11, `READINGS_VERSION` 9, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2`, each read off the tree before the first edit, and none of the four files is in the commit. Every figure matched the prompts' own header line, so nothing in this step starts from a stale constant.
 
 ## 3. GOLDEN moves
 
 One entry per slice that was permitted one, whether or not it moved, with the dated paragraph's location and every field that moved beside every field that held.
 
-**No slice in this step is permitted a re-pin**, so an entry here would itself be the report of a stop. Slice 1 has none: no file under `src/` is in its commit. **Slice 2 has none either, and it is the slice where the claim had to be checked rather than asserted**: 36 files under `src/` and `scripts/` moved, `digest.ts` is in neither commit, and `digest.test.ts` was green at every run.
+**No slice in this step is permitted a re-pin**, so an entry here would itself be the report of a stop. Slice 1 has none: no file under `src/` is in its commit. **Slice 2 has none either, and it is the slice where the claim had to be checked rather than asserted**: 36 files under `src/` and `scripts/` moved, `digest.ts` is in neither commit, and `digest.test.ts` was green at every run. **Slice 3 has none**: `digest.ts` is in neither commit and all nine of `digest.test.ts`'s tests were green, including the golden itself.
 
 ## 4. CodeRabbit
 
@@ -41,6 +44,8 @@ One entry per commit: files reviewed, findings by severity, applied and declined
 **Slice 1's docs commit, `coderabbit review --agent --uncommitted`, one iteration: two files reviewed, one finding, minor, applied.** The two files are this slice's own, `CONTEXT.md` and this note; the worktree held no other agent's edits, so the review saw nothing else. The finding is on this section: it stood as an unfilled marker when the review ran, because the review is the step before the commit and the note rides inside the commit it describes, so the only way to record the review was to write the entry after it. **Applied by writing this paragraph**, which is the finding's own first option, files reviewed and findings by severity with what was applied. Zero findings on `CONTEXT.md`, so none of the three entries or two amendments was touched by the review.
 
 **Slice 2's code commit, `coderabbit review --agent --uncommitted`, one iteration: 36 files reviewed, two findings, both major, both declined.** Both are about `src/tape/playback.ts` and both are false against the tree, which `pnpm typecheck` green is the proof of. **The first asks for `readonly signalLock: SignalLock` to be added to `TapeHeader`** so that `runFromHeader`'s `header.signalLock` is valid: the field is already there as `readonly signalLock: number` in `src/tape/tape.ts`, `SignalLock` is `number` by its own declaration, and the read predates this slice, which moved it from a positional argument into a record field without changing it. **The second asks `runFromHeader` to pass `header.recordedRoster` instead of `levels.roster`, on the claim that `RosterImplemented` has no `roster`**: it has one, `readonly roster: readonly WeaponLine[]` in `src/tape/startingLevels.ts`, and taking the suggestion would be wrong twice over, because `recordedRoster` is `readonly string[]` and the resolution from recorded names to this build's lines is exactly what `resolveStartingLevels` does. Both readings look like the review seeing the changed hunk without the types behind it. Nothing was applied, and no third finding was raised on the other 35 files.
+
+**Slice 3's code commit, `coderabbit review --agent --uncommitted`, one iteration: three files reviewed, one finding, major, declined.** The three are this slice's own, `src/game/tuningRecord.ts`, `src/game/__tests__/tuningRecord.test.ts` and `src/__tests__/boundary.test.ts`. The finding is on `resolveTuning` and asks that `createRun` and `RunState` take the overlay, resolve it once per run and carry the result, with every non-test call site passing it through. **Declined because it is slice 4's whole definition and this slice's whole definition forbids it**: nothing reads the record at this tip and nothing may, which the prompt states as the slice's promise, and the file the finding asks to edit is one slice 3 may not touch. The review is right about where the record is going and wrong about when, which is what a slice boundary looks like from inside one commit. Nothing was applied.
 
 ## 5. Record and prompt claims found false against the tree
 
@@ -51,6 +56,8 @@ Every claim in the design record or in a slice prompt that did not survive conta
 **Slice 2. ADR 0063 describes the banding rule of a later tip, and the prompt rules the tip this slice leaves.** ADR 0063's third paragraph says `rigOf` "bands a tape by the rig's own fields of it, size, levels and starting score". At this tip a tape header carries no score at all, so banding on one would answer null forever, and the slice prompt rules it outright: `rigOf` keeps its two arguments and its behaviour exactly, and slice 6 is where that changes once the header carries the record whole. **The ADR sentence is the destination and not a claim about this tree**, and `rigs.ts`'s own JSDoc beside `rigOf` still says why, so nothing here was changed to chase it. Slice 6 owns closing the gap.
 
 **Slice 2. The prompt's reddening estimate ran under, which cost nothing but is worth the next slice knowing.** The prompt expects "15 to 25 files" to redden against the new signature; the tree holds 54 multi-argument `createRun` calls across 29 files, 5 of them production and 24 test files. Every one of them is a signature change and nothing else, and the count is the honest size of a seam this deep in the sim.
+
+**Slice 3. The prompt's own planned test list counts nine rows where every ruling in it counts ten.** `step-6-slice-prompts.md`'s slice 3 block, planned test list items 1 and 5, say "nine of them" and "all nine". The same block's first ruling names ten rows and its step (f) says "Ten assertions and no loop", and the prompts' header adds `stage.quietIntervalMaximumSeconds` to the stage group with its reason; the draft's own third prompt-time ruling still says "the nine rows the first sweep list names", which is the count before that tenth row was ruled in. **Ten was followed**, because the ruling that added the tenth row is the later one and it carries the argument the resolver's bound rests on: both ends have to be rows or the assertion cannot import nothing. The two test-list sentences are stale arithmetic rather than a different plan.
 
 ## 6. Slice 1: the vocabulary, and the step's progress note exists (#142)
 
@@ -124,3 +131,54 @@ Two files: `apps/hungry-grave/CONTEXT.md` and this note, new. **Written inside t
 **Verification, with results.** `pnpm typecheck`, `pnpm lint`, `pnpm vitest run` and `pnpm build` all green in `apps/hungry-grave/`: 157 test files, 2,331 passed, 11 expected fail and 2 todo of 2,344. `pnpm verify` green at the repo root **twice on the code commit's tree**. **The test-name diff is 8 added and 0 removed**, 2,334 names against 2,342, taken against a baseline captured off the clean tip into `local/step6/slice2-a1conditions-baseline.json` before the first edit. The tape, the batch and the determinism run are above. **The build's "Some chunks are larger than 500 kB" warning is the pre-existing pixi chunk `open-tickets.md` already carries**, unchanged by this commit. **There is no Mark actor in this slice**: nothing a player can meet changed, and this tip is not a deploy.
 
 **Left for later slices, each named.** **Slice 6** owns the header carrying the record whole, the `FORMAT_VERSION` 4 to 5 move with it, widening `rigOf` once a header can hold a score, and with it the `rig=ladder` batch gap this slice deliberately did not close. **Slice 3** declares the tuning record and **slice 4** adds it to `StartingConditions`; no field for it exists here and the caps are still module constants derived at import. Nothing this slice was asked for was left undone.
+
+## 8. Slice 3 (A): the tuning record exists and nothing reads it (#142)
+
+**The code commit is `a9d2ecad8e`, 3 files, 355 lines added and none removed**, which sits inside the prompt's own estimate of 2 to 3. One file is created, `src/game/tuningRecord.ts`; one is its test, `src/game/__tests__/tuningRecord.test.ts`; and the only file edited is `src/__tests__/boundary.test.ts`, which gains the sibling fence. **No file under `src/game` outside the new one changed at all**, so `tuning.ts`, `waves.ts` and `director.ts` keep every export, every value and every reader they had, which is what the prompt permits: the only edit in any of the three is none.
+
+**The worktree was clean before the first edit.** `git status --short` returned nothing and slice 2's docs commit `b996bdc359` was the tip, with both of slice 2's commits in the tree.
+
+**The four constants and `GOLDEN`, read off that tip.** `WITNESS_VERSION` 11, `READINGS_VERSION` 9, `FORMAT_VERSION` 4, and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2`. Every one matches the prompts' header line, so nothing in this slice started from a stale figure, and none of the four files is in either commit.
+
+**The module is `src/game/tuningRecord.ts` and the type is `TuningRecord`**, both the prompt's own recommendation and both what the glossary's Tuning record entry says. Its public interface reads in one block at the module's end: `DEFAULT_TUNING`, `resolveTuning`, `tuningRows`, and the types `TuningRecord`, `StageTuning`, `ScoreTuning`, `TuningOverlay` and `TuningRow`. **It imports nothing**, which `boundary.test.ts`'s new fence asserts rather than a comment claiming it.
+
+**The ten rows, their dotted names and their default values.**
+
+| Dotted name | Default | The constant it equals |
+| --- | --- | --- |
+| `stage.processionPurse` | 116 | `PROCESSION_PURSE` (`src/game/stage/waves.ts`) |
+| `stage.crowdPurse` | 388 | `CROWD_PURSE` (same file) |
+| `stage.vigilPurse` | 0 | `VIGIL_PURSE` (same file) |
+| `stage.quietIntervalMinimumSeconds` | 4 | `QUIET_INTERVAL_MINIMUM_SECONDS` (same file) |
+| `stage.quietIntervalMaximumSeconds` | 8 | `QUIET_MAX_TICKS / TICK_HZ` (`src/game/director.ts`) |
+| `score.trashKillScore` | 100 | `TRASH_KILL_SCORE` (`src/game/tuning.ts`) |
+| `score.bleedCapInKills` | 20 | `SCORE_BLEED_CAP / TRASH_KILL_SCORE` |
+| `score.bossHealthPerKill` | 100 | `TRASH_KILL_SCORE / SCORE_PER_BOSS_HEALTH` |
+| `score.sourceKillInKills` | 24 | `SOURCE_KILL_SCORE / TRASH_KILL_SCORE` |
+| `score.mealAtMaxedInKills` | 1 | `MEAL_AT_MAXED_SCORE / TRASH_KILL_SCORE` |
+
+**Four of the five score rows hold their constant's multiplier and never its product**, which is the form each constant is already written in and the reason the default is identical by arithmetic rather than by a second copy of a number. `score.bossHealthPerKill` is the one that reads as a ratio the other way round, the points of boss health one trash kill is worth, because `SCORE_PER_BOSS_HEALTH` is `TRASH_KILL_SCORE / 100` and 100 is the figure its own JSDoc argues for. **The tenth row's constant lives in neither `tuning.ts` nor `waves.ts`**, and `director.ts` already exports `QUIET_MAX_TICKS`, so reading it in seconds cost that file no edit.
+
+**Every row is still a second spelling of its constant at this tip**, held equal by the identity test and by nothing else. The module's own JSDoc says so and says the duplicate retires with the constants, so the slice that finally deletes them deletes that test in the same commit.
+
+**The resolver's bound and the words it rejects with.** `resolveTuning(overlay)` fills every absent row from the default a group at a time, then asserts `stage.quietIntervalMinimumSeconds` sits at or below `stage.quietIntervalMaximumSeconds`. A record failing it throws with both dotted rows and both values named: `stage.quietIntervalMinimumSeconds 9 sits above stage.quietIntervalMaximumSeconds 8, so the director would draw over a negative span`. **That is the whole of what it refuses**, and a record our own code produced cannot fail it; parsing a raw name a person typed is slice 7's edge, so nothing unknown can reach here. The overlay is a written interface per group, `stage?: Partial<StageTuning>` and `score?: Partial<ScoreTuning>`, and never an intersection, so naming one row of one group leaves the group's other rows absent rather than required.
+
+**The dotted names are walked off the nesting and no list of them exists in production code.** `tuningRows` walks the record's own groups and each group's own rows, so a row added to the type appears on every text surface without anything else being edited. The only hand-written list of the ten is the expected value inside the test that pins the walk, which is where one belongs.
+
+**The eligible magnitudes this step does not carry, by name, which is the next round's own work.** Under ADR 0064's rule each is a magnitude a batch reading can move that is neither a derivation nor a safety net, and each is unrowed only because no named sweep reads it yet: the rest of `src/game/tuning.ts`'s declared numbers (`BASE_SPEED`, `SCROLL_SPEED`, `FRESHNESS_PAYOUT_FLOOR`, `GRAVE_ASPECT`, `SIZE_CEILING`, `SIZE_START`, `SIZE_FLOOR`, `HIT_SHRINK`, `INVULNERABLE_TICKS`, `CORPSES_TO_CEILING` and `FEAST_PAYOUT`); `MOB_TYPES` in `src/game/mobs.ts`; `BODY_COST` and `CARDS` in `src/game/stage/waves.ts`; the section wave tables; and each weapon line's level curve. **They are added one commit at a time, each with its reader**, because a row nothing reads is worse than no row. The exclusions are unchanged and are not on this list: `MOB_CAP`, `MOB_FIRE_CAP` and `CORPSE_CAP` are derivations, `SKULL_CAP` and `WISP_CAP` are safety nets by their own JSDoc, `TRASH_CORPSE_PAYOUT` and `RESERVOIR_CAPACITY` are derivations whose whole point is that the feast identity is true by construction, and the harness's hand rows in `src/dev/configurations.ts` are a new configuration rather than a moved row.
+
+**ADR 0064 is at this tip and is this slice's own decision**, `docs/adr/0064-a-tuning-magnitude-is-a-row-of-one-record-resolved-at-the-shell.md`, filed by the orchestrator at `8924d5b397`. Every sentence of it that this slice can honour, the grouping, the dotted name, the default equalling the constants, the eligibility half and the core never importing the record, is honoured; the rest of it, the shell resolving and the caps deriving per run, is slices 4 and 5.
+
+**Ten tests were added, none deleted, skipped or weakened.** Nine are `tuningRecord.test.ts`'s and one is the fence. Every one of the nine was written first and watched fail against a stub whose default was zeros and whose resolver and walk threw, so each failed as an unmet promise and never as a missing module. **The first test is ten assertions against ten constants with no loop over a pairing**, because a loop proves the list somebody typed and not the values.
+
+**Nothing turned red anywhere, which was the claim to check rather than the hope.** 158 test files and 2,354 tests green before the commit and twice after it, with the same 11 expected failures and 2 todos throughout.
+
+**The test-name diff: 2,342 names in the baseline, 2,352 now, 10 added and 0 removed.** The baseline is this branch's own tip, captured before the first edit into `apps/hungry-grave/local/step6/tests-baseline-arecord.json`, which is outside version control and in no commit.
+
+**The fences, each by title, all green.** `src/game imports only from src/game`, `every test file imports only from inside its parent folder's subtree`, `no screen imports another screen`, `no module under src/app reaches for engine()`, `carries no value-import cycle beyond the ones written down` with `KNOWN_CORE_CYCLES` still empty, `reaches nothing in game/stage/stage from game/caps`, `the lock's module imports nothing`, `the tape codec imports nothing from the director`, `src/game/storm.ts reaches what it can hit through the seam` and its four siblings, `blocks './step' from src/game/sim.ts` and its six siblings, `orders no reading against a number of its own`, and `every reading on a verified report carries a declared comparison meaning`. **The new sibling is `the tuning record's module imports nothing`**, under `the tuning record is owned by a module with nothing behind it`, shaped on the lock's own fence; it needs no teeth test of its own because the lock's `counts a package as readily as a path, because either one is a dependency` already proves `importsOf` catches a path and a package alike, type-only imports included.
+
+**Replay determinism at this tip.** Seed 20260820 under `shaky-short`, played headlessly and its tape measured off the bytes: 6,350 ticks, sealed, 59,728 bytes, `verified`, 1 of 1. The batch output went to `local/step6/arecord-determinism` and is in no commit.
+
+**`pnpm verify` green twice on the code commit's tree**, plus `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green from `apps/hungry-grave/` before it.
+
+**Nothing was left for a later slice that this slice could have done.** Slice 4 is the first consumer and puts the record on the starting conditions; slice 5 takes the score group's readers; slice 6 owns the header and the one `FORMAT_VERSION` move; slice 7 owns the candidates and the parsers, which is where a raw name is refused.
