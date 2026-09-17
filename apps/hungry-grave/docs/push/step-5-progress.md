@@ -19,6 +19,7 @@ The record is `apps/hungry-grave/docs/design/show-what-you-have.md` and the prom
 | 7 (M1-fix), the bleed is capped | `f98c01767d` | `fix(hungry-grave): a floor hit bleeds a capped slice of the score and the remainder stays (#99)` |
 | 8 (M1-stage), the ladder is staged in the harness | `78b2d85fe8` | `feat(hungry-grave): the harness stages a run at the floor holding a score and walks the ladder hit by hit (#99)` |
 | 9 (M6), the ladder's cost is measurable | `e173dbad0f` | `feat(hungry-grave): the batch reads what the ladder cost and what the dive took back (#99)` |
+| 10 (M7), the score's other inputs | `6665fad6d4` | `feat(hungry-grave): the score is fed by boss damage, the source killed and a meal taken at a maxed ladder (#99)` |
 
 Slice 2 (M1) carries two code commits, the fold and the rule, which is this step's one authorized departure from the contract's one-code-commit rule.
 
@@ -46,6 +47,8 @@ Where each constant stood when step 5 opened, where it is permitted to go, and w
 **`FORMAT_VERSION` did not move and the fault identity M1 appended is why it did not have to.** `score rung re-armed by growth` takes code 23 in `FAULT_IDENTITY_CODES`, appended at the end (ADR 0024, closed and append-only), so no byte's meaning moved and no existing identity changed code.
 
 **M6 moved none of the four and was permitted none.** `WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150`, each read off its own tip before the first edit and again after the last, and none of the four files is in either of its commits. Section 12 carries `readingsVersion.ts`'s own rule quoted beside the reason the version is held.
+
+**M7's readings move costs the comparability of `run.score` and `tuning.damageTaken.scoreBled` across `6665fad6d4`, for the second time in this step.** Every batch recorded before that commit is incomparable with every batch after it on those two keys, and version 9's own paragraph in `readingsVersion.ts` names them and names what holds beside them. **The other three constants held and none of their files is in the commit**, `witness.ts`, `wireCodes.ts` and `digest.ts` alike; `wireCodes.ts` is in it for the appended fault identity's code alone, which is append-only under ADR 0024 and moves no byte's meaning, exactly as M1's identity 23 did.
 
 **The table's baseline column is slice J2's tip and step 5 opens at slice J3's, which is two commits further on** (step 5.0, read off `d648c97bf7`). The tree reads `WITNESS_VERSION` **10** (`witness.ts:177`), `READINGS_VERSION` **7** (`readingsVersion.ts:159`), `FORMAT_VERSION` **4** (`wireCodes.ts:50`) and `GOLDEN`'s checksum **`1307518644`** (`digest.ts`), with `score: 0`, `mobs: 5`, `corpses: 1` and `kills: 2` inside it. Round two's slice J3 spent the same two numbers the table reserves for slice M1, so **the permitted moves are one move each and the figures now read 10 to 11 and 7 to 8**; the budget is the intent and the arithmetic is what moved. The table's cells are left as they were filed rather than rewritten, and **slice M1 confirms both figures against its own tip before it moves either.**
 
@@ -87,6 +90,8 @@ One entry per code commit: files reviewed, findings by severity, applied and dec
 **M1-stage's code commit, one iteration: 14 files reviewed, one finding, applied, and nothing declined.** A minor on `scripts/record-conditioned.ts`: the keyed-argument reader took the first match, so `score=1 score=2` silently resolved to the first. Real, and the same rule `parseLevels` already held for a line named twice, so a repeated `rig=` or `score=` is now refused by name. The worktree held no other agent's edits, so the review saw this slice's fourteen files and nothing else.
 
 **M6's code commit, one iteration: nine files reviewed, one finding, minor, its fix declined and the honest half taken.** The finding asks `tuning.bledRungMemory.growthShortOfClearing` to sum growth off ordered events rather than off the size edge, so a shrink on the same tick cannot mask it. **The under-count is real and the fix it names is not available**: no event carries the size a swallow paid, so the growth would have to be recomputed from `swallowed`'s payout and freshness against `growGrave`'s ceiling clamp, which is a second copy of two sim rules inside `src/dev` and is forbidden by the slice's second ruling; adding an event is `src/game` and is out of the commit by the same ruling. **The reading's JSDoc now names the residual instead**, so the figure cannot be read for more than it is. Section 12 carries it whole. The worktree held no other agent's edits, so the review saw this slice's nine files and nothing else.
+
+**M7's code commit, one iteration: 30 files reviewed, 0 findings.** Nothing applied and nothing declined. The worktree held no other agent's edits, so the review saw this slice's thirty files and nothing else.
 
 ## 5. Record and prompt claims found false against the tree
 
@@ -137,6 +142,14 @@ Every claim in the design record or in a slice prompt that did not survive conta
 **M6. `batchReport.test.ts` and `compareRuns.test.ts` did not turn red.** Both are on the prompt's expected-red list. Neither asserts an exhaustive reading list of its own, so a new reading is turned red by the two declaration fences, and it was. Checked by running them.
 
 **M6. `pnpm verify` was already red on the branch, on a doubled blank line in `CONTEXT.md` that arrived with slice 8's docs commit `5421919529`.** Slice 8's own verify runs were made before that commit existed. It is removed in M6's docs commit, whitespace only, and section 12 carries it.
+
+**M7. One ledger function for all five payment sites closes a value-import cycle, and the core's own guard refused it.** The first cut put `payScore(state, input, amount)` in `run.ts`, beside `clearRefusals`, so that every payment went through one writer and a payment with no name could not be written at all. `boundary.test.ts`'s *the core has no import cycle* went red with `KNOWN_CORE_CYCLES` still empty: `mobs.ts` would have to import `run.ts` and `run.ts` already imports `mobs.ts` for the mob pool. **The prompt's own module-boundary rule says the same thing in advance**, that no import direction changes in this slice, so the helper was backed out and each of the five sites writes the two lines itself. **What carries the property instead is the closed union and a cross-cutting test**: `ScoreInput` has five members, every site names one, and `scorePayments.test.ts` drives all five through a record that is total over the union, so a sixth input with no payer is a compile error there.
+
+**M7. The Waking's source out-pays the Banshee's whole fight, and both figures are the research's own.** The source's 24 trash kills and the boss rate's hundred health per trash kill are derived from the same rate in `score-inputs-precedent.md` section 4, and the Banshee's 2,200 health pays 22 at that rate against the source's 24. So the tuning test bounds the source below the stage's **last** fight rather than below any fight, and says why in its own comment. Nothing was moved to hide it: both sit inside the researched band of 20 to 70 trash kills for a single input, and the Banshee is the shortest fight in the game.
+
+**M7. `record-conditioned.ts` cannot record a tape that reaches a boss, whatever the rig.** Item (i) asks for a conditioned tape at a rig that reaches one. Its wandering script takes revenant fire and seals: at `rig=maxed` seed 404 the run ends sealed at tick 6,229 with 11 hits taken, and the Procession runs to about 7,500 ticks on the same rig, so no boss is ever on the field. **What was measured instead** is a harness-played tape from the maxed-rig batch, which is the same instrument and a steering hand that survives: `local/step5/m7-maxed-committed/loose-far-maxed-1789638094880/902.tape` measures to `outcome: 'verified'` at `readingsVersion` 9 with every one of the five inputs paying. Section 13 carries both.
+
+**M7. The realistic file count is 16 to 26 and the slice is 30.** The four the estimate is short by are the two new test files the prompt's own test list requires, `wireCodes.ts` for the appended identity's code, and `corpses.ts` for the tier the swallow now reads. Nothing was cut to reach the number.
 
 ## 6. Step 5.0: the docs commit, ADR 0054 amended and the glossary gains three terms (#99)
 
@@ -1194,3 +1207,149 @@ A fallen rung is spawned at freshness 1 and never decays, so `freshnessScale` ne
 ### What is left for a later slice, each named
 
 **Slice 9 (M6) declares the readings.** This note prints the walk's rows, the tape's ladder and the batch's counts off scratch scripts and declares nothing, which is the first consumer of what this slice built. **Widening the tape header so a staged score replays** is filed above and not taken. **The batch shell's own divergence warning** is filed above. **A docs pass owns the label collision** in the next entry. Nothing in `CONTEXT.md` beyond the Rig entry was touched, no ADR was filed or amended, and neither ticket was opened or closed.
+
+## 13. Slice M7: the score's other inputs (#99)
+
+**The score had two inputs and R4 rules five. This slice pays the other three**: boss damage per hit landed, the Waking's source killed as one bonus on the kill, and large food taken while every rostered line stands at its top rung. **The kill's row and the overflow trade nothing**, which the batch says exactly rather than approximately: every one of the twelve birthright runs ends on its slice-9 figure plus its own boss damage and nothing else.
+
+**One code commit, `6665fad6d4`, 30 files**, against the prompt's realistic 16 to 26 (section 5 records what the estimate was short by). **The test-name diff against a baseline captured at `5c02f1e870` before the first edit reads 2,302 names in the baseline and 2,329 now, 28 added and 1 removed.** The 2,302 is exactly where slice 9 left it. The one removed is `holds twenty-three identities against twenty-four checks, six of them fatal`, renamed to twenty-four against twenty-five. No test was deleted, skipped or weakened.
+
+### The three weights, what each was set against, and its ratio to a trash kill
+
+**Boss damage: `SCORE_PER_BOSS_HEALTH`, one trash kill per 100 points of boss health taken**, which is `TRASH_KILL_SCORE / 100` and one point of score per point of health. **The row carries the rate and never the fight**: what a fight pays is the rate times that boss's own `PHASE_HP`, so a step 6 retune of either moves it and no figure goes stale. **The ratios are derived in prose**: the Banshee's 2,200 health is 22 trash kills and the Undertaker's 5,100 is 51, both inside the research's band of 20 to 70 trash kills for a single input (`score-inputs-precedent.md` section 4). **What it was set against is the swamping refusal**: the mob table pays one trash kill per 8 points of health, floored, and that rate on a boss would pay 637 trash kills for the Undertaker, more than the whole rest of a run makes. The refusal is pinned by a test that reads the row, the mob row and `PHASE_HP` and types no number of its own.
+
+**The source killed: `SOURCE_KILL_SCORE`, 24 trash kills, stated as `24 * TRASH_KILL_SCORE`** exactly as `SCORE_BLEED_CAP` states itself. **Derived rather than picked**: at the same hundred-health rate its 2,400 health is 24. **What settles the tier is what it is to the player and never its health.** The genre puts a spawner at 6x to 10x across Robotron, Gradius and Defender, and a structural core or a stage objective at 30x to 130x across Bosconian, Gradius and Xevious. The source sits between them: above the spawner tier because it is the section's objective rather than roadside furniture, and below the core tier because a core kill in all three of those games ends or denies something and **#104 keeps the pour running whatever the storm did**, so there is no denial premium here at all. The row's own comment says so, so a later reader does not reach for Xevious's milk-then-deny or Robotron's safety premium.
+
+**Large food at a maxed ladder: `MEAL_AT_MAXED_SCORE`, one trash kill per meal**, and it is the smallest of the three because the count is what binds it. **No game in the research pass scores food at all, so there is no direct anchor and the row says so**; what transfers is the band and the two named failure modes, too small to bother with (Great Mahou Daisakusen's "extremely minuscule", Battle Garegga's "not recommended") and large enough to farm (Gunbird's suiciding scorers, DoDonPachi's MAXIMUM bomb bonus). **What it was set against is measured**: twelve maxed-rig runs played to the stage's end took **24 to 47 large meals at full power each**, so at one trash kill apiece the whole input is **2,400 to 4,700 points across a run**, between the Banshee's whole fight at 2,200 and the Undertaker's at 5,100, which is the same band as one boss fight rather than above it. At twice the figure the top of that range reaches 9,400 and the input outgrows both fights, which is why the first cut at `2 * TRASH_KILL_SCORE` was dropped once the count was in.
+
+**All three are first figures and each says so in its own JSDoc**, with what it was set against and what it gets tuned against beside it.
+
+### The four payment sites, each where the thing is resolved
+
+**Boss damage in `damageBoss` (`bosses/phases.ts`)**, where the health comes off, and never in `damageStormTarget`, which routes and owns nothing. **What a hit pays for is the health the phase actually lost**: the health taken is read as `Math.min(amount, boss.hp)` *before* the subtraction, which is left unclamped exactly as it was, so a bell hit for 104 onto a phase holding 3 still reports 104 and now pays for 3. **A hit the flash absorbed pays nothing**, because it took no health and the flash branch returns before the payment.
+
+**The source's bonus in `damageSetPiece` (`stage/setPiece.ts`)**, on the tick its health empties, beside the `setPieceKilled` it already fires. A second hit onto a body already taken pays nothing, because the module's own `bodyGone` guard returns first.
+
+**The meal in `swallow.ts`**, where the swallow is resolved and where the overflow already pays. **The maxed question is asked of `offer.ts` and never answered twice**: `everyLineMaxed(state)` is a named helper beside `offerableLines`, `offerableLines(state).length === 0`, so the roster-at-cap rule has exactly one copy and it is the offer's own. **The tier arrives as a value on the swallow**: `Swallowable` gains `tier`, carried from the corpse row by `asSwallowable`, because a rich corpse and a feast are both large food and only one of them is a feast, so the kind cannot stand in for the tier.
+
+**The kill's site did not move.** `mobs.ts` opens so that site can raise the score's event and for nothing else; the row's value and the payment's amount both hold, and a kill pays after this slice exactly the points it paid before it.
+
+### The score's own event, and the double announcement it costs
+
+**`scorePaid` carries which input paid, how much, and the running total**, and it fires at every payment including the kill's and the overflow's. **`ScoreInput` is a closed union of five**, `kill`, `overflow`, `bossDamage`, `sourceKilled` and `mealAtMaxed`, so a payment carries a name off that list or does not compile. `scorePayments.test.ts` drives all five through a `Record<ScoreInput, …>` that is total over the union, so an input added to the vocabulary with no payer is a compile error there rather than a reading with a residual it cannot explain.
+
+**`overflowed` is not widened, not narrowed and not retired**, and a test pins its exact field set. **Two events on the overflow's tick is the named cost and it is accepted eyes open**, because the alternative puts the payment rule's arithmetic in a second module inside `src/dev`.
+
+**Nothing in the tape changed.** No sim event is ever encoded into a tape, so the new event costs no bytes and `FORMAT_VERSION` holds at 4.
+
+### `READINGS_VERSION` 8 to 9, in the same commit as the payments
+
+**Version 9's note, quoted from `readingsVersion.ts`:** "At version 8 `run.score` meant the kills a run made plus the overflow. It now means those two plus boss damage paid per hit landed, the Waking's source killed, and the large food taken while every rostered line stood at its top rung. The name, the shape and the reduction are all unchanged and the number is a different quantity again: a run that fought a boss and never killed one read nothing for that fight before this and reads every point of health it took after it." And: "**So every batch recorded before this commit is incomparable with every batch recorded after it on that key.**"
+
+**`tuning.damageTaken.scoreBled` rides with it and it is the only other key that does**, for the reason version 8 decided it does: it sums what the ladder's first rung took, so it is denominated in the quantity that changed and a version-8 figure and a version-9 one are slices of two different compositions.
+
+**What was checked for the same exposure, and it was read rather than assumed.** Every declared reading in `batchReport.ts` and `compareRuns.ts`: `run.score` and `tuning.damageTaken.scoreBled` are still the only two denominated in score. `scoreBleeds` counts bleeds and a bleed is still a bleed; `weaponStrips`, `linesStripped`, `seals`, `totalHits` and `hits` are counts of events. M6's three, `tuning.fallenRungLedger`, `tuning.stripsLanded` and `tuning.bledRungMemory`, count rungs, places and transitions, and the batch below reproduces every one of their cells. `MeasureReport.score` and `ReplayTallies.score` ride on `run.score` and are the same change under another name. **My own new readings are not what moved it**, because new readings beside unchanged ones never do, and version 9's paragraph says that plainly because it is the half a reader will expect to be the cause.
+
+### The reading, with each arm's denominator
+
+**`tuning.scoreByInput`, one new concept module under `src/dev/readings/`, built from the score's own event and never from the run's state.** Eleven declared keys, each a spread in `batchReport.ts` and a scalar or descriptive comparison in `compareRuns.ts`.
+
+- `paid`, the gross: every point the run was paid.
+- `killPaid` and `killPayments`, denominator the mobs the run killed.
+- `overflowPaid` and `overflowPayments`, denominator the swallows whose growth the ceiling could not take.
+- `bossDamagePaid` and `bossDamagePayments`, denominator the hits that took health off a boss. **A flash-absorbed hit is in neither figure**, because it took none.
+- `sourceKilledPaid` and `sourceKilledPayments`, denominator the sources killed, which a run can do at most once.
+- `mealAtMaxedPaid` and `mealAtMaxedPayments`, denominator the rich swallows taken while every rostered line stood at its top rung.
+
+**The decomposition is gross and `run.score` is net, and the reading's own declaration says so.** In a run that hit the floor the arms sum to more than the run ends holding and the difference is `tuning.damageTaken.scoreBled`; a test drives a kill and a floor hit and asserts exactly that, so the residual a reader would otherwise call a bug is pinned rather than described.
+
+**The boss arm and the source arm report nothing rather than zero on a run that never met the thing they measure**, on `wakingSwallows.ts`'s own terms, and both halves are tested: a run that never met a boss reads null, and a run that met one and never hurt it reads a real zero. **The meal arm is a plain number and its zero carries two stories at once**, a run that never reached full power and a run that reached it and took no large food; nothing in the events parts them and the reading's JSDoc says the batch's `endLevels` is what answers which.
+
+**The pairs are flat rather than nested, and the declaration fence is what decided it.** A nested arm that is null on a run puts its leaves out of reach of `batchReadingDeclared.test.ts`'s walk, which then names the parent as undeclared. `wakingSwallows.span` answers that by declaring the parent and claiming the subtree; here both figures are wanted in a batch, so each is its own declared leaf.
+
+### The invariant, the identity appended, and the counts that moved with it
+
+**`checkScoreNotNegative` sits beside `checkScoreRung` in `invariants.ts`** and runs straight after it, both being the score's own floor read from one end or the other. The state it refuses is `state.score < 0`. **Five payment sites and three data rows is what warrants it**: every input only adds and the bleed takes the lesser of what stood and the cap, so the rules cannot reach it, and what the check is for is a reversed sign at one of the five sites, which is the one arithmetic mistake nothing else here would see. **M1-fix decided the other way for the bleed alone and that reading still stands**: one site with a `Math.min` in front of it is a state the arithmetic cannot produce, and five writers is a different question.
+
+**One fault identity was appended**, `score not negative`, at the end of `FAULT_IDENTITIES` with code 24 in `FAULT_IDENTITY_CODES`, severity **recoverable** on the bank's own reading: the size, the levels and the field are all exactly what the rules wrote and nothing downstream reads a poisoned value, so what it costs is the score and ending the run over a wrong number on the readout would be the worse answer. **The counts `faults.ts`'s own prose carries moved with it**: "Twenty-three identities against twenty-four checks" reads twenty-four against twenty-five, and "Recoverable, seventeen checks and seventeen identities" reads eighteen and eighteen. The fatal count did not move, no existing identity changed severity, and no existing wire code moved (ADR 0024, closed and append-only).
+
+### The batch, and sections 12 and 14 reproduced cell for cell
+
+**Seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig, recorded on the committed tree at `6665fad6d4` with a clean identity: 12 of 12 verified, none unfinished, `readingsVersion` 9 on both.**
+
+**Every cell of M6's three readings reproduces section 12's table, and `scoreBleeds`, `weaponStrips`, `linesStripped` and `seals` reproduce section 14's**, both configurations, all six seeds each. `tuning.fallenRungLedger` fell/caught/lost/onFieldAtStop, `tuning.stripsLanded` atClamp/inBoss, `tuning.bledRungMemory` ticksSet/timesSet/timesCleared/growthShortOfClearing: not one moved. **This slice changes no rule any of them reads, so a cell that moved would have been a stop.**
+
+**`run.score` and `tuning.damageTaken.scoreBled` are incomparable with every earlier batch's**, which is what `READINGS_VERSION` 9 exists to make loud. **And the shape of the difference is exactly the new inputs**: every run's ending score is its slice-9 figure plus its own boss damage, to the point, in all twelve seeds.
+
+| | gross | kill share | boss paid | boss share | boss hits | overflow | source | meal | bled | `run.score` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| steady-far 900 | 15800.00 | 86.1% | 2200 | 13.9% | 276 | 0 | absent | 0 | 2000 | 13800.00 |
+| steady-far 901 | 17100.94 | 87.1% | 2200 | 12.9% | 276 | 0.94 | absent | 0 | 2000 | 15100.94 |
+| steady-far 902 | 22800.76 | 90.3% | 2200 | 9.6% | 276 | 0.76 | absent | 0 | 2000 | 20800.76 |
+| steady-far 903 | 40202.40 | 94.5% | 2200 | 5.5% | 279 | 2.40 | absent | 0 | 2000 | 38202.40 |
+| steady-far 904 | 65412.39 | 88.8% | 7300 | 11.2% | 786 | 12.39 | 0 | 0 | 2000 | 63412.39 |
+| steady-far 905 | 18000.00 | 87.8% | 2200 | 12.2% | 276 | 0 | absent | 0 | 2000 | 16000.00 |
+| loose-far 900 | 21506.89 | 89.7% | 2200 | 10.2% | 276 | 6.89 | absent | 0 | 2000 | 19506.89 |
+| loose-far 901 | 29004.29 | 92.4% | 2200 | 7.6% | 276 | 4.29 | absent | 0 | 2000 | 27004.29 |
+| loose-far 902 | 40891.14 | 91.5% | 3488 | 8.5% | 411 | 3.14 | 0 | 0 | 2000 | 38891.14 |
+| loose-far 903 | 38701.47 | 94.3% | 2200 | 5.7% | 279 | 1.47 | absent | 0 | 2000 | 36701.47 |
+| loose-far 904 | 14600.35 | 84.9% | 2200 | 15.1% | 276 | 0.35 | absent | 0 | 2000 | 12600.35 |
+| loose-far 905 | 59715.54 | 87.7% | 7300 | 12.2% | 889 | 15.54 | 0 | 4000 | 55715.54 |
+
+**Each input's share, against the honest denominator.** Every one of the twelve reached a boss, so the denominator here is already a run that met one. **Boss damage is 5.5 to 15.1 percent of a run's gross**, against the research's band converted to 3 to 56 percent: it lands inside, at the low end. **The source paid nothing in any of the twelve and the meal paid nothing in any of the twelve**, and both zeroes are the rig rather than the rule: the birthright hand never reaches a maxed roster (section 12 says so) and never commits up the trail far enough to take the source down. Nine of the twelve never opened the Waking at all, which the reading says by reporting the arm absent rather than zero; the three that opened it left it alive, and read 0.
+
+**Boss hits landed and boss health taken per run**: 276 to 889 paying hits, taking 2,200 to 7,300 points of health. Ten of the twelve took the Banshee's whole 2,200 and sealed before the Undertaker; two killed both.
+
+**Boss score paid beside boss score that survived to the end of the run.** A floor hit bleeds a capped slice of the pooled bank rather than of any one input, so the exact split cannot be attributed and both bounds are printed: the boss paid 2,200 to 7,300, and **at least 200 to 5,300 of it survived the ladder**, being what is left after the whole of that run's bleed is charged against the boss arm alone. **That pair is the evidence under the ruling's own reason**: under a lump at the kill, the ten runs that sealed before the Undertaker would have carried 2,200 fewer points each, and four of the twelve would have been paid nothing at all for a fight they fought.
+
+**The maxed rig, twelve more runs on the committed tree, where all five inputs fire.** 12 of 12 verified, `readingsVersion` 9, no bleeds at all so gross is net. Meals 24 to 47 per run paying 2,400 to 4,700; boss damage a flat 7,300 on every run, both bosses killed, 445 to 459 paying hits; the source killed in 1 of 12 (`loose-far` 902). **The shares there are the other end of the picture and are a finding rather than a result**: the kill's own row is 94.7 to 96.0 percent of a maxed run's gross, boss damage 2.7 to 3.1 percent and the meal 1.03 to 1.89. **A maxed hand mows 1,700 bodies in 23,000 ticks, so the kill swamps every other input at full power**, which is not the swamping the band guards against and is not this slice's to fix: `TRASH_KILL_SCORE` and every mob row are on the must-not-move list. It is filed here for the tuning step.
+
+**M1-fix's cap row re-read against this batch, as a finding and never as a row moved.** `SCORE_BLEED_CAP` is 2,000, twenty trash kills, and its band was argued against a run's gross. **The gross rose by about an eighth**, from 12,400 to 58,112 at M1's tip to 14,600 to 65,412 here, so the cap's share of a run fell from 16.1 to 3.4 percent down to **13.7 to 3.1 percent**. **What stands**: the value is still 20 trash kills inside the researched band of 10 to 40, and the early-window argument that put it below the band's midpoint is untouched, because every one of the twelve still bled the full cap, which is only possible with at least the cap standing when the floor hit landed. **What is worth the tuning step's eye** is that the same row now buys a smaller fraction of the run, and that it will fall further as the other inputs are tuned up.
+
+### Replay determinism, and the tapes
+
+**Seed 909 under `shaky-short`, played twice on the committed tree: 5,997 ticks both times, 56,402 bytes both times, and three differing bytes at offsets 202 to 204**, which is `recordedAt` alone, exactly as slices M1-fix and M1-stage recorded for this seed. Both verify. **A witness move here would have been a stop, and this run is the proof there was not one**: nothing this slice added is folded state, and `witness.test.ts`'s own completeness assertion over the nested field list is green unchanged.
+
+**A tape at a rig that reaches a boss, measured to `outcome: 'verified'`**: `local/step5/m7-maxed-committed/loose-far-maxed-1789638094880/902.tape`, 22,537 ticks, victory, integrity clean, 376 of 376 checkpoints verified, `readingsVersion` 9. **All five inputs pay in it**: kill 246,100 over 1,804 kills, overflow 76.15 over 374 swallows, boss damage 7,300 over 449 paying hits, the source killed once for 2,400, and 39 meals at a maxed ladder for 3,900.
+
+**`record-conditioned.ts` could not produce that tape and section 5 records why**: its wandering script seals at tick 6,229 on the maxed rig and the Procession runs to about 7,500, so no conditioned tape reaches a boss at all. The conditioned tape it does produce verifies at `readingsVersion` 9 with the ladder whole, one bleed of 2,000, five strips taking 19 line-levels and a seal.
+
+### The four constants and `GOLDEN`, read off this slice's own tip
+
+**`WITNESS_VERSION` 11 (`witness.ts`), `READINGS_VERSION` 9 (`readingsVersion.ts`, moved here from 8), `FORMAT_VERSION` 4 (`wireCodes.ts`) and `GOLDEN`'s checksum `-2049717150` (`digest.ts`), with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` inside it.** Each was read off the tree before the first edit and again after the last.
+
+**`GOLDEN` held and the check was taken rather than assumed**: `digest.test.ts` was green at every run of the suite, and **this slice holds no re-pin permit at all**. The scenario's own numbers say why none of the three inputs can fire in it: all six hundred ticks fall inside the Procession and it runs on past them, so no boss is ever on the field and `drawn.bossFire` reads 0; `drawn.pour` is 0, so no set piece ever opened; and the `levels` record reads `skullStream: 1` with the other three at 0, four rungs short of `MAX_LEVEL` on the one line that has any. The two scripted shambler kills pay exactly what they paid and `score` holds at 200.
+
+### Measured baselines that moved, each re-measured with its reason
+
+**`endings.test.ts`'s `SCORE_EARNED_INSIDE_THE_FIGHT` is gone and what stood at the bleed is now summed off the ledger.** The constant was 300, three mow bodies measured on 2026-09-16, and the hand also damages the boss inside that window, so a kill-only figure went false the moment boss damage paid. **It is not re-pinned at a new magnitude**, because that figure would go stale again on every weight retune: the test now adds up the `scorePaid` amounts the run reported before the rung bled and asserts the bleed took the lesser of that and the cap. That is an independent source of truth rather than a tautology, and it asserts one thing more than it did: the payments' own ledger and the ladder's arithmetic agree.
+
+**`endings.test.ts`'s victory test asserts what moved rather than that nothing moved.** "Pays nothing for a victory" is still the promise; the falling tick now moves the score by the last of the boss's health the storm took. The test asserts the move equals the sum of that tick's `scorePaid` amounts and that every one of them names `bossDamage`, so the ending still pays nothing and the payment that does is named.
+
+**`faults.test.ts`'s count test is renamed** to twenty-four identities against twenty-five checks, which is the one removed name in the diff.
+
+**`mobs.test.ts`'s exact event-array pin gains the kill's own payment**, asserted off the row rather than as a figure.
+
+**No other measured baseline moved.** `bot.test.ts`'s `BLEEDS_SCORE`, `harnessPolicy.test.ts`'s per-seed baselines, `measure.test.ts` and `replayTallies`' tests were all checked by running them and are green unchanged.
+
+### Verification
+
+1. **Agent.** `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/`, and **`pnpm verify` green twice at the repo root on the committed tree**, 156 test files, 2,318 passed, 11 expected fail, 2 todo. The build's chunk-size warning is the pre-existing one.
+2. **Agent.** The test-name diff, 2,302 to 2,329, 28 added and 1 removed, above.
+3. **Agent.** `READINGS_VERSION` 9 with what the move costs, and `WITNESS_VERSION` 11, `FORMAT_VERSION` 4 and `GOLDEN` each read off the tree and named as held, above.
+4. **Agent.** The golden digest green and unmoved, stated as a check taken.
+5. **Agent.** Replay determinism on seed 909 under `shaky-short`, and a verified tape at a rig that reaches a boss, above.
+6. **Agent.** The batch with the score decomposed, each input's share printed, and the incomparability stated, above.
+7. **Agent.** The three weights, each with its ratio to a trash kill, what it was set against, and its first-figure annotation, above.
+8. **Agent.** The fences green, each by title. `boundary.test.ts`: *the rendering-import boundary*, *the test-span fence*, *the screen graph is declared in one place*, *the engine accessor is out of the app*, *the core has no import cycle*, slice D's sixth *the cap derivation reads tables and never the stage*, *the lock is owned by a module with nothing behind it*, *the tape codec parses a header without the director* and *src/dev imports only from src/dev and src/game and src/tape*. `lineAgnosticPolicies.test.ts`: *no weapon line walks the mob pool*, *a policy names no weapon line*, *no boss and no set piece names a weapon line*, *a line's constants are declared in that line's own module*, *only the offer draws from the power-ups stream* and *one module draws each stream*. `executionFence.test.ts`: *the step fence (ADR 0017)*. `harnessStatesNoTarget.test.ts`: *the harness reports and never judges*. `batchReadingDeclared.test.ts`: *every reading declares how a batch reduces it*. `comparisonDeclared.test.ts` at `src/dev/__tests__/`: *every reading declares what comparing it means*. **The core's cycle guard is green with `KNOWN_CORE_CYCLES` still `[]`**, which this slice made it earn (section 5).
+9. **Human (Mark), and none of it blocks anything.** The record's section 7 carries the finding that a hit costs points so clean play scores higher, and it is his to overrule now that the other inputs are in. The per-input shares above are the evidence beside it, and he reads it on the deploy at step 5.7.
+
+### Left for a later slice or for the tuning step, each named
+
+**The cap row's re-read is a finding for the tuning step and no row moved.** **The kill's share of a maxed run, 95 percent, is the same kind of finding** and is the tuning step's to answer, not a slice's.
+
+**The boss farm is still #136 and this slice neither widened nor closed it.** Nothing here changes how long a fight can be held open; the Undertaker's dug-up bodies pay what they always paid and boss damage now pays per hit inside the same unbounded window.
+
+**A fourth score input is Mark's** and the research's three filed candidates (a flawless boss phase, a boss clock, stage objectives) sit in `score-inputs-precedent.md` section 6 pointed at #135's thread.
+
+**Nothing under `src/app` was opened**, no ADR was filed or amended, no cap moved and nothing was re-pinned anywhere.
