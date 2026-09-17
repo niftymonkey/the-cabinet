@@ -17,7 +17,7 @@ The record is `apps/hungry-grave/docs/design/show-what-you-have.md` and the prom
 | 6 (M5), the stripped rung falls | `9aa6f83a6a` | `feat(hungry-grave): a stripped rung falls onto the field as a body the dive can catch (#99)` |
 | 6b (M5-fix), the rungs fall above a clamped grave | `52a62e16d1` | `fix(hungry-grave): a strip with no room below the grave drops its rungs above it (#99)` |
 | 7 (M1-fix), the bleed is capped | `f98c01767d` | `fix(hungry-grave): a floor hit bleeds a capped slice of the score and the remainder stays (#99)` |
-| 8 (M1-stage), the ladder is staged in the harness | | |
+| 8 (M1-stage), the ladder is staged in the harness | `78b2d85fe8` | `feat(hungry-grave): the harness stages a run at the floor holding a score and walks the ladder hit by hit (#99)` |
 | 9 (M6), the ladder's cost is measurable | | |
 
 Slice 2 (M1) carries two code commits, the fold and the rule, which is this step's one authorized departure from the contract's one-code-commit rule.
@@ -82,6 +82,8 @@ One entry per code commit: files reviewed, findings by severity, applied and dec
 
 **M4's code commit, one iteration: 14 files reviewed, 7 findings, none applied and all seven declined.** Section 10 carries each decline with its reason. Four of the seven are on `docs/design/show-what-you-have.md` and `docs/push/step-5-slice-prompts.md`, which were dirty in the shared worktree while the review ran and are not this slice's files; **all four are one argument, that M7's `run.score` change needs a `READINGS_VERSION` 8 to 9 move the section 5 ledger forbids**, and it is left here for the orchestrator rather than acted on.
 
+**M1-stage's code commit, one iteration: 14 files reviewed, one finding, applied, and nothing declined.** A minor on `scripts/record-conditioned.ts`: the keyed-argument reader took the first match, so `score=1 score=2` silently resolved to the first. Real, and the same rule `parseLevels` already held for a line named twice, so a repeated `rig=` or `score=` is now refused by name. The worktree held no other agent's edits, so the review saw this slice's fourteen files and nothing else.
+
 ## 5. Record and prompt claims found false against the tree
 
 Every claim in the design record or in a slice prompt that did not survive contact, with the file and what is actually there. **The source's intent is followed rather than its stale letter, and an unclear intent is a stop.**
@@ -117,6 +119,12 @@ Every claim in the design record or in a slice prompt that did not survive conta
 **M4. The prompt's "the three events reaching the view from the driver" is two events and one that never reaches it.** `sealed` ends the run and reaches `runEnding`, never the row: there is nothing for a row to draw of a run that is over. The two the row is handed are `scoreBled` and `weaponStripped`, which is what the definition's own sentence names and what R7's first two channels need.
 
 **M4. Section 3.3's "on screen between events" is a stronger claim for the wisps than the line's own code supports.** The table reads "while any are alive", which a reader can take as most of the time. `wisps.ts` fires a flight on each swallow with a 90-tick life and is never always-on, by ADR 0005 and its own file header, so a wisp is on screen only in the window after a swallow. **That is why the wisps got no field blow-up**, and it is the reading section 10 states per line.
+
+**M1-stage. The record's ladder rig is a different starting condition from the row now named after it, and the row's name is ruled rather than open.** The prompt's third ruling says calling the row `floor` would put a second name on a starting condition the record already names. `playing-harness.md` section 6's table names the ladder rig as `SIZE_CEILING`, birthright levels and `hitTakingPolicy` (`bot.test.ts:452-463`), which is not this row: this row is `SIZE_FLOOR`, every line at the cap, and a score. **The ruling was taken as ruled and the row is `ladder`**, because step 5's own prose has been using "the ladder rig" for a levels-pinned conditioned run all along, which is far closer to this row than the table's entry is, and because the two rows exist for one purpose, walking ADR 0003's floor ladder. **What is filed rather than fixed**: the label now covers two starting conditions, which is #107's own shape, and `playing-harness.md` section 6 and `step-3-playing-harness-dispatch.md` both need the table amended. A docs pass owns it; no slice edits a record it was dispatched against.
+
+**M1-stage. The prompt's rig-and-levels refusal does not extend to the score, and ruling four is what says so.** Refusing `rig=` beside `score=` on the levels argument, which the first cut did, blocks the exact command ruling four requires: the conditioned ladder tape recorded on the ladder rig at a starting score of zero. It was backed out for an override, the row's size and levels with the named score in place of the row's, and the reason is in the function's own JSDoc.
+
+**M1-stage. The realistic file count is 7 to 10 and the slice is 14.** The four the estimate is short by are the two new test files, which the prompt's own test list requires, and `harnessRun.ts` with its test, which ruling four's "`playHarnessRun` passes it through" requires. Nothing was cut to reach the number.
 
 ## 6. Step 5.0: the docs commit, ADR 0054 amended and the glossary gains three terms (#99)
 
@@ -898,3 +906,156 @@ A fallen rung is spawned at freshness 1 and never decays, so `freshnessScale` ne
 **An anomaly, and it is not this slice's.** Two docs files were uncommitted in the shared worktree for the whole of this slice, `docs/push/step-5-slice-prompts.md` and `docs/research/score-inputs-precedent.md`, both of them another agent's edits to slice M7's material. Nothing under `src/` was dirty, nothing of theirs entered either commit, and the only trace they left is the CodeRabbit finding recorded in section 4.
 
 ## 12. Slice M6: the ladder's cost is measurable (#99)
+
+## 14. Slice M1-stage: the ladder is staged in the harness (#99)
+
+**The harness can now play the one scenario it was built for and could not reach.** A run starts at the size floor, at chosen levels, holding a chosen score, by naming one row; a scenario walks that run hit by hit and reports what each hit cost; and the command line records the same start as a tape. **Nothing a player can meet changed.** No event, no magnitude, no screen, no rule of the sim: `bleedScore`, `runFloorLadder`, `stripLevels`, `strippableLines`, `sealShut`, `hitGrave` and `growGrave` keep their bodies exactly, `SCORE_BLEED_CAP` keeps its value, and the only line under `src/game` that is not a test or a comment is `createRun`'s new parameter and the `score` it now reads.
+
+**14 files in the one code commit**, four of them new. The prompt's realistic count is 7 to 10 and section 5 records why it was short. **The test-name diff against a baseline captured at `1f11b66a7d` before the first edit reads 2277 names in the baseline and 2292 now, 15 added and 0 removed.** No test was deleted, skipped, weakened or renamed.
+
+### The parameter, last in the list, and the eight call sites checked
+
+**`createRun` gains `startingScore: number = 0`, appended after `signalLock`.** The signature is positional, so a parameter inserted after `startingSize` would have silently re-read every existing call's third, fourth and fifth argument. Its JSDoc paragraph says it is the score the run begins holding, names the rigs' ladder row and the walk that plays it as its callers, says no player-facing caller names it, and says that no tape header carries a score so a run staged with one replays from zero.
+
+**All eight call sites outside the tests were read and none changed**, in seven files: `src/tape/playback.ts`'s `runFromHeader`, `src/dev/digest.ts`'s `runScenario`, `src/dev/harnessRun.ts`'s `playHarnessRun`, `src/app/screens/FrameBudgetScreen.ts`, `src/app/screens/game/runSession.ts`, `scripts/record-conditioned.ts`, and `scripts/frame-budget.ts` twice. Only `playHarnessRun` and `record-conditioned.ts` were touched at all, and both were touched to pass a rig's own score rather than because the parameter moved anything under them.
+
+### The rig row, its score, and `rigOf` left at two arguments
+
+**`RIG_NAMES` gains `ladder` and `RIGS.ladder` starts at `SIZE_FLOOR`, at `uniformLevels(MAX_LEVEL)`, holding `LADDER_RIG_BLEEDS * SCORE_BLEED_CAP`.** `Rig` gains `startingScore` and both existing rows state it as zero, because both halves of a rig are stated together and a row that left it implicit would rebuild #107's own defect. `playHarnessRun` passes all three through, so a rig is never half applied, and `harnessRun.test.ts` plays a whole run on the row and reads its header back to say so.
+
+**`LADDER_RIG_BLEEDS` is 3, stated as a multiple of the cap and never as a bare figure, which makes the row's score 6,000 points.** **What it was set against**: the least multiple that leaves a remainder legible. At twice the cap the score standing after the first bleed is exactly the cap again, and a walk's table then cannot be read apart from one where the cap itself stayed; at three the remainder is plainly neither the cap nor zero. **What would move it**: `SCORE_BLEED_CAP`'s own value, which is re-read after slice M7, and a walk that wanted more than one bleed in it, which needs the grave to grow off the floor rather than a larger score. Annotated as a first figure in the row's own JSDoc.
+
+**`rigOf` keeps its two arguments and gains no third, and `rigs.test.ts`'s uniqueness key stays size plus levels.** A tape header carries a seed, a size, a roster, levels and a signal lock, and no score at all, so a banding rule that read the score would answer null forever and two rows differing only by score would be unbandable. The narrow key is what keeps that defect impossible, and the reason now sits in `rigOf`'s own JSDoc rather than only here. The three rows stay unique on the size and the levels alone: birthright and maxed start at `SIZE_START` and differ by levels, and the ladder row differs from maxed by size.
+
+### The comment that went false, and what it says now
+
+**Before**: "The ceiling rig and the ladder rig the record names have no row here because nothing plays them through the harness; a row for either is a row the day something does." **After**: the first two rows keep their power-curve paragraph, the ladder row gets one of its own naming the floor ladder as the scenario nothing here could play, and the last sentence reads "The ceiling rig the record names still has no row, because nothing plays it through the harness; a row for it is a row the day something does." The ceiling rig is still unrowed and still waiting.
+
+### The scenario, its returned shape, and the per-hit table whole
+
+**`src/dev/floorLadderWalk.ts`, one concept and one export: `walkFloorLadder`, a staged walk of the floor ladder.** It is its own file rather than a second scenario inside `digest.ts`, whose concept is the golden scenario and its constant; the surest way `GOLDEN`'s own run could not move is that its file is in neither commit. The walk builds the run from the ladder row, drives it through `executeTick`, the one execution authority, and returns rows and the run it left behind. **It prints nothing and asserts nothing**, because `src/dev` may import no bare package, vitest included, so its guard cannot travel with it.
+
+**One row per forced hit**: the tick, the grave's size going in, which rung of the ladder fired, the score before and after, the lines that paid, the levels after, and the ending. The size is there because a hit above the floor shrinks instead of laddering, so a walk that grew off the floor reads as a grave that left rather than as a ladder that stopped firing. **Before every forced hit the walk clears `grave.invulnerable` directly and re-stages the mob** rather than waiting the window out, because a kill or a crumb swallowed inside a live window grows the grave above `SIZE_FLOOR`.
+
+**The table, printed off a scratch script in `local/step5/` and pasted whole.** Ladder rig: size 18 against a floor of 18, score 6,000 against a cap of 2,000, budget 8 hits. Levels read as the line's initial and its level, in roster order.
+
+| hit | tick | size before | event | score before | score after | lines that paid | levels after | ending |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 | 18 | scoreBled | 6000 | 4000 | none | s5 t5 w5 b5 | live |
+| 2 | 1 | 18 | weaponStripped | 4000 | 4000 | skullStream, territory, wisps, bell | s4 t4 w4 b4 | live |
+| 3 | 2 | 18 | weaponStripped | 4000 | 4000 | skullStream, territory, wisps, bell | s3 t3 w3 b3 | live |
+| 4 | 3 | 18 | weaponStripped | 4000 | 4000 | skullStream, territory, wisps, bell | s2 t2 w2 b2 | live |
+| 5 | 4 | 18 | weaponStripped | 4000 | 4000 | skullStream, territory, wisps, bell | s1 t1 w1 b1 | live |
+| 6 | 5 | 18 | weaponStripped | 4000 | 4000 | territory, wisps, bell | s1 t0 w0 b0 | live |
+| 7 | 6 | 18 | sealed | 4000 | 4000 | none | s1 t0 w0 b0 | sealed |
+| 8 | 7 | 18 | sealed | 4000 | 4000 | none | s1 t0 w0 b0 | sealed |
+
+**Read plainly: the bleed takes the cap and leaves 4,000 standing, then one strip per hit takes a rung off every line still above its floor, then the seal, then nothing more.** The sixth hit is the one that shows `stripLevels`' own rule rather than a uniform sweep: skullStream reached its birthright floor of 1 on the fifth, so only the other three paid. `LADDER_HIT_BUDGET` is `MAX_LEVEL + 3` and is derived rather than typed, the bleed plus one strip per rung above the floor plus the seal plus the hit past it, and the walk stops there so a rule change that made the ladder infinite fails a test instead of hanging.
+
+**What the hit past the seal does, which is the case the audit found nothing in the tree asserts: it runs the ladder again and re-seals, and it costs nothing.** `graveHit` fires, `runFloorLadder` finds the rung already bled and no line above its floor, `sealShut` sets the same ending and fires `sealed` a second time. The score does not move and neither do the levels.
+
+### The staging helper, moved, and the fence that permits its import
+
+**`standOnGrave` left `src/app/__tests__/screenLifecycle.test.ts` and is `standMobOnGrave` in `src/dev/staging.ts`**, whose concept is staging a run into a state a play would take minutes to reach. The recommended name and file are what landed: with both callers in front of it, nothing read truer. The app test imports it and keeps no copy, and its three call sites and two test promises are otherwise untouched. Its 100x health multiplier is now a named `UNKILLABLE` with the reason beside it, and the slot-zero choice has a sentence saying why it is not a spawn: a spawn is refused once the pool is full, and a staged hit that silently did not happen is the one reading a scenario cannot afford.
+
+**The fence was run rather than trusted.** `boundary.test.ts`'s *the rendering-import boundary* is green: the `app` row is scoped `only: ['sound.ts']`, so no row governs `src/app/__tests__`, and *src/dev imports only from src/dev and src/game and src/tape* still holds. **The span fence is the one that could have refused it and does not**: `spanViolationsInSource` allows a reach whose root differs from the subject's, so an `app` test reaching `dev` is allowed by the same clause that lets a `tape` test build a run. *the test-span fence* and its four cases are green.
+
+### The two flags, the refusals, and the warning's exact wording
+
+**`record-conditioned.ts` gains `rig=<name>` and `score=N`, keyed arguments in the shape `batch.ts`'s `parseRig` already uses, both optional, and the usage line carries both.** Without either, the command means exactly what it meant before: every line's level required, the size left to the sim's default, and a score of zero. A named rig passes through whole, its size, its levels and its score, because `recordTape` used to pass `undefined` for the size and a rig applied without its size is a rig half applied.
+
+**A command naming a rig and naming the line levels too is refused with the reason**, because the row already states them and a command that states them twice can state them differently: `rig=ladder already states every line's level, so skullStream=5 territory=5 wisps=5 bell=5 states them a second time; no tape was recorded`. **A key named twice is refused as well**, which is CodeRabbit's finding and the rule `parseLevels` already held for a line named twice: `score=1 score=2 names a score more than once; no tape was recorded`. An unknown row is refused by name: `floor names no rig (the rigs are birthright, maxed, ladder)`.
+
+**A score named beside a rig is an override and not a refusal, and the slice's own verified tape is why.** The first cut refused it on the same argument as the levels, and that refusal blocked the exact command ruling four asks for, the ladder rig at a starting score of zero. It was backed out: the size and the levels still come from the row, `score=N` replaces the row's score, and the JSDoc says that this is the one way to record a verifiable tape from a row whose score is not zero.
+
+**A non-zero score warns before the write, never after, in these words**: `this run starts holding 6000 and a tape header carries no score, so a readback rebuilds it from zero and diverges at the first checkpoint; the tape records what the run played and can never be verified against it`.
+
+### The tape-header gap, plainly, and filed rather than taken
+
+**A staged score does not survive a replay, and that is arithmetic rather than a defect.** `TapeHeader` carries the seed, the starting size, the roster, the starting levels and the signal lock, and `playback.ts`'s `runFromHeader` rebuilds a run from those alone, while `witness.ts` folds `run.score` beside `run.reservoir`. So a tape recorded from a run that started holding a score replays from zero and diverges at the first checkpoint. **The header was not widened and `FORMAT_VERSION` stays 4.** **Widening it so a staged score replays is filed for a later slice and not taken here**, and the warning above is what keeps the gap from being silent in the meantime.
+
+**One shell still has the gap and this slice did not close it.** `batch.ts` takes `rig=<name>` and would now accept `rig=ladder`, whose row holds a score, and it says nothing about the readback. **Filed rather than taken**, because the prompt names `record-conditioned.ts` as the one shell that gains the warning, and because the honest fix may be one report at the place a header is built from a run rather than two copies in two shells.
+
+### The already-ended question: the guard belongs to the loops, so the test is an absence
+
+**Read rather than assumed, in all three places.** `advance.ts` breaks on `execution.run.ending !== null` before it executes a tick. `executeTick`'s own JSDoc says it does not read its own stop reason or the run's ending and names the loops above it as the owners (#52), and says why: verification readback deliberately guards on the stop alone, because a sealed `FORMAT_VERSION` 1 tape can carry ticks after its ending and a readback must feed every command a tape holds. `hitGrave` has no such check. **So the guard belongs to the loops above and a guard inside `hitGrave` would change what such a tape recomputes at its checkpoints.**
+
+**The test written is therefore the absence**, in `grave.test.ts`: *a hit on a run already sealed runs the ladder again: the ending guard belongs to the loops above (#52)*. It fails the day a guard appears, and `hitGrave`'s JSDoc carries the short why-comment beside the code. **Both were proved rather than claimed**: adding `if (state.ending !== null) return [];` to `hitGrave` turns that test and the walk's past-the-seal test red, and removing it turns them green again.
+
+### The other missing test, and the red that was watched rather than assumed
+
+**A floor hit at zero score with the rung still armed drops bodies**, pinned at the `grave.ts` seam in the rungs-drop block. Every other body test there sets `scoreRungBled` true by hand first, so the strip that runs on the very first hit of a scoreless run shared its bodies with a path nothing asserted directly, and it is exactly the hit the harness's own staged walk starts on when the row's score is zero.
+
+**Both new `createRun` tests were proved to have teeth the same way**: reverting `score: startingScore` to `score: 0` turns five tests red across `run.test.ts`, `rigs.test.ts` and `floorLadderWalk.test.ts`, and restoring it turns them green. The tests were written against throwing stubs before the scenario existed, but **the first run of them came after the fill rather than before it**, so the red was reconstructed by breaking each behaviour rather than watched on the way in. That is recorded rather than dressed up.
+
+### The conditioned ladder tape, recorded on the row and driven to the seal
+
+**`pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts local/step5/m1stage-ladder.tape 404 6000 rig=ladder score=0`**, recorded on the committed tree at `78b2d85fe8` with a clean build identity. It measures to **`outcome: 'verified'`** at `readingsVersion` 8, banded as the `ladder` rig off its own header.
+
+**3,277 ticks, ending sealed, integrity clean, 55 of 55 checkpoints verified and none unreachable, score 3,700, kills 49.** Its ladder: **7 hits, one bleed of 2,000, five strips taking 19 line-levels, and one seal.** **It reaches the seal, which slice M1-fix's own conditioned tape did not**: that one started at `SIZE_START` and verified with one bleed, one strip and no seal. The difference is the row, not the steer: the wandering script is unchanged, and starting at the floor is what puts the ladder in front of it. The run earns its own score by play off a maxed build and the bleed is reached by play, which is what makes the tape verifiable at all.
+
+**The superseded tapes are untouched.** `local/step5/` enters no commit and nothing in it was deleted.
+
+### The shell's old behaviour, byte for byte
+
+**Two recordings of the same old-style command on this tip, `404 6000 skullStream=5 territory=5 wisps=5 bell=5`, are 56,437 bytes each and differ at two byte offsets, 197 and 198**, which is `recordedAt`'s varint and nothing else. **And it plays the same run it played before the flags existed**: it measures to `outcome: 'verified'` at `readingsVersion` 8 with 6,000 ticks, 101 checkpoints, 5 hits, one bleed of 2,000, one strip of four line-levels and no seal, which is slice M1-fix's own recorded reading for this tape to the event.
+
+### The batch: event counts identical to slice 7's, per seed
+
+**Seeds 900 to 905 under `steady-far` and the same six under `loose-far`, birthright rig, 12 of 12 verified, `readingsVersion` 8, recorded on the committed tree at `78b2d85fe8` with a clean identity.** This slice changes no rule, so a count that moved would have been a stop rather than a finding. **None moved.**
+
+| | `scoreBled` | `scoreBleeds` | `weaponStrips` | `linesStripped` | `seals` | `run.score` |
+| --- | --- | --- | --- | --- | --- | --- |
+| steady-far 900 | 2000 | 1 | 0 | 0 | 1 | 11600 |
+| steady-far 901 | 2000 | 1 | 0 | 0 | 1 | 12900.94 |
+| steady-far 902 | 2000 | 1 | 0 | 0 | 1 | 18600.76 |
+| steady-far 903 | 2000 | 1 | 2 | 3 | 1 | 36002.40 |
+| steady-far 904 | 2000 | 1 | 0 | 0 | 0 | 56112.39 |
+| steady-far 905 | 2000 | 1 | 0 | 0 | 1 | 13800 |
+| loose-far 900 | 2000 | 1 | 0 | 0 | 1 | 17306.89 |
+| loose-far 901 | 2000 | 1 | 1 | 2 | 1 | 24804.29 |
+| loose-far 902 | 2000 | 1 | 5 | 6 | 1 | 35403.14 |
+| loose-far 903 | 2000 | 1 | 1 | 2 | 1 | 34501.47 |
+| loose-far 904 | 2000 | 1 | 0 | 0 | 1 | 10400.35 |
+| loose-far 905 | 4000 | 2 | 2 | 4 | 0 | 48415.54 |
+
+**Every `run.score` is slice M1-fix's own after-column figure exactly**, and every `scoreBled` is too, `loose-far` 905's double bleed of 4,000 included. **11 strips and 17 rungs fallen across the twelve**, which is M5-fix's and M1-fix's own pair. **`loose-far` 902 ends at 29,853 ticks**, the figure both earlier notes carry to the tick. Endings are 5 sealed and 1 victory in each configuration.
+
+### Replay determinism at this tip
+
+**Seed 909 under `shaky-short`, birthright rig, played twice on the committed tree: 5,997 ticks both times, 56,402 bytes both times, three differing bytes at offsets 202 to 204, and both tapes verify at 100 of 100 checkpoints.** Those three bytes are `recordedAt`, and every figure here is slice M1-fix's own for this seed to the byte.
+
+### The four constants and `GOLDEN`, read off this slice's own tip
+
+**`WITNESS_VERSION` 11, `READINGS_VERSION` 8, `FORMAT_VERSION` 4, and `GOLDEN`'s checksum `-2049717150`**, each read off the tree before the first edit and read again after the last, and each held. **None of `witness.ts`, `readingsVersion.ts`, `wireCodes.ts` or `digest.ts` is in either commit.** `digest.test.ts` was green at every run, which the scenario's own numbers explain unchanged: it ends at size 24.10125 against a floor of 18, so `runFloorLadder` is never called in it.
+
+### `CONTEXT.md`: one entry amended, three checked and left alone
+
+**The Rig entry had gone false and is amended in place.** It said six rigs exist with "the two the harness plays out of", and the harness now plays out of three rows; a rig's starting condition is now the size, the levels and the score together. The amendment keeps the file's own triple: what stood is everything the entry says a rig is, what changed is the third row and the third fact, and what it could not have known is that nothing could start a run holding a score when it was written.
+
+**Score, Size floor and Rung were read and left alone, and here is the decision.** None of them says anything about where a run starts or what a harness can stage: Score names what feeds the number and what the ladder spends, Size floor names the ladder's order, and Rung names what a rung is and what a stripped one becomes. This slice changes none of that. The Score entry's 2026-09-16 amendment about the cap is untouched and still true.
+
+### CodeRabbit, one iteration
+
+**`coderabbit review --agent --uncommitted` from the worktree root with all fourteen files staged by path: 14 files reviewed, one finding, applied, nothing declined.** The finding is a minor on `record-conditioned.ts`: `valueOf` took the first match for a keyed argument, so `score=1 score=2` silently resolved to the first. It is real and it is the rule `parseLevels` already held for a line named twice, so a repeated `rig=` or `score=` is now refused by name. The worktree held no other agent's edits this time.
+
+### Verification
+
+1. **Agent.** `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green in `apps/hungry-grave/`, and **`pnpm verify` green twice at the repo root on the committed tree**, 151 test files, 2281 passed, 11 expected fail, 2 todo, both times. The build's two warnings are the pre-existing #50 and #51.
+2. **Agent.** The test-name diff, 2277 to 2292, 15 added and 0 removed, above.
+3. **Agent.** The four constants and `GOLDEN`, above, none of their four files in either commit.
+4. **Agent.** The staged walk end to end, its per-hit table above whole.
+5. **Agent.** The conditioned ladder tape on the ladder rig at a score of zero, driven to the seal, `outcome: 'verified'`, its readings above.
+6. **Agent.** The batch on slice M1-fix's own twelve seeds, event counts identical per seed, above.
+7. **Agent.** Replay determinism on seed 909 under `shaky-short`, above.
+8. **Agent.** The fences green, each by title. `boundary.test.ts`: *the rendering-import boundary*, *the test-span fence*, *the screen graph is declared in one place*, *the engine accessor is out of the app*, *the core has no import cycle*, slice D's sixth *the cap derivation reads tables and never the stage*, *the lock is owned by a module with nothing behind it* and *the tape codec parses a header without the director*. `lineAgnosticPolicies.test.ts`: *no weapon line walks the mob pool*, *a policy names no weapon line*, *no boss and no set piece names a weapon line*, *a line's constants are declared in that line's own module*, *only the offer draws from the power-ups stream* and *one module draws each stream*. `executionFence.test.ts`: *the step fence (ADR 0017)*. `harnessStatesNoTarget.test.ts`: *the harness reports and never judges*. `comparisonDeclared.test.ts` at `src/dev/__tests__/`: *every reading declares what comparing it means*. **The core's cycle guard is green with `KNOWN_CORE_CYCLES` still `[]`.**
+9. **Agent.** CodeRabbit CLI, one iteration, before the code commit, above.
+10. **There is no Mark actor in this slice, and this tip is not a deploy.** Nothing a player can meet changed, so there is nothing on it for him to see.
+
+### What was expected to turn red and did not
+
+**Nothing turned red at all, which the prompt names as the claim to check and which was checked by running it.** `rigs.test.ts` compiles against a widened `Rig` and its uniqueness assertion is green as written with the third row in it. `screenLifecycle.test.ts` compiles against the moved helper and both its ladder promises keep their names. `digest.test.ts`, `harnessPolicy.test.ts`'s measured baselines, `bot.test.ts`'s `BLEEDS_SCORE`, `endings.test.ts` and `witness.test.ts` are all green unchanged. No measured baseline moved and nothing was re-pinned anywhere.
+
+### What is left for a later slice, each named
+
+**Slice 9 (M6) declares the readings.** This note prints the walk's rows, the tape's ladder and the batch's counts off scratch scripts and declares nothing, which is the first consumer of what this slice built. **Widening the tape header so a staged score replays** is filed above and not taken. **The batch shell's own divergence warning** is filed above. **A docs pass owns the label collision** in the next entry. Nothing in `CONTEXT.md` beyond the Rig entry was touched, no ADR was filed or amended, and neither ticket was opened or closed.
