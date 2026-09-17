@@ -1,6 +1,6 @@
 # Step 6 progress note: the tuning record (ticket #142)
 
-The design record is `apps/hungry-grave/docs/push/drafts/step-5-tuning-record-draft.md` and the prompts are `step-6-slice-prompts.md`. The coder contract is still `step-4-coder-contract.md`, with the three standing exceptions to it at the top of the prompts file. One section per slice at the end, in run order, and the cross-slice facts first. Written by each slice's coder, appended to and never rewritten.
+The design record is `apps/hungry-grave/docs/design/tuning-record.md` and the prompts are `step-6-slice-prompts.md`. The coder contract is still `step-4-coder-contract.md`, with the three standing exceptions to it at the top of the prompts file. One section per slice at the end, in run order, and the cross-slice facts first. Written by each slice's coder, appended to and never rewritten.
 
 **Step 5's note is `step-5-progress.md`, round two's is `round-two-progress.md` and step 4's is `step-4-progress.md`, and all three are read and never appended to.** This step's slices carry `#142` rather than `#99`, `#72` or `#39`.
 

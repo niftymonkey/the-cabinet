@@ -20,6 +20,8 @@ Defects this app has actually shipped, and the shape that produces them. Repo-wi
 
 **An invariant that records its watch before it validates leaves a rejected value in the watch**, so the next check on the same run reads the broken state as healthy. Record after both checks.
 
+**A pool that hands back a null slot lets a cap truncate a volley in total silence.** `launchWisps` takes a slot from `takeSlot` and returns the moment it gets null, so a volley cut short by `WISP_CAP` raises nothing and moves no counter, against the rule that nothing abnormal is ever silent. It is knowingly left alone, because no cap has yet been measured binding; the trigger to fix it is the first reading that shows either line cap binding, and at that point the truncation needs a counter before any number taken off that line can be trusted.
+
 **A witness version stamped before the fold stops moving names several folds.** Step 1 moved `WITNESS_VERSION` to 5 in its second slice and then widened the fold twice more, so a tape recorded between those slices reads at the tip as a divergence rather than a version refusal, which is the one failure the version exists to prevent. Stamp the version in the last slice of a step that changes the fold, and declare every new folded field in that same commit, even if a later slice fills it.
 
 ## The bot
@@ -43,3 +45,7 @@ The full derivations are in `docs/research/readability-value-band.md`. Two concl
 **Above luma 60 this palette's value budget is spent, and the fix is a second colour rather than a better one.** 62 of the 66 pairs up there measure Lc 0.00. ADR 0014 already solved it once, for mob fire, with a three-colour sprite carrying a near-black outline. That construction is the general answer.
 
 **An APCA bracket is not transferable between contexts.** Written into `readability-value-band.md` beside the paragraph that caused it.
+
+## Where the V1 push's process records went
+
+The V1 push's process records under `docs/push/` (slice prompts, progress notes, coder contracts, plans) were removed at the cleanup pass on 2026-09-17, so a citation to `docs/push/<file>` from an ADR or a design record resolves in git history at the parent of the cleanup commit; step 6's progress note and the handoff stay until the branch merges, and the step 6 tuning plan moved to `docs/design/tuning-record.md`.

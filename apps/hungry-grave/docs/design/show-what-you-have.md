@@ -2,7 +2,7 @@
 
 Planning half only, written per `docs/agents/feature-playbook.md`. No production code was written and nothing in the worktree was edited while this record was made. The research it stands on is [`../research/portrait-hud-and-catchable-loss.md`](../research/portrait-hud-and-catchable-loss.md), and every craft number below traces to a section there or to a measurement in section 3.
 
-**The step's number moved and its name did not.** The follow-along document calls this "Step 5: Show what you have" and the file `docs/push/drafts/step-5-tuning-record-draft.md` is the tuning-record step's draft, which Mark moved behind this one on 2026-09-16; that file keeps its filename and its own step is now step 6.
+**The step's number moved and its name did not.** The follow-along document calls this "Step 5: Show what you have" and `docs/design/tuning-record.md` is the tuning-record step's record, which Mark moved behind this one on 2026-09-16; its own step is now step 6.
 
 ## 0. What this record may claim, and what it cannot
 
