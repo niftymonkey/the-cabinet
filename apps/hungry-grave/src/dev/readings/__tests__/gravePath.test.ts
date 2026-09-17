@@ -52,7 +52,7 @@ describe('grave path', () => {
     // Story 5, with the amendment that index 0 seeds from the header rather
     // than from SIZE_START: a conditioned run has to report its real first
     // sample. Index N is the size after N ticks, matching the mob population.
-    const run = createRun(SEED, PINNED_SIZE);
+    const run = createRun(SEED, { startingSize: PINNED_SIZE });
     const accumulator = createGravePath(run.grave.size);
 
     observeGravePath(accumulator, run);

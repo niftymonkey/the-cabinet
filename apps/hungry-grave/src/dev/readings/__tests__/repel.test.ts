@@ -150,7 +150,7 @@ describe('repel', () => {
     // anywhere, so the belch's arm reads nothing on a run where the belch
     // really fired. That is a reading about the hand and not a defect, and it
     // is recorded in the round two progress note, section 11.
-    const run = createRun(20260915, undefined, uniformLevels(3));
+    const run = createRun(20260915, { startingLevels: uniformLevels(3) });
     const execution = createExecution(run);
     const acc = createRepel();
     for (let tick = 0; tick < 3000; tick++) {

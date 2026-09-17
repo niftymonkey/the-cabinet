@@ -43,8 +43,10 @@ describe('the floor ladder, staged and walked hit by hit', () => {
     const first = walk().hits[0];
 
     expect(first?.event).toBe('scoreBled');
-    expect(first?.scoreBefore).toBe(RIGS.ladder.startingScore);
-    expect(first?.scoreAfter).toBe(RIGS.ladder.startingScore - SCORE_BLEED_CAP);
+    expect(first?.scoreBefore).toBe(RIGS.ladder.conditions.startingScore);
+    expect(first?.scoreAfter).toBe(
+      RIGS.ladder.conditions.startingScore - SCORE_BLEED_CAP,
+    );
     expect(first?.scoreAfter).toBeGreaterThan(0);
   });
 

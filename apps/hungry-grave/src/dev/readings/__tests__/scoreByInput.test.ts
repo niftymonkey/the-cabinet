@@ -41,7 +41,10 @@ const food = (tier: 'trash' | 'rich'): Swallowable => ({
 
 /** A run at full power and at the size floor, which is where the ladder runs. */
 const maxedRun = (): RunState =>
-  createRun(SEED, SIZE_FLOOR, uniformLevels(MAX_LEVEL));
+  createRun(SEED, {
+    startingSize: SIZE_FLOOR,
+    startingLevels: uniformLevels(MAX_LEVEL),
+  });
 
 /** A live mob standing where it is put, past its arriving beat. */
 const putMob = (state: RunState) => {

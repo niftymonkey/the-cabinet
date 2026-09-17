@@ -57,15 +57,7 @@ const SECTION_CHANGED: SimEvent = {
  * holding a score (#107). The rig is the one place a floor run's starting
  * condition is named, so nothing here builds one by hand.
  */
-const ladderRun = (): RunState =>
-  createRun(
-    SEED,
-    RIGS.ladder.startingSize,
-    RIGS.ladder.startingLevels,
-    undefined,
-    undefined,
-    RIGS.ladder.startingScore,
-  );
+const ladderRun = (): RunState => createRun(SEED, RIGS.ladder.conditions);
 
 /** One landed hit, with the invulnerability window it opens counted back down. */
 const land = (run: RunState): readonly SimEvent[] => {

@@ -160,13 +160,11 @@ const begin = (session: Session): StartedRun => {
   // experiment. Null resolves inside createRun, so the header records the value
   // the run started from rather than the absence (ADR 0027).
   const signalLock = signalLockFromUrl(search, hash);
-  const run = createRun(
-    seed ?? undefined,
-    size ?? undefined,
-    levels === null ? undefined : uniformLevels(levels),
-    undefined,
-    signalLock ?? undefined,
-  );
+  const run = createRun(seed ?? undefined, {
+    startingSize: size ?? undefined,
+    startingLevels: levels === null ? undefined : uniformLevels(levels),
+    signalLock: signalLock ?? undefined,
+  });
   const execution = startExecution(run);
   session.run = run;
   session.execution = execution;

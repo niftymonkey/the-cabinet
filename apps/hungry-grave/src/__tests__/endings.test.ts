@@ -92,11 +92,10 @@ interface Fight {
  * arrives on the field is his.
  */
 function atTheFight(boss: BossKind, size?: number, level?: number): Fight {
-  const state = createRun(
-    SEED,
-    size,
-    level === undefined ? undefined : uniformLevels(level),
-  );
+  const state = createRun(SEED, {
+    startingSize: size,
+    startingLevels: level === undefined ? undefined : uniformLevels(level),
+  });
   state.stage.sectionIndex = sectionOf(boss);
   const step = stepping(state);
   spawnBoss(state, boss);

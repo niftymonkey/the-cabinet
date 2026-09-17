@@ -79,6 +79,61 @@ interface Refusals {
 }
 
 /**
+ * What a run starts from: the five facts a rig states under a name, a tape's
+ * header records and createRun takes beside the seed (ADR 0063).
+ *
+ * Every field is required, because this is the resolved record and not what a
+ * caller asked for. A rig row that left one implicit would be a rig half
+ * applied, which is the defect #107 was raised for, and a recorded absence
+ * would let a later tune of a default silently change what an old tape replays
+ * as (ADR 0027). Resolving an absence is createRun's job and never a caller's,
+ * which is why its own parameter takes a Partial of this and the record itself
+ * holds none.
+ */
+interface StartingConditions {
+  /**
+   * The size the run began at, which is the size the grave took: ADR 0003's
+   * floor and ceiling are grave.ts's to hold, so a size outside them reads here
+   * as the bound it was clamped to rather than as the figure that was asked
+   * for. ?size= used to write run.grave.size from src/app, which left the sim's
+   * own hard bounds defended by a URL parser; with the size in this record,
+   * hitGrave is the only thing outside grave.ts that changes size at all.
+   */
+  readonly startingSize: number;
+  /**
+   * The levels the run began at, defaulting to the birthright. The run copies
+   * them rather than aliasing them, because the rules mutate its own levels in
+   * place as it levels up: ?levels= pins them, and a tape's header rebuilds a
+   * pinned run from the resolved record it carries (ADR 0027).
+   */
+  readonly startingLevels: Readonly<Record<WeaponLine, number>>;
+  /**
+   * The weapon lines the run fields, defaulting to the whole pool, which is
+   * every run today. It is here because a replay fields the roster its tape
+   * recorded (ADR 0046) and not the one the reading build happens to compile,
+   * and it is copied for the same reason the levels are: the caller's list is
+   * the caller's.
+   */
+  readonly roster: readonly WeaponLine[];
+  /**
+   * The figure the run holds its pressure signal at, or SIGNAL_RAN_LIVE. It is
+   * here on exactly the terms the size and the levels are: ?signal= pins it,
+   * the default is the resolved value that means the signal ran live, and a
+   * tape's header rebuilds a held run from the figure it carries (ADR 0027),
+   * which is what makes a locked run replay locked.
+   */
+  readonly signalLock: SignalLock;
+  /**
+   * The score the run begins holding, which exists for the harness's staged
+   * floor ladder: the rigs' ladder row (src/dev/rigs.ts) and the walk that
+   * plays it (src/dev/floorLadderWalk.ts) are its callers, and no player-facing
+   * caller names it. No tape header carries a score at this tip, so a run
+   * staged with one replays from zero.
+   */
+  readonly startingScore: number;
+}
+
+/**
  * The run's identity and everything the rules mutate as it plays (tracer plan
  * section 3).
  *
@@ -89,6 +144,13 @@ interface Refusals {
 interface RunState {
   // The seed this run was rolled or pinned with (ADR 0012).
   readonly seed: number;
+  /**
+   * What this run started from, resolved once at createRun and never written
+   * again (ADR 0063). It is the run's identity in the same way the seed is: a
+   * rig is this record under a name, and a header reads the condition off the
+   * run rather than reassembling it from live state.
+   */
+  readonly conditions: StartingConditions;
   /**
    * The weapon lines this run is fielding, resolved once at createRun from the
    * pool the build holds (ADR 0046). It is the run's identity in the same way
@@ -260,56 +322,61 @@ const isBirthrightLevels = (
 };
 
 /**
+ * The conditions a run starts from, every absence resolved to the value the run
+ * would have started from anyway (ADR 0027).
+ *
+ * The roster resolves first because the birthright is drawn from it: a
+ * birthright line outside the run's roster is not fielded at all (ADR 0046).
+ * The roster and the levels are copied here rather than aliased, because the
+ * caller's list is the caller's and the rules mutate the run's own levels as it
+ * plays. ADR 0003's size bounds are not held here: they are grave.ts's, and
+ * createRun reads back the size the grave took.
+ */
+const resolveConditions = (
+  asked: Partial<StartingConditions> = {},
+): StartingConditions => {
+  const roster = [...(asked.roster ?? WEAPON_LINES)];
+  return {
+    startingSize: asked.startingSize ?? SIZE_START,
+    startingLevels: { ...(asked.startingLevels ?? birthrightLevels(roster)) },
+    roster,
+    signalLock: asked.signalLock ?? SIGNAL_RAN_LIVE,
+    startingScore: asked.startingScore ?? 0,
+  };
+};
+
+/**
  * Starts a run: with no seed it rolls one, and with a seed it pins the run to
  * that seed and replays it (ADR 0012). The roll lives here rather than in a
  * screen so a run's identity is the sim's, and so ?seed= has one place to
  * plug into.
  *
- * The starting size is clamped by grave.ts and not by the caller. ?size= used
- * to write run.grave.size from src/app, which left the sim's own hard bounds
- * defended by a URL parser; with the size in this signature, hitGrave is the
- * only thing outside grave.ts that changes size at all.
- *
- * The starting levels default to the birthright and are copied rather than
- * aliased, because the rules mutate them in place as the run levels up. They
- * are in this signature for the same reason the size is: ?levels= pins them,
- * and a tape's header rebuilds a pinned run from the resolved record it
- * carries (ADR 0027).
- *
- * The roster defaults to the whole pool, which is every run today, and is
- * copied for the same reason the levels are: the caller's list is the caller's.
- * It is in the signature because a replay fields the roster its tape recorded
- * (ADR 0046), not the one this build happens to compile.
- *
- * The signal lock is in the signature on exactly the terms the size and the
- * levels are: ?signal= pins it, the default is the resolved value that means
- * the signal ran live, and a tape's header rebuilds a held run from the figure
- * it carries (ADR 0027), which is what makes a locked run replay locked.
- *
- * The starting score is the score the run begins holding, and it exists for
- * the harness's staged floor ladder: the rigs' ladder row (src/dev/rigs.ts)
- * and the walk that plays it (src/dev/floorLadderWalk.ts) are its callers, and
- * no player-facing caller names it. It goes last in the list and never beside
- * the size, because this signature is positional and a parameter inserted in
- * the middle would silently re-read every existing call's arguments behind it.
- * No tape header carries a score, so a run staged with one replays from zero.
+ * The seed stays first and stays positional because it is the run's identity in
+ * a way none of the rest is. Everything else a run starts from is one record
+ * beside it (ADR 0063), optional as a whole and optional field by field, so
+ * createRun(seed) is a fresh run and no caller ever counts arguments or pads a
+ * list with undefined to reach the last one. Each field's own reason for
+ * existing is on StartingConditions above, beside the field it explains.
  */
 const createRun = (
   seed: number = rollSeed(),
-  startingSize: number = SIZE_START,
-  startingLevels?: Readonly<Record<WeaponLine, number>>,
-  roster: readonly WeaponLine[] = WEAPON_LINES,
-  signalLock: SignalLock = SIGNAL_RAN_LIVE,
-  startingScore: number = 0,
+  conditions?: Partial<StartingConditions>,
 ): RunState => {
+  const asked = resolveConditions(conditions);
+  const grave = createGrave(asked.startingSize);
   return {
     seed,
-    roster: [...roster],
+    // The size the grave took and never the one asked for: the bounds are
+    // grave.ts's (ADR 0003), so what the record says is what the run started
+    // from (ADR 0027).
+    conditions: { ...asked, startingSize: grave.size },
+    // The run and its record share the one copy, because neither writes it.
+    roster: asked.roster,
     tick: 0,
-    grave: createGrave(startingSize),
-    score: startingScore,
+    grave,
+    score: asked.startingScore,
     reservoir: 0,
-    levels: { ...(startingLevels ?? birthrightLevels(roster)) },
+    levels: { ...asked.startingLevels },
     offer: null,
     bankedOffers: 0,
     ending: null,
@@ -339,7 +406,7 @@ const createRun = (
     // openingDirector).
     director: openingDirector({
       ...STARTING_DIRECTOR,
-      signal: startingSignal(signalLock),
+      signal: startingSignal(asked.signalLock),
     }),
     refusals: { food: 0, carriers: 0, offers: 0 },
     nextEntityId: 1,
@@ -365,4 +432,4 @@ export {
   clearRefusals,
   SEED_LIMIT,
 };
-export type { RunEnding, LineState, Refusals, RunState };
+export type { RunEnding, LineState, Refusals, RunState, StartingConditions };

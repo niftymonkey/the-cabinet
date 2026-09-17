@@ -238,7 +238,7 @@ describe('the harness run', () => {
       const { header } = decodeTape(maxed.bytes).tape;
 
       expect(maxed.rig).toBe('maxed');
-      expect(header.startingSize).toBe(RIGS.maxed.startingSize);
+      expect(header.startingSize).toBe(RIGS.maxed.conditions.startingSize);
       for (const line of WEAPON_LINES) {
         expect(header.startingLevels[line]).toBe(MAX_LEVEL);
       }

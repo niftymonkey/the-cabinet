@@ -80,7 +80,7 @@ function recordARun(
   overrides: Partial<TapeHeader> = {},
   levels?: Record<WeaponLine, number>,
 ): Tape {
-  const run = createRun(SEED, undefined, levels);
+  const run = createRun(SEED, { startingLevels: levels });
   const execution = createExecution(run);
   const recorder = recordInto(execution, header(run, overrides));
   for (let tick = 0; tick < TICKS; tick++) {

@@ -101,7 +101,10 @@ describe('damage taken', () => {
     for (const line of WEAPON_LINES) {
       levels[line] = BIRTHRIGHT.includes(line) ? 2 : 1;
     }
-    const run = createRun(SEED, SIZE_FLOOR, levels);
+    const run = createRun(SEED, {
+      startingSize: SIZE_FLOOR,
+      startingLevels: levels,
+    });
     run.score = 10;
 
     const taken = takenFrom(run, ['revenant', 'revenant', 'revenant']);

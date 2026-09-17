@@ -3,6 +3,8 @@
 import { MAX_LEVEL, WEAPON_LINES } from '../game/lines/roster';
 import type { WeaponLine } from '../game/lines/roster';
 import { birthrightLevels, uniformLevels } from '../game/run';
+import type { StartingConditions } from '../game/run';
+import { SIGNAL_RAN_LIVE } from '../game/signalLock';
 import { SCORE_BLEED_CAP, SIZE_FLOOR, SIZE_START } from '../game/tuning';
 
 /**
@@ -15,18 +17,20 @@ const RIG_NAMES = ['birthright', 'maxed', 'ladder'] as const;
 type RigName = (typeof RIG_NAMES)[number];
 
 /**
- * One rig: the size, the levels and the score a run under it begins with.
+ * One rig: a name and the whole starting condition a run under it begins with
+ * (ADR 0063).
  *
- * Every field together is the rig, never any of them alone. #107 was raised
- * because two rigs differing only in starting size were reported under one
- * label, so a row that pinned levels and left size implicit would rebuild the
- * same defect, and a row that left the score implicit would rebuild it again.
+ * The condition is held whole rather than restated field by field, which is
+ * what makes a half-applied rig inexpressible: #107 was raised because two rigs
+ * differing only in starting size were reported under one label, so a row that
+ * pinned levels and left size implicit would rebuild the same defect, and a row
+ * that left the score implicit would rebuild it again. A row states every field
+ * because the record is the resolved one, so nothing a row leaves out can
+ * quietly become the sim's default of the day.
  */
 interface Rig {
   readonly name: RigName;
-  readonly startingSize: number;
-  readonly startingLevels: Readonly<Record<WeaponLine, number>>;
-  readonly startingScore: number;
+  readonly conditions: StartingConditions;
 }
 
 /**
@@ -61,25 +65,42 @@ const LADDER_RIG_BLEEDS = 3;
  *
  * The ceiling rig the record names still has no row, because nothing plays it
  * through the harness; a row for it is a row the day something does.
+ *
+ * Every row states the whole pool and a live signal rather than leaving them
+ * out, because a rig is the resolved condition (ADR 0063): those two are what
+ * the sim resolves them to today, and writing them down is what stops a later
+ * tune of a default from moving what a rig means.
  */
 const RIGS: Readonly<Record<RigName, Rig>> = {
   birthright: {
     name: 'birthright',
-    startingSize: SIZE_START,
-    startingLevels: birthrightLevels(),
-    startingScore: 0,
+    conditions: {
+      startingSize: SIZE_START,
+      startingLevels: birthrightLevels(),
+      roster: WEAPON_LINES,
+      signalLock: SIGNAL_RAN_LIVE,
+      startingScore: 0,
+    },
   },
   maxed: {
     name: 'maxed',
-    startingSize: SIZE_START,
-    startingLevels: uniformLevels(MAX_LEVEL),
-    startingScore: 0,
+    conditions: {
+      startingSize: SIZE_START,
+      startingLevels: uniformLevels(MAX_LEVEL),
+      roster: WEAPON_LINES,
+      signalLock: SIGNAL_RAN_LIVE,
+      startingScore: 0,
+    },
   },
   ladder: {
     name: 'ladder',
-    startingSize: SIZE_FLOOR,
-    startingLevels: uniformLevels(MAX_LEVEL),
-    startingScore: LADDER_RIG_BLEEDS * SCORE_BLEED_CAP,
+    conditions: {
+      startingSize: SIZE_FLOOR,
+      startingLevels: uniformLevels(MAX_LEVEL),
+      roster: WEAPON_LINES,
+      signalLock: SIGNAL_RAN_LIVE,
+      startingScore: LADDER_RIG_BLEEDS * SCORE_BLEED_CAP,
+    },
   },
 };
 
@@ -91,7 +112,9 @@ const sameLevels = (
   levels: Readonly<Record<WeaponLine, number>>,
   rig: Rig,
 ): boolean =>
-  WEAPON_LINES.every((line) => levels[line] === rig.startingLevels[line]);
+  WEAPON_LINES.every(
+    (line) => levels[line] === rig.conditions.startingLevels[line],
+  );
 
 /**
  * Which rig a run began under, or null when no row holds that condition.
@@ -113,7 +136,7 @@ const rigOf = (
 ): RigName | null => {
   const named = RIG_NAMES.find(
     (name) =>
-      RIGS[name].startingSize === startingSize &&
+      RIGS[name].conditions.startingSize === startingSize &&
       sameLevels(levels, RIGS[name]),
   );
   return named ?? null;

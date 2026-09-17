@@ -196,7 +196,7 @@ describe('a missed carrier is missed (ADR 0048)', () => {
     const carriersMet = (
       levels?: Readonly<Record<WeaponLine, number>>,
     ): string[] => {
-      const state = createRun(31, undefined, levels);
+      const state = createRun(31, { startingLevels: levels });
       const met: string[] = [];
       for (let tick = 0; tick < 40 * 60; tick++) {
         advanceStage(state);

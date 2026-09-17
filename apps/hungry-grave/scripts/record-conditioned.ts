@@ -9,9 +9,11 @@
  * through the one execution authority (ADR 0017), so the tape is exactly what
  * a played run would have written.
  *
- * A rig names a whole starting condition instead, its size, its levels and its
- * score together, so the floor ladder is recorded from the row that stages it
- * rather than by playing down to the floor from the start line (#99).
+ * A rig names a whole starting condition instead, the one record a rig, a run
+ * and a header all speak (ADR 0063), so the floor ladder is recorded from the
+ * row that stages it rather than by playing down to the floor from the start
+ * line (#99). What the arguments produce is that record, partly stated: every
+ * absence in it resolves inside createRun and never here.
  */
 
 import { execSync } from 'node:child_process';
@@ -22,7 +24,7 @@ import type { TickCommand } from '../src/game/command';
 import { createExecution, executeTick } from '../src/game/execution';
 import type { WeaponLine } from '../src/game/lines/roster';
 import { MAX_LEVEL, WEAPON_LINES } from '../src/game/lines/roster';
-import type { RunState } from '../src/game/run';
+import type { RunState, StartingConditions } from '../src/game/run';
 import { createRun, SEED_LIMIT, uniformLevels } from '../src/game/run';
 import { WITNESS_VERSION } from '../src/game/witness';
 import { isRigName, RIGS, RIG_NAMES } from '../src/dev/rigs';
@@ -142,17 +144,6 @@ const parseLevels = (
 };
 
 /**
- * What a run is started from: the size, the levels and the score together,
- * which is what a rig row states and what a command line assembles when it
- * names no row.
- */
-interface Conditions {
-  readonly startingSize: number | undefined;
-  readonly startingLevels: Readonly<Record<WeaponLine, number>>;
-  readonly startingScore: number;
-}
-
-/**
  * The conditions a rig row names, whole: a rig applied without its size or its
  * score is a rig half applied, and the tape would then name a starting
  * condition it did not play (#107).
@@ -170,7 +161,7 @@ const conditionsFromRig = (
   raw: string,
   levelArgs: readonly string[],
   scoreRaw: string | undefined,
-): Conditions | null => {
+): Partial<StartingConditions> | null => {
   const name = parseRigName(raw);
   if (name === null) return null;
   if (levelArgs.length > 0) {
@@ -178,15 +169,11 @@ const conditionsFromRig = (
       `rig=${raw} already states every line's level, so ${levelArgs.join(' ')} states them a second time`,
     );
   }
-  const rig = RIGS[name];
+  const { conditions } = RIGS[name];
   const score =
-    scoreRaw === undefined ? rig.startingScore : parseScore(scoreRaw);
+    scoreRaw === undefined ? conditions.startingScore : parseScore(scoreRaw);
   if (score === null) return null;
-  return {
-    startingSize: rig.startingSize,
-    startingLevels: rig.startingLevels,
-    startingScore: score,
-  };
+  return { ...conditions, startingScore: score };
 };
 
 /**
@@ -198,16 +185,12 @@ const conditionsFromRig = (
 const conditionsFromArguments = (
   levelArgs: readonly string[],
   scoreRaw: string | undefined,
-): Conditions | null => {
+): Partial<StartingConditions> | null => {
   const levels = parseLevels(levelArgs);
   if (levels === null) return null;
   const score = scoreRaw === undefined ? 0 : parseScore(scoreRaw);
   if (score === null) return null;
-  return {
-    startingSize: undefined,
-    startingLevels: levels,
-    startingScore: score,
-  };
+  return { startingLevels: levels, startingScore: score };
 };
 
 /**
@@ -291,16 +274,9 @@ const steer = (tick: number): TickCommand => {
 const recordTape = (
   seed: number,
   ticks: number,
-  conditions: Conditions,
+  conditions: Partial<StartingConditions>,
 ): Uint8Array => {
-  const run = createRun(
-    seed,
-    conditions.startingSize,
-    conditions.startingLevels,
-    undefined,
-    undefined,
-    conditions.startingScore,
-  );
+  const run = createRun(seed, conditions);
   const execution = createExecution(run);
   const recorder = recordInto(execution, headerFor(run));
   for (
@@ -348,7 +324,9 @@ const valueOf = (
 };
 
 /** Which starting condition the arguments name, keyed ones read out of the rest. */
-const conditionsIn = (args: readonly string[]): Conditions | null => {
+const conditionsIn = (
+  args: readonly string[],
+): Partial<StartingConditions> | null => {
   const rigArgs = args.filter((argument) => RIG_ARGUMENT.test(argument));
   const scoreArgs = args.filter((argument) => SCORE_ARGUMENT.test(argument));
   // A key named twice is refused rather than resolved to the first, which is
@@ -393,9 +371,10 @@ const main = (): void => {
     process.exitCode = 1;
     return;
   }
-  if (conditions.startingScore !== 0) {
-    reportUnreplayableScore(conditions.startingScore);
-  }
+  // Both ways of naming a condition state a score, so an absent one here would
+  // be this shell's own bug rather than a command that left it out.
+  const score = conditions.startingScore;
+  if (score !== undefined && score !== 0) reportUnreplayableScore(score);
   if (!writeOrRefuse(path, recordTape(seed, ticks, conditions))) {
     process.exitCode = 1;
     return;

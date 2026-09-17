@@ -74,7 +74,7 @@ const curtainRun = (
   size: number,
   build: Build = 'birthright',
 ): RunState => {
-  const state = createRun(seed, size);
+  const state = createRun(seed, { startingSize: size });
   state.stage.sectionIndex = SECTIONS.length - 1;
   for (const line of WEAPON_LINES) {
     state.levels[line] = rungFor(build, line);

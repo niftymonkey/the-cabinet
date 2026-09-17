@@ -150,16 +150,10 @@ const playHarnessRun = (
   commitHash: string,
   recordedAt: number,
 ): HarnessRun => {
-  // Every field of the row, because a rig applied without one of them is a rig
-  // half applied and the figure it produces names a condition it did not play.
-  const run = createRun(
-    seed,
-    rig.startingSize,
-    rig.startingLevels,
-    undefined,
-    undefined,
-    rig.startingScore,
-  );
+  // The row's condition whole, because a rig applied without one of its fields
+  // is a rig half applied and the figure it produces names a condition it did
+  // not play (ADR 0063).
+  const run = createRun(seed, rig.conditions);
   const execution = createExecution(run);
   const recorder = recordInto(
     execution,

@@ -708,7 +708,7 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     // The line a fifth weapon would break: WEAPON_LINES is the build's four and
     // the roster is what this run was born with (ADR 0046, design record R3).
     const roster: WeaponLine[] = ['bell', 'skullStream', 'wisps'];
-    const run = createRun(1, SIZE_FLOOR, undefined, roster);
+    const run = createRun(1, { startingSize: SIZE_FLOOR, roster });
     run.grave.scoreRungBled = true;
     run.score = 0;
     for (const line of roster) run.levels[line] = 3;

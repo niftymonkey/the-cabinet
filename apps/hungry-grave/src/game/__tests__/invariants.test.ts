@@ -1589,6 +1589,20 @@ const NAN_CASES: readonly NanCase[] = [
  */
 const EXCLUDED: Readonly<Record<string, string>> = {
   seed: "the run's identity, fixed by createRun and never mutated by the rules",
+  'conditions.startingSize':
+    'what the run started from, resolved once by createRun and never mutated by the rules, as the seed is (ADR 0063). A figure that could poison it reaches the run through grave.size, which this harness checks every tick',
+  'conditions.startingLevels.skullStream':
+    'a starting level, resolved once by createRun and never mutated: what it seeds is levels.skullStream, which this harness checks every tick',
+  'conditions.startingLevels.territory':
+    'a starting level, as conditions.startingLevels.skullStream is',
+  'conditions.startingLevels.wisps':
+    'a starting level, as conditions.startingLevels.skullStream is',
+  'conditions.startingLevels.bell':
+    'a starting level, as conditions.startingLevels.skullStream is',
+  'conditions.signalLock':
+    'the figure the run holds its signal at, resolved once by createRun and never mutated: what it seeds is director.signal.value, which this harness checks every tick',
+  'conditions.startingScore':
+    'the score the run began holding, resolved once by createRun and never mutated: what it seeds is score, which this harness checks every tick',
   'mobs[].id': 'spawn identity, never mutated after spawn',
   'mobFire[].id': 'spawn identity, never mutated after spawn',
   'mobFire[].halfExtent': 'written once at spawn and never mutated',

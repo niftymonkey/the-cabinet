@@ -1015,6 +1015,22 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   seed: "the run's identity, fixed by createRun and never mutated by the rules. The tape header carries it.",
   'roster[]':
     "the run's identity, as the seed is: resolved once by createRun and never mutated by the rules (ADR 0046). The tape header records it, and what the roster decides shows through the levels the walk already folds.",
+  'conditions.startingSize':
+    "the run's identity, as the seed and the roster are: it is what the run started from, resolved once by createRun and never mutated by the rules (ADR 0063). What it decides shows through grave.size, which the walk folds on every tick, and it is the size the tape header already records.",
+  'conditions.startingLevels.skullStream':
+    'the level the run began this line at, which is a starting condition and not run state: levels.skullStream is folded, so a divergence in what the run was started with shows there from the first tick.',
+  'conditions.startingLevels.territory':
+    'as conditions.startingLevels.skullStream is.',
+  'conditions.startingLevels.wisps':
+    'as conditions.startingLevels.skullStream is.',
+  'conditions.startingLevels.bell':
+    'as conditions.startingLevels.skullStream is.',
+  'conditions.roster[]':
+    'the same resolved list roster[] is, held once and shared with it: the run and its record never write either, so excluding one and folding neither is the same decision twice (ADR 0046, ADR 0063).',
+  'conditions.signalLock':
+    "the figure the run holds its signal at, on director.signal.lock's own terms: it is the same resolved value, carried here because a rig and a header state it, and what it decides shows through director.signal.value, which the walk folds.",
+  'conditions.startingScore':
+    "the score the run began holding, which score already carries from the first tick: score is folded, so a run staged with a different one diverges at checkpoint zero. It is a starting condition rather than run state, which is why the record's arrival moved no witness version.",
   tick: "the witness's own address. A checkpoint at index N is by definition the state after executeTick has run N times, so the tick names a fold rather than being part of one.",
   'mobs[].alive':
     'gates the walk. A dead slot contributes nothing at all, so liveness already moves the fold by deciding which entities are folded.',

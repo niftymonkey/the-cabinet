@@ -30,7 +30,10 @@ describe('the rigs a harness run is played out of', () => {
     // and no two labels share one starting condition either, or naming a
     // figure's rig would be a coin toss.
     const conditions = RIG_NAMES.map((name) =>
-      JSON.stringify([RIGS[name].startingSize, RIGS[name].startingLevels]),
+      JSON.stringify([
+        RIGS[name].conditions.startingSize,
+        RIGS[name].conditions.startingLevels,
+      ]),
     );
 
     expect([...new Set(conditions)]).toHaveLength(RIG_NAMES.length);
@@ -43,11 +46,11 @@ describe('the rigs a harness run is played out of', () => {
     // restated here, so a birthright retune moves the row and not the test.
     const born = createRun(1);
 
-    expect(RIGS.birthright.startingSize).toBe(SIZE_START);
-    expect(RIGS.birthright.startingLevels).toEqual(born.levels);
-    expect(RIGS.birthright.startingScore).toBe(born.score);
+    expect(RIGS.birthright.conditions.startingSize).toBe(SIZE_START);
+    expect(RIGS.birthright.conditions.startingLevels).toEqual(born.levels);
+    expect(RIGS.birthright.conditions.startingScore).toBe(born.score);
     for (const line of WEAPON_LINES) {
-      expect(RIGS.birthright.startingLevels[line]).toBe(
+      expect(RIGS.birthright.conditions.startingLevels[line]).toBe(
         BIRTHRIGHT.includes(line) ? BIRTHRIGHT_LEVEL : 0,
       );
     }
@@ -56,10 +59,10 @@ describe('the rigs a harness run is played out of', () => {
   it('starts the maxed rig with every line at the level cap', () => {
     // The end the power-curve ruling is about: a run that begins where a
     // person's own runs finish, so step 4 can read the maxed end at all.
-    expect(RIGS.maxed.startingSize).toBe(SIZE_START);
-    expect(RIGS.maxed.startingScore).toBe(0);
+    expect(RIGS.maxed.conditions.startingSize).toBe(SIZE_START);
+    expect(RIGS.maxed.conditions.startingScore).toBe(0);
     for (const line of WEAPON_LINES) {
-      expect(RIGS.maxed.startingLevels[line]).toBe(MAX_LEVEL);
+      expect(RIGS.maxed.conditions.startingLevels[line]).toBe(MAX_LEVEL);
     }
   });
 
@@ -69,17 +72,10 @@ describe('the rigs a harness run is played out of', () => {
     // below" was the one scenario it could not play. All three are read off a
     // run built the way playHarnessRun builds one, because a row nothing
     // applies is a row that says nothing.
-    const run = createRun(
-      1,
-      RIGS.ladder.startingSize,
-      RIGS.ladder.startingLevels,
-      undefined,
-      undefined,
-      RIGS.ladder.startingScore,
-    );
+    const run = createRun(1, RIGS.ladder.conditions);
 
     expect(run.grave.size).toBe(SIZE_FLOOR);
-    expect(run.score).toBe(RIGS.ladder.startingScore);
+    expect(run.score).toBe(RIGS.ladder.conditions.startingScore);
     for (const line of WEAPON_LINES) expect(run.levels[line]).toBe(MAX_LEVEL);
     // At least twice the cap, so the first bleed leaves a remainder standing
     // and the walk shows the cap's own rule rather than a score that happened
@@ -87,16 +83,32 @@ describe('the rigs a harness run is played out of', () => {
     expect(run.score).toBeGreaterThanOrEqual(2 * SCORE_BLEED_CAP);
   });
 
+  it('applies every fact a row states when a row is applied, and never part of one', () => {
+    // #107's own ask, now unmissable: a rig is one record (ADR 0063), so a run
+    // started from a row reports that row back whole rather than a condition
+    // the caller assembled out of some of its fields. The ladder row is the
+    // case because it is the only one stating a non-default score.
+    for (const name of RIG_NAMES) {
+      const run = createRun(1, RIGS[name].conditions);
+
+      expect(run.conditions).toEqual(RIGS[name].conditions);
+    }
+  });
+
   it('names the rig a tape started from, off the conditions alone', () => {
-    expect(rigOf(SIZE_START, RIGS.birthright.startingLevels)).toBe(
+    expect(rigOf(SIZE_START, RIGS.birthright.conditions.startingLevels)).toBe(
       'birthright',
     );
-    expect(rigOf(SIZE_START, RIGS.maxed.startingLevels)).toBe('maxed');
+    expect(rigOf(SIZE_START, RIGS.maxed.conditions.startingLevels)).toBe(
+      'maxed',
+    );
     // A header carries a size and levels and no score, which is why rigOf
     // keeps its two arguments: a banding rule reading a fact the header cannot
     // hold would answer null forever, and the ladder rig is the first row whose
     // condition has a third half.
-    expect(rigOf(SIZE_FLOOR, RIGS.ladder.startingLevels)).toBe('ladder');
+    expect(rigOf(SIZE_FLOOR, RIGS.ladder.conditions.startingLevels)).toBe(
+      'ladder',
+    );
   });
 
   it('names no rig for a starting condition no row holds', () => {
@@ -104,7 +116,9 @@ describe('the rigs a harness run is played out of', () => {
     // ceiling is not the maxed rig: banding the two is the very thing #107
     // was raised for. An unnamed condition is answered as unnamed rather than
     // as the nearest row.
-    expect(rigOf(SIZE_CEILING, RIGS.maxed.startingLevels)).toBeNull();
+    expect(
+      rigOf(SIZE_CEILING, RIGS.maxed.conditions.startingLevels),
+    ).toBeNull();
     expect(
       rigOf(SIZE_START, { skullStream: 3, territory: 3, wisps: 3, bell: 3 }),
     ).toBeNull();

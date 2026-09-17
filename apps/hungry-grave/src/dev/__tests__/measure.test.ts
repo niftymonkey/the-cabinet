@@ -102,7 +102,10 @@ function recordARun(
     levels?: Record<WeaponLine, number>;
   } = {},
 ): Tape {
-  const run = createRun(SEED, options.size, options.levels);
+  const run = createRun(SEED, {
+    startingSize: options.size,
+    startingLevels: options.levels,
+  });
   const execution = createExecution(run);
   const recorder = recordInto(execution, header(run, overrides));
   for (let tick = 0; tick < SMALL_TICKS; tick++) {
@@ -289,7 +292,10 @@ interface RichRecording {
 }
 
 function recordRichRun(): RichRecording {
-  const run = createRun(RICH_SEED, RICH_SIZE, RICH_LEVELS);
+  const run = createRun(RICH_SEED, {
+    startingSize: RICH_SIZE,
+    startingLevels: RICH_LEVELS,
+  });
   const execution = createExecution(run);
   const recorder = recordInto(
     execution,

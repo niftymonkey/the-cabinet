@@ -42,7 +42,10 @@ function food(tier: 'trash' | 'rich'): Swallowable {
  * the other two are indifferent to.
  */
 function maxedRun(): RunState {
-  return createRun(1, SIZE_FLOOR, uniformLevels(MAX_LEVEL));
+  return createRun(1, {
+    startingSize: SIZE_FLOOR,
+    startingLevels: uniformLevels(MAX_LEVEL),
+  });
 }
 
 /** A live mob standing where it is put, past its arriving beat. */

@@ -86,15 +86,7 @@ const linesThatPaid = (rung: LadderRung): readonly WeaponLine[] =>
  * The run the walk is staged into: the ladder rig's own starting condition,
  * applied whole the way playHarnessRun applies one.
  */
-const stagedRun = (): RunState =>
-  createRun(
-    SEED,
-    RIGS.ladder.startingSize,
-    RIGS.ladder.startingLevels,
-    undefined,
-    undefined,
-    RIGS.ladder.startingScore,
-  );
+const stagedRun = (): RunState => createRun(SEED, RIGS.ladder.conditions);
 
 /**
  * One hit, made to land on the tick it is asked for.

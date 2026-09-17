@@ -193,13 +193,13 @@ const refusalFor = (
  * refused reproduction is exhausted before its first command.
  */
 const runFromHeader = (levels: StartingLevels, header: TapeHeader): RunState =>
-  createRun(
-    header.seed,
-    header.startingSize,
-    levels.outcome === 'implemented' ? levels.levels : undefined,
-    levels.outcome === 'implemented' ? levels.roster : undefined,
-    header.signalLock,
-  );
+  createRun(header.seed, {
+    startingSize: header.startingSize,
+    startingLevels:
+      levels.outcome === 'implemented' ? levels.levels : undefined,
+    roster: levels.outcome === 'implemented' ? levels.roster : undefined,
+    signalLock: header.signalLock,
+  });
 
 /**
  * Whether the tape's witness at a checkpoint is the one this reproduction

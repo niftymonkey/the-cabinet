@@ -32,15 +32,7 @@ const A_CRUMB = 1;
  * holding a score (#107). The rig is the one place a floor run's starting
  * condition is named, so nothing here builds one by hand.
  */
-const ladderRun = (): RunState =>
-  createRun(
-    SEED,
-    RIGS.ladder.startingSize,
-    RIGS.ladder.startingLevels,
-    undefined,
-    undefined,
-    RIGS.ladder.startingScore,
-  );
+const ladderRun = (): RunState => createRun(SEED, RIGS.ladder.conditions);
 
 /** One landed hit, with the invulnerability window it opens counted back down. */
 const land = (run: RunState): void => {
@@ -56,7 +48,9 @@ describe('bled rung memory', () => {
     // made measurable, so the crumb counts there and the growth that cleared
     // it does not.
     const run = ladderRun();
-    const accumulator = createBledRungMemory(RIGS.ladder.startingSize);
+    const accumulator = createBledRungMemory(
+      RIGS.ladder.conditions.startingSize,
+    );
 
     observeBledRungMemory(accumulator, run);
     land(run);
@@ -82,7 +76,9 @@ describe('bled rung memory', () => {
     // grave back down rather than running the ladder, because a hit above the
     // floor shrinks, which is the run the player actually plays.
     const run = ladderRun();
-    const accumulator = createBledRungMemory(RIGS.ladder.startingSize);
+    const accumulator = createBledRungMemory(
+      RIGS.ladder.conditions.startingSize,
+    );
 
     land(run);
     observeBledRungMemory(accumulator, run);
@@ -105,7 +101,9 @@ describe('bled rung memory', () => {
     // that never reached the floor leaves every edge unmoved, and the ticks
     // set are what say the memory was never in play.
     const run = ladderRun();
-    const accumulator = createBledRungMemory(RIGS.ladder.startingSize);
+    const accumulator = createBledRungMemory(
+      RIGS.ladder.conditions.startingSize,
+    );
 
     observeBledRungMemory(accumulator, run);
     growGrave(run.grave, HIT_SHRINK);

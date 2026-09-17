@@ -20,7 +20,7 @@ describe('standing a mob on the grave', () => {
     // Waiting for the storm to land one is what made "go to the lowest level,
     // then the level below" unplayable through the harness: contact is the one
     // damage a scenario can make land where it wants it.
-    const run = createRun(1, SIZE_FLOOR);
+    const run = createRun(1, { startingSize: SIZE_FLOOR });
     const execution = createExecution(run);
 
     standMobOnGrave(run);
@@ -33,7 +33,7 @@ describe('standing a mob on the grave', () => {
     // The mob carries a hundred times its own health because the storm is
     // firing: a staged mob the weapons kill takes itself off the grave and the
     // next forced hit never lands.
-    const run = createRun(1, SIZE_FLOOR);
+    const run = createRun(1, { startingSize: SIZE_FLOOR });
     const execution = createExecution(run);
 
     standMobOnGrave(run);

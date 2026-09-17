@@ -41,7 +41,7 @@ describe('field per line', () => {
       wisps: 1,
       bell: 1,
     };
-    const run = createRun(SEED, undefined, levels);
+    const run = createRun(SEED, { startingLevels: levels });
     for (let slot = 0; slot < LIVE_SKULLS; slot++)
       poolSlot(run.skulls, slot).alive = true;
     for (let slot = 0; slot < LIVE_WISPS; slot++)

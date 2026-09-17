@@ -538,7 +538,7 @@ function sectionOrder(events: SimEvent[]): string[] {
 const runs = new Map<string, ReturnType<typeof playRun>>();
 
 function playRun(seed: number, startingSize?: number) {
-  const state = createRun(seed, startingSize);
+  const state = createRun(seed, { startingSize });
   const execution = createExecution(state);
   const { events, ticks } = runPolicy(execution, dodgePolicy, STAGE_TICKS + 60);
   return { state, events, ticks, faults: execution.faults };
@@ -565,7 +565,10 @@ function maxedRun(seed: number) {
   const key = `${seed}|maxed`;
   const cached = runs.get(key);
   if (cached !== undefined) return cached;
-  const state = createRun(seed, SIZE_CEILING, uniformLevels(MAX_LEVEL));
+  const state = createRun(seed, {
+    startingSize: SIZE_CEILING,
+    startingLevels: uniformLevels(MAX_LEVEL),
+  });
   const execution = createExecution(state);
   const { events, ticks } = runPolicy(execution, dodgePolicy, MAXED_RUN_TICKS);
   const played = { state, events, ticks, faults: execution.faults };
@@ -587,7 +590,7 @@ const sealedRuns = new Map<number, { state: RunState; events: SimEvent[] }>();
 function sealedRun(seed: number): { state: RunState; events: SimEvent[] } {
   const cached = sealedRuns.get(seed);
   if (cached !== undefined) return cached;
-  const state = createRun(seed, SIZE_CEILING);
+  const state = createRun(seed, { startingSize: SIZE_CEILING });
   const { events } = play(state, hitTakingPolicy, PROCESSION_TICKS);
   const played = { state, events: [...events] };
   sealedRuns.set(seed, played);
@@ -1058,7 +1061,10 @@ const LADDER_TICKS = 6000;
  * would measure what got it there and never the ladder.
  */
 function ladderRun(seed: number): { state: RunState; rungs: string[] } {
-  const state = createRun(seed, SIZE_CEILING, uniformLevels(LADDER_LEVEL));
+  const state = createRun(seed, {
+    startingSize: SIZE_CEILING,
+    startingLevels: uniformLevels(LADDER_LEVEL),
+  });
   state.stage.sectionIndex = SECTIONS.findIndex(
     (section) => section.boss === 'undertaker',
   );
@@ -1165,7 +1171,9 @@ interface WallHand {
 
 function wallRun(seed: number, hand: WallHand): RunState {
   const loaded = hand.lines === 'maxed';
-  const state = createRun(seed, loaded ? SIZE_CEILING : undefined);
+  const state = createRun(seed, {
+    startingSize: loaded ? SIZE_CEILING : undefined,
+  });
   // The curtain is placed by hand, so the stage is stood in the last section of
   // the table, the one section the machine never leaves. Marking a section's waves
   // fired silences that section alone: a section ends now on its waves being spent

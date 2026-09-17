@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import type { WeaponLine } from '../../game/lines/roster';
 import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 
 import { TICK_HZ } from '../../game/clock';
@@ -13,7 +14,7 @@ import { createExecution, executeTick } from '../../game/execution';
 import type { SimEvent } from '../../game/events';
 import type { TickCommand } from '../../game/command';
 import type { RunState } from '../../game/run';
-import { createRun } from '../../game/run';
+import { createRun, uniformLevels } from '../../game/run';
 import { WITNESS_VERSION } from '../../game/witness';
 import { RUNNING_BUILD } from '../buildIdentity';
 import { createPlayback, playTape } from '../playback';
@@ -164,6 +165,37 @@ describe('the playback', () => {
     expect(result.checkpointsUnreachable).toBe(0);
     expect(expected.length).toBeGreaterThan(0);
     expect(replayed).toEqual(expected);
+  });
+
+  it('rebuilds the run its header describes, every pinned fact of it at once', () => {
+    // The starting condition is one record now (ADR 0063), and runFromHeader
+    // builds it from the header's own fields. All four the header carries are
+    // pinned away from their defaults in one tape, because a rebuild that
+    // dropped any one of them would diverge rather than verify: the witness
+    // folds the size, the levels and the signal, and the roster decides which
+    // lines fire at all.
+    const pinned: readonly WeaponLine[] = ['skullStream', 'territory', 'bell'];
+    const run = createRun(SEED, {
+      startingSize: SIZE_FLOOR,
+      startingLevels: { ...uniformLevels(MAX_LEVEL), wisps: 0 },
+      roster: pinned,
+      signalLock: 0.25,
+    });
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, {
+      ...header(run),
+      recordedRoster: [...pinned],
+      signalLock: run.director.signal.lock,
+    });
+    for (let tick = 0; tick < TICKS; tick++)
+      executeTick(execution, steer(tick));
+    sealTrailer(recorder, execution, 0);
+
+    const result = playTape(tapeOf(recorder));
+
+    expect(result.outcome).toBe('verified');
+    expect(result.checkpointsVerified).toBeGreaterThan(0);
+    expect(result.checkpointsUnreachable).toBe(0);
   });
 
   it('reproduces a tape carrying a fatal fault to its end and reports the fault', () => {

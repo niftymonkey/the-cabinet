@@ -310,7 +310,7 @@ describe('what an offer may hold (ADR 0034)', () => {
   });
 
   it('offers nothing when every line in the roster is maxed', () => {
-    const state = createRun(7, undefined, uniformLevels(MAX_LEVEL));
+    const state = createRun(7, { startingLevels: uniformLevels(MAX_LEVEL) });
     expect(offerableLines(state)).toEqual([]);
   });
 
@@ -321,10 +321,10 @@ describe('what an offer may hold (ADR 0034)', () => {
       ...BIRTHRIGHT,
       WEAPON_LINES.find((line) => !BIRTHRIGHT.includes(line))!,
     ];
-    const state = createRun(7, undefined, undefined, roster);
+    const state = createRun(7, { roster });
     expect(offerableLines(state)).toEqual(roster);
     for (let seed = 1; seed <= 20; seed++) {
-      const run = createRun(seed, undefined, undefined, roster);
+      const run = createRun(seed, { roster });
       run.streams.powerUps.next();
       openOffer(run, 260, 180);
       for (const line of run.offer!.options) expect(roster).toContain(line);

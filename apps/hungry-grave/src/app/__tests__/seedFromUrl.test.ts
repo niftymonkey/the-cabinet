@@ -96,12 +96,12 @@ describe('sizeFromUrl', () => {
     expect(sizeFromUrl(`?size=${SIZE_CEILING + 10}`, '')).toBe(
       SIZE_CEILING + 10,
     );
-    expect(createRun(1, sizeFromUrl('?size=0', '')!).grave.size).toBe(
-      SIZE_FLOOR,
-    );
-    expect(createRun(1, sizeFromUrl('?size=999', '')!).grave.size).toBe(
-      SIZE_CEILING,
-    );
+    expect(
+      createRun(1, { startingSize: sizeFromUrl('?size=0', '')! }).grave.size,
+    ).toBe(SIZE_FLOOR);
+    expect(
+      createRun(1, { startingSize: sizeFromUrl('?size=999', '')! }).grave.size,
+    ).toBe(SIZE_CEILING);
   });
 });
 
@@ -171,7 +171,7 @@ describe('signalLockFromUrl (CONTEXT.md Signal lock)', () => {
     expect(signalLockFromUrl('', '#/?signal=0.25')).toBe(0.25);
     expect(signalLockFromUrl('?signal=0.1', '#/?signal=0.25')).toBe(0.25);
 
-    const run = createRun(1234, undefined, undefined, undefined, 0.25);
+    const run = createRun(1234, { signalLock: 0.25 });
     expect(run.director.signal.lock).toBe(0.25);
     expect(run.director.signal.value).toBe(0.25);
     expect(tapeHeaderFor(run, CONDITIONS).signalLock).toBe(0.25);
@@ -193,7 +193,7 @@ describe('signalLockFromUrl (CONTEXT.md Signal lock)', () => {
     );
 
     // And the run still plays: a refused pin is a run with a live signal.
-    const run = createRun(1234, undefined, undefined, undefined, undefined);
+    const run = createRun(1234, { signalLock: undefined });
     expect(run.director.signal.lock).toBe(SIGNAL_RAN_LIVE);
   });
 });

@@ -182,7 +182,10 @@ interface Waking {
  * property is about would be measured over an empty set.
  */
 function atTheWaking(seed: number = SEED): Waking {
-  const state = createRun(seed, SIZE_CEILING, uniformLevels(MAX_LEVEL));
+  const state = createRun(seed, {
+    startingSize: SIZE_CEILING,
+    startingLevels: uniformLevels(MAX_LEVEL),
+  });
   state.stage.sectionIndex = WAKING;
   const piece = placeSetPiece(state);
   piece.y = FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;

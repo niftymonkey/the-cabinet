@@ -102,7 +102,11 @@ function richCorpse(): Swallowable {
 
 /** A run whose every rostered line stands at the top of its ladder. */
 function maxedRun(roster?: readonly WeaponLine[]): RunState {
-  return createRun(1, SIZE_FLOOR, uniformLevels(MAX_LEVEL), roster);
+  return createRun(1, {
+    startingSize: SIZE_FLOOR,
+    startingLevels: uniformLevels(MAX_LEVEL),
+    roster,
+  });
 }
 
 function kinds(events: SimEvent[]): string[] {
@@ -531,12 +535,11 @@ describe('large food taken at a maxed ladder pays score (design record R4)', () 
     // The roster decides what a run has (ADR 0046), so a line this run was
     // never fielding cannot keep it from being at full power.
     const roster: readonly WeaponLine[] = ['skullStream'];
-    const run = createRun(
-      1,
-      SIZE_FLOOR,
-      { ...uniformLevels(0), skullStream: MAX_LEVEL },
+    const run = createRun(1, {
+      startingSize: SIZE_FLOOR,
+      startingLevels: { ...uniformLevels(0), skullStream: MAX_LEVEL },
       roster,
-    );
+    });
 
     swallow(run, richCorpse());
 
