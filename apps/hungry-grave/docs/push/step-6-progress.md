@@ -15,6 +15,9 @@ The design record is `apps/hungry-grave/docs/push/drafts/step-5-tuning-record-dr
 | 5 (B2), the score group's readers | `82e9ab71f6` | `feat(hungry-grave): the purses, the quiet interval and the score's five rows are read off the run's tuning record (#142)` |
 | 6 (C), the header | `47c4543d25` | `feat(hungry-grave): a tape header carries the whole starting condition as a self-describing block (#142)` |
 | 7 (D), the candidates | `6f5f98adda` | `feat(hungry-grave): a batch and a build play under a named tuning candidate (#142)` |
+| 8 (E), the sweep runner | `ace50d5c29` | `feat(hungry-grave): one command sweeps a list of candidates and the comparison names the rows they differ in (#142)` |
+
+**The table is closed: all eight slices are in the tree and nothing follows them but the step's close**, which is the orchestrator's.
 
 ## 2. The version ledger
 
@@ -41,13 +44,15 @@ Where each constant stood when step 6 opened, where it is permitted to go, and w
 
 **Slice 7 moved none of the four and was permitted none, and it is the first slice after the ledger closed.** `WITNESS_VERSION` 11 (`src/game/witness.ts`), `READINGS_VERSION` 9 (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` 5 (`src/tape/wireCodes.ts`) and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` (`src/dev/digest.ts`), each read off slice 6's docs tip `27a177c797` before the first edit and read again off the code commit's own tree, and none of the four files is in either commit. `GOLDEN` held for the plainest reason in the step: no magnitude moved anywhere, and the one figure this slice states lives inside a named candidate row that nothing plays unless a command line or a URL names it.
 
+**Slice 8 moved none of the four and was permitted none, and it is the last slice, so the ledger closes exactly where slice 6 left it.** `WITNESS_VERSION` 11 (`src/game/witness.ts`), `READINGS_VERSION` 9 (`src/dev/readingsVersion.ts`), `FORMAT_VERSION` 5 (`src/tape/wireCodes.ts`) and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2` (`src/dev/digest.ts`), each read off the tip before the first edit and read again off the code commit's own tree, and none of the four files is in either commit. **`READINGS_VERSION` is the one this slice was warned it would be tempted by and the temptation was real**: the batch report gained two identity fields and `Provenance` gained two of its own. It holds because no existing reading changed meaning and none was added, which is that constant's own written rule; an identity is what a run started from and a reading is a figure the instrument computed off it (ADR 0062). **The step's whole ledger is therefore one `FORMAT_VERSION` move, in slice 6, and nothing else.**
+
 **Slice 1 moved none of the four and was permitted none.** `WITNESS_VERSION` 11, `READINGS_VERSION` 9, `FORMAT_VERSION` 4 and `GOLDEN`'s checksum `-2049717150` with `score: 200`, `mobs: 5`, `corpses: 1` and `kills: 2`, each read off the tree before the first edit, and none of the four files is in the commit. Every figure matched the prompts' own header line, so nothing in this step starts from a stale constant.
 
 ## 3. GOLDEN moves
 
 One entry per slice that was permitted one, whether or not it moved, with the dated paragraph's location and every field that moved beside every field that held.
 
-**No slice in this step is permitted a re-pin**, so an entry here would itself be the report of a stop. Slice 1 has none: no file under `src/` is in its commit. **Slice 2 has none either, and it is the slice where the claim had to be checked rather than asserted**: 36 files under `src/` and `scripts/` moved, `digest.ts` is in neither commit, and `digest.test.ts` was green at every run. **Slice 3 has none**: `digest.ts` is in neither commit and all nine of `digest.test.ts`'s tests were green, including the golden itself. **Slice 4 has none, and it is the slice where the three numbers had to be printed rather than argued**: the mob, mob-fire and corpse caps read 481, 434 and 704 off a default run before the first edit and 481, 434 and 704 off the code commit's tree, `digest.ts` is in neither commit, and `digest.test.ts` was green at every run. **Slice 5 has none, and it is the slice with the most ways to have needed one**: nine constants were deleted, every reader moved, and the hold is arithmetic, `20 * 100` and `24 * 100` and `1 * 100` and a rate of `100 / 100`, so every payment is the number it was; `digest.ts` is in neither commit and all nine of `digest.test.ts`'s tests were green at every run. **Slice 7 has none**: `digest.ts` is in neither commit, `digest.test.ts` was green at every run, and no value the golden's scenario reads is reachable from a candidate nobody names.
+**No slice in this step is permitted a re-pin**, so an entry here would itself be the report of a stop. Slice 1 has none: no file under `src/` is in its commit. **Slice 2 has none either, and it is the slice where the claim had to be checked rather than asserted**: 36 files under `src/` and `scripts/` moved, `digest.ts` is in neither commit, and `digest.test.ts` was green at every run. **Slice 3 has none**: `digest.ts` is in neither commit and all nine of `digest.test.ts`'s tests were green, including the golden itself. **Slice 4 has none, and it is the slice where the three numbers had to be printed rather than argued**: the mob, mob-fire and corpse caps read 481, 434 and 704 off a default run before the first edit and 481, 434 and 704 off the code commit's tree, `digest.ts` is in neither commit, and `digest.test.ts` was green at every run. **Slice 5 has none, and it is the slice with the most ways to have needed one**: nine constants were deleted, every reader moved, and the hold is arithmetic, `20 * 100` and `24 * 100` and `1 * 100` and a rate of `100 / 100`, so every payment is the number it was; `digest.ts` is in neither commit and all nine of `digest.test.ts`'s tests were green at every run. **Slice 7 has none**: `digest.ts` is in neither commit, `digest.test.ts` was green at every run, and no value the golden's scenario reads is reachable from a candidate nobody names. **Slice 8 has none**: `digest.ts` is in neither commit, all eight of `digest.test.ts`'s golden cases were green at every run, and the slice touches no core module at all, only the instrument that reads a tape and the two shells over it. **No slice in this step re-pinned it, which is the section's own closing line.**
 
 ## 4. CodeRabbit
 
@@ -60,6 +65,10 @@ One entry per commit: files reviewed, findings by severity, applied and declined
 **Slice 4's code commit, `coderabbit review --agent --uncommitted`, one iteration: 22 files reviewed, one finding, major, applied.** The finding is on `FieldRenderer.attach`: the sprite pools are grow-only now, `sync` walks the run's own pool and writes nothing above it, so a run smaller than one this process already drew would leave the larger run's bodies visible in the slots it never reaches. **It is real and it is a defect this slice created**, because before it every run's pools were the same length; it cannot be met at this tip, where every run derives the same caps, and it can be met the moment a tape carries a record of its own. **Applied as a bug fix rather than as a patch**: the wrongness was pinned first as a red test, *shows nothing above the pool of the run it is now drawing, after a larger one*, and `forgetPreviousRun` now hides all four sprite pools, which is what that method already means. Nothing was declined, and no finding was raised on the other 21 files.
 
 **Slice 3's code commit, `coderabbit review --agent --uncommitted`, one iteration: three files reviewed, one finding, major, declined.** The three are this slice's own, `src/game/tuningRecord.ts`, `src/game/__tests__/tuningRecord.test.ts` and `src/__tests__/boundary.test.ts`. The finding is on `resolveTuning` and asks that `createRun` and `RunState` take the overlay, resolve it once per run and carry the result, with every non-test call site passing it through. **Declined because it is slice 4's whole definition and this slice's whole definition forbids it**: nothing reads the record at this tip and nothing may, which the prompt states as the slice's promise, and the file the finding asks to edit is one slice 3 may not touch. The review is right about where the record is going and wrong about when, which is what a slice boundary looks like from inside one commit. Nothing was applied.
+
+**Slice 8's code commit, `coderabbit review --agent --uncommitted`, one iteration: 10 files reviewed, one finding, minor, applied.** The finding is on `scripts/sweep.ts`'s `sayTuningRows`: with no differing rows it printed "no row differs, so the two batches played one tuning", and an empty row list has a second cause, a batch whose own runs did not share one record, which the sweep reports as `tuning: null`. **It is real and it is reachable**, because a batch in which no run verified collects no record at all and answers null the same way, so the line would have said the opposite of what happened. **Applied by taking the sentence off the two records rather than off the emptiness**: either side null now says that one batch shares no one record across its runs and that no row was compared. **It is the one finding in this step applied by reading rather than pinned by a test first, and the reason is that the command cannot stage it**: a batch with no verified run needs a broken encoder, and the state is unreachable through the shell's own seam. `compare-batches.ts` never had the defect, because its own printer says nothing at all when there are no rows. No finding was raised on the other nine files.
+
+**This section holds five of the eight entries and slices 5, 6 and 7 wrote theirs inside their own sections instead**, 10, 11 and 12, which is worth saying once here rather than leaving a reader to count. **The step's whole review tally, over both places: 13 findings on 8 commits, 5 applied whole, 1 applied in part, and 7 declined**, every decline with its reason beside it. **Four of the seven declines are one claim wearing four coats**, that the resolver should reject a row before a run starts, raised against slice 5 and answered rather than refused: slice 7 took it at the one edge a person's typed value arrives from, and slice 6 took it at the tape's. **Two more are false claims about the types in a changed hunk** (slice 2), and **the last is a slice boundary read correctly and answered one commit later** (slice 3, the record reaching `createRun`, which is slice 4's whole definition).
 
 ## 5. Record and prompt claims found false against the tree
 
@@ -82,6 +91,12 @@ Every claim in the design record or in a slice prompt that did not survive conta
 **Slice 7. The draft says ADR 0022's build-time gate covers a new URL parser for free, and no such gate exists in the tree.** The sentence is in the draft's decision 4 ("ADR 0022's build-time gate covers a new one for free") and its section 4's slice D lists "the build-time gate over it" as work. Against the tree, `?levels=` and `?signal=` carry ADR 0022 as a JSDoc sentence saying where the behaviour belongs and nothing gates either of them; the only `import.meta.env.DEV` in a run's path is `runSession.ts`'s broken-invariant handler. **The prompts' fifth ruling for slice 7 already rules this** and was followed: `tuningFromUrl` carries the same sentence, no gate was built and none is claimed. A real gate for all three belongs to whoever owns the two build flavours, and it is filed in section 12 rather than invented inside a slice.
 
 **Slice 7. The prompt's file estimate ran under by one, and the extra is work the prompt itself carried in a ruling.** It expects 8 to 12 files and the true figure is 13. The overshoot is `score.bossHealthPerKill`'s zero refusal, which is the module, its test and the tape edge's test: the orchestrator's own ruling told this slice to add that check if the resolver did not have it, and it did not. The estimate was right about the shape, one module created and none deleted.
+
+**Slice 8. The tip was not slice 7's docs commit, because the branch moved under the slice while it ran.** The prompt says "the tip should be slice 7's docs commit" and names `5842308fd5`; by the first edit the orchestrator had committed three more, and the tip at the code commit was `106eff82e2`. **The whole difference between those two tips is six lines of `docs/push/handoff.md`**, checked with a diff rather than assumed, so nothing this slice read, ran, measured or leaned on had moved: both of slice 7's commits are in the tree and no file under `src/` or `scripts/` differs. It is recorded because a coder reading its own prompt's state-of-the-branch section should not have to wonder.
+
+**Slice 8. `CONTEXT.md` has no `Reading` entry, and the prompt's read list names one.** Its step (4) asks for "`apps/hungry-grave/CONTEXT.md`, **Batch**, **Candidate**, **Tuning record**, **Reading** and **Rig**"; the word "reading" appears nowhere in that file. **The concept is declared in code and in an ADR instead**, `READING_COMPARISONS` and `BATCH_READINGS` with `comparisonDeclared.test.ts` over them, and ADR 0062, which the same block names and which was read. The intent was followed and nothing was invented; whether the glossary wants the entry is a docs question and not a slice's.
+
+**Slice 8. The prompt's line counts for the two shells are one commit stale, and only one of them matters.** It says to read `scripts/batch.ts` "whole, 367 lines" and `scripts/compare-batches.ts` "whole, 204 lines". At slice 6's docs tip both figures were exact; slice 7 then rewrote `batch.ts`'s argument parsing and it is **469 lines**, which is where `requestedBatch`, `KEYS` and `unknownKeyIn` live, all three of which this slice's own shell is shaped on. `compare-batches.ts` was still 204. The prompts' own rule held: the name was found, never the line.
 
 ## 6. Slice 1: the vocabulary, and the step's progress note exists (#142)
 
@@ -521,3 +536,167 @@ Slice 4's note section 9 item 1 filed it: the three screens pass the default rec
 4. **The purse is not the Procession's binding constraint under any hand measured so far**, above. It is tuning work and it is a later round's.
 
 **Nothing was left for a later slice that this slice could have done.** Slice 8 owns the sweep runner, the report's tuning identity and the comparison, and its first consumer is this table: two rows differing in one name, with `candidateOf` to band a record read back off a tape.
+
+## 13. Slice 8 (E): the sweep runner, and a report says which tuning it read (#142)
+
+**The code commit is `ace50d5c29`, 10 files, 1,223 lines added and 11 removed.** One file is created, `scripts/sweep.ts`, with one test file beside it; none is deleted, merged or split, which is what the prompt's module boundaries ask for. **`scripts/batch.ts` is not in the commit at all**: slice 7 gave it its argument and this slice gives it nothing.
+
+**The worktree was clean before the first edit**, the short status returned nothing, and both of slice 7's commits are in the tree. The tip was `106eff82e2` rather than the `5842308fd5` the prompt names, and section 5 says why that cost nothing.
+
+**The four constants and `GOLDEN`, read off that tip and off the code commit's own tree**, are in section 2 with the argument for why the readings version holds.
+
+### The identity's two new facts
+
+`BatchIdentity` gains `candidates`, a set of names on the `rigs` precedent, and `tuning`, the one record the folder's runs shared. **Both are written by `batchReportOf` off the runs and never off the command line**, which is the whole of the point: a folder's name is a convenience and the bytes are authoritative (ADR 0057), so a report that says `spendable` says it because its tapes do. The JSDoc carries the reason, that **a report which cannot say which tuning it read cannot support ADR 0053's one sentence**, this tuning against that tuning.
+
+**The run's own half is `Provenance`, which is where `rigOf` already bands.** `measure.ts` fills `candidate: candidateOf(conditions.tuning)` and `tuning: conditions.tuning` off the condition the header carries whole, so a tape read back bands exactly as a run taken from the table does. **A record no row holds answers null**, which is `rigOf`'s own answer for a condition no rig holds, and **a batch spanning two records reports `tuning: null`** rather than letting one of them stand for both.
+
+**`provenance.tuning` and `tuning` on the same report are two different things, and the JSDoc says so beside both**: the first is the record a run started under, the second the readings family this instrument computed. That collision is the one cost of putting the fact where the rig already lives, and it was paid deliberately: a new top-level path on `Metrics` would have needed a `READING_COMPARISONS` entry before `comparisonDeclared.test.ts` would go green again, and no reading is added in this slice.
+
+### The comparison, and the decision not to refuse
+
+**`compareBatches` gains no fourth mismatch.** Comparing two tunings is the step's central command, so a refusal there would refuse exactly what the step exists to do (draft ruling 8). The difference is answered instead: `BatchComparison` gains `tuningDifferences`, **sitting ahead of `readings` in the record itself**, so the shell that prints it needs no rule of its own about which to say first. Each row is the dotted name and both values, and the rows stand even where every ordering is withheld, because they are what the two batches were rather than arithmetic between them.
+
+**Two cases print no rows at all**: two batches under one record, and a batch whose own runs did not share one, because rows taken against the other side's record would name values half a batch never played.
+
+**`readAcrossCorners` gains its `tuning` mismatch, one name over the pair.** Two corners that compared different candidate pairs answered different questions, so their agreement is about nothing. One name rather than two because what a corner reads is the pair, and the build hashes are the precedent that makes it a corner mismatch rather than a refusal.
+
+**`isBatchReport` requires both new fields and its one refusal sentence names them**: `is not a batch report this build can compare (this build requires the candidates and the tuning record on its identity, so one written before them reads as one)`. The stale parenthesis naming the rigs and the per-run samples is gone, which step (d) asks for. **Every other refusal in `compare-batches.ts` keeps its wording.** The absence and the null are two different answers and the guard treats them so: null is a batch whose runs did not share one record, and a missing field is a report from a build that could not have said.
+
+### The sweep, its usage line and its refusals
+
+**`scripts/sweep.ts` is a second shell over the same `src/dev` seams**, on `compare-batches.ts`'s own precedent, and it does not join `batch.ts`, whose concept is one batch. It owns the filesystem, the argument list and the printing and borrows every judgement: `playHarnessRun` plays, `batchReportOf` reduces, `compareBatches` compares. **`src/dev` still imports no bare package**, which is why the seam returns rows and the shell prints them.
+
+```
+usage: pnpm vite-node --config vite.headless.config.ts scripts/sweep.ts <configuration> <first-seed> [count] [out-root] [rig=<rig>] tuning=<a>,<b>,...
+  configurations: steady-far, ... shaky-short
+  rigs: birthright, maxed, ladder
+  candidates: default, spendable
+  tuning names 2 candidates or more, played in the order written
+  count defaults to 48
+  out-root defaults to local/batches
+  rig defaults to birthright
+```
+
+**It takes `batch.ts`'s own arguments and one more**: the same four positions, the same two keys, and `tuning=` taking a list rather than a name. **The out-root default is `local/batches`, which is `batch.ts`'s own root on purpose**: each folder is an ordinary batch, and a root named after the sweep would be the one thing on disk saying which command played them.
+
+| What it refuses | The words |
+| --- | --- |
+| nothing on the command line | the usage alone, because a command with nothing on it is somebody asking what the command is |
+| a configuration no row holds | `steady-ish names no configuration (the configurations are ...)` |
+| a rig no row holds | `ceiling names no rig (the rigs are birthright, maxed, ladder)` |
+| a seed or a count outside the range | `... is not a seed (a whole number from 0 to ...)`, with the walk's far end named as well as its first |
+| no `tuning=` at all | `no tuning was named (a sweep names its candidates as tuning=<a>,<b>,...)` |
+| a name no candidate row holds | `lean names no tuning candidate (the candidates are default, spendable)` |
+| one candidate | `default is one candidate, which is a batch; a sweep compares 2 or more` |
+| a name written twice | `default is named twice, and one candidate is one batch` |
+| a key it does not have | `tunning=spendable names no argument this command has (the keys are rig, tuning)` |
+| a folder or a tape it cannot write | the path, the syscall's own message, and where the sweep stopped |
+
+Every one says its reason and then the usage, and every one ends in `no sweep was played`, which is `batch.ts`'s `no batch was played` in this command's own words. **The two-corner read across two hands is not this command's**: what it answers is one hand's ordering, and the corner pair belongs to the first real sweep.
+
+### The measurements
+
+**The sweep, on eight seeds, and its output whole.** `steady-middling` at the birthright rig, seeds 20260820 to 20260827, `tuning=default,spendable`:
+
+```
+default 20260820: 26659 ticks, victory, 250407 bytes, verified
+default 20260821: 15410 ticks, sealed, 145030 bytes, verified
+default 20260822: 16005 ticks, sealed, 150605 bytes, verified
+default 20260823: 27591 ticks, victory, 259125 bytes, verified
+default 20260824: 20095 ticks, sealed, 188911 bytes, verified
+default 20260825: 19745 ticks, sealed, 185651 bytes, verified
+default 20260826: 27915 ticks, sealed, 262173 bytes, verified
+default 20260827: 17402 ticks, sealed, 163706 bytes, verified
+8 of 8 verified, 0 not, 0 with no ending
+spendable 20260820: 26659 ticks, victory, 250407 bytes, verified
+spendable 20260821: 15410 ticks, sealed, 145030 bytes, verified
+spendable 20260822: 16005 ticks, sealed, 150605 bytes, verified
+spendable 20260823: 27591 ticks, victory, 259125 bytes, verified
+spendable 20260824: 20095 ticks, sealed, 188911 bytes, verified
+spendable 20260825: 19745 ticks, sealed, 185651 bytes, verified
+spendable 20260826: 27915 ticks, sealed, 262173 bytes, verified
+spendable 20260827: 17402 ticks, sealed, 163706 bytes, verified
+8 of 8 verified, 0 not, 0 with no ending
+default against spendable, differing rows first:
+  stage.processionPurse: 116 against 42
+337 readings ordered
+```
+
+**The differing row prints first and it is the only row there is.** Of the 337 readings, 336 are flat and one moved: `tuning.pressure.purseLeftBySection.procession`, down from 98/105/107 to 24/31/33, which is the minimum, median and maximum of what the Procession had left. **Each of those three figures is exactly 74 lower, which is 116 minus 42.** Nothing else moved at all, and the tape byte counts are identical seed for seed between the two candidates, which says the two runs are the same run rather than two runs that happened to agree.
+
+**That is the direction the row predicts, and the prediction includes what it does not do.** The purse is not what stops the Procession, so cutting it to what the quiet interval allows changes no run: the section's ceiling of one live formation binds first. Slice 5 measured that from one side and slice 7 from another; **this is the third measurement of it and the first taken from a sweep**, and no row moved here because moving one is a later round's.
+
+**The same two candidates as two hand-run batches, compared with `compare-batches.ts`, giving the same answer.** Two `batch.ts` commands over the same eight seeds under `tuning=default` and `tuning=spendable`, then `compare-batches.ts` over the two `report.json` files:
+
+```
+default against spendable, differing rows first:
+  stage.processionPurse: 116 against 42
+steady-middling against steady-middling: 337 readings ordered
+```
+
+**The sweep's comparison and the hand-run pair's are identical field for field** with `identity.recordedAt` and `identity.commitHashes` taken out, which are the two facts a second command cannot share with the first. That is what "a sweep's folders are indistinguishable from hand-played ones" means measured rather than asserted.
+
+**The bare command against `tuning=default`, on the same eight seeds: identical field for field** with `identity.recordedAt` out, both reading `candidates: ["default"]` and both carrying `stage.processionPurse` at 116. **This re-proves slice 7's claim at a tip where the report's shape moved**, which is the half worth re-running: the two new identity fields are exactly where a bare command could have started meaning something else.
+
+**A report read back, quoted.** The sweep's own `spendable` folder, `identity` whole:
+
+```json
+{
+  "configuration": "steady-middling",
+  "firstSeed": 20260820,
+  "seeds": 8,
+  "recordedAt": 1789669110648,
+  "commitHashes": ["106eff82e2769e8a3241ba3d94aaf73c82ab0d7d"],
+  "rigs": ["birthright"],
+  "candidates": ["spendable"],
+  "tuning": {
+    "stage": {
+      "processionPurse": 42,
+      "crowdPurse": 388,
+      "vigilPurse": 0,
+      "quietIntervalMinimumSeconds": 4,
+      "quietIntervalMaximumSeconds": 8
+    },
+    "score": {
+      "trashKillScore": 100,
+      "bleedCapInKills": 20,
+      "bossHealthPerKill": 100,
+      "sourceKillInKills": 24,
+      "mealAtMaxedInKills": 1
+    }
+  },
+  "mobWidths": { "shambler": 22, "revenant": 26, "ghoul": 18, "cairn": 30 }
+}
+```
+
+The candidate's name and all ten rows, beside `readingsVersion: 9` and 8 of 8 verified.
+
+**Replay determinism at this tip.** Seed 20260820 under `shaky-short`, played twice: 6,350 ticks both times, 60,164 bytes both times, `verified` 1 of 1 both times, 106 of 106 checkpoints and 0 unreachable in both, and **the two reports are identical field for field** bar `identity.recordedAt`. The byte count matches slice 7's 60,164 rather than slice 6's 60,147, and for the same named reason: these tapes were recorded on an uncommitted tree, so the build identity carries the `-dirty-<hash>` suffix, which is exactly 17 characters.
+
+### The tests
+
+**11 added, none deleted, skipped or weakened. The test-name diff: 2,420 names in the baseline, 2,431 now, 11 added and 0 removed.** The baseline is this branch's own tip captured before the first edit, into `local/step6/tests-baseline-esweep.json`, which is outside version control and in no commit.
+
+**The six seam tests were written first and watched fail**, each as an unmet promise against a field the report did not carry rather than as a missing module: two in `batchReport.test.ts` for the identity's round trip, three in `compareBatches.test.ts` for the rows and their ordering, and one for the corner read's new mismatch. **The sweep's four could not fail that way**, because its seam is a command and a command that does not exist fails as a missing module, so their teeth were proved by mutation instead: with the candidate dropped from `folderFor` the played case goes red on the folder's name, with `sayTuningRows` called after the readings line it goes red on the ordering, and with the list checks removed the refusal case goes red on the exit code. Each mutation was reverted and the file restored from a copy taken before it.
+
+**The planned list, all twelve items, each landed.** 1 and 2 are `batchReport.test.ts`'s two; 3, 4 and 5 are `compareBatches.test.ts`'s three; 6 is the corner read's new case, beside the three existing refusing-mismatch cases, which were already written and are green unchanged; 7, 8 and 9 are `sweep.test.ts`'s four, which split item 9's argument errors into the ones a reader cannot read and the list that is not a sweep; 10 is `comparisonDeclared.test.ts`, green and unchanged; 11 the fences; 12 the golden, green with `digest.ts` in neither commit. **One test beyond the list**, in `scripts/__tests__/compare-batches.test.ts`: the shell's own printing order, because the ruling that the rows print first would otherwise be proved only by a paste in this note.
+
+**Three existing `toEqual` assertions gained the two new provenance fields**, all three in `measure.test.ts`, which is the reddening the prompt expects. None was weakened: each still asserts the whole record, two fields wider.
+
+**The fences, each by title, all green.** `src/game imports only from src/game`, `src/input imports only from src/input and src/game`, `src/dev imports only from src/dev and src/game and src/tape`, `src/tape imports only from src/tape and src/game`, `src/app/sound.ts imports only from src/game/events`, `src/app/ui imports only from src/app/ui`, `every test file imports only from inside its parent folder's subtree`, `no screen imports another screen`, `no module under src/app reaches for engine()`, `carries no value-import cycle beyond the ones written down` with `KNOWN_CORE_CYCLES` still empty, `reaches nothing in game/stage/stage from game/caps`, `the caps derivation and the core read the record off the run`, `the lock's module imports nothing`, `the tuning record's module imports nothing`, `the tape codec imports nothing from the director`, `every row of the tuning record has a reader`, `src/game/storm.ts reaches what it can hit through the seam` and its four siblings, `blocks './step' from src/game/sim.ts` and its six siblings, `orders no reading against a number of its own`, `every reading on a verified report carries a declared batch reduction`, and `every reading on a verified report carries a declared comparison meaning`. **`scripts/` is governed by no boundary row**, which is why a new shell there adds no fence: the table walks `src/` and the shells sit outside it by construction.
+
+**`pnpm verify` green twice on the code commit's tree**, plus `pnpm typecheck`, `pnpm vitest run`, `pnpm lint` and `pnpm build` green from `apps/hungry-grave/` before it. 162 test files and 2,420 passing, with the same 11 expected failures and 2 todos throughout.
+
+### What the step did not do
+
+**It moved no number.** Every value in the default record is the value the build compiled before step 6 opened, `GOLDEN` held by arithmetic in all seven code slices, and the one figure anywhere in the step that differs from today's is the 42 inside a candidate row nothing plays unless a command line or a URL names it. **The first real sweep is not run**: the eight seeds above exist to prove the machinery, and reading a sweep and picking a move is Fable's job on the balance itself. **The store is not wired** (draft ruling 10), and its reopening trigger is the first tuning round whose comparison needs runs from more than one machine or session.
+
+### Filed rather than taken
+
+1. **A run under a non-default candidate is not marked `conditioned` and stays inside the default aggregates.** `isConditioned` reads the size, the levels and the score, so a tape played under `spendable` counts as unconditioned by that rule while being a run this build's own defaults cannot reproduce. **It is not this slice's to change**: `conditioned` is a reading, and widening what it means is exactly the move `READINGS_VERSION` exists to make loud. **The trigger is the first person's tape recorded under a candidate**, which is the day a default aggregate would hold a run nobody can reproduce.
+2. **The corner pair across two hands is unbuilt, and it belongs to the first real sweep.** `readAcrossCorners` answers its new mismatch and nothing on a command line hands it two corners of one candidate pair; `compare-batches.ts` takes four reports and can, which is why the sweep prints one hand and stops there.
+3. **`record-conditioned.ts` still takes no candidate**, filed by slice 7 and untouched here.
+4. **`boundary.test.ts`'s `importsOf` reads the words "from" and "import" in prose as imports**, filed twice already, in sections 5 and 11. No test title written in this slice ends in either word, so it cost nothing this time.
+
+**Nothing follows this slice but the step's close**, which is the orchestrator's: the three gates over the step's whole diff, the deploy, Mark's rundown and the merge call.
