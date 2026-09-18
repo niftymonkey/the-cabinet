@@ -56,7 +56,7 @@ The dangerous state is not a red test. It is green tests plus wrong observed beh
 
 - When tests are green and the behavior is wrong, the agent's first move is to pin the wrongness as a new red test at whatever layer can see it, then fix under normal red-green. Never another patch first.
 - If no test the agent can run can see the wrongness (feel, visual judgment), the agent states that explicitly in its report: this property is only human-checkable.
-- Three strikes at the behavior layer, then stop. After three failed attempts at making the same observed behavior right, the agent stops and reports what it tried, what it observed, and its best hypothesis. No fourth guess. The report is where the human or the dispatching session can point at prior art.
+- Two honest attempts at the behavior layer, then the prior art, then stop. After two failed attempts at making the same observed behavior right, the agent looks up how the industry already solves this kind of problem and tries that. If that fails too, the agent stops and reports what it tried, the prior art it found, what it observed, and its best hypothesis. No further guess.
 - A test is never weakened, skipped, or rewritten to reach green. If the agent believes a test itself is wrong, that is also a stop-and-report: a wrong test means the plan was wrong, and replanning is not the coding agent's call.
 
 ## Coding standards
