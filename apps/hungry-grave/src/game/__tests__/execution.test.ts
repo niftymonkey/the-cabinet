@@ -21,6 +21,12 @@ import type { RunState } from '../run';
 import { createRun } from '../run';
 import { RESERVOIR_CAPACITY } from '../tuning';
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
 
 /** A move whose components are not representable in single precision. */
@@ -31,7 +37,13 @@ const OFF_GRID: TickCommand = {
 
 /** A live mob at a place the grave is nowhere near. */
 function liveMob(state: RunState, x = 60, y = 100) {
-  return spawnMob(state, 'shambler', { x, y, vx: 0, vy: 1, index: 0 })!;
+  return spawnMob(
+    state,
+    'shambler',
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
 }
 
 describe('executeTick', () => {
@@ -68,10 +80,11 @@ describe('executeTick', () => {
     const events = executeTick(execution, STILL);
 
     expect(order).toEqual(['first', 'second']);
-    expect(seen[0].tick).toBe(1);
-    expect(seen[0].command).toEqual(STILL);
-    expect(seen[0].events).toEqual(events);
-    expect(seen[0].state).toBe(run);
+    const firstSeen = requireDefined(seen[0], 'no listener call recorded');
+    expect(firstSeen.tick).toBe(1);
+    expect(firstSeen.command).toEqual(STILL);
+    expect(firstSeen.events).toEqual(events);
+    expect(firstSeen.state).toBe(run);
   });
 
   it('adding a listener to the array is all it takes, because the array is the order', () => {
@@ -117,11 +130,12 @@ describe('the steering quantiser (ADR 0017)', () => {
 
     executeTick(execution, OFF_GRID);
 
-    expect(seen[0].move).toEqual({
+    const firstSeen = requireDefined(seen[0], 'no command recorded');
+    expect(firstSeen.move).toEqual({
       x: f32(OFF_GRID.move.x),
       y: f32(OFF_GRID.move.y),
     });
-    expect(seen[0].move.x).not.toBe(OFF_GRID.move.x);
+    expect(firstSeen.move.x).not.toBe(OFF_GRID.move.x);
   });
 
   it('leaves a command already on the grid exactly where it was', () => {
@@ -161,7 +175,10 @@ describe('the fault mechanism (ADR 0017)', () => {
     executeTick(execution, STILL);
 
     expect(broken).toHaveBeenCalledTimes(1);
-    const [faults, state] = broken.mock.calls[0];
+    const [faults, state] = requireDefined(
+      broken.mock.calls[0],
+      'onBroken was never called',
+    );
     expect(faults.map((fault: { identity: string }) => fault.identity)).toEqual(
       ['entities in bounds', 'levels in range'],
     );
@@ -173,7 +190,9 @@ describe('the fault mechanism (ADR 0017)', () => {
     liveMob(recoverable.run, 60, -SPAWN_MARGIN - 1);
     executeTick(recoverable, STILL);
     expect(recoverable.stop).toBeNull();
-    expect(recoverable.faults[0].severity).toBe('recoverable');
+    expect(
+      requireDefined(recoverable.faults[0], 'no fault recorded').severity,
+    ).toBe('recoverable');
 
     const fatal = createExecution(createRun(1));
     fatal.run.levels.bell = MAX_LEVEL + 1;
@@ -277,7 +296,9 @@ describe('the dev broken handler (ADR 0017 ruling H)', () => {
 
     expect(logged).toHaveBeenCalledTimes(1);
     // The repeats are not lost: the Execution's own record carries the count.
-    expect(execution.faults[0].count).toBe(3);
+    expect(requireDefined(execution.faults[0], 'no fault recorded').count).toBe(
+      3,
+    );
     expect(execution.stop).toBeNull();
     logged.mockRestore();
   });
@@ -327,14 +348,14 @@ describe('the dev broken handler (ADR 0017 ruling H)', () => {
 });
 
 describe("an Execution's lifetime is the run's", () => {
-  it("a second run gets a fresh stage watch, so run two's first phase is not compared with run one's last", () => {
+  it("a second run gets a fresh stage watch, so run two's first section is not compared with run one's last", () => {
     const first = createExecution(createRun(1));
-    first.run.stage.phaseIndex = 2;
+    first.run.stage.sectionIndex = 2;
     executeTick(first, STILL);
     expect(first.faults).toEqual([]);
 
-    // A watch carried over from the run above would read this run's phase 0 as
-    // a phase index going backwards.
+    // A watch carried over from the run above would read this run's section 0 as
+    // a section index going backwards.
     const second = createExecution(createRun(1));
     executeTick(second, STILL);
     expect(second.faults).toEqual([]);

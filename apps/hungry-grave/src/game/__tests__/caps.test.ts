@@ -1,23 +1,70 @@
 /**
- * The entity cap policy. At the cap something must be dropped, and which one is
- * a gameplay rule: mobs and mob fire refuse the spawn, corpses take the oldest
- * under. Both orderings are by id, so both are deterministic.
+ * The entity cap policy. At the cap the spawn is refused and nothing already on
+ * the field is removed, which is one rule across all three pools (ADR 0056).
+ * The corpse pool used to be the exception, taking the oldest corpse under; the
+ * cap is sized from the stage now, so binding at all is a fault rather than a
+ * policy.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../caps';
-import { spawnCorpse } from '../corpses';
+import {
+  capsFor,
+  corpseCap,
+  mobCap,
+  mobFireCap,
+  peakLive,
+  revenantFirePeak,
+  TRANSIT_SECONDS,
+  TREASURE_ALLOWANCE,
+  WORST_BOSS_PATTERN,
+} from '../caps';
+import { PHASE_FLASH_TICKS } from '../bosses/phases';
+import { TICK_HZ } from '../clock';
+import { spawnCorpse, spawnPowerUp, spawnFeast } from '../corpses';
 import type { SimEvent } from '../events';
+import { FIELD_HEIGHT } from '../field';
+import { createStageWatch, checkInvariants } from '../invariants';
+import { fireDirectedShot } from '../mobFire';
 import type { Mob, MobType } from '../mobs';
 import { advanceMobs, ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { RAMP_ROWS } from '../stage/stage';
+import type { StageWave } from '../stage/waves';
+import {
+  BOSS_FIRE,
+  CROWD_WAVES,
+  largestCard,
+  peakArrivals,
+  peakArrivalsOf,
+  PROCESSION_WAVES,
+  VIGIL_WAVES,
+} from '../stage/waves';
+import { FRESHNESS_SECONDS } from '../tuning';
+import { DEFAULT_TUNING } from '../tuningRecord';
+import type { TuningRecord } from '../tuningRecord';
+
+/**
+ * The three caps a run under the default record derives, which is every run at
+ * this tip: the record's rows are the values the build compiles, so each of
+ * these is the number the module constant held before the caps became
+ * derivations of a record (ADR 0056 as amended, ADR 0064).
+ */
+const MOB_CAP = mobCap(DEFAULT_TUNING);
+const MOB_FIRE_CAP = mobFireCap(DEFAULT_TUNING);
+const CORPSE_CAP = corpseCap(DEFAULT_TUNING);
+
+/** The default record with one stage row moved, and every other row left alone. */
+function tuningWithQuietMinimum(seconds: number): TuningRecord {
+  return {
+    ...DEFAULT_TUNING,
+    stage: { ...DEFAULT_TUNING.stage, quietIntervalMinimumSeconds: seconds },
+  };
+}
 
 function quietRun(seed = 12): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   return run;
 }
 
@@ -26,14 +73,14 @@ function at(x: number, y: number) {
 }
 
 function deadMob(state: RunState, type: MobType, x: number, y: number): Mob {
-  const mob = spawnMob(state, type, at(x, y))!;
+  const mob = spawnMob(state, type, at(x, y), false, 'wave')!;
   mob.alive = false;
   return mob;
 }
 
 /** Fills the mob pool to the cap, so the next spawn has nowhere to go. */
 function fillMobs(state: RunState): void {
-  while (spawnMob(state, 'shambler', at(60, 40)) !== null) {
+  while (spawnMob(state, 'shambler', at(60, 40), false, 'wave') !== null) {
     // The loop condition is the fill.
   }
 }
@@ -56,7 +103,7 @@ describe('the mob cap', () => {
     expect(live).toHaveLength(MOB_CAP);
     const ids = live.map((mob) => mob.id);
 
-    expect(spawnMob(state, 'revenant', at(120, 40))).toBeNull();
+    expect(spawnMob(state, 'revenant', at(120, 40), false, 'wave')).toBeNull();
     expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(MOB_CAP);
     expect(state.mobs.filter((mob) => mob.alive).map((mob) => mob.id)).toEqual(
       ids,
@@ -67,8 +114,8 @@ describe('the mob cap', () => {
 describe('the mob fire cap', () => {
   it('refuses a further shot, so nothing the player has read and started dodging ever vanishes', () => {
     const state = quietRun();
-    // Every slot claimed by hand, because reaching four hundred shots through
-    // firing mobs would take a whole phase.
+    // Every slot claimed by hand, because reaching a full pool of shots through
+    // firing mobs would take a whole section.
     for (const shot of state.mobFire) {
       shot.alive = true;
       shot.id = state.nextEntityId;
@@ -79,7 +126,13 @@ describe('the mob fire cap', () => {
     }
     const ids = state.mobFire.map((shot) => shot.id);
 
-    spawnMob(state, 'revenant', at(200, MOB_TYPES.revenant.halfHeight));
+    spawnMob(
+      state,
+      'revenant',
+      at(200, MOB_TYPES.revenant.halfHeight),
+      false,
+      'wave',
+    );
     const events: SimEvent[] = [];
     for (let tick = 0; tick < ARRIVE_TICKS + 1; tick++) {
       events.push(...advanceMobs(state));
@@ -90,58 +143,393 @@ describe('the mob fire cap', () => {
   });
 });
 
-describe('the corpse cap', () => {
-  it('takes the oldest live corpse under, reports an eviction rather than an expiry, and gives the new corpse its slot', () => {
-    const state = quietRun();
-    // The first corpse made is the oldest live one, so naming it as it is made
-    // is what says which corpse the cap must take under.
+/** The whole pool full of corpses a kill left, which is the cap binding. */
+function fillCorpses(state: RunState): void {
+  while (state.corpses.some((corpse) => !corpse.alive)) {
     leaveCorpse(state, deadMob(state, 'shambler', 60, 40));
-    const oldest = state.corpses.find((corpse) => corpse.alive)!;
-    const slot = state.corpses.indexOf(oldest);
-    const evictedId = oldest.id;
-    for (let made = 1; made < CORPSE_CAP; made++) {
-      leaveCorpse(state, deadMob(state, 'shambler', 60, 40 + made));
-    }
-    expect(state.corpses.filter((corpse) => corpse.alive)).toHaveLength(
-      CORPSE_CAP,
-    );
+  }
+}
+
+/** What a corpse is, as values, so a slot taken under is visible as a change. */
+function foodOn(state: RunState) {
+  return state.corpses
+    .filter((corpse) => corpse.alive)
+    .map((corpse) => ({
+      id: corpse.id,
+      kind: corpse.kind,
+      x: corpse.x,
+      y: corpse.y,
+      freshness: corpse.freshness,
+    }));
+}
+
+describe('the corpse cap (ADR 0056)', () => {
+  it('never evicts food: at the cap the spawn is refused and every body already down stays', () => {
+    // ADR 0056: the cap is sized from scroll physics so that it cannot bind in
+    // normal play, never evicts food, and raises a fault if it ever binds. The
+    // eviction it replaces took the oldest corpse under to make room, which is
+    // food removed from the field by housekeeping.
+    const state = quietRun();
+    fillCorpses(state);
+    const before = foodOn(state);
+    expect(before).toHaveLength(CORPSE_CAP);
 
     const events = leaveCorpse(state, deadMob(state, 'revenant', 300, 500));
-    expect(events).toEqual([
-      { type: 'corpseEvicted', x: 60, y: 40, freshness: 1 },
-    ]);
-    expect(
-      events.filter((event) => event.type === 'corpseExpired'),
-    ).toHaveLength(0);
-
-    const taken = state.corpses[slot];
-    expect(taken.alive).toBe(true);
-    expect(taken.id).toBeGreaterThan(evictedId);
-    expect(taken.payout).toBe(MOB_TYPES.revenant.corpsePayout);
-    expect(state.corpses.filter((corpse) => corpse.alive)).toHaveLength(
-      CORPSE_CAP,
-    );
+    expect(events).toEqual([]);
+    expect(foodOn(state)).toEqual(before);
   });
 
-  it('drops by id and not by slot index, which a recycled slot is what proves', () => {
+  it('raises a recoverable fault when it binds, because a cap that binds is a bug rather than a policy', () => {
     const state = quietRun();
-    for (let made = 0; made < CORPSE_CAP; made++) {
-      leaveCorpse(state, deadMob(state, 'shambler', 60, 40 + made));
-    }
-    // Free the very first slot and refill it, so the lowest slot index now
-    // holds the newest corpse in the pool.
-    state.corpses[0].alive = false;
-    leaveCorpse(state, deadMob(state, 'shambler', 90, 90));
-    expect(state.corpses[0].alive).toBe(true);
-    const newestId = state.corpses[0].id;
+    fillCorpses(state);
+    expect(checkInvariants(state, createStageWatch())).toEqual([]);
 
-    // Slot one holds the second corpse made, at y 41, and it is now the oldest
-    // live one. The eviction naming it is what says the drop went by id.
-    const events = leaveCorpse(state, deadMob(state, 'shambler', 120, 120));
-    expect(events).toEqual([
-      { type: 'corpseEvicted', x: 60, y: 41, freshness: 1 },
+    leaveCorpse(state, deadMob(state, 'revenant', 300, 500));
+    const faults = checkInvariants(state, createStageWatch());
+    expect(faults.map((fault) => fault.identity)).toEqual([
+      'corpse cap never binds',
     ]);
-    expect(state.corpses[0].id).toBe(newestId);
-    expect(state.corpses[0].alive).toBe(true);
+    const fault = faults[0];
+    if (fault === undefined) throw new Error('no fault recorded');
+    expect(fault.severity).toBe('recoverable');
+  });
+
+  it("is the mob cap plus the stage's peak arrivals in a freshness window plus the treasure allowance plus what the director can add inside it", () => {
+    // A proof rather than an estimate: every decaying corpse alive came from a
+    // body alive when the freshness window opened or from one that arrived
+    // inside it, and treasure never decays and is bounded by design. The
+    // arrivals term counts four things, the section tables, the pour, a boss's
+    // own adds and the rungs a hit can strip, so the window it maximises over
+    // includes the inside of a boss fight.
+    //
+    // The fourth term is the director's, and it is the one the derivation used
+    // to be missing. It is the cards the quiet interval leaves room for inside
+    // the window, one card at the window's opening and one more at every
+    // minimum interval after it, and never a section's whole purse.
+    const directed =
+      largestCard(null) *
+      (Math.floor(
+        FRESHNESS_SECONDS / DEFAULT_TUNING.stage.quietIntervalMinimumSeconds,
+      ) +
+        1);
+    expect(directed).toBeGreaterThan(0);
+    expect(CORPSE_CAP).toBe(
+      MOB_CAP + peakArrivals(FRESHNESS_SECONDS) + TREASURE_ALLOWANCE + directed,
+    );
+    // Computed rather than written down, which is what makes it move with the
+    // waves: the query is a real query and not a constant wearing one.
+    expect(peakArrivals(FRESHNESS_SECONDS)).toBeGreaterThan(0);
+  });
+
+  it('stands above the mob cap plus the arrivals plus the allowance, so a later term can only raise it', () => {
+    // The identity above is the whole sum and this is the floor under it: a cap
+    // held at least this high cannot bind for a reason the derivation already
+    // priced, whatever a later term adds on top.
+    expect(CORPSE_CAP).toBeGreaterThanOrEqual(
+      MOB_CAP + peakArrivals(FRESHNESS_SECONDS) + TREASURE_ALLOWANCE,
+    );
+    expect(TREASURE_ALLOWANCE).toBeGreaterThan(0);
+  });
+
+  it('returns no corpse and leaves the pool exactly as it was', () => {
+    const state = quietRun();
+    fillCorpses(state);
+    const before = foodOn(state);
+    const mob = deadMob(state, 'shambler', 10, 10);
+    const nextId = state.nextEntityId;
+
+    expect(leaveCorpse(state, mob)).toEqual([]);
+    expect(foodOn(state)).toEqual(before);
+    // The refused spawn stamps no id, so the run's own id counter does not
+    // move for a body that never reached the field.
+    expect(state.nextEntityId).toBe(nextId);
+  });
+
+  it('removes nothing already on the field whichever kind of food asks for the slot', () => {
+    // caps.ts's own rule, guarded through the change: a shot the player has
+    // read and started dodging cannot vanish, and neither can a body they have
+    // started diving for. Treasure asking a pool full of corpses is the case
+    // the eviction policy used to answer by taking a corpse under, and a corpse
+    // asking a pool full of treasure is the case it already refused.
+    const state = quietRun();
+    fillCorpses(state);
+    const corpses = foodOn(state);
+    expect(spawnPowerUp(state, 100, 100, 'bell')).toEqual([]);
+    expect(spawnFeast(state, 100, 100, 4)).toEqual([]);
+    expect(foodOn(state)).toEqual(corpses);
+
+    const treasureRun = quietRun(13);
+    while (treasureRun.corpses.some((corpse) => !corpse.alive)) {
+      spawnPowerUp(treasureRun, 100, 100, 'bell');
+    }
+    const treasure = foodOn(treasureRun);
+    expect(treasure).toHaveLength(CORPSE_CAP);
+    expect(
+      leaveCorpse(treasureRun, deadMob(treasureRun, 'shambler', 50, 50)),
+    ).toEqual([]);
+    expect(foodOn(treasureRun)).toEqual(treasure);
+  });
+});
+
+/** The bodies a table's one-shot waves alone land in the window from this time. */
+function beatsFrom(
+  waves: readonly StageWave[],
+  from: number,
+  seconds: number,
+): number {
+  return waves
+    .filter(
+      (wave) =>
+        wave.repeat === null && wave.t >= from && wave.t < from + seconds,
+    )
+    .reduce((total, wave) => total + wave.count, 0);
+}
+
+describe('the caps as derivations of the stage (ADR 0056)', () => {
+  it("stands every cap above the worst case the stage's own data names", () => {
+    // ADR 0056: "a section's worst case is its floor plus its budget, which is
+    // a number in data, so the mob cap is re-derived above that". Every cap
+    // below is computed from the waves and read against them here, so a cap
+    // that stopped describing the content it was taken from fails.
+    expect(MOB_CAP).toBe(peakLive(DEFAULT_TUNING));
+    expect(MOB_CAP).toBeGreaterThan(peakArrivals(FRESHNESS_SECONDS));
+    expect(CORPSE_CAP).toBeGreaterThan(
+      MOB_CAP + peakArrivals(FRESHNESS_SECONDS),
+    );
+    expect(MOB_FIRE_CAP).toBeGreaterThan(
+      peakArrivalsOf('revenant', TRANSIT_SECONDS),
+    );
+    // None of the three is a literal: each moves when the waves move.
+    expect(peakArrivals(TRANSIT_SECONDS)).toBeGreaterThan(0);
+  });
+
+  it("takes the mob cap's standing term as the rate times a body's time on the field", () => {
+    // The tech architecture gate's finding: what is alive is what arrived and
+    // has not yet died or left, so a peak taken from the rate alone is a cap
+    // that binds the first time nobody kills anything. Slice B landed the
+    // transit bound; what is held here is the property and not its spelling.
+    const fastest = [PROCESSION_WAVES, CROWD_WAVES, VIGIL_WAVES]
+      .flat()
+      .reduce(
+        (rate, wave) =>
+          wave.repeat === null
+            ? rate
+            : Math.max(rate, wave.count / wave.repeat.intervalSeconds),
+        0,
+      );
+    expect(fastest).toBeGreaterThan(0);
+    expect(MOB_CAP).toBeGreaterThanOrEqual(fastest * TRANSIT_SECONDS);
+    // The teeth: the rate alone is an order of magnitude short of it, so the
+    // assertion is the transit window being counted rather than the window
+    // being generous.
+    expect(fastest * TRANSIT_SECONDS).toBeGreaterThan(10 * fastest);
+    // And a body does stand for longer than a freshness window, which is what
+    // makes the mob cap the corpse cap's first term rather than a second one.
+    expect(TRANSIT_SECONDS).toBeGreaterThan(FRESHNESS_SECONDS);
+  });
+
+  it("prices the mob cap's director term as the cards a transit window holds, at the quiet interval's minimum", () => {
+    // Re-ruled 2026-09-14. What stood: the transit window as the span a cap is
+    // proved over, the quiet interval as what bounds the director's rate, and
+    // the largest card as the per-add unit. What it replaced: the largest
+    // single card, which was one add and therefore a term ordinary play can
+    // exceed, and a cap with such a term is not the proof ADR 0056 asks for.
+    // What the planned test could not have known: that the corpse cap would
+    // price the director per interval in the same file, so the two terms would
+    // have read the same director through two different rules.
+    //
+    // A purse is still not the addend. A purse is what a section may spend over
+    // its whole length, and a window holds only the adds its quiet intervals
+    // leave room for.
+    const perWindow =
+      largestCard(null) *
+      (Math.floor(
+        TRANSIT_SECONDS / DEFAULT_TUNING.stage.quietIntervalMinimumSeconds,
+      ) +
+        1);
+    expect(peakLive(DEFAULT_TUNING)).toBe(
+      peakArrivals(TRANSIT_SECONDS) + perWindow,
+    );
+    expect(largestCard(null)).toBeGreaterThan(0);
+    // The teeth on both sides: it is more than one card, because a transit
+    // window holds several quiet intervals, and still well under a purse.
+    expect(perWindow).toBeGreaterThan(largestCard(null));
+    expect(perWindow).toBeLessThan(DEFAULT_TUNING.stage.processionPurse);
+    expect(perWindow).toBeLessThan(DEFAULT_TUNING.stage.crowdPurse);
+  });
+
+  it('stands the mob-fire cap above the revenant peak plus the worst boss pattern', () => {
+    // Boss fire and trash fire share one pool (mobFire.ts's createShotPool), so
+    // a derivation over the revenants alone would size a pool for a field that
+    // never happens.
+    expect(MOB_FIRE_CAP).toBe(
+      revenantFirePeak(DEFAULT_TUNING) + WORST_BOSS_PATTERN,
+    );
+
+    // Each term stands above its own floor, read off the data rather than off
+    // the derivation. A revenant holds more than one shot in the air because
+    // its shot's flight outlasts its own interval, and a phase holds more than
+    // one emit for the same reason.
+    const revenants =
+      peakArrivalsOf('revenant', TRANSIT_SECONDS) + largestCard('revenant');
+    expect(revenantFirePeak(DEFAULT_TUNING)).toBeGreaterThan(revenants);
+    const worstEmit = Math.max(
+      ...Object.values(BOSS_FIRE)
+        .flat()
+        .map((phase) =>
+          phase.reduce((shots, pattern) => shots + pattern.shots, 0),
+        ),
+    );
+    expect(WORST_BOSS_PATTERN).toBeGreaterThan(worstEmit);
+    // The teeth: without the boss term the cap would be the revenant half
+    // alone, and the bosses put more in the air than the revenants ever do.
+    expect(WORST_BOSS_PATTERN).toBeGreaterThan(0);
+    expect(MOB_FIRE_CAP).toBeGreaterThan(revenantFirePeak(DEFAULT_TUNING));
+
+    // And two phases share the pool at a break, which is why the boss term is a
+    // phase beside the one that follows it rather than a phase alone: the flash
+    // between phases is far shorter than the flight of the slowest shot either
+    // boss fires, so the phase that just ended is still in the air.
+    const slowest = Math.min(
+      ...Object.values(BOSS_FIRE)
+        .flat(2)
+        .map((pattern) => pattern.unitsASecond),
+    );
+    expect(PHASE_FLASH_TICKS / TICK_HZ).toBeLessThan(FIELD_HEIGHT / slowest);
+  });
+
+  it('raises a fault at a bound cap and removes nothing from the field', () => {
+    // ADR 0056 and caps.ts's own rule, held across all three pools rather than
+    // on the corpse pool alone: the spawn is refused, everything already on the
+    // field stays, and the harness raises a recoverable fault.
+    const state = quietRun();
+    fillMobs(state);
+    const mobs = state.mobs.filter((mob) => mob.alive).map((mob) => mob.id);
+    expect(spawnMob(state, 'ghoul', at(80, 40), false, 'wave')).toBeNull();
+    expect(state.mobs.filter((mob) => mob.alive).map((mob) => mob.id)).toEqual(
+      mobs,
+    );
+
+    const shots = state.mobFire.map((shot) => shot.id);
+    for (const shot of state.mobFire) shot.alive = true;
+    expect(
+      fireDirectedShot(
+        state,
+        { x: 10, y: 10 },
+        { x: 0, y: 1 },
+        MOB_TYPES.revenant.fire,
+        'revenant',
+        'trash',
+      ),
+    ).toEqual([]);
+    expect(state.mobFire.map((shot) => shot.id)).toEqual(shots);
+
+    // The corpse pool needs a run with mob slots left, because what fills it is
+    // the corpses dead bodies leave.
+    const food = quietRun(31);
+    fillCorpses(food);
+    const down = foodOn(food);
+    leaveCorpse(food, deadMob(food, 'shambler', 70, 70));
+    expect(foodOn(food)).toEqual(down);
+    expect(
+      checkInvariants(food, createStageWatch()).map((fault) => ({
+        identity: fault.identity,
+        severity: fault.severity,
+      })),
+    ).toContainEqual({
+      identity: 'corpse cap never binds',
+      severity: 'recoverable',
+    });
+  });
+
+  it('takes no corpse off the field to make room for another', () => {
+    // #85's acceptance line and ADR 0056, as its own promise rather than as a
+    // clause of the refusal test: the eviction this replaced took the oldest
+    // corpse under, so what is held is that a full pool asked many times over
+    // still holds exactly the bodies it held before the first ask.
+    const state = quietRun(21);
+    fillCorpses(state);
+    const before = foodOn(state);
+    for (let attempt = 0; attempt < 20; attempt++) {
+      leaveCorpse(state, deadMob(state, 'revenant', 200 + attempt, 400));
+      spawnPowerUp(state, 120, 120, 'bell');
+    }
+    expect(foodOn(state)).toEqual(before);
+    expect(foodOn(state)).toHaveLength(CORPSE_CAP);
+  });
+
+  it('holds a stage with no standing wave to what its beats alone land', () => {
+    // The module test the plan asks for, in the only shape a module holding its
+    // tables as data can take it: the stage has no configuration without
+    // standing waves, so what is read is the same table with its rates struck
+    // out. A stage of beats alone lands far less in a transit window, which is
+    // the whole reason peakLive is a transit window rather than an arrivals
+    // count.
+    const beats = Math.max(
+      ...[PROCESSION_WAVES, CROWD_WAVES, VIGIL_WAVES].flatMap((waves) =>
+        waves.map((wave) => beatsFrom(waves, wave.t, TRANSIT_SECONDS)),
+      ),
+    );
+    expect(beats).toBeGreaterThan(0);
+    expect(peakLive(DEFAULT_TUNING)).toBeGreaterThan(beats);
+    // And it is not merely larger: the rates carry most of it.
+    expect(peakLive(DEFAULT_TUNING)).toBeGreaterThan(2 * beats);
+  });
+});
+
+describe('the caps as derivations of the run tuning record (ADR 0064)', () => {
+  it('derives the numbers the build compiles from the default record', () => {
+    // The whole of what makes this slice a move of where a cap is computed and
+    // never a move of a magnitude: the default record's rows are the constants
+    // the build compiles, so the three derivations answer exactly what the
+    // three module constants held.
+    expect(capsFor(DEFAULT_TUNING)).toEqual({
+      mobs: MOB_CAP,
+      mobFire: MOB_FIRE_CAP,
+      corpses: CORPSE_CAP,
+    });
+    expect(MOB_CAP).toBeGreaterThan(0);
+    expect(MOB_FIRE_CAP).toBeGreaterThan(0);
+    expect(CORPSE_CAP).toBeGreaterThan(0);
+  });
+
+  it('answers a larger cap for a record whose director may add more often', () => {
+    // The point of the derivation taking the record: the quiet interval's
+    // minimum is what bounds the director's rate, so a record that shortens it
+    // lets more bodies stand inside one transit window and all three caps grow
+    // with it. Nothing in the tree could say this while a cap was a const.
+    const often = tuningWithQuietMinimum(1);
+    expect(mobCap(often)).toBeGreaterThan(MOB_CAP);
+    expect(mobFireCap(often)).toBeGreaterThan(MOB_FIRE_CAP);
+    expect(corpseCap(often)).toBeGreaterThan(CORPSE_CAP);
+  });
+
+  it('answers a smaller cap for a record whose director must wait longer', () => {
+    // The other direction, so the derivation is a function of the row rather
+    // than a floor that only ever rises.
+    const seldom = tuningWithQuietMinimum(8);
+    expect(mobCap(seldom)).toBeLessThan(MOB_CAP);
+    expect(corpseCap(seldom)).toBeLessThan(CORPSE_CAP);
+  });
+
+  it('keeps every cap a proof over the record it was handed', () => {
+    // The identities the three JSDoc arguments state, held against a record
+    // that is not the default: the mob cap is its transit window's arrivals
+    // plus the cards that window holds, the mob-fire cap is the revenant peak
+    // plus the worst boss pattern, and the corpse cap is the mob cap plus a
+    // freshness window's arrivals plus the treasure allowance plus the
+    // director's own adds inside that window.
+    const moved = tuningWithQuietMinimum(2);
+    const perWindow = largestCard(null) * (Math.floor(TRANSIT_SECONDS / 2) + 1);
+    expect(mobCap(moved)).toBe(peakArrivals(TRANSIT_SECONDS) + perWindow);
+    expect(mobFireCap(moved)).toBe(
+      revenantFirePeak(moved) + WORST_BOSS_PATTERN,
+    );
+    expect(corpseCap(moved)).toBe(
+      mobCap(moved) +
+        peakArrivals(FRESHNESS_SECONDS) +
+        TREASURE_ALLOWANCE +
+        largestCard(null) * (Math.floor(FRESHNESS_SECONDS / 2) + 1),
+    );
   });
 });

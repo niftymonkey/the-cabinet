@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { TICK_HZ } from '../../../game/clock';
 import { FIELD_HEIGHT } from '../../../game/field';
 import type { Mob, MobType } from '../../../game/mobs';
 import { cullMobs, damageMob, spawnMob } from '../../../game/mobs';
@@ -22,7 +23,13 @@ const SEED = 20260826;
 
 /** One mob standing inside the field, where the belch and the lines can reach it. */
 const standing = (run: RunState, type: MobType, x: number): Mob => {
-  const mob = spawnMob(run, type, { x, y: 200, vx: 0, vy: 1, index: 0 });
+  const mob = spawnMob(
+    run,
+    type,
+    { x, y: 200, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  );
   if (mob === null) throw new Error('the mob pool refused a spawn');
   return mob;
 };
@@ -39,25 +46,25 @@ describe('time to kill', () => {
     observeEngagements(
       accumulator,
       10,
-      damageMob(run, slow, 1, 'soulStream'),
+      damageMob(run, slow, 1, 'skullStream'),
       run,
     );
     observeEngagements(
       accumulator,
       12,
-      damageMob(run, quick, 1, 'soulStream'),
+      damageMob(run, quick, 1, 'skullStream'),
       run,
     );
     observeEngagements(
       accumulator,
       17,
-      damageMob(run, quick, quick.hp, 'soulStream'),
+      damageMob(run, quick, quick.hp, 'skullStream'),
       run,
     );
     observeEngagements(
       accumulator,
       25,
-      damageMob(run, slow, slow.hp, 'soulStream'),
+      damageMob(run, slow, slow.hp, 'skullStream'),
       run,
     );
 
@@ -123,7 +130,7 @@ describe('time to kill', () => {
     observeEngagements(
       accumulator,
       0,
-      damageMob(run, fleeing, 1, 'soulStream'),
+      damageMob(run, fleeing, 1, 'skullStream'),
       run,
     );
     fleeing.y = FIELD_HEIGHT * 2;
@@ -172,19 +179,19 @@ describe('time to kill', () => {
     observeEngagements(
       accumulator,
       0,
-      damageMob(run, target, 1, 'soulStream'),
+      damageMob(run, target, 1, 'skullStream'),
       run,
     );
     observeEngagements(
       accumulator,
       1,
-      damageMob(run, target, 1, 'soulStream'),
+      damageMob(run, target, 1, 'skullStream'),
       run,
     );
     observeEngagements(
       accumulator,
       2,
-      damageMob(run, target, 1, 'soulStream'),
+      damageMob(run, target, 1, 'skullStream'),
       run,
     );
     observeEngagements(
@@ -195,12 +202,119 @@ describe('time to kill', () => {
     );
 
     const fights = engagementsOf(accumulator);
-    expect(fights.hitsByLine.soulStream).toBe(3);
+    expect(fights.hitsByLine.skullStream).toBe(3);
     expect(fights.hitsByLine.territory).toBe(1);
     expect(fights.hitsByLine.wisps).toBe(0);
     expect(fights.hitsByLine.belch).toBe(0);
     expect(fights.fatalBlows.territory).toBe(1);
-    expect(fights.fatalBlows.soulStream).toBe(0);
+    expect(fights.fatalBlows.skullStream).toBe(0);
     expect(fights.hitsPerKill.revenant).toBe(4);
+  });
+
+  it('reads a belch kill whose pool slot a later spawn in the same tick reclaimed', () => {
+    // step.ts fires the belch before the tick's spawns, so a body the belch
+    // took can be gone from the pool by the time the observer reads it: the
+    // first dead slot is the one takeSlot claims, and it arrives stamped with a
+    // newer mob's id. The kill event carries the type, so the fight is still
+    // readable without the slot.
+    const run = createRun(SEED);
+    const accumulator = createEngagements(linesInRun(run.levels));
+    const wiped = standing(run, 'shambler', 100);
+    // Read as a value before the slot is reclaimed: the pool mutates in place,
+    // so the reclaimed slot is the very object wiped points at.
+    const wipedId = wiped.id;
+    const events = damageMob(run, wiped, wiped.hp, 'belch');
+    const reclaimed = standing(run, 'ghoul', 200);
+    expect(reclaimed.id).not.toBe(wipedId);
+    expect(run.mobs.some((mob) => mob.id === wipedId)).toBe(false);
+
+    observeEngagements(accumulator, 7, events, run);
+
+    const fights = engagementsOf(accumulator);
+    expect(fights.engaged.shambler).toBe(1);
+    expect(fights.killed.shambler).toBe(1);
+    expect(fights.fatalBlows.belch).toBe(1);
+    expect(fights.timedKills.shambler).toBe(0);
+    expect(fights.escaped.shambler).toBe(0);
+  });
+
+  it('refuses a death with no damage behind it', () => {
+    // The guard is this reading's own bug detector and stays a guard. Every
+    // death in the sim comes out of damageMob, which reports the damage before
+    // the kill, so a kill with no fight open is a defect in the game rather
+    // than a fight the reading may quietly drop.
+    const run = createRun(SEED);
+    const accumulator = createEngagements(linesInRun(run.levels));
+
+    expect(() =>
+      observeEngagements(
+        accumulator,
+        3,
+        [
+          {
+            type: 'mobKilled',
+            id: 4242,
+            mob: 'shambler',
+            x: 0,
+            y: 0,
+            carried: false,
+          },
+        ],
+        run,
+      ),
+    ).toThrow('mob 4242 died with no damage behind it');
+  });
+
+  it('splits the hits a kill cost by the minute the kill landed in, per type', () => {
+    // Module test for the new axis, including a kill on a minute boundary: the
+    // minute is the kill's own tick divided down, so the first tick of minute
+    // one belongs to minute one and not to minute zero.
+    //
+    // A minute a type had no timed kill in carries no name at all, which is the
+    // module's standing rule: there was no fight, not a fight that cost nothing.
+    const run = createRun(SEED);
+    const accumulator = createEngagements(linesInRun(run.levels));
+    const early = standing(run, 'shambler', 100);
+    const onTheBoundary = standing(run, 'shambler', 200);
+    const justAfter = standing(run, 'shambler', 300);
+
+    observeEngagements(
+      accumulator,
+      10,
+      damageMob(run, early, early.hp, 'skullStream'),
+      run,
+    );
+    // The tick a reading is handed is the count of ticks that have run, so
+    // 60 * TICK_HZ is the last tick of the first minute and not the first tick
+    // of the second: a kill there belongs to minute zero.
+    const boundary = 60 * TICK_HZ;
+    observeEngagements(
+      accumulator,
+      boundary - 1,
+      damageMob(run, onTheBoundary, 1, 'skullStream'),
+      run,
+    );
+    observeEngagements(
+      accumulator,
+      boundary,
+      damageMob(run, onTheBoundary, onTheBoundary.hp, 'skullStream'),
+      run,
+    );
+    observeEngagements(
+      accumulator,
+      boundary + 1,
+      damageMob(run, justAfter, justAfter.hp, 'skullStream'),
+      run,
+    );
+
+    const fights = engagementsOf(accumulator);
+
+    expect(fights.timedKillsByMinute.shambler).toEqual({ '0': 2, '1': 1 });
+    expect(fights.hitsPerKillByMinute.shambler?.['0']).toBe(1.5);
+    expect(fights.hitsPerKillByMinute.shambler?.['1']).toBe(1);
+    // The whole-run figures are untouched by the new axis.
+    expect(fights.timedKills.shambler).toBe(3);
+    // And a type that never died names no minute rather than a zero one.
+    expect(fights.hitsPerKillByMinute.ghoul).toEqual({});
   });
 });

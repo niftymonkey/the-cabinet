@@ -6,7 +6,7 @@ Design research brief. Evidence only, no recommendation. Gathered 2026-08-31 whi
 
 Stripping power on the way to death, instead of dying outright, is catalogued as its own trope with a long shipped history ([Breakable Power-Up, TV Tropes](https://tvtropes.org/pmwiki/pmwiki.php/Main/BreakablePowerUp)). Mario's power ladder (fire, big, small, dead) is the household case. [Ghosts 'n Goblins](https://en.wikipedia.org/wiki/Ghosts_%27n_Goblins) is the purest one: every hit knocks Arthur's armor down a stage until he is in his boxers, and only the hit after that kills him.
 
-The score-bleed rung has an almost exact match in Sonic's rings: while the player holds rings, a hit scatters all of them and never kills; only an empty-handed hit is fatal. The rings are simultaneously score and the death buffer, which is the same double duty this game's score plays at the floor.
+The score-bleed rung has an almost exact match in Sonic's rings: while the player holds rings, a hit scatters all of them and never kills; only an empty-handed hit is fatal. The rings are not the score: they sit beside it as their own counter, which the HUD flashes once it reads zero so the player can see the buffer is gone (the Mega Drive manual's HUD description, and `HUD.asm` in the Sonic 1 disassembly). **Corrected 2026-09-16**, having read "simultaneously score and the death buffer" here. What matches is the mechanism and not the double duty: a resource a hit spends instead of the player's life, refilled only by the player's own act of collecting. This game's score is the buffer and the score at once, which is ours rather than Sonic's.
 
 None of these systems is documented as a fun failure. They are the canon of "death is never abrupt," which is the property ADR 0003 names.
 

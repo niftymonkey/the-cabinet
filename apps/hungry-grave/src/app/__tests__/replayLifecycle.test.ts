@@ -39,6 +39,10 @@ vi.mock('../ui/Button', () => ({
 }));
 
 import { TICK_MS } from '../../game/clock';
+import type { SimEvent } from '../../game/events';
+import type { RunState } from '../../game/run';
+import { createRun } from '../../game/run';
+import { STORM_RENDERER_TRANSIENT_TICKS } from '../screens/game/StormRenderer';
 import { PausePopup } from '../popups/PausePopup';
 import { runHandoff } from '../runHandoff';
 import { GameScreen } from '../screens/game/GameScreen';
@@ -68,6 +72,8 @@ function gameScreen(): GameScreen {
     menuShowing: () => navigation.currentPopup instanceof PausePopup,
     showEnd: () => Promise.resolve(navigation.showScreen()),
     playSound: () => {},
+    playMusic: () => {},
+    standInArt: () => null,
     playButtonSound: () => {},
     canvas,
     // The tape header records the renderer's backend and resolution once per
@@ -80,7 +86,11 @@ function gameScreen(): GameScreen {
 /** A replay screen holding faked powers, the way navigation hands them in. */
 function replayScreen(): ReplayScreen {
   const screen = new ReplayScreen();
-  screen.init({ onBack: () => {}, playButtonSound: () => {} });
+  screen.init({
+    onBack: () => {},
+    playButtonSound: () => {},
+    standInArt: () => null,
+  });
   return screen;
 }
 
@@ -214,5 +224,55 @@ describe('a played run opens in replay', () => {
     driveTo(replay, 'played');
     expect(replay['session'].playback!.run.tick).toBe(180);
     replay.reset();
+  });
+});
+
+/**
+ * The loss announcement reaching a replay (#58). ReplayScreen.syncScreen
+ * hand-mirrors GameScreen.announce, so a channel wired into one and not the
+ * other simply does not play on a replay, and the lead-in's whole promise is
+ * that a replay shows what the live run showed.
+ */
+describe('a replay plays the loss the live run played', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** The loss announcement's own sprite: last into the replay's storm layer. */
+  function blowUp(screen: ReplayScreen): Container {
+    const storm = screen['layers'].layer('storm').children;
+    const sprite = storm[storm.length - 1];
+    if (sprite === undefined) throw new Error('no loss sprite in the storm');
+    return sprite as Container;
+  }
+
+  /** One playback frame, as the session hands one to the screen. */
+  function playing(run: RunState, events: readonly SimEvent[]) {
+    return { run, events, forgetPreviousRun: false };
+  }
+
+  it('blows up a stripped line on a replay, through the same renderer the run drew with', () => {
+    const screen = replayScreen();
+    const run = createRun(7);
+    run.tick = 30;
+    const skull = run.skulls[0];
+    if (skull === undefined) throw new Error('no skull pool slot 0');
+    skull.alive = true;
+    skull.id = 1;
+    skull.x = 200;
+    skull.y = 300;
+
+    const advance = vi.spyOn(screen['session'], 'advance');
+    advance.mockReturnValue(
+      playing(run, [{ type: 'weaponStripped', lines: ['skullStream'] }]),
+    );
+    screen.update(frame(TICK_MS));
+    expect(blowUp(screen).visible).toBe(true);
+
+    // And it ends on its own declared lifetime, exactly as it does live.
+    run.tick = 30 + STORM_RENDERER_TRANSIENT_TICKS.lossBlowUp;
+    advance.mockReturnValue(playing(run, []));
+    screen.update(frame(TICK_MS));
+    expect(blowUp(screen).visible).toBe(false);
   });
 });

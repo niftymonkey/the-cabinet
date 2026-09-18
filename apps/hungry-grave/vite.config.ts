@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process';
 import { defineConfig } from 'vite';
 
 import { assetpackPlugin } from './scripts/assetpack-vite-plugin';
+import { buildIdentityHere } from './scripts/buildIdentity';
 
 /**
  * The commit this bundle was built from, which every tape carries in its header
@@ -34,6 +35,7 @@ export default defineConfig({
   define: {
     APP_VERSION: JSON.stringify(process.env.npm_package_version),
     COMMIT_HASH: JSON.stringify(commitHash()),
+    BUILD_IDENTITY: JSON.stringify(buildIdentityHere()),
   },
   build: {
     rollupOptions: {

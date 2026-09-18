@@ -22,7 +22,7 @@ const liveCount = (pool: readonly { alive: boolean }[]): number =>
  * from run data, never this one.
  */
 const ON_FIELD_BY_LINE: Readonly<Partial<Record<WeaponLine, OnFieldCount>>> = {
-  soulStream: (state) => liveCount(state.skulls),
+  skullStream: (state) => liveCount(state.skulls),
   wisps: (state) => liveCount(state.wisps),
   // The line's own export and never a wrapper around it, so a walk of the patch
   // pool written here fails a test rather than agreeing with the seam forever.

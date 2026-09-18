@@ -6,12 +6,26 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { stream, type StreamName } from '../rng';
+import { HAND_STREAM } from '../../dev/harnessPolicy';
+import { stream, STREAM_SALTS } from '../rng';
 import { createRun } from '../run';
 
-const NAMES: readonly StreamName[] = ['spawns', 'drops', 'mobFire', 'shed'];
+/**
+ * Every salt a run's streams are seeded with, plus the harness hand's, which is
+ * made outside RunState and off the same run seed.
+ *
+ * The list is derived and never hand-kept (#113). It was four names for as
+ * long as the run held five, and the fifth arrived without the search that
+ * exists to catch a collision ever being told about it. STREAM_SALTS is keyed
+ * by StreamName, so a stream added to the run cannot reach here without a salt.
+ *
+ * It is the salts and not the stream names, because the salt is what `stream`
+ * folds into the seed: the sequences that have to stay apart are the ones a run
+ * actually draws.
+ */
+const NAMES: readonly string[] = [...Object.values(STREAM_SALTS), HAND_STREAM];
 
-function draws(seed: number, name: StreamName, count: number): number[] {
+function draws(seed: number, name: string, count: number): number[] {
   const source = stream(seed, name);
   return Array.from({ length: count }, () => source.next());
 }
@@ -22,7 +36,7 @@ const RUN_DRAW_BUDGET = 10_000;
 // Ten budgets of headroom, so "no overlap" is a wide margin and not a squeak.
 const SEARCH_WINDOW = 10 * RUN_DRAW_BUDGET;
 
-// Enough draws in a row that an accidental match is not chance.
+// Enough draws in a wave that an accidental match is not chance.
 const NEEDLE = 8;
 
 /**
@@ -67,9 +81,55 @@ describe('named seeded streams', () => {
     }
     expect(offenders).toEqual([]);
   });
+  it("the overlap search covers every stream a run holds and the hand's beside them (#113)", () => {
+    // The search below is only worth the names it is handed, and a list kept
+    // by hand goes stale in silence: the territory stream landed while this
+    // file still named four. STREAM_SALTS answers for the run's own, and the
+    // hand's is the one salt outside it, because the harness makes its stream
+    // in src/dev rather than inside RunState (ADR 0019).
+    expect([...NAMES].sort()).toEqual([
+      'bossFire',
+      'director',
+      'drops',
+      HAND_STREAM,
+      'mobFire',
+      'pour',
+      'shed',
+      'spawns',
+      'territory',
+    ]);
+    expect(NAMES).toHaveLength(new Set(NAMES).size);
+  });
+
+  it('seeds the power-up stream from the salt the first tape was recorded under', () => {
+    // A salt is a durable identity, not a name: `stream` folds it into the run
+    // seed, so moving it would give the same seed a different sequence and
+    // every tape recorded before the move would stop reproducing its own run.
+    // ADR 0061 renamed the stream from drops to power-ups and held the salt,
+    // and this is the guard that a later rename cannot take it with it.
+    expect(STREAM_SALTS.powerUps).toBe('drops');
+    const run = createRun(4242);
+    expect(
+      Array.from({ length: 64 }, () => run.streams.powerUps.next()),
+    ).toEqual(draws(4242, 'drops', 64));
+  });
+
+  it("gives the same sequence twice for a name outside the run's own streams (ADR 0012)", () => {
+    // stream's parameter is a name string rather than the closed union, so the
+    // harness can make its own without putting the bot's dice in the shipped
+    // simulation. The widening changes who may ask for a stream and nothing
+    // about what a stream is: the hand's is a stream on exactly the run's own
+    // terms.
+    expect(draws(4242, HAND_STREAM, 64)).toEqual(draws(4242, HAND_STREAM, 64));
+    expect(draws(4242, HAND_STREAM, 64)).not.toEqual(
+      draws(4243, HAND_STREAM, 64),
+    );
+    expect(draws(4242, HAND_STREAM, 64)).not.toEqual(draws(4242, 'spawns', 64));
+  });
+
   it('nextInt stays in [0, bound) and covers every value over enough draws', () => {
     for (const bound of [1, 2, 4, 6, 7, 37]) {
-      const source = stream(31, 'drops');
+      const source = stream(31, 'powerUps');
       const seen = new Set<number>();
       for (let i = 0; i < 4000; i++) {
         const value = source.nextInt(bound);
@@ -118,7 +178,7 @@ describe('named seeded streams', () => {
     // The rejection loop cannot terminate on a bound of zero, nor on one above
     // the generator's 32-bit range, and dispatch 4 computes its bounds, so the
     // failure mode without this is a frozen tab with nothing in the console.
-    const source = stream(31, 'drops');
+    const source = stream(31, 'powerUps');
     for (const bound of [0, -1, 2.5, NaN, 4_294_967_297]) {
       expect(() => source.nextInt(bound)).toThrow(RangeError);
     }

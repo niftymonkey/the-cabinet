@@ -9,13 +9,13 @@ import { describe, expect, it } from 'vitest';
 import { TICK_HZ } from '../../game/clock';
 import type { TickCommand } from '../../game/command';
 import { createExecution, executeTick } from '../../game/execution';
-import { WEAPON_LINES } from '../../game/lines/roster';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
 import { WITNESS_VERSION } from '../../game/witness';
 import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
 import type { Tape, TapeHeader } from '../../tape/tape';
+import { SCRIPT_POLICY } from '../../tape/tape';
 import type {
   ComparedReading,
   ComparedRuns,
@@ -32,6 +32,7 @@ import { ABSENT, compareRuns, INCOMPARABLE } from '../compareRuns';
 import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
 import { READINGS_VERSION } from '../readingsVersion';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const SEED = 20260826;
 const SPACING = 20;
@@ -46,9 +47,7 @@ function header(
 ): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -56,6 +55,7 @@ function header(
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,
@@ -76,7 +76,7 @@ function recordARun(
   overrides: Partial<TapeHeader> = {},
   levels?: Record<WeaponLine, number>,
 ): Tape {
-  const run = createRun(SEED, undefined, levels);
+  const run = createRun(SEED, { startingLevels: levels });
   const execution = createExecution(run);
   const recorder = recordInto(execution, header(run, overrides));
   for (let tick = 0; tick < TICKS; tick++) {
@@ -235,7 +235,9 @@ describe('compareRuns', () => {
       right: base.endLevels.bell + 4,
       delta: 4,
     });
-    expect(levels.names.soulStream.delta).toBe(0);
+    const skullStream = levels.names.skullStream;
+    if (skullStream === undefined) throw new Error('no skullStream entry');
+    expect(skullStream.delta).toBe(0);
   });
 
   it('leaves a key present on one side only absent on the missing side, never zero-filled and never given a delta', () => {
@@ -283,8 +285,10 @@ describe('compareRuns', () => {
       'max',
       'mean',
     ]);
-    expect(size.summary.first.left).toBe(base.tuning.gravePath.sizePerTick[0]);
-    expect(size.summary.first.delta).toBe(0);
+    const first = size.summary.first;
+    if (first === undefined) throw new Error('no first entry in summary');
+    expect(first.left).toBe(base.tuning.gravePath.sizePerTick[0]);
+    expect(first.delta).toBe(0);
   });
 
   it('summarises an empty series as absent on that side, and gives it no delta', () => {
@@ -307,10 +311,14 @@ describe('compareRuns', () => {
 
     expect(base.tuning.gravePath.sizePerTick.length).toBeGreaterThan(0);
     for (const figure of Object.keys(size.summary)) {
-      expect(size.summary[figure].left).toBe(ABSENT);
-      expect(size.summary[figure].delta).toBe(ABSENT);
+      const entry = size.summary[figure];
+      if (entry === undefined) throw new Error(`no ${figure} entry in summary`);
+      expect(entry.left).toBe(ABSENT);
+      expect(entry.delta).toBe(ABSENT);
     }
-    expect(size.summary.first.right).toBe(base.tuning.gravePath.sizePerTick[0]);
+    const first = size.summary.first;
+    if (first === undefined) throw new Error('no first entry in summary');
+    expect(first.right).toBe(base.tuning.gravePath.sizePerTick[0]);
   });
 
   it("shows a record list as each side's count with both lists carried, pairing no entries", () => {
@@ -323,7 +331,22 @@ describe('compareRuns', () => {
         ...base.tuning,
         belchCadence: {
           ...base.tuning.belchCadence,
-          fires: [{ tick: 12, killed: 3, cancelled: 4 }],
+          fires: [
+            {
+              tick: 12,
+              beganAt: 11,
+              shoved: 3,
+              cancelled: 4,
+              inFrame: 5,
+              misses: {
+                notEntered: 1,
+                outOfReach: 1,
+                noDirection: 0,
+                notPushable: 0,
+              },
+              shoves: [],
+            },
+          ],
         },
       },
     };
@@ -335,7 +358,22 @@ describe('compareRuns', () => {
 
     expect(fires.count).toEqual({ left: 0, right: 1, delta: 1 });
     expect(fires.leftEntries).toEqual([]);
-    expect(fires.rightEntries).toEqual([{ tick: 12, killed: 3, cancelled: 4 }]);
+    expect(fires.rightEntries).toEqual([
+      {
+        tick: 12,
+        beganAt: 11,
+        shoved: 3,
+        cancelled: 4,
+        inFrame: 5,
+        misses: {
+          notEntered: 1,
+          outOfReach: 1,
+          noDirection: 0,
+          notPushable: 0,
+        },
+        shoves: [],
+      },
+    ]);
     expect(Object.keys(fires).sort()).toEqual([
       'count',
       'leftEntries',

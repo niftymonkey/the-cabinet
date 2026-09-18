@@ -6,8 +6,6 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { WEAPON_LINES } from '../../../game/lines/roster';
-
 import { TICK_MS } from '../../../game/clock';
 import { createExecution, executeTick } from '../../../game/execution';
 import { createRun } from '../../../game/run';
@@ -21,7 +19,9 @@ import {
   tapeOf,
 } from '../../../tape/recorder';
 import type { Tape, TapeHeader } from '../../../tape/tape';
+import { SCRIPT_POLICY } from '../../../tape/tape';
 import { createTapePlaybackSession } from '../tapePlaybackSession';
+import { startingConditionBlock } from '../../../tape/startingCondition';
 
 /** The recorded debt the trailer carries, asserted against the debt readout. */
 const RECORDED_DEBT = 5;
@@ -30,9 +30,7 @@ const RECORDED_DEBT = 5;
 function headerFor(run: RunState): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: 60,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -40,6 +38,7 @@ function headerFor(run: RunState): TapeHeader {
     buildIdentity: '',
     author: 'test',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'test',
     rendererResolution: 1,

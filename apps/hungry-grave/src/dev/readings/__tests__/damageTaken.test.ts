@@ -9,9 +9,9 @@ import { describe, expect, it } from 'vitest';
 import type { SimEvent } from '../../../game/events';
 import type { GraveHitSource } from '../../../game/grave';
 import { ageGrave, hitGrave } from '../../../game/grave';
-import type { WeaponLine } from '../../../game/lines/roster';
+import { BIRTHRIGHT, WEAPON_LINES } from '../../../game/lines/roster';
 import type { RunState } from '../../../game/run';
-import { createRun } from '../../../game/run';
+import { createRun, uniformLevels } from '../../../game/run';
 import { INVULNERABLE_TICKS, SIZE_FLOOR } from '../../../game/tuning';
 import {
   createDamageTaken,
@@ -49,8 +49,27 @@ describe('damage taken', () => {
       shambler: 2,
       revenant: 0,
       ghoul: 1,
+      cairn: 0,
+      banshee: 0,
+      undertaker: 0,
       contact: 0,
     });
+    expect(taken.totalHits).toBe(3);
+  });
+
+  it("counts a boss's pattern under that boss and never under a mob", () => {
+    // Who hurt the player is a question a boss is allowed to be the answer to
+    // (#48), and which boss's pattern is landing is the thing a fight's
+    // reading is asked. A boss row folded into a mob's would answer neither.
+    const taken = takenFrom(createRun(SEED), [
+      'undertaker',
+      'shambler',
+      'undertaker',
+    ]);
+
+    expect(taken.hits.undertaker).toBe(2);
+    expect(taken.hits.banshee).toBe(0);
+    expect(taken.hits.shambler).toBe(1);
     expect(taken.totalHits).toBe(3);
   });
 
@@ -74,13 +93,18 @@ describe('damage taken', () => {
     // instead, so the ladder's rungs are the reading and a summed size-unit
     // total would be two different things added together. The key set is
     // asserted because the absence is the point.
-    const levels: Record<WeaponLine, number> = {
-      soulStream: 2,
-      territory: 2,
-      wisps: 1,
-      bell: 1,
-    };
-    const run = createRun(SEED, SIZE_FLOOR, levels);
+    // Every line one rung above its own floor, so the ladder has exactly one
+    // strip in it and the three hits are bleed, strip, seal. Derived from the
+    // birthright rather than written out, so thinning the birthright moves the
+    // fixture instead of the reading.
+    const levels = uniformLevels(0);
+    for (const line of WEAPON_LINES) {
+      levels[line] = BIRTHRIGHT.includes(line) ? 2 : 1;
+    }
+    const run = createRun(SEED, {
+      startingSize: SIZE_FLOOR,
+      startingLevels: levels,
+    });
     run.score = 10;
 
     const taken = takenFrom(run, ['revenant', 'revenant', 'revenant']);

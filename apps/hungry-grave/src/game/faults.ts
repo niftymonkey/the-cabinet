@@ -7,10 +7,11 @@
  *
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
- * section and hardens the moment the first tape exists. Twelve identities
- * against fourteen checks: checkPools carries two, the caps and the ids, and
- * checkStage carries two, one for each of the two things it watches, while the
- * five bounds checks share one identity between them. The grave's own bounds
+ * section and hardens the moment the first tape exists. Twenty-four
+ * identities against twenty-five checks: checkPools carries two, the caps and
+ * the ids, checkStage carries two, one for each of the two things it watches,
+ * and checkRefusals carries three, one per cap that can turn something away,
+ * while the six bounds checks share one identity between them. The grave's own bounds
  * check is "in bounds" and sits beside a separate "entities in bounds", one
  * fatal and one recoverable, which is the pair a severity table most easily
  * confuses.
@@ -26,8 +27,20 @@ const FAULT_IDENTITIES = [
   'reservoir in range',
   'levels in range',
   'one live ring',
-  'phase index only increases',
-  'phase tick resets at a boundary',
+  'section index only increases',
+  'section tick resets at a boundary',
+  'one live offer',
+  'offer bodies alive and matching',
+  'bank not negative',
+  'corpse cap never binds',
+  'carrier spawn never refused',
+  'offer stands a body',
+  'boss phase only increases',
+  'set piece budget not negative',
+  'set piece body gone when spent',
+  'director purse not negative',
+  'score rung re-armed by growth',
+  'score not negative',
 ] as const;
 
 // One member of the closed list above.
@@ -51,12 +64,58 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * structural assumption was violated outside the pool API, after which no other
  * check's answer is trustworthy.
  *
- * Recoverable, nine checks and six identities. A stray entity is culled or
- * draws off-screen and nothing reads it wrong, and the five checks that watch
+ * Recoverable, eighteen checks and eighteen identities. A stray entity is culled or
+ * draws off-screen and nothing reads it wrong, and the six checks that watch
  * for one all record under the same identity. A corpse pays the wrong amount
  * into a size the fatal check still guards. One line's charge is wrong and
  * payReservoir clamps it back. A bell ring over-expands within one line. And a
- * stage phase repeats or skips spawns while the simulation stays coherent.
+ * stage section repeats or skips spawns while the simulation stays coherent.
+ *
+ * The three offer identities are recoverable for the same reason the ring is,
+ * and it is worth saying plainly because what they guard is expensive: a
+ * second offer's bodies on the field, a body carrying an option the offer does
+ * not name, or a bank below zero all mean the player is paid the wrong power,
+ * which spoils a run without making one number in it untrustworthy. Nothing
+ * downstream of them reads a poisoned value, so terminating the run would
+ * punish the player for a bookkeeping fault they cannot see.
+ *
+ * The three refusal identities are recoverable on the same reading, and the
+ * reading is the whole reason they exist (ADR 0056). A cap sized so that it
+ * cannot bind in normal play has, when it binds, cost the player a corpse, a
+ * carrier or an offer that the game itself could not deliver. The run is coherent
+ * and one body poorer, which is exactly a state to report loudly and carry on
+ * from, and terminating it would take a whole run away over food.
+ *
+ * The director's purse is recoverable on the bank's own reading, and the
+ * precedent is exact: `bank not negative` and `set piece budget not negative`
+ * are both bookkeeping budgets that go wrong without poisoning a value anything
+ * downstream reads, and both are recoverable. A purse below zero means the
+ * director was paid for a card it could not afford; the run is coherent and the
+ * section's floor is intact, and killing the run over a budget the player
+ * cannot see would be a worse answer than reporting it.
+ *
+ * The score rung reads the same way, and the bank is again the precedent. A
+ * rung still marked spent at a size that has already bought it back withholds
+ * a cushion the player paid for, which spoils a run without making one number
+ * in it untrustworthy: the size, the score and the levels are each still
+ * exactly what the rules wrote, and nothing downstream reads a poisoned value.
+ * Ending the run over a cushion the player cannot see would be the worse
+ * answer.
+ *
+ * A score below zero is recoverable on the same reading and never on a softer
+ * one. It is the run's own tally and nothing downstream of it reads a poisoned
+ * value: the size, the levels and the field are all exactly what the rules
+ * wrote, and a wrong number on the readout is not a reason to take the run
+ * away from the player. What it costs is the score, and the fault is what says
+ * so loudly enough to find the site that reversed a sign.
+ *
+ * The boss's phase and the set piece's two are recoverable on the stage's own
+ * reading (ADR 0007, ADR 0042). A phase that went backwards replays a pattern
+ * the player has already beaten, a budget below zero pours nothing, and a body
+ * that disagrees with its own health is a source the storm goes on hitting or a
+ * sprite that never leaves; all three spoil a fight without poisoning a number
+ * anything downstream reads, and killing the run at the climax is a worse
+ * answer than reporting it.
  */
 const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'no NaN': 'fatal',
@@ -69,8 +128,20 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'reservoir in range': 'recoverable',
   'levels in range': 'fatal',
   'one live ring': 'recoverable',
-  'phase index only increases': 'recoverable',
-  'phase tick resets at a boundary': 'recoverable',
+  'section index only increases': 'recoverable',
+  'section tick resets at a boundary': 'recoverable',
+  'one live offer': 'recoverable',
+  'offer bodies alive and matching': 'recoverable',
+  'bank not negative': 'recoverable',
+  'corpse cap never binds': 'recoverable',
+  'carrier spawn never refused': 'recoverable',
+  'offer stands a body': 'recoverable',
+  'boss phase only increases': 'recoverable',
+  'set piece budget not negative': 'recoverable',
+  'set piece body gone when spent': 'recoverable',
+  'director purse not negative': 'recoverable',
+  'score rung re-armed by growth': 'recoverable',
+  'score not negative': 'recoverable',
 };
 
 // One invariant found broken on one tick.

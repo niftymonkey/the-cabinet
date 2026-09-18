@@ -37,8 +37,10 @@ interface PolicyRun {
  *
  * The bot lives in src/dev because it is the test rig and not the game, and it
  * is not wired into the rendered app: ADR 0013 makes the same bot the dev-only
- * autopilot there, and the tracer plan puts that at the tuning dispatch behind
- * the input-model fence.
+ * autopilot there, and the tuning dispatch that was named as the trigger has
+ * now run and declined it (#39, the mow-ladder-director record's section 6).
+ * Watching a hand play is not a reading and the batch is, and this bot only
+ * dodges, so an autopilot on screen would show a policy rather than the game.
  */
 const runPolicy = (
   execution: Execution,
@@ -77,7 +79,6 @@ const MOVES: readonly MoveCommand[] = [
  * the one a policy sampling only the horizon cannot see at all.
  */
 const LOOKAHEAD_SAMPLES = [5, 12, 20, 30];
-const LOOKAHEAD_TICKS = LOOKAHEAD_SAMPLES[LOOKAHEAD_SAMPLES.length - 1];
 
 // Only threats this close are considered, so the policy stays a local read rather than a search.
 const THREAT_RADIUS = 240;
@@ -173,33 +174,72 @@ const clearanceAt = (
   return Math.max(dx, dy);
 };
 
-const distanceToHome = (at: { x: number; y: number }): number => {
-  const dx = at.x - HOME.x;
-  const dy = at.y - HOME.y;
+const distanceTo = (
+  at: { x: number; y: number },
+  point: { x: number; y: number },
+): number => {
+  const dx = at.x - point.x;
+  const dy = at.y - point.y;
   return Math.sqrt(dx * dx + dy * dy);
 };
 
 /**
+ * The least room a move leaves over the whole look-ahead, capped at what counts
+ * as enough. Negative means the grave is inside something at some sample, so a
+ * move whose best is negative has nowhere clear to put the grave at all.
+ */
+const tightestClearance = (
+  state: RunState,
+  move: MoveCommand,
+  threats: readonly Threat[],
+  speed: number,
+  enough: number,
+  samples: readonly number[],
+): number => {
+  let tightest = enough;
+  for (const ticks of samples) {
+    const at = graveAfter(state, move, ticks, speed);
+    for (const threat of threats) {
+      tightest = Math.min(tightest, clearanceAt(state, at, threat, ticks));
+    }
+  }
+  return tightest;
+};
+
+/**
  * How good a move looks: the tightest clearance it leaves over the look-ahead,
- * capped, with the drift home breaking ties. Capping the clearance is what
- * keeps this a plausible human rather than an optimizer: past a body's width of
- * room it stops caring how much more it could have had.
+ * capped, with the drift toward where the hand wants to be breaking ties.
+ * Capping the clearance is what keeps this a plausible human rather than an
+ * optimizer: past a body's width of room it stops caring how much more it could
+ * have had, and that is the room in which wanting to be somewhere decides.
+ *
+ * The samples arrive as a parameter and are never read from the module, so a
+ * head that looks less far ahead is a shorter list rather than a second dodge
+ * (ADR 0053's strategy error). The list is also the wanting's: a move is judged
+ * where it arrives at the last sample, so a shorter list settles nearer.
  */
 const scoreMove = (
   state: RunState,
   move: MoveCommand,
   threats: readonly Threat[],
   speed: number,
+  wants: { x: number; y: number },
+  enough: number,
+  samples: readonly number[],
 ): number => {
-  let tightest = ENOUGH_CLEARANCE;
-  for (const ticks of LOOKAHEAD_SAMPLES) {
-    const at = graveAfter(state, move, ticks, speed);
-    for (const threat of threats) {
-      tightest = Math.min(tightest, clearanceAt(state, at, threat, ticks));
-    }
-  }
-  const settled = graveAfter(state, move, LOOKAHEAD_TICKS, speed);
-  return tightest * 1000 - distanceToHome(settled);
+  const tightest = tightestClearance(
+    state,
+    move,
+    threats,
+    speed,
+    enough,
+    samples,
+  );
+  const farthest = samples[samples.length - 1];
+  if (farthest === undefined)
+    throw new Error('scoreMove called with no samples');
+  const settled = graveAfter(state, move, farthest, speed);
+  return tightest * 1000 - distanceTo(settled, wants);
 };
 
 /**
@@ -218,11 +258,43 @@ const dodgePolicy: Policy = (state) => {
 
 // The roomiest of the nine moves a thumb can make, which is the whole of the dodge.
 const bestDodge = (state: RunState): MoveCommand => {
+  return bestMoveToward(state, HOME, ENOUGH_CLEARANCE, LOOKAHEAD_SAMPLES);
+};
+
+/**
+ * The same dodge, wanting to be somewhere: the roomiest of the nine moves, with
+ * the distance to a chosen point breaking ties where the room is equal.
+ *
+ * Every policy in this file that goes anywhere is this function under a
+ * different point, so a hand that dives and a hand that waits differ in what
+ * they want and never in how well they dodge, which is what makes a comparison
+ * between them a comparison of the wanting.
+ *
+ * The look-ahead samples are the caller's, with no default, so the file says at
+ * every call site which horizon that policy steers on. A default would hide it
+ * at exactly the moment a policy reading a different one exists.
+ */
+const bestMoveToward = (
+  state: RunState,
+  point: { x: number; y: number },
+  enough: number,
+  samples: readonly number[],
+): MoveCommand => {
   const threats = threatsNear(state);
-  let best = MOVES[0];
+  const firstMove = MOVES[0];
+  if (firstMove === undefined) throw new Error('MOVES is empty');
+  let best = firstMove;
   let bestScore = -Infinity;
   for (const move of MOVES) {
-    const score = scoreMove(state, move, threats, BASE_SPEED);
+    const score = scoreMove(
+      state,
+      move,
+      threats,
+      BASE_SPEED,
+      point,
+      enough,
+      samples,
+    );
     if (score <= bestScore) continue;
     bestScore = score;
     best = move;
@@ -231,13 +303,15 @@ const bestDodge = (state: RunState): MoveCommand => {
 };
 
 /**
- * Dodges and never belches. It carries the first half of ADR 0042's two-sided
- * Wall property: an edge-to-edge curtain built as the belch's target stays
- * crossable unloaded, at a real cost in size or hits.
+ * Dodges and never belches. It carries the first half of ADR 0042's Wall
+ * property as amended 2026-09-15: a curtain crossed without the key costs the
+ * grave more than an unloaded one has.
  *
  * Written as a plausible human and not as an optimizer, the same rule
  * dodgePolicy is written under, because a bot proof is an upper bound on
- * perfect play and never a fairness result.
+ * perfect play and never a fairness result. That matters most on exactly this
+ * property: an optimizer threading a curtain would prove a crossing no person
+ * can make, and the cost this policy pays is the one a person pays.
  */
 const unloadedPolicy: Policy = (state, caused) => {
   return { move: dodgePolicy(state, caused).move, belch: false };
@@ -245,15 +319,47 @@ const unloadedPolicy: Policy = (state, caused) => {
 
 /**
  * How many shots on the field make a belch worth spending. Below this the
- * reservoir is better kept, which is the judgement a person makes and the only
- * thing this policy adds to dodging.
+ * reservoir is better kept, which is the judgement a person makes and one of
+ * the two things this policy adds to dodging.
  */
 const BELCH_WORTH_IT = 8;
 
 /**
- * Dodges, and belches when the reservoir is full and there is a curtain worth
- * cancelling. It carries the other half of ADR 0042's property: the curtain is
- * never crossable for free.
+ * Whether the thumb has nowhere clear to go: every one of the nine moves puts
+ * the grave inside something somewhere over the look-ahead.
+ *
+ * It is the second thing a person spends a press on, and it is geometry rather
+ * than a set piece: the policy asks whether it can get through what is in front
+ * of it and never what put it there, so nothing here is keyed on which set
+ * piece is on the field (ADR 0042, design record R4).
+ *
+ * A body count cannot stand in for it and that is measured, not assumed: the
+ * stage's own mow puts a median of 12 bodies inside the press's reach and 45 at
+ * its ninetieth percentile, where the whole curtain is 16, so a hand belching
+ * on a count would empty its reservoir into ordinary traffic and stand at the
+ * curtain with nothing (local/round2/L-bodies-in-reach.ts, 2026-09-16).
+ */
+const nowhereClearToGo = (state: RunState): boolean => {
+  const threats = threatsNear(state);
+  for (const move of MOVES) {
+    const room = tightestClearance(
+      state,
+      move,
+      threats,
+      BASE_SPEED,
+      ENOUGH_CLEARANCE,
+      LOOKAHEAD_SAMPLES,
+    );
+    if (room >= 0) return false;
+  }
+  return true;
+};
+
+/**
+ * Dodges, and belches when the reservoir is full and either the air is thick
+ * with shots or the thumb has nowhere clear to go. It carries the other half of
+ * ADR 0042's property as amended: the belch is the key, so a hand holding one
+ * crosses the curtain clean.
  */
 const belchingPolicy: Policy = (state, caused) => {
   const loaded = state.reservoir >= RESERVOIR_CAPACITY;
@@ -263,7 +369,7 @@ const belchingPolicy: Policy = (state, caused) => {
   );
   return {
     move: dodgePolicy(state, caused).move,
-    belch: loaded && shots >= BELCH_WORTH_IT,
+    belch: loaded && (shots >= BELCH_WORTH_IT || nowhereClearToGo(state)),
   };
 };
 
@@ -308,12 +414,13 @@ const nearestThreat = (state: RunState): Threat | null => {
 /**
  * Steers deliberately into the nearest threat, and reaches sealed shut.
  *
- * It cannot walk the whole ADR 0003 ladder and must not be asked to. Score
- * arrives only as ceiling overflow from a swallow and a strippable level needs
- * a drop, so in a build with no drops the bot arrives at the floor with score
- * zero and nothing above the birthright: the next hit seals. The ladder's own
- * order is tested in grave.test.ts against hand-seeded state, and that is where
- * it stays.
+ * What of ADR 0003's ladder it walks is a fact about the run it is handed
+ * rather than about the policy. It never dives, so it buys nothing: score
+ * arrives only as ceiling overflow from a swallow and a strippable level only
+ * from a power-up, and on a run born at the birthright it arrives at the floor with
+ * score zero and nothing above it, so the next hit seals. Handed a run standing
+ * above the birthright with score on it, the same steering walks every rung in
+ * order, which is what src/__tests__/endings.test.ts plays inside a boss fight.
  */
 const hitTakingPolicy: Policy = (state) => {
   return { move: towardNearest(state), belch: false };
@@ -323,11 +430,90 @@ const hitTakingPolicy: Policy = (state) => {
 const towardNearest = (state: RunState): MoveCommand => {
   const target = nearestThreat(state);
   if (target === null) return { x: 0, y: 0 };
-  const dx = target.x - state.grave.x;
-  const dy = target.y - state.grave.y;
+  return toward(state, target);
+};
+
+// The unit move that closes on a point, or nothing when the grave is on it.
+const toward = (
+  state: RunState,
+  point: { x: number; y: number },
+): MoveCommand => {
+  const dx = point.x - state.grave.x;
+  const dy = point.y - state.grave.y;
   const length = Math.sqrt(dx * dx + dy * dy);
   if (length === 0) return { x: 0, y: 0 };
   return { x: dx / length, y: dy / length };
+};
+
+// The nearest piece of food to the grave, or null when there is none on the field.
+const nearestFood = (state: RunState): { x: number; y: number } | null => {
+  let nearest: { x: number; y: number } | null = null;
+  let best = Infinity;
+  for (const corpse of state.corpses) {
+    if (!corpse.alive) continue;
+    const dx = corpse.x - state.grave.x;
+    const dy = corpse.y - state.grave.y;
+    const distance = dx * dx + dy * dy;
+    if (distance >= best) continue;
+    best = distance;
+    nearest = corpse;
+  }
+  return nearest;
+};
+
+/**
+ * How much room a hand committing to the trail settles for: half a trash body's
+ * width, against the whole body's width the drifting hand keeps.
+ *
+ * It is what makes committing a commitment rather than a preference. Above the
+ * cap two moves tie on room and where the hand wants to be decides, so a hand
+ * that only takes the roomiest move never reaches anything inside a swarm:
+ * every move in a pour leaves less than a body's width and the wanting never
+ * gets to decide at all. Squeezing past a body to reach a corpse is what a
+ * person does, and danger and opportunity standing in the same place is the
+ * project's own bet (VISION.md:21).
+ */
+const COMMITTING_CLEARANCE = 12;
+
+/**
+ * Commits to the trail: it dodges exactly as dodgePolicy does and swims up to
+ * whatever food is nearest instead of drifting home. It carries the first half
+ * of the Waking's property (ADR 0042), that a grave which goes and gets the
+ * trail is paid far more than one that waits for it.
+ *
+ * Written as a plausible human and not as an optimizer, the same rule
+ * dodgePolicy is written under: it reads the nearest body rather than solving
+ * for the richest reachable order, and it still takes the roomiest move it can
+ * find rather than driving through bodies to reach a corpse.
+ */
+const divingPolicy: Policy = (state) => {
+  return {
+    move: bestMoveToward(
+      state,
+      nearestFood(state) ?? HOME,
+      COMMITTING_CLEARANCE,
+      LOOKAHEAD_SAMPLES,
+    ),
+    belch: false,
+  };
+};
+
+/**
+ * Holds low and lets the scroll deliver: it tracks food across the field
+ * without ever climbing to meet it, which is the same hand as the diving one
+ * with the height taken out of what it wants.
+ *
+ * The other half of the same property, and the half that has to be a plausible
+ * human rather than a straw man: a property proved against a grave that stood
+ * perfectly still would be proving something no person does.
+ */
+const waitingPolicy: Policy = (state) => {
+  const food = nearestFood(state);
+  const at = { x: food?.x ?? HOME.x, y: HOME.y };
+  return {
+    move: bestMoveToward(state, at, ENOUGH_CLEARANCE, LOOKAHEAD_SAMPLES),
+    belch: false,
+  };
 };
 
 export {
@@ -336,5 +522,11 @@ export {
   unloadedPolicy,
   belchingPolicy,
   hitTakingPolicy,
+  divingPolicy,
+  waitingPolicy,
+  bestMoveToward,
+  nearestFood,
+  HOME,
+  LOOKAHEAD_SAMPLES,
 };
 export type { Policy, PolicyRun };

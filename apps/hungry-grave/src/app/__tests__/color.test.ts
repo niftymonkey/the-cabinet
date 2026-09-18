@@ -54,7 +54,7 @@ describe('observerLuma, the colour-vision estimate (research 5.3)', () => {
 });
 
 describe('hsv (research 1.5)', () => {
-  it("reproduces research 1.5's measurement of the retired dropCore", () => {
+  it("reproduces research 1.5's measurement of the retired powerUpCore", () => {
     // Dark, saturated orange is the definition of brown, and this is the hex
     // the brown ban retired.
     const measured = hsv(0x4a3b12);

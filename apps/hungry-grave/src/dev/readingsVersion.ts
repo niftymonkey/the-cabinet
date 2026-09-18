@@ -24,7 +24,228 @@
  * are gone with the bite budget, and upfieldTraffic changed meaning: it
  * samples the field at the lay rather than at the swallow, so a version-1
  * band and a version-2 band answer different questions.
+ *
+ * Version 3: the readings step 4 tunes on (#39). Arrivals are new beside
+ * unchanged readings and would not move this on their own, and neither would
+ * the raw samples a spread now keeps. What moves it is the rungs a run bought:
+ * a batch used to print them as one row named `levelUps` and now prints the
+ * count, the first tick, the line and the section under `levelUps.rungs` and its
+ * siblings. Every figure still means what it meant and no row can be
+ * subtracted from its predecessor by name, which is the case this version
+ * exists to make loud rather than leaving it to read as a reading one side
+ * happened not to carry.
+ *
+ * Version 4: the glossary realignment (ADR 0061, #39). Eight reading and report
+ * keys change name, so a version-4 report cannot be matched to a version-3 one
+ * by name, which is exactly the case version 3 exists to make loud. The eight
+ * are the six under `tuning.dropLedger`, now `tuning.powerUpLedger`, plus
+ * `tuning.arrivals.byPhase`, now `.bySection`, plus the `phaseSpans` reduction,
+ * now `sectionSpans`; the `phase` field inside every `SectionSpan`, now
+ * `section`, rides with them. Every figure still means what it meant and not
+ * one of them moved: this is a vocabulary change and nothing else.
+ *
+ * Version 5: the two pushes read apart (design record R9, #126). `tuning.repel`
+ * used to mean every shove on the run, because the bell was the only thing that
+ * could throw one, and it now means the bell's shoves alone: `tolls`,
+ * `totalShoves` and `totalDistance` keep their exact names, shapes and
+ * reductions and count bell shoves only, and `belchShoves` and `belchDistance`
+ * are a new arm beside them. **So every step 4 batch is incomparable with every
+ * post-belch batch by name**: subtracting one build's `totalShoves` from the
+ * other's would be arithmetic across a definition that changed underneath it
+ * the moment a second pusher existed, which is exactly the case version 3 was
+ * written to make loud. That is accepted eyes open on ruling R9, which chose a
+ * belch that emits its own source over a repel reading widened to swallow both,
+ * so the two pushes stay separable in every batch the tuning step reads.
+ *
+ * It also carries what the change made possible rather than what forced it.
+ * `observeRepel` threw outright on a shove arriving with no toll window open,
+ * which is exactly what the belch's first shove produces; the throw is kept for
+ * a bell shove, where the case is still impossible, and the belch's arm holds
+ * its own.
+ *
+ * **Four readings land in the same commit and none of them is what moves this.**
+ * `tuning.refusals.food`, `.carriers` and `.offers` go in beside unchanged keys,
+ * as does `tuning.repel`'s belch arm itself: every reading that existed before
+ * still means what it meant, apart from the repel split above. The batch report
+ * also gained a `directedAdds` field, which is not a reading at all. The split
+ * is what moves the version.
+ *
+ * The other three versions hold, and each for its own reason. `FORMAT_VERSION`
+ * stays 3 because the tape header is read positionally, field by field, and the
+ * only strings on the wire are the recorded roster's weapon-line names, the
+ * commit hash, the build identity, the author, the policy and the renderer
+ * backend, none of which carries one of the six words: no byte moves and no
+ * reader's walk changes. `WITNESS_VERSION` was not moved by the rename either,
+ * because the fold takes numbers and every union crosses it through a code map
+ * read by name, so renaming a key while holding its number changes nothing the
+ * fold sees, and the version's own comment says it moves only when the order or
+ * the field list moves. `GOLDEN` does not re-pin because one key inside it renames with its
+ * type, `drawn.drops` to `drawn.powerUps`, holding its value: that is a field
+ * rename on the `Digest` interface and not a re-pin, so ADR 0019's regeneration
+ * ritual does not apply.
+ *
+ * Version 6: a shove outlives the body carrying it (design record R10, #124).
+ * **Three things change meaning at once and every one of them is an existing
+ * reading, which is this file's own rule for when the version moves.**
+ *
+ * First, `tuning.repel.belchShoves` and `belchDistance` used to count what a
+ * body was carried **before it died**, because the one report fired on the kill
+ * path. A body killed in flight now hands its shove to the corpse the kill
+ * leaves and the flight finishes, so a distance here is what a whole flight
+ * covered. Second, **the bell is in exactly the same position**, which is easy
+ * to miss because the sighting behind this move was a belch: `sweepToll`
+ * (`src/game/lines/bell.ts`) pushes before it damages, so a body the cone kills
+ * on arrival used to die holding a live impulse and report nothing, and now
+ * flies the whole of the toll's push. So `tuning.repel.totalDistance` and each
+ * toll's own `distance` move exactly the way `belchDistance` does, and they
+ * move most at the top rungs, where the kill reaches most of the cone (round
+ * two progress note section 10). Third, the belch's own record gains the
+ * misses, which is what makes `shoved: 0` readable: `tuning.belchCadence`
+ * gains `frameShares` and `misses` beside the fires it already carried, and
+ * every `BelchFire` gains `inFrame` and its own `misses`.
+ *
+ * **So every batch recorded at slice J-fix's tip is incomparable with every
+ * batch recorded after this, on both arms.** Subtracting one build's
+ * `totalDistance` or `belchDistance` from the other's would be arithmetic
+ * across a definition that changed underneath it, which is exactly the case
+ * version 3 was written to make loud. It is taken eyes open.
+ *
+ * The other two versions hold and each for its own reason. `FORMAT_VERSION`
+ * stays 4 because nothing new is recorded in a tape header and no sim event is
+ * ever encoded into a tape at all: a replay rebuilds every event from the seed
+ * and the commands, so the press's record costs no bytes. `WITNESS_VERSION`
+ * moved to 9 in its own commit for the impulse a corpse now carries, which is
+ * folded state and not a reading.
+ *
+ * Version 7: every shove of a press throws what stands inside it (#124, Mark's
+ * ruling of 2026-09-16 that everything within the eruption is pushed on each
+ * erupt animation). **One existing reading changes meaning on both of its arms,
+ * which is this file's own rule for when the version moves.**
+ *
+ * `tuning.repel.belchShoves` and `belchDistance` used to count the one set of
+ * bodies a press caught on the tick it landed. A press now re-reads the field
+ * at each of its three shoves and throws whatever stands inside the reach then,
+ * so it starts a shove on every body that walks into its circle while it is
+ * out, and its counts rise by as much as the crowd refills. **So every batch
+ * recorded at slice L-fix's tip is incomparable with every batch recorded after
+ * this on the belch arm**: subtracting one build's `belchShoves` from the
+ * other's would be arithmetic across a definition that changed underneath it,
+ * which is exactly the case version 3 was written to make loud. It is taken
+ * eyes open.
+ *
+ * **And the bell's arm carries belch travel more often than it did, which is
+ * attribution working rather than breaking.** A shove reports under whichever
+ * push threw it last (design record R9, slice I), and a toll landing on a body
+ * a press still owes waves to relabels the whole of that impulse as the bell's.
+ * A press now owes waves to more bodies for longer, so `tuning.repel.tolls`,
+ * `totalShoves` and `totalDistance` pick up more of it. **That is named here
+ * rather than fixed**: the last-pusher rule is ruled and a reading that does
+ * not say so is a reading that misleads.
+ *
+ * **Three readings land in the same commit and none of them is what moves
+ * this.** `tuning.belchCadence.movedPerShove` and `caughtSharePerShove` are new
+ * beside unchanged keys, and every `BelchFire` gains `beganAt` and its own
+ * `shoves` list. `shoved`, `inFrame`, `misses` and `frameShares` keep their
+ * exact meanings: all four are the press's own first shove, which is what they
+ * have always been, and the later shoves are read off the new list rather than
+ * summed into them.
+ *
+ * The other two versions hold and each for its own reason. `FORMAT_VERSION`
+ * stays 4 because nothing new is recorded in a tape header and no sim event is
+ * ever encoded into a tape at all, so a new event per shove costs no bytes.
+ * `WITNESS_VERSION` moved to 10 in its own commit for the press the run now
+ * carries, which is folded state and not a reading.
+ *
+ * Version 8: a kill pays score (#99, Mark's ruling of 2026-09-16 that the score
+ * is one number fed by several inputs, design record R4). **One existing
+ * reading changes meaning, which is this file's own rule for when the version
+ * moves.**
+ *
+ * `run.score` used to mean growth past the size ceiling alone, because overflow
+ * was the only thing in the whole simulation that wrote it. It now means the
+ * kills a run made plus that same overflow, from their own rows on the mob
+ * table. The name, the shape and the reduction are all unchanged and the number
+ * is a different quantity: a run that never reached the ceiling read exactly
+ * zero for its whole length before this and reads its whole kill tally after
+ * it. **So every batch recorded before this commit is incomparable with every
+ * batch recorded after it on that key**: subtracting one build's `run.score`
+ * from the other's would be arithmetic across a definition that changed
+ * underneath it, which is exactly the case version 3 was written to make loud.
+ * It is taken eyes open.
+ *
+ * **`tuning.damageTaken.scoreBled` moves with it, and it is the only other key
+ * that does.** It is denominated in score: it sums what the ladder's first rung
+ * took, so its definition is stated in terms of the quantity above and a
+ * version-7 figure and a version-8 one are sums of two different compositions.
+ * **`scoreBleeds` beside it does not move**, because it counts bleeds and a
+ * bleed is still a bleed. Neither does `weaponStrips`, `linesStripped`,
+ * `seals`, `totalHits` or `hits`.
+ *
+ * **What was checked and holds.** Every other declared reading in
+ * `batchReport.ts` and `compareRuns.ts` was read for the same exposure, and
+ * `run.score` and `scoreBled` are the only two denominated in score at all. The
+ * ladder's own rungs are also reachable in runs that never reached them before,
+ * because the first rung now holds something in every run rather than only in a
+ * run that overflowed, so `scoreBleeds`, `weaponStrips` and `linesStripped`
+ * read larger numbers without meaning anything new; a key that merely reads a
+ * different number never moves this. `MeasureReport.score` and
+ * `ReplayTallies.score` ride on `run.score` and are the same change under
+ * another name rather than a second one.
+ *
+ * The other two versions hold and each for its own reason. `FORMAT_VERSION`
+ * stays 4 because nothing new is recorded in a tape header and no sim event is
+ * ever encoded into a tape at all, so a kill paying costs no bytes; the fault
+ * identity the ladder's own invariant appends is append-only under ADR 0024 and
+ * moves no byte's meaning. `WITNESS_VERSION` moved to 11 in its own commit for
+ * the score rung the floor ladder now remembers, which is folded state and not
+ * a reading.
+ *
+ * Version 9: the score's other inputs (#99, Mark's ruling of 2026-09-16, design
+ * record R4). **The same existing reading changes meaning a second time in the
+ * same step, which is this file's own rule for when the version moves.**
+ *
+ * At version 8 `run.score` meant the kills a run made plus the overflow. It now
+ * means those two plus boss damage paid per hit landed, the Waking's source
+ * killed, and the large food taken while every rostered line stood at its top
+ * rung. The name, the shape and the reduction are all unchanged and the number
+ * is a different quantity again: a run that fought a boss and never killed one
+ * read nothing for that fight before this and reads every point of health it
+ * took after it. **So every batch recorded before this commit is incomparable
+ * with every batch recorded after it on that key**: subtracting one build's
+ * `run.score` from the other's would be arithmetic across a definition that
+ * changed underneath it, which is exactly the case version 3 was written to
+ * make loud. It is taken eyes open.
+ *
+ * **`tuning.damageTaken.scoreBled` moves with it, and it is the only other key
+ * that does**, for the reason version 8 decided it does: it sums what the
+ * ladder's first rung took, so it is denominated in the quantity above and a
+ * version-8 figure and a version-9 one are slices of two different
+ * compositions. **`scoreBleeds` beside it does not move**, because it counts
+ * bleeds and a bleed is still a bleed, and neither does `weaponStrips`,
+ * `linesStripped`, `seals`, `totalHits` or `hits`.
+ *
+ * **The score's own new readings are not what moved it.** Every arm of
+ * `tuning.scoreByInput` is new and arrives beside unchanged keys, which never
+ * moves this version; that is worth saying because it is the half a reader will
+ * expect to be the cause. What moved it is the reading that was already there.
+ *
+ * **What was checked and holds.** Every declared reading in `batchReport.ts`
+ * and `compareRuns.ts` was read again for the same exposure, and `run.score`
+ * and `scoreBled` are still the only two denominated in score at all. M6's
+ * three, `tuning.fallenRungLedger`, `tuning.stripsLanded` and
+ * `tuning.bledRungMemory`, count rungs, places and transitions and mean exactly
+ * what they meant. `MeasureReport.score` and `ReplayTallies.score` ride on
+ * `run.score` and are the same change under another name rather than a second
+ * one.
+ *
+ * The other two versions hold and each for its own reason. `FORMAT_VERSION`
+ * stays 4 because nothing new is recorded in a tape header and no sim event is
+ * ever encoded into a tape at all, so the score's own event costs no bytes; the
+ * fault identity the score's floor appends is append-only under ADR 0024 and
+ * moves no byte's meaning. `WITNESS_VERSION` stays 11 because nothing here is
+ * folded state: every value the four payments read is already folded, and no
+ * tally lives on the run.
  */
-const READINGS_VERSION = 2;
+const READINGS_VERSION = 9;
 
 export { READINGS_VERSION };

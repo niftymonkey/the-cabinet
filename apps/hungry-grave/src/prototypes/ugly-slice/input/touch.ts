@@ -31,7 +31,11 @@ export class TouchSteer {
   private pendingY = 0;
   private belchQueued = false;
 
-  constructor(public ratio: number) {}
+  public ratio: number;
+
+  constructor(ratio: number) {
+    this.ratio = ratio;
+  }
 
   public down(id: number, x: number, y: number): void {
     // Only the second finger belches; a third (a palm edge, or the debug

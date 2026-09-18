@@ -1,22 +1,35 @@
 import { Graphics } from 'pixi.js';
 
-import { SKULL_CAP, TERRITORY_CAP, WISP_CAP } from '../../../game/caps';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
-import { BELL_EXPAND_TICKS, ringRadius } from '../../../game/lines/bell';
-import { SKULL_HALF_EXTENT } from '../../../game/lines/soulStream';
+import {
+  BELCH_BURST_RADIUS,
+  BELCH_SHOVE_SPACING,
+  BELCH_SHOVES,
+} from '../../../game/belch';
+import { SKULL_CAP, WISP_CAP } from '../../../game/caps';
+import {
+  BELL_CONE_ROWS,
+  BELL_EXPAND_TICKS,
+  coneHeading,
+  tollReach,
+} from '../../../game/lines/bell';
+import { SKULL_HALF_EXTENT } from '../../../game/lines/skullStream';
+import { SHOVE_TICKS } from '../../../game/shove';
 import type { Patch } from '../../../game/lines/territory';
 import {
   patchAt,
+  TERRITORY_CAP,
   TERRITORY_OPENING_TICKS,
 } from '../../../game/lines/territory';
 import { WISP_HALF_EXTENT } from '../../../game/lines/wisps';
+import type { WeaponLine } from '../../../game/lines/roster';
 import type { RunState } from '../../../game/run';
+import { SCROLL_SPEED } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
 import type { FieldLayers } from './layering';
 
 /**
  * The player's own fire on screen: skulls, Territory's claimed ground, wisps,
- * the bell's ring, the belch's eruption and the splash.
+ * the bell's cones, the belch's eruption and the splash.
  *
  * It is a second file beside FieldRenderer rather than four more methods on it.
  * The storm is a different owner with its own pools, and the two share no state.
@@ -98,32 +111,69 @@ const ARRIVAL_WOBBLE: readonly number[] = [
 const HAND_REACH = 0.34;
 const HAND_WIDTH = 0.16;
 
-// How thick the bell's ring is stroked, in field units.
-const RING_STROKE = 2.5;
+// How thick the edge of a bell cone is stroked, in field units.
+const CONE_STROKE = 2.5;
 
-// The alpha a bell ring starts at, fading to nothing as it reaches its full radius.
-const RING_ALPHA = 0.85;
+// The alpha a toll starts at, fading to nothing as its cones reach full.
+const CONE_ALPHA = 0.85;
 
 /**
- * How long the eruption reads for, in ticks, and how far it reaches.
+ * How solid a cone's body is against its own stroked edge. The edge carries the
+ * expanding motion the ring used to carry alone, which ADR 0005's generative
+ * rule needs to keep the bell tellable from the other three lines; the body is
+ * what says which way the toll is pointing, so it reads without swallowing the
+ * field a level-5 toll covers.
+ */
+const CONE_FILL_ALPHA = 0.35;
+
+/**
+ * How long the whole eruption reads for, in ticks: one front per shove the
+ * belch throws, each front lasting exactly as long as its own shove, so the
+ * picture and the push begin and end together (design record R3 as superseded
+ * 2026-09-15).
  *
- * A third of a second, so it reads as a shock front rather than a bloom, and out
- * to the field's own diagonal rather than its width, so it leaves the far corner
- * behind. Anything shorter in reach reads as a large bell toll, and the bell is
- * a different line: the bell's ring takes 45 ticks to a quarter of the distance,
- * which is what keeps the two tellable apart under ADR 0005's generative rule.
+ * It is derived from the belch's own count and spacing rows and the shove
+ * module's own length rather than written out a second time, because a figure
+ * typed twice is a figure a later retune has to hunt for. At today's rows it
+ * comes to ninety ticks, a second and a half. The belch's spacing equals one
+ * shove's length, so the three fronts are strictly sequential and never
+ * concurrent: each starts on the tick the one before it ends, which is what
+ * makes them countable.
  *
  * Hitstop is refused rather than omitted. A sim pause changes the tick count and
  * ADR 0015 makes the tick count the run, so a real hitstop is a determinism
  * change, and a render-only hold desynchronizes the screen from a sim that keeps
  * stepping. What carries the punch instead is the scatter storm FieldRenderer
- * already draws for a cancelled shot, up to four hundred of them at once in the
- * top layer of the stack, with this as the ground shock underneath.
+ * already draws for a cancelled shot, up to a full mob-fire pool of them at
+ * once in the top layer of the stack, with this as the ground shock underneath.
  */
-const ERUPTION_TICKS = 20;
-const ERUPTION_REACH = Math.sqrt(
-  FIELD_WIDTH * FIELD_WIDTH + FIELD_HEIGHT * FIELD_HEIGHT,
-);
+const ERUPTION_TICKS = (BELCH_SHOVES - 1) * BELCH_SHOVE_SPACING + SHOVE_TICKS;
+
+/**
+ * How far one front reaches, in field units: the belch's own shove reach, read
+ * off its row rather than copied, the way the duration above reads its rows.
+ *
+ * Design record R11, ruled 2026-09-16. The front and the push name one circle,
+ * because here the push is the payload (R3): a front sweeping past it promises
+ * ground the press did not touch, which is what a player reads as three rings
+ * crossing the whole screen with nothing moving.
+ *
+ * The precedent this declines is Enter the Gungeon's Blank, whose clear front
+ * sweeps to 25 tiles over a knockback ending at 10 (docs/research/watched-
+ * pushback-duration.md section 3), a ratio of two and a half. It does not carry
+ * over: in Gungeon the bullets are the Blank's payload and the front pictures
+ * the cancel that takes them, so the front is drawing the field-wide half of
+ * that press. Here the field-wide half is the gas, and R10's rule runs the
+ * other way, that nothing may be moved by something the player cannot see. One
+ * circle satisfies R10 exactly rather than a fortiori.
+ *
+ * What the shorter reach costs is speed, and it is watched rather than tuned:
+ * the same clock over this reach runs at about a field width a second, which is
+ * under the Gungeon front's 1.67 and reads as gas spreading rather than as a
+ * blast. The clock is R3's and does not move, so the levers if it ever needs
+ * one are the stroke below and the fade.
+ */
+const ERUPTION_REACH = BELCH_BURST_RADIUS;
 
 // How thick the eruption's front is stroked, in field units.
 const ERUPTION_STROKE = 14;
@@ -132,6 +182,23 @@ const ERUPTION_STROKE = 14;
 const SPLASH_TICKS = 18;
 const SPLASH_REACH = 26;
 const SPLASH_SPOKES = 7;
+
+/**
+ * How long a stripped line's expression reads as blowing up, in ticks, and how
+ * far one ring reaches and how thick it starts, both in field units.
+ *
+ * A first figure. The splash's 18 is the order a pop sits at against the
+ * eruption's field-wide 90, and the invulnerable window is 24 (tuning.ts), so
+ * the announcement is done about when the player can be hit again. The reach is
+ * two skulls' width, which is large enough to read against the column it left
+ * and small enough that a full stream's worth does not paint the field.
+ */
+const LOSS_BLOW_UP_TICKS = 24;
+const LOSS_BLOW_UP_REACH = 16;
+const LOSS_BLOW_UP_STROKE = 6;
+
+/** The line whose field expression carries a lost rung today (design record 3.3). */
+const BLOWN_UP_LINE: WeaponLine = 'skullStream';
 
 /**
  * Every transient read this renderer holds across frames, with its lifetime in
@@ -145,6 +212,7 @@ const STORM_RENDERER_TRANSIENT_TICKS = {
   eruption: ERUPTION_TICKS,
   splash: SPLASH_TICKS,
   territoryArrival: TERRITORY_OPENING_TICKS,
+  lossBlowUp: LOSS_BLOW_UP_TICKS,
 } as const;
 
 const clamp = (value: number, low: number, high: number): number => {
@@ -231,8 +299,10 @@ const drawArrival = (into: Graphics, size: number): void => {
   if (size <= 0) return;
   const outline: number[] = [];
   for (let vertex = 0; vertex < ARRIVAL_WOBBLE.length; vertex++) {
+    const wobble = ARRIVAL_WOBBLE[vertex];
+    if (wobble === undefined) throw new Error(`no wobble at vertex ${vertex}`);
     const angle = (vertex / ARRIVAL_WOBBLE.length) * Math.PI * 2;
-    const reach = size * ARRIVAL_WOBBLE[vertex];
+    const reach = size * wobble;
     outline.push(Math.cos(angle) * reach, Math.sin(angle) * reach);
   }
   into
@@ -265,51 +335,146 @@ const drawWisp = (into: Graphics): void => {
     });
 };
 
-// The bell's ring at a live radius: a stroked circle, so the falloff in damage is visible as a falloff on screen.
-const drawRing = (into: Graphics, radius: number): void => {
-  into.clear();
-  if (radius <= 0) return;
-  into
-    .circle(0, 0, radius)
-    .stroke({
-      width: RING_STROKE + SPRITE_STROKE * 2,
-      color: PALETTE.foodOutline.hex,
-      alignment: 0.5,
-    })
-    .circle(0, 0, radius)
-    .stroke({
-      width: RING_STROKE,
-      color: PALETTE.bellRing.hex,
-      alignment: 0.5,
-    });
+/**
+ * One wedge per cone this level throws, laid down as a path for the caller to
+ * fill or stroke. Pixi measures an angle from the positive x axis and a heading
+ * is measured from straight up the field, which is the quarter turn between
+ * them.
+ */
+const coneWedges = (into: Graphics, level: number, reach: number): void => {
+  const row = BELL_CONE_ROWS[level];
+  if (row === undefined) throw new Error(`no bell cone row for level ${level}`);
+  for (let cone = 0; cone < row.headings.length; cone++) {
+    const facing = coneHeading(level, cone) - Math.PI / 2;
+    into
+      .moveTo(0, 0)
+      .arc(0, 0, reach, facing - row.halfAngle, facing + row.halfAngle)
+      .closePath();
+  }
 };
 
-// The belch's shock front, leaving the mouth and expanding past the field's far corner.
-const drawEruption = (into: Graphics, progress: number): void => {
+/**
+ * The toll's cones at a live reach, so what the player sees the toll answer is
+ * what the sim swept (ADR 0036). The path is laid twice because pixi clears it
+ * at every fill and stroke, and only a fill and the stroke straight after it
+ * share one.
+ */
+const drawCones = (into: Graphics, level: number, reach: number): void => {
   into.clear();
-  const radius = ERUPTION_REACH * progress;
-  if (radius <= 0) return;
-  into.circle(0, 0, radius).stroke({
-    width: ERUPTION_STROKE * (1 - progress) + SPRITE_STROKE,
-    color: PALETTE.belchEruption.hex,
+  if (!(reach > 0)) return;
+  if (level < 0 || level >= BELL_CONE_ROWS.length) return;
+  coneWedges(into, level, reach);
+  into.stroke({
+    width: CONE_STROKE + SPRITE_STROKE * 2,
+    color: PALETTE.foodOutline.hex,
+    alignment: 0.5,
+  });
+  coneWedges(into, level, reach);
+  into.fill({ color: PALETTE.bellRing.hex, alpha: CONE_FILL_ALPHA }).stroke({
+    width: CONE_STROKE,
+    color: PALETTE.bellRing.hex,
     alignment: 0.5,
   });
 };
 
-// Charge going over the side: a short spray at the mouth, so wasting is visible rather than a silent clamp.
-const drawSplash = (into: Graphics, progress: number): void => {
+// One front of the eruption as it stands this tick: how far it has reached from
+// the grave's centre, and how thick its edge is drawn.
+interface EruptionFront {
+  readonly radius: number;
+  readonly width: number;
+}
+
+/**
+ * The fronts alive on this tick of the eruption, one per shove the belch
+ * throws, each starting on the tick its own shove does and running exactly as
+ * long as that shove runs.
+ *
+ * It is the whole of the agreement between the picture and the push, and it is
+ * a value rather than a draw so the agreement can be asserted rather than only
+ * looked at. Every figure it reads is the belch's own row or the shove module's
+ * own length, so a retune of either moves the fronts with it.
+ *
+ * A front thins as it goes, which is what makes each sweep read as one thing
+ * passing rather than as a circle growing.
+ */
+const eruptionFrontsAt = (age: number): EruptionFront[] => {
+  const fronts: EruptionFront[] = [];
+  for (let shove = 0; shove < BELCH_SHOVES; shove++) {
+    const own = age - shove * BELCH_SHOVE_SPACING;
+    if (own < 0 || own >= SHOVE_TICKS) continue;
+    const progress = own / SHOVE_TICKS;
+    fronts.push({
+      radius: ERUPTION_REACH * progress,
+      width: ERUPTION_STROKE * (1 - progress) + SPRITE_STROKE,
+    });
+  }
+  return fronts;
+};
+
+// The belch's shock fronts, leaving the grave and stopping where its push stops.
+const drawEruption = (into: Graphics, age: number): void => {
   into.clear();
+  for (const front of eruptionFrontsAt(age)) {
+    // A front on the tick it is born has reached nowhere yet and is nothing to
+    // draw, which is the same gate the single front kept at progress zero.
+    if (front.radius <= 0) continue;
+    into.circle(0, 0, front.radius).stroke({
+      width: front.width,
+      color: PALETTE.belchEruption.hex,
+      alignment: 0.5,
+    });
+  }
+};
+
+// Charge going over the side: a short spray at the mouth, so wasting is visible rather than a silent clamp.
+const drawSplash = (into: Graphics, age: number): void => {
+  into.clear();
+  const progress = age / SPLASH_TICKS;
   const reach = SPLASH_REACH * progress;
-  const drop = SPLASH_REACH * 0.22 * (1 - progress);
+  const powerUp = SPLASH_REACH * 0.22 * (1 - progress);
   for (let spoke = 0; spoke < SPLASH_SPOKES; spoke++) {
     const angle = Math.PI + (spoke / (SPLASH_SPOKES - 1)) * Math.PI;
     into.circle(
       Math.cos(angle) * reach,
       Math.sin(angle) * reach,
-      Math.max(0.5, drop),
+      Math.max(0.5, powerUp),
     );
   }
   into.fill({ color: PALETTE.splash.hex });
+};
+
+/** Where one of a stripped line's sprites stood on the tick the rung was lost. */
+interface LossPop {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * The stream's columns blowing up: one expanding ring where each skull stood on
+ * the tick the rung went (ADR 0054 as amended by record R8, record R7).
+ *
+ * The rings stay where the column was rather than following the skulls, which
+ * keep flying. The sim takes a level and does nothing else, so what a pop
+ * announces is the loss and never a change in the line's own arithmetic: it is
+ * a picture and never a rule.
+ */
+const drawLossPops = (
+  into: Graphics,
+  pops: readonly LossPop[],
+  age: number,
+): void => {
+  into.clear();
+  const progress = age / LOSS_BLOW_UP_TICKS;
+  const radius = LOSS_BLOW_UP_REACH * progress;
+  // A ring on the tick it is born has reached nowhere yet and is nothing to draw.
+  if (radius <= 0) return;
+  for (const pop of pops) {
+    into.circle(pop.x, pop.y, radius).stroke({
+      width: LOSS_BLOW_UP_STROKE * (1 - progress) + SPRITE_STROKE,
+      color: PALETTE.skull.hex,
+      alignment: 0.5,
+    });
+  }
 };
 
 // What a patch sprite's geometry depends on, so a redraw happens only when it moves.
@@ -336,16 +501,39 @@ const fill = (sprites: Graphics[], capacity: number): void => {
   }
 };
 
-// One momentary effect at a place, on its own clock.
+/**
+ * A pooled value at this slot, or a bug: every parallel array a sync method
+ * walks is sized to the same entity pool's capacity, so a slot inside the
+ * loop bound that is missing here is a bug in that sizing rather than a case
+ * to handle.
+ */
+const requireSlot = <T>(
+  value: T | undefined,
+  slot: number,
+  what: string,
+): T => {
+  if (value === undefined) throw new Error(`no ${what} at slot ${slot}`);
+  return value;
+};
+
+/**
+ * One momentary effect at a place, on its own clock, and how far its own place
+ * travels down the field each tick it is out.
+ *
+ * A burst drawn over ground drifts with the ground at SCROLL_SPEED, because
+ * everything standing on it does (step.ts, scrollField). A burst belonging to
+ * the grave drifts at nothing, because the grave does not scroll.
+ */
 interface Burst {
   readonly sprite: Graphics;
+  readonly drift: number;
   born: number;
   x: number;
   y: number;
 }
 
-const blankBurst = (): Burst => {
-  return { sprite: new Graphics(), born: -Infinity, x: 0, y: 0 };
+const blankBurst = (drift: number): Burst => {
+  return { sprite: new Graphics(), drift, born: -Infinity, x: 0, y: 0 };
 };
 
 class StormRenderer {
@@ -354,8 +542,16 @@ class StormRenderer {
   private readonly arrivalSprites: Graphics[] = [];
   private readonly wispSprites: Graphics[] = [];
   private readonly ring = new Graphics();
-  private readonly eruption = blankBurst();
-  private readonly splash = blankBurst();
+  // The eruption is drawn over the ground the press caught, so it rides it. The
+  // splash is a spray out of the grave's mouth and rides nothing.
+  private readonly eruption = blankBurst(SCROLL_SPEED);
+  private readonly splash = blankBurst(0);
+  /**
+   * The loss announcement. It rides nothing and sits at the field's own origin,
+   * because each of its rings carries the field position of the sprite it left.
+   */
+  private readonly lossBlowUp = blankBurst(0);
+  private readonly lossPops: LossPop[] = [];
 
   private readonly skullDrawn: boolean[] = [];
   /**
@@ -394,8 +590,10 @@ class StormRenderer {
     for (const sprite of this.patchSprites) storm.addChild(sprite);
     for (const sprite of this.wispSprites) storm.addChild(sprite);
     // Last into the storm layer, so a mark still in the air draws over the
-    // dimmed ground it is on its way to.
+    // dimmed ground it is on its way to, and the loss announcement over the
+    // storm it announces.
     for (const sprite of this.arrivalSprites) storm.addChild(sprite);
+    storm.addChild(this.lossBlowUp.sprite);
     layers.layer('bellRing').addChild(this.ring);
     layers.layer('belchEruption').addChild(this.eruption.sprite);
     layers.layer('belchEruption').addChild(this.splash.sprite);
@@ -416,10 +614,11 @@ class StormRenderer {
    * frame, so the skip forgets and the lead-in rebuilds it.
    */
   public forgetPreviousRun(): void {
-    for (const burst of [this.eruption, this.splash]) {
+    for (const burst of [this.eruption, this.splash, this.lossBlowUp]) {
       burst.born = -Infinity;
       burst.sprite.visible = false;
     }
+    this.lossPops.length = 0;
     this.ring.visible = false;
     for (const sprite of this.skullSprites) sprite.visible = false;
     for (const sprite of this.patchSprites) sprite.visible = false;
@@ -438,6 +637,7 @@ class StormRenderer {
     this.ring.removeFromParent();
     this.eruption.sprite.removeFromParent();
     this.splash.sprite.removeFromParent();
+    this.lossBlowUp.sprite.removeFromParent();
   }
 
   private build(): void {
@@ -459,11 +659,35 @@ class StormRenderer {
     this.syncBursts(run);
   }
 
-  // The belch landed. It is an event and not a state, so the screen tells the renderer.
+  /**
+   * The belch landed. It is an event and not a state, so the screen tells the
+   * renderer.
+   *
+   * It is centred on the grave and not on its mouth, because the grave's centre
+   * is where the belch measures its reach from (belch.ts, insideBurst). Drawn
+   * at the mouth the ring and the caught circle were offset by the grave's own
+   * size, so the picture and the push were two circles.
+   */
   public erupt(run: RunState): void {
     this.eruption.born = run.tick;
     this.eruption.x = run.grave.x;
-    this.eruption.y = run.grave.y - run.grave.size;
+    this.eruption.y = run.grave.y;
+  }
+
+  /**
+   * The floor ladder took a rung. The field channel is built for the skull
+   * stream alone today: its columns are the one expression of the four that is
+   * on screen continuously (design record section 3.3), so an announcement on
+   * any other line would play only when that line happened to be mid-event.
+   * Section 7's sixth finding owns the rest of the channel.
+   */
+  public weaponStripped(run: RunState, lines: readonly WeaponLine[]): void {
+    if (!lines.includes(BLOWN_UP_LINE)) return;
+    this.lossPops.length = 0;
+    for (const skull of run.skulls) {
+      if (skull.alive) this.lossPops.push({ x: skull.x, y: skull.y });
+    }
+    this.lossBlowUp.born = run.tick;
   }
 
   // Charge went over the side at a full reservoir (ADR 0008).
@@ -475,8 +699,8 @@ class StormRenderer {
 
   private syncSkulls(run: RunState): void {
     for (let slot = 0; slot < run.skulls.length; slot++) {
-      const skull = run.skulls[slot];
-      const sprite = this.skullSprites[slot];
+      const skull = requireSlot(run.skulls[slot], slot, 'skull');
+      const sprite = requireSlot(this.skullSprites[slot], slot, 'skull sprite');
       sprite.visible = skull.alive;
       if (!skull.alive) continue;
       if (!this.skullDrawn[slot]) {
@@ -489,7 +713,7 @@ class StormRenderer {
 
   private syncPatches(run: RunState): void {
     for (let slot = 0; slot < this.patchSprites.length; slot++) {
-      const sprite = this.patchSprites[slot];
+      const sprite = requireSlot(this.patchSprites[slot], slot, 'patch sprite');
       const patch = patchAt(run, slot);
       sprite.visible = patch !== null;
       if (patch === null) continue;
@@ -539,7 +763,11 @@ class StormRenderer {
    */
   private syncArrivals(run: RunState): void {
     for (let slot = 0; slot < this.arrivalSprites.length; slot++) {
-      const sprite = this.arrivalSprites[slot];
+      const sprite = requireSlot(
+        this.arrivalSprites[slot],
+        slot,
+        'arrival sprite',
+      );
       const patch = patchAt(run, slot);
       sprite.visible = patch !== null && patch.opening > 0;
       if (patch === null || patch.opening <= 0) continue;
@@ -573,8 +801,8 @@ class StormRenderer {
 
   private syncWisps(run: RunState): void {
     for (let slot = 0; slot < run.wisps.length; slot++) {
-      const wisp = run.wisps[slot];
-      const sprite = this.wispSprites[slot];
+      const wisp = requireSlot(run.wisps[slot], slot, 'wisp');
+      const sprite = requireSlot(this.wispSprites[slot], slot, 'wisp sprite');
       sprite.visible = wisp.alive;
       if (!wisp.alive) continue;
       if (!this.wispDrawn[slot]) {
@@ -588,27 +816,39 @@ class StormRenderer {
   }
 
   private syncRing(run: RunState): void {
-    const ring = run.lines.ring;
-    this.ring.visible = ring !== null;
-    if (ring === null) return;
-    drawRing(this.ring, ringRadius(ring));
+    const toll = run.lines.ring;
+    this.ring.visible = toll !== null;
+    if (toll === null) return;
+    drawCones(this.ring, toll.level, tollReach(toll));
     this.ring.position.set(run.grave.x, run.grave.y);
     // Fading as it expands, so the falloff in damage is visible as a falloff on
     // screen rather than being a number only the sim knows.
-    const spent = Math.max(0, Math.min(1, ring.ticks / BELL_EXPAND_TICKS));
-    this.ring.alpha = RING_ALPHA * (1 - spent);
+    const spent = Math.max(0, Math.min(1, toll.ticks / BELL_EXPAND_TICKS));
+    this.ring.alpha = CONE_ALPHA * (1 - spent);
   }
 
   private syncBursts(run: RunState): void {
     this.syncBurst(run, this.eruption, ERUPTION_TICKS, drawEruption);
     this.syncBurst(run, this.splash, SPLASH_TICKS, drawSplash);
+    this.syncBurst(run, this.lossBlowUp, LOSS_BLOW_UP_TICKS, (into, age) =>
+      drawLossPops(into, this.lossPops, age),
+    );
   }
 
+  /**
+   * One transient at its own age in ticks. The age goes to the draw rather than
+   * a share of the life, because the eruption's fronts each run on their own
+   * clock inside the whole and a single share cannot say which of them is out.
+   *
+   * Its place travels its own drift for every tick of that age, so a burst
+   * drawn over ground stays over the same ground rather than being left behind
+   * by the crowd it drew.
+   */
   private syncBurst(
     run: RunState,
     burst: Burst,
     life: number,
-    draw: (into: Graphics, progress: number) => void,
+    draw: (into: Graphics, age: number) => void,
   ): void {
     const age = run.tick - burst.born;
     if (age < 0 || age >= life) {
@@ -616,9 +856,14 @@ class StormRenderer {
       return;
     }
     burst.sprite.visible = true;
-    burst.sprite.position.set(burst.x, burst.y);
-    draw(burst.sprite, age / life);
+    burst.sprite.position.set(burst.x, burst.y + age * burst.drift);
+    draw(burst.sprite, age);
   }
 }
 
-export { StormRenderer, STORM_RENDERER_TRANSIENT_TICKS };
+export {
+  StormRenderer,
+  STORM_RENDERER_TRANSIENT_TICKS,
+  eruptionFrontsAt,
+  ERUPTION_TICKS,
+};

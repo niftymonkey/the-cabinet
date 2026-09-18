@@ -20,19 +20,27 @@ import {
   witnessSegment,
 } from '../../tape/segments';
 import type { TapeHeader, TapeTrailer } from '../../tape/tape';
-import { stopOf } from '../../tape/tape';
+import { PERSON_POLICY, stopOf } from '../../tape/tape';
 import {
   STORE_KEPT_RECENT_TAPES,
   STORE_KEPT_SPARED_TAPES,
 } from '../tapeRetention';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
+import { startingConditionBlock } from '../../tape/startingCondition';
 import { openTapeStore } from '../tapeStore';
 import type { RunSummaryValues, TapeStore } from '../tapeStore';
 
 const HEADER: TapeHeader = {
   seed: 77,
-  startingSize: 24,
-  recordedRoster: [...WEAPON_LINES],
-  startingLevels: { soulStream: 0, territory: 0, wisps: 0, bell: 0 },
+  startingCondition: startingConditionBlock({
+    startingSize: 24,
+    startingLevels: { skullStream: 0, territory: 0, wisps: 0, bell: 0 },
+    roster: [...WEAPON_LINES],
+    signalLock: SIGNAL_RAN_LIVE,
+    startingScore: 0,
+    tuning: DEFAULT_TUNING,
+  }),
   tickRate: 60,
   checkpointSpacing: 4,
   witnessVersion: 1,
@@ -40,6 +48,7 @@ const HEADER: TapeHeader = {
   buildIdentity: '',
   author: 'unknown',
   inputDevice: 'keyboard',
+  policy: PERSON_POLICY,
   keyboardSpeed: 1,
   rendererBackend: 'webgl',
   rendererResolution: 2,
@@ -148,26 +157,27 @@ beforeEach(() => {
 describe('the tape store', () => {
   it('loads a stored run back as the byte-identical canonical stream', async () => {
     const store = await freshStore();
-    const segments = [
-      headerSegment(HEADER),
+    const header = headerSegment(HEADER);
+    const trailer = trailerSegment(TRAILER);
+    const chunks = [
       witnessSegment([{ index: 0, witness: -7 }]),
       bodySegment(0, commands(0, 4)),
       witnessSegment([{ index: 4, witness: -11 }]),
       bodySegment(4, commands(4, 8)),
-      trailerSegment(TRAILER),
     ];
+    const segments = [header, ...chunks, trailer];
 
     await store.append('run-1', {
       kind: 'header',
-      bytes: segments[0],
+      bytes: header,
       summary: birthSummary(),
     });
-    for (const bytes of segments.slice(1, 5)) {
+    for (const bytes of chunks) {
       await store.append('run-1', { kind: 'chunk', bytes });
     }
     await store.append('run-1', {
       kind: 'trailer',
-      bytes: segments[5],
+      bytes: trailer,
       summary: sealedSummary(),
     });
 
@@ -184,19 +194,20 @@ describe('the tape store', () => {
     // The tab-closed case is the reading the instrument most needs: the
     // stream must decode as a stop of unknown, not as a truncated tape.
     const store = await freshStore();
-    const segments = [
-      headerSegment(HEADER),
+    const header = headerSegment(HEADER);
+    const chunks = [
       witnessSegment([{ index: 0, witness: -7 }]),
       bodySegment(0, commands(0, 4)),
       witnessSegment([{ index: 4, witness: -11 }]),
     ];
+    const segments = [header, ...chunks];
 
     await store.append('run-cut', {
       kind: 'header',
-      bytes: segments[0],
+      bytes: header,
       summary: birthSummary(),
     });
-    for (const bytes of segments.slice(1)) {
+    for (const bytes of chunks) {
       await store.append('run-cut', { kind: 'chunk', bytes });
     }
 
@@ -267,13 +278,18 @@ describe('the tape store', () => {
       'run-b-mid',
       'run-a-old',
     ]);
-    expect(rows[0].stop).toBe('unknown');
-    expect(rows[0].integrity).toBeNull();
-    expect(rows[1].stop).toBe('finished');
-    expect(rows[1].integrity).toBe('clean');
-    expect(rows[1].debtTicks).toBe(TRAILER.debtTicks);
-    expect(rows[1].seed).toBe(HEADER.seed);
-    expect(rows[1].inputDevice).toBe(HEADER.inputDevice);
+    const newest = rows[0];
+    const middle = rows[1];
+    if (newest === undefined || middle === undefined) {
+      throw new Error('fewer than two rows listed');
+    }
+    expect(newest.stop).toBe('unknown');
+    expect(newest.integrity).toBeNull();
+    expect(middle.stop).toBe('finished');
+    expect(middle.integrity).toBe('clean');
+    expect(middle.debtTicks).toBe(TRAILER.debtTicks);
+    expect(middle.seed).toBe(HEADER.seed);
+    expect(middle.inputDevice).toBe(HEADER.inputDevice);
   });
 
   it('keeps the newest tapes in the rolling queue and lets the oldest go', async () => {

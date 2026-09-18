@@ -5,15 +5,30 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_LEVEL } from '../../game/lines/roster';
+import type { RunState } from '../../game/run';
 import { createRun, SEED_LIMIT } from '../../game/run';
 import { SIZE_CEILING, SIZE_FLOOR } from '../../game/tuning';
+import { SIGNAL_FULL, SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
+import { CANDIDATES } from '../../dev/tuningCandidates';
+import { tapeHeaderFor } from '../tapeHeader';
+import type { RunConditions } from '../tapeHeader';
 import {
   atFromUrl,
   levelsFromUrl,
   seedFromUrl,
+  signalLockFromUrl,
   sizeFromUrl,
   tapeFromUrl,
+  tuningFromUrl,
 } from '../seedFromUrl';
+
+/** The arguments of a mock's Nth call, once a call count assertion has proven it exists. */
+function callArgsOf(mock: { calls: unknown[][] }, index: number): unknown[] {
+  const call = mock.calls[index];
+  if (call === undefined) throw new Error(`no call at index ${index}`);
+  return call;
+}
 
 describe('seedFromUrl', () => {
   beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => {}));
@@ -46,7 +61,9 @@ describe('seedFromUrl', () => {
       expect(seedFromUrl(`?seed=${raw}`, '')).toBeNull();
     }
     expect(console.warn).toHaveBeenCalledTimes(5);
-    expect(vi.mocked(console.warn).mock.calls[0].join(' ')).toContain('abc');
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      'abc',
+    );
   });
 
   it('SEED_LIMIT - 1 is accepted and SEED_LIMIT is not, so every pinned seed is one the roll could have produced', () => {
@@ -83,12 +100,12 @@ describe('sizeFromUrl', () => {
     expect(sizeFromUrl(`?size=${SIZE_CEILING + 10}`, '')).toBe(
       SIZE_CEILING + 10,
     );
-    expect(createRun(1, sizeFromUrl('?size=0', '')!).grave.size).toBe(
-      SIZE_FLOOR,
-    );
-    expect(createRun(1, sizeFromUrl('?size=999', '')!).grave.size).toBe(
-      SIZE_CEILING,
-    );
+    expect(
+      createRun(1, { startingSize: sizeFromUrl('?size=0', '')! }).grave.size,
+    ).toBe(SIZE_FLOOR);
+    expect(
+      createRun(1, { startingSize: sizeFromUrl('?size=999', '')! }).grave.size,
+    ).toBe(SIZE_CEILING);
   });
 });
 
@@ -99,7 +116,7 @@ describe('levelsFromUrl', () => {
   it('?levels= pins a starting level for all four lines, in either URL form', () => {
     // The measurement's stated condition is a dense moment with the lines
     // levelled, and no reachable run produces one: the ladder to level five on
-    // all four costs eighteen drops and the stage pays for at most twelve.
+    // all four costs eighteen power-ups and the stage pays for at most twelve.
     expect(levelsFromUrl('?levels=5', '')).toBe(5);
     expect(levelsFromUrl('', '#/?levels=3')).toBe(3);
     expect(levelsFromUrl('', '')).toBeNull();
@@ -122,7 +139,78 @@ describe('levelsFromUrl', () => {
       expect(levelsFromUrl(`?levels=${raw}`, '')).toBeNull();
     }
     expect(console.warn).toHaveBeenCalledTimes(4);
-    expect(vi.mocked(console.warn).mock.calls[0].join(' ')).toContain('max');
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      'max',
+    );
+  });
+});
+
+// What a browser would have reported, so the header is a pure function here.
+const CONDITIONS: RunConditions = {
+  inputDevice: 'keyboard',
+  keyboardSpeed: 1,
+  rendererBackend: 'webgl',
+  rendererResolution: 2,
+  devicePixelRatio: 2,
+  recordedAt: 1_766_000_000_000,
+};
+
+/**
+ * The lock the header this run would write carries, off the block's own row.
+ *
+ * The header records the whole starting condition as one self-describing block
+ * (ADR 0043), so the lock is read by name rather than as a field of its own.
+ */
+function lockRecordedBy(run: RunState): number | undefined {
+  return tapeHeaderFor(run, CONDITIONS).startingCondition.find(
+    (entry) => entry.name === 'signalLock',
+  )?.value;
+}
+
+describe('signalLockFromUrl (CONTEXT.md Signal lock)', () => {
+  beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => {}));
+  afterEach(() => vi.restoreAllMocks());
+
+  it('a run with no lock in its URL resolves the value that means the signal ran live', () => {
+    // Spec test 49, ADR 0027: the header records what the run started from and
+    // never an absence, so the parser answers null and the run resolves it.
+    expect(signalLockFromUrl('', '')).toBeNull();
+
+    const run = createRun(1234);
+    expect(run.director.signal.lock).toBe(SIGNAL_RAN_LIVE);
+    expect(lockRecordedBy(run)).toBe(SIGNAL_RAN_LIVE);
+  });
+
+  it('a lock the URL states resolves to that figure, and the header records it', () => {
+    // Spec test 50, the other half. Both URL forms, on the seed's own terms.
+    expect(signalLockFromUrl('?signal=0.25', '')).toBe(0.25);
+    expect(signalLockFromUrl('', '#/?signal=0.25')).toBe(0.25);
+    expect(signalLockFromUrl('?signal=0.1', '#/?signal=0.25')).toBe(0.25);
+
+    const run = createRun(1234, { signalLock: 0.25 });
+    expect(run.director.signal.lock).toBe(0.25);
+    expect(run.director.signal.value).toBe(0.25);
+    expect(lockRecordedBy(run)).toBe(0.25);
+  });
+
+  it('a lock the module cannot use is warned about once and ignored, and the run plays', () => {
+    // Spec test 51, seedFromUrl.ts's own standing rule for a fat-fingered
+    // value. The bounds are the signal's own scale: a figure outside it would
+    // hold the gate where the signal can never stand.
+    expect(signalLockFromUrl('?signal=0', '')).toBe(0);
+    expect(signalLockFromUrl(`?signal=${SIGNAL_FULL}`, '')).toBe(SIGNAL_FULL);
+
+    for (const raw of ['full', '', '-0.5', String(SIGNAL_FULL + 1), 'NaN']) {
+      expect(signalLockFromUrl(`?signal=${raw}`, '')).toBeNull();
+    }
+    expect(console.warn).toHaveBeenCalledTimes(5);
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      'full',
+    );
+
+    // And the run still plays: a refused pin is a run with a live signal.
+    const run = createRun(1234, { signalLock: undefined });
+    expect(run.director.signal.lock).toBe(SIGNAL_RAN_LIVE);
   });
 });
 
@@ -170,6 +258,66 @@ describe('atFromUrl', () => {
       expect(atFromUrl(`?at=${raw}`, '')).toBeNull();
     }
     expect(console.warn).toHaveBeenCalledTimes(5);
-    expect(vi.mocked(console.warn).mock.calls[0].join(' ')).toContain('abc');
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      'abc',
+    );
+  });
+});
+
+describe('tuningFromUrl (CONTEXT.md Candidate)', () => {
+  beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => {}));
+  afterEach(() => vi.restoreAllMocks());
+
+  it('?tuning= names a candidate and the run starts under its record', () => {
+    // ADR 0064: the shell resolves the record from a named candidate and passes
+    // it inward on the starting condition, so what the run plays under is read
+    // off the run rather than off the parameter.
+    expect(tuningFromUrl('?tuning=spendable', '')).toEqual(
+      CANDIDATES.spendable.record,
+    );
+    expect(tuningFromUrl('', '#/?tuning=spendable')).toEqual(
+      CANDIDATES.spendable.record,
+    );
+
+    const run = createRun(1234, { tuning: CANDIDATES.spendable.record });
+    expect(run.conditions.tuning).toEqual(CANDIDATES.spendable.record);
+    expect(run.conditions.tuning.stage.processionPurse).not.toBe(
+      DEFAULT_TUNING.stage.processionPurse,
+    );
+  });
+
+  it("with both present the hash's query wins, the same way the seed's does", () => {
+    expect(tuningFromUrl('?tuning=default', '#/?tuning=spendable')).toEqual(
+      CANDIDATES.spendable.record,
+    );
+  });
+
+  it('warns once about a name no candidate holds and plays the default instead', () => {
+    // seedFromUrl.ts's standing rule for a fat-fingered value: the URL is a
+    // person-typed edge, so an unusable name is repaired rather than refused
+    // and a playtester still gets a game. It answers null rather than the
+    // default record, because resolving an absence is createRun's job and never
+    // a parser's (ADR 0027), which is the split ?levels= and ?signal= keep.
+    for (const raw of ['lean', 'Spendable', '', 'default ']) {
+      expect(tuningFromUrl(`?tuning=${raw}`, '')).toBeNull();
+    }
+    expect(console.warn).toHaveBeenCalledTimes(4);
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      'lean',
+    );
+
+    const run = createRun(1234, { tuning: undefined });
+    expect(run.conditions.tuning).toEqual(DEFAULT_TUNING);
+  });
+
+  it('plays the record the build compiles when the URL names no candidate', () => {
+    // The unchanged case, which is the one this surface must not move: no
+    // parameter is an absence and the run resolves it to the default row for
+    // row, so an ordinary run plays exactly as it played before this parser
+    // existed.
+    expect(tuningFromUrl('', '')).toBeNull();
+    expect(console.warn).not.toHaveBeenCalled();
+
+    expect(createRun(1234).conditions.tuning).toEqual(DEFAULT_TUNING);
   });
 });

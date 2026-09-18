@@ -6,9 +6,13 @@
 
 import { describe, expect, it } from 'vitest';
 import { stepping } from '../../dev/stepping';
+import { asSwallowable } from '../corpses';
 import type { SimEvent } from '../events';
-import { MAX_LEVEL } from '../lines/roster';
-import { createRun } from '../run';
+import type { WeaponLine } from '../lines/roster';
+import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
+import { openOffer } from '../offer';
+import type { RunState } from '../run';
+import { createRun, uniformLevels } from '../run';
 import type { Swallowable } from '../swallow';
 import { swallow } from '../swallow';
 import {
@@ -19,18 +23,102 @@ import {
   SIZE_FLOOR,
   TRASH_CORPSE_PAYOUT,
 } from '../tuning';
+import type { TuningRecord } from '../tuningRecord';
+import { DEFAULT_TUNING, resolveTuning } from '../tuningRecord';
+
+/** An id no body of any offer holds, so a hand-built food takes no option. */
+const NO_BODY = 0;
 
 function corpse(freshness: number): Swallowable {
-  return { kind: 'corpse', freshness, payout: TRASH_CORPSE_PAYOUT };
+  return {
+    id: NO_BODY,
+    kind: 'corpse',
+    freshness,
+    payout: TRASH_CORPSE_PAYOUT,
+    tier: 'trash',
+    treasureBody: false,
+  };
 }
 
-function drop(line: 'wisps' | 'soulStream'): Swallowable {
-  // Treasure never decays, so a drop always arrives fully fresh (ADR 0004).
-  return { kind: 'drop', freshness: 1, payout: TRASH_CORPSE_PAYOUT, line };
+function powerUp(line: 'wisps' | 'skullStream'): Swallowable {
+  // Treasure never decays, so a power-up always arrives fully fresh (ADR 0004).
+  return {
+    id: NO_BODY,
+    kind: 'powerUp',
+    freshness: 1,
+    payout: TRASH_CORPSE_PAYOUT,
+    tier: 'trash',
+    treasureBody: true,
+    line,
+  };
+}
+
+/** The body a maxed run's carrier opens: treasure carrying no option at all. */
+function bodyWithNoOption(): Swallowable {
+  return {
+    id: NO_BODY,
+    kind: 'powerUp',
+    freshness: 1,
+    payout: TRASH_CORPSE_PAYOUT,
+    tier: 'trash',
+    treasureBody: true,
+  };
+}
+
+/** A rung the floor ladder took, as the value the swallow takes. */
+function fallenRung(line: WeaponLine): Swallowable {
+  return {
+    id: NO_BODY,
+    kind: 'fallenRung',
+    freshness: 1,
+    payout: TRASH_CORPSE_PAYOUT,
+    tier: 'trash',
+    treasureBody: true,
+    line,
+  };
 }
 
 function feast(): Swallowable {
-  return { kind: 'feast', freshness: 1, payout: FEAST_PAYOUT };
+  return {
+    id: NO_BODY,
+    kind: 'feast',
+    freshness: 1,
+    payout: FEAST_PAYOUT,
+    tier: 'rich',
+    treasureBody: false,
+  };
+}
+
+/** A rich corpse, which is the large food a revenant leaves (mobs.ts). */
+function richCorpse(): Swallowable {
+  return {
+    id: NO_BODY,
+    kind: 'corpse',
+    freshness: 1,
+    payout: TRASH_CORPSE_PAYOUT,
+    tier: 'rich',
+    treasureBody: false,
+  };
+}
+
+/** What one meal at a maxed ladder pays under a record, in points (ADR 0064). */
+const mealUnder = (tuning: TuningRecord): number =>
+  tuning.score.mealAtMaxedInKills * tuning.score.trashKillScore;
+
+/** The meal the build compiles, which is what every run below starts under. */
+const DEFAULT_MEAL_AT_MAXED = mealUnder(DEFAULT_TUNING);
+
+/** A run whose every rostered line stands at the top of its ladder. */
+function maxedRun(
+  roster?: readonly WeaponLine[],
+  tuning?: TuningRecord,
+): RunState {
+  return createRun(1, {
+    startingSize: SIZE_FLOOR,
+    startingLevels: uniformLevels(MAX_LEVEL),
+    roster,
+    tuning,
+  });
 }
 
 function kinds(events: SimEvent[]): string[] {
@@ -148,33 +236,52 @@ describe('the swallow', () => {
     );
   });
 
-  it('a drop levels the line it carries, from the value it was given rather than rolling one here (ADR 0034)', () => {
+  it('a power-up levels the option the offer laid on that body, and never a line rolled here (ADR 0034)', () => {
+    // The line the swallow pays is the offer's, read off the body that went
+    // in. A power-up carrying a line that belongs to no live offer levels nothing,
+    // which is what makes the offer the only place a level is decided.
     const run = createRun(1);
-    expect(run.levels.wisps).toBe(0);
-    const events = swallow(run, drop('wisps'));
-    expect(run.levels.wisps).toBe(1);
-    expect(run.levels.soulStream).toBe(1);
+    openOffer(run, 260, 180);
+    const offer = run.offer!;
+    const line = offer.options[0];
+    if (line === undefined) throw new Error('offer opened with no options');
+    const before = run.levels[line];
+    const body = run.corpses.find((each) => each.id === offer.bodyIds[0])!;
+
+    const events = swallow(run, asSwallowable(body));
+
+    expect(run.levels[line]).toBe(before + 1);
     expect(find(events, 'weaponLeveled')).toEqual({
       type: 'weaponLeveled',
-      line: 'wisps',
-      level: 1,
+      line,
+      level: before + 1,
     });
+    expect(kinds(swallow(run, powerUp('wisps')))).not.toContain(
+      'weaponLeveled',
+    );
   });
 
-  it('a drop for a line already at MAX_LEVEL converts to overflow instead (ADR 0002)', () => {
+  it('a body carrying no option pays growth, charge and overflow and levels nothing (ADR 0034)', () => {
+    // ADR 0034: "when nothing is offerable a paid power-up converts to overflow,
+    // keeping ADR 0002's nothing-swallowed-is-worthless promise." The maxed
+    // line's own overflow branch went dormant with the same ruling, because a
+    // maxed line is never offered in the first place.
     const run = createRun(1);
-    run.levels.wisps = MAX_LEVEL;
-    const events = swallow(run, drop('wisps'));
-    expect(run.levels.wisps).toBe(MAX_LEVEL);
+    run.grave.size = SIZE_CEILING;
+    const levels = { ...run.levels };
+
+    const events = swallow(run, bodyWithNoOption());
+
+    expect(run.levels).toEqual(levels);
     expect(kinds(events)).not.toContain('weaponLeveled');
     expect(run.score).toBeGreaterThan(0);
     expect(kinds(events)).toContain('overflowed');
   });
 
-  it("a drop's freshness is 1 and it is never scaled: treasure never decays (ADR 0004)", () => {
+  it("a power-up's freshness is 1 and it is never scaled: treasure never decays (ADR 0004)", () => {
     const run = createRun(1);
     const start = run.grave.size;
-    const treasure = drop('wisps');
+    const treasure = powerUp('wisps');
     expect(treasure.freshness).toBe(1);
     swallow(run, treasure);
     expect(run.grave.size - start).toBeCloseTo(treasure.payout, 10);
@@ -182,7 +289,7 @@ describe('the swallow', () => {
 
   it('the chime fires on every swallow including the very first, whatever the loadout (glossary: swallow chime)', () => {
     const run = createRun(1);
-    for (const line of ['soulStream', 'territory', 'wisps', 'bell'] as const) {
+    for (const line of ['skullStream', 'territory', 'wisps', 'bell'] as const) {
       run.levels[line] = 0;
     }
     expect(kinds(swallow(run, corpse(1)))).toContain('chimed');
@@ -237,6 +344,240 @@ describe('the swallow', () => {
   });
 
   it.todo(
-    "dispatch 4: the spawner's side of the treasure guarantee, that a drop is spawned with freshness 1 (ADR 0004)",
+    "dispatch 4: the spawner's side of the treasure guarantee, that a power-up is spawned with freshness 1 (ADR 0004)",
   );
+});
+
+describe('no burst is ever paid without freshness applied (ADR 0058, #68)', () => {
+  it('pays both on-swallow lines less from a rotten corpse than from a fresh one', () => {
+    // ADR 0058: "A test that fails if a burst is ever paid without freshness
+    // applied is the point of naming the axis." It spans both lines because
+    // the axis is per line and a burst paid flat would pass either one alone.
+    const owned = (freshness: number) => {
+      const run = createRun(1);
+      run.levels.wisps = MAX_LEVEL;
+      run.levels.skullStream = MAX_LEVEL;
+      swallow(run, corpse(freshness));
+      return {
+        souls: run.wisps.filter((wisp) => wisp.alive).length,
+        volleys: run.lines.surgeVolleys,
+      };
+    };
+
+    const fresh = owned(1);
+    const rotten = owned(FRESHNESS_PAYOUT_FLOOR);
+
+    expect(rotten.souls).toBeLessThan(fresh.souls);
+    expect(rotten.volleys).toBeLessThan(fresh.volleys);
+  });
+
+  it('pays both lines something from the emptiest corpse the field can hold', () => {
+    // The floors, read through the one verb: a swallow that fires nothing
+    // reads as a bug, so the rotten end of the curve still pays.
+    const run = createRun(1);
+    run.levels.wisps = 1;
+    run.levels.skullStream = 1;
+    swallow(run, corpse(0));
+
+    expect(run.wisps.filter((wisp) => wisp.alive).length).toBeGreaterThan(0);
+    expect(run.lines.surgeVolleys).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * The dive catching a rung the floor ladder took (ADR 0055, decision 24). The
+ * rung goes back on the line it came off and nowhere else, which is the ruling
+ * Salamander is the one shipped precedent for.
+ */
+describe('a fallen rung swallowed (ADR 0055)', () => {
+  it('restores the line it came from and no other', () => {
+    const run = createRun(1);
+    for (const line of WEAPON_LINES) run.levels[line] = 2;
+
+    const events = swallow(run, fallenRung('wisps'));
+
+    expect(run.levels.wisps).toBe(3);
+    for (const line of WEAPON_LINES) {
+      if (line === 'wisps') continue;
+      expect(run.levels[line]).toBe(2);
+    }
+    expect(find(events, 'rungCaught')).toEqual({
+      type: 'rungCaught',
+      line: 'wisps',
+      level: 3,
+    });
+  });
+
+  it('never takes a line past its cap', () => {
+    // A line stripped to four can climb back to five off an offer before the
+    // body it dropped is reached, so the cap is a live case and not a
+    // hypothetical.
+    const run = createRun(1);
+    run.levels.bell = MAX_LEVEL;
+
+    const events = swallow(run, fallenRung('bell'));
+
+    expect(run.levels.bell).toBe(MAX_LEVEL);
+    expect(find(events, 'rungCaught').level).toBe(MAX_LEVEL);
+  });
+
+  it('announces on its own event and never as a rung bought', () => {
+    // src/dev/replayTallies.ts counts weaponLeveled as a level-up, so a restore
+    // counted there would quietly change what that reading has always meant.
+    // rungCaught is M6's only source for the catch count.
+    const run = createRun(1);
+    run.levels.wisps = 1;
+
+    const events = swallow(run, fallenRung('wisps'));
+
+    expect(kinds(events)).toContain('rungCaught');
+    expect(kinds(events)).not.toContain('weaponLeveled');
+    expect(kinds(events)).not.toContain('powerUpSpawned');
+    expect(kinds(events)).not.toContain('offerTaken');
+  });
+
+  it('pays growth, charge and overflow the way any other food does', () => {
+    // Nothing swallowed is ever worthless (ADR 0002): the rung is food on the
+    // way back in as well as a level.
+    const run = createRun(1);
+    const before = run.grave.size;
+
+    const events = swallow(run, fallenRung('wisps'));
+
+    expect(run.grave.size).toBeGreaterThan(before);
+    expect(kinds(events)).toContain('grew');
+    expect(kinds(events)).toContain('reservoirCharged');
+    expect(find(events, 'chimed').treasureBody).toBe(true);
+  });
+
+  it('a body carrying no line at all is a bug and fails loudly', () => {
+    // A fallen rung's line is a value this sim wrote at the spawn, so a missing
+    // one is never repaired into some other line's rung.
+    const run = createRun(1);
+    const noLine: Swallowable = {
+      id: NO_BODY,
+      kind: 'fallenRung',
+      freshness: 1,
+      payout: TRASH_CORPSE_PAYOUT,
+      tier: 'trash',
+      treasureBody: true,
+    };
+
+    expect(() => swallow(run, noLine)).toThrow(/fallen rung/);
+  });
+
+  it('the overflow still pays exactly as it did, and still says so on its own event', () => {
+    // The half that did not change. This slice adds beside the overflow and
+    // trades nothing, and `overflowed` is not widened and not narrowed.
+    const run = createRun(1);
+    run.grave.size = SIZE_CEILING;
+
+    const events = swallow(run, corpse(1));
+    const overflowed = find(events, 'overflowed');
+
+    expect(overflowed.amount).toBeCloseTo(TRASH_CORPSE_PAYOUT, 10);
+    expect(overflowed.score).toBe(run.score);
+    expect(Object.keys(overflowed).sort()).toEqual(['amount', 'score', 'type']);
+  });
+
+  it("an offer's body never gives a rung back, though it wears the same treasure body", () => {
+    // The treasure row says how a body draws and chimes; which body it is stays
+    // the kind's, and #122 owns telling the two apart on screen.
+    const run = createRun(1);
+    run.levels.wisps = 2;
+
+    const events = swallow(run, powerUp('wisps'));
+
+    expect(kinds(events)).not.toContain('rungCaught');
+    expect(run.levels.wisps).toBe(2);
+  });
+});
+
+describe('large food taken at a maxed ladder pays score (design record R4)', () => {
+  it('pays its own row on top of the growth, the charge and the overflow it already pays', () => {
+    // R4 reads "full power" as every rostered line at MAX_LEVEL and never as
+    // the grave at its size ceiling: ADR 0003 says size is health, and growth
+    // past the ceiling already pays as the overflow, so reading it the other
+    // way would pay twice for one moment.
+    const run = maxedRun();
+
+    const events = swallow(run, richCorpse());
+    const paid = events.filter((event) => event.type === 'scorePaid');
+
+    expect(paid).toHaveLength(1);
+    expect(find(events, 'scorePaid').input).toBe('mealAtMaxed');
+    expect(find(events, 'scorePaid').amount).toBe(DEFAULT_MEAL_AT_MAXED);
+    expect(run.score).toBe(DEFAULT_MEAL_AT_MAXED);
+    expect(kinds(events)).toContain('grew');
+    expect(kinds(events)).toContain('reservoirCharged');
+  });
+
+  it('pays the row the run started under, so a record that triples it pays three times (ADR 0064)', () => {
+    // The direction the row predicts: the meal is stated in trash kills and
+    // paid at the run's own kill unit, so the same rich swallow at the same
+    // maxed ladder pays what the record says rather than what this build
+    // compiles. The count is what binds this input, so the row is the whole of
+    // what moves.
+    const richer = resolveTuning({
+      score: {
+        mealAtMaxedInKills: DEFAULT_TUNING.score.mealAtMaxedInKills * 3,
+      },
+    });
+    const underDefault = maxedRun();
+    const underRicher = maxedRun(undefined, richer);
+
+    swallow(underDefault, richCorpse());
+    swallow(underRicher, richCorpse());
+
+    expect(underDefault.score).toBe(DEFAULT_MEAL_AT_MAXED);
+    expect(underRicher.score).toBe(mealUnder(richer));
+    expect(underRicher.score).toBe(3 * underDefault.score);
+  });
+
+  it('pays a feast the same bonus, because the feast is large food too', () => {
+    const run = maxedRun();
+
+    swallow(run, feast());
+
+    expect(run.score).toBeGreaterThanOrEqual(DEFAULT_MEAL_AT_MAXED);
+  });
+
+  it('pays no bonus while one rostered line still stands below its top rung', () => {
+    // The condition is every line and not any line: one rung short of full
+    // power is not full power.
+    const run = maxedRun();
+    run.levels.wisps = MAX_LEVEL - 1;
+
+    const events = swallow(run, richCorpse());
+
+    expect(kinds(events)).not.toContain('scorePaid');
+    expect(run.score).toBe(0);
+  });
+
+  it('pays no bonus for a trash swallow at a maxed ladder', () => {
+    // The tier is the rule and not the timing alone: large food is the rich
+    // tier, and the mow's own body is not it.
+    const run = maxedRun();
+
+    const events = swallow(run, corpse(1));
+
+    expect(kinds(events)).not.toContain('scorePaid');
+    expect(run.score).toBe(0);
+  });
+
+  it("never holds the bonus back for a line outside the run's roster", () => {
+    // The roster decides what a run has (ADR 0046), so a line this run was
+    // never fielding cannot keep it from being at full power.
+    const roster: readonly WeaponLine[] = ['skullStream'];
+    const run = createRun(1, {
+      startingSize: SIZE_FLOOR,
+      startingLevels: { ...uniformLevels(0), skullStream: MAX_LEVEL },
+      roster,
+    });
+
+    swallow(run, richCorpse());
+
+    expect(run.score).toBe(DEFAULT_MEAL_AT_MAXED);
+    expect(WEAPON_LINES.length).toBeGreaterThan(roster.length);
+  });
 });

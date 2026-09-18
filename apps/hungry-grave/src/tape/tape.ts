@@ -27,6 +27,22 @@ const TAPE_INPUT_DEVICES = [
 type TapeInputDevice = (typeof TAPE_INPUT_DEVICES)[number];
 
 /**
+ * The policy names the game itself writes, reserved so no configuration the
+ * harness plays under may take either (ADR 0027, ADR 0053).
+ *
+ * They live here rather than beside their writers because the format is what
+ * reserves them, and because src/dev builds its own reserved list out of the
+ * pair and may not reach src/app (src/__tests__/boundary.test.ts). Neither is
+ * spelled a second time anywhere.
+ */
+
+// What a person's run records, resolved and true: ADR 0027 forbids an absence.
+const PERSON_POLICY = 'person';
+
+// What a fixed arithmetic wander records: not a policy, and not a person.
+const SCRIPT_POLICY = 'script';
+
+/**
  * Whether the run a tape holds was sound (CONTEXT.md).
  *
  * Unchecked is a run that was recorded on an instrumentation build with the
@@ -44,6 +60,31 @@ type TapeIntegrity = (typeof TAPE_INTEGRITIES)[number];
 type TapeStop = StopReason | 'unknown';
 
 /**
+ * One thing a run started from, under the one addressable name every text
+ * surface uses for it, and its value (ADR 0043).
+ *
+ * A name string and a plain number, never the starting condition's own typed
+ * record: the set of names is open, so a reader that supplied them from its own
+ * present-day world would return a wrong number the moment the set moved, which
+ * is the mistake ADR 0043 was written against. Whether this build implements
+ * what a name says is `resolveStartingCondition`'s question and no decoder's.
+ */
+interface StartingConditionEntry {
+  readonly name: string;
+  readonly value: number;
+}
+
+/**
+ * The whole condition a run started from, as the tape holds it: every name it
+ * resolved, in the order the run states them (ADR 0043, ADR 0063).
+ *
+ * A list and not a map, because the order is itself recorded: the `levels.`
+ * entries are the roster, in the order the run fielded its lines, so a map
+ * would lose the one fact that makes the levels readable at all.
+ */
+type StartingConditionBlock = readonly StartingConditionEntry[];
+
+/**
  * The run's identity and its conditions, written before the first tick.
  *
  * It carries nothing knowable only when a run stops. That rule is what makes
@@ -53,35 +94,17 @@ type TapeStop = StopReason | 'unknown';
 interface TapeHeader {
   readonly seed: number;
   /**
-   * The starting size the run actually resolved to, as a number rather than a
-   * nullable "pinned or not". Recording the absence would let a later tune of
-   * the compiled default silently change what every old tape replays as.
-   */
-  readonly startingSize: number;
-  /**
-   * The weapon lines this tape was written against, in the order its level
-   * bytes follow (ADR 0043).
+   * Everything the run started from, resolved and self-describing (ADR 0043,
+   * ADR 0063): its size, its levels per fielded line, its signal lock, the
+   * score it began holding and every row of the tuning record it played under.
    *
-   * It is recorded so the level bytes can be read by name instead of by
-   * position: the roster is an open set, so a reader that supplied the names
-   * from its own present-day world would return a wrong number the moment the
-   * set moved. Strings and not the WeaponLine union, because the whole point is
-   * to hold what the tape said even when this build does not implement it.
+   * One block rather than a field apiece, because the condition is one record
+   * (ADR 0063) and two spellings of one fact is the defect the block exists to
+   * remove. Every value is the value the run actually started from and never an
+   * absence meaning "the default" (ADR 0027), so a later tune of a default
+   * cannot silently change what an old tape replays as.
    */
-  readonly recordedRoster: readonly string[];
-  /**
-   * The starting level each recorded line actually resolved to, keyed by the
-   * tape's own vocabulary rather than the reader's (ADR 0043).
-   *
-   * Resolved for every run rather than only a pinned one: an unpinned run
-   * records its birthright the same way, or a later tune of the birthright
-   * would silently change what every old tape replays as (ruled by Mark
-   * 2026-08-24, widening the closed list by the same record-the-resolved-value
-   * argument as the size above). `resolveStartingLevels` is the one step that
-   * asks whether this build can run what is written here, and it is the only
-   * thing that ever produces a Record over the current roster.
-   */
-  readonly startingLevels: Readonly<Record<string, number>>;
+  readonly startingCondition: StartingConditionBlock;
   // What makes "one command per tick" mean anything, and what the observations join to wall clock through.
   readonly tickRate: number;
   // Ticks between checkpoints, obeyed by the reader rather than compiled into it.
@@ -91,9 +114,12 @@ interface TapeHeader {
   // Human-readable metadata, never a fidelity gate: a README typo must not invalidate every tape.
   readonly commitHash: string;
   /**
-   * Reserved for a resolvable build identity. The machinery that would resolve
-   * one is deliberately not built, and the field is here because header shape
-   * is one-way once tapes exist.
+   * The build that recorded the run, which the commit hash above cannot say:
+   * it carries a dirty tree's own marker, so two builds of one commit with
+   * different uncommitted rules are two identities (#82).
+   *
+   * Empty on every tape recorded before the field was filled, which is an
+   * absence and not a build.
    */
   readonly buildIdentity: string;
   /**
@@ -103,6 +129,17 @@ interface TapeHeader {
    */
   readonly author: string;
   readonly inputDevice: TapeInputDevice;
+  /**
+   * Which policy steered the run, so a hand's tape is never mistaken for a
+   * person's (ADR 0053).
+   *
+   * A name string and never a code byte: the set of policy names is open, and a
+   * positional or ordinal encoding over an open set is the exact mistake
+   * ADR 0043 was written against. A person's run records PERSON_POLICY and a
+   * fixed arithmetic wander records SCRIPT_POLICY, both resolved values because
+   * ADR 0027 forbids an absence.
+   */
+  readonly policy: string;
   // ADR 0011's keyboard speed multiplier, which changes what a command means.
   readonly keyboardSpeed: number;
   // "webgl" or "webgpu", a constant for a run rather than a per-frame series.
@@ -283,11 +320,15 @@ export {
   TAPE_INPUT_DEVICES,
   TAPE_INTEGRITIES,
   FRAME_REASONS,
+  PERSON_POLICY,
+  SCRIPT_POLICY,
 };
 export type {
   TapeInputDevice,
   TapeIntegrity,
   TapeStop,
+  StartingConditionEntry,
+  StartingConditionBlock,
   TapeHeader,
   TapeCheckpoint,
   FrameReason,

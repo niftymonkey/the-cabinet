@@ -1,0 +1,397 @@
+/**
+ * Both of a run's endings (ADR 0003, ADR 0007, ADR 0028): the stage won on the
+ * Undertaker's death, and the grave sealed shut at the bottom of the floor
+ * ladder.
+ *
+ * The file sits at the top of src because an ending spans the two halves that
+ * produce it: the stage and the boss machine under src/game, and the playing
+ * policy under src/dev that walks a grave into enough fire to reach the floor.
+ *
+ * Every test here drives a pinned section rather than a played run. Both bosses
+ * stand behind sections nothing at the birthright crosses headlessly, so a run
+ * would measure the policy that got there rather than the ending it reached.
+ * The endings' own full runs are the set piece's slice, which is the boundary
+ * the stage is still missing.
+ */
+
+import { describe, expect, it } from 'vitest';
+
+import { hitTakingPolicy } from '../dev/bot';
+import { stepping } from '../dev/stepping';
+import { PHASE_HP, spawnBoss } from '../game/bosses/phases';
+import type { TickCommand } from '../game/command';
+import type { SimEvent } from '../game/events';
+import type { WeaponLine } from '../game/lines/roster';
+import { BIRTHRIGHT, WEAPON_LINES } from '../game/lines/roster';
+import { MOB_TYPES } from '../game/mobs';
+import type { RunState } from '../game/run';
+import { createRun, uniformLevels } from '../game/run';
+import type { BossKind } from '../game/stage/waves';
+import { SECTIONS } from '../game/stage/stage';
+import { SIZE_CEILING, SIZE_FLOOR } from '../game/tuning';
+import { DEFAULT_TUNING } from '../game/tuningRecord';
+
+/** What one floor hit bleeds under the record the build compiles, in points (ADR 0064). */
+const BLEED_CAP =
+  DEFAULT_TUNING.score.bleedCapInKills * DEFAULT_TUNING.score.trashKillScore;
+
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+const SEED = 20260909;
+
+const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
+
+/** How long a pinned fight is given to reach what it is asked for. */
+const FIGHT_TICKS = 6000;
+
+/**
+ * The build the ladder is walked under, above the birthright and well under a
+ * full one.
+ *
+ * A rung is only strippable if the run bought one, and this policy cannot buy
+ * anything: it steers into fire rather than at food, so the loadout it would
+ * reach by playing is the one it started with. Pinning it through createRun's
+ * third parameter is the same instrument the whole-stage victory runs use for
+ * the same reason. Two rather than five because the storm has to leave the
+ * fight standing while the grave is ground down: a full build empties a phase
+ * faster than the boss's own pattern reaches the floor.
+ */
+const LADDER_LEVEL = 2;
+
+/**
+ * The score the run brings to the fight, which the ladder's first rung takes a
+ * capped slice of.
+ *
+ * It is pinned for the same reason the build above is: score arrives only as
+ * overflow from a swallow at the size ceiling, and a rig standing in the last
+ * fight is not the run that earned it. Measured rather than assumed: this
+ * policy's first hit lands at tick 88 and the fight's first corpse at tick 307,
+ * so a grave that dives is off the ceiling long before the fight pays it
+ * anything. The figure itself is not a magnitude the test rests on, because the
+ * assertion below reads the rule rather than the number: the rung takes the
+ * lesser of what stood and the cap, whichever of the two this fixture lands on.
+ */
+const SCORE_BROUGHT_TO_THE_FIGHT = 1200;
+
+/** The section the stage authors this boss's fight in. */
+function sectionOf(boss: BossKind): number {
+  return SECTIONS.findIndex((section) => section.boss === boss);
+}
+
+interface Fight {
+  readonly state: RunState;
+  /** One tick, spent under the command the caller hands it. */
+  readonly tick: (command: TickCommand) => readonly SimEvent[];
+}
+
+/**
+ * A run standing in a boss's own section with him on the field.
+ *
+ * He is put there rather than fought to: the stage's own tests hold that a
+ * section spawns the boss its column names, and what is under test here is what
+ * his death does to the run. His section authors no waves, so everything that
+ * arrives on the field is his.
+ */
+function atTheFight(boss: BossKind, size?: number, level?: number): Fight {
+  const state = createRun(SEED, {
+    startingSize: size,
+    startingLevels: level === undefined ? undefined : uniformLevels(level),
+  });
+  state.stage.sectionIndex = sectionOf(boss);
+  const step = stepping(state);
+  spawnBoss(state, boss);
+  return { state, tick: (command) => step(command) };
+}
+
+/** Puts the fight on its last phase, which is the one that runs every pattern. */
+function onItsLastPhase(state: RunState): void {
+  const boss = state.boss!;
+  boss.phaseIndex = PHASE_HP[boss.kind].length - 1;
+  boss.hp = requireDefined(
+    PHASE_HP[boss.kind][boss.phaseIndex],
+    `no phase ${boss.phaseIndex} for ${boss.kind}`,
+  );
+}
+
+/** Puts the fight on its last phase with one point left, so the storm ends it. */
+function onItsLastLegs(state: RunState): void {
+  onItsLastPhase(state);
+  state.boss!.hp = 1;
+}
+
+/** What a run held, read before a tick and again after it. */
+interface Held {
+  readonly score: number;
+  readonly size: number;
+  readonly reservoir: number;
+  readonly levels: Record<WeaponLine, number>;
+  readonly food: number;
+  readonly feasts: number;
+}
+
+function held(state: RunState): Held {
+  const alive = state.corpses.filter((corpse) => corpse.alive);
+  return {
+    score: state.score,
+    size: state.grave.size,
+    reservoir: state.reservoir,
+    levels: { ...state.levels },
+    food: alive.length,
+    feasts: alive.filter((corpse) => corpse.kind === 'feast').length,
+  };
+}
+
+/** The tick that killed the boss, and what the run held as that tick began. */
+interface Fall {
+  readonly events: readonly SimEvent[];
+  readonly before: Held;
+}
+
+// Ticks until the boss on the field is gone, and answers with the tick that did it.
+function tickUntilTheBossFalls(fight: Fight): Fall {
+  for (let tick = 0; tick < FIGHT_TICKS; tick++) {
+    const before = held(fight.state);
+    const events = fight.tick(STILL);
+    if (events.some((event) => event.type === 'bossKilled')) {
+      return { events, before };
+    }
+  }
+  throw new Error('the boss outlived the fight the test gave him');
+}
+
+/** The tick a fight standing on its last point of health is ended on. */
+function tickOfTheFall(): number {
+  const fight = atTheFight('undertaker');
+  onItsLastLegs(fight.state);
+  for (let tick = 0; tick < FIGHT_TICKS; tick++) {
+    const events = fight.tick(STILL);
+    if (events.some((event) => event.type === 'bossKilled')) return tick;
+  }
+  throw new Error('the boss outlived the fight the test gave him');
+}
+
+/**
+ * A grave one hit from sealed, with a body standing on it: at the floor, with
+ * no score and nothing above the birthright left to bleed, and out of its
+ * invulnerable window.
+ */
+function oneHitFromSealed(state: RunState): void {
+  state.grave.size = SIZE_FLOOR;
+  state.grave.invulnerable = 0;
+  state.score = 0;
+  const mob = state.mobs.find((each) => !each.alive)!;
+  mob.alive = true;
+  mob.type = 'shambler';
+  mob.hp = MOB_TYPES.shambler.hp;
+  mob.x = state.grave.x;
+  mob.y = state.grave.y;
+}
+
+/** Every event of one kind a tick reported, in order. */
+function only<T extends SimEvent['type']>(
+  events: readonly SimEvent[],
+  type: T,
+): Extract<SimEvent, { type: T }>[] {
+  return events.filter(
+    (event): event is Extract<SimEvent, { type: T }> => event.type === type,
+  );
+}
+
+describe("the stage's ending (ADR 0007)", () => {
+  it("fires victory on the Undertaker's death and never on reaching a section", () => {
+    // game-concept.md:70: "his death is the ending." ADR 0050: "the Undertaker
+    // ends the third and the stage."
+    const fight = atTheFight('undertaker');
+    onItsLastLegs(fight.state);
+    const { events } = tickUntilTheBossFalls(fight);
+
+    expect(only(events, 'bossKilled').map((event) => event.boss)).toEqual([
+      'undertaker',
+    ]);
+    expect(only(events, 'victory')).toHaveLength(1);
+    expect(fight.state.ending).toBe('victory');
+    // The death and the ending are one tick, not a death with a crossing behind
+    // it: a run that has ended executes no further ticks, so an ending hung on
+    // the stage reaching its last section would arrive after the run was over.
+    expect(
+      only(events, 'sectionChanged').map((event) => event.section),
+    ).toEqual(['over']);
+    expect(
+      requireDefined(only(events, 'victory')[0], 'no victory event').tick,
+    ).toBe(
+      requireDefined(
+        only(events, 'sectionChanged')[0],
+        'no sectionChanged event',
+      ).tick,
+    );
+  });
+
+  it('ends nothing when the stage reaches its last section without that death', () => {
+    // The retired stub's own case: victory used to fire on entering the section
+    // after the last fight, whatever emptied it. A boss taken off the field
+    // without dying leaves the section's end condition met and the run unfinished,
+    // which is unreachable in play and is exactly what says the ending is the
+    // death rather than the crossing.
+    const fight = atTheFight('undertaker');
+    fight.state.boss = null;
+    fight.tick(STILL);
+
+    expect(
+      requireDefined(
+        SECTIONS[fight.state.stage.sectionIndex],
+        'sectionIndex out of range',
+      ).name,
+    ).toBe('over');
+    expect(fight.state.ending).toBeNull();
+  });
+
+  it('leaves a run sealed on the tick that also wins the fight', () => {
+    // Both endings can fall on one tick, and the grave's is first: hits resolve
+    // before the tick's deaths do, so a grave the fight sealed lost the run
+    // before the last phase emptied. The fall's own tick is measured first and
+    // the hit is then stood on it, because the two have to land together for
+    // the rule to be about anything.
+    const falls = tickOfTheFall();
+    const fight = atTheFight('undertaker');
+    onItsLastLegs(fight.state);
+    let events: readonly SimEvent[] = [];
+    for (let tick = 0; tick <= falls; tick++) {
+      if (tick === falls) oneHitFromSealed(fight.state);
+      events = fight.tick(STILL);
+    }
+
+    expect(only(events, 'bossKilled')).toHaveLength(1);
+    expect(only(events, 'sealed')).toHaveLength(1);
+    expect(only(events, 'victory')).toHaveLength(0);
+    expect(fight.state.ending).toBe('sealed');
+  });
+
+  it('pays nothing for a victory, where a boss that is not the ending sheds a feast', () => {
+    // game-concept.md:70: "no payout, the grave swallows the gravedigger." The
+    // Banshee is the presence half: her death drops a feast on the same
+    // machine, so the absence below is read against an input that can produce
+    // one.
+    const fight = atTheFight('undertaker');
+    onItsLastLegs(fight.state);
+    const { events, before } = tickUntilTheBossFalls(fight);
+    const after = held(fight.state);
+
+    // The victory itself still pays nothing. What the falling tick moves is the
+    // last of the boss's health the storm took, which is boss damage paying per
+    // hit (design record R4) and never the ending paying out, so the move is
+    // asserted to be exactly that and to carry no other input's name.
+    const paid = only(events, 'scorePaid');
+    expect(paid.every((event) => event.input === 'bossDamage')).toBe(true);
+    expect(after.score - before.score).toBeCloseTo(
+      paid.reduce((sum, event) => sum + event.amount, 0),
+      10,
+    );
+    expect(after.size).toBe(before.size);
+    expect(after.reservoir).toBe(before.reservoir);
+    expect(after.levels).toEqual(before.levels);
+    expect(after.feasts).toBe(before.feasts);
+    expect(after.food).toBeLessThanOrEqual(before.food);
+    expect(only(events, 'grew')).toHaveLength(0);
+    expect(only(events, 'swallowed')).toHaveLength(0);
+
+    const hers = atTheFight('banshee');
+    onItsLastLegs(hers.state);
+    const wake = tickUntilTheBossFalls(hers);
+    expect(held(hers.state).feasts).toBe(wake.before.feasts + 1);
+    expect(hers.state.ending).toBeNull();
+  });
+});
+
+describe("the grave's ending (ADR 0003)", () => {
+  it('walks the whole ladder in order inside a boss fight', () => {
+    // ADR 0003: "hits bleed score first, then weapon levels down to the
+    // birthright loadout, and only when nothing is left to bleed does the next
+    // hit seal the grave shut." Reachable inside a fight is the new half: the
+    // ladder itself has been real since the grave was.
+    const fight = atTheFight('undertaker', SIZE_CEILING, LADDER_LEVEL);
+    // His last phase, because it is the one that runs both patterns at once:
+    // the fight the ladder is walked in is the fight at its loudest.
+    onItsLastPhase(fight.state);
+    fight.state.score = SCORE_BROUGHT_TO_THE_FIGHT;
+    const rungs: SimEvent[] = [];
+    // The score on the tick the rung bled, because after this change the score
+    // goes on rising from kills and the end of the run can no longer say what
+    // the bleed left behind.
+    let leftByTheBleed: number | null = null;
+    // What the score's own inputs paid before the rung bled, summed off their
+    // own events in the order the sim reported them. The score is fed by five
+    // inputs now (design record R4), so what stood at the bleed is read off the
+    // ledger rather than pinned as a figure that every weight retune would
+    // stale.
+    let paidBeforeTheBleed = 0;
+    let beforeTheBleed = true;
+    let caused: SimEvent[] = [];
+    for (let tick = 0; tick < FIGHT_TICKS; tick++) {
+      // The tick before's events, which is what a policy is handed by the
+      // harness it usually runs under.
+      const events = fight.tick(hitTakingPolicy(fight.state, caused));
+      caused = [...events];
+      for (const event of events) {
+        if (event.type === 'scorePaid' && beforeTheBleed) {
+          paidBeforeTheBleed += event.amount;
+        }
+        if (
+          event.type === 'scoreBled' ||
+          event.type === 'weaponStripped' ||
+          event.type === 'sealed'
+        ) {
+          rungs.push(event);
+        }
+        if (event.type === 'scoreBled' && leftByTheBleed === null) {
+          beforeTheBleed = false;
+          leftByTheBleed = fight.state.score;
+        }
+      }
+      if (fight.state.ending !== null) break;
+    }
+    const order = rungs.map((rung) => rung.type);
+
+    expect(fight.state.ending).toBe('sealed');
+    // Score first, and the lesser of what stood and the cap: the score tier is
+    // one rung whatever it paid, and the remainder stays (ADR 0003 as amended
+    // 2026-09-16 on Mark's ruling, "Cap the bleed").
+    expect(order[0]).toBe('scoreBled');
+    const stood = SCORE_BROUGHT_TO_THE_FIGHT + paidBeforeTheBleed;
+    const bled = requireDefined(
+      only(rungs, 'scoreBled')[0],
+      'no scoreBled rung',
+    ).amount;
+    expect(bled).toBeCloseTo(Math.min(stood, BLEED_CAP), 10);
+    expect(leftByTheBleed).toBeCloseTo(stood - bled, 10);
+    // Then the levels, then the seal, and the seal is the last thing that
+    // happens because there is nothing left to bleed.
+    expect(order.indexOf('weaponStripped')).toBeGreaterThan(
+      order.indexOf('scoreBled'),
+    );
+    expect(order.indexOf('weaponStripped')).toBeLessThan(
+      order.indexOf('sealed'),
+    );
+    expect(order.at(-1)).toBe('sealed');
+    expect(only(rungs, 'sealed')).toHaveLength(1);
+    // Inside the fight rather than after it: the boss was still standing when
+    // the grave sealed, which is what makes this the ladder in a boss fight and
+    // not the ladder in a section.
+    expect(fight.state.boss).not.toBeNull();
+    expect(
+      requireDefined(
+        SECTIONS[fight.state.stage.sectionIndex],
+        'sectionIndex out of range',
+      ).boss,
+    ).toBe('undertaker');
+    // The floor a level falls to is the birthright, whatever the build.
+    for (const line of WEAPON_LINES) {
+      expect(`${line} ${fight.state.levels[line]}`).toBe(
+        `${line} ${BIRTHRIGHT.includes(line) ? 1 : 0}`,
+      );
+    }
+  });
+});

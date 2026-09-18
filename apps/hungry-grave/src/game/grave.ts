@@ -2,13 +2,16 @@
 // Hides ADR 0003 entirely: no other module knows what a hit costs.
 
 import type { MoveCommand } from './command';
+import { POWER_UP_HALF_EXTENT, spawnFallenRung } from './corpses';
 import type { SimEvent } from './events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { MobType } from './mobs';
 import type { WeaponLine } from './lines/roster';
-import { BIRTHRIGHT, WEAPON_LINES } from './lines/roster';
+import { BIRTHRIGHT, MAX_LEVEL } from './lines/roster';
+import { spreadX } from './offer';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
+import type { BossKind } from './stage/waves';
 import {
   BASE_SPEED,
   GRAVE_ASPECT,
@@ -24,8 +27,15 @@ import {
 const START_X = FIELD_WIDTH / 2;
 const START_Y = FIELD_HEIGHT * 0.8;
 
-// Who hurt the player (#48): the mob type whose shot landed, or body contact.
-type GraveHitSource = MobType | 'contact';
+/**
+ * Who hurt the player (#48): the mob type whose shot landed, the boss whose
+ * pattern landed, or body contact.
+ *
+ * A boss is one of the answers because a boss's pattern is mob fire by the
+ * glossary's own definition, and which boss's pattern is landing on the player
+ * is exactly what the harness's damage reading is asked.
+ */
+type GraveHitSource = MobType | BossKind | 'contact';
 
 interface Grave {
   x: number;
@@ -34,6 +44,15 @@ interface Grave {
   size: number;
   // Ticks of invulnerability left. Zero means a hit lands.
   invulnerable: number;
+  /**
+   * Whether the floor ladder has already spent its score rung without yet
+   * having it back (design record `show-what-you-have.md` R4).
+   *
+   * It is the grave's and not the run's because growth is what gives the rung
+   * back and growGrave takes a Grave: kept on the run, this module's own rule
+   * would have to be cleared from swallow.ts.
+   */
+  scoreRungBled: boolean;
 }
 
 /**
@@ -60,6 +79,7 @@ const createGrave = (size: number = SIZE_START): Grave => {
     y: START_Y,
     size: started,
     invulnerable: 0,
+    scoreRungBled: false,
   };
 };
 
@@ -113,14 +133,30 @@ const moveGrave = (grave: Grave, command: MoveCommand): void => {
 };
 
 /**
+ * The size at which the floor ladder has its score rung back: a full hit's
+ * worth of growth off the floor (design record R4).
+ *
+ * A crumb is deliberately not enough. A fully stale trash corpse pays 0.025
+ * units against a fresh one's 0.10125, so a rung given back at any growth at
+ * all would be bought back invisibly inside the mow, which is the hole the rule
+ * above it exists to close one step up.
+ */
+const SCORE_RUNG_REARM_SIZE = SIZE_FLOOR + HIT_SHRINK;
+
+/**
  * Grows the grave and returns whatever did not fit under the ceiling, as
  * overflow (ADR 0003). A wider grave can end up straddling an edge it was
  * pressed against, so the containment runs again here rather than waiting for
  * the next move command.
+ *
+ * Growing a full hit's worth off the floor is also what gives the score rung
+ * back (design record R4), and it lands here because this is where growth
+ * lands: the rule reads end to end in the module that owns the ladder.
  */
 const growGrave = (grave: Grave, amount: number): number => {
   const grown = grave.size + amount;
   grave.size = Math.min(grown, SIZE_CEILING);
+  if (grave.size >= SCORE_RUNG_REARM_SIZE) grave.scoreRungBled = false;
   containGrave(grave);
   return Math.max(0, grown - SIZE_CEILING);
 };
@@ -130,11 +166,34 @@ const ageGrave = (grave: Grave): void => {
   if (grave.invulnerable > 0) grave.invulnerable -= 1;
 };
 
-// The whole score, gone. The score tier is exactly one rung, so it never partly bleeds.
+/**
+ * The most one hit at the size floor may bleed, in points: the run's own cap,
+ * stated in trash kills, at the run's own kill unit (ADR 0064).
+ *
+ * Two rows and not one, because the sentence the cap exists to make sayable is
+ * about the income it comes out of, "a hit at the floor costs you twenty
+ * kills", and a bare two thousand says nothing about that income. Read off the
+ * run so that a run started under a record that moves either row bleeds what
+ * that record says rather than what this build compiles.
+ */
+const bleedCapOf = (state: RunState): number =>
+  state.conditions.tuning.score.bleedCapInKills *
+  state.conditions.tuning.score.trashKillScore;
+
+/**
+ * The lesser of the standing score and the cap, gone, and the remainder stays
+ * (ADR 0003 as amended on Mark's ruling of 2026-09-16, design record R4's
+ * closing amendment). The event carries what was taken beside what is left, so
+ * a readout counting the digits down knows where the score stood.
+ *
+ * No invariant guards the remainder against going negative, because the
+ * lesser-of makes that state unreachable rather than merely unlikely; the test
+ * that pins the lesser-of is what holds it.
+ */
 const bleedScore = (state: RunState): SimEvent[] => {
-  const amount = state.score;
-  state.score = 0;
-  return [{ type: 'scoreBled', amount }];
+  const amount = Math.min(state.score, bleedCapOf(state));
+  state.score -= amount;
+  return [{ type: 'scoreBled', amount, score: state.score }];
 };
 
 // The level a line can never be stripped below (glossary: birthright).
@@ -142,20 +201,126 @@ const levelFloor = (line: WeaponLine): number => {
   return BIRTHRIGHT.includes(line) ? 1 : 0;
 };
 
+/**
+ * The lines this hit can take a rung off, in the run's own roster order
+ * (ADR 0046, design record R3 and R6).
+ *
+ * It walks the roster rather than the build's four, so the bodies the strip
+ * drops stand in the order the HUD's rows read. It changes no order today,
+ * because implementsLines already keeps a roster inside the pool; it is the
+ * line a fifth weapon would break.
+ */
 const strippableLines = (state: RunState): WeaponLine[] => {
-  return WEAPON_LINES.filter((line) => state.levels[line] > levelFloor(line));
+  return state.roster.filter((line) => state.levels[line] > levelFloor(line));
 };
 
 /**
- * One level off every line that has one to give. Taking the whole loadout down
- * a step bounds the ladder at five rungs whatever the build, so a great run and
- * a poor one die at the same length, and each rung visibly thins the entire
- * storm in one beat.
+ * How far below the grave's own centre a fallen rung stands, in field units. An
+ * initial data row.
+ *
+ * Downfield rather than upfield, which is decision 20's own "how far down the
+ * rung body spawns": an upfield body is scrolled back into the swallow box
+ * within a tick or two and hands the rung to a player who only has to hold the
+ * lane, which is the Salamander shape Mark rejected.
+ *
+ * Far enough to clear the swallow box on the tick it falls, and one tick of the
+ * grave's own travel further. A strip runs only at the size floor, so the
+ * grave's half-height there is SIZE_FLOOR exactly and the body's own is the
+ * treasure extent; a grave already diving at full speed therefore cannot reach
+ * a body on the tick after the fall either. That is the transferable half of
+ * Sonic's no-recollect window, as geometry rather than as a clock: the loss
+ * registers before the chase can connect.
+ *
+ * There is no containment on y. Where the field has no room below the grave the
+ * offset is mirrored above it instead, which fallenRungY rules.
+ */
+const FALLEN_RUNG_DROP = SIZE_FLOOR + POWER_UP_HALF_EXTENT + BASE_SPEED;
+
+/**
+ * Which side of the grave the strip's bodies stand on: the drop below it, or
+ * the same offset mirrored above it when there is no room below (orchestrator,
+ * 2026-09-16, under design record R6 and Mark's ask).
+ *
+ * No room below means the downfield spawn would put a body's own extent past
+ * the field's bottom edge, where it is lost on the tick it fell. Mark's ask is
+ * a lost level the player can see fall and dive to catch, and a rung that never
+ * appears cannot be dived for, so the drop mirrors rather than vanishing.
+ *
+ * Mirrored at the same offset, so an upfield body clears the swallow box by the
+ * margin a downfield one does and the loss is never handed straight back. The
+ * scroll then carries it down toward the grave and past it, which is a window
+ * to re-catch it rather than the Salamander hand-back an upfield spawn with
+ * room below would be, and it is lost off the bottom edge like any other body
+ * if nobody takes it.
+ */
+const fallenRungY = (graveY: number): number => {
+  const below = graveY + FALLEN_RUNG_DROP;
+  const roomBelow = below + POWER_UP_HALF_EXTENT <= FIELD_HEIGHT;
+  return roomBelow ? below : graveY - FALLEN_RUNG_DROP;
+};
+
+/**
+ * One body per rung the strip took, standing apart at the offer's own spacing
+ * in roster order, centred on the grave's x and shifted whole to stay inside
+ * the field (ADR 0055, decision 24, design record R6).
+ *
+ * The group shifts rather than each body clamping on its own, which is the
+ * offer's rule and the reason it is one function: clamping each would stack two
+ * rungs on one x at exactly the edge a pinned player takes the hit against, and
+ * the choice of which line to save is the whole point of the spread.
+ */
+const dropFallenRungs = (
+  state: RunState,
+  lines: readonly WeaponLine[],
+): SimEvent[] => {
+  const events: SimEvent[] = [];
+  const y = fallenRungY(state.grave.y);
+  for (const [index, line] of lines.entries()) {
+    const at = spreadX(state.grave.x, lines.length, index);
+    events.push(...spawnFallenRung(state, at, y, line));
+  }
+  return events;
+};
+
+/**
+ * One level off every line that has one to give, and one body onto the field
+ * per rung taken. Taking the whole loadout down a step bounds the ladder at
+ * five rungs whatever the build, so a great run and a poor one die at the same
+ * length, and each rung visibly thins the entire storm in one beat.
+ *
+ * The strip is announced before the bodies, so a reader meets the loss and then
+ * what is left of it, which is the order the player sees it in.
  */
 const stripLevels = (state: RunState): SimEvent[] => {
   const lines = strippableLines(state);
   for (const line of lines) state.levels[line] -= 1;
-  return [{ type: 'weaponStripped', lines }];
+  const stripped: SimEvent = { type: 'weaponStripped', lines };
+  return [stripped, ...dropFallenRungs(state, lines)];
+};
+
+/**
+ * The dive catching a fallen rung: the line it came off gets its rung back and
+ * no other line moves (decision 24), and a line already at its cap is never
+ * taken past it (ADR 0034's MAX_LEVEL).
+ *
+ * The event fires on the catch and not on the restore, so a rung caught onto a
+ * line that climbed back to its cap in the meantime is still a catch: the
+ * player dived and took the body, and a reading that counted only the ones that
+ * paid would measure the ladder rather than the dive.
+ *
+ * A fallen rung with no line is a value this module produced, so a missing one
+ * is a bug and fails loudly rather than being repaired into some other line's
+ * rung.
+ */
+const catchRung = (
+  state: RunState,
+  line: WeaponLine | undefined,
+): SimEvent[] => {
+  if (line === undefined) {
+    throw new Error('a fallen rung was swallowed carrying no line');
+  }
+  if (state.levels[line] < MAX_LEVEL) state.levels[line] += 1;
+  return [{ type: 'rungCaught', line, level: state.levels[line] }];
 };
 
 const sealShut = (state: RunState): SimEvent[] => {
@@ -165,11 +330,20 @@ const sealShut = (state: RunState): SimEvent[] => {
 
 /**
  * ADR 0003's floor ladder, one rung per hit. The floor is hard, so a hit here
- * never shrinks: it bleeds all of the score, then takes one level off every
- * line, and only when nothing is left to bleed does it seal the grave shut.
+ * never shrinks: it bleeds a capped slice of the score, then takes one level
+ * off every line, and only when nothing is left to bleed does it seal the grave
+ * shut.
+ *
+ * Every ladder run spends the score rung, the run that finds no score included,
+ * and only growth gives it back (design record R4). A rung the next kill
+ * re-armed would be a floor the storm paid for: at the storm's measured 2.47
+ * kills a second the level strip could fire only where nothing was dying, and
+ * ADR 0003 says the floor is never immortality.
  */
 const runFloorLadder = (state: RunState): SimEvent[] => {
-  if (state.score > 0) return bleedScore(state);
+  const rungArmed = !state.grave.scoreRungBled;
+  state.grave.scoreRungBled = true;
+  if (rungArmed && state.score > 0) return bleedScore(state);
   if (strippableLines(state).length > 0) return stripLevels(state);
   return sealShut(state);
 };
@@ -187,6 +361,13 @@ const runFloorLadder = (state: RunState): SimEvent[] => {
  * that skipped it would let the ladder run in consecutive ticks: sixty
  * full-field dims a second, in the exact state where the player is one hit from
  * sealed shut.
+ *
+ * It reads no ending, deliberately. The loops above it own that guard (#52,
+ * executeTick's own comment), and a guard here would change what a sealed
+ * FORMAT_VERSION 1 tape carrying ticks after its ending recomputes at its
+ * checkpoints, which a readback is obliged to reproduce in full. A hit on a
+ * sealed run therefore runs the ladder again and re-seals, which grave.test.ts
+ * pins so the guard cannot arrive here unnoticed.
  */
 const hitGrave = (state: RunState, source: GraveHitSource): SimEvent[] => {
   const grave = state.grave;
@@ -211,5 +392,7 @@ export {
   growGrave,
   ageGrave,
   hitGrave,
+  catchRung,
+  SCORE_RUNG_REARM_SIZE,
 };
 export type { GraveHitSource, Grave };

@@ -21,12 +21,25 @@ import type { WeaponLine } from '../../game/lines/roster';
 import type { TickCommand } from '../../game/command';
 import type { RunState } from '../../game/run';
 import { createRun, uniformLevels } from '../../game/run';
+import { SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
 import { decodeTape } from '../decode';
 import { encodeTape } from '../encode';
 import { recordFrame, recordInto, sealTrailer, tapeOf } from '../recorder';
 import type { Tape, TapeHeader } from '../tape';
+import { SCRIPT_POLICY } from '../tape';
 import { readBackForVerification } from '../verificationReadback';
+import { startingConditionBlock } from '../startingCondition';
+
+/** The same header with one row of its block written differently. */
+function rowWritten(head: TapeHeader, name: string, value: number): TapeHeader {
+  return {
+    ...head,
+    startingCondition: head.startingCondition.map((entry) =>
+      entry.name === name ? { name, value } : entry,
+    ),
+  };
+}
 
 const SEED = 20260823;
 const SPACING = 20;
@@ -35,9 +48,7 @@ const TICKS = 90;
 function header(run: RunState): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -45,6 +56,7 @@ function header(run: RunState): TapeHeader {
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,
@@ -66,7 +78,7 @@ function recordARun(
   ticks = TICKS,
   levels?: Readonly<Record<WeaponLine, number>>,
 ): Tape {
-  const run = createRun(SEED, undefined, levels);
+  const run = createRun(SEED, { startingLevels: levels });
   const execution = createExecution(run);
   const recorder = recordInto(execution, header(run));
   for (let tick = 0; tick < ticks; tick++) {
@@ -143,7 +155,7 @@ describe('verification readback', () => {
 
     const result = readBackForVerification({
       ...tape,
-      header: { ...tape.header, startingSize: tape.header.startingSize + 1 },
+      header: rowWritten(tape.header, 'startingSize', SIZE_START + 1),
     });
 
     expect(result.outcome).toBe('diverged');
@@ -159,7 +171,13 @@ describe('verification readback', () => {
       encodeTape(recordARun(TICKS, uniformLevels(MAX_LEVEL))),
     ).tape;
 
-    expect(pinned.header.startingLevels).toEqual(uniformLevels(MAX_LEVEL));
+    for (const line of WEAPON_LINES) {
+      expect(
+        pinned.header.startingCondition.find(
+          (entry) => entry.name === `levels.${line}`,
+        )?.value,
+      ).toBe(MAX_LEVEL);
+    }
     const result = readBackForVerification(pinned);
     expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(TICKS);
@@ -172,11 +190,7 @@ describe('verification readback', () => {
 
     const result = readBackForVerification({
       ...tape,
-      header: {
-        ...tape.header,
-        recordedRoster: [...WEAPON_LINES],
-        startingLevels: { ...tape.header.startingLevels, bell: 5 },
-      },
+      header: rowWritten(tape.header, 'levels.bell', 5),
     });
 
     expect(result.outcome).toBe('diverged');
@@ -186,12 +200,14 @@ describe('verification readback', () => {
   it("refuses a run whose dice are not the tape's", () => {
     // How long that takes is a property of the stage rather than of the
     // witness, and it is deliberately not pinned to a number here: the seed
-    // drives only column placement, drop kind and fire jitter, so two seeds
-    // played from the same script were measured identical for their first 840
-    // ticks and parted on a revenant's first-shot jitter. A tuning change moves
-    // that tick, and this test is about the refusal rather than about the
-    // stage's opening.
-    const tape = recordARun(1000);
+    // drives only column placement and power-up kind now, so two seeds played from
+    // the same script were measured identical for their first 1260 ticks and
+    // parted on a placement. It used to be 840, parting on a revenant's
+    // first-shot jitter; under the mow no mob type names a jitter at all
+    // (ADR 0059), so that door is shut and the run is given room to reach the
+    // next one. A tuning change moves that tick, and this test is about the
+    // refusal rather than about the stage's opening.
+    const tape = recordARun(2000);
 
     const result = readBackForVerification({
       ...tape,
@@ -200,7 +216,7 @@ describe('verification readback', () => {
 
     expect(result.outcome).toBe('diverged');
     expect(result.firstDivergentCheckpoint).not.toBeNull();
-    expect(result.ticksReproduced).toBeLessThan(1000);
+    expect(result.ticksReproduced).toBeLessThan(2000);
   });
 
   it('says a tape was recorded against a different fold, and never that it diverged', () => {
@@ -284,11 +300,13 @@ describe('verification readback', () => {
     // the ending, and a readback obliged to reproduce a tape in full must keep
     // feeding every command it holds. This builds such a tape exactly as an
     // old build did: the authority looped straight past the seal, recorder
-    // listening.
+    // listening. Version 1 is two bumps back and no such tape decodes here any
+    // more, and the obligation is the format's rather than that tape's: a
+    // reader reproduces what a tape holds and never what it expects to hold.
     const run = createRun(SEED);
     const execution = createExecution(run);
     const recorder = recordInto(execution, header(run));
-    for (let tick = 0; tick < 6000 && run.ending === null; tick++) {
+    for (let tick = 0; tick < 12000 && run.ending === null; tick++) {
       executeTick(execution, steer(tick));
     }
     expect(run.ending).toBe('sealed');

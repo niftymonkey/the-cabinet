@@ -27,6 +27,12 @@ interface RunSummary {
    */
   readonly ending: RunEnding | null;
   /**
+   * What the run scored. The ladder row is the only place it is drawn while the
+   * run plays and that row goes with the field at the seal, so the summary is
+   * the only thing that carries the number past the end of the run.
+   */
+  readonly score: number;
+  /**
    * The fatal fault that stopped the run, or null when the instrument did not
    * stop it. It rides here because the stop reason and the fault record live on
    * Execution and never on witness-folded RunState (ADR 0024), so the ending
@@ -52,6 +58,7 @@ const summarizeRun = (state: RunState, execution: Execution): RunSummary => {
     seed: state.seed,
     ticks: state.tick,
     ending: state.ending,
+    score: state.score,
     fault: stoppingFault(execution),
   };
 };

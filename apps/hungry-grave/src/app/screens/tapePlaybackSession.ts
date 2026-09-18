@@ -117,7 +117,13 @@ const NOTHING_DRAWN: ReplayFrame = {
  */
 const lastVerifiedTick = (tape: Tape, result: PlaybackResult): number => {
   if (result.checkpointsVerified === 0) return 0;
-  return tape.checkpoints[result.checkpointsVerified - 1].index;
+  const checkpoint = tape.checkpoints[result.checkpointsVerified - 1];
+  if (checkpoint === undefined) {
+    throw new Error(
+      `checkpointsVerified names index ${result.checkpointsVerified - 1}, which the tape does not have`,
+    );
+  }
+  return checkpoint.index;
 };
 
 // The verified length, stated up front, with the divergence named when there is one.

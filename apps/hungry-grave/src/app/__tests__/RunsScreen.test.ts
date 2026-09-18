@@ -7,8 +7,6 @@
 import { Container } from 'pixi.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { WEAPON_LINES } from '../../game/lines/roster';
-
 /** The real widgets need a renderer: text metrics and a loaded texture. */
 vi.mock('../ui/Label', () => ({
   Label: class extends Container {
@@ -60,11 +58,13 @@ import { WITNESS_VERSION } from '../../game/witness';
 import { encodeTape } from '../../tape/encode';
 import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
 import type { TapeHeader } from '../../tape/tape';
+import { SCRIPT_POLICY } from '../../tape/tape';
 import { RECORDER_CHECKPOINT_SPACING } from '../../tape/recorder';
 import { REPLAY_HASH } from '../routes';
 import { tapeFileName } from '../tapeExport';
 import type { StoredRunSummary, TapeStore } from '../tapeStore';
 import { RunsScreen } from '../screens/RunsScreen';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const fakeLocation = { search: '', hash: '' };
 
@@ -93,9 +93,7 @@ Object.defineProperty(globalThis, 'window', {
 function headerFor(run: RunState): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: 60,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -103,6 +101,7 @@ function headerFor(run: RunState): TapeHeader {
     buildIdentity: '',
     author: 'test',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'test',
     rendererResolution: 1,
@@ -172,6 +171,13 @@ function buttonsNamed(screen: RunsScreen, name: string): { press(): void }[] {
   };
   walk(screen);
   return found;
+}
+
+/** The one button by this name, asserting the caller's own premise that it exists. */
+function theButtonNamed(screen: RunsScreen, name: string): { press(): void } {
+  const button = buttonsNamed(screen, name)[0];
+  if (button === undefined) throw new Error(`no button named ${name}`);
+  return button;
 }
 
 async function listed(screen: RunsScreen, count: number): Promise<void> {
@@ -250,7 +256,7 @@ describe('the runs screen', () => {
     screen.prepare();
     await listed(screen, 1);
 
-    buttonsNamed(screen, 'REPLAY')[0].press();
+    theButtonNamed(screen, 'REPLAY').press();
     await vi.waitFor(() =>
       expect(fakeLocation.hash).toBe('#/replay?tape=blob%3Afake'),
     );
@@ -268,7 +274,7 @@ describe('the runs screen', () => {
     screen.prepare();
     await listed(screen, 1);
 
-    buttonsNamed(screen, 'SAVE')[0].press();
+    theButtonNamed(screen, 'SAVE').press();
     await vi.waitFor(() => expect(saveTapeFile).toHaveBeenCalled());
     expect(saveTapeFile).toHaveBeenCalledWith(
       bytes,
@@ -284,7 +290,7 @@ describe('the runs screen', () => {
     screen.prepare();
     await listed(screen, 1);
 
-    buttonsNamed(screen, 'DELETE')[0].press();
+    theButtonNamed(screen, 'DELETE').press();
     await vi.waitFor(() => expect(store.delete).toHaveBeenCalledWith('run-1'));
     await vi.waitFor(() => expect(store.list).toHaveBeenCalledTimes(2));
     screen.reset();

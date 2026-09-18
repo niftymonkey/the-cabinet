@@ -87,6 +87,9 @@ const recordRunToStore = (
       observationsSeen++
     ) {
       const observation = recorder.observations[observationsSeen];
+      if (observation === undefined) {
+        throw new Error(`no observation at index ${observationsSeen}`);
+      }
       if (isFrame(observation)) pendingFrames.push(observation);
     }
   };
@@ -101,6 +104,9 @@ const recordRunToStore = (
   const queueCheckpointedSegments = (): void => {
     while (checkpointsQueued < recorder.checkpoints.length) {
       const checkpoint = recorder.checkpoints[checkpointsQueued];
+      if (checkpoint === undefined) {
+        throw new Error(`no checkpoint at index ${checkpointsQueued}`);
+      }
       if (checkpoint.index > commandsQueued) {
         queue({
           kind: 'chunk',

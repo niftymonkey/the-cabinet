@@ -6,6 +6,7 @@ import type { Execution, FaultRecord, TickListener } from '../game/execution';
 import { createRun } from '../game/run';
 import type { RunState } from '../game/run';
 import { foldWitness, WITNESS_VERSION } from '../game/witness';
+import { RUNNING_BUILD } from './buildIdentity';
 import type {
   FaultObservation,
   Tape,
@@ -13,8 +14,8 @@ import type {
   TapeHeader,
 } from './tape';
 import { faultObservations } from './tape';
-import type { StartingLevels } from './startingLevels';
-import { resolveStartingLevels } from './startingLevels';
+import type { StartingCondition } from './startingCondition';
+import { resolveStartingCondition } from './startingCondition';
 
 /**
  * What a playback concluded.
@@ -31,14 +32,36 @@ import { resolveStartingLevels } from './startingLevels';
  * let one stand in for the other, which is the substitution ADR 0043 forbids,
  * and it would report "this reader folds differently" about a tape whose fold
  * this reader has never reached.
+ *
+ * An unimplemented starting condition is a fourth, beside the roster's rather
+ * than folded into it, and it arrives with the header's self-describing block:
+ * a tape naming a row this build's record does not have, lacking one it
+ * requires, or carrying a value no run can start from is readable and
+ * reportable and not replayable here. It is never a divergence discovered at a
+ * checkpoint, which is ADR 0019's rule: a replay that cannot prove it is the
+ * original run reports nothing rather than reporting wrongly.
  */
 type PlaybackOutcome =
-  'verified' | 'diverged' | 'witnessVersionMismatch' | 'rosterNotImplemented';
+  | 'verified'
+  | 'diverged'
+  | 'witnessVersionMismatch'
+  | 'rosterNotImplemented'
+  | 'conditionNotImplemented';
 
 interface PlaybackResult {
   readonly outcome: PlaybackOutcome;
   readonly tapeWitnessVersion: number;
   readonly readerWitnessVersion: number;
+  /**
+   * The build that recorded the tape and the build reading it, carried on
+   * every arm beside the witness versions above (#82).
+   *
+   * They are reported and never judged here. A difference is not a refusal and
+   * not a verdict: the witness version is the rules identity (ADR 0019), and
+   * what a reader does with a build difference is the reader's own reading.
+   */
+  readonly tapeBuildIdentity: string;
+  readonly readerBuildIdentity: string;
   // Checkpoints this playback recomputed and agreed with.
   readonly checkpointsVerified: number;
   /**
@@ -68,6 +91,16 @@ interface PlaybackResult {
    * implement it, so the refusal is precise instead of blanket.
    */
   readonly unimplementedRoster: readonly string[] | null;
+  /**
+   * Why this build cannot start the run the header describes, in the tape's own
+   * vocabulary and naming the row, or null when it can.
+   *
+   * It is beside the roster above rather than merged with it, for the reason
+   * PlaybackOutcome already carries: a build without the lines and a build
+   * without the row are two different refusals, and one standing in for the
+   * other is what ADR 0043 forbids.
+   */
+  readonly unimplementedCondition: string | null;
 }
 
 /**
@@ -115,10 +148,13 @@ const refusal = (
   tape: Tape,
   outcome: PlaybackOutcome,
   unimplementedRoster: readonly string[] | null,
+  unimplementedCondition: string | null,
 ): PlaybackResult => ({
   outcome,
   tapeWitnessVersion: tape.header.witnessVersion,
   readerWitnessVersion: WITNESS_VERSION,
+  tapeBuildIdentity: tape.header.buildIdentity,
+  readerBuildIdentity: RUNNING_BUILD,
   checkpointsVerified: 0,
   checkpointsUnreachable: tape.checkpoints.length,
   firstDivergentCheckpoint: null,
@@ -127,6 +163,7 @@ const refusal = (
   recordedFaults: faultObservations(tape),
   readbackFaults: [],
   unimplementedRoster,
+  unimplementedCondition,
 });
 
 /**
@@ -144,6 +181,8 @@ interface Reproduction {
   readonly refused: PlaybackOutcome | null;
   // Named only on a roster refusal, so the reason can say which roster.
   readonly unimplementedRoster: readonly string[] | null;
+  // Named only on a condition refusal, so the reason can say which row.
+  readonly unimplementedCondition: string | null;
   ticksReproduced: number;
   checkpointsVerified: number;
   firstDivergentCheckpoint: number | null;
@@ -154,16 +193,22 @@ interface Reproduction {
 /**
  * Why this tape cannot be reproduced at all, or null when it can.
  *
- * The roster is asked first because it is the cruder failure: a build without
- * the lines cannot simulate the run whatever its fold does, and reporting a
- * fold mismatch about a run it never attempted would be the less true of the
- * two answers.
+ * The starting condition is asked before the fold because it is the cruder
+ * failure: a build that cannot start the run the header describes never
+ * attempts a reproduction at all, and reporting a fold mismatch about a run it
+ * never attempted would be the less true of the two answers. The roster arm and
+ * the condition arm are the resolve's own two, reported apart for the reason
+ * PlaybackOutcome carries.
  */
 const refusalFor = (
-  levels: StartingLevels,
+  condition: StartingCondition,
   header: TapeHeader,
 ): PlaybackOutcome | null => {
-  if (levels.outcome === 'notImplemented') return 'rosterNotImplemented';
+  if (condition.outcome === 'notImplemented') {
+    return condition.refusal === 'roster'
+      ? 'rosterNotImplemented'
+      : 'conditionNotImplemented';
+  }
   if (header.witnessVersion !== WITNESS_VERSION) {
     return 'witnessVersionMismatch';
   }
@@ -171,19 +216,24 @@ const refusalFor = (
 };
 
 /**
- * The run a tape describes, rebuilt from the header alone: seed, resolved size
- * and resolved starting levels, so a pinned run's tape plays exactly as an
- * unpinned one's does.
+ * The run a tape describes, rebuilt from the header's own block and from
+ * nothing this build compiled: its size, its levels, its roster, its lock, the
+ * score it began holding and the tuning record it played under. A pinned run's
+ * tape plays exactly as an unpinned one's does, a held run replays held, and a
+ * run under a record of its own replays under that record whatever this build's
+ * defaults are, which is the point of carrying values at all.
  *
- * A roster this build cannot implement never reaches here. The run is built at
- * the birthright in that case and no tick is ever fed into it, because a
- * refused reproduction is exhausted before its first command.
+ * A condition this build cannot start never reaches here. The run is built at
+ * this build's own defaults in that case and no tick is ever fed into it,
+ * because a refused reproduction is exhausted before its first command.
  */
-const runFromHeader = (levels: StartingLevels, header: TapeHeader): RunState =>
+const runFromHeader = (
+  condition: StartingCondition,
+  header: TapeHeader,
+): RunState =>
   createRun(
     header.seed,
-    header.startingSize,
-    levels.outcome === 'implemented' ? levels.levels : undefined,
+    condition.outcome === 'implemented' ? condition.conditions : undefined,
   );
 
 /**
@@ -213,8 +263,8 @@ const beginReproduction = (
   tape: Tape,
   observer?: TickListener,
 ): Reproduction => {
-  const levels = resolveStartingLevels(tape.header);
-  const run = runFromHeader(levels, tape.header);
+  const condition = resolveStartingCondition(tape.header.startingCondition);
+  const run = runFromHeader(condition, tape.header);
   const reproduction: Reproduction = {
     tape,
     run,
@@ -222,9 +272,16 @@ const beginReproduction = (
       listeners: observer === undefined ? [] : [observer],
     }),
     expected: checkpointsByIndex(tape.checkpoints),
-    refused: refusalFor(levels, tape.header),
+    refused: refusalFor(condition, tape.header),
+    // Named on the roster refusal alone. A block naming a row this build does
+    // not have still names a roster this build has, so reporting it here would
+    // say "this build cannot implement these lines" about lines it implements.
     unimplementedRoster:
-      levels.outcome === 'notImplemented' ? levels.recordedRoster : null,
+      condition.outcome === 'notImplemented' && condition.refusal === 'roster'
+        ? condition.recordedRoster
+        : null,
+    unimplementedCondition:
+      condition.outcome === 'notImplemented' ? condition.reason : null,
     ticksReproduced: 0,
     checkpointsVerified: 0,
     firstDivergentCheckpoint: null,
@@ -263,6 +320,8 @@ const verdictSoFar = (reproduction: Reproduction): PlaybackResult => ({
     reproduction.firstDivergentCheckpoint === null ? 'verified' : 'diverged',
   tapeWitnessVersion: reproduction.tape.header.witnessVersion,
   readerWitnessVersion: WITNESS_VERSION,
+  tapeBuildIdentity: reproduction.tape.header.buildIdentity,
+  readerBuildIdentity: RUNNING_BUILD,
   checkpointsVerified: reproduction.checkpointsVerified,
   checkpointsUnreachable:
     reproduction.expected.size -
@@ -273,6 +332,7 @@ const verdictSoFar = (reproduction: Reproduction): PlaybackResult => ({
   recordedFaults: faultObservations(reproduction.tape),
   readbackFaults: reproduction.execution.faults,
   unimplementedRoster: null,
+  unimplementedCondition: null,
 });
 
 const resultOf = (reproduction: Reproduction): PlaybackResult =>
@@ -282,6 +342,7 @@ const resultOf = (reproduction: Reproduction): PlaybackResult =>
         reproduction.tape,
         reproduction.refused,
         reproduction.unimplementedRoster,
+        reproduction.unimplementedCondition,
       );
 
 const createPlayback = (tape: Tape, observer?: TickListener): Playback => {

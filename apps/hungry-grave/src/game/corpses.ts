@@ -2,7 +2,7 @@
 // scroll-speed coupling, the payout floor, and the dirt taking an empty corpse
 // under.
 
-import { CORPSE_CAP, createPool, takeSlot } from './caps';
+import { createPool, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
 import type { SimEvent } from './events';
 import { FIELD_HEIGHT } from './field';
@@ -10,6 +10,8 @@ import type { WeaponLine } from './lines/roster';
 import type { CorpseTier, Mob } from './mobs';
 import type { Rect } from './overlap';
 import type { RunState } from './run';
+import type { Impulse } from './shove';
+import { blankImpulse, clearImpulse, handOverImpulse } from './shove';
 import type { FoodKind, Swallowable } from './swallow';
 import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from './tuning';
 
@@ -21,15 +23,15 @@ import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from './tuning';
  * reads as a per-tier hue instead.
  *
  * Seven units puts it clearly under the smallest mob body and clearly over a
- * drop, so the three silhouettes stay ordered by size.
+ * power-up, so the three silhouettes stay ordered by size.
  */
 const CORPSE_HALF_EXTENT = 7;
 
 /**
- * A drop's half-extent: a 28-unit catch box, deliberately more generous than
+ * A power-up's half-extent: a 28-unit catch box, deliberately more generous than
  * the 24-unit drawn peak, about 1.17 times the ink. Mark's rule, ruled
  * 2026-08-25, and the rule outranks the number: the pickup area stays slightly
- * more generous than the drop's maximum visible footprint, because collecting
+ * more generous than the power-up's maximum visible footprint, because collecting
  * treasure is never a precision test.
  *
  * More generous rather than equal, for three reasons. The breath moves the
@@ -38,7 +40,7 @@ const CORPSE_HALF_EXTENT = 7;
  * damage, so the grab is hardest at the size floor, exactly where ADR 0003's
  * ladder is stripping weapon levels and the recovery path must stay open. And
  * ADR 0003 already rules that size never gates a swallow. It stays nowhere
- * near the genre's most generous: a drop is one of ten to twelve in a run and
+ * near the genre's most generous: a power-up is one of ten to twelve in a run and
  * ADR 0002 makes it the thing the player routes toward, so a box large enough
  * to remove the routing choice would delete the mechanic. Twenty-eight is
  * tuning, not doctrine; if #31's playtest reads pickups as magnetic enough to
@@ -50,18 +52,26 @@ const CORPSE_HALF_EXTENT = 7;
  * superseded, written out in docs/design/drop-legibility-fix.md, and
  * FieldRenderer.test.ts holds the two bounds that replace it.
  */
-const DROP_HALF_EXTENT = 14;
+const POWER_UP_HALF_EXTENT = 14;
 
 // How much freshness one tick drains. Derived from the seconds, which are themselves derived from the scroll.
 const FRESHNESS_PER_TICK = 1 / (FRESHNESS_SECONDS * TICK_HZ);
 
 /**
- * A corpse has no velocity of its own, and the scroll-speed coupling is the
- * whole point of that. The scroll phase moves it and nothing else does, so a
- * corpse drifts at exactly SCROLL_SPEED, and FRESHNESS_SECONDS is already
- * derived as the time a mid-field corpse takes to reach the bottom edge at that
- * speed. A mid-field kill therefore arrives at the bottom edge as a nearly
- * empty scrap by construction rather than by two numbers agreeing.
+ * A corpse has no motion of its own, and the scroll-speed coupling is the whole
+ * point of that. A corpse nothing threw drifts at exactly SCROLL_SPEED, and
+ * FRESHNESS_SECONDS is derived as the time a mid-field corpse takes to reach
+ * the bottom edge at that speed, so a mid-field kill arrives at the bottom edge
+ * as a nearly empty scrap by construction rather than by two numbers agreeing.
+ *
+ * One thing composes with that drift and it is not a motion of the corpse's
+ * own: a shove handed over by the body this corpse came off, which carries it
+ * for the rest of that one flight and then stops (design record R10). The
+ * derivation above is exact for every corpse nothing threw and is off by the
+ * length of one flight for a thrown one, which is bounded by the shove's own
+ * row and priced in freshness. The scroll still runs underneath it, exactly as
+ * it does for a body being shoved (design record R11's fourth ruling), so the
+ * throw composes with the drift rather than replacing it.
  */
 interface Corpse {
   alive: boolean;
@@ -76,16 +86,38 @@ interface Corpse {
   kind: FoodKind;
   // Feasts never decay (ADR 0004), and the flag lives on the record so the boss dispatch authors a shed rather than a mechanism.
   decays: boolean;
-  // Which line a drop levels, decided by the dice at spawn (ADR 0034). Absent on corpses and feasts.
+  /**
+   * Whether this body wears the treasure body: the breath, the treasure layer
+   * two above corpses (ADR 0014), and the treasure chime. It is a row rather
+   * than a kind test at each drawing and sounding site, so a fifth kind of food
+   * costs neither of them an edit (design record R6).
+   *
+   * A feast is treasure by the glossary's class and never decays, and it still
+   * says false here: it wears the food layer's own body in the feast's colour
+   * and chimes as a plain swallow, which is what the tree has always drawn and
+   * sounded and is not this slice's to widen.
+   */
+  treasureBody: boolean;
+  // Which line a power-up levels, decided by the dice at spawn (ADR 0034), or which line a fallen rung came off. Absent on corpses and feasts.
   line?: WeaponLine;
   /**
    * How large this food is swallowed at. It lives on the record rather than
-   * being the module constant, because a drop is larger than a corpse and every
+   * being the module constant, because a power-up is larger than a corpse and every
    * reader of the extent has to see the difference: a hitbox that read the
-   * constant would hold a drop on the field for a unit of extra travel past
+   * constant would hold a power-up on the field for a unit of extra travel past
    * where a corpse goes.
    */
   halfExtent: number;
+  /**
+   * The shove this corpse is carrying, if one was handed to it (shove.ts).
+   *
+   * It is declared with the fold that folds it rather than the day something
+   * hands one over, because a folded field arriving later would change what
+   * every tape recorded in between folded, which is the rule mobs[].from was
+   * declared early under. The caller is written down: the design record's
+   * section 4, slice J2, where a shove outlives the body that carried it.
+   */
+  impulse: Impulse;
 }
 
 const blankCorpse = (): Corpse => {
@@ -99,13 +131,15 @@ const blankCorpse = (): Corpse => {
     tier: 'trash',
     kind: 'corpse',
     decays: true,
+    treasureBody: false,
     line: undefined,
     halfExtent: CORPSE_HALF_EXTENT,
+    impulse: blankImpulse(),
   };
 };
 
-const createCorpsePool = (): Corpse[] => {
-  return createPool(CORPSE_CAP, blankCorpse);
+const createCorpsePool = (cap: number): Corpse[] => {
+  return createPool(cap, blankCorpse);
 };
 
 const corpseHitbox = (corpse: Corpse): Rect => {
@@ -125,60 +159,52 @@ const corpseHitbox = (corpse: Corpse): Rect => {
  */
 const asSwallowable = (corpse: Corpse): Swallowable => {
   return {
+    id: corpse.id,
     kind: corpse.kind,
     freshness: corpse.freshness,
     payout: corpse.payout,
+    tier: corpse.tier,
+    treasureBody: corpse.treasureBody,
     line: corpse.line,
   };
 };
 
 /**
- * The oldest live food the cap policy may take, which is never treasure.
+ * Room for one more piece of food, or null at the cap (ADR 0056).
  *
- * The policy's own reasoning is that the cheapest thing to lose should go, and a
- * drop that has been on the field a while is both the oldest thing in the pool
- * and the scarcest object in the game. Skipping anything that does not decay
- * covers drops and the boss feasts, and if every slot holds treasure the spawn
- * is refused instead.
+ * Nothing already on the field is ever removed to make room. The cap is sized
+ * from the stage's own waves so that it cannot bind in normal play, so a refusal
+ * means something has gone wrong rather than that the player killed too well,
+ * and the answer to that is the fault the harness raises off the count below
+ * rather than a graceful degradation that hides it. The eviction this replaces
+ * took the oldest corpse under, which is food removed from a player who had
+ * already read it and started diving.
  */
-const oldestEvictable = (pool: readonly Corpse[]): Corpse | null => {
-  let oldest: Corpse | null = null;
-  for (const corpse of pool) {
-    if (!corpse.alive || !corpse.decays) continue;
-    if (oldest === null || corpse.id < oldest.id) oldest = corpse;
-  }
-  return oldest;
-};
-
-/**
- * Room for one more corpse. At the cap the oldest live corpse by id is taken
- * under and the new corpse takes its slot: the freshest corpse is the one worth
- * diving for and the oldest is nearly worthless by ADR 0004's own curve, so
- * dropping the oldest costs the player the least. Refusing the spawn instead
- * would silently punish killing a lot at once, which is the best play.
- */
-const claimSlot = (state: RunState, events: SimEvent[]): Corpse | null => {
+const claimSlot = (state: RunState): Corpse | null => {
   const free = takeSlot(state.corpses, state.nextEntityId);
-  if (free !== null) {
-    state.nextEntityId += 1;
-    return free;
+  if (free === null) {
+    state.refusals.food += 1;
+    return null;
   }
-  const evicted = oldestEvictable(state.corpses);
-  if (evicted === null) return null;
-  events.push({
-    type: 'corpseEvicted',
-    x: evicted.x,
-    y: evicted.y,
-    freshness: evicted.freshness,
-  });
-  evicted.id = state.nextEntityId;
   state.nextEntityId += 1;
-  return evicted;
+  // The slot may be one a carried corpse died in, and an inherited impulse
+  // would carry new food away on a push that never reached it. It is cleared
+  // here rather than in each of the three spawns, because every one of them
+  // comes through this door (spawnMob keeps the same rule on the mob pool).
+  clearImpulse(free.impulse);
+  return free;
 };
 
 /**
- * What a kill leaves behind: fully fresh, at the dead mob's centre, with no
- * velocity of its own.
+ * What a kill leaves behind: fully fresh, at the dead mob's centre, and
+ * carrying whatever was carrying the body.
+ *
+ * The shove travels with it so the flight the press paid for finishes: a body
+ * killed partway through is carried the whole of what threw it and its corpse
+ * ends where the flight was going rather than where the storm caught it (design
+ * record R10). The handover is here rather than at the kill site because the
+ * corpse only exists once a slot has been claimed, and at the food cap there is
+ * no slot, which is the one case where the shove stays on the body.
  *
  * The payout and the tier arrive as values rather than being looked up off the
  * mob table here. mobs.ts owns that table, so mobs.ts reads its own row and
@@ -192,7 +218,7 @@ const spawnCorpse = (
   tier: CorpseTier,
 ): SimEvent[] => {
   const events: SimEvent[] = [];
-  const corpse = claimSlot(state, events);
+  const corpse = claimSlot(state);
   if (corpse === null) return events;
 
   corpse.alive = true;
@@ -203,15 +229,18 @@ const spawnCorpse = (
   corpse.tier = tier;
   corpse.kind = 'corpse';
   corpse.decays = true;
+  corpse.treasureBody = false;
   corpse.line = undefined;
   corpse.halfExtent = CORPSE_HALF_EXTENT;
+  handOverImpulse(mob.impulse, corpse.impulse);
   return events;
 };
 
 /**
- * A boss-shed reward corpse that never decays (ADR 0004). Nothing in the game
- * spawns one yet; the boss dispatch authors the shed and inherits the mechanism
- * rather than inventing it.
+ * A boss-shed reward corpse that never decays (ADR 0004). A phase break sheds
+ * one, which is what keeps ADR 0007's shed-food promise inside the fight rather
+ * than at the end of it: a player who cannot dive through the pattern yet still
+ * has it waiting.
  */
 const spawnFeast = (
   state: RunState,
@@ -220,7 +249,7 @@ const spawnFeast = (
   payout: number,
 ): SimEvent[] => {
   const events: SimEvent[] = [];
-  const corpse = claimSlot(state, events);
+  const corpse = claimSlot(state);
   if (corpse === null) return events;
 
   corpse.alive = true;
@@ -231,27 +260,34 @@ const spawnFeast = (
   corpse.tier = 'rich';
   corpse.kind = 'feast';
   corpse.decays = false;
+  corpse.treasureBody = false;
   corpse.line = undefined;
   corpse.halfExtent = CORPSE_HALF_EXTENT;
   return events;
 };
 
 /**
- * A drop, on the food pool rather than in a second one. It reuses claimSlot, so
+ * A power-up, on the food pool rather than in a second one. It reuses claimSlot, so
  * it inherits spawning, scrolling, culling and swallowing for free, which is the
  * whole reason not to build a pool of its own.
  *
- * Fully fresh and never decaying, so a maxed line's drop still pays growth,
- * reservoir and overflow: nothing swallowed is ever worthless (ADR 0002).
+ * Fully fresh and never decaying, so a body carrying no option at all still
+ * pays growth, reservoir and overflow: nothing swallowed is ever worthless
+ * (ADR 0002). A body with no line is what a maxed run's carrier opens, and the
+ * absent line is what says so all the way out to the sprite.
+ *
+ * The spawn is reported with the body's own id, because the offer that opened
+ * it holds its bodies by id and a refused spawn must be visible to it as a
+ * body that is simply not there.
  */
-const spawnDrop = (
+const spawnPowerUp = (
   state: RunState,
   x: number,
   y: number,
-  line: WeaponLine,
+  line?: WeaponLine,
 ): SimEvent[] => {
   const events: SimEvent[] = [];
-  const corpse = claimSlot(state, events);
+  const corpse = claimSlot(state);
   if (corpse === null) return events;
 
   corpse.alive = true;
@@ -260,11 +296,62 @@ const spawnDrop = (
   corpse.freshness = 1;
   corpse.payout = TRASH_CORPSE_PAYOUT;
   corpse.tier = 'trash';
-  corpse.kind = 'drop';
+  corpse.kind = 'powerUp';
   corpse.decays = false;
+  corpse.treasureBody = true;
   corpse.line = line;
-  corpse.halfExtent = DROP_HALF_EXTENT;
-  events.push({ type: 'dropSpawned', line, x, y });
+  corpse.halfExtent = POWER_UP_HALF_EXTENT;
+  events.push({ type: 'powerUpSpawned', id: corpse.id, line, x, y });
+  return events;
+};
+
+/**
+ * A rung the floor ladder took, standing on the field as a body the dive can
+ * catch (ADR 0055, decision 24). A fourth kind on this pool rather than a pool
+ * of its own, so the scroll, the containment, the swallow and the renderer all
+ * come free.
+ *
+ * It wears the treasure body at the power-up's own extent, deliberately the
+ * same drawing an offer's body wears: both are treasure, and teaching the
+ * player a second treasure shape to say the same thing is a cost the record
+ * does not pay (design record R6). The line it came off is what parts one
+ * fallen rung from another, through the icon the HUD's row already taught.
+ *
+ * Never decaying is this row's default and not an impossibility. ADR 0055 and
+ * decision 20 both leave decay as tuning data, so a later pass may turn the
+ * flag on without a record to re-rule, and the scroll stays the one deadline
+ * until it does.
+ *
+ * It pays the trash corpse's payout, as an offer's body does: nothing swallowed
+ * is ever worthless (ADR 0002), and a rung caught pays the same growth as the
+ * treasure beside it so the catch is never the cheap dive.
+ *
+ * A body the cap refuses reports nothing, because nothing fell onto the field.
+ * The level is still gone and weaponStripped is what says so; there is no bank
+ * analogue for a rung and none is built (design record R6).
+ */
+const spawnFallenRung = (
+  state: RunState,
+  x: number,
+  y: number,
+  line: WeaponLine,
+): SimEvent[] => {
+  const events: SimEvent[] = [];
+  const corpse = claimSlot(state);
+  if (corpse === null) return events;
+
+  corpse.alive = true;
+  corpse.x = x;
+  corpse.y = y;
+  corpse.freshness = 1;
+  corpse.payout = TRASH_CORPSE_PAYOUT;
+  corpse.tier = 'trash';
+  corpse.kind = 'fallenRung';
+  corpse.decays = false;
+  corpse.treasureBody = true;
+  corpse.line = line;
+  corpse.halfExtent = POWER_UP_HALF_EXTENT;
+  events.push({ type: 'rungFell', line, x, y });
   return events;
 };
 
@@ -309,11 +396,12 @@ export {
   asSwallowable,
   spawnCorpse,
   spawnFeast,
-  spawnDrop,
+  spawnPowerUp,
+  spawnFallenRung,
   advanceCorpses,
   cullCorpses,
   CORPSE_HALF_EXTENT,
-  DROP_HALF_EXTENT,
+  POWER_UP_HALF_EXTENT,
   FRESHNESS_PER_TICK,
 };
 export type { Corpse };

@@ -10,8 +10,6 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { WEAPON_LINES } from '../../game/lines/roster';
-
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
 import type { Fault } from '../../game/faults';
@@ -27,7 +25,13 @@ import {
   tapeOf,
 } from '../recorder';
 import type { TapeHeader } from '../tape';
-import { faultObservations, frameObservations, stopOf } from '../tape';
+import {
+  faultObservations,
+  frameObservations,
+  SCRIPT_POLICY,
+  stopOf,
+} from '../tape';
+import { startingConditionBlock } from '../startingCondition';
 
 const SEED = 20260823;
 
@@ -35,9 +39,7 @@ const SEED = 20260823;
 function header(run: RunState, spacing = 5): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: spacing,
     witnessVersion: WITNESS_VERSION,
@@ -45,6 +47,7 @@ function header(run: RunState, spacing = 5): TapeHeader {
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,
@@ -114,6 +117,7 @@ describe('the tape recorder', () => {
     executeTick(execution, offered);
 
     const recorded = recorder.commands[0];
+    if (recorded === undefined) throw new Error('no command recorded');
     expect(recorded.move.x).not.toBe(offered.move.x);
     expect(recorded.move.x).toBe(Math.fround(offered.move.x));
     expect(recorded.move.y).toBe(Math.fround(offered.move.y));
@@ -193,7 +197,9 @@ describe('the tape recorder', () => {
     execution.faults.push({ ...fault, firstTick: 0, count: 1 });
 
     executeTick(execution, steer(0));
-    execution.faults[0].count = 2;
+    const pushedFault = execution.faults[0];
+    if (pushedFault === undefined) throw new Error('no fault pushed');
+    pushedFault.count = 2;
     executeTick(execution, steer(1));
 
     expect(faultObservations(tapeOf(recorder))).toEqual([

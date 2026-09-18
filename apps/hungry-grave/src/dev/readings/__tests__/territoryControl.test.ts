@@ -33,13 +33,16 @@ function placePatch(
   y: number,
 ): Patch {
   const patch = run.patches[slot];
+  if (patch === undefined) throw new Error(`no patch pool slot ${slot}`);
+  const radius = RADIUS_BY_LEVEL[level];
+  if (radius === undefined) throw new Error(`no radius for level ${level}`);
   patch.alive = true;
   patch.id = run.nextEntityId;
   run.nextEntityId += 1;
   patch.level = level;
   patch.x = x;
   patch.y = y;
-  patch.radius = RADIUS_BY_LEVEL[level];
+  patch.radius = radius;
   patch.opening = 0;
   return patch;
 }
@@ -51,13 +54,26 @@ function putMob(
   y: number,
   type: MobType = 'shambler',
 ): Mob {
-  const mob = spawnMob(run, type, { x, y, vx: 0, vy: 0, index: 0 })!;
+  const mob = spawnMob(
+    run,
+    type,
+    { x, y, vx: 0, vy: 0, index: 0 },
+    false,
+    'wave',
+  )!;
   mob.beat = 0;
   return mob;
 }
 
 function killedEvent(mob: Mob): SimEvent {
-  return { type: 'mobKilled', id: mob.id, mob: mob.type, x: mob.x, y: mob.y };
+  return {
+    type: 'mobKilled',
+    id: mob.id,
+    mob: mob.type,
+    x: mob.x,
+    y: mob.y,
+    carried: mob.carries,
+  };
 }
 
 function territoryPulse(id: number): SimEvent {
@@ -246,22 +262,69 @@ describe('territoryControl', () => {
     // same mob and another mob's pulses say nothing about this pace.
     const run = createRun(SEED);
     const acc = createTerritoryControl();
+    const first = putMob(run, 200, 300);
+    const second = putMob(run, 260, 300);
 
-    observeTerritoryControl(acc, 10, [territoryPulse(5)], run);
+    observeTerritoryControl(acc, 10, [territoryPulse(first.id)], run);
     observeTerritoryControl(
       acc,
       50,
-      [{ type: 'mobDamaged', id: 5, amount: 10, source: 'wisps' }],
+      [{ type: 'mobDamaged', id: first.id, amount: 10, source: 'wisps' }],
       run,
     );
-    observeTerritoryControl(acc, 70, [territoryPulse(9)], run);
-    observeTerritoryControl(acc, 90, [territoryPulse(5)], run);
-    observeTerritoryControl(acc, 170, [territoryPulse(5)], run);
-    observeTerritoryControl(acc, 182, [territoryPulse(9)], run);
+    observeTerritoryControl(acc, 70, [territoryPulse(second.id)], run);
+    observeTerritoryControl(acc, 90, [territoryPulse(first.id)], run);
+    observeTerritoryControl(acc, 170, [territoryPulse(first.id)], run);
+    observeTerritoryControl(acc, 182, [territoryPulse(second.id)], run);
 
     const reading = territoryControlOf(acc);
     expect(reading.pulseIntervals.slice().sort((a, b) => a - b)).toEqual([
       80, 80, 112,
     ]);
+  });
+
+  it('reads no pace off a hit on something that is not in the mob pool', () => {
+    // The storm reaches a boss and the set piece's source through the same seam
+    // it reaches a mob through, so a territory pulse can carry an id that is in
+    // no pool at all. Neither of them is crossing open ground, and a source that
+    // stands under one patch for a whole pour would otherwise report a pace no
+    // mob ever walked and never leave the map, because what clears an entry is
+    // a mobKilled and neither of them dies as a mob.
+    const run = createRun(SEED);
+    const acc = createTerritoryControl();
+    const mob = putMob(run, 200, 300);
+    const notAMob = run.nextEntityId + 100;
+
+    observeTerritoryControl(acc, 10, [territoryPulse(notAMob)], run);
+    observeTerritoryControl(acc, 90, [territoryPulse(notAMob)], run);
+    expect(territoryControlOf(acc).pulseIntervals).toEqual([]);
+
+    // The same two ticks on a body that is in the pool do report a pace, so the
+    // absence above is the guard and not an empty input.
+    observeTerritoryControl(acc, 100, [territoryPulse(mob.id)], run);
+    observeTerritoryControl(acc, 180, [territoryPulse(mob.id)], run);
+    expect(territoryControlOf(acc).pulseIntervals).toEqual([80]);
+  });
+
+  it('the pulse that kills a mob still closes an interval', () => {
+    // The ground deals the killing blow and the mob is already dead in the pool
+    // by the time the tick's events are read, so a guard that asks whether the
+    // body is alive drops the last pulse of every mob the ground kills. The
+    // pace is the ticks between hits on one body, and the hit that finished it
+    // is one of them: the reading is a grind's pace, not a survivor's.
+    const run = createRun(SEED);
+    const acc = createTerritoryControl();
+    const mob = putMob(run, 200, 300);
+
+    observeTerritoryControl(acc, 100, [territoryPulse(mob.id)], run);
+    mob.alive = false;
+    observeTerritoryControl(
+      acc,
+      180,
+      [territoryPulse(mob.id), killedEvent(mob)],
+      run,
+    );
+
+    expect(territoryControlOf(acc).pulseIntervals).toEqual([80]);
   });
 });

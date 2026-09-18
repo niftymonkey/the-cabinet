@@ -157,7 +157,7 @@ const PALETTE = {
    */
   corpseRevenant: { hex: 0x93a85b, luma: 61.95 },
   feast: { hex: 0xb0ac9e, luma: 67.39 },
-  drop: { hex: 0xd8a941, luma: 67.25 },
+  powerUp: { hex: 0xd8a941, luma: 67.25 },
   /**
    * The dark companion every sprite in the food, mob and treasure layers draws
    * with. Without it the grave's rim meets a pile of food at APCA Lc 0.00 from
@@ -166,7 +166,7 @@ const PALETTE = {
    * 67.41, 72 of the 78 pairs measure exactly Lc 0.00.
    *
    * Measured: Lc 50.19 against corpse, 57.36 against feast, 59.64 against
-   * drop and 61.19 against mob. Against night it is 3.4 luma brighter, so it
+   * power-up and 61.19 against mob. Against night it is 3.4 luma brighter, so it
    * costs nothing on bare field.
    */
   foodOutline: { hex: 0x141a26, luma: 10.04 },
@@ -175,9 +175,94 @@ const PALETTE = {
   belchEruption: { hex: 0xb5ac8e, luma: 67.35 },
   splash: { hex: 0x7f9184, luma: 54.99 },
 
+  /**
+   * The stand-in ground, per section (ADR 0049, decision 22's amendment). Every
+   * one of them is a `standIn` prefix on purpose: decision 13 asks that a
+   * tester's reaction to the look be separable from a reaction to the game, so
+   * a report can say which build drew stand-ins.
+   *
+   * The ground tile itself is not here. It wears `nightSpeckle`, which was
+   * declared and drawn nowhere at all, and the ground is its consumer.
+   *
+   * The three dressing tints sit at the bottom of the value range because they
+   * are the ground and not a sprite, which is why they are excluded from sprite
+   * separation with `night` and `nightSpeckle` rather than beside the bodies.
+   * What that costs is measured rather than assumed: a corpse over the
+   * Procession's statues reads APCA Lc 42.4 against 47.0 over bare ground, and
+   * every mob-fire core clears Lc 70.9 over the brightest of them, which is the
+   * check the band is actually about.
+   */
+  standInGroundDressCold: { hex: 0x303947, luma: 22 },
+  standInGroundDressWet: { hex: 0x2d423d, luma: 23.99 },
+  /**
+   * The Vigil's one real departure, and the only colour this game adds after
+   * the first two sections (Downwell's move: spent once or not at all).
+   *
+   * Deep teal-cyan at hue 190.43. `docs/research/readability-value-band.md`
+   * section 7.5 records hue 175 to 205 as entirely empty, and of the sprites it
+   * still is: the nearest are `wisp` at 172.24 and `skull` at 208.24, so 190
+   * sits eighteen degrees clear of each against a fifteen-degree
+   * sprite-separation minimum. `reservoirCharge` joined the band at 199.79 on
+   * 2026-09-16, a readout rather than a sprite and 37.25 luma above this one,
+   * so it changes neither clearance. It carries the highest saturation of the
+   * four ground colours,
+   * 0.500, because the addition has to be the event.
+   */
+  standInVigilTint: { hex: 0x2e545c, luma: 30 },
+  /**
+   * The Waking's source, and its own dark companion.
+   *
+   * It takes the Crowd's family at hue 164.68 rather than the Vigil's, because
+   * it is placed by a Crowd wave and opens as the Crowd's boundary event, and
+   * giving it the hue 190 entry would spend the fourth colour a section early.
+   * What that costs is a source in the same family as the Crowd's own eye
+   * dressing, and the stand-in answer is size (design record section 7).
+   *
+   * It is the brightest thing the ground layer draws, Lc 23.45 over the ground
+   * tile, because it is the loudest beat in the run. That is bought from the
+   * sprites crossing it: a corpse over its body reads Lc 22.8, which is the
+   * measured cost of a source that can be seen at all, and it is why the
+   * companion is drawn as a rim past the body rather than behind it.
+   */
+  standInWaking: { hex: 0x47766a, luma: 42.02 },
+  standInWakingDark: { hex: 0x13221f, luma: 12 },
+
   // readouts drawn over the field, inside the ceiling because they draw over play
   hudInk: { hex: 0xa8acb0, luma: 67.23 },
   hudDim: { hex: 0x76839a, luma: 50.94 },
+  /**
+   * The reservoir's charge, drawn as the filled part of the belch's ring.
+   *
+   * Every shipped phone precedent for a charge is a coloured fill on a neutral
+   * track: Brawl Stars' slim yellow ring on a grey meter, Genshin's burst icon
+   * filling with the element's own colour (`docs/research/push-feel-precedent.md`
+   * section 4). So the track is `hudInk`, the readouts' own near-neutral, and
+   * this is the fill. Ready leaves for `graveGlow`, which is treasure's colour
+   * and means a thing there is to spend.
+   *
+   * The luma is forced to the point rather than to a window. All three colours
+   * the control draws sit inside 0.02 luma of each other, 67.23, 67.25 and
+   * 67.25, so neither the charge nor the ready tell can announce by getting
+   * brighter, which is what ADR 0054's reading of ADR 0014 forbids. What is
+   * left to separate them is hue and area, and APCA measures Lc 0.00 against
+   * the track, so the arc's own width and length carry the whole reading in
+   * grayscale.
+   *
+   * The hue is forced the same way the two before it were. Fire's 20-degree
+   * exclusion closes 20 to 39, amber at 41 is the ready tell itself, corpse and
+   * feast hold the warm bone, the green family from 76 to 155 is the mobs and
+   * the moss, purple is banned outright, and 237.5 is claimed ground. What is
+   * left at this luma is the grave's own cold family, 175 to 220, where the
+   * readouts already live. 199.79 is the one spot in it with room for real
+   * chroma: it clears `wisp` at 172.24 by 27.5 degrees, `bellRing` at 210 on
+   * saturation by 0.292 against a 0.25 minimum, and the track by 0.406, which
+   * is the separation the eye actually reads.
+   *
+   * Measured: APCA Lc 58.35 against night, and 37.25 luma above the Vigil's
+   * ground tint nine hue degrees away, which is a ground fill under the field
+   * where this is a ring in the corner.
+   */
+  reservoirCharge: { hex: 0x76b7d7, luma: 67.25 },
 } as const satisfies Record<string, PaletteEntry>;
 
 /**
@@ -230,7 +315,7 @@ const SPRITE_OUTLINE = {
   corpse: 'foodOutline',
   corpseRevenant: 'foodOutline',
   feast: 'foodOutline',
-  drop: 'foodOutline',
+  powerUp: 'foodOutline',
   mob: 'foodOutline',
   banshee: 'foodOutline',
   undertaker: 'foodOutline',

@@ -4,7 +4,7 @@
 
 ## Mark's ruling, 2026-08-27
 
-**Repel stays the bell behaviour already ruled by ADR 0036: a field-scale ring on a fixed clock.** The theme may still change later. It must not be redefined as short-range close defence.
+**Repel is the bell as a timed pulse of cones, never a ring.** Ruled by Mark 2026-08-19 to fire on its own clock rather than on every swallow, with its damage falling off with distance from the grave so the far edge tickles rather than kills, and reshaped by him 2026-08-31: what a toll puts on the field is cones, one thrown forward at level one and more of them wrapping around toward the sides as they multiply, so the top of the line earns back the whole surround at field scale. The theme may still change later. It must not be redefined as short-range close defence, and the cones never become the line that owns the ground ahead of the grave, which is Territory's: a bell at any level is answering what is already near, and reach is what carries it. **The maxed bell's price is accepted rather than read as a bug.** A maxed bell kills out at the far edge, where a low one only tickles, and it shoves mobs further away before they die, so those corpses scroll the whole way down and arrive nearly empty and the strongest bell starves the fuel that made it strong; the trade is that the mobs it pushes back are pushed into the skull stream's fire, and the freshness-at-swallow instrument is its watcher.
 
 **The measured bell result is not evidence that Repel failed.** The bell reached level 2 on the only tape, and `BELL_PUSH_BY_LEVEL[2]` is zero, so the knockback that makes it Repel was never on the field.
 
@@ -29,7 +29,7 @@ Nothing is implemented. Nothing may be implemented from this document without it
 | Pressure | `soulStream.ts` | Ships today, unchanged | Always-on, plus a surge on each swallow |
 | Pursuit | `wisps.ts` | Ships today, unchanged | On each swallow |
 | Repel | `bell.ts` | Ships today, unchanged behaviour; theme open | On a timer |
-| Territory | none | Trigger and placement ruled; rest open | **On each swallow** (ruled 2026-08-27) |
+| Territory | none | Trigger and placement ruled; rest open | **On its own clock** (ruled from the 2026-08-27 playtest) |
 
 Read by where and when each line acts, the pool is: **my lane / anywhere / around me at field scale / ahead of me.** The roster it replaces put two of four lines at "at me", which is why headstones and the bell overlapped.
 
@@ -99,11 +99,13 @@ Three marker blocks are held and owed to an issue once one exists. What each fin
 - **A lost drop's line is unrecorded.** `CorpseLost` carries `kind` without `line`, so "the player deliberately let a weak line's drop scroll away" is invisible. Events are free to extend, because replay regenerates them and they are never folded.
 - **The tape reader has no forward path for a growing header.** Resolved for now by choosing replacement, but ADR 0005 declares the line pool open, so the header growing is a matter of when. Cheap to decide with two versions and a handful of tapes. Trigger: the next proposal that would change the tape header's layout.
 
-## Territory's firing trigger, ruled 2026-08-27
+## Territory's trigger and targeting, ruled from the 2026-08-27 playtest
 
-**Territory fires on each swallow.** Mark's ruling. It ties the line directly to the game's central feed loop and makes the swallow itself the event that creates Territory. Territory therefore shares the swallow trigger with the wisps, and the pool's three ADR 0005 modes now read: soul stream always-on with a surge, wisps and Territory on each swallow, bell on a timer.
+**Territory is autonomous controlling ground on its own clock, and the swallow trigger is superseded.** Mark's ruling from the playtest, on the reason the swallow trigger could not have known: corpses can be banked, so a player-controlled trigger over a bankable resource turns an autonomous line into an aimed, timed ability, which is a different weapon than the one ruled, and on a clock the line's rate is fixed and tunable instead of riding the collection rate.
 
-**The trigger does not decide placement, and must not be read as deciding it.** Mark's words: do not lock the patch to the corpse's swallow location just because the trigger is the swallow. Territory's job stays predictive space control. It must influence where mobs are *about to travel*, and it must do that without introducing manual aiming.
+**It chooses the densest cluster of mobs inside a window anchored ahead of the grave and laterally about it, and that bounded window is load-bearing.** The ground follows nothing and its scan sees nothing outside the window, so the targeting is not homing and the player steers Territory with position alone; widening the scan to the whole field would reopen that reading. Placement then takes a bounded offset around the predicted cluster, drawn from Territory's own named seeded stream after the useful cluster has been chosen and never in place of choosing it, so the ground lands near the prediction rather than on it: ground that arrives with the cluster already at its centre reads as mobs spawning with the patch instead of being caught by it.
+
+**Amended by Mark 2026-08-28, from the first Territory playtest: levels buy control strength as well as area.** Early levels slow and chip and an ordinary mob walks out alive, middle levels add real pull, and a late patch is close to a death sentence for an ordinary mob. Two of the rulings below fall with the trigger: the freshness-to-radius channel, since no swallow feeds the lay, so radius passes to the level channel; and the one-bite budget, since a control zone's identity is many small touches over time in one place, so damage is repeated pulses on a per-patch re-hit delay held by the patch and keyed by entity id. The ladders, the window's size and the offset's bound are tuning data.
 
 ## Territory's placement and scroll anchoring, ruled 2026-08-27
 
@@ -155,9 +157,11 @@ Corpses and drops drift at exactly `SCROLL_SPEED`, so a world-anchored patch sha
 
 **Ruled by Mark 2026-08-27: this is a defect against the existing rule, not a reason to weaken ADR 0004.** The durable rule stands as written: freshness scales every swallow payout, growth, burst and reservoir charge. The soul stream's surge and the wisp volley do not obey it. **The defect is recorded separately and must NOT be fixed opportunistically inside #76**, unless the Territory implementation genuinely requires changing the same seam.
 
-**Not fixed here, and not in the weapon-pool work's scope.** It is preserved here because it gates a Territory decision: whether a stale corpse claims weaker ground. Either the record is wrong about what freshness was ever meant to scale, or two shipped lines do not honour it. That is Mark's to rule, and the ruling decides Territory's answer at the same time.
+**Not fixed here, and not in the weapon-pool work's scope.** It is preserved here because it gates a Territory decision: whether a stale corpse claims weaker ground. Either the record is wrong about what freshness was ever meant to scale, or two shipped lines do not honour it. **It is the second, and the axis is now ruled per line: each line that pays on a swallow scales the thing it actually pays in** (Mark's starting point of 2026-08-25, with the tuning left to the tuning pass). The wisps pay in souls, so freshness scales the count, floored at one soul, because a bare proportional count pays nothing at level one where the flight is a single wisp and a swallow that fires nothing reads as a bug. The skull stream pays as a surge, a run of extra volleys at a shortened interval, so freshness scales how many volleys the surge pays rather than how wide it fires, because the column count is exactly what draws the line's five levels and a rotten corpse must never make a level-five stream look like a level-two one. **Naming the axis is what makes the rule enforceable**, and a test that fails if a burst is ever paid without freshness applied is the point of naming it.
 
 ## Territory and freshness, ruled 2026-08-27
+
+**Superseded with the swallow trigger: no swallow feeds the lay, so there is no on-swallow payout for freshness to scale, and radius passes to the level channel.** The two paragraphs below are the thinking of their day, and so is every rule further down this record that reads Territory as an on-swallow line.
 
 **Territory's on-swallow payout is freshness-scaled.** The ruling is deliberately narrow and stops there.
 

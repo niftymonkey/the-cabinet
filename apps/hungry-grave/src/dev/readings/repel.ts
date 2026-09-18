@@ -1,4 +1,5 @@
-// What the bell's shoves did, toll by toll: the pool's one push channel, visible.
+// What the pool's two pushes did: the bell's shoves toll by toll, and the
+// belch's own arm beside them (design record R9, READINGS_VERSION 5).
 
 import type { SimEvent } from '../../game/events';
 
@@ -9,44 +10,79 @@ interface TollShoves {
 }
 
 /**
- * The repel reading: per toll, shoves counted and their real displacement
- * summed.
+ * The repel reading, split by the push that threw each shove.
  *
- * A tolled event opens a toll window and every mobShoved lands in the window
- * open at the time; the shoves arrive across the ring's expansion, ticks
- * after the toll itself. A toll that shoved nothing still counts, because
- * push only exists at bell levels 4 and 5 and zero is the honest reading for
- * every toll below them.
+ * The toll arm keeps its shape. A tolled event opens a toll window and every
+ * bell shove lands in the window open at the time; the shoves arrive across the
+ * ring's expansion and up to SHOVE_TICKS ticks of travel after it (shove.ts),
+ * which is still well inside the bell's own period. A toll that shoved nothing
+ * still counts, because zero is the honest reading for a toll that reached no
+ * body it could move. The totals are the bell's whole repel, declared beside
+ * the per-toll view they reduce.
  *
- * The totals are the run's whole repel, declared beside the per-toll view
- * they reduce, so comparing the channel is one decision in one place.
+ * **What both arms now measure changed under them, and READINGS_VERSION 6 is
+ * where that is declared.** A shove outlives the body carrying it, so a
+ * distance here is what a whole flight covered rather than what a body was
+ * carried before it died. It moves the bell as much as the belch: sweepToll
+ * pushes before it damages (bell.ts), so a body the cone kills on arrival used
+ * to report nothing and now reports the whole of the toll's push.
+ *
+ * The belch's arm is flat and never per belch. What a batch asks of it is how
+ * much pushback the belch bought, and when each belch fired is already the
+ * belch cadence reading's answer; a window per belch would be structure built
+ * for a reader nobody has written down.
  */
 interface Repel {
   readonly tolls: readonly TollShoves[];
   readonly totalShoves: number;
   readonly totalDistance: number;
+  // Slice J is the caller these two are declared for (design record section 4).
+  readonly belchShoves: number;
+  readonly belchDistance: number;
 }
 
 interface RepelAcc {
   readonly tolls: { shoves: number; distance: number }[];
+  belchShoves: number;
+  belchDistance: number;
 }
 
-const createRepel = (): RepelAcc => ({ tolls: [] });
+const createRepel = (): RepelAcc => ({
+  tolls: [],
+  belchShoves: 0,
+  belchDistance: 0,
+});
+
+/**
+ * One bell shove, into the toll window open when it landed.
+ *
+ * A ring cannot exist without a toll, so a bell shove with no window open is a
+ * bug in the sim's own event order: it fails loudly and is never absorbed into
+ * a count. The throw is kept for exactly that case and no other, which is what
+ * the belch's arm above exists to take out from under it.
+ */
+const countTollShove = (acc: RepelAcc, event: SimEvent): void => {
+  if (event.type !== 'mobShoved') return;
+  const window = acc.tolls[acc.tolls.length - 1];
+  if (window === undefined) {
+    throw new Error(
+      `mobShoved before any toll: mob ${event.id} shoved ${event.displacement}`,
+    );
+  }
+  window.shoves += 1;
+  window.distance += event.displacement;
+};
 
 const observeRepel = (acc: RepelAcc, events: readonly SimEvent[]): void => {
   for (const event of events) {
     if (event.type === 'tolled') acc.tolls.push({ shoves: 0, distance: 0 });
     if (event.type !== 'mobShoved') continue;
-    const window = acc.tolls[acc.tolls.length - 1];
-    if (window === undefined) {
-      // A ring cannot exist without a toll, so this is a bug in the sim's own
-      // event order: it fails loudly and is never absorbed into a count.
-      throw new Error(
-        `mobShoved before any toll: mob ${event.id} shoved ${event.displacement}`,
-      );
+    if (event.source === 'belch') {
+      acc.belchShoves += 1;
+      acc.belchDistance += event.displacement;
+      continue;
     }
-    window.shoves += 1;
-    window.distance += event.displacement;
+    countTollShove(acc, event);
   }
 };
 
@@ -54,6 +90,8 @@ const repelOf = (acc: RepelAcc): Repel => ({
   tolls: acc.tolls.map((window) => ({ ...window })),
   totalShoves: acc.tolls.reduce((sum, window) => sum + window.shoves, 0),
   totalDistance: acc.tolls.reduce((sum, window) => sum + window.distance, 0),
+  belchShoves: acc.belchShoves,
+  belchDistance: acc.belchDistance,
 });
 
 export { createRepel, observeRepel, repelOf };

@@ -3,7 +3,7 @@
 
 import { Graphics } from 'pixi.js';
 
-import type { Shot } from '../../../game/mobFire';
+import type { FireKind, Shot } from '../../../game/mobFire';
 import { MOB_FIRE } from '../../palette';
 
 /**
@@ -52,9 +52,14 @@ const star = (points: number, outer: number, inner: number): number[] => {
  * Alpha stays 1 and no compositing mode is set. Both are forbidden rather than
  * measured: a core at luma 90 drawn at alpha 0.90 over the night composites to
  * 81.7 and falls out of the band.
+ *
+ * Which of the four it draws is the shot's own kind and never a literal. Who
+ * fired a shot and what it looks like are two different questions: the
+ * Banshee's rings and her adds' shots share an emitter and not a read, and a
+ * clod and a tear share a boss and not a read.
  */
 const drawShot = (into: Graphics, shot: Shot): void => {
-  const sprite = MOB_FIRE.trash;
+  const sprite = MOB_FIRE[shot.kind];
   const outer = shot.halfExtent * SHOT_DRAW_SCALE;
   into
     .clear()
@@ -90,13 +95,18 @@ const SCATTER_SPOKES = 6;
  *
  * The scatter shrinks rather than fading, because ADR 0014 forbids mob fire
  * drawing at anything but alpha 1.0 and this is mob fire coming apart.
+ *
+ * It takes the kind rather than the shot, because what is scattering has
+ * already left the pool by the time it is drawn: the kind travels with the
+ * slot's memory, the same way its position and its extent do.
  */
 const drawScatter = (
   into: Graphics,
   extent: number,
   progress: number,
+  kind: FireKind,
 ): void => {
-  const sprite = MOB_FIRE.trash;
+  const sprite = MOB_FIRE[kind];
   const reach = extent * SCATTER_REACH * progress;
   const length = extent * (1 - progress) + extent * 0.2;
   into.clear();

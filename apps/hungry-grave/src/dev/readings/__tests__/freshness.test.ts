@@ -27,24 +27,45 @@ describe('freshness paid', () => {
 
     observeFreshnessPaid(
       accumulator,
-      swallow(run, { kind: 'corpse', freshness: 0.5, payout: PAYOUT }),
+      swallow(run, {
+        id: 1,
+        kind: 'corpse',
+        freshness: 0.5,
+        payout: PAYOUT,
+        tier: 'trash',
+        treasureBody: false,
+      }),
     );
     observeFreshnessPaid(
       accumulator,
-      swallow(run, { kind: 'corpse', freshness: 0.1, payout: PAYOUT }),
+      swallow(run, {
+        id: 1,
+        kind: 'corpse',
+        freshness: 0.1,
+        payout: PAYOUT,
+        tier: 'trash',
+        treasureBody: false,
+      }),
     );
     observeFreshnessPaid(
       accumulator,
-      swallow(run, { kind: 'drop', freshness: 1, payout: PAYOUT }),
+      swallow(run, {
+        id: 1,
+        kind: 'powerUp',
+        freshness: 1,
+        payout: PAYOUT,
+        tier: 'trash',
+        treasureBody: true,
+      }),
     );
 
     const paid = freshnessPaidOf(accumulator);
-    expect(paid.swallows).toEqual({ corpse: 2, drop: 1 });
+    expect(paid.swallows).toEqual({ corpse: 2, powerUp: 1 });
     expect(paid.minPaid.corpse).toBe(0.25);
     expect(paid.maxPaid.corpse).toBe(0.5);
     expect(paid.meanPaid.corpse).toBeCloseTo(0.375, 10);
-    expect(paid.minPaid.drop).toBe(1);
-    expect(paid.maxPaid.drop).toBe(1);
+    expect(paid.minPaid.powerUp).toBe(1);
+    expect(paid.maxPaid.powerUp).toBe(1);
     // A kind never swallowed has no multiplier to report, so it is absent.
     expect('feast' in paid.swallows).toBe(false);
   });

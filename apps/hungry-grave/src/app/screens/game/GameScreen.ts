@@ -1,25 +1,37 @@
 // The screen a run plays on: the named children a run is made of, and the lifecycle they are forwarded.
 
-import type { FederatedPointerEvent, Ticker } from 'pixi.js';
+import type { FederatedPointerEvent, Texture, Ticker } from 'pixi.js';
 import { Container, Graphics, Rectangle } from 'pixi.js';
 
+import type { Caps } from '../../../game/caps';
+import { capsFor } from '../../../game/caps';
 import type { SimEvent } from '../../../game/events';
 import { territoryCharge } from '../../../game/lines/territory';
 import type { RunState } from '../../../game/run';
+import { sectionUnderway } from '../../../game/stage/stage';
 import { RESERVOIR_CAPACITY } from '../../../game/tuning';
+import { DEFAULT_TUNING } from '../../../game/tuningRecord';
 import type { FrameReason } from '../../../tape/tape';
-import type { FieldPlacement } from '../../layout';
-import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../../layout';
+import type { FieldPlacement, HudRow } from '../../layout';
+import {
+  DEGENERATE_PLACEMENT,
+  fitField,
+  hudRow,
+  READOUT_RESERVE,
+} from '../../layout';
 import type { RendererIdentity } from '../../tapeHeader';
 import { runConditionsHere } from '../../tapeHeader';
 import type { ButtonChrome } from '../../ui/Button';
 import { Button } from '../../ui/Button';
 import { bindKeyPress } from '../keyBinding';
+import { BackgroundRenderer } from './BackgroundRenderer';
 import { BELCH_SIZE, BelchButton } from './BelchButton';
+import { BossRenderer } from './BossRenderer';
 import { FieldRenderer } from './FieldRenderer';
 import { boundaryReadout, fieldClip } from './fieldFrame';
 import { createFramePolicy } from './framePolicy';
 import { GraveRenderer } from './GraveRenderer';
+import { createLadderHud } from './LadderHud';
 import { FieldLayers } from './layering';
 import type { ResumeCountdown } from './resumeCountdown';
 import { createResumeCountdown } from './resumeCountdown';
@@ -31,6 +43,8 @@ import { createRunSession } from './runSession';
 import type { RunSteering } from './steering';
 import { createRunSteering } from './steering';
 import { StormRenderer } from './StormRenderer';
+import type { WatchedLoss } from './watchedLoss';
+import { NO_LOSS_WATCHED, watchLoss } from './watchedLoss';
 
 // The pause button's size, in stage units. Its corner inset comes from the readout reserve, which is what layout.ts fits the field around.
 const PAUSE_WIDTH = 132;
@@ -54,6 +68,38 @@ interface FrameWork {
 const HELD_FRAME: FrameWork = { advanceMs: 0, endedRun: false };
 
 /**
+ * Where the pause button's own rectangle starts, in stage units: the reserve's
+ * margin, or clear below the HUD's row at the one regime where the row reaches
+ * the corner it stands in.
+ *
+ * At a viewport near the field's own aspect the stage's band above the field
+ * and its side gutter both collapse, the row runs the field's full width across
+ * the top-right corner, and the row cannot narrow to clear it: R1's content is
+ * 520 field units inside the field's 540, and a stage whose reserve claims 260
+ * units at each end leaves 20 between them. So the button moves and the row
+ * does not, at that regime alone, because a readout drawn across a control is
+ * worse than a control one band lower and the button's own target floor is
+ * untouched by the move. Where the row clears the corner, on a tall stage
+ * because the band holds the row and on a wide one because the gutter holds the
+ * button, nothing moves at all.
+ *
+ * The crossing is measured rather than named by viewport, for the reason
+ * fitField gives for having no breakpoint: a short phone window and a portrait
+ * tablet are the same shape here and must get the same answer.
+ */
+const pauseButtonTop = (row: HudRow, stageWidth: number): number => {
+  const margin = READOUT_RESERVE.margin;
+  const left = stageWidth - margin - PAUSE_WIDTH;
+  // Half-open on both axes, the convention layout.ts's own overlap uses.
+  const crosses =
+    row.left < stageWidth - margin &&
+    left < row.left + row.width &&
+    row.top < margin + PAUSE_HEIGHT &&
+    margin < row.top + row.height;
+  return crosses ? row.top + row.height + margin : margin;
+};
+
+/**
  * What a run needs from the app around it. Every entry is a power the screen
  * cannot reach on its own; the graph they belong to lives in src/main.ts, and
  * this screen knows none of it.
@@ -69,6 +115,10 @@ interface GameScreenProps extends ButtonChrome {
   showEnd(): Promise<void>;
   // Every sound this run's events make.
   playSound(event: SimEvent): void;
+  // The loop the section this run is in plays (ADR 0049).
+  playMusic(event: SimEvent): void;
+  // A stand-in texture, or null while its bundle is still coming (ADR 0049).
+  standInArt(alias: string): Texture | null;
   // The canvas a gesture the platform took away is announced on.
   canvas: HTMLCanvasElement | null;
   // What the renderer says about itself, for this run's tape header.
@@ -110,10 +160,25 @@ class GameScreen extends Container {
    */
   private readonly clip: Graphics;
   private readonly grave: GraveRenderer;
+  /**
+   * The ground, handed the one power it cannot reach: where a stand-in texture
+   * comes from. The lookup is read at sync time and never here, so it is safe
+   * that the pool sets props after this screen is constructed.
+   */
+  private readonly background = new BackgroundRenderer({
+    standInArt: (alias) => this.props.standInArt(alias),
+  });
   private readonly fieldRenderer = new FieldRenderer();
+  private readonly bossRenderer = new BossRenderer();
   private readonly stormRenderer = new StormRenderer();
 
   private readonly hud = createRunHud();
+  /**
+   * The ladder HUD's row, a sibling of the field rather than a child of it: a
+   * child would be clipped by the field's own clip and hidden on every screen
+   * where the row sits outside the field (record R1).
+   */
+  private readonly ladder = createLadderHud();
   private readonly countdown: ResumeCountdown;
   private readonly pauseButton: Button;
   private readonly belchButton: BelchButton;
@@ -131,6 +196,13 @@ class GameScreen extends Container {
    * agree only until something moves one of them.
    */
   private placement: FieldPlacement = DEGENERATE_PLACEMENT;
+  /**
+   * The loss the row is still watching, which is this driver's own per-run
+   * memory: a born tick and a bled amount belonging to a run that is over.
+   * prepare() drops it beside the ending and the countdown, because a pooled
+   * screen left holding it opens the next run mid-countdown.
+   */
+  private loss: WatchedLoss = NO_LOSS_WATCHED;
   private releaseKeys: (() => void) | null = null;
   private releaseListeners: (() => void) | null = null;
   /**
@@ -201,6 +273,7 @@ class GameScreen extends Container {
 
     this.addChild(
       this.field,
+      this.ladder.view,
       this.hud.view,
       this.countdown.view,
       this.pauseButton,
@@ -218,10 +291,44 @@ class GameScreen extends Container {
     this.on('pointerupoutside', this.onPointerUp, this);
   }
 
+  /**
+   * The caps this screen dresses its field at.
+   *
+   * dressField runs from the constructor and from reset(), with no run in hand
+   * either time, so the caps a run under the build's own record derives are
+   * what the sprite pools are grown to. A run here can carry a record of its
+   * own, because ?tuning= names a candidate (ADR 0064), and a record that
+   * lowers the quiet interval's minimum derives caps above these: the pools are
+   * grow-only and attach is the one place they grow, which is what
+   * beginDrawing below is for.
+   */
+  private fieldCaps(): Caps {
+    return capsFor(DEFAULT_TUNING);
+  }
+
+  /**
+   * The field renderer grown for the run about to be drawn.
+   *
+   * The run this screen is about to draw carries the tuning record it was
+   * started under and its caps are derived from that record (ADR 0056 as
+   * amended), while the pools dressField opened have no reason to reach them.
+   * attach is the one place a pool grows and it forgets the previous run on its
+   * way through, so the slot walk in the first sync finds a sprite for every
+   * entity the run can hold. It is ReplayScreen.beginDrawing's own shape,
+   * because the two screens have the same problem: neither has a run in hand
+   * when it dresses.
+   */
+  private beginDrawing(run: RunState): void {
+    this.fieldRenderer.attach(this.layers, run.caps);
+  }
+
   // The field's own furniture, put back after any clear() (see reset).
   private dressField(): void {
     this.layers.layer('fieldBoundary').addChild(this.frame);
-    this.fieldRenderer.attach(this.layers);
+    this.background.attach(this.layers);
+    this.fieldRenderer.attach(this.layers, this.fieldCaps());
+    // After the mob pool, so a boss draws over the adds it summons.
+    this.bossRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
   }
@@ -234,6 +341,7 @@ class GameScreen extends Container {
     this.ending.reset();
     this.framePolicy.reset();
     this.menuTransition = null;
+    this.loss = NO_LOSS_WATCHED;
     // A pooled screen must not inherit the previous run's held keys, drag
     // anchor, belch request or count.
     this.steering.goQuiet();
@@ -250,14 +358,19 @@ class GameScreen extends Container {
     this.interactiveChildren = true;
 
     const started = this.session.begin();
+    this.beginDrawing(started.run);
     this.recording.begin(
       started.run,
       started.execution,
       runConditionsHere(this.props.renderer),
     );
     this.hud.showIdentity(started.identity);
+    this.ladder.showIdentity(started.identity);
     this.syncScreen(started.run);
-    this.hud.render(this.session.readout);
+    // The section the run opens in. The stage announces crossings alone, so the
+    // first section has no event of its own and a run would open on silence.
+    this.announce(started.run, [sectionUnderway(started.run)]);
+    this.readOut();
 
     this.releaseKeys = bindKeyPress('Escape', () => this.togglePause());
     this.releaseListeners = this.steering.listen();
@@ -374,8 +487,19 @@ class GameScreen extends Container {
     );
     this.announce(run, frame.events);
     this.syncScreen(run);
-    this.hud.render(this.session.readout);
+    this.readOut();
     return { advanceMs: frame.advanceMs, endedRun: endedIn(frame.events) };
+  }
+
+  /**
+   * Both readouts, from the one reading. The session builds the readout once
+   * per frame and this is the only place either view is handed it, so the two
+   * can never be a frame apart.
+   */
+  private readOut(): void {
+    const readout = this.session.readout;
+    this.hud.render(readout);
+    this.ladder.render(readout, this.loss);
   }
 
   /**
@@ -390,9 +514,11 @@ class GameScreen extends Container {
       run.tick,
       territoryCharge(run),
     );
+    this.background.sync(run);
     this.fieldRenderer.sync(run);
+    this.bossRenderer.sync(run);
     this.stormRenderer.sync(run);
-    this.belchButton.sync(run.reservoir >= RESERVOIR_CAPACITY, run.tick);
+    this.belchButton.sync(run.reservoir / RESERVOIR_CAPACITY, run.tick);
   }
 
   /**
@@ -403,8 +529,13 @@ class GameScreen extends Container {
   private announce(run: RunState, events: readonly SimEvent[]): void {
     for (const event of events) {
       this.props.playSound(event);
+      this.props.playMusic(event);
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
+      if (event.type === 'weaponStripped') {
+        this.stormRenderer.weaponStripped(run, event.lines);
+      }
+      this.loss = watchLoss(this.loss, event, run.tick);
     }
   }
 
@@ -416,19 +547,29 @@ class GameScreen extends Container {
     // still steers.
     this.hitArea = new Rectangle(0, 0, width, height);
     this.steering.setSlop(this.placement.scale);
+    // The row is applied exactly as the field's own placement is, from the same
+    // output, so the two cannot be computed in parallel and drift.
+    const row = hudRow(this.placement);
+    this.ladder.view.position.set(row.left, row.top);
+    this.ladder.view.scale.set(this.placement.scale);
     // Positioned from the reserve layout.ts fits the field around, so the two
-    // cannot drift and the non-overlap invariant is one rule in one place.
+    // cannot drift and the non-overlap invariant is one rule in one place,
+    // except where the row itself reaches the corner and the button drops
+    // below it.
     this.pauseButton.position.set(
       width - READOUT_RESERVE.margin - PAUSE_WIDTH / 2,
-      READOUT_RESERVE.margin + PAUSE_HEIGHT / 2,
+      pauseButtonTop(row, width) + PAUSE_HEIGHT / 2,
     );
     this.countdown.resize(width, height);
-    // Bottom right, from the same reserve the pause button is positioned from,
+    // Bottom left, from the same reserve the pause button is positioned from,
     // so the two cannot drift apart and the non-overlap rule stays one rule in
     // one place. It sits over the field: Mark ruled on 2026-08-22 that the
-    // field never pays width for a readout.
+    // field never pays width for a readout. The corner is the left one on his
+    // ruling of 2026-09-15, so the steering thumb and the belch no longer share
+    // it; the reserve claims the two top corners only, which is why the move
+    // costs the field's fit nothing.
     this.belchButton.position.set(
-      width - READOUT_RESERVE.margin - BELCH_SIZE / 2,
+      READOUT_RESERVE.margin + BELCH_SIZE / 2,
       height - READOUT_RESERVE.margin - BELCH_SIZE / 2,
     );
   }

@@ -49,11 +49,20 @@ vi.mock('../tapeExport', async (importOriginal) => ({
   saveTapeFile,
 }));
 
+import { PHASE_HP, spawnBoss } from '../../game/bosses/phases';
 import { TICK_MS } from '../../game/clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
 import { SIZE_FLOOR } from '../../game/tuning';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
+
+/** What one floor hit bleeds under the record the build compiles, in points (ADR 0064). */
+const BLEED_CAP =
+  DEFAULT_TUNING.score.bleedCapInKills * DEFAULT_TUNING.score.trashKillScore;
+
+import type { SimEvent } from '../../game/events';
 import { FAULT_IDENTITIES } from '../../game/faults';
+import { SECTIONS } from '../../game/stage/stage';
 import { PausePopup } from '../popups/PausePopup';
 import { runHandoff } from '../runHandoff';
 import { SettingsPopup } from '../popups/SettingsPopup';
@@ -65,10 +74,22 @@ import type { TapeRecorder } from '../../tape/recorder';
 import { tapeOf } from '../../tape/recorder';
 import { readBackForVerification } from '../../tape/verificationReadback';
 import { tapeFileName } from '../tapeExport';
-import type { FrameObservation } from '../../tape/tape';
+import type { FrameObservation, TapeHeader } from '../../tape/tape';
 import { faultObservations, frameObservations } from '../../tape/tape';
-import { MAX_LEVEL } from '../../game/lines/roster';
+import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import { uniformLevels } from '../../game/run';
+import { standMobOnGrave } from '../../dev/staging';
+import {
+  RUNG_STRIP_TICKS,
+  SCORE_BLEED_TICKS,
+} from '../screens/game/watchedLoss';
+
+/** The level a header's block records for one line, read by name. */
+function levelIn(header: TapeHeader, line: string): number | undefined {
+  return header.startingCondition.find(
+    (entry) => entry.name === `levels.${line}`,
+  )?.value;
+}
 
 /** The canvas the run listens on for a gesture the platform took away. */
 const canvas = {
@@ -83,6 +104,9 @@ const canvas = {
  * screen hands out when its menu opens, which is the only way End Run exists.
  */
 const armed: { endRun: (() => void) | null } = { endRun: null };
+
+/** Every cue the music channel was handed, in the order the run made them. */
+const musicCued: SimEvent[] = [];
 
 /**
  * A game screen holding faked powers, the way navigation hands them in. Every
@@ -102,6 +126,8 @@ function gameScreen(): GameScreen {
     menuShowing: () => navigation.currentPopup instanceof PausePopup,
     showEnd: () => Promise.resolve(navigation.showScreen(EndScreen)),
     playSound: () => {},
+    playMusic: (event) => void musicCued.push(event),
+    standInArt: () => null,
     playButtonSound: () => {},
     canvas,
     // The tape header records the renderer's backend and resolution once per
@@ -268,9 +294,36 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
   beforeEach(() => {
     keyHandlers.clear();
     canvasListeners.clear();
+    musicCued.length = 0;
     navigation.currentPopup = undefined;
     presentPopup.mockReset().mockResolvedValue(undefined);
     dismissPopup.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('cues the section a run opens in, and cues it again on the next run out of the pool', () => {
+    // The stage announces crossings alone, so nothing tells the music which
+    // section a run begins in and the whole first section would play silent.
+    // A pooled screen has to say it again, because the second run out of the
+    // pool begins in that section too and the channel is still holding the
+    // loop the first run ended on.
+    const screen = gameScreen();
+
+    screen.prepare();
+    const firstSection = SECTIONS[0];
+    if (firstSection === undefined) throw new Error('no first section');
+    expect(musicCued).toEqual([
+      {
+        type: 'sectionChanged',
+        section: firstSection.name,
+        music: firstSection.music,
+        tick: 0,
+      },
+    ]);
+
+    screen.reset();
+    screen.prepare();
+    expect(musicCued).toHaveLength(2);
+    screen.reset();
   });
 
   it('reset() removes every listener prepare() added: the key listeners, the blur listener and the canvas pointercancel listener', () => {
@@ -322,7 +375,7 @@ describe("the game screen's own lifecycle (dispatch 3b)", () => {
     // live in a WeakMap keyed by the run, which gave that away for free; held
     // by a pooled screen it is somebody's job, and a pooled screen leaking what
     // nobody clears is the class of defect this app has shipped five times. A
-    // watch carried over would compare run two's first phase with run one's
+    // watch carried over would compare run two's first section with run one's
     // last, and a stale fault history would belong to a run that is over.
     const screen = gameScreen();
     screen.prepare();
@@ -730,13 +783,13 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
   it('starts with an empty field, no live entities from the first run, and a live pause button', () => {
     const screen = gameScreen();
     screen.prepare();
-    // A first run with something on the field: the ramp's first row is at two
+    // A first run with something on the field: the stage's first wave is at two
     // seconds, so this is the earliest the field is not empty.
     const first = screen['session'].run!;
     // Far enough in that the storm cannot have cleared the field. Two hundred
-    // ticks used to be enough, when the ramp's first two rows were Drips of one
-    // and nothing could kill them; the birthright stream now does, so the run
-    // is played to the File at twenty seconds instead.
+    // ticks used to be enough, when the section's first two waves were Drips of
+    // one and nothing could kill them; the birthright stream now does, so the
+    // run is played to the File at twenty seconds instead.
     play(screen, 1400);
     expect(first.mobs.some((mob) => mob.alive)).toBe(true);
     expect(first.skulls.some((skull) => skull.alive)).toBe(true);
@@ -746,6 +799,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     // hand rather than waited for, so the test does not depend on which armed
     // mob the storm happened to leave standing.
     const shot = first.mobFire[0];
+    if (shot === undefined) throw new Error('no mobFire pool slot 0');
     shot.alive = true;
     shot.id = 1;
     shot.emitter = 'shambler';
@@ -755,6 +809,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     // A live wisp and a live bell ring too, which are the storm's own per-run
     // state and the fields StormRenderer would leak through.
     const wisp = first.wisps[0];
+    if (wisp === undefined) throw new Error('no wisp pool slot 0');
     wisp.alive = true;
     wisp.id = 2;
     wisp.x = 200;
@@ -813,6 +868,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     // At the floor with nothing left to bleed, so the next contact seals.
     run.grave.size = SIZE_FLOOR;
     const mob = run.mobs[0];
+    if (mob === undefined) throw new Error('no mob pool slot 0');
     mob.alive = true;
     mob.type = 'shambler';
     mob.hp = MOB_TYPES.shambler.hp;
@@ -827,13 +883,30 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
 
     const winning = gameScreen();
     winning.prepare();
-    // On the boundary of the last stubbed boss phase, which ends on the tick it
-    // begins and hands the run to the over phase.
-    winning['session'].run!.stage.phaseIndex = 3;
-    winning['session'].run!.stage.phaseTick = 0;
+    // Stood in the last boss fight on its last point of health, and played
+    // until the birthright storm reaches him: victory is his death (ADR 0007)
+    // rather than the stage reaching its last section, so a run put in that section
+    // with nobody standing in it wins nothing. The section is read off the table's
+    // own length rather than written down, because the stage gained two sections
+    // with the three named sections (ADR 0050) and will gain none silently.
+    const winner = winning['session'].run!;
+    const lastFight = SECTIONS.length - 2;
+    winner.stage.sectionIndex = lastFight;
+    winner.stage.sectionTick = 0;
+    const lastFightSection = SECTIONS[lastFight];
+    if (lastFightSection === undefined)
+      throw new Error('no section at lastFight');
+    const boss = spawnBoss(winner, lastFightSection.boss!);
+    boss.phaseIndex = PHASE_HP[boss.kind].length - 1;
+    boss.hp = 1;
 
-    winning.update(frame(TICK_MS));
-    expect(winning['session'].run!.ending).toBe('victory');
+    // The first skull off a parked grave reaches him on tick 79, measured, and
+    // a frame buys ten ticks, so this is that with room and never a wait on a
+    // fight.
+    for (let played = 0; played < 20 && winner.ending === null; played++) {
+      winning.update(frame(TICK_MS * 10));
+    }
+    expect(winner.ending).toBe('victory');
     expect(winning['ending'].ended).toBe(true);
     expect(runHandoff.read()?.ending).toBe('victory');
   });
@@ -861,10 +934,15 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
     // over a run nobody arranged.
     let spawned = false;
     let ticks = 0;
-    // A parked run seals at tick 1118, on every seed measured. The bound is
-    // three times that, so content that stops ending a parked run fails here
+    // A parked run seals at tick 1043 on this seed. It was 1118 before the mow,
+    // 6135 after it, and 2417 once the stage's authored floor landed: silencing
+    // the mow body took the fire off the grave (ADR 0059) and the floor then put
+    // far more bodies on it (ADR 0060). It halves again under the director,
+    // which adds over a parked grave exactly where a parked grave is coasting
+    // and the signal reads low (ADR 0047). The upper bound is over seven times
+    // the measured tick, so content that stops ending a parked run fails here
     // rather than hanging the suite.
-    while (run.ending === null && ticks < 3600) {
+    while (run.ending === null && ticks < 7500) {
       screen.update(frame(TICK_MS * 10));
       ticks += 10;
       spawned ||= run.mobs.some((mob) => mob.alive);
@@ -872,7 +950,7 @@ describe('a whole run through the live lifecycle (dispatch 4)', () => {
 
     expect(spawned).toBe(true);
     expect(run.ending).toBe('sealed');
-    expect(run.tick).toBeGreaterThan(1000);
+    expect(run.tick).toBeGreaterThan(700);
     expect(screen['ending'].ended).toBe(true);
     expect(showScreen).toHaveBeenCalledTimes(1);
     expect(runHandoff.read()?.ending).toBe('sealed');
@@ -885,20 +963,23 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
     // sealed, so without this the victory copy ships drawn by nobody.
     const screen = endScreen();
     runHandoff.record(
-      { seed: 3, ticks: 12780, ending: 'victory', fault: null },
+      { seed: 3, ticks: 12780, ending: 'victory', score: 0, fault: null },
       null,
     );
     screen.prepare();
     expect(screen['title'].text).toBe('THE STAGE SURVIVED');
 
     runHandoff.record(
-      { seed: 3, ticks: 400, ending: 'sealed', fault: null },
+      { seed: 3, ticks: 400, ending: 'sealed', score: 0, fault: null },
       null,
     );
     screen.prepare();
     expect(screen['title'].text).toBe('SEALED SHUT');
 
-    runHandoff.record({ seed: 3, ticks: 400, ending: null, fault: null }, null);
+    runHandoff.record(
+      { seed: 3, ticks: 400, ending: null, score: 0, fault: null },
+      null,
+    );
     screen.prepare();
     expect(screen['title'].text).toBe('THE RUN IS OVER');
   });
@@ -915,6 +996,7 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
         seed: 3,
         ticks: 400,
         ending: null,
+        score: 0,
         fault: { identity: 'no NaN', firstTick: 123 },
       },
       null,
@@ -923,7 +1005,10 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
     expect(screen['title'].text).toBe('THE GAME BROKE');
     expect(screen['faultLabel'].text).toBe('FAULT no NaN\nAT TICK 123');
 
-    runHandoff.record({ seed: 3, ticks: 400, ending: null, fault: null }, null);
+    runHandoff.record(
+      { seed: 3, ticks: 400, ending: null, score: 0, fault: null },
+      null,
+    );
     screen.prepare();
     expect(screen['title'].text).toBe('THE RUN IS OVER');
     expect(screen['faultLabel'].text).toBe('');
@@ -946,6 +1031,29 @@ describe("the end screen's endings (dispatch 4 section 4.18)", () => {
         );
       }
     }
+  });
+
+  it("presents the run's final score, in the reading the ladder row showed", () => {
+    // The ladder row is the only place the score is drawn and it goes with the
+    // field at the seal, so without this line a player who just watched a
+    // capped bleed spare their score ends the run unable to say what they had.
+    // Every arcade results screen presents the final score. The reading is the
+    // row's own, whole points at six digits, so the number they watched is the
+    // number they are handed.
+    const screen = endScreen();
+    runHandoff.record(
+      { seed: 3, ticks: 400, ending: 'sealed', score: 12400, fault: null },
+      null,
+    );
+    screen.prepare();
+    expect(screen['scoreLabel'].text).toBe('SCORE 012400');
+
+    runHandoff.record(
+      { seed: 3, ticks: 40, ending: 'sealed', score: 0, fault: null },
+      null,
+    );
+    screen.prepare();
+    expect(screen['scoreLabel'].text).toBe('SCORE 000000');
   });
 });
 
@@ -984,6 +1092,7 @@ describe('the minimal export (dispatch 6a)', () => {
     // At the floor with nothing left to bleed, so the next contact seals.
     run.grave.size = SIZE_FLOOR;
     const mob = run.mobs[0];
+    if (mob === undefined) throw new Error('no mob pool slot 0');
     mob.alive = true;
     mob.type = 'shambler';
     mob.hp = MOB_TYPES.shambler.hp;
@@ -1031,14 +1140,14 @@ describe('the minimal export (dispatch 6a)', () => {
     const screen = endScreen();
 
     runHandoff.record(
-      { seed: 3, ticks: 400, ending: 'sealed', fault: null },
+      { seed: 3, ticks: 400, ending: 'sealed', score: 0, fault: null },
       null,
     );
     screen.prepare();
     expect(screen['saveButton'].visible).toBe(false);
 
     runHandoff.record(
-      { seed: 3, ticks: 400, ending: 'sealed', fault: null },
+      { seed: 3, ticks: 400, ending: 'sealed', score: 0, fault: null },
       new Uint8Array([1]),
     );
     screen.prepare();
@@ -1048,7 +1157,7 @@ describe('the minimal export (dispatch 6a)', () => {
   it("saves the handoff's bytes under the run's own name, from the tap handler", () => {
     const bytes = new Uint8Array([72, 71, 84, 80]);
     runHandoff.record(
-      { seed: 505, ticks: 400, ending: 'sealed', fault: null },
+      { seed: 505, ticks: 400, ending: 'sealed', score: 0, fault: null },
       bytes,
     );
     const screen = endScreen();
@@ -1064,7 +1173,7 @@ describe('the minimal export (dispatch 6a)', () => {
 
   it('saves nothing when the last run left no tape', () => {
     runHandoff.record(
-      { seed: 505, ticks: 400, ending: 'sealed', fault: null },
+      { seed: 505, ticks: 400, ending: 'sealed', score: 0, fault: null },
       null,
     );
     const screen = endScreen();
@@ -1103,20 +1212,19 @@ describe('the loadout pin (dispatch 6a)', () => {
     // change what an old tape replays as.
     const unpinned = gameScreen();
     unpinned.prepare();
-    expect(unpinned['recording'].recorder!.header.startingLevels).toEqual({
-      soulStream: 1,
-      territory: 1,
-      wisps: 0,
-      bell: 0,
-    });
+    const born = unpinned['recording'].recorder!.header;
+    expect(levelIn(born, 'skullStream')).toBe(1);
+    expect(levelIn(born, 'territory')).toBe(0);
+    expect(levelIn(born, 'wisps')).toBe(0);
+    expect(levelIn(born, 'bell')).toBe(0);
     unpinned.reset();
 
     fakeLocation.search = '?seed=7&levels=2';
     const pinned = gameScreen();
     pinned.prepare();
-    expect(pinned['recording'].recorder!.header.startingLevels).toEqual(
-      uniformLevels(2),
-    );
+    for (const line of WEAPON_LINES) {
+      expect(levelIn(pinned['recording'].recorder!.header, line)).toBe(2);
+    }
     pinned.reset();
   });
 
@@ -1163,7 +1271,9 @@ describe('the loadout pin (dispatch 6a)', () => {
 
     const { tape, truncated } = decodeTape(runHandoff.readTape()!);
     expect(truncated).toBe(false);
-    expect(tape.header.startingLevels).toEqual(uniformLevels(MAX_LEVEL));
+    for (const line of WEAPON_LINES) {
+      expect(levelIn(tape.header, line)).toBe(MAX_LEVEL);
+    }
     const result = readBackForVerification(tape);
     expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(120);
@@ -1390,6 +1500,7 @@ describe('the frame observation seam (dispatch 6a)', () => {
     // At the floor with nothing left to bleed, so the next contact seals.
     run.grave.size = SIZE_FLOOR;
     const mob = run.mobs[0];
+    if (mob === undefined) throw new Error('no mob pool slot 0');
     mob.alive = true;
     mob.type = 'shambler';
     mob.hp = MOB_TYPES.shambler.hp;
@@ -1578,6 +1689,7 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
   /** A corpse no rule produces, far from the grave, so freshness in range fires while the run plays on. */
   function rotCorpse(screen: GameScreen): void {
     const corpse = screen['session'].run!.corpses[0];
+    if (corpse === undefined) throw new Error('no corpse pool slot 0');
     corpse.alive = true;
     corpse.id = 1;
     corpse.x = 50;
@@ -1614,7 +1726,9 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
     screen.update(frame(TICK_MS));
     expect(screen['hud'].lines.fault.text).toBe('FAULT freshness in range');
 
-    screen['session'].run!.corpses[0].alive = false;
+    const rottenCorpse = screen['session'].run!.corpses[0];
+    if (rottenCorpse === undefined) throw new Error('no corpse pool slot 0');
+    rottenCorpse.alive = false;
     screen.update(frame(TICK_MS * 3));
 
     expect(screen['hud'].lines.fault.text).toBe('FAULT freshness in range');
@@ -1633,5 +1747,141 @@ describe('a recoverable fault shows live on the HUD (dispatch 6a)', () => {
 
     expect(screen['hud'].lines.fault.text).toBe('');
     screen.reset();
+  });
+});
+
+/**
+ * The floor ladder watched on the row (design record R5, R7). The driver owns
+ * the events and the per-run memory; the row is a dumb view and reads no diff.
+ */
+describe('a loss watched on the ladder row', () => {
+  beforeEach(() => {
+    keyHandlers.clear();
+    canvasListeners.clear();
+    navigation.currentPopup = undefined;
+    showScreen.mockReset().mockResolvedValue(undefined);
+  });
+
+  /** The row's own display tree, which the driver hands the readout and the loss. */
+  function row(screen: GameScreen): Container {
+    return screen['ladder'].view;
+  }
+
+  function named(parent: Container, label: string): Container {
+    const found = parent.children.find((child) => child.label === label);
+    if (found === undefined) throw new Error(`the row drew no ${label}`);
+    return found as Container;
+  }
+
+  /** The digits the score reads this frame. */
+  function digits(screen: GameScreen): string {
+    return (named(row(screen), 'score') as unknown as { text: string }).text;
+  }
+
+  /**
+   * How full a mark's body draws, as a share of its own square: solid at one,
+   * gone at nothing, and part way through emptying in between.
+   */
+  function shareOf(mark: Container): number {
+    const fill = mark.children.find((child) => child.label === 'fill');
+    if (fill === undefined) throw new Error('a mark drew no fill');
+    return fill.visible ? fill.scale.y : 0;
+  }
+
+  /** Every line mark on the row that is part way through emptying. */
+  function emptying(screen: GameScreen): number {
+    const rows = named(row(screen), 'rows');
+    return rows.children
+      .flatMap((line) => (line as Container).children)
+      .filter((child) => child.label === 'mark')
+      .map((mark) => shareOf(mark as Container))
+      .filter((share) => share > 0 && share < 1).length;
+  }
+
+  it('shows the score falling and the cushion emptying on a floor hit with score standing', () => {
+    // Record R5: the sim takes the bleed in one tick and the row animates the
+    // readout down, so the number is seen to leave rather than to have left.
+    // Under ADR 0003 as amended 2026-09-16 the hit takes a capped slice, so the
+    // digits start where the score stood and land on what was left standing.
+    const standing = 41300;
+    const screen = gameScreen();
+    screen.prepare();
+    const run = screen['session'].run!;
+    run.grave.size = SIZE_FLOOR;
+    run.score = standing;
+    standMobOnGrave(run);
+
+    screen.update(frame(TICK_MS));
+
+    expect(run.score).toBe(standing - BLEED_CAP);
+    expect(Number(digits(screen))).toBe(standing);
+    expect(shareOf(named(row(screen), 'cushion'))).toBeCloseTo(1, 6);
+
+    // Half the countdown later the digits read about halfway between the score
+    // that stood and the score standing now, and the cushion beside them is
+    // half gone, which is the one vocabulary. The live score is read at that
+    // frame rather than assumed, because kills go on paying while the grave is
+    // at the floor and the countdown eases toward whatever it finds.
+    run.grave.invulnerable = SCORE_BLEED_TICKS;
+    for (let spent = 0; spent < SCORE_BLEED_TICKS / 2; spent++) {
+      screen.update(frame(TICK_MS));
+    }
+    expect(Number(digits(screen))).toBeLessThan(standing);
+    expect(Number(digits(screen))).toBeGreaterThan(run.score);
+    expect(Number(digits(screen))).toBeCloseTo((standing + run.score) / 2, -1);
+    expect(shareOf(named(row(screen), 'cushion'))).toBeLessThan(1);
+    expect(shareOf(named(row(screen), 'cushion'))).toBeGreaterThan(0);
+  });
+
+  it('empties a mark on every line that paid when a floor hit with no score strips', () => {
+    // Record R7: stripLevels takes one off every line that has one to give, so
+    // every line that paid announces and four marks empty at once.
+    const screen = gameScreen();
+    screen.prepare();
+    const run = screen['session'].run!;
+    run.grave.size = SIZE_FLOOR;
+    run.score = 0;
+    for (const line of run.roster) run.levels[line] = 3;
+    standMobOnGrave(run);
+
+    screen.update(frame(TICK_MS));
+    expect(run.roster.every((line) => run.levels[line] === 2)).toBe(true);
+
+    // The mark starts full and loses area from there, so the frame that reads
+    // it part way through is a few ticks after the one it was born on. The
+    // invulnerable window is held open so the ladder does not run a second time
+    // underneath the assertion.
+    run.grave.invulnerable = RUNG_STRIP_TICKS * 2;
+    for (let spent = 0; spent < RUNG_STRIP_TICKS / 2; spent++) {
+      screen.update(frame(TICK_MS));
+    }
+
+    expect(emptying(screen)).toBe(run.roster.length);
+  });
+
+  it('opens a second run on the pooled screen with no countdown and no emptying mark', () => {
+    // The pooled-screen leak: a born tick and a bled amount belong to the run
+    // that made them, and the second run reaching the same tick is the frame a
+    // leaked one would play on. prepare() drops them beside the ending.
+    const screen = gameScreen();
+    screen.prepare();
+    const first = screen['session'].run!;
+    for (let spent = 0; spent < 20; spent++) screen.update(frame(TICK_MS));
+    first.grave.size = SIZE_FLOOR;
+    first.score = 41300;
+    for (const line of first.roster) first.levels[line] = 3;
+    standMobOnGrave(first);
+    screen.update(frame(TICK_MS));
+    const bledAt = first.tick;
+    expect(Number(digits(screen))).toBeGreaterThan(40000);
+
+    screen.reset();
+    screen.prepare();
+    const second = screen['session'].run!;
+    while (second.tick < bledAt) screen.update(frame(TICK_MS));
+
+    expect(Number(digits(screen))).toBe(second.score);
+    expect(shareOf(named(row(screen), 'cushion'))).toBeCloseTo(1, 6);
+    expect(emptying(screen)).toBe(0);
   });
 });

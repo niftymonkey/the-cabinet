@@ -6,14 +6,22 @@
 import { Container, Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
+import { resize } from '../../engine/resize/resize';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import type { FaultRecord } from '../../game/execution';
 import type { FaultIdentity } from '../../game/faults';
 import { FAULT_IDENTITIES, FAULT_SEVERITY } from '../../game/faults';
 import { MAX_LEVEL } from '../../game/lines/roster';
 import { SEED_LIMIT } from '../../game/run';
 import { METER_FONT_SIZE, meterLinePosition } from '../cornerReadout';
-import type { FieldPlacement } from '../layout';
-import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
+import type { FieldPlacement, HudRow } from '../layout';
+import {
+  DEGENERATE_PLACEMENT,
+  fitField,
+  hudRow,
+  READOUT_RESERVE,
+} from '../layout';
+import { BELCH_SIZE } from '../screens/game/BelchButton';
 import type { LayerName } from '../screens/game/layering';
 import { FieldLayers, LAYER_ORDER } from '../screens/game/layering';
 
@@ -50,6 +58,8 @@ function gameScreen(): GameScreen {
     menuShowing: () => false,
     showEnd: () => Promise.resolve(),
     playSound: () => {},
+    playMusic: () => {},
+    standInArt: () => null,
     playButtonSound: () => {},
     canvas: null,
     renderer: { name: 'webgl', resolution: 2 },
@@ -181,10 +191,11 @@ describe("the game screen's field container", () => {
     // The placement is applied as one container transform and never by
     // multiplying coordinates at call sites, which is what makes ADR 0003's
     // "no number in the sim is ever a device pixel" true by construction.
-    for (const [width, height] of [
+    const viewports: readonly (readonly [number, number])[] = [
       [1440, 900],
       [390, 844],
-    ]) {
+    ];
+    for (const [width, height] of viewports) {
       const screen = gameScreen();
       screen.resize(width, height);
 
@@ -266,6 +277,251 @@ describe('the game screen across a pooled reuse', () => {
 });
 
 /**
+ * The three regimes the frame is specified against, and not three named devices
+ * (record R10). A tall shape gives bands and no gutter, a wide shape gives
+ * gutters and no band, and between them, at a viewport aspect near the field's
+ * own 0.711, both collapse and every control ends up over the field. The tablet
+ * is here as a test viewport only: nobody plays this on a tablet and it is the
+ * cheapest shape that exercises the squeeze deterministically.
+ */
+const REGIMES = [
+  { name: 'tall', width: 393, height: 660 },
+  { name: 'wide', width: 1440, height: 900 },
+  { name: "the field's own aspect", width: 820, height: 1180 },
+] as const;
+
+/** The stage GameScreen.resize is handed, which is never the window's own numbers. */
+function stageOf(viewport: { width: number; height: number }) {
+  return resize(
+    viewport.width,
+    viewport.height,
+    FIELD_WIDTH,
+    FIELD_HEIGHT,
+    false,
+  );
+}
+
+interface Box {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+/** A child placed by its centre, as GameScreen positions every control. */
+function centredOn(
+  at: { x: number; y: number },
+  width: number,
+  height: number,
+): Box {
+  return {
+    left: at.x - width / 2,
+    top: at.y - height / 2,
+    right: at.x + width / 2,
+    bottom: at.y + height / 2,
+  };
+}
+
+/** The two top corners the reserve claims, exactly as layout.ts builds them. */
+function reservedCorners(stageWidth: number): { name: string; box: Box }[] {
+  const corner = (left: number): Box => ({
+    left,
+    top: 0,
+    right: left + READOUT_RESERVE.width,
+    bottom: READOUT_RESERVE.height,
+  });
+  return [
+    { name: 'readout stack', box: corner(0) },
+    { name: 'pause button', box: corner(stageWidth - READOUT_RESERVE.width) },
+  ];
+}
+
+/** Half-open on both axes, the convention layout.ts's own intersects uses. */
+function crosses(a: Box, b: Box): boolean {
+  return (
+    a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+  );
+}
+
+/** Which of a named list of boxes the row runs into, in one readable string. */
+function crossedBy(row: HudRow, boxes: { name: string; box: Box }[]): string {
+  const rowBox: Box = {
+    left: row.left,
+    top: row.top,
+    right: row.left + row.width,
+    bottom: row.top + row.height,
+  };
+  const hit = boxes.filter((each) => crosses(rowBox, each.box));
+  return hit.map((each) => each.name).join(',');
+}
+
+describe("the frame's three regimes (record R10)", () => {
+  it('places every control and readout deliberately at each regime', () => {
+    // Every position here is derived from the reserve GameScreen positions it
+    // from, so the assertion is that the screen and the reserve have not
+    // drifted apart rather than that a number is still a number.
+    for (const regime of REGIMES) {
+      const stage = stageOf(regime);
+      const screen = gameScreen();
+      screen.resize(stage.width, stage.height);
+
+      const placement = fitField(stage.width, stage.height);
+      const field: Container = screen['field'];
+      expect(`${regime.name} ${field.position.y} ${field.scale.x}`).toBe(
+        `${regime.name} ${placement.offsetY} ${placement.scale}`,
+      );
+
+      // The button holds the reserve's own corner except at the squeeze, where
+      // the row reaches that corner and the button drops clear below it.
+      const row = hudRow(placement);
+      const squeezed = crossedBy(row, [
+        {
+          name: 'pause corner',
+          box: {
+            left: stage.width - READOUT_RESERVE.margin - 132,
+            top: READOUT_RESERVE.margin,
+            right: stage.width - READOUT_RESERVE.margin,
+            bottom: READOUT_RESERVE.margin + 68,
+          },
+        },
+      ]);
+      const pause = centredOn(screen['pauseButton'].position, 132, 68);
+      const expectedTop =
+        squeezed === ''
+          ? READOUT_RESERVE.margin
+          : row.top + row.height + READOUT_RESERVE.margin;
+      expect(`${regime.name} ${pause.right} ${pause.top}`).toBe(
+        `${regime.name} ${stage.width - READOUT_RESERVE.margin} ${expectedTop}`,
+      );
+
+      const belch = centredOn(
+        screen['belchButton'].position,
+        BELCH_SIZE,
+        BELCH_SIZE,
+      );
+      expect(`${regime.name} ${belch.left} ${belch.bottom}`).toBe(
+        `${regime.name} ${READOUT_RESERVE.margin} ${stage.height - READOUT_RESERVE.margin}`,
+      );
+    }
+  });
+
+  it("puts the HUD's row at the field's top edge at every regime, never clipped", () => {
+    // Outside the field where the stage's band above it is at least the row's
+    // own height, and over the field's own top edge where it is not. One rule,
+    // no viewport breakpoint (record R1).
+    for (const regime of REGIMES) {
+      const stage = stageOf(regime);
+      const placement = fitField(stage.width, stage.height);
+      const row = hudRow(placement);
+      const fieldTop = placement.offsetY;
+      const outside = fieldTop >= row.height;
+
+      expect(`${regime.name} ${row.top}`).toBe(
+        `${regime.name} ${outside ? fieldTop - row.height : fieldTop}`,
+      );
+      expect(`${regime.name} clipped ${row.top >= 0}`).toBe(
+        `${regime.name} clipped true`,
+      );
+      expect(
+        `${regime.name} clipped ${row.top + row.height <= stage.height}`,
+      ).toBe(`${regime.name} clipped true`);
+      expect(`${regime.name} ${row.left} ${row.width}`).toBe(
+        `${regime.name} ${placement.offsetX} ${FIELD_WIDTH * placement.scale}`,
+      );
+    }
+  });
+
+  it("keeps the ladder HUD's row outside the field's own stack", () => {
+    // ADR 0014 fixes what draws inside the field and lets nothing above
+    // mobFire. The row is a readout drawn on top of the field, which the ADR's
+    // own sentence contemplates, rather than a thirteenth layer or an exception
+    // to the list: a child of the field would inherit the field's clip and
+    // vanish at every viewport where the row sits outside it (record R1).
+    const screen = gameScreen();
+    const row = screen['ladder'].view;
+    const field: Container = screen['field'];
+
+    expect(row.parent).toBe(screen);
+    expect(field.children).not.toContain(row);
+    expect(screen.children.indexOf(row)).toBeGreaterThan(
+      screen.children.indexOf(field),
+    );
+  });
+
+  it('records which top corner the row runs into at each regime, and which it clears', () => {
+    // The corners the row has to live beside are the readout stack's on the
+    // left and the pause button's on the right, both 120 stage units deep. The
+    // wide regime clears both, because its side gutter holds the whole reserve.
+    // The other two cannot: the row keeps the field's own width, because the
+    // band's content is 520 field units inside the field's 540 (record R1), and
+    // a 540-unit phone stage whose reserve claims 260 units at each end leaves
+    // 20 units between them. R12 already rules the crossing: the dev corner
+    // stack and the HUD's band overlap on a shortened window, it is a
+    // dev-build-only collision, and it is named so nobody reports it as a bug.
+    // A reserved corner is deeper than what stands in it, so crossing one is
+    // not yet crossing a widget; the pause button's own rectangle is the test
+    // below.
+    const crossed = REGIMES.map((regime) => {
+      const stage = stageOf(regime);
+      const row = hudRow(fitField(stage.width, stage.height));
+      return `${regime.name}: ${crossedBy(row, reservedCorners(stage.width))}`;
+    });
+    expect(crossed).toEqual([
+      'tall: readout stack,pause button',
+      'wide: ',
+      "the field's own aspect: readout stack,pause button",
+    ]);
+  });
+
+  it("clears the pause button's own rectangle at every regime, the squeeze included", () => {
+    // The dev stack comes out before v1 (#66) and the pause button does not, so
+    // the button's own footprint is the crossing that reaches a player. At the
+    // tall regime the band holds the row above the button and at the wide one
+    // the side gutter holds the button clear of the field's width. At a
+    // viewport near the field's own aspect both collapse, and there the button
+    // drops below the row rather than the row narrowing: R1's content is 520
+    // field units inside the field's 540, so a row that cleared both reserved
+    // corners would be 20 units wide. Slice M2 pinned that crossing; this is
+    // the clearance that replaced it.
+    const crossed = REGIMES.map((regime) => {
+      const stage = stageOf(regime);
+      const row = hudRow(fitField(stage.width, stage.height));
+      const screen = gameScreen();
+      screen.resize(stage.width, stage.height);
+      const pause = {
+        name: 'pause button',
+        box: centredOn(screen['pauseButton'].position, 132, 68),
+      };
+      return `${regime.name}: ${crossedBy(row, [pause])}`;
+    });
+    expect(crossed).toEqual(['tall: ', 'wide: ', "the field's own aspect: "]);
+  });
+
+  it('drops the pause button below the row at the squeeze and moves it nowhere else', () => {
+    // The two halves of the same rule, said as positions rather than as an
+    // absence of overlap: a button that had vanished would clear the row too.
+    // The button stays in the reserve's corner at both regimes that hold it,
+    // the tall one because the band carries the row above it and the wide one
+    // because the side gutter carries the button clear of the field's width,
+    // and only the squeeze puts it below the row's own bottom edge.
+    const tops = REGIMES.map((regime) => {
+      const stage = stageOf(regime);
+      const screen = gameScreen();
+      screen.resize(stage.width, stage.height);
+      const row = hudRow(fitField(stage.width, stage.height));
+      const pause = centredOn(screen['pauseButton'].position, 132, 68);
+      const below = pause.top >= row.top + row.height;
+      return `${regime.name}: top ${pause.top} below the row ${below}`;
+    });
+    expect(tops).toEqual([
+      'tall: top 12 below the row false',
+      'wide: top 12 below the row false',
+      "the field's own aspect: top 67.48148148148145 below the row true",
+    ]);
+  });
+});
+
+/**
  * How many stack lines the reserve's height covers: FPS, DEBT, TICK, SEED and
  * SIZE. The levels and fault lines below them deliberately sit past the
  * reserve and draw over the field, the meter's own allowance under ADR 0014,
@@ -286,7 +542,7 @@ const WIDEST_RESERVED_LINE = `SEED ${SEED_LIMIT - 1} PINNED`;
  * so any differing four digits give the widest case.
  */
 const WIDEST_LEVELS_LINE = `LEVELS ${levelsReadout({
-  soulStream: MAX_LEVEL,
+  skullStream: MAX_LEVEL,
   territory: MAX_LEVEL,
   wisps: MAX_LEVEL,
   bell: 0,
@@ -349,11 +605,34 @@ describe('the readouts stay inside the reserve the field is fitted around', () =
     );
   });
 
+  it("puts the belch's control in the bottom-left corner, inset by the same margin", () => {
+    // Mark ruled the corner on 2026-09-15, so the steering thumb and the belch
+    // no longer share one. It is positioned from the reserve the pause button
+    // is positioned from, which is what keeps the non-overlap rule in one
+    // place, and the reserve claims the two top corners only, so the field's
+    // own fit is untouched by the move.
+    for (const [width, height] of [
+      [1440, 900],
+      [390, 844],
+    ] as const) {
+      const screen = gameScreen();
+      screen.resize(width, height);
+      const button = screen['belchButton'];
+      expect(`${width}: ${button.position.x - BELCH_SIZE / 2}`).toBe(
+        `${width}: ${READOUT_RESERVE.margin}`,
+      );
+      expect(`${width}: ${height - (button.position.y + BELCH_SIZE / 2)}`).toBe(
+        `${width}: ${READOUT_RESERVE.margin}`,
+      );
+    }
+  });
+
   it("keeps the levels and fault lines, past the reserve's height, inside its width", () => {
     // The two lines below the reserve draw over the field, so its height does
     // not bind them. Its width still does: a wider line runs most of a
     // 390-unit phone stage, and the fault line exists under ADR 0017's ruling
-    // that it stays minimal, never a banner across the field.
+    // that it stays minimal, never a banner across the field. The bank was a
+    // third of these until the ladder HUD took it (record R11).
     expect(lineRight(WIDEST_LEVELS_LINE)).toBeLessThanOrEqual(
       READOUT_RESERVE.width,
     );
@@ -364,7 +643,7 @@ describe('the readouts stay inside the reserve the field is fitted around', () =
 
   it('caps the fault line for every identity in the closed list, each form still unambiguous', () => {
     // The identities are closed and append-only (ADR 0017), so the longest is
-    // known: FAULT phase tick resets at a boundary runs 37 characters uncut,
+    // known: FAULT section tick resets at a boundary runs 37 characters uncut,
     // nearly the full width of a 390-unit phone stage. A cut form must stay
     // tellable from every other member, or the readout names the wrong fault.
     const lines = FAULT_IDENTITIES.map((identity) =>

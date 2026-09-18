@@ -41,7 +41,7 @@ class PausePopup extends Container {
   /**
    * Whether End Run has been pressed once and is waiting for the second.
    *
-   * There is a score to lose now: overflow pays score, drops level lines, and
+   * There is a score to lose now: overflow pays score, power-ups level lines, and
    * ending a run by mis-tapping a menu button costs a build. This is the
    * smallest thing that works, with no new popup, no new navigation path, and
    * no state that outlives the menu.

@@ -1,12 +1,13 @@
 import { Graphics } from 'pixi.js';
 
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../../../game/caps';
+import type { Caps } from '../../../game/caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import type { FireKind } from '../../../game/mobFire';
 import { MOB_TYPES } from '../../../game/mobs';
 import type { RunState } from '../../../game/run';
 import { INVULNERABLE_TICKS } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
-import { drawCorpse, drawDrop, freshnessTint } from './foodSprite';
+import { drawCorpse, drawTreasureBody, freshnessTint } from './foodSprite';
 import type { FieldLayers } from './layering';
 import { drawScatter, drawShot, SCATTER_TICKS } from './mobFireSprite';
 import { drawMob, mobLook } from './mobSprite';
@@ -50,11 +51,27 @@ const fill = (sprites: Graphics[], capacity: number): void => {
   }
 };
 
-// One cancelled shot, on its way out.
+/**
+ * A pooled value at this slot, or a bug: every parallel array this renderer
+ * walks (sprites, sim entities) is sized to the same entity pool's capacity,
+ * so a slot inside the loop bound that is missing here is a bug in that
+ * sizing rather than a case to handle.
+ */
+const requireSlot = <T>(
+  value: T | undefined,
+  slot: number,
+  what: string,
+): T => {
+  if (value === undefined) throw new Error(`no ${what} at slot ${slot}`);
+  return value;
+};
+
+// One cancelled shot, on its way out, in the kind it was fired in.
 interface Scatter {
   readonly sprite: Graphics;
   born: number;
   extent: number;
+  kind: FireKind;
 }
 
 // What the renderer remembers about a shot slot between frames, so a cancel can be told from a cull.
@@ -63,6 +80,7 @@ interface ShotMemory {
   x: number;
   y: number;
   extent: number;
+  kind: FireKind;
 }
 
 class FieldRenderer {
@@ -72,9 +90,11 @@ class FieldRenderer {
   /**
    * A parallel sprite per corpse slot, in the treasure layer.
    *
-   * Drops ride the corpse pool, and ADR 0014's stack puts treasure two layers
-   * above corpses, so one slot needs a sprite in each: a Graphics cannot be in
-   * two layers, and which one shows is decided per slot by the food's kind.
+   * Power-ups and fallen rungs ride the corpse pool, and ADR 0014's stack puts
+   * treasure two layers above corpses, so one slot needs a sprite in each: a
+   * Graphics cannot be in two layers, and which one shows is decided per slot by
+   * the food's own row rather than by its kind, so a fifth kind costs this
+   * renderer no edit (design record R6).
    */
   private readonly treasureSprites: Graphics[] = [];
   private readonly scatters: Scatter[] = [];
@@ -82,7 +102,12 @@ class FieldRenderer {
 
   private readonly mobLooks: string[] = [];
   private readonly corpseTiers: string[] = [];
-  private readonly shotExtents: number[] = [];
+  /**
+   * What each shot slot was last drawn as. It carries the kind and not the
+   * extent alone: a boss shot and a trash shot can be the same size, so a slot
+   * recycled from one to the other kept the colour it was last drawn in.
+   */
+  private readonly shotLooks: string[] = [];
   private readonly shotMemory: ShotMemory[] = [];
   private built = false;
 
@@ -91,8 +116,9 @@ class FieldRenderer {
    * FieldLayers.clear() empties every layer between runs, so the renderer has
    * to be able to put itself back rather than assume it is still attached.
    */
-  public attach(layers: FieldLayers): void {
+  public attach(layers: FieldLayers, caps: Caps): void {
     this.build();
+    this.growPools(caps);
     this.forgetPreviousRun();
     const corpses = layers.layer('corpses');
     const treasure = layers.layer('treasure');
@@ -125,6 +151,15 @@ class FieldRenderer {
    * frame, so the skip forgets and the lead-in rebuilds it.
    */
   public forgetPreviousRun(): void {
+    // Every pooled sprite hidden, because sync walks the run's own pool and
+    // writes nothing above it: a run smaller than the one before it would
+    // otherwise draw the last run's bodies in the slots it never reaches. The
+    // pools are grow-only and a run's caps are its own (ADR 0056 as amended),
+    // so a shorter pool after a longer one is a case that exists now.
+    for (const sprite of this.mobSprites) sprite.visible = false;
+    for (const sprite of this.shotSprites) sprite.visible = false;
+    for (const sprite of this.corpseSprites) sprite.visible = false;
+    for (const sprite of this.treasureSprites) sprite.visible = false;
     this.shotMemory.length = 0;
     for (const scatter of this.scatters) {
       scatter.born = -SCATTER_TICKS;
@@ -143,16 +178,31 @@ class FieldRenderer {
   }
 
   /**
-   * The pools, allocated once. Their sizes come from the run rather than from
-   * the caps directly, so the sprite pool and the entity pool cannot drift.
+   * The sprite pools, at the caps the run being attached for derived. It runs
+   * on every attach and never under the built guard, because the caps are a
+   * per-run derivation (ADR 0056 as amended) and one renderer is reused across
+   * runs by all three screens: a replayed tape can ask for a field the first
+   * run of this process never needed. fill() is grow-only, so a smaller run
+   * after a larger one keeps the sprites it already has.
+   *
+   * Two pools at the corpse cap, because a power-up rides the corpse pool and
+   * ADR 0014's stack puts treasure two layers above corpses, so one entity slot
+   * needs a sprite in each.
+   */
+  private growPools(caps: Caps): void {
+    fill(this.mobSprites, caps.mobs);
+    fill(this.shotSprites, caps.mobFire);
+    fill(this.corpseSprites, caps.corpses);
+    fill(this.treasureSprites, caps.corpses);
+  }
+
+  /**
+   * The field's own furniture, built once: the hit dim and the scatter slots,
+   * neither of which is sized by a cap.
    */
   private build(): void {
     if (this.built) return;
     this.built = true;
-    fill(this.mobSprites, MOB_CAP);
-    fill(this.shotSprites, MOB_FIRE_CAP);
-    fill(this.corpseSprites, CORPSE_CAP);
-    fill(this.treasureSprites, CORPSE_CAP);
     this.dim
       .rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT)
       .fill({ color: PALETTE.night.hex });
@@ -160,7 +210,12 @@ class FieldRenderer {
     for (let slot = 0; slot < SCATTER_SLOTS; slot++) {
       const sprite = new Graphics();
       sprite.visible = false;
-      this.scatters.push({ sprite, born: -SCATTER_TICKS, extent: 0 });
+      this.scatters.push({
+        sprite,
+        born: -SCATTER_TICKS,
+        extent: 0,
+        kind: 'trash',
+      });
     }
   }
 
@@ -176,8 +231,8 @@ class FieldRenderer {
 
   private syncMobs(run: RunState): void {
     for (let slot = 0; slot < run.mobs.length; slot++) {
-      const mob = run.mobs[slot];
-      const sprite = this.mobSprites[slot];
+      const mob = requireSlot(run.mobs[slot], slot, 'mob');
+      const sprite = requireSlot(this.mobSprites[slot], slot, 'mob sprite');
       sprite.visible = mob.alive;
       if (!mob.alive) continue;
       const look = mobLook(mob);
@@ -197,8 +252,8 @@ class FieldRenderer {
 
   private syncShots(run: RunState): void {
     for (let slot = 0; slot < run.mobFire.length; slot++) {
-      const shot = run.mobFire[slot];
-      const sprite = this.shotSprites[slot];
+      const shot = requireSlot(run.mobFire[slot], slot, 'shot');
+      const sprite = requireSlot(this.shotSprites[slot], slot, 'shot sprite');
       const seen = this.shotMemory[slot];
       if (seen?.alive && !shot.alive) this.cancelAt(run, seen);
       // Mutated in place rather than replaced. A fresh literal per slot is
@@ -210,17 +265,20 @@ class FieldRenderer {
           x: shot.x,
           y: shot.y,
           extent: shot.halfExtent,
+          kind: shot.kind,
         };
       } else {
         seen.alive = shot.alive;
         seen.x = shot.x;
         seen.y = shot.y;
         seen.extent = shot.halfExtent;
+        seen.kind = shot.kind;
       }
       sprite.visible = shot.alive;
       if (!shot.alive) continue;
-      if (shot.halfExtent !== this.shotExtents[slot]) {
-        this.shotExtents[slot] = shot.halfExtent;
+      const look = `${shot.kind}|${shot.halfExtent}`;
+      if (look !== this.shotLooks[slot]) {
+        this.shotLooks[slot] = look;
         drawShot(sprite, shot);
       }
       sprite.position.set(shot.x, shot.y);
@@ -229,20 +287,28 @@ class FieldRenderer {
 
   private syncCorpses(run: RunState): void {
     for (let slot = 0; slot < run.corpses.length; slot++) {
-      const corpse = run.corpses[slot];
-      const treasure = corpse.kind === 'drop';
-      const sprite = treasure
-        ? this.treasureSprites[slot]
-        : this.corpseSprites[slot];
-      this.corpseSprites[slot].visible = corpse.alive && !treasure;
-      this.treasureSprites[slot].visible = corpse.alive && treasure;
+      const corpse = requireSlot(run.corpses[slot], slot, 'corpse');
+      const treasure = corpse.treasureBody;
+      const corpseSprite = requireSlot(
+        this.corpseSprites[slot],
+        slot,
+        'corpse sprite',
+      );
+      const treasureSprite = requireSlot(
+        this.treasureSprites[slot],
+        slot,
+        'treasure sprite',
+      );
+      const sprite = treasure ? treasureSprite : corpseSprite;
+      corpseSprite.visible = corpse.alive && !treasure;
+      treasureSprite.visible = corpse.alive && treasure;
       if (!corpse.alive) continue;
 
       if (treasure) {
         // Redrawn every tick rather than cached on a look: the breath moves
         // the geometry itself, which is what holds the stroke's on-screen
-        // width still (see drawDrop).
-        drawDrop(sprite, corpse, run.tick);
+        // width still (see drawTreasureBody).
+        drawTreasureBody(sprite, corpse, run.tick);
       } else {
         const look = `${corpse.kind}|${corpse.tier}`;
         if (look !== this.corpseTiers[slot]) {
@@ -251,7 +317,7 @@ class FieldRenderer {
         }
       }
       sprite.position.set(corpse.x, corpse.y);
-      // Steady-bright always means treasure (ADR 0004), so a drop never takes
+      // Steady-bright always means treasure (ADR 0004), so a power-up never takes
       // the freshness tint and never flickers.
       sprite.tint = freshnessTint(corpse, run.tick);
     }
@@ -271,12 +337,15 @@ class FieldRenderer {
     const scatter = this.oldestScatter();
     scatter.born = run.tick;
     scatter.extent = seen.extent;
+    scatter.kind = seen.kind;
     scatter.sprite.position.set(seen.x, seen.y);
     scatter.sprite.visible = true;
   }
 
   private oldestScatter(): Scatter {
-    let oldest = this.scatters[0];
+    const first = this.scatters[0];
+    if (first === undefined) throw new Error('no scatters in the pool');
+    let oldest = first;
     for (const scatter of this.scatters) {
       if (scatter.born < oldest.born) oldest = scatter;
     }
@@ -291,7 +360,12 @@ class FieldRenderer {
         continue;
       }
       scatter.sprite.visible = true;
-      drawScatter(scatter.sprite, scatter.extent, age / SCATTER_TICKS);
+      drawScatter(
+        scatter.sprite,
+        scatter.extent,
+        age / SCATTER_TICKS,
+        scatter.kind,
+      );
     }
   }
 }

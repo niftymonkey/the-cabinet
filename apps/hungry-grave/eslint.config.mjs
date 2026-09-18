@@ -52,7 +52,11 @@ const random = {
 };
 
 export default tseslint.config(
-  { ignores: ['dist'] },
+  // local/ holds throwaway instruments, and it is excluded from git, from
+  // prettier and from here: a folder that survives a context reset must not be
+  // able to break the standing checks on a tree that is otherwise green. The
+  // repo root's own config already names it.
+  { ignores: ['dist', 'local'] },
   {
     extends: [
       js.configs.recommended,
@@ -63,6 +67,14 @@ export default tseslint.config(
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
+      // tsconfig.json now extends the workspace's shared tsconfig.base.json
+      // at the repo root, which gives typescript-eslint's automatic project
+      // discovery two reachable tsconfig roots (this app and the repo root)
+      // with nothing to pick between them. Pinning it here is this app's own
+      // root, matching the repo root config's own explicit tsconfigRootDir.
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
     rules: {},
   },

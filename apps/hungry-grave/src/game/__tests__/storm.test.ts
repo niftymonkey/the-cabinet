@@ -6,30 +6,31 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { SKULL_DAMAGE } from '../lines/soulStream';
+import { BIRTHRIGHT_LEVEL } from '../lines/roster';
+import { skullDamage } from '../lines/skullStream';
 import {
   PULL_BY_LEVEL,
   REHIT_BY_LEVEL,
   SLOW_BY_LEVEL,
   TERRITORY_DAMAGE,
 } from '../lines/territory';
-import { WISP_DAMAGE } from '../lines/wisps';
+import { wispDamage } from '../lines/wisps';
 import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { RAMP_ROWS } from '../stage/stage';
+import { PROCESSION_WAVES } from '../stage/waves';
 import { resolveStorm } from '../storm';
 
 /**
  * A run whose stage will not spawn anything on top of the mob under test. The
- * rows are marked fired rather than emptied, because the row tables are exported
+ * waves are marked fired rather than emptied, because the wave tables are exported
  * data and a test that mutated them would poison every later file.
  */
 function quietRun(seed = 4): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
-  // The stream is held as well as the rows. These tests are about how a mob
+  run.stage.firedWaves = PROCESSION_WAVES.length;
+  // The stream is held as well as the waves. These tests are about how a mob
   // moves, fires and dies, and a birthright stream pouring up the middle of the
   // field kills the mob under test before it reaches the behaviour being
   // measured. Territory needs no holding either: a run lays no patch until it
@@ -47,9 +48,22 @@ function stormRun(seed = 4): RunState {
 
 /** A live mob of a stated type, past its arriving beat. */
 function putMob(state: RunState, type: Mob['type'], x: number, y: number): Mob {
-  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  const mob = spawnMob(
+    state,
+    type,
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
   mob.beat = 0;
   return mob;
+}
+
+/** The value a level-by-level table holds at this level, which every table here holds at 1. */
+function atLevel(table: readonly number[], level: number): number {
+  const value = table[level];
+  if (value === undefined) throw new Error(`no value at level ${level}`);
+  return value;
 }
 
 /** A patch with its hands already up, parked where a test can aim it. */
@@ -61,9 +75,9 @@ function putPatch(state: RunState, x: number, y: number) {
   patch.x = x;
   patch.y = y;
   patch.radius = 30;
-  patch.pull = PULL_BY_LEVEL[1];
-  patch.slow = SLOW_BY_LEVEL[1];
-  patch.rehit = REHIT_BY_LEVEL[1];
+  patch.pull = atLevel(PULL_BY_LEVEL, 1);
+  patch.slow = atLevel(SLOW_BY_LEVEL, 1);
+  patch.rehit = atLevel(REHIT_BY_LEVEL, 1);
   patch.opening = 0;
   patch.pulses = 0;
   patch.struck.clear();
@@ -106,10 +120,20 @@ describe('the storm meeting a mob (plan 6.7)', () => {
   it('resolves skulls, then Territory, then wisps, so the same seed kills in the same order', () => {
     // The order is stated rather than incidental: the pass is read in one
     // order, and a different order is a different set of kills on the same seed.
+    //
+    // The skull's and the wisp's bodies are revenants because each has to
+    // survive its own touch for its damage to be readable at all: under the
+    // mow a skull and a wisp each take a shambler outright (ADR 0059). The
+    // ground's body stays the mow body, which takes two pulses and so comes
+    // through the pass alive.
     const state = stormRun();
-    const skulled = putMob(state, 'shambler', 100, 100);
+    // Each line is owned at the rung its damage is read at, because the storm
+    // now reads the rung at the moment a skull or a wisp lands rather than
+    // carrying a figure on the entity.
+    state.levels.wisps = BIRTHRIGHT_LEVEL;
+    const skulled = putMob(state, 'revenant', 100, 100);
     const grabbed = patchVictim(state, 200, 400);
-    const wisped = putMob(state, 'shambler', 300, 100);
+    const wisped = putMob(state, 'revenant', 300, 100);
     putSkull(state, skulled.x, skulled.y);
     putWisp(state, wisped.x, wisped.y);
 
@@ -117,9 +141,13 @@ describe('the storm meeting a mob (plan 6.7)', () => {
       .filter((event) => event.type === 'mobKilled')
       .map((event) => (event.type === 'mobKilled' ? event.x : -1));
     expect(killed).toEqual([]);
-    expect(skulled.hp).toBe(MOB_TYPES.shambler.hp - SKULL_DAMAGE);
+    expect(skulled.hp).toBe(
+      MOB_TYPES.revenant.hp - skullDamage(BIRTHRIGHT_LEVEL),
+    );
     expect(grabbed.hp).toBe(MOB_TYPES.shambler.hp - TERRITORY_DAMAGE);
-    expect(wisped.hp).toBe(MOB_TYPES.shambler.hp - WISP_DAMAGE);
+    expect(wisped.hp).toBe(
+      MOB_TYPES.revenant.hp - wispDamage(BIRTHRIGHT_LEVEL),
+    );
   });
 
   it('consumes a skull and a wisp on the mob they hit, and never a patch', () => {

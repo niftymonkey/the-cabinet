@@ -1,15 +1,20 @@
-import type { Ticker } from 'pixi.js';
+import type { Texture, Ticker } from 'pixi.js';
 import { Container, Graphics } from 'pixi.js';
 
+import type { Caps } from '../../game/caps';
+import { capsFor } from '../../game/caps';
 import type { SimEvent } from '../../game/events';
 import { territoryCharge } from '../../game/lines/territory';
 import type { RunState } from '../../game/run';
 import { RESERVOIR_CAPACITY } from '../../game/tuning';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
 import type { FieldPlacement } from '../layout';
 import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
 import { atFromUrl, tapeFromUrl } from '../seedFromUrl';
 import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
+import { BackgroundRenderer } from './game/BackgroundRenderer';
+import { BossRenderer } from './game/BossRenderer';
 import { boundaryReadout, fieldClip } from './game/fieldFrame';
 import { FieldRenderer } from './game/FieldRenderer';
 import { GraveRenderer } from './game/GraveRenderer';
@@ -35,6 +40,12 @@ const BACK_HEIGHT = 68;
 /** The one way off the replay screen, owned by the driver in main.ts. */
 interface ReplayScreenProps extends ButtonChrome {
   onBack(): void;
+  /**
+   * A stand-in texture, or null while its bundle is still coming. The replay
+   * takes it for the reason the game screen does: a renderer wired into one of
+   * the two dressField sites and not the other is how a renderer ships unseen.
+   */
+  standInArt(alias: string): Texture | null;
 }
 
 /**
@@ -53,7 +64,12 @@ class ReplayScreen extends Container {
   // The field's clip: a mask is not a layer, so it is built once and survives clear().
   private readonly clip: Graphics;
   private readonly grave = new GraveRenderer();
+  // The lookup is read at sync time, so props being set after construction is safe.
+  private readonly background = new BackgroundRenderer({
+    standInArt: (alias) => this.props.standInArt(alias),
+  });
   private readonly fieldRenderer = new FieldRenderer();
+  private readonly bossRenderer = new BossRenderer();
   private readonly stormRenderer = new StormRenderer();
   private readonly readout = createReplayReadout();
   private readonly session = createTapePlaybackSession();
@@ -91,10 +107,27 @@ class ReplayScreen extends Container {
     this.addChild(this.field, this.readout.view, this.backButton);
   }
 
+  /**
+   * The caps this screen dresses its field at.
+   *
+   * dressField runs from the constructor and from reset(), with no run in hand
+   * either time, so the caps a run under the build's own record derives are
+   * what the sprite pools open at. A replayed tape carries the record it was
+   * played under (FORMAT_VERSION 5) and its caps can sit above these, which is
+   * what beginDrawing below is for: the pools are grow-only and attach is the
+   * one place they grow.
+   */
+  private fieldCaps(): Caps {
+    return capsFor(DEFAULT_TUNING);
+  }
+
   // The field's own furniture, put back after any clear() (see reset).
   private dressField(): void {
     this.layers.layer('fieldBoundary').addChild(this.frame);
-    this.fieldRenderer.attach(this.layers);
+    this.background.attach(this.layers);
+    this.fieldRenderer.attach(this.layers, this.fieldCaps());
+    // After the mob pool, so a boss draws over the adds it summons.
+    this.bossRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
   }
@@ -127,12 +160,26 @@ class ReplayScreen extends Container {
 
   public update(ticker: Ticker): void {
     const frame = this.session.advance(ticker.elapsedMS);
-    if (frame.forgetPreviousRun) {
-      this.fieldRenderer.forgetPreviousRun();
-      this.stormRenderer.forgetPreviousRun();
-    }
+    if (frame.forgetPreviousRun) this.beginDrawing(frame.run);
     if (frame.run !== null) this.syncScreen(frame.run, frame.events);
     this.readout.render(this.session.lines);
+  }
+
+  /**
+   * The renderers put back for the run about to be drawn.
+   *
+   * The field renderer goes through attach rather than forgetPreviousRun alone,
+   * because the run this screen is about to draw is the tape's and not this
+   * build's: a tape carries the tuning record it was played under, its caps are
+   * derived from that record (ADR 0056 as amended), and the sprite pools this
+   * screen dressed with have no reason to reach them. attach is the one place a
+   * pool grows and it forgets the previous run on its way through, so the slot
+   * walk in the first sync finds a sprite for every entity the run can hold.
+   */
+  private beginDrawing(run: RunState | null): void {
+    if (run === null) this.fieldRenderer.forgetPreviousRun();
+    else this.fieldRenderer.attach(this.layers, run.caps);
+    this.stormRenderer.forgetPreviousRun();
   }
 
   /**
@@ -146,6 +193,14 @@ class ReplayScreen extends Container {
     for (const event of events) {
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
+      // The loss announcement, mirrored from GameScreen.announce: wired into
+      // the live screen alone it would simply not play on a replay, and the
+      // lead-in's whole promise is that a replay shows what the run showed
+      // (#58). The row's own countdown is not mirrored because the replay
+      // carries no HUD at all.
+      if (event.type === 'weaponStripped') {
+        this.stormRenderer.weaponStripped(run, event.lines);
+      }
     }
     this.grave.sync(
       run.grave,
@@ -153,7 +208,9 @@ class ReplayScreen extends Container {
       run.tick,
       territoryCharge(run),
     );
+    this.background.sync(run);
     this.fieldRenderer.sync(run);
+    this.bossRenderer.sync(run);
     this.stormRenderer.sync(run);
   }
 

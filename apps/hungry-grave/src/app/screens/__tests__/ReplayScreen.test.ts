@@ -8,8 +8,6 @@ import { Container } from 'pixi.js';
 import type { Ticker } from 'pixi.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { WEAPON_LINES } from '../../../game/lines/roster';
-
 /** The real widgets need a renderer: text metrics and a loaded texture. */
 vi.mock('../../ui/Label', () => ({
   Label: class extends Container {
@@ -28,15 +26,19 @@ vi.mock('../../ui/Button', () => ({
 import { TICK_MS } from '../../../game/clock';
 import { createExecution, executeTick } from '../../../game/execution';
 import { createRun } from '../../../game/run';
-import type { RunState } from '../../../game/run';
+import type { RunState, StartingConditions } from '../../../game/run';
+import { capsFor } from '../../../game/caps';
+import { DEFAULT_TUNING } from '../../../game/tuningRecord';
 import { foldWitness, WITNESS_VERSION } from '../../../game/witness';
 import { encodeTape } from '../../../tape/encode';
 import { recordInto, sealTrailer, tapeOf } from '../../../tape/recorder';
 import type { Tape, TapeHeader } from '../../../tape/tape';
+import { SCRIPT_POLICY } from '../../../tape/tape';
 import { RECORDER_CHECKPOINT_SPACING } from '../../../tape/recorder';
 import { LAYER_ORDER } from '../game/layering';
 import { REPLAY_LEAD_IN_TICKS } from '../game/transients';
 import { ReplayScreen } from '../ReplayScreen';
+import { startingConditionBlock } from '../../../tape/startingCondition';
 
 /** The URL the replay screen reads its tape and tick off. */
 const fakeLocation = { search: '', hash: '' };
@@ -44,7 +46,11 @@ const fakeLocation = { search: '', hash: '' };
 /** A replay screen holding faked powers, the way navigation hands them in. */
 function replayScreen(): ReplayScreen {
   const screen = new ReplayScreen();
-  screen.init({ onBack: () => {}, playButtonSound: () => {} });
+  screen.init({
+    onBack: () => {},
+    playButtonSound: () => {},
+    standInArt: () => null,
+  });
   return screen;
 }
 
@@ -61,9 +67,7 @@ function frame(elapsedMS: number): Ticker {
 function headerFor(run: RunState): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: 60,
     checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
     witnessVersion: WITNESS_VERSION,
@@ -71,6 +75,7 @@ function headerFor(run: RunState): TapeHeader {
     buildIdentity: '',
     author: 'test',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'test',
     rendererResolution: 1,
@@ -84,13 +89,14 @@ const RECORDED_DEBT = 5;
 
 /**
  * A scripted run recorded onto a sealed tape: deterministic steering with
- * turns in it, long enough for the stage's first rows to live and move.
+ * turns in it, long enough for the stage's first waves to live and move.
  */
 function scriptedTape(
   ticks: number,
   seed = 7,
+  conditions?: Partial<StartingConditions>,
 ): { tape: Tape; bytes: Uint8Array } {
-  const run = createRun(seed);
+  const run = createRun(seed, conditions);
   const execution = createExecution(run);
   const recorder = recordInto(execution, headerFor(run));
   for (let tick = 0; tick < ticks; tick++) {
@@ -322,5 +328,39 @@ describe('the replay screen', () => {
     expect(screen['session'].phase).toBe('idle');
     expect(screen['session'].lines.statement).toContain('?tape=');
     screen.reset();
+  });
+
+  it('draws a tape whose record derives caps above the ones this screen dressed with', () => {
+    // The screen dresses its field with no run in hand, so its sprite pools
+    // open at the caps this build's own record derives. A replayed tape
+    // carries the record it was played under (FORMAT_VERSION 5), and a run
+    // under a wider quiet interval derives a larger mob cap than that, so the
+    // first sync would walk slots the pools never had: the renderer's own
+    // requireSlot calls that a bug rather than a case to handle, which is
+    // exactly right and is why attach has to grow the pools to the run's caps
+    // before the first frame is drawn.
+    const wider = {
+      ...DEFAULT_TUNING,
+      stage: { ...DEFAULT_TUNING.stage, quietIntervalMinimumSeconds: 1 },
+    };
+    expect(capsFor(wider).mobs).toBeGreaterThan(capsFor(DEFAULT_TUNING).mobs);
+
+    const { bytes } = scriptedTape(120, 7, { tuning: wider });
+    serveTape(bytes);
+
+    fakeLocation.hash = '#/replay?tape=blob%3Atape&at=60';
+    const screen = replayScreen();
+    screen.prepare();
+    return settled(screen).then(() => {
+      expect(() => driveTo(screen, 'playing')).not.toThrow();
+      expect(screen['session'].playback!.run.caps.mobs).toBe(
+        capsFor(wider).mobs,
+      );
+      // Grown to the replayed run's own pool, not this build's default.
+      expect(
+        screen['layers'].layer('mobBodies').children.length,
+      ).toBeGreaterThanOrEqual(capsFor(wider).mobs);
+      screen.reset();
+    });
   });
 });

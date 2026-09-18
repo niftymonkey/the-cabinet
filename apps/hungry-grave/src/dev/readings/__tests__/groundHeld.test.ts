@@ -35,13 +35,16 @@ function placePatch(
   y: number,
 ): Patch {
   const patch = run.patches[slot];
+  if (patch === undefined) throw new Error(`no patch pool slot ${slot}`);
+  const radius = RADIUS_BY_LEVEL[level];
+  if (radius === undefined) throw new Error(`no radius for level ${level}`);
   patch.alive = true;
   patch.id = run.nextEntityId;
   run.nextEntityId += 1;
   patch.level = level;
   patch.x = x;
   patch.y = y;
-  patch.radius = RADIUS_BY_LEVEL[level];
+  patch.radius = radius;
   patch.opening = 0;
   return patch;
 }
@@ -61,6 +64,7 @@ describe('groundHeld', () => {
   it("one patch reads close to its own share of the field's area", () => {
     const run = createRun(SEED);
     const radius = RADIUS_BY_LEVEL[5];
+    if (radius === undefined) throw new Error('no radius for level 5');
     placePatch(run, 0, 5, 270, 380);
 
     const exact = (Math.PI * radius * radius) / FIELD_AREA;
@@ -84,6 +88,7 @@ describe('groundHeld', () => {
     // claimed ground nothing can stand on must not inflate the reading.
     const run = createRun(SEED);
     const radius = RADIUS_BY_LEVEL[5];
+    if (radius === undefined) throw new Error('no radius for level 5');
     placePatch(run, 0, 5, 0, 380);
 
     const exact = (Math.PI * radius * radius) / 2 / FIELD_AREA;

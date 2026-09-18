@@ -3,28 +3,32 @@
 
 import type { WeaponLine } from '../game/lines/roster';
 import type { DamageSource } from '../game/mobs';
-import type { RunEnding } from '../game/run';
+import type { RunEnding, StartingConditions } from '../game/run';
 import { isBirthrightLevels } from '../game/run';
 import { SIZE_START } from '../game/tuning';
+import type { TuningRecord } from '../game/tuningRecord';
+import { buildMismatchOf } from '../tape/buildIdentity';
+import type { BuildMismatch } from '../tape/buildIdentity';
 import type { DecodedTape } from '../tape/decode';
 import { playTape } from '../tape/playback';
-import { resolveStartingLevels } from '../tape/startingLevels';
+import { resolveStartingCondition } from '../tape/startingCondition';
 import type { PlaybackResult } from '../tape/playback';
 import type {
   FaultObservation,
   Tape,
-  TapeHeader,
   TapeInputDevice,
   TapeIntegrity,
   TapeStop,
 } from '../tape/tape';
-import { frameObservations, stopOf } from '../tape/tape';
+import { frameObservations, PERSON_POLICY, stopOf } from '../tape/tape';
 import { performanceOf, ticksToSample } from './framePerformance';
 import type { PerformanceReport } from './framePerformance';
 import { createReadings, readingsOf } from './readings/readings';
 import type { TuningReadings } from './readings/readings';
 import { linesInRun } from './readings/runLines';
 import { READINGS_VERSION } from './readingsVersion';
+import { rigOf } from './rigs';
+import type { RigName } from './rigs';
 import {
   createTallies,
   damageOf,
@@ -33,6 +37,8 @@ import {
   EMPTY_FIELD,
 } from './replayTallies';
 import type { LevelUp, ReplayTallies } from './replayTallies';
+import { candidateOf } from './tuningCandidates';
+import type { CandidateName } from './tuningCandidates';
 
 /**
  * The run as a whole, recomputed and read off the tape.
@@ -66,13 +72,44 @@ interface RunSummary {
  * policy rather than a player, a conditioned run did not start from the
  * birthright, and a faulted or unchecked run is poor evidence by ADR 0019's
  * own rule that aggregates exclude faulted runs by default.
+ *
+ * The policy is a second guard beside the device and it does real work: nothing
+ * in production writes `bot`, so the device alone cannot tell a scripted wander
+ * from a hand playing the whole game (ADR 0053).
  */
 type AggregateExclusion =
-  'bot' | 'script' | 'conditioned' | 'faulted' | 'unchecked';
+  'bot' | 'script' | 'policy' | 'conditioned' | 'faulted' | 'unchecked';
 
 // Who and what produced the run, and whether it belongs in default aggregates.
 interface Provenance {
   readonly inputDevice: TapeInputDevice;
+  // Which policy steered the run, carried off the header so a report says which hand it was.
+  readonly policy: string;
+  /**
+   * Which starting condition the run began from, or null when no rig holds it
+   * (#107). A figure carries its rig beside its policy so two rigs are never
+   * banded as one measurement, and an unnamed condition says so rather than
+   * being filed under the nearest row.
+   */
+  readonly rig: RigName | null;
+  /**
+   * Which tuning candidate the run was played under, or null when no row holds
+   * the record it carried (ADR 0064). It is the rig's own field for the other
+   * half of a starting condition: a report that cannot say which tuning it read
+   * cannot say this tuning against that tuning, which is the only sentence
+   * ADR 0053 lets a finding be written in.
+   */
+  readonly candidate: CandidateName | null;
+  /**
+   * The record itself, whole, off the condition the header carries. The name is
+   * a promise about the tree the build was made from and these are the rows the
+   * run actually played under, so both ride and neither stands for the other.
+   *
+   * It is the tuning record and not the tuning readings above it: those are
+   * figures this instrument computed, and this is a starting condition the tape
+   * states.
+   */
+  readonly tuning: TuningRecord;
   /**
    * Whether the resolved starting size or levels differ from today's
    * birthright. A birthright retune mislabels old tapes toward exclusion,
@@ -88,8 +125,10 @@ interface Provenance {
  *
  * It is here so a comparison of two runs can show both sides and let the reader
  * judge. Neither field is a fidelity gate: the witness is the only thing that
- * decides whether a tape reproduced its run, and the build identity is reserved
- * and unresolved by deliberate decision (ADR 0018).
+ * decides whether a tape reproduced its run (ADR 0018). The build identity is
+ * the finer of the two, because it carries a dirty tree's own marker where the
+ * commit hash cannot (#82); it is empty on a tape recorded before the field
+ * was filled.
  */
 interface RunIdentity {
   readonly commitHash: string;
@@ -100,6 +139,17 @@ interface RunIdentity {
 interface Metrics {
   readonly outcome: 'verified';
   readonly identity: RunIdentity;
+  /**
+   * The tape's build and this one, named when they differ and null when they
+   * are one build (#82).
+   *
+   * A difference here is a note and never a refusal: the replay reproduced
+   * every checkpoint the tape claims, so these numbers are the recorded run's,
+   * and what the reader is owed is which build computed them. Replay is a
+   * shipped feature (ADR 0020) and a rules-identical build keeps replaying a
+   * player's tape.
+   */
+  readonly buildMismatch: BuildMismatch | null;
   /**
    * Which definitions the derived readings were computed under. It is a
    * sibling of identity rather than a field inside it: identity is tape header
@@ -115,6 +165,8 @@ interface Metrics {
   readonly levelUps: readonly LevelUp[];
   // Index N is the live mob count after N ticks, so index 0 is the empty starting field.
   readonly mobsAlivePerTick: readonly number[];
+  // The same indexing over mob fire, which is the half of the airborne figure a headless tape lacks.
+  readonly mobFireAlivePerTick: readonly number[];
   // What the run cost, how its fights went, and what its storm held (#74).
   readonly tuning: TuningReadings;
   readonly performance: PerformanceReport;
@@ -131,6 +183,17 @@ interface Divergence {
   readonly firstDivergentCheckpoint: number;
   readonly checkpointsVerified: number;
   readonly ticksReproduced: number;
+  /**
+   * What the divergence is attributed to when the tape and this build are not
+   * the same build, and null when they are (#82).
+   *
+   * Two builds that disagree about a rule disagree about the fold, so a
+   * divergence across a build difference says almost nothing about the tape.
+   * A bare divergence read as a defect in the recording is what
+   * `docs/push/divergence-b1c3a584d1.md` cost two agents a day, and the label
+   * they could not check is the field this names.
+   */
+  readonly buildMismatch: BuildMismatch | null;
 }
 
 // The tape was recorded against a different fold, so not a single tick was run (ADR 0019).
@@ -154,31 +217,47 @@ interface RosterRefusal {
   readonly recordedRoster: readonly string[];
 }
 
-type Refusal = WitnessRefusal | RosterRefusal;
+/**
+ * The tape's header describes a starting condition this build cannot start a
+ * run from, so it could not be simulated at all (ADR 0043).
+ *
+ * It carries the reason in the tape's own vocabulary, naming the row, for the
+ * same reason the roster arm names the roster: a refusal a reader cannot act on
+ * is a blanket refusal wearing a longer sentence.
+ */
+interface ConditionRefusal {
+  readonly outcome: 'conditionNotImplemented';
+  readonly recordedRoster: readonly string[];
+  readonly reason: string;
+}
+
+type Refusal = WitnessRefusal | RosterRefusal | ConditionRefusal;
 
 /**
  * The arms a measurement answers in (ADR 0019, ADR 0043): metrics from a
  * verified replay, a divergence naming the first checkpoint that disagreed, or
- * a refusal, which is either the fold's version or a roster this build cannot
- * implement. Metrics come only from a verified replay, so a silently wrong
- * metric is not a thing this interface can produce.
+ * a refusal, which is the fold's version, a roster this build cannot implement
+ * or a starting condition it cannot start from. Metrics come only from a
+ * verified replay, so a silently wrong metric is not a thing this interface can
+ * produce.
  */
 type Measurement = Metrics | Divergence | Refusal;
 
-const isConditioned = (
-  header: TapeHeader,
-  levels: Readonly<Record<WeaponLine, number>>,
-): boolean => header.startingSize !== SIZE_START || !isBirthrightLevels(levels);
+const isConditioned = (conditions: StartingConditions): boolean =>
+  conditions.startingSize !== SIZE_START ||
+  !isBirthrightLevels(conditions.startingLevels) ||
+  conditions.startingScore !== 0;
 
 const exclusionsOf = (
   tape: Tape,
-  levels: Readonly<Record<WeaponLine, number>>,
+  conditions: StartingConditions,
   recordedFaults: readonly FaultObservation[],
 ): AggregateExclusion[] => {
   const exclusions: AggregateExclusion[] = [];
   const device = tape.header.inputDevice;
   if (device === 'bot' || device === 'script') exclusions.push(device);
-  if (isConditioned(tape.header, levels)) exclusions.push('conditioned');
+  if (tape.header.policy !== PERSON_POLICY) exclusions.push('policy');
+  if (isConditioned(conditions)) exclusions.push('conditioned');
   const integrity = tape.trailer?.integrity ?? null;
   if (integrity === 'faulted' || recordedFaults.length > 0) {
     exclusions.push('faulted');
@@ -189,12 +268,23 @@ const exclusionsOf = (
 
 const provenanceOf = (
   tape: Tape,
-  levels: Readonly<Record<WeaponLine, number>>,
+  conditions: StartingConditions,
   recordedFaults: readonly FaultObservation[],
 ): Provenance => ({
   inputDevice: tape.header.inputDevice,
-  conditioned: isConditioned(tape.header, levels),
-  exclusions: exclusionsOf(tape, levels, recordedFaults),
+  policy: tape.header.policy,
+  // The rig's own three fields, off the condition the header carries whole.
+  rig: rigOf(
+    conditions.startingSize,
+    conditions.startingLevels,
+    conditions.startingScore,
+  ),
+  // Banded off the record the header carries and never off a name, so a tape
+  // read back bands the same way a run taken from the table does (ADR 0064).
+  candidate: candidateOf(conditions.tuning),
+  tuning: conditions.tuning,
+  conditioned: isConditioned(conditions),
+  exclusions: exclusionsOf(tape, conditions, recordedFaults),
 });
 
 const runSummaryOf = (
@@ -229,23 +319,33 @@ const runSummaryOf = (
  */
 const measure = (decoded: DecodedTape): Measurement => {
   // Asked before anything is read off the header, because every reading below
-  // is keyed by this build's own line names and there are none to key by until
-  // the recorded roster turns out to be one this build has (ADR 0043).
-  const resolved = resolveStartingLevels(decoded.tape.header);
+  // is keyed by this build's own line names and by the run's own starting
+  // values, and there are none to key by until the recorded condition turns out
+  // to be one this build can start a run from (ADR 0043).
+  const resolved = resolveStartingCondition(
+    decoded.tape.header.startingCondition,
+  );
   if (resolved.outcome === 'notImplemented') {
-    return {
-      outcome: 'rosterNotImplemented',
-      recordedRoster: resolved.recordedRoster,
-    };
+    return resolved.refusal === 'roster'
+      ? {
+          outcome: 'rosterNotImplemented',
+          recordedRoster: resolved.recordedRoster,
+        }
+      : {
+          outcome: 'conditionNotImplemented',
+          recordedRoster: resolved.recordedRoster,
+          reason: resolved.reason,
+        };
   }
-  const startingLevels = resolved.levels;
-  const { startingSize } = decoded.tape.header;
+  const { conditions } = resolved;
+  const startingLevels = conditions.startingLevels;
+  const startingSize = conditions.startingSize;
   const frames = frameObservations(decoded.tape);
   const sampleAt = ticksToSample(frames);
   // The lines this run names, known before a tick has run, so every record the
   // report promises whole is whole even when the tape carries no command.
   const lines = linesInRun(startingLevels);
-  const readings = createReadings(startingSize, lines);
+  const readings = createReadings(startingSize, lines, conditions.signalLock);
   const tallies = createTallies(readings, lines, startingLevels);
   // A frame starting at tick 0 began on the empty field, which no listener
   // call ever sees: the observer fires only after a tick has run.
@@ -260,12 +360,17 @@ const measure = (decoded: DecodedTape): Measurement => {
       readerWitnessVersion: result.readerWitnessVersion,
     };
   }
+  const buildMismatch = buildMismatchOf(
+    result.tapeBuildIdentity,
+    result.readerBuildIdentity,
+  );
   if (result.firstDivergentCheckpoint !== null) {
     return {
       outcome: 'diverged',
       firstDivergentCheckpoint: result.firstDivergentCheckpoint,
       checkpointsVerified: result.checkpointsVerified,
       ticksReproduced: result.ticksReproduced,
+      buildMismatch,
     };
   }
   return {
@@ -274,21 +379,19 @@ const measure = (decoded: DecodedTape): Measurement => {
       commitHash: decoded.tape.header.commitHash,
       buildIdentity: decoded.tape.header.buildIdentity,
     },
+    buildMismatch,
     readingsVersion: READINGS_VERSION,
     run: runSummaryOf(decoded, result, tallies),
     damage: damageOf(tallies),
     endLevels: endLevelsOf(tallies),
     levelUps: tallies.levelUps,
     mobsAlivePerTick: tallies.mobsAlivePerTick,
+    mobFireAlivePerTick: tallies.mobFireAlivePerTick,
     tuning: readingsOf(readings),
     performance: performanceOf(frames, tallies.densities),
     recordedFaults: result.recordedFaults,
     readbackFaults: result.readbackFaults,
-    provenance: provenanceOf(
-      decoded.tape,
-      startingLevels,
-      result.recordedFaults,
-    ),
+    provenance: provenanceOf(decoded.tape, conditions, result.recordedFaults),
   };
 };
 

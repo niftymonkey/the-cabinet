@@ -26,10 +26,59 @@ const mobLook = (mob: Mob): string => {
   const step = lit
     ? Math.round((1 - mob.fireIn / Math.max(1, fire.tellTicks)) * TELL_STEPS)
     : -1;
-  return `${mob.type}|${mob.armed}|${step}`;
+  return `${mob.type}|${mob.armed}|${mob.carries}|${step}`;
 };
 
-// The body outline of one mob type. A shambler is squat, a revenant is a diamond, and a ghoul is a wedge that points where it is going.
+/**
+ * The body colour a mob draws in: treasure's own for a carrier, the mob green
+ * for everything else.
+ *
+ * A tint and not a ring or an outline. The ring is the boss's shape and ADR
+ * 0036 retired it from the player's grammar, and the genre marks carriers by
+ * colour: Gradius, DoDonPachi and Battle Garegga all recolour the body rather
+ * than dressing it. It is treasure's colour rather than a new one because what
+ * the mob is carrying is a power-up, and every silhouette channel is spoken for:
+ * the body outline tells the three types apart and the notch tells armed from
+ * unarmed, so the mark has to arrive on the one channel still free.
+ *
+ * The stand-in is a placeholder like the silhouettes around it and #38 owns
+ * the real one. What it has to satisfy is ADR 0014, and the palette's own
+ * declarations are what say it does: PALETTE.powerUp sits at luma 67.25, under
+ * the field ceiling and far under the band mob fire reserves, and at hue 41 it
+ * is outside the twenty degrees fire is given and 85 degrees off a mob body.
+ */
+const mobBodyColour = (mob: Mob): number => {
+  return mob.carries ? PALETTE.powerUp.hex : PALETTE.mob.hex;
+};
+
+// How far in the cairn's flat top is drawn from its base, as a share of its half-width.
+const CAIRN_TOP_SHARE = 0.55;
+
+/**
+ * The stone the curtain is built from: a flat-topped slab, wide at the base and
+ * tapering, which is the fourth outline and the only one wider than it is tall.
+ *
+ * ADR 0014 makes silhouette the first discriminator between types, and the
+ * three the field already carries are the shambler's squat rounded body, the
+ * revenant's diamond and the ghoul's wedge. A taper is in none of their
+ * vocabularies, and a row of them reads as masonry rather than as more bodies
+ * in a line, which is what the set piece is for.
+ */
+const cairnOutline = (halfWidth: number, halfHeight: number): number[] => {
+  const top = halfWidth * CAIRN_TOP_SHARE;
+  return [
+    -halfWidth,
+    halfHeight,
+    halfWidth,
+    halfHeight,
+    top,
+    -halfHeight,
+    -top,
+    -halfHeight,
+  ];
+};
+
+// The body outline of one mob type. A shambler is squat, a revenant is a diamond, a ghoul is a wedge that points where it is going, and a cairn is a slab.
 const drawBody = (into: Graphics, type: MobType): void => {
   const row = MOB_TYPES[type];
   if (type === 'shambler') {
@@ -44,6 +93,10 @@ const drawBody = (into: Graphics, type: MobType): void => {
   }
   if (type === 'revenant') {
     into.poly(polygon(4, row.halfWidth));
+    return;
+  }
+  if (type === 'cairn') {
+    into.poly(cairnOutline(row.halfWidth, row.halfHeight));
     return;
   }
   into.poly(polygon(3, row.halfWidth, Math.PI));
@@ -111,7 +164,7 @@ const tellRadius = (type: MobType, progress: number): number => {
 const drawMob = (into: Graphics, mob: Mob): void => {
   into.clear();
   drawBody(into, mob.type);
-  into.fill({ color: PALETTE.mob.hex });
+  into.fill({ color: mobBodyColour(mob) });
   drawBody(into, mob.type);
   into.stroke({
     width: SPRITE_STROKE,
@@ -127,4 +180,4 @@ const drawMob = (into: Graphics, mob: Mob): void => {
   drawArmedMark(into, mob.type);
 };
 
-export { alarmRadius, drawMob, mobLook, tellRadius };
+export { alarmRadius, drawMob, mobBodyColour, mobLook, tellRadius };

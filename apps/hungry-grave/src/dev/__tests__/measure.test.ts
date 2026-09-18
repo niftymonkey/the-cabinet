@@ -9,17 +9,21 @@
  * independent capture rather than against its own output.
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
+import { BELCH_BURST_RADIUS } from '../../game/belch';
 import { TICK_HZ } from '../../game/clock';
+import type { SimEvent } from '../../game/events';
 import { createExecution, executeTick } from '../../game/execution';
-import { WEAPON_LINES } from '../../game/lines/roster';
+import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { TickCommand } from '../../game/command';
-import type { RunState } from '../../game/run';
-import { createRun } from '../../game/run';
+import type { RunEnding, RunState } from '../../game/run';
+import { createRun, uniformLevels } from '../../game/run';
+import { SECTIONS } from '../../game/stage/stage';
 import { SIZE_START } from '../../game/tuning';
 import { WITNESS_VERSION } from '../../game/witness';
+import { RUNNING_BUILD } from '../../tape/buildIdentity';
 import type { DecodedTape } from '../../tape/decode';
 import { decodeTape } from '../../tape/decode';
 import { encodeTape } from '../../tape/encode';
@@ -30,8 +34,10 @@ import {
   tapeOf,
 } from '../../tape/recorder';
 import type { FrameObservation, Tape, TapeHeader } from '../../tape/tape';
+import { PERSON_POLICY } from '../../tape/tape';
 import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
+import { divingPolicy } from '../bot';
 import {
   BAND_COUNT,
   BAND_UNITS,
@@ -39,10 +45,19 @@ import {
 } from '../readings/upfieldTraffic';
 import { READINGS_VERSION } from '../readingsVersion';
 import type { FieldDensity, LevelUp } from '../replayTallies';
+import { CANDIDATES } from '../tuningCandidates';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const SEED = 20260823;
 const SPACING = 20;
 const SMALL_TICKS = 90;
+
+/** An entry at this index, present because the check just above it just confirmed the array's length. */
+function entryAt<T>(items: readonly T[], index: number): T {
+  const entry = items[index];
+  if (entry === undefined) throw new Error(`no entry at index ${index}`);
+  return entry;
+}
 
 function header(
   run: RunState,
@@ -50,16 +65,15 @@ function header(
 ): TapeHeader {
   return {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: SPACING,
     witnessVersion: WITNESS_VERSION,
     commitHash: 'aa038cb310',
-    buildIdentity: '',
+    buildIdentity: RUNNING_BUILD,
     author: 'unknown',
     inputDevice: 'script',
+    policy: PERSON_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,
@@ -80,9 +94,16 @@ function steer(tick: number): TickCommand {
 /** One small recorded run, through the one execution authority the game plays through. */
 function recordARun(
   overrides: Partial<TapeHeader> = {},
-  options: { seal?: boolean; size?: number } = {},
+  options: {
+    seal?: boolean;
+    size?: number;
+    levels?: Record<WeaponLine, number>;
+  } = {},
 ): Tape {
-  const run = createRun(SEED, options.size);
+  const run = createRun(SEED, {
+    startingSize: options.size,
+    startingLevels: options.levels,
+  });
   const execution = createExecution(run);
   const recorder = recordInto(execution, header(run, overrides));
   for (let tick = 0; tick < SMALL_TICKS; tick++) {
@@ -111,8 +132,10 @@ function aPhantomRosterTape(): Tape {
     ...tape,
     header: {
       ...tape.header,
-      recordedRoster: [...tape.header.recordedRoster, PHANTOM_LINE],
-      startingLevels: { ...tape.header.startingLevels, [PHANTOM_LINE]: 1 },
+      startingCondition: [
+        ...tape.header.startingCondition,
+        { name: `levels.${PHANTOM_LINE}`, value: 1 },
+      ],
     },
   };
 }
@@ -164,29 +187,104 @@ function emptyDamage(run: RunState): Record<string, number> {
 const RICH_SEED = 414243;
 const RICH_SIZE = 67;
 const RICH_LEVELS: Readonly<Record<WeaponLine, number>> = {
-  soulStream: 5,
+  skullStream: 5,
   territory: 4,
   wisps: 3,
   bell: 2,
 };
-const RICH_TICKS = 6000;
+/**
+ * Long enough that the fixture reaches the belch arm rather than only the
+ * lines, and that the run it records ends inside its own window.
+ *
+ * Power is metered by carriers (ADR 0002), so the reservoir fills at whatever
+ * rate the schedule and the hand together pay for, and the economy states that
+ * rate in corpses of expected mowing: a full reservoir is 300 fresh trash
+ * corpses rather than 9. Under the wisps' volley floor the fixture's hand dives
+ * until it has spent one belch (richSteer says why), and measured at this tip
+ * that belch lands at tick 11004 and a second follows it, which is the belch
+ * column this file exists to attribute.
+ *
+ * The ending is read off the recorded run rather than pinned as absent, which
+ * is what the assertion was always about, that the replay recomputes the run
+ * the tape holds. It used to end with the run still live, and the Banshee
+ * (ADR 0007) is what changed that: a wandering hand under her rings seals shut.
+ *
+ * The ceiling has followed the run's own length ever since. The mow and the
+ * economy moved the sealing out to 21565, and the volley floor moves it to
+ * 23177: the hand dives for the first eleven thousand ticks, which feeds it,
+ * and the wander it is handed back to is ground shut from there. The ceiling is
+ * 25200, far enough above that to hold the ending and near enough that the
+ * fixture is still one recording rather than three.
+ *
+ * That makes this a ceiling and not the recording's length: the loop stops on
+ * the tick the run ends, because executeTick does not read the ending and every
+ * loop above it must (`execution.ts`, #52). What the fixture records is
+ * `RichRecording.ticks`, and every assertion over the tape's length reads that.
+ */
+const RICH_TICKS = 25200;
 const RICH_SPACING = 60;
 /** The ticks the rich fixture's expensive frames start at; zero pins the empty starting field. */
 const RICH_EXPENSIVE_TICKS = [0, 1200, 4500];
 
-function richSteer(tick: number): TickCommand {
-  return {
-    move: { x: Math.sin(tick / 45), y: Math.sin(tick / 200) * 0.4 },
-    belch: true,
-  };
+/**
+ * Whether a belch fired on this tick would land on anything.
+ *
+ * The fixture gets one belch in a whole run, so it is spent where it can be
+ * attributed rather than on every tick: a belch into an empty field empties the
+ * reservoir and produces no mobDamaged at all, which would leave the arm this
+ * file exists to attribute with nothing to attribute.
+ */
+function belchWouldLand(run: RunState): boolean {
+  return run.mobs.some((mob) => {
+    if (!mob.alive) return false;
+    const dx = mob.x - run.grave.x;
+    const dy = mob.y - run.grave.y;
+    return dx * dx + dy * dy <= BELCH_BURST_RADIUS * BELCH_BURST_RADIUS;
+  });
+}
+
+/**
+ * The fixture's hand: it dives until it has spent a belch, then wanders as it
+ * always did, and it belches only where the belch lands.
+ *
+ * It was the wander alone, belching on every tick, and the wisps' volley floor
+ * (ADR 0058 as amended) is what retired that. A wander never aims, so it lived
+ * on what the homing line mowed for it; floored to one volley every thirty
+ * ticks the same hand kills a fifth as much and is ground shut at tick 9824
+ * where it used to run to 21565, and it never swallows the three hundred fresh
+ * trash corpses a full reservoir costs. Measured over ten seeds under the
+ * wander, not one reached a full reservoir at all, so no seed could have
+ * carried the belch arm and no ceiling could have waited for it.
+ *
+ * Diving is what fills the reservoir and the burst test above is what makes the
+ * one belch it buys land. Handing the run back to the wander afterwards is what
+ * keeps the other half of the fixture: a wandering grave is ground shut, and
+ * this file asserts that the recording stops on the tick the run ends. The hand
+ * is still a command stream the tape records and the replay re-executes, which
+ * is the only property the fixture needs of it.
+ */
+function richSteer(
+  run: RunState,
+  caused: readonly SimEvent[],
+  spent: boolean,
+  tick: number,
+): TickCommand {
+  const move = spent
+    ? { x: Math.sin(tick / 45), y: Math.sin(tick / 200) * 0.4 }
+    : divingPolicy(run, [...caused]).move;
+  return { move, belch: belchWouldLand(run) };
 }
 
 interface RichRecording {
+  /** Ticks actually recorded: the ceiling, or fewer when the run ended first. */
+  readonly ticks: number;
   readonly measured: Metrics;
+  readonly ending: RunEnding | null;
   readonly damage: Record<string, number>;
   readonly endLevels: Record<string, number>;
   readonly levelUps: LevelUp[];
   readonly mobsAlive: number[];
+  readonly mobFireAlive: number[];
   readonly kills: number;
   readonly lays: number;
   readonly score: number;
@@ -194,7 +292,10 @@ interface RichRecording {
 }
 
 function recordRichRun(): RichRecording {
-  const run = createRun(RICH_SEED, RICH_SIZE, RICH_LEVELS);
+  const run = createRun(RICH_SEED, {
+    startingSize: RICH_SIZE,
+    startingLevels: RICH_LEVELS,
+  });
   const execution = createExecution(run);
   const recorder = recordInto(
     execution,
@@ -203,18 +304,38 @@ function recordRichRun(): RichRecording {
   const damage = emptyDamage(run);
   const levelUps: LevelUp[] = [];
   const mobsAlive: number[] = [0];
+  const mobFireAlive: number[] = [0];
   const densities = new Map<number, FieldDensity>();
   let kills = 0;
   let lays = 0;
-  for (let tick = 0; tick < RICH_TICKS; tick++) {
+  let ticks = 0;
+  // The tick before's events, which the diving policy reads to steer by.
+  let caused: readonly SimEvent[] = [];
+  // Whether the belch arm has been paid, which is what hands the run back to
+  // the wander.
+  let belched = false;
+  // The sealing tick is recorded and the one after it is not: a tape that
+  // dropped its own last tick would hide the evidence of the tick that ended
+  // the run, and one that ran on past it would report a run no player had.
+  for (let tick = 0; tick < RICH_TICKS && run.ending === null; tick++) {
     // The field as the frame starting at this tick would begin on: the state
     // after `tick` ticks have run, captured before this one executes.
     if (RICH_EXPENSIVE_TICKS.includes(tick)) {
       densities.set(tick, densityOf(run));
     }
-    const events = executeTick(execution, richSteer(tick));
+    const events = executeTick(
+      execution,
+      richSteer(run, caused, belched, tick),
+    );
+    caused = events;
+    if (events.some((event) => event.type === 'belched')) belched = true;
     for (const event of events) {
-      if (event.type === 'mobDamaged') damage[event.source] += event.amount;
+      if (event.type === 'mobDamaged') {
+        const before = damage[event.source];
+        if (before === undefined)
+          throw new Error(`no damage entry for ${event.source}`);
+        damage[event.source] = before + event.amount;
+      }
       if (event.type === 'mobKilled') kills += 1;
       if (event.type === 'patchLaid') lays += 1;
       if (event.type === 'weaponLeveled') {
@@ -222,6 +343,7 @@ function recordRichRun(): RichRecording {
       }
     }
     mobsAlive.push(liveCount(run.mobs));
+    mobFireAlive.push(liveCount(run.mobFire));
     recordFrame(recorder, {
       reason: 'live',
       tickIndex: tick,
@@ -231,15 +353,19 @@ function recordRichRun(): RichRecording {
       updateMs: 1.1,
       debtTicks: 0,
     });
+    ticks = tick + 1;
   }
   sealTrailer(recorder, execution, 0);
   const measured = verified(measure(decodedOf(tapeOf(recorder))));
   return {
+    ticks,
     measured,
+    ending: run.ending,
     damage,
     endLevels: { ...run.levels },
     levelUps,
     mobsAlive,
+    mobFireAlive,
     kills,
     lays,
     score: run.score,
@@ -253,22 +379,39 @@ function richFixture(): RichRecording {
   return richMemo;
 }
 
+/**
+ * The rich recording is setup rather than a test, and it is billed here so
+ * that the first test to read it is not the one that pays for a nine thousand
+ * tick sim. Its own budget is generous because the suite runs its files in
+ * parallel: measured alone the recording takes about two seconds, and beside a
+ * full run of the other files it has taken over five.
+ */
+beforeAll(() => {
+  richFixture();
+}, 60_000);
+
 describe('measure', () => {
-  it("reports damage under the arms the run's own lines name, the belch beside them", () => {
+  it("reports damage under the arms the run's own lines name, the belch's at nothing beside them", () => {
     // #45's damage-contribution read: attribution is per source, and the belch
     // is an arm beside the lines rather than folded into any of them. The arms
     // come from the replayed run's own levels record (#74 story 11), so the
     // expected key set is enumerated the same way rather than written out.
+    //
+    // The belch's arm reads zero and still reads, which is the amendment
+    // showing through the instrument: the press takes health off nothing now
+    // (ADR 0008 as amended) and the arm is kept so a batch does not lose a key
+    // it has always printed.
     const rich = richFixture();
     const damage: Record<string, number> = rich.measured.damage;
 
     expect(Object.keys(damage).sort()).toEqual(Object.keys(rich.damage).sort());
     expect(damage).toEqual(rich.damage);
-    expect(rich.measured.damage.soulStream).toBeGreaterThan(0);
+    expect(rich.measured.damage.skullStream).toBeGreaterThan(0);
     expect(rich.measured.damage.territory).toBeGreaterThan(0);
     expect(rich.measured.damage.wisps).toBeGreaterThan(0);
     expect(rich.measured.damage.bell).toBeGreaterThan(0);
-    expect(rich.measured.damage.belch).toBeGreaterThan(0);
+    expect(Object.keys(damage)).toContain('belch');
+    expect(rich.measured.damage.belch).toBe(0);
   });
 
   it('reports the tick each line reached each level from the replayed weaponLeveled events', () => {
@@ -285,22 +428,52 @@ describe('measure', () => {
     const rich = richFixture();
 
     expect(Math.max(...rich.mobsAlive)).toBeGreaterThan(0);
-    expect(rich.measured.mobsAlivePerTick).toHaveLength(RICH_TICKS + 1);
+    expect(rich.measured.mobsAlivePerTick).toHaveLength(rich.ticks + 1);
     expect(rich.measured.mobsAlivePerTick[0]).toBe(0);
     expect(rich.measured.mobsAlivePerTick).toEqual(rich.mobsAlive);
+  });
+
+  it('reports mob fire alive per tick beside the mob population, on the same indexing', () => {
+    // The half of #39's airborne figure a headless tape has no reading of. The
+    // storm is the player's own projectiles and mob fire is never the storm, so
+    // this counts state.mobFire and re-counts nothing fieldPerLine already
+    // holds: densityOf's shots field is the same pool and is sampled only where
+    // a frame row exists, which a headless tape has none of.
+    const rich = richFixture();
+
+    expect(Math.max(...rich.mobFireAlive)).toBeGreaterThan(0);
+    expect(rich.measured.mobFireAlivePerTick).toHaveLength(rich.ticks + 1);
+    expect(rich.measured.mobFireAlivePerTick[0]).toBe(0);
+    expect(rich.measured.mobFireAlivePerTick).toEqual(rich.mobFireAlive);
+    expect(rich.measured.mobFireAlivePerTick).not.toEqual(
+      rich.measured.mobsAlivePerTick,
+    );
   });
 
   it('recomputes the run summary from the replay: ticks, ending, score and kills', () => {
     const rich = richFixture();
 
-    expect(rich.measured.run.ticks).toBe(RICH_TICKS);
-    expect(rich.measured.run.ending).toBeNull();
+    expect(rich.measured.run.ticks).toBe(rich.ticks);
+    expect(rich.measured.run.ending).toBe(rich.ending);
     expect(rich.measured.run.score).toBe(rich.score);
     expect(rich.measured.run.kills).toBe(rich.kills);
     expect(rich.measured.run.checkpointsVerified).toBe(
-      RICH_TICKS / RICH_SPACING + 1,
+      Math.floor(rich.ticks / RICH_SPACING) + 1,
     );
     expect(rich.measured.run.checkpointsUnreachable).toBe(0);
+  });
+
+  it('stops the recording on the tick the run ends, so no frame is past the ending', () => {
+    // execution.ts's own contract: executeTick deliberately does not read the
+    // run's ending and every loop above it must, because a run that seals or
+    // wins mid-frame would otherwise keep simulating past its own end and move
+    // the score and tick count the tape reports (#52). This fixture is such a
+    // loop, and the Banshee (ADR 0007) is what put an ending inside its
+    // ceiling: the hand seals under her rings well before RICH_TICKS.
+    const rich = richFixture();
+
+    expect(rich.ending).not.toBeNull();
+    expect(rich.measured.run.ticks).toBeLessThan(RICH_TICKS);
   });
 
   it('joins each expensive frame to the field density its frame began on', () => {
@@ -377,13 +550,10 @@ describe('measure', () => {
     expect(
       measured.performance.expensiveFrames.map((frame) => frame.tick),
     ).toEqual([30, 60, null]);
-    expect(measured.performance.expensiveFrames[0].density).toEqual(
-      densities.get(30),
-    );
-    expect(measured.performance.expensiveFrames[1].density).toEqual(
-      densities.get(60),
-    );
-    expect(measured.performance.expensiveFrames[2].density).toBeNull();
+    const frames = measured.performance.expensiveFrames;
+    expect(entryAt(frames, 0).density).toEqual(densities.get(30));
+    expect(entryAt(frames, 1).density).toEqual(densities.get(60));
+    expect(entryAt(frames, 2).density).toBeNull();
     expect(reads.size).toBeGreaterThan(0);
     for (const [index, count] of reads) {
       expect(count, `command ${index} read ${count} times`).toBe(1);
@@ -502,6 +672,7 @@ describe('measure', () => {
 
     expect(measured).toEqual({
       outcome: 'diverged',
+      buildMismatch: null,
       firstDivergentCheckpoint: 40,
       checkpointsVerified: 2,
       ticksReproduced: 40,
@@ -590,6 +761,10 @@ describe('measure', () => {
 
     expect(measured.provenance).toEqual({
       inputDevice: 'bot',
+      policy: PERSON_POLICY,
+      rig: 'birthright',
+      candidate: 'default',
+      tuning: CANDIDATES.default.record,
       conditioned: false,
       exclusions: ['bot'],
     });
@@ -605,6 +780,13 @@ describe('measure', () => {
 
     expect(measured.provenance).toEqual({
       inputDevice: 'keyboard',
+      policy: PERSON_POLICY,
+      // A size no rig holds, so the run names none rather than the nearest.
+      rig: null,
+      // The record is still the build's own, which is a different half of the
+      // starting condition and answers on its own terms.
+      candidate: 'default',
+      tuning: CANDIDATES.default.record,
       conditioned: true,
       exclusions: ['conditioned'],
     });
@@ -617,9 +799,57 @@ describe('measure', () => {
 
     expect(measured.provenance).toEqual({
       inputDevice: 'keyboard',
+      policy: PERSON_POLICY,
+      rig: 'birthright',
+      candidate: 'default',
+      tuning: CANDIDATES.default.record,
       conditioned: false,
       exclusions: [],
     });
+  });
+
+  it('names the rig a run started from, beside the policy that steered it', () => {
+    // #107: a figure names the starting condition that produced it, so two
+    // rigs are never banded as one measurement. The rig and the policy are two
+    // facts about one run and neither answers the other.
+    const maxed = verified(
+      measure(decodedOf(recordARun({}, { levels: uniformLevels(MAX_LEVEL) }))),
+    );
+
+    expect(maxed.provenance.rig).toBe('maxed');
+    // The maxed rig is not the birthright, so the run is a conditioned one
+    // and stays out of the default aggregate on that rule alone.
+    expect(maxed.provenance.conditioned).toBe(true);
+  });
+
+  it('carries the policy that steered on a verified run, beside the input device', () => {
+    // The policy and the device are two different facts about one run: a hand
+    // plays through the same command channel a person does (ADR 0029), so a
+    // report says which hand steered without anyone reading the header.
+    const measured = verified(
+      measure(
+        decodedOf(recordARun({ inputDevice: 'bot', policy: 'steady-far' })),
+      ),
+    );
+
+    expect(measured.provenance.policy).toBe('steady-far');
+    expect(measured.provenance.inputDevice).toBe('bot');
+  });
+
+  it('keeps a run steered by anything but the person out of the default aggregate', () => {
+    // ADR 0019: aggregates exclude poor evidence by default. The device alone
+    // cannot do it, because nothing in production writes `bot`: a scripted
+    // wander and a full hand run are both `script` or worse. The policy is what
+    // separates them, and the keyboard run above is the same call answering no.
+    const measured = verified(
+      measure(
+        decodedOf(
+          recordARun({ inputDevice: 'keyboard', policy: 'steady-far' }),
+        ),
+      ),
+    );
+
+    expect(measured.provenance.exclusions).toEqual(['policy']);
   });
 
   it("names the weapon lines from the tape's own recorded roster and not from a compiled list", () => {
@@ -690,7 +920,7 @@ describe('measure', () => {
     // one. The readings ride the same arm as the rest of the report.
     const rich = richFixture();
     expect(rich.measured.tuning.gravePath.sizePerTick).toHaveLength(
-      RICH_TICKS + 1,
+      rich.ticks + 1,
     );
 
     const sound = recordARun();
@@ -750,7 +980,7 @@ describe('measure', () => {
     );
 
     expect(measured.provenance.exclusions).toEqual(['bot']);
-    expect(measured.tuning.dropLedger.spawned).toBeGreaterThanOrEqual(0);
+    expect(measured.tuning.powerUpLedger.spawned).toBeGreaterThanOrEqual(0);
     expect(measured.tuning.gravePath.sizePerTick[0]).toBe(SIZE_START);
   });
 
@@ -768,6 +998,32 @@ describe('measure', () => {
     expect(Object.keys(traffic.perLay)).toHaveLength(BAND_COUNT);
     expect(traffic.bandUnits).toBe(BAND_UNITS);
     expect(traffic.lateralReach).toBe(LATERAL_REACH);
+  });
+
+  it('reports one span per section crossed, the live one open where the tape stops', () => {
+    // The section timeline's other half (ADR 0026: a partial tape is a valid
+    // tape). The rich fixture stops inside a fight rather than at a boundary,
+    // so the section it stopped in is still live: it is reported open rather
+    // than closed at the last tick, while every section it left behind is
+    // closed on the tick the next one began. The names come from the stage's
+    // own table and the ticks from the run, because what a section costs is
+    // the tuning pass's to move.
+    const spans = richFixture().measured.tuning.sectionTimeline.spans;
+    const crossed = spans.slice(0, -1);
+    const live = entryAt(spans, spans.length - 1);
+
+    expect(spans.map((span) => span.section)).toEqual(
+      SECTIONS.slice(0, spans.length).map((section) => section.name),
+    );
+    expect(crossed.length).toBeGreaterThan(0);
+    expect(entryAt(spans, 0).from).toBe(0);
+    crossed.forEach((span, at) => {
+      expect(span.to).toBe(entryAt(spans, at + 1).from);
+    });
+    expect(live.to).toBeNull();
+    // And the tape really did run on inside the live section, so the open span
+    // is a section the recording stood in rather than one it only reached.
+    expect(richFixture().measured.run.ticks).toBeGreaterThan(live.from);
   });
 
   it("keeps the tape's recorded faults and today's readback faults separate lists", () => {
@@ -804,5 +1060,80 @@ describe('measure', () => {
     ]);
     expect(measured.readbackFaults).toEqual([]);
     expect(measured.provenance.exclusions).toEqual(['script', 'faulted']);
+  });
+});
+
+describe('the build behind a reading', () => {
+  /** A tape whose witness disagrees with what a replay recomputes. */
+  const withABentWitness = (tape: Tape): Tape => ({
+    ...tape,
+    checkpoints: tape.checkpoints.map((checkpoint) =>
+      checkpoint.index === 40
+        ? { index: 40, witness: checkpoint.witness + 1 }
+        : checkpoint,
+    ),
+  });
+
+  /** The measurement of a tape recorded on a build that is not this one. */
+  const ELSEWHERE = 'b1c3a584d1608aeef235a0d9b0156c084fc19cfc-dirty';
+
+  it('attributes a divergence to the build mismatch, naming both identities', () => {
+    // #82, and the day docs/push/divergence-b1c3a584d1.md cost: a tape whose
+    // recording build cannot be named reports a bare divergence, and a bare
+    // divergence reads as a defect in the recording. Two builds that disagree
+    // about a rule disagree about the fold, so the mismatch is the reading.
+    const measured = measure(
+      decodedOf(withABentWitness(recordARun({ buildIdentity: ELSEWHERE }))),
+    );
+
+    expect(measured.outcome).toBe('diverged');
+    if (measured.outcome !== 'diverged') throw new Error('not a divergence');
+    expect(measured.buildMismatch).toEqual({
+      recorded: ELSEWHERE,
+      running: RUNNING_BUILD,
+    });
+  });
+
+  it('reports a plain divergence when the tape and the reader are one build', () => {
+    // The mismatch explains nothing here, and saying it anyway would attribute
+    // a real defect to a difference that does not exist.
+    const measured = measure(
+      decodedOf(withABentWitness(recordARun({ buildIdentity: RUNNING_BUILD }))),
+    );
+
+    expect(measured.outcome).toBe('diverged');
+    if (measured.outcome !== 'diverged') throw new Error('not a divergence');
+    expect(measured.buildMismatch).toBeNull();
+  });
+
+  it('reports a verified reading with a build note when the builds differ', () => {
+    // Never a refusal. The witness version is the rules identity (ADR 0019),
+    // so a build that folds the same way reproduced the run, and replay is a
+    // shipped feature a player's tape must keep working under (ADR 0020).
+    // What the reader is owed is which build computed these numbers.
+    const measured = verified(
+      measure(decodedOf(recordARun({ buildIdentity: ELSEWHERE }))),
+    );
+
+    expect(measured.identity.buildIdentity).toBe(ELSEWHERE);
+    expect(measured.buildMismatch).toEqual({
+      recorded: ELSEWHERE,
+      running: RUNNING_BUILD,
+    });
+  });
+
+  it('verifies a tape that carries no build identity at all', () => {
+    // Every tape recorded before the field was filled, the format 3 pair in
+    // Mark's folder included. An absence is not a build, so it is named as a
+    // difference and the reading is still whole.
+    const measured = verified(
+      measure(decodedOf(recordARun({ buildIdentity: '' }))),
+    );
+
+    expect(measured.run.checkpointsVerified).toBeGreaterThan(0);
+    expect(measured.buildMismatch).toEqual({
+      recorded: '',
+      running: RUNNING_BUILD,
+    });
   });
 });

@@ -12,6 +12,8 @@ import type { FieldPlacement, ReadoutReserve } from '../layout';
 import {
   DEGENERATE_PLACEMENT,
   fitField,
+  HUD_BAND,
+  hudRow,
   READOUT_RESERVE,
   screenToField,
 } from '../layout';
@@ -38,6 +40,15 @@ const TABLET_PORTRAIT = { width: 820, height: 1180 };
 
 /** No reserve at all, for the two tests that are about the mapping itself. */
 const NO_RESERVE: ReadoutReserve = { margin: 0, width: 0, height: 0 };
+
+/**
+ * Every window height a 390-wide phone reports, from a fully collapsed URL
+ * bar down to a window barely taller than it is wide. The bug Mark played
+ * lived inside this sweep and no single viewport could see it: the field is
+ * the full stage width while the window is tall, and pays width for the
+ * reserve as the URL bar eats the height.
+ */
+const PHONE_SWEEP = Array.from({ length: 51 }, (_, index) => 400 + index * 10);
 
 /** The rectangle the placement puts the field's frame in, in viewport units. */
 function fittedRect(placement: FieldPlacement) {
@@ -270,18 +281,6 @@ describe('the reserved gutter (dispatch 4 section 4.16)', () => {
     { name: "the field's own size", viewport: { width: 540, height: 760 } },
   ];
 
-  /**
-   * Every window height a 390-wide phone reports, from a fully collapsed URL
-   * bar down to a window barely taller than it is wide. The bug Mark played
-   * lived inside this sweep and no single viewport could see it: the field is
-   * the full stage width while the window is tall, and pays width for the
-   * reserve as the URL bar eats the height.
-   */
-  const PHONE_HEIGHTS = Array.from(
-    { length: 51 },
-    (_, index) => 400 + index * 10,
-  );
-
   it('never pays field width for a readout, at any viewport', () => {
     // Mark's ruling, 2026-08-22. The reserve may move the field and may never
     // shrink it, so this compares against the same fit with nothing reserved.
@@ -296,7 +295,7 @@ describe('the reserved gutter (dispatch 4 section 4.16)', () => {
     // The regression test for the played bug. It composes resize() because
     // CreationResizePlugin upscales the window before GameScreen.resize runs,
     // so a claim tested against a raw 390 is structurally blind.
-    for (const height of PHONE_HEIGHTS) {
+    for (const height of PHONE_SWEEP) {
       const { stage, placement } = staged({ width: PHONE.width, height });
       const natural = fitField(stage.width, stage.height, NO_RESERVE);
       expect(`${height} ${placement.scale}`).toBe(`${height} ${natural.scale}`);
@@ -352,5 +351,143 @@ describe('the reserved gutter (dispatch 4 section 4.16)', () => {
     const natural = fitField(stage.width, stage.height, NO_RESERVE);
     expect(placement).toEqual(natural);
     expect(natural.offsetY).toBeLessThan(READOUT_RESERVE.height);
+  });
+});
+
+describe("the HUD's band (record R1)", () => {
+  /**
+   * Every viewport the reserved-gutter sweep already covers, plus the phone's
+   * standing small-viewport case, so a claim made about "every viewport" is
+   * made against the shapes the frame is actually specified against.
+   */
+  const BAND_VIEWPORTS = [
+    { name: 'desktop', viewport: DESKTOP },
+    { name: 'narrow desktop', viewport: NARROW_DESKTOP },
+    { name: 'tablet portrait', viewport: TABLET_PORTRAIT },
+    { name: 'phone', viewport: PHONE },
+    { name: 'phone at svh 660', viewport: { width: 393, height: 660 } },
+    { name: "the field's own size", viewport: { width: 540, height: 760 } },
+  ];
+
+  /** How many CSS pixels one stage unit is worth at a viewport. */
+  function cssPerStageUnit(viewport: {
+    width: number;
+    height: number;
+  }): number {
+    return viewport.width / staged(viewport).stage.width;
+  }
+
+  it("sits at the field's top edge at every viewport, and is never clipped", () => {
+    // Outside the field where the stage's band above it is at least the row's
+    // own height, and over the field's own top edge where it is not. One rule
+    // and no viewport breakpoint, because a phone leaves no side gutter at all
+    // and a desktop leaves no band at all, both measured exactly zero, so the
+    // field's own rectangle is the only home both shapes share.
+    const heights = [
+      ...BAND_VIEWPORTS.map((each) => each.viewport),
+      ...PHONE_SWEEP.map((height) => ({ width: PHONE.width, height })),
+    ];
+    for (const viewport of heights) {
+      const { stage, placement } = staged(viewport);
+      const row = hudRow(placement);
+      const fieldTop = placement.offsetY;
+      const where = `${viewport.width}x${viewport.height}`;
+
+      expect(`${where} ${row.height}`).toBe(
+        `${where} ${HUD_BAND.height * placement.scale}`,
+      );
+      expect(`${where} ${row.top}`).toBe(
+        `${where} ${fieldTop >= row.height ? fieldTop - row.height : fieldTop}`,
+      );
+      // Never clipped: the row is inside the stage on both axes, and it never
+      // sits below the field's own top edge by more than its own height.
+      expect(`${where} top ${row.top >= 0}`).toBe(`${where} top true`);
+      expect(
+        `${where} bottom ${row.top + row.height <= stage.height + 1e-9}`,
+      ).toBe(`${where} bottom true`);
+      expect(`${where} left ${row.left}`).toBe(
+        `${where} left ${placement.offsetX}`,
+      );
+      expect(`${where} width ${row.width}`).toBe(
+        `${where} width ${FIELD_WIDTH * placement.scale}`,
+      );
+    }
+  });
+
+  it('gives one mark the same share of the field at a phone and at a desktop', () => {
+    // The row is drawn in field units and scaled by the placement, which is
+    // what makes the same glance work on both. A row positioned in raw stage
+    // units would give the phone the smaller mark, which is the wrong way
+    // round.
+    const shares = [PHONE, DESKTOP, TABLET_PORTRAIT].map((viewport) => {
+      const { placement } = staged(viewport);
+      const mark = HUD_BAND.mark * placement.scale;
+      return mark / (FIELD_WIDTH * placement.scale);
+    });
+    expect(new Set(shares).size).toBe(1);
+    expect(shares[0]).toBeCloseTo(HUD_BAND.mark / FIELD_WIDTH, 12);
+  });
+
+  it('draws a mark of at least 6.25 CSS pixels at the narrowest viewport in the sweep', () => {
+    // The floor is slice K's own measured band, the narrowest filled band it
+    // proved legible in grayscale, and R1's whole derivation rests on it: the
+    // band is declared from the mark rather than the mark left to fall out of
+    // the band.
+    const narrowest = [
+      PHONE,
+      { width: 393, height: 660 },
+      TABLET_PORTRAIT,
+      DESKTOP,
+    ]
+      .map((viewport) => {
+        const { placement } = staged(viewport);
+        return HUD_BAND.mark * placement.scale * cssPerStageUnit(viewport);
+      })
+      .reduce((smallest, each) => Math.min(smallest, each));
+    expect(`${narrowest >= 6.25}`).toBe('true');
+  });
+});
+
+describe('the even slack split (record R10)', () => {
+  it("splits a shortened window's slack above and below the field", () => {
+    // The lowering branch used to centre the field inside the box below the
+    // reserve, so the reserve's whole height landed on top and the bottom band
+    // took whatever was left. Centring in the whole box and pushing the field
+    // down only far enough to clear the reserve shares the slack instead.
+    for (const height of PHONE_SWEEP) {
+      const { stage, placement } = staged({ width: PHONE.width, height });
+      const natural = fitField(stage.width, stage.height, NO_RESERVE);
+      const expected = Math.max(natural.offsetY, READOUT_RESERVE.height);
+      // Only where lowering is free at all: a field that already fills the
+      // height stays exactly where the natural fit put it.
+      const free =
+        stage.height - FIELD_HEIGHT * natural.scale >= READOUT_RESERVE.height;
+      expect(`${height} ${placement.offsetY}`).toBe(
+        `${height} ${free ? expected : natural.offsetY}`,
+      );
+    }
+  });
+
+  it('leaves 120 above the field and 26 below at a phone at svh 660', () => {
+    // The record's own figures for this viewport (R10), against the 133 and 13
+    // the below-reserve centring gave. They are the independent source of
+    // truth here: the arithmetic is the record's and not this file's.
+    const { stage, placement } = staged({ width: 393, height: 660 });
+    const above = placement.offsetY;
+    const below =
+      stage.height - (placement.offsetY + FIELD_HEIGHT * placement.scale);
+    expect(`${Math.round(above)} ${Math.round(below)}`).toBe('120 26');
+  });
+
+  it('never shrinks the field to split the slack, at any window height', () => {
+    // Mark's ruling of 2026-08-22 still binds: the reserve may move the field
+    // and may never shrink it. The even split moves it less than the old
+    // lowering did, so it cannot reach for width that the old rule did not.
+    for (const height of PHONE_SWEEP) {
+      const { stage, placement } = staged({ width: PHONE.width, height });
+      const natural = fitField(stage.width, stage.height, NO_RESERVE);
+      expect(`${height} ${placement.scale}`).toBe(`${height} ${natural.scale}`);
+      expectWholeFieldInside(placement, stage.width, stage.height);
+    }
   });
 });

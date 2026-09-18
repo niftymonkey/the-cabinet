@@ -6,11 +6,11 @@ Reread this when a proposal is on the table and nobody is sure whether it belong
 
 The Hungry Grave is a Halloween vertical shmup crossed with hole.io. You are the grave: a moving open hole in the ground, ascending a scrolling world full of undead. Your weapons fire upward on their own. Everything that dies falls to the field, and everything on the field goes in the hole.
 
-The loop is one verb. Kill, and a corpse drifts down the field with the scroll. Pass the grave under it and it falls in. A swallow grows the grave, fires its burst weapons, and charges the reservoir behind its one button, the belch. Some kills leave a drop instead, swallowed the same way, that levels a weapon line for good. You start as a modest pit with a couple of thin lines and end as a screen-filling storm of your own projectiles.
+The loop is one verb. Kill, and a corpse drifts down the field with the scroll. Pass the grave under it and it falls in. A swallow grows the grave, fires its burst weapons, and charges the reservoir behind its one button, the belch. Some kills leave a drop instead, swallowed the same way, that levels a weapon line for good. You start as a modest pit with one thin line and end as a screen-filling storm of your own projectiles.
 
 Size is health. There is no health bar; the grave's rim is the health bar. Swallowing grows it, hits shrink it, and when nothing is left the grave is sealed shut. One object does four jobs at once, the health bar, the collection loop, the ammo economy, and the comeback mechanic, and that object is the game's identity.
 
-Two textures alternate. Most of the run you are the bullet heaven: mowing down authored waves, roaming to swallow fresh corpses and drops under light return fire, watching your storm thicken. On a phase boundary the field drains empty and a boss arrives alone. The direction of fire flips, you dodge large slow readable patterns, and when it dies you feast on it and are the storm again.
+Two textures alternate. Most of the run you are the bullet heaven: mowing down authored waves, roaming to swallow fresh corpses and drops under light return fire, watching your storm thicken. On a boss boundary the field thins to a slow, sparse last row, the last body falls away, and the boss arrives alone. The direction of fire flips, you dodge large slow readable patterns, and when it dies you feast on it and are the storm again. Not every boundary is a boss: one of them is an authored swarm the storm is meant to shred, which is heaven at its loudest rather than a second dose of hell.
 
 The world scrolls, and the scroll is the deadline: every corpse and every drop is carried off the field whether or not the player reached it.
 
@@ -32,7 +32,7 @@ The world scrolls, and the scroll is the deadline: every corpse and every drop i
 
 **Death is gradual and the recovery path never closes.** The size floor is hard, size never gates a swallow, and at the floor the game takes things the player can watch themselves lose before it takes the run. A player in the spiral always has a physical way out.
 
-**The stage is authored and a seed is the same run anywhere.** The stage is written by hand, nothing reads the player's performance to reshape it, and the dice are seeded. The beats are locked, every tester on a seed plays the identical run, and a shared seed is a challenge a friend can play.
+**The stage is authored and a tape is the same run anywhere.** The beats, the bosses, the set pieces and the rows are written by hand and are a floor nothing may take away. What fills the space between them is directed by the pressure the run is putting on the player, so a seed pins the dice rather than the stage, and a shared seed is a challenge rather than a copy. The promise that carries a run to somebody else whole is the tape: it replays exactly, wherever it is opened, or it refuses.
 
 **Everything is a pool, nothing is a club.** Weapon lines, mob types, and placement templates are open sets whose members carry their own properties, and so is any set this project grows later. A new member must own something no existing member owns: a motion, a lesson, a job.
 
@@ -44,7 +44,7 @@ The world scrolls, and the scroll is the deadline: every corpse and every drop i
 
 **Growth** is felt in the body and seen in the storm. The fourth drop feels different from the first, each level of each line looks different, and the lines stay tellable by motion alone when the field is full. Late in a run the screen is yours, and mob fire still wins wherever the two overlap.
 
-**Bosses** change the rhythm without changing the game. The drain-out is a held breath. The boss is alone, its patterns are large and slow with a gap visible through the player's own storm, and food keeps arriving so the dive is still the answer at the climax. A boss kill is a feast, and what follows the feast has a use for a full belch.
+**Bosses** change the rhythm without changing the game. The last sparse row is a held breath. The boss is alone, its patterns are large and slow with a gap visible through the player's own storm, and food keeps arriving so the dive is still the answer at the climax. A boss kill is a feast, and what follows the feast has a use for a full belch.
 
 **Greed and danger** sit together. The reservoir filling is visible rising pressure, the loaded belch has one unmissable job, and spending it on the right wave is the run's first full-screen catharsis. The player always knows which mob will shoot and sees the tell before the shot.
 
@@ -62,7 +62,7 @@ The world scrolls, and the scroll is the deadline: every corpse and every drop i
 6. Can the player still read it at full density?
 7. Does death stay gradual and the recovery path open?
 8. Is it a pool member carrying its own properties, or a club rule naming a cast?
-9. Does a pinned seed still replay the same run anywhere?
+9. Does a tape still replay its run exactly, anywhere?
 10. Is the hole verb intact? The grave swallows and passes under. It never drives.
 
 ## 5. How it is made
@@ -80,7 +80,7 @@ The world scrolls, and the scroll is the deadline: every corpse and every drop i
 ## 6. What it is not
 
 - **Not a hole without pressure.** The shooter half is not decoration.
-- **Not a survivors game with a director.** No spawn faucet, no performance-reading waves. The stage is authored and a seed replays it.
+- **Not a spawn faucet.** There is a director, and it adds over the authored beats rather than in place of them. What it may spend, where it must stay silent and what it may never hand out are rules, and they live in the ADRs.
 - **Not a menu-driven build game.** Progression is physical and in-run; drops are swallowed on the field.
 - **Not an aiming game.** No cursor, no second axis, no cross-line homing.
 - **Not a panning playfield.** Width is repositioning margin, and corpse deadlines must not expire offscreen.

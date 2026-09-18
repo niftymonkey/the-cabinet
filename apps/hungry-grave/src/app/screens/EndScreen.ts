@@ -9,12 +9,12 @@ import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 import { bindKeyPress } from './keyBinding';
+import { scoreReading } from './scoreReading';
 
 /**
  * What the end screen says happened. Sealed shut is ADR 0003's death and the
- * vocabulary is exact about it. The victory line is a stub's line only in the
- * sense that the Undertaker is not built yet; a stubbed victory is still a
- * victory the player sees, so it does not admit to being one.
+ * vocabulary is exact about it, and the stage survived is the Undertaker's own
+ * death: the stage is behind the grave and nothing is left of it to play.
  */
 const ENDING_TITLE: Record<RunEnding, string> = {
   sealed: 'SEALED SHUT',
@@ -37,7 +37,7 @@ const FAULTED_TITLE = 'THE GAME BROKE';
 
 /**
  * The fault line's size, half a step under the menu's 18. The widest identity
- * line, FAULT phase tick resets at a boundary, is 37 characters: at 18 its
+ * line, FAULT section tick resets at a boundary, is 37 characters: at 18 its
  * width bound overruns a 390-unit phone stage and at 16 it fits whole with
  * margin. screenLifecycle.test.ts holds every identity in the closed list
  * against the stage at a seven-digit tick.
@@ -82,6 +82,12 @@ class EndScreen extends Container {
   public static assetBundles = ['main'];
 
   private readonly title: Label;
+  /**
+   * What the run scored, in the ladder row's own reading, because the row goes
+   * with the field at the seal and this is the last place the number a player
+   * spent the run watching can still reach them.
+   */
+  private readonly scoreLabel: Label;
   private readonly seedLabel: Label;
   private readonly tickLabel: Label;
   /**
@@ -112,6 +118,9 @@ class EndScreen extends Container {
     this.title = new Label({
       text: ABANDONED_TITLE,
       style: { fill: MENU.menuInk.hex, fontSize: 36, letterSpacing: 4 },
+    });
+    this.scoreLabel = new Label({
+      style: { fill: MENU.menuInk.hex, fontSize: 30 },
     });
     this.seedLabel = new Label({
       style: { fill: MENU.menuDim.hex, fontSize: 18 },
@@ -148,6 +157,7 @@ class EndScreen extends Container {
 
     this.addChild(
       this.title,
+      this.scoreLabel,
       this.seedLabel,
       this.tickLabel,
       this.faultLabel,
@@ -166,6 +176,9 @@ class EndScreen extends Container {
     this.title.text = titleFor(summary);
     const fault = summary === null ? null : summary.fault;
     this.faultLabel.text = fault === null ? '' : faultCaption(fault);
+    this.scoreLabel.text = summary
+      ? `SCORE ${scoreReading(summary.score)}`
+      : '';
     this.seedLabel.text = summary ? `SEED ${summary.seed}` : 'NO RUN RECORDED';
     this.tickLabel.text = summary ? `${summary.ticks} TICKS` : '';
     this.saveButton.visible = runHandoff.readTape() !== null;
@@ -180,9 +193,10 @@ class EndScreen extends Container {
   public resize(width: number, height: number) {
     const cx = width / 2;
     this.title.position.set(cx, height * 0.26);
-    this.seedLabel.position.set(cx, height * 0.42);
-    this.tickLabel.position.set(cx, height * 0.42 + 40);
-    this.faultLabel.position.set(cx, height * 0.42 + 80);
+    this.scoreLabel.position.set(cx, height * 0.42);
+    this.seedLabel.position.set(cx, height * 0.42 + 40);
+    this.tickLabel.position.set(cx, height * 0.42 + 80);
+    this.faultLabel.position.set(cx, height * 0.42 + 120);
     this.againButton.position.set(cx, height * 0.68);
     this.saveButton.position.set(cx, height * 0.82);
   }

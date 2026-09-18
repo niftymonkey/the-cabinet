@@ -34,6 +34,9 @@ async function fenceMessages(
   const [result] = await eslint.lintText(source, {
     filePath: resolve(APP, relativePath),
   });
+  if (result === undefined) {
+    throw new Error('lintText of one source string produced no result');
+  }
   return result.messages
     .filter((message) => message.ruleId === RULE)
     .map((message) => message.message);

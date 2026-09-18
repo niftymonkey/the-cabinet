@@ -1,13 +1,19 @@
 // The witness (ADR 0019): the number a run folds its own state down to.
 
+import type { Boss } from './bosses/phases';
+import type { Press } from './belch';
 import type { Corpse } from './corpses';
+import type { DirectorState } from './director';
 import type { Grave } from './grave';
-import type { BellRing } from './lines/bell';
+import type { BellToll } from './lines/bell';
 import type { WeaponLine } from './lines/roster';
 import { WEAPON_LINES } from './lines/roster';
-import type { CorpseTier } from './mobs';
+import type { CorpseTier, MobOrigin } from './mobs';
 import type { StreamName } from './rng';
 import type { LineState, RunEnding, RunState } from './run';
+import type { Impulse } from './shove';
+import type { BossKind } from './stage/waves';
+import type { SetPiece } from './stage/setPiece';
 import type { StageState } from './stage/stage';
 import type { FoodKind } from './swallow';
 
@@ -19,10 +25,13 @@ import type { FoodKind } from './swallow';
  */
 const STREAM_ORDER: readonly StreamName[] = [
   'spawns',
-  'drops',
+  'powerUps',
   'mobFire',
   'shed',
   'territory',
+  'director',
+  'bossFire',
+  'pour',
 ];
 
 /**
@@ -34,8 +43,157 @@ const STREAM_ORDER: readonly StreamName[] = [
  * that did not happen. It is stamped into a tape's header
  * and read back there, so it moves only when the order or the field list below
  * moves.
+ *
+ * **6 to 7, and these are the nine fields the move declares.** Every one is
+ * added by the same commit that stamps the version, because a version stamped
+ * before the fold stops moving names several folds
+ * (apps/hungry-grave/docs/lessons.md, The sim).
+ *
+ * - `streams.director.drawn`, `streams.bossFire.drawn` and `streams.pour.drawn`.
+ *   The director's dice come from its own named stream (ADR 0047), and #108's
+ *   two draw sites take their own names, so retuning the Banshee's ring jitter
+ *   or the Waking's pour moves no other system's draws on a fixed seed. Every
+ *   cursor a run holds is folded, so three new streams are three new fields.
+ * - `director.signal.value`, `director.signal.heldUntilTick`,
+ *   `director.purseLeft` and `director.quietUntilTick`. A replay that could not
+ *   rebuild the director would be a replay of a different run (ADR 0019).
+ * - `mobs[].from`, where a live body came from. It folds rather than being
+ *   excluded on `carries`'s precedent and not `type`'s: a divergence in type
+ *   shows through the health and motion the walk already folds, and provenance
+ *   shows through nothing at all, because an authored body and a directed one
+ *   are identical in every other folded field.
+ * - `lines.volleyIn`, the wisps' volley clock. Every field of LineState is
+ *   folded, and the clock decides whether a swallow fires at all.
+ *
+ * **What the move costs, stated rather than discovered.** Every tape recorded
+ * before this commit is refused by its version, which is ADR 0019's refusal
+ * rule doing its job. That is also what makes two draw sites legitimate to move
+ * here and nowhere else: taking the Banshee's nudge off the mobFire stream and
+ * the pour's jitter off the spawns stream changes both of those cursors for
+ * every run that reaches either moment, and the version move in this same
+ * commit refuses every tape that could have noticed before a checkpoint is ever
+ * compared.
+ *
+ * **7 to 8, and these are the seven fields the move declares.** They are the
+ * one impulse a body carries (shove.ts), and every one of them is added by the
+ * same commit that stamps the version, for the reason above. A shove is written
+ * by the rules and rebuilt by a replay, so none of them is excluded: a body
+ * three ticks into a forty-unit shove is in a state nothing else on the run
+ * shows, and a replay that folded only its position would call two different
+ * runs the same one on the tick the shove ends.
+ *
+ * - `mobs[].impulse.stepX` and `mobs[].impulse.stepY`, the travel the first
+ *   tick of the current shove owes. They are what the remaining ticks are
+ *   computed from, so a divergence in either is a divergence in every tick
+ *   still to come.
+ * - `mobs[].impulse.ticksLeft`, how much of the shove is left. It decides
+ *   whether the body walks at all this tick, which is the third ruling of the
+ *   design record, so it is a rule and not only a clock.
+ * - `mobs[].impulse.travelled`, what the body has really been carried. It is
+ *   what the one mobShoved event reports when the impulse is spent, and the
+ *   bounds can refuse part of a step, so it cannot be derived from the impulse
+ *   alone.
+ * - `mobs[].impulse.shovesLeft`, `mobs[].impulse.nextIn` and
+ *   `mobs[].impulse.spacing`, the wave structure. The bell passes one shove and
+ *   no spacing; the belch passes three, spaced by its own row (design record R3
+ *   as superseded), and
+ *   they are declared here rather than the day that caller is written, because
+ *   a field arriving later would change what every tape recorded in between
+ *   folded, which is exactly what `mobs[].from` was declared early to avoid.
+ *
+ * **What this move costs, again stated rather than discovered.** Every tape
+ * recorded before this commit is refused by its version and not one of them
+ * replays at this tip, which is the fourth time step 4 has made saved tapes a
+ * dead baseline. It is taken eyes open on the design record's ruling R1.
+ *
+ * **8 to 9, 2026-09-16, and these are the seven fields the move declares.**
+ * They are the one impulse a corpse carries (corpses.ts), and every one of them
+ * is added by the same commit that stamps the version, for the reason above.
+ *
+ * - `corpses[].impulse.stepX`, `corpses[].impulse.stepY`,
+ *   `corpses[].impulse.ticksLeft`, `corpses[].impulse.travelled`,
+ *   `corpses[].impulse.shovesLeft`, `corpses[].impulse.nextIn` and
+ *   `corpses[].impulse.spacing`. Each folds for exactly the reason its mob
+ *   twin above does, because it is the same record on a second pool: a shove
+ *   now outlives the body carrying it and is handed to the corpse the kill
+ *   leaves, so a corpse three ticks into a sixty-unit flight is in a state
+ *   nothing else on the run shows, and a replay that folded only its position
+ *   would call two different runs the same one on the tick the flight ends
+ *   (design record R10's separate-clocks lever, taken 2026-09-16).
+ *
+ * `impulse.bodyId` is not among them and is excluded on `impulse.source`'s own
+ * terms, on both pools: it is written once when the shove starts and never
+ * mutated, no rule reads it, and its one consumer is the mobShoved event a
+ * reading counts off a tape (witness.test.ts's EXCLUDED).
+ *
+ * **What this move costs, again stated rather than discovered.** Every tape
+ * recorded before this commit is refused by its version and not one of them
+ * replays at this tip, which is the fifth time this step has made saved tapes a
+ * dead baseline. It is taken eyes open, and it exceeds the design record's
+ * section 5, which permits the witness exactly one move in round two: it is the
+ * orchestrator's call under one-push mode, taken as the arithmetic of R10's own
+ * deferral rather than as a new decision.
+ *
+ * **9 to 10, 2026-09-16, and these are the eight fields the move declares.** They
+ * are the one press the run carries (belch.ts) and the throw each shove an
+ * impulse still owes travels at (shove.ts), and every one of them is added by
+ * the same commit that stamps the version, for the reason above.
+ *
+ * - `press`, which folds `ABSENT_CODE` when no press is live, exactly as the
+ *   ending, the ring, the boss and the set piece already do. Every shove of a
+ *   press after its first is fired from run state, so a replay that could not
+ *   rebuild the press would be a replay of a different run (ADR 0019), and a
+ *   run with no press live folding nothing at all would read as a run whose
+ *   press folded to zero.
+ * - `press.beganAt`, the tick the press landed on. It is what joins a press's
+ *   later shoves to it, and two presses one spacing apart differ in nothing
+ *   else at the tick the second lands.
+ * - `press.shovesLeft` and `press.nextIn`, the press's own wave clock. They
+ *   decide whether a shove goes out this tick and how much of the press is
+ *   left, so they are rules and not only clocks.
+ * - `press.caught`, every body the press has already thrown, by id. It is what
+ *   the skip reads, so a divergence in it is a divergence in who the next shove
+ *   throws. It folds through the struck set's own shape, its size before its
+ *   members, and its iteration order is the frame's own order, which is the
+ *   target seam's fixed order (stormTargets.ts).
+ * - `mobs[].impulse.owedStepX`, `owedStepY` and their `corpses[]` twins, the
+ *   travel each shove an impulse still owes will start at. They part from
+ *   `stepX` and `stepY` the moment a second push takes the flight over, which
+ *   is exactly the case a replay could not otherwise rebuild: a body owed two
+ *   belch waves that a toll reaches keeps the belch's throw and the belch's
+ *   direction for both of them.
+ *
+ * `impulse.source` and `impulse.bodyId` stay excluded on their own terms, on
+ * both pools. The skip above reads the press's own caught record and no
+ * provenance at all, which is what keeps them out (witness.test.ts's EXCLUDED).
+ *
+ * **What this move costs, again stated rather than discovered.** Every tape
+ * recorded before this commit is refused by its version and not one of them
+ * replays at this tip, which is the sixth time this step has made saved tapes a
+ * dead baseline. It is taken eyes open: the press is run state by construction
+ * once every shove of it re-reads the field, so the move is not a choice any
+ * shape could have avoided.
+ *
+ * **10 to 11, 2026-09-16, and this is the one field the move declares.** It is
+ * the floor ladder's memory of the score rung it has already spent (grave.ts),
+ * and it is added by the same commit that stamps the version, for the reason
+ * above.
+ *
+ * - `grave.scoreRungBled`. Any ladder run spends the score rung and only a full
+ *   hit's worth of growth off the floor gives it back (design record R4), so
+ *   two runs at the same size, score and levels differ in what the next floor
+ *   hit costs and in nothing else. A replay that could not rebuild it would
+ *   bleed where the recorded run stripped (ADR 0019). It appends after
+ *   `invulnerable` rather than sitting beside the size it is not, because a
+ *   widening appends and never reshuffles what is already in place.
+ *
+ * **What this move costs, again stated rather than discovered.** Every tape
+ * recorded before this commit is refused by its version and not one of them
+ * replays at this tip. It is taken eyes open: the memory is folded state by
+ * construction, because it is a rule the next hit reads and the run carries it
+ * across ticks.
  */
-const WITNESS_VERSION = 4;
+const WITNESS_VERSION = 11;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -83,8 +241,9 @@ const CORPSE_TIER_CODES: Readonly<Record<CorpseTier, number>> = {
 
 const FOOD_KIND_CODES: Readonly<Record<FoodKind, number>> = {
   corpse: 1,
-  drop: 2,
+  powerUp: 2,
   feast: 3,
+  fallenRung: 4,
 };
 
 /**
@@ -94,10 +253,31 @@ const FOOD_KIND_CODES: Readonly<Record<FoodKind, number>> = {
  * by name rather than by position exists to prevent.
  */
 const WEAPON_LINE_CODES: Readonly<Record<WeaponLine, number>> = {
-  soulStream: 1,
+  skullStream: 1,
   wisps: 3,
   bell: 4,
   territory: 5,
+};
+
+// Which boss stands on the field, on the same append-only terms as every other
+// union here: read by name, never by a member's position.
+const BOSS_KIND_CODES: Readonly<Record<BossKind, number>> = {
+  banshee: 1,
+  undertaker: 2,
+};
+
+/**
+ * What put a live body on the field, on the same append-only terms. `directed`
+ * has no producer until the director spends, and it takes its code here rather
+ * than the day it does, because a code arriving later would change what every
+ * tape recorded in between folded.
+ */
+const MOB_ORIGIN_CODES: Readonly<Record<MobOrigin, number>> = {
+  wave: 1,
+  standingWave: 2,
+  setPiece: 3,
+  boss: 4,
+  directed: 5,
 };
 
 // A boolean's encoding, spelled out so it is visible at the call site.
@@ -109,7 +289,29 @@ const foldGrave = (checksum: number, grave: Grave): number => {
   let next = fold(checksum, grave.x);
   next = fold(next, grave.y);
   next = fold(next, grave.size);
-  return fold(next, grave.invulnerable);
+  next = fold(next, grave.invulnerable);
+  return fold(next, boolCode(grave.scoreRungBled));
+};
+
+/**
+ * The shove one carrier is carrying (shove.ts). It appends after the carrier's
+ * own fields rather than sitting beside the velocity it is not, because a
+ * widening appends and never reshuffles what is already in place, and because
+ * the shove is a second motion rather than a change to the first.
+ *
+ * One function over both pools rather than two, because it is one record: a
+ * shove handed from a body to the corpse it left is the same seven numbers, and
+ * two copies is where the two folds drift apart.
+ */
+const foldImpulse = (checksum: number, impulse: Impulse): number => {
+  let next = fold(fold(checksum, impulse.stepX), impulse.stepY);
+  next = fold(fold(next, impulse.ticksLeft), impulse.travelled);
+  next = fold(fold(next, impulse.shovesLeft), impulse.nextIn);
+  // The owed pair appends after the spacing rather than sitting beside the step
+  // it is the other half of, because a widening appends and never reshuffles
+  // what is already in place.
+  next = fold(next, impulse.spacing);
+  return fold(fold(next, impulse.owedStepX), impulse.owedStepY);
 };
 
 const foldMobs = (checksum: number, run: RunState): number => {
@@ -118,7 +320,9 @@ const foldMobs = (checksum: number, run: RunState): number => {
     if (!mob.alive) continue;
     next = fold(fold(fold(fold(next, mob.x), mob.y), mob.vx), mob.vy);
     next = fold(fold(fold(next, mob.hp), mob.beat), mob.fireIn);
-    next = fold(next, boolCode(mob.armed));
+    next = fold(fold(next, boolCode(mob.armed)), boolCode(mob.carries));
+    next = fold(next, MOB_ORIGIN_CODES[mob.from]);
+    next = foldImpulse(next, mob.impulse);
   }
   return next;
 };
@@ -147,6 +351,7 @@ const foldCorpses = (checksum: number, run: RunState): number => {
     next = fold(next, CORPSE_TIER_CODES[corpse.tier]);
     next = fold(next, FOOD_KIND_CODES[corpse.kind]);
     next = fold(next, corpseLineCode(corpse));
+    next = foldImpulse(next, corpse.impulse);
   }
   return next;
 };
@@ -238,11 +443,10 @@ const foldEntities = (checksum: number, run: RunState): number => {
   return foldPatches(next, run);
 };
 
-// The economy and the run's own totals, ADR 0002's drop pricing included.
+// The economy and the run's own totals.
 const foldTotals = (checksum: number, run: RunState): number => {
   let next = fold(fold(checksum, run.score), run.reservoir);
   next = fold(next, endingCode(run.ending));
-  next = fold(fold(next, run.killsSinceDrop), run.dropsPaid);
   return fold(next, run.nextEntityId);
 };
 
@@ -265,15 +469,15 @@ const foldStreams = (checksum: number, run: RunState): number => {
 };
 
 const foldStage = (checksum: number, stage: StageState): number => {
-  const next = fold(fold(checksum, stage.phaseIndex), stage.phaseTick);
-  return fold(next, stage.firedRows);
+  const next = fold(fold(checksum, stage.sectionIndex), stage.sectionTick);
+  return fold(next, stage.firedWaves);
 };
 
 /**
  * An absent ring folds its own sentinel rather than being skipped. Skipping it
  * would make a run with no ring and a run whose ring folds to zero one witness.
  */
-const foldRing = (checksum: number, ring: BellRing | null): number => {
+const foldRing = (checksum: number, ring: BellToll | null): number => {
   if (ring === null) return fold(checksum, ABSENT_CODE);
   const next = fold(fold(checksum, 1), ring.level);
   return foldStruck(fold(next, ring.ticks), ring.struck);
@@ -283,7 +487,94 @@ const foldLines = (checksum: number, lines: LineState): number => {
   const next = fold(fold(checksum, lines.streamIn), lines.surgeVolleys);
   // layIn appends after the ring rather than sitting beside the other clocks,
   // because a widening appends and never reshuffles what is already in place.
-  return fold(foldRing(fold(next, lines.tollIn), lines.ring), lines.layIn);
+  // volleyIn appends after layIn on the same rule.
+  const withLay = fold(
+    foldRing(fold(next, lines.tollIn), lines.ring),
+    lines.layIn,
+  );
+  return fold(withLay, lines.volleyIn);
+};
+
+/**
+ * The director's own state (ADR 0047). Its three fields fold in the order they
+ * are declared in, the signal's two numbers first, because the order is part of
+ * the value exactly as it is everywhere else in here.
+ */
+const foldDirector = (checksum: number, director: DirectorState): number => {
+  const signal = director.signal;
+  const next = fold(fold(checksum, signal.value), signal.heldUntilTick);
+  return fold(fold(next, director.purseLeft), director.quietUntilTick);
+};
+
+/**
+ * The offer standing on the field and the bank behind it (ADR 0034).
+ *
+ * An absent offer folds its own sentinel rather than being skipped, exactly as
+ * an absent ring does. The option count folds before the options, so an offer
+ * that shrank as lines maxed cannot fold the same as a longer one whose extra
+ * option happens to fold to the same word, and the body ids fold beside them
+ * because which body carries which option is the whole of the choice.
+ */
+const foldOffer = (checksum: number, run: RunState): number => {
+  const offer = run.offer;
+  if (offer === null) {
+    return fold(fold(checksum, ABSENT_CODE), run.bankedOffers);
+  }
+  let next = fold(fold(checksum, 1), offer.options.length);
+  for (const line of offer.options) next = fold(next, WEAPON_LINE_CODES[line]);
+  for (const id of offer.bodyIds) next = fold(next, id);
+  return fold(next, run.bankedOffers);
+};
+
+/**
+ * The one boss on the field (ADR 0007).
+ *
+ * An absent boss folds its own sentinel rather than being skipped, exactly as
+ * an absent ring does. Which boss stands folds beside its state rather than
+ * being left to the state to imply, because the two bosses are one record's
+ * worth of numbers apart and which one the fight is against is the whole of it.
+ *
+ * The phase and the flash fold beside the health because they are what the
+ * health means: the same hp under a different phase is a different fight, and a
+ * live flash is a tick on which the storm does nothing.
+ */
+const foldBoss = (checksum: number, boss: Boss | null): number => {
+  if (boss === null) return fold(checksum, ABSENT_CODE);
+  let next = fold(fold(checksum, 1), BOSS_KIND_CODES[boss.kind]);
+  next = fold(fold(fold(next, boss.phaseIndex), boss.hp), boss.flash);
+  return fold(fold(fold(next, boss.x), boss.y), boss.patternTick);
+};
+
+/**
+ * The one set piece on the field (ADR 0042), on the same terms as the boss: an
+ * absent one folds its own sentinel, and what is folded is what the rules
+ * mutate, the source's place, whether it has opened, what it has left to pour,
+ * its own clock and its health.
+ */
+const foldSetPiece = (checksum: number, piece: SetPiece | null): number => {
+  if (piece === null) return fold(checksum, ABSENT_CODE);
+  let next = fold(fold(fold(checksum, 1), piece.x), piece.y);
+  next = fold(next, boolCode(piece.open));
+  return fold(fold(fold(next, piece.budget), piece.pourIn), piece.hp);
+};
+
+/**
+ * The one press the belch is carrying (ADR 0008), on the same terms as the boss
+ * and the set piece: an absent one folds its own sentinel rather than being
+ * skipped, so a run between presses and a run whose press folds to zero are two
+ * witnesses.
+ *
+ * What is folded is what the rules mutate: the tick it landed on, its own wave
+ * clock, and every body it has already thrown. The caught ids fold through the
+ * struck set's own shape, the size before the members, and the iteration order
+ * is the order the frame was walked in, which is the target seam's own fixed
+ * order (stormTargets.ts).
+ */
+const foldPress = (checksum: number, press: Press | null): number => {
+  if (press === null) return fold(checksum, ABSENT_CODE);
+  let next = fold(fold(checksum, 1), press.beganAt);
+  next = fold(fold(next, press.shovesLeft), press.nextIn);
+  return foldStruck(next, press.caught);
 };
 
 /**
@@ -309,7 +600,9 @@ const foldWitness = (run: RunState, from: number): number => {
   checksum = foldLevels(checksum, run);
   checksum = foldStreams(checksum, run);
   checksum = foldStage(checksum, run.stage);
-  return foldLines(checksum, run.lines);
+  checksum = foldOffer(foldLines(checksum, run.lines), run);
+  checksum = foldSetPiece(foldBoss(checksum, run.boss), run.setPiece);
+  return foldPress(foldDirector(checksum, run.director), run.press);
 };
 
 export {
@@ -319,7 +612,9 @@ export {
   ABSENT_CODE,
   NO_TARGET_ID,
   RUN_ENDING_CODES,
+  BOSS_KIND_CODES,
   CORPSE_TIER_CODES,
   FOOD_KIND_CODES,
+  MOB_ORIGIN_CODES,
   WEAPON_LINE_CODES,
 };

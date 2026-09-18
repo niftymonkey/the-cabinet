@@ -1,8 +1,11 @@
 // What the URL asks of a run. Pure functions over two strings, so they are
 // testable without a browser.
 
+import { CANDIDATES, isCandidateName } from '../dev/tuningCandidates';
+import { SIGNAL_FULL } from '../game/signalLock';
 import { MAX_LEVEL } from '../game/lines/roster';
 import { SEED_LIMIT } from '../game/run';
+import type { TuningRecord } from '../game/tuningRecord';
 
 // The query the hash carries, which is everything after its first question mark.
 const hashQuery = (hash: string): string => {
@@ -106,6 +109,40 @@ const levelsFromUrl = (search: string, hash: string): number | null => {
   return value;
 };
 
+// The same, for the signal pin, where falling back means the signal runs live.
+const ignoreSignal = (raw: string): null => {
+  console.warn(`Ignoring ?signal=${raw}: the signal runs live instead.`);
+  return null;
+};
+
+/**
+ * The figure the run holds its pressure signal at, or null when the URL names
+ * none (CONTEXT.md Signal lock).
+ *
+ * It answers null rather than SIGNAL_RAN_LIVE, because resolving the absence to
+ * a value is the run's job and never the parser's: levelsFromUrl keeps exactly
+ * that split, and createRun is where the resolved value the header records
+ * comes from (ADR 0027).
+ *
+ * Fractional values are allowed, because the signal's scale is fractional. What
+ * is refused is a figure outside that scale: advancePressure clamps every value
+ * it writes between zero and SIGNAL_FULL, so a lock outside those bounds would
+ * hold the gate at a reading the signal can never stand at, which is an
+ * experiment about nothing.
+ *
+ * It is a tuning control and never a player-facing feature, on the same terms
+ * as ?levels= (ADR 0022): the default holds the signal live, so an ordinary run
+ * plays exactly as it played without it.
+ */
+const signalLockFromUrl = (search: string, hash: string): number | null => {
+  const raw = rawParameter('signal', search, hash);
+  if (raw === null) return null;
+  const value = parsed(raw);
+  if (value === null) return ignoreSignal(raw);
+  if (value < 0 || value > SIGNAL_FULL) return ignoreSignal(raw);
+  return value;
+};
+
 /**
  * The tape URL a replay fetches, or null when the URL names none (#58).
  *
@@ -145,4 +182,44 @@ const atFromUrl = (search: string, hash: string): number | null => {
   return value;
 };
 
-export { seedFromUrl, sizeFromUrl, levelsFromUrl, tapeFromUrl, atFromUrl };
+// The same, for the candidate pin, where falling back means the build's own record.
+const ignoreTuning = (raw: string): null => {
+  console.warn(
+    `Ignoring ?tuning=${raw}: the run plays the build's own tuning instead.`,
+  );
+  return null;
+};
+
+/**
+ * The tuning record the named candidate states, or null when the URL names none
+ * (CONTEXT.md Candidate, ADR 0064).
+ *
+ * A name and never a list of rows, so the build a person plays and the batch a
+ * finding came from name the same tuning. The name is checked here and exactly
+ * here, which is the one place a person's typed word becomes a record the sim
+ * can hold: nothing inside the run ever sees a candidate name at all.
+ *
+ * It answers null rather than the default record, because resolving the absence
+ * to a value is the run's job and never the parser's (ADR 0027), which is the
+ * split levelsFromUrl and signalLockFromUrl already keep.
+ *
+ * It is a tuning control and never a player-facing feature, on the same terms as
+ * ?levels= and ?signal= (ADR 0022): the default plays the record the build
+ * compiles, so an ordinary run plays exactly as it played without it.
+ */
+const tuningFromUrl = (search: string, hash: string): TuningRecord | null => {
+  const raw = rawParameter('tuning', search, hash);
+  if (raw === null) return null;
+  if (!isCandidateName(raw)) return ignoreTuning(raw);
+  return CANDIDATES[raw].record;
+};
+
+export {
+  seedFromUrl,
+  sizeFromUrl,
+  levelsFromUrl,
+  signalLockFromUrl,
+  tapeFromUrl,
+  atFromUrl,
+  tuningFromUrl,
+};

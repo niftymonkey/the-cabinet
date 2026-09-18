@@ -18,17 +18,26 @@ import {
 import { decodeTape } from '../../tape/decode';
 import type { TapeRecorder } from '../../tape/recorder';
 import type { FrameObservation, TapeHeader } from '../../tape/tape';
+import { PERSON_POLICY } from '../../tape/tape';
 import { TAPE_MAGIC } from '../../tape/wireCodes';
 import { recordRunToStore } from '../storeRecording';
 import type { TapePart, TapeStore } from '../tapeStore';
+import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
+import { DEFAULT_TUNING } from '../../game/tuningRecord';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const SPACING = 4;
 
 const HEADER: TapeHeader = {
   seed: 41,
-  startingSize: 24,
-  recordedRoster: [...WEAPON_LINES],
-  startingLevels: { soulStream: 0, territory: 0, wisps: 0, bell: 0 },
+  startingCondition: startingConditionBlock({
+    startingSize: 24,
+    startingLevels: { skullStream: 0, territory: 0, wisps: 0, bell: 0 },
+    roster: [...WEAPON_LINES],
+    signalLock: SIGNAL_RAN_LIVE,
+    startingScore: 0,
+    tuning: DEFAULT_TUNING,
+  }),
   tickRate: 60,
   checkpointSpacing: SPACING,
   witnessVersion: 1,
@@ -36,6 +45,7 @@ const HEADER: TapeHeader = {
   buildIdentity: '',
   author: 'unknown',
   inputDevice: 'touch',
+  policy: PERSON_POLICY,
   keyboardSpeed: 1,
   rendererBackend: 'webgl',
   rendererResolution: 2,
@@ -115,7 +125,9 @@ function kindsOf(appends: readonly AppendCall[]): string[] {
   ]);
   return appends.map(({ part }) => {
     if (part.kind !== 'chunk') return part.kind;
-    return names.get(part.bytes[0]) ?? `chunk ${part.bytes[0]}`;
+    const kindByte = part.bytes[0];
+    if (kindByte === undefined) throw new Error('chunk part has no kind byte');
+    return names.get(kindByte) ?? `chunk ${kindByte}`;
   });
 }
 
@@ -145,8 +157,10 @@ describe('the store recording', () => {
     await settle();
 
     expect(appends).toHaveLength(1);
-    expect(appends[0].runId).toBe('run-1');
-    const part = appends[0].part;
+    const first = appends[0];
+    if (first === undefined) throw new Error('no append recorded');
+    expect(first.runId).toBe('run-1');
+    const part = first.part;
     expect(part.kind).toBe('header');
     expect(String.fromCharCode(...part.bytes.subarray(0, 4))).toBe(TAPE_MAGIC);
     if (part.kind !== 'header') return;
@@ -274,7 +288,9 @@ describe('the store recording', () => {
       'observations',
       'trailer',
     ]);
-    const last = appends[appends.length - 1].part;
+    const lastAppend = appends[appends.length - 1];
+    if (lastAppend === undefined) throw new Error('no append recorded');
+    const last = lastAppend.part;
     expect(last.kind).toBe('trailer');
     if (last.kind !== 'trailer') return;
     expect(last.summary.stop).toBe('finished');

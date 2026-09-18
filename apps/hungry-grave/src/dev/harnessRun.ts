@@ -1,0 +1,190 @@
+// One harness run, played under one configuration from one rig and one tuning
+// candidate's record, and sealed to bytes (ADR 0017, ADR 0053).
+
+import { TICK_HZ } from '../game/clock';
+import { createExecution } from '../game/execution';
+import { FIELD_HEIGHT } from '../game/field';
+import {
+  GHOUL_DESCENT_FLOOR,
+  MOB_TYPES,
+  MOB_TYPE_NAMES,
+  SPAWN_MARGIN,
+} from '../game/mobs';
+import type { RunEnding, RunState } from '../game/run';
+import { createRun } from '../game/run';
+import { SECTIONS } from '../game/stage/stage';
+import { SCROLL_SPEED } from '../game/tuning';
+import type { TuningRecord } from '../game/tuningRecord';
+import { WITNESS_VERSION } from '../game/witness';
+import { RUNNING_BUILD } from '../tape/buildIdentity';
+import { startingConditionBlock } from '../tape/startingCondition';
+import { encodeTape } from '../tape/encode';
+import {
+  RECORDER_CHECKPOINT_SPACING,
+  recordInto,
+  sealTrailer,
+  tapeOf,
+} from '../tape/recorder';
+import type { TapeHeader } from '../tape/tape';
+import { runPolicy } from './bot';
+import type { Configuration, ConfigurationName } from './configurations';
+import { harnessPolicy } from './harnessPolicy';
+import type { Rig, RigName } from './rigs';
+
+/**
+ * How much longer than the authored waves a run may play, because a section
+ * boundary is a fight and a fight is not authored: it is the boss's health
+ * against whatever the hand puts on it.
+ *
+ * An initial data row that step 4's tuning pass (#39) moves. It is a budget
+ * above the worst case and never a prediction of any run, on the reasoning
+ * bot.test.ts already writes out beside its own maxed budget: a maxed dodger
+ * crosses the whole stage in 22000 to 48000 ticks where the waves alone bound
+ * 27000, and the spread is the fight.
+ */
+const RUN_TICK_SLACK = 3;
+
+/**
+ * The longest a body can take to leave the field, in ticks: the whole distance
+ * one can cross at the slowest total descent any type holds, which is the
+ * scroll plus its own speed.
+ */
+const SLOWEST_DESCENT_TICKS =
+  (FIELD_HEIGHT +
+    SPAWN_MARGIN +
+    Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
+  (SCROLL_SPEED +
+    Math.min(
+      MOB_TYPES.shambler.speed,
+      MOB_TYPES.revenant.speed,
+      GHOUL_DESCENT_FLOOR,
+    ));
+
+/** How long one section can hold a run: its own waves, then whatever they left falling. */
+const sectionBudget = (section: (typeof SECTIONS)[number]): number => {
+  const lastWave = section.waves[section.waves.length - 1];
+  return (
+    (lastWave === undefined ? 0 : lastWave.t) * TICK_HZ + SLOWEST_DESCENT_TICKS
+  );
+};
+
+/**
+ * How long one harness run may play, derived from the stage's own waves rather
+ * than written down, so re-authoring a section moves it.
+ *
+ * It is a budget and never a length. A section ends on its own condition
+ * (ADR 0051), so a hand that clears the stragglers meets the boss sooner and
+ * no two runs are the same length; what can be written down is the ceiling.
+ */
+const runTickBudget = (): number =>
+  Math.ceil(SECTIONS.reduce((total, each) => total + sectionBudget(each), 0)) *
+  RUN_TICK_SLACK;
+
+// One harness run, played and sealed, as the bytes a tape file holds.
+interface HarnessRun {
+  readonly seed: number;
+  readonly configuration: ConfigurationName;
+  readonly rig: RigName;
+  readonly bytes: Uint8Array;
+  readonly ticks: number;
+  readonly ending: RunEnding | null;
+}
+
+/**
+ * The header: the rig's own start, the hand that steered, and the two facts
+ * only the shell can answer.
+ *
+ * It is the second copy of a headless header literal in the tree beside
+ * record-conditioned.ts's, which the rule of three allows; a third copy is the
+ * trigger to extract one.
+ *
+ * The commit hash and the recorded-at stamp are arguments because asking git
+ * and asking the clock are the shell's jobs, and src/dev may import no package.
+ * The build identity is neither: the build shell stamped it into this bundle
+ * before the first line ran, so it is read rather than asked for (#82).
+ * A Date.now() here would also make one seed's bytes differ on every call,
+ * which is a determinism the harness rests on rather than a convenience.
+ */
+const harnessHeader = (
+  run: RunState,
+  configuration: Configuration,
+  commitHash: string,
+  recordedAt: number,
+): TapeHeader => {
+  return {
+    seed: run.seed,
+    // The run's own resolved record, whole, rather than the same facts
+    // reassembled from live state (ADR 0063).
+    startingCondition: startingConditionBlock(run.conditions),
+    tickRate: TICK_HZ,
+    checkpointSpacing: RECORDER_CHECKPOINT_SPACING,
+    witnessVersion: WITNESS_VERSION,
+    commitHash,
+    buildIdentity: RUNNING_BUILD,
+    author: 'unknown',
+    inputDevice: 'bot',
+    policy: configuration.name,
+    keyboardSpeed: 1,
+    rendererBackend: 'headless',
+    rendererResolution: 0,
+    devicePixelRatio: 0,
+    recordedAt,
+  };
+};
+
+/**
+ * Plays one seed under one configuration, from one rig and under one tuning
+ * record, through the one execution authority and seals it (ADR 0017),
+ * returning the bytes a tape file holds and never writing them: the filesystem
+ * is the shell's.
+ *
+ * The rig is an argument and never a default, so every figure the harness
+ * produces names the starting condition behind it (#107). It moves what a run
+ * begins holding and nothing about how it is played: the hand's policy is the
+ * configuration's, whichever rig it starts from.
+ *
+ * The record is the second argument for the same reason, and it is the record
+ * rather than the candidate that names it: a candidate is a starting condition
+ * on exactly the terms a rig is (ADR 0064), and what this needs of one is the
+ * rows a run plays under. The two compose here rather than at each caller, so
+ * a rig row states the build's own record and a run under a candidate is that
+ * row played under the candidate's, which is what keeps `rigOf` banding such a
+ * run by its rig.
+ */
+const playHarnessRun = (
+  configuration: Configuration,
+  rig: Rig,
+  tuning: TuningRecord,
+  seed: number,
+  commitHash: string,
+  recordedAt: number,
+): HarnessRun => {
+  // The row's condition whole, because a rig applied without one of its fields
+  // is a rig half applied and the figure it produces names a condition it did
+  // not play (ADR 0063).
+  const run = createRun(seed, { ...rig.conditions, tuning });
+  const execution = createExecution(run);
+  const recorder = recordInto(
+    execution,
+    harnessHeader(run, configuration, commitHash, recordedAt),
+  );
+  // The hand's own stream is made off the run's seed, so one seed under one
+  // configuration is one run and the hand's dice stay outside RunState.
+  const { ticks } = runPolicy(
+    execution,
+    harnessPolicy(configuration, run.seed),
+    runTickBudget(),
+  );
+  sealTrailer(recorder, execution, 0);
+  return {
+    seed,
+    configuration: configuration.name,
+    rig: rig.name,
+    bytes: encodeTape(tapeOf(recorder)),
+    ticks,
+    ending: run.ending,
+  };
+};
+
+export { playHarnessRun, runTickBudget, RUN_TICK_SLACK };
+export type { HarnessRun };

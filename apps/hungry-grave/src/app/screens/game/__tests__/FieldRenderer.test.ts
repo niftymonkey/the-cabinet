@@ -6,14 +6,15 @@
 import type { Bounds, Graphics } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import { CORPSE_CAP, MOB_CAP, MOB_FIRE_CAP } from '../../../../game/caps';
+import { capsFor } from '../../../../game/caps';
 import { TICK_HZ } from '../../../../game/clock';
 import { FIELD_HEIGHT } from '../../../../game/field';
 import {
   CORPSE_HALF_EXTENT,
-  DROP_HALF_EXTENT,
+  POWER_UP_HALF_EXTENT,
   spawnCorpse,
-  spawnDrop,
+  spawnPowerUp,
+  spawnFallenRung,
 } from '../../../../game/corpses';
 import type { WeaponLine } from '../../../../game/lines/roster';
 import { WEAPON_LINES } from '../../../../game/lines/roster';
@@ -27,10 +28,11 @@ import {
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { INVULNERABLE_TICKS } from '../../../../game/tuning';
-import { PALETTE } from '../../../palette';
+import { DEFAULT_TUNING } from '../../../../game/tuningRecord';
+import { MOB_FIRE, PALETTE } from '../../../palette';
 import { FieldRenderer } from '../FieldRenderer';
 import {
-  DROP_DRAW_HALF_EXTENT,
+  POWER_UP_DRAW_HALF_EXTENT,
   freshnessBrightness,
   SPRITE_STROKE,
 } from '../foodSprite';
@@ -38,24 +40,55 @@ import { FieldLayers } from '../layering';
 import { SHOT_CORE_OF_HITBOX, SHOT_DRAW_SCALE } from '../mobFireSprite';
 import { tellRadius } from '../mobSprite';
 
+/** The caps every run at this tip derives, which is the default record's. */
+const DEFAULT_CAPS = capsFor(DEFAULT_TUNING);
+const MOB_CAP = DEFAULT_CAPS.mobs;
+const MOB_FIRE_CAP = DEFAULT_CAPS.mobFire;
+const CORPSE_CAP = DEFAULT_CAPS.corpses;
+
 function attached(): { layers: FieldLayers; renderer: FieldRenderer } {
   const layers = new FieldLayers();
   const renderer = new FieldRenderer();
-  renderer.attach(layers);
+  renderer.attach(layers, DEFAULT_CAPS);
   return { layers, renderer };
 }
 
 function put(state: RunState, type: MobType, x: number, y: number) {
-  return spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  return spawnMob(
+    state,
+    type,
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
 }
 
 function sprites(layers: FieldLayers, name: 'corpses' | 'mobBodies') {
   return layers.layer(name).children as Graphics[];
 }
 
+/** The sprite at this slot in a pool layer, or a bug: the sprite pool is sized to the entity pool. */
+function spriteAt(
+  layers: FieldLayers,
+  name: 'corpses' | 'mobBodies',
+  slot: number,
+): Graphics {
+  const sprite = sprites(layers, name)[slot];
+  if (sprite === undefined)
+    throw new Error(`no ${name} sprite at slot ${slot}`);
+  return sprite;
+}
+
+/** The mob-fire pool's slot 0, which every test in this file fires from. */
+function shotSlotZero(state: RunState) {
+  const shot = state.mobFire[0];
+  if (shot === undefined) throw new Error('no mob-fire pool slot 0');
+  return shot;
+}
+
 /** Puts one live shot in the first slot of the mob-fire pool. */
 function putShot(state: RunState, x: number, y: number) {
-  const shot = state.mobFire[0];
+  const shot = shotSlotZero(state);
   shot.alive = true;
   shot.id = 1;
   shot.emitter = 'shambler';
@@ -65,6 +98,14 @@ function putShot(state: RunState, x: number, y: number) {
   shot.vy = 1;
   shot.halfExtent = 5;
   return shot;
+}
+
+/** The colours a sprite fills its shapes with, in the order it filled them. */
+function fillColours(sprite: Graphics): number[] {
+  return sprite.context.instructions
+    .filter((instruction) => instruction.action === 'fill')
+    .map((instruction) => instruction.data.style)
+    .map((style) => (typeof style === 'number' ? style : style.color));
 }
 
 /** attach() adds the scatters after the shot pool, so they are the tail of the layer. */
@@ -94,11 +135,25 @@ describe('FieldRenderer', () => {
       MOB_FIRE_CAP,
     );
     expect(layers.layer('hitDim').children).toHaveLength(1);
-    // A sprite per corpse slot in the treasure layer too: drops ride the corpse
+    // A sprite per corpse slot in the treasure layer too: power-ups ride the corpse
     // pool and ADR 0014's stack puts treasure two layers above corpses, so one
     // slot needs a sprite in each and which one shows is decided by its kind.
     expect(layers.layer('treasure').children).toHaveLength(CORPSE_CAP);
     expect(layers.layer('storm').children).toHaveLength(0);
+  });
+
+  it('keeps both food layers as long as the entity pool, after the cap moved (ADR 0056)', () => {
+    // The corpse cap is derived from the stage now and no longer a flat 200, so
+    // the pool it sizes moved. It sizes two sprite layers as well as the entity
+    // pool, because a power-up rides the corpse pool and ADR 0014's stack puts
+    // treasure two layers above corpses. The three are read against each other
+    // rather than against the constant: a sprite pool that disagreed with the
+    // entity pool is a bug this renderer has already shipped once.
+    const { layers } = attached();
+    const run = createRun(1);
+    expect(run.corpses).toHaveLength(CORPSE_CAP);
+    expect(layers.layer('corpses').children).toHaveLength(run.corpses.length);
+    expect(layers.layer('treasure').children).toHaveLength(run.corpses.length);
   });
 
   it('shows a sprite only while its slot is alive', () => {
@@ -112,12 +167,12 @@ describe('FieldRenderer', () => {
     const mob = put(state, 'shambler', 100, 100);
     renderer.sync(state);
     const slot = state.mobs.indexOf(mob);
-    expect(sprites(layers, 'mobBodies')[slot].visible).toBe(true);
-    expect(sprites(layers, 'mobBodies')[slot].position.x).toBe(100);
+    expect(spriteAt(layers, 'mobBodies', slot).visible).toBe(true);
+    expect(spriteAt(layers, 'mobBodies', slot).position.x).toBe(100);
 
     mob.alive = false;
     renderer.sync(state);
-    expect(sprites(layers, 'mobBodies')[slot].visible).toBe(false);
+    expect(spriteAt(layers, 'mobBodies', slot).visible).toBe(false);
   });
 
   it('pools its sprites the way the entities are pooled: a spawn after a death reuses one', () => {
@@ -128,7 +183,7 @@ describe('FieldRenderer', () => {
     const first = put(state, 'shambler', 100, 100);
     renderer.sync(state);
     const slot = state.mobs.indexOf(first);
-    const sprite = sprites(layers, 'mobBodies')[slot];
+    const sprite = spriteAt(layers, 'mobBodies', slot);
 
     first.alive = false;
     const second = put(state, 'revenant', 300, 200);
@@ -136,7 +191,7 @@ describe('FieldRenderer', () => {
     renderer.sync(state);
 
     expect(sprites(layers, 'mobBodies')).toHaveLength(MOB_CAP);
-    expect(sprites(layers, 'mobBodies')[slot]).toBe(sprite);
+    expect(spriteAt(layers, 'mobBodies', slot)).toBe(sprite);
     expect(sprite.position.x).toBe(300);
   });
 
@@ -153,7 +208,7 @@ describe('FieldRenderer', () => {
     const slot = state.corpses.indexOf(corpse);
 
     renderer.sync(state);
-    const sprite = sprites(layers, 'corpses')[slot];
+    const sprite = spriteAt(layers, 'corpses', slot);
     expect(sprite.alpha).toBe(1);
     const fresh = sprite.tint;
 
@@ -171,45 +226,67 @@ describe('FieldRenderer', () => {
   });
 
   it('tells an armed mob from an unarmed one, and a lit tell from an unlit one', () => {
-    // ADR 0016 puts this ahead of everything else about the mob pool: a
-    // shambler that will never shoot and one that will must not be the same
-    // drawing, and a revenant's tell has to precede its shot.
+    // ADR 0016 puts this ahead of everything else about the mob pool: a body
+    // that will never shoot and one that will must not be the same drawing,
+    // and a revenant's tell has to precede its shot.
+    //
+    // Both bodies are revenants with the flag set by hand, because under the
+    // mow no one type produces both reads: the mow body is always silent and
+    // the revenant is always armed (ADR 0059). What the renderer promises is
+    // to draw the flag it is handed, so the flag is what a test fakes.
     const { layers, renderer } = attached();
     const state = createRun(1);
-    const plain = spawnMob(state, 'shambler', {
-      x: 60,
-      y: MOB_TYPES.shambler.halfHeight,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
-    const armed = spawnMob(state, 'shambler', {
-      x: 120,
-      y: MOB_TYPES.shambler.halfHeight,
-      vx: 0,
-      vy: 1,
-      index: 2,
-    })!;
+    const plain = spawnMob(
+      state,
+      'revenant',
+      {
+        x: 60,
+        y: MOB_TYPES.revenant.halfHeight,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      },
+      false,
+      'wave',
+    )!;
+    plain.armed = false;
+    const armed = spawnMob(
+      state,
+      'revenant',
+      {
+        x: 120,
+        y: MOB_TYPES.revenant.halfHeight,
+        vx: 0,
+        vy: 1,
+        index: 2,
+      },
+      false,
+      'wave',
+    )!;
     expect(plain.armed).toBe(false);
     expect(armed.armed).toBe(true);
     renderer.sync(state);
 
     // What was drawn, as the list of drawing actions pixi recorded.
     const drawn = (mob: typeof plain) =>
-      sprites(layers, 'mobBodies')
-        [state.mobs.indexOf(mob)].context.instructions.map(
-          (each) => each.action,
-        )
+      spriteAt(layers, 'mobBodies', state.mobs.indexOf(mob))
+        .context.instructions.map((each) => each.action)
         .join(',');
     expect(drawn(plain)).not.toBe(drawn(armed));
 
-    const revenant = spawnMob(state, 'revenant', {
-      x: 200,
-      y: MOB_TYPES.revenant.halfHeight,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
+    const revenant = spawnMob(
+      state,
+      'revenant',
+      {
+        x: 200,
+        y: MOB_TYPES.revenant.halfHeight,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      },
+      false,
+      'wave',
+    )!;
     revenant.fireIn = ARRIVE_TICKS + 1;
     renderer.sync(state);
     const unlit = drawn(revenant);
@@ -257,7 +334,7 @@ describe('FieldRenderer', () => {
 
     // The grave consumed it. A cancel is a scatter and never a fall-in, so it
     // does not read as the one verb of collection.
-    state.mobFire[0].alive = false;
+    shotSlotZero(state).alive = false;
     renderer.sync(state);
     expect(visibleScatters(layers)).toBe(1);
   });
@@ -267,7 +344,7 @@ describe('FieldRenderer', () => {
     const state = createRun(1);
     putShot(state, 200, FIELD_HEIGHT + 40);
     renderer.sync(state);
-    state.mobFire[0].alive = false;
+    shotSlotZero(state).alive = false;
     renderer.sync(state);
     expect(visibleScatters(layers)).toBe(0);
   });
@@ -287,7 +364,7 @@ describe('FieldRenderer', () => {
 
     renderer.detach();
     layers.clear();
-    renderer.attach(layers);
+    renderer.attach(layers, DEFAULT_CAPS);
 
     const second = createRun(2);
     renderer.sync(second);
@@ -304,21 +381,60 @@ describe('FieldRenderer', () => {
     first.tick = 900;
     putShot(first, 200, 300);
     renderer.sync(first);
-    first.mobFire[0].alive = false;
+    shotSlotZero(first).alive = false;
     renderer.sync(first);
     expect(visibleScatters(layers)).toBe(1);
 
     renderer.detach();
     layers.clear();
-    renderer.attach(layers);
+    renderer.attach(layers, DEFAULT_CAPS);
 
     const second = createRun(2);
     renderer.sync(second);
     putShot(second, 100, 100);
     renderer.sync(second);
-    second.mobFire[0].alive = false;
+    shotSlotZero(second).alive = false;
     renderer.sync(second);
     expect(visibleScatters(layers)).toBe(1);
+  });
+
+  it('redraws a slot the tick its kind changes, at an extent that did not move (module 127)', () => {
+    // The redraw was gated on the half extent alone, and a boss shot and a
+    // trash shot can be the same size: a slot recycled from one to the other
+    // kept the colour the slot was last drawn in. The kind is part of the look
+    // now, which is the same shape mobLook already takes.
+    const { layers, renderer } = attached();
+    const state = createRun(4);
+    const shot = putShot(state, 200, 300);
+    renderer.sync(state);
+    const sprite = (layers.layer('mobFire').children as Graphics[])[0];
+    if (sprite === undefined) throw new Error('no mob-fire sprite at slot 0');
+    expect(fillColours(sprite)).toContain(MOB_FIRE.trash.body.hex);
+
+    shot.kind = 'spiral';
+    renderer.sync(state);
+    expect(fillColours(sprite)).toContain(MOB_FIRE.spiral.body.hex);
+    expect(fillColours(sprite)).not.toContain(MOB_FIRE.trash.body.hex);
+  });
+
+  it('scatters a cancelled shot in the kind it was fired in (module 127)', () => {
+    // The scatter is drawn a whole cancel later than the shot, so the kind has
+    // to travel with the slot's memory: what is scattering is gone from the
+    // pool by the time it is drawn.
+    const { layers, renderer } = attached();
+    const state = createRun(5);
+    const shot = putShot(state, 200, 300);
+    shot.kind = 'clod';
+    renderer.sync(state);
+    shot.alive = false;
+    renderer.sync(state);
+
+    const fire = layers.layer('mobFire').children as Graphics[];
+    const scattering = fire.slice(MOB_FIRE_CAP).filter((each) => each.visible);
+    expect(scattering).toHaveLength(1);
+    const scatterSprite = scattering[0];
+    if (scatterSprite === undefined) throw new Error('no scattering sprite');
+    expect(fillColours(scatterSprite)).toEqual([MOB_FIRE.clod.body.hex]);
   });
 
   it('detach then attach puts everything back, which FieldLayers.clear() between runs requires', () => {
@@ -329,10 +445,59 @@ describe('FieldRenderer', () => {
     }
 
     layers.clear();
-    renderer.attach(layers);
+    renderer.attach(layers, DEFAULT_CAPS);
     expect(layers.layer('corpses').children).toHaveLength(CORPSE_CAP);
     expect(layers.layer('mobBodies').children).toHaveLength(MOB_CAP);
     expect(layers.layer('hitDim').children).toHaveLength(1);
+  });
+
+  it('grows its sprite pools to the caps it is attached with, and never shrinks them', () => {
+    // The renderer holds no run when it builds and all three screens reuse one
+    // across runs, so the caps arrive at attach and the pools grow there (ADR
+    // 0056 as amended). Grow-only, because a sprite already in a layer belongs
+    // to a slot and a shrink would leave the layer holding sprites no pool
+    // walks.
+    const { layers, renderer } = attached();
+    const roomy = {
+      mobs: MOB_CAP + 7,
+      mobFire: MOB_FIRE_CAP + 5,
+      corpses: CORPSE_CAP + 3,
+    };
+
+    renderer.detach();
+    layers.clear();
+    renderer.attach(layers, roomy);
+    expect(layers.layer('mobBodies').children).toHaveLength(roomy.mobs);
+    expect(layers.layer('corpses').children).toHaveLength(roomy.corpses);
+    expect(layers.layer('treasure').children).toHaveLength(roomy.corpses);
+
+    renderer.detach();
+    layers.clear();
+    renderer.attach(layers, DEFAULT_CAPS);
+    expect(layers.layer('mobBodies').children).toHaveLength(roomy.mobs);
+    expect(layers.layer('corpses').children).toHaveLength(roomy.corpses);
+  });
+
+  it('shows nothing above the pool of the run it is now drawing, after a larger one', () => {
+    // The sixth leak of the pooled-screen kind, and the one the caps moving on
+    // to the run opens: sync walks the run's own pool, so a sprite above that
+    // length is never written to and would still be wearing the last run's
+    // liveness. A larger run leaves exactly those, and the smaller run after it
+    // would draw bodies nothing on the field stands behind.
+    const { layers, renderer } = attached();
+    const big = createRun(1);
+    put(big, 'shambler', 100, 100);
+    renderer.sync(big);
+    const drawn = sprites(layers, 'mobBodies').filter((each) => each.visible);
+    expect(drawn).toHaveLength(1);
+
+    renderer.detach();
+    layers.clear();
+    renderer.attach(layers, { ...DEFAULT_CAPS, mobs: 1 });
+
+    expect(
+      sprites(layers, 'mobBodies').filter((each) => each.visible),
+    ).toHaveLength(0);
   });
 });
 
@@ -359,16 +524,22 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
     const { layers, renderer } = attached();
     const state = createRun(1);
     const shapesOf = (mob: Mob) =>
-      filledShapes(sprites(layers, 'mobBodies')[state.mobs.indexOf(mob)]);
+      filledShapes(spriteAt(layers, 'mobBodies', state.mobs.indexOf(mob)));
 
     for (const type of MOB_TYPE_NAMES) {
-      const mob = spawnMob(state, type, {
-        x: 60,
-        y: MOB_TYPES[type].halfHeight,
-        vx: 0,
-        vy: 1,
-        index: 0,
-      })!;
+      const mob = spawnMob(
+        state,
+        type,
+        {
+          x: 60,
+          y: MOB_TYPES[type].halfHeight,
+          vx: 0,
+          vy: 1,
+          index: 0,
+        },
+        false,
+        'wave',
+      )!;
       // Past its own tell, so an armed mob here wears the mark and not the iris.
       mob.fireIn = MOB_TYPES[type].fire.tellTicks + 1;
 
@@ -403,6 +574,7 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
     const shot = putShot(state, 200, 300);
     renderer.sync(state);
     const sprite = (layers.layer('mobFire').children as Graphics[])[0];
+    if (sprite === undefined) throw new Error('no mob-fire sprite at slot 0');
     const drawn = sprite.getLocalBounds();
     expect(Math.max(drawn.width, drawn.height) / 2).toBeGreaterThan(
       shot.halfExtent,
@@ -410,18 +582,18 @@ describe("dispatch 4's readability findings, fixed here (plan 6.20)", () => {
   });
 });
 
-describe('a drop on the field (plan 6.8)', () => {
-  function dropAt(state: RunState, line: WeaponLine) {
-    spawnDrop(state, 200, 300, line);
+describe('a power-up on the field (plan 6.8)', () => {
+  function powerUpAt(state: RunState, line: WeaponLine) {
+    spawnPowerUp(state, 200, 300, line);
     return state.corpses.find((corpse) => corpse.alive)!;
   }
 
   it('draws in the treasure layer and never in the corpses layer', () => {
     // ADR 0014's stack puts treasure above mob bodies and corpses below them,
-    // so a drop under a pile still reads as the thing worth diving for.
+    // so a power-up under a pile still reads as the thing worth diving for.
     const { layers, renderer } = attached();
     const state = createRun(3);
-    dropAt(state, 'bell');
+    powerUpAt(state, 'bell');
     renderer.sync(state);
 
     const treasure = layers.layer('treasure').children as Graphics[];
@@ -432,14 +604,14 @@ describe('a drop on the field (plan 6.8)', () => {
 
   it('draws a different silhouette for each of the four lines', () => {
     // The at-a-glance line read: four icons that must be told apart mid-dodge
-    // with no HUD glance. Size separates a drop from a shot, 24 drawn units
-    // against 16, and the drop breathes on size where a shot never does;
+    // with no HUD glance. Size separates a power-up from a shot, 24 drawn units
+    // against 16, and the power-up breathes on size where a shot never does;
     // brightness separates neither, staying steady on both.
     const shapes = new Set<string>();
     for (const line of WEAPON_LINES) {
       const { layers, renderer } = attached();
       const state = createRun(3);
-      dropAt(state, line);
+      powerUpAt(state, line);
       renderer.sync(state);
       const sprite = (layers.layer('treasure').children as Graphics[]).find(
         (each) => each.visible,
@@ -451,11 +623,11 @@ describe('a drop on the field (plan 6.8)', () => {
   });
 
   it('stays steady-bright where a corpse fades, whatever the tick', () => {
-    // Steady-bright always means treasure (ADR 0004), so a drop never takes the
+    // Steady-bright always means treasure (ADR 0004), so a power-up never takes the
     // freshness tint and never flickers.
     const { layers, renderer } = attached();
     const state = createRun(3);
-    const drop = dropAt(state, 'wisps');
+    const powerUp = powerUpAt(state, 'wisps');
     const tints = new Set<number>();
     for (const tick of [0, 7, 13, 40, 121]) {
       state.tick = tick;
@@ -466,28 +638,63 @@ describe('a drop on the field (plan 6.8)', () => {
       tints.add(sprite.tint);
     }
     expect(tints.size).toBe(1);
-    expect(freshnessBrightness(drop, 0)).toBe(1);
+    expect(freshnessBrightness(powerUp, 0)).toBe(1);
+  });
+
+  it('draws the body a maxed run pays as treasure with no line silhouette', () => {
+    // Gate correction, 2026-09-08: drawPowerUpIcon needs a WeaponLine, so a body
+    // carrying no option had no look at all. It gets the food layer's own body
+    // shape in the feast's colour, so a maxed player reads permanent food with
+    // no build rather than hunting for a line that is not there.
+    const drawnShape = (line?: WeaponLine): string => {
+      const { layers, renderer } = attached();
+      const state = createRun(3);
+      spawnPowerUp(state, 200, 300, line);
+      renderer.sync(state);
+      const sprite = (layers.layer('treasure').children as Graphics[]).find(
+        (each) => each.visible,
+      )!;
+      const box = sprite.getLocalBounds();
+      return `${box.width.toFixed(3)}x${box.height.toFixed(3)}`;
+    };
+
+    const shapes = WEAPON_LINES.map((line) => drawnShape(line));
+    expect(new Set([...shapes, drawnShape()]).size).toBe(shapes.length + 1);
+
+    const { layers, renderer } = attached();
+    const state = createRun(3);
+    spawnPowerUp(state, 200, 300);
+    renderer.sync(state);
+    const sprite = (layers.layer('treasure').children as Graphics[]).find(
+      (each) => each.visible,
+    )!;
+    const filled = sprite.context.instructions
+      .filter((instruction) => instruction.action === 'fill')
+      .map((instruction) => instruction.data.style);
+    expect(filled).toEqual([
+      expect.objectContaining({ color: PALETTE.feast.hex }),
+    ]);
   });
 
   it('draws larger than a corpse, which is the size rule Mark reversed on 2026-08-22', () => {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    const drop = dropAt(state, 'territory');
+    const powerUp = powerUpAt(state, 'territory');
     renderer.sync(state);
     const sprite = (layers.layer('treasure').children as Graphics[]).find(
       (each) => each.visible,
     )!;
-    expect(drop.halfExtent).toBeGreaterThan(CORPSE_HALF_EXTENT);
+    expect(powerUp.halfExtent).toBeGreaterThan(CORPSE_HALF_EXTENT);
     expect(sprite.getLocalBounds().width).toBeGreaterThan(0);
   });
 });
 
-describe("a drop's legibility (the fix inside #36)", () => {
-  /** What one drop of this line actually draws, as bounds. */
-  function drawnDrop(line: WeaponLine): Bounds {
+describe("a power-up's legibility (the fix inside #36)", () => {
+  /** What one power-up of this line actually draws, as bounds. */
+  function drawnPowerUp(line: WeaponLine): Bounds {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 200, 300, line);
+    spawnPowerUp(state, 200, 300, line);
     renderer.sync(state);
     const sprite = (layers.layer('treasure').children as Graphics[]).find(
       (each) => each.visible,
@@ -516,10 +723,17 @@ describe("a drop's legibility (the fix inside #36)", () => {
 
   /** The area of a closed polygon given as flat x,y pairs, by the shoelace formula. */
   function shoelace(points: readonly number[]): number {
+    const coordAt = (index: number): number => {
+      const value = points[index];
+      if (value === undefined)
+        throw new Error(`no coordinate at index ${index}`);
+      return value;
+    };
     let twice = 0;
     for (let at = 0; at < points.length; at += 2) {
       const next = (at + 2) % points.length;
-      twice += points[at] * points[next + 1] - points[next] * points[at + 1];
+      twice +=
+        coordAt(at) * coordAt(next + 1) - coordAt(next) * coordAt(at + 1);
     }
     return Math.abs(twice) / 2;
   }
@@ -549,6 +763,11 @@ describe("a drop's legibility (the fix inside #36)", () => {
         }
         if (piece.action === 'circle') {
           const [x, y, radius]: number[] = piece.data;
+          if (x === undefined || y === undefined || radius === undefined) {
+            throw new Error(
+              'a circle instruction carries fewer than 3 numbers',
+            );
+          }
           inks.push({
             action: instruction.action,
             color,
@@ -564,18 +783,20 @@ describe("a drop's legibility (the fix inside #36)", () => {
     return inks;
   }
 
-  /** A drop's bright ink: the fills in treasure's own colour, on screen, after the sprite's scale. */
+  /** A power-up's bright ink: the fills in treasure's own colour, on screen, after the sprite's scale. */
   function brightInkArea(sprite: Graphics): number {
     const scale = sprite.scale.x;
     return recordedInk(sprite)
-      .filter((ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex)
+      .filter(
+        (ink) => ink.action === 'fill' && ink.color === PALETTE.powerUp.hex,
+      )
       .reduce((sum, ink) => sum + ink.area * scale * scale, 0);
   }
 
-  /** The box a drop's bright ink spans, on screen, as its longest side. */
+  /** The box a power-up's bright ink spans, on screen, as its longest side. */
   function drawnLongAxis(sprite: Graphics): number {
     const bright = recordedInk(sprite).filter(
-      (ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex,
+      (ink) => ink.action === 'fill' && ink.color === PALETTE.powerUp.hex,
     );
     const width =
       Math.max(...bright.map((ink) => ink.maxX)) -
@@ -586,10 +807,10 @@ describe("a drop's legibility (the fix inside #36)", () => {
     return Math.max(width, height) * sprite.scale.x;
   }
 
-  /** The box a drop's bright ink spans, as width over height. Scale cancels. */
+  /** The box a power-up's bright ink spans, as width over height. Scale cancels. */
   function inkAspect(sprite: Graphics): number {
     const bright = recordedInk(sprite).filter(
-      (ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex,
+      (ink) => ink.action === 'fill' && ink.color === PALETTE.powerUp.hex,
     );
     const width =
       Math.max(...bright.map((ink) => ink.maxX)) -
@@ -609,10 +830,10 @@ describe("a drop's legibility (the fix inside #36)", () => {
   function coverage(sprite: Graphics): number {
     const inks = recordedInk(sprite);
     const bright = inks.filter(
-      (ink) => ink.action === 'fill' && ink.color === PALETTE.drop.hex,
+      (ink) => ink.action === 'fill' && ink.color === PALETTE.powerUp.hex,
     );
     const dark = inks.filter(
-      (ink) => ink.action === 'cut' || ink.color !== PALETTE.drop.hex,
+      (ink) => ink.action === 'cut' || ink.color !== PALETTE.powerUp.hex,
     );
     const width =
       Math.max(...bright.map((ink) => ink.maxX)) -
@@ -625,15 +846,15 @@ describe("a drop's legibility (the fix inside #36)", () => {
     return (brightArea - darkArea) / (width * height);
   }
 
-  /** One spawned drop, then whatever each listed tick draws, read off the treasure sprite. */
-  function dropOverTicks<T>(
+  /** One spawned power-up, then whatever each listed tick draws, read off the treasure sprite. */
+  function powerUpOverTicks<T>(
     line: WeaponLine,
     ticks: readonly number[],
     read: (sprite: Graphics) => T,
   ): T[] {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 200, 300, line);
+    spawnPowerUp(state, 200, 300, line);
     return ticks.map((tick) => {
       state.tick = tick;
       renderer.sync(state);
@@ -655,11 +876,11 @@ describe("a drop's legibility (the fix inside #36)", () => {
 
   /** The tick, within one period, at which this line's drawn size peaks. */
   function peakTick(line: WeaponLine): number {
-    const sizes = dropOverTicks(line, breathTicks(), drawnLongAxis);
+    const sizes = powerUpOverTicks(line, breathTicks(), drawnLongAxis);
     return sizes.indexOf(Math.max(...sizes));
   }
 
-  /** A corpse's own ink, the area the drop has to out-draw, by the same shoelace measure. */
+  /** A corpse's own ink, the area the power-up has to out-draw, by the same shoelace measure. */
   function corpseInk(): number {
     const { layers, renderer } = attached();
     const state = createRun(3);
@@ -675,7 +896,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
 
   it("draws more ink than a corpse at the breath's peak, measured by the shoelace formula", () => {
     // The hole the whole ticket fell through. palette.test.ts compared
-    // DROP_HALF_EXTENT to CORPSE_HALF_EXTENT and passed while the player saw
+    // POWER_UP_HALF_EXTENT to CORPSE_HALF_EXTENT and passed while the player saw
     // the smaller sprite, and the bounds measure that replaced it was blind
     // the same way one level down: a concave shape fills its bounding box
     // while being mostly empty. Filled area against filled area is the
@@ -685,7 +906,9 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // floor below.
     const corpse = corpseInk();
     for (const line of WEAPON_LINES) {
-      const [ink] = dropOverTicks(line, [peakTick(line)], brightInkArea);
+      const [ink] = powerUpOverTicks(line, [peakTick(line)], brightInkArea);
+      if (ink === undefined)
+        throw new Error('powerUpOverTicks of one tick gave no reading');
       expect(`${line} ${ink > corpse}`).toBe(`${line} true`);
     }
   });
@@ -694,8 +917,10 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // So no icon quietly shrinks back to a fraction of its extent again. The
     // fill's own points are measured, so the stroke never pads the answer.
     for (const line of WEAPON_LINES) {
-      const [size] = dropOverTicks(line, [peakTick(line)], drawnLongAxis);
-      expect(size).toBeCloseTo(DROP_DRAW_HALF_EXTENT * 2, 2);
+      const [size] = powerUpOverTicks(line, [peakTick(line)], drawnLongAxis);
+      if (size === undefined)
+        throw new Error('powerUpOverTicks of one tick gave no reading');
+      expect(size).toBeCloseTo(POWER_UP_DRAW_HALF_EXTENT * 2, 2);
     }
   });
 
@@ -704,21 +929,28 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // ratio and nothing finer, so four outlines that differ only in detail are
     // one shape to the player who is dodging. #38 may replace the imagery and
     // must not spend this separation back.
-    const ratios = WEAPON_LINES.map((line) => aspect(drawnDrop(line))).sort(
+    const ratios = WEAPON_LINES.map((line) => aspect(drawnPowerUp(line))).sort(
       (a, b) => a - b,
     );
+    const ratioAt = (index: number): number => {
+      const value = ratios[index];
+      if (value === undefined) throw new Error(`no ratio at index ${index}`);
+      return value;
+    };
     for (let at = 1; at < ratios.length; at++) {
-      expect(`${at} ${ratios[at] / ratios[at - 1] >= 1.1}`).toBe(`${at} true`);
+      expect(`${at} ${ratioAt(at) / ratioAt(at - 1) >= 1.1}`).toBe(
+        `${at} true`,
+      );
     }
     // And the set really spans tall through wide rather than crowding one end.
-    expect(ratios[ratios.length - 1] / ratios[0]).toBeGreaterThan(4);
+    expect(ratioAt(ratios.length - 1) / ratioAt(0)).toBeGreaterThan(4);
   });
 
-  /** One drop's drawn width and its brightness, at a given tick. */
+  /** One power-up's drawn width and its brightness, at a given tick. */
   function overTicks(ticks: readonly number[]) {
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 200, 300, 'wisps');
+    spawnPowerUp(state, 200, 300, 'wisps');
     return ticks.map((tick) => {
       state.tick = tick;
       renderer.sync(state);
@@ -733,7 +965,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     });
   }
 
-  it("holds a drop's brightness still whatever the tick, so the breath never reaches the value channel", () => {
+  it("holds a power-up's brightness still whatever the tick, so the breath never reaches the value channel", () => {
     // Mark played a brightness pulse against the size one and ruled it out:
     // steady-bright means treasure (ADR 0004) and the corpse's last-chance
     // flicker owns the value channel. The pair of assertions is the point. The
@@ -745,20 +977,23 @@ describe("a drop's legibility (the fix inside #36)", () => {
     expect(new Set(drawn.map((each) => each.width)).size).toBeGreaterThan(1);
   });
 
-  it("breathes on the tick and the drop's own id alone, so one tick draws one size every time", () => {
+  it("breathes on the tick and the power-up's own id alone, so one tick draws one size every time", () => {
     // A wall clock here would make a replay disagree with the run it replays,
     // which is why the corpse flicker takes its phase from the corpse's own id
-    // rather than from a random draw. The same drop carries the same id, so
+    // rather than from a random draw. The same power-up carries the same id, so
     // feeding the same tick twice must give the same drawn size twice.
     const [first, moved, again] = overTicks([0, 41, 0]);
+    if (first === undefined || moved === undefined || again === undefined) {
+      throw new Error('overTicks of 3 ticks gave fewer than 3 readings');
+    }
     expect(first.width).not.toBe(moved.width);
     expect(again.width).toBe(first.width);
   });
 
   /**
-   * The floor on how much of its own box a drop's net bright ink covers.
+   * The floor on how much of its own box a power-up's net bright ink covers.
    *
-   * It replaces the ban on the identifier dropCore, which guarded a name and
+   * It replaces the ban on the identifier powerUpCore, which guarded a name and
    * not the defect: the defect is dark ink hollowing the silhouette at a small
    * draw size, and a floor stated as a number survives #38's art because it
    * says nothing about what the shape is. A headstone may engrave lettering, a
@@ -775,7 +1010,9 @@ describe("a drop's legibility (the fix inside #36)", () => {
 
   it("keeps every line's net bright ink above the coverage floor, whatever the shape is", () => {
     for (const line of WEAPON_LINES) {
-      const [cover] = dropOverTicks(line, [0], coverage);
+      const [cover] = powerUpOverTicks(line, [0], coverage);
+      if (cover === undefined)
+        throw new Error('powerUpOverTicks of one tick gave no reading');
       expect(`${line} ${cover >= COVERAGE_FLOOR - 1e-6}`).toBe(`${line} true`);
     }
   });
@@ -785,7 +1022,7 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // breath move inward from there." 24, the 0.18 depth and the 2.75 second
     // period are the values Mark played in the prototype, measured rather
     // than derived, so they stand here as their own numbers.
-    const sizes = dropOverTicks('territory', breathTicks(), drawnLongAxis);
+    const sizes = powerUpOverTicks('territory', breathTicks(), drawnLongAxis);
     const peak = Math.max(...sizes);
     const trough = Math.min(...sizes);
     expect(peak).toBeLessThanOrEqual(24);
@@ -793,21 +1030,21 @@ describe("a drop's legibility (the fix inside #36)", () => {
     expect(trough).toBeCloseTo(24 * (1 - 0.18), 2);
   });
 
-  it('holds two neighbouring drops visibly apart in the breath, not merely unequal', () => {
-    // On the tick alone every drop pulses together, and a drop can be born at
+  it('holds two neighbouring power-ups visibly apart in the breath, not merely unequal', () => {
+    // On the tick alone every power-up pulses together, and a power-up can be born at
     // its smallest, the moment it most needs to be seen. The offset is the
-    // drop's own id, the same device the corpse flicker already uses, because
+    // power-up's own id, the same device the corpse flicker already uses, because
     // the renderer must stay a pure function of the sim's own state.
     //
-    // Ids arrive in sequence, so the two drops here are the adjacent pair the
+    // Ids arrive in sequence, so the two power-ups here are the adjacent pair the
     // stride has to separate. A test that asked only for inequality passed on a
     // hundredth of a unit, which is lockstep to the eye, so the floor is a
     // third of the breath's own travel: separation nobody has to measure to
     // see.
     const { layers, renderer } = attached();
     const state = createRun(3);
-    spawnDrop(state, 100, 100, 'wisps');
-    spawnDrop(state, 300, 300, 'wisps');
+    spawnPowerUp(state, 100, 100, 'wisps');
+    spawnPowerUp(state, 300, 300, 'wisps');
     const travel = 24 * 0.18;
     let widest = 0;
     for (const tick of breathTicks()) {
@@ -817,9 +1054,13 @@ describe("a drop's legibility (the fix inside #36)", () => {
         (each) => each.visible,
       );
       expect(visible).toHaveLength(2);
+      const [one, other] = visible;
+      if (one === undefined || other === undefined) {
+        throw new Error('two visible power-ups did not destructure to two');
+      }
       widest = Math.max(
         widest,
-        Math.abs(drawnLongAxis(visible[0]) - drawnLongAxis(visible[1])),
+        Math.abs(drawnLongAxis(one) - drawnLongAxis(other)),
       );
     }
     expect(widest).toBeGreaterThanOrEqual(travel / 3);
@@ -830,14 +1071,18 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // every other food sprite draws its companion at SPRITE_STROKE. A breath
     // that scaled the sprite scaled the stroke with it.
     const phases = [0, 41, 82, 124].map((tick) =>
-      dropOverTicks('bell', [tick], (sprite) => ({
+      powerUpOverTicks('bell', [tick], (sprite) => ({
         scale: sprite.scale.x,
         widths: sprite.context.instructions
           .filter((instruction) => instruction.action === 'stroke')
           .map((instruction) => instruction.data.style.width),
       })),
     );
-    for (const [{ scale, widths }] of phases) {
+    for (const [reading] of phases) {
+      if (reading === undefined) {
+        throw new Error('powerUpOverTicks of one tick gave no reading');
+      }
+      const { scale, widths } = reading;
       expect(widths.length).toBeGreaterThan(0);
       for (const width of widths) {
         expect(width * scale).toBeCloseTo(SPRITE_STROKE, 9);
@@ -845,24 +1090,28 @@ describe("a drop's legibility (the fix inside #36)", () => {
     }
   });
 
-  it("gives Territory the tall silhouette and soulStream the round one, the mapping #38's imagery keeps", () => {
+  it("gives Territory the tall silhouette and skullStream the round one, the mapping #38's imagery keeps", () => {
     // A grasping hand is tall and a skull is round. The first pass shipped the
     // reverse, and #31's playtest must not learn a mapping #38's imagery then
     // inverts: any tester confusion would be unattributable.
     //
-    // Territory took the tall axis the headstones vacated (#76), so the drop
+    // Territory took the tall axis the headstones vacated (#76), so the power-up
     // set still splits on tall, round, pointed and wide with nothing moved and
     // nothing crowded, which the separation test above holds from the other
     // side.
-    const aspectOf = (line: WeaponLine) =>
-      dropOverTicks(line, [0], inkAspect)[0];
+    const aspectOf = (line: WeaponLine): number => {
+      const reading = powerUpOverTicks(line, [0], inkAspect)[0];
+      if (reading === undefined)
+        throw new Error('powerUpOverTicks of one tick gave no reading');
+      return reading;
+    };
     for (const line of WEAPON_LINES) {
       if (line === 'territory') continue;
       expect(`${line} ${aspectOf(line) > aspectOf('territory')}`).toBe(
         `${line} true`,
       );
     }
-    expect(aspectOf('soulStream')).toBeCloseTo(1, 5);
+    expect(aspectOf('skullStream')).toBeCloseTo(1, 5);
   });
 
   it('bounds the drawn peak at 24 units and the catch box below by the drawn peak', () => {
@@ -872,7 +1121,129 @@ describe("a drop's legibility (the fix inside #36)", () => {
     // ceiling test above holds the rendered side of the first bound; the
     // second keeps the pickup area at least the largest visible footprint, so
     // "I touched it and got it" is true at every breath phase.
-    expect(DROP_DRAW_HALF_EXTENT * 2).toBeLessThanOrEqual(24);
-    expect(DROP_HALF_EXTENT).toBeGreaterThanOrEqual(DROP_DRAW_HALF_EXTENT);
+    expect(POWER_UP_DRAW_HALF_EXTENT * 2).toBeLessThanOrEqual(24);
+    expect(POWER_UP_HALF_EXTENT).toBeGreaterThanOrEqual(
+      POWER_UP_DRAW_HALF_EXTENT,
+    );
+  });
+});
+
+/**
+ * A rung the floor ladder took, on the field (ADR 0055, design record R6). Two
+ * reads have to hold with the colour removed: a rung against a corpse, and one
+ * line's rung against another's. Rung against an offer's body is deliberately
+ * not claimed: they share the treasure body on purpose and #122 owns it.
+ */
+describe('a fallen rung on the field (ADR 0055)', () => {
+  function rungAt(state: RunState, line: WeaponLine) {
+    spawnFallenRung(state, 200, 300, line);
+    return state.corpses.find((corpse) => corpse.alive)!;
+  }
+
+  /** The one visible sprite in a layer, as the shape its own points make. */
+  function shapeOf(layers: FieldLayers, name: 'treasure' | 'corpses'): string {
+    const sprite = (layers.layer(name).children as Graphics[]).find(
+      (each) => each.visible,
+    );
+    if (sprite === undefined) throw new Error(`nothing visible in ${name}`);
+    const box = sprite.getLocalBounds();
+    return `${box.width.toFixed(3)}x${box.height.toFixed(3)}`;
+  }
+
+  it('draws in the treasure layer and never in the corpses layer', () => {
+    // It is treasure, so ADR 0014's stack puts it above mob bodies: a rung
+    // under a pile still reads as the thing worth diving for. The renderer
+    // learns no fourth kind to do it, because the food's own row says treasure.
+    const { layers, renderer } = attached();
+    const state = createRun(3);
+    rungAt(state, 'bell');
+    renderer.sync(state);
+
+    expect(
+      (layers.layer('treasure').children as Graphics[]).filter(
+        (each) => each.visible,
+      ),
+    ).toHaveLength(1);
+    expect(
+      (layers.layer('corpses').children as Graphics[]).filter(
+        (each) => each.visible,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('is told from a corpse by silhouette alone, with the colour removed', () => {
+    // ADR 0014 makes silhouette the first discriminator, so the read has to
+    // survive grayscale: the shapes differ, and the rung is the larger of the
+    // two by its own extent.
+    const rung = attached();
+    const rungState = createRun(3);
+    rungAt(rungState, 'bell');
+    rung.renderer.sync(rungState);
+
+    const body = attached();
+    const corpseState = createRun(3);
+    const dead = put(corpseState, 'shambler', 200, 300);
+    dead.alive = false;
+    spawnCorpse(corpseState, dead, MOB_TYPES.shambler.corpsePayout, 'trash');
+    body.renderer.sync(corpseState);
+
+    expect(shapeOf(rung.layers, 'treasure')).not.toBe(
+      shapeOf(body.layers, 'corpses'),
+    );
+    expect(POWER_UP_HALF_EXTENT).toBeGreaterThan(CORPSE_HALF_EXTENT);
+  });
+
+  it("wears the icon its own HUD row taught, so one line's rung is told from another's", () => {
+    // The HUD has already taught the player one icon per line (design record
+    // R1 and R6), so the body wears that same icon and the reading needs no
+    // second vocabulary.
+    const shapes = new Set<string>();
+    for (const line of WEAPON_LINES) {
+      const { layers, renderer } = attached();
+      const state = createRun(3);
+      rungAt(state, line);
+      renderer.sync(state);
+      shapes.add(shapeOf(layers, 'treasure'));
+    }
+    expect(shapes.size).toBe(WEAPON_LINES.length);
+  });
+
+  it("draws the same treasure body an offer's body draws, which is deliberate", () => {
+    // Both are treasure, and teaching the player two treasure shapes to say the
+    // same thing is the cost the record does not pay. Telling a rung from an
+    // offer's body is #122's and is out of scope here, so this pins the sharing
+    // rather than a separation.
+    const rung = attached();
+    const rungState = createRun(3);
+    rungAt(rungState, 'wisps');
+    rung.renderer.sync(rungState);
+
+    const offer = attached();
+    const offerState = createRun(3);
+    spawnPowerUp(offerState, 200, 300, 'wisps');
+    offer.renderer.sync(offerState);
+
+    expect(shapeOf(rung.layers, 'treasure')).toBe(
+      shapeOf(offer.layers, 'treasure'),
+    );
+  });
+
+  it('stays steady-bright where a corpse fades, whatever the tick', () => {
+    // It never decays, so steady-bright always meaning treasure (ADR 0004)
+    // holds for it exactly as it does for a power-up.
+    const { layers, renderer } = attached();
+    const state = createRun(3);
+    const rung = rungAt(state, 'wisps');
+    const tints = new Set<number>();
+    for (const tick of [0, 7, 13, 40, 121]) {
+      state.tick = tick;
+      renderer.sync(state);
+      const sprite = (layers.layer('treasure').children as Graphics[]).find(
+        (each) => each.visible,
+      )!;
+      tints.add(sprite.tint);
+    }
+    expect(tints.size).toBe(1);
+    expect(freshnessBrightness(rung, 0)).toBe(1);
   });
 });

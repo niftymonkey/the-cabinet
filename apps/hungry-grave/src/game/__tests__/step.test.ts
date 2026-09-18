@@ -6,16 +6,19 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { stepping } from '../../dev/stepping';
+import { spawnBoss } from '../bosses/phases';
 import { spawnCorpse } from '../corpses';
-import { priceOfNextDrop } from '../drops';
 import type { SimEvent } from '../events';
 import { graveHitbox } from '../grave';
+import { fireDirectedShot } from '../mobFire';
 import type { Mob } from '../mobs';
-import { MOB_TYPES, spawnMob } from '../mobs';
+import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { RAMP_ROWS } from '../stage/stage';
+import { BELCH_BURST_RADIUS, BELCH_SHOVE_SPACING } from '../belch';
+import { blankImpulse, startShove } from '../shove';
+import { PROCESSION_WAVES } from '../stage/waves';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
 import { MAX_LEVEL } from '../lines/roster';
 import {
@@ -32,6 +35,12 @@ function drift(x: number, y: number): TickCommand {
 }
 
 const STILL: TickCommand = drift(0, 0);
+
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
 
 /**
  * Everything that defines a run, by value. The streams are closures, so two
@@ -70,11 +79,9 @@ function snapshot(run: RunState) {
           ? null
           : { ...run.lines.ring, struck: [...run.lines.ring.struck] },
     },
-    killsSinceDrop: run.killsSinceDrop,
-    dropsPaid: run.dropsPaid,
     drawn: {
       spawns: run.streams.spawns.drawn,
-      drops: run.streams.drops.drawn,
+      powerUps: run.streams.powerUps.drawn,
       mobFire: run.streams.mobFire.drawn,
       shed: run.streams.shed.drawn,
     },
@@ -177,7 +184,10 @@ describe('the sim seam', () => {
     const stepA = stepping(a);
     const stepB = stepping(b);
     for (let i = 0; i < 200; i++) {
-      const command = script[i % script.length];
+      const command = requireDefined(
+        script[i % script.length],
+        `no scripted command at tick ${i}`,
+      );
       stepA(command);
       stepB(command);
     }
@@ -191,27 +201,69 @@ describe('the sim seam', () => {
 /** A run whose stage will not spawn on top of the one entity a test placed. */
 function quietRun(seed = 21): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   return run;
 }
 
 /** A mob standing exactly on the grave, so this tick's overlap pass finds it. */
 function mobOnGrave(state: RunState, offsetY = 0): Mob {
-  const mob = spawnMob(state, 'shambler', {
-    x: state.grave.x,
-    y: state.grave.y + offsetY,
-    vx: 0,
-    vy: 1,
-    index: 0,
-  })!;
+  const mob = spawnMob(
+    state,
+    'shambler',
+    {
+      x: state.grave.x,
+      y: state.grave.y + offsetY,
+      vx: 0,
+      vy: 1,
+      index: 0,
+    },
+    false,
+    'wave',
+  )!;
   // Past its beat, so it is not still flying an entry when the pass runs.
   mob.beat = 0;
   return mob;
 }
 
+/**
+ * A body that appeared inside the field, standing on the grave, with its own
+ * arriving beat untouched. It is the placement the pour makes: below the top
+ * edge, so nothing crossed an edge for the player to read.
+ */
+function insideTheField(state: RunState): Mob {
+  return spawnMob(
+    state,
+    'shambler',
+    { x: state.grave.x, y: state.grave.y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
+}
+
+/**
+ * A body straddling the top edge, which is where every formation places one. Its
+ * top edge is outside the field, so it has not entered and its beat has not
+ * started.
+ */
+function acrossTheTopEdge(state: RunState): Mob {
+  return spawnMob(
+    state,
+    'shambler',
+    { x: state.grave.x, y: 0, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
+}
+
+/** Holds a body on the grave, so a fall cannot carry it out of the box mid-beat. */
+function holdOnGrave(state: RunState, mob: Mob): void {
+  mob.x = state.grave.x;
+  mob.y = state.grave.y;
+}
+
 /** A shot sitting on the grave, put there by hand rather than fired from off screen. */
 function shotOnGrave(state: RunState) {
-  const shot = state.mobFire[0];
+  const shot = requireDefined(state.mobFire[0], 'no mobFire pool slot 0');
   shot.alive = true;
   shot.id = state.nextEntityId;
   state.nextEntityId += 1;
@@ -235,13 +287,19 @@ describe('the tick order (dispatch 4 section 4.9)', () => {
     // ADR 0004 already leans by giving freshness a payout floor.
     const state = quietRun();
     const step = stepping(state);
-    const dead = spawnMob(state, 'shambler', {
-      x: state.grave.x,
-      y: state.grave.y,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
+    const dead = spawnMob(
+      state,
+      'shambler',
+      {
+        x: state.grave.x,
+        y: state.grave.y,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      },
+      false,
+      'wave',
+    )!;
     dead.alive = false;
     leaveCorpse(state, dead);
     const corpse = state.corpses.find((each) => each.alive)!;
@@ -332,6 +390,46 @@ describe('what meets the grave (ADR 0003 and ADR 0014)', () => {
     ]);
   });
 
+  it('holds a body that appeared inside the field off the grave until its arriving beat has run', () => {
+    // A body placed below the top edge has no crossing to show the player, so
+    // it can materialise inside the grave's own box. The arriving beat is the
+    // telegraph a body that comes over the edge gets for free, and contact
+    // waits for it.
+    const state = quietRun();
+    const step = stepping(state);
+    const mob = insideTheField(state);
+    expect(mob.beat).toBe(ARRIVE_TICKS);
+
+    const during: SimEvent[] = [];
+    for (let tick = 0; tick < ARRIVE_TICKS - 1; tick++) {
+      holdOnGrave(state, mob);
+      during.push(...step(STILL));
+    }
+    expect(typesOf(during)).not.toContain('graveHit');
+    expect(mob.beat).toBe(1);
+
+    holdOnGrave(state, mob);
+    expect(typesOf(step(STILL))).toContain('graveHit');
+  });
+
+  it('lets a body that crossed the top edge touch the grave during its arriving beat, as it always has', () => {
+    // The fence under the glossary's "movement only": a body that arrives over
+    // the edge is unchanged and touches from the tick it overlaps, beat or no
+    // beat. What the beat now governs at contact is the body that appears
+    // inside the field, and nothing else.
+    const state = quietRun();
+    const step = stepping(state);
+    state.grave.y = state.grave.size;
+    const mob = acrossTheTopEdge(state);
+    expect(mob.beat).toBe(ARRIVE_TICKS);
+
+    const hits = step(STILL).filter((event) => event.type === 'graveHit');
+    expect(mob.beat).toBe(ARRIVE_TICKS);
+    expect(hits).toEqual([
+      expect.objectContaining({ type: 'graveHit', source: 'contact' }),
+    ]);
+  });
+
   it('lands nothing on a second contact inside the invulnerability window', () => {
     const state = quietRun();
     const step = stepping(state);
@@ -355,7 +453,10 @@ describe('determinism across the whole field (ADR 0012)', () => {
     const eventsA: SimEvent[] = [];
     const eventsB: SimEvent[] = [];
     for (let tick = 0; tick < 1500; tick++) {
-      const command = script[tick % script.length];
+      const command = requireDefined(
+        script[tick % script.length],
+        `no scripted command at tick ${tick}`,
+      );
       eventsA.push(...stepA(command));
       eventsB.push(...stepB(command));
     }
@@ -384,6 +485,41 @@ describe('the belch in the tick order (plan 6.13)', () => {
     expect(shot.alive).toBe(false);
   });
 
+  it("brings a press's later shoves out on the press's own beat, over what stands inside the reach then", () => {
+    // The press's own clock is a phase of the tick, immediately before the
+    // belch itself (#124). Run through the whole tick rather than through the
+    // belch alone, because that placement is the thing under test: a shove
+    // firing later in the tick than the press did would read the field after
+    // the spawns and the motion the press itself ran before, and a clock
+    // counting on the press's own tick would bring every later shove in a tick
+    // early.
+    const state = quietRun();
+    const step = stepping(state);
+    state.reservoir = RESERVOIR_CAPACITY;
+    const latecomer = mobOnGrave(state, -BELCH_BURST_RADIUS * 2);
+    // It stands exactly where it is put while the tick runs, so what moves it
+    // is the press and nothing else, and it outlives a window the whole tick
+    // runs through.
+    latecomer.beat = Number.MAX_SAFE_INTEGER;
+    latecomer.vy = 0;
+    latecomer.hp = Number.MAX_SAFE_INTEGER;
+
+    step({ move: { x: 0, y: 0 }, belch: true });
+    for (let tick = 1; tick < BELCH_SHOVE_SPACING; tick++) step(STILL);
+    latecomer.x = state.grave.x;
+    latecomer.y = state.grave.y - BELCH_BURST_RADIUS / 2;
+    const stoodAt = { x: latecomer.x, y: latecomer.y };
+    const events = step(STILL);
+
+    const shove = events.find((event) => event.type === 'burstShoved');
+    expect(shove?.shove).toBe(2);
+    expect(latecomer.impulse.source).toBe('belch');
+    // It travelled up the field on the very tick the shove went out, against
+    // the scroll that carries everything down, which is what puts the clock
+    // before the bodies rather than after them.
+    expect(latecomer.y).toBeLessThan(stoodAt.y);
+  });
+
   it('does nothing at all when the command does not ask for one', () => {
     const state = quietRun();
     const step = stepping(state);
@@ -392,6 +528,62 @@ describe('the belch in the tick order (plan 6.13)', () => {
     const events = step(STILL);
     expect(typesOf(events)).not.toContain('belched');
     expect(state.reservoir).toBe(RESERVOIR_CAPACITY);
+  });
+
+  it("still runs before every overlap pass with a boss's pattern on the field", () => {
+    // The same argument, guarded through the boss's arrival in the tick order.
+    // A boss's shots are on the same pool as a mob's, so the gas has to take
+    // them on the frame they would land or the button becomes a lie at the one
+    // moment a boss fight makes it matter most.
+    const state = quietRun();
+    const step = stepping(state);
+    state.reservoir = RESERVOIR_CAPACITY;
+    spawnBoss(state, 'undertaker');
+    const clod = shotOnGrave(state);
+    clod.emitter = 'undertaker';
+    clod.kind = 'clod';
+    const before = state.grave.size;
+
+    const events = step({ move: { x: 0, y: 0 }, belch: true });
+
+    expect(typesOf(events)).toContain('belched');
+    expect(typesOf(events)).not.toContain('graveHit');
+    expect(state.grave.size).toBe(before);
+    expect(clod.alive).toBe(false);
+  });
+});
+
+describe("a boss's fire in the tick order (ADR 0007)", () => {
+  it('shares the one shot pool and the one cull with a mob', () => {
+    // A boss's pattern is mob fire by the glossary's own definition, so it
+    // takes slots from the same pool, flies under the same advance and leaves
+    // by the same cull. A second pool would need a second cap, a second cull
+    // and a second renderer, and the cap the mob fire pool already carries is
+    // what bounds what a fight can put on the field.
+    const state = quietRun();
+    const step = stepping(state);
+    const trash = shotOnGrave(state);
+    trash.x = 40;
+    trash.y = 20;
+    trash.vy = 0;
+    trash.vx = -MOB_TYPES.revenant.fire.shotSpeed;
+
+    fireDirectedShot(
+      state,
+      { x: 60, y: 20 },
+      { x: -1, y: 0 },
+      MOB_TYPES.revenant.fire,
+      'undertaker',
+      'clod',
+    );
+    const live = state.mobFire.filter((shot) => shot.alive);
+    expect(live).toHaveLength(2);
+    expect(live.map((shot) => shot.kind)).toEqual(['trash', 'clod']);
+
+    // Both fly off the same left edge, and the same cull takes them on the
+    // same tick.
+    for (let tick = 0; tick < 40; tick++) step(STILL);
+    expect(state.mobFire.filter((shot) => shot.alive)).toEqual([]);
   });
 });
 
@@ -406,85 +598,148 @@ describe('the weapon lines in the tick order (plan 6.13)', () => {
     step(STILL);
     const live = state.skulls.filter((skull) => skull.alive);
     expect(live).toHaveLength(1);
-    expect({ x: live[0].x, y: live[0].y }).toEqual(mouth);
+    const skull = requireDefined(live[0], 'no live skull');
+    expect({ x: skull.x, y: skull.y }).toEqual(mouth);
   });
 
   it("runs the lines after mob motion, so this tick's storm meets this tick's mobs", () => {
     const state = quietRun();
     const step = stepping(state);
     state.lines.streamIn = 1;
-    const above = spawnMob(state, 'shambler', {
-      x: state.grave.x,
-      y: state.grave.y - state.grave.size - 4,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
+    const above = spawnMob(
+      state,
+      'shambler',
+      {
+        x: state.grave.x,
+        y: state.grave.y - state.grave.size - 4,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      },
+      false,
+      'wave',
+    )!;
     above.beat = 0;
     above.hp = 1;
 
-    // The skull launches at the mouth this tick and the deaths phase runs after
+    // The skull launches at the mouth this tick and the deaths section runs after
     // it, so a mob standing on the mouth dies on the launch tick.
     const events = step(STILL);
     expect(typesOf(events)).toContain('mobKilled');
   });
 
-  it("credits every kill the tick made, the bell's included", () => {
+  it("opens one offer for every carrier the tick killed, the bell's included", () => {
     const state = quietRun();
     const step = stepping(state);
     state.levels.bell = MAX_LEVEL;
     state.lines.tollIn = 1;
-    const victim = spawnMob(state, 'shambler', {
-      x: state.grave.x,
-      y: state.grave.y,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
+    const victim = spawnMob(
+      state,
+      'shambler',
+      { x: state.grave.x, y: state.grave.y - 20, vx: 0, vy: 1, index: 0 },
+      true,
+      'wave',
+    )!;
     victim.beat = 0;
-    // One point of health, because BELL_DAMAGE_NEAR is one shambler exactly and
-    // a mob has already drifted a little by the time the ring's first expansion
-    // reaches it, so a full-health shambler survives a centred toll by a sliver.
+    // Standing a little ahead of the grave rather than on it, because a toll
+    // throws cones (ADR 0036) and a mob that drifts below the grave sits in
+    // the one slit a level-5 toll leaves open, dead astern.
+    //
+    // One point of health, because BELL_DAMAGE_NEAR is one shambler exactly
+    // and a mob has already drifted a little by the time the toll's first
+    // expansion reaches it, so a full-health shambler survives by a sliver.
     victim.hp = 1;
 
+    // The deaths pass walks the tick's whole accumulated list of kills, and
+    // the bell resolves two sections before it, so a carrier the toll killed
+    // pays exactly as one the overlap pass killed does.
     let killed = 0;
+    let paid = 0;
     for (let tick = 0; tick < BELL_EXPAND_TICKS + 2; tick++) {
-      killed += typesOf(step(STILL)).filter(
-        (type) => type === 'mobKilled',
-      ).length;
+      const types = typesOf(step(STILL));
+      killed += types.filter((type) => type === 'mobKilled').length;
+      paid += types.filter((type) => type === 'offerOpened').length;
     }
-    expect(killed).toBeGreaterThan(0);
-    expect(state.killsSinceDrop).toBe(killed);
+    expect(killed).toBe(1);
+    expect(paid).toBe(1);
   });
 });
 
-describe('a belch kill is a kill (Mark, 2026-08-22)', () => {
-  it('credits its wipe toward the next drop, so a belch into a dense wave spawns a drop on the same tick', () => {
-    // The reason the wipe routes through damageMob rather than clearing the
-    // pool: resolveDeaths walks the tick's own accumulated kills, the belch's
-    // included, so the eruption pays the drop economy instead of emptying the
-    // field of it.
+describe('a belch pays nothing, because it kills nothing (Mark, 2026-09-15)', () => {
+  it('opens no offer and leaves the whole wave standing', () => {
+    // Mark's ruling 3 of 2026-09-15 and ADR 0008 as amended replaced the burst
+    // with a push, so the press that used to pay a carrier's offer by killing
+    // it now throws it instead. This is the guard on that absence: it fails the
+    // day a press kills anything again, whether or not the offer follows.
+    //
+    // The wave stands inside the reach rather than up the field, because ADR
+    // 0008's split scoped the press to a radius of the grave and a wave laid
+    // anywhere else is one the belch does not touch at all.
     const state = quietRun();
     const step = stepping(state);
     state.reservoir = RESERVOIR_CAPACITY;
-    const wave = priceOfNextDrop(0);
+    const wave = 5;
+    // The carrier stands in the middle of the wave, where the old burst would
+    // have killed it along with the four beside it.
+    const carrier = 2;
     for (let index = 0; index < wave; index++) {
-      spawnMob(state, 'shambler', {
-        x: 40 + index * 24,
-        y: 100,
-        vx: 0,
-        vy: 1,
-        index,
-      })!.beat = 0;
+      spawnMob(
+        state,
+        'shambler',
+        {
+          x: state.grave.x - 48 + index * 24,
+          y: state.grave.y - 40,
+          vx: 0,
+          vy: 1,
+          index,
+        },
+        index === carrier,
+        'wave',
+      )!.beat = 0;
     }
 
     const events = step({ move: { x: 0, y: 0 }, belch: true });
 
-    expect(typesOf(events).filter((type) => type === 'mobKilled')).toHaveLength(
-      wave,
+    expect(typesOf(events)).toContain('belched');
+    expect(typesOf(events).filter((type) => type === 'mobKilled')).toEqual([]);
+    expect(typesOf(events).filter((type) => type === 'offerOpened')).toEqual(
+      [],
     );
-    expect(typesOf(events)).toContain('dropSpawned');
-    expect(state.dropsPaid).toBe(1);
-    expect(state.killsSinceDrop).toBe(0);
+    expect(state.mobs.filter((mob) => mob.alive)).toHaveLength(wave);
+  });
+});
+
+describe('a corpse swallowed while a shove is carrying it (design record R10)', () => {
+  it('reports what it was carried and stops carrying it', () => {
+    // The third exit. A swallow kills a corpse where it stands, so without a
+    // report here a live impulse would leave the world unreported and uncleared
+    // and the slot would hand the leftovers to the next food that claimed it.
+    const state = quietRun();
+    const step = stepping(state);
+    const dead = spawnMob(
+      state,
+      'shambler',
+      { x: state.grave.x, y: state.grave.y, vx: 0, vy: 1, index: 0 },
+      false,
+      'wave',
+    )!;
+    dead.alive = false;
+    leaveCorpse(state, dead);
+    const corpse = requireDefined(
+      state.corpses.find((each) => each.alive),
+      'no corpse to swallow',
+    );
+    // Sideways, so the throw does not carry it out from under the grave before
+    // the swallow pass reaches it.
+    startShove(corpse.impulse, 'belch', dead.id, 1, 0, 60, 1, 0);
+
+    const events = step(STILL);
+
+    expect(typesOf(events)).toContain('swallowed');
+    expect(corpse.alive).toBe(false);
+    expect(corpse.impulse).toEqual(blankImpulse());
+    const shoved = events.filter((event) => event.type === 'mobShoved');
+    expect(shoved).toHaveLength(1);
+    expect(shoved[0]?.type === 'mobShoved' && shoved[0].id).toBe(dead.id);
   });
 });

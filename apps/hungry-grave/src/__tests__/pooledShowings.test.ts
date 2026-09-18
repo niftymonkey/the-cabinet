@@ -110,9 +110,11 @@ function showing(tag: string, menusOpened: string[]): Showing {
         return Promise.resolve();
       },
       closeMenu: () => Promise.resolve(),
+      standInArt: () => null,
       menuShowing: () => false,
       showEnd: () => Promise.resolve(),
       playSound: () => {},
+      playMusic: () => {},
       // Button is faked in this file, so no button ever asks for a sound.
       playButtonSound: () => {},
       canvas: null,

@@ -1,0 +1,133 @@
+// Every body that came onto the field, counted where and as what it arrived.
+
+import { TICK_HZ } from '../../game/clock';
+import type { SimEvent } from '../../game/events';
+import { MOB_TYPE_NAMES } from '../../game/mobs';
+import type { RunState } from '../../game/run';
+import { SECTIONS } from '../../game/stage/stage';
+import { addTo } from '../numbersByName';
+
+/**
+ * What arrived over a run: the whole count, the count under each section, and
+ * the count of each type.
+ *
+ * It is the arrival side of the field, where `mobsAlivePerTick` is the
+ * survivor side. A schedule authors a rate and a count per spawn (#39's mow
+ * ruling, and the spawn tables in `docs/research/survivor-numbers.md`), and a
+ * count of what was still alive at a tick answers neither: a hand that kills
+ * fast and one that never arrives read the same there.
+ *
+ * A section the run never entered carries no count rather than a zero, because
+ * nothing arrived nowhere. Every type is named, zero included, because a type
+ * the schedule never sent is a fact about the schedule.
+ */
+interface Arrivals {
+  readonly total: number;
+  /**
+   * Bodies a second over the whole run, which is the quantity a standing wave
+   * authors: the count above is what the run's own length happened to produce,
+   * so two runs of different lengths cannot be read against each other by it.
+   *
+   * Null on a run with no ticks at all, on seriesSummary's own terms: a rate
+   * over no time is not zero, it is nothing to divide.
+   */
+  readonly perSecond: number | null;
+  readonly bySection: Readonly<Record<string, number>>;
+  readonly byType: Readonly<Record<string, number>>;
+}
+
+interface ArrivalsAcc {
+  readonly bySection: Record<string, number>;
+  readonly byType: Record<string, number>;
+  /**
+   * The largest mob id counted so far. Entity ids only ever increase
+   * (`mobs.ts` takes each from the run's own counter), so an id above this
+   * mark is a body this reading has not seen and an id at or below it is one
+   * it has.
+   */
+  highestId: number;
+  total: number;
+  // Ticks the run has played, read off the run rather than counted here, so a
+  // reading that misses a tick cannot quietly shorten the run it divides by.
+  ticks: number;
+}
+
+const createArrivals = (): ArrivalsAcc => {
+  const byType: Record<string, number> = {};
+  for (const type of MOB_TYPE_NAMES) byType[type] = 0;
+  return { bySection: {}, byType, highestId: 0, total: 0, ticks: 0 };
+};
+
+// One body that came onto the field, as the two things this reading files it under.
+interface Arrival {
+  readonly id: number;
+  readonly type: string;
+}
+
+/**
+ * Every body on the field this tick, and every body a death took this tick.
+ *
+ * Both halves are needed and neither is enough. The tick order spawns before
+ * it resolves deaths and culls (`step.ts`), so a body can arrive and be gone
+ * from the pool before this reading looks; the death event carries the id,
+ * which is what makes that arrival recoverable. A body that arrives and leaves
+ * the field in one tick is not a case: a spawn places bodies above the top
+ * edge or at the pour point, and the cull takes them at the bottom.
+ */
+const bodiesSeen = (
+  events: readonly SimEvent[],
+  state: RunState,
+): Arrival[] => {
+  const seen: Arrival[] = [];
+  for (const mob of state.mobs) {
+    if (mob.alive) seen.push({ id: mob.id, type: mob.type });
+  }
+  for (const event of events) {
+    if (event.type === 'mobKilled')
+      seen.push({ id: event.id, type: event.mob });
+  }
+  return seen;
+};
+
+/**
+ * The section the run is in as this tick ends, which is what the arrivals in it
+ * are filed under.
+ *
+ * A body that arrived in the same tick its section gave way is filed under the
+ * section that took over, because the tick's own crossing and its spawns are not
+ * separable from out here. That is one tick at each of six boundaries, against
+ * a schedule authored in seconds.
+ */
+const sectionNow = (state: RunState): string => {
+  const section = SECTIONS[state.stage.sectionIndex];
+  if (section === undefined) throw new Error('sectionIndex out of range');
+  return section.name;
+};
+
+const observeArrivals = (
+  acc: ArrivalsAcc,
+  events: readonly SimEvent[],
+  state: RunState,
+): void => {
+  const section = sectionNow(state);
+  acc.ticks = state.tick;
+  let highest = acc.highestId;
+  for (const body of bodiesSeen(events, state)) {
+    highest = Math.max(highest, body.id);
+    if (body.id <= acc.highestId) continue;
+    acc.total += 1;
+    addTo(acc.bySection, section, 1);
+    addTo(acc.byType, body.type, 1);
+  }
+  acc.highestId = highest;
+};
+
+const arrivalsOf = (acc: ArrivalsAcc): Arrivals => ({
+  total: acc.total,
+  perSecond: acc.ticks === 0 ? null : acc.total / (acc.ticks / TICK_HZ),
+  bySection: { ...acc.bySection },
+  byType: { ...acc.byType },
+});
+
+export { arrivalsOf, createArrivals, observeArrivals };
+export type { Arrivals, ArrivalsAcc };

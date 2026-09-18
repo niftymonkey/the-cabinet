@@ -18,17 +18,32 @@ import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import type { BellRing } from '../lines/bell';
+import type { BellToll } from '../lines/bell';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
 import type { Stream } from '../rng';
 import { MAX_LEVEL } from '../lines/roster';
-import { SKULL_HALF_EXTENT } from '../lines/soulStream';
+import { openOffer } from '../offer';
+import { SKULL_HALF_EXTENT } from '../lines/skullStream';
 import { RADIUS_BY_LEVEL } from '../lines/territory';
+import { SCORE_RUNG_REARM_SIZE } from '../grave';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from '../tuning';
 import type { Fault, FaultIdentity } from '../faults';
 import { checkInvariants, createStageWatch } from '../invariants';
+import { capsFor } from '../caps';
+import { DEFAULT_TUNING } from '../tuningRecord';
 
 const STILL: TickCommand = { move: { x: 0, y: 0 }, belch: false };
+
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
+/** The fixture's own pool slot 0, which every fillX above already puts a live entity into. */
+function slot0<T>(pool: readonly T[]): T {
+  return requireDefined(pool[0], 'no pool slot 0');
+}
 
 /** The faults one look at a state records, through a watch that has seen nothing. */
 function faultsOn(state: RunState): readonly Fault[] {
@@ -94,6 +109,79 @@ describe('the sim invariants', () => {
     expect(run.tick).toBe(300);
   });
 
+  it('records a fault when the score rung is still bled at a size that has already bought it back (design record R4)', () => {
+    // R4's one impossible state. Two halves of one rule produce the mark and
+    // clear it, the ladder at the floor and growGrave a full hit's worth above
+    // it, so a mark surviving that size means one of the halves stopped running.
+    const grown = createRun(1);
+    grown.grave.size = SCORE_RUNG_REARM_SIZE;
+    grown.grave.scoreRungBled = true;
+    expect(brokenOn(grown)).toContain('score rung re-armed by growth');
+
+    // A crumb above the floor is not the fault, and this is the half that says
+    // the check is the rule's and not just a floor comparison: the mark is meant
+    // to survive every growth short of a full hit's worth.
+    const crumb = createRun(1);
+    crumb.grave.size = SIZE_FLOOR + 0.01;
+    crumb.grave.scoreRungBled = true;
+    expect(brokenOn(crumb)).not.toContain('score rung re-armed by growth');
+  });
+
+  it('never reaches that state through the rules themselves, over a run played from the size floor with score standing (design record R4)', () => {
+    // Through the harness rather than by reaching into the check: the rig
+    // throws on any fault any tick records, so a run that finishes is the
+    // assertion. The ladder is asserted to have actually run, so this cannot
+    // pass on a run that never reached the floor at all.
+    const run = createRun(7);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 500;
+    const step = stepping(run);
+    let ladderRuns = 0;
+    for (let i = 0; i < 600; i++) {
+      // A steering script with a shape, so a body of zeroes cannot walk the
+      // grave into a corner the storm never reaches.
+      const move = { x: (i % 7) / 6 - 0.5, y: (i % 5) / 4 - 0.5 };
+      const events = step({ move, belch: false });
+      for (const event of events) {
+        if (event.type === 'scoreBled' || event.type === 'weaponStripped') {
+          ladderRuns += 1;
+        }
+      }
+    }
+    expect(ladderRuns).toBeGreaterThan(0);
+  });
+
+  it('records a fault on a score below zero, and never on a run that only ever paid and bled (design record R4)', () => {
+    // The one state five payment sites and three data rows could reach between
+    // them. Every input only adds and the bleed takes the lesser of what stood
+    // and the cap, so the rules cannot produce it; what it catches is a
+    // reversed sign at a payment site.
+    const owing = createRun(1);
+    owing.score = -1;
+    expect(brokenOn(owing)).toContain('score not negative');
+
+    // The other half, through the harness rather than by reaching into the
+    // check: a run played from the size floor holding a score pays and bleeds
+    // its way through the ladder without ever reaching it, and the rig throws
+    // on any fault any tick records.
+    const run = createRun(7);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 500;
+    const step = stepping(run);
+    let paid = 0;
+    let bled = 0;
+    for (let i = 0; i < 600; i++) {
+      const move = { x: (i % 7) / 6 - 0.5, y: (i % 5) / 4 - 0.5 };
+      for (const event of step({ move, belch: false })) {
+        if (event.type === 'scorePaid') paid += 1;
+        if (event.type === 'scoreBled') bled += 1;
+      }
+    }
+    expect(paid).toBeGreaterThan(0);
+    expect(bled).toBeGreaterThan(0);
+    expect(run.score).toBeGreaterThanOrEqual(0);
+  });
+
   it('a checker that cannot run still throws rather than being recorded as a fault', () => {
     // Detecting a violated invariant is the checker working. A checker that
     // cannot run is a bug in the checker, and swallowing it into the list it
@@ -113,7 +201,13 @@ describe('the sim invariants', () => {
 
 /** A live mob a test can then break, at a place the grave is nowhere near. */
 function liveMob(state: RunState, x = 60, y = 100): Mob {
-  return spawnMob(state, 'shambler', { x, y, vx: 0, vy: 1, index: 0 })!;
+  return spawnMob(
+    state,
+    'shambler',
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
 }
 
 describe('every check for the tick runs (ADR 0024)', () => {
@@ -127,7 +221,9 @@ describe('every check for the tick runs (ADR 0024)', () => {
     // Recoverable, and checked fourth: a mob well past the spawn margin.
     liveMob(state, 60, -SPAWN_MARGIN - 1);
     // Fatal, and checked ninth: a pool longer than its cap.
-    state.skulls.push({ ...state.skulls[0] });
+    state.skulls.push({
+      ...requireDefined(state.skulls[0], 'no skull pool slot 0'),
+    });
     // Fatal, and checked ninth as well: two live slots sharing an id.
     const first = liveMob(state, 120);
     liveMob(state, 180).id = first.id;
@@ -173,7 +269,9 @@ describe('every check for the tick runs (ADR 0024)', () => {
 
     const nan = faultsOn(state).filter((fault) => fault.identity === 'no NaN');
     expect(nan).toHaveLength(1);
-    expect(nan[0].detail).toBe(`mob ${first.id}.vx is NaN`);
+    expect(requireDefined(nan[0], 'no NaN fault').detail).toBe(
+      `mob ${first.id}.vx is NaN`,
+    );
   });
 
   /** The five pools the bounds checks walk, in the order they are walked. */
@@ -184,16 +282,35 @@ describe('every check for the tick runs (ADR 0024)', () => {
     const outside = -SPAWN_MARGIN - SKULL_HALF_EXTENT - 1;
     if (pool === 'mob') liveMob(state, 60, outside);
     if (pool === 'corpse') {
-      Object.assign(state.corpses[0], { alive: true, x: 60, y: outside });
+      Object.assign(requireDefined(state.corpses[0], 'no corpse pool slot 0'), {
+        alive: true,
+        x: 60,
+        y: outside,
+      });
     }
     if (pool === 'shot') {
-      Object.assign(state.mobFire[0], { alive: true, x: 60, y: outside });
+      Object.assign(
+        requireDefined(state.mobFire[0], 'no mobFire pool slot 0'),
+        {
+          alive: true,
+          x: 60,
+          y: outside,
+        },
+      );
     }
     if (pool === 'skull') {
-      Object.assign(state.skulls[0], { alive: true, x: 60, y: outside });
+      Object.assign(requireDefined(state.skulls[0], 'no skull pool slot 0'), {
+        alive: true,
+        x: 60,
+        y: outside,
+      });
     }
     if (pool === 'wisp') {
-      Object.assign(state.wisps[0], { alive: true, x: 60, y: outside });
+      Object.assign(requireDefined(state.wisps[0], 'no wisp pool slot 0'), {
+        alive: true,
+        x: 60,
+        y: outside,
+      });
     }
   }
 
@@ -209,8 +326,12 @@ describe('every check for the tick runs (ADR 0024)', () => {
       expect(faults.map((fault) => fault.identity)).toEqual([
         'entities in bounds',
       ]);
-      expect(faults[0].detail).toMatch(
-        new RegExp(`^${BOUNDS_POOLS[first]} \\d+ is at `),
+      const expectedPool = requireDefined(
+        BOUNDS_POOLS[first],
+        'no bounds pool',
+      );
+      expect(requireDefined(faults[0], 'no fault recorded').detail).toMatch(
+        new RegExp(`^${expectedPool} \\d+ is at `),
       );
     }
   });
@@ -227,8 +348,9 @@ describe('the entity invariants (ADR 0013)', () => {
     expect(brokenOn(health)).toContain('no NaN');
 
     const shot = createRun(1);
-    shot.mobFire[0].alive = true;
-    shot.mobFire[0].y = NaN;
+    const shotSlot = requireDefined(shot.mobFire[0], 'no mobFire pool slot 0');
+    shotSlot.alive = true;
+    shotSlot.y = NaN;
     expect(brokenOn(shot)).toContain('no NaN');
 
     const corpse = createRun(1);
@@ -241,7 +363,9 @@ describe('the entity invariants (ADR 0013)', () => {
 
   it('records a pool that exceeds its cap or holds two live slots with the same id', () => {
     const oversized = createRun(1);
-    oversized.mobs.push({ ...oversized.mobs[0] });
+    oversized.mobs.push({
+      ...requireDefined(oversized.mobs[0], 'no mob pool slot 0'),
+    });
     expect(brokenOn(oversized)).toContain('entity caps');
 
     const twinned = createRun(1);
@@ -249,6 +373,25 @@ describe('the entity invariants (ADR 0013)', () => {
     const second = liveMob(twinned, 120);
     second.id = first.id;
     expect(brokenOn(twinned)).toContain('entity ids');
+  });
+
+  it("checks a pool against the run's own cap and never a module's", () => {
+    // The caps are derived per run from the record the run started under (ADR
+    // 0056 as amended), so a run whose record earns larger pools is inside its
+    // own cap while standing more than a default run's pool could hold. Read
+    // against a module constant this run would break the identity on its first
+    // tick, which is the wrongness this pins.
+    const roomy = createRun(1, {
+      tuning: {
+        ...DEFAULT_TUNING,
+        stage: { ...DEFAULT_TUNING.stage, quietIntervalMinimumSeconds: 1 },
+      },
+    });
+    expect(roomy.mobs.length).toBeGreaterThan(capsFor(DEFAULT_TUNING).mobs);
+    expect(brokenOn(roomy)).not.toContain('entity caps');
+
+    roomy.mobs.push({ ...requireDefined(roomy.mobs[0], 'no mob pool slot 0') });
+    expect(brokenOn(roomy)).toContain('entity caps');
   });
 
   it('records a freshness outside zero to one', () => {
@@ -278,69 +421,73 @@ describe('the entity invariants (ADR 0013)', () => {
     expect(brokenOn(wide)).toContain('entities in bounds');
 
     const shot = createRun(1);
-    shot.mobFire[0].alive = true;
-    shot.mobFire[0].halfExtent = 5;
-    shot.mobFire[0].x = 100;
-    shot.mobFire[0].y = -20;
+    const shotSlot = requireDefined(shot.mobFire[0], 'no mobFire pool slot 0');
+    shotSlot.alive = true;
+    shotSlot.halfExtent = 5;
+    shotSlot.x = 100;
+    shotSlot.y = -20;
     expect(brokenOn(shot)).toContain('entities in bounds');
   });
 
-  it('records the phase index going backwards or the phase tick not resetting at a boundary', () => {
+  it('records the section index going backwards or the section tick not resetting at a boundary', () => {
     const watch = createStageWatch();
     const backwards = createRun(1);
-    backwards.stage.phaseIndex = 2;
+    backwards.stage.sectionIndex = 2;
     expect(checkInvariants(backwards, watch)).toEqual([]);
-    backwards.stage.phaseIndex = 1;
+    backwards.stage.sectionIndex = 1;
     expect(
       checkInvariants(backwards, watch).map((fault) => fault.identity),
-    ).toContain('phase index only increases');
+    ).toContain('section index only increases');
 
     const unresetWatch = createStageWatch();
     const unreset = createRun(1);
-    unreset.stage.phaseTick = 900;
+    unreset.stage.sectionTick = 900;
     expect(checkInvariants(unreset, unresetWatch)).toEqual([]);
-    unreset.stage.phaseIndex = 1;
-    unreset.stage.phaseTick = 901;
+    unreset.stage.sectionIndex = 1;
+    unreset.stage.sectionTick = 901;
     expect(
       checkInvariants(unreset, unresetWatch).map((fault) => fault.identity),
-    ).toContain('phase tick resets at a boundary');
+    ).toContain('section tick resets at a boundary');
   });
 
-  it('keeps reporting a broken phase, because a rejected value never enters the watch', () => {
+  it('keeps reporting a broken section, because a rejected value never enters the watch', () => {
     // The watch is passed in on every call, which is what makes this file able
     // to exercise it at all: made optional, these two calls would go green
     // while checking nothing.
     const watch = createStageWatch();
     const run = createRun(1);
-    run.stage.phaseIndex = 2;
+    run.stage.sectionIndex = 2;
     checkInvariants(run, watch);
-    run.stage.phaseIndex = 1;
+    run.stage.sectionIndex = 1;
     expect(
       checkInvariants(run, watch).map((fault) => fault.identity),
-    ).toContain('phase index only increases');
-    // The watch still holds phase 2. Recording before the check would leave it
-    // holding the rejected phase 1, and this second look would pass.
+    ).toContain('section index only increases');
+    // The watch still holds section 2. Recording before the check would leave it
+    // holding the rejected section 1, and this second look would pass.
     expect(
       checkInvariants(run, watch).map((fault) => fault.identity),
-    ).toContain('phase index only increases');
+    ).toContain('section index only increases');
   });
 });
 
 describe("the storm's invariants (plan 6.26)", () => {
   it('records a NaN in any live skull or wisp, or anywhere in the lines record', () => {
     const skull = createRun(1);
-    skull.skulls[0].alive = true;
-    skull.skulls[0].vy = NaN;
+    const skullSlot = requireDefined(skull.skulls[0], 'no skull pool slot 0');
+    skullSlot.alive = true;
+    skullSlot.vy = NaN;
     expect(brokenOn(skull)).toContain('no NaN');
 
     const wisp = createRun(1);
-    wisp.wisps[0].alive = true;
-    wisp.wisps[0].life = NaN;
+    const wispSlot = requireDefined(wisp.wisps[0], 'no wisp pool slot 0');
+    wispSlot.alive = true;
+    wispSlot.life = NaN;
     expect(brokenOn(wisp)).toContain('no NaN');
 
     const patch = createRun(1);
-    patch.patches[0].alive = true;
-    patch.patches[0].radius = NaN;
+    const patchSlot = requireDefined(patch.patches[0], 'no patch pool slot 0');
+    patchSlot.alive = true;
+    patchSlot.radius = NaN;
     expect(brokenOn(patch)).toContain('no NaN');
   });
 
@@ -350,38 +497,53 @@ describe("the storm's invariants (plan 6.26)", () => {
     // cullMobs legitimately allows that mob out to SPAWN_MARGIN, so a wisp
     // checked against its own extent would fire on the game playing correctly.
     const skull = createRun(1);
-    skull.skulls[0].alive = true;
-    skull.skulls[0].x = 100;
-    skull.skulls[0].y = -SKULL_HALF_EXTENT - 1;
+    const skullSlot = requireDefined(skull.skulls[0], 'no skull pool slot 0');
+    skullSlot.alive = true;
+    skullSlot.x = 100;
+    skullSlot.y = -SKULL_HALF_EXTENT - 1;
     expect(brokenOn(skull)).toContain('entities in bounds');
 
     const legal = createRun(1);
-    legal.wisps[0].alive = true;
-    legal.wisps[0].x = 100;
-    legal.wisps[0].y = -SPAWN_MARGIN;
+    const legalSlot = requireDefined(legal.wisps[0], 'no wisp pool slot 0');
+    legalSlot.alive = true;
+    legalSlot.x = 100;
+    legalSlot.y = -SPAWN_MARGIN;
     expect(faultsOn(legal)).toEqual([]);
 
     const gone = createRun(1);
-    gone.wisps[0].alive = true;
-    gone.wisps[0].x = 100;
-    gone.wisps[0].y = -SPAWN_MARGIN - 1;
+    const goneSlot = requireDefined(gone.wisps[0], 'no wisp pool slot 0');
+    goneSlot.alive = true;
+    goneSlot.x = 100;
+    goneSlot.y = -SPAWN_MARGIN - 1;
     expect(brokenOn(gone)).toContain('entities in bounds');
   });
 
   it('records a skull or wisp pool that exceeds its cap or twins an id', () => {
     const skulls = createRun(1);
-    skulls.skulls.push({ ...skulls.skulls[0] });
+    skulls.skulls.push({
+      ...requireDefined(skulls.skulls[0], 'no skull pool slot 0'),
+    });
     expect(brokenOn(skulls)).toContain('entity caps');
 
     const wisps = createRun(1);
-    wisps.wisps.push({ ...wisps.wisps[0] });
+    wisps.wisps.push({
+      ...requireDefined(wisps.wisps[0], 'no wisp pool slot 0'),
+    });
     expect(brokenOn(wisps)).toContain('entity caps');
 
     const twinned = createRun(1);
-    twinned.skulls[0].alive = true;
-    twinned.skulls[0].id = 7;
-    twinned.skulls[1].alive = true;
-    twinned.skulls[1].id = 7;
+    const twinnedSkull0 = requireDefined(
+      twinned.skulls[0],
+      'no skull pool slot 0',
+    );
+    twinnedSkull0.alive = true;
+    twinnedSkull0.id = 7;
+    const twinnedSkull1 = requireDefined(
+      twinned.skulls[1],
+      'no skull pool slot 1',
+    );
+    twinnedSkull1.alive = true;
+    twinnedSkull1.id = 7;
     expect(brokenOn(twinned)).toContain('entity ids');
   });
 
@@ -405,7 +567,7 @@ describe("the storm's invariants (plan 6.26)", () => {
     // The floor ladder strips levels and payLevel raises them, and both write
     // to the same record.
     const stripped = createRun(1);
-    stripped.levels.soulStream = 0;
+    stripped.levels.skullStream = 0;
     expect(brokenOn(stripped)).toContain('levels in range');
 
     const overLevelled = createRun(1);
@@ -428,8 +590,97 @@ describe("the storm's invariants (plan 6.26)", () => {
   });
 });
 
+describe('the offer and the bank (ADR 0034)', () => {
+  /** A run with one offer standing on the field, exactly as openOffer leaves it. */
+  function offering(): RunState {
+    const run = createRun(1);
+    openOffer(run, run.grave.x, 200);
+    expect(faultsOn(run)).toEqual([]);
+    return run;
+  }
+
+  it('records an option body standing for no live offer', () => {
+    // Two offers' worth of bodies on the field is the shape "exactly one offer
+    // is live at a time" forbids, and it is what a second openOffer that
+    // forgot the bank would leave behind.
+    const state = offering();
+    const standing = state.offer!;
+    state.offer = null;
+    openOffer(state, state.grave.x, 260);
+    expect(state.offer!.bodyIds).not.toEqual(standing.bodyIds);
+
+    expect(brokenOn(state)).toContain('one live offer');
+  });
+
+  it('lets a body carrying no option stand, because it belongs to no offer', () => {
+    // The maxed run's pay: one body with no line, opened while no offer is
+    // live. The check must not read it as a stray option body.
+    const state = createRun(1);
+    for (const line of state.roster) state.levels[line] = MAX_LEVEL;
+    openOffer(state, state.grave.x, 200);
+    expect(state.offer).toBeNull();
+    expect(
+      state.corpses.filter(
+        (corpse) => corpse.alive && corpse.kind === 'powerUp',
+      ),
+    ).toHaveLength(1);
+
+    expect(faultsOn(state)).toEqual([]);
+  });
+
+  it('records an offer whose bodies are not on the field', () => {
+    const state = offering();
+    for (const corpse of state.corpses) corpse.alive = false;
+
+    expect(brokenOn(state)).toContain('offer bodies alive and matching');
+  });
+
+  it('records a body carrying an option its offer does not name', () => {
+    const state = offering();
+    const offer = state.offer!;
+    const body = state.corpses.find(
+      (corpse) => corpse.alive && corpse.id === offer.bodyIds[0],
+    )!;
+    body.line = offer.options[1];
+
+    expect(brokenOn(state)).toContain('offer bodies alive and matching');
+  });
+
+  it('records one body named twice by the same offer', () => {
+    // Two options wearing one body: the take resolves the first of them, so
+    // the player is paid a line they never passed under.
+    const state = offering();
+    const offer = state.offer!;
+    const firstBodyId = requireDefined(
+      offer.bodyIds[0],
+      'offer laid no bodies',
+    );
+    state.offer = {
+      options: [...offer.options],
+      bodyIds: offer.bodyIds.map(() => firstBodyId),
+    };
+
+    expect(brokenOn(state)).toContain('offer bodies alive and matching');
+  });
+
+  it('records a negative bank, and a fractional one', () => {
+    const state = createRun(1);
+    state.bankedOffers = -1;
+    expect(brokenOn(state)).toContain('bank not negative');
+
+    // Half a banked offer still reads as one to open, so the next take spends
+    // it and leaves the bank below zero a tick later. It is caught here
+    // instead, against the state the bad write actually made.
+    state.bankedOffers = 0.5;
+    expect(brokenOn(state)).toContain('bank not negative');
+
+    state.bankedOffers = 0;
+    expect(brokenOn(state)).not.toContain('bank not negative');
+  });
+});
+
 /** The fixture's live ring, rebuilt whole where a case must move its read-only level. */
-function liveRing(): BellRing {
+function liveRing(): BellToll {
   return { level: 2, ticks: 5, struck: new Set([11, 12]) };
 }
 
@@ -449,22 +700,75 @@ function filledRun(): RunState {
   fillWisp(run);
   fillPatch(run);
   fillRun(run);
+  fillOffer(run);
+  fillBoss(run);
+  fillSetPiece(run);
+  fillPress(run);
   return run;
+}
+
+/** The fixture's boss, mid-fight rather than freshly arrived. */
+function fillBoss(run: RunState): void {
+  run.boss = {
+    id: 17,
+    kind: 'undertaker',
+    phaseIndex: 1,
+    hp: 820,
+    x: 270,
+    y: 110,
+    flash: 0,
+    patternTick: 34,
+  };
+}
+
+/** The fixture's press, mid-way through its three shoves with one body thrown. */
+function fillPress(run: RunState): void {
+  run.press = {
+    beganAt: 41,
+    shovesLeft: 1,
+    nextIn: 12,
+    caught: new Set([11]),
+  };
+}
+
+/** The fixture's set piece, open and part-way through its pour. */
+function fillSetPiece(run: RunState): void {
+  run.setPiece = {
+    id: 18,
+    x: 300,
+    y: 240,
+    open: true,
+    budget: 41,
+    pourIn: 7,
+    hp: 1900,
+    bodyGone: false,
+  };
+}
+
+/**
+ * The offer the fixture's power-up body belongs to. The body is an option body, so
+ * a live offer has to name it: an option body standing for no offer is exactly
+ * what the one-live-offer check exists to record.
+ */
+function fillOffer(run: RunState): void {
+  run.offer = {
+    options: ['wisps'],
+    bodyIds: [requireDefined(slot0(run.corpses), 'no corpse pool slot 0').id],
+  };
+  run.bankedOffers = 2;
 }
 
 function fillRun(run: RunState): void {
   run.score = 250;
   run.reservoir = 0.375;
-  run.killsSinceDrop = 3;
-  run.dropsPaid = 2;
   run.nextEntityId = 16;
-  run.levels.soulStream = 2;
+  run.levels.skullStream = 2;
   run.levels.territory = 1;
   run.levels.wisps = 3;
   run.levels.bell = 4;
-  run.stage.phaseIndex = 1;
-  run.stage.phaseTick = 40;
-  run.stage.firedRows = 2;
+  run.stage.sectionIndex = 1;
+  run.stage.sectionTick = 40;
+  run.stage.firedWaves = 2;
   run.lines.streamIn = 17;
   run.lines.surgeVolleys = 2;
   run.lines.tollIn = 90;
@@ -479,7 +783,7 @@ function fillGrave(run: RunState): void {
 }
 
 function fillMob(run: RunState): void {
-  const mob = run.mobs[0];
+  const mob = requireDefined(slot0(run.mobs), 'no mob pool slot 0');
   mob.alive = true;
   mob.id = 11;
   mob.type = 'ghoul';
@@ -494,7 +798,7 @@ function fillMob(run: RunState): void {
 }
 
 function fillShot(run: RunState): void {
-  const shot = run.mobFire[0];
+  const shot = requireDefined(slot0(run.mobFire), 'no mobFire pool slot 0');
   shot.alive = true;
   shot.id = 12;
   shot.emitter = 'revenant';
@@ -506,7 +810,7 @@ function fillShot(run: RunState): void {
 }
 
 function fillCorpse(run: RunState): void {
-  const corpse = run.corpses[0];
+  const corpse = requireDefined(slot0(run.corpses), 'no corpse pool slot 0');
   corpse.alive = true;
   corpse.id = 13;
   corpse.x = 310.5;
@@ -514,14 +818,14 @@ function fillCorpse(run: RunState): void {
   corpse.freshness = 0.625;
   corpse.payout = 1.5;
   corpse.tier = 'rich';
-  corpse.kind = 'drop';
+  corpse.kind = 'powerUp';
   corpse.decays = false;
   corpse.line = 'wisps';
   corpse.halfExtent = 9;
 }
 
 function fillSkull(run: RunState): void {
-  const skull = run.skulls[0];
+  const skull = requireDefined(slot0(run.skulls), 'no skull pool slot 0');
   skull.alive = true;
   skull.id = 14;
   skull.x = 400.25;
@@ -531,7 +835,7 @@ function fillSkull(run: RunState): void {
 }
 
 function fillWisp(run: RunState): void {
-  const wisp = run.wisps[0];
+  const wisp = requireDefined(slot0(run.wisps), 'no wisp pool slot 0');
   wisp.alive = true;
   wisp.id = 15;
   wisp.x = 55.75;
@@ -543,7 +847,7 @@ function fillWisp(run: RunState): void {
 }
 
 function fillPatch(run: RunState): void {
-  const patch = run.patches[0];
+  const patch = requireDefined(slot0(run.patches), 'no patch pool slot 0');
   patch.alive = true;
   patch.id = 16;
   patch.x = 210.5;
@@ -603,20 +907,6 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
-    path: 'killsSinceDrop',
-    poison: (run) => {
-      run.killsSinceDrop = NaN;
-      return run;
-    },
-  },
-  {
-    path: 'dropsPaid',
-    poison: (run) => {
-      run.dropsPaid = NaN;
-      return run;
-    },
-  },
-  {
     path: 'nextEntityId',
     poison: (run) => {
       run.nextEntityId = NaN;
@@ -654,182 +944,308 @@ const NAN_CASES: readonly NanCase[] = [
   {
     path: 'mobs[].x',
     poison: (run) => {
-      run.mobs[0].x = NaN;
+      slot0(run.mobs).x = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].y',
     poison: (run) => {
-      run.mobs[0].y = NaN;
+      slot0(run.mobs).y = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].vx',
     poison: (run) => {
-      run.mobs[0].vx = NaN;
+      slot0(run.mobs).vx = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].vy',
     poison: (run) => {
-      run.mobs[0].vy = NaN;
+      slot0(run.mobs).vy = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].hp',
     poison: (run) => {
-      run.mobs[0].hp = NaN;
+      slot0(run.mobs).hp = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].beat',
     poison: (run) => {
-      run.mobs[0].beat = NaN;
+      slot0(run.mobs).beat = NaN;
       return run;
     },
   },
   {
     path: 'mobs[].fireIn',
     poison: (run) => {
-      run.mobs[0].fireIn = NaN;
+      slot0(run.mobs).fireIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.stepX',
+    poison: (run) => {
+      slot0(run.mobs).impulse.stepX = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.stepY',
+    poison: (run) => {
+      slot0(run.mobs).impulse.stepY = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.ticksLeft',
+    poison: (run) => {
+      slot0(run.mobs).impulse.ticksLeft = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.travelled',
+    poison: (run) => {
+      slot0(run.mobs).impulse.travelled = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.shovesLeft',
+    poison: (run) => {
+      slot0(run.mobs).impulse.shovesLeft = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.nextIn',
+    poison: (run) => {
+      slot0(run.mobs).impulse.nextIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.spacing',
+    poison: (run) => {
+      slot0(run.mobs).impulse.spacing = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.owedStepX',
+    poison: (run) => {
+      slot0(run.mobs).impulse.owedStepX = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'mobs[].impulse.owedStepY',
+    poison: (run) => {
+      slot0(run.mobs).impulse.owedStepY = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.stepX',
+    poison: (run) => {
+      slot0(run.corpses).impulse.stepX = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.stepY',
+    poison: (run) => {
+      slot0(run.corpses).impulse.stepY = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.ticksLeft',
+    poison: (run) => {
+      slot0(run.corpses).impulse.ticksLeft = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.travelled',
+    poison: (run) => {
+      slot0(run.corpses).impulse.travelled = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.shovesLeft',
+    poison: (run) => {
+      slot0(run.corpses).impulse.shovesLeft = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.nextIn',
+    poison: (run) => {
+      slot0(run.corpses).impulse.nextIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.spacing',
+    poison: (run) => {
+      slot0(run.corpses).impulse.spacing = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.owedStepX',
+    poison: (run) => {
+      slot0(run.corpses).impulse.owedStepX = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].impulse.owedStepY',
+    poison: (run) => {
+      slot0(run.corpses).impulse.owedStepY = NaN;
       return run;
     },
   },
   {
     path: 'mobFire[].x',
     poison: (run) => {
-      run.mobFire[0].x = NaN;
+      slot0(run.mobFire).x = NaN;
       return run;
     },
   },
   {
     path: 'mobFire[].y',
     poison: (run) => {
-      run.mobFire[0].y = NaN;
+      slot0(run.mobFire).y = NaN;
       return run;
     },
   },
   {
     path: 'mobFire[].vx',
     poison: (run) => {
-      run.mobFire[0].vx = NaN;
+      slot0(run.mobFire).vx = NaN;
       return run;
     },
   },
   {
     path: 'mobFire[].vy',
     poison: (run) => {
-      run.mobFire[0].vy = NaN;
+      slot0(run.mobFire).vy = NaN;
       return run;
     },
   },
   {
     path: 'corpses[].x',
     poison: (run) => {
-      run.corpses[0].x = NaN;
+      slot0(run.corpses).x = NaN;
       return run;
     },
   },
   {
     path: 'corpses[].y',
     poison: (run) => {
-      run.corpses[0].y = NaN;
+      slot0(run.corpses).y = NaN;
       return run;
     },
   },
   {
     path: 'corpses[].freshness',
     poison: (run) => {
-      run.corpses[0].freshness = NaN;
+      slot0(run.corpses).freshness = NaN;
       return run;
     },
   },
   {
     path: 'corpses[].payout',
     poison: (run) => {
-      run.corpses[0].payout = NaN;
+      slot0(run.corpses).payout = NaN;
       return run;
     },
   },
   {
     path: 'skulls[].x',
     poison: (run) => {
-      run.skulls[0].x = NaN;
+      slot0(run.skulls).x = NaN;
       return run;
     },
   },
   {
     path: 'skulls[].y',
     poison: (run) => {
-      run.skulls[0].y = NaN;
+      slot0(run.skulls).y = NaN;
       return run;
     },
   },
   {
     path: 'skulls[].vx',
     poison: (run) => {
-      run.skulls[0].vx = NaN;
+      slot0(run.skulls).vx = NaN;
       return run;
     },
   },
   {
     path: 'skulls[].vy',
     poison: (run) => {
-      run.skulls[0].vy = NaN;
+      slot0(run.skulls).vy = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].x',
     poison: (run) => {
-      run.wisps[0].x = NaN;
+      slot0(run.wisps).x = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].y',
     poison: (run) => {
-      run.wisps[0].y = NaN;
+      slot0(run.wisps).y = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].vx',
     poison: (run) => {
-      run.wisps[0].vx = NaN;
+      slot0(run.wisps).vx = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].vy',
     poison: (run) => {
-      run.wisps[0].vy = NaN;
+      slot0(run.wisps).vy = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].life',
     poison: (run) => {
-      run.wisps[0].life = NaN;
+      slot0(run.wisps).life = NaN;
       return run;
     },
   },
   {
     path: 'wisps[].targetId',
     poison: (run) => {
-      run.wisps[0].targetId = NaN;
+      slot0(run.wisps).targetId = NaN;
       return run;
     },
   },
   {
-    path: 'levels.soulStream',
+    path: 'levels.skullStream',
     poison: (run) => {
-      run.levels.soulStream = NaN;
+      run.levels.skullStream = NaN;
       return run;
     },
   },
@@ -855,23 +1271,23 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
-    path: 'stage.phaseIndex',
+    path: 'stage.sectionIndex',
     poison: (run) => {
-      run.stage.phaseIndex = NaN;
+      run.stage.sectionIndex = NaN;
       return run;
     },
   },
   {
-    path: 'stage.phaseTick',
+    path: 'stage.sectionTick',
     poison: (run) => {
-      run.stage.phaseTick = NaN;
+      run.stage.sectionTick = NaN;
       return run;
     },
   },
   {
-    path: 'stage.firedRows',
+    path: 'stage.firedWaves',
     poison: (run) => {
-      run.stage.firedRows = NaN;
+      run.stage.firedWaves = NaN;
       return run;
     },
   },
@@ -883,10 +1299,10 @@ const NAN_CASES: readonly NanCase[] = [
     }),
   },
   {
-    path: 'streams.drops.drawn',
+    path: 'streams.powerUps.drawn',
     poison: (run) => ({
       ...run,
-      streams: { ...run.streams, drops: poisonedStream() },
+      streams: { ...run.streams, powerUps: poisonedStream() },
     }),
   },
   {
@@ -911,6 +1327,27 @@ const NAN_CASES: readonly NanCase[] = [
     }),
   },
   {
+    path: 'streams.director.drawn',
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, director: poisonedStream() },
+    }),
+  },
+  {
+    path: 'streams.bossFire.drawn',
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, bossFire: poisonedStream() },
+    }),
+  },
+  {
+    path: 'streams.pour.drawn',
+    poison: (run) => ({
+      ...run,
+      streams: { ...run.streams, pour: poisonedStream() },
+    }),
+  },
+  {
     path: 'lines.streamIn',
     poison: (run) => {
       run.lines.streamIn = NaN;
@@ -927,56 +1364,56 @@ const NAN_CASES: readonly NanCase[] = [
   {
     path: 'patches[].x',
     poison: (run) => {
-      run.patches[0].x = NaN;
+      slot0(run.patches).x = NaN;
       return run;
     },
   },
   {
     path: 'patches[].y',
     poison: (run) => {
-      run.patches[0].y = NaN;
+      slot0(run.patches).y = NaN;
       return run;
     },
   },
   {
     path: 'patches[].radius',
     poison: (run) => {
-      run.patches[0].radius = NaN;
+      slot0(run.patches).radius = NaN;
       return run;
     },
   },
   {
     path: 'patches[].pull',
     poison: (run) => {
-      run.patches[0].pull = NaN;
+      slot0(run.patches).pull = NaN;
       return run;
     },
   },
   {
     path: 'patches[].slow',
     poison: (run) => {
-      run.patches[0].slow = NaN;
+      slot0(run.patches).slow = NaN;
       return run;
     },
   },
   {
     path: 'patches[].rehit',
     poison: (run) => {
-      run.patches[0].rehit = NaN;
+      slot0(run.patches).rehit = NaN;
       return run;
     },
   },
   {
     path: 'patches[].opening',
     poison: (run) => {
-      run.patches[0].opening = NaN;
+      slot0(run.patches).opening = NaN;
       return run;
     },
   },
   {
     path: 'patches[].pulses',
     poison: (run) => {
-      run.patches[0].pulses = NaN;
+      slot0(run.patches).pulses = NaN;
       return run;
     },
   },
@@ -995,6 +1432,57 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
+    path: 'lines.volleyIn',
+    poison: (run) => {
+      run.lines.volleyIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'director.signal.value',
+    poison: (run) => {
+      run.director = {
+        ...run.director,
+        signal: { ...run.director.signal, value: NaN },
+      };
+      return run;
+    },
+  },
+  {
+    path: 'director.signal.heldUntilTick',
+    poison: (run) => {
+      run.director = {
+        ...run.director,
+        signal: { ...run.director.signal, heldUntilTick: NaN },
+      };
+      return run;
+    },
+  },
+  {
+    path: 'director.signal.lock',
+    poison: (run) => {
+      run.director = {
+        ...run.director,
+        signal: { ...run.director.signal, lock: NaN },
+      };
+      return run;
+    },
+  },
+  {
+    path: 'director.purseLeft',
+    poison: (run) => {
+      run.director = { ...run.director, purseLeft: NaN };
+      return run;
+    },
+  },
+  {
+    path: 'director.quietUntilTick',
+    poison: (run) => {
+      run.director = { ...run.director, quietUntilTick: NaN };
+      return run;
+    },
+  },
+  {
     path: 'lines.ring.level',
     poison: (run) => {
       run.lines.ring = { ...liveRing(), level: NaN };
@@ -1008,6 +1496,111 @@ const NAN_CASES: readonly NanCase[] = [
       return run;
     },
   },
+  {
+    path: 'bankedOffers',
+    poison: (run) => {
+      run.bankedOffers = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.phaseIndex',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.phaseIndex = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.hp',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.hp = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.x',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.x = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.y',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.y = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.flash',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.flash = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'boss.patternTick',
+    poison: (run) => {
+      if (run.boss !== null) run.boss.patternTick = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'setPiece.x',
+    poison: (run) => {
+      if (run.setPiece !== null) run.setPiece.x = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'setPiece.y',
+    poison: (run) => {
+      if (run.setPiece !== null) run.setPiece.y = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'setPiece.budget',
+    poison: (run) => {
+      if (run.setPiece !== null) run.setPiece.budget = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'setPiece.pourIn',
+    poison: (run) => {
+      if (run.setPiece !== null) run.setPiece.pourIn = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'setPiece.hp',
+    poison: (run) => {
+      if (run.setPiece !== null) run.setPiece.hp = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'press.beganAt',
+    poison: (run) => {
+      if (run.press !== null) run.press = { ...run.press, beganAt: NaN };
+      return run;
+    },
+  },
+  {
+    path: 'press.shovesLeft',
+    poison: (run) => {
+      if (run.press !== null) run.press.shovesLeft = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'press.nextIn',
+    poison: (run) => {
+      if (run.press !== null) run.press.nextIn = NaN;
+      return run;
+    },
+  },
 ];
 
 /**
@@ -1017,6 +1610,44 @@ const NAN_CASES: readonly NanCase[] = [
  */
 const EXCLUDED: Readonly<Record<string, string>> = {
   seed: "the run's identity, fixed by createRun and never mutated by the rules",
+  'conditions.startingSize':
+    'what the run started from, resolved once by createRun and never mutated by the rules, as the seed is (ADR 0063). A figure that could poison it reaches the run through grave.size, which this harness checks every tick',
+  'conditions.startingLevels.skullStream':
+    'a starting level, resolved once by createRun and never mutated: what it seeds is levels.skullStream, which this harness checks every tick',
+  'conditions.startingLevels.territory':
+    'a starting level, as conditions.startingLevels.skullStream is',
+  'conditions.startingLevels.wisps':
+    'a starting level, as conditions.startingLevels.skullStream is',
+  'conditions.startingLevels.bell':
+    'a starting level, as conditions.startingLevels.skullStream is',
+  'conditions.signalLock':
+    'the figure the run holds its signal at, resolved once by createRun and never mutated: what it seeds is director.signal.value, which this harness checks every tick',
+  'conditions.startingScore':
+    'the score the run began holding, resolved once by createRun and never mutated: what it seeds is score, which this harness checks every tick',
+  'conditions.tuning.stage.processionPurse':
+    "a row of the record the run started under, resolved once by createRun and never mutated (ADR 0064). A NaN in it could reach the run only through what reads the row, and every reader's own output is checked here every tick",
+  'conditions.tuning.stage.crowdPurse':
+    'a row of the record the run started under, as conditions.tuning.stage.processionPurse is',
+  'conditions.tuning.stage.vigilPurse':
+    'a row of the record the run started under, as conditions.tuning.stage.processionPurse is',
+  'conditions.tuning.stage.quietIntervalMinimumSeconds':
+    "a row of the record the run started under, as conditions.tuning.stage.processionPurse is: what it decides is the three caps, and a pool over its cap is this harness's own entity caps identity",
+  'conditions.tuning.stage.quietIntervalMaximumSeconds':
+    'a row of the record the run started under, as conditions.tuning.stage.processionPurse is',
+  'conditions.tuning.score.trashKillScore':
+    'a row of the record the run started under, as conditions.tuning.stage.processionPurse is: what it seeds is score, which this harness checks every tick',
+  'conditions.tuning.score.bleedCapInKills':
+    'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
+  'conditions.tuning.score.bossHealthPerKill':
+    'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
+  'conditions.tuning.score.sourceKillInKills':
+    'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
+  'conditions.tuning.score.mealAtMaxedInKills':
+    'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
+  'caps.mobs':
+    "what this run's mob pool was built at, derived once by createRun from the record above and never mutated (ADR 0056 as amended). A NaN in it would show as a pool length this harness already reads, because a pool is built at it and pool.length is an integer whatever the cap was",
+  'caps.mobFire': "what this run's mob-fire pool was built at, as caps.mobs is",
+  'caps.corpses': "what this run's corpse pool was built at, as caps.mobs is",
   'mobs[].id': 'spawn identity, never mutated after spawn',
   'mobFire[].id': 'spawn identity, never mutated after spawn',
   'mobFire[].halfExtent': 'written once at spawn and never mutated',
@@ -1028,6 +1659,22 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'patches[].level':
     'written once at the lay and never mutated, from a levels value the harness NaN-checks at its source every tick',
   ending: 'a run ending name or null, never a number',
+  'mobs[].impulse.source':
+    'which push threw the shove a body is carrying, or null on a body carrying nothing: one of two words and never a number, as ending is. It is written once when the shove starts and no arithmetic touches it',
+  'mobs[].impulse.bodyId':
+    'the id of the body the shove landed on, written once when the shove starts from an id the pool handed out: spawn identity, as corpses[].id is, and no arithmetic reaches it',
+  'corpses[].impulse.source':
+    'which push threw the shove a corpse is carrying, as mobs[].impulse.source is: it is the same record handed across at the kill',
+  'corpses[].impulse.bodyId':
+    'the id of the body the shove landed on, as mobs[].impulse.bodyId is',
+  'offer.bodyIds[]':
+    'spawn identity, as corpses[].id is: the offer holds the ids the food pool handed out and never computes one',
+  'refusals.food':
+    "a tick's own refusal count, cleared to zero at the top of the tick and only ever incremented by one, so no arithmetic that could produce a NaN reaches it. What it feeds is a fault rather than a rule",
+  'refusals.carriers': "a tick's own refusal count, as refusals.food is",
+  'refusals.offers': "a tick's own refusal count, as refusals.food is",
+  'boss.id': 'spawn identity, never mutated after spawn',
+  'setPiece.id': 'spawn identity, never mutated after spawn',
 };
 
 /**
@@ -1051,6 +1698,139 @@ function numericLeafPaths(value: unknown, path: string): string[] {
   );
 }
 
+describe('the boss and the set piece (ADR 0007, ADR 0042)', () => {
+  it("records a recoverable fault when a boss's phase index falls", () => {
+    // ADR 0052 buys the fight's length across phases, so a phase that came
+    // back is a pattern the player has already beaten being played at them
+    // again. Recoverable: the fight is spoiled and no number downstream of it
+    // is poisoned, and killing the run at the climax is the worse answer.
+    const state = filledRun();
+    const watch = createStageWatch();
+    expect(checkInvariants(state, watch)).toEqual([]);
+
+    state.boss!.phaseIndex -= 1;
+    const faults = checkInvariants(state, watch);
+
+    expect(faults.map((fault) => fault.identity)).toEqual([
+      'boss phase only increases',
+    ]);
+    const first = requireDefined(faults[0], 'no fault recorded');
+    expect(first.severity).toBe('recoverable');
+    expect(first.detail).toContain('undertaker');
+  });
+
+  it('says nothing when a second boss arrives at its own first phase', () => {
+    // Two bosses run in one run. The second arrives at phase zero long after
+    // the first died at its last, and a memory of the phase alone would read
+    // that arrival as the index going backwards.
+    const state = filledRun();
+    const watch = createStageWatch();
+    checkInvariants(state, watch);
+
+    state.boss = null;
+    expect(checkInvariants(state, watch)).toEqual([]);
+
+    state.boss = {
+      ...filledRun().boss!,
+      id: 99,
+      kind: 'banshee',
+      phaseIndex: 0,
+    };
+    expect(checkInvariants(state, watch)).toEqual([]);
+  });
+
+  it('records a recoverable fault when the pour has less than nothing left', () => {
+    // A budget below zero pours nothing and reads as spent one body early, and
+    // a fraction is caught here rather than a tick later: half a body still
+    // reads as one left, so the next pour spends it and leaves the budget at
+    // minus a half against a state one tick removed from the bad write.
+    const state = filledRun();
+    expect(brokenOn(state)).toEqual([]);
+
+    state.setPiece!.budget = -1;
+    expect(brokenOn(state)).toEqual(['set piece budget not negative']);
+    expect(
+      requireDefined(faultsOn(state)[0], 'no fault recorded').severity,
+    ).toBe('recoverable');
+
+    state.setPiece!.budget = 0.5;
+    expect(brokenOn(state)).toEqual(['set piece budget not negative']);
+
+    state.setPiece!.budget = 0;
+    expect(brokenOn(state)).toEqual([]);
+  });
+
+  it('records a recoverable fault when a spent source still has its body', () => {
+    // Mark's ruling on #104 leaves the source on the run after the storm has
+    // emptied it, so two facts about one thing have to agree: the body is gone
+    // exactly when the health is spent. The boolean is what every reader reads,
+    // so a health that reached zero without it is a body the storm can go on
+    // hitting and a sprite that never leaves.
+    const state = filledRun();
+    expect(brokenOn(state)).toEqual([]);
+
+    state.setPiece!.hp = 0;
+    expect(brokenOn(state)).toEqual(['set piece body gone when spent']);
+    expect(
+      requireDefined(faultsOn(state)[0], 'no fault recorded').severity,
+    ).toBe('recoverable');
+
+    state.setPiece!.bodyGone = true;
+    expect(brokenOn(state)).toEqual([]);
+
+    // And the other way round: a body reported gone while the health stands is
+    // the same disagreement read from the other side.
+    state.setPiece!.hp = 1900;
+    expect(brokenOn(state)).toEqual(['set piece body gone when spent']);
+  });
+
+  it('says nothing about a boss or a source that is not on the field', () => {
+    // The guard is that a check over an absent thing is a check nobody wrote a
+    // reason for: an empty field is the ordinary state of a run, not a fault.
+    const state = filledRun();
+    state.boss = null;
+    state.setPiece = null;
+    expect(brokenOn(state)).toEqual([]);
+  });
+});
+
+describe('what a cap refused this tick (ADR 0056)', () => {
+  /** Every corpse slot taken, which is the state the next kill is refused in. */
+  function fullOfCorpses(): RunState {
+    const state = createRun(1);
+    const dead = liveMob(state);
+    dead.alive = false;
+    while (state.corpses.some((corpse) => !corpse.alive)) {
+      leaveCorpse(state, dead);
+    }
+    return state;
+  }
+
+  it('records a recoverable fault when a corpse spawn is refused at the cap', () => {
+    // ADR 0056 sizes the cap so that it cannot bind in normal play and asks for
+    // a fault if it ever does, because a cap that binds is a bug rather than a
+    // policy and the answer to a bug is a fault rather than a graceful
+    // degradation. Recoverable: the run carries on, one body poorer.
+    const state = fullOfCorpses();
+    const spare = liveMob(state, 90);
+    spare.alive = false;
+    leaveCorpse(state, spare);
+
+    expect(brokenOn(state)).toEqual(['corpse cap never binds']);
+    const corpseFault = requireDefined(faultsOn(state)[0], 'no fault recorded');
+    expect(corpseFault.severity).toBe('recoverable');
+    expect(corpseFault.detail).toContain('corpse');
+  });
+
+  it('says nothing while the pool is merely full, because a full pool refuses nothing', () => {
+    // The fault is the refusal and not the fullness. A pool that fills on the
+    // tick its last slot is taken has cost the player nothing yet, and the
+    // check that fired on fullness alone would name a tick the game was still
+    // whole on.
+    expect(brokenOn(fullOfCorpses())).toEqual([]);
+  });
+});
+
 describe('the no-NaN coverage is closed (ticket #54)', () => {
   it('the hand-built fixture itself records no faults', () => {
     // The poison cases each assert one fault, which only means anything if the
@@ -1065,7 +1845,7 @@ describe('the no-NaN coverage is closed (ticket #54)', () => {
         (fault) => fault.identity === 'no NaN',
       );
       expect(nan).toHaveLength(1);
-      expect(nan[0].severity).toBe('fatal');
+      expect(requireDefined(nan[0], 'no NaN fault').severity).toBe('fatal');
     });
   }
 
@@ -1096,7 +1876,7 @@ describe('the no-NaN coverage is closed (ticket #54)', () => {
     // A null is a legitimately untargeted wisp; the witness folds the absence
     // through the 0 sentinel, and only a non-finite number faults.
     const run = filledRun();
-    run.wisps[0].targetId = null;
+    slot0(run.wisps).targetId = null;
     expect(brokenOn(run)).not.toContain('no NaN');
   });
 });
@@ -1107,7 +1887,7 @@ describe('Territory under the harness (#76)', () => {
     // fact for patches as for every other pool, and ADR 0024 makes an identity
     // permanent from the first tape, so one is never minted for free.
     const run = createRun(1);
-    run.patches.push(run.patches[0]);
+    run.patches.push(slot0(run.patches));
     const faults = faultsOn(run);
 
     expect(faults.map((fault) => fault.identity)).toContain('entity caps');
@@ -1121,9 +1901,9 @@ describe('Territory under the harness (#76)', () => {
     // what is impossible, never how far up-field Territory may be tuned, so the
     // literal here is plainly extreme rather than one particular ceiling.
     const run = createRun(1);
-    run.patches[0].alive = true;
-    run.patches[0].x = 270;
-    run.patches[0].y = -2000;
+    slot0(run.patches).alive = true;
+    slot0(run.patches).x = 270;
+    slot0(run.patches).y = -2000;
 
     expect(brokenOn(run)).not.toContain('entities in bounds');
   });
@@ -1133,15 +1913,15 @@ describe('Territory under the harness (#76)', () => {
     // horizontal bound is independent of any Territory tuning: it is the same
     // box every entity is held to, on that axis alone.
     const right = createRun(1);
-    right.patches[0].alive = true;
-    right.patches[0].x = FIELD_WIDTH + SPAWN_MARGIN + 1;
-    right.patches[0].y = 200;
+    slot0(right.patches).alive = true;
+    slot0(right.patches).x = FIELD_WIDTH + SPAWN_MARGIN + 1;
+    slot0(right.patches).y = 200;
     expect(brokenOn(right)).toContain('entities in bounds');
 
     const left = createRun(1);
-    left.patches[0].alive = true;
-    left.patches[0].x = -SPAWN_MARGIN - 1;
-    left.patches[0].y = 200;
+    slot0(left.patches).alive = true;
+    slot0(left.patches).x = -SPAWN_MARGIN - 1;
+    slot0(left.patches).y = 200;
     expect(brokenOn(left)).toContain('entities in bounds');
   });
 
@@ -1149,15 +1929,15 @@ describe('Territory under the harness (#76)', () => {
     // The edge of the box itself, pinned so the horizontal check cannot
     // silently tighten onto ground a legal placement can reach.
     const right = createRun(1);
-    right.patches[0].alive = true;
-    right.patches[0].x = FIELD_WIDTH + SPAWN_MARGIN;
-    right.patches[0].y = 200;
+    slot0(right.patches).alive = true;
+    slot0(right.patches).x = FIELD_WIDTH + SPAWN_MARGIN;
+    slot0(right.patches).y = 200;
     expect(brokenOn(right)).not.toContain('entities in bounds');
 
     const left = createRun(1);
-    left.patches[0].alive = true;
-    left.patches[0].x = -SPAWN_MARGIN;
-    left.patches[0].y = 200;
+    slot0(left.patches).alive = true;
+    slot0(left.patches).x = -SPAWN_MARGIN;
+    slot0(left.patches).y = 200;
     expect(brokenOn(left)).not.toContain('entities in bounds');
   });
 
@@ -1166,10 +1946,11 @@ describe('Territory under the harness (#76)', () => {
     // the bottom edge, so a live one below there is corrupt state. The bound is
     // that close rule restated, never a tuning number.
     const run = createRun(1);
-    run.patches[0].alive = true;
-    run.patches[0].x = 270;
-    run.patches[0].radius = RADIUS_BY_LEVEL[1];
-    run.patches[0].y = FIELD_HEIGHT + RADIUS_BY_LEVEL[1] + 1;
+    const radius = requireDefined(RADIUS_BY_LEVEL[1], 'no radius at level 1');
+    slot0(run.patches).alive = true;
+    slot0(run.patches).x = 270;
+    slot0(run.patches).radius = radius;
+    slot0(run.patches).y = FIELD_HEIGHT + radius + 1;
 
     expect(brokenOn(run)).toContain('entities in bounds');
   });
@@ -1178,10 +1959,11 @@ describe('Territory under the harness (#76)', () => {
     // The off-by-one on the other side of the close rule: a patch whose top rim
     // still touches the bottom edge is one the sim has not closed yet.
     const run = createRun(1);
-    run.patches[0].alive = true;
-    run.patches[0].x = 270;
-    run.patches[0].radius = RADIUS_BY_LEVEL[1];
-    run.patches[0].y = FIELD_HEIGHT + RADIUS_BY_LEVEL[1];
+    const radius = requireDefined(RADIUS_BY_LEVEL[1], 'no radius at level 1');
+    slot0(run.patches).alive = true;
+    slot0(run.patches).x = 270;
+    slot0(run.patches).radius = radius;
+    slot0(run.patches).y = FIELD_HEIGHT + radius;
 
     expect(brokenOn(run)).not.toContain('entities in bounds');
   });

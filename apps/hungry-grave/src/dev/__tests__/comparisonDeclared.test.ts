@@ -10,16 +10,16 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { WEAPON_LINES } from '../../game/lines/roster';
-
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
 import { createRun } from '../../game/run';
 import { WITNESS_VERSION } from '../../game/witness';
 import { recordInto, sealTrailer, tapeOf } from '../../tape/recorder';
+import { SCRIPT_POLICY } from '../../tape/tape';
 import { READING_COMPARISONS } from '../compareRuns';
 import type { Metrics } from '../measure';
 import { measure } from '../measure';
+import { startingConditionBlock } from '../../tape/startingCondition';
 
 const SEED = 20260826;
 const TICKS = 60;
@@ -30,9 +30,7 @@ const shortReport = (): Metrics => {
   const execution = createExecution(run);
   const recorder = recordInto(execution, {
     seed: run.seed,
-    startingSize: run.grave.size,
-    recordedRoster: [...WEAPON_LINES],
-    startingLevels: { ...run.levels },
+    startingCondition: startingConditionBlock(run.conditions),
     tickRate: TICK_HZ,
     checkpointSpacing: 20,
     witnessVersion: WITNESS_VERSION,
@@ -40,6 +38,7 @@ const shortReport = (): Metrics => {
     buildIdentity: '',
     author: 'unknown',
     inputDevice: 'script',
+    policy: SCRIPT_POLICY,
     keyboardSpeed: 1,
     rendererBackend: 'webgl',
     rendererResolution: 2,

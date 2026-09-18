@@ -13,31 +13,49 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { HAND_STREAM } from '../../dev/harnessPolicy';
 import { stepping } from '../../dev/stepping';
-import type { BellRing } from '../lines/bell';
+import type { DirectorState, PressureSignal } from '../director';
+import type { BellToll } from '../lines/bell';
 import type { WeaponLine } from '../lines/roster';
 import { WEAPON_LINES } from '../lines/roster';
 import type { RunState } from '../run';
 import { createRun } from '../run';
+import { SIGNAL_RAN_LIVE } from '../signalLock';
 import {
   ABSENT_CODE,
   boolCode,
+  BOSS_KIND_CODES,
   CORPSE_TIER_CODES,
   FOOD_KIND_CODES,
   foldWitness,
+  MOB_ORIGIN_CODES,
   NO_TARGET_ID,
   RUN_ENDING_CODES,
   WEAPON_LINE_CODES,
+  WITNESS_VERSION,
 } from '../witness';
 
 const FIXTURE_SEED = 20260823;
+
+/** The fixture's own pool slot at this index, which the fixture's own pool size always covers. */
+function poolSlotAt<T>(pool: readonly T[], index: number): T {
+  const item = pool[index];
+  if (item === undefined) throw new Error(`no pool slot at ${index}`);
+  return item;
+}
+
+/** The fixture's own pool slot 0, which every fillX above already put a live entity into. */
+function slot0<T>(pool: readonly T[]): T {
+  return poolSlotAt(pool, 0);
+}
 
 /** The fixture ring's own state, so a per-field test can move one part of it. */
 const RING_LEVEL = 2;
 const RING_TICKS = 5;
 const RING_STRUCK: readonly number[] = [11, 12];
 
-function ring(): BellRing {
+function ring(): BellToll {
   return { level: RING_LEVEL, ticks: RING_TICKS, struck: new Set(RING_STRUCK) };
 }
 
@@ -51,6 +69,7 @@ function ring(): BellRing {
  */
 function fixture(): RunState {
   const run = createRun(FIXTURE_SEED);
+  fillOffer(run);
   fillGrave(run);
   fillMob(run);
   fillShot(run);
@@ -59,7 +78,56 @@ function fixture(): RunState {
   fillWisp(run);
   fillPatch(run);
   fillRun(run);
+  fillBoss(run);
+  fillSetPiece(run);
+  fillPress(run);
   return run;
+}
+
+/** The fixture's boss, mid-fight rather than freshly arrived. */
+function fillBoss(run: RunState): void {
+  run.boss = {
+    id: 17,
+    kind: 'undertaker',
+    phaseIndex: 1,
+    hp: 820,
+    x: 270,
+    y: 110,
+    flash: 3,
+    patternTick: 34,
+  };
+}
+
+/**
+ * The fixture's press, mid-way through its three shoves with one body already
+ * thrown, so a per-field test can move any one part of it. It is hand-built for
+ * the same reason the ring and the offer are: the nullable field has to be
+ * present before anything can move it.
+ */
+function fillPress(run: RunState): void {
+  run.press = {
+    beganAt: 41,
+    shovesLeft: 1,
+    nextIn: 12,
+    caught: new Set(PRESS_CAUGHT),
+  };
+}
+
+/** The fixture press's own caught ids, so a per-field test can move one of them. */
+const PRESS_CAUGHT: readonly number[] = [11, 19];
+
+/** The fixture's set piece, open and part-way through its pour. */
+function fillSetPiece(run: RunState): void {
+  run.setPiece = {
+    id: 18,
+    x: 300,
+    y: 240,
+    open: true,
+    budget: 41,
+    pourIn: 7,
+    hp: 1900,
+    bodyGone: false,
+  };
 }
 
 /** The fixture patch's own state, so a per-field test can move one part of it. */
@@ -69,7 +137,7 @@ const PATCH_STRUCK: readonly (readonly [number, number])[] = [
 ];
 
 function fillPatch(run: RunState): void {
-  const patch = run.patches[0];
+  const patch = slot0(run.patches);
   patch.alive = true;
   patch.id = 16;
   patch.level = 3;
@@ -85,24 +153,56 @@ function fillPatch(run: RunState): void {
   for (const [id, eligibleAt] of PATCH_STRUCK) patch.struck.set(id, eligibleAt);
 }
 
+/**
+ * The fixture offer's own state, so a per-field test can move one part of it.
+ * The bodies are ids and not slots, exactly as the offer holds them.
+ */
+const OFFER_OPTIONS: readonly WeaponLine[] = ['territory', 'wisps'];
+const OFFER_BODY_IDS: readonly number[] = [31, 32];
+
+/**
+ * An offer standing on the field with a bank behind it. It is hand-built for
+ * the same reason the ring is: a per-field test needs the nullable field
+ * present before it can move any part of it.
+ */
+function fillOffer(run: RunState): void {
+  run.offer = { options: [...OFFER_OPTIONS], bodyIds: [...OFFER_BODY_IDS] };
+  run.bankedOffers = 2;
+}
+
 function fillRun(run: RunState): void {
   run.score = 250;
   run.reservoir = 0.375;
-  run.killsSinceDrop = 3;
-  run.dropsPaid = 2;
   run.nextEntityId = 17;
-  run.levels.soulStream = 2;
+  run.levels.skullStream = 2;
   run.levels.territory = 1;
   run.levels.wisps = 3;
   run.levels.bell = 4;
-  run.stage.phaseIndex = 1;
-  run.stage.phaseTick = 40;
-  run.stage.firedRows = 2;
+  run.stage.sectionIndex = 1;
+  run.stage.sectionTick = 40;
+  run.stage.firedWaves = 2;
   run.lines.streamIn = 17;
   run.lines.surgeVolleys = 2;
   run.lines.tollIn = 90;
   run.lines.ring = ring();
   run.lines.layIn = 240;
+  run.lines.volleyIn = 18;
+  run.director = {
+    signal: { value: 0.4, heldUntilTick: 360, lock: SIGNAL_RAN_LIVE },
+    purseLeft: 74,
+    quietUntilTick: 420,
+  };
+}
+
+/**
+ * The fixture's director with one part of its signal moved. The record is
+ * replaced rather than mutated, which is what its readonly fields state.
+ */
+function movedSignal(
+  run: RunState,
+  part: Partial<PressureSignal>,
+): DirectorState {
+  return { ...run.director, signal: { ...run.director.signal, ...part } };
 }
 
 function fillGrave(run: RunState): void {
@@ -110,10 +210,13 @@ function fillGrave(run: RunState): void {
   run.grave.y = 421.25;
   run.grave.size = 23.5;
   run.grave.invulnerable = 7;
+  // Not the blank grave's own value, so a fold that never reached the field
+  // could not pass the perturbation below by accident.
+  run.grave.scoreRungBled = true;
 }
 
 function fillMob(run: RunState): void {
-  const mob = run.mobs[0];
+  const mob = slot0(run.mobs);
   mob.alive = true;
   mob.id = 11;
   mob.type = 'ghoul';
@@ -125,10 +228,14 @@ function fillMob(run: RunState): void {
   mob.beat = 12;
   mob.fireIn = 33;
   mob.armed = true;
+  mob.carries = true;
+  // Not the blank slot's own value, so a field left unwritten at the spawn
+  // could not pass the perturbation below by accident.
+  mob.from = 'standingWave';
 }
 
 function fillShot(run: RunState): void {
-  const shot = run.mobFire[0];
+  const shot = slot0(run.mobFire);
   shot.alive = true;
   shot.id = 12;
   shot.emitter = 'revenant';
@@ -140,7 +247,7 @@ function fillShot(run: RunState): void {
 }
 
 function fillCorpse(run: RunState): void {
-  const corpse = run.corpses[0];
+  const corpse = slot0(run.corpses);
   corpse.alive = true;
   corpse.id = 13;
   corpse.x = 310.5;
@@ -148,14 +255,14 @@ function fillCorpse(run: RunState): void {
   corpse.freshness = 0.625;
   corpse.payout = 1.5;
   corpse.tier = 'rich';
-  corpse.kind = 'drop';
+  corpse.kind = 'powerUp';
   corpse.decays = false;
   corpse.line = 'wisps';
   corpse.halfExtent = 9;
 }
 
 function fillSkull(run: RunState): void {
-  const skull = run.skulls[0];
+  const skull = slot0(run.skulls);
   skull.alive = true;
   skull.id = 14;
   skull.x = 400.25;
@@ -165,7 +272,7 @@ function fillSkull(run: RunState): void {
 }
 
 function fillWisp(run: RunState): void {
-  const wisp = run.wisps[0];
+  const wisp = slot0(run.wisps);
   wisp.alive = true;
   wisp.id = 15;
   wisp.x = 55.75;
@@ -210,194 +317,299 @@ const ENTITY_CASES: readonly FieldCase[] = [
     restore: (run) => void (run.grave.invulnerable += 1),
   },
   {
+    path: 'grave.scoreRungBled',
+    move: (run) => void (run.grave.scoreRungBled = false),
+    restore: (run) => void (run.grave.scoreRungBled = true),
+  },
+  {
     path: 'mobs[].x',
-    move: (run) => void (run.mobs[0].x += 1e-6),
-    restore: (run) => void (run.mobs[0].x -= 1e-6),
+    move: (run) => void (slot0(run.mobs).x += 1e-6),
+    restore: (run) => void (slot0(run.mobs).x -= 1e-6),
   },
   {
     path: 'mobs[].y',
-    move: (run) => void (run.mobs[0].y += 1e-6),
-    restore: (run) => void (run.mobs[0].y -= 1e-6),
+    move: (run) => void (slot0(run.mobs).y += 1e-6),
+    restore: (run) => void (slot0(run.mobs).y -= 1e-6),
   },
   {
     path: 'mobs[].vx',
-    move: (run) => void (run.mobs[0].vx += 1e-6),
-    restore: (run) => void (run.mobs[0].vx -= 1e-6),
+    move: (run) => void (slot0(run.mobs).vx += 1e-6),
+    restore: (run) => void (slot0(run.mobs).vx -= 1e-6),
   },
   {
     path: 'mobs[].vy',
-    move: (run) => void (run.mobs[0].vy += 1e-6),
-    restore: (run) => void (run.mobs[0].vy -= 1e-6),
+    move: (run) => void (slot0(run.mobs).vy += 1e-6),
+    restore: (run) => void (slot0(run.mobs).vy -= 1e-6),
   },
   {
     path: 'mobs[].hp',
-    move: (run) => void (run.mobs[0].hp -= 1),
-    restore: (run) => void (run.mobs[0].hp += 1),
+    move: (run) => void (slot0(run.mobs).hp -= 1),
+    restore: (run) => void (slot0(run.mobs).hp += 1),
   },
   {
     path: 'mobs[].beat',
-    move: (run) => void (run.mobs[0].beat -= 1),
-    restore: (run) => void (run.mobs[0].beat += 1),
+    move: (run) => void (slot0(run.mobs).beat -= 1),
+    restore: (run) => void (slot0(run.mobs).beat += 1),
   },
   {
     path: 'mobs[].fireIn',
-    move: (run) => void (run.mobs[0].fireIn -= 1),
-    restore: (run) => void (run.mobs[0].fireIn += 1),
+    move: (run) => void (slot0(run.mobs).fireIn -= 1),
+    restore: (run) => void (slot0(run.mobs).fireIn += 1),
   },
   {
     path: 'mobs[].armed',
-    move: (run) => void (run.mobs[0].armed = false),
-    restore: (run) => void (run.mobs[0].armed = true),
+    move: (run) => void (slot0(run.mobs).armed = false),
+    restore: (run) => void (slot0(run.mobs).armed = true),
+  },
+  {
+    path: 'mobs[].carries',
+    move: (run) => void (slot0(run.mobs).carries = false),
+    restore: (run) => void (slot0(run.mobs).carries = true),
+  },
+  {
+    path: 'mobs[].from',
+    move: (run) => void (slot0(run.mobs).from = 'directed'),
+    restore: (run) => void (slot0(run.mobs).from = 'standingWave'),
+  },
+  {
+    path: 'mobs[].impulse.stepX',
+    move: (run) => void (slot0(run.mobs).impulse.stepX += 1e-6),
+    restore: (run) => void (slot0(run.mobs).impulse.stepX -= 1e-6),
+  },
+  {
+    path: 'mobs[].impulse.stepY',
+    move: (run) => void (slot0(run.mobs).impulse.stepY += 1e-6),
+    restore: (run) => void (slot0(run.mobs).impulse.stepY -= 1e-6),
+  },
+  {
+    path: 'mobs[].impulse.ticksLeft',
+    move: (run) => void (slot0(run.mobs).impulse.ticksLeft -= 1),
+    restore: (run) => void (slot0(run.mobs).impulse.ticksLeft += 1),
+  },
+  {
+    path: 'mobs[].impulse.travelled',
+    move: (run) => void (slot0(run.mobs).impulse.travelled += 1e-6),
+    restore: (run) => void (slot0(run.mobs).impulse.travelled -= 1e-6),
+  },
+  {
+    path: 'mobs[].impulse.shovesLeft',
+    move: (run) => void (slot0(run.mobs).impulse.shovesLeft -= 1),
+    restore: (run) => void (slot0(run.mobs).impulse.shovesLeft += 1),
+  },
+  {
+    path: 'mobs[].impulse.nextIn',
+    move: (run) => void (slot0(run.mobs).impulse.nextIn -= 1),
+    restore: (run) => void (slot0(run.mobs).impulse.nextIn += 1),
+  },
+  {
+    path: 'mobs[].impulse.spacing',
+    move: (run) => void (slot0(run.mobs).impulse.spacing -= 1),
+    restore: (run) => void (slot0(run.mobs).impulse.spacing += 1),
+  },
+  {
+    path: 'mobs[].impulse.owedStepX',
+    move: (run) => void (slot0(run.mobs).impulse.owedStepX += 1e-6),
+    restore: (run) => void (slot0(run.mobs).impulse.owedStepX -= 1e-6),
+  },
+  {
+    path: 'mobs[].impulse.owedStepY',
+    move: (run) => void (slot0(run.mobs).impulse.owedStepY += 1e-6),
+    restore: (run) => void (slot0(run.mobs).impulse.owedStepY -= 1e-6),
   },
   {
     path: 'mobFire[].x',
-    move: (run) => void (run.mobFire[0].x += 1e-6),
-    restore: (run) => void (run.mobFire[0].x -= 1e-6),
+    move: (run) => void (slot0(run.mobFire).x += 1e-6),
+    restore: (run) => void (slot0(run.mobFire).x -= 1e-6),
   },
   {
     path: 'mobFire[].y',
-    move: (run) => void (run.mobFire[0].y += 1e-6),
-    restore: (run) => void (run.mobFire[0].y -= 1e-6),
+    move: (run) => void (slot0(run.mobFire).y += 1e-6),
+    restore: (run) => void (slot0(run.mobFire).y -= 1e-6),
   },
   {
     path: 'mobFire[].vx',
-    move: (run) => void (run.mobFire[0].vx += 1e-6),
-    restore: (run) => void (run.mobFire[0].vx -= 1e-6),
+    move: (run) => void (slot0(run.mobFire).vx += 1e-6),
+    restore: (run) => void (slot0(run.mobFire).vx -= 1e-6),
   },
   {
     path: 'mobFire[].vy',
-    move: (run) => void (run.mobFire[0].vy += 1e-6),
-    restore: (run) => void (run.mobFire[0].vy -= 1e-6),
+    move: (run) => void (slot0(run.mobFire).vy += 1e-6),
+    restore: (run) => void (slot0(run.mobFire).vy -= 1e-6),
   },
   {
     path: 'corpses[].x',
-    move: (run) => void (run.corpses[0].x += 1e-6),
-    restore: (run) => void (run.corpses[0].x -= 1e-6),
+    move: (run) => void (slot0(run.corpses).x += 1e-6),
+    restore: (run) => void (slot0(run.corpses).x -= 1e-6),
   },
   {
     path: 'corpses[].y',
-    move: (run) => void (run.corpses[0].y += 1e-6),
-    restore: (run) => void (run.corpses[0].y -= 1e-6),
+    move: (run) => void (slot0(run.corpses).y += 1e-6),
+    restore: (run) => void (slot0(run.corpses).y -= 1e-6),
   },
   {
     path: 'corpses[].freshness',
-    move: (run) => void (run.corpses[0].freshness -= 1e-6),
-    restore: (run) => void (run.corpses[0].freshness += 1e-6),
+    move: (run) => void (slot0(run.corpses).freshness -= 1e-6),
+    restore: (run) => void (slot0(run.corpses).freshness += 1e-6),
   },
   {
     path: 'corpses[].payout',
-    move: (run) => void (run.corpses[0].payout += 1e-6),
-    restore: (run) => void (run.corpses[0].payout -= 1e-6),
+    move: (run) => void (slot0(run.corpses).payout += 1e-6),
+    restore: (run) => void (slot0(run.corpses).payout -= 1e-6),
   },
   {
     path: 'corpses[].tier',
-    move: (run) => void (run.corpses[0].tier = 'trash'),
-    restore: (run) => void (run.corpses[0].tier = 'rich'),
+    move: (run) => void (slot0(run.corpses).tier = 'trash'),
+    restore: (run) => void (slot0(run.corpses).tier = 'rich'),
   },
   {
     path: 'corpses[].kind',
-    move: (run) => void (run.corpses[0].kind = 'feast'),
-    restore: (run) => void (run.corpses[0].kind = 'drop'),
+    move: (run) => void (slot0(run.corpses).kind = 'feast'),
+    restore: (run) => void (slot0(run.corpses).kind = 'powerUp'),
   },
   {
     path: 'corpses[].line',
-    move: (run) => void (run.corpses[0].line = 'bell'),
-    restore: (run) => void (run.corpses[0].line = 'wisps'),
+    move: (run) => void (slot0(run.corpses).line = 'bell'),
+    restore: (run) => void (slot0(run.corpses).line = 'wisps'),
+  },
+  {
+    path: 'corpses[].impulse.stepX',
+    move: (run) => void (slot0(run.corpses).impulse.stepX += 1e-6),
+    restore: (run) => void (slot0(run.corpses).impulse.stepX -= 1e-6),
+  },
+  {
+    path: 'corpses[].impulse.stepY',
+    move: (run) => void (slot0(run.corpses).impulse.stepY += 1e-6),
+    restore: (run) => void (slot0(run.corpses).impulse.stepY -= 1e-6),
+  },
+  {
+    path: 'corpses[].impulse.ticksLeft',
+    move: (run) => void (slot0(run.corpses).impulse.ticksLeft -= 1),
+    restore: (run) => void (slot0(run.corpses).impulse.ticksLeft += 1),
+  },
+  {
+    path: 'corpses[].impulse.travelled',
+    move: (run) => void (slot0(run.corpses).impulse.travelled += 1e-6),
+    restore: (run) => void (slot0(run.corpses).impulse.travelled -= 1e-6),
+  },
+  {
+    path: 'corpses[].impulse.shovesLeft',
+    move: (run) => void (slot0(run.corpses).impulse.shovesLeft -= 1),
+    restore: (run) => void (slot0(run.corpses).impulse.shovesLeft += 1),
+  },
+  {
+    path: 'corpses[].impulse.nextIn',
+    move: (run) => void (slot0(run.corpses).impulse.nextIn -= 1),
+    restore: (run) => void (slot0(run.corpses).impulse.nextIn += 1),
+  },
+  {
+    path: 'corpses[].impulse.spacing',
+    move: (run) => void (slot0(run.corpses).impulse.spacing -= 1),
+    restore: (run) => void (slot0(run.corpses).impulse.spacing += 1),
+  },
+  {
+    path: 'corpses[].impulse.owedStepX',
+    move: (run) => void (slot0(run.corpses).impulse.owedStepX += 1e-6),
+    restore: (run) => void (slot0(run.corpses).impulse.owedStepX -= 1e-6),
+  },
+  {
+    path: 'corpses[].impulse.owedStepY',
+    move: (run) => void (slot0(run.corpses).impulse.owedStepY += 1e-6),
+    restore: (run) => void (slot0(run.corpses).impulse.owedStepY -= 1e-6),
   },
   {
     path: 'skulls[].x',
-    move: (run) => void (run.skulls[0].x += 1e-6),
-    restore: (run) => void (run.skulls[0].x -= 1e-6),
+    move: (run) => void (slot0(run.skulls).x += 1e-6),
+    restore: (run) => void (slot0(run.skulls).x -= 1e-6),
   },
   {
     path: 'skulls[].y',
-    move: (run) => void (run.skulls[0].y += 1e-6),
-    restore: (run) => void (run.skulls[0].y -= 1e-6),
+    move: (run) => void (slot0(run.skulls).y += 1e-6),
+    restore: (run) => void (slot0(run.skulls).y -= 1e-6),
   },
   {
     path: 'skulls[].vx',
-    move: (run) => void (run.skulls[0].vx += 1e-6),
-    restore: (run) => void (run.skulls[0].vx -= 1e-6),
+    move: (run) => void (slot0(run.skulls).vx += 1e-6),
+    restore: (run) => void (slot0(run.skulls).vx -= 1e-6),
   },
   {
     path: 'skulls[].vy',
-    move: (run) => void (run.skulls[0].vy += 1e-6),
-    restore: (run) => void (run.skulls[0].vy -= 1e-6),
+    move: (run) => void (slot0(run.skulls).vy += 1e-6),
+    restore: (run) => void (slot0(run.skulls).vy -= 1e-6),
   },
   {
     path: 'wisps[].x',
-    move: (run) => void (run.wisps[0].x += 1e-6),
-    restore: (run) => void (run.wisps[0].x -= 1e-6),
+    move: (run) => void (slot0(run.wisps).x += 1e-6),
+    restore: (run) => void (slot0(run.wisps).x -= 1e-6),
   },
   {
     path: 'wisps[].y',
-    move: (run) => void (run.wisps[0].y += 1e-6),
-    restore: (run) => void (run.wisps[0].y -= 1e-6),
+    move: (run) => void (slot0(run.wisps).y += 1e-6),
+    restore: (run) => void (slot0(run.wisps).y -= 1e-6),
   },
   {
     path: 'wisps[].vx',
-    move: (run) => void (run.wisps[0].vx += 1e-6),
-    restore: (run) => void (run.wisps[0].vx -= 1e-6),
+    move: (run) => void (slot0(run.wisps).vx += 1e-6),
+    restore: (run) => void (slot0(run.wisps).vx -= 1e-6),
   },
   {
     path: 'wisps[].vy',
-    move: (run) => void (run.wisps[0].vy += 1e-6),
-    restore: (run) => void (run.wisps[0].vy -= 1e-6),
+    move: (run) => void (slot0(run.wisps).vy += 1e-6),
+    restore: (run) => void (slot0(run.wisps).vy -= 1e-6),
   },
   {
     path: 'wisps[].life',
-    move: (run) => void (run.wisps[0].life -= 1),
-    restore: (run) => void (run.wisps[0].life += 1),
+    move: (run) => void (slot0(run.wisps).life -= 1),
+    restore: (run) => void (slot0(run.wisps).life += 1),
   },
   {
     path: 'wisps[].targetId',
-    move: (run) => void (run.wisps[0].targetId = null),
-    restore: (run) => void (run.wisps[0].targetId = 11),
+    move: (run) => void (slot0(run.wisps).targetId = null),
+    restore: (run) => void (slot0(run.wisps).targetId = 11),
   },
   {
     path: 'patches[].x',
-    move: (run) => void (run.patches[0].x += 1e-6),
-    restore: (run) => void (run.patches[0].x -= 1e-6),
+    move: (run) => void (slot0(run.patches).x += 1e-6),
+    restore: (run) => void (slot0(run.patches).x -= 1e-6),
   },
   {
     path: 'patches[].y',
-    move: (run) => void (run.patches[0].y += 1e-6),
-    restore: (run) => void (run.patches[0].y -= 1e-6),
+    move: (run) => void (slot0(run.patches).y += 1e-6),
+    restore: (run) => void (slot0(run.patches).y -= 1e-6),
   },
   {
     path: 'patches[].radius',
-    move: (run) => void (run.patches[0].radius += 1e-6),
-    restore: (run) => void (run.patches[0].radius -= 1e-6),
+    move: (run) => void (slot0(run.patches).radius += 1e-6),
+    restore: (run) => void (slot0(run.patches).radius -= 1e-6),
   },
   {
     path: 'patches[].pull',
-    move: (run) => void (run.patches[0].pull += 1e-6),
-    restore: (run) => void (run.patches[0].pull -= 1e-6),
+    move: (run) => void (slot0(run.patches).pull += 1e-6),
+    restore: (run) => void (slot0(run.patches).pull -= 1e-6),
   },
   {
     path: 'patches[].slow',
-    move: (run) => void (run.patches[0].slow += 1e-6),
-    restore: (run) => void (run.patches[0].slow -= 1e-6),
+    move: (run) => void (slot0(run.patches).slow += 1e-6),
+    restore: (run) => void (slot0(run.patches).slow -= 1e-6),
   },
   {
     path: 'patches[].rehit',
-    move: (run) => void (run.patches[0].rehit += 1),
-    restore: (run) => void (run.patches[0].rehit -= 1),
+    move: (run) => void (slot0(run.patches).rehit += 1),
+    restore: (run) => void (slot0(run.patches).rehit -= 1),
   },
   {
     path: 'patches[].opening',
-    move: (run) => void (run.patches[0].opening -= 1),
-    restore: (run) => void (run.patches[0].opening += 1),
+    move: (run) => void (slot0(run.patches).opening -= 1),
+    restore: (run) => void (slot0(run.patches).opening += 1),
   },
   {
     path: 'patches[].pulses',
-    move: (run) => void (run.patches[0].pulses -= 1),
-    restore: (run) => void (run.patches[0].pulses += 1),
+    move: (run) => void (slot0(run.patches).pulses -= 1),
+    restore: (run) => void (slot0(run.patches).pulses += 1),
   },
   {
     path: 'patches[].struck',
-    move: (run) => void run.patches[0].struck.set(23, 460),
-    restore: (run) => void run.patches[0].struck.delete(23),
+    move: (run) => void slot0(run.patches).struck.set(23, 460),
+    restore: (run) => void slot0(run.patches).struck.delete(23),
   },
 ];
 
@@ -418,24 +630,14 @@ const RUN_CASES: readonly FieldCase[] = [
     restore: (run) => void (run.ending = null),
   },
   {
-    path: 'killsSinceDrop',
-    move: (run) => void (run.killsSinceDrop += 1),
-    restore: (run) => void (run.killsSinceDrop -= 1),
-  },
-  {
-    path: 'dropsPaid',
-    move: (run) => void (run.dropsPaid += 1),
-    restore: (run) => void (run.dropsPaid -= 1),
-  },
-  {
     path: 'nextEntityId',
     move: (run) => void (run.nextEntityId += 1),
     restore: (run) => void (run.nextEntityId -= 1),
   },
   {
-    path: 'levels.soulStream',
-    move: (run) => void (run.levels.soulStream += 1),
-    restore: (run) => void (run.levels.soulStream -= 1),
+    path: 'levels.skullStream',
+    move: (run) => void (run.levels.skullStream += 1),
+    restore: (run) => void (run.levels.skullStream -= 1),
   },
   {
     path: 'levels.territory',
@@ -456,7 +658,10 @@ const RUN_CASES: readonly FieldCase[] = [
     path: 'streams.spawns.drawn',
     move: (run) => void run.streams.spawns.next(),
   },
-  { path: 'streams.drops.drawn', move: (run) => void run.streams.drops.next() },
+  {
+    path: 'streams.powerUps.drawn',
+    move: (run) => void run.streams.powerUps.next(),
+  },
   {
     path: 'streams.mobFire.drawn',
     move: (run) => void run.streams.mobFire.next(),
@@ -467,19 +672,28 @@ const RUN_CASES: readonly FieldCase[] = [
     move: (run) => void run.streams.territory.next(),
   },
   {
-    path: 'stage.phaseIndex',
-    move: (run) => void (run.stage.phaseIndex += 1),
-    restore: (run) => void (run.stage.phaseIndex -= 1),
+    path: 'streams.director.drawn',
+    move: (run) => void run.streams.director.next(),
   },
   {
-    path: 'stage.phaseTick',
-    move: (run) => void (run.stage.phaseTick += 1),
-    restore: (run) => void (run.stage.phaseTick -= 1),
+    path: 'streams.bossFire.drawn',
+    move: (run) => void run.streams.bossFire.next(),
+  },
+  { path: 'streams.pour.drawn', move: (run) => void run.streams.pour.next() },
+  {
+    path: 'stage.sectionIndex',
+    move: (run) => void (run.stage.sectionIndex += 1),
+    restore: (run) => void (run.stage.sectionIndex -= 1),
   },
   {
-    path: 'stage.firedRows',
-    move: (run) => void (run.stage.firedRows += 1),
-    restore: (run) => void (run.stage.firedRows -= 1),
+    path: 'stage.sectionTick',
+    move: (run) => void (run.stage.sectionTick += 1),
+    restore: (run) => void (run.stage.sectionTick -= 1),
+  },
+  {
+    path: 'stage.firedWaves',
+    move: (run) => void (run.stage.firedWaves += 1),
+    restore: (run) => void (run.stage.firedWaves -= 1),
   },
   {
     path: 'lines.streamIn',
@@ -518,6 +732,148 @@ const RUN_CASES: readonly FieldCase[] = [
     move: (run) => void (run.lines.layIn -= 1),
     restore: (run) => void (run.lines.layIn += 1),
   },
+  {
+    path: 'lines.volleyIn',
+    move: (run) => void (run.lines.volleyIn -= 1),
+    restore: (run) => void (run.lines.volleyIn += 1),
+  },
+  {
+    path: 'offer.options[]',
+    // The options are read-only on the record, so the only way to move one is
+    // to hand the run a different offer, exactly as the ring's level is moved.
+    move: (run) =>
+      void (run.offer = {
+        options: ['wisps', 'bell'],
+        bodyIds: [...OFFER_BODY_IDS],
+      }),
+    restore: (run) => void fillOffer(run),
+  },
+  {
+    path: 'offer.bodyIds[]',
+    move: (run) =>
+      void (run.offer = { options: [...OFFER_OPTIONS], bodyIds: [33, 32] }),
+    restore: (run) => void fillOffer(run),
+  },
+  {
+    path: 'bankedOffers',
+    move: (run) => void (run.bankedOffers += 1),
+    restore: (run) => void (run.bankedOffers -= 1),
+  },
+  {
+    path: 'boss.kind',
+    // The kind is read-only on the record, so the only way to move it is to
+    // hand the run a different boss, exactly as the ring's level is moved.
+    move: (run) => void (run.boss = { ...run.boss!, kind: 'banshee' }),
+    restore: (run) => void fillBoss(run),
+  },
+  {
+    path: 'boss.phaseIndex',
+    move: (run) => void (run.boss!.phaseIndex += 1),
+    restore: (run) => void (run.boss!.phaseIndex -= 1),
+  },
+  {
+    path: 'boss.hp',
+    move: (run) => void (run.boss!.hp -= 1),
+    restore: (run) => void (run.boss!.hp += 1),
+  },
+  {
+    path: 'boss.x',
+    move: (run) => void (run.boss!.x += 1e-6),
+    restore: (run) => void (run.boss!.x -= 1e-6),
+  },
+  {
+    path: 'boss.y',
+    move: (run) => void (run.boss!.y += 1e-6),
+    restore: (run) => void (run.boss!.y -= 1e-6),
+  },
+  {
+    path: 'boss.flash',
+    move: (run) => void (run.boss!.flash -= 1),
+    restore: (run) => void (run.boss!.flash += 1),
+  },
+  {
+    path: 'boss.patternTick',
+    move: (run) => void (run.boss!.patternTick += 1),
+    restore: (run) => void (run.boss!.patternTick -= 1),
+  },
+  {
+    path: 'setPiece.x',
+    move: (run) => void (run.setPiece!.x += 1e-6),
+    restore: (run) => void (run.setPiece!.x -= 1e-6),
+  },
+  {
+    path: 'setPiece.y',
+    move: (run) => void (run.setPiece!.y += 1e-6),
+    restore: (run) => void (run.setPiece!.y -= 1e-6),
+  },
+  {
+    path: 'setPiece.open',
+    move: (run) => void (run.setPiece!.open = false),
+    restore: (run) => void (run.setPiece!.open = true),
+  },
+  {
+    path: 'setPiece.budget',
+    move: (run) => void (run.setPiece!.budget -= 1),
+    restore: (run) => void (run.setPiece!.budget += 1),
+  },
+  {
+    path: 'setPiece.pourIn',
+    move: (run) => void (run.setPiece!.pourIn -= 1),
+    restore: (run) => void (run.setPiece!.pourIn += 1),
+  },
+  {
+    path: 'setPiece.hp',
+    move: (run) => void (run.setPiece!.hp -= 1),
+    restore: (run) => void (run.setPiece!.hp += 1),
+  },
+  {
+    // Every field of DirectorState is readonly and the record is replaced
+    // wholesale, so each of these moves the whole record and puts the fixture's
+    // own back (director.ts).
+    path: 'director.signal.value',
+    move: (run) => void (run.director = movedSignal(run, { value: 0.5 })),
+    restore: (run) => void fillRun(run),
+  },
+  {
+    path: 'director.signal.heldUntilTick',
+    move: (run) =>
+      void (run.director = movedSignal(run, { heldUntilTick: 361 })),
+    restore: (run) => void fillRun(run),
+  },
+  {
+    path: 'director.purseLeft',
+    move: (run) => void (run.director = { ...run.director, purseLeft: 73 }),
+    restore: (run) => void fillRun(run),
+  },
+  {
+    path: 'director.quietUntilTick',
+    move: (run) =>
+      void (run.director = { ...run.director, quietUntilTick: 421 }),
+    restore: (run) => void fillRun(run),
+  },
+  {
+    // The tick a press landed on is read-only on the record, so the only way to
+    // move it is to hand the run a different press, exactly as the boss's kind
+    // is moved.
+    path: 'press.beganAt',
+    move: (run) => void (run.press = { ...run.press!, beganAt: 42 }),
+    restore: (run) => void fillPress(run),
+  },
+  {
+    path: 'press.shovesLeft',
+    move: (run) => void (run.press!.shovesLeft -= 1),
+    restore: (run) => void (run.press!.shovesLeft += 1),
+  },
+  {
+    path: 'press.nextIn',
+    move: (run) => void (run.press!.nextIn -= 1),
+    restore: (run) => void (run.press!.nextIn += 1),
+  },
+  {
+    path: 'press.caught',
+    move: (run) => void run.press!.caught.add(23),
+    restore: (run) => void fillPress(run),
+  },
 ];
 
 const FIELD_CASES: readonly FieldCase[] = [...ENTITY_CASES, ...RUN_CASES];
@@ -538,6 +894,7 @@ const FOLDED: readonly string[] = [
   'grave.y',
   'grave.size',
   'grave.invulnerable',
+  'grave.scoreRungBled',
   'mobs[].x',
   'mobs[].y',
   'mobs[].vx',
@@ -546,6 +903,17 @@ const FOLDED: readonly string[] = [
   'mobs[].beat',
   'mobs[].fireIn',
   'mobs[].armed',
+  'mobs[].carries',
+  'mobs[].from',
+  'mobs[].impulse.stepX',
+  'mobs[].impulse.stepY',
+  'mobs[].impulse.ticksLeft',
+  'mobs[].impulse.travelled',
+  'mobs[].impulse.shovesLeft',
+  'mobs[].impulse.nextIn',
+  'mobs[].impulse.spacing',
+  'mobs[].impulse.owedStepX',
+  'mobs[].impulse.owedStepY',
   'mobFire[].x',
   'mobFire[].y',
   'mobFire[].vx',
@@ -557,6 +925,15 @@ const FOLDED: readonly string[] = [
   'corpses[].tier',
   'corpses[].kind',
   'corpses[].line',
+  'corpses[].impulse.stepX',
+  'corpses[].impulse.stepY',
+  'corpses[].impulse.ticksLeft',
+  'corpses[].impulse.travelled',
+  'corpses[].impulse.shovesLeft',
+  'corpses[].impulse.nextIn',
+  'corpses[].impulse.spacing',
+  'corpses[].impulse.owedStepX',
+  'corpses[].impulse.owedStepY',
   'skulls[].x',
   'skulls[].y',
   'skulls[].vx',
@@ -579,21 +956,22 @@ const FOLDED: readonly string[] = [
   'score',
   'reservoir',
   'ending',
-  'killsSinceDrop',
-  'dropsPaid',
   'nextEntityId',
-  'levels.soulStream',
+  'levels.skullStream',
   'levels.territory',
   'levels.wisps',
   'levels.bell',
   'streams.spawns.drawn',
-  'streams.drops.drawn',
+  'streams.powerUps.drawn',
   'streams.mobFire.drawn',
   'streams.shed.drawn',
   'streams.territory.drawn',
-  'stage.phaseIndex',
-  'stage.phaseTick',
-  'stage.firedRows',
+  'streams.director.drawn',
+  'streams.bossFire.drawn',
+  'streams.pour.drawn',
+  'stage.sectionIndex',
+  'stage.sectionTick',
+  'stage.firedWaves',
   'lines.streamIn',
   'lines.surgeVolleys',
   'lines.tollIn',
@@ -601,6 +979,31 @@ const FOLDED: readonly string[] = [
   'lines.ring.ticks',
   'lines.ring.struck',
   'lines.layIn',
+  'lines.volleyIn',
+  'offer.options[]',
+  'offer.bodyIds[]',
+  'bankedOffers',
+  'boss.kind',
+  'boss.phaseIndex',
+  'boss.hp',
+  'boss.x',
+  'boss.y',
+  'boss.flash',
+  'boss.patternTick',
+  'setPiece.x',
+  'setPiece.y',
+  'setPiece.open',
+  'setPiece.budget',
+  'setPiece.pourIn',
+  'setPiece.hp',
+  'director.signal.value',
+  'director.signal.heldUntilTick',
+  'director.purseLeft',
+  'director.quietUntilTick',
+  'press.beganAt',
+  'press.shovesLeft',
+  'press.nextIn',
+  'press.caught',
 ];
 
 /**
@@ -610,6 +1013,49 @@ const FOLDED: readonly string[] = [
  */
 const EXCLUDED: Readonly<Record<string, string>> = {
   seed: "the run's identity, fixed by createRun and never mutated by the rules. The tape header carries it.",
+  'roster[]':
+    "the run's identity, as the seed is: resolved once by createRun and never mutated by the rules (ADR 0046). The tape header records it, and what the roster decides shows through the levels the walk already folds.",
+  'conditions.startingSize':
+    "the run's identity, as the seed and the roster are: it is what the run started from, resolved once by createRun and never mutated by the rules (ADR 0063). What it decides shows through grave.size, which the walk folds on every tick, and it is the size the tape header already records.",
+  'conditions.startingLevels.skullStream':
+    'the level the run began this line at, which is a starting condition and not run state: levels.skullStream is folded, so a divergence in what the run was started with shows there from the first tick.',
+  'conditions.startingLevels.territory':
+    'as conditions.startingLevels.skullStream is.',
+  'conditions.startingLevels.wisps':
+    'as conditions.startingLevels.skullStream is.',
+  'conditions.startingLevels.bell':
+    'as conditions.startingLevels.skullStream is.',
+  'conditions.roster[]':
+    'the same resolved list roster[] is, held once and shared with it: the run and its record never write either, so excluding one and folding neither is the same decision twice (ADR 0046, ADR 0063).',
+  'conditions.signalLock':
+    "the figure the run holds its signal at, on director.signal.lock's own terms: it is the same resolved value, carried here because a rig and a header state it, and what it decides shows through director.signal.value, which the walk folds.",
+  'conditions.startingScore':
+    "the score the run began holding, which score already carries from the first tick: score is folded, so a run staged with a different one diverges at checkpoint zero. It is a starting condition rather than run state, which is why the record's arrival moved no witness version.",
+  'conditions.tuning.stage.processionPurse':
+    "a row of the tuning record the run started under, which is a starting condition on conditions.startingScore's own terms: the shell resolves it once and createRun carries it, the rules never write it, and every consequence of it is already inside the fold through the live state it changes (ADR 0064, the draft's ruling 6). That is why the record's arrival moves no witness version.",
+  'conditions.tuning.stage.crowdPurse':
+    'as conditions.tuning.stage.processionPurse is.',
+  'conditions.tuning.stage.vigilPurse':
+    'as conditions.tuning.stage.processionPurse is.',
+  'conditions.tuning.stage.quietIntervalMinimumSeconds':
+    "as conditions.tuning.stage.processionPurse is. What it decides is the three caps and the director's own wait, and both show through the pools and the adds the walk folds.",
+  'conditions.tuning.stage.quietIntervalMaximumSeconds':
+    'as conditions.tuning.stage.quietIntervalMinimumSeconds is.',
+  'conditions.tuning.score.trashKillScore':
+    'as conditions.tuning.stage.processionPurse is: what it decides shows through score, which is folded from the first tick.',
+  'conditions.tuning.score.bleedCapInKills':
+    'as conditions.tuning.score.trashKillScore is.',
+  'conditions.tuning.score.bossHealthPerKill':
+    'as conditions.tuning.score.trashKillScore is.',
+  'conditions.tuning.score.sourceKillInKills':
+    'as conditions.tuning.score.trashKillScore is.',
+  'conditions.tuning.score.mealAtMaxedInKills':
+    'as conditions.tuning.score.trashKillScore is.',
+  'caps.mobs':
+    "what this run's mob pool was built at, derived once by createRun from the record above and never written again (ADR 0056 as amended). It is the run's identity in the same way the seed is, and what it decides is folded already: the pool it sized is walked every tick, and a run that derived a different cap diverges in what stands on the field rather than in a number beside it.",
+  'caps.mobFire':
+    "what this run's mob-fire pool was built at, as caps.mobs is.",
+  'caps.corpses': "what this run's corpse pool was built at, as caps.mobs is.",
   tick: "the witness's own address. A checkpoint at index N is by definition the state after executeTick has run N times, so the tick names a fold rather than being part of one.",
   'mobs[].alive':
     'gates the walk. A dead slot contributes nothing at all, so liveness already moves the fold by deciding which entities are folded.',
@@ -617,18 +1063,30 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     "spawn identity, summarised by nextEntityId, which is folded. A slot's own id follows from the spawn order the walk already witnesses.",
   'mobs[].type':
     'written once at spawn (mobs.ts:340) and never mutated. A divergence in type shows through the hp, motion and hitbox the walk folds.',
+  'mobs[].appearedInside':
+    "written once at spawn from the y the placement asked for (mobs.ts spawnMob) and never mutated, as mobs[].type is. What it decides, whether a body's contact waits for its arriving beat, shows through the beat and the position the walk already folds.",
   'mobFire[].alive': 'gates the walk, as mobs[].alive does.',
   'mobFire[].id': 'spawn identity, as mobs[].id is.',
   'mobFire[].emitter':
     "written once at spawn from the firing mob's type (mobs.ts:416) and never mutated.",
   'mobFire[].halfExtent':
     "written once at spawn from the emitter's fire row (mobs.ts:421) and never mutated.",
+  'mobFire[].kind':
+    'written once at spawn from the pattern that fired it and never mutated. It answers what a shot looks like rather than where it goes, so the renderer reads it and the rules never do.',
+  'boss.id':
+    'spawn identity, summarised by nextEntityId, which is folded. It is the join key a mobDamaged carries and never something the rules move.',
+  'setPiece.id':
+    "spawn identity, as boss.id is: the storm's target seam matches on it and the rules never move it.",
+  'setPiece.bodyGone':
+    'fully determined by hp reaching zero, which is folded, so a divergence in it is a divergence in the health the walk already carries. It is written once when the storm empties the source and never again, as mobs[].appearedInside is.',
   'corpses[].alive': 'gates the walk, as mobs[].alive does.',
   'corpses[].id': 'spawn identity, as mobs[].id is.',
   'corpses[].decays':
     'written once at spawn from the kind, which is folded: treasure never decays and a corpse always does.',
+  'corpses[].treasureBody':
+    'written once at spawn from the kind, which is folded, exactly as decays is: a power-up and a fallen rung wear the treasure body and a corpse and a feast do not. It answers how a body draws and chimes and no rule reads it.',
   'corpses[].halfExtent':
-    'written once at spawn from the kind, which is folded: a drop is larger than a corpse.',
+    'written once at spawn from the kind, which is folded: a power-up is larger than a corpse.',
   'skulls[].alive': 'gates the walk, as mobs[].alive does.',
   'skulls[].id': 'spawn identity, as mobs[].id is.',
   'wisps[].alive': 'gates the walk, as mobs[].alive does.',
@@ -638,16 +1096,38 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     "spawn identity, as mobs[].id is. Territory's cap orders eviction by it, and that ordering shows through which patches are still live in the walk.",
   'patches[].level':
     'written once at the lay (territory.ts layPatch) and never mutated, as mobs[].type is. A divergence in the birth rung shows through the radius, pull, slow and re-hit the walk folds, each captured from the same rung of a ladder with distinct values per rung.',
+  'mobs[].impulse.source':
+    "which push threw the shove a body is carrying, written once when the shove starts (shove.ts startShove) and never mutated, as mobFire[].kind is. No rule reads it: its one consumer is the mobShoved event a reading counts off a tape, so it answers who pushed rather than where the body goes. A divergence in it shows through the impulse's seven folded fields, because the bell starts one shove with no spacing and the belch three, spaced by its own row (design record R3 as superseded).",
+  'mobs[].impulse.bodyId':
+    'the id of the body the shove landed on, written once when the shove starts (shove.ts startShove) and never mutated, exactly as impulse.source is. No rule reads it: its one consumer is the mobShoved event a reading counts off a tape, so it answers who was pushed rather than where anything goes, and the body it names is folded by the walk for as long as it is alive.',
+  'corpses[].impulse.source':
+    "which push threw the shove a corpse is carrying, on mobs[].impulse.source's own terms: it is the same record handed across at the kill and it is written once at the shove's start. A divergence in it shows through the seven folded fields of the same impulse.",
+  'corpses[].impulse.bodyId':
+    "the id of the body the shove landed on, on mobs[].impulse.bodyId's own terms. On a corpse it is deliberately not the corpse's own id: the one report names the body the push reached, which is what the repel reading has always meant by it.",
+  'refusals.food':
+    "what the corpse pool turned away on one tick, cleared at the top of every tick and read by the invariant harness at the end of it. It is the harness's input rather than the run's state, and every refusal it counts is decided by the pools the fold already walks.",
+  'refusals.carriers':
+    'what the mob pool turned away on one tick, as refusals.food is.',
+  'refusals.offers':
+    'offers that could stand no body on one tick, as refusals.food is. What it leads to, a bank that went up rather than an offer on the field, is folded.',
+  'director.signal.lock':
+    "the run's identity, as seed and roster[] are: createRun resolves it before the first tick from the URL or from the tape header and the rules never write it (ADR 0027). What it decides, the signal the gate reads, shows through director.signal.value, which the walk already folds. Slice E ruled it excluded rather than folded and wrote the reasoning into PressureSignal's own JSDoc, which is why the lock owed no second witness version move.",
   'streams.spawns.next': 'a draw function, not state. Its cursor is folded.',
   'streams.spawns.nextInt': 'a draw function, not state.',
-  'streams.drops.next': 'a draw function, not state. Its cursor is folded.',
-  'streams.drops.nextInt': 'a draw function, not state.',
+  'streams.powerUps.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.powerUps.nextInt': 'a draw function, not state.',
   'streams.mobFire.next': 'a draw function, not state. Its cursor is folded.',
   'streams.mobFire.nextInt': 'a draw function, not state.',
   'streams.shed.next': 'a draw function, not state. Its cursor is folded.',
   'streams.shed.nextInt': 'a draw function, not state.',
   'streams.territory.next': 'a draw function, not state. Its cursor is folded.',
   'streams.territory.nextInt': 'a draw function, not state.',
+  'streams.director.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.director.nextInt': 'a draw function, not state.',
+  'streams.bossFire.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.bossFire.nextInt': 'a draw function, not state.',
+  'streams.pour.next': 'a draw function, not state. Its cursor is folded.',
+  'streams.pour.nextInt': 'a draw function, not state.',
 };
 
 /**
@@ -677,7 +1157,37 @@ function undecided(paths: readonly string[]): string[] {
     .sort();
 }
 
+/**
+ * The two run fields the kill-priced power-up table folded, retired with it
+ * when ADR 0002 was superseded on its power half. They are written down here
+ * and nowhere in production, because a retired field taken back into the fold
+ * is a silent witness change: nothing else in this file would name it.
+ *
+ * Both spellings are banned. The two original names are the ones the retired
+ * fields actually wore, and they are not renamed with the vocabulary (ADR
+ * 0061), because renaming a ban lets the banned field back in under its old
+ * name. The power-up spellings sit beside them so a field rebuilt in the new
+ * vocabulary is caught too.
+ */
+const RETIRED_RUN_FIELDS: readonly string[] = [
+  'killsSinceDrop',
+  'dropsPaid',
+  'killsSincePowerUp',
+  'powerUpsPaid',
+];
+
 describe('the closed field list', () => {
+  it('never takes a retired run field back', () => {
+    const walked = fieldPaths(fixture(), '');
+    expect(walked.filter((path) => RETIRED_RUN_FIELDS.includes(path))).toEqual(
+      [],
+    );
+    const listed = [...FOLDED, ...EXCLUDED_PATHS];
+    expect(listed.filter((path) => RETIRED_RUN_FIELDS.includes(path))).toEqual(
+      [],
+    );
+  });
+
   it('every nested field is either folded or excluded with a reason beside it', () => {
     const walked = fieldPaths(fixture(), '');
     expect(undecided(walked)).toEqual([]);
@@ -690,7 +1200,10 @@ describe('the closed field list', () => {
   it('a field in neither list fails the assertion', () => {
     // The proof that the guard is a guard: a nested field nobody has decided
     // about is named, rather than passing over an empty set.
-    const invented = fieldPaths({ stage: { phaseIndex: 0, drainOut: 0 } }, '');
+    const invented = fieldPaths(
+      { stage: { sectionIndex: 0, drainOut: 0 } },
+      '',
+    );
     expect(undecided(invented)).toEqual(['stage.drainOut']);
   });
 
@@ -714,7 +1227,7 @@ describe('one field at a time', () => {
 });
 
 const WEAPON_LINE_NAMES: readonly WeaponLine[] = [
-  'soulStream',
+  'skullStream',
   'territory',
   'wisps',
   'bell',
@@ -725,7 +1238,7 @@ describe('the fold order over the weapon lines', () => {
     // The witness fold traverses WEAPON_LINES in array order and sealed tapes
     // exist outside the tree, so a reorder silently changes every witness. A
     // change to this order needs a witness version bump, never a test update.
-    expect(WEAPON_LINES).toEqual(['soulStream', 'territory', 'wisps', 'bell']);
+    expect(WEAPON_LINES).toEqual(['skullStream', 'territory', 'wisps', 'bell']);
   });
 });
 
@@ -736,7 +1249,7 @@ describe('the fold order over the weapon lines', () => {
  */
 const RETIRED_HEADSTONES_CODE = 2;
 
-describe('the four non-numeric encodings', () => {
+describe('the five non-numeric encodings', () => {
   it('a boolean folds through an explicit 0 or 1', () => {
     expect(boolCode(false)).toBe(0);
     expect(boolCode(true)).toBe(1);
@@ -748,9 +1261,9 @@ describe('the four non-numeric encodings', () => {
     expect(createRun(FIXTURE_SEED).nextEntityId).toBe(1);
 
     const absent = fixture();
-    absent.wisps[0].targetId = null;
+    slot0(absent.wisps).targetId = null;
     const zero = fixture();
-    zero.wisps[0].targetId = NO_TARGET_ID;
+    slot0(zero.wisps).targetId = NO_TARGET_ID;
     expect(foldWitness(absent, 0)).toBe(foldWitness(zero, 0));
   });
 
@@ -766,7 +1279,16 @@ describe('the four non-numeric encodings', () => {
   });
 
   it('the food kind code map is pinned by name and never by ordinal', () => {
-    expect(FOOD_KIND_CODES).toEqual({ corpse: 1, drop: 2, feast: 3 });
+    // The fallen rung appends at 4 rather than taking a code any of the three
+    // already holds (ADR 0019's append-only rule). A new code inside a field
+    // the fold already carries is not a new folded field, so the field list
+    // does not move and WITNESS_VERSION stays where it is.
+    expect(FOOD_KIND_CODES).toEqual({
+      corpse: 1,
+      powerUp: 2,
+      feast: 3,
+      fallenRung: 4,
+    });
   });
 
   it('the weapon line code map is pinned by name and never by ordinal', () => {
@@ -776,7 +1298,7 @@ describe('the four non-numeric encodings', () => {
     // exactly what reading by name rather than by position exists to prevent.
     // Territory sits at 5 while its position in WEAPON_LINES is second.
     expect(WEAPON_LINE_CODES).toEqual({
-      soulStream: 1,
+      skullStream: 1,
       wisps: 3,
       bell: 4,
       territory: 5,
@@ -787,23 +1309,46 @@ describe('the four non-numeric encodings', () => {
     );
   });
 
+  it('the renamed skull stream keeps the code the soul stream folded under', () => {
+    // ADR 0043: a reader never reinterprets bytes under changed meanings. The
+    // stream line changed its name and nothing about what it is, so it keeps
+    // code 1 and no tape recorded under the old name folds differently.
+    expect(WEAPON_LINE_CODES.skullStream).toBe(1);
+    expect(Object.keys(WEAPON_LINE_CODES)).not.toContain('soulStream');
+  });
+
+  it('the mob origin code map is pinned by name and never by ordinal', () => {
+    // `directed` takes its code here rather than the day the director first
+    // spends, because a code arriving later would change what every tape
+    // recorded in between folded.
+    expect(MOB_ORIGIN_CODES).toEqual({
+      wave: 1,
+      standingWave: 2,
+      setPiece: 3,
+      boss: 4,
+      directed: 5,
+    });
+  });
+
   it('no code map member may take the reserved absent code', () => {
     const codes = [
       ...Object.values(RUN_ENDING_CODES),
       ...Object.values(CORPSE_TIER_CODES),
       ...Object.values(FOOD_KIND_CODES),
       ...Object.values(WEAPON_LINE_CODES),
+      ...Object.values(BOSS_KIND_CODES),
+      ...Object.values(MOB_ORIGIN_CODES),
     ];
     expect(codes.filter((code) => code === ABSENT_CODE)).toEqual([]);
   });
 
   it('an absent corpse line folds through the reserved absent code', () => {
     const absent = fixture();
-    absent.corpses[0].line = undefined;
+    slot0(absent.corpses).line = undefined;
     const witness = foldWitness(absent, 0);
     for (const line of WEAPON_LINE_NAMES) {
       const present = fixture();
-      present.corpses[0].line = line;
+      slot0(present.corpses).line = line;
       expect(foldWitness(present, 0)).not.toBe(witness);
     }
   });
@@ -865,7 +1410,7 @@ describe('Territory in the fold (#76)', () => {
     const untouched = fixture();
     expect(foldWitness(ground, 0)).toBe(foldWitness(untouched, 0));
 
-    ground.patches[0].pulses -= 1;
+    poolSlotAt(ground.patches, 0).pulses -= 1;
     expect(foldWitness(ground, 0)).not.toBe(foldWitness(untouched, 0));
   });
 
@@ -874,7 +1419,7 @@ describe('Territory in the fold (#76)', () => {
     // that re-hit early has to be caught.
     const early = fixture();
     const late = fixture();
-    late.patches[0].struck.set(21, 431);
+    poolSlotAt(late.patches, 0).struck.set(21, 431);
     expect(foldWitness(early, 0)).not.toBe(foldWitness(late, 0));
   });
 
@@ -885,8 +1430,8 @@ describe('Territory in the fold (#76)', () => {
     // sorting would fold a different order than the map actually holds.
     const chronological = fixture();
     const reAdded = fixture();
-    reAdded.patches[0].struck.delete(21);
-    reAdded.patches[0].struck.set(21, 430);
+    poolSlotAt(reAdded.patches, 0).struck.delete(21);
+    poolSlotAt(reAdded.patches, 0).struck.set(21, 430);
     expect(foldWitness(reAdded, 0)).not.toBe(foldWitness(chronological, 0));
   });
 
@@ -896,10 +1441,107 @@ describe('Territory in the fold (#76)', () => {
     // moving one cannot move the witness.
     const run = fixture();
     const before = foldWitness(run, 0);
-    run.patches[1].x = 999;
+    poolSlotAt(run.patches, 1).x = 999;
     expect(foldWitness(run, 0)).toBe(before);
 
-    run.patches[1].alive = true;
+    poolSlotAt(run.patches, 1).alive = true;
     expect(foldWitness(run, 0)).not.toBe(before);
+  });
+});
+
+describe('the director in the fold (ADR 0019, ADR 0047)', () => {
+  it("folds the director's own state, so a replay rebuilds the director it played", () => {
+    // ADR 0019: a replay that could not rebuild the director would be a replay
+    // of a different run. Nothing spends yet, so what this pins is that the
+    // state is inside the fold from the commit that declares it rather than
+    // from the commit that first moves it.
+    const held = fixture();
+    const spent = fixture();
+    expect(foldWitness(held, 0)).toBe(foldWitness(spent, 0));
+
+    spent.director = {
+      ...spent.director,
+      purseLeft: held.director.purseLeft - 6,
+    };
+    expect(foldWitness(spent, 0)).not.toBe(foldWitness(held, 0));
+  });
+
+  it("folds the director's dice beside every other stream's", () => {
+    // ADR 0047: the director's own dice come from its own named seeded stream,
+    // and a cursor outside the fold is a run a tape cannot rebuild.
+    const drawn = fixture();
+    const untouched = fixture();
+    drawn.streams.director.next();
+    expect(foldWitness(drawn, 0)).not.toBe(foldWitness(untouched, 0));
+  });
+});
+
+describe("the harness's own stream stays outside the run (ADR 0019)", () => {
+  it("holds exactly the run's own streams and folds exactly those", () => {
+    // The harness's hand draws from a stream named `hand`, made in src/dev off
+    // the run's seed and held by the harness. A sixth stream inside the run
+    // would put the bot's dice in the shipped simulation, and the fold walks
+    // every stream the run holds, so it would land on the witness.
+    const held = Object.keys(createRun(0).streams).sort();
+
+    expect(held).toEqual([
+      'bossFire',
+      'director',
+      'mobFire',
+      'pour',
+      'powerUps',
+      'shed',
+      'spawns',
+      'territory',
+    ]);
+    expect(held).not.toContain(HAND_STREAM);
+    expect(FOLDED.filter((path) => path.startsWith('streams.')).sort()).toEqual(
+      held.map((name) => `streams.${name}.drawn`).sort(),
+    );
+  });
+
+  it('folds a fallen rung apart from a power-up without widening the field list', () => {
+    // The fourth food kind rides the corpse pool on fields the fold already
+    // carries, so FOOD_KIND_CODES gains a code and the field list does not
+    // move. witness.ts's own rule is that the version moves when the field list
+    // moves, so the version holds at 11 with the pin above. The two folds
+    // differing is what says the new code is inside the walk rather than beside
+    // it.
+    const asPowerUp = fixture();
+    const asRung = fixture();
+    slot0(asRung.corpses).kind = 'fallenRung';
+
+    expect(foldWitness(asRung, 0)).not.toBe(foldWitness(asPowerUp, 0));
+    expect(FOLDED.filter((path) => path.startsWith('corpses['))).toEqual([
+      'corpses[].x',
+      'corpses[].y',
+      'corpses[].freshness',
+      'corpses[].payout',
+      'corpses[].tier',
+      'corpses[].kind',
+      'corpses[].line',
+      'corpses[].impulse.stepX',
+      'corpses[].impulse.stepY',
+      'corpses[].impulse.ticksLeft',
+      'corpses[].impulse.travelled',
+      'corpses[].impulse.shovesLeft',
+      'corpses[].impulse.nextIn',
+      'corpses[].impulse.spacing',
+      'corpses[].impulse.owedStepX',
+      'corpses[].impulse.owedStepY',
+    ]);
+  });
+
+  it('leaves the witness version where the sim put it, which the harness must not move', () => {
+    // Hand-forward (f) pins it: the whole harness is built outside RunState, so
+    // no version move is ever the hand's. This is what says it was not, on a
+    // branch that added a stream to the project. The sim moved it to 11 for the
+    // score rung the floor ladder remembers, to 10 before that for the press
+    // the run carries, to 9 before that for the impulse a corpse carries, to 8
+    // before that for the impulse a shoved body carries, and to 7 before that
+    // for the director's own stream and the rest of the fold that step widened;
+    // the three names above are the run's rather than the hand's.
+    expect(WITNESS_VERSION).toBe(11);
+    expect(Object.keys(createRun(0).streams)).not.toContain(HAND_STREAM);
   });
 });

@@ -85,8 +85,9 @@ const shortIdentity = (identity: FaultIdentity): string => {
  */
 const faultReadout = (faults: readonly FaultRecord[]): string => {
   if (faults.length === 0) return '';
-  if (faults.length === 1) {
-    return `${FAULT_PREFIX}${shortIdentity(faults[0].identity)}`;
+  const only = faults[0];
+  if (only !== undefined && faults.length === 1) {
+    return `${FAULT_PREFIX}${shortIdentity(only.identity)}`;
   }
   return `FAULTS ${faults.length}`;
 };
@@ -112,10 +113,15 @@ const createRunHud = (): RunHud => {
     tick: stackLine(2),
     seed: stackLine(3),
     size: stackLine(4),
+    // The bank is not a line here: this stack was its stand-in form and the
+    // ladder HUD carries it now, beside the score where a player reads it
+    // (`LadderHud.ts`, design record R11). One reading in two places is two
+    // readings the moment either moves.
+    //
     // Lines five and six sit past the readout reserve and draw over the field,
     // which is the meter's own allowance under ADR 0014. Growing the reserve
     // instead would move the field on every ordinary run: the levels line is
-    // empty on an ordinary run, and the fault line is empty on a healthy one,
+    // empty on an ordinary run and the fault line is empty on a healthy one,
     // because ADR 0017 shows a recoverable fault live on an ordinary run.
     levels: stackLine(5),
     fault: stackLine(6),

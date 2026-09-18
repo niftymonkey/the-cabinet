@@ -22,6 +22,7 @@ import {
 } from './segments';
 import type {
   Observation,
+  StartingConditionEntry,
   TapeCheckpoint,
   TapeHeader,
   TapeTrailer,
@@ -71,42 +72,35 @@ const named = <T extends string>(
   return name;
 };
 
-// The line names this tape was written against, which are the order its level bytes follow.
-const readRecordedRoster = (payload: ByteReader): string[] => {
-  const roster: string[] = [];
-  const named = readU8(payload);
-  for (let line = 0; line < named; line++) roster.push(readString(payload));
-  return roster;
-};
-
 /**
- * The starting levels, read by name against the roster the tape recorded and
- * never by position (ADR 0043).
+ * The whole starting condition, read back as the names and values the tape
+ * wrote and nothing more (ADR 0043).
  *
- * Nothing is coerced into this build's own roster here. A tape naming a line
- * this build does not implement is reported as recorded, because the tape said
- * something true and the reader's job is not to edit it;
- * `resolveStartingLevels` is the separate step that asks whether this build can
- * run it.
+ * Nothing is coerced into this build's own vocabulary here and nothing is
+ * checked against it. A tape naming a row this build does not have is reported
+ * as recorded, because the tape said something true and the reader's job is not
+ * to edit it; `resolveStartingCondition` is the separate step that asks whether
+ * this build can run what is written, and a block decoded straight into the
+ * condition's own typed record is the mistake ADR 0043 was written against.
  */
-const readStartingLevels = (
+const readStartingCondition = (
   payload: ByteReader,
-  roster: readonly string[],
-): Record<string, number> => {
-  // Prototype-free, because the roster is decoded bytes rather than our own
-  // vocabulary. A line named `__proto__` assigned into an ordinary object is
-  // swallowed by the prototype setter and reads back as an inherited object,
-  // which is not the missing level it actually is.
-  const levels: Record<string, number> = Object.create(null);
-  for (const line of roster) levels[line] = readU8(payload);
-  return levels;
+): StartingConditionEntry[] => {
+  const block: StartingConditionEntry[] = [];
+  const named = readU16(payload);
+  for (let entry = 0; entry < named; entry++) {
+    // The name before the value, in the order they were written: readString
+    // and readF64 both bounds-check, so a count larger than the bytes behind it
+    // refuses here rather than yielding entries made of whatever followed.
+    const name = readString(payload);
+    block.push({ name, value: readF64(payload) });
+  }
+  return block;
 };
 
 const readHeader = (payload: ByteReader): TapeHeader => {
   const seed = readU32(payload);
-  const startingSize = readF64(payload);
-  const recordedRoster = readRecordedRoster(payload);
-  const startingLevels = readStartingLevels(payload, recordedRoster);
+  const startingCondition = readStartingCondition(payload);
   const tickRate = readU16(payload);
   const checkpointSpacing = readU32(payload);
   const witnessVersion = readU8(payload);
@@ -118,6 +112,7 @@ const readHeader = (payload: ByteReader): TapeHeader => {
     readU8(payload),
     'an input device',
   );
+  const policy = readString(payload);
   const keyboardSpeed = readF32(payload);
   const rendererBackend = readString(payload);
   const rendererResolution = readF32(payload);
@@ -126,11 +121,14 @@ const readHeader = (payload: ByteReader): TapeHeader => {
   if (checkpointSpacing < 1) {
     throw new TapeFormatError('a checkpoint spacing below one stamps nothing');
   }
+  // The signal lock's own scale is not asked here any more. It is a row of the
+  // starting-condition block now, and the block is open by construction: which
+  // name is the lock is a question about this build's vocabulary, which is
+  // resolveStartingCondition's to ask (ADR 0043). The refusal is not lost, it
+  // moved, and a lock this build cannot hold is refused there in the same shape.
   return {
     seed,
-    startingSize,
-    recordedRoster,
-    startingLevels,
+    startingCondition,
     tickRate,
     checkpointSpacing,
     witnessVersion,
@@ -138,6 +136,7 @@ const readHeader = (payload: ByteReader): TapeHeader => {
     buildIdentity,
     author,
     inputDevice,
+    policy,
     keyboardSpeed,
     rendererBackend,
     rendererResolution,

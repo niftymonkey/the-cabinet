@@ -1,5 +1,6 @@
 // How fights resolved: what a mob type cost to kill, and what did not die.
 
+import { TICK_HZ } from '../../game/clock';
 import type { SimEvent } from '../../game/events';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { DamageSource, MobType } from '../../game/mobs';
@@ -7,6 +8,17 @@ import { MOB_TYPE_NAMES } from '../../game/mobs';
 import type { RunState } from '../../game/run';
 import { addTo } from '../numbersByName';
 import { greatestOf, leastOf, meanOf } from '../seriesSummary';
+
+/**
+ * One entry of a per-type accumulator seeded for every MOB_TYPE_NAMES entry
+ * (noneByType, noTicksByType) before any tick runs, so a lookup by a type this
+ * module itself produced is a bug rather than a case if it is ever absent.
+ */
+function entryOf<T>(record: Record<string, T>, key: string): T {
+  const entry = record[key];
+  if (entry === undefined) throw new Error(`no entry for ${key}`);
+  return entry;
+}
 
 /**
  * The engagements a run fought, per mob type and per weapon line.
@@ -41,6 +53,28 @@ interface Engagements {
   readonly ticksToKillMin: Readonly<Partial<Record<MobType, number>>>;
   readonly ticksToKillMax: Readonly<Partial<Record<MobType, number>>>;
   readonly hitsPerKill: Readonly<Partial<Record<MobType, number>>>;
+  /**
+   * The same timed kills, split by the minute of the run the kill landed in:
+   * per type, then per minute as a whole-number name.
+   *
+   * It is the new axis and nothing above it moves. A figure over a whole run
+   * cannot see the per-rung weapon climb eating into what a body costs, and
+   * with no per-minute stat step authored a body costs fewer hits every minute
+   * the ladder climbs, so this is the reading that says whether the mow ends
+   * part way through a run (the design record's section 12 item 6).
+   *
+   * A type with no timed kill in a minute is absent from that minute rather
+   * than zero, which is the module's standing rule: there was no fight, not a
+   * fight that cost nothing. The kill count per minute sits beside it, because
+   * a hits-per-kill figure taken over one kill is noise unless the reader can
+   * see it is one kill.
+   */
+  readonly hitsPerKillByMinute: Readonly<
+    Partial<Record<MobType, Readonly<Record<string, number>>>>
+  >;
+  readonly timedKillsByMinute: Readonly<
+    Partial<Record<MobType, Readonly<Record<string, number>>>>
+  >;
   // Hits behind those kills, under the line that dealt each.
   readonly hitsByLine: Record<DamageSource, number>;
   // Every kill, credited to the blow that landed last.
@@ -63,6 +97,9 @@ interface EngagementsAcc {
   readonly timedKills: Record<string, number>;
   readonly ticks: Record<string, number[]>;
   readonly hits: Record<string, number>;
+  // Per type, then per minute name: the kills and the hits behind them.
+  readonly killsByMinute: Record<string, Record<string, number>>;
+  readonly hitsByMinute: Record<string, Record<string, number>>;
   readonly hitsByLine: Record<string, number>;
   readonly fatalBlows: Record<string, number>;
   readonly liveIds: Set<number>;
@@ -80,6 +117,28 @@ const noTicksByType = (): Record<string, number[]> => {
   for (const mob of MOB_TYPE_NAMES) ticks[mob] = [];
   return ticks;
 };
+
+/**
+ * A per-minute bucket per type, empty. A minute a type had no kill in never
+ * gains a name at all, which is what keeps an absent minute absent rather than
+ * zero.
+ */
+const noBucketsByType = (): Record<string, Record<string, number>> => {
+  const buckets: Record<string, Record<string, number>> = {};
+  for (const mob of MOB_TYPE_NAMES) buckets[mob] = {};
+  return buckets;
+};
+
+/**
+ * Which minute of the run this tick sits in, as the name a report prints.
+ *
+ * The tick a reading is handed is the count of ticks that have run, so the
+ * first tick of a run is one and the last tick of the first minute is
+ * 60 * TICK_HZ. Dividing the raw number would push that last tick into minute
+ * one and leave minute zero one tick short.
+ */
+const minuteOf = (tick: number): string =>
+  String(Math.floor((tick - 1) / (60 * TICK_HZ)));
 
 /**
  * The damage arms this run names: its own lines, with the belch beside them.
@@ -106,6 +165,8 @@ const createEngagements = (lines: readonly WeaponLine[]): EngagementsAcc => {
     timedKills: noneByType(),
     ticks: noTicksByType(),
     hits: noneByType(),
+    killsByMinute: noBucketsByType(),
+    hitsByMinute: noBucketsByType(),
     hitsByLine: {},
     fatalBlows: {},
     liveIds: new Set(),
@@ -116,17 +177,37 @@ const createEngagements = (lines: readonly WeaponLine[]): EngagementsAcc => {
 };
 
 /**
- * The type of the mob this id belongs to. The pool slot still carries its own
- * id and type when the observer reads it, whether the mob is alive or was
- * culled this tick: a tick runs its spawns before any damage, so nothing has
- * taken the slot back. An id with no slot behind it would mean that order
- * changed underneath the instrument, which is a bug rather than a reading.
+ * Every mob type this tick can name, by id.
+ *
+ * THIS READING COVERS THE MOB POOL AND NOTHING ELSE. A boss takes storm damage
+ * and reports it as mobDamaged like anything else, and a boss is not in the
+ * pool, so its damage names no type here and no engagement is opened for it. A
+ * fight against a boss is read from its own vocabulary instead, bossArrived,
+ * phaseBroke and bossKilled.
+ *
+ * That is why a missing id answers nothing rather than throwing, and the guard
+ * it used to carry has not been given up: an engagement that never closes is
+ * caught on the kill side by closeEngagement, whose event is a mob's by
+ * construction.
+ *
+ * The pool alone is not enough to name a tick's own kills. The belch fires
+ * before the tick's spawns (step.ts), so a body it takes frees the slot that
+ * the tick's next spawn claims, and by the time the observer reads the pool
+ * that slot carries a newer mob's id. The kill event carries the type it took,
+ * which is what keeps such a fight readable. Kills are laid over the pool
+ * rather than under it, and the two never disagree: an id only ever increases,
+ * so a reclaimed slot can never answer to the id it used to hold.
  */
-const typeOfMob = (state: RunState, id: number): MobType => {
-  for (const mob of state.mobs) {
-    if (mob.id === id) return mob.type;
+const typesThisTick = (
+  state: RunState,
+  events: readonly SimEvent[],
+): Map<number, MobType> => {
+  const types = new Map<number, MobType>();
+  for (const mob of state.mobs) types.set(mob.id, mob.type);
+  for (const event of events) {
+    if (event.type === 'mobKilled') types.set(event.id, event.mob);
   }
-  throw new Error(`mob ${id} took damage with no pool slot carrying its type`);
+  return types;
 };
 
 const openEngagement = (
@@ -134,10 +215,11 @@ const openEngagement = (
   tick: number,
   id: number,
   source: DamageSource,
-  state: RunState,
-): Engagement => {
-  const type = typeOfMob(state, id);
-  acc.engaged[type] += 1;
+  types: ReadonlyMap<number, MobType>,
+): Engagement | null => {
+  const type = types.get(id);
+  if (type === undefined) return null;
+  acc.engaged[type] = entryOf(acc.engaged, type) + 1;
   const engagement: Engagement = {
     type,
     firstDamageTick: tick,
@@ -154,10 +236,11 @@ const takeHit = (
   tick: number,
   id: number,
   source: DamageSource,
-  state: RunState,
+  types: ReadonlyMap<number, MobType>,
 ): void => {
   const engagement =
-    acc.open.get(id) ?? openEngagement(acc, tick, id, source, state);
+    acc.open.get(id) ?? openEngagement(acc, tick, id, source, types);
+  if (engagement === null) return;
   engagement.hits += 1;
   addTo(engagement.hitsByLine, source, 1);
   engagement.lastSource = source;
@@ -178,12 +261,17 @@ const closeEngagement = (
     throw new Error(`mob ${id} died with no damage behind it`);
   }
   acc.open.delete(id);
-  acc.killed[engagement.type] += 1;
+  acc.killed[engagement.type] = entryOf(acc.killed, engagement.type) + 1;
   addTo(acc.fatalBlows, engagement.lastSource, 1);
   if (engagement.lastSource === 'belch') return;
-  acc.timedKills[engagement.type] += 1;
-  acc.ticks[engagement.type].push(tick - engagement.firstDamageTick);
-  acc.hits[engagement.type] += engagement.hits;
+  acc.timedKills[engagement.type] =
+    entryOf(acc.timedKills, engagement.type) + 1;
+  entryOf(acc.ticks, engagement.type).push(tick - engagement.firstDamageTick);
+  acc.hits[engagement.type] =
+    entryOf(acc.hits, engagement.type) + engagement.hits;
+  const minute = minuteOf(tick);
+  addTo(entryOf(acc.killsByMinute, engagement.type), minute, 1);
+  addTo(entryOf(acc.hitsByMinute, engagement.type), minute, engagement.hits);
   for (const [line, hits] of Object.entries(engagement.hitsByLine)) {
     addTo(acc.hitsByLine, line, hits);
   }
@@ -195,9 +283,10 @@ const observeEngagements = (
   events: readonly SimEvent[],
   state: RunState,
 ): void => {
+  const types = typesThisTick(state, events);
   for (const event of events) {
     if (event.type === 'mobDamaged') {
-      takeHit(acc, tick, event.id, event.source, state);
+      takeHit(acc, tick, event.id, event.source, types);
     }
     if (event.type === 'mobKilled') closeEngagement(acc, tick, event.id);
   }
@@ -219,7 +308,7 @@ const unfinished = (
   const aliveAtStop = noneByType();
   for (const [id, engagement] of acc.open) {
     const bucket = acc.liveIds.has(id) ? aliveAtStop : escaped;
-    bucket[engagement.type] += 1;
+    bucket[engagement.type] = entryOf(bucket, engagement.type) + 1;
   }
   return { escaped, aliveAtStop };
 };
@@ -240,14 +329,46 @@ interface KillTimes {
 const killTimesOf = (acc: EngagementsAcc): KillTimes => {
   const times: KillTimes = { mean: {}, min: {}, max: {}, hitsPerKill: {} };
   for (const type of MOB_TYPE_NAMES) {
-    const ticks = acc.ticks[type];
+    const ticks = entryOf(acc.ticks, type);
     if (ticks.length === 0) continue;
     times.mean[type] = meanOf(ticks);
     times.min[type] = leastOf(ticks);
     times.max[type] = greatestOf(ticks);
-    times.hitsPerKill[type] = acc.hits[type] / ticks.length;
+    times.hitsPerKill[type] = entryOf(acc.hits, type) / ticks.length;
   }
   return times;
+};
+
+/**
+ * The hits a kill cost in each minute a type was killed in. Only the minutes
+ * that carry a kill are named, so dividing is always by a count above zero and
+ * a minute with no fight stays absent rather than reading as a free one.
+ */
+const hitsPerKillByMinuteOf = (
+  acc: EngagementsAcc,
+): Partial<Record<MobType, Record<string, number>>> => {
+  const perMinute: Partial<Record<MobType, Record<string, number>>> = {};
+  for (const type of MOB_TYPE_NAMES) {
+    const kills = entryOf(acc.killsByMinute, type);
+    const hits = entryOf(acc.hitsByMinute, type);
+    const minutes: Record<string, number> = {};
+    for (const [minute, killed] of Object.entries(kills)) {
+      minutes[minute] = (hits[minute] ?? 0) / killed;
+    }
+    perMinute[type] = minutes;
+  }
+  return perMinute;
+};
+
+// The timed kills themselves, per type and minute, carried whole.
+const timedKillsByMinuteOf = (
+  acc: EngagementsAcc,
+): Partial<Record<MobType, Record<string, number>>> => {
+  const perMinute: Partial<Record<MobType, Record<string, number>>> = {};
+  for (const type of MOB_TYPE_NAMES) {
+    perMinute[type] = { ...entryOf(acc.killsByMinute, type) };
+  }
+  return perMinute;
 };
 
 const engagementsOf = (acc: EngagementsAcc): Engagements => {
@@ -268,6 +389,8 @@ const engagementsOf = (acc: EngagementsAcc): Engagements => {
     ticksToKillMin: times.min,
     ticksToKillMax: times.max,
     hitsPerKill: times.hitsPerKill,
+    hitsPerKillByMinute: hitsPerKillByMinuteOf(acc),
+    timedKillsByMinute: timedKillsByMinuteOf(acc),
     hitsByLine,
     fatalBlows,
   };

@@ -24,6 +24,12 @@ import { describe, expect, it } from 'vitest';
 
 const SRC = resolve(import.meta.dirname, '..');
 
+/** Narrows a possibly-absent value, or fails loudly when the absence is a bug. */
+function requireDefined<T>(value: T | undefined, message: string): T {
+  if (value === undefined) throw new Error(message);
+  return value;
+}
+
 interface Boundary {
   // The folder under src whose files are governed.
   root: string;
@@ -153,7 +159,9 @@ function importsOf(source: string): string[] {
   const matches = source.matchAll(
     /(?<![.\w$])(?:from|import)\s*\(?\s*["']([^"']+)["']/g,
   );
-  return [...matches].map((match) => match[1]);
+  return [...matches].map((match) =>
+    requireDefined(match[1], 'import regex matched with no captured specifier'),
+  );
 }
 
 /** A module's own path under src, slash-normalized and without its extension. */
@@ -312,7 +320,7 @@ describe('the rendering-import boundary', () => {
     const game = BOUNDARIES.find((boundary) => boundary.root === 'game')!;
     expect(game.mayReach).toEqual(['game']);
     expect(covers('game', 'game/mobs')).toBe(true);
-    expect(covers('game', 'game/lines/soulStream')).toBe(true);
+    expect(covers('game', 'game/lines/skullStream')).toBe(true);
     expect(covers('game', 'gamepad/thing')).toBe(false);
   });
 
@@ -384,7 +392,8 @@ const subjectFolderOf = (file: string): string => {
 };
 
 /** The top-level folder under src a path sits in. */
-const rootOf = (path: string): string => path.split('/')[0];
+const rootOf = (path: string): string =>
+  requireDefined(path.split('/')[0], 'empty path has no top-level folder');
 
 /**
  * Whether a reached path sits inside the subject's own subtree. Every path
@@ -566,12 +575,17 @@ const namesBoundFrom = (source: string, specifier: string): string[] => {
     'g',
   );
   return [...source.matchAll(statement)].flatMap((match) =>
-    match[1].split(',').map((name) =>
-      name
-        .trim()
-        .split(/\s+as\s+/)[0]
-        .trim(),
-    ),
+    requireDefined(
+      match[1],
+      'import-braces regex matched with no captured names',
+    )
+      .split(',')
+      .map((name) =>
+        requireDefined(
+          name.trim().split(/\s+as\s+/)[0],
+          'split on an empty string',
+        ).trim(),
+      ),
   );
 };
 
@@ -727,5 +741,202 @@ describe('the core has no import cycle', () => {
       "import type {\n  Mob,\n} from './mobs';",
     ].join('\n');
     expect(valueImportsOf(source)).toEqual(['./corpses']);
+  });
+});
+
+/**
+ * The module the caps derive from data in, and the one module it may never
+ * reach.
+ *
+ * The rule is a rule about direction: game/stage/stage.ts value-imports
+ * game/mobs.ts and game/mobs.ts value-imports game/caps.ts, so an edge from the
+ * caps to the stage closes a cycle. The cycle guard above would catch a value
+ * import and never a type-only one, and a type-only import is exactly how the
+ * edge gets dodged, so this fence reads every import of either kind.
+ */
+const DERIVES_FROM_DATA = 'game/caps';
+const OUT_OF_ITS_REACH = 'game/stage/stage';
+
+/** Every module a file reaches, type-only imports counted. */
+const everythingReachedIn = (file: string, source: string): string[] =>
+  importsOf(source)
+    .filter((specifier) => specifier.startsWith('.'))
+    .map((specifier) => pathReachedBy(file, specifier));
+
+describe('the cap derivation reads tables and never the stage', () => {
+  it('reaches nothing in game/stage/stage from game/caps', () => {
+    const file = join(SRC, `${DERIVES_FROM_DATA}.ts`);
+    expect(
+      everythingReachedIn(file, readFileSync(file, 'utf8')).filter((path) =>
+        covers(OUT_OF_ITS_REACH, path),
+      ),
+    ).toEqual([]);
+  });
+
+  it('fails a type-only reach, which a bundler would let through', () => {
+    // The ruling this test carries: a type-only import satisfies a bundler and
+    // fails here on purpose, because what it would signal is that somebody went
+    // looking for the stage from inside the derivation and found a way.
+    const file = join(SRC, `${DERIVES_FROM_DATA}.ts`);
+    const source = "import type { Section } from './stage/stage';";
+    expect(
+      everythingReachedIn(file, source).filter((path) =>
+        covers(OUT_OF_ITS_REACH, path),
+      ),
+    ).toEqual([OUT_OF_ITS_REACH]);
+  });
+});
+
+/**
+ * The record the caps derive from, and the one way the core is allowed to get
+ * it: off the run it was handed.
+ *
+ * The shell resolves the record once and passes it inward through createRun
+ * (ADR 0064), so a core module that imported the default would be reading a
+ * record nobody chose, and the run's own values would be quietly ignored on
+ * exactly the path a sweep exists to move. The rendering boundary above already
+ * forbids src/game reaching src/app at all, so what is left to say here is the
+ * half a fence can say about a module in its own root: nothing under src/game
+ * but the record's own module names the default, and the derivation takes what
+ * it reads as an argument.
+ *
+ * tuningRecord.ts is exempt because the default is its own declaration, and a
+ * test file is exempt because a test is not shipped and has to name a record to
+ * assert about one, which is the same carve-out the src/dev allowance above is.
+ */
+const DECLARES_THE_RECORD = 'game/tuningRecord';
+const THE_RECORD_S_DEFAULT = 'DEFAULT_TUNING';
+
+/** Whether a source takes the default record instead of the one it was handed. */
+function takesTheDefault(source: string): boolean {
+  return importsOf(source).some(
+    (specifier) =>
+      specifier.includes('tuningRecord') &&
+      new RegExp(`\\b${THE_RECORD_S_DEFAULT}\\b`).test(source),
+  );
+}
+
+/** Every shipped module under src/game but the one that declares the record. */
+function shippedCoreModulesBesides(module: string): string[] {
+  return typescriptFilesUnder(join(SRC, 'game'))
+    .filter((file) => !isTest(file))
+    .filter((file) => modulePathOf(file) !== module);
+}
+
+describe('the caps derivation and the core read the record off the run', () => {
+  it('takes the default in no shipped core module but the one that declares it', () => {
+    expect(
+      shippedCoreModulesBesides(DECLARES_THE_RECORD)
+        .filter((file) => takesTheDefault(readFileSync(file, 'utf8')))
+        .map(modulePathOf),
+    ).toEqual([]);
+  });
+
+  it('catches a core module reaching for the default, so the rule has teeth', () => {
+    // The wrongness it guards: a reader that imports the default answers the
+    // build's own numbers whatever record the run it sits inside was started
+    // under, which is a sweep that moves a row and changes nothing. Taking the
+    // type is not taking the value, so the fence has to read the name and not
+    // the specifier alone.
+    expect(
+      takesTheDefault(
+        `import { ${THE_RECORD_S_DEFAULT} } from './tuningRecord';\nconst cap = ${THE_RECORD_S_DEFAULT}.stage.quietIntervalMinimumSeconds;`,
+      ),
+    ).toBe(true);
+    expect(
+      takesTheDefault(
+        "import type { TuningRecord } from './tuningRecord';\nconst cap = (tuning: TuningRecord) => tuning.stage;",
+      ),
+    ).toBe(false);
+  });
+});
+
+/**
+ * The module the lock's type lives in, and the whole of what it may depend on,
+ * which is nothing.
+ *
+ * The emptiness is a property other modules rely on rather than a tidiness: the
+ * sim, the tape header and playback all own the same type, and none of them
+ * imports a consumer to get it. It is asserted here because the comment saying
+ * so was true and the tree drifted past it anyway, with src/tape/records.ts
+ * reaching src/game/director for one predicate.
+ */
+const OWNS_THE_LOCK = 'game/signalLock';
+
+describe('the lock is owned by a module with nothing behind it', () => {
+  it("the lock's module imports nothing", () => {
+    const file = join(SRC, `${OWNS_THE_LOCK}.ts`);
+    expect(importsOf(readFileSync(file, 'utf8'))).toEqual([]);
+  });
+
+  it('counts a package as readily as a path, because either one is a dependency', () => {
+    // The teeth, handed source strings with no files behind them, the way the
+    // fences above are. A type-only import counts too: this module is asserted
+    // to depend on nothing at all, not to depend on nothing at runtime.
+    expect(importsOf("import { TICK_HZ } from './clock';")).toEqual([
+      './clock',
+    ]);
+    expect(importsOf("import type { RunState } from './run';")).toEqual([
+      './run',
+    ]);
+    expect(importsOf("import { z } from 'zod';")).toEqual(['zod']);
+  });
+});
+
+/**
+ * The module the tuning record lives in, and the whole of what it may depend
+ * on, which is nothing.
+ *
+ * The emptiness is what lets every reader take the record as an argument
+ * instead of importing it: caps.ts imports waves.ts today, so a record module
+ * that reached waves.ts and a waves.ts that read its own defaults back off the
+ * record would close the core's first cycle. The `game` row's `mayImport: []`
+ * above forbids packages alone and says nothing about a sibling, so the
+ * emptiness needs asserting here rather than there.
+ */
+const OWNS_THE_TUNING_RECORD = 'game/tuningRecord';
+
+describe('the tuning record is owned by a module with nothing behind it', () => {
+  it("the tuning record's module imports nothing", () => {
+    const file = join(SRC, `${OWNS_THE_TUNING_RECORD}.ts`);
+    expect(importsOf(readFileSync(file, 'utf8'))).toEqual([]);
+  });
+});
+
+/**
+ * The codec that parses a tape header, and the one module it may never reach.
+ *
+ * src/tape's own row above reaches src/game whole, because playback reproduces
+ * a run through the one execution authority (ADR 0017), so a folder rule cannot
+ * say this. What the direction costs is specific: the director value-imports
+ * run.ts, the stage tables and tuning.ts, so one predicate borrowed from it
+ * puts the whole sim behind the edge where bytes are turned into a trusted
+ * value.
+ */
+const PARSES_THE_HEADER = 'tape/records';
+const OUT_OF_THE_CODEC_S_REACH = 'game/director';
+
+describe('the tape codec parses a header without the director', () => {
+  it('the tape codec imports nothing from the director', () => {
+    const file = join(SRC, `${PARSES_THE_HEADER}.ts`);
+    expect(
+      everythingReachedIn(file, readFileSync(file, 'utf8')).filter((path) =>
+        covers(OUT_OF_THE_CODEC_S_REACH, path),
+      ),
+    ).toEqual([]);
+  });
+
+  it('fails a type-only reach, which a bundler would let through', () => {
+    // The same ruling the cap derivation's fence carries: a type-only import
+    // satisfies a bundler and fails here, because what it signals is that
+    // somebody went looking for the director from inside the codec and found a
+    // way.
+    const file = join(SRC, `${PARSES_THE_HEADER}.ts`);
+    const source = "import type { Spend } from '../game/director';";
+    expect(
+      everythingReachedIn(file, source).filter((path) =>
+        covers(OUT_OF_THE_CODEC_S_REACH, path),
+      ),
+    ).toEqual([OUT_OF_THE_CODEC_S_REACH]);
   });
 });

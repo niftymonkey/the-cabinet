@@ -1,11 +1,15 @@
 // Two measured runs, side by side, with no hand arithmetic.
 
+import { BELCH_SHOVES } from '../game/belch';
+import type { MobType } from '../game/mobs';
 import type { Distribution } from './framePerformance';
 import type { Divergence, Measurement, Metrics, Refusal } from './measure';
 import type { NumberRecord } from './numbersByName';
 import { fieldSummary, perLineSummary } from './readings/fieldPerLine';
+import { ledgerByLineNumbers } from './readings/powerUpLedger';
 import { sizeSummary } from './readings/gravePath';
 import { groundSummary } from './readings/groundHeld';
+import { signalSummary } from './readings/pressure';
 import { endNumbers, pacingSummary } from './readings/territoryControl';
 import { populationSummary } from './replayTallies';
 
@@ -203,6 +207,19 @@ const scalarReading = (
   },
 });
 
+/**
+ * A per-shove reading as named numbers, keyed by the shove's own place in its
+ * press. The keys are fixed by the belch's own row, so a run whose presses
+ * never reached a third shove reads zero there rather than leaving the name
+ * out.
+ */
+const byShove = (perShove: readonly number[]): NumberRecord => {
+  const named: Record<string, number> = {};
+  for (let at = 0; at < BELCH_SHOVES; at++)
+    named[`${at + 1}`] = perShove[at] ?? 0;
+  return named;
+};
+
 const namedNumbersReading = (
   reading: string,
   of: (report: Metrics) => NumberRecord,
@@ -269,6 +286,23 @@ const descriptiveReading = (
   }),
 });
 
+/**
+ * A per-type, per-minute record as one name per figure, so the whole subtree
+ * compares under one declaration and a minute one run had and the other did not
+ * shows as ABSENT on the side that lacks it.
+ */
+const perTypeMinuteNumbers = (
+  byType: Readonly<Partial<Record<MobType, Readonly<Record<string, number>>>>>,
+): NumberRecord => {
+  const names: Record<string, number> = {};
+  for (const [type, minutes] of Object.entries(byType)) {
+    for (const [minute, value] of Object.entries(minutes ?? {})) {
+      names[`${type}.${minute}`] = value;
+    }
+  }
+  return names;
+};
+
 // A timing distribution as names to numbers, since an interface carries no index signature.
 const distributionNumbers = (distribution: Distribution): NumberRecord => ({
   count: distribution.count,
@@ -290,6 +324,7 @@ const distributionNumbers = (distribution: Distribution): NumberRecord => ({
 const READING_COMPARISONS: readonly DeclaredReading[] = [
   descriptiveReading('outcome', (report) => report.outcome),
   descriptiveReading('identity', (report) => report.identity),
+  descriptiveReading('buildMismatch', (report) => report.buildMismatch),
   descriptiveReading('readingsVersion', (report) => report.readingsVersion),
   scalarReading('run.ticks', (report) => report.run.ticks),
   descriptiveReading('run.ending', (report) => report.run.ending),
@@ -314,6 +349,32 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'mobsAlivePerTick',
     (report) => report.mobsAlivePerTick,
     populationSummary,
+  ),
+  seriesReading(
+    'mobFireAlivePerTick',
+    (report) => report.mobFireAlivePerTick,
+    populationSummary,
+  ),
+  // What arrived, which is the schedule's own side of the field: a rate and a
+  // count per spawn, where the population series is the survivor side.
+  scalarReading(
+    'tuning.arrivals.total',
+    (report) => report.tuning.arrivals.total,
+  ),
+  // The rate beside the count, which is what a standing wave authors. Named
+  // numbers rather than a scalar, because the figure is absent on a run with no
+  // ticks and ABSENT is how a missing number is spelled: a null against a rate
+  // is not a difference to subtract.
+  namedNumbersReading('tuning.arrivals.perSecond', (report) => ({
+    perSecond: report.tuning.arrivals.perSecond ?? undefined,
+  })),
+  namedNumbersReading(
+    'tuning.arrivals.bySection',
+    (report) => report.tuning.arrivals.bySection,
+  ),
+  namedNumbersReading(
+    'tuning.arrivals.byType',
+    (report) => report.tuning.arrivals.byType,
   ),
   scalarReading(
     'tuning.damageTaken.totalHits',
@@ -342,6 +403,115 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
   scalarReading(
     'tuning.damageTaken.seals',
     (report) => report.tuning.damageTaken.seals,
+  ),
+  // The score decomposed by the input that paid it, gross, beside run.score's
+  // net (#99, design record R4). Two runs differ on an arm when one input paid
+  // differently, and the parts never sum to run.score in a run that hit the
+  // floor: the difference is tuning.damageTaken.scoreBled above.
+  scalarReading(
+    'tuning.scoreByInput.paid',
+    (report) => report.tuning.scoreByInput.paid,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.killPaid',
+    (report) => report.tuning.scoreByInput.killPaid,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.killPayments',
+    (report) => report.tuning.scoreByInput.killPayments,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.overflowPaid',
+    (report) => report.tuning.scoreByInput.overflowPaid,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.overflowPayments',
+    (report) => report.tuning.scoreByInput.overflowPayments,
+  ),
+  // Descriptive because the arm is absent on a run that never met a boss, and
+  // a null against a count is not a difference to subtract.
+  descriptiveReading(
+    'tuning.scoreByInput.bossDamagePaid',
+    (report) => report.tuning.scoreByInput.bossDamagePaid,
+  ),
+  descriptiveReading(
+    'tuning.scoreByInput.bossDamagePayments',
+    (report) => report.tuning.scoreByInput.bossDamagePayments,
+  ),
+  // Descriptive for the same reason on a run that never opened the Waking.
+  descriptiveReading(
+    'tuning.scoreByInput.sourceKilledPaid',
+    (report) => report.tuning.scoreByInput.sourceKilledPaid,
+  ),
+  descriptiveReading(
+    'tuning.scoreByInput.sourceKilledPayments',
+    (report) => report.tuning.scoreByInput.sourceKilledPayments,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.mealAtMaxedPaid',
+    (report) => report.tuning.scoreByInput.mealAtMaxedPaid,
+  ),
+  scalarReading(
+    'tuning.scoreByInput.mealAtMaxedPayments',
+    (report) => report.tuning.scoreByInput.mealAtMaxedPayments,
+  ),
+  // What the ladder cost after the counts above, never a second key for one of
+  // them (#99, design record section 4's M6 paragraph).
+  scalarReading(
+    'tuning.fallenRungLedger.fell',
+    (report) => report.tuning.fallenRungLedger.fell,
+  ),
+  scalarReading(
+    'tuning.fallenRungLedger.caught',
+    (report) => report.tuning.fallenRungLedger.caught,
+  ),
+  scalarReading(
+    'tuning.fallenRungLedger.lost',
+    (report) => report.tuning.fallenRungLedger.lost,
+  ),
+  scalarReading(
+    'tuning.fallenRungLedger.onFieldAtStop',
+    (report) => report.tuning.fallenRungLedger.onFieldAtStop,
+  ),
+  // A list and never a series: the entries are one per rung that fell, so two
+  // runs that dropped a different number of rungs have no index to pair, and an
+  // absent span carries itself rather than being summarised away.
+  listReading(
+    'tuning.fallenRungLedger.ticksOnField',
+    (report) => report.tuning.fallenRungLedger.ticksOnField,
+  ),
+  // The same reason: the entries are one per strip and not one per tick.
+  listReading(
+    'tuning.stripsLanded.graveY',
+    (report) => report.tuning.stripsLanded.graveY,
+  ),
+  listReading(
+    'tuning.stripsLanded.gapUnderGrave',
+    (report) => report.tuning.stripsLanded.gapUnderGrave,
+  ),
+  scalarReading(
+    'tuning.stripsLanded.atClamp',
+    (report) => report.tuning.stripsLanded.atClamp,
+  ),
+  scalarReading(
+    'tuning.stripsLanded.inBoss',
+    (report) => report.tuning.stripsLanded.inBoss,
+  ),
+  scalarReading(
+    'tuning.bledRungMemory.ticksSet',
+    (report) => report.tuning.bledRungMemory.ticksSet,
+  ),
+  scalarReading(
+    'tuning.bledRungMemory.timesSet',
+    (report) => report.tuning.bledRungMemory.timesSet,
+  ),
+  scalarReading(
+    'tuning.bledRungMemory.timesCleared',
+    (report) => report.tuning.bledRungMemory.timesCleared,
+  ),
+  scalarReading(
+    'tuning.bledRungMemory.growthShortOfClearing',
+    (report) => report.tuning.bledRungMemory.growthShortOfClearing,
   ),
   namedNumbersReading(
     'tuning.engagements.engaged',
@@ -379,6 +549,15 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.engagements.hitsPerKill',
     (report) => report.tuning.engagements.hitsPerKill,
   ),
+  // The per-minute axis. Each side is walked over the union of both sides'
+  // type-and-minute names, so a minute one run had and the other did not shows
+  // its value on one side and ABSENT on the other rather than a delta.
+  namedNumbersReading('tuning.engagements.hitsPerKillByMinute', (report) =>
+    perTypeMinuteNumbers(report.tuning.engagements.hitsPerKillByMinute),
+  ),
+  namedNumbersReading('tuning.engagements.timedKillsByMinute', (report) =>
+    perTypeMinuteNumbers(report.tuning.engagements.timedKillsByMinute),
+  ),
   namedNumbersReading(
     'tuning.engagements.hitsByLine',
     (report) => report.tuning.engagements.hitsByLine,
@@ -400,6 +579,20 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.gravePath.bottomEdgeMargin',
     (report) => report.tuning.gravePath.bottomEdgeMargin,
   ),
+  scalarReading(
+    'tuning.gravePath.floorVisits',
+    (report) => report.tuning.gravePath.floorVisits,
+  ),
+  scalarReading(
+    'tuning.gravePath.floorRecoveries',
+    (report) => report.tuning.gravePath.floorRecoveries,
+  ),
+  // Absent on a run that never reached the ceiling, which is a run with no such
+  // tick rather than a run whose tick was zero, so the absence is spelled
+  // rather than subtracted.
+  namedNumbersReading('tuning.gravePath.ticksToCeiling', (report) => ({
+    ticksToCeiling: report.tuning.gravePath.ticksToCeiling ?? undefined,
+  })),
   seriesReading(
     'tuning.fieldPerLine.perLine',
     (report) => report.tuning.fieldPerLine.perLine,
@@ -430,6 +623,14 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.belchCadence.fires',
     (report) => report.tuning.belchCadence.fires,
   ),
+  // The gaps between fires, summarised as a series on the fire list's own
+  // terms: no entry of one is paired with an entry of the other, because two
+  // runs' third belch is not the same belch.
+  seriesReading(
+    'tuning.belchCadence.intervals',
+    (report) => report.tuning.belchCadence.intervals,
+    populationSummary,
+  ),
   scalarReading(
     'tuning.belchCadence.ticksAtFull',
     (report) => report.tuning.belchCadence.ticksAtFull,
@@ -438,21 +639,89 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     'tuning.belchCadence.wasted',
     (report) => report.tuning.belchCadence.wasted,
   ),
-  scalarReading(
-    'tuning.dropLedger.spawned',
-    (report) => report.tuning.dropLedger.spawned,
+  // The share of its own frame each press reached, summarised as a series on
+  // the fire list's own terms: no press of one run is paired with a press of
+  // the other, because two runs' third belch is not the same belch (#124).
+  seriesReading(
+    'tuning.belchCadence.frameShares',
+    (report) => report.tuning.belchCadence.frameShares,
+    populationSummary,
+  ),
+  // What the misses were made of, as named numbers: a reason no press of one
+  // run met reads zero rather than absent, because the four names are fixed.
+  namedNumbersReading('tuning.belchCadence.misses', (report) => ({
+    ...report.tuning.belchCadence.misses,
+  })),
+  // What each shove of a press threw, and what share of its own circle each one
+  // was holding, as named numbers on the misses' own terms: the shove count is
+  // fixed by the belch's row, so a shove no press of one run reached reads zero
+  // rather than absent (#124).
+  namedNumbersReading('tuning.belchCadence.movedPerShove', (report) =>
+    byShove(report.tuning.belchCadence.movedPerShove),
+  ),
+  namedNumbersReading('tuning.belchCadence.caughtSharePerShove', (report) =>
+    byShove(report.tuning.belchCadence.caughtSharePerShove),
+  ),
+  // The director's own run (#85). The signal is a per-tick series, the adds are
+  // a list because no add of one run pairs with an add of another, and the
+  // purse left is named numbers because a section one run never entered is
+  // absent there rather than at zero.
+  seriesReading(
+    'tuning.pressure.signalPerTick',
+    (report) => report.tuning.pressure.signalPerTick,
+    signalSummary,
+  ),
+  listReading('tuning.pressure.adds', (report) => report.tuning.pressure.adds),
+  namedNumbersReading(
+    'tuning.pressure.purseLeftBySection',
+    (report) => report.tuning.pressure.purseLeftBySection,
   ),
   scalarReading(
-    'tuning.dropLedger.swallowed',
-    (report) => report.tuning.dropLedger.swallowed,
+    'tuning.pressure.ticksSignalLow',
+    (report) => report.tuning.pressure.ticksSignalLow,
   ),
   scalarReading(
-    'tuning.dropLedger.lost',
-    (report) => report.tuning.dropLedger.lost,
+    'tuning.pressure.disagreements',
+    (report) => report.tuning.pressure.disagreements,
   ),
   scalarReading(
-    'tuning.dropLedger.onFieldAtStop',
-    (report) => report.tuning.dropLedger.onFieldAtStop,
+    'tuning.powerUpLedger.spawned',
+    (report) => report.tuning.powerUpLedger.spawned,
+  ),
+  scalarReading(
+    'tuning.powerUpLedger.swallowed',
+    (report) => report.tuning.powerUpLedger.swallowed,
+  ),
+  scalarReading(
+    'tuning.powerUpLedger.passed',
+    (report) => report.tuning.powerUpLedger.passed,
+  ),
+  scalarReading(
+    'tuning.powerUpLedger.lost',
+    (report) => report.tuning.powerUpLedger.lost,
+  ),
+  scalarReading(
+    'tuning.powerUpLedger.onFieldAtStop',
+    (report) => report.tuning.powerUpLedger.onFieldAtStop,
+  ),
+  namedNumbersReading('tuning.powerUpLedger.byLine', (report) =>
+    ledgerByLineNumbers(report.tuning.powerUpLedger.byLine),
+  ),
+  // A list and never a series: the rows are one entry per offer the run stood,
+  // and two runs that stood a different number of offers have no index to pair.
+  listReading(
+    'tuning.offerChoices.choices',
+    (report) => report.tuning.offerChoices.choices,
+  ),
+  scalarReading(
+    'tuning.offerChoices.bankedWhileStanding',
+    (report) => report.tuning.offerChoices.bankedWhileStanding,
+  ),
+  // Descriptive because the span is absent on a run that never opened the
+  // Waking, and a null against a count is not a difference to subtract.
+  descriptiveReading(
+    'tuning.wakingSwallows.span',
+    (report) => report.tuning.wakingSwallows.span,
   ),
   scalarReading(
     'tuning.territoryPatches.laid',
@@ -509,6 +778,26 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
     (report) => report.tuning.repel.totalDistance,
   ),
   scalarReading(
+    'tuning.repel.belchShoves',
+    (report) => report.tuning.repel.belchShoves,
+  ),
+  scalarReading(
+    'tuning.repel.belchDistance',
+    (report) => report.tuning.repel.belchDistance,
+  ),
+  scalarReading(
+    'tuning.refusals.food',
+    (report) => report.tuning.refusals.food,
+  ),
+  scalarReading(
+    'tuning.refusals.carriers',
+    (report) => report.tuning.refusals.carriers,
+  ),
+  scalarReading(
+    'tuning.refusals.offers',
+    (report) => report.tuning.refusals.offers,
+  ),
+  scalarReading(
     'tuning.upfieldTraffic.lays',
     (report) => report.tuning.upfieldTraffic.lays,
   ),
@@ -523,6 +812,13 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
   scalarReading(
     'tuning.upfieldTraffic.lateralReach',
     (report) => report.tuning.upfieldTraffic.lateralReach,
+  ),
+  // A list and never a series: the spans are one entry per section crossed, and
+  // two runs that crossed a different number of sections have no index to pair.
+  // The count is how far through the stage each side reached.
+  listReading(
+    'tuning.sectionTimeline.spans',
+    (report) => report.tuning.sectionTimeline.spans,
   ),
   scalarReading('performance.frames', (report) => report.performance.frames),
   namedNumbersReading('performance.interval', (report) =>

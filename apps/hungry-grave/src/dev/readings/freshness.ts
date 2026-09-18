@@ -2,7 +2,7 @@
 
 import type { SimEvent } from '../../game/events';
 import type { FoodKind } from '../../game/swallow';
-import { freshnessScale } from '../../game/swallow';
+import { freshnessScale } from '../../game/tuning';
 import { greatestOf, leastOf, meanOf } from '../seriesSummary';
 
 /**

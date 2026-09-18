@@ -2,16 +2,16 @@
 // implements (ADR 0043).
 
 import type { WeaponLine } from '../game/lines/roster';
-import { WEAPON_LINES } from '../game/lines/roster';
+import { implementsLines, WEAPON_LINES } from '../game/lines/roster';
 import { uniformLevels } from '../game/run';
-import type { TapeHeader } from './tape';
 
 /**
  * The recorded roster is one this build implements, so its levels become the
- * run's own trusted record.
+ * run's own trusted record and the roster itself becomes the run's.
  */
 interface RosterImplemented {
   readonly outcome: 'implemented';
+  readonly roster: readonly WeaponLine[];
   readonly levels: Record<WeaponLine, number>;
 }
 
@@ -29,19 +29,35 @@ interface RosterNotImplemented {
 type StartingLevels = RosterImplemented | RosterNotImplemented;
 
 /**
- * Whether this build has exactly the lines the tape names.
+ * Whether this build has every line the tape names.
  *
- * Exactly, and not a superset either way. A recorded roster missing a line this
- * build has leaves that line's starting level unsaid, and ADR 0027 rules that a
- * header records resolved values and never absences, so there is nothing honest
- * to put there. Order is not compared, because the recorded roster is the order
- * and reading by name is the whole point.
+ * A subset and not an exact set: a run fields a roster drawn from a growing
+ * pool (ADR 0046), so a recorded roster shorter than this build's pool is an
+ * ordinary run rather than an unreadable one, and the lines it does not name
+ * are lines that run never fielded. Order is not compared, because the recorded
+ * roster is the order and reading by name is the whole point. The rule itself
+ * lives on the roster, so nothing outside it re-derives what the pool holds.
  */
 const implementsRoster = (recorded: readonly string[]): boolean => {
-  if (recorded.length !== WEAPON_LINES.length) return false;
-  const named = new Set(recorded);
-  if (named.size !== recorded.length) return false;
-  return WEAPON_LINES.every((line) => named.has(line));
+  return implementsLines(recorded);
+};
+
+const isWeaponLine = (name: string): name is WeaponLine => {
+  const pool: readonly string[] = WEAPON_LINES;
+  return pool.includes(name);
+};
+
+/**
+ * The recorded roster as this build's own line names, in the order the tape
+ * wrote them.
+ *
+ * The recorded order is kept rather than this build's, because the roster is
+ * what the run fielded and a reordering would be this reader editing what the
+ * tape said. Called only behind implementsRoster, so every name is a line and
+ * the filter drops nothing.
+ */
+const rosterOf = (recorded: readonly string[]): readonly WeaponLine[] => {
+  return recorded.filter(isWeaponLine);
 };
 
 /**
@@ -54,19 +70,35 @@ const implementsRoster = (recorded: readonly string[]): boolean => {
  * obligations, and this is the one that answers replaying: a header naming a
  * line this build does not have is still reported truthfully, and only the
  * simulation refuses.
+ *
+ * It takes the recorded roster and the recorded levels rather than a header,
+ * because the header holds one open block now and which of its entries are
+ * lines is `resolveStartingCondition`'s reading (ADR 0043). What is asked here
+ * is unchanged: whether this build has every line the tape names.
  */
-const resolveStartingLevels = (header: TapeHeader): StartingLevels => {
-  if (!implementsRoster(header.recordedRoster)) {
-    return {
-      outcome: 'notImplemented',
-      recordedRoster: header.recordedRoster,
-    };
+const resolveStartingLevels = (
+  recordedRoster: readonly string[],
+  recordedLevels: Readonly<Record<string, number>>,
+): StartingLevels => {
+  if (!implementsRoster(recordedRoster)) {
+    return { outcome: 'notImplemented', recordedRoster };
   }
-  // Built over this build's own roster and filled from the tape's, so every
-  // line has a number and the record is total by construction.
+  // Built over this build's own pool at zero and filled from the tape's roster,
+  // so every line has a number and the record is total by construction. A line
+  // the tape's roster never named stays at zero, which is the run's own truth:
+  // it did not field that line.
+  const roster = rosterOf(recordedRoster);
   const levels = uniformLevels(0);
-  for (const line of WEAPON_LINES) levels[line] = header.startingLevels[line];
-  return { outcome: 'implemented', levels };
+  for (const line of roster) {
+    const level = recordedLevels[line];
+    if (level === undefined) {
+      throw new Error(
+        `the recorded roster names ${line} with no starting level`,
+      );
+    }
+    levels[line] = level;
+  }
+  return { outcome: 'implemented', roster, levels };
 };
 
 export { resolveStartingLevels };

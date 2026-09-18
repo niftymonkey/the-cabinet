@@ -4,10 +4,15 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { PHASE_HP } from '../bosses/phases';
 import { TICK_HZ } from '../clock';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { MOB_TYPES } from '../mobs';
+import type { BossKind } from '../stage/waves';
+import { BOSS_KINDS } from '../stage/waves';
 import {
   BASE_SPEED,
+  CORPSES_TO_CEILING,
   FEAST_PAYOUT,
   FRESHNESS_PAYOUT_FLOOR,
   FRESHNESS_SECONDS,
@@ -19,6 +24,21 @@ import {
   SIZE_START,
   TRASH_CORPSE_PAYOUT,
 } from '../tuning';
+import { DEFAULT_TUNING } from '../tuningRecord';
+
+/**
+ * The score's five rows as the figures the relations below are stated in, off
+ * the record the build compiles (ADR 0064).
+ *
+ * The rows are stated in trash kills and the relations are about points, so the
+ * conversion happens once here rather than at nine assertion sites. What the
+ * suite pins is unchanged: the relations between the rows, never a magnitude.
+ */
+const TRASH_KILL = DEFAULT_TUNING.score.trashKillScore;
+const BLEED_CAP = DEFAULT_TUNING.score.bleedCapInKills * TRASH_KILL;
+const PER_BOSS_HEALTH = TRASH_KILL / DEFAULT_TUNING.score.bossHealthPerKill;
+const SOURCE_KILL = DEFAULT_TUNING.score.sourceKillInKills * TRASH_KILL;
+const MEAL_AT_MAXED = DEFAULT_TUNING.score.mealAtMaxedInKills * TRASH_KILL;
 
 describe('the tuning derivations', () => {
   it("base speed crosses the field's width in two seconds (ADR 0003)", () => {
@@ -66,16 +86,104 @@ describe('the tuning derivations', () => {
     expect(FRESHNESS_PAYOUT_FLOOR).toBe(0.25);
   });
   it("the reservoir's capacity is the Banshee feast's payout exactly, so the beat is arithmetically reachable (entry 5.11)", () => {
-    // Entry 5.11: the Banshee's feast pays growth worth 8 to 10 fresh trash
-    // corpses, and the same swallow slams the reservoir full. Capacity being
-    // the feast's payout exactly is what makes a fully fresh feast fill the
-    // reservoir and waste nothing. A flat 100 here would have made the beat
-    // arithmetically impossible, because a full reservoir would then cost more
-    // cumulative growth than the entire floor-to-ceiling range.
+    // Entry 5.11's identity is the ruling and it holds: the same swallow that
+    // feeds slams the reservoir full, so capacity is the feast's payout
+    // exactly and a fully fresh feast wastes nothing. A flat 100 here would
+    // have made the beat arithmetically impossible, because a full reservoir
+    // would then cost more cumulative growth than the entire floor-to-ceiling
+    // range.
+    //
+    // The feast's own size in corpses is the magnitude and it moved with the
+    // economy: entry 5.11's 8 to 10 corpses was a reading of a reservoir of 9,
+    // and the reservoir is now stated in corpses of expected mowing
+    // (docs/research/weapon-growth-per-level-precedent.md is the weapon half;
+    // the economy half is the design record's section 4 table and its section
+    // 9, "about 300"). The ruling did not move; what it is measured in did.
     const corpses = FEAST_PAYOUT / TRASH_CORPSE_PAYOUT;
-    expect(corpses).toBeGreaterThanOrEqual(8);
-    expect(corpses).toBeLessThanOrEqual(10);
+    expect(corpses).toBeCloseTo(300, 9);
     expect(RESERVOIR_CAPACITY).toBe(FEAST_PAYOUT);
     expect(RESERVOIR_CAPACITY).toBeLessThan(SIZE_CEILING - SIZE_FLOOR);
+  });
+});
+
+describe('the food economy in corpses of expected mowing (the record section 5 item 4)', () => {
+  it('the ceiling is reached in the corpses the economy row names and not in a tenth of them', () => {
+    // The record's section 5 item 4 as a relation rather than as a figure: the
+    // whole climb from a run's start to its ceiling is exactly the corpses the
+    // economy row names, so a size on screen is a count of mowing and the row
+    // is the denominator of everything the grave is paid.
+    const climb = SIZE_CEILING - SIZE_START;
+    expect(CORPSES_TO_CEILING * TRASH_CORPSE_PAYOUT).toBeCloseTo(climb, 9);
+
+    // And the ceiling costs more mowing than a full reservoir pays, which is
+    // what "a Procession of mowing rather than ten seconds in" means once both
+    // rows are stated in the same unit. At the dead baseline the ceiling cost
+    // 80 corpses against a reservoir of 9, so the belch was a reflex and the
+    // ceiling arrived before the section did; the two now sit in the same
+    // order of magnitude with the ceiling above.
+    const reservoirInCorpses = RESERVOIR_CAPACITY / TRASH_CORPSE_PAYOUT;
+    expect(CORPSES_TO_CEILING).toBeGreaterThan(reservoirInCorpses);
+    expect(reservoirInCorpses).toBeGreaterThan(CORPSES_TO_CEILING / 2);
+  });
+});
+
+describe("the score's inputs, each stated against a trash kill (design record R4)", () => {
+  /** What a whole fight against this boss pays, off its own health and the row. */
+  const wholeFight = (kind: BossKind): number =>
+    PHASE_HP[kind].reduce((sum, phase) => sum + phase, 0) * PER_BOSS_HEALTH;
+
+  it("pays a boss's health far slower than the mow's own, so one fight can never swamp a run", () => {
+    // The swamping refusal, and it is the whole reason the boss row is a rate
+    // of its own rather than the mob table's. That table pays one trash kill
+    // per 8 points of health, floored, and at that rate the Undertaker's health
+    // alone pays more than a measured run makes from everything it mows
+    // (docs/research/score-inputs-precedent.md section 4). Pinned as a relation
+    // between the two rows and PHASE_HP, so a step 6 retune of any of them
+    // moves it and no figure here goes stale.
+    const mowRate =
+      (MOB_TYPES.shambler.scorePayoutInKills * TRASH_KILL) /
+      MOB_TYPES.shambler.hp;
+    expect(PER_BOSS_HEALTH).toBeLessThan(mowRate);
+
+    for (const kind of BOSS_KINDS) {
+      const health = PHASE_HP[kind].reduce((sum, phase) => sum + phase, 0);
+      expect(wholeFight(kind), kind).toBeLessThan(health * mowRate);
+    }
+  });
+
+  it("puts the Waking's source above the richest body in the mow and below the fight that ends the stage", () => {
+    // Its tier is decided by what it is to the player and never by its health:
+    // the section's objective rather than roadside furniture, and a kill that
+    // denies nothing because #104 keeps the pour running. So it sits above the
+    // richest single kill in the mow and below the stage's last fight.
+    //
+    // The bound is the longest fight and not the shortest, because the source
+    // and the Banshee are derived at the same hundred-health rate and their
+    // health puts them within two trash kills of each other: the source's 2,400
+    // pays a little more than her whole 2,200, and both sit inside the same
+    // researched band for a single input.
+    const lastFight = Math.max(...BOSS_KINDS.map(wholeFight));
+
+    expect(SOURCE_KILL).toBeGreaterThan(
+      MOB_TYPES.revenant.scorePayoutInKills * TRASH_KILL,
+    );
+    expect(SOURCE_KILL).toBeLessThan(lastFight);
+  });
+
+  it('pays one large meal at least a mow body and far less than the source', () => {
+    // The count is what binds this row rather than the item: the input pays per
+    // item and a run takes many, so what a whole run takes is read against a
+    // boss fight in slice M7's own batch rather than pinned here. What the
+    // relation holds is the two ends of it, that a meal is never worth less
+    // than the body it was cut from and never a prize of the source's order.
+    expect(MEAL_AT_MAXED).toBeGreaterThanOrEqual(TRASH_KILL);
+    expect(MEAL_AT_MAXED).toBeLessThan(SOURCE_KILL);
+  });
+
+  it("holds the ladder's cap below what one boss fight pays", () => {
+    // The two rows meet at the floor: a hit takes a capped slice of a bank that
+    // three further inputs now feed, so the cap stays smaller than what a fight
+    // pays or one touch would take a whole fight with it.
+    expect(BLEED_CAP).toBeLessThan(Math.min(...BOSS_KINDS.map(wholeFight)));
   });
 });

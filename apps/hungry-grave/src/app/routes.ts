@@ -27,12 +27,21 @@ const REPLAY_HASH = '#/replay';
 // The kept runs in this browser's tape store, listed with a way into replay.
 const RUNS_HASH = '#/runs';
 
+/**
+ * The frame budget of a synthetic field, measured in whatever browser opened
+ * this URL (#39). It is the round 0 instrument's other half: the headless
+ * script times the simulation, and only a browser can time a renderer, so this
+ * is how a phone reports what it draws.
+ */
+const FRAME_BUDGET_HASH = '#/frame-budget';
+
 type Route =
   | { kind: 'game' }
   | { kind: 'prototype-list' }
   | { kind: 'digest' }
   | { kind: 'replay' }
   | { kind: 'runs' }
+  | { kind: 'frame-budget' }
   | { kind: 'prototype'; entry: PrototypeEntry };
 
 /**
@@ -65,6 +74,7 @@ const resolveRoute = (hash: string): Route => {
   if (isRouteHash(hash, DIGEST_HASH)) return { kind: 'digest' };
   if (isRouteHash(hash, REPLAY_HASH)) return { kind: 'replay' };
   if (isRouteHash(hash, RUNS_HASH)) return { kind: 'runs' };
+  if (isRouteHash(hash, FRAME_BUDGET_HASH)) return { kind: 'frame-budget' };
   return { kind: 'game' };
 };
 
@@ -75,5 +85,6 @@ export {
   DIGEST_HASH,
   REPLAY_HASH,
   RUNS_HASH,
+  FRAME_BUDGET_HASH,
 };
 export type { Route };

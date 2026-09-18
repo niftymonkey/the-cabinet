@@ -8,7 +8,7 @@ import { Container } from 'pixi.js';
  *
  * `fieldBoundary` holds the boundary readout, and it sits directly beneath mob
  * fire by its 2026-08-22 amendment. The boundary used to draw on `ground`, at
- * the very bottom, so every body, corpse and drop crossing an edge passed over
+ * the very bottom, so every body, corpse and power-up crossing an edge passed over
  * the line that says where the world ends, which reads as the field leaking
  * rather than as a window. Directly beneath mob fire is the highest place it
  * can go without occluding fire, which this ADR lets nothing do.

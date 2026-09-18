@@ -35,9 +35,14 @@ const SEED = 20260827;
 const GRAVE_Y = 600;
 const GRAVE_X = 270;
 
-/** A run with the grave parked where these cases measure from. */
+/**
+ * A run with the grave parked where these cases measure from, holding
+ * Territory at its first rung. The line left the birthright with ADR 0045, and
+ * this instrument samples on a lay, so the run has to own the line to lay.
+ */
 const parkedRun = (): RunState => {
   const run = createRun(SEED);
+  run.levels.territory = 1;
   run.grave.x = GRAVE_X;
   run.grave.y = GRAVE_Y;
   return run;
@@ -50,7 +55,13 @@ const putMob = (
   y: number,
   type: MobType = 'shambler',
 ): Mob => {
-  const mob = spawnMob(run, type, { x, y, vx: 0, vy: 0, index: 0 });
+  const mob = spawnMob(
+    run,
+    type,
+    { x, y, vx: 0, vy: 0, index: 0 },
+    false,
+    'wave',
+  );
   if (mob === null) throw new Error('the mob pool refused a spawn');
   return mob;
 };

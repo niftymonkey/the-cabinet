@@ -1,14 +1,21 @@
 // Territory: autonomous controlling ground, claimed on the line's own clock
 // where mobs stand thickest ahead of the grave (ADR 0044).
 
-import { createPool, takeSlot, TERRITORY_CAP } from '../caps';
+import { createPool, takeSlot } from '../caps';
 import type { SimEvent } from '../events';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { cos, normalize, sin } from '../math';
 import type { Mob } from '../mobs';
-import { damageMob, mobHitbox, SPAWN_MARGIN } from '../mobs';
+import { mobHitbox } from '../mobs';
+import type { Rect } from '../overlap';
 import { circleOverlapsBox } from '../overlap';
 import type { RunState } from '../run';
+import type { StormTarget } from '../stormTargets';
+import {
+  damageStormTarget,
+  moveStormTarget,
+  stormTargets,
+} from '../stormTargets';
 import { SCROLL_SPEED } from '../tuning';
 import { MAX_LEVEL } from './roster';
 
@@ -55,6 +62,16 @@ const TERRITORY_REACH = 180;
 const RADIUS_BY_LEVEL: readonly number[] = [0, 32, 43, 58, 77, 104];
 
 /**
+ * One row of a by-level table, at a level already clamped to MAX_LEVEL. A
+ * missing row there is a bug in that clamp rather than a case to handle.
+ */
+const atLevel = <T>(table: readonly T[], level: number): T => {
+  const row = table[level];
+  if (row === undefined) throw new Error(`no table row at level ${level}`);
+  return row;
+};
+
+/**
  * How long the ground takes to open, in ticks: a little over a second.
  * PROVISIONAL.
  *
@@ -99,11 +116,17 @@ const TERRITORY_OPENING_TICKS = 68;
 const TERRITORY_LEAD_TICKS = 150;
 
 /**
- * What one dwell pulse takes off a mob. PROVISIONAL.
+ * What one dwell pulse takes off a mob, at every rung. PROVISIONAL.
  *
- * The ruled contract is shambler-denominated against the pass A health scale:
- * a shambler's 40 is 8 pulses exactly, the ghoul's 20 is 4 pulses exactly
- * (#79), and the revenant rounds up to 13.
+ * The ruled contract is the count rather than the figure, and under the mow's
+ * health scale (ADR 0059) it is a shambler in 2 pulses, the ghoul's 20 in 4
+ * exactly (#79), and the revenant rounding up to 13.
+ *
+ * It is one flat figure and not a lane, which is the only line in the roster
+ * with no damage climb: ADR 0044 as amended 2026-08-28 holds the ruled touch
+ * counts flat and moves only the time the ground takes to deliver them, so a
+ * lane here would need that ruling reopened. The rung buys area, pull, slow
+ * and pace instead.
  */
 const TERRITORY_DAMAGE = 5;
 
@@ -112,16 +135,18 @@ const TERRITORY_DAMAGE = 5;
  *
  * The pace of the pulses is the third channel of control strength, beside the
  * pull and the slow (ADR 0044, amended 2026-08-28). Every ruled touch count is
- * untouched by it: TERRITORY_DAMAGE stays 5, so a shambler is still 8 pulses,
- * a ghoul 4 and a revenant 13, and only the time the ground takes to deliver
- * them moves with the level.
+ * untouched by it: TERRITORY_DAMAGE stays 5 at every rung, so under the mow a
+ * shambler is 2 pulses, a ghoul 4 and a revenant 13, and only the time the
+ * ground takes to deliver them moves with the level.
  *
  * Measured pure dwell for a shambler entering at the centre of open ground,
  * damage off: 376 ticks at level 1, then 923, 937, 954 and 979, every rung
  * above the first capped by the ground's own remaining life rather than by the
  * crossing, because from level 2 the mob is held until the ground goes.
  * Against those the ladder gives, at a centre entry: level 1 five pulses and
- * 25 damage, so the mob walks out alive at 15 of 40; level 2 death after 434
+ * 25 damage, which was a mob walking out alive at 15 of the 40 health a
+ * shambler carried when the ladder was derived and is a kill twice over under
+ * the mow's 8; level 2 death after 434
  * ticks of dwell; level 3 after 336; level 4 after 266; and level 5 after 210,
  * which is exactly the old flat window's figure, so the top rung is pinned to
  * the derivation the genre reading already settled, full damage on a per-enemy
@@ -179,6 +204,25 @@ const SLOW_BY_LEVEL: readonly number[] = [0, 0.2, 0.3, 0.4, 0.5, 0.6];
 const TERRITORY_SPREAD = 0.55;
 
 /**
+ * How many patches of claimed ground stand at once. PROVISIONAL.
+ *
+ * It is a gameplay rule and not a safety net, which is why it is small and why
+ * it is declared here rather than beside the pool capacities in caps.ts: at the
+ * cap the oldest patch is evicted rather than the claim refused, so the number
+ * decides how long a trail of claimed ground is. A lay comes at most every
+ * TERRITORY_PERIOD of 832 ticks, against a worst-case patch life of about 1364
+ * ticks: laid at the visible top edge, which is the highest a lay is ever held
+ * to, and scrolled off the bottom at the biggest radius of 104, so 864 field
+ * units at SCROLL_SPEED 38/60. That is at most 1.6 live at once, and the cap
+ * keeps about five times that, so housekeeping never binds in normal play.
+ *
+ * The number itself does not move on this evidence: it is a rule about how
+ * long a trail of claimed ground may be, not a headroom figure derived from
+ * the cadence.
+ */
+const TERRITORY_CAP = 8;
+
+/**
  * One patch of claimed ground.
  *
  * It is a finished gameplay object at birth: the radius and the control
@@ -213,7 +257,7 @@ interface Patch {
   /**
    * When each held mob may be pulsed again: next-eligible tick by entity id.
    *
-   * Keyed by id and never by slot, on bell.ts's `BellRing.struck` precedent,
+   * Keyed by id and never by slot, on bell.ts's `BellToll.struck` precedent,
    * so it carries none of the recycled-slot hazard a per-mob cooldown field
    * would: ids only ever increase, a recycled slot arrives with a new one, and
    * the map dies with the patch. Expired entries are pruned each resolve, so
@@ -331,10 +375,9 @@ interface Spread {
  */
 const eligiblePoints = (state: RunState): KnotPoint[] => {
   const points: KnotPoint[] = [];
-  for (const mob of state.mobs) {
-    if (!mob.alive) continue;
-    const x = mob.x + mob.vx * TERRITORY_LEAD_TICKS;
-    const y = mob.y + mob.vy * TERRITORY_LEAD_TICKS;
+  for (const target of stormTargets(state)) {
+    const x = target.x + target.vx * TERRITORY_LEAD_TICKS;
+    const y = target.y + target.vy * TERRITORY_LEAD_TICKS;
     if (y >= state.grave.y || y < 0) continue;
     if (Math.abs(x - state.grave.x) > TERRITORY_REACH) continue;
     points.push({ x, y });
@@ -401,10 +444,10 @@ const layPatch = (
   patch.level = level;
   patch.x = clamp(point.x + spread.x, 0, FIELD_WIDTH);
   patch.y = clamp(point.y + spread.y, 0, state.grave.y);
-  patch.radius = RADIUS_BY_LEVEL[level];
-  patch.pull = PULL_BY_LEVEL[level];
-  patch.slow = SLOW_BY_LEVEL[level];
-  patch.rehit = REHIT_BY_LEVEL[level];
+  patch.radius = atLevel(RADIUS_BY_LEVEL, level);
+  patch.pull = atLevel(PULL_BY_LEVEL, level);
+  patch.slow = atLevel(SLOW_BY_LEVEL, level);
+  patch.rehit = atLevel(REHIT_BY_LEVEL, level);
   patch.opening = TERRITORY_OPENING_TICKS;
   patch.pulses = 0;
   patch.struck.clear();
@@ -449,7 +492,10 @@ const runTheClock = (state: RunState, events: SimEvent[]): void => {
   if (lines.layIn > 0) lines.layIn -= 1;
   if (lines.layIn > 0) return;
   const points = eligiblePoints(state);
-  const radius = RADIUS_BY_LEVEL[Math.min(state.levels.territory, MAX_LEVEL)];
+  const radius = atLevel(
+    RADIUS_BY_LEVEL,
+    Math.min(state.levels.territory, MAX_LEVEL),
+  );
   const knot = densestKnot(points, radius);
   if (knot === null) return;
   const spread = spreadOffset(state, radius);
@@ -458,56 +504,63 @@ const runTheClock = (state: RunState, events: SimEvent[]): void => {
 };
 
 /**
- * Whether a mob's body is over this patch's hands.
+ * Whether a body is over this patch's hands.
  *
- * The mob's body and never its centre point: the visible patch is the ground
- * it claims, so a mob visibly standing in the hands must not be immune because
+ * The body and never the centre point: the visible patch is the ground it
+ * claims, so a body visibly standing in the hands must not be immune because
  * its centre sits a unit outside the radius. This is why the bell's
  * centre-point distance test is not reused here.
  */
-const mobIsOverPatch = (patch: Patch, mob: Mob): boolean => {
+const patchHolds = (patch: Patch, box: Rect): boolean => {
   return circleOverlapsBox(
     { x: patch.x, y: patch.y, radius: patch.radius },
-    mobHitbox(mob),
+    box,
   );
 };
 
 /**
- * One mob held by open ground: one displacement, slow and pull combined,
- * written with the pushMob discipline (finite-check, zero-length guard, clamp
- * to the box the invariant harness checks).
+ * One target held by open ground: one displacement, slow and pull combined,
+ * written with the toll's push discipline (finite-check, zero-length guard, and
+ * the seam holding the move inside the box the invariant harness checks).
  *
  * Both strengths are read off the patch and never off the run's levels, so a
  * patch controls at the strength it was born with for its whole life.
  *
  * The slow touches position only, undoing part of the motion moveMob just
  * applied: mobs.ts learns nothing of Territory. The pull is clamped to the
- * remaining distance so a mob near the centre settles instead of oscillating
- * across it, and a mob at the exact centre has no direction to pull along.
+ * remaining distance so a body near the centre settles instead of oscillating
+ * across it, and one at the exact centre has no direction to pull along.
  */
-const holdMob = (patch: Patch, mob: Mob): void => {
-  const toCentre = normalize(patch.x - mob.x, patch.y - mob.y);
+const holdTarget = (
+  state: RunState,
+  patch: Patch,
+  target: StormTarget,
+): void => {
+  const toCentre = normalize(patch.x - target.x, patch.y - target.y);
   const pull = Math.min(patch.pull, toCentre.length);
-  const dx = -patch.slow * mob.vx + toCentre.x * pull;
-  const dy = -patch.slow * mob.vy + toCentre.y * pull;
+  const dx = -patch.slow * target.vx + toCentre.x * pull;
+  const dy = -patch.slow * target.vy + toCentre.y * pull;
   if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
-  mob.x = clamp(mob.x + dx, -SPAWN_MARGIN, FIELD_WIDTH + SPAWN_MARGIN);
-  mob.y = clamp(mob.y + dy, -SPAWN_MARGIN, FIELD_HEIGHT + SPAWN_MARGIN);
+  moveStormTarget(state, target, target.x + dx, target.y + dy);
 };
 
 /**
- * The control: every live mob whose body is over open ground is held, per
- * patch in slot order, mobs in slot order. A mob over two overlapping patches
- * is displaced by each: overlapping claimed ground holds harder, accepted and
- * stated in the plan. Arriving mobs are held too, on the bell's precedent of
- * a toll shoving arriving mobs.
+ * The control: every live target whose body is over open ground is held, per
+ * patch in slot order, targets in the seam's own order. A body over two
+ * overlapping patches is displaced by each: overlapping claimed ground holds
+ * harder, accepted and stated in the plan. Arriving mobs are held too, on the
+ * bell's precedent of a toll shoving arriving mobs.
+ *
+ * The list is taken once for the whole pass, which is exactly what the pass
+ * is: nothing here kills, so no target it holds can stop being live inside it.
  */
-const controlMobs = (state: RunState): void => {
+const controlTargets = (state: RunState): void => {
+  const targets = stormTargets(state);
   for (const patch of state.patches) {
     if (!patch.alive || patch.opening > 0) continue;
-    for (const mob of state.mobs) {
-      if (!mob.alive || !mobIsOverPatch(patch, mob)) continue;
-      holdMob(patch, mob);
+    for (const target of targets) {
+      if (!patchHolds(patch, target.box)) continue;
+      holdTarget(state, patch, target);
     }
   }
 };
@@ -538,7 +591,7 @@ const advanceTerritory = (state: RunState): SimEvent[] => {
       events.push(closePatch(patch, 'scrolled'));
     }
   }
-  controlMobs(state);
+  controlTargets(state);
   runTheClock(state, events);
   return events;
 };
@@ -557,12 +610,14 @@ const pulseWithPatch = (state: RunState, patch: Patch): SimEvent[] => {
     if (eligibleAt <= state.tick) patch.struck.delete(id);
   }
   const events: SimEvent[] = [];
-  for (const mob of state.mobs) {
-    if (!mob.alive || patch.struck.has(mob.id)) continue;
-    if (!mobIsOverPatch(patch, mob)) continue;
-    patch.struck.set(mob.id, state.tick + patch.rehit);
+  for (const target of stormTargets(state)) {
+    if (patch.struck.has(target.id)) continue;
+    if (!patchHolds(patch, target.box)) continue;
+    patch.struck.set(target.id, state.tick + patch.rehit);
     patch.pulses += 1;
-    events.push(...damageMob(state, mob, TERRITORY_DAMAGE, 'territory'));
+    events.push(
+      ...damageStormTarget(state, target, TERRITORY_DAMAGE, 'territory'),
+    );
   }
   return events;
 };
@@ -603,7 +658,7 @@ const territoryCount = (state: RunState): number => {
 const holdingPatch = (state: RunState, mob: Mob): Patch | null => {
   for (const patch of state.patches) {
     if (!patch.alive || patch.opening > 0) continue;
-    if (mobIsOverPatch(patch, mob)) return patch;
+    if (patchHolds(patch, mobHitbox(mob))) return patch;
   }
   return null;
 };
@@ -632,5 +687,6 @@ export {
   TERRITORY_LEAD_TICKS,
   TERRITORY_DAMAGE,
   TERRITORY_PERIOD,
+  TERRITORY_CAP,
 };
 export type { Patch, PatchClosing };

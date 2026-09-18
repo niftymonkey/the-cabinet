@@ -6,6 +6,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 
 import { resize } from '../../engine/resize/resize';
@@ -67,8 +68,36 @@ const RIM_STROKE_MIN_CSS = 2.0;
 /** The thick end of GRAVE_RIM_STROKE's bracket, in field units, now that the rim is two bands. */
 const RIM_BAND_MAX = 4;
 
-/** The colours in PALETTE that are not sprites the player tells apart mid-dodge. */
-const NOT_SPRITES = ['hudInk', 'hudDim', 'night', 'nightSpeckle', 'fieldFrame'];
+/**
+ * The colours in PALETTE that are not sprites the player tells apart mid-dodge.
+ *
+ * The stand-in ground joins night and nightSpeckle here rather than beside the
+ * bodies, because it is what those two were: the ground the field stands on,
+ * drawn in the bottom layer under everything. The Waking's own source is on the
+ * same list for the reason the design record gives it, that it is background
+ * art by construction, and what holds it readable is the bespoke check below
+ * rather than the pair table, exactly as the field's boundary is held.
+ */
+const NOT_SPRITES = [
+  'hudInk',
+  'hudDim',
+  'night',
+  'nightSpeckle',
+  'fieldFrame',
+  'standInGroundDressCold',
+  'standInGroundDressWet',
+  'standInVigilTint',
+  'standInWaking',
+  'standInWakingDark',
+];
+
+/** The stand-in ground's own colours, in the order the run meets them. */
+const STAND_IN_GROUND = [
+  'nightSpeckle',
+  'standInGroundDressCold',
+  'standInGroundDressWet',
+  'standInVigilTint',
+] as const;
 
 /**
  * Every pair the sprite-separation check is allowed to fail on, each with the
@@ -122,9 +151,9 @@ const OVER_THE_MOUTH =
 
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
-    pair: ['graveGlow', 'drop'],
+    pair: ['graveGlow', 'powerUp'],
     because:
-      "the glow is the grave wearing treasure's own colour, always at the grave's position and pulsing where a drop is steady",
+      "the glow is the grave wearing treasure's own colour, always at the grave's position and pulsing where a power-up is steady",
   },
   {
     pair: ['feast', 'belchEruption'],
@@ -143,8 +172,8 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['graveRim', 'undertaker'], because: `27.86: ${MID_BAND_BODY}` },
   { pair: ['feast', 'bansheeDark'], because: `29.28: ${MID_BAND_BODY}` },
   { pair: ['feast', 'undertaker'], because: `31.71: ${MID_BAND_BODY}` },
-  { pair: ['drop', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
-  { pair: ['drop', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
+  { pair: ['powerUp', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
+  { pair: ['powerUp', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
   { pair: ['graveGlow', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
   { pair: ['graveGlow', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
   { pair: ['undertaker', 'graveHole'], because: `24.72: ${MID_BAND_BODY}` },
@@ -158,7 +187,7 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['corpse', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['corpseRevenant', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['feast', 'splash'], because: OVER_THE_SPLASH },
-  { pair: ['drop', 'splash'], because: OVER_THE_SPLASH },
+  { pair: ['powerUp', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['mob', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['banshee', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['undertaker', 'splash'], because: OVER_THE_SPLASH },
@@ -172,7 +201,7 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['corpse', 'skull'], because: OVER_THE_SKULL },
   { pair: ['corpseRevenant', 'skull'], because: OVER_THE_SKULL },
   { pair: ['feast', 'skull'], because: OVER_THE_SKULL },
-  { pair: ['drop', 'skull'], because: OVER_THE_SKULL },
+  { pair: ['powerUp', 'skull'], because: OVER_THE_SKULL },
   { pair: ['mob', 'skull'], because: OVER_THE_SKULL },
   { pair: ['banshee', 'skull'], because: OVER_THE_SKULL },
   { pair: ['undertaker', 'skull'], because: OVER_THE_SKULL },
@@ -206,7 +235,7 @@ const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
   corpseRevenant: 'corpses',
   foodOutline: 'corpses',
   feast: 'treasure',
-  drop: 'treasure',
+  powerUp: 'treasure',
   belchEruption: 'belchEruption',
   splash: 'belchEruption',
 };
@@ -238,12 +267,21 @@ const AWAITING_A_COMPANION: { name: string; because: string }[] = [];
 
 const EMITTERS: FireEmitter[] = ['trash', 'tear', 'clod', 'spiral'];
 
-/** The backgrounds a mob-fire core can be drawn over (assertion 8). */
+/**
+ * The backgrounds a mob-fire core can be drawn over (assertion 8). The
+ * stand-in ground joined it when the ground was first drawn: fire crosses the
+ * dressing and the Waking's own body every run, and the whole reason the art is
+ * imported grayscale is so a check like this one binds on it.
+ */
 const BACKGROUNDS: [string, PaletteEntry][] = [
   ['night', PALETTE.night],
   ['nightSpeckle', PALETTE.nightSpeckle],
   ['fieldFrame', PALETTE.fieldFrame],
   ['graveHole', PALETTE.graveHole],
+  ['standInGroundDressCold', PALETTE.standInGroundDressCold],
+  ['standInGroundDressWet', PALETTE.standInGroundDressWet],
+  ['standInVigilTint', PALETTE.standInVigilTint],
+  ['standInWaking', PALETTE.standInWaking],
 ];
 
 function paletteEntries(): [string, PaletteEntry][] {
@@ -415,13 +453,34 @@ describe('the reserved band (ADR 0014)', () => {
     }
   });
 
-  // The emitter list above is pinned to today's four by literal, so a new
-  // emitter is a deliberate edit. The gap it leaves is dated rather than
-  // silent: the Undertaker's curtain arrives at dispatch 6, and until it does,
-  // coverage is complete only for the emitters that exist.
-  it.todo(
-    "covers the Undertaker's curtain, which arrives at dispatch 6 and must redden nothing",
-  );
+  it("covers the Undertaker's curtain, which draws in the clod emitter and reddens nothing", () => {
+    // The gap the list above dated. `clod` was declared for a curtain nothing
+    // threw, so its place in the literal proved nothing about the game; the
+    // Undertaker has thrown curtains since the boss slice and they draw in
+    // their own kind since the renderer slice, so the entry has a drawer now
+    // and the band's own relations are asked of it by name.
+    const curtain = MOB_FIRE.clod;
+    expect(EMITTERS).toContain('clod');
+    expect(curtain.core.luma).toBeGreaterThanOrEqual(MOB_FIRE_BAND_MIN);
+    expect(curtain.body.luma).toBeLessThanOrEqual(FIELD_LUMA_CEILING);
+    expect(curtain.outline.luma).toBeLessThanOrEqual(FIELD_LUMA_CEILING);
+    expect(curtain.core.luma - curtain.outline.luma).toBeGreaterThanOrEqual(
+      INTERNAL_SPAN_MIN,
+    );
+
+    // A curtain leaves the body of the boss throwing it and falls across him,
+    // and a boss body is a background BACKGROUNDS does not carry: that list was
+    // written before anything drew a boss. Assertion 8's own threshold, on the
+    // one pair the curtain adds.
+    const thrower: [string, PaletteEntry][] = [
+      ['undertaker', PALETTE.undertaker],
+      ['undertakerDark', PALETTE.undertakerDark],
+    ];
+    for (const [name, background] of thrower) {
+      const lc = apcaLc(curtain.core.hex, background.hex);
+      expect(`${name} ${Math.abs(lc) >= CORE_MIN_LC}`).toBe(`${name} true`);
+    }
+  });
 });
 
 describe("the field's boundary (ADR 0014)", () => {
@@ -479,7 +538,7 @@ describe("the field's boundary (ADR 0014)", () => {
 describe('the standing colour bans', () => {
   it('declares no brown', () => {
     // Dark, saturated orange is the definition of brown. This is the ban that
-    // retired the old dropCore hex (#30), by measurement rather than by eye;
+    // retired the old powerUpCore hex (#30), by measurement rather than by eye;
     // color.test.ts keeps that hex's measurement.
     const declared = paletteEntries();
     expect(declared.length).toBeGreaterThan(0);
@@ -557,7 +616,8 @@ describe('sprite separation (research 7.4)', () => {
  * checking no pair at all.
  */
 function layerDepth(name: string): number {
-  const depth = LAYER_ORDER.indexOf(SPRITE_LAYER[name]);
+  const layer = SPRITE_LAYER[name];
+  const depth = layer === undefined ? -1 : LAYER_ORDER.indexOf(layer);
   if (depth === -1) {
     throw new Error(`${name} is in no layer SPRITE_LAYER names`);
   }
@@ -651,6 +711,13 @@ describe('the sprite outline table (ADR 0014)', () => {
 describe('the corpse tiers (tracer plan section 4)', () => {
   const tiers = Object.entries(CORPSE_TIERS);
 
+  /** The tier at this index, for a loop bounded by tiers.length. */
+  const tierAt = (index: number): (typeof tiers)[number] => {
+    const tier = tiers[index];
+    if (tier === undefined) throw new Error(`no tier at index ${index}`);
+    return tier;
+  };
+
   it('declares the same luma for every tier, so the tier stays out of the freshness channel', () => {
     // Assertion 6. Brightness is freshness and nothing else.
     expect(tiers.length).toBeGreaterThan(1);
@@ -662,9 +729,9 @@ describe('the corpse tiers (tracer plan section 4)', () => {
     // tripwire, not a legibility floor.
     for (let i = 0; i < tiers.length; i++) {
       for (let j = i + 1; j < tiers.length; j++) {
-        const gap = hueGap(hsv(tiers[i][1].hex).h, hsv(tiers[j][1].hex).h);
-        expect(`${tiers[i][0]}/${tiers[j][0]} ${gap >= TIER_HUE_MIN}`).toBe(
-          `${tiers[i][0]}/${tiers[j][0]} true`,
+        const gap = hueGap(hsv(tierAt(i)[1].hex).h, hsv(tierAt(j)[1].hex).h);
+        expect(`${tierAt(i)[0]}/${tierAt(j)[0]} ${gap >= TIER_HUE_MIN}`).toBe(
+          `${tierAt(i)[0]}/${tierAt(j)[0]} true`,
         );
       }
     }
@@ -678,8 +745,8 @@ describe('the corpse tiers (tracer plan section 4)', () => {
       for (let i = 0; i < tiers.length; i++) {
         for (let j = i + 1; j < tiers.length; j++) {
           const drift = Math.abs(
-            observerLuma(tiers[i][1].hex, observer) -
-              observerLuma(tiers[j][1].hex, observer),
+            observerLuma(tierAt(i)[1].hex, observer) -
+              observerLuma(tierAt(j)[1].hex, observer),
           );
           expect(`${observer} ${drift <= TIER_OBSERVER_MAX}`).toBe(
             `${observer} true`,
@@ -691,7 +758,7 @@ describe('the corpse tiers (tracer plan section 4)', () => {
 
   it('clears the treasure class on hue or on saturation', () => {
     // Assertion 9, written as an either-or deliberately: corpseRevenant against
-    // drop measures 0.241 on saturation, just under, and passes on hue at
+    // power-up measures 0.241 on saturation, just under, and passes on hue at
     // 35.04. Confusing a corpse with treasure is a misread payout either way.
     //
     // The trash tier against feast is excepted and it is the pre-existing pair
@@ -704,7 +771,7 @@ describe('the corpse tiers (tracer plan section 4)', () => {
     const excepted = new Set(['trash vs feast']);
     for (const [tier, entry] of tiers) {
       const shape = hsv(entry.hex);
-      for (const name of ['drop', 'feast'] as const) {
+      for (const name of ['powerUp', 'feast'] as const) {
         if (excepted.has(`${tier} vs ${name}`)) continue;
         const treasure = hsv(PALETTE[name].hex);
         const clears =
@@ -735,8 +802,13 @@ function spriteCollisions(): [string, string][] {
   const found: [string, string][] = [];
   for (let i = 0; i < sprites.length; i++) {
     for (let j = i + 1; j < sprites.length; j++) {
-      const [nameA, a] = sprites[i];
-      const [nameB, b] = sprites[j];
+      const entryA = sprites[i];
+      const entryB = sprites[j];
+      if (entryA === undefined || entryB === undefined) {
+        throw new Error('sprite index out of range');
+      }
+      const [nameA, a] = entryA;
+      const [nameB, b] = entryB;
       const shapeA = hsv(a.hex);
       const shapeB = hsv(b.hex);
       if (
@@ -828,4 +900,195 @@ describe('the source scan over the modules that draw during a run (ADR 0014)', (
   it.todo(
     'covers src/app/ui, whose widgets draw over the field and are dressed at #38',
   );
+});
+
+/** The two modules that draw the stand-in ground, which the scan above must reach. */
+const GROUND_MODULES = [
+  join(APP, 'screens', 'game', 'BackgroundRenderer.ts'),
+  join(APP, 'screens', 'game', 'groundDressing.ts'),
+];
+
+/** Every PALETTE entry a module names, read out of its source. */
+const paletteNamesIn = (file: string): string[] => {
+  const source = readFileSync(file, 'utf8');
+  return [...source.matchAll(/\bPALETTE\.([A-Za-z0-9_]+)/g)].map((match) => {
+    const name = match[1];
+    if (name === undefined) {
+      throw new Error('PALETTE-reference regex matched with no captured name');
+    }
+    return name;
+  });
+};
+
+describe('the stand-in ground (ADR 0049, decision 22, #38)', () => {
+  it("puts the Vigil's departure in the hue band the readability record records as empty", () => {
+    // Spec 59. `docs/research/readability-value-band.md` section 7.5, quoted in
+    // #38's second comment: "hue 50 to 125 and 175 to 205 are entirely empty."
+    // Neither half is empty of every colour today: territory sits at hue 100.56
+    // in the first and reservoirCharge at 199.79 in the second. What the two
+    // named clearances below hold is what the band was recorded for, that no
+    // sprite crowds the departure, and a readout in a fixed corner is not one.
+    const hue = hsv(PALETTE.standInVigilTint.hex).h;
+    expect(`${hue.toFixed(2)} in band ${hue >= 175 && hue <= 205}`).toBe(
+      `${hue.toFixed(2)} in band true`,
+    );
+    for (const name of ['wisp', 'skull'] as const) {
+      const gap = hueGap(hue, hsv(PALETTE[name].hex).h);
+      expect(`${name} ${gap >= SPRITE_SEPARATION.hue}`).toBe(`${name} true`);
+    }
+  });
+
+  it('gives the departure the highest saturation of the four ground colours, so the addition is the event', () => {
+    // Downwell's move, from the design record's section 7: two sections on the
+    // base palette with dressing changes only, and the fourth colour held back.
+    const saturations = STAND_IN_GROUND.map((name) => hsv(PALETTE[name].hex).s);
+    const departure = hsv(PALETTE.standInVigilTint.hex).s;
+    expect(`${Math.max(...saturations) === departure}`).toBe('true');
+  });
+
+  it('draws every colour of the ground from a declared palette entry', () => {
+    // Spec 60. The scan below forbids a colour literal in these modules, and
+    // this is its other half: a name that is not an entry cannot compile, but a
+    // module that reached MENU or named nothing at all would pass the scan
+    // while drawing a colour the band never measured.
+    const named = GROUND_MODULES.flatMap(paletteNamesIn);
+    expect(named.length).toBeGreaterThan(0);
+    expect(named.filter((name) => !(name in PALETTE))).toEqual([]);
+  });
+
+  it('is inside the source scan, so the ground cannot write a colour of its own', () => {
+    // Fence 114. The scan walks a folder, so a new renderer joins it by
+    // existing; what can go wrong is the folder, and this says the two files
+    // are in the list the scan actually built.
+    const files = DRAWS_DURING_A_RUN.flatMap(typescriptFilesUnder);
+    for (const module of GROUND_MODULES) expect(files).toContain(module);
+    expect(GROUND_MODULES.flatMap(forbiddenIn)).toEqual([]);
+  });
+
+  it("keeps the Waking's source apart from every ground colour it drifts over", () => {
+    // The source is background art by construction (decision 25 puts it on the
+    // ground layer), so the sprite pair table does not cover it and this does.
+    // It is the brightest thing the ground layer draws, because it is the
+    // loudest beat in the run, and it carries its own dark companion out past
+    // its body so it reads against the dressing as well as against the tile.
+    const source = PALETTE.standInWaking;
+    for (const name of STAND_IN_GROUND) {
+      const gap = source.luma - PALETTE[name].luma;
+      expect(`${name} ${gap >= SPRITE_SEPARATION.luma}`).toBe(`${name} true`);
+    }
+    expect(source.luma - PALETTE.standInWakingDark.luma).toBeGreaterThanOrEqual(
+      INTERNAL_SPAN_MIN,
+    );
+  });
+});
+
+/**
+ * The stand-in art the grayscale import writes (`scripts/grayscale-import.ts`).
+ * Only this folder: the create-pixi UI art under raw-assets/main{m} is not pixel
+ * art and carries its own colour on purpose, so a fence over the whole of
+ * raw-assets would be a fence over a rule nobody made.
+ */
+const STAND_IN_ART = resolve(APP, '..', '..', 'raw-assets', 'standIn{m}');
+
+/** Every PNG under a path, including the ones in its subfolders. */
+const pngsUnder = (path: string): string[] => {
+  if (!existsSync(path)) {
+    throw new Error(
+      `${relative(APP, path)} does not exist: nothing has been imported`,
+    );
+  }
+  if (!statSync(path).isDirectory()) return path.endsWith('.png') ? [path] : [];
+  return readdirSync(path).flatMap((name) => pngsUnder(join(path, name)));
+};
+
+/**
+ * A grayscale pixel is one whose three channels agree, which `hsv` reports as
+ * saturation zero. Reading it through the app's own colour module rather than
+ * comparing bytes here is what makes this fence measure the same quantity every
+ * other test in this file measures.
+ */
+const huedPixelsIn = (file: string): string[] => {
+  const image = PNG.sync.read(readFileSync(file));
+  const hued: number[] = [];
+  for (let at = 0; at < image.data.length; at += 4) {
+    const r = image.data[at];
+    const g = image.data[at + 1];
+    const b = image.data[at + 2];
+    if (r === undefined || g === undefined || b === undefined) {
+      throw new Error(`pixel byte ${at} is past the end of a 4-byte row`);
+    }
+    const hex = (r << 16) | (g << 8) | b;
+    if (hsv(hex).s > 0) hued.push(at / 4);
+  }
+  if (hued.length === 0) return [];
+  const first = hued[0];
+  if (first === undefined) throw new Error('no first hued pixel');
+  const where = `(${first % image.width}, ${Math.floor(first / image.width)})`;
+  return [
+    `${relative(STAND_IN_ART, file)}: ${hued.length} pixels carry a hue, the first at ${where}`,
+  ];
+};
+
+/** The top of an eight-bit channel, which the stretched art's body reaches. */
+const FULL_RANGE = 255;
+
+/**
+ * The share of a sprite's own pixels the stretch puts at the top, which is the
+ * import's own row (`scripts/grayscale-import.ts`). Held here at the same value
+ * because what the fence measures is the property the stretch exists for: the
+ * body of the art reaching the range, not one specular pixel doing it.
+ */
+const STRETCH_PERCENTILE = 0.98;
+
+/** The grey at the stretch's own percentile of a file's opaque pixels. */
+const bodyGreyIn = (file: string): number => {
+  const image = PNG.sync.read(readFileSync(file));
+  const greys: number[] = [];
+  for (let at = 0; at < image.data.length; at += 4) {
+    if (image.data[at + 3] === 0) continue;
+    const grey = image.data[at];
+    if (grey === undefined) throw new Error(`pixel byte ${at} is out of range`);
+    greys.push(grey);
+  }
+  if (greys.length === 0) return 0;
+  greys.sort((first, second) => first - second);
+  const grey =
+    greys[
+      Math.min(greys.length - 1, Math.floor(greys.length * STRETCH_PERCENTILE))
+    ];
+  if (grey === undefined) throw new Error('no grey at the stretch percentile');
+  return grey;
+};
+
+describe('the grayscale import over the stand-in art (#38, ADR 0014)', () => {
+  it('leaves no pixel with a hue in any sprite or tile it staged', () => {
+    // The source scan above reads modules for hex literals and cannot see a
+    // texture, and a PixiJS tint multiplies and so cannot move a hue. The purple
+    // and brown bans would therefore be unguarded on exactly the art they were
+    // written for unless something reads the pixels, and this is that test.
+    const files = pngsUnder(STAND_IN_ART);
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.flatMap(huedPixelsIn)).toEqual([]);
+  });
+
+  it('leaves every sprite and tile reaching the top of the value range, so a tint is a colour', () => {
+    // A PixiJS tint multiplies, so the palette entry is a ceiling and never a
+    // value: what draws is the art's own grey times the entry. The staged pack
+    // is a dark one and most of it peaked at 17 to 72 of 255, which put the
+    // whole ground two luma points off night whatever entry it wore, and the
+    // rendered check at slice 13b is what saw it. Stretching each file on
+    // import is what makes "coloured only by its palette entry" true rather
+    // than an intention: at the top of its own range a sprite's brightest
+    // surface is the entry, and everything under it is that colour's own
+    // shading. It is the body of the art and never its brightest pixel,
+    // because a pack puts a handful of speculars at the top and stretching to
+    // those leaves the body exactly where it was.
+    const dim = pngsUnder(STAND_IN_ART).flatMap((file) => {
+      const body = bodyGreyIn(file);
+      return body === FULL_RANGE
+        ? []
+        : [`${relative(STAND_IN_ART, file)}: its body reaches only ${body}`];
+    });
+    expect(dim).toEqual([]);
+  });
 });

@@ -5,8 +5,10 @@
 
 import { describe, expect, it } from 'vitest';
 
+import corpsesSource from '../corpses.ts?raw';
+
 import { stepping } from '../../dev/stepping';
-import { CORPSE_CAP } from '../caps';
+import { createExecution, executeTick } from '../execution';
 import { TICK_HZ } from '../clock';
 import {
   advanceCorpses,
@@ -14,23 +16,30 @@ import {
   CORPSE_HALF_EXTENT,
   corpseHitbox,
   cullCorpses,
-  DROP_HALF_EXTENT,
+  POWER_UP_HALF_EXTENT,
   spawnCorpse,
-  spawnDrop,
+  spawnPowerUp,
   spawnFeast,
+  spawnFallenRung,
 } from '../corpses';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { Mob, MobType } from '../mobs';
-import { damageMob, MOB_TYPES, spawnMob } from '../mobs';
+import { damageMob, MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../mobs';
+import { BELL_EXPAND_TICKS } from '../lines/bell';
+import { MAX_LEVEL } from '../lines/roster';
+import { openOffer } from '../offer';
 import type { RunState } from '../run';
 import { createRun } from '../run';
-import { RAMP_ROWS } from '../stage/stage';
+import { blankImpulse, SHOVE_TICKS, startShove } from '../shove';
+import { PROCESSION_WAVES } from '../stage/waves';
+import { SECTIONS } from '../stage/stage';
 import { swallow } from '../swallow';
 import {
   FRESHNESS_PAYOUT_FLOOR,
   FRESHNESS_SECONDS,
+  RESERVOIR_CAPACITY,
   SCROLL_SPEED,
 } from '../tuning';
 
@@ -43,13 +52,19 @@ const STILL: TickCommand = drift(0, 0);
 
 function quietRun(seed = 9): RunState {
   const run = createRun(seed);
-  run.stage.firedRows = RAMP_ROWS.length;
+  run.stage.firedWaves = PROCESSION_WAVES.length;
   return run;
 }
 
 /** A dead mob of the given type at a place the grave is nowhere near. */
 function killAt(state: RunState, type: MobType, x: number, y: number): Mob {
-  const mob = spawnMob(state, type, { x, y, vx: 0, vy: 1, index: 0 })!;
+  const mob = spawnMob(
+    state,
+    type,
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
   mob.alive = false;
   return mob;
 }
@@ -57,7 +72,9 @@ function killAt(state: RunState, type: MobType, x: number, y: number): Mob {
 function corpseOf(state: RunState) {
   const live = state.corpses.filter((corpse) => corpse.alive);
   expect(live).toHaveLength(1);
-  return live[0];
+  const corpse = live[0];
+  if (corpse === undefined) throw new Error('no live corpse');
+  return corpse;
 }
 
 /**
@@ -71,7 +88,7 @@ function leaveCorpse(state: RunState, mob: Mob) {
 }
 
 describe("a corpse's drift (ADR 0004)", () => {
-  it('has no velocity of its own, so the scroll is the only thing that moves it', () => {
+  it('drifts at the scroll alone when nothing is carrying it', () => {
     const state = quietRun();
     const step = stepping(state);
     leaveCorpse(state, killAt(state, 'shambler', 60, 200));
@@ -194,13 +211,19 @@ describe('what a kill hands the corpse pool (#59)', () => {
   it('leaves the same corpse a kill through damageMob has always left', () => {
     // The seam moved and the corpse a player dives for did not, field by field.
     const state = quietRun();
-    const mob = spawnMob(state, 'revenant', {
-      x: 120,
-      y: 40,
-      vx: 0,
-      vy: 1,
-      index: 0,
-    })!;
+    const mob = spawnMob(
+      state,
+      'revenant',
+      {
+        x: 120,
+        y: 40,
+        vx: 0,
+        vy: 1,
+        index: 0,
+      },
+      false,
+      'wave',
+    )!;
 
     damageMob(state, mob, MOB_TYPES.revenant.hp, 'bell');
 
@@ -251,127 +274,500 @@ describe('what a corpse shows and what it hides (tracer plan section 4)', () => 
     corpse.freshness = 0.5;
     const food = asSwallowable(corpse);
     expect(food).toEqual({
+      id: corpse.id,
       kind: 'corpse',
       freshness: 0.5,
       payout: MOB_TYPES.revenant.corpsePayout,
+      tier: MOB_TYPES.revenant.corpseTier,
+      treasureBody: false,
+      line: undefined,
     });
+    // The id travels because the offer names the body that went in by id, and
+    // an id is a value like every other field here. What must not travel is the
+    // entity: the record is a copy, so the pool can recycle the slot under it
+    // without anything the swallow reads changing.
     expect('alive' in food).toBe(false);
-    expect('id' in food).toBe(false);
+    corpse.freshness = 0.1;
+    corpse.id = corpse.id + 100;
+    expect(food.freshness).toBe(0.5);
+    expect(food.id).not.toBe(corpse.id);
   });
 });
 
-describe('a drop on the food pool (plan 6.9)', () => {
+describe('a power-up on the food pool (plan 6.9)', () => {
   it('is fully fresh, never decays, carries its line, and uses its own extent', () => {
     const state = quietRun();
-    spawnDrop(state, 200, 300, 'bell');
-    const drop = state.corpses.find((corpse) => corpse.alive)!;
-    expect(drop.kind).toBe('drop');
-    expect(drop.freshness).toBe(1);
-    expect(drop.decays).toBe(false);
-    expect(drop.line).toBe('bell');
-    expect(drop.halfExtent).toBe(DROP_HALF_EXTENT);
+    spawnPowerUp(state, 200, 300, 'bell');
+    const powerUp = state.corpses.find((corpse) => corpse.alive)!;
+    expect(powerUp.kind).toBe('powerUp');
+    expect(powerUp.freshness).toBe(1);
+    expect(powerUp.decays).toBe(false);
+    expect(powerUp.line).toBe('bell');
+    expect(powerUp.halfExtent).toBe(POWER_UP_HALF_EXTENT);
   });
 
   it("never decays, and the bottom edge measures it by its own extent rather than a corpse's", () => {
     const state = quietRun();
-    spawnDrop(state, 200, 300, 'wisps');
-    const drop = state.corpses.find((corpse) => corpse.alive)!;
+    spawnPowerUp(state, 200, 300, 'wisps');
+    const powerUp = state.corpses.find((corpse) => corpse.alive)!;
 
     for (let tick = 0; tick < 2 * FRESHNESS_SECONDS * TICK_HZ; tick++) {
       advanceCorpses(state);
     }
-    expect(drop.freshness).toBe(1);
-    expect(drop.alive).toBe(true);
+    expect(powerUp.freshness).toBe(1);
+    expect(powerUp.alive).toBe(true);
 
-    // A drop is one unit larger than a corpse, so at the depth a corpse has
-    // already gone the drop's own top edge is still on the field. The two
+    // A power-up is one unit larger than a corpse, so at the depth a corpse has
+    // already gone the power-up's own top edge is still on the field. The two
     // standing at the same y is the whole test: no single extent can send them
     // different ways, so the cull is reading each record's own.
     leaveCorpse(state, killAt(state, 'shambler', 240, 300));
     const corpse = state.corpses.find((each) => each.kind === 'corpse')!;
-    drop.y = FIELD_HEIGHT + DROP_HALF_EXTENT;
-    corpse.y = FIELD_HEIGHT + DROP_HALF_EXTENT;
+    powerUp.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT;
+    corpse.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT;
 
     const first = cullCorpses(state);
-    expect(drop.alive).toBe(true);
+    expect(powerUp.alive).toBe(true);
     expect(corpse.alive).toBe(false);
     expect(first).toHaveLength(1);
     expect(first[0]).toEqual({
       type: 'corpseLost',
       kind: 'corpse',
       x: 240,
-      y: FIELD_HEIGHT + DROP_HALF_EXTENT,
+      y: FIELD_HEIGHT + POWER_UP_HALF_EXTENT,
       freshness: 1,
     });
 
-    drop.y = FIELD_HEIGHT + DROP_HALF_EXTENT + 0.5;
+    powerUp.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT + 0.5;
     const second = cullCorpses(state);
-    expect(drop.alive).toBe(false);
+    expect(powerUp.alive).toBe(false);
     expect(second).toEqual([
       {
         type: 'corpseLost',
-        kind: 'drop',
+        kind: 'powerUp',
         x: 200,
-        y: FIELD_HEIGHT + DROP_HALF_EXTENT + 0.5,
+        y: FIELD_HEIGHT + POWER_UP_HALF_EXTENT + 0.5,
         freshness: 1,
       },
     ]);
   });
 
-  it("emits dropSpawned with the line and the place, which is the drops instrument's denominator", () => {
+  it("emits powerUpSpawned with the line and the place, which is the power-ups instrument's denominator", () => {
     const state = quietRun();
-    const events = spawnDrop(state, 210, 320, 'soulStream');
+    const events = spawnPowerUp(state, 210, 320, 'skullStream');
+    const body = state.corpses.find((corpse) => corpse.alive)!;
     expect(events).toContainEqual({
-      type: 'dropSpawned',
-      line: 'soulStream',
+      type: 'powerUpSpawned',
+      id: body.id,
+      line: 'skullStream',
       x: 210,
       y: 320,
     });
+    // The body a maxed run's carrier opens carries no option at all, and the
+    // spawn reports it that way rather than naming a line nobody chose.
+    const optionless = spawnPowerUp(state, 240, 320);
+    expect(
+      optionless.find((event) => event.type === 'powerUpSpawned')!.line,
+    ).toBeUndefined();
   });
 });
 
-describe('the eviction policy never takes treasure (plan 6.9)', () => {
-  it('evicts a corpse rather than a drop when the pool is full', () => {
-    const state = quietRun();
-    // The drop goes in first, so it is the oldest thing in the pool and the
-    // policy's own by-id ordering would otherwise take it.
-    spawnDrop(state, 100, 100, 'bell');
-    const drop = state.corpses.find((corpse) => corpse.kind === 'drop')!;
-    const victim = killAt(state, 'shambler', 50, 50);
-    while (state.corpses.filter((corpse) => corpse.alive).length < CORPSE_CAP) {
-      leaveCorpse(state, victim);
-    }
-
-    leaveCorpse(state, victim);
-    expect(drop.alive).toBe(true);
-    expect(drop.kind).toBe('drop');
+describe('what takes food off the field (ADR 0056)', () => {
+  it('leaves the eviction path nowhere in the module, so no spawn can take a body under', () => {
+    // The cap is sized from the stage now (ADR 0056), so the oldest-first
+    // eviction it replaces is gone rather than unreachable: an unreachable
+    // branch is worse than an absent one, and reaching it would have hidden
+    // exactly the fault the refusal exists to raise.
+    expect(corpsesSource).not.toMatch(/oldestEvictable/);
+    expect(corpsesSource).not.toMatch(/corpseEvicted/);
   });
 
-  it('refuses the spawn outright when every slot holds treasure', () => {
-    const state = quietRun();
-    while (state.corpses.filter((corpse) => corpse.alive).length < CORPSE_CAP) {
-      spawnDrop(state, 100, 100, 'bell');
+  it('takes a live body off the field only through a swallow, an expiry or a cull', () => {
+    // The three are the whole list, and this reads it off the run rather than
+    // off the source: on every tick, every body that stopped being alive is
+    // counted against what that tick said about it. A body gone with nothing
+    // said is housekeeping taking food from the player, which is the thing
+    // ADR 0056 forbids and the eviction path used to do.
+    //
+    // The pool starts full, so the cap binds for the first stretch of the run
+    // and an eviction would have somewhere to bite. That makes the corpse cap's
+    // own fault expected here rather than a surprise, so the run is driven
+    // through its own authority instead of the throwing rig.
+    //
+    // It is stood in the Crowd rather than at the Procession's own end, and the
+    // traffic is the point: the cap can only bind while something is still
+    // trying to put a corpse down. A run standing at the Procession's end used
+    // to roll straight into the Crowd's waves and get its traffic by accident;
+    // the Banshee's section stands between the two now and holds a run that
+    // cannot kill her (ADR 0007), so the section this test has always been
+    // played on is named outright.
+    const state = quietRun(4);
+    state.stage.sectionIndex = SECTIONS.findIndex(
+      (each) => each.name === 'crowd',
+    );
+    state.stage.firedWaves = 0;
+    const execution = createExecution(state);
+    // Half up the grave's own column, so the scroll walks them into the mouth,
+    // and half low and off to the side, where they reach the bottom edge with
+    // value left. Between them and the ones that run out of freshness on the
+    // way, the run takes all three ways out and the assertion below has
+    // something to be about.
+    for (let made = 0; state.corpses.some((corpse) => !corpse.alive); made++) {
+      const inColumn = made % 2 === 0;
+      const x = inColumn ? state.grave.x : 60;
+      const y = inColumn ? 10 + (made % 200) : 400 + (made % 200);
+      leaveCorpse(state, killAt(state, 'shambler', x, y));
     }
-    const victim = killAt(state, 'shambler', 50, 50);
-    leaveCorpse(state, victim);
-    expect(
-      state.corpses.filter((corpse) => corpse.kind === 'drop'),
-    ).toHaveLength(CORPSE_CAP);
+
+    const liveIds = (): Set<number> =>
+      new Set(
+        state.corpses
+          .filter((corpse) => corpse.alive)
+          .map((corpse) => corpse.id),
+      );
+    const unexplained: string[] = [];
+    const explained = { swallowed: 0, expired: 0, lost: 0 };
+    for (let tick = 0; tick < 900; tick++) {
+      // The pool is held pressed from the test's own hand rather than from the
+      // section's traffic. It used to come from the Crowd's own curtain: the
+      // Wall was twenty-two shamblers and the storm took them as they crossed
+      // the edge, which put corpse spawns against a still-full pool. The
+      // curtain is cairns now and the storm does not take them down at all
+      // (#123), so the pressure that made the cap bind here was incidental to a
+      // wave this test never named. Naming it is the same repair the section
+      // above already got, one step further in.
+      for (
+        let made = 0;
+        state.corpses.some((corpse) => !corpse.alive);
+        made++
+      ) {
+        leaveCorpse(state, killAt(state, 'shambler', 60, 400 + (made % 200)));
+      }
+      const before = liveIds();
+      const events = executeTick(execution, STILL);
+      let said = 0;
+      for (const event of events) {
+        if (event.type === 'chimed') said += 1;
+        if (event.type === 'offerTaken') said += event.passed.length;
+        if (event.type === 'corpseExpired') said += 1;
+        if (event.type === 'corpseLost') said += 1;
+        if (event.type === 'chimed') explained.swallowed += 1;
+        if (event.type === 'corpseExpired') explained.expired += 1;
+        if (event.type === 'corpseLost') explained.lost += 1;
+      }
+      const after = liveIds();
+      const gone = [...before].filter((id) => !after.has(id)).length;
+      if (gone !== said) {
+        unexplained.push(`tick ${tick}: ${gone} gone against ${said} said`);
+      }
+    }
+
+    expect(unexplained).toEqual([]);
+    // The run really did move food off the field all three ways, so the
+    // assertion above passed over a set with something in it.
+    expect(explained.swallowed).toBeGreaterThan(0);
+    expect(explained.expired).toBeGreaterThan(0);
+    expect(explained.lost).toBeGreaterThan(0);
+    // And the cap really did bind, which is what an eviction would have had to
+    // answer. Nothing else broke while it did.
+    expect(execution.faults.map((fault) => fault.identity)).toEqual([
+      'corpse cap never binds',
+    ]);
   });
 });
 
 describe('what a lost corpse reports (plan 6.9)', () => {
-  it("carries the food's kind, so a scrolled-away drop is not counted as a missed corpse", () => {
+  it("carries the food's kind, so a scrolled-away power-up is not counted as a missed corpse", () => {
     const state = quietRun();
     const step = stepping(state);
-    spawnDrop(state, 200, FIELD_HEIGHT - 2, 'wisps');
+    // Opened as a real offer rather than as a bare body, because an option
+    // body standing for no live offer is a fault the harness records.
+    openOffer(state, 200, FIELD_HEIGHT - 2);
     const events: SimEvent[] = [];
-    const drop = state.corpses.find((corpse) => corpse.alive)!;
-    while (drop.alive && state.tick < 200) {
+    const powerUp = state.corpses.find((corpse) => corpse.alive)!;
+    while (powerUp.alive && state.tick < 200) {
       events.push(...step(STILL));
     }
     const lost = events.find((event) => event.type === 'corpseLost');
     expect(lost).toBeDefined();
-    expect(lost?.type === 'corpseLost' && lost.kind).toBe('drop');
+    expect(lost?.type === 'corpseLost' && lost.kind).toBe('powerUp');
+  });
+});
+
+describe('a corpse a shove is carrying (design record R10)', () => {
+  /** How far one whole shove of this file's own row carries a corpse. */
+  const THROW = 60;
+
+  /** Straight up the field, which is the away direction of a body ahead of the grave. */
+  const UP_X = 0;
+  const UP_Y = -1;
+
+  it("rides the field's own drift as well while a shove carries it", () => {
+    // R11's fourth ruling: the scroll composes with every shove for both lines,
+    // so a corpse in flight takes the field's own drift exactly as a shoved
+    // body does. A throw up the field therefore nets less than it was given.
+    const state = quietRun();
+    const step = stepping(state);
+    leaveCorpse(state, killAt(state, 'shambler', 60, 400));
+    const thrown = corpseOf(state);
+    const from = thrown.y;
+    startShove(thrown.impulse, 'belch', 99, UP_X, UP_Y, THROW, 1, 0);
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) events.push(...step(STILL));
+
+    const drift = SHOVE_TICKS * SCROLL_SPEED;
+    expect(from - thrown.y).toBeCloseTo(THROW - drift, 9);
+    // The shove's own travel is the whole throw: the reading counts the shove
+    // and never the ground moving underneath it.
+    const shoved = events.filter((event) => event.type === 'mobShoved');
+    expect(shoved).toHaveLength(1);
+    expect(
+      shoved[0]?.type === 'mobShoved' ? shoved[0].displacement : 0,
+    ).toBeCloseTo(THROW, 9);
+  });
+
+  it('is never carried outside the field plus the spawn margin, however large the impulse', () => {
+    // The bound is where a body may stand and the invariant harness checks it,
+    // so a corpse the storm's push threw must be held by the same line a body
+    // is (mobs.ts, moveInsideBounds).
+    const state = quietRun();
+    const step = stepping(state);
+    leaveCorpse(state, killAt(state, 'shambler', FIELD_WIDTH - 10, 300));
+    const corpse = corpseOf(state);
+    startShove(corpse.impulse, 'belch', 99, 1, 0, 100000, 1, 0);
+
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) step(STILL);
+
+    expect(corpse.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
+  });
+
+  it('is lost off the bottom edge the way any corpse is when a shove carries it there', () => {
+    // The existing rule doing its job rather than something to repair: a corpse
+    // thrown down the field meets cullCorpses' edge at FIELD_HEIGHT before it
+    // meets the bound a spawn margin further down.
+    const state = quietRun();
+    const step = stepping(state);
+    leaveCorpse(state, killAt(state, 'shambler', 200, FIELD_HEIGHT - 20));
+    const corpse = corpseOf(state);
+    startShove(corpse.impulse, 'belch', 99, 0, 1, THROW, 1, 0);
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) events.push(...step(STILL));
+
+    expect(corpse.alive).toBe(false);
+    expect(events.filter((event) => event.type === 'corpseLost')).toHaveLength(
+      1,
+    );
+    expect(corpse.y).toBeLessThanOrEqual(FIELD_HEIGHT + SPAWN_MARGIN);
+  });
+
+  it('has further left to drift to the bottom edge than a corpse nothing threw, which is what a throw up the field costs', () => {
+    // The cost is the drift left to travel and never the freshness at the
+    // flight's last tick, where a thrown corpse and an unthrown one are equally
+    // fresh: freshness drains on the clock and not on the distance (ADR 0004).
+    const state = quietRun();
+    const step = stepping(state);
+    leaveCorpse(state, killAt(state, 'shambler', 60, 400));
+    const thrown = corpseOf(state);
+    startShove(thrown.impulse, 'belch', 99, UP_X, UP_Y, THROW, 1, 0);
+    leaveCorpse(state, killAt(state, 'shambler', 300, 400));
+    const still = state.corpses.filter((corpse) => corpse.alive)[1]!;
+
+    for (let tick = 0; tick < SHOVE_TICKS; tick++) step(STILL);
+
+    expect(still.y - thrown.y).toBeCloseTo(THROW, 9);
+    expect(thrown.freshness).toBeCloseTo(still.freshness, 9);
+    const ticksLeft = (edge: number) => (FIELD_HEIGHT - edge) / SCROLL_SPEED;
+    expect(ticksLeft(thrown.y) - ticksLeft(still.y)).toBeCloseTo(
+      THROW / SCROLL_SPEED,
+      6,
+    );
+  });
+
+  it('hands out a cleared impulse on every spawn path, so food never inherits a push that never reached it', () => {
+    // spawnMob's own precedent on the other pool: a slot arrives where a
+    // carried corpse may have died, and an inherited impulse would carry new
+    // food away on a push that never reached it.
+    const state = quietRun();
+    const dirty = (slot: number) => {
+      const free = state.corpses.filter((corpse) => !corpse.alive)[slot]!;
+      startShove(free.impulse, 'belch', 99, 1, 0, THROW, 3, SHOVE_TICKS);
+      return free;
+    };
+
+    dirty(0);
+    leaveCorpse(state, killAt(state, 'shambler', 60, 200));
+    dirty(0);
+    spawnFeast(state, 120, 200, 4);
+    dirty(0);
+    spawnPowerUp(state, 180, 200, 'wisps');
+
+    const live = state.corpses.filter((corpse) => corpse.alive);
+    expect(live.map((corpse) => corpse.kind)).toEqual([
+      'corpse',
+      'feast',
+      'powerUp',
+    ]);
+    for (const corpse of live) expect(corpse.impulse).toEqual(blankImpulse());
+  });
+});
+
+/**
+ * A rung the floor ladder took, on the field as a body the dive can catch
+ * (ADR 0055, decision 24, design record R6). It is a fourth kind on this pool,
+ * so what it inherits is as much the test as what it declares.
+ */
+describe('a fallen rung on the food pool (ADR 0055)', () => {
+  const rungOf = (state: RunState) => {
+    const body = state.corpses.find(
+      (corpse) => corpse.alive && corpse.kind === 'fallenRung',
+    );
+    if (body === undefined) throw new Error('no fallen rung');
+    return body;
+  };
+
+  it('sets decay off as its row and carries the line it came off, at the treasure extent', () => {
+    const state = quietRun();
+    spawnFallenRung(state, 200, 300, 'wisps');
+    const rung = rungOf(state);
+
+    expect(rung.kind).toBe('fallenRung');
+    expect(rung.freshness).toBe(1);
+    expect(rung.decays).toBe(false);
+    expect(rung.treasureBody).toBe(true);
+    expect(rung.line).toBe('wisps');
+    expect(rung.halfExtent).toBe(POWER_UP_HALF_EXTENT);
+  });
+
+  it('decays when its row says so, so non-decay is the default and not an impossibility', () => {
+    // ADR 0055 and decision 20 both leave decay as tuning data, so a later pass
+    // may turn the flag on without a record to re-rule. The flag is flipped on
+    // the spawned slot rather than passed in, because no caller wants it today.
+    const state = quietRun();
+    spawnFallenRung(state, 200, 300, 'bell');
+    const rung = rungOf(state);
+    rung.decays = true;
+
+    for (let tick = 0; tick < FRESHNESS_SECONDS * TICK_HZ; tick++) {
+      advanceCorpses(state);
+    }
+
+    expect(rung.freshness).toBe(0);
+    expect(rung.alive).toBe(false);
+  });
+
+  it('drifts at the scroll alone and nothing else carries it', () => {
+    // The scroll is already the corpse deadline and the power-up deadline both,
+    // and a second speed would be a second rule for a reader to hold.
+    const state = quietRun();
+    const step = stepping(state);
+    spawnFallenRung(state, 200, 300, 'bell');
+    const rung = rungOf(state);
+    const from = { x: rung.x, y: rung.y };
+
+    for (let tick = 0; tick < 30; tick++) step(STILL);
+
+    expect(rung.x).toBe(from.x);
+    expect(rung.y - from.y).toBeCloseTo(30 * SCROLL_SPEED, 9);
+  });
+
+  it('nobody takes stays on the field until the scroll carries it off, and is lost the way any body is', () => {
+    // Battle Garegga's own answer: a dropped power item is an ordinary field
+    // item on the ordinary clock, and nothing about a rung expires early.
+    const state = quietRun();
+    const step = stepping(state);
+    // Away from the grave's lane, so the run never dives under it by accident.
+    spawnFallenRung(state, 40, 20, 'bell');
+    const rung = rungOf(state);
+
+    const events: SimEvent[] = [];
+    const toTheEdge = Math.ceil(
+      (FIELD_HEIGHT + POWER_UP_HALF_EXTENT - rung.y) / SCROLL_SPEED,
+    );
+    for (let tick = 0; tick < toTheEdge; tick++) {
+      expect(rung.alive).toBe(true);
+      expect(rung.freshness).toBe(1);
+      events.push(...step(STILL));
+    }
+    events.push(...step(STILL));
+
+    expect(rung.alive).toBe(false);
+    expect(events.filter((event) => event.type === 'corpseExpired')).toEqual(
+      [],
+    );
+    const lost = events.filter((event) => event.type === 'corpseLost');
+    expect(lost).toHaveLength(1);
+    expect(lost[0]?.type === 'corpseLost' && lost[0].kind).toBe('fallenRung');
+  });
+
+  it('is not a storm target: no belch, no bell and no shove moves it', () => {
+    // The storm reaches mobs and never food (stormTargets.ts), and this stands
+    // a rung where the belch's burst and the toll's cones both cover it so the
+    // claim is taken against a live storm rather than against an empty field.
+    const state = quietRun();
+    const step = stepping(state);
+    state.reservoir = RESERVOIR_CAPACITY;
+    state.levels.bell = MAX_LEVEL;
+    state.lines.tollIn = 1;
+    // Inside the belch's burst and the toll's cones, and clear of the grave's
+    // own swallow box, so what the tick does to it is the storm's doing alone.
+    spawnFallenRung(state, state.grave.x, state.grave.y - 80, 'bell');
+    const rung = rungOf(state);
+    const from = { x: rung.x, y: rung.y };
+
+    // Long enough for the belch's whole press and for a toll to expand fully.
+    const ticks = BELL_EXPAND_TICKS + 2;
+    const events = [...step({ move: { x: 0, y: 0 }, belch: true })];
+    for (let tick = 1; tick < ticks; tick++) events.push(...step(STILL));
+
+    expect(events.map((event) => event.type)).toContain('belched');
+    expect(events.map((event) => event.type)).toContain('tolled');
+    expect(rung.x).toBe(from.x);
+    expect(rung.y - from.y).toBeCloseTo(ticks * SCROLL_SPEED, 9);
+    expect(rung.impulse.source).toBeNull();
+  });
+
+  it('is caught by an ordinary dive, through the tick loop the rendered game runs', () => {
+    // The recovery path end to end rather than through swallow() alone: the
+    // batch's measured take rate on these is zero (progress note section 11),
+    // so a rung the pool could never hand back would read exactly the same on
+    // a batch as a rung the hand simply never reached.
+    const state = quietRun();
+    const step = stepping(state);
+    state.levels.bell = 2;
+    spawnFallenRung(
+      state,
+      state.grave.x,
+      state.grave.y + state.grave.size + POWER_UP_HALF_EXTENT + 1,
+      'bell',
+    );
+    const rung = rungOf(state);
+
+    const events: SimEvent[] = [];
+    for (let tick = 0; tick < 20 && rung.alive; tick++) {
+      events.push(...step(drift(0, 1)));
+    }
+
+    expect(rung.alive).toBe(false);
+    expect(state.levels.bell).toBe(3);
+    expect(events.filter((event) => event.type === 'rungCaught')).toHaveLength(
+      1,
+    );
+  });
+
+  it('refused at the corpse cap is lost, and nothing banks it for later', () => {
+    // There is no bank analogue for a rung and none is built: the cap refuses
+    // it the way it refuses any body, and the level is gone either way.
+    const state = quietRun();
+    for (const slot of state.corpses) slot.alive = true;
+    const refusalsBefore = state.refusals.food;
+
+    const events = spawnFallenRung(state, 200, 300, 'bell');
+
+    expect(events).toEqual([]);
+    expect(state.refusals.food).toBe(refusalsBefore + 1);
+    expect(state.bankedOffers).toBe(0);
+    expect(state.refusals.offers).toBe(0);
   });
 });

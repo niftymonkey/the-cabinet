@@ -4,23 +4,18 @@
  */
 
 import type { PoolSlot } from './caps';
-import {
-  CORPSE_CAP,
-  MOB_CAP,
-  MOB_FIRE_CAP,
-  SKULL_CAP,
-  TERRITORY_CAP,
-  WISP_CAP,
-} from './caps';
+import { SKULL_CAP, WISP_CAP } from './caps';
 import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { Fault, FaultIdentity } from './faults';
 import { FAULT_SEVERITY } from './faults';
-import { graveHitbox } from './grave';
+import { graveHitbox, SCORE_RUNG_REARM_SIZE } from './grave';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from './lines/roster';
 import { BELL_EXPAND_TICKS } from './lines/bell';
-import { SKULL_HALF_EXTENT } from './lines/soulStream';
+import { SKULL_HALF_EXTENT } from './lines/skullStream';
+import { TERRITORY_CAP } from './lines/territory';
 import { SPAWN_MARGIN } from './mobs';
 import type { RunState } from './run';
+import type { Impulse } from './shove';
 import { RESERVOIR_CAPACITY, SIZE_CEILING, SIZE_FLOOR } from './tuning';
 
 /**
@@ -65,6 +60,32 @@ const checkSlotFinite = (
   }
 };
 
+/**
+ * The shove one carrier is carrying: coverage of the fields shove.ts writes
+ * rather than a new check, because a non-finite step reaches the carrier's own
+ * position on the very next tick.
+ *
+ * One walk over both pools, because it is one record: a body hands its impulse
+ * to the corpse its kill leaves, and two copies of these seven names is where
+ * one pool quietly loses a field the other gained.
+ */
+const checkImpulseNoNaN = (
+  faults: Fault[],
+  pool: string,
+  id: number,
+  impulse: Impulse,
+): void => {
+  checkSlotFinite(faults, pool, id, 'impulse.stepX', impulse.stepX);
+  checkSlotFinite(faults, pool, id, 'impulse.stepY', impulse.stepY);
+  checkSlotFinite(faults, pool, id, 'impulse.ticksLeft', impulse.ticksLeft);
+  checkSlotFinite(faults, pool, id, 'impulse.travelled', impulse.travelled);
+  checkSlotFinite(faults, pool, id, 'impulse.shovesLeft', impulse.shovesLeft);
+  checkSlotFinite(faults, pool, id, 'impulse.nextIn', impulse.nextIn);
+  checkSlotFinite(faults, pool, id, 'impulse.spacing', impulse.spacing);
+  checkSlotFinite(faults, pool, id, 'impulse.owedStepX', impulse.owedStepX);
+  checkSlotFinite(faults, pool, id, 'impulse.owedStepY', impulse.owedStepY);
+};
+
 // The run's own numbers, and the grave's.
 const checkRunNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'tick', state.tick);
@@ -74,9 +95,8 @@ const checkRunNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'grave.y', state.grave.y);
   checkFinite(faults, 'grave.size', state.grave.size);
   checkFinite(faults, 'grave.invulnerable', state.grave.invulnerable);
-  checkFinite(faults, 'killsSinceDrop', state.killsSinceDrop);
-  checkFinite(faults, 'dropsPaid', state.dropsPaid);
   checkFinite(faults, 'nextEntityId', state.nextEntityId);
+  checkFinite(faults, 'bankedOffers', state.bankedOffers);
 };
 
 const checkMobsNoNaN = (state: RunState, faults: Fault[]): void => {
@@ -89,6 +109,7 @@ const checkMobsNoNaN = (state: RunState, faults: Fault[]): void => {
     checkSlotFinite(faults, 'mob', mob.id, 'hp', mob.hp);
     checkSlotFinite(faults, 'mob', mob.id, 'beat', mob.beat);
     checkSlotFinite(faults, 'mob', mob.id, 'fireIn', mob.fireIn);
+    checkImpulseNoNaN(faults, 'mob', mob.id, mob.impulse);
   }
 };
 
@@ -109,6 +130,7 @@ const checkCorpsesNoNaN = (state: RunState, faults: Fault[]): void => {
     checkSlotFinite(faults, 'corpse', corpse.id, 'y', corpse.y);
     checkSlotFinite(faults, 'corpse', corpse.id, 'freshness', corpse.freshness);
     checkSlotFinite(faults, 'corpse', corpse.id, 'payout', corpse.payout);
+    checkImpulseNoNaN(faults, 'corpse', corpse.id, corpse.impulse);
   }
 };
 
@@ -146,6 +168,7 @@ const checkLinesNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'lines.ring.ticks', lines.ring?.ticks ?? 0);
   checkFinite(faults, 'lines.ring.level', lines.ring?.level ?? 0);
   checkFinite(faults, 'lines.layIn', lines.layIn);
+  checkFinite(faults, 'lines.volleyIn', lines.volleyIn);
 };
 
 const checkPatchesNoNaN = (state: RunState, faults: Fault[]): void => {
@@ -162,16 +185,70 @@ const checkPatchesNoNaN = (state: RunState, faults: Fault[]): void => {
   }
 };
 
+/**
+ * The boss's own numbers and the set piece's, each absent one reading as zero
+ * rather than being skipped, on the ring's own precedent: a field that is only
+ * checked when something stands there is a field nothing checks on the tick it
+ * is written.
+ */
+const checkBossNoNaN = (state: RunState, faults: Fault[]): void => {
+  const boss = state.boss;
+  checkFinite(faults, 'boss.phaseIndex', boss?.phaseIndex ?? 0);
+  checkFinite(faults, 'boss.hp', boss?.hp ?? 0);
+  checkFinite(faults, 'boss.x', boss?.x ?? 0);
+  checkFinite(faults, 'boss.y', boss?.y ?? 0);
+  checkFinite(faults, 'boss.flash', boss?.flash ?? 0);
+  checkFinite(faults, 'boss.patternTick', boss?.patternTick ?? 0);
+};
+
+const checkSetPieceNoNaN = (state: RunState, faults: Fault[]): void => {
+  const piece = state.setPiece;
+  checkFinite(faults, 'setPiece.x', piece?.x ?? 0);
+  checkFinite(faults, 'setPiece.y', piece?.y ?? 0);
+  checkFinite(faults, 'setPiece.budget', piece?.budget ?? 0);
+  checkFinite(faults, 'setPiece.pourIn', piece?.pourIn ?? 0);
+  checkFinite(faults, 'setPiece.hp', piece?.hp ?? 0);
+};
+
+/**
+ * The press's own numbers (ADR 0008), on the set piece's terms: an absent press
+ * reads zero rather than being skipped, so the check is written once and covers
+ * both states.
+ */
+const checkPressNoNaN = (state: RunState, faults: Fault[]): void => {
+  const press = state.press;
+  checkFinite(faults, 'press.beganAt', press?.beganAt ?? 0);
+  checkFinite(faults, 'press.shovesLeft', press?.shovesLeft ?? 0);
+  checkFinite(faults, 'press.nextIn', press?.nextIn ?? 0);
+};
+
+// The director's own numbers, its signal's three included.
+const checkDirectorNoNaN = (state: RunState, faults: Fault[]): void => {
+  const director = state.director;
+  checkFinite(faults, 'director.signal.value', director.signal.value);
+  checkFinite(
+    faults,
+    'director.signal.heldUntilTick',
+    director.signal.heldUntilTick,
+  );
+  // The lock is a resolved figure or the sentinel that means the signal ran
+  // live, so it is always a number and a non-finite one is a bug in whatever
+  // resolved it. The existing check reaches it; no identity is added.
+  checkFinite(faults, 'director.signal.lock', director.signal.lock);
+  checkFinite(faults, 'director.purseLeft', director.purseLeft);
+  checkFinite(faults, 'director.quietUntilTick', director.quietUntilTick);
+};
+
 // The stage cursor's three counters.
 const checkStageNoNaN = (state: RunState, faults: Fault[]): void => {
-  checkFinite(faults, 'stage.phaseIndex', state.stage.phaseIndex);
-  checkFinite(faults, 'stage.phaseTick', state.stage.phaseTick);
-  checkFinite(faults, 'stage.firedRows', state.stage.firedRows);
+  checkFinite(faults, 'stage.sectionIndex', state.stage.sectionIndex);
+  checkFinite(faults, 'stage.sectionTick', state.stage.sectionTick);
+  checkFinite(faults, 'stage.firedWaves', state.stage.firedWaves);
 };
 
 /**
  * The four weapon levels. The name is joined only on the failing branch, per
- * the discipline above; routing through checkFinite would build the template
+ * the discipline above; routing through checkFinite would build the formation
  * string on every pass.
  */
 const checkLevelsNoNaN = (state: RunState, faults: Fault[]): void => {
@@ -183,13 +260,16 @@ const checkLevelsNoNaN = (state: RunState, faults: Fault[]): void => {
   }
 };
 
-// The four stream cursors, each a getter over a closure counter (rng.ts).
+// Every stream cursor a run holds, each a getter over a closure counter (rng.ts).
 const checkStreamsNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'streams.spawns.drawn', state.streams.spawns.drawn);
-  checkFinite(faults, 'streams.drops.drawn', state.streams.drops.drawn);
+  checkFinite(faults, 'streams.powerUps.drawn', state.streams.powerUps.drawn);
   checkFinite(faults, 'streams.mobFire.drawn', state.streams.mobFire.drawn);
   checkFinite(faults, 'streams.shed.drawn', state.streams.shed.drawn);
   checkFinite(faults, 'streams.territory.drawn', state.streams.territory.drawn);
+  checkFinite(faults, 'streams.director.drawn', state.streams.director.drawn);
+  checkFinite(faults, 'streams.bossFire.drawn', state.streams.bossFire.drawn);
+  checkFinite(faults, 'streams.pour.drawn', state.streams.pour.drawn);
 };
 
 /**
@@ -207,6 +287,10 @@ const checkNoNaN = (state: RunState, faults: Fault[]): void => {
   checkWispsNoNaN(state, faults);
   checkPatchesNoNaN(state, faults);
   checkLinesNoNaN(state, faults);
+  checkBossNoNaN(state, faults);
+  checkSetPieceNoNaN(state, faults);
+  checkPressNoNaN(state, faults);
+  checkDirectorNoNaN(state, faults);
   checkStageNoNaN(state, faults);
   checkLevelsNoNaN(state, faults);
   checkStreamsNoNaN(state, faults);
@@ -217,6 +301,43 @@ const checkSize = (state: RunState, faults: Fault[]): void => {
   const { size } = state.grave;
   if (size < SIZE_FLOOR || size > SIZE_CEILING) {
     record(faults, 'size within floor and ceiling', `size is ${size}`);
+  }
+};
+
+/**
+ * The one state design record R4's mechanism must never reach: a score rung
+ * still marked spent at a size that has already bought it back.
+ *
+ * It sits beside checkSize because it is the floor read from the other end. The
+ * ladder spends the rung at the floor and growGrave gives it back the moment
+ * the grave stands a full hit's worth above it, so a grave carrying the mark at
+ * that size means one of the two halves stopped running. A crumb of growth is
+ * not enough and is not a fault: the mark is expected to survive it.
+ */
+const checkScoreRung = (state: RunState, faults: Fault[]): void => {
+  const { size, scoreRungBled } = state.grave;
+  if (scoreRungBled && size >= SCORE_RUNG_REARM_SIZE) {
+    record(
+      faults,
+      'score rung re-armed by growth',
+      `the score rung is still bled at size ${size}`,
+    );
+  }
+};
+
+/**
+ * The one state five payment sites and three data rows could reach between
+ * them: a score below zero (design record R4).
+ *
+ * It sits beside the rung above because both are the score's own floor read
+ * from one end or the other. Every input only ever adds and the ladder's bleed
+ * takes the lesser of what stood and the cap, so nothing in the rules can reach
+ * it; what the check is for is a reversed sign or a negative row at one of the
+ * five sites, which is the one arithmetic mistake nothing else here would see.
+ */
+const checkScoreNotNegative = (state: RunState, faults: Fault[]): void => {
+  if (state.score < 0) {
+    record(faults, 'score not negative', `the score is ${state.score}`);
   }
 };
 
@@ -396,9 +517,9 @@ const checkPool = (
 
 // Checking a cap is not enforcing one. caps.ts enforces; this only notices.
 const checkPools = (state: RunState, faults: Fault[]): void => {
-  checkPool(faults, 'mob', state.mobs, MOB_CAP);
-  checkPool(faults, 'mob fire', state.mobFire, MOB_FIRE_CAP);
-  checkPool(faults, 'corpse', state.corpses, CORPSE_CAP);
+  checkPool(faults, 'mob', state.mobs, state.caps.mobs);
+  checkPool(faults, 'mob fire', state.mobFire, state.caps.mobFire);
+  checkPool(faults, 'corpse', state.corpses, state.caps.corpses);
   checkPool(faults, 'skull', state.skulls, SKULL_CAP);
   checkPool(faults, 'wisp', state.wisps, WISP_CAP);
   checkPool(faults, 'patch', state.patches, TERRITORY_CAP);
@@ -453,6 +574,154 @@ const checkRing = (state: RunState, faults: Fault[]): void => {
   }
 };
 
+/**
+ * Exactly one offer is live at a time (ADR 0034), read off the field rather
+ * than off the record: the record holds one offer or none by construction, so
+ * what can go wrong is an option body standing that no live offer names.
+ *
+ * A body carrying no option at all is not one of these. That is what a maxed
+ * run's carrier opens, it belongs to no offer by design, and it is told apart
+ * by the absent line exactly as every other reader tells it apart.
+ */
+const checkOneLiveOffer = (state: RunState, faults: Fault[]): void => {
+  const ids = state.offer?.bodyIds ?? [];
+  for (const corpse of state.corpses) {
+    if (!corpse.alive || corpse.kind !== 'powerUp') continue;
+    if (corpse.line === undefined || ids.includes(corpse.id)) continue;
+    record(
+      faults,
+      'one live offer',
+      `power-up ${corpse.id} carries ${corpse.line} for no live offer`,
+    );
+  }
+};
+
+/**
+ * The live offer's bodies are on the field and carry what it says they carry.
+ *
+ * At least one has to still stand, and no more than that: an offer whose every
+ * body has left the field is resolved as lost on the tick the last one goes,
+ * so a live offer with nothing standing is an offer that will never resolve
+ * and has jammed every offer behind it.
+ */
+const checkOfferBodies = (state: RunState, faults: Fault[]): void => {
+  const offer = state.offer;
+  if (offer === null) return;
+  if (offer.options.length !== offer.bodyIds.length) {
+    record(
+      faults,
+      'offer bodies alive and matching',
+      `an offer holds ${offer.options.length} options on ${offer.bodyIds.length} bodies`,
+    );
+    return;
+  }
+  // One id twice is two options wearing one body, so the take resolves the
+  // first of them and the player is paid a line they never passed under.
+  if (new Set(offer.bodyIds).size !== offer.bodyIds.length) {
+    record(
+      faults,
+      'offer bodies alive and matching',
+      `an offer names body ${offer.bodyIds.join(', ')} more than once`,
+    );
+    return;
+  }
+  let standing = 0;
+  for (const [index, id] of offer.bodyIds.entries()) {
+    const body = state.corpses.find((each) => each.alive && each.id === id);
+    if (body === undefined) continue;
+    standing += 1;
+    if (body.line === offer.options[index]) continue;
+    record(
+      faults,
+      'offer bodies alive and matching',
+      `offer body ${id} carries ${body.line} rather than ${offer.options[index]}`,
+    );
+  }
+  if (standing === 0) {
+    record(
+      faults,
+      'offer bodies alive and matching',
+      'a live offer has no body left on the field',
+    );
+  }
+};
+
+/**
+ * The bank counts carriers waiting their turn, so it is a whole count and
+ * never goes below zero. A NaN bank is the no-NaN check's, which folds this
+ * field in.
+ *
+ * A fraction is caught here rather than a tick later. Half a banked offer
+ * still reads as one to open, so the next take spends it and leaves the bank
+ * at minus a half, which this identity would then record against a state one
+ * tick removed from the write that broke it.
+ */
+const checkBank = (state: RunState, faults: Fault[]): void => {
+  const bank = state.bankedOffers;
+  if (!Number.isInteger(bank) || bank < 0) {
+    record(faults, 'bank not negative', `the bank holds ${bank}`);
+  }
+};
+
+/**
+ * The director spends whole bodies out of a whole purse, so what is left is a
+ * count and never goes below zero (ADR 0056).
+ *
+ * A fraction is caught here rather than a tick later, on the bank's and the set
+ * piece's own reading: half a body still reads as room for a card, so the next
+ * spend takes it and leaves the purse at minus a half, which this identity
+ * would then record against a state one tick removed from the write that broke
+ * it.
+ */
+const checkDirectorPurse = (state: RunState, faults: Fault[]): void => {
+  const purse = state.director.purseLeft;
+  if (Number.isInteger(purse) && purse >= 0) return;
+  record(
+    faults,
+    'director purse not negative',
+    `the director has ${purse} bodies left to spend`,
+  );
+};
+
+/**
+ * Nothing a cap turned away this tick (ADR 0056).
+ *
+ * Every cap here is a safety net sized above the densest thing its pool can
+ * hold, so turning anything away means the content or the derivation has moved
+ * out from under it. Each is recorded under its own identity because what the
+ * player lost is different in each: a corpse is food, a carrier is power, and
+ * an offer is a whole carrier's payment.
+ *
+ * It reads the tick's own count rather than the pools, because a refusal is a
+ * fact about a tick and not about the state it leaves behind: the body that was
+ * refused is in no pool, and the slot that was full when it happened can be
+ * free again by the time this runs.
+ */
+const checkRefusals = (state: RunState, faults: Fault[]): void => {
+  const { food, carriers, offers } = state.refusals;
+  if (food > 0) {
+    record(
+      faults,
+      'corpse cap never binds',
+      `the corpse pool refused ${food} of this tick's food`,
+    );
+  }
+  if (carriers > 0) {
+    record(
+      faults,
+      'carrier spawn never refused',
+      `the mob pool refused ${carriers} of this tick's carriers`,
+    );
+  }
+  if (offers > 0) {
+    record(
+      faults,
+      'offer stands a body',
+      `${offers} offers this tick could stand no body and banked instead`,
+    );
+  }
+};
+
 // Freshness is a meter from 1 to 0 and never leaves that range (ADR 0004).
 const checkFreshness = (state: RunState, faults: Fault[]): void => {
   for (const corpse of state.corpses) {
@@ -468,34 +737,127 @@ const checkFreshness = (state: RunState, faults: Fault[]): void => {
 };
 
 // One reading of the stage cursor, as the last passing check saw it.
-interface StagePhase {
-  readonly phaseIndex: number;
-  readonly phaseTick: number;
+interface StageSection {
+  readonly sectionIndex: number;
+  readonly sectionTick: number;
 }
 
 /**
- * What the last check saw of the stage, so the two invariants that are about
- * change rather than about a single state have something to compare with.
+ * What the last check saw of the stage and of the boss standing in it, so the
+ * invariants that are about change rather than about a single state have
+ * something to compare with.
  *
  * It is a field on Execution and never on RunState (ADR 0025). The WeakMap this
  * replaced was giving lifetime away for free: the watch died with the run, and
  * every caller got correct stage history without knowing the mechanism existed.
  * Execution is held by a pooled screen, so the lifetime is now somebody's job.
  * RunState is the wrong home for the other reason: ADR 0019 widens the witness
- * fold, so what lives there is what a replay is checked against, and a phase
+ * fold, so what lives there is what a replay is checked against, and a section
  * watch is neither the run's identity nor something the rules mutate.
  */
 interface StageWatch {
   // Null before the first check, which has nothing to compare against.
-  seen: StagePhase | null;
+  seen: StageSection | null;
+  /**
+   * The boss the last check saw, by id and phase, or null when no boss stood.
+   *
+   * The id is in here and not only the phase, because two bosses run in one
+   * run: the second arrives at phase zero long after the first died at its
+   * last, and a memory of the phase alone would read that arrival as the index
+   * going backwards.
+   */
+  seenBoss: BossPhase | null;
+}
+
+// One reading of the boss on the field, as the last passing check saw it.
+interface BossPhase {
+  readonly id: number;
+  readonly phaseIndex: number;
 }
 
 const createStageWatch = (): StageWatch => {
-  return { seen: null };
+  return { seen: null, seenBoss: null };
 };
 
 /**
- * The phase index only ever increases, and the phase-local tick resets at a
+ * A boss's phase only ever increases (ADR 0007, ADR 0052): the fight gets
+ * there across phases, and a phase that came back is a pattern the player has
+ * already beaten being played at them again.
+ *
+ * It is recorded only against the same boss. An empty field clears the memory,
+ * which is what makes the next boss's phase zero an arrival rather than a fall.
+ */
+const checkBossPhase = (
+  state: RunState,
+  watch: StageWatch,
+  faults: Fault[],
+): void => {
+  const boss = state.boss;
+  if (boss === null) {
+    watch.seenBoss = null;
+    return;
+  }
+  const seen = watch.seenBoss;
+  if (
+    seen !== null &&
+    seen.id === boss.id &&
+    boss.phaseIndex < seen.phaseIndex
+  ) {
+    record(
+      faults,
+      'boss phase only increases',
+      `the ${boss.kind} went from phase ${seen.phaseIndex} to ${boss.phaseIndex}`,
+    );
+    return;
+  }
+  watch.seenBoss = { id: boss.id, phaseIndex: boss.phaseIndex };
+};
+
+/**
+ * The set piece pours whole bodies out of a whole budget, so what is left is a
+ * count and never goes below zero (ADR 0042).
+ *
+ * A fraction is caught here rather than a tick later, on the bank's own
+ * reading: half a body still reads as one left to pour, so the next pour spends
+ * it and leaves the budget at minus a half, which this identity would then
+ * record against a state one tick removed from the write that broke it.
+ */
+const checkSetPieceBudget = (state: RunState, faults: Fault[]): void => {
+  const piece = state.setPiece;
+  if (piece === null) return;
+  const budget = piece.budget;
+  if (!Number.isInteger(budget) || budget < 0) {
+    record(
+      faults,
+      'set piece budget not negative',
+      `the set piece has ${budget} bodies left to pour`,
+    );
+  }
+};
+
+/**
+ * The source's body is gone exactly when its health is spent (#104).
+ *
+ * Two facts about one thing, and the boolean is the one every reader reads:
+ * the storm's target seam, the damage guard and the renderer all take it and
+ * derive nothing from the health beside it. A health that reached zero without
+ * it is a body the storm goes on hitting and a sprite that never leaves.
+ */
+const checkSetPieceBody = (state: RunState, faults: Fault[]): void => {
+  const piece = state.setPiece;
+  if (piece === null) return;
+  if (piece.bodyGone === piece.hp <= 0) return;
+  record(
+    faults,
+    'set piece body gone when spent',
+    `the set piece has ${piece.hp} health left and its body is ${
+      piece.bodyGone ? 'gone' : 'standing'
+    }`,
+  );
+};
+
+/**
+ * The section index only ever increases, and the section-local tick resets at a
  * boundary. The tick is read after the step has already advanced it, so a reset
  * shows as a tick of one rather than of zero.
  */
@@ -505,31 +867,31 @@ const checkStage = (
   faults: Fault[],
 ): void => {
   const { seen } = watch;
-  const now: StagePhase = {
-    phaseIndex: state.stage.phaseIndex,
-    phaseTick: state.stage.phaseTick,
+  const now: StageSection = {
+    sectionIndex: state.stage.sectionIndex,
+    sectionTick: state.stage.sectionTick,
   };
   let passed = true;
   if (seen !== null) {
-    if (now.phaseIndex < seen.phaseIndex) {
+    if (now.sectionIndex < seen.sectionIndex) {
       record(
         faults,
-        'phase index only increases',
-        `phase went from ${seen.phaseIndex} to ${now.phaseIndex}`,
+        'section index only increases',
+        `section went from ${seen.sectionIndex} to ${now.sectionIndex}`,
       );
       passed = false;
     }
-    if (now.phaseIndex > seen.phaseIndex && now.phaseTick > 1) {
+    if (now.sectionIndex > seen.sectionIndex && now.sectionTick > 1) {
       record(
         faults,
-        'phase tick resets at a boundary',
-        `phase tick is ${now.phaseTick} on the tick the phase changed`,
+        'section tick resets at a boundary',
+        `section tick is ${now.sectionTick} on the tick the section changed`,
       );
       passed = false;
     }
   }
   // Recorded only once both checks pass. Recording first means a recorded
-  // failure leaves the rejected phase in the watch, so the next check on the
+  // failure leaves the rejected section in the watch, so the next check on the
   // same run compares against it and reports the broken state as healthy.
   if (passed) watch.seen = now;
 };
@@ -564,8 +926,8 @@ const checkStage = (
  * to be here.
  *
  * The watch is a required parameter and never an optional one. Made optional,
- * the direct call sites would silently stop checking phase monotonicity and
- * phase-tick reset, and the tests that exist precisely to exercise the watch
+ * the direct call sites would silently stop checking section monotonicity and
+ * section-tick reset, and the tests that exist precisely to exercise the watch
  * would go green while checking nothing.
  */
 const checkInvariants = (
@@ -575,6 +937,8 @@ const checkInvariants = (
   const faults: Fault[] = [];
   checkNoNaN(state, faults);
   checkSize(state, faults);
+  checkScoreRung(state, faults);
+  checkScoreNotNegative(state, faults);
   checkInBounds(state, faults);
   // The order of the six is load-bearing: they share one identity and record
   // keeps the first detail per identity, so this order decides which entity a
@@ -586,11 +950,19 @@ const checkInvariants = (
   checkWispsInBounds(state, faults);
   checkPatchesInBounds(state, faults);
   checkPools(state, faults);
+  checkRefusals(state, faults);
   checkFreshness(state, faults);
   checkReservoir(state, faults);
   checkLevels(state, faults);
   checkRing(state, faults);
+  checkOneLiveOffer(state, faults);
+  checkOfferBodies(state, faults);
+  checkBank(state, faults);
+  checkDirectorPurse(state, faults);
+  checkSetPieceBudget(state, faults);
+  checkSetPieceBody(state, faults);
   checkStage(state, watch, faults);
+  checkBossPhase(state, watch, faults);
   return faults;
 };
 

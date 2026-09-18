@@ -73,6 +73,42 @@ const READOUT_RESERVE: ReadoutReserve = {
 };
 
 /**
+ * The HUD's band, in field units: how tall the row is and how wide one rung's
+ * mark is inside it (record R1).
+ *
+ * The mark is measured first and the band is declared from it, in that order,
+ * because a reading proved at one size is not proved at a quarter of it. 11 is
+ * the smallest whole number of field units whose drawn width clears the 6.25
+ * CSS pixel floor slice K measured and proved legible in grayscale, on the
+ * narrowest phone the sweep covers. The band is then what the content needs: an
+ * icon of 24 units with a row of five marks beside it and two units of padding
+ * above and below, which is 28.
+ *
+ * This file declares the band and asserts nothing about what fills it. The
+ * HUD's own test measures its content against it, which is exactly the split
+ * READOUT_RESERVE already uses and states.
+ */
+interface HudBand {
+  // How tall the row is, in field units.
+  readonly height: number;
+  // How wide one rung's mark is, in field units.
+  readonly mark: number;
+}
+
+const HUD_BAND: HudBand = {
+  height: 28,
+  mark: 11,
+};
+
+/** Where the HUD's row is drawn, in stage units. */
+interface HudRow {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
  * What a viewport nobody can measure is treated as: the field at its own size,
  * in the corner. A browser reports a zero or a non-finite viewport during boot
  * and during an orientation change, and a NaN scale poisons every coordinate
@@ -204,7 +240,53 @@ const fitField = (
    * epsilon to arbitrate.
    */
   if (lowered.scale < natural.scale) return natural;
-  return lowered;
+  /**
+   * The even slack split. `lowered` centres the field inside the box below the
+   * reserve, which lands the reserve's whole height on top and leaves the
+   * bottom band whatever is left: 133 above and 13 below at a phone at a small
+   * viewport of 660. Keeping the natural centring and pushing the field down
+   * only far enough to clear the reserve shares the slack instead, 120 and 26
+   * at the same viewport, and it changes nothing at all at the shortest
+   * windows, where the branch above has already returned the natural fit.
+   *
+   * The floor is Math.max rather than arithmetic, so a lowered field clears the
+   * reserve exactly and the non-overlap aim cannot be lost to a rounding error
+   * the way the margins in `centred` could be.
+   */
+  return { ...natural, offsetY: Math.max(natural.offsetY, reserve.height) };
+};
+
+/**
+ * Where the HUD's row sits at a placement: in the stage's band above the field
+ * where that band is at least the row's own height, and over the field's own top
+ * edge where it is not (record R1).
+ *
+ * One rule and no viewport breakpoint, because the measurement says there is no
+ * home both screen shapes share except the field's own rectangle: a phone gives
+ * the field the full stage width and no side gutter at all, and a desktop gives
+ * it the full stage height and no band at all, both measured exactly zero.
+ *
+ * The row is drawn in field units and scaled by the placement, which is what
+ * makes one mark subtend the same fraction of the field on a 320-wide phone and
+ * on a 1440-wide desktop. A row laid out in raw stage units would give the phone
+ * the smaller mark, which is the wrong way round.
+ *
+ * The row keeps the field's own width. Where its band crosses a corner the
+ * readouts claim, the row is not narrowed to clear it: the band's content is 520
+ * field units inside the field's 540 (record R1), and a 540-unit phone stage
+ * whose reserve claims 260 units at each end leaves 20 units between them. The
+ * left-hand crossing is the dev corner stack's and record R12 rules it a
+ * dev-build-only collision that comes out with #66.
+ */
+const hudRow = (placement: FieldPlacement): HudRow => {
+  const height = HUD_BAND.height * placement.scale;
+  const fieldTop = placement.offsetY;
+  return {
+    left: placement.offsetX,
+    top: fieldTop >= height ? fieldTop - height : fieldTop,
+    width: FIELD_WIDTH * placement.scale,
+    height,
+  };
 };
 
 // A viewport point back in field units. The inverse of the placement, and how touch input reaches the sim.
@@ -221,9 +303,11 @@ const screenToField = (
 
 export {
   fitField,
+  hudRow,
   screenToField,
   BOUNDARY_STROKE,
+  HUD_BAND,
   READOUT_RESERVE,
   DEGENERATE_PLACEMENT,
 };
-export type { FieldPlacement, ReadoutReserve };
+export type { FieldPlacement, HudBand, HudRow, ReadoutReserve };
