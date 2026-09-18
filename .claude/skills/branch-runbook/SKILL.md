@@ -1,15 +1,15 @@
 ---
 name: branch-runbook
-description: Branch runbook, how Mark and an agent run a long-running branch of work. Use before a new long-running branch starts, when a session starts or resumes on one, and when one closes for merge.
+description: Branch runbook, how Mark and an agent run work on a branch, from the goal to the merge. Use when Mark names work to do (an issue, a ticket, a goal), when a session starts or resumes on a branch, and when a branch closes for merge.
 ---
 
 # Branch runbook
 
-How Mark and an agent run a long-running branch of work: what happens before the branch, during it, and at its end.
+How Mark and an agent run work on a branch: what happens before the branch, during it, and at its end.
 
 ## Find the phase
 
-- Long-running work is wanted and no branch exists yet: follow [`before-the-branch.md`](before-the-branch.md).
+- Mark names work to do and no branch exists yet: size the work ("The size of the work" below), then follow [`before-the-branch.md`](before-the-branch.md).
 - A session starts or resumes on a running branch: do "Surviving a restart" below, then work from [`during-the-branch.md`](during-the-branch.md).
 - Mark says the branch's work is finished: follow [`end-of-the-branch.md`](end-of-the-branch.md).
 
@@ -17,8 +17,8 @@ How Mark and an agent run a long-running branch of work: what happens before the
 
 These are the terms every file of the runbook shares. Any other term is defined in the section that owns its rule.
 
-- **Branch:** one long-running piece of work on its own git branch, from the grill to the merge.
-- **Step:** one stage of a branch, with one goal and one design record. A branch has a few steps, run in order.
+- **Branch:** one piece of work on its own git branch, from the grill to the merge.
+- **Step:** one stage of a branch, with one goal and one design record. A branch has one or more steps, run in order.
 - **Slice:** one piece of a step. One coder builds it, and it lands as one commit whose result can be seen working.
 - **Main session:** the conversation with Mark. It plans, decides, reviews, and dispatches agents.
 - **Coder:** a subagent that builds one slice.
@@ -26,6 +26,14 @@ These are the terms every file of the runbook shares. Any other term is defined 
 - **Design record:** one document per step. It holds the step's decisions, each with its evidence and how to reverse it.
 - **Decision log:** the numbered decisions from the grill before the branch.
 - **Handoff:** the one file on the branch that lets a new session continue the work.
+
+## The size of the work
+
+The runbook runs on every piece of work that gets a branch. The parts never drop. Only their size changes. Read the work first, count its slices, and tell Mark the count in one line. When the count changes, the size changes with it.
+
+One slice: the runbook runs in the conversation. The grill asks only what is Mark's alone, and that can be nothing. The plan is one visible message. It names the pre-authorizations it asks for, and his yes to the plan grants them. The charter, the handoff, the follow-along list, and the working records folder are not made, because there is nothing to resume and nothing to follow. The slice entry and the coder contract's rules ride in the dispatch. The gates run once, on the built result.
+
+More than one slice: every part is a file, as written.
 
 ## Who answers a question
 

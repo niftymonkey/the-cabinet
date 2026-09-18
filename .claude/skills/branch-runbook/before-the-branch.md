@@ -1,6 +1,6 @@
 # Before the branch
 
-The human work comes first. Before a long-running branch starts, Mark does his part. Its record is the contract for the time he is away.
+The human work comes first. Before a branch starts, Mark does his part. Its record is the contract for the time he is away.
 
 Terms, the ladder named "Who answers a question", and the branch charter are defined in [`SKILL.md`](SKILL.md).
 
