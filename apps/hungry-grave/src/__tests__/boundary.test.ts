@@ -372,7 +372,7 @@ const SAME_ROOT_ALLOWANCES: Record<string, string[]> = {
 /**
  * Prototype tests are outside this fence. A prototype is never reused and its
  * tests exist only so the building agent could verify its own bounded task
- * (docs/agents/feature-playbook.md), so ticket #59 leaves them where they sit
+ * (docs/agents/feature-flow.md), so ticket #59 leaves them where they sit
  * and the walk below must not reach them.
  */
 const OUTSIDE_THE_SPAN_FENCE = join(SRC, 'prototypes');

@@ -1,6 +1,6 @@
 # Drop legibility: the fix inside #36
 
-The plan half of the feature playbook's dispatch contract, for the one acceptance criterion of #36 that Mark's 2026-08-23 play failed: "Every drop shows which line it upgrades at a glance, with no HUD glance needed."
+The plan half of the feature flow's dispatch contract, for the one acceptance criterion of #36 that Mark's 2026-08-23 play failed: "Every drop shows which line it upgrades at a glance, with no HUD glance needed."
 
 Settled 2026-08-25 by a throwaway prototype played by Mark, at https://claude.ai/code/artifact/12739de2-504a-40e1-ab76-409c0904fce8
 
@@ -13,7 +13,7 @@ Settled 2026-08-25 by a throwaway prototype played by Mark, at https://claude.ai
 - But `drawDropIcon` at `src/app/screens/game/FieldRenderer.ts:291` draws shapes that use a fraction of the box. The headstones icon is `circle(0, 0, r * 0.72)`, which is **11.5 units against the corpse's solid 14**. The other three are concave slivers narrower still.
 - Then `drawDrop` at `FieldRenderer.ts:334` punches a `dropCore` circle through the bright middle, and a 1.5-unit dark `foodOutline` stroke eats more of a small shape's area.
 
-The test measures the constant. The player sees the ink. This is the class of defect feature-playbook rule 2 exists for, and it explains Mark's read far better than any colour argument does: "they're just very, very hard to see, so that's the biggest problem."
+The test measures the constant. The player sees the ink. This is the class of defect feature-flow rule 2 exists for, and it explains Mark's read far better than any colour argument does: "they're just very, very hard to see, so that's the biggest problem."
 
 **Consequence for this plan: until a drop is visible, no channel can be judged.** Weight comes first and everything else sits on top of it.
 

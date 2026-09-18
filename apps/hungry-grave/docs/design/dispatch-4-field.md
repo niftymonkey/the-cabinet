@@ -1,6 +1,6 @@
 # Tracer dispatch 4: the field
 
-This is the plan half of the feature playbook's dispatch contract for tracer plan section 6 item 4.
+This is the plan half of the feature flow's dispatch contract for tracer plan section 6 item 4.
 
 Mark ruled on 2026-08-21 that this stays one dispatch rather than splitting the way dispatch 3 did. The split was offered with its reason, which was that landing headless rules and app wiring together buries the cause when the feel is wrong, and he took the whole dispatch anyway. So this document carries both halves and the report has to be good enough to separate them if something feels off.
 
@@ -8,7 +8,7 @@ Mark ruled on 2026-08-21 that this stays one dispatch rather than splitting the 
 
 You are writing production code in `/home/mlo/dev/niftymonkey/the-cabinet/apps/hungry-grave`.
 
-Read `docs/agents/feature-playbook.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
+Read `docs/agents/feature-flow.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
 
 Read these before you write anything: `apps/hungry-grave/docs/adr/0016-mob-types-and-formations-are-pools.md`, `apps/hungry-grave/docs/adr/0006-authored-waves-not-a-director.md`, `apps/hungry-grave/docs/adr/0004-one-freshness-meter.md`, `apps/hungry-grave/docs/adr/0003-size-is-health.md`, `apps/hungry-grave/docs/adr/0002-corpses-are-fuel-and-carriers-meter-power.md`, `apps/hungry-grave/docs/adr/0014-readability-layering.md`, `apps/hungry-grave/docs/adr/0013-the-sim-verification-contract.md`, `apps/hungry-grave/docs/adr/0015-determinism-across-devices.md`, `apps/hungry-grave/docs/design/tracer-plan.md` sections 3, 4 and 5, `apps/hungry-grave/docs/design/dispatch-3b-playable.md` section 9, and `apps/hungry-grave/CONTEXT.md` for the vocabulary.
 

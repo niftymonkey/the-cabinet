@@ -1,6 +1,6 @@
 # Tracer dispatch 3b: making it playable
 
-This is the plan half of the feature playbook's dispatch contract for tracer plan section 6 item 3, which Mark split in two on 2026-08-20: 3a was the headless sim, and 3b is the app wiring that makes it playable and ends at his on-device input check. The split reason is on the tracer plan.
+This is the plan half of the feature flow's dispatch contract for tracer plan section 6 item 3, which Mark split in two on 2026-08-20: 3a was the headless sim, and 3b is the app wiring that makes it playable and ends at his on-device input check. The split reason is on the tracer plan.
 
 3a landed the rules and verified them by test. Nothing here is a new rule. Everything here is wiring, one renderer, two input models, and the first thing a player can actually do.
 
@@ -8,7 +8,7 @@ Three review gates ran on the first draft of this plan and all three returned fi
 
 You are writing production code in `/home/mlo/dev/niftymonkey/the-cabinet/apps/hungry-grave`.
 
-Read `docs/agents/feature-playbook.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
+Read `docs/agents/feature-flow.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
 
 Read these before you write anything: `apps/hungry-grave/docs/adr/0011-each-input-owns-its-speed.md`, `apps/hungry-grave/docs/adr/0012-fresh-seed-per-run.md`, `apps/hungry-grave/docs/adr/0003-size-is-health.md`, `apps/hungry-grave/docs/adr/0009-creation-web-template-base.md`, `apps/hungry-grave/docs/adr/0014-readability-layering.md`, `apps/hungry-grave/docs/adr/0015-determinism-across-devices.md`, `apps/hungry-grave/docs/design/tracer-plan.md` section 3 and section 5, `apps/hungry-grave/docs/design/dispatch-3a-sim-core.md` sections 4 and 6, and `apps/hungry-grave/CONTEXT.md` for the vocabulary.
 
@@ -42,7 +42,7 @@ When it works:
    This step is an addition to the tracer plan's list, which runs the rendered check at dispatches 1, 2, 6 and 7 and not here. It is added because 3b draws the first player-visible field content since dispatch 2, and a grave that never appears would otherwise be caught first by Mark on his phone. Say in your report that you added it and why.
 
 5. Deploy to production, following `apps/hungry-grave/docs/deploy.md` exactly. Do not re-derive the recipe and do not reach for `-e` flags. Actor: you, **after** Mark says yes. Stop and ask.
-6. The on-device input check, tracer plan verification step 7: steering the grave around an otherwise empty field from the deployed URL, using the read-list in section 8. Also opening `#/digest` on the same phone and reading the verdict, which is the only browser engine outside CI's Node that this dispatch can reach. The playbook makes this escalation mandatory for input-feel changes. Actor: Mark.
+6. The on-device input check, tracer plan verification step 7: steering the grave around an otherwise empty field from the deployed URL, using the read-list in section 8. Also opening `#/digest` on the same phone and reading the verdict, which is the only browser engine outside CI's Node that this dispatch can reach. The feature flow makes this escalation mandatory for input-feel changes. Actor: Mark.
 7. Whether any tuning number feels right is a human call after playing. Never claim a number is right. Actor: Mark.
 
 ## 3. The seams under test
@@ -396,7 +396,7 @@ Verify the rule fires on the new folder the same way 3a did: write a line under 
 
 ## 5. The planned test list
 
-Pin every one of these as a named `test.todo` on a stub before you implement anything, per the playbook. Every test cites what it enforces in its name or a comment.
+Pin every one of these as a named `test.todo` on a stub before you implement anything, per the feature flow. Every test cites what it enforces in its name or a comment.
 
 **On the test environment.** There is no vitest config for this app, so tests run in the default `node` environment where `window` and `document` do not exist, and `screenLifecycle.test.ts`'s hand-rolled `window` mock is the only DOM it has. Extend that mock with `window.location` carrying an empty `search` and `hash`, and read the URL through `window.location` in `GameScreen` so the existing stub mechanism covers it. Do not add jsdom for this: it would change how every other test in the app runs, and the two things needed are two properties. Do not make the screen skip work when a global is missing, which would make the test pass while proving nothing. `document` is not needed at all, because section 4.7 registers no `visibilitychange` listener.
 

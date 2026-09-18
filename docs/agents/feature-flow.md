@@ -1,4 +1,4 @@
-# Feature playbook
+# Feature flow
 
 Every agent writing production code in this repo reads this file first and follows it.
 
@@ -71,7 +71,7 @@ Every rule binds new code only. Bringing the existing tree up to the rules is ti
 
 A code-writing dispatch prompt carries all of these, from the dispatching session:
 
-- An instruction to read `docs/agents/feature-playbook.md` and follow it.
+- An instruction to read `docs/agents/feature-flow.md` and follow it.
 - The definition of the thing, in observable terms.
 - The verification steps, each with its actor (the human or the agent).
 - The seams under test.

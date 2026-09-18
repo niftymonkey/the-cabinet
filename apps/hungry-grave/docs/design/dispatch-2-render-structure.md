@@ -1,10 +1,10 @@
 # Tracer dispatch 2: render structure
 
-This is the plan half of the feature playbook's dispatch contract for tracer plan section 6 item 2, reviewed by all three gates on 2026-08-20 and revised from their findings. Their markers are on #36.
+This is the plan half of the feature flow's dispatch contract for tracer plan section 6 item 2, reviewed by all three gates on 2026-08-20 and revised from their findings. Their markers are on #36.
 
 You are writing production code in `/home/mlo/dev/niftymonkey/the-cabinet/apps/hungry-grave`.
 
-Read `docs/agents/feature-playbook.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
+Read `docs/agents/feature-flow.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
 
 Read these before you write anything: `apps/hungry-grave/docs/adr/0014-readability-layering.md`, `apps/hungry-grave/docs/adr/0003-size-is-health.md`, `apps/hungry-grave/docs/research/readability-value-band.md` sections 0 and 7, `apps/hungry-grave/docs/design/tracer-plan.md` section 3, and `apps/hungry-grave/CONTEXT.md` for the vocabulary.
 
@@ -214,7 +214,7 @@ export class FieldLayers {
 
 ## 5. The planned test list
 
-Pin every one of these as a named `test.todo` on a stub before you implement anything, per the playbook. Every test cites what it enforces in its name or a comment.
+Pin every one of these as a named `test.todo` on a stub before you implement anything, per the feature flow. Every test cites what it enforces in its name or a comment.
 
 ### `src/app/color.test.ts`
 

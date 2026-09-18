@@ -1,6 +1,6 @@
 # Dispatch plan: path step 3, the playing harness (ticket #98)
 
-Planning half only, written per `docs/agents/feature-playbook.md`. No production code was written and no repo file was edited for this plan.
+Planning half only, written per `docs/agents/feature-flow.md`. No production code was written and no repo file was edited for this plan.
 
 The design record it runs on is `playing-harness.md`. Every magnitude appears only as a data row marked initial. Section 12 of that record took two calls under their recommended default and this plan is written against both: the base policy belches, and the director's budget is pinned to the build so the format bump carries one field. The grave swallows and passes under; it never drives.
 

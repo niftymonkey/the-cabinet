@@ -27,7 +27,7 @@ New tooling and process changes wait. Ticket them and land them between branches
 
 The plan for a step is one slice entry per slice, in run order. One entry is the plan for that slice and the prompt its coder receives. It says what the slice builds and why, the parts of the code it touches (by name), its tests, what must stay unchanged, and when it is done.
 
-Write each entry from the step's design record. What holds for every slice lives in the coder contract, and what a coder can find by looking at the code stays in the code. The dispatch is the entry plus pointers to the coder contract and the feature playbook. Write the entry so the dispatch carries every item the feature playbook's dispatch contract lists, or the coder stops and reports.
+Write each entry from the step's design record. What holds for every slice lives in the coder contract, and what a coder can find by looking at the code stays in the code. The dispatch is the entry plus pointers to the coder contract and the feature flow. Write the entry so the dispatch carries every item the feature flow's dispatch contract lists, or the coder stops and reports.
 
 The coder note has a fixed short form: what changed (by name), the verification results, where the entry was wrong about the code, decisions made with their evidence, open items, and last the stuck line. The story of the work stays out.
 

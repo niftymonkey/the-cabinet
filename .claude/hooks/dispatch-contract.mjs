@@ -1,6 +1,6 @@
 /**
  * PreToolUse gate: a code-writing dispatch prompt must point the coding agent
- * at docs/agents/feature-playbook.md (section "The dispatch contract").
+ * at docs/agents/feature-flow.md (section "The dispatch contract").
  */
 
 const AGENT_TOOL_NAMES = new Set(['Agent', 'Task']);
@@ -24,12 +24,12 @@ const NON_CODING_SUBAGENT_TYPES = new Set([
 ]);
 
 /**
- * The playbook's own path, not its bare filename.
+ * The feature flow's own path, not its bare filename.
  *
  * The contract is that the agent reads this file, so the prompt has to name the
  * place it lives.
  */
-const PLAYBOOK_POINTER = 'docs/agents/feature-playbook.md';
+const FEATURE_FLOW_POINTER = 'docs/agents/feature-flow.md';
 /**
  * The escape hatch, which must open only on its own line.
  *
@@ -41,8 +41,8 @@ const NON_CODING_MARKER = /^[ \t]*Non-coding dispatch:/m;
 
 const DENY_REASON =
   'This looks like a code-writing dispatch. The dispatch contract ' +
-  '(docs/agents/feature-playbook.md, section "The dispatch contract") requires ' +
-  'the prompt to instruct the agent to read docs/agents/feature-playbook.md and ' +
+  '(docs/agents/feature-flow.md, section "The dispatch contract") requires ' +
+  'the prompt to instruct the agent to read docs/agents/feature-flow.md and ' +
   'follow it, and to carry: the definition in observable terms, the verification ' +
   'steps with actors, the seams under test, the module boundaries, and the ' +
   'planned test list. If this is not a code-writing dispatch, restate the prompt ' +
@@ -76,7 +76,7 @@ function isCodeWritingDispatch(toolName, toolInput) {
 }
 
 function promptCarriesContract(prompt) {
-  return prompt.includes(PLAYBOOK_POINTER) || NON_CODING_MARKER.test(prompt);
+  return prompt.includes(FEATURE_FLOW_POINTER) || NON_CODING_MARKER.test(prompt);
 }
 
 function shouldDeny(payload) {

@@ -1,6 +1,6 @@
 # The tuning record
 
-Planning half only, in the shape every step's build plan on this branch took, written per `docs/agents/feature-playbook.md`. No production code was written for this record and nothing inside the worktree was edited: slice G is in flight there and its files are uncommitted.
+Planning half only, in the shape every step's build plan on this branch took, written per `docs/agents/feature-flow.md`. No production code was written for this record and nothing inside the worktree was edited: slice G is in flight there and its files are uncommitted.
 
 **What this draft may claim.** Every claim about existing code cites a file and a line, read on 2026-09-15 at branch tip `524bb68447` with slice G's 48 files still uncommitted, and every line number goes stale the moment slice G commits. The tip this step plans against is the one slice G leaves behind: `FORMAT_VERSION` 4 (`wireCodes.ts:50` in the working tree, 3 at HEAD), `signalLockFromUrl` a sixth URL parser, `signalLock.ts` present.
 

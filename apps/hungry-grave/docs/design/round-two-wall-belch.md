@@ -1,6 +1,6 @@
 # Design record: round two of step 4, the push, the belch, the meter and the Wall (tickets #126, #124, #127 and #123)
 
-Planning half only, written per `docs/agents/feature-playbook.md`. No production code was written and nothing in the worktree was edited while this record was made. The research it stands on is [`../research/push-feel-precedent.md`](../research/push-feel-precedent.md), and every craft number below traces to a source there.
+Planning half only, written per `docs/agents/feature-flow.md`. No production code was written and nothing in the worktree was edited while this record was made. The research it stands on is [`../research/push-feel-precedent.md`](../research/push-feel-precedent.md), and every craft number below traces to a source there.
 
 ## 0. What this record may claim, and what it cannot
 

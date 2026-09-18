@@ -2,13 +2,13 @@
 
 Things this repo learned the expensive way. Each one cost a real defect, a wasted round, or a session.
 
-They are here rather than in a session handoff because they outlive the work that produced them. Rules that can be enforced live in `feature-playbook.md` and `review-gates.md` instead; what is here is judgment, which cannot be.
+They are here rather than in a session handoff because they outlive the work that produced them. Rules that can be enforced live in `feature-flow.md` and `review-gates.md` instead; what is here is judgment, which cannot be.
 
 Codebase-specific traps live beside their code. The Hungry Grave's are in `apps/hungry-grave/docs/lessons.md`.
 
 ## Planning
 
-**A plan's every claim about existing code needs a file and a line.** Three claims in one document were false, and every one was false only against a file the plan never opened. This is now a rule in `feature-playbook.md` rather than a lesson, along with listing every reader of a constant a plan changes.
+**A plan's every claim about existing code needs a file and a line.** Three claims in one document were false, and every one was false only against a file the plan never opened. This is now a rule in `feature-flow.md` rather than a lesson, along with listing every reader of a constant a plan changes.
 
 **A claim about a dependency is checked in `node_modules`, not from memory.** Agents on one ticket checked their instructions against PixiJS's source repeatedly and found several claims wrong, two of them in their own dispatch prompts and one in this repo's pinned rules record. Two that paid for the habit outright: `Pool.get(data)` already calls `item.init?.(data)`, which is what made a whole phase of powers-as-props cheap, and the text setter early-returns on an identical string, which retired four hand-written caches.
 

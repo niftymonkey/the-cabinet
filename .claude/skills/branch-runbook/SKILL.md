@@ -51,7 +51,7 @@ On start, run the resume check: the working tree is clean, the tip equals origin
 
 Each of these has its own home. The runbook points at them and repeats none of them.
 
-- The feature playbook (`docs/agents/feature-playbook.md`) and its dispatch hook (`.claude/hooks/dispatch-contract.mjs`): how one slice of code is written and tested.
+- The feature flow (`docs/agents/feature-flow.md`) and its dispatch hook (`.claude/hooks/dispatch-contract.mjs`): how one slice of code is written and tested.
 - The merge gate hook (`require-review-before-merge.py`, in Mark's global hooks): CodeRabbit must have reviewed the exact commit being merged.
 - The context watchdog (`context-watchdog.sh`) and the session-start hook (`session-start-resume.sh`), both in Mark's global hooks: at the threshold the handoff is updated, and Mark chooses whether the session stops.
 - The `stay-within-limits` skill: the usage line values and the check between slices.

@@ -1,6 +1,6 @@
 # Tracer dispatch 5: weapon lines and the economy
 
-This is the plan half of the feature playbook's dispatch contract for tracer plan section 6 item 5.
+This is the plan half of the feature flow's dispatch contract for tracer plan section 6 item 5.
 
 Dispatch 4 filled the field and gave the player one verb: dodge. Nothing in that build kills a mob except `clearingPolicy`, the test rig's stand-in for the storm. This dispatch gives the grave its teeth. Four weapon lines fire, kills leave corpses that were already built to be swallowed, drops arrive on a rising price and level the lines, the reservoir fills and the belch fires, and the game makes sound for the first time.
 
@@ -8,7 +8,7 @@ It is also the dispatch the record has been deferring to. Section 9 of `dispatch
 
 You are writing production code in `/home/mlo/dev/niftymonkey/the-cabinet/apps/hungry-grave`.
 
-Read `docs/agents/feature-playbook.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
+Read `docs/agents/feature-flow.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
 
 Read these before you write anything: `apps/hungry-grave/docs/adr/0005-weapon-lines-are-a-pool.md`, `apps/hungry-grave/docs/adr/0002-corpses-are-fuel-and-carriers-meter-power.md`, `apps/hungry-grave/docs/adr/0008-the-belch-full-only-gas-everywhere-shove-nearby.md`, `apps/hungry-grave/docs/adr/0004-one-freshness-meter.md`, `apps/hungry-grave/docs/adr/0003-size-is-health.md`, `apps/hungry-grave/docs/adr/0014-readability-layering.md`, `apps/hungry-grave/docs/adr/0013-the-sim-verification-contract.md`, `apps/hungry-grave/docs/adr/0015-determinism-across-devices.md`, `apps/hungry-grave/docs/adr/0016-mob-types-and-formations-are-pools.md`, `apps/hungry-grave/docs/design/tracer-plan.md` sections 3, 4 and 5, `apps/hungry-grave/docs/design/dispatch-4-field.md` sections 9 and 10, and `apps/hungry-grave/CONTEXT.md` for the vocabulary.
 
@@ -1034,7 +1034,7 @@ Do not act on these. They are here so the next planner does not rediscover them.
 - **A File above count 6 stops reading as a file.** Trigger: the first File count above 6, which is dispatch 7's density work.
 - **The ghoul's turn rate, `GRAVE_ASPECT`'s effect on the Undertaker, and `DRAG_RATIO`'s input parity** are all unchanged and all still owned as dispatch 4 left them.
 - **`user-scalable=no`, the corner readouts, `?size=`, `#/digest` and `#/prototypes`** are all still #38's, unowned by any dispatch before it.
-- **The tracer plan's module list has never been swept for unowned modules.** `docs/agents/feature-playbook.md` now requires that sweep before the next dispatch is planned, and this is the instance: every module the tracer plan names either has a dispatch that owns it or is recorded here as unowned with a trigger. `src/dev/instruments.ts` is the one already known, and the sweep is what says whether there are others. **Trigger: before dispatch 6 is planned**, by the main thread rather than by a dispatch agent.
+- **The tracer plan's module list has never been swept for unowned modules.** `docs/agents/feature-flow.md` now requires that sweep before the next dispatch is planned, and this is the instance: every module the tracer plan names either has a dispatch that owns it or is recorded here as unowned with a trigger. `src/dev/instruments.ts` is the one already known, and the sweep is what says whether there are others. **Trigger: before dispatch 6 is planned**, by the main thread rather than by a dispatch agent.
 - **The drop price table must be re-derived when dispatch 6 lands, and section 3's stated trigger cannot see why.** Section 3 routes a re-derivation to dispatch 7 "if it moves the counts", and dispatch 6 moves the currency supply without moving a count: the Banshee's shed and the Undertaker's digger adds both pay through `creditKill` while the authored row tables stay at 268 trash. More kills against the same twelve prices is more drops per run, straight out of the ten-to-twelve band. **Trigger: dispatch 6, at the moment either boss produces a killable body.**
 - **`runPolicy` does not go through `advance`, and ADR 0015's stated reason for the accumulator's home is untrue because of it.** The ADR says the accumulator lives where it does "so the autopilot and the rendered screen share one implementation", and `src/dev/bot.ts:44` calls `stepChecked` directly. Section 6.13 declines to fix it here because it reshapes the rig in the same dispatch that rewrites every full-run test. Trigger: dispatch 7, with the dev-only autopilot, which is the change that makes the ADR's sentence load-bearing.
 - **The bell's levels 1 to 3 differ only in radius**, which section 8 argues is close to no visible ladder at all under a falloff to 0.5 damage against three-health trash. Trigger: Mark's read in section 10, and dispatch 7 if it reads as flat.

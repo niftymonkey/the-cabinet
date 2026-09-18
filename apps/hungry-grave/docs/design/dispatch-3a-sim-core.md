@@ -1,12 +1,12 @@
 # Tracer dispatch 3a: the headless sim core
 
-This is the plan half of the feature playbook's dispatch contract for tracer plan section 6 item 3, which Mark split in two on 2026-08-20: 3a is the headless sim, 3b is the app wiring that makes it playable and ends at his on-device input check. The split reason is on the tracer plan.
+This is the plan half of the feature flow's dispatch contract for tracer plan section 6 item 3, which Mark split in two on 2026-08-20: 3a is the headless sim, 3b is the app wiring that makes it playable and ends at his on-device input check. The split reason is on the tracer plan.
 
 All three review gates ran on the first draft of this plan on 2026-08-20 and holed it in about thirty places. Markers are on #36: product vision `5361754391`, game design `5361767886`, tech architecture in the same thread. Everything they found is folded in below, so read this document rather than the markers.
 
 You are writing production code in `/home/mlo/dev/niftymonkey/the-cabinet/apps/hungry-grave`.
 
-Read `docs/agents/feature-playbook.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
+Read `docs/agents/feature-flow.md` at the repo root first and follow it. This prompt is the plan half of its dispatch contract; you execute.
 
 Read these before you write anything: `apps/hungry-grave/docs/adr/0015-determinism-across-devices.md`, `apps/hungry-grave/docs/adr/0003-size-is-health.md`, `apps/hungry-grave/docs/adr/0004-one-freshness-meter.md`, `apps/hungry-grave/docs/adr/0002-corpses-are-fuel-and-carriers-meter-power.md`, `apps/hungry-grave/docs/adr/0008-the-belch-full-only-gas-everywhere-shove-nearby.md`, `apps/hungry-grave/docs/adr/0011-each-input-owns-its-speed.md`, `apps/hungry-grave/docs/adr/0012-fresh-seed-per-run.md`, `apps/hungry-grave/docs/adr/0013-the-sim-verification-contract.md`, `apps/hungry-grave/docs/adr/0014-readability-layering.md`, `apps/hungry-grave/docs/design/tracer-plan.md` section 3 and section 5, and `apps/hungry-grave/CONTEXT.md` for the vocabulary.
 
@@ -427,7 +427,7 @@ Verify the rule actually fires. Write a line that should trip it, run `pnpm lint
 
 ## 5. The planned test list
 
-Pin every one of these as a named `test.todo` on a stub before you implement anything, per the playbook. Every test cites what it enforces in its name or a comment. Every test that steps the sim goes through `stepChecked`.
+Pin every one of these as a named `test.todo` on a stub before you implement anything, per the feature flow. Every test cites what it enforces in its name or a comment. Every test that steps the sim goes through `stepChecked`.
 
 ### `src/game/math.test.ts`
 
