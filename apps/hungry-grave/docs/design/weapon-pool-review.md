@@ -39,9 +39,9 @@ Read by where and when each line acts, the pool is: **my lane / anywhere / aroun
 
 ## Territory is a swap, never a fifth line
 
-Two independent hard reasons, both verified in the main thread rather than taken from a report.
+The ruling was made on two independent hard reasons. One of them still holds.
 
-**The tape format refuses growth.** `decode.ts:189` compares the file's format version against `FORMAT_VERSION` with strict equality and throws. `HEADER_LEVELS_ORDER` in `wireCodes.ts:130` writes exactly four level bytes, positionally, and its own comment calls the layout "permanent from the first tape". A fifth line grows the header, which is a layout change, so every tape ever recorded would stop decoding at all. Not degrade: refuse. ADR 0020 commits player-facing replay to v1.
+**The tape format no longer refuses growth.** When this review was written, the header wrote exactly four level bytes by position, so a fifth line would have stopped every recorded tape from decoding. That stopped being true in 4d380f9e66 (#76): `HEADER_LEVELS_ORDER` is gone, a test asserts it stays gone (`wireCodes.test.ts`), and the header now carries one length-prefixed self-describing block with a `levels.<line>` entry per fielded line (`wireCodes.ts`, ADR 0043). A fifth line would still change the sim, so a tape recorded before it would not replay after it, as with any rule change. This reason no longer holds the pool at four. The next one still does.
 
 **The drop silhouettes are full.** `docs/design/drop-legibility-fix.md` splits the four drops on tall, round, pointed, wide, and states that the coarse axis is exhausted at four lines. Colour is closed as a substitute (hue is fenced by mob fire and the brown ban, and three of the four line colours already sit within two degrees of each other) and brightness is closed because steady-bright means treasure under ADR 0004.
 
