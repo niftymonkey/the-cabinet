@@ -87,7 +87,7 @@
 
 meta:
   ticket_url_base: "https://github.com/niftymonkey/the-cabinet/issues/"
-  v1_in_one_line: "one stage, a final boss, dressed,//played on desktop and phone"
+  v1_in_one_line: "one stage, a final boss,//played on desktop and phone"
 
 # =============================================================================
 # OUTPUTS
@@ -116,11 +116,11 @@ outputs:
 # A self-check for anything that rebuilds this. Not a source of truth.
 tally:
   promises_total: 29
-  by_state: { kept: 15, part: 10, open: 4 }
+  by_state: { kept: 17, part: 10, open: 2 }
   by_primary: { box: 14, s1: 14, s7: 1 }
-  adr_failures: 3
-  work_cards: 14
-  fog_items: 16
+  adr_failures: 2
+  work_cards: 15
+  fog_items: 12
 
 # The display wording for each state, when an output shows a key or legend.
 states:
@@ -179,15 +179,18 @@ promises:
     primary: box
     sources: [box]
     adrs: []
-    state: part
+    state: kept
     clause: "One authored stage."
     short: "One authored stage"
     gloss: >-
-      40 rows of trash authored; both boss phases are empty lists
+      all sections authored: 66 trash rows, a Waking pour, two real bosses
     evidence: >-
-      The ramp is 21 rows and the back half is 19, authored in
-      src/game/stage/stage.ts. Both boss phases are empty row lists that end on
-      the tick they begin.
+      waves.ts authors 66 trash rows across three sections (procession 17,
+      crowd 37, vigil 12), plus a generated Waking pour (setPiece.ts). Both boss
+      phases are real fights: banshee.ts and undertaker.ts each carry a health
+      table and an attack pattern in bosses/phases.ts (banshee 1100+1100 hp,
+      undertaker 1700x3), not the empty row lists this promise described before
+      PR #147.
     tickets: []
 
   - id: p2
@@ -195,15 +198,18 @@ promises:
     primary: box
     sources: [box]
     adrs: ["0007"]
-    state: open
+    state: kept
     clause: "A final boss."
     short: "A final boss"
     gloss: >-
-      no boss mob type exists at all
+      the Undertaker: three 1700hp phases and a shootable attack pattern
     evidence: >-
-      No boss mob type exists; src/game/mobs.ts is shambler, revenant and ghoul.
-      Dispatch 6.
-    tickets: [39]
+      src/game/bosses/undertaker.ts and bosses/phases.ts give the Undertaker
+      three 1700hp phases with its own pattern. endings.test.ts: "fires victory
+      on the Undertaker's death and never on reaching a section." mobs.ts's
+      shambler/revenant/ghoul list this promise once cited is trash only; a
+      boss is its own module now, not a mob type.
+    tickets: []
 
   - id: p3
     n: 3
@@ -214,12 +220,16 @@ promises:
     clause: "Playable start to finish in a desktop browser."
     short: "Start to finish in a desktop browser"
     gloss: >-
-      a run reaches victory, but victory is still a stub
+      victory fires on the Undertaker's death; a fresh run never reaches it yet
     evidence: >-
-      A run reaches victory across five seeds and the build is deployed. But
-      victory is still dispatch 4's stub firing on the over phase, not the
-      Undertaker's death.
-    tickets: []
+      endings.test.ts replaces dispatch 4's stub: victory now fires on the
+      Undertaker's death. But bot.test.ts's REACHES_VICTORY_FRESH is an empty
+      array: none of the five fresh seeds under the ordinary bot hand reach
+      victory today; only REACHES_VICTORY_MAXED's pre-built loadout does, on
+      all five. Every seed still reaches a definite ending, sealed or victory,
+      so a run completes start to finish, but finishing by beating the boss is
+      unverified for ordinary play.
+    tickets: [39]
 
   - id: p4
     n: 4
@@ -232,17 +242,21 @@ promises:
       work inside v1.
     short: "Start to finish in a phone browser"
     gloss: >-
-      fitted and tested at 390x844; your phone sign-off is unrun
+      fitted and tested at 390x844; the phone-first ruling reopens the ask at a
+      bigger scope
     evidence: >-
-      The layout is fitted and tested at 390x844, and one real-phone read
-      already changed the code. The standing phone sign-off has not been run.
-    tickets: [72]
+      layout.test.ts still asserts "presents the whole field on a 390 by 844
+      phone viewport." Mark ruled 2026-09-19 that the game is designed
+      phone-first, with a desktop browser showing that same design inside its
+      window with side bars (recorded in a #72 comment), which replaces the
+      narrower sign-off this promise named with a bigger one.
+    tickets: [151, 72]
 
   - id: p5
     n: 5
     primary: box
     sources: [box]
-    adrs: ["0018", "0027"]
+    adrs: ["0027"]
     state: kept
     clause: >-
       Every run is recorded as a tape carrying its dice, its resolved starting
@@ -279,32 +293,36 @@ promises:
       report a number.
     short: "A tape that cannot prove itself refuses"
     gloss: >-
-      true in the library; a truncated tape kills the tool instead
+      cuts after the header decode cleanly; a cut header is still a hard
+      refusal, and #64 stays open
     evidence: >-
-      The library half is kept: measure returns metrics, divergence or refusal
-      and never a metric off an unverified replay, and watching stops at the
-      bound and says so. A truncated tape is the gap. It throws and kills the
-      tool instead of taking the refusal arm, so the fact never reaches a
-      report, and one of the eight recorded runs on disk is already in that
-      state.
+      codec.test.ts's "decodes to its last complete record, wherever the cut
+      lands" sweeps every truncation length from the end of the header onward
+      and proves none of them throw. A cut inside the header itself is still
+      refused by decodeTape's own documented rule: readHeader runs on an
+      incomplete chunk with no !complete guard, unlike readTrailer's explicit
+      reportCutTrailer() arm. scripts/measure.ts's decodeOrRefuse now catches
+      that TapeFormatError and prints a clean "not a tape" refusal instead of
+      crashing with a stack trace, but that still folds a truncated recording
+      into the same message as a corrupt one and never reaches measure()'s
+      three-arm report, which is what #64 asks for.
     tickets: [64]
 
   - id: p8
     n: 8
     primary: box
     sources: [box]
-    adrs: ["0020"]
+    adrs: []
     state: part
     clause: >-
       Handing a tape over as a file: saving one you can keep, and opening one
       somebody sent you.
     short: "Hand a tape over as a file"
     gloss: >-
-      saving is built and player-facing; opening one is not built at all
+      saving is unchanged; there is still no way to open a tape file
     evidence: >-
-      Saving is player-facing on the end screen. Opening is not built at all:
-      there is no file input or file picker anywhere in src, and the only way in
-      is a URL.
+      tapeExport.ts still does the player-facing save. No file input, file
+      picker, or FileReader exists anywhere in src.
     tickets: [49]
 
   - id: p9
@@ -327,7 +345,7 @@ promises:
     n: 10
     primary: box
     sources: [box]
-    adrs: ["0009"]
+    adrs: []
     state: kept
     clause: >-
       PixiJS v8 on the create-pixi creation-web template, Vite and Vitest in the
@@ -343,7 +361,7 @@ promises:
     n: 11
     primary: box
     sources: [box]
-    adrs: ["0010"]
+    adrs: []
     state: kept
     clause: >-
       The real game is built fresh from the blank scaffold, with nothing lifted
@@ -359,7 +377,7 @@ promises:
     n: 12
     primary: box
     sources: [box, s1]
-    adrs: ["0010"]
+    adrs: []
     state: kept
     clause: >-
       Prototypes stay reachable and self-contained behind #/prototypes, and the
@@ -407,7 +425,7 @@ promises:
     n: 15
     primary: s1
     sources: [s1]
-    adrs: ["0010"]
+    adrs: []
     state: kept
     clause: >-
       A player who opens the deployed URL lands in the real game and starts a
@@ -428,17 +446,21 @@ promises:
     clause: "They play the five-minute authored stage from the design record."
     short: "The five minute authored stage"
     gloss: >-
-      3:25 of it runs; the missing 90 seconds are the boss stubs
+      both boss stubs are gone; the five-minute figure itself is still untuned
     evidence: >-
-      The trash half runs 3:25, which matches the record. The missing 90 seconds
-      are the two boss fights, which are stubs.
-    tickets: []
+      Both boss phases are real fights now (see p1, p2), so the old
+      3:25-trash-plus-90-second-stub split no longer describes the build. But
+      PR #147 states "no balance value moved," so how long the authored stage
+      actually plays against the five-minute figure is unmeasured;
+      bot.test.ts's STAGE_TICKS and PROCESSION_TICKS are budgets, not a
+      measured length.
+    tickets: [39]
 
   - id: p17
     n: 17
     primary: s1
     sources: [s1]
-    adrs: ["0016"]
+    adrs: []
     state: kept
     clause: >-
       Three mob types share the field, visibly different in behaviour and
@@ -483,17 +505,15 @@ promises:
       grows teeth across the run.
     short: "Quickly fun early, teeth later"
     gloss: >-
-      all built; cannot be judged until the tuning loop has run
+      built; the blocking condition (stub bosses) is gone, but nobody has
+      replayed it
     evidence: >-
-      The birthright, the price curve and the later phases are built. Mark's
-      2026-08-23 read says the dodging-only chain is broken and it may now be
-      too easy; that went to the instrument rather than an answer. On 2026-08-26
-      he ruled it cannot be gauged at all yet: both boss phases are stubs, so the
-      run cannot get hard, and every measured tape ends in a victory at the same
-      tick. It is answered by the tuning loop, not by another play. His
-      2026-08-29 play of the settled weapon pool said it plays well, which does
-      not move that ruling: both bosses are still stubs.
-    tickets: []
+      Mark's 2026-08-26 ruling that this cannot be gauged rested on both boss
+      phases being stubs. PR #147 (merged 2026-09-18) built both bosses for
+      real, so that specific block no longer holds structurally. No play or
+      design-record entry since the merge re-judges the read; this is a human
+      call code cannot settle.
+    tickets: [39, 31]
 
   - id: p20
     n: 20
@@ -538,16 +558,22 @@ promises:
     primary: s1
     sources: [s1]
     adrs: []
-    state: open
+    state: part
     clause: >-
       One belch plus good maneuvering and guns beats the boss; two or three in
       one fight reads as skilled play.
     short: "One belch plus good play beats the boss"
     gloss: >-
-      cannot be asked; there is no boss
+      the boss now exists; whether one belch plus good play beats it is
+      unmeasured
     evidence: >-
-      No boss.
-    tickets: []
+      The Undertaker is built and the decision log's boss-versus-belch ruling
+      (full damage, zero pushback) is implemented, so the question can now be
+      asked for the first time. But bot.test.ts's REACHES_VICTORY_FRESH is
+      empty: no seed under ordinary progression currently reaches victory at
+      all, so the claim is unverified and possibly not true at today's
+      balance.
+    tickets: [39, 31]
 
   - id: p23
     n: 23
@@ -559,11 +585,13 @@ promises:
     clause: "The grave-to-mob scale fits the density the field is tuned to hold."
     short: "Grave-to-mob scale fits the density"
     gloss: >-
-      belongs to the tuning pass, and the density is unmeasured
+      the tuning tool exists now; no tuning round has actually run
     evidence: >-
-      Dispatch 7 owns it, and the density it would be judged against is not
-      measured yet.
-    tickets: []
+      Step 6 of the V1 push built the tuning record, the sweep runner and
+      batch tooling (docs/design/tuning-record.md, scripts/sweep.ts,
+      scripts/batch.ts), but PR #147 states "no balance value moved." The
+      density this promise would be judged against is still unmeasured.
+    tickets: [39]
 
   - id: p24
     n: 24
@@ -572,15 +600,22 @@ promises:
     adrs: []
     state: part
     clause: >-
-      The field lays out for phone and desktop through one fitted mapping of the
-      fixed field into the viewport.
-    short: "One fitted mapping, phone and desktop"
+      The game is designed phone-first, and a desktop browser shows that same
+      design fitted inside its window, with bars at the sides.
+    short: "One design, fitted to every window, phone-first"
     gloss: >-
-      built and tested both ways; your phone read is unrun
+      the mapping is built and tested both ways; the phone-first design pass
+      has not happened
     evidence: >-
-      fitField is the single mapping and is tested on both viewports. The
-      unfinished half is the human read on a real phone.
-    tickets: [72]
+      Mark ruled 2026-09-19 that the game is designed phone-first: the look,
+      feel and layout are defined on a phone, and a desktop browser shows that
+      same design in its window with bars at the sides. He intends a native
+      phone game later. fitField already maps the one fixed field into
+      whatever viewport it gets, and is tested on both a phone and a desktop
+      width, but that mapping predates the ruling and was not built
+      phone-first. The phone-first design pass is #151; #72 is what stands of
+      the older frame work.
+    tickets: [151, 72]
 
   - id: p25
     n: 25
@@ -593,30 +628,38 @@ promises:
       the density this build actually produces.
     short: "Mob fire wins in grayscale"
     gloss: >-
-      the colours are enforced; never checked at a measured density
+      declared colours still enforced; the grayscale check at measured density
+      still hasn't run
     evidence: >-
-      The declared-colour half is fully enforced by a source scan. The grayscale
-      screenshot at a measured density has never been run, and the airborne
-      projectile figure is recorded nowhere; src/dev/instruments.ts does not
-      exist.
-    tickets: []
+      palette.test.ts's source scan still enforces every declared colour
+      outside mob fire's reserved band. src/dev/instruments.ts still does not
+      exist, and no reading under src/dev/readings/ counts mob-fire projectiles
+      specifically (fieldPerLine.ts is a per-weapon-line proxy that "claims
+      nothing about how much of the field anything covers"). The grayscale
+      screenshot at a measured density has still never been run.
+    tickets: [39]
 
   - id: p26
     n: 26
     primary: s1
     sources: [s1, s7]
-    adrs: ["0012", "0015"]
+    adrs: ["0019"]
     state: part
     clause: >-
       Every run rolls a fresh seed, ?seed= pins it in both forms, the seed is
       visible, and a pinned seed replays the same run on a phone and a desktop.
     short: "Fresh seed, pinned, visible, cross-device"
     gloss: >-
-      built; the on-screen readout has no test, the device check is unrun
+      the on-screen seed readout now has a test; the cross-device check is
+      still unrun
     evidence: >-
-      The roll and both URL forms are built and tested. The on-screen seed
-      readout has no test at all. The cross-device check itself has not been run.
-    tickets: []
+      RunHud.test.ts now covers the readout directly: "shows the seed the run
+      rolled, and says PINNED only when the URL named one," asserting both
+      "SEED 8675309" and "SEED 8675309 PINNED." The roll and both URL forms
+      (seedFromUrl.test.ts) are still tested. The cross-device replay check, a
+      pinned seed played on a phone and a desktop, has still not been run by a
+      person.
+    tickets: [72, 151]
 
   - id: p27
     n: 27
@@ -643,7 +686,7 @@ promises:
     n: 28
     primary: s1
     sources: [s1]
-    adrs: ["0015"]
+    adrs: ["0019"]
     state: kept
     clause: >-
       No sim number varies by device; any phone difference stays in presentation.
@@ -664,10 +707,15 @@ promises:
     clause: "The Halloween art and theming pass."
     short: "The Halloween art and theming pass"
     gloss: >-
-      mob shapes, sounds and UI are all still placeholders
+      still all placeholders; ruled off the V1 line 2026-09-19
     evidence: >-
       Mob silhouettes are placeholders by their own comment, the five sounds are
-      synthesized placeholders, and the UI art is still the template's.
+      synthesized placeholders, and the UI art is still the template's. Mark
+      ruled this pass off the V1 line on 2026-09-19. A 2026-09-07 comment on
+      #72 had already called it "off the V1 line," so this ruling changes the
+      never-cut status the tracer plan gave it: it was promised out loud and
+      never cut, and now it is cut from V1. The work itself moves to
+      not_on_the_road; #38 and #47 stay its tickets.
     tickets: [38, 47]
 
 # =============================================================================
@@ -682,7 +730,7 @@ adr_failures:
 
   - id: f1
     state: not_met
-    adrs: ["0022"]
+    adrs: []
     rule: >-
       A player build does not honour a measurement control even when it is typed
       by hand.
@@ -699,35 +747,9 @@ adr_failures:
       instrument routes for replay and runs are reachable the same way.
     tickets: [66]
 
-  - id: f2
-    state: not_met
-    adrs: ["0004"]
-    rule: >-
-      Freshness scales every payout, growth and burst and reservoir charge alike.
-    short: "Freshness scales every payout"
-    note: >-
-      Growth shrinks with a corpse's freshness and belch charge shrinks with it.
-      The burst does not: the two lines that fire on a swallow are called
-      without it and cannot take it. So a corpse at the rot floor buys the same
-      volley as a fresh kill, and the greed deadline the whole meter exists for
-      is missing from its loudest half. Ticket #68.
-    evidence: >-
-      Growth and reservoir charge scale. The burst does not: surgeStream and
-      launchWisps are called from swallow.ts with no freshness argument and their
-      signatures cannot take one, so a corpse at the rot floor fires the same
-      volley as a fresh kill, and the greed deadline the whole meter exists for
-      is missing from its loudest half.
-    ruling: >-
-      Mark ruled the axes on 2026-08-25 as a starting point, repercussions to be
-      dealt with in tuning: the wisps scale by count, floored at one soul; the
-      soul stream surge scales by duration. This fills a gap ADR 0004 left rather
-      than superseding anything in it, and wants promoting to its own ADR when
-      the work is picked up.
-    tickets: [68]
-
   - id: f4
     state: not_met
-    adrs: ["0005"]
+    adrs: []
     rule: "The four weapon-line motions never blur."
     short: "The four motions never blur"
     note: >-
@@ -780,63 +802,58 @@ when_values: [now, next, after]
 
 work:
 
-  - id: n39a
-    ticket: 39
-    theme: stage
-    when: after
-    title: "Both bosses"
-    note: >-
-      and both endings. Stubs today, so no run can really be won.
-
-  - id: n39b
-    ticket: 39
-    theme: feel
+  - id: n153
+    ticket: 153
+    theme: foundations
     when: now
-    title: "The tuning pass"
+    title: "Feature flow: the red step must fail"
     note: >-
-      density and scale first, pricing last. *Runs before the named playtest.*
+      the red step has to be the check itself failing, not a stand-in. Rides
+      with #154.
 
-  - id: n31
-    ticket: 31
+  - id: n154
+    ticket: 154
+    theme: foundations
+    when: now
+    title: "Feature flow: states too short to photograph"
+    note: >-
+      the rendered check and some states pass too fast to screenshot. Must land
+      before branch 2.
+
+  - id: n86
+    ticket: 86
+    theme: foundations
+    when: now
+    title: "Old design docs read as current"
+    note: >-
+      one false line, weapon-pool-review.md, still names a removed header rule.
+      The rest of the sweep is unscheduled.
+
+  - id: n152
+    ticket: 152
+    theme: foundations
+    when: now
+    title: "The full-stage fingerprint"
+    note: >-
+      replaces the pinned GOLDEN digest with a harness fingerprint, so a later
+      branch can prove the sim did not move. With #109, #146.
+
+  - id: n148
+    ticket: 148
     theme: feel
     when: next
-    title: "The playtest"
+    title: "The grave in the ground, and the fall"
     note: >-
-      you and a named tester. Answers the central bet.
+      the swallow becomes a visible hole.io-style fall, for a corpse and for the
+      boss (#106).
 
-  - id: n68
-    ticket: 68
+  - id: n149
+    ticket: 149
     theme: feel
-    when: now
-    title: "Rotten food pays full"
-    note: >-
-      freshness never reaches the burst, so the greed deadline is missing from
-      its loudest half.
-
-  - id: n38
-    ticket: 38
-    theme: dress
     when: next
-    title: "Halloween art"
+    title: "The toll and the bleed get a visible consequence"
     note: >-
-      the only never-cut item still open. No design exists yet.
-
-  - id: n47
-    ticket: 47
-    theme: dress
-    when: now
-    title: "Real audio"
-    note: >-
-      five placeholder sounds. Whether it is inside V1 is #67.
-
-  - id: n67
-    ticket: 67
-    theme: dress
-    when: now
-    title: "Is audio in V1?"
-    note: >-
-      never ruled either way, so V1 can be declared done with placeholders in,
-      or grow by weeks.
+      neither reads on screen today. #131, #132 and #137 ride with it.
 
   - id: n66
     ticket: 66
@@ -844,70 +861,91 @@ work:
     when: next
     title: "Two build flavours"
     note: >-
-      ?levels= and ?size= are live on the deployed URL right now. In V1 by
-      ruling.
+      ?levels= and ?size= are still live on the deployed URL. Must land before
+      the store goes public.
 
-  - id: n49
-    ticket: 49
+  - id: n100
+    ticket: 100
     theme: release
-    when: now
-    title: "Keep a replay"
+    when: next
+    title: "The store"
     note: >-
-      save your run, open one you were sent. None of it is built.
+      Neon and Blob are provisioned; nothing in src uploads a run yet. With
+      #111.
 
   - id: n64
     ticket: 64
     theme: foundations
     when: next
-    title: "A cut tape kills the tool"
+    title: "A cut tape names its truncation"
     note: >-
-      it throws instead of reporting, so the refusal rule stops short. One tape
-      on disk is already like this.
+      the crash is gone; a cut tape still reads as a generic refusal, not a
+      named truncation. Rides with the store step.
 
-  - id: n72
-    ticket: 72
-    theme: dress
-    when: next
-    title: "The play area was never designed"
-    note: >-
-      the frame around the field is fitted, not composed. Controls included. No
-      design exists yet.
-
-  - id: n81
-    ticket: 81
+  - id: n39b
+    ticket: 39
     theme: feel
-    when: next
-    title: "Bodies stack on one spot"
+    when: after
+    title: "The tuning pass"
     note: >-
-      no collision keeps mobs or corpses apart, and the #79 playtest verdict
-      says the pile is unreadable at density. Where it lands is not yet ruled.
+      the harness and sweep tool are built; no balance value has moved. No
+      fresh run beats the boss yet. With its eight sub-issues and #117.
 
   - id: n85
     ticket: 85
     theme: stage
-    when: next
+    when: after
     title: "The stage answers the player"
     note: >-
-      authored beats stay; density and timing rise and fall with the pressure
-      the player is under, and never during a boss, the drain-out or the Wall.
-      ADR 0047 rules it.
+      director.ts is built; its remaining acceptance lines are reads the tuning
+      round judges.
 
-  - id: n86
-    ticket: 86
-    theme: foundations
-    when: next
-    title: "Old design docs read as current"
+  - id: n151
+    ticket: 151
+    theme: dress
+    when: after
+    title: "The phone-first build"
     note: >-
-      update, prune, or mark each design doc as a stage record.
+      the look, feel and layout get designed on a phone first. With #101,
+      #102, #139, and what stands of #72.
+
+  - id: n31
+    ticket: 31
+    theme: feel
+    when: after
+    title: "The playtest"
+    note: >-
+      you and friends play the deployed build. Answers the central bet. With
+      #138, #141.
+
+  - id: n135
+    ticket: 135
+    theme: release
+    when: after
+    title: "Friends' high score list"
+    note: >-
+      follows the store; not started. #136 rides with it.
+
+  - id: n49
+    ticket: 49
+    theme: release
+    when: after
+    title: "Keep a replay"
+    note: >-
+      save your run, open one you were sent. None of it is built.
 
 # The COMPLETE set of relationship edges, read from the tracker. If a pair is
 # not listed here, there is no edge between them. Never add one to make a
 # picture tidier. `opens` is the reverse of this map and is derived, never
 # written down.
 blocked_by:
-  n31: [n39b]
-  n39a: [n38]
-  n39b: [n38]
+  n148: [n152, n154]
+  n149: [n148]
+  n100: [n66, n148, n149]
+  n39b: [n100]
+  n31: [n39b, n151]
+  n135: [n100]
+  n49: [n100]
 
 # =============================================================================
 # ALREADY BUILT AND MERGED
@@ -963,6 +1001,53 @@ built:
       Mark played it and said it plays well.
     source: "ticket #76, PR #78"
 
+  - title: "How power arrives"
+    note: >-
+      You start with one weapon, each run rolls its own set, weapons level up
+      from fresh corpses, and a power-up is a choice of three carried by
+      specific enemies.
+    source: "PR #147, step 1"
+
+  - title: "The stage, with two real bosses"
+    note: >-
+      Three sections with their own feel, two bosses in phases, the eye that
+      opens mid-field and pours enemies, music and art per section.
+    source: "PR #147, step 2"
+
+  - title: "The computer player"
+    note: >-
+      A bot plays many runs fast with no screen, records each one, and reports
+      the numbers, with sharp and sloppy hands to compare.
+    source: "PR #147, step 3"
+
+  - title: "How enemies arrive"
+    note: >-
+      Weak enemies in big crowds, power earned slower, a director that adds
+      enemies when you are cruising, and the belch turned into a pushback that
+      opens the Wall.
+    source: "PR #147, step 4"
+
+  - title: "Show what you have"
+    note: >-
+      Score and each weapon's level on screen, a lost level you can watch fall
+      and dive to catch back, a capped score bleed at the floor, the play area
+      laid out for phone and desktop, and the final score on the end screen.
+    source: "PR #147, step 5"
+
+  - title: "The tuning tool"
+    note: >-
+      Balance settings live in one record carried by each run and saved in
+      every recording, a named set plays by bot or by URL, and one command
+      sweeps two sets and prints what differed. No balance value moved yet.
+    source: "PR #147, step 6"
+
+  - title: "ADRs condensed, and old tapes retired"
+    note: >-
+      The 64 ADRs became 16, with a README mapping every retired number. The
+      tape format moved to version 5; recordings from before it no longer
+      replay.
+    source: "PR #147"
+
 # =============================================================================
 # THE FOG: WHAT NOBODY KNOWS YET
 #
@@ -976,29 +1061,6 @@ built:
 # =============================================================================
 
 fog_groups:
-
-  - key: find_out
-    heading: "Needs somebody to go and find out"
-    how: >-
-      Both have criteria and no design. These are the two I would put a
-      Wayfinder on.
-    emphasis: true
-    items:
-
-      - title: "What the Halloween look actually is"
-        note: >-
-          Pumpkin hue is banned, brown and AI purple are banned, the brightness
-          budget is spent, and hue is already carrying drops and corpses. Very
-          little is left to say Halloween with, and the palette test is blind to
-          textures.
-        home: { kind: ticket, text: "#38" }
-
-      - title: "What the real audio is, and whether it is in V1"
-        note: >-
-          Nothing says whether the sounds get made, bought or licensed, or how
-          eight distinct moments stay tellable by ear when several land at once.
-          And no ruling ever put audio inside the v1 done-line.
-        home: { kind: ticket, text: "#47, and the scope ruling is now #67" }
 
   - key: measurement
     heading: "Needs a measurement"
@@ -1037,9 +1099,9 @@ fog_groups:
 
       - title: "One belch against the boss: enough?"
         note: >-
-          A named v1 criterion that cannot be asked until a boss exists to ask it
-          about.
-        home: { kind: inside, text: "the boss work, then play" }
+          A named v1 criterion. The boss now exists, but no fresh run currently
+          beats it, so it waits on the tuning round before it can be played.
+        home: { kind: inside, text: "the tuning pass #39, then play" }
 
       - title: "Is Territory too weak in the first minutes?"
         note: >-
@@ -1061,12 +1123,6 @@ fog_groups:
           on somebody playing rather than on a decision.
         home: { kind: inside, text: "#31" }
 
-      - title: "Does the field get its own ground fill?"
-        note: >-
-          If it does, the frame colour and its heavy stroke can come down, which
-          buys room the art pass badly needs.
-        home: { kind: inside, text: "#38" }
-
       - title: 'Does "food" survive as the umbrella term?'
         note: >-
           An open modelling question, and its answer decides how large a rename
@@ -1079,14 +1135,6 @@ fog_groups:
           Vite's mode flag is the standing candidate and nothing is chosen. The
           promise now has a ticket; the mechanism is still open.
         home: { kind: inside, text: "#66" }
-
-      - title: "Along which axis does freshness shrink the burst?"
-        note: >-
-          The two on-swallow lines pay in different currencies: the stream pays
-          as a surge, the wisps as a count of souls. The rule says the burst
-          scales and never says along what, and picking wrong changes how the rot
-          floor feels rather than just what it pays.
-        home: { kind: inside, text: "#68, before any code" }
 
       - title: "Do the weapon lines have named roles, and is that an ADR?"
         note: >-
@@ -1147,6 +1195,16 @@ not_on_the_road:
   - title: "#59's other deferred findings."
     note: >-
       Triaged 2026-08-26, each with its own trigger, recorded in full on #59.
+
+  - title: "#38 and #47, the Halloween art and theming pass (p29)."
+    note: >-
+      Ruled off the V1 line 2026-09-19. #67's own audio-scope question is
+      answered by the same ruling.
+
+  - title: "#81, bodies stacking on one spot."
+    note: >-
+      No separation mechanism exists between live mobs or corpses. Off the V1
+      line.
 
   - title: "The readings say what happened, not when."
     note: >-
