@@ -192,8 +192,28 @@ const STREAM_ORDER: readonly StreamName[] = [
  * replays at this tip. It is taken eyes open: the memory is folded state by
  * construction, because it is a rule the next hit reads and the run carries it
  * across ticks.
+ *
+ * **11 to 12, 2026-09-20, and it is the two fields a corpse's own motion needs.**
+ * They are the velocity the grave's pull gives food near its rim (`pull.ts`,
+ * design record `grave-in-the-ground.md` R3), and they are added by the same
+ * commit that stamps the version, for the reason above.
+ *
+ * - `corpses[].vx` and `corpses[].vy`. The pull is a force and not a
+ *   displacement: food keeps the speed it gathered, arrives at the mouth
+ *   moving, and coasts to a stop on the same line once the grave has left it.
+ *   Two runs with a corpse at the same place differ in where that corpse goes
+ *   next and in nothing else, so a replay that could not rebuild the pair would
+ *   be a replay of a different run (ADR 0019). They append after the impulse
+ *   rather than sitting beside the position they belong to, because a widening
+ *   appends and never reshuffles what is already in place.
+ *
+ * **What this move costs, again stated rather than discovered.** Every tape
+ * recorded before this commit is refused by its version and not one of them
+ * replays at this tip. It is taken eyes open: the velocity is folded state by
+ * construction, because it is the corpse's own motion and the run carries it
+ * across ticks.
  */
-const WITNESS_VERSION = 11;
+const WITNESS_VERSION = 12;
 
 /**
  * Integer-only folding at a fixed nine decimal places, so the checksum cannot
@@ -352,6 +372,10 @@ const foldCorpses = (checksum: number, run: RunState): number => {
     next = fold(next, FOOD_KIND_CODES[corpse.kind]);
     next = fold(next, corpseLineCode(corpse));
     next = foldImpulse(next, corpse.impulse);
+    // Appended after the impulse rather than folded beside the position it
+    // belongs to, because a widening appends and never reshuffles what is
+    // already in place.
+    next = fold(fold(next, corpse.vx), corpse.vy);
   }
   return next;
 };

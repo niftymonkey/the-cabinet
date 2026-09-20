@@ -128,6 +128,8 @@ const checkCorpsesNoNaN = (state: RunState, faults: Fault[]): void => {
     if (!corpse.alive) continue;
     checkSlotFinite(faults, 'corpse', corpse.id, 'x', corpse.x);
     checkSlotFinite(faults, 'corpse', corpse.id, 'y', corpse.y);
+    checkSlotFinite(faults, 'corpse', corpse.id, 'vx', corpse.vx);
+    checkSlotFinite(faults, 'corpse', corpse.id, 'vy', corpse.vy);
     checkSlotFinite(faults, 'corpse', corpse.id, 'freshness', corpse.freshness);
     checkSlotFinite(faults, 'corpse', corpse.id, 'payout', corpse.payout);
     checkImpulseNoNaN(faults, 'corpse', corpse.id, corpse.impulse);

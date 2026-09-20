@@ -533,6 +533,11 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * meets every later wave at a different size and a different tick. Which waves
  * a lane passes through is what decides whether it crosses a carrier, and that
  * is every entry above.
+ *
+ * Re-measured for the pull (design record R3, #148), and the set holds at 404
+ * alone. The pull gives the hand back food the swallow rule took, so it grows
+ * faster again and meets the later waves differently once more, and 404 is the
+ * seed that crosses no carrier under either.
  */
 const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [404];
 
@@ -569,8 +574,15 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [404];
  * most of itself over the mouth rather than with any of it. 202 is the same
  * seed the set above sent back here for the third time, paid an offer it never
  * reaches, and 505 opens its offers and takes none of them.
+ *
+ * Re-measured for the pull (design record R3, #148), and the set is empty
+ * again: both 202 and 505 take an offer now. The hand steers at the offer body
+ * nearest the grave and the pull closes the last of that distance for it, which
+ * is exactly the gap the swallow rule had opened, so a body it used to end the
+ * tick merely touching is drawn far enough over the mouth to tip. An empty set
+ * still has teeth, because it is written as an equality.
  */
-const STOOD_BUT_NEVER_REACHED: readonly number[] = [202, 505];
+const STOOD_BUT_NEVER_REACHED: readonly number[] = [];
 
 /**
  * The seeds that finish above the birthright, which under the stage's authored
@@ -641,8 +653,14 @@ const STOOD_BUT_NEVER_REACHED: readonly number[] = [202, 505];
  * most of over its mouth, so the catches that put 101 and 303 above the
  * birthright are passes instead. An empty set still has teeth, because it is
  * written as an equality.
+ *
+ * Re-measured for the pull (design record R3, #148), and 101 and 303 came back
+ * on the mechanism that took them out. A fallen rung is 28 wide and the pull
+ * draws one at the rim toward the mouth at 125 a second, so the catches the
+ * swallow rule turned into passes are catches again, and those two are the
+ * seeds that outlast the stage's budget and end holding what they caught.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [101, 303];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

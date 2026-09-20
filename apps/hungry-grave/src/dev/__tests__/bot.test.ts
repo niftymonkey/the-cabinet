@@ -197,8 +197,16 @@ const NEVER_FEEDS: number[] = [];
  * different tick. It is the same mechanism every entry above records: which
  * waves this lane meets decides whether it crosses a carrier, and nothing about
  * the weapons moved.
+ *
+ * 303 came back for the pull (design record R3, #148). The grave now tugs dead
+ * food near its rim, so a dodging grave takes corpses it would have passed over
+ * and grows where it used to stay near its starting size, and that moves its
+ * size and its tick at every later wave again. It is the mechanism the entry
+ * above records, run the other way: the swallow rule took 303 out of the paid
+ * seeds by taking food away from it, and the pull puts it back in this set by
+ * giving food back.
  */
-const NEVER_PAID: number[] = [202];
+const NEVER_PAID: number[] = [202, 303];
 
 /**
  * Re-measured under the director (ADR 0047, ADR 0056): 303 joined it and 404

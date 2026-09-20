@@ -252,6 +252,8 @@ function fillCorpse(run: RunState): void {
   corpse.id = 13;
   corpse.x = 310.5;
   corpse.y = 120.25;
+  corpse.vx = -0.75;
+  corpse.vy = 1.125;
   corpse.freshness = 0.625;
   corpse.payout = 1.5;
   corpse.tier = 'rich';
@@ -515,6 +517,16 @@ const ENTITY_CASES: readonly FieldCase[] = [
     path: 'corpses[].impulse.owedStepY',
     move: (run) => void (slot0(run.corpses).impulse.owedStepY += 1e-6),
     restore: (run) => void (slot0(run.corpses).impulse.owedStepY -= 1e-6),
+  },
+  {
+    path: 'corpses[].vx',
+    move: (run) => void (slot0(run.corpses).vx += 1e-6),
+    restore: (run) => void (slot0(run.corpses).vx -= 1e-6),
+  },
+  {
+    path: 'corpses[].vy',
+    move: (run) => void (slot0(run.corpses).vy += 1e-6),
+    restore: (run) => void (slot0(run.corpses).vy -= 1e-6),
   },
   {
     path: 'skulls[].x',
@@ -934,6 +946,8 @@ const FOLDED: readonly string[] = [
   'corpses[].impulse.spacing',
   'corpses[].impulse.owedStepX',
   'corpses[].impulse.owedStepY',
+  'corpses[].vx',
+  'corpses[].vy',
   'skulls[].x',
   'skulls[].y',
   'skulls[].vx',
@@ -1053,6 +1067,12 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'as conditions.tuning.score.trashKillScore is.',
   'conditions.tuning.swallow.tipThreshold':
     'as conditions.tuning.stage.processionPurse is: what it decides is which food goes in, and every consequence of that shows through grave.size, reservoir, levels and the corpse pool, all of which the walk folds from the first tick. A tape recorded under one threshold and replayed under another diverges at the first swallow it changes, which is what ADR 0019 intends.',
+  'conditions.tuning.swallow.pullReach':
+    'as conditions.tuning.stage.processionPurse is: what it decides is how far the grave reaches for food, and every consequence of that shows through the corpse pool, whose position and velocity the walk folds from the first tick. A tape recorded under one reach and replayed under another diverges on the first tick a corpse is inside one reach and not the other.',
+  'conditions.tuning.swallow.pullStrength':
+    'as conditions.tuning.swallow.pullReach is: what it decides shows through the velocity the walk folds, on the first tick the pull moves anything.',
+  'conditions.tuning.swallow.pullResponse':
+    'as conditions.tuning.swallow.pullReach is: what it decides is how fast that velocity is taken up, which is the same folded pair one tick later.',
   'caps.mobs':
     "what this run's mob pool was built at, derived once by createRun from the record above and never written again (ADR 0056 as amended). It is the run's identity in the same way the seed is, and what it decides is folded already: the pool it sized is walked every tick, and a run that derived a different cap diverges in what stands on the field rather than in a number beside it.",
   'caps.mobFire':
@@ -1505,10 +1525,11 @@ describe("the harness's own stream stays outside the run (ADR 0019)", () => {
   it('folds a fallen rung apart from a power-up without widening the field list', () => {
     // The fourth food kind rides the corpse pool on fields the fold already
     // carries, so FOOD_KIND_CODES gains a code and the field list does not
-    // move. witness.ts's own rule is that the version moves when the field list
-    // moves, so the version holds at 11 with the pin above. The two folds
-    // differing is what says the new code is inside the walk rather than beside
-    // it.
+    // move for it. witness.ts's own rule is that the version moves when the
+    // field list moves, and the two velocity fields at the end of the list are
+    // the pull's, added with the move to 12 rather than with the kind (design
+    // record grave-in-the-ground R3). The two folds differing is what says the
+    // new code is inside the walk rather than beside it.
     const asPowerUp = fixture();
     const asRung = fixture();
     slot0(asRung.corpses).kind = 'fallenRung';
@@ -1531,19 +1552,22 @@ describe("the harness's own stream stays outside the run (ADR 0019)", () => {
       'corpses[].impulse.spacing',
       'corpses[].impulse.owedStepX',
       'corpses[].impulse.owedStepY',
+      'corpses[].vx',
+      'corpses[].vy',
     ]);
   });
 
   it('leaves the witness version where the sim put it, which the harness must not move', () => {
     // Hand-forward (f) pins it: the whole harness is built outside RunState, so
     // no version move is ever the hand's. This is what says it was not, on a
-    // branch that added a stream to the project. The sim moved it to 11 for the
+    // branch that added a stream to the project. The sim moved it to 12 for the
+    // velocity the grave's pull gives food, to 11 before that for the
     // score rung the floor ladder remembers, to 10 before that for the press
     // the run carries, to 9 before that for the impulse a corpse carries, to 8
     // before that for the impulse a shoved body carries, and to 7 before that
     // for the director's own stream and the rest of the fold that step widened;
     // the three names above are the run's rather than the hand's.
-    expect(WITNESS_VERSION).toBe(11);
+    expect(WITNESS_VERSION).toBe(12);
     expect(Object.keys(createRun(0).streams)).not.toContain(HAND_STREAM);
   });
 });

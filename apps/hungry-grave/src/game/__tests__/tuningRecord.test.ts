@@ -129,6 +129,28 @@ describe('resolving a partial tuning record', () => {
     );
   });
 
+  it('rejects a record with a pull row below zero, naming the row', () => {
+    // Design record R3: a negative response makes the food's velocity run away
+    // from the wanted one and grow every tick, a negative strength is a push,
+    // and a negative reach is no distance at all. A record is a document, so
+    // each is refused rather than read as something near it.
+    expect(() => resolveTuning({ swallow: { pullResponse: -1 } })).toThrow(
+      /swallow\.pullResponse/,
+    );
+    expect(() => resolveTuning({ swallow: { pullStrength: -1 } })).toThrow(
+      /swallow\.pullStrength/,
+    );
+    expect(() => resolveTuning({ swallow: { pullReach: -1 } })).toThrow(
+      /swallow\.pullReach/,
+    );
+    // Zero is the pull switched off, which R3 names as the way to reverse it.
+    expect(() =>
+      resolveTuning({
+        swallow: { pullReach: 0, pullStrength: 0, pullResponse: 0 },
+      }),
+    ).not.toThrow();
+  });
+
   it('rejects a record whose quiet-interval minimum is zero, naming the row', () => {
     // The stage group's own divisor: every cap prices a window as one card at
     // its opening and one more at every quiet interval inside it, so a zero
@@ -192,11 +214,23 @@ describe("the tuning record's rows", () => {
         name: 'swallow.tipThreshold',
         value: DEFAULT_TUNING.swallow.tipThreshold,
       },
+      {
+        name: 'swallow.pullReach',
+        value: DEFAULT_TUNING.swallow.pullReach,
+      },
+      {
+        name: 'swallow.pullStrength',
+        value: DEFAULT_TUNING.swallow.pullStrength,
+      },
+      {
+        name: 'swallow.pullResponse',
+        value: DEFAULT_TUNING.swallow.pullResponse,
+      },
     ]);
-    // Eleven distinct names, so a walk answering one row eleven times could not
-    // have produced the list above.
+    // Fourteen distinct names, so a walk answering one row fourteen times could
+    // not have produced the list above.
     expect(
       new Set(tuningRows(DEFAULT_TUNING).map((row) => row.name)).size,
-    ).toBe(11);
+    ).toBe(14);
   });
 });

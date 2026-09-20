@@ -1159,6 +1159,20 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
+    path: 'corpses[].vx',
+    poison: (run) => {
+      slot0(run.corpses).vx = NaN;
+      return run;
+    },
+  },
+  {
+    path: 'corpses[].vy',
+    poison: (run) => {
+      slot0(run.corpses).vy = NaN;
+      return run;
+    },
+  },
+  {
     path: 'corpses[].freshness',
     poison: (run) => {
       slot0(run.corpses).freshness = NaN;
@@ -1646,6 +1660,12 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
   'conditions.tuning.swallow.tipThreshold':
     "a row of the record the run started under, as conditions.tuning.stage.processionPurse is: its one reader compares a share against it, and a NaN there would leave every share failing the comparison, so nothing would be swallowed and no number this harness reads would move. The resolver refuses anything outside 0 to 1 before a run can hold it, which is where a document's bad value is caught",
+  'conditions.tuning.swallow.pullReach':
+    'a row of the record the run started under, as conditions.tuning.stage.processionPurse is. It is the one group whose NaN this harness does see rather than argues about: the pull writes the velocity of every live corpse from all three rows, so a NaN in any of them reaches corpses[].vx and corpses[].vy on the first tick a corpse stands on the field, and those two are poisoned above',
+  'conditions.tuning.swallow.pullStrength':
+    'a row of the record the run started under, as conditions.tuning.swallow.pullReach is',
+  'conditions.tuning.swallow.pullResponse':
+    'a row of the record the run started under, as conditions.tuning.swallow.pullReach is',
   'caps.mobs':
     "what this run's mob pool was built at, derived once by createRun from the record above and never mutated (ADR 0056 as amended). A NaN in it would show as a pool length this harness already reads, because a pool is built at it and pool.length is an integer whatever the cap was",
   'caps.mobFire': "what this run's mob-fire pool was built at, as caps.mobs is",

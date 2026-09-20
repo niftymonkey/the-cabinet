@@ -203,9 +203,14 @@ type ScoreTuning = {
 };
 
 /**
- * The swallow's own magnitude, and there is one: how much of a piece of food
- * has to be over the mouth before it tips in (design record
- * `grave-in-the-ground.md` R1).
+ * The swallow's own magnitudes: how much of a piece of food has to be over the
+ * mouth before it tips in, and the three the grave's tug on food near its rim
+ * is described by (design record `grave-in-the-ground.md` R1 and R3).
+ *
+ * The pull's three sit in the swallow's group rather than a group of their own
+ * because they are the same act read one step earlier: what the pull decides is
+ * which food arrives at the mouth at all, and a reading that moves the
+ * threshold reads them together.
  */
 type SwallowTuning = {
   /**
@@ -231,6 +236,45 @@ type SwallowTuning = {
    * this step and what made a corpse vanish at the first pixel of contact.
    */
   tipThreshold: number;
+  /**
+   * How far from the mouth the pull reaches, in field units, measured from the
+   * food's box to the mouth's box rather than from either centre (`pull.ts`).
+   *
+   * Mark's own value after 403 swallows on prototype build 6, where a natural
+   * fall brought him back to a short gentle pull from the long strong one the
+   * earlier build with hands hauling bodies in had wanted. The prototype
+   * measured its gap from an ellipse round the hole to a point a third of the
+   * way into the body, which has no honest rectangle form, so the box gap
+   * reaches a little farther than the prototype's did at the same figure.
+   *
+   * At zero the pull is off, exactly as a strength of zero is: no food is ever
+   * inside a reach of nothing. Below zero is refused (`refusePullBelowZero`).
+   */
+  pullReach: number;
+  /**
+   * About the speed food reaches at the rim, in field units a second. It is a
+   * speed the pull steers toward rather than one food is set to, because the
+   * catch-up below is what food actually moves by.
+   *
+   * Read against the scroll, which is 38 a second: at the rim the pull is more
+   * than three times the pace the field runs at, which is what lets food below
+   * the grave be held against its deadline, and that is the first tuning
+   * round's own question (#39).
+   *
+   * Zero turns the pull off and the threshold rule stands without it, which is
+   * how design record R3 states the reversal.
+   */
+  pullStrength: number;
+  /**
+   * How quickly food takes up the speed the pull wants, per second: the share
+   * of the difference one second closes is `1 - exp(-response)`, so 4.6 closes
+   * about 99% of it in a second and about 7.4% in one tick.
+   *
+   * It is what makes the pull read as a tug rather than a teleport, and it is
+   * also the ground's drag: out of the reach the wanted speed is zero and the
+   * same line brings a sliding corpse to a stop.
+   */
+  pullResponse: number;
 };
 
 /**
@@ -294,6 +338,9 @@ const DEFAULT_TUNING: TuningRecord = {
   },
   swallow: {
     tipThreshold: 0.55,
+    pullReach: 24,
+    pullStrength: 125,
+    pullResponse: 4.6,
   },
 };
 
@@ -372,12 +419,35 @@ const refuseUnplayableTipThreshold = (swallow: SwallowTuning): void => {
 };
 
 /**
+ * The pull's own bound (design record R3): none of its three rows is below
+ * zero.
+ *
+ * Zero is a reading, the pull switched off, which R3 names as the way to
+ * reverse it. Below zero is not one: a negative response makes the food's
+ * velocity run away from the wanted one and grow every tick, a negative
+ * strength is a push, and a negative reach is no distance at all.
+ */
+const refusePullBelowZero = (swallow: SwallowTuning): void => {
+  const rows = {
+    pullReach: swallow.pullReach,
+    pullStrength: swallow.pullStrength,
+    pullResponse: swallow.pullResponse,
+  };
+  for (const [row, value] of Object.entries(rows)) {
+    if (value >= 0) continue;
+    throw new Error(
+      `swallow.${row} is written as ${value}, below zero: zero switches the pull off, and nothing below it is a pull`,
+    );
+  }
+};
+
+/**
  * The complete record an overlay stands for, every absent row filled from the
  * default.
  *
  * Its input is already typed, because parsing a raw name a person typed is the
  * edge's job: there is no such thing as an unknown row reaching here. What it
- * refuses is the four bounds above and nothing else, and a record our own code
+ * refuses is the five bounds above and nothing else, and a record our own code
  * produced cannot fail any of them, which is repair by origin.
  */
 const resolveTuning = (overlay: TuningOverlay): TuningRecord => {
@@ -390,6 +460,7 @@ const resolveTuning = (overlay: TuningOverlay): TuningRecord => {
   refuseZeroQuietIntervalMinimum(resolved.stage);
   refuseZeroBossHealthRate(resolved.score);
   refuseUnplayableTipThreshold(resolved.swallow);
+  refusePullBelowZero(resolved.swallow);
   return resolved;
 };
 

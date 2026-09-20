@@ -39,6 +39,7 @@ import {
   SIZE_CEILING,
   SIZE_FLOOR,
 } from '../tuning';
+import type { TuningOverlay } from '../tuningRecord';
 import { resolveTuning } from '../tuningRecord';
 
 /** A tick that only steers, which is every tick these tests are about. */
@@ -1020,5 +1021,138 @@ describe('food goes in when most of it is over the mouth (grave-in-the-ground R1
 
     expect(typesOf(step(STILL))).not.toContain('swallowed');
     expect(corpse.alive).toBe(true);
+  });
+});
+
+/** The x a body of this half extent stands at to leave `gap` between its box and the mouth. */
+function shortOfTheLeftRim(
+  state: RunState,
+  gap: number,
+  halfExtent: number,
+): number {
+  return acrossTheLeftRim(state, -gap, halfExtent);
+}
+
+/** A quiet run playing under a record that moves one row of the pull's three. */
+function tunedRun(overlay: TuningOverlay): RunState {
+  const run = createRun(21, { tuning: resolveTuning(overlay) });
+  run.stage.firedWaves = PROCESSION_WAVES.length;
+  return run;
+}
+
+/**
+ * A corpse standing exactly here and carrying a shove, staged the one way the
+ * rules allow: a body killed in mid-shove hands its impulse over to the corpse
+ * it leaves (corpses.ts, handOverImpulse). A shove never lands on food.
+ */
+function shovedCorpseAt(
+  state: RunState,
+  x: number,
+  y: number,
+  awayX: number,
+  awayY: number,
+): Corpse {
+  const dead = spawnMob(
+    state,
+    'shambler',
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
+  startShove(dead.impulse, 'belch', dead.id, awayX, awayY, 60, 1, 0);
+  dead.alive = false;
+  leaveCorpse(state, dead);
+  return requireDefined(
+    state.corpses.filter((each) => each.alive).at(-1),
+    `no corpse at ${x}, ${y}`,
+  );
+}
+
+describe('the pull in the tick order (grave-in-the-ground R3)', () => {
+  it('swallows a corpse the pull carries to the threshold this tick', () => {
+    // R3: the pull runs immediately before the overlaps resolve, so the share
+    // the swallow reads is the one the pull left. The corpse lies 7.6 of its 14
+    // across the rim, a share of 0.543 against the record's 0.55, and the first
+    // tick of the pull at the rim is 0.154, which carries it to 0.554.
+    const pulled = quietRun();
+    const pulledCorpse = corpseAt(
+      pulled,
+      acrossTheLeftRim(pulled, 7.6, CORPSE_HALF_EXTENT),
+      pulled.grave.y,
+    );
+    const still = tunedRun({ swallow: { pullStrength: 0 } });
+    const stillCorpse = corpseAt(
+      still,
+      acrossTheLeftRim(still, 7.6, CORPSE_HALF_EXTENT),
+      still.grave.y,
+    );
+
+    expect(typesOf(stepping(pulled)(STILL))).toContain('swallowed');
+    expect(pulledCorpse.alive).toBe(false);
+    expect(typesOf(stepping(still)(STILL))).not.toContain('swallowed');
+    expect(stillCorpse.alive).toBe(true);
+  });
+
+  it('adds a shove and the pull in one tick, neither counted twice', () => {
+    // R3: the shove writes no velocity and the pull writes no impulse, so the
+    // two displacements add. The shove is thrown down the field and the pull
+    // reaches sideways, so each axis carries one of them: x moves by exactly
+    // the velocity the pull left, and y moves by the scroll and the shove the
+    // same corpse travels with the pull turned off, plus that velocity.
+    const both = quietRun();
+    const carried = shovedCorpseAt(
+      both,
+      shortOfTheLeftRim(both, 12, CORPSE_HALF_EXTENT),
+      both.grave.y,
+      0,
+      1,
+    );
+    const from = { x: carried.x, y: carried.y };
+    const shoveOnly = tunedRun({ swallow: { pullStrength: 0 } });
+    const thrown = shovedCorpseAt(
+      shoveOnly,
+      shortOfTheLeftRim(shoveOnly, 12, CORPSE_HALF_EXTENT),
+      shoveOnly.grave.y,
+      0,
+      1,
+    );
+    const thrownFrom = thrown.y;
+
+    stepping(both)(STILL);
+    stepping(shoveOnly)(STILL);
+
+    const travelled = thrown.y - thrownFrom;
+    expect(travelled).toBeGreaterThan(SCROLL_SPEED);
+    expect(thrown.vy).toBe(0);
+    expect(carried.vx).toBeGreaterThan(0);
+    expect(carried.x - from.x).toBeCloseTo(carried.vx, 9);
+    expect(carried.y - from.y).toBeCloseTo(travelled + carried.vy, 9);
+  });
+
+  it('lets a shove away from the grave carry a corpse off the rim', () => {
+    // R3: a bell or belch shove can carry food off the rim before the tip, and
+    // after the tip nothing moves it because it is no longer in the rules. The
+    // throw's first tick is 3.87 against the pull's 0.15 at the rim, so the
+    // corpse leaves and the pull only slows its going.
+    const state = quietRun();
+    const step = stepping(state);
+    const corpse = shovedCorpseAt(
+      state,
+      acrossTheLeftRim(state, 5, CORPSE_HALF_EXTENT),
+      state.grave.y,
+      -1,
+      0,
+    );
+    const from = corpse.x;
+
+    const seen: string[] = [];
+    for (let tick = 0; tick < 3; tick++) seen.push(...typesOf(step(STILL)));
+
+    expect(seen).not.toContain('swallowed');
+    expect(corpse.alive).toBe(true);
+    expect(corpse.x).toBeLessThan(from);
+    expect(corpse.x + CORPSE_HALF_EXTENT).toBeLessThan(
+      graveHitbox(state.grave).x,
+    );
   });
 });

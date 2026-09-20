@@ -30,6 +30,7 @@ import {
   openOffer,
 } from './offer';
 import { overlaps } from './overlap';
+import { pullFood } from './pull';
 import type { RunState } from './run';
 import { clearRefusals } from './run';
 import { advanceSetPiece } from './stage/setPiece';
@@ -49,11 +50,13 @@ import { SCROLL_SPEED } from './tuning';
  * The constant downward drift of everything on the field. Mob fire does not
  * carry it: an aimed shot that then drifts downward is not aimed.
  *
- * A corpse has no motion of its own, so for every corpse nothing threw this is
- * the only thing that moves it, and that is what makes ADR 0004's coupling true
- * by construction. A corpse a shove is carrying takes this drift as well as the
- * throw, exactly as a shoved body does: the scroll composes with every shove
- * and is exempted for neither line (design record R11's fourth ruling).
+ * For every corpse nothing threw and nothing pulled this is the only thing that
+ * moves it, and that is what makes ADR 0004's coupling true by construction. A
+ * corpse a shove is carrying takes this drift as well as the throw, exactly as
+ * a shoved body does, and a corpse near the rim takes it as well as the pull:
+ * the scroll composes with every shove and is exempted for neither line (design
+ * record R11's fourth ruling), and the pull is a third displacement on the same
+ * terms (grave-in-the-ground R3).
  */
 const scrollField = (state: RunState): void => {
   for (const mob of state.mobs) {
@@ -264,9 +267,10 @@ const resolveDeaths = (
  *
  * The order is scroll, the move command, the press's own clock, the belch,
  * spawns, the director's own spend, mob motion and fire, the boss's own tick,
- * the set piece's own tick, the weapon lines, the bank's own tick, overlap
- * detection, deaths, the stage's own ending, decay, culling, the offer's own
- * loss, then the grave's own tick, the pressure signal and the counters.
+ * the set piece's own tick, the weapon lines, the bank's own tick, the pull,
+ * overlap detection, deaths, the stage's own ending, decay, culling, the
+ * offer's own loss, then the grave's own tick, the pressure signal and the
+ * counters.
  *
  * The boss ticks with the mobs and before the lines, because its pattern is
  * fire on the field and a shot fired this tick must not also fly this tick,
@@ -329,6 +333,10 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   events.push(...advanceSetPiece(state));
   events.push(...advanceLines(state));
   events.push(...openBankedOffer(state, bankOpensNow(state)));
+  // Immediately before the overlaps, so it follows every rule that can put food
+  // on the field this tick and reads the grave where this tick's steering left
+  // it, and after the mobs so a shove has already travelled (design record R3).
+  pullFood(state);
   events.push(...resolveOverlaps(state));
   events.push(...resolveDeaths(state, events));
   // Straight after the deaths, because the deaths section is the last of the

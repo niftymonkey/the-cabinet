@@ -64,20 +64,35 @@ const FRESHNESS_PER_TICK = 1 / (FRESHNESS_SECONDS * TICK_HZ);
  * the bottom edge at that speed, so a mid-field kill arrives at the bottom edge
  * as a nearly empty scrap by construction rather than by two numbers agreeing.
  *
- * One thing composes with that drift and it is not a motion of the corpse's
- * own: a shove handed over by the body this corpse came off, which carries it
- * for the rest of that one flight and then stops (design record R10). The
- * derivation above is exact for every corpse nothing threw and is off by the
- * length of one flight for a thrown one, which is bounded by the shove's own
- * row and priced in freshness. The scroll still runs underneath it, exactly as
- * it does for a body being shoved (design record R11's fourth ruling), so the
- * throw composes with the drift rather than replacing it.
+ * Two things compose with that drift. A shove handed over by the body this
+ * corpse came off carries it for the rest of that one flight and then stops
+ * (design record R10). The grave's pull gives it a velocity of its own while it
+ * is near the rim, and the same line is the ground's drag once it is not
+ * (`pull.ts`, `grave-in-the-ground.md` R3). The derivation above is exact for
+ * every corpse nothing threw and nothing pulled; a thrown one is off by the
+ * length of one flight, bounded by the shove's own row, and a pulled one is off
+ * only inside the reach, which is a data row a few units wide. The scroll still
+ * runs underneath both, exactly as it does for a body being shoved (design
+ * record R11's fourth ruling), so neither replaces the drift.
  */
 interface Corpse {
   alive: boolean;
   id: number;
   x: number;
   y: number;
+  /**
+   * The motion the pull has given this food, in field units a tick (`pull.ts`,
+   * design record R3).
+   *
+   * It is a velocity the food keeps rather than a displacement spent on the
+   * tick it was decided, which is what makes food arrive at the mouth moving
+   * and coast for a moment after the grave leaves it. It composes with the
+   * scroll and with a shove the same way both of those compose with each other:
+   * the pull writes no impulse and a shove writes no velocity, so the two
+   * displacements add and neither is counted twice.
+   */
+  vx: number;
+  vy: number;
   // One meter, from kill to gone (ADR 0004). Treasure is always 1.
   freshness: number;
   // What this corpse pays before freshness scales it, in size units.
@@ -126,6 +141,8 @@ const blankCorpse = (): Corpse => {
     id: 0,
     x: 0,
     y: 0,
+    vx: 0,
+    vy: 0,
     freshness: 0,
     payout: 0,
     tier: 'trash',
@@ -187,11 +204,14 @@ const claimSlot = (state: RunState): Corpse | null => {
     return null;
   }
   state.nextEntityId += 1;
-  // The slot may be one a carried corpse died in, and an inherited impulse
-  // would carry new food away on a push that never reached it. It is cleared
-  // here rather than in each of the three spawns, because every one of them
-  // comes through this door (spawnMob keeps the same rule on the mob pool).
+  // The slot may be one a carried or a pulled corpse died in, and an inherited
+  // impulse or velocity would carry new food away on a push and a tug that
+  // never reached it. Both are cleared here rather than in each of the four
+  // spawns, because every one of them comes through this door (spawnMob keeps
+  // the same rule on the mob pool).
   clearImpulse(free.impulse);
+  free.vx = 0;
+  free.vy = 0;
   return free;
 };
 

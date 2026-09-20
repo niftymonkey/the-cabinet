@@ -10,6 +10,7 @@ import corpsesSource from '../corpses.ts?raw';
 import { stepping } from '../../dev/stepping';
 import { createExecution, executeTick } from '../execution';
 import { TICK_HZ } from '../clock';
+import type { Corpse } from '../corpses';
 import {
   advanceCorpses,
   asSwallowable,
@@ -705,27 +706,42 @@ describe('a fallen rung on the food pool (ADR 0055)', () => {
     // The storm reaches mobs and never food (stormTargets.ts), and this stands
     // a rung where the belch's burst and the toll's cones both cover it so the
     // claim is taken against a live storm rather than against an empty field.
-    const state = quietRun();
-    const step = stepping(state);
-    state.reservoir = RESERVOIR_CAPACITY;
-    state.levels.bell = MAX_LEVEL;
-    state.lines.tollIn = 1;
-    // Inside the belch's burst and the toll's cones, and clear of the grave's
-    // own swallow box, so what the tick does to it is the storm's doing alone.
-    spawnFallenRung(state, state.grave.x, state.grave.y - 80, 'bell');
-    const rung = rungOf(state);
-    const from = { x: rung.x, y: rung.y };
+    //
+    // It is measured against the same scene with the storm silent rather than
+    // against the scroll alone, because the grave's own pull reaches food near
+    // its rim now (grave-in-the-ground R3) and the scroll carries this rung
+    // into that reach partway through the window. The two scenes landing the
+    // rung on the same double is what says the storm moved none of it.
+    const stage = (state: RunState): Corpse => {
+      state.reservoir = RESERVOIR_CAPACITY;
+      // Inside the belch's burst and the toll's cones, and clear of the grave's
+      // own swallow box.
+      spawnFallenRung(state, state.grave.x, state.grave.y - 80, 'bell');
+      return rungOf(state);
+    };
+    const stormed = quietRun();
+    const underTheStorm = stage(stormed);
+    stormed.levels.bell = MAX_LEVEL;
+    stormed.lines.tollIn = 1;
+    const calm = quietRun();
+    const underNothing = stage(calm);
+    const from = { x: underTheStorm.x, y: underTheStorm.y };
 
     // Long enough for the belch's whole press and for a toll to expand fully.
     const ticks = BELL_EXPAND_TICKS + 2;
-    const events = [...step({ move: { x: 0, y: 0 }, belch: true })];
-    for (let tick = 1; tick < ticks; tick++) events.push(...step(STILL));
+    const stormStep = stepping(stormed);
+    const calmStep = stepping(calm);
+    const events = [...stormStep({ move: { x: 0, y: 0 }, belch: true })];
+    for (let tick = 1; tick < ticks; tick++) events.push(...stormStep(STILL));
+    for (let tick = 0; tick < ticks; tick++) calmStep(STILL);
 
     expect(events.map((event) => event.type)).toContain('belched');
     expect(events.map((event) => event.type)).toContain('tolled');
-    expect(rung.x).toBe(from.x);
-    expect(rung.y - from.y).toBeCloseTo(ticks * SCROLL_SPEED, 9);
-    expect(rung.impulse.source).toBeNull();
+    expect(underTheStorm.x).toBe(from.x);
+    expect(underTheStorm.y).toBeGreaterThan(from.y);
+    expect(underTheStorm.x).toBe(underNothing.x);
+    expect(underTheStorm.y).toBe(underNothing.y);
+    expect(underTheStorm.impulse.source).toBeNull();
   });
 
   it('is caught by an ordinary dive, through the tick loop the rendered game runs', () => {
