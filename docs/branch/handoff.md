@@ -23,9 +23,6 @@ The design record carries the rulings. These are the pointers a coder cannot che
 
 ## For Mark's read
 
-- Decisions 10 and 11 in the decision log were worded by the agent after he approved 1 to 9 (10 points at the glossary text he approved, 11 records his ruling that slices are not tickets). Read them back to him.
-- After the gates, the agent changed its own call A4: the pull never moves the three option bodies of a power-up offer. Tell him in one line.
-- The glossary text he approved has three collisions the product vision gate found. "Pull" is now a defined term, and Territory's entry also has hands that "pull" living mobs. "Tip" reserves "topple" for the Undertaker's ending, but no entry owns that word. "Fall" is now a defined term, and other entries use "falls" for things coming down the field. Cheapest repair: one clause in Pull that names Territory's pull as that line's own, and either an entry for the Undertaker's ending or the avoid line dropped. His text, so his call.
 - Decision 8: with no hands drawn, an unseen force drags the Undertaker the length of the field while the ordinary pull is short and gentle. #148's finish line needs only "the same fall", so the drag and the claw marks are the natural cut line if the branch runs long. Changes nothing unless he says so.
 - `scripts/roadmap/v1.yaml` on `main` shows the reverse of the order he ruled (it has the fingerprint before #148 and #149 straight after #148, and #150 has no node). It is made true between branches, and any blocked-by edge in the tracker is a ticket change that needs his yes.
 - Ticket draft E (the tilted view) and the hands have no ticket. #148 names the tilted view until it closes. Bring both up at the branch close.

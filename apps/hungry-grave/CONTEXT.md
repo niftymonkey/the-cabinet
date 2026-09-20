@@ -14,7 +14,7 @@ The system layer uses the words the genre's designers and players already use, a
 
 **Swallow**: The one verb of collection: the grave passes under a corpse or power-up, and when most of it is over the mouth it tips at the rim and falls in. Every payout in the game arrives through a swallow, at the tip. _Avoid_: eat, collect, pick up, consume, drive over.
 
-**Pull**: The grave's tug on food close to its rim. It moves food only, never a living mob. _Avoid_: suck, vacuum, magnet.
+**Pull**: The grave's tug on food close to its rim. It moves food only, never a living mob. Territory's hands have their own pull, which belongs to that line. _Avoid_: suck, vacuum, magnet.
 
 **Tip**: The moment food goes over the rim, turning about the point of the rim it crosses. The payout of the swallow lands here. _Avoid_: topple (that word is the Undertaker's ending).
 
