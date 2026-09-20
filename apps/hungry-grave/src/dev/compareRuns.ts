@@ -6,6 +6,7 @@ import type { Distribution } from './framePerformance';
 import type { Divergence, Measurement, Metrics, Refusal } from './measure';
 import type { NumberRecord } from './numbersByName';
 import { fieldSummary, perLineSummary } from './readings/fieldPerLine';
+import { foodLedgerNumbers } from './readings/foodLedger';
 import { ledgerByLineNumbers } from './readings/powerUpLedger';
 import { sizeSummary } from './readings/gravePath';
 import { groundSummary } from './readings/groundHeld';
@@ -706,6 +707,9 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
   ),
   namedNumbersReading('tuning.powerUpLedger.byLine', (report) =>
     ledgerByLineNumbers(report.tuning.powerUpLedger.byLine),
+  ),
+  namedNumbersReading('tuning.foodLedger', (report) =>
+    foodLedgerNumbers(report.tuning.foodLedger),
   ),
   // A list and never a series: the rows are one entry per offer the run stood,
   // and two runs that stood a different number of offers have no index to pair.

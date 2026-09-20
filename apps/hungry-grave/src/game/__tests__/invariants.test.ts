@@ -1644,6 +1644,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
   'conditions.tuning.score.mealAtMaxedInKills':
     'a row of the record the run started under, as conditions.tuning.score.trashKillScore is',
+  'conditions.tuning.swallow.tipThreshold':
+    "a row of the record the run started under, as conditions.tuning.stage.processionPurse is: its one reader compares a share against it, and a NaN there would leave every share failing the comparison, so nothing would be swallowed and no number this harness reads would move. The resolver refuses anything outside 0 to 1 before a run can hold it, which is where a document's bad value is caught",
   'caps.mobs':
     "what this run's mob pool was built at, derived once by createRun from the record above and never mutated (ADR 0056 as amended). A NaN in it would show as a pool length this harness already reads, because a pool is built at it and pool.length is an integer whatever the cap was",
   'caps.mobFire': "what this run's mob-fire pool was built at, as caps.mobs is",

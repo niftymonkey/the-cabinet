@@ -363,7 +363,12 @@ const advanceCorpses = (state: RunState): SimEvent[] => {
     corpse.freshness = Math.max(0, corpse.freshness - FRESHNESS_PER_TICK);
     if (corpse.freshness > 0) continue;
     corpse.alive = false;
-    events.push({ type: 'corpseExpired', x: corpse.x, y: corpse.y });
+    events.push({
+      type: 'corpseExpired',
+      kind: corpse.kind,
+      x: corpse.x,
+      y: corpse.y,
+    });
   }
   return events;
 };

@@ -29,14 +29,18 @@ const OFFER_SIZE = 3;
 /**
  * How far apart the bodies stand, in field units. An initial data row.
  *
- * Derived from the grave's own reach: the grave's half-width is its size at
- * GRAVE_ASPECT 2 and a power-up's half-extent is POWER_UP_HALF_EXTENT, so at the size
- * ceiling the catch reach from the grave's centre is 47.75. At 90 apart, two
- * adjacent bodies are both reachable only from inside 45 of their midpoint,
- * which is inside that reach by 2.75 units and outside the reach of a
- * start-size grave entirely. So the two-touch tie-break is a rare late-run
- * event rather than the normal case, and three bodies span a third of the
- * field's width, which makes choosing a real move.
+ * Derived against the swallow rule (design record R1). A body is 28 wide, so
+ * two of them 90 apart leave a gap of 62 between their facing edges, and each
+ * one needs the tip threshold's share of its own width over the mouth: at the
+ * record's 0.55 that is 15.4. A mouth that tipped both at once would therefore
+ * have to span 15.4 + 62 + 15.4, which is 92.8, and the widest mouth in the
+ * game is 67.5 at the size ceiling. So no grave can ever tip two options on one
+ * tick, and three bodies still span a third of the field's width, which makes
+ * choosing a real move.
+ *
+ * The same holds for a mouth narrower than a body, where the share is measured
+ * against the mouth's own width instead: two of them would need a mouth wider
+ * than 62 plus its own width over again, which no width satisfies.
  */
 const OFFER_SPACING = 90;
 
@@ -257,12 +261,15 @@ const squaredGap = (state: RunState, body: Corpse): number => {
 };
 
 /**
- * Which body of the live offer a grave covering more than one takes: the one
+ * Which body of the live offer a grave that tipped more than one takes: the one
  * whose centre is nearest the grave's, ties broken by the lower entity id.
  *
- * Deterministic, drawing nothing, and the reading a player would give. The
- * spacing makes the two-touch case possible only near the size ceiling, so
- * this is a rare late-run answer rather than the normal one.
+ * Deterministic, drawing nothing, and the reading a player would give. Under
+ * the record's own threshold the spacing above makes two at once impossible, so
+ * this answers for a run played under a tuning record with a far lower
+ * threshold, where the mouth can reach the share of two bodies at once. It
+ * stays because the threshold is a data row and the rule that exactly one body
+ * is taken is not (ADR 0034).
  */
 const chooseOfferBody = (
   state: RunState,

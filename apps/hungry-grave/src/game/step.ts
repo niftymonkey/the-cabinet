@@ -40,6 +40,7 @@ import {
   winStage,
 } from './stage/stage';
 import { impulseSpent } from './shove';
+import { shareOverMouth } from './tip';
 import { resolveStorm } from './storm';
 import { swallow } from './swallow';
 import { SCROLL_SPEED } from './tuning';
@@ -114,11 +115,22 @@ interface CoveredFood {
 /**
  * Every piece of food the grave is under as this pass begins, read once so a
  * swallow that grows and shoves the grave cannot change what the pass sees.
+ *
+ * Under is most of it over the mouth and no longer the first touch of two boxes
+ * (design record R1): food goes in on the tick its share reaches the run's own
+ * threshold, so a sliver over the edge lies there and can still rot away or
+ * ride off the bottom. The threshold is read off the run rather than compiled
+ * in, because it is a tuning row (ADR 0064).
  */
 const coveredFood = (state: RunState): CoveredFood[] => {
-  const box = graveHitbox(state.grave);
+  const mouth = graveHitbox(state.grave);
+  const threshold = state.conditions.tuning.swallow.tipThreshold;
   return state.corpses
-    .filter((corpse) => corpse.alive && overlaps(corpseHitbox(corpse), box))
+    .filter(
+      (corpse) =>
+        corpse.alive &&
+        shareOverMouth(corpseHitbox(corpse), mouth) >= threshold,
+    )
     .map((body) => ({ body, id: body.id }));
 };
 

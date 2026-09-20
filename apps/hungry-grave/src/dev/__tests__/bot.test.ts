@@ -189,8 +189,16 @@ const NEVER_FEEDS: number[] = [];
  * through different waves from there on. It is the same mechanism every other
  * entry here records, reached by a different road: which waves this lane meets
  * decides whether it crosses a carrier, and nothing about the weapons moved.
+ *
+ * 303 left it for the swallow rule (design record R1, #148). Food goes in when
+ * most of it is over the mouth rather than on the first touch, so a dodging
+ * grave that used to take a corpse it merely brushed now passes over it, grows
+ * more slowly and arrives at each later wave at a different size and a
+ * different tick. It is the same mechanism every entry above records: which
+ * waves this lane meets decides whether it crosses a carrier, and nothing about
+ * the weapons moved.
  */
-const NEVER_PAID: number[] = [202, 303];
+const NEVER_PAID: number[] = [202];
 
 /**
  * Re-measured under the director (ADR 0047, ADR 0056): 303 joined it and 404
@@ -362,8 +370,16 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
  * rungs. The budget is deliberately not raised for it: it is the stage's own
  * authored ceiling, and a birthright run that cannot empty a boss buys nothing
  * with more minutes.
+ *
+ * Re-measured for the swallow rule (design record R1, #148), and 101 and 404
+ * came in. A ceiling grave takes fewer corpses now, because a corpse it merely
+ * brushes stays on the ground, so it grows back more slowly between her rings
+ * and spends her fight as a smaller target taking fewer of them. That is the
+ * mechanism 202 joined by, one tune earlier and from the other direction: what
+ * gets a birthright run past her is living long enough for its own stream to
+ * finish her. Neither seed wins, which the set below still says.
  */
-const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [];
+const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [101, 404];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it

@@ -346,9 +346,17 @@ interface SetPieceClosed {
   readonly left: number;
 }
 
-// The dirt took an empty corpse under (ADR 0004). The missed-food instrument reads it.
+/**
+ * The dirt took an empty corpse under (ADR 0004). The missed-food instrument
+ * reads it.
+ *
+ * It carries the kind on the same terms CorpseLost does: the food ledger files
+ * every end under the kind that reached it, and a rot that named no kind would
+ * leave one of the three ends unfilable from the event stream alone.
+ */
 interface CorpseExpired {
   readonly type: 'corpseExpired';
+  readonly kind: FoodKind;
   readonly x: number;
   readonly y: number;
 }

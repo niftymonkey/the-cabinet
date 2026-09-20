@@ -1051,6 +1051,8 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'as conditions.tuning.score.trashKillScore is.',
   'conditions.tuning.score.mealAtMaxedInKills':
     'as conditions.tuning.score.trashKillScore is.',
+  'conditions.tuning.swallow.tipThreshold':
+    'as conditions.tuning.stage.processionPurse is: what it decides is which food goes in, and every consequence of that shows through grave.size, reservoir, levels and the corpse pool, all of which the walk folds from the first tick. A tape recorded under one threshold and replayed under another diverges at the first swallow it changes, which is what ADR 0019 intends.',
   'caps.mobs':
     "what this run's mob pool was built at, derived once by createRun from the record above and never written again (ADR 0056 as amended). It is the run's identity in the same way the seed is, and what it decides is folded already: the pool it sized is walked every tick, and a run that derived a different cap diverges in what stands on the field rather than in a number beside it.",
   'caps.mobFire':

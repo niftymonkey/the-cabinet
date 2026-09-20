@@ -7,9 +7,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { stepping } from '../../dev/stepping';
 import { spawnBoss } from '../bosses/phases';
-import { spawnCorpse } from '../corpses';
+import type { Corpse } from '../corpses';
+import {
+  CORPSE_HALF_EXTENT,
+  FRESHNESS_PER_TICK,
+  POWER_UP_HALF_EXTENT,
+  spawnCorpse,
+  spawnFallenRung,
+  spawnFeast,
+  spawnPowerUp,
+} from '../corpses';
 import type { SimEvent } from '../events';
-import { graveHitbox } from '../grave';
+import { graveHitbox, graveWidth } from '../grave';
 import { fireDirectedShot } from '../mobFire';
 import type { Mob } from '../mobs';
 import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../mobs';
@@ -27,7 +36,10 @@ import {
   INVULNERABLE_TICKS,
   RESERVOIR_CAPACITY,
   SCROLL_SPEED,
+  SIZE_CEILING,
+  SIZE_FLOOR,
 } from '../tuning';
+import { resolveTuning } from '../tuningRecord';
 
 /** A tick that only steers, which is every tick these tests are about. */
 function drift(x: number, y: number): TickCommand {
@@ -741,5 +753,272 @@ describe('a corpse swallowed while a shove is carrying it (design record R10)', 
     const shoved = events.filter((event) => event.type === 'mobShoved');
     expect(shoved).toHaveLength(1);
     expect(shoved[0]?.type === 'mobShoved' && shoved[0].id).toBe(dead.id);
+  });
+});
+
+/** A corpse standing exactly here, left by a body killed on the spot. */
+function corpseAt(state: RunState, x: number, y: number): Corpse {
+  const dead = spawnMob(
+    state,
+    'shambler',
+    { x, y, vx: 0, vy: 1, index: 0 },
+    false,
+    'wave',
+  )!;
+  dead.alive = false;
+  leaveCorpse(state, dead);
+  return requireDefined(
+    state.corpses.filter((each) => each.alive).at(-1),
+    `no corpse at ${x}, ${y}`,
+  );
+}
+
+/**
+ * The x a body of this half extent stands at to lie across the grave's left
+ * rim with exactly `over` of its width on the mouth, worked from the mouth's
+ * own box rather than from the grave's numbers.
+ */
+function acrossTheLeftRim(
+  state: RunState,
+  over: number,
+  halfExtent: number,
+): number {
+  return graveHitbox(state.grave).x + over - halfExtent;
+}
+
+/** The one live body on the field, which is how these tests name what they staged. */
+function stagedFood(state: RunState): Corpse {
+  const live = state.corpses.filter((corpse) => corpse.alive);
+  return requireDefined(
+    live[0],
+    `expected one piece of food, found ${live.length}`,
+  );
+}
+
+describe('food goes in when most of it is over the mouth (grave-in-the-ground R1 and R2)', () => {
+  it('leaves a corpse with only a sliver over the rim on the ground', () => {
+    // R1: a sliver over the edge never reaches the threshold. Two of the
+    // corpse's fourteen is a share of 0.143 against the record's 0.55, and the
+    // rule this replaces took it on the first touch.
+    const state = quietRun();
+    const step = stepping(state);
+    const corpse = corpseAt(
+      state,
+      acrossTheLeftRim(state, 2, CORPSE_HALF_EXTENT),
+      state.grave.y,
+    );
+
+    const events = step(STILL);
+
+    expect(typesOf(events)).not.toContain('swallowed');
+    expect(corpse.alive).toBe(true);
+  });
+
+  it('lets a corpse with only a sliver over the rim rot away, and reports the loss', () => {
+    // Agent's call A2 in R1: food that runs out of freshness before it reaches
+    // the threshold is lost exactly as it is today. The rim is not a block and
+    // it is not a holding pen either.
+    const state = quietRun();
+    const step = stepping(state);
+    const corpse = corpseAt(
+      state,
+      acrossTheLeftRim(state, 2, CORPSE_HALF_EXTENT),
+      state.grave.y,
+    );
+    corpse.freshness = FRESHNESS_PER_TICK / 2;
+
+    const events = step(STILL);
+
+    expect(typesOf(events)).not.toContain('swallowed');
+    const rotted = events.find((event) => event.type === 'corpseExpired');
+    expect(rotted?.type === 'corpseExpired' && rotted.kind).toBe('corpse');
+    expect(corpse.alive).toBe(false);
+  });
+
+  it('swallows a corpse eight of its fourteen across the rim, and not one seven across', () => {
+    // The threshold itself, from either side: 8 over 14 is 0.571 and goes in,
+    // 7 over 14 is a flat half and stays out. Both touch the mouth, so the old
+    // first-touch rule took both.
+    const taken = quietRun();
+    const corpseTaken = corpseAt(
+      taken,
+      acrossTheLeftRim(taken, 8, CORPSE_HALF_EXTENT),
+      taken.grave.y,
+    );
+    const left = quietRun();
+    const corpseLeft = corpseAt(
+      left,
+      acrossTheLeftRim(left, 7, CORPSE_HALF_EXTENT),
+      left.grave.y,
+    );
+
+    expect(typesOf(stepping(taken)(STILL))).toContain('swallowed');
+    expect(corpseTaken.alive).toBe(false);
+    expect(typesOf(stepping(left)(STILL))).not.toContain('swallowed');
+    expect(corpseLeft.alive).toBe(true);
+  });
+
+  it('pays the growth and the score on the tick of the tip and on no tick before it', () => {
+    // R2: the tip is where every payout lands, and the tip is later than the
+    // first touch now. The grave stands a hair under the ceiling so one swallow
+    // pays growth and overflows the rest into score, and the corpse walks down
+    // into the mouth on the scroll alone.
+    const state = quietRun();
+    state.grave.size = SIZE_CEILING - 0.001;
+    const step = stepping(state);
+    const mouth = graveHitbox(state.grave);
+    const corpse = corpseAt(state, state.grave.x, mouth.y - CORPSE_HALF_EXTENT);
+
+    let firstTouch: number | null = null;
+    let tipped: number | null = null;
+    const paidBeforeTheTip: string[] = [];
+    for (let tick = 0; tick < 60 && tipped === null; tick++) {
+      const events = step(STILL);
+      const touching =
+        corpse.alive &&
+        corpse.y + CORPSE_HALF_EXTENT > graveHitbox(state.grave).y;
+      if (touching && firstTouch === null) firstTouch = tick;
+      if (typesOf(events).includes('swallowed')) {
+        tipped = tick;
+        expect(typesOf(events)).toContain('grew');
+        expect(typesOf(events)).toContain('overflowed');
+        continue;
+      }
+      for (const event of events) {
+        if (event.type === 'grew' || event.type === 'overflowed') {
+          paidBeforeTheTip.push(`${event.type} on tick ${tick}`);
+        }
+      }
+    }
+
+    expect(paidBeforeTheTip).toEqual([]);
+    expect(firstTouch).not.toBeNull();
+    expect(tipped).not.toBeNull();
+    expect(tipped ?? 0).toBeGreaterThan(firstTouch ?? 0);
+  });
+
+  it('swallows a power-up wider than a floor-size grave once the mouth is under it, and not before', () => {
+    // ADR 0003: size never gates a swallow. A power-up is 28 wide against a
+    // mouth 18 wide at the floor, and the division is what keeps that true: the
+    // whole mouth under it is a share of one, and eight of the mouth's eighteen
+    // is 0.444 and stays out.
+    const taken = quietRun();
+    taken.grave.size = SIZE_FLOOR;
+    spawnPowerUp(taken, taken.grave.x, taken.grave.y);
+    const left = quietRun();
+    left.grave.size = SIZE_FLOOR;
+    spawnPowerUp(
+      left,
+      acrossTheLeftRim(left, 8, POWER_UP_HALF_EXTENT),
+      left.grave.y,
+    );
+
+    expect(typesOf(stepping(taken)(STILL))).toContain('swallowed');
+    expect(typesOf(stepping(left)(STILL))).not.toContain('swallowed');
+    expect(stagedFood(left).alive).toBe(true);
+  });
+
+  it('holds a feast and a fallen rung to the same rule as a corpse', () => {
+    // R1: every kind of food follows the one rule (agent's call A4). A feast
+    // carries the corpse's own box and a fallen rung carries the power-up's, so
+    // the two are staged at their own widths and not at one number.
+    const feastOut = quietRun();
+    spawnFeast(
+      feastOut,
+      acrossTheLeftRim(feastOut, 2, CORPSE_HALF_EXTENT),
+      feastOut.grave.y,
+      1,
+    );
+    const feastIn = quietRun();
+    spawnFeast(
+      feastIn,
+      acrossTheLeftRim(feastIn, 8, CORPSE_HALF_EXTENT),
+      feastIn.grave.y,
+      1,
+    );
+    const rungOut = quietRun();
+    spawnFallenRung(
+      rungOut,
+      acrossTheLeftRim(rungOut, 4, POWER_UP_HALF_EXTENT),
+      rungOut.grave.y,
+      'bell',
+    );
+    const rungIn = quietRun();
+    spawnFallenRung(
+      rungIn,
+      acrossTheLeftRim(rungIn, 20, POWER_UP_HALF_EXTENT),
+      rungIn.grave.y,
+      'bell',
+    );
+
+    expect(typesOf(stepping(feastOut)(STILL))).not.toContain('swallowed');
+    expect(typesOf(stepping(feastIn)(STILL))).toContain('swallowed');
+    expect(typesOf(stepping(rungOut)(STILL))).not.toContain('swallowed');
+    expect(typesOf(stepping(rungIn)(STILL))).toContain('swallowed');
+  });
+
+  it('swallows a corpse on the field side edge under a grave flush to that edge', () => {
+    // R1's edge ruling: both halves of the division count only what is inside
+    // the field. Half the corpse is off the field and can never be over any
+    // mouth, so what is left is wholly over it. Without the clip this corpse
+    // reads a flat half at every grave size and could never go in.
+    const state = quietRun();
+    state.grave.x = graveWidth(state.grave.size) / 2;
+    const step = stepping(state);
+    const corpse = corpseAt(state, 0, state.grave.y);
+
+    expect(typesOf(step(STILL))).toContain('swallowed');
+    expect(corpse.alive).toBe(false);
+  });
+
+  it('never swallows food lying wholly outside the field', () => {
+    // The other end of the same ruling: nothing of it could be over any mouth,
+    // so the share is zero rather than a division by nothing.
+    const state = quietRun();
+    state.grave.x = graveWidth(state.grave.size) / 2;
+    const step = stepping(state);
+    const corpse = corpseAt(state, -CORPSE_HALF_EXTENT * 3, state.grave.y);
+
+    expect(typesOf(step(STILL))).not.toContain('swallowed');
+    expect(corpse.alive).toBe(true);
+  });
+
+  it('swallows a corpse that reaches the threshold on its last tick of freshness', () => {
+    // R1 keeps freshness's place in the tick: the swallow check still runs
+    // before decay, so greed that arrives on the last tick is rewarded rather
+    // than taken under.
+    const state = quietRun();
+    const step = stepping(state);
+    const corpse = corpseAt(
+      state,
+      acrossTheLeftRim(state, 8, CORPSE_HALF_EXTENT),
+      state.grave.y,
+    );
+    corpse.freshness = FRESHNESS_PER_TICK / 2;
+
+    const events = step(STILL);
+
+    expect(typesOf(events)).toContain('swallowed');
+    expect(typesOf(events)).not.toContain('corpseExpired');
+    expect(corpse.alive).toBe(false);
+  });
+
+  it('reads the threshold off the run own tuning record', () => {
+    // The threshold is a data row and never a constant in the rule, so a run
+    // started under a record that asks for nine tenths leaves out the very
+    // corpse the default record takes.
+    const state = createRun(21, {
+      tuning: resolveTuning({ swallow: { tipThreshold: 0.9 } }),
+    });
+    state.stage.firedWaves = PROCESSION_WAVES.length;
+    const step = stepping(state);
+    const corpse = corpseAt(
+      state,
+      acrossTheLeftRim(state, 8, CORPSE_HALF_EXTENT),
+      state.grave.y,
+    );
+
+    expect(typesOf(step(STILL))).not.toContain('swallowed');
+    expect(corpse.alive).toBe(true);
   });
 });

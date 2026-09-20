@@ -37,3 +37,51 @@ Food lost, for corpses and feasts. The `corpseLost` event exists (`src/game/even
 ## A note on the claim in the old handoff
 
 This batch has 12 and 11 fresh victories out of 48 for the two hands, while `bot.test.ts` pins `REACHES_VICTORY_FRESH = []`. The likely reason, not yet checked in the code: they are different players, the batch played by the harness hands (`src/dev/harnessPolicy.ts`, `src/dev/configurations.ts`) and the test by the dodge-only bot (`src/dev/bot.ts`) on five seeds. If that holds, the design record's sentence "no fresh run beats the Undertaker yet" is true of the bot only, and slice 5's entry should check it, because a winning fresh tape is a way to check the ending.
+
+## Food swallowed against food lost
+
+Agent output, 2026-09-20, slice 1 part A. The figure the section above says the harness cannot read is read here, off these same 192 tapes, while the first-touch rule still stands. Two things were built for it: the food ledger reading (`src/dev/readings/foodLedger.ts`), which counts swallowed, lost off the bottom and rotted away for each of the four kinds of food, and `scripts/rebatch.ts`, which folds a batch's own stored tapes into a report again. Nothing was replayed twice or played afresh: each folder now carries `report.rebatch.json` beside the `report.json` its batch wrote.
+
+Read from the folder each figure was folded from with:
+
+```
+pnpm vite-node --config vite.headless.config.ts scripts/rebatch.ts <batch-folder>
+```
+
+The refold is honest. Every figure in `report.rebatch.json` that also exists in the batch's own `report.json` is equal to it, folder by folder: 32,371 leaf figures for steady-far / birthright, 26,952 for shaky-short / birthright, 41,780 for steady-far / maxed and 38,993 for shaky-short / maxed, with nothing differing and nothing missing. The only new leaves are the 1,248 the food ledger adds to each. The swallow counts also agree, run for run, with the reading the table above was read from: `tuning.foodLedger.corpse.swallowed` gives the same median and range as `tuning.freshnessPaid.swallows.corpse` on every folder.
+
+Medians over 48 runs, with the range in brackets. Every kind is reported, zero included, which is why these medians sit below the table above where that one counted only the runs that swallowed one.
+
+| steady-far / birthright | Swallowed | Lost off the bottom | Rotted away |
+| --- | --- | --- | --- |
+| Corpses | 57 (19 to 210) | 34 (0 to 435) | 122 (20 to 400) |
+| Power-ups | 1 (0 to 12) | 0 (0 to 6) | 0 |
+| Feasts | 2 (0 to 4) | 0 (0 to 1) | 0 |
+| Fallen rungs | 0 (0 to 12) | 0 (0 to 6) | 0 |
+
+| shaky-short / birthright | Swallowed | Lost off the bottom | Rotted away |
+| --- | --- | --- | --- |
+| Corpses | 93 (8 to 798) | 3 (0 to 344) | 30 (0 to 599) |
+| Power-ups | 1 (0 to 18) | 0 (0 to 3) | 0 |
+| Feasts | 0 (0 to 4) | 0 | 0 |
+| Fallen rungs | 0 (0 to 21) | 0 (0 to 7) | 0 |
+
+| steady-far / maxed | Swallowed | Lost off the bottom | Rotted away |
+| --- | --- | --- | --- |
+| Corpses | 383 (150 to 508) | 435 (234 to 889) | 844 (627 to 1042) |
+| Power-ups | 8 (3 to 14) | 11 (5 to 14) | 0 |
+| Feasts | 4 (0 to 4) | 0 (0 to 3) | 0 |
+| Fallen rungs | 0 | 0 | 0 |
+
+| shaky-short / maxed | Swallowed | Lost off the bottom | Rotted away |
+| --- | --- | --- | --- |
+| Corpses | 1445 (1191 to 1699) | 97 (48 to 204) | 601 (392 to 872) |
+| Power-ups | 19 (15 to 22) | 3 (1 to 8) | 0 |
+| Feasts | 4 | 0 | 0 |
+| Fallen rungs | 0 | 0 | 0 |
+
+Only a corpse decays, so rotted is zero for the other three kinds by construction and not by luck. The three ends do not add up to what spawned: food still on the field when a run stopped reached no end at all, and a body the corpse cap evicted reports its own event rather than either loss here.
+
+## A note on the commands above
+
+The four commands in this record name a relative output path and say they were run from `apps/hungry-grave/`. Those two facts do not agree, and the tapes say which one is wrong: `run.log` records each batch's own stdout, which is the folder it wrote, and all four are absolute paths under the worktree root. `pnpm vite-node` keeps the working directory it was called in, checked here by running a one-line script through it from `apps/hungry-grave/`, so a relative `local/148-before-batch/batches` from there would have landed under `apps/hungry-grave/local/`, where nothing is. So the out-root argument was written out in full. The "after" batch is run the same way, with the absolute path of `local/148-after-slice-1/batches`.

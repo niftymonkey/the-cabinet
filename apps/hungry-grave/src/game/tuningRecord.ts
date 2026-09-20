@@ -203,6 +203,37 @@ type ScoreTuning = {
 };
 
 /**
+ * The swallow's own magnitude, and there is one: how much of a piece of food
+ * has to be over the mouth before it tips in (design record
+ * `grave-in-the-ground.md` R1).
+ */
+type SwallowTuning = {
+  /**
+   * The share of a piece of food that has to be over the grave's mouth before
+   * it is swallowed, from 0 to 1. Food goes in on the tick its share reaches
+   * this.
+   *
+   * The share is the area the food and the mouth share, over the most of the
+   * food that could ever be over this mouth, counting only the part of the food
+   * inside the field (`tip.ts`). So it is a share of what is reachable and not
+   * of the food's own area, which is what lets food wider than the mouth reach
+   * it at all: a power-up is 28 wide against a mouth 27 wide at the start and
+   * 18 at the floor, and ADR 0003 rules that size never gates a swallow.
+   *
+   * It is Mark's own value, sent after 403 swallows on prototype build 6 with a
+   * natural fall in it: "most of the body", where an earlier build with hands
+   * hauling bodies in had wanted a low threshold and a long strong pull. It is
+   * a starting value all the same, and what it gets read against is the food
+   * ledger's swallowed against lost, before and after this step
+   * (`docs/branch/records/before-batch.md`).
+   *
+   * Near zero is the old first-touch rule, which is what the game did before
+   * this step and what made a corpse vanish at the first pixel of contact.
+   */
+  tipThreshold: number;
+};
+
+/**
  * Every magnitude a batch reading can move, grouped by the module that owns it
  * (CONTEXT.md Tuning record, ADR 0064).
  *
@@ -215,6 +246,7 @@ type ScoreTuning = {
 type TuningRecord = {
   stage: StageTuning;
   score: ScoreTuning;
+  swallow: SwallowTuning;
 };
 
 /**
@@ -227,6 +259,7 @@ type TuningRecord = {
 interface TuningOverlay {
   stage?: Partial<StageTuning>;
   score?: Partial<ScoreTuning>;
+  swallow?: Partial<SwallowTuning>;
 }
 
 /** One row under the one addressable name every text surface uses for it. */
@@ -258,6 +291,9 @@ const DEFAULT_TUNING: TuningRecord = {
     bossHealthPerKill: 100,
     sourceKillInKills: 24,
     mealAtMaxedInKills: 1,
+  },
+  swallow: {
+    tipThreshold: 0.55,
   },
 };
 
@@ -317,22 +353,43 @@ const refuseZeroBossHealthRate = (score: ScoreTuning): void => {
 };
 
 /**
+ * The swallow's own bound, and it is the one row of the group (design record
+ * R1's closing paragraph).
+ *
+ * Both ends turn the one verb of collection off, in opposite directions. The
+ * share `tip.ts` computes is never below zero, so a threshold at or below zero
+ * tips every piece of food on the field at once, on the run's very first tick;
+ * and the share is never above one, so a threshold above one leaves nothing
+ * that can ever be swallowed. Neither is a candidate anybody could read a
+ * figure off, and a record comes from a document, so it is rejected here rather
+ * than repaired.
+ */
+const refuseUnplayableTipThreshold = (swallow: SwallowTuning): void => {
+  if (swallow.tipThreshold > 0 && swallow.tipThreshold <= 1) return;
+  throw new Error(
+    `swallow.tipThreshold is written as ${swallow.tipThreshold}, outside the 0 to 1 a share can take: at or below 0 every piece of food tips at once, and above 1 nothing can ever be swallowed`,
+  );
+};
+
+/**
  * The complete record an overlay stands for, every absent row filled from the
  * default.
  *
  * Its input is already typed, because parsing a raw name a person typed is the
  * edge's job: there is no such thing as an unknown row reaching here. What it
- * refuses is the three bounds above and nothing else, and a record our own code
+ * refuses is the four bounds above and nothing else, and a record our own code
  * produced cannot fail any of them, which is repair by origin.
  */
 const resolveTuning = (overlay: TuningOverlay): TuningRecord => {
   const resolved: TuningRecord = {
     stage: { ...DEFAULT_TUNING.stage, ...overlay.stage },
     score: { ...DEFAULT_TUNING.score, ...overlay.score },
+    swallow: { ...DEFAULT_TUNING.swallow, ...overlay.swallow },
   };
   refuseInvertedQuietInterval(resolved.stage);
   refuseZeroQuietIntervalMinimum(resolved.stage);
   refuseZeroBossHealthRate(resolved.score);
+  refuseUnplayableTipThreshold(resolved.swallow);
   return resolved;
 };
 
@@ -361,6 +418,7 @@ export { DEFAULT_TUNING, resolveTuning, tuningRows };
 export type {
   ScoreTuning,
   StageTuning,
+  SwallowTuning,
   TuningOverlay,
   TuningRecord,
   TuningRow,

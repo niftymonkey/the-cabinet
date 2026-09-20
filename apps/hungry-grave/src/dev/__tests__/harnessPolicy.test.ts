@@ -526,8 +526,15 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * longer dies is a lane's worth of kills that no longer happen, so where this
  * hand's corpses lie and which waves its lane then passes through both move
  * from the Crowd onward.
+ *
+ * Re-measured for the swallow rule (design record R1, #148), and 202 left it
+ * again, so one of the five is never paid. The hand takes fewer corpses, since
+ * one it merely brushes now stays on the ground, so it grows more slowly and
+ * meets every later wave at a different size and a different tick. Which waves
+ * a lane passes through is what decides whether it crosses a carrier, and that
+ * is every entry above.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202, 404];
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [404];
 
 /**
  * The seeds where an offer stands and the hand never reaches it, which is a
@@ -555,8 +562,15 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202, 404];
  * offers it is paid. It moves with the set above and by the same mechanism, a
  * curtain that no longer dies to the storm, and an empty set still has teeth
  * because it is written as an equality.
+ *
+ * Re-measured for the swallow rule (design record R1, #148), and 202 and 505
+ * came in. The hand still steers at the offer body nearest the grave, and
+ * reaching one is harder than touching one now: the body has to end a tick with
+ * most of itself over the mouth rather than with any of it. 202 is the same
+ * seed the set above sent back here for the third time, paid an offer it never
+ * reaches, and 505 opens its offers and takes none of them.
  */
-const STOOD_BUT_NEVER_REACHED: readonly number[] = [];
+const STOOD_BUT_NEVER_REACHED: readonly number[] = [202, 505];
 
 /**
  * The seeds that finish above the birthright, which under the stage's authored
@@ -620,8 +634,15 @@ const STOOD_BUT_NEVER_REACHED: readonly number[] = [];
  * it. 101 catches a bell rung twice and 303 catches a skull rung five times,
  * and those two are the seeds that outlast the stage's budget, so they end
  * holding what they caught rather than being ground back before sealing.
+ *
+ * Re-measured for the swallow rule (design record R1, #148), and the set is
+ * empty: both seeds went out on the same mechanism they came in by. A fallen
+ * rung is 28 wide and a caught rung is now a rung the grave ended a tick with
+ * most of over its mouth, so the catches that put 101 and 303 above the
+ * birthright are passes instead. An empty set still has teeth, because it is
+ * written as an equality.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [101, 303];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

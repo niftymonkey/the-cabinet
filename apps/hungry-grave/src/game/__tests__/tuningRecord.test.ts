@@ -99,6 +99,36 @@ describe('resolving a partial tuning record', () => {
     ).not.toThrow();
   });
 
+  it('rejects a record whose tip threshold is zero, naming the row', () => {
+    // Design record R1's own bound: the share is never below zero, so at zero
+    // every piece of food anywhere on the field tips on the same tick, the one
+    // the run starts on included. At or below zero rather than below, because
+    // zero is the first reading that does it.
+    expect(() => resolveTuning({ swallow: { tipThreshold: 0 } })).toThrow(
+      /swallow\.tipThreshold/,
+    );
+    expect(() => resolveTuning({ swallow: { tipThreshold: -0.1 } })).toThrow(
+      /swallow\.tipThreshold/,
+    );
+    // The whole of the rest of the range is a candidate, both ends included: a
+    // threshold near zero is the old first-touch rule and a threshold of one
+    // asks for the whole reachable body, and neither is a defect.
+    expect(() =>
+      resolveTuning({ swallow: { tipThreshold: 0.001 } }),
+    ).not.toThrow();
+    expect(() => resolveTuning({ swallow: { tipThreshold: 1 } })).not.toThrow();
+  });
+
+  it('rejects a record whose tip threshold is above one, naming the row', () => {
+    // The other end of R1's bound: the share can never exceed one, because the
+    // most of the food that could be over the mouth is the divisor, so above
+    // one nothing could ever be swallowed and a run would play with the one
+    // verb of collection switched off.
+    expect(() => resolveTuning({ swallow: { tipThreshold: 1.1 } })).toThrow(
+      /swallow\.tipThreshold/,
+    );
+  });
+
   it('rejects a record whose quiet-interval minimum is zero, naming the row', () => {
     // The stage group's own divisor: every cap prices a window as one card at
     // its opening and one more at every quiet interval inside it, so a zero
@@ -158,11 +188,15 @@ describe("the tuning record's rows", () => {
         name: 'score.mealAtMaxedInKills',
         value: DEFAULT_TUNING.score.mealAtMaxedInKills,
       },
+      {
+        name: 'swallow.tipThreshold',
+        value: DEFAULT_TUNING.swallow.tipThreshold,
+      },
     ]);
-    // Ten distinct names, so a walk answering one row ten times could not have
-    // produced the list above.
+    // Eleven distinct names, so a walk answering one row eleven times could not
+    // have produced the list above.
     expect(
       new Set(tuningRows(DEFAULT_TUNING).map((row) => row.name)).size,
-    ).toBe(10);
+    ).toBe(11);
   });
 });
