@@ -4,7 +4,7 @@ How this branch runs is the `branch-runbook` skill at `.claude/skills/branch-run
 
 ## Goal
 
-The grave reads as a grave in the ground, and everything it swallows falls in where the player can see it, the Undertaker included. The branch covers #148 and its sub-issue #106. It is one step with five slices.
+The grave reads as a grave in the ground, and everything it swallows falls in where the player can see it, the Undertaker included. The branch covers #148 and its sub-issue #106. It is one step with six slices.
 
 ## The branch
 
