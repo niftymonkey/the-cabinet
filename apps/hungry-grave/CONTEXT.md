@@ -12,7 +12,13 @@ The system layer uses the words the genre's designers and players already use, a
 
 **Grave**: The protagonist: a moving open grave, a hole in the ground shaped like a grave, taller than wide. It swallows and passes under; it never drives. _Avoid_: player character, hole, ship, hero.
 
-**Swallow**: The one verb of collection: the grave passes under a corpse or power-up and it falls in. Every payout in the game arrives through a swallow. _Avoid_: eat, collect, pick up, consume, drive over.
+**Swallow**: The one verb of collection: the grave passes under a corpse or power-up, and when most of it is over the mouth it tips at the rim and falls in. Every payout in the game arrives through a swallow, at the tip. _Avoid_: eat, collect, pick up, consume, drive over.
+
+**Pull**: The grave's tug on food close to its rim. It moves food only, never a living mob. _Avoid_: suck, vacuum, magnet.
+
+**Tip**: The moment food goes over the rim, turning about the point of the rim it crosses. The payout of the swallow lands here. _Avoid_: topple (that word is the Undertaker's ending).
+
+**Fall**: What follows the tip: the food drops into the dark, shrinks, darkens, and never lands. The grave has no bottom. _Avoid_: poof, vanish, sink.
 
 **Dive**: The move that swallows: steering the grave under what it wants until the thing falls in. It is ordinary steering rather than a move of its own, so every payout is bought with position: growth, weapon levels and the belch's charge alike, and the way back from a rung the floor ladder took is the same verb as the way up. _Avoid_: dash, lunge, plunge, dip, special move.
 
