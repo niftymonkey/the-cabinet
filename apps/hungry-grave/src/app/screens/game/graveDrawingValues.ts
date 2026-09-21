@@ -179,9 +179,96 @@ const TEETER_SHAKE = { radians: 0.1, hertz: 4.5 } as const;
  */
 const TEETER_DARKEN = 0.8;
 
+/**
+ * How long the Undertaker's end runs, in seconds, counted on the frame clock
+ * because the run's tick has stopped (design record R6).
+ *
+ * It is the first prototype's figure for the whole ending. Whether it is the
+ * right length is a play question and the reason it is one row.
+ */
+const ENDING_SCENE_SECONDS = 2.8;
+
+/**
+ * What share of the scene each of its four beats takes: the grave hauls him to
+ * the rim, he digs in at the edge, he turns over it, and he goes down (design
+ * record R6). They sum to one.
+ *
+ * The tip and the fall are the shared fall's own lengths read as shares of the
+ * scene, so a body falls here at the rate a swallowed corpse falls: at this
+ * length 0.11 is FALL_TIP_SECONDS and 0.27 is FALL_DROP_SECONDS, each within a
+ * tick. Moving the scene's length alone changes that rate, which is a thing to
+ * see in play rather than a thing to hold by arithmetic.
+ *
+ * The dark takes him before the fall beat is spent, because the shared fall
+ * carries a body into the dark partway down and keeps dropping it after: at
+ * these shares that is measured at 0.29 seconds of held field at the size
+ * ceiling and 0.56 at the floor. It is kept rather than trimmed because the
+ * rate is the thing worth holding, and because a held field is the beat
+ * between the grave closing over him and the end screen.
+ */
+const ENDING_BEATS = {
+  drag: 0.52,
+  claw: 0.1,
+  tip: 0.11,
+  fall: 0.27,
+} as const;
+
+/**
+ * The power the drag's ease-in runs at: the grave takes up the slack and then
+ * hauls. A drag at a steady speed reads as a man walking into a hole, which is
+ * the read this ending exists to avoid.
+ */
+const ENDING_DRAG_EASE = 2;
+
+/**
+ * The furrows his hands leave in the ground behind him: how many, how far
+ * apart they sit across the way he is dragged as a share of his own width, how
+ * wide each one draws in field units, and how much of the soil shadow they
+ * carry.
+ *
+ * They wear graveSoilShadow, which against the stand-in ground tile draws
+ * lighter rather than darker: measured on a phone at device scale 3, a furrow
+ * reads 31,37,50 over a ground of 17,22,31. Turned earth catching the moon is
+ * the read, and it is the one that survives a ground this dark; a darker
+ * furrow is what the trodden margin already tried, and it vanishes.
+ */
+const ENDING_FURROWS = {
+  lines: 4,
+  spread: 0.62,
+  width: 3,
+  alpha: 0.75,
+  /**
+   * How a furrow wanders off the straight line, in widths, walked end to end.
+   * One profile for all of them, each starting at its own place in it, so four
+   * hands scrape four different marks without a random stream a replay would
+   * have to reproduce.
+   */
+  wander: [0, 0.7, -0.5, 1, -0.8, 0.4, -0.2, 0.6],
+} as const;
+
+/**
+ * The field under the scene, frozen and out of the way: the share of the scene
+ * by which the shots in the air have gone, the share by which the mobs have
+ * finished dimming, and how much of itself a dimmed mob keeps.
+ *
+ * The shots go first and fast, which is what the genre does on a boss's death.
+ * The mobs stay where they were, because the field freezing is the tell that
+ * the run is over.
+ */
+const ENDING_FIELD_FADE = {
+  shotsGoneBy: 0.15,
+  mobsDimBy: 0.25,
+  mobsKeep: 0.35,
+} as const;
+
 export {
   BAKE_PADDING,
   BAKE_PIXELS_PER_UNIT,
+  ENDING_BEATS,
+  ENDING_DRAG_EASE,
+  ENDING_FIELD_FADE,
+  ENDING_FURROWS,
+  ENDING_SCENE_SECONDS,
   FACE_STEPS,
   FACE_WASH,
   FALL_DRAG,

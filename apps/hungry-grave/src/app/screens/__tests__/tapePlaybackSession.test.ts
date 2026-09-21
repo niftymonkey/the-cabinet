@@ -134,4 +134,36 @@ describe('the playback session', () => {
     expect(session.playback!.run.tick).toBe(370);
     expect(session.lines.posture).toContain('PLAYED TO TICK 370');
   });
+
+  it('a tape that does not name a starting condition this build requires is refused by the name of the condition', async () => {
+    // Nothing abnormal is ever silent. A tape recorded before a tuning row
+    // existed used to fall through to a bound of zero, and the screen read
+    // PLAYED TO TICK 0 over a drawn starting field with nothing said, while
+    // measure.ts over the same bytes named the missing row.
+    const { tape } = scriptedTape(120);
+    const missing = 'swallow.tipThreshold';
+    const older: Tape = {
+      ...tape,
+      header: {
+        ...tape.header,
+        startingCondition: tape.header.startingCondition.filter(
+          (row) => row.name !== missing,
+        ),
+      },
+    };
+    expect(older.header.startingCondition.length).toBe(
+      tape.header.startingCondition.length - 1,
+    );
+    serveTape(encodeTape(older));
+
+    const session = createTapePlaybackSession();
+    session.begin('blob:tape', 0);
+    await vi.waitFor(() => expect(session.phase).not.toBe('fetching'));
+    session.advance(TICK_MS);
+
+    expect(session.phase).toBe('idle');
+    expect(session.lines.posture).toBe('NO REPLAY');
+    expect(session.lines.statement).toContain(missing.toUpperCase());
+    expect(session.lines.statement).not.toContain('PLAYED TO TICK 0');
+  });
 });

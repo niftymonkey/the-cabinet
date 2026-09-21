@@ -38,7 +38,12 @@ import {
   freshnessTint,
   SPRITE_STROKE,
 } from '../foodSprite';
-import { TEETER_SHAKE, TEETER_START, TEETER_TILT } from '../graveDrawingValues';
+import {
+  ENDING_FIELD_FADE,
+  TEETER_SHAKE,
+  TEETER_START,
+  TEETER_TILT,
+} from '../graveDrawingValues';
 import { FieldLayers } from '../layering';
 import { SHOT_CORE_OF_HITBOX, SHOT_DRAW_SCALE } from '../mobFireSprite';
 import { tellRadius } from '../mobSprite';
@@ -1408,5 +1413,53 @@ describe('the teeter (grave-in-the-ground R5)', () => {
 
     expect(draining).toBeLessThan(full);
     expect(draining).toBeLessThan(freshnessTint(corpse, state.tick));
+  });
+});
+
+describe('the field under the ending (grave-in-the-ground R6)', () => {
+  it('the shots in the air fade out as the ending runs, and the mobs dim', () => {
+    // R6: the field under the scene is frozen and does not fight for
+    // attention. The shots go first and fast, which is what the genre does on
+    // a boss's death, and the mobs stay where they were so that the field
+    // freezing is itself the tell that the run is over.
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    put(state, 'shambler', 100, 100);
+    putShot(state, 120, 120);
+    renderer.sync(state);
+    const mob = spriteAt(layers, 'mobBodies', 0);
+    const shot = layers.layer('mobFire').children[0] as Graphics;
+    expect(mob.alpha).toBe(1);
+    expect(shot.alpha).toBe(1);
+
+    renderer.fadeForEnding(ENDING_FIELD_FADE.shotsGoneBy / 2);
+    expect(shot.alpha).toBeCloseTo(0.5, 10);
+    expect(mob.alpha).toBeLessThan(1);
+
+    renderer.fadeForEnding(ENDING_FIELD_FADE.shotsGoneBy);
+    expect(shot.alpha).toBe(0);
+
+    renderer.fadeForEnding(1);
+    expect(shot.alpha).toBe(0);
+    expect(mob.alpha).toBeCloseTo(ENDING_FIELD_FADE.mobsKeep, 10);
+    // Dimmed and never gone: the mobs stay where they were.
+    expect(mob.alpha).toBeGreaterThan(0);
+    expect(mob.visible).toBe(true);
+  });
+
+  it('a new run gets its shots and its mobs back at full strength', () => {
+    // Screens are pooled and attach() is the one place per-run memory dies, so
+    // a faded field left standing opens the next run half invisible.
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    put(state, 'shambler', 100, 100);
+    putShot(state, 120, 120);
+    renderer.sync(state);
+    renderer.fadeForEnding(1);
+
+    renderer.forgetPreviousRun();
+
+    expect(spriteAt(layers, 'mobBodies', 0).alpha).toBe(1);
+    expect((layers.layer('mobFire').children[0] as Graphics).alpha).toBe(1);
   });
 });

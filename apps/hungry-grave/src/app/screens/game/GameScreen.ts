@@ -26,6 +26,7 @@ import { bindKeyPress } from '../keyBinding';
 import { BackgroundRenderer } from './BackgroundRenderer';
 import { BELCH_SIZE, BelchButton } from './BelchButton';
 import { BossRenderer } from './BossRenderer';
+import { EndingSceneRenderer } from './EndingSceneRenderer';
 import { FallRenderer } from './FallRenderer';
 import { FieldRenderer } from './FieldRenderer';
 import { boundaryReadout, fieldClip } from './fieldFrame';
@@ -177,6 +178,12 @@ class GameScreen extends Container {
    * screen is where that hop is declared.
    */
   private readonly falls = new FallRenderer();
+  /**
+   * The Undertaker's end, drawn over the frozen field while the ending holds
+   * (design record R6). It draws into the grave's own falls container for its
+   * last beat, so this screen declares that hop beside the one above it.
+   */
+  private readonly scene = new EndingSceneRenderer();
 
   private readonly hud = createRunHud();
   /**
@@ -327,6 +334,7 @@ class GameScreen extends Container {
   private beginDrawing(run: RunState): void {
     this.fieldRenderer.attach(this.layers, run.caps);
     this.falls.attach(this.grave.falls, run.caps);
+    this.scene.forgetPreviousRun();
   }
 
   // The field's own furniture, put back after any clear() (see reset).
@@ -340,6 +348,7 @@ class GameScreen extends Container {
     this.grave.attach(this.layers);
     // After the grave, because the container the falls draw into is its child.
     this.falls.attach(this.grave.falls, this.fieldCaps());
+    this.scene.attach(this.layers, this.grave.falls);
   }
 
   public init(props: GameScreenProps) {
@@ -485,6 +494,13 @@ class GameScreen extends Container {
     run: RunState,
     reason: FrameReason,
   ): FrameWork {
+    if (reason === 'ending') {
+      // The frame clock, spent the way the countdown spends it, because the
+      // run's own tick has stopped and the scene is counted in real time.
+      this.ending.advance(this.framePolicy.takeElapsed(ticker.elapsedMS));
+      this.showScene(this.ending.sceneProgress);
+      return HELD_FRAME;
+    }
     if (reason === 'countdown') {
       this.countdown.advance(this.framePolicy.takeElapsed(ticker.elapsedMS));
       return HELD_FRAME;
@@ -498,6 +514,17 @@ class GameScreen extends Container {
     this.syncScreen(run);
     this.readOut();
     return { advanceMs: frame.advanceMs, endedRun: endedIn(frame.events) };
+  }
+
+  /**
+   * The ending scene and the field it is watched over, from the one progress.
+   *
+   * A progress of null is a run with no scene, which is every run but a won
+   * one: the scene draws nothing and the field is left alone.
+   */
+  private showScene(progress: number | null): void {
+    this.scene.show(progress);
+    if (progress !== null) this.fieldRenderer.fadeForEnding(progress);
   }
 
   /**
@@ -538,6 +565,10 @@ class GameScreen extends Container {
       if (event.type === 'swallowed') this.falls.swallowed(run, event);
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
+      // The death's own event carries the kind and where the body fell, which
+      // is the whole of what the scene needs: killBoss takes the boss off the
+      // field before it announces, so there is nothing left to read (R6).
+      if (event.type === 'bossKilled') this.scene.begin(event, run.grave);
       if (event.type === 'weaponStripped') {
         this.stormRenderer.weaponStripped(run, event.lines);
       }

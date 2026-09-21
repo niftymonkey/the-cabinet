@@ -312,11 +312,13 @@ const advanceUndertaker = (state: RunState, boss: Boss): SimEvent[] => {
 };
 
 /**
- * His death sheds nothing of its own. game-concept.md:70: "his death is the
- * ending: he topples into the grave and the swallow is the victory animation,
- * no payout, the grave swallows the gravedigger." What the fight paid was paid
- * at the phase breaks and by the bodies he dug up, and the ending itself is the
- * stage's rather than his module's.
+ * His death sheds nothing of its own. His paragraph in game-concept.md: "his
+ * death is the ending: the grave drags him across the ground to the rim, he
+ * claws furrows in the earth, and he tips, folds in and falls the way a corpse
+ * falls, no payout, the grave swallows the gravedigger." All of that is drawing
+ * code over a run that has already ended (design record R6). What the fight
+ * paid was paid at the phase breaks and by the bodies he dug up, and the ending
+ * itself is the stage's rather than his module's.
  */
 const undertakerDied = (): SimEvent[] => {
   return [];

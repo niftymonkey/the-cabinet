@@ -591,8 +591,8 @@ const wonTheLastFight = (
 };
 
 /**
- * ADR 0007's ending, on the tick the stage's last boss falls. game-concept.md:70
- * puts it plainly: "his death is the ending".
+ * ADR 0007's ending, on the tick the stage's last boss falls. The Undertaker's
+ * paragraph in game-concept.md puts it plainly: "his death is the ending".
  *
  * It reads the tick's own bossKilled rather than the run reaching the last
  * section. The stage crosses a section at the top of a tick and a run that has
@@ -602,9 +602,10 @@ const wonTheLastFight = (
  * event: a tape that stopped on the fight would show six sections where the stage
  * has seven.
  *
- * Victory pays nothing. The topple into the grave is the renderer's animation
- * over a run that has already ended, so a player who never dives is not left
- * with a run still running and nothing to play.
+ * Victory pays nothing. What the player watches after this tick is drawing
+ * alone, over a run that has already ended, so a player who never dives is not
+ * left with a run still running and nothing to play: the drawing code drags him
+ * to the rim, scrapes his furrows, and tips him in to fall (design record R6).
  *
  * An ending already reached stands, because the same tick's hits resolve before
  * its deaths do: a grave sealed on the tick the last phase empties lost the run

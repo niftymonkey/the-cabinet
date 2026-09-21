@@ -16,11 +16,21 @@
 
 import type { Graphics } from 'pixi.js';
 
-import type { Boss } from '../../../game/bosses/phases';
 import { BOSS_HALF_HEIGHT, BOSS_HALF_WIDTH } from '../../../game/bosses/phases';
 import type { BossKind } from '../../../game/stage/waves';
 import type { PaletteEntry } from '../../palette';
 import { PALETTE } from '../../palette';
+
+/**
+ * A boss as its own drawing needs him: which one he is, and how much of the
+ * invincible flash is left on him. The sim's Boss satisfies it, and so does the
+ * Undertaker's end, which draws him from his death's own event after the sim
+ * has already taken him off the field (design record R6).
+ */
+interface DrawnBoss {
+  readonly kind: BossKind;
+  readonly flash: number;
+}
 
 /**
  * A silhouette, in units of the boss's own half extents.
@@ -122,13 +132,13 @@ const FLASH_HALF_PERIOD = 12;
  * against. It runs off the boss's own countdown and never off the run's tick,
  * so a replay rendering a pinned tape draws the fight the run drew.
  */
-const bossFlashInverted = (boss: Boss): boolean => {
+const bossFlashInverted = (boss: DrawnBoss): boolean => {
   if (boss.flash <= 0) return false;
   return Math.floor(boss.flash / FLASH_HALF_PERIOD) % 2 === 1;
 };
 
 // What a boss's drawing depends on, so a sprite is rebuilt only when its look changes.
-const bossLook = (boss: Boss): string => {
+const bossLook = (boss: DrawnBoss): string => {
   return `${boss.kind}|${bossFlashInverted(boss)}`;
 };
 
@@ -194,7 +204,7 @@ const BOSS_DETAILS: Record<BossKind, (into: Graphics) => void> = {
   undertaker: drawUndertakerDetail,
 };
 
-const drawBoss = (into: Graphics, boss: Boss): void => {
+const drawBoss = (into: Graphics, boss: DrawnBoss): void => {
   const pair = BOSS_PAIRS[boss.kind];
   const inverted = bossFlashInverted(boss);
   const body = inverted ? pair.dark : pair.body;
@@ -218,3 +228,4 @@ const drawBoss = (into: Graphics, boss: Boss): void => {
 };
 
 export { bossFlashInverted, bossLook, drawBoss, BOSS_STROKE };
+export type { DrawnBoss };

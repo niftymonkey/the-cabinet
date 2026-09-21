@@ -90,8 +90,13 @@ const ignoreLevels = (raw: string): null => {
 
 /**
  * The pinned starting level for all four weapon lines, or null when there is
- * none to pin. One whole number, zero to the max line level: per-line syntax
+ * none to pin. One whole number, one to the max line level: per-line syntax
  * buys nothing the measurement needs.
+ *
+ * The floor is one and not zero because a birthright line never stands below
+ * one: checkLevels faults a run whose lines are under it, so ?levels=0 opened
+ * a run straight onto THE GAME BROKE. A URL is a live environment input, so
+ * the value is repaired to the birthright and the repair is spoken.
  *
  * It is a development and testing control and never a player-facing feature
  * (ADR 0022). It exists because the confirming measurement's stated condition
@@ -105,7 +110,7 @@ const levelsFromUrl = (search: string, hash: string): number | null => {
   if (raw === null) return null;
   const value = parsed(raw);
   if (value === null || !Number.isInteger(value)) return ignoreLevels(raw);
-  if (value < 0 || value > MAX_LEVEL) return ignoreLevels(raw);
+  if (value < 1 || value > MAX_LEVEL) return ignoreLevels(raw);
   return value;
 };
 

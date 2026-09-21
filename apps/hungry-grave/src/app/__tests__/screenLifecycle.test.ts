@@ -67,6 +67,7 @@ import { PausePopup } from '../popups/PausePopup';
 import { runHandoff } from '../runHandoff';
 import { SettingsPopup } from '../popups/SettingsPopup';
 import { EndScreen, FAULT_FONT_SIZE, faultCaption } from '../screens/EndScreen';
+import { ENDING_SCENE_MS } from '../screens/game/endingScene';
 import { GameScreen } from '../screens/game/GameScreen';
 import { TitleScreen } from '../screens/TitleScreen';
 import { decodeTape } from '../../tape/decode';
@@ -909,6 +910,64 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
     expect(winner.ending).toBe('victory');
     expect(winning['ending'].ended).toBe(true);
     expect(runHandoff.read()?.ending).toBe('victory');
+  });
+
+  it('a won run holds the field for the scene and only then shows the end screen', () => {
+    // R6: the Undertaker's death ends the run as a scene the player watches.
+    // The seal is on the ending tick either way, and only the way out waits.
+    const winning = gameScreen();
+    winning.prepare();
+    const winner = winning['session'].run!;
+    const lastFight = SECTIONS.length - 2;
+    winner.stage.sectionIndex = lastFight;
+    winner.stage.sectionTick = 0;
+    const lastFightSection = SECTIONS[lastFight];
+    if (lastFightSection === undefined)
+      throw new Error('no section at lastFight');
+    const boss = spawnBoss(winner, lastFightSection.boss!);
+    boss.phaseIndex = PHASE_HP[boss.kind].length - 1;
+    boss.hp = 1;
+
+    for (let played = 0; played < 20 && winner.ending === null; played++) {
+      winning.update(frame(TICK_MS * 10));
+    }
+    expect(winner.ending).toBe('victory');
+    expect(winning['ending'].ended).toBe(true);
+    expect(runHandoff.read()?.ending).toBe('victory');
+    expect(showScreen).not.toHaveBeenCalled();
+
+    // The hold is spent on the frame clock, and the scene is drawn while it runs.
+    winning.update(frame(ENDING_SCENE_MS / 2));
+    expect(showScreen).not.toHaveBeenCalled();
+    expect(winning['ending'].sceneProgress).toBeGreaterThan(0);
+    expect(
+      winning['layers'].layer('ground').children.some((c) => c.visible),
+    ).toBe(true);
+
+    winning.update(frame(ENDING_SCENE_MS));
+    expect(showScreen).toHaveBeenCalledTimes(1);
+  });
+
+  it('a lost run shows the end screen on the tick it seals', () => {
+    // A loss has no scene, so nothing is held: the end screen arrives on the
+    // frame the record is sealed, exactly as it always did.
+    const sealing = gameScreen();
+    sealing.prepare();
+    const run = sealing['session'].run!;
+    run.grave.size = SIZE_FLOOR;
+    const mob = run.mobs[0];
+    if (mob === undefined) throw new Error('no mob pool slot 0');
+    mob.alive = true;
+    mob.type = 'shambler';
+    mob.hp = MOB_TYPES.shambler.hp;
+    mob.x = run.grave.x;
+    mob.y = run.grave.y;
+
+    sealing.update(frame(TICK_MS));
+
+    expect(run.ending).toBe('sealed');
+    expect(sealing['ending'].sceneProgress).toBeNull();
+    expect(showScreen).toHaveBeenCalledTimes(1);
   });
 });
 

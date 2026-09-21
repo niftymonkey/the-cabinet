@@ -773,6 +773,7 @@ type SimEvent =
 // be reachable from the vocabulary it subscribes to.
 export type {
   BodyInFrame,
+  BossKilled,
   CarrierLoss,
   OfferSite,
   PressedBody,

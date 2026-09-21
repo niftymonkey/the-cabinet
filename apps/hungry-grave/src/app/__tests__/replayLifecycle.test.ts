@@ -40,6 +40,7 @@ vi.mock('../ui/Button', () => ({
 
 import { TICK_MS } from '../../game/clock';
 import type { SimEvent } from '../../game/events';
+import { spawnMob } from '../../game/mobs';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
 import { STORM_RENDERER_TRANSIENT_TICKS } from '../screens/game/StormRenderer';
@@ -341,5 +342,43 @@ describe('a replay plays the loss the live run played', () => {
     advance.mockReturnValue(playing(run, []));
     screen.update(frame(TICK_MS));
     expect(blowUp(screen).visible).toBe(false);
+  });
+
+  /** Whether anything in the mobs' layer has been dimmed. */
+  function mobsDimmed(screen: ReplayScreen): boolean {
+    const bodies = screen['layers'].layer('mobBodies').children;
+    return bodies.some((body) => body.visible && body.alpha < 1);
+  }
+
+  /** A replay frame on which this boss dies, then a second of frames after it. */
+  function replayADeath(boss: 'banshee' | 'undertaker'): ReplayScreen {
+    const screen = replayScreen();
+    const run = createRun(7);
+    spawnMob(
+      run,
+      'shambler',
+      { x: 100, y: 100, vx: 0, vy: 1, index: 0 },
+      false,
+      'wave',
+    );
+    const advance = vi.spyOn(screen['session'], 'advance');
+    advance.mockReturnValue(
+      playing(run, [{ type: 'bossKilled', boss, x: 270, y: 200 }]),
+    );
+    screen.update(frame(TICK_MS));
+    advance.mockReturnValue(playing(run, []));
+    for (let i = 0; i < 60; i += 1) screen.update(frame(TICK_MS));
+    return screen;
+  }
+
+  it("the Banshee's death fades nothing on a replay, because the run goes on after her", () => {
+    // bossKilled fires for both bosses and only the Undertaker's ends the run
+    // (R6). A scene clock started at the Banshee's death would fade the shots
+    // out and leave the mobs dim for the whole rest of the replay.
+    expect(mobsDimmed(replayADeath('banshee'))).toBe(false);
+  });
+
+  it("the Undertaker's death dims the field on a replay, as it does live", () => {
+    expect(mobsDimmed(replayADeath('undertaker'))).toBe(true);
   });
 });

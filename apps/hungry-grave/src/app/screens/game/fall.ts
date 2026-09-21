@@ -77,6 +77,11 @@ interface Hinge {
  */
 const MOUTH_HALF_WIDTH = graveWidth(1) / 2;
 
+/**
+ * How long the two halves of a fall last, in the run's own ticks. The
+ * Undertaker's end lays its own tip and fall beats over these, so his body
+ * turns and drops on the curve a corpse turns and drops on (design record R6).
+ */
 const TIP_TICKS = Math.round(FALL_TIP_SECONDS * TICK_HZ);
 const DROP_TICKS = Math.round(FALL_DROP_SECONDS * TICK_HZ);
 
@@ -301,5 +306,5 @@ const fallAt = (fall: Fall, age: number, graveSize: number): FallDrawing => {
   return { ...drawing, gone: true };
 };
 
-export { fallAt, FALL_TICKS };
-export type { Fall, FallDrawing };
+export { fallAt, rimCrossedAt, DROP_TICKS, FALL_TICKS, TIP_TICKS };
+export type { Fall, FallDrawing, Hinge };

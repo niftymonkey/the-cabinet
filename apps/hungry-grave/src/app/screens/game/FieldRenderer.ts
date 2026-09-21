@@ -19,6 +19,7 @@ import {
   greyTint,
 } from './foodSprite';
 import {
+  ENDING_FIELD_FADE,
   TEETER_DARKEN,
   TEETER_SHAKE,
   TEETER_START,
@@ -81,6 +82,10 @@ const requireSlot = <T>(
   if (value === undefined) throw new Error(`no ${what} at slot ${slot}`);
   return value;
 };
+
+// How far through a fade of this length the ending has come, from nothing to whole.
+const shareBy = (progress: number, length: number): number =>
+  Math.max(0, Math.min(1, progress / length));
 
 /**
  * How far into the teeter a piece of food is, from nothing at the teeter's own
@@ -219,6 +224,32 @@ class FieldRenderer {
       scatter.extent = 0;
       scatter.sprite.visible = false;
     }
+    // The ending's fade, undone. It is an alpha rather than a visibility, so
+    // nothing above puts it back and a pooled screen's next run would open on
+    // a field faded to the last run's ending.
+    this.fadeForEnding(0);
+  }
+
+  /**
+   * The field under the Undertaker's end: the shots in the air fade out and
+   * the mobs dim where they stand (design record R6).
+   *
+   * It is a per-slot alpha rather than one over the whole field, because the
+   * two go at different rates and the layers they sit in hold other renderers'
+   * sprites. forgetPreviousRun puts both back to full, or a pooled screen's
+   * next run opens on a faded field.
+   */
+  public fadeForEnding(progress: number): void {
+    const shots = 1 - shareBy(progress, ENDING_FIELD_FADE.shotsGoneBy);
+    const mobs =
+      1 -
+      (1 - ENDING_FIELD_FADE.mobsKeep) *
+        shareBy(progress, ENDING_FIELD_FADE.mobsDimBy);
+    for (const sprite of this.shotSprites) sprite.alpha = shots;
+    // A cancelled shot on its way out is mob fire that the stopped sim will
+    // never step again, so it goes with the shots rather than freezing lit.
+    for (const scatter of this.scatters) scatter.sprite.alpha = shots;
+    for (const sprite of this.mobSprites) sprite.alpha = mobs;
   }
 
   public detach(): void {
