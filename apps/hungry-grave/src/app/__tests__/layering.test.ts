@@ -169,6 +169,22 @@ describe('FieldLayers', () => {
     expect('root' in layers).toBe(false);
   });
 
+  it('asking for a layer that does not exist fails loudly and names the layer', () => {
+    // #121's non-null assertion, paid where slice 3 touches the mouth layer's
+    // children. LayerName is exactly LAYER_ORDER and the constructor fills every
+    // name, so a miss is this class disagreeing with itself; handing back an
+    // undefined wearing a Container's type would surface as a renderer quietly
+    // drawing nothing, on a field where nothing else says which layer is empty.
+    //
+    // The cast is the test speaking the caller's wrong word: the type is what
+    // makes this unreachable from real code, so nothing inside the type can ask
+    // the question.
+    const layers = new FieldLayers();
+    expect(() => layers.layer('graveCellar' as LayerName)).toThrow(
+      /graveCellar/,
+    );
+  });
+
   it('empties every layer on clear and leaves the stack standing', () => {
     const layers = new FieldLayers();
     const stack = attachedStack(layers);

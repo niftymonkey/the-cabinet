@@ -48,6 +48,51 @@ const PALETTE = {
 
   // the grave
   graveHole: { hex: 0x04060b, luma: 2.33 },
+  /**
+   * The cut earth inside the mouth: the three wall faces the camera can see,
+   * and the pale half of the trodden margin outside the lip (design record R4).
+   *
+   * It is capped from above by the ground the grave is cut into. Earth cut to
+   * face sideways keeps less moon than earth lying face up, so the wall's
+   * brightest band sits at luma 13.71 against `nightSpeckle`'s 13.99, and the
+   * face light in `graveDrawingValues.ts` takes the far and the shaded faces
+   * down from there. Nothing in the hole is ever drawn brighter than this.
+   *
+   * The floor under it is that the hole has to read as a hole: at the size
+   * floor the grave is about twelve field units of mouth, and a wall the player
+   * cannot tell from `graveHole` at luma 2.33 is the empty rectangle this whole
+   * step exists to get rid of.
+   *
+   * What it costs is measured rather than assumed, and the three sprites it
+   * costs are the three the mouth already cost: `skull`, `splash` and
+   * `undertaker` are named over `graveHole` for the same reason and carry the
+   * same figures here. `territoryGround` is the fourth and it is the new one,
+   * named in palette.test.ts with what it measures and why.
+   *
+   * A cold slate at hue 214.29, the grave's own family, so the earth parts from
+   * the moss the tufts are drawn in on hue as well as on value.
+   */
+  graveWall: { hex: 0x1b2430, luma: 13.71 },
+  /**
+   * The turf round the grave: the tufts growing on the ground beside it and the
+   * blades hanging in over the cut (Mark's decision 7, "a dark brownish,
+   * grayish, greenish thing"). The brown half of that range is his standing ban
+   * and stays banned, so this is the grey-green half.
+   *
+   * The value is forced from above rather than chosen. The tufts lie on the
+   * open field under the food layer, and at luma 17.85 a corpse over one
+   * measures APCA Lc 45.16 against the fine-detail bracket's 45; a point
+   * brighter and the food layer stops clearing it over its own ground cover.
+   * The tufts draw translucent (`TUFT_ALPHA`), so what lands on screen is
+   * between the ground and this entry and every figure measured against the
+   * entry is the worst case.
+   *
+   * It cannot be told from the ground on value at all: over `nightSpeckle` it
+   * measures Lc 0.00, which the ceiling above makes unavoidable. What carries
+   * it is hue, 101.25 against the ground's cold blues, and the blades' own
+   * shape. The colour is Mark's to judge in play.
+   */
+  graveTurf: { hex: 0x263121, luma: 17.85 },
   graveRim: { hex: 0x93a7bd, luma: 64.45 },
   graveGlow: { hex: 0xd8a941, luma: 67.25 },
 

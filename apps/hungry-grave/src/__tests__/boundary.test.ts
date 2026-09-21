@@ -134,6 +134,24 @@ const BOUNDARIES: Boundary[] = [
     mayReachInTests: [],
     mayImport: ['pixi.js', '@pixi/ui'],
   },
+  /**
+   * The one projection the grave's hole is built from (design record R4). It
+   * takes the camera and the dark as an argument and reaches nothing at all,
+   * which is what lets slice 4's fall use it: a fall's tests run without a
+   * renderer, and a type-only pixi import would be enough to need one.
+   *
+   * The whole of the rule is the emptiness, so it has to be asserted here
+   * rather than left to the folder: src/app legitimately imports pixi, and a
+   * later hand reaching for a Point or a Rectangle "just for the type" is
+   * exactly how the fall's tests would grow a renderer.
+   */
+  {
+    root: 'app',
+    only: ['screens/game/graveProjection.ts'],
+    mayReach: [],
+    mayReachInTests: [],
+    mayImport: [],
+  },
 ];
 
 // Packages any test file may import, whatever side of a boundary it is on.
@@ -240,9 +258,10 @@ function filesGovernedBy(root: string, boundary: Boundary): string[] {
 describe('the rendering-import boundary', () => {
   for (const boundary of BOUNDARIES) {
     const root = join(SRC, boundary.root);
-    const reach = boundary.mayReach
-      .map((folder) => `src/${folder}`)
-      .join(' and ');
+    const reach =
+      boundary.mayReach.length === 0
+        ? 'nothing at all'
+        : boundary.mayReach.map((folder) => `src/${folder}`).join(' and ');
     const governed = boundary.only
       ? boundary.only
           .map((name) => `src/${boundary.root}/${name}`)

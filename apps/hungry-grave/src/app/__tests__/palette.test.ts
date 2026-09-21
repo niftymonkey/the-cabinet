@@ -149,6 +149,49 @@ const OVER_THE_SKULL =
 const OVER_THE_MOUTH =
   'a bright sprite on the darkest declared colour, at reverse polarity, and over the mouth for at most the tick it leaves it';
 
+/**
+ * The grave's own cut earth and turf as backgrounds, which slice 3 draws for
+ * the first time (design record R4).
+ *
+ * The mouth used to be one flat `graveHole`, and everything drawn over the
+ * grave was measured against luma 2.33. A hole a player can see into cannot be
+ * that: the cut faces have to part from the black or the grave is the empty
+ * rectangle the ticket exists to get rid of. So the two new colours are capped
+ * instead of being free. `graveWall` sits at luma 13.71, under the ground tile
+ * it is cut into, and `graveTurf` at 17.85, the point where the food layer
+ * still clears Lc 45 over it; both draw under a face light or an alpha, so the
+ * declared value is the brightest either one ever reaches.
+ *
+ * What that costs is these four pairs and nothing else. Three of them are the
+ * three the mouth already cost and they carry the same arguments here.
+ */
+const OVER_THE_CUT =
+  "the grave's own cut earth, drawn inside the mouth under a face light, and capped at the ground tile's own luma so the hole can be seen into at all";
+
+const OVER_THE_TURF =
+  'the tufts beside the mouth, drawn translucent so what lands on screen is between the ground and the declared value, which is therefore the worst case';
+
+/**
+ * Claimed ground over the grave's own art, and it is the one pair this step
+ * costs that was not already owed.
+ *
+ * `territoryGround`'s value was solved to the tenth of a luma point against the
+ * mouth, where it measures Lc 45.92 with 0.92 to spare, and a mouth a player
+ * can see into spends that margin: 43.30 over the lit wall and 41.30 over a
+ * tuft. Buying it back is not available from either side. The ground cannot go
+ * brighter, because a mob body sits at luma 66.63 against the band's ceiling of
+ * 68, and the wall cannot go darker without being the black again.
+ *
+ * What holds the reading instead is where the pair happens. A patch is laid on
+ * the open field over the densest knot of mobs ahead of the grave and the grave
+ * then passes under part of it; the lit wall it can cross is about a sixth of
+ * the opening across, on a grave that is a quarter of the field's width at its
+ * ceiling. The patch is read by the ground it covers and never by the sliver of
+ * it lying over the cut.
+ */
+const CLAIMED_GROUND_OVER_THE_CUT =
+  'claimed ground is read by the field it covers, not by the sliver of it lying across a hole: the pair costs 2.6 points against the mouth, and neither side can buy them back (the ground is 1.4 under the band ceiling, the wall is at the ground tile it is cut into)';
+
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
     pair: ['graveGlow', 'powerUp'],
@@ -208,6 +251,34 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   // Out of the mouth.
   { pair: ['skull', 'graveHole'], because: `44.42: ${OVER_THE_MOUTH}` },
   { pair: ['splash', 'graveHole'], because: `40.81: ${OVER_THE_MOUTH}` },
+  // Over the grave's own cut earth and turf, which slice 3 draws for the first
+  // time. The same three the mouth already cost, plus claimed ground.
+  { pair: ['undertaker', 'graveWall'], because: `22.10: ${MID_BAND_BODY}` },
+  { pair: ['undertaker', 'graveTurf'], because: `20.10: ${MID_BAND_BODY}` },
+  {
+    pair: ['skull', 'graveWall'],
+    because: `41.81: ${OVER_THE_MOUTH}, and ${OVER_THE_CUT}`,
+  },
+  {
+    pair: ['skull', 'graveTurf'],
+    because: `39.81: ${OVER_THE_SKULL}, and ${OVER_THE_TURF}`,
+  },
+  {
+    pair: ['splash', 'graveWall'],
+    because: `38.19: ${OVER_THE_MOUTH}, and ${OVER_THE_CUT}`,
+  },
+  {
+    pair: ['splash', 'graveTurf'],
+    because: `36.19: ${OVER_THE_SPLASH}, and ${OVER_THE_TURF}`,
+  },
+  {
+    pair: ['territoryGround', 'graveWall'],
+    because: `43.30: ${CLAIMED_GROUND_OVER_THE_CUT}, and ${OVER_THE_CUT}`,
+  },
+  {
+    pair: ['territoryGround', 'graveTurf'],
+    because: `41.30: ${CLAIMED_GROUND_OVER_THE_CUT}, and ${OVER_THE_TURF}`,
+  },
 ];
 
 /**
@@ -218,6 +289,8 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
  */
 const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
   graveHole: 'graveMouth',
+  graveWall: 'graveMouth',
+  graveTurf: 'graveMouth',
   graveRim: 'graveRim',
   graveGlow: 'graveRim',
   mob: 'mobBodies',
@@ -248,6 +321,16 @@ const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
  */
 const DARK_HALVES: { name: string; because: string }[] = [
   { name: 'graveHole', because: "the rim's own dark band, and the mouth" },
+  {
+    name: 'graveWall',
+    because:
+      'the cut earth inside the mouth, whose bright counterpart is the rim above it; it is capped below the ground tile it is cut into, so nothing below luma 13.71 exists to companion it',
+  },
+  {
+    name: 'graveTurf',
+    because:
+      'ground cover lying beside the mouth, drawn translucent so the ground shows through, and capped by the food layer clearing Lc 45 over it; a companion 20 luma below it would be the black it is drawn on',
+  },
   { name: 'foodOutline', because: 'the companion the food layers all share' },
   { name: 'mobDark', because: "a mob body's own dark half" },
   { name: 'bansheeDark', because: "the Banshee's own dark half" },
@@ -979,6 +1062,34 @@ describe('the stand-in ground (ADR 0049, decision 22, #38)', () => {
     expect(source.luma - PALETTE.standInWakingDark.luma).toBeGreaterThanOrEqual(
       INTERNAL_SPAN_MIN,
     );
+  });
+});
+
+describe('the grave in the ground (design record R4)', () => {
+  it('keeps the cut earth under the ground it is cut into, and clear of the black behind it', () => {
+    // The two ends of the bracket that decided the value, and they are one
+    // rule: earth cut to face sideways keeps less moon than earth lying face
+    // up, and a face the player cannot tell from the mouth's own black is the
+    // empty rectangle this step exists to get rid of. The exception table above
+    // prices the top end; without this, the bottom end is prose in a JSDoc.
+    expect(PALETTE.graveWall.luma).toBeLessThanOrEqual(
+      PALETTE.nightSpeckle.luma,
+    );
+    expect(
+      PALETTE.graveWall.luma - PALETTE.graveHole.luma,
+    ).toBeGreaterThanOrEqual(SPRITE_SEPARATION.luma);
+  });
+
+  it('keeps the turf apart from the ground it lies on by hue, because value cannot carry it', () => {
+    // The turf is capped by the food layer clearing Lc 45 over it, which puts
+    // it inside two luma points of the ground tile and leaves nothing for the
+    // value channel. Hue is what is left, so it is the thing that has to hold,
+    // and it is the reason the colour is a grey-green rather than a grey.
+    const turf = hsv(PALETTE.graveTurf.hex);
+    for (const name of STAND_IN_GROUND) {
+      const gap = hueGap(turf.h, hsv(PALETTE[name].hex).h);
+      expect(`${name} ${gap >= SPRITE_SEPARATION.hue}`).toBe(`${name} true`);
+    }
   });
 });
 
