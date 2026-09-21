@@ -6,7 +6,6 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Caps } from '../../../game/caps';
 import { capsFor } from '../../../game/caps';
 import type { SimEvent } from '../../../game/events';
-import { territoryCharge } from '../../../game/lines/territory';
 import type { RunState } from '../../../game/run';
 import { sectionUnderway } from '../../../game/stage/stage';
 import { RESERVOIR_CAPACITY } from '../../../game/tuning';
@@ -518,12 +517,7 @@ class GameScreen extends Container {
    * renderer live sim state is what the rest of this design works to avoid.
    */
   private syncScreen(run: RunState): void {
-    this.grave.sync(
-      run.grave,
-      run.reservoir / RESERVOIR_CAPACITY,
-      run.tick,
-      territoryCharge(run),
-    );
+    this.grave.sync(run.grave, run.reservoir / RESERVOIR_CAPACITY, run.tick);
     this.background.sync(run);
     this.fieldRenderer.sync(run);
     this.falls.sync(run);
